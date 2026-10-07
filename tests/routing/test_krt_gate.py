@@ -276,3 +276,77 @@ def test_repeat(blink: tuple[int, Path], tmp_path: Path) -> None:
     )
     equal = (left_tracks, left_vias) == (right_tracks, right_vias)
     _record("krt-repeat", actual, "equal" if equal else "different")
+
+
+def _two_classes_of_equal_sizes(project: Path) -> tuple[int, set[float]]:
+    """Rewrite the net classes of the project file ``project`` so that every class has the track width
+    and the via sizes of the first one and a clearance of its own, 0.1 mm more per class. Returns the
+    count of classes and their clearances."""
+    data = json.loads(project.read_text(encoding="utf-8"))
+    classes = data["net_settings"]["classes"]
+    first = classes[0]
+    clearances: set[float] = set()
+    for index, entry in enumerate(classes):
+        for key in ("track_width", "via_diameter", "via_drill"):
+            entry[key] = first[key]
+        entry["clearance"] = round(float(first["clearance"]) + 0.1 * index, 3)
+        clearances.add(entry["clearance"])
+    project.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return len(classes), clearances
+
+
+def test_group(blink: tuple[int, Path], tmp_path: Path) -> None:
+    """``H-K-KRT-GROUP`` (change c0109): the blink with two net classes that share sizes and differ in
+    clearance is one group, routed by one process without ``--clearance``, with ``--escalation off`` and
+    ``--no-fix-drc-settings``; KiCad of the board's major then reports no unconnected item and no error
+    type that the unrouted board lacks."""
+    actual, folder = blink
+    project = tmp_path / "group"
+    shutil.copytree(folder, project)
+    for stale in project.glob("blink_routed*"):
+        stale.unlink()
+    count, clearances = _two_classes_of_equal_sizes(project / "blink.kicad_pro")
+    assert count >= 2 and len(clearances) == count, "the bench needs two classes with different clearances"
+    baseline_path = project / "blink.kicad_pcb"
+    before = _runner().drc(baseline_path, files=_related_files(project, "blink"))
+    assert before.report is not None, before.run.stderr or before.run.stdout
+    output = project / "blink_routed.kicad_pcb"
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(ROOT / "src"),
+        "FENOLITE_KRT": str(_router()[0]),
+        "FENOLITE_KRT_PYTHON": str(_router()[1]),
+    }
+    routed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "fenolite",
+            "route",
+            baseline_path.name,
+            "--router",
+            "kicadroutingtools",
+            "--out",
+            output.name,
+            "--confirm",
+            "--no-backup",
+            "--json",
+        ],  # fmt: skip
+        cwd=project,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=1200,
+        check=False,
+    )
+    assert routed.returncode == 0 and output.is_file(), routed.stderr or routed.stdout
+    result = json.loads(routed.stdout)["result"]
+    runs = result["runs"]
+    assert [run["outcome"] for run in runs] == ["done"], runs
+    assert runs[0]["nets"] == len(result["selected"]) >= 2, "one process routed the whole group"
+    after = _runner().drc(output, files=_related_files(project, "blink_routed"))
+    assert after.report is not None, after.run.stderr or after.run.stdout
+    new_errors = _errors(after.report) - _errors(before.report)
+    equal = not after.report.unconnected_items and not new_errors
+    _record("krt-group", actual, "equal" if equal else "different")
+    assert equal, f"unconnected={len(after.report.unconnected_items)}, new_errors={new_errors}"

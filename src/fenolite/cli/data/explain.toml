@@ -2222,6 +2222,11 @@ meaning = "The router returned copper that is malformed, so nothing was written.
 fix = "Report it with the router's name; try another router."
 see = "route"
 
+["route.budget-exhausted"]
+meaning = "The time budget of the route step (--timeout) ended before every router run was done. The copper of the runs that finished is kept and written; the run under way was stopped and gave none."
+fix = "Run route again: it continues with the nets that are still open. Or raise --timeout, or make smaller runs with --order or --router-option group-nets=N."
+see = "route"
+
 ["route.copper-removed"]
 meaning = "The router dropped copper that the board already had."
 fix = "Compare with 'fenolite diff' before confirming; route fewer nets if the loss is not wanted."
@@ -2235,6 +2240,16 @@ see = "route"
 ["route.incomplete"]
 meaning = "With --require-complete, a selected net still has an open connection after the run, so nothing was written."
 fix = "Read result.open, then run route again without --require-complete to keep the partial copper, or free some space first."
+see = "route"
+
+["route.net-declared"]
+meaning = "Nets outside the job stayed declared in the design file given to Freerouting, because their class clearance is larger than the board's default rule and the router keeps only the default rule from copper without a net. Freerouting may route them too; that copper is not taken."
+fix = "Nothing to do. To keep the router's time for the job, route those nets first, or select them with --nets."
+see = "route"
+
+["route.optimizer-cut"]
+meaning = "With --router-option optimize=on, Freerouting's optimizer run did not write a session in the time that was left. The copper of the first run, made without the optimizer, is kept."
+fix = "Nothing is lost. To give the optimizer more time, run route again with --rip and a larger --timeout."
 see = "route"
 
 ["route.option-ignored"]

@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""KiCadRoutingTools adapter. The external router runs as a subprocess; its file is never adopted."""
+"""KiCadRoutingTools adapter. The external router runs as a subprocess; its file is never adopted.
+
+One process routes one group of nets: the nets of a tier whose track width, via diameter and via drill
+are equal (capability routing, "KiCadRoutingTools plugin"; change c0109). Every process is started through
+the job's one time budget (``routing.budget``).
+"""
 
 from __future__ import annotations
 
@@ -8,7 +13,6 @@ import dataclasses
 import os
 import re
 import shutil
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -19,11 +23,22 @@ from fenolite.backends.kicad.versions import DEFAULT_TARGET
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.board import Arc, Track, Via
+from fenolite.routing.budget import Budget, exhausted
 from fenolite.routing.merge import RoutingError, apply
-from fenolite.routing.protocol import RouterStatus, RoutingJob, RoutingResult
+from fenolite.routing.protocol import JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
 
 PINNED_TAG = "v0.22.1"
-EVIDENCE = Evidence(oracle="KiCadRoutingTools v0.22.1", hypotheses=("H-K-KRT-CLI", "H-K-KRT-ROUTE"))
+DEFAULT_BUDGET = 900
+"""Seconds for the whole job when neither the job nor the constructor names a budget."""
+GROUP_OPTION = "group-nets"
+"""The router option that splits a group into runs of at most N nets; it is not passed to the tool."""
+OWN_OPTIONS = ("nets", "output", "overwrite")
+"""Options of the tool that the plugin decides itself: ignored with ``route.option-ignored``."""
+EVIDENCE = Evidence(
+    oracle="KiCadRoutingTools v0.22.1", hypotheses=("H-K-KRT-CLI", "H-K-KRT-GROUP", "H-K-KRT-ROUTE")
+)
+"""Describes the plugin; a route itself is always ``UNVERIFIED``. ``H-K-KRT-GROUP``, the grouped run of
+change c0109, is ``INFERRED`` until the routing job records it on both majors."""
 
 
 def _mm(value: int) -> str:
@@ -47,20 +62,50 @@ def _copper(design: object) -> tuple[Track | Arc | Via, ...]:
     return () if board is None else (*board.tracks, *board.arcs, *board.vias)
 
 
+def _named(names: tuple[str, ...]) -> str:
+    """The names of a run for a message: the first five, then the count of the others."""
+    shown = ", ".join(names[:5])
+    return shown + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+
+
+def plan_runs(nets: tuple[JobNet, ...], group_nets: int | None = None) -> tuple[tuple[JobNet, ...], ...]:
+    """The runs of a job, in the order they start.
+
+    A group is the nets of one tier whose width, via diameter and via drill are equal, in job order;
+    ``group_nets`` splits a group into runs of at most that many nets. Tiers go lowest first, and inside
+    a tier the runs go in the order of their first net in the job.
+    """
+    groups: dict[tuple[int, int, int, int], list[JobNet]] = {}
+    for net in sorted(nets, key=lambda item: item.tier):  # stable: job order inside a tier
+        groups.setdefault((net.tier, net.width, net.via_diameter, net.via_drill), []).append(net)
+    first = {net.name: index for index, net in reversed(list(enumerate(nets)))}
+    ordered = sorted(groups.values(), key=lambda group: (group[0].tier, first[group[0].name]))
+    runs: list[tuple[JobNet, ...]] = []
+    for group in ordered:
+        size = group_nets or len(group)
+        runs.extend(tuple(group[start : start + size]) for start in range(0, len(group), size))
+    return tuple(runs)
+
+
 class KicadRoutingToolsRouter:
-    """Run one tool process per net and lift only copper that did not exist in its input board."""
+    """Run one tool process per group of nets and lift only copper that its input board lacked."""
 
     name = "kicadroutingtools"
     description = "Routes nets with the external KiCadRoutingTools grid A* router."
     sends_data_offsite = False
+    default_budget: float = DEFAULT_BUDGET
 
     def __init__(
-        self, path: str | Path | None = None, python: str | Path | None = None, timeout: float = 600
+        self,
+        path: str | Path | None = None,
+        python: str | Path | None = None,
+        budget: float | None = None,
     ) -> None:
         raw_path = path or os.environ.get("FENOLITE_KRT")
         self.path = Path(raw_path).expanduser() if raw_path else None
         self.python = str(python or os.environ.get("FENOLITE_KRT_PYTHON") or shutil.which("python3") or "")
-        self.timeout = timeout
+        self.budget = budget
+        """Seconds for a job that names no budget of its own; ``None`` gives ``DEFAULT_BUDGET``."""
 
     def available(self) -> RouterStatus:
         """Check required files and interpreter without launching the external tool."""
@@ -81,8 +126,40 @@ class KicadRoutingToolsRouter:
         version = version_file.read_text(encoding="utf-8").strip() if version_file.is_file() else "unknown"
         return RouterStatus(True, str(self.path), version)
 
+    def _options(self, job: RoutingJob, issues: list[Issue]) -> tuple[list[str], int | None]:
+        """The tool arguments of the job's router options, and the value of ``group-nets``."""
+        passed: list[str] = []
+        group_nets: int | None = None
+        for key, value in job.options.items():
+            if key == GROUP_OPTION:
+                if value.isdigit() and int(value) > 0:
+                    group_nets = int(value)
+                else:
+                    issues.append(
+                        Issue(
+                            "route.option-ignored",
+                            "warning",
+                            f"the router option {key}={value} is not a positive integer and was ignored",
+                            key,
+                        )
+                    )
+            elif key in OWN_OPTIONS:
+                issues.append(
+                    Issue(
+                        "route.option-ignored",
+                        "warning",
+                        f"the router option {key}={value} is set by {self.name} itself and was ignored",
+                        key,
+                        hint="select nets with --nets and --order; the output is a temporary file",
+                    )
+                )
+            else:
+                passed.extend((f"--{key}", value))
+        return passed, group_nets
+
     def route(self, job: RoutingJob) -> RoutingResult:
-        """Route selected nets in a temporary project folder, returning proposed copper and issues."""
+        """Route the job's nets group by group in a temporary project folder, inside the job's budget,
+        returning the copper of the runs that finished and the issues of the others."""
         status = self.available()
         if not status.available or self.path is None:
             return RoutingResult(
@@ -92,13 +169,18 @@ class KicadRoutingToolsRouter:
                 tool_version=status.version or "",
                 evidence=Evidence(),
             )
+        budget = Budget(job.budget or self.budget or DEFAULT_BUDGET)
         issues: list[Issue] = []
         routed: list[str] = []
         unrouted: list[str] = []
+        not_attempted: list[str] = []
+        runs: list[RouterRun] = []
+        cut_nets = 0
         tracks: list[Track] = []
         arcs: list[Arc] = []
         vias: list[Via] = []
         logs: list[str] = []
+        passed, group_nets = self._options(job, issues)
         info = source_info(job.design)
         target = int(info.major) if info is not None and info.major is not None else DEFAULT_TARGET
         try:
@@ -110,7 +192,14 @@ class KicadRoutingToolsRouter:
                 board_path = folder / f"{stem}.kicad_pcb"
                 project_set(board_path)
                 current = job.design
-                for index, net in enumerate(job.nets):
+                for index, group in enumerate(plan_runs(job.nets, group_nets)):
+                    names = tuple(net.name for net in group)
+                    tier = group[0].tier
+                    if budget.left() <= 0:  # no process starts once the budget is spent
+                        not_attempted.extend(names)
+                        unrouted.extend(names)
+                        continue
+                    # the board of this run holds the copper of every run before it
                     board_text = write_board(current, target=target).text
                     board_path.write_text(board_text, encoding="utf-8", newline="\n")
                     baseline = read_board(board_text, file=board_path.name)
@@ -121,61 +210,57 @@ class KicadRoutingToolsRouter:
                         str(board_path),
                         str(output_path),
                         "--nets",
-                        net.name,
+                        *names,
                         "--track-width",
-                        _mm(net.width),
-                        "--clearance",
-                        _mm(net.clearance),
+                        _mm(group[0].width),
                         "--via-size",
-                        _mm(net.via_diameter),
+                        _mm(group[0].via_diameter),
                         "--via-drill",
-                        _mm(net.via_drill),
+                        _mm(group[0].via_drill),
+                        # the sizes are the job's: a net that does not fit stays open (measured, c0109)
+                        "--escalation",
+                        "off",
+                        # the project file of the run folder stays the one written above
+                        "--no-fix-drc-settings",
+                        *passed,
                     ]
-                    for key, value in job.options.items():
-                        args.extend((f"--{key}", value))
-                    before = _copper(baseline)
-                    old_ids = {item.id for item in before}
-                    try:
-                        run = subprocess.run(
-                            args,
-                            cwd=folder,
-                            env={**os.environ, "LANG": "C", "LC_ALL": "C"},
-                            capture_output=True,
-                            text=True,
-                            timeout=self.timeout,
-                            check=False,
-                        )
-                    except subprocess.TimeoutExpired as exc:
-                        issues.append(
-                            Issue(
-                                "route.tool-failed",
-                                "error",
-                                f"{net.name}: timeout: {_line(exc.stderr or exc.stdout, folder)}",
-                                net.name,
-                            )
-                        )
-                        unrouted.append(net.name)
+                    done = budget.run(args, cwd=folder, env={**os.environ, "LANG": "C", "LC_ALL": "C"})
+                    if not done.started:
+                        not_attempted.extend(names)
+                        unrouted.extend(names)
                         continue
-                    output_line = _line(run.stderr or run.stdout, folder)
+                    if done.cut:
+                        # a killed process may leave a missing or cut board: it is not read
+                        runs.append(RouterRun(names, tier, done.seconds, "cut"))
+                        unrouted.extend(names)
+                        cut_nets += len(names)
+                        continue
+                    output_line = _line(done.stderr or done.stdout, folder)
                     if output_line != "no diagnostic output":
                         logs.append(output_line)
-                    if run.returncode or not output_path.is_file():
-                        why = f"exit {run.returncode}" if run.returncode else "output board missing"
+
+                    seconds = done.seconds
+                    why = ""
+                    result = None
+                    if done.returncode or not output_path.is_file():
+                        why = f"exit {done.returncode}" if done.returncode else "output board missing"
+                        why = f"{why}: {output_line}"
+                    else:
+                        try:
+                            result = read_board(
+                                output_path.read_text(encoding="utf-8"), file=output_path.name
+                            )
+                        except Exception as exc:
+                            why = _line(exc, folder)
+                    if result is None:
                         issues.append(
-                            Issue("route.tool-failed", "error", f"{net.name}: {why}: {output_line}", net.name)
+                            Issue("route.tool-failed", "error", f"{_named(names)}: {why}", names[0])
                         )
-                        unrouted.append(net.name)
+                        unrouted.extend(names)
+                        runs.append(RouterRun(names, tier, seconds, "failed"))
                         continue
-                    try:
-                        result = read_board(output_path.read_text(encoding="utf-8"), file=output_path.name)
-                    except Exception as exc:
-                        issues.append(
-                            Issue("route.tool-failed", "error", f"{net.name}: {_line(exc, folder)}", net.name)
-                        )
-                        unrouted.append(net.name)
-                        continue
+                    old_ids = {item.id for item in _copper(baseline)}
                     after = _copper(result)
-                    new_copper = tuple(item for item in after if item.id not in old_ids)
                     absent = old_ids - {item.id for item in after}
                     issues.extend(
                         Issue(
@@ -188,6 +273,7 @@ class KicadRoutingToolsRouter:
                     )
                     baseline_net_names = {entry.id: entry.name for entry in baseline.circuit.nets}
                     current_net_ids = {entry.name: entry.id for entry in current.circuit.nets}
+                    run_ids = {net.net_id for net in group}
                     lifted = tuple(
                         dataclasses.replace(
                             item,
@@ -195,48 +281,30 @@ class KicadRoutingToolsRouter:
                                 baseline_net_names.get(item.net_id or "", ""), item.net_id
                             ),
                         )
-                        for item in new_copper
+                        for item in after
+                        if item.id not in old_ids
                     )
+                    # only copper on the nets of this run is taken, and later runs see exactly that
+                    kept = tuple(item for item in lifted if item.net_id in run_ids)
                     delta = RoutingResult(
-                        tracks=tuple(item for item in lifted if isinstance(item, Track)),
-                        arcs=tuple(item for item in lifted if isinstance(item, Arc)),
-                        vias=tuple(item for item in lifted if isinstance(item, Via)),
+                        tracks=tuple(item for item in kept if isinstance(item, Track)),
+                        arcs=tuple(item for item in kept if isinstance(item, Arc)),
+                        vias=tuple(item for item in kept if isinstance(item, Via)),
                     )
                     try:
                         current = apply(current, delta)
                     except RoutingError as exc:
                         issues.extend(exc.issues)
-                        unrouted.append(net.name)
+                        unrouted.extend(names)
+                        runs.append(RouterRun(names, tier, seconds, "failed"))
                         continue
-                    net_copper = tuple(item for item in lifted if item.net_id == net.net_id)
-                    if net_copper:
-                        routed.append(net.name)
-                        tracks.extend(item for item in net_copper if isinstance(item, Track))
-                        arcs.extend(item for item in net_copper if isinstance(item, Arc))
-                        vias.extend(item for item in net_copper if isinstance(item, Via))
-                    else:
-                        unrouted.append(net.name)
-                if status.version != PINNED_TAG.removeprefix("v"):
-                    issues.append(
-                        Issue(
-                            "route.tool-unpinned",
-                            "warning",
-                            f"expected {PINNED_TAG}, found {status.version}",
-                            str(self.path),
-                        )
-                    )
-                return RoutingResult(
-                    tracks=tuple(tracks),
-                    arcs=tuple(arcs),
-                    vias=tuple(vias),
-                    routed=tuple(routed),
-                    unrouted=tuple(unrouted),
-                    issues=tuple(issues),
-                    tool=self.name,
-                    tool_version=status.version,
-                    log=tuple(logs[:20]),
-                    evidence=dataclasses.replace(EVIDENCE, oracle=f"KiCadRoutingTools {status.version}"),
-                )
+                    runs.append(RouterRun(names, tier, seconds, "done"))
+                    with_copper = {item.net_id for item in kept}
+                    for net in group:
+                        (routed if net.net_id in with_copper else unrouted).append(net.name)
+                    tracks.extend(delta.tracks)
+                    arcs.extend(delta.arcs)
+                    vias.extend(delta.vias)
         except Exception as exc:
             return RoutingResult(
                 unrouted=tuple(net.name for net in job.nets),
@@ -246,6 +314,31 @@ class KicadRoutingToolsRouter:
                 log=(_line(exc),),
                 evidence=Evidence(),
             )
+        if cut_nets or not_attempted:
+            issues.append(exhausted(budget.seconds, cut_nets, len(not_attempted), self.name))
+        if status.version != PINNED_TAG.removeprefix("v"):
+            issues.append(
+                Issue(
+                    "route.tool-unpinned",
+                    "warning",
+                    f"expected {PINNED_TAG}, found {status.version}",
+                    str(self.path),
+                )
+            )
+        return RoutingResult(
+            tracks=tuple(tracks),
+            arcs=tuple(arcs),
+            vias=tuple(vias),
+            routed=tuple(routed),
+            unrouted=tuple(unrouted),
+            issues=tuple(issues),
+            tool=self.name,
+            tool_version=status.version,
+            log=tuple(logs[:20]),
+            evidence=dataclasses.replace(EVIDENCE, oracle=f"KiCadRoutingTools {status.version}"),
+            runs=tuple(runs),
+            not_attempted=tuple(not_attempted),
+        )
 
 
-__all__ = ["EVIDENCE", "PINNED_TAG", "KicadRoutingToolsRouter"]
+__all__ = ["DEFAULT_BUDGET", "EVIDENCE", "PINNED_TAG", "KicadRoutingToolsRouter", "plan_runs"]

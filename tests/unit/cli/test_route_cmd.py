@@ -680,3 +680,140 @@ def test_rip_without_new_copper_is_not_written(monkeypatch, tmp_path: Path, test
     assert env["result"]["ripped"] == 1 and env["result"]["unrouted"] == [NET]
     assert "route.partial" not in codes(env) and not env.get("receipt")
     assert board.read_bytes() == before
+
+
+# --- the budget of the step and tiers (change c0109) -------------------------------------------------
+
+
+def rows_board(folder: Path, *nets: str, wide: tuple[str, ...] = ()) -> Path:
+    """An authored board with one open two-pad net per name, written with its project and rules files;
+    the nets of ``wide`` are in a class of their own with a 0.4 mm track."""
+    from fenolite.backends.kicad.triad import write_triad
+    from fenolite.model.circuit import NetClass
+
+    builder = rb.Builder()
+    for index, net in enumerate(nets):
+        y = builder.row()
+        builder.part(f"a{index}", f"RA{index}", Point(rb.LEFT, y), target=10, nets={"1": net})
+        builder.part(f"b{index}", f"RB{index}", Point(rb.RIGHT, y), target=10, nets={"1": net})
+    design = builder.build().design
+    if wide:
+        cls = NetClass(id="cls_00000000-0000-4000-8000-000000000109", name="WIDE", track_width=400_000)
+        circuit = replace(
+            design.circuit,
+            netclasses=(*design.circuit.netclasses, cls),
+            nets=tuple(
+                replace(net, netclass_id=cls.id) if net.name in wide else net for net in design.circuit.nets
+            ),
+        )
+        design = replace(design, circuit=circuit)
+    for name, text in write_triad(design, name="rows", target=10).items():
+        (folder / name).write_text(text, encoding="utf-8", newline="\n")
+    return folder / "rows.kicad_pcb"
+
+
+def test_budget_finished_run_written_and_cut_run_reported(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Finished run written, cut run reported"."""
+    monkeypatch.setenv("FENOLITE_TEST_SOURCE", str(ROOT / "src"))
+    monkeypatch.setenv("FAKE_ROUTER_SLEEP_NET", "B1")
+    runs = tmp_path / "runs.jsonl"
+    monkeypatch.setenv("FAKE_ROUTER_RUNS", str(runs))
+    board = rows_board(tmp_path, "A1", "B1", wide=("B1",))
+    before = len(segments(board))
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name,
+        "--router", "kicadroutingtools", "--router-path", str(create_fake_router(tmp_path)),
+        "--router-python", sys.executable, "--timeout", "2", "--confirm",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["budget"]["seconds"] == 2 and result["budget"]["exhausted"] is True
+    assert 2 <= result["budget"]["spent"] < 6
+    assert [(item["tier"], item["nets"], item["outcome"]) for item in result["runs"]] == [
+        (0, 1, "done"),
+        (0, 1, "cut"),
+    ]
+    assert all(isinstance(item["seconds"], float) for item in result["runs"])
+    assert result["not_attempted"] == []
+    assert codes(env).count("route.budget-exhausted") == 1 and "route.tool-failed" not in codes(env)
+    found = segments(board)
+    assert len(found) == before + 1, "the track of the run that finished is written"
+    recorded = [json.loads(line) for line in runs.read_text(encoding="utf-8").splitlines()]
+    assert [item["nets"] for item in recorded] == [["A1"], ["B1"]]
+    widths = [item["argv"][item["argv"].index("--track-width") + 1] for item in recorded]
+    assert widths[1] == "0.4" and widths[0] != "0.4"
+
+
+def test_timeout_is_the_budget_of_the_job_without_a_sentinel(
+    monkeypatch, tmp_path: Path, test_routers
+) -> None:
+    """Scenario "No sentinel": 600 is 600 for every router, and no value is the plugin's default."""
+    board = stub_board(tmp_path)
+    router = test_routers["test-partial"]
+    for arguments, budget in ((("--timeout", "600"), 600), ((), None), (("--timeout", "0.5"), 0.5)):
+        code, env, error, _ = run(
+            monkeypatch, tmp_path, "route", board.name, "--router", "test-partial", *arguments, "--dry-run"
+        )
+        assert code == 0, (env, error)
+        assert router.jobs[-1].budget == budget
+        # a router without a budget of its own is not timed: the reply stays the same bytes
+        assert env["result"]["budget"] == {"seconds": budget, "spent": 0.0, "exhausted": False}
+        assert env["result"]["runs"] == [] and env["result"]["not_attempted"] == []
+    import argparse
+
+    given = argparse.Namespace(router_path=None, router_python=None, timeout=600.0)
+    built = cmd_route._router("freerouting", given)  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(built, FreeroutingRouter) and built.budget == 600
+    built = cmd_route._router("kicadroutingtools", given)  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(built, KicadRoutingToolsRouter) and built.budget == 600
+    absent = argparse.Namespace(router_path=None, router_python=None, timeout=None)
+    registered = cmd_route._router("freerouting", absent)  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(registered, FreeroutingRouter) and registered.budget is None
+    assert registered.default_budget == 900 == KicadRoutingToolsRouter.default_budget
+
+
+def test_order_puts_nets_in_tiers(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "Order in tiers"."""
+    board = rows_board(tmp_path, "A", "CLK1", "D0")
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial",
+        "--order", "CLK*", "--order", "D*", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    (job,) = test_routers["test-partial"].jobs
+    assert [(net.name, net.tier) for net in job.nets] == [("CLK1", 0), ("D0", 1), ("A", 2)]
+    assert env["result"]["selected"] == ["A", "CLK1", "D0"], "--order changes no selection"
+    # a net takes the first glob it matches, and --order selects nothing by itself
+    test_routers["test-partial"].jobs.clear()
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial",
+        "--nets", "CLK*", "--nets", "A", "--order", "*", "--order", "CLK*", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    (job,) = test_routers["test-partial"].jobs
+    assert [(net.name, net.tier) for net in job.nets] == [("A", 0), ("CLK1", 0)]
+    test_routers["test-partial"].jobs.clear()
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial", "--dry-run"
+    )
+    assert code == 0 and [net.tier for net in test_routers["test-partial"].jobs[0].nets] == [0, 0, 0]
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "nan", "inf"])
+def test_timeout_bad_budget(monkeypatch, tmp_path: Path, value: str) -> None:
+    """Scenario "Bad budget"."""
+    board = stub_board(tmp_path)
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", f"--timeout={value}", "--dry-run"
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and "--timeout" in error["message"]
+
+
+def test_budget_keys_of_the_direct_router(monkeypatch, tmp_path: Path) -> None:
+    board = stub_board(tmp_path)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--timeout", "30", "--dry-run"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["budget"] == {"seconds": 30, "spent": 0.0, "exhausted": False}
+    assert env["result"]["runs"] == [] and env["result"]["not_attempted"] == []

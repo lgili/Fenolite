@@ -11,6 +11,12 @@ gives the file text, the names it wrote and its findings. It reads no file and i
 - **Components.** One image per placed footprint, on the front with rotation 0; each pad's board-frame
   copper is its padstack, so nothing depends on how a reader turns or mirrors an image.
 - **Wiring.** Every track, arc and via of the board is written with type ``protect``.
+- **Nets outside the job.** With ``others="netless"`` a net that is not selected leaves the network
+  section; its pins stay in their images and its copper stays as protected wiring without a net, so a
+  router works on the job's nets only and still keeps clear of the rest ("Nets outside the routing job in
+  design files"; change c0109, ``H-G-DSN-NETLESS``). A net whose class clearance is larger than the
+  default rule stays declared: the router keeps only the default rule from copper without a net, and
+  KiCad asks for the larger clearance (measured with Freerouting 2.4.1, outcome ``dsn-netless``).
 
 Every fact behind this module is ``INFERRED`` until the probes of ``H-G-DSN-ACCEPT``, ``H-G-DSN-UNITS`` and
 ``H-G-DSN-PROTECT`` are recorded.
@@ -20,6 +26,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from typing import Literal
 
 from fenolite.backends.base import BoardPad, PadCopper
 from fenolite.backends.specctra.lexer import SNode, dumps, is_word, writable
@@ -37,6 +44,8 @@ RESOLUTION = 10
 """Database units per micrometre, the value of ``(resolution um 10)``."""
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-DSN-ACCEPT", "H-G-DSN-PROTECT", "H-G-DSN-UNITS"))
 """Raised when the three probes are recorded; a route itself is always ``UNVERIFIED``."""
+Others = Literal["declared", "netless"]
+"""How ``write_dsn`` writes the nets outside the job."""
 ISSUE_CODES: dict[str, Severity] = {
     "specctra.unknown-padstack": "error",
     "specctra.session-moved": "error",
@@ -179,7 +188,11 @@ class _Writer:
         outline: Sequence[Sequence[Point]],
         selected: Sequence[str],
         defaults: DsnDefaults,
+        others: Others = "declared",
     ) -> None:
+        if others not in ("declared", "netless"):
+            raise ValueError(f"others must be 'declared' or 'netless', got {others!r}")
+        self.others = others
         board = design.board
         if board is None:
             raise ValueError("the design has no board to write a Specctra design file for")
@@ -334,6 +347,14 @@ class _Writer:
             nodes.append(SNode("padstack", (name, *shapes)))
         return nodes
 
+    def plane_nets(self) -> frozenset[str]:
+        """The names of the nets of the planes this file holds; they stay declared in every mode.
+
+        builds on c0107 (not on this base): the writer of this base writes no plane, so the set is empty
+        and every net outside the job is left out. c0107 fills it with the nets of its ``plane`` lists.
+        """
+        return frozenset()
+
     # --- the file -------------------------------------------------------------------------------
 
     def build(self) -> DsnResult:
@@ -351,14 +372,24 @@ class _Writer:
         # a pad on no net, so a router gets the same board with and without those names (c0061).
         for name in [n for n in net_ids if n.startswith(UNCONNECTED_PREFIX) and pad_count[n] == 1]:
             del net_ids[name]
-        net_namer = _Namer("NET", self.issues, kind="net")
-        net_out = {name: net_namer.name(name) for name in sorted(net_ids)}
-        out_of_id = {net_ids[name]: out for name, out in net_out.items()}
-
         # classes and their values
         classes = {c.id: c for c in design.circuit.netclasses}
         class_of = {n.name: classes.get(n.netclass_id or "") for n in design.circuit.nets}
         d = self.defaults
+        if self.others == "netless":
+            # The same for every net outside the job: not declared and in no class, its pads pins on no
+            # net and its copper protected wiring without a net (c0109). A router keeps the default rule
+            # from such copper and no more, so a net whose class asks for a larger clearance stays
+            # declared with its class (measured: ``dsn-netless``).
+            kept = set(self.selected) | self.plane_nets()
+            for name in [n for n in net_ids if n not in kept]:
+                cls = class_of.get(name)
+                if cls is not None and (cls.clearance or d.clearance) > d.clearance:
+                    continue
+                del net_ids[name]
+        net_namer = _Namer("NET", self.issues, kind="net")
+        net_out = {name: net_namer.name(name) for name in sorted(net_ids)}
+        out_of_id = {net_ids[name]: out for name, out in net_out.items()}
 
         def values(name: str) -> tuple[int, int, int, int]:
             cls = class_of.get(name)
@@ -572,6 +603,7 @@ def write_dsn(
     outline: Sequence[Sequence[Point]],
     selected: Sequence[str],
     defaults: DsnDefaults,
+    others: Others = "declared",
 ) -> DsnResult:
     """The Specctra design file of ``design``'s board.
 
@@ -579,9 +611,17 @@ def write_dsn(
     and its cut-outs after it; ``selected`` names the nets to route, which decides the vias the router may
     use; ``defaults`` serve nets without a class. Equal inputs give equal text.
 
-    Raises ``ValueError`` for a design without a board, without a copper layer or without an outline ring.
+    ``others`` says how the nets that are not in ``selected`` are written: ``"declared"`` (the default)
+    declares every net that has pads; ``"netless"`` leaves them out of the network section and of every
+    class, keeps their pins in the images as pins on no net and writes their copper as protected wiring
+    without a net. They are then no key of ``names.nets`` and ``names.net_ids``. A net whose class
+    clearance is larger than ``defaults.clearance`` is the exception: it stays declared with its class in
+    both modes, because a router keeps only the default rule from copper without a net.
+
+    Raises ``ValueError`` for a design without a board, without a copper layer or without an outline ring,
+    and for a value of ``others`` that is neither of the two.
     """
-    return _Writer(design, pads, outline, selected, defaults).build()
+    return _Writer(design, pads, outline, selected, defaults, others).build()
 
 
 __all__ = [
@@ -592,6 +632,7 @@ __all__ = [
     "DsnDefaults",
     "DsnResult",
     "Names",
+    "Others",
     "ViaKey",
     "ViaStack",
     "WireKey",
