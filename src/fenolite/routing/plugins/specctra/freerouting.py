@@ -42,7 +42,7 @@ from fenolite.model.board import Track, Via
 from fenolite.model.design import Design
 from fenolite.routing.budget import Budget, exhausted
 from fenolite.routing.merge import RoutingError, apply
-from fenolite.routing.protocol import JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
+from fenolite.routing.protocol import FinishedRun, JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
 
 PINNED_VERSION = "2.4.1"
 PINNED_REVISION = "ae3d377740b6ffa744bed1bab26625fe0278fa90"
@@ -51,6 +51,9 @@ JAVA_MIN = 25
 DEFAULT_PASSES = 20
 DEFAULT_BUDGET = 900
 """Seconds for the whole job when neither the job nor the constructor names a budget."""
+UNIT = "freerouting"
+"""The name of the unit of progress of a job of one tier; with several tiers each tier is one unit,
+``freerouting tier <n>`` (change c0120)."""
 OPTIMIZER_OFF = "--router.optimizer.enabled=false"
 """The setting that stops the optimization stage (S-0222; ``-mt 0`` does not, ``H-G-DSN-NOOPT``)."""
 JAR_ENV = "FENOLITE_FREEROUTING_JAR"
@@ -422,9 +425,10 @@ class FreeroutingRouter:
         def note(found: tuple[Issue, ...] | list[Issue]) -> None:
             issues.extend(issue for issue in found if issue not in issues)
 
+        unit = ""  # the unit of progress under way: a tier, with its optimizer run when there is one
         try:
             net_layers = {net.name: net.layers for net in job.nets if net.layers is not None}
-            for tier in sorted(tiers):
+            for position, tier in enumerate(sorted(tiers)):
                 names = tuple(net.name for net in tiers[tier])
                 if ended or budget.left() <= 0:  # no process starts once the budget is spent
                     ended = True
@@ -452,22 +456,30 @@ class FreeroutingRouter:
                     )
                 note(written.issues)
                 declared.update(name for name in written.names.nets.values() if name not in names)
+                unit = UNIT if len(tiers) == 1 else f"{UNIT} tier {tier}"
+                job.progress.step(unit, index=position + 1, total=len(tiers))
                 outcome, session_text, log, seconds, output = self._run(
                     budget, written.text, passes, optimizer=False
                 )
                 if outcome == "unstarted":
                     ended = True
                     not_attempted.extend(names)
+                    job.progress.done(unit, detail="timeout")
+                    unit = ""
                     continue
                 if outcome == "cut":
                     ended = True
                     cut_nets += len(names)
                     runs.append(RouterRun(names, tier, seconds, "cut"))
+                    job.progress.done(unit, detail="timeout")
+                    unit = ""
                     continue
                 got = self._copper(session_text or "", written, names) if outcome == "done" else session_text
                 if isinstance(got, str) or got is None:
                     runs.append(RouterRun(names, tier, seconds, "failed"))
                     issues.append(Issue("route.tool-failed", "error", got or "no session", self.name))
+                    job.progress.done(unit, detail="failed")
+                    unit = ""
                     continue
                 runs.append(RouterRun(names, tier, seconds, "done"))
                 if optimize:
@@ -493,10 +505,27 @@ class FreeroutingRouter:
                 except RoutingError as error:
                     issues.extend(error.issues)
                     runs[-1] = dataclasses.replace(runs[-1], outcome="failed")
+                    job.progress.done(unit, detail="failed")
+                    unit = ""
                     continue
                 tracks.extend(run_tracks)
                 vias.extend(run_vias)
+                with_run = {item.net_id for item in (*run_tracks, *run_vias)}
+                if with_run and job.on_run is not None:  # before the next tier starts (change c0120)
+                    job.on_run(
+                        FinishedRun(
+                            nets=tuple(net.name for net in tiers[tier] if net.net_id in with_run),
+                            tracks=tuple(run_tracks),
+                            vias=tuple(run_vias),
+                            tier=tier,
+                            seconds=seconds,
+                        )
+                    )
+                job.progress.done(unit, detail="routed" if with_run else "no copper")
+                unit = ""
         except OSError as error:
+            if unit:
+                job.progress.done(unit, detail="failed")
             return self._failed(job, version, "route.tool-failed", f"Freerouting could not run: {error}")
         if cut_nets or not_attempted:
             issues.append(exhausted(budget.seconds, cut_nets, len(not_attempted), self.name))

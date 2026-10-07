@@ -70,7 +70,7 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
         "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "pcb", "copper_check",
         "outjob",
-        "drawing_sheet", "rules", "experimental", "script_output", "plan",
+        "drawing_sheet", "rules", "experimental", "script_output", "plan", "plan_id",
     ]  # fmt: skip
 
 
@@ -310,7 +310,9 @@ def test_flat_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     assert list(out.iterdir()) == []
     flat = ("--target", "altium", "--altium-sheets", "flat")
     code, explicit, _ = run(monkeypatch, str(HIER), "--out", str(out), *flat, "--dry-run")
-    assert code == 0 and explicit["result"] == result
+    # the plan id binds the arguments, and the two command lines differ by one
+    assert code == 0 and explicit["result"].pop("plan_id") != result.pop("plan_id")
+    assert explicit["result"] == result
 
 
 def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -29,7 +29,7 @@ from fenolite.routing.plugins.specctra.freerouting import (
     jar_version,
     java_major,
 )
-from fenolite.routing.protocol import JobNet, JobPad, Router, RoutingJob
+from fenolite.routing.protocol import FinishedRun, JobNet, JobPad, Router, RoutingJob
 from fenolite.routing.registry import routers
 
 pytestmark = posix_tools
@@ -106,6 +106,45 @@ def test_route_with_a_fake_java(tmp_path: Path, record: Path) -> None:
     assert result.not_attempted == ()
     merged = apply(job.design, result)
     assert merged.board is not None and len(merged.board.tracks) == 2 and len(merged.board.vias) == 1
+
+
+def test_one_unit_and_one_finished_run(tmp_path: Path, record: Path) -> None:
+    """The plugin's one process is one unit of progress and, with copper, one finished run (capability
+    routing, "Router runs reported for progress and resumption"; change c0120)."""
+    events: list[tuple[str, str, str]] = []
+
+    class Recorder:
+        def step(self, name: str, *, index: int | None = None, total: int | None = None) -> None:
+            events.append(("step", name, f"{index}/{total}"))
+
+        def done(self, name: str, *, detail: str = "") -> None:
+            events.append(("done", name, detail))
+
+    runs: list[FinishedRun] = []
+    job = dataclasses.replace(_job(), on_run=runs.append, progress=Recorder())
+    result = _router(tmp_path).route(job)
+    assert events == [("step", "freerouting", "1/1"), ("done", "freerouting", "routed")]
+    (run,) = runs
+    assert run.nets == ("A",) and run.tracks == result.tracks and run.vias == result.vias
+    assert run.arcs == () and run.tier == 0 and len(result.tracks) == 2
+
+
+def test_failed_process_is_not_a_finished_run(
+    tmp_path: Path, record: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_JAVA_MODE", "fail")
+    events: list[tuple[str, str]] = []
+
+    class Recorder:
+        def step(self, name: str, *, index: int | None = None, total: int | None = None) -> None:
+            events.append(("step", ""))
+
+        def done(self, name: str, *, detail: str = "") -> None:
+            events.append(("done", detail))
+
+    runs: list[FinishedRun] = []
+    result = _router(tmp_path).route(dataclasses.replace(_job(), on_run=runs.append, progress=Recorder()))
+    assert runs == [] and result.tracks == () and events == [("step", ""), ("done", "failed")]
 
 
 def test_run_folder_is_temporary_and_is_home(tmp_path: Path, record: Path) -> None:

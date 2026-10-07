@@ -16,7 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from fenolite.cli import fetch
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.tools import tool_path
 
@@ -109,7 +109,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 sha256=row.sha256,
             ),
         )
-    return Result(result=result, writes=writes)
+    return Result(result=result, writes=writes, depends=depends_on(ctx.cwd, given))
 
 
 COMMAND = Command(

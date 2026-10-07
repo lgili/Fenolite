@@ -31,9 +31,10 @@ folder under ``sheets``. ``parity`` is a list of DRC violations that a ``pcb drc
 
 Change c0116 adds the document exports: ``pcb export ipc2581``, ``odb``, ``step``, ``pdf`` and ``dxf``
 are kinds of ``export_files`` like the others, and ``sch export pdf`` is the kind ``sch-pdf``.
-``export_output`` maps a kind to a text its run prints on standard output. Each call also records
-``tree``, every file of the run folder, and ``env``, the ``KICAD*`` variables of the run other than
-``KICAD_CONFIG_HOME``.
+``export_output`` maps a kind to a text its run prints on standard output. In the text of an exported
+file, ``{run}`` stands for the number of the call that wrote it, so two runs give other bytes (c0120).
+Each call also records ``tree``, every file of the run folder, and ``env``, the ``KICAD*`` variables
+of the run other than ``KICAD_CONFIG_HOME``.
 
 Change c0117 adds the outputs of the drawing kinds. A page is a ``pcb export pdf`` run whose ``-o`` names
 a file, which the kind ``pdf`` already writes. A ``pcb export drill`` run with ``--generate-map`` writes
@@ -167,9 +168,10 @@ if kind is not None and kind in config["export_files"]:
     wanted = config["export_files"][kind]
     if kind == "drill" and "--generate-map" in args:
         wanted = config["export_files"].get("drill-map", wanted)
+    run = sum(1 for _ in open(os.path.join(HERE, "calls.jsonl")))
     for name, text in wanted.items():
         target = os.path.join(folder, name.replace("{stem}", stem)) if out.endswith("/") else out
-        open(target, "w", encoding="latin-1", newline="").write(text)
+        open(target, "w", encoding="latin-1", newline="").write(text.replace("{run}", str(run)))
     sys.stdout.write(config["export_output"].get(kind, ""))
     sys.exit(0)
 if args[:2] == ["pcb", "drc"]:

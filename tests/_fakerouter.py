@@ -8,7 +8,11 @@ receives the arguments and the folder of the last run), ``FAKE_ROUTER_RUNS`` (a 
 JSON line per run: its arguments, its names of ``--nets``, the text of its input board (change c0109)
 and the text of the rules file beside it (change c0107)),
 ``FAKE_ROUTER_SLEEP_NET`` and ``FAKE_ROUTER_FAIL_NET`` (the run whose ``--nets`` names that net sleeps
-5 s, or exits 2 printing ``boom``).
+5 s, or exits 2 printing ``boom``). Change c0120 adds ``FAKE_ROUTER_FAIL_NETS`` (names separated by
+commas: a run that names one of them fails), ``FAKE_ROUTER_STARTS`` (a file that gets one line per
+process: its names of ``--nets``, joined by commas), ``FAKE_ROUTER_PID`` (a file that gets the process
+id) and ``FAKE_ROUTER_SLEEP`` (the seconds of a sleep, 5 by default); in the append mode the segment of
+each net lies on its own row.
 """
 
 from __future__ import annotations
@@ -66,9 +70,20 @@ def create_fake_router(folder: Path, *, version: str = "0.22.1") -> Path:
                 with open(runs, "a", encoding="utf-8") as stream:
                     stream.write(json.dumps(entry) + "\\n")
             mode = os.environ.get("FAKE_ROUTER_MODE", "append")
+            wanted = ",".join(named)
+            starts = os.environ.get("FAKE_ROUTER_STARTS")
+            if starts:
+                with open(starts, "a", encoding="utf-8") as log:
+                    log.write(wanted + "\\n")
+            pid_file = os.environ.get("FAKE_ROUTER_PID")
+            if pid_file:
+                Path(pid_file).write_text(str(os.getpid()), encoding="utf-8")
             if mode == "sleep" or os.environ.get("FAKE_ROUTER_SLEEP_NET") in named:
-                time.sleep(5)
-            if mode == "fail" or os.environ.get("FAKE_ROUTER_FAIL_NET") in named:
+                time.sleep(float(os.environ.get("FAKE_ROUTER_SLEEP", "5")))
+            failing = [name for name in os.environ.get("FAKE_ROUTER_FAIL_NETS", "").split(",") if name]
+            if os.environ.get("FAKE_ROUTER_FAIL_NET") in named or any(name in named for name in failing):
+                mode = "fail"
+            if mode == "fail":
                 print("boom from fake router", file=sys.stderr)
                 raise SystemExit(2)
             design = read_board(source.read_text(encoding="utf-8"), file=source.name)
@@ -81,9 +96,10 @@ def create_fake_router(folder: Path, *, version: str = "0.22.1") -> Path:
                 nets = design.circuit.nets
                 net = next((n for n in nets if n.name in named[:1]), None)
                 net = net or next((n for n in nets if n.name in sys.argv), nets[0])
+                row = 100_000 * (1 + nets.index(net))  # one track per net, each its own (c0120)
                 track = Track(
                     id=new_id("trk", random.Random(zlib.crc32(net.name.encode("utf-8")))),
-                    start=Point(100_000, 100_000), end=Point(200_000, 200_000),
+                    start=Point(100_000, row), end=Point(200_000, row + 100_000),
                     width=250_000, layer="F.Cu", net_id=net.id,
                 )
                 board = dataclasses.replace(board, tracks=(*board.tracks, track))

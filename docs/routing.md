@@ -226,6 +226,37 @@ Measured on 2026-10-05 with Freerouting 2.4.1 on a generated board of 100 parts 
 no unrouted connection in 365 s, 1133 tracks and 170 vias, none on a plane layer and none added to a plane
 net; `kicad-cli` 10.0.6 after a refill reported no unconnected item and no violation of severity error.
 
+## The job record
+
+A long route does not start over when it is stopped. `fenolite route` keeps the copper of each router
+process that finished in the state folder (`jobs/<key>/` under `~/.cache/fenolite/state`, or the folder
+that `FENOLITE_STATE_DIR` names; `off` keeps nothing), one file per finished run, written as the run
+ends.
+
+- **What is kept.** The tracks, arcs and vias that one tool process added, and the nets it routed: one
+  process per group of nets for KiCadRoutingTools, one per tier for Freerouting ("Time budget, kept
+  runs, groups and tiers"). A process that failed, was cut by the budget or gave no copper is not
+  recorded, so its nets are routed again. The built-in `direct`
+  router starts no process and records nothing.
+- **The key.** The first 16 hex digits of the SHA-256 of the Fenolite version, the router's name and
+  version, the SHA-256 of the board, of its project file and of its rules file, and the route arguments without the run
+  flags (`docs/cli-contract.md`, "Staged plans") and without `--out`. Another board, another router or
+  another `--nets` is another job.
+- **When it is reused.** The same call made again reads the board, applies `--rip`, makes the plane
+  fan-out again (the same copper, since the board is the same), merges the recorded copper and only then
+  selects the nets with an open connection, so the recorded nets are not routed
+  again. The reply holds one `route.resumed` info and `result.resumed` (`runs`, `nets`). A record that
+  cannot be read is removed, and the route starts from the board.
+- **When it is removed.** After a confirmed write of the routed board (the board then holds the copper,
+  and its digest names another job), and after a dry run that attempted every selected net, whose plan
+  holds the board. It stays after a dry run that the budget cut or that reports an error, so the same dry run goes on, after a
+  stop by a signal (`FEN-1003`), after a failed write (`FEN-1002`) and after a run whose errors wrote
+  nothing. At most 8 records are kept, and none older than 7 days.
+
+Copper made in two calls need not equal the copper of one call: the router sees the reused copper as
+existing copper. KiCad judges the board as always (`fenolite check`). With `--progress`, each router
+process is one unit of the progress records on stderr.
+
 ## Freerouting
 
 **Install.** Let Fenolite fetch the pinned jar:

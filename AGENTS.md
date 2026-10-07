@@ -47,11 +47,16 @@ Read this file before changing anything. Humans: this is also the short version 
 1. Start with `fenolite capabilities --json`: commands, extras, external tools and their versions.
 2. Output is JSON whenever stdout is not a terminal; pass `--json` anyway to be explicit. Use
    `--fields a,b.c` to keep the reply small.
-3. Read the exit code first: 0 ok, 1 bug, 2 usage, 3 bad input, 4 confirmation required,
-   5 findings (read `issues`), 6 external tool missing, 7 lossy operation refused. On non-zero,
-   stderr holds one error object with `code`, `message`, `hint`, `retryable`.
+3. Read the exit code first: 0 ok, 1 internal failure (a bug only when `retryable` is false: `FEN-1002`,
+   a failed write, and `FEN-1003`, a stop by a signal, changed nothing and can be run again), 2 usage,
+   3 bad input, 4 confirmation required, 5 findings (read `issues`), 6 external tool missing, 7 lossy
+   operation refused. On non-zero, stderr holds one error object with `code`, `message`, `hint`,
+   `retryable`; under `--progress` it is the last line.
 4. Writing commands never write by default: run with `--dry-run`, check `result.plan`, then re-run
-   with `--confirm`. The `receipt` lists every written file with its SHA-256.
+   with `--confirm --plan <result.plan_id>`, which writes the reviewed bytes without running the command
+   again (`FEN-4002`, exit 4, when a target or an input changed: review again). A command writes all its
+   files or none, and none beside an error finding. The `receipt` lists every written file with its
+   SHA-256.
 5. Pass `--seed` and `--timestamp` when you need byte-identical outputs.
 6. Every reply carries `evidence.level`; treat anything below `KICAD-VERIFIED` as unconfirmed.
 7. The loop is `capabilities`, `build`, `place`, `route`, `fill`, `check`, `export`, `render`, `inspect`:

@@ -18,6 +18,7 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.partial": "info",
     "route.plane-net": "info",
     "route.project-unread": "warning",
+    "route.resumed": "info",
     "route.tool-failed": "error",
     "route.tool-missing": "error",
     "route.tool-unpinned": "warning",

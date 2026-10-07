@@ -4,13 +4,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.core.units import Nm
 from fenolite.model.board import Arc, Track, Via
 from fenolite.model.design import Design
@@ -52,6 +53,19 @@ class JobNet:
 
 
 @dataclass(frozen=True, slots=True)
+class FinishedRun:
+    """The copper that one tool process of a router added, and the nets it routed. ``tier`` is the tier
+    of those nets (0 for a job without tiers); ``seconds`` is how long the process took."""
+
+    nets: tuple[str, ...]
+    tracks: tuple[Track, ...] = ()
+    arcs: tuple[Arc, ...] = ()
+    vias: tuple[Via, ...] = ()
+    tier: int = 0
+    seconds: float = 0.0
+
+
+@dataclass(frozen=True, slots=True)
 class RoutingJob:
     """A model-only routing request; no backend file paths cross the plugin boundary.
 
@@ -65,6 +79,11 @@ class RoutingJob:
     ``budget`` is the wall-clock time, in seconds, of the plugin's whole ``route()``; ``None`` gives the
     plugin's ``DEFAULT_BUDGET`` (capability routing, "Routing time budget"; change c0109). A router that
     starts no process ignores it. ``nets`` is sorted by tier, then by name.
+
+    A router that starts tool processes reports each one to ``progress`` as a unit (``step`` when it
+    starts, ``done`` when it ends) and calls ``on_run`` once for each process that ended with copper,
+    with that copper, before it starts the next one; a process that failed, was cut by the budget or
+    gave no copper is not reported through ``on_run``. A router that ignores both fields stays valid.
     """
 
     design: Design
@@ -75,6 +94,8 @@ class RoutingJob:
     plane_layers: tuple[str, ...] = ()
     # ``budget`` (c0109) stays the last field: it comes after the field c0107 adds to a job.
     budget: float | None = None
+    on_run: Callable[[FinishedRun], None] | None = None
+    progress: Progress = NULL_PROGRESS
 
 
 RunOutcomeName = Literal["done", "failed", "cut"]
@@ -144,6 +165,7 @@ class Router(Protocol):
 
 
 __all__ = [
+    "FinishedRun",
     "JobNet",
     "JobPad",
     "Router",

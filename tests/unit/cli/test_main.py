@@ -139,7 +139,7 @@ class TestMutationProtocol:
             receipts.append(out["receipt"])
         first, second = receipts
         assert first["id"] == second["id"] and len(first["id"]) == 16 and int(first["id"], 16) >= 0
-        assert first["undo"] is None and set(first) == {"written", "backup", "id", "undo"}
+        assert first["undo"] is None and set(first) == {"written", "backup", "id", "undo", "plan"}
 
         (self.dir / "out.txt").write_text("old\n")
         code, out, _ = _run(capsys, "_echo", "--write", "out.txt", "--confirm")

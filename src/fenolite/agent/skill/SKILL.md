@@ -28,19 +28,23 @@ the last line of its `SKILL.md`: when that differs from `fenolite --version`, re
    | exit | meaning | what to do |
    |---|---|---|
    | 0 | done | read `result` |
-   | 1 | a bug in Fenolite | stop and report the error object; do not retry |
+   | 1 | internal failure | read `retryable`: when it is false (`FEN-1001`) this is a bug in Fenolite, so stop and report the error object. `FEN-1002` (a write failed) and `FEN-1003` (stopped by a signal) changed nothing: remove the cause and run the same command again |
    | 2 | wrong usage | read `hint` in the error object and fix the command line |
    | 3 | bad input | the file named in `where` is missing or malformed: fix the input, not the command |
-   | 4 | confirmation required | a writing command ran without `--dry-run` or `--confirm`: see rule 3 |
+   | 4 | confirmation required | nothing was written. `FEN-4001`: a writing command ran without `--dry-run` or `--confirm`, see rule 3. `FEN-4002`: the plan named by `--plan` is no longer the one you reviewed (a file changed): run `--dry-run` again and confirm the new id |
    | 5 | findings | the command worked and found problems: read `issues`, fix the design, run again |
    | 6 | an external tool is missing | install what `hint` names (`kicad-cli`, Java, a router), or choose another router |
    | 7 | a lossy operation was refused | nothing was written; pass `--allow-lossy` only if the loss named in `issues` is acceptable |
 
-   On a non-zero exit, stderr holds one error object: `code`, `message`, `hint`, `retryable`.
+   On a non-zero exit, stderr holds one error object: `code`, `message`, `hint`, `retryable`. With
+   `--progress` a long step also writes progress records there, one JSON line each, and the error
+   object is the last line.
 3. **`--dry-run`, then `--confirm`.** A writing command writes nothing by default. `--dry-run` returns
-   `result.plan`, the list of files it would write; `--confirm` writes them and returns a `receipt`
-   with the SHA-256 of each. Look at the plan first whenever the files already exist: a confirmed
-   write replaces them.
+   `result.plan`, the list of files it would write, and `result.plan_id`; `--confirm` writes them and
+   returns a `receipt` with the SHA-256 of each. Look at the plan first whenever the files already exist:
+   a confirmed write replaces them. After a review, write with `--confirm --plan <plan_id>` and the same
+   arguments: it writes the reviewed bytes without running the command, and its tools, a second time. A
+   command writes all its files or none, and it writes none when it reports an `error`.
 4. **Evidence.** Every envelope carries `evidence.level`. `KICAD-VERIFIED` means `kicad-cli` judged the
    result. Treat every level below it (`ORACLE-VERIFIED`, `CORPUS-VERIFIED`, `INFERRED`, `UNKNOWN`,
    `UNVERIFIED`) as unconfirmed: say so when you report, and let `fenolite check` decide.

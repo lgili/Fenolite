@@ -191,9 +191,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
     commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
+    from fenolite.cli.main import MUTATION_FLAGS, global_flags
+
     result: dict[str, Any] = {
         "fenolite_version": __version__,
         "commands": commands,
+        "global_flags": global_flags(),
+        "mutation_flags": list(MUTATION_FLAGS),
         "backends": [backend.capabilities().to_json() for backend in registry.all_backends()],
         "experimental": _experimental(
             [(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE), (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE)]

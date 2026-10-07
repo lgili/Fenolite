@@ -26,7 +26,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.model.board import Arc, Track, Via
 from fenolite.routing.budget import Budget, exhausted
 from fenolite.routing.merge import RoutingError, apply
-from fenolite.routing.protocol import JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
+from fenolite.routing.protocol import FinishedRun, JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
 
 PINNED_TAG = "v0.22.1"
 DEFAULT_BUDGET = 900
@@ -67,6 +67,11 @@ def _named(names: tuple[str, ...]) -> str:
     """The names of a run for a message: the first five, then the count of the others."""
     shown = ", ".join(names[:5])
     return shown + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+
+
+def _unit(names: tuple[str, ...]) -> str:
+    """The name of a run as a unit of progress: its first net, and the count of the others."""
+    return names[0] if len(names) == 1 else f"{names[0]} and {len(names) - 1} more"
 
 
 def plan_runs(nets: tuple[JobNet, ...], group_nets: int | None = None) -> tuple[tuple[JobNet, ...], ...]:
@@ -220,8 +225,10 @@ class KicadRoutingToolsRouter:
                 board_path = folder / f"{stem}.kicad_pcb"
                 project_set(board_path)
                 current = job.design
-                for index, group in enumerate(plan_runs(job.nets, group_nets)):
+                planned = plan_runs(job.nets, group_nets)
+                for index, group in enumerate(planned):
                     names = tuple(net.name for net in group)
+                    unit = _unit(names)
                     tier = group[0].tier
                     if budget.left() <= 0:  # no process starts once the budget is spent
                         not_attempted.extend(names)
@@ -252,16 +259,24 @@ class KicadRoutingToolsRouter:
                         "--no-fix-drc-settings",
                         *passed,
                     ]
+                    if budget.left() <= 0:  # the board of the run took the last of the budget
+                        not_attempted.extend(names)
+                        unrouted.extend(names)
+                        continue
+                    # each process is one unit of progress (change c0120)
+                    job.progress.step(unit, index=index + 1, total=len(planned))
                     done = budget.run(args, cwd=folder, env={**os.environ, "LANG": "C", "LC_ALL": "C"})
                     if not done.started:
                         not_attempted.extend(names)
                         unrouted.extend(names)
+                        job.progress.done(unit, detail="timeout")
                         continue
                     if done.cut:
                         # a killed process may leave a missing or cut board: it is not read
                         runs.append(RouterRun(names, tier, done.seconds, "cut"))
                         unrouted.extend(names)
                         cut_nets += len(names)
+                        job.progress.done(unit, detail="timeout")
                         continue
                     output_line = _line(done.stderr or done.stdout, folder)
                     if output_line != "no diagnostic output":
@@ -286,6 +301,7 @@ class KicadRoutingToolsRouter:
                         )
                         unrouted.extend(names)
                         runs.append(RouterRun(names, tier, seconds, "failed"))
+                        job.progress.done(unit, detail="failed")
                         continue
                     old_ids = {item.id for item in _copper(baseline)}
                     after = _copper(result)
@@ -325,6 +341,7 @@ class KicadRoutingToolsRouter:
                         issues.extend(exc.issues)
                         unrouted.extend(names)
                         runs.append(RouterRun(names, tier, seconds, "failed"))
+                        job.progress.done(unit, detail="failed")
                         continue
                     runs.append(RouterRun(names, tier, seconds, "done"))
                     with_copper = {item.net_id for item in kept}
@@ -333,6 +350,18 @@ class KicadRoutingToolsRouter:
                     tracks.extend(delta.tracks)
                     arcs.extend(delta.arcs)
                     vias.extend(delta.vias)
+                    if kept and job.on_run is not None:  # before the next process starts (change c0120)
+                        job.on_run(
+                            FinishedRun(
+                                nets=tuple(net.name for net in group if net.net_id in with_copper),
+                                tracks=delta.tracks,
+                                arcs=delta.arcs,
+                                vias=delta.vias,
+                                tier=tier,
+                                seconds=seconds,
+                            )
+                        )
+                    job.progress.done(unit, detail="routed" if kept else "no copper")
         except Exception as exc:
             return RoutingResult(
                 unrouted=tuple(net.name for net in job.nets),

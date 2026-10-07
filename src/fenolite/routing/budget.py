@@ -86,6 +86,10 @@ class Budget:
             except subprocess.TimeoutExpired:  # a grandchild still holds a pipe: give the output up
                 stdout, stderr = "", ""
             return RunOutcome(None, stdout or "", stderr or "", self._clock() - began, cut=True)
+        except BaseException:  # a stop by a signal (cli-contract, "Interruption"): no process outlives it
+            process.kill()
+            process.wait()
+            raise
         return RunOutcome(process.returncode, stdout or "", stderr or "", self._clock() - began, cut=False)
 
 

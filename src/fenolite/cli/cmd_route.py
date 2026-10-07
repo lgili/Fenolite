@@ -32,6 +32,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from fenolite import __version__
 from fenolite.analysis.connectivity import connectivity
 from fenolite.backends.base import DesignRules, ProjectSet
 from fenolite.backends.kicad import fanout, pro
@@ -43,10 +44,12 @@ from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
+from fenolite.cli import plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
+from fenolite.cli.jobs import JobRecord, route_job_key
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
@@ -57,7 +60,7 @@ from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleSet, RuleSubject, Selector
 from fenolite.routing.layers import allowed_layers, routing_layers
 from fenolite.routing.merge import RoutingError, apply
-from fenolite.routing.protocol import JobNet, JobPad, Router, RoutingJob, RoutingResult
+from fenolite.routing.protocol import FinishedRun, JobNet, JobPad, Router, RoutingJob, RoutingResult
 from fenolite.routing.registry import routers
 from fenolite.routing.select import rip, unrouted
 
@@ -415,6 +418,38 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "vias": len(fanned.vias),
         "failed": list(fanned.failed),
     }
+    # the copper of the router runs that finished in an earlier call of this job, merged before the nets
+    # are selected, so that those nets are not routed again. It is merged after the plane fan-out, as the
+    # router of that call saw the board: the fan-out is planned on the same board and gives the same copper
+    project_file = board_path.with_suffix(".kicad_pro")
+    rules_file = board_path.with_suffix(".kicad_dru")  # read with the project by ``_project_rules``
+    record = JobRecord(
+        ctx.state,
+        route_job_key(
+            fenolite_version=__version__,
+            router=router.name,
+            router_version=status.version,
+            board_sha256=input_ref.sha256 or "",
+            project_sha256=plans.digest_of(project_file),
+            rules_sha256=plans.digest_of(rules_file),
+            arguments=plans.arguments(vars(args)),
+        ),
+    )
+    reused = record.runs()
+    if reused:
+        try:
+            design = apply(design, _copper_of(reused))
+        except RoutingError:  # a record that does not fit this board is not one of this job
+            record.remove()
+            reused = ()
+    resumed = _copper_of(reused)
+    resumed_nets = sorted({name for run in reused for name in run.nets})
+    depends = depends_on(
+        ctx.cwd,
+        board_path,
+        project_file if project_file.is_file() else None,
+        rules_file if rules_file.is_file() else None,
+    )
     # the open connections of the board as it is given to the router: after the rip, and after any copper
     # that a step of this command adds before the router
     before = connectivity(design, pads=frame_pads, nets=wanted)
@@ -484,7 +519,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     major = target.major if target is not None and target.major is not None else ctx.kicad_target
     output = args.out or _relative(board_path, ctx.cwd)
     zones_stale = bool(design.board and any(zone.filled or zone.fills for zone in design.board.zones))
-    if not jobs:
+    if not jobs and not reused:
         # no net for a router: the fan-out copper alone is still written
         fan_text = (
             write_board(design, target=major, allow_lossy=ctx.allow_lossy).text if fanout_made else text
@@ -513,6 +548,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "budget": _budget_json(budget_seconds, 0.0, False),
                 "runs": [],
                 "not_attempted": [],
+                "resumed": None,
                 "plane_layers": list(planes),
                 "plane_fanout": plane_result,
             },
@@ -524,18 +560,43 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 if fanout_made and (args.out is not None or fan_text != text)
                 else ()
             ),
+            depends=depends,
         )
     extra = {"board_pads": frame_pads, "outline": outline_rings}
     started = time.monotonic()
-    outcome = router.route(
-        RoutingJob(design, tuple(jobs), layers, options, extra, plane_layers=planes, budget=args.timeout)
-    )
+    if jobs:
+        outcome = router.route(
+            RoutingJob(
+                design,
+                tuple(jobs),
+                layers,
+                options,
+                extra,
+                plane_layers=planes,
+                budget=args.timeout,
+                on_run=record.add,
+                progress=ctx.progress,
+            )
+        )
+    else:  # every open net was routed by the runs of the record: no process starts
+        outcome = RoutingResult(tool=router.name, tool_version=status.version)
     # only a router that has a budget is timed: the result of the built-in router stays the same bytes
     spent = time.monotonic() - started if default_budget is not None else 0.0
     budget_ended = bool(outcome.not_attempted) or any(
         found.code == "route.budget-exhausted" for found in outcome.issues
     )
     issues = [*read_issues, *before.issues, *fanout_issues, *outcome.issues, *skipped]
+    if reused:
+        issues.append(
+            Issue(
+                "route.resumed",
+                "info",
+                f"{len(reused)} router run(s) of an earlier call were reused: the copper of "
+                f"{len(resumed_nets)} net(s) was not routed again",
+                resumed_nets[0] if resumed_nets else "",
+                hint="copper made in two calls need not equal the copper of one",
+            )
+        )
     merged_ok = True
     try:
         merged = apply(design, outcome)
@@ -549,6 +610,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     routed = [name for name in candidates if name not in still_open]
     open_names = [name for name in candidates if name in still_open]
     new_items = (*outcome.tracks, *outcome.arcs, *outcome.vias) if merged_ok else ()
+    kept_items = (*resumed.tracks, *resumed.arcs, *resumed.vias)
     got = Counter(item.net_id for item in new_items)
     claimed = set(outcome.routed)
     for name in open_names:
@@ -587,7 +649,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 hint="run without --require-complete to keep the partial copper, then route again",
             )
         )
-    added = bool(new_items) or fanout_made
+    added = bool(new_items) or bool(kept_items) or fanout_made
     fills_stale = zones_stale and added
     if fills_stale:
         issues.append(
@@ -606,6 +668,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         oracle=f"{outcome.tool} {outcome.tool_version}".strip(),
     )
     selected = set(candidates)
+    if getattr(args, "dry_run", False) and not budget_ended and not failed:
+        # every selected net was attempted, and a staged plan holds the board. A run that the budget cut
+        # keeps its record: the same dry run made again goes on with the nets that were not attempted.
+        # So does a run with an error, which plans no write: its finished runs are not routed again
+        record.remove()
     return Result(
         result={
             "board": board_path.name,
@@ -626,8 +693,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "before": sum(len(row.open) for row in before.nets if row.name in selected),
                 "after": sum(len(row.open) for row in still_open.values()),
             },
-            "tracks": len(outcome.tracks),
-            "vias": len(outcome.vias),
+            "tracks": len(outcome.tracks) + len(resumed.tracks),
+            "vias": len(outcome.vias) + len(resumed.vias),
             "ripped": ripped,
             "rip_kept": rip_kept,
             "log": _safe_log(outcome.log, ctx.cwd),
@@ -643,6 +710,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 for run in outcome.runs
             ],
             "not_attempted": list(outcome.not_attempted),
+            "resumed": {"runs": len(reused), "nets": len(resumed_nets)} if reused else None,
             "plane_layers": list(planes),
             "plane_fanout": plane_result,
         },
@@ -650,6 +718,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidence=evidence,
         input=input_ref,
         writes=writes,
+        depends=depends,
+        written=record.remove,  # the board then holds the copper, and its digest names another job
+    )
+
+
+def _copper_of(runs: tuple[FinishedRun, ...]) -> RoutingResult:
+    """The copper of ``runs`` as one result, for the merge."""
+    return RoutingResult(
+        tracks=tuple(item for run in runs for item in run.tracks),
+        arcs=tuple(item for run in runs for item in run.arcs),
+        vias=tuple(item for run in runs for item in run.vias),
     )
 
 

@@ -37,7 +37,7 @@ from fenolite.backends.kicad.replace import PlacementError, footprint_ref, move_
 from fenolite.checks import placement as placement_rules
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import board_format
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.coords import Point
@@ -439,6 +439,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None if version_number is None else str(version_number),
         ),
         writes=writes,
+        depends=depends_on(ctx.cwd, board_path),
+        write_on_error=bool(args.force),  # the one command that writes beside an error, when asked to
     )
 
 

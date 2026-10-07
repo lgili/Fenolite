@@ -11,8 +11,10 @@ nothing in the repository.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
+import sys
 from pathlib import Path
 
 import pytest
@@ -105,3 +107,71 @@ def test_loop(example: str, target: int, tmp_path: Path) -> None:
         assert isinstance(evidence, dict) and evidence["level"], step
     if os.environ.get(WRITE) == "1":
         record(run, example, target)
+
+
+def _counting(folder: Path, name: str, real: str) -> tuple[Path, Path]:
+    """A launcher that appends its arguments to a log and runs ``real``: the launcher and its log."""
+    log = folder / f"{name}.calls"
+    script = folder / f"{name}-counted"
+    script.write_text(f'#!/bin/sh\necho "$@" >> "{log}"\nexec "{real}" "$@"\n', encoding="utf-8")
+    script.chmod(0o755)
+    return script, log
+
+
+def _calls(log: Path) -> list[str]:
+    return log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the counting launchers are shell scripts")
+def test_loop_plan_reviewed_then_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One pass of the 40-part example in which every writing step is reviewed with ``--dry-run`` and
+    written with ``--confirm --plan`` (capability cli-contract, "Staged plans"; change c0120): no tool
+    runs for the write, and the written hashes equal the plan rows."""
+    from _resources import freerouting_jar, kicad_cli
+
+    real_kicad, jar, java = kicad_cli(), freerouting_jar(), shutil.which("java")
+    assert real_kicad is not None and jar is not None and java is not None
+    kicad, kicad_log = _counting(tmp_path, "kicad-cli", str(real_kicad))
+    counted_java, java_log = _counting(tmp_path, "java", java)
+    monkeypatch.setenv("FENOLITE_KICAD_CLI", str(kicad))
+    monkeypatch.setenv("FENOLITE_JAVA", str(counted_java))
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(jar))
+    monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
+    example, target = "board_40parts", 10
+    project = tmp_path / "project"
+    name = f"{EXAMPLES[example]}.kicad_pcb"
+    outputs = tmp_path / "outputs"
+    stamp = ["--seed", "250025", "--timestamp", "2026-10-04T00:00:00Z", "--no-backup"]
+    script = ROOT / "examples" / example / "design.py"
+    steps: list[tuple[str, Path, list[str]]] = [
+        ("build", tmp_path, ["build", str(script), "--out", str(project), "--kicad-version", str(target)]),
+        ("place", project, ["place", name, "--strategy", "grid", "--margin", "3mm", "--gap", "2mm"]),
+        ("route", project, ["route", name, "--router", ROUTER, "--timeout", "600"]),
+        ("fill", project, ["fill", name]),
+        ("export", project, ["export", name, "-o", str(outputs / "fab"), "--all", "--manifest"]),
+        ("render", project, ["render", name, "-o", str(outputs / "views"), "--svg", "--png"]),
+    ]
+    for step, cwd, args in steps:
+        code, reviewed, error = run_cli(cwd, *args, *stamp, "--dry-run", timeout=900)
+        assert code == 0, f"{step} --dry-run: {error or reviewed}"
+        result = reviewed["result"]
+        assert isinstance(result, dict)
+        plan, rows = result["plan_id"], result["plan"]
+        assert isinstance(plan, str) and isinstance(rows, list) and rows, step
+        tools = (_calls(kicad_log), _calls(java_log))
+        if step == "route":
+            assert len([line for line in tools[1] if "-de" in line.split()]) == 1, "one router run"
+        code, written, error = run_cli(cwd, *args, *stamp, "--confirm", "--plan", plan, timeout=900)
+        assert code == 0, f"{step} --confirm --plan: {error or written}"
+        assert (_calls(kicad_log), _calls(java_log)) == tools, f"{step}: a tool ran for the write"
+        receipt = written["receipt"]
+        assert isinstance(receipt, dict) and receipt["plan"] == plan
+        planned = {row["path"]: row["sha256"] for row in rows}
+        assert {w["path"]: w["sha256"] for w in receipt["written"]} == planned, step
+        for path, digest in planned.items():
+            assert hashlib.sha256((cwd / path).read_bytes()).hexdigest() == digest, (step, path)
+        print(f"{step}: {len(planned)} file(s) written as reviewed, plan {plan}")
+    assert not list((tmp_path / "state" / "plans").iterdir()), "every written plan was removed"
+    code, checked, error = run_cli(project, "check", name)
+    assert code == 0, error or checked
+    assert_finished(LoopRun(project, project / name, {"check": checked}))

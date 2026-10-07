@@ -48,6 +48,9 @@ class Receipt:
     """The identity of the write: :func:`receipt_id` of ``written`` and ``backup``."""
     undo: str | None = field(default=None, metadata={"optional": True})
     """The command that puts the backups back, reading this envelope from stdin; ``None`` without one."""
+    plan: str | None = field(default=None, metadata={"pattern": r"^[0-9a-f]{16}$", "optional": True})
+    """The id of the reviewed plan that ``--confirm --plan`` wrote; ``None`` for a write without ``--plan``.
+    It takes no part in ``id``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,13 +84,15 @@ def receipt_id(written: Sequence[WrittenFile], backup: Sequence[str]) -> str:
     return hashlib.sha256(canonical_json(body).encode("utf-8")).hexdigest()[:16]
 
 
-def make_receipt(written: Sequence[WrittenFile], backup: Sequence[str]) -> Receipt:
-    """The receipt of a confirmed write, with its ``id`` and, when a backup was kept, its ``undo``."""
+def make_receipt(written: Sequence[WrittenFile], backup: Sequence[str], plan: str | None = None) -> Receipt:
+    """The receipt of a confirmed write, with its ``id`` and, when a backup was kept, its ``undo``; ``plan``
+    is the id that ``--plan`` named."""
     return Receipt(
         written=tuple(written),
         backup=tuple(backup),
         id=receipt_id(written, backup),
         undo=UNDO_COMMAND if backup else None,
+        plan=plan,
     )
 
 

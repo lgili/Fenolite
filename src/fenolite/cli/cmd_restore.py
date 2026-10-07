@@ -20,7 +20,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any, cast
 
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import WrittenFile, receipt_id
 from fenolite.core.errors import FormatError, Issue, Severity
@@ -101,6 +101,7 @@ def _issue(code: str, message: str, where: str, hint: str = "") -> Issue:
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    given: Path | None = None
     if args.receipt == "-":
         text, name = sys.stdin.read(), "<stdin>"
     else:
@@ -109,6 +110,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if not source.is_file():
             raise CliError("FEN-3001", f"{source.name} is not a file", where=source.name)
         text, name = source.read_text(encoding="utf-8"), source.name
+        given = source
     written, backup, ident = _receipt(text, name)
     folder = ctx.cwd if args.folder is None else (ctx.cwd / args.folder)
     if not folder.is_dir():
@@ -153,7 +155,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         _issue("restore.kept", f"{path} has no backup and stays as it is", path, "restore deletes no file")
         for path in kept
     ]
-    return Result(result=result, issues=tuple(issues), writes=tuple(writes))
+    read = (given, *(folder / entry.path for entry in written), *(folder / item for item in backup))
+    return Result(
+        result=result, issues=tuple(issues), writes=tuple(writes), depends=depends_on(ctx.cwd, *read)
+    )
 
 
 COMMAND = Command(

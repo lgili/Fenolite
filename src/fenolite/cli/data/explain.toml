@@ -9,6 +9,16 @@ meaning = "Fenolite raised an exception it did not expect. This is a bug in Feno
 fix = "Report the command line and the input; do not retry the same call unchanged."
 see = "Exit codes"
 
+["FEN-1002"]
+meaning = "A file of the plan could not be written: the folder or the file refused it, the disk is full, or a path is blocked. Everything was put back: every file holds what it held before the command, and no new file or folder is left."
+fix = "Read the path and the reason in the message, remove the cause, and run the same command again; under --plan the staged plan is still there. This is not a bug of Fenolite: retryable is true."
+see = "Writing files"
+
+["FEN-1003"]
+meaning = "The command was stopped by a signal (SIGTERM, or SIGINT from Ctrl+C). The tools it had started were stopped, a write in progress was put back, and nothing was written."
+fix = "Run the same command again. A stopped route goes on from the router runs that had finished."
+see = "Writing files"
+
 ["FEN-2001"]
 meaning = "The command line is wrong: an unknown flag, a missing argument, a value outside the accepted set, or an input the command does not take."
 fix = "Read the message and the hint, or run the command with --help, and correct the arguments."
@@ -62,6 +72,11 @@ see = "fetch"
 ["FEN-4001"]
 meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
 fix = "Review result.plan, then run the same command with --confirm to write, or with --dry-run to only preview."
+see = "Writing files"
+
+["FEN-4002"]
+meaning = "The plan named by --plan cannot be written as it was reviewed: a target or a declared input changed since the dry run, the command line or the working folder is another one, the staged bytes are damaged, or no plan of that id is staged and the plan made now has another id. Nothing was written."
+fix = "Read the message, which names the first reason. Run the command with --dry-run again, review the new plan, and confirm it with --confirm --plan and its new id."
 see = "Writing files"
 
 ["FEN-5001"]
@@ -2392,6 +2407,11 @@ meaning = "A part of a near() rule has no selected pad within the rule's distanc
 fix = "Move the part nearer to the pad it belongs to, or change the distance or the severity of the near() call."
 see = "check"
 
+["plan.not-staged"]
+meaning = "The planned bytes could not be kept in the state folder: it is turned off (FENOLITE_STATE_DIR=off), it is not writable, or the plan is larger than the store. The plan and its id are right all the same."
+fix = "Nothing is needed: --confirm --plan with the id runs the command once more and writes only when the new plan has the same id. To write the reviewed bytes without a second run, name a writable folder in FENOLITE_STATE_DIR."
+see = "Writing files"
+
 ["pnp.no-outline"]
 meaning = "The placement template asks for positions relative to the board outline, and the board has no closed outline. No row and no file is written."
 fix = "Close the outline on the board, or set the origin of the template to the file origin."
@@ -2470,6 +2490,11 @@ see = "route"
 ["route.partial"]
 meaning = "The router returned copper for a net that stays open; the copper is kept and written."
 fix = "Run route again: the net is selected again and completed from this copper. Pass --rip with --nets to start that net again."
+see = "route"
+
+["route.resumed"]
+meaning = "An earlier call of the same route on the same board was stopped or wrote nothing, and the copper of its router runs that had finished was kept. This call reused that copper and did not route those nets again; result.resumed counts the runs and the nets."
+fix = "Nothing is needed. Copper made in two calls need not equal the copper of one: to start over, turn the state folder off for one call (FENOLITE_STATE_DIR=off) or pass --rip."
 see = "route"
 
 ["route.tool-failed"]

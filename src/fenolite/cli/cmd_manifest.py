@@ -27,7 +27,7 @@ from fenolite.checks import DEFAULT_STAGES, STAGE_ORDER
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format
 from fenolite.cli._manifest import FENOLITE, FENOLITE_TOOL, read_folder
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_check import Checked, parse_stages, run_stages
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -523,6 +523,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidence=evidence,
         input=_input(board),
         writes=(PlannedWrite(shown, manifest.dumps(data).encode("utf-8"), "manifest"),),
+        depends=depends_on(
+            ctx.cwd,
+            *(root / item.path for item in entries),
+            *(file for file in (root / folder / manifest.FILE_NAME for folder in folders) if file.is_file()),
+        ),
+        # the manifest is the report of the check: it is written whether or not the check found errors
+        write_on_error=True,
     )
 
 

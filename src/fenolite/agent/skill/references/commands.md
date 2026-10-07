@@ -71,10 +71,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## bom
 
-`fenolite bom [--dry-run] [--confirm] [--source {kicad,model}] [--template FILE] [-o FILE] [--manifest] [--against OTHER] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+`fenolite bom [--dry-run] [--confirm] [--plan ID] [--source {kicad,model}] [--template FILE] [-o FILE] [--manifest] [--against OTHER] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `--source` (string, one of `kicad`, `model`, default `kicad`): where the parts come from: kicad (the schematic, through kicad-cli) or model (the built model, or the board); default kicad
 - `--template` (string): the column template (TOML); default: built in
@@ -86,10 +87,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## build
 
-`fenolite build [--dry-run] [--confirm] --out DIR [--discard-layout] [--target {altium,kicad}] [--altium-format {ascii,binary}] [--altium-sheets {flat,modules}] [--altium-outjob {off,on}] [--altium-outjob-preset FILE] [--altium-symbols {generic,graphics}] [--altium-directions {off,on}] [--altium-bodies {extruded,off}] [--copper-from BOARD.kicad_pcb] [--copper-check {refuse,warn}] [--vendor {all,project}] [--schematic {skip,write}] [--schematic-layout {grid,readable}] DESIGN.py`
+`fenolite build [--dry-run] [--confirm] [--plan ID] --out DIR [--discard-layout] [--target {altium,kicad}] [--altium-format {ascii,binary}] [--altium-sheets {flat,modules}] [--altium-outjob {off,on}] [--altium-outjob-preset FILE] [--altium-symbols {generic,graphics}] [--altium-directions {off,on}] [--altium-bodies {extruded,off}] [--copper-from BOARD.kicad_pcb] [--copper-check {refuse,warn}] [--vendor {all,project}] [--schematic {skip,write}] [--schematic-layout {grid,readable}] DESIGN.py`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `DESIGN` (string, required): the design script (executed in-process)
 - `--out` (string, required): the project folder to write
 - `--discard-layout` (boolean): replace outputs changed since the last build (backups kept)
@@ -175,10 +177,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## export
 
-`fenolite export [--dry-run] [--confirm] -o DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf] [--dxf] [--sch-pdf] [--all] [--altium-rul] [--fab-drawing] [--assembly-drawing] [--drawing-spec FILE] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+`fenolite export [--dry-run] [--confirm] [--plan ID] -o DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf] [--dxf] [--sch-pdf] [--all] [--altium-rul] [--fab-drawing] [--assembly-drawing] [--drawing-spec FILE] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `-o`, `--out` (string, required): the folder to write under
 - `--gerbers` (boolean): Gerber files and the job file
@@ -203,20 +206,22 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## fetch
 
-`fenolite fetch [--dry-run] [--confirm] [--from FILE] [--dir DIR] [NAME]`
+`fenolite fetch [--dry-run] [--confirm] [--plan ID] [--from FILE] [--dir DIR] [NAME]`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `NAME` (string, optional): the tool to install (freerouting)
 - `--from` (string): install this copy instead of downloading; checked the same way
 - `--dir` (string): install into DIR instead of the tools folder (FENOLITE_TOOLS_DIR)
 
 ## fill
 
-`fenolite fill [--dry-run] [--confirm] [--from REFILLED] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+`fenolite fill [--dry-run] [--confirm] [--plan ID] [--from REFILLED] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, .kicad_pro or project folder
 - `--from` (string): a board already refilled by KiCad
 - `-o`, `--out` (string): write to this file instead of replacing PATH's board
@@ -225,10 +230,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## fmt
 
-`fenolite fmt [--dry-run] [--confirm] [--check] PATH`
+`fenolite fmt [--dry-run] [--confirm] [--plan ID] [--check] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a board, footprint, schematic, symbol library or sheet
 - `--check` (boolean): report whether the file would change
 
@@ -240,10 +246,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## init
 
-`fenolite init [--dry-run] [--confirm] [--starter NAME] [--name NAME] [--force] DIR`
+`fenolite init [--dry-run] [--confirm] [--plan ID] [--starter NAME] [--name NAME] [--force] DIR`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `DIR` (string, required): the project folder; it is created when missing
 - `--starter` (string, default `blink`): the starter to write (blink)
 - `--name` (string): the design name (default: the last part of DIR)
@@ -260,10 +267,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## kit
 
-`fenolite kit [--dry-run] [--confirm] [-o DIR] [--samples DIR] [--repo DIR] {build,record,status,verify} [DIR]`
+`fenolite kit [--dry-run] [--confirm] [--plan ID] [-o DIR] [--samples DIR] [--repo DIR] {build,record,status,verify} [DIR]`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `ACTION` (string, one of `build`, `record`, `status`, `verify`, required): what to do with the kit
 - `FOLDER` (string, optional): verify, record: the kit folder after a run
 - `-o`, `--out` (string): build: the folder to write the kit into; record: the repository that gets the run record
@@ -272,10 +280,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## manifest
 
-`fenolite manifest [--dry-run] [--confirm] [--artifacts DIR] [--stages A,B] [--no-check] [--verify] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+`fenolite manifest [--dry-run] [--confirm] [--plan ID] [--artifacts DIR] [--stages A,B] [--no-check] [--verify] [-o FILE] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `--artifacts` (string, repeatable): a folder inside the project whose fenolite-artifacts.json lists artefacts to add (repeatable)
 - `--stages` (string): stages to run, of model.validate,erc.kicad,copper.clearance,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip)
@@ -287,10 +296,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## models
 
-`fenolite models [--dry-run] [--confirm] [--vendor] PATH`
+`fenolite models [--dry-run] [--confirm] [--plan ID] [--vendor] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `--vendor` (boolean): copy the located official models into the project's 3dmodels/ folder (needs --confirm)
 
@@ -339,10 +349,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## place
 
-`fenolite place [--dry-run] [--confirm] [--strategy {grid,manual}] [--move REF=X,Y[,ROT[,SIDE]]] [--only REF,REF] [--pitch L] [--gap L] [--margin L] [--force] [-o FILE] PATH`
+`fenolite place [--dry-run] [--confirm] [--plan ID] [--strategy {grid,manual}] [--move REF=X,Y[,ROT[,SIDE]]] [--only REF,REF] [--pitch L] [--gap L] [--margin L] [--force] [-o FILE] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `--strategy` (string, one of `grid`, `manual`): grid (default): place every part that is off the board; manual: only the --move parts
 - `--move` (string, repeatable): move one part (repeatable; implies --strategy manual): lengths with a unit, from the top-left corner of the outline, Y down; ROT in degrees; SIDE top or bottom
@@ -355,10 +366,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## pnp
 
-`fenolite pnp [--dry-run] [--confirm] [--template FILE] [--side {both,bottom,top}] [-o FILE] [--manifest] PATH`
+`fenolite pnp [--dry-run] [--confirm] [--plan ID] [--template FILE] [--side {both,bottom,top}] [-o FILE] [--manifest] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `--template` (string): the column template (TOML); default: built in
 - `--side` (string, one of `both`, `bottom`, `top`, default `both`): the side to list (default both)
@@ -376,10 +388,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## render
 
-`fenolite render [--dry-run] [--confirm] -o DIR [--svg] [--png] [--width PX] [--height PX] [--manifest] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+`fenolite render [--dry-run] [--confirm] [--plan ID] -o DIR [--svg] [--png] [--width PX] [--height PX] [--manifest] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `-o`, `--out` (string, required): the folder to write under
 - `--svg` (boolean): front.svg and back.svg (plots)
@@ -392,10 +405,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## restore
 
-`fenolite restore [--dry-run] [--confirm] [--in DIR] RECEIPT`
+`fenolite restore [--dry-run] [--confirm] [--plan ID] [--in DIR] RECEIPT`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `RECEIPT` (string, required): a file holding the envelope of a write, or - for stdin
 - `--in` (string): the working directory of that write (default: this one)
 
@@ -410,10 +424,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## route
 
-`fenolite route [--dry-run] [--confirm] --router NAME [--nets GLOB] [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE] [--order GLOB] [--timeout SECONDS] [--allow-offsite] [-o FILE] PATH`
+`fenolite route [--dry-run] [--confirm] [--plan ID] --router NAME [--nets GLOB] [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE] [--order GLOB] [--timeout SECONDS] [--allow-offsite] [-o FILE] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `PATH` (string, required): a .kicad_pcb, .kicad_pro or project folder
 - `--router` (string, required): registered routing plugin
 - `--nets` (string, repeatable): net-name pattern (repeatable)
@@ -431,10 +446,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## skill
 
-`fenolite skill [--dry-run] [--confirm] [--agent NAME] [--dir DIR] [--agents-md] ACTION`
+`fenolite skill [--dry-run] [--confirm] [--plan ID] [--agent NAME] [--dir DIR] [--agents-md] ACTION`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `SKILL_ACTION` (string, one of `install`, `show`, required): show or install
 - `--agent` (string): install: the agent whose project skill folder is used
 - `--dir` (string): install: any folder; the skill goes to DIR/fenolite
@@ -442,10 +458,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## sync
 
-`fenolite sync [--dry-run] [--confirm] --out DIR [--to-source] [--check] DESIGN.py`
+`fenolite sync [--dry-run] [--confirm] [--plan ID] --out DIR [--to-source] [--check] DESIGN.py`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `DESIGN` (string, required): the design script (executed in-process)
 - `--out` (string, required): the built project folder to read
 - `--to-source` (boolean): the direction: from the board in DIR to the files beside DESIGN.py (required)
@@ -453,10 +470,11 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## template
 
-`fenolite template [--dry-run] [--confirm] --target {altium,kicad} -o OUT [--size NAME] [--altium-format {ascii,binary}] {build,import} FILE`
+`fenolite template [--dry-run] [--confirm] [--plan ID] --target {altium,kicad} -o OUT [--size NAME] [--altium-format {ascii,binary}] {build,import} FILE`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
 - `ACTION` (string, one of `build`, `import`, required): build a specification, or import an Altium template
 - `SPEC` (string, required): SPEC, the *.sheet.toml specification (build); SRC, the .SchDot or .SchDoc file (import)
 - `--target` (string, one of `altium`, `kicad`, required): the backend to write for

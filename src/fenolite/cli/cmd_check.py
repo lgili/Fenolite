@@ -35,6 +35,7 @@ from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
+from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 
@@ -169,7 +170,13 @@ class Checked:
 
 
 def run_stages(
-    board: Path, stages: tuple[str, ...], *, kicad_cli: str | None, timeout: float, hint: str = NO_TOOL_HINT
+    board: Path,
+    stages: tuple[str, ...],
+    *,
+    kicad_cli: str | None,
+    timeout: float,
+    hint: str = NO_TOOL_HINT,
+    progress: Progress = NULL_PROGRESS,
 ) -> Checked:
     """Run ``stages`` on the project of ``board`` as ``fenolite check`` does: the pre-flight of the
     ``ORACLE_STAGES`` (a supported ``kicad-cli`` that reads this board's format, else ``FEN-6001`` or
@@ -188,7 +195,7 @@ def run_stages(
                         oracle=oracle, cache_error=cache_error,
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
-                        waivers=_waivers(model, cache_error))  # fmt: skip
+                        waivers=_waivers(model, cache_error), progress=progress)  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)
@@ -205,7 +212,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         return _run_documents(args, path, *found)
     stages = parse_stages(args.stages)
     board = resolve_board(path)
-    checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout)
+    checked = run_stages(board, stages, kicad_cli=args.kicad_cli, timeout=args.timeout, progress=ctx.progress)
     project, built, report = checked.project, checked.built, checked.report
     result: dict[str, Any] = {
         "project": {

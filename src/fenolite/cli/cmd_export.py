@@ -38,7 +38,7 @@ from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
 from fenolite.cli._manifest import joined, merged_write
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FenoliteError, FormatError, Issue
@@ -304,7 +304,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         design = backend.read(board).design
         others = {name: path for name, path in project.files.items() if name != project.board}
         major, version = cli.major(), cli.version()
-        for kind in kinds:
+        units = len(kinds) + len(drawing_kinds)  # each kind is one unit of progress, a drawing kind too
+        for index, kind in enumerate(kinds):
+            ctx.progress.step(kind, index=index + 1, total=units)
             found = run_kind(
                 cli,
                 kind,
@@ -314,6 +316,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 design=design,
                 args=lambda k, stem, layers: presets.arguments(k, preset, stem=stem, layers=layers),
             )
+            failed = any(item.severity == "error" for item in found.issues)
+            ctx.progress.done(kind, detail="failed" if failed else f"{len(found.artifacts)} file(s)")
             artifacts += found.artifacts
             issues += found.issues
             note = stackup_note(kind, design)
@@ -322,10 +326,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             tool_writes.update(found.tool_writes)
             model_uses += found.models
         sheet = _drawing_sheet(spec, spec_base, board, major, issues) if drawing_kinds else None
-        for kind in drawing_kinds:
+        for index, kind in enumerate(drawing_kinds):
             if sheet is None:  # the sheet could not be read: its issue is an error, nothing is written
                 break
+            ctx.progress.step(kind, index=len(kinds) + index + 1, total=units)
             drawn = drawings.RUNNERS[kind](cli, board, others, design=design, spec=spec, sheet=sheet)
+            failed = any(item.severity == "error" for item in drawn.issues)
+            ctx.progress.done(kind, detail="failed" if failed else f"{len(drawn.artifacts)} file(s)")
             artifacts += drawn.artifacts
             issues += drawn.issues
             tool_writes.update(drawn.tool_writes)
@@ -425,6 +432,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None if version_number is None else str(version_number),
         ),
         writes=tuple(writes),
+        depends=depends_on(
+            ctx.cwd,
+            board,
+            *project.files.values(),
+            args.preset,
+            board.with_suffix(".kicad_dru") if args.altium_rul else None,
+        ),
     )
 
 

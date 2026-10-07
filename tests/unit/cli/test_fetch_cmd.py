@@ -315,7 +315,7 @@ def test_dry_run_of_the_real_row_makes_no_request(
     assert result["url"] == row.url and result["version"] == "2.4.1" and result["file"] == JAR
     assert any("Java 25" in need for need in result["needs"])
     assert set(result) == {"name", "version", "file", "path", "bytes", "sha256", "url", "licence", "origin",
-                           "installed", "needs", "env", "plan"}  # fmt: skip
+                           "installed", "needs", "env", "plan", "plan_id"}  # fmt: skip
     assert env["evidence"]["level"] == "UNVERIFIED" and env["receipt"] is None
     assert no_network == [] and not tools.exists()
 

@@ -24,7 +24,7 @@ from typing import Any
 
 from fenolite import __version__
 from fenolite.cli import _kit
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -140,7 +140,11 @@ def _build(args: argparse.Namespace, ctx: Context) -> Result:
         "scripted": [step.id for step in kit.steps if step.scripted],
         "files": len(files),
     }
-    return Result(result=result, evidence=BUILD_EVIDENCE, writes=writes)
+    samples = _kit.SAMPLES_DIR if args.samples is None else _path(ctx, args.samples)
+    scripts = (samples / name / _kit.SCRIPT for name in _kit.SAMPLES)
+    return Result(
+        result=result, evidence=BUILD_EVIDENCE, writes=writes, depends=depends_on(ctx.cwd, *scripts)
+    )
 
 
 def _kit_folder(args: argparse.Namespace, ctx: Context) -> Path:
@@ -291,7 +295,15 @@ def _record(args: argparse.Namespace, ctx: Context) -> Result:
     )
     evidence = KIT_RUN if verdict.passed else UNVERIFIED_RUN
     # the record is written also for a run with failed steps: it records them; the exit code says so
-    return Result(result=result, issues=tuple(_verdict_issues(verdict)), evidence=evidence, writes=writes)
+    packed = (folder.joinpath(*entry.path.split("/")) for entry in verdict.results)
+    return Result(
+        result=result,
+        issues=tuple(_verdict_issues(verdict)),
+        evidence=evidence,
+        writes=writes,
+        depends=depends_on(ctx.cwd, *packed),
+        write_on_error=True,
+    )
 
 
 def _status(args: argparse.Namespace, ctx: Context) -> Result:

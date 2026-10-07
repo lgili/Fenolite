@@ -22,7 +22,7 @@ from fenolite.backends.kicad import models
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import board_format
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.output import InputRef
 
 HELP = "list the 3D model files a board's footprints name and where each is found (runs no tool)"
@@ -65,6 +65,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         },
     }
     writes: list[PlannedWrite] = []
+    copied: list[Path] = []
     if args.vendor:
         # one copy per official model (``${KICAD<N>_3DMODEL_DIR}/<rel>``) that is not in the project yet
         for use in located:
@@ -74,6 +75,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             name = f"{models.MODEL_FOLDER}/{use.path[official.end() :]}".replace("\\", "/")
             source = plan.files.get(name)
             if source is not None:
+                copied.append(Path(source))
                 writes.append(PlannedWrite(_target(board, name, ctx), Path(source).read_bytes(), WRITE_KIND))
     version = board_format(board)
     return Result(
@@ -87,6 +89,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None if version is None else str(version),
         ),
         writes=tuple(writes),
+        depends=depends_on(ctx.cwd, board, *copied),
     )
 
 

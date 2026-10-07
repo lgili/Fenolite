@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import os
 import pkgutil
 import random
 from collections.abc import Callable
@@ -21,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.cli.output import Evidence, InputRef, Issue, OutputMode
+from fenolite.core.progress import NULL_PROGRESS, Progress
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,6 +37,10 @@ class Context:
     cwd: Path
     kicad_target: int = 10
     allow_lossy: bool = False
+    progress: Progress = NULL_PROGRESS
+    """Where a command reports its units of work; it writes on stderr only under ``--progress``."""
+    state: Path | None = None
+    """The state folder (``fenolite.core.state.state_dir()``), ``None`` when it is off."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +82,29 @@ class Result:
     text: str | None = None
     """A text the command wants printed as it is in text mode, after the status line (a page of the
     guide). JSON mode ignores it: the envelope holds no key for it."""
+    depends: tuple[str, ...] = ()
+    """The inputs of the command that are not its targets, as :func:`depends_on` spells them: a plan id
+    binds their digests, and ``--confirm --plan`` refuses when one changed (cli-contract, "Staged plans")."""
+    write_on_error: bool = False
+    """Write although the issues hold an error. Only ``place --force`` sets it (cli-contract, "Error
+    findings plan no write")."""
+    written: Callable[[], None] | None = None
+    """Called by the dispatcher once, after the writes of this result were all written."""
+
+
+def depends_on(cwd: Path, *paths: str | Path | None) -> tuple[str, ...]:
+    """The value of ``Result.depends`` for the files at ``paths``: each one relative to ``cwd`` in POSIX
+    form when it lies inside it, else absolute; sorted, without repeats and without ``None``."""
+    found: set[str] = set()
+    for path in paths:
+        if path is None:
+            continue
+        full = Path(os.path.abspath(path if Path(path).is_absolute() else cwd / path))
+        try:
+            found.add(full.relative_to(Path(os.path.abspath(cwd))).as_posix())
+        except ValueError:
+            found.add(full.as_posix())
+    return tuple(sorted(found))
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,4 +158,4 @@ def discover() -> dict[str, Command]:
     return found
 
 
-__all__ = ["Command", "Context", "PlannedWrite", "Result", "discover", "module_name_for"]
+__all__ = ["Command", "Context", "PlannedWrite", "Result", "depends_on", "discover", "module_name_for"]

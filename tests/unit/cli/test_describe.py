@@ -20,8 +20,8 @@ COMMANDS = discover()
 NAMES = sorted(COMMANDS)
 ARGUMENT_KEYS = ["name", "flags", "kind", "type", "choices", "default", "required", "repeatable", "help"]
 GLOBAL_FLAGS = [
-    "--json", "--text", "--fields", "--limit", "--cursor", "--format", "--seed", "--timestamp", "--no-backup",
-    "--kicad-version", "--allow-lossy",
+    "--json", "--text", "--fields", "--limit", "--cursor", "--format", "--progress", "--seed", "--timestamp",
+    "--no-backup", "--kicad-version", "--allow-lossy",
 ]  # fmt: skip
 OPTION_LINE = re.compile(r"^  (-\S.*?)(?:  .*)?$")
 

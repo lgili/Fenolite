@@ -91,7 +91,7 @@ from fenolite.checks.copper import (
 from fenolite.checks.waivers import copper_waivers
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_export import preset_file
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -639,6 +639,12 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    # the inputs a review can see: the design script and, when the build reads one, the copper source
+    read = depends_on(ctx.cwd, args.design, getattr(args, "copper_from", None))
+    return dataclasses.replace(_built(args, ctx), depends=read)
+
+
+def _built(args: argparse.Namespace, ctx: Context) -> Result:
     script = Path(args.design)
     script_path = script if script.is_absolute() else ctx.cwd / script
     out = Path(args.out)

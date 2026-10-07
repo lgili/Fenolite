@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 import uuid
 from typing import Any
 
@@ -23,9 +24,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
                         help="emit an issue of this severity (repeatable)")  # fmt: skip
     parser.add_argument("--issues", type=int, default=0, metavar="N", help="emit N numbered warnings first")
     parser.add_argument("--raise", dest="raise_", action="store_true", help="raise an internal exception")
-    parser.add_argument("--write", metavar="PATH", help="plan a write of --content to PATH")
+    parser.add_argument("--write", metavar="PATH", action="append", default=None,
+                        help="plan a write of --content to PATH (repeatable)")  # fmt: skip
     parser.add_argument("--content", default="echo\n", help="content for --write")
     parser.add_argument("--gen-id", action="store_true", help="generate an id and a timestamp")
+    parser.add_argument("--steps", type=int, default=0, metavar="N", help="report N units of work first")
+    parser.add_argument("--sleep", type=float, default=0.0, metavar="S", help="seconds each unit takes")
     parser.add_argument("--defer", metavar="PATH", help="plan a deferred write of fixed bytes to PATH")
     parser.add_argument("--defer-bad", metavar="PATH", dest="defer_bad",
                         help="plan a deferred write whose source returns other bytes")  # fmt: skip
@@ -45,8 +49,13 @@ def _deferred(path: str, payload: bytes) -> PlannedWrite:
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    for n in range(args.steps):  # before --raise, so that a failure can follow progress records
+        ctx.progress.step(f"step-{n + 1}", index=n + 1, total=args.steps)
+        time.sleep(args.sleep)
+        ctx.progress.done(f"step-{n + 1}")
     if args.raise_:
         raise RuntimeError("requested failure (--raise)")
+    paths: list[str] = list(args.write or [])
     severities: list[str] = args.issue
     numbered = tuple(
         Issue(
@@ -61,13 +70,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         Issue(code=f"echo.{sev}", severity=sev, message=f"requested {sev} issue", where="_echo")  # type: ignore[arg-type]
         for sev in severities
     )
-    result: dict[str, Any] = {"echo": {"issues": severities, "write": args.write}}
+    # one path is shown as it was before the flag became repeatable
+    result: dict[str, Any] = {
+        "echo": {"issues": severities, "write": paths[0] if len(paths) == 1 else paths or None}
+    }
     if args.gen_id:
         result["id"] = str(uuid.UUID(int=ctx.rng.getrandbits(128), version=4))
         result["timestamp"] = ctx.timestamp.isoformat()
-    writes: tuple[PlannedWrite, ...] = ()
-    if args.write:
-        writes = (PlannedWrite(path=args.write, data=str(args.content).encode("utf-8"), kind="text"),)
+    data = str(args.content).encode("utf-8")
+    writes: tuple[PlannedWrite, ...] = tuple(
+        PlannedWrite(path=path, data=data, kind="text") for path in paths
+    )
     if args.defer:
         writes += (_deferred(args.defer, DEFERRED),)
     if args.defer_bad:

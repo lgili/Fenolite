@@ -131,11 +131,11 @@ def test_brief_size(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 def test_default_view_is_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Scenario "Default view unchanged"."""
+    """Scenario "Default view unchanged"; ``global_flags`` and ``mutation_flags`` came with change c0120."""
     result = _result(monkeypatch, tmp_path, "--no-tools")
     assert list(result) == [
-        "fenolite_version", "commands", "backends", "experimental", "matrix", "extras", "tools", "routers",
-        "sends_data_offsite",
+        "fenolite_version", "commands", "global_flags", "mutation_flags", "backends", "experimental",
+        "matrix", "extras", "tools", "routers", "sends_data_offsite",
     ]  # fmt: skip
     assert all("summary" not in entry and "arguments" not in entry for entry in result["commands"])
     assert all(set(r) == {"name", "description", "sends_data_offsite", "builtin"} for r in result["routers"])

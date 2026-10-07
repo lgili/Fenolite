@@ -197,6 +197,79 @@ def test_mutation_protocol(
     assert code == 2 and _assert_error(err, 2)["code"] == "FEN-2003"
 
 
+WRITES_ON_ERROR = {"place": "--force", "manifest": "the manifest", "kit": "the record"}
+"""The commands that may write beside an error finding, and the words their module says why with: ``place``
+under ``--force``; ``manifest``, whose one write is the report of the check ("Manifest command": planned
+whether or not the check found errors); ``kit record``, which records a run with failed steps (cli-contract,
+"Error findings plan no write")."""
+
+
+@pytest.mark.parametrize("name", sorted(n for n, c in COMMANDS.items() if c.mutates))
+def test_error_no_write(name: str) -> None:
+    """Scenario "The rule holds for every mutating command": a module that sets ``write_on_error`` and is
+    not one of the named exceptions fails here."""
+    source = Path(sys.modules[f"fenolite.cli.{module_name_for(name)}"].__file__ or "").read_text(
+        encoding="utf-8"
+    )
+    assert ("write_on_error" in source) is (name in WRITES_ON_ERROR), name
+    if name in WRITES_ON_ERROR:
+        assert WRITES_ON_ERROR[name] in source
+
+
+def test_error_no_write_in_the_dispatcher(
+    capsys: CapSys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    for protocol in (["--confirm"], ["--dry-run"], []):
+        code, out, err = _invoke(
+            capsys, ["_echo", "--issue", "error", "--write", "x.txt", "--json", *protocol]
+        )
+        data = _assert_envelope("_echo", out)
+        assert code == 5 and _assert_error(err, 5)["code"] == "FEN-5001"
+        assert data["receipt"] is None and "plan" not in data["result"] and "plan_id" not in data["result"]
+        assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", MUTATING)
+def test_depends_declared(name: str, capsys: CapSys, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Every mutating command declares its inputs": the dry run of the mutation example gives a
+    plan id of 16 hex digits, and every declared input is an existing file. An example reads its input
+    from the package's own data, so a declared path is inside the working folder or absolute."""
+    command = COMMANDS[name]
+    assert command.mutation_example_args is not None
+    monkeypatch.chdir(tmp_path)
+    prepare_example(name, tmp_path)
+    seen: list[Result] = []
+    module = sys.modules[f"fenolite.cli.{module_name_for(name)}"]
+
+    def recording(args: Any, ctx: Context) -> Result:
+        seen.append(command.run(args, ctx))
+        return seen[-1]
+
+    monkeypatch.setattr(module, "COMMAND", dataclasses.replace(command, run=recording))
+    code, out, err = _invoke(capsys, [name, *command.mutation_example_args, "--json", "--dry-run"])
+    assert code == 0, err
+    data = _assert_envelope(name, out)
+    (result,) = seen
+    for path in result.depends:
+        assert not Path(path).is_absolute() or ".." not in Path(path).parts
+        assert (tmp_path / path).is_file(), f"{name} declares {path}, which is no file"
+        if not Path(path).is_absolute():
+            assert (tmp_path / path).resolve().is_relative_to(tmp_path.resolve())
+    assert list(result.depends) == sorted(set(result.depends))
+    if name in PLANS_NOTHING:
+        assert "plan_id" not in data["result"]
+        return
+    assert re.fullmatch(r"[0-9a-f]{16}", data["result"]["plan_id"])
+
+
+def test_depends_names_the_inputs_of_each_command() -> None:
+    """The commands that read a design file declare one: only ``_echo``, ``fetch`` without ``--from`` and
+    ``kit build`` from the packaged samples have nothing to declare in their examples."""
+    assert "depends" in Result.__dataclass_fields__ and Result().depends == ()
+    assert Result().write_on_error is False
+
+
 @pytest.mark.parametrize("name", NAMES)
 def test_non_mutating_commands_reject_protocol_flags(name: str, capsys: CapSys) -> None:
     if COMMANDS[name].mutates:

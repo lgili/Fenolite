@@ -27,6 +27,20 @@ _SPECS = (
     ErrorSpec(
         "FEN-1001", ExitCode.INTERNAL, "internal error", "this is a bug; report it with the command line"
     ),
+    ErrorSpec(
+        "FEN-1002",
+        ExitCode.INTERNAL,
+        "a write failed; nothing was changed",
+        "nothing was written; fix the cause and run the same command again",
+        retryable=True,
+    ),
+    ErrorSpec(
+        "FEN-1003",
+        ExitCode.INTERNAL,
+        "stopped by a signal; nothing was written",
+        "run the same command again",
+        retryable=True,
+    ),
     ErrorSpec("FEN-2001", ExitCode.USAGE, "invalid command line", "run 'fenolite --help'"),
     ErrorSpec(
         "FEN-2002", ExitCode.USAGE, "unknown field in --fields", "list the result keys with --json first"
@@ -64,7 +78,14 @@ _SPECS = (
         "FEN-4001",
         ExitCode.CONFIRM_REQUIRED,
         "confirmation required; nothing was written",
-        "review result.plan, then re-run with --confirm (or --dry-run to only preview)",
+        "review result.plan, then re-run with --confirm --plan <id> to write exactly that plan, where <id> "
+        "is result.plan_id (or with --confirm alone to plan and write in one run)",
+    ),
+    ErrorSpec(
+        "FEN-4002",
+        ExitCode.CONFIRM_REQUIRED,
+        "the plan named by --plan cannot be written as reviewed; nothing was written",
+        "run the command with --dry-run again, review the new plan, and confirm it with its id",
     ),
     ErrorSpec(
         "FEN-5001",

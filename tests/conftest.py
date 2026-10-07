@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import itertools
 import os
 import sys
 from collections.abc import Iterator
@@ -115,6 +116,25 @@ def _tools_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterat
     name = "FENOLITE_TOOLS_DIR"
     before = os.environ.get(name)
     os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-tools")
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before
+
+
+_STATE_FOLDERS = itertools.count()
+
+
+@pytest.fixture(autouse=True)
+def _state_folder_of_the_test(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads or fills the user's state folder: ``FENOLITE_STATE_DIR`` names a folder of the test,
+    outside its ``tmp_path``, which exists only once a command staged a plan or kept a route record there
+    (capability cli-contract, "Staged plans"; c0120). One folder per test, so that no test finds the plan
+    or the record of another."""
+    name = "FENOLITE_STATE_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-state" / str(next(_STATE_FOLDERS)))
     yield
     if before is None:
         os.environ.pop(name, None)

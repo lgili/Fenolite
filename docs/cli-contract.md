@@ -37,21 +37,25 @@ bumps the schema id.
 ```
 
 `input` is `{path, sha256, kind, format_version}` when the command read a design file.
-`receipt` is `{written: [{path, sha256}], backup: [path], id, undo}` when the command wrote files
-(see "Receipt identity").
+`receipt` is `{written: [{path, sha256}], backup: [path], id, undo, plan}` when the command wrote files
+(see "Receipt identity"); `plan` is the id that `--confirm --plan` named, else `null`.
 
 ## Errors — `schemas/fenolite.error.v0.json`
 
 Whenever the exit code is not 0, stderr carries exactly one error object
 `{code, message, hint, retryable, where}` (JSON mode) or one line `error FEN-NNNN: message (hint)`
-(text mode). The first digit of the code equals the exit code.
+(text mode). The first digit of the code equals the exit code. Without `--progress` the error object is
+the only thing Fenolite writes on stderr; with it, progress records may come first, each on a line of its
+own, and the error object is the last line (see "Progress"). No exit leaves a traceback: an exception
+that no handler maps, a failed write and a signal each end in one registered code (`FEN-1001`,
+`FEN-1002`, `FEN-1003`).
 
 ## Exit codes
 
 | Code | Meaning | Error family |
 |---|---|---|
 | 0 | success | — |
-| 1 | internal failure (a bug) | `FEN-1xxx` |
+| 1 | internal failure: a bug only when `retryable` is false | `FEN-1xxx` |
 | 2 | usage error | `FEN-2xxx` |
 | 3 | input unreadable or from a future format version | `FEN-3xxx` |
 | 4 | confirmation required (nothing was written) | `FEN-4xxx` |
@@ -66,13 +70,20 @@ an exception's own `hint` replaces the registry hint. When such an exception car
 non-empty sequence of issues, as `LossyWriteError`, `UnresolvedLibrariesError` and `LayoutExistsError`
 do), they are put in the envelope's `issues`, so a refusal says which lib ids, nets or files it refused.
 
+Exit 1 is not always a bug. `FEN-1001` (`retryable` false) is one: report it. `FEN-1002` and `FEN-1003`
+(`retryable` true) say that a write failed or that the command was stopped, that nothing was changed,
+and that the same command can be run again.
+
 | Code | Meaning | Raised by |
 |---|---|---|
+| `FEN-1002` | a write failed; nothing was changed | the dispatcher, when a file of the plan cannot be written: the message names the path, relative to the working directory, and the system's reason (retryable; see "All-or-nothing writes") |
+| `FEN-1003` | stopped by a signal; nothing was written | the dispatcher, after SIGTERM or SIGINT (retryable; see "Signals") |
 | `FEN-3002` | input uses a newer format version than supported | `FutureFormatError` (editing a future file) |
 | `FEN-3003` | input format version older than the oldest supported | `UnsupportedFormatError` (hint names the `kicad-cli … upgrade` command) |
 | `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …), and `DesignScriptError` (a design script that raised, or that binds no `design`) |
 | `FEN-3005` | geometry in the input cannot be represented | `GeometryError` (the message names the geometry code and the points) |
 | `FEN-3006` | fetched file does not match the pinned size or SHA-256 | the dispatcher, for a deferred write whose bytes differ from what the plan declared (see [fetch](#fetch)); the message holds the digest that was expected and the one that was found, and nothing is written |
+| `FEN-4002` | the plan named by `--plan` cannot be written as reviewed | the dispatcher, for `--confirm --plan ID`: the message names the first reason (see "Staged plans"); nothing is written |
 | `FEN-6003` | download failed | `fenolite fetch NAME --confirm` without `--from` (retryable; the hint names `--from FILE`) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
 | `FEN-7002` | target format version older than the input; downgrade is not supported | `DowngradeRefusedError` |
@@ -84,9 +95,106 @@ Commands that write are **mutating**. They never write unless asked:
 
 | Invocation | Effect | Exit |
 |---|---|---|
-| `fenolite <cmd> … --dry-run` | `result.plan` lists every file that would be written; nothing is written | 0 |
-| `fenolite <cmd> …` | same plan, error `FEN-4001`, nothing is written | 4 |
-| `fenolite <cmd> … --confirm` | atomic writes (temporary file + rename), `.bak` of overwritten files unless `--no-backup`, `receipt` with SHA-256 | 0 |
+| `fenolite <cmd> … --dry-run` | `result.plan` lists every file that would be written and `result.plan_id` names the plan; nothing is written | 0 |
+| `fenolite <cmd> …` | same plan and id, error `FEN-4001` whose hint names `--confirm --plan <id>`, nothing is written | 4 |
+| `fenolite <cmd> … --confirm --plan ID` | the plan that a review saw is written, without running the command again (see "Staged plans") | 0 |
+| `fenolite <cmd> … --confirm` | one run that plans and writes: atomic writes (temporary file + rename), `.bak` of overwritten files unless `--no-backup`, `receipt` with SHA-256 | 0 |
+
+`--plan` without `--confirm`, and `--plan` with `--dry-run`, exit 2 with `FEN-2001`.
+
+### Staged plans
+
+A review followed by a plain `--confirm` runs the command twice: every tool runs again, and a command
+whose tool stamps its files (`export`: Gerber and drill files carry their creation time) then writes
+other bytes than the plan showed. `--confirm --plan ID` writes the reviewed bytes instead.
+
+- **The id.** `result.plan_id` is the first 16 hex digits of the SHA-256 of the canonical JSON of: the
+  command name; its arguments without the run flags; the working directory; the SHA-256 of every input
+  the command declares; and, per planned write, its path, kind, size, SHA-256 and the SHA-256 of the file
+  it would replace (`null` when there is none). No clock and no seed takes part, so the same dry run on
+  the same files gives the same id. A command that plans no write gets no id.
+- **Run flags** change how a run happens, not what it plans, and take no part in the id: `--dry-run`,
+  `--confirm`, `--plan`, `--json`, `--text`, `--fields`, `--limit`, `--cursor`, `--format`, `--progress`,
+  `--seed`, `--timestamp`, `--no-backup`, `--timeout` and `--kicad-cli`.
+- **Declared inputs.** `build`: the design script and the `--copper-from` board. `place`, `route`, `fill`,
+  `export`, `render`, `pnp`, `sync` and `models`: the board and the other files of its project that the
+  command read. `bom`: the board, and the root schematic with `--source kicad`. `manifest`: every design
+  file and artefact manifest it hashed. `kit`: the documents it packs. `fmt` and `template`: their input
+  file. `restore`: the receipt file, the written files and the `.bak` files. `fetch`: the file of
+  `--from`. A target is not declared: it is bound through the digest of the file it replaces.
+- **The checks.** `--confirm --plan ID` refuses with `FEN-4002` (exit 4), naming the first reason, when
+  the working directory, the command or its arguments differ from the plan's; when a declared input or a
+  target has another SHA-256 than at the review (a target that did not exist must still not exist); or
+  when a staged file is damaged. A refusal writes nothing and keeps the staged plan, except a damaged
+  one. Otherwise the staged bytes are written, the reply repeats the reviewed `result`, `issues`,
+  `evidence` and `input` (shaped by the run flags of this call), and `receipt.plan` is the id. The
+  receipt is an ordinary one: `fenolite restore` undoes it.
+- **The state folder.** The planned bytes are kept outside the user's tree, under `plans/<id>/` of
+  `~/.cache/fenolite/state`. `FENOLITE_STATE_DIR` names another folder when it is an absolute path, and
+  `off` turns the store off. The store keeps at most 16 plans and 512 MiB, dropping the oldest first,
+  drops a plan older than 7 days, and removes a plan once it is written. It holds nothing the command did
+  not plan, and it can be deleted at any time. A run that writes nothing creates no file in the working
+  directory, the project or the output folder.
+- **Not staged.** When the plan cannot be kept (the store is off, not writable, or smaller than the
+  plan), the reply holds one `plan.not-staged` warning and still gives the id. `--confirm --plan ID` then
+  runs the command once and writes only when the new plan has the id `ID`, else `FEN-4002`: the id always
+  binds what is written, and the store only saves the second run. A plan with a deferred write is always
+  planned again, because its bytes do not exist before `--confirm`.
+
+| code | severity | when |
+|---|---|---|
+| `plan.not-staged` | warning | the planned bytes could not be kept in the state folder; the message gives the reason |
+
+### All-or-nothing writes
+
+A command writes every file of its plan or none. The new contents are first written beside their
+targets, and every file that will be replaced is kept; only then are the targets replaced, in plan
+order. When any step fails, every replaced file and every `.bak` is put back, and the new files, the
+temporary files and the folders that were created are removed. The reply is then the envelope with `ok`
+false, the plan in `result` and `receipt` `null`, and one `FEN-1002` object: exit 1, `retryable` true, the
+failing path relative to the working directory, the system's reason, no absolute path and no traceback.
+A receipt of an earlier command still restores, and under `--plan` the staged plan stays for the retry.
+Only a forced stop of the process (SIGKILL) in the middle of the replacements can leave part of a plan
+written; the temporary files beside the targets then show it.
+
+### Error findings plan no write
+
+A command whose issues hold one of severity `error` plans, stages and writes nothing: `result.plan` and
+`result.plan_id` are absent, `receipt` is `null` and the exit code is 5, with `--dry-run`, with `--confirm`
+and with neither. The rule holds in the dispatcher, for every command. The exceptions write on purpose:
+`place --force`, where writing beside an error is what the flag asks for, and the two commands whose
+write is the report of the findings, `manifest` (the manifest records the states that the check found)
+and `kit record` (the record holds the failed steps of the run).
+
+### Signals
+
+SIGTERM and SIGINT (Ctrl+C) stop a command cleanly: the tool processes it started (`kicad-cli`, `java`,
+a router) are stopped with it, a write in progress is put back, the record of a route keeps the router
+runs that had finished (see [route](#route)), and the reply is the envelope with `ok` false and one
+`FEN-1003` object (exit 1, `retryable` true, "stopped by a signal; nothing was written"). A second signal
+does not cut the clean-up. On Windows a Ctrl+C is handled the same way, and a forced stop of the process
+(`TerminateProcess`) cannot be handled; SIGKILL cannot be handled on any system, and can leave temporary
+files and a tool process behind.
+
+### Progress
+
+`--progress` makes a command write progress records on stderr while it runs: one when a unit of work
+starts, one when it ends, and one at least every 10 seconds, so that a caller can tell a long step from
+a dead one. In JSON mode a record is one line
+
+```json
+{"progress": {"command": "check", "event": "step", "step": "drc.kicad", "index": 3, "total": 5, "detail": "", "elapsed_ms": 1200}}
+```
+
+with `event` `step` (a unit starts), `done` (it ends; `detail` says how) or `alive`; `index` and `total`
+are integers or `null`. In text mode it is one line that starts with `progress: <command>: `. The units
+are: one per stage of `check`, named by the stage; one per router process of `route` (for
+KiCadRoutingTools a group of nets, named by its first net and the count of the others; for Freerouting a
+tier, `freerouting` or `freerouting tier <n>`); the `refill` of `fill`; one per kind of
+`export`; one per view of `render`. Every other command gives `alive` records only. A record holds no
+path of the machine. Records carry times, so the determinism rule does not cover them; stdout is the
+same with and without the flag, apart from `elapsed_ms`. Without `--progress` nothing but the error
+object is written on stderr.
 
 **Deferred writes.** A command may plan a file whose bytes are costly to obtain, such as a download,
 without obtaining them (`PlannedWrite.source`, with the `size` and the `sha256` the bytes must have). The
@@ -522,7 +630,9 @@ already has that name it keeps its stored spelling (`kicad.board.net-name-collis
 
 ## Discovery
 
-`fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), backends,
+`fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), the flags every
+command accepts (`global_flags`, `--progress` among them) and those of the mutation protocol
+(`mutation_flags`: `--dry-run`, `--confirm`, `--plan`), backends,
 experimental features, the evidence matrix, installed extras, detected external tools (`kicad-cli`, `java`, `docker`) with
 versions, and whether any enabled feature sends data off the machine. Agents should call it first.
 A command whose examples need an external tool also lists `example_tools` (`export` and `render`:
@@ -731,8 +841,9 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 - **Plane layers and plane nets.** A copper layer of the KiCad type `power` is a plane layer (`result.plane_layers`), and a net with a zone on one is a plane net. A plane net is never given to a router, also with `--include-zone-nets`; each one that `--nets` selects gives `route.plane-net`. `--rip` rips the selected plane nets as other nets.
 - **Plane fan-out.** Before the router runs, each SMD pad of a selected plane net gets one short track and one through via, found by a deterministic search (`docs/routing.md`, "Plane fan-out"); a pad without room gives `kicad.fanout.failed` and stays open. `--no-plane-fanout` skips the step. The copper is written also when no net goes to a router or the router adds nothing. `result.plane_fanout` holds `nets` (the plane nets fanned out, sorted), the counts `pads`, `joined`, `tracks` and `vias`, and `failed` (`REF-NUMBER` of each pad left open, in board order); with `--no-plane-fanout`, `nets` is empty and the counts are 0.
 - **Routing layers.** A net's tracks may use the copper layers that are not plane layers and that no `no_tracks` rule forbids to it; a selected net left with none gives `route.no-layer` and is not routed.
+- **Resumed.** The copper of each router process that finished is kept in the state folder until the board is written. The same call made again on the same board reuses it and does not route those nets again: the reply then holds one `route.resumed` info and `result.resumed` (`runs`, `nets`), and `tracks` and `vias` count the reused copper too. Without a record `result.resumed` is `null`. See `docs/routing.md`, "The job record". The recorded copper is merged after the plane fan-out, as the router of the earlier call saw the board. A dry run that the budget cut keeps the record, so the same dry run made again goes on with the nets that were not attempted.
 
-`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `plane_layers`, `plane_fanout` and up to 20 sanitised `log` lines. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
+`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout` and up to 20 sanitised `log` lines. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
 
 | code | severity | when |
 |---|---|---|
@@ -749,6 +860,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.partial` | info | the router returned copper for a net that stays open; the copper is kept and written, and the message gives the number of items |
 | `route.plane-net` | info | a plane net that `--nets` selects is not given to a router; its pads reach the plane through fan-out vias |
 | `route.project-unread` | warning | the project file or the rules file beside the board could not be read: without the project every net takes the default class values, without the rules file the rules are not given to the router |
+| `route.resumed` | info | the copper of router runs that finished in an earlier call of the same job was reused; the message gives the number of runs and of nets |
 | `route.tool-failed` | error | the external router failed |
 | `route.tool-missing` | error | the configured router is unavailable |
 | `route.tool-unpinned` | warning | external router checkout is not the supported pinned version |

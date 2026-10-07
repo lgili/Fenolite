@@ -29,6 +29,7 @@ from fenolite.backends.base import (
 from fenolite.checks.codes import issue
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 
@@ -177,10 +178,12 @@ def run_checks(
     plotter: Plotter | None = None,
     fill_oracle: FillOracle | None = None,
     waivers: Sequence[Waiver] = (),
+    progress: Progress = NULL_PROGRESS,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
-    (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage."""
+    (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
+    that runs is one unit of ``progress``, named by the stage."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
@@ -305,8 +308,10 @@ def run_checks(
         "roundtrip.rt2": rt2,
         "render": render,
     }
-    for name in selected:
+    for index, name in enumerate(selected):
+        progress.step(name, index=index + 1, total=len(selected))
         done[name] = runners[name]()
+        progress.done(name, detail=done[name].status)
     results = tuple(done[name] for name in selected)
     counted = [r.evidence for r in results if r.status != "skipped" or r.reason in _COUNTED_SKIPS]
     evidence = Evidence.combine(*counted) if counted else Evidence()

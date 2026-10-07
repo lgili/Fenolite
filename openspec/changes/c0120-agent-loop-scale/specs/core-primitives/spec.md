@@ -6,6 +6,7 @@
 - **Prepare.** The function MUST create the missing parent folders, remembering which it created; write and flush to disk every new content in a temporary file beside its target; and keep every existing target and every existing `<path>.bak` by a hard link beside it, or by a copy where the file system refuses a link.
 - **Commit.** It MUST replace the targets with `os.replace` in the given order; then, with `backup` true, rename each kept target to `<path>.bak`, and otherwise remove it.
 - **Roll back.** On any exception, `KeyboardInterrupt` and other `BaseException`s included, it MUST put back every replaced target and every `.bak` from what it kept, remove the targets that did not exist before, the temporary and kept files and the folders it created, and raise `WriteError(path, reason)`: `path` the file at which the step failed, `reason` the system's message without a path. `WriteError` MUST be a `FenoliteError` with `cli_code = "FEN-1002"`; an exception that is not an `OSError` MUST be raised again after the roll back instead.
+- An exception that arrives after the last target and the last backup are in place MUST NOT undo the write: what was kept is removed and the receipts are returned.
 - Two entries with one path MUST raise `ValueError` before anything is touched.
 - The function MUST use the standard library only and MUST NOT follow a symbolic link out of the folder of a target.
 
