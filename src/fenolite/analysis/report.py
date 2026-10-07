@@ -36,7 +36,8 @@ class Measure:
     """A distance as an interval of nanometres: ``low ≤ d ≤ high``. ``layer`` names the layer, or the two
     faces joined by ``/``; ``points`` are the points of the path in order; ``items`` are the two copper
     items. ``bounded`` is true when a search stopped at its limit: ``low`` is then the limit and ``high``
-    is ``None``."""
+    is ``None``. ``over`` names the conductors of other nets, or of none, that the path crosses at no
+    length, in order."""
 
     low: Nm
     high: Nm | None
@@ -44,6 +45,7 @@ class Measure:
     points: tuple[Point, ...]
     items: tuple[str, str]
     bounded: bool = False
+    over: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,13 +71,17 @@ class CurrentRow:
 @dataclass(frozen=True, slots=True)
 class DistanceRow:
     """The distances of one pair of nets, the names in sorted order: the gap on each copper layer that
-    carries both, the clearance through air and the creepage along the surface."""
+    carries both, the clearance through air and the creepage along the surface; with the insulation
+    analysis, the distance through the laminate between two layers and the count of dielectric entries
+    between them."""
 
     net_a: str
     net_b: str
     gaps: tuple[Measure, ...] = ()
     clearance: Measure | None = None
     creepage: Measure | None = None
+    insulation: Measure | None = None
+    sheets: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

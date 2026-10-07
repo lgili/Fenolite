@@ -13,13 +13,19 @@ against a requirement of the user.
 
 from __future__ import annotations
 
+import heapq
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import replace
 
+from fenolite.analysis import grooves as groove_module
+from fenolite.analysis import insulation as insulation_module
 from fenolite.analysis.boundary import BoardBoundary
 from fenolite.analysis.codes import issue
-from fenolite.analysis.copper import ARC_TOL_NM, CopperShape, NetCopper, net_copper
+from fenolite.analysis.copper import ARC_TOL_NM, CopperShape, NetCopper, loose_copper, net_copper
+from fenolite.analysis.grooves import GrooveResult, bridge_grooves, passes_groove
+from fenolite.analysis.insulation import insulation_between, layer_depths, plan_gap
+from fenolite.analysis.network import graphic_issue
 from fenolite.analysis.report import (
     AnalysisReport,
     DistanceRow,
@@ -32,50 +38,27 @@ from fenolite.analysis.report import (
 )
 from fenolite.analysis.requirements import Requirements
 from fenolite.analysis.surface import (
+    BRIDGE_EVIDENCE,
     Face,
     SurfacePath,
     Terminal,
     boundary_distance,
+    conductor_chain,
     surface_distance,
     usable_terminals,
 )
 from fenolite.backends.base import BoardPad
 from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm
-from fenolite.geometry import BBox, SpatialIndex, thick_bbox, thick_gap_floor, thick_touch, thick_witness
+from fenolite.geometry import BBox, SpatialIndex, thick_bbox, thick_gap_floor, thick_touch
 from fenolite.model.circuit import Net
 from fenolite.model.design import Design
 
 Pair = tuple[str, str]
 
 
-def _box_gap(a: BBox, b: BBox) -> int:
-    """A lower bound of the distance of two boxes: the larger of their separations along the axes."""
-    dx = max(a.x0 - b.x1, b.x0 - a.x1, 0)
-    dy = max(a.y0 - b.y1, b.y0 - a.y1, 0)
-    return max(dx, dy)
-
-
-def _layer_gap(first: Sequence[CopperShape], second: Sequence[CopperShape], layer: str) -> Measure | None:
-    """The smallest gap between the shapes of two nets on one layer, as an interval with its witness."""
-    best: tuple[int, int, CopperShape, CopperShape] | None = None  # low, gap, a, b
-    boxes_b = [thick_bbox(item.shape) for item in second]
-    for one in first:
-        box_a = thick_bbox(one.shape)
-        for other, box_b in zip(second, boxes_b, strict=True):
-            bands = one.band + other.band
-            if best is not None and _box_gap(box_a, box_b) - bands > best[0]:
-                continue
-            gap = 0 if thick_touch(one.shape, other.shape) else thick_gap_floor(one.shape, other.shape)
-            low = max(0, gap - bands)
-            if best is None or (low, gap) < (best[0], best[1]):
-                best = (low, gap, one, other)
-    if best is None:
-        return None
-    low, gap, one, other = best
-    touching = gap == 0 and thick_touch(one.shape, other.shape)
-    high = 0 if touching else gap + 1 + one.band + other.band
-    return Measure(low, high, layer, (thick_witness(one.shape, other.shape),), (one.where, other.where))
+_layer_gap = plan_gap
 
 
 def _by_layer(shapes: Sequence[CopperShape]) -> dict[str, list[CopperShape]]:
@@ -113,6 +96,41 @@ def _close_pairs(copper: NetCopper, within: Nm) -> set[Pair]:
     return pairs
 
 
+def _close_through(copper: NetCopper, depths: insulation_module.Depths, within: Nm) -> set[Pair]:
+    """Every pair of nets with copper on two layers whose distance through the laminate is below
+    ``within``: per two layers closer than ``within``, one index over the shapes of the lower one."""
+    pairs: set[Pair] = set()
+    entries: dict[str, list[tuple[str, CopperShape]]] = {}
+    for name, shapes in copper.by_net.items():
+        for shape in shapes:
+            if shape.layer in depths:
+                entries.setdefault(shape.layer, []).append((name, shape))
+    order = sorted(entries, key=lambda layer: depths[layer])
+    for i, upper in enumerate(order):
+        for lower in order[i + 1 :]:
+            height = depths[lower][0] - depths[upper][1]
+            if height < 0 or height >= within:
+                continue
+            items = entries[lower]
+            boxes = [thick_bbox(shape.shape) for _, shape in items]
+            index = SpatialIndex[int].build((box, k) for k, box in enumerate(boxes))
+            for name, shape in entries[upper]:
+                box = thick_bbox(shape.shape)
+                reach = within + shape.band
+                grown = BBox(box.x0 - reach, box.y0 - reach, box.x1 + reach, box.y1 + reach)
+                for k in index.query(grown):
+                    other_name, other = items[k]
+                    pair = (name, other_name) if name < other_name else (other_name, name)
+                    if other_name == name or pair in pairs:
+                        continue
+                    touching = thick_touch(shape.shape, other.shape)
+                    gap = 0 if touching else thick_gap_floor(shape.shape, other.shape)
+                    gap = max(0, gap - shape.band - other.band)
+                    if gap * gap + height * height < within * within:
+                        pairs.add(pair)
+    return pairs
+
+
 def _terminals(shapes: Sequence[CopperShape], outer: tuple[str, str]) -> list[tuple[Terminal, CopperShape]]:
     found: list[tuple[Terminal, CopperShape]] = []
     for shape in shapes:
@@ -143,6 +161,184 @@ def _path_measure(
         tuple(point for point, _ in path.points),
         items,
     )
+
+
+_Conductor = tuple[Terminal, CopperShape, str | None, int]  # terminal, shape, net, id of the conductor
+
+
+def _conductors(
+    copper: NetCopper, loose: Sequence[CopperShape], boundary: BoardBoundary | None
+) -> list[_Conductor]:
+    """Every shape on the two outer copper layers as a conductor that a path may cross, with its net
+    (``None`` for copper without one); the shapes of one item are one conductor."""
+    outer = copper.outer
+    if outer is None:
+        return []
+    ids: dict[str, int] = {}
+    found: list[_Conductor] = []
+    groups: list[tuple[str | None, Sequence[CopperShape]]] = [*copper.by_net.items(), (None, loose)]
+    for net, shapes in groups:
+        for terminal, shape in _terminals(shapes, outer):
+            found.append((terminal, shape, net, ids.setdefault(shape.entity_id, len(ids))))
+    kept, _ = usable_terminals([entry[0] for entry in found], boundary)
+    usable = {id(terminal) for terminal in kept}
+    return [entry for entry in found if id(entry[0]) in usable]
+
+
+NEAR_CONDUCTORS = 500
+"""The number of conductors within the reach of one net of a pair above which the conductors of that pair
+are not searched: the two nets then lie far apart on a dense board, the pair is counted in one
+``analysis.item-unsupported`` warning naming ``conductors``, and its values are those without conductors,
+upper bounds of the values over them."""
+
+
+class _Field:
+    """The conductors of the board with one index over their boxes, built once for all pairs. For a pair
+    it gives the conductors that a path shorter than a reach can use: those that a chain of boxes, each
+    within the reach of the one before, joins to both nets. A box is never farther than its copper, so
+    no conductor that can help is left out."""
+
+    def __init__(self, conductors: Sequence[_Conductor]) -> None:
+        self.by_id: dict[int, list[_Conductor]] = {}
+        for entry in conductors:
+            self.by_id.setdefault(entry[3], []).append(entry)
+        self.boxes: dict[int, BBox] = {}
+        for key, entries in self.by_id.items():
+            found = [thick_bbox(entry[0].shape) for entry in entries]
+            self.boxes[key] = BBox(
+                min(box.x0 for box in found), min(box.y0 for box in found),
+                max(box.x1 for box in found), max(box.y1 for box in found),
+            )  # fmt: skip
+        self.index = SpatialIndex[int].build((box, key) for key, box in self.boxes.items())
+        self.through = [
+            entries[0][2] for entries in self.by_id.values() if len({entry[0].face for entry in entries}) == 2
+        ]
+
+    def joins_faces(self, skip: Pair) -> bool:
+        """Whether a conductor of another net, or of none, has copper on both outer layers."""
+        return any(net not in skip for net in self.through)
+
+    def near(
+        self,
+        term_a: Sequence[tuple[Terminal, CopperShape]],
+        term_b: Sequence[tuple[Terminal, CopperShape]],
+        reach: Nm | None,
+        skip: Pair,
+    ) -> tuple[list[_Conductor], bool]:
+        """The conductors that can help, and whether all of them were found: with more than
+        ``NEAR_CONDUCTORS`` within the reach of one net the search is given up, and none is returned."""
+
+        def closure(terminals: Sequence[tuple[Terminal, CopperShape]]) -> set[int] | None:
+            seen: set[int] = set()
+            queue = [thick_bbox(terminal.shape) for terminal, _ in terminals]
+            if reach is None:
+                seen = {key for key, entries in self.by_id.items() if entries[0][2] not in skip}
+                return seen if len(seen) <= NEAR_CONDUCTORS else None
+            while queue:
+                box = queue.pop()
+                grown = BBox(box.x0 - reach, box.y0 - reach, box.x1 + reach, box.y1 + reach)
+                for key in self.index.query(grown):
+                    if key not in seen and self.by_id[key][0][2] not in skip:
+                        seen.add(key)
+                        queue.append(self.boxes[key])
+                if len(seen) > NEAR_CONDUCTORS:
+                    return None
+            return seen
+
+        first = closure(term_a)
+        second = closure(term_b) if first is not None else None
+        if first is None or second is None:
+            return [], False
+        return [entry for key in sorted(first & second) for entry in self.by_id[key]], True
+
+
+def _air_chain(
+    term_a: Sequence[tuple[Terminal, CopperShape]],
+    term_b: Sequence[tuple[Terminal, CopperShape]],
+    others: Sequence[_Conductor],
+    outer: tuple[str, str],
+    below: Nm | None,
+) -> tuple[Measure | None, tuple[str | None, ...], bool]:
+    """The shortest chain through air from one net to the other over at least one conductor: links of
+    gaps on one face, a conductor crossed at no length and from one face to the other when it has copper
+    on both. Only a chain whose low end is below ``below`` is returned, with the nets of its conductors."""
+    if not term_a or not term_b or not others:
+        return None, (), True
+    by_id: dict[int, list[_Conductor]] = {}
+    for entry in others:
+        by_id.setdefault(entry[3], []).append(entry)
+    order = sorted(by_id)
+    stations = [[entry[0] for entry in by_id[key]] for key in order]
+    set_a, set_b = [t for t, _ in term_a], [t for t, _ in term_b]
+    from_a, _, complete = conductor_chain(set_a, set_b, stations, limit=below)
+    if not from_a:
+        return None, (), complete
+    names = {"top": outer[0], "bottom": outer[1]}
+
+    def shapes_of(node: int) -> Sequence[tuple[Terminal, CopperShape]]:
+        if node == -1:
+            return term_a
+        if node == -2:
+            return term_b
+        return [(entry[0], entry[1]) for entry in by_id[order[node]]]
+
+    def link(first: int, second: int) -> Measure | None:
+        best: Measure | None = None
+        for face in ("top", "bottom"):
+            one = [shape for terminal, shape in shapes_of(first) if terminal.face == face]
+            two = [shape for terminal, shape in shapes_of(second) if terminal.face == face]
+            found = plan_gap(one, two, names[face]) if one and two else None
+            if found is not None and (best is None or found.low < best.low):
+                best = found
+        return best
+
+    dist: dict[int, int] = {-1: 0}
+    before: dict[int, tuple[int, Measure]] = {}
+    done: set[int] = set()
+    heap: list[tuple[int, int]] = [(0, -1)]
+    while heap:
+        here, node = heapq.heappop(heap)
+        if node in done:
+            continue
+        done.add(node)
+        if node == -2:
+            break
+        targets = sorted(k for k in from_a if k not in done)
+        for other in targets if node == -1 else [-2, *targets]:
+            found = link(node, other)
+            if found is None or (below is not None and here + found.low >= below):
+                continue
+            total = here + found.low
+            if other not in dist or total < dist[other]:
+                dist[other] = total
+                before[other] = (node, found)
+                heapq.heappush(heap, (total, other))
+    if -2 not in dist:
+        return None, (), complete
+    links: list[Measure] = []
+    crossed: list[int] = []
+    node = -2
+    while node != -1:
+        node, found = before[node]
+        links.append(found)
+        if node >= 0:
+            crossed.append(node)
+    links.reverse()
+    crossed.reverse()
+    highs = [found.high for found in links]
+    high = None if any(value is None for value in highs) else sum(value or 0 for value in highs)
+    layer = "/".join(dict.fromkeys(found.layer for found in links))
+    over = tuple(by_id[order[k]][0][1].where for k in crossed)
+    measure = Measure(
+        dist[-2],
+        high,
+        layer,
+        tuple(point for found in links for point in found.points),
+        (links[0].items[0], links[-1].items[1]),
+        False,
+        over,
+    )
+    return measure, tuple(by_id[order[k]][0][2] for k in crossed), complete
 
 
 def _judge(
@@ -184,10 +380,16 @@ def analyze_distances(
     within: Nm | None = None,
     requirements: Requirements | None = None,
     arc_tol: int = ARC_TOL_NM,
+    groove: Nm | None = None,
+    insulation: bool = False,
 ) -> AnalysisReport:
     """One row per selected pair of nets: the gaps per layer, the clearance through air and the creepage
-    along the surface, with the findings against the user's distance rows."""
+    along the surface, with the findings against the user's distance rows. ``groove`` is the width below
+    which a groove is bridged on the creepage path; with ``insulation`` each row also holds the distance
+    through the laminate between two layers."""
     copper = net_copper(design, pads=pads, arc_tol=arc_tol)
+    field = _Field(_conductors(copper, loose_copper(design, pads=pads, arc_tol=arc_tol), boundary))
+    depths = layer_depths(design.board) if insulation and design.board is not None else None
     circuit = design.circuit
     nets: dict[str, Net] = {net.name: net for net in circuit.nets}
     issues: list[Issue] = []
@@ -200,6 +402,10 @@ def analyze_distances(
                 where=kind,
             )
         )
+
+    graphics = graphic_issue(design, "the conductors of the distance analysis")
+    if graphics is not None:
+        issues.append(graphics)
 
     selected: set[Pair] = set()
     for a, b in pairs:
@@ -233,6 +439,8 @@ def analyze_distances(
                 )
     if within is not None:
         selected |= _close_pairs(copper, within)
+        if depths:
+            selected |= _close_through(copper, depths, within)
     if not pairs and within is None and (requirements is None or not requirements.distances):
         issues.append(
             issue(
@@ -249,6 +457,11 @@ def analyze_distances(
     missing: Counter[str] = Counter()
     outside = 0
     faces_alone = 0
+    bridged: dict[Nm, GrooveResult] = {}
+    no_width = 0
+    partly = 0
+    no_stackup = 0
+    measured_through = False
     for name_a, name_b in sorted(selected):
         shapes_a, shapes_b = copper.by_net.get(name_a, ()), copper.by_net.get(name_b, ())
         layers_a, layers_b = _by_layer(shapes_a), _by_layer(shapes_b)
@@ -265,6 +478,8 @@ def analyze_distances(
             wanted = requirements.distance_for(net_a, net_b, circuit)
         clearance: Measure | None = None
         creepage: Measure | None = None
+        third: set[str] = set()
+        whole_search = True
         if outer is not None:
             through_air = [gap for gap in gaps if gap.layer in outer]
             term_a, term_b = _terminals(shapes_a, outer), _terminals(shapes_b, outer)
@@ -280,19 +495,46 @@ def analyze_distances(
                 "bottom" in faces_a and "top" in faces_b
             )
             around = usable and boundary is not None and boundary.thickness is not None
-            if opposite and not around:
-                # with a common face the pair is still measured there; the count goes to the summary
-                if same:
-                    faces_alone += 1
-                else:
-                    missing["board outline" if not usable else "board thickness"] += 1
             named = (name_a, name_b) in named_pairs
+            joins_faces = field.joins_faces((name_a, name_b))
+            if opposite and not around and same:
+                # with a common face the pair is still measured there; the count goes to the summary
+                faces_alone += 1
             required = [value for value in wanted[:2] if value is not None]
             limit = max(required) if required else (None if named else within)
-            if term_a and term_b and (same or around):
-                path = surface_distance([t for t, _ in term_a], [t for t, _ in term_b], boundary, limit=limit)
+            widths = [groove] if groove else []
+            if requirements is not None and net_a is not None and net_b is not None:
+                own = requirements.groove_for(net_a, net_b, circuit)
+                widths += [own] if own else []
+            surface = boundary
+            if widths and usable and boundary is not None:
+                if max(widths) not in bridged:
+                    bridged[max(widths)] = bridge_grooves(boundary, max(widths))
+                surface = bridged[max(widths)].boundary
+            if term_a and term_b and (same or around or joins_faces):
+                # first without conductors: that path bounds the conductors that can shorten it
+                set_a, set_b = [t for t, _ in term_a], [t for t, _ in term_b]
+                path = surface_distance(set_a, set_b, surface, limit=limit) if same or around else None
+                reach = limit if path is None else path.length + path.band + 2
+                others, found_all = field.near(term_a, term_b, reach, (name_a, name_b))
+                whole_search = found_all
+                if others:
+                    path = surface_distance(
+                        set_a,
+                        set_b,
+                        surface,
+                        limit=limit,
+                        bridges=[entry[0] for entry in others],
+                        conductors=[entry[3] for entry in others],
+                    )
                 if path is not None:
+                    whole_search = whole_search and path.complete
                     creepage = _path_measure(path, term_a, term_b, outer)
+                    crossed = list(dict.fromkeys(path.over))
+                    creepage = replace(creepage, over=tuple(others[k][1].where for k in crossed))
+                    third.update(others[k][2] or "" for k in crossed)
+                    if not widths and wanted[1] is not None and usable and boundary is not None:
+                        no_width += passes_groove(creepage.points, boundary)
                 elif limit is not None:
                     items = (term_a[0][1].where, term_b[0][1].where)
                     creepage = Measure(limit, None, "/".join(dict.fromkeys(outer)), (), items, True)
@@ -302,13 +544,56 @@ def analyze_distances(
                     through_air.append(across)
             if through_air:
                 clearance = min(through_air, key=lambda m: (m.low, m.high is None, m.high or 0, m.layer))
-        rows.append(DistanceRow(name_a, name_b, tuple(gaps), clearance, creepage))
+            below = None if clearance is None else clearance.low
+            beside, found_all = (
+                field.near(term_a, term_b, below, (name_a, name_b)) if term_a and term_b else ([], True)
+            )
+            chain, nets_crossed, searched = _air_chain(term_a, term_b, beside, outer, below)
+            searched = searched and found_all
+            partly += not (searched and whole_search)
+            if chain is not None:
+                clearance = chain
+                third.update(net or "" for net in nets_crossed)
+            if opposite and not around and not same and creepage is None and clearance is None:
+                missing["board outline" if not usable else "board thickness"] += 1
+        third.discard("")
+        if third:
+            nets_text = ", ".join(sorted(third))
+            select = "; ".join(f"{name} and {other}" for other in sorted(third) for name in (name_a, name_b))
+            issues.append(
+                issue(
+                    "analysis.creepage-over",
+                    f"the clearance or the creepage between {name_a} and {name_b} crosses copper of "
+                    f"{nets_text} at no length; the distances from each net of the pair to that copper are "
+                    "the ones its voltage acts across",
+                    where=f"{name_a}, {name_b}",
+                    hint=f"select the pairs {select}",
+                )
+            )
+        through: Measure | None = None
+        sheets: int | None = None
+        needed: Nm | None = None
+        if insulation:
+            if requirements is not None and net_a is not None and net_b is not None:
+                needed = requirements.insulation_for(net_a, net_b, circuit)
+            crossed = {(a, b) for a in layers_a for b in layers_b if a != b}
+            known = depths or {}
+            if crossed and (depths is None or any(a not in known or b not in known for a, b in crossed)):
+                no_stackup += 1
+            elif crossed and design.board is not None:
+                through, sheets = insulation_between(
+                    shapes_a, shapes_b, depths=known, stackup=design.board.stackup
+                )
+                measured_through = measured_through or through is not None
+        rows.append(DistanceRow(name_a, name_b, tuple(gaps), clearance, creepage, through, sheets))
         pair = (name_a, name_b)
         found_issues = [
             _judge(clearance, wanted[0], "analysis.clearance-below", "analysis.clearance-undecided",
                    "clearance", pair),
             _judge(creepage, wanted[1], "analysis.creepage-below", "analysis.creepage-undecided",
                    "creepage", pair),
+            _judge(through, needed, "analysis.insulation-below", "analysis.insulation-undecided",
+                   "insulation through the laminate", pair),
         ]  # fmt: skip
         if outer is not None:
             for gap in gaps:
@@ -338,6 +623,38 @@ def analyze_distances(
                 where="outside the board",
             )
         )
+    if partly:
+        issues.append(
+            issue(
+                "analysis.item-unsupported",
+                f"the conductors of {partly} pair(s) were not all searched: the two nets lie far apart among "
+                "many conductors, and the search stopped at its budget; their clearance and creepage are "
+                "upper bounds of the values over conductors",
+                where="conductors",
+                hint="such a pair is seldom the one a distance requirement is about; name closer pairs",
+            )
+        )
+    if no_width:
+        issues.append(
+            issue(
+                "analysis.input-missing",
+                f"groove width not given: the creepage path of {no_width} pair(s) with a creepage "
+                "requirement bends at a cut-out or a notch or crosses its wall, and every groove counts "
+                "whatever its width",
+                where="groove width",
+                hint="give --groove-width, or groove_nm in the distance row, if narrow grooves do not count",
+            )
+        )
+    if no_stackup:
+        issues.append(
+            issue(
+                "analysis.input-missing",
+                f"stack-up not given: {no_stackup} pair(s) with copper on two layers have no distance "
+                "through the laminate, because the board holds no depth for those layers",
+                where="stack-up",
+                hint="Fenolite assumes no thickness; the depths come from the stack-up of the board",
+            )
+        )
     ordered = sorted_issues(issues)
     summary: dict[str, object] = {
         "pairs": len(rows),
@@ -345,7 +662,16 @@ def analyze_distances(
         "boundary": boundary.source if boundary is not None else "none",
         "faces_alone": faces_alone,
     }
-    return AnalysisReport(tuple(rows), ordered, summary, report_evidence(ordered))
+    used: list[Evidence] = [BRIDGE_EVIDENCE]
+    if bridged:
+        summary["grooves"] = {
+            str(width): {"bridged": found.bridged, "counted": found.counted}
+            for width, found in sorted(bridged.items())
+        }
+        used.append(groove_module.EVIDENCE)
+    if measured_through:
+        used.append(insulation_module.EVIDENCE)
+    return AnalysisReport(tuple(rows), ordered, summary, report_evidence(ordered, *used))
 
 
 def _across(

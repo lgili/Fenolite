@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite analyze PATH``: current capacity, clearance and creepage of a board (capability
-board-analyses, "Analyze command"; ``docs/analyses.md``; ``docs/cli-contract.md``, "analyze").
+"""``fenolite analyze PATH``: current capacity, clearance and creepage of a board, and on request its
+power paths and the insulation between its layers (capability board-analyses, "Analyze command" and
+"Power and insulation kinds"; ``docs/analyses.md``; ``docs/cli-contract.md``, "analyze").
 
 The command reads the board through the backend that detects it, measures, and judges the measures only
 against the requirements the user gives. It runs no tool and writes no file. Fenolite assumes no
-thickness, no temperature rise and no requirement value.
+thickness, no temperature rise, no resistivity, no groove width and no requirement value.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from fenolite.analysis.boundary import board_boundary
 from fenolite.analysis.copper import ARC_TOL_NM
 from fenolite.analysis.current import analyze_current
 from fenolite.analysis.distance import analyze_distances
+from fenolite.analysis.power import analyze_power
 from fenolite.analysis.report import AnalysisReport, sorted_issues
 from fenolite.analysis.requirements import Requirements, load_requirements
 from fenolite.backends import registry
@@ -38,7 +40,11 @@ from fenolite.core.units import Nm, parse_length
 from fenolite.model.design import Design
 
 HELP = "measure current capacity, clearance and creepage of a board (read-only)"
+"""The opt-in kinds are described with their options: power paths and insulation between layers."""
 KINDS = ("current", "clearance", "creepage")
+"""The kinds that run without ``--kinds``."""
+OPT_IN_KINDS = ("power", "insulation")
+ALL_KINDS = (*KINDS, *OPT_IN_KINDS)
 ALL_LAYERS = "*"
 _CLEARANCE_CODES = ("analysis.clearance-below", "analysis.clearance-undecided", "analysis.embedded-below")
 _CREEPAGE_CODES = ("analysis.creepage-below", "analysis.creepage-undecided")
@@ -51,7 +57,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("path", metavar="PATH", help="a board file that a backend reads")
     parser.add_argument(
-        "--kinds", default=None, metavar="K,K", help=f"analyses to run (default: all): {','.join(KINDS)}"
+        "--kinds",
+        default=None,
+        metavar="K,K",
+        help=f"analyses to run (default: {','.join(KINDS)}; on request: {','.join(OPT_IN_KINDS)})",
     )
     parser.add_argument(
         "--requirements", default=None, metavar="FILE", help="your requirements, a TOML file of integers"
@@ -82,6 +91,29 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--arc-tol", default=None, metavar="LENGTH", help="chord error of polygonised copper arcs"
     )
+    parser.add_argument(
+        "--path",
+        dest="power_paths",
+        action="append",
+        nargs=2,
+        default=[],
+        metavar=("FROM", "TO"),
+        help="with --kinds power: measure the copper between two sets of pads, each REF-PIN[,REF-PIN...] "
+        "(repeatable); an estimate against your limits, not a simulation",
+    )
+    parser.add_argument(
+        "--resistivity",
+        default=None,
+        metavar="NANOOHM_METRES",
+        help="with --kinds power: the resistivity of your copper at your temperature, e.g. 17.2; "
+        "Fenolite assumes none",
+    )
+    parser.add_argument(
+        "--groove-width",
+        default=None,
+        metavar="LENGTH",
+        help="with creepage: a groove narrower than this is bridged on the creepage path",
+    )
 
 
 def _length(text: str, option: str) -> Nm:
@@ -100,15 +132,52 @@ def _kinds(text: str | None) -> tuple[str, ...]:
     if text is None:
         return KINDS
     names = [name.strip() for name in text.split(",") if name.strip()]
-    unknown = [name for name in names if name not in KINDS]
+    unknown = [name for name in names if name not in ALL_KINDS]
     if unknown or not names:
         raise CliError(
             "FEN-2001",
             f"--kinds: unknown kind {', '.join(unknown) or text!r}",
             where="--kinds",
-            hint=f"kinds: {','.join(KINDS)}",
+            hint=f"kinds: {','.join(ALL_KINDS)}",
         )
-    return tuple(kind for kind in KINDS if kind in names)
+    return tuple(kind for kind in ALL_KINDS if kind in names)
+
+
+def _resistivity(text: str | None) -> int | None:
+    """Nanoohm-metres as a decimal number of at most three decimals, in picoohm-metres."""
+    if text is None:
+        return None
+    hint = "a resistivity in nanoohm-metres with at most three decimals: 17.2"
+    try:
+        value = Decimal(text.strip())
+    except InvalidOperation:
+        raise CliError(
+            "FEN-2001", f"--resistivity: cannot read {text!r}", where="--resistivity", hint=hint
+        ) from None
+    scaled = value * 1000
+    if not value.is_finite() or scaled != scaled.to_integral_value() or scaled <= 0:
+        raise CliError("FEN-2001", f"--resistivity: cannot use {text!r}", where="--resistivity", hint=hint)
+    return int(scaled)
+
+
+def _paths(values: list[list[str]]) -> tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]:
+    paths: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+    for given in values:
+        ends: list[tuple[str, ...]] = []
+        for text in given:
+            names = tuple(name.strip() for name in text.split(","))
+            for name in names:
+                ref, dash, pin = name.rpartition("-")
+                if not dash or not ref or not pin:
+                    raise CliError(
+                        "FEN-2001",
+                        f"--path: {name!r} is not a pad name REF-PIN",
+                        where="--path",
+                        hint="--path J1-1 U1-1, or --path J1-1,J1-2 U1-1",
+                    )
+            ends.append(names)
+        paths.append((ends[0], ends[1]))
+    return tuple(paths)
 
 
 def _temp_rise(text: str | None) -> int | None:
@@ -205,6 +274,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     within = None if args.within is None else _length(args.within, "--within")
     arc_tol = ARC_TOL_NM if args.arc_tol is None else _length(args.arc_tol, "--arc-tol")
     pairs = _pairs(args.pair)
+    paths = _paths(args.power_paths)
+    resistivity = _resistivity(args.resistivity)
+    groove = None if args.groove_width is None else _length(args.groove_width, "--groove-width")
+    for option, given, kind in (
+        ("--path", bool(paths), "power"),
+        ("--resistivity", resistivity is not None, "power"),
+        ("--groove-width", groove is not None, "creepage"),
+    ):
+        if given and kind not in kinds:
+            raise CliError(
+                "FEN-2001",
+                f"{option} needs the kind {kind}, which is not among --kinds",
+                where=option,
+                hint=f"add {kind} to --kinds",
+            )
     requirements = _requirements(args.requirements, ctx.cwd)
 
     given = Path(args.path)
@@ -236,11 +320,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues += current.issues
         result["current"] = [_json(row) for row in current.rows]
         summary["current"] = _json(dict(current.summary))
-    if "clearance" in kinds or "creepage" in kinds:
-        pad_issues: list[Issue] = []
-        pads: tuple[BoardPad, ...] | None = None
-        if isinstance(backend, BoardFrame):
-            pads = backend.board_pads(design, issues=pad_issues)
+    pad_issues: list[Issue] = []
+    pads: tuple[BoardPad, ...] | None = None
+    if isinstance(backend, BoardFrame) and set(kinds) - {"current"}:
+        pads = backend.board_pads(design, issues=pad_issues)
+    if "clearance" in kinds or "creepage" in kinds or "insulation" in kinds:
         distances = analyze_distances(
             design,
             pads=pads,
@@ -249,6 +333,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             within=within,
             requirements=requirements,
             arc_tol=arc_tol,
+            groove=groove,
+            insulation="insulation" in kinds,
         )
         reports.append(distances)
         dropped = (() if "clearance" in kinds else _CLEARANCE_CODES) + (
@@ -262,9 +348,28 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 del data["gaps"], data["clearance"]
             if "creepage" not in kinds:
                 del data["creepage"]
+            if "insulation" not in kinds:
+                del data["insulation"], data["sheets"]
             rows.append(data)
         result["distances"] = rows
         summary["distances"] = _json(dict(distances.summary))
+    evidences: list[Evidence] = [report.evidence for report in reports]
+    if "power" in kinds:
+        power = analyze_power(
+            design,
+            pads=pads,
+            paths=paths,
+            requirements=requirements,
+            temp_rise_mk=temp_rise,
+            copper_thickness=copper_thickness,
+            via_plating=via_plating,
+            resistivity_pohm_m=resistivity,
+            arc_tol=arc_tol,
+        )
+        issues += power.issues
+        evidences.append(power.evidence)
+        result["power"] = [_json(row) for row in power.rows]
+        summary["power"] = _json(dict(power.summary))
     result["summary"] = summary
     result["inputs"] = {
         "kinds": list(kinds),
@@ -277,11 +382,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "pairs": [list(pair) for pair in pairs],
         "within": within,
         "arc_tol": arc_tol,
+        "paths": [[list(start), list(end)] for start, end in paths],
+        "resistivity_pohm_m": resistivity,
+        "groove_nm": groove,
         "requirements": None if args.requirements is None else Path(args.requirements).name,
         "boundary": {"source": boundary.source, "band": boundary.band, "cutouts": len(boundary.cutouts)},
     }
     unique = sorted_issues(dict.fromkeys(issues))
-    evidence = Evidence.combine(EVIDENCE, read.evidence, *(report.evidence for report in reports))
+    evidence = Evidence.combine(EVIDENCE, read.evidence, *evidences)
     raw = b"" if path.is_dir() else path.read_bytes()
     return Result(
         result=result,
@@ -306,4 +414,4 @@ COMMAND = Command(
     example_args=(EXAMPLE_BOARD, "--kinds", "current", "--temp-rise", "10", "--copper-thickness", "35um"),
 )
 
-__all__ = ["COMMAND", "KINDS"]
+__all__ = ["ALL_KINDS", "COMMAND", "KINDS", "OPT_IN_KINDS"]

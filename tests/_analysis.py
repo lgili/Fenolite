@@ -77,11 +77,17 @@ def edge_board(*, thickness: int | None = 1_600_000) -> tuple[Design, BoardBound
 
 
 def grid_shortest(
-    start: Point, goal: Point, outer: tuple[Point, Point], holes: Sequence[tuple[Point, Point]], step: int
+    start: Point,
+    goal: Point,
+    outer: tuple[Point, Point],
+    holes: Sequence[tuple[Point, Point]],
+    step: int,
+    conductors: Sequence[tuple[Point, Point]] = (),
 ) -> int | None:
     """The length in nanometres of a shortest eight-neighbour path on a grid of pitch ``step`` from
     ``start`` to ``goal`` inside the rectangle ``outer``, never strictly inside a rectangle of ``holes``;
-    every point is a grid point. Diagonal steps cost ``step · 1.41421356``, rounded up to an integer."""
+    every point is a grid point. Diagonal steps cost ``step · 1.41421356``, rounded up to an integer.
+    A step between two points of one rectangle of ``conductors`` (change c0115) costs nothing."""
     diagonal = (step * 141_421_357 + 99_999_999) // 100_000_000
 
     def blocked(x: int, y: int) -> bool:
@@ -93,6 +99,12 @@ def grid_shortest(
         """Whether a diagonal step cuts the corner of a hole: its middle lies strictly inside one."""
         mx2, my2 = 2 * x + dx, 2 * y + dy
         return any(2 * low.x < mx2 < 2 * high.x and 2 * low.y < my2 < 2 * high.y for low, high in holes)
+
+    def free(x: int, y: int, nx: int, ny: int) -> bool:
+        return any(
+            low.x <= x <= high.x and low.y <= y <= high.y and low.x <= nx <= high.x and low.y <= ny <= high.y
+            for low, high in conductors
+        )
 
     best: dict[tuple[int, int], int] = {(start.x, start.y): 0}
     heap = [(0, start.x, start.y)]
@@ -109,7 +121,7 @@ def grid_shortest(
                 nx, ny = x + dx, y + dy
                 if blocked(nx, ny) or crosses(x, y, dx, dy):
                     continue
-                total = dist + (diagonal if dx and dy else step)
+                total = dist + (0 if free(x, y, nx, ny) else diagonal if dx and dy else step)
                 if total < best.get((nx, ny), total + 1):
                     best[(nx, ny)] = total
                     heapq.heappush(heap, (total, nx, ny))

@@ -59,6 +59,7 @@ import _paircases
 import _paritycases
 import _pcbxcases
 import _placecases
+import _powerbench
 import _procases
 import _renamecases
 import _routetriangle
@@ -258,6 +259,7 @@ def _probes() -> dict[str, Probe]:
         **_fillcases.fill_probes(),
         **_placecases.place_probes(),
         **_creepbench.creepage_probes(),
+        **_powerbench.power_probes(),
         **_offsetbench.offset_probes(),
         **_arccases.arc_probes(),
         **_kindcases.kind_probes(),

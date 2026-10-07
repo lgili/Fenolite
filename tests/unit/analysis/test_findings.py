@@ -27,15 +27,41 @@ def codes(report: object) -> list[str]:
     return [found.code for found in report.issues]  # type: ignore[attr-defined]
 
 
+POWER_CODES = {
+    "analysis.path-unmatched": "warning",
+    "analysis.path-open": "warning",
+    "analysis.path-exceeded": "error",
+    "analysis.path-undecided": "warning",
+    "analysis.drop-above": "error",
+    "analysis.drop-undecided": "warning",
+    "analysis.insulation-below": "error",
+    "analysis.insulation-undecided": "warning",
+    "analysis.creepage-over": "info",
+}
+"""The nine codes of change c0115 ("Power and insulation codes")."""
+
+
 def test_table_of_ten_codes() -> None:
-    assert len(ISSUE_CODES) == 10 and all(code.startswith("analysis.") for code in ISSUE_CODES)
-    errors = sorted(code for code, severities in ISSUE_CODES.items() if severities == ("error",))
+    """The ten codes of c0047; c0115 adds nine beside them."""
+    first = [code for code in ISSUE_CODES if code not in POWER_CODES]
+    assert len(first) == 10 and all(code.startswith("analysis.") for code in ISSUE_CODES)
+    errors = sorted(code for code in first if ISSUE_CODES[code] == ("error",))
     assert errors == [
         "analysis.clearance-below",
         "analysis.creepage-below",
         "analysis.current-exceeded",
         "analysis.embedded-below",
     ]
+
+
+def test_power_codes_in_the_table() -> None:
+    """Scenario "Codes in the table"."""
+    assert len(ISSUE_CODES) == 19
+    for code, severity in POWER_CODES.items():
+        assert ISSUE_CODES[code] == (severity,), code
+    with pytest.raises(ValueError, match="no severity"):
+        issue("analysis.creepage-over", "x", severity="warning")
+    assert issue("analysis.creepage-over", "x").severity == "info"
 
 
 def test_unknown_code_refused() -> None:
@@ -88,9 +114,16 @@ def test_creepage_below_clearance_met() -> None:
     design, boundary = slot_board()
     requirements = load_requirements(distance(clearance_nm=8_000_000, creepage_nm=12_000_000))
     report = analyze_distances(design, pads=None, boundary=boundary, requirements=requirements)
-    (found,) = report.issues
+    # since c0115 a judged creepage that passes a groove without a groove width also warns
+    found, missing = report.issues
     assert (found.code, found.severity) == ("analysis.creepage-below", "error")
     assert "11 mm" in found.message and "12 mm" in found.message and "F.Cu" in found.message
+    assert (missing.code, missing.where) == ("analysis.input-missing", "groove width")
+    # with a groove width that the slot is not below, the slot counts and nothing is missing
+    given = analyze_distances(
+        design, pads=None, boundary=boundary, requirements=requirements, groove=2_000_000
+    )
+    assert codes(given) == ["analysis.creepage-below"]
 
 
 def test_clearance_below_and_undecided() -> None:
