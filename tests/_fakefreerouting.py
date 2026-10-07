@@ -8,7 +8,13 @@ Environment read by the fakes: ``FAKE_JAVA_RECORD`` (a JSON file that receives `
 ``home`` of each router run; a ``-version`` call is not a run), ``FAKE_JAVA_OUTPUT`` (what the router
 prints), ``FAKE_JAVA_SESSION`` (the session text to write to the ``-do`` file) and ``FAKE_JAVA_MODE``:
 ``write`` (default), ``none`` (exit 0, no session),
-``fail`` (exit 3 with a message), ``garbage`` (a file that is no session) or ``sleep``.
+``fail`` (exit 3 with a message), ``garbage`` (a file that is no session), ``sleep`` or ``sleep-optimizer``
+(sleep only when the argument that switches the optimizer off is absent).
+
+For jobs of several runs (change c0109): ``FAKE_JAVA_RUNS`` names a file that receives one JSON line per
+router run, with its ``argv`` and the text of the design file it was given (``dsn``);
+``FAKE_JAVA_SESSION_<n>`` is the session of run ``n`` (counted from 1 in that file) instead of
+``FAKE_JAVA_SESSION``; ``FAKE_JAVA_SLEEP_RUN`` is the number of the run that sleeps.
 """
 
 from __future__ import annotations
@@ -44,8 +50,23 @@ if record:
     Path(record).write_text(
         json.dumps({{"argv": argv, "cwd": os.getcwd(), "home": os.environ.get("HOME", "")}}), encoding="utf-8"
     )
+design_file = folder / argv[argv.index("-de") + 1] if "-de" in argv else None
+number = 1
+runs = os.environ.get("FAKE_JAVA_RUNS")
+if runs:
+    listed = Path(runs)
+    if listed.exists():
+        number = len(listed.read_text(encoding="utf-8").splitlines()) + 1
+    dsn = design_file.read_text(encoding="utf-8") if design_file and design_file.is_file() else ""
+    with open(listed, "a", encoding="utf-8") as stream:
+        stream.write(json.dumps({{"argv": argv, "dsn": dsn}}) + "\\n")
 mode = os.environ.get("FAKE_JAVA_MODE", "write")
-if mode == "sleep":
+optimizer = "--router.optimizer.enabled=false" not in argv
+if (
+    mode == "sleep"
+    or (mode == "sleep-optimizer" and optimizer)
+    or os.environ.get("FAKE_JAVA_SLEEP_RUN") == str(number)
+):
     time.sleep(5)
 if mode == "fail":
     print("boom from the fake router in " + os.getcwd(), file=sys.stderr)
@@ -57,7 +78,8 @@ assert (folder / argv[argv.index("-de") + 1]).is_file()
 if mode == "garbage":
     output.write_text("(pcb not-a-session)", encoding="utf-8")
 else:
-    output.write_text(Path(os.environ["FAKE_JAVA_SESSION"]).read_text(encoding="utf-8"), encoding="utf-8")
+    session = os.environ.get(f"FAKE_JAVA_SESSION_{{number}}") or os.environ["FAKE_JAVA_SESSION"]
+    output.write_text(Path(session).read_text(encoding="utf-8"), encoding="utf-8")
 print(os.environ.get("FAKE_JAVA_OUTPUT", "fake router done"))
 """
 

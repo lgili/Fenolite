@@ -114,3 +114,54 @@ def routing_design(*, stub: bool = False) -> Design:
     return dataclasses.replace(
         design, circuit=Circuit(components=(component,), nets=tuple(nets.values())), board=board
     )
+
+
+def named_design(*names: str) -> Design:
+    """One footprint whose nets are ``names``, each on two through-hole pads 4 mm apart in a row of its
+    own, and no copper (change c0109: the size groups and tiers of a job)."""
+    rng = random.Random(160109)
+    design = Design.new("routing-groups", seed=160109)
+    nets = {name: Net(id=new_id("net", rng), name=name) for name in names}
+    pads = [
+        Pad(
+            id=new_id("pad", rng),
+            number=f"{name}{index + 1}",
+            shape="circle",
+            size=Size(600_000, 600_000),
+            position=Point(index * 4_000_000, row * 2_000_000),
+            layers=("F.Cu", "B.Cu"),
+            net_id=nets[name].id,
+        )
+        for row, name in enumerate(names)
+        for index in range(2)
+    ]
+    component_id = new_id("cmp", rng)
+    component = Component(
+        id=component_id, ref="J1", pins=tuple(Pin(id=new_id("pin", rng), number=pad.number) for pad in pads)
+    )
+    members = {
+        name: tuple(PinRef(component_id, pad.number) for pad in pads if pad.net_id == net.id)
+        for name, net in nets.items()
+    }
+    nets = {name: dataclasses.replace(net, members=members[name]) for name, net in nets.items()}
+    footprint = FootprintInstance(
+        id=new_id("fp", rng),
+        component_id=component_id,
+        lib_ref="Test:Rows",
+        position=Point(0, 0),
+        pads=tuple(pads),
+    )
+    layers = tuple(
+        Layer(
+            id=new_id("lay", rng),
+            name=name,
+            kind="copper",
+            ordinal=ordinal,
+            ext={"kicad": ExtBag(payload=(("number", str(ordinal)), ("type", "signal")))},
+        )
+        for name, ordinal in (("F.Cu", 0), ("B.Cu", 31))
+    )
+    board = dataclasses.replace(design.board, layers=layers, footprints=(footprint,))
+    return dataclasses.replace(
+        design, circuit=Circuit(components=(component,), nets=tuple(nets.values())), board=board
+    )

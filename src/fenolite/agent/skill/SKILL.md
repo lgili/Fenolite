@@ -115,6 +115,9 @@ the script as they are. It reads the board and runs no tool.
   with `place --move`), choose another router, or script the copper for those nets in the design file
   and build again. `fenolite net BOARD NAME --json` shows which connections of a net are open, without
   running a tool; `--require-complete` makes `route` exit 5 and write nothing when a net stays open.
+- **`route` reports `route.budget-exhausted`.** `fenolite route … --timeout S` bounds the whole step; the
+  copper of the router runs that finished is written. Run `route` again to continue with the nets still
+  open, or raise `--timeout`.
 - **`build` exits 5 with `copper.short` or `copper.clearance`.** Copper on the board now collides with
   the design: a part was moved onto a track or onto an old zone fill. Refill (`fenolite fill`) or move
   the part, then build again.

@@ -6,9 +6,12 @@ from fenolite.core.errors import Severity
 
 ISSUE_CODES: dict[str, Severity] = {
     "route.bad-item": "error",
+    "route.budget-exhausted": "warning",
     "route.copper-removed": "warning",
     "route.fill-stale": "info",
     "route.incomplete": "error",
+    "route.net-declared": "info",
+    "route.optimizer-cut": "info",
     "route.option-ignored": "warning",
     "route.partial": "info",
     "route.tool-failed": "error",

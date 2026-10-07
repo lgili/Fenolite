@@ -85,6 +85,81 @@ is followed by no new copper is not written.
 2. A router is never given a net without an open connection. A job still carries every pad of its nets
    and the design with the copper already on the board: join that copper, do not route beside it.
 
+## Time budget, kept runs, groups and tiers
+
+**One budget for the step.** `fenolite route --timeout SECONDS` bounds the whole routing step, whatever
+the router. Without it each external router uses its own default, 900 s. The value is the budget of
+the job, not of a process or of a net: every process a plugin starts gets the time that is left, and is
+stopped when it is spent. `--timeout` must be a positive number; the built-in `direct` router starts no
+process and ignores it.
+
+**Finished runs are kept.** A *router run* is one process. When the budget ends:
+
+- the copper of every run that finished is merged and written, as any routed copper;
+- the run under way is stopped and gives no copper. Freerouting writes its session only when it has
+  finished, and the output board of a stopped KiCadRoutingTools process may be cut, so neither is read;
+- the runs never started are listed in `result.not_attempted`;
+- one `route.budget-exhausted` (warning) names the budget and the counts, and the exit code stays 0.
+
+`result.budget` gives the seconds of the budget, the seconds spent and whether it ended; `result.runs`
+lists each run with its tier, its count of nets, its seconds and its outcome: `done`, `failed` or `cut`.
+
+**Continue a cut job** with `route` again: it selects the nets that are still open ("Open nets, second
+passes and locks"), so the second run spends its budget on what the first left.
+
+```
+fenolite route BOARD --router kicadroutingtools --timeout 600 --confirm   # route.budget-exhausted
+fenolite route BOARD --router kicadroutingtools --timeout 600 --confirm   # the nets still open
+```
+
+A job of one run keeps nothing when it is cut. Make smaller runs with tiers or with `group-nets`, or
+raise `--timeout`.
+
+**Tiers: `--order GLOB`.** `--order` may be repeated. The nets that match the first glob are tier 0,
+those that match the second and not the first are tier 1, and the nets that match none come last. A
+router routes tier after tier, and the copper of earlier tiers is fixed for the later ones. `--order`
+selects nothing: it orders the nets that `--nets` and the open connections give.
+
+```
+fenolite route BOARD --router freerouting --order 'CLK*' --order 'USB_*' --timeout 1800 --confirm
+```
+
+Inside a tier each tool keeps its own order of the nets.
+
+**KiCadRoutingTools routes in groups.** One process routes one *group*: the nets of a tier that share
+track width, via diameter and via drill. The tool then orders those nets and rips up among them itself;
+Fenolite routed one net per process before, which was slower and left crossings on a 100-part board
+([routing evidence](evidence/routing.md), "Scale"). What the plugin passes:
+
+- every name of the group after `--nets`, the group's `--track-width`, `--via-size` and `--via-drill`;
+- no `--clearance`: the tool reads each class's clearance from the project file of the temporary copy;
+- `--escalation off`: the sizes stay the ones of the job. A net that does not fit is left open and
+  reported, instead of being routed with a narrower track or a smaller via. `--router-option
+  escalation=board` is passed after it and replaces it;
+- `--no-fix-drc-settings`: the project file of the copy stays the one Fenolite wrote.
+
+`--router-option group-nets=N` splits a group into runs of at most N nets, for smaller kept units;
+`group-nets=1` gives one net per process again. The options `nets`, `output` and `overwrite` belong to
+the plugin and are ignored with `route.option-ignored`. A run that fails gives `route.tool-failed` with
+the names of its nets, and the next run starts.
+
+**Freerouting sees only the nets of the job.** The design file declares the selected nets (of the tier
+being routed). Every other net leaves the network section: its pads stay in the file as pins on no net,
+and its tracks and vias stay as protected copper without a net, so the router spends no time on them and
+still keeps clear of them. One kind of net stays declared: a net whose class clearance is larger than
+the board's default rule, because the router keeps only the default rule from copper without a net and
+KiCad would report a clearance violation (measured: [routing evidence](evidence/routing.md),
+`dsn-netless`). `route.net-declared` (info) names those nets; Freerouting may route them too, and that
+copper is not taken.
+
+**Freerouting's optimizer is off.** The plugin passes `--router.optimizer.enabled=false`: the session is
+written as soon as the autorouter ends. With the optimizer on, Freerouting writes nothing until the
+optimizer ends, and a run that reaches the budget before that leaves no copper at all.
+`--router-option optimize=on` runs it afterwards: a second run of the same design file with the
+optimizer, on the time that is left. Its session replaces the first when it ends in time; otherwise the
+first is kept and `route.optimizer-cut` (info) says so. That second run routes the nets again before it
+optimizes, and it is not offered together with `--order`.
+
 ## Freerouting
 
 **Install.** Let Fenolite fetch the pinned jar:
@@ -131,8 +206,9 @@ fenolite route BOARD --router freerouting --allow-offsite --dry-run
 - The board needs a closed outline: a design file cannot be written without one.
 - Every component is written locked in place, and the copper already on the board is written as protected;
   the router adds copper and removes none. Only the copper of the selected nets is taken from its session.
-- `--router-option max-passes=N` sets the number of autorouter passes (default 20). `--timeout SECONDS`
-  bounds the run (default 900 for this router). No other option is passed on.
+- `--router-option max-passes=N` sets the number of autorouter passes (default 20), and
+  `--router-option optimize=on` adds the optimizer run. `--timeout SECONDS` is the budget of the whole
+  step (default 900 s; "Time budget, kept runs, groups and tiers"). No other option is passed on.
 - The route is a proposal (`UNVERIFIED`): run `fenolite fill` and `fenolite check` afterwards.
 - Net-class widths, clearances and vias reach the router; custom rules of the model do not, so KiCad's DRC
   stays the judge of every route.

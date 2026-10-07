@@ -6,6 +6,11 @@
 The nets are selected by the open connections of the board (``analysis.connectivity``), so script copper
 and earlier routes stay and a second run completes what the first left open. The verdict is taken from
 the board after the merge, not from the router's lists; copper returned for a net that stays open is kept.
+
+``--timeout`` is the one time budget of the routing step, whatever the router, and ``--order`` puts nets
+in tiers that are routed one after the other (capability cli-contract, "Route command budget and tiers";
+change c0109). When the budget ends, the copper of the router runs that finished is written and the rest is
+reported: run ``route`` again to continue with the nets that are still open.
 """
 
 from __future__ import annotations
@@ -14,9 +19,11 @@ import argparse
 import dataclasses
 import fnmatch
 import hashlib
+import math
 import os
 import re
 import tempfile
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -91,7 +98,21 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--router-option", action="append", default=[], metavar="KEY=VALUE", help="router-specific option"
     )
-    parser.add_argument("--timeout", type=float, default=600, metavar="SECONDS")
+    parser.add_argument(
+        "--order",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="route the matching nets first (repeatable: one tier per glob, the other nets last)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="time budget of the whole routing step (default: the router's own, 900 s for the "
+        "external routers); the copper of the router runs that finished in time is kept",
+    )
     parser.add_argument(
         "--allow-offsite", action="store_true", help="allow a router that sends design data off this machine"
     )
@@ -112,16 +133,28 @@ def _router(name: str, args: argparse.Namespace) -> Router:
         known = ", ".join((*available,)) or "none"
         raise CliError("FEN-2001", f"unknown router {name!r} (registered: {known})")
     selected = available[name]
-    if name == "kicadroutingtools" and (args.router_path or args.router_python or args.timeout != 600):
+    # The budget is the given value whatever it is: no value stands for "the default" (c0109).
+    budget: float | None = args.timeout
+    if name == "kicadroutingtools" and (args.router_path or args.router_python or budget is not None):
         from fenolite.routing.plugins.kicad.routingtools import KicadRoutingToolsRouter
 
-        return KicadRoutingToolsRouter(args.router_path, args.router_python, args.timeout)
-    if name == "freerouting" and (args.router_path or args.timeout != 600):
-        from fenolite.routing.plugins.specctra.freerouting import DEFAULT_TIMEOUT, FreeroutingRouter
+        return KicadRoutingToolsRouter(args.router_path, args.router_python, budget)
+    if name == "freerouting" and (args.router_path or budget is not None):
+        from fenolite.routing.plugins.specctra.freerouting import FreeroutingRouter
 
-        timeout = args.timeout if args.timeout != 600 else DEFAULT_TIMEOUT
-        return FreeroutingRouter(args.router_path, timeout=timeout)
+        return FreeroutingRouter(args.router_path, budget=budget)
     return selected
+
+
+def _tier(name: str, order: tuple[str, ...]) -> int:
+    """The tier of a net: the index of the first ``--order`` glob it matches, else the count of globs."""
+    return next(
+        (index for index, pattern in enumerate(order) if fnmatch.fnmatchcase(name, pattern)), len(order)
+    )
+
+
+def _budget_json(seconds: float | None, spent: float, ended: bool) -> dict[str, object]:
+    return {"seconds": seconds, "spent": round(spent, 1), "exhausted": ended}
 
 
 def _missing_hint(router: Router) -> str | None:
@@ -171,6 +204,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError("FEN-2001", "--router-path is only supported by kicadroutingtools and freerouting")
     if args.router_python and args.router != "kicadroutingtools":
         raise CliError("FEN-2001", "--router-python is only supported by kicadroutingtools")
+    if args.timeout is not None and not (math.isfinite(args.timeout) and args.timeout > 0):
+        raise CliError(
+            "FEN-2001",
+            f"--timeout must be a positive number of seconds, got {args.timeout:g}",
+            hint="--timeout is the time budget of the whole routing step",
+        )
+    order = tuple(args.order)
     options: dict[str, str] = {}
     for option in args.router_option:
         key, separator, value = option.partition("=")
@@ -182,6 +222,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError(
             "FEN-2001", "this router sends design data offsite", hint="pass --allow-offsite to continue"
         )
+    # the budget the step runs with: the caller's, else the router's own; a router without one (the
+    # built-in direct router) starts no process and is not bounded
+    default_budget: float | None = getattr(router, "default_budget", None)
+    budget_seconds: float | None = args.timeout if args.timeout is not None else default_budget
     status = router.available()
     if not status.available:
         raise CliError(
@@ -253,8 +297,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 values[1],
                 values[2],
                 values[3],
+                tier=_tier(name, order),
             )
         )
+    jobs.sort(key=lambda item: (item.tier, item.name))
     skipped = [
         Issue("route.zone-net-skipped", "info", f"zone net {name} was skipped", name) for name in zone_skipped
     ]
@@ -275,6 +321,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "rip_kept": rip_kept,
                 "log": [],
                 "fills_stale": False,
+                "budget": _budget_json(budget_seconds, 0.0, False),
+                "runs": [],
+                "not_attempted": [],
             },
             issues=(*read_issues, *before.issues, *skipped),
             evidence=Evidence(Level.UNVERIFIED, router.name),
@@ -286,7 +335,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if layer.kind == "copper"
     )
     extra = {"board_pads": frame_pads, "outline": board_outline(design).rings}
-    outcome = router.route(RoutingJob(design, tuple(jobs), layers, options, extra))
+    started = time.monotonic()
+    outcome = router.route(RoutingJob(design, tuple(jobs), layers, options, extra, budget=args.timeout))
+    # only a router that has a budget is timed: the result of the built-in router stays the same bytes
+    spent = time.monotonic() - started if default_budget is not None else 0.0
+    budget_ended = bool(outcome.not_attempted) or any(
+        found.code == "route.budget-exhausted" for found in outcome.issues
+    )
     issues = [*read_issues, *before.issues, *outcome.issues, *skipped]
     merged_ok = True
     try:
@@ -388,6 +443,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "rip_kept": rip_kept,
             "log": _safe_log(outcome.log, ctx.cwd),
             "fills_stale": fills_stale,
+            "budget": _budget_json(budget_seconds, spent, budget_ended),
+            "runs": [
+                {
+                    "tier": run.tier,
+                    "nets": len(run.nets),
+                    "seconds": round(run.seconds, 1),
+                    "outcome": run.outcome,
+                }
+                for run in outcome.runs
+            ],
+            "not_attempted": list(outcome.not_attempted),
         },
         issues=tuple(issues),
         evidence=evidence,

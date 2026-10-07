@@ -6,6 +6,26 @@
       "detail": "two-pads: 1 wire(s), 0 via(s), resolution um 10, 2 place(s), placement unit um 10, unknown lists []; blink: 5 wire(s), 1 via(s), resolution um 10, 3 place(s), placement unit um 10, unknown lists []",
       "value": "present"
     },
+    "dsn-inc": {
+      "detail": "the open net B in the class WIDE, declared, with -inc WIDE as the first and as the last argument: 1 and 1 session wire(s) on B",
+      "value": "present"
+    },
+    "dsn-mt0": {
+      "detail": "blink, -mt 0 without the setting: noopt: optimization stage logged: False, session with wires: True; mt0: optimization stage logged: True, session with wires: True; plain: optimization stage logged: True, session with wires: True",
+      "value": "present"
+    },
+    "dsn-netless": {
+      "detail": "kicad-cli 10.0.6: the net B (class clearance 0.4 mm, default rule 0.2 mm) left out between A and C, whose straight routes pass 0.3 mm from its pads: 0 session wire(s) on B, 2 new track(s), 2 clearance violation(s) by KiCad; the same copper judged with B in the default class: 0 clearance violation(s)",
+      "value": "present"
+    },
+    "dsn-netless-declared": {
+      "detail": "kicad-cli 10.0.6: the same bench written with others=\"netless\" as built, where the wider class keeps B declared: 10 new track(s), 0 clearance violation(s) by KiCad, 1 session wire(s) on B (its protected track, read back)",
+      "value": "absent"
+    },
+    "dsn-noopt": {
+      "detail": "blink, --router.optimizer.enabled=false: noopt: optimization stage logged: False, session with wires: True; mt0: optimization stage logged: True, session with wires: True; plain: optimization stage logged: True, session with wires: True",
+      "value": "absent"
+    },
     "dsn-offline": {
       "detail": "1 track(s)",
       "value": "present"

@@ -106,3 +106,4 @@ anchor) is written as it is; whether a router objects is part of `H-G-DSN-ACCEPT
 |---|---|---|---|
 | Freerouting loads a design file named with `-de` and writes its result to the file named with `-do` | S-0221 | INFERRED | H-G-DSN-ACCEPT |
 | `kicad-cli` 9.0 and 10.0 export no Specctra design file; KiCad's editor does | S-0022, S-0037, S-0225 | INFERRED | H-G-DSN-ACCEPT |
+| Freerouting 2.4.1 routes no wire on a net that the network section does not declare; pins on no net and wiring without a net stay obstacles, kept clear of by the default rule and no more, whatever class the model gives their net. A class named with `-inc` is still routed | S-0221 | ORACLE-VERIFIED | H-G-DSN-NETLESS-2 (it supersedes H-G-DSN-NETLESS; Freerouting 2.4.1, 2026-10-08) |

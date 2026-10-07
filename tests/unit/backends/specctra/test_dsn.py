@@ -503,6 +503,139 @@ def test_renamed_and_quoted_net_names() -> None:
     assert renamed.severity == "info" and renamed.where == 'A"B' and "NET1" in renamed.message
 
 
+# --- nets outside the job (change c0109) -------------------------------------------------------------
+
+
+def _two_nets() -> Bench:
+    """Nets ``A`` and ``B`` of two pads each, one track on ``B``; ``A`` is the job."""
+    b = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": "B", "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": "B"}),
+        )
+    )
+    track = Track(
+        id=_id("trk", 1),
+        start=pt(9.2, 10),
+        end=pt(9.2, 14),
+        width=mm(0.25),
+        layer="F.Cu",
+        net_id=_net_id(b.design, "B"),
+    )
+    return _with_board(b, tracks=(track,))
+
+
+def _pins(text: str) -> list[tuple[str, str]]:
+    """Every pin of every image, as (reference, pin)."""
+    library = _section(text, "library")
+    return [(image.words[0], pin.words[1]) for image in library.all("image") for pin in image.all("pin")]
+
+
+def test_netless_unselected_net_left_out() -> None:
+    """Scenario "Unselected net left out"."""
+    b = _two_nets()
+    declared, netless = b.write(), b.write(others="netless")
+    network = _section(netless.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["A"]
+    assert network.first("net") == SNode("net", ("A", SNode("pins", ("R1-2", "R2-1"))))
+    assert [net.words[0] for net in _section(declared.text, "network").all("net")] == ["A", "B"]
+    assert _pins(netless.text) == _pins(declared.text) == [("R1", "1"), ("R1", "2"), ("R2", "1"), ("R2", "2")]
+    protect = SNode("type", ("protect",))
+    path = SNode("path", ("F.Cu", "250", "9200", "-10000", "9200", "-14000"))
+    assert _section(netless.text, "wiring").items == (SNode("wire", (path, protect)),)
+    assert _section(declared.text, "wiring").items == (SNode("wire", (path, SNode("net", ("B",)), protect)),)
+    assert netless.names.nets == {"A": "A"} and set(netless.names.net_ids) == {"A"}
+    assert netless.names.protected_wires == frozenset({("", "F.Cu", mm(0.25), pt(9.2, 10), pt(9.2, 14))})
+    # every other part of the file is as with "declared"
+    for head in ("structure", "placement", "library"):
+        assert _section(netless.text, head) == _section(declared.text, head), head
+    assert netless.names.pins == declared.names.pins and netless.names.vias == declared.names.vias
+    assert netless.text == b.write(others="netless").text
+
+
+def test_netless_and_unconnected_pin_on_no_net_in_both_modes() -> None:
+    """Scenario "A pin on no net in both modes"."""
+    lone = "unconnected-(R1-Pad1)"
+    b = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": lone, "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A"}),
+        )
+    )
+    declared, netless = b.write(others="declared"), b.write(others="netless")
+    assert lone not in declared.text and lone not in netless.text
+    assert ("R1", "1") in _pins(declared.text) and ("R1", "1") in _pins(netless.text)
+    assert declared.text == netless.text
+
+
+def test_netless_declared_mode_is_unchanged() -> None:
+    """Scenario "Declared mode unchanged"."""
+    golden = (DATA / "two_pads.dsn").read_text(encoding="utf-8")
+    assert two_pads().write().text == two_pads().write(others="declared").text == golden
+    # the two-pad board holds no net outside the job, so the netless file is the same file
+    assert two_pads().write(others="netless").text == golden
+
+
+def test_netless_class_emptied_by_the_mode() -> None:
+    """Scenario "A class emptied by the mode"."""
+    power = NetClass(id=_id("cls", 1), name="PWR", track_width=mm(0.5))
+    signal = NetClass(id=_id("cls", 2), name="SIG", clearance=mm(0.15), track_width=mm(0.2))
+    b = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": "VCC", "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": "GND"}),
+            Part("R3", "Mini_R_0603", 20, 15, nets={"1": "VCC", "2": "GND"}),
+            classes=(power, signal),
+            class_of={"VCC": "PWR", "GND": "PWR", "A": "SIG"},
+        ),
+        selected=("A",),
+    )
+    declared, netless = b.write(), b.write(others="netless")
+    classes = _section(netless.text, "network").all("class")
+    assert [node.words[0] for node in classes] == ["SIG"]
+    before = {node.words[0]: node for node in _section(declared.text, "network").all("class")}
+    assert sorted(before) == ["PWR", "SIG"] and classes[0] == before["SIG"]
+    assert _section(netless.text, "structure") == _section(declared.text, "structure")
+
+
+def test_netless_keeps_a_net_of_a_wider_class_declared() -> None:
+    """Scenario "A wider class stays declared": a router keeps only the default rule from copper without
+    a net, so a net whose class clearance is larger than the default rule stays declared with its class
+    (the fallback of design decision 4, taken after ``dsn-netless`` was measured as ``present``)."""
+    b = _classed()  # VCC in Power (clearance 0.3 mm, default rule 0.2 mm), B in Plain, A in no class
+    result = b.write(selected=("A",), others="netless")
+    network = _section(result.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["A", "VCC"]
+    (power,) = network.all("class")
+    assert power.words[:2] == ("Power", "VCC") and power.first("circuit") is None
+    assert power.first("rule") == SNode("rule", (SNode("width", ("500",)), SNode("clearance", ("300",))))
+    assert result.names.nets == {"A": "A", "VCC": "VCC"}
+    # a class whose clearance is the default rule's, or smaller, does not keep its nets declared
+    equal = NetClass(id=_id("cls", 7), name="Same", clearance=DEFAULTS.clearance, track_width=mm(1))
+    design = design_of(
+        Part("R1", "Mini_R_0603", 10, 10, nets={"1": "P", "2": "A"}),
+        Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": "P"}),
+        classes=(equal,),
+        class_of={"P": "Same"},
+    )
+    result = bench(design).write(others="netless")
+    assert [net.words[0] for net in _section(result.text, "network").all("net")] == ["A"]
+
+
+def test_netless_with_nothing_selected_declares_only_the_wider_classes() -> None:
+    result = _classed().write(selected=(), others="netless")
+    network = _section(result.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["VCC"]
+    assert result.names.nets == {"VCC": "VCC"} and _section(result.text, "structure").first("via") == SNode(
+        "via", ("Via_600_300",)
+    )
+
+
+def test_netless_refuses_another_value() -> None:
+    with pytest.raises(ValueError, match="others"):
+        two_pads().write(others="hidden")
+
+
 # --- wiring -------------------------------------------------------------------------------------
 
 

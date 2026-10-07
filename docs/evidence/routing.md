@@ -167,3 +167,87 @@ What the limit is, from four more runs of that day on one net of three pads (not
 So Freerouting 2.4.1 joins new copper to a pad or to the end of a protected wire, and does not split a
 protected wire. `fenolite route` reports such a net under `unrouted` with its open connection;
 `docs/routing.md` says what to do.
+
+## Scale (c0109)
+
+How the two external routers behave on a board of a hundred parts, what change c0109 built from it, and
+the probes of its two Freerouting defaults.
+
+### The record of 2026-10-05
+
+These numbers were measured on 2026-10-05, before the change was written, by the review that proposed it;
+they are copied here from the change's design ("Context"). **They were not measured again when the change
+was built (2026-10-08), and the bench is not in the repository.** The design states that the bench is a
+generated board made by a script written for Fenolite, whose net names (`ch01_*` and so on) and sizes are
+what the generator gives for 100 parts and come from no existing board. That statement could not be
+checked against the script when the change was built, because the script is not committed; task 1.2 of
+the change stays open until the numbers are measured again on a bench authored for that purpose (the
+yardstick board of c0119 is one).
+
+- **Tools.** Freerouting 2.4.1 (the jar of the digest above, OpenJDK 26.0.2), the KiCadRoutingTools
+  `v0.22.1` checkout, `kicad-cli` 10.0.6, macOS arm64.
+- **Load.** The machine was shared with other runs (load average 33 to 88 on 10 cores), so wall times are
+  upper bounds; Freerouting's own CPU seconds are given beside them.
+- **Bench.** 4 copper layers, 76 × 92 mm, 100 parts (an LQFP-100 controller, 5 ICs, 90 passives,
+  3 headers), 103 nets. GND is a zone on `In1.Cu` and +3V3 a zone on `In2.Cu`, and each of their 84 SMD
+  pads already has a stub and a via to its plane. Classes PWR (0.4 mm track, 0.2 mm clearance) and SIG
+  (0.2 mm, 0.15 mm); Default 0.2 mm and 0.2 mm. Unrouted, KiCad counts 128 unconnected items.
+- **Judge.** Each routed copy was merged with `routing.merge.apply`, filled with `fenolite fill` and
+  checked with `fenolite check` on KiCad 10.0.6.
+
+Freerouting. Runs 2 to 4 call the jar directly with
+`java -jar freerouting-2.4.1.jar -de board.dsn -do board.ses -mp 20 -mt 1 -da --gui.enabled=false` plus
+the arguments named, on the design file the plugin wrote for the job of run 1.
+
+| run | command | nets selected / declared | stages and time | copper added | on plane layers | KiCad after `fill` |
+|---|---|---|---|---|---|---|
+| 1 | `fenolite route <board> --router freerouting --timeout 900 --confirm`, the plugin before this change | 101 / 103 | fanout 21 s; autorouter on 191 items, 0 unrouted after 6 passes at 256 s (119 CPU s); optimizer from 259 s, killed at 900 s; exit 5 after 912 s | none: 101 `route.unrouted`, `route.tool-failed` | – | 128 unconnected items, as before |
+| 2 | the same design file with `--router.optimizer.enabled=false` | 101 / 103 | the same passes and scores; session saved when the autorouter ended: 863 s wall under load, 203 CPU s | 1190 tracks and 197 vias on the 101 nets; 185 of the 525 session wires were on GND and +3V3 and were dropped | 661 tracks on `In1.Cu` and `In2.Cu`, which split the planes into 8 and 5 fills | 11 unconnected items, all between GND or +3V3 stubs and plane islands; `track_width` 2 (two 0.12 mm segments under the 0.15 mm minimum); Fenolite's copper check: 0 findings |
+| 3 | the same, with GND and +3V3 left out of the network section (pins on no net, stubs and vias protected without a net) | 101 / 101 | autorouter on 103 items, 0 unrouted after 4 passes; session at 423 s wall, 112 CPU s (45 % less than run 2) | 1084 tracks and 190 vias; no wire on GND or +3V3 | tracks on both plane layers again (10 and 13 fills) | 21 unconnected items, all on GND and +3V3 plane islands; no `track_width`, no clearance violation. Freerouting's own score counted 256 "violations" instead of 83; KiCad found none of them |
+| 4 | the built blink (3 nets), four variants | 3 / 3 | with `-mt 0` and with `-mt 1` the log shows "Optimization stage started"; with `--router.optimizer.enabled=false` none, and the session is saved when the autorouter ends | – | – | a class `IGN` holding LED_A, named with `-inc IGN` (first or last argument) or with `--router.ignore_net_classes=IGN`, was routed every time ("3 unrouted items", 2 wires on LED_A); with GND left out of the network section: "2 unrouted items", no wire on GND |
+
+KiCadRoutingTools (run 5). Every call is
+`route.py <board> <out> --nets <names> --track-width 0.2 --via-size 0.6 --via-drill 0.3 --json-out <file>`
+plus the flags named, in a folder written by `write_triad`.
+
+| nets | how | time (load) | closed | copper | KiCad |
+|---|---|---|---|---|---|
+| 28 (`ch01_*`) | one process per net, the plugin before this change | 527 s (27 to 45) | 28 | 345 tracks, 57 vias; 8 `route.copper-removed` | `tracks_crossing` between `ch01_M4` and `ch01_P3` (copper check: one short); one via of 0.3 mm with a 0.15 mm drill where the class asks 0.6 mm and 0.3 mm (`via_diameter`, `drill_out_of_range`, `annular_width`) |
+| 28 | one process, no `--clearance`, the tool's default escalation | 136 s | 28 | "389 feature(s) on 10 net(s) delivered below the requested size" | no crossing, no short; the same three via errors |
+| 28 | the same with `--escalation off` | 24 s | 28 | every track 0.2 mm, every via 0.6 mm with a 0.3 mm drill | no DRC error |
+| 101 | one process, the default escalation | 296 s | 101 | 2261 features under the requested size on 43 nets, tracks down to 0.0889 mm | `track_width` 199, `via_diameter` 14, `annular_width` 14, `drill_out_of_range` 12, `hole_clearance` 6 |
+| 101 | one process with `--escalation off --no-fix-drc-settings` | 70 s (13 to 22) | 94; the 7 others named by the tool's summary and open in KiCad | – | no other DRC error; copper check clean |
+
+What the change took from it: one budget for the whole step and kept runs (run 1 lost everything at the
+limit), the optimizer off (run 2), only the job's nets in the design file (run 3), one KiCadRoutingTools
+process per group of equal sizes with `--escalation off` and `--no-fix-drc-settings` (run 5). `-inc` and
+`-mt 0` were rejected (run 4).
+
+### Probes on 2026-10-08
+
+`tests/routing/test_freerouting_gate.py -k "no_optimizer or netless"`, with the jar 2.4.1 of the digest
+above, OpenJDK 26.0.2 and the local `kicad-cli` 10.0.6 (macOS arm64); the machine-readable outcomes are in
+`routing/freerouting-2.4.1.json`.
+
+| outcome | value | hypothesis | what was seen |
+|---|---|---|---|
+| `dsn-noopt` | `absent` | `H-G-DSN-NOOPT` | the blink's design file with `--router.optimizer.enabled=false`: no "Optimization stage" line, and a session with wires |
+| `dsn-mt0` | `present` | `H-G-DSN-NOOPT` | the same file with `-mt 0` and without the setting: the optimization stage is logged, as it is with `-mt 1` |
+| `dsn-netless` | `present` | `H-G-DSN-NETLESS` (refuted) | `netless_bench` of `tests/_specctra.py`: the net B, in a class with a 0.4 mm clearance, left out of the network section between the routed nets A and C; default rule 0.2 mm. No session wire on B, and both routes pass 0.3 mm from the pads of B: KiCad reports 2 `clearance` violations. The same copper judged with B in the default class: 0 violations |
+| `dsn-netless-declared` | `absent` | `H-G-DSN-NETLESS-2` | the same bench as `write_dsn(..., others="netless")` writes it since the fallback: B stays declared with its class, the two routes bend away (10 tracks instead of 2), and KiCad reports 0 `clearance` violations |
+| `dsn-inc` | `present` | `H-G-DSN-NETLESS` | the bench with B open and declared, and `-inc WIDE` as the first and as the last argument: a session wire on B both times, so `-inc` does not keep a class out of the autorouter |
+| `krt-group-t9`, `krt-group-t10` | not run | `H-K-KRT-GROUP` | no KiCadRoutingTools checkout on the machine of the implementation; `tests/routing/test_krt_gate.py::test_group` waits for the `routing` job and for the pinned 9.0.9 image |
+
+**The fallback taken.** Freerouting 2.4.1 keeps the default rule, and no more, from pins and wiring that
+have no net. A net outside the job whose class clearance is larger than the default rule therefore stays
+declared in the design file, with its class (`backends.specctra.dsn`, "Nets outside the routing job in
+design files"), and `route.net-declared` (info) names such nets. Every other net outside the job leaves
+the network section. The cost: Freerouting also routes a declared net that is still open, and that copper
+is not taken.
+
+**Gates kept with the command lines of this change** (optimizer off, other nets left out), on the local
+`kicad-cli` 10.0.6 on 2026-10-08: `test_route[t10]` of the Freerouting gate records `dsn-route-t10` =
+`equal` with the same 11 tracks and 1 via as before; `tests/routing/test_acceptance_loop.py` passes (the
+blink and `board_40parts`, built for KiCad 9 and 10, both judged by the local 10.0.6: 3 of 3 and 39 of 39
+nets closed, no DRC violation, no unconnected item). The runs under 9.0.9 (`dsn-route-t9`, the
+KiCadRoutingTools gate) were not made: they need the pinned image and the checkout.
