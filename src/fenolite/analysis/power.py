@@ -16,7 +16,9 @@ With a resistivity given by the user the resistance is an interval. A part of a 
 uniform conductor ``ρ·L/(w·t)``; a via group is its barrels in parallel, ``ρ·h/ΣA``; a fill between two
 ports lies between ``R_s·ℓ²/A`` and ``R_s·A/w²`` with ``R_s = ρ/t``, ``ℓ`` the shortest path in the fill
 between the two port hulls, ``w`` their narrowest section and ``A`` the fill's area outside the hulls
-(Dirichlet's principle, S-0682; the bounds are those of the extremal length with the metric 1, S-0681).
+(Fenolite's own derivation, ``H-G-AN-POUR``, from two facts: a solution minimises the Dirichlet
+energy, S-0682, and one metric bounds an extremal length from below, S-0681; neither source states the
+bounds of a conductor).
 The low end is the network at its low values with every fill of more than two ports shorted; the high
 end is the network at its high values, or the best single chain. Units: resistivity in picoohm-metres,
 lengths in nanometres, resistance in microohms (``1000·ρ·L/(w·t)``), drop in millivolts. Every value is

@@ -9,9 +9,10 @@ the shapes in plan view, measured as the gaps on one layer are, and ``h`` the de
 ``L`` less the depth of the bottom face of ``U``. Copper on a layer between the two is not considered.
 
 The depths come from the stack-up of the board and from nowhere else: Fenolite assumes no thickness.
-``layer_depths`` reads them through ``Stackup.depth``, the one definition of a depth (change c0101); on a
-model without that method it returns ``None`` and every caller reports the stack-up as a missing input.
-``insulation_between`` takes the depths as an argument.
+``layer_depths`` reads them through ``Stackup.depth``, the one definition of a depth (change c0101): the
+depths of the top and of the bottom face of an entry below the top face of the first entry. A board
+without a stack-up, or a copper layer without an entry in it, has no depth, and every caller reports the
+stack-up as a missing input. ``insulation_between`` takes the depths as an argument.
 """
 
 from __future__ import annotations
@@ -72,18 +73,16 @@ def plan_gap(first: Sequence[CopperShape], second: Sequence[CopperShape], layer:
 
 def layer_depths(board: Board) -> Depths | None:
     """The depths of the two faces of each copper layer that has an entry in the stack-up, by
-    ``Stackup.depth``; ``None`` without a stack-up, or on a model whose stack-up has no ``depth``."""
+    ``Stackup.depth``; ``None`` without a stack-up. A copper layer without an entry is left out."""
     stackup = board.stackup
-    depth = getattr(stackup, "depth", None)
-    if stackup is None or depth is None:
+    if stackup is None:
         return None
     found: dict[str, tuple[Nm, Nm]] = {}
     for layer in copper_layers(board):
         try:
-            top, bottom = depth(layer)
+            found[layer] = stackup.depth(layer)
         except KeyError:
             continue
-        found[layer] = (top, bottom)
     return found
 
 

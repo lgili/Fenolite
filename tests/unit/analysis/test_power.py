@@ -5,12 +5,13 @@ and "Power path voltage drop"). Every current, rise, thickness and resistivity h
 
 from __future__ import annotations
 
+import dataclasses
 import time
 from fractions import Fraction
 from math import ceil, floor
 
-import pytest
 from _analysis import box
+from _coppercheck import ident
 from _power import (
     DUMBBELL,
     SPLIT4,
@@ -24,16 +25,18 @@ from _power import (
     via_array,
 )
 
-from fenolite.analysis import PowerReport, analyze_current, analyze_power, load_requirements, power
+from fenolite.analysis import PowerReport, analyze_current, analyze_power, load_requirements
 from fenolite.analysis.current import barrel_area_nm2
 from fenolite.analysis.power import EVIDENCE, Interval, PathElement, region_bounds
 from fenolite.analysis.requirements import SCHEMA
 from fenolite.analysis.section import Port
 from fenolite.core.evidence import Level
 from fenolite.geometry import Thick
+from fenolite.model.board import StackLayer, Stackup
 
 HEAD = f'schema = "{SCHEMA}"\n'
 RHO = 20_000
+PATHS = ((("J1-1",), ("U1-1",)),)
 """An illustrative resistivity in picoohm-metres; Fenolite ships none."""
 
 
@@ -273,25 +276,39 @@ def test_track_resistance_and_a_strip_without_thickness() -> None:
     assert [f.where for f in bare.issues] == ["copper thickness"]
 
 
-def test_barrel_resistance_from_the_depths(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The seam of change c0101: a via group is ``ρ·h/ΣA`` with ``h`` between the middles of its layers."""
+def test_barrel_resistance_from_the_depths() -> None:
+    """A via group is ``ρ·h/ΣA`` with ``h`` between the middles of its two copper layers, by
+    ``Stackup.depth`` of the board's stack-up: 35 µm of copper on each side of 1.53 mm of laminate."""
     design, pads = via_array(4)
-    kwargs = {"copper_thickness": {"*": 35_000}, "via_plating": 25_000, "resistivity_pohm_m": RHO}
-    without = analyze_power(design, pads=pads, paths=((("J1-1",), ("U1-1",)),), **kwargs)  # type: ignore[arg-type]
-    (group,) = only(without, "via-group")
-    assert group.resistance_uohm is None and without.rows[0].resistance_uohm is not None
-    assert without.rows[0].resistance_uohm.high is None
-    assert "stack-up" in [f.where for f in without.issues]
-    depths = {"F.Cu": (0, 35_000), "B.Cu": (1_565_000, 1_600_000)}
-    monkeypatch.setattr(power, "layer_depths", lambda board: depths)
-    report = analyze_power(design, pads=pads, paths=((("J1-1",), ("U1-1",)),), **kwargs)  # type: ignore[arg-type]
+    assert design.board is not None and design.board.stackup is None
+    kwargs = {"via_plating": 25_000, "resistivity_pohm_m": RHO}
+    thick = {"*": 35_000}
+    bare = analyze_power(design, pads=pads, paths=PATHS, copper_thickness=thick, **kwargs)  # type: ignore[arg-type]
+    (group,) = only(bare, "via-group")
+    assert group.resistance_uohm is None and bare.rows[0].resistance_uohm is not None
+    assert bare.rows[0].resistance_uohm.high is None
+    assert "stack-up" in [f.where for f in bare.issues]
+    entries = (("F.Cu", "copper", 35_000), ("core", "dielectric", 1_530_000), ("B.Cu", "copper", 35_000))
+    layers = tuple(
+        StackLayer(id=ident("stk", n), name=name, kind=kind, thickness=thickness)  # type: ignore[arg-type]
+        for n, (name, kind, thickness) in enumerate(entries)
+    )
+    board = dataclasses.replace(design.board, stackup=Stackup(id=ident("stu", 1), layers=layers))
+    stacked = dataclasses.replace(design, board=board)
+    assert board.stackup is not None and board.stackup.depth("B.Cu") == (1_565_000, 1_600_000)
+    report = analyze_power(stacked, pads=pads, paths=PATHS, **kwargs)  # type: ignore[arg-type]
     (group,) = only(report, "via-group")
     area = 4 * barrel_area_nm2(300_000, 25_000)
-    exact = Fraction(1000 * RHO * 1_565_000, area)
+    exact = Fraction(1000 * RHO * 1_565_000, area)  # between the middles: 17.5 µm to 1582.5 µm
     assert group.resistance_uohm == Interval(floor(exact), ceil(exact)) and group.area_nm2 == area
-    assert "stack-up" not in [f.where for f in report.issues]
+    assert not [
+        f for f in report.issues if f.code == "analysis.input-missing" and f.where != "temperature rise"
+    ]
     total = report.rows[0].resistance_uohm
     assert total is not None and total.high is not None and total.low >= floor(exact)
+    # the copper thickness of the fills came from the stack-up too: the same interval as with the option
+    given = analyze_power(stacked, pads=pads, paths=PATHS, copper_thickness=thick, **kwargs)  # type: ignore[arg-type]
+    assert given.rows[0].resistance_uohm == total
 
 
 def test_region_bounds_of_a_neck() -> None:

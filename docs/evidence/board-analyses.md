@@ -100,7 +100,8 @@ resistivity of 20 nΩ·m, so 400 µΩ per square. Each grid value lies inside it
 | `split4`: a 4 mm neck with a 1.6 mm hole | 240 to 13 989 µΩ | 1006.0 µΩ | 58 | 10 ms |
 | `two_strips`: the strip on two layers between through-hole pads | 720 to 720 µΩ | 719.6 µΩ | 1 | 11 ms |
 
-The two bounds meet on a strip between two plates and are far apart on a pour with a neck: the upper
+The two bounds are Fenolite's own derivation: S-0681 and S-0682, read as rendered on 2026-10-08, give
+the facts it starts from and state no bound of the resistance of a conductor. The two bounds meet on a strip between two plates and are far apart on a pour with a neck: the upper
 bound `R_s·A/w²` charges the whole area at the neck's width, and the lower bound `R_s·ℓ²/A` spreads the
 current over the whole area. A drop requirement on such a pour is therefore often undecided; the interval
 is reported as it is.

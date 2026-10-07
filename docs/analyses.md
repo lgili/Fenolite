@@ -183,8 +183,11 @@ surface path of a creepage (`H-G-AN-PATH`); the two share only the word.
   | lower | `R_s · ℓ² / A` | the potential that rises evenly along the distance from one port is a trial function, and by Dirichlet's principle (S-0682) a trial function bounds the energy, hence the conductance, from above |
   | upper | `R_s · A / w²` | every line of equal potential separates the two ports, so it is at least `w` long; with the Cauchy–Schwarz inequality the conductance is at least `w² / (R_s · A)` |
 
-  They are the bounds of the extremal length of the joining and of the separating curves with the metric 1
-  (S-0681). On a strip between two plates both equal `R_s · L / W`; on a pour with a neck they lie far
+  The two bounds are **Fenolite's own derivation** (`H-G-AN-POUR`, `INFERRED`, checked against a
+  finite-difference solution in the tests). The sources give the two facts it starts from, not the bounds:
+  the solution of the boundary problem minimises the Dirichlet energy (S-0682), and one metric bounds the
+  extremal length of a family of curves from below by its squared length over its area (S-0681). Neither
+  page, as read, states a bound of the resistance of a conductor. On a strip between two plates both equal `R_s · L / W`; on a pour with a neck they lie far
   apart, and the interval is reported as it is. The path's low end is the network at its low values, a fill
   of more than two ports shorted; its high end is the network at its high values, or the best single chain
   (`H-G-AN-POUR`, `H-G-AN-NETWORK`). The drop is the current times the resistance. It is a measure against

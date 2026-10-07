@@ -259,7 +259,7 @@ def _arc_slack(line: _Line, first: _Pos, second: _Pos, arc_tol: int) -> int:
     """How far the arc between two positions may be longer than its chords. A chord of length ``c`` whose
     sagitta is at most ``s`` spans an arc of at most ``c + 4·s²/c`` (for a chord angle up to a half turn,
     ``2u / sin 2u − 1 ≤ tan² u`` with ``u`` a quarter of the angle and ``tan u = 2·s/c``); every chord that
-    the part touches counts whole."""
+    the part touches counts whole. Fenolite's own derivation: hypothesis ``H-G-AN-ARCLEN``."""
     slack = 0
     for k in range(first[0], second[0] + 1):
         a, b = line.points[k], line.points[k + 1]
