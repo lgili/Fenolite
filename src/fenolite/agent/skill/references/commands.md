@@ -127,7 +127,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 `fenolite check [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS] PATH`
 
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder; an Altium document, .PrjPcb or project folder
-- `--stages` (string): stages to run, of model.validate,erc.kicad,copper.clearance,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
+- `--stages` (string): stages to run, of model.validate,erc.kicad,copper.clearance,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
 - `--kicad-cli` (string): the kicad-cli to run (unused for Altium input)
 - `--timeout` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
 
@@ -276,7 +276,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--confirm` (boolean): perform the writes
 - `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
 - `--artifacts` (string, repeatable): a folder inside the project whose fenolite-artifacts.json lists artefacts to add (repeatable)
-- `--stages` (string): stages to run, of model.validate,erc.kicad,copper.clearance,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip)
+- `--stages` (string): stages to run, of model.validate,erc.kicad,copper.clearance,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip)
 - `--no-check` (boolean): run no stage: record hashes only
 - `--verify` (boolean): compare the manifest with the files on disk; write nothing
 - `-o`, `--out` (string): the manifest file (default: fenolite-artifacts.json by the board)

@@ -1985,6 +1985,9 @@ def build_altium(
         model, document=f"{name}.PcbDoc" if spec is not None else None
     )
     issues += rule_issues
+    unjudged = lower.placement_rule_info(model)  # the build judges no placement rule (change c0113)
+    if unjudged is not None:
+        issues.append(unjudged)
     copper_info = None
     if spec is not None:
         if copper_source is not None:

@@ -2267,6 +2267,16 @@ meaning = "A courtyard is closer to the board edge than the edge clearance."
 fix = "Move the part away from the edge."
 see = "place"
 
+["place.keepout"]
+meaning = "The courtyard of a footprint enters a rule area that forbids footprints, on the face the area's copper layer judges (F.Cu the front, B.Cu the back); KiCad's DRC reports the same part as 'items not allowed'. An area that only touches the courtyard does not count."
+fix = "Move the part out of the area; 'fenolite place' refuses the move unless --force is given, and its grid leaves such areas free."
+see = "place"
+
+["place.keepout-no-courtyard"]
+meaning = "A footprint without a courtyard has pads in a rule area that forbids footprints. KiCad's DRC does not report a part without a courtyard, so only this warning tells."
+fix = "Move the part out of the area, or give its footprint a courtyard so that KiCad judges it too."
+see = "place"
+
 ["place.locked"]
 meaning = "The footprint is locked on the board, so it was not moved."
 fix = "Pass --force to move it, or unlock it in KiCad."
@@ -2306,6 +2316,21 @@ see = "place"
 meaning = "--move or --only names a reference that the board does not hold."
 fix = "Correct the reference; 'fenolite inspect' and 'fenolite net' show what the board holds."
 see = "place"
+
+["placement.rule-skipped"]
+meaning = "A placement rule names a part that lies off the board (a part the build staged beside it), so the rule is not judged for that part."
+fix = "Place the part on the board, with place() in the script or with 'fenolite place', and check again."
+see = "check"
+
+["placement.rule-unresolved"]
+meaning = "A placement rule of the design names a part or a pad that the board does not hold, so it cannot be judged; an unresolved anchor leaves the whole rule unjudged."
+fix = "Correct the near() call in the script, or build the design again so that the board and the rules of .fenolite/ agree."
+see = "check"
+
+["placement.too-far"]
+meaning = "A part of a near() rule has no selected pad within the rule's distance of a pad of the anchor, measured between pad centres. The message names the rule, the nearest anchor pad and the distance, rounded up to the nanometre."
+fix = "Move the part nearer to the pad it belongs to, or change the distance or the severity of the near() call."
+see = "check"
 
 ["pnp.no-outline"]
 meaning = "The placement template asks for positions relative to the board outline, and the board has no closed outline. No row and no file is written."

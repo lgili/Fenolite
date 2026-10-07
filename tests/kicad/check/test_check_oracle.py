@@ -65,6 +65,7 @@ def test_canary(tmp_path: Path) -> None:
         "model.validate",
         "erc.kicad",
         "copper.clearance",
+        "placement.rules",
         "zone.fill",
         "drc.kicad",
         "parity",

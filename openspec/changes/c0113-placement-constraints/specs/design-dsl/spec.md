@@ -24,20 +24,6 @@
 - **WHEN** `to_model` runs on the blink, which does not call `near`
 - **THEN** `canonical.dump_texts` of its model gives the texts it gave before this change
 
-### Requirement: Placement keep-outs in the DSL
-`design.rule_area(name, outline, *, layers=None, forbid=())` of c0103 ("Rule areas in the DSL") SHALL also take `"footprints"` in `forbid`, mapped to `Keepout.no_footprints`, so that the KiCad build writes `(footprints not_allowed)` and the legality checks of `place` and `build` judge the area ("Placement legality", capability `placement`). For this value the list of `forbid` values, the clause `no_footprints == False` and the refused call `forbid=("footprints",)` of "Rule areas in the DSL" no longer hold; when that requirement is living, this one is replaced by a MODIFIED delta of it.
-- **The Altium target.** `build --target altium` MUST handle the area as it handles any rule area ("Rule areas in the DSL" and the Altium requirement of the change that adds them). The restriction on footprints MUST NOT be dropped silently: the build MUST give one `altium.not-lowered` info whose `where` is the kind `keepout-footprints` (`backends.altium.lower`), naming the areas, and the kind MUST NOT be in `LOSS_KINDS`. No Altium record is written for the restriction until `docs/formats/altium/` holds a fact row for it.
-
-#### Scenario: Antenna keep-out
-- **GIVEN** the blink with `design.rule_area("ANT", <a 6 mm × 6 mm square over R1>, layers=("F.Cu",), forbid=("footprints",))`
-- **WHEN** `uv run pytest tests/unit/dsl/test_placement_rules.py -k keepout` builds it with `--dry-run --json`
-- **THEN** the model's `Keepout` named `ANT` has `no_footprints` true, the planned board text holds `(footprints not_allowed)` once, and `issues` hold one `place.keepout` warning naming `R1` and `ANT`
-
-#### Scenario: Antenna keep-out in an Altium build
-- **GIVEN** the same design
-- **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k keepout_footprints` builds it with `--target altium --dry-run --json`
-- **THEN** the exit code is 0, and `issues` hold one `altium.not-lowered` info whose `where` is `keepout-footprints` and whose message names `ANT`
-
 ## MODIFIED Requirements
 
 ### Requirement: Placement legality in a build
@@ -78,3 +64,44 @@
 - **GIVEN** the routed blink with `design.near("led", d1, r1.pad(2), within=mm(5))`
 - **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k placement_rule` builds it with `--target altium --dry-run --json`
 - **THEN** the exit code is 0, `result` holds no `placement`, the planned `.fenolite/rules.json` holds the rule under `proximity`, `issues` hold one `altium.not-lowered` info whose `where` is `placement-rule`, and no `placement.*` issue
+
+### Requirement: Rule areas in the DSL
+`Design.rule_area(name, outline, *, layers=None, forbid=()) -> RuleArea` SHALL declare one rule area, and `dsl.to_model` SHALL put one model `Keepout` per declared area into `Board.keepouts`, in name order. This adds rule areas to the `Board` of "DSL to model". `Design.rule_area` is the one call of the DSL that declares a rule area or a keep-out: a keep-out is a rule area with a non-empty `forbid`, and the DSL has no `keepout()` call.
+- `board()` MUST have been called first.
+- `name` MUST match `^[A-Za-z0-9_.+-]+$`. Two areas MUST NOT have names that are equal after `str.casefold()`, because KiCad compares area names with letter case (`H-K-AREA-COND`).
+- `outline` MUST hold at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added.
+- `layers` is `None`, which means every copper layer of the board in table order, or a non-empty sequence of distinct copper layer names of the board.
+- `forbid` MUST be a tuple of distinct values among `tracks`, `vias`, `pads`, `pours` and `footprints` (`dsl.items.FORBID`). An area with an empty `forbid` is a named area for rules only. An area that forbids `footprints` is a placement keep-out: the KiCad build writes `(footprints not_allowed)`, and the legality checks of `place` and `build` judge it (`placement`, "Placement legality").
+- Each violation MUST raise `DslError` at the call, naming the argument, and MUST record nothing.
+- `RuleArea` is a frozen dataclass of `dsl/items.py` with `name`, `outline` (the given points as nanometre pairs, without `BOARD_ORIGIN`), `layers` and `forbid`. `Design.rule_areas` MUST map each name to its `RuleArea`, in call order. `fenolite.dsl` MUST re-export `RuleArea`, as "DSL package" allows, and the package keeps importing only the standard library, `core` and `model`.
+- The model keep-out MUST have the id `derived_id("kpo", "dsl", "area:<name>")` (`design-model`, "Identifier derivation"), the `name`, the outline, the layers, and `no_tracks`, `no_vias`, `no_pads`, `no_copper_pour` and `no_footprints` true exactly for `tracks`, `vias`, `pads`, `pours` and `footprints` in `forbid`.
+- **The Altium target.** `build --target altium` MUST handle an area that forbids footprints as it handles any rule area. The restriction on footprints MUST NOT be dropped silently: the build MUST give one `altium.not-lowered` info whose `where` is the kind `keepout-footprints` (`backends.altium.lower`), naming the areas, and the kind MUST NOT be in `LOSS_KINDS`. No Altium record is written for the restriction until `docs/formats/altium/` holds a fact row for it.
+
+#### Scenario: Antenna keep-out in the model
+- **GIVEN** a design with `board(mm(50), mm(30))` and `d.rule_area("ANT", [(mm(40), mm(0)), (mm(50), mm(0)), (mm(50), mm(10)), (mm(40), mm(10))], forbid=("tracks", "vias", "pours"))`
+- **WHEN** `to_model(d)` runs
+- **THEN** `board.keepouts` holds one `Keepout` named `ANT` with the id `derived_id("kpo", "dsl", "area:ANT")`, layers `("F.Cu", "B.Cu")`, the outline (140 mm, 100 mm), (150 mm, 100 mm), (150 mm, 110 mm) and (140 mm, 110 mm), `no_tracks`, `no_vias` and `no_copper_pour` true, and `no_pads` and `no_footprints` false
+
+#### Scenario: Area for rules only
+- **GIVEN** the same board and `hv = d.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))`
+- **WHEN** `to_model(d)` runs
+- **THEN** the keep-out `HV` has layers `("F.Cu",)` and its five settings false, and `hv.name == "HV"`
+
+#### Scenario: Refused calls
+- **WHEN** `d.rule_area("HV", …)` is called before `board()`, and after it `d.rule_area("H V", …)`, `d.rule_area("A", [(mm(0), mm(0)), (mm(1), mm(1))])`, `d.rule_area("B", …, layers=("In1.Cu",))` on a two-layer board, `d.rule_area("C", …, forbid=("silkscreen",))`, and `d.rule_area("hv", …)` after `d.rule_area("HV", …)`
+- **THEN** each raises `DslError` naming, in order, `board()`, `name`, `outline`, `In1.Cu`, `silkscreen` and `hv`, and `d.rule_areas` holds only `HV`
+
+#### Scenario: Call order does not matter
+- **GIVEN** two designs that declare the areas `ANT` and `HV` in opposite orders
+- **WHEN** `canonical.dump_texts(to_model(d))["board.json"]` is taken for both
+- **THEN** the two texts are byte-identical, `ANT` first
+
+#### Scenario: Antenna keep-out
+- **GIVEN** the blink with `design.rule_area("ANT", <a 6 mm × 6 mm square over R1>, layers=("F.Cu",), forbid=("footprints",))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_placement_rules.py -k keepout` builds it with `--dry-run --json`
+- **THEN** the model's `Keepout` named `ANT` has `no_footprints` true, the planned board text holds `(footprints not_allowed)` once, and `issues` hold one `place.keepout` warning naming `R1` and `ANT`
+
+#### Scenario: Antenna keep-out in an Altium build
+- **GIVEN** the same design
+- **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k keepout_footprints` builds it with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, and `issues` hold one `altium.not-lowered` info whose `where` is `keepout-footprints` and whose message names `ANT`

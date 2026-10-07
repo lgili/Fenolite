@@ -6,11 +6,17 @@
 The command reads the board, moves footprints with ``backends.kicad.replace.move_footprint``, judges the
 resulting layout with ``placement.legality.check`` and plans one write: the board. It runs no tool. An
 illegal placement is not written unless ``--force`` is given; KiCad's DRC stays the judge of the board.
+
+The legality check gets the board's keep-outs, and the grid leaves the box of every rule area that forbids
+footprints free. The placement rules of a built project (``.fenolite/``) are judged on the layout after
+the moves and reported as warnings, which never refuse the write, and ``result.measures`` holds the wire
+length and the congestion of that layout (``checks.placement``; change c0113).
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 from collections import Counter
 from collections.abc import Sequence
@@ -26,8 +32,9 @@ from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
 from fenolite.backends.kicad.outline import board_outline
-from fenolite.backends.kicad.projectset import resolve_board
+from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.replace import PlacementError, footprint_ref, move_footprint
+from fenolite.checks import placement as placement_rules
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import board_format
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -35,16 +42,18 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue
+from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, Udeg, parse_angle, parse_length
 from fenolite.geometry import BBox
 from fenolite.model import canonical
 from fenolite.model.board import FootprintInstance, Side
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
-from fenolite.placement import EVIDENCE, Box, check
+from fenolite.placement import EVIDENCE, KEEPOUT_EVIDENCE, Box, check
 from fenolite.placement import place as grid_place
 from fenolite.placement.codes import issue
 from fenolite.placement.grid import DEFAULT_GAP, DEFAULT_MARGIN, DEFAULT_PITCH
+from fenolite.placement.legality import forbids_footprints
 
 HELP = "place staged parts on the board in a grid, or move named parts (edits the board)"
 STRATEGIES = ("grid", "manual")
@@ -176,11 +185,28 @@ def _copper_left(design: Design, pads: Sequence[BoardPad], moved: set[str]) -> l
     return found
 
 
-def _script_locked(folder: Path) -> set[str]:
-    """The component paths whose placement is locked in ``.fenolite/`` (empty without a readable cache)."""
+def _cache(folder: Path) -> Design | None:
+    """The ``.fenolite/`` model of a built project, loaded once: it holds the locked placements and the
+    placement rules. ``None`` without a readable cache."""
     try:
-        cached = canonical.load_dir(folder / CACHE_DIR)
+        return canonical.load_dir(folder / CACHE_DIR)
     except (FenoliteError, OSError, ValueError):
+        return None
+
+
+def _wire_pitch(design: Design, board_path: Path) -> Nm | None:
+    """The track width plus the clearance of the class ``Default`` in the project's own files, as the
+    pitch of the congestion estimate; ``None`` without that class or without a readable project."""
+    try:
+        project = project_set(board_path)
+    except (FenoliteError, OSError, ValueError):
+        return None
+    return placement_rules.default_pitch(KicadBackend().design_rules(design, project).design)
+
+
+def _script_locked(cached: Design | None) -> set[str]:
+    """The component paths whose placement is locked in ``.fenolite/`` (empty without a readable cache)."""
+    if cached is None:
         return set()
     paths = _paths(cached)
     footprints = cached.board.footprints if cached.board is not None else ()
@@ -230,6 +256,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     major = info.major if info is not None and info.major in versions.TARGET_MAJORS else ctx.kicad_target
     backend = KicadBackend()
     outline = board_outline(design)
+    forbidding = forbids_footprints(design.board.keepouts)
     region = BBox.of_points(outline.rings[0]) if outline.rings else None
     origin = Point(region.x0, region.y0) if region is not None else Point(0, 0)
     before = _by_ref(design)
@@ -302,6 +329,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 for face in sorted(faces):
                     occupied += [BBox.of_points(ring) for ring in getattr(known[fp.id], face)]
             cutouts = [BBox.of_points(ring) for ring in outline.rings[1:]]
+            # the box of every rule area that forbids footprints is avoided like a cut-out (change c0113)
+            cutouts += [BBox.of_points(area.outline) for area in forbidding]
             packed = grid_place(
                 boxes, region, occupied=occupied, cutouts=cutouts, pitch=pitch, gap=gap, margin=margin
             )
@@ -326,11 +355,24 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         for extent in backend.placed_extents(design)
         if extent.footprint_id in moved or not off_board(after[names[extent.footprint_id]])
     ]
-    legality = check(extents, outline.rings, names=names)
+    legality = check(extents, outline.rings, names=names, keepouts=design.board.keepouts)
     issues += legality
+    cached = _cache(board_path.parent)
+    pads_after = backend.board_pads(design)
+    judged = placement_rules.judge(design, placement_rules.rules_of(cached), pads=pads_after)
+    issues += [
+        dataclasses.replace(found, severity="warning") if found.severity == "error" else found
+        for found in judged.issues
+    ]
+    wire_pitch = _wire_pitch(design, board_path)
+    measures = placement_rules.measure(design, pads=pads_after, pitch=wire_pitch)
+    change = {"hpwl": 0, "ratsnest": 0}
     if moved:
         original = kicad_pcb.read_board(board_path)
-        left = _copper_left(original, backend.board_pads(original), moved)
+        pads_before = backend.board_pads(original)
+        earlier = placement_rules.measure(original, pads=pads_before, pitch=wire_pitch)
+        change = {"hpwl": measures.hpwl - earlier.hpwl, "ratsnest": measures.ratsnest - earlier.ratsnest}
+        left = _copper_left(original, pads_before, moved)
         for fp_id in left:
             ref = names[fp_id]
             issues.append(
@@ -341,7 +383,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                     "route the part again, or move the copper in KiCad",
                 )
             )
-        locked = _script_locked(board_path.parent)
+        locked = _script_locked(cached)
         for fp_id in sorted(moved, key=lambda i: names[i]):
             if paths[fp_id] in locked:
                 issues.append(
@@ -377,12 +419,19 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "moved": rows,
         "unplaced": sorted(ref for ref, fp in after.items() if off_board(fp)),
         "legality": dict(sorted(Counter(found.code for found in legality).items())),
+        "rules": {family: dict(counts) for family, counts in judged.counts.items()},
+        "measures": {**measures.to_json(), "change": change},
     }
     issues.sort(key=lambda found: (found.code, found.where))
+    evidence = [EVIDENCE]
+    if forbidding:
+        evidence.append(KEEPOUT_EVIDENCE)
+    if judged.judged:
+        evidence.append(placement_rules.EVIDENCE)
     return Result(
         result=result,
         issues=tuple(issues),
-        evidence=EVIDENCE,
+        evidence=Evidence.combine(*evidence),
         input=InputRef(
             path=board_path.name,
             sha256=hashlib.sha256(data).hexdigest(),

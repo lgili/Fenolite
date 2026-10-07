@@ -132,7 +132,9 @@ def test_placed_then_rebuilt(tmp_path: Path) -> None:
     code, env = fenolite(tmp_path, *build)
     assert code == 0, env.get("issues")
     assert not [i for i in env["issues"] if i["code"] == "layout.unplaced"]
-    assert env["result"]["staged"] == [] and env["result"]["placement"] == {"ran": True, "counts": {}}
+    assert env["result"]["staged"] == []
+    no_rule = {"near": {"judged": 0, "failed": 0, "skipped": 0}}  # the guard also counts the rules (c0113)
+    assert env["result"]["placement"] == {"ran": True, "counts": {}, "rules": no_rule}
     rebuilt = lc.positions((out / lc.BOARD).read_text(encoding="utf-8"))
     assert rebuilt == placed
     first = all_files(out)

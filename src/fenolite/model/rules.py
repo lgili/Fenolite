@@ -131,14 +131,92 @@ class Rule(Entity):
     priority: int = 0
 
 
+PlacementSeverity = Literal["error", "warning"]
+"""The severity of a placement rule. A rule that judges nothing (``ignore``) is not a value."""
+
+
+@dataclass(frozen=True, slots=True)
+class PadSelection:
+    """Pads of one part, named by its component path.
+
+    Every pad of the part, those of one ``number``, or the one at ``index`` among the pads of that number
+    in the footprint's pad order.
+    """
+
+    path: str
+    number: str = ""
+    index: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.path:
+            raise ValueError("a pad selection needs a component path")
+        if self.index is not None:
+            if isinstance(self.index, bool) or self.index < 0:
+                raise ValueError("the index of a pad selection is a non-negative integer")
+            if not self.number:
+                raise ValueError("the index of a pad selection needs a pad number")
+
+
+@dataclass(frozen=True, slots=True)
+class ProximityRule:
+    """A placement rule: each part of ``parts`` stays near a pad of ``anchor``.
+
+    A part keeps one of its selected pads within ``within`` (nm, pad centre to pad centre) of a selected
+    pad of ``anchor``. A value object of the rules layer: its ``name`` is its key, it has no id and no
+    ``RuleKind``, and no backend lowers it.
+    """
+
+    name: str
+    parts: tuple[PadSelection, ...] = field(metadata={"ordered": True})
+    anchor: tuple[PadSelection, ...] = field(metadata={"ordered": True})
+    within: Nm
+    severity: PlacementSeverity = "error"
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a proximity rule needs a name")
+        if not self.parts:
+            raise ValueError(f"proximity rule {self.name!r} names no part")
+        if not self.anchor:
+            raise ValueError(f"proximity rule {self.name!r} names no anchor")
+        if isinstance(self.within, bool) or self.within <= 0:
+            raise ValueError(f"proximity rule {self.name!r} needs a positive distance")
+        if self.severity not in ("error", "warning"):
+            raise ValueError(f"proximity rule {self.name!r}: severity is 'error' or 'warning'")
+
+
 @dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
     """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
     a severity, by the finding code of the check (``<oracle>.drc.<suffix>``; change c0114): a severity is
-    not a rule, so it has no ``RuleKind``."""
+    not a rule, so it has no ``RuleKind``.
+
+    ``proximity`` holds the placement rules, in name order; it is left out of the file when empty
+    (change c0113).
+    """
 
     rules: tuple[Rule, ...] = ()
     severities: dict[str, RuleSeverity] = field(default_factory=lambda: {})
+    proximity: tuple[ProximityRule, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        seen: set[str] = set()
+        for rule in self.proximity:
+            if rule.name in seen:
+                raise ValueError(f"two proximity rules are named {rule.name!r}")
+            seen.add(rule.name)
 
 
-__all__ = ["LEAF_OPS", "Rule", "RuleKind", "RuleSet", "RuleSeverity", "RuleSubject", "Selector", "SelectorOp"]
+__all__ = [
+    "LEAF_OPS",
+    "PadSelection",
+    "PlacementSeverity",
+    "ProximityRule",
+    "Rule",
+    "RuleKind",
+    "RuleSet",
+    "RuleSeverity",
+    "RuleSubject",
+    "Selector",
+    "SelectorOp",
+]

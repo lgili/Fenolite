@@ -243,7 +243,7 @@ def test_states_from_a_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     result = env["result"]
     stages = {s["name"]: s for s in result["check"]["stages"]}
     assert list(stages) == [
-        "model.validate", "erc.kicad", "copper.clearance", "zone.fill", "drc.kicad",
+        "model.validate", "erc.kicad", "copper.clearance", "placement.rules", "zone.fill", "drc.kicad",
         "parity", "netlist.assignment_compare", "roundtrip",
     ]  # fmt: skip
     assert stages["drc.kicad"] == {

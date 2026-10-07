@@ -19,6 +19,8 @@ codes", change c0072).
 The last two codes report a waiver and a stored exclusion that no longer match a finding ("Waiver and
 exclusion issue codes", change c0114); the ``info`` severity of the three copper finding codes is that of a
 finding a waiver accepted (``checks.waivers``), which the copper check itself never gives.
+The ``placement.*`` codes are those of the placement rules (``checks.placement``; "Placement stage issue
+codes", change c0113); ``place`` and the placement guard of ``build`` report them at most as warnings.
 """
 
 from __future__ import annotations
@@ -87,6 +89,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.pad-without-pin": ("info",),
         "check.waiver-unmatched": ("warning",),
         "check.exclusion-stale": ("warning",),
+        "placement.too-far": ("error", "warning"),
+        "placement.rule-unresolved": ("error",),
+        "placement.rule-skipped": ("info",),
     }
 )
 

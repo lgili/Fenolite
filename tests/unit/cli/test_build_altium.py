@@ -691,3 +691,91 @@ def test_severities_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path
     documents = {name: data for name, data in routed.files().items() if name not in model_only}
     assert documents == {name: data for name, data in plain.files().items() if name not in model_only}
     assert b"kicad.drc.silk-overlap" in routed.files()[".fenolite/rules.json"]
+
+
+# --- placement rules and keep-outs that forbid footprints (change c0113) --------------------------------
+
+ROUTED = ROOT / "examples" / "blink_routed" / "design.py"
+NEAR = '\ndesign.near("led", d1, r1.pad(2), within=mm(5))\n'
+
+
+def routed_variant(folder: Path, append: str) -> Path:
+    """The routed blink with ``append`` added, beside library tables that name the mini library."""
+    from _buildhelp import blink_variant
+
+    script = blink_variant(folder)
+    script.write_text(ROUTED.read_text(encoding="utf-8") + append, encoding="utf-8")
+    return script
+
+
+def test_placement_rule_is_stored_and_announced(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Rules of an Altium build are stored and announced": the build judges no rule."""
+    script = routed_variant(tmp_path / "V", NEAR)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    result, issues = env["result"], env["issues"]
+    assert isinstance(result, dict) and isinstance(issues, list)
+    assert "placement" not in result
+    found = [i for i in issues if i["code"] == "altium.not-lowered" and i["where"] == "placement-rule"]
+    assert len(found) == 1 and found[0]["severity"] == "info"
+    assert "1 placement rule(s)" in found[0]["message"] and "fenolite check" in found[0]["message"]
+    assert not [i for i in issues if i["code"].startswith(("placement.", "place."))]
+    assert not out.exists()
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--confirm")
+    assert code == 0, (env.get("issues"), err)
+    stored = json.loads((out / ".fenolite" / "rules.json").read_text(encoding="utf-8"))
+    assert stored["proximity"] == [
+        {
+            "name": "led",
+            "parts": [{"path": "D1"}],
+            "anchor": [{"path": "R1", "number": "2"}],
+            "within": 5_000_000,
+        }
+    ]
+
+
+def test_no_placement_rule_gives_no_info_and_the_same_bytes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    script = routed_variant(tmp_path / "V", "")
+    code, env, _ = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--confirm"
+    )
+    issues = env["issues"]
+    assert code == 0 and isinstance(issues, list)
+    assert not [i for i in issues if i["where"] in ("placement-rule", "keepout-footprints")]
+    assert "proximity" not in (tmp_path / "B" / ".fenolite" / "rules.json").read_text(encoding="utf-8")
+
+
+AREA = (
+    '\ndesign.rule_area("ANT", [(mm(29), mm(6)), (mm(35), mm(6)), (mm(35), mm(12)), (mm(29), mm(12))], '
+    'layers=("F.Cu",), forbid=("footprints",))\n'
+)
+
+
+def test_keepout_footprints_is_announced(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Antenna keep-out in an Altium build": the restriction is in no record and is named."""
+    script = routed_variant(tmp_path / "V", AREA)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    found = [i for i in issues if i["code"] == "altium.not-lowered" and i["where"] == "keepout-footprints"]
+    assert len(found) == 1 and found[0]["severity"] == "info" and "ANT" in found[0]["message"]
+    assert not [i for i in issues if i["severity"] == "error"]
+
+
+def test_placement_rule_kinds_are_no_loss() -> None:
+    from typing import get_args
+
+    from fenolite.backends.altium import lower, rulemap
+    from fenolite.model.rules import RuleKind
+
+    assert lower.PLACEMENT_RULE_KIND == "placement-rule"
+    assert lower.KEEPOUT_FOOTPRINTS_KIND == "keepout-footprints"
+    assert not {lower.PLACEMENT_RULE_KIND, lower.KEEPOUT_FOOTPRINTS_KIND} & lower.LOSS_KINDS
+    # a proximity rule is no rule kind: the rule table keeps one row per kind and gains none
+    assert [row.neutral for row in rulemap.TABLE] == list(get_args(RuleKind))
+    assert not [row for row in rulemap.TABLE if "prox" in row.neutral or "near" in row.neutral]

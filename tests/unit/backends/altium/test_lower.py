@@ -569,3 +569,44 @@ def test_pad_shape_layers_are_counted_not_written(tmp_path: Path) -> None:
     second = _reading_of(written, tmp_path)
     assert second.board is not None and [v.id for v in second.board.vias] == [v.id for v in first.board.vias]
     assert "via-pad-shape" not in lower.from_design(first, issues=[]).counts()
+
+
+# --- placement rules and keep-outs that forbid footprints (change c0113) --------------------------------
+
+
+def test_placement_rule_and_keepout_footprints_infos() -> None:
+    import dataclasses as dc
+
+    from fenolite.core.coords import Point as P
+    from fenolite.model.board import Board, Keepout
+    from fenolite.model.design import Design as ModelDesign
+    from fenolite.model.rules import PadSelection, ProximityRule, RuleSet
+
+    design = ModelDesign.new("notes", seed=0)
+    assert lower.placement_rule_info(design) is None and lower.keepout_footprints_info(()) is None
+    assert design.rules is not None and design.board is not None
+    rules = tuple(
+        ProximityRule(f"r{n}", (PadSelection("C1"),), (PadSelection("U1", "7"),), 2_000_000) for n in range(3)
+    )
+    held = dc.replace(design, rules=RuleSet(id=design.rules.id, proximity=rules))
+    note = lower.placement_rule_info(held)
+    assert note is not None
+    assert (note.code, note.severity, note.where) == ("altium.not-lowered", "info", "placement-rule")
+    assert "3 placement rule(s)" in note.message and "fenolite check" in note.message
+    ring = (P(0, 0), P(5_000_000, 0), P(5_000_000, 5_000_000))
+    areas = (
+        Keepout(id="kpo_a", outline=ring, layers=("F.Cu",), no_footprints=True),
+        Keepout(id="kpo_b", outline=ring, layers=("F.Cu",), no_tracks=True),
+        Keepout(id="kpo_c", outline=ring, layers=("F.Cu",), no_vias=True, no_footprints=True),
+    )
+    area_note = lower.keepout_footprints_info(areas)
+    assert area_note is not None
+    assert (area_note.severity, area_note.where) == ("info", "keepout-footprints")
+    assert "kpo_a, kpo_c" in area_note.message and "kpo_b" not in area_note.message
+    # ``from_design`` adds both, each once, and neither is a loss
+    issues: list[Issue] = []
+    board = dc.replace(design.board, keepouts=areas) if design.board is not None else Board(id="brd_x")
+    lower.from_design(dc.replace(held, board=board), issues=issues)
+    wheres = [found.where for found in issues if found.where in ("placement-rule", "keepout-footprints")]
+    assert sorted(wheres) == ["keepout-footprints", "placement-rule"]
+    assert not {"placement-rule", "keepout-footprints"} & lower.LOSS_KINDS

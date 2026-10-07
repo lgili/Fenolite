@@ -1512,8 +1512,10 @@ they write the model as it is. Run `fenolite check` on the written documents.
 
 ## Checks
 
-`fenolite check` on an Altium project, folder or document runs eight stages without any tool
-(`docs/cli-contract.md`, "check on Altium input"). Two of them are the light DRC of change c0088:
+`fenolite check` on an Altium project, folder or document runs nine stages without any tool
+(`docs/cli-contract.md`, "check on Altium input"). One of them, `placement.rules`, is described under
+"Placement rules and keep-outs that forbid footprints" below. Two of them are the light DRC of change
+c0088:
 
 - **`copper.clearance`** finds shorts and clearance violations in the copper of the PCB document: tracks,
   arcs, vias, pads and the poured regions of polygons. The clearance in force comes from the Clearance
@@ -1546,6 +1548,29 @@ documentation (`docs/formats/altium/pcb-copper.md`, "Via"; `H-A-IMP-VIA-PADLESS`
 
 `fenolite build --target altium` runs the copper check on the PCB document before it writes and refuses
 a board with a short (`docs/cli-contract.md`, "Copper guard of an Altium build").
+
+### Placement rules and keep-outs that forbid footprints (c0113)
+
+- **The stage `placement.rules`** is part of the document check, after `copper.clearance` and before
+  `parity`. On a built project it judges the `near` rules of the script on the pad positions of the
+  written `.PcbDoc` and gives the wire length and the congestion of the placement; on documents that no
+  Fenolite build wrote it gives the measures only. The verdict of one script built for KiCad and for
+  Altium is the same when the pad positions are equal. The pitch of the congestion estimate is that of a
+  net class `Default` when the document's rules give one; otherwise the counts by layer are `null`. The
+  stage is skipped with `single-source` for a set without a PCB document. Its evidence is never above the
+  level of the reading.
+- **`build --target altium` judges no placement rule.** It runs no placement guard and returns no
+  `result.placement`. The proximity rules are stored in `.fenolite/rules.json` as on the KiCad target, and
+  the build says so in one `altium.not-lowered` info whose `where` is `placement-rule`, naming their
+  count: run `fenolite check` on the built project to have them judged. A design without such a rule gives
+  no info and the bytes it gave before.
+- **A rule area that forbids footprints** is written with its other restrictions, as before. The
+  restriction on footprints has no fact row in `docs/formats/altium/` and is in no record: one
+  `altium.not-lowered` info whose `where` is `keepout-footprints` names the areas. Neither kind is a loss
+  (`lower.LOSS_KINDS`), so neither refuses a write.
+- **No stage judges a part in a keep-out on Altium input.** `fenolite place` moves footprints of KiCad
+  boards only, and the document check holds no legality stage: on a KiCad project KiCad's DRC reports such
+  a part, and on Altium documents nothing does. Check the component keep-outs in Altium Designer.
 
 ## Evidence
 

@@ -12,6 +12,7 @@ finding of severity `error`, exit 5 means there is at least one.
 ```fenolite-cmd
 fenolite check blink/build --json
 fenolite check blink/build --stages model.validate,copper.clearance --json
+fenolite check blink/build --stages placement.rules --json
 fenolite check blink/build --format concise --json
 fenolite check blink/build --json --fields stages --limit 20
 ```
@@ -26,6 +27,7 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | `model.validate` | the design as data: references, nets, pins | no |
 | `erc.kicad` | KiCad's electrical rules check on the schematic | yes |
 | `copper.clearance` | Fenolite's own check of shorts and clearances on the copper | no |
+| `placement.rules` | the `near` rules of the script, and the wire length and congestion of the placement | no |
 | `zone.fill` | whether every zone is filled and its fill is current | yes |
 | `drc.kicad` | KiCad's design-rule check on the board, unconnected items included | yes |
 | `parity` | the board against the schematic, and symbol pins against footprint pads | no, for a project that `build` wrote |

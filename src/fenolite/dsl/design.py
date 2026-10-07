@@ -25,7 +25,7 @@ from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, Z
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
-from fenolite.model.rules import RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
     from fenolite.dsl.intents import Recorded
@@ -126,6 +126,22 @@ def _drc_suffix(code: object) -> str | None:
     if match is None or match.group(1) in DRC_VERDICTS:
         return None
     return match.group(1)
+
+
+PLACEMENT_SEVERITIES: tuple[str, ...] = get_args(PlacementSeverity)
+
+
+@dataclass(frozen=True)
+class NearSpec:
+    """One ``near()`` call: the two sides as the script gave them (``PadRef``, ``Part`` or ``Module``
+    objects), the distance in nanometres and the severity. ``to_model`` turns the sides into pad
+    selections."""
+
+    key: str
+    parts: tuple[object, ...]
+    anchor: tuple[object, ...]
+    within: Nm
+    severity: PlacementSeverity
 
 
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
@@ -487,6 +503,8 @@ class Design(Container):
         self.drawings: dict[str, itemlib.Drawing] = {}
         """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
         ``polygon()`` and ``dimension()``, in call order."""
+        self.near_rules: dict[str, NearSpec] = {}
+        """Proximity rules by key, as declared by ``near()``."""
 
     def waive(
         self,
@@ -1030,7 +1048,8 @@ class Design(Container):
         """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
         ``place()``, on ``layers`` (every copper layer of the board when ``None``).
 
-        ``forbid`` takes ``tracks``, ``vias``, ``pads`` and ``pours``: the area is then a keep-out for them.
+        ``forbid`` takes ``tracks``, ``vias``, ``pads``, ``pours`` and ``footprints``: the area is then a
+        keep-out for them (``footprints``: no part may be placed there, change c0113).
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
         one call for rule areas and keep-outs. Names differ in more than letter case.
         """
@@ -1262,6 +1281,57 @@ class Design(Container):
             protection=protection,
         )
 
+    def near(
+        self,
+        key: str,
+        parts: object,
+        anchor: object,
+        *,
+        within: object,
+        severity: str = "error",
+    ) -> None:
+        """A placement rule: each part of ``parts`` keeps one of its pads within ``within`` of a pad of
+        ``anchor``, pad centre to pad centre. Each side is a ``part.pad(…)``, a part, a module, or a list
+        or tuple of them; a part stands for all its pads and a module for all its parts. ``anchor`` is the
+        reference side of the rule. ``fenolite check`` judges the rule in its stage ``placement.rules``;
+        ``build`` and ``place`` report it as a warning (``docs/dsl.md``, "Placement rules")."""
+        from fenolite.dsl.intents import KEY
+
+        if not isinstance(key, str) or not KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"near(): the key {key!r} must match {KEY.pattern}")
+        if key in self.near_rules:
+            raise DslError(f"near(): the rule {key!r} is declared twice")
+        what = f"near() {key!r}"
+        sides = (self._near_side(parts, f"{what}: parts"), self._near_side(anchor, f"{what}: anchor"))
+        length = as_nm(within, name=f"{what}: within")
+        if length <= 0:
+            raise DslError(f"{what}: within must be above 0")
+        if severity not in PLACEMENT_SEVERITIES:
+            raise DslError(f"{what}: severity {severity!r} is not one of {', '.join(PLACEMENT_SEVERITIES)}")
+        self.near_rules[key] = NearSpec(key, sides[0], sides[1], length, cast(PlacementSeverity, severity))
+
+    @staticmethod
+    def _near_side(value: object, what: str) -> tuple[object, ...]:
+        """One side of ``near()`` as a tuple of ``PadRef``, ``Part`` and ``Module`` objects."""
+        from fenolite.dsl.intents import PadRef
+        from fenolite.dsl.part import PinHandle
+
+        items: tuple[object, ...] = tuple(value) if isinstance(value, (list, tuple)) else (value,)  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+        if not items:
+            raise DslError(f"{what} names nothing; give a part.pad(<number>), a part or a module")
+        for item in items:
+            if isinstance(item, PinHandle):
+                raise DslError(
+                    f"{what} takes pads, not the pin {item.part.ref}[{item.designator!r}]: "
+                    "use part.pad(<number>)"
+                )
+            if not isinstance(item, (PadRef, Part, Module)):
+                raise DslError(
+                    f"{what} takes a part.pad(<number>), a part, a module, or a list or tuple of them, "
+                    f"not {item!r}"
+                )
+        return items
+
     # -- registration (called by add(), connect() and netclass())
 
     def register_net(self, net: Net) -> None:
@@ -1307,6 +1377,7 @@ __all__ = [
     "MINIMUM_KINDS",
     "Design",
     "MinimumSpec",
+    "NearSpec",
     "NetClassSpec",
     "Rules",
     "StackupSpec",

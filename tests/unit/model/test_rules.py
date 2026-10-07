@@ -2,12 +2,18 @@
 # Copyright (c) 2026 Fenolite contributors
 from __future__ import annotations
 
+import dataclasses
+import json
 import random
+from pathlib import Path
 
+import _schema
 import pytest
 
+from fenolite.core.errors import FormatError
 from fenolite.core.ids import new_id
-from fenolite.model import Rule, RuleSubject, Selector
+from fenolite.model import Design, Rule, RuleSubject, Selector, canonical
+from fenolite.model.rules import PadSelection, ProximityRule, RuleSet
 
 PWR_TRACK = RuleSubject(item_kind="track", net="PWR_3V3", netclass="power", ref=None, layer="F.Cu")
 SIG_VIA = RuleSubject(item_kind="via", net="SDA", netclass="default", ref=None, layer="B.Cu")
@@ -60,3 +66,86 @@ def test_rule_fields() -> None:
         priority=1,
     )
     assert rule.severity == "error" and rule.min == 2_500_000
+
+
+# ------------------------------------------------------------------ proximity rules (change c0113)
+
+RST = "rst_00000000-0000-4000-8000-000000000001"
+
+
+def _dec7() -> ProximityRule:
+    return ProximityRule("dec7", (PadSelection("C5", "1"),), (PadSelection("U1", "7"),), 2_000_000)
+
+
+def test_proximity_rules_round_trip(tmp_path: Path) -> None:
+    design = Design.new("prox", seed=7)
+    assert design.rules is not None
+    design = dataclasses.replace(design, rules=dataclasses.replace(design.rules, proximity=(_dec7(),)))
+    canonical.dump_dir(design, tmp_path)
+    loaded = canonical.load_dir(tmp_path)
+    assert loaded.rules is not None
+    assert loaded.rules.proximity == (_dec7(),)
+    data = json.loads((tmp_path / "rules.json").read_text(encoding="utf-8"))
+    assert data["proximity"] == [
+        {
+            "name": "dec7",
+            "parts": [{"path": "C5", "number": "1"}],
+            "anchor": [{"path": "U1", "number": "7"}],
+            "within": 2000000,
+        }
+    ]
+    assert _schema.validate(data, _schema.load("fenolite.model.v0/rules.json")) == []
+
+
+def test_proximity_selection_with_index_round_trips() -> None:
+    rule = ProximityRule("k", (PadSelection("ch1/U1", "A1", 0),), (PadSelection("U2"),), 1, "warning")
+    assert canonical.loads(canonical.dumps(rule), ProximityRule) == rule
+
+
+def test_rules_file_of_an_older_build_loads_and_keeps_its_bytes() -> None:
+    older = '{\n  "id": "' + RST + '"\n}\n'
+    loaded = canonical.loads(older, RuleSet)
+    assert loaded.proximity == ()
+    assert _schema.validate(json.loads(older), _schema.load("fenolite.model.v0/rules.json")) == []
+    assert canonical.dumps(loaded) == older
+
+
+def test_rule_set_without_proximity_is_written_without_the_key() -> None:
+    assert "proximity" not in canonical.dumps(RuleSet(id=RST))
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda: ProximityRule("r", (), (PadSelection("U1"),), 1),
+        lambda: ProximityRule("r", (PadSelection("C1"),), (), 1),
+        lambda: ProximityRule("r", (PadSelection("C1"),), (PadSelection("U1"),), 0),
+        lambda: ProximityRule("r", (PadSelection("C1"),), (PadSelection("U1"),), -5),
+        lambda: ProximityRule("", (PadSelection("C1"),), (PadSelection("U1"),), 1),
+        lambda: PadSelection("U1", index=0),
+        lambda: PadSelection("U1", "1", -1),
+        lambda: PadSelection(""),
+        lambda: RuleSet(id=RST, proximity=(_dec7(), _dec7())),
+    ],
+)
+def test_refused_proximity_values(build: object) -> None:
+    with pytest.raises(ValueError):
+        build()  # type: ignore[operator]
+
+
+def test_refused_proximity_value_in_a_file_is_a_format_error() -> None:
+    text = (
+        '{"id": "'
+        + RST
+        + '", "proximity": [{"name": "r", "parts": [], "anchor": [{"path": "U1"}], "within": 1}]}'
+    )
+    with pytest.raises(FormatError):
+        canonical.loads(text, RuleSet)
+
+
+def test_proximity_compatibility_is_documented() -> None:
+    text = (Path(__file__).resolve().parents[3] / "docs" / "design-model.md").read_text(encoding="utf-8")
+    section = text.split("## Proximity rules", 1)[1].split("\n## ", 1)[0]
+    flat = " ".join(section.split())
+    assert "`PadSelection(" in flat and "`ProximityRule(" in flat and "`proximity`" in flat
+    assert "0.2.x and 0.3.0 cannot read a `rules.json` that carries `proximity`" in flat

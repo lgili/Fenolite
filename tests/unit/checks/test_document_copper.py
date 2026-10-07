@@ -131,6 +131,7 @@ def test_stage_order() -> None:
         "model.validate",
         "erc.lite",
         "copper.clearance",
+        "placement.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta0",

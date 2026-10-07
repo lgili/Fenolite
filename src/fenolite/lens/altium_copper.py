@@ -35,7 +35,12 @@ from typing import Literal
 from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords, rulemap
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
-from fenolite.backends.altium.lower import stack_unfit_reason, stack_unheld, stack_unheld_reason
+from fenolite.backends.altium.lower import (
+    keepout_footprints_info,
+    stack_unfit_reason,
+    stack_unheld,
+    stack_unheld_reason,
+)
 from fenolite.backends.altium.project import component_path
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
@@ -631,6 +636,9 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
             )
             issues.append(_kept("keepout", keepout.id, message, "add a component keep-out in Altium"))
     counts["keep-out"] = (len(keepouts), len(board.keepouts) - len(keepouts))
+    forbidden = keepout_footprints_info(board.keepouts)  # one info naming every such area (change c0113)
+    if forbidden is not None:
+        issues.append(forbidden)
     holes: list[Hole] = []
     for hole in board.holes:
         if hole.drill > 0:

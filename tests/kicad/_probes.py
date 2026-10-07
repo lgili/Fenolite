@@ -49,6 +49,7 @@ import _gencases
 import _hiercases
 import _holebench
 import _itemcases
+import _keepoutcases
 import _kindcases
 import _layerbench
 import _layercases
@@ -274,6 +275,7 @@ def _probes() -> dict[str, Probe]:
         **_copperparity.parity_probes(),
         **_fillcases.fill_probes(),
         **_placecases.place_probes(),
+        **_keepoutcases.keepout_probes(),  # change c0113
         **_creepbench.creepage_probes(),
         **_powerbench.power_probes(),
         **_offsetbench.offset_probes(),

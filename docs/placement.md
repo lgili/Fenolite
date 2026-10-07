@@ -8,7 +8,10 @@ command contract is in `docs/cli-contract.md` ("`place`").
 
 A placement is never a verdict: KiCad's DRC judges the board (`fenolite check`). Every `place` reply
 carries `evidence.level` `KICAD-VERIFIED`, which covers the moved footprints and the touching courtyards
-(`H-K-PLACE-MOVE`, `H-K-PLACE-TOUCH`), not the layout.
+(`H-K-PLACE-MOVE`, `H-K-PLACE-TOUCH`), not the layout. The level is lower in two cases: when the board
+holds a rule area that forbids footprints, the reply also rests on `H-K-PLACE-KEEPOUT`, and when a
+placement rule was judged it is `INFERRED`, because a `near` rule is Fenolite's own definition ("Keep-outs"
+and "Placement rules" below).
 
 ## Strategies
 
@@ -36,6 +39,9 @@ fenolite place build/blink --only R1,C3 --gap 1mm --confirm
   courtyard box lands on a `--pitch` grid (0.5 mm) and keeps `--gap` (0.5 mm) from the courtyards that
   are already on the board, from cut-outs and from the parts placed before it. A part that fits nowhere
   stays staged, with `place.no-room`. The three defaults are Fenolite choices, not fabrication rules.
+- The grid also leaves the bounding box of every rule area that forbids footprints free, whatever the
+  area's layers and shape: an L-shaped area costs its whole box, so a board with large areas leaves more
+  parts staged ("Keep-outs" below).
 - `--move REF=X,Y[,ROT[,SIDE]]` uses the frame of the script's `place()`: `X` and `Y` are lengths with a
   unit, measured from the top-left corner of the outline's bounding box, Y down. A translation keeps
   every child of the footprint. A new rotation or side re-places the footprint from its library
@@ -53,8 +59,10 @@ fenolite place build/blink --only R1,C3 --gap 1mm --confirm
 - `-o FILE` writes the board elsewhere and leaves the project as it is.
 
 `result.moved` lists each moved part with its old and new placement (nanometres, microdegrees, side),
-`result.unplaced` the references still off the board and `result.legality` the issues by code. Two runs
-on equal boards write equal bytes.
+`result.unplaced` the references still off the board and `result.legality` the issues by code.
+`result.rules` holds the counts of the placement rules that were judged and `result.measures` the wire
+length and the congestion of the layout after the moves ("Placement rules" and "Measures" below). Two
+runs on equal boards write equal bytes.
 
 From Python the pieces are plain functions:
 
@@ -81,12 +89,16 @@ outline as rings. All predicates are exact integer geometry.
 |---|---|---|
 | `place.courtyard-overlap` | error | two courtyards on the same face overlap |
 | `place.outside-outline` | error | a courtyard leaves the board ring or enters a cut-out |
+| `place.keepout` | error | a courtyard enters a rule area that forbids footprints, on the face the area judges |
 | `place.edge-clearance` | warning | a courtyard is closer to the board edge than the edge clearance |
+| `place.keepout-no-courtyard` | warning | the pads of a part without a courtyard lie in such an area |
 | `place.no-extent` | info | a footprint has neither a courtyard nor pad copper; it is not judged |
-| `place.no-outline` | info | the board has no closed outline; only overlaps are judged |
+| `place.no-outline` | info | the board has no closed outline; only overlaps and keep-outs are judged |
 
 In `fenolite build` every placement issue is at most a warning: a build never refuses for placement.
-In `fenolite place` an error refuses the write unless `--force` is given.
+In `fenolite place` an error refuses the write unless `--force` is given. The rule findings
+(`placement.too-far`, `placement.rule-unresolved`, `placement.rule-skipped`) are no legality codes: `place`
+and `build` report them as warnings at most ("Placement rules" below).
 
 The other codes of `fenolite place` are `place.no-definition`, `place.locked` and `place.unknown-ref`
 (errors), and `place.no-room`, `place.copper-left` and `place.script-locked` (warnings); the table in
@@ -106,6 +118,107 @@ What the check does not judge:
   outline here (`place.no-outline`), even when KiCad closes it: edge items inside footprints are not
   chained, and there is no snapping tolerance (`docs/evidence/kicad-board-read.md`, "Outline rings").
 - Silkscreen, fields and copper are not placement: see `docs/copper.md` and `fenolite check`.
+
+## Keep-outs
+
+A rule area that forbids footprints (`(footprints not_allowed)` in KiCad, `Keepout.no_footprints` in the
+model) is judged by the legality check, in `place` and in the placement guard of `build`, under one code:
+`place.keepout`. The check gets the board's keep-outs through `check(…, keepouts=board.keepouts)` and
+judges those that forbid footprints as KiCad's DRC does. The rule was measured on 18 benches
+(`H-K-PLACE-KEEPOUT`; `docs/formats/kicad/board.md`, "Rule areas that forbid footprints"):
+
+- The courtyard is what counts, not the pads and not the silkscreen. A part is reported when the interior
+  of its courtyard meets the interior of the area: an overlap of 10 µm is reported, and an area whose
+  edge lies on the courtyard line is not.
+- Faces follow copper layers. An area on `F.Cu` judges front courtyards and one on `B.Cu` back courtyards;
+  an area on inner layers only judges no part.
+- KiCad never reports a part without a courtyard. Fenolite judges the hull of its pads and gives
+  `place.keepout-no-courtyard`, a warning: a part without a courtyard in an antenna keep-out is a defect
+  that no other check would see.
+- The message names the area by its name when the model gives it one, and the face.
+
+`fenolite place` refuses a move into such an area (exit code 5) unless `--force` is given, and its grid
+keeps out of the area's bounding box. `fenolite build` reports the same finding as a warning. `fenolite
+check` does not judge keep-outs a second time: on a KiCad project KiCad's DRC reports them in `drc.kicad`.
+On Altium documents no stage judges a part in a keep-out (`docs/altium.md`). In a script,
+`design.rule_area(name, outline, layers=("F.Cu",), forbid=("footprints",))` declares such an area
+(`docs/dsl.md`, "Rule areas"); one drawn in KiCad is judged the same way.
+
+## Placement rules
+
+`design.near(key, parts, anchor, *, within, severity="error")` states which parts belong near which pads
+(`docs/dsl.md`, "Placement rules"): a decoupling capacitor near its supply pin, a crystal and its load
+capacitors near the oscillator pins, a module near its controller. The rules are model data
+(`RuleSet.proximity`, `docs/design-model.md`); the build stores them in `.fenolite/rules.json`, and no
+backend lowers them, because neither KiCad's rule language nor an Altium document holds a maximum
+distance between parts.
+
+`fenolite.checks.placement.judge(design, rules, pads=…)` judges them on the pad positions of a board:
+
+- A part meets a rule when one of its selected pads and one pad of the anchor have centres at most
+  `within` apart. The comparison is exact, on squared integers. A part that is on both sides of a rule is
+  at distance 0.
+- A part that fails gives one `placement.too-far` with the rule's severity. The message names the rule,
+  the part's path, the nearest anchor pad as `REF-NUMBER`, the distance and the limit. The distance that
+  is printed is rounded up to the nanometre, so a printed distance is above the limit exactly when the
+  rule fails: a part 0.4 nm too far reads 2.000001 mm against a limit of 2 mm, never 2 mm.
+- A rule that names a part or a pad that the board does not hold gives `placement.rule-unresolved`
+  (error); an unresolved anchor leaves the whole rule unjudged. A part off the board gives
+  `placement.rule-skipped` (info), and the rule is not judged for it.
+- The counts are per rule family: `{"near": {"judged", "failed", "skipped"}}`, one count per rule and
+  part. A later change adds a family (part heights are change c0140's, not this page's).
+
+Who judges them:
+
+| command | what it does with a rule finding |
+|---|---|
+| `fenolite check` | the default stage `placement.rules`, on KiCad projects and on Altium documents; an error gives exit code 5 |
+| `fenolite build` | a warning at most, in `result.placement.rules`; a build never refuses for placement |
+| `fenolite place` | a warning at most, in `result.rules`; a rule never refuses a move |
+
+The rules are those of the last build: `check` and `place` read `.fenolite/`, so a rule changed in the
+script applies at the next build. A board without a script has no rule. Distances join pad centres: a rule
+says nothing of the routed length (change c0106) or of the area of a current loop. No command moves a part
+to meet a rule: the grid ignores them, and a placer that reads them is planned (`docs/roadmap.md`).
+
+## Measures
+
+`place` and the stage `placement.rules` of `check` say how long and how crowded the wiring of a placement
+will be, so that two placements of one board can be compared before routing.
+`fenolite.checks.placement.measure(design, pads=…, pitch=…)` computes them from pad positions, in
+integers:
+
+| key | meaning |
+|---|---|
+| `nets` | the measured nets: those with two pads or more on the board and no zone |
+| `hpwl` | the sum, over measured nets, of the width plus the height of the box of their pads (nm) |
+| `ratsnest` | the sum of each net's Euclidean minimum spanning tree over its pads, each edge rounded down (nm) |
+| `longest` | the five nets of largest `hpwl`: `{net, pads, hpwl, ratsnest}` |
+| `left_out` | what is not measured: `zone_nets`, `one_pad_nets` and `off_board` (parts off the board) |
+| `congestion` | `{cell, pitch, tracks_per_layer, busiest, layers_needed}`, or `null` for a board without an outline |
+
+- A net carried by a zone is left out: it joins through its copper, and it would dwarf every other net.
+- `ratsnest` is Fenolite's own tree. It is a lower bound of the wire that joins the pads, not KiCad's
+  ratsnest, which `kicad-cli` does not export.
+- **Congestion** is an estimate after the idea of a uniform wire density per net (S-0680). The board's box
+  is cut into square cells of side `cell`: 2 mm, or the longer side divided by 128 when that is larger.
+  Each measured net spreads its `hpwl` evenly over its box, grown to at least one cell. `tracks` of a cell
+  is the wire it gets divided by `cell`: the number of cell-long tracks it must carry. `busiest` lists the
+  five cells of most tracks, by their centres in the frame of `place()`.
+- With a `pitch` (the track width plus the clearance of the net class `Default` of the project),
+  `tracks_per_layer` is how many tracks one layer of a cell holds, and `layers_needed` maps a number of
+  layers to the number of cells that need as many. Both are `null` without that class.
+- `place` adds `change`: `hpwl` and `ratsnest` after the moves minus before, both 0 when nothing moved.
+
+How to read them: compare two placements of the same board. Fewer cells that need more layers than the
+board has, and a smaller `hpwl`, mean an easier board to route. The single busiest cell says little; the
+counts of `layers_needed` tell placements apart. The numbers are no verdict: the router decides, and
+routed copper is not measured.
+
+Cost, measured on 2026-10-08 on an Apple M4 with Python 3.13 by `tests/unit/checks/test_placement_measures.py
+-k synthetic_600`, on a layout of 600 parts and 1 650 pads that the test writes (338 measured nets, 150
+rules): `judge` 0.09 s and `measure` 0.31 s. Their inputs cost more on a real board: reading the board and
+its pads. No time is asserted by a test.
 
 ## How a placement survives a build
 

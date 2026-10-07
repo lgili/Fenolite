@@ -36,6 +36,7 @@ STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
     "erc.kicad",
     "copper.clearance",
+    "placement.rules",
     "zone.fill",
     "drc.kicad",
     "parity",
@@ -48,7 +49,9 @@ STAGE_ORDER: tuple[str, ...] = (
 external tool, so it runs before KiCad's DRC and is not an oracle stage. ``erc.kicad`` (change c0062) stands
 where ``erc.lite`` stood: the three rules of ``checks.erc_lite`` are no stage of this pipeline any more.
 ``parity`` (change c0072) runs after ``drc.kicad`` because it compares its findings with KiCad's parity
-entries when that stage judged them; it needs no tool itself, so it is not an oracle stage."""
+entries when that stage judged them; it needs no tool itself, so it is not an oracle stage.
+``placement.rules`` (change c0113) judges the placement rules of a built project and measures the wire
+length and the congestion of every board; it needs no tool either and follows ``copper.clearance``."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -62,7 +65,7 @@ ORACLE_STAGES: tuple[str, ...] = (
 )
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
 _READING_STAGES = frozenset(
-    {"roundtrip", "copper.clearance", "parity", *ORACLE_STAGES} - {"render", "erc.kicad"}
+    {"roundtrip", "copper.clearance", "placement.rules", "parity", *ORACLE_STAGES} - {"render", "erc.kicad"}
 )
 """Stages that need the board read; ``erc.kicad`` needs only the schematic, and ``render`` only the files."""
 StageStatus = Literal["ok", "errors", "skipped"]
@@ -80,6 +83,7 @@ StageSkip = Literal[
     "model-predates-board",
     "no-document",
     "model-predates-graphics",
+    "no-frame",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -183,6 +187,7 @@ def run_checks(
     from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
     from fenolite.checks.parity_stage import parity_stage
+    from fenolite.checks.placement import placement_stage
     from fenolite.checks.render import render_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
@@ -228,6 +233,21 @@ def run_checks(
             frame=validator if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
             waivers=waivers,
+        )
+
+    def placement() -> StageResult:
+        if validation is None:
+            return skipped("placement.rules", "read-refused")
+        if built and (cache_error or model is None):
+            return skipped("placement.rules", "cache-unreadable")
+        return placement_stage(
+            validation.read.design,
+            model=model,
+            built=built,
+            frame=validator if isinstance(validator, BoardFrame) else None,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            project=project,
+            evidence=validation.read.evidence,
         )
 
     def drc() -> StageResult:
@@ -276,6 +296,7 @@ def run_checks(
         "model.validate": model_stage,
         "erc.kicad": erc,
         "copper.clearance": copper,
+        "placement.rules": placement,
         "zone.fill": fill,
         "drc.kicad": drc,
         "parity": parity,

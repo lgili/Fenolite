@@ -17,6 +17,7 @@ from fenolite.backends.kicad.frame import placed_extent
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.core.coords import Point
 from fenolite.geometry import Polygon, polygons_intersect
+from fenolite.model.board import Keepout
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleSet, Selector
@@ -262,3 +263,117 @@ def test_legality_touching_follows_the_probe_files() -> None:
     assert set(recorded) == {"9.0.9.json", "10.0.6.json"}
     assert set(recorded.values()) <= {"absent", "present"}
     assert TOUCHING_OVERLAPS == ("present" in recorded.values())  # the stricter outcome wins
+
+
+# --- keep-outs that forbid footprints (change c0113) ----------------------------------------------------
+
+
+def keepout(ring: Ring, *layers: str, name: str = "", **flags: bool) -> Keepout:
+    flags.setdefault("no_footprints", True)
+    made = Keepout(id="kpo_00000000-0000-4000-8000-000000000001", outline=ring, layers=layers, **flags)
+    return made if not name else _Named(made, name)  # type: ignore[return-value]
+
+
+class _Named:
+    """A keep-out with a ``name``, as change c0103 gives the model; every other attribute is the
+    keep-out's own."""
+
+    def __init__(self, keepout: Keepout, name: str) -> None:
+        self._keepout, self.name = keepout, name
+
+    def __getattr__(self, attribute: str) -> object:
+        return getattr(self._keepout, attribute)
+
+
+def test_legality_keepout_by_face() -> None:
+    """Scenario "Keep-out by face": an area on ``F.Cu`` judges front rings, one on ``B.Cu`` back rings."""
+    area = rect(10, 10, 20, 20)
+    top = extent("a", rect(19.99, 12, 23, 14))  # enters the area by 10 µm
+    bottom = extent("b", back=(rect(12, 12, 15, 14),))  # wholly inside
+    layout = [top, bottom]
+    front = check(layout, [BOARD], names=NAMES, keepouts=[keepout(area, "F.Cu")])
+    assert codes(front) == [("place.keepout", "R1")]
+    assert front[0].severity == "error" and "the front face" in front[0].message
+    assert "an unnamed keep-out" in front[0].message
+    back = check(layout, [BOARD], names=NAMES, keepouts=[keepout(area, "B.Cu")])
+    assert codes(back) == [("place.keepout", "D1")] and "the back face" in back[0].message
+    both = check(layout, [BOARD], names=NAMES, keepouts=[keepout(area, "F.Cu", "B.Cu")])
+    assert codes(both) == [("place.keepout", "D1"), ("place.keepout", "R1")]
+
+
+def test_legality_keepout_touching_and_gaps() -> None:
+    """Scenario "Touching keep-out": an edge on the courtyard line, and one 10 µm away, do not count."""
+    area = rect(10, 10, 20, 20)
+    for x0, wanted in ((20.0, []), (20.01, []), (19.99, [("place.keepout", "R1")])):
+        found = check(
+            [extent("a", rect(x0, 12, x0 + 3, 14))], [BOARD], names=NAMES, keepouts=[keepout(area, "F.Cu")]
+        )
+        assert codes(found) == wanted, x0
+    corner = check(
+        [extent("a", rect(20, 20, 23, 22))], [BOARD], names=NAMES, keepouts=[keepout(area, "F.Cu")]
+    )
+    assert corner == ()
+
+
+def test_legality_keepout_inner_layers_and_other_restrictions_judge_no_footprint() -> None:
+    area = rect(10, 10, 20, 20)
+    inside = [extent("a", rect(12, 12, 15, 14)), extent("b", back=(rect(12, 15, 15, 17),))]
+    assert check(inside, [BOARD], names=NAMES, keepouts=[keepout(area, "In1.Cu", "In2.Cu")]) == ()
+    assert check(inside, [BOARD], names=NAMES, keepouts=[keepout(area)]) == ()  # no layer at all
+    tracks_only = keepout(area, "F.Cu", "B.Cu", no_footprints=False, no_tracks=True, no_vias=True)
+    assert check(inside, [BOARD], names=NAMES, keepouts=[tracks_only]) == ()
+    assert check(inside, [BOARD], names=NAMES) == ()  # the default: no keep-out is given
+
+
+def test_legality_keepout_is_reported_once_per_footprint_and_area_and_names_the_area() -> None:
+    area, other = rect(10, 10, 20, 20), rect(14, 10, 30, 20)
+    part = PlacedExtent(
+        "a", "top", front=(rect(12, 12, 13, 13), rect(15, 12, 16, 13)), back=(rect(12, 12, 16, 13),)
+    )
+    part = dataclasses.replace(part, source="courtyard")
+    found = check(
+        [part],
+        [BOARD],
+        names=NAMES,
+        keepouts=[keepout(area, "F.Cu", "B.Cu", name="ANT"), keepout(other, "F.Cu")],
+    )
+    assert codes(found) == [("place.keepout", "R1"), ("place.keepout", "R1")]
+    assert "the keep-out ANT" in found[0].message and "the front face and the back face" in found[0].message
+    assert "an unnamed keep-out" in found[1].message and "the front face" in found[1].message
+
+
+def test_legality_keepout_part_without_a_courtyard() -> None:
+    """Scenario "Part without a courtyard": a warning on the pad hull, and the board has no outline."""
+    area = rect(10, 10, 20, 20)
+    bare = PlacedExtent("a", "top", front=(rect(12, 12, 15, 14),), source="pads", exact=False)
+    found = check([bare], [], names=NAMES, keepouts=[keepout(area, "F.Cu")])
+    assert codes(found) == [("place.keepout-no-courtyard", "R1"), ("place.no-outline", "board")]
+    assert found[0].severity == "warning" and "no courtyard" in found[0].message
+    definition = dataclasses.replace(bare, source="definition")
+    assert codes(check([definition], [], names=NAMES, keepouts=[keepout(area, "F.Cu")]))[0] == (
+        "place.keepout",
+        "R1",
+    )
+    unjudged = PlacedExtent("a", "top")
+    assert codes(check([unjudged], [BOARD], names=NAMES, keepouts=[keepout(area, "F.Cu")])) == [
+        ("place.no-extent", "R1")
+    ]
+
+
+def test_legality_keepout_evidence_follows_the_register() -> None:
+    from fenolite.core.evidence import Level
+    from fenolite.placement import KEEPOUT_EVIDENCE
+    from fenolite.placement.legality import KEEPOUT_FACES, forbids_footprints
+    from fenolite.verify.hypotheses import load_register
+
+    rows = {row.id: row for row in load_register(ROOT / "docs" / "hypotheses.md")}
+    row = rows["H-K-PLACE-KEEPOUT"]
+    assert KEEPOUT_EVIDENCE.hypotheses == ("H-K-PLACE-KEEPOUT",)
+    verified = row.level_text == "KICAD-VERIFIED (9.0.x, 10.0.x)" and not row.refuted
+    assert KEEPOUT_EVIDENCE.level is (Level.KICAD_VERIFIED if verified else Level.INFERRED)
+    assert KEEPOUT_FACES == (("front", "F.Cu"), ("back", "B.Cu"))
+    area = rect(10, 10, 20, 20)
+    kept = keepout(area, "F.Cu")
+    assert forbids_footprints(
+        [kept, keepout(area, "F.Cu", no_footprints=False), keepout(area[:2], "F.Cu")]
+    ) == (kept,)

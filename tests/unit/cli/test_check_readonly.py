@@ -69,6 +69,27 @@ def test_new_stages_are_read_only(monkeypatch: pytest.MonkeyPatch, project: tupl
     _untouched(root, before)
 
 
+def test_placement_rules_stage_is_read_only_and_runs_no_tool(
+    monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]
+) -> None:
+    """The stage ``placement.rules`` (change c0113) reads the board and ``.fenolite/`` and starts no tool,
+    with or without a ``kicad-cli`` at hand; two runs give the same stage."""
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(
+        monkeypatch, root, "check", str(root), "--kicad-cli", str(fake), "--stages", "placement.rules"
+    )
+    assert code == 0, env["issues"]
+    (stage,) = env["result"]["stages"]
+    assert (stage["name"], stage["status"]) == ("placement.rules", "ok")
+    assert stage["summary"]["rules"] == {"near": {"judged": 0, "failed": 0, "skipped": 0}}
+    assert calls(fake) == []
+    _untouched(root, before)
+    again = run(monkeypatch, root, "check", str(root), "--stages", "placement.rules")[1]
+    assert again["result"]["stages"] == env["result"]["stages"]
+    _untouched(root, before)
+
+
 def test_inspect_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]) -> None:
     root, _ = project
     before = tree_snapshot(root)

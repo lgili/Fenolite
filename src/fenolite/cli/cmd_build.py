@@ -78,6 +78,7 @@ from fenolite.catalog import (
 from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
+from fenolite.checks import placement as placement_rules
 from fenolite.checks.copper import (
     LOWERING_CODES,
     CopperReport,
@@ -513,18 +514,25 @@ def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
 
 
 def placement_guard(
-    files: Mapping[str, bytes], *, name: str, staged: Sequence[str] = (), edge_clearance: int = 0
+    files: Mapping[str, bytes],
+    *,
+    name: str,
+    staged: Sequence[str] = (),
+    edge_clearance: int = 0,
+    rules: placement_rules.PlacementRules | None = None,
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The placement issues of the board that a build is about to write, and ``result.placement``.
 
     The planned board text is read back with ``read_board``, the courtyards come from the KiCad board
-    frame and the outline from ``board_outline``, and ``legality.check`` judges every footprint whose
-    component path is not in ``staged``. Every issue is at most a warning: a build never refuses for
-    placement. Nothing is read from disk and nothing is written.
+    frame, the outline from ``board_outline`` and the keep-outs from the board, and ``legality.check``
+    judges every footprint whose component path is not in ``staged``. ``rules`` are the placement rules of
+    the built model (``checks.placement.rules_of``), judged on the pads of the same board. Every issue is
+    at most a warning: a build never refuses for placement. Nothing is read from disk and nothing is
+    written.
     """
     data = files.get(f"{name}.kicad_pcb")
     if data is None:
-        return (), {"ran": False, "counts": {}}
+        return (), {"ran": False, "counts": {}, "rules": placement_rules.empty_counts()}
     design = kicad_pcb.read_board(data.decode("utf-8"), file=f"{name}.kicad_pcb")
     footprints = design.board.footprints if design.board is not None else ()
     components = {c.id: c for c in design.circuit.components}
@@ -538,15 +546,26 @@ def placement_guard(
         if path in staged:
             left_out.add(footprint.id)
     extents = [e for e in KicadBackend().placed_extents(design) if e.footprint_id not in left_out]
-    found = legality.check(extents, board_outline(design).rings, edge_clearance=edge_clearance, names=names)
+    keepouts = design.board.keepouts if design.board is not None else ()
+    found = legality.check(
+        extents,
+        board_outline(design).rings,
+        edge_clearance=edge_clearance,
+        names=names,
+        keepouts=keepouts,
+    )
+    report = placement_rules.RuleReport()
+    if rules:
+        report = placement_rules.judge(design, rules, pads=KicadBackend().board_pads(design))
     issues = tuple(
         dataclasses.replace(issue, severity="warning") if issue.severity == "error" else issue
-        for issue in found
+        for issue in (*found, *report.issues)
     )
     counts: dict[str, int] = {}
     for issue in issues:
         counts[issue.code] = counts.get(issue.code, 0) + 1
-    return issues, {"ran": True, "counts": dict(sorted(counts.items()))}
+    judged = {family: dict(family_counts) for family, family_counts in report.counts.items()}
+    return issues, {"ran": True, "counts": dict(sorted(counts.items())), "rules": judged}
 
 
 def read_source(
@@ -822,6 +841,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         name=design.name,
         staged=cast(Sequence[str], built.summary.get("staged", ())),
         edge_clearance=legality.edge_clearance(built.design),
+        rules=placement_rules.rules_of(built.design),
     )
     if files:
         copper_issues, copper_check = copper_guard(

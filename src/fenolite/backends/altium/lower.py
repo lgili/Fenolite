@@ -148,6 +148,13 @@ LOSS_KINDS: frozenset[str] = frozenset(
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
 NOT_LOWERED = "altium.not-lowered"
+PLACEMENT_RULE_KIND = "placement-rule"
+"""The kind under which a write says that the proximity rules of the design (``RuleSet.proximity``, change
+c0113) are in no document: they are model data, ``fenolite check`` judges them, and nothing is lost. It is
+not in ``LOSS_KINDS``."""
+KEEPOUT_FOOTPRINTS_KIND = "keepout-footprints"
+"""The kind under which a write names the rule areas whose restriction on footprints (``no_footprints``) is
+in no record: ``docs/formats/altium/`` holds no fact row for it. It is not in ``LOSS_KINDS``."""
 PAD_REMOVED_KEY = "pad_removed"
 """The bag key under which the import keeps the layers on which a via has no pad shape
 (``adapter.copper.PAD_REMOVED_KEY``; change c0132)."""
@@ -287,6 +294,41 @@ class _Account:
             message = f"{len(ids)} {kind} item(s) of the model are not written: {self.reasons[kind]}{more}"
             found.append(Issue(NOT_LOWERED, severity, message, where=kind))
         return found
+
+
+def placement_rule_info(design: Design) -> Issue | None:
+    """The one ``altium.not-lowered`` info of kind ``placement-rule``: how many proximity rules ``design``
+    holds, and that ``fenolite check`` judges them; ``None`` for a design without one."""
+    count = len(design.rules.proximity) if design.rules is not None else 0
+    if not count:
+        return None
+    message = (
+        f"{count} placement rule(s) of the design are not judged by this build and are in no Altium "
+        "document: they are stored in .fenolite/rules.json, and 'fenolite check' judges them on the "
+        "written board (stage placement.rules)"
+    )
+    return Issue(NOT_LOWERED, "info", message, where=PLACEMENT_RULE_KIND, hint="run fenolite check")
+
+
+def keepout_footprints_info(keepouts: Sequence[Keepout]) -> Issue | None:
+    """The one ``altium.not-lowered`` info of kind ``keepout-footprints``, naming the rule areas whose
+    restriction on footprints is not written (by name when they have one, else by id); ``None`` when no
+    area forbids footprints."""
+    names = [str(getattr(k, "name", "") or k.id) for k in keepouts if k.no_footprints]
+    if not names:
+        return None
+    message = (
+        f"the restriction on footprints of {len(names)} rule area(s) is not written ({', '.join(names)}): "
+        "the keep-out record holds tracks, vias, pads and copper only, and no stage judges a part in a "
+        "keep-out on Altium documents"
+    )
+    return Issue(
+        NOT_LOWERED,
+        "info",
+        message,
+        where=KEEPOUT_FOOTPRINTS_KIND,
+        hint="add a component keep-out in Altium",
+    )
 
 
 def pairs_of(entity: object) -> dict[str, str]:
@@ -1279,6 +1321,12 @@ def from_design(
                 "channel", module.id, "a repeated sheet is not written: its components are on the one sheet"
             )
     issues += account.issues()
+    for note in (
+        placement_rule_info(design),
+        keepout_footprints_info(board.keepouts if board is not None else ()),
+    ):
+        if note is not None:
+            issues.append(note)
     return AltiumInputs(
         name,
         spec,
@@ -1712,6 +1760,7 @@ __all__ = [
     "FENOLITE_MECHANICAL",
     "KINDS",
     "DEFINITION_LAYERS",
+    "KEEPOUT_FOOTPRINTS_KIND",
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "MORE_KINDS",
@@ -1719,6 +1768,7 @@ __all__ = [
     "NET_TIE_REASON",
     "SEVERITY_KIND",
     "NOT_LOWERED",
+    "PLACEMENT_RULE_KIND",
     "AltiumInputs",
     "LossyWriteError",
     "LowerOptions",

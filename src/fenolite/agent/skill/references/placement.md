@@ -37,6 +37,10 @@ tp1.place(mm(24), mm(10), side="bottom")
 
 r1.field("Reference", outside="top")  # beside the courtyard, clear of the pads
 d1.field("Value", visible=False)
+
+design.near("led", d1, r1.pad(2), within=mm(10))  # D1 keeps a pad within 10 mm of R1's pad 2
+corner = [(mm(25), mm(15)), (mm(30), mm(15)), (mm(30), mm(20)), (mm(25), mm(20))]
+design.rule_area("ANT", corner, layers=("F.Cu",), forbid=("footprints",))  # no part on the front here
 ```
 
 - **`part.place(x, y, rot=0, side="top", locked=False)`**, once per part. `x` and `y` are lengths from
@@ -45,6 +49,14 @@ d1.field("Value", visible=False)
 - **`locked=True`** is the placement lock: `fenolite place` refuses to move the part (`place.locked`).
 - **A part without `place()`** is staged: the build puts it in a row 5 mm to the right of the outline
   and reports `layout.unplaced` (warning). `result.staged` of `build` lists these parts.
+- **`design.near(key, parts, anchor, within=…)`** is a placement rule: each part of `parts` keeps a
+  pad within `within` of a pad of `anchor`, centre to centre. Each side is a part, `part.pad(n)`, a
+  module or a list of them; use it for a decoupling capacitor, a crystal, a gate driver. `build` and
+  `place` report a part that is too far as a warning (`placement.too-far`); `fenolite check` makes it
+  an error (stage `placement.rules`, page `checks`). No placer moves a part to meet a rule.
+- **`design.rule_area(name, outline, layers=…, forbid=("footprints",))`** keeps parts out of a
+  polygon: `F.Cu` judges the parts on the top side, `B.Cu` those on the bottom. A courtyard that
+  enters the area gives `place.keepout`, a warning in `build` and a refusal in `place`.
 - Place first what the mechanics fix (connectors, holes, anything that meets the enclosure), then the
   parts with the most connections, then their passives next to the pins they serve.
 
@@ -65,9 +77,12 @@ fenolite place blink/build --move R1=15mm,14mm --move D1=15mm,6mm,180,bottom --c
   `r1.place(mm(15), mm(14))` puts it. The option repeats, and the lengths carry a unit.
 - `result.moved` gives each part's position before and after, in file coordinates (the outline's
   corner is at 100 mm, 100 mm).
+- `result.rules` counts the `near` rules judged after the moves, and `result.measures` gives the wire
+  length (`hpwl`, `ratsnest`, in nm) and a congestion estimate, with `change` against the layout
+  before: compare two placements with them before routing.
 - **Refusals** (exit 5, nothing written): `place.locked` for a locked part, `place.courtyard-overlap`
-  when two courtyards would overlap, `place.outside-outline` and `place.edge-clearance` near the
-  board edge, `place.no-room` when the grid finds no free spot. `--force` writes an illegal placement
+  when two courtyards would overlap, `place.keepout` for a part in a rule area that forbids
+  footprints, `place.outside-outline` and `place.edge-clearance` near the board edge, `place.no-room` when the grid finds no free spot. `--force` writes an illegal placement
   and moves a locked part; use it only when you know why.
 - **Copper does not follow.** A moved part leaves its tracks where they were (`place.copper-left`,
   warning). Route again with `--rip` afterwards (page `routing`).

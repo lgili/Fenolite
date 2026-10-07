@@ -37,6 +37,7 @@ def test_stage_order() -> None:
         "model.validate",
         "erc.kicad",
         "copper.clearance",
+        "placement.rules",
         "zone.fill",
         "drc.kicad",
         "parity",

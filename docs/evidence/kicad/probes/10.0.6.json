@@ -1,4 +1,5 @@
 {
+  "version": "10.0.6",
   "probes": {
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
@@ -634,6 +635,25 @@
     "pcb-write-triad-9": "load",
     "pcb-write-two-layer-10": "load",
     "pcb-write-two-layer-9": "load",
+    "place-keepout-agree": "equal",
+    "place-keepout-bot-back": "present",
+    "place-keepout-bot-both": "present",
+    "place-keepout-bot-front": "absent",
+    "place-keepout-crt-only": "present",
+    "place-keepout-gap-10um": "absent",
+    "place-keepout-gap-30um": "absent",
+    "place-keepout-in": "present",
+    "place-keepout-inner-only": "absent",
+    "place-keepout-nocrt-in": "absent",
+    "place-keepout-nocrt-mid": "absent",
+    "place-keepout-nocrt-pad": "absent",
+    "place-keepout-over-10um": "present",
+    "place-keepout-rot-crt": "absent",
+    "place-keepout-text-only": "absent",
+    "place-keepout-tht-back": "absent",
+    "place-keepout-tht-front": "present",
+    "place-keepout-top-back": "absent",
+    "place-keepout-touch": "absent",
     "place-move-flip": "equal",
     "place-move-rotate": "equal",
     "place-move-translate": "equal",
@@ -837,6 +857,5 @@
     "zone-clearance-drc": "present",
     "zone-defaults-t10": "equal",
     "zone-fat9": "equal"
-  },
-  "version": "10.0.6"
+  }
 }

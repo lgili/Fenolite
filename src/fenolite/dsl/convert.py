@@ -40,7 +40,7 @@ from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import SheetFrameRef
-from fenolite.model.rules import Rule, RuleSet, Selector
+from fenolite.model.rules import PadSelection, ProximityRule, Rule, RuleSet, Selector
 
 DSL_BACKEND = "dsl"
 BOARD_ORIGIN = Point(100_000_000, 100_000_000)
@@ -125,6 +125,50 @@ def _rules(design: Design) -> tuple[Rule, ...]:
             priority=spec.priority,
         )
         for spec in design.rules.named.values()
+    )
+
+
+def _selections(design: Design, side: tuple[object, ...], what: str) -> tuple[PadSelection, ...]:
+    """The pad selections of one side of a ``near()`` rule: a part gives its path, a ``part.pad()`` its
+    path, number and index, and a module one selection per part of it and of its sub-modules, in path
+    order. ``DslError`` names a part or a module that is not in the design."""
+    from fenolite.dsl.intents import PadRef
+    from fenolite.dsl.module import Module
+    from fenolite.dsl.part import Part
+
+    def known(part: Part) -> str:
+        if design.parts.get(part.path) is not part:
+            raise DslError(f"{what}: part {part.ref} is not in the design")
+        return part.path
+
+    found: list[PadSelection] = []
+    for item in side:
+        if isinstance(item, PadRef):
+            found.append(PadSelection(known(item.part), item.number, item.index))
+        elif isinstance(item, Part):
+            found.append(PadSelection(known(item)))
+        elif isinstance(item, Module):
+            if design.modules.get(item.path) is not item:
+                raise DslError(f"{what}: module {item.path} is not in the design")
+            prefix = f"{item.path}/"
+            paths = sorted(path for path in design.parts if path.startswith(prefix))
+            if not paths:
+                raise DslError(f"{what}: module {item.path} holds no part")
+            found += [PadSelection(path) for path in paths]
+    return tuple(dict.fromkeys(found))
+
+
+def _proximity(design: Design) -> tuple[ProximityRule, ...]:
+    """One model rule per ``design.near()`` call, in key order."""
+    return tuple(
+        ProximityRule(
+            name=key,
+            parts=_selections(design, spec.parts, f"near() {key!r}: parts"),
+            anchor=_selections(design, spec.anchor, f"near() {key!r}: anchor"),
+            within=spec.within,
+            severity=spec.severity,
+        )
+        for key, spec in sorted(design.near_rules.items())
     )
 
 
@@ -229,7 +273,10 @@ def to_model(design: Design) -> ModelDesign:
             via_protection=design.via_default[0] if design.via_default is not None else None,
         ),
         rules=RuleSet(
-            id=key_id("rules"), rules=_rules(design), severities=dict(sorted(design.rules.severities.items()))
+            id=key_id("rules"),
+            rules=_rules(design),
+            severities=dict(sorted(design.rules.severities.items())),
+            proximity=_proximity(design),
         ),
         findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),
@@ -255,6 +302,7 @@ def _keepouts(design: Design) -> tuple[Keepout, ...]:
             no_vias="vias" in area.forbid,
             no_pads="pads" in area.forbid,
             no_copper_pour="pours" in area.forbid,
+            no_footprints="footprints" in area.forbid,
         )
         for name, area in sorted(design.rule_areas.items())
     )

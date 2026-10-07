@@ -52,13 +52,16 @@ DOCUMENT_STAGES: tuple[str, ...] = (
     "model.validate",
     "erc.lite",
     "copper.clearance",
+    "placement.rules",
     "parity",
     "netlist.assignment_compare",
     "roundtrip.rta0",
     "roundtrip.rta1",
     "roundtrip.rta2",
 )
-"""The stages of a document check that run by default, in the order they run."""
+"""The stages of a document check that run by default, in the order they run. ``placement.rules`` (change
+c0113) judges the placement rules of a built project on the pad positions of the PCB document and measures
+every board."""
 OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3",)
 """The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
 into a temporary folder and reads it again."""
@@ -69,6 +72,7 @@ _READING_STAGES = frozenset(
         "model.validate",
         "erc.lite",
         "copper.clearance",
+        "placement.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta2",
@@ -292,6 +296,30 @@ def run_document_checks(
         )
         return replace(stage, evidence=with_added(name, stage.evidence))
 
+    def placement() -> StageResult:
+        from fenolite.checks.placement import placement_stage
+
+        name = "placement.rules"
+        project = project_of(documents)
+        if project is None:
+            return skipped(name, "single-source")
+        if pcb is None:
+            return skipped(name, "read-refused")
+        if built and usable is None:
+            return skipped(name, "cache-unreadable")
+        stage = placement_stage(
+            pcb.design,
+            model=usable,
+            built=built,
+            frame=validator if isinstance(validator, BoardFrame) else None,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            project=project,
+            evidence=pcb.evidence,
+        )
+        return (
+            stage if stage.status == "skipped" else replace(stage, evidence=with_added(name, stage.evidence))
+        )
+
     def parity() -> StageResult:
         name = "parity"
         if not documents.of_role("schematic"):
@@ -409,6 +437,7 @@ def run_document_checks(
         "model.validate": model_stage,
         "erc.lite": erc,
         "copper.clearance": copper,
+        "placement.rules": placement,
         "parity": parity,
         "netlist.assignment_compare": assignment,
         "roundtrip.rta0": container("roundtrip.rta0"),

@@ -1060,9 +1060,9 @@ hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))],
 - **`outline`** holds at least three `(x, y)` points in the frame of `place()`. An outline is a polygon: a
   round keep-out is a polygon around the circle.
 - **`layers`** are copper layers of the board; `None` means every copper layer.
-- **`forbid`** takes `tracks`, `vias`, `pads` and `pours`. With an empty `forbid` the area forbids nothing
-  and only rules select it (`select.area`, "Rules with selectors"). Areas that forbid footprints are not
-  declared here.
+- **`forbid`** takes `tracks`, `vias`, `pads`, `pours` and `footprints`. With an empty `forbid` the area
+  forbids nothing and only rules select it (`select.area`, "Rules with selectors"). `footprints` makes
+  the area a placement keep-out ("Placement rules" below).
 - **In the model** each area is a `Keepout` with its `name`, in name order, with the id
   `derived_id("kpo", "dsl", "area:<name>")`. `design.rule_areas` holds the records by name.
 - **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
@@ -1121,6 +1121,40 @@ design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
   in KiCad stays.
 - **Altium.** Centred texts and graphics are written; a justified text and a dimension are reported and
   not written (`docs/altium.md`).
+
+## Placement rules
+
+`design.near(key, parts, anchor, *, within, severity="error")` records a proximity rule: each part of
+`parts` keeps one of its pads within `within` of a pad of `anchor`, pad centre to pad centre (change c0113;
+`docs/placement.md`, "Placement rules").
+
+```python
+design.near("dec7", c5.pad(1), u1.pad(7), within=mm(2))  # decoupling
+design.near("xtal", (y1, c13, c14), (u1.pad(12), u1.pad(13)), within=mm(5))  # crystal and load capacitors
+design.near("ch1", ch1, ch1_u1, within=mm(15))  # a module stays together
+design.near("gate", u2.pad(5), q1.pad(1), within=mm(4), severity="warning")  # reported, not gating
+```
+
+- `key` follows the pattern of copper keys and names one rule of the design. `parts` and `anchor` each
+  take a `part.pad(number)`, a part, a module, or a non-empty list or tuple of them. A part stands for
+  every pad of it, and a module for every part of it and of its sub-modules. `within` is a length above
+  0, and `severity` is `error` or `warning`.
+- A symbol pin (`part[7]`) is refused with the hint `part.pad(<number>)`: a rule names pads. A gate driver
+  takes two rules, its output near the gate and its return near the source.
+- The word *anchor* here is the reference side of a rule: the pads the parts must be near. It is no point
+  in a part's frame and no placement, and `near` adds no attribute of that name to a part or a design.
+- `to_model` writes the rules into `RuleSet.proximity` in key order (`docs/design-model.md`, "Proximity
+  rules"), a part as its path, a pad as path, number and index, a module as its parts in path order. A
+  part or a module that is not in the design is named in a `DslError`. A design without the call gives
+  the model, and the bytes, it gave before.
+- `fenolite check` judges the rules in its stage `placement.rules`; `build` and `place` report them as
+  warnings. Nothing moves a part to meet a rule.
+
+A rule area that forbids footprints is the other placement constraint of a board:
+`design.rule_area("ANT", outline, layers=("F.Cu",), forbid=("footprints",))` sets `Keepout.no_footprints`,
+the KiCad build writes `(footprints not_allowed)`, and `place` and the build's placement guard judge the
+area like one drawn in KiCad (`place.keepout`; `docs/placement.md`, "Keep-outs"). An Altium build names
+the area in one `altium.not-lowered` info of kind `keepout-footprints` (`docs/altium.md`).
 
 ## Copper guard
 

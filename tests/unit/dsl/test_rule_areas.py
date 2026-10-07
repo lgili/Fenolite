@@ -69,7 +69,7 @@ def test_refused_calls() -> None:
         (lambda: d.rule_area("H V", HV), "name"),
         (lambda: d.rule_area("A", HV[:2]), "outline"),
         (lambda: d.rule_area("B", HV, layers=("In1.Cu",)), "In1.Cu"),
-        (lambda: d.rule_area("C", HV, forbid=("footprints",)), "footprints"),
+        (lambda: d.rule_area("C", HV, forbid=("silkscreen",)), "silkscreen"),  # not "footprints": c0113
         (lambda: d.rule_area("hv", HV), "hv"),
         (lambda: d.rule_area("HV", HV), "HV"),
         (lambda: d.rule_area("D", HV, layers=()), "layers"),
@@ -101,6 +101,7 @@ def test_call_order_does_not_matter() -> None:
 def test_tables_of_the_items_module() -> None:
     assert dict(itemlib.FORBID) == {
         "tracks": "no_tracks", "vias": "no_vias", "pads": "no_pads", "pours": "no_copper_pour",
+        "footprints": "no_footprints",  # change c0113
     }  # fmt: skip
     assert dsl.RuleArea is itemlib.RuleArea and "RuleArea" in dsl.__all__
     assert not hasattr(Design, "keepout")

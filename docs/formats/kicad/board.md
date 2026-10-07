@@ -738,6 +738,25 @@ or side change is refused (`place.no-definition`).
 | A footprint re-placed from its library definition at a new rotation or side, with the old uuid and pad nets, is read by `kicad-cli` at the requested placement | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-MOVE |
 | Two courtyards that share an edge or a corner, with disjoint interiors, give no `courtyards_overlap` violation | S-0038, S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PLACE-TOUCH |
 
+### Rule areas that forbid footprints (c0113)
+
+How KiCad's DRC judges a footprint against a rule area whose `keepout` has `(footprints not_allowed)`.
+`placement.legality.check(…, keepouts=…)` follows these rows under the code `place.keepout`
+(`docs/placement.md`). The 18 cases are the benches of `tests/kicad/place/_keepoutcases.py`; the rows are
+`INFERRED` until the probes `place-keepout-*` are recorded on both majors (on 2026-10-08 they are recorded
+for 10.0.6 only).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The violation is of type `items_not_allowed` and names the footprint, never its pads | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| A footprint is reported exactly when the interior of its courtyard meets the interior of the area: an area that covers the footprint, one that covers only the courtyard margin beside the pads, and one that enters the courtyard by 10 µm are reported | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| An area whose edge lies on the line centre of the courtyard rectangle is not reported, and neither is one 10 µm or 30 µm away from it, inside the 0.05 mm stroke of the courtyard line: the courtyard is judged by its line centres, and touching is no violation | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| The courtyard is judged where the footprint is placed: an area that would meet the courtyard of a part at 0° is not reported for the part turned by 90° | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| Faces follow copper layers: an area on `F.Cu` judges front courtyards and one on `B.Cu` back courtyards. A part on the bottom is not reported for an area on `F.Cu` only and is reported for one on `B.Cu`; a part on the top is not reported for an area on `B.Cu` only; a through-hole part with a front courtyard only is reported for `F.Cu` and not for `B.Cu` | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| An area on inner copper layers only (`In1.Cu` of a four-layer board) reports no footprint | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| A footprint without a courtyard is never reported, whether the area covers the whole part, one pad or the space between the pads | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+| An area that covers only the Reference text of a footprint, outside its courtyard, reports nothing | S-0020, S-0029 | INFERRED | H-K-PLACE-KEEPOUT |
+
 ### Writer issue codes
 
 | code | severity | when |

@@ -423,6 +423,27 @@ and via gap are values of the net class of its two nets, and its limits are rule
   (one of the three class keys, one of the five kinds or a `diff_pair` leaf): their reader of the canonical
   form is strict. A build regenerates `.fenolite/`.
 
+## Proximity rules
+
+`RuleSet.proximity` holds the placement rules of a design (change c0113): which parts belong near which
+pads. `fenolite.model.rules` defines two frozen value objects for it, without an entity header.
+
+- `PadSelection(path, number="", index=None)` selects pads of one part by its component path: every pad
+  when `number` is empty, the pads of that number otherwise, and only the one at `index` among them, in
+  the footprint's pad order, when `index` is given. An `index` needs a `number`.
+- `ProximityRule(name, parts, anchor, within, severity="error")`: each part of `parts` keeps one of its
+  selected pads within `within` (nm, pad centre to pad centre) of a selected pad of `anchor`. `severity`
+  is `error` or `warning` (`PlacementSeverity`). `parts` and `anchor` are not empty and `within` is above
+  0; a `RuleSet` refuses two rules of one name.
+- A rule is named by its key and has no id. It is no rule of `RuleSet.rules` and has no `RuleKind`: no
+  backend lowers it, and a board read from a file has none. `to_model` writes the rules in name order
+  (`docs/dsl.md`, `near`), and `fenolite.checks.placement.judge` judges them (`docs/placement.md`).
+- The field is additive: `canonical` omits `proximity` when it is empty, so a design that declares no
+  rule writes the bytes it wrote before and every output of 0.2.0 keeps its bytes, a `rules.json` written
+  before the field loads unchanged, and `schema_version` stays `"0"`. The other direction does not hold.
+  Fenolite 0.2.x and 0.3.0 cannot read a `rules.json` that carries `proximity`: their reader of the
+  canonical form is strict.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change

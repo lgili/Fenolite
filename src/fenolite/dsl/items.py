@@ -27,9 +27,16 @@ AREA_NAME = re.compile(r"^[A-Za-z0-9_.+-]+$")
 DRAWING_KEY = re.compile(r"^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$")
 """The key of a drawing; the pattern of copper intent keys."""
 FORBID: Mapping[str, str] = MappingProxyType(
-    {"tracks": "no_tracks", "vias": "no_vias", "pads": "no_pads", "pours": "no_copper_pour"}
+    {
+        "tracks": "no_tracks",
+        "vias": "no_vias",
+        "pads": "no_pads",
+        "pours": "no_copper_pour",
+        "footprints": "no_footprints",
+    }
 )
-"""The values of ``rule_area(forbid=…)`` and the ``Keepout`` field each sets."""
+"""The values of ``rule_area(forbid=…)`` and the ``Keepout`` field each sets. ``footprints`` makes the
+area a placement keep-out, which the legality check of ``place`` and ``build`` judges (change c0113)."""
 DRAWING_LAYER_KINDS: tuple[LayerKind, ...] = ("silkscreen", "soldermask", "fabrication", "user")
 """The kinds of layer a text or a drawing may be on. Copper is refused: the copper check cannot see
 glyphs, and KiCad reports a copper text across a track but not a copper line (``H-K-BOARD-TEXT``)."""

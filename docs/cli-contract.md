@@ -393,12 +393,17 @@ no file, and runs no tool. With `--target altium` the guard judges the PCB docum
 `build_design` is not guarded (`docs/dsl.md`, "Copper guard").
 
 **Placement guard.** The same planned board is then judged by the placement legality check
-(`docs/placement.md`): the courtyards of the placed parts against each other and against the outline.
-Parts that the build staged (`result.staged`) are not judged. Every `place.*` issue is reported at most
-as a warning, so a build never exits 5 for placement; the codes are those of the table under "place".
-`result.placement` holds `ran` (false when the build was refused) and `counts`, the number of issues by
-code. The guard runs on `--dry-run` too, reads and writes no file, and runs no tool. With
-`--target altium` there is no `result.placement`. A Python caller of `build_design` is not guarded; it
+(`docs/placement.md`): the courtyards of the placed parts against each other, against the outline and
+against the rule areas of the board that forbid footprints. The placement rules of the script
+(`design.near()`) are judged on the pads of the same board. Parts that the build staged
+(`result.staged`) are not judged; a rule that names one gives `placement.rule-skipped`. Every `place.*`
+and `placement.*` issue is reported at most as a warning, so a build never exits 5 for placement; the
+codes are those of the tables under "place" and "check".
+`result.placement` holds `ran` (false when the build was refused), `counts`, the number of issues by
+code, and `rules`, the counts of the rules by family (`{"near": {"judged", "failed", "skipped"}}`). The
+guard runs on `--dry-run` too, reads and writes no file, and runs no tool. With
+`--target altium` there is no `result.placement` and no rule is judged: one `altium.not-lowered` info
+(`where` `placement-rule`) names the count of the stored rules, which `fenolite check` judges. A Python caller of `build_design` is not guarded; it
 calls `placement.check` itself (`docs/placement.md`).
 
 `result.stackup` (c0101) is `null` when the written board holds no stack-up, and otherwise
@@ -787,6 +792,7 @@ out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGE
 re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
+`placement.rules` needs none either, and is a default stage.
 `parity` needs none either for a project that `build` wrote.
 
 | stage | runs on | evidence |
@@ -794,6 +800,7 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
 | `erc.kicad` | `kicad-cli sch erc` on the copy set, built and native input alike; every violation becomes a located issue. Skipped with `no-schematic` when the project has no `<stem>.kicad_sch` | ERC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report |
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
+| `placement.rules` | Fenolite's own placement rules and measures on the board model, without a tool: on a project that `build` wrote, the `near` rules of `.fenolite/rules.json` judged on the pad positions; on every board, the wire length and the congestion of the placement (`docs/placement.md`) | the board reader's level when no rule was judged; the lowest of it and `INFERRED` when one was |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
 | `parity` | Fenolite's own comparison of the board with `<stem>.kicad_sch`, and of symbol pins with footprint pads (`parity` below); no tool for a schematic that `build` wrote, else the schematic netlist of `kicad-cli` when another stage built the oracle | the lowest of the comparison (`INFERRED`, `H-K-PARITY-OWN`) and of the netlist it used |
@@ -806,7 +813,8 @@ Each `result.stages[]` entry is `{name, status, reason, evidence, summary}`. `st
 error issue), `errors` (ran, at least one) or `skipped`, with `reason` `native-input`, `read-refused`,
 `cache-unreadable`, `no-schematic` (`erc.kicad` on a project without a schematic of the board's stem),
 `unsupported-oracle`, `oracle-unsupported`, `netlist-unavailable` (`parity` on a schematic that Fenolite
-does not read itself, in a run without `kicad-cli`) or `oracle-unstable` (two refill runs differ; never counted in the
+does not read itself, in a run without `kicad-cli`), `no-frame` (`placement.rules` when the reader gives
+no pad positions) or `oracle-unstable` (two refill runs differ; never counted in the
 envelope). A skipped stage carries `UNVERIFIED`. The envelope evidence is the lowest level of
 the stages that ran and of those skipped for `read-refused` or `cache-unreadable`; `UNVERIFIED` when
 none counts. `result.project` holds `board`, `built`, `files` and `skipped`, names relative to the
@@ -820,6 +828,17 @@ emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary hol
 `types` and `tool_writes`. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
+
+**Placement rules.** `placement.rules` judges the `near` rules of a built project
+(`design.near()`, `docs/dsl.md`) on the pad positions of the board, pad centre to pad centre, and measures
+every board. Its summary holds `rules`, the counts by rule family (`{"near": {"judged", "failed",
+"skipped"}}`, every count 0 on native input), and `measures`: `nets`, `hpwl` and `ratsnest` in nanometres,
+`longest` (five nets), `left_out` (`zone_nets`, `one_pad_nets`, `off_board`) and `congestion` (`cell`,
+`pitch`, `tracks_per_layer`, `busiest`, `layers_needed`; `null` for a board without an outline). The pitch
+is the track width plus the clearance of the net class `Default` of the project file. A rule of severity
+`error` that fails gives exit code 5. Keep-outs are not judged here: KiCad's DRC reports a part in a rule
+area that forbids footprints in `drc.kicad`. The stage is skipped with `read-refused`, with
+`cache-unreadable` on a built project whose `.fenolite/` cannot be loaded, and with `no-frame`.
 
 **Copper check.** `copper.clearance` judges tracks, arcs, vias, pads and zone fills as exact shapes
 (`docs/geometry.md`, "Thick shapes"). Two items of different nets that share a copper layer are judged:
@@ -1011,6 +1030,9 @@ repeat.
 | `zone.unfilled` | warning | KiCad's refill produces copper but the saved board has none for a zone |
 | `zone.fill-stale` | warning | the saved fill polygons differ from a KiCad refill |
 | `zone.fill-unchecked` | info | the selected tool cannot refill zones, or two refill runs differ; the stage is skipped |
+| `placement.too-far` | error, warning | a part of a `near` rule has no selected pad within the rule's distance of a pad of the anchor; the rule sets the severity, and `place` and `build` report it as a warning at most |
+| `placement.rule-unresolved` | error | a placement rule names a part or a pad that the board does not hold; a warning in `place` and `build` |
+| `placement.rule-skipped` | info | a placement rule names a part that lies off the board, so it is not judged for it |
 | `check.document-missing` | warning | document input: the project file lists a document that does not exist |
 | `check.rta0-failed` | error | document input: a container copy lost or changed a storage or a stream; `where` is `<document>:<stream path>` |
 | `check.rta1-failed` | error | document input: a stream's records differ after encoding and reading again; `where` is `<document>:<stream>#<record>` |
@@ -1080,6 +1102,7 @@ it, because it writes a whole project into a temporary folder and reads it again
 | `model.validate` | the `model.*` findings of the schematic reading and of the PCB reading (`where` starts with `schematic:` or `pcb:`), with the readers' own issues; on built input, those of the stored model | the readings; `INFERRED` on built input |
 | `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
 | `copper.clearance` | the copper check of `check` on the PCB reading, built and native input alike: shorts, clearance and zone overlaps, with the pads of the Altium board frame and the Clearance rules the document holds (below) | the reading and the check (`H-A-DRC-SAME`); `UNVERIFIED` when part of the copper or of the rules was not judged |
+| `placement.rules` | the placement rules and measures of `check` on the PCB reading: on built input the `near` rules of the stored model judged on the pad positions of the Altium board frame; on every PCB document the wire length and the congestion. No stage judges a part in a keep-out on Altium input | the reading when no rule was judged; the lowest of it and `INFERRED` when one was |
 | `parity` | the PCB reading against the schematic reading, as `parity` below: references, values, footprint names, nets, pins and pads | `INFERRED` (`H-K-PARITY-OWN`, `H-A-DRC-PARITY`) |
 | `netlist.assignment_compare` | the partition compare of the pairs (`schematic`, `pcb`) on native input, (`model`, `schematic`) and (`model`, `pcb`) on built input; no export is needed | the lowest of the readings compared (`H-A-IMP-NETLIST`) |
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
@@ -1094,8 +1117,9 @@ project built before change c0126, whose stored footprints hold no graphic while
 some: build it again), `no-document` (`roundtrip.rta3` when the write
 gives no document of the kind that was read: the schematic writer refuses the circuit),
 `no-schematic` (`erc.lite` and `parity` without a schematic document),
-`single-source` (`netlist.assignment_compare` without two sources; `copper.clearance` and `parity`
-without a PCB document), `not-judged` (no document of the set can be judged
+`single-source` (`netlist.assignment_compare` without two sources; `copper.clearance`,
+`placement.rules` and `parity` without a PCB document), `no-frame` (`placement.rules` when the backend
+gives no pad positions), `not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
 `read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
 carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.
@@ -1439,14 +1463,25 @@ nothing moved. The user guide is `docs/placement.md`.
   of the board outline, Y down, as in the script's `place()`; without an outline they are relative to
   the file origin. `ROT` is an angle in degrees and `SIDE` is `top` or `bottom`. A new rotation or side
   re-places the footprint from its library definition, found through the project's `fp-lib-table`.
-- After the moves, the legality check judges the whole layout. With a `place.*` error and without
-  `--force` the command plans no write and exits 5; with `--force` it writes and still reports the
-  issues. `--force` also moves a footprint that is locked on the board.
+- After the moves, the legality check judges the whole layout, the rule areas of the board that forbid
+  footprints included. With a `place.*` error and without `--force` the command plans no write and
+  exits 5; with `--force` it writes and still reports the issues. `--force` also moves a footprint that
+  is locked on the board.
+- The grid leaves the bounding box of every rule area that forbids footprints free, as it does for
+  cut-outs.
+- The placement rules of a built project (`.fenolite/rules.json`, read once with the locked placements)
+  are judged on the layout after the moves. Each `placement.*` issue is a warning at most and never
+  refuses the write: `check` is the gate.
 
 `result` holds `board`, `strategy`, `moved` (`ref`, `path`, `from` and `to`, each with `x` and `y` in
 nanometres, `rotation` in microdegrees and `side`; sorted by reference), `unplaced` (the references
-still off the board) and `legality` (the number of issues by code). The evidence is
-`placement.EVIDENCE`: a placement is never a verdict, and KiCad's DRC judges the board.
+still off the board), `legality` (the number of issues by code), `rules` (the counts of the placement
+rules by family, all 0 without rules) and `measures`: the measures of `placement.rules` (see "check") on
+the layout after the moves, with `change`, `hpwl` and `ratsnest` after the moves minus before in
+nanometres, both 0 when nothing moved. The evidence is `placement.EVIDENCE`, combined with
+`placement.legality.KEEPOUT_EVIDENCE` (`H-K-PLACE-KEEPOUT`) when the board holds a rule area that forbids
+footprints and with `INFERRED` when a placement rule was judged: a placement is never a verdict, and
+KiCad's DRC judges the board.
 
 | code | severity | when |
 |---|---|---|
@@ -1455,15 +1490,19 @@ still off the board) and `legality` (the number of issues by code). The evidence
 | `place.no-definition` | error | a rotation or side change of a footprint whose library definition is not found |
 | `place.locked` | error | a footprint that is locked on the board, without `--force` |
 | `place.unknown-ref` | error | `--move` or `--only` names a reference that the board does not hold |
+| `place.keepout` | error | a courtyard enters a rule area that forbids footprints, on the face the area's copper layer judges (`F.Cu` the front, `B.Cu` the back); KiCad's DRC reports the same part |
 | `place.edge-clearance` | warning | a courtyard is closer to the board edge than the edge clearance |
 | `place.no-room` | warning | the grid found no place for a part; it stays where it was |
 | `place.copper-left` | warning | a moved footprint had copper ending on its pads; the copper stays |
 | `place.script-locked` | warning | the part has a locked placement in `.fenolite/`; the next build restores it |
+| `place.keepout-no-courtyard` | warning | the pads of a part without a courtyard lie in a rule area that forbids footprints; KiCad's DRC does not report such a part |
 | `place.no-extent` | info | a footprint has neither a courtyard nor pad copper; it is not judged |
 | `place.no-outline` | info | the board has no closed outline; only courtyard overlaps are judged |
 
 `fenolite build` reports the same legality codes for the board it is about to write, each at most as a
-warning (`result.placement` holds `ran` and `counts`): a build never refuses for placement.
+warning (`result.placement` holds `ran`, `counts` and `rules`): a build never refuses for placement.
+`place` and `build` also report the three `placement.*` codes of the table under "check", as warnings at
+most.
 `result.routers` lists registered routers; `--no-run` lists names without availability probes. The `freerouting` entry also holds `java` (the first line of `java -version`), `java_major` and `java_ok` (`java_major >= 25`): a jar without a suitable Java gives `doctor.tool-unsupported` naming Java 25, and a missing jar `doctor.tool-missing`. It holds `source` too, the place that gave the jar: `argument` (`--router-path`), `env` (`FENOLITE_FREEROUTING_JAR`), `fetched` (the tools folder, see [fetch](#fetch)) or `null` without a jar; the reason of a missing jar names `fenolite fetch freerouting --confirm`.
 
 ## analyze

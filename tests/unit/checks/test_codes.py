@@ -14,7 +14,7 @@ from fenolite.checks import STAGE_ORDER, codes
 from fenolite.checks.codes import ERC_FINDING, FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.")
+CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.", "placement.")
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -65,6 +65,9 @@ TABLE = {
     "parity.pad-without-pin": ("info",),
     "check.waiver-unmatched": ("warning",),
     "check.exclusion-stale": ("warning",),
+    "placement.too-far": ("error", "warning"),
+    "placement.rule-unresolved": ("error",),
+    "placement.rule-skipped": ("info",),
 }
 
 

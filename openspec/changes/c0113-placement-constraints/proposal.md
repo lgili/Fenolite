@@ -40,7 +40,7 @@ None.
 ### Modified Capabilities
 - `placement`: MODIFIED "Placement legality"; ADDED "Placement rules judged", "Placement measures".
 - `cli-contract`: MODIFIED "Place command".
-- `design-dsl`: MODIFIED "Placement legality in a build"; ADDED "Placement rules in the DSL", "Placement keep-outs in the DSL".
+- `design-dsl`: MODIFIED "Placement legality in a build" and "Rule areas in the DSL" (c0103's requirement, on the branch since 2026-10-08; the delta was first an ADDED "Placement keep-outs in the DSL"); ADDED "Placement rules in the DSL".
 - `design-model`: ADDED "Proximity rules in the model".
 - `verification-loop`: ADDED "Placement rules stage", "Placement stage issue codes".
 - `kicad-oracle`: ADDED "Placement keep-outs are probed".

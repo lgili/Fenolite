@@ -25,6 +25,7 @@ DEFAULT = [
     "model.validate",
     "erc.kicad",
     "copper.clearance",
+    "placement.rules",
     "zone.fill",
     "drc.kicad",
     "parity",

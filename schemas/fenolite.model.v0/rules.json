@@ -46,6 +46,12 @@
           "ignore"
         ]
       }
+    },
+    "proximity": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProximityRule"
+      }
     }
   },
   "additionalProperties": false,
@@ -120,6 +126,32 @@
       },
       "additionalProperties": false
     },
+    "PadSelection": {
+      "description": "Pads of one part, named by its component path.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        },
+        "index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
     "Provenance": {
       "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
       "type": "object",
@@ -147,6 +179,43 @@
         "file",
         "file_sha256",
         "locator"
+      ]
+    },
+    "ProximityRule": {
+      "description": "A placement rule: each part of ``parts`` stays near a pad of ``anchor``.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadSelection"
+          }
+        },
+        "anchor": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadSelection"
+          }
+        },
+        "within": {
+          "type": "integer"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parts",
+        "anchor",
+        "within"
       ]
     },
     "Rule": {
