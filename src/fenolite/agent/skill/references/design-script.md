@@ -76,6 +76,40 @@ down. The board file holds the outline at (100 mm, 100 mm), so `place(mm(15), mm
 (115 mm, 106 mm) of the file. Commands that read a board report file coordinates; `fenolite pads` takes
 `--origin 100mm,100mm` to answer in the script's frame (page `placement`).
 
+## An outline that is not a rectangle
+
+`design.board(outline=...)` takes a closed path in place of a width and a height, and `design.cutout()`
+adds an opening that is milled. `shape` makes the usual paths: `shape.rect(x, y, width, height,
+radius=...)`, `shape.circle(x, y, diameter)` and `shape.slot(start, end, width)`. `design.hole()` adds a
+drilled hole as a locked part of its own; with `pad=` the hole is plated and has pin 1.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, Part, connect, mm, shape
+
+design = Design("rounded")
+design.board(outline=shape.rect(mm(0), mm(0), mm(40), mm(30), radius=mm(3)))  # corners of 3 mm
+design.cutout(shape.circle(mm(33), mm(8), mm(4)))  # centre and diameter
+design.cutout(shape.slot((mm(10), mm(25)), (mm(20), mm(25)), mm(2)))  # between two centres, 2 mm wide
+design.rules.minimum(clearance=mm(0.2), track_width=mm(0.2), edge_clearance=mm(0.3))  # examples
+
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="330")
+design.add(j1, r1)
+vin, gnd = Net("VIN"), Net("GND")
+connect(vin, j1[1], r1[1])
+
+design.hole("H1", mm(5), mm(5), drill=mm(3.2))  # a mounting hole, not plated
+h2 = design.hole("H2", mm(5), mm(25), drill=mm(3.2), pad=mm(6))  # plated: 6 mm of copper
+connect(gnd, j1[2], r1[2], h2[1])
+
+j1.place(mm(14), mm(8), rot=90)
+r1.place(mm(22), mm(14))
+```
+
+A rebuild follows a new outline or copper count of the script. Copper that no longer fits is dropped
+and reported (`kicad.outline.copper-dropped`, `kicad.layers.removed`), so run `--dry-run` first and read
+the counts. An outline edited in KiCad stays unless the script says `board(..., locked=True)`.
+
 ## The cycle
 
 ```fenolite-cmd

@@ -6,6 +6,7 @@ kicad-file-backend and kicad-slots, change c0017)."""
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import uuid
 from collections import Counter
 from pathlib import Path
@@ -274,7 +275,16 @@ def test_rectangle_outline() -> None:
     assert lines[-1].find("end") == parse("(end 0 0)") and lines[0].find("start") == parse("(start 0 0)")
     assert lines[0].find("stroke") == parse("(stroke (width 0.1) (type solid))")
     assert heads(lines[0]) == ["start", "end", "stroke", "layer", "uuid"]
-    expected = str(uuid.uuid5(FENOLITE_NS, "kicad-out:out_00000000-0000-4000-8000-000000000001:outline:0:0"))
+    # each edge is signed with the digest of the four edge texts (change c0102; test_outline_write.py)
+    texts = [
+        "line 0 0 50000000 0",
+        "line 50000000 0 50000000 30000000",
+        "line 0 30000000 50000000 30000000",
+        "line 0 0 0 30000000",
+    ]
+    digest = hashlib.sha256("".join(f"{t}\n" for t in sorted(texts)).encode("utf-8")).hexdigest()[:16]
+    part = f"kicad-out:out_00000000-0000-4000-8000-000000000001:outline:{digest}:{texts[0]}"
+    expected = str(uuid.uuid5(FENOLITE_NS, part))
     assert lines[0].find("uuid") == Node(Atom.symbol("uuid"), (Atom.string(expected),))
 
 

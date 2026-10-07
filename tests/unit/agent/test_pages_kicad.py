@@ -24,6 +24,7 @@ pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10)]
 OPEN = "kicad.drc.unconnected-items"
 ERRORS: dict[tuple[str, int], set[str]] = {
     ("design-script", 0): {OPEN},
+    ("design-script", 1): {OPEN},
     ("footprints", 0): {OPEN},
     ("parts", 0): {OPEN, "kicad.erc.power-pin-not-driven"},
     ("parts", 1): {OPEN, "kicad.erc.pin-not-connected"},

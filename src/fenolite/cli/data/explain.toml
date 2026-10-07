@@ -1643,6 +1643,21 @@ meaning = "A pad's copper is given as a shape that is at least as large as the r
 fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
 
+["kicad.layers.added"]
+meaning = "The script declares more copper layers than the existing board has, and both tables are ones that Fenolite creates: the board got the new inner layers and kept its layout."
+fix = "Nothing to do; route the new layers, or declare planes on them with board(planes=...)."
+see = "build"
+
+["kicad.layers.removed"]
+meaning = "The script declares fewer copper layers than the existing board has. The deepest inner layers were removed, with the tracks, arcs, blind or buried vias, zones, rule areas, graphics and texts on them; the message gives the counts for one layer."
+fix = "Run the build with --dry-run first to see the counts; run fenolite route to close what reopened, or restore the .bak file and keep the board's count in board(copper=...)."
+see = "build"
+
+["kicad.layers.stackup-reset"]
+meaning = "The board's stack-up names other copper layers than the new layer table, so it was removed: KiCad derives its default stack-up. A stale one would leave the Gerber job file without thicknesses."
+fix = "Set the stack-up again in KiCad's board setup for the new layer count."
+see = "build"
+
 ["kicad.lib.disabled"]
 meaning = "A library nickname exists only in rows of the library table that are disabled."
 fix = "Enable the row or name another library."
@@ -1721,6 +1736,31 @@ see = "build"
 ["kicad.lib.unsupported-type"]
 meaning = "A library table row has a type other than KiCad or Table."
 fix = "Convert the library to KiCad's format."
+see = "build"
+
+["kicad.outline.copper-dropped"]
+meaning = "The script's new outline replaced the board's, and tracks, arcs or vias that are not script copper no longer fit it: they touch an edge, or lie outside the board or inside a cut-out. They were dropped; the message gives the counts and the nets."
+fix = "Run the build with --dry-run first to see the counts; run fenolite route to close what reopened, or restore the .bak file."
+see = "build"
+
+["kicad.outline.forced"]
+meaning = "board(..., locked=True) replaced edge content that was changed in KiCad, or that Fenolite did not write, with the script's outline. Edge items inside footprints stay; the message names their footprints."
+fix = "Remove locked=True from board() to keep the outline drawn in KiCad."
+see = "build"
+
+["kicad.outline.invalid"]
+meaning = "The script's outline cannot be written: a ring crosses or touches itself, two rings cross or touch, a cut-out lies outside the board or inside another cut-out, or an arc or a ring breaks the model's form. KiCad 10 reports such a board as invalid_outline. Nothing is written."
+fix = "Keep every cut-out inside the board ring and clear of the edge and of the other cut-outs; the message names the rings."
+see = "build"
+
+["kicad.outline.replaced"]
+meaning = "The board held the outline that Fenolite wrote, unchanged, and the script declares another one: the board's edges were replaced by the script's. Edge items inside footprints stay; the message names their footprints."
+fix = "Nothing to do; check the parts that the new outline leaves outside (place.outside-outline)."
+see = "build"
+
+["kicad.outline.zone-short"]
+meaning = "An arc of the board ring bulges beyond the box of its vertices and mid points, which a zone declared without an outline takes: the fill of the named zones stops short of that edge."
+fix = "Give the zone an outline that holds the arc, or add a vertex at the extreme of the arc."
 see = "build"
 
 ["kicad.pad.zone-forced"]
@@ -2068,8 +2108,8 @@ fix = "Nothing to do."
 see = "build"
 
 ["layout.copper-mismatch"]
-meaning = "The existing board's copper layers differ from board(copper=...) of the script."
-fix = "Use design.board(..., copper=<the board's count>) to keep the layout, or rebuild with --discard-layout to create the board on the script's count."
+meaning = "The existing board's copper layers are not a layer table that Fenolite creates, so the board cannot follow board(copper=...) of the script. A count change between two tables that Fenolite creates is applied instead (kicad.layers.added, kicad.layers.removed)."
+fix = "Give the board KiCad's inner layer names In1.Cu to In<n>.Cu in its board setup, or rebuild with --discard-layout to create the board on the script's count."
 see = "build"
 
 ["layout.footprint-replaced"]
@@ -2099,7 +2139,7 @@ see = "build"
 
 ["layout.outline-kept"]
 meaning = "The board's edge drawing differs from the script's outline, and the board's was kept."
-fix = "Remove the outline from the script, or redraw the edge in KiCad to match."
+fix = "Lock the outline in the script with board(..., locked=True) to replace the board's, edit the edge in KiCad to match, or rebuild with --discard-layout."
 see = "build"
 
 ["layout.place-forced"]

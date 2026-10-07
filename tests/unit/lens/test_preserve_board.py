@@ -45,11 +45,17 @@ def test_edge_edited_is_kept() -> None:
     assert [i.severity for i in result.issues if i.code == "layout.outline-kept"] == ["warning"]
 
 
-def test_copper_mismatch() -> None:
+def test_copper_count_follows_the_script() -> None:
+    """A count change between two created tables adapts the board (change c0102); ``layout.copper-mismatch``
+    stays for a table that is not a created one."""
     d = blink()
     d.copper = 4
     result, _ = merged(d, board_text())
-    assert [(i.code, i.severity) for i in result.issues] == [("layout.copper-mismatch", "error")]
+    assert [(i.code, i.severity) for i in result.issues] == [("kicad.layers.added", "info")]
+    odd = board_text().replace('(2 "B.Cu" signal)', '(4 "In1.Cu" signal)\n\t\t(2 "B.Cu" signal)')
+    assert odd != board_text()
+    refused, _ = merged(blink(), odd)
+    assert [(i.code, i.severity) for i in refused.issues] == [("layout.copper-mismatch", "error")]
 
 
 # --- board items declared in the script (change c0103) -------------------------------------------------

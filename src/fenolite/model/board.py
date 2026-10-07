@@ -121,11 +121,29 @@ class Stackup(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class OutlineArc:
+    """One edge of a board outline that is an arc through ``mid``.
+
+    Edge ``edge`` of ring ``ring`` runs from its first vertex through ``mid`` to its second. Ring 0 is
+    ``Outline.points`` and ring k is ``Outline.cutouts[k - 1]``; edge i of a ring of n vertices joins
+    vertex i to vertex (i + 1) mod n."""
+
+    ring: int
+    edge: int
+    mid: Point
+
+
+@dataclass(frozen=True, slots=True)
 class Outline(Entity):
-    """Board outline polygon and cut-outs (points in order)."""
+    """Board outline polygon and cut-outs (points in order).
+
+    An edge is straight unless ``arcs`` holds an entry for it; ``arcs`` is sorted by ``(ring, edge)`` and
+    holds at most one entry per edge. A ring has three vertices or more, or two when one of its two edges
+    is an arc (a circle is two arcs)."""
 
     points: tuple[Point, ...] = field(default=(), metadata=ORDERED)
     cutouts: tuple[tuple[Point, ...], ...] = field(default=(), metadata=ORDERED)
+    arcs: tuple[OutlineArc, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -500,6 +518,7 @@ __all__ = [
     "Layer",
     "LayerKind",
     "Outline",
+    "OutlineArc",
     "Pad",
     "PadKind",
     "PadShape",

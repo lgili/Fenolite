@@ -18,8 +18,9 @@ from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.select import pair as select_pair
+from fenolite.dsl.shape import RingSpec, closed_ring
 from fenolite.dsl.stack import DIELECTRICS, StackEntry
-from fenolite.dsl.units import as_nm, as_nm2
+from fenolite.dsl.units import Length, as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
@@ -67,7 +68,8 @@ class NetClassSpec:
 @dataclass(frozen=True)
 class ZoneSpec:
     """One ``zone()`` call: the net name (``None`` for a zone without a net), the copper layers, the
-    outline as board-relative ``(x, y)`` nanometres (``None`` for the board rectangle), and the settings."""
+    outline as board-relative ``(x, y)`` nanometres (``None`` for the box of the board ring), and the
+    settings."""
 
     name: str
     net: str | None
@@ -447,6 +449,13 @@ class Design(Container):
         self.planes: dict[str, str] = {}
         """``board(planes=…)``: inner layer name → net name, in layer order; empty by default."""
         self.size: tuple[Nm, Nm] | None = None
+        """``board(width, height)``: the two lengths; ``None`` before ``board()`` and for ``outline=``."""
+        self.outline_path: RingSpec | None = None
+        """The board ring of ``board()``, of either form, in the written frame; ``None`` before the call."""
+        self.cutout_paths: list[RingSpec] = []
+        """The rings of ``cutout()``, in call order."""
+        self.outline_locked = False
+        """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.parts: dict[str, Part] = {}
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
@@ -575,26 +584,104 @@ class Design(Container):
 
     def board(
         self,
-        width: object,
-        height: object,
+        width: object = None,
+        height: object = None,
         copper: int = 2,
         planes: Mapping[str, Net | str] | None = None,
+        *,
+        outline: object = None,
+        locked: bool = False,
     ) -> None:
-        """A rectangular board of ``width`` × ``height`` with 2, 4, 6 or 8 copper layers. An inner layer is a
-        signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an internal
-        plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build parameter, as
-        ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``)."""
-        if self.size is not None:
+        """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
+        lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
+        ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
+        layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an
+        internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
+        parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
+        ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
+        rebuilt (``docs/lens.md``, "Outline changes")."""
+        if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"copper must be {_counts_text()}, not {copper!r}")
-        w, h = as_nm(width, name="width"), as_nm(height, name="height")
-        if w <= 0 or h <= 0:
-            raise DslError("the board width and height must be positive")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"board(): locked must be a bool, not {locked!r}")
+        size: tuple[Nm, Nm] | None = None
+        if outline is not None:
+            if width is not None or height is not None:
+                raise DslError("board(): give width and height, or outline=, not both")
+            ring = closed_ring(outline, "board(): outline")
+        else:
+            if width is None or height is None:
+                raise DslError("board(): give width and height, or outline=")
+            w, h = as_nm(width, name="width"), as_nm(height, name="height")
+            if w <= 0 or h <= 0:
+                raise DslError("the board width and height must be positive")
+            size = (w, h)
+            ring = closed_ring(
+                (
+                    (Length(0), Length(0)),
+                    (Length(w), Length(0)),
+                    (Length(w), Length(h)),
+                    (Length(0), Length(h)),
+                ),
+                "board()",
+            )
         declared = self._planes(copper, planes)
-        self.size = (w, h)
+        self.size = size
+        self.outline_path = ring
+        self.outline_locked = locked
         self.copper = copper
         self.planes = declared
+
+    def hole(
+        self,
+        ref: str,
+        x: object,
+        y: object,
+        *,
+        drill: object,
+        length: object = None,
+        rot: int | str | float = 0,
+        pad: object = None,
+        courtyard: object = None,
+        locked: bool = True,
+    ) -> Part:
+        """A hole of ``drill`` at ``(x, y)``: a part named ``ref`` whose symbol and footprint are generated
+        in the library ``Fenolite_Holes`` (``fenolite.dsl.holes``). ``length`` makes it a slot of that
+        overall length along the footprint's X axis, turned by ``rot``; ``pad`` gives it copper that wide,
+        and the part then has the pin ``1`` (``connect(net, part[1])``); ``courtyard`` widens its courtyard.
+        The part is placed on the top side and locked by default: an enclosure fixes a hole, so the
+        script's position wins over a move in KiCad. This is the one call that declares a hole."""
+        from fenolite.dsl import holes
+
+        footprint = holes.hole_footprint(drill, length=length, pad=pad, courtyard=courtyard)
+        symbol = holes.HoleSymbol(holes.hole_symbol(plated=pad is not None))
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"hole(): locked must be a bool, not {locked!r}")
+        part = Part(ref, symbol.lib_id, footprint=footprint.lib_id, value=footprint.name)
+        if part.path in self.parts:
+            raise DslError(f"hole(): two components have the path {part.path!r}")
+        known = self.footprints.get(footprint.lib_id)
+        if known is not None and known.definition != footprint.definition:
+            raise DslError(
+                f"hole(): footprint {footprint.lib_id!r} is already registered with another definition"
+            )
+        held = self.symbols.get(symbol.lib_id)
+        if held is not None and getattr(held, "definition", None) != symbol.definition:
+            raise DslError(f"hole(): symbol {symbol.lib_id!r} is already registered with another definition")
+        part.place(x, y, rot=rot, side="top", locked=locked)
+        self.footprints.setdefault(footprint.lib_id, footprint)
+        self.symbols.setdefault(symbol.lib_id, symbol)
+        self.add(part)
+        return part
+
+    def cutout(self, path: object) -> None:
+        """One cut-out of the board: a closed path as ``board(outline=…)`` takes it. Cut-outs keep their
+        call order. The build refuses rings that cross or touch and cut-outs outside the board."""
+        if self.outline_path is None:
+            raise DslError("cutout(): call board() first")
+        self.cutout_paths.append(closed_ring(path, "cutout()"))
 
     @property
     def copper_layers(self) -> tuple[str, ...]:
@@ -826,7 +913,7 @@ class Design(Container):
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
         makes the script win over an edit of the zone in KiCad, and locks the zone there.
         """
-        if self.size is None:
+        if self.outline_path is None:
             raise DslError("zone(): call board() first")
         if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"zone(): net must be a Net or None, not {net!r}")

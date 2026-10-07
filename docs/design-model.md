@@ -199,6 +199,14 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   is rotated.
 - **Outlines.** An empty `Zone.outline` or `Keepout.outline` means the backend keeps the outline as
   an opaque slot. `Board.outline` is `None` for an imported board; its edge graphics are authoritative.
+- **Outline arcs.** `Outline.points` and `Outline.cutouts` hold the vertices of each ring, in order.
+  `Outline.arcs` makes an edge an arc: `OutlineArc(ring, edge, mid)`, where ring 0 is `points`, ring k is
+  `cutouts[k − 1]`, and edge i of a ring of n vertices joins vertex i to vertex (i + 1) mod n; the arc
+  runs from the first vertex through `mid` to the second. Entries are sorted by `(ring, edge)`, at most
+  one per edge. A ring has three vertices or more, or two when one of its two edges is an arc: a circle
+  is two arcs. The canonical writer omits `arcs` when it is empty, so a `board.json` written before
+  loads unchanged and an outline without arcs keeps its bytes.
+  Release 0.2.x cannot read a model document that carries `arcs`: its reader refuses an unknown key.
 - **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name
   are in `Layer.ext[<backend>]`.
 - **Synthesised circuit.** A board read without a schematic gets one `Component` per footprint, one

@@ -943,11 +943,38 @@
               "$ref": "#/$defs/Point"
             }
           }
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineArc"
+          }
         }
       },
       "additionalProperties": false,
       "required": [
         "id"
+      ]
+    },
+    "OutlineArc": {
+      "description": "One edge of a board outline that is an arc through ``mid``.",
+      "type": "object",
+      "properties": {
+        "ring": {
+          "type": "integer"
+        },
+        "edge": {
+          "type": "integer"
+        },
+        "mid": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ring",
+        "edge",
+        "mid"
       ]
     },
     "Pad": {

@@ -417,6 +417,17 @@ the placements and the net classes are no longer reported by `altium.not-lowered
 texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
+**Outlines with arcs, and holes.** An outline with arcs plans no PCB document, as an outline with
+cut-outs: `altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in
+the board outline of the document. The parts of `design.hole()` are not components of an Altium
+build: they get no schematic symbol, no library footprint and no component record. A round hole that
+is not plated is written as a board hole, the free pad without copper, and counted under `hole` of
+`result.pcb.written`. A slot and a plated hole have no such record: each gives one
+`altium.not-lowered` whose `where` is `hole/<component id>` and is counted under `hole` of
+`result.pcb.not_lowered`; the pin of a plated hole is then absent from its net in the Altium project.
+A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of a
+hole part is not written: a free pad has none.
+
 **Oracles.** `kicad-cli fp upgrade <name>.PcbLib -o <dir>.pretty` converts the library back (10.0 and
 9.0); `tests/kicad/altium/test_pcblib_oracle.py` counts the files, since a footprint KiCad cannot find
 still exits 0, and compares the geometry. `kicad-cli pcb import --format altium` (10.0 only) reads the

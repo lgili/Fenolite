@@ -692,6 +692,38 @@ circles are polygonised with the kernel's tolerance, and `exact` is then false.
 | `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` items of a footprint on `Edge.Cuts` are part of the board outline: an `fp_line` that closes an opening of the root edge lines removes `invalid_outline`, and a track across an `fp_circle` on that layer inside the board gets `copper_edge_clearance` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-OUTLINE-FPEDGE |
 | A via inside a rule area whose `keepout` has `(vias not_allowed)` is reported as `items_not_allowed`, and a via closer to the board edge than the edge clearance as `copper_edge_clearance`, each naming the via | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-STITCH-AVOID |
 
+### Outline arcs, signed edges, holes and layer changes (c0102)
+
+A model outline may hold arcs (`Outline.arcs`): `board_outline` polygonises them at its tolerance, and
+`outline_box` gives the box of every ring with each arc by its true extent. The writer emits one
+`gr_line` or `gr_arc` per edge. Two Fenolite choices, both made so that a rebuild can tell its own
+unchanged outline from an edited one:
+
+- **Arc orientation.** A `gr_arc` is written with `orient2d(start, mid, end)` positive: an arc whose
+  edge runs the other way is written from its second vertex to its first, the same three points. KiCad's
+  re-save swaps the ends of a negatively oriented arc (`H-G-ARC-DIR`), so this form is the one it keeps.
+- **Edge uuids.** The text of an edge is `line X1 Y1 X2 Y2` or `arc X1 Y1 X2 Y2 XM YM` in nanometres, its
+  two vertices in increasing `(x, y)` order. The digest of an outline is the first 16 hexadecimal digits
+  of the SHA-256 of its sorted edge texts, each followed by a newline. The uuid of an edge is
+  `kicad_uuid(outline, "outline:<digest>:<edge text>")`. Equal outlines give equal uuids, and a change
+  of one edge changes every uuid. A Fenolite before this change wrote `outline:<ring>:<edge>`.
+
+The facts below were measured with `kicad-cli` 10.0.6 on 2026-10-08 by the probes of
+`tests/kicad/board/test_outline_shapes.py`, `test_holes.py`, `tests/kicad/zones/test_zone_box.py` and
+`tests/kicad/lens/test_layer_change.py`; the rows that name both majors wait for the same probes on
+9.0.9, so they stay `INFERRED`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| An outline of `gr_line` and `gr_arc` items on `Edge.Cuts` with corners of radius 3 mm, a round cut-out of two arcs, a horizontal slot, a slot turned 30° and a triangular cut-out gives no `invalid_outline`; no drill file holds a hit for a cut-out; after `pcb upgrade --force` the edges still carry the uuids and texts they were written with | S-0020 | INFERRED | H-K-OUTLINE-ARCS |
+| `invalid_outline` is reported by 10.0.6 for a round cut-out across the board edge, for one that touches it at one point, for two cut-outs that overlap and for a board ring that crosses itself; it is not reported for a cut-out inside a cut-out, nor for a cut-out clear of every ring | S-0020 | INFERRED | H-K-OUTLINE-INVALID |
+| A track and a via wholly outside the outline get no `copper_edge_clearance`; a track and a via across the edge each get one | S-0020 | INFERRED | H-K-OUTLINE-OUTSIDE |
+| A zone whose outline is the box of a board with arcs and cut-outs, refilled by `pcb drc --refill-zones --save-board`, holds no fill vertex outside the board ring or inside a cut-out, and none closer to a ring than the board-setup edge clearance less 5 µm | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-ZONE-BOX |
+| A pad outside every footprint does not load. With `pcb export drill --excellon-separate-th`, an unnumbered `np_thru_hole` pad is a hit of the NPTH file, an oval one a single `G85` slot between its centres, and a `thru_hole` pad a hit of the PTH file; a footprint with `exclude_from_pos_files` is not in the position file; IPC-D-356 gives one `367` record per pad that is not plated | S-0020 | INFERRED | H-K-HOLE-FOOTPRINT |
+| A footprint with a courtyard on `F.CrtYd` and on `B.CrtYd` gets `courtyards_overlap` with a top part and with a bottom part whose courtyard it overlaps, and none with a part clear of it | S-0020 | INFERRED | H-K-HOLE-COURTYARD |
+| A symbol library that holds a symbol without pins and one with one passive pin, both with `(in_bom no)`, is exported by `sym export svg` with both symbols | S-0020 | INFERRED | H-K-HOLE-SYMBOL |
+| On a four-layer board, the rows `(8 "In3.Cu" signal)` and `(10 "In4.Cu" signal)` added to the layer table give no kind of DRC finding that the board lacked, and the Gerber job file lists six copper layers with KiCad's default thicknesses; items left on removed rows give `item_on_disabled_layer`; a four-copper `stackup` under six rows leaves the job file without thicknesses | S-0020 | INFERRED | H-K-LAYER-CHANGE |
+
 ### Moved footprints (c0022)
 
 `replace.move_footprint` moves one footprint of a read board. A translation changes only the footprint's

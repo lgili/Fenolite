@@ -54,7 +54,13 @@ from fenolite.backends.kicad.embed import (
 from fenolite.backends.kicad.layers import created_layers, with_plane_types
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
-from fenolite.backends.kicad.outline import BoardOutline, board_outline
+from fenolite.backends.kicad.outline import (
+    BoardOutline,
+    board_outline,
+    check_outline,
+    outline_box,
+    outline_case,
+)
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
@@ -693,9 +699,10 @@ def _pulled_up(
 
 
 def _staging(design: Design) -> tuple[int, int]:
-    assert design.board is not None and design.board.outline is not None
-    points = design.board.outline.points
-    return max(p.x for p in points) + STAGING_OFFSET, min(p.y for p in points)
+    """Where the staging row starts: right of the box of the outline, arcs included, at its top."""
+    box = outline_box(design)
+    assert box is not None
+    return box[2] + STAGING_OFFSET, box[1]
 
 
 def build_design(
@@ -723,8 +730,13 @@ def build_design(
     lock_stackup: bool = False,
     lock_via_protection: bool = False,
     planes: Mapping[str, str] | None = None,
+    lock_outline: bool = False,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    The outline of the model is judged first (``outline.check_outline``): rings that cross or touch stop
+    the build. ``lock_outline`` is ``board(..., locked=True)`` of the script: with an existing board, the
+    script's outline then replaces an outline edited in KiCad (``docs/lens.md``, "Outline changes").
 
     ``planes`` are the script's internal planes (layer name → net name). Each plane layer gets the KiCad
     row type ``power`` in the written board, after the merge with an existing board; every other copper
@@ -785,6 +797,9 @@ def build_design(
     board = design.board
     if board is None or board.outline is None:
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))
+        return _refused(design, issues, libraries)
+    issues += check_outline(design)
+    if any(found.code == "kicad.outline.invalid" for found in issues):
         return _refused(design, issues, libraries)
     layers = tuple(
         dataclasses.replace(layer, id=derived_id("lay", DSL_BACKEND, f"layer:{layer.name}"))
@@ -934,7 +949,7 @@ def build_design(
                 for area in (held.board.keepouts if held is not None and held.board is not None else ())
                 if not boarditems.is_item_uuid(area.native_ids.get("kicad", ""))
             ],
-            outline=_kept_outline(held, built),
+            outline=_kept_outline(held, built, lock_outline),
             edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
         )
         assert built.board is not None
@@ -947,7 +962,12 @@ def build_design(
     target_design = built
     if prepared is not None and prepared.board is not None and prepared.match is not None:
         merged = preserve.merge_layout(
-            built, prepared.board, prepared.match, net_aliases=prepared.net_aliases, identities=identities
+            built,
+            prepared.board,
+            prepared.match,
+            net_aliases=prepared.net_aliases,
+            identities=identities,
+            lock_outline=lock_outline,
         )
         issues += merged.issues
         preserved.update(merged.summary)
@@ -1074,7 +1094,9 @@ def build_design(
         issues += written_sheet.issues
         files[f"{name}{SHEET_SUFFIX}"] = written_sheet.text.encode("utf-8")
     readback = read_board(texts[pcb_name], file=pcb_name, issues=[])
-    layout = preserve.merge_layout(built, readback, preserve.match_footprints(built, readback)).design
+    layout = preserve.merge_layout(
+        built, readback, preserve.match_footprints(built, readback), lock_outline=lock_outline
+    ).design
     vendored = _vendor(plan, target, files, record, issues)
     authored_ids = {part.footprint.lib_id for part in parts if part.location is None}
     for lib_id in sorted(authored_ids):
@@ -1299,10 +1321,14 @@ def _keep_pad_zones(
     return design, {key: sorted(set(values)) for key, values in summary.items()}
 
 
-def _kept_outline(existing: Design | None, built: Design) -> BoardOutline:
-    """The outline a build writes: the edge content of the existing board when it has any (the lens keeps
-    it), else the design's outline."""
-    if existing is not None:
+def _kept_outline(existing: Design | None, built: Design, lock_outline: bool = False) -> BoardOutline:
+    """The outline a build writes: the edge content of the existing board when it has any and the lens
+    keeps it, else the design's outline (also when ``outline.merge_outline`` replaces the board's)."""
+    if existing is not None and outline_case(built, existing, locked=lock_outline) not in (
+        "replaced",
+        "forced",
+        "resigned",
+    ):
         held = board_outline(existing)
         if held.problem != "no-edge-content":
             return held

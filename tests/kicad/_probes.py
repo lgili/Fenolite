@@ -47,8 +47,10 @@ import _fpwrite
 import _framecases
 import _gencases
 import _hiercases
+import _holebench
 import _itemcases
 import _kindcases
+import _layerbench
 import _layercases
 import _layertables
 import _lenscases
@@ -60,6 +62,7 @@ import _netcases
 import _netlistcases
 import _offsetbench
 import _openbench
+import _outlinebench
 import _pairbench
 import _paircases
 import _pairclasses
@@ -282,6 +285,9 @@ def _probes() -> dict[str, Probe]:
         **_anchorbench.anchor_probes(),  # change c0111
         **_areacases.area_probes(),  # change c0103
         **_itemcases.item_probes(),
+        **_outlinebench.outline_probes(),  # change c0102
+        **_holebench.hole_probes(),  # change c0102
+        **_layerbench.layer_change_probes(),  # change c0102
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

@@ -89,6 +89,7 @@ from fenolite.dsl import Design, Net, Part, Power, connect, mm
 
 design = Design("blink")  # the name becomes the KiCad file stem
 design.board(mm(50), mm(30))  # outline width and height; copper=2 (default), 4, 6 or 8
+# or a closed path: design.board(outline=shape.rect(…, radius=mm(3))); see "Board"
 
 u1 = Part("U1", "Mini:Mini_QFP32_IC", value="MCU")
 r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")
@@ -295,6 +296,76 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
 
+## Board: outline, cut-outs and holes
+
+`board(width, height)` declares a rectangle. `board(outline=path)` declares any closed ring instead, and
+`cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given.
+
+```python
+from fenolite.dsl import arc_to, mm, shape
+
+design.board(outline=shape.rect(mm(0), mm(0), mm(60), mm(40), radius=mm(3)), copper=4)
+design.cutout(shape.circle(mm(10), mm(10), mm(3.2)))  # a round cut-out, milled
+design.cutout(shape.slot((mm(19), mm(30)), (mm(31), mm(30)), mm(2)))  # 12 mm × 2 mm overall
+design.cutout(((mm(40), mm(5)), (mm(50), mm(5)), arc_to((mm(52), mm(8)), (mm(50), mm(11))), (mm(40), mm(11))))
+```
+
+- **Paths.** A path is a sequence whose first element is an `(x, y)` pair of lengths in the frame of
+  `place()`; the others are such pairs and `arc_to(mid, end)` steps. Each element after the first is the
+  edge from the vertex before it to its end: straight for a pair, the arc through `mid` for a step. The
+  ring closes with a straight edge to its first point unless its last element ends there. `DslError`
+  names the call and the element for an empty path, a repeated vertex, an arc whose mid lies on the line
+  through its ends, and a ring of fewer than three vertices (two are enough when one edge is an arc).
+- **`fenolite.dsl.shape`** gives three paths, which a script may also write by hand:
+  `rect(x, y, width, height, *, radius=None)`, with quarter-arc corners when `radius` is given;
+  `circle(x, y, diameter)`, two half arcs; `slot(start, end, width)`, the stadium whose round ends are
+  centred on `start` and `end`. A diameter and a slot width are an even number of nanometres. A point
+  that is not a whole number of nanometres (the mid of a rounded corner, a point of a slot at an angle)
+  is rounded half to even once, with integers; a circle and a horizontal or vertical slot are exact.
+- **Cut-outs** keep their call order. `to_model` writes the board ring to `Outline.points`, the cut-outs
+  to `Outline.cutouts` and every arc to `Outline.arcs` (`docs/design-model.md`).
+- **What the build refuses.** `kicad.outline.invalid` (error, exit 5, nothing written) for a ring that
+  crosses or touches itself, two rings that cross or touch, a cut-out outside the board and a cut-out
+  inside another. This is KiCad 10's `invalid_outline`, a cut-out that only touches the edge included;
+  KiCad 9 accepts that case, and one verdict serves both targets.
+- **What is written.** One `gr_line` or `gr_arc` on `Edge.Cuts` per edge. A cut-out is milled, not
+  drilled: no drill file holds it. For a drilled hole use `design.hole()`.
+- **`locked=True`** makes the script's outline replace an outline edited in KiCad when the board is
+  rebuilt (`docs/lens.md`, "Outline changes"). `outline_locked(design)` returns it.
+
+### Holes
+
+```python
+design.hole("H1", mm(4), mm(4), drill=mm(3.2))  # round, not plated
+h2 = design.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))  # plated, 6 mm of copper
+connect(gnd, h2[1])
+design.hole("H3", mm(25), mm(26), drill=mm(1), length=mm(3), rot=30)  # a slot of 1 mm × 3 mm
+```
+
+`design.hole(ref, x, y, *, drill, length=None, rot=0, pad=None, courtyard=None, locked=True)` adds a
+part that stands for a hole and returns it. KiCad holds a hole only inside a footprint, so the hole is
+a part with a generated footprint and symbol, in the library `Fenolite_Holes`:
+
+- **Footprint.** One pad at the origin: an unnumbered `np_thru_hole` pad of the hole's size, or with
+  `pad` a `thru_hole` pad numbered `1` with copper that wide. `length` makes the hole a slot of that
+  overall length along the footprint's X axis. The flags `exclude_from_pos_files` and
+  `exclude_from_bom`, and a courtyard on `F.CrtYd` and on `B.CrtYd`, so the placement guard judges parts
+  on both sides: `courtyard` gives its width, by default that of the copper, or of the hole. Screw heads
+  and washers are the script's values: Fenolite ships no size.
+- **Names.** `NPTH_<d>mm`, `NPTH_Slot_<d>x<l>mm`, `PTH_<d>mm_Pad_<p>mm`, `PTH_Slot_<d>x<l>mm_Pad_<p>mm`,
+  followed by `_Courtyard_<c>mm` when `courtyard` is given: equal holes share one definition. The symbol
+  is `Fenolite_Holes:Hole` (no pin) or `Fenolite_Holes:Hole_Pad` (one passive pin `1`), both outside the
+  bill of materials. The build writes `lib/Fenolite_Holes.pretty/<name>.kicad_mod` and
+  `lib/Fenolite_Holes.kicad_sym`.
+- **Plated holes** join a net through their pin: `connect(net, part[1])`.
+- **The lock.** A hole is locked by default, unlike `place()`: an enclosure fixes it, so the script's
+  position wins over a move in KiCad (`layout.place-forced`). `locked=False` gives the board the last
+  word.
+- **The placements file.** A hole part is a part for the layout lens: `fenolite sync --to-source` lists
+  it in `placements.toml` with the others.
+- An authored footprint may hold holes of its own: `Footprint.pad("", kind="np_thru_hole", …)` takes
+  the empty number, several times if needed; such a pad maps to no pin.
+
 ## Frame and `BOARD_ORIGIN`
 
 DSL coordinates are board-relative: the origin is the outline's top-left corner and Y points down.
@@ -303,7 +374,8 @@ DSL coordinates are board-relative: the origin is the outline's top-left corner 
 the KiCad file. This is a Fenolite choice: (0, 0) would put the board under the drawing-sheet border,
 and centring on the paper would move every part when the paper size changes.
 
-Parts without `place()` are staged in one row, in component-path order, 5 mm right of the outline and
+Parts without `place()` are staged in one row, in component-path order, 5 mm right of the outline (of
+the box of its rings, arcs included) and
 top-aligned with it, 2 mm apart, on the top side at 0° and unlocked, each with a `layout.unplaced`
 warning.
 
@@ -666,6 +738,11 @@ design.zone(
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.
+
+Without `outline`, a zone takes the box of the board ring: the smallest rectangle that holds its
+vertices and the mid points of its arcs, which for `board(width, height)` is the board rectangle.
+Cut-outs do not change it, and KiCad clips the fill to the board. An arc written by hand may bulge
+beyond that box; the build then names the zone with `kicad.outline.zone-short`.
 
 ## Stack-up
 

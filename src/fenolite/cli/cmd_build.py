@@ -104,6 +104,7 @@ from fenolite.dsl import (
     module_moves,
     moves,
     net_moves,
+    outline_locked,
     pad_zones,
     placements,
     planes,
@@ -808,6 +809,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         lock_stackup=stackup_locked(design),
         lock_via_protection=via_protection_locked(design),
         planes=plane_nets,
+        lock_outline=outline_locked(design),
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):

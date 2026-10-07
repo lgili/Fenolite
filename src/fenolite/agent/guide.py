@@ -84,6 +84,7 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "pad_zones": _BUILD_CALLS,
         "drawing_sheet_source": _BUILD_CALLS,
         "stackup_locked": _BUILD_CALLS,
+        "outline_locked": _BUILD_CALLS,
         "via_protection_locked": _BUILD_CALLS,
         "KEYS": _CONSTANT,
         "DSL_BACKEND": _CONSTANT,

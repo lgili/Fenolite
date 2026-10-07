@@ -61,18 +61,25 @@ class Footprint:
         rotation: object = 0,
         shared: bool = False,
     ) -> None:
-        if not isinstance(number, str) or not number:  # type: ignore[reportUnnecessaryIsInstance]
-            raise DslError("pad number must be a non-empty string")
-        occurrences = sum(p.number == number for p in self._pads)
-        if occurrences and not shared:
-            raise DslError(f"footprint {self.lib_id}: pad {number!r} is declared twice")
-        if shared and not occurrences:
-            raise DslError(f"footprint {self.lib_id}: shared pad {number!r} has no earlier pad")
-        if shape not in ("circle", "rect", "oval", "roundrect"):
-            raise DslError(f"unsupported authored pad shape {shape!r}")
         pad_kind = kind or ("thru_hole" if self.kind == "through_hole" else "smd")
         if pad_kind not in ("smd", "thru_hole", "np_thru_hole"):
             raise DslError(f"unsupported authored pad kind {kind!r}")
+        # a hole that is not plated may be unnumbered, as the mounting holes of KiCad's library (c0102)
+        unnumbered = number == "" and pad_kind == "np_thru_hole"
+        if not isinstance(number, str) or (not number and not unnumbered):  # type: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"pad number {number!r} must be a non-empty string; only an np_thru_hole pad is unnumbered"
+            )
+        occurrences = sum(p.number == number for p in self._pads)
+        if unnumbered:
+            if shared:
+                raise DslError(f"footprint {self.lib_id}: an unnumbered pad is never shared")
+        elif occurrences and not shared:
+            raise DslError(f"footprint {self.lib_id}: pad {number!r} is declared twice")
+        elif shared and not occurrences:
+            raise DslError(f"footprint {self.lib_id}: shared pad {number!r} has no earlier pad")
+        if shape not in ("circle", "rect", "oval", "roundrect"):
+            raise DslError(f"unsupported authored pad shape {shape!r}")
         x, y = as_nm(at[0], name="pad x"), as_nm(at[1], name="pad y")
         w, h = as_nm(size[0], name="pad width"), as_nm(size[1], name="pad height")
         if w <= 0 or h <= 0:
@@ -99,7 +106,9 @@ class Footprint:
             raise DslError("a circular pad must have equal width and height; use shape='oval' otherwise")
         default_layers = ("*.Cu", "*.Mask") if pad_kind != "smd" else ("F.Cu", "F.Paste", "F.Mask")
         pad_key = f"{self.lib_id}:pad:{number}"
-        if occurrences:
+        if unnumbered:
+            pad_key += f":{occurrences + 1}"  # "<lib id>:pad::<k>", the k-th unnumbered pad from 1
+        elif occurrences:
             pad_key += f":shared:{occurrences + 1}"
         self._pads.append(
             Pad(

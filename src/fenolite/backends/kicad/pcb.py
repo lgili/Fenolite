@@ -31,6 +31,7 @@ from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
+from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_digest, outline_edges
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
@@ -2738,15 +2739,20 @@ class _Writer:
         for head in GR_GRAPHIC_HEADS:
             graphics = [g for g in _write_order(board.graphics) if _graphic_head(g) == head]
             items[f"graphics.{head}"] = [self.entity(g, head) for g in graphics]
-        items["graphics.gr_line"] += self.outline()
+        lines, arcs = self.outline()
+        items["graphics.gr_line"] += lines
+        items["graphics.gr_arc"] += arcs
         return self.node(board, "kicad_pcb", items, slots)
 
-    def outline(self) -> list[Node | Atom]:
-        """One ``gr_line`` on ``Edge.Cuts`` per edge of each ring of ``Board.outline``."""
+    def outline(self) -> tuple[list[Node | Atom], list[Node | Atom]]:
+        """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring, on
+        ``Edge.Cuts``. An arc is written with a positive ``orient2d(start, mid, end)``, the form KiCad's
+        re-save keeps (``H-G-ARC-DIR``), and every uuid is signed with the outline's digest
+        (``_edgesign``; ``board.md``, "Outline")."""
         board = self.board
         outline = board.outline
         if outline is None or not outline.points:
-            return []
+            return [], []
         kinds = {layer.name: layer.kind for layer in board.layers}
         edges = [g for g in board.graphics if kinds.get(g.layer, layer_kind(g.layer)) == "edge"]
         if edges:
@@ -2755,26 +2761,41 @@ class _Writer:
                 f"the board has an outline and {len(edges)} graphic(s) on an edge layer; remove one of them",
                 _locator(edges[0]),
             )
-            return []
+            return [], []
+        found = outline_edges(outline)
+        texts = [edge_text(e.start, e.end, e.mid) for e in found]
+        digest = outline_digest(texts)
         lines: list[Node | Atom] = []
-        for ring_index, ring in enumerate((outline.points, *outline.cutouts)):
-            if len(ring) < 2:
-                continue
-            for k, start in enumerate(ring):
-                end = ring[(k + 1) % len(ring)]
+        arcs: list[Node | Atom] = []
+        for edge, text in zip(found, texts, strict=True):
+            common: dict[str, Sequence[Node | Atom]] = {
+                "stroke": [_stroke(OUTLINE_WIDTH)],
+                "layer": [node("layer", Atom.string("Edge.Cuts"))],
+                "uuid": [_uuid_node(edge_uuid(outline, digest, text))],
+            }
+            start, end, mid = edge.start, edge.end, edge.mid
+            if mid is None:
                 lines.append(
                     _ordered(
                         "gr_line",
-                        {
-                            "start": [point_node("start", start)],
-                            "end": [point_node("end", end)],
-                            "stroke": [_stroke(OUTLINE_WIDTH)],
-                            "layer": [node("layer", Atom.string("Edge.Cuts"))],
-                            "uuid": [_uuid_node(kicad_uuid(outline, f"outline:{ring_index}:{k}"))],
-                        },
+                        {"start": [point_node("start", start)], "end": [point_node("end", end)], **common},
                     )
                 )
-        return lines
+                continue
+            if (mid.x - start.x) * (end.y - start.y) - (mid.y - start.y) * (end.x - start.x) < 0:
+                start, end = end, start
+            arcs.append(
+                _ordered(
+                    "gr_arc",
+                    {
+                        "start": [point_node("start", start)],
+                        "mid": [point_node("mid", mid)],
+                        "end": [point_node("end", end)],
+                        **common,
+                    },
+                )
+            )
+        return lines, arcs
 
     # -- projections
 

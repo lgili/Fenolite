@@ -21,12 +21,14 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
+from fenolite.dsl.shape import ring_box
 from fenolite.model.board import (
     Board,
     Dimension,
     Graphic,
     Keepout,
     Outline,
+    OutlineArc,
     StackLayer,
     Stackup,
     Text,
@@ -172,16 +174,25 @@ def to_model(design: Design) -> ModelDesign:
     modules = tuple(_module(m) for _, m in sorted(design.modules.items()))
     outline = None
     zones: tuple[Zone, ...] = ()
-    if design.size is not None:
-        w, h = design.size
+    if design.outline_path is not None:
+        rings = (design.outline_path, *design.cutout_paths)
         x0, y0 = BOARD_ORIGIN.x, BOARD_ORIGIN.y
-        points = (Point(x0, y0), Point(x0 + w, y0), Point(x0 + w, y0 + h), Point(x0, y0 + h))
-        outline = Outline(id=key_id("outline"), points=points)
+        outline = Outline(
+            id=key_id("outline"),
+            points=rings[0].points,
+            cutouts=tuple(ring.points for ring in rings[1:]),
+            arcs=tuple(
+                OutlineArc(index, edge, mid) for index, ring in enumerate(rings) for edge, mid in ring.arcs
+            ),
+        )
+        # a zone without an outline takes the box of the board ring's vertices and arc mid points
+        bx0, by0, bx1, by1 = ring_box(rings[0])
+        box = (Point(bx0, by0), Point(bx1, by0), Point(bx1, by1), Point(bx0, by1))
         zones = tuple(
             Zone(
                 id=key_id("zone", name),
                 outline=(
-                    points if spec.outline is None else tuple(Point(x0 + x, y0 + y) for x, y in spec.outline)
+                    box if spec.outline is None else tuple(Point(x0 + x, y0 + y) for x, y in spec.outline)
                 ),
                 name=name,
                 layers=spec.layers,
@@ -416,6 +427,13 @@ def pad_zones(design: Design) -> Mapping[str, tuple[PadZoneRequest, ...]]:
     return MappingProxyType(out)
 
 
+def outline_locked(design: Design) -> bool:
+    """Whether ``board(…, locked=True)`` was called: the script's outline then replaces an outline edited
+    in KiCad on a rebuild (``docs/lens.md``, "Outline changes"). False before ``board()`` is called. The
+    lock is a build parameter: the model's ``Outline`` holds no such field."""
+    return design.outline_locked
+
+
 def planes(design: Design) -> Mapping[str, str]:
     """The internal planes of ``design.board(planes=…)``: inner layer name → net name, in layer order.
 
@@ -501,6 +519,7 @@ __all__ = [
     "module_moves",
     "moves",
     "net_moves",
+    "outline_locked",
     "placements",
     "planes",
     "stackup_locked",

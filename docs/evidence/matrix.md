@@ -356,6 +356,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 
 | module | declaration |
 |---|---|
+| `_edgesign` | see `pcb`, `outline` |
 | `_fpmap` | see `mod`, `pcb` |
 | `_json` | see `pro` |
 | `_libread` | see `mod`, `sym` |

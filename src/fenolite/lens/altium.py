@@ -66,7 +66,7 @@ from fenolite.lens.build import (
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
 from fenolite.model.base import Opaque
-from fenolite.model.board import PPM_PER_PERCENT, FootprintInstance, Graphic, Pad
+from fenolite.model.board import PPM_PER_PERCENT, FootprintInstance, Graphic, Hole, Pad
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
@@ -643,6 +643,113 @@ def pin_map_issues(design: Design, footprints: Mapping[str, pcblib.LibFootprint]
     return issues
 
 
+HOLE_LIBRARY = "Fenolite_Holes"
+"""The library of the parts of ``design.hole()`` (``fenolite.dsl.holes.HOLE_LIBRARY``; a unit test keeps
+the two equal: the lens does not import the DSL)."""
+
+
+@dataclasses.dataclass(frozen=True)
+class HoleParts:
+    """What ``split_hole_parts`` found: the design without its hole parts, whose board holds one ``Hole``
+    per hole part; the ids of the holes that the document cannot hold (a slot, a plated hole, a hole
+    without a placement), and one ``altium.not-lowered`` info for each of them."""
+
+    design: Design
+    reported: frozenset[str] = frozenset()
+    issues: tuple[Issue, ...] = ()
+
+
+def split_hole_parts(
+    design: Design,
+    placements: Mapping[str, PlacementRequest],
+    authored_footprints: Mapping[str, FootprintDef],
+) -> HoleParts:
+    """Take the parts of ``design.hole()`` out of the circuit and hand them to the board as holes
+    (capability altium-build, "PCB document output"; change c0102).
+
+    A hole part is no component of an Altium build: it gets no schematic symbol, no library footprint and
+    no component record. A round hole that is not plated becomes the model ``Hole`` that the document
+    writes as a free pad without copper. A slot and a plated hole have no such record: each is listed in
+    ``reported`` with one ``altium.not-lowered`` whose ``where`` is ``hole/<component id>``, and the pin
+    of a plated hole leaves its net. The courtyard of a hole part is not written: a free pad has none."""
+    parts = [
+        c for c in design.circuit.components if (split_link(c.lib_symbol_ref) or ("", ""))[0] == HOLE_LIBRARY
+    ]
+    if not parts or design.board is None:
+        return HoleParts(design)
+    gone = {c.id for c in parts}
+    net_of: dict[str, list[str]] = {}
+    for net in design.circuit.nets:
+        for member in net.members:
+            if member.component_id in gone:
+                net_of.setdefault(member.component_id, []).append(net.name)
+    holes: list[Hole] = []
+    reported: set[str] = set()
+    issues: list[Issue] = []
+    for component in sorted(parts, key=component_path):
+        definition = authored_footprints.get(component.lib_footprint_ref)
+        pad = definition.pads[0] if definition is not None and definition.pads else None
+        request = placements.get(component_path(component))
+        drill = pad.drill if pad is not None and pad.drill is not None else 0
+        plated = pad is not None and pad.kind != "np_thru_hole"
+        slot = pad is not None and pad.padstack is not None and pad.padstack.hole_shape == "slot"
+        hole = Hole(
+            id=derived_id("hol", DSL_BACKEND, f"hole:{component_path(component)}"),
+            position=request.at if request is not None else Point(0, 0),
+            drill=drill,
+            plated=plated,
+        )
+        holes.append(hole)
+        lacks: list[str] = []
+        if pad is None:
+            lacks.append("its footprint definition is not known to the build")
+        if request is None:
+            lacks.append("it has no placement")
+        if slot:
+            lacks.append("it is a slot, and the board hole of the document is round")
+        if plated:
+            nets = ", ".join(sorted(net_of.get(component.id, []))) or "no net"
+            lacks.append(
+                "it has copper, and the board hole of the document has neither copper nor a net: its pin "
+                f"is absent from its net ({nets}) in the Altium project"
+            )
+        if lacks:
+            reported.add(hole.id)
+            issues.append(
+                Issue(
+                    "altium.not-lowered",
+                    "info",
+                    f"the hole {component.ref} is not written: {'; '.join(lacks)}",
+                    where=f"hole/{component.id}",
+                    hint="place a footprint of your own for a hole that Altium must hold as a part",
+                )
+            )
+    circuit = design.circuit
+    nets = tuple(
+        dataclasses.replace(net, members=tuple(m for m in net.members if m.component_id not in gone))
+        if any(m.component_id in gone for m in net.members)
+        else net
+        for net in circuit.nets
+    )
+    modules = tuple(
+        dataclasses.replace(m, component_ids=tuple(i for i in m.component_ids if i not in gone))
+        if any(i in gone for i in m.component_ids)
+        else m
+        for m in circuit.modules
+    )
+    reduced = dataclasses.replace(
+        circuit,
+        components=tuple(c for c in circuit.components if c.id not in gone),
+        nets=nets,
+        modules=modules,
+        no_connects=tuple(ref for ref in circuit.no_connects if ref.component_id not in gone),
+    )
+    board = dataclasses.replace(design.board, holes=(*design.board.holes, *holes))
+    return HoleParts(
+        dataclasses.replace(design, circuit=reduced, board=board), frozenset(reported), tuple(issues)
+    )
+
+
 def with_written_values(design: Design) -> Design:
     """``design`` with the value that the documents hold for every component whose value is empty: its
     symbol's name, which both writers write as the comment (a component of Altium cannot be without one).
@@ -871,7 +978,12 @@ def lowered_pcb(
     concerned: list[str] = []
     components = sorted(design.circuit.components, key=component_path)
     with_links = [c for c in components if c.lib_footprint_ref]
-    if board is None or board.outline is None or len(board.outline.points) < 3:
+    if board is None or board.outline is None or not board.outline.points:
+        reason = "the design has no board outline"
+    elif board.outline.arcs:
+        # no fact row gives the form of an arc in the board outline of the document (change c0102)
+        reason = "the board outline has arcs, which the document does not write"
+    elif len(board.outline.points) < 3:
         reason = "the design has no board outline"
     elif board.outline.cutouts:
         reason = "the board outline has cutouts, which the document does not write"
@@ -1794,6 +1906,13 @@ def build_altium(
         evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     unread_hint = UNREAD_PROJECT_HINT if project_exists and project_unreadable else ""
+    # the parts of design.hole() are board holes of the document, not components (change c0102)
+    hole_parts = split_hole_parts(design, placements or {}, authored_footprints)
+    if hole_parts.design is not design:
+        paths = {component_path(c) for c in hole_parts.design.circuit.components}
+        design = hole_parts.design
+        placed = tuple(path for path in placed if path in paths)
+        placements = {path: request for path, request in (placements or {}).items() if path in paths}
     resolved = resolve_symbols(design, resolver, authored_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
@@ -1833,8 +1952,13 @@ def build_altium(
         )
     written = [footprints[link] for link in sorted(footprints)]
     pcb_account: dict[str, dict[str, int]] = {}
+    document_model = model
+    if hole_parts.reported and model.board is not None:
+        # the document takes the round holes that are not plated; the others are reported below
+        writable = tuple(h for h in model.board.holes if h.id not in hole_parts.reported)
+        document_model = dataclasses.replace(model, board=dataclasses.replace(model.board, holes=writable))
     spec, document_issues = lowered_pcb(
-        model,
+        document_model,
         name=name,
         footprints=footprints,
         placements=placements or {},
@@ -1847,6 +1971,12 @@ def build_altium(
         body_form=body_form,
     )
     issues += document_issues
+    if spec is not None and hole_parts.reported:
+        issues += hole_parts.issues
+        if pcb_account:
+            kept_holes = dict(pcb_account.get("not_lowered", {}))
+            kept_holes["hole"] = kept_holes.get("hole", 0) + len(hole_parts.reported)
+            pcb_account["not_lowered"] = kept_holes
     if any(i.severity == "error" for i in issues):
         return BuildOutput(
             model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)

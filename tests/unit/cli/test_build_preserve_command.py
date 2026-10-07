@@ -367,11 +367,82 @@ def test_outline_edited_in_kicad(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
 
 def test_copper_count_changed_in_the_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Copper count changed in the script" (change c0102: the board follows the new count)."""
     p = Project(tmp_path, monkeypatch)
-    before = p.files()
     p.edit_script("design.board(mm(50), mm(30))", "design.board(mm(50), mm(30), copper=4)")
     code, env, _ = p.build("--confirm")
-    assert code == 5 and "layout.copper-mismatch" in codes(env) and p.files() == before
+    assert code == 0 and "kicad.layers.added" in codes(env) and "layout.copper-mismatch" not in codes(env)
+    board = p.read().board
+    assert board is not None
+    assert [layer.name for layer in board.layers if layer.kind == "copper"] == [
+        "F.Cu",
+        "In1.Cu",
+        "In2.Cu",
+        "B.Cu",
+    ]
+
+
+def test_outline_changed_in_the_script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "An unchanged outline follows the script", through the command, with a dry run first."""
+    p = Project(tmp_path, monkeypatch)
+    p.edit_board(edit_blink)
+    before = p.files()
+    p.edit_script("design.board(mm(50), mm(30))", "design.board(mm(60), mm(30))")
+    code, env, _ = p.build("--dry-run")
+    assert code == 0 and "kicad.outline.replaced" in codes(env) and p.files() == before
+    code, env, _ = p.build("--confirm")
+    assert code == 0 and "kicad.outline.replaced" in codes(env) and "layout.outline-kept" not in codes(env)
+    edges = [c for c in parse(p.board.read_text()).children if isinstance(c, Node) and c.name == "gr_line"]
+    assert sum("160" in dumps(e) for e in edges) == 3
+    code, env, _ = p.build("--confirm")
+    assert code == 0 and not [c for c in codes(env) if c.startswith("kicad.outline.")]
+
+
+def test_a_locked_outline_replaces_an_edited_one(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "An edited outline wins unless locked", the locked half through the command."""
+    p = Project(tmp_path, monkeypatch)
+    text = p.board.read_text(encoding="utf-8")
+    edited = (
+        text.replace("(start 150 100)\n\t\t(end 150 130)", "(start 155 100)\n\t\t(end 155 130)")
+        .replace("(start 100 100)\n\t\t(end 150 100)", "(start 100 100)\n\t\t(end 155 100)")
+        .replace("(start 150 130)\n\t\t(end 100 130)", "(start 155 130)\n\t\t(end 100 130)")
+    )
+    p.board.write_text(edited, encoding="utf-8")
+    p.edit_script("design.board(mm(50), mm(30))", "design.board(mm(60), mm(30), locked=True)")
+    code, env, _ = p.build("--confirm")
+    assert code == 0 and "kicad.outline.forced" in codes(env)
+    edges = [c for c in parse(p.board.read_text()).children if isinstance(c, Node) and c.name == "gr_line"]
+    assert sum("160" in dumps(e) for e in edges) == 3 and not any("155" in dumps(e) for e in edges)
+
+
+def test_a_cutout_across_the_edge_stops_the_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "A cut-out across the edge stops the build": exit 5 and nothing written."""
+    p = Project(tmp_path, monkeypatch)
+    before = p.files()
+    p.edit_script(
+        "design.board(mm(50), mm(30))",
+        "from fenolite.dsl import shape\ndesign.board(mm(50), mm(30))\n"
+        "design.cutout(shape.circle(mm(49), mm(15), mm(4)))",
+    )
+    code, env, _ = p.build("--confirm")
+    assert code == 5 and p.files() == before
+    (found,) = [i for i in env["issues"] if i["code"] == "kicad.outline.invalid"]  # type: ignore[union-attr, index]
+    assert "cut-out 1" in found["message"] and "board" in found["message"]
+
+
+def test_a_hole_over_a_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "A hole over a part": the placement guard judges a hole by its courtyard."""
+    p = Project(tmp_path, monkeypatch)
+    p.script.write_text(
+        p.script.read_text(encoding="utf-8")
+        + 'design.hole("H3", mm(32), mm(9), drill=mm(1), courtyard=mm(3))\n',
+        encoding="utf-8",
+    )
+    code, env, _ = p.build("--dry-run")
+    assert code == 0
+    found = [i for i in env["issues"] if i["code"] == "place.courtyard-overlap"]  # type: ignore[union-attr, index]
+    assert len(found) == 1 and found[0]["severity"] == "warning"
+    assert "H3" in found[0]["message"] and "R1" in found[0]["message"]
 
 
 # --- Zone fills and the staleness digest -----------------------------------------------------------
@@ -574,17 +645,20 @@ def test_layers_added_in_kicad(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
     assert _copper(p) == ["F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "B.Cu"]
 
 
-def test_mismatch_names_the_boards_count(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Mismatch names the board's count"."""
+def test_layers_added_in_kicad_and_the_script_left_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Six rows on a board whose script declares four. Change c0100 refused this with the board's count in
+    the hint ("Mismatch names the board's count"); since change c0102 the board follows the script: the two
+    inner layers that KiCad's board setup added, which hold nothing, are removed with one line each."""
     p = _layers_project(tmp_path, monkeypatch, 4)
+    built = p.board.read_bytes()
     _add_layers(p, '(6 "In2.Cu" signal)', '(8 "In3.Cu" signal)', '(10 "In4.Cu" signal)')
-    before = p.files()
     code, env, _ = p.build("--confirm")
-    found = _mismatch(env)
-    assert code == 5 and found["severity"] == "error" and p.files() == before
-    assert "has 6 copper layers" in found["message"] and "declares 4" in found["message"]
-    assert "In4.Cu" in found["message"]
-    assert "copper=6" in found["hint"] and "--discard-layout" in found["hint"]
+    assert code == 0 and "layout.copper-mismatch" not in codes(env)
+    removed = [i["where"] for i in env["issues"] if i["code"] == "kicad.layers.removed"]  # type: ignore[union-attr, index]
+    assert removed == ["In3.Cu", "In4.Cu"]
+    assert _copper(p) == ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"] and p.board.read_bytes() == built
 
 
 def test_table_that_fenolite_does_not_create(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -599,11 +673,17 @@ def test_table_that_fenolite_does_not_create(tmp_path: Path, monkeypatch: pytest
     assert "--discard-layout" in found["hint"] and "copper=" not in found["hint"]
 
 
-def test_fewer_layers_on_the_board_names_both_ways(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A two-layer board and a four-layer script: the hint names the board's count and the flag."""
+def test_fewer_layers_on_the_board_are_added(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A two-layer board and a four-layer script: the inner layers are added and the layout is kept
+    (change c0102; change c0100 refused it and named both ways out)."""
     p = Project(tmp_path, monkeypatch)
+    p.edit_board(edit_blink)
     p.edit_script(BOARD_LINE, "design.board(mm(50), mm(30), copper=4)")
     code, env, _ = p.build("--confirm")
-    found = _mismatch(env)
-    assert code == 5 and "has 2 copper layers" in found["message"] and "declares 4" in found["message"]
-    assert "copper=2" in found["hint"] and "--discard-layout" in found["hint"]
+    assert code == 0 and _copper(p) == ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]
+    (added,) = [i for i in env["issues"] if i["code"] == "kicad.layers.added"]  # type: ignore[union-attr, index]
+    assert "In1.Cu" in added["message"] and "In2.Cu" in added["message"]
+    assert {"D1", "R1", "U1"} <= set(env["result"]["preserved"]["kept"])  # type: ignore[index]
+    board = p.read().board
+    assert board is not None
+    assert set(EDIT_UUIDS) <= {i.native_ids["kicad"] for i in (*board.tracks, *board.vias)}

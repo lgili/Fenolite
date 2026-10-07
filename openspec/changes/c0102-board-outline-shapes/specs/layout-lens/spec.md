@@ -66,7 +66,7 @@
 - The rows of the layers that stay MUST keep their `kicad` bags, with the type and user name set in KiCad. The rows of new inner layers MUST be those of `created_layers(copper)`; the rows of removed layers MUST go. A smaller count removes the deepest inner layers, `In<copper − 1>.Cu` and below.
 - On a removed layer: tracks and arcs MUST be dropped; a via whose `layers` name the layer MUST be dropped, and a through via kept; zones and rule areas MUST lose the layer, and be dropped when none is left, fills of that layer included; root graphics and texts on it MUST be dropped. One `kicad.layers.removed` per removed layer MUST give the counts. KiCad would load these items and report `item_on_disabled_layer` (`H-K-LAYER-CHANGE`).
 - Every pad of a kept footprint whose `layers` child holds a wildcard MUST take the layers that the wildcard gives on the new table, copper layers first in table order, so the writer's projection check accepts it.
-- A `stackup` child of the board's `setup` whose copper layers are not those of the new table MUST be removed, with `kicad.layers.stackup-reset`, so that KiCad derives its default stack-up for the new count; a stale one leaves the Gerber job file without thicknesses (`H-K-LAYER-CHANGE`). When c0101's stack-up merge is in place, it runs on the adapted board.
+- A `stackup` child of the board's `setup` whose copper layers are not those of the new table MUST be removed, with `kicad.layers.stackup-reset`, so that KiCad derives its default stack-up for the new count; a stale one leaves the Gerber job file without thicknesses (`H-K-LAYER-CHANGE`). `Board.stackup` of the adapted board, the value the reader projected from that child (`kicad-file-backend`, "Stack-up on boards"), MUST then be `None` whenever its copper entries are not the copper layers of the new table: a model stack-up left over another table is refused by `model.stackup-copper`. The stack-up merge of "Stack-up across rebuilds" runs on the adapted board, so a stack-up of the script for the new count is written in its place.
 - `kicad.layers.added` MUST name the inner layers added.
 - `LayerMerge` is a frozen dataclass with `board` (the adapted board design), `added`, `removed` and `issues`. `merge_layers` reports only the codes of the closed table `layers.MERGE_ISSUE_CODES`; they are `kicad.*` codes and pass `PRESERVE_ISSUE_CODES` and `BUILD_ISSUE_CODES` unchanged.
 
@@ -81,6 +81,11 @@
 - **WHEN** the build runs again with `--confirm`
 - **THEN** the exit code is 0, the board has the copper layers `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu`, the segments and the via of the edit keep their uuids, the pads of `D1` are on the four copper layers, `result.preserved.kept` holds `D1`, `R1` and `U1`, and `issues` holds `kicad.layers.added` naming `In1.Cu` and `In2.Cu`
 
+#### Scenario: Four layers become six
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=4`, whose board gets by token edit a segment on `In1.Cu`, after which `design.py` declares `copper=6`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, the board has the copper layers `F.Cu`, `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`, the segment on `In1.Cu` keeps its uuid and its layer, and `issues` holds one `kicad.layers.added` naming `In3.Cu` and `In4.Cu` and no `kicad.layers.removed`
+
 #### Scenario: Four layers become two
 - **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=4`, whose board gets by token edit a segment on `In1.Cu` and a zone on `In2.Cu`, after which `design.py` declares `copper=2`
 - **WHEN** the build runs again with `--confirm`
@@ -90,6 +95,11 @@
 - **GIVEN** a confirmed four-layer build whose `setup` gets, by token edit, a stack-up of four copper layers written by KiCad, after which `design.py` declares two copper layers
 - **WHEN** the build runs again
 - **THEN** the written `setup` holds no `stackup`, and `issues` holds `kicad.layers.stackup-reset`
+
+#### Scenario: A read stack-up goes with the layers it names
+- **GIVEN** a four-layer board whose `setup` holds a complete stack-up of four copper layers, which the reader projects into `Board.stackup`, and a `design.py` that declares two copper layers and no stack-up
+- **WHEN** the build runs again
+- **THEN** files are written, the written board holds no `stackup` and names neither `In1.Cu` nor `In2.Cu`, `Board.stackup` of the built layout is `None`, `summary["stackup"]` is `None`, and `issues` holds `kicad.layers.stackup-reset` and no `model.stackup-copper`
 
 #### Scenario: A table that is not KiCad's
 - **GIVEN** a confirmed four-layer build whose copper rows are changed by token edit to `F.Cu`, `In1.Cu`, `In3.Cu` and `B.Cu`

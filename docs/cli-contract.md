@@ -342,6 +342,19 @@ pad); both are empty without an existing board (`docs/lens.md`, "Pad zone connec
 are `kicad.pad.zone-overridden` (info), `kicad.pad.zone-forced` (warning) and
 `kicad.pad.zone-unknown-pad` (error: exit 5, nothing written).
 
+The outline of the script is judged before anything is placed (`docs/dsl.md`, "Board"):
+`kicad.outline.invalid` (error: exit 5, nothing written) for rings that cross or touch, a cut-out outside
+the board and a cut-out inside another, and `kicad.outline.zone-short` (warning) for a zone without an
+outline that an arc of the board ring bulges beyond. Over an existing board, a new outline or a new
+copper count of the script is applied (`docs/lens.md`, "Outline changes" and "Copper count changes"):
+`kicad.outline.replaced` (info), `kicad.outline.forced` (warning) and `kicad.outline.copper-dropped`
+(warning) for the outline, and `kicad.layers.added` (info), `kicad.layers.removed` (warning) and
+`kicad.layers.stackup-reset` (warning) for the layers. Copper that no longer fits the outline, or that
+lies on a removed layer, is dropped: run the build with `--dry-run` first to read the counts in
+`issues`. `layout.outline-kept` (warning) stays for an outline edited in KiCad, which wins unless the
+script says `board(..., locked=True)`, and `layout.copper-mismatch` (error) for a layer table that
+Fenolite does not create.
+
 A script may declare copper (`docs/dsl.md`, "Copper"; `docs/copper.md`). The build resolves it after
 placement, and the KiCad `result.copper` reports `intents`, `tracks`, `arcs` and `vias` (created), and
 `regenerated`, `stale` and `duplicates` (from the merge with an existing board; 0 without one). A

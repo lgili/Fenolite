@@ -374,22 +374,63 @@ leaves open filled by KiCad's own default (tented on both sides, nothing else).
 ## Board content and the outline rule
 
 The layout is the existing board with its own root content: setup, stack-up, plot settings, groups,
-dimensions, images, title block, paper and layers stay as KiCad wrote them. Edge graphics are kept; the
-script's outline is used only when the board has none. When the edge content is not exactly the
-script's rectangle, `layout.outline-kept` says so: a new size needs KiCad or `--discard-layout`. A
-board whose copper layers differ from `board(copper=…)` cannot be preserved (`layout.copper-mismatch`,
-error).
+dimensions, images, title block, paper and layers stay as KiCad wrote them, except what the two
+adaptations below change. They run first, the copper count and then the outline, and every other rule
+applies to the adapted board.
 
-**Layer count.** A board of 2, 4, 6 or 8 copper layers keeps its layout when its copper layer names are
-those of the script's count (`F.Cu`, `In1.Cu` … `B.Cu`), with the board's own layer rows unchanged.
-When they differ, the message names the board's layers, their count and the script's count, and
-nothing is written. If the board holds the table of an allowed count, the hint names both ways:
-`design.board(..., copper=<the board's count>)` keeps the board's layout, and `--discard-layout`
-creates the board on the script's count without it. A board that got two more layers in KiCad's
-board setup is the usual case: a four-layer board with `In3.Cu` and `In4.Cu` added is rebuilt, layout
-kept, once the script says `copper=6`. For a table that Fenolite does not create (ten layers, or an
-inner layer under another name) the hint names `--discard-layout` only. A change of the count never
-keeps the layout.
+### Outline changes
+
+The writer signs the outline it writes: the uuid of each edge holds the digest of all edge texts and the
+edge's own text (`docs/formats/kicad/board.md`, "Outline"). So the edge graphics of a board tell
+whether they are an outline Fenolite wrote and nobody changed: a move in KiCad keeps the uuid and
+changes the text, and a re-save keeps both.
+
+| the board's edge graphics | compared with the script's outline | result |
+|---|---|---|
+| none | — | the script's outline is used |
+| any | equal | kept; edges under the position uuids of an older Fenolite are signed again |
+| signed (Fenolite's, unchanged) | different | replaced, `kicad.outline.replaced` (info) |
+| not signed (changed, drawn in KiCad, or older) | different, `board(..., locked=True)` | replaced, `kicad.outline.forced` (warning) |
+| not signed | different, not locked | kept, `layout.outline-kept` (warning), its hint naming the lock |
+
+- **Replaced** means that the board's edge graphics go and the script's outline is written, signed.
+- **Dropped copper.** A track, arc or via that is not script copper is dropped when it no longer fits:
+  when its copper touches a ring, or its first point lies outside the board or inside a cut-out.
+  `kicad.outline.copper-dropped` (warning) gives the counts and the nets; `--dry-run` shows them before
+  anything is written, and `fenolite route` closes what reopened. KiCad's own check would not report
+  copper left wholly outside the outline.
+- **Zones.** A zone declared without an outline follows the board: it takes the box of the new board
+  ring. A zone with an outline of its own stays.
+- **Edge items inside footprints** are left alone: they belong to their footprints, which the script
+  does not draw. KiCad chains them into the outline, so the message of `kicad.outline.replaced` or
+  `kicad.outline.forced` names their footprints.
+- **Footprints never move.** The placement guard names those the new outline leaves outside
+  (`place.outside-outline`). Fills are dropped by the fill digest, which holds the edge content.
+- **Old boards.** The first build after this change signs the edges that an older Fenolite wrote and
+  nobody changed. When such edges differ from the script's outline, nothing tells whether KiCad edited
+  them, so they count as edited.
+
+### Copper count changes
+
+A board whose copper layers are those of a table that Fenolite creates (2, 4, 6 or 8 layers: `F.Cu`,
+`In1.Cu` … `B.Cu`) follows a new `board(copper=…)`:
+
+- **Rows.** The rows of the layers that stay keep what KiCad set on them; new inner rows are added
+  (`kicad.layers.added`, info); a smaller count removes the deepest inner layers.
+- **Items on a removed layer.** Tracks and arcs are dropped; a via whose two layers name it is dropped,
+  a through via stays; zones and rule areas lose the layer, and go when none is left; graphics and
+  texts on it are dropped. One `kicad.layers.removed` (warning) per layer gives the counts. KiCad would
+  load these items and report `item_on_disabled_layer`.
+- **Pads** whose layers are a wildcard (`*.Cu`) are projected again on the new table.
+- **The stack-up.** A `stackup` of the board setup that names other copper layers than the new table is
+  removed (`kicad.layers.stackup-reset`, warning): KiCad then derives its default, where a stale one
+  leaves the Gerber job file without thicknesses. The stack-up that was read into the model goes with
+  it, so the build is not refused by `model.stackup-copper`; a stack-up that the script declares for
+  the new count is then written. Without one, set the stack-up again in KiCad's board setup.
+- A table that Fenolite does not create (ten layers, or an inner layer under another name) cannot
+  follow: `layout.copper-mismatch` (error), nothing is written, and the hint names `--discard-layout`.
+
+Copper is never moved between layers: that would change what was routed.
 
 The paper and the title block are the board's too, unless the script declares them with
 `design.sheet()` or `design.title_block()`: a declared one is written again from the script on every
@@ -528,7 +569,7 @@ the next build would drop or overwrite:
 
 | code | severity | when |
 |---|---|---|
-| `layout.copper-mismatch` | error | the board's copper layers differ from `board(copper=…)`; the message names both counts, the hint `copper=<the board's count>` when it is 2, 4, 6 or 8, and `--discard-layout` |
+| `layout.copper-mismatch` | error | the board's copper layers are no table that Fenolite creates, so the board cannot follow `board(copper=…)`; the message names both counts and the hint `--discard-layout` |
 | `layout.source-invalid` | error | a table or key of `placements.toml` is invalid |
 | `layout.orphan` | warning | a footprint with `fenolite.path` matched no part and is removed |
 | `layout.alias-unused` | warning | a part alias, given or expanded from a module alias, matched nothing, or its part matched by uuid or path |
@@ -555,6 +596,12 @@ the next build would drop or overwrite:
 | `kicad.pad.zone-unknown-pad` | error | a `zone_connection()` request names a pad number or index that the footprint does not have |
 | `kicad.pad.zone-forced` | warning | a locked `zone_connection()` replaced the setting that a pad of a kept footprint carries |
 | `kicad.pad.zone-overridden` | info | an unlocked `zone_connection()` differs from the setting of a kept pad, which stays |
+| `kicad.outline.forced` | warning | a locked `board()` replaced edge content that is not Fenolite's unchanged outline |
+| `kicad.outline.copper-dropped` | warning | tracks, arcs or vias that do not fit the new outline were dropped |
+| `kicad.outline.replaced` | info | the board's own unchanged outline was replaced by the script's new one |
+| `kicad.layers.removed` | warning | an inner layer was removed for the new copper count, with the items on it (counts per kind) |
+| `kicad.layers.stackup-reset` | warning | the board's stack-up did not match the new layers and was removed |
+| `kicad.layers.added` | info | inner layers were added for the new copper count |
 
 ## Evidence
 

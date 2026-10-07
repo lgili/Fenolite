@@ -228,6 +228,54 @@ Function: `select.ref(name: 'str \| Part') -> 'Select'`
 
 The items of a part (for a courtyard rule, the part's footprint), by reference or as the `Part`.
 
+## shape
+
+Module.
+
+Closed paths for the board outline and its cut-outs: `rect`, `circle` and `slot`.
+
+### shape.RingSpec
+
+Class: `shape.RingSpec(points: 'tuple[Point, ...]', arcs: 'tuple[tuple[int, Point], ...]' = ()) -> None`
+
+One closed ring as a script gave it: its vertices in the written frame (`BOARD_ORIGIN` added) and, for each edge that is an arc, `(edge index, mid)`; edge i joins vertex i to vertex i + 1 (mod n).
+
+### shape.circle
+
+Function: `shape.circle(x: 'object', y: 'object', diameter: 'object') -> 'Path'`
+
+The circle of `diameter` centred on `(x, y)`: the two vertices `(x + r, y)` and `(x − r, y)` joined by the arcs through `(x, y − r)` and `(x, y + r)`.
+
+### shape.closed_ring
+
+Function: `shape.closed_ring(path: 'object', what: 'str') -> 'RingSpec'`
+
+Read one closed path for `what` (the call that takes it), or raise `DslError` naming the call and the index of the element at fault.
+
+### shape.rect
+
+Function: `shape.rect(x: 'object', y: 'object', width: 'object', height: 'object', *, radius: 'object' = None) -> 'Path'`
+
+The rectangle with the corners `(x, y)` and `(x + width, y + height)`, starting at the left end of its top edge and running along the top edge first.
+
+### shape.ring_box
+
+Function: `shape.ring_box(ring: 'RingSpec') -> 'tuple[int, int, int, int]'`
+
+The smallest box that holds the vertices of `ring` and the mid points of its arcs: what a zone declared without an outline takes of the board ring.
+
+### shape.round_root
+
+Function: `shape.round_root(p: 'int', q: 'int') -> 'int'`
+
+`sqrt(p / q)` rounded half to even, for `p >= 0` and `q > 0`, with integer arithmetic.
+
+### shape.slot
+
+Function: `shape.slot(start: 'object', end: 'object', width: 'object') -> 'Path'`
+
+The stadium whose round ends are centred on `start` and `end`, `width` wide: its overall length is `|end − start| + width`.
+
 ## stack
 
 Module.

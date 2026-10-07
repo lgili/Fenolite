@@ -109,9 +109,10 @@
 ### Requirement: Board and placements in the DSL
 `Design.board(width=None, height=None, copper=2, planes=None, *, outline=None, locked=False)` SHALL declare the board's outline, its copper layer count and its internal planes, and `Part.place(x, y, rot=0, side="top", locked=False)` SHALL request a placement, both in a board-relative frame.
 - The frame has its origin at the top-left corner of the outline given by `width` and `height`, with Y down; an outline given by `outline` is a path in that frame ("Outline shapes in the DSL"), wherever it lies. `BOARD_ORIGIN` MUST be `Point(100_000_000, 100_000_000)`, a Fenolite choice: the frame's origin is written at `BOARD_ORIGIN`, the rectangle from `BOARD_ORIGIN` to `BOARD_ORIGIN + (width, height)`, and a part placed at `(x, y)` at `BOARD_ORIGIN + (x, y)`.
-- Exactly one form MUST be given: `width` and `height`, both positive lengths, or `outline`, a path. Both forms, or neither, MUST raise `DslError`. `copper` MUST be 2 or 4.
+- Exactly one form MUST be given: `width` and `height`, both positive lengths, or `outline`, a path. Both forms, or neither, MUST raise `DslError`. `copper` MUST be an `int` of `fenolite.dsl.design.COPPER_COUNTS`, which MUST be `(2, 4, 6, 8)` and equal `layers.CREATED_COPPER_COUNTS` of the KiCad backend; any other value, a `bool` or a `float` included, MUST raise `DslError` naming those counts.
 - `locked` MUST be a `bool`. With `True`, the script's outline replaces an outline edited in KiCad when the board is rebuilt (`layout-lens`, "Outline changes across rebuilds"). `outline_locked(design) -> bool` (`dsl/convert.py`, re-exported by `fenolite.dsl` as "DSL package" allows) MUST return it, and false before `board()` is called.
-- An inner copper layer is a signal layer unless `planes` names it. `planes` MUST be `None` or a mapping from an inner layer name (`"In1.Cu"`, `"In2.Cu"`) to a `Net` or a net name: that layer is an internal plane on that net. `DslError` MUST be raised at the call for `planes` with `copper=2`, a key that is not an inner layer name, and a value that is neither a `Net` nor a valid net name. A plane holds one net; split planes cannot be declared.
+- `inner_layers(copper)` (`dsl/design.py`) MUST return the inner copper layer names `In1.Cu` … `In<copper − 2>.Cu`, top to bottom, and an empty tuple for `copper=2`. `Design.copper_layers` MUST return `("F.Cu", *inner_layers(copper), "B.Cu")` for the declared count, and `("F.Cu", "B.Cu")` before `board()` is called.
+- An inner copper layer is a signal layer unless `planes` names it. `planes` MUST be `None` or a mapping from an inner layer name of the count (`inner_layers(copper)`) to a `Net` or a net name: that layer is an internal plane on that net. `DslError` MUST be raised at the call for `planes` with `copper=2`, a key that is not an inner layer name of the count (the message names those layers), and a value that is neither a `Net` nor a valid net name. A plane holds one net; split planes cannot be declared.
 - `Design.planes` MUST hold the mapping from layer name to net name, in layer order, empty by default. `planes(design) -> Mapping[str, str]` (`dsl/convert.py`, re-exported by `fenolite.dsl` as "DSL package" allows) MUST return it and MUST raise `DslError` naming a net that the design does not hold.
 - A plane is a build parameter, as `copper` is: `to_model` MUST NOT change, the model gets no plane entity, and a plane layer stays a layer of kind `copper`. What a target does with a plane is its build's rule ("Planes in a build").
 - `rot` is the model rotation, the stored footprint angle on both sides (c0017).
@@ -123,8 +124,12 @@
 - **THEN** it equals `Placement(Point(110_000_000, 105_000_000), 90_000_000, "bottom", True)`
 
 #### Scenario: Unsupported copper count
-- **WHEN** `design.board(mm(50), mm(30), copper=3)` is called
-- **THEN** `DslError` is raised
+- **WHEN** `design.board(mm(50), mm(30), copper=c)` is called on fresh designs for `c` equal to 3, 10, `True` and `6.0`
+- **THEN** each call raises `DslError` naming the counts 2, 4, 6 and 8
+
+#### Scenario: Six and eight copper layers
+- **WHEN** `design.board(mm(50), mm(30), copper=6)` and, on another design, `copper=8` are called
+- **THEN** `Design.copper_layers` is `("F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "B.Cu")` for the first and adds `In5.Cu` and `In6.Cu` before `B.Cu` for the second, and `COPPER_COUNTS` equals `layers.CREATED_COPPER_COUNTS`
 
 #### Scenario: Unplaced parts are absent
 - **GIVEN** a design with `R1` placed and `R2` not placed
@@ -135,6 +140,10 @@
 - **GIVEN** `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})`, where `gnd` is the net `GND` of the design
 - **WHEN** `planes(design)` is read
 - **THEN** it equals `{"In1.Cu": "GND"}`, and `to_model(design)` equals the model of the same script without `planes`
+
+#### Scenario: Plane on a deep inner layer
+- **WHEN** `design.board(mm(50), mm(30), copper=8, planes={"In6.Cu": gnd})` is called, and on a fresh design `design.board(mm(50), mm(30), copper=6, planes={"In5.Cu": gnd})`
+- **THEN** `planes(design)` of the first equals `{"In6.Cu": "GND"}`, and the second raises `DslError` naming `In5.Cu` and the inner layers `In1.Cu` to `In4.Cu`
 
 #### Scenario: Malformed planes fail at the call
 - **WHEN** `design.board(mm(50), mm(30), planes={"In1.Cu": gnd})`, `design.board(mm(50), mm(30), copper=4, planes={"F.Cu": gnd})` and `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": 3})` are called on fresh designs
@@ -188,7 +197,7 @@
 
 ### Requirement: Zones in the DSL
 `Design.zone(net, *, layers, name=None, outline=None, priority=0, clearance=None, min_thickness=None, connection=None, thermal_gap=None, thermal_spoke_width=None, islands=None, min_island_area=None, locked=False)` SHALL declare one copper zone, and `dsl.to_model` SHALL put one model `Zone` per declared zone into `Board.zones`, in name order. This adds zones to the `Board` of "DSL to model".
-- `board()` MUST have been called first. `layers` MUST be a non-empty sequence of distinct copper layer names of the board: `F.Cu` and `B.Cu`, and also `In1.Cu` and `In2.Cu` for `copper=4`.
+- `board()` MUST have been called first. `layers` MUST be a non-empty sequence of distinct copper layer names of the board, those of `Design.copper_layers`: `F.Cu`, the inner layers `In1.Cu` … `In<copper − 2>.Cu` and `B.Cu` ("Board and placements in the DSL"). The message of a refused name MUST list the board's copper layers.
 - `net` MUST be a `Net`, which joins the design, or `None` for a zone without a net. `name` defaults to the net's name, and is required when `net` is `None`. Zone names MUST be unique, non-empty and without surrounding spaces.
 - `outline` is `None`, which means the box of the board ring, or at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added. The box of the board ring is the smallest axis-aligned rectangle that holds its vertices and the mid points of its arcs, written from its top-left corner in the order of the board rectangle; for `board(width, height)` it is the board rectangle. Cut-outs do not change it: KiCad clips a fill to the board.
 - A setting given as `None` MUST take the `ZoneSettings` default. Lengths follow "DSL lengths and angles". `clearance` MUST be at least 0, and `min_thickness`, `thermal_gap` and `thermal_spoke_width` above 0.
@@ -211,6 +220,11 @@
 - **GIVEN** a design with `board(mm(50), mm(30))`
 - **WHEN** `d.zone(gnd, layers=("In1.Cu",))` is called
 - **THEN** `DslError` is raised naming `In1.Cu`
+
+#### Scenario: Zone on a deep inner layer
+- **GIVEN** a design with `board(mm(50), mm(30), copper=8)`
+- **WHEN** `d.zone(gnd, layers=("In6.Cu",))` is called, and then `d.zone(vin, layers=("In7.Cu",))`
+- **THEN** the first gives a zone on `("In6.Cu",)`, and the second raises `DslError` naming `In7.Cu` and listing `F.Cu`, `In1.Cu` to `In6.Cu` and `B.Cu`
 
 #### Scenario: Bare number refused
 - **WHEN** `d.zone(gnd, layers=("F.Cu",), clearance=0.3)` is called
