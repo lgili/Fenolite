@@ -4,7 +4,7 @@
 `fenolite.exports.drawing_spec.read_spec(text, *, file="") -> DrawingSpec` SHALL read a drawing specification, a TOML file of the user's whose `schema` is `fenolite.drawing-spec.v0`, and SHALL refuse anything else before any tool runs.
 - The key set MUST be closed:
   - `[page]`: `paper` (`auto` or a name of `PAPER_SIZES`), `portrait` (bool), `drawing_sheet` (a path ending in `.kicad_wks` or `.sheet.toml`, relative to the file's folder), `text_size`, `gap` and `notes_width` (lengths);
-  - `[fab]`: `title` (text), `tables` (a list of `board`, `stackup`, `drill`, `impedance`, `notes`), `dimensions` (bool), `dimension_offset` (length), `dimension_precision` (an integer from 0 to 4), `notes` (a list of texts) and `at` (a table of block name to two lengths);
+  - `[fab]`: `title` (text), `tables` (a list of `board`, `stackup`, `drill`, `impedance`, `notes`; `impedance` is accepted so that the schema id need not change when a change gives that block content, "Drawing tables and notes"), `dimensions` (bool), `dimension_offset` (length), `dimension_precision` (an integer from 0 to 4), `notes` (a list of texts) and `at` (a table of block name to two lengths);
   - `[assembly]`: `title_top` and `title_bottom` (texts), `sides` (a list of `top`, `bottom`), `dnp` (`crossout`, `hide` or `show`), `values`, `pads` and `designators` (bools), `designator_size` (length), `notes` and `at`.
 - Lengths MUST be strings with a unit, read by `core.units.parse_length`; the file MUST be parsed with `parse_float=Decimal`, and no float MUST be created.
 - The defaults MUST be: `paper = "auto"`, `portrait = false`, no `drawing_sheet`, `text_size = "1.5mm"`, `gap = "5mm"`, `notes_width = "120mm"`, the titles `Fabrication drawing`, `Assembly drawing, top side` and `Assembly drawing, bottom side`, all five tables, `dimensions = true`, `dimension_offset = "8mm"`, `dimension_precision = 2`, no note, both sides, `dnp = "crossout"`, `values = false`, `pads = false`, `designators = true` and `designator_size = "1mm"`. `DEFAULT` MUST hold them, and `export` MUST use it when no file is given.
@@ -28,10 +28,10 @@
 ### Requirement: Drawing tables and notes
 `fenolite.exports.drawing_tables` SHALL build the blocks of a drawing from the model read from the board, and SHALL size every block with the measured text bounds, so that KiCad never wraps a cell.
 - A block MUST be a table of texts `text_size` high with strokes of 0.15 × `text_size`, 1 mm cell margins and a header row naming its columns (`Board` and `Value` for the board block); the notes block has no header row. Lengths MUST be printed in millimetres as exact decimals with at least three decimals (`0.300`, `1.600`, `0.2104`), and a stack-up thickness of 0 as an empty cell.
-- **Board**: `Copper layers`; `Outline`, the width and height of the bounding box of the first ring of `board_outline` (`W x H`); with a stack-up, `Thickness` (`Stackup.thickness()`), `Finish` and `Impedance controlled` (`yes` or `no`); `Smallest drill`; with c0112 archived, `Via protection` from `via_protection.summary(design)`.
+- **Board**: `Copper layers`; `Outline`, the width and height of the bounding box of the first ring of `board_outline` (`W x H`); with a stack-up, `Thickness` (`Stackup.thickness()`), `Finish` and `Impedance controlled` (`yes` or `no`); `Smallest drill`. The block MUST hold no row about via protection: the model of this change holds none.
 - **Stack-up**: one row per entry of `Board.stackup` from the top, entries of kind `solderpaste` left out, with the columns `Layer`, `Type` (`copper`, `core`, `prepreg`, `soldermask`, `silkscreen`, or `dielectric` when `dielectric_kind` is unset), `Material`, `Thickness`, `Dk` (`epsilon_r`), `Df` (`loss_tangent`) and `Color`. A column empty in every row MUST be dropped, and a last row `Total` MUST hold `Stackup.thickness()`. A board without a stack-up MUST get no stack-up block and one `drawing.stackup-missing` (info).
 - **Drill**: `drill_rows(design)` MUST give one row per plating, span, drill and slot length, with its count and kinds, from the pads of `board_pads` that have a drill (`thru_hole` plated, `np_thru_hole` not; the slot length from `Padstack.hole_length`, none for a round hole) and the vias of `Board.vias` (plated; the span from `layers`; a through via spans the outer copper layers). Rows MUST come in this order: through spans first, plated before unplated, then the other spans by the stack order of their first layer, then by drill and slot length. The block's columns MUST be `Drill`, `Slot`, `Plated`, `Layers`, `Count` and `Holes` (`via`, `pad` or `via, pad`), `Slot` dropped when no row has a slot, and a last row MUST hold the total count.
-- **Impedance**: with c0105 archived, one row per row of `impedance_table(design)`, with `Target`, `Layer`, `Ohms`, `Tol.`, `Width`, `Gap` and `Ref. layers`; no block without a target.
+- **Impedance**: the model of this change holds no impedance target, so `impedance_block(design)` MUST return no block, and a `tables` list that names `impedance` MUST give neither a block nor an issue.
 - **Notes**: one row per note of the spec, with `1.`, `2.`, … in the first column and the note in the second, `notes_width` wide, without border or separator; no block without a note.
 - `text_width(text, size)` MUST count `GLYPH_BOUND`, 1.45 × `size`, for each character of `GLYPH_SET` (printable ASCII and `±µ°×ΩÄÖÜßéèçñ–—…`) and 2 × `size` for any other; `LINE_PITCH` MUST be 1.61 × the size (`H-K-DRAW-TEXT`). A column MUST be as wide as its widest line by `text_width` plus 2 mm, and a row as high as the line count of its tallest cell × the pitch plus 2 mm.
 - `break_lines(text, width, size)` MUST break a note at spaces, greedily, into lines that each fit `width` by `text_width`, MUST cut a word longer than `width`, MUST keep the note's own line feeds, and MUST join the lines with `\n`.
@@ -120,7 +120,7 @@
 ### Requirement: Fabrication drawing kind
 The export kind `fab-drawing` SHALL produce the fabrication drawing from plot copies, and SHALL check its drill table against KiCad's drill report on every run.
 - The page MUST be plotted by `pcb export pdf --mode-single --layers Edge.Cuts,Dwgs.User --include-border-title --drill-shape-opt 0 -D FENOLITE_DRAWING=<fab.title> [--drawing-sheet <sheet>] -o drawings/<stem>-fab.pdf <stem>.kicad_pcb` on a copy that holds the blocks of `fab.tables` that have content, placed by "Drawing page layout", and, when `dimensions` is true, the two dimensions of the outline's bounding box: horizontal at `dimension_offset` above it, vertical at `dimension_offset` left of it, in millimetres with `dimension_precision` decimals.
-- The maps and the report MUST come from `pcb export drill -o drawings/ --format excellon --excellon-units mm --excellon-separate-th --drill-origin absolute --generate-map --map-format pdf --generate-report <stem>.kicad_pcb` on the copy set; every `*-drl_map.pdf` file and `<stem>-drill.rpt` that it writes MUST be an artefact, and its `.drl` files MUST NOT.
+- The maps and the report MUST come from `pcb export drill -o drawings/ --format excellon --excellon-units mm --excellon-separate-th --drill-origin absolute --generate-map --map-format pdf --generate-report <stem>.kicad_pcb` on the copy set; every `*-drl_map.pdf` file and `<stem>-drill.rpt` that it writes MUST be an artefact, and its `.drl` files MUST NOT. The `drill` kind with the preset key `drill.map` ("Export presets") writes maps of its own under `drill/`; an export that selects both MUST keep both sets, each under its own kind, and `docs/drawings.md` MUST say that the two are the same maps.
 - `read_drill_report(text)` MUST give, per drill file named in the report, each tool's diameter and hole count, reading tool lines that close with `)` or `))`. When the multiset of (diameter, count) of a file differs from the drill rows of that file (plated through, unplated through, each other span), the kind MUST give `drawing.drill-mismatch` (error) naming the file, the diameter and both counts. A report from which no file is read MUST give `drawing.drill-report-unread` (warning), and the drill block MUST stay.
 - Artefacts MUST have the kind `fab-drawing` and the layer `None`; `VOLATILE_PREFIXES["fab-drawing"]` MUST be `/CreationDate` and `Created on` (`H-K-DRAW-REPEAT`).
 - `--check-zones` and `--board-plot-params` MUST NOT be passed.
@@ -172,3 +172,67 @@ The export kind `assembly-drawing` SHALL produce a top page and, when a part sit
 - **GIVEN** a board with a catalog resistor `R1` and a library capacitor `C1` whose footprint shows `${REFERENCE}` on `F.Fab`, both on the top
 - **WHEN** the top copy is built
 - **THEN** it holds one added `gr_text` `R1` on `F.Fab` at the centre of `R1`'s courtyard box and none for `C1`, and `drawing.designators-added` gives 1
+
+### Requirement: Drawing kinds in the manifest
+The artefacts of `fab-drawing` and `assembly-drawing` SHALL enter `fenolite-artifacts.json` as derived entries under "Artefact states" and "Manifest merging", like the files of the other kinds that `kicad-cli` writes from the board.
+- An entry of either kind MUST be written by `manifest.merge` with the state `generated`, `tool` `kicad-cli <version>`, `layer` `null` (a page plots several layers), `from` holding the SHA-256 of the board and nothing else, and `evidence` the level of `exports.drawings.EVIDENCE`.
+- `from` MUST NOT name the drawing spec or the drawing sheet: a changed spec does not mark a drawing stale, and `docs/drawings.md` MUST say so.
+- `exports.states.DERIVED` MUST hold both kinds, and `manifest.design_kind` MUST NOT return either.
+
+#### Scenario: Drawings join the manifest
+- **GIVEN** a folder in which `export --gerbers --manifest --confirm` ran, and a fake `kicad-cli`
+- **WHEN** `uv run pytest tests/unit/cli/test_export_drawings.py -k manifest` runs `fenolite export <board> --out <folder> --fab-drawing --assembly-drawing --manifest --confirm`
+- **THEN** the manifest lists the Gerbers and every file under `drawings/` with kind `fab-drawing` or `assembly-drawing`, `layer` `null`, the board's hash in `from` and the state `generated`
+
+## MODIFIED Requirements
+
+### Requirement: Artefact states
+Every manifest entry SHALL carry one `state` of `manifest.STATES = ("generated", "checked", "roundtrip-ok", "oracle-verified", "native-verified")`, in rising order, and `fenolite.exports.states.assign(entries, *, stages, sheets_ok, current) -> tuple[ArtifactEntry, ...]` SHALL assign it: the highest rung a file reaches together with every lower rung that applies to its kind, with `held` saying what the next rung is missing (`<state>: <reason>`, or `""` when no higher rung applies). `stages` maps a stage name to its status and evidence level, `sheets_ok` a sheet path to its RT1 verdict, and `current` a path to the file's present SHA-256.
+- **Current.** An entry is current when `current[path]` equals its `sha256` and every hash of its `from` equals the present hash of that source. A derived entry that is not current MUST be `generated` with `stale` true. A design entry whose file has another hash MUST be `generated`; `stale` is only ever true for a derived entry.
+- **`generated`.** Every entry reaches it.
+- **`checked`.** `model.validate` and `copper.clearance` are in `stages` with status `ok`. A derived entry (kinds `gerbers`, `drill`, `pos`, `ipcd356`, `fab-drawing`, `assembly-drawing`, `bom`, `pnp`, `render`) reaches it when it is current and the sources its `from` names (`board`: the entry of kind `kicad_pcb`; `schematic`: an entry of kind `kicad_sch`) are `checked`, and reaches no higher rung. A derived entry whose `from` is empty or names another source MUST stay `generated`: nothing says what it was made from.
+- **`roundtrip-ok`.** Applies to kinds `kicad_pcb` and `kicad_sch` only: the board needs `roundtrip` with status `ok`, and a sheet needs `sheets_ok[path]` true. Every other design kind skips the rung.
+- **`oracle-verified`.** No rule assigns it; every kind skips the rung. The state is reserved for a tool that is neither the producer of a file nor its format's own application.
+- **`native-verified`.** The board needs `drc.kicad` with status `ok` and level exactly `KICAD-VERIFIED`. The files KiCad loads to judge the board (kinds `kicad_pro`, `kicad_dru`, `kicad_mod`, `kicad_wks`, and a `lib-table` other than `sym-lib-table`) reach it exactly when the board does. A file of kind `file` (any other file of a library folder) stops at `checked`: no tool is known to load it.
+- **Schematic side.** A sheet (`kicad_sch`), a symbol library (`kicad_sym`) and the `lib-table` named `sym-lib-table` are judged by KiCad's ERC, not by its DRC. Each reaches `native-verified` when `erc.kicad` (change c0062) is in `stages` with status `ok` and level exactly `KICAD-VERIFIED`: the ERC loaded the sheets with the libraries the table names. A sheet needs `roundtrip-ok` first; a symbol library and the symbol table skip that rung. Without that stage, or with an ERC error, a sheet stops at `roundtrip-ok` and a symbol library and the symbol table at `checked`, and `held` names `erc.kicad`. `states.PENDING` MUST be empty: no role waits for a stage that `check` lacks.
+- A stage that is missing from `stages`, skipped, or below the level its rule names MUST NOT give its rung, and a rung that is not reached MUST stop the ladder for that file.
+- `assign` MUST be pure, MUST import nothing from `checks`, and with an empty `stages` MUST leave every entry `generated`.
+
+#### Scenario: Board up the ladder
+- **GIVEN** a board entry that is current, and `stages` with `model.validate`, `copper.clearance` and `roundtrip` `ok` and `drc.kicad` `ok` at `KICAD-VERIFIED`
+- **WHEN** `uv run pytest tests/unit/exports/test_states.py -k ladder` calls `assign`
+- **THEN** the board's state is `native-verified`
+
+#### Scenario: A failed rung stops the ladder
+- **GIVEN** the same stages with `roundtrip` `errors`
+- **WHEN** `assign` runs
+- **THEN** the board's state is `checked`, although `drc.kicad` is `ok`
+
+#### Scenario: DRC below KICAD-VERIFIED
+- **GIVEN** the stages of the first scenario with `drc.kicad` `ok` at `UNVERIFIED`
+- **WHEN** `assign` runs
+- **THEN** the board's state is `roundtrip-ok`
+
+#### Scenario: Derived file of a checked board
+- **GIVEN** a Gerber entry whose `from` holds the board's present hash, and a board that reaches `native-verified`
+- **WHEN** `assign` runs
+- **THEN** the Gerber's state is `checked`
+
+#### Scenario: Stale artefact
+- **GIVEN** a Gerber entry whose `from` holds another hash than the board's present one
+- **WHEN** `assign` runs
+- **THEN** its state is `generated` and `stale` is true
+
+#### Scenario: Schematic follows the ERC
+- **GIVEN** the stages of the first scenario, with and without an `erc.kicad` entry that is `ok` at `KICAD-VERIFIED`, and a sheet whose RT1 verdict is true
+- **WHEN** `uv run pytest tests/unit/exports/test_states.py -k erc` calls `assign`
+- **THEN** with the entry the sheet, the symbol library and `sym-lib-table` are `native-verified` with an empty `held`; without it, with status `errors`, or at another level, the sheet is `roundtrip-ok`, the other two are `checked`, and each `held` names `erc.kicad`
+
+#### Scenario: No check, no claim
+- **WHEN** `assign` runs with `stages` empty
+- **THEN** every entry is `generated`, and none is `oracle-verified` under any input of the test's generator
+
+#### Scenario: A drawing follows its board
+- **GIVEN** a `fab-drawing` entry whose `from` holds the board's present hash, and a board that reaches `native-verified`
+- **WHEN** `uv run pytest tests/unit/exports/test_states.py -k drawing` calls `assign`, and again after the board's hash changed
+- **THEN** the drawing is `checked` the first time, and `generated` and stale the second
