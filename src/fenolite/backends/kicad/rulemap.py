@@ -153,13 +153,11 @@ SELECTOR_KEYS = (
 )
 _BOTH = frozenset({9, 10})
 _ONLY_10 = frozenset({10})
-SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(
-    {key: _ONLY_10 if key in ("area", "diff_pair") else _BOTH for key in SELECTOR_KEYS}
-)
+SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(dict.fromkeys(SELECTOR_KEYS, _BOTH))
 """Each key → the KiCad majors on which its ``dru-cond-<key>`` probe recorded ``present``
-(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key of c0071 holds on both majors;
-``area``, whose probe ``dru-cond-area`` is recorded for 10.0.6 only so far (``H-K-AREA-COND``), and
-``diff_pair`` hold the majors their probes are recorded for (``H-K-DRU-PAIRSEL``)."""
+(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key holds on both majors: ``area``
+(``dru-cond-area``, ``H-K-AREA-COND``) and ``diff_pair`` (``dru-cond-diff_pair``, ``H-K-DRU-PAIRSEL``) since
+their probes were recorded ``present`` on 9.0.9 on 2026-10-08."""
 KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
     {
         "clearance": _BOTH,
@@ -175,11 +173,11 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "silk_clearance": _BOTH,
         "creepage": _ONLY_10,
         "no_tracks": _BOTH,
-        "diff_pair_gap": _ONLY_10,
-        "diff_pair_uncoupled": _ONLY_10,
-        "skew": _ONLY_10,
-        "diff_pair_skew": _ONLY_10,
-        "length": _ONLY_10,
+        "diff_pair_gap": _BOTH,
+        "diff_pair_uncoupled": _BOTH,
+        "skew": _BOTH,
+        "diff_pair_skew": _BOTH,
+        "length": _BOTH,
     }
 )
 """Each kind → the KiCad majors on which ``kicad-cli`` enforces it as written: for the six kinds of v0.1,
@@ -187,8 +185,9 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
 ``present`` (``H-K-DRU-KIND-2``). 9.0.9 loads a ``creepage`` rule and reports nothing for it, so it is written
 for 10 only. ``no_tracks`` (change c0107) follows its own probe ``dru-kind-no_tracks`` (``H-K-DRU-NOTRACKS``),
 recorded ``present`` on 10.0.6 and, on 2026-10-08, on 9.0.9, so it holds both majors. The five pair and
-length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``present`` (``H-K-DRU-PAIR``). A
-modelled rule of a kind outside its entry gives ``rules.kind-unchecked``."""
+length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``present`` (``H-K-DRU-PAIR``):
+10.0.6 and, since 2026-10-08, 9.0.9. A modelled rule of a kind outside its entry gives
+``rules.kind-unchecked``."""
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {

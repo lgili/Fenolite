@@ -238,7 +238,7 @@ the settling test and the result of an id are in its register row.
 | `H-K-DRU-DIALECT` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-DRU-KIND` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-DRU-ORDER` | KICAD-VERIFIED (9.0.x, 10.0.x) |
-| `H-K-DRU-PAIR` | KICAD-VERIFIED (10.0.x) |
+| `H-K-DRU-PAIR` | KICAD-VERIFIED (9.0.x, 10.0.x) |
 | `H-K-DSL-FOOTPRINT` | INFERRED |
 | `H-K-LIB-COMMON` | KICAD-VERIFIED (10.0.x) |
 | `H-K-LIB-CONFIGHOME` | KICAD-VERIFIED (10.0.x) |

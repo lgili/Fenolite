@@ -39,7 +39,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | The later of two `hole_to_hole` rules that match one via pair governs, as for clearance | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | `A.inDiffPair('<base>')` matches the two nets named `<base>` plus a last character `P` and `N`, or `+` and `-` (`X_P`/`X_N` with the base `X` or `X_`, `X+`/`X-`, `X_DP`/`X_DN`, `XP`/`XN`); letter case counts, and `X_DP`/`X_DM`, `X_p`/`X_n` and `X_P`/`X-` are not a pair | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DIFFPAIR-NAMES |
 | `(constraint disallow track)` with `(layer "<name>")` and a condition on `A.NetName` gives one `items_not_allowed` violation per track of the selected net on that layer, none for its tracks on another layer and none for another net's tracks on the layer (10.0.6; a condition on `A.NetClass` selects as in every other rule, `H-K-DRU-COND`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRU-NOTRACKS |
-| 9.0.9 reports the same for `disallow track` (measured on 2026-10-05; its probe is not yet recorded in `9.0.9.json`, so the kind is written for target 10 only) | S-0029 | INFERRED | H-K-DRU-NOTRACKS |
+| 9.0.9 reports the same for `disallow track` (measured on 2026-10-05; `dru-kind-no_tracks` recorded `present` in `9.0.9.json` on 2026-10-08, the pinned image, local run), so `KIND_SUPPORT["no_tracks"]` holds both majors and the kind is written for targets 9 and 10 | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRU-NOTRACKS |
 | `S.intersectsArea('<name>')` selects the items whose copper overlaps a rule area of that name on one of the area's layers: a pair inside the area and a pair with copper 50 µm inside it are selected, a pair 50 µm outside it and a pair on another layer under it are not. It scopes clearance on one side and on both (`A.intersectsArea('P') && B.intersectsArea('Q')`), `track_width` and `hole_to_hole`. The name is compared with letter case (`'hv'` misses `HV`) and takes `*`; a name that two areas carry selects the items of either; a name that no area carries selects nothing and the file still loads (probes `dru-cond-area` and `area-cond-*`, recorded for 10.0.6) | S-0020, S-0029, S-0038 | INFERRED | H-K-AREA-COND |
 | A run of digits and underscores may follow the polarity character in both names: `X_P1`/`X_N1`, `X_P_2`/`X_N_2` and `XP1`/`XN1` are pairs, `X_P1`/`X_N2` and `X_PA`/`X_NA` are not; the base that `inDiffPair()` takes is the text before the polarity character (`X_` selects `X_P1`/`X_N1`, `X_P` selects nothing) | S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-DIFFPAIR-NAMES-2 |
 | `A.inDiffPair('<v>')` selects the items on the two nets of every pair whose base is `<v>`, or `<v>` followed by `_`; `*` selects every pair; the base is compared with its letter case (`'xc_'` selects nothing on `XC_P`/`XC_N`), unlike a net name | S-0038, S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-DRU-PAIRSEL |
@@ -123,7 +123,7 @@ semantics of each row are the hypotheses above.
   both majors for the eleven kinds before `creepage` and for `no_tracks` (its probe `dru-kind-no_tracks`
   was recorded `present` on 9.0.9 on 2026-10-08); `creepage` holds 10 only, because 9.0.9 reports nothing
   for it; the five pair and length kinds hold the majors whose `dru-kind-<kind>` probe is recorded
-  `present`, which is 10 only until their probes are recorded on 9.0.9 (`H-K-DRU-PAIR`). A modelled rule of
+  `present`: both, since the five were recorded on 9.0.9 on 2026-10-08 (`H-K-DRU-PAIR`). A modelled rule of
   a kind outside its entry gives `rules.kind-unchecked`; `allow_lossy` drops it with
   `rules.dropped-for-target`.
 - Values are written as the shortest exact millimetre decimal of the nanometre value (`0.25mm`,
@@ -163,8 +163,8 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
   level, an `item_kind` value outside the table, a value containing `'`, `"`, `?`, `[` or `]`, and any
   key outside its entry for the target. A selector is never approximated.
 - `area v` names the rule areas whose name matches `v`, with letter case and with `*` as a glob. Its entry
-  holds the majors of the probe `dru-cond-area`: 10 so far, because the probe is recorded for 10.0.6
-  only; a rule with an `area` leaf is refused for target 9 until the probe is recorded for 9.0.9.
+  holds the majors of the probe `dru-cond-area`: 9 and 10, since the probe was recorded `present` on
+  9.0.9 on 2026-10-08 (the pinned image, local run), so a rule with an `area` leaf is written for both targets.
   `read_rules` lifts `intersectsArea` on either side; a condition with `enclosedByArea` or `insideArea`
   keeps its rule opaque. Whether the board holds such an area is checked by the build
   (`build.area-unknown`), not by the lowering.
@@ -175,8 +175,8 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
   the two net names (`fenolite.model.pairs`): `USB_` for `USB_P`/`USB_N`, `USB_D` for `USB_DP`/`USB_DN`,
   `D_` for `D_P0`/`D_N0`. KiCad compares it with its letter case, unlike the other leaves, and so does
   the copper check. On both sides of a `clearance` rule it sets the clearance inside a pair. Its
-  `SELECTOR_SUPPORT` entry holds the majors of the probe `dru-cond-diff_pair`: 10 only until the probe
-  is recorded on 9.0.9 (`H-K-DRU-PAIRSEL`).
+  `SELECTOR_SUPPORT` entry holds the majors of the probe `dru-cond-diff_pair`: 9 and 10, since the probe
+  was recorded `present` on 9.0.9 on 2026-10-08 (`H-K-DRU-PAIRSEL`).
 
 ### Selectors per kind
 
