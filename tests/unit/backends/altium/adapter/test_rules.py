@@ -274,3 +274,74 @@ def test_the_copper_check_counts_the_cells(monkeypatch: pytest.MonkeyPatch) -> N
         "Clearance",
         "Clearance/via-via",
     ]
+
+
+# --- The slack of the unit (change c0131) --------------------------------------------------------------
+
+
+def _two_tracks(inside_units: int):  # noqa: ANN202
+    """A document with a Clearance rule of 10 mil and two parallel tracks of two nets, 10 mil wide, whose
+    edges are 10 mil apart less ``inside_units`` units of the file."""
+    centre = 200_000 - inside_units
+    rule = rec.rule("Clearance", "Clearance", GAP="10mil", GENERICCLEARANCE="10mil", OBJECTCLEARANCES="")
+    tracks = [
+        rec.track((0, 0), (10_000_000, 0), 100_000, net=0),
+        rec.track((0, centre), (10_000_000, centre), 100_000, net=1),
+    ]
+    return rec.document(nets=("A", "B"), rules=[rule], tracks=tracks)
+
+
+@pytest.mark.parametrize(
+    ("inside_units", "gap", "found"), [(0, 254_000, 0), (2, 253_995, 0), (3, 253_992, 1)]
+)
+def test_one_file_unit_per_item_on_records(
+    inside_units: int, gap: int, found: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario "At the bound, on records": copper two file units inside its clearance is no finding (one
+    unit per item of the pair), and copper three units inside is one. The file cannot hold a gap between
+    the two: its grid is the unit."""
+    from fenolite.backends.altium.backend import FILE_UNIT_NM, PAIR_SLACK_NM, UNIT_SLACK_NM
+    from fenolite.backends.altium.read import pcb
+    from fenolite.checks.copper import check_copper
+
+    assert PAIR_SLACK_NM == 2 * FILE_UNIT_NM and UNIT_SLACK_NM == 5
+    document = _two_tracks(inside_units)
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    assert design.board is not None
+    first, second = design.board.tracks
+    assert abs(second.start.y - first.start.y) - first.width == gap
+    monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
+    rules = AltiumBackend().rules_from_bytes(design, b"document", file="a.PcbDoc")
+    report = check_copper(rules.design, pads=())
+    assert [f.code for f in report.findings] == ["copper.clearance"] * found
+    if found:
+        assert (report.findings[0].gap, report.findings[0].clearance) == (gap, 254_000 - UNIT_SLACK_NM)
+
+
+@pytest.mark.parametrize(("moved", "found"), [(0, 0), (1, 1)])
+def test_one_nanometre_inside_the_bound(moved: int, found: int, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "One nanometre inside the bound": the model of the document with one track moved by a
+    nanometre, which no file can hold, so that the gap is 6 nm below the rule's value."""
+    import dataclasses
+
+    from fenolite.backends.altium.read import pcb
+    from fenolite.checks.copper import check_copper
+    from fenolite.core.coords import Point
+
+    document = _two_tracks(2)
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    assert design.board is not None
+    first, second = design.board.tracks
+    sign = 1 if first.start.y > second.start.y else -1
+    nearer = dataclasses.replace(
+        second,
+        start=Point(second.start.x, second.start.y + sign * moved),
+        end=Point(second.end.x, second.end.y + sign * moved),
+    )
+    board = dataclasses.replace(design.board, tracks=(first, nearer))
+    monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
+    rules = AltiumBackend().rules_from_bytes(
+        dataclasses.replace(design, board=board), b"document", file="a.PcbDoc"
+    )
+    report = check_copper(rules.design, pads=())
+    assert [(f.code, f.gap) for f in report.findings] == [("copper.clearance", 253_994)] * found

@@ -18,6 +18,7 @@ import dataclasses
 import hashlib
 import re
 from collections.abc import Mapping
+from fractions import Fraction
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -82,12 +83,28 @@ PLANE_IDS = range(39, 55)
 """The Altium ids of the internal planes (``docs/formats/altium/pcb-records.md``, "Layers")."""
 CLEARANCE_KIND = "Clearance"
 """The ``RULEKIND`` of the rule records the copper check reads."""
-UNIT_SLACK_NM = 5
-"""What the import can take from a gap that is exactly a clearance in the document: the document counts in
-units of 2.54 nm and the model in whole nanometres, so each of the two items moves by up to 0.71 nm, a pad
-by up to 1.41 nm more through the frame of its footprint, and a width by 0.5 nm. The clearance rules of the
-copper check are lowered by this much (``docs/formats/altium/import.md``, "Clearance of the copper
-check"; measured on the public PCB documents: 1 to 4 nm on every pour that keeps its rule)."""
+FILE_UNIT_NM = Fraction(127, 50)
+"""The unit in which a PCB document counts: 1/10 000 mil, 2.54 nm (``docs/formats/units.md``)."""
+SLACK_UNITS_PER_ITEM = 1
+"""The rule of the slack (change c0131, decided by the maintainer on 2026-10-06): the copper check gives
+each of the two items of a pair one file unit."""
+PAIR_SLACK_NM = 2 * SLACK_UNITS_PER_ITEM * FILE_UNIT_NM
+"""The slack of a pair, 5.08 nm: copper of two nets is no clearance finding while its gap is not below the
+rule's value less this."""
+UNIT_SLACK_NM = PAIR_SLACK_NM.numerator // PAIR_SLACK_NM.denominator
+"""By how much the clearance rules of the copper check are lowered: ``PAIR_SLACK_NM`` in whole nanometres,
+5. A rule holds whole nanometres, so the slack is rounded down, never up: a gap between 5 and 5.08 nm below
+a rule's value is reported, and no gap is passed that the stated rule reports.
+
+Why a unit per item (``docs/formats/altium/import.md``, "Clearance of the copper check", has the
+derivation): the document counts in units and the model in whole nanometres, half to even, so a coordinate
+moves by up to 0.5 nm, a point by up to 0.71 nm, and the half of a width or of a size by up to 0.25 nm. A
+track or a via is off by up to 0.96 nm, a vertex of a pour by 0.71 nm (1.21 nm at the bridge of a hole), a
+round or oval pad by 2.37 nm (its centre goes through the frame of its footprint: three roundings) and a
+rectangular pad by 3.18 nm (each corner is rounded once more). One unit, 2.54 nm, covers every item but a
+rectangular pad; the slack of a pair covers every pair but a rectangular pad against a pad. An arc is
+judged with a band of 1 001 nm, which is far above all of these. Measured on the eight public PCB
+documents: every finding that the slack takes away is 1 to 4 nm short."""
 _PROJECT_SKIPS = ("altium.project.document-outside", "altium.project.document-missing")
 _DOCUMENT_INDEX = re.compile(r"\bdocument (\d+)\b")
 
@@ -555,7 +572,9 @@ def _planes_left_out(design: Design) -> tuple[tuple[str, int, str], ...]:
 
 
 def _with_unit_slack(design: Design) -> Design:
-    """``design`` with every clearance rule lowered by ``UNIT_SLACK_NM`` (a value at or below it is kept)."""
+    """``design`` with every clearance rule lowered by ``UNIT_SLACK_NM``, the slack of one file unit per
+    item of a pair in whole nanometres (a value at or below it is kept). Every pair has two items, so
+    lowering each rule by one constant is the rule applied pair by pair."""
     held = design.rules
     if held is None or not any(rule.kind == "clearance" for rule in held.rules):
         return design

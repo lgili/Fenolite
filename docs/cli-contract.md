@@ -869,6 +869,8 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
     own, so a pour is never judged against the model's default of 0.5 mm.
   A clearance of the document is judged 5 nm lower than written: the document counts in units of
   2.54 nm, and copper that is exactly its clearance apart reads up to 4 nm closer in nanometres.
+  The rule is one file unit per item of the pair (5.08 nm for a pair, held as 5 whole nanometres);
+  copper further inside its clearance than that is a finding.
 - **`parity` on a project.** The summary is that of the KiCad stage with `netlist` = `own`,
   `compared` = `false` and `differences` = 0: no tool judges parity here. Two spellings are read as
   one, because they differ between the two documents of every project: the library of a footprint

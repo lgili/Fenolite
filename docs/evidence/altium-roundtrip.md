@@ -488,8 +488,10 @@ asserts what the stage promises, not that a board is clean.
   A neutral rule holds one value and no selector says "two pads of one component", so these stay unread
   and reported (`docs/formats/altium/rule-file.md`, "Clearance forms that map").
 - **The 17 findings that remain.** On `-03`, seven pad-to-track pairs on the bottom layer, each 8 to 9 nm
-  short of the 0.127 mm rule: square through-hole pads 637 795 units wide, whose edge lies on half a unit
-  of the document, with a track edge about 49 996.5 units away where the rule asks for 50 000. They are
+  short of the 0.127 mm rule: one square through-hole pad 637 795 units wide, whose edge lies on half a
+  unit of the document, and seven segments of one track net that runs around it, with a track edge about
+  49 996.5 units away where the rule asks for 50 000 (Altium's own check on this pad is a required step
+  of the maintainer's Altium session 2: c0088's design, "Session 2"). They are
   short by the document's own numbers, beyond what the unit's rounding explains (below); whether Altium's
   check tolerates them is not known. On `-01`, two pad-to-track pairs 9 nm and 20 nm short of the 0.1524 mm
   rule, the same class. On `-04`, six fill-to-pad and two pad-to-track pairs up to 50 µm short of the 0.15 mm rule; that
@@ -506,6 +508,16 @@ asserts what the stage promises, not that a board is clean.
   own copper no reading holds: one `copper.item-unsupported` at `plane`, level `UNVERIFIED`.
 - **The unit's slack.** With the rule values as the documents write them, 1 447 more clearance findings
   appear on the seven documents (1 088 before `-03` had a clearance in force) and 4 628 on `-08`, every one 1 to 4 nm short (the last column). The check lowers a clearance rule by 5 nm.
+- **The rule of the slack (change c0131).** The 5 nm are now a stated rule, one file unit (2.54 nm) per
+  item of the pair, 5.08 nm held as 5 whole nanometres: the same number, so every count of this section
+  is unchanged. Measured again on the eight documents on 2026-10-07 (`FENOLITE_HEAVY=1`): the slack
+  removes 6 075 findings (626, 0, 359, 118, 232, 0, 112 and 4 628; by shortfall 4 262 at 1 nm, 1 538 at
+  2 nm, 234 at 3 nm, 41 at 4 nm, none at 5 nm). **The 25 findings of the other class all stay errors**:
+  2 on `-01` (9 and 20 nm short), 7 on `-03` (8 and 9 nm) and 16 on `-08` (8 to 13 nm), that is 3.1 to
+  7.9 file units for the pair where the rule gives 2. Nothing lies between 4 and 8 nm: the conversion
+  explains the first group and not the second. The design of c0131 holds the bound per kind of item
+  and two open decisions (these 25 findings; a pad against a rectangular pad, whose worst case of 6.36 nm
+  is above the rule and which no document shows).
 - **Not compared with KiCad's import.** `kicad-cli pcb import` writes no rules for an imported document,
   so the clearance findings of the two readings cannot be compared; `H-A-DRC-SAME` rests on the samples
   built for both targets (`tests/kicad/altium/test_copper_same.py`: equal findings on the routed blink as

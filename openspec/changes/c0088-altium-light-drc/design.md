@@ -115,6 +115,20 @@ Files: the project `rules` of c0084's Part U (it holds a narrow track and two pa
 
 The maintainer reports one generic outcome per step (`as expected`, or what differed in one sentence), the tool as `AD <major>.<minor>` and the date. No file that Altium wrote is committed. A step that fails refutes the row it names: the row keeps its id and gets a registered successor (`verification-evidence`, "Refuted rows keep their id"). An author report never moves an operation out of `experimental` ("Author reports never promote an operation").
 
+### Session 2: the same copper in Altium's own check (required; added by change c0131 on 2026-10-07)
+
+This is a step of the maintainer's second session of Altium work, and it is not optional: it settles whether the 25 clearance findings that are 8 to 20 nm short of their rule (c0131, "Decisions (2026-10-07)") are findings of the boards or of Fenolite's reading of a pad.
+
+Document: the public row `altium-third-party-pcbdoc-03` of `tests/corpus/manifest.toml` (S-0172), chosen because it is the smallest document that shows the class and shows it most often: 6 fills, 383 pads, 604 tracks and 47 vias on two copper layers, with 7 findings; the other small candidate, `-01`, holds 2 findings among 40 fills, 735 pads, 1 346 tracks and 646 vias on four layers, two of them planes. Get it from `https://raw.githubusercontent.com/TobiasRothlin/AltiumPCBLibrary/fdff76666ffbfa4a1ba2e3d3fe5a52c090b45cb7/PCBLibrary/PCB1.PcbDoc` (commit `fdff76666ffbfa4a1ba2e3d3fe5a52c090b45cb7`, SHA-256 `567fd0dfdba54c04adbdd2cc19b427c894b7a94aa953aa361f3e0afc71db12b3`, Apache-2.0), or from the corpus cache; check the SHA-256 before opening. It is a public document, opened read-only: do not save it, and nothing that Altium writes comes back to the repository. The file is not copied into the repository. The locators below are quoted from the public document so that the place can be found.
+
+What Fenolite reports: 7 `copper.clearance`, all between ONE pad and seven segments of ONE track net that runs around it on the `Bottom Layer`: pad `J2-1` (a square through-hole pad of 1.62 mm, net `NetJ2_1`) and the track of net `Net*_4`, 0.127 mm wide. The gaps are 126 991 nm (five segments) and 126 992 nm (two), against the rule `Clearance_2` (5 mil = 127 000 nm; the cell for the outer layers of the document's clearance matrix, priority 2). Places, in mm from the document's origin (which is at 0, 0): (150.929, 96.885), (150.040, 98.695), (149.463, 98.600), (149.491, 98.667), (149.491, 96.913); the first two are corners shared by two segments each.
+
+4. D4: open the document, do not repour, and run Tools » Design Rule Check with only the Clearance rules enabled.
+5. D5: report in one line: "Altium reports N violations of rule `Clearance_2` between pad `J2-1` and net `Net*_4`" (N from 0 to 7), the tool as `AD <major>.<minor>` and the date.
+6. D6: select pad `J2-1` and report its X size and Y size as the properties panel shows them, in mil with every digit shown.
+
+What follows. If Altium reports the pairs (N > 0): they are findings of the board, the 25 stay errors, and nothing changes. If Altium passes them (N = 0): Fenolite reads something of the pad wrong, and the follow-up is to find the pad-size fact that is read wrong, starting from D6 (Fenolite reads the pad as 637 795 units wide, 63.7795 mil, an odd number of units, which puts its edge on half a unit); no tolerance is added to the check in either case.
+
 ## Size (design-days)
 
 | group | dd |
