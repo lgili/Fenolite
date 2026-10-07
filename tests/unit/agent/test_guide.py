@@ -25,10 +25,12 @@ SOURCE_ID = re.compile(r"\bS-\d{4}\b")
 
 
 def _copy(tmp_path: Path) -> Path:
-    """A copy of the packaged data that a test may break."""
+    """A copy of the packaged data that a test may break: the start page and the starters, with an
+    empty ``references`` folder for the pages a test writes."""
     target = tmp_path / "agent"
     shutil.copytree(PACKAGE, target, ignore=shutil.ignore_patterns("*.py", "__pycache__"))
-    (target / "skill" / "references").mkdir(exist_ok=True)
+    shutil.rmtree(target / "skill" / "references", ignore_errors=True)
+    (target / "skill" / "references").mkdir()
     return target
 
 

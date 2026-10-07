@@ -15,6 +15,10 @@ Read this file before changing anything. Humans: this is also the short version 
    Run it once, on the rebased branch, right before the merge. Never start several full suites at
    the same time on one machine: agents in parallel worktrees use `make check-fast`.
 5. Update `CHANGELOG.md` under `## [Unreleased]` for every change.
+6. **Teach what you add.** A change that adds a public command, a public DSL name or a `FEN-` code
+   adds a tested line to a page of the agent guide (`src/fenolite/agent/skill/references/`):
+   `tests/unit/agent/test_pages.py` fails until it does. After a change of a command's arguments or of
+   `fenolite.dsl`, run `uv run python tools/gen_agent_guide.py`.
 
 ## Hard rules
 

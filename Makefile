@@ -21,8 +21,10 @@ check: lint format types residue test
 # While iterating: the same checks, and the tests that need no kicad-cli, corpus or KiCad libraries.
 check-fast: lint format types residue test-fast
 
+# lint also says whether the generated pages of the agent guide are current (the tool writes them).
 lint:
 	uv run ruff check .
+	uv run python tools/gen_agent_guide.py --check
 
 format:
 	uv run ruff format --check .

@@ -21,6 +21,13 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    only a maintainer starts one, by hand, with `--yes`, one task first, never from CI and never from an
    agent session. Record it with `--record` in `docs/evidence/agent-eval.md`; a row is one sample and
    supports no release claim.
+5. **The agent guide follows the code.** A change that adds a public command, a public DSL name or a
+   `FEN-` code adds a tested line to a page of the agent guide
+   (`src/fenolite/agent/skill/references/`): a `fenolite-cmd` line for a command, a use in a
+   `fenolite-design` block for a name (or a reason in `fenolite.agent.guide.DSL_NOT_TAUGHT`), a row of
+   the page `recovery` for a code. `tests/unit/agent/test_pages.py` names what is missing. The pages
+   `commands` and `dsl-reference` are generated: run `uv run python tools/gen_agent_guide.py` after a
+   change of a command's arguments or of `fenolite.dsl`; `make check-fast` runs its `--check`.
 
 ## Parallel worktrees
 

@@ -126,41 +126,50 @@ the script as they are. It reads the board and runs no tool.
 
 ## Small questions between the steps
 
-These commands read and answer; none of them runs a tool unless it says so.
+These commands read and answer; none of them runs a tool unless its page says so. Each page holds their
+command lines, which the tests run.
 
-- `fenolite explain CODE` says what an error code or an issue code means and what to do about it.
-- `fenolite inspect blink/build/blink.kicad_pcb` reads a file back and reports what it holds;
-  `fenolite pads` (above) lists pads, and `fenolite doctor` says which tools are found.
-- `fenolite roundtrip FILE` before you edit a file that Fenolite did not write: exit 5
-  (`roundtrip.failed`) means reading it and writing it back would change it, so edit it in KiCad.
-- `fenolite diff A B` lists what changed between two boards, libraries or built models; a moved
-  footprint is one change. `--view tree` says whether two KiCad files differ at all.
-- `fenolite net BOARD [NAME]`, `fenolite region BOARD --box 10mm,5mm,30mm,20mm` and
-  `fenolite neighbors BOARD R1` describe a net, a rectangle of the board and what is near a part.
-- `fenolite netlist blink/build --source fenolite` lists the components and nets of a schematic that
-  `build` wrote, without any tool; `--min-pins 2` hides the unconnected pins. For any other KiCad
-  schematic leave `--source` out: `kicad-cli` reads it (exit 6 without the tool).
-- `fenolite fmt FILE --check` says whether a file is in Fenolite's canonical print.
-- `fenolite manifest blink/build --artifacts blink/fab --confirm`, after `export`, writes one file that
-  lists every design file and exported file with its SHA-256 and a state (`generated`, `checked`,
-  `roundtrip-ok`, `native-verified`); it runs the stages of `check`, so it needs `kicad-cli`. Read
-  `held` of an entry to see what its next state is missing. Before you hand a folder over,
-  `fenolite manifest blink/build --verify` says whether its files are still the listed ones.
-- **Undo.** Keep the envelope of a confirmed write. When `receipt.undo` is not `null`,
-  `fenolite restore ENVELOPE.json --confirm` puts the backups back. It refuses when a file changed since
-  the write, and it never deletes a file.
-- `fenolite skill install --dir DIR --confirm` copies this guide into a folder that an agent reads
-  skills from, and `--agents-md` adds a pointer to it to the `AGENTS.md` of a project.
+- `checks`: `fenolite explain CODE` says what an error code or an issue code means and what to do about
+  it; `fenolite netlist`, `fenolite parity` and `fenolite doctor` are there too.
+- `placement`: `fenolite pads` (above), `fenolite region` and `fenolite neighbors` say what is where.
+- `routing`: `fenolite net BOARD NAME` describes one net and its open connections.
+- `files`: `fenolite inspect` reads a file back; `fenolite roundtrip FILE` before you edit a file that
+  Fenolite did not write; `fenolite diff` and `fenolite equivalent` compare; `fenolite fmt --check`;
+  `fenolite restore ENVELOPE.json --confirm` undoes a confirmed write, so keep its envelope.
+- `fabrication`: `fenolite manifest`, after `export`, lists every file with its SHA-256 and a state;
+  `fenolite bom` and `fenolite pnp` give the assembly tables.
+- `recovery`: one tested recipe per exit code, and `fenolite skill install --dir DIR --confirm`, which
+  copies this guide into a folder that an agent reads skills from.
+- `altium`: The Altium verification kit (`fenolite kit`) is a run that a person performs in Altium Designer
+  and is not this guide: `fenolite kit build` writes its files and `fenolite kit verify` judges what the
+  run left, but nothing starts Altium, so you cannot perform it.
 
-The Altium verification kit (`fenolite kit`) is a run that a person performs in Altium Designer and is
-not this guide: `fenolite kit build --out kit --confirm` writes its files and `fenolite kit verify kit`
-judges what the run left, but nothing starts Altium, so you cannot perform it.
+## The pages
+
+`fenolite guide <topic> --text` prints one of these. Read `design-script` before you write a script and
+`recovery` when a command exits with a code that is not 0.
+
+<!-- pages:begin -->
+- `altium`: build --target altium, what it writes, the status of each written file kind as capabilities reports it, and the kit that a person runs.
+- `checks`: The stages of check, how to read an issue and explain it, evidence levels, keeping replies small, the netlist, parity and doctor.
+- `commands`: The complete list: each public command, whether it writes, and every argument with its help.
+- `design-script`: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
+- `dsl-reference`: The complete list: each name a design script imports from fenolite.dsl, with its signature.
+- `fabrication`: export, the bill of materials, the position table, the manifest and its states, render, and what is not produced.
+- `files`: Read a file Fenolite did not write, tell whether editing it is safe, compare two files or two designs, and undo a confirmed write.
+- `footprints`: Footprint and Symbol from dimensions when no library has the part, and what a person must still check against the datasheet.
+- `parts`: Where symbols and footprints come from, how a pin is named, pad_map, values with units, user properties and typed interfaces.
+- `placement`: place() in the script, staged parts and the grid strategy, moving a part on the board, where the pads are, and text fields.
+- `recovery`: One tested recipe per exit code from 2 to 7 and for shorted copper, the table of every error code, and reading the guide itself.
+- `routing`: Which router does what, route with --nets and --rip, what unrouted means, copper written in the script, zones and fill.
+- `rules`: Net classes against minimums, rules with selectors, the stack-up, whose numbers apply, and analyze for current, clearance and creepage.
+<!-- pages:end -->
 
 ## Limits
 
 - The releases prove the loop on two-layer boards, for KiCad 9.0 and 10.0. `build --target altium` also
-  writes an Altium project: how far each of its file kinds is verified is in `result.matrix` of
-  `fenolite capabilities --json`, and it changes from release to release.
+  writes an Altium project: the status and the evidence level of each of its file kinds are in
+  `result.matrix` of `fenolite capabilities --json`, and they change from release to release.
 - The `direct` router is for the starter and for boards as simple. It never looks at clearances.
 - The full contract of the command line (`docs/cli-contract.md`), the design script (`docs/dsl.md`) and
   what was and was not proved for each release (`docs/release/`) are in the source repository.

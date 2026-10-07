@@ -57,6 +57,56 @@ STARTER_HEADER = "# SPDX-License-Identifier: CC0-1.0"
 TEMPLATE_SUFFIX = ".tmpl"
 NAME_TOKEN = "@NAME@"
 _HEADING = re.compile(r"^# +(.+?)\s*$", re.MULTILINE)
+FENCE = "```"
+BLOCK_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-design", "fenolite-recipe", "json", "text")
+"""The tags a fenced block of a page may carry. The first four are run by the suites; ``json`` and
+``text`` hold samples of output."""
+PAGES_BEGIN = "<!-- pages:begin -->"
+PAGES_END = "<!-- pages:end -->"
+"""The two marker lines of the start page; ``tools/gen_agent_guide.py`` writes the index between them."""
+GENERATED_TOPICS = ("commands", "dsl-reference")
+"""The topics that ``tools/gen_agent_guide.py`` writes; every other reference page is written by hand."""
+
+_BUILD_CALLS = "the build calls it; a script never does"
+_CONSTANT = "a constant that a script has no use for"
+_RETURNED = "a record that a call of the script returns; a script never names it"
+_ERROR = "the error a wrong call raises; the build reports it, a script does not catch it"
+DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
+    {
+        "to_model": _BUILD_CALLS,
+        "placements": _BUILD_CALLS,
+        "copper": _BUILD_CALLS,
+        "fields": _BUILD_CALLS,
+        "moves": _BUILD_CALLS,
+        "module_moves": _BUILD_CALLS,
+        "net_moves": _BUILD_CALLS,
+        "planes": _BUILD_CALLS,
+        "pad_zones": _BUILD_CALLS,
+        "drawing_sheet_source": _BUILD_CALLS,
+        "stackup_locked": _BUILD_CALLS,
+        "via_protection_locked": _BUILD_CALLS,
+        "KEYS": _CONSTANT,
+        "DSL_BACKEND": _CONSTANT,
+        "BOARD_ORIGIN": _CONSTANT,
+        "CopperIntent": _RETURNED,
+        "StitchIntent": _RETURNED,
+        "TrackIntent": _RETURNED,
+        "ViaIntent": _RETURNED,
+        "FieldRequest": _RETURNED,
+        "PadZoneRequest": _RETURNED,
+        "ArcStep": _RETURNED,
+        "ViaStep": _RETURNED,
+        "PadEnd": _RETURNED,
+        "PadRef": _RETURNED,
+        "Placement": _RETURNED,
+        "Length": _RETURNED,
+        "Quantity": _RETURNED,
+        "DslError": _ERROR,
+    }
+)
+"""The names of ``fenolite.dsl.__all__`` that no design block of the guide uses, each with the reason.
+Every other name must appear in a ``fenolite-design`` block (capability agent-guide, "Guide covers the
+public surface")."""
 
 
 class GuideError(ValueError):
@@ -71,6 +121,43 @@ class Page:
     title: str
     summary: str
     text: str
+
+
+@dataclass(frozen=True, slots=True)
+class Block:
+    """One fenced block of a page. ``tag`` is the first word after the opening fence and ``argument``
+    the rest of that line; ``lines`` are the lines between the fences, as written; ``line_number`` is
+    the line of the opening fence in ``Page.text``, from 1."""
+
+    tag: str
+    argument: str
+    lines: tuple[str, ...]
+    line_number: int
+
+
+def blocks(page: Page) -> tuple[Block, ...]:
+    """Every fenced block of ``page``, in order. A fence is a line whose first three characters, after
+    its indentation, are backquotes; a block without a tag has the tag ``""``. A fence that is never
+    closed raises :class:`GuideError` naming the topic and the line."""
+    found: list[Block] = []
+    opened: tuple[int, str, str] | None = None
+    body: list[str] = []
+    for number, line in enumerate(page.text.split("\n"), start=1):
+        stripped = line.strip()
+        if not stripped.startswith(FENCE):
+            if opened is not None:
+                body.append(line)
+            continue
+        if opened is None:
+            tag, _, argument = stripped[len(FENCE) :].strip().partition(" ")
+            opened = (number, tag, argument.strip())
+            body = []
+        else:
+            found.append(Block(opened[1], opened[2], tuple(body), opened[0]))
+            opened = None
+    if opened is not None:
+        raise GuideError(f"{page.topic}: the block opened at line {opened[0]} is never closed")
+    return tuple(found)
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,12 +348,19 @@ __all__ = [
     "AGENTS_END",
     "AGENTS_SECTION",
     "AGENT_DIRS",
+    "BLOCK_TAGS",
+    "DSL_NOT_TAUGHT",
+    "GENERATED_TOPICS",
+    "PAGES_BEGIN",
+    "PAGES_END",
     "SKILL_NAME",
     "START",
+    "Block",
     "GuideError",
     "Page",
     "SkillFile",
     "Starter",
+    "blocks",
     "front_matter",
     "page",
     "pages",
