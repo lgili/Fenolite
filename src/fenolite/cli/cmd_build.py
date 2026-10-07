@@ -1020,7 +1020,9 @@ def _run_altium(
             resolver=resolver,
             target=ctx.kicad_target,
             copper_intents=intents,
-            authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
+            # the catalog definitions too: a design that names only catalog ids has no library (c0077)
+            authored_footprints=authored_footprints,
+            authored_symbols=authored_symbols,
         )
         refused = not resolved.files or any(found.severity == "error" for found in resolved.issues)
         script_issues = [

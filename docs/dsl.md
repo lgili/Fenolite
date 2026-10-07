@@ -32,6 +32,21 @@ registered ID first: the KiCad target writes the `.kicad_mod` into its project `
 places it on the board; the experimental Altium target lowers the supported subset into `.PcbLib` and
 uses it in `.PcbDoc` when the design has an outline.
 
+**Generated fields (c0077).** A KiCad footprint carries a `Reference` and a `Value` property, and
+`Footprint` declares neither. The KiCad build generates both, for an authored footprint and for a
+footprint of the built-in catalog, in the `.kicad_mod` of the project library and on the board:
+
+| field | library text | board text | layer | anchor |
+|---|---|---|---|---|
+| `Reference` | `REF**` | the part's reference | `F.SilkS` | 1 mm above the footprint's extent box, on the centre of its X range |
+| `Value` | the footprint's name | the part's value | `F.Fab` | 1 mm below the box, on the same X |
+
+The extent box is the box of the `F.CrtYd` graphics, else of the pads. Both fields are visible, centred
+and horizontal, with glyphs of 1 mm by 1 mm and a stroke of 0.15 mm; on a bottom part they are on
+`B.SilkS` and `B.Fab`, mirrored. `Part.field` moves or hides either one ("Field placement"). The placement
+is a Fenolite choice; that KiCad accepts such a project is `H-K-FP-FIELDS`. The Altium build names its
+components from the part and reads none of this.
+
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
 
@@ -361,7 +376,10 @@ such as a part number or a supplier code, as text.
 ## Field placement
 
 `Part.field("Reference", …)` and `Part.field("Value", …)` place the two text fields of the part's footprint.
-Without a request a field stays where the footprint library puts it.
+Without a request a field stays where the footprint library puts it. A footprint of the built-in catalog
+or of `dsl.Footprint` has no library file: its two fields are generated 1 mm above and below the
+footprint ("Authored footprints"), and a request moves or hides them like any other. A library footprint
+that lacks one of the two gets it at the same place, with the info `build.field-added`.
 
 ```python
 u1.place(mm(40), mm(30), rot=90)

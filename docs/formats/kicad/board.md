@@ -460,6 +460,16 @@ the missing-table control firing on both majors (`H-K-LIB-DRC`). `embed.EVIDENCE
   `kicad.board.flip-unsupported` issue each, and `place_footprint` raises `LossyWriteError`. The list
   grows when a fixture shows another head whose geometry the mirror table does not cover.
 - **Both sides.** Child angles are stored absolute: (angle + θ) mod 360° (`pad_angle_to_board`).
+- **Mandatory fields (c0077).** Every placed footprint holds a `Reference` and a `Value` property. A
+  definition that lacks one gets it from `embed.default_fields(defn)`, before its first `property` child
+  (after `at` when it has none) and before the bottom-side pass: `Reference` on `F.SilkS` at
+  `FIELD_GAP` (1 mm) above `footprint_extent(defn)`, `Value` on `F.Fab` at `FIELD_GAP` below it, both on
+  the centre of the box's X range, visible, at angle 0, with `(size 1 1)` and `(thickness 0.15)`. Its
+  uuid is `placement_uuid(key, "/footprint/property:<name>")`. The placement is a Fenolite choice with
+  no evidence label; the `property` syntax is the one recorded above (S-0001), and that KiCad accepts the
+  project is `H-K-FP-FIELDS`. `mod.prepare_authored_definition` gives a definition without a file the
+  same two properties as slots, so they are also in the vendored `.kicad_mod`, with the uuid
+  `uuid5(FENOLITE_NS, "kicad-place-field:<lib id>:<name>")`.
 - **Extent.** `embed.footprint_extent(defn)` is, in the definition's frame, the box of the modelled
   `F.CrtYd` graphics (arcs and circles boxed exactly), else the union of the pad boxes (each pad's size
   rotated by its angle about its position, rounded outward), else `BBox(0, 0, 0, 0)`. Courtyard pieces

@@ -28,6 +28,7 @@ def test_closed_set() -> None:
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning", "layout.unplaced": "warning", "build.pad-without-pin": "info",
         "build.global-library": "info", "build.interface-not-lowered": "info",
+        "build.field-added": "info",  # c0077
         # c0027
         "build.property-reserved": "error", "build.property-invalid": "error",
         "build.property-conflict": "error", "build.vendor-unsafe-name": "error",

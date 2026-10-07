@@ -7,6 +7,9 @@ the definition as a board footprint, gives every uuid a value derived from the c
 the children for the bottom side, stores child angles absolute, and maps the node with the board
 reader, so the instance equals what ``read_board`` gives for the written board. The bottom-side rules
 are ``KICAD-VERIFIED`` on 9.0.9 and 10.0.6 (``H-G-BOTTOM-STORE``, ``H-G-FLIP``, ``H-G-PAD-ANGLE-ABS``).
+
+Every placed footprint holds a ``Reference`` and a ``Value`` field: a definition that lacks one gets it
+from ``default_fields`` (``H-K-FP-FIELDS``; the placement is a Fenolite choice).
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from __future__ import annotations
 import dataclasses
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import get_args
 
@@ -22,11 +26,11 @@ from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, emit_footprint, node
 from fenolite.backends.kicad.layers import flip_layer
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, parse_fragment, walk
-from fenolite.core.coords import Point
+from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import FENOLITE_NS
-from fenolite.core.units import Udeg
+from fenolite.core.units import Nm, Udeg
 from fenolite.geometry.shapes import Arc, BBox, Circle
 from fenolite.geometry.transform import Transform
 from fenolite.model.base import Modeled, Opaque
@@ -49,6 +53,28 @@ FLIP_CODE = "kicad.board.flip-unsupported"
 PATH_PROPERTY = "fenolite.path"
 """The hidden property that names a built footprint's component path (c0011; read by c0019)."""
 _ATTRIBUTES = frozenset(get_args(FootprintAttribute))
+MANDATORY_FIELDS: tuple[str, str] = ("Reference", "Value")
+"""The two fields every placed footprint holds, in the order they are written."""
+FIELD_GAP: Nm = 1_000_000
+"""The distance between the footprint's extent box and the anchor of a generated field."""
+FIELD_SIZE = Size(1_000_000, 1_000_000)
+"""Glyph width and height of a generated field."""
+FIELD_THICKNESS: Nm = 150_000
+"""Stroke width of a generated field."""
+LIBRARY_REFERENCE = "REF**"
+"""The ``Reference`` text of a library footprint, as KiCad's own libraries hold it."""
+
+
+@dataclass(frozen=True, slots=True)
+class FieldDefault:
+    """Where a generated ``Reference`` or ``Value`` field goes: its library text, its top-side layer and
+    its anchor in the footprint's frame. It is visible, centred and at angle 0, with ``FIELD_SIZE``
+    glyphs and a ``FIELD_THICKNESS`` stroke."""
+
+    name: str
+    text: str
+    layer: str
+    position: Point
 
 
 def placement_uuid(key: str, locator: str) -> str:
@@ -229,7 +255,90 @@ def uuid_locators(defn: FootprintDef) -> tuple[str, ...]:
     for loc, current in walk(tree):
         if loc != "/footprint" and current.find("uuid") is not None:
             found.append(loc)
+    found += [f"/footprint/property:{name}" for name in MANDATORY_FIELDS if name not in _property_names(tree)]
     return tuple(found)
+
+
+def default_fields(defn: FootprintDef) -> tuple[FieldDefault, FieldDefault]:
+    """The placement of the ``Reference`` and ``Value`` fields that ``defn`` lacks, ``Reference`` first.
+
+    ``Reference`` reads ``REF**`` on ``F.SilkS``, ``FIELD_GAP`` above ``footprint_extent(defn)``; ``Value``
+    reads the footprint's name on ``F.Fab``, ``FIELD_GAP`` below it. Both sit on the centre of the box's X
+    range. A Fenolite choice: the values of the authored mini library under ``tests/data/libs``.
+    """
+    box = footprint_extent(defn)
+    cx = (box.x0 + box.x1) // 2
+    return (
+        FieldDefault("Reference", LIBRARY_REFERENCE, "F.SilkS", Point(cx, box.y0 - FIELD_GAP)),
+        FieldDefault("Value", defn.name, "F.Fab", Point(cx, box.y1 + FIELD_GAP)),
+    )
+
+
+def field_property(default: FieldDefault, *, text: str, uuid_text: str) -> Node:
+    """The ``property`` child of a generated field with ``text`` as its value (``board.md``)."""
+    return node(
+        "property",
+        Atom.string(default.name),
+        Atom.string(text),
+        node("at", Atom.from_nm(default.position.x), Atom.from_nm(default.position.y), Atom.integer(0)),
+        node("layer", Atom.string(default.layer)),
+        node("uuid", Atom.string(uuid_text)),
+        node(
+            "effects",
+            node(
+                "font",
+                node("size", Atom.from_nm(FIELD_SIZE.h), Atom.from_nm(FIELD_SIZE.w)),
+                node("thickness", Atom.from_nm(FIELD_THICKNESS)),
+            ),
+        ),
+    )
+
+
+def library_field_uuid(lib_id: str, name: str) -> str:
+    """The uuid of a generated field in the library file of ``lib_id``."""
+    return str(uuid.uuid5(FENOLITE_NS, f"{PLACE_PREFIX}-field:{lib_id}:{name}"))
+
+
+def _property_names(tree: Node) -> set[str]:
+    names: set[str] = set()
+    for child in tree.children:
+        if isinstance(child, Node) and child.name == "property" and child.children:
+            first = child.children[0]
+            if isinstance(first, Atom):
+                names.add(first.value)
+    return names
+
+
+def _with_mandatory(tree: Node, defn: FootprintDef, key: str) -> Node:
+    """``tree`` with a default field for each mandatory name it lacks, before its first ``property`` child
+    (after the leading header children when it has none). An added field has the uuid
+    ``placement_uuid(key, "/footprint/property:<name>")``; it is added before the bottom-side pass, which
+    flips it with the footprint's other children."""
+    held = _property_names(tree)
+    added: list[Node | Atom] = [
+        field_property(
+            default,
+            text=default.text,
+            uuid_text=placement_uuid(key, f"/footprint/property:{default.name}"),
+        )
+        for default in default_fields(defn)
+        if default.name not in held
+    ]
+    if not added:
+        return tree
+    children = list(tree.children)
+    at = next(
+        (i for i, c in enumerate(children) if isinstance(c, Node) and c.name == "property"),
+        None,
+    )
+    if at is None:
+        lead = {"layer", "locked", "uuid", "at"} | HEADER
+        at = 1
+        for child in children[1:]:
+            if isinstance(child, Node) and child.name not in lead:
+                break
+            at += 1
+    return tree.with_children([*children[:at], *added, *children[at:]])
 
 
 def _header(tree: Node, defn: FootprintDef, component: Component, at: Point, rotation: Udeg, side: Side,
@@ -286,6 +395,7 @@ def place_footprint(
     tree = emit_footprint(defn)
     tree = tree.with_children([c for c in tree.children if not (isinstance(c, Node) and c.name in HEADER)])
     tree = _uuids(tree, key)
+    tree = _with_mandatory(tree, defn, key)
     if side == "bottom":
         issues: list[Issue] = []
         tree = _flip(tree, issues)
@@ -382,11 +492,20 @@ def _pad_box(pad: Pad) -> BBox:
 
 __all__ = [
     "EVIDENCE",
+    "FIELD_GAP",
+    "FIELD_SIZE",
+    "FIELD_THICKNESS",
     "FLIP_UNSUPPORTED",
+    "LIBRARY_REFERENCE",
+    "MANDATORY_FIELDS",
     "MIRROR_HEADS",
     "PATH_PROPERTY",
     "PLACE_PREFIX",
+    "FieldDefault",
+    "default_fields",
+    "field_property",
     "footprint_extent",
+    "library_field_uuid",
     "place_footprint",
     "placement_uuid",
     "with_property",

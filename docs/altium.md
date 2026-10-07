@@ -334,6 +334,10 @@ every component (change c0034). Facts: `docs/formats/altium/schematic-library.md
   its common pins as Part Zero; its body is its own graphics, or a synthesised rectangle per part where
   "The schematic" says so (`altium.symbol-simplified`). Symbols the script authored or took from the
   catalog are written the same way, and no library is read for them (change c0086).
+  The `Reference` and `Value` fields that the KiCad build generates for catalog and authored footprints
+  (change c0077) change no Altium document: a placed component is named from the part's reference and
+  value. The KiCad build that resolves script copper for an Altium project takes the catalog's
+  definitions too, so a design that names only catalog ids and declares tracks builds.
   Other body styles and pin alternates are dropped. Pins off the 10-mil grid are refused
   (`altium.symbol-off-grid`; KiCad's 50-mil grid is on it). Types and shapes with no Altium equivalent
   are mapped with the warning `altium.pin-lossy`. The designator prefix is the `Reference` property, the
