@@ -1,0 +1,24 @@
+## ADDED Requirements
+
+### Requirement: Via protection in an Altium build
+`fenolite build --target altium` SHALL write the tenting of each via into the PCB document, through the two tenting flags of the via record (`altium-pcb-writer`, "Via tenting flags"), and SHALL keep covering, plugging, capping and filling in the model only, reported in one `altium.not-lowered` info whose `where` is `via-protection`. No Altium fact is recorded for those four features (`docs/formats/altium/pcb-copper.md`), so nothing of them is written.
+- **Tenting of a via.** For each side, the flag MUST be set from the via's own value (`tenting_front` for the top flag, `tenting_back` for the bottom flag) when it is not `None`; else from the same field of `Board.via_protection` when the board holds a default and that field is not `None`; else the flag MUST stay clear, which is what the writer wrote before this change. The Altium backend's own default for a side that nothing states is therefore a clear flag (`design-model`, "Via protection in the board model": `None` means the backend's own default). This holds for vias from script copper ("Script copper in an Altium build") and from a routed KiCad board ("Copper from a routed KiCad board") alike.
+- **The info.** One `altium.not-lowered` info at `via-protection` MUST be given when at least one of these holds, and its message MUST state each that holds: (a) the number of vias for which covering, plugging, capping or filling is `True`, by their own value or by the board default, and the names of those features; (b) when the design states a protection (the board holds a default, or a via's `protection` is not `ViaProtection()`), the number of vias with a tenting side that neither the via nor the default states, with the sentence that KiCad tents such a via and that the Altium document leaves its flag clear. Its hint MUST name `design.via_protection(protect(tenting=…))`. With neither, no such info is given.
+- **Accounting.** A via is counted as written in `result.pcb` ("Complete board in an Altium build") whatever its protection: the info names fields, not items.
+- **Bytes.** A design in which no via has a `protection` other than `ViaProtection()` and whose board holds no default MUST get every file it got before this change, byte for byte. For a design with protection, every planned file outside `.fenolite/` except the PCB document MUST equal, byte for byte, the file of the same design without protection, and the PCB document MUST differ from it only in the first flags byte of the via records whose tenting is stated.
+- **Evidence.** The build's evidence MUST name `H-A-PCB-CU-VIATENT` when it sets a tenting flag; the label of the written flags is `INFERRED` until an author report settles the hypothesis.
+- `docs/altium.md` MUST say what the Altium documents hold of via protection (tenting, where the design states it), what they do not (the four other features; a board default as such, since every via carries its own flags), and that a side nobody states is tented by KiCad and left clear in the Altium document.
+
+#### Scenario: Tenting written, the rest named
+- **GIVEN** `examples/altium_sample/design.py` with two via intents added, the first with `protection=protect(tenting="front", filling=True, capping=True)` and the second without protection, and `design.via_protection(protect(tenting=True))`
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_via_protection.py -k written` builds it with `--target altium` and reads the PCB document back
+- **THEN** the first via record has the flags `2C 00` (top tented, bottom not) and the second `6C 00` (both tented, from the default); `issues` hold one `altium.not-lowered` info at `via-protection` naming 1 via, `capping` and `filling`; `result.pcb` counts both vias as written; and every planned file outside `.fenolite/` other than the PCB document equals the file of the same design without protection
+
+#### Scenario: A design without protection keeps its bytes
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_copper_golden.py tests/unit/lens/test_altium_pcb_golden.py` runs
+- **THEN** it passes without any golden file being rewritten, every via record of the routed samples has the flags `0C 00`, and no build of them holds an issue at `via-protection`
+
+#### Scenario: A side nobody states
+- **GIVEN** the first design without its `design.via_protection(…)` call
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the second via keeps the flags `0C 00`, and the info at `via-protection` also names 1 via whose tenting is stated nowhere
