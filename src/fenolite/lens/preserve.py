@@ -22,8 +22,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, cast
 
+from fenolite.backends.kicad import boarditems, dru, layers, pcb, pro, slots
 from fenolite.backends.kicad import copper as copper_mod
-from fenolite.backends.kicad import dru, layers, pcb, pro, slots
 from fenolite.backends.kicad import zones as zones_mod
 from fenolite.backends.kicad.embed import MANDATORY_FIELDS, PATH_PROPERTY, placement_uuid
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
@@ -930,6 +930,11 @@ def merge_layout(
                 new,
             )
         )
+    # rule areas, texts, graphics and dimensions that the script declares are regenerated (c0103); the
+    # others stay as the board has them
+    items = boarditems.merge_items(board, built)
+    issues += items.issues
+    scripted = boarditems.script_items(built)
     # board content and the outline rule
     edge = _edge_graphics(board)
     outline = None if edge else built.board.outline
@@ -958,6 +963,10 @@ def merge_layout(
         arcs=tuple(arcs),
         vias=tuple(vias),
         zones=tuple(zones),
+        keepouts=(*items.keepouts, *scripted["keepouts"]),
+        texts=(*items.texts, *scripted["texts"]),
+        graphics=(*items.graphics, *scripted["graphics"]),
+        dimensions=(*items.dimensions, *scripted["dimensions"]),
     )
     nets = tuple(
         dataclasses.replace(net, members=tuple(sorted({*net.members, *extra_members.get(net.id, [])})))
@@ -983,6 +992,7 @@ def merge_layout(
             "stale": script.stale,
             "duplicates": script.duplicates,
         },
+        "board_items": {"regenerated": items.regenerated, "stale": items.stale},
     }
     return Merged(dataclasses.replace(built, circuit=circuit, board=merged_board), tuple(issues), summary)
 

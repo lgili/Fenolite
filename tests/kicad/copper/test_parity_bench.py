@@ -6,6 +6,7 @@ helper on authored reports."""
 
 from __future__ import annotations
 
+import _areacases as ac
 import _copperparity as cp
 import pytest
 
@@ -213,3 +214,32 @@ def test_net_tie_bench_is_written_with_its_groups(target: int) -> None:
     assert bench.text.count("(net_tie_pad_groups ") == len(tb.CASES)
     assert bench.text.count('(net_tie_pad_groups "1,2")') == 1 and len(bench.refs) == len(tb.LABELS) == 14
     assert len(tb.CASES) == 10 and sum(case.plain is not None for case in tb.CASES) == 4
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_fenolite_half_of_the_keepout_bench(target: int) -> None:
+    """Scenario "Hermetic half" (change c0103): the track inside, the crossing track and the track on the
+    back layer of the tracks keep-out, the via of the vias keep-out and both pads of the pads keep-out;
+    never the controls, and never the track in the vias keep-out."""
+    bench = ac.keepout_parity_bench(target)
+    wanted = {
+        uuid
+        for label in ("track_in", "track_cross", "track_back", "via_in", "pads_in")
+        for uuid in bench.uuids(label)
+    }
+    assert ac.fenolite_keepouts(bench) == wanted and len(wanted) == 6
+    report = ac.copper_report(bench)
+    assert report.summary["keepouts"] == 6 and report.summary["rule_areas"] == 3
+    assert not report.summary["unsupported"]
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_fenolite_half_of_the_area_bench(target: int) -> None:
+    """The pair inside the area, the pair on the back layer under it and the pair that crosses its edge
+    break the 2 mm rule; the pair outside is not judged by it."""
+    bench = ac.area_parity_bench(target)
+    wanted = {
+        frozenset((*bench.uuids(f"{label}_a"), *bench.uuids(f"{label}_b")))
+        for label in ("in", "back", "cross")
+    }
+    assert ac.fenolite_area_pairs(bench) == wanted

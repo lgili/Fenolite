@@ -21,10 +21,12 @@ from fenolite.backends.base import PadCopper
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.checks import copper as copper_module
-from fenolite.checks.copper import ARC_TOL_NM, EVIDENCE, CopperReport, check_copper
+from fenolite.checks.copper import ARC_TOL_NM, EVIDENCE, CopperRef, CopperReport, check_copper
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.provenance import Provenance
 from fenolite.dsl import Footprint, nm
+from fenolite.model.board import Keepout
 from fenolite.model.design import Design
 from fenolite.model.rules import Selector
 
@@ -576,9 +578,11 @@ def test_findings_and_issues_are_sorted() -> None:
         "clearance",
         "items",
         "judged",
+        "keepouts",
         "layers",
         "max_clearance",
         "pairs",
+        "rule_areas",
         "shorts",
         "unset_pairs",
         "unsupported",
@@ -845,3 +849,224 @@ def test_net_tie_check_never_gives_info_for_a_finding() -> None:
     for design in (two_pads(TOUCH, ()), two_pads(SQUARE + MM // 10, ())):
         report = tie_check(design)
         assert report.findings and all(issue.severity != "info" for issue in report.issues)
+
+
+# --- rule areas and keep-outs (change c0103) -----------------------------------------------------------
+
+
+def _area(
+    made: Copper,
+    name: str,
+    box: tuple[float, float, float, float],
+    *,
+    layers: tuple[str, ...] = ("F.Cu", "B.Cu"),
+    locator: str = "",
+    **settings: bool,
+) -> Keepout:
+    area = Keepout(
+        id=f"kpo_00000000-0000-4000-8000-{len(made.keepouts) + 1:012d}",
+        provenance=Provenance("kicad", "bench.kicad_pcb", "0" * 64, locator) if locator else None,
+        outline=_rect(*box),
+        layers=layers,
+        name=name,
+        **settings,
+    )
+    made.keepouts.append(area)
+    return area
+
+
+def _pairs(made: Copper, gap: float, *, layer: str = "F.Cu") -> None:
+    """A pair of tracks ``gap`` mm apart inside the box (0, 0)–(10, 5) mm and the same pair at y = 20 mm,
+    on nets ``A`` and ``B`` and on ``C`` and ``D``."""
+    step = mm(gap) + 250_000
+    for nets, y in ((("A", "B"), mm(2)), (("C", "D"), mm(20))):
+        made.track(nets[0], Point(mm(1), y), Point(mm(9), y), layer=layer, locator=f"in:{nets[0]}")
+        made.track(nets[1], Point(mm(1), y + step), Point(mm(9), y + step), layer=layer)
+
+
+def test_area_rule_larger_clearance_inside() -> None:
+    """Scenario "Larger clearance inside a high-voltage area"."""
+    made = Copper()
+    _area(made, "HV", (0, 0, 10, 5))
+    made.rule("hv", mm(2), Selector("area", "HV"))
+    _pairs(made, 1)
+    report = check_copper(made.build(), pads=None)
+    (found,) = report.findings
+    assert (found.code, found.source, found.clearance) == ("copper.clearance", "rule:hv", mm(2))
+    assert {item.net for item in found.items} == {"A", "B"}
+    assert report.summary["rule_areas"] == 1 and report.summary["keepouts"] == 0
+    assert report.summary["unsupported"] == {}
+
+
+def test_area_rule_neck_down() -> None:
+    """Scenario "Neck-down inside a BGA area"."""
+    made = Copper()
+    _area(made, "BGA", (0, 0, 10, 5))
+    made.rule("board", mm(0.2))
+    made.rule("neck", mm(0.1), Selector("area", "BGA"), priority=1)
+    _pairs(made, 0.15)
+    (found,) = check_copper(made.build(), pads=None).findings
+    assert (found.source, found.clearance) == ("rule:board", mm(0.2))
+    assert {item.net for item in found.items} == {"C", "D"}
+
+
+def test_area_on_one_layer() -> None:
+    """Scenario "An area on one layer"."""
+    made = Copper()
+    _area(made, "HV", (0, 0, 10, 5), layers=("F.Cu",))
+    made.rule("hv", mm(2), Selector("area", "HV"))
+    _pairs(made, 1, layer="B.Cu")
+    assert check_copper(made.build(), pads=None).findings == ()
+
+
+@pytest.mark.parametrize(("reach", "count"), [(-50_000, 0), (50_000, 1), (0, 1)])
+def test_area_membership_is_judged_on_the_copper(reach: int, count: int) -> None:
+    """Scenario "Copper just outside the area": 50 µm outside is out, 50 µm inside is in; a touching
+    edge is in."""
+    made = Copper()
+    edge = mm(2) - 125_000 + reach
+    made.keepouts.append(
+        Keepout(id="kpo_00000000-0000-4000-8000-000000000001", name="HV", layers=("F.Cu",),
+                outline=(Point(0, -mm(3)), Point(mm(10), -mm(3)), Point(mm(10), edge), Point(0, edge)))
+    )  # fmt: skip
+    made.rule("hv", mm(2), Selector("area", "HV"))
+    _pairs(made, 1)
+    assert len(check_copper(made.build(), pads=None).findings) == count
+
+
+def test_area_names_two_areas_and_letter_case() -> None:
+    made = Copper()
+    _area(made, "HV", (0, 0, 10, 5))
+    _area(made, "HV", (0, 18, 10, 23))
+    _area(made, "hv", (30, 0, 40, 5))
+    made.rule("hv", mm(2), Selector("area", "HV"))
+    _pairs(made, 1)
+    made.track("E", Point(mm(31), mm(2)), Point(mm(39), mm(2)))
+    made.track("F", Point(mm(31), mm(3.25)), Point(mm(39), mm(3.25)))
+    report = check_copper(made.build(), pads=None)
+    assert [sorted(item.net for item in f.items) for f in report.findings] == [["A", "B"], ["C", "D"]]
+    assert report.summary["rule_areas"] == 3
+
+
+def test_area_brute_force_equals_the_index() -> None:
+    made = Copper()
+    _area(made, "HV", (0, 0, 10, 5), no_tracks=True)
+    made.rule("hv", mm(2), Selector("area", "HV"))
+    _pairs(made, 1)
+    design = made.build()
+    indexed = check_copper(design, pads=None)
+    brute = copper_module._run(  # pyright: ignore[reportPrivateUsage]
+        design, pads=None, min_clearance=None, rules_over_classes=True, floor_over_rules=False,
+        arc_tol=ARC_TOL_NM, inputs=(), every_pair=True,
+    )  # fmt: skip
+    assert indexed.findings == brute.findings and len(indexed.findings) == 3
+
+
+def test_opaque_area_outline() -> None:
+    """Scenario "Opaque area outline": an area the check cannot shape is left out and counted."""
+    made = Copper()
+    made.keepouts.append(
+        Keepout(id="kpo_00000000-0000-4000-8000-000000000001", outline=(), layers=("F.Cu",), name="HV",
+                no_tracks=True)
+    )  # fmt: skip
+    made.rule("hv", mm(2), Selector("area", "HV"))
+    _pairs(made, 1)
+    report = check_copper(made.build(), pads=None)
+    assert report.findings == () and report.summary["unsupported"] == {"rule-area": 1}
+    assert report.summary["rule_areas"] == 0
+    (note,) = [i for i in report.issues if i.code == "copper.item-unsupported"]
+    assert note.where == "rule-area" and note.message.startswith("1 rule-area item(s)")
+    assert report.evidence.level is Level.UNVERIFIED
+
+
+def test_keepout_track_in_a_tracks_keepout() -> None:
+    """Scenario "Track in a tracks keep-out"."""
+    made = Copper()
+    _area(made, "ANT", (0, 0, 10, 5), layers=("F.Cu",), no_tracks=True)
+    made.track("A", Point(mm(2), mm(2)), Point(mm(8), mm(2)), locator="inside")
+    made.track("B", Point(-mm(4), mm(3)), Point(mm(4), mm(3)), locator="crossing")
+    made.track("C", Point(mm(2), mm(9)), Point(mm(8), mm(9)), locator="outside")
+    made.track("D", Point(mm(2), mm(4)), Point(mm(8), mm(4)), layer="B.Cu", locator="under")
+    report = check_copper(made.build(), pads=None)
+    found = [f for f in report.findings if f.code == "copper.keepout"]
+    assert [f.items[0].where for f in found] == ["crossing", "inside"]
+    first = found[1]
+    assert (first.severity, first.layer, first.gap, first.clearance) == ("error", "F.Cu", 0, None)
+    assert first.source == "keepout:ANT"
+    assert first.items[1] == CopperRef("keepout", "ANT", made.keepouts[0].id, "<no net>")
+    assert first.where == "inside, ANT"
+    for word in ("track", "A", "ANT", "tracks", "F.Cu", "mm"):
+        assert word in first.message
+    assert report.summary["keepouts"] == 2 and report.summary["rule_areas"] == 1
+    assert [i.code for i in report.issues if i.severity == "error"] == ["copper.keepout"] * 2
+    assert all(f.to_issue().severity == "error" for f in found)
+
+
+def test_keepout_only_the_forbidden_kind() -> None:
+    """Scenario "Only the forbidden kind": one finding for the via, on its first layer, none for the
+    track."""
+    made = Copper()
+    _area(made, "", (0, 0, 10, 5), no_vias=True, locator="zone[3]")
+    made.via("A", Point(mm(5), mm(2)), locator="via[0]")
+    made.track("B", Point(mm(2), mm(4)), Point(mm(8), mm(4)))
+    made.arc("C", Point(mm(1), mm(1)), Point(mm(2), mm(2)), Point(mm(3), mm(1)))
+    report = check_copper(made.build(), pads=None)
+    (found,) = report.findings
+    assert (found.code, found.layer, found.source) == ("copper.keepout", "F.Cu", "keepout:zone[3]")
+    assert [item.kind for item in found.items] == ["via", "keepout"]
+    assert report.summary["rule_areas"] == 0  # an area without a name selects nothing
+
+
+def test_keepout_arcs_are_tracks() -> None:
+    made = Copper()
+    _area(made, "KT", (0, 0, 10, 5), no_tracks=True)
+    made.arc("C", Point(mm(1), mm(1)), Point(mm(2), mm(2)), Point(mm(3), mm(1)))
+    (found,) = check_copper(made.build(), pads=None).findings
+    assert found.items[0].kind == "arc" and "tracks" in found.message
+
+
+def test_keepout_pads_and_fills() -> None:
+    """Scenario "Pads and fills": one finding per pad, never one for a fill."""
+    made = Copper()
+    _area(made, "KP", (0, 0, 10, 5), layers=("F.Cu",), no_pads=True, no_copper_pour=True)
+    made.pad("R1", "1", "A", rect_entry(mm(2), mm(2), mm(3), mm(3)))
+    made.pad("R1", "2", "B", rect_entry(mm(6), mm(2), mm(7), mm(3)))
+    made.pad("R2", "1", "A", rect_entry(mm(20), mm(2), mm(21), mm(3)))
+    fill = _rect(4, 0, 5, 5)
+    made.zone("GND", fill, fills=[fill])
+    report = check_copper(made.build(), pads=made.pads)
+    found = [f for f in report.findings if f.code == "copper.keepout"]
+    assert [f.items[0].where for f in found] == ["R1-1", "R1-2"]
+    assert all(f.items[0].kind == "pad" and "pads" in f.message for f in found)
+    assert not [f for f in report.findings if "fill" in {item.kind for item in f.items}]
+
+
+def test_keepout_without_a_restriction_reports_nothing() -> None:
+    made = Copper()
+    _area(made, "HV", (0, 0, 10, 5))
+    made.track("A", Point(mm(2), mm(2)), Point(mm(8), mm(2)))
+    made.via("B", Point(mm(5), mm(4)))
+    report = check_copper(made.build(), pads=None)
+    assert report.findings == () and report.summary["keepouts"] == 0
+
+
+def test_keepout_code_is_in_the_table() -> None:
+    """Scenario "Keep-out literal is a key"."""
+    from fenolite.checks.codes import ISSUE_CODES
+
+    assert ISSUE_CODES["copper.keepout"] == ("error",)
+
+
+def test_keepout_finding_is_listed_once_beside_waivers() -> None:
+    """A keep-out finding takes no waiver (the copper waiver codes of change c0114 are the three pair
+    findings): ``waived_issues`` passes it on once, as the error it is."""
+    from fenolite.checks.copper import waived_issues
+    from fenolite.model.findings import Waiver
+
+    made = Copper()
+    _area(made, "ANT", (0, 0, 10, 5), layers=("F.Cu",), no_tracks=True)
+    made.track("A", Point(mm(2), mm(2)), Point(mm(8), mm(2)), locator="inside")
+    report = check_copper(made.build(), pads=None)
+    issues, counts = waived_issues(report, (Waiver("w", "copper.short", ("inside", "ANT"), "test"),))
+    assert [(i.code, i.severity) for i in issues] == [("copper.keepout", "error")]
+    assert not any(counts.values())

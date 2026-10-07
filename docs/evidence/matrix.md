@@ -360,6 +360,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `_pcbwrite` | see `pcb` |
 | `altium_import` | `IMPORT_EVIDENCE` INFERRED: `H-K-00`, `H-K-PCB-READ` |
 | `backend` | none: the facade of the registered backend: a read or a write returns its module's evidence |
+| `boarditems` | `EVIDENCE` INFERRED: `H-K-AREA-NAME`, `H-K-AREA-COND`, `H-K-BOARD-TEXT`, `H-K-DIM` |
 | `bom` | `EVIDENCE` KICAD-VERIFIED: `H-K-BOM-CSV` |
 | `canary` | see `oracle` |
 | `cli` | see `altium_import`, `helpmatrix`, `oracle`, `plot` |

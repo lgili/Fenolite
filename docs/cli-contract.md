@@ -350,6 +350,17 @@ evidence also combines the copper and board-frame evidence, which are `INFERRED`
 `--timestamp` and `PYTHONHASHSEED` change no byte of a build with intents. A via of kind `buried` needs
 `--kicad-version 10`: for KiCad 9 the board writer refuses it and the build exits 7 (`FEN-7001`).
 
+A script may declare rule areas, keep-outs, texts, graphics and dimensions (`docs/dsl.md`, "Rule areas"
+and "Board drawings"). `result.board_items` reports the counts `rule_areas`, `texts`, `graphics` and
+`dimensions` of the script, and `result.preserved.board_items` the counts `regenerated` and `stale` of
+the merge with an existing board (0 without one): script items are written again on every build, with
+`kicad.board-item.regenerated` (info) for one that was edited in KiCad and `kicad.board-item.stale`
+(warning) for one whose call is gone (`docs/lens.md`, "Board items declared in the script"). A rule that
+selects a rule area by a name that the board about to be written does not hold stops the build:
+`build.area-unknown` (error, exit 5, nothing written), with the hint to declare the area with
+`design.rule_area()` or to remove the selector. The copper guard reports copper in a keep-out as
+`copper.keepout`.
+
 **Copper guard.** Before a KiCad build plans its writes, it judges the copper of the triad it is about
 to write with the copper check of `check` (`copper.clearance`, below): the planned board is read back,
 the planned project and rules files give the clearance in force, and copper kept from an existing board
@@ -977,6 +988,7 @@ repeat.
 | `copper.short` | error, info | copper of two nets touches or overlaps on a shared copper layer; `where` names both items; `info` when a waiver accepts it |
 | `copper.clearance` | error, warning, info | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error; `info` when a waiver accepts it |
 | `copper.zone-overlap` | warning, info | zones of different nets and equal priority overlap on a shared layer; `info` when a waiver accepts it |
+| `copper.keepout` | error | a track, arc, via or pad lies in a keep-out whose settings forbid its kind, on a layer of the keep-out; `where` names the item and the area. Fills are never reported |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |

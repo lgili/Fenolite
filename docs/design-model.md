@@ -340,6 +340,28 @@ a board whose source states none has `stackup` `None`, and the model then holds 
   document that carries `dielectric_kind`, `color` or `impedance_controlled`: its reader refuses an
   unknown key.
 
+## Rule areas, board items and the area selector
+
+Change c0103 adds what a script needs to declare rule areas and drawings:
+
+- `Keepout.name: str = ""`, the name of a rule area. A `Keepout` whose five settings are false is a named
+  area that only rules select.
+- `Text.h_justify` and `Text.v_justify` (`left`, `center`, `right` and `top`, `center`, `bottom`; `center`
+  by default), in the reading frame of the text.
+- `Dimension`, a linear dimension between two points: `kind` (`aligned` or `orthogonal`), `layer`, `start`,
+  `end`, `offset` (the signed distance of the dimension line from the points), `direction` (`horizontal`
+  or `vertical`, for an orthogonal one), `units` (`mm` or `in`), `precision` (4 by default), and `size`,
+  `thickness` and `width`, where `None` means the backend's default. The measured value is not a field: it
+  follows from the points. `Board.dimensions` holds them; the id prefix is `dim`.
+- The selector op `area`: `Selector("area", v)` matches a subject whose `RuleSubject.areas` (the names of
+  the rule areas it lies in) holds a name that `v` matches with `fnmatch.fnmatchcase`. Letter case counts
+  and `*` is a glob.
+- The keys are additive: `canonical` omits the defaults, and a document written before them loads
+  unchanged and serialises to its own bytes. The other direction does not hold. Release 0.2.x cannot read
+  a model document that carries one of the new keys (`name` of a keep-out, `h_justify` and `v_justify` of
+  a board text, `dimensions` of a board) or a selector of the op `area`: its reader refuses an unknown key
+  and its schema an unknown op.
+
 ## Via protection
 
 `Via.protection` and `Board.via_protection` say how vias are protected (change c0112). Both hold a

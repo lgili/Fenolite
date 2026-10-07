@@ -192,6 +192,12 @@ Class: `select.Select(selector: 'Selector') -> None`
 
 A selector expression; `to_model()` gives the model `Selector`.
 
+### select.area
+
+Function: `select.area(area: 'str \| RuleArea') -> 'Select'`
+
+The items whose copper reaches into a rule area, given by name or as the `RuleArea` of `design.rule_area()`.
+
 ### select.item
 
 Function: `select.item(kind: 'str') -> 'Select'`

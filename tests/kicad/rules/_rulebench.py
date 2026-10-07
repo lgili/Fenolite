@@ -38,6 +38,7 @@ from fenolite.model.board import (
     Arc,
     Board,
     FootprintInstance,
+    Keepout,
     Outline,
     Side,
     Track,
@@ -95,6 +96,7 @@ class Builder:
     vias: list[Via] = field(default_factory=lambda: [])
     arcs: list[Arc] = field(default_factory=lambda: [])
     zones: list[Zone] = field(default_factory=lambda: [])
+    keepouts: list[Keepout] = field(default_factory=lambda: [])
     classes: dict[str, NetClass] = field(default_factory=lambda: {})
     class_of: dict[str, str] = field(default_factory=lambda: {})
     rules: list[Rule] = field(default_factory=lambda: [])
@@ -136,6 +138,22 @@ class Builder:
         self.vias.append(via)
         self.items[label] = (kicad_uuid(via),)
         return via
+
+    def area(self, label: str, name: str, box: tuple[int, int, int, int], *,
+             layers: tuple[str, ...] = ("F.Cu", "B.Cu"), **settings: bool) -> Keepout:  # fmt: skip
+        """A rectangular rule area ``(x0, y0, x1, y1)`` named ``name`` (change c0103): item ``<label>``.
+        ``settings`` are the ``no_*`` fields of the keep-out; none makes it an area for rules only."""
+        x0, y0, x1, y1 = box
+        area = Keepout(
+            id=_id("kpo", len(self.keepouts) + 1),
+            outline=(Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1)),
+            layers=layers,
+            name=name,
+            **settings,
+        )
+        self.keepouts.append(area)
+        self.items[label] = (kicad_uuid(area),)
+        return area
 
     def row(self) -> int:
         y = FIRST_ROW + self.rows * ROW
@@ -400,6 +418,7 @@ class Builder:
             arcs=tuple(self.arcs),
             vias=tuple(self.vias),
             zones=tuple(self.zones),
+            keepouts=tuple(self.keepouts),
         )
         base = Design.new("rules-bench", seed=0)
         circuit = Circuit(

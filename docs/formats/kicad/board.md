@@ -135,6 +135,11 @@ never taken from KiCad's writer code.
 | 9.0.9 loads the target-9 text of the same tables of 2, 4, 6 and 8 copper layers, gives one Gerber per copper layer and refuses the table of three; its `kicad-cli` has no `pcb upgrade`, so the re-save is judged on 10.0.6 only | S-0029, S-0037 | KICAD-VERIFIED (9.0.x) | H-K-PCB-LAYERS |
 | A copper row of type `power` (`(4 "In1.Cu" power)`) loads on 10.0.6 in the target-9 and the target-10 text and adds no violation type to the DRC report of the same routed board with `signal` rows; its Gerber carries the file function `Copper,L<n>,Inr`, as a signal row's does; `pcb upgrade --force` keeps the type. The type says what the layer is for and changes no check: tracks on it are not reported | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-LAYER-POWER |
 | 9.0.9 loads the target-9 text with `power` rows the same way (measured on 2026-10-05; `pcb-layer-power-t9` recorded `equal` in `9.0.9.json` on 2026-10-08, the pinned image, local run) | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-LAYER-POWER |
+| A rule area is a `zone` with a `keepout` child; its name is the child `(name "<name>")`, which 10.0.6 writes right after `uuid`. A created area with the name there and without `hatch`, `connect_pads`, `min_thickness`, `placement` and `fill` loads, and `pcb upgrade --force` on 10.0.6 keeps the name (probe `area-name-keep`, recorded for 10.0.6; the 9.0.9 half is the named benches loading) | S-0020, S-0029 | INFERRED | H-K-AREA-NAME |
+| The text of a `gr_text` is justified by the atoms `left` or `right`, then `top` or `bottom`, of `effects/justify`, before `mirror`; a text without them is centred on its `at`. Texts on `F.SilkS`, `B.SilkS`, `F.Fab`, `Cmts.User` and `Dwgs.User` with each justification load and no DRC violation names them (probe `text-board-load`, recorded for 10.0.6) | S-0020, S-0029 | INFERRED | H-K-BOARD-TEXT |
+| DRC judges a board text against the board-setup text minimums: a silkscreen text 0.5 mm high with a 0.06 mm stroke gives `text_height` and `text_thickness` (probe `text-height`). A text on `F.Cu` over a track gives `shorting_items` (probe `text-copper-short`), while a `gr_line` on `F.Cu` across a track is named by no violation and gives the track neither `shorting_items` nor `clearance` (probe `graphic-copper-silent`); all recorded for 10.0.6 | S-0020, S-0029 | INFERRED | H-K-BOARD-TEXT |
+| A linear `dimension` holds, in the order of the demo boards of 9.0.9 and 10.0.6: `(type aligned\|orthogonal)`, `layer`, `uuid`, `(pts (xy …) (xy …))`, `(height H)`, `(orientation 0\|1)` for an orthogonal one (0 measures along x, 1 along y), `(format (prefix …) (suffix …) (units U) (units_format F) (precision P))`, `(style (thickness …) (arrow_length …) (text_position_mode …) (arrow_direction …) (extension_height …) (extension_offset …) (keep_text_aligned yes))` and a `gr_text` that carries the dimension's own uuid. `units 2` is millimetres and `units 0` inches; `units_format 1` prints the unit after the value | S-0058, S-0020 | INFERRED | H-K-DIM |
+| KiCad recomputes the text of a dimension, its position and its angle when it loads the board: the `Dwgs.User` plots of a board and of its copy with another cache text at another place are equal (probe `dim-recompute`), and `pcb upgrade --force` on 10.0.6 writes "20.0000 mm" and "25.50 mm" for a 20 mm dimension at precision 4 and a 25.5 mm one at precision 2 whose cache text was wrong (probe `dim-resave-text`); recorded for 10.0.6 | S-0020, S-0029 | INFERRED | H-K-DIM |
 
 ### Plane layers (c0107)
 
@@ -154,16 +159,17 @@ verbatim). Opaque and projected children keep their position, so a rebuild write
 
 | head | modelled | projected | opaque (examples) |
 |---|---|---|---|
-| `kicad_pcb` | `version`, `generator`, `generator_version` (values in `Board.ext["kicad"]`), `layers`, net rows N ≥ 1, `footprint`, `segment`, `arc`, `via`, `zone` (not teardrop), `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text` | — | `general`, `paper`, `title_block`, `setup`, `(net 0 "")`, teardrop zones, `group`, `dimension`, `generated`, `image`, `table`, `barcode`, `point`, `target`, `embedded_fonts`, `embedded_files`, unknown heads |
+| `kicad_pcb` | `version`, `generator`, `generator_version` (values in `Board.ext["kicad"]`), `layers`, net rows N ≥ 1, `footprint`, `segment`, `arc`, `via`, `zone` (not teardrop), `gr_line`, `gr_arc`, `gr_circle`, `gr_rect`, `gr_poly`, `gr_text`, `dimension` of type `aligned` or `orthogonal` (c0103) | — | `general`, `paper`, `title_block`, `setup`, `(net 0 "")`, teardrop zones, `group`, a `dimension` of another type, `generated`, `image`, `table`, `barcode`, `point`, `target`, `embedded_fonts`, `embedded_files`, unknown heads |
 | `footprint` | name → `lib_ref`, `layer` → `side`, `at` → `position` and `rotation`, `uuid`, `attr` → `attributes`, `pad`, `path` → `Component.path`, placed `property` → `fields` (c0030) | a `property` that is not a field (bare, or a repeated name) → `Component.ref`, `value`, `properties`; `locked` → `locked` | `descr`, `tags`, `sheetname`, `sheetfile`, `fp_*`, `model`, `zone`, `group`, `units`, clearances, `embedded_*` |
 | `property` (a field, c0030) | name, `at` → `position` and `rotation`, `layer`, `hide` → `visible`, `uuid`, `effects` with `font` `size` and `thickness` and `justify` → `size`, `thickness`, `h_justify`, `v_justify`, `mirrored` | the value atom → `Component.ref`, `value`, `properties`; an `effects` the emitter does not reproduce (`bold`, a font `face`) | `unlocked`, a bare `hide` atom, unknown heads |
 | `pad` | number, type, shape, `at`, `size`, `layers` without wildcards, `drill` with one diameter, `uuid`, `net`, `zone_connect` 0 to 3 → `zone_connection` | `layers` with wildcards, `padstack`, offset drill, `pinfunction`, `pintype` | `roundrect_rratio`, `chamfer*`, margins, `tenting`, `teardrops`, `primitives`, `options`, `zone_connect` outside 0 to 3, `thermal_bridge_width`, `thermal_gap`, `thermal_bridge_angle`, `remove_unused_layers` |
 | `segment`, `arc` | `start`, `mid`, `end`, `width`, `locked` → `locked` (c0108), `layer`, `net`, `uuid` | — | unknown heads; a `locked` child that is not `(locked yes)` |
 | `via` | type atom, `at`, `size`, `drill`, `layers`, `locked` → `locked` (c0108), `net`, `uuid`, and the protection children `tenting`, `capping`, `covering`, `plugging`, `filling` → `protection` ("Via protection") | a protection child in a form that the board's major does not write ("Via protection") | `free`, `remove_unused_layers`, `padstack`, `teardrops`; a `locked` child that is not `(locked yes)` |
-| `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `locked`, `connect_pads`, `min_thickness` and `fill` |
+| `zone` | `net`, `layer` or `layers`, `uuid`, `name`, `priority`, one points-only `polygon`, `filled_polygon`, `keepout`; on a copper zone also `locked`, `connect_pads`, `min_thickness` and `fill` (section “Zone settings”) | `layers` with wildcards; a setting child that the emitter does not reproduce | `net_name`, `hatch`, `filled_areas_thickness`, `placement`, `attr`; on a rule area also `priority`, `locked`, `connect_pads`, `min_thickness` and `fill`. The `name` of a rule area is modelled (`Keepout.name`, c0103) |
 | `filled_polygon` | `layer`, `island`, points-only `pts` | — | unknown heads |
 | `gr_*` | as `fp_*` in footprint libraries (`libraries.md`) | `stroke` (width) | hatch fills, `net`, `locked` |
-| `gr_text` | text atom, `at`, `layer` with one atom, `uuid` | `effects` (font size and thickness) | `render_cache`, `locked` |
+| `gr_text` | text atom, `at`, `layer` with one atom, `uuid` | `effects` (font size and thickness, and `justify` → `h_justify` and `v_justify`, c0103) | `render_cache`, `locked` |
+| `dimension` (c0103) | `type` → `kind`, `layer`, `uuid`, the two `xy` of `pts` → `start` and `end`, `height` → `offset`, `orientation` → `direction` | `format` (`units` 2 or 0 → `units`, `precision` 0 to 4), `style` (`thickness` → `width`), `gr_text` (font size and thickness → `size`, `thickness`); a value outside these keeps the field's default | `locked`, unknown heads. A dimension of another type, one whose `pts` does not hold two points, and an orthogonal one without `orientation` stay opaque root children. The `gr_text` belongs to the dimension: its uuid is not a duplicate |
 
 A modelled child that the emitter does not reproduce exactly (a spelling such as `12.000000`, a
 written zero pad or footprint angle, an extra atom such as `knockout`) becomes a projected slot with
@@ -250,6 +256,32 @@ These are decisions of the reader, not facts about KiCad.
   `layer:<name>`; tracks, arcs, vias, zones, keepouts, graphics and texts their uuid; design header and
   board `kicad_pcb`. An item without a uuid gets a content id; a repeated uuid gets the occurrence
   suffix `:<k>` and the warning `kicad.board.duplicate-uuid`.
+
+## Board items of a script (c0103)
+
+- **Item uuids.** `boarditems.item_uuid(<entity id>)` gives a rule area, text, graphic or dimension of a
+  script its KiCad uuid: version 8 (S-0110), the 48-bit marker `fenitm` in `custom_a`, and the first 74
+  bits of the SHA-256 of `kicad-item:<entity id>`, as `copper_uuid` builds its uuids. A rebuild tells
+  script items from items drawn in KiCad by the marker (`docs/lens.md`).
+- **Rule areas.** A created area writes `(name "<name>")` after its `uuid` when the name is not empty, and
+  nothing else beyond `net`, the layers, the `keepout` settings and the `polygon`. The children that a
+  re-save by 10.0.6 adds (`hatch`, `connect_pads`, `min_thickness`, `placement`, `fill`) are not written.
+- **Texts.** A created text writes `(justify …)` with `left` or `right`, then `top` or `bottom`, then
+  `mirror` on a back layer, each only when set.
+- **Dimensions.** A created dimension writes the children of the fact row above, with `(units 2)` or
+  `(units 0)`, `(units_format 1)`, the model's precision, and the style values of the demo boards
+  (`arrow_length 1.27`, `text_position_mode 0`, `arrow_direction outward`, `extension_height 0.58642`,
+  `extension_offset 0.5`, `keep_text_aligned yes`). The line width is `Dimension.width`, else 0.1 mm (a
+  Fenolite choice); the text is 1 mm high with a 0.15 mm stroke unless the model says otherwise. `dimension`
+  follows `gr_text` among the root children.
+- **Cache text.** The `gr_text` of a created dimension holds the measured length (the distance of the
+  points; for an orthogonal one the difference in x or in y) in millimetres or inches, rounded half away
+  from zero to the precision with integer arithmetic, then ` mm` or ` in`, at the midpoint of the points
+  with angle 0. KiCad draws its own value, so a difference in the last digit is never seen.
+- **Names.** `arrow_direction` and the list form of `keep_text_aligned` are rows of the token inventory
+  (9.0). The other names of a dimension are in `pcb.FLOOR_HEADS`: the demo boards of 9.0.9 and 10.0.6 hold
+  them (S-0058); their check against the 8.0.0 keyword list (S-0033) is still open, and the writer has no
+  target below 9.
 
 ## Zone settings (c0031)
 

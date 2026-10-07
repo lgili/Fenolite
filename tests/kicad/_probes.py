@@ -24,6 +24,7 @@ from pathlib import Path
 import _acceptance
 import _anchorbench
 import _arccases
+import _areacases
 import _asmcases
 import _bench
 import _benches
@@ -46,6 +47,7 @@ import _fpwrite
 import _framecases
 import _gencases
 import _hiercases
+import _itemcases
 import _kindcases
 import _layercases
 import _layertables
@@ -276,6 +278,8 @@ def _probes() -> dict[str, Probe]:
         **_openbench.open_probes(),
         **_lockbench.lock_probes(),
         **_anchorbench.anchor_probes(),  # change c0111
+        **_areacases.area_probes(),  # change c0103
+        **_itemcases.item_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():

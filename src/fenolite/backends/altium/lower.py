@@ -73,6 +73,7 @@ KINDS: tuple[str, ...] = (
     "zone",
     "text",
     "graphic",
+    "dimension",
     "keep-out",
     "hole",
     "body",
@@ -1032,6 +1033,8 @@ def _items(
         problem = pcbdoc.text_problem_of(text)
         if pcbdoc.board_layer(text.layer, layer_ids) is None:
             problem = f"the layer {text.layer} has no layer in the document for a text"
+        if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
+            problem = "the text record has no key for a justification other than centred"
         if problem is None:
             texts.append(text)
         else:
@@ -1066,6 +1069,8 @@ def _items(
             holes.append(hole)
         else:
             account.skip("hole", hole.id, "a hole needs a positive drill")
+    for dimension in board.dimensions:
+        account.skip("dimension", dimension.id, "the document has no dimension record")
     account.wrote("text", len(texts))
     account.wrote("graphic", len(graphics) + outline)
     account.wrote("keep-out", len(keepouts))

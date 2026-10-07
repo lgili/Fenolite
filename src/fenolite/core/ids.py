@@ -24,7 +24,7 @@ PREFIXES: frozenset[str] = frozenset(
         "dsn",  # Design
         "cmp", "pin", "net", "cls", "itf", "mod", "bus",  # circuit
         "brd", "lay", "stk", "sly", "fp", "pad", "pst", "trk", "arc", "via",  # board
-        "zon", "kpo", "txt", "gfx", "hol", "out",  # board
+        "zon", "kpo", "txt", "gfx", "hol", "out", "dim",  # board
         "fld",  # footprint fields
         "bdy",  # component bodies
         "rst", "rul",  # rules

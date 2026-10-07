@@ -35,8 +35,8 @@ track or arc of the selected items on the rule's layers; it takes no limit) by c
 selector ops and layer clause a kind takes, and for which targets it is written, is the backend's to say
 (``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
-SelectorOp = Literal["all", "net", "netclass", "ref", "layer", "item_kind", "and", "or", "not"]
-LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind")
+SelectorOp = Literal["all", "net", "netclass", "ref", "layer", "item_kind", "area", "and", "or", "not"]
+LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area")
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +48,8 @@ class RuleSubject:
     netclass: str | None = None
     ref: str | None = None
     layer: str | None = None
+    areas: frozenset[str] = frozenset()
+    """The names of the rule areas the object lies in (letter case counts)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +90,8 @@ class Selector:
                 return _glob(subject.layer, self.value)
             case "item_kind":
                 return _glob(subject.item_kind, self.value)
+            case "area":
+                return any(fnmatch.fnmatchcase(name, self.value) for name in subject.areas)
 
 
 def _glob(value: str | None, pattern: str) -> bool:

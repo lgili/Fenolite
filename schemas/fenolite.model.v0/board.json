@@ -111,6 +111,12 @@
         "$ref": "#/$defs/Hole"
       }
     },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Dimension"
+      }
+    },
     "sheet": {
       "anyOf": [
         {
@@ -279,6 +285,117 @@
         "id",
         "kind",
         "height"
+      ]
+    },
+    "Dimension": {
+      "description": "A linear dimension between two points. The measured value is not a field: it follows from the",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "aligned",
+            "orthogonal"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "in"
+          ]
+        },
+        "precision": {
+          "type": "integer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "layer",
+        "start",
+        "end",
+        "offset"
       ]
     },
     "Evidence": {
@@ -658,7 +775,7 @@
       ]
     },
     "Keepout": {
-      "description": "An area where some kinds of objects are not allowed.",
+      "description": "A rule area: an area where some kinds of objects are not allowed, or, with every setting false,",
       "type": "object",
       "properties": {
         "id": {
@@ -713,6 +830,9 @@
         },
         "no_footprints": {
           "type": "boolean"
+        },
+        "name": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -1344,6 +1464,20 @@
         },
         "rotation": {
           "type": "integer"
+        },
+        "h_justify": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "v_justify": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
         }
       },
       "additionalProperties": false,

@@ -51,6 +51,9 @@ ZoneSmoothing = Literal["none", "chamfer", "fillet"]
 HatchBorder = Literal["hatch_thickness", "min_thickness"]
 FieldJustifyH = Literal["left", "center", "right"]
 FieldJustifyV = Literal["top", "center", "bottom"]
+DimensionKind = Literal["aligned", "orthogonal"]
+DimensionDirection = Literal["horizontal", "vertical"]
+DimensionUnits = Literal["mm", "in"]
 ORDERED = {"ordered": True}
 
 
@@ -382,7 +385,8 @@ class Zone(Entity):
 
 @dataclass(frozen=True, slots=True)
 class Keepout(Entity):
-    """An area where some kinds of objects are not allowed."""
+    """A rule area: an area where some kinds of objects are not allowed, or, with every setting false,
+    a named area that only rules select (``Selector("area", name)``)."""
 
     outline: tuple[Point, ...] = field(metadata=ORDERED)
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
@@ -391,6 +395,7 @@ class Keepout(Entity):
     no_pads: bool = False
     no_copper_pour: bool = False
     no_footprints: bool = False
+    name: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -401,6 +406,9 @@ class Text(Entity):
     size: Size
     thickness: Nm
     rotation: Udeg = 0
+    h_justify: FieldJustifyH = "center"
+    v_justify: FieldJustifyV = "center"
+    """The justification, in the reading frame of the text."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -412,6 +420,25 @@ class Graphic(Entity):
     points: tuple[Point, ...] = field(metadata=ORDERED)
     width: Nm = 0
     filled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Dimension(Entity):
+    """A linear dimension between two points. The measured value is not a field: it follows from the
+    points. ``offset`` is the signed distance of the dimension line from the measured points; ``None``
+    for ``size``, ``thickness`` and ``width`` means the backend's default."""
+
+    kind: DimensionKind
+    layer: str
+    start: Point
+    end: Point
+    offset: Nm
+    direction: DimensionDirection | None = None
+    units: DimensionUnits = "mm"
+    precision: int = 4
+    size: Size | None = None
+    thickness: Nm | None = None
+    width: Nm | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -439,6 +466,7 @@ class Board(Entity):
     texts: tuple[Text, ...] = ()
     graphics: tuple[Graphic, ...] = ()
     holes: tuple[Hole, ...] = ()
+    dimensions: tuple[Dimension, ...] = ()
     sheet: SheetFrameRef | None = None
     title_block: TitleBlock | None = None
     via_protection: ViaProtection | None = None
@@ -451,6 +479,10 @@ __all__ = [
     "BodyKind",
     "ComponentBody",
     "DielectricKind",
+    "Dimension",
+    "DimensionDirection",
+    "DimensionKind",
+    "DimensionUnits",
     "FieldJustifyH",
     "FieldJustifyV",
     "FootprintAttribute",

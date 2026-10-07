@@ -46,7 +46,7 @@ from fenolite.geometry import (
     thick_witness,
 )
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Zone
+from fenolite.model.board import Board, Keepout, Zone
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
 from fenolite.model.rules import RuleSubject
@@ -58,7 +58,19 @@ EVIDENCE = Evidence(
 )
 """``INFERRED`` also once the three rows are settled: the canaries cover pair kinds and clearance sources
 on benches, and fills on 10.0 only, not every board."""
+AREA_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-COPPER-AREA", "H-K-AREA-KEEPOUT"))
+"""Joins the report of a board that holds a rule area or a keep-out (change c0103): the two rows cover
+benches, recorded for 10.0.6 so far."""
 NO_NET = "<no net>"
+FORBIDDEN_KINDS: Mapping[str, tuple[str, str]] = {
+    "track": ("no_tracks", "tracks"),
+    "arc": ("no_tracks", "tracks"),
+    "via": ("no_vias", "vias"),
+    "pad": ("no_pads", "pads"),
+}
+"""Kind of a copper item → the keep-out setting that forbids it and that setting's name in a message.
+Fills are never reported: KiCad's DRC does not report a stored fill in a copper-pour keep-out and its
+filler leaves the area out (``H-K-AREA-KEEPOUT``)."""
 APPROXIMATED = " (approximated pad shape)"
 _WILDCARDS = ("*", "&")
 
@@ -317,6 +329,123 @@ class _Items:
                 self.kinds["fill"] += len(shapes) - 1  # fills are counted, not zones
 
 
+# --- rule areas and keep-outs ---------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _Area:
+    keepout: Keepout
+    shape: Thick
+    label: str
+    """The area's name, else its locator."""
+
+
+def _area_on(keepout: Keepout, layer: str) -> bool:
+    """Whether ``layer`` is one of the area's layers (``*.Cu`` and ``F&B.Cu`` included)."""
+    for name in keepout.layers:
+        if name == layer:
+            return True
+        if any(mark in name for mark in _WILDCARDS) and fnmatch.fnmatchcase(
+            layer, name.replace("F&B", "[FB]")
+        ):
+            return True
+    return False
+
+
+class _Areas:
+    """The rule areas of a board whose outline can be shaped, and which items lie in them. An item lies in
+    an area on a layer when the layer is one of the area's and its narrow shape touches the area's outline
+    taken as a filled polygon: copper, not centre lines (``H-K-AREA-COND``)."""
+
+    def __init__(self, board: Board, items: _Items) -> None:
+        self.items = items
+        self.areas: list[_Area] = []
+        for keepout in board.keepouts:
+            try:
+                ring = Polygon(_clean_ring(keepout.outline)).outer
+                shape = Thick(ring, 0, filled=True)
+            except (GeometryError, ValueError):
+                items.unsupported["rule-area"] += 1
+                continue
+            self.areas.append(_Area(keepout, shape, keepout.name or _where(keepout)))
+        self.named = sum(1 for area in self.areas if area.keepout.name)
+        self._index = SpatialIndex[int].build((thick_bbox(a.shape), i) for i, a in enumerate(self.areas))
+        self._memo: dict[tuple[int, str], tuple[int, ...]] = {}
+
+    def of(self, index: int, layer: str) -> tuple[int, ...]:
+        """The areas (their positions in ``areas``) that item ``index`` lies in on ``layer``."""
+        key = (index, layer)
+        found = self._memo.get(key)
+        if found is None:
+            hits: set[int] = set()
+            if self.areas:
+                for shape in self.items.items[index].shapes.get(layer, ()):
+                    for k in self._index.query(thick_bbox(shape.narrow)):
+                        area = self.areas[k]
+                        if (
+                            k not in hits
+                            and _area_on(area.keepout, layer)
+                            and thick_touch(shape.narrow, area.shape)
+                        ):
+                            hits.add(k)
+            found = tuple(sorted(hits))
+            self._memo[key] = found
+        return found
+
+    def names(self, index: int, layer: str) -> frozenset[str]:
+        """The names of the rule areas item ``index`` lies in on ``layer``."""
+        if not self.named:
+            return frozenset()
+        return frozenset(
+            self.areas[k].keepout.name for k in self.of(index, layer) if self.areas[k].keepout.name
+        )
+
+    def findings(self, layers: Sequence[str]) -> list[CopperFinding]:
+        """One ``copper.keepout`` per item and keep-out whose settings forbid the item's kind, on the first
+        layer, in ``layers`` order, where the item lies in it."""
+        forbidding = {k for k, a in enumerate(self.areas) if any(
+            getattr(a.keepout, setting) for setting, _ in FORBIDDEN_KINDS.values()
+        )}  # fmt: skip
+        found: list[CopperFinding] = []
+        if not forbidding:
+            return found
+        for index, item in enumerate(self.items.items):
+            rule = FORBIDDEN_KINDS.get(item.ref.kind)
+            if rule is None:
+                continue
+            setting, plural = rule
+            seen: set[int] = set()
+            for layer in layers:
+                if layer not in item.shapes:
+                    continue
+                for k in self.of(index, layer):
+                    area = self.areas[k]
+                    if k in seen or k not in forbidding or not getattr(area.keepout, setting):
+                        continue
+                    seen.add(k)
+                    shape = next(s.narrow for s in item.shapes[layer] if thick_touch(s.narrow, area.shape))
+                    at = thick_witness(shape, area.shape)
+                    ref = CopperRef("keepout", area.label, area.keepout.id, NO_NET)
+                    message = (
+                        f"{item.ref.kind} of {item.ref.net} lies in the keep-out {area.label}, which forbids "
+                        f"{plural}, on {layer} at {_point(at)}"
+                    )
+                    found.append(
+                        CopperFinding(
+                            "copper.keepout",
+                            "error",
+                            layer,
+                            at,
+                            (item.ref, ref),
+                            0,
+                            None,
+                            f"keepout:{area.label}",
+                            message,
+                        )
+                    )
+        return found
+
+
 # --- zone outlines --------------------------------------------------------------------------------
 
 
@@ -409,10 +538,13 @@ def _candidates(items: _Items, layers: Sequence[str], grow: int, *, every_pair: 
 
 
 class _Judge:
-    def __init__(self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver) -> None:
+    def __init__(
+        self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver, areas: _Areas
+    ) -> None:
         self.items = items
         self.layers = layers
         self.resolver = resolver
+        self.areas = areas
         self.judged = 0
         self.unset = 0
         self._subjects: dict[tuple[int, str], RuleSubject] = {}
@@ -422,7 +554,13 @@ class _Judge:
         found = self._subjects.get(key)
         if found is None:
             item = self.items.items[index]
-            found = self.resolver.subject(item.ref.kind, item.net_id, ref=item.component, layer=layer)
+            found = self.resolver.subject(
+                item.ref.kind,
+                item.net_id,
+                ref=item.component,
+                layer=layer,
+                areas=self.areas.names(index, layer),
+            )
             self._subjects[key] = found
         return found
 
@@ -556,6 +694,7 @@ def _run(
     layers: tuple[str, ...] = ()
     kinds: Counter[str] = Counter()
     unsupported: Counter[str] = Counter()
+    rule_areas = 0
     if board is not None:
         items = _Items(design, pads, arc_tol)
         used = {layer for item in items.items for layer in item.shapes}
@@ -565,11 +704,14 @@ def _run(
         pairs, counts["pairs"] = _candidates(
             items, layers, (resolver.max_value + 1) // 2, every_pair=every_pair
         )
-        judge = _Judge(items, layers, resolver)
+        areas = _Areas(board, items)
+        rule_areas = areas.named
+        judge = _Judge(items, layers, resolver, areas)
         for (a, b), shapes in sorted(pairs.items()):
             found = judge.pair(a, b, shapes)
             if found is not None:
                 findings.append(found)
+        findings += areas.findings(layers)
         findings += _zone_overlaps(board, items)
         counts.update(
             judged=judge.judged,
@@ -605,11 +747,14 @@ def _run(
         shorts=by_code["copper.short"],
         clearance=by_code["copper.clearance"],
         zone_overlaps=by_code["copper.zone-overlap"],
+        keepouts=by_code["copper.keepout"],
+        rule_areas=rule_areas,
         unsupported=dict(sorted(unsupported.items())),
         **counts,
     )
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
-    evidence = Evidence.combine(EVIDENCE, *inputs)
+    with_areas = board is not None and bool(board.keepouts)
+    evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)
     if any(i.code in LOWERING_CODES for i in issues):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
     return CopperReport(
@@ -663,6 +808,7 @@ def waived_issues(
     candidates = [
         Candidate(found.to_issue(), tuple(item.where for item in found.items), found.gap)
         for found in report.findings
+        if found.code in COPPER_CODES  # a ``copper.keepout`` finding takes no waiver and follows unchanged
     ]
     marked, counts = apply_waivers(copper_waivers(waivers), candidates)
     others = tuple(found for found in report.issues if found.code not in COPPER_CODES)
@@ -759,6 +905,7 @@ def copper_stage(
 
 __all__ = [
     "ARC_TOL_NM",
+    "AREA_EVIDENCE",
     "EVIDENCE",
     "LOWERING_CODES",
     "STAGE",

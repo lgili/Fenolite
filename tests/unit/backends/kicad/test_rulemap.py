@@ -325,7 +325,8 @@ def test_rule_order() -> None:
 
 def test_support_keys() -> None:
     assert set(rulemap.SELECTOR_SUPPORT) == set(rulemap.SELECTOR_KEYS) == {
-        "net", "netclass", "ref", "item_kind", "and", "or", "not", "glob", "selector_b", "layer_clause"
+        "net", "netclass", "ref", "item_kind", "area", "and", "or", "not", "glob", "selector_b",
+        "layer_clause",
     }  # fmt: skip
 
 
@@ -360,3 +361,83 @@ def test_kind_support_of_no_tracks_follows_the_probes() -> None:
             expected.add(major)
     assert set(table.KIND_SUPPORT["no_tracks"]) == expected
     assert table.KIND_SELECTORS["no_tracks"].leaves == {"net", "netclass"}
+
+
+# -- the area selector (change c0103) -------------------------------------------------------------------
+
+
+def area(value: str) -> Selector:
+    return Selector("area", value)
+
+
+def test_area_on_one_side(proved: None) -> None:
+    """Scenario "Area on one side"."""
+    neck = rule("track_width", area("BGA"), name="neck", min=100_000)
+    assert condition_text(neck, target=9) == ("A.intersectsArea('BGA')", ())
+    assert condition_text(rule(a=area("H*")), target=10) == ("A.intersectsArea('H*')", ())
+    both = Selector("and", items=(area("HV"), Selector("item_kind", "track")))
+    assert condition_text(rule(a=both), target=10)[0] == "(A.intersectsArea('HV') && A.Type == 'Track')"
+
+
+def test_areas_on_both_sides(proved: None) -> None:
+    """Scenario "Areas on both sides": the condition, and the lift of what was written."""
+    made = rule(a=area("P"), selector_b=area("Q"))
+    found, issues = condition_text(made, target=10)
+    assert found == "A.intersectsArea('P') && B.intersectsArea('Q')" and issues == ()
+    assert parse_condition(found) == (area("P"), area("Q"))
+    nodes, issues = rule_nodes(made, target=10)
+    assert issues == ()
+    lifted = lift_rule(nodes[0])
+    assert isinstance(lifted, Rule)
+    assert (lifted.selector_a, lifted.selector_b) == (area("P"), area("Q"))
+
+
+@pytest.mark.parametrize("kind", ["hole_to_hole", "hole_clearance", "annular_width", "via_diameter",
+                                  "hole_size", "edge_clearance", "via_drill"])  # fmt: skip
+def test_area_is_a_leaf_of_the_first_nine_kinds(proved: None, kind: str) -> None:
+    found, issues = condition_text(rule(kind, area("HV")), target=10)
+    assert issues == () and found is not None and found.endswith("A.intersectsArea('HV')")
+    assert "area" in rulemap.KIND_SELECTORS[kind].leaves  # type: ignore[index]
+
+
+@pytest.mark.parametrize("kind", ["creepage", "courtyard_clearance", "silk_clearance"])
+def test_area_refused_for_the_other_kinds(proved: None, kind: str) -> None:
+    """Scenario "Area refused for a creepage rule"."""
+    assert "area" not in rulemap.KIND_SELECTORS[kind].leaves  # type: ignore[index]
+    _, issues = condition_text(rule(kind, area("HV")), target=10)
+    assert codes(issues) == ["rules.unsupported-selector"] and kind in issues[0].message
+
+
+def test_area_refused_for_the_track_layer_kind(proved: None) -> None:
+    """``no_tracks`` (change c0107) keeps its selector of nets and classes: it takes no area."""
+    assert "area" not in rulemap.KIND_SELECTORS["no_tracks"].leaves
+    made = rule("no_tracks", area("HV"), min=None, layers=("In1.Cu",))
+    _, issues = condition_text(made, target=10)
+    assert codes(issues) == ["rules.unsupported-selector"] and "no_tracks" in issues[0].message
+
+
+def test_area_gated_per_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rulemap, "SELECTOR_SUPPORT", support(area=frozenset({10})))
+    _, issues = condition_text(rule(a=area("HV")), target=9)
+    assert codes(issues) == ["rules.unsupported-selector"] and "'area'" in issues[0].message
+    assert condition_text(rule(a=area("HV")), target=10) == ("A.intersectsArea('HV')", ())
+
+
+@pytest.mark.parametrize("value", ["H'V", "H?", "H[1]"])
+def test_area_values_are_never_escaped(proved: None, value: str) -> None:
+    assert codes(condition_text(rule(a=area(value)), target=10)[1]) == ["rules.unsupported-selector"]
+
+
+@pytest.mark.parametrize(
+    "condition",
+    ["A.enclosedByArea('HV')", "A.insideArea('HV')", "A.intersectsArea('')", "A.intersectsArea(HV)",
+     "A.intersectsArea('HV') == 'x'"],
+)  # fmt: skip
+def test_other_area_functions_are_outside_the_grammar(condition: str) -> None:
+    assert parse_condition(condition) is None
+
+
+def test_area_condition_is_lifted_on_either_side() -> None:
+    assert parse_condition("B.intersectsArea('HV')") == (Selector("all"), area("HV"))
+    found = parse_condition("A.NetName == 'A' && !(A.intersectsArea('H*'))")
+    assert found == (Selector("and", items=(net("A"), Selector("not", items=(area("H*"),)))), None)

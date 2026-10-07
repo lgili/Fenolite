@@ -476,7 +476,7 @@ def test_envelope_over_an_existing_board(tmp_path: Path, monkeypatch: pytest.Mon
     assert "H-K-PCB-READ" in evidence["hypotheses"] and preserved["board"] is True  # type: ignore[index]
     assert set(preserved) == {  # type: ignore[arg-type]
         "board", "kept", "replaced", "added", "orphans", "board_only", "dropped", "fills", "aliases",
-        "reader_infos", "fields", "pad_zones", "module_aliases", "net_aliases", "source",
+        "reader_infos", "fields", "pad_zones", "module_aliases", "net_aliases", "source", "board_items",
     }  # fmt: skip
     assert preserved["source"] == {"file": None, "used": [], "stale": [], "unknown": []}  # type: ignore[index]  # c0069
     assert preserved["module_aliases"] == {} and preserved["net_aliases"] == {}  # type: ignore[index]

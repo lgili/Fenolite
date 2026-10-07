@@ -40,6 +40,7 @@ TABLE = {
     "copper.short": ("error", "info"),
     "copper.clearance": ("error", "warning", "info"),
     "copper.zone-overlap": ("warning", "info"),
+    "copper.keepout": ("error",),
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),

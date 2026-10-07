@@ -44,6 +44,7 @@ from fenolite.dsl.intents import (
     via_step,
 )
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
+from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
 from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
@@ -107,6 +108,7 @@ __all__ = [
     "UART",
     "USB2",
     "Quantity",
+    "RuleArea",
     "amp",
     "farad",
     "henry",

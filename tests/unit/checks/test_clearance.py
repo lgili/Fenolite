@@ -342,3 +342,57 @@ def test_max_value_holds_the_clearance_of_zones_with_fills() -> None:
     assert ClearanceResolver(made.build()).max_value == mm(0.6)
     made.zone("A", ring, fills=[ring], clearance=0)
     assert ClearanceResolver(made.build()).max_value == mm(0.6)
+
+
+# --- rules scoped to an area (change c0103) ------------------------------------------------------------
+
+
+def area_design(value: str = "HV") -> Design:
+    made = Copper()
+    made.netclass("Signal", mm(0.2))
+    made.net("A", "Signal")
+    made.net("B", "Signal")
+    made.rule("hv", mm(2), Selector("area", value))
+    return made.build()
+
+
+def area_pair(design: Design, *areas: str) -> Clearance:
+    resolver = ClearanceResolver(design)
+    ids = {n.name: n.id for n in design.circuit.nets}
+    first = resolver.subject("track", ids["A"], ref=None, layer="F.Cu", areas=frozenset(areas))
+    second = resolver.subject("track", ids["B"], ref=None, layer="F.Cu")
+    assert first.areas == frozenset(areas) and second.areas == frozenset()
+    assert resolver.resolve(first, second) == resolver.resolve(second, first)
+    return resolver.resolve(first, second)
+
+
+def test_rule_scoped_to_an_area() -> None:
+    """Scenario "Rule scoped to an area"."""
+    design = area_design()
+    assert area_pair(design, "HV") == Clearance(mm(2), "error", "rule:hv")
+    assert area_pair(design) == Clearance(mm(0.2), "error", "class:Signal")
+    assert area_pair(design, "ANT", "HV").source == "rule:hv"
+    assert ClearanceResolver(design).max_value == mm(2)
+
+
+def test_area_names_keep_their_case() -> None:
+    """Scenario "Area names keep their case": other leaves fold, area leaves do not."""
+    assert area_pair(area_design(), "hv").source == "class:Signal"
+    assert area_pair(area_design("hv"), "HV").source == "class:Signal"
+    assert area_pair(area_design("H*"), "HV").source == "rule:hv"
+    assert area_pair(area_design("h*"), "HV").source == "class:Signal"
+
+
+def test_area_beside_a_folded_leaf() -> None:
+    made = Copper()
+    made.net("GND")
+    made.net("B")
+    made.rule("hv", mm(2), Selector("and", items=(Selector("area", "HV"), Selector("net", "gnd"))))
+    design = made.build()
+    resolver = ClearanceResolver(design)
+    ids = {n.name: n.id for n in design.circuit.nets}
+    inside = resolver.subject("track", ids["GND"], ref=None, layer="F.Cu", areas=frozenset({"HV"}))
+    other = resolver.subject("track", ids["B"], ref=None, layer="F.Cu")
+    assert resolver.resolve(inside, other).source == "rule:hv"
+    outside = resolver.subject("track", ids["GND"], ref=None, layer="F.Cu")
+    assert resolver.resolve(outside, other) == UNSET

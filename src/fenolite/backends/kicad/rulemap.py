@@ -85,7 +85,7 @@ class KindGrammar:
     glob: bool = True
 
 
-_LEAVES = frozenset({"net", "netclass", "ref", "item_kind"})
+_LEAVES = frozenset({"net", "netclass", "ref", "item_kind", "area"})
 KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
     {
         "clearance": KindGrammar(_LEAVES, side_b=True, layers=True),
@@ -105,7 +105,8 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
 )
 """Each kind → the selectors it takes (rules.md, "Selectors per kind"). A courtyard rule selects footprints,
 so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide,
-because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards."""
+because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards. ``area``
+(``S.intersectsArea('…')``, ``H-K-AREA-COND``) is a leaf of the first nine kinds only."""
 REFERENCE_KINDS: frozenset[RuleKind] = frozenset({"courtyard_clearance"})
 """The kinds whose ``ref`` leaf is the footprint itself (``Reference``), not a member of it."""
 ITEM_TYPES: Mapping[str, str] = MappingProxyType(
@@ -117,6 +118,7 @@ SELECTOR_KEYS = (
     "netclass",
     "ref",
     "item_kind",
+    "area",
     "and",
     "or",
     "not",
@@ -125,9 +127,12 @@ SELECTOR_KEYS = (
     "layer_clause",
 )
 _BOTH = frozenset({9, 10})
-SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType({key: _BOTH for key in SELECTOR_KEYS})
+SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(
+    {**{key: _BOTH for key in SELECTOR_KEYS}, "area": frozenset({10})}
+)
 """Each key → the KiCad majors on which its ``dru-cond-<key>`` probe recorded ``present``
-(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``; every key holds on both majors)."""
+(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key holds on both majors but
+``area``, whose probe ``dru-cond-area`` is recorded for 10.0.6 only so far (``H-K-AREA-COND``)."""
 KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
     {
         "clearance": _BOTH,
@@ -246,6 +251,8 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
         if rule.kind in REFERENCE_KINDS:
             return f"{side}.Reference == '{value}'"
         return f"{side}.memberOfFootprint('{value}')"
+    if op == "area":
+        return f"{side}.intersectsArea('{value}')"
     if op == "item_kind":
         if value not in ITEM_TYPES:
             return refuse(f"item kind {value!r} is not one of {', '.join(ITEM_TYPES)}")
@@ -343,11 +350,13 @@ class _Parse:
             self.take(")")
             return found
         side, prop = self.take(kind="leaf").split(".", 1)
-        if prop == "memberOfFootprint":
+        if prop in ("memberOfFootprint", "intersectsArea"):
             self.take("(")
             value = self.take(kind="str")[1:-1]
             self.take(")")
-            return ("leaf", (side, Selector("ref", value)))
+            if not value:
+                raise ValueError("empty value")
+            return ("leaf", (side, Selector("ref" if prop == "memberOfFootprint" else "area", value)))
         op = "ref" if prop == "Reference" and self.reference else _PROP_OPS.get(prop)
         if op is None:
             raise ValueError(f"property {prop!r} is outside the closed grammar")

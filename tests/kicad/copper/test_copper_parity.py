@@ -11,7 +11,9 @@ loaded". ``tests/kicad/test_probe_results.py`` pins every outcome per version.
 
 from __future__ import annotations
 
+import _areacases as ac
 import _copperparity as cp
+import _rulebench as rb
 import pytest
 from _probes import major, run
 
@@ -119,3 +121,23 @@ def test_net_tie_parity_of_ungrouped_pads_is_recorded() -> None:
     for label, found in tb.RECORDED.items():
         assert tb.pad_findings(target, label) == [found], label
     assert run("copper-nettie-ungrouped") in ("equal", "different")
+
+
+def test_keepout_parity() -> None:
+    """Scenario "Parity on both majors" of "Keep-outs and area rules agree with the copper check"
+    (``H-K-COPPER-AREA``; change c0103): the items of ``copper.keepout`` are those of
+    ``items_not_allowed``."""
+    found = ac.keepout_parity_run()
+    rb.require_canary(found.report, found.bench)
+    ours, theirs = ac.fenolite_keepouts(found.bench), ac.kicad_keepouts(found)
+    assert ours == theirs and len(ours) == 6
+    assert run("copper-keepout-parity") == "equal"
+
+
+def test_area_parity() -> None:
+    """The pairs that the area rule judges are the pairs KiCad reports under it."""
+    found = ac.area_parity_run()
+    rb.require_canary(found.report, found.bench)
+    ours, theirs = ac.fenolite_area_pairs(found.bench), ac.kicad_area_pairs(found)
+    assert ours == theirs and len(ours) == 3
+    assert run("copper-area-parity") == "equal"

@@ -4,15 +4,19 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
-from _boards import FIXTURE, SCENARIOS, SQUARE, board, uid, zone
+from _boards import FIXTURE, SCENARIOS, SQUARE, board, rt1_problems, uid, zone
 
 from fenolite.backends.kicad import slots as slotlib
-from fenolite.backends.kicad.pcb import read_board
-from fenolite.backends.kicad.sexpr import parse
+from fenolite.backends.kicad.pcb import read_board, write_board
+from fenolite.backends.kicad.sexpr import dumps, parse
+from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
 from fenolite.model.base import Modeled, Opaque
+from fenolite.model.design import Design
 
 
 def test_copper_items_of_the_authored_board() -> None:
@@ -132,3 +136,143 @@ def test_wildcard_rule_area_layers() -> None:
     (area,) = design.board.keepouts
     assert area.layers == ("F.Cu", "In1.Cu", "B.Cu")
     assert Opaque('(layers "*.Cu")', "20241229") in slotlib.from_ext(area.ext["kicad"])
+
+
+# --- rule-area names, text justification and dimensions (change c0103) ---------------------------------
+
+AREA = (
+    f'(zone (net 0) (net_name "") (layers "F.Cu" "B.Cu") (uuid "{uid(70)}") (name "ANT") (hatch edge 0.5)'
+    f" (keepout (tracks not_allowed) (vias allowed) (pads allowed) (copperpour allowed) (footprints allowed))"
+    f" {SQUARE})"
+)
+DIMENSION = (
+    f'(dimension (type aligned) (layer "Dwgs.User") (uuid "{uid(80)}") (pts (xy 10 3) (xy 30 3)) (height -2)'
+    ' (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))'
+    " (style (thickness 0.2) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
+    " (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))"
+    f' (gr_text "20.0000 mm" (at 20 -0.15 0) (layer "Dwgs.User") (uuid "{uid(80)}")'
+    " (effects (font (size 1.5 1.5) (thickness 0.3)))))"
+)
+
+
+def same_items(design: Design, source: str) -> bool:
+    """Whether the zones, texts and dimensions of ``source`` are written back as they were read, and the
+    reader's own round trip holds."""
+
+    def found(text: str) -> list[str]:
+        root = parse(text)
+        return [
+            dumps(node, style="compact")
+            for node in root.nodes()
+            if node.name in ("zone", "gr_text", "dimension")
+        ]
+
+    assert rt1_problems(source) == []
+    return found(write_board(design, target=9).text) == found(source)
+
+
+def test_named_rule_area() -> None:
+    """Scenario "Named rule area": the name is modelled, and the board is written back as read."""
+    text = board(AREA)
+    design = read_board(text)
+    assert design.board is not None
+    (area,) = design.board.keepouts
+    assert area.name == "ANT" and area.no_tracks and not area.no_vias
+    slots = slotlib.from_ext(area.ext["kicad"])
+    names = [slot for slot in slots if isinstance(slot, Modeled) and slot.field == "name"]
+    assert len(names) == 1
+    assert same_items(design, text)
+
+
+def test_rule_area_without_a_name() -> None:
+    text = board(AREA.replace(' (name "ANT")', ""))
+    design = read_board(text)
+    assert design.board is not None and design.board.keepouts[0].name == ""
+    assert same_items(design, text)
+
+
+def test_justified_text() -> None:
+    """Scenario "Justified text"."""
+    item = (
+        f'(gr_text "L" (at 5 40 0) (layer "F.SilkS") (uuid "{uid(71)}")'
+        " (effects (font (size 1 1) (thickness 0.15)) (justify left bottom)))"
+    )
+    design = read_board(board(item))
+    assert design.board is not None
+    (text,) = design.board.texts
+    assert (text.h_justify, text.v_justify) == ("left", "bottom")
+    assert same_items(design, board(item))
+    moved = dataclasses.replace(design.board, texts=(dataclasses.replace(text, h_justify="right"),))
+    with pytest.raises(LossyWriteError) as refused:
+        write_board(dataclasses.replace(design, board=moved), target=9)
+    assert "h_justify" in str(refused.value.issues)
+    plain = read_board(board(item.replace(" (justify left bottom)", "")))
+    assert plain.board is not None
+    assert (plain.board.texts[0].h_justify, plain.board.texts[0].v_justify) == ("center", "center")
+
+
+def test_dimension_saved_by_kicad() -> None:
+    """Scenario "Dimension saved by KiCad": the text of a dimension carries the dimension's uuid."""
+    issues: list[Issue] = []
+    text = board(DIMENSION)
+    design = read_board(text, issues=issues)
+    assert design.board is not None
+    (dimension,) = design.board.dimensions
+    assert (dimension.kind, dimension.layer, dimension.direction) == ("aligned", "Dwgs.User", None)
+    assert (dimension.start, dimension.end) == (Point(10_000_000, 3_000_000), Point(30_000_000, 3_000_000))
+    assert dimension.offset == -2_000_000 and dimension.native_ids == {"kicad": uid(80)}
+    # units 3 is outside the model: the default stays; the other projections are read
+    assert (dimension.units, dimension.precision, dimension.width) == ("mm", 4, 200_000)
+    assert dimension.size is not None and dimension.size.w == 1_500_000 and dimension.thickness == 300_000
+    slots = slotlib.from_ext(dimension.ext["kicad"])
+    opaque = [parse(slot.fragment).name for slot in slots if isinstance(slot, Opaque)]
+    assert opaque == ["format", "style", "gr_text"]
+    assert not [i for i in issues if i.code == "kicad.board.duplicate-uuid"]
+    assert same_items(design, text)
+
+
+def test_dimension_projections_are_read_only() -> None:
+    design = read_board(board(DIMENSION))
+    assert design.board is not None
+    (dimension,) = design.board.dimensions
+    changed = dataclasses.replace(design.board, dimensions=(dataclasses.replace(dimension, precision=2),))
+    with pytest.raises(LossyWriteError) as refused:
+        write_board(dataclasses.replace(design, board=changed), target=9)
+    assert "precision" in str(refused.value.issues)
+    moved = dataclasses.replace(dimension, offset=3_000_000, end=Point(31_000_000, 3_000_000))
+    text = write_board(
+        dataclasses.replace(design, board=dataclasses.replace(design.board, dimensions=(moved,))), target=9
+    ).text
+    assert "(height 3)" in text and "(xy 31 3)" in text
+
+
+def test_orthogonal_dimension_and_inches() -> None:
+    item = DIMENSION.replace("(type aligned)", "(type orthogonal)").replace(
+        "(height -2)", "(height -2) (orientation 1)"
+    )
+    design = read_board(
+        board(item.replace("(units 3)", "(units 0)").replace("(precision 4)", "(precision 2)"))
+    )
+    assert design.board is not None
+    (dimension,) = design.board.dimensions
+    assert (dimension.kind, dimension.direction) == ("orthogonal", "vertical")
+    assert (dimension.units, dimension.precision) == ("in", 2)
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        DIMENSION.replace("(type aligned)", "(type leader)"),
+        DIMENSION.replace("(type aligned)", "(type orthogonal)"),  # no orientation
+        DIMENSION.replace("(xy 30 3)", "(xy 30 3) (xy 40 3)"),
+    ],
+)
+def test_other_dimensions_stay_opaque(item: str) -> None:
+    """Scenario "Other dimension types stay opaque"."""
+    issues: list[Issue] = []
+    design = read_board(board(item), issues=issues)
+    assert design.board is not None and design.board.dimensions == ()
+    root = slotlib.from_ext(design.board.ext["kicad"])
+    assert [parse(s.fragment).name for s in root if isinstance(s, Opaque)].count("dimension") == 1
+    assert not issues
+    assert same_items(design, board(item))

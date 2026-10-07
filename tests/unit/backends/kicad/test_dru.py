@@ -341,3 +341,33 @@ def test_no_tracks_lift_and_opaque_forms() -> None:
     assert (a.name, a.kind, a.layers) == ("a", "no_tracks", ("In2.Cu",))
     assert a.selector_a == Selector("netclass", "SIG")
     assert [i.code for i in issues] == ["rules.kept-opaque", "rules.kept-opaque"]
+
+
+# -- conditions that name an area (change c0103) --------------------------------------------------------
+
+AREA_RULES = """(version 1)
+(rule "hv"
+\t(condition "A.intersectsArea('HV')")
+\t(constraint clearance (min 2mm))
+)
+(rule "inner"
+\t(condition "A.enclosedByArea('HV')")
+\t(constraint clearance (min 2mm))
+)
+(rule "creep"
+\t(condition "A.intersectsArea('HV')")
+\t(constraint creepage (min 4mm))
+)
+"""
+
+
+def test_area_condition_is_lifted_and_written_back() -> None:
+    """Scenario "Enclosed area stays opaque": ``intersectsArea`` is lifted, ``enclosedByArea`` is kept as
+    written, and so is an area on a kind that takes none; the text is written back as it was."""
+    issues: list[Issue] = []
+    ruleset = read_rules(AREA_RULES, issues=issues)
+    (lifted,) = ruleset.rules
+    assert (lifted.name, lifted.selector_a, lifted.min) == ("hv", Selector("area", "HV"), 2_000_000)
+    assert [i.code for i in issues] == ["rules.kept-opaque", "rules.kept-opaque"]
+    assert "enclosedByArea" in issues[0].message or issues[0].where.endswith("rule[1]")
+    assert write_rules(ruleset, target=10) == AREA_RULES

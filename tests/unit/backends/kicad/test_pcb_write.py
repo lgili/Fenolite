@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from _boards import FIXTURE, created_board, mm, square
 
-from fenolite.backends.kicad import pcb
+from fenolite.backends.kicad import boarditems, pcb
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import (
     CANONICAL_ORDER,
@@ -24,17 +24,40 @@ from fenolite.backends.kicad.pcb import (
     read_board,
     write_board,
 )
-from fenolite.backends.kicad.sexpr import Atom, Node, load, parse, walk
+from fenolite.backends.kicad.sexpr import Atom, Node, dumps, load, parse, walk
 from fenolite.backends.kicad.stackup import ROW_CHILDREN
-from fenolite.backends.kicad.versions import FileKind, LossyWriteError, load_inventory
+from fenolite.backends.kicad.versions import FileKind, LossyWriteError, check_emittable, load_inventory
+from fenolite.core.coords import Size
 from fenolite.core.ids import FENOLITE_NS
-from fenolite.model.board import Board, Graphic, Hole, Outline, StackLayer, Stackup, Track
+from fenolite.model.board import (
+    Board,
+    Dimension,
+    Graphic,
+    Hole,
+    Keepout,
+    Outline,
+    StackLayer,
+    Stackup,
+    Text,
+    Track,
+)
 from fenolite.model.circuit import Circuit, Net
 from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[4]
 SKELETON = ROOT / "tests" / "data" / "kicad" / "tokens" / "skeleton.kicad_pcb"
 TRACK_ID = "trk_00000000-0000-4000-8000-000000000001"
+
+
+def two_dimensions() -> tuple[Dimension, ...]:
+    """The dimensions of scenario "Created dimensions": 20 mm aligned, and 25.5 mm measured horizontally
+    at two decimals."""
+    return (
+        Dimension(id="dim_00000000-0000-4000-8000-000000000001", kind="aligned", layer="Dwgs.User",
+                  start=mm(10, 3), end=mm(30, 3), offset=-2_000_000),
+        Dimension(id="dim_00000000-0000-4000-8000-000000000002", kind="orthogonal", layer="Dwgs.User",
+                  start=mm(10, 50), end=mm(35.5, 55), offset=4_000_000, direction="horizontal", precision=2),
+    )  # fmt: skip
 
 
 def heads(node: Node) -> list[str]:
@@ -191,7 +214,13 @@ def test_created_tokens() -> None:
         and inventory.match(FileKind.BOARD, (head, child)) is None
     )
     assert unknown == []
-    written = {n.name for _, n in walk(parse(write_board(created_board(), target=9).text))}
+    created_design = created_board()
+    assert created_design.board is not None
+    # the created test board holds no dimension: one of each kind is added here (c0103)
+    with_dimensions = dataclasses.replace(
+        created_design, board=dataclasses.replace(created_design.board, dimensions=two_dimensions())
+    )
+    written = {n.name for _, n in walk(parse(write_board(with_dimensions, target=9).text))}
     assert set(FLOOR_HEADS) <= written
     assert set(FLOOR_HEADS).isdisjoint(skeleton)
 
@@ -399,3 +428,122 @@ def test_dimension_unchanged_on_a_same_target_write() -> None:
     index = next(i for i, c in enumerate(source.children) if isinstance(c, Node) and c.name == "dimension")
     assert written.children[index] == source.children[index]
     assert written.nodes("segment")[0].find("start") == parse("(start 6 10)")
+
+
+# --- board items of a script: names, justification and dimensions (change c0103) -----------------------
+
+MILLI = 1_000_000
+
+
+def flat(text: str) -> str:
+    """The board on one line, as the compact print writes it."""
+    return dumps(parse(text), style="compact")
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_created_rule_area_with_a_name(target: int) -> None:
+    """Scenario "Created rule area with a name"."""
+    area = Keepout(id="kpo_00000000-0000-4000-8000-000000000001", outline=square(40, 5, 45, 10),
+                   layers=("F.Cu",), no_tracks=True, name="ANT")  # fmt: skip
+    design = boarditems.mark_items(empty_design(keepouts=(area,)))
+    text = write_board(design, target=target).text
+    native = boarditems.item_uuid(area.id)
+    assert f'(uuid "{native}") (name "ANT")' in flat(text)
+    (read,) = read_board(text).board.keepouts  # type: ignore[union-attr]
+    assert read.name == "ANT" and read.no_tracks and read.native_ids["kicad"] == native
+    unnamed = write_board(empty_design(keepouts=(dataclasses.replace(area, name=""),)), target=target).text
+    assert "(name" not in unnamed
+
+
+def test_justified_text_is_written() -> None:
+    """Scenario "Justified text"."""
+    texts = (
+        Text(id="txt_00000000-0000-4000-8000-000000000001", text="L", position=mm(5, 40), layer="F.SilkS",
+             size=pcb.TEXT_SIZE, thickness=pcb.TEXT_THICKNESS, h_justify="left", v_justify="bottom"),
+        Text(id="txt_00000000-0000-4000-8000-000000000002", text="R", position=mm(5, 44), layer="B.SilkS",
+             size=pcb.TEXT_SIZE, thickness=pcb.TEXT_THICKNESS, h_justify="right"),
+        Text(id="txt_00000000-0000-4000-8000-000000000003", text="C", position=mm(5, 48), layer="F.SilkS",
+             size=pcb.TEXT_SIZE, thickness=pcb.TEXT_THICKNESS),
+    )  # fmt: skip
+    text = write_board(empty_design(texts=texts), target=10).text
+    assert "(justify left bottom)" in flat(text) and "(justify right mirror)" in flat(text)
+    assert flat(text).count("(justify") == 2
+    read = read_board(text).board
+    assert read is not None
+    assert [(t.h_justify, t.v_justify) for t in read.texts] == [
+        ("left", "bottom"), ("right", "center"), ("center", "center")
+    ]  # fmt: skip
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_created_dimension_nodes(target: int) -> None:
+    """Scenario "Created dimensions": the children, their order and the cache text."""
+    design = boarditems.mark_items(empty_design(dimensions=two_dimensions()))
+    text = write_board(design, target=target).text
+    root = parse(text)
+    first, second = items(root, "dimension")
+    common = ["type", "layer", "uuid", "pts", "height"]
+    assert heads(first) == [*common, "format", "style", "gr_text"]
+    assert heads(second) == [*common, "orientation", "format", "style", "gr_text"]
+    one = flat(text)
+    native = boarditems.item_uuid(two_dimensions()[0].id)
+    assert "(type aligned)" in one and "(height -2)" in one and "(units 2)" in one and "(precision 4)" in one
+    assert f'(gr_text "20.0000 mm" (at 20 3 0) (layer "Dwgs.User") (uuid "{native}")' in one
+    assert "(orientation 0)" in one and '(gr_text "25.50 mm" (at 22.75 52.5 0)' in one
+    assert '(format (prefix "") (suffix "") (units 2) (units_format 1) (precision 4))' in one
+    assert (
+        "(style (thickness 0.1) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward)"
+        " (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))"
+    ) in one
+    assert "(effects (font (size 1 1) (thickness 0.15)))" in one
+    read = read_board(text).board
+    assert read is not None
+    for found, made in zip(read.dimensions, two_dimensions(), strict=True):
+        assert (found.kind, found.layer, found.start, found.end, found.offset, found.direction) == (
+            made.kind, made.layer, made.start, made.end, made.offset, made.direction
+        )  # fmt: skip
+        assert (found.units, found.precision) == (made.units, made.precision)
+    # a board read with dimensions is written back as read
+    assert parse(write_board(read_board(text), target=target).text) == root
+
+
+def test_dimension_follows_gr_text_in_the_root() -> None:
+    order = list(CANONICAL_ORDER["kicad_pcb"])
+    assert order.index("dimension") == order.index("gr_text") + 1
+
+
+def test_dimension_cache_value() -> None:
+    """Scenario "Cache value of an oblique dimension", and rounding half away from zero."""
+    oblique = Dimension(id="dim_00000000-0000-4000-8000-000000000009", kind="aligned", layer="Dwgs.User",
+                        start=mm(0, 0), end=mm(1, 1), offset=0)  # fmt: skip
+    assert pcb.dimension_value(oblique) == "1.4142 mm"
+    assert pcb.dimension_value(dataclasses.replace(oblique, units="in")) == "0.0557 in"
+    assert pcb.dimension_value(dataclasses.replace(oblique, precision=0)) == "1 mm"
+    half = dataclasses.replace(oblique, end=mm(0.25, 0), precision=1)
+    assert pcb.dimension_value(half) == "0.3 mm"
+    vertical = dataclasses.replace(
+        oblique, kind="orthogonal", direction="vertical", end=mm(7, -3), precision=2
+    )
+    assert pcb.dimension_value(vertical) == "3.00 mm"
+    assert pcb.dimension_value(dataclasses.replace(vertical, direction="horizontal")) == "7.00 mm"
+
+
+def test_dimension_defaults_and_given_values() -> None:
+    made = dataclasses.replace(
+        two_dimensions()[0], size=Size(2 * MILLI, 2 * MILLI), thickness=300_000, width=250_000
+    )
+    one = flat(write_board(empty_design(dimensions=(made,)), target=10).text)
+    assert "(style (thickness 0.25)" in one and "(effects (font (size 2 2) (thickness 0.3)))" in one
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_emit_check_is_clean_for_board_items(target: int) -> None:
+    """Scenario "Emit check is clean for both targets"."""
+    area = Keepout(id="kpo_00000000-0000-4000-8000-000000000001", outline=square(40, 5, 45, 10),
+                   layers=("F.Cu",), no_vias=True, name="ANT")  # fmt: skip
+    label = Text(id="txt_00000000-0000-4000-8000-000000000001", text="L", position=mm(5, 40),
+                 layer="F.SilkS", size=pcb.TEXT_SIZE, thickness=pcb.TEXT_THICKNESS, h_justify="left",
+                 v_justify="top")  # fmt: skip
+    design = empty_design(keepouts=(area,), texts=(label,), dimensions=two_dimensions())
+    text = write_board(design, target=target).text
+    assert check_emittable(parse(text), FileKind.BOARD, target) == ()

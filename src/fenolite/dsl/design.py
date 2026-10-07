@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.units import Nm
+from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.interfaces import Interface
@@ -404,6 +405,11 @@ class Design(Container):
         """The board's default via protection and its lock, as declared by ``via_protection()``."""
         self.waivers: dict[str, Waiver] = {}
         """Waivers by name, as declared by ``waive()``."""
+        self.rule_areas: dict[str, itemlib.RuleArea] = {}
+        """Rule areas by name, as declared by ``rule_area()``, in call order."""
+        self.drawings: dict[str, itemlib.Drawing] = {}
+        """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
+        ``polygon()`` and ``dimension()``, in call order."""
 
     def waive(
         self,
@@ -855,6 +861,139 @@ class Design(Container):
                 )
             )
         return tuple(points)
+
+    # -- rule areas and board drawings (``docs/dsl.md``, "Rule areas" and "Board drawings")
+
+    def rule_area(
+        self,
+        name: str,
+        outline: Sequence[tuple[object, object]],
+        *,
+        layers: Sequence[str] | None = None,
+        forbid: Sequence[str] = (),
+    ) -> itemlib.RuleArea:
+        """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
+        ``place()``, on ``layers`` (every copper layer of the board when ``None``).
+
+        ``forbid`` takes ``tracks``, ``vias``, ``pads`` and ``pours``: the area is then a keep-out for them.
+        With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
+        one call for rule areas and keep-outs. Names differ in more than letter case.
+        """
+        if self.size is None:
+            raise DslError("rule_area(): call board() first")
+        area = itemlib.rule_area(
+            name, outline, layers, forbid, copper=self.copper_layers, taken=tuple(self.rule_areas)
+        )
+        self.rule_areas[area.name] = area
+        return area
+
+    def _drawing(self, call: str, key: object) -> str:
+        if self.size is None:
+            raise DslError(f"{call}(): call board() first")
+        return itemlib.drawing_key(key, self.drawings)
+
+    def text(
+        self,
+        key: str,
+        text: str,
+        at: tuple[object, object],
+        *,
+        layer: str = "F.SilkS",
+        size: object = None,
+        thickness: object = None,
+        rot: object = 0,
+        justify: str | None = None,
+    ) -> None:
+        """One line of board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and
+        ``thickness`` say otherwise; ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``."""
+        found = itemlib.text(self._drawing("text", key), text, at, layer, size, thickness, rot, justify)
+        self.drawings[found.key] = found
+
+    def line(
+        self, key: str, start: tuple[object, object], end: tuple[object, object], *, layer: str, width: object
+    ) -> None:
+        """A line from ``start`` to ``end``."""
+        found = itemlib.line(self._drawing("line", key), start, end, layer, width)
+        self.drawings[found.key] = found
+
+    def rect(
+        self,
+        key: str,
+        start: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+        fill: bool = False,
+    ) -> None:
+        """A rectangle with the opposite corners ``start`` and ``end``."""
+        found = itemlib.rect(self._drawing("rect", key), start, end, layer, width, fill)
+        self.drawings[found.key] = found
+
+    def circle(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+        fill: bool = False,
+    ) -> None:
+        """A circle around ``center`` through ``edge``."""
+        found = itemlib.circle(self._drawing("circle", key), center, edge, layer, width, fill)
+        self.drawings[found.key] = found
+
+    def arc(
+        self,
+        key: str,
+        start: tuple[object, object],
+        mid: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+    ) -> None:
+        """An arc from ``start`` through ``mid`` to ``end``."""
+        found = itemlib.arc(self._drawing("arc", key), start, mid, end, layer, width)
+        self.drawings[found.key] = found
+
+    def polygon(
+        self,
+        key: str,
+        points: Sequence[tuple[object, object]],
+        *,
+        layer: str,
+        width: object,
+        fill: bool = False,
+    ) -> None:
+        """A closed polygon of at least three points."""
+        found = itemlib.polygon(self._drawing("polygon", key), points, layer, width, fill)
+        self.drawings[found.key] = found
+
+    def dimension(
+        self,
+        key: str,
+        start: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        offset: object,
+        layer: str = "Dwgs.User",
+        direction: str | None = None,
+        units: str = "mm",
+        precision: int = 4,
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+    ) -> None:
+        """A linear dimension between ``start`` and ``end``, its line ``offset`` away from them: aligned
+        with the two points, or, with ``direction``, ``horizontal`` or ``vertical``. KiCad computes the
+        text from the points (``docs/dsl.md``, "Board drawings")."""
+        found = itemlib.dimension(
+            self._drawing("dimension", key), start, end, offset, layer, direction, units, precision, size,
+            thickness, width,
+        )  # fmt: skip
+        self.drawings[found.key] = found
 
     def moved(self, old: str, new: str) -> None:
         """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a

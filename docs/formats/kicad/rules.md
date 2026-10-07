@@ -40,6 +40,7 @@ Fenolite's own words; sources are listed in `docs/evidence/sources.md`.
 | `A.inDiffPair('<base>')` matches the two nets named `<base>` plus a last character `P` and `N`, or `+` and `-` (`X_P`/`X_N` with the base `X` or `X_`, `X+`/`X-`, `X_DP`/`X_DN`, `XP`/`XN`); letter case counts, and `X_DP`/`X_DM`, `X_p`/`X_n` and `X_P`/`X-` are not a pair | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DIFFPAIR-NAMES |
 | `(constraint disallow track)` with `(layer "<name>")` and a condition on `A.NetName` gives one `items_not_allowed` violation per track of the selected net on that layer, none for its tracks on another layer and none for another net's tracks on the layer (10.0.6; a condition on `A.NetClass` selects as in every other rule, `H-K-DRU-COND`) | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRU-NOTRACKS |
 | 9.0.9 reports the same for `disallow track` (measured on 2026-10-05; its probe is not yet recorded in `9.0.9.json`, so the kind is written for target 10 only) | S-0029 | INFERRED | H-K-DRU-NOTRACKS |
+| `S.intersectsArea('<name>')` selects the items whose copper overlaps a rule area of that name on one of the area's layers: a pair inside the area and a pair with copper 50 µm inside it are selected, a pair 50 µm outside it and a pair on another layer under it are not. It scopes clearance on one side and on both (`A.intersectsArea('P') && B.intersectsArea('Q')`), `track_width` and `hole_to_hole`. The name is compared with letter case (`'hv'` misses `HV`) and takes `*`; a name that two areas carry selects the items of either; a name that no area carries selects nothing and the file still loads (probes `dru-cond-area` and `area-cond-*`, recorded for 10.0.6) | S-0020, S-0029, S-0038 | INFERRED | H-K-AREA-COND |
 
 ## Board-wide rules and board-setup minimums
 
@@ -116,6 +117,7 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
 | `netclass v` | `S.NetClass == 'v'` | `netclass` |
 | `ref v` | `S.memberOfFootprint('v')` | `ref` |
 | `item_kind v`, v in `track`, `via`, `pad`, `zone` | `S.Type == 'Track'`, `'Via'`, `'Pad'`, `'Zone'` | `item_kind` |
+| `area v` (c0103) | `S.intersectsArea('v')` | `area` |
 | `and(x, y, …)` | `(x && y && …)` | `and` |
 | `or(x, y, …)` | `(x \|\| y \|\| …)` | `or` |
 | `not(x)` | `!(x)` | `not` |
@@ -130,6 +132,12 @@ Side `S` is `A` for `selector_a` and `B` for `selector_b`.
 - Refused with `rules.unsupported-selector`: the `layer` op (use `Rule.layers`), `all` below the top
   level, an `item_kind` value outside the table, a value containing `'`, `"`, `?`, `[` or `]`, and any
   key outside its entry for the target. A selector is never approximated.
+- `area v` names the rule areas whose name matches `v`, with letter case and with `*` as a glob. Its entry
+  holds the majors of the probe `dru-cond-area`: 10 so far, because the probe is recorded for 10.0.6
+  only; a rule with an `area` leaf is refused for target 9 until the probe is recorded for 9.0.9.
+  `read_rules` lifts `intersectsArea` on either side; a condition with `enclosedByArea` or `insideArea`
+  keeps its rule opaque. Whether the board holds such an area is checked by the build
+  (`build.area-unknown`), not by the lowering.
 - A net with several classes compares a composite class name in KiCad; lowered designs assign one class
   per net (c0010), so `netclass` compares one name.
 
@@ -140,7 +148,7 @@ the whole table above.
 
 | kind | side A | side B | layer clause |
 |---|---|---|---|
-| `hole_to_hole`, `hole_clearance`, `annular_width` | the whole table | no | no |
+| `hole_to_hole`, `hole_clearance`, `annular_width` | the whole table, `area` included | no | no |
 | `courtyard_clearance` | `all`, or `ref` leaves without `*`, combined with `and`, `or` and `not` | no | no |
 | `silk_clearance` | `all` only | no | no |
 | `creepage` | `all`, or `net` and `netclass` leaves, combined with `and`, `or` and `not` | the same | no |
@@ -153,6 +161,9 @@ the whole table above.
   courtyard of its neighbours; a narrower selector would promise a precision the check does not have.
 - Anything outside a kind's row gives `rules.unsupported-selector` on write and keeps the rule opaque on
   read.
+- `area` is a leaf of the six kinds of v0.1 and of the three hole and ring kinds. `courtyard_clearance`,
+  `silk_clearance` and `creepage` take none: the first two select footprints or the whole board, and the
+  nets of a high-voltage section form a net class, which a creepage rule already takes.
 
 ### Track layer rules (c0107)
 

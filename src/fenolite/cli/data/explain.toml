@@ -844,6 +844,11 @@ meaning = "A column of the BOM template names a property that no part of the des
 fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."
 see = "bom"
 
+["build.area-unknown"]
+meaning = "A rule selects a rule area by name (select.area) and the board that the build is about to write holds no rule area of that name. KiCad would load the rule and apply it to nothing."
+fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
+see = "build"
+
 ["build.diff-pair-name"]
 meaning = "The two nets of a diff_pair or usb2 interface do not form a differential pair for KiCad by their names, so KiCad's pair rules and its pair router do not see them as one."
 fix = "Rename the nets as the hint proposes (a common base name with the suffixes KiCad pairs)."
@@ -1133,6 +1138,11 @@ meaning = "Copper items of a kind were left out of the copper check; 'where' is 
 fix = "Check those items with KiCad's DRC."
 see = "check"
 
+["copper.keepout"]
+meaning = "A track, arc, via or pad lies in a keep-out (a rule area) whose settings forbid its kind, on a layer of the keep-out. KiCad's DRC reports the same item as items_not_allowed."
+fix = "Move the item out of the area, change what the area forbids, or build with --copper-check warn to write anyway."
+see = "check"
+
 ["copper.rules-incomplete"]
 meaning = "The clearance rules are incomplete: a rule stayed opaque, a project file was not read, or no rules source was given."
 fix = "Rely on KiCad's DRC for the rules Fenolite could not read."
@@ -1387,6 +1397,16 @@ see = "export"
 meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
 fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
 see = "fmt"
+
+["kicad.board-item.regenerated"]
+meaning = "A rule area, text, drawing or dimension that the script declares was edited in KiCad; it was written again from the script. The message names the fields that differed."
+fix = "Nothing to do; to keep the edit, change the call in the script, or remove the call and draw the item in KiCad."
+see = "build"
+
+["kicad.board-item.stale"]
+meaning = "A rule area, text, drawing or dimension that an earlier build wrote has no call in the script any more and was removed from the board."
+fix = "Nothing to do; put the call back to keep the item."
+see = "build"
 
 ["kicad.board.dropped-too-new"]
 meaning = "With --allow-lossy, content that the target KiCad version cannot read was removed from the written board."

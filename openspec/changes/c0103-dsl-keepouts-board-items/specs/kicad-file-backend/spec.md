@@ -51,7 +51,7 @@ The reader SHALL model exactly these root children and leave every other one as 
 - `gr_text` → `Text`, with `size` and `thickness` projected from `effects/font`, and `h_justify` and `v_justify` from the `left`, `right`, `top` and `bottom` atoms of `effects/justify` (`center` when absent). A `gr_text` without a font size or thickness MUST stay opaque;
 - `dimension` whose `type` is `aligned` or `orthogonal` → `Dimension`, with `layer`, `start` and `end` from the two `xy` of `pts`, `offset` from `height`, and, for `orthogonal`, `direction` from `orientation` (0 `horizontal`, 1 `vertical`). Its `format`, `style` and `gr_text` children MUST be projected `Opaque` slots: `units` from `format/units` (2 `mm`, 0 `in`), `precision` from `format/precision` when it is 0 to 4, `width` from `style/thickness`, and `size` and `thickness` from the font of the `gr_text`; a value outside these keeps the field's default. The `gr_text` of a dimension belongs to it: its uuid MUST NOT give `kicad.board.duplicate-uuid`. A dimension of another type, one whose `pts` does not hold exactly two points, and an `orthogonal` one without `orientation` MUST stay opaque root slots.
 
-Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, and `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent). Any other leading atom MUST raise `FormatError`. `Board.outline` and `Board.stackup` MUST be `None` on import. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
+Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent), and `protection` from the children of "Via protection on boards". Any other leading atom MUST raise `FormatError`. `Board.outline` MUST be `None` on import. `Board.stackup` MUST be the projection of the opaque `setup` child that "Stack-up on boards" states; the projection adds no child to the list above. `Board.via_protection` MUST be the projection of the same opaque `setup` child that "Via protection defaults on boards" states; it adds no child to the list above either. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
 
 #### Scenario: Copper items of the authored board
 - **WHEN** the authored board is read
@@ -74,6 +74,15 @@ Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net
 - **GIVEN** a board holding a zone with `(attr (teardrop (type padvia)))`
 - **WHEN** it is read
 - **THEN** no `Zone` is created for it, and the zone is an `Opaque` slot of the board at its position
+
+#### Scenario: Stack-up projected from an opaque setup
+- **WHEN** `tests/data/kicad/board/stackup_four.kicad_pcb` is read
+- **THEN** `board.stackup` is not `None`, the `setup` child is an `Opaque` root slot, and `pcb.opaque_count` counts it as it counts the `setup` of `two_layer.kicad_pcb`
+
+#### Scenario: Protected via and board default
+- **GIVEN** a copy of the authored board whose via holds `(tenting front)` and whose `setup` holds `(tenting front back)`
+- **WHEN** it is read
+- **THEN** the via has `protection == ViaProtection(tenting_front=True, tenting_back=False)`, `board.via_protection == ViaProtection(tenting_front=True, tenting_back=True)`, and `setup` is an `Opaque` root slot
 
 #### Scenario: Named rule area
 - **GIVEN** a board holding a rule area with `(name "ANT")` after its `uuid` and `(tracks not_allowed)`

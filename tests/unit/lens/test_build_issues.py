@@ -50,6 +50,7 @@ def test_closed_set() -> None:
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
+        "build.area-unknown": "error",  # c0103: a rule names no rule area
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table

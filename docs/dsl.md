@@ -276,7 +276,11 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | interface | `itf` | `interface:<kind>:<name>` |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
-| rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum) |
+| rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |
+| rule area | `kpo` | `area:<area name>` |
+| board text | `txt` | `text:<drawing key>` |
+| board graphic | `gfx` | `graphic:<drawing key>` |
+| dimension | `dim` | `dimension:<drawing key>` |
 | stack-up | `stk` | `stackup` |
 | stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
 
@@ -832,7 +836,7 @@ design.rules.rule(
 - **Kinds.** The six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
   `courtyard_clearance`, `silk_clearance` and `creepage`. Fenolite ships no value for any of them.
 - **Selectors** come from `fenolite.dsl.select`: `net(name or Net)`, `netclass(name)`, `ref(reference or
-  Part)`, `item("track" | "via" | "pad" | "zone")` and `ALL` (the default). `&`, `|` and `~` combine them;
+  Part)`, `item("track" | "via" | "pad" | "zone")`, `area(name or RuleArea)` and `ALL` (the default). `&`, `|` and `~` combine them;
   `ALL` stands alone. A name may hold `*`. A class named in a selector must be declared first, except
   `Default`.
 - **`between`** names the second item of a `clearance` or `creepage` rule. No other kind takes it.
@@ -843,6 +847,21 @@ design.rules.rule(
   the selected nets on the other layers, and an Altium build reports it as not lowered. It is the rule
   kind, and not the `no_tracks` flag of a keep-out, which forbids tracks inside an outline whatever their
   net.
+- **`select.area(area)`** selects the items whose copper reaches into a rule area ("Rule areas"), on one
+  of the area's layers: an item that only crosses the area's edge is selected too. It is written as
+  `A.intersectsArea('<name>')`. The name is compared with letter case and may hold `*`. The call does not
+  check that the area exists, because an area may be drawn and named in KiCad: the build checks, after
+  it merged the existing board, that the board it is about to write holds a rule area of that name, and
+  stops with `build.area-unknown` (exit 5) otherwise, since KiCad would load the rule and apply it to
+  nothing. Every kind takes an area but `courtyard_clearance`, `silk_clearance`, `creepage` and
+  `no_tracks`. The
+  selector is written for the KiCad majors on which its probe is recorded (`docs/formats/kicad/rules.md`).
+
+  ```python
+  bga = design.rule_area("BGA", [(mm(10), mm(10)), (mm(20), mm(10)), (mm(20), mm(20)), (mm(10), mm(20))])
+  design.rules.rule("neck", "track_width", where=select.area(bga), min=mm(0.1), priority=1)
+  design.rules.rule("hv", "clearance", where=select.area("HV"), min=mm(2))  # an area drawn in KiCad
+  ```
 - **Limits** carry a unit. `min` may be 0 (a courtyard rule of 0 forbids overlap); `opt` and `max` are above
   0; the limits rise from `min` to `max`. Which limits a kind takes is in `docs/formats/kicad/rules.md`: the
   six new kinds take `min` only.
@@ -863,6 +882,88 @@ design.rules.rule(
   "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
 - **Altium.** Written into the PCB document by kind and scope, exactly or not at all; a rule that is
   not written gives one `altium.not-lowered` warning with its reason (`docs/altium.md`, "Rules").
+
+## Rule areas
+
+`design.rule_area(name, outline, *, layers=None, forbid=())` declares one rule area and returns its
+`RuleArea` record. It is the one call for rule areas and keep-outs: a keep-out is a rule area that forbids
+something.
+
+```python
+design.rule_area(
+    "ANT",
+    [(mm(40), mm(0)), (mm(50), mm(0)), (mm(50), mm(10)), (mm(40), mm(10))],
+    forbid=("tracks", "vias", "pours"),
+)
+hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))
+```
+
+- **`name`** matches `^[A-Za-z0-9_.+-]+$` and is unique. Two names that differ only in letter case are
+  refused: KiCad compares area names with letter case, so a rule written for one would miss the other.
+- **`outline`** holds at least three `(x, y)` points in the frame of `place()`. An outline is a polygon: a
+  round keep-out is a polygon around the circle.
+- **`layers`** are copper layers of the board; `None` means every copper layer.
+- **`forbid`** takes `tracks`, `vias`, `pads` and `pours`. With an empty `forbid` the area forbids nothing
+  and only rules select it (`select.area`, "Rules with selectors"). Areas that forbid footprints are not
+  declared here.
+- **In the model** each area is a `Keepout` with its `name`, in name order, with the id
+  `derived_id("kpo", "dsl", "area:<name>")`. `design.rule_areas` holds the records by name.
+- **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
+  pad in an area that forbids it as `items_not_allowed`, on the area's layers only, and its filler leaves
+  an area that forbids pours out of every fill. Fenolite's copper check reports the same tracks, vias and
+  pads as `copper.keepout`, so the copper guard stops the build before KiCad sees the board
+  (`--copper-check warn` writes anyway). Stitch vias of `stitch()` stay out of areas that forbid vias.
+- **Rebuilds.** A script area is derived output: every build writes it again from the script, with a
+  marked uuid (`docs/lens.md`, "Board items declared in the script"). An edit made to it in KiCad is
+  undone, with `kicad.board-item.regenerated`; an area drawn in KiCad is never touched.
+- **Altium.** An area that forbids something is written as a keep-out with its restrictions; its name has
+  no place in the record and is reported, and an area that forbids nothing is reported and not written
+  (`docs/altium.md`, "Rule areas, texts and dimensions").
+
+## Board drawings
+
+Seven calls declare texts, graphics and dimensions of the board. Each takes a key first, which matches
+the pattern of copper keys and is unique across the seven calls; the key names the drawing across builds.
+
+```python
+design.text("rev", "REV A", (mm(5), mm(28)), justify="left bottom")
+design.line("fab/mid", (mm(0), mm(15)), (mm(50), mm(15)), layer="F.Fab", width=mm(0.1))
+design.rect("mask/window", (mm(1), mm(1)), (mm(4), mm(3)), layer="F.Mask", width=mm(0), fill=True)
+design.circle("mark", (mm(45), mm(25)), (mm(46), mm(25)), layer="F.SilkS", width=mm(0.12))
+design.arc("bend", (mm(0), mm(0)), (mm(1), mm(1)), (mm(2), mm(0)), layer="Dwgs.User", width=mm(0.1))
+design.polygon("flag", [(mm(10), mm(2)), (mm(12), mm(2)), (mm(11), mm(4))], layer="B.SilkS", width=mm(0.1))
+design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
+```
+
+- **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
+  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. Copper is
+  refused: the copper check cannot see glyphs, KiCad reports a copper text across a track as a short, and
+  it does not report a copper line across a track at all. `Edge.Cuts` belongs to the outline of `board()`.
+- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`**: one
+  printable line, 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise. `justify`
+  is `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back
+  layer is mirrored. A centred label close to the board edge reaches it: KiCad then warns with
+  `silk_edge_clearance`.
+- **`line(key, start, end)`, `rect(key, start, end)`, `circle(key, center, edge)`, `arc(key, start, mid,
+  end)` and `polygon(key, points)`** take `layer` and `width`; `rect`, `circle` and `polygon` take
+  `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be `mm(0)` for
+  a filled one. The three points of an arc are not on one line.
+- **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
+  size=None, thickness=None, width=None)`**: a linear dimension. Without `direction` it is aligned with the
+  two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
+  signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
+  left to right a negative offset puts the line above the points (towards smaller y), and for one from top
+  to bottom a negative offset puts it to their right. `units` is `mm` or `in`, `precision` 0 to 4
+  decimals. KiCad computes the text, its place and its angle from the points when it loads the board.
+- **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
+  (`dim`), each in key order; `design.drawings` holds the records by key.
+- **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that
+  takes no drawing, an empty or multi-line text, a bare number for a length, corners of a rectangle that
+  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4.
+- **Rebuilds.** As for rule areas: script drawings are written again on every build, and what was drawn
+  in KiCad stays.
+- **Altium.** Centred texts and graphics are written; a justified text and a dimension are reported and
+  not written (`docs/altium.md`).
 
 ## Copper guard
 

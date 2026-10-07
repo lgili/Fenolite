@@ -6,13 +6,18 @@ with ``checks.copper``; a short refuses the build, a clearance finding is report
 
 from __future__ import annotations
 
+import dataclasses
 from pathlib import Path
+from typing import Any
 
 import pytest
 from _altium_drc import CROSSING, DOCUMENT, NEAR, build_altium, coded, plant
 from _routed import Routed
 
+from fenolite.checks.copper import CopperReport
+from fenolite.cli import cmd_build
 from fenolite.cli.cmd_build import CLEARANCE_NOTE, WARN_NOTE, altium_copper_guard
+from fenolite.core.errors import Issue
 
 
 def test_altium_guard_passes_the_routed_blink(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -145,3 +150,25 @@ def test_altium_guard_takes_no_drc_waiver() -> None:
     drc = Waiver("tp", "kicad.drc.via-dangling", ("*",), "test point")
     copper = Waiver("tie", "copper.short", ("A-1", "A-2"), "Kelvin pad")
     assert guard_waivers(report, (drc, copper))[1] == {"matched": {}, "unmatched": ["tie"]}
+
+
+def test_altium_guard_reports_copper_in_a_keep_out_and_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Change c0103: ``copper.keepout`` follows the rule of every copper error but a short: a warning with
+    the guard's suffix, and the build writes. The Altium reader models no keep-out yet, so the document
+    read back holds none; the finding is given to the guard here to pin what it does with one."""
+    real = cmd_build.check_copper
+
+    def with_keepout(*args: Any, **kwargs: Any) -> CopperReport:
+        report = real(*args, **kwargs)
+        found = Issue("copper.keepout", "error", "track of LED_DRV lies in the keep-out KO", where="KO")
+        return dataclasses.replace(report, issues=(*report.issues, found))
+
+    monkeypatch.setattr(cmd_build, "check_copper", with_keepout)
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    code, env, err = build_altium(routed, "--confirm")
+    assert code == 0, (env.get("issues"), err)
+    (found,) = coded(env, "copper.keepout")
+    assert found["severity"] == "warning" and found["message"].endswith(CLEARANCE_NOTE)
+    assert (routed.out / DOCUMENT).is_file()

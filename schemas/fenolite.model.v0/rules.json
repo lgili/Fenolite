@@ -279,6 +279,7 @@
             "ref",
             "layer",
             "item_kind",
+            "area",
             "and",
             "or",
             "not"

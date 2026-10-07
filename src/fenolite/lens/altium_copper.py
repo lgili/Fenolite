@@ -93,6 +93,7 @@ KINDS: tuple[str, ...] = (
     "zone",
     "text",
     "graphic",
+    "dimension",
     "keep-out",
     "hole",
     "body",
@@ -533,6 +534,7 @@ BOARD_KINDS: tuple[tuple[str, str], ...] = (
     ("texts", "board texts"),
     ("graphics", "graphics"),
     ("holes", "holes"),
+    ("dimensions", "dimensions"),
 )
 """Board fields that only the PCB document holds, and what a message calls them."""
 BOARD_WHERES: tuple[str, ...] = tuple(name for name, _what in BOARD_KINDS)
@@ -584,6 +586,12 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         problem = pcbdoc.text_problem_of(text)
         if text.layer not in pcbrecords.BOARD_LAYER_MAP:
             problem = f"the layer {text.layer} has no layer in the document for a text"
+        if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
+            words = " ".join(w for w in (text.h_justify, text.v_justify) if w != "center")
+            problem = (
+                f"the text record has no key for the justification {words!r}, and a centred text would "
+                "be at another place"
+            )
         if problem is None:
             texts.append(text)
         else:
@@ -606,9 +614,16 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
     for keepout in board.keepouts:
         problem = pcbdoc.keepout_problem(keepout, layers)
         if problem is not None:
-            issues.append(_kept("keepout", keepout.id, f"the keep-out is not written: {problem}"))
+            named = f" {keepout.name!r}" if keepout.name else ""
+            issues.append(_kept("keepout", keepout.id, f"the keep-out{named} is not written: {problem}"))
             continue
         keepouts.append(keepout)
+        if keepout.name:
+            message = (
+                f"the name {keepout.name!r} of the keep-out is not written: the record has no key for a "
+                "name; the keep-out is written with its restrictions"
+            )
+            issues.append(_kept("keepout", keepout.id, message))
         if keepout.no_footprints:
             message = (
                 "the restriction no_footprints of the keep-out is not written: the record holds vias, "
@@ -624,6 +639,13 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
             message = f"the hole is not written: a drill of {mm_text(hole.drill)} mm is not positive"
             issues.append(_kept("hole", hole.id, message))
     counts["hole"] = (len(holes), len(board.holes) - len(holes))
+    for dimension in board.dimensions:
+        message = (
+            f"the {dimension.kind} dimension on {dimension.layer} is not written: the document has no "
+            "dimension record"
+        )
+        issues.append(_kept("dimension", dimension.id, message))
+    counts["dimension"] = (0, len(board.dimensions))
     return LoweredItems(tuple(texts), tuple(graphics), tuple(keepouts), tuple(holes), counts)
 
 

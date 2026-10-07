@@ -31,7 +31,7 @@ def rules(d: Design) -> tuple[Rule, ...]:
 def test_keywords_are_the_model_kinds() -> None:
     assert MINIMUM_KINDS == get_args(RuleKind)[:6] and len(get_args(RuleKind)) == 13
     assert get_args(RuleKind)[-1] == "no_tracks"  # change c0107: thirteen kinds, the new one last
-    assert KEYS["rule"] == ("rul", "rule:<kind>[:<net class>]")
+    assert KEYS["rule"] == ("rul", "rule:<kind>[:<net class>] or rule:named:<rule name>")
 
 
 def test_no_minimum_gives_an_empty_rule_set() -> None:

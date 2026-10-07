@@ -14,13 +14,24 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 from fenolite import __version__
-from fenolite.core.coords import Point
+from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
-from fenolite.model.board import Board, Outline, StackLayer, Stackup, Zone
+from fenolite.model.board import (
+    Board,
+    Dimension,
+    Graphic,
+    Keepout,
+    Outline,
+    StackLayer,
+    Stackup,
+    Text,
+    Zone,
+)
 from fenolite.model.circuit import Circuit, Component, Interface, Module, Net, NetClass, PinRef
 from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
@@ -48,7 +59,11 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "interface": ("itf", "interface:<kind>:<name>"),
         "layer": ("lay", "layer:<KiCad name>"),
         "zone": ("zon", "zone:<name>"),
-        "rule": ("rul", "rule:<kind>[:<net class>]"),
+        "rule": ("rul", "rule:<kind>[:<net class>] or rule:named:<rule name>"),
+        "area": ("kpo", "area:<area name>"),
+        "text": ("txt", "text:<drawing key>"),
+        "graphic": ("gfx", "graphic:<drawing key>"),
+        "dimension": ("dim", "dimension:<drawing key>"),
         "stackup": ("stk", "stackup"),
         "stack_layer": ("sly", "stack_layer:<k>"),
     }
@@ -190,6 +205,10 @@ def to_model(design: Design) -> ModelDesign:
             id=key_id("board"),
             outline=outline,
             zones=zones,
+            keepouts=_keepouts(design),
+            texts=_texts(design),
+            graphics=_graphics(design),
+            dimensions=_dimensions(design),
             stackup=_stackup(design),
             sheet=_sheet(design),
             title_block=design.block,
@@ -204,6 +223,85 @@ def to_model(design: Design) -> ModelDesign:
 
 
 SHEET_SUFFIX = ".kicad_wks"
+
+
+def _at(pair: tuple[int, int]) -> Point:
+    return Point(BOARD_ORIGIN.x + pair[0], BOARD_ORIGIN.y + pair[1])
+
+
+def _keepouts(design: Design) -> tuple[Keepout, ...]:
+    """One model keep-out per ``rule_area()``, in name order."""
+    return tuple(
+        Keepout(
+            id=key_id("area", name),
+            outline=tuple(_at(p) for p in area.outline),
+            layers=area.layers,
+            name=name,
+            no_tracks="tracks" in area.forbid,
+            no_vias="vias" in area.forbid,
+            no_pads="pads" in area.forbid,
+            no_copper_pour="pours" in area.forbid,
+        )
+        for name, area in sorted(design.rule_areas.items())
+    )
+
+
+def _texts(design: Design) -> tuple[Text, ...]:
+    out: list[Text] = []
+    for key, spec in sorted(design.drawings.items()):
+        if not isinstance(spec, TextSpec):
+            continue
+        words = (spec.justify or "").split()
+        out.append(
+            Text(
+                id=key_id("text", key),
+                text=spec.text,
+                position=_at(spec.at),
+                layer=spec.layer,
+                size=Size(spec.size, spec.size),
+                thickness=spec.thickness,
+                rotation=spec.rotation,
+                h_justify=next((w for w in words if w in ("left", "right")), "center"),  # type: ignore[arg-type]
+                v_justify=next((w for w in words if w in ("top", "bottom")), "center"),  # type: ignore[arg-type]
+            )
+        )
+    return tuple(out)
+
+
+def _graphics(design: Design) -> tuple[Graphic, ...]:
+    return tuple(
+        Graphic(
+            id=key_id("graphic", key),
+            kind=spec.kind,
+            layer=spec.layer,
+            points=tuple(_at(p) for p in spec.points),
+            width=spec.width,
+            filled=spec.fill,
+        )
+        for key, spec in sorted(design.drawings.items())
+        if isinstance(spec, GraphicSpec)
+    )
+
+
+def _dimensions(design: Design) -> tuple[Dimension, ...]:
+    return tuple(
+        Dimension(
+            id=key_id("dimension", key),
+            kind=spec.kind,
+            layer=spec.layer,
+            start=_at(spec.start),
+            end=_at(spec.end),
+            offset=spec.offset,
+            direction=spec.direction,
+            units=spec.units,
+            precision=spec.precision,
+            size=Size(spec.size, spec.size) if spec.size is not None else None,
+            thickness=spec.thickness,
+            width=spec.width,
+        )
+        for key, spec in sorted(design.drawings.items())
+        if isinstance(spec, DimensionSpec)
+    )
 
 
 def _stackup(design: Design) -> Stackup | None:

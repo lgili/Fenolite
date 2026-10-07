@@ -268,3 +268,12 @@ Cut order: (1) keep-out findings in the copper check (0.5 day; KiCad's `items_no
 - **Should `select.area()` refuse, at the call, a name the script does not declare?** Default: no; areas drawn in KiCad are valid targets, and the build checks after the merge.
 - **A second selector for `enclosedByArea`?** Default: no, until a case needs it.
 - **Precision above 4 decimals and inches with other suffixes for dimensions?** Default: no; nothing measured.
+
+## Found on 2026-10-08 (integration)
+
+The change was implemented on an older base and rebased onto `v04` after c0100, c0101, c0107, c0108, c0111, c0112, c0114, c0117 and c0080 had landed. What the rebase changed:
+
+- **MODIFIED deltas.** "Modelled board content" (`kicad-file-backend`) was written from the living text; c0101 and c0112 modify the same requirement on the branch. It is regenerated from the text of c0112's delta (which holds c0101's stack-up sentence and scenario and c0112's via protection), with this change's three edits applied: the `name` child of a rule area, the justification of a `gr_text` and the `dimension` line, and the four scenarios at the end. "Closed selector grammar" (`rules-model`), "Clearance in force" (`copper-check`) and "Identifier derivation" (`design-model`) are modified by no change on the branch and still start from the living text.
+- **`no_tracks` takes no area.** c0107 added the thirteenth rule kind `no_tracks`, whose selector is nets and classes only ("Track layer rules"). "Closed selector grammar" now says so beside the three kinds that already refuse an `area` leaf, `docs/dsl.md` names four kinds, and `test_area_refused_for_the_track_layer_kind` pins it. No code changed: `rulemap.KIND_SELECTORS["no_tracks"]` never held `area`.
+- **Keep-out findings and waivers.** c0114 added waivers: `checks.copper.waived_issues` offered every finding of the report to the waivers and then appended the issues whose code is not one of the three waivable codes, so a `copper.keepout` finding would have been listed twice. Only the findings a waiver can name are candidates now; a keep-out finding takes no waiver (`design.waive` refuses the code, as it refuses every code but the three pair findings and `kicad.drc.*`) and follows once, as an error (`test_keepout_finding_is_listed_once_beside_waivers`).
+- **Tables.** `copper.keepout` stands after `copper.zone-overlap` in `checks.codes` and in `docs/cli-contract.md`, beside the `info` severities that c0114 gave the three pair findings; it keeps `error` alone.

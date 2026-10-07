@@ -677,6 +677,32 @@ a board that the script forbids.
   `kicad-cli pcb import` loads a document with all seven kinds and takes the zone clearance from the
   Clearance rule; it shows no other kind (`tests/kicad/altium/test_rules_oracle.py`).
 
+### Rule areas, texts and dimensions (change c0103)
+
+A script may declare rule areas, texts, graphics and dimensions (`docs/dsl.md`, "Rule areas" and "Board
+drawings"). An Altium build writes what the PCB document has a record for and names the rest, item by
+item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
+
+| script item | in the PCB document | reported |
+|---|---|---|
+| a rule area that forbids tracks, vias, pads or pours | a keep-out with those restrictions | its name: the keep-out record has no key for one (`keepout/<id>`) |
+| a rule area that forbids nothing (for rules only) | not written: a keep-out without a restriction has no record | the area (`keepout/<id>`), counted under `keep-out` of `result.pcb.not_lowered` |
+| a centred text | a text | nothing |
+| a text with a `justify` | not written: the text record has no key for a justification, and a centred text would be at another place | the text and its justification (`text/<id>`) |
+| a line, rectangle, circle, arc or polygon | a graphic, as before | as before |
+| a dimension | not written: the document has no dimension record | the dimension (`dimension/<id>`); `result.pcb.not_lowered` holds `dimension` |
+
+- A rule whose selector holds `select.area(...)` has no scope in the rule records: it is not written and
+  gives the `altium.not-lowered` warning of this section with the reason `scope-unsupported`
+  (`where` `design-rules/<kind>`). `build.area-unknown` stays a check of the KiCad build.
+- A build that plans no PCB document reports the dimensions of the board with one info (`where`
+  `dimensions`), as it reports keep-outs, texts, graphics and holes.
+- The copper guard judges the document it reads back. A `copper.keepout` finding is reported as a warning
+  and does not stop an Altium build, as every copper error but a short. The Altium reader models no
+  keep-out so far, so a document read back holds none and the guard finds none.
+- A model written with `fenolite write` follows the same rules: a justified text and a dimension are
+  counted as not written.
+
 ## Project file and outputs
 
 Under `--out DIR`:

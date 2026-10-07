@@ -23,8 +23,9 @@ from fenolite.core.units import Nm
 from fenolite.model.design import Design
 from fenolite.model.rules import LEAF_OPS, Rule, RuleSubject, Selector
 
-CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone"]
-"""The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``."""
+CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout"]
+"""The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
+the area of a ``copper.keepout`` finding; no rule subject takes it."""
 ITEM_KINDS: dict[str, str] = {
     "track": "track",
     "arc": "track",
@@ -72,7 +73,10 @@ def _fold(text: str | None) -> str | None:
 
 
 def _fold_selector(selector: Selector) -> Selector:
-    """``selector`` with every leaf value case-folded: names compare without regard to letter case."""
+    """``selector`` with every leaf value case-folded: names compare without regard to letter case. An
+    ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``)."""
+    if selector.op == "area":
+        return selector
     if selector.op in LEAF_OPS:
         return dataclasses.replace(selector, value=selector.value.casefold())
     if selector.items:
@@ -87,6 +91,7 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
         netclass=_fold(subject.netclass),
         ref=_fold(subject.ref),
         layer=_fold(subject.layer),
+        areas=subject.areas,
     )
 
 
@@ -159,14 +164,24 @@ class ClearanceResolver:
         """The largest value ``resolve`` can return for the design, the own clearance of every zone that
         has fills included, or 0."""
 
-    def subject(self, kind: CopperKind, net_id: str | None, *, ref: str | None, layer: str) -> RuleSubject:
-        """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, and the
-        component reference for a pad. An item without a net, or whose net has no class, is in the class
-        named ``Default``."""
+    def subject(
+        self,
+        kind: CopperKind,
+        net_id: str | None,
+        *,
+        ref: str | None,
+        layer: str,
+        areas: frozenset[str] = frozenset(),
+    ) -> RuleSubject:
+        """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, the
+        component reference for a pad, and the names of the rule areas it lies in on that layer. An item
+        without a net, or whose net has no class, is in the class named ``Default``."""
         name, netclass = (
             self._nets.get(net_id, (None, DEFAULT_CLASS)) if net_id is not None else (None, DEFAULT_CLASS)
         )
-        return RuleSubject(item_kind=ITEM_KINDS[kind], net=name, netclass=netclass, ref=ref, layer=layer)
+        return RuleSubject(
+            item_kind=ITEM_KINDS[kind], net=name, netclass=netclass, ref=ref, layer=layer, areas=areas
+        )
 
     def _class_value(self, a: RuleSubject, b: RuleSubject) -> tuple[Nm, str] | None:
         """The larger clearance of the two subjects' classes that set one, and the name of that class."""

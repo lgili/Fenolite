@@ -26,6 +26,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.backends.altium.read.pcbprops", "PCB_READ_ISSUE_CODES"),
     ("fenolite.backends.altium.read.sch.issues", "ISSUE_CODES"),
     ("fenolite.backends.altium.read.sheet", "ISSUE_CODES"),
+    ("fenolite.backends.kicad.boarditems", "MERGE_ISSUE_CODES"),
     ("fenolite.backends.kicad.copper", "COPPER_ISSUE_CODES"),
     ("fenolite.backends.kicad.erc", "ISSUE_CODES"),
     ("fenolite.backends.kicad.fanout", "FANOUT_ISSUE_CODES"),

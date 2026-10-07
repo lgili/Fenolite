@@ -3,9 +3,9 @@
 """Selectors of ``design.rules.rule()``: which items a design rule holds for (``docs/dsl.md``, "Design
 rules").
 
-``net``, ``netclass``, ``ref`` and ``item`` give leaves; ``&``, ``|`` and ``~`` combine them; ``ALL`` is
-every item and stands alone. A name may hold ``*``, which the model keeps as a glob. Whether a target
-writes a selector for a rule kind is decided by the lowering, not here.
+``net``, ``netclass``, ``ref``, ``item`` and ``area`` give leaves; ``&``, ``|`` and ``~`` combine them;
+``ALL`` is every item and stands alone. A name may hold ``*``, which the model keeps as a glob. Whether a
+target writes a selector for a rule kind is decided by the lowering, not here.
 """
 
 from __future__ import annotations
@@ -13,11 +13,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from fenolite.dsl.errors import DslError
+from fenolite.dsl.items import RuleArea
 from fenolite.dsl.part import Net, Part
 from fenolite.model.rules import Selector
 
 ITEM_KINDS: tuple[str, ...] = ("track", "via", "pad", "zone")
 """The values of ``item()``."""
+_FORBIDDEN = frozenset("'\"?[]")
+"""Characters an area name cannot hold: a rules condition has no way to escape them."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,4 +86,14 @@ def item(kind: str) -> Select:
     return Select(Selector("item_kind", kind))
 
 
-__all__ = ["ALL", "ITEM_KINDS", "Select", "item", "net", "netclass", "ref"]
+def area(area: str | RuleArea) -> Select:
+    """The items whose copper reaches into a rule area, given by name or as the ``RuleArea`` of
+    ``design.rule_area()``. A name may hold ``*``; letter case counts. The area may be drawn in KiCad: the
+    build checks, after the merge, that the board holds one of that name."""
+    name = _name(area.name if isinstance(area, RuleArea) else area, "area")
+    if _FORBIDDEN & set(name):
+        raise DslError(f"select.area() takes a name without ' \" ? [ ], not {name!r}")
+    return Select(Selector("area", name))
+
+
+__all__ = ["ALL", "ITEM_KINDS", "Select", "area", "item", "net", "netclass", "ref"]

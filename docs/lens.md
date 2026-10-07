@@ -283,6 +283,29 @@ unlocked request differs from the setting of a board pad, which wins) and `force
 replaced the setting of a board pad). Both are empty on a first build and on a rebuild of an unedited
 board.
 
+## Board items declared in the script
+
+Rule areas, texts, graphics and dimensions that the script declares (`docs/dsl.md`, "Rule areas" and
+"Board drawings") are derived output, as script copper is. The build gives each one the KiCad uuid
+`boarditems.item_uuid(<its id>)`: version 8, the marker `fenitm` in its first 48 bits, and the first 74
+bits of the SHA-256 of `kicad-item:<id>`. A rebuild tells them from items drawn in KiCad by that marker.
+
+| existing item | what a rebuild does |
+|---|---|
+| an item uuid that the build creates again | replaced by the new copy; `kicad.board-item.regenerated` (info) when a modelled field differs, because it was edited in KiCad |
+| an item uuid whose call is gone | removed; `kicad.board-item.stale` (warning) |
+| any other rule area, text, graphic or dimension | kept as it is |
+
+- The fields compared are: for a rule area its name, outline, layers and settings; for a text its string,
+  position, layer, size, thickness, rotation and justification; for a graphic its kind, layer, points,
+  width and fill; for a dimension its kind, layer, points, offset, direction, units and precision.
+- The kept items come first, in the board's order; the script's items follow, in key order.
+- `result.preserved.board_items` holds the counts `regenerated` and `stale` (0 without an existing board),
+  and `result.board_items` the counts `rule_areas`, `texts`, `graphics` and `dimensions` of the script.
+- A rule area that did not change leaves the fill digest as it was; one that the script adds, moves or
+  removes changes it, and the fills it concerns are dropped ("Fill digests").
+- To keep an edit made in KiCad, change the call, or remove the call and draw the item in KiCad.
+
 ## Stack-up across rebuilds
 
 `design.stackup()` declares the stack-up of the board (`docs/dsl.md`, "Stack-up"). When a build merges
@@ -524,6 +547,8 @@ the next build would drop or overwrite:
 | `kicad.copper.stale` | warning | script copper whose intent is gone was removed (`docs/copper.md`) |
 | `kicad.copper.regenerated` | info | script copper was edited in KiCad, or its pads moved, and was replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper was removed |
+| `kicad.board-item.stale` | warning | a rule area, text, graphic or dimension that an earlier build wrote is no longer declared and was removed |
+| `kicad.board-item.regenerated` | info | a rule area, text, graphic or dimension of the script was edited in KiCad and was written again |
 | `kicad.zone.forced` | warning | a locked `zone()` replaced a board zone that differed from it |
 | `kicad.zone.orphan` | warning | a zone the script wrote for a `zone()` it no longer declares was removed |
 | `kicad.zone.overridden` | info | an unlocked `zone()` differs from the kept board zone |

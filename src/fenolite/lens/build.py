@@ -20,8 +20,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, TypeGuard, cast
 
-from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import (
+    boarditems,
     dru,
     embed,
     frame,
@@ -38,6 +38,7 @@ from fenolite.backends.kicad import (
     versions,
     wks,
 )
+from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
@@ -103,6 +104,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.property-conflict": "error",
         "build.vendor-unsafe-name": "error",
         "build.schematic-netlist-differs": "error",
+        "build.area-unknown": "error",
         "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
@@ -757,6 +759,14 @@ def build_design(
         ),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
+    # the rule areas and drawings of the script get their marked uuids before copper resolves (c0103)
+    built = boarditems.mark_items(built)
+    board_items = {
+        "rule_areas": len(board.keepouts),
+        "texts": len(board.texts),
+        "graphics": len(board.graphics),
+        "dimensions": len(board.dimensions),
+    }
     copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
         assert built.board is not None
@@ -770,8 +780,13 @@ def build_design(
             copper_intents,
             unplaced=staged,
             issues=issues,
-            # a rebuild keeps the rule areas and the edge of the existing board: stitch vias avoid those
-            keepouts=held.board.keepouts if held is not None and held.board is not None else (),
+            # a rebuild keeps the rule areas and the edge of the existing board: stitch vias avoid those;
+            # the script's own areas are in ``built``, and their copies on the board are regenerated
+            keepouts=[
+                area
+                for area in (held.board.keepouts if held is not None and held.board is not None else ())
+                if not boarditems.is_item_uuid(area.native_ids.get("kicad", ""))
+            ],
             outline=_kept_outline(held, built),
             edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
         )
@@ -835,6 +850,16 @@ def build_design(
             target_design = dataclasses.replace(
                 target_design, board=dataclasses.replace(target_design.board, layers=typed)
             )
+    for rule_name, value in boarditems.unknown_areas(target_design):
+        issues.append(
+            issue(
+                "build.area-unknown",
+                f"rule {rule_name!r} selects the area {value!r}, and the board holds no rule area of that "
+                "name: KiCad would load the rule and select nothing",
+                rule_name,
+                "declare the area with design.rule_area() or remove the selector",
+            )
+        )
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -999,6 +1024,8 @@ def build_design(
         evidence_items.append(dru.EVIDENCE)
     if copper_intents:
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    if any(board_items.values()):
+        evidence_items.append(boarditems.EVIDENCE)  # the script declares rule areas or drawings
     written_stack = target_design.board.stackup if target_design.board is not None else None
     if written_stack is not None:
         evidence_items.append(stacklib.EVIDENCE)
@@ -1020,6 +1047,7 @@ def build_design(
         "vendored": [f"lib/{nick}.pretty/{entry}" for nick, entry in vendored],
         "libraries": libraries,
         "preserved": _preserved(prepared, preserved),
+        "board_items": board_items,
         "stackup": None
         if written_stack is None
         else {
@@ -1152,6 +1180,7 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "fills": merged.get("fills", {"kept": 0, "dropped": 0}),
         "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
         "pad_zones": merged.get("pad_zones", {"kept": [], "forced": []}),
+        "board_items": merged.get("board_items", {"regenerated": 0, "stale": 0}),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
         "module_aliases": dict(prepared.module_aliases) if board_read(prepared) else {},
         "net_aliases": dict(prepared.net_aliases) if board_read(prepared) else {},
