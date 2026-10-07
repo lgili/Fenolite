@@ -377,6 +377,13 @@ def test_changed_project_file_is_not_rewritten(
     assert "altium.outjob-not-listed" in {i["code"] for i in env["issues"]}
 
 
+def _written(env: dict[str, Any]) -> set[str]:
+    """The paths the receipt of a reply lists as written (none without a receipt). Compared as values, not
+    inside the receipt's JSON text, where a Windows path has its separators escaped."""
+    receipt = env.get("receipt") or {}
+    return {entry["path"] for entry in receipt.get("written", [])}
+
+
 def test_kept_project_file_stays_known(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, blink_script: Path
 ) -> None:
@@ -392,7 +399,7 @@ def test_kept_project_file_stays_known(
         code, env, err = run(monkeypatch, *base, "--altium-outjob", "off")
         assert code == 0, err
     assert env["result"]["kept"] == [str(project)] and str(project) not in env["result"]["files"]
-    assert str(project) not in json.dumps(env.get("receipt"))
+    assert str(project) not in _written(env)
     assert {i["code"] for i in env["issues"]} & KEPT_CODES == {"altium.project-kept"}
     before = project.read_bytes()
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))["files"]
@@ -401,7 +408,7 @@ def test_kept_project_file_stays_known(
     assert code == 0, err
     assert b"blink.OutJob" in project.read_bytes() and env["result"]["kept"] == []
     assert (out / "blink.PrjPcb.bak").read_bytes() == before
-    assert str(project) in json.dumps(env.get("receipt"))
+    assert str(project) in _written(env)
 
 
 def test_folder_whose_state_lost_the_project_file(
