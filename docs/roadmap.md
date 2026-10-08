@@ -466,7 +466,7 @@ to write a design, and a tool that measures whether an agent closes the loop.
 
 | id | slug |
 |---|---|
-| c0077 | `catalog-footprint-fields` |
+| c0077 | `catalog-footprint-fields`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0078 | `router-fetch` |
 | c0079 | `agent-kit` |
 | c0080 | `agent-authoring-guide` |
