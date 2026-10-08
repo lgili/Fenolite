@@ -511,7 +511,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0109 | `routing-scale-control`: built on `v04` |
 | c0110 | `route-pairs-fanout` |
 | c0111 | `copper-part-anchors`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0112 | `via-protection` |
+| c0112 | `via-protection`; on `v04`, closed for 0.4 on 2026-10-08 except the line of the guide's `fabrication` page (task 10.2: target 9 refuses capping and filling, and the guide builds every block for both targets) |
 | c0113 | `placement-constraints` |
 | c0114 | `net-ties-waivers` |
 | c0115 | `power-copper-analysis` |

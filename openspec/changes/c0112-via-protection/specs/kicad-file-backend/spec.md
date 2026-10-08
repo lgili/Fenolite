@@ -82,9 +82,10 @@ The reader SHALL model exactly these root children and leave every other one as 
 - the header (`version`, `generator`, `generator_version`), whose values are kept in `Board.ext["kicad"]` as the pairs `version`, `generator` and `generator_version`;
 - `layers`, and the net table rows with N ≥ 1;
 - `footprint` → `FootprintInstance`, `segment` → `Track`, `arc` → `Arc`, `via` → `Via`;
-- `zone` → `Zone`, or `Keepout` for a rule area; a teardrop zone (an `attr` child holding `teardrop`) MUST stay an opaque root slot;
+- `zone` → `Zone`, or `Keepout` for a rule area, whose `name` child gives `Keepout.name`; a teardrop zone (an `attr` child holding `teardrop`) MUST stay an opaque root slot;
 - `gr_line`, `gr_arc`, `gr_circle`, `gr_rect` and `gr_poly` → `Graphic` of kind `line`, `arc`, `circle`, `rect` and `polygon`, with the c0008 rules for points, fill and stroke;
-- `gr_text` → `Text`, with `size` and `thickness` projected from `effects/font`. A `gr_text` without a font size or thickness MUST stay opaque.
+- `gr_text` → `Text`, with `size` and `thickness` projected from `effects/font`, and `h_justify` and `v_justify` from the `left`, `right`, `top` and `bottom` atoms of `effects/justify` (`center` when absent). A `gr_text` without a font size or thickness MUST stay opaque;
+- `dimension` whose `type` is `aligned` or `orthogonal` → `Dimension`, with `layer`, `start` and `end` from the two `xy` of `pts`, `offset` from `height`, and, for `orthogonal`, `direction` from `orientation` (0 `horizontal`, 1 `vertical`). Its `format`, `style` and `gr_text` children MUST be projected `Opaque` slots: `units` from `format/units` (2 `mm`, 0 `in`), `precision` from `format/precision` when it is 0 to 4, `width` from `style/thickness`, and `size` and `thickness` from the font of the `gr_text`; a value outside these keeps the field's default. The `gr_text` of a dimension belongs to it: its uuid MUST NOT give `kicad.board.duplicate-uuid`. A dimension of another type, one whose `pts` does not hold exactly two points, and an `orthogonal` one without `orientation` MUST stay opaque root slots.
 
 Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent), and `protection` from the children of "Via protection on boards". Any other leading atom MUST raise `FormatError`. `Board.outline` MUST be `None` on import. `Board.stackup` MUST be the projection of the opaque `setup` child that "Stack-up on boards" states; the projection adds no child to the list above. `Board.via_protection` MUST be the projection of the same opaque `setup` child that "Via protection defaults on boards" states; it adds no child to the list above either. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
 
@@ -118,6 +119,26 @@ Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net
 - **GIVEN** a copy of the authored board whose via holds `(tenting front)` and whose `setup` holds `(tenting front back)`
 - **WHEN** it is read
 - **THEN** the via has `protection == ViaProtection(tenting_front=True, tenting_back=False)`, `board.via_protection == ViaProtection(tenting_front=True, tenting_back=True)`, and `setup` is an `Opaque` root slot
+
+#### Scenario: Named rule area
+- **GIVEN** a board holding a rule area with `(name "ANT")` after its `uuid` and `(tracks not_allowed)`
+- **WHEN** it is read
+- **THEN** its `Keepout` has `name == "ANT"` and `no_tracks` true, and its `name` child is a `Modeled` slot
+
+#### Scenario: Justified text
+- **GIVEN** a board holding `(gr_text "L" (at 5 40 0) (layer "F.SilkS") (uuid "…") (effects (font (size 1 1) (thickness 0.15)) (justify left bottom)))`
+- **WHEN** it is read
+- **THEN** the `Text` has `h_justify == "left"` and `v_justify == "bottom"`
+
+#### Scenario: Dimension saved by KiCad
+- **GIVEN** an aligned dimension as `kicad-cli` 10.0.6 saves it, with `(units 3)` and the text "20.0000 mm" sharing the dimension's uuid
+- **WHEN** it is read with an `issues` list
+- **THEN** the board holds one `Dimension` of kind `aligned` with its points and `offset`, `units == "mm"` (the default, since 3 is outside the model), its `format` child is an `Opaque` slot, and `issues` holds no `kicad.board.duplicate-uuid`
+
+#### Scenario: Other dimension types stay opaque
+- **GIVEN** a board holding `(dimension (type leader) …)`
+- **WHEN** it is read
+- **THEN** no `Dimension` is created, and the node is an `Opaque` slot of the board at its position
 
 ### Requirement: Created board header
 For a created design, `write_board` SHALL emit exactly the root head set of c0007's `tests/data/kicad/tokens/skeleton.kicad_pcb`, plus `title_block` when one of the seven fields of `Board.title_block` is non-empty:
