@@ -291,15 +291,33 @@ design of the change and in the register rows `H-K-KRT-PAIR`, `H-K-KRT-PAIRNAMES
 | outcome | hypothesis | 10.0.6 | 9.0.9 |
 |---|---|---|---|
 | `krt-pair-t9`, `krt-pair-t10` | H-K-KRT-PAIR | pending | pending |
-| `krt-pair-names` | H-K-KRT-PAIRNAMES | pending | — |
+| `krt-pair-names` | H-K-KRT-PAIRNAMES | `equal` (local run, 2026-10-08: `A_P`/`A_N`, `B+`/`B-`, `C_P0`/`C_N0` and `E_DP`/`E_DN` routed as pairs, `DP1`/`DN1` given no copper) | — |
 | `krt-escape-qfn-t<M>`, `krt-escape-bga-t<M>` | H-K-KRT-ESCAPE | pending | pending |
 | `dsn-escape-qfn-t<M>`, `dsn-escape-bga-t<M>` | H-G-DSN-FANOUT | pending | pending |
 | `dsn-pair-ignored` | H-G-DSN-PAIR | pending | — |
 | `dsn-narrow-fanout`, `dsn-narrow-off` | H-G-DSN-NARROW | pending | — |
-| `dru-pair-couple-<case>` | H-K-DRU-PAIRCOUPLE | pending | pending |
+| `dru-pair-couple-<case>` | H-K-DRU-PAIRCOUPLE | `present` (4 cases; CI run 37772583226) | `present` (4 cases; CI run 37772583226) |
 
 Verdict: pending. Until the outcomes are recorded on both majors, `kicadroutingtools` declares no feature,
 so `route` gives no router a pair (each gives `route.pair-skipped`) and no escape request; the plugin's
 pair and escape steps exist and are tested with fakes only. The coupling probe
 (`tests/kicad/rules/test_pair_coupling.py`) runs with `kicad-cli` alone.
+
+The gate's tests are written (2026-10-08) and run in the `routing` jobs of CI, each on the major of its
+`kicad-cli`: `tests/routing/test_gate_benches.py` (the four benches build for targets 9 and 10, and the
+board of the running major loads), `tests/routing/test_pair_gate.py` (`test_krt_pair`, `test_krt_names`,
+`test_dsn_pair_ignored`) and `tests/routing/test_escape_gate.py` (`test_krt`, `test_dsn`, `test_narrow`),
+on the benches `_routepairbench.py`, `_namebench.py` and `_escapebench.py` with the parts of
+`_gateparts.py`. Every tool run is bounded by `FENOLITE_GATE_SECONDS` (900 by default), so the escape
+half adds up to about an hour and a half to each `routing` job. Each test prints its outcome and passes on
+any outcome; the verdict (task 1.6) is written from the printed outcomes.
+
+`krt-pair-names` was recorded on 2026-10-08 with `test_krt_names`, which needs the checkout and no
+`kicad-cli`: KiCadRoutingTools `v0.22.1` (commit `023d3f79`, `grid_router` built from the tag with
+`build_router.py`, Linux x86_64, CPython 3.12) reported the four forms of `PAIR_NAME_FORMS` "coupled" and
+gave `DP1`/`DN1` no copper, as measurement 4 found. On the same machine, without `kicad-cli` to judge,
+the steps of `test_krt` ran to their end on the QFN bench (`qfn_fanout.py` escaped 40 of 40 pins, then
+`route.py` in 55 s; `route.py` alone in 63 s) and on the BGA bench (`bga_fanout.py` escaped 96 of 96
+balls, then `route.py` in 225 s; `route.py` alone was stopped at a limit of 300 s); their verdict is
+KiCad's, in the `routing` job.
 

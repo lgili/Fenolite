@@ -32,6 +32,7 @@ import _bodycases
 import _buildcases
 import _checkcases
 import _copperparity
+import _couplebench
 import _creepbench
 import _doccases
 import _drawbench
@@ -357,6 +358,8 @@ def _probes() -> dict[str, Probe]:
     }.items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _featurebench.feature_probes(runner).items():  # change c0118
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _couplebench.couple_probes().items():  # change c0110
         probes[pid] = Probe(function, majors)
     # change c0105: `pro-tuning-gap-clearance-rule` is printed by its test and not pinned, because its outcome
     # (recorded either way) has not been read from a run yet

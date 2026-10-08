@@ -9,11 +9,9 @@ both 20 mm long, judged with four rules files on every pair: a ``diff_pair_gap``
 on a routed board, that KiCad counts as uncoupled every segment outside the gap rule's range, and without
 a gap rule counts far parallel segments as coupled. Net names and values are authored for this bench.
 
-The outcomes ``dru-pair-couple-<case>`` are ``present`` when the case holds as measurement 2 states. They
-are not in ``_probes.PROBES`` yet: an id there without its outcome in the probe files of both majors makes
-``tests/kicad/test_probe_results.py`` fail, and no ``kicad-cli`` ran them when this file was written.
-``couple_probes`` is what the closing task of c0110 adds there, with the outcomes written by
-``FENOLITE_PROBES_WRITE=1``.
+The outcomes ``dru-pair-couple-<case>`` are ``present`` when the case holds as measurement 2 states.
+``couple_probes`` is in ``_probes.PROBES`` for both majors since the four cases passed in the ``kicad-9`` and
+``kicad-10`` jobs of CI run 37772583226 (2026-10-08); the outcomes in both probe files are those of that run.
 """
 
 from __future__ import annotations
@@ -93,7 +91,7 @@ def probe(case: str) -> str:
 
 
 def couple_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
-    """``probe id → (function, majors)`` for ``_probes.PROBES``, once its outcomes are recorded."""
+    """``probe id → (function, majors)`` for ``_probes.PROBES``."""
     return {f"dru-pair-couple-{case}": (lambda case=case: probe(case), (9, 10)) for case in CASES}
 
 
