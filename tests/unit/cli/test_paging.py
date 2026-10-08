@@ -127,6 +127,7 @@ def test_capabilities_list_the_paged_commands(monkeypatch: pytest.MonkeyPatch, t
         "neighbors": ("neighbors", None),
         "net": ("nets|net.pads", None),
         "region": ("items", None),
+        "ready": ("issues", None),  # c0098
         "route": ("open", None),
         "testpoints": ("test_points", None),  # c0118
     }

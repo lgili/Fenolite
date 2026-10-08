@@ -92,6 +92,23 @@ did not run is not checked, whatever the exit code says.
 - KiCad's report holds a limited number of findings per type; a `check.report-limit` warning says
   that a count is a lower bound. Fix what is listed and check again.
 
+## Ready for fabrication
+
+```fenolite-cmd
+fenolite ready blink/build --json
+fenolite ready blink/build --no-kicad --format concise --json
+```
+
+- `ready` gathers in one reply what decides whether a design can go to a fabricator: the open nets,
+  KiCad's ERC and DRC (the two stages of `check`, unchanged), pins left unconnected without a no-connect
+  mark, power nets with neither a track width of their class or of a rule nor a zone, and parts without
+  a footprint or a value. It writes nothing.
+- `result.ready` is true and the exit code 0 when no finding is an `error`; exit 5 lists the findings
+  (`ready.*`, `kicad.erc.*`, `kicad.drc.*`), each with an `explain` entry.
+- Without `kicad-cli` it exits 6, as `check` does. `--no-kicad` reports ERC and DRC as skipped, with a
+  `ready.check-skipped` warning each, and `result.complete` is then false: say so when you report.
+- A power net is one that a `Power` interface names, or one that holds a power pin.
+
 ## The netlist and parity
 
 ```fenolite-cmd

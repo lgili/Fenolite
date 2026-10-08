@@ -1397,6 +1397,18 @@ corpus_id = ""
 notes = "schematic of the same build (c0072), beside its board"
 
 [[file]]
+path = "tests/data/kicad/ready/blink.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the starter of 'fenolite init', built for target 10 and routed with 'fenolite route --router direct' on 2026-10-08 (c0098): the ready project of the example of 'fenolite ready'"
+
+[[file]]
+path = "tests/data/kicad/ready/blink.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0098), beside its board"
+
+[[file]]
 path = "tests/data/altium/board6/board6.PcbDoc"
 origin = "authored"
 corpus_id = ""

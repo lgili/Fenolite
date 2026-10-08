@@ -97,6 +97,9 @@ What each step is for:
   nothing here; it matters on every board with a zone, after each change of its copper.
 - `check` is the judge: the model, the electrical rules, the copper clearances, KiCad's own design-rule
   check, and the comparison of the nets between the script and the board. Exit code 0 means no error.
+  Before `export`, `fenolite ready blink/build --json` answers "is it electrically ready?" in one reply:
+  open nets, KiCad's ERC and DRC, unconnected pins, power nets without a width or a zone, parts without
+  a footprint or a value. It writes nothing; exit 5 lists what is missing (page `checks`).
 - `export` writes Gerber, drill, position and netlist files with a manifest; `render` writes views to
   look at.
 

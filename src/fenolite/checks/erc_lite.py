@@ -23,6 +23,7 @@ from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.circuit import power_interface_nets
 from fenolite.model.design import Design
 
 ERC_RULES = ("output-conflict", "power-undriven", "floating-pin")
@@ -35,7 +36,7 @@ def erc_lite(design: Design) -> tuple[Issue, ...]:
     circuit = design.circuit
     live = {c.id: c for c in circuit.components if not c.dnp}
     pin_types = {(c.id, p.number): p.etype for c in live.values() for p in c.pins}
-    powered = {net_id for i in circuit.interfaces if i.kind == "power" for net_id in i.members.values()}
+    powered = power_interface_nets(circuit)
     marked = {(mark.component_id, mark.pin) for mark in circuit.no_connects}
     found: list[Issue] = []
     on_net: set[tuple[str, str]] = set()

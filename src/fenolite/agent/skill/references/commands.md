@@ -41,6 +41,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 | `parity` | no | compare the board of a KiCad project with its schematic, and symbol pins with footprint pads: without kicad-cli for a project that fenolite build wrote, and for an Altium project (writes nothing) |
 | `place` | yes | place staged parts on the board in a grid, or move named parts (edits the board) |
 | `pnp` | yes | the placement (pick-and-place) table of a board, through a column template (writes FILE with --out) |
+| `ready` | no | say whether a KiCad project is electrically ready for fabrication: open nets, KiCad ERC and DRC, unconnected pins, power nets without a width or a zone, parts without a footprint or a value (read-only) |
 | `region` | no | list the footprints, pads, copper, zones and texts that touch a rectangle of a board (runs no tool) |
 | `render` | yes | render review views of a board through kicad-cli on a copy of the project (writes under DIR) |
 | `restore` | yes | put back the backups of one confirmed write, described by its receipt (deletes nothing) |
@@ -392,6 +393,15 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--side` (string, one of `both`, `bottom`, `top`, default `both`): the side to list (default both)
 - `-o`, `--out` (string): also write the table as a CSV file
 - `--manifest` (boolean): also add FILE to fenolite-artifacts.json in its folder
+
+## ready
+
+`fenolite ready [--no-kicad] [--kicad-cli PATH] [--timeout SECONDS] PATH`
+
+- `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
+- `--no-kicad` (boolean): run no kicad-cli: ERC and DRC are reported as skipped
+- `--kicad-cli` (string): the kicad-cli to run
+- `--timeout` (number, default `300.0`): kicad-cli timeout (300)
 
 ## region
 
