@@ -844,6 +844,11 @@ meaning = "Neither the part nor its symbol names a footprint."
 fix = "Give the part a footprint in the script."
 see = "build"
 
+["build.pad-map-default"]
+meaning = "A catalog diode or LED (pin 1 A, pin 2 K) sits on a catalog land whose pad 1 is the cathode and gives no pad_map, so the build applied pad_map={\"1\": \"2\", \"2\": \"1\"}: anode pin on the anode pad, cathode pin on the cathode pad. Earlier builds kept pin 1 on pad 1, so a design wired by pin number has its two pad nets swapped."
+fix = "Connect the part by pin name (A, K) and write pad_map={\"1\": \"2\", \"2\": \"1\"} on it to keep the map and silence the warning; to keep the pad order of earlier builds instead, write pad_map={\"1\": \"1\", \"2\": \"2\"}."
+see = "build"
+
 ["build.pad-without-pin"]
 meaning = "A pad of the footprint has no symbol pin mapped to it and stays without a net."
 fix = "Nothing to do for a mechanical pad; else correct the pin-to-pad map."

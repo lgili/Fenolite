@@ -106,6 +106,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.library-changed": "warning",
         "build.diff-pair-name": "warning",
         "build.i2c-pullup-missing": "warning",
+        "build.pad-map-default": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",

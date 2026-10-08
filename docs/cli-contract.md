@@ -260,6 +260,13 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 | `build.diff-pair-name` | warning | the two nets of a `diff_pair` or `usb2` interface are not a differential pair for KiCad by name; the hint proposes a name |
 | `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface |
 
+A build for either target applies the catalog's default pin-to-pad map (change c0147,
+`docs/catalog/sources.md`) and reports each part it applies it to:
+
+| code | severity | meaning |
+|---|---|---|
+| `build.pad-map-default` | warning | a part of an anode-first catalog symbol (`Fenolite:LED`, `Diode`, `Zener_Diode`, `Schottky_Diode`, `Photodiode`) on a catalog land whose pad 1 is the cathode gives no `pad_map`, and the build applied `{"1": "2", "2": "1"}`; the issue names the part (`where`), the land and the map, and the hint the `pad_map=` to write |
+
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]

@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -78,6 +79,7 @@ from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
 from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
+from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.cmd_export import preset_file
@@ -120,6 +122,7 @@ from fenolite.lens.build import (
     plane_issues,
     read_record,
 )
+from fenolite.lens.build import issue as build_issue
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
@@ -452,6 +455,28 @@ def _catalog_definitions(
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
 
 
+def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
+    """One ``build.pad-map-default`` warning per part that got the catalog's default pin-to-pad map
+    (capability design-dsl, "Default pin-to-pad map is reported"; change c0147)."""
+    found: list[Issue] = []
+    for part in applied:
+        written = json.dumps(dict(part.pairs))
+        pins = ", ".join(f"pin {pin} on pad {pad}" for pin, pad in part.pairs)
+        identity = json.dumps({pin: pin for pin, _pad in part.pairs})
+        found.append(
+            build_issue(
+                "build.pad-map-default",
+                f"{part.ref} ({part.symbol} on {part.footprint}) gives no pad_map; the build applies the "
+                f"catalog's map pad_map={written} ({pins}): pad 1 of this land is the cathode",
+                part.path,
+                hint=f"write pad_map={written} on the part to keep this map and silence the warning, and "
+                f"connect it by pin name (A, K); a design that wired it by pin number for the pad order of "
+                f"earlier builds keeps that order with pad_map={identity}",
+            )
+        )
+    return found
+
+
 def placement_guard(
     files: Mapping[str, bytes], *, name: str, staged: Sequence[str] = (), edge_clearance: int = 0
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
@@ -663,6 +688,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    model, defaulted = apply_default_pad_maps(
+        model, authored_symbols=design.symbols, authored_footprints=design.footprints
+    )
+    default_issues = pad_map_issues(defaulted)
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
@@ -686,7 +715,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         )
         return dataclasses.replace(
             made,
-            issues=(*source_issues, *sheet_issues, *from_file.issues, *made.issues),
+            issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
             writes=() if refused else made.writes,
         )
     resolver = LibraryResolver(
@@ -797,6 +826,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues=(
             *sheet_issues,
             *source_issues,
+            *default_issues,
             *built.issues,
             *symbol_issues,
             *plane_issues(plane_nets),

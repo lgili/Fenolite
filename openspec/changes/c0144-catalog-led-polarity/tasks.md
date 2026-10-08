@@ -24,5 +24,6 @@
 - [ ] 3.2 The coordinator amends the rows S-0412 and S-0413 of `docs/evidence/sources.md` with what was read on 2026-10-08 (`design.md`, Context).
   - Open (2026-10-08): the register is append-only in this batch, and the rows exist.
 - [ ] 3.3 The maintainer answers the open question of `design.md` (a default map, a warning, or neither).
+  - 2026-10-08: the maintainer decided to apply the default map automatically. Implemented by change c0147 (`openspec/changes/c0147-catalog-default-pad-map/`), which applies `{"1": "2", "2": "1"}` to a part without a `pad_map`, keeps an explicit map, and reports every such part with the warning `build.pad-map-default`. That change replaces this spec's clause "The catalog MUST NOT apply a pin-to-pad map by itself" (its MODIFIED delta), so c0144 is archived first. Left unticked here: the answer is the maintainer's, recorded in c0147, not proved by a command of this change.
 - [ ] 3.4 Run the kit's steps that read `D1` in Altium Designer 26 on the rebuilt kit (the sheets of `flat`, `routed`, `board6` and `libs` hold two new pin-map records each).
   - Open (2026-10-08): nothing was opened in Altium for this change; the documents are proved by Fenolite's readers only (RT-A2).

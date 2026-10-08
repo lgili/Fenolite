@@ -32,6 +32,7 @@ from fenolite.backends.altium.read.project import read_project
 from fenolite.checks.documents import run_document_checks
 from fenolite.checks.equivalence import compare_designs, max_level
 from fenolite.cli._documents import find_documents
+from fenolite.cli._padmap import apply_default_pad_maps
 from fenolite.cli.cmd_build import _catalog_definitions  # pyright: ignore[reportPrivateUsage]
 from fenolite.core.errors import FenoliteError, FormatError
 from fenolite.core.io import sha256_bytes
@@ -80,7 +81,9 @@ def build_sample(script: Path, *, edit: ModelEdit | None = None) -> SampleFiles:
         raise FormatError("the sample script binds no module-level 'design'", file=script.name)
     options = cast(Mapping[str, Any], namespace.get("KIT", {}))
     hook = namespace.get("kit_model")
-    model = to_model(design)
+    model, _defaulted = apply_default_pad_maps(
+        to_model(design), authored_symbols=design.symbols, authored_footprints=design.footprints
+    )
     if callable(hook):
         model = cast(ModelDesign, hook(model))
     if edit is not None:

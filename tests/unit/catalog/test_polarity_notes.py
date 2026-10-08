@@ -14,7 +14,15 @@ from pathlib import Path
 
 import pytest
 
-from fenolite.catalog import get_footprint, get_symbol, list_entries
+from fenolite.catalog import (
+    ANODE_FIRST_SYMBOLS,
+    CATHODE_FIRST_LANDS,
+    CATHODE_FIRST_PAD_MAP,
+    default_pad_map,
+    get_footprint,
+    get_symbol,
+    list_entries,
+)
 from fenolite.cli._script import run_design_script
 from fenolite.core.ids import derived_id
 from fenolite.dsl import to_model
@@ -58,6 +66,31 @@ def test_the_cathode_first_lands_are_the_known_ones() -> None:
     """A new land with pad 1 at its cathode mark must be named here, and so gets its warning."""
     found = [entry.lib_id for entry in list_entries(kind="footprint") if _cathode_first(entry.lib_id)]
     assert sorted(found) == sorted(CATHODE_FIRST)
+    assert CATHODE_FIRST_LANDS == CATHODE_FIRST  # the lands of the default map (change c0147)
+
+
+def test_the_anode_first_symbols_are_the_known_ones() -> None:
+    """Every two-pin catalog symbol with pin 1 ``A`` and pin 2 ``K`` gets the default map on these lands
+    (capability fenolite-component-catalog, "Default pin-to-pad map of the cathode-first lands"; c0147)."""
+    found = [
+        entry.lib_id
+        for entry in list_entries(kind="symbol")
+        if [(pin.number, pin.name) for pin in get_symbol(entry.lib_id).pins] == [("1", "A"), ("2", "K")]
+    ]
+    assert sorted(found) == sorted(ANODE_FIRST_SYMBOLS)
+    assert {"Fenolite:Diode", "Fenolite:LED", "Fenolite:Zener_Diode"} <= set(ANODE_FIRST_SYMBOLS)
+
+
+def test_the_default_map_puts_each_pin_on_its_pad() -> None:
+    """The anode pin on the anode pad, the cathode pin on pad 1 (the cathode), for every pair; any other
+    pair of a catalog symbol and land gets no map."""
+    number = {pin.name: pin.number for pin in get_symbol("Fenolite:LED").pins}
+    assert dict(CATHODE_FIRST_PAD_MAP) == {number["K"]: "1", number["A"]: "2"}
+    symbols = [entry.lib_id for entry in list_entries(kind="symbol")]
+    lands = [entry.lib_id for entry in list_entries(kind="footprint")]
+    mapped = {(s, f) for s in symbols for f in lands if default_pad_map(s, f)}
+    assert mapped == {(s, f) for s in ANODE_FIRST_SYMBOLS for f in CATHODE_FIRST_LANDS}
+    assert all(default_pad_map(s, f) == CATHODE_FIRST_PAD_MAP for s, f in mapped)
 
 
 @pytest.mark.parametrize("lib_id", CATHODE_FIRST)

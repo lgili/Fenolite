@@ -1547,7 +1547,7 @@ def _footprint(name: str) -> FootprintDef:
         return _two_terminal_footprint(name)
     if name == "SOD128_Nexperia_CFP5":
         # This package calls its left cathode terminal pad 1, unlike Fenolite's
-        # generic diode symbol; callers must provide the device pin-to-pad map.
+        # generic diode symbol; a build applies CATHODE_FIRST_PAD_MAP unless the part maps it.
         pads = (
             _pad(name, "1", -2_200_000, 0, 1_400_000, 2_100_000),
             _pad(name, "2", 2_200_000, 0, 1_400_000, 2_100_000),
@@ -1734,6 +1734,34 @@ def _footprint(name: str) -> FootprintDef:
     raise KeyError(name)
 
 
+CATHODE_FIRST_LANDS: tuple[str, ...] = (
+    "Fenolite:LED0603_Kingbright_APT1608SURCK",
+    "Fenolite:LED0805_Kingbright_APT2012SURCK",
+    "Fenolite:SOD128_Nexperia_CFP5",
+)
+"""The two-pad lands that keep the manufacturer's numbering with pad 1 at the cathode (change c0144)."""
+ANODE_FIRST_SYMBOLS: tuple[str, ...] = (
+    "Fenolite:Diode",
+    "Fenolite:LED",
+    "Fenolite:Photodiode",
+    "Fenolite:Schottky_Diode",
+    "Fenolite:Zener_Diode",
+)
+"""The two-pin symbols with pin 1 ``A`` (anode) and pin 2 ``K`` (cathode)."""
+CATHODE_FIRST_PAD_MAP: tuple[tuple[str, str], ...] = (("1", "2"), ("2", "1"))
+"""The pin-to-pad map of an anode-first symbol on a cathode-first land: pin 1 ``A`` on pad 2 (the anode),
+pin 2 ``K`` on pad 1 (the cathode). Pairs in the form of ``Component.pin_pad_map`` (change c0147)."""
+
+
+def default_pad_map(symbol_id: str, footprint_id: str) -> tuple[tuple[str, str], ...]:
+    """The pin-to-pad map the catalog applies to a part of ``symbol_id`` on ``footprint_id`` that gives no
+    map of its own: ``CATHODE_FIRST_PAD_MAP`` for an anode-first symbol on a cathode-first land, else ``()``
+    (capability fenolite-component-catalog, "Default pin-to-pad map of the cathode-first lands")."""
+    if symbol_id in ANODE_FIRST_SYMBOLS and footprint_id in CATHODE_FIRST_LANDS:
+        return CATHODE_FIRST_PAD_MAP
+    return ()
+
+
 def get_symbol(lib_id: str) -> SymbolDef:
     """Return a built-in generic symbol by stable ``library:name`` ID."""
     if not lib_id.startswith("Fenolite:"):
@@ -1755,4 +1783,14 @@ def get_footprint(lib_id: str) -> FootprintDef:
     return _footprint(name)
 
 
-__all__ = ["CatalogEntry", "ENTRIES", "get_footprint", "get_symbol", "list_entries"]
+__all__ = [
+    "ANODE_FIRST_SYMBOLS",
+    "CATHODE_FIRST_LANDS",
+    "CATHODE_FIRST_PAD_MAP",
+    "ENTRIES",
+    "CatalogEntry",
+    "default_pad_map",
+    "get_footprint",
+    "get_symbol",
+    "list_entries",
+]

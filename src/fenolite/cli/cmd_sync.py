@@ -17,6 +17,7 @@ from pathlib import Path
 
 import fenolite
 from fenolite.backends.kicad import sch
+from fenolite.cli._padmap import apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.cmd_build import MINIMAL
@@ -104,7 +105,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     run = run_design_script(script_path)
     design = run.design
     try:
-        model = to_model(design)
+        model, _defaulted = apply_default_pad_maps(
+            to_model(design), authored_symbols=design.symbols, authored_footprints=design.footprints
+        )
         aliases = Aliases(moves(design), module_moves(design), net_moves(design))
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
