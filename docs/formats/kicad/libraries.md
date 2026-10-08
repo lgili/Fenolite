@@ -414,16 +414,17 @@ A footprint names its 3D model files with `(model "<path>" …)`. The official f
 written for. `LibraryResolver.locate_model(path)` finds the file, `backends/kicad/models.py` plans a STEP
 run with it, and `fenolite models` lists the result (change c0116). These rows say how `kicad-cli pcb
 export step` itself finds a model; they were measured on 2026-10-05 on both majors and are probed by
-`tests/kicad/export/test_document_probes.py` (recorded for 10.0.6, not yet for 9.0.9).
+`tests/kicad/export/test_document_probes.py` (recorded for both majors; CI run 37772583226 of 2026-10-08). The
+row on the models of an install stays `INFERRED`: its test runs only where an install holds models.
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| `pcb export step` takes `${KICAD<N>_3DMODEL_DIR}/<rel>` from the folder that the variable names in its environment, as an absolute path or as a path relative to its working folder; a `${KIPRJMOD}/<rel>` path is read from the board's folder | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
-| 9.0.9 does not read a `KICAD9_` path through `KICAD10_3DMODEL_DIR`: with only that variable set the STEP holds the board alone | S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| `pcb export step` takes `${KICAD<N>_3DMODEL_DIR}/<rel>` from the folder that the variable names in its environment, as an absolute path or as a path relative to its working folder; a `${KIPRJMOD}/<rel>` path is read from the board's folder | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
+| 9.0.9 does not read a `KICAD9_` path through `KICAD10_3DMODEL_DIR`: with only that variable set the STEP holds the board alone | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-EXPORT-MODELS |
 | With no model variable in its environment, 10.0.6 takes `KICAD9_` and `KICAD10_` paths from the `3dmodels` folder of its own install (3.1 GB in the macOS application); the pinned 9.0.9 image holds no model folder | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
-| A model that is not found gives the two lines `Could not add 3D model for <ref>.` and `File not found: <path as written>` on standard output for each footprint, a STEP without that body and exit 0 | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
-| With `--subst-models`, a `.wrl` path whose file is present gives the body of its `.step` sibling; with only the sibling present nothing is substituted and the model counts as not found; without the option a present `.wrl` exits 2 with the board alone | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
-| A STEP holds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` named after the reference for each footprint whose model was added | S-0020, S-0029 | INFERRED | H-K-EXPORT-MODELS |
+| A model that is not found gives the two lines `Could not add 3D model for <ref>.` and `File not found: <path as written>` on standard output for each footprint, a STEP without that body and exit 0 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
+| With `--subst-models`, a `.wrl` path whose file is present gives the body of its `.step` sibling; with only the sibling present nothing is substituted and the model counts as not found; without the option a present `.wrl` exits 2 with the board alone | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
+| A STEP holds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` named after the reference for each footprint whose model was added | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
 
 Fenolite's choices on top of these facts:
 
@@ -447,8 +448,9 @@ Fenolite's choices on top of these facts:
   S-0701), refuses more than 64 MiB, downloads the raw file into a temporary file, and keeps it only when both
   agree. Each kept file is recorded in `<cache>/<tag>/kicad-packages3D/.fenolite-models.json`, an object that
   maps `<rel>` to the SHA-256. A stamped file is `cached` and not requested again; `--verify` re-hashes the
-  stamped files. No real fetch was made for c0116 (`H-G-MODELS-FETCH` is `INFERRED`): the tests replace both
-  requests and use an authored model. The official models are CC-BY-SA 4.0 with the library exception
+  stamped files. The tests replace both requests and use an authored model; the first real fetch, of the
+  three models of `examples/blink_official` at both tags on 2026-10-08, is recorded in
+  `docs/evidence/kicad-libs.md` ("Fetched 3D models"), and `H-G-MODELS-FETCH` is `CORPUS-VERIFIED`. The official models are CC-BY-SA 4.0 with the library exception
   (S-0048): they stay in the cache and are never committed.
 
 ## Locating items

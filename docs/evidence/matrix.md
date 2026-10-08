@@ -390,7 +390,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `lowering` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND`, `H-K-DRU-PAIR` |
 | `meander` | `EVIDENCE` INFERRED: `H-K-NETLEN-MEANDER` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
-| `models` | `EVIDENCE` INFERRED: `H-K-EXPORT-MODELS` |
+| `models` | `EVIDENCE` KICAD-VERIFIED: `H-K-EXPORT-MODELS` |
 | `netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-SHAPE` |
 | `netnames` | see `pcb`, `schgen` |
 | `oracle` | `EVIDENCE` KICAD-VERIFIED: `H-K-CHECK-COPYSET`, `H-K-CHECK-CANARY-3`<br>`NORMALISE_EVIDENCE` KICAD-VERIFIED: `H-K-FMT-RESAVE`<br>`RT2_EVIDENCE` KICAD-VERIFIED: `H-K-RT2-STABLE-2` |

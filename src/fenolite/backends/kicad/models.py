@@ -29,9 +29,9 @@ from fenolite.backends.kicad.sexpr import AtomKind, Node, parse
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-EXPORT-MODELS",))
-"""``INFERRED`` until ``H-K-EXPORT-MODELS`` holds on 9.0.x and 10.0.x: how ``kicad-cli`` finds a model
-through ``KICAD<N>_3DMODEL_DIR`` and what it prints for one it does not find."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-EXPORT-MODELS",))
+"""``KICAD-VERIFIED``, since ``H-K-EXPORT-MODELS`` holds on 9.0.9 and 10.0.6 (c0116 task 9.2): how
+``kicad-cli`` finds a model through ``KICAD<N>_3DMODEL_DIR`` and what it prints for one it does not find."""
 MISSING = "missing"
 IN_PLACE = "in-place"
 SIBLING_SUFFIXES = (".step", ".stp")

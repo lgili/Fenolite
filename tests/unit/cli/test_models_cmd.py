@@ -59,7 +59,7 @@ def test_list_located_and_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     (warning,) = env["issues"]
     assert (warning["code"], warning["severity"]) == ("kicad.lib.missing-3d-model", "warning")
     assert "D1" in warning["message"] and "Absent.step" in warning["message"]
-    assert env["evidence"]["level"] == kicad_models.EVIDENCE.level.value == "INFERRED"
+    assert env["evidence"]["level"] == kicad_models.EVIDENCE.level.value == "KICAD-VERIFIED"
     assert env["evidence"]["hypotheses"] == ["H-K-EXPORT-MODELS"]
     assert "plan" not in result and tree_snapshot(board.parent) == before
     for needle in (str(tmp_path), str(Path.home()), str(MODELS)):

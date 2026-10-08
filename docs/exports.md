@@ -422,5 +422,6 @@ level and the oracle `kicad-cli <version>`.
 
 The six document kinds were measured on 2026-10-05 on both majors and probed again on `kicad-cli` 10.0.6
 on 2026-10-07 (`H-K-EXPORT-DOCS`, `H-K-EXPORT-DOCS-REPEAT`, `H-K-EXPORT-MODELS`, `H-K-EXPORT-SHEETS`,
-`H-K-EXPORT-PDF-PAGE`). Their probes are not yet recorded for 9.0.9, so an export that selects a
-document kind, and `fenolite models`, carry `INFERRED`.
+`H-K-EXPORT-PDF-PAGE`). Their probes are recorded on both majors and passed in the `kicad-9` and `kicad-10`
+jobs of CI run 37772583226 (2026-10-08), so an export that selects a document kind, and `fenolite models`,
+carry `KICAD-VERIFIED`.

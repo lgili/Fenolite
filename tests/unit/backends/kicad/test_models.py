@@ -120,7 +120,9 @@ def test_board_plan_reads_the_board_file(tmp_path: Path) -> None:
 
 
 def test_evidence_and_report_form(tmp_path: Path) -> None:
-    assert models.EVIDENCE.level is Level.INFERRED and models.EVIDENCE.hypotheses == ("H-K-EXPORT-MODELS",)
+    assert models.EVIDENCE.level is Level.KICAD_VERIFIED and models.EVIDENCE.hypotheses == (
+        "H-K-EXPORT-MODELS",
+    )
     use = ModelUse(official(), "env", SHA, 10, ("U1",))
     assert models.use_dict(use) == {
         "path": official(), "source": "env", "sha256": SHA, "bytes": 10, "refs": ["U1"],

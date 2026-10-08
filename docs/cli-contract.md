@@ -1523,9 +1523,9 @@ read or a missing schematic, 6 when
 `kicad-cli` is missing (`FEN-6001`), of an unsupported major or older than the board's format
 (`FEN-6002`). The evidence is `exports.EVIDENCE` with the oracle `kicad-cli <version>`: Fenolite claims
 the file set and the hashes, and the content of each file is KiCad's. An export that selects a document
-kind carries the combination of the selected kinds' evidence: `exports.DOCUMENTS_EVIDENCE` is `INFERRED`
-(`H-K-EXPORT-DOCS`, `H-K-EXPORT-DOCS-REPEAT`, `H-K-EXPORT-MODELS`, `H-K-EXPORT-SHEETS`) until the four
-hold on both majors.
+kind carries the combination of the selected kinds' evidence: `exports.DOCUMENTS_EVIDENCE` is
+`KICAD-VERIFIED` (`H-K-EXPORT-DOCS`, `H-K-EXPORT-DOCS-REPEAT`, `H-K-EXPORT-MODELS`, `H-K-EXPORT-SHEETS`, which
+hold on both majors since 2026-10-08).
 
 ## models
 
@@ -1549,7 +1549,7 @@ Each distinct `(model …)` path is located once, from the first source that hol
   at `<board folder>/3dmodels/<rel>` (kind `3d-model`). The mutation protocol applies: a plan asks for
   `--confirm`. The board, its footprints and their model paths never change; later exports read the
   copies first. `fenolite manifest` lists them as design files of kind `3d-model`.
-- No value holds an absolute path or a date. The evidence is `INFERRED` (`H-K-EXPORT-MODELS`).
+- No value holds an absolute path or a date. The evidence is `KICAD-VERIFIED` (`H-K-EXPORT-MODELS`).
 
 Exit codes: 0, also with missing models; 4 when `--vendor` plans a copy without `--dry-run` or
 `--confirm`; 2 for a usage error; 3 for a missing path.

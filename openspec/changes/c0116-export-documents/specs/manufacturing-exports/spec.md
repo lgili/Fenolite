@@ -277,6 +277,6 @@ The manifest that `fenolite manifest` writes SHALL list the design files of a pr
 - **THEN** `evidence.level` equals `exports.EVIDENCE.level` and `evidence.oracle` is `kicad-cli 10.0.6`
 
 #### Scenario: Evidence of a document kind
-- **GIVEN** `DOCUMENTS_EVIDENCE` at `INFERRED` and the fake `kicad-cli` 10.0.6
+- **GIVEN** `DOCUMENTS_EVIDENCE` at `KICAD-VERIFIED` (the four hypotheses hold on both majors) and the fake `kicad-cli` 10.0.6
 - **WHEN** `fenolite export <board> --out fab --gerbers --step --manifest --dry-run` runs
-- **THEN** `evidence.level` is `INFERRED`, `evidence.hypotheses` holds `H-K-EXPORT-MODELS`, and the planned manifest gives the Gerbers the level of `exports.EVIDENCE` and the STEP `INFERRED`
+- **THEN** `evidence.level` is `Evidence.combine` of `exports.EVIDENCE` and `DOCUMENTS_EVIDENCE`, `KICAD-VERIFIED`, `evidence.hypotheses` holds `H-K-EXPORT-MODELS`, and the planned manifest gives the Gerbers the level of `exports.EVIDENCE` and the STEP the level of `DOCUMENTS_EVIDENCE`

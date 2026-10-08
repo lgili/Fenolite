@@ -596,13 +596,13 @@ def test_evidence_of_a_document_kind(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     args = ("export", str(root), "--out", "fab", "--gerbers", "--step", "--manifest", "--kicad-cli", fake)
     code, env, _, _ = run(monkeypatch, tmp_path, *args, "--confirm")
     assert code == 0, env
-    assert DOCUMENTS_EVIDENCE.level.value == "INFERRED"
-    assert env["evidence"]["level"] == "INFERRED" and env["evidence"]["oracle"] == "kicad-cli 10.0.6"
+    assert DOCUMENTS_EVIDENCE.level.value == "KICAD-VERIFIED"
+    assert env["evidence"]["level"] == "KICAD-VERIFIED" and env["evidence"]["oracle"] == "kicad-cli 10.0.6"
     assert "H-K-EXPORT-MODELS" in env["evidence"]["hypotheses"]
     assert "H-K-EXPORT-FILES" in env["evidence"]["hypotheses"]
     manifest = json.loads((tmp_path / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8"))
     levels = {e["path"]: e["evidence"] for e in manifest["artifacts"]}
-    assert levels["3d/board.step"] == "INFERRED"
+    assert levels["3d/board.step"] == DOCUMENTS_EVIDENCE.level.value
     assert levels["gerbers/board-F_Cu.gbr"] == EVIDENCE.level.value != "INFERRED"
     # a document kind alone carries the level of the document kinds
     code, env, _, _ = run(
@@ -668,7 +668,7 @@ def test_document_manifest_layer_and_source(
     assert entries["pdf/board-F_Cu.pdf"]["from"] == {"board": board_sha}
     assert entries["schematic/board.pdf"]["layer"] is None
     assert entries["schematic/board.pdf"]["from"] == {"schematic": sheet_sha}
-    assert all(e["evidence"] == "INFERRED" for e in entries.values())
+    assert all(e["evidence"] == DOCUMENTS_EVIDENCE.level.value for e in entries.values())
     data = (work / "out" / "pdf" / "board-F_Cu.pdf").read_bytes()
     assert data == PDF.encode("latin-1")
     assert (
