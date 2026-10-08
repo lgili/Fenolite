@@ -52,6 +52,10 @@ STACKED_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-STACKED",
 instance that have one name and connect at one point (a pin bonded to several pads, change c0123)."""
 STACKED_OPEN_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-STACKED-OPEN",))
 """And when such a stack carries no label: KiCad makes one net of it and names it after one of its pads."""
+FRAME_ORDER_EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-K-SCH-PINFRAME-ORDER",))
+"""What a netlist rests on besides ``EVIDENCE`` when a symbol instance is mirrored and turned by 90 or 270
+degrees: KiCad turns the symbol first and mirrors the turned symbol, read from the demo sheets of the
+corpus (change c0137). For 0 and 180 degrees the order does not matter."""
 CODE = "kicad.sch.netlist-unsupported"
 ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({CODE: "error"})
 """The one code of this module; the closed set of the reader (``sch.ISSUE_CODES``) is not widened."""
@@ -403,10 +407,24 @@ def stack_evidence(sheets: Iterable[SchematicSheet]) -> tuple[Evidence, ...]:
     return (*found, STACKED_OPEN_EVIDENCE) if opened else found
 
 
+def frame_evidence(sheets: Iterable[SchematicSheet]) -> tuple[Evidence, ...]:
+    """``(FRAME_ORDER_EVIDENCE,)`` when an instance of ``sheets`` is mirrored and turned by 90 or 270
+    degrees, the only frames whose pin points depend on the order of the two operations; ``()`` otherwise,
+    so that the evidence of a sheet without such an instance is the one it was."""
+    for sheet in sheets:
+        for instance in sheet.symbols:
+            rotation, mirror = _frame(instance)
+            if mirror and rotation in (90, 270):
+                return (FRAME_ORDER_EVIDENCE,)
+    return ()
+
+
 def evidence_of(sheet: SchematicSheet, children: Mapping[str, SchematicSheet] = NO_CHILDREN) -> Evidence:
     """The evidence of ``own_netlist(sheet, children=children)``: ``EVIDENCE``, combined with
-    ``stack_evidence`` of the sheets when they hold stacked pins (lowest level wins, ids listed)."""
-    extra = stack_evidence((sheet, *children.values()))
+    ``stack_evidence`` of the sheets when they hold stacked pins and ``frame_evidence`` when they hold a
+    mirrored and turned instance (lowest level wins, ids listed)."""
+    sheets = (sheet, *children.values())
+    extra = (*stack_evidence(sheets), *frame_evidence(sheets))
     return Evidence.combine(EVIDENCE, *extra) if extra else EVIDENCE
 
 
@@ -467,6 +485,7 @@ def own_netlist(
 __all__ = [
     "CODE",
     "EVIDENCE",
+    "FRAME_ORDER_EVIDENCE",
     "STACKED_EVIDENCE",
     "STACKED_OPEN_EVIDENCE",
     "HINT",
@@ -475,6 +494,7 @@ __all__ = [
     "WIRE_HEADS",
     "NetlistUnsupportedError",
     "evidence_of",
+    "frame_evidence",
     "grammar_issues",
     "own_netlist",
     "stack_evidence",

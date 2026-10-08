@@ -80,7 +80,8 @@ def test_rotations_turn_counter_clockwise_on_the_sheet() -> None:
     assert pin_point(origin, left, 90) == Point(0, 10 * MM)  # the left pin goes to the bottom
     assert pin_point(origin, left, 180) == Point(10 * MM, 0)
     assert pin_point(origin, left, 270) == Point(0, -10 * MM)
-    assert pin_point(origin, left, 90, "y") == Point(0, -10 * MM)  # the mirror comes first
+    assert pin_point(origin, left, 90, "y") == Point(0, 10 * MM)  # the turn comes first (c0137)
+    assert pin_point(origin, left, 90, "x") == Point(0, -10 * MM)
     with pytest.raises(ValueError, match="rotation"):
         pin_point(origin, left, 45)
     with pytest.raises(ValueError, match="mirror"):

@@ -916,6 +916,9 @@ def build_design(
         # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);
         # a design of one pad per pin adds nothing, so its envelope is the one it was
         evidence_items += sch_netlist.stack_evidence((generated.sheet, *generated.children.values()))
+        # a placements file that mirrors and turns a unit by 90 or 270 degrees rests on the order of the
+        # two operations, read from the corpus (c0137)
+        evidence_items += sch_netlist.frame_evidence((generated.sheet, *generated.children.values()))
     merged_copper = cast(Mapping[str, int], preserved.get("copper", {}))
     summary: dict[str, object] = {
         "components": len(components),
