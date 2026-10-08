@@ -36,7 +36,7 @@
 
 ## 3. Documentation
 
-- [ ] 3.1 Update `docs/cli-contract.md` (under `check`: `summary.limits` with its three states, `check.report-limit`, the limits per type and major with their label, and under "what does not repeat" the clause of the modified requirement) and add one line to the CLI section of `AGENTS.md` and to `agent/SKILL.md`: a count that `summary.limits` names is a lower bound. Proof: `uv run pytest tests/consistency tests/unit/test_drc_repeat.py tests/unit/test_repo_layout.py tests/residue`.
+- [ ] 3.1 Update `docs/cli-contract.md` (under `check`: `summary.limits` with its three states, `check.report-limit`, the limits per type and major with their label, and under "what does not repeat" the clause of the modified requirement) and add one line to the CLI section of `AGENTS.md` and to `src/fenolite/agent/skill/SKILL.md` (moved there by c0079): a count that `summary.limits` names is a lower bound. Proof: `uv run pytest tests/consistency tests/unit/test_drc_repeat.py tests/unit/test_repo_layout.py tests/residue`.
   - Done except one line (2026-10-07): `docs/cli-contract.md` (the paragraph "Report limits" under `check` with the three states, the table of limits with labels, the row of `check.report-limit`, the clause under "Repeatability") and `agent/SKILL.md`. The proof command, with `tests/unit/test_agent_skill.py` added, → 328 passed, 15 skipped, exit 0. Open: the line in the CLI section of `AGENTS.md`. That file is the instruction file of the agents that work on this repository, and the implementing agent does not edit its own instructions; the maintainer adds: "A count that `summary.limits` of `drc.kicad` names is a lower bound (`check.report-limit`)."
 
 ## 4. Closing

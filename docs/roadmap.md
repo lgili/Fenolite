@@ -468,7 +468,7 @@ to write a design, and a tool that measures whether an agent closes the loop.
 |---|---|
 | c0077 | `catalog-footprint-fields`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0078 | `router-fetch`; on `v04`, every task closed on 2026-10-08 (`H-G-FETCH-PIN` settled by the `routing` jobs of CI): ships in 0.4 |
-| c0079 | `agent-kit` |
+| c0079 | `agent-guide` (the slug of its folder; this page said `agent-kit`); on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0080 | `agent-authoring-guide` |
 | c0081 | `agent-eval` |
 

@@ -40,7 +40,7 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Rewrite "Limits" of `docs/altium.md` from the written scope table; update the second backend's status in `README.md` and `agent/SKILL.md`; set the Phase 4 text, the milestone row and the acceptance block of `docs/roadmap.md` to what was measured. Proof: `uv run pytest tests/consistency tests/unit/test_repo_layout.py tests/residue`.
+- [ ] 5.1 Rewrite "Limits" of `docs/altium.md` from the written scope table; update the second backend's status in `README.md` and `src/fenolite/agent/skill/SKILL.md` (moved there by c0079); set the Phase 4 text, the milestone row and the acceptance block of `docs/roadmap.md` to what was measured. Proof: `uv run pytest tests/consistency tests/unit/test_repo_layout.py tests/residue`.
 - [ ] 5.2 Put the v0.3 acceptance block of `docs/roadmap.md` to the maintainer for review, with the measured result of each of its points beside it; record his answer and the date under this task, and change the block's heading from a proposal to the accepted text or to what he asks. The change does not close before that. Proof: `grep -n "v0.3 acceptance" docs/roadmap.md` shows no "proposal" in the heading, or this task holds his dated refusal.
   - **2026-10-08 (release 0.3.0).** Not put to the maintainer as a review. The release record of 0.3.0 holds each point of the block with its measured result; point 5 (a recorded kit run, and the PCB document and schematic document writes out of `experimental`) is not met. The heading still says proposal. Task open.
 
