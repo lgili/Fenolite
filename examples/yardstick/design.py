@@ -216,8 +216,8 @@ CONTROLLER_PINS = {  # every other signal of the controller; chosen for the exam
     "SWDIO": 36,
     "SWCLK": 37,
     "VBUS_DET": 38,
-    "HV_SENSE_P": 39,
-    "HV_SENSE_N": 40,
+    "HV_SENSE_HI": 39,
+    "HV_SENSE_LO": 40,
     "CAN_RX": 45,
     "BOOT0": 46,
     "CAN_TX": 47,
@@ -599,7 +599,9 @@ def high_voltage_sense() -> Module:
     of the net class ``HV``."""
     module = Module("hv")
     bus, tap, input_ = net("HV_BUS", "HV"), net("HV_SENSE", "HV"), net("HV_VINP", "HV")
-    out_p, out_n = net("HV_OUT_P", "SIG"), net("HV_OUT_N", "SIG")
+    # The outputs are named HI and LO, not P and N: KiCad would pair P and N by name, and the board has one
+    # pair, the USB one.
+    out_p, out_n = net("HV_OUT_HI", "SIG"), net("HV_OUT_LO", "SIG")
     module.add(two_pin(terminal("J6", "HV"), bus, hv_rtn))
     upper = bus
     for index in range(8):
@@ -635,9 +637,9 @@ def high_voltage_sense() -> Module:
         two_pin(capacitor("C30", "ceramic", "0805c"), hv_5v, hv_rtn),
         two_pin(capacitor("C27", "decoupling"), v33, gnd),
         two_pin(capacitor("C28", "ceramic", "0805c"), v5, gnd),
-        two_pin(resistor("R23", "series"), out_p, signals["HV_SENSE_P"]),
-        two_pin(resistor("R24", "series"), out_n, signals["HV_SENSE_N"]),
-        two_pin(capacitor("C29", "filter"), signals["HV_SENSE_P"], signals["HV_SENSE_N"]),
+        two_pin(resistor("R23", "series"), out_p, signals["HV_SENSE_HI"]),
+        two_pin(resistor("R24", "series"), out_n, signals["HV_SENSE_LO"]),
+        two_pin(capacitor("C29", "filter"), signals["HV_SENSE_HI"], signals["HV_SENSE_LO"]),
     )
     return module
 
