@@ -55,8 +55,13 @@ SINGLE_KINDS = frozenset({"design", "sheet"})
 """Kinds with one entity and no key: the values a design or a sheet holds once."""
 CONTENT_KINDS = (
     "track", "arc", "via", "zone", "keepout", "text", "graphic", "hole", "rule", "stack_layer",
-    "label", "no_connect_flag",
+    "label", "no_connect_flag", "footprint_graphic", "footprint_text",
 )  # fmt: skip
+FOOTPRINT_ITEM_CLASSES: Mapping[str, type] = {"footprint_graphic": Graphic, "footprint_text": Text}
+"""The two content kinds of a footprint's own items (change c0126) and their model classes: an entity is the
+item's compared fields with ``OWNER_FIELD``, the key of its footprint in the kind ``footprint``."""
+OWNER_FIELD = "footprint"
+"""The key of an item's footprint: part of every entity of ``FOOTPRINT_ITEM_CLASSES``, in every scope."""
 
 KIND_CLASSES: Mapping[str, type] = {
     "component": Component, "net": Net, "netclass": NetClass, "interface": Interface, "module": Module,
@@ -72,7 +77,7 @@ _LENGTH_TYPE = re.compile(r"\b(Nm|Point|Size)\b")
 def length_fields(kind: str) -> frozenset[str]:
     """The fields of ``kind`` that hold lengths: those typed ``Nm``, ``Point`` or ``Size``, or a sequence of
     them. Only these take a scope's tolerance."""
-    cls = KIND_CLASSES.get(kind)
+    cls = KIND_CLASSES.get(kind) or FOOTPRINT_ITEM_CLASSES.get(kind)
     if cls is None:
         return frozenset()
     return frozenset(f.name for f in dataclasses.fields(cls) if _LENGTH_TYPE.search(str(f.type)))
@@ -215,9 +220,18 @@ def _design_parts(design: Design, *, ext: bool) -> tuple[Keyed, Content]:
         put("layer", [layer.name for layer in board.layers], board.layers)
         owners = _numbered(names.refs.get(fp.component_id, fp.component_id) for fp in board.footprints)
         for owner, footprint in zip(owners, board.footprints, strict=True):
-            keyed["footprint"][owner] = names.fields(footprint, defaults=True, skip=frozenset({"pads"}))
+            keyed["footprint"][owner] = names.fields(
+                footprint, defaults=True, skip=frozenset({"pads", "graphics", "texts"})
+            )
             for key, pad in zip(_pad_keys(owner, footprint.pads), footprint.pads, strict=True):
                 keyed["pad"][key] = names.fields(pad, defaults=True)
+            # the footprint's own drawings, by content and with their footprint (change c0126)
+            content["footprint_graphic"] += [
+                {OWNER_FIELD: owner, **names.fields(item, defaults=False)} for item in footprint.graphics
+            ]
+            content["footprint_text"] += [
+                {OWNER_FIELD: owner, **names.fields(item, defaults=False)} for item in footprint.texts
+            ]
         for kind, items in (
             ("track", board.tracks), ("arc", board.arcs), ("via", board.vias), ("zone", board.zones),
             ("keepout", board.keepouts), ("text", board.texts), ("graphic", board.graphics),
@@ -400,6 +414,8 @@ def _scoped(parts: tuple[Keyed, Content], scope: ModelScope) -> tuple[Keyed, Con
                 for key, entity in keyed[kind].items()
             }
         if kind in content:
+            if kind in FOOTPRINT_ITEM_CLASSES:
+                wanted.add(OWNER_FIELD)
             cut_content[kind] = [
                 {name: value for name, value in entity.items() if name in wanted} for entity in content[kind]
             ]
@@ -433,8 +449,10 @@ def diff_sheets(a: SchematicSheet, b: SchematicSheet, *, ext: bool = False) -> D
 
 __all__ = [
     "CONTENT_KINDS",
+    "FOOTPRINT_ITEM_CLASSES",
     "KEYED_KINDS",
     "KIND_CLASSES",
+    "OWNER_FIELD",
     "Change",
     "ChangeKind",
     "DiffReport",

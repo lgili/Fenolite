@@ -1581,3 +1581,9 @@ path = "tests/data/altium/body2/body2.SchLib"
 origin = "authored"
 corpus_id = ""
 notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file)"
+
+[[file]]
+path = "tests/data/model/v0.2.0/blink_2layer.board.json"
+origin = "authored"
+corpus_id = ""
+notes = "the .fenolite/board.json that Fenolite 0.2.0 wrote (the code of the tag v0.2.0, commit ea9e8b4b, in a scratch worktree) for examples/blink_2layer/design.py at that tag, copied byte for byte: fenolite build examples/blink_2layer/design.py --out DIR --target kicad --kicad-version 10 --seed 1 --timestamp 2026-10-06T00:00:00Z --confirm; a model document without the keys graphics, texts and corner_ratio (c0126: old model documents load unchanged); sha256 92d4403617820108b8c7dbe5e077b8b7d797ca0abf46ea8086a357916f57eaad"

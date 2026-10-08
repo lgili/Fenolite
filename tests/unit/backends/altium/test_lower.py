@@ -27,7 +27,7 @@ from fenolite.checks.equivalence.model import Tolerances
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.lens import altium_copper
-from fenolite.lens.altium import corner_ratios, write_model
+from fenolite.lens.altium import write_model
 from fenolite.model.canonical import load_dir
 from fenolite.model.design import Design
 
@@ -124,22 +124,22 @@ def _write_all(written: lower.ProjectWrite, folder: Path) -> Path:
 
 
 def test_items_outside_the_written_scope_are_counted_once_per_kind() -> None:
-    """board6 holds texts and graphics on a mechanical layer, which no record of the writer carries: each
-    kind is counted, its entities are named, and one ``altium.not-lowered`` reports the kind."""
+    """The items that no record of the writer carries are counted per kind, their entities named, and one
+    ``altium.not-lowered`` reports the kind. Changed by change c0126: board6 holds two texts and five
+    graphics on Mechanical 13, which a board that was read now writes (``lower.MECHANICAL_LAYERS``); this
+    test pinned ``{"text": 2, "graphic": 6}`` before. What stays is the one graphic on the keep-out
+    layer."""
     first = _read(SAMPLES / "board6" / "board6.PcbDoc")
     issues: list[Issue] = []
     inputs = lower.from_design(first, issues=issues)
-    assert inputs.counts() == {"text": 2, "graphic": 6}
+    assert inputs.counts() == {"graphic": 1}
     board = first.board
     assert board is not None
-    assert set(inputs.not_lowered["text"]) <= {text.id for text in board.texts}
     assert set(inputs.not_lowered["graphic"]) <= {graphic.id for graphic in board.graphics}
-    assert [(i.code, i.severity, i.where) for i in issues] == [
-        ("altium.not-lowered", "info", "text"),
-        ("altium.not-lowered", "info", "graphic"),
-    ]
-    assert "2 text item(s)" in issues[0].message and "Mech.13" in issues[0].message
-    assert inputs.written["text"] + 2 == len(board.texts)
+    assert [(i.code, i.severity, i.where) for i in issues] == [("altium.not-lowered", "info", "graphic")]
+    assert "1 graphic item(s)" in issues[0].message and "Altium.KeepOut" in issues[0].message
+    assert inputs.written["text"] == len(board.texts) and "text" not in inputs.not_lowered
+    assert inputs.written["graphic"] + 1 == len(board.graphics)
 
 
 def test_a_loss_of_copper_needs_allow_lossy(tmp_path: Path) -> None:
@@ -190,14 +190,23 @@ def test_kicad_board_written_as_altium_documents(board: Path, tmp_path: Path) ->
 
 
 def test_rounded_pads_of_a_kicad_board_need_the_lens() -> None:
-    """The model holds no corner ratio: a pad read from an Altium document carries its percentage, and a
-    pad read from a KiCad board keeps the ratio in KiCad's bag, which the lens reads. Without it the
-    backend's write refuses the rounded rectangles instead of guessing a ratio."""
+    """A pad read from a KiCad board holds no corner ratio until the design is projected: KiCad keeps the
+    ratio in its own bag, and the projection (``fpitems.with_footprint_items``, which ``write_model``
+    calls) fills ``Pad.corner_ratio``. Without it the backend's write refuses the rounded rectangles
+    instead of guessing a ratio.
+
+    Edited by change c0126: ``lens.altium.corner_ratios``, which read the ratios out of KiCad's bag for
+    the lens, is removed (the build goes through the lowering), so the ratios are taken from the
+    projection; what the backend's write does without them is unchanged."""
+    from fenolite.backends.kicad import fpitems
+
     first = KicadBackend().read(KICAD_BLINK).design
-    ratios = corner_ratios(first)
-    assert first.board is not None
+    projected = fpitems.with_footprint_items(first).design
+    assert first.board is not None and projected.board is not None
     rounded = [pad for fp in first.board.footprints for pad in fp.pads if pad.shape == "roundrect"]
-    assert rounded and set(ratios) == {pad.id for pad in rounded}
+    assert rounded and all(pad.corner_ratio is None for pad in rounded)
+    ratios = {pad.id for fp in projected.board.footprints for pad in fp.pads if pad.corner_ratio is not None}
+    assert ratios == {pad.id for pad in rounded}
     with pytest.raises(lower.LossyWriteError) as refused:
         AltiumBackend().write(first)
     assert [found.where for found in refused.value.issues] == ["pad"]

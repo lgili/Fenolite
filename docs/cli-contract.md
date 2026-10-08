@@ -829,7 +829,7 @@ repeat.
 | `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
-(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123). Exit codes: 0 without an error issue, 5
+(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123), and `model.corner-ratio` (error) a pad whose `corner_ratio` is outside 0 to 500 000 ppm of its shorter side or that is no rounded rectangle, with `where` the pad's id (change c0126). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),
@@ -865,7 +865,9 @@ it, because it writes a whole project into a temporary folder and reads it again
 
 A stage is skipped with one of these reasons: `native-input` (`roundtrip.rta2` on files that no
 Fenolite build wrote), `model-predates-board` (`roundtrip.rta2` on a project built before change c0090,
-whose stored model holds no footprint: build it again), `no-document` (`roundtrip.rta3` when the write
+whose stored model holds no footprint: build it again), `model-predates-graphics` (`roundtrip.rta2` on a
+project built before change c0126, whose stored footprints hold no graphic while its PCB document draws
+some: build it again), `no-document` (`roundtrip.rta3` when the write
 gives no document of the kind that was read: the schematic writer refuses the circuit),
 `no-schematic` (`erc.lite` and `parity` without a schematic document),
 `single-source` (`netlist.assignment_compare` without two sources; `copper.clearance` and `parity`

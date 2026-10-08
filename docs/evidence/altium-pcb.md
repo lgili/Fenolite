@@ -498,6 +498,69 @@ project file, so the oracle is narrow:
 
 A pass shows that KiCad's importer accepts the records; it settles no Altium row and raises no level.
 
+## Part G: footprint items of a rewrite (change c0126)
+
+Not yet reported. Change c0126 puts the graphics and free texts of a footprint and the corner ratio of a pad
+into the model; a PCB document that Fenolite reads and writes again keeps the lines, arcs, fills, regions,
+designator and comment of its components on the overlays and on Mechanical 1 to 16. This part asks whether
+Altium Designer shows the written primitives as parts of their component. No step has been run: the row it
+settles, `H-A-PCBX-FPGFX-AD`, is `INFERRED`, and nothing here is `ALTIUM-VERIFIED` before the report is
+recorded. The steps are written for Altium Designer 26 from Altium's public documentation; a menu path or a
+panel name may read differently in the version that is run.
+
+**Files.** Built outside the repository and never committed:
+`FENOLITE_ALTIUM_PART_G=~/fenolite-altium-checks/c0126-part-g uv run pytest
+tests/unit/backends/altium/test_part_g.py` (run from the repository; the test refuses a folder inside it)
+writes four things there:
+
+- `original/`: the committed project `board6` (`tests/data/altium/board6/`, Part X), as it is.
+- `rewrite/`: the import of `original/board6.PrjPcb` written again by `AltiumBackend().write` (the write of
+  a model, with `rewrite=True` as RT-A3 writes it). The schematic is generated from the circuit, and no PCB
+  library is written: a rewrite derives no library from an imported model (design of c0126, decision 7).
+- `rewrite-mech/`: the same model with two lines added to `R1`, one on Mechanical 1 and one on Mechanical 5
+  (2 mm long, 0.1 mm wide, 2 mm above and below the footprint's origin), written the same way.
+- `expected.md`: the values the steps compare, read back from the written files with Fenolite's own reader
+  (the tracks and arcs of each component per layer, the corner radius of four rounded pads, the place,
+  layer, height and visibility of each designator and comment) and the SHA-256 of every file.
+
+Built on 2026-10-08 on the tree of change c0126; the values of `expected.md` of that build:
+
+| component | layer | primitives in `rewrite/` |
+|---|---|---|
+| D1 (bottom side) | Bottom Overlay | 2 arcs |
+| D1 | Mechanical 14 | 1 arc |
+| D1 | Mechanical 16 | 4 tracks |
+| R1 | Top Overlay | 2 tracks |
+| R1 | Mechanical 13, Mechanical 15 | 4 tracks each |
+| U1 | Top Overlay | 2 tracks |
+| U1 | Mechanical 13, Mechanical 15 | 4 tracks each |
+
+`rewrite-mech/` holds the same and one track of `R1` on each of Mechanical 1 and Mechanical 5. The four
+rounded pads `R1-1`, `R1-2`, `U1-1` and `U1-10` have a corner radius of 50 %. The designators of the three
+components are shown and their comments hidden, as in the original. `fenolite check` exits 0 on each of the
+three folders with the same stages; the generated schematic of a rewrite gives no
+`erc.lite.power-undriven`, which the original's schematic gives.
+
+Steps; report one generic outcome per step (`as expected`, or what differed in one sentence), the tool as
+`AD <major>.<minor>` and the date.
+
+1. **G1** Open `original/board6.PrjPcb` and `rewrite/board6.PrjPcb`, each with its PCB document, side by
+   side. Expected: no repair prompt, and each component shows the same silkscreen outline in both
+   (`H-A-PCBX-FPGFX-AD`).
+2. **G2** In `rewrite/board6.PcbDoc`, open the PCB List panel (or PCB Filter) and list the tracks and arcs
+   whose component is `U1`, then `R1` and `D1`. Expected: the counts and layers of the table above.
+3. **G3** Drag `R1` by about 5 mm. Expected: its overlay and mechanical lines move with it. Undo.
+4. **G4** Drag `R1` again and press `L` to flip it to the other side. Expected: its Top Overlay lines go to
+   the Bottom Overlay and its Mechanical 13 and 15 lines to their layer pairs, if the pairs are set. Undo.
+5. **G5** Select the pads `R1-1`, `R1-2`, `U1-1` and `U1-10` and read the corner radius of each in the
+   Properties panel. Expected: 50 %.
+6. **G6** Compare the place and the visibility of the designator and the comment of each component with the
+   original. Expected: equal (the table "Designators and comments" of `expected.md` gives the text records'
+   positions).
+7. **G7** Open `rewrite-mech/board6.PcbDoc`, open the View Configuration panel and list the mechanical
+   layers. Expected: Mechanical 1 and Mechanical 5 are listed and shown, and the two lines of `R1` lie on
+   them.
+
 ## Reports
 
 ### 2026-10-03, `AD 26.5`, Part D

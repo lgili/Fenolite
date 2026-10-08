@@ -1268,6 +1268,8 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
   RT-A3.
 - `model-predates-board` (RT-A2): the project was built before change c0090, so its stored model holds
   no footprint while its PCB document holds some. Build it again.
+- `model-predates-graphics` (RT-A2): the project was built before change c0126, so its stored footprints
+  hold no graphic while its PCB document draws some. Build it again.
 - `no-document` (RT-A3): the write gave no document of the kind that was read. This happens for a
   project whose circuit the schematic writer refuses (one pin on two nets, a text that no record
   holds); the PCB document is still written, and the stage's `written` and `unwritten` count it.
@@ -1293,7 +1295,8 @@ reading of the schematic documents, and every other kind with the reading of the
 | `no_connect` | the marked pins | schematic |
 | `netclass` | `name` | PCB document |
 | `footprint` | `position`, `rotation`, `side` | PCB document |
-| `pad` | `number`, `net_id`, `position`, `size` | PCB document |
+| `pad` | `number`, `net_id`, `position`, `size`, `corner_ratio` | PCB document |
+| `footprint_graphic` | `kind`, `layer`, `points`, `width`, `filled` | PCB document |
 | `track` | `start`, `end`, `width`, `layer`, `net_id` | PCB document |
 | `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id` | PCB document |
 | `via` | `position`, `diameter`, `drill`, `net_id` | PCB document |
@@ -1308,6 +1311,16 @@ at 1000 mil, 1000 mil), and the stage moves its reading back into the frame of t
 of the outline, which is exact. Rules are not in the scope: the document also holds the rules that the
 writer derives from the net classes and from its defaults, which are no rule of the model. A project
 that was built before this change is skipped with `model-predates-board`.
+
+**Footprint graphics and corner ratios** (change c0126). The stored footprints also hold the graphics
+that the document draws for each component, in the pad frame and in the written form (a rectangle is its
+four lines, a circle and an arc the points that the import reads back from the written record), and a
+rounded pad holds its corner ratio, 5 000 ppm per written percent. The kind `footprint_graphic` and the
+pad's `corner_ratio` are compared; the points of an arc graphic follow the rule of a copper arc (c0127):
+three points within 2 nm. When the model was not read from Altium, the stage names the graphics that the
+reading holds on Mechanical 13 to 16 `F.Fab`, `B.Fab`, `F.CrtYd` and `B.CrtYd`, the layers Fenolite writes
+there. A project built before this change, whose stored footprints hold no graphic while its document
+draws some, is skipped with `model-predates-graphics`.
 
 Fields of these kinds that the scope leaves out, and why:
 
@@ -1327,7 +1340,8 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |
 | `footprint` | `attributes` | the writer does not write it |
 | `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
-| `footprint` | `fields` | the writer writes a fixed value: the designator and comment texts have fixed sizes and places |
+| `footprint` | `graphics` | the reader maps it elsewhere: graphics are the kind `footprint_graphic` |
+| `footprint` | `fields`, `texts` | written and not compared: the write of a model writes the fields `Reference` and `Value` at their place and the free texts as texts of the component (change c0126), but a build places the designator and the comment itself and its stored board holds no field for them; their read-back is covered by unit tests (`tests/unit/backends/altium/test_lower_items.py`) |
 | `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
@@ -1355,8 +1369,10 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | `component` | reference and comment as the component's texts, the symbol link | `ref`, `value` | nothing; a component without a reference is a free pad |
 | `net` | one net record per name | `name`, `members` | `net`: a name that no record holds, or a second net of one name |
 | `netclass` | one class per name with its nets | `name` | `netclass`: a name that no record holds |
-| `footprint` | a component record with its own pads, its placement, and the unique ids of the document it was read from | `position`, `rotation`, `side` | `footprint`: a reference with `|`, or a free pad that cannot be written. The lines and arcs of a footprint are no part of the model: `record:footprint-graphics` |
-| `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers | `number`, `net_id`, `position`, `size` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
+| `footprint` | a component record with its own pads, its placement, and the unique ids of the document it was read from; since change c0126 its graphics, its fields `Reference` and `Value` (the designator and the comment at their place, shown or hidden) and its free texts | `position`, `rotation`, `side` | `footprint`: a reference with `|`, or a free pad that cannot be written |
+| `footprint_graphic` | a line, rectangle, circle or arc on the overlays (and, for a model not read from Altium, on the four mechanical layers of Fenolite's layer map) through the footprint's definition; every other graphic as the instance holds it, as a track, an arc or a region of the component, on the overlays, Mechanical 1 to 16 of a board that was read, paste and solder mask (c0126) | `kind`, `layer`, `points`, `width`, `filled` | `footprint-graphic`: a layer without a layer in the document, a graphic that no record holds; `footprint-copper`: a graphic on a copper layer, which would be copper (a loss: it needs `allow_lossy`) |
+| footprint field, footprint text | the designator and the comment from the fields `Reference` and `Value`, a free text of the footprint as a text of the component (c0126) | not compared | `footprint-text`: a text with a line break, without a positive height or stroke, or on a layer without a layer in the document |
+| `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers; a rounded rectangle with the percentage of `corner_ratio` (c0126) | `number`, `net_id`, `position`, `size`, `corner_ratio` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
 | `track`, `arc` | on a signal layer of the stack, with its net; an arc that was read from an Altium document with the centre, radius and angles of its record (c0127) | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width; an arc of three points on a line that holds no record of its own |
 | `via` | through, blind and buried, with its net; in the rewrite of a document that was read (`rewrite=True`, c0128) also a via whose drill equals its diameter | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter (in a rewrite: above the diameter); `via-pad-shape`: the layers on which a via that was read has no pad shape (the pair `pad_removed`, c0132): the via is written, with its pad on every layer |
 | `zone` | one unpoured polygon per layer, with its net | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the poured copper, which Altium computes on a repour |
@@ -1369,7 +1385,8 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | schematic | generated from the circuit: generic symbols, one sheet | the circuit, when a project is read | `schematic`: the writer refuses the circuit, and only the PCB document is written; `module`: every module, because the schematic is one sheet; `channel`: the channel of a repeated sheet (the bag keys `sheet_symbol` and `channel_index`); `pin-pad-map`: the pin-to-pad map of a component that has no footprint model in the generated schematic (the map of every other component is written as records of its footprint model, change c0123); `pin-pads`: a component whose bag holds a map record that the model cannot say (the key `pin_pads`) |
 
 Keys of `unwritten` that start with `record:` count what the import maps to no model entity, by the
-category of its census: `footprint-graphics`, `pour-primitives`, `plane-cuts`, `shape-based-regions`,
+category of its census: `footprint-graphics` (since change c0126 only the primitives of a component
+without a readable position, or on an internal plane), `pour-primitives`, `plane-cuts`, `shape-based-regions`,
 `polygons`, `classes`, `raw-primitives`, `region-holes`, and one for each storage that the import keeps as bytes (a
 rewrite holds Fenolite's own content in such a storage, not the document's). **A rewrite is therefore
 not a copy.** It holds the placement, the pads, the routing and the polygon outlines of the board;
@@ -1378,9 +1395,9 @@ not a copy.** It holds the placement, the pads, the routing and the polygon outl
 
 A loss of a footprint, a pad, a track, an arc, a via, a zone, a net, a net class, a shape on copper or
 a plane makes the write refuse (`FEN-7001`) unless `allow_lossy` is given; every loss is one
-`altium.not-lowered` per kind. The model holds no corner ratio of a rounded rectangle: a pad read from
-an Altium document carries it, and for a design read from a KiCad board `fenolite.lens.altium.write_model`
-reads it from KiCad's own data. A board read from an Altium document is written in the document's frame
+`altium.not-lowered` per kind. The corner ratio of a rounded rectangle is `Pad.corner_ratio` (change
+c0126), which the Altium import fills; a design read from a KiCad board holds it, with the graphics of its
+footprints, once `fenolite.lens.altium.write_model` projected it (`backends.kicad.fpitems`). A board read from an Altium document is written in the document's frame
 with its origin, and its components keep their unique ids; any other board is written like a build, with
 the outline's lower-left corner at (1000 mil, 1000 mil). The write is experimental: the backend's
 capability report names no write kind.
@@ -1391,15 +1408,18 @@ they write the model as it is. Run `fenolite check` on the written documents.
 
 **Limits that later changes close** (decisions of the maintainer, 2026-10-06):
 
-- A rewritten board has no silkscreen of its footprints, and a build does not go through this write:
-  a footprint of the model holds no graphics, no corner ratio and no library. Change c0126 puts them
-  into the model.
+- Closed by change c0126: a rewritten board had no silkscreen of its footprints, and a build did not go
+  through this write. A footprint of the model now holds its graphics and free texts and a pad its
+  corner ratio; a rewrite keeps the lines, arcs, fills, regions, designator and comment of its
+  footprints on the overlays and on Mechanical 1 to 16, and `fenolite build --target altium` places the
+  footprints into the model and goes through `lower.from_design` with its options (the committed samples
+  keep their bytes). No PCB library is derived from an imported model.
 - RT-A3 holds on the eight public PCB documents since change c0127, and `H-A-VER-RTA3` is
   `CORPUS-VERIFIED`. That level means: Fenolite reads its own rewrite of a public Altium PCB document
   back to an equal model inside the written scope, and KiCad's importer reads the rewrite as Fenolite
   does at the levels 1 to 5 of `equivalent`. It says nothing about Altium opening a written file,
   which stays `INFERRED` until the kit run (c0091, c0092); the write stays experimental. The scope
-  leaves out the graphics of footprints (until c0126), component bodies (written on request since
+  holds the graphics of footprints since change c0126 and leaves out component bodies (written on request since
   c0121, and never by the stage `roundtrip.rta3`, which runs without them) and the items
   that `unwritten` counts per kind (`docs/evidence/altium-roundtrip.md`, "RT-A3").
 - Closed by change c0127: the 2 nm of the scope did not hold for the points of an arc, because an arc

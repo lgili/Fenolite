@@ -66,13 +66,15 @@ def test_scope_and_evidence() -> None:
 
 @pytest.mark.parametrize("sample", ["blink", "routed", "board6"])
 def test_own_documents_hold_rta3(sample: str) -> None:
-    """Every PCB document that Fenolite committed holds RT-A3. What a rewrite does not hold is counted:
-    the lines and arcs of the library footprints, which the import maps to no model entity."""
+    """Every PCB document that Fenolite committed holds RT-A3. Since change c0126 the lines and arcs of the
+    footprints are model items that the rewrite writes: 27 under ``footprint-graphic`` and no
+    ``record:footprint-graphics`` (edited by c0126: it asserted that key was above 0)."""
     (document,) = sorted((SAMPLES / sample).glob("*.PcbDoc"))
     trip = AltiumBackend().model_roundtrip(document, compare=compare)
     assert trip.judged and trip.equal and trip.differences == ()
     assert trip.written["footprint"] >= 3 and trip.written["pad"] >= 3
-    assert trip.unwritten[RECORD_PREFIX + "footprint-graphics"] > 0
+    assert RECORD_PREFIX + "footprint-graphics" not in trip.unwritten
+    assert trip.written["footprint-graphic"] == 27 and "footprint-graphic" not in trip.unwritten
     assert f"{document.stem}.PcbDoc" in trip.files
     assert trip.evidence.level is Level.INFERRED and "H-A-VER-RTA3" in trip.evidence.hypotheses
 
@@ -87,7 +89,9 @@ def test_project_holds_rta3() -> None:
 
 
 def test_stage_on_an_own_sample(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stage is opt-in, reports the unwritten kinds once, and writes nothing under the input folder."""
+    """The stage is opt-in, reports the unwritten kinds once, and writes nothing under the input folder.
+    Edited by change c0126: the two texts and five of the six graphics of ``board6`` on Mechanical 13 are
+    written now; one graphic, on the keep-out layer, is still counted (it asserted text 2 and graphic 6)."""
     before = _snapshot(BOARD6)
     code, env = _check(monkeypatch, str(BOARD6), "--stages", "roundtrip.rta3")
     assert code == 0 and _snapshot(BOARD6) == before
@@ -96,12 +100,12 @@ def test_stage_on_an_own_sample(monkeypatch: pytest.MonkeyPatch) -> None:
     summary = stage["summary"]
     assert (summary["level"], summary["holds"], summary["differences"]) == ("RT-A3", True, 0)
     assert summary["presentation"] == "regenerated"
-    assert summary["unwritten"]["text"] == 2 and summary["unwritten"]["graphic"] == 6
+    assert "text" not in summary["unwritten"] and summary["unwritten"]["graphic"] == 1
     assert summary["written"]["via"] == 3 and "board6.PcbDoc" in summary["files"]
     assert stage["evidence"]["level"] == "INFERRED" and "H-A-VER-RTA3" in stage["evidence"]["hypotheses"]
     found = [i for i in env["issues"] if i["code"].startswith("check.rta3")]
     assert [(i["code"], i["severity"]) for i in found] == [("check.rta3-unwritten", "info")]
-    assert "text 2" in found[0]["message"] and "graphic 6" in found[0]["message"]
+    assert "text " not in found[0]["message"] and "graphic 1" in found[0]["message"]
     # without --stages the stage does not run
     code, env = _check(monkeypatch, str(BOARD6))
     assert code == 0 and "roundtrip.rta3" not in {stage["name"] for stage in env["result"]["stages"]}

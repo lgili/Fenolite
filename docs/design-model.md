@@ -263,6 +263,48 @@ written before them still load.
   whose `height` is below its `standoff` or whose `standoff` is negative.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
+## Footprint items and corner ratio
+
+Normative text: requirements "Graphics and texts of a footprint instance", "Corner ratio of a
+rounded-rectangle pad" and "Models without footprint items" of the `design-model` capability (change
+c0126).
+
+| Field | Meaning |
+|---|---|
+| `FootprintInstance.graphics` | the drawings of this placed footprint: `Graphic` entities (the entity of `Board.graphics`), in the order of their source; `()` by default |
+| `FootprintInstance.texts` | the free texts of this placed footprint: `Text` entities (the entity of `Board.texts`), in the order of their source; `()` by default |
+| `Pad.corner_ratio` | the corner radius of a `roundrect` pad, an integer in parts per million of the shorter side of `Pad.size`, from 0 to 500 000; `None` by default, and for every other shape |
+
+- **Frame.** A point `p` of a footprint's graphic or text is in the pad frame: it lies on the board at
+  `instance.position + R(instance.rotation)·p`, with no further mirror, so a bottom footprint holds
+  mirrored coordinates, as its pads do. `Text.rotation` is relative to the footprint.
+- **Layers.** `layer` is the board layer the item lies on: a silkscreen line of a bottom footprint is on
+  `B.SilkS`. A graphic may be of any kind and on any layer, a copper layer included; a consumer that
+  cannot use one counts it and says so.
+- **Reference and value.** Where they are drawn stays in `FootprintInstance.fields`; `texts` holds only
+  texts that are no field, with the string as the source stores it.
+- **Unit of the ratio.** 250 000 is a quarter of the shorter side (KiCad `roundrect_rratio` `0.25`,
+  Altium 50 %). One Altium percent is 5 000 ppm; a KiCad decimal `r` is `r · 1 000 000`, rounded half to
+  even when it has more than six decimals. No float and no decimal string is stored.
+  `Design.validate()` reports `model.corner-ratio` (error), with `where` set to the pad's id, for a value
+  outside the range and for a value on a pad that is no `roundrect`. A library pad (`FootprintDef.pads`)
+  carries the field alike.
+- **Who fills them.** The Altium import fills all three for a PCB document. An Altium build stores them
+  in `.fenolite/board.json` for the footprints it wrote. The KiCad readers and writers neither fill nor
+  read them: a design read from a KiCad board has empty `graphics` and `texts` and no ratio, and keeps
+  its footprint drawings where it always kept them, in the footprint's opaque slots.
+  `backends.kicad.fpitems.with_footprint_items` gives them on request, as read-only copies.
+- **Old model documents.** The three fields are additive and `SCHEMA_VERSION` stays `"0"`. The canonical
+  form leaves a field at its default out, so a design without footprint items gives the `board.json`
+  bytes it gave before, and a model document without the keys `graphics`, `texts` and `corner_ratio`
+  loads unchanged: `tests/data/model/v0.2.0/blink_2layer.board.json`, which release 0.2.0 itself wrote,
+  loads and serialises again to its own bytes.
+- **Release 0.2.0 cannot read a model document that carries one of the new keys: its reader refuses an
+  unknown key** (`unexpected property 'graphics'`). The same holds for every 0.2.x release, and it held
+  for every earlier additive change of the model. A `.fenolite/` folder that a newer release wrote for
+  an Altium build, or the model of an imported Altium board, is therefore not readable by 0.2.x; build
+  or import again with the older release if you must go back.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change

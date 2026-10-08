@@ -219,7 +219,7 @@ def run_document_checks(
     model of a built project). ``validator.read_documents`` runs at most once, and
     ``validator.container_roundtrip`` at most once per document and level."""
     from fenolite.checks import parity as parity_check
-    from fenolite.checks.rta2 import body_total, predates_board, rta2_stage
+    from fenolite.checks.rta2 import body_total, predates_board, predates_graphics, rta2_stage
     from fenolite.checks.rta3 import compare, rta3_stage
 
     selected = [name for name in ALL_DOCUMENT_STAGES if name in stages]
@@ -359,6 +359,8 @@ def run_document_checks(
         if board is not None:
             if predates_board(usable, board.design):
                 return skipped(name, "model-predates-board")
+            if predates_graphics(usable, board.design):
+                return skipped(name, "model-predates-graphics")  # stored before change c0126
             if isinstance(validator, ModelWriter):
                 board = replace(board, content=validator.in_model_frame(usable, board.design))
         # a build that wrote component bodies stored them (change c0121): then the kind is compared too

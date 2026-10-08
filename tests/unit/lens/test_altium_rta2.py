@@ -212,3 +212,88 @@ def test_model_without_the_board_is_skipped(monkeypatch: pytest.MonkeyPatch, tmp
     code, env = _check(monkeypatch, folder)
     (stage,) = env["result"]["stages"]
     assert code == 0 and (stage["status"], stage["reason"]) == ("skipped", "model-predates-board")
+
+
+# --- footprint graphics (change c0126, capability altium-verification, "Footprint graphics in the Altium
+# round trips") -------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("script", sorted(WITH_PCB - {OFFICIAL}))
+def test_every_example_compares_its_footprint_graphics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str
+) -> None:
+    """Scenario "Every example compares its footprint graphics": the kind ``footprint_graphic`` is compared
+    with 0 differences (``_judge``), and the stored board holds the graphics that the document draws for
+    each footprint, and the corner ratio of each rounded pad."""
+    code, folder, error = build_altium_example(monkeypatch, tmp_path, EXAMPLES / script)
+    assert code == 0, error
+    summary = _judge(monkeypatch, folder, pcb=True)
+    assert "footprint_graphic" in summary["compared"]["pcb"]
+    board = load_dir(folder / ".fenolite").board
+    assert board is not None and board.footprints
+    assert all(footprint.graphics for footprint in board.footprints)
+    rounded = [pad for footprint in board.footprints for pad in footprint.pads if pad.shape == "roundrect"]
+    assert all(pad.corner_ratio is not None and pad.corner_ratio % 5_000 == 0 for pad in rounded)
+
+
+def _move_component_track(document: Path, designator: str) -> None:
+    """Move the first track of the component ``designator`` by one mil in X, by an edit of its record."""
+    data = document.read_bytes()
+    read = read_pcbdoc(data, file=document.name)
+    owner = next(i for i, item in enumerate(read.components) if item.source_designator == designator)
+    index = next(i for i, track in enumerate(read.tracks) if track.prefix.component == owner)
+    track = read.tracks[index]
+    moved = rec.track_record(
+        track.prefix.layer,
+        (track.x1 + rec.UNITS_PER_MIL, track.y1),
+        (track.x2 + rec.UNITS_PER_MIL, track.y2),
+        track.width,
+        component=owner,
+    )
+    raws, trailing = read.parts["Tracks6"]
+    stream = b"".join(moved if i == index else raws[i] for i in range(len(raws))) + trailing
+
+    def replaced(entries: Any) -> tuple[Any, ...]:
+        out: list[Any] = []
+        for entry in entries:
+            if isinstance(entry, Storage):
+                inner = entry.entries
+                if entry.name == "Tracks6":
+                    inner = tuple((name, stream if name == "Data" else content) for name, content in inner)
+                out.append(Storage(entry.name, replaced(inner) if entry.name != "Tracks6" else inner))
+            else:
+                out.append(entry)
+        return tuple(out)
+
+    document.write_bytes(write_compound(replaced(read_cfb.open_compound(data, file=document.name).tree())))
+
+
+def test_moved_silkscreen_line_is_caught(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A moved silkscreen line is caught": one overlay track of ``R1`` in the built blink is moved
+    by a record edit, and every ``check.rta2-failed`` is under ``pcb:/footprint_graphic/``."""
+    folder = built_blink(monkeypatch, tmp_path)
+    _judge(monkeypatch, folder, pcb=True)
+    _move_component_track(folder / "blink.PcbDoc", "R1")
+    code, env = _check(monkeypatch, folder)
+    assert code == 5
+    failed = [i for i in env["issues"] if i["code"] == "check.rta2-failed"]
+    assert failed and all(i["where"].startswith("pcb:/footprint_graphic/") for i in failed)
+    assert env["result"]["stages"][0]["summary"]["holds"] is False
+
+
+def test_model_without_graphics_is_skipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A stored model that predates change c0126 holds footprints without graphics while the PCB document
+    draws some: the stage is skipped with ``model-predates-graphics`` and reports nothing."""
+    import dataclasses
+
+    folder = built_blink(monkeypatch, tmp_path)
+    model = load_dir(folder / ".fenolite")
+    assert model.board is not None
+    footprints = tuple(dataclasses.replace(fp, graphics=()) for fp in model.board.footprints)
+    old = dataclasses.replace(model, board=dataclasses.replace(model.board, footprints=footprints))
+    for name, text in dump_texts(old).items():
+        (folder / ".fenolite" / name).write_text(text, encoding="utf-8", newline="\n")
+    code, env = _check(monkeypatch, folder)
+    (stage,) = env["result"]["stages"]
+    assert code == 0 and (stage["status"], stage["reason"]) == ("skipped", "model-predates-graphics")
+    assert not [i for i in env["issues"] if i["code"] == "check.rta2-failed"]

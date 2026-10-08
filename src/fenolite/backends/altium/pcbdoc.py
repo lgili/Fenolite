@@ -61,7 +61,7 @@ from fenolite.backends.altium.pcblib import (
 )
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.geometry.transform import Transform
+from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import Arc, ComponentBody, Graphic, Hole, Keepout, Pad, Side, Text, Track, Via, Zone
 
 FILE_HEADER_TEXT = "PCB 5.0 Binary File"
@@ -216,9 +216,15 @@ EVIDENCE = Evidence(
         "H-A-PCBX-BODY-OPEN",
         "H-A-PCBX-BODY-READBACK",
         "H-A-PCBX-BODY-SHORT",
+        "H-A-PCBX-BUILD-LOWER",
+        "H-A-PCBX-FPGFX",
+        "H-A-PCBX-FPGFX-AD",
+        "H-A-PCBX-FPGFX-KICAD",
+        "H-A-PCBX-FPTEXT",
         "H-A-PCBX-HOLE",
         "H-A-PCBX-KEEPOUT",
         "H-A-PCBX-KICAD",
+        "H-A-PCBX-MECH",
         "H-A-PCBX-READBACK",
         "H-A-PCBX-REPOUR",
         "H-A-PCBX-STACK",
@@ -232,7 +238,47 @@ EVIDENCE = Evidence(
 ``H-A-ECO-SHEETCLASS`` those of the component classes of the sheets (change c0048). The
 ``H-A-PCBX-BODY-*`` rows are those a written component body rests on (change c0121): the saved form is
 measured on public documents, thinly, and whether Altium takes the two stand-in values of a body is an
-author report that is pending, so bodies are written only on request."""
+author report that is pending, so bodies are written only on request. ``H-A-PCBX-FPGFX``, ``-FPTEXT``,
+``-MECH`` and ``-BUILD-LOWER`` are those of the items of a footprint instance and of the build through the
+lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait for KiCad's importer and for the author."""
+
+
+@dataclass(frozen=True, slots=True)
+class TextPlace:
+    """Where a text of a component is drawn (change c0126): ``position`` in the pad frame of the
+    component's placement (footprint-local, no mirror), ``layer`` the Altium id of the layer it lies on,
+    ``height`` and ``stroke`` in nanometres, ``rotation`` relative to the component (microdegrees),
+    ``shown`` whether the text is visible (``NAMEON`` or ``COMMENTON`` for a designator or a comment) and
+    ``mirrored`` the mirror flag of the record."""
+
+    position: Point
+    layer: int
+    height: int
+    stroke: int
+    rotation: int = 0
+    shown: bool = True
+    mirrored: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentGraphic:
+    """A graphic of a component that is written as the instance holds it (change c0126): ``graphic`` in
+    the pad frame of the placement, placed without a mirror, on the layer ``layer`` (an Altium id), with
+    no layer flip. A drawn line, rectangle, polygon, circle or arc gives tracks and arcs with the
+    component's index; a filled rectangle or polygon gives one region. ``arc`` is the kept record of an
+    arc that was read (``PcbDocSpec.arc_records`` for a free arc)."""
+
+    graphic: Graphic
+    layer: int
+    arc: rec.ArcGeometry | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ComponentText:
+    """A text of a component that is neither its designator nor its comment (change c0126)."""
+
+    text: str
+    place: TextPlace
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,6 +308,20 @@ class PlacedComponent:
     nets_by_pad: Mapping[str, str] | None = None
     """Pad id → net name (change c0090), for a footprint that comes from a model: two pads of one number
     may then lie on different nets. ``None``: ``pad_nets`` decides, by pad number."""
+    designator_place: TextPlace | None = None
+    """Where the designator is drawn and whether it is shown (change c0126). ``None``: above the box of
+    the component on its overlay, shown, as a build writes it."""
+    comment_place: TextPlace | None = None
+    """The same for the comment. ``None``: below the box on the overlay, hidden."""
+    arc_records: Mapping[str, rec.ArcGeometry] = field(default_factory=lambda: {})
+    """Graphic id → the kept record of an ``arc`` graphic of ``footprint.defn`` (change c0127 for a
+    footprint's arc): written instead of the record derived from the three points."""
+    items: tuple[ComponentGraphic, ...] = ()
+    """The graphics of the component that the definition does not hold (change c0126): those on a layer
+    without another side (a mechanical layer of a board that was read, paste, solder mask) and the filled
+    ones. Written after the definition's graphics."""
+    texts: tuple[ComponentText, ...] = ()
+    """The free texts of the component (change c0126), written after its designator and comment."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -438,6 +498,10 @@ class PcbDocSpec:
     of a build, at 1000 mil)."""
     free_pads: tuple[FreePad, ...] = ()
     """The pads without a component (change c0090), written after the holes."""
+    layer_ids: Mapping[str, int] = field(default_factory=lambda: {})
+    """Layer name → Altium layer id for the free texts and graphics on layers beside
+    ``pcbrecords.BOARD_LAYER_MAP`` (change c0126): ``Mech.1`` … ``Mech.16`` of a board that was read from an
+    Altium document. Empty for a build."""
     arc_records: Mapping[str, rec.ArcGeometry] = field(default_factory=lambda: {})
     """Entity id → the centre, radius and angles that an arc of ``arcs`` or a graphic of kind ``arc`` is
     written with instead of the ones derived from its three points (change c0127): the record that an
@@ -601,8 +665,8 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
         ("X", rec.mil_text(rec.to_units(at.x))),
         ("Y", rec.mil_text(rec.to_units(at.y))),
         ("PATTERN", component.footprint.defn.name),
-        ("NAMEON", "TRUE"),
-        ("COMMENTON", "FALSE"),
+        ("NAMEON", _bool(component.designator_place.shown) if component.designator_place else "TRUE"),
+        ("COMMENTON", _bool(component.comment_place.shown) if component.comment_place else "FALSE"),
         ("GROUPNUM", "0"),
         ("COUNT", "0"),
         ("ROTATION", angle_text(component.rotation)),
@@ -695,6 +759,8 @@ class _Placed:
     tracks: list[bytes]
     arcs: list[bytes]
     box: tuple[int, int, int, int]
+    regions: list[bytes] = field(default_factory=lambda: [])
+    shapes: list[bytes] = field(default_factory=lambda: [])
 
 
 def _extend(box: list[int], x: int, y: int, reach: int = 0) -> None:
@@ -738,8 +804,14 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
     tracks: list[bytes] = []
     arcs: list[bytes] = []
     for graphic in check.graphics:
-        for record in graphic_records(graphic, to_frame, flip=bottom, component=index):
-            (tracks if record[0] == rec.TRACK else arcs).append(record)
+        kept = component.arc_records.get(graphic.id) if graphic.kind == "arc" else None
+        if kept is not None:  # an arc that was read is written from its record (change c0127)
+            layer = rec.LAYER_MAP[graphic.layer]
+            layer = rec.FLIP_PAIRS[layer] if bottom else layer
+            arcs.append(rec.arc_record(layer, kept, rec.to_units(graphic.width), component=index))
+        else:
+            for record in graphic_records(graphic, to_frame, flip=bottom, component=index):
+                (tracks if record[0] == rec.TRACK else arcs).append(record)
         points = [to_frame(p) for p in graphic.points]
         if graphic.kind == "circle":
             centre, edge = points
@@ -751,7 +823,38 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
     if box[0] > box[2]:
         at = frame(component.at)
         box = [at.x, at.y, at.x, at.y]
-    return _Placed(pads, tracks, arcs, (box[0], box[1], box[2], box[3]))
+    placed = _Placed(pads, tracks, arcs, (box[0], box[1], box[2], box[3]))
+    plain = Transform.placement(component.at, component.rotation)
+    for item in component.items:  # as the instance holds them: no mirror, no layer flip (change c0126)
+        graphic = item.graphic
+        where = [frame(plain.apply(p)) for p in graphic.points]
+        if graphic.kind in ("rect", "polygon"):
+            if graphic.kind == "rect":
+                s, e = graphic.points
+                ring = [frame(plain.apply(p)) for p in (s, Point(e.x, s.y), e, Point(s.x, e.y))]
+            else:
+                ring = _ring(where)
+            corners = [_units(point) for point in ring]
+            if graphic.filled:
+                placed.regions.append(rec.region_record(item.layer, corners, component=index))
+                placed.shapes.append(
+                    rec.region_record(item.layer, corners, shape_based=True, component=index)
+                )
+            else:
+                width = rec.to_units(graphic.width)
+                for number, corner in enumerate(corners):
+                    following = corners[(number + 1) % len(corners)]
+                    tracks.append(rec.track_record(item.layer, corner, following, width, component=index))
+        elif graphic.kind == "line":
+            a, b = (_units(point) for point in where)
+            tracks.append(rec.track_record(item.layer, a, b, rec.to_units(graphic.width), component=index))
+        elif graphic.kind == "circle":
+            geometry = rec.circle_geometry(where[0], where[1])
+            arcs.append(rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), component=index))
+        else:
+            geometry = item.arc or rec.arc_from_points(*where)
+            arcs.append(rec.arc_record(item.layer, geometry, rec.to_units(graphic.width), component=index))
+    return placed
 
 
 def _xy(point: Point) -> tuple[int, int]:
@@ -916,12 +1019,21 @@ def _ring(points: Sequence[Point]) -> list[Point]:
     return ring
 
 
-def graphic_problem(graphic: Graphic, *, arc_known: bool = False) -> str | None:
+def board_layer(name: str, extra: Mapping[str, int] | None = None) -> int | None:
+    """The Altium id of the layer ``name`` for a free text or graphic: ``pcbrecords.BOARD_LAYER_MAP``, else
+    ``extra`` (``PcbDocSpec.layer_ids``); ``None`` for a layer without a layer in the document."""
+    found = rec.BOARD_LAYER_MAP.get(name)
+    return found if found is not None or extra is None else extra.get(name)
+
+
+def graphic_problem(
+    graphic: Graphic, *, arc_known: bool = False, layers: Mapping[str, int] | None = None
+) -> str | None:
     """Why a board graphic cannot be written, or ``None``: a layer outside ``BOARD_LAYER_MAP``, a point
     count that does not fit its kind, collinear arc points, or a drawn outline without a positive width.
     ``arc_known`` says that the arc is written from a record of its own (``PcbDocSpec.arc_records``, change
     c0127), so its three points need not give a circle."""
-    if graphic.layer not in rec.BOARD_LAYER_MAP:
+    if board_layer(graphic.layer, layers) is None:
         return f"the layer {graphic.layer} has no layer in the document for a graphic"
     wanted = {"line": 2, "rect": 2, "circle": 2, "arc": 3}.get(graphic.kind)
     count = len(_ring(graphic.points)) if graphic.kind == "polygon" else len(graphic.points)
@@ -988,13 +1100,15 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
     out = _Free()
     frame = copper.frame
     for graphic in sorted(
-        spec.graphics, key=lambda g: (rec.BOARD_LAYER_MAP.get(g.layer, 0), [_xy(p) for p in g.points], g.id)
+        spec.graphics,
+        key=lambda g: (board_layer(g.layer, spec.layer_ids) or 0, [_xy(p) for p in g.points], g.id),
     ):
         kept = spec.arc_records.get(graphic.id) if graphic.kind == "arc" else None
-        problem = graphic_problem(graphic, arc_known=kept is not None)
+        problem = graphic_problem(graphic, arc_known=kept is not None, layers=spec.layer_ids)
         if problem is not None:
             raise ValueError(f"{graphic.id}: {problem}")
-        layer = rec.BOARD_LAYER_MAP[graphic.layer]
+        layer = board_layer(graphic.layer, spec.layer_ids)
+        assert layer is not None
         if graphic.filled and graphic.kind in ("rect", "polygon"):
             if graphic.kind == "rect":
                 s, e = graphic.points
@@ -1054,15 +1168,16 @@ def free_texts(spec: PcbDocSpec, frame: Frame, first: int) -> tuple[list[bytes],
     texts: list[bytes] = []
     wide: list[bytes] = []
     ordered = sorted(
-        spec.texts, key=lambda t: (rec.BOARD_LAYER_MAP.get(t.layer, 0), _xy(t.position), t.text, t.id)
+        spec.texts,
+        key=lambda t: (board_layer(t.layer, spec.layer_ids) or 0, _xy(t.position), t.text, t.id),
     )
     for text in ordered:
-        if text.layer not in rec.BOARD_LAYER_MAP:
+        layer = board_layer(text.layer, spec.layer_ids)
+        if layer is None:
             raise ValueError(f"{text.id}: the layer {text.layer} has no layer in the document for a text")
         problem = text_problem_of(text)
         if problem is not None:
             raise ValueError(f"{text.id}: {problem}")
-        layer = rec.BOARD_LAYER_MAP[text.layer]
         number = first + len(texts)
         texts.append(
             text_record(
@@ -1459,6 +1574,8 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     arcs: list[bytes] = []
     texts: list[bytes] = []
     wide: list[bytes] = []
+    regions: list[bytes] = []
+    shapes: list[bytes] = []
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
@@ -1466,6 +1583,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
         pads += placed.pads
         tracks += placed.tracks
         arcs += placed.arcs
+        regions += placed.regions
+        shapes += placed.shapes
+        local = Transform.placement(component.at, component.rotation)
         x0, y0, x1, y1 = placed.box
         middle = (x0 + x1) // 2
         bottom = component.side == "bottom"
@@ -1477,18 +1597,53 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
             if not text:  # a component of a model that was read may have no designator or comment
                 continue
             number = len(texts)
+            place = component.designator_place if designator else component.comment_place
+            if place is None:
+                texts.append(
+                    text_record(
+                        text,
+                        layer=overlay,
+                        at=at,
+                        component=index,
+                        designator=designator,
+                        wide_index=number,
+                        mirrored=bottom,
+                    )
+                )
+            else:  # where the model's field says (change c0126)
+                texts.append(
+                    text_record(
+                        text,
+                        layer=place.layer,
+                        at=frame(local.apply(place.position)),
+                        component=index,
+                        designator=designator,
+                        wide_index=number,
+                        mirrored=place.mirrored,
+                        height=place.height,
+                        stroke=place.stroke,
+                        rotation=(place.rotation + component.rotation) % FULL_TURN,
+                    )
+                )
+            wide.append(_wide_entry(number, text))
+        for item in component.texts:  # the free texts of the component (change c0126)
+            number = len(texts)
             texts.append(
                 text_record(
-                    text,
-                    layer=overlay,
-                    at=at,
+                    item.text,
+                    layer=item.place.layer,
+                    at=frame(local.apply(item.place.position)),
                     component=index,
-                    designator=designator,
+                    designator=False,
                     wide_index=number,
-                    mirrored=bottom,
+                    mirrored=item.place.mirrored,
+                    free=True,
+                    height=item.place.height,
+                    stroke=item.place.stroke,
+                    rotation=(item.place.rotation + component.rotation) % FULL_TURN,
                 )
             )
-            wide.append(_wide_entry(number, text))
+            wide.append(_wide_entry(number, item.text))
     tracks += routed_tracks(spec.tracks, copper)
     arcs += routed_arcs(spec.arcs, copper, spec.arc_records)
     filled: dict[str, list[bytes]] = {name: [] for name in COPPER_STORAGES}
@@ -1500,8 +1655,8 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     tracks += free.tracks
     arcs += free.arcs
     pads += free.pads
-    filled["Regions6"] = free.regions
-    filled["ShapeBasedRegions6"] = free.shapes
+    filled["Regions6"] = [*regions, *free.regions]
+    filled["ShapeBasedRegions6"] = [*shapes, *free.shapes]
     more_texts, more_wide = free_texts(spec, frame, len(texts))
     texts += more_texts
     wide += more_wide
@@ -1514,7 +1669,10 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
     used = sorted(
-        {record_layer(record) for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"], *free.regions)}
+        {
+            record_layer(record)
+            for record in (*pads, *tracks, *arcs, *texts, *filled["Vias6"], *regions, *free.regions)
+        }
         | poured
         | {body.layer for body in spec.bodies}
     )
@@ -1588,7 +1746,11 @@ __all__ = [
     "NetClassSpec",
     "OPTION_STORAGES",
     "PcbDocSpec",
+    "ComponentGraphic",
+    "ComponentText",
     "PlacedComponent",
+    "TextPlace",
+    "board_layer",
     "board_record",
     "channel_offsets",
     "class_records",

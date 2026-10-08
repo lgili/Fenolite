@@ -6,6 +6,7 @@
 - One `Text` per opaque `fp_text` child that holds a font size and a thickness: the string as written, the layer, and the angle taken from the board angle of the file to the footprint (`pad_angle_from_board`).
 - `Pad.corner_ratio` from the pad's opaque `roundrect_rratio`, in ppm.
 - A child that `Graphic` or `Text` cannot hold (a stroke that is not solid, a polygon with an arc, `fp_text_box`, `dimension`, a curve, an inexact number) MUST be left out and counted by head in `Projection.skipped`; `Projection.projected` counts what was projected per kind.
+- A footprint that holds no `kicad` bag was not read from a KiCad board (the stored board of an Altium build holds its own graphics): it MUST be returned as it is, neither projected nor marked.
 - Every slot MUST stay as it was, so `write_board` of the projected design gives the text of `write_board` of the design. Each projected footprint MUST carry the pair `("fenolite.projected", "footprint-items")` in its `kicad` bag.
 - On a write, a footprint that carries the pair is checked as "Projected fields on write" says: the writer projects again and compares `graphics`, `texts` and the pads' `corner_ratio`; a difference MUST give `kicad.board.projection-read-only` naming the field and the footprint's locator. A footprint without the pair is written without a look at the three fields.
 - Ids follow "Placed copies of library definitions" and the scoped ids of a board footprint's pads: with a uuid `derived_id(prefix, "kicad", "<footprint uuid>:<uuid>")`, without one a content id scoped to the footprint.

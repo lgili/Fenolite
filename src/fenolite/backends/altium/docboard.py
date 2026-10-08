@@ -25,12 +25,14 @@ import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.libboard import (
     DATE,
+    ENABLED_MECHANICAL,
     LINE_BREAK,
     RECORD,
     SNAP_GRID,
     TIME,
     Dielectric,
     StackSpec,
+    enabled_mechanical,
     guid,
     layer_sets,
     legacy_lines,
@@ -246,7 +248,7 @@ def polygon_fields(
     return fields
 
 
-def _routing(stack: StackSpec | None = None) -> list[Field]:
+def _routing(stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     fields: list[Field] = [RECORD, ("TOGGLELAYERS", "1" * _LEGACY_COUNT)]
     for index in range(1, 11):
         fields += [(f"PLACEMARKERX{index}", "-0.0001mil"), (f"PLACEMARKERY{index}", "-0.0001mil")]
@@ -263,7 +265,7 @@ def _routing(stack: StackSpec | None = None) -> list[Field]:
         ("MRLASTVIAHOLE", "28mil"),
         ("LASTTARGETLENGTH", "99999mil"),
         ("SHOWDEFAULTSETS", "TRUE"),
-        *layer_sets(stack),
+        *layer_sets(stack, mechanical),
         ("BOARDINSIGHTVIEWCONFIGURATIONNAME", ""),
     ]
     return fields
@@ -319,7 +321,8 @@ def board_records(
         *_SHEET,
         *plane_net_fields(stack),
     ]
-    first, *later = legacy_lines(stack)
+    mechanical = enabled_mechanical(used_layers)
+    first, *later = legacy_lines(stack, mechanical)
     later[-1] += [
         ("LAYERPAIR0LOW", "TOP"),
         ("LAYERPAIR0HIGH", "BOTTOM"),
@@ -380,7 +383,7 @@ def board_records(
         head,
         [RECORD, *stack_fields(used_layers, substack, stack), *first],
         *later,
-        _routing(stack),
+        _routing(stack, mechanical),
         [
             RECORD,
             ("VISIBLEGRIDMULTFACTOR", "1.000"),

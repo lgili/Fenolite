@@ -63,8 +63,10 @@ from fenolite.lens.build import (
     PlacementRequest,
     UnresolvedLibrariesError,
 )
+from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
 from fenolite.model.base import Opaque
+from fenolite.model.board import PPM_PER_PERCENT, FootprintInstance, Graphic, Pad
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
@@ -650,7 +652,191 @@ def with_written_values(design: Design) -> Design:
     return dataclasses.replace(design, circuit=dataclasses.replace(design.circuit, components=components))
 
 
-def pcb_document(
+def _other_side(layer: str) -> str:
+    """The layer of the other side: ``F.SilkS`` and ``B.SilkS`` swap (``lower._other_side``)."""
+    if layer[:2] in ("F.", "F&"):
+        return "B" + layer[1:]
+    if layer[:2] in ("B.", "B&"):
+        return "F" + layer[1:]
+    return layer
+
+
+def _instance_pad(pad: Pad, *, bottom: bool) -> Pad:
+    """A library pad in the pad frame of a footprint instance on its side, computed exactly: on the bottom
+    side the position is mirrored about the footprint's X axis, the angle negated and the layers are those
+    of the other side (the inverse of ``lower._library_pad``)."""
+    if not bottom:
+        return pad
+    return dataclasses.replace(
+        pad,
+        position=Point(pad.position.x, -pad.position.y),
+        rotation=(-pad.rotation) % FULL_TURN,
+        layers=tuple(_other_side(layer) for layer in pad.layers),
+    )
+
+
+def _instance_graphic(graphic: Graphic, *, bottom: bool) -> Graphic:
+    """A library graphic in the pad frame of an instance on its side (the inverse of
+    ``lower._library_graphic``)."""
+    if not bottom:
+        return graphic
+    return dataclasses.replace(
+        graphic,
+        points=tuple(Point(p.x, -p.y) for p in graphic.points),
+        layer=_other_side(graphic.layer),
+    )
+
+
+def place_footprints(
+    design: Design,
+    footprints: Mapping[str, pcblib.LibFootprint],
+    placements: Mapping[str, PlacementRequest],
+    *,
+    name: str,
+) -> tuple[Design, list[Issue]]:
+    """``design`` with one footprint instance on its board per component with a footprint link, in the
+    order of the component paths (capability altium-build, "Altium build through the lowering"; change
+    c0126), and the infos of the placing. ``design.board`` holds an outline, every link is in
+    ``footprints``, and ``name`` is the stem of the written files.
+
+    An instance is placed where ``placements`` says, or staged right of the outline with one
+    ``altium.pcb-staged`` info, as the KiCad build stages it. It holds the pads and graphics that
+    ``pcblib.check_footprint`` keeps of the library definition, in the pad frame (``_instance_pad``,
+    ``_instance_graphic``), with ids derived from the component's id; a rounded pad holds the corner ratio
+    that is written, ``PPM_PER_PERCENT`` times ``pcbrecords.corner_percent(ratio)``, and every pad the id of
+    the net of its pin through the pin-to-pad map (``altium_copper.pad_net_names``). The component bodies
+    of the model's footprints of the component are kept. A comment outside 7-bit ASCII gives one
+    ``altium.not-lowered`` info (``lower.written_comment``)."""
+    board = design.board
+    assert board is not None and board.outline is not None
+    issues: list[Issue] = []
+    nets = altium_copper.pad_net_names(design)
+    net_ids = {net.name: net.id for net in design.circuit.nets}
+    outline = board.outline.points
+    cursor = max(p.x for p in outline) + STAGING_OFFSET
+    top = min(p.y for p in outline)
+    staged: list[str] = []
+    wide: list[str] = []
+    placed: list[FootprintInstance] = []
+    for component in sorted(design.circuit.components, key=component_path):
+        link = component.lib_footprint_ref
+        if not link:
+            continue
+        footprint = footprints[link]
+        request = placements.get(component_path(component))
+        if request is None:
+            box = footprint_extent(footprint.defn)
+            at, rotation, side, locked = Point(cursor - box.x0, top - box.y0), 0, "top", False
+            cursor += (box.x1 - box.x0) + STAGING_GAP
+            staged.append(component.ref)
+        else:
+            at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
+        if lower.written_comment(component)[1]:
+            # the PCB document's texts are 7-bit; the schematic holds the comment (change c0086)
+            wide.append(component.ref)
+        bottom = side == "bottom"
+        check = pcblib.check_footprint(footprint.defn, footprint.extras, texts=footprint.texts)
+        by_pad = nets.get(component.id, {})
+        pads: list[Pad] = []
+        for index, pad in enumerate(check.pads):
+            ratio = footprint.extras.get(pad.id, pcblib.PadExtras()).corner_ratio
+            corner = None
+            if pad.shape == "roundrect" and ratio is not None:
+                corner = PPM_PER_PERCENT * pcbrecords.corner_percent(ratio)
+            net = by_pad.get(pad.number)
+            pads.append(
+                dataclasses.replace(
+                    _instance_pad(pad, bottom=bottom),
+                    id=derived_id("pad", TARGET, f"placed:{component.id}:{index}"),
+                    native_ids={},
+                    provenance=None,
+                    net_id=net_ids.get(net) if net is not None else None,
+                    corner_ratio=corner,
+                )
+            )
+        graphics = tuple(
+            dataclasses.replace(
+                _instance_graphic(graphic, bottom=bottom),
+                id=derived_id("gfx", TARGET, f"placed:{component.id}:gfx:{index}"),
+                native_ids={},
+                provenance=None,
+            )
+            for index, graphic in enumerate(check.graphics)
+        )
+        bodies = tuple(
+            body for fp in board.footprints if fp.component_id == component.id for body in fp.bodies
+        )
+        placed.append(
+            FootprintInstance(
+                id=derived_id("fp", TARGET, f"placed:{component.id}"),
+                component_id=component.id,
+                lib_ref=link,
+                position=at,
+                rotation=rotation,
+                side=side,  # type: ignore[arg-type]
+                locked=locked,
+                pads=tuple(pads),
+                bodies=bodies,
+                graphics=graphics,
+            )
+        )
+    if wide:
+        issues.append(
+            issue(
+                "altium.not-lowered",
+                f"the comments of {', '.join(wide)} hold characters outside 7-bit ASCII and are kept in the "
+                f"schematic only; {name}.PcbDoc holds the symbol name as their comment",
+                "pcb-comments",
+            )
+        )
+    if staged:
+        issues.append(
+            issue(
+                "altium.pcb-staged",
+                f"{', '.join(staged)} not placed: staged right of the board outline in {name}.PcbDoc",
+                f"{name}.PcbDoc",
+                "place the parts in the script, or move them in Altium",
+            )
+        )
+    return dataclasses.replace(design, board=dataclasses.replace(board, footprints=tuple(placed))), issues
+
+
+def _with_plan_copper(design: Design, plan: altium_copper.CopperPlan) -> Design:
+    """``design`` whose board holds the copper of ``plan`` (tracks, arcs, vias and zones that the lens
+    checked; their ``net_id`` holds a net's name) with the net ids of the design (change c0126): the
+    lowering writes it as the copper of any model."""
+    board = design.board
+    assert board is not None
+    ids = {net.name: net.id for net in design.circuit.nets}
+
+    def net(name: str | None) -> str | None:
+        return ids.get(name) if name is not None else None
+
+    return dataclasses.replace(
+        design,
+        board=dataclasses.replace(
+            board,
+            tracks=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in plan.tracks),
+            arcs=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in plan.arcs),
+            vias=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in plan.vias),
+            zones=tuple(dataclasses.replace(item, net_id=net(item.net_id)) for item in plan.zones),
+        ),
+    )
+
+
+def _plan_planes(plan: altium_copper.CopperPlan) -> dict[str, str]:
+    """The planes of ``plan``: inner layer name → net name, in stack order."""
+    if plan.stack is None:
+        return {}
+    layers = [
+        layer
+        for layer, ident in zip(plan.layers, plan.stack.copper, strict=True)
+        if ident >= pcbrecords.FIRST_PLANE
+    ]
+    return dict(zip(layers, plan.stack.plane_nets, strict=True))
+
+
+def lowered_pcb(
     design: Design,
     *,
     name: str,
@@ -664,19 +850,19 @@ def pcb_document(
     bodies: pcbdoc.BodyMode = "off",
     body_form: pcbrecords.BodyForm = "saved",
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
-    """The PCB document of ``design`` (change c0035, "PCB document output"), or ``None`` with one
-    ``altium.pcbdoc-not-written`` info naming the reason; unplaced components are staged right of the
-    outline as the KiCad build stages them, with one ``altium.pcb-staged`` info. In the ``modules`` sheet
-    mode (change c0037) a component on a module sheet links through the sheet symbol of its module.
-    ``copper`` is the
-    script's copper layer count and ``planes`` its internal planes (layer name → net name); the board's
-    copper is lowered by ``altium_copper`` (change c0038), and copper that cannot be written gives its
-    errors and ``None``. With ``copper_source`` the copper and the placements come from that source, after
-    ``altium_copper.match_source`` checked it against the design; none is staged. ``account`` (change
-    c0085), when given, receives ``written`` and ``not_lowered`` of ``altium_copper.account`` for a
-    document that is planned. ``bodies`` (change c0121) is ``off`` or ``extruded``: with ``extruded`` the
-    extruded component bodies of the board's footprints are written (``altium_copper.lower_bodies``), in
-    the form ``body_form``; every other body is reported."""
+    """The PCB document of ``design`` through the lowering (capability altium-build, "Altium build through
+    the lowering"; change c0126), or ``None`` with one ``altium.pcbdoc-not-written`` info naming the
+    reason (change c0035, "PCB document output").
+
+    The lens decides whether a document is planned, matches a copper source, places the footprints
+    (``place_footprints``), lowers and checks the copper (``altium_copper.lower_copper``: copper that cannot
+    be written gives its errors and ``None``) and puts it into the model's board; ``lower.from_design``
+    with ``lower.LowerOptions`` then gives the specification. In the ``modules`` sheet mode (change c0037)
+    a component on a module sheet links through the sheet symbol of its module. ``account`` (change
+    c0085), when given, receives ``written`` and ``not_lowered`` of ``altium_copper.account``. ``bodies``
+    (change c0121) is ``off`` or ``extruded``: with ``extruded`` the extruded component bodies of the
+    board's footprints are written in the form ``body_form``, and ``altium_copper.lower_bodies`` reports
+    every other body."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -727,88 +913,28 @@ def pcb_document(
         issues += altium_copper.source_not_lowered(copper_source)
         if any(found.severity == "error" for found in source_issues):
             return None, issues
-    assert board is not None and board.outline is not None
-    # pad number → net name, through the pin-to-pad map of each component, as in a KiCad build
-    nets = altium_copper.pad_net_names(design)
-    outline = board.outline.points
-    cursor = max(p.x for p in outline) + STAGING_OFFSET
-    top = min(p.y for p in outline)
-    staged: list[str] = []
-    wide: list[str] = []
-    placed: list[pcbdoc.PlacedComponent] = []
-    for component in with_links:
-        footprint = footprints[component.lib_footprint_ref]
-        request = placements.get(component_path(component))
-        if request is None:
-            box = footprint_extent(footprint.defn)
-            at, rotation, side, locked = Point(cursor - box.x0, top - box.y0), 0, "top", False
-            cursor += (box.x1 - box.x0) + STAGING_GAP
-            staged.append(component.ref)
-        else:
-            at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
-        link = split_link(component.lib_symbol_ref)
-        assert link is not None
-        module = hierarchy.sheet_of(component) if sheets == "modules" else None
-        sheet: tuple[str, str] | None = None
-        if module is not None:
-            # one sheet symbol per level, from the top sheet down (change c0086, "Sheets of a module tree")
-            segments = module.split(hierarchy.PATH_SEPARATOR)
-            chain = [hierarchy.PATH_SEPARATOR.join(segments[: k + 1]) for k in range(len(segments))]
-            sheet = ("\\".join(unique_id(hierarchy.symbol_key(m)) for m in chain), "\\".join(segments))
-        comment = _comment(component)
-        if text_problem(comment) is not None:
-            # the PCB document's texts are 7-bit; the schematic holds the comment (change c0086)
-            comment = link[1]
-            wide.append(component.ref)
-        placed.append(
-            pcbdoc.PlacedComponent(
-                ref=component.ref,
-                unique_id=unique_id(component.id),
-                comment=comment,
-                footprint=footprint,
-                footprint_library=project.pcblib_name(component.lib_footprint_ref, design=name),
-                lib_reference=link[1],
-                component_library=project.schlib_name(component.lib_symbol_ref, design=name),
-                at=at,
-                rotation=rotation,
-                side=side,  # type: ignore[arg-type]
-                locked=locked,
-                pad_nets=nets.get(component.id, {}),
-                sheet=sheet,
-            )
-        )
-    if wide:
-        issues.append(
-            issue(
-                "altium.not-lowered",
-                f"the comments of {', '.join(wide)} hold characters outside 7-bit ASCII and are kept in the "
-                f"schematic only; {name}.PcbDoc holds the symbol name as their comment",
-                "pcb-comments",
-            )
-        )
-    if staged:
-        issues.append(
-            issue(
-                "altium.pcb-staged",
-                f"{', '.join(staged)} not placed: staged right of the board outline in {name}.PcbDoc",
-                f"{name}.PcbDoc",
-                "place the parts in the script, or move them in Altium",
-            )
-        )
-    spec = pcbdoc.PcbDocSpec(outline, tuple(placed), tuple(n.name for n in design.circuit.nets))
+    placed, place_issues = place_footprints(design, footprints, placements, name=name)
+    issues += place_issues
     plan = altium_copper.lower_copper(
         design, copper=copper, planes=planes, source=copper_source, document=f"{name}.PcbDoc"
     )
     issues += plan.issues
     if plan.failed:
         return None, issues
-    lowered = altium_copper.lowered_rules(design)  # change c0084; build_altium reports the others
-    spec = dataclasses.replace(spec, design_rules=lowered.records)
-    spec = altium_copper.with_copper(spec, plan)
-    placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues)
+    options = lower.LowerOptions(
+        name=name,
+        library=footprints,
+        sheets=sheets,
+        copper=plan.layers,
+        planes=_plan_planes(plan),
+        body_form=body_form,
+    )
+    # what the lowering counts is the lens's to report: it checked the copper, the rules and the items
+    inputs = lower.from_design(_with_plan_copper(placed, plan), issues=[], options=options, bodies=bodies)
+    spec = inputs.pcb
+    assert spec is not None
+    _placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues)
     plan = dataclasses.replace(plan, counts=MappingProxyType({**plan.counts, "body": body_counts}))
-    if placed_bodies:
-        spec = dataclasses.replace(spec, bodies=placed_bodies, body_form=body_form)
     if account is not None:
         source = copper_source.design if copper_source is not None else None
         account.update(altium_copper.account(design, spec, plan, source))
@@ -1667,7 +1793,7 @@ def build_altium(
         )
     written = [footprints[link] for link in sorted(footprints)]
     pcb_account: dict[str, dict[str, int]] = {}
-    spec, document_issues = pcb_document(
+    spec, document_issues = lowered_pcb(
         model,
         name=name,
         footprints=footprints,
@@ -1884,30 +2010,18 @@ def build_altium(
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
 
 
-def corner_ratios(design: Design) -> dict[str, Decimal]:
-    """Pad id → the corner ratio of every rounded-rectangle pad of the board's footprints that was read
-    from a KiCad board (change c0090): the model holds no ratio, and KiCad's backend keeps the pad's
-    ``roundrect_rratio`` in its own bag, which only this lens reads (layering)."""
-    found: dict[str, Decimal] = {}
-    for footprint in design.board.footprints if design.board is not None else ():
-        for pad in footprint.pads:
-            if pad.shape != "roundrect":
-                continue
-            for node in _opaque_nodes(pad):
-                ratio = _decimal_atom(node) if node.name == "roundrect_rratio" else None
-                if ratio is not None:
-                    found[pad.id] = ratio
-    return found
-
-
 def write_model(design: Design, *, allow_lossy: bool = False, bodies: str = "off") -> lower.ProjectWrite:
     """The Altium project of ``design``, written from the model alone (``backends.altium.lower.write_design``,
-    change c0090), with the corner ratios of ``corner_ratios``: the write of a design that was read from
-    a KiCad board. ``AltiumBackend.write`` is the same write without them, for a design that carries its
-    ratios (one read from an Altium document) or holds no rounded rectangle."""
-    return lower.write_design(
-        design, allow_lossy=allow_lossy, corner_ratios=corner_ratios(design), bodies=bodies
-    )
+    change c0090): the write of a design that was read from a KiCad board. Such a design keeps the drawings
+    of its footprints and the corner ratios of its pads in KiCad's own slots, which a backend does not
+    read, so the design is projected first (``backends.kicad.fpitems.with_footprint_items``, change c0126):
+    the written footprints then hold their silkscreen and their rounded pads. ``AltiumBackend.write`` is
+    the same write without the projection, for a design that carries its items (one read from an Altium
+    document) or holds none."""
+    from fenolite.backends.kicad import fpitems
+
+    projected = fpitems.with_footprint_items(design).design
+    return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies)
 
 
 __all__ = [
@@ -1920,13 +2034,13 @@ __all__ = [
     "PCB_WRITE_KINDS",
     "TARGET",
     "build_altium",
-    "corner_ratios",
     "footprint_source",
     "footprint_texts",
     "generic_pins",
     "kicad_footprint_ids",
     "kicad_lib_ids",
-    "pcb_document",
+    "lowered_pcb",
+    "place_footprints",
     "kicad_pins",
     "library_symbols",
     "match_source",

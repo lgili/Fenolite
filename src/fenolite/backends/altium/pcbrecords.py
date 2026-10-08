@@ -567,14 +567,16 @@ def region_record(
     *,
     shape_based: bool = False,
     keepout: int | None = None,
+    component: int = NO_INDEX,
 ) -> bytes:
-    """A region (type 11) without a net, a polygon or a component (``pcb-records.md``, "Regions and
-    keep-outs"): the prefix, five zero bytes, the property text and the outline. ``vertices`` are in binary
-    units, without a closing vertex, at least three. The plain form (``Regions6``) holds each vertex as two
-    doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none round, and repeats
-    the first vertex after the last. ``keepout`` makes the region a keep-out with that restriction value
-    (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS`` and, for KiCad's
-    importer, ``KEEPOUTRESTRIC``, both holding the value."""
+    """A region (type 11) without a net or a polygon (``pcb-records.md``, "Regions and keep-outs"): the
+    prefix, five zero bytes, the property text and the outline. ``component`` (change c0126) is the index
+    of the component the region belongs to, in the prefix as for a track; none by default. ``vertices`` are
+    in binary units, without a closing vertex, at least three. The plain form (``Regions6``) holds each
+    vertex as two doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none
+    round, and repeats the first vertex after the last. ``keepout`` makes the region a keep-out with that
+    restriction value (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS``
+    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
@@ -592,7 +594,7 @@ def region_record(
     if keepout is not None:
         fields += [(KEEPOUT_KEY, str(keepout)), (KEEPOUT_KEY_KICAD, str(keepout))]
     text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
-    head = bytearray(prefix(layer))
+    head = bytearray(prefix(layer, component=component))
     if keepout is not None:
         head[2] = KEEPOUT_FLAG
     body = bytes(head) + bytes(5) + struct.pack("<I", len(text)) + text + struct.pack("<I", len(vertices))

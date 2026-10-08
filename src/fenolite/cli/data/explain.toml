@@ -1932,6 +1932,11 @@ meaning = "The fenolite-artifacts.json of the folder is not JSON, has another sc
 fix = "Move the file away or delete it, then run the command again; 'where' names the file."
 see = "manifest"
 
+["model.corner-ratio"]
+meaning = "A pad of the model holds a corner ratio that it cannot have: a value outside 0 to 500000 (parts per million of the pad's shorter side; 500000 is half of it), or a ratio on a pad whose shape is not roundrect. 'where' is the pad's id."
+fix = "Give the pad a ratio from 0 to 500000, or remove the ratio from a pad that is no rounded rectangle."
+see = "check"
+
 ["netlist.assignment-differs"]
 meaning = "A pad is on different nets in two sources of the design: the model, the board file or KiCad's own export."
 fix = "Find which source is right for the pad that 'where' names; build again if the board is stale."

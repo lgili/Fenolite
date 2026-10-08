@@ -59,6 +59,19 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | The board outline of the board record becomes graphics on `Edge.Cuts`, one per segment, a line or an arc | S-0161 | INFERRED | H-A-IMP-FRAME |
 | A free fill is a rectangle given by two corners and a rotation about its centre; a free region is a polygon | S-0160, S-0285 | INFERRED | H-A-IMP-FRAME |
 
+## Primitives of a component
+
+Change c0126. Until then the import counted these records as `footprint-graphics` and made no entity of
+them.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A track, an arc, a fill, a region and a text carry in their prefix, at offset 7, the index of the component they belong to (`0xFFFF`: none). The primitives of a placed component are stored at absolute board coordinates with that index, and a document holds no footprint definition (`pcb-records.md`, the common prefix; `pcb-document.md`, "Components"). The import gives such a primitive to the footprint of its component: a track is a `line`, an arc an `arc` (a full turn: a `circle`), a fill a filled `rect` or, when it is turned against the footprint, a filled `polygon`, and a region a filled `polygon`, as for a library footprint, in the order tracks, arcs, fills, regions and, within each, record order | S-0160, S-0161, S-0150 | INFERRED | H-A-IMP-FPGFX |
+| The points of such a graphic are taken into the footprint's frame with the inverse of the placement of its component (position and angle, no mirror), the transform of its pads, so a footprint on the bottom side holds mirrored coordinates and its items name the layers they lie on. This is Fenolite's reading of the record values, not a field of the format | S-0161 | INFERRED | H-A-IMP-FPGFX |
+| A text of a component whose designator flag is set is the component's designator, and one whose comment flag is set its comment (`pcb-read.md`, `TextRecord.is_designator` and `is_comment`). The first of each gives the field `Reference` or `Value` of the footprint: the place, the layer, the height, the stroke width, and the angle relative to the footprint; the string stays in the component. A further designator or comment text of the same component, and every other text of a component, is a text of the footprint with its string as stored | S-0160, S-0002 | INFERRED | H-A-IMP-FPGFX |
+| `NAMEON` and `COMMENTON` of a component record say whether its designator and its comment are shown (`pcb-read.md`, `ComponentRecord.name_on` and `comment_on`); they give `visible` of the two fields. A record without the key gives a visible field: Fenolite's choice, the default of a field of the model | S-0160, S-0161 | INFERRED | H-A-IMP-FPGFX |
+| An arc of a component keeps its record (centre, radius, angles, in the document's frame) in the pair `arc`, as a free arc does since change c0127; a graphic of a component on a copper layer keeps its net name in the pair `net`; a primitive of a component on an internal plane is no item of its footprint (a line there is a cut in the plane, change c0124) and stays counted as `footprint-graphics` | S-0160, S-0161 | INFERRED | H-A-IMP-FPGFX |
+
 ## Rules
 
 Rule records go through `read.rules.map_rules` (c0042): `rule-file.md` holds the kinds that map and the

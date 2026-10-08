@@ -10,9 +10,10 @@ What the writers cannot carry is left out, counted per kind in ``AltiumInputs.no
 once per kind with ``altium.not-lowered``; nothing is approximated without a line. ``write_design`` hands
 the inputs to ``pcbdoc.write_pcbdoc`` and ``project.write_project``.
 
-A build from a script does not come through this module: it writes library footprints with their
-graphics and pad settings, which a footprint instance of the model does not hold. ``stored_board`` gives
-the board that such a build wrote, as model entities, so that the model a build stores holds it.
+A build from a script comes through this module too (change c0126): ``lens.altium`` places the
+footprints into the model (``place_footprints``), puts the copper it checked into the board and calls
+``from_design`` with ``LowerOptions``, what a build decides and a model does not hold. ``stored_board``
+gives the board that the build wrote, as model entities, so that the model a build stores holds it.
 """
 
 from __future__ import annotations
@@ -38,8 +39,10 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
+    PPM_PER_PERCENT,
     Arc,
     Board,
+    FootprintField,
     FootprintInstance,
     Graphic,
     Hole,
@@ -90,6 +93,9 @@ MORE_KINDS: tuple[str, ...] = (
     "pin-pads",
     "module",
     "channel",
+    "footprint-graphic",
+    "footprint-copper",
+    "footprint-text",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -100,9 +106,24 @@ of a repeated sheet (the bag keys ``sheet_symbol`` and ``channel_index`` of a mo
 (change c0123, which writes the map as records of the footprint model): ``pin-pad-map`` is the map of a
 component that has no footprint model in the generated schematic, and ``pin-pads`` a component whose bag
 holds what the model's map cannot say (the key ``pin_pads``: a record without a pad, or with a pad that
-another pin holds)."""
+another pin holds). Of the items of a footprint instance (change c0126): ``footprint-graphic`` is a graphic
+on a layer without a layer in the document, or one that no record holds; ``footprint-copper`` a graphic on a
+copper layer, which is not written; ``footprint-text`` a text or a field that the text record cannot hold.
+``AltiumInputs.written`` counts the written graphics and texts under the first and the third key."""
 LOSS_KINDS: frozenset[str] = frozenset(
-    {"footprint", "pad", "track", "arc", "via", "zone", "net", "netclass", "copper-shape", "plane"}
+    {
+        "footprint",
+        "pad",
+        "track",
+        "arc",
+        "via",
+        "zone",
+        "net",
+        "netclass",
+        "copper-shape",
+        "plane",
+        "footprint-copper",
+    }
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
 NOT_LOWERED = "altium.not-lowered"
@@ -115,6 +136,16 @@ ARC_TOLERANCE = 2
 """How far, in nanometres per axis, a point of a kept arc record may lie from the point of the model and
 the record still be written (change c0127): the length tolerance of the written scope
 (``roundtrip.RT_A2_SCOPE``). An untouched arc gives its points exactly."""
+MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType({f"Mech.{n}": 56 + n for n in range(1, 17)})
+"""The names the import gives the mechanical layers 1 to 16 (``adapter.layers``) and their Altium ids
+(``pcb-records.md``, "Layer ids"): the layers of the items of a board that was read from an Altium
+document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126)."""
+DEFINITION_LAYERS: frozenset[str] = frozenset(
+    name for name, ident in rec.LAYER_MAP.items() if ident in rec.FLIP_PAIRS and not name.endswith(".Cu")
+)
+"""The layers on which a footprint definition holds graphics (``pcblib.check_footprint``): both overlays
+and the four mechanical layers of Fenolite's layer map."""
+PPM = 1_000_000
 _INT32 = range(-(2**31), 2**31)
 _FINITE = (float("-inf"), float("inf"))
 _FP_NATIVE = re.compile(r"fp:([A-Z]{8})")
@@ -165,6 +196,44 @@ class ProjectWrite:
     files: Mapping[str, bytes]
     issues: tuple[Issue, ...]
     inputs: AltiumInputs
+
+
+@dataclass(frozen=True, slots=True)
+class LowerOptions:
+    """What a build decides and a model does not hold (capability altium-build, "Altium build through the
+    lowering"; change c0126). ``from_design(..., options=None)`` is the write of a model; with options it is
+    the lowering of a build, whose board ``lens.altium.place_footprints`` placed and whose copper the lens
+    checked and put into the board.
+
+    ``name`` is the stem of the written files. ``library`` maps a footprint link to the footprint that
+    ``<name>.PcbLib`` holds: a component's pattern is the name of its definition there, and its library
+    file is ``project.pcblib_name(link, design=name)``; its symbol library is
+    ``project.schlib_name(link, design=name)``. ``sheets`` is the sheet mode: in ``modules`` a component on
+    a module sheet links through the sheet symbols of its module. ``copper`` names the copper layers of the
+    document, top to bottom, and ``planes`` maps an inner layer to the net of its plane (the lens's
+    ``altium_copper.lower_copper`` checked both). ``body_form`` is the form of the body records. The
+    schematic form, the directions, the drawing sheets and the output job are no options of the lowering:
+    they are arguments of ``project.write_project``, and the output job is made from the stack of the
+    lowered document (design of c0126, "Found on 2026-10-08", 12)."""
+
+    name: str
+    library: Mapping[str, pcblib.LibFootprint]
+    sheets: project.SheetMode = project.DEFAULT_SHEETS
+    copper: tuple[str, ...] = ("F.Cu", "B.Cu")
+    planes: Mapping[str, str] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
+    body_form: rec.BodyForm = "saved"
+
+
+def written_comment(component: Component) -> tuple[str, bool]:
+    """The comment a PCB document holds for ``component`` and whether it is the symbol's name because the
+    value holds a character outside 7-bit ASCII (change c0086): the value, else the symbol's name, else the
+    reference. The schematic keeps the value."""
+    link = project.split_link(component.lib_symbol_ref)
+    symbol = link[1] if link is not None else component.ref
+    comment = component.value or symbol
+    if text_problem(comment) is not None:
+        return symbol, True
+    return comment, False
 
 
 class _Account:
@@ -333,6 +402,20 @@ def _stack(
     return names, found or StackSpec.default(ids, plane_nets), frozenset(planes)
 
 
+def _built_stack(board: Board, options: LowerOptions) -> tuple[tuple[str, ...], StackSpec, frozenset[str]]:
+    """The copper layers, the stack and the plane layers of a build (change c0126): the layers and planes
+    of ``options``, the ids of ``pcbrecords.copper_stack``, and the values of the board's stack-up when it
+    fits (``stack_from_stackup``), else the defaults, as ``lens.altium_copper.stack_values`` gives them."""
+    layers = tuple(options.copper)
+    planes = {layer: options.planes[layer] for layer in layers if layer in options.planes}
+    ids = rec.copper_stack(layers, tuple(planes))
+    nets = tuple(planes.values())
+    found = None
+    if board.stackup is not None:
+        found = stack_from_stackup(board.stackup, layers, ids, nets)
+    return layers, found or StackSpec.default(ids, nets), frozenset(planes)
+
+
 # --- outline --------------------------------------------------------------------------------------------
 
 
@@ -419,14 +502,20 @@ def _other_side(layer: str) -> str:
 
 
 def _extras(pad: Pad, ratios: Mapping[str, Decimal]) -> pcblib.PadExtras:
-    """The corner ratio of a rounded rectangle: the caller's, else the percentage the import kept."""
-    ratio = ratios.get(pad.id)
-    if ratio is None and pad.shape == "roundrect":
-        percent = pairs_of(pad).get("corner_percent")
-        try:
-            ratio = Decimal(percent) / 200 if percent is not None else None
-        except InvalidOperation:
-            ratio = None
+    """The corner ratio of a rounded rectangle: ``Pad.corner_ratio`` (change c0126), else the percentage
+    that an import before that change kept in the pad's bag, else the caller's."""
+    ratio: Decimal | None = None
+    if pad.shape == "roundrect":
+        if pad.corner_ratio is not None:
+            ratio = Decimal(pad.corner_ratio) / PPM
+        else:
+            percent = pairs_of(pad).get("corner_percent")
+            try:
+                ratio = Decimal(percent) / 200 if percent is not None else None
+            except InvalidOperation:
+                ratio = None
+    if ratio is None:
+        ratio = ratios.get(pad.id)
     return pcblib.PadExtras(corner_ratio=ratio)
 
 
@@ -453,6 +542,130 @@ def _library_pad(pad: Pad, *, bottom: bool) -> Pad:
     )
 
 
+def _library_graphic(graphic: Graphic, *, bottom: bool) -> Graphic:
+    """An instance's graphic as ``pcbdoc.place_component`` takes it (change c0126): on the bottom side the
+    writer mirrors the points about the local X axis and swaps the layer, so they are given as on the top
+    side, as ``_library_pad`` gives a pad."""
+    if not bottom:
+        return graphic
+    return dataclasses.replace(
+        graphic,
+        points=tuple(Point(p.x, -p.y) for p in graphic.points),
+        layer=_other_side(graphic.layer),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _Items:
+    """What ``_footprint_items`` gives the placed component of one instance."""
+
+    graphics: tuple[Graphic, ...] = ()
+    arcs: Mapping[str, rec.ArcGeometry] = dataclasses.field(default_factory=lambda: {})
+    items: tuple[pcbdoc.ComponentGraphic, ...] = ()
+    texts: tuple[pcbdoc.ComponentText, ...] = ()
+    designator: pcbdoc.TextPlace | None = None
+    comment: pcbdoc.TextPlace | None = None
+
+
+def _footprint_items(
+    fp: FootprintInstance,
+    layers: Mapping[str, int],
+    copper: Sequence[str],
+    frame: pcbdoc.Frame,
+    account: _Account,
+) -> _Items:
+    """The graphics, the fields ``Reference`` and ``Value`` and the texts of ``fp`` as the document writes
+    them (capability altium-pcb-writer, "Footprint items of a written component"; change c0126).
+    ``layers`` maps the layer names beside the definition's layers to Altium ids
+    (``pcbrecords.BOARD_LAYER_MAP`` and, for a board that was read, ``MECHANICAL_LAYERS``).
+
+    A drawn line, rectangle, circle or arc on a layer of ``DEFINITION_LAYERS`` goes into the definition, in
+    the top-side form (``_library_graphic``), as a build writes a library footprint. Every other graphic
+    with a layer in ``layers`` is written as the instance holds it (``pcbdoc.ComponentGraphic``): a filled
+    rectangle or polygon as a region, a polygon outline as tracks. An ``arc`` that still says its kept
+    record is written from it (``kept_arc``). A graphic on a copper layer is not written and counted under
+    ``footprint-copper``; one without a layer in the document, or that no record holds, under
+    ``footprint-graphic``; a text or a field that the text record cannot hold under ``footprint-text``."""
+    bottom = fp.side == "bottom"
+    to_board = Transform.placement(fp.position, fp.rotation)
+    graphics: list[Graphic] = []
+    arcs: dict[str, rec.ArcGeometry] = {}
+    items: list[pcbdoc.ComponentGraphic] = []
+    for graphic in fp.graphics:
+        if graphic.layer.endswith(".Cu") or graphic.layer in copper:
+            reason = "a graphic of a footprint on a copper layer has no record written: it would be copper"
+            account.skip("footprint-copper", graphic.id, reason)
+            continue
+        kept = None
+        if graphic.kind == "arc":
+            kept = kept_arc(graphic, tuple(to_board.apply(p) for p in graphic.points), frame)
+        drawn = not graphic.filled and graphic.kind in ("line", "rect", "circle", "arc")
+        if drawn and graphic.layer in DEFINITION_LAYERS:
+            top = _library_graphic(graphic, bottom=bottom)
+            probe = FootprintDef(id=fp.id, name="graphic", graphics=(top,))
+            check = pcblib.check_footprint(probe, {})
+            if check.graphics or (kept is not None and check.refusal is None):
+                graphics.append(top)
+                if kept is not None:
+                    arcs[graphic.id] = kept
+                account.wrote("footprint-graphic")
+            else:
+                reason = check.refusal or ", ".join(check.dropped) or "no record holds it"
+                account.skip("footprint-graphic", graphic.id, f"{reason} is not written")
+            continue
+        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=layers)
+        if problem is None:
+            items.append(
+                pcbdoc.ComponentGraphic(graphic, pcbdoc.board_layer(graphic.layer, layers) or 0, kept)
+            )
+            account.wrote("footprint-graphic")
+        else:
+            account.skip("footprint-graphic", graphic.id, problem)
+
+    def place(item: Text | FootprintField, what: str) -> pcbdoc.TextPlace | None:
+        layer = pcbdoc.board_layer(item.layer, layers)
+        height, stroke = item.size.h, item.thickness
+        problem = None
+        if layer is None:
+            problem = f"the layer {item.layer} has no layer in the document for a text"
+        elif height <= 0:
+            problem = f"a height of {height} nm is not positive"
+        elif stroke is None or stroke <= 0:
+            if isinstance(item, Text):
+                problem = f"a stroke width of {stroke} nm is not positive"
+            else:
+                stroke = pcbdoc.DESIGNATOR_STROKE  # a field without a stroke of its own: the writer's
+        if problem is not None or layer is None or stroke is None:
+            account.skip("footprint-text", item.id, f"{what}: {problem}")
+            return None
+        mirrored = item.mirrored if isinstance(item, FootprintField) else layer in rec.BOTTOM_SIDE
+        shown = item.visible if isinstance(item, FootprintField) else True
+        return pcbdoc.TextPlace(item.position, layer, height, stroke, item.rotation, shown, mirrored)
+
+    places: dict[str, pcbdoc.TextPlace | None] = {}
+    for field in fp.fields:
+        if field.name in ("Reference", "Value") and field.name not in places:
+            places[field.name] = place(field, f"the place of the field {field.name}")
+    texts: list[pcbdoc.ComponentText] = []
+    for text in fp.texts:
+        problem = pcbdoc.text_problem_of(text)
+        if problem is not None:
+            account.skip("footprint-text", text.id, problem)
+            continue
+        found = place(text, "a text of a footprint")
+        if found is not None:
+            texts.append(pcbdoc.ComponentText(text.text, found))
+            account.wrote("footprint-text")
+    return _Items(
+        tuple(graphics),
+        MappingProxyType(arcs),
+        tuple(items),
+        tuple(texts),
+        places.get("Reference"),
+        places.get("Value"),
+    )
+
+
 def _link(text: str, suffix: str) -> tuple[str, str]:
     """``(library file, name)`` of a ``<library>:<name>`` reference, each ``""`` when no record holds it."""
     parts = project.split_link(text) if text else None
@@ -460,6 +673,37 @@ def _link(text: str, suffix: str) -> tuple[str, str]:
     if library and not library.lower().endswith(suffix.lower()):
         library += suffix
     return (library if _field_ok(library) else "", name if name and text_problem(name) is None else "")
+
+
+def _built_component(
+    component: Component, fp: FootprintInstance, options: LowerOptions
+) -> tuple[str, str, str, str, str, str, tuple[str, str] | None]:
+    """``(pattern, library file, symbol, symbol library file, unique id, comment, sheet)`` of a component
+    of a build (change c0126): the names the build gives the libraries it writes, the comment of
+    ``written_comment``, and in the ``modules`` sheet mode the sheet symbols of the component's module, one
+    per level from the top sheet down (change c0086, "Sheets of a module tree")."""
+    import fenolite.backends.altium.hierarchy as hierarchy
+
+    found = options.library.get(fp.lib_ref)
+    pattern = found.defn.name if found is not None else _link(fp.lib_ref, ".PcbLib")[1]
+    link = project.split_link(component.lib_symbol_ref)
+    symbol = link[1] if link is not None else ""
+    module = hierarchy.sheet_of(component) if options.sheets == "modules" else None
+    sheet: tuple[str, str] | None = None
+    if module is not None:
+        segments = module.split(hierarchy.PATH_SEPARATOR)
+        chain = [hierarchy.PATH_SEPARATOR.join(segments[: k + 1]) for k in range(len(segments))]
+        symbols = "\\".join(project.unique_id(hierarchy.symbol_key(m)) for m in chain)
+        sheet = (symbols, "\\".join(segments))
+    return (
+        pattern,
+        project.pcblib_name(fp.lib_ref, design=options.name),
+        symbol,
+        project.schlib_name(component.lib_symbol_ref, design=options.name),
+        project.unique_id(component.id),
+        written_comment(component)[0],
+        sheet,
+    )
 
 
 def _footprints(
@@ -472,10 +716,14 @@ def _footprints(
     bodies: pcbdoc.BodyMode = "off",
     frame: pcbdoc.Frame | None = None,
     placed_bodies: list[pcbdoc.PlacedBody] | None = None,
+    layer_ids: Mapping[str, int] | None = None,
+    copper: Sequence[str] = (),
+    options: LowerOptions | None = None,
 ) -> tuple[list[pcbdoc.PlacedComponent], list[pcbdoc.FreePad]]:
     """The components and the free pads of the document. With ``bodies`` ``extruded`` (change c0121) the
     bodies of a written footprint that have a record are appended to ``placed_bodies``, placed in
-    ``frame``; every other body is counted with its reason."""
+    ``frame``; every other body is counted with its reason. With ``options`` (a build, change c0126) the
+    pattern, the library names, the link, the comment and the sheet of a component are the build's."""
     components = {component.id: component for component in design.circuit.components}
 
     def skip_bodies(fp: FootprintInstance, reason: str) -> None:
@@ -528,14 +776,24 @@ def _footprints(
                 nets_by_pad[pad.id] = name
         library, pattern = _link(fp.lib_ref, ".PcbLib")
         symbol_library, symbol = _link(component.lib_symbol_ref if component is not None else "", ".SchLib")
-        defn = FootprintDef(id=fp.id, name=pattern or "FOOTPRINT", pads=tuple(pads))
-        native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         linked = links.get(component.id) if component is not None else None
+        unique = linked or project.unique_id(component.id if component is not None else fp.id)
+        comment = component.value if component is not None else ""
+        sheet: tuple[str, str] | None = None
+        if options is not None and component is not None:
+            built = _built_component(component, fp, options)
+            pattern, library, symbol, symbol_library, unique, comment, sheet = built
+        own = _Items()
+        if frame is not None and (fp.graphics or fp.texts or fp.fields):
+            ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
+            own = _footprint_items(fp, ids, copper, frame, account)
+        defn = FootprintDef(id=fp.id, name=pattern or "FOOTPRINT", pads=tuple(pads), graphics=own.graphics)
+        native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         placed.append(
             pcbdoc.PlacedComponent(
                 ref=ref,
-                unique_id=linked or project.unique_id(component.id if component is not None else fp.id),
-                comment=component.value if component is not None else "",
+                unique_id=unique,
+                comment=comment,
                 footprint=pcblib.LibFootprint(defn, extras_of),
                 footprint_library=library,
                 lib_reference=symbol,
@@ -544,8 +802,14 @@ def _footprints(
                 rotation=fp.rotation,
                 side=fp.side,
                 locked=fp.locked,
+                sheet=sheet,
                 nets_by_pad=nets_by_pad,
                 record_unique_id=native.group(1) if native is not None else None,
+                designator_place=own.designator,
+                comment_place=own.comment,
+                arc_records=own.arcs,
+                items=own.items,
+                texts=own.texts,
             )
         )
         account.wrote("footprint")
@@ -679,11 +943,12 @@ def _items(
     frame: pcbdoc.Frame,
     records: dict[str, rec.ArcGeometry],
     account: _Account,
+    layer_ids: Mapping[str, int] | None = None,
 ) -> tuple[list[Text], list[Graphic], list[Keepout], list[Hole]]:
     texts: list[Text] = []
     for text in board.texts:
         problem = pcbdoc.text_problem_of(text)
-        if text.layer not in rec.BOARD_LAYER_MAP:
+        if pcbdoc.board_layer(text.layer, layer_ids) is None:
             problem = f"the layer {text.layer} has no layer in the document for a text"
         if problem is None:
             texts.append(text)
@@ -699,9 +964,7 @@ def _items(
             account.skip("copper-shape", graphic.id, "a shape on a copper layer has no record written")
             continue
         kept = kept_arc(graphic, graphic.points, frame) if graphic.kind == "arc" else None
-        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None)
-        if problem is None and graphic.layer not in rec.BOARD_LAYER_MAP:
-            problem = f"the layer {graphic.layer} has no layer in the document"
+        problem = pcbdoc.graphic_problem(graphic, arc_known=kept is not None, layers=layer_ids)
         if problem is None:
             graphics.append(graphic)
             if kept is not None:
@@ -856,11 +1119,13 @@ def from_design(
     design: Design,
     *,
     issues: list[Issue],
+    options: LowerOptions | None = None,
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
     bodies: str = "off",
 ) -> AltiumInputs:
-    """The inputs of the PCB and schematic writers from ``design`` alone. ``corner_ratios`` maps a pad id
+    """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
+    build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
     to the corner ratio of its rounded rectangle, for a caller that knows what the model does not hold (a
     board read from KiCad keeps the ratio in KiCad's own bag); a pad read from an Altium document carries
     it. One ``altium.not-lowered`` per kind of item that is not written is added to ``issues``.
@@ -875,21 +1140,39 @@ def from_design(
     height above their standoff are written into the document (``pcbdoc.place_body``); every other body,
     and every body with ``off``, is left out and counted under ``body``. The definition that is
     synthesised from an instance holds no body: the document carries them. ``rewrite`` does not decide
-    it."""
+    it.
+
+    With ``options`` the board is the one ``lens.altium`` placed for a build: the outline is
+    ``Board.outline`` as given, the nets are every net of the circuit in its order, the copper layers and
+    planes are ``options.copper`` and ``options.planes``, the document is in the frame of the outline
+    (``PcbDocSpec.frame`` ``None``), and a component takes its pattern, library names, link, comment and
+    sheet from ``options`` (``_built_component``). ``rewrite`` is refused with options."""
     body_mode = pcbdoc.body_mode(bodies)
     account = _Account()
-    name = design_name(design)
+    name = options.name if options is not None else design_name(design)
     board = design.board
     if rewrite and board is not None and BACKEND not in board.native_ids:
         raise ValueError(
             "rewrite=True is for the reading of an Altium document; this board was not read from one"
         )
+    if rewrite and options is not None:
+        raise ValueError("rewrite=True is for the reading of an Altium document, not for a build")
     spec: pcbdoc.PcbDocSpec | None = None
     if board is not None:
-        outline = _outline(board, account)
+        if options is not None and board.outline is not None:
+            outline = tuple(board.outline.points)
+        else:
+            outline = _outline(board, account)
         if len(outline) >= 3:
             spec = _document(
-                design, board, outline, corner_ratios or {}, account, rewrite=rewrite, bodies=body_mode
+                design,
+                board,
+                outline,
+                corner_ratios or {},
+                account,
+                rewrite=rewrite,
+                bodies=body_mode,
+                options=options,
             )
     schematic = schematic_design(design, name)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -930,6 +1213,7 @@ def _document(
     *,
     rewrite: bool = False,
     bodies: pcbdoc.BodyMode = "off",
+    options: LowerOptions | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -938,7 +1222,10 @@ def _document(
         else:
             account.skip("net", net.id, f"no net record holds the name {net.name!r}, or two nets share it")
     nets = frozenset(net_names.values())
-    layers, stack, planes = _stack(board, nets, account)
+    if options is not None:
+        layers, stack, planes = _built_stack(board, options)
+    else:
+        layers, stack, planes = _stack(board, nets, account)
     read = BACKEND in board.native_ids
     frame = pcbdoc.Frame.document() if read else pcbdoc.Frame.of(outline)
     origin: Point | None = None
@@ -952,21 +1239,37 @@ def _document(
             if found[0] is not None and found[1] is not None:
                 origin = Point(found[0][0], found[1][0])
     placed_bodies: list[pcbdoc.PlacedBody] = []
+    # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126)
+    layer_ids: Mapping[str, int] = MECHANICAL_LAYERS if read else MappingProxyType({})
     components, free_pads = _footprints(
-        design, board, net_names, ratios, account, bodies=bodies, frame=frame, placed_bodies=placed_bodies
+        design,
+        board,
+        net_names,
+        ratios,
+        account,
+        bodies=bodies,
+        frame=frame,
+        placed_bodies=placed_bodies,
+        layer_ids=layer_ids,
+        copper=layers,
+        options=options,
     )
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=rewrite
     )
-    texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account)
+    texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     account.wrote("rule", sum(len(record.rules) for record in lowered.records))
     for item in lowered.not_lowered:
         account.skip("rule", item.rule.id, f"{item.kind} ({item.selector}): {item.reason}")
+    names = tuple(sorted(nets))
+    if options is not None:
+        # a build names every net of its circuit, in the circuit's order (change c0126)
+        names = tuple(net.name for net in design.circuit.nets)
     return pcbdoc.PcbDocSpec(
         outline,
         tuple(components),
-        tuple(sorted(nets)),
+        names,
         copper_layers=layers,
         stack=stack,
         tracks=tuple(tracks),
@@ -979,12 +1282,14 @@ def _document(
         keepouts=tuple(keepouts),
         holes=tuple(holes),
         design_rules=lowered.records,
-        frame=frame,
+        frame=None if options is not None else frame,
         origin=origin,
         free_pads=tuple(free_pads),
+        layer_ids=layer_ids,
         arc_records=MappingProxyType(arc_records),
         allow_full_drill=rewrite,
         bodies=tuple(placed_bodies),
+        body_form=options.body_form if options is not None and placed_bodies else "saved",
     )
 
 
@@ -1032,12 +1337,18 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
     zone is one entity per written polygon, so a zone on two layers is two. The board's other fields are
     kept. Ids are derived from the component's id and the entity's place. A footprint holds the component
     bodies that ``spec`` writes for its component (change c0121) and no other: the stored board of a build
-    without ``--altium-bodies extruded`` holds no body, as before."""
+    without ``--altium-bodies extruded`` holds no body, as before.
+
+    Since change c0126 a rounded-rectangle pad holds ``corner_ratio``, ``PPM_PER_PERCENT`` per written
+    percent, and a footprint holds the graphics that the document holds for its component, in the pad
+    frame and in the written form (``_written_graphics``), so that the reading of the document compares
+    equal to them in the written scope."""
     board = design.board
     if board is None:
         raise ValueError("the design holds no board")
     net_ids = {net.name: net.id for net in design.circuit.nets}
     by_ref = {component.ref: component for component in design.circuit.components}
+    frame = spec.frame if spec.frame is not None else pcbdoc.Frame.of(spec.outline)
     model_bodies = {body.id: body for footprint in board.footprints for body in footprint.bodies}
     footprints: list[FootprintInstance] = []
     for number, placed in enumerate(spec.components):
@@ -1055,6 +1366,10 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
                 if placed.nets_by_pad is not None
                 else placed.pad_nets.get(pad.number)
             )
+            ratio = placed.footprint.extras.get(pad.id, pcblib.PadExtras()).corner_ratio
+            corner = None
+            if pad.shape == "roundrect" and ratio is not None:
+                corner = PPM_PER_PERCENT * rec.corner_percent(ratio)  # the percent that is written
             pads.append(
                 dataclasses.replace(
                     pad,
@@ -1065,8 +1380,10 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
                     rotation=(to_board.apply_angle(pad.rotation) - placed.rotation) % FULL_TURN,
                     layers=tuple(_other_side(layer) for layer in pad.layers) if bottom else pad.layers,
                     net_id=net_ids.get(net or ""),
+                    corner_ratio=corner,
                 )
             )
+        graphics = _written_graphics(placed, check.graphics, frame, component.id)
         footprints.append(
             FootprintInstance(
                 id=derived_id("fp", BACKEND, f"stored:{component.id}"),
@@ -1082,6 +1399,7 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
                     for body in spec.bodies
                     if body.component == number and body.body_id in model_bodies
                 ),
+                graphics=graphics,
             )
         )
     zones = [
@@ -1104,6 +1422,83 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
         vias=tuple(dataclasses.replace(v, net_id=net_ids.get(v.net_id or "")) for v in spec.vias),
         zones=tuple(zones),
     )
+
+
+def _from_document(frame: pcbdoc.Frame, read: Point) -> Point:
+    """The model's point of a point that the import reads from the document written in ``frame``: the
+    import gives ``(x, -y)`` of the Altium frame, and ``frame`` maps the model's ``(x, y)`` to
+    ``(x - min_x + offset, max_y - y + offset)``."""
+    return Point(read.x + frame.min_x - frame.offset, frame.max_y + frame.offset + read.y)
+
+
+def _written_graphics(
+    placed: pcbdoc.PlacedComponent, graphics: Sequence[Graphic], frame: pcbdoc.Frame, owner: str
+) -> tuple[Graphic, ...]:
+    """The graphics that the document holds for ``placed``, in the pad frame of its footprint and in the
+    form the import reads them back (change c0126): a line is a line; a rectangle is its four lines in the
+    writer's order (``pcblib.graphic_records``); a circle and an arc are the points that the import gives
+    for the written record (``adapter.units.circle_points``, ``arc_points``: a circle is its centre and
+    the point at angle 0 of the document), taken back into the footprint frame. ``graphics`` are the kept
+    graphics of the definition, in the top-side form; on the bottom side they are mirrored and on the
+    other side's layer, as the writer places them. The items that the definition does not hold
+    (``placed.items``) follow as the instance holds them. Ids are derived from ``owner`` and the place."""
+    from fenolite.backends.altium.adapter import units
+
+    bottom = placed.side == "bottom"
+    to_board = Transform.placement(placed.at, placed.rotation, mirror=bottom)
+    to_footprint = Transform.placement(placed.at, placed.rotation).inverse()
+
+    def local(point: Point) -> Point:
+        return to_footprint.apply(to_board.apply(point))
+
+    def read_back(points: Sequence[Point]) -> tuple[Point, ...]:
+        return tuple(to_footprint.apply(_from_document(frame, point)) for point in points)
+
+    found: list[Graphic] = []
+
+    def add(graphic: Graphic, kind: str, points: Sequence[Point]) -> None:
+        found.append(
+            dataclasses.replace(
+                graphic,
+                id=derived_id("gfx", BACKEND, f"stored:{owner}:gfx:{len(found)}"),
+                native_ids={},
+                provenance=None,
+                ext={},
+                kind=kind,  # type: ignore[arg-type]
+                points=tuple(points),
+                layer=_other_side(graphic.layer) if bottom else graphic.layer,
+            )
+        )
+
+    for graphic in graphics:
+        points = graphic.points
+        if graphic.kind == "line":
+            add(graphic, "line", [local(p) for p in points])
+        elif graphic.kind == "rect":
+            s, e = points
+            corners = [local(p) for p in (s, Point(e.x, s.y), e, Point(s.x, e.y))]
+            for index in range(4):
+                add(graphic, "line", [corners[index], corners[(index + 1) % 4]])
+        elif graphic.kind == "circle":
+            arc = rec.circle_geometry(*(frame(to_board.apply(p)) for p in points))
+            add(graphic, "circle", read_back(units.circle_points(arc.cx, arc.cy, arc.radius)))
+        elif graphic.kind == "arc":
+            arc = placed.arc_records.get(graphic.id) or rec.arc_from_points(
+                *(frame(to_board.apply(p)) for p in points)
+            )
+            first, last = units.angle(arc.start)[0], units.angle(arc.end)[0]
+            add(graphic, "arc", read_back(units.arc_points(arc.cx, arc.cy, arc.radius, first, last)))
+    for item in placed.items:
+        found.append(
+            dataclasses.replace(
+                item.graphic,
+                id=derived_id("gfx", BACKEND, f"stored:{owner}:gfx:{len(found)}"),
+                native_ids={},
+                provenance=None,
+                ext={},
+            )
+        )
+    return tuple(found)
 
 
 def _corner(board: Board | None) -> Point | None:
@@ -1159,7 +1554,9 @@ def in_frame_of(model: Design, reading: Design) -> Design:
     """``reading`` (the PCB document that was written from ``model``) in the frame of ``model``. A build
     moves the outline's lowest X and highest Y to (1000 mil, 1000 mil) of the document
     (``pcbdoc.Frame``); that corner is a whole number of units, so the reading holds it exactly and the
-    move back is exact. Without an outline on both sides the reading is returned as it is."""
+    move back is exact. Without an outline on both sides the reading is returned as it is. When ``model``
+    was not read from an Altium document, the footprint items that the reading holds on Mechanical 13 to 16
+    are named ``F.Fab``, ``B.Fab``, ``F.CrtYd`` and ``B.CrtYd`` (change c0126, ``FENOLITE_MECHANICAL``)."""
     board = reading.board
     if board is None:
         return reading
@@ -1170,7 +1567,37 @@ def in_frame_of(model: Design, reading: Design) -> Design:
     mine, theirs = _corner(model.board), _corner(board)
     if mine is not None and theirs is not None and mine != theirs:
         board = moved(board, mine.x - theirs.x, mine.y - theirs.y)
+    if model.board is not None and BACKEND not in model.board.native_ids:
+        board = _fenolite_layers(board)
     return dataclasses.replace(reading, board=board)
+
+
+FENOLITE_MECHANICAL: Mapping[str, str] = MappingProxyType(
+    {f"Mech.{ident - 56}": name for name, ident in rec.LAYER_MAP.items() if 69 <= ident <= 72}
+)
+"""The names the import gives Mechanical 13 to 16 → the layers of ``pcbrecords.LAYER_MAP`` that Fenolite
+writes there (``F.Fab``, ``B.Fab``, ``F.CrtYd``, ``B.CrtYd``; change c0126): the inverse of its choice."""
+
+
+def _fenolite_layers(board: Board) -> Board:
+    """``board`` whose footprint graphics and texts on Mechanical 13 to 16 are named by the layers that
+    Fenolite writes there (``FENOLITE_MECHANICAL``): the reading of a document written from a model that was
+    not read from Altium names them as that model does."""
+
+    def named(layer: str) -> str:
+        return FENOLITE_MECHANICAL.get(layer, layer)
+
+    footprints = tuple(
+        dataclasses.replace(
+            fp,
+            graphics=tuple(dataclasses.replace(g, layer=named(g.layer)) for g in fp.graphics),
+            texts=tuple(dataclasses.replace(t, layer=named(t.layer)) for t in fp.texts),
+        )
+        if any(item.layer in FENOLITE_MECHANICAL for item in (*fp.graphics, *fp.texts))
+        else fp
+        for fp in board.footprints
+    )
+    return dataclasses.replace(board, footprints=footprints)
 
 
 def _is_hole(footprint: FootprintInstance) -> bool:
@@ -1188,12 +1615,16 @@ __all__ = [
     "ARC_KEY",
     "ARC_TOLERANCE",
     "EVIDENCE",
+    "FENOLITE_MECHANICAL",
     "KINDS",
+    "DEFINITION_LAYERS",
     "LOSS_KINDS",
+    "MECHANICAL_LAYERS",
     "MORE_KINDS",
     "NOT_LOWERED",
     "AltiumInputs",
     "LossyWriteError",
+    "LowerOptions",
     "ProjectWrite",
     "design_name",
     "dielectric_kinds",
@@ -1207,4 +1638,5 @@ __all__ = [
     "stored_board",
     "unique_links",
     "write_design",
+    "written_comment",
 ]

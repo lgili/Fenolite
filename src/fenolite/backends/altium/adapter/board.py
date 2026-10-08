@@ -176,6 +176,9 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     class_ids = {c.name: c.id for c in classes}
     texts = _texts_of(doc)
     bodies = _bodies(doc, ctx)
+    owned = copper.owned_primitives(doc)
+    placed: set[int] = set()
+    """The component indexes that became a footprint: their primitives are its items (change c0126)."""
 
     pads_of: dict[int, list[tuple[int, PadRecord]]] = {}
     free_pads: list[tuple[int, PadRecord]] = []
@@ -284,6 +287,16 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             else:
                 made_bodies.append(found)
                 ctx.census.map("bodies")
+        items = copper.footprint_items(
+            owned.get(index, copper.Owned()),
+            ctx,
+            frame,
+            rotation,
+            native=fp_native,
+            name_on=record.name_on is not False,
+            comment_on=record.comment_on is not False,
+        )
+        placed.add(index)
         designator, comment = texts.get(index, ("", ""))
         # The reference is the designator the board shows. The source designator names the schematic
         # component: the instances of a repeated sheet share it, and a designator changed on the board
@@ -316,7 +329,10 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
                 locked=bool(record.locked),
                 attributes=attributes,
                 pads=pads,
+                fields=items.fields,
                 bodies=tuple(made_bodies),
+                graphics=items.graphics,
+                texts=items.texts,
             )
         )
         links[fp_id] = record
@@ -369,12 +385,12 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
             )
         )
 
-    found_tracks, line_graphics = copper.tracks(doc, ctx)
-    found_arcs, arc_graphics = copper.arcs(doc, ctx)
+    found_tracks, line_graphics = copper.tracks(doc, ctx, placed)
+    found_arcs, arc_graphics = copper.arcs(doc, ctx, placed)
     found_vias = copper.vias(doc, ctx)
     found_zones, zone_polygons = copper.zones(doc, ctx)
-    shape_graphics = copper.shapes(doc, ctx, zone_polygons)
-    found_texts = copper.texts(doc, ctx)
+    shape_graphics = copper.shapes(doc, ctx, zone_polygons, placed)
+    found_texts = copper.texts(doc, ctx, placed)
     edge = copper.outline(doc.board.outline, ctx)
 
     multi = 0

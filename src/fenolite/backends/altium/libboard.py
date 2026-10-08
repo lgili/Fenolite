@@ -20,7 +20,7 @@ thicknesses and the dielectrics between them. Without one, the stack is the two-
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
@@ -39,6 +39,17 @@ MASTER_STACK_NAME = "Master layer stack"
 SUBSTACK_NAME = "Board Layer Stack"
 ENABLED_MECHANICAL = (13, 14, 15, 16)
 """The mechanical layers of Fenolite's layer map (``pcbrecords.LAYER_MAP``), enabled in every library."""
+
+
+def enabled_mechanical(used_layers: Collection[int] = ()) -> tuple[int, ...]:
+    """The numbers of the enabled mechanical layers of a board record whose primitives lie on
+    ``used_layers`` (numbered layers 1 … 74): ``ENABLED_MECHANICAL`` and each of Mechanical 1 to 12 (the
+    layers 57 to 68) that is used (change c0126; ``pcb-document.md``, "Mechanical layers in use"). A
+    document that uses none of the twelve gives ``ENABLED_MECHANICAL``, and so the bytes of before."""
+    used = {layer - 56 for layer in used_layers if 57 <= layer <= 68}
+    return tuple(sorted({*ENABLED_MECHANICAL, *used}))
+
+
 SNAP_GRID = "50000.000000"
 """5 mil in binary units, the text form Altium uses for the snap grid."""
 VIEWPORT = (("VP.LX", 499_000_000), ("VP.HX", 501_000_000), ("VP.LY", 499_000_000), ("VP.HY", 501_000_000))
@@ -489,7 +500,8 @@ def _layer_fields(
     elif group == _DIELECTRIC:
         fields += spec.dielectrics[low - 1].fields()
     elif group == _MECHANICAL:
-        fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL)))
+        # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126)
+        fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL or (low <= 12 and long in used))))
     elif low in (10, 11):
         fields += [*_RESIST, ("COVERLAY_EXPANSION", "0mil")]
     out = [(f"{prefix}{sep}{key}", value) for key, value in fields]
@@ -550,21 +562,24 @@ def stack_fields(
     return out
 
 
-def legacy_lines(stack: StackSpec | None = None) -> list[list[Field]]:
+def legacy_lines(
+    stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL
+) -> list[list[Field]]:
     """The numbered layers and the ``LAYERV7_`` layers as lines: the first line holds layers 1 to 5 and no
-    ``RECORD=Board``; each later line starts with it. The copper layers of ``stack`` are linked in order."""
+    ``RECORD=Board``; each later line starts with it. The copper layers of ``stack`` are linked in order.
+    ``mechanical`` are the numbers of the enabled mechanical layers (``enabled_mechanical``)."""
     lines: list[list[Field]] = [[]]
-    for item in _legacy_layers(stack):
+    for item in _legacy_layers(stack, mechanical):
         if item == RECORD:
             lines.append([])
         lines[-1].append(item)
     return lines
 
 
-def layer_sets(stack: StackSpec | None = None) -> list[Field]:
+def layer_sets(stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     """``LAYERSETSCOUNT`` and the five layer sets; the signal mid layers and the planes of ``stack`` are
-    listed in their sets."""
-    return _layer_sets(stack)
+    listed in their sets, and so are the enabled mechanical layers ``mechanical``."""
+    return _layer_sets(stack, mechanical)
 
 
 def plane_net_fields(stack: StackSpec | None = None) -> list[Field]:
@@ -591,7 +606,9 @@ def view_configurations() -> list[list[Field]]:
     ]
 
 
-def _legacy_layers(stack: StackSpec | None = None) -> list[Field]:
+def _legacy_layers(
+    stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL
+) -> list[Field]:
     """``LAYER<n>…`` for n = 1 … 82 in groups of five, and the sixteen ``LAYERV7_<i>…`` layers. The copper
     layers of ``stack`` are linked from top to bottom; each carries its thickness and, but for the bottom,
     the dielectric below it."""
@@ -601,7 +618,7 @@ def _legacy_layers(stack: StackSpec | None = None) -> list[Field]:
     below = dict(zip(spec.copper, spec.dielectrics, strict=False))
     links.update({n: (0, 1) for n in (33, 35, 37)})
     links.update({n: (32, 0) for n in (34, 36, 38)})
-    enabled = {56 + n for n in ENABLED_MECHANICAL}
+    enabled = {56 + n for n in mechanical}
     out: list[Field] = []
     for layer in range(1, _LEGACY_COUNT + 1):
         if layer > 1 and layer % _CHUNK == 1:
@@ -631,11 +648,11 @@ def _legacy_layers(stack: StackSpec | None = None) -> list[Field]:
     return out
 
 
-def _layer_sets(stack: StackSpec | None = None) -> list[Field]:
+def _layer_sets(stack: StackSpec | None = None, enabled: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     inner = _stack(stack).copper[1:-1]
     mids = [f"MidLayer{layer - 1}" for layer in inner if layer < rec.FIRST_PLANE]
     planes = [f"InternalPlane{layer - rec.FIRST_PLANE + 1}" for layer in inner if layer >= rec.FIRST_PLANE]
-    mechanical = [f"Mechanical{n}" for n in ENABLED_MECHANICAL]
+    mechanical = [f"Mechanical{n}" for n in enabled]
     top = ["MultiLayer", "TopPaste", "TopOverlay", "TopSolder"]
     bottom = ["BottomSolder", "BottomOverlay", "BottomPaste", "DrillGuide", "KeepOutLayer"]
     low, rest = bottom[:3], bottom[3:]
@@ -767,6 +784,7 @@ __all__ = [
     "STACKS",
     "StackSpec",
     "ENABLED_MECHANICAL",
+    "enabled_mechanical",
     "KIND",
     "LINE_BREAK",
     "RECORD",

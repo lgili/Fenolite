@@ -502,6 +502,18 @@
           "items": {
             "$ref": "#/$defs/ComponentBody"
           }
+        },
+        "graphics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Graphic"
+          }
+        },
+        "texts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Text"
+          }
         }
       },
       "additionalProperties": false,
@@ -900,6 +912,16 @@
                 "none",
                 "thru_hole_only"
               ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "corner_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
             },
             {
               "type": "null"

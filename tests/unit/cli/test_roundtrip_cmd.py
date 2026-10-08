@@ -271,11 +271,16 @@ def test_roundtrip_altium_own_sample_holds_rta3(monkeypatch: pytest.MonkeyPatch,
     assert (result["kind"], result["level"]) == ("altium", "rta3")
     assert result["rta3"]["holds"] is True and result["rta3"]["differences"] == 0
     assert result["rta3"]["presentation"] == "regenerated"
-    # the board holds two texts and six graphics on a mechanical layer, which no record of the writer
-    # carries, and the lines of its library footprints are records without a model entity
+    # change c0126 (this assertion edited): the lines and arcs of the footprints are model items and the
+    # board's texts and graphics on Mechanical 13 are written; one graphic, on the keep-out layer, is
+    # still counted. Before: text 2, graphic 6 and record:footprint-graphics 33
     assert result["unwritten"] == result["rta3"]["unwritten"]
-    assert (result["unwritten"]["text"], result["unwritten"]["graphic"]) == (2, 6)
-    assert result["unwritten"]["record:footprint-graphics"] == 33
+    assert "text" not in result["unwritten"] and result["unwritten"]["graphic"] == 1
+    assert (
+        "record:footprint-graphics" not in result["unwritten"]
+        and "footprint-graphic" not in result["unwritten"]
+    )
+    assert result["rta3"]["written"]["footprint-graphic"] == 27
     assert [i["code"] for i in env["issues"]] == ["check.rta3-unwritten"]
     assert env["evidence"]["level"] == "INFERRED" and "H-A-VER-RTA3" in env["evidence"]["hypotheses"]
     assert tree_snapshot(ALTIUM / "board6") == before

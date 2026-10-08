@@ -35,6 +35,7 @@ A level that is not judged is neither a pass nor a failure; it is counted by rea
 | `not-a-container` | RT-A0 | the file is text (an ASCII schematic or a project file), so there is no container to copy |
 | `native-input` | RT-A2 | the files were not written by a Fenolite build; the level of such files is RT-A3 |
 | `model-predates-board` | RT-A2 | the project was built before change c0090: its stored model holds no footprint, and its PCB document holds some |
+| `model-predates-graphics` | RT-A2 | the project was built before change c0126: its stored footprints hold no graphic, and its PCB document draws some |
 | `no-document` | RT-A3 | the write gave no document of the kind that was read: the schematic writer refuses the circuit of the project |
 
 ## The run
@@ -271,7 +272,12 @@ passed.
 Run again on 2026-10-06 with change c0127 (arcs keep their record), with the heavy rows:
 `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_rta3.py -q`, 15 tests passed.
 Run again on 2026-10-07 with change c0128 (the trip writes with `rewrite=True`), with the heavy rows:
-the same command, 16 tests passed (one more test, on the vias of one document); the table holds that run.
+the same command, 16 tests passed (one more test, on the vias of one document).
+Run again on 2026-10-08 with change c0126 (the items of a footprint are model items), Linux, the corpus
+fetched by `tools/corpus_fetch.py --uses rta --exclude-uses heavy`, without the heavy row:
+`FENOLITE_REQUIRE=corpus uv run pytest tests/corpus/test_altium_rta3.py`, 21 passed and 3 skipped (the
+heavy row and the set that holds it). The rows `-01` to `-07` hold that run; the row of the heavy
+document `-08` holds the run of 2026-10-07, before change c0126, and is owed.
 
 **PCB documents** (every row with the use `rta` that is a PCB document, read alone). `written` counts
 model items; the last three columns are what the rewrite does not hold: model items by kind, records
@@ -280,14 +286,46 @@ number of storages that the import keeps as bytes (a rewrite holds Fenolite's ow
 
 | document | inside the scope | footprints | pads | tracks | arcs | vias | zones | model items not written | records without a model entity | storages kept as bytes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `altium-third-party-pcbdoc-01` | equal | 252 | 735 | 1346 | 0 | 646 | 5 | body 247; copper-shape 47; footprint 8; graphic 20; outline 8; pad 10; plane 2; zone-fill 5 | footprint-graphics 3469; shape-based-regions 90; plane-cuts 74; pour-primitives 40; polygons 8; classes 38 | 15 |
-| `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 242 | 10 | body 42; copper-shape 17; graphic 16; outline 8; pad 2; text 1; zone 2; zone-fill 9 | footprint-graphics 602; shape-based-regions 91; plane-cuts 43; pour-primitives 35; polygons 6; classes 14 | 17 |
-| `altium-third-party-pcbdoc-03` | equal | 55 | 377 | 604 | 0 | 47 | 1 | body 50; graphic 1; pad 8; rule 1; zone-fill 1 | footprint-graphics 846; shape-based-regions 23; classes 20 | 18 |
-| `altium-third-party-pcbdoc-04` | equal | 17 | 53 | 149 | 0 | 67 | 9 | body 33; copper-shape 2; graphic 12; outline 4; zone-fill 9 | footprint-graphics 315; shape-based-regions 27; classes 16; bad-geometry 1 | 19 |
-| `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; graphic 4; pad 32; rule 1; zone-fill 2 | footprint-graphics 271; shape-based-regions 24; classes 14; region-holes 9 | 17 |
-| `altium-third-party-pcbdoc-06` | equal | 27 | 102 | 111 | 3 | 42 | 10 | body 27; copper-shape 20; graphic 23; outline 1; pad 4; text 2; zone-fill 10 | footprint-graphics 1074; shape-based-regions 42; classes 18 | 18 |
-| `altium-third-party-pcbdoc-07` | equal | 14 | 97 | 475 | 20 | 60 | 5 | body 24; copper-shape 6; graphic 12; outline 2; pad 19; zone 4; zone-fill 5 | footprint-graphics 307; shape-based-regions 31; classes 16; bad-geometry 1 | 20 |
+| `altium-third-party-pcbdoc-01` | equal | 252 | 735 | 1346 | 0 | 646 | 5 | body 247; copper-shape 47; footprint 8; footprint-copper 6; footprint-graphic 69; graphic 20; outline 8; pad 10; plane 2; zone-fill 5 | shape-based-regions 90; plane-cuts 74; pour-primitives 40; polygons 8; classes 38 | 15 |
+| `altium-third-party-pcbdoc-02` | equal | 41 | 141 | 191 | 0 | 242 | 10 | body 42; copper-shape 17; outline 8; pad 2; text 1; zone 2; zone-fill 9 | shape-based-regions 91; plane-cuts 43; pour-primitives 35; polygons 6; classes 14 | 17 |
+| `altium-third-party-pcbdoc-03` | equal | 55 | 377 | 604 | 0 | 47 | 1 | body 50; footprint-copper 8; footprint-graphic 8; graphic 1; pad 8; rule 1; zone-fill 1 | shape-based-regions 23; classes 20 | 18 |
+| `altium-third-party-pcbdoc-04` | equal | 17 | 53 | 149 | 0 | 67 | 9 | body 33; copper-shape 2; footprint-copper 8; footprint-graphic 1; outline 4; zone-fill 9 | shape-based-regions 27; classes 16; bad-geometry 1 | 19 |
+| `altium-third-party-pcbdoc-05` | equal | 27 | 68 | 194 | 0 | 59 | 2 | body 23; copper-shape 1; pad 32; rule 1; zone-fill 2 | shape-based-regions 24; classes 14; region-holes 9 | 17 |
+| `altium-third-party-pcbdoc-06` | equal | 27 | 102 | 111 | 3 | 42 | 10 | body 27; copper-shape 20; footprint-graphic 2; graphic 7; outline 1; pad 4; text 1; zone-fill 10 | shape-based-regions 42; classes 18 | 18 |
+| `altium-third-party-pcbdoc-07` | equal | 14 | 97 | 475 | 20 | 60 | 5 | body 24; copper-shape 6; outline 2; pad 19; zone 4; zone-fill 5 | shape-based-regions 31; classes 16; bad-geometry 1 | 20 |
 | `altium-third-party-pcbdoc-08` | equal | 544 | 2115 | 8355 | 529 | 1770 | 27 | body 1298; copper-shape 33; graphic 1069; outline 1; pad 21; rule 1; text 311; via-pad-shape 123; zone 6; zone-fill 27 | footprint-graphics 9763; shape-based-regions 292; classes 33; region-holes 6; bodies 4 | 26 |
+
+**With footprint items (change c0126).** The tracks, arcs, fills, regions and texts that carry a
+component index are items of their footprint (graphics, the fields `Reference` and `Value`, and free
+texts), and a rewrite writes them: the column "records without a model entity" holds no
+`footprint-graphics` on any of the seven documents (3469, 602, 846, 315, 271, 1074 and 307 before), and the
+model items not written gain three keys. Written per document, `-01` to `-07`: 2898, 516, 674, 273, 225,
+993 and 271 footprint graphics, and 0, 4, 46, 3, 0, 25 and 12 footprint texts. What a rewrite leaves out
+of them, by the reason the write counts:
+
+| document | `footprint-copper`: a graphic on a copper layer | `footprint-graphic`: what no record holds |
+|---|---|---|
+| `altium-third-party-pcbdoc-01` | 6 (2 filled rectangles, 2 filled polygons, 2 lines on `F.Cu`) | 69 (68 lines and 1 arc of zero width on Mechanical 1) |
+| `altium-third-party-pcbdoc-03` | 8 (filled polygons, 4 on `F.Cu` and 4 on `B.Cu`) | 8 (4 lines and 4 arcs of zero width on Mechanical 1) |
+| `altium-third-party-pcbdoc-04` | 8 (6 filled rectangles and 2 circles on `F.Cu`) | 1 (a filled rectangle on the keep-out layer) |
+| `altium-third-party-pcbdoc-06` | 0 | 2 (filled polygons on the keep-out layer) |
+
+The other three documents lose none. The same rules hold for the free graphics of a board: a drawn line of
+zero width and a layer without a layer in the document are counted under `graphic` (change c0085), a shape
+on copper under `copper-shape`. The free graphics on Mechanical 1 to 12 are written since change c0126, so
+`graphic` went down on `-02` (16 to 0), `-04` (12 to 0), `-06` (23 to 7) and `-07` (12 to 0), and `text` on
+`-06` (2 to 1).
+
+The first run of this change in CI failed on `-01`, `-03`, `-04`, `-06` and `altium-set:05` with these
+items as differences: the write counted them, but `rta3.without_unwritten` did not take them out of the
+first model (design of c0126, "Found on 2026-10-08", 16). It does now, as it does for every other kind.
+
+The import of the eight documents (task 4.3, with the heavy row): 16 647 primitives with a component index,
+14 081 graphics, 1 922 fields and 644 texts, and `footprint-graphics` 0 on each. The size of `board.json`
+of an import grows with the new entities: for the own samples from 107 937 to 189 878 bytes (`blink`), from
+138 637 to 221 118 (`routed`) and from 187 686 to 264 096 (`board6`), with 27 footprint graphics and 6 field
+places each; the sizes for the public documents are owed. The `board.json` of an Altium build of the blink
+grows from 52 402 to 63 644 bytes.
 
 **With component bodies (change c0121).** The table above is the trip of the stage `roundtrip.rta3`, which
 writes no body: it did not move with change c0121 (every `body` count is where it was). The trip can be

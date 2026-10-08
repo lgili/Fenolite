@@ -107,10 +107,18 @@ def test_document_holds_rta3(item: CorpusItem, capsys: pytest.CaptureFixture[str
     trip = AltiumBackend().model_roundtrip(path, compare=compare)
     entry = entry_of(trip)
     census("altium-rta3", item.id, entry)
+    items = {
+        key: (trip.written.get(key, 0), trip.unwritten.get(key, 0))
+        for key in ("footprint-graphic", "footprint-copper", "footprint-text")
+    }
     with capsys.disabled():
         print("\n" + _line(item.id, entry))
+        print(f"{item.id} footprint items (written, not written): {items}")
     assert trip.judged, f"{item.id}: not judged ({trip.reason})"
     assert trip.written["footprint"] > 0 and trip.written["pad"] > 0, item.id
+    # change c0126: the primitives of a component are items of its footprint ("Corpus documents keep their
+    # verdicts"); the category stays for a component without a readable position, of which there is none
+    assert "record:footprint-graphics" not in trip.unwritten, item.id
     cuts, tracks = PLANE_CUTS.get(item.id, (0, trip.written["track"]))
     assert trip.unwritten.get("record:plane-cuts", 0) == cuts, item.id
     assert trip.written["track"] == tracks and (not cuts or "track" not in trip.unwritten), item.id

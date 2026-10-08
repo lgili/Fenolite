@@ -207,7 +207,10 @@ def test_footprints_component_index_that_names_no_record_is_free() -> None:
     assert design.board.footprints[0].attributes == ("board_only",) and len(design.board.tracks) == 1
 
 
-def test_footprints_graphics_are_counted_not_modelled() -> None:
+def test_footprints_graphics_are_items_of_the_footprint() -> None:
+    """Changed by change c0126 (was ``test_footprints_graphics_are_counted_not_modelled``, which pinned
+    ``footprint-graphics 6``): the primitives of a component are no board objects, as before, and are now
+    the graphics and the fields of its footprint instead of six records without a model entity."""
     issues: list[Issue] = []
     document = rec.document(
         components=[rec.component("R1")],
@@ -222,8 +225,10 @@ def test_footprints_graphics_are_counted_not_modelled() -> None:
     assert board is not None
     assert (board.tracks, board.arcs, board.texts) == ((), (), ())
     assert [g for g in board.graphics if g.layer != "Edge.Cuts"] == []
-    (unmapped,) = [i for i in issues if i.code == "altium.import.unmapped"]
-    assert "footprint-graphics 6" in unmapped.message
+    (footprint,) = board.footprints
+    assert [g.kind for g in footprint.graphics] == ["line", "arc", "rect", "polygon"]
+    assert [f.name for f in footprint.fields] == ["Reference", "Value"] and footprint.texts == ()
+    assert not [i for i in issues if i.code == "altium.import.unmapped" and "footprint-graphics" in i.message]
 
 
 # --- the synthesised circuit ----------------------------------------------------------------------------

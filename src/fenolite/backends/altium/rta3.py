@@ -43,7 +43,9 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
     with its pads, and a component body that was not written leaves its footprint (change c0121).
     ``from_board`` tells that the circuit was synthesised from the board (a PCB document
     read alone): then a component whose footprint was not written goes too, and a net loses the members
-    whose pads were not written, as the second reading cannot hold them."""
+    whose pads were not written, as the second reading cannot hold them. The graphics and texts of a
+    footprint that are counted under ``footprint-graphic``, ``footprint-copper`` and ``footprint-text`` go
+    too (change c0126)."""
     board = design.board
     gone = {kind: frozenset(ids) for kind, ids in kept.items()}
     circuit = design.circuit
@@ -61,7 +63,13 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
                 (footprint.component_id, pad.number) for pad in footprint.pads if pad.number not in numbers
             }
             bodies = tuple(body for body in footprint.bodies if body.id not in gone.get("body", ()))
-            footprints.append(dataclasses.replace(footprint, pads=pads, bodies=bodies))
+            # the items of a footprint that the write left out and counted (change c0126)
+            lost = gone.get("footprint-graphic", frozenset()) | gone.get("footprint-copper", frozenset())
+            graphics = tuple(graphic for graphic in footprint.graphics if graphic.id not in lost)
+            texts = tuple(text for text in footprint.texts if text.id not in gone.get("footprint-text", ()))
+            footprints.append(
+                dataclasses.replace(footprint, pads=pads, bodies=bodies, graphics=graphics, texts=texts)
+            )
         changes: dict[str, Any] = {"footprints": tuple(footprints)}
         for kind, name in _BOARD_FIELDS.items():
             changes[name] = tuple(item for item in getattr(board, name) if item.id not in gone.get(kind, ()))

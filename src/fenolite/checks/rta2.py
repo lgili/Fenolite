@@ -7,7 +7,8 @@ The built model is the reference. Its circuit kinds are compared with the schema
 kinds with the PCB reading, through ``checks.diff.diff_designs`` under the backend's written scope. Since
 change c0090 the built model holds the board that was written (footprints, pads, copper), so every kind of
 the scope is compared and none is only counted; a model that a build stored before that change holds no
-footprint, and ``predates_board`` tells so.
+footprint, and ``predates_board`` tells so. Since change c0126 the stored footprints hold the graphics
+that were written; a model stored before that change holds none, and ``predates_graphics`` tells so.
 """
 
 from __future__ import annotations
@@ -62,6 +63,18 @@ def predates_board(model: Design, reading: Design) -> bool:
     """Whether ``model`` was stored by a build older than change c0090: its board holds no footprint and
     the PCB document that the build wrote holds one."""
     return held(model)["footprint"] == 0 and held(reading)["footprint"] > 0
+
+
+def graphics_held(design: Design) -> int:
+    """The graphics that the footprints of ``design`` hold (change c0126)."""
+    board = design.board
+    return sum(len(footprint.graphics) for footprint in board.footprints) if board is not None else 0
+
+
+def predates_graphics(model: Design, reading: Design) -> bool:
+    """Whether ``model`` was stored by a build older than change c0126: its footprints hold no graphic and
+    the PCB document that the build wrote holds some."""
+    return held(model)["footprint"] > 0 and graphics_held(model) == 0 and graphics_held(reading) > 0
 
 
 def _short(text: str) -> str:
@@ -137,7 +150,9 @@ __all__ = [
     "CIRCUIT_KINDS",
     "MAX_ISSUES",
     "body_total",
+    "graphics_held",
     "held",
     "predates_board",
+    "predates_graphics",
     "rta2_stage",
 ]

@@ -112,6 +112,12 @@ class Padstack(Entity):
     hole_rotation: Udeg = 0
 
 
+MAX_CORNER_RATIO = 500_000
+"""The largest ``Pad.corner_ratio``: half the shorter side, a pad with fully rounded ends."""
+PPM_PER_PERCENT = 5_000
+"""One Altium corner percentage (a percent of half the shorter side) in ``Pad.corner_ratio`` units."""
+
+
 @dataclass(frozen=True, slots=True)
 class Pad(Entity):
     """A pad of a footprint; ``position`` and ``rotation`` are relative to the footprint."""
@@ -128,6 +134,10 @@ class Pad(Entity):
     padstack: Padstack | None = None
     zone_connection: ZoneConnection | None = None
     """How zones connect to this pad; ``None`` means that the pad follows its footprint and the zone."""
+    corner_ratio: int | None = None
+    """The corner radius of a ``roundrect`` pad in parts per million of the shorter side of ``size``, from 0
+    to ``MAX_CORNER_RATIO`` (change c0126): 250 000 is a quarter of the shorter side. ``None`` when the model
+    does not know it, and for every other shape."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,7 +185,13 @@ class ComponentBody(Entity):
 @dataclass(frozen=True, slots=True)
 class FootprintInstance(Entity):
     """A placed footprint of a component. ``attributes`` are the backend's footprint flags, in order;
-    ``fields`` are its text fields in the backend's order, with unique names."""
+    ``fields`` are its text fields in the backend's order, with unique names.
+
+    ``graphics`` and ``texts`` (change c0126) are the drawings and the free texts of this footprint, in the
+    order of their source. Their points are in the pad frame: a point ``p`` lies on the board at
+    ``position + R(rotation)·p`` with no further mirror, so a bottom footprint holds mirrored coordinates;
+    ``layer`` is the board layer the item lies on, and ``Text.rotation`` is relative to the footprint. The
+    places of the reference and of the value stay in ``fields``."""
 
     component_id: str
     lib_ref: str
@@ -187,6 +203,8 @@ class FootprintInstance(Entity):
     pads: tuple[Pad, ...] = ()
     fields: tuple[FootprintField, ...] = field(default=(), metadata=ORDERED)
     bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
+    graphics: tuple[Graphic, ...] = field(default=(), metadata=ORDERED)
+    texts: tuple[Text, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -374,6 +392,8 @@ __all__ = [
     "HoleShape",
     "IslandRemoval",
     "Keepout",
+    "MAX_CORNER_RATIO",
+    "PPM_PER_PERCENT",
     "Layer",
     "LayerKind",
     "Outline",

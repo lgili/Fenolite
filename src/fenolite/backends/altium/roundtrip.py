@@ -76,7 +76,8 @@ RT_A2_SCOPE = ModelScope(
             "no_connect": (),
             "netclass": ("name",),
             "footprint": ("position", "rotation", "side"),
-            "pad": ("number", "net_id", "position", "size"),
+            "pad": ("number", "net_id", "position", "size", "corner_ratio"),
+            "footprint_graphic": ("kind", "layer", "points", "width", "filled"),
             "track": ("start", "end", "width", "layer", "net_id"),
             "arc": ("start", "mid", "end", "width", "layer", "net_id"),
             "via": ("position", "diameter", "drill", "net_id"),
@@ -88,7 +89,9 @@ RT_A2_SCOPE = ModelScope(
 """What the Altium writers write of the model, per entity kind: the scope of RT-A2 (``docs/altium.md``,
 "Round trips", lists every field left out with its reason). A length is written in units of 2.54 nm, so
 the written value is at most 1.27 nm from the model's and its reading is rounded to a whole nanometre: two
-lengths within 2 nm are equal. Angles are written with six decimals of a degree and are compared exactly."""
+lengths within 2 nm are equal. Angles are written with six decimals of a degree and are compared exactly.
+Since change c0126 the graphics of a footprint (``footprint_graphic``) and the corner ratio of a pad are in
+the scope; the fields and the free texts of a footprint are written and not compared."""
 EVIDENCE_RT_A2 = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3",))
 """RT-A2 never rises above ``INFERRED``: Fenolite's writers are read by Fenolite's readers, so the level
 proves consistency, not that Altium reads the files."""

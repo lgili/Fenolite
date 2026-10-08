@@ -14,7 +14,7 @@ copper, or a routed KiCad board), which ``match_source`` checks against the desi
 lowered the same way. The source's placements win. It finds every case the writer would
 refuse and reports it as an issue of ``COPPER_ISSUE_CODES``, so no ``ValueError`` of the writer reaches the
 user. Nothing is dropped to make a document fit: copper that cannot be written exactly is an error.
-``fenolite.lens.altium`` calls it from ``pcb_document`` and adds the codes to its closed table.
+``fenolite.lens.altium`` calls it from ``lowered_pcb`` and adds the codes to its closed table.
 
 Change c0085 ("Complete board in an Altium build") lowers the rest of the board: a stack of any even
 count that ``pcbrecords.copper_stack`` takes, blind and buried vias, and the free texts, graphics,
