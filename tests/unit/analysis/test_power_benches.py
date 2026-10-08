@@ -58,3 +58,15 @@ def test_fenolite_values_on_the_benches() -> None:
         for name, x in (("a", 5), ("b", 18))
     ]
     assert narrowest_section(region, ports[0], ports[1]).measure.low == 2 * MM
+
+
+@pytest.mark.parametrize("name", _powerbench.NINE)
+def test_nine_bench_writes_for_target_nine(name: str) -> None:
+    """The benches that also run on KiCad 9 are written for target 9, ``neck-plain`` with its stored fill."""
+    design = _powerbench.bench(name)
+    back = read_board(write_board(design, target=9).text)
+    assert back.board is not None and design.board is not None
+    assert len(back.board.tracks) == len(design.board.tracks)
+    if name == "neck-plain":
+        (zone,) = back.board.zones
+        assert zone.fills and fill_regions(back)[1] == 0

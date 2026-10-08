@@ -514,7 +514,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0112 | `via-protection`; on `v04`, closed for 0.4 on 2026-10-08 except the line of the guide's `fabrication` page (task 10.2: target 9 refuses capping and filling, and the guide builds every block for both targets) |
 | c0113 | `placement-constraints`; on `v04`, every task closed on 2026-10-08: ships in 0.4. It leaves the placer of v0.5a the `near` rules of `.fenolite/rules.json`, the keep-outs that forbid footprints and the measures of `placement.rules` (wire length and congestion) as its inputs |
 | c0114 | `net-ties-waivers`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0115 | `power-copper-analysis` |
+| c0115 | `power-copper-analysis`; on `v04`, closed for 0.4 on 2026-10-08 except the 9.0.9 outcomes of the plain neck and of the inner layers (tasks 1.2, 11.1, 12.2), written and awaiting the `kicad-9` job |
 | c0116 | `export-documents` |
 | c0117 | `fab-assembly-drawings` |
 | c0118 | `assembly-test-features` |

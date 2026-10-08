@@ -74,6 +74,7 @@ All notable changes to Fenolite are documented here. The format follows
 - The agent guide's `routing` page teaches a thermal via array: its tested design block adds `design.stitch(…, region=d1.pad(2))`, one via inside pad 2 of `D1` (c0111). The two fact rows of `docs/formats/kicad/frame.md` on anchored points and on vias inside an SMD pad are `KICAD-VERIFIED (9.0.x, 10.0.x)`, from the `kicad-9` and `kicad-10` jobs of CI.
 - **`fenolite place` and `fenolite check` judge a keep-out that forbids footprints at `KICAD-VERIFIED`** (c0113): `H-K-PLACE-KEEPOUT` holds on 9.0.9 and 10.0.6 in the `kicad-9` and `kicad-10` jobs of CI, so `placement.legality.KEEPOUT_EVIDENCE` no longer lowers the level of a reply on a board with such a keep-out.
 - The agent guide teaches net ties, waivers and check severities (c0114): the `footprints` page declares a net-tie footprint with `net_tie()`, the `rules` page calls `design.rules.severity()` and `design.waive()`, and the `checks` page says how to accept one finding. The fact rows of net ties and of stored DRC exclusions are `KICAD-VERIFIED (9.0.x, 10.0.x)`, from the `kicad-9` and `kicad-10` jobs of CI.
+- The power benches of c0115 take a target: `neck-plain`, with its fill stored, and `layers` also run on KiCad 9 (`tests/kicad/analysis/test_power_nine.py`), whose 9.0.9 outcomes the `kicad-9` job prints for tasks 1.2 and 11.1. No behaviour of the library changes.
 
 ### Fixed
 

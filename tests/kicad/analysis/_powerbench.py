@@ -137,17 +137,27 @@ def _uuids(design: Design, nets: tuple[str, ...]) -> set[str]:
     return {kicad_uuid(item) for item in (*board.tracks, *board.vias) if item.net_id in ids}
 
 
-def run_drc(runner: KicadCli, name: str, minimum_mm: str = "30") -> tuple[Design, DrcReport | None]:
-    """``pcb drc`` on the bench; a bench with a zone is refilled first and the saved board is checked."""
+NINE = ("neck-plain", "layers")
+"""The benches that also run on KiCad 9, written for target 9: ``neck-plain`` with its fill stored, since
+9.0.9 has no ``--refill-zones`` (task 1.2 of c0115), and ``layers`` (task 11.1)."""
+
+
+def run_drc(
+    runner: KicadCli, name: str, minimum_mm: str = "30", target: int = 10
+) -> tuple[Design, DrcReport | None]:
+    """``pcb drc`` on the bench written for ``target``. For target 10 a bench with a zone is refilled first
+    and the saved board is checked; for target 9 (``NINE`` only) the fill stored by the bench is checked."""
+    if target != 10 and name not in NINE:
+        raise ValueError(f"the bench {name!r} runs on target 10 only")
     design = bench(name)
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         board = folder / "bench.kicad_pcb"
-        board.write_text(write_board(design, target=10).text, encoding="utf-8", newline="\n")
+        board.write_text(write_board(design, target=target).text, encoding="utf-8", newline="\n")
         (folder / "bench.kicad_pro").write_text(project(name), encoding="utf-8", newline="\n")
         (folder / "bench.kicad_dru").write_text(rules(name, minimum_mm), encoding="utf-8", newline="\n")
         files = {"bench.kicad_pro": folder / "bench.kicad_pro", "bench.kicad_dru": folder / "bench.kicad_dru"}
-        if name.startswith("neck"):
+        if name.startswith("neck") and target == 10:
             saved = runner.refill(board, files=files).board
             if saved is None:
                 return design, None
@@ -172,18 +182,18 @@ def _actuals(design: Design, report: DrcReport, kind: str, nets: tuple[str, ...]
     return sorted(found)
 
 
-def observe(runner: KicadCli, name: str) -> dict[str, object]:
-    """What KiCad reported on the bench."""
+def observe(runner: KicadCli, name: str, target: int = 10) -> dict[str, object]:
+    """What KiCad reported on the bench written for ``target``."""
     seen: dict[str, object] = {}
     if name == "groove-slot":
-        design, report = run_drc(runner, name)
+        design, report = run_drc(runner, name, target=target)
         if report is not None:
             seen = {
                 "canary": _canary_fired(design, report),
                 "creepage": _actuals(design, report, "creepage", ("A", "B")),
             }
     elif name == "creepage-split":
-        design, report = run_drc(runner, name)
+        design, report = run_drc(runner, name, target=target)
         if report is not None:
             seen = {"canary": _canary_fired(design, report)}
             for label, nets in (("ab", ("A", "B")), ("ac", ("A", "C")), ("cb", ("C", "B"))):
@@ -199,13 +209,13 @@ def observe(runner: KicadCli, name: str) -> dict[str, object]:
         for label, minimum in (
             (("below", "1.95"), ("above", "2.05")) if name == "neck-plain" else (("above", "2.45"),)
         ):
-            design, report = run_drc(runner, name, minimum)
+            design, report = run_drc(runner, name, minimum, target)
             if report is None:
                 return {}
             seen[label] = _actuals(design, report, "connection_width", ("P",))
             seen["canary"] = bool(seen.get("canary", True)) and _canary_fired(design, report)
     elif name == "layers":
-        design, report = run_drc(runner, name)
+        design, report = run_drc(runner, name, target=target)
         if report is not None:
             wanted = _uuids(design, ("A", "B"))
             between = [v.type for v in report.violations if {item.uuid for item in v.items} == wanted]
@@ -250,6 +260,7 @@ def power_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
 __all__ = [
     "BENCHES",
     "MAJORS",
+    "NINE",
     "PROBE_IDS",
     "bench",
     "observe",
