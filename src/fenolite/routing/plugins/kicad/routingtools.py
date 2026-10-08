@@ -431,7 +431,7 @@ class KicadRoutingToolsRouter:
         kept = sorted(net.name for net in job.nets if net.layers is not None)
         if job.plane_layers or kept:
             # the tool takes no layer or plane option: its board and rules files hold the row types and
-            # the track layer rules, and what it does with them is not measured (H-K-KRT-PLANES)
+            # the track layer rules, and what it does with them is not settled (H-K-KRT-PLANES: inconclusive)
             told = [f"plane layers {', '.join(job.plane_layers)}"] if job.plane_layers else []
             told += [f"the layers of {', '.join(kept)}"] if kept else []
             issues.append(

@@ -214,7 +214,7 @@ stage added no via to a plane in any measured run.
 |---|---|---|---|
 | `direct` | takes the first shared layer that is not a plane layer | and that is in the net's layers | none: it checks nothing |
 | `freerouting` | `(type power)` and one `plane` per zone | `use_layer` in the net's class, split by layer set | class clearances, `class_class`, widths, `layer_rule`; the rest is reported (`specctra.rule-not-sent`, `specctra.rule-widened`) |
-| `kicadroutingtools` | not told (`route.constraint-not-sent`); its board file holds the row types | not told; its rules file holds the `disallow track` rules | its rules file holds them (`H-K-KRT-PLANES`, not measured) |
+| `kicadroutingtools` | not told (`route.constraint-not-sent`); its board file holds the row types | not told; its rules file holds the `disallow track` rules | its rules file holds them (`H-K-KRT-PLANES`: on the plane bench of 2026-10-08 the tool used `F.Cu` only, with and without them, so it is not settled) |
 
 The rules the design file cannot carry: a rule on single nets, references or item kinds, a glob, a `not`,
 every kind other than `clearance` and `track_width`, and the edge clearance. Keep-out bands along the board

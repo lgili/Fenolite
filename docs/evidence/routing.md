@@ -272,7 +272,11 @@ The bench is `tests/routing/_planebench.py`.
 | `dsn-layer-rule` | `different` | `H-G-DSN-CLEARANCE` | `(layer_rule F.Cu (rule (width 350)))` in `SIG`: 14 segments of 350 µm and 6 of 262.4 µm on `F.Cu`, 5 of the narrow ones at a pad; none of 200 µm |
 | `dsn-edge-band` | `different` | `H-G-DSN-EDGE`, `H-G-DSN-EDGE-2` | bands added by the test: a 2 mm passage loses its route (7 tracks and 3 `copper_edge_clearance` without bands); a 4 mm passage is routed with no such violation |
 
-`krt-planes` (`H-K-KRT-PLANES`) was not run: no KiCadRoutingTools checkout on this machine.
+`krt-planes` (`H-K-KRT-PLANES`), 2026-10-08, `tests/routing/test_krt_gate.py::test_planes` with a checkout of KiCadRoutingTools `v0.22.1` (commit `023d3f79`; `grid_router` built from the tag with `build_router.py`, because the release asset could not be downloaded in that session; Linux x86_64, CPython 3.12). The tool reads files only, so the routed boards are read back by Fenolite and no `kicad-cli` takes part.
+
+| outcome | value | what was seen |
+|---|---|---|
+| `krt-planes-t9`, `krt-planes-t10` | `inconclusive` | the plane bench with a `no_tracks` rule that keeps `SIG` off `B.Cu`: 23 router tracks, all on `F.Cu`; the control without the rule: 23, all on `F.Cu`; the control without `planes=` (inner rows `signal`): 22, all on `F.Cu`. No track on a plane layer and no `SIG` track on `B.Cu`, but the controls never use those layers either, so the bench does not settle the claim |
 
 ## Pairs and escape (c0110)
 

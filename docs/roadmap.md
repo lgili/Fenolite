@@ -506,7 +506,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0104 | `diff-pair-constraints`: built on `v04`; its KiCad rows verified on 9.0.9 and 10.0.6 |
 | c0105 | `impedance-targets`: built on `v04`; the KiCad 10 GUI save of tuning profiles is deferred to the next release |
 | c0106 | `length-measure-tune`: built on `v04`; takes matched-length and skew analysis from v0.6 |
-| c0107 | `route-planes-layers` |
+| c0107 | `route-planes-layers`: built on `v04` |
 | c0108 | `route-open-nets` |
 | c0109 | `routing-scale-control` |
 | c0110 | `route-pairs-fanout` |
@@ -534,6 +534,8 @@ pending (the benches and gate runs need `kicad-cli` and the routers): until it i
 **c0105 on `v04` (2026-10-08).** Built; the derived per-layer rules are verified on 9.0.9 and 10.0.6. The KiCad 10 GUI save that settles the keys of a tuning profile (`H-K-PRO-TUNING-KEYS`, the maintainer's own test) is deferred to the next release, so the profiles stay `INFERRED`.
 
 **c0106 on `v04` (2026-10-08).** Built; net lengths, the default stack-up, length rules and meanders are verified on 9.0.9 and 10.0.6. It takes matched-length and skew analysis from v0.6 (Phase 5 below).
+
+**c0107 on `v04` (2026-10-08).** Built; the plane rows of KiCad are verified on both majors. What KiCadRoutingTools does with plane layers and track layer rules is not settled: on the plane bench it used `F.Cu` only (`H-K-KRT-PLANES` `inconclusive`).
 
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may

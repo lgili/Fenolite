@@ -19,8 +19,8 @@ For each SMD pad of a plane net, in board footprint order then pad order:
   and ``kicad.fanout.failed`` names what blocked its first candidate.
 
 Every test is exact: lengths are integer nanometres, distances are compared as squares (``geometry.thick``).
-Zone fills are not obstacles, because they are refilled after routing. The fan-out is ``INFERRED`` until the
-probes of ``H-K-FANOUT`` are recorded on both KiCad majors.
+Zone fills are not obstacles, because they are refilled after routing. The fan-out is ``KICAD-VERIFIED``: the
+probes ``route-fanout-t9`` and ``route-fanout-t10`` of ``H-K-FANOUT`` are ``equal`` on both KiCad majors.
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ from fenolite.model.board import Track, Via
 from fenolite.model.design import Design
 from fenolite.model.rules import RuleSubject
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-FANOUT",))
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-FANOUT",))
 """Raised when the probes ``route-fanout-t9`` and ``route-fanout-t10`` are recorded."""
 FANOUT_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({"kicad.fanout.failed": "warning"})
 """The closed table of the fan-out's codes."""

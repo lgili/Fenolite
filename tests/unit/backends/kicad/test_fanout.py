@@ -330,7 +330,7 @@ def test_deterministic(found: pb.Loaded, tmp_path: Path) -> None:
 
 def test_codes_and_evidence() -> None:
     assert dict(fanout.FANOUT_ISSUE_CODES) == {"kicad.fanout.failed": "warning"}
-    assert fanout.EVIDENCE.level is Level.INFERRED and fanout.EVIDENCE.hypotheses == ("H-K-FANOUT",)
+    assert fanout.EVIDENCE.level is Level.KICAD_VERIFIED and fanout.EVIDENCE.hypotheses == ("H-K-FANOUT",)
     with pytest.raises(ValueError, match="drill"):
         FanoutSizes(400_000, 600_000, 600_000, 200_000)
     with pytest.raises(ValueError, match="width"):

@@ -375,7 +375,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `dru` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `embed` | `EVIDENCE` KICAD-VERIFIED: `H-G-BOTTOM-STORE`, `H-G-FLIP`, `H-G-PAD-ANGLE-ABS` |
 | `erc` | `EVIDENCE` KICAD-VERIFIED: `H-K-ERC-JSON`, `H-K-ERC-POS`, `H-K-ERC-COPYSET` |
-| `fanout` | `EVIDENCE` INFERRED: `H-K-FANOUT` |
+| `fanout` | `EVIDENCE` KICAD-VERIFIED: `H-K-FANOUT` |
 | `fields` | `EVIDENCE` INFERRED: `H-K-FIELD-FRAME`, `H-K-FIELD-JUSTIFY`, `H-K-FIELD-OUTSIDE` |
 | `fill` | `EVIDENCE` KICAD-VERIFIED: `H-K-FILL-SAVE`, `H-K-FILL-LIFT`, `H-K-FILL-REPEAT` |
 | `fpitems` | `EVIDENCE` INFERRED: `H-K-PCB-FPGFX` |
