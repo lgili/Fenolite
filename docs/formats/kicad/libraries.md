@@ -595,9 +595,9 @@ A footprint that joins pads of different nets on purpose lists them in one child
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A footprint file written with `(net_tie_pad_groups "1, 2")` right after `attr`, one string per group and `", "` between the numbers, loads in `kicad-cli`, and its DRC honours the group (`drc.md`, "Net ties") | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| A footprint file written with `(net_tie_pad_groups "1, 2")` right after `attr`, one string per group and `", "` between the numbers, loads in `kicad-cli`, and its DRC honours the group (`drc.md`, "Net ties") | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
 | The footprints of KiCad's own net-tie library write the child in that form and at that place, and join their pads with a filled polygon on each copper layer | S-0018, S-0042 | INFERRED | H-K-NETTIE-DRC |
-| `"1,2"`, without the space, is read as the same group | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| `"1,2"`, without the space, is read as the same group | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
 
 The second row is the reading of the two library trees that change c0114 states (twelve footprints, read
 for the fact on 2026-10-05); this change did not fetch them again, so the row rests on the first.

@@ -233,7 +233,7 @@ target 9 a key of a check that 9.0.9 lacks would therefore be written and have n
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| An entry is the string `<type>\|<x>\|<y>\|<uuid>\|<uuid>`, `x` and `y` in integer nanometres and the nil uuid for a missing second item, or a list of that string and a comment; `pcb drc` applies both forms | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-EXCL |
+| An entry is the string `<type>\|<x>\|<y>\|<uuid>\|<uuid>`, `x` and `y` in integer nanometres and the nil uuid for a missing second item, or a list of that string and a comment; `pcb drc` applies both forms | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-EXCL |
 
 A public demo project of tag 10.0.6 stores five exclusions in the list form, each with its comment
 (S-0058; the reading that change c0114 states, not run again here).

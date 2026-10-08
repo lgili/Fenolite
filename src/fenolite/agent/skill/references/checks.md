@@ -57,6 +57,10 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 - Findings of KiCad's own checks have codes that start with `kicad.drc.` and `kicad.erc.`, and carry
   KiCad's message.
 - An issue also has a `hint`, which is often empty: the fix of a code is what `explain` says.
+- **Accepting one finding.** `design.waive(code, *items, reason=)` in the script (page `rules`) lists
+  a `copper.*` or `kicad.drc.*` finding as `info` with its reason, so the exit code no longer counts it.
+  A waiver that matches nothing gives `check.waiver-unmatched`. Fix the copper first; waive only what is
+  meant, and prefer a rule when a selector can name the items.
 
 ```fenolite-cmd
 fenolite explain copper.short --json

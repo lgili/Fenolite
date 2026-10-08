@@ -58,6 +58,10 @@ design.rules.minimum(clearance=mm(0.25), track_width=mm(0.4), netclass="PWR")
 design.rules.rule("ring", "annular_width", where=select.item("via"), min=mm(0.15))
 design.rules.rule("holes", "hole_to_hole", min=mm(0.3))
 design.rules.rule("court", "courtyard_clearance", where=select.ref(j1), min=mm(0.5))
+# The severity of one check of KiCad's DRC, written into the project file.
+design.rules.severity("kicad.drc.silk-overlap", "ignore")
+# One finding accepted with a reason: it stays listed, as `info`, and no longer counts.
+design.waive("kicad.drc.courtyards-overlap", j1, "R1", reason="example: the two parts are stacked by design")
 
 # The build-up, top to bottom, from your fabricator's sheet.
 design.stackup(
@@ -102,6 +106,11 @@ d1.place(mm(15), mm(6), rot=180)
 - **`severity`** is `error`, `warning` or `ignore`.
 - What a target cannot check stops the build with exit 7 instead of being dropped in silence. A
   `creepage` rule is written for KiCad 10 only (page `recovery`, exit 7).
+- **`design.rules.severity(code, level)`** sets the severity (`error`, `warning` or `ignore`) of one
+  check of KiCad's DRC, named by the code `check` prints (`kicad.drc.<type>`). A `copper.*` finding
+  takes none, and `kicad.drc.clearance` cannot be ignored.
+- **`design.waive(code, *items, reason=)`** accepts one finding of `check` or of the build's copper
+  guard, named by its code and the `where` of its items (page `checks`).
 
 ## The stack-up
 

@@ -841,8 +841,8 @@ A board footprint carries the `net_tie_pad_groups` child of its library footprin
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A board footprint written with `(net_tie_pad_groups "1, 2")` after `attr` loads, and KiCad's DRC honours the group on the board | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
-| A board footprint whose child is written `"1,2"` is honoured the same way | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETTIE-DRC |
+| A board footprint written with `(net_tie_pad_groups "1, 2")` after `attr` loads, and KiCad's DRC honours the group on the board | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+| A board footprint whose child is written `"1,2"` is honoured the same way | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
 | KiCad's demo boards hold both spellings, `"1, 2"` and `"1,2"`, on a net-tie footprint and on bridged solder jumpers | S-0058 | INFERRED | H-K-NETTIE-DRC |
 
 The third row is the census that change c0114 states (twelve footprints on three demo boards of tag

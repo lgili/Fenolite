@@ -25,6 +25,14 @@ land.rect((mm(-2), mm(-1.8)), (mm(2), mm(1.8)), layer="F.SilkS", width=mm(0.12))
 land.rect((mm(-4.2), mm(-2.1)), (mm(4.2), mm(2.1)), layer="F.CrtYd", width=mm(0.05))
 design.add_footprint(land)
 
+# A net tie: two pads of different nets joined on purpose by a copper bridge.
+tie = Footprint("Local", "StarPoint", kind="smd", description="net tie of two pads")
+tie.pad("1", at=(mm(-0.5), mm(0)), size=(mm(0.5), mm(0.5)))
+tie.pad("2", at=(mm(0.5), mm(0)), size=(mm(0.5), mm(0.5)))
+tie.line((mm(-0.5), mm(0)), (mm(0.5), mm(0)), layer="F.Cu", width=mm(0.3))
+tie.net_tie("1", "2")
+design.add_footprint(tie)
+
 # A symbol for it: two pins and a body. Its footprint is the default of every part that uses it.
 shunt = Symbol("Local", "Shunt", reference="R", footprint=land.lib_id)
 shunt.pin("1", "A", etype="passive", at=(mm(-5.08), mm(0)), length=mm(2.54))
@@ -55,6 +63,8 @@ j1.place(mm(6), mm(10), rot=90)
   `drill` as its width and `drill_length` as its overall length; the Altium target refuses slots.
 - **One number, several lands.** Pad numbers are unique by default. A second land of the same electrical
   pad repeats the number with `shared=True`.
+- **Net ties.** `net_tie("1", "2")` says that pads of different nets are joined on purpose, by copper
+  you draw: KiCad's DRC and Fenolite's copper check then judge no pair of pads of the group.
 - **Graphics.** `rect`, `line`, `circle` and `polygon` draw on a named layer: `F.SilkS` for the
   silkscreen, `F.Fab` for the body, `F.CrtYd` for the courtyard, the area no other part may enter.
   Draw a courtyard: `fenolite place` and the checks use it to tell whether two parts overlap.
