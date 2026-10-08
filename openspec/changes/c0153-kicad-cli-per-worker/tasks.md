@@ -28,5 +28,6 @@
 
 - [x] 4.1 `CHANGELOG.md` (the line at the end of `[Unreleased]`), `openspec/README.md`. Proof: `uv run python tools/gen_evidence_matrix.py --check`, `tools/gen_schemas.py --check`, `tools/gen_token_docs.py --check`; `uv run pytest tests/residue tests/corpus/test_manifest.py -q`.
 - [x] 4.2 `make check-fast`; `openspec validate c0153-kicad-cli-per-worker --strict`. Proof: each exits 0, counts in the commit message.
-- [ ] 4.3 Run the full suite once on the rebased branch. Proof: `make check` passes.
+- [x] 4.3 Run the full suite once on the rebased branch. Proof: `make check` passes.
   - Not run here: the coordinator runs it once at the merge.
+  - 2026-10-08, on the release branch (`release-0.4.0`, `32a19b3` and the settlement commits of c0154): `make check` exit 0 (ruff check all passed, 1772 files already formatted, pyright 0 errors, residue 0 hits with 11 waivers and the private gate skipped, `13828 passed, 2374 skipped in 1243.06s` on Python 3.11.15, 4 workers) (c0154, task 4.3). CI run https://github.com/lgili/Fenolite/actions/runs/37836186018 of `32a19b3` passed every job; the change passed CI run 37766303814 on its branch.

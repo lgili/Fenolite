@@ -37,4 +37,5 @@
 
 - [x] 4.1 `docs/schematic.md` (placements file), `CHANGELOG.md`. Proof: `make check-fast`; every `uv run python tools/gen_*.py --check`; `uv run pytest tests/residue tests/corpus/test_manifest.py -q`; `openspec validate c0137-schematic-pin-frame-order --strict`.
   - 2026-10-08: `make check-fast` 9942 passed, 18 skipped (exit 0); the three `gen_*` tools exit 0 with `--check` (the matrix page regenerated for `FRAME_ORDER_EVIDENCE`); residue, manifest and the register tests 135 passed, 5 skipped; the change is valid (exit 0), its one note is that MODIFIED "Stacked pins of corpus sheets" waits for c0123's archive, and `validate --changes --strict` lists no error of it (its 5 known errors are those of c0084, c0085, c0086 and c0128).
-- [ ] 4.2 `make check` on the rebased branch before the merge.
+- [x] 4.2 `make check` on the rebased branch before the merge.
+  - 2026-10-08, on the release branch (`release-0.4.0`, `32a19b3` and the settlement commits of c0154, which change no code but this change's evidence label): `make check` exit 0 (ruff check all passed, 1772 files already formatted, pyright 0 errors, residue 0 hits with 11 waivers and the private gate skipped, `13828 passed, 2374 skipped in 1243.06s` on Python 3.11.15, 4 workers) (c0154, task 4.3). CI run https://github.com/lgili/Fenolite/actions/runs/37836186018 of `32a19b3` passed every job.
