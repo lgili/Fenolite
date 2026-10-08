@@ -467,7 +467,7 @@ to write a design, and a tool that measures whether an agent closes the loop.
 | id | slug |
 |---|---|
 | c0077 | `catalog-footprint-fields`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0078 | `router-fetch` |
+| c0078 | `router-fetch`; on `v04`, every task closed on 2026-10-08 (`H-G-FETCH-PIN` settled by the `routing` jobs of CI): ships in 0.4 |
 | c0079 | `agent-kit` |
 | c0080 | `agent-authoring-guide` |
 | c0081 | `agent-eval` |
@@ -706,6 +706,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 33 | v0.3: component bodies (c0121): implemented inside v0.3, before c0092; written only on request (`--altium-bodies extruded`, off until step X8 of Part X is reported, in session 2 of the Altium work); the form that Altium saves, 35 keys with stand-ins for `MODELID` and `MODEL.CHECKSUM`, the short form built for X8 only; bodies that name a 3D model are never written by it; no body is invented where the model has none; library bodies are written and are the first to be cut; a new sample `body2`, `board6` unchanged; keeping `MODELID` and `MODEL.CHECKSUM` of a body that was read is its own change c0129, right after c0099 is on `dev` | design of c0121, "Decisions (2026-10-06)" | accepted by the coordinator on the maintainer's behalf on 2026-10-06, as the conservative reading of his order "a follow-up change with fact rows before the write"; to be shown to him |
 | 34 | Milestone names: the write side of the second backend is v0.3, released as `0.3.0`; v0.4 names the proposals that are open on other branches (the agent track c0077–c0081, board authoring c0096, c0097 and c0099, the complex board c0100–c0120); v0.5a, v0.5b, v0.6 and v1.0 keep their names | this page, “Milestone names”; change c0136 | decided by the maintainer on 2026-10-07 |
 | 35 | c0098 electrical readiness: in v0.4 or not | this page, the section of v0.4 | open |
+| 36 | v0.4: Fenolite may download the pinned Freerouting jar, only inside `fenolite fetch` and only with `--confirm` | proposal of c0078; ADR-0007 | decided by the maintainer on 2026-10-05, confirmed on 2026-10-07 |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074 and c0083–c0092).
