@@ -230,7 +230,7 @@ def test_fab_dates_do_not_change_the_content_hash() -> None:
     assert content_sha256(report, "fab-drawing") == content_sha256(later, "fab-drawing")
     changed = report.replace(b"(3 holes))", b"(5 holes))")
     assert content_sha256(report, "fab-drawing") != content_sha256(changed, "fab-drawing")
-    assert EVIDENCE.level.value == "INFERRED"
+    assert EVIDENCE.level.value == "KICAD-VERIFIED"
     assert set(EVIDENCE.hypotheses) == {"H-K-DRAW-ITEMS", "H-K-DRAW-PAGE", "H-K-DRAW-DRILL"}
 
 

@@ -76,6 +76,7 @@ All notable changes to Fenolite are documented here. The format follows
 - The agent guide teaches net ties, waivers and check severities (c0114): the `footprints` page declares a net-tie footprint with `net_tie()`, the `rules` page calls `design.rules.severity()` and `design.waive()`, and the `checks` page says how to accept one finding. The fact rows of net ties and of stored DRC exclusions are `KICAD-VERIFIED (9.0.x, 10.0.x)`, from the `kicad-9` and `kicad-10` jobs of CI.
 - The power benches of c0115 take a target: `neck-plain`, with its fill stored, and `layers` also run on KiCad 9 (`tests/kicad/analysis/test_power_nine.py`), whose 9.0.9 outcomes the `kicad-9` job prints for tasks 1.2 and 11.1. No behaviour of the library changes.
 - **An export that selects a document kind, and `fenolite models`, carry `KICAD-VERIFIED`** (c0116): the four hypotheses of `exports.DOCUMENTS_EVIDENCE` and `H-K-EXPORT-MODELS` hold on 9.0.9 and 10.0.6 in the `kicad-9` and `kicad-10` jobs of CI. The first real fetch of official 3D models (the three of `examples/blink_official` at tags 9.0.9 and 10.0.6, with the maintainer's consent of 2026-10-08) is recorded in `docs/evidence/kicad-libs.md`, and `H-G-MODELS-FETCH` is `CORPUS-VERIFIED`.
+- **The drawing kinds of `fenolite export` carry `KICAD-VERIFIED`** (c0117): `H-K-DRAW-ITEMS`, `-PAGE` and `-DRILL` hold on 9.0.9 and 10.0.6 in the `kicad-9` and `kicad-10` jobs of CI, so `exports.drawings.EVIDENCE` is raised and the fact rows of the drawings follow.
 
 ### Fixed
 

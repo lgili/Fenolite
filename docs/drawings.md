@@ -184,6 +184,6 @@ out the `/CreationDate` line of a PDF and the `Created on` line of the report (`
 
 ## Evidence
 
-The drawing kinds are `INFERRED`: the probes of `docs/evidence/kicad-drawings.md` hold on `kicad-cli`
-10.0.6 and are not yet recorded on 9.0.9. The level covers that KiCad draws the items Fenolite writes where
+The drawing kinds are `KICAD-VERIFIED`: the probes of `docs/evidence/kicad-drawings.md` hold on `kicad-cli`
+9.0.9 and 10.0.6 (CI run 37772583226, 2026-10-08). The level covers that KiCad draws the items Fenolite writes where
 the layout puts them and that the drill table agrees with KiCad's report; the tables state model values.

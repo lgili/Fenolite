@@ -30,9 +30,10 @@ from fenolite.model.base import Opaque
 from fenolite.model.board import FootprintInstance
 from fenolite.model.presentation import PaperSize, SheetFrameRef
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DRAW-ITEMS", "H-K-DRAW-PAGE", "H-K-DRAW-DRILL"))
-"""``INFERRED`` until the three hypotheses hold on 9.0.x and 10.0.x: that KiCad draws the written items,
-that a plot puts them where the board does, and that the drill report counts what the table states."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-DRAW-ITEMS", "H-K-DRAW-PAGE", "H-K-DRAW-DRILL"))
+"""``KICAD-VERIFIED``, since the three hypotheses hold on 9.0.9 and 10.0.6 (c0117 task 9.2): that KiCad draws
+the written items, that a plot puts them where the board does, and that the drill report counts what the
+table states."""
 NAMESPACE = uuid.UUID("6f0a7d52-1c17-5c0e-9d55-0c0117000000")
 """The namespace of every uuid of a plot copy: one board and one specification give one copy."""
 LAYER_ROWS: dict[str, tuple[int, str]] = {

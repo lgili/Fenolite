@@ -861,14 +861,14 @@ The third row is the census that change c0114 states (twelve footprints on three
 What `backends/kicad/drawing.py` writes into a plot copy of a board, and what KiCad draws for it. The
 token names are those of the inventory (`table`, `table/uuid` since 10.0, `gr_text_box/knockout` since
 10.0); the rest was measured by running the binary (S-0020), see `docs/evidence/kicad-drawings.md`. The
-rows are `INFERRED` until the probes are recorded on 9.0.9 too.
+probes are recorded on 9.0.9 and 10.0.6 and passed in CI run 37772583226 (2026-10-08).
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A root `table` with the children `column_count`, `uuid`, `layer`, `border`, `separators`, `column_widths`, `row_heights` and `cells`, each `table_cell` with `start`, `end`, `margins`, `span`, `layer`, `uuid` and `effects`, loads and is drawn with every cell; a cell's text is anchored at the cell's corner plus its margin | S-0020, S-0039 | INFERRED | H-K-DRAW-ITEMS |
-| An orthogonal `dimension` (`type`, `layer`, `uuid`, `pts`, `height`, `orientation`, `format`, `style`, `gr_text`) is drawn with the text KiCad computes from its two points, whatever text was written; a negative `height` puts the line above a horizontal dimension and left of a vertical one | S-0020 | INFERRED | H-K-DRAW-ITEMS |
-| `${TITLE}` and `${REVISION}` in a board text are drawn as the title block's values | S-0020 | INFERRED | H-K-DRAW-ITEMS |
-| Text in a table cell is wrapped at the cell's inner width and the row keeps its height, so wrapped lines leave the row | S-0020 | INFERRED | H-K-DRAW-TEXT |
-| Two lines of a text are 1.61 × the text size apart; a line of n glyphs of advance a is n × a + 0.25 × the size long, and no advance of printable ASCII and `±µ°×ΩÄÖÜßéèçñ–—…` exceeds 1.45 × the size | S-0020 | INFERRED | H-K-DRAW-TEXT |
-| A `gr_text` with `(justify mirror)` on `B.Fab` reads right in a `--mirror` plot | S-0020 | INFERRED | H-K-DRAW-ASSEMBLY |
-| A layer table that lacks `Dwgs.User`, `F.Fab` or `B.Fab` loads with the rows `(17 "Dwgs.User" user "User.Drawings")`, `(35 "F.Fab" user)` and `(33 "B.Fab" user)` added at its end, and items on those layers are drawn | S-0020 | INFERRED | H-K-DRAW-LAYER |
+| A root `table` with the children `column_count`, `uuid`, `layer`, `border`, `separators`, `column_widths`, `row_heights` and `cells`, each `table_cell` with `start`, `end`, `margins`, `span`, `layer`, `uuid` and `effects`, loads and is drawn with every cell; a cell's text is anchored at the cell's corner plus its margin | S-0020, S-0039 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ITEMS |
+| An orthogonal `dimension` (`type`, `layer`, `uuid`, `pts`, `height`, `orientation`, `format`, `style`, `gr_text`) is drawn with the text KiCad computes from its two points, whatever text was written; a negative `height` puts the line above a horizontal dimension and left of a vertical one | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ITEMS |
+| `${TITLE}` and `${REVISION}` in a board text are drawn as the title block's values | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ITEMS |
+| Text in a table cell is wrapped at the cell's inner width and the row keeps its height, so wrapped lines leave the row | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-TEXT |
+| Two lines of a text are 1.61 × the text size apart; a line of n glyphs of advance a is n × a + 0.25 × the size long, and no advance of printable ASCII and `±µ°×ΩÄÖÜßéèçñ–—…` exceeds 1.45 × the size | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-TEXT |
+| A `gr_text` with `(justify mirror)` on `B.Fab` reads right in a `--mirror` plot | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ASSEMBLY |
+| A layer table that lacks `Dwgs.User`, `F.Fab` or `B.Fab` loads with the rows `(17 "Dwgs.User" user "User.Drawings")`, `(35 "F.Fab" user)` and `(33 "B.Fab" user)` added at its end, and items on those layers are drawn | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-LAYER |

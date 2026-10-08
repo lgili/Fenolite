@@ -109,7 +109,7 @@ def test_the_reply_describes_the_pages(monkeypatch: pytest.MonkeyPatch, tmp_path
     assert "designators_added" not in pages[0]
     assert [p["designators_added"] for p in pages[1:]] == [4, 1]
     evidence = env["evidence"]
-    assert evidence["level"] == "INFERRED" and evidence["oracle"] == "kicad-cli 10.0.6"
+    assert evidence["level"] == "KICAD-VERIFIED" and evidence["oracle"] == "kicad-cli 10.0.6"
     assert {"H-K-DRAW-ITEMS", "H-K-DRAW-PAGE", "H-K-DRAW-DRILL", "H-K-EXPORT-FILES"} <= set(
         evidence["hypotheses"]
     )
@@ -251,7 +251,7 @@ def test_manifest_lists_the_drawings(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         assert entry["kind"] == ("fab-drawing" if fab else "assembly-drawing")
         assert entry["layer"] is None and entry["from"] == {"board": sha}
         assert entry["state"] == "generated" and entry["tool"] == "kicad-cli 10.0.6"
-        assert entry["evidence"] == drawings.EVIDENCE.level.value == "INFERRED"
+        assert entry["evidence"] == drawings.EVIDENCE.level.value == "KICAD-VERIFIED"
     assert set(drawings.DRAWING_KINDS) <= DERIVED
     assert all(design_kind(path) == "file" for path in drawn)  # never a drawing kind from a file name
 

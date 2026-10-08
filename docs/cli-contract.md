@@ -1471,7 +1471,7 @@ report. These are the only runs that pass `--define-var` or `--drawing-sheet`.
   nanometres), and for an assembly page `side` and `designators_added`.
 - A `drawing.*` issue of severity error plans no write, for any selected kind; an info or a warning does
   not change the exit code. With a drawing kind the evidence is combined with `exports.drawings.EVIDENCE`
-  (`INFERRED`; `H-K-DRAW-ITEMS`, `H-K-DRAW-PAGE`, `H-K-DRAW-DRILL`), and a manifest entry of a drawing
+  (`KICAD-VERIFIED`; `H-K-DRAW-ITEMS`, `H-K-DRAW-PAGE`, `H-K-DRAW-DRILL`), and a manifest entry of a drawing
   kind carries that level, `layer` `null` and the board's SHA-256 in `from`.
 
 `--altium-rul` (change c0084) writes `DIR/<stem>.RUL`: the rules of the project's rules file

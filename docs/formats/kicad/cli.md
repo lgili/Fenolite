@@ -201,17 +201,18 @@ that `fenolite build` wrote; no manual page is cited.
 The drawing kinds of `fenolite export` (change c0117; `docs/drawings.md`) plot copies of the board with
 `pcb export pdf` and take KiCad's drill maps and report. Everything below was measured by running the
 binary (S-0020) on the authored bench of `tests/_drawdesign.py`; the outcomes are in
-`docs/evidence/kicad-drawings.md`. The rows are `INFERRED` until the probes are recorded on 9.0.9 too.
+`docs/evidence/kicad-drawings.md`. The probes are recorded on 9.0.9 and 10.0.6, and the tests of
+`tests/kicad/drawings/` passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| At the default scale `pcb export pdf` and `svg --mode-single` draw an item at the page point of its board coordinates; `--mirror` maps x to W − x for the page width W | S-0020 | INFERRED | H-K-DRAW-PAGE |
-| `--drill-shape-opt 0` draws no hole on a plot; the default draws pad holes and no via hole | S-0020 | INFERRED | H-K-DRAW-PAGE |
-| `pcb export pdf` and `pcb export svg` have `--scale` on 10.0.6 | S-0020 | INFERRED | H-K-DRAW-PAGE |
-| `-D NAME=value` sets a text variable for one run, in a board text and in a drawing-sheet text | S-0020 | INFERRED | H-K-DRAW-ITEMS |
-| Without a project sheet, the plotted sheet has borders 10 mm and 12 mm inside the page edges and its title block from (W − 120, H − 44) to (W − 12, H − 12) mm, on A4 to A0 landscape | S-0020 | INFERRED | H-K-DRAW-SHEET |
-| Landscape pages are plotted 297.0022 × 210.0072 (A4), 419.9890 × 297.0022 (A3), 594.0044 × 419.9890 (A2), 840.9940 × 594.0044 (A1) and 1188.9994 × 840.9940 mm (A0) | S-0020 | INFERRED | H-K-DRAW-SHEET |
-| `pcb export drill --excellon-separate-th --generate-map --map-format pdf --generate-report` writes `<stem>-PTH.drl`, `<stem>-NPTH.drl`, one `<stem>-front-in1.drl` for the vias of `F.Cu` to `In1.Cu`, a `<name>-drl_map.pdf` beside each, and `<stem>-drill.rpt` | S-0020 | INFERRED | H-K-DRAW-DRILL |
-| The drill report lists, per drill file, one line per tool with its diameter in millimetres (three decimals) and its hole count; a slot is counted with the round holes of its width; a line of several holes closes with `))` on 10.0.6 | S-0020 | INFERRED | H-K-DRAW-DRILL |
-| `--crossout-DNP-footprints-on-fab-layers` adds strokes over a do-not-populate footprint, `--hide-DNP-footprints-on-fab-layers` removes its fabrication items, `--sketch-pads-on-fab-layers` adds pad outlines and numbers; `--exclude-value` removes value texts of a PDF plot and is no option of `pcb export svg` on 10.0.6 | S-0020 | INFERRED | H-K-DRAW-ASSEMBLY |
-| Two `pcb export pdf` runs of one board differ only in the line `/CreationDate`, two drill reports only in the line `Created on` | S-0020 | INFERRED | H-K-DRAW-REPEAT |
+| At the default scale `pcb export pdf` and `svg --mode-single` draw an item at the page point of its board coordinates; `--mirror` maps x to W − x for the page width W | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-PAGE |
+| `--drill-shape-opt 0` draws no hole on a plot; the default draws pad holes and no via hole | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-PAGE |
+| `pcb export pdf` and `pcb export svg` have `--scale` on 10.0.6 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRAW-PAGE |
+| `-D NAME=value` sets a text variable for one run, in a board text and in a drawing-sheet text | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ITEMS |
+| Without a project sheet, the plotted sheet has borders 10 mm and 12 mm inside the page edges and its title block from (W − 120, H − 44) to (W − 12, H − 12) mm, on A4 to A0 landscape | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-SHEET |
+| Landscape pages are plotted 297.0022 × 210.0072 (A4), 419.9890 × 297.0022 (A3), 594.0044 × 419.9890 (A2), 840.9940 × 594.0044 (A1) and 1188.9994 × 840.9940 mm (A0) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-SHEET |
+| `pcb export drill --excellon-separate-th --generate-map --map-format pdf --generate-report` writes `<stem>-PTH.drl`, `<stem>-NPTH.drl`, one `<stem>-front-in1.drl` for the vias of `F.Cu` to `In1.Cu`, a `<name>-drl_map.pdf` beside each, and `<stem>-drill.rpt` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-DRILL |
+| The drill report lists, per drill file, one line per tool with its diameter in millimetres (three decimals) and its hole count; a slot is counted with the round holes of its width; a line of several holes closes with `))` on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-DRILL |
+| `--crossout-DNP-footprints-on-fab-layers` adds strokes over a do-not-populate footprint, `--hide-DNP-footprints-on-fab-layers` removes its fabrication items, `--sketch-pads-on-fab-layers` adds pad outlines and numbers; `--exclude-value` removes value texts of a PDF plot and is no option of `pcb export svg` on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ASSEMBLY |
+| Two `pcb export pdf` runs of one board differ only in the line `/CreationDate`, two drill reports only in the line `Created on` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-REPEAT |

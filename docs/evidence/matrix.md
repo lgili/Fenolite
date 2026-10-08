@@ -370,7 +370,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `cli` | see `altium_import`, `helpmatrix`, `oracle`, `plot` |
 | `copper` | `EVIDENCE` INFERRED: `H-G-FRAME-UUID`, `H-G-FRAME-ROUTE` |
 | `copperrules` | see `dru`, `pro` |
-| `drawing` | `EVIDENCE` INFERRED: `H-K-DRAW-ITEMS`, `H-K-DRAW-PAGE`, `H-K-DRAW-DRILL` |
+| `drawing` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRAW-ITEMS`, `H-K-DRAW-PAGE`, `H-K-DRAW-DRILL` |
 | `drc` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRC-JSON` |
 | `dru` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `embed` | `EVIDENCE` KICAD-VERIFIED: `H-G-BOTTOM-STORE`, `H-G-FLIP`, `H-G-PAD-ANGLE-ABS` |
