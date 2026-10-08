@@ -99,7 +99,7 @@ PAIR_SLACK_NM = 2 * SLACK_UNITS_PER_ITEM * FILE_UNIT_NM
 """The slack of a pair, 5.08 nm: copper of two nets is no clearance finding while its gap is not below the
 rule's value less this."""
 UNIT_SLACK_NM = PAIR_SLACK_NM.numerator // PAIR_SLACK_NM.denominator
-"""By how much the clearance rules of the copper check are lowered: ``PAIR_SLACK_NM`` in whole nanometres,
+"""The slack of the unit: ``PAIR_SLACK_NM`` in whole nanometres,
 5. A rule holds whole nanometres, so the slack is rounded down, never up: a gap between 5 and 5.08 nm below
 a rule's value is reported, and no gap is passed that the stated rule reports.
 
@@ -111,7 +111,31 @@ round or oval pad by 2.37 nm (its centre goes through the frame of its footprint
 rectangular pad by 3.18 nm (each corner is rounded once more). One unit, 2.54 nm, covers every item but a
 rectangular pad; the slack of a pair covers every pair but a rectangular pad against a pad. An arc is
 judged with a band of 1 001 nm, which is far above all of these. Measured on the eight public PCB
-documents: every finding that the slack takes away is 1 to 4 nm short."""
+documents: every finding that the slack takes away is 1 to 4 nm short.
+
+The check lowers the rules by ``CLEARANCE_SLACK_NM``, which is at least this (change c0152)."""
+ALTIUM_PASSED_UNITS = Fraction(7, 2)
+"""The shortfall, in file units, of the closest pair that Altium's own clearance check was seen to pass
+(change c0152; ``ALTIUM-VERIFIED(author-report)``, S-0616; ``docs/formats/altium/import.md``, "Clearance
+of the copper check"). On ``altium-third-party-pcbdoc-03`` Altium Designer 26.5.0 reports no violation of
+a 5 mil rule (50 000 units) between a rectangular pad of 637 795 units (its edge at a half unit) and a
+track 50 000 units wide whose edge the document's own integers put 49 996.5 units from it: 3.5 units, 8.89
+nm, inside the rule. The shortfall is in the document, not in the conversion (the import reads that gap as
+126 991 nm against an exact 126 991.11). No public source states Altium's tolerance; this is the least that
+it is, and the copper check passes no more than that."""
+ALTIUM_PASSED_NM = ALTIUM_PASSED_UNITS * FILE_UNIT_NM
+"""``ALTIUM_PASSED_UNITS`` in nanometres, 8.89 nm."""
+CLEARANCE_SLACK_NM = max(UNIT_SLACK_NM, -(-ALTIUM_PASSED_NM.numerator // ALTIUM_PASSED_NM.denominator))
+"""By how much the copper check lowers every clearance rule of a PCB document: 9 nm (change c0152).
+
+The larger of the slack of the unit (``UNIT_SLACK_NM``, 5 nm, change c0131) and Altium's observed
+tolerance in whole nanometres. The tolerance is rounded up, not down, because the check compares the
+model's gap, which is itself whole nanometres: a document gap 8.89 nm short is read 8 or 9 nm short, and a
+rule lowered by 8 still reports the pairs Altium passes. Rounding up passes at most 0.11 nm more than
+Altium was seen to pass, below the model's resolution of 1 nm. Being at least 6.36 nm, it also covers the
+worst case of the conversion for a pad against a rectangular pad that c0131 left open. KiCad boards are not
+judged with it: the slack lives in this backend's rules view, and ``checks.copper`` stays strict at the
+nanometre."""
 _PROJECT_SKIPS = ("altium.project.document-outside", "altium.project.document-missing")
 _DOCUMENT_INDEX = re.compile(r"\bdocument (\d+)\b")
 
@@ -414,11 +438,12 @@ class AltiumBackend:
         The import already holds the rules that map. What this adds is what the copper check must know
         beyond them: a polygon has no clearance of its own, so the clearance of every zone is 0 (the value
         ``checks.clearance`` reads as "none") and the clearance rules alone decide; every clearance rule is
-        lowered by ``UNIT_SLACK_NM``, so that copper at exactly its clearance in the document's unit is no
-        finding in nanometres; and ``opaque_clearance_rules`` counts the ``Clearance`` records that the
-        rule table does not map and that apply to something (not disabled, and not scoped to a kind of
-        layer the board lacks: ``read.rules.NOT_APPLYING``), read from ``Rules6/Data`` alone and mapped
-        with the copper layers of ``design``, as the import maps them. A governing rule replaces class
+        lowered by ``CLEARANCE_SLACK_NM``, so that copper at exactly its clearance in the document's unit is
+        no finding in nanometres, nor copper as far inside it as Altium's own check was seen to pass (change
+        c0152); and ``opaque_clearance_rules`` counts the ``Clearance`` records that the rule table does
+        not map and that apply to something (not disabled, and not scoped to a kind of layer the board
+        lacks: ``read.rules.NOT_APPLYING``), read from ``Rules6/Data`` alone and mapped with the copper
+        layers of ``design``, as the import maps them. A governing rule replaces class
         values, and there is no board minimum. An internal plane is drawn in negative: the objects on its
         layer cut the plane and are no copper, and the import makes no entity of them (change c0124), so
         nothing is taken out here; ``left_out`` names the planes, whose own copper the document does not
@@ -683,15 +708,15 @@ def _planes_left_out(design: Design) -> tuple[tuple[str, int, str], ...]:
 
 
 def _with_unit_slack(design: Design) -> Design:
-    """``design`` with every clearance rule lowered by ``UNIT_SLACK_NM``, the slack of one file unit per
-    item of a pair in whole nanometres (a value at or below it is kept). Every pair has two items, so
-    lowering each rule by one constant is the rule applied pair by pair."""
+    """``design`` with every clearance rule lowered by ``CLEARANCE_SLACK_NM`` (a value at or below it is
+    kept): the slack of one file unit per item of a pair, or Altium's observed tolerance where that is
+    larger. Both hold for every pair, so lowering each rule by one constant applies them pair by pair."""
     held = design.rules
     if held is None or not any(rule.kind == "clearance" for rule in held.rules):
         return design
     rules = tuple(
-        dataclasses.replace(rule, min=rule.min - UNIT_SLACK_NM)
-        if rule.kind == "clearance" and rule.min is not None and rule.min > UNIT_SLACK_NM
+        dataclasses.replace(rule, min=rule.min - CLEARANCE_SLACK_NM)
+        if rule.kind == "clearance" and rule.min is not None and rule.min > CLEARANCE_SLACK_NM
         else rule
         for rule in held.rules
     )

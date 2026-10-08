@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **The copper check on Altium input passes copper up to 9 nm inside a clearance rule, where it passed 5 nm** (c0152). Altium Designer 26.5.0's own rule check reports none of the seven pad-to-track findings that Fenolite gave on the public document `altium-third-party-pcbdoc-03`, 8 and 9 nm short of a 5 mil rule (S-0616). The cause is not Fenolite's reading: the document's own integers put the track 3.5 file units (8.89 nm) inside the rule, and Fenolite reads the gap to within 0.11 nm; Altium allows at least that much. Every clearance rule of a PCB document is now lowered by 9 nm, that observed tolerance in whole nanometres (`CLEARANCE_SLACK_NM`; the unit's 5 nm of c0131 is inside it), documented in `docs/formats/altium/import.md` as `ALTIUM-VERIFIED(author-report)`. On the eight public PCB documents the class of findings 8 to 20 nm short goes from 25 to 9 (0 on `-03`, 1 on `-01`, 8 on the heavy one), all 10 to 20 nm short, and they stay errors. KiCad boards are judged strictly at the nanometre, as before.
+
 ### Fixed
 
 - **Parallel `kicad-cli` runs no longer share KiCad's instance lock file** (c0153). Every run of the package runner now gets its own temporary, runtime, cache and state folders (`TMPDIR`, `TMP`, `TEMP`, `XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`) beside its own `KICAD_CONFIG_HOME`, removed with the run, so `fenolite` commands run side by side, and the oracle tests on parallel workers, no longer race on `/tmp/org.kicad.kicad/instances/kicad-cli-<major>.0` ("Invalid lock file"). The Docker runner is unchanged (each container has its own `/tmp`). Outputs do not change; a project folder named `.fenolite-state` is now a reserved name, like `config`.

@@ -906,10 +906,12 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   - a **filled zone that no clearance applies to** is judged for shorts only: `zones_unjudged` counts
     them, with one `copper.rules-incomplete` (`where` is `zone`). A polygon holds no clearance of its
     own, so a pour is never judged against the model's default of 0.5 mm.
-  A clearance of the document is judged 5 nm lower than written: the document counts in units of
-  2.54 nm, and copper that is exactly its clearance apart reads up to 4 nm closer in nanometres.
-  The rule is one file unit per item of the pair (5.08 nm for a pair, held as 5 whole nanometres);
-  copper further inside its clearance than that is a finding.
+  A clearance of the document is judged 9 nm lower than written (change c0152): the document counts
+  in units of 2.54 nm, and copper that is exactly its clearance apart reads up to 4 nm closer in
+  nanometres (one file unit per item of the pair, 5.08 nm, change c0131); and Altium's own check was
+  seen to pass copper 3.5 units (8.89 nm) inside its clearance, held as 9 whole nanometres. Copper
+  further inside its clearance than 9 nm is a finding. A KiCad board is judged strictly at the
+  nanometre.
 - **`parity` on a project.** The summary is that of the KiCad stage with `netlist` = `own`,
   `compared` = `false` and `differences` = 0: no tool judges parity here. Two spellings are read as
   one, because they differ between the two documents of every project: the library of a footprint
