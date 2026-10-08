@@ -1,0 +1,5 @@
+The files that a run leaves in this folder, with the step of each:
+libs.SchLib  (K1.3)
+libs.PcbLib  (K1.4)
+messages.txt  (K2.5)
+libs.SchDoc  (K9.1)

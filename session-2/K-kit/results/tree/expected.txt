@@ -1,0 +1,3 @@
+The files that a run leaves in this folder, with the step of each:
+tree.SchDoc  (K1.7)
+messages.txt  (K2.2)

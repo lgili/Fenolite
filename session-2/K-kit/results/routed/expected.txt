@@ -1,0 +1,5 @@
+The files that a run leaves in this folder, with the step of each:
+messages.txt  (K2.3)
+drc.html  (K4.2)
+routed.PcbDoc  (K6.1)
+outputs.txt  (K7.2)

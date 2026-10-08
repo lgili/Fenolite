@@ -1,0 +1,7 @@
+The files that a run leaves in this folder, with the step of each:
+flat.SchDoc  (K1.1)
+flat.PcbDoc  (K1.2)
+flat.PrjPcb  (K1.5)
+flat_ascii.SchDoc  (K1.6)
+messages.txt  (K2.1)
+eco.PcbDoc  (K3.1)

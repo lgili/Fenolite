@@ -1,5 +1,4 @@
-# Pacote da sessao 2 no Altium (parcial, 2026-10-08)
+# Pacote da sessão 2 no Altium (Fenolite `695574b`, 2026-10-08)
 
-Arquivos gerados pelo Fenolite para conferir no Altium Designer. Estado e o que falta: `session-2/ESTADO-DO-PACOTE.md`. Cada parte tem o seu README com os passos.
-
-Baixe `altium-session-2-parcial.zip` ou a pasta `session-2/`. Este ramo existe so para a entrega e nao faz parte do codigo.
+Comece por `session-2/LEIA-ME.md`: as partes em ordem, o que fazer, o esperado e o formulário de resposta.
+Para baixar tudo de uma vez: `altium-session-2.zip` (a mesma pasta `session-2/`). Este ramo existe só para a entrega e não faz parte do código.

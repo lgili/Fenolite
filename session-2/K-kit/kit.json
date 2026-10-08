@@ -1,0 +1,885 @@
+{
+  "fenolite_version": "0.2.1",
+  "files": [
+    {
+      "path": "STEPS.md",
+      "sha256": "0b6467aa90fce5002b746d6f4e66800718a87424c2d70e69bfc58f8dee686c77",
+      "size": 17071
+    },
+    {
+      "path": "kit_script.pas",
+      "sha256": "685ab54f38e643789f2f3abb87d9a590854957d685c42a5067eec8375e26d197",
+      "size": 3146
+    },
+    {
+      "path": "results/board6/expected.txt",
+      "sha256": "153b929d1adecaa755c445fde2f790411b46e5bf5bcf6de7976cfec5e53c266e",
+      "size": 110
+    },
+    {
+      "path": "results/flat/expected.txt",
+      "sha256": "c1506946369b5e0bbcd5ff259809a9a20faeac2701877d492b27f74b1424e4b4",
+      "size": 193
+    },
+    {
+      "path": "results/libs/expected.txt",
+      "sha256": "309075515492359e3a11e210f99147b9507b528c18cfbac247c1bb457929ee4e",
+      "size": 148
+    },
+    {
+      "path": "results/routed/expected.txt",
+      "sha256": "708c0f5fd07bfd4c491cb785ca4bbc942323495305096b1f9c3158a2a0e55564",
+      "size": 147
+    },
+    {
+      "path": "results/templates/expected.txt",
+      "sha256": "1d3c5462dfe6313b626fb7daac56a54da762ed6cd8a8155e0d072a7d99d67095",
+      "size": 98
+    },
+    {
+      "path": "results/tree/expected.txt",
+      "sha256": "141f11c332efe7db4380cf194192c14c48207c310c99e4ba45a4a1a4bf36ba2e",
+      "size": 108
+    },
+    {
+      "path": "templates/iso5457_generic.SchDot",
+      "sha256": "2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb",
+      "size": 12288
+    }
+  ],
+  "form": {
+    "path": "results/form.json",
+    "schema": "fenolite.altium-kit-form.v0",
+    "sha256": "eba6886caecc67274fffd74392ff20e22a69d876c1f43d8285392007ea24233f",
+    "size": 377
+  },
+  "kit_version": 1,
+  "samples": [
+    {
+      "digest": "ffddcd618a3bc72a21c317f4da2fbd598856d216796950e4f6be4bc427578f9c",
+      "files": [
+        {
+          "path": "flat/ascii/flat.SchDoc",
+          "sha256": "223d81cddd80aa7ba92cae850ce6960a7c978df38e89b6a3949eed037fdf2f84",
+          "size": 21059
+        },
+        {
+          "path": "flat/flat.OutJob",
+          "sha256": "bc50bf17eeee8468ef64cc0b1e8cc3e432d304783a22615444a5736170d024ef",
+          "size": 3015
+        },
+        {
+          "path": "flat/flat.PcbDoc",
+          "sha256": "afe2c1d88355f2cc7d01a72f3b068c423da753b053fd4e264bca6925323b4b87",
+          "size": 119808
+        },
+        {
+          "path": "flat/flat.PcbLib",
+          "sha256": "915a7bda444af16a5ba320e58090c14f2b1585fc85f507ba441548f479181f63",
+          "size": 108032
+        },
+        {
+          "path": "flat/flat.PrjPcb",
+          "sha256": "bd813f7dce782d70c0257a43f66a26522910e85baa75e14a989cf7016cae911c",
+          "size": 528
+        },
+        {
+          "path": "flat/flat.SchDoc",
+          "sha256": "61621bd0df59b6fdb6a78110c1e8c82a7d65bf7506c935654ba250141dfa62e8",
+          "size": 24576
+        },
+        {
+          "path": "flat/flat.SchLib",
+          "sha256": "4dc74d175fc8d657b721f934f259af9ea8ea00fd6d09f26e16aeacc8e3b075f7",
+          "size": 9728
+        }
+      ],
+      "name": "flat",
+      "script": "examples/kit/flat/design.py",
+      "script_sha256": "39f6e43873d7e538f3c973e64df2b304660f774b7a7e9ed90605c754e4bb9514"
+    },
+    {
+      "digest": "18f50b1693f4b8068159f18d2a4f97d3311e8cf5121a658a1a4306966ec37757",
+      "files": [
+        {
+          "path": "tree/tree.PrjPcb",
+          "sha256": "5f82374c7c3c16dac370815a2bc520bb026e0e30ccd55cd6b528353ec0f0ebb0",
+          "size": 565
+        },
+        {
+          "path": "tree/tree.SchDoc",
+          "sha256": "3680dbc37c00689a9abeddd27d019eab39129c688f4614a0629b68076bbee6c1",
+          "size": 15872
+        },
+        {
+          "path": "tree/tree.SchLib",
+          "sha256": "92b40a49dc04ec9bba0b91eb00f9070a6066469c6b6f2dbc54f90519308e77d8",
+          "size": 27136
+        },
+        {
+          "path": "tree/tree_io.SchDoc",
+          "sha256": "d1c8c94aa624e99aa233cd687bdf48ac2338cf0d1be6008ba834cf8921cf05d5",
+          "size": 13824
+        },
+        {
+          "path": "tree/tree_io.leds.SchDoc",
+          "sha256": "8f197da032e893e509e0c3c88a63b33e0b3da965507dbcd00d3d0790aabe04ca",
+          "size": 16896
+        },
+        {
+          "path": "tree/tree_power.SchDoc",
+          "sha256": "d0807006fc48f66067a414eeb70eeeaf7f7a499cb4f861cbca328dd7fe56c024",
+          "size": 21504
+        }
+      ],
+      "name": "tree",
+      "script": "examples/kit/tree/design.py",
+      "script_sha256": "82619072de8c38006004c2660fdc25b0fc71bf3e96aed6494ac305fd76653c1e"
+    },
+    {
+      "digest": "0273c8ddf24fba627eb66e7727c78877c835627285e7ec3d69272481cf505fb0",
+      "files": [
+        {
+          "path": "routed/routed.OutJob",
+          "sha256": "8485443bdab65e9e1f601306ae534612479eeace34a7b43bac3d18a8fec9e105",
+          "size": 3025
+        },
+        {
+          "path": "routed/routed.PcbDoc",
+          "sha256": "1667a11afaef4705ede9a4d5a50d1806366848baf82cbcb6e528497d43fce375",
+          "size": 123392
+        },
+        {
+          "path": "routed/routed.PcbLib",
+          "sha256": "1374b3a043a9102f0baa32c00c8c8ffd4b571d1c9d78bc4de99401f47f69d23d",
+          "size": 108032
+        },
+        {
+          "path": "routed/routed.PrjPcb",
+          "sha256": "679f5e8755d29ebb0f3304e8c40cf2df3ccfb88e4484aea512bb5ecdba94624c",
+          "size": 538
+        },
+        {
+          "path": "routed/routed.SchDoc",
+          "sha256": "e5a21ed8e1db91e489b21d1b63d897e051d8a5d830ca2c3e655f645b8bcaf0ee",
+          "size": 14336
+        },
+        {
+          "path": "routed/routed.SchLib",
+          "sha256": "49f4359baa386865872328c5a1b4151ec46dedda9b97d6b09bf58a08681be82e",
+          "size": 9728
+        }
+      ],
+      "name": "routed",
+      "script": "examples/kit/routed/design.py",
+      "script_sha256": "8dea49a8fb8c58274de66d64ea87a2802d7217d689a0e3a45eb3dac0ec39b25f"
+    },
+    {
+      "digest": "e7b8779fde139d052f9f1b74bf013d6e40d1c74ac09d4a2a1a0a654f3020972c",
+      "files": [
+        {
+          "path": "board6/board6.OutJob",
+          "sha256": "cffaa5da448480a99feba314a4e08a47a4f14dd27f016ad72ec5875c191a50e1",
+          "size": 3069
+        },
+        {
+          "path": "board6/board6.PcbDoc",
+          "sha256": "c92105d2c9f0b745151e83eca2e783fd30c729f6af1621cebac485e55dba118b",
+          "size": 136192
+        },
+        {
+          "path": "board6/board6.PcbLib",
+          "sha256": "4a6e40784c51a52705a653ad7410b524790a98d38c16d2dde68fc6b5e2cbbbde",
+          "size": 108032
+        },
+        {
+          "path": "board6/board6.PrjPcb",
+          "sha256": "914dc3d485a8d978d5da7d7f6116eedf4d1e1cad2646b05499baff7b59bc8a88",
+          "size": 538
+        },
+        {
+          "path": "board6/board6.SchDoc",
+          "sha256": "d1da22ae6e1e3c6af4379a65081597abf11782fecc1320026412521a11205915",
+          "size": 14336
+        },
+        {
+          "path": "board6/board6.SchLib",
+          "sha256": "b1b5ec08350ce0722e4b230e769fb33bdd51e19aef1c8dcd691dbca3dabe635b",
+          "size": 9728
+        }
+      ],
+      "name": "board6",
+      "script": "examples/kit/board6/design.py",
+      "script_sha256": "02f4b4301efc92d6ec1e34fd350ac2d4643f2c4ec28f7a6096e55b98ed819ce9"
+    },
+    {
+      "digest": "bb1155788496469e1831d3c743bcb3fe2eb4a00d66bbe65d8c84d00b85258e54",
+      "files": [
+        {
+          "path": "libs/libs.OutJob",
+          "sha256": "ae63cff1abc233662b18f9a16715d3fde9bf474381a93fe14d58d9d3a2b8617a",
+          "size": 3015
+        },
+        {
+          "path": "libs/libs.PcbDoc",
+          "sha256": "a7218f03522a6039d8da3aa871cb960d7265fb2a5737077840ae7c4f93ba8c97",
+          "size": 124416
+        },
+        {
+          "path": "libs/libs.PcbLib",
+          "sha256": "8be5fe6fdf43941dccabbcf749de1fb1707a4234d16cf41820199061a32b6ea5",
+          "size": 117248
+        },
+        {
+          "path": "libs/libs.PrjPcb",
+          "sha256": "d46c93b5982d70173f18ae94863cee275d9f6e580f40fbfa7583916e6bfb209e",
+          "size": 308
+        },
+        {
+          "path": "libs/libs.SchDoc",
+          "sha256": "e45aaacef8fb058c29c7924207e82eda6649e96045f122aaab59162f74ceeade",
+          "size": 21504
+        },
+        {
+          "path": "libs/libs.SchLib",
+          "sha256": "ad07d14d835901d6ac896d5536a318fc9d76f08ee2826fd708ebe7d64cf38799",
+          "size": 14336
+        }
+      ],
+      "name": "libs",
+      "script": "examples/kit/libs/design.py",
+      "script_sha256": "f3b6cdbb579c7005530c3aaa11ad0ed3a3ad6bb26083dfed98e3e6d29cdc1d50"
+    }
+  ],
+  "schema": "fenolite.altium-kit.v0",
+  "script": {
+    "calls": {
+      "Append": "S-0501",
+      "AssignFile": "S-0501",
+      "ClearMessages": "S-0503",
+      "CloseFile": "S-0501",
+      "Copy": "S-0501",
+      "DM_Compile": "S-0504",
+      "DM_FocusedProject": "S-0503",
+      "DM_MessagesManager": "S-0503",
+      "DM_ProjectFileName": "S-0504",
+      "DM_ProjectFullPath": "S-0504",
+      "GetWorkspace": "S-0503",
+      "Length": "S-0501",
+      "Messages": "S-0503",
+      "MessagesCount": "S-0503",
+      "MsgClass": "S-0503",
+      "Rewrite": "S-0501",
+      "Source": "S-0503",
+      "Text": "S-0503",
+      "UpperCase": "S-0501",
+      "Writeln": "S-0501"
+    },
+    "log": "results/script.log",
+    "path": "kit_script.pas",
+    "procedure": "FenoliteKitRun",
+    "sha256": "685ab54f38e643789f2f3abb87d9a590854957d685c42a5067eec8375e26d197"
+  },
+  "seed": 0,
+  "steps": [
+    {
+      "checks": [
+        "resave",
+        "parity"
+      ],
+      "document": "flat/flat.SchDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-SCHDOC",
+        "H-A-PH-ZERO-FIELDS"
+      ],
+      "id": "K1.1",
+      "instruction": "Open `flat/flat.PrjPcb` with File » Open Project and open `flat.SchDoc`. Save it with File » Save As as `results/flat/flat.SchDoc`.",
+      "kind": "file",
+      "pending": {},
+      "result": "flat/flat.SchDoc",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "resave",
+        "parity"
+      ],
+      "document": "flat/flat.PcbDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-PCBDOC",
+        "H-A-PH-ZERO-FIELDS"
+      ],
+      "id": "K1.2",
+      "instruction": "Open `flat.PcbDoc` of the same project. Save it with File » Save As as `results/flat/flat.PcbDoc`.",
+      "kind": "file",
+      "pending": {},
+      "result": "flat/flat.PcbDoc",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "resave"
+      ],
+      "document": "libs/libs.SchLib",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-SCHLIB",
+        "H-A-PH-ZERO-FIELDS"
+      ],
+      "id": "K1.3",
+      "instruction": "Open `libs/libs.PrjPcb` and open `libs.SchLib`. Save it with File » Save As as `results/libs/libs.SchLib`.",
+      "kind": "file",
+      "pending": {},
+      "result": "libs/libs.SchLib",
+      "sample": "libs",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "resave"
+      ],
+      "document": "libs/libs.PcbLib",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-PCBLIB",
+        "H-A-PH-ZERO-FIELDS"
+      ],
+      "id": "K1.4",
+      "instruction": "Open `libs.PcbLib` of the same project. Save it with File » Save As as `results/libs/libs.PcbLib`.",
+      "kind": "file",
+      "pending": {},
+      "result": "libs/libs.PcbLib",
+      "sample": "libs",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "resave"
+      ],
+      "document": "flat/flat.PrjPcb",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE"
+      ],
+      "id": "K1.5",
+      "instruction": "With `flat.PrjPcb` focused, save the project with File » Save Project As as `results/flat/flat.PrjPcb`. Then close the project without saving anything else.",
+      "kind": "file",
+      "pending": {},
+      "result": "flat/flat.PrjPcb",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "resave",
+        "parity"
+      ],
+      "document": "flat/ascii/flat.SchDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-SCHDOC"
+      ],
+      "id": "K1.6",
+      "instruction": "Open `flat/ascii/flat.SchDoc` with File » Open. Save it with File » Save As as `results/flat/flat_ascii.SchDoc`, in the format that Altium offers first.",
+      "kind": "file",
+      "pending": {},
+      "result": "flat/flat_ascii.SchDoc",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "resave"
+      ],
+      "document": "tree/tree.SchDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-SCHDOC",
+        "H-A-SCHX-TREE"
+      ],
+      "id": "K1.7",
+      "instruction": "Open `tree/tree.PrjPcb` and its four schematic documents. Save each with File » Save As under its own name in `results/tree/`; this step's file is `results/tree/tree.SchDoc`.",
+      "kind": "file",
+      "pending": {},
+      "result": "tree/tree.SchDoc",
+      "sample": "tree",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": false,
+      "hypotheses": [
+        "H-A-WRITE-SCHDOC",
+        "H-A-WRITE-PCBDOC",
+        "H-A-WRITE-SCHLIB",
+        "H-A-WRITE-PCBLIB",
+        "H-A-PH-CHECKSUM",
+        "H-A-PH-LAYOUT",
+        "H-A-PH-ZERO-FIELDS"
+      ],
+      "id": "K1.8",
+      "instruction": "Type whether any document of the steps K1.1 to K1.7 showed a repair prompt, an upgrade prompt or an error dialog when it was opened or saved.",
+      "kind": "form",
+      "pending": {},
+      "result": "K1.8",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": "bool"
+    },
+    {
+      "checks": [
+        "messages"
+      ],
+      "document": "flat/flat.PrjPcb",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-COMPILE",
+        "H-A-KIT-SCRIPT",
+        "H-A-PH-NO-CACHE",
+        "H-A-WRITE-SCHDOC"
+      ],
+      "id": "K2.1",
+      "instruction": "With `flat.PrjPcb` open and focused, run Project » Validate PCB Project. Then select every row of the Messages panel, copy the rows into `results/flat/messages.txt`, one per line with the class first, or write the one line `no messages` when the panel is empty.",
+      "kind": "file",
+      "pending": {},
+      "result": "flat/messages.txt",
+      "sample": "flat",
+      "scripted": true,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "messages"
+      ],
+      "document": "tree/tree.PrjPcb",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-COMPILE",
+        "H-A-KIT-SCRIPT",
+        "H-A-PH-NO-CACHE",
+        "H-A-SCHX-TREE"
+      ],
+      "id": "K2.2",
+      "instruction": "With `tree.PrjPcb` open and focused, run Project » Validate PCB Project. Then select every row of the Messages panel, copy the rows into `results/tree/messages.txt`, one per line with the class first, or write the one line `no messages` when the panel is empty.",
+      "kind": "file",
+      "pending": {},
+      "result": "tree/messages.txt",
+      "sample": "tree",
+      "scripted": true,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "messages"
+      ],
+      "document": "routed/routed.PrjPcb",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-COMPILE",
+        "H-A-KIT-SCRIPT",
+        "H-A-PH-NO-CACHE",
+        "H-A-WRITE-PCBDOC"
+      ],
+      "id": "K2.3",
+      "instruction": "With `routed.PrjPcb` open and focused, run Project » Validate PCB Project. Then select every row of the Messages panel, copy the rows into `results/routed/messages.txt`, one per line with the class first, or write the one line `no messages` when the panel is empty.",
+      "kind": "file",
+      "pending": {},
+      "result": "routed/messages.txt",
+      "sample": "routed",
+      "scripted": true,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "messages"
+      ],
+      "document": "board6/board6.PrjPcb",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-COMPILE",
+        "H-A-KIT-SCRIPT",
+        "H-A-PH-NO-CACHE"
+      ],
+      "id": "K2.4",
+      "instruction": "With `board6.PrjPcb` open and focused, run Project » Validate PCB Project. Then select every row of the Messages panel, copy the rows into `results/board6/messages.txt`, one per line with the class first, or write the one line `no messages` when the panel is empty.",
+      "kind": "file",
+      "pending": {},
+      "result": "board6/messages.txt",
+      "sample": "board6",
+      "scripted": true,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "messages"
+      ],
+      "document": "libs/libs.PrjPcb",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-COMPILE",
+        "H-A-KIT-SCRIPT",
+        "H-A-PH-NO-CACHE",
+        "H-A-WRITE-SCHLIB",
+        "H-A-WRITE-PCBLIB"
+      ],
+      "id": "K2.5",
+      "instruction": "With `libs.PrjPcb` open and focused, run Project » Validate PCB Project. Then select every row of the Messages panel, copy the rows into `results/libs/messages.txt`, one per line with the class first, or write the one line `no messages` when the panel is empty.",
+      "kind": "file",
+      "pending": {},
+      "result": "libs/messages.txt",
+      "sample": "libs",
+      "scripted": true,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "netlist",
+        "parity"
+      ],
+      "document": "flat/flat.PcbDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-COMPILE"
+      ],
+      "id": "K3.1",
+      "instruction": "Add a PCB document to the project `flat` with File » New » PCB and save it as `results/flat/eco.PcbDoc`. Run Design » Update PCB Document eco.PcbDoc, validate and execute the changes, and save the document.",
+      "kind": "file",
+      "pending": {},
+      "result": "flat/eco.PcbDoc",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": 0,
+      "hypotheses": [
+        "H-A-KIT-COMPILE"
+      ],
+      "id": "K3.2",
+      "instruction": "Type the number of changes of the change order of step K3.1 that were marked invalid.",
+      "kind": "form",
+      "pending": {},
+      "result": "K3.2",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": "int"
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": true,
+      "hypotheses": [
+        "H-A-RULE-KINDS"
+      ],
+      "id": "K4.1",
+      "instruction": "Open `routed/routed.PcbDoc` and Design » Rules. Type whether the editor lists the five rules of the table below with the values of the table, and no second rule of the kinds Clearance and Width.",
+      "kind": "form",
+      "pending": {},
+      "result": "K4.1",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": "bool"
+    },
+    {
+      "checks": [
+        "present",
+        "copper.clearance"
+      ],
+      "document": "routed/routed.PcbDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-DRC"
+      ],
+      "id": "K4.2",
+      "instruction": "Run Tools » Design Rule Check with the report file enabled and press Run Design Rule Check. Save the report that Altium writes as `results/routed/drc.html`.",
+      "kind": "file",
+      "pending": {},
+      "result": "routed/drc.html",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": 1,
+      "hypotheses": [
+        "H-A-KIT-DRC",
+        "H-A-RULE-SCOPE"
+      ],
+      "id": "K4.3",
+      "instruction": "Type the number of violations of the report of step K4.2 that name the Width rule of the class `PWR`.",
+      "kind": "form",
+      "pending": {},
+      "result": "K4.3",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": "int"
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": 1,
+      "hypotheses": [
+        "H-A-KIT-DRC",
+        "H-A-RULE-SCOPE"
+      ],
+      "id": "K4.4",
+      "instruction": "Type the number of violations of the same report that name the Clearance rule between the nets `VIN` and `LED_A`.",
+      "kind": "form",
+      "pending": {},
+      "result": "K4.4",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": "int"
+    },
+    {
+      "checks": [
+        "resave",
+        "parity"
+      ],
+      "document": "board6/board6.PcbDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-RESAVE",
+        "H-A-WRITE-PCBDOC"
+      ],
+      "id": "K5.1",
+      "instruction": "Open `board6/board6.PrjPcb` and, of its documents, **the PCB document** `board6.PcbDoc`. Save it with File » Save As as `results/board6/board6.PcbDoc`.",
+      "kind": "file",
+      "pending": {},
+      "result": "board6/board6.PcbDoc",
+      "sample": "board6",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": 6,
+      "hypotheses": [
+        "H-A-PCBX-STACK"
+      ],
+      "id": "K5.2",
+      "instruction": "Open Design » Layer Stack Manager. Type the number of copper layers it lists.",
+      "kind": "form",
+      "pending": {},
+      "result": "K5.2",
+      "sample": "board6",
+      "scripted": false,
+      "value_type": "int"
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": true,
+      "hypotheses": [
+        "H-A-PCBX-VIASPAN"
+      ],
+      "id": "K5.3",
+      "instruction": "Select each of the three vias. Type whether they span the layers of the table below: one through, one blind, one buried.",
+      "kind": "form",
+      "pending": {},
+      "result": "K5.3",
+      "sample": "board6",
+      "scripted": false,
+      "value_type": "bool"
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": true,
+      "hypotheses": [
+        "H-A-PCBX-KEEPOUT"
+      ],
+      "id": "K5.4",
+      "instruction": "Select the keep-out. Type whether its restrictions are vias and tracks, and no other.",
+      "kind": "form",
+      "pending": {},
+      "result": "K5.4",
+      "sample": "board6",
+      "scripted": false,
+      "value_type": "bool"
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": true,
+      "hypotheses": [
+        "H-A-PCBX-TEXT"
+      ],
+      "id": "K5.5",
+      "instruction": "Read the four texts. Type whether each has the string, the layer and the rotation of the table below.",
+      "kind": "form",
+      "pending": {},
+      "result": "K5.5",
+      "sample": "board6",
+      "scripted": false,
+      "value_type": "bool"
+    },
+    {
+      "checks": [
+        "resave",
+        "parity",
+        "poured",
+        "copper.clearance"
+      ],
+      "document": "routed/routed.PcbDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-KIT-REPOUR",
+        "H-A-KIT-RESAVE",
+        "H-A-PCBX-REPOUR"
+      ],
+      "id": "K6.1",
+      "instruction": "In `routed.PcbDoc` run Tools » Polygon Pours » Repour All. Save the document with File » Save As as `results/routed/routed.PcbDoc`.",
+      "kind": "file",
+      "pending": {},
+      "result": "routed/routed.PcbDoc",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": true,
+      "hypotheses": [
+        "H-A-OUTJOB-OPEN"
+      ],
+      "id": "K7.1",
+      "instruction": "Open `routed.OutJob` from the Projects panel. Type whether it opens without a message and lists the six outputs of the table below.",
+      "kind": "form",
+      "pending": {},
+      "result": "K7.1",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": "bool"
+    },
+    {
+      "checks": [
+        "listing"
+      ],
+      "document": "routed/routed.OutJob",
+      "expected": null,
+      "hypotheses": [
+        "H-A-OUTJOB-RUN",
+        "H-A-OUTJOB-RUN-2"
+      ],
+      "id": "K7.2",
+      "instruction": "Generate the container `fab`, then the container `doc`. Write the names of the generated files, one per line and without their folders, into `results/routed/outputs.txt`.",
+      "kind": "file",
+      "pending": {},
+      "result": "routed/outputs.txt",
+      "sample": "routed",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [
+        "present"
+      ],
+      "document": "templates/iso5457_generic.SchDot",
+      "expected": null,
+      "hypotheses": [
+        "H-A-SCHDOT-OPEN"
+      ],
+      "id": "K8.1",
+      "instruction": "Open `templates/iso5457_generic.SchDot` with File » Open. Save it with File » Save As as `results/templates/iso5457_generic.SchDot`.",
+      "kind": "file",
+      "pending": {},
+      "result": "templates/iso5457_generic.SchDot",
+      "sample": "kit",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": "Flat",
+      "hypotheses": [
+        "H-A-SCHDOT-STRINGS"
+      ],
+      "id": "K8.2",
+      "instruction": "Open `flat.SchDoc` and read the title block. Type the title it shows.",
+      "kind": "form",
+      "pending": {},
+      "result": "K8.2",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": "text"
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": "B",
+      "hypotheses": [
+        "H-A-SCHDOT-STRINGS"
+      ],
+      "id": "K8.3",
+      "instruction": "Type the revision that the same title block shows.",
+      "kind": "form",
+      "pending": {},
+      "result": "K8.3",
+      "sample": "flat",
+      "scripted": false,
+      "value_type": "text"
+    },
+    {
+      "checks": [
+        "netlist",
+        "parity"
+      ],
+      "document": "libs/libs.SchDoc",
+      "expected": null,
+      "hypotheses": [
+        "H-A-SCHLIB-UPDATE"
+      ],
+      "id": "K9.1",
+      "instruction": "Open `libs.SchDoc` and run Tools » Update From Libraries with full replacement for every part. Save the document with File » Save As as `results/libs/libs.SchDoc`.",
+      "kind": "file",
+      "pending": {},
+      "result": "libs/libs.SchDoc",
+      "sample": "libs",
+      "scripted": false,
+      "value_type": null
+    },
+    {
+      "checks": [],
+      "document": "",
+      "expected": 0,
+      "hypotheses": [
+        "H-A-SCHLIB-UPDATE"
+      ],
+      "id": "K9.2",
+      "instruction": "Type the number of parts that the update of step K9.1 reported as not found.",
+      "kind": "form",
+      "pending": {},
+      "result": "K9.2",
+      "sample": "libs",
+      "scripted": false,
+      "value_type": "int"
+    }
+  ],
+  "timestamp": "2026-01-01T00:00:00Z"
+}
