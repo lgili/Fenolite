@@ -101,6 +101,7 @@ design.track(
     via_step(mm(18), mm(6), to="F.Cu", diameter=mm(0.6), drill=mm(0.3)),
     d1.pad(1),
     width=mm(0.25),
+    locked=True,  # written locked: `route --rip` keeps it
 )
 # An arc inside a path: from where the path is, through the first point, to the second.
 design.track(

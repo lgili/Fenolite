@@ -244,9 +244,13 @@ def test_krt_outcome_is_recorded_either_way(tmp_path: Path) -> None:
     if code != 0 or not isinstance(result, dict) or not (folder / "routed.kicad_pcb").is_file():
         open_before = open_total(before)
         note = (stderr or json.dumps(envelope.get("issues", [])))[-300:]
-        _record("kicadroutingtools", "0.22.1", "krt-partial", "different",
-                f"no routed board (exit {code}); {open_before} open connection(s) stay; {note}")  # fmt: skip
+        detail = f"no routed board (exit {code}); {open_before} open connection(s) stay; {note}"
+        print(f"krt-partial: different; {detail}")
+        _record("kicadroutingtools", "0.22.1", "krt-partial", "different", detail)
         return
     equal, detail, _facts = _judge(folder, before)
     version = str(result.get("tool_version") or "0.22.1")
+    print(
+        f"krt-partial: {'equal' if equal else 'different'}; {detail}"
+    )  # shown by the -rA of the routing job
     _record("kicadroutingtools", version, "krt-partial", "equal" if equal else "different", detail)

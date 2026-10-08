@@ -25,7 +25,7 @@ def open_nets(design: Design) -> tuple[str, ...]:
 
 
 def test_open_nets() -> None:
-    """Scenario "Open nets": a net with a stub is selected, a joined net is not."""
+    """Scenario "Unrouted nets": a net with a stub is selected, a joined net is not."""
     design = routing_design(stub=True)
     found = open_nets(design)
     assert found == ("A", "GND", "S")
@@ -64,7 +64,7 @@ def test_rip_removes_only_selected_net_copper() -> None:
 
 
 def test_rip_keeps_locked_and_kept_copper() -> None:
-    """Scenario "Rip keeps locked and kept copper"."""
+    """Scenario "Rip": locked and kept copper stay."""
     design = routing_design(stub=True)
     assert design.board is not None
     net_b = next(net.id for net in design.circuit.nets if net.name == "B")

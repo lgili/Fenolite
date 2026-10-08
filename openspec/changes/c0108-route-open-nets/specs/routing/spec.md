@@ -8,7 +8,7 @@
 
 `select.rip(design, nets, *, keep=frozenset()) -> tuple[Design, int]` SHALL remove the tracks, arcs and vias of those nets whose `locked` is false and whose id is not in `keep`, and return their count. Every other item MUST stay, in its order.
 
-#### Scenario: Open nets
+#### Scenario: Unrouted nets
 - **GIVEN** an authored design with nets `A` (two pads, no copper), `B` (two pads joined by one track), `S` (two pads and a 3 mm track from one of them), `GND` (three pads, one zone) and `NC` (one pad), and `open_nets` computed by `analysis.connectivity.connectivity`
 - **WHEN** `uv run pytest tests/unit/routing/test_select.py` calls `unrouted(design, open_nets)`
 - **THEN** it returns `("A", "S")`, and `("A", "GND", "S")` with `include_zone_nets=True`
@@ -17,7 +17,7 @@
 - **WHEN** `unrouted(design, open_nets, patterns=("*", "!A"))` is called on the same design
 - **THEN** it returns `("S",)`
 
-#### Scenario: Rip keeps locked and kept copper
+#### Scenario: Rip
 - **GIVEN** the same design, where `B` also holds a second track with `locked=True` that joins nothing
 - **WHEN** `rip(design, ("B", "S"), keep=frozenset({<id of the track of S>}))` is called
 - **THEN** the unlocked track of `B` is gone, the locked track of `B` and the track of `S` stay, and the count is 1
