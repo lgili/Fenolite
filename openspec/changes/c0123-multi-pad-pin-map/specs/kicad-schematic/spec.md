@@ -46,7 +46,7 @@ For a component whose `pin_pad_map` gives a pin several pads, the generated shee
 - **Gate.** `versions.check_emittable` MUST run on the node for `target`; an error MUST raise `LossyWriteError`, or with `allow_lossy=True` remove the node of the token with one `kicad.sch.dropped-too-new` warning.
 - **Empty texts.** A pin name or a property text that the library writes `~` and its reader takes as empty MUST be embedded empty for a target whose sheet format reads `~` as a tilde (10.0), so the pin has no name on both majors.
 - **Authored symbols.** A symbol that the design authors has no slots; its node MUST be the one `sym.write_symbol_library` writes for it.
-- **Power flag.** `symembed.power_flag(target)` MUST return the authored definition `fenolite:PWR_FLAG`: flagged `power`, reference `#FLG`, one pin of type `power_out` numbered `1` at the origin with length 0, `in_bom` and `on_board` false, and a description that says it is authored for Fenolite. It MUST hold no content of any other library.
+- **Power flag.** `symembed.power_flag(target, library="fenolite")` MUST return the authored definition `<library>:PWR_FLAG`, `fenolite:PWR_FLAG` by default: flagged `power`, reference `#FLG`, one pin of type `power_out` numbered `1` at the origin with length 0, `in_bom` and `on_board` false, and a description that says it is authored for Fenolite. It MUST hold no content of any other library, and its node in a library file MUST be the same whatever the library. `symembed.flag_library(libraries)` MUST give the library of "Generated sheet content", and `symembed.is_power_flag(lib_id)` MUST be true exactly for `PWR_FLAG` of a library named `fenolite` in any letter case.
 - **Project library.** `symembed.write_symbol_library(symbols, *, target) -> str` MUST write a `.kicad_sym` text with the header of the target (`FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]`, generator `fenolite`) holding the same nodes under their bare names, sorted by name. `sym.read_symbol_library` MUST read it back with equal pins. A library whose symbols are all authored by the design and have no pin-pad variant MUST be the text of `sym.write_symbol_library`, whose header version is `FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]` too.
 
 #### Scenario: Derived symbol flattened
@@ -74,6 +74,10 @@ For a component whose `pin_pad_map` gives a pin several pads, the generated shee
 #### Scenario: Variant name of one pad per pin is unchanged
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_symembed.py -k variant_name` computes `variant_name("Mini_LED", (("2", "1"), ("1", "2")))` and the name for `(("1", "2"), ("2", "1"))`
 - **THEN** both are `Mini_LED_b0bb1b70`, the name the units design embeds today; and `(("1", "1"), ("1", "T1"))` and `(("1", "T1"), ("1", "1"))` give two different names
+
+#### Scenario: The flag in another library
+- **WHEN** `power_flag(10, "Fenolite")` and `power_flag(10)` are each written with `write_symbol_library`
+- **THEN** the two texts are equal, and the lib ids are `Fenolite:PWR_FLAG` and `fenolite:PWR_FLAG`
 
 ### Requirement: Own netlist of a generated sheet
 `fenolite.backends.kicad.sch_netlist.own_netlist(sheet, *, project, children={}) -> KicadNetlist` SHALL return the netlist of a root sheet and of the child sheets it names (`children`: each child keyed by its path from the root file's folder), inside the grammar of "Netlist grammar check", read from the sheets alone, as KiCad reads them.
@@ -144,7 +148,7 @@ For a component whose `pin_pad_map` gives a pin several pads, the generated shee
 | `wire-unlabelled` | a wired group without a label |
 | `shared-point` | pins of two instances at one point, or several pins of one instance at a point that carries no label, unless those pins have one name (the stacked pins of "Own netlist of a generated sheet") |
 | `frame` | an instance whose rotation and mirror are not in `schlayout.PROVED_FRAMES` |
-| `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than `fenolite:PWR_FLAG` |
+| `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than Fenolite's power flag (`symembed.is_power_flag`: `PWR_FLAG` of a library named `fenolite` in any letter case) |
 
 - The code and its severity MUST be `sch_netlist.ISSUE_CODES`; the closed set `sch.ISSUE_CODES` of "Schematic read issue codes" is not widened, because reading a sheet never gives this issue. `sch.opaque_heads(sheet) -> Counter[str]` MUST count the heads of the opaque slots of the sheet root, and MUST be empty for a sheet that was not read from a file.
 - `sch.opaque_wires(sheet) -> tuple[tuple[Point, ...], ...]` MUST give the points of each opaque root `wire` slot of a read sheet, in file order, and `()` for a created sheet.
@@ -179,3 +183,8 @@ For a component whose `pin_pad_map` gives a pin several pads, the generated shee
 #### Scenario: Stacked pins are inside the grammar
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_netlist.py -k stacked_grammar` runs `grammar_issues` on the sheet of the stacked design, and on a copy in which one of the stacked pins of an open pin is renamed
 - **THEN** the first gives `()`, and the second gives the reason `shared-point`
+
+#### Scenario: The flag of the catalog library is no power symbol
+- **WHEN** the own netlist of the built design of "Generated sheet content", scenario "Catalog parts with a supply", is read
+- **THEN** no `NetlistUnsupportedError` is raised, and the build's guard `build.schematic-netlist-differs` reports nothing
+
