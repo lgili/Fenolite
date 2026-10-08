@@ -87,7 +87,7 @@ def test_component_defaults() -> None:
 def test_text_pin_attributes() -> None:
     document = _read(
         "|RECORD=1",
-        "|RECORD=2|OWNERINDEX=1|OWNERPARTID=1|NAME=IN|DESIGNATOR=1|ELECTRICAL=4|PINCONGLOMERATE=30"
+        "|RECORD=2|OWNERINDEX=1|OWNERPARTID=1|NAME=IN|DESIGNATOR=1|ELECTRICAL=4|PINCONGLOMERATE=62"
         "|PINLENGTH=20|LOCATION.X=-30|LOCATION.Y=10|FORMALTYPE=1|SYMBOL_INNEREDGE=3|SYMBOL_OUTEREDGE=1",
     )
     pin = document.records[2]

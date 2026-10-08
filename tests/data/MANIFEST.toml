@@ -1553,6 +1553,30 @@ corpus_id = ""
 notes = "child sheet of the two-channel sample: R1 and C12, the ports VCC and OUT on the pin ends, the net label MID (c0083). Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil; the first file was SHA-256 437e5357..."
 
 [[file]]
+path = "tests/data/altium/pinbits/author.py"
+origin = "authored"
+corpus_id = ""
+notes = "script that writes the pin-bits check project of c0148 with the schematic writer: the catalog LED four times, every pin with PINCONGLOMERATE bit 0x20 and the visibility bits of its variant V1 to V4"
+
+[[file]]
+path = "tests/data/altium/pinbits/pinbits.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the pin-bits check project (c0148): the schematic and its library"
+
+[[file]]
+path = "tests/data/altium/pinbits/pinbits.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the pin-bits check project (c0148): D1 to D4, the library symbols LED_V1 to LED_V4 with pins of PINCONGLOMERATE 0x20, 0x30, 0x28 and 0x38 above the direction, and the free texts V1 to V4. Opened in Altium Designer 26.5.0 on 2026-10-08: V1 no pin text, V2 numbers, V3 names, V4 both (S-0613)"
+
+[[file]]
+path = "tests/data/altium/pinbits/pinbits.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "library of the pin-bits check project (c0148): the four symbols LED_V1 to LED_V4 with the pins of the sheet"
+
+[[file]]
 path = "tests/data/altium/body2/body2.PcbDoc"
 origin = "authored"
 corpus_id = ""

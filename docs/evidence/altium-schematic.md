@@ -31,9 +31,9 @@ same bytes and that this table names them.
 | file | SHA-256 |
 |---|---|
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
-| `tests/data/altium/sample/altium_sample.SchDoc` | `d4df14ba6cd1220a1b4eaed0aa266360a9364f57036312b7c36391f18125a584` |
-| `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `f5595a9dc5ecf4172cb83f4f0298fa3683fe4b59f8dcce4d28b39f816004b63c` |
-| `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `b0fec55671a9aad36be1b9734bcfc21af8afa633978c6f8ff2a94349023877e3` |
+| `tests/data/altium/sample/altium_sample.SchDoc` | `fba12e59170cbbadd926a12e767745839c6808fedf3c77d163384deec430a3b0` |
+| `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `5106f8dc626bf388bfafd43bef64f88948470f67239f888497790456db32ef27` |
+| `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `670d852303eeed40ad9834f333adf93f802b7ebfbc39548083645dce5ec6c826` |
 
 - `altium_sample.SchDoc` is an ASCII schematic ("SCH ASCII Version 5.0") with CR LF line ends: 123 lines,
   the header and 122 records. It holds an A4 sheet, 8 components with 19 pins, 19 wire stubs, 13 power
@@ -101,7 +101,7 @@ ASCII sample's project file.
 | binary file | SHA-256 |
 |---|---|
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
-| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `80ad9ea254cf57522527128fbe4e1a0cafb18e1eb8ee0610f341548672ee1c88` |
+| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `86f5747454cca461a3eab5da270a994439d8b4f2bf4a29480d1360ca74a4ee1e` |
 
 - The free Altium 365 Viewer (S-0149) needs no Altium licence. It takes one file, or one project in a Zip
   archive, up to 200 MB.
@@ -147,12 +147,12 @@ that fresh builds give these bytes and that this table names them.
 
 | library or project file | SHA-256 |
 |---|---|
-| `tests/data/altium/sample/FenoliteSample.SchLib` | `f071c2fe861fb5a80fb219ccdc8a207b2c6429094fcf4a3002f366109912fdff` |
+| `tests/data/altium/sample/FenoliteSample.SchLib` | `fbcf22282d5c274f7220bbe0b3c862f2fb6932aad2407a14d179da1367d6cf1e` |
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
-| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `7d6276e4c63a89e4c567476cf9bc154664306217ef9a03d1ceff71854a19ac55` |
-| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `cbf419d33675f13d4de87fe063b9a11d802204ed6aafaecf59608317c0be517e` |
+| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `1ecb0bb793cf06ecad44422d41615b624116976208f1a929d9b023ebc85e3c28` |
+| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `71abcfba4f4fc1d95f6ce37730817537d5432c26a78ef8e32e7b30f64d1a3b49` |
 
 2026-10-07 (change c0134): the two files of `kicad_example` above were built again, because the four
 symbols of the example library changed: `CONN2` no longer shows its pin names, which only repeated its pin
@@ -215,9 +215,9 @@ gives these bytes and that this table names them.
 | project, library or schematic file | SHA-256 |
 |---|---|
 | `tests/data/altium/no_connect/altium_no_connect.PrjPcb` | `72149d0bbaebd6fc87c9e1535b28db504b3d2a40b67986d4c81243d997a31c81` |
-| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `5b1b5bb8b1c29b2ae9833738c7f4de892ac5e18f9b3128d205223301299d2792` |
-| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `ca9aa9fb7b50cd131fc48b42139a2f5fd68ad815dc8f3675e0492d55b7423522` |
-| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `58d3e73d87ec017f426141a5718376ecd7f98264553570dfb5f72ffd7355c699` |
+| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `80c45b5bafcd93aed4e4f9d38a29bd46dceccfed7d5819aaac401246a6474129` |
+| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `9b94a2d31d43d2297f1de97ccbc754b899dd6a2b44bc64520546e5a8f08d43af` |
+| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `00fbe6dfcb752687b1dd036754cdd7072d84c35b6d36418105ae301f0dc81356` |
 
 2026-10-07 (change c0134): the library and the two schematics above were built again, because `CONN2`
 (`J1`) no longer shows its pin names, `MCU8` (`U1`) has a larger body with longer pins further out and
@@ -264,13 +264,13 @@ fresh build gives these bytes and that this table names them.
 
 | sheet, library or project file | SHA-256 |
 |---|---|
-| `tests/data/altium/hier/FenoliteHier.SchLib` | `3013953bfd734233a33dbd17396d1b3049c2b215f13e46d2a0c4c9d75c0c8a4a` |
+| `tests/data/altium/hier/FenoliteHier.SchLib` | `28253155935529e7c62fb723739044858277e39fcd7c61eb3c5dbdfcf0cebbc3` |
 | `tests/data/altium/hier/altium_hier.PrjPcb` | `5a93823a0b938462fb766cee0ce8254a7e31f29076e4fa9303f74a8ed88b30f6` |
-| `tests/data/altium/hier/altium_hier.SchDoc` | `47ade2caca275e6d5ac7bfab73b71dc396b2c49dc76e7a58d089f6ea4b594e4d` |
+| `tests/data/altium/hier/altium_hier.SchDoc` | `ee7353c17578de7e6c36904de4f30c8406afd1909837c92d64157067cd51d1f0` |
 | `tests/data/altium/hier/altium_hier_flash.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
-| `tests/data/altium/hier/altium_hier_flash.SchDoc` | `7c51ef59965632ae74686b5c868bcb8d4c89c64b3f097a9a1dd6d72ee87d8b61` |
+| `tests/data/altium/hier/altium_hier_flash.SchDoc` | `9782ddddfb92fcb6d746c6e14fd328da276643779c20398ad8b8ba9772dec46d` |
 | `tests/data/altium/hier/altium_hier_mcu.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
-| `tests/data/altium/hier/altium_hier_mcu.SchDoc` | `eed364bf61d5be9f4771fba64edd5dd6c8a0e2728573fa95bb056bc3f52d5ffe` |
+| `tests/data/altium/hier/altium_hier_mcu.SchDoc` | `25e01b9cc051d34f391fa30b492a377f07bab53a257f0f2fc13eb40782167e67` |
 
 - These are the files rebuilt after the reports of 2026-10-03 (below). The top sheet changed after the
   first report, and the project file after each: it now lists the top sheet, the two module sheets, the
@@ -1198,3 +1198,60 @@ exist: both support their rows and settle neither, because the step's own report
 
 What the saved files show of the formats (keys that Altium adds, drops or reorders on a save) is input for
 the format pages and is recorded there in a change of its own.
+
+## Pin visibility bits (author reports of 2026-10-08, change c0148)
+
+Two author reports of the same day, in Altium Designer 26, settle what bits 0x08 and 0x10 of a pin's
+`PINCONGLOMERATE` mean (`H-A-SCHLIB-PINBITS`). The photos are the maintainer's and are not committed.
+
+**First report: files written before change c0148 (S-0612).** In session 2 the maintainer looked at the
+LED `D1` of the kit sample `flat` (the catalog LED; its pins written with `PINCONGLOMERATE` 18 and 16,
+0x10 set and 0x08 clear, meant as "number shown, name hidden"). The Properties panel (Pins) marked both
+numbers hidden and both names visible, and the names K and A were drawn on the sheet. The LED
+`Mini:Mini_LED` of a build of `examples/blink_routed` (pins written with 2 and 0, no bit set) showed both
+names and both numbers. On the narrow LED body the two visible names crossed over, each ending past the
+middle, so K stood beside the anode pin and A beside the cathode, and the maintainer read the LED as
+reversed. The electrical side was right: PCB pad 1 is `GND` (cathode), pad 2 `LED_A`, and Altium listed
+"Pin 1 = K, Pin 2 = A" by pad number from the map records. The overlapping pin names of the report of
+2026-10-07 (above) most likely have the same cause: Fenolite wrote 0x08 to show a name, and Altium showed
+the names that the symbols meant hidden.
+
+**Second report: the check project `tests/data/altium/pinbits/` (S-0613).** The public sources read the
+two bits as show flags (S-0130, S-0131), and every pin that Altium saved in the corpus holds bit 0x20, which
+Fenolite never wrote (S-0614, table below). The check project holds the catalog LED four times, every pin
+with 0x20 set: V1 0x20, V2 0x20 | 0x10, V3 0x20 | 0x08, V4 0x20 | 0x18. Opened in Altium Designer
+Professional 26.5.0, V1 showed neither number nor name, V2 the numbers only, V3 the names only, V4 both:
+the expected answer.
+
+| file | SHA-256 |
+|---|---|
+| `pinbits.PrjPcb` | `da8fcf56f329256a9932eec8ee3e6203bc0f836f04d75d77e8e5fa6cef521cde` |
+| `pinbits.SchDoc` | `d0cc87c9cc2b3c8f074bde153a3a9b04323fdf3c383323927e3e9b1fa98ef491` |
+| `pinbits.SchLib` | `1211bea9e16da5a98b1bf4430c109c03404da4c5e4b16bdc6c5a614a6ea3e68b` |
+
+**Corpus census (S-0614; measured 2026-10-08 with Fenolite's own reader; held by `tests/corpus/test_altium_pin_bits.py`).** 4 175 pins: 2 974 in 36 of the
+38 schematic documents (two hold no pin) and 1 201 in the 9 libraries. Every one holds 0x20. By the bits
+0x08 and 0x10 and the number of pins of the owning component:
+
+| pins of | owner | neither | 0x10 only | 0x08 only | both |
+|---|---|---|---|---|---|
+| documents | at most 3 pins | 1 233 | 105 | 17 | 12 |
+| documents | more than 3 pins | 47 | 77 | 69 | 1 414 |
+| libraries | at most 3 pins | 75 | 40 | 24 | 2 |
+| libraries | more than 3 pins | 4 | 493 | 134 | 429 |
+
+The small components of the documents are resistors, capacitors and test points whose pins are named `1`
+and `2`; the large ones name their pins (`VCC`, `EN`, `TX1_P`). Read as show flags, the split is the usual
+one: passives hide pin texts, integrated circuits show them.
+
+**What it settles.** With 0x20 set, 0x08 shows the name and 0x10 the number; without 0x20, Altium
+Designer 26 reads the same two bits as hide flags (only the values 0, 2, 16 and 18 were seen without 0x20).
+Change c0148 writes 0x20 on every pin with the two bits as show flags, and the reader takes them as show
+flags with 0x20 and as hide flags without it. Files written before 0.3.0 show pin names that their symbols
+meant hidden and hide numbers that were meant shown; built again, their pins take the form of the check project. Nobody has
+opened a rebuilt kit or session file in Altium yet.
+
+**What moved in this page.** The tables that name committed files (`tests/data/altium/…`) carry the new
+digests; every committed schematic document and library differs from its former bytes in bit 0x20 of each
+pin alone (`tests/_pin_bits.py`). The tables that name the files in the maintainer's session folders
+(Parts L, N, W, Y and R) keep the digests of what he was given: those files hold pins without 0x20.

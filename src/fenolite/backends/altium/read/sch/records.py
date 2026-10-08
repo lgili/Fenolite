@@ -542,6 +542,9 @@ class Component(_Located):
 
 DIRECTIONS: dict[int, tuple[int, int]] = {0: (1, 0), 1: (0, 1), 2: (-1, 0), 3: (0, -1)}
 """Bits 0 and 1 of ``PINCONGLOMERATE``: rightwards, upwards, leftwards, downwards."""
+SHOW_FLAGS = 0x20
+"""The ``PINCONGLOMERATE`` bit that every pin Altium saves holds: with it bits 0x08 and 0x10 show the name
+and the number; without it they hide them (``schematic-library.md``, "Binary pin record"; change c0148)."""
 
 
 class Pin(SchRecord):
@@ -629,11 +632,13 @@ class Pin(SchRecord):
 
     @property
     def name_shown(self) -> bool:
-        return bool(self.conglomerate & 0x08)
+        """Bit 0x08 shows the name when bit 0x20 is set and hides it when 0x20 is clear (change c0148)."""
+        return bool(self.conglomerate & 0x08) == bool(self.conglomerate & SHOW_FLAGS)
 
     @property
     def designator_shown(self) -> bool:
-        return bool(self.conglomerate & 0x10)
+        """Bit 0x10 shows the number when bit 0x20 is set and hides it when 0x20 is clear (change c0148)."""
+        return bool(self.conglomerate & 0x10) == bool(self.conglomerate & SHOW_FLAGS)
 
     @property
     def formal_type(self) -> int:
@@ -1935,6 +1940,7 @@ __all__ = [
     "COUNT_CHECKS",
     "DIRECTIONS",
     "RECORD_TYPES",
+    "SHOW_FLAGS",
     "Arc",
     "Bezier",
     "Bus",

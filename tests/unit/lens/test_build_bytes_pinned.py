@@ -95,18 +95,23 @@ KICAD = {
     "genmod-04@10": "61b4067a94f8:546f73d38742:f356a9d74d6c:4e16d068e1ac:973511f5cf2f",
 }
 ALTIUM = {
-    # Changed by change c0126 (all ten entries, each marked with its former pin): ``.fenolite/board.json``
+    # Changed by change c0148 (all ten entries, each marked with its former pin): every pin of the
+    # schematic document and of the library has bit 0x20 added to its ``PINCONGLOMERATE`` (as Altium saves
+    # pins; 0x08 and 0x10 are then show flags), and ``.fenolite/build.json`` names the two new digests.
+    # Measured on 2026-10-08 against builds with the base code: no other file changed, and the two
+    # schematic files differ record by record in that bit alone (``tests/_pin_bits.py``).
+    # Changed by change c0126 (all ten entries): ``.fenolite/board.json``
     # holds the footprint graphics and corner ratios that the build wrote (c0126); no project file changed.
     # Measured on 2026-10-08: for every entry the digest of the files outside ``.fenolite/`` is the one
     # measured on the base before the change (``tests/_pinned.py::files_digest``), file by file.
-    "blink@ascii": "720f981a0f72",  # c0126: .fenolite/board.json alone; was 1896e9b80f88
-    "blink@binary": "03ddd9f42c80",  # c0126: .fenolite/board.json alone; was 3b260d5d6088
-    "blink-unmarked@ascii": "6f52bcfc5f39",  # c0126: .fenolite/board.json alone; was ceee4edd66d5
-    "blink-unmarked@binary": "fbdac8c68070",  # c0126: .fenolite/board.json alone; was b3a1f470ab5d
-    "board_40parts@ascii": "32d77f89673d",  # c0126: .fenolite/board.json alone; was e49a072fc1e3
-    "board_40parts@binary": "079ad8e43825",  # c0126: .fenolite/board.json alone; was 9b9770e93ad2
-    "nested@ascii": "f345113d40e8",  # c0126: .fenolite/board.json alone; was 2e848e270334
-    "nested@binary": "512c741fad8a",  # c0126: .fenolite/board.json alone; was 37ba8f5e4210
+    "blink@ascii": "52b5bc9a3e02",  # c0148: pin bit 0x20; was 720f981a0f72 (c0126; before, 1896e9b80f88)
+    "blink@binary": "1906149ef653",  # c0148: pin bit 0x20; was 03ddd9f42c80 (c0126; before, 3b260d5d6088)
+    "blink-unmarked@ascii": "a021e2f4c771",  # c0148: pin bit 0x20; was 6f52bcfc5f39 (c0126; ceee4edd66d5)
+    "blink-unmarked@binary": "4f97399a5ab7",  # c0148: pin bit 0x20; was fbdac8c68070 (c0126; b3a1f470ab5d)
+    "board_40parts@ascii": "6f39adb8496b",  # c0148: pin bit 0x20; was 32d77f89673d (c0126; e49a072fc1e3)
+    "board_40parts@binary": "7ba896421a04",  # c0148: pin bit 0x20; was 079ad8e43825 (c0126; 9b9770e93ad2)
+    "nested@ascii": "f7bc73941f73",  # c0148: pin bit 0x20; was f345113d40e8 (c0126; before, 2e848e270334)
+    "nested@binary": "1f39dae3f8fb",  # c0148: pin bit 0x20; was 512c741fad8a (c0126; before, 37ba8f5e4210)
     # Changed by the change that changes the writer: the units design holds a ``pad_map`` that renames
     # the pads of ``D1``, and an Altium build ignored it (releases 0.1.0 and 0.2.0). The PCB document
     # now has the nets on the mapped pads, and the sheet and the library hold the map as records 47.
@@ -118,8 +123,8 @@ ALTIUM = {
     # the mapped pins only (``altsym.MAP_RECORDS_FOR_EVERY_PIN``): the map of
     # ``D1`` names both of its pins, so both forms are the same two records. An Altium ``build`` envelope
     # is no file of the build, so the hypothesis row added with that switch moves no pin.
-    "units@ascii": "f2b8914b1662",  # c0126: .fenolite/board.json alone; was 9b7b311ae714
-    "units@binary": "572f5eb0bfdc",  # c0126: .fenolite/board.json alone; was d7a85c5bec0e
+    "units@ascii": "9b08e518e8ba",  # c0148: pin bit 0x20; was f2b8914b1662 (c0126; before, 9b7b311ae714)
+    "units@binary": "0bb2e04b8472",  # c0148: pin bit 0x20; was 572f5eb0bfdc (c0126; before, d7a85c5bec0e)
 }
 
 

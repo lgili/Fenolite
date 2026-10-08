@@ -172,6 +172,11 @@ Record 2, a pin: a property list (``RECORD=2``) or a binary pin record (``binary
 | `SWAPIDPART` | text | "" | `part_and_sequence` | S-0130 | INFERRED | H-A-RD-SCH-PIN |
 | `COLOR` | colour | 0 (black) | `color` | S-0131 | INFERRED | H-A-RD-SCH-PIN |
 
+`PINCONGLOMERATE` also gives `hidden` (bit 0x04), `name_shown` (bit 0x08) and `designator_shown`
+(bit 0x10). Since change c0148 the two last are show flags when bit 0x20 is set, as on every pin Altium
+saves, and hide flags when it is clear, as on the pins Fenolite wrote before 0.3.0 (fact rows and sources
+in `schematic-library.md`, "Binary pin record"; `H-A-SCHLIB-PINBITS`).
+
 ### 3 `IeeeSymbol`
 
 Record 3: an IEEE symbol near a pin.

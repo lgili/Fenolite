@@ -29,8 +29,8 @@ names them.
 | `tests/data/altium/blink/blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
 | `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `tests/data/altium/blink/blink.PrjPcb` | `91a938db221c185bd611c2d6f0698677e8a16c616ffec75ab53b20aca1a2931c` |
-| `tests/data/altium/blink/blink.SchDoc` | `d52160144438ee1fa2026cf704e37881c2f9b98d8389ace45ac73f01e56dcf43` |
-| `tests/data/altium/blink/blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
+| `tests/data/altium/blink/blink.SchDoc` | `c34bde2f95810e5f41647b6fe393b596c998c217074092fb121087a5dfdd6284` |
+| `tests/data/altium/blink/blink.SchLib` | `1c97388753b0826ae3029506aad502cc0c63b65a6a72f0d0ac3cb374a347c48d` |
 
 Since change c0086 (2026-10-06) `blink.SchDoc` and `blink.SchLib`, here and in the routed sample of Part C,
 are the default build with the symbols' own graphics. The reports of this page were made on the rectangle
@@ -157,8 +157,8 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 | `tests/data/altium/routed/routed.PcbDoc` | `158cc00bc5d78a82f5c5a2a99fab5b839b3da3d5c279b641105aba5c8815931f` |
 | `tests/data/altium/routed/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
 | `tests/data/altium/routed/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
-| `tests/data/altium/routed/routed.SchDoc` | `5c7ce5f3352ce91e6970dd49753f03d9f0b39c539f56b8a79b59d5c5679e7557` |
-| `tests/data/altium/routed/routed.SchLib` | `db7d0c5b55210c9f7a113120595fa48427c43263cff13c76452ed44312dd0e07` |
+| `tests/data/altium/routed/routed.SchDoc` | `01ab1936ab50c1d506c0891f471b4a01177489f14ae76d943538ca91022fabf5` |
+| `tests/data/altium/routed/routed.SchLib` | `2c4b57784793fa177849de22ebb00ff760cf60a57174102405260ff47d4480c5` |
 | `p0/routed.PcbDoc` | `8e0978ec8ee6c22e3a8a3a76b4e14f17be811b9604f463207f3d6eae2f84dbb1` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
@@ -283,8 +283,8 @@ Altium Designer. No file that Altium wrote is committed.
 | `tests/data/altium/board6/board6.PcbDoc` | `9da3b8c4bd6f1c832251bccfc3eb02e93e714cb179f55af16c08a0ec21b83e8a` |
 | `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
 | `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
-| `tests/data/altium/board6/board6.SchDoc` | `31ebe34c10d85f9e2329655da9a907973af8b1774412188b2d0b035368a794e5` |
-| `tests/data/altium/board6/board6.SchLib` | `8af23cfb256c4a95d0e4de25ddc46b1783cd5524d9463f9c760b3bd7e029f10e` |
+| `tests/data/altium/board6/board6.SchDoc` | `36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118` |
+| `tests/data/altium/board6/board6.SchLib` | `6111fd9db8fda9f778cd3dcfc61d89d2bd37a8bfc91edd5f072c38e7d3da03ac` |
 
 `board6.SchDoc` and `board6.SchLib` are the default build of change c0086, with the symbols' own graphics
 (they were committed by c0085 with rectangle bodies, `7b5a19f0…` and `c88e8978…`, and never reported on);
@@ -350,19 +350,22 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    maintainer's machine they lie in `~/fenolite-altium-checks/session-2/X8-bodies/` (`saved/`, `short/`).
    The set `saved` is the committed sample; the set `short` is built for this step and is not committed.
    It differs from `saved` in `body2.PcbDoc` only.
+   Change c0148 (2026-10-08) added bit 0x20 to every pin's `PINCONGLOMERATE`: both schematic files of both
+   sets were written again, and the folder of session 2 still holds the earlier ones (`body2.SchDoc`
+   `cfea41d6…`, `body2.SchLib` `53cc1b8f…`), which differ in that bit alone.
 
    | file | SHA-256 |
    |---|---|
    | `tests/data/altium/body2/body2.PcbDoc` | `bee5811bc7a1b43c589722a5b95d1bf1a784aa78f38a5abad8e035156fded2f2` |
    | `tests/data/altium/body2/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
    | `tests/data/altium/body2/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
-   | `tests/data/altium/body2/body2.SchDoc` | `cfea41d60f7c34fe5ee9ee620ea25acee8d130ac0d2c1dccc2b26ecc030629ab` |
-   | `tests/data/altium/body2/body2.SchLib` | `53cc1b8f2b0bd2f79bf51f7d4b3e6c011f296ac77e13b39c1669f5dbfc500b07` |
+   | `tests/data/altium/body2/body2.SchDoc` | `f5598952ca794defc855b6e3cf6d75f0a6813d2b277016b305da595832996e48` |
+   | `tests/data/altium/body2/body2.SchLib` | `a8c584c2a9997ec642b5fd5a1e2cc0fff62ddbe9c5334804b69dce5c5758363e` |
    | `short/body2.PcbDoc` | `6becb1923051aa3b312cc97eaf8230fab0a50b30d7187253c55411ebe3e8175f` |
    | `short/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
    | `short/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
-   | `short/body2.SchDoc` | `cfea41d60f7c34fe5ee9ee620ea25acee8d130ac0d2c1dccc2b26ecc030629ab` |
-   | `short/body2.SchLib` | `53cc1b8f2b0bd2f79bf51f7d4b3e6c011f296ac77e13b39c1669f5dbfc500b07` |
+   | `short/body2.SchDoc` | `f5598952ca794defc855b6e3cf6d75f0a6813d2b277016b305da595832996e48` |
+   | `short/body2.SchLib` | `a8c584c2a9997ec642b5fd5a1e2cc0fff62ddbe9c5334804b69dce5c5758363e` |
 
    Values to compare. The model holds a fourth body, which names a 3D model: it is reported by the build
    and not written, so the document holds three.

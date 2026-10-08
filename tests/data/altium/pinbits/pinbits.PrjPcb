@@ -1,0 +1,8 @@
+[Design]
+Version=1.0
+
+[Document1]
+DocumentPath=pinbits.SchDoc
+
+[Document2]
+DocumentPath=pinbits.SchLib

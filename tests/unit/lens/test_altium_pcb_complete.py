@@ -37,6 +37,7 @@ from _altium_board6 import (
     read_document,
 )
 from _altium_copper import plane_model, routed_build, routed_model
+from _pin_bits import pin_bits_only
 
 from fenolite.core.coords import Point
 from fenolite.lens import altium_copper
@@ -422,6 +423,17 @@ def test_no_document_keeps_the_infos_per_kind(tmp_path: Path) -> None:
 # --- samples of earlier changes ------------------------------------------------------------------------
 
 
+def _schematic_files_at_base(paths: list[str]) -> list[str]:
+    """The schematic documents and libraries under ``paths`` at the base of change c0085."""
+    listed = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "6cdf0aea", "--", *paths],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    )  # fmt: skip
+    if listed.returncode != 0:
+        return []
+    return [p for p in listed.stdout.split() if p.endswith((".SchDoc", ".SchLib"))]
+
+
 def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
     """Scenario "Old samples unchanged": the committed samples of earlier changes are untouched, and the
     routed sample still builds to its committed bytes.
@@ -430,22 +442,33 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
     (``REGENERATED``); their bytes at the base are kept under ``tests/data/altium/generic/``, and those
     copies are compared with the base instead. Change c0134 changed three symbols of the example library
     and regenerated the five files of ``kicad_example`` and ``no_connect`` again; the library those two
-    samples had at the base is kept beside the copies and compared with the base as well."""
+    samples had at the base is kept beside the copies and compared with the base as well. Change c0148
+    added bit 0x20 to the ``PINCONGLOMERATE`` of every written pin: the schematic files and the copies are
+    compared with the base record by record and may differ in that bit alone (``_pin_bits``)."""
     paths = [f"tests/data/altium/{name}/" for name in SAMPLES]
     exclude = [f":(exclude)tests/data/altium/{name}" for name in REGENERATED]
+    pins = [":(exclude,glob)tests/data/altium/**/*.SchDoc", ":(exclude,glob)tests/data/altium/**/*.SchLib"]
     proc = subprocess.run(
-        ["git", "diff", "--exit-code", "--quiet", "6cdf0aea", "--", *paths, *exclude],
+        ["git", "diff", "--exit-code", "--quiet", "6cdf0aea", "--", *paths, *exclude, *pins],
         cwd=ROOT, capture_output=True, check=False,
     )  # fmt: skip
     if proc.returncode in (0, 1):
         assert proc.returncode == 0, "a sample of an earlier change differs from the base of change c0085"
+    for path in _schematic_files_at_base(paths):
+        if path.removeprefix("tests/data/altium/") in REGENERATED:
+            continue
+        base = subprocess.run(["git", "show", f"6cdf0aea:{path}"], cwd=ROOT, capture_output=True, check=False)
+        if base.returncode == 0:
+            assert not pin_bits_only(base.stdout, (ROOT / path).read_bytes(), path), path
     for name in REGENERATED:
         base = subprocess.run(
             ["git", "show", f"6cdf0aea:tests/data/altium/{name}"], cwd=ROOT, capture_output=True, check=False
         )
         if base.returncode == 0:
             kept = ROOT / "tests" / "data" / "altium" / "generic" / name
-            assert kept.read_bytes() == base.stdout, f"generic/{name} differs from the base"
+            assert not pin_bits_only(base.stdout, kept.read_bytes(), name), (
+                f"generic/{name} differs from the base"
+            )
     library = subprocess.run(
         ["git", "show", "6cdf0aea:examples/altium_kicad/FenoliteDemo.kicad_sym"],
         cwd=ROOT, capture_output=True, check=False,

@@ -42,7 +42,10 @@ RIGHT, UP, LEFT, DOWN = 0, 1, 2, 3
 STEPS: Mapping[int, tuple[int, int]] = {RIGHT: (1, 0), UP: (0, 1), LEFT: (-1, 0), DOWN: (0, -1)}
 DIRECTION_OF_ROTATION: Mapping[int, int] = {0: LEFT, 90_000_000: DOWN, 180_000_000: RIGHT, 270_000_000: UP}
 """A KiCad pin angle in microdegrees → the Altium direction (the reverse of KiCad's importer)."""
-HIDDEN, NAME_SHOWN, NUMBER_SHOWN = 0x04, 0x08, 0x10
+HIDDEN, NAME_SHOWN, NUMBER_SHOWN, SHOW_FLAGS = 0x04, 0x08, 0x10, 0x20
+"""``PINCONGLOMERATE`` bits (change c0148). With ``SHOW_FLAGS`` set, as on every pin Altium saves, 0x08
+shows the pin's name and 0x10 its number; without it (Fenolite's files before 0.3.0) Altium Designer 26
+reads the same two bits as hide flags (``schematic-library.md``, "Binary pin record")."""
 
 PASSIVE = 4
 POWER = 7
@@ -106,9 +109,10 @@ class AltiumPin:
 
     @property
     def conglomerate(self) -> int:
-        """``PINCONGLOMERATE``: the direction plus the visibility bits."""
+        """``PINCONGLOMERATE``: the direction, ``SHOW_FLAGS`` and the visibility bits as show flags."""
         return (
             self.direction
+            | SHOW_FLAGS
             | (HIDDEN if self.hidden else 0)
             | (NAME_SHOWN if self.name_shown else 0)
             | (NUMBER_SHOWN if self.number_shown else 0)

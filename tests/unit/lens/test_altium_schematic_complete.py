@@ -264,7 +264,9 @@ same in both and is compared by the sample's own golden test."""
 @pytest.mark.parametrize("which", sorted(GENERIC_FILES))
 def test_generic(which: str) -> None:
     """``--altium-symbols generic`` gives the bytes of commit 6cdf0aea, the form that the maintainer's
-    author reports covered; the other files of the sample do not depend on the option. The symbols of
+    author reports covered, but for bit 0x20 of every pin's ``PINCONGLOMERATE`` (change c0148; the copies
+    were written again and ``test_altium_samples_of_earlier_changes_keep_their_bytes`` holds them to the
+    base record by record); the other files of the sample do not depend on the option. The symbols of
     ``kicad_example`` and ``no_connect`` come from the library of that commit (``FROZEN_LIBRARY``)."""
     with tempfile.TemporaryDirectory() as folder:
         generic = project_files(

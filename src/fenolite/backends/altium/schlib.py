@@ -51,6 +51,7 @@ EVIDENCE = Evidence(
         "H-A-SCHLIB-OPEN",
         "H-A-SCHLIB-PARTS",
         "H-A-SCHLIB-PIN",
+        "H-A-SCHLIB-PINBITS",
         "H-A-SCHLIB-SECTIONKEY",
         "H-A-SCHX-GRAPHICS",
         "H-A-SCHX-READBACK",
