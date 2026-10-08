@@ -25,8 +25,12 @@ What `kicad-cli` counts as the length of a net, measured for change c0106. The f
   `docs/evidence/kicad/probes/9.0.9.json`; `tests/kicad/length` gives 21 passed inside the image. The
   column "9.0.9, first record" below still holds the values of the proposal's own measurement
   (2026-10-05, the branch of the review), which the totals of `length_facts` for major 9 reproduce in the
-  hermetic tests; the canary outcome of 9.0.9 is the probe file. The hypothesis rows keep their labels
-  until task 10.3 of the change raises them.
+  hermetic tests; the canary outcome of 9.0.9 is the probe file.
+- CI run 37772583226 on `04ef42a` (2026-10-08): the `kicad-9` job (the pinned 9.0.9 image) and the
+  `kicad-10` job (10.0.6) pass `tests/kicad/length` (21 tests on 9.0.9, the stage verdicts of
+  `test_rules` among them) and `tests/kicad/test_probe_results.py`; the `kicad-9` job prints the same
+  totals as Fenolite's for every net of `four-explicit`, `six`, `eight` and `four-unprojected`. Task 10.3
+  of the change raised the hypothesis rows on that run.
 
 ## Totals, two layers (`length-total-two`, `-two-stackup`, `-two-noheight`)
 

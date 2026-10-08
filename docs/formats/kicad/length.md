@@ -14,19 +14,19 @@ it: with `X` 1 µm below the length it must, with `X` 1 µm above it must not.
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| The DRC length of a net is the sum of the centre-line lengths of all its tracks and arcs, stubs and dangling copper included; a track counts from its end inside a pad, not from the pad edge | S-0020, S-0029 | INFERRED | H-K-NETLEN-TOTAL |
-| Each pad of the net adds its `(die_length X)`, in millimetres | S-0020, S-0029 | INFERRED | H-K-NETLEN-TOTAL |
-| A through-hole pad adds no height, also when the net changes layer inside it | S-0020, S-0029 | INFERRED | H-K-NETLEN-TOTAL |
-| A stored zone fill is not copper a via joins: a via whose only inner copper is a fill of its net adds no height | S-0020, S-0029 | INFERRED | H-K-NETLEN-TOTAL |
-| With `board.design_settings.rules.use_height_for_length_calcs` set to `false` in the project file no via adds a height; without a project file, with `{}` and with the key absent, heights count | S-0020, S-0029 | INFERRED | H-K-NETLEN-TOTAL |
+| The DRC length of a net is the sum of the centre-line lengths of all its tracks and arcs, stubs and dangling copper included; a track counts from its end inside a pad, not from the pad edge | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-TOTAL |
+| Each pad of the net adds its `(die_length X)`, in millimetres | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-TOTAL |
+| A through-hole pad adds no height, also when the net changes layer inside it | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-TOTAL |
+| A stored zone fill is not copper a via joins: a via whose only inner copper is a fill of its net adds no height | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-TOTAL |
+| With `board.design_settings.rules.use_height_for_length_calcs` set to `false` in the project file no via adds a height; without a project file, with `{}` and with the key absent, heights count | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-TOTAL |
 | On 10.0.6 the depth of the first copper layer is 0, that of the last the sum of every copper and dielectric thickness, and that of an inner layer the thickness above it plus half its own; masks do not count | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETLEN-VIA10 |
 | On 10.0.6 a via adds the depth difference between the outermost two copper layers on which a track, an arc or a pad of its net touches it, and nothing with fewer than two; a blind via and a through via between the same two layers add the same | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETLEN-VIA10 |
-| On 9.0.9 the depth of every copper layer is the thickness above it plus half its own, and a via adds the depth difference between its own two end layers when its net touches it on both, else nothing: a through via between `F.Cu` and an inner layer adds 0 | S-0029 | INFERRED | H-K-NETLEN-VIA9 |
-| A board file without a stack-up node is counted on copper layers of 35 µm and dielectrics that share equally the board thickness of `general` less 20 µm and the copper: 1.51 mm for two layers, 0.48 mm each for four, 0.274 mm for six and 0.1857 mm for eight, at 1.6 mm | S-0020, S-0029 | INFERRED | H-K-NETLEN-STACKUP |
+| On 9.0.9 the depth of every copper layer is the thickness above it plus half its own, and a via adds the depth difference between its own two end layers when its net touches it on both, else nothing: a through via between `F.Cu` and an inner layer adds 0 | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-NETLEN-VIA9 |
+| A board file without a stack-up node is counted on copper layers of 35 µm and dielectrics that share equally the board thickness of `general` less 20 µm and the copper: 1.51 mm for two layers, 0.48 mm each for four, 0.274 mm for six and 0.1857 mm for eight, at 1.6 mm | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-STACKUP |
 | On 10.0.6 a stack-up node without its silkscreen and paste rows, which KiCad's job file ignores (`H-K-STACKUP-COMPLETE`), is still counted for via heights with its own thicknesses | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-NETLEN-VIA10 |
-| A `length` constraint judges `min` and `max` and not `opt`; a net with pads and no copper is judged at length 0 | S-0020, S-0029 | INFERRED | H-K-NETLEN-RULES |
-| A `skew` constraint groups the nets its condition selects, each differential pair apart with `(within_diff_pairs)`; the skew of a net is its length less the longest length of its group, and a net is reported when the magnitude exceeds `max`; the longest net is not reported | S-0020, S-0029 | INFERRED | H-K-NETLEN-RULES |
-| A violation of either kind names one track or pad of the net and prints the length as `actual X mm` with four decimals; a skew violation also names the net of the longest length | S-0020 | INFERRED | H-K-NETLEN-RULES |
+| A `length` constraint judges `min` and `max` and not `opt`; a net with pads and no copper is judged at length 0 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-RULES |
+| A `skew` constraint groups the nets its condition selects, each differential pair apart with `(within_diff_pairs)`; the skew of a net is its length less the longest length of its group, and a net is reported when the magnitude exceeds `max`; the longest net is not reported | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-RULES |
+| A violation of either kind names one track or pad of the net and prints the length as `actual X mm` with four decimals; a skew violation also names the net of the longest length | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETLEN-RULES |
 
 A row is `KICAD-VERIFIED` for the major whose canary ran on this branch (10.0.6, 2026-10-08). The rows
 that name both majors were measured on both on 2026-10-05, on the branch of the review; their canaries ran

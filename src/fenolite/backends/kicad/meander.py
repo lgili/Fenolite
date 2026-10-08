@@ -36,6 +36,7 @@ from fenolite.model.board import Arc, Board, Track, Via
 from fenolite.model.design import Design
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-NETLEN-MEANDER",))
+"""Stays ``INFERRED`` with its row verified on both majors: the oracle measured three benches only."""
 LENGTH_TOLERANCE_NM = 10
 """How far the length of a meandered intent may lie from its target."""
 CORRECTIONS = 2

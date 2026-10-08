@@ -505,7 +505,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0103 | `dsl-keepouts-board-items`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0104 | `diff-pair-constraints`: built on `v04`; its KiCad rows verified on 9.0.9 and 10.0.6 |
 | c0105 | `impedance-targets`: built on `v04`; the KiCad 10 GUI save of tuning profiles is deferred to the next release |
-| c0106 | `length-measure-tune` |
+| c0106 | `length-measure-tune`: built on `v04`; takes matched-length and skew analysis from v0.6 |
 | c0107 | `route-planes-layers` |
 | c0108 | `route-open-nets` |
 | c0109 | `routing-scale-control` |
@@ -533,6 +533,8 @@ pending (the benches and gate runs need `kicad-cli` and the routers): until it i
 
 **c0105 on `v04` (2026-10-08).** Built; the derived per-layer rules are verified on 9.0.9 and 10.0.6. The KiCad 10 GUI save that settles the keys of a tuning profile (`H-K-PRO-TUNING-KEYS`, the maintainer's own test) is deferred to the next release, so the profiles stay `INFERRED`.
 
+**c0106 on `v04` (2026-10-08).** Built; net lengths, the default stack-up, length rules and meanders are verified on 9.0.9 and 10.0.6. It takes matched-length and skew analysis from v0.6 (Phase 5 below).
+
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may
 change at that point.
@@ -543,7 +545,7 @@ change at that point.
 |---|---|
 | v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`; annealing placer |
 | v0.5b | multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; MCP server |
-| v0.6 | equivalence levels 6–7; an emulated-evidence category for corpus cases; matched-length and skew analysis; optional KiCad IPC, only if KiCad 11 is released; in the project plan also SPICE (optional) and an ASCII inspection format for the second backend's PCB documents |
+| v0.6 | equivalence levels 6–7; an emulated-evidence category for corpus cases; matched-length and skew analysis (net and pin-to-pin lengths, pair skew and length rules moved to v0.4 with c0106); optional KiCad IPC, only if KiCad 11 is released; in the project plan also SPICE (optional) and an ASCII inspection format for the second backend's PCB documents |
 | v1.0 | freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
 
 ## Proposed cuts for a leaner 1.0
@@ -574,7 +576,7 @@ board authoring, the complex board): whether each is kept for 1.0 is decided whe
 | schematic editing that keeps presentation * | v0.5b | — |
 | equivalence levels 6–7 | v0.6 | levels 1–5 stay |
 | emulated-evidence category for corpus cases * | v0.6 | — |
-| matched-length and skew analysis * | v0.6 | — |
+| matched-length and skew analysis * | v0.6, now v0.4 | built on `v04` by c0106 (lengths, pair skew, length rules, meanders); no longer a cut |
 | KiCad 11 IPC | v0.6 | only possible once KiCad 11 is released |
 | SPICE | v0.6 | — |
 | ASCII inspection format | v0.6 | — |
