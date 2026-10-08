@@ -111,9 +111,12 @@ if command == "check":
         drc = {kind: n for kind, n in drc.items() if n}
     else:
         drc = {"unconnected_items": 12, **mode.get("drc", {})}
+    length = dict(mode.get("routed_length", {})) if routed else {}
     summary = [
         {"code": "kicad.drc." + kind.replace("_", "-"), "count": n, "by_severity": {"error": n}}
         for kind, n in drc.items()
+    ] + [
+        {"code": code, "count": n, "by_severity": {"error": n}} for code, n in length.items()
     ] + [
         {"code": "kicad.erc." + kind.replace("_", "-"), "count": n, "by_severity": {"error": n}}
         for kind, n in erc.items()
@@ -130,12 +133,14 @@ if command == "check":
             "unconnected": drc.get("unconnected_items", 0),
             "types": {"kicad.drc." + k.replace("_", "-"): k for k in drc},
             "limits": []}},
+        {"name": "length.rules", "status": "errors" if length else "ok", "summary": {
+            "rules": {"length": 1, "skew": 1}, "nets": 2}},
         {"name": "parity", "status": "ok", "summary": {"differences": 0}},
         {"name": "netlist.assignment_compare", "status": "ok", "summary": {
             "pairs": [{"a": "model", "b": "board", "common": 9, "differences": 0}]}},
         {"name": "roundtrip", "status": "ok", "summary": {"level": "RT1"}},
     ]
-    reply({"stages": stages, "issues_summary": summary}, code=5 if drc or erc else 0)
+    reply({"stages": stages, "issues_summary": summary}, code=5 if drc or erc or length else 0)
 if command == "route":
     freerouting = "freerouting" in args
     if freerouting:
@@ -680,6 +685,31 @@ def test_routed_board_over_its_ratchets(stage5: Path, monkeypatch: pytest.Monkey
     monkeypatch.setenv("YARD_FAKE", json.dumps({"routed_open": 0}))
     code, record, _ = _run5(stage5, name="closed")
     assert code == 0 and _step(record, "check-routed")["exit"] == 0
+
+
+def test_length_findings_of_the_routed_board_count_through_kicad(
+    stage5: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Run 37820561099: on the routed board ``length.rules`` held USB_DN at 121.7 mm over its 60 mm and the
+    pair's skew, as KiCad's DRC did (``length_out_of_range`` 2, ``skew_out_of_range`` 1). Such findings are
+    counted once, by the ``drc_errors`` ratchet; a count that KiCad does not share fails the stage."""
+    (stage5 / "budgets.toml").write_text(STAGE5_BUDGETS.replace("drc_errors = 0", "drc_errors = 3"))
+    length = {"length.out-of-range": 2, "length.skew-out-of-range": 1}
+    kicad = {"length_out_of_range": 2, "skew_out_of_range": 1}
+    monkeypatch.setenv("YARD_FAKE", json.dumps({"routed_length": length, "routed_drc": kicad}))
+    code, record, summary = _run5(stage5)
+    rules = {rule["rule"]: rule for rule in record["rules"]}
+    assert code == 0, summary
+    assert rules["check-routed.length.rules"]["passed"]
+    assert rules["ratchet.drc_errors"]["detail"] == "only 3 of the ratchet 3"
+    monkeypatch.setenv(
+        "YARD_FAKE", json.dumps({"routed_length": length, "routed_drc": {**kicad, "length_out_of_range": 1}})
+    )
+    code, record, _ = _run5(stage5, name="disagree")
+    failed = {rule["rule"]: rule["detail"] for rule in record["rules"] if not rule["passed"]}
+    assert code == 1 and set(failed) == {"check-routed.length.rules"}
+    assert "length.out-of-range (2; KiCad's length_out_of_range 1)" in failed["check-routed.length.rules"]
+    assert "skew" not in failed["check-routed.length.rules"]
 
 
 def test_package_missing_from_the_manifest(stage5: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -95,6 +95,11 @@ All notable changes to Fenolite are documented here. The format follows
   left it. It hashed the board at the end of the run, after `route-pairs`, `route` and `fill-routed` had rewritten it,
   so the first nightly run (37820561099) failed the rule although the rebuild wrote the bytes it found (SHA-256
   `8886fb6a…` before and after). No command changes.
+- The yardstick runner judges the errors of `length.rules` on the routed board as it judges KiCad's DRC errors there:
+  `length.out-of-range` and `length.skew-out-of-range` are counted once, by the `drc_errors` ratchet, when KiCad's
+  `length_out_of_range` and `skew_out_of_range` have the same counts, and fail the stage when they differ. The first
+  nightly run failed on the routed USB pair (`USB_DN` 121.7 mm and `USB_DP` 114.2 mm against a 60 mm maximum, 7.5 mm
+  of skew against 0.5 mm), which KiCad reported with the same counts (c0119).
 - **A `docker:<image>` value of `FENOLITE_KICAD_CLI` or `--kicad-cli` runs that image on Windows.** The marker went
   through a `Path`, which spells the slashes of `kicad/kicad:9.0.9` as backslashes on Windows, so the runner was given
   the image `kicad\kicad:9.0.9`. `cli.docker_image` turns them back (an image reference holds no backslash), and the

@@ -43,7 +43,8 @@ verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`); from 
   `bom` and `pnp` wrote; the dry rebuild plans no change to a file outside `.fenolite/`, and the rebuild
   leaves the board's bytes unchanged. A failed `build` or `fill` skips the steps that need the board.
   From stage 4, `check-routed` holds KiCad's open connections and DRC errors of the routed board to the
-  stage's ratchets; at stage 5 every file that `export-package` and `testpoints` wrote is listed in
+  stage's ratchets; an error of `length.rules` there counts through KiCad's `length_out_of_range` or
+  `skew_out_of_range` when KiCad reports that type as often, and fails the stage otherwise; at stage 5 every file that `export-package` and `testpoints` wrote is listed in
   `fab/fenolite-artifacts.json`.
 - **Budgets.** `yardstick_budgets.toml` holds a table per stage: `source`, then `seconds` and `mib` per
   step under `[stage<n>.steps.<step>]`, and from stage 4 `[stage<n>.ratchets]` with `open_connections` and

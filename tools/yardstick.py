@@ -61,6 +61,10 @@ PAGE_SECTIONS = ("How to read", "Stages", "Runs", "Budgets", "Not measured")
 STAGE_STATES = ("reached", "waiting", "not reached")
 ACCEPTED_KEYS = ("stage", "type", "reason", "owner")
 UNCONNECTED = "unconnected_items"
+LENGTH_TWINS = {"length.out-of-range": "length_out_of_range", "length.skew-out-of-range": "skew_out_of_range"}
+"""The errors of ``length.rules`` (c0106) and the DRC type of KiCad that judges the same rule. On the routed
+board an error of ``length.rules`` is counted once, by the ``drc_errors`` ratchet through KiCad's type, when
+``drc.kicad`` reports that type as often; a count that differs is refused (the stage and KiCad disagree)."""
 FREEROUTING_JAR = "FENOLITE_FREEROUTING_JAR"
 KRT_CHECKOUT = "FENOLITE_KRT"
 ROUTE_TIMEOUT = 3600
@@ -649,7 +653,8 @@ class Run:
         """The stages of ``check`` (or ``check-routed``): each that ran is ``ok``, or holds only error types
         that are accepted for it. On the board before routing, ``unconnected_items`` of ``drc.kicad`` needs
         no entry; on the routed board every error type of ``drc.kicad`` is counted against the ratchets
-        instead. Returns the accepted types with their counts."""
+        instead, and so is an error of ``length.rules`` that KiCad reports as often (``LENGTH_TWINS``).
+        Returns the accepted types with their counts."""
         counted: dict[str, dict[str, Any]] = {}
         if not self.ran(step):
             return counted
@@ -661,6 +666,11 @@ class Run:
             for entry in result.get("issues_summary", [])
         }
         claimed = {code for stage in stages for code in dict(dict(stage.get("summary", {})).get("types", {}))}
+        kicad = next(
+            (dict(dict(stage.get("summary", {})).get("by_type", {})) for stage in stages
+             if stage.get("name") == "drc.kicad" and stage.get("status") != "skipped"),
+            {},
+        )  # fmt: skip
         if not stages:
             self.rule("check.stages", False, "the reply of check holds no stage")
         for stage in stages:
@@ -692,6 +702,8 @@ class Run:
             free: set[str] = set()
             if name == "drc.kicad":
                 free = set(found) if routed else {UNCONNECTED}
+            elif name == "length.rules" and routed:
+                free = {code for code, n in found.items() if kicad.get(LENGTH_TWINS.get(code, "")) == n}
             refused = sorted(kind for kind in found if kind not in allowed and kind not in free)
             if status == "skipped":
                 continue
@@ -699,7 +711,13 @@ class Run:
             if status == "ok" and not refused:
                 self.rule(rule, True)
             elif refused:
-                self.rule(rule, False, f"{step}: {name} holds {', '.join(refused)}")
+                named = [
+                    f"{code} ({found[code]}; KiCad's {LENGTH_TWINS[code]} {kicad.get(LENGTH_TWINS[code], 0)})"
+                    if routed and code in LENGTH_TWINS
+                    else code
+                    for code in refused
+                ]
+                self.rule(rule, False, f"{step}: {name} holds {', '.join(named)}")
             elif found:
                 self.rule(rule, True, f"only {', '.join(sorted(found))}")
             else:
