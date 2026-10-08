@@ -44,6 +44,11 @@ design.rule_area("ANT", corner, layers=("F.Cu",), forbid=("footprints",))  # no 
 lid = [(mm(10), mm(1)), (mm(20), mm(1)), (mm(20), mm(4)), (mm(10), mm(4))]
 design.rule_area("LID", lid, layers=("F.Cu",))
 design.height_limit("LID", max=mm(5))  # parts under LID stay at most 5 mm tall
+
+# Assembly features, each a generated part: a fiducial, a test point on GND and a tooling hole.
+design.fiducial("FID1", mm(2.5), mm(2.5), copper=mm(1), mask=mm(2))
+design.test_point("TP2", gnd, mm(24), mm(4), size=mm(1.5))
+design.tooling_hole("TH1", mm(27.5), mm(2.5), drill=mm(2))
 ```
 
 - **`part.place(x, y, rot=0, side="top", locked=False)`**, once per part. `x` and `y` are lengths from
@@ -64,6 +69,10 @@ design.height_limit("LID", max=mm(5))  # parts under LID stay at most 5 mm tall
   height, kept in `.fenolite/`. **`design.height_limit(area, max=…)`** limits the parts under every rule
   area of that name. A part above the limit gives `placement.too-tall`, a part without a stated height
   under it `placement.height-unknown` (a warning): warnings in `build` and `place`, gated by `check`.
+- **`design.fiducial(ref, x, y, copper=, mask=)`**, **`design.test_point(ref, net, x, y, size=)`** and
+  **`design.tooling_hole(ref, x, y, drill=)`** add generated parts whose pads carry the marks that
+  `fenolite testpoints` and the placement table read (page `fabrication`). Fiducials and tooling holes
+  are locked, and a fiducial keeps tracks, vias and pours out of `clear_<ref>`.
 - Place first what the mechanics fix (connectors, holes, anything that meets the enclosure), then the
   parts with the most connections, then their passives next to the pins they serve.
 

@@ -517,7 +517,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0115 | `power-copper-analysis`; on `v04`, closed for 0.4 on 2026-10-08 except the 9.0.9 outcomes of the plain neck and of the inner layers (tasks 1.2, 11.1, 12.2), written and awaiting the `kicad-9` job |
 | c0116 | `export-documents`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0117 | `fab-assembly-drawings`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0118 | `assembly-test-features` |
+| c0118 | `assembly-test-features`; on `v04`, closed for 0.4 on 2026-10-08 except the 9.0.9 outcomes of its probes and the built-feature checks (tasks 1.2, 1.3, 3.6, 4.4, 8.2), written and awaiting the `kicad-9` and `kicad-10` jobs. Panels stay out of v0.4: the board's fiducials and tooling holes are its own, not a panel's |
 | c0119 | `yardstick-board` |
 | c0120 | `agent-loop-scale` |
 | c0140 | `part-height-rules` (taken out of c0113 on 2026-10-07, decision 3: one source of height) |

@@ -36,9 +36,9 @@
 ### Requirement: Manifest option of producing commands
 `export`, `render`, `bom`, `pnp` and `testpoints` SHALL accept `--manifest`, and with it SHALL plan, beside their files, the manifest of their output folder merged with their entries (`manufacturing-exports`, "Manifest merging").
 - The output folder is `--out DIR` for `export` and `render`, and the folder of `--out FILE` for `bom`, `pnp` and `testpoints`; `--manifest` without `--out` MUST exit 2 with `FEN-2001` for `bom`, `pnp` and `testpoints`.
-- The entries MUST have the kinds of `KINDS` for `export`, `render` for each view, `bom`, `pnp` and `testpoints`; `layer` is set only for Gerbers.
-- `from` MUST hold the SHA-256 of the board for `export`, `render`, `pnp` and `testpoints`, and for `bom` that of the schematic (source `kicad`) or of the board (source `model`).
-- `tool` MUST be `kicad-cli <version>` for files that tool wrote and `fenolite <version>` for the tables Fenolite rendered. `evidence` MUST be the level of the command's envelope: `exports.EVIDENCE`'s for a file `kicad-cli` wrote with the fixed options, the lower level of an export with a preset (c0074), and the level of the rows for a table.
+- The entries MUST have the kinds of `KINDS` for `export`, `render` for each view, `bom`, `pnp` and `testpoints`; `layer` is `Artifact.layer`: set for a Gerber and for each layer file of `pdf` and `dxf`, `null` otherwise.
+- `from` MUST hold the SHA-256 of the board for `export` (for its `sch-pdf` entry that of the root schematic instead), `render`, `pnp` and `testpoints`, and for `bom` that of the schematic (source `kicad`) or of the board (source `model`).
+- `tool` MUST be `kicad-cli <version>` for files that tool wrote and `fenolite <version>` for the tables Fenolite rendered. `evidence` MUST be the level of the entry's own claim (`manufacturing-exports`, "Artefact manifest"): `exports.EVIDENCE`'s for a file of a fabrication kind or a view that `kicad-cli` wrote with the fixed options, `exports.DOCUMENTS_EVIDENCE`'s for a file of a document kind, the lower level of an export with a preset (c0074), and the level of the rows for a table.
 - A folder whose manifest cannot be read (`manifest.unreadable`) MUST make the command plan no file at all, its own files included.
 - `bom --source kicad` is not available yet (c0064 waits for the schematic writer); until it is, the `from` of a bill always holds the board's hash.
 - A view that failed (`render.failed`) MUST have no entry.
@@ -56,6 +56,11 @@
 #### Scenario: Manifest needs a folder
 - **WHEN** `fenolite pnp <dir> --manifest` runs without `--out`
 - **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+#### Scenario: Layer and source of document entries
+- **GIVEN** a fake `kicad-cli` and a board with a schematic beside it
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k document_manifest` runs `fenolite export <board> --out out --pdf --sch-pdf --manifest --confirm`
+- **THEN** each `pdf` entry of `out/fenolite-artifacts.json` has its layer's canonical name in `layer` and the board's hash in `from`, and the `sch-pdf` entry has `layer` `null` and the root schematic's hash in `from`
 
 #### Scenario: The test-point table joins the manifest
 - **WHEN** `uv run pytest tests/unit/cli/test_testpoints_cmd.py -k manifest` runs `fenolite testpoints <dir> --out out/tp.csv --manifest --confirm` in a folder where `pnp --manifest` ran
