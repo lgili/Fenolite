@@ -349,7 +349,7 @@ recorded either way."""
 
 
 def tuning_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
-    """``probe id → (function, majors)``, for ``_probes.PROBES`` once recorded on 10.0.6."""
+    """``probe id → (function, majors)``; ``_probes.PROBES`` takes all but the gap clearance under a rule."""
     ten = (10,)
     return {
         "pro-tuning-width": (width_profile_probe, ten),
@@ -389,7 +389,7 @@ def width_rules_probe() -> str:
 
 
 def width_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
-    """``probe id → (function, majors)``, for ``_probes.PROBES`` once recorded on both majors."""
+    """``probe id → (function, majors)``, in ``_probes.PROBES``."""
     return {"dru-impedance-width": (width_rules_probe, (9, 10))}
 
 

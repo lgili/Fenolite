@@ -5,7 +5,8 @@ oracle", scenario "Profiles on 10.0.6"; hypothesis H-K-PRO-TUNING-DRC; change c0
 
 Each case runs the bench of ``_zbench`` once per session; a run whose scoped canary does not fire fails.
 The outcomes are those the design of c0105 measured on 10.0.6; ``pro-tuning-gap-clearance-rule`` is
-printed and recorded either way. The probes join ``_probes.PROBES`` in the commit that records them.
+printed and recorded either way. The eight other probes are in ``_probes.PROBES`` (major 10) since they
+passed in the ``kicad-10`` job of CI run 37772583226.
 """
 
 from __future__ import annotations

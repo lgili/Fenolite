@@ -220,6 +220,7 @@
     "dru-diffpair-tail-letter": "absent",
     "dru-diffpair-tail-underscore": "present",
     "dru-gating-lossy-9": "load",
+    "dru-impedance-width": "present",
     "dru-kind-annular_width": "present",
     "dru-kind-clearance": "present",
     "dru-kind-courtyard_clearance": "present",

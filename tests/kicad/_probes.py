@@ -86,6 +86,7 @@ import _tiebench
 import _triad
 import _vendorcases
 import _viabench
+import _zbench
 import _zonebench
 import _zonelayers
 import pytest
@@ -356,6 +357,13 @@ def _probes() -> dict[str, Probe]:
     }.items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _featurebench.feature_probes(runner).items():  # change c0118
+        probes[pid] = Probe(function, majors)
+    # change c0105: `pro-tuning-gap-clearance-rule` is printed by its test and not pinned, because its outcome
+    # (recorded either way) has not been read from a run yet
+    tuning = {
+        pid: entry for pid, entry in _zbench.tuning_probes().items() if pid != "pro-tuning-gap-clearance-rule"
+    }
+    for pid, (function, majors) in {**tuning, **_zbench.width_probes()}.items():
         probes[pid] = Probe(function, majors)
     return probes
 

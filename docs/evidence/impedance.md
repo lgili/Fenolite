@@ -6,11 +6,20 @@ estimates (`H-G-AN-ZMS`, `H-G-AN-ZSL`) have no oracle and stay `INFERRED`.
 
 ## Status
 
-Written on 2026-10-08 and **not yet run**: the change was implemented where no `kicad-cli` was available.
-The benches are `tests/kicad/impedance/_zbench.py`; the tests are `test_tuning_drc.py` (10.0 only) and
-`test_impedance_rules.py` (both majors). The probes join `tests/kicad/_probes.py` in the commit that
-records them, because a registered probe without a recorded outcome fails
-`tests/kicad/test_probe_results.py`. Until then the first record is the measurement of the design.
+Written on 2026-10-08 where no `kicad-cli` was available; run on 2026-10-08 by CI run 37772583226 on
+`04ef42a`. The benches are `tests/kicad/impedance/_zbench.py`; the tests are `test_tuning_drc.py` (10.0 only)
+and `test_impedance_rules.py` (both majors).
+
+| probe | `kicad-9` job (9.0.9) | `kicad-10` job (10.0.6) |
+|---|---|---|
+| the eight `pro-tuning-*` of the table below but the last | — (10.0 only) | as expected (the test asserts each) |
+| `pro-tuning-gap-clearance-rule` | — | run; its outcome is not printed by that job (`-q`), so it is not read yet |
+| `dru-impedance-width` | `present` (types `clearance`, `track_dangling`, `track_width`) | `present` |
+| built design (`test_built`) | exact: no width finding; narrow: `track_width` on the narrow track | the same (asserted) |
+
+The eight `pro-tuning-*` probes (major 10) and `dru-impedance-width` (both majors) are registered in
+`tests/kicad/_probes.py` with these outcomes in the probe files; `pro-tuning-gap-clearance-rule` is not
+registered until its outcome is read.
 
 ## First record: the design's measurements (2026-10-05)
 

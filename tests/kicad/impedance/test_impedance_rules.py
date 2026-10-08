@@ -4,7 +4,8 @@
 "Impedance targets pass the oracle", scenario "Rules and the built design on both majors"; hypothesis
 H-K-DRU-IMPEDANCE; change c0105).
 
-The probe ``dru-impedance-width`` joins ``_probes.PROBES`` in the commit that records it on both majors.
+The probe ``dru-impedance-width`` is in ``_probes.PROBES`` for both majors since this file passed in the
+``kicad-9`` and ``kicad-10`` jobs of CI run 37772583226.
 """
 
 from __future__ import annotations

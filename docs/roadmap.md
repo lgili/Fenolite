@@ -504,7 +504,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0102 | `board-outline-shapes`; on `v04`, every task closed on 2026-10-08: ships in 0.4 (archive c0100 first; c0102 then adds its delta of "Layer count across rebuilds") |
 | c0103 | `dsl-keepouts-board-items`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0104 | `diff-pair-constraints`: built on `v04`; its KiCad rows verified on 9.0.9 and 10.0.6 |
-| c0105 | `impedance-targets` |
+| c0105 | `impedance-targets`: built on `v04`; the KiCad 10 GUI save of tuning profiles is deferred to the next release |
 | c0106 | `length-measure-tune` |
 | c0107 | `route-planes-layers` |
 | c0108 | `route-open-nets` |
@@ -530,6 +530,8 @@ pending (the benches and gate runs need `kicad-cli` and the routers): until it i
 `kicadroutingtools` declares no feature and every pair gives `route.pair-skipped`.
 
 **c0104 on `v04` (2026-10-08).** Built; its five KiCad rows are verified on 9.0.9 and 10.0.6 (CI run 37772583226 on `04ef42a`). Left: the pair-gap row of `ClearanceResolver.explain`, which comes with c0097.
+
+**c0105 on `v04` (2026-10-08).** Built; the derived per-layer rules are verified on 9.0.9 and 10.0.6. The KiCad 10 GUI save that settles the keys of a tuning profile (`H-K-PRO-TUNING-KEYS`, the maintainer's own test) is deferred to the next release, so the profiles stay `INFERRED`.
 
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may

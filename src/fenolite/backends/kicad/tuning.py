@@ -5,9 +5,10 @@
 Facts: ``docs/formats/kicad/project.md``, "Tuning profiles". A profile is an entry of
 ``tuning_profiles.tuning_profiles_impedance_geometric``, named by the class key ``tuning_profile``; the key
 names and value kinds are those of the bench that ``pcb drc`` 10.0.6 loaded and judged on 2026-10-05
-(``H-K-PRO-TUNING-DRC``; owed: the probes ``pro-tuning-*`` of ``tests/kicad/impedance/_zbench.py``), and
-no source document states them; the key set of a GUI save is ``INFERRED`` until ``H-K-PRO-TUNING-KEYS``
-is settled. KiCad 9 has no profile: a target-9
+(``H-K-PRO-TUNING-DRC``; the eight pinned ``pro-tuning-*`` probes of ``tests/kicad/impedance/_zbench.py``
+repeat it on 10.0.6), and no source document states them; the key set of a GUI save is ``INFERRED`` until
+``H-K-PRO-TUNING-KEYS`` is settled by a GUI save, which the maintainer deferred to the next release on
+2026-10-08, so ``EVIDENCE`` stays ``INFERRED``. KiCad 9 has no profile: a target-9
 project is returned unchanged, and the derived rules of the design check the geometry on both majors.
 
 The script wins, as for class values: a profile named like a target is replaced, the other profiles are
