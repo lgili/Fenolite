@@ -2,21 +2,16 @@
 
 ### Requirement: Mechanical primitives and locked anchors
 As an extension of "DSL package", `fenolite.dsl` SHALL re-export `MechanicalIntent`.
-The DSL SHALL author holes and keepouts with units, stable keys and optional MechanicalIntent.
-Part.place SHALL accept an anchor only when locked=True. Board-origin translation MUST be applied
-once to authored positions and outlines, without changing drill-associated nets.
+`Part.place` SHALL accept a `MechanicalIntent` as `anchor` only when `locked=True`; the board-origin translation MUST be applied once. Holes and keep-outs are `Design.hole` (c0102) and `Design.rule_area` (c0103) and carry no intent: `fenolite.dsl.KEYS` SHALL hold no row `hole` or `keepout`. The intent SHALL stay in the DSL `placements` output only.
 
 #### Scenario: Board origin and fixed interface
-- **GIVEN** declared mechanical primitives and a locked anchor on a board with a nonzero origin
-- **WHEN** the DSL is lowered to the neutral board
-- **THEN** each position is translated once and the anchor retains its source metadata in the DSL placements output
+- **GIVEN** a part placed with `place(mm(7), mm(4), locked=True, anchor=intent)` on a board declared by `Design.board`
+- **WHEN** `placements(design)` and `to_model(design)` are read
+- **THEN** the placement is at `BOARD_ORIGIN + (7 mm, 4 mm)`, translated once, it carries `intent` unchanged, and the model's board holds no hole
 
-Without explicit layers, `to_model` SHALL assign a keepout every copper layer of the declared board; a native keepout read with no layers SHALL restrict nothing. A KiCad build SHALL refuse DSL board holes with a located FEN-3004 script error naming the hole key and a validated drill footprint as the alternative. Altium hole lowering SHALL retain its existing contract. Mechanical intent SHALL remain in DSL conversion outputs only.
-
-#### Scenario: Default keepout layers
-- **GIVEN** a four-copper-layer board and a keepout declared without layers
-- **WHEN** the DSL is converted
-- **THEN** the keepout covers F.Cu, In1.Cu, In2.Cu and B.Cu
+#### Scenario: No neutral hole or keep-out call
+- **WHEN** `Design` and a `Design` instance are inspected
+- **THEN** neither offers `keepout` nor `keepouts`, and `fenolite.dsl.KEYS` has no row `hole` or `keepout`
 
 ## MODIFIED Requirements
 

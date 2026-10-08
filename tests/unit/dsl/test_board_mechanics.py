@@ -8,7 +8,7 @@ import pytest
 
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.dsl import Design, DslError, MechanicalIntent, Part, mm, placements, to_model
+from fenolite.dsl import KEYS, Design, DslError, MechanicalIntent, Part, mm, placements, to_model
 from fenolite.model import canonical
 from fenolite.model.board import Board, FootprintInstance, Hole, Keepout
 
@@ -43,6 +43,7 @@ def test_neutral_hole_and_keepout_calls_are_not_offered() -> None:
     and c0096's DSL ``hole(key, …)`` and ``keepout(key, …)`` go."""
     assert not hasattr(Design, "keepout") and not hasattr(Design, "board_hole")
     assert not hasattr(Design("m"), "keepouts")
+    assert "hole" not in KEYS and "keepout" not in KEYS
 
 
 def test_optional_model_fields_keep_old_canonical_bytes() -> None:

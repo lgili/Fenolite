@@ -1,12 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Mechanical authoring and coordinate contract
-The DSL SHALL expose Design.hole(...) and Design.keepout(...) and record anchor/assembly constraints with stable user keys, units, coordinate frame, tolerance and source/evidence metadata. Existing Part.place(..., locked=True) is the fixed-anchor primitive and MUST be respected. Measured, estimated and proposed anchors MUST remain distinguishable; none implies qualified fit.
+The DSL SHALL record anchor constraints with `MechanicalIntent` (stable key, units, frame, tolerance, source and evidence) on `Part.place(..., locked=True, anchor=...)`, the fixed-anchor primitive, which MUST be respected. Holes and keep-outs are those of `Design.hole` (c0102) and `Design.rule_area` (c0103). Measured, estimated and proposed anchors MUST remain distinguishable; none implies qualified fit.
 
 #### Scenario: Frame roundtrip
-- **GIVEN** an authored board has a hole, keepout and locked interface at stated board-relative coordinates
+- **GIVEN** an authored board has a locked interface with an anchor at stated board-relative coordinates
 - **WHEN** the script is converted and canonical model JSON is written and read back
-- **THEN** the origin transform is applied once and model coordinates equal the supplied relative coordinates plus one board origin; native hole/keepout writing remains a separate capability
+- **THEN** the origin transform is applied once, model coordinates equal the supplied relative coordinates plus one board origin, and the anchor stays in the DSL `placements` output and out of the canonical JSON
 
 ### Requirement: Existing drills and reservations
 A mechanical reservation SHALL optionally reference a specific existing footprint drill instead of creating another Hole. Duplicate coincident hole intents MUST be detected; electrical pads around a fixing drill MUST keep their assigned net. Assembly reservation volumes and allowed penetrations MUST be explicit user geometry and may not be invented from drill diameter. Each reservation SHALL identify one existing drill, supply its volume geometry and provide nonempty source provenance with measured status; missing source or non-measured status SHALL yield `reservation:<key>:source_measurement` as an unresolved input, never a qualified fit.
