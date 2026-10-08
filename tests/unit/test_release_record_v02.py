@@ -3,8 +3,8 @@
 """The v0.2 release record says only what exists (capability release-gate, "Release record of v0.2" and
 "Version 0.2.0"; change c0093). The rules are those of ``test_release_record.py`` for v0.1, with two
 acceptance tables, the table of the later milestone that ships in the package, and the job column held to
-``ci.yml``. The patch releases of the series are held to "Patch releases of 0.2" (change c0133): the guard
-reads their list from the record, so it holds at any later version of the package."""
+``ci.yml``. The patch releases of the series are held to "Patch releases of 0.2" (changes c0133 and c0149):
+the guard reads their list from the record, so it holds at any later version of the package."""
 
 from __future__ import annotations
 
@@ -515,6 +515,14 @@ def test_patch_sections_stand_in_order() -> None:
     problems = changelog_problems(dirty, version="0.2.1", patches=["0.2.1"])
     assert any(p.startswith("[0.2.1]") and "appears twice" in p for p in problems)
     assert any(p.startswith("[0.2.1]") and "before the first" in p for p in problems)
+    second = "## [Unreleased]\n\n## [0.2.2] - pending the tag\n\n## [0.2.1] - d\n\n" + older
+    assert changelog_problems(second, version="0.2.2", patches=["0.2.1", "0.2.2"]) == []
+    assert changelog_problems(second, version="0.3.0", patches=["0.2.1", "0.2.2"]) == []
+    turned = "## [Unreleased]\n\n## [0.2.1] - d\n\n## [0.2.2] - pending the tag\n\n" + older
+    problems = changelog_problems(turned, version="0.2.2", patches=["0.2.1", "0.2.2"])
+    assert any("['0.2.1', '0.2.2', '0.2.0', '0.1.0']" in p for p in problems)
+    problems = changelog_problems(good, version="0.2.2", patches=["0.2.1", "0.2.2"])
+    assert any("series are ['0.2.1', '0.2.0', '0.1.0', '0.0.1.dev0']" in p for p in problems)
 
 
 def test_patch_releases_are_recorded() -> None:
@@ -531,10 +539,12 @@ def test_patch_releases_are_recorded() -> None:
     assert any("the subsections are" in p for p in patch_check(skipped, version=RELEASED))
 
 
-def test_patch_rows_are_held_to_the_rules() -> None:
-    """Scenarios "Patch row with a missing proof" and "Patch row taken from the acceptance"."""
+@pytest.mark.parametrize("name", patches(record()))
+def test_patch_rows_are_held_to_the_rules(name: str) -> None:
+    """Scenarios "Patch row with a missing proof" and "Patch row taken from the acceptance", for each
+    patch release the record names."""
     text = record()
-    body = subsection(text, "0.2.1")
+    body = subsection(text, name)
     row = next(line for line in body.splitlines() if line.startswith("| c"))
     cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
     item, proof = cells[0], cells[2]
@@ -544,17 +554,17 @@ def test_patch_rows_are_held_to_the_rules() -> None:
 
     missing = with_row(row.replace(proof, "tests/unit/lens/test_missing.py", 1))
     assert any(
-        p.startswith("0.2.1, ") and "test_missing.py does not exist" in p for p in patch_check(missing)
+        p.startswith(f"{name}, ") and "test_missing.py does not exist" in p for p in patch_check(missing)
     )
     taken = with_row(row.replace(f"| {item} |", "| c0070 |", 1))
-    assert f"0.2.1: c0070 is an item of the tables of {RELEASED}" in patch_check(taken)
+    assert f"{name}: c0070 is an item of the tables of {RELEASED}" in patch_check(taken)
     numbered = with_row(row.replace(f"| {item} |", "| 1 |", 1))
     assert any("the item is not a change id" in p for p in patch_check(numbered))
     job = with_row(row.rsplit("|", 3)[0] + "| kicad-11 | met |")
     assert any("no job 'kicad-11' in ci.yml" in p for p in patch_check(job))
     assert any("no table" in p for p in patch_check(text.replace(body, body.replace(HEADER, "", 1), 1)))
-    for words in ("cut from the tag", "`v0.2.0`", "`main` into `dev`"):
-        assert f"0.2.1: {words!r} is missing" in patch_check(text.replace(body, body.replace(words, "x"), 1))
+    for words in ("cut from the tag", f"`v{SERIES}.{patch_number(name) - 1}`", "`main` into `dev`"):
+        assert f"{name}: {words!r} is missing" in patch_check(text.replace(body, body.replace(words, "x"), 1))
 
 
 def test_patch_verdict() -> None:
