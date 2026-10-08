@@ -155,7 +155,7 @@ the local `kicad-cli` 10.0.6:
 |---|---|---|
 | `dsn-partial` | `equal` | the five kinds of the bench (a stub; three pads, two joined, the third nearest to a pad; a fan-out of a track, a via and a `B.Cu` stub; a via beside the pad; a floating via): 6 open connections before, 0 after by the query, no unconnected item of those nets by KiCad, every earlier copper item still on the board with its uuid; 10 tracks added, no via |
 | `dsn-partial-tee` | `different` | a sixth net whose third pad lies below the middle of the track that joins the two others: the connection stays open. `result.unrouted` names the net, `result.open` gives the connection, and KiCad reports the same single unconnected item |
-| `krt-partial` | not run | no KiCadRoutingTools checkout on this machine; the `routing` job records it |
+| `krt-partial` | `different` | not run on this machine (no KiCadRoutingTools checkout); recorded by the two `routing` jobs of CI run 37803522539, below |
 
 What the limit is, from four more runs of that day on one net of three pads (not committed as a test):
 
@@ -167,6 +167,21 @@ What the limit is, from four more runs of that day on one net of three pads (not
 So Freerouting 2.4.1 joins new copper to a pad or to the end of a protected wire, and does not split a
 protected wire. `fenolite route` reports such a net under `unrouted` with its open connection;
 `docs/routing.md` says what to do.
+
+`krt-partial` was recorded on 2026-10-08 by the `routing` jobs of CI run 37803522539 on `a105cc0`
+(`tests/routing/test_open_nets.py::test_krt_outcome_is_recorded_either_way`, `-rA`; KiCadRoutingTools
+`v0.22.1` through `fenolite route --router kicadroutingtools --confirm`, the bench written for the major of
+the job's `kicad-cli`). Both jobs printed the same line:
+
+| `kicad-cli` | outcome | what was seen |
+|---|---|---|
+| 9.0.9 | `different` | 5 nets that hold copper, 6 open connections before and 1 after by the query, 1 unconnected item by KiCad on the whole bench (0 on the net `TEE`), earlier copper kept |
+| 10.0.6 | `different` | the same counts |
+
+So KiCadRoutingTools closed the five kinds of the bench but one connection, which the query and KiCad
+both count, kept every earlier copper item, and closed `TEE`, which Freerouting leaves open. The printed
+line does not name the net that stayed open. Nothing depends on the outcome: `route` takes its verdict
+from the board after the merge.
 
 ## Scale (c0109)
 

@@ -541,7 +541,7 @@ pending (the benches and gate runs need `kicad-cli` and the routers): until it i
 
 **c0107 on `v04` (2026-10-08).** Built; the plane rows of KiCad are verified on both majors. What KiCadRoutingTools does with plane layers and track layer rules is not settled: on the plane bench it used `F.Cu` only (`H-K-KRT-PLANES` `inconclusive`).
 
-**c0108 on `v04` (2026-10-08).** Built. Open: the census of open connections on KiCad 9.0.9 and the outcome `krt-partial`, read from the next CI run. Copper drawings that hold a net (a graphic on a copper layer with a `net`) are not modelled: the open-connection query counts them as absent, which is where it differs from KiCad on one corpus board.
+**c0108 on `v04` (2026-10-08).** Built. `krt-partial` was read from CI run 37803522539: `different` on 9.0.9 and 10.0.6 (KiCadRoutingTools leaves one of the bench's six open connections open; nothing depends on it). Open, deferred to the next release: the census of open connections on KiCad 9.0.9, which the `kicad-9` job does not run. Copper drawings that hold a net (a graphic on a copper layer with a `net`) are not modelled: the open-connection query counts them as absent, which is where it differs from KiCad on one corpus board.
 
 **c0109 on `v04` (2026-10-08).** Built; the grouped KiCadRoutingTools run is verified on both majors. Its scale numbers are those of 2026-10-05 and are to be measured again on an authored bench.
 
