@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 
+import fenolite
 import fenolite.backends.kicad.slots as slotlib
 from fenolite.backends.kicad import fpitems, pcb
 from fenolite.backends.kicad.embed import place_footprint
@@ -39,7 +40,20 @@ UNCHANGED = {
     "dimension.kicad_pcb": "5ed9bf093487dcfd77938669f8a5eed537e9d8dfb43a7276c289969620560496",
     "two_layer.kicad_pcb": "a9b8bc33549c24ab6f8ae050ca53ecb2d4e34b0774c84b0dca960b4a2f857dea",
 }
-"""Board file → SHA-256 of ``canonical.dumps(read_board(text))`` before change c0126."""
+"""Board file → SHA-256 of ``canonical.dumps(read_board(text))`` before change c0126, with the header's
+``fenolite_version`` of that commit, ``PINNED_VERSION``."""
+PINNED_VERSION = "0.2.1"
+"""The version the canonical text carried when ``UNCHANGED`` was measured: ``canonical.dumps`` writes the
+running version into the header, so the digest is taken with that field set back (change c0150)."""
+
+
+def _pinned_digest(design: Design) -> str:
+    """The SHA-256 of the canonical text of ``design`` with the header's version of ``UNCHANGED``."""
+    text = canonical.dumps(design)
+    field = f'"fenolite_version": "{fenolite.__version__}"'
+    assert text.count(field) == 1, field
+    pinned = text.replace(field, f'"fenolite_version": "{PINNED_VERSION}"')
+    return hashlib.sha256(pinned.encode("utf-8")).hexdigest()
 
 
 def _read(name: str) -> Design:
@@ -60,7 +74,7 @@ def test_read_is_unchanged(name: str) -> None:
     for footprint in design.board.footprints:
         assert footprint.graphics == () and footprint.texts == ()
         assert all(pad.corner_ratio is None for pad in footprint.pads)
-    assert hashlib.sha256(canonical.dumps(design).encode("utf-8")).hexdigest() == UNCHANGED[name]
+    assert _pinned_digest(design) == UNCHANGED[name]
 
 
 # --- the projection on request (kicad-file-backend, "Footprint items projected on request") ---------------
@@ -132,7 +146,7 @@ def test_projection_changes_no_byte(name: str, target: int) -> None:
     again = fpitems.with_footprint_items(projection.design)
     assert again.design == projection.design and again.projected == projection.projected
     # the unprojected design is untouched, and its canonical text is the pinned one
-    assert hashlib.sha256(canonical.dumps(design).encode("utf-8")).hexdigest() == UNCHANGED[name]
+    assert _pinned_digest(design) == UNCHANGED[name]
 
 
 def test_projection_of_the_two_layer_board_counts_what_it_holds() -> None:

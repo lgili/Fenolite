@@ -126,7 +126,9 @@ keep the names of their day.
 | c0135 | `altium-pin-map-backport` | correction of 0.1.0 and 0.2.0: an Altium build applies `pad_map` to the PCB document and writes it into the schematic | c0056, c0035 |
 | c0136 | `milestone-renumbering` | names only: the write side of the second backend is v0.3 (released as `0.3.0`) and the proposals open on other branches form v0.4; no behaviour changes | — |
 | c0138 | `altium-outjob-gerber-settings` | correction of v0.3: the Gerber output of a written output job carries the complete settings record, with the plotted layers from the board; fact rows first | c0087 |
+| c0143 | `catalog-power-interface-library-case` | correction of 0.2.0 and 0.2.1: a design with catalog parts and a `Power` interface builds for KiCad, the power flag in the catalog's library | c0061, c0075 |
 | c0146 | `altium-schematic-fonts-and-part-r` | correction of v0.3 (found in Altium Designer 26 on 2026-10-07): the font table of a written schematic holds each distinct font once; the authored `Repeat` sample is written by the schematic writer | c0087, c0083, c0086 |
 | c0148 | `altium-pin-hide-bits` | correction of v0.3 (found in Altium Designer 26 on 2026-10-08): every written pin holds bit 0x20 of `PINCONGLOMERATE`, with 0x08 and 0x10 as show flags; the reader reads the two bits as hide flags on pins without 0x20 | c0032, c0034, c0040 |
+| c0149 | `release-0-2-2` | patch release `0.2.2`: the record, the version | c0133, c0143 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

@@ -7,10 +7,10 @@ patch release of the series. Since 2026-10-07 the write side of the second backe
 released as `0.3.0`, and v0.4 names the proposals that are open on other branches
 ([Milestone names](#milestone-names)).
 
-Patch release of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
-pin-to-pad map in the Altium build (c0135). Its record is the section “Patch releases” of
-`docs/release/v0.2.md`. It is merged into this line, which holds the fix, the version and the changelog
-section.
+Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
+pin-to-pad map in the Altium build (c0135); `0.2.2` (change c0149), cut from the tag `v0.2.1`, with the
+fix of the power flag of a design with parts of the built-in catalog (c0143). Their record is the section
+“Patch releases” of `docs/release/v0.2.md`. They are merged into this line, which holds the fixes, the versions and the changelog sections.
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
 `openspec/changes/`. An id that is not yet a folder there is an estimate, and so is every budget.
