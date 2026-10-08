@@ -29,6 +29,7 @@ import pytest
 from _altium_kicad import KNOWN_IMPORT_FAILURES, PASTE_LAYERS, SLOT, Item, kicad_nm, match
 from _boards import census
 from _corpus import CorpusItem, manifest_items, require
+from _kicad import oracle_env
 from _resources import kicad_cli
 
 from fenolite.backends.altium.read.pcb import PcbDocument, read_pcbdoc
@@ -65,7 +66,7 @@ def _import(row: str) -> Imported:
     assert cli is not None
     with tempfile.TemporaryDirectory() as folder:
         target = os.path.join(folder, "board.kicad_pcb")
-        env = {**os.environ, "KICAD_CONFIG_HOME": os.path.join(folder, "config")}
+        env = oracle_env(os.path.join(folder, "config"))
         proc = subprocess.run(
             [cli, "pcb", "import", "--format", "altium", "-o", target, str(source)],
             capture_output=True, text=True, timeout=600, env=env, check=False,

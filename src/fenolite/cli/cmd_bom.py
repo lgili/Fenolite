@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends.kicad import bom as kicad_bom
-from fenolite.backends.kicad.cli import BOM, CONFIG_DIR
+from fenolite.backends.kicad.cli import BOM, RESERVED_DIRS
 from fenolite.cli._assembly import (
     BoardInput,
     board_input,
@@ -90,7 +90,7 @@ def _sheet_files(board: BoardInput) -> dict[str, Path]:
         folders = parts[:-1]
         if path == schematic or not path.is_file():
             continue
-        if any(f.startswith(".") or f == CONFIG_DIR or f.endswith(SKIPPED_FOLDERS) for f in folders):
+        if any(f.startswith(".") or f in RESERVED_DIRS or f.endswith(SKIPPED_FOLDERS) for f in folders):
             continue
         files["/".join(parts)] = path
     return files

@@ -15,10 +15,9 @@ What this proves and what it does not:
   the whole netlist of a third-party sheet is not compared here: only the rule for the stack is.
 - The demo projects hold few such stacks. On KiCad 10.0.6 one project has them (``PINNED``); the other
   projects are skipped, and say so.
-- An instance that is mirrored and turned by 90 or 270 degrees is left out (``left_out``): for such an
-  instance two demo sheets connect the pins where "rotate, then mirror" puts them, and
-  ``schlayout.pin_point`` mirrors first. That order is reported apart from this change (change c0137),
-  and until it is settled the pin points of such an instance are not known well enough to find a stack.
+- Every instance takes part, mirrored and turned ones included: ``schlayout.pin_point`` turns a symbol
+  first and mirrors the turned symbol, as the demo sheets connect it (change c0137; until then an
+  instance mirrored and turned by 90 or 270 degrees was left out).
 """
 
 from __future__ import annotations
@@ -55,17 +54,12 @@ def _on(point: Point, start: Point, end: Point) -> bool:
     return point in (start, end)
 
 
-def left_out(instance: SymbolInstance) -> bool:
-    """Mirrored and turned by 90 or 270 degrees: see the module text and change c0137."""
-    return bool(instance.mirror) and (instance.rotation // 1_000_000) % 360 in (90, 270)
-
-
 def stacks(sheet: SchematicSheet) -> list[tuple[SymbolInstance, list[SymbolPin], bool, int]]:
     """Each group of pins of one instance of ``sheet`` that have one name and connect at one point which
     nothing else touches (no label, no wire, no pin of another instance): the instance, the pins, whether
     a no-connect flag marks the point, and the unit count of the symbol. Hidden power inputs are left out:
-    KiCad joins them by name. So is a point that an instance of ``left_out`` or of a symbol whose pins are
-    not known here may touch: its origin is taken as such a point."""
+    KiCad joins them by name. So is a point that an instance of a symbol whose pins are not known here may
+    touch: its origin is taken as such a point."""
     known = {definition.lib_id: definition for definition in sheet.lib_symbols}
     wires = [tuple(points) for points in sch.opaque_wires(sheet)]
     segments = [(a, b) for points in wires for a, b in zip(points, points[1:], strict=False)]
@@ -78,8 +72,6 @@ def stacks(sheet: SchematicSheet) -> list[tuple[SymbolInstance, list[SymbolPin],
         if definition is None or definition.extends:
             # the pins of a derived symbol are not known here; a power symbol has its pin at its origin
             unknown.add(instance.position)
-            continue
-        if left_out(instance):
             continue
         frame = ((instance.rotation // 1_000_000) % 360, instance.mirror)
         for pin in definition.pins_of(instance.unit, instance.body_style):

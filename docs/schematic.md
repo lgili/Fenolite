@@ -206,6 +206,12 @@ x = 152.4
 y = 76.2
 ```
 
+The mirror acts on the turned symbol, as KiCad draws it: `rotation = 90` with `mirror = "x"` turns the
+symbol and then flips it top to bottom. For 90 and 270 degrees this is not the same as flipping first.
+Earlier builds flipped first and so set the labels of such a symbol where KiCad does not connect its
+pins; a new build of the same file sets them on the pins. The build envelope of such a design names
+`H-K-SCH-PINFRAME-ORDER` (`CORPUS-VERIFIED`).
+
 A position is on the sheet of the part's module. A part beside an IC pin keeps its wire only when the
 file gives the IC a place too and the part exactly the place beside the pin: that is what
 `fenolite sync --to-source` writes, so a build after `sync` draws the same sheet. Give the part any

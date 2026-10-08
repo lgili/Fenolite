@@ -132,5 +132,7 @@ keep the names of their day.
 | c0149 | `release-0-2-2` | patch release `0.2.2`: the record, the version | c0133, c0143 |
 | c0150 | `release-0-3-0` | release of the write part of v0.3 as `0.3.0`: the release record with the verdict of the rule of c0092 per Altium write kind and the maintainer's exception for the kit, its guard, the version and the changelog cut; c0149 is the patch release `0.2.2` on its own branch, and c0151 and c0152 are proposed as the follow-ups the record names | c0083–c0092, c0121–c0148 |
 | c0140 | `part-height-rules` | v0.4: part heights as bodies of their footprint, read by one function, and height limits over named rule areas judged by `check`, `place` and `build` | c0099, c0103, c0113 |
+| c0152 | `clearance-rounding` | follow-up of c0131 (Altium's rule check of 2026-10-08, S-0616): the copper check on Altium input lowers its clearance rules by Altium's observed tolerance, 3.5 file units in whole nanometres (9 nm), where that is above the unit's slack | c0131, c0132 |
+| c0153 | `kicad-cli-per-worker` | correction (two transient failures of the kicad-9 job on 2026-10-08): every `kicad-cli` run gets private temporary, runtime, cache and state folders, so parallel runs share no instance lock file | c0009, c0082 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

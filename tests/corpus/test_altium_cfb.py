@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -12,6 +11,7 @@ import pytest
 from _boards import census
 from _cfb_read import read_compound as independent_read
 from _corpus import CorpusItem, manifest_items, require
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium.read.cfb import CompoundFile, read_compound
@@ -75,7 +75,7 @@ def test_difat_container_imports_in_kicad_10(tmp_path: Path) -> None:
     cli = kicad_cli()
     assert cli is not None and kicad_cli_major() == 10
     target = tmp_path / "imported.kicad_pcb"
-    env = {**os.environ, "KICAD_CONFIG_HOME": str(tmp_path / "config")}
+    env = oracle_env(tmp_path / "config")
     result = subprocess.run(
         [cli, "pcb", "import", "--format", "altium", "-o", str(target), str(source)],
         capture_output=True,

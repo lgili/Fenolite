@@ -29,6 +29,7 @@ def _docker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, fail: bool = Fal
 import json, os, pathlib, sys
 args = sys.argv[1:]
 pathlib.Path({str(tmp_path / "calls.json")!r}).write_text(json.dumps(args))
+pathlib.Path({str(tmp_path / "env.json")!r}).write_text(json.dumps(dict(os.environ)))
 if {fail!r}:
     print('No such image', file=sys.stderr)
     sys.exit(125)
@@ -67,6 +68,20 @@ def test_fake_docker_mounts_copy_and_returns_saved_board(
         ]
         or args[-1] == "triad_t9.kicad_pcb"
     )
+
+
+def test_docker_client_keeps_the_callers_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """c0153: the container has its own temporary folder, so the ``docker`` client keeps the caller's
+    ``XDG_RUNTIME_DIR`` (a rootless daemon's socket) and the command passes no state variable."""
+    _docker(tmp_path, monkeypatch)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", "/run/user/1000")
+    monkeypatch.setenv("TMPDIR", "/shared")
+    assert DockerCli(IMAGE).version() == "10.0.6"
+    env = json.loads((tmp_path / "env.json").read_text())
+    assert env["XDG_RUNTIME_DIR"] == "/run/user/1000" and env["TMPDIR"] == "/shared"
+    args = json.loads((tmp_path / "calls.json").read_text())
+    passed = [args[i + 1] for i, arg in enumerate(args) if arg == "-e"]
+    assert passed == ["KICAD_CONFIG_HOME=/w/config", "LANG=C", "LC_ALL=C"]
 
 
 def test_missing_image_gets_pull_hint(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

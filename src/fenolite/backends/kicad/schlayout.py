@@ -65,7 +65,9 @@ ROTATIONS: tuple[int, ...] = (0, 90, 180, 270)
 MIRRORS: tuple[str, ...] = ("", "x", "y")
 PROVED_FRAMES: frozenset[tuple[int, str]] = frozenset((r, m) for r in ROTATIONS for m in MIRRORS)
 """The (rotation in degrees, mirror) pairs for which ``pin_point`` is where KiCad 9.0.9 and 10.0.6 connect
-a pin (probes ``sch-pin-frame-<angle>-<mirror>``). A placements file may ask for no other pair."""
+a pin (probes ``sch-pin-frame-<angle>-<mirror>``; the order of the rotation and the mirror is read from the
+demo sheets of the corpus and checked by ``tests/kicad/schematic/test_pin_frame_oracle.py``, change c0137).
+A placements file may ask for no other pair."""
 _TURN: Mapping[int, tuple[int, int, int, int]] = MappingProxyType(
     {0: (1, 0, 0, 1), 90: (0, -1, 1, 0), 180: (-1, 0, 0, -1), 270: (0, 1, -1, 0)}
 )
@@ -130,25 +132,30 @@ class SheetLayout:
 
 
 def turned(x: int, y: int, rotation: int, mirror: str) -> tuple[int, int]:
-    """A library vector (Y up) after the mirror and then the rotation of an instance."""
+    """A library vector (Y up) after the rotation and then the mirror of an instance.
+
+    KiCad turns first and mirrors the turned symbol (change c0137, measured on the demo sheets of the
+    corpus): ``"x"`` then negates the turned y and ``"y"`` the turned x. For 0 and 180 degrees the order
+    does not matter; for 90 and 270 degrees the other order swaps the two mirrors."""
     if rotation not in _TURN:
         raise ValueError(f"symbol rotation {rotation} is not 0, 90, 180 or 270 degrees")
+    if mirror not in MIRRORS:
+        raise ValueError(f"symbol mirror {mirror!r} is not '', 'x' or 'y'")
+    a, b, c, d = _TURN[rotation]
+    x, y = a * x + b * y, c * x + d * y
     if mirror == "x":
         y = -y
     elif mirror == "y":
         x = -x
-    elif mirror:
-        raise ValueError(f"symbol mirror {mirror!r} is not '', 'x' or 'y'")
-    a, b, c, d = _TURN[rotation]
-    return a * x + b * y, c * x + d * y
+    return x, y
 
 
 def pin_point(origin: Point, pin: Point, rotation: int = 0, mirror: str = "") -> Point:
     """The sheet position at which a pin connects, for a symbol instance at ``origin``.
 
-    ``pin`` is the pin's position in the library frame, whose Y axis points up. The mirror is applied
-    first (``"x"`` negates y, ``"y"`` negates x), then the rotation by ``rotation`` degrees, and the sheet
-    turns Y down: ``(x + px′, y − py′)``.
+    ``pin`` is the pin's position in the library frame, whose Y axis points up. The rotation by
+    ``rotation`` degrees counter-clockwise is applied first, then the mirror (``"x"`` negates the turned y,
+    ``"y"`` the turned x), and the sheet turns Y down: ``(x + px′, y − py′)``.
     """
     px, py = turned(pin.x, pin.y, rotation, mirror)
     return Point(origin.x + px, origin.y - py)

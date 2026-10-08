@@ -877,9 +877,15 @@ one public document opened read-only (S-0616). Nothing that Altium wrote is in t
     with Fenolite's reading of 63.7795 mil and cannot tell it from a pad of 63.78 mil.
   - **What follows.** By the design of c0088 (N = 0), the seven findings of `-03` are not findings of the
     board for Altium; the 18 others of their class (2 on `-01`, 16 on `-08`) were not checked in Altium.
-    D6 does not show the pad-size fact that
-    Fenolite reads otherwise, so the cause is open: a follow-up change, c0152, is proposed to find it
-    (the size of the pad, the rounding of the gap, or Altium's own tolerance). Until then the findings
-    stay errors, as c0131 decided, and no tolerance is added.
+    D6 does not show the pad-size fact that Fenolite reads otherwise.
+  - **The fix landed (change c0152, 2026-10-08).** The cause is Altium's own tolerance, not Fenolite's
+    reading: the document's integers put the straight track segment 49 996.5 units from the edge of the
+    637 795-unit pad, 3.5 units (8.89 nm) inside the 50 000-unit rule, and Fenolite reads that gap as
+    126 991 nm against an exact 126 991.11; no rounding of coordinates, track ends or polygons takes
+    part, and a pad of 63.78 mil would be nearer still. Altium passes it, so its check allows at least 3.5
+    units. The copper check on Altium input now lowers each clearance rule by 9 nm (that tolerance in
+    whole nanometres; `docs/formats/altium/import.md`, "Clearance of the copper check",
+    `ALTIUM-VERIFIED(author-report)`): `-03` has no clearance finding, and of the 18 others the 9 that are 8
+    or 9 nm short go and the 9 that are 10 to 20 nm short stay errors (1 on `-01`, 8 on `-08`). D5 above stays the evidence of what Altium shows.
 - **Parts X8 (c0121), V (c0132) and G (c0126).** Not done: owed. `--altium-bodies extruded` stays off by
   default, and the rows of the three parts are where they were.

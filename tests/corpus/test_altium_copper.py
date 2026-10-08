@@ -22,7 +22,9 @@ written (``docs/evidence/altium-roundtrip.md``, "Light DRC over the corpus", is 
 
 from __future__ import annotations
 
+import dataclasses
 from collections import Counter
+from fractions import Fraction
 from pathlib import Path
 
 import pytest
@@ -31,6 +33,8 @@ from _boards import census
 from _corpus import CorpusItem, heavy_enabled, manifest_items, require
 
 from fenolite.backends.altium.backend import (
+    ALTIUM_PASSED_UNITS,
+    CLEARANCE_SLACK_NM,
     UNIT_SLACK_NM,
     AltiumBackend,
     _with_removed_pads,  # pyright: ignore[reportPrivateUsage]
@@ -151,16 +155,16 @@ def test_copper(item: CorpusItem) -> None:
     if unjudged or summary["unsupported"]:
         assert stage.evidence.level is Level.UNVERIFIED, item.id
         assert codes["copper.rules-incomplete"] + codes["copper.item-unsupported"] >= 1, item.id
-    # copper at exactly its clearance in the document's unit is no finding: with the values as the
-    # document writes them, the findings that the slack of the unit takes away are short by that slack
-    # at most, and nothing else changes
+    # copper at exactly its clearance in the document's unit is no finding, nor copper as far inside it
+    # as Altium's own check was seen to pass (c0152): with the values as the document writes them, the
+    # findings that the slack takes away are short by that slack at most, and nothing else changes
     # (a via without a pad shape on a layer is judged by its hole there in both: change c0132)
     exact = _without_zone_clearance(_with_removed_pads(design))
     unslacked = check_copper(exact, pads=backend.board_pads(exact))
     kept = {frozenset(entry.entity_id for entry in f.items) for f in report.findings}
     rounding = [f for f in unslacked.findings if frozenset(e.entity_id for e in f.items) not in kept]
     assert all(
-        f.code == "copper.clearance" and f.clearance is not None and f.clearance - f.gap <= UNIT_SLACK_NM
+        f.code == "copper.clearance" and f.clearance is not None and f.clearance - f.gap <= CLEARANCE_SLACK_NM
         for f in rounding
     ), item.id
     assert len(unslacked.findings) == len(report.findings) + len(rounding), item.id
@@ -319,7 +323,8 @@ def test_vias_without_inner_pads() -> None:
     rules source (the drill as diameter on the named layers) none of the 29 remains, no finding names
     such a via on a named layer, and the pour of each of the 28 places stands at the generic clearance
     from the via's HOLE, to the rounding of the pour's points. What remains is the class of the evidence
-    page: clearance findings 8 to 13 nm short of the rule, none of them with a pour."""
+    page: clearance findings 10 to 13 nm short of the rule, none of them with a pour (8 and 9 nm short
+    before change c0152, whose slack passes them)."""
     from fenolite.backends.altium.backend import _with_unit_slack  # pyright: ignore[reportPrivateUsage]
     from fenolite.checks.copper import _clean_ring  # pyright: ignore[reportPrivateUsage]
     from fenolite.geometry import Thick, thick_gap_floor
@@ -369,7 +374,7 @@ def test_vias_without_inner_pads() -> None:
         if any(e.entity_id in bare and found.layer in bare[e.entity_id] for e in found.items)
     ]
     assert Counter(found.code for found in false) == {"copper.short": 28, "copper.clearance": 1}
-    assert Counter(f.code for f in before.findings) == {"copper.short": 28, "copper.clearance": 17}
+    assert Counter(f.code for f in before.findings) == {"copper.short": 28, "copper.clearance": 9}
     vias = {via.id: via for via in design.board.vias}
     zones = {zone.id: zone for zone in design.board.zones}
     touched: set[str] = set()
@@ -393,7 +398,7 @@ def test_vias_without_inner_pads() -> None:
 
     # after: the view of the rules source
     after = check_copper(rules.design, pads=pads)
-    assert Counter(found.code for found in after.findings) == {"copper.clearance": 16}
+    assert Counter(found.code for found in after.findings) == {"copper.clearance": 8}
     gone = {_key(f) for f in before.findings} - {_key(f) for f in after.findings}
     assert gone == {_key(f) for f in false}
     assert {_key(f) for f in after.findings} <= {_key(f) for f in before.findings}
@@ -401,5 +406,67 @@ def test_vias_without_inner_pads() -> None:
         assert not any(e.entity_id in bare and found.layer in bare[e.entity_id] for e in found.items)
         assert "fill" not in {entry.kind for entry in found.items}
         assert found.gap is not None and found.clearance is not None
-        assert 8 - UNIT_SLACK_NM <= found.clearance - found.gap <= 13 - UNIT_SLACK_NM, found.where
+        assert 10 - CLEARANCE_SLACK_NM <= found.clearance - found.gap <= 13 - CLEARANCE_SLACK_NM, found.where
     assert after.summary["items"]["via"] == 2160  # type: ignore[index]  # the parts are counted
+
+
+ALTIUM_CHECKED = "altium-third-party-pcbdoc-03"
+"""The public document on which the maintainer ran Altium's own clearance check (S-0616)."""
+
+
+def _lowered_by_the_unit_alone(design: Design) -> Design:
+    """``design``, whose clearance rules the rules source lowered by ``CLEARANCE_SLACK_NM``, with them
+    lowered by ``UNIT_SLACK_NM`` alone, as before change c0152."""
+    held = design.rules
+    assert held is not None
+    rules = tuple(
+        dataclasses.replace(rule, min=rule.min + CLEARANCE_SLACK_NM - UNIT_SLACK_NM)
+        if rule.kind == "clearance" and rule.min is not None
+        else rule
+        for rule in held.rules
+    )
+    return dataclasses.replace(design, rules=dataclasses.replace(held, rules=rules))
+
+
+def test_the_pairs_that_altium_passes() -> None:
+    """Scenario "Altium's observed tolerance on a public document" (change c0152): on the document of
+    S-0616, Altium Designer 26.5.0 reports no violation of the 5 mil rule between one pad and the track of
+    one net around it, where Fenolite reported seven. The shortfall is in the document's own integers (a
+    square pad of an odd size, its edge on a half unit, and a straight track segment along it): 3.5 units,
+    ``ALTIUM_PASSED_UNITS``. With the slack of the unit alone the seven pairs are findings 8 and 9 nm
+    short; with the check's slack the document has no clearance finding."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.altium.read.pcbprims import PadRecord, TrackRecord
+
+    (item,) = [row for row in BOARDS if row.id == ALTIUM_CHECKED]
+    path = require(item)
+    backend = AltiumBackend()
+    documents = backend.documents(path)
+    read = backend.read_documents(documents)
+    assert read.pcb is not None and isinstance(read.pcb.design, Design)
+    project = project_of(documents)
+    assert project is not None
+    rules = backend.design_rules(read.pcb.design, project)
+    pads = backend.board_pads(rules.design)
+    after = check_copper(rules.design, pads=pads)
+    assert [f for f in after.findings if f.code == "copper.clearance"] == []
+
+    before = [
+        f
+        for f in check_copper(_lowered_by_the_unit_alone(rules.design), pads=pads).findings
+        if f.code == "copper.clearance"
+    ]
+    assert len(before) == 7
+    assert {f.where.split(", ")[0] for f in before} == {"J2-1"} and {f.layer for f in before} == {"B.Cu"}
+    assert {sorted(e.kind for e in f.items)[1] for f in before} == {"track"}
+    assert sorted(127_000 - f.gap for f in before) == [8, 8, 9, 9, 9, 9, 9]
+
+    # the document's own integers: the straight segment along the pad's edge is 3.5 units inside 5 mil
+    document = read_pcbdoc(path.read_bytes(), file=path.name)
+    (pad,) = [p for p in document.pads if isinstance(p, PadRecord) and (p.x, p.y) == (59_200_000, 38_500_000)]
+    assert pad.shape_bottom == 2 and pad.size_bottom == (637_795, 637_795)
+    (track,) = [t for t in document.tracks if isinstance(t, TrackRecord) and t.x1 == t.x2 == 58_806_106]
+    half = Fraction(pad.size_bottom[1], 2)
+    assert track.width == 50_000 and track.y1 < pad.y - half < pad.y + half < track.y2  # along the edge
+    gap = (pad.x - Fraction(pad.size_bottom[0], 2)) - (track.x1 + Fraction(track.width, 2))
+    assert 50_000 - gap == ALTIUM_PASSED_UNITS

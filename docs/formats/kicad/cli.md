@@ -38,6 +38,23 @@ last word is a subcommand, or its option a long option, on its parent's page.
 | With an authored board of either target major, 10.0.6 writes a saved board, a `.kicad_prl` and `drc.json` in the run folder | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
 | `docker run --rm --pull never --platform linux/amd64 -v HOST:/w -w /w -e KICAD_CONFIG_HOME=/w/config -e LANG=C -e LC_ALL=C IMAGE kicad-cli …` runs a named image with the copied project mounted at `/w`; the runner never pulls an image | S-0205 | INFERRED | H-K-CLI-DOCKER |
 
+## Per-run state
+
+Parallel `kicad-cli` processes on one machine must not share state that the tool writes outside its run
+folder (c0153). Each run of the package runner therefore gets its own temporary, runtime, cache and state
+folders under `<run folder>/.fenolite-state/` (`cli.private_state`), next to its own `KICAD_CONFIG_HOME`;
+the folders are removed with the run folder. Configuration and data folders are not moved: KiCad's
+configuration is already `KICAD_CONFIG_HOME`, and fonts and user data are only read.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A process on a POSIX system takes `TMPDIR` as the folder for its temporary files; Python's `tempfile`, as an example of the convention, tries `TMPDIR`, then `TEMP`, then `TMP` | S-0703, S-0705 | INFERRED | H-K-CLI-STATE |
+| `XDG_RUNTIME_DIR` names a per-user folder for runtime files (sockets, named pipes) that only the user may read and write (mode 0700); `XDG_CACHE_HOME` and `XDG_STATE_HOME` name the user's cache and state folders | S-0704 | INFERRED | H-K-CLI-STATE |
+| `KICAD_CONFIG_HOME` moves KiCad's configuration folder | S-0045 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
+| Under parallel runs on one machine, `kicad-cli` 9.0.9 and 10.0.6 have printed "Invalid lock file '/tmp/org.kicad.kicad/instances/kicad-cli-<major>.0'": the tool keeps an instance lock file named by its program and major in a folder `org.kicad.kicad/instances` of the shared temporary folder, the same file for every process of that major. Runs that printed it lost their usual result: an unloadable schematic gave no "Failed to load schematic" (kicad-9 job, 2026-10-08), a broken drawing sheet gave no "Error loading drawing sheet" (kicad-9 job, 2026-10-08; c0082 on 10.0.6), and an import added the warning (c0051, kicad-10 job) | S-0020 | INFERRED | H-K-CLI-STATE |
+| With `TMPDIR`, `TMP` and `TEMP` naming a private folder, the instance folder `org.kicad.kicad/instances` is created in that folder, so runs with different folders share no lock file | S-0020, S-0703 | INFERRED (measured by `tests/kicad/check/test_parallel_runs_oracle.py`, owed: CI kicad-9/kicad-10) | H-K-CLI-STATE |
+| The Docker runner keeps the caller's environment for the `docker` client (a rootless daemon's socket is under `XDG_RUNTIME_DIR`); each container (`--rm`) has its own `/tmp` | S-0205, S-0704 | INFERRED | H-K-CLI-DOCKER |
+
 ## Copy set of a check
 
 `kicad-cli` writes into the folder it runs in, so `fenolite check` gives it only a copy of the files a
