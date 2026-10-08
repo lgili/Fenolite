@@ -74,6 +74,37 @@ def test_sheets_are_written_as_the_schematic_writer_writes() -> None:
     assert [record["TEXT"] for record in child if record["RECORD"] == "25"] == ["MID", "MID"]
 
 
+def test_repeat_bus_and_project_forms() -> None:
+    """Change c0151 (scenarios "Bus label beside the connection point" and "Project keys of the
+    two-channel sample"): no net label of the top sheet lies on the connection point of a sheet entry, the
+    label of the bus lies on the bus line 100 mil past the entry, and the project file's ``[Design]`` holds
+    the corpus keys that name nets or order a compile, in the corpus order."""
+    top = [fields(record) for record in read_schematic((FOLDER / two.TOP).read_bytes()).records]
+    (symbol,) = [record for record in top if record["RECORD"] == "15"]
+    right = int(symbol["LOCATION.X"]) + int(symbol["XSIZE"])
+    points = {
+        (right, int(symbol["LOCATION.Y"]) - 10 * int(entry["DISTANCEFROMTOP"]))
+        for entry in top
+        if entry["RECORD"] == "16"
+    }
+    labels = {(int(r["LOCATION.X"]), int(r["LOCATION.Y"])): r["TEXT"] for r in top if r["RECORD"] == "25"}
+    assert not points & set(labels)
+    (bus,) = [record for record in top if record["RECORD"] == "26"]
+    start = (int(bus["X1"]), int(bus["Y1"]))
+    assert start in points and labels[(start[0] + 10, start[1])] == "OUT[1..2]"
+    text = (FOLDER / two.PROJECT).read_bytes().decode("utf-8")
+    design = text.split("\r\n\r\n", 1)[0].split("\r\n")[1:]
+    assert [line.split("=", 1)[0] for line in design] == [
+        "Version",
+        "HierarchyMode",
+        "ChannelRoomNamingStyle",
+        "ChannelDesignatorFormatString",
+        "ChannelRoomLevelSeperator",
+        *(key for key, _value in two.NETLIST_KEYS),
+    ]
+    assert "AllowSheetEntryNetNames=1" in design and "ReorderDocumentsOnCompile=1" in design
+
+
 def test_folder_reads_as_two_channels(tmp_path: Path) -> None:
     """Scenarios "Two channels", "Designators from the naming format" and "Shared and per-channel nets",
     on the files: no PCB document and no annotation file."""

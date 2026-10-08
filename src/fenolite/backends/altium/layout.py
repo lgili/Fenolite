@@ -286,7 +286,9 @@ BUS_ENTRY = 100
 class BusBlock:
     """A bus drawn from ``point`` (change c0086, "Bus records"): the bus ``line`` runs ``BUS_RUN`` to the
     right and then down, one ``ENTRY_PITCH`` per member; ``label`` is the bus identifier
-    ``<stem>[<first>..<last>]``, whose net label sits at ``point``, on the line; member ``k`` (1-based)
+    ``<stem>[<first>..<last>]``, whose net label sits on the line ``LABEL_OFFSET`` right of ``point``
+    (``label_point``, change c0151: not on the connection point of the port or sheet entry, where no
+    corpus sheet holds a label); member ``k`` (1-based)
     has the bus entry ``entries[k - 1]`` (from the line to the start of its wire) and the labelled wire
     ``stubs[k - 1]``. ``point`` is the right end of a bus port, the connection point of a bus sheet entry,
     or the corner of the block's own cell on a sheet that only holds pins of the members."""
@@ -298,6 +300,12 @@ class BusBlock:
     entries: tuple[tuple[tuple[int, int], tuple[int, int]], ...]
     stubs: tuple[Stub, ...]
     cell: tuple[int, int, int, int] | None = None
+
+    @property
+    def label_point(self) -> tuple[int, int]:
+        """The hotspot of the bus's net label: on the first run of the line, ``LABEL_OFFSET`` right of
+        ``point``, as a wire's label lies ``LABEL_OFFSET`` along its wire (change c0151)."""
+        return self.point[0] + LABEL_OFFSET, self.point[1]
 
 
 @dataclass(frozen=True)
@@ -591,7 +599,7 @@ def _reach(
     with neither a stub nor a block starts a signal harness line, which needs ``HARNESS_GAP`` to its
     right."""
     if bus is not None:
-        right = max(point[0] + text_width(bus.label), *(s.end[0] for s in bus.stubs))
+        right = max(bus.label_point[0] + text_width(bus.label), *(s.end[0] for s in bus.stubs))
         return right, point[1] - TEXT_HEIGHT, bus.line[-1][1]
     if block is not None:
         right = max((s.end[0] for s in block.stubs), default=block.x + block.width)

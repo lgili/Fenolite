@@ -1538,13 +1538,13 @@ notes = "script that writes the two-channel sample from the sheet plans of tests
 path = "tests/data/altium/channels/two/two.PrjPcb"
 origin = "authored"
 corpus_id = ""
-notes = "project file of the two-channel sample: the three channel keys of [Design] (format $Component_$RoomName, style 0) and its two sheets (c0083)"
+notes = "project file of the two-channel sample: the three channel keys of [Design] (format $Component_$RoomName, style 0) and its two sheets (c0083); since c0151 also the seven net and compile keys that all six corpus project files hold, in their order"
 
 [[file]]
 path = "tests/data/altium/channels/two/two.SchDoc"
 origin = "authored"
 corpus_id = ""
-notes = "top sheet of the two-channel sample: a sheet symbol Repeat(CH,1,2) with the entries VCC and Repeat(OUT), the bus OUT[1..2], U1 and J1 (c0083). Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil, after the first file (SHA-256 53c540c9..., without an area colour or any colour) showed as a black page in Altium Designer 26"
+notes = "top sheet of the two-channel sample: a sheet symbol Repeat(CH,1,2) with the entries VCC and Repeat(OUT), the bus OUT[1..2], U1 and J1 (c0083). Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil, after the first file (SHA-256 53c540c9..., without an area colour or any colour) showed as a black page in Altium Designer 26. Since c0151 the label OUT[1..2] lies 100 mil along the bus, not on the connection point of the entry Repeat(OUT)"
 
 [[file]]
 path = "tests/data/altium/channels/two/two_ch.SchDoc"

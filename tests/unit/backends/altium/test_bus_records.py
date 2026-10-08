@@ -11,7 +11,7 @@ import pytest
 from _altium import sample
 from _altium_tree import documents, nets_of, read_back, tree_build, tree_model, with_bus
 
-from fenolite.backends.altium.layout import BUS_ENTRY, BUS_RUN, ENTRY_PITCH, bus_block
+from fenolite.backends.altium.layout import BUS_ENTRY, BUS_RUN, ENTRY_PITCH, LABEL_OFFSET, bus_block
 from fenolite.backends.altium.project import bus_identifier, lowered_buses
 from fenolite.backends.altium.read.sch import BusEntry, SheetEntry
 from fenolite.dsl import to_model
@@ -65,6 +65,19 @@ def test_bus_block_geometry() -> None:
         bus_block("D[0..3]", (), (0, 0))
 
 
+def test_bus_label_lies_beside_the_connection_point() -> None:
+    """Scenario "Bus label beside the connection point" (change c0151): the net label of a bus block lies
+    ``LABEL_OFFSET`` along the first run of the line, as a wire's label does, and not on the point where
+    the bus meets its port or sheet entry."""
+    block = bus_block("D[0..3]", MEMBERS, (1000, 2000))
+    assert block.label_point == (1000 + LABEL_OFFSET, 2000) and LABEL_OFFSET < BUS_RUN
+    for form in ("binary", "ascii"):
+        for sheet in documents(tree_build(form=form)).values():
+            labels = {label.location for label in sheet.net_labels()}
+            for bus in sheet.buses():
+                assert bus.points[0] not in labels, sheet.file
+
+
 def test_four_bit_bus(tmp_path: Path) -> None:
     """Scenario "Four-bit bus": the single sheet holds one bus labelled ``D[0..3]`` with four bus
     entries, and the netlist read back holds ``D0`` to ``D3`` with their pins, in both forms."""
@@ -74,7 +87,10 @@ def test_four_bit_bus(tmp_path: Path) -> None:
         (bus,) = sheet.buses()
         assert len(bus.points) == 3 and len(sheet.of_type(BusEntry)) == 4
         labels = [label for label in sheet.net_labels() if label.text == "D[0..3]"]
-        assert len(labels) == 1 and labels[0].location == bus.points[0]  # the label lies on the bus line
+        # the label lies on the first run of the bus line, past its start (change c0151)
+        (sx, sy), (cx, _cy) = bus.points[0], bus.points[1]
+        (lx, ly) = labels[0].location
+        assert len(labels) == 1 and ly == sy and sx.value < lx.value < cx.value
         ends = {entry.corner for entry in sheet.of_type(BusEntry)}
         starts = {wire.points[0] for wire in sheet.wires()}
         assert ends <= starts  # each bus entry ends where its member's wire starts

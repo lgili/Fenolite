@@ -771,6 +771,38 @@ of the table above (the folder `R-repeated-sheet/` of the session pack).
   proposed for it.
 - **Steps R2, R3 and R4.** Not done: owed. `H-A-IMP-RPT-COUNT` (its board half is R3), `H-A-IMP-RPT-NETS`
   and `H-A-IMP-RPT-FORMAT` stay `INFERRED`, the first two with the observation above.
+- **The messages, as the maintainer gave them** (same report, S-0615). Before the sync: `Missing
+  child-sheet in two_ch.SchDoc in Symbol Repeat(CH,1,2)`, and `Duplicate Net Names Wire Repeat(OUT)` with
+  the bus `OUT[1..2]` named twice. After the sync: the errors `Net OUT1 has only one pin (Pin U1-1)` and
+  `Net OUT2 has only one pin (Pin U1-2)`, and the warning `Wire Sheet Entry CH1-Repeat(OUT)(Passive) at
+  2200mil,6500mil placed on a bus`. The point named is the connection point of the entry `Repeat(OUT)`,
+  where the bus started and where its net label `OUT[1..2]` lay. What the sync dialog listed and what was
+  clicked in it is not reported. Read against Altium's pages (S-0707) in change c0151, whose design ranks
+  five hypotheses.
+
+**Step R5 (change c0151, 2026-10-08).** The sample is written again: the bus label lies 100 mil along the
+bus (`H-A-SCHRPT-BUSLABEL`), and `two.PrjPcb` holds the net and compile keys of the corpus projects
+(`H-A-SCHRPT-ATTACH`). The check folder `c0151-check/` holds three variants, each with its own copy of the
+three files, and a guide in Brazilian Portuguese (`LEIA-ME.md`):
+
+| file | SHA-256 |
+|---|---|
+| `A-principal/two.PrjPcb` (the committed sample) | `b1b67bdfc25c6a59ebfa10063dc2f78df62562b56e739d1e6668cc22a0b0b28d` |
+| `A-principal/two.SchDoc` (the committed sample) | `917fe6fb524830eac1ec60131fb49100bd5b6071821b533820e2e187078d60e6` |
+| `*/two_ch.SchDoc` (all three; not changed by c0151) | `cad7f56662f5a1af94265ac243db10dd18390a0371b1f76a5436f460f1f05178` |
+| `B-projeto-antigo/two.PrjPcb` (the project file of c0146) | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` |
+| `B-projeto-antigo/two.SchDoc` | as `A-principal/two.SchDoc` |
+| `C-rotulo-antigo/two.PrjPcb` | as `A-principal/two.PrjPcb` |
+| `C-rotulo-antigo/two.SchDoc` (the base's sheet, label on the entry's point) | `42e8a02658ae0c7c09c04d08daf64a23995764796221e439953cbcb639a603eb` |
+
+5. R5: for each folder, on a fresh copy and **without** "Synchronize Sheet Entries and Ports": open
+   `two.PrjPcb`, say whether `two_ch.SchDoc` is under `two.SchDoc` in the Projects panel, compile, and copy
+   the messages. Only where the child is missing, open the sync dialog to read what it lists, cancel it,
+   and compile again. In folder A, give the pins of the nets `OUT1` and `OUT2`. Also say what was done in
+   the dialog in session 2. Expected in folder A: the child under the top sheet at once; no `Missing
+   child-sheet`, no `only one pin`, no `placed on a bus`; `OUT1` = `U1-1` + `C12_CH1-2`, `OUT2` = `U1-2` +
+   `C12_CH2-2`. Folders B and C are the controls: A against B settles `H-A-SCHRPT-ATTACH`, A against C
+   `H-A-SCHRPT-BUSLABEL`. Owed: maintainer, AD26.
 
 ## Recording a report
 

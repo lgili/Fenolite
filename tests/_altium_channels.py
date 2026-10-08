@@ -148,12 +148,34 @@ def sheets(
     return WrittenSheet(TOP, top_plan(statement, entry, bus)), WrittenSheet(CHILD, child_plan())
 
 
+NETLIST_KEYS = (
+    ("AllowPortNetNames", "0"),
+    ("AllowSheetEntryNetNames", "1"),
+    ("AppendSheetNumberToLocalNets", "0"),
+    ("NetlistSinglePinNets", "0"),
+    ("ReorderDocumentsOnCompile", "1"),
+    ("NameNetsHierarchically", "0"),
+    ("PowerPortNamesTakePriority", "0"),
+)
+"""The keys of ``[Design]`` that name nets or order the documents of a compile, with the value most of the
+six corpus project files hold, in their order (change c0151; ``docs/formats/altium/project.md``): every
+one is in all six files. Altium's defaults for an absent key are not documented."""
+
+
 def project_text(form: str = FORMAT, style: int = 0) -> str:
-    """The project file of the two sheets: the three channel keys of ``[Design]`` and the documents."""
+    """The project file of the two sheets: ``[Design]`` with the channel keys and ``NETLIST_KEYS`` in the
+    order of the corpus project files (change c0151), then the documents."""
+    design = [
+        ("Version", "1.0"),
+        ("HierarchyMode", "0"),
+        ("ChannelRoomNamingStyle", str(style)),
+        ("ChannelDesignatorFormatString", form),
+        ("ChannelRoomLevelSeperator", "_"),
+        *NETLIST_KEYS,
+    ]
+    lines = "".join(f"{key}={value}\r\n" for key, value in design)
     return (
-        "[Design]\r\nVersion=1.0\r\nHierarchyMode=0\r\n"
-        f"ChannelRoomNamingStyle={style}\r\nChannelRoomLevelSeperator=_\r\n"
-        f"ChannelDesignatorFormatString={form}\r\n\r\n"
+        f"[Design]\r\n{lines}\r\n"
         f"[Document1]\r\nDocumentPath={TOP}\r\n\r\n[Document2]\r\nDocumentPath={CHILD}\r\n"
     )
 

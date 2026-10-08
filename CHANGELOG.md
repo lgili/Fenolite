@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Altium schematic: **the net label of a bus that the schematic writer draws now lies 100 mil along the bus line, not on the connection point of its port or sheet entry, so a schematic document with a drawn bus changes its bytes** (the parts to the right of the bus move 100 mil). No public Altium sheet of the corpus holds a label on such a point; in Altium Designer 26 the bus of the two-channel sample did not split into its channels with the label there (c0151). The sample `tests/data/altium/channels/two/` is written again, with the project keys that name nets and order a compile in every public project file; whether Altium now splits the bus is the maintainer's step R5, still owed.
+
 ## [0.3.0] - 2026-10-08
 
 ### Added

@@ -423,7 +423,8 @@ class _Writer:
 
     def bus(self, block: BusBlock) -> None:
         """The records of one bus block (change c0086, "Bus records"): the bus line (26), its net label
-        (25) at the block's start, then per member its bus entry (37) and its labelled wire."""
+        (25) on its first run, ``LABEL_OFFSET`` right of the block's start (``BusBlock.label_point``,
+        change c0151), then per member its bus entry (37) and its labelled wire."""
         points: list[Field] = []
         for index, (x, y) in enumerate(block.line, start=1):
             points += [(f"X{index}", str(to_units(x))), (f"Y{index}", str(to_units(self.height - y)))]
@@ -441,7 +442,7 @@ class _Writer:
             [
                 ("RECORD", "25"),
                 ("OWNERPARTID", "-1"),
-                *self.at("LOCATION", *block.point),
+                *self.at("LOCATION", *block.label_point),
                 ("TEXT", block.label),
                 ("FONTID", "1"),
                 ("COLOR", TEXT_COLOR),
