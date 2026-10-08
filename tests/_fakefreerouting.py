@@ -26,6 +26,8 @@ import textwrap
 import zipfile
 from pathlib import Path
 
+from _resources import fake_tool
+
 PINNED_REVISION = "ae3d377740b6ffa744bed1bab26625fe0278fa90"
 
 _BODY = """\
@@ -93,6 +95,9 @@ def _script(path: Path, *, version: str, docker: bool) -> Path:
     body = textwrap.dedent(_BODY).format(version=version, docker=docker)
     source = path.with_name(path.name + "_fake.py")
     source.write_text(body, encoding="utf-8")
+    if sys.platform == "win32":
+        # a ``.cmd`` launcher that a process starts by its path, as it starts the shell wrapper elsewhere
+        return fake_tool(path, source)
     # a shell wrapper, not a shebang: the interpreter's path may hold blanks
     path.write_text(f'#!/bin/sh\nexec {shlex.quote(sys.executable)} {shlex.quote(str(source))} "$@"\n')
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)

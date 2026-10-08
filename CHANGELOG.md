@@ -53,6 +53,21 @@ All notable changes to Fenolite are documented here. The format follows
 - Impedance targets per net class or pair (`design.rules.impedance()`, `trace()`), checked by derived rules on KiCad 9 and 10 and written as KiCad 10 tuning profiles; build warnings for shadowed rules, class values, gaps and an unmarked stack-up; `fenolite impedance` with the table for the fabricator and `INFERRED` estimates of single-ended lines; an Altium build keeps targets in the model and names them; 0.2.x and 0.3.0 cannot read a `rules.json` that carries the key `impedance` (c0105). The KiCad probes of the change (`pro-tuning-*`, `dru-impedance-width`) are written and not yet recorded.
 - A part can state its height (`Part(height=…)`): it becomes a body of its footprint, kept in `.fenolite/`, and `design.height_limit(area, max=…)` limits the parts under a named rule area. `check` (stage `placement.rules`), `place` and `build` report `placement.too-tall` and `placement.height-unknown`. A part's height has one source, its bodies, read by `outward_height`. A `rules.json` with `heights` cannot be read by 0.2.x or 0.3.0 (c0140). **Not yet complete:** the signed body bounds of change c0099 are not on this line, so `outward_height` reads each body's `height`; on the Altium target a limit gives `placement.rule-unresolved`, because a PCB document holds no rule-area name, and a script height is reported as a body without an outline (`altium.not-lowered`, `body/<id>`) and not written.
 
+### Fixed
+
+- **A `docker:<image>` value of `FENOLITE_KICAD_CLI` or `--kicad-cli` runs that image on Windows.** The marker went
+  through a `Path`, which spells the slashes of `kicad/kicad:9.0.9` as backslashes on Windows, so the runner was given
+  the image `kicad\kicad:9.0.9`. `cli.docker_image` turns them back (an image reference holds no backslash), and the
+  runner, the pull hint and the tests' resolver use it.
+- The tests that CI runs on KiCad 9 and on Windows match what those platforms do: the routing benches that `kicad-cli`
+  judges are written for the major of the local `kicad-cli` (a 10.0 board is one that KiCad 9 does not read, and the
+  `Mini.pretty` footprints are in the 10.0 form, so a target-9 bench takes `Mini_v9.pretty`); the fake `java` of the
+  Freerouting tests and the stand-in agent of the time-budget test start on Windows; the files of a built project are
+  compared by POSIX names; a test board names a Windows model path as an escaped KiCad string; `docs/hypotheses.md` is
+  read as UTF-8. `H-K-OUTLINE-INVALID` and `INVALID_ON_9` of `test_outline_shapes.py` say what 9.0.9 reports: no
+  `invalid_outline` for the self-crossing ring of the bench (`outline-invalid-selfx` `absent`, as recorded in
+  `9.0.9.json`); the 10.0.6 expectation is unchanged.
+
 ## [0.3.0] - 2026-10-08
 
 ### Added

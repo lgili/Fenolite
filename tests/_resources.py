@@ -123,10 +123,10 @@ def required_resources() -> set[str]:
 def kicad_cli() -> str | None:
     """``FENOLITE_KICAD_CLI`` when set (``None`` if that file is missing), else PATH, else the macOS app
     (``fenolite.backends.kicad.cli.find_kicad_cli``)."""
-    from fenolite.backends.kicad.cli import find_kicad_cli
+    from fenolite.backends.kicad.cli import find_kicad_cli, marker_text
 
     found = find_kicad_cli()
-    return None if found is None else str(found)
+    return None if found is None else marker_text(found)
 
 
 @cache

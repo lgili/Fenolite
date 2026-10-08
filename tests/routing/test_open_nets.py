@@ -179,10 +179,15 @@ def _judge(folder: Path, before: Design) -> tuple[bool, str, dict[str, object]]:
 
 
 def _bench_folder(tmp_path: Path) -> tuple[Path, Design]:
-    design = bench(10)
+    """The bench written for the major of the local ``kicad-cli``, which judges the routed board: a 10.0
+    file is one that KiCad 9 cannot read, and the route keeps the version of the board it reads."""
+    cli = kicad_cli()
+    assert cli is not None
+    target = min(KicadCli(Path(cli), timeout=TIMEOUT).major(), 10)
+    design = bench(target)
     folder = tmp_path / "bench"
     folder.mkdir()
-    (folder / "bench.kicad_pcb").write_text(write_board(design, target=10).text, encoding="utf-8")
+    (folder / "bench.kicad_pcb").write_text(write_board(design, target=target).text, encoding="utf-8")
     return folder, read_board((folder / "bench.kicad_pcb").read_text(encoding="utf-8"))
 
 

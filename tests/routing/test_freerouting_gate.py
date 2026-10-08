@@ -446,12 +446,21 @@ def test_no_optimizer(tmp_path: Path) -> None:
     assert mt0 == "present", text
 
 
+def _local_cli() -> KicadCli:
+    binary = kicad_cli()
+    assert binary is not None
+    return KicadCli(Path(binary), timeout=300)
+
+
+def _local_target() -> int:
+    """The KiCad major the boards judged by the local ``kicad-cli`` are written for."""
+    return min(_local_cli().major(), 10)
+
+
 def _clearance_errors(design: Design, folder: Path) -> tuple[list[str], str]:
     """KiCad's clearance violations on ``design``, written with its project and rules files into
     ``folder``, and the version of the tool."""
-    binary = kicad_cli()
-    assert binary is not None
-    cli = KicadCli(Path(binary), timeout=300)
+    cli = _local_cli()
     folder.mkdir(parents=True, exist_ok=True)
     target = min(cli.major(), 10)
     for name, text in write_triad(design, name="bench", target=target).items():
@@ -487,7 +496,8 @@ def test_netless(tmp_path: Path) -> None:
     the left-out class is wider than the default rule is recorded either way (``dsn-netless``); the mode
     as built keeps such a net declared, and that file must give no clearance violation
     (``dsn-netless-declared``). ``-inc`` is the control: a class named with it is still routed."""
-    b = netless_bench()
+    target = _local_target()  # the footprints of the bench are those of the major that judges it
+    b = netless_bench(target=target)
     before, version = _clearance_errors(b.design, tmp_path / "before")
     assert before == [], "the unrouted bench is clean"
     left_out = _without_class(b, "B")
@@ -532,7 +542,7 @@ def test_netless(tmp_path: Path) -> None:
         f"KiCad, {built_wires} session wire(s) on B (its protected track, read back)",
     )
     # the control: the class of an open net named with -inc
-    opened = netless_bench(joined=False)
+    opened = netless_bench(joined=False, target=target)
     written = opened.write()
     ignored = written.names.nets
     assert "B" in ignored.values()

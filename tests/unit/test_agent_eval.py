@@ -888,15 +888,23 @@ def test_skill_install_in_an_empty_folder(tmp_path: Path) -> None:
 def test_budget_stops_a_runner_that_sleeps(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Scenario "Time budget": the program is stopped, ``timed_out`` is true and the verdict is
     ``failed`` with the check ``project`` not passed. The program stands for an agent; it is a Python
-    file of this test that sleeps."""
-    program = tool(tmp_path / "agent", SLEEPER)
+    file of this test that sleeps, started by this interpreter in place of the program word of the
+    command the harness builds: on Windows a launcher of it is a ``.cmd`` file, and ``cmd.exe`` ends an
+    argument at its first line break, which would cut the prompt."""
+    tool(tmp_path / "agent", SLEEPER)
+    script = (sys.executable, str(tmp_path / "agent" / "program.py"))
+
+    class Interpreted(run.Runner):
+        def command(self, prompt: str, workdir: Path) -> list[str]:
+            return [*script, *super().command(prompt, workdir)[1:]]
+
     real = real_fenolite(tmp_path / "real")
     place = run.Place(tmp_path / "place", real, Path(sys.executable))
     place.workdir.mkdir(parents=True)
     task = tasks.load("led-indicator")
     assert task.minutes == 20
-    runner = run.Runner(
-        "sleeper", (str(program), "{prompt}"), (str(program), "--version"), "none", "S-0618", ("--cap", "1")
+    runner = Interpreted(
+        "sleeper", ("sleeper", "{prompt}"), (*script, "--version"), "none", "S-0618", ("--cap", "1")
     )
     started = time.monotonic()
     result = run.execute(task, runner, place, seconds=2, checkout=ROOT)

@@ -314,14 +314,16 @@ def edge_rule(minimum: int = EDGE_RULE) -> Rule:
     )  # fmt: skip
 
 
-def edge_bench(minimum: int | None = EDGE_RULE, passage: float = EDGE_PASSAGE) -> Bench:
+def edge_bench(minimum: int | None = EDGE_RULE, passage: float = EDGE_PASSAGE, *, target: int = 10) -> Bench:
     """Two 0603 parts 10 mm apart on a two-layer board with the slot of ``edge_slot(passage)`` between
     them: the one net ``A`` must pass an end of the slot, so its shortest route runs along that board
-    edge. With ``minimum`` the design holds a board-wide ``edge_clearance`` rule of that value."""
+    edge. With ``minimum`` the design holds a board-wide ``edge_clearance`` rule of that value. ``target``
+    is the KiCad major its board is written for (the footprint files of that major)."""
     made = bench(
         design_of(
             PlacedPart("R1", "Mini_R_0603", 10, 10, nets={"2": "A"}),
             PlacedPart("R2", "Mini_R_0603", 20, 10, nets={"1": "A"}),
+            target=target,
         ),
         cutouts=(edge_slot(passage),),
     )

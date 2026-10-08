@@ -18,8 +18,10 @@ from fenolite.dsl import to_model
 
 pytestmark = pytest.mark.needs_kicad
 INVALID_ON_10 = {"cross", "touch", "overlap", "selfx"}
-INVALID_ON_9 = {"overlap", "selfx"}
-"""The malformed outlines for which each major reports ``invalid_outline`` (``H-K-OUTLINE-INVALID``)."""
+INVALID_ON_9 = {"overlap"}
+"""The malformed outlines for which each major reports ``invalid_outline`` (``H-K-OUTLINE-INVALID``). 9.0.9
+reports none for the self-crossing ring of the bench (``outline-invalid-selfx`` ``absent`` in
+``9.0.9.json``)."""
 
 
 def test_arcs_drc() -> None:

@@ -34,9 +34,12 @@ def pt(x: float, y: float) -> Point:
 
 
 @cache
-def definition(name: str, library: str = "Mini") -> FootprintDef:
-    """A footprint of ``tests/data/libs/<library>.pretty``."""
-    return read_footprint(LIBS / f"{library}.pretty" / f"{name}.kicad_mod", library=library)
+def definition(name: str, library: str = "Mini", target: int = 10) -> FootprintDef:
+    """A footprint of ``tests/data/libs/<library>.pretty``, or of ``<library>_v9.pretty`` for a board of
+    ``target`` 9: the files of ``Mini.pretty`` are in the 10.0 form and hold a key that KiCad 9 does not
+    know (``duplicate_pad_numbers_are_jumpers``), so the 9.0 writer would refuse them as lossy."""
+    folder = library if target >= 10 else f"{library}_v9"
+    return read_footprint(LIBS / f"{folder}.pretty" / f"{name}.kicad_mod", library=library)
 
 
 @dataclass(frozen=True)
@@ -64,9 +67,11 @@ def design_of(
     classes: Sequence[NetClass] = (),
     class_of: Mapping[str, str] | None = None,
     extra_nets: Sequence[str] = (),
+    target: int = 10,
 ) -> Design:
     """A created board holding ``parts``; nets are made for every net name the parts or ``extra_nets`` use,
-    and ``class_of`` maps a net name to the name of its class."""
+    and ``class_of`` maps a net name to the name of its class. ``target`` picks the footprint files of
+    that KiCad major (see ``definition``)."""
     layers = created_layers(copper)
     copper_names = tuple(la.name for la in layers if la.kind == "copper")
     names = list(dict.fromkeys([n for p in parts for n in p.nets.values()] + list(extra_nets)))
@@ -75,7 +80,7 @@ def design_of(
     footprints: list[FootprintInstance] = []
     members: dict[str, list[PinRef]] = {name: [] for name in names}
     for n, part in enumerate(parts, start=1):
-        defn = definition(part.name, part.library)
+        defn = definition(part.name, part.library, target)
         properties = {PATH_PROPERTY: part.path} if part.path else {}
         component = Component(
             id=_id("cmp", n), ref=part.ref, lib_footprint_ref=defn.lib_id, properties=properties

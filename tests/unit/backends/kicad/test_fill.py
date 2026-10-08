@@ -87,7 +87,7 @@ def test_writer_loss_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_evidence_follows_hypotheses() -> None:
-    table = (Path(__file__).resolve().parents[4] / "docs" / "hypotheses.md").read_text()
+    table = (Path(__file__).resolve().parents[4] / "docs" / "hypotheses.md").read_text(encoding="utf-8")
     verified = all(
         f"| {key} |" in table
         and "KICAD-VERIFIED (10.0.x)"

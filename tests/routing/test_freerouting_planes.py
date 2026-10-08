@@ -299,10 +299,15 @@ def _merged(found: pb.Loaded, routed: Routed, nets: Sequence[str]) -> Design:
     return apply(found.design, RoutingResult(tracks=tracks, vias=vias))
 
 
+def _target(cli: KicadCli) -> int:
+    """The KiCad major of the files that ``cli`` judges: its own, so that KiCad 9 reads them too."""
+    return min(cli.major(), 10)
+
+
 def _hv_sig_findings(cli: KicadCli, board: Path, design: Design) -> int:
     """The clearance violations of KiCad's report that name an item of an ``HV`` net and one of a ``SIG``
     net, on ``design`` written over ``board`` (its project and rules files stay)."""
-    board.write_text(write_board(design, target=10).text, encoding="utf-8")
+    board.write_text(write_board(design, target=_target(cli)).text, encoding="utf-8")
     files = {p.name: p for p in (board.with_suffix(".kicad_pro"), board.with_suffix(".kicad_dru"))}
     report = cli.drc(board, files=files).report
     assert report is not None, "kicad-cli wrote no DRC report"
@@ -324,7 +329,7 @@ def test_clearance_class_class(hermetic: Path) -> None:
     binary = kicad_cli()
     assert binary is not None
     cli = KicadCli(Path(binary), timeout=300)
-    built = pb.build_project(hermetic / "near", hv_near=True)
+    built = pb.build_project(hermetic / "near", target=_target(cli), hv_near=True)
     code, _env, err = pb.run_cli(
         "route",
         str(built),
@@ -449,8 +454,9 @@ def _edge_findings(cli: KicadCli, folder: Path, design: Design, minimum: int) ->
     ``min_copper_edge_clearance`` is ``minimum``: those that name a track, and all of them."""
     folder.mkdir(parents=True, exist_ok=True)
     board = folder / "edge.kicad_pcb"
-    board.write_text(write_board(design, target=10).text, encoding="utf-8")
-    data = pro.template(10)
+    target = _target(cli)
+    board.write_text(write_board(design, target=target).text, encoding="utf-8")
+    data = pro.template(target)
     data["board"]["design_settings"]["rules"]["min_copper_edge_clearance"] = millimetres(minimum)  # type: ignore[index]
     project = board.with_suffix(".kicad_pro")
     project.write_text(pro.write_project_text(data), encoding="utf-8")
@@ -492,7 +498,7 @@ def test_edge_band(tmp_path: Path) -> None:
     half = minimum - DEFAULTS.clearance
     results: dict[tuple[int, str], tuple[int, int, int]] = {}
     for passage in (2, 4):
-        edge = pb.edge_bench(minimum, passage)
+        edge = pb.edge_bench(minimum, passage, target=_target(cli))
         assert edge.write().text.count("(path signal") == 1, "the writer adds no band of its own"
         for label in ("bands", "plain"):
             folder = tmp_path / f"{label}-{passage}"

@@ -72,7 +72,7 @@ NETLESS_GAP = mm(0.3)
 default rule (0.2 mm) and less than the clearance of ``WIDE`` (0.4 mm)."""
 
 
-def netless_bench(*, joined: bool = True) -> Bench:
+def netless_bench(*, joined: bool = True, target: int = 10) -> Bench:
     """The bench of ``H-G-DSN-NETLESS`` (change c0109): a net outside the job between two routed nets.
 
     ``B`` joins two pads on the row y = 10 mm and is in the class ``WIDE``, whose clearance is twice the
@@ -80,6 +80,7 @@ def netless_bench(*, joined: bool = True) -> Bench:
     each, 0.905 mm above and below that row, so the straight route of either passes ``NETLESS_GAP`` from
     the pads of ``B``. That is legal for a router that knows only the default rule and too near for KiCad,
     which takes the larger clearance of the two classes; a route that bends 0.1 mm away is legal for both.
+    ``target`` is the KiCad major its board is written for (the footprint files of that major).
     """
     wide = NetClass(
         id="cls_00000000-0000-4000-8000-000000000109",
@@ -104,6 +105,7 @@ def netless_bench(*, joined: bool = True) -> Bench:
         Part("RC2", "Mini_R_0603", 20, 10.905, nets={"1": "C"}),
         classes=(default, wide),
         class_of={"B": "WIDE"},
+        target=target,
     )
     assert design.board is not None
     if joined:

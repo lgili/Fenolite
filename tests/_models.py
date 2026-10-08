@@ -14,6 +14,7 @@ from pathlib import Path
 from _boards import FIXTURE, footprint, pad, uid
 
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
+from fenolite.backends.kicad.sexpr import Atom
 
 MODELS = Path(__file__).resolve().parent / "data" / "models"
 """A folder laid out like a 3D model library: ``Fenolite.3dshapes/Box_2x1.step``."""
@@ -27,7 +28,9 @@ def official(rel: str = BOX_REL, major: int = 10) -> str:
 
 
 def model_node(path: str) -> str:
-    return f'(model "{path}" (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))'
+    """A ``model`` node naming ``path``, written as a KiCad string: the backslashes of a Windows path are
+    escaped, or the reader would decode ``\\a`` of ``D:\\a\\...`` as an escape sequence."""
+    return f"(model {Atom.string(path).text} (offset (xyz 0 0 0)) (scale (xyz 1 1 1)) (rotate (xyz 0 0 0)))"
 
 
 LAYERS = (

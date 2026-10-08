@@ -533,11 +533,27 @@ class DockerCli(KicadCli):
         ]
 
 
+def docker_image(path: str | os.PathLike[str]) -> str | None:
+    """The image of a ``docker:<image>`` marker, else ``None``. A marker held in a ``Path`` on Windows
+    spells the slashes of the image as backslashes; an image reference holds no backslash, so each one is
+    turned back into a slash."""
+    name = os.fspath(path)
+    if not name.startswith(DOCKER_PREFIX):
+        return None
+    return name[len(DOCKER_PREFIX) :].replace("\\", "/")
+
+
+def marker_text(path: str | os.PathLike[str]) -> str:
+    """``path`` as text: a ``docker:<image>`` marker with the image as written, else the path itself."""
+    image = docker_image(path)
+    return os.fspath(path) if image is None else DOCKER_PREFIX + image
+
+
 def cli_for(path: Path, *, timeout: float = 120) -> KicadCli:
     """Build the package runner for a binary path or ``docker:<image>`` marker."""
-    name = os.fspath(path)
-    if name.startswith(DOCKER_PREFIX):
-        return DockerCli(name[len(DOCKER_PREFIX) :], timeout=timeout)
+    image = docker_image(path)
+    if image is not None:
+        return DockerCli(image, timeout=timeout)
     return KicadCli(path, timeout=timeout)
 
 
@@ -605,6 +621,8 @@ __all__ = [
     "KicadCliVersionError",
     "RefillRun",
     "cli_for",
+    "docker_image",
     "find_kicad_cli",
     "kicad_cli_candidates",
+    "marker_text",
 ]
