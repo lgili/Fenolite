@@ -228,7 +228,11 @@ and the commands an agent asks small questions with.
   request (`.github/workflows/ci.yml`). `macos-app` (`.github/workflows/nightly.yml`, c0068) runs once a
   day and on `workflow_dispatch`: `tests/kicad` on the `kicad-cli` of the KiCad 10.0.6 macOS disk image,
   pinned by SHA-256. It is not a check of pull requests and not a merge gate; its first run settles
-  `H-K-CI-MACOSAPP`.
+  `H-K-CI-MACOSAPP`. `yardstick` (`nightly.yml`, c0119) runs on the same schedule and on
+  `workflow_dispatch`, in the pinned `kicad/kicad:10.0.6` image: `tools/yardstick.py run` takes
+  `examples/yardstick` through the loop of its stage, with the two routers from stage 4, judges each step
+  against the budgets of `tools/yardstick_budgets.toml` and uploads the record. It is not a check of pull
+  requests and not a merge gate.
 
 **v0.2a acceptance** (project plan, shortened):
 
@@ -518,7 +522,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0116 | `export-documents`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0117 | `fab-assembly-drawings`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0118 | `assembly-test-features`; on `v04`, closed for 0.4 on 2026-10-08 except the 9.0.9 outcomes of its probes and the built-feature checks (tasks 1.2, 1.3, 3.6, 4.4, 8.2), written and awaiting the `kicad-9` and `kicad-10` jobs. Panels stay out of v0.4: the board's fiducials and tooling holes are its own, not a panel's |
-| c0119 | `yardstick-board` |
+| c0119 | `yardstick-board`; on `v04`, closed for 0.4 on 2026-10-08: the example at stage 5 and the `yardstick` nightly job; its first runs (task 5.2 and the lines after the merge) are the coordinator's |
 | c0120 | `agent-loop-scale`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0140 | `part-height-rules` (taken out of c0113 on 2026-10-07, decision 3: one source of height) |
 
