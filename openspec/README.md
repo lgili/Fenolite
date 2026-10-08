@@ -23,7 +23,7 @@ c0093 was taken for the release of v0.2 on the same day.
 Since 2026-10-07 (c0136) v0.3 is the whole second backend, its read part and its write part, and v0.4
 names the proposals that are written on other branches and are not in this table: c0077–c0081 (the
 agent track), c0096, c0097 and c0099 (board authoring) and c0100–c0120 (the complex board). c0095 is
-reserved and c0098 is on hold. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
+reserved; c0098 is in v0.4 by the maintainer's decision of 2026-10-08 (roadmap, "Open decisions", row 35) and has its row below. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
 keep the names of their day.
 
 | id | slug | roadmap item | parent |
@@ -110,6 +110,7 @@ keep the names of their day.
 | c0092 | `altium-write-graduation` | v0.3 write | c0091 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
+| c0098 | `electrical-readiness` | v0.4 (the maintainer's decision of 2026-10-08): `fenolite ready`, one read-only reply on whether a KiCad project is electrically ready: open nets, KiCad's ERC and DRC, unconnected pins, power nets without a declared width or a zone, parts without a footprint or a value | c0062, c0108 |
 | c0121 | `altium-component-bodies` | v0.3 follow-up: the component bodies that c0085 cut, fact rows first | c0085 |
 | c0122 | `altium-zone-holes` | correction of v0.3: a zone fill keeps the holes of its poured region | c0043 |
 | c0124 | `altium-plane-lines` | correction of v0.3: the Altium import makes no track of a line on an internal plane | c0043, c0088 |

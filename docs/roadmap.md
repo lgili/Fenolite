@@ -51,7 +51,7 @@ of the second backend (c0039–c0047) shipped inside the `0.2.0` package. So v0.
 backend: its read part, already in that package with no acceptance claimed for it, and its write part,
 which these pages called v0.4 until that day and which is released as `0.3.0`. The name v0.4 now
 belongs to the proposals that are written on other branches and are not on `dev`: the agent track
-(c0077–c0081), board authoring (c0096, c0097, c0099) and the complex board (c0100–c0120). v0.5a, v0.5b,
+(c0077–c0081), board authoring (c0096–c0099, with c0098 since 2026-10-08) and the complex board (c0100–c0120). v0.5a, v0.5b,
 v0.6 and v1.0 keep their names.
 
 Archived changes and the release record of `0.2.0` keep the names of their day: there “v0.4” means the
@@ -66,7 +66,7 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | read part: every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for it (`docs/release/v0.2.md`, “Also in this package”). Write part, to be released as `0.3.0`: c0032–c0038, c0053, c0055 and c0056 done; c0089 and c0122 archived on 2026-10-07; open on `dev`: c0083, c0084, c0085, c0086, c0087, c0088, c0090, c0091, c0092, c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131 and c0134 (c0092, c0121 and c0126 with no task ticked); not a folder on `dev` yet: c0123 and c0132 (each a folder on its own branch) and c0129 (reserved) Release `0.3.0` approved by the maintainer on 2026-10-08, c0150 archived (`docs/release/v0.3.md`): every Altium write stays experimental, because by the rule of c0092 no write kind has the evidence to leave it and no kit run is recorded (the maintainer's exception for the kit is recorded there) |
-| — | v0.4 | the agent track c0077–c0081; board authoring c0096, c0097, c0099; the complex board c0100–c0120 | an agent's first project, guide and measure; placement, copper findings and bodies; the gaps to a complex board | proposals written on their branches (the three of board authoring with an implementing commit beside the proposal), not on `dev`; they come to `dev` after `0.3.0` is released and are reconciled then ([v0.4](#v04-proposals-on-other-branches-not-on-dev)) |
+| — | v0.4 | the agent track c0077–c0081; board authoring c0096–c0099 (c0098 since 2026-10-08); the complex board c0100–c0120 | an agent's first project, guide and measure; placement, copper findings, electrical readiness and bodies; the gaps to a complex board | proposals written on their branches (the three of board authoring with an implementing commit beside the proposal), not on `dev`; they come to `dev` after `0.3.0` is released and are reconciled then ([v0.4](#v04-proposals-on-other-branches-not-on-dev)) |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
 
 About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see
@@ -471,18 +471,22 @@ to write a design, and a tool that measures whether an agent closes the loop.
 | c0080 | `agent-authoring-guide` |
 | c0081 | `agent-eval` |
 
-**Board authoring, c0096, c0097 and c0099.** One branch each; the tip of each is a commit that
+**Board authoring, c0096 to c0099.** One branch each; the tip of each is a commit that
 implements its change, with the proposal in it. Scope, from the proposals: a placement request that
 keeps declared interfaces, shared fixing drills, group regions and the nearness of connected pads, with
 a bounded search and explicit unplaced results (c0096); a copper finding that shows the selectors, class
 values and precedence behind its limit (c0097); component bodies with signed bounds, so that an
-extrusion through the mounting plane can be described (c0099). c0098 (electrical readiness) is on hold:
-the maintainer has not decided whether it is in v0.4 (Open decisions, row 35).
+extrusion through the mounting plane can be described (c0099). c0098 (electrical readiness) is in v0.4 by
+the maintainer's decision of 2026-10-08 (Open decisions, row 35): one read-only reply, `fenolite ready`, that
+gathers the open nets, KiCad's ERC and DRC findings, unconnected pins, power nets without a declared width
+or a zone, and parts without a footprint or a value. It is written and implemented on the branch
+`c0098-electrical-readiness`, from `v04`.
 
 | id | slug | branch |
 |---|---|---|
 | c0096 | `constrained-board-placement` | `codex/c0096-constrained-placement` |
 | c0097 | `copper-rule-explain` | `codex/c0097-copper-rule-explain` |
+| c0098 | `electrical-readiness` | `c0098-electrical-readiness` |
 | c0099 | `component-body-volumes` | `codex/c0099-body-volumes` |
 
 **The complex board, c0100–c0120.** Branch `review-roadmap-complex-board` at `1a130741`, where the group
@@ -704,7 +708,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 32 | v0.3: the model holds the graphics of each footprint instance, the corner ratio of a rounded pad and enough to send the Altium build through the one lowering, before v0.3 closes; every KiCad output of 0.2.0 stays byte-equal | design of c0090 ("Decisions of the maintainer", 1); proposal and design of c0126 | decided by the maintainer on 2026-10-06: the change goes ahead in v0.3 as c0126, on top of c0123 and as the last change of the model; Mechanical 1 to 12 are in and are not to be cut. Decided by default, to be shown to the maintainer with the result: KiCad reads fill the fields on request only; the corner ratio in ppm of the pad's shorter side; provenance kept on every imported footprint graphic; copper lines inside a footprint not written, counted, a loss that needs `allow_lossy`; no PCB library derived from an imported model in v0.3 (v0.5a, `convert`); fields and free texts written, not compared in RT-A2 and RT-A3 |
 | 33 | v0.3: component bodies (c0121): implemented inside v0.3, before c0092; written only on request (`--altium-bodies extruded`, off until step X8 of Part X is reported, in session 2 of the Altium work); the form that Altium saves, 35 keys with stand-ins for `MODELID` and `MODEL.CHECKSUM`, the short form built for X8 only; bodies that name a 3D model are never written by it; no body is invented where the model has none; library bodies are written and are the first to be cut; a new sample `body2`, `board6` unchanged; keeping `MODELID` and `MODEL.CHECKSUM` of a body that was read is its own change c0129, right after c0099 is on `dev` | design of c0121, "Decisions (2026-10-06)" | accepted by the coordinator on the maintainer's behalf on 2026-10-06, as the conservative reading of his order "a follow-up change with fact rows before the write"; to be shown to him |
 | 34 | Milestone names: the write side of the second backend is v0.3, released as `0.3.0`; v0.4 names the proposals that are open on other branches (the agent track c0077–c0081, board authoring c0096, c0097 and c0099, the complex board c0100–c0120); v0.5a, v0.5b, v0.6 and v1.0 keep their names | this page, “Milestone names”; change c0136 | decided by the maintainer on 2026-10-07 |
-| 35 | c0098 electrical readiness: in v0.4 or not | this page, the section of v0.4 | open |
+| 35 | c0098 electrical readiness: in v0.4 or not | this page, the section of v0.4; proposal of c0098 | decided by the maintainer on 2026-10-08: in v0.4 |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074 and c0083–c0092).
