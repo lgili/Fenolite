@@ -34,17 +34,22 @@ official KiCad libraries is kept here.
 
 | stage | state | the board gains | waits for |
 |---|---|---|---|
-| 1 | waiting | four copper layers with inner zones, classes, minimums, the high-voltage clearance and creepage rules, the `USB2` interface, the built schematic, BOM, placement table and manifest | the first scheduled run of the job with the verdict `passed` (task 5.2 of c0119) |
-| 2 | waiting | six copper layers (`GND` on In1.Cu, `+3V3` and `VIN48` on In4.Cu, `HV_RTN` on both under the strip) and the stack-up preset `six-layer-1.6mm` (S-0722), impedance-controlled, ENIG | the same run (complete for 0.4: c0100, c0101) |
-| 3 | waiting | a board outline with corners rounded to 3 mm, slots under the two isolators and the creepage minimum raised to 7.5 mm, four plated `design.hole` mounting holes with keep-outs of tracks and vias, the strip as the rule area `HV` with a clearance of 0.6 mm between its `HV` nets, the class `USB` with pair values, the pair's gap, clearance, uncoupled, skew and length rules, the impedance target `USB90`, filled and capped thermal via arrays in the controller's exposed pad and the eight high-side tabs, `near` rules for the decoupling, the crystal and the gates, the net tie `NT1` between `GND` and `SGND`; the step `impedance` | the same run (complete for 0.4: c0102, c0103, c0104, c0105, c0111, c0112, c0113, c0114); part heights (c0140) take no part: the example has no lid |
-| 4 | waiting | `In1.Cu` and `In4.Cu` typed as planes; the steps `route-pairs` (KiCadRoutingTools, the pair and the controller's escape), `route` (Freerouting, plane fan-out, `--timeout 3600` and two tiers), `fill-routed`, `check-routed` against the ratchets, `net` and `analyze` (clearance, creepage with the 1 mm groove, insulation) | the same run (complete for 0.4: c0106, c0107, c0108, c0109, c0110, c0115); c0110's `pairs` and `escape` features stay undeclared in 0.4 (its gate is deferred), so `route-pairs` routes nothing and the pair stays open, counted by the ratchets |
-| 5 | waiting | three global fiducials, two tooling holes and five test points; the steps `export-package` (IPC-2581, ODB++, STEP, board PDF and DXF, schematic PDF, fabrication and assembly drawings, with the manifest) and `testpoints` | the same run (complete for 0.4: c0116, c0117, c0118) |
+| 1 | reached | four copper layers with inner zones, classes, minimums, the high-voltage clearance and creepage rules, the `USB2` interface, the built schematic, BOM, placement table and manifest | reached on 2026-10-08 by run 37836196244, dispatched at `32a19b3` with the verdict `passed` (task 5.2 of c0119) |
+| 2 | reached | six copper layers (`GND` on In1.Cu, `+3V3` and `VIN48` on In4.Cu, `HV_RTN` on both under the strip) and the stack-up preset `six-layer-1.6mm` (S-0722), impedance-controlled, ENIG | reached by the same run (complete for 0.4: c0100, c0101) |
+| 3 | reached | a board outline with corners rounded to 3 mm, slots under the two isolators and the creepage minimum raised to 7.5 mm, four plated `design.hole` mounting holes with keep-outs of tracks and vias, the strip as the rule area `HV` with a clearance of 0.6 mm between its `HV` nets, the class `USB` with pair values, the pair's gap, clearance, uncoupled, skew and length rules, the impedance target `USB90`, filled and capped thermal via arrays in the controller's exposed pad and the eight high-side tabs, `near` rules for the decoupling, the crystal and the gates, the net tie `NT1` between `GND` and `SGND`; the step `impedance` | reached by the same run (complete for 0.4: c0102, c0103, c0104, c0105, c0111, c0112, c0113, c0114); part heights (c0140) take no part: the example has no lid |
+| 4 | reached | `In1.Cu` and `In4.Cu` typed as planes; the steps `route-pairs` (KiCadRoutingTools, the pair and the controller's escape), `route` (Freerouting, plane fan-out, `--timeout 3600` and two tiers), `fill-routed`, `check-routed` against the ratchets, `net` and `analyze` (clearance, creepage with the 1 mm groove, insulation) | reached by the same run (complete for 0.4: c0106, c0107, c0108, c0109, c0110, c0115); c0110's `pairs` and `escape` features stay undeclared in 0.4 (its gate is deferred), so `route-pairs` routes nothing and the pair stays open, counted by the ratchets |
+| 5 | reached | three global fiducials, two tooling holes and five test points; the steps `export-package` (IPC-2581, ODB++, STEP, board PDF and DXF, schematic PDF, fabrication and assembly drawings, with the manifest) and `testpoints` | reached by the same run (complete for 0.4: c0116, c0117, c0118) |
 
 The example went from stage 1 to stage 5 in one step on 2026-10-08: the coordinator decided that day that
 the changes each stage needs, implemented on the release branch of 0.4 and archived at the release, count
 as archived for the example (`complete for 0.4` above, which `tools/yardstick.py` reads as it reads a cut).
-Because the stages are cumulative, the first scheduled run with the verdict `passed` reaches the five
-stages together; a failed one names the step and the rule, and so the stage, that stopped it.
+Because the stages are cumulative, the first run with the verdict `passed` reaches the five stages
+together; a failed one names the step and the rule, and so the stage, that stopped it. The first run of
+the job (37820561099, dispatched on `v04` at `367cdf8`) failed on two defects of the runner, not of the
+board: `rebuild.board-unchanged` hashed the board after the routers had rewritten it (fixed by `334f173`)
+and `check-routed.length.rules` counted twice findings that KiCad's DRC counts once (fixed by `c547267`).
+The second, run 37836196244 at `32a19b3`, dispatched by `workflow_dispatch` on the release branch, passed
+and reached the five stages.
 
 **The rounded outline of stage 3 came late.** Until 2026-10-08 `Design.stackup()`, `Design.rule_area()`
 and the board drawings refused a board declared with `board(outline=…)` ("call board() first"): they
@@ -57,8 +62,46 @@ outline.
 
 | date | commit | stage | run | total seconds | largest peak MiB | open connections | DRC errors | verdict | note |
 |---|---|---|---|---|---|---|---|---|---|
+| 2026-10-08 | 32a19b3f | 5 | https://github.com/lgili/Fenolite/actions/runs/37836196244 | 4592 | 4043 | 459 | 78 | passed | dispatched (`workflow_dispatch`) on `release-0.4.0`, `kicad-cli` 10.0.6; budgets provisional; the 4043 MiB is `heavy-rt1` of `pcb-06` |
 
-No scheduled run yet.
+The run of 2026-10-08 (job `yardstick` of https://github.com/lgili/Fenolite/actions/runs/37836196244, 76 min 32 s for the step `Yardstick`, artefact
+`yardstick-record`), Fenolite 0.4.0, Linux x86_64 with 4 cores and 15 989 MiB:
+
+- **Every rule passed** (verdict `passed`, no accepted finding). Before routing `check` was `ok` but
+  `drc.kicad`, whose only error type is `unconnected_items` (499, KiCad's cap; `check.report-limit` 1),
+  with 17 `isolated_copper`, 5 `silk_edge_clearance`, 184 `silk_over_copper` and 114 `silk_overlap`
+  warnings; `erc.kicad` gave 2 `ground_pin_not_ground` warnings. The rebuild planned no change and left the
+  board's bytes unchanged; the manifest lists every artefact; `package.in-manifest` passed (85 artefacts generated).
+- **Board**: 388 parts, 177 nets, 938 pads on nets, 6 copper layers, 4 zones filled and current; the
+  board file 1 926 154 bytes after the loop.
+- **Routing.** `route-pairs` (KiCadRoutingTools, 10.5 s of 600 s): 2 nets selected, 1 routed, connections
+  6 → 1; the pair `USB_DP`/`USB_DN` not routed as a pair (`route.escape-skipped`, c0110's gate is
+  deferred). `route` (Freerouting 2.4.1, `--timeout 3600`): plane fan-out of `+3V3`, `GND`, `HV_RTN` and
+  `VIN48` with 309 pads, 270 vias and 30 `kicad.fanout.failed`; tier 0 (2 nets) done in 498 s, tier 1
+  (128 nets) cut by the budget after 3 097 s (`route.budget-exhausted`); 171 nets selected, 2 closed,
+  connections 431 → 427, 16 tracks and 2 vias written. On the CI runner Freerouting closed far less than
+  in the local run of 2026-10-08 on another 4-core machine (130 of 167 nets in 3 606 s): tier 1 ended
+  with the budget and 2 nets were closed in all; why is not measured yet.
+- **The routed board** (`check-routed` exit 5, as the step expects): KiCad counts 459 open connections
+  (`unconnected_items`, not capped) and 78 other DRC errors (44 `diff_pair_gap_out_of_range`, 30
+  `track_width`, 2 `length_out_of_range`, 1 `skew_out_of_range`, 1 `diff_pair_uncoupled_length_too_long`);
+  `ratchet.open_connections` 459 of 498 and `ratchet.drc_errors` 78 of 499 pass. `length.rules` gave 2
+  `length.out-of-range` and 1 `length.skew-out-of-range`, the counts of their KiCad twins, so they are
+  counted once. `net` counts 458 open connections on 173 nets.
+- **Library read** (`H-K-YARD-LIBREAD`): `build-install` 147.4 s against 12.6 s for `build-dry` from the
+  cache, a ratio of 11.7, the same board bytes.
+- **Heavy boards** (`H-K-YARD-HEAVY`): `pcb-06` read in 65.1 s and 1 674 MiB, RT1 in 258.3 s and
+  4 043 MiB; `pcb-18` read in 62.3 s and 1 335 MiB, RT1 in 229.3 s and 3 911 MiB; every exit 0, no
+  error issue (37 and 254 `kicad.board.kept-opaque` warnings).
+- **Seconds and MiB of the steps of stage 1**, each within its budget: `capabilities` 0.8 s, `build-dry`
+  12.6 s, `build` 12.4 s, `fill` 14.0 s and 288 MiB, `check` 25.2 s and 370 MiB, `export` 4.5 s, `render`
+  2.8 s, `bom` 1.2 s, `pnp` 2.1 s, `manifest` 2.1 s, `rebuild-dry` 14.7 s, `rebuild` 14.9 s, `inspect`
+  2.0 s; of the later steps: `impedance` 1.0 s, `route` 3 605.3 s and 2 080 MiB (budget 3 900 s),
+  `fill-routed` 17.1 s, `check-routed` 29.8 s, `net` 2.7 s, `analyze` 28.9 s, `export-package` 18.5 s,
+  `testpoints` 2.6 s.
+
+One run is not three: the budgets and the ratchets stay provisional, and no `H-K-YARD-*` label moves,
+until three scheduled runs give `rebase` its records.
 
 ## Budgets
 
@@ -172,10 +215,10 @@ connections open after its 20 passes (1 003 s, heap 1.9 GB), flat from pass 13 o
 ## Not measured
 
 - **The two heavy demo boards on the CI runner** (`kicad-demo-10-0-6-pcb-06`, 84.8 MB, and
-  `kicad-demo-10-0-6-pcb-18`, 69.6 MB): measured once on a local machine (`Budgets`); the first
-  scheduled runs settle `H-K-YARD-HEAVY`.
-- **The full loop of stages 2 to 5 with `kicad-cli`**: written on 2026-10-08 and not run on any machine
-  yet; the first dispatched run of the job is the first.
+  `kicad-demo-10-0-6-pcb-18`, 69.6 MB): measured once on a local machine (`Budgets`) and once on the
+  runner (`Runs`, 2026-10-08); three scheduled runs settle `H-K-YARD-HEAVY`.
+- **Three runs of stages 2 to 5 with `kicad-cli`**: one run so far (`Runs`, 2026-10-08); the budgets and
+  ratchets from three scheduled runs are owed.
 - **Target 9**: nowhere in v0.4. The 9.0 library tag lacks a library the board uses, and KiCad 9.0 cannot
   refill (`H-K-01`).
 - **The releases up to 0.3.0** were made without a run of the yardstick; the release record of every
