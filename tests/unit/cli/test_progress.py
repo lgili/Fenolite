@@ -72,9 +72,10 @@ def test_units_in_order(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
 
 
 def test_long_step_stays_alive(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
-    """Scenario "A long step stays alive": the interval is 0.1 s, the step takes 0.5 s."""
+    """Scenario "A long step stays alive": the interval is 0.1 s, the step takes 1.0 s (a loaded
+    runner, the macOS job of CI run 37850716795, wrote two records in a step of 0.5 s)."""
     monkeypatch.setattr(progress_records, "INTERVAL", 0.1)
-    args = ("_echo", "--steps", "1", "--sleep", "0.5", "--progress", "--json")
+    args = ("_echo", "--steps", "1", "--sleep", "1.0", "--progress", "--json")
     code, _, err = run(monkeypatch, tmp_path, *args)
     events = [r["event"] for r in records(err)]
     assert code == 0 and events[0] == "step" and events[-1] == "done"

@@ -130,7 +130,7 @@ The global flag `--progress` SHALL make a command write progress records on stde
 - **THEN** stderr holds, in order, a `step` and a `done` record for `model.validate` and for `roundtrip`, each a JSON line, and stdout equals the stdout of the same call without `--progress` apart from `elapsed_ms`
 
 #### Scenario: A long step stays alive
-- **GIVEN** `_echo --steps 1 --sleep 0.5 --progress` with the reporter's interval set to 0.1 s
+- **GIVEN** `_echo --steps 1 --sleep 1.0 --progress` with the reporter's interval set to 0.1 s
 - **WHEN** it runs
 - **THEN** stderr holds at least three `alive` records between the `step` and the `done` record
 
