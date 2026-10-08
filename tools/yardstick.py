@@ -543,6 +543,7 @@ class Run:
         self.replies: dict[str, dict[str, Any]] = {}
         self.rules: list[dict[str, Any]] = []
         self.board_before_rebuild: str | None = None
+        self.board_after_rebuild: str | None = None
         self.dry_changes: list[str] = []
 
     # ---- paths and text
@@ -592,6 +593,9 @@ class Run:
         measured = run_child(command, self.out, env, reply_file, error_file)
         reply = _load(reply_file)
         self.replies[step.name] = reply
+        if step.base == "rebuild":  # hashed now: the later steps (route, fill-routed) rewrite the board
+            board = self.board()
+            self.board_after_rebuild = _sha256(board) if board else None
         if step.base == "rebuild-dry":  # judged against the files as they are now, before the rebuild
             self.dry_changes = sorted(
                 str(planned["path"])
@@ -775,7 +779,7 @@ class Run:
             )
         if self.ran("rebuild"):
             board = self.board()
-            after = _sha256(board) if board else None
+            after = self.board_after_rebuild
             same = after is not None and after == self.board_before_rebuild
             name = board.name if board else "the board"
             self.rule(

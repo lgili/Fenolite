@@ -140,6 +140,7 @@ if command == "route":
     freerouting = "freerouting" in args
     if freerouting:
         Path("routed.flag").write_text("1")
+        BOARD.write_bytes(BOARD.read_bytes() + b"(segment routed)\n")  # routing rewrites the board
     nets = ["CH1_SW", "GND"] if freerouting else []
     reply({
         "selected": nets, "routed": nets, "unrouted": [], "connections": {"before": len(nets), "after": 0},
@@ -656,6 +657,9 @@ def test_passing_run_at_stage_5(stage5: Path) -> None:
     )
     assert rules["ratchet.drc_errors"]["passed"] and rules["package.in-manifest"]["passed"]
     assert rules["check-routed.drc.kicad"]["passed"]
+    # the route after the rebuild rewrote the board: the rebuild is judged on the bytes it left (run
+    # 37820561099 hashed the routed board at the end of the run)
+    assert rules["rebuild.board-unchanged"]["passed"], rules["rebuild.board-unchanged"]
     routed = record["board"]["routed"]
     assert routed["drc"]["unconnected"] == 3 and routed["net_open"] == 1 and routed["nets_open"] == 1
     assert routed["route"]["routed"] == 2 and routed["route"]["budget"]["exhausted"] is False

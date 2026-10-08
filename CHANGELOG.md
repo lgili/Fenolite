@@ -91,6 +91,10 @@ All notable changes to Fenolite are documented here. The format follows
   `board(width, height)` sets; they now accept a board of either form, as `zone()` and `cutout()` do. A rounded board
   writes the stack-up, rule areas and drawings, with their uuids, that a rectangle of the same script writes, and a
   rectangle's files are unchanged.
+- The yardstick runner (`tools/yardstick.py`, c0119) judges `rebuild.board-unchanged` on the board as the rebuild
+  left it. It hashed the board at the end of the run, after `route-pairs`, `route` and `fill-routed` had rewritten it,
+  so the first nightly run (37820561099) failed the rule although the rebuild wrote the bytes it found (SHA-256
+  `8886fb6a…` before and after). No command changes.
 - **A `docker:<image>` value of `FENOLITE_KICAD_CLI` or `--kicad-cli` runs that image on Windows.** The marker went
   through a `Path`, which spells the slashes of `kicad/kicad:9.0.9` as backslashes on Windows, so the runner was given
   the image `kicad\kicad:9.0.9`. `cli.docker_image` turns them back (an image reference holds no backslash), and the
