@@ -85,6 +85,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- **A board declared with `board(outline=…)` takes a stack-up, rule areas and board drawings** (c0101, c0103;
+  found by c0119). `design.stackup()`, `design.rule_area()` and `design.text`, `line`, `rect`, `circle`, `arc`,
+  `polygon` and `dimension` refused such a board ("call board() first") because they tested the size that only
+  `board(width, height)` sets; they now accept a board of either form, as `zone()` and `cutout()` do. A rounded board
+  writes the stack-up, rule areas and drawings, with their uuids, that a rectangle of the same script writes, and a
+  rectangle's files are unchanged.
 - **A `docker:<image>` value of `FENOLITE_KICAD_CLI` or `--kicad-cli` runs that image on Windows.** The marker went
   through a `Path`, which spells the slashes of `kicad/kicad:9.0.9` as backslashes on Windows, so the runner was given
   the image `kicad\kicad:9.0.9`. `cli.docker_image` turns them back (an image reference holds no backslash), and the

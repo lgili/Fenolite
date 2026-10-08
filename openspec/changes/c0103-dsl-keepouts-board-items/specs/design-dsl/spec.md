@@ -2,7 +2,7 @@
 
 ### Requirement: Rule areas in the DSL
 `Design.rule_area(name, outline, *, layers=None, forbid=()) -> RuleArea` SHALL declare one rule area, and `dsl.to_model` SHALL put one model `Keepout` per declared area into `Board.keepouts`, in name order. This adds rule areas to the `Board` of "DSL to model". `Design.rule_area` is the one call of the DSL that declares a rule area or a keep-out: a keep-out is a rule area with a non-empty `forbid`, and the DSL has no `keepout()` call.
-- `board()` MUST have been called first.
+- `board()` MUST have been called first, in either of its forms (`width` and `height`, or `outline=` of change c0102).
 - `name` MUST match `^[A-Za-z0-9_.+-]+$`. Two areas MUST NOT have names that are equal after `str.casefold()`, because KiCad compares area names with letter case (`H-K-AREA-COND`).
 - `outline` MUST hold at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added.
 - `layers` is `None`, which means every copper layer of the board in table order, or a non-empty sequence of distinct copper layer names of the board.
@@ -25,6 +25,11 @@
 - **WHEN** `d.rule_area("HV", …)` is called before `board()`, and after it `d.rule_area("H V", …)`, `d.rule_area("A", [(mm(0), mm(0)), (mm(1), mm(1))])`, `d.rule_area("B", …, layers=("In1.Cu",))` on a two-layer board, `d.rule_area("C", …, forbid=("footprints",))`, and `d.rule_area("hv", …)` after `d.rule_area("HV", …)`
 - **THEN** each raises `DslError` naming, in order, `board()`, `name`, `outline`, `In1.Cu`, `footprints` and `hv`, and `d.rule_areas` holds only `HV`
 
+#### Scenario: A shaped board takes rule areas
+- **GIVEN** `d.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(3)), copper=4)`
+- **WHEN** `d.rule_area("HV", [(mm(1), mm(1)), (mm(5), mm(1)), (mm(5), mm(5))], layers=("In1.Cu",))` is called and `to_model` runs
+- **THEN** `d.rule_areas` holds `HV` and `board.keepouts` holds one keep-out named `HV`
+
 #### Scenario: Call order does not matter
 - **GIVEN** two designs that declare the areas `ANT` and `HV` in opposite orders
 - **WHEN** `canonical.dump_texts(to_model(d))["board.json"]` is taken for both
@@ -32,7 +37,7 @@
 
 ### Requirement: Board drawings in the DSL
 `Design.text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`, `Design.line(key, start, end, *, layer, width)`, `Design.rect(key, start, end, *, layer, width, fill=False)`, `Design.circle(key, center, edge, *, layer, width, fill=False)`, `Design.arc(key, start, mid, end, *, layer, width)`, `Design.polygon(key, points, *, layer, width, fill=False)` and `Design.dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4, size=None, thickness=None, width=None)` SHALL each declare one board drawing. `dsl.to_model` SHALL put one `Text`, `Graphic` or `Dimension` per drawing into `Board.texts`, `Board.graphics` and `Board.dimensions`, each in key order.
-- `board()` MUST have been called first. `key` MUST match `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$` and MUST NOT be the key of another drawing of the design, whichever of the seven calls made it. `Design.drawings` MUST map each key to its record, in call order.
+- `board()` MUST have been called first, in either of its forms. `key` MUST match `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$` and MUST NOT be the key of another drawing of the design, whichever of the seven calls made it. `Design.drawings` MUST map each key to its record, in call order.
 - Points are `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL", written with `BOARD_ORIGIN` added; lengths and angles follow "DSL lengths and angles".
 - `layer` MUST be a layer of the board whose kind is `silkscreen`, `soldermask`, `fabrication` or `user` (`dsl.items.DRAWING_LAYER_KINDS`). A copper layer, `Edge.Cuts` or a layer of another kind MUST raise `DslError` naming the layer.
 - **Text.** `text` MUST be a non-empty `str` for which `str.isprintable()` is true. `size` and `thickness` MUST be positive and default to 1 mm and 0.15 mm, the values the KiCad writer gives created footprint fields. `justify` MUST be `None` or one of `dsl.part.FIELD_JUSTIFY`.
@@ -53,6 +58,11 @@
 #### Scenario: Refused drawing calls
 - **WHEN** `d.text("t1", "CU", (mm(1), mm(1)), layer="F.Cu")`, `d.line("l1", (mm(0), mm(0)), (mm(1), mm(0)), layer="Edge.Cuts", width=mm(0.1))`, `d.line("rev", …)` after the text `rev`, `d.arc("a1", (mm(0), mm(0)), (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1))`, `d.dimension("d1", (mm(0), mm(0)), (mm(0), mm(9)), offset=mm(2), direction="horizontal")`, `d.dimension("d2", …, precision=5)` and `d.text("t2", "A\nB", (mm(1), mm(1)))` are called
 - **THEN** each raises `DslError`, naming `F.Cu`, `Edge.Cuts`, `rev`, the arc's points, `direction`, `precision` and `text`
+
+#### Scenario: A shaped board takes drawings
+- **GIVEN** `d.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(3)))`
+- **WHEN** each of the seven calls `text`, `line`, `rect`, `circle`, `arc`, `polygon` and `dimension` is called once
+- **THEN** none raises, `d.drawings` holds the seven keys in call order, and the blink with `board(outline=…)` writes the rule areas, texts, drawings and dimensions, with their uuids, that the same blink with `board(mm(50), mm(30))` writes
 
 #### Scenario: Keys, not order
 - **GIVEN** two designs that make the same drawing calls in opposite orders

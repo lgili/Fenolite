@@ -1024,7 +1024,7 @@ class Design(Container):
         ``impedance_controlled`` marks the dielectric values as requirements, and ``locked`` makes this
         stack-up replace a different one of an existing board (``docs/lens.md``). Fenolite supplies no
         value the script does not give (``docs/dsl.md``, "Stack-up")."""
-        if self.size is None:
+        if self.outline_path is None:
             raise DslError("stackup() is called after board()")
         if self.stack is not None:
             raise DslError("stackup() is called once")
@@ -1355,7 +1355,7 @@ class Design(Container):
         With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
         one call for rule areas and keep-outs. Names differ in more than letter case.
         """
-        if self.size is None:
+        if self.outline_path is None:
             raise DslError("rule_area(): call board() first")
         area = itemlib.rule_area(
             name, outline, layers, forbid, copper=self.copper_layers, taken=tuple(self.rule_areas)
@@ -1364,7 +1364,7 @@ class Design(Container):
         return area
 
     def _drawing(self, call: str, key: object) -> str:
-        if self.size is None:
+        if self.outline_path is None:
             raise DslError(f"{call}(): call board() first")
         return itemlib.drawing_key(key, self.drawings)
 

@@ -852,8 +852,8 @@ beyond that box; the build then names the zone with `kicad.outline.zone-short`.
 ## Stack-up
 
 `design.stackup(*entries, finish=None, impedance_controlled=False, locked=False)` declares the build-up of
-the board from its top face to its bottom face (change c0101). It is called after `board()`, and once.
-The entries come from `fenolite.dsl.stack`:
+the board from its top face to its bottom face (change c0101). It is called after `board()`, of either form,
+and once. The entries come from `fenolite.dsl.stack`:
 
 ```python
 from fenolite.dsl import Design, mm, stack
