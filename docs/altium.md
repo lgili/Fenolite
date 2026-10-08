@@ -552,7 +552,10 @@ already holds its script copper, so both routes give the same document.
 
 - every component with a footprint matches exactly one footprint of the board, by the `fenolite.path`
   property, else by reference; a board footprint the design does not hold is a mismatch too;
-- each footprint is the linked one, with the pad numbers and positions of the library footprint;
+- each footprint is the linked one, with the pad numbers and positions of the library footprint; a
+  KiCad board stores the pads of a bottom footprint mirrored about the footprint's X axis
+  (`docs/formats/kicad/board.md`, `H-G-BOTTOM-STORE`), so the mirror is undone before the comparison
+  (c0142), whatever the footprint's rotation;
 - every pad is on the net of the same name as the design puts its pin on;
 - the outline's box is the design's;
 - every net of the copper is a net of the design (`altium.copper-net-missing`).

@@ -941,6 +941,15 @@ def pad_net_names(design: Design) -> dict[str, dict[str, str]]:
     return nets
 
 
+def library_pad_positions(footprint: FootprintInstance) -> list[tuple[str, int, int]]:
+    """(number, x, y) of each pad of a source's footprint in the frame of its library definition (change
+    c0142). A KiCad board stores the pads footprint-local and unrotated on both sides, and those of a
+    bottom footprint mirrored about local X (``docs/formats/kicad/board.md``, ``H-G-BOTTOM-STORE``,
+    ``KICAD-VERIFIED``): the mirror is undone by negating Y, and the footprint's rotation does not enter."""
+    sign = -1 if footprint.side == "bottom" else 1
+    return [(pad.number, pad.position.x, sign * pad.position.y) for pad in footprint.pads]
+
+
 def match_source(
     design: Design,
     source: CopperSource,
@@ -952,8 +961,9 @@ def match_source(
 
     Each component with a footprint link must match exactly one footprint of the source, by the
     ``fenolite.path`` property when the source's footprint holds it, else by reference; the footprint must
-    be the linked one, with the pad numbers and positions of the definition in ``footprints`` and every pad
-    on the net of the design's pin; and the outline's box must be the design's. Anything else gives
+    be the linked one, with the pad numbers and positions of the definition in ``footprints`` (read in the
+    definition's frame by ``library_pad_positions``, which undoes the mirror of a bottom footprint) and
+    every pad on the net of the design's pin; and the outline's box must be the design's. Anything else gives
     ``altium.copper-board-mismatch``. The source's placements win: for a board, a placement that differs
     from the script's request ``requested`` gives one ``altium.placement-from-board`` info.
     """
@@ -1009,7 +1019,7 @@ def match_source(
         definition = footprints.get(link)
         if definition is not None:
             wanted = sorted((pad.number, pad.position.x, pad.position.y) for pad in definition.defn.pads)
-            got = sorted((pad.number, pad.position.x, pad.position.y) for pad in footprint.pads)
+            got = sorted(library_pad_positions(footprint))
             if wanted != got:
                 odd = sorted(set(got) ^ set(wanted))
                 pad = odd[0][0] if odd else "?"
@@ -1094,6 +1104,7 @@ __all__ = [
     "account",
     "dielectric_kinds",
     "layer_names",
+    "library_pad_positions",
     "lower_items",
     "CopperPlan",
     "CopperSource",
