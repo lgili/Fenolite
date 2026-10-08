@@ -769,6 +769,60 @@ def split_hole_parts(
     )
 
 
+FIDUCIAL_SYMBOL = "Fenolite_Assembly:Fiducial"
+"""The symbol of the parts of ``design.fiducial()`` (``fenolite.dsl.assembly``; a unit test keeps the two
+equal: the lens does not import the DSL)."""
+
+
+def split_fiducial_parts(
+    design: Design, placements: Mapping[str, PlacementRequest]
+) -> tuple[Design, dict[str, PlacementRequest], Issue | None]:
+    """Take the parts of ``design.fiducial()`` out of the circuit (capability altium-build, "Assembly and
+    test features in an Altium build"; change c0118).
+
+    A fiducial's footprint holds two unnumbered pads, one without copper, which the PCB library writer
+    refuses, and a refused footprint withholds the whole PCB document; its symbol has no pin. The parts
+    are therefore left out of the schematic and of the PCB library and document, and one
+    ``altium.not-lowered`` info of the kind ``assembly features`` names them. Their keep-outs stay board
+    keep-outs, which "PCB document output" reports as every keep-out. The parts of ``tooling_hole()`` are
+    holes of ``design.hole()`` and take the path of ``split_hole_parts``."""
+    parts = [c for c in design.circuit.components if c.lib_symbol_ref == FIDUCIAL_SYMBOL]
+    if not parts:
+        return design, dict(placements), None
+    gone = {c.id for c in parts}
+    paths = {component_path(c) for c in parts}
+    circuit = design.circuit
+    reduced = dataclasses.replace(
+        circuit,
+        components=tuple(c for c in circuit.components if c.id not in gone),
+        nets=tuple(
+            dataclasses.replace(net, members=tuple(m for m in net.members if m.component_id not in gone))
+            if any(m.component_id in gone for m in net.members)
+            else net
+            for net in circuit.nets
+        ),
+        modules=tuple(
+            dataclasses.replace(m, component_ids=tuple(i for i in m.component_ids if i not in gone))
+            if any(i in gone for i in m.component_ids)
+            else m
+            for m in circuit.modules
+        ),
+        no_connects=tuple(ref for ref in circuit.no_connects if ref.component_id not in gone),
+    )
+    names = ", ".join(sorted((component_path(c) for c in parts), key=natural_key))
+    info = Issue(
+        "altium.not-lowered",
+        "info",
+        f"assembly features {names} are not written: the footprint of a fiducial holds unnumbered pads, "
+        "one of them without copper, which the PCB library does not take; their keep-outs stay board "
+        "keep-outs",
+        where="assembly features",
+        hint="place the fiducials in Altium, or author a footprint with a numbered copper pad",
+    )
+    kept = {path: request for path, request in placements.items() if path not in paths}
+    return dataclasses.replace(design, circuit=reduced), kept, info
+
+
 def with_written_values(design: Design) -> Design:
     """``design`` with the value that the documents hold for every component whose value is empty: its
     symbol's name, which both writers write as the comment (a component of Altium cannot be without one).
@@ -1960,6 +2014,12 @@ def build_altium(
         evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     unread_hint = UNREAD_PROJECT_HINT if project_exists and project_unreadable else ""
+    # the parts of design.fiducial() are left out before the footprint check (change c0118)
+    design, fiducial_placements, fiducial_info = split_fiducial_parts(design, placements or {})
+    if fiducial_info is not None:
+        kept_paths = {component_path(c) for c in design.circuit.components}
+        placed = tuple(path for path in placed if path in kept_paths)
+        placements = fiducial_placements
     # the parts of design.hole() are board holes of the document, not components (change c0102)
     hole_parts = split_hole_parts(design, placements or {}, authored_footprints)
     if hole_parts.design is not design:
@@ -1970,6 +2030,8 @@ def build_altium(
     resolved = resolve_symbols(design, resolver, authored_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
+    if fiducial_info is not None:
+        issues.append(fiducial_info)
     issues += impedance_layer_issues(design, copper)
     if project_exists:
         issues.append(

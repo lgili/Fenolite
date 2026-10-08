@@ -59,7 +59,7 @@
 #### Scenario: A tooling hole with a clear area
 - **GIVEN** `d.board(mm(50), mm(30))`
 - **WHEN** `d.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))` is called
-- **THEN** the part uses `Fenolite_Holes:Hole` and `Fenolite_Assembly:ToolingHole_3mm_Clear5mm`, whose pad is `""`, `np_thru_hole`, `circle`, 3 mm × 3 mm with a 3 mm drill, with 5 mm courtyard circles on `F.CrtYd` and `B.CrtYd`; `placements(d)["TH1"]` is `Placement(Point(146_000_000, 104_000_000), 0, "top", True)`; and `d.rule_areas["clear_TH1"]` has `layers is None` and forbids `("tracks", "vias", "pours")`
+- **THEN** the part uses `Fenolite_Holes:Hole` and `Fenolite_Assembly:ToolingHole_3mm_Clear5mm`, whose pad is `""`, `np_thru_hole`, `circle`, 3 mm × 3 mm with a 3 mm drill, with 5 mm courtyard circles on `F.CrtYd` and `B.CrtYd`; `placements(d)["TH1"]` is `Placement(Point(146_000_000, 104_000_000), 0, "top", True)`; and `d.rule_areas["clear_TH1"]` lies on every copper layer of the board (`("F.Cu", "B.Cu")`: `rule_area` records the layers that `layers=None` names) and forbids `("tracks", "vias", "pours")`
 
 #### Scenario: A tooling hole without a clear area
 - **WHEN** `d.tooling_hole("TH2", mm(4), mm(26), drill=mm(3))` is called after `board()`

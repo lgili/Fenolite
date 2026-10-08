@@ -16,7 +16,7 @@ from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.impedance import Trace
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
-from fenolite.dsl.part import NAME, Net, Part
+from fenolite.dsl.part import NAME, Net, Part, connect
 from fenolite.dsl.quantity import Quantity, decimal_text
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.select import pair as select_pair
@@ -822,6 +822,178 @@ class Design(Container):
         self.footprints.setdefault(footprint.lib_id, footprint)
         self.symbols.setdefault(symbol.lib_id, symbol)
         self.add(part)
+        return part
+
+    # -- assembly and test features (``docs/dsl.md``, "Assembly and test features"; change c0118)
+
+    def _feature_part(
+        self, call: str, ref: str, footprint: Footprint, symbol: object, net: Net | None = None
+    ) -> Part:
+        """The part of a generated feature, checked against what the design holds before anything is
+        recorded: its path, its two definitions under their lib ids, and its net's name."""
+        lib_id = cast("str", getattr(symbol, "lib_id"))  # noqa: B009 - a symbol holder
+        try:
+            part = Part(ref, lib_id, footprint=footprint.lib_id, value=footprint.name)
+        except DslError as error:
+            raise DslError(f"{call}: {error}") from None
+        if part.path in self.parts:
+            raise DslError(f"{call}: two components have the path {part.path!r}")
+        known = self.footprints.get(footprint.lib_id)
+        if known is not None and known.definition != footprint.definition:
+            raise DslError(
+                f"{call}: footprint {footprint.lib_id!r} is already registered with another definition"
+            )
+        held = self.symbols.get(lib_id)
+        if held is not None and getattr(held, "definition", None) != getattr(symbol, "definition"):  # noqa: B009
+            raise DslError(f"{call}: symbol {lib_id!r} is already registered with another definition")
+        if net is not None:
+            named = self.nets.get(net.name)
+            if named is not None and named is not net:
+                raise DslError(f"{call}: two distinct nets are named {net.name!r}")
+        return part
+
+    def _feature_record(self, part: Part, footprint: Footprint, symbol: object) -> None:
+        self.footprints.setdefault(footprint.lib_id, footprint)
+        self.symbols.setdefault(part.lib_id, symbol)
+        self.add(part)
+
+    def _feature_side(self, call: str, side: object) -> str:
+        if side not in ("top", "bottom"):
+            raise DslError(f"{call}: side must be 'top' or 'bottom', not {side!r}")
+        return cast("str", side)
+
+    def fiducial(
+        self,
+        ref: str,
+        x: object,
+        y: object,
+        *,
+        copper: object,
+        mask: object,
+        clear: object = None,
+        side: str = "top",
+        local: bool = False,
+    ) -> Part:
+        """A fiducial at ``(x, y)``: a part named ``ref`` whose footprint and symbol are generated in the
+        library ``Fenolite_Assembly`` (``fenolite.dsl.assembly``). Its copper pad is ``copper`` wide and
+        carries the mark ``fiducial_global`` (``fiducial_local`` with ``local=True``); a second pad opens
+        the mask ``mask`` wide. ``clear`` (by default ``mask``) is the diameter of its clear area: a
+        keep-out ``clear_<ref>`` for tracks, vias and pours on the copper layer of ``side``, declared with
+        ``rule_area()``. The part is placed and locked: its keep-out stays where the script draws it."""
+        from fenolite.dsl import assembly
+
+        call = "fiducial()"
+        if self.outline_path is None:
+            raise DslError(f"{call}: call board() first")
+        width = assembly.check_length(call, "copper", copper)
+        opening = assembly.check_length(call, "mask", mask, least=width + 1, what="a length above copper")
+        area = (
+            opening
+            if clear is None
+            else assembly.check_length(call, "clear", clear, least=opening, what="a length of at least mask")
+        )
+        on = self._feature_side(call, side)
+        if not isinstance(local, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{call}: local must be a bool, not {local!r}")
+        at_x, at_y = as_nm(x, name=f"{call}: x"), as_nm(y, name=f"{call}: y")
+        footprint = assembly.fiducial_footprint(width, opening, area, local=local)
+        symbol = assembly.AssemblySymbol(assembly.fiducial_symbol())
+        part = self._feature_part(call, ref, footprint, symbol)
+        keepout = itemlib.rule_area(
+            f"clear_{ref}",
+            [(Length(p.x), Length(p.y)) for p in assembly.clear_outline(at_x, at_y, area)],
+            ("F.Cu",) if on == "top" else ("B.Cu",),
+            ("tracks", "vias", "pours"),
+            copper=self.copper_layers,
+            taken=tuple(self.rule_areas),
+        )
+        part.place(Length(at_x), Length(at_y), side=on, locked=True)
+        self._feature_record(part, footprint, symbol)
+        self.rule_areas[keepout.name] = keepout
+        return part
+
+    def test_point(
+        self,
+        ref: str,
+        net: Net,
+        x: object,
+        y: object,
+        *,
+        size: object,
+        shape: str = "circle",
+        drill: object = None,
+        courtyard: object = None,
+        side: str = "top",
+        locked: bool = False,
+    ) -> Part:
+        """A test point on ``net`` at ``(x, y)``: a part named ``ref`` whose footprint and symbol are
+        generated in the library ``Fenolite_Assembly``. Its pad ``1`` is ``size`` wide, ``circle`` or
+        ``rect``, and carries the mark ``test_point``: a surface pad, or a plated through-hole pad with
+        ``drill``. ``courtyard`` widens its courtyard. The part is connected to ``net`` and placed."""
+        from fenolite.dsl import assembly
+
+        call = "test_point()"
+        if self.outline_path is None:
+            raise DslError(f"{call}: call board() first")
+        if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{call}: net must be a Net, not {net!r}")
+        width = assembly.check_length(call, "size", size)
+        if shape not in ("circle", "rect"):
+            raise DslError(f"{call}: shape must be 'circle' or 'rect', not {shape!r}")
+        hole = None
+        if drill is not None:
+            hole = assembly.check_length(call, "drill", drill)
+            if hole >= width:
+                raise DslError(f"{call}: drill must be a positive length below size")
+        yard = None
+        if courtyard is not None:
+            yard = assembly.check_length(
+                call, "courtyard", courtyard, least=width, what="a length of at least size"
+            )
+        on = self._feature_side(call, side)
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{call}: locked must be a bool, not {locked!r}")
+        at_x, at_y = as_nm(x, name=f"{call}: x"), as_nm(y, name=f"{call}: y")
+        footprint = assembly.test_point_footprint(width, shape=shape, drill=hole, courtyard=yard)
+        symbol = assembly.AssemblySymbol(assembly.test_point_symbol())
+        part = self._feature_part(call, ref, footprint, symbol, net)
+        part.place(Length(at_x), Length(at_y), side=on, locked=locked)
+        connect(net, part[1])
+        self._feature_record(part, footprint, symbol)
+        return part
+
+    def tooling_hole(self, ref: str, x: object, y: object, *, drill: object, clear: object = None) -> Part:
+        """A non-plated tooling hole of ``drill`` at ``(x, y)``: the part of ``hole()`` (symbol
+        ``Fenolite_Holes:Hole``) with a footprint ``ToolingHole_<d>`` generated in ``Fenolite_Assembly``,
+        whose library name is the tooling mark. ``clear`` widens its courtyards and declares a keep-out
+        ``clear_<ref>`` for tracks, vias and pours on every copper layer. Placed on the top side, locked."""
+        from fenolite.dsl import assembly, holes
+
+        call = "tooling_hole()"
+        if self.outline_path is None:
+            raise DslError(f"{call}: call board() first")
+        hole = assembly.check_length(call, "drill", drill)
+        area = None
+        if clear is not None:
+            area = assembly.check_length(call, "clear", clear, least=hole, what="a length of at least drill")
+        at_x, at_y = as_nm(x, name=f"{call}: x"), as_nm(y, name=f"{call}: y")
+        footprint = assembly.tooling_hole_footprint(hole, area)
+        symbol = holes.HoleSymbol(holes.hole_symbol(plated=False))
+        part = self._feature_part(call, ref, footprint, symbol)
+        keepout = None
+        if area is not None:
+            keepout = itemlib.rule_area(
+                f"clear_{ref}",
+                [(Length(p.x), Length(p.y)) for p in assembly.clear_outline(at_x, at_y, area)],
+                None,
+                ("tracks", "vias", "pours"),
+                copper=self.copper_layers,
+                taken=tuple(self.rule_areas),
+            )
+        part.place(Length(at_x), Length(at_y), side="top", locked=True)
+        self._feature_record(part, footprint, symbol)
+        if keepout is not None:
+            self.rule_areas[keepout.name] = keepout
         return part
 
     def cutout(self, path: object) -> None:

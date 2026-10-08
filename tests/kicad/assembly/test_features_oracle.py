@@ -4,9 +4,9 @@
 features pass the oracle"; hypotheses ``H-K-FIDUCIAL-FORM`` and ``H-K-FIDUCIAL-KEEPOUT``; change c0118).
 
 The bench is written through the model API (``_featurebench.feature_design``): the footprints that
-``design.fiducial()`` and ``design.test_point()`` will generate, less the courtyard. Building the same
-bench from a script, and the probes ``asm-tooling-drill`` and ``asm-features-pos`` of task 3.6, wait for the
-script calls, which need changes c0102 and c0103."""
+``design.fiducial()`` and ``design.test_point()`` generate, less the courtyard. Building the same bench
+from a script with the three calls (``_asmfeatures.CALLS``), and the probes ``asm-tooling-drill`` and
+``asm-features-pos``, are task 3.6, owed to a run with ``kicad-cli``."""
 
 from __future__ import annotations
 

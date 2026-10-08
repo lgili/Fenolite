@@ -16,9 +16,10 @@ Three subjects, all with authored round sizes:
 - the *library* subjects: the blink built with the authored parts of ``_asmfeatures`` (their vendored
   footprint files carry the marks), and the plain blink with a mark added to a placed library copy.
 
-The script calls of the change (``design.fiducial()``, ``design.test_point()``, ``design.tooling_hole()``)
-wait for changes c0102 and c0103; the features bench holds the footprints those calls will generate, less
-the courtyard, which a placed footprint cannot hold in the model on this base.
+The features bench holds the footprints that the script calls of the change (``design.fiducial()``,
+``design.test_point()``, ``design.tooling_hole()``) generate, less the courtyard, which a placed footprint
+cannot hold in the model. Building the bench from a script with those calls (``_asmfeatures.CALLS``), and
+the probes ``asm-tooling-drill`` and ``asm-features-pos``, are task 3.6, owed to a run with ``kicad-cli``.
 
 What KiCad does is read from its outputs: the aperture function of a pad is the ``.AperFunction`` of the
 aperture its flash uses in the copper plot; a mask opening is a flash in the mask plot.

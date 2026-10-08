@@ -14,6 +14,7 @@ from pathlib import Path
 import _schema
 import pytest
 from _asmcli import FEATURES, FIXTURE, LAST_LINE, built, isolate
+from _asmfeatures import CALLS
 from _boards import board, footprint
 from _checkcli import run, without_elapsed
 
@@ -144,6 +145,27 @@ def test_the_csv_of_a_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     position = env["result"]["test_points"][0]["position"]
     assert (point["x"], point["y"]) == (f"{position[0] / MM:.4f}", f"{-position[1] / MM:.4f}")
     assert rows[2][6] == "bottom" and rows[1][2:4] == ["", ""] and rows[1][7] == ""
+
+
+def test_the_csv_of_a_build_with_the_script_calls(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "The CSV of a build" and "A coverage target missed" on the build of "Features in a build":
+    the parts of ``design.fiducial()``, ``design.test_point()`` and ``design.tooling_hole()``."""
+    folder = built(monkeypatch, tmp_path, (LAST_LINE, LAST_LINE + CALLS))
+    code, env, _, _ = run(monkeypatch, tmp_path, "testpoints", str(folder), "--out", "tp.csv", "--confirm")
+    assert code == 0 and env["issues"] == []
+    assert env["result"]["counts"] == {
+        "test_points": 1, "fiducials_top": 1, "fiducials_bottom": 1, "holes": 1, "tooling_holes": 1,
+    }  # fmt: skip
+    lines = (tmp_path / "tp.csv").read_text(encoding="utf-8").splitlines()
+    assert lines[0] == HEADER
+    rows = [dict(zip(HEADER.split(","), line.split(","), strict=True)) for line in lines[1:]]
+    assert [(row["kind"], row["ref"]) for row in rows] == [
+        ("test_point", "TP1"), ("fiducial", "FID1"), ("fiducial", "FID2"), ("tooling_hole", "TH1"),
+    ]  # fmt: skip
+    assert (rows[0]["net"], rows[0]["access"]) == ("LED_A", "top") and rows[3]["drill"] == "3.0000"
+    code, env, _, _ = run(monkeypatch, tmp_path, "testpoints", str(folder), "--min-coverage", "100")
+    assert code == 5 and [i["code"] for i in env["issues"]] == ["testpoint.coverage-low"]
+    assert env["result"]["coverage"]["covered"] == 1
 
 
 def test_the_csv_uses_the_placement_frame(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

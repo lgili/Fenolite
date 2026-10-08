@@ -5,7 +5,8 @@ with IPC-D-356"; hypothesis ``H-K-TESTPOINT-D356``; change c0118).
 
 The bench holds a top SMD, a bottom SMD and a through-hole test pad, and a top SMD pad without a mask
 layer, each marked ``test_point`` on its own net (``_featurebench.TEST_PADS``). They are written through
-the model API: ``design.test_point()`` waits for changes c0102 and c0103."""
+the model API, as the outcome of 2026-10-08 was recorded; the same pads from ``design.test_point()`` are
+owed to a run with ``kicad-cli`` (task 3.6 of change c0118)."""
 
 from __future__ import annotations
 

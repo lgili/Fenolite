@@ -88,12 +88,43 @@ tp.pad(
 - An Altium build writes a part with a marked pad as any other part; the mark itself is written to no
   Altium record, and one `altium.not-lowered` info names the footprints concerned.
 
-The calls `design.fiducial()`, `design.test_point()` and `design.tooling_hole()`, which place such parts
-with generated footprints and a copper keep-out, are **not available yet**: they are built on the generated
-definitions of `design.hole()` (change c0102) and on `design.rule_area()` (change c0103). Until then,
-author the footprint as above. `fenolite.dsl.assembly.clear_outline(x, y, diameter)` already gives the
-outline those calls will use for a clear area: an octagon that contains the circle of that diameter, whose
-corners reach about 8 % further out, because a keep-out outline holds points only.
+Three calls place such parts with footprints and symbols generated in the library `Fenolite_Assembly`
+(`fenolite.dsl.assembly`), as `design.hole()` generates its own; no KiCad library is needed, and every size
+is the script's:
+
+```python
+design.board(mm(50), mm(30))
+design.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))
+design.fiducial("FID2", mm(47), mm(27), copper=mm(1), mask=mm(2), side="bottom")
+design.test_point("TP1", led_a, mm(30), mm(12), size=mm(1.5))
+design.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))
+```
+
+| call | footprint | symbol | placed |
+|---|---|---|---|
+| `fiducial(ref, x, y, *, copper, mask, clear=None, side="top", local=False)` | `Fiducial_<c>_Mask<m>[_Clear<k>]` (`Fiducial_Local_…` with `local=True`): an unnumbered copper pad `copper` wide on `F.Cu` and `F.Mask` marked `fiducial_global` or `fiducial_local`, an unnumbered pad `mask` wide on `F.Mask` that opens the mask, a courtyard circle of `clear`; kind `smd`, out of the BOM | `Fenolite_Assembly:Fiducial`, no pin, `FID` | on `side`, locked |
+| `test_point(ref, net, x, y, *, size, shape="circle", drill=None, courtyard=None, side="top", locked=False)` | `TestPoint_Pad_D<s>`, `TestPoint_Pad_<s>x<s>`, `TestPoint_THTPad_…_Drill<d>`, with `_Courtyard_<c>`: pad `1` marked `test_point`, SMD on `F.Cu` and `F.Mask` or plated through-hole on `*.Cu` and `*.Mask` with `drill`; out of the position file and the BOM | `Fenolite_Assembly:TestPoint`, one passive pin `1`, `TP` | on `side`, on `net` |
+| `tooling_hole(ref, x, y, *, drill, clear=None)` | `ToolingHole_<d>[_Clear<c>]`: the unnumbered not-plated hole of `hole()`, courtyards of `clear` (by default `drill`) on both sides | `Fenolite_Holes:Hole`, the symbol of `hole()` | on the top side, locked |
+
+- `mask` must be above `copper`; `clear` is at least `mask` for a fiducial (its default) and at least
+  `drill` for a tooling hole; a test point's `drill` is below `size` and its `courtyard` at least `size`.
+  Any other value raises `DslError` naming the argument, and nothing is recorded.
+- **Clear areas.** A fiducial declares the keep-out `clear_<ref>` with `rule_area()` on the copper layer of
+  its side, forbidding tracks, vias and pours; a tooling hole with `clear` declares one on every copper
+  layer. Pads stay allowed, so the feature's own pads are not reported. A keep-out outline holds points
+  only, so the area is the octagon of `fenolite.dsl.assembly.clear_outline(x, y, clear)`, which contains
+  the circle of that diameter and whose corners reach about 8 % further out. Its name may collide with an
+  area of your own: `rule_area()` then names it.
+- **Locked.** A keep-out stays where the script drew it, so fiducials and tooling holes are always placed
+  and locked by their call; neither takes `locked`, and a later `place()` on their parts raises.
+- The lib id prefix `Fenolite_Assembly:ToolingHole_` is the tooling mark that `fenolite testpoints`
+  reads: KiCad has no pad mark for a tooling hole.
+- Each definition is registered once per lib id; another definition under one of these lib ids, your own
+  included, raises `DslError`.
+- In an Altium build the test points are written as parts; the fiducials are left out of every document
+  with one `altium.not-lowered` info of the kind `assembly features`, because the PCB library takes no
+  unnumbered pad without copper; a tooling hole is a hole of `hole()` and becomes a board hole of the PCB
+  document.
 
 ## Authored symbols (c0058)
 

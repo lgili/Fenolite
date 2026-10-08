@@ -428,6 +428,14 @@ is not plated is written as a board hole, the free pad without copper, and count
 A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of a
 hole part is not written: a free pad has none.
 
+**Assembly and test features** (change c0118). The parts of `design.test_point()` are written as any
+authored part. The parts of `design.fiducial()` are left out of the schematic and of the PCB library and
+document, because the library takes no unnumbered pad and no surface pad without copper: one
+`altium.not-lowered` info whose `where` is `assembly features` names them, and their keep-outs stay board
+keep-outs. A part of `design.tooling_hole()` has the symbol of `design.hole()` and is written as its board
+hole. No fabrication mark of a pad (`Pad.fab_property`) is written: one `altium.not-lowered` info whose
+`where` is `pad properties` names every written footprint with a marked pad.
+
 **Oracles.** `kicad-cli fp upgrade <name>.PcbLib -o <dir>.pretty` converts the library back (10.0 and
 9.0); `tests/kicad/altium/test_pcblib_oracle.py` counts the files, since a footprint KiCad cannot find
 still exits 0, and compares the geometry. `kicad-cli pcb import --format altium` (10.0 only) reads the
@@ -954,7 +962,7 @@ An author report never raises the build's evidence level.
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); as a **warning**, one per rule of the script that is not written into the PCB document (`where` = `design-rules/<kind>`, with the selector and the reason: "Rules"); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); as a **warning**, one per rule of the script that is not written into the PCB document (`where` = `design-rules/<kind>`, with the selector and the reason: "Rules"); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied; the fiducials of `design.fiducial()` (`where` = `assembly features`) and the fabrication marks of pads (`where` = `pad properties`; change c0118) |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |

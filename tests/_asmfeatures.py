@@ -3,9 +3,9 @@
 """The blink with assembly and test features, for the tests of change c0118: an authored test pad on
 ``LED_A`` and two authored fiducial marks, one per side. Every name, size and position is made up.
 
-The script calls ``design.fiducial()``, ``design.test_point()`` and ``design.tooling_hole()`` wait for the
-generated definitions and the keep-out call of changes c0102 and c0103. The parts authored here carry the
-same pad marks, which is all that ``pnp``, ``testpoints`` and KiCad's outputs read.
+``CALLS`` holds the script calls ``design.fiducial()``, ``design.test_point()`` and
+``design.tooling_hole()`` of "Features in a build". The parts authored in ``FEATURES`` carry the same pad
+marks, which is all that ``pnp``, ``testpoints`` and KiCad's outputs read.
 """
 
 from __future__ import annotations
@@ -46,6 +46,13 @@ fid2.place(mm(47), mm(27), side="bottom")
 """
 )
 """The replacement of ``LAST_LINE`` that adds the features to the blink script."""
+CALLS = (
+    'design.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))\n'
+    'design.fiducial("FID2", mm(47), mm(27), copper=mm(1), mask=mm(2), side="bottom")\n'
+    'design.test_point("TP1", led_a, mm(30), mm(12), size=mm(1.5))\n'
+    'design.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))\n'
+)
+"""The lines that "Features in a build" appends to the blink: the three script calls of change c0118."""
 
 
 def features_text() -> str:
@@ -64,4 +71,11 @@ def features_design() -> Design:
     return design
 
 
-__all__ = ["FEATURES", "LAST_LINE", "features_design", "features_text"]
+def calls_design(append: str = CALLS) -> Design:
+    """The blink with ``append`` (by default the three calls of ``CALLS``) at its end."""
+    from _outlinehelp import variant
+
+    return variant(append=append)
+
+
+__all__ = ["CALLS", "FEATURES", "LAST_LINE", "calls_design", "features_design", "features_text"]
