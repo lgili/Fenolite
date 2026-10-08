@@ -11,8 +11,8 @@
 
 ## Ordem e tempo
 
-Na ordem do que mais destrava a graduação da escrita Altium na 0.3.0. Pare onde o tempo acabar: cada parte
-vale sozinha.
+Na ordem do que mais destrava a graduação da escrita Altium na 0.3.0. Todas as partes são pedidas; se o
+tempo acabar, cada parte vale sozinha.
 
 | # | parte | pasta | o que resolve | minutos |
 |---|---|---|---|---|
@@ -21,10 +21,11 @@ vale sozinha.
 | 3 | **O: output job com Gerber** | `O-outjob/` | o Gerber que não plotava nada (c0138) | 25 |
 | 4 | **X8: corpos dos componentes** | `X8-bodies/` | se a opção de corpos pode virar padrão (c0121) | 20 |
 | 5 | **R: folha repetida** | `R-repeated-sheet/` | canais `Repeat` e a página preta (c0083, c0146) | 30 |
-| 6 | **V: vias sem pad** | `V-vias/` | o que o Altium grava ao remover pads de via (c0132) | 15 |
-| 7 | D: DRC do Altium (opcional, por último) | nenhuma: arquivo público | os 7 achados de folga do documento público `-03` (c0131) | 10 |
+| 6 | **D: DRC do próprio Altium (obrigatória)** | nenhuma: baixar o arquivo público | se os 7 achados de folga do documento público `-03` são da placa ou da leitura do Fenolite (c0131, c0088) | 10 |
+| 7 | **V: vias sem pad** | `V-vias/` | o que o Altium grava ao remover pads de via (c0132) | 15 |
 
-**Total: 165 minutos** (175 com a parte D). Antes de começar, anote a versão: Help » About, como
+**Total: 175 minutos.** A parte D precisa de um arquivo público que não vem no pacote: baixe-o
+antes (seção 6). Antes de começar, anote a versão: Help » About, como
 `AD <maior>.<menor>` (por exemplo `AD 26.5`).
 
 Versão e data: ______________________________
@@ -233,7 +234,36 @@ Resposta R4: ______________________________
 
 ---
 
-## 6. V: vias sem pad nas camadas internas (15 min)
+## 6. D: o DRC do próprio Altium num documento público (obrigatória, 10 min)
+
+Parte obrigatória (c0131, tarefa 3.3). O arquivo **não** vem no pacote: baixe-o antes da sessão.
+
+- URL: `https://raw.githubusercontent.com/TobiasRothlin/AltiumPCBLibrary/fdff76666ffbfa4a1ba2e3d3fe5a52c090b45cb7/PCBLibrary/PCB1.PcbDoc`
+- commit: `fdff76666ffbfa4a1ba2e3d3fe5a52c090b45cb7` (licença Apache-2.0; linha `altium-third-party-pcbdoc-03` do corpus)
+- SHA-256: `567fd0dfdba54c04adbdd2cc19b427c894b7a94aa953aa361f3e0afc71db12b3` (confira antes de abrir:
+  `certutil -hashfile PCB1.PcbDoc SHA256` no Windows)
+
+Abra só para ler: **não salve**. O Fenolite acha 7 violações de folga, todas entre o pad `J2-1` (quadrado,
+passante, 1.62 mm, rede `NetJ2_1`) e sete segmentos da trilha da rede `Net*_4` (0.127 mm) na Bottom Layer,
+com folga de 126 991 a 126 992 nm contra a regra `Clearance_2` de 5 mil (127 000 nm).
+
+**D4** abra o documento, **não** refaça os polígonos, Tools » Design Rule Check só com as regras Clearance.
+
+Resposta D4: ______________________________
+
+**D5** uma linha: "o Altium mostra N violações da regra `Clearance_2` entre o pad `J2-1` e a rede `Net*_4`"
+(N de 0 a 7).
+
+Resposta D5: ______________________________
+
+**D6** selecione o pad `J2-1`; tamanhos X e Y como o painel de propriedades mostra, em mil, com todos os
+dígitos. (O Fenolite lê 63.7795 mil.)
+
+Resposta D6: ______________________________
+
+---
+
+## 7. V: vias sem pad nas camadas internas (15 min)
 
 Pasta `V-vias/`. Placa de seis camadas de cobre, duas delas planos internos em `GND`: Top Layer,
 Internal Plane 1, **Mid-Layer 2**, Internal Plane 2, **Mid-Layer 4**, Bottom Layer. As duas camadas
@@ -268,43 +298,6 @@ a mais do registro longo serão lidos com o Fenolite (c0132, tarefa 4.3).
 
 ---
 
-## 7. D: o DRC do próprio Altium num documento público (opcional, 10 min)
-
-O arquivo **não** vem no pacote. Baixe:
-
-- URL: `https://raw.githubusercontent.com/TobiasRothlin/AltiumPCBLibrary/fdff76666ffbfa4a1ba2e3d3fe5a52c090b45cb7/PCBLibrary/PCB1.PcbDoc`
-- commit: `fdff76666ffbfa4a1ba2e3d3fe5a52c090b45cb7` (licença Apache-2.0; linha `altium-third-party-pcbdoc-03` do corpus)
-- SHA-256: `567fd0dfdba54c04adbdd2cc19b427c894b7a94aa953aa361f3e0afc71db12b3` (confira antes de abrir:
-  `certutil -hashfile PCB1.PcbDoc SHA256` no Windows)
-
-Abra só para ler: **não salve**. O Fenolite acha 7 violações de folga, todas entre o pad `J2-1` (quadrado,
-passante, 1.62 mm, rede `NetJ2_1`) e sete segmentos da trilha da rede `Net*_4` (0.127 mm) na Bottom Layer,
-com folga de 126 991 a 126 992 nm contra a regra `Clearance_2` de 5 mil (127 000 nm).
-
-**D4** abra o documento, **não** refaça os polígonos, Tools » Design Rule Check só com as regras Clearance.
-
-Resposta D4: ______________________________
-
-**D5** uma linha: "o Altium mostra N violações da regra `Clearance_2` entre o pad `J2-1` e a rede `Net*_4`"
-(N de 0 a 7).
-
-Resposta D5: ______________________________
-
-**D6** selecione o pad `J2-1`; tamanhos X e Y como o painel de propriedades mostra, em mil, com todos os
-dígitos. (O Fenolite lê 63.7795 mil.)
-
-Resposta D6: ______________________________
-
----
-
-## Pergunta sem Altium (1 min)
-
-**Q-c0144** O catálogo deve aplicar sozinho um mapa pino-pad para `LED`, `Diode` e `Zener_Diode` nos três
-footprints conhecidos (ânodo no pad 2, cátodo no pad 1) quando a peça não dá `pad_map`? Opções: (a) mapa
-padrão; (b) só um aviso no build, nomeando o mapa a escrever (a recomendação); (c) nada.
-
-Resposta Q-c0144: ______________________________
-
 ## Ao terminar
 
 Compacte a pasta `session-2` inteira, como ficou (com o que o Altium gravou), e leve para casa. Não
@@ -335,13 +328,12 @@ R1:
 R2:
 R3:
 R4:
-V1:
-V2:
-V3:
 D4:
 D5:
 D6:
-Q-c0144:
+V1:
+V2:
+V3:
 ```
 
 ## SHA-256 de cada arquivo do pacote
