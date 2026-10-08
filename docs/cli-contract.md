@@ -1341,6 +1341,60 @@ and the files are written. `--copper-check warn` reports the short as a warning 
 before the mode, so a waived short is `info` and does not refuse the build); the evidence is `UNVERIFIED`
 when the document holds unpoured polygons, which the guard cannot judge. No file is read from disk and no tool runs.
 
+## ready
+
+`fenolite ready PATH [--no-kicad] [--kicad-cli PATH] [--timeout SECONDS]` says in one reply whether a
+KiCad project is electrically ready for fabrication (change c0098). `PATH` is a board, a project file or
+a project folder, as for `check`; Altium input exits 2 with `FEN-2001` (use `fenolite check`). It writes
+no file. It gathers findings that Fenolite already computes, and adds three rules:
+
+| check | what it reports | source | needs `kicad-cli` |
+|---|---|---|---|
+| `nets.open` | one `ready.net-open` per net with open connections, with their number and the shortest | `analysis.connectivity`, as `fenolite net` | no |
+| `erc.kicad` | KiCad's ERC findings (`kicad.erc.*`) | the stage of `check`, unchanged | yes |
+| `drc.kicad` | KiCad's DRC findings (`kicad.drc.*`), unconnected items included | the stage of `check`, unchanged | yes |
+| `pins.unconnected` | one `ready.pin-unconnected` per pin of a fitted part on no net, or alone on its net, that is not of type `no_connect` and carries no no-connect mark (`no_connect()` in a script, a no-connect flag in a schematic) | Fenolite's rule | no |
+| `power.nets` | one `ready.power-net-unsized` per power net with neither a track width of its own class (not `Default`) or of a `track_width` rule that selects it (a rule over `all` is a board minimum and does not count), nor a zone | Fenolite's rule | no |
+| `parts.fields` | `check.footprint-unresolved` (the rule of `model.validate`) and one `ready.part-value-missing` per fitted part with an empty value | Fenolite's rule | no |
+
+- **Power net.** A net that a `Power` interface names (`source` `interface`), or a net with a pin of type
+  `power_in` or `power_out` (`source` `pin-type`). A design whose pins are all `passive` and that declares
+  no `Power` interface has no power net.
+- **Which design is judged.** Pins, no-connect marks, interfaces, net classes, rules, values and footprints
+  come from the `.fenolite/` model of a built project, else from the board as read with the classes and
+  rules of the project files. Open connections and zones come from the board as read. A `.fenolite/`
+  that cannot be loaded gives `check.cache-unreadable` (warning), and the board's reading stands in.
+- **Without `kicad-cli`.** As `check` does for its stages that need the tool, a missing or unsupported
+  `kicad-cli` exits 6 (`FEN-6001`, `FEN-6002`), and the hint names `--no-kicad`. With `--no-kicad` no
+  tool runs, and `erc.kicad` and `drc.kicad` are `skipped` with reason `no-kicad`. A check that is
+  skipped, by that option or by its stage (`erc.kicad` on a project without a schematic:
+  `no-schematic`), gives one `ready.check-skipped` warning.
+- **Result.** `result.project` (`board`, `built`); `result.ready`, true exactly when no issue has
+  severity `error`; `result.complete`, true exactly when no check is skipped; `result.checks`, one entry
+  per check in the order of the table, in the form of an entry of `result.stages` of `check` (`name`,
+  `status`, `reason`, `evidence`, `summary`); `result.counts`, the number of issues per severity. The
+  `summary` of `nets.open` is `{nets, connections}`, of `pins.unconnected` `{pins}`, of `power.nets`
+  `{nets: [{net, source, width, zones}]}` with `width` `class:<name>`, `rule:<name>` or `null`, and of
+  `parts.fields` `{footprint, value}`; the two KiCad stages keep the summary they have in `check`.
+- **Exit codes.** 0 when `result.ready` is true; 5 when it is false, with the findings in `issues`; 6
+  for a missing tool, as above; 2 and 3 as for `check`.
+- **Evidence.** Each check carries its own: `nets.open` the board read's combined with the query's
+  (`H-K-CONN-PARITY`), the KiCad stages theirs, and the three rules `INFERRED` (`H-G-READY-RULES`). The
+  envelope holds the lowest of the checks that ran, so `INFERRED` at best: `ready` gathers, `check`
+  stays the judge.
+
+```json
+{"project": {"board": "blink.kicad_pcb", "built": false}, "ready": true, "complete": true,
+ "checks": [{"name": "nets.open", "status": "ok", "reason": "",
+             "evidence": {"level": "INFERRED", "oracle": null,
+                          "hypotheses": ["H-G-BOTTOM-PLACE", "…", "H-K-CONN-PARITY", "H-K-PCB-READ"]},
+             "summary": {"nets": 0, "connections": 0}}, "…"],
+ "counts": {"error": 0, "warning": 0, "info": 0}}
+```
+
+An open net is reported twice when DRC ran: as `ready.net-open`, computed without a tool, and as
+KiCad's `kicad.drc.unconnected-items`. `fenolite net BOARD NAME` lists the open connections of a net.
+
 ## export
 
 `fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf]

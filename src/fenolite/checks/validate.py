@@ -11,6 +11,7 @@ from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 
 PATH_KEY = "fenolite.path"
@@ -20,21 +21,36 @@ BUILT_EVIDENCE = Evidence(Level.INFERRED)
 """Built input is judged by Fenolite's own structural rules: no format claim."""
 
 
+def unresolved_footprints(design: Design) -> tuple[Component, ...]:
+    """The parts of ``design`` that are not DNP and have no footprint reference or no footprint instance,
+    in circuit order: the rule of ``check.footprint-unresolved``, which ``fenolite ready`` applies too."""
+    placed: set[str] = (
+        {fp.component_id for fp in design.board.footprints} if design.board is not None else set()
+    )
+    return tuple(
+        component
+        for component in design.circuit.components
+        if not component.dnp and (not component.lib_footprint_ref or component.id not in placed)
+    )
+
+
+def footprint_issue(component: Component) -> Issue:
+    """The ``check.footprint-unresolved`` finding of one part of ``unresolved_footprints``."""
+    return issue("check.footprint-unresolved", "no footprint reference or instance", where=component.ref)
+
+
 def validate_stage(design: Design, *, built: bool, evidence: Evidence) -> StageResult:
     """The ``model.*`` findings of ``design``, plus ``check.footprint-unresolved`` and, when ``built``,
     ``check.symbol-unresolved``."""
     issues: list[Issue] = list(design.validate())
-    placed: set[str] = (
-        {fp.component_id for fp in design.board.footprints} if design.board is not None else set()
-    )
+    unresolved = {component.id for component in unresolved_footprints(design)}
     for component in design.circuit.components:
-        if not component.dnp and (not component.lib_footprint_ref or component.id not in placed):
-            issues.append(issue("check.footprint-unresolved", "no footprint reference or instance",
-                                where=component.ref))  # fmt: skip
+        if component.id in unresolved:
+            issues.append(footprint_issue(component))
         if built and not component.lib_symbol_ref and PATH_KEY in component.properties:
             issues.append(issue("check.symbol-unresolved", "no symbol reference", where=component.ref))
     summary = {"components": len(design.circuit.components), "nets": len(design.circuit.nets)}
     return ran("model.validate", issues, evidence, summary)
 
 
-__all__ = ["BUILT_EVIDENCE", "PATH_KEY", "validate_stage"]
+__all__ = ["BUILT_EVIDENCE", "PATH_KEY", "footprint_issue", "unresolved_footprints", "validate_stage"]

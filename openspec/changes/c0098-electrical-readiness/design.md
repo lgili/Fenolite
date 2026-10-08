@@ -37,7 +37,7 @@ Non-goals: see the proposal.
 {"project": {"board": "blink.kicad_pcb", "built": false},
  "ready": true, "complete": true,
  "checks": [{"name": "nets.open", "status": "ok", "reason": "",
-             "evidence": {"level": "KICAD-VERIFIED", "oracle": null, "hypotheses": ["H-K-CONN-PARITY"]},
+             "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["…", "H-K-CONN-PARITY", "H-K-PCB-READ"]},
              "summary": {"nets": 0, "connections": 0}}, "…"],
  "counts": {"error": 0, "warning": 0, "info": 0}}
 ```
@@ -49,12 +49,12 @@ Non-goals: see the proposal.
 | file | content |
 |---|---|
 | `src/fenolite/checks/readiness.py` (new) | `READY_CHECKS`, `READY_ISSUE_CODES`, `EVIDENCE`, `issue(code, message, *, where)`, `OpenNet(name, connections, shortest, a, b)`, `open_stage(nets, *, evidence, issues)`, `unconnected_pins(design, *, flagged)`, `pins_stage(design, *, flagged)`, `PowerNet(net, source, width, zones)`, `power_nets(intent, *, board)`, `power_stage(intent, *, board)`, `parts_stage(design)`, `skipped_check(name, reason)` |
-| `src/fenolite/checks/validate.py` | `unresolved_footprints(design) -> tuple[Component, ...]` |
+| `src/fenolite/checks/validate.py` | `unresolved_footprints(design) -> tuple[Component, ...]`, `footprint_issue(component)` |
 | `src/fenolite/model/circuit.py` | `power_interface_nets(circuit) -> frozenset[str]`; used by `checks/erc_lite.py` and `backends/kicad/schgen.py` |
 | `src/fenolite/cli/cmd_ready.py` (new) | the command; `--no-kicad`, `--kicad-cli`, `--timeout` |
 | `src/fenolite/cli/explain.py`, `cli/data/explain.toml` | the table `checks.readiness.READY_ISSUE_CODES` and its five entries |
 | `tests/unit/checks/test_readiness.py`, `tests/unit/cli/test_ready_cmd.py` (new) | the scenarios, with the fake `kicad-cli` of `tests/_fakecli.py` |
-| `tests/data/kicad/ready/` (new, `MANIFEST.toml`) | the starter built and routed: board, schematic, project |
+| `tests/data/kicad/ready/` (new, `MANIFEST.toml`) | the starter built and routed: board and schematic |
 | `docs/cli-contract.md`, `src/fenolite/agent/skill/SKILL.md`, `references/checks.md`, the generated `references/commands.md` | the command |
 
 ## Hypotheses registered by this change
@@ -69,8 +69,8 @@ It starts `INFERRED` and stays so: the rules are Fenolite's definitions, which n
 
 | behaviour | level required | proof |
 |---|---|---|
-| open connections | `KICAD-VERIFIED` through `H-K-CONN-PARITY` (c0108) | `test_ready_cmd.py -k open` |
-| ERC and DRC | the stages' own, unchanged | `test_ready_cmd.py -k kicad` against the fake |
+| open connections | the board read's level combined with `connectivity.EVIDENCE` (`KICAD-VERIFIED`, `H-K-CONN-PARITY`, c0108): `INFERRED` on a KiCad board read | `test_ready_cmd.py -k open` |
+| ERC and DRC | the stages' own, unchanged | `test_ready_cmd.py -k "ready_project or drc or stage_skip"` against the fake |
 | the three rules | `INFERRED` (`H-G-READY-RULES`) | `test_readiness.py` |
 | exit codes, read-only, JSON | mechanical | `tests/consistency`, `test_ready_cmd.py` |
 

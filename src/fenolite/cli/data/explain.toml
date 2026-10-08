@@ -2512,6 +2512,31 @@ meaning = "The placement template asks for positions relative to the board outli
 fix = "Close the outline on the board, or set the origin of the template to the file origin."
 see = "pnp"
 
+["ready.check-skipped"]
+meaning = "A check of 'fenolite ready' did not run: --no-kicad was given for ERC and DRC, or the stage skipped itself (for example ERC on a project without a schematic). The reply is not complete, and result.complete is false."
+fix = "Run 'fenolite ready' without --no-kicad where kicad-cli 9 or 10 is installed, or add the schematic beside the board; until then 'ready' says nothing about that check."
+see = "ready"
+
+["ready.net-open"]
+meaning = "A net still has open connections on the board: islands of its copper and pads that nothing joins. The message gives their number and the shortest one."
+fix = "Run 'fenolite route' again, or add the copper in the script; 'fenolite net BOARD NAME' lists each open connection."
+see = "ready"
+
+["ready.part-value-missing"]
+meaning = "A fitted part has an empty value, so the bill of materials and the assembly drawings cannot say what to place."
+fix = "Give the part a value in the script (value=...) or in the schematic, or mark it DNP if it is not fitted."
+see = "ready"
+
+["ready.pin-unconnected"]
+meaning = "A pin of a fitted part is on no net, or alone on its net, and carries no no-connect mark: either a connection is missing or the pin is meant to stay open and says nothing."
+fix = "Connect the pin, or mark it as unconnected on purpose (no_connect() in the script, a no-connect flag in the schematic)."
+see = "ready"
+
+["ready.power-net-unsized"]
+meaning = "A power net (named by a Power interface, or holding a power input or output pin) has neither a track width of its own net class or of a track_width rule that selects it, nor a zone, so it would be routed at the default width."
+fix = "Put the net in a net class with a track width, add a track_width rule for it, or pour a zone on it."
+see = "ready"
+
 ["render.failed"]
 meaning = "A view could not be produced; 'where' is the view. It is never an error: a render is not a gate."
 fix = "Run again; check that kicad-cli of the running version has the render command."

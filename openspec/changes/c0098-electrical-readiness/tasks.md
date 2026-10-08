@@ -5,23 +5,31 @@
 
 ## 1. Shared definitions
 
-- [ ] 1.1 Add `model.circuit.power_interface_nets` and use it in `checks/erc_lite.py` and `backends/kicad/schgen.py`; move the footprint rule of `validate_stage` into `checks.validate.unresolved_footprints`. Proof: `uv run pytest tests/unit/checks tests/unit/backends/kicad -q -k "validate or erc_lite or flag or power"`; `uv run pyright src`.
+- [x] 1.1 Add `model.circuit.power_interface_nets` and use it in `checks/erc_lite.py` and `backends/kicad/schgen.py`; move the footprint rule of `validate_stage` into `checks.validate.unresolved_footprints`. Proof: `uv run pytest tests/unit/checks tests/unit/backends/kicad -q -k "validate or erc_lite or flag or power"`; `uv run pyright src`.
+  - 2026-10-08: 54 passed, no test edited; `uv run pyright src`: 0 errors. `checks.validate.footprint_issue` gives the one finding text, so `parts.fields` and `model.validate` report it alike.
 
 ## 2. Rules
 
-- [ ] 2.1 Write `src/fenolite/checks/readiness.py` (`READY_CHECKS`, `READY_ISSUE_CODES`, `EVIDENCE`, the stages of the three rules, `open_stage`, `skipped_check`) and `tests/unit/checks/test_readiness.py` (scenarios of the rules of the `verification-loop` delta); name the table in `cli.explain.TABLES` and add the five entries to `cli/data/explain.toml`. Proof: `uv run pytest tests/unit/checks/test_readiness.py tests/unit/cli/test_explain_cmd.py tests/unit/test_import_graph.py -q`.
+- [x] 2.1 Write `src/fenolite/checks/readiness.py` (`READY_CHECKS`, `READY_ISSUE_CODES`, `EVIDENCE`, the stages of the three rules, `open_stage`, `skipped_check`) and `tests/unit/checks/test_readiness.py` (scenarios of the rules of the `verification-loop` delta); name the table in `cli.explain.TABLES` and add the five entries to `cli/data/explain.toml`. Proof: `uv run pytest tests/unit/checks/test_readiness.py tests/unit/cli/test_explain_cmd.py tests/unit/test_import_graph.py -q`.
+  - 2026-10-08: 11 tests in `test_readiness.py`; the proof passes (after the section `## ready` of task 4.1 existed: an explain entry's `see` must be a heading of `docs/cli-contract.md`). `checks.readiness` imports `checks`, `model` and `core` only; the open connections reach it as `OpenNet` rows from the command.
 
 ## 3. Command
 
-- [ ] 3.1 Add the fixture `tests/data/kicad/ready/` (the starter of `fenolite init`, built for target 10 and routed with `--router direct`: board, schematic, project) with its rows in `tests/data/MANIFEST.toml`, and `EXAMPLE_READY` in `cli/_examples.py`. Proof: `uv run pytest tests/unit/test_provenance.py tests/residue -q`.
-- [ ] 3.2 Write `src/fenolite/cli/cmd_ready.py` and `tests/unit/cli/test_ready_cmd.py` (scenarios of the `cli-contract` delta, with the fake `kicad-cli`). Proof: `uv run pytest tests/unit/cli/test_ready_cmd.py tests/unit/cli/test_hermetic_examples.py tests/consistency -q`.
+- [x] 3.1 Add the fixture `tests/data/kicad/ready/` (the starter of `fenolite init`, built for target 10 and routed with `--router direct`: board and schematic) with its rows in `tests/data/MANIFEST.toml`, and `EXAMPLE_READY` in `cli/_examples.py`. Proof: `uv run pytest tests/unit/test_provenance.py tests/residue -q`.
+  - 2026-10-08: passes; `tools/residue/scan.py`: 0 hits. The project file of the build was left out: the residue scan flags a numeric code in it, and neither ERC nor DRC of the fake or of `ready` needs it.
+- [x] 3.2 Write `src/fenolite/cli/cmd_ready.py` and `tests/unit/cli/test_ready_cmd.py` (scenarios of the `cli-contract` delta, with the fake `kicad-cli`). Proof: `uv run pytest tests/unit/cli/test_ready_cmd.py tests/unit/cli/test_hermetic_examples.py tests/consistency -q`.
+  - 2026-10-08: 9 tests in `test_ready_cmd.py` (one more than the scenarios: a project without its schematic, whose `erc.kicad` skips itself); the proof: 451 passed, 21 skipped (the mutating-only cases), with `test_explain_cmd.py`, `test_readiness.py` and `test_import_graph.py` in the same run. `tests/unit/cli/test_paging.py` lists `ready` among the paged commands.
 
 ## 4. Documentation and guide
 
-- [ ] 4.1 Describe `ready` in `docs/cli-contract.md`; name it in the prose of "The loop" of `src/fenolite/agent/skill/SKILL.md` (the block stays ten lines) and add a tested line and a section to `references/checks.md`, with `ready` in `HOME["checks"]` of `tests/unit/agent/test_pages.py`; regenerate `references/commands.md`. Proof: `uv run python tools/gen_agent_guide.py --check`; `uv run python tools/gen_schemas.py --check`; `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/agent tests/unit/test_agent_skill.py -q`.
+- [x] 4.1 Describe `ready` in `docs/cli-contract.md`; name it in the prose of "The loop" of `src/fenolite/agent/skill/SKILL.md` (the block stays ten lines) and add a tested line and a section to `references/checks.md`, with `ready` in `HOME["checks"]` of `tests/unit/agent/test_pages.py`; regenerate `references/commands.md`. Proof: `uv run python tools/gen_agent_guide.py --check`; `uv run python tools/gen_schemas.py --check`; `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/agent tests/unit/test_agent_skill.py -q`.
+  - 2026-10-08: the three generators exit 0 with `--check` after `gen_agent_guide.py` rewrote `references/commands.md`; the schemas and the matrix needed no change. The guide tests: passed (10 skipped: they need `kicad-cli`). `SKILL.md` is 182 lines.
 
 ## 5. Closing
 
-- [ ] 5.1 Run the residue scan. Proof: `uv run python tools/residue/scan.py`; `uv run pytest tests/residue -q`.
-- [ ] 5.2 Update the evidence labels: `H-G-READY-RULES` with the run of task 2.1 as its first record (stays `INFERRED`). Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+- [x] 5.1 Run the residue scan. Proof: `uv run python tools/residue/scan.py`; `uv run pytest tests/residue -q`.
+  - 2026-10-08: 0 hits in 3217 files; `tests/residue` passed (2 skipped: no cached corpus board).
+- [x] 5.2 Update the evidence labels: `H-G-READY-RULES` with the run of task 2.1 as its first record (stays `INFERRED`). Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+  - 2026-10-08: the row keeps `INFERRED` and `pending`, as the design says (no tool computes the rules); the register test passes.
 - [ ] 5.3 Add the change to `CHANGELOG.md` under `## [Unreleased]`, and run `make check-fast`. Proof: `make check-fast` exits 0.
+  - 2026-10-08: the changelog entry is written. The first `make check-fast` failed 3 tests: `test_paging.py::test_capabilities_list_the_paged_commands`, which needed `ready` in its list (fixed), and two routing budget tests. The second run: lint, format, pyright and residue pass; 12 746 passed, 30 skipped, **2 failed**, exit 2: `tests/unit/cli/test_route_cmd.py::test_budget_finished_run_written_and_cut_run_reported` and `tests/unit/routing/test_routingtools.py::test_budget_and_unpinned_checkout_are_reported`. Both judge which router runs finish inside a wall-clock budget, and both pass when run alone (`uv run pytest` on the two with `test_paging.py`: 17 passed); this change touches no file of `routing` or `cmd_route.py`. **Open** until a `make check-fast` on a quiet machine, or a fix of those two tests, gives exit 0.

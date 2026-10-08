@@ -66,7 +66,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "placement": ("place", "pads", "neighbors", "region"),
     "routing": ("route", "fill", "net", "fetch"),
     "rules": ("analyze",),
-    "checks": ("check", "explain", "netlist", "parity", "doctor", "capabilities"),
+    "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
     "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore"),
     "fabrication": ("export", "render", "bom", "pnp", "manifest", "models"),
     "altium": ("kit",),
