@@ -35,7 +35,7 @@ EXPECTED = {
 
 def _both_majors() -> list[str]:
     probes = fb.feature_probes(_probes.runner)
-    return sorted(pid for pid, (_, majors) in probes.items() if majors == fb.MAJORS)
+    return sorted(pid for pid in probes if pid not in fb.TEN_ONLY)
 
 
 def test_expected_names_every_probe_of_both_majors() -> None:

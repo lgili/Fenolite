@@ -73,6 +73,8 @@ MAJORS: tuple[int, ...] = (10,)
 """The majors the probes of this module are recorded for. The 9.0.9 outcomes need a run inside the pinned
 image (``FENOLITE_PROBES_WRITE=1``); until that run, ``docs/evidence/kicad/probes/9.0.9.json`` holds none
 of them and the rows of ``docs/hypotheses.md`` stay ``INFERRED``."""
+TEN_ONLY = frozenset({"pad-fabprop-resave", "asm-keepout-fill"})
+"""The probes of KiCad 10 alone: ``pcb upgrade`` and the refill of zones are 10.0 commands."""
 STEM = "featurebench"
 PROJECT = "{}\n"
 MM = 1_000_000
@@ -798,6 +800,7 @@ def feature_probes(runner: Callable[[], KicadCli]) -> Probes:
 
 
 __all__ = [
+    "TEN_ONLY",
     "ACCESS",
     "ALL_MARKS",
     "APOTHEM",
