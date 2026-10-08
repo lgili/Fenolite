@@ -14,6 +14,22 @@
       "detail": "kicad-cli 10.0.6, edge bench (a 1 mm slot between the two pads, edge clearance 500 um, bands of 600 um added to the file by the test), as (tracks, copper_edge_clearance on tracks, open nets): 2 mm passage with bands (0, 0, 1), without (7, 3, 0); 4 mm passage with bands (7, 0, 0), without (7, 3, 0); jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
       "value": "different"
     },
+    "dsn-escape-bga-t10": {
+      "detail": "fanout: 10 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 440.9 s); off: 11 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 446.4 s)",
+      "value": "improved"
+    },
+    "dsn-escape-bga-t9": {
+      "detail": "fanout: 10 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 429.4 s); off: 11 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 470.9 s)",
+      "value": "improved"
+    },
+    "dsn-escape-qfn-t10": {
+      "detail": "fanout: 0 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 52.7 s); off: 1 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 102.7 s)",
+      "value": "equal"
+    },
+    "dsn-escape-qfn-t9": {
+      "detail": "fanout: 0 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 52.7 s); off: 1 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 97.7 s)",
+      "value": "equal"
+    },
     "dsn-inc": {
       "detail": "the open net B in the class WIDE, declared, with -inc WIDE as the first and as the last argument: 1 and 1 session wire(s) on B",
       "value": "present"
@@ -30,6 +46,14 @@
       "detail": "blink, -mt 0 without the setting: noopt: optimization stage logged: False, session with wires: True; mt0: optimization stage logged: True, session with wires: True; plain: optimization stage logged: True, session with wires: True",
       "value": "present"
     },
+    "dsn-narrow-fanout": {
+      "detail": "13 signal wire(s) narrower than 150000 nm, the narrowest [112400, 112400, 112400]; session (freerouting exit 0 in 65.2 s)",
+      "value": "present"
+    },
+    "dsn-narrow-off": {
+      "detail": "0 signal wire(s) narrower than 150000 nm, the narrowest []; session (freerouting exit 0 in 88.2 s)",
+      "value": "absent"
+    },
     "dsn-netless": {
       "detail": "kicad-cli 10.0.6: the net B (class clearance 0.4 mm, default rule 0.2 mm) left out between A and C, whose straight routes pass 0.3 mm from its pads: 0 session wire(s) on B, 2 new track(s), 2 clearance violation(s) by KiCad; the same copper judged with B in the default class: 0 clearance violation(s)",
       "value": "present"
@@ -45,6 +69,10 @@
     "dsn-offline": {
       "detail": "1 track(s)",
       "value": "present"
+    },
+    "dsn-pair-ignored": {
+      "detail": "p00: exit 0, 3.2 s, session; p01: exit 0, 3.2 s, session; p02: exit 0, 3.2 s, session",
+      "value": "equal"
     },
     "dsn-partial": {
       "detail": "kicad-cli 10.0.6: 5 nets that hold copper, 6 open connection(s) before and 0 after by the query, 1 unconnected item(s) by KiCad on the whole bench (1 on the net TEE), earlier copper kept: True; fenolite route selected 6 net(s), 10 track(s), 0 via(s); jar 251101c3eeac",

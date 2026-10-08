@@ -308,3 +308,37 @@ Defaults taken while building the change on the integration branch, where no mai
   `unrouted` with its stubs.
 - **`features` in the default view only** of `capabilities`; the brief view is unchanged.
 
+## Gate outcomes and verdict (2026-10-08, CI run 37803522539)
+
+The two `routing` jobs of CI run 37803522539 on `a105cc0` (images `kicad/kicad:9.0.9` and
+`kicad/kicad:10.0.6`, KiCadRoutingTools `v0.22.1`, Freerouting 2.4.1, `-rA`) printed every outcome of
+Decision 1; `docs/evidence/routing.md` ("Pairs and escape (c0110)") holds the lines.
+
+| outcome | 9.0.9 | 10.0.6 | expected by this design |
+|---|---|---|---|
+| `krt-pair-t<M>` | `equal` | `equal` | `equal` (measurement 3) |
+| `krt-pair-names` | `equal` | `equal` | `equal` (measurement 4) |
+| `krt-escape-qfn-t<M>` | `equal` (0 open; 4 without) | `equal` | `improved` or better (k10, k11) |
+| `krt-escape-bga-t<M>` | `different` (22 open, 7 vias in a pad; 16 and 17 without) | `different`, the same counts | `improved` (k21, k22: 7 open against 96, no via in a pad) |
+| `dsn-escape-qfn-t<M>` | `equal` (0 open; 1 with the stage off) | `equal` | `equal` with the stage (e31) |
+| `dsn-escape-bga-t<M>` | `improved` (10 open; 11 off), sessions in 429 s and 471 s | `improved`, 441 s and 446 s | no session within 900 s (e40 to e42) |
+| `dsn-pair-ignored` | `equal` | `equal` | `equal` (p00 to p02) |
+| `dsn-narrow-fanout`, `-off` | not run | `present`, `absent` | `present`, `absent` (e12, e14, e16) |
+
+Two outcomes differ from this design's Context. On the BGA bench the authored bench of the gate (with
+c0107's plane fan-out and its `hole_clearance` rule) gave the dog-bone escape more open connections than
+`route.py` alone and vias in pads, where measurement 6 found 7 open against 96 and none in a pad; and
+Freerouting wrote a BGA session within 900 s, where e40 to e42 wrote none. Both are recorded as they are
+(`H-K-KRT-ESCAPE` refuted by `H-K-KRT-ESCAPE-2`, `H-G-DSN-FANOUT` by `H-G-DSN-FANOUT-2`); no expectation
+of a test was changed.
+
+**Verdict.** Pairs pass and escape fails for KiCadRoutingTools. As Decision 1 states: `kicadroutingtools`
+declares `pairs` (`DECLARED_FEATURES`); the requirement "KiCadRoutingTools escapes parts" is removed from
+`specs/routing/spec.md` with its two scenarios; `fanout` stays on by default for Freerouting, since
+`fanout=off` was worse on both benches and majors (Decision 10). One default was taken where Decision 1
+says "`--escape` is not added": the option, `routing.escape` ("Escape requests for routing") and the
+plugin's escape steps were already built before the gate ran (tasks 2.3, 3.1 and 4.2). They stay: no
+router declares `escape`, so every request gives `route.escape-skipped` (scenario "Escape without the
+feature"), and the steps stay as recorded probes for a later pin of the tool, as the benches do. Removing
+them is left to the maintainer.
+

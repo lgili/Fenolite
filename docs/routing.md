@@ -332,7 +332,8 @@ Three steps carry the word fan-out or escape, and they differ. The **plane fan-o
 ("Plane layers and plane fan-out") is Fenolite's own: one short track and one via from each SMD pad of a
 plane net to its plane. **Freerouting's fanout stage** is a step inside Freerouting that escapes SMD pins
 before its autorouter runs; `--router-option fanout=off` turns it off. **Escape** (change c0110) is a
-step per part that a router runs before it routes, asked for with `--escape REF[=grid|perimeter]`.
+step per part that a router runs before it routes, asked for with `--escape REF[=grid|perimeter]`; no
+registered router declares it today, so each request gives `route.escape-skipped`.
 
 **Pairs.** `route` pairs two selected nets by KiCad's name rule (`model.pairs`, `H-K-DIFFPAIR-NAMES-2`):
 the same name except for a polarity character `P`/`N` or `+`/`-`, followed in both by the same run of
@@ -345,11 +346,13 @@ uncoupled copper. `--pairs-as-nets` routes them as single nets on purpose (`rout
 **Features.** A router lists what it takes beyond single nets in `features` (`fenolite capabilities`):
 `pairs` and `escape`. `direct` and `freerouting` list none: Freerouting 2.4.1 routes a pair as two single
 nets, with or without a `pair` list in the design file (`H-G-DSN-PAIR`), so Fenolite writes no such list.
-`kicadroutingtools` implements both: one `route_diff.py` process per pair, at the pair's width and gap,
-without ground vias or polarity swaps, before the single nets of its tier; and one `bga_fanout.py`
-(dog-bones, never vias in pads) or `qfn_fanout.py` (surface stubs) process per escaped part, before every
-other step. It declares them only once the gate of change c0110 has passed on both KiCad majors
-(`H-K-KRT-PAIR`, `H-K-KRT-ESCAPE`); until then `route` gives it no pair and no escape request. The tool
+`kicadroutingtools` lists `pairs`: one `route_diff.py` process per pair, at the pair's width and gap,
+without ground vias or polarity swaps, before the single nets of its tier. The gate of change c0110
+routed both pairs of its bench coupled, with no unconnected item and no gap or uncoupled finding, under
+KiCad 9.0.9 and 10.0.6 (`H-K-KRT-PAIR`). It does not list `escape`: on the gate's BGA bench its dog-bone
+escape (`bga_fanout.py`) left more connections open than routing without it and put vias in pads, while
+on the QFN bench `qfn_fanout.py` closed every connection (`H-K-KRT-ESCAPE-2`); the escape steps stay in
+the plugin, undeclared, so `route` gives it no escape request. The tool
 pairs fewer names than KiCad: `X_P`/`X_N`, `X_P0`/`X_N0`, `X+`/`X-` and `X_DP`/`X_DN`, not `DP1`/`DN1`
 (`H-K-KRT-PAIRNAMES`); another form gives `route.pair-skipped`. The router options
 `polarity-swap-nets`, `impedance`, `rip-existing-nets` and `force-reroute` never reach the tool.
@@ -372,8 +375,9 @@ still wrote wires of 0.1124 mm under a 0.15 mm class at QFN pins on a board with
 for Freerouting names `fanout=off`.
 
 **Limits.** A pair needs two selected nets of one class with pair values; a leg may be 0.4 µm narrower
-than asked; the tool may leave skew, which KiCad's `diff_pair_skew` rule reports; per-part escape needs
-KiCadRoutingTools. No model field and no schema change come with pairs or escape.
+than asked; the tool may leave skew, which KiCad's `diff_pair_skew` rule reports; per-part escape is not
+declared by any router (Freerouting's fanout stage, on by default, is the escape it has: on the gate's QFN
+and BGA benches it left fewer connections open with the stage than without, `H-G-DSN-FANOUT-2`). No model field and no schema change come with pairs or escape.
 
 ## Loop order
 

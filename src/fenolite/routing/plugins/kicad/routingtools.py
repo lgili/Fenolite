@@ -8,9 +8,11 @@ the job's one time budget (``routing.budget``).
 
 Change c0110: before every other step, one ``bga_fanout.py`` (dog-bones) or ``qfn_fanout.py`` process per
 escape request of the job; then, tier by tier, one ``route_diff.py`` process per job pair whose names the
-tool pairs (``PAIR_NAME_FORMS``), before the groups of that tier. Each is one run of the budget. The
-features ``pairs`` and ``escape`` are declared only when the gate of c0110 holds for them
-(``GATED_FEATURES``); until then ``fenolite route`` gives this router no pair and no escape request.
+tool pairs (``PAIR_NAME_FORMS``), before the groups of that tier. Each is one run of the budget. A
+feature of ``GATED_FEATURES`` is declared only when the gate of c0110 holds for it: ``pairs`` is (both
+``krt-pair-t<M>`` are ``equal``, CI run 37803522539), ``escape`` is not (``krt-escape-bga-t<M>`` are
+``different``, ``H-K-KRT-ESCAPE-2``), so ``fenolite route`` gives this router pairs and no escape request;
+the escape steps stay, undeclared, for a later pin of the tool.
 """
 
 from __future__ import annotations
@@ -65,11 +67,15 @@ polarity ``+``/``-`` with no tail, and a base ending in ``_D``. ``DP1``/``DN1``,
 paired by the tool."""
 GATED_FEATURES = frozenset({"pairs", "escape"})
 """The features the plugin implements; it declares those whose gate outcomes hold (task 1.6 of c0110)."""
+DECLARED_FEATURES = frozenset({"pairs"})
+"""The features of ``GATED_FEATURES`` whose gate held on both majors (task 1.6 of c0110): ``pairs``."""
 EVIDENCE = Evidence(
-    oracle="KiCadRoutingTools v0.22.1", hypotheses=("H-K-KRT-CLI", "H-K-KRT-GROUP", "H-K-KRT-ROUTE")
+    oracle="KiCadRoutingTools v0.22.1",
+    hypotheses=("H-K-KRT-CLI", "H-K-KRT-GROUP", "H-K-KRT-PAIR", "H-K-KRT-PAIRNAMES", "H-K-KRT-ROUTE"),
 )
 """Describes the plugin; a route itself is always ``UNVERIFIED``. ``H-K-KRT-GROUP``, the grouped run of
-change c0109, is ``KICAD-VERIFIED (9.0.x, 10.0.x)``: the routing job recorded it on both majors."""
+change c0109, and ``H-K-KRT-PAIR``, the pair steps of c0110, are ``KICAD-VERIFIED (9.0.x, 10.0.x)``: the
+routing jobs recorded them on both majors."""
 
 
 def _mm(value: int) -> str:
@@ -159,8 +165,8 @@ class KicadRoutingToolsRouter:
     description = "Routes nets with the external KiCadRoutingTools grid A* router."
     sends_data_offsite = False
     default_budget: float = DEFAULT_BUDGET
-    features: frozenset[str] = frozenset()
-    """None of ``GATED_FEATURES`` until the gate of c0110 is recorded on both majors (its task 1.6)."""
+    features: frozenset[str] = DECLARED_FEATURES
+    """``pairs``: the gate of c0110 held for it on both majors, and not for ``escape`` (its task 1.6)."""
 
     def __init__(
         self,
@@ -638,6 +644,7 @@ class KicadRoutingToolsRouter:
 
 
 __all__ = [
+    "DECLARED_FEATURES",
     "DEFAULT_BUDGET",
     "EVIDENCE",
     "GATED_FEATURES",

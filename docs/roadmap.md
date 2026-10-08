@@ -529,9 +529,14 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 **c0110 on `v04` (2026-10-08).** Built without its gate: the routing job carries differential pairs
 and escape requests, `route` takes `--escape` and `--pairs-as-nets` and reports narrow copper,
 capabilities list each router's `features`, Freerouting runs without automatic neck-down and takes
-`fanout=off`, and the KiCadRoutingTools pair and escape steps exist with fakes. The gate's verdict is
-pending (the benches and gate runs need `kicad-cli` and the routers): until it is recorded,
-`kicadroutingtools` declares no feature and every pair gives `route.pair-skipped`.
+`fanout=off`, and the KiCadRoutingTools pair and escape steps exist with fakes. The gate ran in the
+`routing` jobs of CI run 37803522539 on 9.0.9 and 10.0.6. Verdict: pairs pass (`krt-pair-t9` and
+`-t10` `equal`), so `kicadroutingtools` declares `pairs`; escape fails (`krt-escape-bga-t<M>` `different`:
+the dog-bone escape left 22 connections open and 7 vias in pads against 16 and 17 without it), so it
+declares no `escape`, the requirement "KiCadRoutingTools escapes parts" is removed from the change, and
+`--escape` gives `route.escape-skipped` with every router. Freerouting's fanout stage stays on by
+default: it was better than `fanout=off` on both benches and majors. Open: task 6.1 (`test_krt_pair`
+through `fenolite route` and the pair loop).
 
 **c0104 on `v04` (2026-10-08).** Built; its five KiCad rows are verified on 9.0.9 and 10.0.6 (CI run 37772583226 on `04ef42a`). Left: the pair-gap row of `ClearanceResolver.explain`, which comes with c0097.
 

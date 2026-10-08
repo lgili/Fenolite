@@ -305,18 +305,50 @@ design of the change and in the register rows `H-K-KRT-PAIR`, `H-K-KRT-PAIRNAMES
 
 | outcome | hypothesis | 10.0.6 | 9.0.9 |
 |---|---|---|---|
-| `krt-pair-t9`, `krt-pair-t10` | H-K-KRT-PAIR | pending | pending |
-| `krt-pair-names` | H-K-KRT-PAIRNAMES | `equal` (local run, 2026-10-08: `A_P`/`A_N`, `B+`/`B-`, `C_P0`/`C_N0` and `E_DP`/`E_DN` routed as pairs, `DP1`/`DN1` given no copper) | — |
-| `krt-escape-qfn-t<M>`, `krt-escape-bga-t<M>` | H-K-KRT-ESCAPE | pending | pending |
-| `dsn-escape-qfn-t<M>`, `dsn-escape-bga-t<M>` | H-G-DSN-FANOUT | pending | pending |
-| `dsn-pair-ignored` | H-G-DSN-PAIR | pending | — |
-| `dsn-narrow-fanout`, `dsn-narrow-off` | H-G-DSN-NARROW | pending | — |
+| `krt-pair-t9`, `krt-pair-t10` | H-K-KRT-PAIR | `krt-pair-t10` `equal` | `krt-pair-t9` `equal` |
+| `krt-pair-names` | H-K-KRT-PAIRNAMES | `equal` (local run, 2026-10-08: `A_P`/`A_N`, `B+`/`B-`, `C_P0`/`C_N0` and `E_DP`/`E_DN` routed as pairs, `DP1`/`DN1` given no copper; and in both `routing` jobs) | `equal` (the `routing` job of 9.0.9) |
+| `krt-escape-qfn-t<M>`, `krt-escape-bga-t<M>` | H-K-KRT-ESCAPE, refuted by H-K-KRT-ESCAPE-2 | QFN `equal`, BGA `different` | QFN `equal`, BGA `different` |
+| `dsn-escape-qfn-t<M>`, `dsn-escape-bga-t<M>` | H-G-DSN-FANOUT, refuted by H-G-DSN-FANOUT-2 | QFN `equal`, BGA `improved` | QFN `equal`, BGA `improved` |
+| `dsn-pair-ignored` | H-G-DSN-PAIR | `equal` | `equal` |
+| `dsn-narrow-fanout`, `dsn-narrow-off` | H-G-DSN-NARROW | `present`, `absent` | — (the test runs where `kicad-cli` is 10) |
 | `dru-pair-couple-<case>` | H-K-DRU-PAIRCOUPLE | `present` (4 cases; CI run 37772583226) | `present` (4 cases; CI run 37772583226) |
 
-Verdict: pending. Until the outcomes are recorded on both majors, `kicadroutingtools` declares no feature,
-so `route` gives no router a pair (each gives `route.pair-skipped`) and no escape request; the plugin's
-pair and escape steps exist and are tested with fakes only. The coupling probe
-(`tests/kicad/rules/test_pair_coupling.py`) runs with `kicad-cli` alone.
+The outcomes were recorded on 2026-10-08 by the two `routing` jobs of CI run 37803522539 on `a105cc0`
+(`uv run pytest tests/routing -q -rA` in the images `kicad/kicad:9.0.9` and `kicad/kicad:10.0.6`, with
+KiCadRoutingTools `v0.22.1` and the Freerouting jar 2.4.1). The lines they printed:
+
+- `krt-pair-t9`: `equal` (target 9; unconnected 0; pair findings none; new error types none; skew none; steps [('route_diff.py', 0, 0.7), ('route.py', 0, 0.9)]).
+- `krt-pair-t10`: `equal` (target 10; unconnected 0; pair findings none; new error types none; skew none; steps [('route_diff.py', 0, 0.6), ('route.py', 0, 0.8)]).
+- `krt-pair-names`: `equal` (routed as pairs: ['A_P/A_N', 'B+/B-', 'C_P0/C_N0', 'E_DP/E_DN']; PAIR_NAME_FORMS gives: ['A_P/A_N', 'B+/B-', 'C_P0/C_N0', 'E_DP/E_DN']), in both jobs.
+- `krt-escape-qfn-t9`: `equal` (escape: 0 open, new error types none, 0 via(s) in a pad (qfn_fanout.py exit 0 in 0.5 s, route.py exit 0 in 40.8 s); plain: 4 open, new error types none, 1 via(s) in a pad (route.py exit 0 in 43.7 s)).
+- `krt-escape-bga-t9`: `different` (escape: 22 open, new error types none, 7 via(s) in a pad (bga_fanout.py exit 0 in 1.2 s, route.py exit 0 in 143.8 s); plain: 16 open, new error types none, 17 via(s) in a pad (route.py exit 0 in 236.3 s)).
+- `krt-escape-qfn-t10`: `equal` (escape: 0 open, new error types none, 0 via(s) in a pad (qfn_fanout.py exit 0 in 0.5 s, route.py exit 0 in 38.0 s); plain: 4 open, new error types none, 1 via(s) in a pad (route.py exit 0 in 40.5 s)).
+- `krt-escape-bga-t10`: `different` (escape: 22 open, new error types none, 7 via(s) in a pad (bga_fanout.py exit 0 in 1.2 s, route.py exit 0 in 129.3 s); plain: 16 open, new error types none, 17 via(s) in a pad (route.py exit 0 in 213.7 s)).
+- `dsn-escape-qfn-t9`: `equal` (fanout: 0 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 52.7 s); off: 1 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 97.7 s)).
+- `dsn-escape-bga-t9`: `improved` (fanout: 10 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 429.4 s); off: 11 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 470.9 s)).
+- `dsn-escape-qfn-t10`: `equal` (fanout: 0 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 52.7 s); off: 1 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 102.7 s)).
+- `dsn-escape-bga-t10`: `improved` (fanout: 10 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 440.9 s); off: 11 open, new error types none, 0 via(s) in a pad (freerouting exit 0 in 446.4 s)).
+- `dsn-pair-ignored`: `equal` (p00: exit 0, 3.2 s, session; p01: exit 0, 3.2 s, session; p02: exit 0, 3.2 s, session), in both jobs.
+- `dsn-narrow-fanout`: `present` (13 signal wire(s) narrower than 150000 nm, the narrowest [112400, 112400, 112400]; session (freerouting exit 0 in 65.2 s)); `dsn-narrow-off`: `absent` (0 signal wire(s) narrower than 150000 nm, the narrowest []; session (freerouting exit 0 in 88.2 s)); the job of 10.0.6 only.
+
+The benches load in the `kicad-cli` of each job (`test_bench_loads`, the same counts on 9.0.9 and 10.0.6):
+the pair bench 2 violations and 8 unconnected items, the name bench 2 and 10, the QFN bench 2 and 47, the
+BGA bench 3 and 119, all of them unrouted.
+
+**Verdict (task 1.6 of c0110).** Pairs pass: `krt-pair-t9` and `krt-pair-t10` are `equal`, so
+`kicadroutingtools` declares `pairs` and `H-K-KRT-PAIR` is `KICAD-VERIFIED (9.0.x, 10.0.x)`. Escape fails
+for KiCadRoutingTools: `krt-escape-bga-t9` and `-t10` are `different` (with the dog-bone escape 22 signal
+connections stay open and 7 vias sit in a pad, against 16 and 17 for `route.py` alone), although the QFN
+escape is `equal` on both majors. So `escape` is not declared, the requirement "KiCadRoutingTools escapes
+parts" is removed from change c0110, and `H-K-KRT-ESCAPE` is refuted by `H-K-KRT-ESCAPE-2`, which states
+the counts; the escape steps stay in the plugin, undeclared, as recorded probes for a later pin of the
+tool. Freerouting's fanout stage is better than `fanout=off` on both benches and both majors (QFN 0
+against 1 open, BGA 10 against 11), so it stays on by default (Decision 10); Freerouting also wrote a
+session for the BGA bench within 900 s, which refutes the last clause of `H-G-DSN-FANOUT` (successor
+`H-G-DSN-FANOUT-2`). `dsn-pair-ignored` holds (`H-G-DSN-PAIR`), and the fanout stage still writes narrow
+wires on the QFN bench with four signal layers, none with the stage off (`H-G-DSN-NARROW`). The outcomes
+are also in `docs/evidence/routing/krt-v0.22.1.json` and `docs/evidence/routing/freerouting-2.4.1.json`.
+The coupling probe (`tests/kicad/rules/test_pair_coupling.py`) runs with `kicad-cli` alone.
 
 The gate's tests are written (2026-10-08) and run in the `routing` jobs of CI, each on the major of its
 `kicad-cli`: `tests/routing/test_gate_benches.py` (the four benches build for targets 9 and 10, and the

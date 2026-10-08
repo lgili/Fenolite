@@ -81,8 +81,11 @@ EVIDENCE = Evidence(
     oracle=f"Freerouting {PINNED_VERSION}",
     hypotheses=(
         "H-G-DSN-ACCEPT",
+        "H-G-DSN-FANOUT-2",
+        "H-G-DSN-NARROW",
         "H-G-DSN-NETLESS-2",
         "H-G-DSN-NOOPT",
+        "H-G-DSN-PAIR",
         "H-G-DSN-PROTECT",
         "H-G-DSN-ROUTE",
         "H-G-DSN-UNITS",

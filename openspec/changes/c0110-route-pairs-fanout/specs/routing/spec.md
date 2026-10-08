@@ -67,7 +67,7 @@ and SHALL add to `RoutingJob`, after every field that exists when this change is
 - **THEN** it gives one request for `U1` with kind `perimeter` and its two nets, and two `route.escape-skipped` warnings naming `U2` and `J9`
 
 ### Requirement: KiCadRoutingTools routes pairs
-`KicadRoutingToolsRouter.features` SHALL hold `pairs` once the pair outcomes of the gate hold ("Pair and escape routes pass the oracle", `kicad-oracle`), and the plugin SHALL route every job pair in its run folder, after the escape steps and before the single nets of the pair's tier, with
+`KicadRoutingToolsRouter.features` SHALL hold `pairs` once the pair outcomes of the gate hold ("Pair and escape routes pass the oracle", `kicad-oracle`), and the plugin SHALL route every job pair in its run folder, before the single nets of the pair's tier, with
 `<python> <path>/py_router/route_diff.py <board> <routed> --nets <positive> <negative> --track-width <width> --diff-pair-gap <gap> --clearance <c> --via-size <d> --via-drill <drill> --layers <layers…> --no-gnd-vias --keep-input-copper --same-net-pad-clearance <c> --escalation off --no-fix-drc-settings`,
 adding `--diff-pair-intra-match --length-match-tolerance <skew_max>` when the pair has a `skew_max`.
 - `c`, `d` and `drill` MUST be the values of the positive net's `JobNet`; `layers` MUST be that net's `layers` (c0107) when set, else the job's layers without its plane layers.
@@ -88,25 +88,6 @@ adding `--diff-pair-intra-match --length-match-tolerance <skew_max>` when the pa
 #### Scenario: A swap option refused
 - **WHEN** the plugin routes with `--router-option polarity-swap-nets=*`
 - **THEN** no recorded argument holds `polarity-swap-nets`, and the result holds `route.option-ignored` naming it
-
-### Requirement: KiCadRoutingTools escapes parts
-`KicadRoutingToolsRouter.features` SHALL hold `escape` once the escape outcomes of the gate hold for this router, and the plugin SHALL run, in job order and before every pair and net step, one step per escape request:
-- kind `grid`: `bga_fanout.py <board> --component <ref> --output <out> --escape-method dogbone --nets <nets…> --layers <layers…> --track-width <w> --clearance <c> --via-size <d> --via-drill <drill> --plane-drop off --same-net-pad-clearance <c> --escalation off --no-fix-drc-settings`, adding `--diff-pairs <nets of the job pairs on the part…> --diff-pair-gap <gap>` when the part holds a pair;
-- kind `perimeter`: `qfn_fanout.py <board> --output <out> --component <ref> --nets <nets…> --width <w> --clearance <c> --via-size <d> --via-drill <drill> --same-net-pad-clearance <c> --escalation off --no-fix-drc-settings`.
-- `w`, `d` and `drill` MUST be the smallest values, and `c` the largest, among the `JobNet`s of the request; `layers` as for a pair step.
-- When the router option `grid-step` is given, it MUST be passed to every escape step and to `route.py` alike; otherwise none of them gets it.
-- Every escape step runs before the first tier and is a run of "Routing time budget" (c0109), inside the job's budget and listed in `RoutingResult.runs`. A step that exits non-zero or writes no board MUST give `route.tool-failed` (error) naming the part, and the next step MUST read the board of the step before it; a step stopped by the budget follows "Routing time budget" instead.
-- Escape copper is lifted with the copper of the nets it belongs to; on a net that is not routed afterwards it MUST still be lifted, and the net MUST stay in `unrouted`.
-
-#### Scenario: Arguments of an escape step
-- **GIVEN** fake `bga_fanout.py` and `qfn_fanout.py` that record their arguments
-- **WHEN** the plugin routes a job with the requests `U1` (perimeter, nets `Q01`, `Q02`) and `U2` (grid, net `B_A1`) and the option `grid-step=0.05`
-- **THEN** `qfn_fanout.py` ran for `U1` and `bga_fanout.py` for `U2` before `route.py`, both with `--escalation off` and `--grid-step 0.05`, `bga_fanout.py` with `--escape-method dogbone` and `--plane-drop off`, and `route.py` with `--grid-step 0.05`
-
-#### Scenario: A failed escape step
-- **GIVEN** a fake `qfn_fanout.py` that exits 2
-- **WHEN** the plugin routes the same job
-- **THEN** the result holds `route.tool-failed` naming `U1`, and the next step read the input board
 
 ### Requirement: Freerouting declares no router feature
 `FreeroutingRouter.features` SHALL be an empty `frozenset`, so a job never gives it a pair or an escape request: Freerouting 2.4.1 routes a pair as two single nets (`H-G-DSN-PAIR`), and its own fanout stage is a router option of "Freerouting plugin", not an escape step per part.

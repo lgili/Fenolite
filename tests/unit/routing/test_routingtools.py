@@ -405,7 +405,7 @@ ESCAPES = (
 
 
 def test_arguments_of_an_escape_step(fake) -> None:
-    """Scenario "Arguments of an escape step"."""
+    """The arguments of an escape step (undeclared: the escape gate of c0110 failed, task 1.6)."""
     router, runs = fake
     result = router.route(pair_job(escape=ESCAPES, **{"grid-step": "0.05", "group-nets": "1"}))
     saved = recorded(runs)
@@ -443,7 +443,7 @@ def test_escape_without_grid_step_and_with_a_pair_on_a_bga(fake) -> None:
 
 
 def test_a_failed_escape_step(fake, monkeypatch) -> None:
-    """Scenario "A failed escape step"."""
+    """A failed escape step (undeclared: the escape gate of c0110 failed, task 1.6)."""
     router, runs = fake
     monkeypatch.setenv("FAKE_ESCAPE_FAIL", "U1")
     result = router.route(pair_job(escape=ESCAPES))
@@ -456,5 +456,7 @@ def test_a_failed_escape_step(fake, monkeypatch) -> None:
 
 
 def test_features_are_declared_only_after_the_gate() -> None:
-    assert router_features(KicadRoutingToolsRouter()) == frozenset()
+    """The gate of c0110 (CI run 37803522539) held for ``pairs`` on both majors and not for ``escape``
+    (``krt-escape-bga-t<M>`` = ``different``, ``H-K-KRT-ESCAPE-2``), so only ``pairs`` is declared."""
+    assert router_features(KicadRoutingToolsRouter()) == frozenset({"pairs"})
     assert GATED_FEATURES == ROUTER_FEATURES

@@ -25,7 +25,7 @@ Size: 8 design-days.
 None.
 
 ### Modified Capabilities
-- `routing`: ADDED "Pairs and escape in a routing job", "Pair selection for routing", "Escape requests for routing", "KiCadRoutingTools routes pairs", "KiCadRoutingTools escapes parts", "Freerouting declares no router feature"; MODIFIED "Freerouting plugin" (neck-down always off, the option `fanout`).
+- `routing`: ADDED "Pairs and escape in a routing job", "Pair selection for routing", "Escape requests for routing", "KiCadRoutingTools routes pairs", "Freerouting declares no router feature" ("KiCadRoutingTools escapes parts" was removed by the verdict of the gate, task 1.6: `krt-escape-bga-t<M>` `different`); MODIFIED "Freerouting plugin" (neck-down always off, the option `fanout`).
 - `specctra-dsn`: ADDED "Differential pairs in design files".
 - `cli-contract`: ADDED "Pairs and escape in the route command", "Router pair and escape features in capabilities".
 - `kicad-oracle`: ADDED "Pair and escape routes pass the oracle", "Pair coupling in KiCad's DRC is probed".
