@@ -518,7 +518,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0112 | `via-protection`; on `v04`, closed for 0.4 on 2026-10-08 except the line of the guide's `fabrication` page (task 10.2: target 9 refuses capping and filling, and the guide builds every block for both targets) |
 | c0113 | `placement-constraints`; on `v04`, every task closed on 2026-10-08: ships in 0.4. It leaves the placer of v0.5a the `near` rules of `.fenolite/rules.json`, the keep-outs that forbid footprints and the measures of `placement.rules` (wire length and congestion) as its inputs |
 | c0114 | `net-ties-waivers`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0115 | `power-copper-analysis`; on `v04`, closed for 0.4 on 2026-10-08 except the 9.0.9 outcomes of the plain neck and of the inner layers (tasks 1.2, 11.1, 12.2), written and awaiting the `kicad-9` job |
+| c0115 | `power-copper-analysis`; on `v04`, closed for 0.4 on 2026-10-08: the 9.0.9 outcomes of the plain neck and of the inner layers (tasks 1.2, 11.1, 12.2) were read from CI run 37803522539, both `equal` |
 | c0116 | `export-documents`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0117 | `fab-assembly-drawings`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0118 | `assembly-test-features`; on `v04`, closed for 0.4 on 2026-10-08: the 9.0.9 outcomes of its probes and the built-feature checks were read from CI run 37803522539 (tasks 1.2, 1.3, 3.6, 4.4, 8.2), and its five KiCad rows are `KICAD-VERIFIED (9.0.x, 10.0.x)`. Panels stay out of v0.4: the board's fiducials and tooling holes are its own, not a panel's |

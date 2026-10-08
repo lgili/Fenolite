@@ -39,8 +39,10 @@ PROBE_IDS = {
     "neck-split": "analysis-neck-split",
     "layers": "insulation-layers",
 }
-MAJORS = {name: (10,) for name in BENCHES}
-"""``insulation-layers`` is also stated for major 9; its 9.0.9 run is owed, so only 10 is registered."""
+MAJORS = {name: ((9, 10) if name in ("neck-plain", "layers") else (10,)) for name in BENCHES}
+"""``analysis-neck-plain`` and ``insulation-layers`` are recorded on both majors: the ``kicad-9`` job of CI
+run 37803522539 printed ``equal`` for both, on the benches written for target 9 (``test_power_nine.py``).
+The other three are stated for major 10."""
 CANARY = (
     "(rule canary\n"
     f"\t(condition \"A.NetName == '{CANARY_NETS[0]}' && B.NetName == '{CANARY_NETS[1]}'\")\n"
@@ -247,9 +249,10 @@ def outcome(name: str, seen: dict[str, object]) -> str:
 
 
 def _probe(name: str) -> str:
-    from _probes import runner  # imported here: ``_probes`` registers this module's probes
+    from _probes import major, runner  # imported here: ``_probes`` registers this module's probes
 
-    return outcome(name, observe(runner(), name))
+    # KiCad 9 cannot read a board written for target 10, so on major 9 the bench is written for target 9
+    return outcome(name, observe(runner(), name, target=9 if major() == 9 else 10))
 
 
 def power_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:

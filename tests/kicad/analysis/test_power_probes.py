@@ -3,8 +3,8 @@
 """The recorded KiCad behaviours of change c0115 (capability board-analyses, "Power and insulation KiCad
 probes"; scenario "Probes recorded"). Supporting data: a probe fails only when it is missing.
 
-Run on KiCad 10. ``insulation-layers`` is also stated for major 9, whose run in the pinned 9.0.9 image is
-owed; until then the probe is registered for major 10 only.
+Run on KiCad 10. ``analysis-neck-plain`` and ``insulation-layers`` are also registered for major 9, where
+``test_power_nine.py`` observes them on the benches written for target 9.
 """
 
 from __future__ import annotations

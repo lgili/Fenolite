@@ -44,7 +44,10 @@ def test_bench_reads_back(name: str, tmp_path: Path) -> None:
         design.board.zones
     )
     assert "canary" in _powerbench.rules(name) and _powerbench.project(name).strip().startswith("{")
-    assert _powerbench.PROBE_IDS[name] and _powerbench.MAJORS[name] == (10,)
+    # the benches of NINE are recorded on 9.0.9 too (CI run 37803522539, c0115 tasks 1.2 and 11.1)
+    assert _powerbench.PROBE_IDS[name] and _powerbench.MAJORS[name] == (
+        (9, 10) if name in _powerbench.NINE else (10,)
+    )
 
 
 def test_fenolite_values_on_the_benches() -> None:

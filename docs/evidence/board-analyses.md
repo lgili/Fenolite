@@ -136,5 +136,13 @@ which fired in every run. Supporting data: nothing gates on it and no label rise
 | `analysis-neck-split` | a 4 mm neck with a 0.6 mm via of another net at its centre, zone clearance 0.5 mm, refilled, minimum 2.45 mm | actual 1.6968 mm, twice: neither a strip (1.2 mm) nor the section (2.4 mm) | `equal` |
 | `insulation-layers` | 1 mm tracks of `A` on `In1.Cu` and of `B` on `In2.Cu`, one above the other, `clearance` and `physical_clearance` rules of 1 mm | nothing between the two tracks | `equal` |
 
-Owed: the run of `insulation-layers`, and the `connection_width` probe of task 1.2, inside the pinned
-9.0.9 image. Until then the probes are registered for major 10 only.
+On 9.0.9, in the `kicad-9` job (pinned image) of CI run 37803522539 on `a105cc0`, 2026-10-08
+(`tests/kicad/analysis/test_power_nine.py`, `-rA`), each bench written for target 9:
+
+| probe | bench on 9.0.9 | what `pcb drc` reported | outcome |
+|---|---|---|---|
+| `analysis-neck-plain` | the plain neck with its fill stored (9.0.9 has no `--refill-zones`), minimum 1.95 mm and 2.05 mm | `{'below': [], 'canary': True, 'above': ['2.0000']}`: nothing at 1.95 mm, actual 2.0000 mm at 2.05 mm | `equal` |
+| `insulation-layers` | as above | `{'canary': True, 'between': []}`: nothing between the two tracks, the canary firing | `equal` |
+
+Both are registered for majors 9 and 10, with their lines in `9.0.9.json`; the other three are stated
+for 10.0.6 and refuse target 9.

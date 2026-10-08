@@ -5,9 +5,9 @@
 ``--refill-zones``), at a ``connection_width`` minimum of 1.95 mm and of 2.05 mm, and on copper of two
 nets on two inner layers.
 
-The observations are printed (``-rA``) and written to the census file when one is named; they are not
-registered as probes, so ``tests/kicad/test_probe_results.py`` asks nothing of ``9.0.9.json`` until the
-outcome is read from a run and the probes take major 9.
+The observations are printed (``-rA``) and written to the census file when one is named. The ``kicad-9``
+job of CI run 37803522539 printed ``equal`` for both, so the probes ``analysis-neck-plain`` and
+``insulation-layers`` are registered for major 9 too and ``9.0.9.json`` holds their outcomes.
 """
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 {
   "version": "9.0.9",
   "probes": {
+    "analysis-neck-plain": "equal",
     "area-cond-case": "absent",
     "area-cond-edge": "absent",
     "area-cond-glob": "present",
@@ -411,6 +412,7 @@
     "hole-pos": "absent",
     "hole-root-pad": "reject",
     "hole-symbol-load": "equal",
+    "insulation-layers": "equal",
     "layers-added": "absent",
     "layers-left-items": "present",
     "layers-stale-stackup": "present",
