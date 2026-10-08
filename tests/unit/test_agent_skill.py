@@ -18,7 +18,7 @@ from fenolite.cli.main import build_parser
 ROOT = Path(__file__).resolve().parents[2]
 SKILL = ROOT / "agent" / "SKILL.md"
 README = ROOT / "README.md"
-RELEASE = "0.2"
+RELEASE = "0.3"
 """The version the README describes: the newest release record under ``docs/release/``."""
 BLOCK = re.compile(r"^```fenolite-loop\n(.*?)^```$", re.MULTILINE | re.DOTALL)
 TARGETS = ("examples/blink_2layer/design.py", "build/blink")
@@ -122,11 +122,11 @@ def test_readme_describes_the_release() -> None:
 @pytest.mark.parametrize(
     ("old", "new", "named"),
     [
-        ("**Status: version 0.2.**", "**Status: pre-alpha.**", "pre-alpha"),
-        ("**Status: version 0.2.**", "**Status: version 0.1.**", "version 0.2"),
+        ("**Status: version 0.3.**", "**Status: pre-alpha.**", "pre-alpha"),
+        ("**Status: version 0.3.**", "**Status: version 0.2.**", "version 0.3"),
         ("experimental", "new", "what is experimental"),
         ("pip install fenolite\n", "uv sync\n", "pip install fenolite"),
-        ("`docs/release/v0.2.md`", "the release notes", "docs/release/v0.2.md"),
+        ("`docs/release/v0.3.md`", "the release notes", "docs/release/v0.3.md"),
         ("It installs no other package.", "It is byte-identical to KiCad's own files.", "byte identity"),
     ],
 )

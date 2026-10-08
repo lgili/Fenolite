@@ -6,13 +6,15 @@ from Python code or a JSON-speaking command line, without a GUI. KiCad is the fi
 files, with `kicad-cli` as the verification oracle); a second backend for another major commercial
 format family follows.
 
-> **Status: version 0.2.** A design script becomes a KiCad project with a board and a schematic, for
+> **Status: version 0.3.** A design script becomes a KiCad project with a board and a schematic, for
 > KiCad 9.0 and 10.0. The loop below works on two-layer boards: the board is placed, routed by an
 > external router, filled, checked by KiCad's own design-rule check and exported to fabrication files.
 > The schematic is judged by KiCad's own electrical rules check, by its netlist and by its schematic
-> parity test. What was proved for this version, and its limits, are in `docs/release/v0.2.md`
-> (`docs/release/v0.1.md` for the version before). Reading Altium files is new, and most of its evidence
-> is `INFERRED`; the Altium target of `build` is experimental.
+> parity test. Version 0.3 adds the write side of the second backend: `build --target altium` writes a
+> complete Altium project, and Altium files are checked and compared without a tool. What was proved for
+> this version, and its limits, are in `docs/release/v0.3.md` (`docs/release/v0.2.md` and
+> `docs/release/v0.1.md` for the versions before). Every Altium write is experimental: no write kind has
+> the evidence to leave that state yet, and most Altium evidence is `INFERRED` or an author report.
 
 *Fenolite* is the Portuguese word for phenolic board material — the laminate many of us etched our
 first circuit boards on.
@@ -34,7 +36,7 @@ first circuit boards on.
 
 The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`.
 
-## What version 0.2 does
+## What version 0.3 does
 
 - **The schematic.** `fenolite build` writes the schematic of the design beside the board, one sheet
   per module, which KiCad's ERC and parity test accept on 9.0 and 10.0 (`docs/schematic.md`).
@@ -56,6 +58,12 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
   libraries and projects, read-only and without a tool (`docs/altium.md`, `docs/equivalence.md`), and
   `fenolite analyze` measures current capacity, clearance and creepage on a board
   (`docs/analyses.md`). What is proved of this, and one known defect, are in the release record.
+- **Altium files are written.** `fenolite build --target altium` writes the PCB document (stacks of up to
+  16 signal layers, blind and buried vias, texts, keep-outs, holes, polygons and the script's rules), the
+  schematic documents per module, both libraries, the project file, an output job and the drawing sheet;
+  `fenolite check` judges copper and parity on Altium input, `equivalent --level 5` compares routing, and
+  `fenolite kit` builds the Altium verification kit (`docs/altium.md`, `docs/altium-kit.md`). All of it is
+  experimental: the release record says per file kind what is proved and what is missing.
 
 ## Evidence labels
 

@@ -1,10 +1,11 @@
 # Roadmap to 1.0
 
-Status on 2026-10-07. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
+Status on 2026-10-08. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
 maintainer's verdict in `docs/release/v0.2.md` (change c0093), and `v0.2.1` (2026-10-07), the first
 patch release of the series. Since 2026-10-07 the write side of the second backend is v0.3, to be
-released as `0.3.0`, and v0.4 names the proposals that are open on other branches
+released as `0.3.0`; its release change is c0150 and its record `docs/release/v0.3.md`, with the verdict
+pending (2026-10-08). v0.4 names the proposals that are open on other branches
 ([Milestone names](#milestone-names)).
 
 Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
@@ -64,7 +65,7 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 2. KiCad PCB | v0.1 | c0006–c0031 | an agent closes the loop on a KiCad board | every change archived; v0.1.0 released on 2026-10-05 |
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
-| 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | read part: every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for it (`docs/release/v0.2.md`, “Also in this package”). Write part, to be released as `0.3.0`: c0032–c0038, c0053, c0055 and c0056 done; c0089 and c0122 archived on 2026-10-07; open on `dev`: c0083, c0084, c0085, c0086, c0087, c0088, c0090, c0091, c0092, c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131 and c0134 (c0092, c0121 and c0126 with no task ticked); not a folder on `dev` yet: c0123 and c0132 (each a folder on its own branch) and c0129 (reserved) |
+| 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | read part: every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for it (`docs/release/v0.2.md`, “Also in this package”). Write part, to be released as `0.3.0`: c0032–c0038, c0053, c0055 and c0056 done; c0089 and c0122 archived on 2026-10-07; open on `dev`: c0083, c0084, c0085, c0086, c0087, c0088, c0090, c0091, c0092, c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131 and c0134 (c0092, c0121 and c0126 with no task ticked); not a folder on `dev` yet: c0123 and c0132 (each a folder on its own branch) and c0129 (reserved) Release `0.3.0` prepared on 2026-10-08 by c0150 (`docs/release/v0.3.md`, verdict pending): every Altium write stays experimental, because by the rule of c0092 no write kind has the evidence to leave it and no kit run is recorded (the maintainer's exception for the kit is recorded there) |
 | — | v0.4 | the agent track c0077–c0081; board authoring c0096, c0097, c0099; the complex board c0100–c0120 | an agent's first project, guide and measure; placement, copper findings and bodies; the gaps to a complex board | proposals written on their branches (the three of board authoring with an implementing commit beside the proposal), not on `dev`; they come to `dev` after `0.3.0` is released and are reconciled then ([v0.4](#v04-proposals-on-other-branches-not-on-dev)) |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
 
@@ -352,7 +353,8 @@ copies the copper of a routed KiCad board.
 
 **v0.3 write, c0083–c0092 and their follow-ups (c0083–c0092 proposed on 2026-10-06; the experimental writers
 c0032–c0038 were pulled forward).** Until 2026-10-07 these pages called this part v0.4. It is released as
-`0.3.0`.
+`0.3.0`. The release change is c0150 (2026-10-08): the record, its guard, the version and the changelog
+cut; the verdict of the rule of c0092 per write kind is in the record.
 
 - Writers for the four document kinds, starting with the ASCII schematic format.
 - Project-file and output-job writers.
