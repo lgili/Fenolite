@@ -236,7 +236,7 @@ above, OpenJDK 26.0.2 and the local `kicad-cli` 10.0.6 (macOS arm64); the machin
 | `dsn-netless` | `present` | `H-G-DSN-NETLESS` (refuted) | `netless_bench` of `tests/_specctra.py`: the net B, in a class with a 0.4 mm clearance, left out of the network section between the routed nets A and C; default rule 0.2 mm. No session wire on B, and both routes pass 0.3 mm from the pads of B: KiCad reports 2 `clearance` violations. The same copper judged with B in the default class: 0 violations |
 | `dsn-netless-declared` | `absent` | `H-G-DSN-NETLESS-2` | the same bench as `write_dsn(..., others="netless")` writes it since the fallback: B stays declared with its class, the two routes bend away (10 tracks instead of 2), and KiCad reports 0 `clearance` violations |
 | `dsn-inc` | `present` | `H-G-DSN-NETLESS` | the bench with B open and declared, and `-inc WIDE` as the first and as the last argument: a session wire on B both times, so `-inc` does not keep a class out of the autorouter |
-| `krt-group-t9`, `krt-group-t10` | not run | `H-K-KRT-GROUP` | no KiCadRoutingTools checkout on the machine of the implementation; `tests/routing/test_krt_gate.py::test_group` waits for the `routing` job and for the pinned 9.0.9 image |
+| `krt-group-t9`, `krt-group-t10` | `equal` | `H-K-KRT-GROUP` | CI run 37772583226 on `04ef42a`, `routing` jobs (KiCad 9.0.9 and 10.0.6 images, the pinned checkout `v0.22.1`): `tests/routing/test_krt_gate.py::test_group` passed for `t9` and `t10`: one `done` run for the whole selection, no unconnected item and no new error type after routing |
 
 **The fallback taken.** Freerouting 2.4.1 keeps the default rule, and no more, from pins and wiring that
 have no net. A net outside the job whose class clearance is larger than the default rule therefore stays
@@ -250,7 +250,10 @@ is not taken.
 `equal` with the same 11 tracks and 1 via as before; `tests/routing/test_acceptance_loop.py` passes (the
 blink and `board_40parts`, built for KiCad 9 and 10, both judged by the local 10.0.6: 3 of 3 and 39 of 39
 nets closed, no DRC violation, no unconnected item). The runs under 9.0.9 (`dsn-route-t9`, the
-KiCadRoutingTools gate) were not made: they need the pinned image and the checkout.
+KiCadRoutingTools gate) were not made locally; CI run 37772583226 on `04ef42a` made them: in both `routing`
+jobs `test_route` of the Freerouting gate (`t9` under 9.0.9, `t10` under 10.0.6), `test_route` of the
+KiCadRoutingTools gate (`t9`, `t10`), `test_no_optimizer`, `test_netless` and every case of
+`tests/routing/test_acceptance_loop.py` passed.
 
 ## Planes, routing layers and rules (c0107)
 

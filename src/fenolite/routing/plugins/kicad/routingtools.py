@@ -69,7 +69,7 @@ EVIDENCE = Evidence(
     oracle="KiCadRoutingTools v0.22.1", hypotheses=("H-K-KRT-CLI", "H-K-KRT-GROUP", "H-K-KRT-ROUTE")
 )
 """Describes the plugin; a route itself is always ``UNVERIFIED``. ``H-K-KRT-GROUP``, the grouped run of
-change c0109, is ``INFERRED`` until the routing job records it on both majors."""
+change c0109, is ``KICAD-VERIFIED (9.0.x, 10.0.x)``: the routing job recorded it on both majors."""
 
 
 def _mm(value: int) -> str:
