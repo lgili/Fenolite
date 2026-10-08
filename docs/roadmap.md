@@ -503,7 +503,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0101 | `board-stackup`; on `v04`, every task closed on 2026-10-08, with the three presets: ships in 0.4 |
 | c0102 | `board-outline-shapes`; on `v04`, every task closed on 2026-10-08: ships in 0.4 (archive c0100 first; c0102 then adds its delta of "Layer count across rebuilds") |
 | c0103 | `dsl-keepouts-board-items`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0104 | `diff-pair-constraints` |
+| c0104 | `diff-pair-constraints`: built on `v04`; its KiCad rows verified on 9.0.9 and 10.0.6 |
 | c0105 | `impedance-targets` |
 | c0106 | `length-measure-tune` |
 | c0107 | `route-planes-layers` |
@@ -528,6 +528,8 @@ capabilities list each router's `features`, Freerouting runs without automatic n
 `fanout=off`, and the KiCadRoutingTools pair and escape steps exist with fakes. The gate's verdict is
 pending (the benches and gate runs need `kicad-cli` and the routers): until it is recorded,
 `kicadroutingtools` declares no feature and every pair gives `route.pair-skipped`.
+
+**c0104 on `v04` (2026-10-08).** Built; its five KiCad rows are verified on 9.0.9 and 10.0.6 (CI run 37772583226 on `04ef42a`). Left: the pair-gap row of `ClearanceResolver.explain`, which comes with c0097.
 
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may
