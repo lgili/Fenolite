@@ -6,13 +6,15 @@ from Python code or a JSON-speaking command line, without a GUI. KiCad is the fi
 files, with `kicad-cli` as the verification oracle); a second backend for another major commercial
 format family follows.
 
-> **Status: version 0.3.** A design script becomes a KiCad project with a board and a schematic, for
-> KiCad 9.0 and 10.0. The loop works on two-layer boards: the board is placed, routed by an
-> external router, filled, checked by KiCad's own design-rule check and exported to fabrication files.
-> The schematic is judged by KiCad's own electrical rules check, by its netlist and by its schematic
-> parity test. Version 0.3 adds the write side of the second backend: `build --target altium` writes a
-> complete Altium project, and Altium files are checked and compared without a tool. What was proved for
-> this version, and its limits, are in `docs/release/v0.3.md` (`docs/release/v0.2.md` and
+> **Status: version 0.4.** A design script becomes a KiCad project with a board and a schematic, for
+> KiCad 9.0 and 10.0. The loop of the agent guide works on two-layer boards: the board is placed, routed
+> by an external router, filled, checked by KiCad's own design-rule check and exported to fabrication
+> files. The schematic is judged by KiCad's own electrical rules check, by its netlist and by its
+> schematic parity test. Version
+> 0.4 adds the agent guide inside the package, boards of up to 8 copper layers with stack-ups, shaped
+> outlines, differential pairs, impedance and length rules, routing with planes, and the documents and
+> drawings a manufacturer asks for. What was proved for this version, what waits for the next one, and the
+> limits are in `docs/release/v0.4.md` (`docs/release/v0.3.md`, `docs/release/v0.2.md` and
 > `docs/release/v0.1.md` for the versions before). Every Altium write is experimental: no write kind has
 > the evidence to leave that state yet, and most Altium evidence is `INFERRED` or an author report.
 
@@ -36,7 +38,7 @@ first circuit boards on.
 
 The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`.
 
-## What version 0.3 does
+## What version 0.4 does
 
 - **The schematic.** `fenolite build` writes the schematic of the design beside the board, one sheet
   per module, which KiCad's ERC and parity test accept on 9.0 and 10.0 (`docs/schematic.md`).
@@ -64,6 +66,19 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
   `fenolite check` judges copper and parity on Altium input, `equivalent --level 5` compares routing, and
   `fenolite kit` builds the Altium verification kit (`docs/altium.md`, `docs/altium-kit.md`). All of it is
   experimental: the release record says per file kind what is proved and what is missing.
+
+- **The agent guide.** `fenolite guide` prints the guide that ships in the package, `fenolite skill
+  install` puts it where an agent finds it, `fenolite init` writes a starter project, and
+  `fenolite fetch freerouting` installs the pinned router (`docs/cli-contract.md`).
+- **Larger boards.** 6 and 8 copper layers, stack-ups, outlines with arcs and cut-outs, holes, rule areas,
+  board texts and dimensions, differential pairs, impedance targets, net lengths and meanders, via
+  protection, net ties and waivers, placement rules and part heights (`docs/dsl.md`); `route` keeps plane
+  nets to their planes and is bounded by `--timeout`, and `fenolite ready` says whether a project is
+  electrically ready. What each change ships, and what waits for the next release, is in
+  `docs/release/v0.4.md`.
+- **Fabrication documents.** `fenolite export` writes IPC-2581, ODB++, STEP, PDF and DXF, and fabrication
+  and assembly drawings (`docs/exports.md`, `docs/drawings.md`); `fenolite testpoints` reports fiducials and
+  test points.
 
 ## Evidence labels
 

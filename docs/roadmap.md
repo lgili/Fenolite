@@ -3,10 +3,13 @@
 Status on 2026-10-08. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
 maintainer's verdict in `docs/release/v0.2.md` (change c0093), and `v0.2.1` (2026-10-07), the first
-patch release of the series. Since 2026-10-07 the write side of the second backend is v0.3, to be
-released as `0.3.0`; its release change is c0150 (archived) and its record `docs/release/v0.3.md`: the
-maintainer approved the release on 2026-10-08, with every Altium write experimental. v0.4 names the proposals that are open on other branches
-([Milestone names](#milestone-names)).
+patch release of the series. Since 2026-10-07 the write side of the second backend is v0.3, released
+as `0.3.0`; its release change is c0150 (archived) and its record `docs/release/v0.3.md`: the
+maintainer approved the release on 2026-10-08, with every Altium write experimental. v0.4 names the
+proposals that were written on other branches and gathered on `v04` ([Milestone names](#milestone-names)).
+It is released as `0.4.0`, pending publication: its release change is c0154 and its record
+`docs/release/v0.4.md`, with what each change ships and what waits for the next release by the
+maintainer's decision of 2026-10-08.
 
 Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
 pin-to-pad map in the Altium build (c0135); `0.2.2` (change c0149), cut from the tag `v0.2.1`, with the
@@ -50,8 +53,9 @@ Decision of the maintainer, 2026-10-07 (change c0136). No release was ever numbe
 of the second backend (c0039–c0047) shipped inside the `0.2.0` package. So v0.3 is the whole second
 backend: its read part, already in that package with no acceptance claimed for it, and its write part,
 which these pages called v0.4 until that day and which is released as `0.3.0`. The name v0.4 now
-belongs to the proposals that are written on other branches and are not on `dev`: the agent track
-(c0077–c0081), board authoring (c0096–c0099, with c0098 since 2026-10-08) and the complex board (c0100–c0120). v0.5a, v0.5b,
+belongs to the proposals that were written on other branches and gathered on the branch `v04`: the agent track
+(c0077–c0081), board authoring (c0096–c0099, with c0098 since 2026-10-08) and the complex board (c0100–c0120),
+released as `0.4.0` (change c0154). v0.5a, v0.5b,
 v0.6 and v1.0 keep their names.
 
 Archived changes and the release record of `0.2.0` keep the names of their day: there “v0.4” means the
@@ -66,12 +70,12 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | read part: every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for it (`docs/release/v0.2.md`, “Also in this package”). Write part, to be released as `0.3.0`: c0032–c0038, c0053, c0055 and c0056 done; c0089 and c0122 archived on 2026-10-07; open on `dev`: c0083, c0084, c0085, c0086, c0087, c0088, c0090, c0091, c0092, c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131 and c0134 (c0092, c0121 and c0126 with no task ticked); not a folder on `dev` yet: c0123 and c0132 (each a folder on its own branch) and c0129 (reserved) Release `0.3.0` approved by the maintainer on 2026-10-08, c0150 archived (`docs/release/v0.3.md`): every Altium write stays experimental, because by the rule of c0092 no write kind has the evidence to leave it and no kit run is recorded (the maintainer's exception for the kit is recorded there) |
-| — | v0.4 | the agent track c0077–c0081; board authoring c0096–c0099 (c0098 since 2026-10-08); the complex board c0100–c0120 | an agent's first project, guide and measure; placement, copper findings, electrical readiness and bodies; the gaps to a complex board | proposals written on their branches (the three of board authoring with an implementing commit beside the proposal), not on `dev`; they come to `dev` after `0.3.0` is released and are reconciled then ([v0.4](#v04-proposals-on-other-branches-not-on-dev)) |
+| — | v0.4 | the agent track c0077–c0081; board authoring c0096–c0099 (c0098 since 2026-10-08); the complex board c0100–c0120; written on `v04` after `0.3.0`: c0137, c0140, c0141, c0145, c0152, c0153 | an agent's first project, guide and measure; placement, copper findings, electrical readiness and bodies; the gaps to a complex board | on `v04`; released as `0.4.0`, pending publication (release change c0154, record `docs/release/v0.4.md`, verdict pending): every change ships, 22 with every task closed; the tasks that depend on the maintainer's own tests are deferred to the next release by his decision of 2026-10-08, and the tasks that wait for the CI of the release branch or the first `yardstick` run are listed there ([v0.4](#v04-the-agent-track-board-authoring-and-the-complex-board)) |
 | 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
 
 About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see
 [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
-hold the proposals of v0.4, which are not on `dev`.
+hold the changes of v0.4, which were not on `dev` then.
 
 ## Phase 1: foundations (done)
 
@@ -453,7 +457,15 @@ claimed. Approved as the working target on 2026-10-06, to be reviewed by the mai
 | 7 | geometry (XOR) | v0.6 |
 | 8 | presentation | after 1.0 |
 
-## v0.4: proposals on other branches (not on `dev`)
+## v0.4: the agent track, board authoring and the complex board
+
+**Released as `0.4.0`, pending publication (2026-10-08).** The release change is c0154 and the record
+`docs/release/v0.4.md`: one row per change, with what it ships, its open tasks and why each is open. By
+the maintainer's decision of 2026-10-08, everything that depends on his own tests (KiCad GUI saves made by
+him, a run of a real agent, Altium Designer checks) is deferred to the next release and everything else
+ships. The changes stay open folders until they can be archived, in the order the record gives (c0100
+before c0102; c0077 after c0123 and c0126, c0104 after c0084, which are open since 0.3.0). The text
+below was written while the groups were on their branches.
 
 Since 2026-10-07 the name v0.4 belongs to three groups of proposals ([Milestone names](#milestone-names)).
 Their folders are not on `dev`: each group is on the branch named below and comes to `dev` after `0.3.0`
@@ -549,6 +561,8 @@ through `fenolite route` and the pair loop).
 **c0108 on `v04` (2026-10-08).** Built. `krt-partial` was read from CI run 37803522539: `different` on 9.0.9 and 10.0.6 (KiCadRoutingTools leaves one of the bench's six open connections open; nothing depends on it). Open, deferred to the next release: the census of open connections on KiCad 9.0.9, which the `kicad-9` job does not run. Copper drawings that hold a net (a graphic on a copper layer with a `net`) are not modelled: the open-connection query counts them as absent, which is where it differs from KiCad on one corpus board.
 
 **c0109 on `v04` (2026-10-08).** Built; the grouped KiCadRoutingTools run is verified on both majors. Its scale numbers are those of 2026-10-05 and are to be measured again on an authored bench.
+
+**c0141 on `v04` (2026-10-08).** `drc-report-limits`, split off c0120 on 2026-10-07: `fenolite check` marks every DRC type whose count reached the limit of KiCad's report (`summary.limits`, `check.report-limit`); ships in 0.4. Open: the line in the CLI section of `AGENTS.md`, the maintainer's (task 3.1), and the unit suite on Python 3.11 (task 4.1, the `unit` job of the release branch).
 
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may
@@ -732,6 +746,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 34 | Milestone names: the write side of the second backend is v0.3, released as `0.3.0`; v0.4 names the proposals that are open on other branches (the agent track c0077–c0081, board authoring c0096, c0097 and c0099, the complex board c0100–c0120); v0.5a, v0.5b, v0.6 and v1.0 keep their names | this page, “Milestone names”; change c0136 | decided by the maintainer on 2026-10-07 |
 | 35 | c0098 electrical readiness: in v0.4 or not | this page, the section of v0.4; proposal of c0098 | decided by the maintainer on 2026-10-08: in v0.4 |
 | 36 | v0.4: Fenolite may download the pinned Freerouting jar, only inside `fenolite fetch` and only with `--confirm` | proposal of c0078; ADR-0007 | decided by the maintainer on 2026-10-05, confirmed on 2026-10-07 |
+| 37 | v0.4 released as `0.4.0` with deferred tasks: what depends on the maintainer's own tests (KiCad GUI saves made by him, a run of a real agent, Altium Designer checks) waits for the next release; everything else ships | `docs/release/v0.4.md`; change c0154 | decided by the maintainer on 2026-10-08 |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074 and c0083–c0092).
