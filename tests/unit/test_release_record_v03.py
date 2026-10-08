@@ -354,10 +354,12 @@ def test_what_is_not_in_the_release_is_named(words: str) -> None:
 
 def test_verdict_over_a_pending_row() -> None:
     """Scenario "Verdict over a pending row"."""
+    assert not [p for p in check(record()) if p.startswith("verdict")]
     text = with_result(record(), "| c0123 |", "pending").replace(
         "## Open rows\n", "## Open rows\n\n- **c0123.** Open.\n", 1
     )
-    assert not [p for p in check(text) if p.startswith("verdict")]
+    waits = re.sub(r"## Verdict\n\n.*\Z", "## Verdict\n\npending\n", text, flags=re.DOTALL)
+    assert not [p for p in check(waits) if p.startswith("verdict")]
     decided = re.sub(r"## Verdict\n\n.*\Z", "## Verdict\n\nReleased as v0.3.0.\n", text, flags=re.DOTALL)
     assert any(p.startswith("verdict: written while c0123") for p in check(decided))
 
