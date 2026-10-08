@@ -52,10 +52,11 @@ STACKED_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-STACKED",
 instance that have one name and connect at one point (a pin bonded to several pads, change c0123)."""
 STACKED_OPEN_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-STACKED-OPEN",))
 """And when such a stack carries no label: KiCad makes one net of it and names it after one of its pads."""
-FRAME_ORDER_EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-K-SCH-PINFRAME-ORDER",))
+FRAME_ORDER_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-PINFRAME-ORDER",))
 """What a netlist rests on besides ``EVIDENCE`` when a symbol instance is mirrored and turned by 90 or 270
 degrees: KiCad turns the symbol first and mirrors the turned symbol, read from the demo sheets of the
-corpus (change c0137). For 0 and 180 degrees the order does not matter."""
+corpus and confirmed by ``kicad-cli`` 9.0.9 and 10.0.6 on an authored sheet (change c0137). For 0 and 180
+degrees the order does not matter."""
 CODE = "kicad.sch.netlist-unsupported"
 ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({CODE: "error"})
 """The one code of this module; the closed set of the reader (``sch.ISSUE_CODES``) is not widened."""
