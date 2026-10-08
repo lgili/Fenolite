@@ -22,6 +22,8 @@ finding a waiver accepted (``checks.waivers``), which the copper check itself ne
 The ``placement.*`` codes are those of the placement rules (``checks.placement``; "Placement stage issue
 codes", change c0113, and "Height limit issue codes", change c0140); ``place`` and the placement guard of
 ``build`` report them at most as warnings.
+The ``length.*`` codes are those of the length rules stage (``checks.length``; "Length stage issue codes",
+change c0106); the governing rule sets the severity of a finding.
 """
 
 from __future__ import annotations
@@ -95,6 +97,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "placement.rule-skipped": ("info",),
         "placement.too-tall": ("error", "warning"),
         "placement.height-unknown": ("warning",),
+        "length.out-of-range": ("error", "warning"),
+        "length.skew-out-of-range": ("error", "warning"),
+        "length.input-missing": ("warning",),
     }
 )
 

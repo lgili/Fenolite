@@ -19,6 +19,7 @@ from fenolite.backends.base import (
     DesignRulesSource,
     ExclusionSource,
     FillOracle,
+    LengthSource,
     Oracle,
     ParityInputs,
     Plotter,
@@ -37,6 +38,7 @@ STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
     "erc.kicad",
     "copper.clearance",
+    "length.rules",
     "placement.rules",
     "zone.fill",
     "drc.kicad",
@@ -52,7 +54,9 @@ where ``erc.lite`` stood: the three rules of ``checks.erc_lite`` are no stage of
 ``parity`` (change c0072) runs after ``drc.kicad`` because it compares its findings with KiCad's parity
 entries when that stage judged them; it needs no tool itself, so it is not an oracle stage.
 ``placement.rules`` (change c0113) judges the placement rules of a built project and measures the wire
-length and the congestion of every board; it needs no tool either and follows ``copper.clearance``."""
+length and the congestion of every board; it needs no tool either and follows ``copper.clearance``.
+``length.rules`` (change c0106) judges the length and skew rules on the net lengths a ``LengthSource``
+gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -66,7 +70,8 @@ ORACLE_STAGES: tuple[str, ...] = (
 )
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
 _READING_STAGES = frozenset(
-    {"roundtrip", "copper.clearance", "placement.rules", "parity", *ORACLE_STAGES} - {"render", "erc.kicad"}
+    {"roundtrip", "copper.clearance", "length.rules", "placement.rules", "parity", *ORACLE_STAGES}
+    - {"render", "erc.kicad"}
 )
 """Stages that need the board read; ``erc.kicad`` needs only the schematic, and ``render`` only the files."""
 StageStatus = Literal["ok", "errors", "skipped"]
@@ -189,6 +194,7 @@ def run_checks(
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
+    from fenolite.checks.length import length_stage
     from fenolite.checks.parity_stage import parity_stage
     from fenolite.checks.placement import placement_stage
     from fenolite.checks.render import render_stage
@@ -236,6 +242,17 @@ def run_checks(
             frame=validator if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
             waivers=waivers,
+        )
+
+    def length() -> StageResult:
+        if validation is None:
+            return skipped("length.rules", "read-refused")
+        return length_stage(
+            validation.read.design,
+            project=project,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            facts_source=validator if isinstance(validator, LengthSource) else None,
+            evidence=validation.read.evidence,
         )
 
     def placement() -> StageResult:
@@ -299,6 +316,7 @@ def run_checks(
         "model.validate": model_stage,
         "erc.kicad": erc,
         "copper.clearance": copper,
+        "length.rules": length,
         "placement.rules": placement,
         "zone.fill": fill,
         "drc.kicad": drc,

@@ -2317,6 +2317,21 @@ meaning = "A part has no placement, so its footprint was put in a row beside the
 fix = "Place it with place() in the script, with 'fenolite place', or in KiCad."
 see = "build"
 
+["length.input-missing"]
+meaning = "The stage length.rules had no rules source, so only the rules of the board model were judged, or no length facts, so the routed lengths were judged without via heights and die lengths. The stage's evidence is UNVERIFIED."
+fix = "Check a KiCad project, whose backend gives the project's rules and the net lengths as KiCad counts them."
+see = "check"
+
+["length.out-of-range"]
+meaning = "A net's total length, as the target KiCad major counts it (tracks, arcs, via heights and die lengths), lies below the min or above the max of the length rule that governs it. The opt of a rule is not judged, as KiCad does not; a net of pads only is judged at length 0. The rule sets the severity."
+fix = "Change the routing of the net (a meander adds length: Design.meander), or change the limits of the rule."
+see = "check"
+
+["length.skew-out-of-range"]
+meaning = "A net's length differs from the longest net of its group by more than the max of the skew rule that governs it. A skew rule groups every net it governs; a diff_pair_skew rule each pair among them. The longest net is never reported; the rule sets the severity."
+fix = "Lengthen the shorter net (Design.meander), shorten the longer one, or change the rule."
+see = "check"
+
 ["manifest.changed"]
 meaning = "A file is not the one its manifest lists: its SHA-256 differs. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning: the file is listed as it is now, without its tool and source, so it stays 'generated'."
 fix = "Produce the file again with the command that wrote it, then run 'fenolite manifest' again; or keep the edit and accept the state 'generated'."

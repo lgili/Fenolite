@@ -8,9 +8,9 @@ Each case of ``tests/_lengthbench.py`` is judged from the JSON report of ``pcb d
 from ``length_facts`` for the running major. A run whose scoped canary does not fire fails. The printed
 ``actual`` values are shown with ``-rA`` and kept in ``docs/evidence/length.md``.
 
-The rules cases compare KiCad's violations with the nets ``H-K-NETLEN-RULES`` predicts. The stage
-``length.rules`` joins them once change c0104 gives the model the length and skew rule kinds; until then
-the ``length-rules-*`` probes are not registered.
+The rules cases compare KiCad's violations with the nets ``H-K-NETLEN-RULES`` predicts, and with the
+nets the stage ``length.rules`` reports for the same bench. The ``length-rules-*`` probes are not
+registered yet: their outcomes are recorded by a run with ``kicad-cli`` on both majors.
 """
 
 from __future__ import annotations
@@ -101,3 +101,4 @@ def test_rules(case: str) -> None:
     for text in texts:
         print(f"{case} {major()}: {text}")
     assert pairs == lb.RULES_EXPECTED[case]
+    assert lc.stage_pairs(case, major()) == pairs, "the stage length.rules names other nets than KiCad"

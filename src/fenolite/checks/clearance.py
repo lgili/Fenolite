@@ -101,6 +101,13 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
     )
 
 
+def selector_matches(selector: Selector, subject: RuleSubject) -> bool:
+    """Whether ``selector`` selects ``subject``, names compared as the clearance rules compare them: without
+    regard to letter case, except an ``area`` leaf and a ``diff_pair`` leaf (``_fold_selector``). The
+    length stage (``checks.length``) matches its rules with it."""
+    return _fold_selector(selector).matches(_fold_subject(subject))
+
+
 @dataclass(frozen=True, slots=True)
 class _Candidate:
     rule: Rule
@@ -290,4 +297,5 @@ __all__ = [
     "ClearanceResolver",
     "CopperKind",
     "rule_precedence",
+    "selector_matches",
 ]

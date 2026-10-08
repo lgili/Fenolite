@@ -57,7 +57,7 @@
 - **THEN** the path to `U3-1` has `length` `None`, and one `analysis.length-open` warning names `U3-1`
 
 ### Requirement: Pair skew in the length report
-`LengthReport.pairs` SHALL hold one `PairRow(name, p, n, total_p, total_n, skew, path_skew)` per differential pair whose two nets both have a row, sorted by name: each interface whose kind is a key of `model.pairs.PAIR_ROLES` (c0104: `diff_pair` with `p` and `n`, `usb2` with `dp` and `dn`), named after the interface, with its nets from `pair_nets`; then each pair of measured nets that `model.pairs.net_bases` couples by name and no interface names, named after its base, the positive net as `p`. A board read from a file holds no interface, so its pairs come from names. Until `model.pairs` of change c0104 exists, `pairs` MUST be empty.
+`LengthReport.pairs` SHALL hold one `PairRow(name, p, n, total_p, total_n, skew, path_skew)` per differential pair whose two nets both have a row, sorted by name: each interface whose kind is a key of `model.pairs.PAIR_ROLES` (c0104: `diff_pair` with `p` and `n`, `usb2` with `dp` and `dn`), named after the interface, with its nets from `pair_nets`; then each pair of measured nets that `model.pairs.net_bases` couples by name and no interface names, named after its base, the positive net as `p`. A board read from a file holds no interface, so its pairs come from names. A net named by a pair interface MUST NOT form a second row by its name.
 - `skew` MUST be `total_p − total_n`, so a negative skew means that `p` is the shorter net.
 - `path_skew` MUST be the difference of the lengths of the two nets' paths when each net has exactly two pads and both paths exist, and `None` otherwise.
 
@@ -65,6 +65,11 @@
 - **GIVEN** a design with a `diff_pair` interface `SK` of the nets `SK_P`, one 20 mm track, and `SK_N`, one 21 mm track, and no pads
 - **WHEN** `uv run pytest tests/unit/analysis/test_length.py -k pair` measures `SK_*`
 - **THEN** `pairs` holds one row `SK` with `total_p == 20_000_000`, `total_n == 21_000_000`, `skew == -1_000_000` and `path_skew is None`
+
+#### Scenario: Pair by name
+- **GIVEN** the rules bench of `tests/_lengthbench.py` read back from its file (no interface), with `SK_P` (20 mm) and `SK_N` (21 mm)
+- **WHEN** `measure_lengths` measures `SK_*` and `BUS*`
+- **THEN** `pairs` holds exactly one row, named `SK_` (the base), with `p == "SK_P"` and `skew == -1_000_000`
 
 ### Requirement: Length kind in the analyze command
 `fenolite analyze` SHALL accept `length` in `--kinds` as a fourth kind that is not in the default set, so that without `--kinds` the command runs the three kinds of "Analyze command" and its reply holds no `lengths`.

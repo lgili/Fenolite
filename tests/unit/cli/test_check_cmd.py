@@ -387,6 +387,7 @@ def test_default_stages_leave_rt2_out(monkeypatch: pytest.MonkeyPatch, tmp_path:
         "model.validate",
         "erc.kicad",
         "copper.clearance",
+        "length.rules",
         "placement.rules",
         "zone.fill",
         "drc.kicad",

@@ -315,6 +315,25 @@ file, not a property of a real board. A file whose stack-up node Fenolite does n
 so neither it nor the default is claimed, the via heights count 0 and the reply is `UNVERIFIED`. A project
 that sets `use_height_for_length_calcs` to `false` counts no via height (`summary.length.count_vias`).
 
+**Pair skew.** `result.pairs` gives one row per differential pair whose two nets were both measured:
+each pair interface of the design (`diff_pair` with the roles `p` and `n`, `usb2` with `dp` and `dn`,
+change c0104) under its name, then each two measured nets that the pair name rule couples (`SK_P` and
+`SK_N`, base `SK_`; `docs/dsl.md`, "Differential pairs") and no interface names, under their base. A board
+read from a file holds no interface, so its pairs come from names. `skew` is `total_p - total_n`, so a
+negative skew means the positive net is the shorter; `path_skew` is the same difference of the two
+pin-to-pin lengths when each net has exactly two pads and both paths exist, else `null`.
+
+**Length rules in check.** The stage `length.rules` of `fenolite check` judges the `length`, `skew` and
+`diff_pair_skew` rules of a KiCad project on the totals above, for the major of the project file, without
+`kicad-cli` (`docs/cli-contract.md`, "Length rules"). Its semantics are KiCad's (`H-K-NETLEN-RULES`):
+a length rule judges `min` and `max` and not `opt`; every net with a pad or copper is judged, a net of
+pads only at length 0; a skew rule groups the nets it governs, a `diff_pair_skew` rule each pair apart,
+and a net is reported when its length differs from the longest of its group by more than `max`, with
+KiCad's sign (`length.skew-out-of-range`). The two skew kinds are one KiCad constraint, so the last
+matching rule of either kind governs a net. Names compare without regard to letter case, as in the copper
+check; a `diff_pair` leaf compares with it. The stage runs on KiCad input only: an Altium document holds no
+rule of the three kinds.
+
 **Limits of the length kind.**
 
 - Zones add no length, and a layer change inside a through-hole pad adds none, as in KiCad.
@@ -325,7 +344,8 @@ that sets `use_height_for_length_calcs` to `false` counts no via height (`summar
   position.
 - On KiCad 9 a path can exceed the total (above).
 - The default stack-up is measured for 2, 4, 6 and 8 copper layers on KiCad 10.0.6.
-- Pair skew (`result.pairs`) needs the pair names of change c0104 and is empty until that change is in.
+- A pair is told apart only by an interface of the design or by the pair name rule; two nets that a rule
+  pairs in another way are not a row of `result.pairs`.
 - An Altium PCB document has no length facts: no public source recorded here says how Altium counts a
   via or a die length. The kind then gives routed lengths and paths whose layer changes weigh 0, one
   `analysis.input-missing` warning and the level `UNVERIFIED`.
@@ -429,6 +449,8 @@ Which independent tool could check each analysis, and what was done instead:
 | conductors on the path | `INFERRED` (`H-G-AN-OVER`) | hand-computed cases; a grid search | none; KiCad stops the path at the conductor (`H-K-AN-SPLIT`) |
 | net totals (tracks, arcs, via heights, die lengths, the project switch, the default stack-up) | `INFERRED` (`H-K-NETLEN-TOTAL`, `H-K-NETLEN-VIA10`, `H-K-NETLEN-VIA9`, `H-K-NETLEN-STACKUP`) | bench values by hand | KiCad's `length` rule as a bracket 1 µm below and above each total: the canaries `length-total-*` and `length-via-*` (`docs/evidence/length.md`) |
 | pin-to-pin paths and stubs | `INFERRED` (`H-G-NETLEN-PATH`) | hand-computed cases; the path equals the total on unbranched nets | none; no tool prints a pin-to-pin length |
+| pair skew | `INFERRED` (`H-G-NETLEN-PATH`) | the difference of two totals, authored cases | KiCad's `skew` rule within pairs, as for the stage |
+| verdicts of `length.rules` | `INFERRED` (`H-K-NETLEN-RULES`) | the rules bench: the stage names the nets `H-K-NETLEN-RULES` predicts, on both targets | KiCad's DRC on the same bench: the canaries `-k rules` of `tests/kicad/length/test_length_parity.py` compare KiCad's violations with the same nets |
 
 The KiCad bracket is supporting data. It never gates and never raises a label.
 

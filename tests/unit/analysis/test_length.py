@@ -15,13 +15,14 @@ import pytest
 from _lengthbench import mm
 
 from fenolite.analysis import length as lengthmod
-from fenolite.analysis.length import LengthReport, LengthRow, measure_lengths
+from fenolite.analysis.length import LengthReport, LengthRow, PairRow, measure_lengths
 from fenolite.analysis.views import net_list
 from fenolite.backends.base import BoardPad, LengthFacts, PadCopper
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Level
+from fenolite.model.circuit import Interface
 from fenolite.model.design import Design
 
 MM = lb.MM
@@ -330,3 +331,61 @@ def test_generated_unbranched_chains() -> None:
 def test_module_evidence() -> None:
     assert lengthmod.EVIDENCE.level is Level.INFERRED
     assert lengthmod.EVIDENCE.hypotheses == ("H-G-NETLEN-PATH",)
+
+
+# --- "Pair skew in the length report" ---------------------------------------------------------------
+
+
+def _with_interfaces(design: Design, *interfaces: Interface) -> Design:
+    circuit = dataclasses.replace(design.circuit, interfaces=interfaces)
+    return dataclasses.replace(design, circuit=circuit)
+
+
+def test_pair_one_millimetre_apart() -> None:
+    """A ``diff_pair`` interface ``SK`` of a 20 mm and a 21 mm track, no pads."""
+    b = lb.Builder(10)
+    b.track("SK_P", mm(10, 20), mm(30, 20))
+    b.track("SK_N", mm(10, 25), mm(31, 25))
+    built = b.build("pairs")
+    members = {"p": b.net("SK_P"), "n": b.net("SK_N")}
+    design = _with_interfaces(built, Interface(id="itf_1", name="SK", kind="diff_pair", members=members))
+    report = measure_lengths(design, pads=None, nets=("SK_*",))
+    assert report.pairs == (PairRow("SK", "SK_P", "SK_N", 20_000_000, 21_000_000, -1_000_000, None),)
+
+
+def test_pair_by_name_without_an_interface() -> None:
+    """A board read from a file holds no interface: the name rule couples ``SK_P`` and ``SK_N`` under
+    their base, and ``BUS0`` pairs with nothing."""
+    design, pads, facts = bench("rules", 10)
+    report = measure_lengths(design, pads=pads, facts=facts, nets=("SK_*", "BUS*"))
+    assert report.pairs == (PairRow("SK_", "SK_P", "SK_N", 20_000_000, 21_000_000, -1_000_000, None),)
+
+
+def test_pair_of_usb2_roles_and_path_skew() -> None:
+    """A ``usb2`` interface (roles ``dp`` and ``dn``) over nets of two pads each: the path skew is the
+    difference of the two pin-to-pin lengths; an interface pair is not repeated under its base."""
+    b = lb.Builder(10)
+    b.track("D_P", mm(0, 0), mm(10, 0))
+    b.track("D_N", mm(0, 2), mm(12, 2))
+    b.track("D_N", mm(12, 2), mm(14, 2))  # a stub beyond the second pad
+    built = b.build("usb")
+    p, n = b.net("D_P"), b.net("D_N")
+    usb = Interface(id="itf_1", name="USB", kind="usb2", members={"dp": p, "dn": n})
+    design = _with_interfaces(built, usb)
+    pads = [_pad("U1", "1", mm(0, 0), p), _pad("U2", "1", mm(10, 0), p)]
+    pads += [_pad("U1", "2", mm(0, 2), n), _pad("U2", "2", mm(12, 2), n)]
+    report = measure_lengths(design, pads=pads, nets=("D_*",))
+    assert report.pairs == (PairRow("USB", "D_P", "D_N", 10_000_000, 14_000_000, -4_000_000, -2_000_000),)
+
+
+def test_pair_needs_both_nets_measured_and_two_pads_for_a_path_skew() -> None:
+    b = lb.Builder(10)
+    b.track("A+", mm(0, 0), mm(10, 0))
+    b.track("A-", mm(0, 2), mm(11, 2))
+    design = b.build("plus")
+    a_p, a_n = b.net("A+"), b.net("A-")
+    pads = [_pad("U1", "1", mm(0, 0), a_p), _pad("U2", "1", mm(10, 0), a_p), _pad("U3", "1", mm(10, 0), a_p)]
+    pads += [_pad("U1", "2", mm(0, 2), a_n), _pad("U2", "2", mm(11, 2), a_n)]
+    assert measure_lengths(design, pads=pads, nets=("A+",)).pairs == ()
+    (pair,) = measure_lengths(design, pads=pads, nets=("A*",)).pairs
+    assert (pair.name, pair.p, pair.n, pair.skew, pair.path_skew) == ("A", "A+", "A-", -1_000_000, None)

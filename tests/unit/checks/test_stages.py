@@ -37,6 +37,7 @@ def test_stage_order() -> None:
         "model.validate",
         "erc.kicad",
         "copper.clearance",
+        "length.rules",
         "placement.rules",
         "zone.fill",
         "drc.kicad",
@@ -278,9 +279,11 @@ def test_issues_follow_input_then_stage_order() -> None:
         oracle=oracle,
         fill_oracle=FakeFillOracle(),
     )
-    # the fake validator is no rules source, so the copper stage says so (change c0029)
+    # the fake validator is no rules source, so the copper stage says so (change c0029), and so does the
+    # length stage (change c0106)
     assert [i.code for i in report.issues] == [
         "copper.rules-incomplete",
+        "length.input-missing",
         "fake.drc.rules-unchecked",
         "check.rt1-failed",
     ]

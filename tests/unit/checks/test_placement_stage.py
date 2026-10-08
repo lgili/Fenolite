@@ -82,7 +82,9 @@ def stage_of(
 def test_stage_is_a_default_stage_without_a_tool() -> None:
     assert STAGE == "placement.rules"
     assert STAGE in DEFAULT_STAGES and STAGE not in ORACLE_STAGES and STAGE not in OPT_IN_STAGES
-    assert STAGE_ORDER.index("copper.clearance") + 1 == STAGE_ORDER.index(STAGE)
+    # c0106's length.rules stands right after copper.clearance, and placement.rules follows it
+    assert STAGE_ORDER.index("copper.clearance") + 2 == STAGE_ORDER.index(STAGE)
+    assert STAGE_ORDER.index("length.rules") + 1 == STAGE_ORDER.index(STAGE)
     assert STAGE_ORDER.index(STAGE) + 1 == STAGE_ORDER.index("zone.fill")
     assert DOCUMENT_STAGES.index("copper.clearance") + 1 == DOCUMENT_STAGES.index(STAGE)
     assert DOCUMENT_STAGES.index(STAGE) + 1 == DOCUMENT_STAGES.index("parity")

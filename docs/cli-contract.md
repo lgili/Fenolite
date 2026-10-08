@@ -929,7 +929,7 @@ out. Without `--stages`, every stage runs except `roundtrip.rt2` (`DEFAULT_STAGE
 re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `netlist.assignment_compare` and
 `roundtrip.rt2` and `zone.fill` need `kicad-cli` (`ORACLE_STAGES`): selecting any of them runs the tool pre-flight.
 `copper.clearance` needs no tool: `--stages copper.clearance` runs on a machine without KiCad.
-`placement.rules` needs none either, and is a default stage.
+`length.rules` and `placement.rules` need none either, and are default stages.
 `parity` needs none either for a project that `build` wrote.
 
 | stage | runs on | evidence |
@@ -937,6 +937,7 @@ re-saves and three DRC runs and is selected by name. `erc.kicad`, `drc.kicad`, `
 | `model.validate` | the board model (native) or the `.fenolite/` model (built) | the reader's level (native), `INFERRED` (built) |
 | `erc.kicad` | `kicad-cli sch erc` on the copy set, built and native input alike; every violation becomes a located issue. Skipped with `no-schematic` when the project has no `<stem>.kicad_sch` | ERC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report |
 | `copper.clearance` | Fenolite's own exact check of shorts and clearance on the board model, native and built alike, with the rules of `<stem>.kicad_pro` and `<stem>.kicad_dru`; no tool runs | the lowest of the copper check (`INFERRED`), the board reader and the project and rules readers; `UNVERIFIED` when part of the copper or of the rules went unjudged |
+| `length.rules` | Fenolite's own verdict on the `length`, `skew` and `diff_pair_skew` rules of `<stem>.kicad_dru` (`docs/analyses.md`, "Length rules in check"), on the net lengths as the target KiCad major counts them; no tool runs | the lowest of the stage (`INFERRED`, `H-K-NETLEN-RULES`), the board reader, the rules readers and the length facts; `UNVERIFIED` with `length.input-missing` |
 | `placement.rules` | Fenolite's own placement rules and measures on the board model, without a tool: on a project that `build` wrote, the `near` rules of `.fenolite/rules.json` judged on the pad positions; on every board, the wire length and the congestion of the placement (`docs/placement.md`) | the board reader's level when no rule was judged; the lowest of it and `INFERRED` when one was |
 | `zone.fill` | KiCad 10 refills a private copy of the project board; compares saved copper polygons per zone | refill evidence; `UNVERIFIED` when any zone is unfilled or stale |
 | `drc.kicad` | `kicad-cli pcb drc` on the copy set, with the rules canary; every violation becomes a located issue | DRC report reader and oracle combined, `kicad-cli <version>`; `UNVERIFIED` without a report or with a rules issue |
@@ -965,6 +966,20 @@ emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary hol
 `types` and `tool_writes`. The `zone.fill` summary holds `tool_version`, `zones`, `current`, `unfilled` and `stale`. An unrouted board therefore exits 5: its unconnected items are errors. The `render` summary holds
 `tool_version` and `views` (`name`, `bytes`, `sha256`; sorted by name); the hash of an SVG leaves out its
 `<title>` line, where `kicad-cli` 9.0 writes the date, so two checks give the same output.
+
+**Length rules.** `length.rules` (KiCad input only; the Altium pipeline neither runs nor names it)
+judges the rules of the kinds `length`, `skew` and `diff_pair_skew` of the project's rules file on the
+total length of each net, as KiCad counts it for the major of the project file (tracks, arcs, via heights
+from the stack-up, die lengths; `fenolite analyze --kinds length` gives the same totals). A net is governed
+by the last matching rule of its kind in KiCad's rule order; `skew` and `diff_pair_skew` count as one kind,
+since KiCad writes both as its `skew` constraint. A total below `min` or above `max` of a length rule is
+`length.out-of-range`, with the rule's severity; `opt` is not judged, and a net of pads only is judged at
+length 0. A skew rule groups the nets it governs (a `diff_pair_skew` rule each pair apart); a net whose
+length differs from the longest of its group (ties to the first name) by more than `max` is
+`length.skew-out-of-range`, with the rule's severity; the longest net is never reported. Without a rules
+source or without length facts, `length.input-missing` says what was judged without. The summary holds
+`rules` (`{"length": n, "skew": n}`), `nets` (the governed nets judged), `major` and `stackup` (of the
+facts, `null` when none were asked for). The stage is skipped with `read-refused`.
 
 **Placement rules.** `placement.rules` judges the `near` rules of a built project
 (`design.near()`, `docs/dsl.md`) on the pad positions of the board, pad centre to pad centre, and measures
@@ -1174,6 +1189,9 @@ repeat.
 | `placement.rule-skipped` | info | a placement rule names a part that lies off the board, so it is not judged for it |
 | `placement.too-tall` | error, warning | a part under a rule area with a height limit is taller than the limit; the limit sets the severity, and `place` and `build` report it as a warning at most |
 | `placement.height-unknown` | warning | a part under a rule area with a height limit has no known height (no body on the board or in the `.fenolite/` model) |
+| `length.out-of-range` | error, warning | a net's total length lies outside the `min` and `max` of its governing `length` rule; the rule sets the severity; `where` is the net |
+| `length.skew-out-of-range` | error, warning | a net's length differs from the longest net of its skew group by more than the `max` of its governing `skew` or `diff_pair_skew` rule; the rule sets the severity; `where` is the net |
+| `length.input-missing` | warning | `length.rules` had no rules source (`where` `rules`) or no length facts (`where` `lengths`), so via heights and die lengths are not counted |
 | `check.document-missing` | warning | document input: the project file lists a document that does not exist |
 | `check.rta0-failed` | error | document input: a container copy lost or changed a storage or a stream; `where` is `<document>:<stream path>` |
 | `check.rta1-failed` | error | document input: a stream's records differ after encoding and reading again; `where` is `<document>:<stream>#<record>` |
@@ -1687,8 +1705,11 @@ the user's file.
   `--kicad-version` counts it in its DRC (10 by default). `result.lengths` holds one row per net:
   `net`, `routed`, `vias`, `die`, `total` (their sum), `via_count`, `start` (`REF-PIN` or `null`),
   `paths` (`end`, `length` or `null`, `vias`, `layers`) and `off_path`, all lengths in nm.
-  `result.pairs` holds the pair rows (`name`, `p`, `n`, `total_p`, `total_n`, `skew`, `path_skew`); it
-  is empty until the pair names of change c0104 exist. `result.summary.length` holds `nets`, `major`,
+  `result.pairs` holds the pair rows (`name`, `p`, `n`, `total_p`, `total_n`, `skew`, `path_skew`), one
+  per differential pair whose two nets were both measured: each pair interface of the design (`diff_pair`,
+  `usb2`) under its name, then each two measured nets that the pair name rule couples (`docs/dsl.md`,
+  "Differential pairs") under their base, sorted by name; `skew` is `total_p - total_n`, and `path_skew`
+  the same difference of the two paths when each net has exactly two pads. `result.summary.length` holds `nets`, `major`,
   `stackup` (`board`, `default` or `none`) and `count_vias`, and `result.inputs` gains `nets`, `from`
   and `kicad_version`. The kind judges nothing, so it alone exits 0. On input whose backend gives no
   length facts (an Altium PCB document) the rows hold routed lengths only, `major` is `null`, one

@@ -47,6 +47,7 @@ from fenolite.geometry import (
 from fenolite.model.board import Arc, Board, Track, Via
 from fenolite.model.design import Design
 from fenolite.model.findings import Findings
+from fenolite.model.pairs import POSITIVE, coupled_name, net_bases, pair_nets, split_pair_name
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-NETLEN-PATH",))
 """No tool prints a pin-to-pin length, so the paths stay ``INFERRED``."""
@@ -533,7 +534,50 @@ def measure_lengths(
         "stackup": facts.stackup if facts is not None else None,
         "count_vias": facts.count_vias if facts is not None else None,
     }
-    return LengthReport(tuple(rows), (), ordered, summary, combined)
+    return LengthReport(tuple(rows), _pairs(design, rows), ordered, summary, combined)
+
+
+def _path_length(row: LengthRow) -> Nm | None:
+    """The pin-to-pin length of a net of exactly two pads, ``None`` otherwise or when the copper does not
+    join them."""
+    if row.start is None or len(row.paths) != 1:
+        return None
+    return row.paths[0].length
+
+
+def _pair_row(name: str, p: LengthRow, n: LengthRow) -> PairRow:
+    path_p, path_n = _path_length(p), _path_length(n)
+    path_skew = path_p - path_n if path_p is not None and path_n is not None else None
+    return PairRow(name, p.net, n.net, p.total, n.total, p.total - n.total, path_skew)
+
+
+def _pairs(design: Design, rows: Sequence[LengthRow]) -> tuple[PairRow, ...]:
+    """One row per differential pair whose two nets were both measured: the pair interfaces
+    (``model.pairs.PAIR_ROLES``) under their names, then the nets that the name rule couples and no
+    interface names, under their base; sorted by name, then by the positive net."""
+    measured = {row.net: row for row in rows}
+    names = {net.id: net.name for net in design.circuit.nets}
+    found: list[PairRow] = []
+    named: set[str] = set()
+    for interface in design.circuit.interfaces:
+        ids = pair_nets(interface)
+        if ids is None:
+            continue
+        p, n = names.get(ids[0]), names.get(ids[1])
+        if p is None or n is None:
+            continue
+        named.update((p, n))
+        if p in measured and n in measured:
+            found.append(_pair_row(interface.name, measured[p], measured[n]))
+    for net, base in sorted(net_bases(measured).items()):
+        split = split_pair_name(net)
+        other = coupled_name(net)
+        if split is None or other is None or split.polarity not in POSITIVE:
+            continue
+        if net in named or other in named:
+            continue
+        found.append(_pair_row(base, measured[net], measured[other]))
+    return tuple(sorted(found, key=lambda pair: (pair.name, pair.p)))
 
 
 __all__ = ["EVIDENCE", "LengthReport", "LengthRow", "PairRow", "PathRow", "measure_lengths", "pad_name"]

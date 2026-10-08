@@ -29,6 +29,7 @@ from fenolite.backends.base import DrcReport, LengthFacts
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.cli import KicadCli
 from fenolite.backends.kicad.pcb import kicad_uuid, read_board, write_board
+from fenolite.core.evidence import Evidence
 from fenolite.core.ids import derived_id
 from fenolite.model.board import Track
 from fenolite.model.circuit import Net
@@ -139,6 +140,24 @@ def rules_run(cli: KicadCli, case: str) -> tuple[bool, tuple[tuple[str, str], ..
             pairs |= {(kind, net) for net in reported(report, design, kind)}
         texts = [v.description for v in report.violations if v.type in (LENGTH_TYPE, SKEW_TYPE)]
     return canary_fired(report, "rules", target), tuple(sorted(pairs)), tuple(texts)
+
+
+_STAGE_TYPES = {"length.out-of-range": LENGTH_TYPE, "length.skew-out-of-range": SKEW_TYPE}
+
+
+def stage_pairs(case: str, target: int) -> tuple[tuple[str, str], ...]:
+    """The (violation type, net) pairs that the stage ``length.rules`` gives for a rules case on the rules
+    bench written for ``target``, with the KiCad backend as rules and length source; no tool runs."""
+    from fenolite.checks.length import length_stage
+
+    with tempfile.TemporaryDirectory() as tmp:
+        project = lb.write_case("rules", target, Path(tmp), lb.rules_case_text(case))
+        design = read_board(lb.bench_text("rules", target))
+        backend = KicadBackend()
+        stage = length_stage(
+            design, project=project, rules_source=backend, facts_source=backend, evidence=Evidence()
+        )
+    return tuple(sorted((_STAGE_TYPES[i.code], i.where) for i in stage.issues if i.code in _STAGE_TYPES))
 
 
 def probe_id(case: str) -> str:

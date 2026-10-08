@@ -27,6 +27,7 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
 | `model.validate` | the design as data: references, nets, pins | no |
 | `erc.kicad` | KiCad's electrical rules check on the schematic | yes |
 | `copper.clearance` | Fenolite's own check of shorts and clearances on the copper | no |
+| `length.rules` | the length and skew rules (`length`, `skew`, `diff_pair_skew`) on the net lengths as KiCad counts them | no |
 | `placement.rules` | the `near` rules of the script, and the wire length and congestion of the placement | no |
 | `zone.fill` | whether every zone is filled and its fill is current | yes |
 | `drc.kicad` | KiCad's design-rule check on the board, unconnected items included | yes |
