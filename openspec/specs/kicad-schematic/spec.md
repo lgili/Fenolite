@@ -2,7 +2,9 @@
 
 ## Purpose
 Reading a KiCad schematic file into Fenolite's sheet model and writing it back unchanged for the same KiCad version: what of a `.kicad_sch` is modelled, what is kept as written, how a project's sheets form a tree, and how the result is checked against `kicad-cli` on the demo schematics of the corpus.
+
 ## Requirements
+
 ### Requirement: Schematic file reading
 `fenolite.backends.kicad.sch.read_schematic(source, *, file="", issues=None) -> SchematicSheet` SHALL read one `.kicad_sch` file, given as a path, file text or a parsed node, into the `SchematicSheet` of `design-model`, "Schematic sheet definitions", without writing any file and without running any tool.
 - The root head MUST be `kicad_sch`; any other root MUST raise `FormatError` (`FEN-3004`) naming the head.
@@ -393,7 +395,8 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **Labels.** Each pin that a net lists and that no snap wire joins MUST give one `NetLabel("global", netnames.stored_name(<net name>), <the pin's connection point>, shape="passive")`, turned away from the symbol body. Each pair of pins that a snap wire joins MUST give one such label, at the satellite's near pin, as "Readable sheet layout" places it. The sheets MUST hold no junction, no label of another kind and no wire other than snap wires.
 - **No-connect flags.** Each pin listed by `Circuit.no_connects` MUST give one `NoConnectFlag` at its connection point. A pin on no net without a mark MUST give neither a label nor a flag.
 - **Pins and pads.** Net members and marks are keyed by symbol pin number; with a `pin_pad_map`, the label or flag MUST be placed at the pin whose embedded number is the mapped pad number ("Embedded symbols of a generated sheet").
-- **Power flags.** Each net that is a member of an `Interface` with `kind == "power"`, and that no pin of type `power_out` of a component with `dnp == False` is on, MUST give one instance of `fenolite:PWR_FLAG` on the root sheet, with the reference `#FLG<nn>` (numbered from 01 in the order of net names), `in_bom` and `on_board` false, and one global label of the net at its pin.
+- **Power flags.** Each net that is a member of an `Interface` with `kind == "power"`, and that no pin of type `power_out` of a component with `dnp == False` is on, MUST give one instance of the power flag on the root sheet, with the reference `#FLG<nn>` (numbered from 01 in the order of net names), `in_bom` and `on_board` false, and one global label of the net at its pin.
+- **Library of the power flag.** The flag MUST be the symbol `PWR_FLAG` of the flag library, `symembed.flag_library(libraries)`: the first, in sorted order, of the symbol libraries of the design whose name differs from `fenolite` in letter case only, else `fenolite`. The symbol libraries of the design are the libraries of its parts' symbols and the libraries it authors (`generate_schematic(..., other_libraries=...)`), the built-in catalog's `Fenolite` among them. So a design with a part of the catalog has `Fenolite:PWR_FLAG`, and a design without such a library has `fenolite:PWR_FLAG`, as before change c0143: the files of its build MUST NOT differ from the files of a build that does not look for such a library.
 - **Page.** Every sheet's `title_block` MUST be the board's title block and its `paper` the paper that its own layout chose. The root's `pages` MUST be `(SheetPage("/", "1"),)`; a child's `pages` MUST be empty. Every sheet MUST embed, in `lib_symbols`, the definitions its own instances name, sorted by lib id, the power flag last on the root.
 - **Ids.** Ids MUST be derived from the design (`design-model`, "Identifiers of schematic entities"): the sheet from `<name>`, an instance from `<name>:<component path>#<unit>`, a pin label from `<name>:label:<component path>:<pin>`, a flag from `<name>:nc:<component path>:<pin>`, a power flag from `<name>:flag:<net name>` and its label from `<name>:label:flag:<net name>`, a child sheet from `<name>:<module path>`, a sheet reference from `<name>:sheet:<module path>`, a snap wire from `<name>:wire:<component path of its satellite>` and the label of its pair from `<name>:label:<component path of its satellite>:<near pin>`. KiCad uuids MUST come from `pcb.kicad_uuid`.
 - The function MUST NOT read or write a file, and two calls with equal arguments MUST return equal results.
@@ -426,6 +429,15 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 #### Scenario: Deterministic
 - **WHEN** `generate_schematic` runs twice on the blink and each sheet is written for target 10
 - **THEN** the two texts are byte-identical and hold no date and no absolute path
+
+#### Scenario: Catalog parts with a supply
+- **GIVEN** a design with `J1` of `Fenolite:Connector_2`, `U1` of `Fenolite:Linear_Regulator` and a `Power` interface of the nets on the regulator's `IN` and `GND` pins
+- **WHEN** it is built for target 9 and for target 10
+- **THEN** no issue is an error, the root sheet holds two instances of `Fenolite:PWR_FLAG` and none of `fenolite:PWR_FLAG`, and on `kicad-cli` of the running major the ERC report holds no `power_pin_not_driven`
+
+#### Scenario: Other designs keep their bytes
+- **WHEN** the blink of `examples/blink_2layer` is built for target 9 and for target 10
+- **THEN** its sheet holds `fenolite:PWR_FLAG`, its files equal those of a build in which `symembed.flag_library` always gives `fenolite`, and every committed golden is the one it was before change c0143
 
 ### Requirement: Pin connection points
 `fenolite.backends.kicad.schlayout.pin_point(origin, pin, rotation, mirror) -> Point` SHALL return the sheet position at which a pin connects: for a pin at (px, py) in the library frame, whose Y axis points up, the mirror is applied first (`"x"` negates py, `"y"` negates px), then the rotation by the instance angle, and the result (px′, py′) gives (x + px′, y − py′) for an instance at (x, y).
@@ -495,7 +507,7 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **Gate.** `versions.check_emittable` MUST run on the node for `target`; an error MUST raise `LossyWriteError`, or with `allow_lossy=True` remove the node of the token with one `kicad.sch.dropped-too-new` warning.
 - **Empty texts.** A pin name or a property text that the library writes `~` and its reader takes as empty MUST be embedded empty for a target whose sheet format reads `~` as a tilde (10.0), so the pin has no name on both majors.
 - **Authored symbols.** A symbol that the design authors has no slots; its node MUST be the one `sym.write_symbol_library` writes for it.
-- **Power flag.** `symembed.power_flag(target)` MUST return the authored definition `fenolite:PWR_FLAG`: flagged `power`, reference `#FLG`, one pin of type `power_out` numbered `1` at the origin with length 0, `in_bom` and `on_board` false, and a description that says it is authored for Fenolite. It MUST hold no content of any other library.
+- **Power flag.** `symembed.power_flag(target, library="fenolite")` MUST return the authored definition `<library>:PWR_FLAG`, `fenolite:PWR_FLAG` by default: flagged `power`, reference `#FLG`, one pin of type `power_out` numbered `1` at the origin with length 0, `in_bom` and `on_board` false, and a description that says it is authored for Fenolite. It MUST hold no content of any other library, and its node in a library file MUST be the same whatever the library. `symembed.flag_library(libraries)` MUST give the library of "Generated sheet content", and `symembed.is_power_flag(lib_id)` MUST be true exactly for `PWR_FLAG` of a library named `fenolite` in any letter case.
 - **Project library.** `symembed.write_symbol_library(symbols, *, target) -> str` MUST write a `.kicad_sym` text with the header of the target (`FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]`, generator `fenolite`) holding the same nodes under their bare names, sorted by name. `sym.read_symbol_library` MUST read it back with equal pins. A library whose symbols are all authored by the design and have no pin-pad variant MUST be the text of `sym.write_symbol_library`, whose header version is `FORMAT_VERSIONS[FileKind.SYMBOL_LIB][target]` too.
 
 #### Scenario: Derived symbol flattened
@@ -519,6 +531,10 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 #### Scenario: Flag is authored
 - **WHEN** `power_flag(10)` and `power_flag(9)` are read back
 - **THEN** each has `power` set, one pin of type `power_out`, and the reference `#FLG`
+
+#### Scenario: The flag in another library
+- **WHEN** `power_flag(10, "Fenolite")` and `power_flag(10)` are each written with `write_symbol_library`
+- **THEN** the two texts are equal, and the lib ids are `Fenolite:PWR_FLAG` and `fenolite:PWR_FLAG`
 
 ### Requirement: Names of unconnected-pin nets
 `fenolite.backends.kicad.netnames.unconnected_name(ref, *, unit, unit_count, pin_name, pad_number) -> str` SHALL return the net name KiCad derives for a pin on no net: `unconnected-(<ref><letter>-<pin text>-Pad<pad number>)` for a pin with a name, and `unconnected-(<ref>-Pad<pad number>)` for a pin whose name is empty.
@@ -556,7 +572,7 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 | `build.symbol-short` | error | two connection points of different units coincide |
 | `build.symbol-placement-unknown` | warning | the placements file names no unit of the design |
 | `build.symbol-placement-invalid` | error | a placement is off the grid, has an unknown key or an unproved rotation |
-| `build.reserved-library` | error | a design names a library `fenolite` |
+| `build.reserved-library` | error | a design names a library `fenolite`, or needs a power flag and holds a symbol `PWR_FLAG` in the library that holds the flag |
 | `build.schematic-replaced` | warning | an edited schematic file, the root or a child sheet, is replaced |
 | `build.sheet-file-collision` | error | two modules give one child sheet file |
 | `build.sheet-stale` | warning | a child sheet of the last build is no longer a sheet of the design, and is left in place |
@@ -667,7 +683,7 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 | `wire-unlabelled` | a wired group without a label |
 | `shared-point` | pins of two instances at one point, or several pins of one instance at a point that carries no label |
 | `frame` | an instance whose rotation and mirror are not in `schlayout.PROVED_FRAMES` |
-| `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than `fenolite:PWR_FLAG` |
+| `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than Fenolite's power flag (`symembed.is_power_flag`: `PWR_FLAG` of a library named `fenolite` in any letter case) |
 
 - The code and its severity MUST be `sch_netlist.ISSUE_CODES`; the closed set `sch.ISSUE_CODES` of "Schematic read issue codes" is not widened, because reading a sheet never gives this issue. `sch.opaque_heads(sheet) -> Counter[str]` MUST count the heads of the opaque slots of the sheet root, and MUST be empty for a sheet that was not read from a file.
 - `sch.opaque_wires(sheet) -> tuple[tuple[Point, ...], ...]` MUST give the points of each opaque root `wire` slot of a read sheet, in file order, and `()` for a created sheet.
@@ -698,6 +714,10 @@ Ids of items read from a schematic SHALL follow `design-model`, "Identifiers of 
 - **GIVEN** a generated sheet changed in the test so that its snap wire runs on through the near pin to a point beyond it
 - **WHEN** `grammar_issues` runs
 - **THEN** the issues hold the reasons `wire-end` and `wire-touch`
+
+#### Scenario: The flag of the catalog library is no power symbol
+- **WHEN** the own netlist of the built design of "Generated sheet content", scenario "Catalog parts with a supply", is read
+- **THEN** no `NetlistUnsupportedError` is raised, and the build's guard `build.schematic-netlist-differs` reports nothing
 
 ### Requirement: Readable sheet layout
 With `layout="readable"`, `schlayout.snap_satellites(units, nets, *, placements=None) -> tuple[Cluster, ...]` SHALL place, in one sheet, each 2-pin part that it can beside an IC pin of its net, joined to it by one straight wire, and SHALL return one `Cluster(anchor, satellites, wires, labels, boxes)` per anchor that took at least one satellite, in anchor order. `nets` maps (unit key, pin number) to the label text of that pin. Every position of a cluster is relative to the origin of its anchor: `satellites` holds each satellite's key and `SymbolPlacement`, `wires` one `SnapWire(satellite, anchor_pin, near_pin, start, end)` per satellite, `labels` one `SnapLabel(satellite, pin, at, angle)` per satellite, and `boxes` what the satellites, their wires and their labels cover.
@@ -766,4 +786,3 @@ With `layout="readable"` (the default), `generate_schematic` SHALL give each mod
 - **GIVEN** a top-level module `a.b` and a module `b` inside a module `a`, both with parts
 - **WHEN** the sheets are generated
 - **THEN** the issues hold `build.sheet-file-collision` naming `a.b` and `a/b`, and `children` is empty
-
