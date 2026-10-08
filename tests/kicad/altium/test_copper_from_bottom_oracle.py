@@ -20,13 +20,13 @@ are read with ``backends.kicad.pcb.read_board``:
 from __future__ import annotations
 
 import io
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from _buildhelp import blink_variant
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 import fenolite.cli.main as cli_main
@@ -96,7 +96,7 @@ def test_bottom_footprint_to_altium_and_back(
     proc = subprocess.run(
         [cli, "pcb", "import", "--format", "altium", "-o", str(target), str(document)],
         capture_output=True, text=True, timeout=300, check=False,
-        env={**os.environ, "KICAD_CONFIG_HOME": str(config)},
+        env=oracle_env(config),
     )  # fmt: skip
     assert target.is_file(), proc.stdout + proc.stderr
     source = read_board(board.read_text(encoding="utf-8"), file=board.name)

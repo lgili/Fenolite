@@ -5,6 +5,10 @@
 ``kicad-cli`` writes files next to the board it opens (S-0020), so every run copies its inputs to a
 fresh temporary folder, runs there with an isolated environment and returns the files the run
 created or changed. The caller's files are only ever read. Commands: S-0022 (10.0), S-0037 (9.0).
+
+Each run also gets its own temporary, runtime, cache and state folders (``private_state``, c0153), so
+parallel ``kicad-cli`` processes share no instance lock or cache file (``docs/formats/kicad/cli.md``,
+"Per-run state").
 """
 
 # evidence: see altium_import, helpmatrix, oracle, plot
@@ -47,6 +51,22 @@ def windows_kicad_clis() -> tuple[Path, ...]:
 
 
 CONFIG_DIR = "config"
+STATE_DIR = ".fenolite-state"
+"""The run folder's subfolder holding the run's private temporary, runtime, cache and state folders."""
+RESERVED_DIRS = (CONFIG_DIR, STATE_DIR)
+STATE_VARIABLES: tuple[tuple[str, str], ...] = (
+    ("TMPDIR", "tmp"),
+    ("TMP", "tmp"),
+    ("TEMP", "tmp"),
+    ("XDG_RUNTIME_DIR", "runtime"),
+    ("XDG_CACHE_HOME", "cache"),
+    ("XDG_STATE_HOME", "xdg-state"),
+)
+"""Each variable ``private_state`` sets and the subfolder it names: the temporary folder of POSIX
+(``TMPDIR``, S-0703) with the two other names Python's ``tempfile`` reads (``TEMP``, ``TMP``, S-0705),
+and the runtime, cache and state folders of the XDG Base Directory specification (S-0704). Configuration
+and data folders are not moved: ``KICAD_CONFIG_HOME`` is set apart, and fonts and user data are only
+read."""
 DRC_REPORT = "drc.json"
 ERC_REPORT = "erc.json"
 NETLIST = "out.net"
@@ -185,11 +205,12 @@ def _sha256(path: Path) -> str:
 
 
 def _files(root: Path) -> dict[str, Path]:
-    """Every regular file under ``root``, keyed by POSIX path relative to it, the config folder excluded."""
+    """Every regular file under ``root``, keyed by POSIX path relative to it, the config and state folders
+    excluded."""
     found: dict[str, Path] = {}
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
-        if rel.parts[0] == CONFIG_DIR or not path.is_file():
+        if rel.parts[0] in RESERVED_DIRS or not path.is_file():
             continue
         found[rel.as_posix()] = path
     return found
@@ -197,13 +218,29 @@ def _files(root: Path) -> dict[str, Path]:
 
 def _relative(name: str) -> PurePosixPath:
     rel = PurePosixPath(name)
-    if rel.is_absolute() or not rel.parts or ".." in rel.parts or rel.parts[0] == CONFIG_DIR:
-        raise ValueError(f"run file name {name!r} must be a relative path outside {CONFIG_DIR!r}")
+    if rel.is_absolute() or not rel.parts or ".." in rel.parts or rel.parts[0] in RESERVED_DIRS:
+        raise ValueError(f"run file name {name!r} must be a relative path outside {RESERVED_DIRS!r}")
     return rel
 
 
-def _environment(config: Path, extra: Mapping[str, str] | None) -> dict[str, str]:
+def private_state(root: Path) -> dict[str, str]:
+    """Create under ``root`` a temporary, runtime, cache and state folder readable by the owner only, and
+    return the variables of ``STATE_VARIABLES`` naming them: the state of one process or one run.
+
+    ``kicad-cli`` keeps an instance lock file under the system temporary folder, so processes that share
+    that folder share the file (c0153); with these variables each run has its own."""
+    found: dict[str, str] = {}
+    for variable, name in STATE_VARIABLES:
+        folder = root / name
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        folder.chmod(0o700)
+        found[variable] = str(folder)
+    return found
+
+
+def _environment(config: Path, state: Mapping[str, str], extra: Mapping[str, str] | None) -> dict[str, str]:
     environ = {key: value for key, value in os.environ.items() if not key.startswith("KICAD")}
+    environ.update(state)
     environ.update({"KICAD_CONFIG_HOME": str(config), "LANG": "C", "LC_ALL": "C"})
     environ.update(extra or {})
     return environ
@@ -268,7 +305,7 @@ class KicadCli:
                 proc = subprocess.run(
                     command,
                     cwd=tmp,
-                    env=_environment(config, env),
+                    env=_environment(config, self._state(tmp / STATE_DIR), env),
                     capture_output=True,
                     timeout=self.timeout,
                     check=False,
@@ -290,6 +327,10 @@ class KicadCli:
 
     def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
         return [str(self.path), *map(str, args)]
+
+    def _state(self, root: Path) -> dict[str, str]:
+        """The run's private state variables: ``private_state`` under ``root``."""
+        return private_state(root)
 
     def _checked(self, args: Sequence[str], files: Mapping[str, Path], what: str) -> CliRun:
         run = self.run(args, files=files)
@@ -525,6 +566,11 @@ class DockerCli(KicadCli):
             *map(str, args),
         ]
 
+    def _state(self, root: Path) -> dict[str, str]:
+        """None: each container has its own temporary folder (``--rm``), and the ``docker`` client keeps
+        the caller's ``XDG_RUNTIME_DIR``, where a rootless daemon's socket lives (S-0704)."""
+        return {}
+
 
 def cli_for(path: Path, *, timeout: float = 120) -> KicadCli:
     """Build the package runner for a binary path or ``docker:<image>`` marker."""
@@ -585,6 +631,9 @@ __all__ = [
     "MACOS_KICAD_CLI",
     "NETLIST",
     "RENDER_DIR",
+    "RESERVED_DIRS",
+    "STATE_DIR",
+    "STATE_VARIABLES",
     "CandidateSource",
     "CliCandidate",
     "CliRun",
@@ -599,4 +648,5 @@ __all__ = [
     "cli_for",
     "find_kicad_cli",
     "kicad_cli_candidates",
+    "private_state",
 ]

@@ -24,6 +24,7 @@ import pytest
 from _altium_kicad import PASTE_LAYERS, SLOT, Item, kicad_nm, match
 from _boards import census
 from _corpus import CorpusItem, manifest_items, require
+from _kicad import oracle_env
 from _resources import kicad_cli
 
 from fenolite.backends.altium.read.pcblib import PcbLibrary, read_pcblib
@@ -44,7 +45,7 @@ def _convert(row: str) -> tuple[int, tuple[FootprintDef, ...]]:
     assert cli is not None
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder) / "out.pretty"
-        env = {**os.environ, "KICAD_CONFIG_HOME": os.path.join(folder, "config")}
+        env = oracle_env(os.path.join(folder, "config"))
         proc = subprocess.run(
             [cli, "fp", "upgrade", str(source), "-o", str(target)],
             capture_output=True, text=True, timeout=300, env=env, check=False,

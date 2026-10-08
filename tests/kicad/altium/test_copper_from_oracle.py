@@ -31,6 +31,7 @@ from pathlib import Path
 import pytest
 from _altium import blink_tree
 from _altium_copper import routed_board_text, routed_script
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 import fenolite.cli.main as cli_main
@@ -96,7 +97,7 @@ def round_trip() -> RoundTrip:
         [cli, "pcb", "import", "--format", "altium", "--report-format", "json",
          "--report-file", str(report), "-o", str(target), str(out / "routed.PcbDoc")],
         capture_output=True, text=True, timeout=300, check=False,
-        env={**os.environ, "KICAD_CONFIG_HOME": str(root / "config")},
+        env=oracle_env(root / "config"),
     )  # fmt: skip
     assert target.is_file(), proc.stdout + proc.stderr
     found = json.loads(report.read_text(encoding="utf-8")) if report.is_file() else {}

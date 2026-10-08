@@ -18,10 +18,13 @@ from fenolite.backends.kicad.cli import (
     DRC_REPORT,
     ERC_REPORT,
     NETLIST,
+    STATE_DIR,
+    STATE_VARIABLES,
     KicadCli,
     KicadCliError,
     KicadCliVersionError,
     find_kicad_cli,
+    private_state,
 )
 
 pytestmark = posix_tools  # the fake tool of this file is a shell script
@@ -38,6 +41,18 @@ if args[:1] == ["version"]:
     sys.exit(0)
 if mode == "env":
     print(json.dumps({"cwd": os.getcwd(), "env": dict(os.environ)}))
+elif mode == "state":
+    found = {}
+    for name in ("TMPDIR", "TMP", "TEMP", "XDG_RUNTIME_DIR", "XDG_CACHE_HOME", "XDG_STATE_HOME"):
+        value = os.environ.get(name, "")
+        mode_bits = oct(os.stat(value).st_mode & 0o777) if os.path.isdir(value) else None
+        found[name] = [value, mode_bits]
+        if mode_bits:
+            open(os.path.join(value, "written"), "w").write("x")
+    record = os.environ.get("FAKE_RECORD")
+    if record:
+        open(record, "a").write(os.environ["TMPDIR"] + "\\n")
+    print(json.dumps(found))
 elif mode == "write":
     board = args[-1]
     open(board.rsplit(".", 1)[0] + ".kicad_prl", "w").write("{}")
@@ -136,6 +151,75 @@ def test_env_entries_are_added(fake: Path, board: Path, monkeypatch: pytest.Monk
     assert json.loads(run.stdout)["env"]["KICAD10_SYMBOL_DIR"] == "/probe"
 
 
+STATE = {
+    "TMPDIR": "tmp",
+    "TMP": "tmp",
+    "TEMP": "tmp",
+    "XDG_RUNTIME_DIR": "runtime",
+    "XDG_CACHE_HOME": "cache",
+    "XDG_STATE_HOME": "xdg-state",
+}
+
+
+def test_private_state_folders(tmp_path: Path) -> None:
+    """c0153: ``private_state`` makes one owner-only folder per kind and names it in its variables."""
+    found = private_state(tmp_path / "s")
+    assert found == {name: str(tmp_path / "s" / folder) for name, folder in STATE.items()}
+    assert dict(STATE_VARIABLES) == STATE
+    for value in found.values():
+        assert Path(value).is_dir() and Path(value).stat().st_mode & 0o777 == 0o700
+    assert private_state(tmp_path / "s") == found  # a second call keeps the folders
+
+
+def test_env_private_state(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """c0153: every run has its own temporary, runtime, cache and state folders inside its run folder,
+    whatever the caller's are, and what the tool writes there is not an output."""
+    monkeypatch.setenv("FAKE_MODE", "state")
+    for name in STATE:
+        monkeypatch.setenv(name, "/shared")
+    run = KicadCli(fake).run(["sch", "erc", "b.kicad_pcb"], files={"b.kicad_pcb": board})
+    assert run.ok
+    record = json.loads(run.stdout)
+    assert record == {name: [f"<tmp>/{STATE_DIR}/{folder}", "0o700"] for name, folder in STATE.items()}
+    assert run.outputs == {}
+
+
+def test_private_state_per_run_and_removed(
+    fake: Path, board: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """c0153: eight runs at once get eight temporary folders, and none is left afterwards."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    monkeypatch.setenv("FAKE_MODE", "state")
+    monkeypatch.setenv("FAKE_RECORD", str(tmp_path / "tmpdirs.txt"))
+    cli = KicadCli(fake)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        runs = list(pool.map(lambda _: cli.run(["x"], files={"b.kicad_pcb": board}), range(8)))
+    assert all(run.ok for run in runs)
+    folders = (tmp_path / "tmpdirs.txt").read_text().split()
+    assert len(folders) == 8 == len(set(folders))
+    assert not any(Path(folder).exists() for folder in folders)
+
+
+def test_state_entries_can_be_given(fake: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An explicit ``env`` entry still wins, as it does over ``KICAD_CONFIG_HOME``."""
+    monkeypatch.setenv("FAKE_MODE", "env")
+    run = KicadCli(fake).run(["x"], files={}, env={"TMPDIR": "/probe"})
+    env = json.loads(run.stdout)["env"]
+    assert env["TMPDIR"] == "/probe" and env["TMP"] == f"<tmp>/{STATE_DIR}/tmp"
+
+
+def test_oracle_env_of_the_tests(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """c0153: the environment of the tests that run ``kicad-cli`` themselves keeps their configuration
+    folder and adds private state folders beside it."""
+    from _kicad import oracle_env
+
+    monkeypatch.setenv("TMPDIR", "/shared")
+    env = oracle_env(tmp_path / "config")
+    assert env["KICAD_CONFIG_HOME"] == str(tmp_path / "config")
+    assert {name: env[name] for name in STATE} == private_state(tmp_path / "kicad-state")
+
+
 def test_source_folder_unchanged(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FAKE_MODE", "write")
     before = _digests(board.parent)
@@ -190,7 +274,7 @@ def test_sanitised_output(fake: Path, board: Path, tmp_path: Path, monkeypatch: 
 
 
 def test_bad_names_refused(fake: Path, board: Path) -> None:
-    for name in ("/abs.kicad_pcb", "../up.kicad_pcb", "config/x"):
+    for name in ("/abs.kicad_pcb", "../up.kicad_pcb", "config/x", ".fenolite-state/x"):
         with pytest.raises(ValueError, match="relative path"):
             KicadCli(fake).run(["x"], files={name: board})
 

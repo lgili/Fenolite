@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Parallel `kicad-cli` runs no longer share KiCad's instance lock file** (c0153). Every run of the package runner now gets its own temporary, runtime, cache and state folders (`TMPDIR`, `TMP`, `TEMP`, `XDG_RUNTIME_DIR`, `XDG_CACHE_HOME`, `XDG_STATE_HOME`) beside its own `KICAD_CONFIG_HOME`, removed with the run, so `fenolite` commands run side by side, and the oracle tests on parallel workers, no longer race on `/tmp/org.kicad.kicad/instances/kicad-cli-<major>.0` ("Invalid lock file"). The Docker runner is unchanged (each container has its own `/tmp`). Outputs do not change; a project folder named `.fenolite-state` is now a reserved name, like `config`.
+
 ## [0.3.0] - 2026-10-08
 
 ### Added

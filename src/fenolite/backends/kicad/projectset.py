@@ -24,7 +24,7 @@ from pathlib import Path, PurePosixPath
 
 from fenolite.backends.base import ProjectSet, SkippedFile, SkipReason
 from fenolite.backends.kicad import _json
-from fenolite.backends.kicad.cli import CONFIG_DIR
+from fenolite.backends.kicad.cli import RESERVED_DIRS
 from fenolite.backends.kicad.libs import LibRow, read_lib_table
 from fenolite.backends.kicad.pro import read_project
 from fenolite.core.errors import FenoliteError, FormatError
@@ -121,7 +121,7 @@ class _Planner:
         name = PurePosixPath(target.relative_to(self.real_root).as_posix()).as_posix()
         if name in self.files:
             return None
-        if name.split("/")[0] == CONFIG_DIR:
+        if name.split("/")[0] in RESERVED_DIRS:
             return self.skip(name, "reserved-name")
         exists = target.exists() if folder is None else (target.is_dir() if folder else target.is_file())
         if not exists:

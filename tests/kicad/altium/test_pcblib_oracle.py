@@ -15,7 +15,6 @@ back as ``User.<n>`` (``pcb-records.md``, "Layers").
 
 from __future__ import annotations
 
-import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -26,6 +25,7 @@ from pathlib import Path
 import pytest
 from _altium import blink, blink_resolver
 from _cfb_read import read_compound
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium.cfb import storage_from_paths, write_compound
@@ -62,7 +62,7 @@ def convert(data: bytes, name: str = "blink.PcbLib") -> Converted:
         root = Path(folder)
         source, target = root / name, root / "out.pretty"
         source.write_bytes(data)
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "fp", "upgrade", str(source), "-o", str(target)],
             capture_output=True,

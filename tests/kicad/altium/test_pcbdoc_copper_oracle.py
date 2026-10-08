@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -32,6 +31,7 @@ from pathlib import Path
 
 import pytest
 from _altium_copper import NAME, PLANE, at, plane_model, routed_build, routed_model
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.kicad.pcb import read_board
@@ -94,7 +94,7 @@ def imported(name: str) -> tuple[Imported, Design]:
         assert not [found for found in output.issues if found.severity == "error"]
         source, target, report = root / f"{NAME}.PcbDoc", root / "b.kicad_pcb", root / "r.json"
         source.write_bytes(output.files[f"{NAME}.PcbDoc"])
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "pcb", "import", "--format", "altium", "--report-format", "json",
              "--report-file", str(report), "-o", str(target), str(source)],

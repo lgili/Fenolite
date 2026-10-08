@@ -77,6 +77,16 @@ def test_skipped_rows(tmp_path: Path) -> None:
     assert [s.name for s in project.skipped if s.reason == "missing"] == ["libs/Gone.pretty"]
 
 
+def test_state_folder_is_a_reserved_name(tmp_path: Path) -> None:
+    """c0153: a row naming the runner's state folder is skipped like one naming its config folder."""
+    root = authored_project(tmp_path, major=10, decoys=False)
+    (root / ".fenolite-state" / "Z.pretty").mkdir(parents=True)
+    _table(root, LibRow("Z", "KiCad", "${KIPRJMOD}/.fenolite-state/Z.pretty"))
+    project = project_set(root)
+    assert [(s.name, s.reason) for s in project.skipped] == [(".fenolite-state/Z.pretty", "reserved-name")]
+    assert set(project.files) == CORE
+
+
 def test_size_limit(tmp_path: Path) -> None:
     root = authored_project(tmp_path, major=10, decoys=False)
     core = sum((root / name).stat().st_size for name in CORE)

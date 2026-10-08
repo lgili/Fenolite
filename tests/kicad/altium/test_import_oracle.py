@@ -27,6 +27,7 @@ from typing import TypeVar
 import pytest
 from _altium_kicad import KNOWN_IMPORT_FAILURES
 from _corpus import manifest_items, require
+from _kicad import oracle_env
 from _resources import kicad_cli
 
 from fenolite.backends.altium.adapter import import_board
@@ -60,7 +61,7 @@ def _kicad(name: str) -> Design:
         copy = Path(folder) / "board.PcbDoc"
         copy.write_bytes(_source(name).read_bytes())
         target = Path(folder) / "board.kicad_pcb"
-        env = {**os.environ, "KICAD_CONFIG_HOME": os.path.join(folder, "config")}
+        env = oracle_env(os.path.join(folder, "config"))
         done = subprocess.run(
             [cli, "pcb", "import", "--format", "altium", "-o", str(target), str(copy)],
             capture_output=True, text=True, timeout=900, env=env, check=False,
