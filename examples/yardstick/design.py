@@ -50,6 +50,8 @@ SUPPLY = {"VIN48": "48V", "+12V": "12V", "+5V": "5V", "+3V3": "3.3V"}  # supply 
 
 # The board and its floor plan, in millimetres; chosen for the example.
 BOARD = (250, 110)  # width and height; chosen for the example
+ORIGIN = (0, 0)  # the top-left corner of the board in the frame of place(); chosen for the example
+CORNER = 3  # the radius of the board's four rounded corners; chosen for the example
 CELL = (36, 48)  # one channel cell, width and height; chosen for the example
 CELLS_AT = (62, 8)  # the corner of the first channel cell; chosen for the example
 STRIP = (223, 20, 246, 90)  # the high-voltage strip: left, top, right, bottom; chosen for the example
@@ -698,9 +700,12 @@ def rectangle(left: float, top: float, right: float, bottom: float) -> tuple[tup
 
 design = Design("yardstick")
 width, height = BOARD
-# A rectangle: a board declared with outline= (a rounded one) takes no stack-up and no rule area on this
-# base (docs/evidence/yardstick.md, "Stages").
-design.board(mm(width), mm(height), copper=COPPER, planes=PLANES)
+left, top = ORIGIN
+design.board(
+    outline=shape.rect(mm(left), mm(top), mm(width), mm(height), radius=mm(CORNER)),
+    copper=COPPER,
+    planes=PLANES,
+)
 design.stackup(*stack.preset(STACKUP), finish=FINISH, impedance_controlled=True)
 design.sheet("A3")
 for axis, top, end in SLOTS:

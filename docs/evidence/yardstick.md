@@ -36,7 +36,7 @@ official KiCad libraries is kept here.
 |---|---|---|---|
 | 1 | waiting | four copper layers with inner zones, classes, minimums, the high-voltage clearance and creepage rules, the `USB2` interface, the built schematic, BOM, placement table and manifest | the first scheduled run of the job with the verdict `passed` (task 5.2 of c0119) |
 | 2 | waiting | six copper layers (`GND` on In1.Cu, `+3V3` and `VIN48` on In4.Cu, `HV_RTN` on both under the strip) and the stack-up preset `six-layer-1.6mm` (S-0722), impedance-controlled, ENIG | the same run (complete for 0.4: c0100, c0101) |
-| 3 | waiting | slots under the two isolators and the creepage minimum raised to 7.5 mm, four plated `design.hole` mounting holes with keep-outs of tracks and vias, the strip as the rule area `HV` with a clearance of 0.6 mm between its `HV` nets, the class `USB` with pair values, the pair's gap, clearance, uncoupled, skew and length rules, the impedance target `USB90`, filled and capped thermal via arrays in the controller's exposed pad and the eight high-side tabs, `near` rules for the decoupling, the crystal and the gates, the net tie `NT1` between `GND` and `SGND`; the step `impedance` | the same run (complete for 0.4: c0102, c0103, c0104, c0105, c0111, c0112, c0113, c0114); the rounded outline of c0102 is left out (below); part heights (c0140) take no part: the example has no lid |
+| 3 | waiting | a board outline with corners rounded to 3 mm, slots under the two isolators and the creepage minimum raised to 7.5 mm, four plated `design.hole` mounting holes with keep-outs of tracks and vias, the strip as the rule area `HV` with a clearance of 0.6 mm between its `HV` nets, the class `USB` with pair values, the pair's gap, clearance, uncoupled, skew and length rules, the impedance target `USB90`, filled and capped thermal via arrays in the controller's exposed pad and the eight high-side tabs, `near` rules for the decoupling, the crystal and the gates, the net tie `NT1` between `GND` and `SGND`; the step `impedance` | the same run (complete for 0.4: c0102, c0103, c0104, c0105, c0111, c0112, c0113, c0114); part heights (c0140) take no part: the example has no lid |
 | 4 | waiting | `In1.Cu` and `In4.Cu` typed as planes; the steps `route-pairs` (KiCadRoutingTools, the pair and the controller's escape), `route` (Freerouting, plane fan-out, `--timeout 3600` and two tiers), `fill-routed`, `check-routed` against the ratchets, `net` and `analyze` (clearance, creepage with the 1 mm groove, insulation) | the same run (complete for 0.4: c0106, c0107, c0108, c0109, c0110, c0115); c0110's `pairs` and `escape` features stay undeclared in 0.4 (its gate is deferred), so `route-pairs` routes nothing and the pair stays open, counted by the ratchets |
 | 5 | waiting | three global fiducials, two tooling holes and five test points; the steps `export-package` (IPC-2581, ODB++, STEP, board PDF and DXF, schematic PDF, fabrication and assembly drawings, with the manifest) and `testpoints` | the same run (complete for 0.4: c0116, c0117, c0118) |
 
@@ -46,11 +46,12 @@ as archived for the example (`complete for 0.4` above, which `tools/yardstick.py
 Because the stages are cumulative, the first scheduled run with the verdict `passed` reaches the five
 stages together; a failed one names the step and the rule, and so the stage, that stopped it.
 
-**Left out of stage 3: the rounded outline.** On this base `Design.stackup()`, `Design.rule_area()` and
-the board drawings refuse a board declared with `board(outline=…)` ("call board() first"): they test the
-size that only `board(width, height)` sets. Found by the example on 2026-10-08 with
-`design.board(outline=shape.rect(…, radius=…), copper=6)` followed by `design.stackup(…)`; the repair
-belongs to c0101, c0102 and c0103, and the example keeps the rectangle until it lands.
+**The rounded outline of stage 3 came late.** Until 2026-10-08 `Design.stackup()`, `Design.rule_area()`
+and the board drawings refused a board declared with `board(outline=…)` ("call board() first"): they
+tested the size that only `board(width, height)` sets. The example found it with
+`design.board(outline=shape.rect(…, radius=…), copper=6)` followed by `design.stackup(…)` and kept a
+rectangle until the repair (corrections C1 of c0101 and c0103, the same day); it now declares the rounded
+outline.
 
 ## Runs
 
