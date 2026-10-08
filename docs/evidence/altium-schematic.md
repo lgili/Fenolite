@@ -500,7 +500,24 @@ author report never moves an operation out of `experimental`. Stating the outcom
 
 #### Reports
 
-None yet.
+**2026-10-08, `AD 26.5`, session 2 (S-0615).** Altium Designer 26.5.0 on the maintainer's own PC, a licence
+he may use for Fenolite (`LEGAL.md`, block A), on the folder `O-outjob/` of the session pack built from
+commit `695574ba` (the three jobs have the digests of the table above). His report: every output of the job
+was produced, the Gerber layer files among them, where the job of session 1 produced no layer file. Per step:
+
+- **O1 and O3.** The project and its job opened, and both containers generated their outputs, Gerber layer
+  files beside drill, pick and place, bill of materials and the prints. Confirms `H-A-OUTJOB-RUN-2`
+  (`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact)`).
+- **O3, the list.** The extensions and the count of the layer files were not reported, so
+  `H-A-OUTJOB-GERBER-LAYERS` stays pending with this observation.
+- **O5, O6, O7 and O8.** Not reported as values (the units, the decimals and the plotted layers of the
+  setup, the board outline entry, the six-layer job with its plane, the job of precision 6):
+  `H-A-OUTJOB-GERBER-ACCEPT`, `-PLANE`, `-DECIMALS` and `H-A-OUTJOB-OPTIONS-2` stay pending.
+- **O-S1.** Not stated with a minor version: `H-A-OUTJOB-GERBER-EMPTY` stays pending.
+
+The defect of session 1, a job that plotted no Gerber layer, is repaired by change c0138 as far as this
+report goes: the written job now yields Gerber files in Altium Designer 26.5. No file that Altium wrote is
+committed, and an author report moves no write kind out of `experimental`.
 
 ## Part W: the sheet template and the drawing sheet in Altium Designer
 
@@ -738,6 +755,22 @@ may read differently in version 26.
 
 No report yet: the three rows are `INFERRED`, "pending (author report)". The one thing reported so far, the
 black page of the first files on 2026-10-07, is no step of this part and moves no row.
+
+**Report of 2026-10-08, `AD 26.5`, session 2, step R1 only (S-0615).** Altium Designer 26.5.0, on the files
+of the table above (the folder `R-repeated-sheet/` of the session pack).
+
+- **The page.** Both sheets show a pale page with their objects: the black page of the first files is
+  gone. Confirms `H-A-SCHDOT-AREACOLOR` for what its criterion asks, without isolating the area colour.
+- **The child sheet.** It attached to the sheet symbol only after Altium's "Synchronize Sheet Entries and
+  Ports". After that the project compiled and showed the channels, with designators such as `R1_CH1` and
+  `C12_CH1`.
+- **The bus.** The bus did not split into the channels: the nets `OUT1` and `OUT2` each held one pin, and
+  Altium treated the entry `Repeat(OUT)` as a wire on a bus. **An open defect, not graduated.** Whether it
+  lies in the authored sheets (the entries that Altium had to synchronize, the bus that the writer draws
+  beside an entry) or in the statement of `H-A-IMP-RPT-NETS` is not known; the follow-up change c0151 is
+  proposed for it.
+- **Steps R2, R3 and R4.** Not done: owed. `H-A-IMP-RPT-COUNT` (its board half is R3), `H-A-IMP-RPT-NETS`
+  and `H-A-IMP-RPT-FORMAT` stay `INFERRED`, the first two with the observation above.
 
 ## Recording a report
 
@@ -1255,3 +1288,28 @@ opened a rebuilt kit or session file in Altium yet.
 digests; every committed schematic document and library differs from its former bytes in bit 0x20 of each
 pin alone (`tests/_pin_bits.py`). The tables that name the files in the maintainer's session folders
 (Parts L, N, W, Y and R) keep the digests of what he was given: those files hold pins without 0x20.
+
+## Session 2 of 2026-10-08
+
+The maintainer's second session of Altium work, in Altium Designer 26.5.0 on his own PC (S-0615), on the
+session pack built from commit `695574ba`. What it gave for the schematic side:
+
+- **Part O** (change c0138): every output of the job with the Gerber settings record was produced, Gerber
+  layer files among them; `H-A-OUTJOB-RUN-2` is confirmed and the rows that need a value of the setup stay
+  pending (Part O, "Reports").
+- **Part P** (change c0148): the pin visibility bits, recorded under "Pin visibility bits" above.
+- **Part S** (change c0134): the five symbols the author named on 2026-10-07 (`BJT_NPN`, `Comparator`,
+  `Operational_Amplifier`, `Linear_Regulator`, `CONN2`), on the sheet `simbolos.SchDoc` of the pack. His
+  answer to step S1: "ficou bom" (it looked good). No pin text over another text or a line was reported.
+  No register row names this check: change c0134 registered none, and `H-A-SCHX-GRAPHICS` asks for the
+  four symbols of Part Y against their pictures, which this step did not compare. The pack's symbols hold
+  pins without bit 0x20 (it was built before change c0148).
+- **Part R** (changes c0083 and c0146): step R1 only, under Part R above. The sheets are no longer black;
+  the bus of `Repeat(OUT)` does not split into the channels, an open defect.
+- **Not done, owed:** steps R2 to R4 of Part R, the Part K kit run (see `docs/evidence/altium-kit/README.md`
+  for the maintainer's decision on it), and Parts X8, V and G of the PCB page.
+
+The maintainer also stated, for the record of 0.3.0, that the schematic libraries, PCB libraries,
+schematic documents and PCB documents that Fenolite writes were opened and compiled in Altium Designer 24
+before and in 26 now. That is an author report of opening and compiling without a step, a value or a
+version beyond the major; it raises no row and no release claim.

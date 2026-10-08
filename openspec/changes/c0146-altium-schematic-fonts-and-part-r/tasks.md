@@ -22,6 +22,7 @@
   - **2026-10-08.** The folder holds `README.md`, `two.PrjPcb`, `two.SchDoc` and `two_ch.SchDoc`; the three digests are those of the table; the older folder was read before and after and is unchanged. The files of Part W in the maintainer's folders were not built again: the page says that they hold four fonts.
 - [ ] 2.4 The maintainer's Altium session 2, Part R, steps R1 to R4. Proof: the report is recorded under "Reports" of `docs/evidence/altium-schematic.md` and the rows it names are moved or kept with their reason.
   - **2026-10-08.** Open: no Altium step is run by an agent. The files and the guide are built.
+  - **2026-10-08, later (release 0.3.0).** Step R1 reported (Altium Designer 26.5.0, S-0615), recorded under Part R of `docs/evidence/altium-schematic.md`: the sheets are no longer black, so the black page of 2026-10-07 is settled (`H-A-SCHDOT-AREACOLOR` confirmed as an author report); the child sheet attaches only after "Synchronize Sheet Entries and Ports", and then the channels compile (`R1_CH1`, `C12_CH1`) but the bus of `Repeat(OUT)` does not split (the nets `OUT1` and `OUT2` hold one pin each): an open defect, follow-up change c0151 proposed. Steps R2 to R4 not done. Left open until they are.
 
 ## 3. Closing
 

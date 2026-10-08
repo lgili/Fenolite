@@ -37,3 +37,28 @@ made Altium rewrite the kit's own project file; with that file restored, five st
 a difference; `fenolite kit record` would refuse the folder. No `H-A-KIT-*` row moves. The account is on
 `docs/evidence/altium-pcb.md` ("Returned folders of 2026-10-07"); the kit's own defects it showed are
 change c0139.
+
+## The maintainer's decision of 2026-10-08 for 0.3.0, and the revalidation it owes
+
+On 2026-10-08 the maintainer decided that the kit did not change since his run of 2026-10-07 and that it is
+accepted as validated by that run for the release 0.3.0 (S-0615). The kit run of session 2 (Part K) was not
+made.
+
+- **What the decision is.** An exception, by the maintainer, to the condition of change c0092 that a write
+  kind needs `ALTIUM-VERIFIED(kit)` from a recorded run that is not stale. It is recorded in the release
+  record of 0.3.0 (`docs/release/v0.3.md`) and under task 3.1 of c0092.
+- **What it is not.** No run record is written, no run id or archive digest exists, and no row carries
+  `ALTIUM-VERIFIED(kit)`: the run of 2026-10-07 was refused by `fenolite kit verify` as returned (above), its
+  form was empty, and `fenolite kit record` would refuse the folder. No `H-A-KIT-*` row moves.
+- **What this page also records.** The kit that the tree builds is not the kit of the folder of 2026-10-07
+  byte for byte: since then change c0134 changed the pin texts of the catalog symbols the samples place,
+  change c0144 added the pin-map records of the LED `D1` to the schematics of four samples, and change c0148
+  sets bit 0x20 on every pin of every schematic document and schematic library it writes. The boards are
+  unchanged by the three.
+- **Revalidation, owed after 0.3.0.** The kit is to be run again in Altium on the kit that the tree builds,
+  verified with `fenolite kit verify` and recorded with `fenolite kit record --confirm`, with its archive
+  published as this page says. That recorded run is also the revalidation of change c0148 (the pin bits of
+  every schematic document and schematic library) in the kit's own steps. The exception holds for 0.3.0
+  only; after it, the kit condition of c0092 asks for this recorded run. In 0.3.0 no write kind left
+  `experimental` in any case: each fails another condition of the rule (`docs/release/v0.3.md`,
+  "Graduation of the Altium write").

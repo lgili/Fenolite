@@ -96,7 +96,7 @@ the settling test and the result of an id are in its register row.
 | `H-A-OUTJOB-GERBER-RECORD` | INFERRED |
 | `H-A-OUTJOB-OPEN` | INFERRED |
 | `H-A-OUTJOB-READBACK` | INFERRED |
-| `H-A-OUTJOB-RUN-2` | INFERRED |
+| `H-A-OUTJOB-RUN-2` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact) |
 | `H-A-PCB-CU-CLASS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
 | `H-A-PCB-CU-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) |
 | `H-A-PCB-CU-PLANE` | INFERRED |

@@ -21,5 +21,6 @@
   - **2026-10-07.** The changelog line says in bold that no finding changes (there is no change of behaviour to announce). The counts of the runs are in the final report of the stack.
 - [ ] 3.3 The maintainer's Altium session 2, steps D4 to D6 of `openspec/changes/c0088-altium-light-drc/design.md` ("Session 2: the same copper in Altium's own check"): required, not optional. Proof: c0131's design holds his one-line answer under "Decisions (2026-10-07)", and the follow-up it names is opened or closed.
   - **2026-10-07.** Open: no Altium step is run by an agent. The document, the rule, the pad, the net and the places are written out; nothing is built.
+  - **2026-10-08 (release 0.3.0).** The answer is in the design, "Decisions (2026-10-07)", item 5 (S-0616): D4 done with the Clearance rules only; D5, Altium Designer 26.5.0 shows 0 violations where Fenolite reports 7; D6, pad `J2-1` shows 63.78 × 63.78 mil (two decimals), which agrees with 63.7795 mil. The follow-up that the design names for N = 0 is proposed as c0152 and not opened, so the task stays open until it is.
 - [ ] 3.2 Run the full suite once on the rebased branch. Proof: `make check` passes.
   - **2026-10-07.** Not run here: the coordinator runs it once at the merge.

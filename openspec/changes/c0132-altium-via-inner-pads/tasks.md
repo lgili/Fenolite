@@ -34,5 +34,6 @@
   - **2026-10-07.** 9 085 passed, 2 skipped, exit code 0.
 - [ ] 4.3 The author report of `H-A-IMP-VIA-PADLESS` (design, "Hypotheses"): a four-layer board whose inner layers have the ids 3 and 5, one via used on the outer layers only, "Remove Unused Pad Shapes" run for vias, saved; the bytes 209 to 240 of its record read with `fenolite`. Proof: the hypothesis row holds the maintainer's result.
   - **2026-10-07.** Open: no Altium step is run by an agent. Nothing is built for it: the board is the maintainer's to draw. A second question for the same session: what the nine further bytes of the long record are (save the via before and after the tool ran, and after the option for the start and end layers is changed).
+  - **2026-10-08.** Part V of the maintainer's session 2 was not done (`docs/evidence/altium-pcb.md`, "Session 2 of 2026-10-08"); owed after 0.3.0.
 - [ ] 4.4 Run the full suite once on the rebased branch. Proof: `make check` passes.
   - **2026-10-07.** Not run here: the coordinator runs it once at the merge.

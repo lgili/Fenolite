@@ -825,3 +825,34 @@ exist: both support their rows and settle neither, because the step's own report
 
 What the saved files show of the formats (keys that Altium adds, drops or reorders on a save) is input for
 the format pages and is recorded there in a change of its own.
+
+## Session 2 of 2026-10-08
+
+The maintainer's second session of Altium work, in Altium Designer 26.5.0 on his own PC, a licence he may
+use for Fenolite (`LEGAL.md`, block A), on the session pack built from commit `695574ba` (S-0615), and on
+one public document opened read-only (S-0616). Nothing that Altium wrote is in the repository.
+
+- **Part K, the kit.** No kit run was recorded. The maintainer decided on 2026-10-08 that the kit did not
+  change since his run of 2026-10-07 and is accepted as validated by that run for the release 0.3.0; the
+  decision, what it does not do and the revalidation it asks for are in
+  `docs/evidence/altium-kit/README.md`. No `H-A-KIT-*` row moves and no `ALTIUM-VERIFIED(kit)` label exists.
+- **The LED `D1` on the board** (changes c0144 and c0147): pad 1 on `GND`, pad 2 on `LED_A`, as the model
+  says (the cathode on pad 1 of the cathode-first land). Whether the schematic of `flat` shows `GND` on pin
+  2 (`K`) of `D1` was not stated.
+- **Part D on a public document** (change c0131, steps D4 to D6 of
+  `openspec/changes/c0088-altium-light-drc/design.md`; S-0616): on `altium-third-party-pcbdoc-03`, not
+  repoured and not saved, Altium's rule check with the Clearance rules only.
+  - **D4.** Done, with the Clearance rules alone.
+  - **D5.** Altium shows **0** violations of `Clearance_2` between pad `J2-1` and the track of `Net*_4`.
+    Fenolite reports 7 there, all 8 to 9 nm short of the rule's 127 000 nm (gaps of 126 991 and 126 992
+    nm). Fenolite's check is stricter than Altium's by that rounding: the pairs are no finding for Altium.
+  - **D6.** The properties panel shows pad `J2-1` as 63.78 mil by 63.78 mil, with two decimals. That agrees
+    with Fenolite's reading of 63.7795 mil and cannot tell it from a pad of 63.78 mil.
+  - **What follows.** By the design of c0088 (N = 0), the seven findings of `-03` are not findings of the
+    board for Altium; the 18 others of their class (2 on `-01`, 16 on `-08`) were not checked in Altium.
+    D6 does not show the pad-size fact that
+    Fenolite reads otherwise, so the cause is open: a follow-up change, c0152, is proposed to find it
+    (the size of the pad, the rounding of the gap, or Altium's own tolerance). Until then the findings
+    stay errors, as c0131 decided, and no tolerance is added.
+- **Parts X8 (c0121), V (c0132) and G (c0126).** Not done: owed. `--altium-bodies extruded` stays off by
+  default, and the rows of the three parts are where they were.
