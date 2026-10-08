@@ -2,7 +2,9 @@
 
 ## Purpose
 What a Fenolite release has to prove before it is tagged: a second example board, the acceptance loop on both examples and both KiCad majors, an agent guide whose commands are run by tests, a release record that names the proof and the limits of every acceptance item, a build from a clean checkout, and the version change.
+
 ## Requirements
+
 ### Requirement: Second example board
 `examples/board_40parts/design.py` SHALL be an authored design of exactly forty parts that builds with no fetch, from the authored mini library through the folder's own `fp-lib-table` and `sym-lib-table`.
 - The file MUST start with `# SPDX-License-Identifier: CC0-1.0` and the line stating that it was authored for Fenolite.
@@ -318,26 +320,26 @@ A version `0.2.N` with `N` from 1 SHALL be a patch release: fixes of defects of 
 - **Residue.** `docs/evidence/residue-history.md` MUST hold one row with the tag `v0.2.N`, the private gate `not run` and `0` hits for every patch release the record names, as it does for `v0.2.0`, and the guard MUST fail when a row is missing or claims the private gate `on`.
 
 #### Scenario: Patch release recorded
-- **WHEN** `uv run pytest tests/unit/test_release_record_v02.py -k patch` reads the committed record, changelog and history page at version `0.2.1`
-- **THEN** the record holds `### 0.2.1` with its table, every proof and every job of it exists, the headings of the changelog are `Unreleased`, `0.2.1`, `0.2.0`, `0.1.0`, and the history page holds the row `v0.2.1`
+- **WHEN** `uv run pytest tests/unit/test_release_record_v02.py -k patch` reads the committed record, changelog and history page at version `0.2.2`
+- **THEN** the record holds `### 0.2.1` and `### 0.2.2`, each with its table, every proof and every job of them exists, the headings of the changelog are `Unreleased`, `0.2.2`, `0.2.1`, `0.2.0`, `0.1.0`, and the history page holds the rows `v0.2.1` and `v0.2.2`
 
 #### Scenario: Version without a subsection
-- **GIVEN** the committed record, which holds `### 0.2.1` only, and the version `0.2.2`
+- **GIVEN** the committed record, whose last subsection is `### 0.2.N`, and the version `0.2.<N+1>`
 - **WHEN** the guard runs on it
-- **THEN** it fails and names `0.2.2`
+- **THEN** it fails and names `0.2.<N+1>`
 
 #### Scenario: Patch row with a missing proof
-- **GIVEN** a copy of the record whose table of `0.2.1` names the proof `tests/unit/lens/test_missing.py`
+- **GIVEN** a copy of the record whose table of one patch release names the proof `tests/unit/lens/test_missing.py`, for each patch release the record names
 - **WHEN** the guard runs on it
 - **THEN** it fails and names the row
 
 #### Scenario: Patch row taken from the acceptance
-- **GIVEN** a copy of the record whose table of `0.2.1` holds a row with the item `c0070`, which is an item of the table of v0.2b
+- **GIVEN** a copy of the record whose table of one patch release holds a row with the item `c0070`, which is an item of the table of v0.2b, for each patch release the record names
 - **WHEN** the guard runs on it
 - **THEN** it fails and names `c0070`
 
 #### Scenario: Patch sections out of order
-- **GIVEN** a changelog whose headings are `Unreleased`, `0.2.0`, `0.2.1`, `0.1.0`, and one whose headings are `Unreleased`, `0.2.0`, `0.1.0` while the record names `0.2.1`
+- **GIVEN** a changelog whose headings are `Unreleased`, `0.2.0`, `0.2.1`, `0.1.0`, and one whose headings are `Unreleased`, `0.2.0`, `0.1.0` while the record names `0.2.1`; and, while the record names `0.2.1` and `0.2.2`, a changelog whose headings are `Unreleased`, `0.2.1`, `0.2.2`, `0.2.0`, `0.1.0`, and one without `0.2.2`
 - **WHEN** the changelog check runs on each
 - **THEN** each fails and names the sections it found
 
@@ -350,4 +352,3 @@ A version `0.2.N` with `N` from 1 SHALL be a patch release: fixes of defects of 
 - **GIVEN** a copy of `docs/evidence/residue-history.md` without the row `v0.2.1`, and the committed record
 - **WHEN** the guard runs on it
 - **THEN** it fails and names `v0.2.1`
-

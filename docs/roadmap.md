@@ -4,9 +4,10 @@ Status on 2026-10-06. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
 maintainer's verdict in `docs/release/v0.2.md` (change c0093).
 
-Patch release of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
-pin-to-pad map in the Altium build (c0135). Its record is the section “Patch releases” of
-`docs/release/v0.2.md`.
+Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
+pin-to-pad map in the Altium build (c0135); `0.2.2` (change c0149), cut from the tag `v0.2.1`, with the
+fix of the power flag of a design with parts of the built-in catalog (c0143). Their record is the section
+“Patch releases” of `docs/release/v0.2.md`.
 
 This page is a map, not a spec. What is built, and how, is decided change by change in
 `openspec/changes/`. An id that is not yet a folder there is an estimate, and so is every budget.

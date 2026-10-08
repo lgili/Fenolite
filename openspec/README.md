@@ -97,5 +97,7 @@ branch, c0077–c0081 stay unused, and c0100–c0120 are used by a proposed mile
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
 | c0133 | `release-0-2-1` | patch release `0.2.1`: the rule for patch releases of the series, the record, the guard, the version | c0093, c0135 |
 | c0135 | `altium-pin-map-backport` | correction of 0.1.0 and 0.2.0: an Altium build applies `pad_map` to the PCB document and writes it into the schematic | c0056, c0035 |
+| c0143 | `catalog-power-interface-library-case` | correction of 0.2.0 and 0.2.1: a design with catalog parts and a `Power` interface builds for KiCad, the power flag in the catalog's library | c0061, c0075 |
+| c0149 | `release-0-2-2` | patch release `0.2.2`: the record, the version | c0133, c0143 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

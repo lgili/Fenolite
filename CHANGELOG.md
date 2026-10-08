@@ -6,6 +6,16 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-08
+
+### Fixed
+
+- A design that names parts of the built-in catalog and declares a `Power(...)` interface builds for KiCad (c0143). In the releases 0.2.0 and 0.2.1 such a design failed to build with `build.vendor-unsafe-name` ("symbol libraries 'Fenolite' and 'fenolite' differ only in letter case"), so a catalog regulator, comparator or amplifier fed from a connector could not pass KiCad's ERC. The power flag of such a design now lies in the catalog's library (`Fenolite:PWR_FLAG` in `lib/Fenolite.kicad_sym`), and ERC takes the supply as driven. A design without catalog parts keeps `lib/fenolite.kicad_sym`, and no file of a design that built before changes. A design that needs a flag and has a symbol `PWR_FLAG` of its own in such a library is refused with `build.reserved-library`.
+
+### Changed
+
+- Development: the second patch release of the series. It is cut from the tag `v0.2.1`, not from `dev`, and holds this one fix, carried back from `dev`; `docs/release/v0.2.md` records it under “Patch releases” (c0149). Archived the completed specs of c0143 and c0149.
+
 ## [0.2.1] - 2026-10-07
 
 ### Fixed

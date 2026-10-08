@@ -111,6 +111,10 @@ licence (`docs/dsl.md`, "Vendored libraries"). With `--vendor project`, a symbol
 a project table is still embedded in the sheet but gets no project library (`build.global-library`);
 KiCad then needs that global table to check the symbol. `lib/fenolite.kicad_sym` is always written when
 the sheet has a power flag, and a design may not name a library `fenolite` (`build.reserved-library`).
+A design with a symbol library whose name differs from `fenolite` in letter case only, such as the
+built-in catalog's `Fenolite`, has the flag in that library instead (`Fenolite:PWR_FLAG` in
+`lib/Fenolite.kicad_sym`): two files whose names differ only in case cannot lie in one folder on every
+system. Such a design may not hold a symbol `PWR_FLAG` of its own in that library while it needs a flag.
 
 A symbol library file for KiCad 9 must not hold tokens that only KiCad 10 reads. Building for
 `--kicad-version 9` from a library saved by KiCad 10 is refused (`FEN-7001`), or, with `--allow-lossy`,

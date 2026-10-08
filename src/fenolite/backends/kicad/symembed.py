@@ -324,8 +324,25 @@ def embed_symbol(
     return _finish(flat, definition.library, name, target, allow_lossy, issues, authored)
 
 
-def power_flag(target: int) -> EmbeddedSymbol:
-    """``fenolite:PWR_FLAG``: a symbol flagged ``power`` with one power-output pin, authored for Fenolite."""
+def flag_library(libraries: Sequence[str]) -> str:
+    """The library that holds the power flag of a design whose symbol libraries are ``libraries``: the
+    first of them, in sorted order, whose name differs from ``FLAG_LIBRARY`` in letter case only, else
+    ``FLAG_LIBRARY``. Two library files whose names differ only in case cannot lie in one folder on every
+    file system, so the flag joins such a library (the built-in catalog's ``Fenolite``; change c0143)."""
+    folded = FLAG_LIBRARY.casefold()
+    return min((name for name in libraries if name.casefold() == folded), default=FLAG_LIBRARY)
+
+
+def is_power_flag(lib_id: str) -> bool:
+    """Whether ``lib_id`` names Fenolite's power flag: ``PWR_FLAG`` of a library named ``fenolite`` in any
+    letter case."""
+    library, _, name = lib_id.partition(":")
+    return name == FLAG_NAME and library.casefold() == FLAG_LIBRARY.casefold()
+
+
+def power_flag(target: int, library: str = FLAG_LIBRARY) -> EmbeddedSymbol:
+    """``fenolite:PWR_FLAG``: a symbol flagged ``power`` with one power-output pin, authored for Fenolite.
+    ``library`` is the library that holds it (``flag_library``)."""
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
     item = parse(_FLAG_TEXT)
@@ -334,7 +351,7 @@ def power_flag(target: int) -> EmbeddedSymbol:
             node("power", Atom.symbol("global")) if isinstance(c, Node) and c.name == "power" else c
             for c in item.children
         )
-    return _finish(item, FLAG_LIBRARY, FLAG_NAME, target, False, None)
+    return _finish(item, library, FLAG_NAME, target, False, None)
 
 
 def write_symbol_library(symbols: Sequence[EmbeddedSymbol], *, target: int) -> str:
@@ -366,6 +383,8 @@ __all__ = [
     "SHOWN_CODE",
     "EmbeddedSymbol",
     "embed_symbol",
+    "flag_library",
+    "is_power_flag",
     "power_flag",
     "variant_name",
     "write_symbol_library",
