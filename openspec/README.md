@@ -24,7 +24,8 @@ Since 2026-10-07 (c0136) v0.3 is the whole second backend, its read part and its
 names the proposals that are written on other branches and are not in this table: c0077–c0081 (the
 agent track), c0096, c0097 and c0099 (board authoring) and c0100–c0120 (the complex board). c0095 is
 reserved; c0098 is in v0.4 by the maintainer's decision of 2026-10-08 (roadmap, "Open decisions", row 35) and has its row below. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
-keep the names of their day.
+keep the names of their day. The changes of v0.4 were gathered on the branch `v04` and are released as
+`0.4.0` by c0154; their folders are not all rows of this table.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -135,5 +136,6 @@ keep the names of their day.
 | c0140 | `part-height-rules` | v0.4: part heights as bodies of their footprint, read by one function, and height limits over named rule areas judged by `check`, `place` and `build` | c0099, c0103, c0113 |
 | c0152 | `clearance-rounding` | follow-up of c0131 (Altium's rule check of 2026-10-08, S-0616): the copper check on Altium input lowers its clearance rules by Altium's observed tolerance, 3.5 file units in whole nanometres (9 nm), where that is above the unit's slack | c0131, c0132 |
 | c0153 | `kicad-cli-per-worker` | correction (two transient failures of the kicad-9 job on 2026-10-08): every `kicad-cli` run gets private temporary, runtime, cache and state folders, so parallel runs share no instance lock file | c0009, c0082 |
+| c0154 | `release-0-4-0` | release of v0.4 as `0.4.0`: the release record with the verdict per change, what is deferred to the next release by the maintainer's decision of 2026-10-08 and the follow-ups found that day, its guard, the version and the changelog cut | c0077–c0081, c0096–c0120, c0137, c0140, c0141, c0145, c0152, c0153 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
