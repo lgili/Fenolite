@@ -510,7 +510,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0108 | `route-open-nets`: built on `v04` |
 | c0109 | `routing-scale-control`: built on `v04` |
 | c0110 | `route-pairs-fanout` |
-| c0111 | `copper-part-anchors` |
+| c0111 | `copper-part-anchors`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0112 | `via-protection` |
 | c0113 | `placement-constraints` |
 | c0114 | `net-ties-waivers` |

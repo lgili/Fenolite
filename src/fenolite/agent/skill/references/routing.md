@@ -127,6 +127,10 @@ design.stitch(
     drill=mm(0.3),
     clearance=mm(0.2),
 )
+# A thermal via inside pad 2 of D1: the grid starts at the pad and turns with the part.
+design.stitch(
+    "d1_thermal", net=gnd, pitch=mm(1), region=d1.pad(2), diameter=mm(0.6), drill=mm(0.3), clearance=mm(0.2)
+)
 ```
 
 - **Ends and points.** A path holds pad ends (`part.pad(number)`), `(x, y)` points in the frame of
@@ -147,7 +151,8 @@ design.stitch(
 - **`via_step(x, y, to=)`** is a through via by default; `kind="blind"`, `"buried"` or `"micro"` on a
   board with inner layers. **`protect(tenting=True)`** says how a via is covered; KiCad 9 holds tenting
   only.
-- **`design.stitch`** puts through vias every `pitch` along a line (`along=`) or on a grid (`region=`).
+- **`design.stitch`** puts through vias every `pitch` along a line (`along=`) or on a grid (`region=`);
+  `region=part.pad(n)` keeps the vias that lie inside that pad, a thermal array.
 - **`locked=True`** on a track, a via or a stitch writes that copper locked in KiCad.
 - **The build checks script copper.** Copper that shorts two nets or breaks a clearance stops the build
   (exit 5, `copper.short` or `copper.clearance`) and nothing is written. A pad the footprint does not
