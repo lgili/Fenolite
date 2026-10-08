@@ -1998,6 +1998,45 @@ Exit codes: 0 without an error finding, 5 with one, 4 without `--dry-run` or `--
 given, 2 for a usage error, 3 for a file that cannot be read. The evidence is `testpoints.EVIDENCE`
 (`INFERRED`, `H-K-TESTPOINT-D356` and `H-K-PAD-FABPROP`) combined with the evidence of the board read.
 
+## impedance
+
+`fenolite impedance PATH [--estimate] [--out FILE]` gives the impedance table of the project `PATH` names
+(resolved as for `bom`: a `.kicad_pcb`, a `.kicad_pro` or a project folder; an Altium document gets the
+error that `bom` gives for it) for the fabricator: one row per impedance target and layer, sorted by
+target, then in stack order (`docs/impedance.md`; change c0105). It runs no tool.
+
+- The design is the `.fenolite/` model of a built project (`result.source` `model`), else the board read
+  with its project applied (`project`): the KiCad 10 tuning profiles that a class names become targets.
+  No Altium record is read into a target.
+- `result` holds `source`, `columns` (`exports.impedance.COLUMNS`), `rows` (one object per row: `target`,
+  `kind`, `structure`, `layer`, `references`, `ohms`, `tolerance_percent`, `width`, `gap`, `heights`,
+  `epsilon_r`, `classes`, `nets`; lengths in nanometres) and `counts` (`targets`, `rows`, `estimated`,
+  `left_out`). A design without targets gives one `impedance.none` info and exits 0.
+- `--estimate` adds `estimate` to each row: `{"mohm", "suggested_width", "in_range", "form", "reason"}`
+  from `analysis.impedance` for single-ended surface microstrip and stripline rows. `mohm` and
+  `suggested_width` are `null` where no form applies, and `reason` says why (`differential`, `structure`,
+  `stackup`); `suggested_width` is also `null` when the target has no ohms. The estimates are `INFERRED`
+  and omit solder mask, etch, frequency, loss and roughness: they are advice, never written into a
+  design. The envelope evidence combines the source's level with `INFERRED`, and is `UNVERIFIED` when a
+  row was left out for a missing stack-up or permittivity.
+- It is a mutating command that writes only with `--out FILE`: the plan then holds one write of kind
+  `impedance`, the CSV bytes of the table (`exports.impedance.render_csv`, with `estimate_ohms` and
+  `suggested_width_mm` under `--estimate`), and the mutation protocol applies (4 without `--dry-run` or
+  `--confirm`). It takes no `--manifest`, and the table is no manifest entry. The project folder never
+  changes. Two runs on an unchanged project give the same output apart from `elapsed_ms`.
+
+| code | severity | when |
+|---|---|---|
+| `impedance.none` | info | the design holds no impedance target |
+| `impedance.no-stackup` | warning | an estimate needs a stack-up that the board lacks, or a row's layers or permittivity are not in it; the rows left out are counted |
+| `impedance.estimate-unsupported` | info | rows whose structure has no form: differential, one reference on an inner layer, two references on an outer layer |
+| `impedance.mixed-dielectric` | info | a row's height crosses dielectrics of different permittivity, combined in series |
+| `impedance.out-of-range` | warning | a row lies outside the stated range of its form |
+| `impedance.off-target` | warning | a row's estimate lies outside the target's tolerance; never given without a tolerance |
+
+Exit codes: 0, 4 as above, 2 for a usage error, 3 for a missing path or a `.fenolite/` model or project
+file that cannot be read (`FEN-3004`).
+
 ## diff
 
 `fenolite diff A B [--view model|tree|records] [--ext]` lists the differences between two inputs. It writes

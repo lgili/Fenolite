@@ -42,6 +42,9 @@ def test_closed_set() -> None:
         "build.plane-zone-missing": "warning",  # c0107 (build.plane-not-lowered of c0038 left the table)
         "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
         "build.diff-pair-gap-shadowed": "warning",  # c0104
+        "build.impedance-layer": "error", "build.impedance-shadowed": "warning",  # c0105
+        "build.impedance-class-width": "warning", "build.impedance-gap-clearance": "warning",
+        "build.impedance-stackup": "warning", "build.impedance-rules-only": "info",
         # c0061: the build codes of the generated schematic
         "build.schematic-too-large": "error", "build.symbol-overlap": "warning",
         "build.symbol-short": "error", "build.symbol-placement-unknown": "warning",

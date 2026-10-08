@@ -324,6 +324,12 @@ Function: `stack.silkscreen(*, color: 'str' = '') -> 'StackEntry'`
 
 A silkscreen, above the top mask or below the bottom one; it has no thickness.
 
+## trace
+
+Function: `trace(layer: 'str', *, refs: 'str \| tuple[str, ...]', width: 'object', gap: 'object' = None) -> 'Trace'`
+
+One layer of an impedance target: `layer` a copper layer name, `refs` one reference layer or a tuple of two, `width` the track width and `gap` the gap between the two tracks of a pair (lengths with a unit, for example `mm(0.2)`).
+
 ## via_step
 
 Function: `via_step(x: 'object', y: 'object' = None, *, to: 'str', diameter: 'object' = None, drill: 'object' = None, kind: 'str' = 'through', protection: 'object' = None) -> 'ViaStep'`

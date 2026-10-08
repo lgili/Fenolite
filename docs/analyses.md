@@ -330,6 +330,57 @@ that sets `use_height_for_length_calcs` to `false` counts no via height (`summar
   via or a die length. The kind then gives routed lengths and paths whose layer changes weigh 0, one
   `analysis.input-missing` warning and the level `UNVERIFIED`.
 
+## Impedance estimates
+
+`fenolite.analysis.impedance` estimates the quasi-static impedance of single-ended lines (change c0105;
+user guide `docs/impedance.md`). `fenolite impedance --estimate` returns the estimates; no estimate is ever
+written into a design, and every one is `INFERRED`.
+
+- **Microstrip.** A strip on an outer layer over one plane: the one-formula form of 1977 with its
+  thickness correction, as S-0641 states it. Its source calls it asymptotically exact for very wide
+  strips, and for very narrow ones in air or over a very high permittivity; elsewhere it claims an error
+  below 1 % in most cases and always below 2 % (`MS_ERROR_TYPICAL_PERCENT`, `MS_ERROR_MAX_PERCENT`).
+  The 1975 form of the same page serves as the cross-check of the tests.
+- **Stripline.** A strip between two planes: the thick-strip form for a centred strip, as S-0642 states
+  it, whose accuracy its source claims at 0.5 % where `C` is above 0.25 (`in_range`). An offset strip is
+  estimated from the two centred lines of the heights on each side, averaged as capacitances,
+  `2·Z₁·Z₂ / (Z₁ + Z₂)`, which S-0642 describes for small offsets only.
+- **Inputs.** Heights and the permittivity come from the board's stack-up: the dielectric entries between
+  the row's layer and each reference, height the sum of their thicknesses, permittivity combined in
+  series, `h / Σ(hᵢ / εᵢ)` (`impedance.mixed-dielectric` when they differ). The strip's thickness is the
+  copper entry of its layer. No default thickness, height, permittivity or impedance exists.
+- **Left out.** Solder mask, etch angle, frequency (dispersion), loss and copper roughness: none of the
+  two forms models them. Differential pairs get no estimate (`impedance.estimate-unsupported`): the
+  fabricator sets pair geometry.
+- **Arithmetic.** `decimal` at 40 digits, the same on every platform (S-0012); results in milliohms,
+  rounded half to even. `solve_width` returns the multiple of 1 µm whose estimate is nearest the target.
+
+### Impedance formulas
+
+Every named constant of `fenolite.analysis.impedance` is in this table; `tests/unit/analysis/test_facts_page.py`
+keeps the table and the code equal.
+
+| constant | value | unit | fact, in Fenolite's words | source | level | hypothesis |
+|---|---|---|---|---|---|---|
+| `Z_VACUUM_OHM` | 376.730313412 | Ω | the characteristic impedance of vacuum, CODATA 2022 | S-0643 | INFERRED | H-G-AN-ZMS |
+| `MS_ER_A` | 14 | — | the constant term of the permittivity factor `(14 + 8/εr) / 11` of the microstrip form | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_ER_B` | 8 | — | the factor of `1/εr` in that permittivity factor | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_ER_C` | 11 | — | the divisor of that permittivity factor | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_H_FACTOR` | 4 | — | the height enters the form as `4h / w_eff` | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_E_FACTOR` | 4 | — | the thickness correction takes the logarithm of `4e` over a root of the thickness ratios | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_T_OFFSET` | 1.1 | — | the thickness correction adds 11/10 to `w/t` | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_ERROR_TYPICAL_PERCENT` | 1 | % | the error the source claims for the microstrip form in most cases | S-0641 | INFERRED | H-G-AN-ZMS |
+| `MS_ERROR_MAX_PERCENT` | 2 | % | the error the source claims the microstrip form always stays below | S-0641 | INFERRED | H-G-AN-ZMS |
+| `SL_FACTOR` | 30 | Ω | the factor of the stripline form, `30 / √εr` | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_C_FACTOR` | 8 | — | `C = 8 (1 − T) / (π (W + ΔW))`, with `T` and `W` the thickness and width over the spacing | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_ROOT_TERM` | 6.27 | — | the term added to `C²` under the root of the stripline form | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_DW_A` | 0.0796 | — | the factor of `T` in the second term of the width correction `ΔW` | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_DW_B` | 1.1 | — | the factor of `T` added to `W` in that term | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_M_A` | 3 | — | the numerator of the exponent `M = 3 / (1.5 + T / (1 − T))` | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_M_B` | 1.5 | — | the constant term of the denominator of `M` | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_C_MIN` | 0.25 | — | the source claims the stripline form's accuracy for `C` above this value | S-0642 | INFERRED | H-G-AN-ZSL |
+| `SL_ERROR_PERCENT` | 0.5 | % | the accuracy the source claims for the stripline form above `SL_C_MIN` | S-0642 | INFERRED | H-G-AN-ZSL |
+
 ## Limits
 
 Read these before you rely on a value.

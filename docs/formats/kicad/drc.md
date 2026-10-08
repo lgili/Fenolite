@@ -262,3 +262,15 @@ none is. Exclusions of the types `clearance`, `hole_clearance`, `unconnected_ite
 are not judged, because KiCad does not repeat their entries from run to run (`H-K-DRC-REPEAT`,
 `H-K-VIA-RENET`). Fenolite reads exclusions and never writes one: the key needs the marker position,
 which the report gives only as item positions.
+
+## Tuning profiles (c0105)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| On 10.0.6 a profile named by a class key makes DRC check the width of each listed layer, and for a differential profile the pair gap (`diff_pair_gap_out_of_range`), with `min` = `max` = the row's value, at the severity of `tuning_profile_track_geometries` (template: `ignore`) | S-0038, S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A layer without a row is not checked, and a differential profile does not check single tracks of its class; DRC does not use `target_impedance` | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A class key naming an absent profile gives the warning `missing_tuning_profile` | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| The gap of a differential profile relaxes the clearance between the two nets of its pairs where no custom clearance rule governs them, at any severity of the profile check | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+
+The probes `pro-tuning-*` of `tests/kicad/impedance/test_tuning_drc.py` settle these rows; they are written
+and await their first recorded run (`docs/evidence/impedance.md`).

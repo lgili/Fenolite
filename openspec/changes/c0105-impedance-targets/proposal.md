@@ -69,4 +69,4 @@ Limits: exact width and gap rules (a neck-down needs an area rule of c0103); pro
 - Changed: `model/rules.py`, `dsl/{design,convert}.py`, `lens/{build,altium}.py`, `backends/kicad/{pro,triad,proerrors}.py`, `cli/data/explain.toml`, the rules schema.
 - Model documents: `rules.json` gains the key `impedance`; 0.2.x and 0.3.0 cannot read a document that carries it.
 - A new command, so the contract page, the consistency test and `fenolite capabilities` gain it, and so do the command lists of the agent guide (c0079, c0080) when they are on `dev`.
-- Source ids S-0640 to S-0643, from the block S-0640 to S-0659 reserved for this group (free in `docs/evidence/sources.md` at `9aba2dff`, whose highest id is S-0601).
+- Source ids S-0641 to S-0643 (the first id of the block was withdrawn on 2026-10-08: it named KiCad source code), from the block S-0640 to S-0659 reserved for this group (free in `docs/evidence/sources.md` at `9aba2dff`, whose highest id is S-0601).

@@ -36,6 +36,7 @@ from fenolite.backends.kicad.lowering import (
 )
 from fenolite.backends.kicad.pcb import source_info
 from fenolite.backends.kicad.proerrors import ISSUE_CODES, project_issue
+from fenolite.backends.kicad.tuning import TuningProfile, lift_profiles, read_profiles
 from fenolite.backends.kicad.versions import (
     DEFAULT_TARGET,
     TARGET_MAJORS,
@@ -261,6 +262,10 @@ class ProjectInfo:
     """``text_variables`` members with a string value, in file order (change c0012)."""
     exclusions: tuple[StoredExclusion, ...] = ()
     """The entries of ``board.design_settings.drc_exclusions``, in file order (change c0114)."""
+    profiles: tuple[TuningProfile, ...] = ()
+    """The tuning profiles of ``tuning_profiles_impedance_geometric``, in file order (change c0105)."""
+    class_profiles: tuple[tuple[str, str], ...] = ()
+    """``(class name, tuning_profile)`` of each class whose key is a non-empty string (change c0105)."""
 
 
 def project_floors(data: JsonObject, *, issues: list[Issue] | None = None) -> dict[str, Nm]:
@@ -367,6 +372,7 @@ def read_project(
         raise FormatError("'classes' is not a list", file=file, locator="/net_settings/classes")
     classes: list[ProjectClass] = []
     priorities: list[int] = []
+    class_profiles: list[tuple[str, str]] = []
     for index, entry in enumerate(cast(list[Any], raw_classes)):
         where = f"/net_settings/classes/{index}"
         if not isinstance(entry, dict):
@@ -377,6 +383,9 @@ def read_project(
             raise FormatError("a class has no string 'name'", file=file, locator=where)
         values = {f: _nm(item.get(k), f"{where}/{k}", found) for f, k in NETCLASS_KEYS.items()}
         classes.append(ProjectClass(name, **values))
+        profile = item.get("tuning_profile")
+        if isinstance(profile, str) and profile:
+            class_profiles.append((name, profile))
         priority = item.get("priority")
         number = priority.text if isinstance(priority, JsonNumber) else ""
         priorities.append(int(number) if re.fullmatch(r"-?\d+", number) else 2**31 - 1)
@@ -440,6 +449,8 @@ def read_project(
         drawing_sheet=drawing_sheet if isinstance(drawing_sheet, str) and drawing_sheet else None,
         text_variables=tuple(variables),
         exclusions=project_exclusions(data, issues=found),
+        profiles=read_profiles(data, issues=found),
+        class_profiles=tuple(class_profiles),
     )
 
 
@@ -506,7 +517,9 @@ def apply_project(design: Design, info: ProjectInfo, *, issues: list[Issue] | No
             )
         nets.append(dataclasses.replace(net, netclass_id=_class_id(chosen) if chosen is not None else None))
     circuit = dataclasses.replace(design.circuit, netclasses=netclasses, nets=tuple(nets))
-    return _apply_sheet(dataclasses.replace(design, circuit=circuit), info)
+    applied = _apply_sheet(dataclasses.replace(design, circuit=circuit), info)
+    # the tuning profiles that a class names become impedance targets of those classes (change c0105)
+    return lift_profiles(applied, info.profiles, info.class_profiles, issues=found)
 
 
 def _apply_sheet(design: Design, info: ProjectInfo) -> Design:

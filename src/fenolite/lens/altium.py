@@ -44,6 +44,7 @@ from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
 from fenolite.backends.altium.symbols import natural_key
 from fenolite.backends.kicad import slots as kicad_slots
 from fenolite.backends.kicad.embed import footprint_extent
+from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver
 from fenolite.backends.kicad.sexpr import Atom, Node, parse_fragment
@@ -64,6 +65,7 @@ from fenolite.lens.build import (
     PlacementRequest,
     UnresolvedLibrariesError,
     height_body,
+    impedance_checks,
 )
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
@@ -83,6 +85,8 @@ MODEL_ONLY_INTERFACES: frozenset[str] = frozenset({"diff_pair", "i2c", "spi", "u
 """The interface kinds an Altium build keeps in the model and names in one ``altium.not-lowered`` info."""
 PAIR_VALUES_WHERE = "pair-values"
 """The ``where`` of the ``altium.not-lowered`` info that names the net classes holding a pair value."""
+IMPEDANCE_WHERE = "impedance"
+"""The ``where`` of the ``altium.not-lowered`` info that names the impedance targets (change c0105)."""
 """The longest pin name or number a binary pin's short string holds."""
 ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -1493,6 +1497,32 @@ def kicad_only_issues(design: Design, footprints: Mapping[str, pcblib.LibFootpri
     return found
 
 
+def impedance_info(design: Design) -> Issue | None:
+    """The one ``altium.not-lowered`` info at ``impedance`` (change c0105): the impedance targets, sorted by
+    name, are kept in the model and in ``.fenolite/`` only, and the rules derived from them are reported one
+    by one as any rule of the design; ``None`` for a design without targets."""
+    rules = design.rules
+    targets = sorted(t.name for t in (rules.impedance if rules is not None else ()))
+    if rules is None or not targets:
+        return None
+    derived = sum(len(t.layers) * (2 if t.kind == "differential" else 1) for t in rules.impedance)
+    message = (
+        f"the impedance targets {', '.join(targets)} are kept in the model only: no Altium document holds a "
+        f"target, and the {derived} rule(s) derived from them are reported under design-rules/<kind>"
+    )
+    return issue("altium.not-lowered", message, IMPEDANCE_WHERE, "see docs/impedance.md")
+
+
+def impedance_layer_issues(design: Design, copper: int) -> list[Issue]:
+    """``build.impedance-layer`` of the KiCad build (``lens.build.impedance_checks``) for the copper layers
+    of a board of ``copper`` layers: a trace on a layer the board does not have refuses the build."""
+    if design.board is None or design.rules is None or not design.rules.impedance:
+        return []
+    layers = design.board.layers or created_layers(copper)
+    judged = dataclasses.replace(design, board=dataclasses.replace(design.board, layers=layers))
+    return [i for i in impedance_checks(judged, target=10) if i.code == "build.impedance-layer"]
+
+
 def _not_lowered(
     design: Design,
     placed: Sequence[str],
@@ -1531,6 +1561,9 @@ def _not_lowered(
         )
         found.append(issue("altium.not-lowered", message, PAIR_VALUES_WHERE))
     found += altium_copper.board_not_lowered(design.board)
+    note = impedance_info(design)
+    if note is not None:
+        found.append(note)
     kept = sorted((i.name, i.kind) for i in design.circuit.interfaces if i.kind in MODEL_ONLY_INTERFACES)
     if kept:
         if all(kind == "diff_pair" for _, kind in kept):
@@ -1937,6 +1970,7 @@ def build_altium(
     resolved = resolve_symbols(design, resolver, authored_symbols)
     design = _with_symbol_fields(design, resolved)
     issues = _check(design, name, placed, sheets, form)
+    issues += impedance_layer_issues(design, copper)
     if project_exists:
         issues.append(
             issue(

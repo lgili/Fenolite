@@ -17,7 +17,7 @@ from fenolite import __version__
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
-from fenolite.dsl.design import MINIMUM_KINDS, Design
+from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.module import Module as DslModule
@@ -40,8 +40,17 @@ from fenolite.model.design import SCHEMA_VERSION, DesignHeader
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
+from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import SheetFrameRef
-from fenolite.model.rules import PadSelection, ProximityRule, Rule, RuleSet, Selector
+from fenolite.model.rules import (
+    ImpedanceTarget,
+    PadSelection,
+    ProximityRule,
+    Rule,
+    RuleSet,
+    Selector,
+    TraceGeometry,
+)
 
 DSL_BACKEND = "dsl"
 BOARD_ORIGIN = Point(100_000_000, 100_000_000)
@@ -69,6 +78,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "dimension": ("dim", "dimension:<drawing key>"),
         "stackup": ("stk", "stackup"),
         "stack_layer": ("sly", "stack_layer:<k>"),
+        "impedance": ("imp", "impedance:<target name>"),
     }
 )
 """Object → (id prefix, key form); ids are ``derived_id(prefix, "dsl", key)``."""
@@ -127,6 +137,95 @@ def _rules(design: Design) -> tuple[Rule, ...]:
         )
         for spec in design.rules.named.values()
     )
+
+
+def stack_rank(layer: str) -> tuple[int, int]:
+    """The place of a copper layer name in stack order: ``F.Cu``, ``In1.Cu`` … ``In<n>.Cu``, ``B.Cu``;
+    any other name after them."""
+    if layer == "F.Cu":
+        return (0, 0)
+    if layer.startswith("In") and layer.endswith(".Cu") and layer[2:-3].isdigit():
+        return (1, int(layer[2:-3]))
+    if layer == "B.Cu":
+        return (2, 0)
+    return (3, 0)
+
+
+def _target_classes(design: Design, spec: ImpedanceSpec) -> tuple[str, ...]:
+    """The class names a target governs: the named ones, or the class of each pair's two nets."""
+    what = f"impedance() {spec.name!r}"
+    if spec.netclasses:
+        for name in spec.netclasses:
+            if name not in design.rules.netclasses:
+                raise DslError(f"{what}: netclass {name!r} is not a declared net class")
+        return spec.netclasses
+    found: list[str] = []
+    for itf in spec.pairs:
+        roles = PAIR_ROLES[itf.kind]
+        nets = [itf.members.get(role) for role in roles]
+        classes = sorted({net.netclass for net in nets if net is not None and net.netclass is not None})
+        if len(classes) != 1 or any(net is None or net.netclass is None for net in nets):
+            held = ", ".join(classes) if classes else "no class"
+            raise DslError(
+                f"{what}: the nets of the pair {itf.name} must be in one net class, and they are in {held}; "
+                "put both nets in the class of the target with design.rules.netclass()"
+            )
+        if classes[0] not in found:
+            found.append(classes[0])
+    return tuple(found)
+
+
+def _impedance(design: Design, taken: set[str]) -> tuple[tuple[ImpedanceTarget, ...], tuple[Rule, ...]]:
+    """The targets of ``design.rules.impedance()`` in call order, and the rules derived from them: per
+    trace a ``track_width`` rule and, for a pair target, a ``diff_pair_gap`` rule on the trace's layer,
+    each with ``min`` = ``opt`` = ``max`` (``docs/impedance.md``; change c0105). ``taken`` holds the names
+    of the other rules; a derived name among them raises ``DslError``."""
+    targets: list[ImpedanceTarget] = []
+    rules: list[Rule] = []
+    for spec in design.rules.impedance_targets.values():
+        classes = _target_classes(design, spec)
+        leaves = tuple(Selector("netclass", name) for name in classes)
+        selector = leaves[0] if len(leaves) == 1 else Selector("or", items=leaves)
+        traces = sorted(spec.traces, key=lambda t: stack_rank(t.layer))
+        kind = "differential" if spec.differential else "single"
+        targets.append(
+            ImpedanceTarget(
+                id=key_id("impedance", spec.name),
+                name=spec.name,
+                kind=kind,
+                netclass_ids=tuple(key_id("netclass", name) for name in classes),
+                ohms=spec.ohms,
+                tolerance_percent=spec.tolerance,
+                layers=tuple(
+                    TraceGeometry(t.layer, tuple(sorted(t.refs, key=stack_rank)), t.width, t.gap)
+                    for t in traces
+                ),
+            )
+        )
+        derived = [("track_width", t.layer, t.width) for t in traces]
+        derived += [("diff_pair_gap", t.layer, t.gap) for t in traces if t.gap is not None]
+        for rule_kind, layer, value in derived:
+            name = f"{rule_kind}_{spec.name}_{layer}"
+            if name in taken:
+                raise DslError(
+                    f"impedance() {spec.name!r}: the derived rule {name!r} is named like another rule"
+                )
+            taken.add(name)
+            rules.append(
+                Rule(
+                    id=key_id("rule", "named", name),
+                    name=name,
+                    kind=rule_kind,  # type: ignore[arg-type]
+                    selector_a=selector,
+                    layers=(layer,),
+                    min=value,
+                    opt=value,
+                    max=value,
+                    severity="error",
+                    priority=spec.priority,
+                )
+            )
+    return tuple(targets), tuple(rules)
 
 
 def _selections(design: Design, side: tuple[object, ...], what: str) -> tuple[PadSelection, ...]:
@@ -248,6 +347,8 @@ def to_model(design: Design) -> ModelDesign:
             )
             for name, spec in sorted(design.zones.items())
         )
+    plain_rules = _rules(design)
+    targets, derived = _impedance(design, {rule.name for rule in plain_rules})
     return ModelDesign(
         header=DesignHeader(
             id=key_id("design"), name=design.name, schema_version=SCHEMA_VERSION, fenolite_version=__version__
@@ -275,10 +376,11 @@ def to_model(design: Design) -> ModelDesign:
         ),
         rules=RuleSet(
             id=key_id("rules"),
-            rules=_rules(design),
+            rules=plain_rules + derived,
             severities=dict(sorted(design.rules.severities.items())),
             proximity=_proximity(design),
             heights=tuple(limit for _, limit in sorted(design.height_limits.items())),
+            impedance=targets,
         ),
         findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),

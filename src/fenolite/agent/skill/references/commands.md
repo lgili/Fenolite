@@ -28,6 +28,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 | `fill` | yes | fill a KiCad board through kicad-cli 10 on a copy, preserving its format major |
 | `fmt` | yes | give a KiCad S-expression file Fenolite's canonical print, or check it with --check |
 | `guide` | no | print the agent guide of the installed version: the list of its pages, or one page |
+| `impedance` | yes | the impedance table of a project for the fabricator, with --estimate rough estimates (writes FILE with --out) |
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
@@ -244,6 +245,17 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 `fenolite guide [TOPIC]`
 
 - `TOPIC` (string, optional): the page to print, for example start (default: list them)
+
+## impedance
+
+`fenolite impedance [--dry-run] [--confirm] [--plan ID] [--estimate] [-o FILE] PATH`
+
+- `--dry-run` (boolean): show the plan; write nothing
+- `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
+- `PATH` (string, required): a .kicad_pcb, a .kicad_pro or a project folder
+- `--estimate` (boolean): add the estimates of single-ended microstrip and stripline rows (INFERRED)
+- `-o`, `--out` (string): also write the table as a CSV file
 
 ## init
 

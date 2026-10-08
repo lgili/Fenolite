@@ -111,6 +111,61 @@ d1.place(mm(15), mm(6), rot=180)
 thickness is a length with a unit (`"35um"`). `epsilon_r` and `loss_tangent` are decimal texts, never
 floats. Fenolite supplies no thickness and no material; a script without `stackup()` builds without one.
 
+## Impedance targets
+
+`design.rules.impedance(name, ohms=, netclass= or pair=, layers=(trace(...), ...), tolerance=)` states
+the impedance a class or a differential pair must have, with the geometry that makes it on each layer.
+**The geometry is yours**, from your fabricator's stack-up table: Fenolite computes no width into a
+design. The build adds, per trace, a width rule on that layer (and a gap rule for a pair) that KiCad's
+check holds the copper to, and on KiCad 10 a tuning profile.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, Part, connect, mm, ohm, stack, trace
+
+design = Design("matched")
+design.board(mm(30), mm(20), copper=4)
+
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="CLK")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="33")
+design.add(j1, r1)
+clk, gnd = Net("CLK"), Net("GND")
+connect(clk, j1[1], r1[1])
+connect(gnd, r1[2], j1[2])
+
+# Every value below is an example: take yours from your fabricator's stack-up table.
+design.rules.netclass("SE50", clearance=mm(0.2), track_width=mm(0.35), nets=(clk,))
+design.rules.impedance(
+    "SE50",
+    ohms=ohm(50),
+    netclass="SE50",
+    tolerance=10,
+    layers=(trace("F.Cu", refs="In1.Cu", width=mm(0.35)), trace("B.Cu", refs="In2.Cu", width=mm(0.35))),
+)
+design.stackup(
+    stack.copper("35um"),
+    stack.prepreg("0.2mm", epsilon_r="4.3"),
+    stack.copper("35um"),
+    stack.core("1.065mm", epsilon_r="4.3"),
+    stack.copper("35um"),
+    stack.prepreg("0.2mm", epsilon_r="4.3"),
+    stack.copper("35um"),
+    impedance_controlled=True,
+)
+
+j1.place(mm(6), mm(10))
+r1.place(mm(18), mm(10))
+```
+
+- `pair=` takes a `DiffPair` or `USB2`; each trace of a pair gives its `gap=` too.
+- `impedance_controlled=True` on the stack-up makes the job file tell the fabricator; without it the
+  build warns (`build.impedance-stackup`).
+- `fenolite impedance` lists the targets for the fabricator; `--estimate` adds rough `INFERRED`
+  estimates of single-ended lines, never written into the design:
+
+```fenolite-cmd
+fenolite impedance blink/build --estimate --json
+```
+
 ## Measuring a board
 
 ```fenolite-cmd

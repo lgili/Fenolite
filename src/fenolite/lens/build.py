@@ -12,6 +12,7 @@ build record. A design with an error gives no file.
 from __future__ import annotations
 
 import dataclasses
+import fnmatch
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
@@ -81,11 +82,11 @@ from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical, pairs
 from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
-from fenolite.model.circuit import Component, Interface, Net, Pin, PinRef
+from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
-from fenolite.model.rules import Rule, RuleSubject, Selector
+from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
 
 RECORD_FILE = ".fenolite/build.json"
@@ -130,6 +131,12 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.field-added": "info",
         "build.interface-not-lowered": "info",
         "build.plane-zone-missing": "warning",
+        "build.impedance-layer": "error",
+        "build.impedance-shadowed": "warning",
+        "build.impedance-class-width": "warning",
+        "build.impedance-gap-clearance": "warning",
+        "build.impedance-stackup": "warning",
+        "build.impedance-rules-only": "info",
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
     }
@@ -686,6 +693,164 @@ def interface_checks(
     return found
 
 
+def _shadows(rule: Rule, classes: Sequence[str], bases: Sequence[str], layer: str) -> bool:
+    """Whether ``rule`` selects a target class on ``layer`` as ``impedance_checks`` counts it: its first
+    selector is one leaf, or an ``or`` of leaves, each ``all``, a ``netclass`` leaf naming a target class,
+    or a ``diff_pair`` leaf naming a pair of a target class or ``*``; its layers are empty or hold
+    ``layer``. Any other selector, an area leaf among them, does not count."""
+    if rule.layers and layer not in rule.layers:
+        return False
+    selector = rule.selector_a
+    leaves = selector.items if selector.op == "or" else (selector,)
+    for leaf in leaves:
+        if leaf.op == "all":
+            continue
+        if leaf.op == "netclass" and any(fnmatch.fnmatchcase(name, leaf.value) for name in classes):
+            continue
+        if leaf.op == "diff_pair" and (
+            leaf.value == "*" or any(pairs.base_matches(b, leaf.value) for b in bases)
+        ):
+            continue
+        return False
+    return True
+
+
+def _mm(nm: int) -> str:
+    return lowering.millimetres(nm).text
+
+
+def _class_issues(imp: ImpedanceTarget, row: TraceGeometry, cls: NetClass, *, target: int) -> list[Issue]:
+    """``build.impedance-class-width`` and, for target 9, ``build.impedance-gap-clearance`` of one class
+    of a target on one of its layers."""
+    found: list[Issue] = []
+    values = (
+        (("track_width", cls.track_width, row.width),)
+        if imp.kind == "single"
+        else (
+            ("diff_pair_width", cls.diff_pair_width, row.width),
+            ("diff_pair_gap", cls.diff_pair_gap, row.gap),
+        )
+    )
+    for key, value, wanted in values:
+        if value is not None and wanted is not None and value != wanted:
+            found.append(
+                issue(
+                    "build.impedance-class-width",
+                    f"the class {cls.name} has {key} {_mm(value)} mm, and the target {imp.name} gives "
+                    f"{_mm(wanted)} mm on {row.layer}; routers lay tracks at the class value",
+                    cls.name,
+                    f"set {key}= of design.rules.netclass({cls.name!r}) to the target's value",
+                )
+            )
+    gap = row.gap
+    if (
+        target == 9
+        and gap is not None
+        and cls.clearance is not None
+        and gap < cls.clearance
+        and not (cls.diff_pair_gap is not None and cls.diff_pair_gap <= gap)
+    ):
+        found.append(
+            issue(
+                "build.impedance-gap-clearance",
+                f"the target {imp.name} gives the gap {_mm(gap)} mm on {row.layer}, below the clearance "
+                f"{_mm(cls.clearance)} mm of the class {cls.name}: KiCad 9 reports the pair's own clearance",
+                cls.name,
+                f"set design.rules.netclass({cls.name!r}, diff_pair_gap=…) at or below the gap, "
+                "or design.rules.pair(…, clearance=…) for the pair",
+            )
+        )
+    return found
+
+
+def impedance_checks(design: Design, *, target: int) -> list[Issue]:
+    """What a build says about the impedance targets of ``design`` (``docs/impedance.md``; change c0105):
+    ``build.impedance-layer`` for a layer or a reference that is not a copper layer of the board,
+    ``build.impedance-shadowed`` for a rule emitted after a derived rule that selects a target class on its
+    layer, ``build.impedance-class-width`` for a class value that differs from a trace, and, for target 9,
+    ``build.impedance-gap-clearance`` and ``build.impedance-rules-only``; ``build.impedance-stackup`` when
+    the board's stack-up is missing or not marked impedance-controlled. Nothing is changed."""
+    ruleset = design.rules
+    targets = ruleset.impedance if ruleset is not None else ()
+    if not targets:
+        return []
+    found: list[Issue] = []
+    board = design.board
+    copper = (
+        {layer.name for layer in board.layers if layer.kind == "copper"} if board is not None else set[str]()
+    )
+    classes = {c.id: c for c in design.circuit.netclasses}
+    nets = {net.id: net for net in design.circuit.nets}
+
+    ordered = rulemap.rule_order(ruleset.rules if ruleset is not None else ())
+    position = {rule.id: index for index, rule in enumerate(ordered)}
+    for imp in targets:
+        names = [classes[i].name for i in imp.netclass_ids if i in classes]
+        bases: list[str] = []
+        for itf in design.circuit.interfaces:
+            ids = pairs.pair_nets(itf)
+            if ids is None or ids[0] not in nets or ids[1] not in nets:
+                continue
+            first, second = nets[ids[0]], nets[ids[1]]
+            base = pairs.pair_base(first.name, second.name)
+            if base is not None and first.netclass_id in imp.netclass_ids:
+                bases.append(base)
+        for row in imp.layers:
+            wrong = [name for name in (row.layer, *row.references) if name not in copper]
+            if wrong:
+                found.append(
+                    issue(
+                        "build.impedance-layer",
+                        f"impedance target {imp.name}: {', '.join(wrong)} is not a copper layer of the board",
+                        f"impedance/{imp.name}",
+                        "name the copper layers of board(copper=…): F.Cu, In1.Cu … B.Cu",
+                    )
+                )
+            for kind in ("track_width", "diff_pair_gap") if imp.kind == "differential" else ("track_width",):
+                own = next(
+                    (r for r in ordered if r.name == f"{kind}_{imp.name}_{row.layer}" and r.kind == kind),
+                    None,
+                )
+                if own is None:
+                    continue
+                for later in ordered[position[own.id] + 1 :]:
+                    if later.kind == kind and _shadows(later, names, bases, row.layer):
+                        found.append(
+                            issue(
+                                "build.impedance-shadowed",
+                                f"the rule {later.name!r} is written after {own.name!r} and governs the "
+                                f"{kind} of the target {imp.name} on {row.layer}",
+                                later.name,
+                                "give the rule a lower priority, narrow it to an area, or remove it",
+                            )
+                        )
+            for class_id in imp.netclass_ids:
+                cls = classes.get(class_id)
+                if cls is not None:
+                    found += _class_issues(imp, row, cls, target=target)
+    stackup = board.stackup if board is not None else None
+    if stackup is None or not stackup.impedance_controlled:
+        state = "has no stack-up" if stackup is None else "has a stack-up whose impedance_controlled is false"
+        found.append(
+            issue(
+                "build.impedance-stackup",
+                f"the board {state}, and the impedance targets {', '.join(t.name for t in targets)} need it: "
+                "the job file states ImpedanceControlled and the dielectric constants only then",
+                "board",
+                "declare design.stackup(…, impedance_controlled=True)",
+            )
+        )
+    if target == 9:
+        found.append(
+            issue(
+                "build.impedance-rules-only",
+                "KiCad 9 has no tuning profile: the impedance targets are written as design rules only",
+                "impedance",
+            )
+        )
+    return list(dict.fromkeys(found))
+
+
 def _pulled_up(
     net_id: str,
     supplies: set[str],
@@ -1059,6 +1224,7 @@ def build_design(
                 "declare the area with design.rule_area() or remove the selector",
             )
         )
+    issues += impedance_checks(target_design, target=target)
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -1808,6 +1974,7 @@ def check_existing(
 __all__ = [
     "BUILD_EVIDENCE",
     "BUILD_ISSUE_CODES",
+    "impedance_checks",
     "PROPERTY_EVIDENCE",
     "RECORD_FILE",
     "RECORD_SCHEMA",

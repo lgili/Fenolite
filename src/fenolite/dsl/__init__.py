@@ -29,6 +29,7 @@ from fenolite.dsl.convert import (
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
+from fenolite.dsl.impedance import Trace, trace
 from fenolite.dsl.intents import (
     Anchor,
     AnchorRef,
@@ -82,6 +83,7 @@ __all__ = [
     "Power",
     "StitchIntent",
     "Symbol",
+    "Trace",
     "TrackIntent",
     "ViaIntent",
     "ViaStep",
@@ -110,6 +112,7 @@ __all__ = [
     "stack",
     "stackup_locked",
     "to_model",
+    "trace",
     "via_protection_locked",
     "via_step",
     "I2C",

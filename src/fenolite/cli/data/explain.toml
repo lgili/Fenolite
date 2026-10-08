@@ -395,7 +395,7 @@ fix = "Give the part a footprint in the script."
 see = "Build target"
 
 ["altium.not-lowered"]
-meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part. where names one item as <kind>/<id>, the stack-up, design-rules/<kind> (a warning: a rule of the script that the PCB document does not hold), body/<id> (a component body) or via-protection (covering, plugging, capping or filling of vias, or a tenting side stated nowhere)."
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part. where names one item as <kind>/<id>, the stack-up, design-rules/<kind> (a warning: a rule of the script that the PCB document does not hold), body/<id> (a component body), via-protection (covering, plugging, capping, filling or an unstated tenting side of vias) or impedance (targets)."
 fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. A rule: give every limit Altium's rule holds and select all objects, a net or a net class. A component body: build with --altium-bodies extruded, or set the height in Altium. Via protection: state the tenting with design.via_protection(protect(tenting=...)) or protection=."
 see = "Build target"
 
@@ -897,6 +897,36 @@ see = "build"
 ["build.i2c-pullup-missing"]
 meaning = "A line of an I2C interface has no part of exactly two pins between it and the hv net of a power interface of the design, so Fenolite sees no pull-up on the bus. A resistor array is not recognised."
 fix = "Add a pull-up resistor from each line to the supply net, or ignore the warning if the pull-ups are elsewhere."
+see = "build"
+
+["build.impedance-class-width"]
+meaning = "A net class of an impedance target has a track width, or a pair width or pair gap, that differs from the target's trace. Routers, KiCad 9's among them, lay tracks at the class value, which the derived rules then report."
+fix = "Set the class value of design.rules.netclass() to the target's width or gap, or accept the warning when the layers of the target differ."
+see = "build"
+
+["build.impedance-gap-clearance"]
+meaning = "On KiCad 9 a pair target's gap is below the clearance of its class and the class has no pair gap at or below it, so KiCad 9 reports the clearance between the two tracks of the pair."
+fix = "Set diff_pair_gap= of design.rules.netclass() at or below the gap, or give the pair its own clearance with design.rules.pair(…, clearance=…)."
+see = "build"
+
+["build.impedance-layer"]
+meaning = "An impedance target names a layer or a reference layer that is not a copper layer of the board, so its derived rules and its tuning profile would name a layer KiCad does not have."
+fix = "Name the copper layers of board(copper=…) in trace(): F.Cu, In1.Cu … B.Cu, or give the board more copper layers."
+see = "build"
+
+["build.impedance-rules-only"]
+meaning = "KiCad 9 has no tuning profile, so the impedance targets of a build for KiCad 9 are written as design rules only."
+fix = "Nothing to do. Build for KiCad 10 to also get the tuning profiles that its router and length tuner read."
+see = "build"
+
+["build.impedance-shadowed"]
+meaning = "A rule of the same kind as a rule derived from an impedance target is written after it and selects a class of the target (or the whole board, or a pair of the class) on the target's layer. KiCad lets the later rule govern, so the target's width or gap is not the one checked."
+fix = "Give the other rule a lower priority, narrow it to a rule area with select.area() for a deliberate neck-down, or remove it."
+see = "build"
+
+["build.impedance-stackup"]
+meaning = "The design has impedance targets and the board has no stack-up, or a stack-up whose impedance_controlled flag is false. The Gerber job file then states neither ImpedanceControlled nor the dielectric constants the fabricator needs."
+fix = "Declare the stack-up with design.stackup(…, impedance_controlled=True)."
 see = "build"
 
 ["build.interface-not-lowered"]
@@ -1433,6 +1463,36 @@ meaning = "The file is not in Fenolite's canonical print; 'where' names the firs
 fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
 see = "fmt"
 
+["impedance.estimate-unsupported"]
+meaning = "Some rows have no closed form: differential rows, one reference on an inner layer, or two references on an outer layer. Fenolite estimates single-ended surface microstrip and stripline only."
+fix = "Nothing to do. Take the geometry of those rows from your fabricator or a field solver."
+see = "impedance"
+
+["impedance.mixed-dielectric"]
+meaning = "A row's height crosses dielectrics of different permittivity; the estimate combines them in series, which a closed form does not model exactly."
+fix = "Read the estimate as rough, and ask the fabricator for the row's impedance."
+see = "impedance"
+
+["impedance.no-stackup"]
+meaning = "An estimate needs the heights and the permittivity of the board's stack-up, and the board has none, or a row's layers or a dielectric's permittivity are not in it. The rows left out are counted in result.counts.left_out."
+fix = "Declare the stack-up with design.stackup() and its dielectrics' epsilon_r, then build again."
+see = "impedance"
+
+["impedance.none"]
+meaning = "The design holds no impedance target, so the impedance table has no row."
+fix = "Declare targets with design.rules.impedance() and build, or give a KiCad 10 project whose classes name tuning profiles."
+see = "impedance"
+
+["impedance.off-target"]
+meaning = "A row's estimate lies outside the target's tolerance. The estimate is INFERRED and omits solder mask, etch, frequency and loss."
+fix = "Compare with suggested_width, and confirm the geometry with your fabricator before changing the script."
+see = "impedance"
+
+["impedance.out-of-range"]
+meaning = "A row lies outside the range in which the source of its closed form claims its accuracy."
+fix = "Read the estimate as rough, and ask the fabricator or a field solver for the row's impedance."
+see = "impedance"
+
 ["kicad.board-item.regenerated"]
 meaning = "A rule area, text, drawing or dimension that the script declares was edited in KiCad; it was written again from the script. The message names the fields that differed."
 fix = "Nothing to do; to keep the edit, change the call in the script, or remove the call and draw the item in KiCad."
@@ -1921,6 +1981,11 @@ see = "KiCad output"
 ["kicad.project.pattern-unsafe"]
 meaning = "A net with a class has '*' or '?' in its name, or its exact-name pattern would also match a net of another class."
 fix = "Rename the net."
+see = "KiCad output"
+
+["kicad.project.profile-reassigned"]
+meaning = "A net class of an impedance target named another tuning profile in the project, and the build set it to the target's profile. The other profile is kept in the file."
+fix = "Nothing to do when the script's target is meant. To keep the profile set in KiCad, take the class out of the target or copy the profile's values into the script."
 see = "KiCad output"
 
 ["kicad.project.reserved-variable"]

@@ -338,6 +338,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | dimension | `dim` | `dimension:<drawing key>` |
 | stack-up | `stk` | `stackup` |
 | stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
+| impedance target | `imp` | `impedance:<target name>`; its derived rules are `rule:named:<derived rule name>` (change c0105) |
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
 
@@ -1044,6 +1045,38 @@ design.rules.rule(
   "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
 - **Altium.** Written into the PCB document by kind and scope, exactly or not at all; a rule that is
   not written gives one `altium.not-lowered` warning with its reason (`docs/altium.md`, "Rules").
+
+### Impedance targets
+
+`design.rules.impedance(name, *, ohms, netclass=None, pair=None, layers, tolerance=None, priority=1)`
+declares one impedance target, and `trace(layer, *, refs, width, gap=None)` (from `fenolite.dsl`) one layer
+of it (change c0105; the guide is `docs/impedance.md`):
+
+```python
+design.rules.impedance(
+    "USB90",
+    ohms=ohm(90),
+    pair=usb,
+    tolerance=10,
+    layers=(trace("F.Cu", refs="In1.Cu", width=mm(0.2), gap=mm(0.15)),),
+)
+```
+
+- **The geometry is yours.** Every width and gap comes from the script; Fenolite computes none into the
+  design. `fenolite impedance --estimate` gives `INFERRED` advice for single-ended lines only.
+- **Arguments.** `ohms` is `ohm(…)`, a positive `int` or a decimal string (a `float` is refused);
+  `tolerance` a positive `int` or decimal string below 100 (percent); exactly one of `netclass` (a class
+  name or names) and `pair` (a `DiffPair` or `USB2`, or several); `layers` one `trace()` per layer, each
+  layer once, with one or two reference layers; a pair needs a gap on every trace, and a gap on some
+  traces only is refused. `DslError` at the call, and nothing is recorded.
+- **Classes.** The named classes, or the class of each pair's two nets; a pair whose nets are in two
+  classes or in none is refused by `to_model`.
+- **Derived rules.** Per trace one `track_width` rule on that layer, named `track_width_<target>_<layer>`,
+  and for a pair one `diff_pair_gap` rule, named `diff_pair_gap_<target>_<layer>`, each with `min` =
+  `opt` = `max`, severity `error` and the call's priority, after the rules of `minimum()` and `rule()`.
+  A derived name equal to another rule's name is refused.
+- **Model.** `RuleSet.impedance` holds one `ImpedanceTarget` per call, in call order, with the id
+  `derived_id("imp", "dsl", "impedance:<name>")`; `ohms` and the tolerance are kept as exact decimal text.
 
 ### Differential pairs
 

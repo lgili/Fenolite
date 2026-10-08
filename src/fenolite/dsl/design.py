@@ -13,9 +13,11 @@ from fenolite.core.units import Nm
 from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
+from fenolite.dsl.impedance import Trace
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part
+from fenolite.dsl.quantity import Quantity, decimal_text
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.select import pair as select_pair
 from fenolite.dsl.shape import RingSpec, closed_ring
@@ -24,6 +26,7 @@ from fenolite.dsl.units import Length, as_nm, as_nm2
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
+from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
@@ -171,6 +174,53 @@ class RuleSpec:
     priority: int
 
 
+@dataclass(frozen=True)
+class ImpedanceSpec:
+    """One ``design.rules.impedance()`` call: the target's name, ``ohms`` and ``tolerance`` as decimal
+    text (``""`` without a tolerance), the class names or the pair interfaces it governs, its traces as
+    given and the priority of its derived rules (change c0105)."""
+
+    name: str
+    ohms: str
+    tolerance: str
+    netclasses: tuple[str, ...]
+    pairs: tuple[Interface, ...]
+    traces: tuple[Trace, ...]
+    priority: int
+
+    @property
+    def differential(self) -> bool:
+        return any(t.gap is not None for t in self.traces)
+
+
+_DECIMAL = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _positive_text(value: object, what: str, *, unit: str = "") -> str:
+    """The exact decimal text of a positive ``int``, decimal string or (with ``unit``) ``Quantity``."""
+    other = f", or {unit}()" if unit else ""
+    if isinstance(value, float):
+        raise DslError(f"{what}: {value!r} is a float; give an int or a decimal string such as '42.5'{other}")
+    if unit and isinstance(value, Quantity):
+        if value.unit != unit:
+            raise DslError(f"{what}: {value} is not a value in {unit}")
+        text = decimal_text(value.value, what)
+    elif isinstance(value, int) and not isinstance(value, bool):
+        text = str(value)
+    elif isinstance(value, str) and _DECIMAL.fullmatch(value.strip()):
+        whole, _, part = value.strip().partition(".")
+        part = part.rstrip("0")
+        text = (whole.lstrip("0") or "0") + (f".{part}" if part else "")
+    else:
+        raise DslError(
+            f"{what}: {value!r} is not a positive number; "
+            f"give an int or a decimal string such as '42.5'{other}"
+        )
+    if not any(c in "123456789" for c in text):
+        raise DslError(f"{what}: {value!r} must be above 0")
+    return text
+
+
 def _leaf_values(selector: Selector | None, op: str) -> list[str]:
     if selector is None:
         return []
@@ -191,6 +241,82 @@ class Rules:
         """Minimums by ``(kind, net class name or None)``, as declared by ``minimum()``."""
         self.severities: dict[str, RuleSeverity] = {}
         """Check severities by finding code, as declared by ``severity()``."""
+        self.impedance_targets: dict[str, ImpedanceSpec] = {}
+        """The targets of ``impedance()`` by name, in call order (change c0105)."""
+
+    def impedance(
+        self,
+        name: str,
+        *,
+        ohms: object,
+        netclass: str | Sequence[str] | None = None,
+        pair: Interface | Sequence[Interface] | None = None,
+        layers: Sequence[Trace],
+        tolerance: object = None,
+        priority: int = 1,
+    ) -> None:
+        """Declare one impedance target (``docs/impedance.md``): ``ohms`` (``ohm(90)``, ``90`` or
+        ``"42.5"``), the net classes it governs (``netclass``, a name or names) or the differential pairs
+        (``pair``, a ``DiffPair`` or ``USB2``, or several), and one ``trace()`` per layer with its width,
+        and its gap for a pair. ``tolerance`` is in percent. The geometry is yours: the build adds, per
+        trace, a ``track_width`` rule and, for a pair, a ``diff_pair_gap`` rule on that layer with
+        ``min`` = ``opt`` = ``max``, at ``priority``, and writes a KiCad 10 tuning profile."""
+        if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"impedance(): a target name must be a non-empty string, not {name!r}")
+        if name in self.impedance_targets:
+            raise DslError(f"impedance(): the target {name!r} is declared twice")
+        what = f"impedance() {name!r}"
+        ohms_text = _positive_text(ohms, f"{what}: ohms", unit="ohm")
+        tolerance_text = ""
+        if tolerance is not None:
+            if isinstance(tolerance, Quantity):
+                raise DslError(f"{what}: tolerance is a number of percent, not {tolerance}")
+            tolerance_text = _positive_text(tolerance, f"{what}: tolerance")
+            if int(tolerance_text.split(".")[0]) >= 100:
+                raise DslError(f"{what}: tolerance {tolerance_text} % must be below 100")
+        if (netclass is None) == (pair is None):
+            raise DslError(f"{what}: give netclass= or pair=, one of the two")
+        classes: tuple[str, ...] = ()
+        pairs: tuple[Interface, ...] = ()
+        if netclass is not None:
+            given = (netclass,) if isinstance(netclass, str) else tuple(netclass)
+            if not given or not all(isinstance(c, str) and c for c in given):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"{what}: netclass must be a class name or a sequence of names, not {netclass!r}"
+                )
+            classes = tuple(dict.fromkeys(given))
+        else:
+            given_pairs = (pair,) if isinstance(pair, Interface) else tuple(cast(Sequence[Interface], pair))
+            if not given_pairs or not all(
+                isinstance(p, Interface) and p.kind in PAIR_ROLES  # pyright: ignore[reportUnnecessaryIsInstance]
+                for p in given_pairs
+            ):
+                raise DslError(f"{what}: pair must be a DiffPair or a USB2 interface, or a sequence of them")
+            pairs = tuple(dict.fromkeys(given_pairs))
+        traces = tuple(cast(Sequence[object], layers)) if isinstance(layers, (tuple, list)) else ()
+        if not traces:
+            raise DslError(f"{what}: layers must be a non-empty tuple of trace() values")
+        checked: list[Trace] = []
+        for item in traces:
+            if not isinstance(item, Trace):
+                raise DslError(f"{what}: {item!r} is not a trace(); write trace('F.Cu', refs=..., width=...)")
+            if any(t.layer == item.layer for t in checked):
+                raise DslError(f"{what}: the layer {item.layer} is given twice")
+            checked.append(item)
+        missing = [t.layer for t in checked if t.gap is None]
+        if pairs and missing:
+            raise DslError(
+                f"{what}: a pair target needs a gap on every trace; {', '.join(missing)} has no gap"
+            )
+        if missing and len(missing) != len(checked):
+            raise DslError(f"{what}: a gap is given on some traces only; {', '.join(missing)} has no gap")
+        if type(priority) is not int or priority < 0:
+            raise DslError(f"{what}: priority must be an integer of 0 or more, not {priority!r}")
+        for itf in pairs:
+            self._design.register_interface(itf)
+        self.impedance_targets[name] = ImpedanceSpec(
+            name, ohms_text, tolerance_text, classes, pairs, tuple(checked), priority
+        )
 
     def severity(self, code: str, level: str) -> None:
         """Give one check of KiCad's DRC a severity: ``code`` is the finding code as ``fenolite check``

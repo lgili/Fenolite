@@ -160,3 +160,35 @@ def test_power_modules_ship_no_requirement_value() -> None:
         large = {value for value in constants if type(value) is int and abs(value) >= 10_000}
         assert large <= ({1_000_000} if name == "power.py" else set()), (name, sorted(large))
         assert not [value for value in constants if type(value) is float], name
+
+
+def impedance_table(text: str) -> list[list[str]]:
+    """The cells of the rows of the table under the heading "Impedance formulas" (change c0105)."""
+    section = text.split("### Impedance formulas", 1)[1].split("\n## ", 1)[0]
+    rows = [line for line in section.splitlines() if line.startswith("|")]
+    return [[cell.strip() for cell in row.strip().strip("|").split("|")] for row in rows[2:]]
+
+
+def test_impedance_table_equals_the_code() -> None:
+    """Scenario "Table equals the code" of "Impedance formula sources are recorded"."""
+    from fenolite.analysis import impedance
+
+    text = PAGE.read_text(encoding="utf-8")
+    sources = set(re.findall(r"^\| (S-\d{4}) \|", SOURCES.read_text(encoding="utf-8"), re.MULTILINE))
+    hypotheses = set(
+        re.findall(r"^\| (H-[A-Z0-9-]+) \|", HYPOTHESES.read_text(encoding="utf-8"), re.MULTILINE)
+    )
+    rows = impedance_table(text)
+    names = [cells[0].strip("`") for cells in rows]
+    assert sorted(names) == sorted(impedance.CONSTANTS) and len(names) == len(set(names))
+    for cells in rows:
+        name = cells[0].strip("`")
+        assert len(cells) == 7, name
+        assert Decimal(cells[1]) == getattr(impedance, name), name
+        assert cells[4] in sources and cells[5] == "INFERRED" and cells[6] in hypotheses, name
+    module_constants = {
+        name for name, value in vars(impedance).items() if name.isupper() and isinstance(value, Decimal)
+    }
+    assert module_constants == set(impedance.CONSTANTS)
+    for limit in ("solder mask", "etch angle", "frequency", "loss", "copper roughness"):
+        assert limit in text.split("## Impedance estimates", 1)[1].split("\n## ", 1)[0].lower(), limit

@@ -321,3 +321,16 @@ plain canary matches every pair and would take the one violation KiCad reports f
 case-sensitive. Lowering writes names as given, so two nets or classes whose names differ only in case
 would both be selected by a rule written for one of them; the build (c0011), which knows the nets,
 refuses such designs.
+
+## Impedance targets (c0105)
+
+An impedance target of the design (`docs/impedance.md`) adds, per layer, one `track_width` rule with a
+layer clause and `min` = `opt` = `max`, and for a pair one `diff_pair_gap` rule the same way, named
+`track_width_<target>_<layer>` and `diff_pair_gap_<target>_<layer>`, at the target's priority (1 by
+default). They are ordinary model rules, lowered as every other rule, so they are written after the class
+minimums `min_<kind>_<class>` and govern on their layers.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A per-layer custom `track_width` rule with `(min 0.35mm) (opt 0.35mm) (max 0.35mm)` reports a track of its class 1 µm wider ("max width") and one narrower ("min width") on its layer, and nothing on a layer without a rule, on 9.0.9 and 10.0.6 | S-0010, S-0038, S-0020, S-0029 | INFERRED | H-K-DRU-IMPEDANCE |
+| A custom `track_width` rule on a class replaces the width check of the class's tuning profile: one finding per item, named by the rule | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |

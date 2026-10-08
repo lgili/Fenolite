@@ -185,6 +185,40 @@ class ProximityRule:
             raise ValueError(f"proximity rule {self.name!r}: severity is 'error' or 'warning'")
 
 
+ImpedanceKind = Literal["single", "differential"]
+"""A ``single`` target governs single-ended tracks; a ``differential`` one the two tracks of a pair, whose
+rows carry a gap (change c0105)."""
+
+
+@dataclass(frozen=True, slots=True)
+class TraceGeometry:
+    """One layer of an impedance target: the signal layer, its one or two reference layers in stack
+    order, the track width and, for a differential target, the gap between the two tracks (nm).
+
+    A value object of the rules layer; the geometry is always the user's (``docs/impedance.md``)."""
+
+    layer: str
+    references: tuple[str, ...] = field(metadata={"ordered": True})
+    width: Nm
+    gap: Nm | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImpedanceTarget(Entity):
+    """An impedance target of net classes (change c0105): its name, kind, the ids of the classes it
+    governs, the target in ohms and its tolerance in percent as decimal text (``"90"``, ``"7.5"``; ``""``
+    when not given), and one ``TraceGeometry`` per layer in stack order.
+
+    ``ohms`` is ``""`` only for a target read from a file that gives none."""
+
+    name: str
+    kind: ImpedanceKind
+    netclass_ids: tuple[str, ...] = field(metadata={"ordered": True})
+    ohms: str
+    tolerance_percent: str = ""
+    layers: tuple[TraceGeometry, ...] = field(default=(), metadata={"ordered": True})
+
+
 @dataclass(frozen=True, slots=True)
 class HeightLimit:
     """A height limit: the parts under every rule area named ``area`` stay at most ``max`` tall.
@@ -215,12 +249,15 @@ class RuleSet(Entity):
 
     ``proximity`` holds the placement rules, in name order; it is left out of the file when empty
     (change c0113). ``heights`` holds the height limits, in area order, left out when empty (change c0140).
+    ``impedance`` holds the impedance targets in declaration order; it is left out of the file when empty
+    (change c0105).
     """
 
     rules: tuple[Rule, ...] = ()
     severities: dict[str, RuleSeverity] = field(default_factory=lambda: {})
     proximity: tuple[ProximityRule, ...] = field(default=(), metadata={"ordered": True})
     heights: tuple[HeightLimit, ...] = field(default=(), metadata={"ordered": True})
+    impedance: tuple[ImpedanceTarget, ...] = field(default=(), metadata={"ordered": True})
 
     def __post_init__(self) -> None:
         seen: set[str] = set()
@@ -238,6 +275,8 @@ class RuleSet(Entity):
 __all__ = [
     "LEAF_OPS",
     "HeightLimit",
+    "ImpedanceKind",
+    "ImpedanceTarget",
     "PadSelection",
     "PlacementSeverity",
     "ProximityRule",
@@ -248,4 +287,5 @@ __all__ = [
     "RuleSubject",
     "Selector",
     "SelectorOp",
+    "TraceGeometry",
 ]

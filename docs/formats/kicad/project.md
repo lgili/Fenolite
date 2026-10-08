@@ -184,7 +184,7 @@ net.
 | `kicad.project.pattern-conflict` | warning | on update, a kept entry gives a model net another class |
 | `kicad.project.inexact-value` | info | a class value or floor that is not a whole number of nm |
 | `kicad.project.unlowered-field` | info | a non-empty `NetClass.description` |
-| `kicad.project.unread-entry` | info | a pattern or assignment entry of unexpected shape |
+| `kicad.project.unread-entry` | info | a pattern or assignment entry of unexpected shape, or a tuning profile or layer entry that cannot be read into an impedance target (c0105) |
 | `kicad.project.minimum-replaced` | info | an update writes a minimum that is absent, not a number, or different in nanometres |
 | `kicad.project.minimum-kept` | info | the governing board-wide rule has a severity other than `error` or no `min` |
 | `kicad.project.rule-below-minimum` | warning | a rule asks for less than a minimum that is not written, on a major of `FLOOR_OVER_RULES` |
@@ -192,6 +192,7 @@ net.
 | `kicad.project.default-over-rule` | warning | the template `Default` clearance stays above a board-wide clearance rule, on a major outside `RULES_OVER_CLASSES` |
 | `kicad.project.unknown-check` | error | a check severity names a code whose key is not a `rule_severities` key of the target's template (c0114); droppable |
 | `kicad.project.dropped-check` | warning | with `--allow-lossy`, that severity was left out |
+| `kicad.project.profile-reassigned` | warning | a class of an impedance target named another non-empty tuning profile, and the build set its key to the target (c0105) |
 
 ## Census
 
@@ -242,3 +243,43 @@ uuids, comment), in file order; an entry of another shape is skipped with `kicad
 `KicadBackend.stored_exclusions(project)` reads the project file of a copy set and returns `()` when it
 is missing or cannot be read. Nothing writes the list: `update_project` keeps it verbatim, and when
 KiCad applies an entry is in `drc.md`, "Stored exclusions".
+
+## Tuning profiles (c0105)
+
+A KiCad 10 tuning profile is an entry of `tuning_profiles.tuning_profiles_impedance_geometric`; a class
+names it by its key `tuning_profile`. Fenolite writes one profile per impedance target of the design
+(`backends/kicad/tuning.py`; guide `docs/impedance.md`), and reads back the profiles a class names.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A profile written with `profile_name`, `type`, `target_impedance`, `enable_time_domain_tuning`, `layer_entries` (each `signal_layer`, `top_reference_layer`, `bottom_reference_layer`, `width`, `diff_pair_gap`, `delay`), `via_prop_delay` and `via_overrides` is loaded by `pcb drc` 10.0.6 and judged (measured 2026-10-05, design of c0105; owed: probe `pro-tuning-width` on kicad-cli 10); the keys `frequency`, `model_solder_mask` and `net_chain_bridge_prop_delay` with `meta.version` 2 are loaded with the same findings (measured 2026-10-05). Whether a GUI save writes the same key set is not known (owed: the GUI save of `H-K-PRO-TUNING-KEYS`) | S-0020 | INFERRED | H-K-PRO-TUNING-KEYS |
+| `type` 1 makes a profile check the pair gap of its class (`diff_pair_gap_out_of_range`) and not its single tracks; `type` 0 checks single tracks (measured 2026-10-05, design of c0105; owed: probes `pro-tuning-gap`, `pro-tuning-single-under-diff` and `pro-tuning-width` on kicad-cli 10) | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A profile whose layer entries lack the two reference keys is not loaded: DRC reports `missing_tuning_profile` for the class that names it | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A width written `350000.0` is loaded, and the keys of later schemas with `meta.version` 2 are loaded without a change in the findings | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| `pcb upgrade --force` leaves a project with profiles byte for byte unchanged: `kicad-cli` never saves a project, so the key set a GUI save writes is not observable headless | S-0020, S-0022 | INFERRED | H-K-PRO-TUNING-KEYS |
+
+What Fenolite writes, for target 10 only (`tuning.apply_profile_keys`, called by `write_triad` after
+`apply_sheet_keys`):
+
+- `lower_profile(target)`: `profile_name` the target's name; `type` 0 or 1; `target_impedance` the exact
+  text of `ohms` (`0` when empty); `enable_time_domain_tuning` false; one layer entry per layer in stack
+  order (with one reference, it is `bottom_reference_layer` and `top_reference_layer` is `""`; with two,
+  the upper one is the top); `width` and `diff_pair_gap` as integers of nanometres (`0` for a single
+  target); `delay` 0; `via_prop_delay` 0; `via_overrides` empty. This is the key set of `meta.version` 0,
+  which the 10.0.6 template holds. The key names and kinds are those of the bench that `pcb drc` 10.0.6
+loaded on 2026-10-05; no source document states them (the maintainer's clean-room correction of 2026-10-08 withdrew the one
+first cited, a page of KiCad's source code).
+- A profile named like a target is replaced in place, the other targets are appended sorted by name, and
+  every other profile is kept, structurally equal and with its number spellings. None is deleted.
+- The class key of each class of a target is set to the target's name; a class that named another
+  non-empty profile gives `kicad.project.profile-reassigned`. A class without a target keeps its key.
+- `tuning.PROFILE_KEY_PATHS` are taken out of the template-value, added-path and keep rules of
+  "Synthesis" and "Updates". For target 9 and for a design without targets the text is returned
+  unchanged, and the paths stay in `TEN_ONLY_PATHS`.
+
+Reading (`read_project`, `apply_project`): `ProjectInfo.profiles` holds the profiles and
+`ProjectInfo.class_profiles` the class keys. Each profile that a class names becomes an
+`ImpedanceTarget` of those classes: kind from `type`, `ohms` the decimal text of `target_impedance` (`""`
+for 0), no tolerance, one row per entry with copper layers. An entry that lacks a key of the written form,
+has a width or gap that is not a whole number of nanometres, or names a layer the board does not have, is
+skipped with `kicad.project.unread-entry`. A profile that no class names stays in the file only.

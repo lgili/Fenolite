@@ -108,6 +108,7 @@ DSL_NOT_TAUGHT: Mapping[str, str] = MappingProxyType(
         "Quantity": _RETURNED,
         "RuleArea": _RETURNED,
         "MeanderIntent": _RETURNED,
+        "Trace": _RETURNED,
         "DslError": _ERROR,
     }
 )

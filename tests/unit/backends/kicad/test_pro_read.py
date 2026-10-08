@@ -175,7 +175,7 @@ def test_format_errors(source: str, locator: str) -> None:
 
 
 def test_codes() -> None:
-    assert ISSUE_CODES is LEAF_CODES and len(ISSUE_CODES) == 21  # c0010 11, c0012 3, c0026 5, c0114 2
+    assert ISSUE_CODES is LEAF_CODES and len(ISSUE_CODES) == 22  # c0010 11, c0012 3, c0026 5, c0114 2, c0105
     assert all(ISSUE_CODE.match(code) for code in ISSUE_CODES)
     assert all(c in ISSUE_CODES or c.startswith("kicad.version.") for c in CODES)
     literals: set[str] = set()

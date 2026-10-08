@@ -469,6 +469,28 @@ pads. `fenolite.model.rules` defines two frozen value objects for it, without an
   `schema_version` stays `"0"`. The other direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a
   `rules.json` that carries `heights`: their reader of the canonical form is strict.
 
+## Impedance targets
+
+`RuleSet.impedance` holds the impedance targets of a design (change c0105; guide `docs/impedance.md`).
+
+- `ImpedanceKind` is `single` or `differential`.
+- `TraceGeometry(layer, references, width, gap=None)` is a value object: a copper layer, one or two
+  reference layers in stack order (none equal to the layer), the width in nm above 0, and the gap in nm
+  above 0 for a `differential` target, `None` for a `single` one.
+- `ImpedanceTarget(name, kind, netclass_ids, ohms, tolerance_percent="", layers=())` is an entity (prefix `imp`): the
+  ids of the classes it governs, `ohms` and `tolerance_percent` as decimal text (`"90"`, `"7.5"`; never
+  from a `float`; `ohms` is `""` only for a target read from a file that gives none), and one geometry per
+  layer in stack order. Targets keep their declaration order.
+- `Design.validate()` reports `model.impedance-invalid` (error) for an unknown class, a class of two
+  targets, two targets of one name, a layer given twice, a gap that does not fit the kind, a width or gap
+  of 0 or less, a reference count other than one or two, a reference equal to the layer, and an `ohms` or
+  tolerance text that is not a positive decimal or a tolerance of 100 or more.
+- Every width and gap is the user's or a KiCad profile's: no estimate enters the model.
+- The field is additive: `canonical` omits `impedance` when it is empty, a `rules.json` written before the
+  field loads with an empty tuple, and `schema_version` stays `"0"`. The other direction does not hold:
+  0.2.x and 0.3.0 cannot read a `rules.json` that carries the key `impedance`, because their reader of the
+  canonical form is strict.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change

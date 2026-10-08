@@ -58,6 +58,12 @@
       "items": {
         "$ref": "#/$defs/HeightLimit"
       }
+    },
+    "impedance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImpedanceTarget"
+      }
     }
   },
   "additionalProperties": false,
@@ -153,6 +159,73 @@
       "required": [
         "area",
         "max"
+      ]
+    },
+    "ImpedanceTarget": {
+      "description": "An impedance target of net classes (change c0105): its name, kind, the ids of the classes it",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "single",
+            "differential"
+          ]
+        },
+        "netclass_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ohms": {
+          "type": "string"
+        },
+        "tolerance_percent": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TraceGeometry"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "netclass_ids",
+        "ohms"
       ]
     },
     "PadSelection": {
@@ -402,6 +475,40 @@
       "additionalProperties": false,
       "required": [
         "op"
+      ]
+    },
+    "TraceGeometry": {
+      "description": "One layer of an impedance target: the signal layer, its one or two reference layers in stack",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "references",
+        "width"
       ]
     }
   }

@@ -273,6 +273,7 @@ class Design:
                     la for la in sorted(self.board.layers, key=lambda la: la.ordinal) if la.kind == "copper"
                 ]
                 issues += stackup_issues(self.board.stackup, tuple(la.name for la in copper))
+        issues += impedance_issues(self)
         return tuple(issues)
 
 
@@ -351,6 +352,76 @@ def stackup_issues(stackup: Stackup, copper_layers: tuple[str, ...]) -> list[Iss
             for code, message, hint in found]  # fmt: skip
 
 
+POSITIVE_DECIMAL = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _positive_decimal(text: str) -> bool:
+    return bool(POSITIVE_DECIMAL.fullmatch(text)) and any(c in "123456789" for c in text)
+
+
+def impedance_issues(design: Design) -> list[Issue]:
+    """``model.impedance-invalid`` for each problem of the impedance targets of ``design`` (change c0105):
+    an unknown class, a class of two targets, two targets of one name, a layer twice, a gap that does not
+    fit the kind, a length of 0 or less, a reference count other than one or two or a reference equal to
+    the layer, and an ``ohms`` or tolerance text that is not a positive decimal (tolerance below 100)."""
+    targets = design.rules.impedance if design.rules is not None else ()
+    if not targets:
+        return []
+    found: list[Issue] = []
+    classes = {c.id: c.name for c in design.circuit.netclasses}
+
+    def add(target: str, message: str, hint: str = "") -> None:
+        found.append(
+            Issue("model.impedance-invalid", "error", message, where=f"impedance/{target}", hint=hint)
+        )
+
+    for name, count in sorted(Counter(t.name for t in targets).items()):
+        if count > 1:
+            add(name, f"{count} impedance targets are named {name!r}")
+    owners: dict[str, list[str]] = {}
+    for target in targets:
+        if not target.name:
+            add(target.name, "an impedance target has no name")
+        for class_id in target.netclass_ids:
+            if class_id not in classes:
+                add(target.name, f"target {target.name}: {class_id} names no net class")
+            else:
+                owners.setdefault(class_id, []).append(target.name)
+        if not target.netclass_ids:
+            add(target.name, f"target {target.name} names no net class")
+        if target.ohms and not _positive_decimal(target.ohms):
+            add(target.name, f"target {target.name}: ohms {target.ohms!r} is not a positive decimal")
+        tolerance = target.tolerance_percent
+        if tolerance and (not _positive_decimal(tolerance) or int(tolerance.split(".")[0]) >= 100):
+            add(
+                target.name,
+                f"target {target.name}: tolerance {tolerance!r} is not a positive decimal below 100",
+            )
+        for layer, count in sorted(Counter(row.layer for row in target.layers).items()):
+            if count > 1:
+                add(target.name, f"target {target.name}: layer {layer} is given {count} times")
+        for row in target.layers:
+            where = f"target {target.name}, layer {row.layer}"
+            if row.width <= 0:
+                add(target.name, f"{where}: width {row.width} nm is not above 0")
+            if target.kind == "differential" and (row.gap is None or row.gap <= 0):
+                add(target.name, f"{where}: a differential target needs a gap above 0")
+            if target.kind == "single" and row.gap is not None:
+                add(target.name, f"{where}: a single-ended target takes no gap")
+            if len(row.references) not in (1, 2) or len(set(row.references)) != len(row.references):
+                add(target.name, f"{where}: give one or two distinct reference layers")
+            if row.layer in row.references:
+                add(target.name, f"{where}: the layer is its own reference")
+    for class_id, names in sorted(owners.items()):
+        if len(names) > 1:
+            add(
+                names[0],
+                f"targets {', '.join(names)} both govern the net class {classes[class_id]}",
+                "give each net class one impedance target",
+            )
+    return found
+
+
 def _sheet_path_problem(path: str) -> str | None:
     """Why ``path`` is not a project-relative path (``${KIPRJMOD}/`` allowed), or None."""
     rest = path.removeprefix("${KIPRJMOD}/")
@@ -404,6 +475,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "Design",
     "DesignHeader",
+    "impedance_issues",
     "iter_entities",
     "presentation_issues",
     "stackup_issues",

@@ -23,7 +23,7 @@ from hypothesis import strategies as st
 from fenolite.backends.altium import pcbdoc, rulemap
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.rules import map_rules
-from fenolite.dsl import USB2, Design, Net, mm, placements, to_model
+from fenolite.dsl import USB2, Design, Net, mm, placements, to_model, trace
 from fenolite.dsl.select import net, netclass
 from fenolite.lens.altium import build_altium
 from fenolite.lens.build import BuildOutput
@@ -534,3 +534,79 @@ def test_pair_files_equal_without_the_pair_content(document: bool) -> None:
     assert b"diff_pair_gap" in with_pair.files[".fenolite/circuit.json"]
     assert b"diff_pair_skew" in with_pair.files[".fenolite/rules.json"]
     assert not [i for i in without.issues if i.where == "pair-values"]
+
+
+# -- impedance targets in an Altium build (capability altium-build; change c0105)
+
+
+def impedance_design(*, target: bool = True, pair: bool = False, layer: str = "B.Cu") -> Design:
+    """The blink with two made-up signal nets in the class ``SE50`` and, with ``target``, a single-ended
+    target on ``F.Cu`` and ``layer``; with ``pair``, a ``USB2`` pair of the class ``USB90`` and a
+    differential target on ``F.Cu``."""
+    design = blink()
+    design.rules.netclass("SE50", clearance=mm(0.2), nets=(Net("SIG_A"), Net("SIG_B")))
+    if target:
+        design.rules.impedance(
+            "SE50",
+            ohms=50,
+            netclass="SE50",
+            layers=(trace("F.Cu", refs="B.Cu", width=mm(0.35)), trace(layer, refs="F.Cu", width=mm(0.35))),
+        )
+    if pair:
+        usb = USB2(Net("USB_P"), Net("USB_N"))
+        design.rules.netclass("USB90", clearance=mm(0.2), nets=tuple(usb.members.values()))
+        design.rules.impedance(
+            "USB90", ohms=90, pair=usb, layers=(trace("F.Cu", refs="B.Cu", width=mm(0.2), gap=mm(0.15)),)
+        )
+    return design
+
+
+def test_impedance_target_in_an_altium_build() -> None:
+    """Scenario "Target in an Altium build"."""
+    output = built(impedance_design())
+    without = built(impedance_design(target=False))
+    outside = {name for name in without.files if not name.startswith(".fenolite/")}
+    assert outside == {name for name in output.files if not name.startswith(".fenolite/")}
+    assert all(output.files[name] == without.files[name] for name in outside)
+    assert b'"impedance"' in output.files[".fenolite/rules.json"]
+    assert b"track_width_SE50_F.Cu" in output.files[".fenolite/rules.json"]
+    infos = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "impedance"]
+    assert len(infos) == 1 and infos[0].severity == "info"
+    assert "SE50" in infos[0].message and "2 rule(s)" in infos[0].message
+    found = not_lowered(output)
+    assert [(where, severity) for where, severity, _ in found] == [
+        ("design-rules/track_width", "warning"),
+        ("design-rules/track_width", "warning"),
+    ]
+    assert all("scope-unsupported" in message for _, _, message in found)
+    named = " ".join(message for _, _, message in found)
+    assert "track_width_SE50_F.Cu" in named and "track_width_SE50_B.Cu" in named
+    assert [(e["kind"], e["reason"]) for e in summary(output)["not_lowered"]] == [
+        ("track_width", "scope-unsupported"),
+        ("track_width", "scope-unsupported"),
+    ]
+    assert not [i for i in without.issues if i.where == "impedance"]
+
+
+def test_impedance_pair_target_in_an_altium_build() -> None:
+    """Scenario "Pair target in an Altium build"."""
+    output = built(impedance_design(target=False, pair=True))
+    assert [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "impedance"]
+    found = not_lowered(output)
+    assert ("design-rules/track_width", "warning") in [(w, s) for w, s, _ in found]
+    assert any(w == "design-rules/diff_pair_gap" and "no-counterpart" in m for w, _, m in found)
+
+
+def test_impedance_layer_refuses_an_altium_build() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        design = impedance_design(layer="In1.Cu")
+        output = build_altium(
+            to_model(design),
+            name=design.name,
+            placed=tuple(placements(design)),
+            placements=placements(design),
+            resolver=blink_resolver(root, blink_tree(root)),
+        )
+    assert output.files == {}
+    assert [i.severity for i in output.issues if i.code == "build.impedance-layer"] == ["error"]

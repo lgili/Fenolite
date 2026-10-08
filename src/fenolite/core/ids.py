@@ -27,7 +27,7 @@ PREFIXES: frozenset[str] = frozenset(
         "zon", "kpo", "txt", "gfx", "hol", "out", "dim",  # board
         "fld",  # footprint fields
         "bdy",  # component bodies
-        "rst", "rul",  # rules
+        "rst", "rul", "imp",  # rules (imp: impedance targets, change c0105)
         "mfn",  # manufacturing
         "fpd", "sym",  # library definitions
         "wks",  # drawing-sheet definitions

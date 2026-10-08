@@ -1558,6 +1558,17 @@ documentation (`docs/formats/altium/pcb-copper.md`, "Via"; `H-A-IMP-VIA-PADLESS`
 `fenolite build --target altium` runs the copper check on the PCB document before it writes and refuses
 a board with a short (`docs/cli-contract.md`, "Copper guard of an Altium build").
 
+### Impedance targets (c0105)
+
+An Altium build keeps the impedance targets of a design (`docs/impedance.md`) in the model and in
+`.fenolite/rules.json` only: no public source recorded in `docs/formats/altium/` states the record of an
+impedance profile. One `altium.not-lowered` info at `impedance` names the targets and the number of
+rules derived from them. Those rules are rules of the design like any other: each `track_width` rule of a
+target carries a layer and is reported with `scope-unsupported`, each `diff_pair_gap` rule with
+`no-counterpart`, one warning at `design-rules/<kind>` and one entry of `result.rules.not_lowered` each.
+Every planned file outside `.fenolite/` equals the file of the same design without the targets. A trace on
+a layer the board does not have gives `build.impedance-layer`, which refuses the build as in KiCad.
+
 ### Placement rules and keep-outs that forbid footprints (c0113)
 
 - **The stage `placement.rules`** is part of the document check, after `copper.clearance` and before
