@@ -103,6 +103,7 @@ from fenolite.dsl import (
     copper,
     drawing_sheet_source,
     fields,
+    heights,
     meanders,
     module_moves,
     moves,
@@ -522,15 +523,17 @@ def placement_guard(
     staged: Sequence[str] = (),
     edge_clearance: int = 0,
     rules: placement_rules.PlacementRules | None = None,
+    model: ModelDesign | None = None,
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The placement issues of the board that a build is about to write, and ``result.placement``.
 
     The planned board text is read back with ``read_board``, the courtyards come from the KiCad board
     frame, the outline from ``board_outline`` and the keep-outs from the board, and ``legality.check``
     judges every footprint whose component path is not in ``staged``. ``rules`` are the placement rules of
-    the built model (``checks.placement.rules_of``), judged on the pads of the same board. Every issue is
-    at most a warning: a build never refuses for placement. Nothing is read from disk and nothing is
-    written.
+    the built model (``checks.placement.rules_of``), judged on the pads of the same board; its height
+    limits are judged on the same extents with the heights of ``model``, the built model, whose footprints
+    hold the bodies of ``Part(height=…)`` (change c0140). Every issue is at most a warning: a build never
+    refuses for placement. Nothing is read from disk and nothing is written.
     """
     data = files.get(f"{name}.kicad_pcb")
     if data is None:
@@ -559,14 +562,20 @@ def placement_guard(
     report = placement_rules.RuleReport()
     if rules:
         report = placement_rules.judge(design, rules, pads=KicadBackend().board_pads(design))
+    judged = {family: dict(family_counts) for family, family_counts in report.counts.items()}
+    heights = placement_rules.RuleReport((), {})
+    if rules is not None and rules.heights:
+        heights = placement_rules.judge_heights(
+            design, rules.heights, placement_rules.heights_of(design, model), extents=extents
+        )
+        judged.update({family: dict(family_counts) for family, family_counts in heights.counts.items()})
     issues = tuple(
         dataclasses.replace(issue, severity="warning") if issue.severity == "error" else issue
-        for issue in (*found, *report.issues)
+        for issue in (*found, *report.issues, *heights.issues)
     )
     counts: dict[str, int] = {}
     for issue in issues:
         counts[issue.code] = counts.get(issue.code, 0) + 1
-    judged = {family: dict(family_counts) for family, family_counts in report.counts.items()}
     return issues, {"ran": True, "counts": dict(sorted(counts.items())), "rules": judged}
 
 
@@ -840,6 +849,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         lock_via_protection=via_protection_locked(design),
         planes=plane_nets,
         lock_outline=outline_locked(design),
+        heights=heights(design),
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):
@@ -853,6 +863,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         staged=cast(Sequence[str], built.summary.get("staged", ())),
         edge_clearance=legality.edge_clearance(built.design),
         rules=placement_rules.rules_of(built.design),
+        model=built.design,
     )
     if files:
         copper_issues, copper_check = copper_guard(
@@ -1143,6 +1154,7 @@ def _run_altium(
             symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
             bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
             authored_symbols=authored_symbols,
+            heights=heights(run.design),
         )
     files = dict(built.files)
     mode = args.copper_check or COPPER_CHECK_MODES[0]

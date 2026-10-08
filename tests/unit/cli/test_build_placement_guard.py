@@ -257,3 +257,39 @@ def test_guard_judges_the_keepouts_of_the_planned_board() -> None:
     assert [(i.code, i.severity, i.where) for i in issues] == [("place.keepout", "warning", "R1")]
     assert summary["counts"] == {"place.keepout": 1} and ISSUE_CODES["place.keepout"] == "error"
     assert placement_guard(planned("B.Cu"), name="blink")[0] == ()  # R1 is on the top
+
+
+# --- height limits in the guard (change c0140) ----------------------------------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+LID_OVER_R1_U1 = (
+    '\ndesign.rule_area("LID", [(mm(5), mm(5)), (mm(35), mm(5)), (mm(35), mm(25)), (mm(5), mm(25))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""An area on ``F.Cu`` over the top-side parts ``R1`` (32, 9) and ``U1`` (14, 15); ``D1`` is on the bottom."""
+
+
+def test_height_limits_reported_as_warnings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Limits reported as warnings": a part above a limit never refuses a build."""
+    script = variant(tmp_path, TALL_R1)
+    script.write_text(script.read_text(encoding="utf-8") + LID_OVER_R1_U1, encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [
+        ("placement.height-unknown", "warning", "U1"),
+        ("placement.too-tall", "warning", "R1"),
+    ]
+    assert env["result"]["placement"]["rules"]["height"] == {"judged": 2, "failed": 1, "unknown": 1}
+    assert env["result"]["placement"]["counts"] == {"placement.height-unknown": 1, "placement.too-tall": 1}
+    assert not (tmp_path / "out").exists()
+
+
+def test_height_no_limit_no_family(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = variant(tmp_path, TALL_R1)
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
+    assert code == 0, env["issues"]
+    assert env["result"]["placement"]["rules"] == NO_RULES["rules"]

@@ -515,6 +515,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0118 | `assembly-test-features` |
 | c0119 | `yardstick-board` |
 | c0120 | `agent-loop-scale` |
+| c0140 | `part-height-rules` (taken out of c0113 on 2026-10-07, decision 3: one source of height) |
 
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may

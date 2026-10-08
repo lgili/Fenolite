@@ -308,6 +308,40 @@ def test_placement_rules_on_a_built_project(monkeypatch: pytest.MonkeyPatch, tmp
     assert stage["evidence"]["level"] in ("INFERRED", "UNVERIFIED", "UNKNOWN")
 
 
+HEIGHT_LID = (
+    '\ndesign.rule_area("LID", [(mm(29), mm(6)), (mm(35), mm(6)), (mm(35), mm(12)), (mm(29), mm(12))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""A 6 mm square on ``F.Cu`` over ``R1`` of the routed blink (at (32, 9) mm), limited to 5 mm (c0140)."""
+
+
+def test_height_limit_on_a_built_altium_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A limit on a built Altium project" (change c0140): ``R1`` states 9 mm, but neither the
+    documents nor the stored board of an Altium build hold its body, and the PCB document holds no rule
+    area named ``LID`` (an area that forbids nothing has no record, and a keep-out record has no key for a
+    name: ``docs/altium.md``), so the limit is unresolved and no ``placement.too-tall`` is given."""
+    from _altium_built import EXAMPLES, build_altium_example
+    from _buildhelp import blink_variant
+
+    script = blink_variant(tmp_path / "src")
+    routed = (EXAMPLES / "blink_routed" / "design.py").read_text(encoding="utf-8")
+    plain = 'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")'
+    tall = 'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))'
+    assert plain in routed
+    script.write_text(routed.replace(plain, tall) + HEIGHT_LID, encoding="utf-8")
+    code, root, error = build_altium_example(monkeypatch, tmp_path, script)
+    assert code == 0, error
+    assert '"bodies"' not in (root / ".fenolite" / "board.json").read_text(encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(root), "--stages", "placement.rules")
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [
+        ("placement.rule-unresolved", "error", "LID")
+    ]
+    assert code == 5
+    (stage,) = env["result"]["stages"]
+    assert stage["summary"]["rules"]["height"] == {"judged": 0, "failed": 0, "unknown": 0}
+
+
 def test_placement_rules_on_documents_without_a_script(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

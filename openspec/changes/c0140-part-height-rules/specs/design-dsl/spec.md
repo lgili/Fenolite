@@ -41,4 +41,4 @@ The keyword-only `height=None` of `Part(…)`, `dsl.heights(design)` and `Design
 #### Scenario: An Altium build stores and announces
 - **GIVEN** the routed blink with `R1` created with `height=mm(9)` and `design.height_limit("LID", max=mm(5))`
 - **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k height` builds it with `--target altium --altium-bodies extruded --dry-run --json`
-- **THEN** the exit code is 0, the planned `.fenolite/rules.json` holds the limit under `heights`, `issues` hold one `altium.not-lowered` info whose `where` is `placement-rule` and one `altium.not-lowered` whose `where` is `body`, no `placement.*` issue, and the planned documents equal those of the build without `height=` and without the limit
+- **THEN** the exit code is 0, the planned `.fenolite/rules.json` holds the limit under `heights`, `issues` hold one `altium.not-lowered` info whose `where` is `placement-rule` and one `altium.not-lowered` whose `where` is `body/<the body id>`, no `placement.*` issue, and the planned documents equal those of the build without `height=` and without the limit

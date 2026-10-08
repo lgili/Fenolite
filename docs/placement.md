@@ -166,7 +166,7 @@ distance between parts.
   (error); an unresolved anchor leaves the whole rule unjudged. A part off the board gives
   `placement.rule-skipped` (info), and the rule is not judged for it.
 - The counts are per rule family: `{"near": {"judged", "failed", "skipped"}}`, one count per rule and
-  part. A later change adds a family (part heights are change c0140's, not this page's).
+  part. The height limits add the family `height` ("Height limits").
 
 Who judges them:
 
@@ -180,6 +180,48 @@ The rules are those of the last build: `check` and `place` read `.fenolite/`, so
 script applies at the next build. A board without a script has no rule. Distances join pad centres: a rule
 says nothing of the routed length (change c0106) or of the area of a current loop. No command moves a part
 to meet a rule: the grid ignores them, and a placer that reads them is planned (`docs/roadmap.md`).
+
+## Height limits
+
+A part may not be tall under a lid, a heat sink or a display. A script states a part's height with
+`Part(..., height=…)` and a limit over a named rule area with `design.height_limit(area, max=…)`
+(`docs/dsl.md`, "Part heights and height limits"; change c0140).
+
+- **One source of height.** A part's height is the outward height of the bodies of its footprint, computed
+  by `fenolite.model.board.outward_height` and by nothing else: the largest upper bound of the bodies, its
+  `height` for a body of today's model. A script height is such a body; a board imported from Altium
+  brings its own. `Component` has no height, and no footprint property holds one.
+- **Where heights are read.** `fenolite.checks.placement.heights_of(design, model)`: the footprint of the
+  board being judged when it holds a body (a reading of Altium documents), else the footprint of the same
+  component path in the `.fenolite/` model of a built project (a KiCad file holds no body), else none.
+  The bodies of the two are never mixed.
+- **Under an area.** Every rule area whose name is the limit's `area` limits the parts under it. A part is
+  under an area when the area's layers hold `F.Cu` and the part is on the top side, or `B.Cu` and it is on
+  the bottom side, and the interior of a ring of the courtyard of its own face meets the interior of the
+  area's outline; rings that only touch do not meet. This is the face rule of the keep-outs
+  (`H-K-PLACE-KEEPOUT`). An area on inner layers only judges no part. A part without a courtyard is judged
+  on the hull of its pads, and its finding ends with "(approximate extent)". The body's own outline is not
+  used.
+- **Who is judged.** Not a part marked `dnp`, nor a part off the board. A part marked `board_only`, or
+  whose pads are all non-plated holes (a logo, a mounting hole), only when its height is known.
+- **Findings.** A part taller than the limit gives `placement.too-tall` with the limit's severity; a part
+  equal to it is no finding. A judged part without a known height gives `placement.height-unknown`
+  (warning): an unknown height under a limit is never a pass. A limit whose area the board does not hold
+  gives `placement.rule-unresolved` (error). One part under two areas of one name gives one finding.
+- **Counts.** The family `height` of the counts: `{"judged", "failed", "unknown"}`, one count per limit
+  and part under one of its areas. Without a limit the family is absent.
+
+| command | what it does with a height finding |
+|---|---|
+| `fenolite check` | the default stage `placement.rules` (`summary.rules.height`), on KiCad projects and on Altium documents; an error gives exit code 5 |
+| `fenolite build` | a warning at most, in `result.placement.rules.height`; a build never refuses for a height |
+| `fenolite place` | a warning at most, in `result.rules.height`, after the moves; the grid does not read heights |
+
+A limit compares one number with one bound. What lies below the top of a body, a tall part on the other
+side, a shape in space and parts that reach through the board are the volume analysis of change c0099
+(`check_body_volumes`), which a height limit does not replace. On the Altium target a script height is
+not written, and a PCB document holds no rule-area name, so a limit is judged there only on documents
+that hold both (`docs/altium.md`).
 
 ## Measures
 

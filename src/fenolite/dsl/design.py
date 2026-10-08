@@ -25,7 +25,7 @@ from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, Z
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
-from fenolite.model.rules import PlacementSeverity, RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
     from fenolite.dsl.intents import MeanderIntent, Recorded
@@ -268,7 +268,7 @@ class Rules:
         layers: tuple[str, ...] = (),
         min: object = None,  # noqa: A002  (the model's field name)
         opt: object = None,
-        max: object = None,  # noqa: A002
+        max: object = None,
         severity: str = "error",
         priority: int = 0,
     ) -> None:
@@ -507,6 +507,8 @@ class Design(Container):
         ``polygon()`` and ``dimension()``, in call order."""
         self.near_rules: dict[str, NearSpec] = {}
         """Proximity rules by key, as declared by ``near()``."""
+        self.height_limits: dict[str, HeightLimit] = {}
+        """Height limits by area name, as declared by ``height_limit()`` (change c0140)."""
 
     def waive(
         self,
@@ -1345,6 +1347,23 @@ class Design(Container):
         if severity not in PLACEMENT_SEVERITIES:
             raise DslError(f"{what}: severity {severity!r} is not one of {', '.join(PLACEMENT_SEVERITIES)}")
         self.near_rules[key] = NearSpec(key, sides[0], sides[1], length, cast(PlacementSeverity, severity))
+
+    def height_limit(self, area: str, *, max: object, severity: str = "error") -> None:
+        """A height limit: the parts under every rule area named ``area`` are at most ``max`` tall. The
+        area is not looked up here: one drawn in KiCad is known only on the board. ``fenolite check``
+        judges the limit in its stage ``placement.rules``; ``build`` and ``place`` report it as a warning
+        (``docs/dsl.md``, "Part heights and height limits")."""
+        if not isinstance(area, str) or not NAME.fullmatch(area):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"height_limit(): the area {area!r} must match {NAME.pattern}")
+        if area in self.height_limits:
+            raise DslError(f"height_limit(): the area {area!r} has a limit already")
+        what = f"height_limit() {area!r}"
+        length = as_nm(max, name=f"{what}: max")
+        if length <= 0:
+            raise DslError(f"{what}: max must be above 0")
+        if severity not in PLACEMENT_SEVERITIES:
+            raise DslError(f"{what}: severity {severity!r} is not one of {', '.join(PLACEMENT_SEVERITIES)}")
+        self.height_limits[area] = HeightLimit(area, length, cast(PlacementSeverity, severity))
 
     @staticmethod
     def _near_side(value: object, what: str) -> tuple[object, ...]:

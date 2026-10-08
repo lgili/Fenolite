@@ -74,13 +74,13 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
-from fenolite.core.units import Udeg
+from fenolite.core.units import Nm, Udeg
 from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
 from fenolite.model import canonical, pairs
-from fenolite.model.board import FootprintInstance, Pad, Side, ViaProtection
+from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Interface, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
@@ -708,6 +708,14 @@ def _staging(design: Design) -> tuple[int, int]:
     return box[2] + STAGING_OFFSET, box[1]
 
 
+def height_body(path: str, height: Nm) -> ComponentBody:
+    """The body of a part whose script states its height (change c0140): extruded, standoff 0, no outline
+    and no signed bounds; ``outward_height`` reads ``height`` as its top."""
+    return ComponentBody(
+        id=derived_id("bdy", DSL_BACKEND, f"height:{path}"), kind="extruded", height=height, name="height"
+    )
+
+
 def build_design(
     design: Design,
     placements: Mapping[str, PlacementRequest],
@@ -735,6 +743,7 @@ def build_design(
     lock_via_protection: bool = False,
     planes: Mapping[str, str] | None = None,
     lock_outline: bool = False,
+    heights: Mapping[str, Nm] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -779,6 +788,10 @@ def build_design(
     ``symbol_placements`` fixes symbol origins on the sheet (``lens.schplacements``).
     ``schematic_layout`` is ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts beside
     the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
+    ``heights`` maps a component path to the height its script states (``Part(height=…)``, change c0140):
+    the footprint of that path gets one extruded body of that height (``height_body``), after the bodies
+    of its definition. No KiCad file holds a body; ``.fenolite/board.json`` keeps it, also through a
+    rebuild. A path that names no footprint is ignored.
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -891,6 +904,11 @@ def build_design(
             placed.append(part.path)
             bottom = bottom or request.side == "bottom"
         instance = apply_requests(instance, fields.get(part.path, ()))
+        stated = (heights or {}).get(part.path)
+        if stated is not None:
+            instance = dataclasses.replace(
+                instance, bodies=(*instance.bodies, height_body(part.path, stated))
+            )
         instance = apply_pad_connections(
             instance, pad_zones.get(part.path, ()), where=part.path, issues=issues
         )

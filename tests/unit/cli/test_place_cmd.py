@@ -437,3 +437,42 @@ def test_native_board_has_measures_and_no_rules(monkeypatch: pytest.MonkeyPatch,
     assert code == 0, env["issues"]
     assert env["result"]["rules"] == NO_RULES and env["result"]["measures"]["nets"] > 0
     assert env["result"]["measures"]["change"] == {"hpwl": 0, "ratsnest": 0}
+
+
+# --- height limits after the moves (change c0140) -------------------------------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+LOW_CORNER = (
+    'design.rule_area("LID", [(mm(0), mm(0)), (mm(8), mm(0)), (mm(8), mm(8)), (mm(0), mm(8))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""The 8 mm square at the top-left corner of the blink's board, on ``F.Cu``, limited to 5 mm; the courtyard of
+``U1`` at (14, 15) mm reaches into a 10 mm square, so the square is smaller than that."""
+
+
+def test_height_a_move_under_a_low_area(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A move under a low area": reported as a warning, never refused."""
+    folder = built(monkeypatch, tmp_path, TALL_R1, ("d1.place(", LOW_CORNER + "d1.place("), name="low")
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [
+        ("placement.too-tall", "warning", "R1")
+    ]
+    assert env["result"]["rules"]["height"] == {"judged": 1, "failed": 1, "unknown": 0}
+    assert len(env["result"]["plan"]) == 1  # a height never refuses the write
+    assert env["evidence"]["level"] == "INFERRED"
+    again = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--dry-run")[1]
+    assert again["result"]["rules"] == env["result"]["rules"] and again["issues"] == env["issues"]
+
+
+def test_height_no_limit_same_reply(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "No limit, same reply"."""
+    folder = built(monkeypatch, tmp_path, TALL_R1, name="tall")
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=12mm,8mm", "--dry-run")
+    assert code == 0, env["issues"]
+    assert "height" not in env["result"]["rules"]
+    assert env["result"]["rules"] == NO_RULES

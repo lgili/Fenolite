@@ -51,6 +51,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
+from fenolite.core.units import Nm
 from fenolite.lens import altium_copper
 from fenolite.lens.altium_copper import CopperSource, match_source
 from fenolite.lens.build import (
@@ -62,11 +63,12 @@ from fenolite.lens.build import (
     BuildOutput,
     PlacementRequest,
     UnresolvedLibrariesError,
+    height_body,
 )
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
 from fenolite.model.base import Opaque
-from fenolite.model.board import PPM_PER_PERCENT, FootprintInstance, Graphic, Hole, Pad
+from fenolite.model.board import PPM_PER_PERCENT, ComponentBody, FootprintInstance, Graphic, Hole, Pad
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
@@ -971,6 +973,7 @@ def lowered_pcb(
     account: dict[str, dict[str, int]] | None = None,
     bodies: pcbdoc.BodyMode = "off",
     body_form: pcbrecords.BodyForm = "saved",
+    script_bodies: Sequence[tuple[str, ComponentBody]] = (),
 ) -> tuple[pcbdoc.PcbDocSpec | None, list[Issue]]:
     """The PCB document of ``design`` through the lowering (capability altium-build, "Altium build through
     the lowering"; change c0126), or ``None`` with one ``altium.pcbdoc-not-written`` info naming the
@@ -984,7 +987,8 @@ def lowered_pcb(
     c0085), when given, receives ``written`` and ``not_lowered`` of ``altium_copper.account``. ``bodies``
     (change c0121) is ``off`` or ``extruded``: with ``extruded`` the extruded component bodies of the
     board's footprints are written in the form ``body_form``, and ``altium_copper.lower_bodies`` reports
-    every other body."""
+    every other body, the ``script_bodies`` of ``Part(height=…)`` (component path, body; change c0140)
+    among them."""
     issues: list[Issue] = []
     board = design.board
     reason = ""
@@ -1060,11 +1064,11 @@ def lowered_pcb(
     inputs = lower.from_design(_with_plan_copper(placed, plan), issues=[], options=options, bodies=bodies)
     spec = inputs.pcb
     assert spec is not None
-    _placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues)
+    _placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues, script_bodies)
     plan = dataclasses.replace(plan, counts=MappingProxyType({**plan.counts, "body": body_counts}))
     if account is not None:
         source = copper_source.design if copper_source is not None else None
-        account.update(altium_copper.account(design, spec, plan, source))
+        account.update(altium_copper.account(design, spec, plan, source, len(script_bodies)))
     return spec, issues
 
 
@@ -1858,6 +1862,7 @@ def build_altium(
     symbol_bodies: SymbolBodies = DEFAULT_BODIES,
     bodies: str = "off",
     body_form: pcbrecords.BodyForm = "saved",
+    heights: Mapping[str, Nm] | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -1867,7 +1872,10 @@ def build_altium(
     PCB library; a body that names a 3D model, has no outline or no height above its standoff is reported.
     Another value raises ``ValueError``. The default stays ``off`` until step X8 of the author report is
     in: two keys of a written body are stand-ins (``H-A-PCBX-BODY-OPEN``). ``body_form`` is ``saved``;
-    ``short`` exists for the second file set of that step and no command selects it.
+    ``short`` exists for the second file set of that step and no command selects it. ``heights`` maps a
+    component path to the height of ``Part(height=…)`` (change c0140): its body (``height_body``) has no
+    outline, so it is reported under the kind ``body`` and never written, and the stored board, which
+    holds the bodies that were written, does not hold it.
 
     ``directions`` (change c0086, ``--altium-directions``) false writes every port and sheet entry
     without an I/O type. ``authored_symbols`` (change c0086) maps a lib id to a symbol the script authored
@@ -1982,6 +1990,9 @@ def build_altium(
         account=pcb_account,
         bodies=body_mode,
         body_form=body_form,
+        script_bodies=tuple(
+            (path, height_body(path, height)) for path, height in sorted((heights or {}).items())
+        ),
     )
     issues += document_issues
     if spec is not None and hole_parts.reported:

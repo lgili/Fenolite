@@ -1229,6 +1229,35 @@ the KiCad build writes `(footprints not_allowed)`, and `place` and the build's p
 area like one drawn in KiCad (`place.keepout`; `docs/placement.md`, "Keep-outs"). An Altium build names
 the area in one `altium.not-lowered` info of kind `keepout-footprints` (`docs/altium.md`).
 
+## Part heights and height limits
+
+A part states how tall it is, and a named rule area says how tall the parts under it may be (change c0140;
+`docs/placement.md`, "Height limits").
+
+```python
+j1 = Part("J1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", height=mm(9))
+design.rule_area(
+    "LID", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(15)), (mm(0), mm(15))], layers=("F.Cu",)
+)
+design.height_limit("LID", max=mm(5))  # severity="warning" reports without gating
+```
+
+- `Part(..., height=h)` takes `None` (the default) or a positive length: the top of the part above the
+  board surface on its own side. `dsl.heights(design)` returns the heights by component path, in path
+  order. `to_model` puts no height into the circuit: `Component` has no height field.
+- The build gives the placed footprint of the part one extruded `ComponentBody` of that height, with
+  standoff 0, **no outline** and the name `height`, after the bodies of its definition. A KiCad file holds
+  no body: `.fenolite/board.json` keeps it, also through a rebuild over an existing board, and no KiCad
+  file changes. An Altium build does not write it, because a body without an outline has no record
+  (`docs/altium.md`).
+- `design.height_limit(area, *, max, severity="error")` records `HeightLimit(area, max, severity)` in
+  `RuleSet.heights`, in area order (`docs/design-model.md`, "Height limits"). `area` is a name of the
+  pattern of refs and takes one limit; `max` is a length above 0; `severity` is `error` or `warning`. The
+  area is not looked up at the call: an area drawn in KiCad is known only on the board. A rule area that
+  forbids nothing serves as the area of a limit.
+- `fenolite check` judges the limits in its stage `placement.rules`; `build` and `place` report them as
+  warnings. A design without either call gives the model, and the bytes, it gave before.
+
 ## Copper guard
 
 `fenolite build` refuses to write a board whose copper shorts two nets or breaks the clearance in force

@@ -31,10 +31,12 @@ from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_chec
 from fenolite.checks.documents import DOCUMENT_STAGES, run_document_checks
 from fenolite.checks.placement import EVIDENCE, STAGE, default_pitch, placement_stage
 from fenolite.checks.stages import OPT_IN_STAGES, StageResult
+from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.board import ComponentBody, Keepout
 from fenolite.model.design import Design
-from fenolite.model.rules import PadSelection, ProximityRule, RuleSet
+from fenolite.model.rules import HeightLimit, PadSelection, ProximityRule, RuleSet
 
 ROOT = Path(__file__).resolve().parents[3]
 TWO_LAYER = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -297,3 +299,90 @@ def test_altium_documents_without_a_script(monkeypatch: pytest.MonkeyPatch, tmp_
     (stage,) = env["result"]["stages"]
     assert (stage["name"], stage["status"]) == (STAGE, "ok")
     assert stage["summary"]["rules"] == ZERO and stage["summary"]["measures"]["nets"] > 0
+
+
+# --- height limits in the stage (change c0140) ----------------------------------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+LID = (
+    '\ndesign.rule_area("LID", [(mm(29), mm(6)), (mm(35), mm(6)), (mm(35), mm(12)), (mm(29), mm(12))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""A 6 mm square on ``F.Cu`` over ``R1`` of the blink, which stands at (32, 9) mm, limited to 5 mm."""
+
+
+class NoExtents(FakeRulesValidator):
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]:
+        raise AssertionError("placed_extents was called without a height limit")
+
+
+def test_height_no_limit_no_extents() -> None:
+    """Scenario "No limit, no extents": a body in the model and no limit judge nothing of heights."""
+    design, pads = layout().build()
+    assert design.board is not None
+    tall = dataclasses.replace(
+        design.board.footprints[1],
+        bodies=(ComponentBody(id="bdy_c1", kind="extruded", height=9 * MM),),
+    )
+    model = dataclasses.replace(
+        design, board=dataclasses.replace(design.board, footprints=(design.board.footprints[0], tall))
+    )
+    validator = NoExtents(pads=pads)
+    validator.result = validation(design)
+    stage = stage_of(validator, model=model, built=True)
+    assert (stage.status, stage.issues) == ("ok", ())
+    assert "height" not in stage.summary["rules"]
+
+
+class Frame(FakeRulesValidator):
+    """A frame whose only extent is a 2 mm square around ``U1`` of ``layout()``."""
+
+    def placed_extents(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[PlacedExtent, ...]:
+        return (PlacedExtent("fpi_U1", "top", (SQUARE_U1,), (), "courtyard"),)
+
+
+SQUARE_U1 = (Point(9 * MM, 9 * MM), Point(11 * MM, 9 * MM), Point(11 * MM, 11 * MM), Point(9 * MM, 11 * MM))
+
+
+def test_height_judged_on_the_extents_of_the_frame() -> None:
+    design, pads = layout().build()
+    assert design.board is not None and design.rules is not None
+    area = Keepout(id="kpo_lid", outline=SQUARE_U1, layers=("F.Cu",), name="LID")
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, keepouts=(area,)))
+    model = dataclasses.replace(
+        design, rules=RuleSet(id=design.rules.id, heights=(HeightLimit("LID", 5 * MM),))
+    )
+    validator = Frame(pads=pads)
+    validator.result = validation(design)
+    stage = stage_of(validator, model=model, built=True)
+    assert [(i.code, i.severity, i.where) for i in stage.issues] == [
+        ("placement.height-unknown", "warning", "U1")
+    ]
+    assert stage.summary["rules"]["height"] == {"judged": 1, "failed": 0, "unknown": 1}
+    assert stage.status == "ok"  # a warning keeps the stage ok
+    assert stage.evidence == Evidence.combine(EVIDENCE, READ_EVIDENCE)
+
+
+@pytest.mark.usefixtures("no_tool")
+def test_height_a_part_above_a_limit_fails_the_check(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A part above a limit fails the check": ``R1`` states 9 mm under a limit of 5 mm."""
+    script = blink_variant(tmp_path / "src", *TALL_R1, append=LID)
+    out = tmp_path / "built"
+    code, env, err, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), "--confirm")
+    assert code == 0, (env.get("issues"), err)
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(out), "--stages", STAGE)
+    assert code == 5
+    (stage,) = env["result"]["stages"]
+    assert (stage["name"], stage["status"]) == (STAGE, "errors")
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [("placement.too-tall", "error", "R1")]
+    assert "9 mm" in found[0]["message"] and "5 mm" in found[0]["message"]
+    assert stage["summary"]["rules"]["height"] == {"judged": 1, "failed": 1, "unknown": 0}
+    assert stage["evidence"]["level"] == "INFERRED"

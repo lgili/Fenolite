@@ -8,8 +8,8 @@
 - The envelope's evidence MUST also combine `checks.placement.EVIDENCE` when a limit was judged. No subprocess MUST run, and two runs on equal boards MUST return equal results.
 
 #### Scenario: A move under a low area
-- **GIVEN** the blink built with `R1` created with `height=mm(9)`, a rule area `LID` on `F.Cu` over the 10 mm square at the top-left corner of the board, and `design.height_limit("LID", max=mm(5))`, with `R1` placed outside the area
-- **WHEN** `uv run pytest tests/unit/cli/test_place_cmd.py -k height` runs `fenolite place <dir> --move R1=5mm,5mm --dry-run --json`
+- **GIVEN** the blink built with `R1` created with `height=mm(9)`, a rule area `LID` on `F.Cu` over the 8 mm square at the top-left corner of the board (the courtyard of `U1` at (14, 15) mm reaches into a 10 mm square), and `design.height_limit("LID", max=mm(5))`, with `R1` placed outside the area
+- **WHEN** `uv run pytest tests/unit/cli/test_place_cmd.py -k height` runs `fenolite place <dir> --move R1=4mm,4mm --dry-run --json`
 - **THEN** the exit code is 0, `issues` hold one `placement.too-tall` warning naming `R1`, and `result.rules.height` is `{"judged": 1, "failed": 1, "unknown": 0}`
 
 #### Scenario: No limit, same reply

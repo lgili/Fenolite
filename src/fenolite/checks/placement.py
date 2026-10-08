@@ -7,7 +7,9 @@ measures"; capability verification-loop, "Placement rules stage"; change c0113; 
 one of its selected pads within the rule's distance of a pad of the anchor, centre to centre, compared on
 squared integers. ``measure`` gives the wire length of a placement (half perimeter and a Euclidean minimum
 spanning tree per net) and an estimate of its congestion on a grid of square cells. ``placement_stage`` is
-the ``placement.rules`` stage of ``fenolite check``, in both pipelines.
+the ``placement.rules`` stage of ``fenolite check``, in both pipelines. ``judge_heights`` judges the height
+limits of a design (change c0140): a part under a named rule area is at most the limit tall, its height
+read by ``fenolite.model.board.outward_height`` and nothing else.
 
 The module lives in ``checks`` because the stage runs it and ``checks`` may import only ``model``,
 ``geometry`` and ``backends.base``; ``place`` and ``build`` call it from the CLI. Keep-outs are not judged
@@ -20,7 +22,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
-from fenolite.backends.base import BoardFrame, BoardPad, DesignRulesSource, ProjectSet
+from fenolite.backends.base import BoardFrame, BoardPad, DesignRulesSource, PlacedExtent, ProjectSet
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
 from fenolite.core.coords import Point
@@ -29,9 +31,10 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, format_length
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import BBox, Circle, GeometryError, ceil_sqrt, floor_sqrt
-from fenolite.model.board import FootprintInstance
+from fenolite.geometry.rings import interiors_intersect
+from fenolite.model.board import FootprintInstance, outward_height
 from fenolite.model.design import Design
-from fenolite.model.rules import PadSelection, ProximityRule
+from fenolite.model.rules import HeightLimit, PadSelection, ProximityRule
 
 STAGE = "placement.rules"
 EVIDENCE = Evidence(Level.INFERRED)
@@ -127,12 +130,13 @@ def _layout(design: Design, pads: Sequence[BoardPad]) -> _Layout:
 
 @dataclass(frozen=True, slots=True)
 class PlacementRules:
-    """The placement rules of a model: its proximity rules. A later change adds a family."""
+    """The placement rules of a model: its proximity rules and its height limits (change c0140)."""
 
     proximity: tuple[ProximityRule, ...] = ()
+    heights: tuple[HeightLimit, ...] = ()
 
     def __bool__(self) -> bool:
-        return bool(self.proximity)
+        return bool(self.proximity or self.heights)
 
 
 def rules_of(model: Design | None) -> PlacementRules:
@@ -140,7 +144,7 @@ def rules_of(model: Design | None) -> PlacementRules:
     of a built project, or the built model); none for ``None`` or a model without a rules layer."""
     if model is None or model.rules is None:
         return PlacementRules()
-    return PlacementRules(tuple(model.rules.proximity))
+    return PlacementRules(tuple(model.rules.proximity), tuple(model.rules.heights))
 
 
 def empty_counts() -> dict[str, dict[str, int]]:
@@ -304,6 +308,154 @@ def judge(design: Design, rules: PlacementRules, *, pads: Sequence[BoardPad]) ->
             )
     issues.sort(key=lambda found: (found.code, found.where, found.message))
     return RuleReport(tuple(issues), {"near": counts})
+
+
+# --- height limits (change c0140) -----------------------------------------------------------------------
+
+HEIGHT_FACES: tuple[tuple[str, str], ...] = (("top", "F.Cu"), ("bottom", "B.Cu"))
+"""The side of a footprint and the copper layer whose rule areas limit its height: the face rule of the
+keep-outs of ``placement.legality`` (``H-K-PLACE-KEEPOUT``). An area on inner layers only judges no part."""
+APPROXIMATE = " (approximate extent)"
+
+
+def _component_paths(design: Design | None) -> dict[str, str]:
+    """The component path of every footprint of ``design``, by footprint id: the path property of a board
+    built by Fenolite, else the component's path, else its reference."""
+    if design is None or design.board is None:
+        return {}
+    components = {c.id: c for c in design.circuit.components}
+    found: dict[str, str] = {}
+    for fp in design.board.footprints:
+        component = components.get(fp.component_id)
+        if component is not None:
+            found[fp.id] = component.properties.get(PATH_PROPERTY, "") or component.path or component.ref
+    return found
+
+
+def heights_of(design: Design, model: Design | None) -> Mapping[str, Nm | None]:
+    """The height of every footprint of ``design``, by footprint id (change c0140).
+
+    A footprint that holds a body is measured on the board itself (a reading of Altium documents); one
+    without is measured on the footprint of the same component path in ``model``, the ``.fenolite/`` model
+    of a built project (a KiCad file holds no body); else its height is ``None``. Each height is
+    ``outward_height`` of the one footprint picked: the bodies of the two are never mixed."""
+    if design.board is None:
+        return {}
+    stored: dict[str, FootprintInstance] = {}
+    if model is not None and model.board is not None:
+        paths = _component_paths(model)
+        by_id = {fp.id: fp for fp in model.board.footprints}
+        for fp_id, path in sorted(paths.items()):
+            stored.setdefault(path, by_id[fp_id])
+    own_paths = _component_paths(design)
+    found: dict[str, Nm | None] = {}
+    for fp in design.board.footprints:
+        if fp.bodies:
+            found[fp.id] = outward_height(fp)
+            continue
+        other = stored.get(own_paths.get(fp.id, ""))
+        found[fp.id] = outward_height(other) if other is not None else None
+    return found
+
+
+def _judged_when_unknown(fp: FootprintInstance) -> bool:
+    """Whether a footprint without a known height is judged: not one marked ``board_only`` (a logo drawn in
+    KiCad has no part in the script), nor one whose pads are all non-plated holes (a mounting hole)."""
+    if "board_only" in fp.attributes:
+        return False
+    return not (fp.pads and all(pad.kind == "np_thru_hole" for pad in fp.pads))
+
+
+def judge_heights(
+    design: Design,
+    limits: Sequence[HeightLimit],
+    heights: Mapping[str, Nm | None],
+    *,
+    extents: Sequence[PlacedExtent],
+) -> RuleReport:
+    """Judge the height limits ``limits`` on the board of ``design`` (capability placement, "Height limits
+    judged"; change c0140).
+
+    ``heights`` is ``heights_of(design, model)`` and ``extents`` the board's ``BoardFrame.placed_extents``.
+    A footprint is under an area named by a limit when the area's layers hold ``F.Cu`` and the footprint is
+    on the top side, or ``B.Cu`` and the bottom side, and the interior of a ring of its own face meets the
+    interior of the area's outline. A part taller than the limit gives ``placement.too-tall`` with the
+    limit's severity, a judged part without a known height ``placement.height-unknown``, and a limit whose
+    area the board does not hold ``placement.rule-unresolved``. A footprint marked ``dnp`` or off the board
+    is not judged. The counts are those of the family ``height``, one per limit and footprint.
+    """
+    if not limits:
+        return RuleReport((), {})
+    board = design.board
+    footprints = board.footprints if board is not None else ()
+    keepouts = board.keepouts if board is not None else ()
+    components = {c.id: c for c in design.circuit.components}
+    by_id = {extent.footprint_id: extent for extent in extents}
+    box = board_box(design)
+    issues: list[Issue] = []
+    counts = {"judged": 0, "failed": 0, "unknown": 0}
+
+    def ref(fp: FootprintInstance) -> str:
+        component = components.get(fp.component_id)
+        return component.ref if component is not None and component.ref else fp.id
+
+    for limit in limits:
+        areas = [k for k in keepouts if k.name == limit.area]
+        if not areas:
+            issues.append(
+                issue(
+                    "placement.rule-unresolved",
+                    f"height limit {limit.area}: the board holds no rule area named {limit.area}",
+                    where=limit.area,
+                    hint="draw the rule area with design.rule_area() or in KiCad, or correct the name",
+                )
+            )
+            continue
+        for fp in footprints:
+            extent = by_id.get(fp.id)
+            if extent is None or "dnp" in fp.attributes:
+                continue
+            if box is not None and not box.contains_point(fp.position):
+                continue
+            layer = dict(HEIGHT_FACES)[fp.side]
+            under = any(
+                layer in area.layers
+                and len(area.outline) >= 3
+                and any(interiors_intersect(ring, area.outline) for ring in extent.own)
+                for area in areas
+            )
+            if not under:
+                continue
+            height = heights.get(fp.id)
+            if height is None and not _judged_when_unknown(fp):
+                continue
+            counts["judged"] += 1
+            note = APPROXIMATE if extent.source == "pads" else ""
+            if height is None:
+                counts["unknown"] += 1
+                issues.append(
+                    issue(
+                        "placement.height-unknown",
+                        f"{ref(fp)} lies under the area {limit.area}, limited to {_mm(limit.max)}, and has "
+                        f"no known height{note}",
+                        where=ref(fp),
+                        hint="state the part's height with Part(..., height=...), or move it out of the area",
+                    )
+                )
+            elif height > limit.max:
+                counts["failed"] += 1
+                issues.append(
+                    issue(
+                        "placement.too-tall",
+                        f"{ref(fp)} is {_mm(height)} tall under the area {limit.area}, which allows "
+                        f"{_mm(limit.max)}{note}",
+                        severity=limit.severity,
+                        where=ref(fp),
+                        hint="move the part out of the area, or change the limit of height_limit()",
+                    )
+                )
+    issues.sort(key=lambda found: (found.code, found.where, found.message))
+    return RuleReport(tuple(issues), {"height": counts})
 
 
 # --- measures -------------------------------------------------------------------------------------------
@@ -528,14 +680,25 @@ def placement_stage(
     pitch = None
     if rules_source is not None:
         pitch = default_pitch(rules_source.design_rules(design, project).design)
-    report = judge(design, rules_of(model), pads=pads) if built else RuleReport()
+    rules = rules_of(model)
+    report = judge(design, rules, pads=pads) if built else RuleReport()
+    families = {family: dict(counts) for family, counts in report.counts.items()}
+    issues = list(report.issues)
+    judged = report.judged
+    if built and rules.heights:
+        # the extents are asked for only when a height limit is judged (change c0140)
+        heights = judge_heights(
+            design, rules.heights, heights_of(design, model), extents=frame.placed_extents(design)
+        )
+        families.update({family: dict(counts) for family, counts in heights.counts.items()})
+        issues = sorted(
+            [*issues, *heights.issues], key=lambda found: (found.code, found.where, found.message)
+        )
+        judged += heights.judged
     measures = measure(design, pads=pads, pitch=pitch)
-    level = Evidence.combine(EVIDENCE, evidence) if report.judged else evidence
-    summary = {
-        "rules": {family: dict(counts) for family, counts in report.counts.items()},
-        "measures": measures.to_json(),
-    }
-    return ran(STAGE, report.issues, level, summary)
+    level = Evidence.combine(EVIDENCE, evidence) if judged else evidence
+    summary = {"rules": families, "measures": measures.to_json()}
+    return ran(STAGE, tuple(issues), level, summary)
 
 
 __all__ = [
@@ -548,7 +711,9 @@ __all__ = [
     "board_box",
     "default_pitch",
     "empty_counts",
+    "heights_of",
     "judge",
+    "judge_heights",
     "measure",
     "placement_stage",
     "rules_of",

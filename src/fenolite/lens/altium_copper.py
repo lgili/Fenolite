@@ -50,6 +50,7 @@ from fenolite.lens.build import PlacementRequest
 from fenolite.model.board import (
     Arc,
     Board,
+    ComponentBody,
     FootprintInstance,
     Graphic,
     Hole,
@@ -666,6 +667,7 @@ def lower_bodies(
     spec: pcbdoc.PcbDocSpec,
     mode: pcbdoc.BodyMode,
     issues: list[Issue],
+    script: Sequence[tuple[str, ComponentBody]] = (),
 ) -> tuple[tuple[pcbdoc.PlacedBody, ...], tuple[int, int]]:
     """The component bodies of the board's footprints that the document ``spec`` writes, and (bodies
     written, bodies not lowered) (change c0121, capability altium-pcb-writer, "Component bodies are
@@ -673,53 +675,64 @@ def lower_bodies(
     that ``spec`` gives the component of its footprint (``pcbdoc.place_body``), in the order of the
     components and, within one, of its bodies. Each body without a record gives one ``altium.not-lowered``
     with ``where`` ``body/<id>``, its height and its reason. A footprint without a body gives nothing: no
-    body is derived from a courtyard or any other graphic, and no height is assumed."""
+    body is derived from a courtyard or any other graphic, and no height is assumed.
+
+    ``script`` holds the bodies of ``Part(height=…)`` by component path (change c0140): they are judged
+    after the board's own, as the bodies of that component's footprint. Such a body has no outline, so it
+    is reported and never written."""
     board = design.board
     if board is None:
         return (), (0, 0)
     refs = {component.id: component.ref for component in design.circuit.components}
+    by_path = {component_path(component): component.ref for component in design.circuit.components}
     index = {component.ref: number for number, component in enumerate(spec.components)}
     frame = spec.frame if spec.frame is not None else pcbdoc.Frame.of(spec.outline)
     placed: list[pcbdoc.PlacedBody] = []
     kept = 0
-    for footprint in board.footprints:
-        number = index.get(refs.get(footprint.component_id, ""))
-        for body in footprint.bodies:
-            if mode == "off":
-                found: pcbdoc.PlacedBody | str = pcbdoc.BODIES_OFF
-            elif number is None:
-                found = pcbdoc.BODY_NO_FOOTPRINT
-            else:
-                component = spec.components[number]
-                found = pcbdoc.place_body(
-                    body,
-                    component=number,
-                    at=component.at,
-                    rotation=component.rotation,
-                    bottom=component.side == "bottom",
-                    frame=frame,
-                )
-            if isinstance(found, str):
-                kept += 1
-                message = (
-                    f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not "
-                    f"written: {found}"
-                )
-                issues.append(_kept("body", body.id, message, BODIES_HINT if mode == "off" else BODY_HINT))
-            else:
-                placed.append(found)
+    owned = [(refs.get(fp.component_id, ""), body) for fp in board.footprints for body in fp.bodies]
+    owned += [(by_path.get(path, ""), body) for path, body in script]
+    for ref, body in owned:
+        number = index.get(ref)
+        if mode == "off":
+            found: pcbdoc.PlacedBody | str = pcbdoc.BODIES_OFF
+        elif number is None:
+            found = pcbdoc.BODY_NO_FOOTPRINT
+        else:
+            component = spec.components[number]
+            found = pcbdoc.place_body(
+                body,
+                component=number,
+                at=component.at,
+                rotation=component.rotation,
+                bottom=component.side == "bottom",
+                frame=frame,
+            )
+        if isinstance(found, str):
+            kept += 1
+            message = (
+                f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not "
+                f"written: {found}"
+            )
+            issues.append(_kept("body", body.id, message, BODIES_HINT if mode == "off" else BODY_HINT))
+        else:
+            placed.append(found)
     placed.sort(key=lambda body: body.component)
     return tuple(placed), (len(placed), kept)
 
 
 def account(
-    design: Design, spec: pcbdoc.PcbDocSpec, plan: CopperPlan, source: Design | None = None
+    design: Design,
+    spec: pcbdoc.PcbDocSpec,
+    plan: CopperPlan,
+    source: Design | None = None,
+    script_bodies: int = 0,
 ) -> dict[str, dict[str, int]]:
     """``result.pcb`` of a build that writes the document ``spec`` (capability altium-pcb-writer, "Written
     items are accounted"): ``written`` maps every kind of ``KINDS`` to the number of model items the
     document holds, and ``not_lowered`` the kinds with items that it does not hold to their number. The
-    copper is that of ``source`` when the build took a copper source. ``RuntimeError`` when an item of a
-    kind is in neither count: nothing is absent without a line."""
+    copper is that of ``source`` when the build took a copper source. ``script_bodies`` counts the bodies
+    of ``Part(height=…)`` among the model's bodies (change c0140). ``RuntimeError`` when an item of a kind is
+    in neither count: nothing is absent without a line."""
     board = design.board
     copper = (source or design).board
     rules = len(design.rules.rules) if design.rules is not None else 0
@@ -739,7 +752,7 @@ def account(
         "graphic": len(board.graphics) if board is not None else 0,
         "keep-out": len(board.keepouts) if board is not None else 0,
         "hole": len(board.holes) if board is not None else 0,
-        "body": sum(len(fp.bodies) for fp in board.footprints) if board is not None else 0,
+        "body": script_bodies + (sum(len(fp.bodies) for fp in board.footprints) if board is not None else 0),
     }
     for kind, total in totals.items():
         written, kept = counts.get(kind, (0, 0))

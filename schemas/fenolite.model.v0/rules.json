@@ -52,6 +52,12 @@
       "items": {
         "$ref": "#/$defs/ProximityRule"
       }
+    },
+    "heights": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HeightLimit"
+      }
     }
   },
   "additionalProperties": false,
@@ -125,6 +131,29 @@
         }
       },
       "additionalProperties": false
+    },
+    "HeightLimit": {
+      "description": "A height limit: the parts under every rule area named ``area`` stay at most ``max`` tall.",
+      "type": "object",
+      "properties": {
+        "area": {
+          "type": "string"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "max"
+      ]
     },
     "PadSelection": {
       "description": "Pads of one part, named by its component path.",

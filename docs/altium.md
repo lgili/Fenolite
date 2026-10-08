@@ -709,6 +709,8 @@ item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
 |---|---|---|
 | a rule area that forbids tracks, vias, pads or pours | a keep-out with those restrictions | its name: the keep-out record has no key for one (`keepout/<id>`) |
 | a rule area that forbids nothing (for rules only) | not written: a keep-out without a restriction has no record | the area (`keepout/<id>`), counted under `keep-out` of `result.pcb.not_lowered` |
+| a part height (`Part(height=…)`, change c0140) | not written: its body has no outline, which the body record needs | the body (`body/<id>`), counted under `body` with `--altium-bodies extruded` as every other body; the stored board, which holds the bodies that were written, does not hold it |
+| a height limit (`design.height_limit`, change c0140) | not written: stored in `.fenolite/rules.json`; Altium's own rule kind `Height` is seen in the corpus and not mapped (`docs/formats/altium/rule-file.md`) | counted in the one `altium.not-lowered` info of kind `placement-rule` |
 | a centred text | a text | nothing |
 | a text with a `justify` | not written: the text record has no key for a justification, and a centred text would be at another place | the text and its justification (`text/<id>`) |
 | a line, rectangle, circle, arc or polygon | a graphic, as before | as before |
@@ -722,6 +724,12 @@ item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
 - The copper guard judges the document it reads back. A `copper.keepout` finding is reported as a warning
   and does not stop an Altium build, as every copper error but a short. The Altium reader models no
   keep-out so far, so a document read back holds none and the guard finds none.
+- Height limits (change c0140, `docs/placement.md`, "Height limits"): `build --target altium` judges
+  none, and `fenolite check` on the documents finds no rule area of the limit's name, because the reader
+  models no keep-out and the record has no key for a name; each limit then gives
+  `placement.rule-unresolved`. A part's height is read from the bodies of the document, so a limit is
+  judged for a part only on documents that hold a named area and a body for it; a script height is in no
+  document. This is a limit of the target, removed when a script body can carry an outline.
 - A model written with `fenolite write` follows the same rules: a justified text and a dimension are
   counted as not written.
 

@@ -191,6 +191,7 @@ class Part:
         *,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
+        height: object = None,
     ) -> None:
         self.ref = check_name(ref, "ref")
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -234,6 +235,13 @@ class Part:
         self.pad_map: Mapping[str, str | tuple[str, ...]] = MappingProxyType(
             dict(sorted(checked_map.items()))
         )
+        self.height: Nm | None = None
+        """The top of the part's body above the board surface on its own side, in nm (change c0140); the
+        build turns it into a body of the placed footprint, and nothing else reads it."""
+        if height is not None:
+            self.height = as_nm(height, name=f"part {ref}: height")
+            if self.height <= 0:
+                raise DslError(f"part {ref}: height must be above 0")
         self.parent: Container | None = None
         self.request: Request | None = None
         self.field_requests: dict[str, FieldRequest] = {}

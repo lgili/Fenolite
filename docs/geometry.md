@@ -199,6 +199,10 @@ No function uses a `float`.
   - it rounds the result and removes duplicate and collinear vertices;
   - it returns `None` when no area is left.
 - `polygons_intersect(a, b)` treats both polygons as closed sets, so touching polygons intersect.
+- `fenolite.geometry.rings.interiors_intersect(a, b)` is the open counterpart for two simple rings: their
+  interiors share a point, and rings that only touch do not. The placement legality check and the height
+  limits of `fenolite.checks.placement` judge courtyards against areas with it (moved from
+  `placement.legality` by change c0140, which re-exports it).
 - `keyhole_ring(outer, holes)` gives one ring for a polygon with holes, the form in which a KiCad board
   stores a filled polygon: each hole is joined to the ring around it by a bridge of zero width that is
   walked once in each direction. It returns `Keyhole(ring, merged, outside)`.

@@ -68,6 +68,8 @@ TABLE = {
     "placement.too-far": ("error", "warning"),
     "placement.rule-unresolved": ("error",),
     "placement.rule-skipped": ("info",),
+    "placement.too-tall": ("error", "warning"),
+    "placement.height-unknown": ("warning",),
 }
 
 

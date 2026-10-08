@@ -2397,6 +2397,11 @@ meaning = "--move or --only names a reference that the board does not hold."
 fix = "Correct the reference; 'fenolite inspect' and 'fenolite net' show what the board holds."
 see = "place"
 
+["placement.height-unknown"]
+meaning = "A part lies under a rule area that has a height limit, and no height is known for it: its footprint has no body, neither on the board nor in the .fenolite/ model of the build. An unknown height under a limit is never a pass."
+fix = "State the part's height in the script with Part(..., height=...) and build again, or move the part out of the area."
+see = "check"
+
 ["placement.rule-skipped"]
 meaning = "A placement rule names a part that lies off the board (a part the build staged beside it), so the rule is not judged for that part."
 fix = "Place the part on the board, with place() in the script or with 'fenolite place', and check again."
@@ -2410,6 +2415,11 @@ see = "check"
 ["placement.too-far"]
 meaning = "A part of a near() rule has no selected pad within the rule's distance of a pad of the anchor, measured between pad centres. The message names the rule, the nearest anchor pad and the distance, rounded up to the nanometre."
 fix = "Move the part nearer to the pad it belongs to, or change the distance or the severity of the near() call."
+see = "check"
+
+["placement.too-tall"]
+meaning = "A part under a rule area with a height_limit() is taller than the limit. The height is the top of the part's bodies above its own side of the board; the message names the area, the limit and the height."
+fix = "Move the part out of the area, choose a lower part and state its height, or raise the limit or lower its severity in height_limit()."
 see = "check"
 
 ["plan.not-staged"]

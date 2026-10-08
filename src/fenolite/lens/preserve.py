@@ -793,7 +793,10 @@ def merge_layout(
                 node = _apply_mandatory_fields(node, copy)
                 pad_nets = {p.number: p.net_id for p in copy.pads}
                 kept_pads = tuple(dataclasses.replace(p, net_id=pad_nets.get(p.number)) for p in node.pads)
-                placed.append(dataclasses.replace(node, component_id=component.id, pads=kept_pads))
+                # a KiCad file holds no body: the built copy is the only source of its bodies (c0140)
+                placed.append(
+                    dataclasses.replace(node, component_id=component.id, pads=kept_pads, bodies=copy.bodies)
+                )
                 props = dict(read.properties) if read is not None else {}
                 if identity is not None and PATH_PROPERTY in props:
                     props[PATH_PROPERTY] = found.path

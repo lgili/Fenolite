@@ -186,18 +186,41 @@ class ProximityRule:
 
 
 @dataclass(frozen=True, slots=True)
+class HeightLimit:
+    """A height limit: the parts under every rule area named ``area`` stay at most ``max`` tall.
+
+    The height of a part is ``fenolite.model.board.outward_height`` of its footprint (change c0140). A
+    value object of the rules layer: its ``area`` is its key, it has no id and no ``RuleKind``, and no
+    backend lowers it.
+    """
+
+    area: str
+    max: Nm
+    severity: PlacementSeverity = "error"
+
+    def __post_init__(self) -> None:
+        if not self.area:
+            raise ValueError("a height limit needs the name of a rule area")
+        if isinstance(self.max, bool) or self.max <= 0:
+            raise ValueError(f"height limit {self.area!r} needs a positive height")
+        if self.severity not in ("error", "warning"):
+            raise ValueError(f"height limit {self.area!r}: severity is 'error' or 'warning'")
+
+
+@dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
     """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
     a severity, by the finding code of the check (``<oracle>.drc.<suffix>``; change c0114): a severity is
     not a rule, so it has no ``RuleKind``.
 
     ``proximity`` holds the placement rules, in name order; it is left out of the file when empty
-    (change c0113).
+    (change c0113). ``heights`` holds the height limits, in area order, left out when empty (change c0140).
     """
 
     rules: tuple[Rule, ...] = ()
     severities: dict[str, RuleSeverity] = field(default_factory=lambda: {})
     proximity: tuple[ProximityRule, ...] = field(default=(), metadata={"ordered": True})
+    heights: tuple[HeightLimit, ...] = field(default=(), metadata={"ordered": True})
 
     def __post_init__(self) -> None:
         seen: set[str] = set()
@@ -205,10 +228,16 @@ class RuleSet(Entity):
             if rule.name in seen:
                 raise ValueError(f"two proximity rules are named {rule.name!r}")
             seen.add(rule.name)
+        areas: set[str] = set()
+        for limit in self.heights:
+            if limit.area in areas:
+                raise ValueError(f"two height limits name the area {limit.area!r}")
+            areas.add(limit.area)
 
 
 __all__ = [
     "LEAF_OPS",
+    "HeightLimit",
     "PadSelection",
     "PlacementSeverity",
     "ProximityRule",

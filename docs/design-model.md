@@ -269,6 +269,13 @@ written before them still load.
   `model` (the name of a 3D model for the kind `model`) and `name`.
 - A body states a volume above the side the footprint is placed on and carries no model data. The height
   of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- `fenolite.model.board.outward_height(footprint)` (change c0140) is the one function of the package that
+  computes the height of a placed part: the largest upper bound of the footprint's bodies, `None` when it
+  has no body or that bound is not positive. It reads neither the component, nor a footprint property, nor
+  a 3D model, nor `standoff`. No other field holds a part's height: `Component` has none, and a script
+  states a height by giving the part a body (`docs/dsl.md`, `Part(height=…)`). Every consumer (the height
+  limits of `docs/placement.md`, a checker, an exporter) calls it. Change c0099 adds signed bounds; the
+  upper bound of a body is then its `z_max` when it has one, and a body of unknown projection makes no claim.
 - `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
   whose `height` is below its `standoff` or whose `standoff` is negative.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
@@ -444,6 +451,23 @@ pads. `fenolite.model.rules` defines two frozen value objects for it, without an
   before the field loads unchanged, and `schema_version` stays `"0"`. The other direction does not hold.
   Fenolite 0.2.x and 0.3.0 cannot read a `rules.json` that carries `proximity`: their reader of the
   canonical form is strict.
+
+## Height limits
+
+`RuleSet.heights` holds the height limits of a design (change c0140): where parts may not be tall.
+`fenolite.model.rules` defines the frozen value object for it, without an entity header.
+
+- `HeightLimit(area, max, severity="error")`: every rule area (`Keepout`) whose `name` is `area` limits the
+  parts under it to `max` (nm, the outward height of `outward_height`). `area` is not empty, `max` is above
+  0, `severity` is `error` or `warning` (`PlacementSeverity`); a `RuleSet` refuses two limits of one area.
+- A limit is keyed by its area and has no id. It is no rule of `RuleSet.rules` and has no `RuleKind`: no
+  backend lowers it, and a board read from a file has none. `to_model` writes the limits in area order
+  (`docs/dsl.md`, `height_limit`), and `fenolite.checks.placement.judge_heights` judges them
+  (`docs/placement.md`).
+- The field is additive: `canonical` omits `heights` when it is empty, so a design that declares no limit
+  writes the bytes it wrote before, a `rules.json` written before the field loads unchanged, and
+  `schema_version` stays `"0"`. The other direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a
+  `rules.json` that carries `heights`: their reader of the canonical form is strict.
 
 ## Zone settings
 

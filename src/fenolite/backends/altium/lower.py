@@ -297,9 +297,11 @@ class _Account:
 
 
 def placement_rule_info(design: Design) -> Issue | None:
-    """The one ``altium.not-lowered`` info of kind ``placement-rule``: how many proximity rules ``design``
-    holds, and that ``fenolite check`` judges them; ``None`` for a design without one."""
-    count = len(design.rules.proximity) if design.rules is not None else 0
+    """The one ``altium.not-lowered`` info of kind ``placement-rule``: how many proximity rules and height
+    limits (change c0140) ``design`` holds, and that ``fenolite check`` judges them; ``None`` for a design
+    without one. A height limit has no ``RuleKind``, so no row of the rule table writes it."""
+    rules = design.rules
+    count = len(rules.proximity) + len(rules.heights) if rules is not None else 0
     if not count:
         return None
     message = (

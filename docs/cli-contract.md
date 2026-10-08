@@ -518,8 +518,9 @@ against the rule areas of the board that forbid footprints. The placement rules 
 and `placement.*` issue is reported at most as a warning, so a build never exits 5 for placement; the
 codes are those of the tables under "place" and "check".
 `result.placement` holds `ran` (false when the build was refused), `counts`, the number of issues by
-code, and `rules`, the counts of the rules by family (`{"near": {"judged", "failed", "skipped"}}`). The
-guard runs on `--dry-run` too, reads and writes no file, and runs no tool. With
+code, and `rules`, the counts of the rules by family (`{"near": {"judged", "failed", "skipped"}}`, and
+`{"height": {"judged", "failed", "unknown"}}` when the design holds a height limit, change c0140; the
+heights are those of the built model). The guard runs on `--dry-run` too, reads and writes no file, and runs no tool. With
 `--target altium` there is no `result.placement` and no rule is judged: one `altium.not-lowered` info
 (`where` `placement-rule`) names the count of the stored rules, which `fenolite check` judges. A Python caller of `build_design` is not guarded; it
 calls `placement.check` itself (`docs/placement.md`).
@@ -954,7 +955,9 @@ emitted `kicad.drc.<type>` code to KiCad's raw type. The `erc.kicad` summary hol
 **Placement rules.** `placement.rules` judges the `near` rules of a built project
 (`design.near()`, `docs/dsl.md`) on the pad positions of the board, pad centre to pad centre, and measures
 every board. Its summary holds `rules`, the counts by rule family (`{"near": {"judged", "failed",
-"skipped"}}`, every count 0 on native input), and `measures`: `nets`, `hpwl` and `ratsnest` in nanometres,
+"skipped"}}`, every count 0 on native input; on a built project with a height limit also
+`{"height": {"judged", "failed", "unknown"}}`, change c0140, `docs/placement.md`, "Height limits"), and
+`measures`: `nets`, `hpwl` and `ratsnest` in nanometres,
 `longest` (five nets), `left_out` (`zone_nets`, `one_pad_nets`, `off_board`) and `congestion` (`cell`,
 `pitch`, `tracks_per_layer`, `busiest`, `layers_needed`; `null` for a board without an outline). The pitch
 is the track width plus the clearance of the net class `Default` of the project file. A rule of severity
@@ -1155,6 +1158,8 @@ repeat.
 | `placement.too-far` | error, warning | a part of a `near` rule has no selected pad within the rule's distance of a pad of the anchor; the rule sets the severity, and `place` and `build` report it as a warning at most |
 | `placement.rule-unresolved` | error | a placement rule names a part or a pad that the board does not hold; a warning in `place` and `build` |
 | `placement.rule-skipped` | info | a placement rule names a part that lies off the board, so it is not judged for it |
+| `placement.too-tall` | error, warning | a part under a rule area with a height limit is taller than the limit; the limit sets the severity, and `place` and `build` report it as a warning at most |
+| `placement.height-unknown` | warning | a part under a rule area with a height limit has no known height (no body on the board or in the `.fenolite/` model) |
 | `check.document-missing` | warning | document input: the project file lists a document that does not exist |
 | `check.rta0-failed` | error | document input: a container copy lost or changed a storage or a stream; `where` is `<document>:<stream path>` |
 | `check.rta1-failed` | error | document input: a stream's records differ after encoding and reading again; `where` is `<document>:<stream>#<record>` |
@@ -1598,7 +1603,8 @@ nothing moved. The user guide is `docs/placement.md`.
 `result` holds `board`, `strategy`, `moved` (`ref`, `path`, `from` and `to`, each with `x` and `y` in
 nanometres, `rotation` in microdegrees and `side`; sorted by reference), `unplaced` (the references
 still off the board), `legality` (the number of issues by code), `rules` (the counts of the placement
-rules by family, all 0 without rules) and `measures`: the measures of `placement.rules` (see "check") on
+rules by family, all 0 without rules; the family `height` only when the last build holds a height limit,
+judged on the layout after the moves, change c0140) and `measures`: the measures of `placement.rules` (see "check") on
 the layout after the moves, with `change`, `hpwl` and `ratsnest` after the moves minus before in
 nanometres, both 0 when nothing moved. The evidence is `placement.EVIDENCE`, combined with
 `placement.legality.KEEPOUT_EVIDENCE` (`H-K-PLACE-KEEPOUT`) when the board holds a rule area that forbids

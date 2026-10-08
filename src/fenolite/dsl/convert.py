@@ -16,6 +16,7 @@ from types import MappingProxyType
 from fenolite import __version__
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
+from fenolite.core.units import Nm
 from fenolite.dsl.design import MINIMUM_KINDS, Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
@@ -277,6 +278,7 @@ def to_model(design: Design) -> ModelDesign:
             rules=_rules(design),
             severities=dict(sorted(design.rules.severities.items())),
             proximity=_proximity(design),
+            heights=tuple(limit for _, limit in sorted(design.height_limits.items())),
         ),
         findings=Findings(waivers=tuple(waiver for _, waiver in sorted(design.waivers.items()))),
         manufacturing=Manifest(id=key_id("manifest")),
@@ -447,6 +449,16 @@ def placements(design: Design) -> Mapping[str, Placement]:
         at = Point(BOARD_ORIGIN.x + request.x, BOARD_ORIGIN.y + request.y)
         out[path] = Placement(at, request.rotation, request.side, request.locked)
     return MappingProxyType(out)
+
+
+def heights(design: Design) -> Mapping[str, Nm]:
+    """The stated height of each part that has one (``Part(height=…)``), by component path in path order.
+
+    Plain data for the build, which gives each placed footprint a body of that height (change c0140);
+    ``to_model`` puts no height into the circuit."""
+    return MappingProxyType(
+        {path: part.height for path, part in sorted(design.parts.items()) if part.height is not None}
+    )
 
 
 def fields(design: Design) -> Mapping[str, tuple[FieldRequest, ...]]:

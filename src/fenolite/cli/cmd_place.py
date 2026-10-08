@@ -359,10 +359,22 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     issues += legality
     cached = _cache(board_path.parent)
     pads_after = backend.board_pads(design)
-    judged = placement_rules.judge(design, placement_rules.rules_of(cached), pads=pads_after)
+    rules = placement_rules.rules_of(cached)
+    judged = placement_rules.judge(design, rules, pads=pads_after)
+    families = {family: dict(counts) for family, counts in judged.counts.items()}
+    found_rules = list(judged.issues)
+    rules_judged = judged.judged
+    if rules.heights:
+        # the height limits of the last build, on the layout after the moves (change c0140)
+        heights = placement_rules.judge_heights(
+            design, rules.heights, placement_rules.heights_of(design, cached), extents=extents
+        )
+        families.update({family: dict(counts) for family, counts in heights.counts.items()})
+        found_rules += heights.issues
+        rules_judged += heights.judged
     issues += [
         dataclasses.replace(found, severity="warning") if found.severity == "error" else found
-        for found in judged.issues
+        for found in found_rules
     ]
     wire_pitch = _wire_pitch(design, board_path)
     measures = placement_rules.measure(design, pads=pads_after, pitch=wire_pitch)
@@ -419,14 +431,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "moved": rows,
         "unplaced": sorted(ref for ref, fp in after.items() if off_board(fp)),
         "legality": dict(sorted(Counter(found.code for found in legality).items())),
-        "rules": {family: dict(counts) for family, counts in judged.counts.items()},
+        "rules": families,
         "measures": {**measures.to_json(), "change": change},
     }
     issues.sort(key=lambda found: (found.code, found.where))
     evidence = [EVIDENCE]
     if forbidding:
         evidence.append(KEEPOUT_EVIDENCE)
-    if judged.judged:
+    if rules_judged:
         evidence.append(placement_rules.EVIDENCE)
     return Result(
         result=result,

@@ -21,7 +21,7 @@ design.rules.minimum(clearance=mm(0.2), track_width=mm(0.2), edge_clearance=mm(0
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
 r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="330")
 d1 = Part("D1", "Fenolite:LED", footprint="Fenolite:Chip_0603", value="LED")
-c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="100n")
+c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="100n", height=mm(1))
 tp1 = Part("TP1", "Fenolite:Terminal_1Pin", footprint="Fenolite:TestPoint_SMD_D1.0", value="GND")
 design.add(j1, r1, d1, c1, tp1)
 vin, led_a, gnd = Net("VIN"), Net("LED_A"), Net("GND")
@@ -41,6 +41,9 @@ d1.field("Value", visible=False)
 design.near("led", d1, r1.pad(2), within=mm(10))  # D1 keeps a pad within 10 mm of R1's pad 2
 corner = [(mm(25), mm(15)), (mm(30), mm(15)), (mm(30), mm(20)), (mm(25), mm(20))]
 design.rule_area("ANT", corner, layers=("F.Cu",), forbid=("footprints",))  # no part on the front here
+lid = [(mm(10), mm(1)), (mm(20), mm(1)), (mm(20), mm(4)), (mm(10), mm(4))]
+design.rule_area("LID", lid, layers=("F.Cu",))
+design.height_limit("LID", max=mm(5))  # parts under LID stay at most 5 mm tall
 ```
 
 - **`part.place(x, y, rot=0, side="top", locked=False)`**, once per part. `x` and `y` are lengths from
@@ -57,6 +60,10 @@ design.rule_area("ANT", corner, layers=("F.Cu",), forbid=("footprints",))  # no 
 - **`design.rule_area(name, outline, layers=…, forbid=("footprints",))`** keeps parts out of a
   polygon: `F.Cu` judges the parts on the top side, `B.Cu` those on the bottom. A courtyard that
   enters the area gives `place.keepout`, a warning in `build` and a refusal in `place`.
+- **`Part(..., height=mm(h))`** states how tall a part is: the build gives its footprint a body of that
+  height, kept in `.fenolite/`. **`design.height_limit(area, max=…)`** limits the parts under every rule
+  area of that name. A part above the limit gives `placement.too-tall`, a part without a stated height
+  under it `placement.height-unknown` (a warning): warnings in `build` and `place`, gated by `check`.
 - Place first what the mechanics fix (connectors, holes, anything that meets the enclosure), then the
   parts with the most connections, then their passives next to the pins they serve.
 

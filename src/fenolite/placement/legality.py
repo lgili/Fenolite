@@ -12,7 +12,7 @@ the front face against ``F.Cu`` and the back face against ``B.Cu``.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from fenolite.backends.base import PlacedExtent
 from fenolite.core.coords import Point
@@ -23,13 +23,14 @@ from fenolite.geometry import (
     BBox,
     Location,
     Polygon,
-    SegmentRelation,
-    classify_segments,
-    orient2d,
-    point_in_ring,
     polygons_intersect,
     segments_closer_than,
 )
+from fenolite.geometry.rings import interiors_intersect
+from fenolite.geometry.rings import open_boxes_overlap as _boxes_overlap
+from fenolite.geometry.rings import ring_edges as _edges
+from fenolite.geometry.rings import ring_locations as _locations
+from fenolite.geometry.rings import rings_cross as _cross
 from fenolite.model.board import Keepout
 from fenolite.model.design import Design
 from fenolite.placement.codes import issue
@@ -45,63 +46,6 @@ KEEPOUT_FACES: tuple[tuple[str, str], ...] = (("front", "F.Cu"), ("back", "B.Cu"
 judges no footprint."""
 APPROXIMATE = " (approximate extent)"
 Ring = Sequence[Point]
-
-
-def _edges(ring: Ring) -> Iterator[tuple[Point, Point]]:
-    for i, a in enumerate(ring):
-        yield a, ring[(i + 1) % len(ring)]
-
-
-def _doubled(ring: Ring) -> tuple[Point, ...]:
-    return tuple(Point(2 * p.x, 2 * p.y) for p in ring)
-
-
-def _strictly_between(p: Point, a: Point, b: Point) -> bool:
-    """Whether ``p`` lies on the open segment ``a–b``."""
-    if p in (a, b) or orient2d(a, b, p) != 0:
-        return False
-    return min(a.x, b.x) <= p.x <= max(a.x, b.x) and min(a.y, b.y) <= p.y <= max(a.y, b.y)
-
-
-def _midpoints(ring: Ring, other: Ring) -> Iterator[Point]:
-    """The midpoints, in doubled coordinates, of the pieces that the vertices of ``other`` cut the edges of
-    ``ring`` into. Without a proper crossing, each piece lies wholly inside, outside or on ``other``."""
-    for a, b in _edges(ring):
-        cuts = [v for v in other if _strictly_between(v, a, b)]
-        cuts.sort(key=lambda v: (v.x - a.x) * (b.x - a.x) + (v.y - a.y) * (b.y - a.y))
-        stops = [a, *cuts, b]
-        for p, q in zip(stops, stops[1:], strict=False):
-            if p != q:
-                yield Point(p.x + q.x, p.y + q.y)
-
-
-def _locations(ring: Ring, other: Ring) -> set[Location]:
-    doubled = _doubled(other)
-    return {point_in_ring(m, doubled) for m in _midpoints(ring, other)}
-
-
-def _cross(a: Ring, b: Ring) -> bool:
-    """Whether two edges cross at a point interior to both."""
-    return any(
-        classify_segments(p, q, r, s) is SegmentRelation.PROPER for p, q in _edges(a) for r, s in _edges(b)
-    )
-
-
-def _boxes_overlap(a: BBox, b: BBox) -> bool:
-    """Whether the open boxes intersect."""
-    return a.x0 < b.x1 and b.x0 < a.x1 and a.y0 < b.y1 and b.y0 < a.y1
-
-
-def interiors_intersect(a: Ring, b: Ring) -> bool:
-    """Whether the interiors of two simple rings share a point; rings that only touch do not."""
-    if not _boxes_overlap(BBox.of_points(a), BBox.of_points(b)):
-        return False
-    if _cross(a, b):
-        return True
-    a_in_b, b_in_a = _locations(a, b), _locations(b, a)
-    if Location.INSIDE in a_in_b or Location.INSIDE in b_in_a:
-        return True
-    return a_in_b == {Location.BOUNDARY} and b_in_a == {Location.BOUNDARY}  # the same region
 
 
 def rings_overlap(a: Ring, b: Ring, *, touching_overlaps: bool = TOUCHING_OVERLAPS) -> bool:

@@ -16,6 +16,7 @@ from _altium import HIER, SAMPLE, variant_script
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium import cfb
+from fenolite.core.ids import derived_id
 
 ROOT = Path(__file__).resolve().parents[3]
 GOLDEN = ROOT / "tests" / "data" / "altium" / "sample"
@@ -781,3 +782,73 @@ def test_placement_rule_kinds_are_no_loss() -> None:
     # a proximity rule is no rule kind: the rule table keeps one row per kind and gains none
     assert [row.neutral for row in rulemap.TABLE] == list(get_args(RuleKind))
     assert not [row for row in rulemap.TABLE if "prox" in row.neutral or "near" in row.neutral]
+
+
+# --- change c0140: part heights and height limits on the Altium target ----------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+
+
+def test_height_an_altium_build_stores_and_announces(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "An Altium build stores and announces": the limit is stored and counted in the info of
+    kind ``placement-rule``, the script body is reported under the kind ``body`` and not written, no
+    placement rule is judged, and the documents are those of the build without the height and the limit."""
+    from _buildhelp import blink_variant
+
+    from fenolite.model.board import Board
+
+    routed = (ROOT / "examples" / "blink_routed" / "design.py").read_text(encoding="utf-8")
+    assert TALL_R1[0] in routed
+    documents: dict[str, dict[str, bytes]] = {}
+    envelopes: dict[str, dict[str, object]] = {}
+    for key, text in (
+        ("plain", routed),
+        ("tall", routed.replace(*TALL_R1) + '\ndesign.height_limit("LID", max=mm(5))\n'),
+    ):
+        script = blink_variant(tmp_path / f"{key}-src")
+        script.write_text(text, encoding="utf-8")
+        out = tmp_path / key
+        flags = ("--target", "altium", "--altium-bodies", "extruded", "--confirm")
+        code, env, err = run(monkeypatch, str(script), "--out", str(out), *flags)
+        assert code == 0, err
+        envelopes[key] = env
+        documents[key] = {
+            path.name: path.read_bytes()
+            for path in sorted(out.iterdir())
+            if path.is_file() and path.suffix in (".PcbDoc", ".PcbLib", ".PrjPcb", ".SchDoc", ".SchLib")
+        }
+    assert documents["tall"] == documents["plain"] and len(documents["plain"]) == 5
+    rules = json.loads((tmp_path / "tall" / ".fenolite" / "rules.json").read_text(encoding="utf-8"))
+    assert rules["heights"] == [{"area": "LID", "max": 5_000_000}]
+    board_text = (tmp_path / "tall" / ".fenolite" / "board.json").read_text(encoding="utf-8")
+    from fenolite.model import canonical
+
+    assert all(not fp.bodies for fp in canonical.loads(board_text, Board).footprints)
+    issues = envelopes["tall"]["issues"]
+    assert isinstance(issues, list)
+    not_lowered = [str(i["where"]) for i in issues if i["code"] == "altium.not-lowered"]
+    assert not_lowered.count("placement-rule") == 1
+    assert [where for where in not_lowered if where.startswith("body/")] == [
+        f"body/{derived_id('bdy', 'dsl', 'height:R1')}"
+    ]
+    assert not [i for i in issues if str(i["code"]).startswith("placement.")]
+    note = next(i for i in issues if i["where"] == "placement-rule")
+    assert "1 placement rule(s)" in str(note["message"])
+    plain_issues = envelopes["plain"]["issues"]
+    assert isinstance(plain_issues, list)
+    assert not [
+        i for i in plain_issues if i["where"] == "placement-rule" or str(i["where"]).startswith("body/")
+    ]
+
+
+def test_height_limit_is_no_row_of_the_rule_table() -> None:
+    from typing import get_args
+
+    from fenolite.backends.altium import rulemap
+    from fenolite.model.rules import RuleKind
+
+    assert [row.neutral for row in rulemap.TABLE] == list(get_args(RuleKind))
+    assert not [row for row in rulemap.TABLE if "height" in row.neutral.casefold()]

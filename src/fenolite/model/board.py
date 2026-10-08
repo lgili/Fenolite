@@ -280,6 +280,21 @@ class FootprintInstance(Entity):
     different nets that the footprint joins on purpose, in the order its source lists them."""
 
 
+def outward_height(footprint: FootprintInstance) -> Nm | None:
+    """The height of a placed part above the board surface on its own side, or ``None`` when unknown.
+
+    The largest upper bound of the footprint's bodies (change c0140): a body's upper bound is its
+    ``height``. ``None`` when the footprint has no body or that bound is not positive. The one place of the
+    package that computes a part's height: it reads neither the component, nor a property, nor a 3D
+    model, nor ``standoff``. Change c0099 adds signed bounds and bodies of unknown projection; this
+    function then takes ``z_max`` as the upper bound of a body that has it and skips the others."""
+    tops = [body.height for body in footprint.bodies]
+    if not tops:
+        return None
+    top = max(tops)
+    return top if top > 0 else None
+
+
 @dataclass(frozen=True, slots=True)
 class Track(Entity):
     """A straight track. ``locked`` marks copper that tools must not move or remove."""
@@ -555,4 +570,5 @@ __all__ = [
     "ZoneHatch",
     "ZoneSettings",
     "ZoneSmoothing",
+    "outward_height",
 ]
