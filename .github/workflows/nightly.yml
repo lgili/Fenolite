@@ -64,10 +64,11 @@ jobs:
     # no test suite runs here and nothing is written to the repository; the record is an artefact of the
     # run, and docs/evidence/yardstick.md gets a row per stage reached and per release. The official
     # libraries and the two heavy demo boards are fetched into caches, run through and never committed.
-    # The router steps join the job when the example reaches stage 4.
-    name: yardstick (the 370-part example through the loop, kicad-cli 10.0.6)
+    # From stage 4 the job also routes: KiCadRoutingTools for the pair (route-pairs) and Freerouting for the
+    # rest (route, a budget of 3600 s), so it takes about one and a half hours and is given three.
+    name: yardstick (the 390-part example through the loop, kicad-cli 10.0.6)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     container:
       image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
       options: --user 0
@@ -100,7 +101,30 @@ jobs:
           key: corpus-heavy-${{ hashFiles('tests/corpus/manifest.toml') }}
       - name: Fetch the two heavy demo boards
         run: uv run python tools/corpus_fetch.py --uses heavy --only kicad-demo-10-0-6-pcb-06 kicad-demo-10-0-6-pcb-18
+      # The routers of stage 4, installed and checked by SHA-256 as the routing job of ci.yml installs them.
+      - name: Install system Python venv support
+        run: apt-get update && apt-get install -y python3-venv curl
+      - name: Install pinned router
+        run: |
+          git clone --depth 1 --branch v0.22.1 https://github.com/drandyhaas/KiCadRoutingTools.git /tmp/kicadroutingtools
+          python3 -m venv /tmp/krt-venv
+          /tmp/krt-venv/bin/python -m pip install -r /tmp/kicadroutingtools/requirements.txt
+          mkdir -p /tmp/kicadroutingtools/rust_router
+          curl -fsSL https://github.com/drandyhaas/KiCadRoutingTools/releases/download/v0.22.1/grid_router-linux-x86_64.so -o /tmp/kicadroutingtools/rust_router/grid_router.so
+          echo '652b67e266c58b1e373e503bcf9b5d0b0d3dd4756e1c306100f23edf3d3f989b  /tmp/kicadroutingtools/rust_router/grid_router.so' | sha256sum --check
+      - name: Install Java 25 for Freerouting
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+      - name: Install pinned Freerouting jar
+        # The command checks the size and the SHA-256 pinned in src/fenolite/cli/data/fetch.toml.
+        run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json
       - name: Yardstick
+        env:
+          FENOLITE_KRT: /tmp/kicadroutingtools
+          FENOLITE_KRT_PYTHON: /tmp/krt-venv/bin/python
+          FENOLITE_FREEROUTING_JAR: /tmp/freerouting/freerouting-2.4.1.jar
         run: |
           echo "YARDSTICK_OUT=$RUNNER_TEMP/yardstick" >> "$GITHUB_ENV"
           uv run python tools/yardstick.py run --out "$RUNNER_TEMP/yardstick" --record "$RUNNER_TEMP/yardstick/record.json" --summary "$GITHUB_STEP_SUMMARY"

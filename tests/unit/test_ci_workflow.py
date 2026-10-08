@@ -607,10 +607,33 @@ YARDSTICK_STEPS = [
     ("upload", "uses: actions/upload-artifact@v4"),
 ]
 KICAD_IMAGE = re.compile(r"^\s+image: (kicad/kicad:10\.0\.6\S*)\s*$", re.MULTILINE)
+YARDSTICK_ROUTERS = [
+    ("heavy fetch", "run: uv run python tools/corpus_fetch.py --uses heavy --only "),
+    (
+        "router checkout",
+        "git clone --depth 1 --branch v0.22.1 https://github.com/drandyhaas/KiCadRoutingTools.git",
+    ),
+    ("router library", "grid_router-linux-x86_64.so"),
+    ("router digest", "sha256sum --check"),
+    ("java", "uses: actions/setup-java@v4"),
+    ("freerouting", "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm"),
+    ("yardstick run", "uv run python tools/yardstick.py run"),
+]
+"""From stage 4 of the example: the router steps of the job, between the heavy fetch and the runner, as the
+``routing`` job of ``ci.yml`` installs them (requirement "Yardstick nightly job", step 7)."""
 
 
-def yardstick_problems(nightly: str, ci: str) -> list[str]:
-    """What is wrong with the ``yardstick`` job of ``nightly.yml``, read as text."""
+def _example_stage() -> int:
+    match = re.search(
+        r"^STAGE = (\d)", (ROOT / "examples" / "yardstick" / "design.py").read_text("utf-8"), re.M
+    )
+    return int(match.group(1)) if match else 0
+
+
+def yardstick_problems(nightly: str, ci: str, stage: int | None = None) -> list[str]:
+    """What is wrong with the ``yardstick`` job of ``nightly.yml``, read as text; ``stage`` is that of the
+    example unless given."""
+    stage = _example_stage() if stage is None else stage
     job = job_text(nightly, "yardstick")
     if not job:
         return ["yardstick: job missing"]
@@ -657,6 +680,21 @@ def yardstick_problems(nightly: str, ci: str) -> list[str]:
         problems.append("yardstick: the job must not write to the repository")
     if "continue-on-error" in job:
         problems.append("yardstick: the job must fail when the runner exits non-zero")
+    if stage >= 4:
+        problems += [
+            f"{p} (stage {stage} routes)" for p in ordered_problems(job, "yardstick", YARDSTICK_ROUTERS)
+        ]
+        routing = job_text(ci, "routing")
+        for digest in re.findall(r"echo '([0-9a-f]{64})  ", routing):
+            if digest not in job:
+                problems.append(f"yardstick: the router digest {digest[:12]}… of the routing job is missing")
+        for variable in ("FENOLITE_KRT:", "FENOLITE_KRT_PYTHON:", "FENOLITE_FREEROUTING_JAR:"):
+            if variable not in job:
+                problems.append(
+                    f"yardstick: the runner step must set {variable.rstrip(':')} (stage {stage} routes)"
+                )
+        if 'java-version: "25"' not in job:
+            problems.append("yardstick: Freerouting needs Java 25")
     return problems
 
 
@@ -700,6 +738,20 @@ def test_yardstick_upload_only_on_success_rejected() -> None:
     assert problems == ["yardstick: the upload step must run with if: always()"]
     short = nightly.replace(job, job.replace("retention-days: 90", "retention-days: 5"))
     assert any("retention-days: 90" in p for p in yardstick_problems(short, ci))
+
+
+def test_yardstick_router_steps_from_stage_4() -> None:
+    """From stage 4 the job installs both routers, checked by the digests of the routing job."""
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    assert yardstick_problems(nightly, ci, stage=4) == []
+    unchecked = nightly.replace(job, job.replace("| sha256sum --check", ""))
+    assert any(
+        "router digest" in p or "router digest" in p for p in yardstick_problems(unchecked, ci, stage=4)
+    )
+    no_java = nightly.replace(job, job.replace('java-version: "25"', 'java-version: "21"'))
+    assert "yardstick: Freerouting needs Java 25" in yardstick_problems(no_java, ci, stage=4)
+    assert yardstick_problems(no_java, ci, stage=3) == []  # no router before stage 4
 
 
 def test_yardstick_steps_filters_and_gates() -> None:

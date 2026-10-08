@@ -61,6 +61,23 @@ PAGE_SECTIONS = ("How to read", "Stages", "Runs", "Budgets", "Not measured")
 STAGE_STATES = ("reached", "waiting", "not reached")
 ACCEPTED_KEYS = ("stage", "type", "reason", "owner")
 UNCONNECTED = "unconnected_items"
+FREEROUTING_JAR = "FENOLITE_FREEROUTING_JAR"
+KRT_CHECKOUT = "FENOLITE_KRT"
+ROUTE_TIMEOUT = 3600
+"""Seconds of the ``route`` step's budget (``--timeout``, change c0109); its own seconds budget is this plus
+300 s for the merge and the write (design, Decision 10)."""
+PAIR_TIMEOUT = 600
+"""Seconds of the ``route-pairs`` step's budget."""
+ROUTE_ORDER = ("OSC_*", "CH*")
+"""The tiers of the ``route`` step (``--order``): the crystal's nets, then the channels', then the rest."""
+PAIR_NETS = "USB_D*"
+"""The nets of the example's pair, which ``route-pairs`` gives to KiCadRoutingTools."""
+ESCAPE = "U3"
+"""The part whose pads ``route-pairs`` asks KiCadRoutingTools to escape: the QFN controller."""
+ANALYZE_PAIRS = (("HV_RTN", "GND"), ("HV_5V", "+5V"))
+"""The nets of each side of the isolators whose clearance, creepage and insulation ``analyze`` measures."""
+GROOVE = "1mm"
+"""The groove width of ``analyze``: the example's slots are this wide (``SLOT_WIDTH``)."""
 
 STAGES: dict[int, tuple[tuple[str, ...], tuple[str, ...]]] = {
     1: (
@@ -106,9 +123,36 @@ _COMMANDS: dict[str, tuple[str, ...]] = {
     ),
     "heavy-read": ("inspect", "{heavy}"),
     "heavy-rt1": ("roundtrip", "{heavy}", "--level", "rt1"),
-}
-"""The command line of each step that this base can run; the steps of stages 3 to 5 get theirs with the
-changes that own the commands (tasks 7.2, 8.1, 8.2 and 9.1 of c0119)."""
+    # stage 3: the impedance table of the pair's target (c0105)
+    "impedance": ("impedance", "."),
+    # stage 4: the pair and the controller's escape by KiCadRoutingTools (c0110), the rest by Freerouting
+    # with a budget and tiers (c0109), plane fan-out first (c0107); refill, judge, open nets (c0108) and
+    # the analyses of the gap (c0047, c0115)
+    "route-pairs": (
+        "route", ".", "--router", "kicadroutingtools", "--nets", PAIR_NETS, "--escape", ESCAPE,
+        "--timeout", str(PAIR_TIMEOUT), *WRITING,
+    ),
+    "route": (
+        "route", ".", "--router", "freerouting", "--timeout", str(ROUTE_TIMEOUT),
+        *(arg for glob in ROUTE_ORDER for arg in ("--order", glob)), *WRITING,
+    ),
+    "fill-routed": ("fill", "{board}", *WRITING),
+    "check-routed": ("check", ".", "--format", "concise"),
+    "net": ("net", "."),
+    "analyze": (
+        "analyze", "{board}", "--kinds", "creepage,clearance,insulation", "--groove-width", GROOVE,
+        *(arg for pair in ANALYZE_PAIRS for arg in ("--pair", *pair)),
+    ),
+    # stage 5: the document kinds and the drawings (c0116, c0117), the test-point report (c0118)
+    "export-package": (
+        "export", ".", "-o", "fab", "--ipc2581", "--odb", "--step", "--pdf", "--dxf", "--sch-pdf",
+        "--fab-drawing", "--assembly-drawing", "--manifest", *WRITING,
+    ),
+    "testpoints": (
+        "testpoints", ".", "--out", "fab/testpoints.csv", "--min-fiducials", "3", "--manifest", *WRITING,
+    ),
+}  # fmt: skip
+"""The command line of each step."""
 _STOPS_THE_LOOP = ("build", "fill")
 _INDEPENDENT = ("capabilities", "build-install", "heavy-read", "heavy-rt1")
 _NEEDS_BOARD = ("{board}",)
@@ -128,6 +172,11 @@ class Step:
     expect: int = 0
     row: str = ""
     drop_env: tuple[str, ...] = ()
+    also: tuple[int, ...] = ()
+    """Other exit codes the stage accepts: ``check-routed`` exits 0, or 5 with counts within the ratchets."""
+
+    def accepts(self, code: int) -> bool:
+        return code == self.expect or code in self.also
 
     @property
     def base(self) -> str:
@@ -215,15 +264,19 @@ def stage_needs(stage: int) -> tuple[str, ...]:
 
 def stage_problems(stage: int, archived: Sequence[str], page: str) -> list[str]:
     """What forbids ``stage`` in the example: a change it needs that is neither archived (a folder name of
-    ``openspec/changes/archive``) nor named as cut in the ``Stages`` section of the page."""
+    ``openspec/changes/archive``), nor named as cut, nor named as complete for a release (``complete for
+    0.4: c0100, …``: implemented on the release branch and archived at the release, the coordinator's
+    decision of 2026-10-08) in the ``Stages`` section of the page."""
     stages = _section(page, "Stages")
     problems: list[str] = []
     for change in stage_needs(stage):
         if any(re.search(rf"(^|-){change}-", name) for name in archived):
             continue
-        if re.search(rf"cut: [^)|]*\b{change}\b", stages):
+        if re.search(rf"(cut|complete for \d+\.\d+): [^)|]*\b{change}\b", stages):
             continue
-        problems.append(f"STAGE = {stage} needs {change}, which is neither archived nor named as cut")
+        problems.append(
+            f"STAGE = {stage} needs {change}, which is neither archived nor named as cut or complete"
+        )
     return problems
 
 
@@ -240,7 +293,8 @@ def heavy_rows(manifest: Path = CORPUS_MANIFEST) -> tuple[tuple[str, str], ...]:
 
 def steps_for(stage: int, rows: Sequence[tuple[str, str]] | None = None) -> tuple[Step, ...]:
     """The steps of ``stage`` in the order the runner takes them. A heavy step is repeated once per heavy
-    board, as ``heavy-read:<row id>``. ``check`` exits 5 before stage 4: the board is not routed."""
+    board, as ``heavy-read:<row id>``. ``check`` exits 5: it judges the board before routing. From stage 4,
+    ``check-routed`` judges the routed board and exits 0, or 5 with counts within the ratchets."""
     if stage not in STAGES:
         raise Usage(f"STAGE must be a whole number from 1 to {max(STAGES)}, not {stage!r}")
     heavy = heavy_rows() if rows is None else tuple(rows)
@@ -253,9 +307,10 @@ def steps_for(stage: int, rows: Sequence[tuple[str, str]] | None = None) -> tupl
                 found = tuple(f"{{corpus}}/{row}/{file_name}" if a == "{heavy}" else a for a in args or ())
                 steps.append(Step(f"{name}:{row}", found, row=row))
             continue
-        expect = 5 if name == "check" and stage < 4 else 0
+        expect = 5 if name in ("check", "check-routed") else 0
+        also = (0,) if name == "check-routed" else ()
         drop = (LIBS_CACHE,) if name == "build-install" else ()
-        steps.append(Step(name, args, expect=expect, drop_env=drop))
+        steps.append(Step(name, args, expect=expect, drop_env=drop, also=also))
     return tuple(steps)
 
 
@@ -315,7 +370,8 @@ def round_up(value: float, step: int) -> int:
 def rebase(records: Sequence[Mapping[str, Any]], *, provisional: bool = False) -> str:
     """The budgets that the rule gives, as TOML. From three records: seconds are the median times 1.5,
     rounded up to 10 s, and MiB the largest times 1.25, rounded up to 50 MiB. From one local record
-    (``provisional``): seconds times 4 and MiB times 2, rounded the same way."""
+    (``provisional``): seconds times 4 and MiB times 2, rounded the same way. From stage 4, the ratchets are
+    the largest counts of the routed board in the records."""
     if provisional and len(records) != 1:
         raise Usage("rebase --provisional takes one record")
     if not provisional and len(records) != 3:
@@ -347,6 +403,17 @@ def rebase(records: Sequence[Mapping[str, Any]], *, provisional: bool = False) -
             budget = (round_up(statistics.median(seconds) * 1.5, 10), round_up(max(peaks) * 1.25, 50))
         key = name if re.fullmatch(r"[A-Za-z0-9_-]+", name) else json.dumps(name)
         lines += ["", f"[stage{stage}.steps.{key}]", f"seconds = {budget[0]}", f"mib = {budget[1]}"]
+    if stage >= 4:
+        routed = [
+            dict(dict(record.get("board", {}).get("routed") or {}).get("drc") or {}) for record in records
+        ]
+        if all(routed):
+            lines += [
+                "",
+                f"[stage{stage}.ratchets]",
+                f"open_connections = {max(int(drc.get('unconnected') or 0) for drc in routed)}",
+                f"drc_errors = {max(routed_errors(drc) for drc in routed)}",
+            ]
     return "\n".join(lines) + "\n"
 
 
@@ -396,14 +463,15 @@ def page_problems(page: str) -> list[str]:
 
 def row(record: Mapping[str, Any], url: str | None = None) -> str:
     """One row of the ``Runs`` table: date, commit, stage, run, total seconds, largest peak MiB, open
-    connections, DRC errors, verdict, note."""
+    connections, DRC errors, verdict, note. From stage 4 the counts are those of the routed board."""
     steps = [step for step in record["steps"] if step.get("status") != "skipped"]
     total = sum(step.get("seconds") or 0 for step in steps)
     peaks = [step["peak_mib"] for step in steps if step.get("peak_mib") is not None]
-    drc = dict(record.get("board", {}).get("drc", {}))
+    board = dict(record.get("board", {}))
+    drc = dict(dict(board.get("routed") or {}).get("drc") or board.get("drc") or {})
     open_count = drc.get("unconnected")
     capped = bool(drc.get("unconnected_capped"))
-    errors = sum(count for kind, count in dict(drc.get("errors", {})).items() if kind != UNCONNECTED)
+    errors = routed_errors(drc)
     cells = [
         str(record.get("date", ""))[:10],
         str(record.get("commit", ""))[:8],
@@ -534,7 +602,7 @@ class Run:
         entry: dict[str, Any] = {
             "name": step.name,
             "args": [*step.args, "--json"],
-            "status": "ok" if measured.exit == step.expect else "failed",
+            "status": "ok" if step.accepts(measured.exit) else "failed",
             "exit": measured.exit,
             "expected_exit": step.expect,
             "seconds": round(measured.seconds, 3),
@@ -544,7 +612,9 @@ class Run:
             "issues": _issue_counts(reply),
             "budget": None,
         }
-        if measured.exit != step.expect:
+        if step.also:
+            entry["also_accepted"] = list(step.also)
+        if not step.accepts(measured.exit):
             error = _load(error_file)
             entry["error"] = self.clean(f"{error.get('code', '')} {error.get('message', '')}".strip())
         budget = self.budgets.of(step.name)
@@ -571,14 +641,16 @@ class Run:
             )  # fmt: skip
             self.rule(f"exit.{step['name']}", step["status"] == "ok", detail)
 
-    def judge_check(self) -> dict[str, dict[str, Any]]:
-        """The stages of ``check``: each that ran is ``ok``, or holds only error types that are accepted
-        for it (``unconnected_items`` of ``drc.kicad`` before stage 4 needs no entry). Returns the accepted
-        types with their counts."""
+    def judge_check(self, step: str = "check") -> dict[str, dict[str, Any]]:
+        """The stages of ``check`` (or ``check-routed``): each that ran is ``ok``, or holds only error types
+        that are accepted for it. On the board before routing, ``unconnected_items`` of ``drc.kicad`` needs
+        no entry; on the routed board every error type of ``drc.kicad`` is counted against the ratchets
+        instead. Returns the accepted types with their counts."""
         counted: dict[str, dict[str, Any]] = {}
-        if not self.ran("check"):
+        if not self.ran(step):
             return counted
-        result = _result(self.replies["check"])
+        routed = step == "check-routed"
+        result = _result(self.replies[step])
         stages = [stage for stage in result.get("stages", []) if isinstance(stage, dict)]
         errors = {
             str(entry["code"]): int(dict(entry.get("by_severity", {})).get("error", 0))
@@ -606,36 +678,78 @@ class Run:
             for kind, entry in allowed.items():
                 count = int(by_type.get(kind, found.get(kind, 0)))
                 if count:
-                    counted[f"{name}:{kind}"] = {
+                    counted[f"{step}:{name}:{kind}"] = {
                         "stage": name,
                         "type": kind,
                         "count": count,
                         "owner": entry.owner,
                         "reason": entry.reason,
                     }
-            free = {UNCONNECTED} if name == "drc.kicad" and self.stage < 4 else set()
+            free: set[str] = set()
+            if name == "drc.kicad":
+                free = set(found) if routed else {UNCONNECTED}
             refused = sorted(kind for kind in found if kind not in allowed and kind not in free)
             if status == "skipped":
                 continue
+            rule = f"{step}.{name}"
             if status == "ok" and not refused:
-                self.rule(f"check.{name}", True)
+                self.rule(rule, True)
             elif refused:
-                self.rule(f"check.{name}", False, f"check: {name} holds {', '.join(refused)}")
+                self.rule(rule, False, f"{step}: {name} holds {', '.join(refused)}")
             elif found:
-                self.rule(f"check.{name}", True, f"only {', '.join(sorted(found))}")
+                self.rule(rule, True, f"only {', '.join(sorted(found))}")
             else:
-                self.rule(f"check.{name}", False, f"check: {name} is {status} with no finding type")
+                self.rule(rule, False, f"{step}: {name} is {status} with no finding type")
             if name == "copper.clearance":
                 count = int(summary.get("clearance", 0)) + int(summary.get("shorts", 0))
-                self.rule(
-                    "check.copper.clearance.no-finding", count == 0, f"{count} finding(s)" if count else ""
-                )
+                detail = f"{count} finding(s)" if count else ""
+                self.rule(f"{step}.copper.clearance.no-finding", count == 0, detail)
             if name == "netlist.assignment_compare":
                 count = sum(int(pair.get("differences", 0)) for pair in summary.get("pairs", []))
-                self.rule(
-                    "check.netlist.no-difference", count == 0, f"{count} difference(s)" if count else ""
-                )
+                detail = f"{count} difference(s)" if count else ""
+                self.rule(f"{step}.netlist.no-difference", count == 0, detail)
         return counted
+
+    def judge_ratchets(self, drc: Mapping[str, Any] | None) -> None:
+        """From stage 4: KiCad's open connections and DRC errors on the routed board at most their
+        ratchets."""
+        if self.stage < 4 or not self.ran("check-routed"):
+            return
+        if drc is None:
+            self.rule("ratchet.drc", False, "the reply of check-routed holds no drc.kicad stage")
+            return
+        counts = {"open_connections": int(drc.get("unconnected") or 0), "drc_errors": routed_errors(drc)}
+        for key, count in counts.items():
+            limit = self.budgets.ratchets.get(key)
+            if limit is None:
+                continue
+            held = count <= limit
+            detail = (
+                f"only {count} of the ratchet {limit}" if held else f"{key}: {count} over the ratchet {limit}"
+            )
+            self.rule(f"ratchet.{key}", held, detail)
+
+    def judge_package(self) -> None:
+        """At stage 5: every file that ``export-package`` and ``testpoints`` wrote under ``fab`` is listed in
+        ``fab/fenolite-artifacts.json``."""
+        steps = [name for name in ("export-package", "testpoints") if self.ran(name)]
+        if not steps:
+            return
+        manifest = _load(self.out / "fab" / "fenolite-artifacts.json")
+        listed = {f"fab/{entry.get('path')}" for entry in manifest.get("artifacts", []) if entry}
+        written: set[str] = set()
+        for name in steps:
+            receipt = self.replies[name].get("receipt")
+            for entry in dict(receipt or {}).get("written", []):
+                path = str(dict(entry).get("path", ""))
+                if path.startswith("fab/") and not path.endswith("fenolite-artifacts.json"):
+                    written.add(path)
+        missing = sorted(written - listed)
+        if missing:
+            detail = f"the manifest lacks {', '.join(missing)}"
+        else:
+            detail = "" if written else "the steps wrote no file under fab"
+        self.rule("package.in-manifest", bool(written) and not missing, detail)
 
     def judge_manifest(self) -> None:
         if not self.ran("manifest"):
@@ -695,26 +809,12 @@ class Run:
             board["zones"] = {
                 key: stages["zone.fill"].get(key) for key in ("zones", "current", "unfilled", "stale")
             }
-        summary = _result(self.replies.get("check", {})).get("issues_summary", [])
-        severities = {str(entry["code"]): dict(entry.get("by_severity", {})) for entry in summary}
-        for name, key in (("drc.kicad", "drc"), ("erc.kicad", "erc")):
-            if name not in stages:
-                continue
-            types = dict(stages[name].get("types", {}))
-            found: dict[str, Any] = {"errors": {}, "warnings": {}}
-            for code, kind in sorted(types.items()):
-                for severity, group in (("error", "errors"), ("warning", "warnings")):
-                    if severities.get(code, {}).get(severity):
-                        found[group][kind] = severities[code][severity]
-            if name == "drc.kicad":
-                found["unconnected"] = stages[name].get("unconnected")
-                limits = [dict(limit) for limit in stages[name].get("limits", [])]
-                found["limits"] = limits
-                found["unconnected_capped"] = any(limit.get("type") == UNCONNECTED for limit in limits)
-            board[key] = found
+        board.update(kicad_findings(self.replies.get("check", {})))
         for name, summary_of in stages.items():
-            if name.startswith("place."):
+            if name.startswith(("place.", "placement.")):
                 board.setdefault("placement", {})[name] = summary_of
+        if self.stage >= 4:
+            board["routed"] = self.routed_measures()
         if "manifest" in self.replies:
             board["artefacts"] = _result(self.replies["manifest"]).get("states")
         cache, install = self.replies.get("build-dry"), self.replies.get("build-install")
@@ -727,6 +827,73 @@ class Run:
                 "same_board": _plan_board(cache) is not None and _plan_board(cache) == _plan_board(install),
             }
         return board
+
+    def routed_measures(self) -> dict[str, Any]:
+        """Stage 4 on: what each route step reports (c0108, c0109), the open connections that ``net``
+        counts, and KiCad's findings on the routed board."""
+        found: dict[str, Any] = {}
+        for step in ("route-pairs", "route"):
+            result = _result(self.replies.get(step, {}))
+            if result:
+                found[step] = {
+                    "selected": len(result.get("selected") or ()),
+                    "routed": len(result.get("routed") or ()),
+                    "unrouted": len(result.get("unrouted") or ()),
+                    "connections": result.get("connections"),
+                    "tracks": result.get("tracks"),
+                    "vias": result.get("vias"),
+                    "budget": result.get("budget"),
+                    "runs": result.get("runs"),
+                    "plane_fanout": {
+                        key: value
+                        for key, value in dict(result.get("plane_fanout") or {}).items()
+                        if key != "failed"
+                    },
+                    "pairs": result.get("pairs"),
+                    "escape": result.get("escape"),
+                }
+        nets = _result(self.replies.get("net", {})).get("nets")
+        if isinstance(nets, list):
+            found["net_open"] = sum(int(dict(row).get("open") or 0) for row in nets)
+            found["nets_open"] = sum(1 for row in nets if dict(row).get("open"))
+        found.update(kicad_findings(self.replies.get("check-routed", {})))
+        return found
+
+
+def kicad_findings(reply: Mapping[str, Any]) -> dict[str, Any]:
+    """The findings of KiCad's DRC and ERC in a ``check`` reply, by severity and type, with KiCad's count of
+    open connections and the report-limit mark of c0141 (``summary.limits``)."""
+    result = _result(reply)
+    stages = {
+        str(stage.get("name")): dict(stage.get("summary", {}))
+        for stage in result.get("stages", [])
+        if isinstance(stage, dict)
+    }
+    severities = {
+        str(entry["code"]): dict(entry.get("by_severity", {})) for entry in result.get("issues_summary", [])
+    }
+    board: dict[str, Any] = {}
+    for name, key in (("drc.kicad", "drc"), ("erc.kicad", "erc")):
+        if name not in stages:
+            continue
+        types = dict(stages[name].get("types", {}))
+        found: dict[str, Any] = {"errors": {}, "warnings": {}}
+        for code, kind in sorted(types.items()):
+            for severity, group in (("error", "errors"), ("warning", "warnings")):
+                if severities.get(code, {}).get(severity):
+                    found[group][kind] = severities[code][severity]
+        if name == "drc.kicad":
+            found["unconnected"] = stages[name].get("unconnected")
+            limits = [dict(limit) for limit in stages[name].get("limits", [])]
+            found["limits"] = limits
+            found["unconnected_capped"] = any(limit.get("type") == UNCONNECTED for limit in limits)
+        board[key] = found
+    return board
+
+
+def routed_errors(drc: Mapping[str, Any]) -> int:
+    """The DRC errors of a board other than its open connections."""
+    return sum(int(count) for kind, count in dict(drc.get("errors", {})).items() if kind != UNCONNECTED)
 
 
 def _plan_board(reply: Mapping[str, Any]) -> str | None:
@@ -793,6 +960,14 @@ def run(
     pending = [step.name for step in steps if step.args is None]
     if pending:
         raise Usage(f"stage {stage} has steps without a command line on this base: {', '.join(pending)}")
+    if stage >= 4 and {"open_connections", "drc_errors"} - set(budgets.ratchets):
+        raise Usage(f"the budgets file has no [stage{stage}.ratchets] with open_connections and drc_errors")
+    routers = {"route-pairs": (KRT_CHECKOUT, "KiCadRoutingTools"), "route": (FREEROUTING_JAR, "Freerouting")}
+    for step in steps:
+        if step.name in routers:
+            variable, router = routers[step.name]
+            if not os.environ.get(variable) or not Path(os.environ[variable]).exists():
+                raise Usage(f"{variable} names no {router}; the step {step.name} needs it")
     cache = os.environ.get(LIBS_CACHE, "")
     if not cache or not Path(cache).is_dir():
         raise Usage(
@@ -831,8 +1006,10 @@ def run(
 
     this.judge_exits()
     accepted = this.judge_check()
+    accepted.update(this.judge_check("check-routed"))
     this.judge_manifest()
     this.judge_rebuild()
+    this.judge_package()
     record: dict[str, Any] = {
         "schema": SCHEMA,
         "date": datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -848,6 +1025,7 @@ def run(
         "budgets": {"file": budgets_file.name, "source": budgets.source, "findings": []},
         "verdict": "failed",
     }
+    this.judge_ratchets(record["board"].get("routed", {}).get("drc"))
     findings = judge(record, budgets)
     record["budgets"]["findings"] = [
         {"step": f.step, "measure": f.measure, "value": round(f.value, 3), "budget": f.budget}
@@ -910,9 +1088,18 @@ def summary(record: Mapping[str, Any]) -> str:
         "",
         f"Board: {cell(board.get('parts'))} parts, {cell(board.get('nets'))} nets, "
         f"{cell(board.get('pads'))} pads on nets, {cell(board.get('copper_layers'))} copper layers; "
-        f"KiCad counts {cell(drc.get('unconnected'))} open connections{capped}.",
+        f"KiCad counts {cell(drc.get('unconnected'))} open connections{capped} before routing.",
         "",
     ]
+    routed = dict(board.get("routed") or {})
+    if routed:
+        after = dict(routed.get("drc") or {})
+        lines += [
+            f"Routed: KiCad counts {cell(after.get('unconnected'))} open connections and "
+            f"{routed_errors(after) if after else '—'} other DRC errors; `net` counts "
+            f"{cell(routed.get('net_open'))} open connections.",
+            "",
+        ]
     return "\n".join(lines)
 
 

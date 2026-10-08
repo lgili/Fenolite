@@ -20,7 +20,9 @@ the oracle setup scripts here.
 `make yardstick`) reads `STAGE` from `examples/yardstick/design.py` without running it, and runs the steps
 of that stage, each as one child process `python -m fenolite <args> --json` in the output folder, which
 becomes the project folder and must be empty. It needs `kicad-cli` 10 and `FENOLITE_LIBS_CACHE` naming the
-verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`).
+verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`); from stage 4 also
+`FENOLITE_FREEROUTING_JAR` (`fenolite fetch freerouting --confirm`, and Java 25) and `FENOLITE_KRT` with
+`FENOLITE_KRT_PYTHON` (the pinned KiCadRoutingTools checkout), as the nightly job sets them.
 
 - **Steps of stage 1**, in order: `capabilities`, `build-dry`, `build`, `fill`, `check` (concise; it exits
   5 before stage 4, because nothing is routed), `export`, `render`, `bom`, `pnp`, `manifest`, `rebuild-dry`,
@@ -28,6 +30,10 @@ verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`).
   come from the KiCad install), then `heavy-read` and `heavy-rt1` once for each of the two corpus boards
   tagged `heavy` (`corpus_fetch.py --uses heavy --only <id> <id>`; `--skip-heavy` leaves them out).
   `--only STEP,…` runs single steps on an existing project.
+- **Steps added by the later stages:** stage 3 `impedance`; stage 4 `route-pairs` (KiCadRoutingTools on the
+  pair, with the escape of the controller), `route` (Freerouting, `--timeout 3600`, two tiers),
+  `fill-routed`, `check-routed` (exit 0, or 5 with counts within the ratchets), `net` and `analyze`;
+  stage 5 `export-package` (the document kinds and drawings, with `--manifest`) and `testpoints`.
 - **Per step** the record keeps the arguments, the exit code, the wall seconds, the peak resident memory
   of the step's largest process, the bytes of the reply and the issue counts by code. The replies are
   kept under `yardstick-run/replies/` of the output folder.
@@ -36,11 +42,16 @@ verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`).
   finding and the net comparison no difference; the manifest lists every file that `export`, `render`,
   `bom` and `pnp` wrote; the dry rebuild plans no change to a file outside `.fenolite/`, and the rebuild
   leaves the board's bytes unchanged. A failed `build` or `fill` skips the steps that need the board.
+  From stage 4, `check-routed` holds KiCad's open connections and DRC errors of the routed board to the
+  stage's ratchets; at stage 5 every file that `export-package` and `testpoints` wrote is listed in
+  `fab/fenolite-artifacts.json`.
 - **Budgets.** `yardstick_budgets.toml` holds a table per stage: `source`, then `seconds` and `mib` per
-  step under `[stage<n>.steps.<step>]`. A step over its budget fails the run; a step without a budget is
-  recorded and fails nothing; a stage without a table is exit 2. `rebase RECORD RECORD RECORD` prints the
-  budgets that three runs give (median seconds times 1.5, rounded up to 10 s; largest MiB times 1.25,
-  rounded up to 50 MiB), and `rebase --provisional RECORD` those of one local run (times 4 and times 2).
+  step under `[stage<n>.steps.<step>]`, and from stage 4 `[stage<n>.ratchets]` with `open_connections` and
+  `drc_errors`. A step over its budget, or a count over its ratchet, fails the run; a step without a
+  budget is recorded and fails nothing; a stage without a table, or from stage 4 without its ratchets, is
+  exit 2. `rebase RECORD RECORD RECORD` prints the budgets that three runs give (median seconds times 1.5,
+  rounded up to 10 s; largest MiB times 1.25, rounded up to 50 MiB; a ratchet is the largest count), and
+  `rebase --provisional RECORD` those of one local run (times 4 and times 2).
 - **Accepted findings.** A finding that only a repair in Fenolite can remove is accepted for a stage by
   an entry `[stage<n>.accepted.<key>]` with `stage` (the `check` stage), `type`, `reason` and `owner` (the
   change or issue that owns the repair). It is counted in every record and fails nothing; any other type
@@ -50,7 +61,7 @@ verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`).
   verdict, with no absolute path. `row RECORD --url URL` prints its row of the `Runs` table of
   `docs/evidence/yardstick.md`.
 - **Exit codes:** 0 passed; 1 a step, a rule or a budget failed; 2 usage, or a missing `kicad-cli`,
-  library cache, corpus row or budget table. The summary is printed, and appended to `--summary FILE`.
+  library cache, corpus row, router, budget table or ratchet table. The summary is printed, and appended to `--summary FILE`.
 - Seconds and MiB are measures of one runner: no evidence label moves on a budget.
 
 ## Agent evaluation (`tools/agent_eval/`)

@@ -20,6 +20,8 @@ import fenolite.cli.main as cli_main
 pytestmark = pytest.mark.needs_libs
 ROOT = Path(__file__).resolve().parents[2]
 YARDSTICK = ROOT / "examples" / "yardstick" / "design.py"
+GENERATED = ("Fenolite_Holes:", "Fenolite_Assembly:")
+"""The libraries that ``design.hole()`` and the assembly calls generate (changes c0102 and c0118)."""
 LIBRARY_VARIABLES = (
     "KICAD10_FOOTPRINT_DIR",
     "KICAD10_SYMBOL_DIR",
@@ -53,11 +55,15 @@ def test_yardstick_builds_with_the_official_libraries(
         and result["staged"] == []
         and len(result["placed"]) == result["components"]
     )
-    assert set(result["libraries"].values()) == {"scan"}  # every lib id came from the cache
+    # Every lib id came from the cache, but those of the generated hole and assembly libraries.
+    sources = result["libraries"]
+    assert {sources[lib_id] for lib_id in sources if not lib_id.startswith(GENERATED)} == {"scan"}
+    assert {sources[lib_id] for lib_id in sources if lib_id.startswith(GENERATED)} == {"authored"}
     assert result["copper_check"]["shorts"] == 0 and result["copper_check"]["clearance"] == 0
-    assert result["schematic"]["sheets"] == 15  # the root and one sheet per module
+    assert result["copper"]["vias"] > 0  # the thermal arrays of stage 3
+    assert result["schematic"]["sheets"] == 14  # the root and one sheet per module
     for suffix in (".kicad_pcb", ".kicad_pro", ".kicad_dru", ".kicad_sch"):
         assert (folder / f"yardstick{suffix}").is_file()
     board = (folder / "yardstick.kicad_pcb").read_text(encoding="utf-8")
-    assert '"In1.Cu"' in board and '"In2.Cu"' in board and '"In3.Cu"' not in board
+    assert '"In4.Cu"' in board and '"In5.Cu"' not in board  # six copper layers from stage 2
     print(f"yardstick: {result['components']} parts, {result['nets']} nets, {len(result['vendored'])} lands")

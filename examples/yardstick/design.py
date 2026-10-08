@@ -1,12 +1,17 @@
 # SPDX-License-Identifier: CC0-1.0
 # Authored for Fenolite as an example; no file, value, name or layout comes from any other project.
 """The yardstick: an invented controller of eight identical 48 V buck channels with an isolated sense
-of a high-voltage bus, about 370 parts of KiCad's official libraries on a four-layer board.
+of a high-voltage bus, about 390 parts of KiCad's official libraries on a six-layer board.
 
 The circuit was invented for Fenolite to be large, not to be built: it mirrors no board, product or
 reference design, and every value below is a round one chosen for this example. The board grows by
 stages (``STAGE``, ``docs/evidence/yardstick.md``); ``tools/yardstick.py run`` takes it through the loop
-every night and compares each step with a budget.
+every night and compares each step with a budget. The stages are cumulative, so the script holds what
+every stage up to its own added: four copper layers, zones, classes and the high-voltage rules (stage 1);
+six layers with a declared stack-up (stage 2); slots under the isolators, plated
+mounting holes with keep-outs, a high-voltage rule area, the USB pair's rules and impedance target,
+thermal via arrays, placement rules and a net tie (stage 3); plane layers for the router (stage 4); and
+fiducials, tooling holes and test points (stage 5).
 
 Build it with the official libraries of tag 10.0.6 (``tools/kicad_libs_fetch.py``)::
 
@@ -15,13 +20,31 @@ Build it with the official libraries of tag 10.0.6 (``tools/kicad_libs_fetch.py`
 
 The script places every part: the power input along the left edge, the controller with its USB and
 CAN ports beside it, the eight channels in two rows of four, and the high-voltage strip along the
-right edge. Nothing is routed before stage 4, so KiCad's DRC reports the open connections.
+right edge. The script draws no track: the runner routes the board at stage 4.
 """
 
-from fenolite.dsl import USB2, Design, Module, Net, Part, Power, connect, mm, no_connect, select
+from fenolite.dsl import (
+    USB2,
+    Design,
+    Module,
+    Net,
+    Part,
+    Power,
+    connect,
+    mm,
+    nm,
+    no_connect,
+    ohm,
+    protect,
+    select,
+    shape,
+    stack,
+    trace,
+)
+from fenolite.dsl.assembly import clear_outline
 
-STAGE = 1  # the stage of docs/evidence/yardstick.md this script is at; chosen for the example
-COPPER = 4  # copper layers at stage 1, six from stage 2; chosen for the example
+STAGE = 5  # the stage of docs/evidence/yardstick.md this script is at; chosen for the example
+COPPER = 6  # copper layers at stage 1, six from stage 2; chosen for the example
 CHANNELS = 8  # identical buck channels; chosen for the example
 SUPPLY = {"VIN48": "48V", "+12V": "12V", "+5V": "5V", "+3V3": "3.3V"}  # supply rails; chosen for the example
 
@@ -34,6 +57,22 @@ GAP = 8  # between the high-voltage strip and the low-voltage copper planes; cho
 EDGE = 1  # from the board edge to a zone outline; chosen for the example
 HOLE_INSET = 5  # from the board edge to the centre of a mounting hole; chosen for the example
 SPLIT_X = 61  # where the +3V3 plane ends and the VIN48 plane begins; chosen for the example
+SLOT_WIDTH = 1  # the milled slot under each isolator; chosen for the example
+SLOTS = (  # each slot: x of its axis, then y of the centres of its two round ends; chosen for the example
+    (219, 32, 38),  # under U6, the isolated amplifier
+    (219, 54, 66),  # under U7, the isolated DC/DC converter
+)
+HOLE = {"drill": 3.2, "pad": 6, "keepout": 9}  # mounting holes and their keep-outs; chosen for the example
+
+# The layers: what each inner layer carries, and the build-up of the board.
+ZONE_LAYERS = {  # chosen for the example
+    "ground": ("In1.Cu",),  # GND under the low-voltage area
+    "supply": ("In4.Cu",),  # +3V3 under the controller, VIN48 under the channels
+    "return": ("In1.Cu", "In4.Cu"),  # HV_RTN under the high-voltage strip
+}
+PLANES = {"In1.Cu": "GND", "In4.Cu": "VIN48"}  # the inner layers typed as planes; chosen for the example
+STACKUP = "six-layer-1.6mm"  # the packaged stack-up preset of six layers, read from S-0722
+FINISH = "ENIG"  # the surface finish; chosen for the example
 
 # Clearances and widths, in millimetres; chosen for the example.
 MINIMUMS = {  # what the board must never go below; chosen for the example
@@ -48,9 +87,51 @@ CLASSES = {  # clearance and track width per net class; chosen for the example
     "PWR": (0.2, 0.5),
     "HV": (0.5, 0.5),
     "SIG": (0.15, 0.2),
+    "USB": (0.15, 0.2),
 }
 HV_CLEARANCE = 7  # between the nets of class HV and every other net; chosen for the example
-HV_CREEPAGE = 7  # along the surface, the same two groups; chosen for the example
+HV_CREEPAGE = 7.5  # along the surface, the same two groups: only the slots meet it; chosen for the example
+HV_AREA_CLEARANCE = 0.6  # between two nets of class HV inside the high-voltage strip; chosen for the example
+HOLE_KEEPOUT = ("tracks", "vias")  # what the keep-out round a mounting hole forbids; chosen for the example
+
+# The USB pair: its class values, its rules and its impedance target; chosen for the example.
+PAIR_CLASS = {
+    "diff_pair_width": 0.2,
+    "diff_pair_gap": 0.15,
+    "diff_pair_via_gap": 0.25,
+}  # chosen for the example
+PAIR_RULES = {  # the limits of the pair, in millimetres; chosen for the example
+    "gap_min": 0.15,
+    "gap_max": 0.25,
+    "clearance": 0.15,
+    "uncoupled_max": 5,
+    "skew_max": 0.5,
+    "length_max": 60,
+}
+PAIR_PRIORITY = 2  # below the impedance target, which governs the gap on its layer; chosen for the example
+IMPEDANCE = {"ohms": 90, "tolerance": 10, "layer": "F.Cu", "refs": "In1.Cu"}  # chosen for the example
+
+# Copper that belongs to a part: thermal via arrays, filled and capped; chosen for the example.
+THERMAL = {"pitch": 1.2, "diameter": 0.6, "drill": 0.3, "margin": 0.1}  # millimetres; chosen for the example
+EXPOSED_PAD = 49  # the controller's exposed pad, its VSS pin; chosen for the example
+
+# Placement rules: how far a part may lie from the pads it serves, in millimetres; chosen for the example.
+NEAR = {"decoupling": 15, "crystal": 10, "gate": 15}  # chosen for the example
+VDD_PINS = (1, 23, 35, 48)  # the controller's supply pins that the decoupling serves; chosen for the example
+
+# Assembly and test features, in millimetres; chosen for the example.
+FIDUCIALS = {"FID1": (15, 95), "FID2": (232, 8), "FID3": (232, 102)}  # chosen for the example
+FIDUCIAL = {"copper": 1, "mask": 2, "clear": 3}  # chosen for the example
+TOOLING = {"H5": (30, 4), "H6": (215, 105)}  # tooling holes, not plated; chosen for the example
+TOOLING_HOLE = {"drill": 2, "clear": 4}  # chosen for the example
+TEST_POINTS = {  # the net and the place of each test point; chosen for the example
+    "TP1": ("GND", 32, 52),
+    "TP2": ("+3V3", 36, 52),
+    "TP3": ("+5V", 40, 52),
+    "TP4": ("+12V", 44, 52),
+    "TP5": ("VIN48", 48, 52),
+}
+TEST_PAD = 1.5  # the round pad of a test point; chosen for the example
 
 # Part values; chosen for the example.
 VALUES = {  # every resistor, capacitor and inductor value of the circuit; chosen for the example
@@ -103,7 +184,7 @@ FOOTPRINTS = {  # chosen for the example
     "crystal": "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm",
     "header": "Connector_PinHeader_1.27mm:PinHeader_2x05_P1.27mm_Vertical_SMD",
     "usb": "Connector_USB:USB_Micro-B_Molex-105017-0001",
-    "hole": "MountingHole:MountingHole_3.2mm_M3_Pad",
+    "net_tie": "NetTie:NetTie-2_SMD_Pad0.5mm",
 }
 DPAK_PADS = {
     "G": "1",
@@ -194,7 +275,7 @@ SHARED_PLAN = {  # where the parts outside the channels lie on the board, by ref
     "C15": (52, 14, 0), "C16": (56, 14, 0), "Y1": (34, 24, 0), "C17": (34, 20.5, 0), "C18": (34, 27.5, 0),
     "R2": (56, 20.5, 0), "C19": (56, 23, 0), "R3": (56, 25.5, 0), "R7": (56, 28, 0), "D4": (36, 34, 0),
     "R4": (40.5, 34, 0), "D5": (36, 37, 0), "R5": (40.5, 37, 0), "D6": (36, 40, 0), "R6": (40.5, 40, 0),
-    "C20": (47, 34, 0), "J3": (52, 42, 0),
+    "C20": (47, 34, 0), "J3": (52, 42, 0), "NT1": (54, 17, 0),
     # CAN port
     "U4": (42, 86, 0), "C21": (34, 85, 0), "R8": (34, 87.5, 0), "R9": (50, 85, 0), "C22": (50, 87.5, 0),
     "J4": (52, 100, 0),
@@ -209,10 +290,7 @@ SHARED_PLAN = {  # where the parts outside the channels lie on the board, by ref
     "R18": (240, 51, 0), "R19": (240, 54, 0), "R20": (240, 57, 0), "R21": (240, 60.5, 0),
     "D8": (239.5, 64.5, 0),
 }  # fmt: skip
-LOCKED = (
-    "J",
-    "H",
-)  # reference letters of the parts that never move: connectors and holes; chosen for the example
+LOCKED = ("J",)  # the reference letter of the parts that never move, connectors; chosen for the example
 
 
 def net(name: str, netclass: str) -> Net:
@@ -307,21 +385,29 @@ def controller() -> Module:
         connect(signals[f"CH{index}_ISENSE"], mcu[current])
         connect(signals[f"CH{index}_VSENSE"], mcu[voltage])
     no_connect(*(mcu[pin] for pin in CONTROLLER_SPARE))
-    for ref in ("C11", "C12", "C13", "C14"):
-        module.add(two_pin(capacitor(ref, "decoupling"), v33, gnd))
+    decoupling = [two_pin(capacitor(ref, "decoupling"), v33, gnd) for ref in ("C11", "C12", "C13", "C14")]
+    decoupling.append(two_pin(capacitor("C20", "ceramic", "0805c"), v33, gnd))
+    # The analogue supply returns to its own ground, which one net tie joins to GND beside the controller.
+    tie = Part("NT1", "Device:NetTie_2", footprint=FOOTPRINTS["net_tie"], value="NetTie")
+    connect(gnd, tie[1])
+    connect(sgnd, tie[2])
     module.add(
-        two_pin(capacitor("C15", "decoupling"), v33a, gnd),
-        two_pin(capacitor("C16", "small"), v33a, gnd),
-        two_pin(capacitor("C20", "ceramic", "0805c"), v33, gnd),
+        *decoupling,
+        two_pin(capacitor("C15", "decoupling"), v33a, sgnd),
+        two_pin(capacitor("C16", "small"), v33a, sgnd),
+        tie,
     )
     crystal = Part("Y1", "Device:Crystal_GND24", footprint=FOOTPRINTS["crystal"], value="8MHz")
     connect(signals["OSC_IN"], crystal[1])
     connect(signals["OSC_OUT"], crystal[3])
     connect(gnd, crystal[2], crystal[4])
-    module.add(
-        crystal,
+    loads = (
         two_pin(capacitor("C17", "load"), signals["OSC_IN"], gnd),
         two_pin(capacitor("C18", "load"), signals["OSC_OUT"], gnd),
+    )
+    module.add(
+        crystal,
+        *loads,
         two_pin(resistor("R2", "pull"), v33, signals["NRST"]),
         two_pin(capacitor("C19", "decoupling"), signals["NRST"], gnd),
         two_pin(resistor("R3", "pull"), signals["BOOT0"], gnd),
@@ -341,6 +427,13 @@ def controller() -> Module:
     connect(gnd, header[3], header[5], header[9])
     no_connect(header[6], header[7], header[8])
     module.add(header)
+    # A thermal array of filled and capped vias in the exposed pad, and the placement rules of the
+    # decoupling and of the crystal.
+    design.stitch("u3_thermal", net=gnd, region=mcu.pad(EXPOSED_PAD), **thermal())
+    supply_pads = tuple(mcu.pad(pin) for pin in VDD_PINS)
+    design.near("decoupling", tuple(decoupling), supply_pads, within=mm(NEAR["decoupling"]))
+    oscillator = (mcu.pad(CONTROLLER_PINS["OSC_IN"]), mcu.pad(CONTROLLER_PINS["OSC_OUT"]))
+    design.near("crystal", (crystal, *loads), oscillator, within=mm(NEAR["crystal"]))
     return module
 
 
@@ -368,8 +461,9 @@ def can_port() -> Module:
     return module
 
 
-def usb_port() -> Module:
-    """A micro-B receptacle, an ESD array, a divider that senses VBUS and the shield's RC."""
+def usb_port() -> tuple[Module, USB2]:
+    """A micro-B receptacle, an ESD array, a divider that senses VBUS and the shield's RC; with the
+    module, the pair ``USB_DP``/``USB_DN`` that the rules below name."""
     module = Module("usb")
     vbus, shield = net("VBUS", "PWR"), net("USB_SHIELD", "SIG")
     dp, dn = signals["USB_DP"], signals["USB_DN"]
@@ -392,7 +486,7 @@ def usb_port() -> Module:
         two_pin(resistor("R12", "shield_r"), shield, gnd),
         two_pin(capacitor("C23", "shield_c"), shield, gnd),
     )
-    return module
+    return module, bus
 
 
 def channel(n: int, x: float, y: float) -> Module:
@@ -491,6 +585,11 @@ def channel(n: int, x: float, y: float) -> Module:
         part = parts[role]
         module.add(part)
         part.place(mm(x + dx), mm(y + dy), rot=rot, locked=part.ref.startswith(LOCKED))
+    # The high-side transistor sheds its heat through its drain tab into the VIN48 plane, and the
+    # driver stays near both gates.
+    design.stitch(f"ch{n}_thermal", net=vin48, region=q_high.pad(DPAK_PADS["D"]), **thermal())
+    gates = (q_high.pad(DPAK_PADS["G"]), q_low.pad(DPAK_PADS["G"]))
+    design.near(f"ch{n}_gates", gates, driver, within=mm(NEAR["gate"]))
     return module
 
 
@@ -543,9 +642,8 @@ def high_voltage_sense() -> Module:
     return module
 
 
-def mounting_holes() -> Module:
-    """Four mounting holes with a pad on ground, one in each corner."""
-    module = Module("mechanical")
+def mounting_holes() -> None:
+    """Four plated mounting holes on ground, one in each corner, each in a keep-out of tracks and vias."""
     width, height = BOARD
     corners = (
         (HOLE_INSET, HOLE_INSET),
@@ -554,11 +652,42 @@ def mounting_holes() -> Module:
         (width - HOLE_INSET, height - HOLE_INSET),
     )
     for index, (x, y) in enumerate(corners, start=1):
-        hole = Part(f"H{index}", "Mechanical:MountingHole_Pad", footprint=FOOTPRINTS["hole"], value="M3")
+        hole = design.hole(f"H{index}", mm(x), mm(y), drill=mm(HOLE["drill"]), pad=mm(HOLE["pad"]))
         connect(gnd, hole[1])
-        hole.place(mm(x), mm(y), locked=True)
-        module.add(hole)
-    return module
+        octagon = clear_outline(mm(x).nm, mm(y).nm, mm(HOLE["keepout"]).nm)  # integer nanometres
+        outline = tuple((nm(point.x), nm(point.y)) for point in octagon)
+        design.rule_area(f"keepout_H{index}", outline, forbid=HOLE_KEEPOUT)
+
+
+def assembly_features() -> None:
+    """Three global fiducials, two tooling holes and the test points of the supplies."""
+    for ref, (x, y) in FIDUCIALS.items():
+        design.fiducial(
+            ref,
+            mm(x),
+            mm(y),
+            copper=mm(FIDUCIAL["copper"]),
+            mask=mm(FIDUCIAL["mask"]),
+            clear=mm(FIDUCIAL["clear"]),
+        )
+    for ref, (x, y) in TOOLING.items():
+        design.tooling_hole(
+            ref, mm(x), mm(y), drill=mm(TOOLING_HOLE["drill"]), clear=mm(TOOLING_HOLE["clear"])
+        )
+    by_name = {found.name: found for found in (gnd, v33, v5, v12, vin48)}
+    for ref, (name, x, y) in TEST_POINTS.items():
+        design.test_point(ref, by_name[name], mm(x), mm(y), size=mm(TEST_PAD))
+
+
+def thermal() -> dict[str, object]:
+    """The arguments of a thermal array: pitch, via size, margin and the protection of a via in a pad."""
+    return {
+        "pitch": mm(THERMAL["pitch"]),
+        "diameter": mm(THERMAL["diameter"]),
+        "drill": mm(THERMAL["drill"]),
+        "margin": mm(THERMAL["margin"]),
+        "protection": protect(filling=True, capping=True),
+    }
 
 
 def rectangle(left: float, top: float, right: float, bottom: float) -> tuple[tuple[object, object], ...]:
@@ -566,26 +695,35 @@ def rectangle(left: float, top: float, right: float, bottom: float) -> tuple[tup
 
 
 design = Design("yardstick")
-design.board(mm(BOARD[0]), mm(BOARD[1]), copper=COPPER)
+width, height = BOARD
+# A rectangle: a board declared with outline= (a rounded one) takes no stack-up and no rule area on this
+# base (docs/evidence/yardstick.md, "Stages").
+design.board(mm(width), mm(height), copper=COPPER, planes=PLANES)
+design.stackup(*stack.preset(STACKUP), finish=FINISH, impedance_controlled=True)
 design.sheet("A3")
+for axis, top, end in SLOTS:
+    design.cutout(shape.slot((mm(axis), mm(top)), (mm(axis), mm(end)), mm(SLOT_WIDTH)))
 
 class_nets: dict[str, list[Net]] = {name: [] for name in CLASSES}
 gnd, vin48, v12 = net("GND", "PWR"), net("VIN48", "PWR"), net("+12V", "PWR")
-v5, v33, v33a = net("+5V", "PWR"), net("+3V3", "PWR"), net("+3V3A", "PWR")
+v5, v33, v33a, sgnd = net("+5V", "PWR"), net("+3V3", "PWR"), net("+3V3A", "PWR"), net("SGND", "PWR")
 hv_rtn, hv_5v = net("HV_RTN", "HV"), net("HV_5V", "HV")
-# The nets between the controller and the rest of the board, by name.
-signals = {name: net(name, "SIG") for name in CONTROLLER_PINS}
+# The nets between the controller and the rest of the board, by name; the USB pair has a class of its own.
+signals = {name: net(name, "USB" if name.startswith("USB_") else "SIG") for name in CONTROLLER_PINS}
 for number in range(1, CHANNELS + 1):
     for name in ("PWM", "ISENSE", "VSENSE"):
         signals[f"CH{number}_{name}"] = net(f"CH{number}_{name}", "SIG")
 
-design.add(power_input(), controller(), can_port(), usb_port(), high_voltage_sense(), mounting_holes())
+usb_module, usb = usb_port()
+design.add(power_input(), controller(), can_port(), usb_module, high_voltage_sense())
 for number in range(1, CHANNELS + 1):
     column, row = (number - 1) % 4, (number - 1) // 4
     design.add(channel(number, CELLS_AT[0] + column * CELL[0], CELLS_AT[1] + row * CELL[1]))
 for supply in (vin48, v12, v5, v33, v33a):
     design.add(Power(supply, gnd))
 design.add(Power(hv_5v, hv_rtn))
+mounting_holes()
+assembly_features()
 
 # The parts outside the channels, each at its place of the floor plan.
 for part in design.parts.values():
@@ -594,23 +732,57 @@ for part in design.parts.values():
         part.place(mm(px), mm(py), rot=rotation, locked=part.ref.startswith(LOCKED))
 
 # Net classes, the board's minimums and the rules of the high-voltage gap.
-for name, (clearance, width) in CLASSES.items():
-    design.rules.netclass(name, clearance=mm(clearance), track_width=mm(width), nets=tuple(class_nets[name]))
+for name, (clearance, track) in CLASSES.items():
+    pair_values = {key: mm(value) for key, value in PAIR_CLASS.items()} if name == "USB" else {}
+    design.rules.netclass(
+        name, clearance=mm(clearance), track_width=mm(track), nets=tuple(class_nets[name]), **pair_values
+    )
     design.rules.minimum(clearance=mm(clearance), netclass=name)
 design.rules.minimum(**{kind: mm(value) for kind, value in MINIMUMS.items()})
-low_voltage = select.netclass("PWR") | select.netclass("SIG")
+low_voltage = select.netclass("PWR") | select.netclass("SIG") | select.netclass("USB")
 design.rules.rule(
     "hv_clearance", "clearance", where=select.netclass("HV"), between=low_voltage, min=mm(HV_CLEARANCE)
 )
 design.rules.rule(
     "hv_creepage", "creepage", where=select.netclass("HV"), between=low_voltage, min=mm(HV_CREEPAGE)
 )
+# The high-voltage strip is a rule area: inside it, two nets of class HV keep a clearance of their own.
+strip = design.rule_area("HV", rectangle(*STRIP))
+design.rules.rule(
+    "hv_area_clearance",
+    "clearance",
+    where=select.area(strip) & select.netclass("HV"),
+    between=select.netclass("HV"),
+    min=mm(HV_AREA_CLEARANCE),
+)
 
-# Inner planes: ground under the whole low-voltage area, +3V3 under the controller and VIN48 under the
-# channels, and the high-voltage return on both inner layers under its strip, GAP away from the others.
-low_right = STRIP[0] - GAP
-bottom = BOARD[1] - EDGE
-design.zone(gnd, layers=("In1.Cu",), outline=rectangle(EDGE, EDGE, low_right, bottom))
-design.zone(v33, layers=("In2.Cu",), outline=rectangle(EDGE, EDGE, SPLIT_X - EDGE, bottom))
-design.zone(vin48, layers=("In2.Cu",), outline=rectangle(SPLIT_X, EDGE, low_right, bottom))
-design.zone(hv_rtn, layers=("In1.Cu", "In2.Cu"), outline=rectangle(*STRIP))
+# The USB pair: its limits and its impedance target, on the top layer over the ground plane.
+design.rules.pair(usb, priority=PAIR_PRIORITY, **{key: mm(value) for key, value in PAIR_RULES.items()})
+design.rules.impedance(
+    "USB90",
+    ohms=ohm(IMPEDANCE["ohms"]),
+    pair=usb,
+    tolerance=IMPEDANCE["tolerance"],
+    layers=(
+        trace(
+            str(IMPEDANCE["layer"]),
+            refs=str(IMPEDANCE["refs"]),
+            width=mm(PAIR_CLASS["diff_pair_width"]),
+            gap=mm(PAIR_CLASS["diff_pair_gap"]),
+        ),
+    ),
+)
+
+# Inner planes: ground under the whole low-voltage area (round the strip, so that the four holes reach it),
+# +3V3 under the controller and VIN48 under the channels, and the high-voltage return on both inner
+# layers under its strip, GAP away from the others.
+low_right, right = STRIP[0] - GAP, width - EDGE
+bottom = height - EDGE
+around = (
+    (EDGE, EDGE), (right, EDGE), (right, STRIP[1] - GAP), (low_right, STRIP[1] - GAP),
+    (low_right, STRIP[3] + GAP), (right, STRIP[3] + GAP), (right, bottom), (EDGE, bottom),
+)  # fmt: skip
+design.zone(gnd, layers=ZONE_LAYERS["ground"], outline=tuple((mm(x), mm(y)) for x, y in around))
+design.zone(v33, layers=ZONE_LAYERS["supply"], outline=rectangle(EDGE, EDGE, SPLIT_X - EDGE, bottom))
+design.zone(vin48, layers=ZONE_LAYERS["supply"], outline=rectangle(SPLIT_X, EDGE, low_right, bottom))
+design.zone(hv_rtn, layers=ZONE_LAYERS["return"], outline=rectangle(*STRIP))

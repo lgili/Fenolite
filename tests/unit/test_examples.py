@@ -144,7 +144,8 @@ def yardstick_problems(script: Path) -> list[str]:
         part.lib_id.startswith("MCU_") for part in parts
     ):
         problems.append("no 48-pin QFN controller")
-    if sum(part.lib_id.startswith("Mechanical:MountingHole") for part in parts) < 4:
+    holes = ("Mechanical:MountingHole", "Fenolite_Holes:Hole_Pad")  # a library part, or design.hole(pad=…)
+    if sum(part.lib_id.startswith(holes) for part in parts) < 4:
         problems.append("fewer than four mounting holes")
     classes = design.rules.netclasses
     high_voltage = {net.name for net in classes["HV"].nets} if "HV" in classes else set()
@@ -174,12 +175,16 @@ def test_yardstick_structure_without_a_build() -> None:
 def test_yardstick_stage_and_copper_disagree(tmp_path: Path) -> None:
     """Scenario "Stage and copper disagree": a copy at stage 1 with six copper layers."""
     text = YARDSTICK.read_text(encoding="utf-8")
-    assert "\nCOPPER = 4 " in text and "\nSTAGE = 1 " in text
+    stage = _yardstick_stage(YARDSTICK)
+    assert f"\nSTAGE = {stage} " in text and f"\nCOPPER = {STAGE_COPPER[stage]} " in text
     copy = tmp_path / "design.py"
-    copy.write_text(text.replace("\nCOPPER = 4 ", "\nCOPPER = 6 "), encoding="utf-8")
+    at_one = text.replace(f"\nSTAGE = {stage} ", "\nSTAGE = 1 ").replace(
+        f"\nCOPPER = {STAGE_COPPER[stage]} ", "\nCOPPER = 6 "
+    )
+    copy.write_text(at_one, encoding="utf-8")
     problems = yardstick_problems(copy)
     assert len(problems) == 1 and "STAGE = 1" in problems[0] and "copper count of 4, not 6" in problems[0]
-    copy.write_text(text.replace("\nSTAGE = 1 ", "\nSTAGE = 7 "), encoding="utf-8")
+    copy.write_text(text.replace(f"\nSTAGE = {stage} ", "\nSTAGE = 7 "), encoding="utf-8")
     assert "STAGE" in yardstick_problems(copy)[0]
 
 

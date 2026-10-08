@@ -69,6 +69,16 @@ def sha(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def listed(paths):
+    # add files under fab to fab/fenolite-artifacts.json, as --manifest does
+    manifest = Path("fab") / "fenolite-artifacts.json"
+    data = json.loads(manifest.read_text()) if manifest.is_file() else {"artifacts": []}
+    lacks = mode.get("package_lacks", "")
+    data["artifacts"] += [{"path": path} for path in paths if not (lacks and path.endswith(lacks))]
+    manifest.write_text(json.dumps(data))
+    return [{"path": "fab/" + path} for path in paths] + [{"path": str(manifest)}]
+
+
 if command == "capabilities":
     tools = {} if mode.get("no_kicad") else {"kicad-cli": {"path": "/opt/kicad-cli", "version": "10.0.6"}}
     reply({"fenolite_version": "0.0.0", "tools": tools, "routers": [{"name": "direct"}]})
@@ -94,8 +104,13 @@ if command == "build":
 if command == "fill":
     reply({"zones": []})
 if command == "check":
+    routed = Path("routed.flag").is_file()
     erc = dict(mode.get("erc", {}))
-    drc = {"unconnected_items": 12, **mode.get("drc", {})}
+    if routed:
+        drc = {"unconnected_items": mode.get("routed_open", 3), **mode.get("routed_drc", {})}
+        drc = {kind: n for kind, n in drc.items() if n}
+    else:
+        drc = {"unconnected_items": 12, **mode.get("drc", {})}
     summary = [
         {"code": "kicad.drc." + kind.replace("_", "-"), "count": n, "by_severity": {"error": n}}
         for kind, n in drc.items()
@@ -110,9 +125,9 @@ if command == "check":
         {"name": "copper.clearance", "status": "ok", "summary": {
             "clearance": 0, "shorts": 0, "layers": ["F.Cu", "In1.Cu", "In2.Cu", "B.Cu"]}},
         {"name": "zone.fill", "status": "ok", "summary": {"zones": 4, "current": 4, "unfilled": 0}},
-        {"name": "drc.kicad", "status": "errors", "summary": {
+        {"name": "drc.kicad", "status": "errors" if drc else "ok", "summary": {
             "by_type": {k: n for k, n in drc.items() if k != "unconnected_items"},
-            "unconnected": 12,
+            "unconnected": drc.get("unconnected_items", 0),
             "types": {"kicad.drc." + k.replace("_", "-"): k for k in drc},
             "limits": []}},
         {"name": "parity", "status": "ok", "summary": {"differences": 0}},
@@ -120,7 +135,41 @@ if command == "check":
             "pairs": [{"a": "model", "b": "board", "common": 9, "differences": 0}]}},
         {"name": "roundtrip", "status": "ok", "summary": {"level": "RT1"}},
     ]
-    reply({"stages": stages, "issues_summary": summary}, code=5)
+    reply({"stages": stages, "issues_summary": summary}, code=5 if drc or erc else 0)
+if command == "route":
+    freerouting = "freerouting" in args
+    if freerouting:
+        Path("routed.flag").write_text("1")
+    nets = ["CH1_SW", "GND"] if freerouting else []
+    reply({
+        "selected": nets, "routed": nets, "unrouted": [], "connections": {"before": len(nets), "after": 0},
+        "tracks": 4 * len(nets), "vias": len(nets),
+        "budget": {"seconds": 60, "spent": 1.0, "exhausted": False},
+        "runs": [{"tier": 0, "nets": len(nets), "seconds": 1.0, "outcome": "done"}] if nets else [],
+        "plane_fanout": {"nets": ["GND"] if nets else [], "pads": 2, "joined": 0, "tracks": 2, "vias": 2,
+                         "failed": []},
+        "pairs": [], "escape": [],
+    }, issues=[] if freerouting else [{"code": "route.pair-skipped", "severity": "warning"}])
+if command == "net":
+    open_ = 1 if Path("routed.flag").is_file() else 9
+    reply({"nets": [{"name": "GND", "open": 0}, {"name": "USB_DP", "open": open_}]})
+if command in ("impedance", "analyze"):
+    reply({"rows": []} if command == "impedance" else {"distances": [], "summary": {}})
+if command == "export" and "--ipc2581" in args:
+    paths = ["ipc2581/yardstick.xml", "drawings/yardstick-fab.pdf"]
+    for path in paths:
+        (Path("fab") / path).parent.mkdir(parents=True, exist_ok=True)
+        (Path("fab") / path).write_text(command, encoding="utf-8")
+    written = listed(paths)
+    print(json.dumps({"ok": True, "command": command, "result": {"artifacts": [{"path": p} for p in paths]},
+                      "issues": [], "receipt": {"written": written}}))
+    sys.exit(0)
+if command == "testpoints":
+    Path(option("--out")).write_text("ref\n", encoding="utf-8")
+    written = listed(["testpoints.csv"])
+    print(json.dumps({"ok": True, "command": command, "result": {"counts": {}}, "issues": [],
+                      "receipt": {"written": written}}))
+    sys.exit(0)
 if command in ("export", "render"):
     folder = Path(option("-o"))
     name = "gerbers/board-F_Cu.gbr" if command == "export" else "front.svg"
@@ -147,7 +196,7 @@ fail(2)
 @pytest.fixture
 def stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A folder for one run: the fake ``fenolite``, a library cache, the two heavy boards as empty
-    files, and a budgets file that holds an empty table for stage 1."""
+    files, a script at stage 1 (``example1``) and a budgets file that holds an empty table for stage 1."""
     fake = tmp_path / "fake_fenolite.py"
     fake.write_text(FAKE, encoding="utf-8")
     monkeypatch.setattr(yard, "FENOLITE", (sys.executable, str(fake)))
@@ -159,15 +208,19 @@ def stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         (tmp_path / "corpus" / row).mkdir(parents=True)
         (tmp_path / "corpus" / row / name).write_bytes(b"")
     (tmp_path / "budgets.toml").write_text('[stage1]\nsource = "provisional"\n', encoding="utf-8")
+    (tmp_path / "example1").mkdir()
+    (tmp_path / "example1" / "design.py").write_text("STAGE = 1\n", encoding="utf-8")
     return tmp_path
 
 
 def _run(folder: Path, *extra: str, name: str = "out") -> tuple[int, dict[str, Any], str]:
-    """``run`` through ``main``: the exit code, the record (empty when none was written), the summary."""
+    """``run`` through ``main``: the exit code, the record (empty when none was written), the summary. The
+    script is the one at stage 1 of the fixture unless ``extra`` names another."""
     record, summary = folder / f"{name}-record.json", folder / f"{name}-summary.md"
+    example = () if "--example" in extra else ("--example", str(folder / "example1"))
     argv = [
         "run", "--out", str(folder / name), "--budgets", str(folder / "budgets.toml"),
-        "--record", str(record), "--summary", str(summary), *extra,
+        "--record", str(record), "--summary", str(summary), *example, *extra,
     ]  # fmt: skip
     code = yard.main(argv)
     found = json.loads(record.read_text(encoding="utf-8")) if record.is_file() else {}
@@ -216,6 +269,9 @@ def test_stage_needs_names_a_change_that_is_not_archived() -> None:
     assert yard.stage_problems(2, ["2026-10-07-c0101-x", "2026-10-07-c0100-board-layer-count"], page) == []
     cut = page.replace("waiting", "not reached (cut: c0100)")
     assert yard.stage_problems(2, ["2026-10-07-c0101-board-stackup"], cut) == []
+    complete = page.replace("waiting", "waiting (complete for 0.4: c0100, c0101)")
+    assert yard.stage_problems(2, [], complete) == []
+    assert yard.stage_problems(3, [], complete)  # c0102 and the others of stage 3 are named nowhere
     assert yard.stage_problems(1, [], page) == []
 
 
@@ -540,6 +596,127 @@ def test_no_budget_table_for_the_stage(stage: Path, capsys: pytest.CaptureFixtur
     code, record, _ = _run(stage, "--example", str(stage / "example"))
     assert code == 2 and not record
     assert "stage2" in capsys.readouterr().err
+
+
+# ---- the stages that route and package (stages 3 to 5)
+
+STAGE5_BUDGETS = (
+    '[stage5]\nsource = "provisional"\n\n[stage5.ratchets]\nopen_connections = 5\ndrc_errors = 0\n'
+)
+
+
+@pytest.fixture
+def stage5(stage: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The folder of ``stage`` with a script at stage 5, its budgets with ratchets and the two routers."""
+    (stage / "example5").mkdir()
+    (stage / "example5" / "design.py").write_text("STAGE = 5\n", encoding="utf-8")
+    (stage / "budgets.toml").write_text(STAGE5_BUDGETS, encoding="utf-8")
+    (stage / "krt").mkdir()
+    (stage / "freerouting-2.4.1.jar").write_bytes(b"")
+    monkeypatch.setenv("FENOLITE_KRT", str(stage / "krt"))
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(stage / "freerouting-2.4.1.jar"))
+    return stage
+
+
+def _run5(folder: Path, *extra: str, name: str = "out") -> tuple[int, dict[str, Any], str]:
+    return _run(folder, "--example", str(folder / "example5"), "--skip-heavy", *extra, name=name)
+
+
+def test_steps_of_stages_3_to_5() -> None:
+    steps = {step.name: step for step in yard.steps_for(5, rows=())}
+    names = list(steps)
+    assert names[-9:] == [
+        "impedance", "route-pairs", "route", "fill-routed", "check-routed", "net", "analyze",
+        "export-package", "testpoints",
+    ]  # fmt: skip
+    route = list(steps["route"].args or ())
+    assert route[:4] == ["route", ".", "--router", "freerouting"]
+    assert route[route.index("--timeout") + 1] == "3600" and route.count("--order") == 2
+    pairs = list(steps["route-pairs"].args or ())
+    assert "kicadroutingtools" in pairs and "USB_D*" in pairs and "U3" in pairs
+    assert steps["check-routed"].accepts(0) and steps["check-routed"].accepts(5)
+    assert not steps["check-routed"].accepts(1) and not steps["check"].accepts(0)
+    package = list(steps["export-package"].args or ())
+    for kind in ("--ipc2581", "--odb", "--step", "--pdf", "--dxf", "--sch-pdf", "--fab-drawing"):
+        assert kind in package, kind
+    assert "--manifest" in package and "--manifest" in (steps["testpoints"].args or ())
+    assert steps["analyze"].args and "--groove-width" in steps["analyze"].args
+    assert all(step.args is not None for step in steps.values())
+
+
+def test_passing_run_at_stage_5(stage5: Path) -> None:
+    code, record, summary = _run5(stage5)
+    assert code == 0, summary
+    assert [step["name"] for step in record["steps"]] == [step.name for step in yard.steps_for(5, rows=())]
+    assert _step(record, "check-routed")["exit"] == 5 and _step(record, "check-routed")["status"] == "ok"
+    rules = {rule["rule"]: rule for rule in record["rules"]}
+    assert (
+        rules["ratchet.open_connections"]["passed"]
+        and "3 of the ratchet 5" in (rules["ratchet.open_connections"]["detail"])
+    )
+    assert rules["ratchet.drc_errors"]["passed"] and rules["package.in-manifest"]["passed"]
+    assert rules["check-routed.drc.kicad"]["passed"]
+    routed = record["board"]["routed"]
+    assert routed["drc"]["unconnected"] == 3 and routed["net_open"] == 1 and routed["nets_open"] == 1
+    assert routed["route"]["routed"] == 2 and routed["route"]["budget"]["exhausted"] is False
+    assert routed["route-pairs"]["selected"] == 0
+    cells = [cell.strip() for cell in yard.row(record).strip("|").split("|")]
+    assert cells[2] == "5" and cells[6] == "3" and cells[7] == "0"
+    assert "Routed: KiCad counts 3 open connections" in summary
+
+
+def test_routed_board_over_its_ratchets(stage5: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("YARD_FAKE", json.dumps({"routed_open": 7, "routed_drc": {"clearance": 2}}))
+    code, record, summary = _run5(stage5)
+    assert code == 1
+    failed = {rule["rule"]: rule["detail"] for rule in record["rules"] if not rule["passed"]}
+    assert set(failed) == {"ratchet.open_connections", "ratchet.drc_errors"}
+    assert "7 over the ratchet 5" in failed["ratchet.open_connections"]
+    assert "2 over the ratchet 0" in failed["ratchet.drc_errors"] and "ratchet" in summary
+    monkeypatch.setenv("YARD_FAKE", json.dumps({"routed_open": 0}))
+    code, record, _ = _run5(stage5, name="closed")
+    assert code == 0 and _step(record, "check-routed")["exit"] == 0
+
+
+def test_package_missing_from_the_manifest(stage5: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("YARD_FAKE", json.dumps({"package_lacks": "testpoints.csv"}))
+    code, record, _ = _run5(stage5)
+    failed = [rule for rule in record["rules"] if not rule["passed"]]
+    assert code == 1 and [rule["rule"] for rule in failed] == ["package.in-manifest"]
+    assert "fab/testpoints.csv" in failed[0]["detail"]
+
+
+def test_missing_router_or_ratchets_exit_2(
+    stage5: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("FENOLITE_FREEROUTING_JAR")
+    assert _run5(stage5)[0] == 2
+    assert "Freerouting" in capsys.readouterr().err
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(stage5 / "freerouting-2.4.1.jar"))
+    monkeypatch.setenv("FENOLITE_KRT", str(stage5 / "nowhere"))
+    assert _run5(stage5)[0] == 2
+    assert "KiCadRoutingTools" in capsys.readouterr().err
+    monkeypatch.setenv("FENOLITE_KRT", str(stage5 / "krt"))
+    (stage5 / "budgets.toml").write_text('[stage5]\nsource = "provisional"\n', encoding="utf-8")
+    assert _run5(stage5)[0] == 2
+    assert "stage5.ratchets" in capsys.readouterr().err
+    assert not (stage5 / "out").exists()
+
+
+def test_rebase_prints_the_ratchets(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    files = []
+    for index, (open_, errors) in enumerate(((4, 1), (9, 0), (6, 2)), start=1):
+        record = {**_record(20, 200, f"80{index}"), "stage": 4}
+        record["board"] = {
+            "routed": {
+                "drc": {"unconnected": open_, "errors": {"unconnected_items": open_, "clearance": errors}}
+            }
+        }
+        files.append(tmp_path / f"r{index}.json")
+        files[-1].write_text(json.dumps(record), encoding="utf-8")
+    assert yard.main(["rebase", *(str(path) for path in files)]) == 0
+    table = tomllib.loads(capsys.readouterr().out)["stage4"]
+    assert table["ratchets"] == {"open_connections": 9, "drc_errors": 2}
 
 
 def test_budgets_file() -> None:

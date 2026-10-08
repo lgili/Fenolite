@@ -45,9 +45,9 @@ hooks:
 	ln -sf ../../tools/hooks/pre-commit .git/hooks/pre-commit
 	@echo "pre-commit hook installed"
 
-# The yardstick board through the loop of its stage, on a local library cache and kicad-cli 10. Not a
-# part of `check`: it takes minutes. `make yardstick YARDSTICK_ARGS=--skip-heavy` leaves the two heavy
-# corpus boards out (tools/README.md, "The yardstick").
+# The yardstick board through the loop of its stage, on a local library cache and kicad-cli 10 (from stage 4
+# also the two routers). Not a part of `check`: it takes an hour or more. `make yardstick
+# YARDSTICK_ARGS=--skip-heavy` leaves the two heavy corpus boards out (tools/README.md, "The yardstick").
 .PHONY: yardstick
 YARDSTICK_OUT ?= build/yardstick
 YARDSTICK_ARGS ?=
