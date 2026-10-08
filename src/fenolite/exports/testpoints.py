@@ -33,9 +33,9 @@ from fenolite.exports.codes import issue
 from fenolite.model.board import FootprintInstance, Pad, PadShape, Side
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-TESTPOINT-D356", "H-K-PAD-FABPROP"))
-"""``INFERRED`` until both rows are ``KICAD-VERIFIED (9.0.x, 10.0.x)`` in ``docs/hypotheses.md``: the
-rows hold on 10.0.6 (recorded probes), and the 9.0.9 run is still to be recorded."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-TESTPOINT-D356", "H-K-PAD-FABPROP"))
+"""``KICAD-VERIFIED``: both rows are ``KICAD-VERIFIED (9.0.x, 10.0.x)`` in ``docs/hypotheses.md`` (the
+probes recorded on 10.0.6, and on 9.0.9 in CI run 37803522539)."""
 TOOLING_PREFIX = "Fenolite_Assembly:ToolingHole_"
 """The library name that marks a tooling hole: KiCad has no pad mark for one."""
 TEST_POINT = "test_point"

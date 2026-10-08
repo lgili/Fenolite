@@ -4,10 +4,10 @@
 ``_featurebench.feature_probes`` that is stated for both majors, run on ``kicad-cli`` 9.0.9 and compared
 with the outcome that 10.0.6 recorded and ``design.md`` states.
 
-The probes are registered for major 10 only (``_featurebench.MAJORS``), so
-``tests/kicad/test_probe_results.py`` asks nothing of ``9.0.9.json``. This file prints each outcome
-(``-rA``) and writes it to the census file when one is named; once a run has shown them, ``MAJORS``
-becomes ``(9, 10)`` and the outcomes go into ``9.0.9.json``.
+This file prints each outcome (``-rA``) and writes it to the census file when one is named. The
+``kicad-9`` job of CI run 37803522539 (on ``a105cc0``) printed the 17 outcomes, each the one of the table;
+since then ``MAJORS`` is ``(9, 10)`` and ``9.0.9.json`` holds them, so ``tests/kicad/test_probe_results.py``
+also checks them on KiCad 9.
 """
 
 from __future__ import annotations

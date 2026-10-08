@@ -2109,7 +2109,8 @@ envelope); without `--out` it exits 2 (`FEN-2001`).
 
 Exit codes: 0 without an error finding, 5 with one, 4 without `--dry-run` or `--confirm` when `--out` is
 given, 2 for a usage error, 3 for a file that cannot be read. The evidence is `testpoints.EVIDENCE`
-(`INFERRED`, `H-K-TESTPOINT-D356` and `H-K-PAD-FABPROP`) combined with the evidence of the board read.
+(`KICAD-VERIFIED`, `H-K-TESTPOINT-D356` and `H-K-PAD-FABPROP`) combined with the evidence of the board read,
+so the reply takes the lower of the two.
 
 ## impedance
 

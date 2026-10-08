@@ -18,8 +18,8 @@ Three subjects, all with authored round sizes:
 
 The features bench holds the footprints that the script calls of the change (``design.fiducial()``,
 ``design.test_point()``, ``design.tooling_hole()``) generate, less the courtyard, which a placed footprint
-cannot hold in the model. Building the bench from a script with those calls (``_asmfeatures.CALLS``), and
-the probes ``asm-tooling-drill`` and ``asm-features-pos``, are task 3.6, owed to a run with ``kicad-cli``.
+cannot hold in the model. The same features built from a script with those calls (``_asmfeatures.CALLS``),
+with the checks ``asm-tooling-drill`` and ``asm-features-pos``, are in ``test_built_features.py`` (task 3.6).
 
 What KiCad does is read from its outputs: the aperture function of a pad is the ``.AperFunction`` of the
 aperture its flash uses in the copper plot; a mask opening is a flash in the mask plot.
@@ -69,10 +69,11 @@ from fenolite.model.circuit import Circuit, Net
 from fenolite.model.design import Design
 
 Probes = dict[str, tuple[Callable[[], str], tuple[int, ...]]]
-MAJORS: tuple[int, ...] = (10,)
-"""The majors the probes of this module are recorded for. The 9.0.9 outcomes need a run inside the pinned
-image (``FENOLITE_PROBES_WRITE=1``); until that run, ``docs/evidence/kicad/probes/9.0.9.json`` holds none
-of them and the rows of ``docs/hypotheses.md`` stay ``INFERRED``."""
+MAJORS: tuple[int, ...] = (9, 10)
+"""The majors the probes of this module are recorded for. The 9.0.9 outcomes are those that
+``test_features_nine.py`` printed in the ``-rA`` log of the ``kicad-9`` job of CI run 37803522539 (on
+``a105cc0``), each the one 10.0.6 recorded; they are in ``docs/evidence/kicad/probes/9.0.9.json``. The
+probes of ``TEN_ONLY`` stay registered for major 10 alone."""
 TEN_ONLY = frozenset({"pad-fabprop-resave", "asm-keepout-fill"})
 """The probes of KiCad 10 alone: ``pcb upgrade`` and the refill of zones are 10.0 commands."""
 STEM = "featurebench"

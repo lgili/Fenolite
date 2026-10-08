@@ -258,7 +258,7 @@ def test_the_codes() -> None:
         "testpoint.too-close": "error",
         "fiducial.too-few": "error",
     }  # fmt: skip
-    assert testpoints.EVIDENCE.level is Level.INFERRED
+    assert testpoints.EVIDENCE.level is Level.KICAD_VERIFIED  # c0118 task 8.2
     assert testpoints.EVIDENCE.hypotheses == ("H-K-TESTPOINT-D356", "H-K-PAD-FABPROP")
 
 

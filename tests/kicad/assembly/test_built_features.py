@@ -8,8 +8,8 @@ test point on ``LED_A`` (``TP1``) and a tooling hole of 3 mm with a keep-out (``
 the running major loads best. The checks are those of the probes of task 1.3 on that board, and the two
 probes the design adds: ``asm-tooling-drill`` (the not-plated drill file holds the hole's diameter at its
 centre) and ``asm-features-pos`` (the position file lists the fiducials at their places, and no test point
-or tooling hole). They are asserted here, and become recorded probes once a run with ``kicad-cli`` has
-shown their outcomes on both majors.
+or tooling hole). They are asserted here; every test of this file passed on 9.0.9 and on 10.0.6 in CI run
+37803522539 (``kicad-9`` and ``kicad-10`` jobs). They are not registered as probes.
 """
 
 from __future__ import annotations
