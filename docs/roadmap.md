@@ -496,7 +496,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | id | slug |
 |---|---|
 | c0100 | `board-layer-count`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0101 | `board-stackup` |
+| c0101 | `board-stackup`; on `v04`, every task closed on 2026-10-08, with the three presets: ships in 0.4 |
 | c0102 | `board-outline-shapes` |
 | c0103 | `dsl-keepouts-board-items` |
 | c0104 | `diff-pair-constraints` |

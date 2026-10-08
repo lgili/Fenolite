@@ -1,0 +1,81 @@
+# A stack-up preset of fenolite.dsl.stack (docs/dsl.md, "Stack-up presets"; change c0101).
+# Every value is the one the page of `source` states (its "Stackup" table, millimetre values); a value
+# the page does not state is left out. The middle core's row names no dielectric constant and no loss
+# tangent, and the page's "Dielectric" line says "See stackup", so that core has neither.
+source = "S-0722"
+url = "https://docs.oshpark.com/services/six-layer/"
+retrieved = "2026-10-08"
+copper = 6
+
+[[entry]]
+kind = "silkscreen"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "mask"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0432mm"
+
+[[entry]]
+kind = "prepreg"
+thickness = "0.1107mm"
+material = "FR408HR 106 75%"
+epsilon_r = "3.23"
+loss_tangent = "0.011"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0175mm"
+
+[[entry]]
+kind = "core"
+thickness = "0.1016mm"
+material = "FR408HR 2113"
+epsilon_r = "3.66"
+loss_tangent = "0.009"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0175mm"
+
+[[entry]]
+kind = "core"
+thickness = "0.9256mm"
+material = "FR408HR"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0175mm"
+
+[[entry]]
+kind = "core"
+thickness = "0.1016mm"
+material = "FR408HR 2113"
+epsilon_r = "3.66"
+loss_tangent = "0.009"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0175mm"
+
+[[entry]]
+kind = "prepreg"
+thickness = "0.1107mm"
+material = "FR408HR 106 75%"
+epsilon_r = "3.23"
+loss_tangent = "0.011"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0432mm"
+
+[[entry]]
+kind = "mask"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "silkscreen"
+thickness = "0.0152mm"

@@ -26,9 +26,11 @@ from fenolite.model.board import DielectricKind, Layer, StackKind, StackLayer, S
 from fenolite.model.design import PLAIN_DECIMAL, stackup_issues
 
 EVIDENCE = Evidence(
-    Level.INFERRED,
+    Level.KICAD_VERIFIED,
     hypotheses=("H-K-STACKUP-JOB", "H-K-STACKUP-COMPLETE", "H-K-STACKUP-DEFAULT", "H-K-STACKUP-RESAVE"),
 )
+"""The four hypotheses are ``KICAD-VERIFIED``: the job file, completeness and defaults on 9.0.x and 10.0.x,
+the re-save on 10.0.x (``docs/formats/kicad/board.md``, "Stack-up")."""
 TYPES: Mapping[str, tuple[str, StackKind]] = MappingProxyType(
     {
         "F.SilkS": ("Top Silk Screen", "silkscreen"),

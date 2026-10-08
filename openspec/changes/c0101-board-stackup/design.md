@@ -55,7 +55,7 @@ The review of 2026-10-05 of the gaps to a complex board listed the stack-up as a
 
 11. **Outputs show what the fabricator gets.** `export --gerbers` of a board without a stack-up gives `export.stackup-default` (info) naming KiCad's default; an info plans the writes. `inspect` reports `result.stackup`. Rejected: refusing the export: a two-layer board without a stack-up is ordinary.
 
-12. **Presets, cut first.** `stack.preset(name)` returns the entries of `dsl/stackups/<name>.toml`, which holds its source id, URL, retrieval date and the rows as one public fabricator page states them; at most three (2, 4 and 6 copper layers). No fabricator is named in this change; file names are neutral (Open Questions). The source ids S-0620, S-0621 and S-0622 are reserved for the three pages (the block S-0620 to S-0639 was given to this group; `docs/evidence/sources.md` on `dev` ends below it). Rejected: presets computed to a thickness: they would ship Fenolite's own numbers.
+12. **Presets, cut first.** `stack.preset(name)` returns the entries of `dsl/stackups/<name>.toml`, which holds its source id, URL, retrieval date and the rows as one public fabricator page states them; at most three (2, 4 and 6 copper layers). No fabricator is named in this change; file names are neutral (Open Questions). The three pages are S-0720, S-0721 and S-0722 (the block S-0620 to S-0639 was given to this group on 2026-10-07; on 2026-10-08 the coordinator of release 0.4 gave the lanes that close v0.4 the ids from S-0720 up, since parallel branches were taking ids of the S-06xx blocks, and the design is corrected to them). Rejected: presets computed to a thickness: they would ship Fenolite's own numbers.
 
 13. **Requirements shared with other changes** (checked on `origin/dev` at `9aba2dff`, `openspec/changes/*/specs`, on 2026-10-07).
     - No open change on `dev` holds a delta of "Modelled board content", "Created board header" or "Projected fields on write"; each MODIFIED delta here is the living text with this change's edits only. c0043, c0044 and c0069 are archived.
@@ -150,6 +150,12 @@ What the code and the measurements of the day showed, and what was corrected in 
 13. **Not done.** Presets (the first cut; no page was read), the widening of six "used for" cells
     (`docs/evidence/sources.md` is append-only for the lanes of the night), `docs/roadmap.md` (the
     coordinator's), and the unit suite on Python 3.11.
+14. **Done on 2026-10-08, on `v04` at `04ef42a`.** The presets: three pages of one fabricator, one per
+    copper count (2, 4 and 6), each a whole stack-up table with millimetre values, registered as
+    S-0720 to S-0722; the files are `two-layer-1.6mm`, `four-layer-1.6mm` and `six-layer-1.6mm`. A
+    page states a silkscreen thickness, which the file keeps and the stack-up does not take (a
+    silkscreen row has none). The six "used for" cells are widened (task 1.1), `docs/roadmap.md` is
+    updated, and the unit suite runs on Python 3.11 (task 10.1).
 
 ## Found on 2026-10-08
 
@@ -207,7 +213,7 @@ check that runs the same benches, with `kicad.board.stackup-invalid`: "the coppe
 
 ## Sources used
 
-No new source for the KiCad facts: S-0021 (the stack-up token names), S-0033 at tag 8.0.0 (single names), S-0058 (demo boards: type strings, child order, sheets), S-0020 and S-0029 (the oracles), and the download page of S-0125 (the job file format). Task 1.1 widens their "used for" cells. No new source for the Altium part: `DIELTYPE` is a fact of `docs/formats/altium/pcb-copper.md` already. Each preset adds one row with its URL, terms and date (task 9.1), under the reserved ids S-0620, S-0621 and S-0622.
+No new source for the KiCad facts: S-0021 (the stack-up token names), S-0058 (demo boards: type strings, child order, sheets), S-0020 and S-0029 (the oracles), and the download page of S-0125 (the job file format). Task 1.1 widens their "used for" cells. S-0033 (a keyword list in KiCad's source tree) was named here at first and is not used: the names come from S-0021 and S-0058, and since 2026-10-08 no third-party source code is cited as a format fact. No new source for the Altium part: `DIELTYPE` is a fact of `docs/formats/altium/pcb-copper.md` already. Each preset adds one row with its URL, terms and date (task 9.1), under the reserved ids S-0620, S-0621 and S-0622.
 
 ## New names
 
@@ -215,7 +221,7 @@ No new source for the KiCad facts: S-0021 (the stack-up token names), S-0033 at 
 - Script: `Design.stackup`, `fenolite.dsl.stack` (`silkscreen`, `mask`, `copper`, `core`, `prepreg`, `preset`, `PRESETS`, `StackEntry`), `StackupSpec`, `stackup_locked`; keys `stackup` and `stack_layer` of `fenolite.dsl.KEYS`.
 - Issue codes (eleven): `model.stackup-order`, `model.stackup-copper`, `model.stackup-value`; `kicad.board.stackup-unused`, `kicad.board.stackup-unmodelled`, `kicad.board.stackup-thickness`; `kicad.board.stackup-invalid`, `kicad.board.stackup-rewritten`; `kicad.stackup.overridden`, `kicad.stackup.forced`; `export.stackup-default`.
 - Result keys: `result.stackup` of `build` and of `inspect`; `inputs.board_thickness_source` and `inputs.stackup` of `analyze`.
-- Hypotheses: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE`. Source ids: S-0620, S-0621, S-0622 (presets). No CLI flag.
+- Hypotheses: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE`. Source ids: S-0720, S-0721, S-0722 (presets; Decision 12). No CLI flag.
 
 ## Hypotheses registered by this change
 

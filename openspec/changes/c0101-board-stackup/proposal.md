@@ -17,7 +17,7 @@ Measured on `kicad-cli` 10.0.6 and 9.0.9 (design, Context; 2026-10-05, on the br
 - **Rebuilds.** The board's stack-up wins over an unlocked script stack-up, as for zones; `locked=True` replaces it.
 - **Outputs.** `analyze` says where its thicknesses came from; `export` notes a job file with KiCad's default; `inspect` shows the stack-up.
 - **Altium.** A stack-up with masks, sheets and stated kinds reaches the Altium document: masks are passed over, a stated `core` or `prepreg` is written, a gap of several sheets falls back to the default values with `altium.not-lowered`, and values without a key in the document are named once.
-- **Presets** from public fabricator pages, each with URL and date (cut first); their source ids are S-0620 to S-0622.
+- **Presets** from public fabricator pages, each with URL and date (cut first); their source ids are S-0720 to S-0722 (corrected on 2026-10-08 from S-0620 to S-0622, design Decision 12).
 
 Size: 9 design-days; 7.25 after the cuts of the design.
 

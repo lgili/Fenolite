@@ -3,16 +3,19 @@
 """The entries of a stack-up in a design script (``docs/dsl.md``, "Stack-up"; change c0101).
 
 ``Design.stackup()`` takes them from the top face of the board to its bottom face:
-``silkscreen()``, ``mask()``, ``copper()``, ``core()`` and ``prepreg()``. Every number is the script's:
-Fenolite supplies no thickness, material, dielectric constant or finish. This module imports the
-standard library, ``fenolite.core``, ``fenolite.model`` and the DSL's own errors and lengths.
+``silkscreen()``, ``mask()``, ``copper()``, ``core()`` and ``prepreg()``. Every number is the script's or,
+through ``preset()``, the one a registered public fabricator page states: Fenolite supplies no thickness,
+material, dielectric constant or finish of its own. This module imports the standard library,
+``fenolite.core``, ``fenolite.model`` and the DSL's own errors and lengths.
 """
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from fractions import Fraction
-from typing import Literal
+from importlib import resources
+from typing import Any, Literal, cast
 
 from fenolite.core.units import Nm
 from fenolite.dsl.errors import DslError
@@ -21,9 +24,18 @@ from fenolite.model.design import PLAIN_DECIMAL
 
 EntryKind = Literal["silkscreen", "mask", "copper", "core", "prepreg"]
 DIELECTRICS: tuple[EntryKind, ...] = ("core", "prepreg")
-PRESETS: tuple[str, ...] = ()
-"""The names of the packaged presets, in code-point order. None ships: the presets of fabricator pages
-are an open task of change c0101 (its tasks, 9.1)."""
+PRESET_DIR = "stackups"
+"""The folder of the packaged presets inside ``fenolite.dsl``: one ``<name>.toml`` per preset."""
+PRESETS: tuple[str, ...] = tuple(
+    sorted(
+        entry.name.removesuffix(".toml")
+        for entry in resources.files("fenolite.dsl").joinpath(PRESET_DIR).iterdir()
+        if entry.name.endswith(".toml")
+    )
+)
+"""The names of the packaged presets, in code-point order (``docs/dsl.md``, "Stack-up presets")."""
+PRESET_KEYS = frozenset({"source", "url", "retrieved", "copper", "finish", "entry"})
+ENTRY_KEYS = frozenset({"kind", "thickness", "material", "epsilon_r", "loss_tangent"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,10 +167,45 @@ def prepreg(
     return _entry("prepreg", thickness, material, epsilon_r, loss_tangent, color)
 
 
+def _preset_table(name: str) -> dict[str, Any]:
+    """The TOML table of the packaged preset ``name`` as the file holds it (``source``, ``url``,
+    ``retrieved``, ``copper``, an optional ``finish`` and the ``entry`` tables); ``DslError`` listing
+    ``PRESETS`` for an unknown name."""
+    if name not in PRESETS:
+        raise DslError(f"unknown stack-up preset {name!r}; the presets are {list(PRESETS)}")
+    text = resources.files("fenolite.dsl").joinpath(PRESET_DIR, f"{name}.toml").read_text(encoding="utf-8")
+    return tomllib.loads(text)
+
+
 def preset(name: str) -> tuple[StackEntry, ...]:
-    """The entries of the packaged preset ``name``; ``DslError`` listing ``PRESETS`` for an unknown
-    name."""
-    raise DslError(f"unknown stack-up preset {name!r}; the presets are {list(PRESETS)}")
+    """The entries of the packaged preset ``name``, from the top face of the board to its bottom face,
+    to give to ``Design.stackup()`` on a board of the preset's copper count; ``DslError`` listing
+    ``PRESETS`` for an unknown name. A silkscreen's thickness, which the file keeps as the page states it,
+    is not passed on: a stack-up silkscreen has none (``silkscreen()``)."""
+    table = _preset_table(name)
+    unknown = sorted(set(table) - PRESET_KEYS)
+    if unknown:
+        raise DslError(f"stack-up preset {name!r}: unknown keys {unknown}")
+    entries: list[StackEntry] = []
+    for position, row in enumerate(cast(list[dict[str, Any]], table.get("entry", []))):
+        extra = sorted(set(row) - ENTRY_KEYS)
+        if extra:
+            raise DslError(f"stack-up preset {name!r}: entry {position} has unknown keys {extra}")
+        kind = row.get("kind")
+        options = {key: row[key] for key in ("material", "epsilon_r", "loss_tangent") if key in row}
+        if kind == "silkscreen":
+            entries.append(silkscreen())
+        elif kind == "copper":
+            entries.append(copper(row.get("thickness")))
+        elif kind == "mask":
+            entries.append(mask(row.get("thickness"), **options))
+        elif kind == "core":
+            entries.append(core(row.get("thickness"), **options))
+        elif kind == "prepreg":
+            entries.append(prepreg(row.get("thickness"), **options))
+        else:
+            raise DslError(f"stack-up preset {name!r}: entry {position} has the unknown kind {kind!r}")
+    return tuple(entries)
 
 
 __all__ = [

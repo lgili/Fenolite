@@ -200,7 +200,6 @@ def test_keys_and_exports() -> None:
 
 
 def test_unknown_preset() -> None:
-    """No preset ships with this part of the change (tasks, 9.1): every name is unknown."""
-    assert stack.PRESETS == ()
-    with pytest.raises(DslError, match=r"\[\]"):
+    """An unknown name lists the presets (``test_stackup_presets.py`` holds the scenarios of the presets)."""
+    with pytest.raises(DslError, match="two-layer-1.6mm"):
         stack.preset("nope")

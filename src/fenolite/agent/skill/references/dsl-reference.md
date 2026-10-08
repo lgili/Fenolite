@@ -316,7 +316,7 @@ A prepreg sheet, with the arguments of `core`; several in one gap are the sheets
 
 Function: `stack.preset(name: 'str') -> 'tuple[StackEntry, ...]'`
 
-The entries of the packaged preset `name`; `DslError` listing `PRESETS` for an unknown name.
+The entries of the packaged preset `name`, from the top face of the board to its bottom face, to give to `Design.stackup()` on a board of the preset's copper count; `DslError` listing `PRESETS` for an unknown name.
 
 ### stack.silkscreen
 

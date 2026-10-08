@@ -111,6 +111,28 @@ d1.place(mm(15), mm(6), rot=180)
 thickness is a length with a unit (`"35um"`). `epsilon_r` and `loss_tangent` are decimal texts, never
 floats. Fenolite supplies no thickness and no material; a script without `stackup()` builds without one.
 
+A preset gives the whole build-up as one public fabricator page states it: `stack.preset(name)`
+returns its entries and `stack.PRESETS` lists the names (`two-layer-1.6mm`, `four-layer-1.6mm`,
+`six-layer-1.6mm`). The board's copper count must be the preset's, and the finish is still yours. A
+preset is what one page said on the day it was read (`INFERRED`); your fabricator's sheet for your order
+is the one that counts.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, Part, connect, mm, stack
+
+design = Design("preset")
+design.board(mm(30), mm(20), copper=4)
+design.stackup(*stack.preset("four-layer-1.6mm"), finish="ENIG")
+
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="330")
+design.add(j1, r1)
+connect(Net("VIN"), j1[1], r1[1])
+connect(Net("GND"), j1[2], r1[2])
+j1.place(mm(8), mm(10))
+r1.place(mm(20), mm(10))
+```
+
 ## Impedance targets
 
 `design.rules.impedance(name, ohms=, netclass= or pair=, layers=(trace(...), ...), tolerance=)` states

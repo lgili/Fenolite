@@ -902,8 +902,40 @@ design.stackup(
 - On a rebuild the board's stack-up wins over an unlocked script stack-up that differs
   (`kicad.stackup.overridden`), and `locked=True` makes the script's replace it (`kicad.stackup.forced`):
   `docs/lens.md`, "Stack-up across rebuilds".
-- `stack.preset(name)` and `stack.PRESETS` are reserved for stack-ups taken from public fabricator pages;
-  no preset ships yet, so every name raises `DslError`.
+- `stack.preset(name)` gives the entries of a stack-up that a public fabricator page states:
+  "Stack-up presets" below.
+
+## Stack-up presets
+
+`stack.preset(name)` returns the entries of a packaged preset, from the top face to the bottom face, for
+`design.stackup(*stack.preset(name))` on a board of the preset's copper count; `stack.PRESETS` lists the
+names in code-point order, and an unknown name raises `DslError` listing them (change c0101).
+
+```python
+from fenolite.dsl import Design, mm, stack
+
+design = Design("blink")
+design.board(mm(50), mm(30), copper=4)
+design.stackup(*stack.preset("four-layer-1.6mm"), finish="ENIG")
+```
+
+Each preset is a file `src/fenolite/dsl/stackups/<name>.toml` that holds its source id, the page's URL,
+the date it was read, its copper count and one `[[entry]]` per row of the page's stack-up table (`kind`,
+`thickness` and, where the page states them, `material`, `epsilon_r` and `loss_tangent`). Every value is
+the page's millimetre value; a value the page does not state is left out, and Fenolite adds none. A
+dielectric constant comes from the row, else from the page's one "Dielectric" value of the board's
+substrate. The page's silkscreen thickness stays in the file: a stack-up silkscreen has none. The finish
+is not part of a preset; pass `finish=` yourself. The names say the copper count and the nominal board
+thickness, never the fabricator.
+
+| preset | copper | source | page | read |
+|---|---|---|---|---|
+| `two-layer-1.6mm` | 2: 1 oz copper on a 1.524 mm FR4 core (εr 4.5) | S-0720 | https://docs.oshpark.com/services/two-layer/ | 2026-10-08 |
+| `four-layer-1.6mm` | 4: 1 oz outer and 0.5 oz inner copper, two FR408HR 2113 prepregs of 0.1999 mm and a 0.9906 mm core | S-0721 | https://docs.oshpark.com/services/four-layer/ | 2026-10-08 |
+| `six-layer-1.6mm` | 6: 1 oz outer and 0.5 oz inner copper, two 106 prepregs of 0.1107 mm, two 2113 cores of 0.1016 mm and a 0.9256 mm core | S-0722 | https://docs.oshpark.com/services/six-layer/ | 2026-10-08 |
+
+A preset is `INFERRED`: it is what one page said on the date given, not a measured board, and the page
+can change. The fabricator's own stack-up for an order is the one that counts.
 
 ## Via protection
 

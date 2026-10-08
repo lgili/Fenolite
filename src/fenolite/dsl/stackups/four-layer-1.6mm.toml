@@ -1,0 +1,59 @@
+# A stack-up preset of fenolite.dsl.stack (docs/dsl.md, "Stack-up presets"; change c0101).
+# Every value is the one the page of `source` states (its "Stackup" and "Material Specs" tables,
+# millimetre values); a value the page does not state is left out. The prepregs' dielectric constant is
+# their row's; the core's row names none, and the page's "Dielectric" line names one value for its one
+# substrate, which the core takes.
+source = "S-0721"
+url = "https://docs.oshpark.com/services/four-layer/"
+retrieved = "2026-10-08"
+copper = 4
+
+[[entry]]
+kind = "silkscreen"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "mask"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0432mm"
+
+[[entry]]
+kind = "prepreg"
+thickness = "0.1999mm"
+material = "FR408HR 2113"
+epsilon_r = "3.61"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0175mm"
+
+[[entry]]
+kind = "core"
+thickness = "0.9906mm"
+material = "FR408HR"
+epsilon_r = "3.61"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0175mm"
+
+[[entry]]
+kind = "prepreg"
+thickness = "0.1999mm"
+material = "FR408HR 2113"
+epsilon_r = "3.61"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0432mm"
+
+[[entry]]
+kind = "mask"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "silkscreen"
+thickness = "0.0152mm"
