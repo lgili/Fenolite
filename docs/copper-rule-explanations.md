@@ -11,6 +11,10 @@ clearance judgment. Without a rule the greatest class/zone/floor value governs; 
 values use the first class name, and a class wins a tie with zone or floor. With a rule,
 `rules_over_classes` decides whether the rule replaces class/zone values, and `floor_over_rules`
 decides whether the board minimum raises it. Nonpositive zone values produce no zone row.
+Between the two nets of one differential pair in one class whose `diff_pair_gap` is below its
+clearance, the resolver's pair candidate is a row `pair-gap:<class>` with the gap, before the class
+rows; it replaces the class value as the resolver does (change c0104). The explained subjects carry
+`diff_pair`, the base of their pair.
 
 Existing kind normalization treats an arc as a track and a fill as a zone. A scoped rule matches
 only its layers: equal-priority rules `R` and `R/track-via` select the latter for a track/via pair

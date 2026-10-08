@@ -333,6 +333,10 @@ class ClearanceResolver:
             for c in reversed(self._candidates)
             if c.matches(folded_a, folded_b)
         ]
+        pair = self._pair_gap(a, b)
+        if pair is not None:
+            # the resolver's own candidate: the pair gap that replaces the class value (c0104)
+            rows.append(ClearanceCandidate(f"{PAIR_GAP_SOURCE}:{pair[1]}", pair[0], "error"))
         rows.extend(
             ClearanceCandidate(f"class:{name}", value, "error")
             for value, name in self._class_candidates(a, b)

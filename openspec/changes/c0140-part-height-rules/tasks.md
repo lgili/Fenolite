@@ -14,8 +14,9 @@
 
 ## 1. One reader of a part's height
 
-- [ ] 1.1 Add `outward_height` to `src/fenolite/model/board.py` and write `tests/unit/model/test_outward_height.py` (scenarios "Largest known body", "No known height"; "One reader" is completed by task 4.1). Add the paragraph to `docs/design-model.md` under "Component bodies": the one function, and that no other field holds a part's height. Proof: `uv run pytest tests/unit/model/test_outward_height.py tests/unit/test_import_graph.py`; `uv run pyright src`.
+- [x] 1.1 Add `outward_height` to `src/fenolite/model/board.py` and write `tests/unit/model/test_outward_height.py` (scenarios "Largest known body", "No known height"; "One reader" is completed by task 4.1). Add the paragraph to `docs/design-model.md` under "Component bodies": the one function, and that no other field holds a part's height. Proof: `uv run pytest tests/unit/model/test_outward_height.py tests/unit/test_import_graph.py`; `uv run pyright src`.
   - 2026-10-08: `outward_height` is in `src/fenolite/model/board.py` on the living fields (the largest `height`, `None` without a body or for a bound that is not positive; `standoff` not read), the paragraph is under "Component bodies" in `docs/design-model.md`, and `tests/unit/model/test_outward_height.py` holds "Largest known body" (legacy heights and a standoff), "No known height" and "One reader" (completed with task 4.1). The proof passes (8 passed with the import graph; pyright 0 errors). **Owed to c0099:** the branches for `z_max` and `projection_unknown` and the parts of both scenarios that name them; the box is ticked when c0099 lands and they are added.
+  - 2026-10-08, on `v04-codex` with c0099: the owed branches are in (`z_max` of a body with signed bounds, bodies with `projection_unknown` skipped; `z_min` not read), with the c0099 parts of "Largest known body" and "No known height" in `tests/unit/model/test_outward_height.py`. Proof: `uv run pytest tests/unit/model/test_outward_height.py tests/unit/test_import_graph.py` 36 passed; `uv run pyright src` 0 errors.
 
 ## 2. Height limits in the model
 

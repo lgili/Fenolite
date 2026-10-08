@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Optional mechanical provider orchestration uses supplied inputs and retains unknowns."""
+"""The CLI checker uses c0099's typed body-volume provider on supplied inputs, keeps its unknowns, and takes
+the copper relation of c0097's findings (c0096, task R5)."""
 
 from types import SimpleNamespace
 
 import pytest
 
+from fenolite.analysis.body_volumes import BodyVolume, VolumeConstraints
 from fenolite.backends.kicad import frame
+from fenolite.checks.copper import check_copper
 from fenolite.cli import placement_checks
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
@@ -20,20 +23,20 @@ from fenolite.placement.constraints import (
 from ._constrained_fixture import board, part
 
 
-def test_missing_provider_never_reports_mechanical_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    def absent(name):
-        raise ModuleNotFoundError(name=name)
-
-    monkeypatch.setattr(placement_checks.importlib, "import_module", absent)
+def test_integrated_provider_never_reports_mechanical_success() -> None:
+    """A part without a body is a missing input of the real provider, never a clear verdict."""
     inputs = PlacementConstraints(volumes=MechanicalConstraints(missing_assembly=("supplied:fixture",)))
-    report = placement_checks.check_placement_constraints(board(part("A", 10, 10)), frame, inputs)
+    design = board(part("A", 10, 10))
+    report = placement_checks.check_placement_constraints(design, frame, inputs)
     assert "copper:checker-unavailable" not in report.missing_inputs
-    assert "mechanical:checker-unavailable" in report.missing_inputs
+    assert "mechanical:checker-unavailable" not in report.missing_inputs
     assert "supplied:fixture" in report.missing_inputs
-    assert not report.mechanical.projections
+    assert "board_thickness" in report.missing_inputs
+    assert any(name.startswith("body:") for name in report.missing_inputs)
+    assert report.mechanical.evidence.level == Level.INFERRED
 
 
-def test_provider_gets_exact_inputs_and_preserves_known_and_unknown_findings(
+def test_provider_gets_exact_typed_inputs_and_preserves_known_and_unknown_findings(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured = []
@@ -54,8 +57,7 @@ def test_provider_gets_exact_inputs_and_preserves_known_and_unknown_findings(
             evidence=evidence,
         )
 
-    provider = SimpleNamespace(VolumeConstraints=MechanicalConstraints, check_body_volumes=inspect)
-    monkeypatch.setattr(placement_checks.importlib, "import_module", lambda name: provider)
+    monkeypatch.setattr(placement_checks, "check_body_volumes", inspect)
     ring = (Point(1, 1), Point(3, 1), Point(3, 3), Point(1, 3))
     obstacle = MechanicalVolume("fixture", ring, 0, 8)
     access = MechanicalVolume("access", ring, -2, 4)
@@ -65,8 +67,13 @@ def test_provider_gets_exact_inputs_and_preserves_known_and_unknown_findings(
     )
     design = board(part("A", 10, 10, drill=2))
     report = placement_checks.check_placement_constraints(design, frame, inputs)
+    typed_obstacle = BodyVolume("fixture", ring, 0, 8)
+    typed_access = BodyVolume("access", ring, -2, 4)
     assert captured == [
-        (design, MechanicalConstraints(2, (access,), (obstacle, access), ("supplied:fixture",)))
+        (
+            design,
+            VolumeConstraints(2, (typed_access,), (typed_obstacle, typed_access), ("supplied:fixture",)),
+        )
     ]
     assert "body.intersection:A:fixture" in report.hard
     assert "body.unknown:projection" in report.missing_inputs
@@ -77,13 +84,10 @@ def test_provider_gets_exact_inputs_and_preserves_known_and_unknown_findings(
     assert len(report.mechanical.findings) == 2
 
 
-def test_missing_nested_dependency_is_not_misreported_as_absent_provider(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def broken(name):
-        raise ModuleNotFoundError(name="provider_nested_dependency")
-
-    monkeypatch.setattr(placement_checks.importlib, "import_module", broken)
-    with pytest.raises(ModuleNotFoundError) as caught:
-        placement_checks.check_placement_constraints(board(part("A", 10, 10)), frame, PlacementConstraints())
-    assert caught.value.name == "provider_nested_dependency"
+def test_copper_relation_is_the_finding_relation() -> None:
+    """Every placement copper finding carries the relation c0097 gives the same finding."""
+    design = board(part("A", 10, 10, two_pads=True), part("B", 20, 10, two_pads=True))
+    report = placement_checks.check_placement_constraints(design, frame, PlacementConstraints())
+    direct = check_copper(design, pads=frame.board_pads(design))
+    assert [f.relation for f in report.copper.findings] == [f.relation for f in direct.findings]
+    assert {f.relation for f in report.copper.findings} >= {"intrinsic", "inter_component"}

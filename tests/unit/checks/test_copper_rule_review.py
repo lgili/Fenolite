@@ -5,7 +5,7 @@
 from dataclasses import replace
 
 import pytest
-from _coppercheck import Copper
+from _coppercheck import Copper, mm
 
 from fenolite.backends.base import PadCopper
 from fenolite.checks.clearance import ClearanceCandidate, ClearanceResolver
@@ -197,3 +197,32 @@ def test_duplicate_rule_names_preserve_candidate_identity() -> None:
     assert tuple(r.rule_id for r in explained.candidates) == tuple(sorted((first.id, second.id)))
     assert len(set(explained.candidates)) == 2
     assert explained.governing.value == second.min
+
+
+def test_pair_gap_in_the_explanation() -> None:
+    """Scenario "Pair gap in the explanation" (c0104): the resolver's own pair-gap candidate is a row."""
+    made = Copper()
+    made.classes["USB"] = replace(made.netclass("USB", mm(0.2)), diff_pair_gap=mm(0.1))
+    for name in ("USB_P", "USB_N", "CLK"):
+        made.net(name, "USB")
+    apart = mm(0.25) + mm(0.08)  # two 0.25 mm tracks, 0.08 mm apart
+    made.track("USB_P", Point(0, 0), Point(mm(5), 0))
+    made.track("USB_N", Point(0, apart), Point(mm(5), apart))
+    made.track("USB_P", Point(0, mm(10)), Point(mm(5), mm(10)))
+    made.track("CLK", Point(0, mm(10) + apart), Point(mm(5), mm(10) + apart))
+    design = made.build()
+    report = check_copper(design, pads=made.pads)
+    by_nets = {frozenset(item.net for item in f.items): f for f in report.findings}
+    pair = by_nets[frozenset({"USB_P", "USB_N"})]
+    assert pair.explanation is not None
+    rows = {row.source: row.value for row in pair.explanation.candidates}
+    assert rows == {"pair-gap:USB": mm(0.1), "class:USB": mm(0.2)}
+    assert pair.explanation.governing.source == "pair-gap:USB" == pair.source
+    assert all(s.diff_pair == "USB_" for s in pair.explanation.subjects)
+    first, second = pair.explanation.subjects
+    resolved = ClearanceResolver(design).resolve(first, second)
+    assert resolved.value == pair.clearance and resolved.source == pair.source
+    other = by_nets[frozenset({"USB_P", "CLK"})]
+    assert other.explanation is not None
+    assert all(not row.source.startswith("pair-gap") for row in other.explanation.candidates)
+    assert other.source == "class:USB"

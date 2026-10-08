@@ -293,8 +293,9 @@ missing assembly inputs. No application geometry is assumed.
 The kernel imports no checks or analysis package. A `PlacementChecker` callback supplies neutral
 `PlacementLegality`, copper findings and mechanical inspections. The fallback checks geometry and
 reports absent copper/mechanical verifiers. Candidates with unavailable copper checking cannot be
-accepted. The CLI adapter runs the existing copper checker and uses the independent body-volume
-provider when available; absent or unknown body checking remains explicit. Intrinsic package
+accepted. The CLI adapter runs the existing copper checker, takes each finding's relation from the
+copper report (c0097), and runs the body-volume check of c0099 (`analysis.body_volumes`) on the
+supplied volumes; unknown body checking and missing bodies remain explicit missing inputs. Intrinsic package
 findings retain their original severity, clearance, location and source. They are never exemptions.
 
 `PlacementAssessment.state` is `findings`, `incomplete` or `checked` for these supplied placement
