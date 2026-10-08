@@ -138,7 +138,9 @@ def test_default_view_is_unchanged(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
         "matrix", "extras", "tools", "routers", "sends_data_offsite",
     ]  # fmt: skip
     assert all("summary" not in entry and "arguments" not in entry for entry in result["commands"])
-    assert all(set(r) == {"name", "description", "sends_data_offsite", "builtin"} for r in result["routers"])
+    # change c0110 adds the features of each router
+    keys = {"name", "description", "sends_data_offsite", "builtin", "features"}
+    assert all(set(r) == keys for r in result["routers"])
     assert result["backends"] and result["experimental"] and result["matrix"]
 
 

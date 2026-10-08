@@ -50,6 +50,11 @@ pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the finished projects of the v0.1 acceptance loop (c0025)"
 
 [[waiver]]
+path = "tests/data/kicad/routing/pair_two_headers.kicad_pro"
+pattern = "numeric-code"
+reason = "KiCad INT_MAX Default class priority 2147483647, in the authored project of the pair board of fenolite route (c0110)"
+
+[[waiver]]
 path = "tests/data/lens/sync_minimal/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the example project of fenolite sync (c0069)"

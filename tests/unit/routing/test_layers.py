@@ -84,14 +84,17 @@ def test_job_fields_default_to_the_old_meaning() -> None:
     net = JobNet("A", "net_a", (), 250_000, 200_000, 600_000, 300_000)
     job = RoutingJob(Design.new("job", seed=1), (net,), ("F.Cu", "B.Cu"))
     assert net.layers is None and job.plane_layers == ()
-    # the fields of change c0109 (tier, budget) follow those of c0107, and those of c0120 come last
+    # the fields of change c0109 (tier, budget) follow those of c0107, then those of c0120; the pairs and
+    # escape requests of change c0110 come last
     assert [f.name for f in dataclasses.fields(JobNet)][-3:] == ["via_drill", "layers", "tier"]
-    assert [f.name for f in dataclasses.fields(RoutingJob)][-5:] == [
+    assert [f.name for f in dataclasses.fields(RoutingJob)][-7:] == [
         "extra",
         "plane_layers",
         "budget",
         "on_run",
         "progress",
+        "pairs",
+        "escape",
     ]
 
 

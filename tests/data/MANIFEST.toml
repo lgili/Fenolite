@@ -22,6 +22,18 @@ corpus_id = ""
 path = "tests/data/kicad/routing/two_pads.kicad_pcb"
 origin = "authored"
 corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/routing/pair_two_headers.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the pair USB_P/USB_N and the single nets S1 and S2, open between two parts each, in the class HS with pair values (c0110); written through the model API by pair_triad of tests/unit/cli/test_route_cmd.py, which checks it"
+
+[[file]]
+path = "tests/data/kicad/routing/pair_two_headers.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "the project of pair_two_headers.kicad_pcb, with the class HS of 0.2 mm pair width and 0.15 mm pair gap (c0110); written by pair_triad of tests/unit/cli/test_route_cmd.py"
 #
 # [[file]]
 # path = "tests/data/blink.kicad_pcb"

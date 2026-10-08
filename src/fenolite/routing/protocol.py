@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, Protocol
+from typing import Literal, Protocol, cast
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
@@ -53,6 +53,40 @@ class JobNet:
 
 
 @dataclass(frozen=True, slots=True)
+class JobPair:
+    """Two nets of the job routed as one differential pair (capability routing, "Pairs and escape in a
+    routing job"; change c0110).
+
+    ``positive`` and ``negative`` name nets of ``RoutingJob.nets``, where a router finds their pads and
+    class values. ``width``, ``gap`` and ``via_gap`` are the class pair values (change c0104); ``skew_max``
+    is the ``max`` of the ``diff_pair_skew`` rule that governs the pair, ``None`` without one.
+    """
+
+    name: str
+    positive: str
+    negative: str
+    width: Nm
+    gap: Nm
+    via_gap: Nm | None = None
+    skew_max: Nm | None = None
+
+
+EscapeKind = Literal["grid", "perimeter"]
+"""``grid``: the pads of a part lie on a grid (a BGA); ``perimeter``: around its edge (QFN, QFP, SOIC)."""
+
+
+@dataclass(frozen=True, slots=True)
+class JobEscape:
+    """A part whose pads the router escapes before it routes (change c0110): its reference, its kind,
+    its pitch in nm and the job nets that have a pad on it, sorted."""
+
+    ref: str
+    kind: str
+    pitch: Nm
+    nets: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class FinishedRun:
     """The copper that one tool process of a router added, and the nets it routed. ``tier`` is the tier
     of those nets (0 for a job without tiers); ``seconds`` is how long the process took."""
@@ -84,6 +118,9 @@ class RoutingJob:
     starts, ``done`` when it ends) and calls ``on_run`` once for each process that ended with copper,
     with that copper, before it starts the next one; a process that failed, was cut by the budget or
     gave no copper is not reported through ``on_run``. A router that ignores both fields stays valid.
+
+    ``pairs`` and ``escape`` (change c0110) are the differential pairs and the parts to escape; a job holds
+    them only for a router whose ``router_features`` name ``pairs`` and ``escape``.
     """
 
     design: Design
@@ -96,6 +133,9 @@ class RoutingJob:
     budget: float | None = None
     on_run: Callable[[FinishedRun], None] | None = None
     progress: Progress = NULL_PROGRESS
+    # ``pairs`` and ``escape`` (c0110) come after the fields of c0107 and c0109.
+    pairs: tuple[JobPair, ...] = ()
+    escape: tuple[JobEscape, ...] = ()
 
 
 RunOutcomeName = Literal["done", "failed", "cut"]
@@ -164,13 +204,35 @@ class Router(Protocol):
         ...
 
 
+ROUTER_FEATURES: frozenset[str] = frozenset({"pairs", "escape"})
+"""What a router may take beyond single nets (change c0110). A router lists those it takes in an attribute
+``features``, which the ``Router`` protocol does not hold, so that a router written before stays valid."""
+
+
+def router_features(router: object) -> frozenset[str]:
+    """The router's ``features`` when it is a ``frozenset`` of members of ``ROUTER_FEATURES``, else an
+    empty set (a missing attribute, a list, an unknown feature)."""
+    found: object = getattr(router, "features", None)
+    if not isinstance(found, frozenset):
+        return frozenset()
+    items = cast("frozenset[object]", found)
+    if all(isinstance(item, str) and item in ROUTER_FEATURES for item in items):
+        return frozenset(str(item) for item in items)
+    return frozenset()
+
+
 __all__ = [
+    "ROUTER_FEATURES",
+    "EscapeKind",
     "FinishedRun",
+    "JobEscape",
     "JobNet",
     "JobPad",
+    "JobPair",
     "Router",
     "RouterRun",
     "RouterStatus",
     "RoutingJob",
     "RoutingResult",
+    "router_features",
 ]

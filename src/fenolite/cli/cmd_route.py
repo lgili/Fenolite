@@ -16,6 +16,12 @@ router runs (``backends.kicad.fanout``), and never gives a plane net to a router
 in tiers that are routed one after the other (capability cli-contract, "Route command budget and tiers";
 change c0109). When the budget ends, the copper of the router runs that finished is written and the rest is
 reported: run ``route`` again to continue with the nets that are still open.
+
+Change c0110: the differential pairs among the candidates (``routing.pairs.job_pairs``) and the parts named
+by ``--escape`` (``routing.escape.requests``) go to a router whose ``router_features`` name ``pairs`` and
+``escape``; a router without ``pairs`` gets no pair net (``route.pair-skipped``) unless ``--pairs-as-nets``
+gives them as single nets. Routed copper narrower than its job width gives ``route.width-below-job``
+(capability cli-contract, "Pairs and escape in the route command").
 """
 
 from __future__ import annotations
@@ -34,7 +40,7 @@ from pathlib import Path
 
 from fenolite import __version__
 from fenolite.analysis.connectivity import connectivity
-from fenolite.backends.base import DesignRules, ProjectSet
+from fenolite.backends.base import BoardPad, DesignRules, ProjectSet
 from fenolite.backends.kicad import fanout, pro
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import is_copper_uuid
@@ -58,9 +64,21 @@ from fenolite.core.units import Nm, format_length
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 from fenolite.model.rules import Rule, RuleSet, RuleSubject, Selector
+from fenolite.routing.escape import PartPad, parse, requests
 from fenolite.routing.layers import allowed_layers, routing_layers
 from fenolite.routing.merge import RoutingError, apply
-from fenolite.routing.protocol import FinishedRun, JobNet, JobPad, Router, RoutingJob, RoutingResult
+from fenolite.routing.pairs import job_pairs
+from fenolite.routing.protocol import (
+    FinishedRun,
+    JobEscape,
+    JobNet,
+    JobPad,
+    JobPair,
+    Router,
+    RoutingJob,
+    RoutingResult,
+    router_features,
+)
 from fenolite.routing.registry import routers
 from fenolite.routing.select import rip, unrouted
 
@@ -136,6 +154,19 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--allow-offsite", action="store_true", help="allow a router that sends design data off this machine"
+    )
+    parser.add_argument(
+        "--escape",
+        action="append",
+        default=[],
+        metavar="REF[=grid|perimeter]",
+        help="escape the pads of the matching parts before routing, with a router that has the escape "
+        "feature (repeatable; the kind is found from the pads unless given)",
+    )
+    parser.add_argument(
+        "--pairs-as-nets",
+        action="store_true",
+        help="route the nets of differential pairs as single nets, uncoupled, with any router",
     )
     parser.add_argument("-o", "--out", metavar="FILE", help="write the routed board to this file")
 
@@ -307,7 +338,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if not separator or not key or not value:
             raise CliError("FEN-2001", f"invalid --router-option {option!r}; expected KEY=VALUE")
         options[key] = value
+    escape_patterns = tuple(args.escape)
+    for pattern in escape_patterns:
+        try:
+            parse(pattern)
+        except ValueError as error:
+            raise CliError(
+                "FEN-2001", str(error), hint="--escape takes REF, REF=grid or REF=perimeter"
+            ) from None
     router = _router(args.router, args)
+    features = router_features(router)
     if router.sends_data_offsite and not args.allow_offsite:
         raise CliError(
             "FEN-2001", "this router sends design data offsite", hint="pass --allow-offsite to continue"
@@ -507,7 +547,31 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             )
         )
     jobs.sort(key=lambda item: (item.tier, item.name))
+    pairs, dropped, pair_issues = _pair_stage(
+        design, jobs, router, features, pairs_as_nets=args.pairs_as_nets
+    )
+    jobs = [net for net in jobs if net.name not in dropped]
+    candidates = tuple(name for name in candidates if name not in dropped)
+    escape: tuple[JobEscape, ...] = ()
+    escape_issues: list[Issue] = []
+    if escape_patterns:
+        escape, found_issues = requests(_parts(frame_pads), escape_patterns, [net.name for net in jobs])
+        escape_issues.extend(found_issues)
+        if escape and "escape" not in features:
+            escape_issues.extend(
+                Issue(
+                    "route.escape-skipped",
+                    "warning",
+                    f"part {request.ref} is not escaped: the router {router.name} has no escape step",
+                    request.ref,
+                    hint="route with a router that lists the feature escape in fenolite capabilities",
+                )
+                for request in escape
+            )
+            escape = ()
     skipped = [
+        *pair_issues,
+        *escape_issues,
         *(
             Issue("route.zone-net-skipped", "info", f"zone net {name} was skipped", name)
             for name in zone_skipped
@@ -551,6 +615,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "resumed": None,
                 "plane_layers": list(planes),
                 "plane_fanout": plane_result,
+                "pairs": [],
+                "escape": [],
             },
             issues=(*read_issues, *before.issues, *fan_issues, *skipped),
             evidence=Evidence(Level.UNVERIFIED, router.name),
@@ -576,6 +642,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 budget=args.timeout,
                 on_run=record.add,
                 progress=ctx.progress,
+                pairs=pairs,
+                escape=escape,
             )
         )
     else:  # every open net was routed by the runs of the record: no process starts
@@ -586,6 +654,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         found.code == "route.budget-exhausted" for found in outcome.issues
     )
     issues = [*read_issues, *before.issues, *fanout_issues, *outcome.issues, *skipped]
+    issues.extend(_width_guard(outcome, jobs, pairs, router.name))
     if reused:
         issues.append(
             Issue(
@@ -713,6 +782,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "resumed": {"runs": len(reused), "nets": len(resumed_nets)} if reused else None,
             "plane_layers": list(planes),
             "plane_fanout": plane_result,
+            "pairs": [
+                {
+                    "name": pair.name,
+                    "positive": pair.positive,
+                    "negative": pair.negative,
+                    "width": pair.width,
+                    "gap": pair.gap,
+                    "routed": pair.positive in routed and pair.negative in routed,
+                }
+                for pair in pairs
+            ],
+            "escape": [
+                {"ref": item.ref, "kind": item.kind, "pitch": item.pitch, "nets": list(item.nets)}
+                for item in escape
+            ],
         },
         issues=tuple(issues),
         evidence=evidence,
@@ -721,6 +805,95 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         depends=depends,
         written=record.remove,  # the board then holds the copper, and its digest names another job
     )
+
+
+PAIRS_HINT_FALLBACK = "kicadroutingtools, once its pair gate holds"
+"""The router named by the hint of ``route.pair-skipped`` while no registered router has the feature."""
+
+
+def _pair_stage(
+    design: Design, jobs: list[JobNet], router: Router, features: frozenset[str], *, pairs_as_nets: bool
+) -> tuple[tuple[JobPair, ...], set[str], list[Issue]]:
+    """The pairs given to the router, the nets that leave the job, and the issues of the pair stage
+    (capability cli-contract, "Pairs and escape in the route command")."""
+    names = [net.name for net in jobs]
+    found, singles, issues = job_pairs(design, names)
+    if pairs_as_nets:
+        return (
+            (),
+            set(),
+            [
+                Issue(
+                    "route.pair-uncoupled",
+                    "info",
+                    f"the pair {pair.name} is routed as two single nets, not coupled (--pairs-as-nets)",
+                    pair.name,
+                )
+                for pair in found
+            ],
+        )
+    members = {name for pair in found for name in (pair.positive, pair.negative)}
+    drop = {name for name in names if name not in singles and name not in members}
+    result = list(issues)
+    if found and "pairs" not in features:
+        able = sorted(name for name, item in routers().items() if "pairs" in router_features(item))
+        others = ", ".join(able) or PAIRS_HINT_FALLBACK
+        for pair in found:
+            drop.update((pair.positive, pair.negative))
+            result.append(
+                Issue(
+                    "route.pair-skipped",
+                    "warning",
+                    f"the pair {pair.name} is not routed: the router {router.name} does not route pairs, "
+                    "and a pair routed as two single nets is uncoupled",
+                    pair.name,
+                    hint=f"pass --pairs-as-nets to route its nets as single nets, or use a router that "
+                    f"routes pairs: {others}",
+                )
+            )
+        found = ()
+    return tuple(found), drop, result
+
+
+def _parts(pads: tuple[BoardPad, ...]) -> dict[str, list[PartPad]]:
+    """The pads of the board by reference, as ``routing.escape.requests`` takes them."""
+    parts: dict[str, list[PartPad]] = {}
+    for pad in pads:
+        if pad.ref:
+            parts.setdefault(pad.ref, []).append(PartPad(pad.position, pad.net or "", pad.drill))
+    return parts
+
+
+def _width_guard(
+    outcome: RoutingResult, jobs: list[JobNet], pairs: tuple[JobPair, ...], router: str
+) -> list[Issue]:
+    """One ``route.width-below-job`` per net whose routed tracks or arcs are narrower than the width the job
+    gave it, the pair width for a pair net."""
+    asked = {net.net_id: (net.name, net.width) for net in jobs}
+    for pair in pairs:
+        for net in jobs:
+            if net.name in (pair.positive, pair.negative):
+                asked[net.net_id] = (net.name, pair.width)
+    narrowest: dict[str, int] = {}
+    for item in (*outcome.tracks, *outcome.arcs):
+        found = asked.get(item.net_id or "")
+        if found is not None and item.width < found[1]:
+            narrowest[found[0]] = min(item.width, narrowest.get(found[0], item.width))
+    widths = {name: width for name, width in asked.values()}
+    hint = "run fenolite check; KiCad's DRC judges the copper"
+    if router == "freerouting":
+        hint = "route again with --router-option fanout=off: Freerouting's fanout stage narrows wires at pins"
+    return [
+        Issue(
+            "route.width-below-job",
+            "warning",
+            f"net {name} got copper {format_length(narrowest[name])} wide, narrower than the "
+            f"{format_length(widths[name])} asked; it is kept",
+            name,
+            hint=hint,
+        )
+        for name in sorted(narrowest)
+    ]
 
 
 def _copper_of(runs: tuple[FinishedRun, ...]) -> RoutingResult:

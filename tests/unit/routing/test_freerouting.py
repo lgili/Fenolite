@@ -29,7 +29,7 @@ from fenolite.routing.plugins.specctra.freerouting import (
     jar_version,
     java_major,
 )
-from fenolite.routing.protocol import FinishedRun, JobNet, JobPad, Router, RoutingJob
+from fenolite.routing.protocol import FinishedRun, JobNet, JobPad, Router, RoutingJob, router_features
 from fenolite.routing.registry import routers
 
 pytestmark = posix_tools
@@ -100,8 +100,10 @@ def test_route_with_a_fake_java(tmp_path: Path, record: Path) -> None:
         "1",
         "-da",
         "--gui.enabled=false",
+        "--router.automatic_neckdown=false",
         "--router.optimizer.enabled=false",
     ]
+    assert not any("fanout" in word for word in argv)
     assert [(run.nets, run.tier, run.outcome) for run in result.runs] == [(("A",), 0, "done")]
     assert result.not_attempted == ()
     merged = apply(job.design, result)
@@ -391,7 +393,7 @@ def test_container_command_line(tmp_path: Path, record: Path, monkeypatch: pytes
     assert argv[argv.index(image) + 1 :] == [
         "java", "-jar", "/app/freerouting-executable.jar",
         "-de", "board.dsn", "-do", "board.ses", "-mp", "20", "-mt", "1", "-da", "--gui.enabled=false",
-        "--router.optimizer.enabled=false",
+        "--router.automatic_neckdown=false", "--router.optimizer.enabled=false",
     ]  # fmt: skip
 
 
@@ -414,6 +416,35 @@ def test_registered_and_not_offsite() -> None:
     assert isinstance(router, FreeroutingRouter)
     assert router.sends_data_offsite is False
     assert "analytics" in router.description
+
+
+# --- neck-down, the fanout stage and no router feature (change c0110) ---------------------------------
+
+
+def test_fanout_stage_off_and_neckdown_never_on(tmp_path: Path, record: Path) -> None:
+    """Scenario "Fanout stage off, neck-down never on"."""
+    result = _router(tmp_path).route(_job(fanout="off", automatic_neckdown="true"))
+    argv = _saved(record)["argv"]
+    assert isinstance(argv, list)
+    assert "--router.automatic_neckdown=false" in argv and "--router.fanout.enabled=false" in argv
+    assert not any("automatic_neckdown=true" in word for word in argv)
+    (warning,) = result.issues
+    assert warning.code == "route.option-ignored" and warning.where == "automatic_neckdown"
+    result = _router(tmp_path).route(_job(fanout="maybe"))
+    argv = _saved(record)["argv"]
+    assert isinstance(argv, list) and not any("fanout" in word for word in argv[2:])
+    assert "--router.automatic_neckdown=false" in argv
+    (warning,) = result.issues
+    assert warning.code == "route.option-ignored" and warning.where == "fanout"
+    _router(tmp_path).route(_job(fanout="on"))
+    argv = _saved(record)["argv"]
+    assert isinstance(argv, list) and not any("fanout" in word for word in argv[2:])
+
+
+def test_no_features() -> None:
+    """Scenario "No features" (requirement "Freerouting declares no router feature")."""
+    assert router_features(FreeroutingRouter()) == frozenset()
+    assert FreeroutingRouter.features == frozenset()
 
 
 # --- nets outside the job, tiers and the optimizer (change c0109) --------------------------------------

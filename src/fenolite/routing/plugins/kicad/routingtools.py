@@ -5,6 +5,12 @@
 One process routes one group of nets: the nets of a tier whose track width, via diameter and via drill
 are equal (capability routing, "KiCadRoutingTools plugin"; change c0109). Every process is started through
 the job's one time budget (``routing.budget``).
+
+Change c0110: before every other step, one ``bga_fanout.py`` (dog-bones) or ``qfn_fanout.py`` process per
+escape request of the job; then, tier by tier, one ``route_diff.py`` process per job pair whose names the
+tool pairs (``PAIR_NAME_FORMS``), before the groups of that tier. Each is one run of the budget. The
+features ``pairs`` and ``escape`` are declared only when the gate of c0110 holds for them
+(``GATED_FEATURES``); until then ``fenolite route`` gives this router no pair and no escape request.
 """
 
 from __future__ import annotations
@@ -14,6 +20,8 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 from fenolite.backends.kicad.dru import write_rules
@@ -24,9 +32,19 @@ from fenolite.backends.kicad.versions import DEFAULT_TARGET
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.board import Arc, Track, Via
+from fenolite.model.pairs import split_pair_name
 from fenolite.routing.budget import Budget, exhausted
 from fenolite.routing.merge import RoutingError, apply
-from fenolite.routing.protocol import FinishedRun, JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
+from fenolite.routing.protocol import (
+    FinishedRun,
+    JobEscape,
+    JobNet,
+    JobPair,
+    RouterRun,
+    RouterStatus,
+    RoutingJob,
+    RoutingResult,
+)
 
 PINNED_TAG = "v0.22.1"
 DEFAULT_BUDGET = 900
@@ -35,6 +53,18 @@ GROUP_OPTION = "group-nets"
 """The router option that splits a group into runs of at most N nets; it is not passed to the tool."""
 OWN_OPTIONS = ("nets", "output", "overwrite")
 """Options of the tool that the plugin decides itself: ignored with ``route.option-ignored``."""
+REFUSED_OPTIONS = ("polarity-swap-nets", "impedance", "rip-existing-nets", "force-reroute")
+"""Options that never reach a step (change c0110): a swap changes the netlist, impedance is c0105's and
+would choose the width, and the last two remove copper the plugin keeps."""
+GRID_OPTION = "grid-step"
+"""The router option that reaches the escape steps as well as ``route.py``, as the tool's help asks."""
+PAIR_NAME_FORMS = ("X_P/X_N", "X_P<digits>/X_N<digits>", "X+/X-", "X_DP/X_DN")
+"""The pair names that ``route_diff.py`` routes coupled, as measured on the name bench of c0110
+(measurement 4; ``H-K-KRT-PAIRNAMES``): ``P``/``N`` after ``_`` with a tail of digits or none, a
+polarity ``+``/``-`` with no tail, and a base ending in ``_D``. ``DP1``/``DN1``, which KiCad pairs, is not
+paired by the tool."""
+GATED_FEATURES = frozenset({"pairs", "escape"})
+"""The features the plugin implements; it declares those whose gate outcomes hold (task 1.6 of c0110)."""
 EVIDENCE = Evidence(
     oracle="KiCadRoutingTools v0.22.1", hypotheses=("H-K-KRT-CLI", "H-K-KRT-GROUP", "H-K-KRT-ROUTE")
 )
@@ -74,6 +104,35 @@ def _unit(names: tuple[str, ...]) -> str:
     return names[0] if len(names) == 1 else f"{names[0]} and {len(names) - 1} more"
 
 
+def tool_pairs(positive: str, negative: str) -> bool:
+    """Whether the names of a pair take one of the forms of ``PAIR_NAME_FORMS``."""
+    split = split_pair_name(positive)
+    if split is None or split_pair_name(negative) is None:
+        return False
+    if split.polarity == "+":
+        return split.tail == ""
+    if split.polarity != "P":
+        return False
+    if split.base.endswith("_"):
+        return split.tail == "" or split.tail.isdigit()
+    return split.base.endswith("_D") and split.tail == ""
+
+
+@dataclass(frozen=True, slots=True)
+class _Step:
+    """One tool process of a job: its nets, tier, unit of progress, the label and place of a failure,
+    whether it is an escape step, and its arguments after the interpreter, from the checkout, the input
+    board and the output board."""
+
+    nets: tuple[str, ...]
+    tier: int
+    unit: str
+    label: str
+    where: str
+    escape: bool
+    arguments: Callable[[Path, Path, Path], list[str]]
+
+
 def plan_runs(nets: tuple[JobNet, ...], group_nets: int | None = None) -> tuple[tuple[JobNet, ...], ...]:
     """The runs of a job, in the order they start.
 
@@ -100,6 +159,8 @@ class KicadRoutingToolsRouter:
     description = "Routes nets with the external KiCadRoutingTools grid A* router."
     sends_data_offsite = False
     default_budget: float = DEFAULT_BUDGET
+    features: frozenset[str] = frozenset()
+    """None of ``GATED_FEATURES`` until the gate of c0110 is recorded on both majors (its task 1.6)."""
 
     def __init__(
         self,
@@ -149,6 +210,16 @@ class KicadRoutingToolsRouter:
                             key,
                         )
                     )
+            elif key in REFUSED_OPTIONS:
+                issues.append(
+                    Issue(
+                        "route.option-ignored",
+                        "warning",
+                        f"the router option {key}={value} is refused by {self.name} and was ignored",
+                        key,
+                        hint="pair polarity, impedance and ripping are not left to the tool",
+                    )
+                )
             elif key in OWN_OPTIONS:
                 issues.append(
                     Issue(
@@ -162,6 +233,174 @@ class KicadRoutingToolsRouter:
             else:
                 passed.extend((f"--{key}", value))
         return passed, group_nets
+
+    # --- the steps of a job (change c0110) -------------------------------------------------------------
+
+    def _pairs(self, job: RoutingJob, issues: list[Issue]) -> tuple[tuple[JobPair, ...], set[str]]:
+        """The job pairs the tool pairs, and the nets of the others, which no step routes: each such pair
+        gives ``route.pair-skipped``."""
+        sent: list[JobPair] = []
+        held: set[str] = set()
+        for pair in job.pairs:
+            if tool_pairs(pair.positive, pair.negative):
+                sent.append(pair)
+                continue
+            held.update((pair.positive, pair.negative))
+            issues.append(
+                Issue(
+                    "route.pair-skipped",
+                    "warning",
+                    f"the pair {pair.name} is not routed: {self.name} does not pair names of that form; "
+                    f"it pairs {', '.join(PAIR_NAME_FORMS)}",
+                    pair.name,
+                    hint="rename the nets to a form the tool pairs, or pass --pairs-as-nets",
+                )
+            )
+        return tuple(sent), held
+
+    @staticmethod
+    def _layers(job: RoutingJob, net: JobNet) -> tuple[str, ...]:
+        """The layers of a pair or escape step: the net's own, else the job's without its plane layers."""
+        if net.layers is not None:
+            return net.layers
+        return tuple(layer for layer in job.layers if layer not in job.plane_layers)
+
+    def _pair_step(self, job: RoutingJob, pair: JobPair, by_name: dict[str, JobNet]) -> _Step:
+        positive = by_name[pair.positive]
+        negative = by_name.get(pair.negative, positive)
+        tier = min(positive.tier, negative.tier)
+        layers = self._layers(job, positive)
+        names = (pair.positive, pair.negative)
+
+        def arguments(checkout: Path, board: Path, output: Path) -> list[str]:
+            words = [
+                str(checkout / "py_router" / "route_diff.py"),
+                str(board),
+                str(output),
+                "--nets",
+                *names,
+                "--track-width",
+                _mm(pair.width),
+                "--diff-pair-gap",
+                _mm(pair.gap),
+                "--clearance",
+                _mm(positive.clearance),
+                "--via-size",
+                _mm(positive.via_diameter),
+                "--via-drill",
+                _mm(positive.via_drill),
+                "--layers",
+                *layers,
+                "--no-gnd-vias",
+                "--keep-input-copper",
+                "--same-net-pad-clearance",
+                _mm(positive.clearance),
+                "--escalation",
+                "off",
+                "--no-fix-drc-settings",
+            ]
+            if pair.skew_max is not None:
+                words += ["--diff-pair-intra-match", "--length-match-tolerance", _mm(pair.skew_max)]
+            return words
+
+        return _Step(names, tier, pair.name, f"pair {pair.name}", pair.positive, False, arguments)
+
+    def _escape_step(
+        self,
+        job: RoutingJob,
+        request: JobEscape,
+        pairs: tuple[JobPair, ...],
+        by_name: dict[str, JobNet],
+        tier: int,
+    ) -> _Step:
+        nets = [by_name[name] for name in request.nets if name in by_name]
+        width = min(net.width for net in nets)
+        clearance = max(net.clearance for net in nets)
+        diameter = min(net.via_diameter for net in nets)
+        drill = min(net.via_drill for net in nets)
+        layers = self._layers(job, nets[0])
+        grid = job.options.get(GRID_OPTION)
+        on_part = set(request.nets)
+        part_pairs = [pair for pair in pairs if pair.positive in on_part or pair.negative in on_part]
+        names = tuple(net.name for net in nets)
+
+        def arguments(checkout: Path, board: Path, output: Path) -> list[str]:
+            if request.kind == "grid":
+                words = [
+                    str(checkout / "py_router" / "bga_fanout.py"),
+                    str(board),
+                    "--component",
+                    request.ref,
+                    "--output",
+                    str(output),
+                    "--escape-method",
+                    "dogbone",
+                    "--nets",
+                    *names,
+                    "--layers",
+                    *layers,
+                    "--track-width",
+                    _mm(width),
+                ]
+            else:
+                words = [
+                    str(checkout / "py_router" / "qfn_fanout.py"),
+                    str(board),
+                    "--output",
+                    str(output),
+                    "--component",
+                    request.ref,
+                    "--nets",
+                    *names,
+                    "--width",
+                    _mm(width),
+                ]
+            words += ["--clearance", _mm(clearance), "--via-size", _mm(diameter), "--via-drill", _mm(drill)]
+            if request.kind == "grid":
+                words += ["--plane-drop", "off"]
+            words += [
+                "--same-net-pad-clearance",
+                _mm(clearance),
+                "--escalation",
+                "off",
+                "--no-fix-drc-settings",
+            ]
+            if request.kind == "grid" and part_pairs:
+                members = [name for pair in part_pairs for name in (pair.positive, pair.negative)]
+                gap = min(pair.gap for pair in part_pairs)
+                words += ["--diff-pairs", *members, "--diff-pair-gap", _mm(gap)]
+            if grid is not None:
+                words += ["--grid-step", grid]
+            return words
+
+        label = f"escape of {request.ref}"
+        return _Step(names, tier, f"escape {request.ref}", label, request.ref, True, arguments)
+
+    def _group_step(self, group: tuple[JobNet, ...], passed: list[str]) -> _Step:
+        names = tuple(net.name for net in group)
+
+        def arguments(checkout: Path, board: Path, output: Path) -> list[str]:
+            return [
+                str(checkout / "py_router" / "route.py"),
+                str(board),
+                str(output),
+                "--nets",
+                *names,
+                "--track-width",
+                _mm(group[0].width),
+                "--via-size",
+                _mm(group[0].via_diameter),
+                "--via-drill",
+                _mm(group[0].via_drill),
+                # the sizes are the job's: a net that does not fit stays open (measured, c0109)
+                "--escalation",
+                "off",
+                # the project file of the run folder stays the one written above
+                "--no-fix-drc-settings",
+                *passed,
+            ]
+
+        return _Step(names, group[0].tier, _unit(names), _named(names), names[0], False, arguments)
 
     def route(self, job: RoutingJob) -> RoutingResult:
         """Route the job's nets group by group in a temporary project folder, inside the job's budget,
@@ -225,56 +464,58 @@ class KicadRoutingToolsRouter:
                 board_path = folder / f"{stem}.kicad_pcb"
                 project_set(board_path)
                 current = job.design
-                planned = plan_runs(job.nets, group_nets)
-                for index, group in enumerate(planned):
-                    names = tuple(net.name for net in group)
-                    unit = _unit(names)
-                    tier = group[0].tier
+                env = {**os.environ, "LANG": "C", "LC_ALL": "C"}
+                by_name = {net.name: net for net in job.nets}
+                sent_pairs, held_back = self._pairs(job, issues)
+                in_pairs = {name for pair in sent_pairs for name in (pair.positive, pair.negative)}
+                for name in sorted(held_back):
+                    unrouted.append(name)
+                singles = tuple(
+                    net for net in job.nets if net.name not in in_pairs and net.name not in held_back
+                )
+                planned = plan_runs(singles, group_nets)
+                first_tier = min((net.tier for net in job.nets), default=0)
+                steps: list[_Step] = []
+                for request in job.escape:
+                    steps.append(self._escape_step(job, request, sent_pairs, by_name, first_tier))
+                pair_steps = [self._pair_step(job, pair, by_name) for pair in sent_pairs]
+                tiers = sorted({step.tier for step in pair_steps} | {group[0].tier for group in planned})
+                for tier in tiers:
+                    steps.extend(step for step in pair_steps if step.tier == tier)
+                    steps.extend(
+                        self._group_step(group, passed) for group in planned if group[0].tier == tier
+                    )
+                for index, step in enumerate(steps):
+                    names = step.nets
+                    unit = step.unit
+                    tier = step.tier
+                    counted = () if step.escape else names  # escaped nets are routed by later steps
                     if budget.left() <= 0:  # no process starts once the budget is spent
-                        not_attempted.extend(names)
-                        unrouted.extend(names)
+                        not_attempted.extend(counted)
+                        unrouted.extend(counted)
                         continue
                     # the board of this run holds the copper of every run before it
                     board_text = write_board(current, target=target).text
                     board_path.write_text(board_text, encoding="utf-8", newline="\n")
                     baseline = read_board(board_text, file=board_path.name)
                     output_path = folder / f"routed-{index}.kicad_pcb"
-                    args = [
-                        self.python,
-                        str(self.path / "py_router" / "route.py"),
-                        str(board_path),
-                        str(output_path),
-                        "--nets",
-                        *names,
-                        "--track-width",
-                        _mm(group[0].width),
-                        "--via-size",
-                        _mm(group[0].via_diameter),
-                        "--via-drill",
-                        _mm(group[0].via_drill),
-                        # the sizes are the job's: a net that does not fit stays open (measured, c0109)
-                        "--escalation",
-                        "off",
-                        # the project file of the run folder stays the one written above
-                        "--no-fix-drc-settings",
-                        *passed,
-                    ]
+                    args = [self.python, *step.arguments(self.path, board_path, output_path)]
                     if budget.left() <= 0:  # the board of the run took the last of the budget
-                        not_attempted.extend(names)
-                        unrouted.extend(names)
+                        not_attempted.extend(counted)
+                        unrouted.extend(counted)
                         continue
                     # each process is one unit of progress (change c0120)
-                    job.progress.step(unit, index=index + 1, total=len(planned))
-                    done = budget.run(args, cwd=folder, env={**os.environ, "LANG": "C", "LC_ALL": "C"})
+                    job.progress.step(unit, index=index + 1, total=len(steps))
+                    done = budget.run(args, cwd=folder, env=env)
                     if not done.started:
-                        not_attempted.extend(names)
-                        unrouted.extend(names)
+                        not_attempted.extend(counted)
+                        unrouted.extend(counted)
                         job.progress.done(unit, detail="timeout")
                         continue
                     if done.cut:
                         # a killed process may leave a missing or cut board: it is not read
                         runs.append(RouterRun(names, tier, done.seconds, "cut"))
-                        unrouted.extend(names)
+                        unrouted.extend(counted)
                         cut_nets += len(names)
                         job.progress.done(unit, detail="timeout")
                         continue
@@ -296,10 +537,8 @@ class KicadRoutingToolsRouter:
                         except Exception as exc:
                             why = _line(exc, folder)
                     if result is None:
-                        issues.append(
-                            Issue("route.tool-failed", "error", f"{_named(names)}: {why}", names[0])
-                        )
-                        unrouted.extend(names)
+                        issues.append(Issue("route.tool-failed", "error", f"{step.label}: {why}", step.where))
+                        unrouted.extend(counted)
                         runs.append(RouterRun(names, tier, seconds, "failed"))
                         job.progress.done(unit, detail="failed")
                         continue
@@ -317,7 +556,7 @@ class KicadRoutingToolsRouter:
                     )
                     baseline_net_names = {entry.id: entry.name for entry in baseline.circuit.nets}
                     current_net_ids = {entry.name: entry.id for entry in current.circuit.nets}
-                    run_ids = {net.net_id for net in group}
+                    run_ids = {by_name[name].net_id for name in names if name in by_name}
                     lifted = tuple(
                         dataclasses.replace(
                             item,
@@ -339,21 +578,21 @@ class KicadRoutingToolsRouter:
                         current = apply(current, delta)
                     except RoutingError as exc:
                         issues.extend(exc.issues)
-                        unrouted.extend(names)
+                        unrouted.extend(counted)
                         runs.append(RouterRun(names, tier, seconds, "failed"))
                         job.progress.done(unit, detail="failed")
                         continue
                     runs.append(RouterRun(names, tier, seconds, "done"))
                     with_copper = {item.net_id for item in kept}
-                    for net in group:
-                        (routed if net.net_id in with_copper else unrouted).append(net.name)
+                    for name in counted:
+                        (routed if by_name[name].net_id in with_copper else unrouted).append(name)
                     tracks.extend(delta.tracks)
                     arcs.extend(delta.arcs)
                     vias.extend(delta.vias)
                     if kept and job.on_run is not None:  # before the next process starts (change c0120)
                         job.on_run(
                             FinishedRun(
-                                nets=tuple(net.name for net in group if net.net_id in with_copper),
+                                nets=tuple(name for name in names if by_name[name].net_id in with_copper),
                                 tracks=delta.tracks,
                                 arcs=delta.arcs,
                                 vias=delta.vias,
@@ -398,4 +637,15 @@ class KicadRoutingToolsRouter:
         )
 
 
-__all__ = ["DEFAULT_BUDGET", "EVIDENCE", "PINNED_TAG", "KicadRoutingToolsRouter", "plan_runs"]
+__all__ = [
+    "DEFAULT_BUDGET",
+    "EVIDENCE",
+    "GATED_FEATURES",
+    "GRID_OPTION",
+    "PAIR_NAME_FORMS",
+    "PINNED_TAG",
+    "REFUSED_OPTIONS",
+    "KicadRoutingToolsRouter",
+    "plan_runs",
+    "tool_pairs",
+]

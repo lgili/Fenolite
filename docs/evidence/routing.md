@@ -273,3 +273,26 @@ The bench is `tests/routing/_planebench.py`.
 | `dsn-edge-band` | `different` | `H-G-DSN-EDGE`, `H-G-DSN-EDGE-2` | bands added by the test: a 2 mm passage loses its route (7 tracks and 3 `copper_edge_clearance` without bands); a 4 mm passage is routed with no such violation |
 
 `krt-planes` (`H-K-KRT-PLANES`) was not run: no KiCadRoutingTools checkout on this machine.
+
+## Pairs and escape (c0110)
+
+The gate of change c0110 (its design, Decision 1) decides whether KiCadRoutingTools declares the features
+`pairs` and `escape`. Its first record is the measurement of 2026-10-05 on the review branch, kept in the
+design of the change and in the register rows `H-K-KRT-PAIR`, `H-K-KRT-PAIRNAMES`, `H-K-KRT-ESCAPE`,
+`H-G-DSN-PAIR`, `H-G-DSN-NARROW`, `H-G-DSN-FANOUT` and `H-K-DRU-PAIRCOUPLE`, all `INFERRED`.
+
+| outcome | hypothesis | 10.0.6 | 9.0.9 |
+|---|---|---|---|
+| `krt-pair-t9`, `krt-pair-t10` | H-K-KRT-PAIR | pending | pending |
+| `krt-pair-names` | H-K-KRT-PAIRNAMES | pending | — |
+| `krt-escape-qfn-t<M>`, `krt-escape-bga-t<M>` | H-K-KRT-ESCAPE | pending | pending |
+| `dsn-escape-qfn-t<M>`, `dsn-escape-bga-t<M>` | H-G-DSN-FANOUT | pending | pending |
+| `dsn-pair-ignored` | H-G-DSN-PAIR | pending | — |
+| `dsn-narrow-fanout`, `dsn-narrow-off` | H-G-DSN-NARROW | pending | — |
+| `dru-pair-couple-<case>` | H-K-DRU-PAIRCOUPLE | pending | pending |
+
+Verdict: pending. Until the outcomes are recorded on both majors, `kicadroutingtools` declares no feature,
+so `route` gives no router a pair (each gives `route.pair-skipped`) and no escape request; the plugin's
+pair and escape steps exist and are tested with fakes only. The coupling probe
+(`tests/kicad/rules/test_pair_coupling.py`) runs with `kicad-cli` alone.
+

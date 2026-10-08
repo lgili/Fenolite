@@ -326,6 +326,55 @@ where KiCad's DRC is the judge.
 `--router-path docker:<image>` runs a container image of Freerouting instead of a local
 jar, with the run folder mounted and `--network none`; Fenolite never pulls the image.
 
+## Differential pairs and escape
+
+Three steps carry the word fan-out or escape, and they differ. The **plane fan-out** of `route`
+("Plane layers and plane fan-out") is Fenolite's own: one short track and one via from each SMD pad of a
+plane net to its plane. **Freerouting's fanout stage** is a step inside Freerouting that escapes SMD pins
+before its autorouter runs; `--router-option fanout=off` turns it off. **Escape** (change c0110) is a
+step per part that a router runs before it routes, asked for with `--escape REF[=grid|perimeter]`.
+
+**Pairs.** `route` pairs two selected nets by KiCad's name rule (`model.pairs`, `H-K-DIFFPAIR-NAMES-2`):
+the same name except for a polarity character `P`/`N` or `+`/`-`, followed in both by the same run of
+digits and underscores. A pair goes to the router when both nets are selected, share a class, and the
+class (or the `Default` class) holds a pair width and gap (`diff_pair_width`, `diff_pair_gap`); the
+`max` of the `diff_pair_skew` rule that governs the pair is its skew limit. Otherwise its nets are left
+out with `route.pair-skipped`: half a pair routed alone, or a pair routed as two single nets, is
+uncoupled copper. `--pairs-as-nets` routes them as single nets on purpose (`route.pair-uncoupled`).
+
+**Features.** A router lists what it takes beyond single nets in `features` (`fenolite capabilities`):
+`pairs` and `escape`. `direct` and `freerouting` list none: Freerouting 2.4.1 routes a pair as two single
+nets, with or without a `pair` list in the design file (`H-G-DSN-PAIR`), so Fenolite writes no such list.
+`kicadroutingtools` implements both: one `route_diff.py` process per pair, at the pair's width and gap,
+without ground vias or polarity swaps, before the single nets of its tier; and one `bga_fanout.py`
+(dog-bones, never vias in pads) or `qfn_fanout.py` (surface stubs) process per escaped part, before every
+other step. It declares them only once the gate of change c0110 has passed on both KiCad majors
+(`H-K-KRT-PAIR`, `H-K-KRT-ESCAPE`); until then `route` gives it no pair and no escape request. The tool
+pairs fewer names than KiCad: `X_P`/`X_N`, `X_P0`/`X_N0`, `X+`/`X-` and `X_DP`/`X_DN`, not `DP1`/`DN1`
+(`H-K-KRT-PAIRNAMES`); another form gives `route.pair-skipped`. The router options
+`polarity-swap-nets`, `impedance`, `rip-existing-nets` and `force-reroute` never reach the tool.
+
+**Judging a pair.** KiCad counts as uncoupled every segment outside the range of the `diff_pair_gap`
+rule that governs it, and without a gap rule it counts far parallel segments as coupled
+(`H-K-DRU-PAIRCOUPLE`). Give `pair(gap_min=…, gap_max=…, uncoupled_max=…)` together, so that a pair
+routed apart is reported.
+
+**Escape kinds.** A part is a `grid` (a BGA) when one of its surface pads has neighbours at the part's
+pitch on two orthogonal directions, both ways, and a `perimeter` (QFN, QFP, SOIC) otherwise; the suffix
+of `--escape` overrides it. Dog-bone vias of a BGA sit between balls: a via in a pad needs a filled and
+capped via. With 0.1 mm clearance and a 0.4/0.2 mm via, a track passes 0.2 mm from a via's hole, so a
+board with such a BGA needs a `hole_clearance` rule below KiCad's default of 0.25 mm.
+
+**Narrow copper.** Freerouting always runs with its automatic neck-down off
+(`--router.automatic_neckdown=false`), which narrowed wires at pins below their class. Its fanout stage
+still wrote wires of 0.1124 mm under a 0.15 mm class at QFN pins on a board with inner signal layers
+(`H-G-DSN-NARROW`); `route` reports any copper narrower than asked with `route.width-below-job`, whose hint
+for Freerouting names `fanout=off`.
+
+**Limits.** A pair needs two selected nets of one class with pair values; a leg may be 0.4 µm narrower
+than asked; the tool may leave skew, which KiCad's `diff_pair_skew` rule reports; per-part escape needs
+KiCadRoutingTools. No model field and no schema change come with pairs or escape.
+
 ## Loop order
 
 Use `build` → `place` → `route` → `fill` → `check`. Routing changes copper inputs used by a fill, so

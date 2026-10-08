@@ -2557,6 +2557,16 @@ meaning = "Nets outside the job stayed declared in the design file given to Free
 fix = "Nothing to do. To keep the router's time for the job, route those nets first, or select them with --nets."
 see = "route"
 
+["route.pair-skipped"]
+meaning = "A differential pair was not given to the router, and neither were its two nets: the router does not route pairs, only one net of the pair was selected, the two nets are in different classes, the class has no pair width or gap, or the router does not pair names of that form. Half a pair routed alone, or a pair routed as two single nets, is uncoupled copper that KiCad's pair rules reject."
+fix = "Route with a router that lists the feature pairs in fenolite capabilities, select both nets, give their class a pair width and gap, or pass --pairs-as-nets to route them as two single nets on purpose."
+see = "route"
+
+["route.pair-uncoupled"]
+meaning = "With --pairs-as-nets, the two nets of a differential pair were given to the router as two single nets: their copper is not coupled at the pair gap."
+fix = "Nothing to do if that is what you want. KiCad's diff_pair_gap and diff_pair_uncoupled rules judge the result; route with a router that has the feature pairs to couple them."
+see = "route"
+
 ["route.optimizer-cut"]
 meaning = "With --router-option optimize=on, Freerouting's optimizer run did not write a session in the time that was left. The copper of the first run, made without the optimizer, is kept."
 fix = "Nothing is lost. To give the optimizer more time, run route again with --rip and a larger --timeout."
@@ -2595,6 +2605,16 @@ see = "route"
 ["route.unrouted"]
 meaning = "A selected net is still not fully routed, or the router reports open connections."
 fix = "Route the rest by hand, give the router more passes, or free some space."
+see = "route"
+
+["route.escape-skipped"]
+meaning = "An --escape request was not given to the router: the pattern matched no part, the part has no pad on a net of the job, or the router has no escape step (the feature escape in fenolite capabilities)."
+fix = "Check the reference pattern of --escape, select a net of the part with --nets, or route with a router that lists the feature escape."
+see = "route"
+
+["route.width-below-job"]
+meaning = "The router returned a track or arc narrower than the width the job gave its net (the pair width for a pair net). The copper is kept; KiCad's DRC judges it against the board minimum and the class."
+fix = "Run fenolite check. With freerouting, pass --router-option fanout=off: its fanout stage writes narrow wires at fine-pitch pins."
 see = "route"
 
 ["route.zone-net-skipped"]

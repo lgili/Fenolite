@@ -464,6 +464,23 @@ def test_unselected_nets_are_still_declared() -> None:
     assert all(node.first("circuit") is None for node in network.all("class"))
 
 
+def test_no_pair_list() -> None:
+    """Scenario "No pair list" (requirement "Differential pairs in design files"; change c0110): the two nets
+    of a pair whose class has pair values are written as two nets, and no list is headed ``pair``."""
+    fast = NetClass(id=_id("cls", 4), name="HS", diff_pair_width=mm(0.2), diff_pair_gap=mm(0.15))
+    design = design_of(
+        Part("R1", "Mini_R_0603", 10, 10, nets={"1": "USB_P", "2": "USB_N"}),
+        Part("R2", "Mini_R_0603", 20, 10, nets={"1": "USB_P", "2": "USB_N"}),
+        classes=(fast,),
+        class_of={"USB_P": "HS", "USB_N": "HS"},
+    )
+    result = bench(design, selected=("USB_P", "USB_N")).write()
+    network = _section(result.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["USB_N", "USB_P"]
+    assert network.all("pair") == ()
+    assert "(pair" not in result.text
+
+
 def test_net_of_a_pin_on_no_net_is_left_out() -> None:
     """The one-pad net KiCad names after an unused pin (c0061) is no net for a router: the file is the one
     of the same board with that pad on no net. A net of that spelling with two pads is still declared."""

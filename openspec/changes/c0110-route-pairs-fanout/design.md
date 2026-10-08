@@ -280,3 +280,31 @@ Cut order: (1) intra-pair matching (0.1; KiCad reports the skew); (2) the escape
 - **Should `--escape` accept a pitch or kind selector instead of references?** Default: references only (Decision 8).
 - **Should the 0.4 µm legs be reported to the tool's maintainers?** Default: yes, as an issue citing the bench; it changes nothing here.
 - **Should the fanout stage be off by default?** It made narrow wires with four signal layers (e12, e14) and none with plane layers, where turning it off left 2 connections open (e17). Default: on, as today; the gate decides (Decision 10).
+
+## Implementation notes (2026-10-08, on `v04`)
+
+Defaults taken while building the change on the integration branch, where no maintainer was asked:
+
+- **Prerequisites stacked, not archived.** c0104, c0107, c0108 and c0109 are built on `v04` and not
+  archived; the change is built on them as they are there (task 0.1).
+- **The gate is not run here.** The machine of the implementation has neither `kicad-cli` nor the two
+  routers, so tasks 1.2 to 1.6, 4.3, 6.1 and 8.2 stay open. Following Decision 1 ("What still lands when a
+  part fails" and the verdict), `KicadRoutingToolsRouter.features` is empty until the verdict is written:
+  the pair and escape steps are built and tested with fakes (`GATED_FEATURES` names them), and `route`
+  gives every pair `route.pair-skipped` meanwhile. `PAIR_NAME_FORMS` holds the forms of measurement 4.
+- **Hint without a router that routes pairs.** While no registered router lists `pairs`, the hint of
+  `route.pair-skipped` names `--pairs-as-nets` and "kicadroutingtools, once its pair gate holds".
+- **Coupling probes not registered.** `dru-pair-couple-<case>` are written (`_couplebench.couple_probes`)
+  but not added to `_probes.PROBES`: an id there without its recorded outcome fails the probe-results test
+  on every machine with `kicad-cli`. They are added with their outcomes when task 1.2 runs.
+- **The pair board of the command** (`pair_two_headers`) is committed with its project file, since a
+  KiCad board holds no net class and the pair values come from the project; its parts are one-pad rows of
+  the test footprint library, not 1.27 mm headers, which the command's scenarios do not need.
+- **Escape step layers and sizes.** A request's layers are those of its first net (its own set, else the
+  job's routing layers); the pairs of a grid part go to `--diff-pairs` with the smallest gap among them. A
+  part with fewer than two surface pads gives `route.escape-skipped` (no kind can be found).
+- **Escape copper and the verdict.** An escape step's nets are not counted routed or unrouted by that
+  step; the step that routes the net decides, so an escaped net that no later step routes stays in
+  `unrouted` with its stubs.
+- **`features` in the default view only** of `capabilities`; the brief view is unchanged.
+

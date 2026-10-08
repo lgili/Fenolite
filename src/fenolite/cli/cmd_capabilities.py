@@ -21,6 +21,7 @@ from fenolite.cli import describe
 from fenolite.cli.api import Command, Context, Result, discover
 from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence
+from fenolite.routing.protocol import router_features
 from fenolite.routing.registry import routers as routing_routers
 
 _EXTRA_MARKER = re.compile(r"extra\s*==\s*['\"]([^'\"]+)['\"]")
@@ -211,6 +212,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "description": router.description,
                 "sends_data_offsite": router.sends_data_offsite,
                 "builtin": router.__class__.__module__.startswith("fenolite."),
+                # what the router takes beyond single nets, read without running it (change c0110)
+                "features": sorted(router_features(router)),
             }
             for router in routing_routers().values()
         ],

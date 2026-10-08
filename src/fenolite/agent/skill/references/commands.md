@@ -437,7 +437,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## route
 
-`fenolite route [--dry-run] [--confirm] [--plan ID] --router NAME [--nets GLOB] [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE] [--order GLOB] [--timeout SECONDS] [--allow-offsite] [-o FILE] PATH`
+`fenolite route [--dry-run] [--confirm] [--plan ID] --router NAME [--nets GLOB] [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE] [--order GLOB] [--timeout SECONDS] [--allow-offsite] [--escape REF[=grid\|perimeter]] [--pairs-as-nets] [-o FILE] PATH`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
@@ -455,6 +455,8 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--order` (string, repeatable): route the matching nets first (repeatable: one tier per glob, the other nets last)
 - `--timeout` (number): time budget of the whole routing step (default: the router's own, 900 s for the external routers); the copper of the router runs that finished in time is kept
 - `--allow-offsite` (boolean): allow a router that sends design data off this machine
+- `--escape` (string, repeatable): escape the pads of the matching parts before routing, with a router that has the escape feature (repeatable; the kind is found from the pads unless given)
+- `--pairs-as-nets` (boolean): route the nets of differential pairs as single nets, uncoupled, with any router
 - `-o`, `--out` (string): write the routed board to this file
 
 ## skill

@@ -16,7 +16,10 @@ wiring. The optimizer is switched off (``H-G-DSN-NOOPT``): with it on, the sessi
 the optimizer ends, and a run stopped before that gives nothing. ``optimize=on`` runs it afterwards on
 the time that is left and keeps the first session when that run is cut.
 
-The flag that disables its analytics is always passed and cannot be removed through router options.
+The flag that disables its analytics is always passed and cannot be removed through router options, and
+so is the setting that turns the automatic neck-down off (change c0110). The router option ``fanout=off``
+turns its fanout stage off. The plugin declares no router feature: Freerouting 2.4.1 routes a pair as two
+single nets (``H-G-DSN-PAIR``), so a job never gives it a pair or an escape request.
 ``sends_data_offsite`` is ``False``: the pinned image routes with the network disabled (``H-G-DSN-OFFLINE``,
 recorded on 2026-10-04).
 """
@@ -56,6 +59,12 @@ UNIT = "freerouting"
 ``freerouting tier <n>`` (change c0120)."""
 OPTIMIZER_OFF = "--router.optimizer.enabled=false"
 """The setting that stops the optimization stage (S-0222; ``-mt 0`` does not, ``H-G-DSN-NOOPT``)."""
+NECKDOWN_OFF = "--router.automatic_neckdown=false"
+"""Always passed: the automatic neck-down narrows wires at pins below their class (S-0222;
+``H-G-DSN-NARROW``; change c0110)."""
+FANOUT_OFF = "--router.fanout.enabled=false"
+"""Passed for the router option ``fanout=off``: the fanout stage is on by default (S-0222;
+``H-G-DSN-FANOUT``; change c0110)."""
 JAR_ENV = "FENOLITE_FREEROUTING_JAR"
 FETCH_NAME = "freerouting"
 """The folder of the jar in the tools folder, and the name of its row in ``fenolite fetch``."""
@@ -156,6 +165,8 @@ class FreeroutingRouter:
     )
     sends_data_offsite = False
     default_budget: float = DEFAULT_BUDGET
+    features: frozenset[str] = frozenset()
+    """No pairs and no escape steps (capability routing, "Freerouting declares no router feature")."""
 
     def __init__(
         self, path: str | Path | None = None, java: str | Path | None = None, budget: float | None = None
@@ -269,9 +280,12 @@ class FreeroutingRouter:
 
     # --- routing ----------------------------------------------------------------------------------
 
-    def command(self, folder: Path, passes: int, *, optimizer: bool = False) -> list[str]:
-        """The command line of one run in ``folder``; the analytics flag is always part of it, and the
-        optimizer is switched off unless ``optimizer`` is true."""
+    def command(
+        self, folder: Path, passes: int, *, optimizer: bool = False, fanout: bool = True
+    ) -> list[str]:
+        """The command line of one run in ``folder``; the analytics flag and the neck-down setting are
+        always part of it, the optimizer is switched off unless ``optimizer`` is true, and the fanout stage
+        unless ``fanout`` is true."""
         arguments = [
             "-de",
             "board.dsn",
@@ -283,9 +297,12 @@ class FreeroutingRouter:
             "1",
             "-da",
             "--gui.enabled=false",
+            NECKDOWN_OFF,
         ]
         if not optimizer:
             arguments.append(OPTIMIZER_OFF)
+        if not fanout:
+            arguments.append(FANOUT_OFF)
         if self.image:
             mount = f"{folder}:/work"
             return [
@@ -306,10 +323,12 @@ class FreeroutingRouter:
             evidence=Evidence(),
         )
 
-    def _options(self, job: RoutingJob, tiers: int, issues: list[Issue]) -> tuple[int, bool]:
-        """The passes and whether the optimizer run is asked for; every other option is reported."""
+    def _options(self, job: RoutingJob, tiers: int, issues: list[Issue]) -> tuple[int, bool, bool]:
+        """The passes, whether the optimizer run is asked for and whether the fanout stage stays on; every
+        other option is reported."""
         passes = DEFAULT_PASSES
         optimize = False
+        fanout = True
 
         def ignored(key: str, value: str, why: str) -> None:
             issues.append(
@@ -318,7 +337,8 @@ class FreeroutingRouter:
                     "warning",
                     f"the router option {key}={value} {why} and was ignored",
                     key,
-                    hint="supported: max-passes=N, optimize=on|off; analytics are always disabled",
+                    hint="supported: max-passes=N, optimize=on|off, fanout=on|off; analytics and the "
+                    "automatic neck-down are always disabled",
                 )
             )
 
@@ -330,9 +350,11 @@ class FreeroutingRouter:
                     ignored(key, value, "cannot be used with more than one tier (--order)")
                 else:
                     optimize = value == "on"
+            elif key == "fanout" and value in ("on", "off"):
+                fanout = value == "on"
             else:
                 ignored(key, value, f"is not supported by {self.name}")
-        return passes, optimize
+        return passes, optimize, fanout
 
     def _run(
         self,
@@ -341,6 +363,7 @@ class FreeroutingRouter:
         passes: int,
         *,
         optimizer: bool,
+        fanout: bool = True,
     ) -> tuple[str, str | None, tuple[str, ...], float, str]:
         """One process on the design file ``text`` in a fresh temporary folder.
 
@@ -353,7 +376,7 @@ class FreeroutingRouter:
             folder = Path(name)
             (folder / "board.dsn").write_text(text, encoding="utf-8", newline="\n")
             done = budget.run(
-                self.command(folder, passes, optimizer=optimizer),
+                self.command(folder, passes, optimizer=optimizer, fanout=fanout),
                 cwd=folder,
                 env={**os.environ, "HOME": str(folder), "LANG": "C", "LC_ALL": "C"},
             )
@@ -408,7 +431,7 @@ class FreeroutingRouter:
         tiers: dict[int, list[JobNet]] = {}
         for net in job.nets:
             tiers.setdefault(net.tier, []).append(net)
-        passes, optimize = self._options(job, len(tiers), issues)
+        passes, optimize, fanout = self._options(job, len(tiers), issues)
         defaults = _defaults(job.design)
         current = job.design
         tracks: list[Track] = []
@@ -459,7 +482,7 @@ class FreeroutingRouter:
                 unit = UNIT if len(tiers) == 1 else f"{UNIT} tier {tier}"
                 job.progress.step(unit, index=position + 1, total=len(tiers))
                 outcome, session_text, log, seconds, output = self._run(
-                    budget, written.text, passes, optimizer=False
+                    budget, written.text, passes, optimizer=False, fanout=fanout
                 )
                 if outcome == "unstarted":
                     ended = True
@@ -483,7 +506,7 @@ class FreeroutingRouter:
                     continue
                 runs.append(RouterRun(names, tier, seconds, "done"))
                 if optimize:
-                    better = self._optimized(budget, written, passes, names, tier, runs, issues)
+                    better = self._optimized(budget, written, passes, names, tier, runs, issues, fanout)
                     if better is not None:
                         got, log, output = better
                 run_tracks, run_vias, found = got
@@ -578,13 +601,16 @@ class FreeroutingRouter:
         tier: int,
         runs: list[RouterRun],
         issues: list[Issue],
+        fanout: bool = True,
     ) -> tuple[tuple[tuple[Track, ...], tuple[Via, ...], tuple[Issue, ...]], tuple[str, ...], str] | None:
         """The second run of ``optimize=on``: the same design file with the optimizer, on the time left.
 
         Returns its copper, log and output when it wrote a readable session in time; else ``None``, with
         ``route.optimizer-cut`` (info) reported: the first session is kept.
         """
-        outcome, session_text, log, seconds, output = self._run(budget, written.text, passes, optimizer=True)
+        outcome, session_text, log, seconds, output = self._run(
+            budget, written.text, passes, optimizer=True, fanout=fanout
+        )
         if outcome != "unstarted":
             runs.append(RouterRun(names, tier, seconds, "cut" if outcome == "cut" else "failed"))
         got = self._copper(session_text or "", written, names) if outcome == "done" else None
@@ -612,7 +638,9 @@ __all__ = [
     "DEFAULT_BUDGET",
     "DEFAULT_PASSES",
     "EVIDENCE",
+    "FANOUT_OFF",
     "JAVA_MIN",
+    "NECKDOWN_OFF",
     "OPTIMIZER_OFF",
     "PINNED_REVISION",
     "PINNED_VERSION",

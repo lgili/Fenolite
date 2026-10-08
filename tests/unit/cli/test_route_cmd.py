@@ -934,7 +934,12 @@ def test_board_without_plane_layers(monkeypatch, tmp_path: Path) -> None:
     assert env["result"]["plane_fanout"] == {
         "nets": [], "pads": 0, "joined": 0, "tracks": 0, "vias": 0, "failed": [],
     }  # fmt: skip
-    assert list(env["result"])[-2:] == ["plane_layers", "plane_fanout"] or "plan" in list(env["result"])[-3:]
+    # change c0110 adds ``pairs`` and ``escape`` after the two keys of change c0107
+    keys = list(env["result"])
+    assert keys[keys.index("plane_layers") : keys.index("plane_layers") + 4] == [
+        "plane_layers", "plane_fanout", "pairs", "escape",
+    ]  # fmt: skip
+    assert env["result"]["pairs"] == [] and env["result"]["escape"] == []
     assert env["result"]["routed"] == ["ROUTE_ME"]
 
 
@@ -1001,3 +1006,143 @@ def test_failed_fanout_is_reported_and_does_not_change_the_exit_code(
     fanned = env["result"]["plane_fanout"]
     assert fanned["failed"] == ["C1-1", "C1-2", "C2-1", "C2-2", "U1-4", "U1-8"] and fanned["vias"] == 0
     assert len(codes_of(env, "kicad.fanout.failed")) == 6 and not env["result"].get("plan")
+
+
+# --- pairs, escape requests and the width guard (change c0110) ------------------------------------------
+
+PAIR_BOARD = ROOT / "tests/data/kicad/routing/pair_two_headers.kicad_pcb"
+PAIR_NETS = ("USB_P", "USB_N", "S1", "S2")
+
+
+def pair_triad() -> dict[str, str]:
+    """The authored pair board and its project and rules files: the pair ``USB_P``/``USB_N`` and the single
+    nets ``S1`` and ``S2``, each open between a part on the left (``U1`` holds ``S1``) and one on the right,
+    all in the class ``HS`` (0.2 mm track and pair width, 0.15 mm clearance and pair gap)."""
+    from fenolite.backends.kicad.triad import write_triad
+    from fenolite.model.circuit import NetClass
+
+    builder = rb.Builder()
+    for index, net in enumerate(PAIR_NETS):
+        y = builder.row()
+        left = "U1" if net == "S1" else f"J{index + 1}"
+        builder.part(f"a{index}", left, Point(rb.LEFT, y), target=10, nets={"1": net})
+        builder.part(f"b{index}", f"J{index + 5}", Point(rb.RIGHT, y), target=10, nets={"1": net})
+    design = builder.build().design
+    hs = NetClass(
+        id="cls_00000000-0000-4000-8000-000000000110",
+        name="HS",
+        track_width=200_000,
+        clearance=150_000,
+        diff_pair_width=200_000,
+        diff_pair_gap=150_000,
+    )
+    circuit = replace(
+        design.circuit,
+        netclasses=(*design.circuit.netclasses, hs),
+        nets=tuple(replace(net, netclass_id=hs.id) for net in design.circuit.nets),
+    )
+    return write_triad(replace(design, circuit=circuit), name="pair_two_headers", target=10)
+
+
+def test_pair_board_is_the_authored_one() -> None:
+    """The committed files are what ``pair_triad`` writes (regenerate them from it when this fails)."""
+    for name, text in pair_triad().items():
+        if name.endswith((".kicad_pcb", ".kicad_pro")):
+            assert (PAIR_BOARD.parent / name).read_text(encoding="utf-8") == text, name
+
+
+def pair_run(monkeypatch, tmp_path: Path, *more: str, router: str = "direct") -> tuple[int, dict, dict]:
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(PAIR_BOARD), "--router", router, *more,
+                              "--dry-run")  # fmt: skip
+    return code, env, error
+
+
+def test_pair_skipped(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "A router without pairs", with the fake java of Freerouting."""
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path)))
+    given: list[RoutingJob] = []
+
+    def route(_self: FreeroutingRouter, job: RoutingJob) -> RoutingResult:
+        given.append(job)  # the run itself is the plugin's tests' (the pair board has no outline)
+        return RoutingResult(unrouted=tuple(net.name for net in job.nets), tool="freerouting")
+
+    monkeypatch.setattr(FreeroutingRouter, "route", route)
+    code, env, error = pair_run(
+        monkeypatch, tmp_path, "--router-path", str(create_fake_jar(tmp_path)), router="freerouting"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["selected"] == ["S1", "S2"] and env["result"]["pairs"] == []
+    (skipped,) = [issue for issue in env["issues"] if issue["code"] == "route.pair-skipped"]
+    assert "USB_P/USB_N" in skipped["message"] and skipped["severity"] == "warning"
+    assert "--pairs-as-nets" in skipped["hint"] and "kicadroutingtools" in skipped["hint"]
+    assert [job.pairs for job in given] == [()] and [n.name for n in given[0].nets] == ["S1", "S2"]
+
+
+def test_pairs_as_single_nets(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Pairs as single nets"."""
+    code, env, error = pair_run(monkeypatch, tmp_path, "--pairs-as-nets")
+    assert code == 0, (env, error)
+    assert set(env["result"]["selected"]) == set(PAIR_NETS) and env["result"]["pairs"] == []
+    (uncoupled,) = [issue for issue in env["issues"] if issue["code"] == "route.pair-uncoupled"]
+    assert "USB_P/USB_N" in uncoupled["message"] and uncoupled["severity"] == "info"
+    assert "route.pair-skipped" not in codes(env)
+
+
+def test_pairs_reach_a_router_with_the_feature(monkeypatch, tmp_path: Path) -> None:
+    """A router whose ``features`` holds ``pairs`` gets the pair with the class pair values, and the
+    reply lists it."""
+
+    class PairRouter(StubRouter):
+        features = frozenset({"pairs", "escape"})
+
+    router = PairRouter("test-pairs", "routed")
+    monkeypatch.setattr(cmd_route, "_router", lambda _name, _args: router)
+    code, env, error = pair_run(monkeypatch, tmp_path, "--escape", "U1", router="test-pairs")
+    assert code == 0, (env, error)
+    (job,) = router.jobs
+    assert [(p.name, p.positive, p.negative, p.width, p.gap) for p in job.pairs] == [
+        ("USB_P/USB_N", "USB_P", "USB_N", 200_000, 150_000)
+    ]
+    assert {net.name for net in job.nets} == set(PAIR_NETS)
+    assert [(e.ref, e.nets) for e in job.escape] == [("U1", ("S1",))]
+    (pair,) = env["result"]["pairs"]
+    assert pair["name"] == "USB_P/USB_N" and pair["width"] == 200_000 and pair["gap"] == 150_000
+    assert pair["routed"] is False  # the stub's 2 mm tracks join nothing
+    (escape,) = env["result"]["escape"]
+    assert escape["ref"] == "U1" and escape["nets"] == ["S1"] and escape["kind"] in ("grid", "perimeter")
+
+
+def test_escape_without_the_feature(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Escape without the feature"."""
+    code, env, error = pair_run(monkeypatch, tmp_path, "--escape", "U*")
+    assert code == 0, (env, error)
+    assert env["result"]["escape"] == []
+    (skipped,) = [issue for issue in env["issues"] if issue["code"] == "route.escape-skipped"]
+    assert "U1" in skipped["message"] and "direct" in skipped["message"]
+
+
+def test_unknown_escape_kind(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Unknown escape kind"."""
+    code, env, error = pair_run(monkeypatch, tmp_path, "--escape", "U1=ring")
+    assert code == 2 and error["code"] == "FEN-2001" and "ring" in error["message"]
+
+
+def test_narrower_copper_reported(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Narrower copper reported"."""
+
+    class Narrow(StubRouter):
+        def route(self, job: RoutingJob) -> RoutingResult:
+            done = super().route(job)
+            return replace(done, tracks=tuple(replace(t, width=t.width - 400) for t in done.tracks))
+
+    monkeypatch.setattr(cmd_route, "_router", lambda _name, _args: Narrow("test-narrow", "routed"))
+    code, env, error = pair_run(monkeypatch, tmp_path, "--nets", "S1", router="test-narrow")
+    assert code == 0, (env, error)
+    (found,) = [issue for issue in env["issues"] if issue["code"] == "route.width-below-job"]
+    assert found["where"] == "S1" and "0.1996mm" in found["message"] and "0.2mm" in found["message"]
+    assert env["result"]["plan"]
+    guard = cmd_route._width_guard  # pyright: ignore[reportPrivateUsage]
+    narrow = RoutingResult(tracks=(Track(id="", start=Point(0, 0), end=Point(1, 0), width=100, layer="F.Cu",
+                                         net_id="n1"),))  # fmt: skip
+    (hinted,) = guard(narrow, [cmd_route.JobNet("A", "n1", (), 200, 1, 1, 1)], (), "freerouting")
+    assert "fanout=off" in (hinted.hint or "")

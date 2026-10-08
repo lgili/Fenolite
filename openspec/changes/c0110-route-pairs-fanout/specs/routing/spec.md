@@ -119,24 +119,42 @@ adding `--diff-pair-intra-match --length-match-tolerance <skew_max>` when the pa
 
 ### Requirement: Freerouting plugin
 `fenolite.routing.plugins.specctra.freerouting.FreeroutingRouter` SHALL route through Freerouting (S-0220), run as a subprocess, and SHALL be registered as `freerouting` in the entry-point group `fenolite.routers`.
-- **Location.** The jar is the constructor's `path`, else `FENOLITE_FREEROUTING_JAR`; `java` is the constructor's `java`, else `FENOLITE_JAVA`, else `java` on `PATH`. The environment MUST be read when the router is used, not when it is constructed, because the registry holds one instance per process. A `path` of the form `docker:<image>` MUST run that image instead, with the run folder mounted and `--network none`. `fenolite route --router freerouting --router-path PATH` names the jar or the image.
-- **Availability.** `available()` MUST be false with a reason when the jar is missing or `java -version` gives a major below `JAVA_MIN = 25`, and MUST start no router. The version MUST be learned without running the jar: `PINNED_VERSION` when the jar's manifest names the build revision of the pinned tag (`PINNED_REVISION`, S-0223), else the version in the file name `freerouting-<version>.jar`, else `unknown`.
-- **Run.** The plugin MUST write the design file with `write_dsn`, from the job's `extra` (`board_pads`, `outline`), into a fresh temporary directory and run `java -jar <jar> -de board.dsn -do board.ses -mp <passes> -mt 1 -da --gui.enabled=false --router.automatic_neckdown=false` there, with `HOME` set to that directory and a timeout (900 s by default). `-da` and `--router.automatic_neckdown=false` MUST always be passed and MUST NOT be removable through router options (`H-G-DSN-NARROW`). The router options are `max-passes=N` (default 20) and `fanout=on|off` (default `on`): `fanout=off` MUST add `--router.fanout.enabled=false`, and `fanout=on` MUST add nothing, the stage being on by default (S-0222; `H-G-DSN-FANOUT`). Any other option, and a value that is not valid for its option, MUST be ignored with `route.option-ignored` (warning), a code of `routing.codes.ISSUE_CODES`. The board defaults passed to `write_dsn` are the values of the design's `Default` class, else 0.2 mm width and clearance and a 0.6 mm via with a 0.3 mm drill, as in `fenolite route`.
+- **Location.** The jar is the constructor's `path`, else `FENOLITE_FREEROUTING_JAR`, else the file `fenolite.core.tools.tool_path("freerouting", f"freerouting-{PINNED_VERSION}.jar")` when it exists ("Tools folder"); `java` is the constructor's `java`, else `FENOLITE_JAVA`, else `java` on `PATH`. The environment and the tools folder MUST be read when the router is used, not when it is constructed, because the registry holds one instance per process. A `path` of the form `docker:<image>` MUST run that image instead, with the run folder mounted and `--network none`. `fenolite route --router freerouting --router-path PATH` names the jar or the image. `jar_source` MUST say which of the three gave the jar: `argument`, `env` or `fetched`, or `None` without a jar.
+- **Availability.** `available()` MUST be false with a reason when the jar is missing or `java -version` gives a major below `JAVA_MIN = 25`, and MUST start no router. The reason for a missing jar MUST name the command `fenolite fetch freerouting --confirm` and the variable `FENOLITE_FREEROUTING_JAR`. The version MUST be learned without running the jar: `PINNED_VERSION` when the jar's manifest names the build revision of the pinned tag (`PINNED_REVISION`, S-0223), else the version in the file name `freerouting-<version>.jar`, else `unknown`.
+- **Run.** The plugin MUST write the design file with `write_dsn` and `others="netless"` (`specctra-dsn`, "Nets outside the routing job in design files"), from the job's `extra` (`board_pads`, `outline`), into a fresh temporary directory and run `java -jar <jar> -de board.dsn -do board.ses -mp <passes> -mt 1 -da --gui.enabled=false --router.automatic_neckdown=false --router.optimizer.enabled=false` there, with `HOME` set to that directory and the time left of the job's budget ("Routing time budget"). `-da` and `--router.automatic_neckdown=false` MUST always be passed and MUST NOT be removable through router options (`H-G-DSN-NARROW`). The router options are `max-passes=N` (default 20), `optimize=on|off` (default `off`) and `fanout=on|off` (default `on`): `fanout=off` MUST add `--router.fanout.enabled=false`, and `fanout=on` MUST add nothing, the stage being on by default (S-0222; `H-G-DSN-FANOUT`); any other option, and a value that is not valid, MUST be ignored with `route.option-ignored` (warning), a code of `routing.codes.ISSUE_CODES`. When the design file keeps nets outside the job declared for their class clearance, the result MUST hold one `route.net-declared` (info), also a code of `routing.codes.ISSUE_CODES` with its entry in `explain.toml`, whose message gives their count and names the first five. The board defaults passed to `write_dsn` are the values of the design's `Default` class, else 0.2 mm width and clearance and a 0.6 mm via with a 0.3 mm drill, as in `fenolite route`.
+- **Tiers.** A job of more than one tier MUST give one run per tier ("Routing tiers"); the design file of each run selects the nets of its tier.
+- **Optimizer.** With `optimize=on` and one tier, a second run of the same design file without `--router.optimizer.enabled=false` MUST get the time left. When it writes a session in time, that session replaces the first; otherwise the first is kept and `route.optimizer-cut` (info) is reported, not `route.budget-exhausted`. With more than one tier, `optimize=on` MUST be ignored with `route.option-ignored`.
 - **Outline.** A job whose `extra` lacks the pads or holds no outline ring MUST give `route.tool-failed` (error) and start no router: a design file needs the board outline.
-- **Result.** The session MUST be read with `read_session` and `to_copper`. A missing or unreadable session, and a timeout, MUST give `route.tool-failed` (error) and no copper. `routed` holds the job's nets that got copper and `unrouted` the others; the findings of the writer and of the reader are part of the result's issues.
+- **Result.** Each session MUST be read with `read_session` and `to_copper`. A missing or unreadable session MUST give `route.tool-failed` (error) and no copper for that run. A run stopped by the budget MUST follow "Routing time budget". `routed` holds the job's nets that got copper and `unrouted` the others; the findings of the writer and of the reader are part of the result's issues.
 - **Pin.** `PINNED_VERSION` MUST be `"2.4.1"`; another version MUST give `route.tool-unpinned` (warning).
 - **Data.** `sends_data_offsite` MUST be `True` until `H-G-DSN-OFFLINE` is recorded as `present`, and `False` after; while it is `True`, `fenolite route` refuses the router without `--allow-offsite` (c0016).
-- Fenolite MUST NOT import, vendor or download Freerouting.
+- Fenolite MUST NOT import or vendor Freerouting. It MUST NOT download it either, except through `fenolite fetch freerouting --confirm` (`cli-contract`, "Fetch command"): the plugin, `fenolite route`, `fenolite doctor` and `fenolite capabilities` MUST open no network connection.
+- **Messages.** When the jar is missing, `fenolite route --router freerouting` MUST exit 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. The `freerouting` entry of `doctor`'s `result.routers` MUST hold `source`, the value of `jar_source`.
 
 #### Scenario: Fake java
 - **GIVEN** `tests/_fakefreerouting.py`, a fake `java` that records its arguments and writes the authored session for the two-pad board
 - **WHEN** `uv run pytest tests/unit/routing/test_freerouting.py -k route` routes the two-pad job
-- **THEN** the result holds the session's tracks, and the recorded arguments hold `-de`, `-do`, `-mt 1`, `-da`, `--gui.enabled=false` and `--router.automatic_neckdown=false`, and no fanout setting
+- **THEN** the result holds the session's tracks, and the recorded arguments hold `-de`, `-do`, `-mt 1`, `-da`, `--gui.enabled=false`, `--router.automatic_neckdown=false` and `--router.optimizer.enabled=false`, and no fanout setting
 
 #### Scenario: Through the command
 - **GIVEN** the two-pad board written as a KiCad board, a fake jar and the fake `java`
 - **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k freerouting_through` runs `fenolite route two_pads.kicad_pcb --router freerouting --router-path <jar> --allow-offsite --dry-run`
 - **THEN** the exit code is 0, `result.routed` is `["A"]`, and the plan holds the board
+
+#### Scenario: Other nets left out of the design file
+- **GIVEN** a board with nets `A` and `B`, each of two pads, and a job that selects `A`
+- **WHEN** the fake `java` records the design file it is given
+- **THEN** the network section declares `A` and not `B`, and the pins of `B` are in their images
+
+#### Scenario: A net of a wider class is named
+- **GIVEN** the bench `netless_bench` of `tests/_specctra.py`, where the net `B` outside the job is in a class whose clearance is twice the default rule, and a job that selects `A`
+- **WHEN** `uv run pytest tests/unit/routing/test_freerouting.py -k wider` routes it with the fake `java`
+- **THEN** the recorded design file declares `A` and `B` and not `C`, and the result holds one `route.net-declared` (info) that names `B`
+
+#### Scenario: Optimizer run cut
+- **GIVEN** a fake `java` that writes the session at once when it is given `--router.optimizer.enabled=false` and sleeps 5 s otherwise, the option `optimize=on` and a budget of 2 s
+- **WHEN** the plugin routes the two-pad job
+- **THEN** the result holds the first session's tracks, `runs` has the outcomes `done` then `cut`, and `route.optimizer-cut` is present
 
 #### Scenario: Board without an outline
 - **GIVEN** a board without a closed outline
@@ -156,6 +174,21 @@ adding `--diff-pair-intra-match --length-match-tolerance <skew_max>` when the pa
 - **GIVEN** a fake `java` that exits 0 and writes nothing
 - **WHEN** the plugin routes
 - **THEN** the result has no copper and one `route.tool-failed` error
+
+#### Scenario: Fetched jar is found
+- **GIVEN** no `FENOLITE_FREEROUTING_JAR`, `FENOLITE_TOOLS_DIR` naming a folder that holds `freerouting/freerouting-2.4.1.jar` (a fake jar), and the fake `java`
+- **WHEN** `uv run pytest tests/unit/routing/test_freerouting.py -k fetched` asks the router for `available()` and `jar_source`
+- **THEN** it is available, `jar_source` is `fetched`, and setting `FENOLITE_FREEROUTING_JAR` to another fake jar makes `jar_source` `env`
+
+#### Scenario: Missing jar names the command
+- **GIVEN** no jar in any of the three places
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k missing_jar` runs `fenolite route two_pads.kicad_pcb --router freerouting --dry-run`, and `fenolite doctor --json`
+- **THEN** the first exits 6 with `FEN-6001` and a hint that holds `fenolite fetch freerouting --confirm`, and the `freerouting` entry of the second has `available: false`, `source: null` and a reason that names the same command
+
+#### Scenario: No connection outside fetch
+- **GIVEN** `urllib.request.urlopen` and `socket.create_connection` patched to raise
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k no_connection` runs `route --dry-run` with the fake jar, `doctor --no-run` and `capabilities --no-tools`
+- **THEN** each exits as it does without the patches
 
 #### Scenario: Fanout stage off, neck-down never on
 - **WHEN** `uv run pytest tests/unit/routing/test_freerouting.py -k fanout` routes the two-pad job with the options `fanout=off` and `automatic_neckdown=true`, and again with `fanout=maybe`

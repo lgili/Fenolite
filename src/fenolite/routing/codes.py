@@ -9,12 +9,15 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.budget-exhausted": "warning",
     "route.constraint-not-sent": "warning",
     "route.copper-removed": "warning",
+    "route.escape-skipped": "warning",
     "route.fill-stale": "info",
     "route.incomplete": "error",
     "route.net-declared": "info",
     "route.no-layer": "warning",
     "route.optimizer-cut": "info",
     "route.option-ignored": "warning",
+    "route.pair-skipped": "warning",
+    "route.pair-uncoupled": "info",
     "route.partial": "info",
     "route.plane-net": "info",
     "route.project-unread": "warning",
@@ -23,6 +26,7 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.tool-missing": "error",
     "route.tool-unpinned": "warning",
     "route.unrouted": "warning",
+    "route.width-below-job": "warning",
     "route.zone-net-skipped": "info",
 }
 

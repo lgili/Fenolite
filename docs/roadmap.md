@@ -517,6 +517,13 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0120 | `agent-loop-scale` |
 | c0140 | `part-height-rules` (taken out of c0113 on 2026-10-07, decision 3: one source of height) |
 
+**c0110 on `v04` (2026-10-08).** Built without its gate: the routing job carries differential pairs
+and escape requests, `route` takes `--escape` and `--pairs-as-nets` and reports narrow copper,
+capabilities list each router's `features`, Freerouting runs without automatic neck-down and takes
+`fanout=off`, and the KiCadRoutingTools pair and escape steps exist with fakes. The gate's verdict is
+pending (the benches and gate runs need `kicad-cli` and the routers): until it is recorded,
+`kicadroutingtools` declares no feature and every pair gives `route.pair-skipped`.
+
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may
 change at that point.

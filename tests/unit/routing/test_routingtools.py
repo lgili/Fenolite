@@ -15,8 +15,21 @@ from _fakerouter import create_fake_router
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.evidence import Level
 from fenolite.routing.merge import apply
-from fenolite.routing.plugins.kicad.routingtools import KicadRoutingToolsRouter
-from fenolite.routing.protocol import JobNet, JobPad, RoutingJob
+from fenolite.routing.plugins.kicad.routingtools import (
+    GATED_FEATURES,
+    PAIR_NAME_FORMS,
+    KicadRoutingToolsRouter,
+    tool_pairs,
+)
+from fenolite.routing.protocol import (
+    ROUTER_FEATURES,
+    JobEscape,
+    JobNet,
+    JobPad,
+    JobPair,
+    RoutingJob,
+    router_features,
+)
 from tests.unit.routing._designs import named_design, routing_design
 
 
@@ -298,3 +311,150 @@ def test_rules_read_from_a_file_reach_the_run_folder(tmp_path, monkeypatch) -> N
     (run,) = [json.loads(line) for line in runs.read_text(encoding="utf-8").splitlines()]
     assert '"sig_outer"' in run["rules"] and "(constraint disallow track)" in run["rules"]
     assert '"wide"' in run["rules"]
+
+
+# --- pair and escape steps (change c0110) ---------------------------------------------------------------
+
+
+def pair_job(*pairs: JobPair, escape: tuple[JobEscape, ...] = (), **options: str) -> RoutingJob:
+    """A job of the pair nets of ``pairs``, ``SDA`` and the nets of ``escape``, all 0.2 mm wide."""
+    names = ["SDA"]
+    for pair in pairs:
+        names += [pair.positive, pair.negative]
+    for request in escape:
+        names += [name for name in request.nets if name not in names]
+    job = grouped_job(dict.fromkeys(names, 0.2), **options)
+    return dataclasses_replace(job, pairs=pairs, escape=escape)
+
+
+USB = JobPair("USB_P/USB_N", "USB_P", "USB_N", 200_000, 150_000, skew_max=100_000)
+
+
+def test_arguments_of_a_pair_step(fake) -> None:
+    """Scenario "Arguments of a pair step"."""
+    router, runs = fake
+    job = pair_job(USB)
+    result = router.route(job)
+    saved = recorded(runs)
+    assert [run["script"] for run in saved] == ["route_diff.py", "route.py"]
+    argv = saved[0]["argv"]
+    assert argv[argv.index("--nets") + 1 : argv.index("--nets") + 3] == ["USB_P", "USB_N"]
+    assert argv[argv.index("--track-width") + 1] == "0.2"
+    assert argv[argv.index("--diff-pair-gap") + 1] == "0.15"
+    assert argv[argv.index("--clearance") + 1] == "0.2"
+    assert argv[argv.index("--layers") + 1 : argv.index("--layers") + 3] == ["F.Cu", "B.Cu"]
+    assert argv[argv.index("--escalation") + 1] == "off"
+    assert argv[argv.index("--length-match-tolerance") + 1] == "0.1"
+    for flag in ("--no-gnd-vias", "--keep-input-copper", "--no-fix-drc-settings", "--diff-pair-intra-match"):
+        assert flag in argv
+    assert saved[1]["nets"] == ["SDA"]
+    ids = {net.name: net.net_id for net in job.nets}
+    assert sorted(track.net_id for track in result.tracks) == sorted((ids["USB_P"], ids["USB_N"], ids["SDA"]))
+    assert set(result.routed) == {"USB_P", "USB_N", "SDA"} and result.unrouted == ()
+    assert [(run.nets, run.outcome) for run in result.runs] == [
+        (("USB_P", "USB_N"), "done"),
+        (("SDA",), "done"),
+    ]
+    # without a skew limit, no matching is asked for
+    router.route(pair_job(dataclasses_replace(USB, skew_max=None)))
+    assert "--diff-pair-intra-match" not in recorded(runs)[2]["argv"]
+
+
+def test_pair_steps_go_before_the_groups_of_their_tier(fake) -> None:
+    router, runs = fake
+    job = pair_job(USB)
+    tiers = {"SDA": 0, "USB_P": 1, "USB_N": 2}
+    nets = tuple(sorted((dataclasses_replace(n, tier=tiers[n.name]) for n in job.nets), key=lambda n: n.tier))
+    router.route(dataclasses_replace(job, nets=nets))
+    # the pair takes the lower tier of its two nets, 1, after the group of tier 0
+    assert [run["script"] for run in recorded(runs)] == ["route.py", "route_diff.py"]
+
+
+def test_a_name_form_the_tool_does_not_pair(fake) -> None:
+    """Scenario "A name form the tool does not pair"."""
+    router, runs = fake
+    result = router.route(pair_job(JobPair("DP1/DN1", "DP1", "DN1", 200_000, 150_000)))
+    assert all("DP1" not in run["argv"] for run in recorded(runs))
+    (skipped,) = [issue for issue in result.issues if issue.code == "route.pair-skipped"]
+    assert "DP1/DN1" in skipped.message
+    assert {"DP1", "DN1"} <= set(result.unrouted) and result.routed == ("SDA",)
+
+
+def test_name_forms() -> None:
+    assert PAIR_NAME_FORMS == ("X_P/X_N", "X_P<digits>/X_N<digits>", "X+/X-", "X_DP/X_DN")
+    paired = [("A_P", "A_N"), ("B+", "B-"), ("C_P0", "C_N0"), ("E_DP", "E_DN"), ("LANE_P12", "LANE_N12")]
+    assert all(tool_pairs(p, n) for p, n in paired)
+    refused = [("DP1", "DN1"), ("B+1", "B-1"), ("XP", "XN"), ("Q_P_1", "Q_N_1")]
+    assert not any(tool_pairs(p, n) for p, n in refused)
+
+
+def test_a_swap_option_refused(fake) -> None:
+    """Scenario "A swap option refused"."""
+    router, runs = fake
+    result = router.route(pair_job(USB, **{"polarity-swap-nets": "*", "impedance": "90"}))
+    for run in recorded(runs):
+        assert "--polarity-swap-nets" not in run["argv"] and "--impedance" not in run["argv"]
+    ignored = sorted(issue.where for issue in result.issues if issue.code == "route.option-ignored")
+    assert ignored == ["impedance", "polarity-swap-nets"]
+
+
+ESCAPES = (
+    JobEscape("U1", "perimeter", 500_000, ("Q01", "Q02")),
+    JobEscape("U2", "grid", 800_000, ("B_A1",)),
+)
+
+
+def test_arguments_of_an_escape_step(fake) -> None:
+    """Scenario "Arguments of an escape step"."""
+    router, runs = fake
+    result = router.route(pair_job(escape=ESCAPES, **{"grid-step": "0.05", "group-nets": "1"}))
+    saved = recorded(runs)
+    assert [run["script"] for run in saved][:2] == ["qfn_fanout.py", "bga_fanout.py"]
+    assert {run["script"] for run in saved[2:]} == {"route.py"}
+    qfn, bga = saved[0]["argv"], saved[1]["argv"]
+    assert qfn[qfn.index("--component") + 1] == "U1" and bga[bga.index("--component") + 1] == "U2"
+    assert qfn[qfn.index("--nets") + 1 : qfn.index("--nets") + 3] == ["Q01", "Q02"]
+    for argv in (qfn, bga, saved[2]["argv"]):
+        assert argv[argv.index("--grid-step") + 1] == "0.05"
+    for argv in (qfn, bga):
+        assert argv[argv.index("--escalation") + 1] == "off" and "--no-fix-drc-settings" in argv
+    assert bga[bga.index("--escape-method") + 1] == "dogbone"
+    assert bga[bga.index("--plane-drop") + 1] == "off"
+    assert "--plane-drop" not in qfn and "--escape-method" not in qfn
+    assert qfn[qfn.index("--width") + 1] == "0.2" and bga[bga.index("--track-width") + 1] == "0.2"
+    assert [run.outcome for run in result.runs][:2] == ["done", "done"]
+    # escape copper is lifted with its net; the net is judged by the step that routes it
+    q01 = next(net.net_id for net in pair_job(escape=ESCAPES).nets if net.name == "Q01")
+    assert sum(1 for track in result.tracks if track.net_id == q01) == 2
+    assert {"Q01", "Q02", "B_A1", "SDA"} == set(result.routed)
+
+
+def test_escape_without_grid_step_and_with_a_pair_on_a_bga(fake) -> None:
+    router, runs = fake
+    pair = JobPair("B_P/B_N", "B_P", "B_N", 200_000, 150_000)
+    request = JobEscape("U2", "grid", 800_000, ("B_N", "B_P"))
+    router.route(pair_job(pair, escape=(request,)))
+    saved = recorded(runs)
+    assert [run["script"] for run in saved] == ["bga_fanout.py", "route_diff.py", "route.py"]
+    bga = saved[0]["argv"]
+    assert bga[bga.index("--diff-pairs") + 1 : bga.index("--diff-pairs") + 3] == ["B_P", "B_N"]
+    assert bga[bga.index("--diff-pair-gap") + 1] == "0.15"
+    assert all("--grid-step" not in run["argv"] for run in saved)
+
+
+def test_a_failed_escape_step(fake, monkeypatch) -> None:
+    """Scenario "A failed escape step"."""
+    router, runs = fake
+    monkeypatch.setenv("FAKE_ESCAPE_FAIL", "U1")
+    result = router.route(pair_job(escape=ESCAPES))
+    failed = [issue for issue in result.issues if issue.code == "route.tool-failed"]
+    assert [(issue.where, issue.severity) for issue in failed] == [("U1", "error")]
+    assert "escape of U1" in failed[0].message
+    saved = recorded(runs)
+    assert saved[1]["script"] == "bga_fanout.py" and saved[1]["board"] == saved[0]["board"]
+    assert [run.outcome for run in result.runs][:2] == ["failed", "done"]
+
+
+def test_features_are_declared_only_after_the_gate() -> None:
+    assert router_features(KicadRoutingToolsRouter()) == frozenset()
+    assert GATED_FEATURES == ROUTER_FEATURES
