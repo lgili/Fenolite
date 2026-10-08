@@ -498,7 +498,7 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0100 | `board-layer-count`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0101 | `board-stackup`; on `v04`, every task closed on 2026-10-08, with the three presets: ships in 0.4 |
 | c0102 | `board-outline-shapes`; on `v04`, every task closed on 2026-10-08: ships in 0.4 (archive c0100 first; c0102 then adds its delta of "Layer count across rebuilds") |
-| c0103 | `dsl-keepouts-board-items` |
+| c0103 | `dsl-keepouts-board-items`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0104 | `diff-pair-constraints` |
 | c0105 | `impedance-targets` |
 | c0106 | `length-measure-tune` |

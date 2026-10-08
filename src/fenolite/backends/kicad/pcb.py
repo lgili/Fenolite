@@ -2001,8 +2001,9 @@ FLOOR_HEADS: tuple[str, ...] = (
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
 the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
 (``dimension``, ``height``, ``orientation``, ``format`` and ``style`` with their children; change c0103) are
-those the demo boards of 9.0.9 and 10.0.6 hold (S-0058); their check against the 8.0.0 keyword list is
-still open, and the writer has no target below 9."""
+those the demo boards of 9.0.9 and 10.0.6 hold (S-0058); the aligned dimensions of the 8.0.0 demo boards
+in the 8.0 format hold all of them but ``orientation`` (S-0723), which the format page documents for an
+orthogonal dimension (S-0001). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
