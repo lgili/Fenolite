@@ -470,7 +470,7 @@ to write a design, and a tool that measures whether an agent closes the loop.
 | c0078 | `router-fetch`; on `v04`, every task closed on 2026-10-08 (`H-G-FETCH-PIN` settled by the `routing` jobs of CI): ships in 0.4 |
 | c0079 | `agent-guide` (the slug of its folder; this page said `agent-kit`); on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0080 | `agent-authoring-guide`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
-| c0081 | `agent-eval` |
+| c0081 | `agent-eval`; on `v04`, closed for 0.4 on 2026-10-08 except the runs with a real agent (tasks 4.2 and 4.3), deferred to the next release by the maintainer's decision of 2026-10-08 |
 
 **Board authoring, c0096, c0097 and c0099.** One branch each; the tip of each is a commit that
 implements its change, with the proposal in it. Scope, from the proposals: a placement request that
