@@ -38,7 +38,7 @@ from fenolite.placement.codes import issue
 TOUCHING_OVERLAPS = False
 """Whether courtyards that share only boundary points overlap. The probe files record ``absent`` for
 ``place-touch`` on 9.0.9 and 10.0.6: KiCad reports no ``courtyards_overlap`` for them."""
-KEEPOUT_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-PLACE-KEEPOUT",))
+KEEPOUT_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PLACE-KEEPOUT",))
 """The evidence of the keep-out verdict: ``KICAD-VERIFIED`` exactly when the row ``H-K-PLACE-KEEPOUT`` is
 ``KICAD-VERIFIED (9.0.x, 10.0.x)``, else ``INFERRED``."""
 KEEPOUT_FACES: tuple[tuple[str, str], ...] = (("front", "F.Cu"), ("back", "B.Cu"))

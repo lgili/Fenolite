@@ -8,10 +8,10 @@ command contract is in `docs/cli-contract.md` ("`place`").
 
 A placement is never a verdict: KiCad's DRC judges the board (`fenolite check`). Every `place` reply
 carries `evidence.level` `KICAD-VERIFIED`, which covers the moved footprints and the touching courtyards
-(`H-K-PLACE-MOVE`, `H-K-PLACE-TOUCH`), not the layout. The level is lower in two cases: when the board
-holds a rule area that forbids footprints, the reply also rests on `H-K-PLACE-KEEPOUT`, and when a
-placement rule was judged it is `INFERRED`, because a `near` rule is Fenolite's own definition ("Keep-outs"
-and "Placement rules" below).
+(`H-K-PLACE-MOVE`, `H-K-PLACE-TOUCH`), not the layout. When the board holds a rule area that forbids
+footprints, the reply also rests on `H-K-PLACE-KEEPOUT`, `KICAD-VERIFIED` on both majors since 2026-10-08.
+When a placement rule was judged the level is `INFERRED`, because a `near` rule is Fenolite's own
+definition ("Keep-outs" and "Placement rules" below).
 
 ## Strategies
 
