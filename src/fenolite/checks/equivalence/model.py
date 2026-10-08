@@ -16,9 +16,9 @@ from typing import Literal
 
 from fenolite.core.coords import Point
 
-LEVELS: tuple[int, ...] = (1, 2, 3, 4)
+LEVELS: tuple[int, ...] = (1, 2, 3, 4, 5)
 LEVEL_NAMES: Mapping[int, str] = MappingProxyType(
-    {1: "components", 2: "netlist", 3: "footprints", 4: "placement"}
+    {1: "components", 2: "netlist", 3: "footprints", 4: "placement", 5: "routing"}
 )
 Frame = Literal["absolute", "relative"]
 FRAMES: tuple[Frame, ...] = ("absolute", "relative")
@@ -42,6 +42,12 @@ KINDS: tuple[tuple[int, str, str], ...] = (
     (4, "side", "side"),
     (4, "position", "position"),
     (4, "rotation", "rotation"),
+    (5, "route-missing", "copper"),
+    (5, "route-connectivity", "pads"),
+    (5, "route-vias", "vias"),
+    (5, "route-length", "length"),
+    (5, "route-stub", "stubs"),
+    (5, "route-unjudged", "zones"),
 )
 """Every kind of difference as ``(level, kind, field)``; the table is closed."""
 KIND_LEVELS: Mapping[str, tuple[int, ...]] = MappingProxyType(
@@ -51,17 +57,29 @@ KIND_LEVELS: Mapping[str, tuple[int, ...]] = MappingProxyType(
     }
 )
 """The levels of each kind name (``rotation`` is a kind of level 4 only; a pad's is ``pad-rotation``)."""
+NOTICE_SEVERITY: Mapping[str, Literal["warning", "info"]] = MappingProxyType(
+    {"route-stub": "warning", "route-unjudged": "info"}
+)
+"""The kinds that are notices, with their severity: they are reported and located as differences are,
+and they never make two designs unequal. Every other kind is an error."""
 
 
 @dataclass(frozen=True, slots=True)
 class Tolerances:
-    """How far two lengths (per coordinate) and two angles (on the circle) may differ and stay equal."""
+    """How far two lengths (per coordinate) and two angles (on the circle) may differ and stay equal.
+    ``length_ppm`` is relative to a routed length of level 5 and applies to nothing else: two routed
+    lengths are equal within the larger of ``length_nm`` and that share of the longer one."""
 
     length_nm: int = 0
     angle_udeg: int = 0
+    length_ppm: int = 0
 
     def __post_init__(self) -> None:
-        for name, value in (("length_nm", self.length_nm), ("angle_udeg", self.angle_udeg)):
+        for name, value in (
+            ("length_nm", self.length_nm),
+            ("angle_udeg", self.angle_udeg),
+            ("length_ppm", self.length_ppm),
+        ):
             if type(value) is not int or value < 0:
                 raise ValueError(f"{name} is a non-negative integer, got {value!r}")
 
@@ -72,8 +90,9 @@ EXACT = Tolerances()
 
 @dataclass(frozen=True, slots=True)
 class Difference:
-    """One located difference. ``where`` is ``REF`` or ``REF-PIN``; ``a`` and ``b`` are the two values as
-    exact strings, ``""`` for a missing object."""
+    """One located difference. ``where`` is ``REF`` or ``REF-PIN``, and at level 5 the net's name on side
+    ``a``, followed by ``:`` and the first pads of a pad set; ``a`` and ``b`` are the two values as exact
+    strings, ``""`` for a missing object."""
 
     level: int
     kind: str
@@ -95,13 +114,15 @@ class Excluded:
 @dataclass(frozen=True, slots=True)
 class LevelResult:
     """One level: the count of compared objects, the differences in ``(where, kind, field)`` order, those
-    a rule excluded, and the level's counts."""
+    a rule excluded, the level's counts, and its notices (the kinds of ``NOTICE_SEVERITY``), which fail
+    nothing."""
 
     level: int
     compared: int
     differences: tuple[Difference, ...] = ()
     excluded: tuple[Excluded, ...] = ()
     summary: Mapping[str, object] = field(default_factory=lambda: {})
+    notices: tuple[Difference, ...] = ()
 
     @property
     def name(self) -> str:
@@ -131,6 +152,10 @@ class EquivalenceReport:
     def excluded(self) -> tuple[Excluded, ...]:
         return tuple(e for level in self.levels for e in level.excluded)
 
+    @property
+    def notices(self) -> tuple[Difference, ...]:
+        return tuple(d for level in self.levels for d in level.notices)
+
 
 __all__ = [
     "EXACT",
@@ -139,6 +164,7 @@ __all__ = [
     "KIND_LEVELS",
     "LEVELS",
     "LEVEL_NAMES",
+    "NOTICE_SEVERITY",
     "Difference",
     "EquivalenceReport",
     "Excluded",

@@ -26,6 +26,7 @@ import _arccases
 import _asmcases
 import _bench
 import _benches
+import _bodycases
 import _buildcases
 import _checkcases
 import _copperparity
@@ -50,9 +51,12 @@ import _netlistcases
 import _offsetbench
 import _paircases
 import _paritycases
+import _pcbxcases
 import _placecases
 import _procases
 import _renamecases
+import _routetriangle
+import _rta3oracle
 import _rulecases
 import _schcases
 import _sheetcases
@@ -223,6 +227,10 @@ def _probes() -> dict[str, Probe]:
     for name in ("bench", "exact", "missing-table", *_bench.CONTROLS):
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
     probes.update(fp_write_probes())
+    # the level-5 triangle on the routed sample (c0089); `pcb import` exists from 10.0 only
+    probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))
+    # KiCad's importer on the rewrite of an own PCB document (c0090, RT-A3)
+    probes["altium-rta3-kicad"] = Probe(_rta3oracle.outcome, (10,))
     for pid, (function, majors) in {
         **_rulecases.dru_probes(),
         **_procases.pro_probes(),
@@ -272,6 +280,10 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _paritycases.parity_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _hiercases.hier_probes().items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
         probes[pid] = Probe(function, majors)
     return probes
 

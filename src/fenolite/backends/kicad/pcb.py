@@ -1852,6 +1852,10 @@ COLLECTION_FIELDS: frozenset[str] = frozenset(
 _KIND_HEADS: Mapping[str, str] = MappingProxyType({kind: head for head, kind in GR_GRAPHIC_HEADS.items()})
 _FILLED_KINDS = frozenset({"circle", "rect", "polygon"})
 READ_ONLY_CODE = "kicad.board.projection-read-only"
+PROJECTED_PAIR: tuple[str, str] = ("fenolite.projected", "footprint-items")
+"""The pair of a footprint's bag that ``fpitems.with_footprint_items`` sets (change c0126): the footprint's
+``graphics``, ``texts`` and its pads' ``corner_ratio`` are read-only copies of its opaque children. The
+writer then projects again and refuses a difference; without the pair it does not look at them."""
 
 
 def kicad_uuid(entity: Entity, part: str = "") -> str:
@@ -2384,6 +2388,13 @@ class _Writer:
         kept: dict[str, list[str]] = {}
         file_properties: dict[str, str] = {}
         if isinstance(entity, FootprintInstance):
+            bag = entity.ext.get("kicad")
+            if bag is not None and PROJECTED_PAIR in bag.payload:
+                # the one place that imports the projection: only for a footprint that carries its pair
+                from fenolite.backends.kicad import fpitems
+
+                for name, detail in fpitems.projection_problems(entity):
+                    self.read_only(name, where, detail)
             for field in entity.fields:
                 value = field_value(field)
                 if value is not None and field.name not in ("Reference", "Value"):

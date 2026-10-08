@@ -221,7 +221,7 @@ class KicadBackend:
         netlist, and ``side`` is ``None`` for a schematic outside its grammar; with ``nodes`` (an
         oracle's schematic netlist) they are the oracle's. The reader's ``FormatError`` is raised
         unchanged."""
-        from fenolite.backends.kicad import parity_inputs, sch_netlist
+        from fenolite.backends.kicad import parity_inputs
 
         root = project.root / f"{PurePosixPath(project.board).stem}.kicad_sch"
         sheets = parity_inputs.read_sheets(root)
@@ -235,7 +235,8 @@ class KicadBackend:
             return SideOutcome(None, message=why)
         own = parity_inputs.own_netlist(sheets, project=root.stem)
         return SideOutcome(
-            parity_inputs.side_of(root, sheets, parity_inputs.netlist_nodes(own)), sch_netlist.EVIDENCE
+            parity_inputs.side_of(root, sheets, parity_inputs.netlist_nodes(own)),
+            parity_inputs.own_evidence(sheets),
         )
 
     def capabilities(self) -> CapabilityReport:

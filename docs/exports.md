@@ -40,11 +40,20 @@ files next to every file (or pass `--no-backup`).
 | `--pos` | `pos/<stem>-pos.csv` | `--format csv --units mm --side both` |
 | `--ipcd356` | `netlist/<stem>.d356` | none |
 | `--all` | the four kinds | |
+| `--altium-rul` | `<stem>.RUL`: the project's rules as an Altium rule file | no tool runs |
 
 The Gerber layers are every copper layer in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`,
 `F.SilkS` and `B.SilkS` where the board has them, then `Edge.Cuts`. Courtyard and fabrication layers
 are left out. KiCad names a Gerber after the layer name it shows, so the silkscreen files end in
 `F_Silkscreen.gbr` and `B_Silkscreen.gbr`.
+
+`--altium-rul` is not part of `--all`. It reads `<stem>.kicad_dru` beside the board and writes each
+rule that has an exact Altium form as one record of a rule file, which Altium's PCB Rules editor imports
+into a board (Design » Rules, right-click, Import Rules): a way to give a PcbDoc you keep the rules of
+the script without building it again. `result.rules` names what was written and what was not, with the
+reason (`docs/altium.md`, "Rules"); a project without a rule that can be written gives `export.failed`
+and no file. The file is Fenolite's own, at the level `INFERRED`: that Altium imports it as written is
+not yet confirmed (`H-A-RULE-FILE`).
 
 v0.1 has one way to export each kind; these options are the whole list. Two options are never passed:
 

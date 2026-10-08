@@ -8,23 +8,27 @@ import dataclasses
 import random
 import re
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from functools import cached_property
+from types import MappingProxyType
 from typing import Any
 
 from fenolite import __version__
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import new_id
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Pad
-from fenolite.model.circuit import Circuit, Component, Net, PinRef
+from fenolite.model.board import MAX_CORNER_RATIO, Board, Pad
+from fenolite.model.circuit import Circuit, Component, Net, PinRef, pin_pad_map_problems
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
 from fenolite.model.presentation import PAPER_SIZES, PARAM_NAME, US_SIZES, SheetFrameRef, TitleBlock
 from fenolite.model.rules import RuleSet
 
 SCHEMA_VERSION = "0"
+MODEL_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({"model.corner-ratio": "error"})
+"""The codes of ``Design.validate`` that ``fenolite explain`` knows (``cli.explain.TABLES``): those added
+since change c0126. The older ``model.*`` codes are described in ``docs/cli-contract.md`` only."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -140,6 +144,8 @@ class Design:
             for pad in fp.pads:
                 for layer in pad.layers:
                     add(layer, pad)
+            for item in (*fp.graphics, *fp.texts):  # the footprint's own drawings (change c0126)
+                add(item.layer, item)
         for item in (*board.tracks, *board.arcs, *board.texts, *board.graphics):
             add(item.layer, item)
         for item in (*board.vias, *board.zones, *board.keepouts):
@@ -180,6 +186,24 @@ class Design:
                 )
                 severity: Severity = "warning" if board_only or ref.endswith("**") else "error"
                 add("model.duplicate-ref", severity, f"reference used {count} times", ref)
+        for component in self.circuit.components:
+            for pin, text in pin_pad_map_problems(component):
+                add("model.pin-pad-map", "error", text, f"{component.ref}-{pin}",
+                    "give each pad one pin, and each pair once")  # fmt: skip
+        for fp in self.board.footprints if self.board else ():
+            for pad in fp.pads:
+                ratio = pad.corner_ratio
+                if ratio is None:
+                    continue
+                if pad.shape != "roundrect":
+                    text = f"a corner ratio of {ratio} ppm on a pad of shape {pad.shape}"
+                    add(
+                        "model.corner-ratio", "error", text, pad.id, "only a roundrect pad has a corner ratio"
+                    )
+                elif not 0 <= ratio <= MAX_CORNER_RATIO:
+                    text = f"a corner ratio of {ratio} ppm is outside 0 to {MAX_CORNER_RATIO}"
+                    add("model.corner-ratio", "error", text, pad.id,
+                        "the ratio is in parts per million of the pad's shorter side")  # fmt: skip
         components = {c.id: c for c in self.circuit.components}
         netclasses = {c.id for c in self.circuit.netclasses}
         net_ids = {n.id for n in self.circuit.nets}
@@ -297,4 +321,11 @@ def _sheet_size_problem(sheet: SheetFrameRef) -> str | None:
     return None
 
 
-__all__ = ["SCHEMA_VERSION", "Design", "DesignHeader", "iter_entities", "presentation_issues"]
+__all__ = [
+    "MODEL_ISSUE_CODES",
+    "SCHEMA_VERSION",
+    "Design",
+    "DesignHeader",
+    "iter_entities",
+    "presentation_issues",
+]

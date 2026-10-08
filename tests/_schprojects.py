@@ -26,6 +26,8 @@ from _resources import corpus_cache_dir
 from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
 
 ACCEPTANCE_EXCLUDED = frozenset({"sch-bus", "sch-multi", "sch-old"})
+OLD = "sch-old"
+"""The use of a schematic row whose format is below the reader's floor."""
 """A root row with none of these tags is on the acceptance list of v0.2a (change c0060)."""
 MAJOR_TAGS = {10: "10.0.6", 9: "9.0.9.1"}
 STUB_BOARD = (
@@ -79,6 +81,17 @@ def loadable(row: _schcorpus.SchRow, major: int) -> bool:
     tag = MAJOR_TAGS[major]
     sheets = [r for p, r in _schcorpus.at_tag(tag).items() if str(PurePosixPath(p).parent) == folder]
     return all(not r.file.is_file() or _schcorpus.version_of(r.file) <= limit for r in sheets)
+
+
+def readable(row: _schcorpus.SchRow, major: int) -> bool:
+    """Whether Fenolite's reader takes every sheet of the row's folder at the tag of ``major``: none carries
+    the use ``sch-old`` (a format below the read floor). It reads the manifest only, as the round-trip and
+    component tests select their rows; a test that reads the sheets of a project asks this first."""
+    folder = str(PurePosixPath(row.path).parent)
+    sheets = [
+        r for p, r in _schcorpus.at_tag(MAJOR_TAGS[major]).items() if str(PurePosixPath(p).parent) == folder
+    ]
+    return OLD not in row.uses and not any(OLD in sheet.uses for sheet in sheets)
 
 
 def acceptance(row: _schcorpus.SchRow) -> bool:

@@ -14,7 +14,12 @@ copper, or a routed KiCad board), which ``match_source`` checks against the desi
 lowered the same way. The source's placements win. It finds every case the writer would
 refuse and reports it as an issue of ``COPPER_ISSUE_CODES``, so no ``ValueError`` of the writer reaches the
 user. Nothing is dropped to make a document fit: copper that cannot be written exactly is an error.
-``fenolite.lens.altium`` calls it from ``pcb_document`` and adds the codes to its closed table.
+``fenolite.lens.altium`` calls it from ``lowered_pcb`` and adds the codes to its closed table.
+
+Change c0085 ("Complete board in an Altium build") lowers the rest of the board: a stack of any even
+count that ``pcbrecords.copper_stack`` takes, blind and buried vias, and the free texts, graphics,
+keep-outs and holes (``lower_items``). An item that has no record gives one ``altium.not-lowered`` whose
+``where`` is ``<kind>/<id>``, and ``account`` counts every item of the board as written or not lowered.
 """
 
 from __future__ import annotations
@@ -27,7 +32,7 @@ from decimal import Decimal
 from types import MappingProxyType
 from typing import Literal
 
-from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords
+from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords, rulemap
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.project import component_path
@@ -36,14 +41,27 @@ from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.lens.build import PlacementRequest
-from fenolite.model.board import Arc, Board, FootprintInstance, Side, Stackup, Track, Via, Zone
+from fenolite.model.board import (
+    Arc,
+    Board,
+    FootprintInstance,
+    Graphic,
+    Hole,
+    Keepout,
+    Side,
+    Stackup,
+    Text,
+    Track,
+    Via,
+    Zone,
+)
 from fenolite.model.design import Design
 
 COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "altium.copper-stack": "error",
         "altium.copper-layer": "error",
-        "altium.via-unsupported": "error",
+        "altium.via-unsupported": "warning",
         "altium.copper-invalid": "error",
         "altium.zone-unsupported": "error",
         "altium.plane-copper": "error",
@@ -60,7 +78,23 @@ COPPER_COUNTS: Mapping[int, tuple[str, ...]] = MappingProxyType(
     {len(stack): stack for stack in pcbrecords.COPPER_STACKS}
 )
 """Copper layer count of the script → the board's copper layers, top to bottom."""
-STACK_HINT = "use design.board(..., copper=2) or copper=4"
+STACK_HINT = "use design.board(..., copper=2) or copper=4, or give the board its copper layers"
+KINDS: tuple[str, ...] = (
+    "footprint",
+    "pad",
+    "track",
+    "arc",
+    "via",
+    "zone",
+    "text",
+    "graphic",
+    "keep-out",
+    "hole",
+    "body",
+    "rule",
+)
+"""The kinds of model items that ``account`` counts (capability altium-pcb-writer, "Written items are
+accounted")."""
 REPOUR_COMMAND = "Tools » Polygon Pours » Repour All"
 """The Altium Designer command that fills the unpoured polygons (``pcb-copper.md``, "Polygon pour")."""
 
@@ -94,33 +128,44 @@ class CopperPlan:
     stack: StackSpec | None = None
     zones: tuple[Zone, ...] = ()
     net_classes: tuple[pcbdoc.NetClassSpec, ...] = ()
+    texts: tuple[Text, ...] = ()
+    graphics: tuple[Graphic, ...] = ()
+    keepouts: tuple[Keepout, ...] = ()
+    holes: tuple[Hole, ...] = ()
+    counts: Mapping[str, tuple[int, int]] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
+    """Kind of ``KINDS`` → (items written, items not lowered), for the kinds the lowering decides."""
 
     @property
     def failed(self) -> bool:
         return any(found.severity == "error" for found in self.issues)
 
 
+def layer_names(count: int) -> tuple[str, ...]:
+    """The copper layers of a board of ``count`` layers that names none: ``F.Cu``, ``In1.Cu`` …, ``B.Cu``."""
+    return ("F.Cu", *(f"In{index}.Cu" for index in range(1, count - 1)), "B.Cu")
+
+
 def board_layers(design: Design, copper: int) -> tuple[tuple[str, ...], list[Issue]]:
     """The copper layers of the document: the copper layers of ``design.board.layers`` when it holds any,
-    else those of the script's count ``copper``. A stack that is not one of ``pcbrecords.COPPER_STACKS``,
-    or whose count differs from ``copper``, gives ``altium.copper-stack`` and the nearest written stack."""
+    else those of the script's count ``copper``. A count that differs from ``copper``, or a repeated
+    layer, gives ``altium.copper-stack``. A stack that ``pcbrecords.stack_problem`` refuses (an odd count,
+    more than 32 layers) gives one ``altium.not-lowered`` with ``where`` ``stackup`` and the default
+    stack of the two outer layers: no partial stack is written (change c0085)."""
     board = design.board
     named = tuple(layer.name for layer in board.layers if layer.kind == "copper") if board is not None else ()
-    wanted = COPPER_COUNTS.get(copper)
-    if named:
-        if named not in pcbrecords.COPPER_STACKS:
-            stacks = " or ".join(", ".join(stack) for stack in pcbrecords.COPPER_STACKS)
-            message = f"the board's copper layers {', '.join(named)} are not {stacks}"
-            return named, [issue("altium.copper-stack", message, "stack", STACK_HINT)]
-        if wanted is not None and named != wanted:
-            held = f"{len(named)} copper layers ({', '.join(named)})"
-            message = f"the board holds {held}, the build asks for {copper}"
-            return named, [issue("altium.copper-stack", message, "stack", STACK_HINT)]
-        return named, []
-    if wanted is None:
-        message = f"a board of {copper} copper layers is not written; only 2 and 4 are"
-        return pcbrecords.COPPER_STACKS[0], [issue("altium.copper-stack", message, "stack", STACK_HINT)]
-    return wanted, []
+    if named and len(set(named)) != len(named):
+        message = f"the board's copper layers {', '.join(named)} repeat a layer"
+        return named, [issue("altium.copper-stack", message, "stack", STACK_HINT)]
+    if named and len(named) != copper:
+        held = f"{len(named)} copper layers ({', '.join(named)})"
+        message = f"the board holds {held}, the build asks for {copper}"
+        return named, [issue("altium.copper-stack", message, "stack", STACK_HINT)]
+    problem = pcbrecords.stack_problem(len(named) or copper, 0)
+    if problem is None:
+        return named or layer_names(copper), []
+    outer = (named[0], named[-1]) if len(named) > 1 else layer_names(2)
+    message = f"{problem}; the document gets the stack of {outer[0]} and {outer[1]} alone"
+    return outer, [Issue("altium.not-lowered", "info", message, where="stackup")]
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,30 +270,39 @@ def _arcs(arcs: Sequence[Arc], low: _Lowering, issues: list[Issue]) -> list[Arc]
 
 
 def _vias(vias: Sequence[Via], low: _Lowering, issues: list[Issue]) -> list[Via]:
-    top, bottom = low.layers[0], low.layers[-1]
+    """The vias to write: every via whose span is two copper layers of the board. A micro via gives
+    ``altium.via-unsupported`` (a warning) and is not written (change c0085)."""
     out: list[Via] = []
     for via in vias:
         what = f"via at {low.at(via.position)}"
         before = len(issues)
         outside = [layer for layer in via.layers if layer not in low.layers]
-        if via.via_type != "through":
+        if via.via_type == "micro":
             spans = ", ".join(via.layers)
-            message = f"{what}: a {via.via_type} via ({spans}) is not written; only through vias are"
+            message = f"{what}: a micro via ({spans}) is not written; through, blind and buried vias are"
             issues.append(
                 issue(
-                    "altium.via-unsupported", low.text(message), via.id, "use a through via from F.Cu to B.Cu"
+                    "altium.via-unsupported",
+                    low.text(message),
+                    f"via/{via.id}",
+                    "use a blind via of the same span, or place the via in Altium",
                 )
             )
         elif outside:
-            _layer_ok(via.id, outside[0], low, issues, what)
-        elif len(via.layers) != 2 or set(via.layers) != {top, bottom}:
-            spans = ", ".join(via.layers) or "no layer"
-            message = f"{what}: a through via spans {spans}, not {top} to {bottom}"
             issues.append(
                 issue(
-                    "altium.via-unsupported", low.text(message), via.id, "use a through via from F.Cu to B.Cu"
+                    "altium.copper-layer",
+                    low.text(
+                        f"{what}: {outside[0]} is not a copper layer of the board ({', '.join(low.layers)})"
+                    ),
+                    via.id,
+                    "build the board with copper=4, or move the copper",
                 )
             )
+        elif len(via.layers) != 2 or via.layers[0] == via.layers[1]:
+            spans = ", ".join(via.layers) or "no layer"
+            message = f"{what}: the via spans {spans}, not two different copper layers"
+            issues.append(issue("altium.copper-invalid", low.text(message), via.id))
         if not 0 < via.drill < via.diameter:
             message = (
                 f"{what}: the drill of {mm_text(via.drill)} mm is not below the diameter of "
@@ -317,7 +371,10 @@ def plane_nets(
             )
             issues.append(
                 issue(
-                    "altium.copper-stack", message, layer, "declare planes on In1.Cu or In2.Cu with copper=4"
+                    "altium.copper-stack",
+                    message,
+                    layer,
+                    "declare planes on inner copper layers of the board",
                 )
             )
         elif net not in nets:
@@ -330,8 +387,13 @@ def plane_nets(
     return {layer: found[layer] for layer in inner if layer in found}, issues
 
 
-DIELECTRIC_KINDS = {1: ("core",), 3: ("prepreg", "core", "prepreg")}
-"""The kind of each dielectric of a stack-up, by their count: one core, or prepreg, core, prepreg."""
+def dielectric_kinds(count: int) -> tuple[str, ...]:
+    """The kind of each of ``count`` dielectrics of a stack-up, top to bottom: one core; else prepreg and
+    core in turn, the outermost a prepreg (three: prepreg, core, prepreg). The model's stack-up names a
+    material and no kind, so the kind is Fenolite's choice (``pcb-copper.md``, "Fenolite's choices")."""
+    if count == 1:
+        return ("core",)
+    return tuple("core" if index % 2 else "prepreg" for index in range(count))
 
 
 def stack_from_stackup(
@@ -351,7 +413,7 @@ def stack_from_stackup(
     try:
         dielectrics = tuple(
             Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
-            for kind, layer in zip(DIELECTRIC_KINDS[len(between)], between, strict=True)
+            for kind, layer in zip(dielectric_kinds(len(between)), between, strict=True)
         )
         return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics, nets)
     except ValueError:
@@ -417,12 +479,14 @@ BOARD_KINDS: tuple[tuple[str, str], ...] = (
     ("graphics", "graphics"),
     ("holes", "holes"),
 )
-"""Board fields the document has no record for, and what a message calls them."""
+"""Board fields that only the PCB document holds, and what a message calls them."""
+BOARD_WHERES: tuple[str, ...] = tuple(name for name, _what in BOARD_KINDS)
 
 
 def board_not_lowered(board: Board | None) -> list[Issue]:
-    """One ``altium.not-lowered`` info per kind of board item the PCB document does not write: keep-outs,
-    board texts, graphics and holes."""
+    """One ``altium.not-lowered`` info per kind of board item that a build without a PCB document keeps in
+    the model only: keep-outs, board texts, graphics and holes. A build that writes the document drops
+    these infos: ``lower_items`` then writes the items, or reports each one (change c0085)."""
     if board is None:
         return []
     found: list[Issue] = []
@@ -432,6 +496,222 @@ def board_not_lowered(board: Board | None) -> list[Issue]:
             message = f"{count} {what} of the board are kept in the model only"
             found.append(Issue("altium.not-lowered", "info", message, where=field_name))
     return found
+
+
+def _kept(kind: str, ident: str, message: str, hint: str = "") -> Issue:
+    return Issue("altium.not-lowered", "info", message, where=f"{kind}/{ident}", hint=hint)
+
+
+@dataclass(frozen=True, slots=True)
+class LoweredItems:
+    """The free items of a board that the document writes, and per kind (items written, not lowered)."""
+
+    texts: tuple[Text, ...] = ()
+    graphics: tuple[Graphic, ...] = ()
+    keepouts: tuple[Keepout, ...] = ()
+    holes: tuple[Hole, ...] = ()
+    counts: Mapping[str, tuple[int, int]] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
+
+
+def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue]) -> LoweredItems:
+    """The texts, graphics, keep-outs and holes of ``board`` that ``pcbdoc`` writes (change c0085,
+    "Complete board in an Altium build"); ``layers`` are the copper layers of the document. An item that
+    has no record gives one ``altium.not-lowered`` with ``where`` ``<kind>/<id>`` and its reason, and is
+    left out. A graphic on ``Edge.Cuts`` is the outline, which the document writes from ``Board.outline``:
+    it counts as written and is not passed on. A keep-out's ``no_footprints`` has no bit in the record: the
+    keep-out is written with its other restrictions and one issue names the one that is lost. Component
+    bodies are not decided here: ``lower_bodies`` places them on the components of the document."""
+    if board is None:
+        return LoweredItems()
+    counts: dict[str, tuple[int, int]] = {}
+    texts: list[Text] = []
+    for text in board.texts:
+        problem = pcbdoc.text_problem_of(text)
+        if text.layer not in pcbrecords.BOARD_LAYER_MAP:
+            problem = f"the layer {text.layer} has no layer in the document for a text"
+        if problem is None:
+            texts.append(text)
+        else:
+            issues.append(_kept("text", text.id, f"board text {text.text[:24]!r} is not written: {problem}"))
+    counts["text"] = (len(texts), len(board.texts) - len(texts))
+    graphics: list[Graphic] = []
+    outline = 0
+    for graphic in board.graphics:
+        if graphic.layer == EDGE_LAYER:
+            outline += 1
+            continue
+        problem = pcbdoc.graphic_problem(graphic)
+        if problem is None:
+            graphics.append(graphic)
+        else:
+            message = f"the {graphic.kind} on {graphic.layer} is not written: {problem}"
+            issues.append(_kept("graphic", graphic.id, message))
+    counts["graphic"] = (len(graphics) + outline, len(board.graphics) - len(graphics) - outline)
+    keepouts: list[Keepout] = []
+    for keepout in board.keepouts:
+        problem = pcbdoc.keepout_problem(keepout, layers)
+        if problem is not None:
+            issues.append(_kept("keepout", keepout.id, f"the keep-out is not written: {problem}"))
+            continue
+        keepouts.append(keepout)
+        if keepout.no_footprints:
+            message = (
+                "the restriction no_footprints of the keep-out is not written: the record holds vias, "
+                "tracks, copper and pads only; the keep-out is written with its other restrictions"
+            )
+            issues.append(_kept("keepout", keepout.id, message, "add a component keep-out in Altium"))
+    counts["keep-out"] = (len(keepouts), len(board.keepouts) - len(keepouts))
+    holes: list[Hole] = []
+    for hole in board.holes:
+        if hole.drill > 0:
+            holes.append(hole)
+        else:
+            message = f"the hole is not written: a drill of {mm_text(hole.drill)} mm is not positive"
+            issues.append(_kept("hole", hole.id, message))
+    counts["hole"] = (len(holes), len(board.holes) - len(holes))
+    return LoweredItems(tuple(texts), tuple(graphics), tuple(keepouts), tuple(holes), counts)
+
+
+BODIES_HINT = "build with --altium-bodies extruded"
+BODY_HINT = "set the height on the footprint in Altium"
+
+
+def lower_bodies(
+    design: Design,
+    spec: pcbdoc.PcbDocSpec,
+    mode: pcbdoc.BodyMode,
+    issues: list[Issue],
+) -> tuple[tuple[pcbdoc.PlacedBody, ...], tuple[int, int]]:
+    """The component bodies of the board's footprints that the document ``spec`` writes, and (bodies
+    written, bodies not lowered) (change c0121, capability altium-pcb-writer, "Component bodies are
+    reported"). With ``mode`` ``off`` none is written. With ``extruded`` a body is placed by the placement
+    that ``spec`` gives the component of its footprint (``pcbdoc.place_body``), in the order of the
+    components and, within one, of its bodies. Each body without a record gives one ``altium.not-lowered``
+    with ``where`` ``body/<id>``, its height and its reason. A footprint without a body gives nothing: no
+    body is derived from a courtyard or any other graphic, and no height is assumed."""
+    board = design.board
+    if board is None:
+        return (), (0, 0)
+    refs = {component.id: component.ref for component in design.circuit.components}
+    index = {component.ref: number for number, component in enumerate(spec.components)}
+    frame = spec.frame if spec.frame is not None else pcbdoc.Frame.of(spec.outline)
+    placed: list[pcbdoc.PlacedBody] = []
+    kept = 0
+    for footprint in board.footprints:
+        number = index.get(refs.get(footprint.component_id, ""))
+        for body in footprint.bodies:
+            if mode == "off":
+                found: pcbdoc.PlacedBody | str = pcbdoc.BODIES_OFF
+            elif number is None:
+                found = pcbdoc.BODY_NO_FOOTPRINT
+            else:
+                component = spec.components[number]
+                found = pcbdoc.place_body(
+                    body,
+                    component=number,
+                    at=component.at,
+                    rotation=component.rotation,
+                    bottom=component.side == "bottom",
+                    frame=frame,
+                )
+            if isinstance(found, str):
+                kept += 1
+                message = (
+                    f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not "
+                    f"written: {found}"
+                )
+                issues.append(_kept("body", body.id, message, BODIES_HINT if mode == "off" else BODY_HINT))
+            else:
+                placed.append(found)
+    placed.sort(key=lambda body: body.component)
+    return tuple(placed), (len(placed), kept)
+
+
+def account(
+    design: Design, spec: pcbdoc.PcbDocSpec, plan: CopperPlan, source: Design | None = None
+) -> dict[str, dict[str, int]]:
+    """``result.pcb`` of a build that writes the document ``spec`` (capability altium-pcb-writer, "Written
+    items are accounted"): ``written`` maps every kind of ``KINDS`` to the number of model items the
+    document holds, and ``not_lowered`` the kinds with items that it does not hold to their number. The
+    copper is that of ``source`` when the build took a copper source. ``RuntimeError`` when an item of a
+    kind is in neither count: nothing is absent without a line."""
+    board = design.board
+    copper = (source or design).board
+    rules = len(design.rules.rules) if design.rules is not None else 0
+    lowered = sum(len(record.rules) for record in spec.design_rules)  # change c0084
+    counts: dict[str, tuple[int, int]] = {
+        "footprint": (len(spec.components), 0),
+        "pad": (sum(len(component.footprint.defn.pads) for component in spec.components), 0),
+        "rule": (lowered, rules - lowered),
+        **plan.counts,
+    }
+    totals = {
+        "track": len(copper.tracks) if copper is not None else 0,
+        "arc": len(copper.arcs) if copper is not None else 0,
+        "via": len(copper.vias) if copper is not None else 0,
+        "zone": len(copper.zones) if copper is not None else 0,
+        "text": len(board.texts) if board is not None else 0,
+        "graphic": len(board.graphics) if board is not None else 0,
+        "keep-out": len(board.keepouts) if board is not None else 0,
+        "hole": len(board.holes) if board is not None else 0,
+        "body": sum(len(fp.bodies) for fp in board.footprints) if board is not None else 0,
+    }
+    for kind, total in totals.items():
+        written, kept = counts.get(kind, (0, 0))
+        if written + kept != total:
+            raise RuntimeError(
+                f"altium build: {total} {kind} item(s) in the model, {written} written and {kept} reported"
+            )
+    return {
+        "written": {kind: counts.get(kind, (0, 0))[0] for kind in KINDS},
+        "not_lowered": {kind: counts[kind][1] for kind in KINDS if counts.get(kind, (0, 0))[1]},
+    }
+
+
+NO_DOCUMENT = "no-document"
+"""Why no rule is written when the build plans no PCB document: a reason of the build, beside the reasons
+of ``rulemap.NOT_LOWERED_REASONS``."""
+
+
+def lowered_rules(design: Design) -> rulemap.Lowered:
+    """The rules of ``design`` as rule records, and those that are not written (change c0084)."""
+    return rulemap.lower(design.rules.rules if design.rules is not None else ())
+
+
+def rules_report(design: Design, *, document: str | None) -> tuple[dict[str, object], list[Issue]]:
+    """The ``rules`` object of the build's summary and one ``altium.not-lowered`` warning per rule of
+    ``design`` that is not written, with ``where`` ``design-rules/<kind>`` (capability altium-build, "Rules
+    in an Altium build"). ``document`` is the PCB document's name, or ``None`` when none is planned: then no
+    rule is written and each one is reported with the reason ``no-document``."""
+    lowered = lowered_rules(design)
+    written = [
+        {"kind": rule.kind, "selector": rulemap.rule_selector(rule), "rule": record.name}
+        for record in (lowered.records if document is not None else ())
+        for rule in record.rules
+    ]
+    refused: list[tuple[str, str, str, str, str]] = [
+        (item.rule.name, item.kind, item.selector, item.reason, item.detail) for item in lowered.not_lowered
+    ]
+    if document is None:
+        refused += [
+            (rule.name, rule.kind, rulemap.rule_selector(rule), NO_DOCUMENT, "no PCB document is written")
+            for rule in lowered.written
+        ]
+    issues = [
+        Issue(
+            "altium.not-lowered",
+            "warning",
+            f"the {kind} rule {name!r} ({selector}) is not written into the PCB document "
+            f"({reason}): {detail}",
+            where=f"design-rules/{kind}",
+        )
+        for name, kind, selector, reason, detail in refused
+    ]
+    not_lowered = [
+        {"kind": kind, "selector": selector, "reason": reason}
+        for _name, kind, selector, reason, _detail in refused
+    ]
+    return {"written": written, "not_lowered": not_lowered}, issues
 
 
 def outline_corner(board: Board | None) -> Point:
@@ -459,7 +739,7 @@ def lower_copper(
     layers, issues = board_layers(design, copper)
     held = source.design if source is not None else design
     board = held.board
-    if design.board is None or board is None or issues:
+    if design.board is None or board is None or any(found.severity == "error" for found in issues):
         return CopperPlan(layers, issues=tuple(issues))
     on_planes, plane_issues = plane_nets(design, layers, planes)
     issues += plane_issues
@@ -490,6 +770,14 @@ def lower_copper(
     stack, stack_issues = stack_values(design, layers, on_planes)
     issues += stack_issues
     classes = net_classes(design, issues)
+    items = lower_items(design.board, layers, issues)
+    counts = {
+        "track": (len(tracks), len(board.tracks) - len(tracks)),
+        "arc": (len(arcs), len(board.arcs) - len(arcs)),
+        "via": (len(vias), len(board.vias) - len(vias)),
+        "zone": (len(board.zones), 0),
+        **items.counts,
+    }
     polygons = sum(len(zone.layers) for zone in zones)
     if polygons and not any(found.severity == "error" for found in issues):
         message = (
@@ -498,7 +786,19 @@ def lower_copper(
         )
         issues.append(issue("altium.zones-unpoured", message, document, f"{REPOUR_COMMAND}"))
     return CopperPlan(
-        layers, tuple(tracks), tuple(arcs), tuple(vias), tuple(issues), stack, tuple(zones), classes
+        layers,
+        tuple(tracks),
+        tuple(arcs),
+        tuple(vias),
+        tuple(issues),
+        stack,
+        tuple(zones),
+        classes,
+        items.texts,
+        items.graphics,
+        items.keepouts,
+        items.holes,
+        MappingProxyType(counts),
     )
 
 
@@ -513,6 +813,10 @@ def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
         vias=plan.vias,
         zones=plan.zones,
         net_classes=plan.net_classes,
+        texts=plan.texts,
+        graphics=plan.graphics,
+        keepouts=plan.keepouts,
+        holes=plan.holes,
     )
 
 
@@ -623,17 +927,27 @@ def _mismatch(source: CopperSource, message: str, where: str) -> Issue:
 
 
 def pad_net_names(design: Design) -> dict[str, dict[str, str]]:
-    """Component id → pad number → net name: the net of each pin on the pad that the component's
-    pin-to-pad map names for it, a pin outside the map on the pad of its own number (change c0135). The
-    PCB document and the check of a copper source both read the nets by pad from here, so they cannot
-    disagree about a mapped part."""
-    pad_of = {component.id: dict(component.pin_pad_map) for component in design.circuit.components}
+    """Component id → pad number → net name: the net of each pin on every pad that the component's
+    pin-to-pad map names for it (``Component.pads_of``; a pin outside the map on the pad of its own number).
+    The PCB document and the check of a copper source both read the nets by pad from here, so they cannot
+    disagree about a mapped part (changes c0135 and c0123)."""
+    by_id = {component.id: component for component in design.circuit.components}
     nets: dict[str, dict[str, str]] = {}
     for net in design.circuit.nets:
         for member in net.members:
-            pad = pad_of.get(member.component_id, {}).get(member.pin, member.pin)
-            nets.setdefault(member.component_id, {})[pad] = net.name
+            owner = by_id.get(member.component_id)
+            for pad in owner.pads_of(member.pin) if owner is not None else (member.pin,):
+                nets.setdefault(member.component_id, {})[pad] = net.name
     return nets
+
+
+def library_pad_positions(footprint: FootprintInstance) -> list[tuple[str, int, int]]:
+    """(number, x, y) of each pad of a source's footprint in the frame of its library definition (change
+    c0142). A KiCad board stores the pads footprint-local and unrotated on both sides, and those of a
+    bottom footprint mirrored about local X (``docs/formats/kicad/board.md``, ``H-G-BOTTOM-STORE``,
+    ``KICAD-VERIFIED``): the mirror is undone by negating Y, and the footprint's rotation does not enter."""
+    sign = -1 if footprint.side == "bottom" else 1
+    return [(pad.number, pad.position.x, sign * pad.position.y) for pad in footprint.pads]
 
 
 def match_source(
@@ -647,8 +961,9 @@ def match_source(
 
     Each component with a footprint link must match exactly one footprint of the source, by the
     ``fenolite.path`` property when the source's footprint holds it, else by reference; the footprint must
-    be the linked one, with the pad numbers and positions of the definition in ``footprints`` and every pad
-    on the net of the design's pin; and the outline's box must be the design's. Anything else gives
+    be the linked one, with the pad numbers and positions of the definition in ``footprints`` (read in the
+    definition's frame by ``library_pad_positions``, which undoes the mirror of a bottom footprint) and
+    every pad on the net of the design's pin; and the outline's box must be the design's. Anything else gives
     ``altium.copper-board-mismatch``. The source's placements win: for a board, a placement that differs
     from the script's request ``requested`` gives one ``altium.placement-from-board`` info.
     """
@@ -704,7 +1019,7 @@ def match_source(
         definition = footprints.get(link)
         if definition is not None:
             wanted = sorted((pad.number, pad.position.x, pad.position.y) for pad in definition.defn.pads)
-            got = sorted((pad.number, pad.position.x, pad.position.y) for pad in footprint.pads)
+            got = sorted(library_pad_positions(footprint))
             if wanted != got:
                 odd = sorted(set(got) ^ set(wanted))
                 pad = odd[0][0] if odd else "?"
@@ -780,8 +1095,17 @@ def source_not_lowered(source: CopperSource) -> list[Issue]:
 
 
 __all__ = [
+    "BOARD_WHERES",
     "COPPER_COUNTS",
     "COPPER_ISSUE_CODES",
+    "KINDS",
+    "lower_bodies",
+    "LoweredItems",
+    "account",
+    "dielectric_kinds",
+    "layer_names",
+    "library_pad_positions",
+    "lower_items",
     "CopperPlan",
     "CopperSource",
     "SourcePlacement",

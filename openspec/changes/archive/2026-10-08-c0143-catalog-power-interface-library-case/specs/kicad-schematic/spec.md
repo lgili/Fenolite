@@ -48,12 +48,16 @@
 
 #### Scenario: Other designs keep their bytes
 - **WHEN** the blink of `examples/blink_2layer` is built for target 9 and for target 10
-- **THEN** its sheet holds `fenolite:PWR_FLAG`, its files equal those of a build in which `symembed.flag_library` always gives `fenolite`, and every committed golden is the one it was before change c0143
+- **THEN** its sheet holds `fenolite:PWR_FLAG`, and every pin of `tests/unit/lens/test_build_bytes_pinned.py` and every committed golden is the one it was before change c0143
+
+#### Scenario: Altium build unchanged
+- **WHEN** the design of "Catalog parts with a supply" is built for Altium in the ASCII and in the binary form
+- **THEN** no file holds `PWR_FLAG`, and the files equal those of a build in which `symembed.flag_library` always gives `fenolite`
 
 ### Requirement: Embedded symbols of a generated sheet
 `fenolite.backends.kicad.symembed.embed_symbol(definition, *, parents=(), target, pin_numbers=None, allow_lossy=False, issues=None) -> EmbeddedSymbol` SHALL return the definition that a generated sheet embeds for one resolved symbol, as a node built from the definition's slots, and the generator SHALL embed one definition per distinct result. `definition` is the resolved symbol, which holds its own children as slots, and `parents` are the symbols it extends as their library holds them, the nearest first (`LibraryResolver.symbol_chain`). `EmbeddedSymbol` holds `lib_id`, `nickname`, `name`, `node`, `definition` (the node as the schematic reader models it, which `write_schematic` writes back) and `authored`.
 - **Flattened.** A derived symbol MUST take the sub-symbols of its root parent, renamed from `<parent>_<unit>_<style>` to `<name>_<unit>_<style>`, and its own properties over the parent's; the embedded node MUST hold no `extends`.
-- **Pad numbers.** With `pin_numbers` (a `pin_pad_map`), the `number` of each mapped pin MUST be replaced by its pad number, and the name MUST be `symembed.variant_name(name, pin_pad_map)`: `<name>_<first 8 hex digits of the SHA-256 of the sorted pairs>`. Two components with equal maps share one variant.
+- **Pad numbers.** With `pin_numbers` (a `pin_pad_map`), the `number` of each mapped pin MUST be replaced by its pad number, the first of its pads when the map gives it several ("Pins with several pads on a generated sheet" adds the others), and the name MUST be `symembed.variant_name(name, pin_pad_map)`: `<name>_<first 8 hex digits of the SHA-256 of the pairs sorted by pin, the pads of one pin in map order>`. For a map of one pad per pin that list is the sorted pairs, so the name is the one it was. Two components whose pins have equal pads in equal order share one variant.
 - **Hidden power inputs.** A pin of type `power_in` that is hidden MUST be embedded without its `hide`, with one `kicad.sch.power-pin-shown` info per symbol.
 - **Name.** The embedded name MUST be `<nickname>:<name>`, and the sub-symbol names MUST keep the bare name.
 - **Gate.** `versions.check_emittable` MUST run on the node for `target`; an error MUST raise `LossyWriteError`, or with `allow_lossy=True` remove the node of the token with one `kicad.sch.dropped-too-new` warning.
@@ -83,6 +87,10 @@
 #### Scenario: Flag is authored
 - **WHEN** `power_flag(10)` and `power_flag(9)` are read back
 - **THEN** each has `power` set, one pin of type `power_out`, and the reference `#FLG`
+
+#### Scenario: Variant name of one pad per pin is unchanged
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_symembed.py -k variant_name` computes `variant_name("Mini_LED", (("2", "1"), ("1", "2")))` and the name for `(("1", "2"), ("2", "1"))`
+- **THEN** both are `Mini_LED_b0bb1b70`, the name the units design embeds today; and `(("1", "1"), ("1", "T1"))` and `(("1", "T1"), ("1", "1"))` give two different names
 
 #### Scenario: The flag in another library
 - **WHEN** `power_flag(10, "Fenolite")` and `power_flag(10)` are each written with `write_symbol_library`
@@ -129,7 +137,7 @@
 | `label-off-pin` | a label at a point where no pin connects |
 | `two-names` | labels of different texts on one connected group |
 | `wire-unlabelled` | a wired group without a label |
-| `shared-point` | pins of two instances at one point, or several pins of one instance at a point that carries no label |
+| `shared-point` | pins of two instances at one point, or several pins of one instance at a point that carries no label, unless those pins have one name (the stacked pins of "Own netlist of a generated sheet") |
 | `frame` | an instance whose rotation and mirror are not in `schlayout.PROVED_FRAMES` |
 | `hidden-power` | a hidden pin of type `power_in`, or a definition flagged `power` other than Fenolite's power flag (`symembed.is_power_flag`: `PWR_FLAG` of a library named `fenolite` in any letter case) |
 
@@ -162,6 +170,10 @@
 - **GIVEN** a generated sheet changed in the test so that its snap wire runs on through the near pin to a point beyond it
 - **WHEN** `grammar_issues` runs
 - **THEN** the issues hold the reasons `wire-end` and `wire-touch`
+
+#### Scenario: Stacked pins are inside the grammar
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_sch_netlist.py -k stacked_grammar` runs `grammar_issues` on the sheet of the stacked design, and on a copy in which one of the stacked pins of an open pin is renamed
+- **THEN** the first gives `()`, and the second gives the reason `shared-point`
 
 #### Scenario: The flag of the catalog library is no power symbol
 - **WHEN** the own netlist of the built design of "Generated sheet content", scenario "Catalog parts with a supply", is read

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Free primitives of a PCB document (capability altium-import, "Tracks, arcs and vias", "Zones from
-polygons" and "Outline, graphics and texts"; change c0043)."""
+polygons" and "Outline, graphics and texts"; changes c0043 and c0122)."""
 
 from __future__ import annotations
 
@@ -15,8 +15,12 @@ from _altium_copper import routed_model
 from fenolite.backends.altium.adapter import import_board
 from fenolite.backends.altium.adapter.copper import layer_of_text
 from fenolite.backends.altium.read.pcb import read_pcbdoc
+from fenolite.backends.altium.read.pcbprims import RegionRecord, RegionVertex
+from fenolite.checks.copper import check_copper
+from fenolite.checks.equivalence import routing
 from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
+from fenolite.geometry import FillRule, Location, Thick, area2, point_in_ring, thick_touch
 from fenolite.geometry.shapes import Arc as GeometryArc
 from fenolite.model.board import Board
 from fenolite.model.design import Design
@@ -90,6 +94,29 @@ def test_arc_on_copper_keeps_three_points() -> None:
     assert GeometryArc(arc.start, arc.mid, arc.end).radius2 is not None
 
 
+def test_arc_record_is_kept_in_the_bag() -> None:
+    """Scenario "Arc record kept" (change c0127): an ``Arc`` and an ``arc`` graphic hold the record's own
+    centre, radius and angles; a full circle holds none, and the pair enters no id."""
+    centre = (1_000_000, 2_000_000)
+    kept = "1000000,2000000,100,0x1.e000000000000p+4,0x1.1800000000000p+5"
+    board = board_of(
+        nets=["A"],
+        arcs=[
+            rec.arc(centre, 100, 30.0, 35.0, net=0),
+            rec.arc(centre, 100, 30.0, 35.0, layer=57),
+            rec.arc(centre, 100, 0.0, 360.0, layer=57),
+        ],
+    )
+    (arc,) = board.arcs
+    drawn, circle = free(board)
+    assert pairs(arc)["arc"] == kept and pairs(drawn)["arc"] == kept
+    assert (drawn.kind, circle.kind) == ("arc", "circle")  # type: ignore[attr-defined]
+    assert "arc" not in pairs(circle)
+    assert [key for key, _ in arc.ext["altium"].payload] == ["arc"]
+    other = board_of(nets=["A"], arcs=[rec.arc(centre, 100, 30.0, 35.0, net=0)])
+    assert other.arcs[0].id == arc.id
+
+
 def test_full_circle_on_copper_is_a_circle_graphic_with_its_net() -> None:
     board = board_of(nets=["A"], arcs=[rec.arc((0, 0), 100 * MIL, 0.0, 360.0, net=0)])
     assert board.arcs == ()
@@ -112,6 +139,28 @@ def test_via_span_and_type() -> None:
         (("F.Cu", "B.Cu"), "through"),
     ]
     assert (board.vias[0].diameter, board.vias[0].drill) == (1_270_000, 711_200)
+
+
+def test_via_pad_removed_layers_are_kept_in_the_bag() -> None:
+    """Scenario "Layers without a pad shape kept" (change c0132): the layer ids of the record's table go
+    into the pair ``pad_removed``; the via, its one diameter and its id are those of the record without
+    the bytes."""
+    six = (1, 2, 3, 4, 5, 32)
+    board = board_of(
+        chain=six,
+        nets=("A",),
+        vias=[rec.via_without_pads((0, 0), (2, 4, 5), net=0), rec.via_without_pads((0, 0), (), net=0)],
+    )
+    bare, plain = board.vias
+    assert pairs(bare) == {"pad_removed": "2,4,5"} and pairs(plain) == {}
+    assert (bare.diameter, bare.drill) == (406_400, 203_200)
+    assert (bare.layers, bare.via_type) == (("F.Cu", "B.Cu"), "through")
+    assert dataclasses.replace(bare, id=plain.id, ext={}, provenance=plain.provenance) == plain
+    alone = board_of(chain=six, nets=("A",), vias=[rec.via_without_pads((0, 0), (), net=0)])
+    assert alone.vias[0].id == bare.id  # the pair enters no id: the first of two equal vias, as before
+    # a layer id outside the chain is kept as the record says it: the bag holds what the record holds
+    (odd,) = board_of(vias=[rec.via_without_pads((0, 0), (1, 7, 32))]).vias
+    assert pairs(odd) == {"pad_removed": "1,7,32"}
 
 
 def test_via_layer_outside_the_chain() -> None:
@@ -277,6 +326,117 @@ def test_regions_of_a_polygon_are_its_fills() -> None:
     assert "region-holes 2" in message and "pour-primitives 1" in message
 
 
+def mil_box(x0: int, y0: int, x1: int, y1: int) -> list[tuple[float, float]]:
+    return [(x0 * MIL, y0 * MIL), (x1 * MIL, y0 * MIL), (x1 * MIL, y1 * MIL), (x0 * MIL, y1 * MIL)]
+
+
+def holed(points: list[tuple[float, float]], *holes: list[tuple[float, float]], **owner: int) -> RegionRecord:
+    """A region with the given holes."""
+    found = tuple(tuple(RegionVertex(float(x), float(y)) for x, y in hole) for hole in holes)
+    return dataclasses.replace(rec.region(points, **owner), hole_count=len(found), holes=found)
+
+
+def pour_with_an_island(issues: list[Issue], *, keep_holes: bool = True) -> Design:
+    """A pour of ``GND`` that is a square with a square hole, a second region of it inside the hole, and a
+    track of ``SIG`` in the hole between the two."""
+    hole = mil_box(200, 200, 400, 400)
+    main = holed(mil_box(100, 100, 500, 500), hole, polygon=0, net=0)
+    if not keep_holes:
+        main = rec.region(mil_box(100, 100, 500, 500), polygon=0, net=0)
+    document = rec.document(
+        rec.board((1, 32)),
+        nets=["GND", "SIG"],
+        polygons=[rec.polygon(net_index=0)],
+        regions=[main, rec.region(mil_box(250, 250, 350, 350), polygon=0, net=0)],
+        tracks=[rec.track((210 * MIL, 220 * MIL), (240 * MIL, 220 * MIL), net=1)],
+    )
+    return import_board(document, file="a.PcbDoc", sha256=rec.SHA, issues=issues)
+
+
+def test_a_fill_keeps_the_hole_of_its_region() -> None:
+    issues: list[Issue] = []
+    design = pour_with_an_island(issues)
+    assert design.board is not None
+    (zone,) = design.board.zones
+    main, island = zone.fills
+    anchor, corner = Point(2_540_000, -10_160_000), Point(5_080_000, -10_160_000)
+    # the outline as before, then the bridge to the hole's leftmost vertex, the hole, and the bridge back
+    assert main.polygon[:4] == (
+        Point(2_540_000, -2_540_000),
+        Point(12_700_000, -2_540_000),
+        Point(12_700_000, -12_700_000),
+        Point(2_540_000, -12_700_000),
+    )
+    assert main.polygon[4:6] == (anchor, corner) and main.polygon[-2:] == (corner, anchor)
+    assert len(main.polygon) == 11 and len(island.polygon) == 4
+    side, gap = 10_160_000, 5_080_000
+    assert abs(area2(main.polygon)) == 2 * (side * side - gap * gap)
+    in_hole = Point(5_588_000, -7_620_000)  # (220 mil, 300 mil): in the hole, outside the island
+    for rule in (FillRule.NONZERO, FillRule.EVENODD):
+        assert point_in_ring(in_hole, main.polygon, rule) == Location.OUTSIDE
+        assert point_in_ring(Point(3_810_000, -3_810_000), main.polygon, rule) == Location.INSIDE
+    assert not thick_touch(Thick(main.polygon, 0, filled=True), Thick(island.polygon, 0, filled=True))
+    assert not [i for i in issues if i.code in ("altium.import.unmapped", "altium.import.zone-hole-outside")]
+
+
+def test_copper_in_a_hole_of_a_pour_is_apart_from_the_pour() -> None:
+    """What the hole changes for the readers of a fill: the copper check finds no short with the track in
+    the hole, and the island is a piece of its own. With the outline alone both were joined to the pour."""
+    counts: dict[bool, tuple[int, int]] = {}
+    for keep_holes in (True, False):
+        design = pour_with_an_island([], keep_holes=keep_holes)
+        gnd = next(net.id for net in design.circuit.nets if net.name == "GND")
+        report = check_copper(design, pads=None)
+        shorts = sum(1 for found in report.findings if found.code == "copper.short")
+        pieces = sum(1 for piece in routing.pieces(design)[gnd] if piece.copper)
+        counts[keep_holes] = (shorts, pieces)
+    assert counts == {True: (0, 2), False: (1, 1)}
+
+
+def test_a_region_without_a_hole_gives_its_outline_unchanged() -> None:
+    plain = pour_with_an_island([], keep_holes=False)
+    assert plain.board is not None
+    (zone,) = plain.board.zones
+    assert zone.fills[0].polygon == (
+        Point(2_540_000, -2_540_000),
+        Point(12_700_000, -2_540_000),
+        Point(12_700_000, -12_700_000),
+        Point(2_540_000, -12_700_000),
+    )
+
+
+def test_holes_outside_their_outline_are_dropped_and_reported_once() -> None:
+    issues: list[Issue] = []
+    far = mil_box(700, 700, 720, 720)
+    board = board_of(
+        issues,
+        polygons=[rec.polygon()],
+        regions=[
+            holed(mil_box(100, 100, 200, 200), far, polygon=0),
+            holed(mil_box(300, 100, 400, 200), far, mil_box(320, 120, 380, 180), polygon=0),
+            holed(mil_box(500, 100, 600, 200), [(510 * MIL, 110 * MIL)] * 3, polygon=0),
+        ],
+    )
+    (zone,) = board.zones
+    first, second, third = zone.fills
+    assert len(first.polygon) == 4 and len(second.polygon) == 11 and len(third.polygon) == 4
+    (found,) = [i for i in issues if i.code == "altium.import.zone-hole-outside"]
+    assert found.severity == "warning" and found.where == "Regions6/Data"
+    assert found.message.startswith("2 hole(s) of 2 poured region(s)")
+    # two holes outside and one without area are not in the model; the fourth is
+    assert "region-holes 3" in next(i.message for i in issues if i.code == "altium.import.unmapped")
+
+
+def test_holes_of_a_free_region_are_counted_and_its_graphic_is_the_outline() -> None:
+    issues: list[Issue] = []
+    board = board_of(
+        issues, nets=["GND"], regions=[holed(mil_box(100, 100, 500, 500), mil_box(200, 200, 400, 400), net=0)]
+    )
+    (graphic,) = free(board)
+    assert len(graphic.points) == 4 and board.zones == ()  # type: ignore[attr-defined]
+    assert "region-holes 1" in next(i.message for i in issues if i.code == "altium.import.unmapped")
+
+
 # --- outline, graphics, texts ---------------------------------------------------------------------------
 
 
@@ -344,7 +504,9 @@ def test_free_graphics_off_copper() -> None:
     assert found[3].points == (Point(0, 0), Point(2_540_000, -1_270_000))  # type: ignore[attr-defined]
     turned = found[4].points  # type: ignore[attr-defined]
     assert {abs(turned[0].x - turned[1].x), abs(turned[0].y - turned[1].y)} == {1_270_000, 2_540_000}
-    assert len(found[5].points) == 4 and all(not pairs(g) for g in found)  # type: ignore[attr-defined]
+    assert len(found[5].points) == 4  # type: ignore[attr-defined]
+    # Only the arc holds a pair: the record it was read from (change c0127).
+    assert [sorted(pairs(g)) for g in found] == [[], ["arc"], [], [], [], [], []]
 
 
 def test_copper_region_with_a_net() -> None:

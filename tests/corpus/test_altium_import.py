@@ -349,3 +349,71 @@ def test_bodies_identity(capsys: pytest.CaptureFixture[str]) -> None:
     with capsys.disabled():
         print("\n" + "\n".join(lines))
     assert total > 0
+
+
+# --- the items of a component (capability altium-import, "Graphics, fields and texts of a component") ----
+
+ITEM_ROWS = [item for item in manifest_items("rta") if "-pcbdoc-" in item.id]
+ITEM_KINDS = ("tracks", "arcs", "fills", "regions", "texts")
+
+
+@pytest.mark.needs_corpus
+@pytest.mark.parametrize("item", ITEM_ROWS, ids=lambda item: item.id)
+def test_footprint_items_conserve_the_census(item: CorpusItem, capsys: pytest.CaptureFixture[str]) -> None:
+    """Scenario "The census is conserved on the corpus" (``H-A-IMP-FPGFX``; change c0126): on every public
+    PCB document with the use ``rta``, the mapped and the unmapped counts of each kind add up to the
+    reader's record count, every primitive that carries the index of a component with a readable position
+    is an item of its footprint or one of the two counted cases (a primitive on an internal plane, an arc
+    or a region without a shape), and the category ``footprint-graphics`` holds the plane primitives alone.
+    Prints the number of graphics, fields and texts per document for the evidence page (``-s``). Counts
+    only: no name and no value of a document is printed."""
+    from collections import Counter
+
+    from _boards import census
+
+    from fenolite.backends.altium.adapter.board import read_board
+    from fenolite.backends.altium.adapter.copper import owned_primitives
+    from fenolite.backends.altium.adapter.evidence import EVIDENCE
+    from fenolite.backends.altium.adapter.ids import Ids
+
+    path = require(item)
+    data = path.read_bytes()
+    document = read_pcbdoc(data, file=path.name)
+    parts = read_board(document, file=path.name, sha256=SHA, ids=Ids("altium_pcbdoc", EVIDENCE))
+    for kind in ITEM_KINDS:
+        assert parts.census.total(kind) == len(getattr(document, kind)), kind
+    owned = owned_primitives(document)
+    carried = sum(len(getattr(held, kind)) for held in owned.values() for kind in ITEM_KINDS)
+    footprints = [fp for fp in parts.board.footprints if "board_only" not in fp.attributes]
+    graphics = sum(len(fp.graphics) for fp in footprints)
+    fields = sum(len(fp.fields) for fp in footprints)
+    texts = sum(len(fp.texts) for fp in footprints)
+    layers = Counter(
+        "copper"
+        if g.layer.endswith(".Cu")
+        else g.layer.split(".")[0]
+        if g.layer.startswith("Mech.")
+        else g.layer
+        for fp in footprints
+        for g in fp.graphics
+    )
+    left = parts.census.categories().get("footprint-graphics", 0)
+    entry = {
+        "carried": carried,
+        "graphics": graphics,
+        "fields": fields,
+        "texts": texts,
+        "footprint_graphics_left": left,
+        "by_layer": dict(sorted(layers.items())),
+    }
+    census("altium-import", f"{item.id}:footprint-items", entry)
+    with capsys.disabled():
+        print(f"\n{item.id}: {entry}")
+    # every carried primitive is an item of its footprint: measured on 2026-10-08 on the eight documents
+    # (16 647 primitives; none on an internal plane, none without a shape, no component without a position)
+    assert graphics + fields + texts == carried
+    assert left == 0
+    assert (
+        len({g.id for fp in footprints for g in (*fp.graphics, *fp.texts, *fp.fields)})
+        == graphics + texts + fields
+    )

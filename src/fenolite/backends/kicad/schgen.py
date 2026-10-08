@@ -361,7 +361,7 @@ def generate_schematic(
                 )
             )
             continue
-        mapping = tuple(sorted(component.pin_pad_map))
+        mapping = symembed.variant_pairs(component.pin_pad_map)
         key = (symbol.lib_id, mapping)
         if key not in embedded:
             embedded[key] = symembed.embed_symbol(
@@ -599,7 +599,7 @@ def _content(
         )
         content.symbols.append(instance)
         state.paths.setdefault(component.id, f"{board_path}/{kicad_uuid(instance)}")
-        numbers = dict(component.pin_pad_map)
+        numbers = component.pin_pads()
         for pin in symbol.pins_of(unit, 1):
             point = schlayout.pin_point(origin, pin.position, place.rotation, place.mirror)
             pin_key = (component.id, pin.number)
@@ -630,8 +630,9 @@ def _content(
                         id=derived_id("ncf", ID_BACKEND, f"{name}:nc:{part.path}:{tag}"), position=point
                     )
                 )
-            pad = numbers.get(pin.number, pin.number)
-            if (component.id, pad) in state.pad_nets:
+            # every pad of the pin: a pin bonded to several pads is one net in KiCad, named after one pad
+            pads = numbers.get(pin.number, (pin.number,))
+            if (component.id, pads[0]) in state.pad_nets:
                 continue
             if not netnames.proved(pin.name):
                 state.issues.append(
@@ -644,13 +645,16 @@ def _content(
                     )
                 )
                 continue
-            state.pad_nets[(component.id, pad)] = netnames.unconnected_name(
+            open_name = netnames.open_name(
                 component.ref,
                 unit=unit,
                 unit_count=symbol.unit_count,
                 pin_name=pin.name,
-                pad_number=pad,
+                pads=pads,
+                marked=pin_key in state.marks,
             )
+            for pad in pads:
+                state.pad_nets[(component.id, pad)] = open_name
     return content
 
 

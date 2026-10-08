@@ -662,7 +662,7 @@ notes = "Altium target example from KiCad symbols (thin DSL, c0034); lib ids of 
 path = "examples/altium_kicad/FenoliteDemo.kicad_sym"
 origin = "authored"
 corpus_id = ""
-notes = "authored CC0 KiCad symbol library of the Altium example (c0034): vertical pins, four sides, hidden pin, inverted and clock shapes, overbars, two units with common power pins"
+notes = "authored CC0 KiCad symbol library of the Altium example (c0034): vertical pins, four sides, hidden pin, inverted and clock shapes, overbars, two units with common power pins; bodies with room for the shown pin names, and pins long enough for their numbers, since c0134"
 
 [[file]]
 path = "examples/altium_kicad/sym-lib-table"
@@ -1115,6 +1115,36 @@ corpus_id = ""
 notes = "the forty-part example of the v0.1 acceptance loop (c0025)"
 
 [[file]]
+path = "examples/kit/board6/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: the circuit of flat on six copper layers with a plane, blind and buried vias, texts, graphics, a keep-out and a hole (c0091)"
+
+[[file]]
+path = "examples/kit/flat/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: a controller, a resistor, an LED and a connector on one sheet with a drawing sheet and a title block, on the catalog (c0091)"
+
+[[file]]
+path = "examples/kit/libs/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: seven catalog parts, for the schematic and PCB libraries the build writes (c0091)"
+
+[[file]]
+path = "examples/kit/routed/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: the circuit of flat with tracks, vias, a polygon, five rules and two planted violations (c0091)"
+
+[[file]]
+path = "examples/kit/tree/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: the tree of c0086 with its bus added by kit_model (c0091)"
+
+[[file]]
 path = "tests/data/altium/read/project_utf8.PrjPcb"
 origin = "authored"
 corpus_id = ""
@@ -1353,3 +1383,231 @@ path = "tests/data/kicad/parity/agree/blink.kicad_sch"
 origin = "authored"
 corpus_id = ""
 notes = "schematic of the same build (c0072), beside its board"
+
+[[file]]
+path = "tests/data/altium/board6/board6.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "experimental PCB document of the six-layer sample (tests/_altium_board6.py): six copper layers with one plane, a through, a blind and a buried via, four texts, five graphics, a keep-out, a non-plated hole and two unpoured polygons (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.PcbLib"
+origin = "authored"
+corpus_id = ""
+notes = "PCB library of the six-layer sample with the three mini footprints (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the six-layer sample listing its schematic, libraries and PCB document (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of the six-layer sample, the blink design named board6 (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/board6/board6.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file)"
+
+[[file]]
+path = "tests/data/altium/outjob/blink.OutJob"
+origin = "authored"
+corpus_id = ""
+notes = "output job written by backends.altium.outjob for the project blink with the default export preset (c0087 sample; a test keeps it equal to a fresh write). Rewritten by change c0138 on 2026-10-07: eight more lines, OutputDefault<i>=0 for each of its six outputs and the two configuration lines of the Gerber output with the complete settings record of a two-layer board; SHA-256 0a24a3b5d6eca281058a65aad86195bc159a7635756a409f8dae7954f894b436 (e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e before the rewrite)"
+
+[[file]]
+path = "tests/data/altium/tree/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "tree sample design script (thin DSL, c0086): modules power, io and io/leds, catalog symbols, nets D0 to D3 for the bus that tests/_altium_tree.py adds, an accented value and two properties"
+
+[[file]]
+path = "tests/data/altium/tree/tree.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the tree sample listing its four sheets in tree order, then its library (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary top sheet of the tree sample: symbols drawn from their graphics, two sheet symbols, entries with I/O types and a bus sheet entry (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the tree sample: eight catalog symbols written with their own graphics (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree_io.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the module io of the tree sample: ports with I/O types, a bus port, and the sheet symbol of io/leds (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree_io.leds.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the module io/leds of the tree sample, two levels down: four LEDs, a bus port and a port without direction (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/tree/tree_power.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the module power of the tree sample: a comment with a %UTF8% twin and two hidden parameters (c0086 golden file)"
+
+[[file]]
+path = "tests/data/altium/nets_before_c0086.json"
+origin = "authored"
+corpus_id = ""
+notes = "the designators and nets that Fenolite's importer read from the seven committed Altium sample projects at commit 6cdf0aea, before c0086 regenerated four of them (c0086, scenario Nets unchanged)"
+
+[[file]]
+path = "tests/data/altium/generic/blink/blink.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "blink.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic, the form the author reports of 2026-10-03 covered"
+
+[[file]]
+path = "tests/data/altium/generic/blink/blink.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "blink.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/kicad_example/altium_kicad.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "altium_kicad.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/kicad_example/altium_kicad.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "altium_kicad.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/no_connect/altium_no_connect.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "altium_no_connect.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/no_connect/altium_no_connect.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "altium_no_connect.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/no_connect/ascii/altium_no_connect.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "the ASCII altium_no_connect.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/routed/routed.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "routed.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the build with --altium-symbols generic"
+
+[[file]]
+path = "tests/data/altium/generic/routed/routed.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+
+[[file]]
+path = "tests/data/altium/generic/library/FenoliteDemo.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "examples/altium_kicad/FenoliteDemo.kicad_sym as committed before c0134 (bytes of commit 6cdf0aea): the library that the generic copies of kicad_example and no_connect were built from, before CONN2 hid its pin names, MCU8 and DUAL_OPAMP got larger bodies and R_V longer pins"
+
+[[file]]
+path = "tests/data/altium/channels/two/author.py"
+origin = "authored"
+corpus_id = ""
+notes = "script that writes the two-channel sample from the sheet plans of tests/_altium_channels.py (c0083; since c0146 the sheets are written by the schematic writer)"
+
+[[file]]
+path = "tests/data/altium/channels/two/two.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the two-channel sample: the three channel keys of [Design] (format $Component_$RoomName, style 0) and its two sheets (c0083)"
+
+[[file]]
+path = "tests/data/altium/channels/two/two.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "top sheet of the two-channel sample: a sheet symbol Repeat(CH,1,2) with the entries VCC and Repeat(OUT), the bus OUT[1..2], U1 and J1 (c0083). Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil, after the first file (SHA-256 53c540c9..., without an area colour or any colour) showed as a black page in Altium Designer 26"
+
+[[file]]
+path = "tests/data/altium/channels/two/two_ch.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "child sheet of the two-channel sample: R1 and C12, the ports VCC and OUT on the pin ends, the net label MID (c0083). Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil; the first file was SHA-256 437e5357..."
+
+[[file]]
+path = "tests/data/altium/pinbits/author.py"
+origin = "authored"
+corpus_id = ""
+notes = "script that writes the pin-bits check project of c0148 with the schematic writer: the catalog LED four times, every pin with PINCONGLOMERATE bit 0x20 and the visibility bits of its variant V1 to V4"
+
+[[file]]
+path = "tests/data/altium/pinbits/pinbits.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the pin-bits check project (c0148): the schematic and its library"
+
+[[file]]
+path = "tests/data/altium/pinbits/pinbits.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary sheet of the pin-bits check project (c0148): D1 to D4, the library symbols LED_V1 to LED_V4 with pins of PINCONGLOMERATE 0x20, 0x30, 0x28 and 0x38 above the direction, and the free texts V1 to V4. Opened in Altium Designer 26.5.0 on 2026-10-08: V1 no pin text, V2 numbers, V3 names, V4 both (S-0613)"
+
+[[file]]
+path = "tests/data/altium/pinbits/pinbits.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "library of the pin-bits check project (c0148): the four symbols LED_V1 to LED_V4 with the pins of the sheet"
+
+[[file]]
+path = "tests/data/altium/body2/body2.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "experimental PCB document of the sample with component bodies (tests/_altium_body2.py), built with --altium-bodies extruded: three extruded bodies in both body storages, one on the bottom side, one with a standoff; a fourth body of the model, which names a 3D model, is not written (c0121 golden file; never opened in Altium)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.PcbLib"
+origin = "authored"
+corpus_id = ""
+notes = "PCB library of the sample with component bodies: the three mini footprints, the footprint of U1 with one extruded body (c0121 golden file)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.PrjPcb"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the sample with component bodies listing its schematic, libraries and PCB document (c0121 golden file)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.SchDoc"
+origin = "authored"
+corpus_id = ""
+notes = "binary schematic of the sample with component bodies, the blink design named body2 (c0121 golden file)"
+
+[[file]]
+path = "tests/data/altium/body2/body2.SchLib"
+origin = "authored"
+corpus_id = ""
+notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file)"
+
+[[file]]
+path = "tests/data/model/v0.2.0/blink_2layer.board.json"
+origin = "authored"
+corpus_id = ""
+notes = "the .fenolite/board.json that Fenolite 0.2.0 wrote (the code of the tag v0.2.0, commit ea9e8b4b, in a scratch worktree) for examples/blink_2layer/design.py at that tag, copied byte for byte: fenolite build examples/blink_2layer/design.py --out DIR --target kicad --kicad-version 10 --seed 1 --timestamp 2026-10-06T00:00:00Z --confirm; a model document without the keys graphics, texts and corner_ratio (c0126: old model documents load unchanged); sha256 92d4403617820108b8c7dbe5e077b8b7d797ca0abf46ea8086a357916f57eaad"

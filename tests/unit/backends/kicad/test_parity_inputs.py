@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 
 import pytest
-from _schbuild import built_nested, write_files
+from _schbuild import built_nested, built_stacked, write_files
 
 from fenolite.backends.base import ParityInputs, SchematicSide
 from fenolite.backends.kicad import parity_inputs, sch_netlist
@@ -132,3 +132,22 @@ def test_backend_gives_the_side(tmp_path: Path) -> None:
     nodes = PadNetList("schematic", (PadAssignment("R1-1", "N1"),))
     given = backend.schematic_side(project, nodes=nodes)
     assert given.side is not None and given.side.nodes.get(("R1", "1"), "N1") == "N1"
+
+
+def test_stacked_pins_are_pins_of_the_side(tmp_path: Path) -> None:
+    """A pin bonded to several pads (change c0123): the side holds every pad as a pin with the net of the
+    stack, and the comparison with the built board finds nothing but pads that no pin stands for."""
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.checks import parity
+
+    for target in (9, 10):
+        folder = write_files(built_stacked(target), tmp_path / str(target))
+        side = parity_inputs.schematic_side(folder / "stacked.kicad_sch")
+        assert side.components["U1"].pins == {*"1234567", "14", "23", "15", "9", "27", "24"}
+        assert side.nodes[("U1", "23")] == side.nodes[("U1", "3")] == "OUT"
+        assert side.nodes[("U1", "15")] == side.nodes[("U1", "9")] == "unconnected-(U1-Pad15)"
+        assert side.nodes[("D2", "21")] == side.nodes[("D2", "17")] == "Net-(D2-K-Pad17)"
+        text = (folder / "stacked.kicad_pcb").read_text(encoding="utf-8")
+        report = parity.compare(side, read_board(text, file="stacked.kicad_pcb"))
+        assert {finding.code for finding in report.findings} <= {parity.PAD_WITHOUT_PIN}
+        assert report.summary[parity.NET_CONFLICT] == 0 and report.summary[parity.PIN_WITHOUT_PAD] == 0

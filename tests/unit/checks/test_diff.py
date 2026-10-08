@@ -480,3 +480,115 @@ def test_scope_keeps_equal_designs_equal_whatever_the_ids() -> None:
         {kind: tuple(f.name for f in dataclasses.fields(cls)) for kind, cls in KIND_CLASSES.items()}, 2
     )
     assert diff_designs(_design(1), _design(2), scope=scope).equal
+
+
+# --- footprint items (capability verification-loop, "Footprint items in the model difference"; c0126) ----
+
+
+def _with_footprint_items(design: Design, *, shift: int = 0, reverse: bool = False) -> Design:
+    """``design`` with two silkscreen lines and one text on each footprint; ``shift`` moves the first line
+    of the first footprint along X, ``reverse`` turns the order of each footprint's graphics."""
+    from fenolite.model.board import Graphic
+
+    assert design.board is not None
+    footprints = []
+    for index, footprint in enumerate(design.board.footprints):
+        dx = shift if index == 0 else 0
+        lines = [
+            Graphic(
+                id=f"gfx_{index}_{n}",
+                kind="line",
+                layer="F.SilkS",
+                points=(Point(dx if n == 0 else 0, n * MM), Point(MM + (dx if n == 0 else 0), n * MM)),
+                width=120_000,
+            )
+            for n in range(2)
+        ]
+        text = Text(
+            id=f"txt_{index}",
+            text="note",
+            layer="F.Fab",
+            position=Point(0, 0),
+            size=Size(MM, MM),
+            thickness=150_000,
+        )
+        graphics = tuple(reversed(lines)) if reverse else tuple(lines)
+        footprints.append(dataclasses.replace(footprint, graphics=graphics, texts=(text,)))
+    return dataclasses.replace(design, board=dataclasses.replace(design.board, footprints=tuple(footprints)))
+
+
+def test_footprint_items_moved_line_of_one_footprint() -> None:
+    """Scenario "A moved line of one footprint": one removed and one added under ``/footprint_graphic/``,
+    each naming the footprint, and nothing under ``/footprint/``."""
+    a = _with_footprint_items(_design(1))
+    b = _with_footprint_items(_design(1), shift=MM)
+    report = diff_designs(a, b)
+    assert [(change.path, change.change) for change in report.changes] == [
+        ("/footprint_graphic/0", "added"),
+        ("/footprint_graphic/0", "removed"),
+    ]
+    assert all('"footprint":"R1"' in (change.a or change.b) for change in report.changes)
+    assert report.summary == {"footprint_graphic": {"added": 1, "removed": 1, "changed": 0}}
+
+
+def test_footprint_items_order_does_not_count() -> None:
+    """Scenario "Order does not count"; and an item of another footprint is another item."""
+    a = _with_footprint_items(_design(1))
+    assert diff_designs(a, _with_footprint_items(_design(1), reverse=True)).equal
+    assert a.board is not None
+    first, second = a.board.footprints
+    swapped = (
+        dataclasses.replace(first, texts=()),
+        dataclasses.replace(second, texts=(*second.texts, dataclasses.replace(first.texts[0], id="txt_x"))),
+    )
+    moved = dataclasses.replace(a, board=dataclasses.replace(a.board, footprints=swapped))
+    report = diff_designs(a, moved)
+    assert report.summary == {"footprint_text": {"added": 1, "removed": 1, "changed": 0}}
+
+
+def test_footprint_items_in_a_scope_and_the_corner_ratio() -> None:
+    """With a scope the kinds are compared only when it names them, the footprint's key stays, and the
+    points take the tolerance; the corner ratio is a field of the kind ``pad``."""
+    a = _with_footprint_items(_design(1))
+    near = _with_footprint_items(_design(1), shift=2)
+    fields = ("kind", "layer", "points", "width", "filled")
+    scope = ModelScope({"footprint_graphic": fields}, 2)
+    assert diff_designs(a, near, scope=scope).equal
+    assert not diff_designs(a, near, scope=ModelScope({"footprint_graphic": fields}, 1)).equal
+    assert diff_designs(a, near, scope=ModelScope({"footprint": ("lib_ref",), "pad": ("number",)}, 0)).equal
+    assert length_fields("footprint_graphic") >= {"points", "width"}
+    assert length_fields("footprint_text") >= {"position", "size", "thickness"}
+    assert a.board is not None
+    footprint = a.board.footprints[0]
+    pad = dataclasses.replace(footprint.pads[0], shape="roundrect", corner_ratio=250_000)
+    other = dataclasses.replace(pad, corner_ratio=200_000)
+
+    def with_pad(new: Pad) -> Design:
+        assert a.board is not None
+        changed = dataclasses.replace(footprint, pads=(new, *footprint.pads[1:]))
+        return dataclasses.replace(
+            a, board=dataclasses.replace(a.board, footprints=(changed, *a.board.footprints[1:]))
+        )
+
+    report = diff_designs(with_pad(pad), with_pad(other))
+    assert [change.path for change in report.changes] == ["/pad/R1-1/corner_ratio"]
+    assert diff_designs(
+        with_pad(pad), with_pad(other), scope=ModelScope({"pad": ("number", "shape")}, 0)
+    ).equal
+    assert not diff_designs(
+        with_pad(pad), with_pad(other), scope=ModelScope({"pad": ("corner_ratio",)}, 0)
+    ).equal
+
+
+def test_footprint_items_absent_give_the_report_of_before() -> None:
+    """Two designs without items: the footprint entry holds neither key, and no new kind is in a report."""
+    a, b = _design(1), _design(2)
+    assert diff_designs(a, b).equal
+    assert a.board is not None
+    moved = dataclasses.replace(a.board.footprints[0], position=Point(MM, MM))
+    changed = dataclasses.replace(
+        a, board=dataclasses.replace(a.board, footprints=(moved, a.board.footprints[1]))
+    )
+    report = diff_designs(a, changed)
+    assert set(report.summary) == {"footprint"}
+    assert not any("graphics" in change.path or "texts" in change.path for change in report.changes)

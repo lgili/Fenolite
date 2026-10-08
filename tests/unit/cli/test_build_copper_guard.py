@@ -199,12 +199,15 @@ def test_unknown_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert not blink.out.exists()
 
 
-def test_guard_is_for_the_kicad_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_altium_target_has_its_own_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0088: ``--copper-check`` is no usage error with the Altium target any more; the guard of
+    that branch judges the PCB document (``test_build_altium_guard.py``)."""
     blink = Blink(tmp_path, monkeypatch)
-    code, _, err = blink.build("--target", "altium", "--copper-check", "warn", "--dry-run")
-    assert code == 2 and err["code"] == "FEN-2001" and err["where"] == "--copper-check"
+    code, env, _ = blink.build("--target", "altium", "--copper-check", "warn", "--dry-run")
+    assert code == 0 and env["result"]["copper_check"]["mode"] == "warn"  # type: ignore[index]
     code, env, _ = blink.build("--target", "altium", "--dry-run")
-    assert code == 0 and "copper_check" not in env["result"]  # type: ignore[operator]
+    check = env["result"]["copper_check"]  # type: ignore[index]
+    assert code == 0 and (check["mode"], check["ran"], check["shorts"]) == ("refuse", True, 0)
 
 
 def test_refused_build_does_not_run_the_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

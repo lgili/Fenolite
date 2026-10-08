@@ -106,6 +106,7 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.library-changed": "warning",
         "build.diff-pair-name": "warning",
         "build.i2c-pullup-missing": "warning",
+        "build.pad-map-default": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",
@@ -683,7 +684,7 @@ def build_design(
                 on_net[part.component.id],
                 part,
                 issues,
-                dict(part.component.pin_pad_map),
+                part.component.pin_pads(),
             ),
         )
         components.append(component)
@@ -912,6 +913,9 @@ def build_design(
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
     if generated is not None:
         evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
+        # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);
+        # a design of one pad per pin adds nothing, so its envelope is the one it was
+        evidence_items += sch_netlist.stack_evidence((generated.sheet, *generated.children.values()))
     merged_copper = cast(Mapping[str, int], preserved.get("copper", {}))
     summary: dict[str, object] = {
         "components": len(components),
@@ -1178,7 +1182,7 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
             GUARD_HINT,
         )
     refs = {c.id: c.ref for c in design.circuit.components}
-    pads = {c.id: dict(c.pin_pad_map) for c in design.circuit.components}
+    by_id = {c.id: c for c in design.circuit.components}
     expected: dict[str, str] = {}
     differences: list[tuple[str, str, str]] = []
     stored_as: dict[str, str] = {}
@@ -1187,15 +1191,17 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
         for member in net.members:
             if member.component_id not in generated.paths:
                 continue  # a footprint kept from the board has no symbol: the sheet says nothing of it
-            pad = pads.get(member.component_id, {}).get(member.pin, member.pin)
-            element = f"{refs.get(member.component_id, '')}-{pad}"
-            other = stored_as.setdefault(stored, net.name)
-            if other != net.name:
-                text = f"the nets {other} and {net.name} of the circuit are one net on the sheet"
-                differences.append((stored, element, text))
-            known = expected.setdefault(element, stored)
-            if known != stored:
-                differences.append((stored, element, f"the circuit has {element} on {known} and on {stored}"))
+            component = by_id.get(member.component_id)
+            for pad in component.pads_of(member.pin) if component is not None else (member.pin,):
+                element = f"{refs.get(member.component_id, '')}-{pad}"
+                other = stored_as.setdefault(stored, net.name)
+                if other != net.name:
+                    text = f"the nets {other} and {net.name} of the circuit are one net on the sheet"
+                    differences.append((stored, element, text))
+                known = expected.setdefault(element, stored)
+                if known != stored:
+                    text = f"the circuit has {element} on {known} and on {stored}"
+                    differences.append((stored, element, text))
     for (component_id, pad), net_name in generated.pad_nets.items():
         expected.setdefault(f"{refs.get(component_id, '')}-{pad}", net_name)
     found = {node.element: net for net in own.nets for node in net.nodes}
@@ -1244,11 +1250,18 @@ def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design
     footprints: list[FootprintInstance] = []
     for fp in board.footprints:
         pads: list[Pad] = []
+        # the pads of one open pin share one name (a pin bonded to several pads, c0123): the net is keyed
+        # by the lowest of their numbers, which for a pin of one pad is the pad's own
+        keyed: dict[str, str] = {}
+        for pad in fp.pads:
+            name = generated.pad_nets.get((fp.component_id, pad.number)) if pad.number else None
+            if name is not None and pad.net_id is None:
+                keyed[name] = min(keyed.get(name, pad.number), pad.number)
         for pad in fp.pads:
             wanted = generated.pad_nets.get((fp.component_id, pad.number)) if pad.number else None
             if wanted is not None and pad.net_id is None:
                 net_id = derived_id(
-                    "net", schgen.ID_BACKEND, f"unconnected:{paths.get(fp.component_id, '')}:{pad.number}"
+                    "net", schgen.ID_BACKEND, f"unconnected:{paths.get(fp.component_id, '')}:{keyed[wanted]}"
                 )
                 if net_id not in known:
                     known.add(net_id)
@@ -1273,41 +1286,50 @@ def _pad_nets(
     on_net: Mapping[str, str],
     part: _Part,
     issues: list[Issue],
-    pin_pad_map: Mapping[str, str],
+    pin_pads: Mapping[str, tuple[str, ...]],
 ) -> tuple[Pad, ...]:
+    """``pads`` with the net of the pin that names each: ``pin_pads`` is ``Component.pin_pads()``, the pads
+    of each mapped pin (several for a pin bonded to several pads, change c0123); a pin outside it names
+    the pad of its own number."""
     numbers = {p.number for p in pins}
     pad_numbers = {p.number for p in pads if p.number}
     ref = part.component.ref
-    for source, target in sorted(pin_pad_map.items()):
+    for source, targets in sorted(pin_pads.items()):
         if source not in numbers:
             issues.append(
                 issue("build.pin-pad-map-invalid", f"{ref} maps missing symbol pin {source}", part.path)
             )
-        if target not in pad_numbers:
-            issues.append(
-                issue("build.pin-pad-map-invalid", f"{ref} maps to missing footprint pad {target}", part.path)
-            )
-    resolved = {pin.number: pin_pad_map.get(pin.number, pin.number) for pin in pins}
-    assigned: dict[str, str] = {}
-    for pin, pad in sorted(resolved.items()):
-        other = assigned.get(pad)
-        if other is not None and other != pin:
-            issues.append(
-                issue(
-                    "build.pin-pad-map-invalid",
-                    f"{ref} pins {other} and {pin} both map to pad {pad}",
-                    part.path,
+        for target in targets:
+            if target not in pad_numbers:
+                issues.append(
+                    issue(
+                        "build.pin-pad-map-invalid",
+                        f"{ref} maps to missing footprint pad {target}",
+                        part.path,
+                    )
                 )
-            )
-        assigned[pad] = pin
-    net_by_pad = {pad: on_net[pin] for pin, pad in resolved.items() if pin in on_net}
+    resolved = {pin.number: pin_pads.get(pin.number, (pin.number,)) for pin in pins}
+    assigned: dict[str, str] = {}
+    for pin, targets in sorted(resolved.items()):
+        for pad in targets:
+            other = assigned.get(pad)
+            if other is not None and other != pin:
+                issues.append(
+                    issue(
+                        "build.pin-pad-map-invalid",
+                        f"{ref} pins {other} and {pin} both map to pad {pad}",
+                        part.path,
+                    )
+                )
+            assigned[pad] = pin
+    net_by_pad = {pad: on_net[pin] for pin, targets in resolved.items() if pin in on_net for pad in targets}
     for number in sorted(pad_numbers - numbers):
         if number not in assigned:
             issues.append(
                 issue("build.pad-without-pin", f"{ref} pad {number} has no pin mapped to it", part.path)
             )
     for pin in pins:
-        if resolved[pin.number] in pad_numbers:
+        if any(pad in pad_numbers for pad in resolved[pin.number]):
             continue
         if pin.number in on_net:
             issues.append(

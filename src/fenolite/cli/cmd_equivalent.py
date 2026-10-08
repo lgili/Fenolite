@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite equivalent A [B]``: whether two designs are equivalent, level by level, with every
-difference located at ``REF`` or ``REF-PIN`` (capability design-equivalence, "Equivalent command" and
-"Triangle oracle"; ``docs/cli-contract.md``, "equivalent"; ``docs/equivalence.md``).
+difference located at ``REF`` or ``REF-PIN``, and at the net for routing (capability design-equivalence,
+"Equivalent command", "Level 5 in the equivalent command" and "Triangle oracle";
+``docs/cli-contract.md``, "equivalent"; ``docs/equivalence.md``).
 
 With two paths it reads both through the backend registry and runs no tool. With ``--against
 kicad-import`` side ``b`` is the board that ``kicad-cli pcb import`` converts ``A`` to, compared under
@@ -82,6 +83,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--tolerance-nm", type=int, metavar="N", help="length tolerance per coordinate")
     parser.add_argument("--tolerance-udeg", type=int, metavar="N", help="angle tolerance in microdegrees")
+    parser.add_argument(
+        "--tolerance-ppm",
+        type=int,
+        metavar="N",
+        help="tolerance of a routed length of level 5, in parts per million of the length",
+    )
     parser.add_argument("--frame", choices=FRAMES, help="relative removes one translation (default absolute)")
     parser.add_argument(
         "--ignore-ref", action="append", default=[], metavar="GLOB", help="leave out matching references"
@@ -197,14 +204,21 @@ def _user_profile(args: argparse.Namespace, ctx: Context) -> Profile | None:
 
 
 def _tolerances(args: argparse.Namespace, profile: Profile | None) -> Tolerances:
-    for flag, value in (("--tolerance-nm", args.tolerance_nm), ("--tolerance-udeg", args.tolerance_udeg)):
+    for flag, value in (
+        ("--tolerance-nm", args.tolerance_nm),
+        ("--tolerance-udeg", args.tolerance_udeg),
+        ("--tolerance-ppm", args.tolerance_ppm),
+    ):
         if value is not None and value < 0:
             raise _usage(f"{flag} is a non-negative integer", where=flag)
     length = args.tolerance_nm if args.tolerance_nm is not None else (profile.tolerance_nm if profile else 0)
     angle = args.tolerance_udeg
     if angle is None:
         angle = profile.tolerance_udeg if profile else 0
-    return Tolerances(length, angle)
+    relative = args.tolerance_ppm
+    if relative is None:
+        relative = profile.tolerance_ppm if profile else 0
+    return Tolerances(length, angle, relative)
 
 
 def _level(args: argparse.Namespace, a: _Side, b: _Side) -> int:
@@ -251,6 +265,7 @@ def _result(a: _Side, b: _Side, report: EquivalenceReport, profile: Profile | No
         "tolerances": {
             "length_nm": report.tolerances.length_nm,
             "angle_udeg": report.tolerances.angle_udeg,
+            "length_ppm": report.tolerances.length_ppm,
         },
         "frame": report.frame,
         "translation": [report.translation.x, report.translation.y],
@@ -261,11 +276,13 @@ def _result(a: _Side, b: _Side, report: EquivalenceReport, profile: Profile | No
                 "compared": level.compared,
                 "differences": len(level.differences),
                 "excluded": len(level.excluded),
+                "notices": len(level.notices),
                 "summary": dict(level.summary),
             }
             for level in report.levels
         ],
         "differences": [_row(difference) for difference in report.differences],
+        "notices": [_row(notice) for notice in report.notices],
         "excluded": [{**_row(found.difference), "rule": found.rule_id} for found in report.excluded],
         "profile": None
         if profile is None
@@ -280,11 +297,12 @@ def _failed(a: _Side, failure: Issue, version: str) -> Result:
         "level": 0,
         "equivalent": False,
         "sides": {"a": side, "b": None},
-        "tolerances": {"length_nm": 0, "angle_udeg": 0},
+        "tolerances": {"length_nm": 0, "angle_udeg": 0, "length_ppm": 0},
         "frame": "relative",
         "translation": [0, 0],
         "levels": [],
         "differences": [],
+        "notices": [],
         "excluded": [],
         "profile": None,
         "tool_version": version,

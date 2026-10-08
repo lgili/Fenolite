@@ -25,10 +25,20 @@ known to `kicad-cli`, so nothing here is `ORACLE-VERIFIED`, and the meaning of t
 | Width has a minimum, a preferred and a maximum width; the minimum and the maximum are checked | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | Routing Via Style has a via diameter and a via hole, each with a minimum, a preferred and a maximum | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | Hole Size holds a minimum and a maximum, either as absolute values or as percentages | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
-| Board Outline Clearance exists as a rule kind; no permitted source gives the keys of its record | S-0295 | INFERRED | H-A-RD-PRJ-RULE-MAP |
+| Board Outline Clearance exists as a rule kind. Its record holds the keys of Clearance; the records of Hole To Hole Clearance and Minimum Annular Ring hold `GAP` with `ALLOWSTACKEDMICROVIAS`, and `MINIMUMRING` (`pcb-copper.md`, "Rule kinds lowered", from public PCB documents; change c0084) | S-0295, S-0460, S-0174, S-0199, S-0200 | INFERRED | H-A-RULE-KINDS |
 | The rule keys used by the mapping: `GAP`, `GENERICCLEARANCE`, `OBJECTCLEARANCES` and `IGNOREPADTOPADCLEARANCEINFOOTPRINT` of Clearance; `MINLIMIT`, `PREFEREDWIDTH` and `MAXLIMIT` of Width; `WIDTH`, `MINWIDTH`, `MAXWIDTH`, `HOLEWIDTH`, `MINHOLEWIDTH`, `MAXHOLEWIDTH` and `VIASTYLE` of Routing Via Style; `ABSOLUTEVALUES`, `MINLIMIT`, `MAXLIMIT`, `MINPERCENT` and `MAXPERCENT` of Hole Size | S-0160, S-0161, S-0297 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | A length in a rule record is a decimal number followed by `mil` (or `mm`), such as `6mil` | S-0163, S-0297 | INFERRED | H-A-RD-PRJ-RULE-MAP |
 | A scope is a query: membership functions (`InNet`, `InNetClass`, `InComponent`, …), object-type checks (`IsTrack`, `IsVia`, `IsPad`, …), layer checks (`OnLayer`, …) and the logical operators `And`, `Or`, `Not`. The documentation does not state the precedence of the operators | S-0296 | INFERRED | H-A-RD-PRJ-SCOPE |
+| The layer checks of the query language test an object: `OnMid` is true for an object on an internal signal layer; `OnOutside` for an object on the top or the bottom layer, and an object on Multi-Layer is not returned by it; `OnPlane` for an object on an internal plane layer. The entry of `OnMid` does not say whether an object on Multi-Layer is returned | S-0555 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| `ExistsOnLayer('<name>')` is true for an object that exists on the named layer, and it is the function to use for an object on Multi-Layer that has a shape on the layer; the name is the layer's name as the layer list of the board shows it | S-0556, S-0555 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| The Constraint Manager holds the clearances as a matrix between net classes, with one entry from all net classes to all net classes by default; the value of a cell is given for all layers, for the outer layers, for the inner layers or for one layer, and the more specific one applies. Each pair of classes with a value is shown as a rule of its own | S-0557 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| In the Clearance rule one value is copied to every cell of the matrix of object kinds; an option leaves the clearances between the pads of one footprint unchecked | S-0558 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| A PCB document with a clearance matrix holds one Clearance record with `ISMATRIX=TRUE` for all objects, and one record per layer set of a cell: these hold `SOURCERULE` (the zero-based position of the `ISMATRIX` record among the rule records), `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`, and `INNERLAYERS=TRUE` with both scopes `OnMid`, or `OUTERLAYERS=TRUE` with both scopes an `Or` of `ExistsOnLayer` of the top and of the bottom layer's name. The cell records have the higher priorities. All three hold `OBJECTCLEARANCES` of one space | S-0172 (three records of one document) | CORPUS-VERIFIED (2026-10-06; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-FORMS |
+| An entry of `OBJECTCLEARANCES` is `ClearanceObj_<kind>-ClearanceObj_<kind>:<count>`, entries joined by `;`. In the four Clearance matrices of the public documents (27, 8, 8 and 1 entries) no entry holds the count of its record's `GAP` read as 0.0001 mil, and the eight distinct counts above zero are round lengths in that unit (0.1, 0.25, 0.4 and 0.55 mm; 3.5, 6, 10 and 15 mil) | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-06; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-FORMS |
+| A count of `OBJECTCLEARANCES` is 0.0001 mil (2.54 nm, the unit of the document's coordinates), and a cell that the text leaves out holds the generic value; so a text whose every entry holds the length of `GAP` says one clearance | S-0558, S-0175, S-0176, S-0187 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| The matrix of the Clearance rule has a row and a column per object kind (track, arc, surface pad, through-hole pad, via, fill, polygon, region, hole); a simple view shows arc with track as one entry, and fill, polygon and region as one | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
+| The object kinds named by the entries of the public Clearance matrices are `Arc`, `Track`, `SMDPad`, `THPad`, `Via`, `Fill`, `Poly`, `Region`, `Text` and `Hole`, and no other. Two of the four matrices give different values to object kinds of one item kind of the copper check (a through-hole pad and a surface pad; an arc and a track); the two others do not | S-0175, S-0176, S-0187 | CORPUS-VERIFIED (2026-10-07; test_altium_rule_kinds.py) | H-A-RULE-CLEARANCE-CELLS |
+| `Arc` and `Track` are the tracks and arcs of the import, `SMDPad` and `THPad` its pads, `Via` its vias, and `Poly` the poured copper of a polygon, which the import reads as the fills of a zone; `Fill`, `Region`, `Text` and `Hole` are objects the copper check holds no item of | S-0558 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
 
 ## Header keys
 
@@ -46,30 +56,38 @@ give.
 
 | RULEKIND | neutral kind | min | opt | max | net scope | further conditions |
 |---|---|---|---|---|---|---|
-| `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
+| `Clearance` | `clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent, blank, uniform or a matrix of exact cells (each one more rule); `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or as in "Clearance forms that map" |
 | `Width` | `track_width` | `MINLIMIT` | `PREFEREDWIDTH` | `MAXLIMIT` | `AnyNet` | — |
 | `RoutingVias` | `via_diameter` | `MINWIDTH` | `WIDTH` | `MAXWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `RoutingVias` | `via_drill` | `MINHOLEWIDTH` | `HOLEWIDTH` | `MAXHOLEWIDTH` | `AnyNet` | `VIASTYLE` is `Through Hole` |
 | `HoleSize` | `hole_size` | `MINLIMIT` | — | `MAXLIMIT` | `AnyNet` | `ABSOLUTEVALUES` is `TRUE`; `MINPERCENT` and `MAXPERCENT` allowed and unused |
+| `BoardOutlineClearance` | `edge_clearance` | `GAP` | — | — | `DifferentNets` | `OBJECTCLEARANCES` absent or empty; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE` |
+| `HoleToHoleClearance` | `hole_to_hole` | `GAP` | — | — | `AnyNet` | `ALLOWSTACKEDMICROVIAS` is `FALSE` |
+| `MinimumAnnularRing` | `annular_width` | `MINIMUMRING` | — | — | `AnyNet` | — |
 
-`rules.PENDING_KINDS`: kinds that have a neutral counterpart but no permitted source for their keys.
-They are reported apart, so that the gap is visible.
+`rules.PENDING_KINDS`: kinds that have a neutral counterpart but no permitted source for their keys,
+reported apart with the reason `no-verified-keys`. The table is empty since change c0084, which found the
+keys of `BoardOutlineClearance` in public PCB documents; the reason stays for a later kind.
 
-| pending RULEKIND | neutral kind | reason |
-|---|---|---|
-| `BoardOutlineClearance` | `edge_clearance` | `no-verified-keys` |
+The last three kinds of the table are those of change c0084: the table holds every Altium kind of an
+`exact` row of `rulemap.TABLE` (`pcb-copper.md`, "The lowering table"), so what Fenolite writes it reads.
+A Hole To Hole Clearance with `ALLOWSTACKEDMICROVIAS=TRUE` exempts the holes of stacked microvias, which
+the neutral rule does not, so it is reported with the reason `keys`.
 
 ## Rule kinds seen
 
 Every rule kind that the rule files of the corpus hold (`docs/evidence/altium-project-read.md`), with the
 number of records in the export form and the number of summary-form files that list it. A kind that
 maps is in `RULE_KIND_MAP`; every other kind is reported as `no-counterpart`. The summary form maps
-nothing (`summary-form`). `BoardOutlineClearance` (`PENDING_KINDS`) is in no corpus file.
+nothing (`summary-form`). `BoardOutlineClearance` and `MinimumAnnularRing` are in no rule file of the
+corpus: their rows count the rule records of the corpus PCB documents (`pcb-copper.md`, "Rule kinds
+lowered").
 
 | RULEKIND seen | records | source | maps |
 |---|---|---|---|
 | `AssemblyTestpoint` | export (1) | S-0297 | no |
 | `AssemblyTestPointUsage` | export (2) | S-0297 | no |
+| `BoardOutlineClearance` | PCB documents (8 in 5 documents) | S-0174, S-0175, S-0187, S-0199, S-0200 | yes: `edge_clearance` |
 | `Clearance` | export (1); summary (2 files) | S-0297, S-0298, S-0188 | yes: `clearance` |
 | `ComponentClearance` | export (1) | S-0297 | no |
 | `DiffPairsRouting` | export (1) | S-0297 | no |
@@ -78,9 +96,10 @@ nothing (`summary-form`). `BoardOutlineClearance` (`PENDING_KINDS`) is in no cor
 | `FanoutControl` | export (5) | S-0297 | no |
 | `Height` | export (1) | S-0297 | no |
 | `HoleSize` | export (1) | S-0297 | yes: `hole_size` |
-| `HoleToHoleClearance` | export (1) | S-0297 | no |
+| `HoleToHoleClearance` | export (1) | S-0297 | yes: `hole_to_hole` |
 | `LayerPairs` | export (1) | S-0297 | no |
 | `MatchedLengths` | export (1) | S-0297 | no |
+| `MinimumAnnularRing` | PCB documents (4 in 3 documents) | S-0174, S-0199, S-0200 | yes: `annular_width` |
 | `MinimumSolderMaskSliver` | export (4) | S-0297 | no |
 | `NetAntennae` | export (1) | S-0297 | no |
 | `PasteMaskExpansion` | export (1) | S-0297 | no |
@@ -111,13 +130,14 @@ checked in this order.
 | `summary-form` | the records come from a summary-form file: its values carry no unit |
 | `malformed` | no `RULEKIND`, no `NAME`, or `PRIORITY` is not a positive integer |
 | `no-counterpart` | the kind is neither in `RULE_KIND_MAP` nor in `PENDING_KINDS` |
-| `no-verified-keys` | the kind is in `PENDING_KINDS` |
+| `no-verified-keys` | the kind is in `PENDING_KINDS` (empty since c0084) |
 | `disabled` | `ENABLED` is not `TRUE` |
 | `net-scope` | `NETSCOPE` differs from the table |
 | `layer-kind` | `LAYERKIND` is not `SameLayer` |
 | `keys` | a key outside the header keys, the keys before `RULEKIND` and the keys of the kind, or a further condition fails |
 | `value` | a limit the table needs is missing (`GAP`; at least one limit otherwise) or is not a length |
-| `scope` | a scope is outside the closed grammar, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
+| `scope` | a scope is outside the closed grammar and the two are no layer condition that maps, or `SCOPE2EXPRESSION` is not `All` for a unary kind |
+| `no-layer` | the two scopes are a layer condition for a kind of layer the board does not hold: the rule applies to no object ("Layer scopes of Clearance") |
 
 ## Closed scope grammar
 
@@ -138,6 +158,79 @@ other text is refused with a reason and the rule is reported with the reason `sc
 | `Not x` | `not(x)` |
 | `(x)` | `x` |
 
+## Clearance forms that map
+
+Change c0125. A Clearance record maps in these forms beyond the plain one, and only where a neutral
+`clearance` rule says exactly what the record says. They are read and never written: `rulemap.lower`
+writes the plain form. `rules.matrix_problem` decides a matrix; the keys of a cell are conditions of the
+table marked `read_only`.
+
+| form | condition | neutral rule |
+|---|---|---|
+| blank matrix | `OBJECTCLEARANCES` holds white space only | as with an empty value: `min` = `GAP` |
+| uniform matrix | every entry of `OBJECTCLEARANCES` holds the length of `GAP`, to the nanometre (a count is `rules.MATRIX_UNIT`, 0.0001 mil) | `min` = `GAP` |
+| matrix cell | `ISMATRIX=TRUE`; `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`; `INNERLAYERS=TRUE`; `OUTERLAYERS=TRUE`; `SOURCERULE` with any value | the keys add nothing: the scopes, `GAP` and `PRIORITY` of the record decide |
+
+A matrix with an entry of another length is read cell by cell ("Cells of an object matrix", change
+c0130); it stays unmapped (`keys`) when it tells apart object kinds that are one item kind of the
+copper check. A record with
+`IGNOREPADTOPADCLEARANCEINFOOTPRINT=TRUE` stays unmapped (`keys`): no selector says "two pads of one
+component". Any other value of a cell key stays unmapped (`keys`): a cell for a named class is in no
+public file, so its scope text is not known.
+
+### Cells of an object matrix
+
+Change c0130. `rules.read_matrix` reads a matrix of differing clearances in the item kinds of the copper
+check (`rules.MATRIX_KINDS`). The value of a pair of object kinds is its entry, or `GAP` without one.
+
+| object kind | item kind of the check |
+|---|---|
+| `Arc`, `Track` | `track` |
+| `SMDPad`, `THPad` | `pad` |
+| `Via` | `via` |
+| `Poly` | `zone` |
+| `Fill`, `Region`, `Text`, `Hole` | none |
+
+- A pair of item kinds is exact when every pair of object kinds in it holds one value. A value that
+  differs from `GAP` is a cell and gives one more `clearance` rule: name `<NAME>/<kind>-<kind>`, the
+  record's priority, `item_kind` on both sides (joined with `and` to the record's scope on its side). It
+  governs above the rule of `GAP` of its record: among rules of one priority the later name governs. A
+  record with two different scopes gets a second rule with the kinds exchanged for a cell of two kinds.
+- When the object kinds of one item kind disagree, no neutral rule says the pair and the whole record
+  stays unmapped (`keys`); the detail names the pairs, for example `track to pad`. Part of a record is
+  never mapped: the rest of it would be judged with a value it does not hold.
+- An entry with an object kind that has no item changes no rule; the rule of `GAP` keeps such entries
+  as written in its bag (`cells_not_lifted`).
+- `RuleMapping.matrix_cells` counts, per enabled Clearance record with entries, those a rule holds and
+  those none holds; the copper stage of a document check reports the sums as `summary.clearance_cells`.
+- A cell of 0 is a rule of 0: no clearance is asked of the pair, and a short is still a short.
+
+### Layer scopes of Clearance
+
+`scope.parse_layer_scope` reads a scope that is, as a whole, one layer condition: `OnMid`,
+`ExistsOnLayer('<name>')`, or `ExistsOnLayer` terms joined by `Or` (or `||`), with at most one pair of
+enclosing parentheses. `parse_scope` still refuses every layer function. `map_rules` considers a layer
+condition only for Clearance, only with the copper layers of the record's board (`rules.CopperLayers`,
+which the import of a PCB document gives; a rule file has none), and only when both scopes hold the
+same one.
+
+The neutral layer condition is the layer a pair of objects is judged on (`checks.clearance`: a rule
+with `layers` is in force for a pair on one of them). Altium's functions test an object. The two say the
+same for an object on one layer and differ for a via or a through-hole pad, which the check judges on
+every layer it spans. So a condition maps in two cases only:
+
+| both scopes | the board | result |
+|---|---|---|
+| `ExistsOnLayer` of every copper layer | any | a rule for all objects with `layers` = the board's copper layers: there is no other layer on which a pair could be judged |
+| `ExistsOnLayer` of some copper layers | has others | unmapped (`scope`): two vias that exist on a named layer are governed by the record on the other layers too, where the neutral rule is not in force |
+| `ExistsOnLayer` of a name that no copper layer, or more than one, holds | any | unmapped (`scope`) |
+| `OnMid` | no internal signal layer | unmapped with `no-layer`: no object is on such a layer, so the rule applies to nothing. The record is no unread rule (`rules.NOT_APPLYING`) |
+| `OnMid` | an internal signal layer | unmapped (`scope`): no permitted source says whether a via or a through-hole pad is "on" an internal signal layer |
+
+A layer name is compared letter for letter with the name the board record gives the layer. An internal
+signal layer is a copper layer whose id lies between the top layer's and the bottom layer's
+(`pcb-records.md`, "Layers"); an internal plane is none.
+
 ## Fenolite's choices
 
 - `RuleFile.to_bytes()` gives the input back. The form is told from the content: a first line that
@@ -148,8 +241,8 @@ other text is refused with a reason and the rule is reported with the reason `sc
   out of the last value. Values are kept as written; `read_rule_file` interprets none of them.
 - Mapping is exact or absent. A disabled rule is not mapped: in Altium the next rule applies, and a
   neutral rule of severity `ignore` would silence it. A key that the table does not know blocks the
-  mapping, so a Clearance with an object matrix or a Width with per-layer values is reported, not
-  flattened.
+  mapping, so a Clearance with a matrix of differing clearances or a Width with per-layer values is
+  reported, not flattened.
 - Lengths are converted as fractions and rounded half to even to the nanometre
   (`core.units.round_half_even_div`). Altium prints its 2.54 nm unit with a few decimals, so the error
   of that rounding is below 1 nm and raises no issue.
@@ -157,8 +250,24 @@ other text is refused with a reason and the rule is reported with the reason `sc
   kind in Altium and rules of different kinds never compete. The preferred value becomes `opt`.
 - Scopes: one parenthesis level holds one kind of operator, because no permitted source states the
   precedence. A value holding `'`, `*`, `?`, `[` or `]` is refused, because a neutral leaf value is a
-  glob. `OnLayer` and the other layer functions are refused: they need the board's layer names mapped
-  to neutral names, which only the import (c0043) can do. `IsPolygon` and every other function are
-  refused.
+  glob. `OnLayer` and the other layer functions are refused by the grammar: they need the board's layer
+  names mapped to neutral names, which only the import (c0043) can do. Since change c0125 the import
+  gives those layers and two layer conditions of a Clearance record map ("Layer scopes of Clearance").
+  `IsPolygon` and every other function are refused.
 - The values of a summary-form file have no unit, so its rules are never mapped (reason
   `summary-form`); no unit is assumed.
+
+## Writing a rule file
+
+`rulemap.write_rule_file` (change c0084) writes the export form from the records of `rulemap.lower`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A record of the public export file starts with the six keys `SELECTION=FALSE`, `LAYER=TOP`, `LOCKED=FALSE`, `POLYGONOUTLINE=FALSE`, `USERROUTED=TRUE`, `UNIONINDEX=0`, then the header keys from `RULEKIND` to `DEFINEDBYLOGICALDOCUMENT`, then the keys of the kind; `UNIQUEID` is eight capital letters; priorities count from 1 within each kind | S-0297 | INFERRED | H-A-RULE-FILE |
+| The PCB rules editor imports rules of chosen kinds from a `.RUL` file into the open board | S-0294 | INFERRED | H-A-RULE-FILE |
+
+Fenolite's choices: each record is one line ended by the single byte `B6` and LF, and the text is 7-bit
+ASCII apart from that byte, as in the public file. The six common keys are written as that file holds
+them. `UNIQUEID` is `project.unique_id("rul:<name>:rule:<rule name>")`, so two exports of one design
+are equal. `COMMENT` is empty. A design that lowers no rule gives a file without a record, which
+`read_rule_file` refuses: the export writes no file then and says so.

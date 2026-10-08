@@ -327,9 +327,9 @@ def test_source_copper_follows_the_copper_codes(tmp_path: Path) -> None:
     """Via types, layers and planes of a source give the same codes, with the board's path."""
     source = kicad()
     assert source.board is not None
-    blind = dataclasses.replace(source.board.vias[0], via_type="blind", layers=("F.Cu", "In1.Cu"))
-    (found,) = mismatch(tmp_path, board_of(source, vias=(blind, *source.board.vias[1:])))
-    assert found.code == "altium.via-unsupported" and "blind" in found.message
+    flat = dataclasses.replace(source.board.vias[0], layers=("F.Cu", "F.Cu"))
+    (found,) = mismatch(tmp_path, board_of(source, vias=(flat, *source.board.vias[1:])))
+    assert found.code == "altium.copper-invalid" and "F.Cu, F.Cu" in found.message
     two_layers = build(
         tmp_path, CopperSource(source, "board", BOARD), script("design.board(mm(50), mm(30))"), copper=2
     )

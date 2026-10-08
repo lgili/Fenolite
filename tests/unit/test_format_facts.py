@@ -33,11 +33,15 @@ HYPOTHESIS_IDS: dict[str, str] = {
     "project.md": r"\bH-K-(PRO-[A-Z0-9-]+|TOK-RULES-SILENT)\b",
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
-ALTIUM_HYPOTHESES = r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|ECO|RD|IMP)-[A-Z0-9-]+\b"
+ALTIUM_HYPOTHESES = (
+    r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|PCBX|ECO|RD|IMP|OUTJOB|SCHDOT|RULE|DRC)-[A-Z0-9-]+\b"
+)
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),
-an import row ``H-A-IMP-*`` (c0043), or a row of the complete schematic writer ``H-A-SCHX-*`` (the family
-of c0086 on the development line; c0135 brings its first two rows to this one)."""
+an import row ``H-A-IMP-*`` (c0043), a row of the complete PCB document ``H-A-PCBX-*`` (c0085), a row
+of the output-job and template writers (c0087), a rule-lowering row ``H-A-RULE-*`` (c0084), or a row of
+the complete schematic ``H-A-SCHX-*`` (c0086; the fix c0135 of the 0.2.x line added the family there for
+its two rows of the pin map), or a row of the light DRC ``H-A-DRC-*`` (c0088)."""
 
 
 def _cells(line: str) -> list[str]:

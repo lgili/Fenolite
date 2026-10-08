@@ -138,6 +138,75 @@ harness types drawn). The hierarchy has five issue codes of its own: the errors
 `altium.harness-power-net` (exit 5, in both modes), and the info `altium.sheets-not-in-project` (a kept
 project file does not list the module sheets and harness files).
 
+`--altium-outjob {on,off}` (change c0087) writes `<name>.OutJob`, an Altium output job, beside the PCB
+document of an Altium build: `on` is the default, `off` writes none, and a build without a PCB document
+writes none either. The job holds the containers `fab` (a folder) and `doc` (a PDF) and six outputs: Gerber,
+NC drill, pick and place and bill of materials for `fab`, a schematic print and a PCB print for `doc`. Its
+write kind is `altium_outjob`, and a new project file lists it after the PCB document. Fenolite runs no
+output: the job is run in Altium. `--altium-outjob-preset FILE` names the export preset the job is made for
+(the TOML file of `export --preset`). Since change c0138 the Gerber output of the job carries its complete
+settings record and every output the key `OutputDefault<i>=0`; the writer maps one option of a preset,
+`gerbers.precision`, to the decimals of that record (4 without it). No other output carries a setting, so
+those keep Altium's defaults, and `result.outjob.defaults` lists the other options the preset sets, as sorted
+`table.key` texts, for you to set in Altium. Either option with `--target kicad`, and the preset with
+`--altium-outjob off`, is a usage error (`FEN-2001`, exit 2); a preset that cannot be read or is malformed
+fails as it does for `export`. `result.outjob` is `null` without a job and otherwise holds, in this order,
+`file`, `media` (`name` and `type` per container), `outputs` (`kind`, `type`, `name`, `category`,
+`document`, `enabled` and `medium` per output), `gerber`, `defaults` and `preset` (`null`, or `file` and
+`sha256`). `result.outjob.gerber` (change c0138) says what the Gerber record of the job holds, with the keys
+in this order: `unit` (`"Metric"`), `decimals` (an integer), `layers` (one object with `id`, the long layer
+id, and `name` per plotted layer, in the order of the record: only layers the board has) and `outline`, the
+object `{"plotted": false, "reason": "…"}`: **the Gerber set of the job holds no plot of the board outline**,
+and `reason` says why and what to do in Altium. An existing project file that does not list the job
+is written again with the job listed, and its old bytes are kept as `<name>.PrjPcb.bak`, when it is as a
+build wrote it (its SHA-256 is the one `.fenolite/build.json` records, as in a folder built by 0.2.x or with
+`--altium-outjob off`): it is then in `result.files` and not in `result.kept`. Any other existing project
+file is kept, and one that does not list the job gives the info `altium.outjob-not-listed`, whose hint says
+how to list it. The infos about a kept project file (`altium.pcb-not-in-project`,
+`altium.schlib-not-in-project`, `altium.sheets-not-in-project`, `altium.outjob-not-listed`) are given only
+for documents that the kept file, read with Fenolite's project reader, does not list; a kept file that
+cannot be read gets them for every document, with a hint that says so. `.fenolite/build.json` keeps the
+digest of a kept project file whose bytes are the ones it recorded before, and of no other kept file; a
+kept file is never in `result.files` or in the receipt. A job that an earlier build wrote into the folder and that differs from
+the one the build writes now (every job written before change c0138 does) is replaced, with the old bytes
+kept as `<name>.OutJob.bak`, when the folder's `.fenolite/build.json` records its digest; a job that was
+edited since, or whose record is gone, is refused like any edited output (exit 7, `FEN-7001`) unless
+`--discard-layout` is given.
+
+A script that names a drawing sheet with `design.sheet(drawing_sheet=…)` gets it on every schematic document
+of an Altium build (change c0087), with the fields and variables of `design.title_block(…)` as sheet
+parameters. `result.drawing_sheet` is `null` without one and otherwise holds `source` (the path as written in
+the script), `items` and `pages` (`file`, `paper`, `width` and `height` in nm per schematic document). A
+layout that does not fit the paper of `sheet()` gives the warning `altium.sheet-paper` and a larger page. A
+part of the sheet that the Altium form cannot carry is a loss with an `altium.sheet.*` code: without
+`--allow-lossy` the build exits 7 with `FEN-7001` and writes nothing (`docs/altium.md`, "Drawing sheet").
+
+
+Since change c0086 `modules` gives every module at any depth a sheet of its own: a module's sheet holds
+its own parts and one sheet symbol per module directly below it, and its file is
+`<name>_<module path with "." for "/">.SchDoc` (`<name>_io.leds.SchDoc` for the module `io/leds`).
+`--altium-symbols {graphics,generic}` (default `graphics`; a usage error `FEN-2001` without
+`--target altium`) picks how a resolved symbol is drawn: from its own graphics, or as one rectangle per
+part. The default changed the files of an Altium build; `generic` gives the files of earlier versions,
+byte for byte.
+`--altium-directions {on,off}` (default `on`; a usage error `FEN-2001` without `--target altium`) picks
+the I/O type of ports and sheet entries: `on` writes output, input or bidirectional where the pin types
+on the net say so (`docs/altium.md`, "Port directions"), `off` leaves every one unspecified.
+`--altium-bodies {off,extruded}` (change c0121; default `off`; a usage error `FEN-2001` without
+`--target altium`) picks what the build does with the component bodies of the board's footprints:
+`off` writes none and reports each with `altium.not-lowered` (`where` = `body/<id>`); `extruded`
+writes each extruded body that has an outline and a height above its standoff into the PCB document
+(and the bodies of a footprint definition into the PCB library) and reports the others. With `off`
+every file is the file of earlier versions, byte for byte; a design whose footprints hold no body
+gives those bytes with `extruded` too, and a script declares no body today. The option is
+experimental and stays `off` by default until step X8 of the author report is in: two keys of a
+written body are stand-ins (`docs/altium.md`, "Component bodies"). The evidence for the record is thin: its keys were measured on 1272 saved extruded bodies of five public documents of three repositories, 1265 of them from one repository, and no written body has been opened in Altium.
+`result.schematic` holds `sheets`, `symbols` (`graphics` or `generic`), `symbols_drawn` (library symbols drawn from their own graphics),
+`symbols_simplified` (those drawn as a rectangle), `buses` (bus blocks drawn), `parameters` (hidden
+component parameters written), `directions` (`on` or `off`) and `directed` (ports and sheet entries that
+carry a direction); it is `null` for a refused build. The info `altium.bus-flattened` names a bus of the
+design that is drawn as its nets.
+
 `--copper-from BOARD.kicad_pcb` (with `--target altium` only; a usage error `FEN-2001` otherwise, and for
 a path that is not a file) copies the tracks, arcs, vias and zones of a routed KiCad board of the same
 design into `<name>.PcbDoc`, after checking that the board matches the design; the board's placements
@@ -147,8 +216,15 @@ with its `FEN-3xxx` code, and the reader's issues and evidence join the build's.
 `result.copper` is present whenever the PCB document is planned (`null` otherwise): `source` (`none`,
 `model`, `script` or `board`), `from` (the path given to `--copper-from`, else `null`), `layers`,
 `planes` (layer name to net name), `tracks`, `arcs`, `vias`, `zones`, `net_classes` (counts of what
-is written) and `placements_from_board`. With `--copper-from`, `result.copper_input` holds the board's
+is written) and `placements_from_board`. `result.pcb` (specified by change c0085; **returned by the command since change c0121**: until then the key was missing from the JSON result of every Altium build, and only the library's build summary held it; it stands after `copper`, and no written file changed with it) is `null` without a PCB document; with one it holds `written`, the number of model items the document holds per kind (`footprint`, `pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`), `not_lowered`, the kinds with items it does not hold and their number, and `bodies` (change c0121), the value of `--altium-bodies` that was used (`off` or `extruded`): with `extruded`, `written.body` counts the component bodies written and `not_lowered.body` the others. With `--copper-from`, `result.copper_input` holds the board's
 `path`, `sha256`, `kind` (`kicad-board`) and `format_version`; the envelope's `input` stays the script.
+
+`result.rules` (change c0084) is `null` when the build is refused, else `written` and `not_lowered`:
+the script's rules that the PCB document holds (`kind`, `selector`, `rule`: the name of the Altium rule)
+and those it does not (`kind`, `selector`, `reason`: `no-counterpart`, `scope-unsupported`,
+`value-unsupported`, `unit-loss`, or `no-document` when no PCB document is planned). Each rule of
+`not_lowered` gives one `altium.not-lowered` **warning** with `where` `design-rules/<kind>`; no issue
+has the `where` `design-rules` alone (`docs/altium.md`, "Rules").
 
 `source` is `script` when the script declares copper intents (`Design.track`, `Design.via`,
 `Design.stitch`) and `--copper-from` is absent: the intents are resolved by the KiCad build of the
@@ -184,12 +260,22 @@ A build for the KiCad target also checks the interfaces of the design (`docs/dsl
 | `build.diff-pair-name` | warning | the two nets of a `diff_pair` or `usb2` interface are not a differential pair for KiCad by name; the hint proposes a name |
 | `build.i2c-pullup-missing` | warning | a line of an `i2c` interface has no two-pin part to the `hv` net of a `power` interface |
 
+A build for either target applies the catalog's default pin-to-pad map (change c0147,
+`docs/catalog/sources.md`) and reports each part it applies it to:
+
+| code | severity | meaning |
+|---|---|---|
+| `build.pad-map-default` | warning | a part of an anode-first catalog symbol (`Fenolite:LED`, `Diode`, `Zener_Diode`, `Schottky_Diode`, `Photodiode`) on a catalog land whose pad 1 is the cathode gives no `pad_map`, and the build applied `{"1": "2", "2": "1"}`; the issue names the part (`where`), the land and the map, and the hint the `pad_map=` to write |
+
 ## `build`
 
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]
 [--schematic-layout readable|grid]
 [--target kicad|altium]
-[--altium-format binary|ascii] [--altium-sheets flat|modules] [--copper-check refuse|warn]` runs the design script
+[--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-outjob on|off]
+[--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
+[--altium-bodies off|extruded]
+[--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
@@ -238,7 +324,8 @@ reports those errors as warnings, with ` (copper guard in warn mode)` at the end
 writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
 the build was already refused), `shorts`, `clearance`, `rules` (`min_clearance`,
 `opaque_clearance_rules`, `unread`) and `evidence`. The guard runs on `--dry-run` too, reads and writes
-no file, and runs no tool. `--copper-check` with `--target altium` is a usage error. A Python caller of
+no file, and runs no tool. With `--target altium` the guard judges the PCB document instead (below,
+"Copper guard of an Altium build"). A Python caller of
 `build_design` is not guarded (`docs/dsl.md`, "Copper guard").
 
 **Placement guard.** The same planned board is then judged by the placement legality check
@@ -449,7 +536,9 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.via-span` | warning | a via's start or end layer is outside the copper chain; it is read as a through via |
 | `altium.import.no-designator` | warning | a schematic component has no designator record; its reference is empty |
 | `altium.import.sheet-missing` | warning | a sheet symbol names a sheet that is not among the inputs; its entries stay named points |
-| `altium.import.repeated-sheet` | warning | a sheet is named by more than one sheet symbol, or a designator holds a `Repeat(` statement; designators of repeated sheets are not annotated |
+| `altium.import.repeated-sheet` | warning | a `Repeat(` statement that is not instantiated (it does not parse, its bounds are reversed, or it would pass 256 instances): one instance is read |
+| `altium.import.channels` | info | a sheet is named by more than one sheet symbol, or by a sheet symbol with a `Repeat` statement: one channel per symbol or per index, named by the board or by the project's designator format |
+| `altium.import.channel-naming` | warning | channel components that the designator format could not name (they are `<designator>@<channel>`); a sheet entry `Repeat(NAME)` whose parent bus is missing or too short; components of `Repeat` channels that no board component links to; channel components that the PCB document names otherwise than the format |
 | `altium.import.scope-unknown` | warning | the project's hierarchy mode has no known meaning; the automatic scope is used |
 | `altium.import.duplicate-net-name` | warning | two nets end with one name; the later one is renamed `<name>#<k>` |
 | `altium.import.duplicate-sheet-name` | warning | two sheet symbols of one sheet have one designator; the second module path gets `#2` |
@@ -457,12 +546,14 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.harness-nested` | warning | a harness entry carries a harness of its own; it is not resolved |
 | `altium.import.pcb-only-component` | warning | a component of the PCB document links to no schematic component; it is added to the circuit |
 | `altium.import.document-skipped` | warning | a document of a project is outside the project folder, missing or unreadable; the design is built from the rest |
+| `altium.import.zone-hole-outside` | warning | count of holes of poured regions that lie outside their region's outline; they are dropped and the fill is solid there |
 | `altium.import.inexact` | info | counts of lengths and angles that were rounded; the originals are in the entities' `altium` bags |
 | `altium.import.multi-class` | info | count of nets in more than one net class; the first class by name is kept |
 | `altium.import.zone-arc` | info | count of zones whose outline holds an arc vertex; their model outline is empty |
 | `altium.import.copper-shape` | info | count of fills and regions on copper, imported as graphics with their net in the bag |
 | `altium.import.scope` | info | the net identifier scope that was used |
 | `altium.import.option-ignored` | info | a project option that the import does not apply (`AppendSheetNumberToLocalNets`) |
+| `altium.import.pin-map` | info | count of pin map records that name no pad, or a pad another pin holds: such a pad is left off the pin and the record is kept in the component's bag; a record of several pads is applied and not counted |
 | `altium.import.bus-member` | info | count of bus members without a net |
 | `altium.import.harness-entry` | info | count of harness entries without a net |
 | `altium.import.extra-board` | info | a project lists more than one PCB document; only the first is read |
@@ -733,10 +824,12 @@ repeat.
 | `check.rta1-failed` | error | document input: a stream's records differ after encoding and reading again; `where` is `<document>:<stream>#<record>` |
 | `check.rta1-normalised` | info | document input: streams whose records are equal and whose encoded bytes differ |
 | `check.rta2-failed` | error | document input: the built model and a reading of the written documents differ inside the written scope |
+| `check.rta3-failed` | error | document input, `roundtrip.rta3`: the reading of a document and the reading of its rewrite differ inside the written scope; `where` is the path of the difference |
+| `check.rta3-unwritten` | info | document input, `roundtrip.rta3`: the counts, per kind, of what the rewritten documents do not hold; never part of the verdict |
 | `check.roundtrip-unjudged` | info | document input: a document whose level was not judged; the message names the reason |
 
 `model.*` findings and reader codes pass through unchanged; among them `model.no-connect-on-net`
-(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, and `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043). Exit codes: 0 without an error issue, 5
+(error) names a pin that is marked as not connected and that a net lists, `model.duplicate-bus-index` (error) a bus that uses an index twice, `model.body-height` (error) a component body whose height is below its standoff (`docs/design-model.md`, change c0043), and `model.pin-pad-map` (error) a pin-to-pad map that holds a pair twice, an empty text, or a pad that two pins name (change c0123), and `model.corner-ratio` (error) a pad whose `corner_ratio` is outside 0 to 500 000 ppm of its shorter side or that is no rounded rectangle, with `where` the pad's id (change c0126). Exit codes: 0 without an error issue, 5
 with one, 2 for a usage error (ambiguous folder, unknown stage), 3 for a missing path or a board that
 neither Fenolite nor KiCad reads (the envelope still holds the issues), and 6 when a stage that needs
 `kicad-cli` is selected and it is missing (`FEN-6001`; the hint names `--stages model.validate,roundtrip`),
@@ -754,20 +847,31 @@ project file is ambiguous, and a folder with Altium files and without exactly on
 refused (both `FEN-2001`, exit 2, the hint naming the candidates).
 
 The stages are `DOCUMENT_STAGES`, in this order; `--stages` selects a subset (all by default), and a
-name of the KiCad list such as `drc.kicad` is a usage error whose hint lists them.
+name of the KiCad list such as `drc.kicad` is a usage error whose hint lists them. One more stage,
+`roundtrip.rta3`, is opt-in (`OPT_IN_DOCUMENT_STAGES`, change c0090): it runs only when `--stages` names
+it, because it writes a whole project into a temporary folder and reads it again.
 
 | stage | what it does | evidence |
 |---|---|---|
 | `model.validate` | the `model.*` findings of the schematic reading and of the PCB reading (`where` starts with `schematic:` or `pcb:`), with the readers' own issues; on built input, those of the stored model | the readings; `INFERRED` on built input |
 | `erc.lite` | the three ERC lite rules on the schematic reading (pin types and No ERC marks come from the sheets), or on the stored model of built input | `INFERRED` (`H-K-CHECK-ERC`, `H-A-VER-ERC`) |
+| `copper.clearance` | the copper check of `check` on the PCB reading, built and native input alike: shorts, clearance and zone overlaps, with the pads of the Altium board frame and the Clearance rules the document holds (below) | the reading and the check (`H-A-DRC-SAME`); `UNVERIFIED` when part of the copper or of the rules was not judged |
+| `parity` | the PCB reading against the schematic reading, as `parity` below: references, values, footprint names, nets, pins and pads | `INFERRED` (`H-K-PARITY-OWN`, `H-A-DRC-PARITY`) |
 | `netlist.assignment_compare` | the partition compare of the pairs (`schematic`, `pcb`) on native input, (`model`, `schematic`) and (`model`, `pcb`) on built input; no export is needed | the lowest of the readings compared (`H-A-IMP-NETLIST`) |
 | `roundtrip.rta0` | RT-A0 of every compound file of the set: a copy through the reader and the compound writer keeps every storage and stream | `EVIDENCE_RT_A0`; `UNVERIFIED` when a copy fails |
 | `roundtrip.rta1` | RT-A1 of every document: every typed stream gives equal records after encoding and reading again | the reader's level per kind; `UNVERIFIED` when a stream fails |
-| `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips") | `INFERRED` (`H-A-VER-RTA2-2`) |
+| `roundtrip.rta2` | RT-A2 on built input: the stored model against the readings of the documents the build wrote, inside the written scope (`docs/altium.md`, "Round trips"); footprints, pads and copper are compared, and no kind is only counted | `INFERRED` (`H-A-VER-RTA2-3`) |
+| `roundtrip.rta3` | opt-in. RT-A3: the project file (else the PCB document, else the first schematic) is read, its model is written as new Altium documents in a temporary folder, and those are read again; the two models are compared inside the written scope | `INFERRED` (`H-A-VER-RTA3`); `UNVERIFIED` when a difference is reported |
 
 A stage is skipped with one of these reasons: `native-input` (`roundtrip.rta2` on files that no
-Fenolite build wrote), `no-schematic` (`erc.lite` without a schematic document), `single-source`
-(`netlist.assignment_compare` without two sources), `not-judged` (no document of the set can be judged
+Fenolite build wrote), `model-predates-board` (`roundtrip.rta2` on a project built before change c0090,
+whose stored model holds no footprint: build it again), `model-predates-graphics` (`roundtrip.rta2` on a
+project built before change c0126, whose stored footprints hold no graphic while its PCB document draws
+some: build it again), `no-document` (`roundtrip.rta3` when the write
+gives no document of the kind that was read: the schematic writer refuses the circuit),
+`no-schematic` (`erc.lite` and `parity` without a schematic document),
+`single-source` (`netlist.assignment_compare` without two sources; `copper.clearance` and `parity`
+without a PCB document), `not-judged` (no document of the set can be judged
 by the stage: a project file alone for `roundtrip.rta0`, a library alone for `model.validate`),
 `read-refused` and `cache-unreadable`. Only the last two count in the envelope evidence. No stage
 carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite reads the files.
@@ -780,17 +884,58 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
 - The summary of a container stage holds `level`, `documents` (judged), `streams`, `failed` and
   `unjudged` (a count per reason: `too-large`, `writer-refused`, `not-a-container`, `read-refused`); RT-A1
   adds `records`, `bytes_equal` and `opaque_count`. The summary of `roundtrip.rta2` holds `level`, `holds`,
-  `differences`, `compared` (the entity kinds compared per side) and `not_in_model` (per side, the count
-  of each board kind that only the reading holds, which is not compared).
+  `differences` and `compared` (the entity kinds compared per side: every kind of the written scope).
+  The summary of `roundtrip.rta3` holds `level`, `holds`, `differences`, `written` (model items written,
+  per kind), `unwritten` (per kind, what the rewritten documents do not hold: model items, and under
+  keys that start with `record:` the records and storages of the input that the import maps to no model
+  entity), `files` (the names of the written files, none of which stays on disk) and `presentation`
+  (`regenerated`: the schematic is generated from the circuit).
+- **`copper.clearance` on a PCB document.** The codes and severities are those of the KiCad stage
+  (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `copper.clearance-unset`,
+  `copper.rules-incomplete`, `copper.item-unsupported`); board-edge clearance is not part of the copper
+  check on any backend. The summary is that of the KiCad stage plus `unpoured`, `zones_unjudged` and `clearance_cells`
+  (`{judged, unjudged}`: the cells of the document's clearance matrices that a rule holds and that none
+  holds).
+  What the stage does not judge is said, and any of these lowers it to `UNVERIFIED`:
+  - an **unpoured polygon** is no copper: `unpoured` counts them, with one `copper.item-unsupported`
+    (a build writes its polygons unpoured, so a built board with zones says this until Altium repours);
+  - an **internal plane** is drawn in negative: what is drawn on its layer is no copper, and the import
+    makes no track of it; one `copper.item-unsupported` (`where` is `plane`) counts the planes;
+  - a **Clearance rule outside the rule table** (an object matrix, a layer scope) may govern any pair:
+    `rules.opaque_clearance_rules` counts them, with one `copper.rules-incomplete`;
+  - a **filled zone that no clearance applies to** is judged for shorts only: `zones_unjudged` counts
+    them, with one `copper.rules-incomplete` (`where` is `zone`). A polygon holds no clearance of its
+    own, so a pour is never judged against the model's default of 0.5 mm.
+  A clearance of the document is judged 5 nm lower than written: the document counts in units of
+  2.54 nm, and copper that is exactly its clearance apart reads up to 4 nm closer in nanometres.
+  The rule is one file unit per item of the pair (5.08 nm for a pair, held as 5 whole nanometres);
+  copper further inside its clearance than that is a finding.
+- **`parity` on a project.** The summary is that of the KiCad stage with `netlist` = `own`,
+  `compared` = `false` and `differences` = 0: no tool judges parity here. Two spellings are read as
+  one, because they differ between the two documents of every project: the library of a footprint
+  (only its name is compared), and the name of a net whose pads are the pads of one net of the board.
 - A document that cannot be read gives one `check.read-refused` error whose `where` starts with its
   name. When it is the only document, the command exits 3 with the error's FEN code, as for a KiCad
   board; inside a project the other documents are still checked and the exit code is 5.
 - Exit codes: 0 without an error issue, 5 with one, 2 for a usage error, 3 for a missing path or an
   unreadable single document, and never 6.
 
+### Copper guard of an Altium build
+
+`fenolite build --target altium` judges the copper of the PCB document it is about to write (change
+c0088), on `--dry-run` and `--confirm` alike: the planned bytes are read back with the Altium reader,
+the rules are those the document holds, and the copper check of `check` runs on the result. A
+`copper.short` refuses the build (exit 5, nothing written). Every other copper error is reported as a
+warning whose message ends with ` (reported, not refused: the Altium copper guard refuses shorts)`,
+and the files are written. `--copper-check warn` reports the short as a warning too, with
+` (copper guard in warn mode)`, and writes; there is no way to switch the guard off.
+`result.copper_check` holds `mode`, `ran` (false without a PCB document), `shorts`, `clearance`,
+`unpoured`, `rules` and `evidence`; the evidence is `UNVERIFIED` when the document holds unpoured
+polygons, which the guard cannot judge. No file is read from disk and no tool runs.
+
 ## export
 
-`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--manifest]
+`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--altium-rul] [--manifest]
 [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` writes the fabrication files that `kicad-cli` produces from a
 copy of the board `PATH` names (resolved as for `check`). Fenolite writes no Gerber itself: the tool runs
 once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
@@ -806,6 +951,16 @@ that selects none exits 2. `--timeout` defaults to 300 s and applies to each run
 | `--ipcd356` | `pcb export ipcd356` | `netlist/<stem>.d356` |
 
 `--check-zones` and `--board-plot-params` are never passed, so the files show the board as it is.
+
+`--altium-rul` (change c0084) writes `DIR/<stem>.RUL`: the rules of the project's rules file
+(`<stem>.kicad_dru`) as an Altium rule file, which Altium's PCB Rules editor imports. It runs no tool, so
+alone it needs no `kicad-cli` (`tool_version` is `null` and the evidence has no oracle), and `--all`
+does not select it. A rule is written exactly or not at all (`docs/altium.md`, "Rules"):
+`result.rules` holds `written` (`kind`, `selector`, `rule`) and `not_lowered` (`kind`, `selector`,
+`reason`). When the rules file is missing or no rule has an exact Altium form, `export.failed` with
+`where` `altium-rul` is reported and nothing is planned. The artefact's kind is `altium-rul`; its
+manifest entry names `fenolite <version>` as its tool and the level of the rule map (`INFERRED`), and
+an envelope that holds it is `INFERRED`.
 `--preset FILE` applies your fabrication options from a TOML file (`docs/exports.md`, "Presets"): it
 is read before any run, and each of its keys replaces one option of the table above. A preset that is
 not TOML, has another `schema`, or holds an unknown table, key or value exits 3 with `FEN-3004`,
@@ -823,7 +978,7 @@ folder never holds a partial set.
 
 | code | severity | when |
 |---|---|---|
-| `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind |
+| `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind. For `altium-rul`: the rules file cannot be read, or no rule has an exact Altium form |
 | `export.kind-unavailable` | error | the running `kicad-cli` major cannot export the kind; no tool run |
 
 Exit codes: 0 when the files are planned or written, 4 without `--dry-run` or `--confirm`, 5 with an
@@ -1020,10 +1175,11 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 
 ## template
 
-`fenolite template build SPEC --target kicad -o OUT` builds a drawing sheet (`.kicad_wks`) from a
+`fenolite template build SPEC --target kicad|altium -o OUT [--size NAME] [--altium-format binary|ascii]`
+builds a drawing sheet (`.kicad_wks`, or a `.SchDot` for the target `altium`, below) from a
 `*.sheet.toml` specification and runs no tool. The actions are `build` and `import` ("template import"
 below); `--target` and `-o`/`--out`
-are required, and `kicad` is the only target. It is a mutating command: without `--confirm` it exits 4
+are required, and the targets are `kicad` and, for `build`, `altium`. It is a mutating command: without `--confirm` it exits 4
 with `FEN-4001` and writes nothing, `--dry-run` shows the plan and exits 0, and `--confirm` writes `OUT`
 and returns the `receipt`. The plan holds one write of kind `kicad_wks`. The format of the specification
 and the shipped examples are in `docs/sheet-templates.md`.
@@ -1046,7 +1202,7 @@ and the shipped examples are in `docs/sheet-templates.md`.
 | exit | error | when |
 |---|---|---|
 | 0 | none | a dry run, or a confirmed write |
-| 2 | `FEN-2001` | a missing `--target` or `-o`, or a target other than `kicad` |
+| 2 | `FEN-2001` | a missing `--target` or `-o`, a target other than `kicad` and `altium`, `--size` or `--altium-format` without `build --target altium`, or a size the specification does not list |
 | 3 | `FEN-3001` | the specification is missing or unreadable |
 | 3 | `FEN-3004` | the specification is malformed; `where` is `<file>:<key path>` of the first problem |
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
@@ -1066,6 +1222,19 @@ A malformed specification reports every problem at once, as one issue each:
 | `template.zone-letters` | error | more than 8 letter rows on a listed size |
 | `template.bitmap-not-png` | error | a `[bitmap]` file without the PNG signature |
 | `template.too-wide` | warning | a title block wider or taller than the margin box of a listed size |
+
+With `--target altium` (change c0087) `build` writes an Altium sheet template (`.SchDot`) instead: one
+write of kind `altium_schdot`, a schematic document without components that holds the frame, the zones and
+the title block as drawn lines and texts on a custom sheet of the paper's size. A template has one size:
+`--size NAME` picks it among the sizes the specification lists (default: the first; another name is a usage
+error), and `--altium-format {binary,ascii}` picks the form (default `binary`). Both options are usage
+errors with `--target kicad` and with the action `import`. `result` holds `sheet`, `target`, `drawn` (for
+the one size) and `output` as above, no `kicad_version`, and `altium`: `format`, `size`, `width` and
+`height` (nm), `lines`, `texts`, `parameters` (the names of the sheet parameter records) and `strings` (the
+special strings written). The evidence is `INFERRED` (`H-A-SCHDOT-READBACK`, `H-A-SCHDOT-OPEN`,
+`H-A-SCHDOT-STRINGS`): Fenolite's own import reads the template back, and Altium has not opened it. What the
+template keeps of the sheet, and what is a loss that needs `--allow-lossy` (`FEN-7001`, exit 7), is in
+`docs/sheet-templates.md`, "Building an Altium sheet template".
 
 ### template import
 
@@ -1259,7 +1428,7 @@ evidence is the lowest of the two readings; a built model counts as `INFERRED`.
 
 ## roundtrip
 
-`fenolite roundtrip PATH [--level rt0|rt1|rt2] [--kicad-cli PATH] [--timeout SECONDS]` says up to which
+`fenolite roundtrip PATH [--level rt0|rt1|rt2|rta0|rta1|rta2|rta3] [--kicad-cli PATH] [--timeout SECONDS]` says up to which
 level Fenolite reads a KiCad file and writes it back without loss. Run it before editing a file that
 Fenolite did not write. It writes nothing; RT2 runs `kicad-cli` on copies.
 
@@ -1280,6 +1449,17 @@ and nothing fails.
 | `roundtrip.failed` | error | a level does not hold; `where` is the first difference |
 
 `check.oracle-failed` and `check.rt2-unstable` of the RT2 stage pass through.
+
+**Altium input** (change c0090). `fenolite roundtrip PATH --level rta0|rta1|rta2|rta3` takes an Altium
+document, project file or project folder and runs the stage `roundtrip.<level>` of the document check
+(section "check"); the levels are not a ladder, each is asked for by name, and without `--level` the
+input is judged at `rta1`. `result` holds `kind` (`altium`), `level` (the level when it holds, else
+`none`), and `<level>`: the stage's `status`, `reason` and summary. For `rta3`, `result.unwritten`
+repeats the counts of what the rewritten documents do not hold. The issues are those of the stage
+(`check.rta0-failed` to `check.rta3-failed`, `check.rta3-unwritten`, `check.roundtrip-unjudged`), the exit
+code is 5 with an error, and nothing is written under the input: RT-A3 writes into a temporary folder
+that it removes. A KiCad level on Altium input, and an Altium level on another input, is a usage error
+(`FEN-2001`).
 
 For a project with a schematic, `result.rt2.schematic` holds `passed`, `difference`, `judged`,
 `exact`, `violations`, `violations_redump`, `redumped` and `kept` (the sheet files re-dumped, and
@@ -1495,6 +1675,13 @@ board of a KiCad project with its schematic, and the pins of each symbol with th
 (`fenolite.checks.parity`). It writes nothing. `PATH` is a board, a project file or a project folder
 resolved as for `check`; the schematic is `<stem>.kicad_sch` beside the board, with every sheet it names.
 
+`PATH` may also be an Altium project file, a project folder, or a PCB document beside the one project
+file that lists it (change c0088). The board is then the project's PCB document and the schematic side
+comes from its schematic documents, read by Fenolite: no tool runs, `netlist` is `own`, `--netlist
+kicad` exits 2, and `schematic` names the first schematic document. The library of a footprint and the
+name of a net whose pads agree are not compared ("check on Altium input"). A project without a PCB
+document or without a schematic document exits 3 (`FEN-3001`).
+
 - **Matching.** Components and footprints are matched by reference only. A symbol that is not on the
   board and a reference that starts with `#` are no components. A footprint marked as not in the
   schematic is never extra. Of several footprints of one reference, the first on the board is compared.
@@ -1605,10 +1792,10 @@ read's combined with the board frame's (`frame.EVIDENCE`).
 
 ## equivalent
 
-`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--frame absolute|relative]
-[--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import] [--kicad-cli PATH]
-[--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates every
-difference at `REF` or `REF-PIN`. It is read-only. With two paths it runs no tool. `docs/equivalence.md`
+`fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
+[--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
+[--kicad-cli PATH] [--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates
+every difference at `REF` or `REF-PIN`, and at the net for routing. It is read-only. With two paths it runs no tool. `docs/equivalence.md`
 defines the levels, the kinds of difference, the tolerance rules and the exclusion file.
 
 Each of `A` and `B` is one of:
@@ -1620,8 +1807,9 @@ Each of `A` and `B` is one of:
 
 | option | meaning |
 |---|---|
-| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement). The default is the highest level both sides hold: 4 when both have footprints, else 2 |
+| `--level N` | run the levels 1 to `N` (1 components, 2 netlist, 3 footprints, 4 placement, 5 routing). The default is the highest level both sides hold: 5 when both have footprints and copper (a track, an arc or a via), 4 when both have footprints, else 2. Pass `--level 4` to compare two routed boards without their routing |
 | `--tolerance-nm N`, `--tolerance-udeg N` | how far two lengths (per coordinate) and two angles may differ; non-negative integers, default 0 |
+| `--tolerance-ppm N` | level 5 only: two routed lengths are equal within the larger of `--tolerance-nm` and `N` parts per million of the longer one; a non-negative integer, default 0 |
 | `--frame absolute\|relative` | `relative` removes one translation, the per-axis lower median of the footprint positions of `B` minus `A`; default `absolute` |
 | `--ignore-ref GLOB` | leave out the components whose reference matches (repeatable) |
 | `--exclusions FILE --profile NAME` | apply the rules of one profile of an exclusion file. The profile also gives the frame and the tolerances; an option on the command line overrides its value |
@@ -1635,14 +1823,15 @@ Each of `A` and `B` is one of:
 | `level` | the highest level that ran |
 | `equivalent` | `true` when no difference remains outside the rules |
 | `sides` | `a` and `b`, each with `path` (the name without its folder), `sha256` (of a file; `null` for a folder), `backend` (`kicad`, `altium`, `fenolite` or `kicad-import`), `netlist_source` (`board` or `circuit`), `components` and `footprints` (counts); side `b` of `--against` also has `tool_version` |
-| `tolerances` | `length_nm` and `angle_udeg` |
+| `tolerances` | `length_nm`, `angle_udeg` and `length_ppm` |
 | `frame`, `translation` | the frame, and `[x, y]`, the translation removed from side `b` |
-| `levels` | one object per level run: `level`, `name`, `compared`, `differences` and `excluded` (counts) and `summary` |
+| `levels` | one object per level run: `level`, `name`, `compared`, `differences`, `excluded` and `notices` (counts) and `summary`. The summary of level 5 holds `nets` (compared), `pieces`, `vias` and `length` (totals of side `a` and `b` over those nets), `unjudged`, `nets_unpaired`, `zones_unfilled`, `copper_no_net` and `unshaped` |
 | `differences`, `excluded` | objects `{level, kind, where, field, a, b}`, in level order and then by `where`; an excluded one also has `rule` |
+| `notices` | objects of the same form for what level 5 reports without failing: `route-stub` and `route-unjudged` |
 | `profile` | `null`, or `name`, `tool_version` and `rules` (the count of rules) |
 
-`issues` holds one error per difference that no rule excludes, then one `equiv.excluded` info per rule
-that matched, then the notices of the triangle, then the readers' warnings and infos of `A` and of `B`.
+`issues` holds one error per difference that no rule excludes, then one warning or info per notice, then
+one `equiv.excluded` info per rule that matched, then the notices of the triangle, then the readers' warnings and infos of `A` and of `B`.
 The evidence is the lowest of the two readings (a built design counts as `INFERRED`); with `--against`,
 `evidence.oracle` is `kicad-cli`.
 
@@ -1658,6 +1847,12 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | `equiv.pad-missing` | error | different counts of pads of one number |
 | `equiv.pad-kind`, `equiv.pad-shape`, `equiv.pad-size`, `equiv.pad-drill`, `equiv.pad-position`, `equiv.pad-rotation`, `equiv.pad-copper` | error | a field of a pad differs, in the footprint's frame |
 | `equiv.side`, `equiv.position`, `equiv.rotation` | error | the placement of a footprint differs |
+| `equiv.route-missing` | error | one side has copper on a net and the other has none |
+| `equiv.route-connectivity` | error | the copper of a net joins other pads on one side than on the other |
+| `equiv.route-vias` | error | for the same joined pads, the via counts per pair of copper layers differ |
+| `equiv.route-length` | error | for the same joined pads, the routed length on a copper layer differs beyond the tolerance |
+| `equiv.route-stub` | warning | the copper that reaches no pad (stubs, lone vias) differs in number of pieces or in length; it does not fail the comparison |
+| `equiv.route-unjudged` | info | a net whose connectivity depends on a zone without a fill was not judged |
 | `equiv.excluded` | info | a rule of the profile matched differences (count and reason) |
 | `equiv.import-message` | info | a warning or error of `kicad-cli`'s import report, counted by text |
 | `equiv.no-exclusion-profile` | warning | no profile for the running `kicad-cli` version line: no rule, the relative frame, tolerance 0 |
@@ -1667,7 +1862,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 |---|---|---|
 | 0 | none | equivalent up to the level, outside the rules |
 | 5 | none | a difference remains, or `equiv.oracle-failed` |
-| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints); a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
+| 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or above 5; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10 |
@@ -1721,3 +1916,61 @@ Exit codes: 0 when the manifest is planned or written, or verified; 4 without `-
 (`FEN-6001`; the hint names `--no-check` and `--stages`) or it is unsupported (`FEN-6002`). The evidence
 is that of the stages that ran, combined as `check` combines them, with the schematic reader's when a
 sheet was judged; it is `UNVERIFIED` with `--no-check` and `--verify`.
+
+## kit
+
+`fenolite kit build --out DIR [--samples DIR]`, `fenolite kit verify DIR`, `fenolite kit record DIR --out
+REPO` and `fenolite kit status [--repo DIR] [--samples DIR]` are the Altium verification kit: a fixed
+acceptance run that a person performs in Altium Designer on their own machine, and whose results are files
+(`docs/altium-kit.md`). Nothing starts or drives Altium.
+
+```
+fenolite kit build --out kit --confirm --json
+fenolite kit verify kit --json
+fenolite kit record kit --out . --dry-run --json
+fenolite kit status --json
+```
+
+- **`build`** writes the kit under the rules of "Writing files": `kit.json` (schema
+  `fenolite.altium-kit.v0`), `STEPS.md`, `kit_script.pas`, one folder per sample and `results/form.json`.
+  It builds the scripts under `examples/kit/` of a source checkout (`--samples` names another folder) and
+  runs no external tool. Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
+  two builds of one commit are equal byte for byte. `result` holds `kit_sha256`, `samples` with their
+  digests, `steps`, `scripted` and `files`.
+- **`verify`** is read-only. `result` holds `steps` (per step `outcome`: `pass`, `fail` or `skipped`, its
+  `reasons`, `scripted` and its `pending` checks), `hypotheses` (per register row `pass`, `fail`,
+  `skipped` or `pending`, and `form` when the verdict rests on a typed value), `privacy` (file, byte
+  offset, kind and string of what looks like a home folder, another absolute path of the machine or a
+  login name: `home-folder`, `absolute-path`, `login-name`), `kit_problems`, `kit_resaved` (the project
+  files of samples that the tool saved again with the same documents),
+  `form_problems`, `synthetic` and `passed`.
+- **`record`** is a mutating command. It writes `results.zip` beside `DIR` and the run record
+  `REPO/docs/evidence/altium-kit/<run id>.json` (schema `fenolite.altium-kit-run.v0`), and lists in
+  `result.rows` the register rows whose label may change, each with `label`, `form` and the `result` text
+  of its row. It refuses a synthetic run, a kit whose files differ from `kit.json`, a form that is not
+  sound, and a record that exists with other content (`kit.record-refused`, exit 5, nothing planned).
+- **`status`** is read-only: `result.runs` lists the committed records of the repository and
+  `result.stale` the register rows whose kit run is stale. In a folder without a record both are empty.
+- The evidence is `ALTIUM-VERIFIED(kit)` only for `verify` and `record` of a run in which every step
+  passed and that is not synthetic; it is `INFERRED` otherwise.
+
+| code | severity | when |
+|---|---|---|
+| `kit.file-changed` | error | a file of the kit is missing or differs from its digest in `kit.json`, and is not a sample's project file that still lists the sample's documents |
+| `kit.form` | error | `results/form.json` is not sound as a whole (schema, tool version, system, date, fields) |
+| `kit.step-failed` | error | a result file fails a check, or a typed value is not the expected one |
+| `kit.record-refused` | error | `record` wrote nothing; the message says why |
+| `kit.synthetic` | warning | the form does not say that a tool performed the run |
+| `kit.privacy` | warning | a result file holds what looks like a home folder, another absolute path of the machine or a login name |
+| `kit.stale` | warning | `status`: a row's kit run is stale |
+| `kit.project-resaved` | info | a sample's project file was saved again by the tool: other bytes, the same documents; nothing fails |
+| `kit.step-skipped` | info | a step was not done |
+| `kit.pending` | info | a check of a step waits for a change that is not implemented, and was not run |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | a dry run or a confirmed write; `verify` with no failed step; `status` |
+| 2 | `FEN-2001` | an argument that the action does not take, or a missing `--out` or `DIR` |
+| 3 | `FEN-3001` | `DIR` holds no `kit.json`; the sample scripts are missing or do not build |
+| 4 | `FEN-4001` | `build` or `record` with neither `--dry-run` nor `--confirm` |
+| 5 | `FEN-5001` | a step failed, a kit file changed, the form is not sound, or `record` refused |

@@ -85,11 +85,14 @@ the test reader `tests/_altium_read.py` (`read_schlib`) checks. The container is
 | The payload fields, little-endian, are those of the table "Pin fields" below. KiCad's reader and the version-1 writer agree on them field for field up to the part-and-sequence string | S-0131, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SCHLIB-PIN, H-A-SCHLIB-KICAD |
 | The version-1 writer adds a fifth short string, the default value; KiCad stops reading after the part-and-sequence string and does not check for bytes left in the pin | S-0131, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SCHLIB-PIN |
 | `FORMALTYPE`: S-0130 gives 1 for every pin; the version-1 writer writes 0 in binary pins | S-0130, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SCHLIB-PIN |
-| `PINCONGLOMERATE`: bits 0-1 the direction from the body end to the hot end (0 right, 1 up, 2 left, 3 down), 0x04 hidden, 0x08 name shown, 0x10 number shown | S-0130, S-0131 | INFERRED | H-A-SCHLIB-PIN, H-A-SCHLIB-KICAD |
+| `PINCONGLOMERATE`: bits 0-1 the direction from the body end to the hot end (0 right, 1 up, 2 left, 3 down), 0x04 hidden; S-0130 and S-0131 read 0x08 as name shown and 0x10 as number shown, without a condition on bit 0x20 | S-0130, S-0131 | INFERRED | H-A-SCHLIB-PIN, H-A-SCHLIB-KICAD |
+| With bit 0x20 set, 0x08 shows the pin's name and 0x10 its number: Altium Designer 26.5.0 drew, for the pins of the check project `tests/data/altium/pinbits/` (0x20, 0x30, 0x28 and 0x38 above the direction), no text, the numbers only, the names only, and both | S-0613 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-08; no artefact) | H-A-SCHLIB-PINBITS |
+| Every pin of the Altium-saved schematics and libraries of the corpus holds bit 0x20: 4 175 pins of 38 documents and 9 libraries. In the documents, of the pins of components with at most 3 pins (resistors, capacitors, test points; names such as `1` and `2`), 1 233 of 1 367 hold neither 0x08 nor 0x10; of the pins of larger components (names such as `VCC`, `EN`), 1 414 of 1 607 hold both (table in `docs/evidence/altium-schematic.md`, "Pin visibility bits") | S-0614 | CORPUS-VERIFIED | H-A-SCHLIB-PINBITS |
+| Without bit 0x20 Altium Designer 26 reads 0x08 and 0x10 the other way: pins written with `PINCONGLOMERATE` 18 and 16 (0x10 set, 0x08 clear) showed their names and hid their numbers (the kit sample `flat`, the catalog LED), and pins written with 2 and 0 showed both (`blink_routed`, `Mini:Mini_LED`). Every file Fenolite wrote before change c0148 holds such pins; only these values were seen | S-0612 | ALTIUM-VERIFIED(author-report) (AD 26.x; 2026-10-08; no artefact) | H-A-SCHLIB-PINBITS |
 | `LOCATION` is the body end of the pin; the electrical (hot) end lies `PINLENGTH` further in the pin's direction. KiCad maps the directions right, up, left and down to its pin orientations pointing left, down, right and up | S-0130, S-0131 | INFERRED | H-A-SCHLIB-PIN, H-A-SCHLIB-KICAD |
 | Electrical type: 0 input, 1 input/output, 2 output, 3 open collector, 4 passive, 5 high impedance, 6 open emitter, 7 power | S-0130, S-0131 | INFERRED | H-A-SCHLIB-PIN, H-A-SCHLIB-KICAD |
 | Edge codes (one byte each for inner edge, outer edge, inside and outside): 0 none, 1 dot, 3 clock, 4 active-low input, 17 active-low output. KiCad reads outer edge 1 as inverted (with inner edge 3 as inverted clock), inner edge 3 alone as clock, outer edge 4 as input low (with inner edge 3 as clock low) and outer edge 17 as output low | S-0131 | INFERRED | H-A-SCHLIB-PIN, H-A-SCHLIB-KICAD |
-| KiCad shows no pin number without bit 0x10, no pin name without bit 0x08, and hides a pin with bit 0x04 | S-0131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
+| KiCad shows no pin number without bit 0x10, no pin name without bit 0x08, and hides a pin with bit 0x04 (measured on pins without bit 0x20, which Altium Designer 26 reads the other way: see the row above) | S-0131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
 | An Altium overbar is a `\` after each overlined character of a pin name; KiCad converts it to its own `~{…}` form | S-0131 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) | H-A-SCHLIB-KICAD |
 | `PINLENGTH`, `LOCATION.X` and `LOCATION.Y` are signed 16-bit integers in units of 10 mil; finer positions go to `PinFrac`, keyed by the pin's index in `Data` | S-0131, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SCHLIB-PIN |
 | S-0152's binary-pin table gives `OWNERPARTID` one byte and has no `FORMALTYPE` byte; it disagrees with both code sources and would shift every later field, so it is rejected | S-0131, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0152 | INFERRED | H-A-SCHLIB-PIN |
@@ -128,11 +131,12 @@ With empty description, swap group, part-and-sequence and default value, the pay
 `31 + n + m` bytes.
 
 Worked pin (arithmetic on the table): pin `1` named `IN`, passive, leftwards, name and number shown,
-length 20 units, body end (-30, 10) units, part 1. `PINCONGLOMERATE` is 2 | 0x08 | 0x10 = 0x1A. The
+length 20 units, body end (-30, 10) units, part 1. `PINCONGLOMERATE` is 2 | 0x08 | 0x10 | 0x20 = 0x3A
+(0x20 since change c0148; 0x1A before). The
 payload has 34 bytes, so the record is:
 
 ```
-22 00 00 01 | 02 00 00 00 | 00 | 01 00 | 00 | 00 00 00 00 | 00 | 01 | 04 | 1A | 14 00 | E2 FF | 0A 00 |
+22 00 00 01 | 02 00 00 00 | 00 | 01 00 | 00 | 00 00 00 00 | 00 | 01 | 04 | 3A | 14 00 | E2 FF | 0A 00 |
 00 00 00 00 | 02 49 4E | 01 31 | 00 | 00 | 00
 ```
 
@@ -182,6 +186,7 @@ changes no pin. Bytes after a binary pin's last known field are kept in its `tai
 | kicad-cli 10.0.6 writes a space of a pin name as `_` (one pin of `altium-third-party-schlib-09`) | S-0020, S-0153 | INFERRED | H-A-RD-SCH-KICAD |
 | kicad-cli 10.0.6 holds schematic positions in steps of 100 nm: the hot ends of the five pins that `PinFrac` moves off the 10-mil grid come out rounded to 100 nm, and equal Fenolite's exact nanometres rounded half to even | S-0020, S-0153 | INFERRED | H-A-RD-SCH-KICAD |
 | No corpus library holds a component of more than one part or more than one display mode, so the unit and body-style counts compared are all 1 | S-0277, S-0278, S-0279 | INFERRED | H-A-RD-SCH-PARTS |
+| Fenolite's oracle for symbol graphics (`tests/kicad/altium/test_schematic_complete_oracle.py`, kicad-cli 10.0.6, 2026-10-06): a library of 47 catalog symbols written with their own graphics (records 7, 8, 13 and 14, coordinates with `_FRAC` keys) converts, and each symbol's lines, rectangles, polygons and circles come out with the model's points, within the 1 µm of KiCad's library text. Two things differ and are not compared: KiCad gives some filled shapes the fill type `color` with the record's area colour instead of `background`, and it reads every circle as filled, an ellipse record without `ISSOLID` and a full arc (record 12) alike | S-0020, S-0153 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-SCHX-GRAPHICS |
 
 ## Facts awaiting a permitted source
 
@@ -292,9 +297,18 @@ The reverse of the importer's mapping (rows above):
 | unit k, unit 0 | part k, Part Zero |
 | body style 1 and 0 | kept; other styles and alternates dropped (`altium.symbol-simplified`) |
 | `~{AB}` overbar | `A\B\` |
+| every pin | 0x20, so that 0x08 and 0x10 are show flags (change c0148) |
 | `pin_names_hidden`, empty name, name `~` | name not shown (0x08 clear) |
 | `pin_numbers_hidden` | number not shown (0x10 clear) |
 | hidden pin | 0x04 |
+
+With `--altium-symbols graphics` (the default since change c0086) a symbol of one unit and one body
+style whose graphics are all lines, rectangles, polygons and circles is drawn from them, each graphic as
+the record of `schematic-records.md` ("Graphics the writer draws"), with its own coordinates. A symbol of
+several units or body styles (`SymbolGraphic` names neither), a symbol without graphics, and a KiCad symbol
+whose library text holds an arc, a Bezier curve or a text (which the model does not hold) are drawn as
+below, with one `altium.symbol-simplified` info. With `--altium-symbols generic` every symbol is drawn as
+below.
 
 Each part gets one rectangle: the bounding box of the body ends of its pins and of the Part Zero pins,
 grown to at least 200 mil per side around its centre and rounded outwards to 10 mil; a part without

@@ -14,6 +14,9 @@ Where Fenolite keeps the evidence behind its claims.
   `tools/gen_evidence_matrix.py` from the declarations in the code and is never edited by hand;
   `tests/unit/test_evidence_matrix_page.py` fails while it is stale. `fenolite capabilities` lists
   the same rows as `result.matrix`.
+- `altium-kit/` — the run records of the Altium verification kit (`../altium-kit.md`), one JSON file per
+  run: digests, sizes, versions and verdicts, no path and no user name. The archive of a run is a release
+  asset; the record names it by digest. `fenolite kit status` lists the records and the stale rows.
 - Generated reports of oracle runs are added here by later changes.
 
 ## Declaring evidence in a backend module

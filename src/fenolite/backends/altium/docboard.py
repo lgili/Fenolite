@@ -25,12 +25,14 @@ import fenolite.backends.altium.pcbrecords as rec
 from fenolite.backends.altium.ascii import Field
 from fenolite.backends.altium.libboard import (
     DATE,
+    ENABLED_MECHANICAL,
     LINE_BREAK,
     RECORD,
     SNAP_GRID,
     TIME,
     Dielectric,
     StackSpec,
+    enabled_mechanical,
     guid,
     layer_sets,
     legacy_lines,
@@ -218,17 +220,20 @@ def polygon_fields(
     pour_index: int,
     net: int | None = None,
     auto_name: bool = False,
+    remove_dead: bool = True,
 ) -> list[Field]:
     """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
     the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
     text (``TOP``, ``MID1`` …); ``vertices`` are in binary units in the Altium frame, without the closing
     vertex; ``net`` is the net's index (``None``: no ``NET`` key); ``auto_name`` adds ``AUTONAME=TRUE``.
+    ``remove_dead`` off writes ``REMOVEDEAD=FALSE``: the pour keeps its islands (change c0085).
     ``ValueError`` for fewer than three vertices."""
     if len(vertices) < 3:
         raise ValueError("a polygon needs at least three points")
+    head = [(key, "FALSE" if key == "REMOVEDEAD" and not remove_dead else value) for key, value in _POUR_HEAD]
     fields: list[Field] = [
         *common_fields(layer_text),
-        *_POUR_HEAD,
+        *head,
         *_outline(vertices),
         *_POUR_TAIL,
         ("NAME", name_codes(name)),
@@ -243,7 +248,7 @@ def polygon_fields(
     return fields
 
 
-def _routing(stack: StackSpec | None = None) -> list[Field]:
+def _routing(stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     fields: list[Field] = [RECORD, ("TOGGLELAYERS", "1" * _LEGACY_COUNT)]
     for index in range(1, 11):
         fields += [(f"PLACEMARKERX{index}", "-0.0001mil"), (f"PLACEMARKERY{index}", "-0.0001mil")]
@@ -260,7 +265,7 @@ def _routing(stack: StackSpec | None = None) -> list[Field]:
         ("MRLASTVIAHOLE", "28mil"),
         ("LASTTARGETLENGTH", "99999mil"),
         ("SHOWDEFAULTSETS", "TRUE"),
-        *layer_sets(stack),
+        *layer_sets(stack, mechanical),
         ("BOARDINSIGHTVIEWCONFIGURATIONNAME", ""),
     ]
     return fields
@@ -316,7 +321,8 @@ def board_records(
         *_SHEET,
         *plane_net_fields(stack),
     ]
-    first, *later = legacy_lines(stack)
+    mechanical = enabled_mechanical(used_layers)
+    first, *later = legacy_lines(stack, mechanical)
     later[-1] += [
         ("LAYERPAIR0LOW", "TOP"),
         ("LAYERPAIR0HIGH", "BOTTOM"),
@@ -324,6 +330,14 @@ def board_records(
         ("LAYERPAIR0DRILLDRAWING", "FALSE"),
         ("LAYERPAIR0SUBSTACK_0", substack),
     ]
+    for number, (low, high) in enumerate(stack.drill_pairs if stack is not None else (), start=1):
+        later[-1] += [  # change c0085, "Blind and buried via records"
+            (f"LAYERPAIR{number}LOW", rec.layer_text(low)),
+            (f"LAYERPAIR{number}HIGH", rec.layer_text(high)),
+            (f"LAYERPAIR{number}DRILLGUIDE", "FALSE"),
+            (f"LAYERPAIR{number}DRILLDRAWING", "FALSE"),
+            (f"LAYERPAIR{number}SUBSTACK_0", substack),
+        ]
     low_x = min(x for x, _ in vertices) - VIEW_MARGIN
     high_x = max(x for x, _ in vertices) + VIEW_MARGIN
     low_y = min(y for _, y in vertices) - VIEW_MARGIN
@@ -369,7 +383,7 @@ def board_records(
         head,
         [RECORD, *stack_fields(used_layers, substack, stack), *first],
         *later,
-        _routing(stack),
+        _routing(stack, mechanical),
         [
             RECORD,
             ("VISIBLEGRIDMULTFACTOR", "1.000"),

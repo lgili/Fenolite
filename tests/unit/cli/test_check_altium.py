@@ -17,7 +17,7 @@ from _altium_built import built_blink
 from _checkcli import run, without_elapsed
 
 from fenolite.backends.altium import cfb as compound_writer
-from fenolite.checks.documents import DOCUMENT_STAGES
+from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES
 from fenolite.core.evidence import Level, strength
 from fenolite.verify import load_register
 
@@ -215,7 +215,7 @@ def test_stage_names_and_missing_path(monkeypatch: pytest.MonkeyPatch, tmp_path:
     for stages in ("drc.kicad", "roundtrip", "model.validate,,erc.lite", ""):
         code, _, error, _ = run(monkeypatch, tmp_path, "check", project, "--stages", stages)
         assert code == 2 and error["code"] == "FEN-2001", stages
-        assert error["hint"] == f"stages: {','.join(DOCUMENT_STAGES)}"
+        assert error["hint"] == f"stages: {','.join(ALL_DOCUMENT_STAGES)}"
     code, env, _, _ = run(monkeypatch, tmp_path, "check", project, "--stages", "roundtrip.rta1,erc.lite")
     assert code == 0 and [s["name"] for s in env["result"]["stages"]] == ["erc.lite", "roundtrip.rta1"]
     for missing in ("gone.PcbDoc", "gone.PrjPcb"):
@@ -259,7 +259,7 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     stages = _stages(env)
     assert code == 0, env["issues"]
     assert env["result"]["project"]["built"] is True
-    assert [stage["status"] for stage in stages.values()] == ["ok"] * 6
+    assert [stage["status"] for stage in stages.values()] == ["ok"] * 8
     pairs = stages["netlist.assignment_compare"]["summary"]["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [
         ("model", "schematic", 0),
@@ -269,7 +269,8 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert stages["erc.lite"]["evidence"]["hypotheses"] == ["H-K-CHECK-ERC"]
     rta2 = stages["roundtrip.rta2"]
     assert rta2["summary"]["holds"] is True and rta2["evidence"]["level"] == "INFERRED"
-    assert "H-A-VER-RTA2-2" in rta2["evidence"]["hypotheses"]
+    assert "H-A-VER-RTA2-3" in rta2["evidence"]["hypotheses"]
+    assert "roundtrip.rta3" not in stages  # opt-in (change c0090)
     (root / ".fenolite" / "circuit.json").write_text("{", encoding="utf-8")
     code, env, _, _ = run(monkeypatch, tmp_path, "check", str(root))
     stages = _stages(env)

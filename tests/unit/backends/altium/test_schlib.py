@@ -46,8 +46,9 @@ def worked_pin() -> AltiumPin:
 
 
 def test_worked_pin() -> None:
+    # c0148: the conglomerate byte is 0x3a (bit 0x20 added; 0x1a before)
     expected = (
-        "22000001 02000000 00 0100 00 00000000 00 01 04 1a 1400 e2ff 0a00 00000000 02494e 0131 00 00 00"
+        "22000001 02000000 00 0100 00 00000000 00 01 04 3a 1400 e2ff 0a00 00000000 02494e 0131 00 00 00"
     )
     assert pin_record(worked_pin()).hex() == expected.replace(" ", "")
 
@@ -172,7 +173,7 @@ def test_pins_decode_field_by_field() -> None:
         "DESCRIPTION": "",
         "FORMALTYPE": 1,
         "ELECTRICAL": 4,
-        "PINCONGLOMERATE": 2 | 0x10,
+        "PINCONGLOMERATE": 2 | 0x10 | 0x20,
         "PINLENGTH": 20,
         "LOCATION.X": 0,
         "LOCATION.Y": -10,

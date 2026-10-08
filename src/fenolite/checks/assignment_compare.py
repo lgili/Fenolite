@@ -31,6 +31,7 @@ from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 
 NO_NET = ""
@@ -85,26 +86,38 @@ def board_netlist(design: Design) -> tuple[PadNetList, int]:
     return PadNetList("board", tuple(assignments)), unnumbered
 
 
+def bonded_label(component: Component, pin: str) -> str:
+    """The label of the pads of a pin on no net that is bonded to several pads: those pads are joined
+    inside the part, so they are one block, as a board that names their net has them."""
+    return f"the pads of {component.ref} pin {pin} ({component.id})"
+
+
 def model_netlist(model: Design) -> PadNetList:
     """Each ``PinRef`` of a net with the net's id as label, and every other pin of a component on
-    ``NO_NET``. An element names the pad of its pin: the pin number, or the pad that the component's
-    ``pin_pad_map`` gives it, since the board and the export speak in pad numbers."""
+    ``NO_NET``. An element names a pad of its pin, since the board and the export speak in pad numbers:
+    one element per pad that ``Component.pads_of`` gives, which is the pin number, the pad of the
+    component's ``pin_pad_map``, or each of the pads of a pin bonded to several. Such pads of a pin on no
+    net share ``bonded_label``."""
     refs = _refs(model)
-    pads = {c.id: dict(c.pin_pad_map) for c in model.circuit.components}
+    by_id = {c.id: c for c in model.circuit.components}
     assignments: list[PadAssignment] = []
     seen: set[str] = set()
     for net in model.circuit.nets:
         for member in net.members:
-            pad = pads.get(member.component_id, {}).get(member.pin, member.pin)
-            element = f"{refs.get(member.component_id, '')}-{pad}"
-            assignments.append(PadAssignment(element, net.id))
-            seen.add(element)
+            component = by_id.get(member.component_id)
+            for pad in component.pads_of(member.pin) if component is not None else (member.pin,):
+                element = f"{refs.get(member.component_id, '')}-{pad}"
+                assignments.append(PadAssignment(element, net.id))
+                seen.add(element)
     for component in model.circuit.components:
         for pin in component.pins:
-            element = f"{component.ref}-{pads[component.id].get(pin.number, pin.number)}"
-            if pin.number and element not in seen:
-                assignments.append(PadAssignment(element, NO_NET))
-                seen.add(element)
+            pads = component.pads_of(pin.number)
+            label = NO_NET if len(pads) == 1 else bonded_label(component, pin.number)
+            for pad in pads:
+                element = f"{component.ref}-{pad}"
+                if pin.number and element not in seen:
+                    assignments.append(PadAssignment(element, label))
+                    seen.add(element)
     return PadNetList("model", tuple(assignments))
 
 
@@ -330,6 +343,7 @@ __all__ = [
     "PairResult",
     "assignment_stage",
     "board_netlist",
+    "bonded_label",
     "compare",
     "model_netlist",
     "net_names",

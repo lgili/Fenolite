@@ -1,0 +1,43 @@
+## 0. Entry check
+
+- [x] 0.1 Read `openspec list` and the living `altium-pcb-writer`, `altium-build`, `altium-project-reader` and `manufacturing-exports` specs. Write under this task, with the date: which of the changes this one depends on are archived (a missing one stops the tasks that name it, and say which); whether another change modified a requirement that this change supersedes ("Spec deltas and archive order" in the design lists them): then write the MODIFIED text from the living one before any code. Proof: `openspec validate c0084-altium-rule-lowering --strict --no-interactive` passes.
+  - 2026-10-06: c0038, c0042 and c0071 are archived (`openspec/changes/archive/2026-10-03-c0038-…`, `2026-10-05-c0042-…`, `2026-10-05-c0071-…`). No active change holds a delta of "Design rule records", "Rule minimums in an Altium build" or "Rules onto the neutral model". The three are written as MODIFIED from the living text, by a script that copies each requirement and applies exact substitutions; `cli-contract`, "Export command", is MODIFIED too (found at task 3.2). The validation passes.
+
+## 1. Facts and registers
+
+- [x] 1.1 For each neutral rule kind, record in `docs/formats/altium/pcb-copper.md` the Altium kind, its constraint fields and its record or text fields, each with a public source and a label; set each row of the proposed mapping to `exact` or to a reason, and write under this task which rows changed from the design. Register the sources and add the five rows to `docs/hypotheses.md`. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py`.
+  - 2026-10-06: section "Rule kinds lowered" with "The lowering table"; sources S-0460 to S-0462; the keys from a census of the rule records of the eight public PCB documents and the public rule file. Rows changed from the design: `silk_clearance` and `courtyard_clearance` became `no-counterpart`; `creepage` and `hole_clearance` stayed `no-counterpart`; the seven other rows are `exact`. The proof passes (67 tests with the page tables). The family `H-A-RULE-*` was added to the families an Altium facts page may name.
+
+## 2. Rule map and records
+
+- [x] 2.1 Write `rulemap.py` with `TABLE`, `lower` and `lift` for single scopes (scenarios of "Rule lowering table"). Proof: `uv run pytest tests/unit/backends/altium/test_rulemap.py tests/unit/test_import_graph.py`; `uv run pyright src`.
+  - 2026-10-06: done; 13 tests of the rule map pass, pyright reports 0 errors.
+- [x] 2.2 Add layer and pair scopes and the priorities (scenario "Class rule above the general rule"). Proof: `uv run pytest tests/unit/backends/altium/test_rulemap.py -k "scope or priority"`.
+  - 2026-10-06: pair scopes (clearance), the conjunction and the priorities are done. Layer scopes are not written: the closed grammar of c0042 has no layer function, so a rule with a layer gives `scope-unsupported` (design, "Found on 2026-10-06").
+- [x] 2.3 Map the same kinds in `read/rules.py` and empty `PENDING_KINDS` (scenario "Board outline clearance"). Proof: `uv run pytest tests/unit/backends/altium/read tests/corpus -k "altium and rule"`.
+  - 2026-10-06: three kinds added to `RULE_KIND_MAP`, `PENDING_KINDS` is empty. `tests/corpus/test_altium_rule_kinds.py` (8 passed on the local corpus cache) checks the keys, the kind numbers and the priority runs on the seven public documents and the scenario on one of them; the Altium corpus tests pass (189 passed, 4 skipped as heavy).
+
+## 3. Build and export
+
+- [x] 3.1 Write the lowered rules in the build and report the others per kind (scenarios of "Rules in an Altium build"). Proof: `uv run pytest tests/unit/lens/test_altium_rules.py tests/unit/lens -k altium`.
+  - 2026-10-06: done, with one warning per rule (not per kind) and `result.rules`. `tests/unit/lens/test_altium_rules.py`: 12 passed. The tests of c0054 that asserted the old single info were rewritten (`tests/unit/lens/test_build_minimums.py`, `tests/unit/cli/test_build_minimums_command.py`).
+- [x] 3.2 Write `write_rule_file` and the export kind `altium-rul` (scenarios "Written file reads back" and "Rule file from a built project"). Proof: `uv run pytest tests/unit/exports/test_altium_rul.py tests/consistency`.
+  - 2026-10-06: `rulemap.write_rule_file` and `fenolite export --altium-rul` (`exports/altium_rul.py`); 15 tests of the rule file and 4 of the command pass. Not cut. The export reads a KiCad project; it does not read an Altium output folder.
+
+## 4. Oracle, sample and report
+
+- [x] 4.1 Write `tests/kicad/altium/test_rules_oracle.py`: KiCad's import of the built PcbDoc shows the kinds its importer reads; record which kinds it reads in `docs/evidence/altium-pcb.md`. Proof: `uv run pytest tests/kicad/altium/test_rules_oracle.py -rA` on KiCad 10.0.6.
+  - 2026-10-06: 3 passed on the local `kicad-cli` 10.0.6. The import shows the Clearance rule only (the clearance of the zones it makes); the six other kinds load without a message and leave nothing in the board file. Recorded under "Rules against KiCad's importer".
+- [ ] 4.2 Build the files of Part U into a folder outside the repository, write their SHA-256 beside the steps in `docs/evidence/altium-pcb.md`, and hand them to the maintainer with the steps of the design ("Author report"). Record his report in the "Reports" section of `docs/evidence/altium-pcb.md` (tool as `AD <major>.<minor>`, date, one generic outcome per step, no artefact) and in `docs/hypotheses.md`; fix any fault the report names, and give a refuted row a registered successor. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py`.
+  - 2026-10-06: the files are built outside the repository (the folder `rules` and the script `build_part_u.py` that builds it again, in `~/fenolite-altium-checks/c0084-part-u/`), and their SHA-256, the table of the written rules and the steps U1 to U6 are in `docs/evidence/altium-pcb.md`, "Part U". Open: the maintainer's run in Altium Designer and its report. Nothing is `ALTIUM-VERIFIED`; the four Altium rows stay `INFERRED`.
+- [x] 4.3 Document the table, the scopes and the export in `docs/altium.md` ("Rules") and `docs/exports.md`; update `explain.toml` for the new `where` of `altium.not-lowered`. Proof: `uv run pytest tests/consistency tests/unit/cli/test_explain_cmd.py tests/unit/test_repo_layout.py`.
+  - 2026-10-06: done, with `docs/cli-contract.md` (`result.rules`, `--altium-rul`) and `docs/dsl.md`. The proof passes.
+
+## 5. Closing
+
+- [ ] 5.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue tests/corpus/test_manifest.py` and `uv run python tools/residue/scan.py` exit 0; `make check` passes; `openspec validate c0084-altium-rule-lowering --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing.
+  - 2026-10-06: `make check-fast`, the residue scan, the manifest test and the validation pass. Open: the full `make check`, which the coordinator runs once at the merge, and the CI checks of the pull request; this session neither runs the full suite nor pushes.
+- [x] 5.2 Update the evidence: every row of this change holds its measured level and result in `docs/hypotheses.md`, the cells of `backends/altium/claims.py` say what is written and at which level, and `uv run python tools/gen_evidence_matrix.py` regenerates `docs/evidence/matrix.md`. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/backends/test_evidence_declared.py`.
+  - 2026-10-06: the five rows are registered at `INFERRED` with their supporting data; the PCB document's write cell and the build's evidence name `rulemap.EVIDENCE`; the matrix is regenerated. The write stays `experimental`.
+- [x] 5.3 Add to `CHANGELOG.md` under Unreleased: "An Altium build writes the script's rules by kind and scope, names every rule it cannot lower with its reason, and `export --kinds altium-rul` writes them as a rule file". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
+  - 2026-10-06: done; the changelog names the flag as it is, `export --altium-rul`.

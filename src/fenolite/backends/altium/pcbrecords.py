@@ -2,9 +2,12 @@
 # Copyright (c) 2026 Fenolite contributors
 """Units, framing and primitive records shared by the Altium PCB library and PCB document (change c0035,
 capability altium-pcb-writer, "PCB units and record framing", "PCB layer map", "Footprint pad records" and
-"Footprint line and arc records"; change c0038, "Copper layer map" and "Via records").
+"Footprint line and arc records"; change c0038, "Copper layer map" and "Via records"; change c0085, "Layer
+stacks of any even count", "Blind and buried via records", "Board graphics and keep-out records" and
+"Non-plated holes and slots"; change c0121, "Extruded component body records").
 
-Written from ``docs/formats/altium/pcb-records.md`` and ``pcb-copper.md`` only. Lengths are signed 32-bit
+Written from ``docs/formats/altium/pcb-records.md``, ``pcb-copper.md`` and, for a component body,
+``pcb-bodies.md`` ("Written form of an extruded body") only. Lengths are signed 32-bit
 integers in 1/10 000 mil (2.54 nm): ``to_units`` rounds ``nm · 50 / 127`` half away from zero. Angles are
 doubles in degrees, counter-clockwise with Y up, computed with ``decimal`` and converted to a double once,
 so the bytes do not depend on the platform's C library. Every record is its type byte, then subrecords of a
@@ -13,12 +16,15 @@ so the bytes do not depend on the platform's C library. Every record is its type
 
 from __future__ import annotations
 
+import hashlib
+import re
 import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from fractions import Fraction
 from types import MappingProxyType
+from typing import Literal
 
 from fenolite.backends.altium.ascii import Field, text_problem
 from fenolite.backends.altium.binary import frame_record
@@ -39,6 +45,8 @@ ARC = 1
 PAD = 2
 TEXT = 5
 VIA = 3
+REGION = 11
+BODY = 12
 TRACK_SIZE = 36
 ARC_SIZE = 47
 VIA_SIZE = 321
@@ -67,9 +75,33 @@ COPPER_LAYER_TEXT: Mapping[str, str] = MappingProxyType(
 )
 """Signal copper layer → its ``LAYER`` text in a property record (a polygon pour)."""
 COPPER_STACKS: tuple[tuple[str, ...], ...] = (("F.Cu", "B.Cu"), ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"))
-"""The copper stacks the document writes, top to bottom."""
+"""The copper stacks a script's layer count gives (2 and 4), top to bottom; a model may name any stack
+that ``copper_stack`` takes."""
 FIRST_PLANE = 39
 """Internal Plane 1; planes are numbered from the top of the stack."""
+TOP_LAYER, BOTTOM_LAYER = 1, 32
+MAX_COPPER, MAX_SIGNAL, MAX_PLANES = 32, 16, 16
+"""The stacks written (change c0085): an even number of copper layers up to 32, of which at most 16 are
+signal layers and at most 16 internal planes."""
+KEEPOUT_LAYER = 56
+BOARD_LAYER_MAP: Mapping[str, int] = MappingProxyType(
+    {
+        "F.SilkS": 33,
+        "B.SilkS": 34,
+        "F.Paste": 35,
+        "B.Paste": 36,
+        "F.Mask": 37,
+        "B.Mask": 38,
+        "F.Fab": 69,
+        "B.Fab": 70,
+        "F.CrtYd": 71,
+        "B.CrtYd": 72,
+    }
+)
+"""Non-copper Fenolite layer → Altium layer id for the free texts and graphics of a board (change c0085):
+the non-copper rows of ``LAYER_MAP`` and the paste and solder-mask layers."""
+BOTTOM_SIDE: frozenset[int] = frozenset({32, 34, 36, 38, 70, 72})
+"""The ids of ``BOARD_LAYER_MAP`` and of the copper that lie on the bottom side: a text there is mirrored."""
 FLIP_PAIRS: Mapping[int, int] = MappingProxyType(
     {1: 32, 32: 1, 33: 34, 34: 33, 69: 70, 70: 69, 71: 72, 72: 71, MULTI_LAYER: MULTI_LAYER}
 )
@@ -100,26 +132,60 @@ LAYER_NAMES: Mapping[int, str] = MappingProxyType(_layer_names())
 """Altium layer id → its name, ids 1 to 74."""
 
 
+def stack_problem(count: int, planes: int) -> str | None:
+    """Why a stack of ``count`` copper layers with ``planes`` internal planes is not written, or ``None``."""
+    if count < 2 or count % 2:
+        return f"a stack of {count} copper layers is not written: the count must be even and at least 2"
+    if count > MAX_COPPER:
+        return f"a stack of {count} copper layers is not written: at most {MAX_COPPER} are"
+    if count - planes > MAX_SIGNAL:
+        return f"a stack of {count - planes} signal layers is not written: at most {MAX_SIGNAL} are"
+    if planes > MAX_PLANES:
+        return f"a stack of {planes} internal planes is not written: at most {MAX_PLANES} are"
+    return None
+
+
 def copper_stack(names: Sequence[str], planes: Sequence[str] = ()) -> tuple[int, ...]:
-    """The Altium ids of a board's copper layers from top to bottom. ``names`` is one of ``COPPER_STACKS``;
-    ``planes`` names the inner layers that are internal planes, numbered from the top (39, then 40). A
-    signal inner layer keeps its id of ``LAYER_MAP``. ``ValueError`` names any other input."""
+    """The Altium ids of a board's copper layers from top to bottom (``pcb-copper.md``, "Fenolite's
+    choices", "Layers"). ``names`` are the model's copper layers in stack order, distinct; ``planes`` names
+    the inner layers that are internal planes. The first layer is the top layer (1) and the last the
+    bottom layer (32); the k-th inner layer is Mid-Layer k (id k + 1) as a signal layer, whatever the other
+    inner layers are, and the planes are numbered from the top (39, 40, …). ``ValueError`` names a stack
+    that ``stack_problem`` refuses, a repeated layer or a plane that is not an inner layer."""
     layers = tuple(names)
-    if layers not in COPPER_STACKS:
-        raise ValueError(f"the copper layers {layers!r} are not {COPPER_STACKS[0]!r} or {COPPER_STACKS[1]!r}")
     wanted = tuple(planes)
+    if len(set(layers)) != len(layers):
+        raise ValueError(f"the copper layers {layers!r} repeat a layer")
     inner = layers[1:-1]
     if len(set(wanted)) != len(wanted) or any(name not in inner for name in wanted):
         raise ValueError(f"the planes {wanted!r} are not distinct inner layers of {layers!r}")
-    ids: list[int] = []
+    problem = stack_problem(len(layers), len(wanted))
+    if problem is not None:
+        raise ValueError(problem)
+    ids: list[int] = [TOP_LAYER]
     plane = FIRST_PLANE
-    for name in layers:
+    for position, name in enumerate(inner, start=1):
         if name in wanted:
             ids.append(plane)
             plane += 1
         else:
-            ids.append(LAYER_MAP[name])
+            ids.append(position + 1)
+    ids.append(BOTTOM_LAYER)
     return tuple(ids)
+
+
+def layer_text(layer: int) -> str:
+    """The ``LAYER`` text of a copper layer id in a property record: ``TOP``, ``MID<n>``, ``BOTTOM`` or
+    ``PLANE<n>`` (``pcb-copper.md``, "Polygon pour"); ``ValueError`` for another id."""
+    if layer == TOP_LAYER:
+        return "TOP"
+    if layer == BOTTOM_LAYER:
+        return "BOTTOM"
+    if TOP_LAYER < layer < BOTTOM_LAYER:
+        return f"MID{layer - 1}"
+    if FIRST_PLANE <= layer < FIRST_PLANE + MAX_PLANES:
+        return f"PLANE{layer - FIRST_PLANE + 1}"
+    raise ValueError(f"layer {layer} is not a copper layer")
 
 
 EVIDENCE = Evidence(
@@ -140,7 +206,9 @@ EVIDENCE = Evidence(
         "H-A-PCB-PRJ",
     ),
 )
-"""The PCB records are inferred from public sources; the kicad-cli oracles check only what KiCad reads."""
+"""The PCB records are inferred from public sources; the kicad-cli oracles check only what KiCad reads.
+The rows of a component body (change c0121, ``body_record``) are named by the writers that use it:
+``pcbdoc.EVIDENCE`` and ``pcblib.EVIDENCE``."""
 
 _DIGITS = 40
 EMPTY_PROPERTY_BLOCK = struct.pack("<I", 1) + b"\0"
@@ -359,12 +427,24 @@ _MIL = UNITS_PER_MIL
 _VIA_LAYERS = 32
 
 
-def via_record(x: int, y: int, diameter: int, hole: int, *, net: int = NO_INDEX) -> bytes:
-    """A through via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
-    ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units."""
+def via_record(
+    x: int,
+    y: int,
+    diameter: int,
+    hole: int,
+    *,
+    net: int = NO_INDEX,
+    start: int = VIA_START,
+    end: int = VIA_END,
+) -> bytes:
+    """A via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
+    ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units. ``start``
+    and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32)."""
+    for layer in (start, end):
+        layer_text(layer)
     body = bytearray(VIA_SIZE)
     body[0:13] = prefix(MULTI_LAYER, net=net)
-    struct.pack_into("<4i2B", body, 13, x, y, diameter, hole, VIA_START, VIA_END)
+    struct.pack_into("<4i2B", body, 13, x, y, diameter, hole, start, end)
     struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
     struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
     struct.pack_into("<i", body, 54, 4 * _MIL)  # solder-mask expansion
@@ -432,13 +512,279 @@ def pad_record(
         layers += bytes([shape] * _INNER) + bytes(2) + struct.pack("<id", 0, 0.0)
         layers += bytes(8 * _STACK) + b"\x01" + bytes([ROUNDED_ALTERNATE] * _STACK) + bytes([corner] * _STACK)
         assert len(layers) == PAD_LAYERS_SIZE
-    parts = (short_string(name), b"\0", PAD_SUBRECORD_3, b"\0", geometry, layers)
+    named = short_string(name) if name else b"\0"  # a hole of the board has no name (change c0085)
+    parts = (named, b"\0", PAD_SUBRECORD_3, b"\0", geometry, layers)
     return bytes((PAD,)) + b"".join(subrecord(part) for part in parts)
+
+
+def hole_record(x: int, y: int, drill: int, *, plated: bool = False) -> bytes:
+    """A hole of the board that belongs to no footprint (``pcb-records.md``, "Free pads as holes"): a free
+    round pad on Multi-Layer without a name, a net or a component, whose size is its hole size, so it has
+    no copper ring; ``plated`` sets the plated byte. Lengths in binary units."""
+    if drill <= 0:
+        raise ValueError(f"a hole needs a positive drill, not {drill} units")
+    return pad_record(
+        name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
+        plated=plated,
+    )  # fmt: skip
+
+
+KEEPOUT_FLAG = 2
+"""The second flag byte of a keep-out primitive (``pcb-records.md``, "Regions and keep-outs")."""
+KEEPOUT_KEY = "KEEPOUTRESTRICTIONS"
+"""The key of a keep-out region's restrictions value, as a saved document holds it."""
+KEEPOUT_KEY_KICAD = "KEEPOUTRESTRIC"
+"""The key from which KiCad's importer reads the same value. No saved document holds it: it is written
+after the keys of a saved region, with the value of ``KEEPOUT_KEY``, so that KiCad's import carries the
+restrictions (the maintainer's decision of 2026-10-06; ``pcb-records.md``, "Regions and keep-outs")."""
+REGION_ARC_RESOLUTION = "0.5mil"
+V7_LAYERS: Mapping[int, str] = MappingProxyType(
+    {
+        33: "TOPOVERLAY",
+        34: "BOTTOMOVERLAY",
+        35: "TOPPASTE",
+        36: "BOTTOMPASTE",
+        37: "TOPSOLDER",
+        38: "BOTTOMSOLDER",
+        KEEPOUT_LAYER: "KEEPOUT",
+        **{56 + n: f"MECHANICAL{n}" for n in range(1, 17)},
+    }
+)
+"""``V7_LAYER`` of a region on a layer that is not copper."""
+
+
+def v7_layer(layer: int) -> str:
+    """The ``V7_LAYER`` text of a region on ``layer``: the copper text of ``layer_text``, or the name of
+    ``V7_LAYERS``; ``ValueError`` for a layer without one."""
+    if layer in V7_LAYERS:
+        return V7_LAYERS[layer]
+    return layer_text(layer)
+
+
+def region_record(
+    layer: int,
+    vertices: Sequence[tuple[int, int]],
+    *,
+    shape_based: bool = False,
+    keepout: int | None = None,
+    component: int = NO_INDEX,
+) -> bytes:
+    """A region (type 11) without a net or a polygon (``pcb-records.md``, "Regions and keep-outs"): the
+    prefix, five zero bytes, the property text and the outline. ``component`` (change c0126) is the index
+    of the component the region belongs to, in the prefix as for a track; none by default. ``vertices`` are
+    in binary units, without a closing vertex, at least three. The plain form (``Regions6``) holds each
+    vertex as two doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none
+    round, and repeats the first vertex after the last. ``keepout`` makes the region a keep-out with that
+    restriction value (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS``
+    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value."""
+    if len(vertices) < 3:
+        raise ValueError("a region needs at least three vertices")
+    if keepout is not None and not 0 <= keepout <= 0x1F:
+        raise ValueError(f"the keep-out restrictions {keepout} are outside 0 … 31")
+    fields: list[Field] = [
+        ("V7_LAYER", v7_layer(layer)),
+        ("NAME", " "),
+        ("KIND", "0"),
+        ("SUBPOLYINDEX", "-1"),
+        ("UNIONINDEX", "0"),
+        ("ARCRESOLUTION", REGION_ARC_RESOLUTION),
+        ("ISSHAPEBASED", "FALSE"),
+        ("CAVITYHEIGHT", "0mil"),
+    ]
+    if keepout is not None:
+        fields += [(KEEPOUT_KEY, str(keepout)), (KEEPOUT_KEY_KICAD, str(keepout))]
+    text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
+    head = bytearray(prefix(layer, component=component))
+    if keepout is not None:
+        head[2] = KEEPOUT_FLAG
+    body = bytes(head) + bytes(5) + struct.pack("<I", len(text)) + text + struct.pack("<I", len(vertices))
+    if shape_based:
+        for x, y in (*vertices, vertices[0]):
+            body += struct.pack("<B5i2d", 0, x, y, 0, 0, 0, 0.0, 0.0)
+    else:
+        for x, y in vertices:
+            body += struct.pack("<2d", float(x), float(y))
+    return bytes((REGION,)) + subrecord(body)
+
+
+# --- component bodies (change c0121) -------------------------------------------------------------------
+
+BODY_KEYS: tuple[str, ...] = (
+    "V7_LAYER", "NAME", "KIND", "SUBPOLYINDEX", "UNIONINDEX", "ARCRESOLUTION", "ISSHAPEBASED",
+    "CAVITYHEIGHT", "STANDOFFHEIGHT", "OVERALLHEIGHT", "BODYPROJECTION", "ARCRESOLUTION", "BODYCOLOR3D",
+    "BODYOPACITY3D", "IDENTIFIER", "TEXTURE", "TEXTURECENTERX", "TEXTURECENTERY", "TEXTURESIZEX",
+    "TEXTURESIZEY", "TEXTUREROTATION", "MODELID", "MODEL.CHECKSUM", "MODEL.EMBED", "MODEL.NAME",
+    "MODEL.2D.X", "MODEL.2D.Y", "MODEL.2D.ROTATION", "MODEL.3D.ROTX", "MODEL.3D.ROTY", "MODEL.3D.ROTZ",
+    "MODEL.3D.DZ", "MODEL.MODELTYPE", "MODEL.EXTRUDED.MINZ", "MODEL.EXTRUDED.MAXZ",
+)  # fmt: skip
+"""The keys of a written extruded body, in order (``pcb-bodies.md``, "Written form of an extruded body":
+one row per key; ``ARCRESOLUTION`` is written twice, as saved records hold it). A unit test compares this
+tuple with the rows of the page in both directions: a key without a row is not written."""
+BODY_SHORT_KEYS = 21
+"""The keys of the short form: the first 21, ending at ``TEXTUREROTATION`` (``H-A-PCBX-BODY-SHORT``)."""
+BODY_COLOR = "12632256"
+"""``BODYCOLOR3D``: Fenolite's choice among the values that saved records hold (836 of 1272)."""
+BODY_TEXTURE_ROTATION = " 0.00000000000000E+0000"
+"""``TEXTUREROTATION``: the saved form of a real with the value 0, Fenolite's choice (115 of 1272)."""
+BODY_CHECKSUM = "0"
+"""``MODEL.CHECKSUM``: a stand-in. No source gives the rule of the saved value (``H-A-PCBX-BODY-OPEN``)."""
+BODY_ID_SALT = "fenolite.altium.bodymodel:"
+BODY_LAYERS = range(57, 73)
+"""The layer ids a body is written on: Mechanical 1 to 16."""
+BODY_TOP_LAYER, BODY_BOTTOM_LAYER = 69, 70
+"""Mechanical 13 and 14: where a body without a mechanical layer of its own is written, by its side."""
+BodyForm = Literal["saved", "short"]
+_MECHANICAL = re.compile(r"Mech\.(\d+)")
+
+
+def body_model_id(body_id: str) -> str:
+    """The ``MODELID`` of a written body: a GUID text in braces made of the first 16 bytes of the SHA-256
+    of ``fenolite.altium.bodymodel:<body_id>``, so that it depends on ``body_id`` alone and a build is
+    repeatable. It is a stand-in: a saved body holds a GUID whose origin no source states
+    (``pcb-bodies.md``, the row of ``MODELID``; ``H-A-PCBX-BODY-OPEN``)."""
+    digest = hashlib.sha256((BODY_ID_SALT + body_id).encode("utf-8")).hexdigest().upper()
+    return "{" + "-".join((digest[:8], digest[8:12], digest[12:16], digest[16:20], digest[20:32])) + "}"
+
+
+def body_layer(name: str, *, bottom: bool) -> int:
+    """The layer id a body on the model layer ``name`` is written on (``pcb-bodies.md``, "Layer rule"): the
+    id of a mechanical layer 1 to 16 when ``name`` is one of ``BOARD_LAYER_MAP`` or the import's
+    ``Mech.<n>``; else Mechanical 13 for a top footprint and Mechanical 14 for a bottom one."""
+    found = BOARD_LAYER_MAP.get(name)
+    if found is None:
+        match = _MECHANICAL.fullmatch(name)
+        found = 56 + int(match.group(1)) if match is not None else None
+    if found is not None and found in BODY_LAYERS:
+        return found
+    return BODY_BOTTOM_LAYER if bottom else BODY_TOP_LAYER
+
+
+def _half_towards_zero(twice: int) -> int:
+    half = abs(twice) // 2
+    return half if twice >= 0 else -half
+
+
+def body_record(
+    layer: int,
+    vertices: Sequence[tuple[int, int]],
+    *,
+    component: int,
+    standoff: int,
+    overall: int,
+    bottom: bool,
+    identifier: str = "",
+    model_id: str = "",
+    shape_based: bool = False,
+    form: BodyForm = "saved",
+) -> bytes:
+    """One extruded component body (type 12; ``pcb-bodies.md``, "Written form of an extruded body"): the
+    common prefix with ``layer`` and the ``component`` index (``NO_INDEX`` for none), five zero bytes, the
+    property text and the outline. ``vertices`` are binary units, at least three, without a closing vertex.
+    The plain form (``ComponentBodies6`` and a library) holds each vertex as two doubles; the shape-based
+    form (``ShapeBasedComponentBodies6``) holds each as 37 bytes, none round, and repeats the first vertex.
+
+    ``standoff`` and ``overall`` are the two heights in units; ``bottom`` gives ``BODYPROJECTION`` 1.
+    ``form="saved"`` writes the 35 keys of ``BODY_KEYS`` with ``MODELID`` ``model_id`` and
+    ``MODEL.CHECKSUM`` 0, the two stand-ins; ``form="short"`` writes the first 21 keys, for step X8 of the
+    author report only. ``ValueError`` for fewer than three vertices, a layer that is no Mechanical 1 to
+    16, a component index outside 16 bits, an overall height that is not above the standoff, a negative
+    standoff, an empty ``model_id`` in the saved form, or an unknown form."""
+    if form not in ("saved", "short"):
+        raise ValueError(f"unknown body form {form!r}: saved, short")
+    if len(vertices) < 3:
+        raise ValueError("a component body needs at least three vertices")
+    if layer not in BODY_LAYERS:
+        raise ValueError(f"layer {layer} is not a mechanical layer 1 to 16 (ids 57 to 72)")
+    if not 0 <= component <= NO_INDEX:
+        raise ValueError(f"the component index {component} is not 16 bits")
+    if standoff < 0:
+        raise ValueError("no saved extruded body holds a negative standoff; none is written")
+    if overall <= standoff:
+        raise ValueError("the overall height of a component body must be above its standoff")
+    if form == "saved" and not model_id:
+        raise ValueError("the saved form of a component body needs a model id")
+    xs, ys = [x for x, _ in vertices], [y for _, y in vertices]
+    values: dict[str, str] = {
+        "V7_LAYER": V7_LAYERS[layer],
+        "NAME": " ",
+        "KIND": "0",
+        "SUBPOLYINDEX": "-1",
+        "UNIONINDEX": "0",
+        "ARCRESOLUTION": REGION_ARC_RESOLUTION,
+        "ISSHAPEBASED": "FALSE",
+        "CAVITYHEIGHT": "0mil",
+        "STANDOFFHEIGHT": mil_text(standoff),
+        "OVERALLHEIGHT": mil_text(overall),
+        "BODYPROJECTION": "1" if bottom else "0",
+        "BODYCOLOR3D": BODY_COLOR,
+        "BODYOPACITY3D": "1.000",
+        "IDENTIFIER": ",".join(str(ord(character)) for character in identifier),
+        "TEXTURE": "",
+        "TEXTURECENTERX": "0mil",
+        "TEXTURECENTERY": "0mil",
+        "TEXTURESIZEX": "0mil",
+        "TEXTURESIZEY": "0mil",
+        "TEXTUREROTATION": BODY_TEXTURE_ROTATION,
+        "MODELID": model_id,
+        "MODEL.CHECKSUM": BODY_CHECKSUM,
+        "MODEL.EMBED": "FALSE",
+        "MODEL.NAME": "",
+        "MODEL.2D.X": mil_text(_half_towards_zero(min(xs) + max(xs))),
+        "MODEL.2D.Y": mil_text(_half_towards_zero(min(ys) + max(ys))),
+        "MODEL.2D.ROTATION": "0.000",
+        "MODEL.3D.ROTX": "0.000",
+        "MODEL.3D.ROTY": "0.000",
+        "MODEL.3D.ROTZ": "0.000",
+        "MODEL.3D.DZ": "0mil",
+        "MODEL.MODELTYPE": "0",
+        "MODEL.EXTRUDED.MINZ": mil_text(standoff),
+        "MODEL.EXTRUDED.MAXZ": mil_text(overall),
+    }
+    keys = BODY_KEYS if form == "saved" else BODY_KEYS[:BODY_SHORT_KEYS]
+    text = "|".join(f"{key}={values[key]}" for key in keys).encode("ascii") + b"\0"
+    body = prefix(layer, component=component) + bytes(5) + struct.pack("<I", len(text)) + text
+    body += struct.pack("<I", len(vertices))
+    if shape_based:
+        for x, y in (*vertices, vertices[0]):
+            body += struct.pack("<B5i2d", 0, x, y, 0, 0, 0, 0.0, 0.0)
+    else:
+        for x, y in vertices:
+            body += struct.pack("<2d", float(x), float(y))
+    return bytes((BODY,)) + subrecord(body)
 
 
 __all__ = [
     "ARC",
     "ARC_SIZE",
+    "BODY",
+    "BODY_BOTTOM_LAYER",
+    "BODY_CHECKSUM",
+    "BODY_COLOR",
+    "BODY_KEYS",
+    "BODY_LAYERS",
+    "BODY_SHORT_KEYS",
+    "BODY_TEXTURE_ROTATION",
+    "BODY_TOP_LAYER",
+    "BodyForm",
+    "body_layer",
+    "body_model_id",
+    "body_record",
+    "BOARD_LAYER_MAP",
+    "BOTTOM_LAYER",
+    "BOTTOM_SIDE",
+    "KEEPOUT_FLAG",
+    "KEEPOUT_LAYER",
+    "MAX_COPPER",
+    "MAX_PLANES",
+    "MAX_SIGNAL",
+    "REGION",
+    "TOP_LAYER",
+    "V7_LAYERS",
+    "hole_record",
+    "layer_text",
+    "region_record",
+    "stack_problem",
+    "v7_layer",
     "COPPER_LAYER_TEXT",
     "COPPER_STACKS",
     "EMPTY_PROPERTY_BLOCK",

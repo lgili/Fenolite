@@ -22,6 +22,10 @@ Before a KiCad build plans its writes, the copper guard judges the triad it is a
 ``checks.copper.check_copper`` (change c0029; capability design-dsl, "Copper guard before writing"): a
 short or a clearance error refuses the build unless ``--copper-check warn`` is given.
 
+An Altium build has the same guard on the PCB document it is about to write (change c0088; capability
+altium-build, "Copper guard in an Altium build"): ``altium_copper_guard`` reads the planned bytes back
+with the Altium backend and refuses a short; a clearance finding is reported and does not refuse.
+
 The placement guard then judges the same planned board with ``placement.legality.check`` (change c0022;
 capability design-dsl, "Placement legality in a build"): courtyard overlaps and parts outside the outline
 are reported as warnings and never refuse a build.
@@ -32,11 +36,15 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import fenolite.dsl
+from fenolite.backends.altium.altsym import DEFAULT_BODIES, SymbolBodies
+from fenolite.backends.altium.backend import AltiumBackend
+from fenolite.backends.altium.outjob import OUTJOB_KIND
 from fenolite.backends.altium.project import (
     DEFAULT_FORM,
     DEFAULT_SHEETS,
@@ -48,6 +56,7 @@ from fenolite.backends.altium.project import (
     SchematicForm,
     SheetMode,
 )
+from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad import copper as kicad_copper
 from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
@@ -70,8 +79,10 @@ from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
 from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
+from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.cmd_export import preset_file
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError, Issue
@@ -95,6 +106,7 @@ from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
     build_altium,
+    kept_documents,
     kicad_footprint_ids,
     kicad_lib_ids,
     refused_altium,
@@ -110,6 +122,7 @@ from fenolite.lens.build import (
     plane_issues,
     read_record,
 )
+from fenolite.lens.build import issue as build_issue
 from fenolite.lens.placements import FILE_NAME as PLACEMENTS_FILE
 from fenolite.lens.placements import SourcePlacement, read_placements
 from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, prepare, read_existing
@@ -128,6 +141,16 @@ HELP = (
 TARGETS = ("kicad", ALTIUM_TARGET)
 ALTIUM_FORMATS: tuple[SchematicForm, ...] = ("binary", "ascii")
 ALTIUM_SHEETS: tuple[SheetMode, ...] = ("flat", "modules")
+ALTIUM_SYMBOLS: tuple[SymbolBodies, ...] = ("generic", "graphics")
+"""The values of ``--altium-symbols`` (change c0086)."""
+ALTIUM_DIRECTIONS: tuple[str, ...] = ("on", "off")
+"""The values of ``--altium-directions`` (change c0086)."""
+DEFAULT_DIRECTIONS = "on"
+ALTIUM_BODIES: tuple[str, ...] = ("off", "extruded")
+"""The values of ``--altium-bodies`` (change c0121)."""
+DEFAULT_ALTIUM_BODIES = "off"
+"""No component body is written unless asked: two keys of a written body are stand-ins that only Altium
+can settle (``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
@@ -149,7 +172,10 @@ _KINDS = {
     ".PcbLib": PCBLIB_KIND,
     ".PcbDoc": PCBDOC_KIND,
     ".Harness": HARNESS_KIND,
+    ".OutJob": OUTJOB_KIND,
 }
+OUTJOB_MODES = ("on", "off")
+"""``--altium-outjob``: write ``<name>.OutJob`` beside a PCB document (the default), or not."""
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -185,6 +211,47 @@ def _register(parser: argparse.ArgumentParser) -> None:
         f"signal harnesses); a usage error with --target kicad (default: {DEFAULT_SHEETS})",
     )
     parser.add_argument(
+        "--altium-outjob",
+        choices=OUTJOB_MODES,
+        default=None,
+        help=f"with --target {ALTIUM_TARGET}: on (default) writes <name>.OutJob, an output job with Gerber, "
+        "NC drill, pick-and-place, bill-of-materials, schematic-print and PCB-print outputs, when the build "
+        "writes a PCB document; off writes none; a usage error with --target kicad",
+    )
+    parser.add_argument(
+        "--altium-outjob-preset",
+        metavar="FILE",
+        default=None,
+        help="the export preset (the TOML file of export --preset) the output job is made for: its "
+        "gerbers.precision is the decimals of the job's Gerber settings (result.outjob.gerber), and its "
+        "other options are listed in result.outjob.defaults, to be set in Altium; a usage error with "
+        "--target kicad or with --altium-outjob off",
+    )
+    parser.add_argument(
+        "--altium-symbols",
+        choices=ALTIUM_SYMBOLS,
+        default=None,
+        help=f"with --target altium: graphics (default) draws each resolved symbol from its own graphics, "
+        f"generic draws one rectangle per part (the output of 0.2.0 and earlier); a usage error with "
+        f"--target kicad (default: {DEFAULT_BODIES})",
+    )
+    parser.add_argument(
+        "--altium-directions",
+        choices=ALTIUM_DIRECTIONS,
+        default=None,
+        help=f"with --target altium: on (default) gives each port and sheet entry the I/O type that follows "
+        f"from the pin types on its net, off leaves them all unspecified; a usage error with --target kicad "
+        f"(default: {DEFAULT_DIRECTIONS})",
+    )
+    parser.add_argument(
+        "--altium-bodies",
+        choices=ALTIUM_BODIES,
+        default=None,
+        help=f"with --target altium: extruded writes the extruded component bodies of the board's "
+        f"footprints (experimental: not yet opened in Altium), off writes none and reports each body; a "
+        f"usage error with --target kicad (default: {DEFAULT_ALTIUM_BODIES})",
+    )
+    parser.add_argument(
         "--copper-from",
         metavar="BOARD.kicad_pcb",
         default=None,
@@ -197,8 +264,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=COPPER_CHECK_MODES,
         default=None,
         help="what a short or a clearance error in the copper of the board about to be written does: "
-        f"refuse (default; exit 5, nothing written) or warn (reported as warnings, files written); a usage "
-        f"error with --target {ALTIUM_TARGET}",
+        f"refuse (default; exit 5, nothing written) or warn (reported as warnings, files written); with "
+        f"--target {ALTIUM_TARGET} only a short refuses, and a clearance error is reported as a warning",
     )
     parser.add_argument(
         "--vendor",
@@ -303,6 +370,67 @@ def copper_guard(
     return tuple(found), summary
 
 
+CLEARANCE_NOTE = " (reported, not refused: the Altium copper guard refuses shorts)"
+
+
+def altium_copper_guard(
+    files: Mapping[str, bytes], *, name: str, mode: str
+) -> tuple[tuple[Issue, ...], dict[str, object]]:
+    """The copper issues of the PCB document ``<name>.PcbDoc`` of ``files`` that an Altium build is about
+    to write, and ``result.copper_check`` (capability altium-build, "Copper guard in an Altium build").
+
+    The planned bytes are read back with the Altium backend's own reader and adapter, the rules are those
+    the document holds (``AltiumBackend.rules_from_bytes`` on the planned bytes), the pads come from the
+    Altium board frame, and ``check_copper`` judges the result. A ``copper.short`` keeps its severity, so the
+    build refuses; every other error is reported as a warning with ``CLEARANCE_NOTE``. With
+    ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing is read from disk and
+    nothing is written; a build without a PCB document is not judged (``ran`` false)."""
+    if mode not in COPPER_CHECK_MODES:
+        raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
+    document = f"{name}.PcbDoc"
+    data = files.get(document)
+    if data is None:
+        return (), {"mode": mode, "ran": False}
+    backend = AltiumBackend()
+    read = backend.board_from_bytes(data, file=document)
+    design = read.design
+    rules = backend.rules_from_bytes(design, data, file=document)
+    report = check_copper(
+        rules.design,
+        pads=backend.board_pads(rules.design),
+        min_clearance=rules.min_clearance,
+        rules_over_classes=rules.rules_over_classes,
+        floor_over_rules=rules.floor_over_rules,
+        inputs=(read.evidence, rules.evidence),
+    )
+    unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
+    found: list[Issue] = []
+    for issue in (*report.issues, *rules_issues(rules)):
+        if issue.severity != "error":
+            found.append(issue)
+        elif issue.code != "copper.short":
+            found.append(
+                dataclasses.replace(issue, severity="warning", message=issue.message + CLEARANCE_NOTE)
+            )
+        elif mode == "warn":
+            found.append(dataclasses.replace(issue, severity="warning", message=issue.message + WARN_NOTE))
+        else:
+            found.append(issue)
+    evidence = Evidence.combine(report.evidence, read.evidence, rules.evidence)
+    if unpoured or any(issue.code in LOWERING_CODES for issue in found):
+        evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
+    summary: dict[str, object] = {
+        "mode": mode,
+        "ran": True,
+        "shorts": report.summary["shorts"],
+        "clearance": report.summary["clearance"],
+        "unpoured": unpoured,
+        "rules": rules_summary(rules),
+        "evidence": _evidence_json(evidence),
+    }
+    return tuple(found), summary
+
+
 def _catalog_definitions(
     design: ModelDesign,
     authored_footprints: Mapping[str, Any],
@@ -325,6 +453,28 @@ def _catalog_definitions(
             footprints[fp_id] = catalog_footprint(fp_id)
             used_builtin.add(fp_id)
     return {**footprints, **authored_footprints}, {**symbols, **authored_symbols}, frozenset(used_builtin)
+
+
+def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
+    """One ``build.pad-map-default`` warning per part that got the catalog's default pin-to-pad map
+    (capability design-dsl, "Default pin-to-pad map is reported"; change c0147)."""
+    found: list[Issue] = []
+    for part in applied:
+        written = json.dumps(dict(part.pairs))
+        pins = ", ".join(f"pin {pin} on pad {pad}" for pin, pad in part.pairs)
+        identity = json.dumps({pin: pin for pin, _pad in part.pairs})
+        found.append(
+            build_issue(
+                "build.pad-map-default",
+                f"{part.ref} ({part.symbol} on {part.footprint}) gives no pad_map; the build applies the "
+                f"catalog's map pad_map={written} ({pins}): pad 1 of this land is the cathode",
+                part.path,
+                hint=f"write pad_map={written} on the part to keep this map and silence the warning, and "
+                f"connect it by pin name (A, K); a design that wired it by pin number for the pad order of "
+                f"earlier builds keeps that order with pad_map={identity}",
+            )
+        )
+    return found
 
 
 def placement_guard(
@@ -453,12 +603,44 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
-    if args.copper_check is not None and args.target == ALTIUM_TARGET:
+    for option, value in (
+        ("--altium-outjob", args.altium_outjob),
+        ("--altium-outjob-preset", args.altium_outjob_preset),
+    ):
+        if value is not None and args.target != ALTIUM_TARGET:
+            raise CliError(
+                "FEN-2001",
+                f"{option} needs --target {ALTIUM_TARGET}; the target is {args.target}",
+                where=option,
+                hint=f"add --target {ALTIUM_TARGET}, or drop {option}",
+            )
+    if args.altium_outjob_preset is not None and args.altium_outjob == "off":
         raise CliError(
             "FEN-2001",
-            f"--copper-check judges the KiCad board of a build; the target is {args.target}",
-            where="--copper-check",
-            hint=f"drop --copper-check, or drop --target {ALTIUM_TARGET}",
+            "--altium-outjob-preset names the preset of an output job, and --altium-outjob off writes none",
+            where="--altium-outjob-preset",
+            hint="drop one of the two options",
+        )
+    if args.altium_symbols is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-symbols needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-symbols",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-symbols",
+        )
+    if args.altium_directions is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-directions needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-directions",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-directions",
+        )
+    if args.altium_bodies is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-bodies needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-bodies",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-bodies",
         )
     if args.schematic is not None and args.target == ALTIUM_TARGET:
         raise CliError(
@@ -506,6 +688,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         pad_zone_requests = pad_zones(design)
     except DslError as error:
         raise DesignScriptError(str(error), file=str(args.design)) from error
+    model, defaulted = apply_default_pad_maps(
+        model, authored_symbols=design.symbols, authored_footprints=design.footprints
+    )
+    default_issues = pad_map_issues(defaulted)
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
@@ -524,10 +710,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             out_dir,
             board_path,
             intents,
+            frame_sheet,
+            sheet_result,
         )
         return dataclasses.replace(
             made,
-            issues=(*source_issues, *from_file.issues, *made.issues),
+            issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
             writes=() if refused else made.writes,
         )
     resolver = LibraryResolver(
@@ -638,6 +826,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues=(
             *sheet_issues,
             *source_issues,
+            *default_issues,
             *built.issues,
             *symbol_issues,
             *plane_issues(plane_nets),
@@ -687,6 +876,31 @@ def _replaced_sheet(
     ]
 
 
+def _outjob_result(summary: object, out: Path, preset: Mapping[str, str] | None) -> dict[str, object] | None:
+    """``result.outjob`` (changes c0087 and c0138): the lens summary (``file``, ``media``, ``outputs``,
+    ``gerber``, ``defaults``) with the file under ``--out``, and then the preset as given with its SHA-256;
+    ``None`` without a job."""
+    if not isinstance(summary, Mapping):
+        return None
+    found = dict(cast(Mapping[str, object], summary))
+    return {**found, "file": str(out / str(found["file"])), "preset": dict(preset) if preset else None}
+
+
+def _sheet_result(
+    summary: object, out: Path, source: Mapping[str, object] | None
+) -> dict[str, object] | None:
+    """``result.drawing_sheet`` (change c0087): the sheet as written in the script, its item count and the
+    page of every schematic document; ``None`` without a drawing sheet or without a written sheet."""
+    if not isinstance(summary, Mapping) or source is None:
+        return None
+    found = cast(Mapping[str, object], summary)
+    pages = [
+        {**page, "file": str(out / str(page["file"]))}
+        for page in cast(Sequence[Mapping[str, object]], found["pages"])
+    ]
+    return {"source": source["source"], "items": found["items"], "pages": pages}
+
+
 def _run_altium(
     args: argparse.Namespace,
     ctx: Context,
@@ -699,6 +913,8 @@ def _run_altium(
     out_dir: Path,
     board_path: Path | None = None,
     intents: Sequence[CopperIntentLike] = (),
+    drawing_sheet: DrawingSheet | None = None,
+    sheet_result: Mapping[str, object] | None = None,
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -716,10 +932,22 @@ def _run_altium(
     none of its files is planned. Its model is the ``CopperSource`` of origin ``script``, and the script's
     zones travel with it. An error of that build refuses this one; its ``SCRIPT_COPPER_CODES`` issues pass.
     With ``--copper-from`` the board wins: the intents are not resolved, and one ``altium.not-lowered``
-    info names them."""
+    info names them.
+
+    Change c0087: unless ``--altium-outjob off``, the build writes ``<name>.OutJob`` beside a PCB
+    document, for the preset of ``--altium-outjob-preset``; a kept project file is read to see whether it
+    lists the job. ``drawing_sheet`` (the sheet that ``sheet(drawing_sheet=…)`` names, with its
+    ``sheet_result``) is drawn on every schematic document; a loss needs ``--allow-lossy``."""
     name = run.design.name
     form = cast(SchematicForm, args.altium_format or DEFAULT_FORM)
     sheets = cast(SheetMode, args.altium_sheets or DEFAULT_SHEETS)
+    # change c0086: the symbols and footprints the script authored or took from the catalog are written
+    # like resolved ones, as in a KiCad build, so their graphics reach the libraries
+    authored_footprints, authored_symbols, _builtin = _catalog_definitions(
+        model,
+        {key: fp.definition for key, fp in run.design.footprints.items()},
+        {key: symbol.definition for key, symbol in run.design.symbols.items()},  # type: ignore[attr-defined]
+    )
     resolver = None
     if kicad_lib_ids(model) or kicad_footprint_ids(model) or intents:
         resolver = LibraryResolver(
@@ -756,6 +984,32 @@ def _run_altium(
     script_issues: list[Issue] = []
     refused = False
     project_exists = (out_dir / f"{name}.PrjPcb").is_file()
+    with_job = args.altium_outjob != "off"
+    preset, preset_result = preset_file(args.altium_outjob_preset, ctx.cwd)
+    job_listed = False
+    project_digest: str | None = None
+    project_listed: frozenset[str] | None = None
+    if project_exists:
+        # An existing project file is kept, with one exception (change c0138): a file with the bytes the
+        # folder's state records (it is as a build wrote it) is written again when it lacks the job. The
+        # lens decides, from the digest, which is None for a file changed since or without a record. The
+        # file is read only to see whether it lists the job; one that cannot be read lists nothing.
+        try:
+            project_data = (out_dir / f"{name}.PrjPcb").read_bytes()
+        except OSError:
+            project_data = None
+        known = (read_record(out_dir) or {}).get(f"{name}.PrjPcb")
+        if project_data is not None and known == hashlib.sha256(project_data).hexdigest():
+            project_digest = known
+        # What the file lists is read with Fenolite's own project reader, so that the infos about a kept
+        # project file name only what it lacks; a file that cannot be read gets them for every document.
+        try:
+            kept_project = None if project_data is None else read_project(project_data, file=f"{name}.PrjPcb")
+        except FormatError:
+            kept_project = None
+        if kept_project is not None:
+            project_listed = kept_documents([document.path for document in kept_project.documents])
+            job_listed = f"{name}.OutJob".casefold() in project_listed
     if intents and source is None:
         assert resolver is not None
         resolved = build_design(
@@ -797,9 +1051,28 @@ def _run_altium(
             copper=run.design.copper,
             planes=plane_nets,
             copper_source=source,
-            authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
+            outjob=with_job,
+            outjob_preset=preset,
+            outjob_listed=job_listed,
+            project_digest=project_digest,
+            project_listed=project_listed,
+            project_unreadable=project_exists and project_listed is None,
+            drawing_sheet=drawing_sheet,
+            allow_lossy=ctx.allow_lossy,
+            authored_footprints=authored_footprints,
+            directions=(args.altium_directions or DEFAULT_DIRECTIONS) == "on",
+            symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
+            bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
+            authored_symbols=authored_symbols,
         )
     files = dict(built.files)
+    mode = args.copper_check or COPPER_CHECK_MODES[0]
+    copper_issues: tuple[Issue, ...] = ()
+    copper_check: dict[str, object] = {"mode": mode, "ran": False}
+    if files:
+        copper_issues, copper_check = altium_copper_guard(files, name=name, mode=mode)
+        if any(found.severity == "error" for found in copper_issues):
+            files = {}  # refused: a build with an error issue plans no write
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
@@ -820,11 +1093,17 @@ def _run_altium(
         "kept": [str(out / rel) for rel in kept],
         "schematic_format": form,
         **{key: summary[key] for key in ("sheet_mode", "sheets", "ports", "sheet_entries", "harnesses")},
+        "schematic": summary["schematic"],
         "libraries": [str(out / rel) for rel in cast(Sequence[str], summary["libraries"])],
         "symbols": summary["symbols"],
         "footprints": summary["footprints"],
         "pcb_document": str(out / str(summary["pcb_document"])) if summary["pcb_document"] else None,
         "copper": summary["copper"],
+        "pcb": summary["pcb"],
+        "copper_check": copper_check,
+        "outjob": _outjob_result(summary["outjob"], out, preset_result),
+        "drawing_sheet": _sheet_result(summary["drawing_sheet"], out, sheet_result),
+        "rules": summary["rules"],
         "experimental": summary["experimental"],
         "script_output": run.output,
     }
@@ -838,7 +1117,7 @@ def _run_altium(
         evidence = Evidence.combine(evidence, kicad_copper.EVIDENCE, kicad_frame.EVIDENCE)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues),
+        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),

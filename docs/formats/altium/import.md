@@ -33,6 +33,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | Layer 74 (Multi-Layer) is no model layer: an object on it lies on every copper layer of the chain | S-0161 | INFERRED | H-A-IMP-LAYERS |
 | A copper id outside the chain, or an id outside this table, goes to the layer `Altium.<id>` | S-0161 | INFERRED | H-A-IMP-LAYERS |
 | A plane stays a copper layer with its net in the bag (`PLANE<k>NETNAME`); no zone is made for it | S-0161 | INFERRED | H-A-IMP-LAYERS |
+| An internal plane (a layer of the chain with an id from 39 to 54, on a net or not) is stored in negative: any object on its layer is a place without copper, a line that splits a plane is placed on that layer and set to no net, and the rest of the layer is copper that the document does not store. A free track, arc, fill, region or text on such a layer is therefore no copper and no drawing of the board: the import makes no entity of it, with or without a net, counts it as `plane-cuts` and holds the count of each layer in its bag (`plane_cuts`). The two public documents with planes hold 74 and 43 such tracks and no other free primitive there, and KiCad's import of each holds exactly that many tracks fewer than a read that keeps them, and none on a plane layer | S-0531, S-0550, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06; test_triangle_level5.py) | H-A-IMP-PLANE-CUT |
 | The stack-up comes from the physical list (`V9_STACK_LAYER<i>_…`) when the record holds one, else from the numbered layers of the chain with one dielectric between neighbours | S-0160, S-0161 | INFERRED | H-A-IMP-LAYERS |
 
 ## Pads and padstacks
@@ -54,8 +55,22 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | A polygon of type `Polygon` on a copper layer is a zone: its vertices are the outline (the last repeats the first), `NET` its net, `NAME` its name | S-0161, S-0285, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-05; test_import_oracle.py) | H-A-IMP-ZONE |
 | `POURINDEX` gives the pour order, the lowest first; the zone poured first gets the highest model priority | S-0161 | INFERRED | H-A-IMP-ZONE |
 | The regions of `Regions6` that carry a polygon's index are its poured copper; tracks and arcs with a polygon index are the strokes of a hatched pour | S-0161, S-0285 | INFERRED | H-A-IMP-ZONE |
+| The holes of a poured region are free of its copper: the fill is the region's outline without its holes, and another region of the same polygon may lie inside a hole as an island. The model holds the fill as one ring with a bridge of zero width to each hole (`geometry.keyhole_ring`); a hole outside its outline is dropped and reported (`altium.import.zone-hole-outside`) | S-0160 (the holes of a region record), S-0020 (`kicad-cli pcb import` on the document of S-0172: the same pieces of copper per net in both reads, five islands among them) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06; test_triangle_level5.py) | H-A-IMP-ZONE-HOLES |
 | The board outline of the board record becomes graphics on `Edge.Cuts`, one per segment, a line or an arc | S-0161 | INFERRED | H-A-IMP-FRAME |
 | A free fill is a rectangle given by two corners and a rotation about its centre; a free region is a polygon | S-0160, S-0285 | INFERRED | H-A-IMP-FRAME |
+
+## Primitives of a component
+
+Change c0126. Until then the import counted these records as `footprint-graphics` and made no entity of
+them.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A track, an arc, a fill, a region and a text carry in their prefix, at offset 7, the index of the component they belong to (`0xFFFF`: none). The primitives of a placed component are stored at absolute board coordinates with that index, and a document holds no footprint definition (`pcb-records.md`, the common prefix; `pcb-document.md`, "Components"). The import gives such a primitive to the footprint of its component: a track is a `line`, an arc an `arc` (a full turn: a `circle`), a fill a filled `rect` or, when it is turned against the footprint, a filled `polygon`, and a region a filled `polygon`, as for a library footprint, in the order tracks, arcs, fills, regions and, within each, record order | S-0160, S-0161, S-0150 | INFERRED | H-A-IMP-FPGFX |
+| The points of such a graphic are taken into the footprint's frame with the inverse of the placement of its component (position and angle, no mirror), the transform of its pads, so a footprint on the bottom side holds mirrored coordinates and its items name the layers they lie on. This is Fenolite's reading of the record values, not a field of the format | S-0161 | INFERRED | H-A-IMP-FPGFX |
+| A text of a component whose designator flag is set is the component's designator, and one whose comment flag is set its comment (`pcb-read.md`, `TextRecord.is_designator` and `is_comment`). The first of each gives the field `Reference` or `Value` of the footprint: the place, the layer, the height, the stroke width, and the angle relative to the footprint; the string stays in the component. A further designator or comment text of the same component, and every other text of a component, is a text of the footprint with its string as stored | S-0160, S-0002 | INFERRED | H-A-IMP-FPGFX |
+| `NAMEON` and `COMMENTON` of a component record say whether its designator and its comment are shown (`pcb-read.md`, `ComponentRecord.name_on` and `comment_on`); they give `visible` of the two fields. A record without the key gives a visible field: Fenolite's choice, the default of a field of the model | S-0160, S-0161 | INFERRED | H-A-IMP-FPGFX |
+| An arc of a component keeps its record (centre, radius, angles, in the document's frame) in the pair `arc`, as a free arc does since change c0127; a graphic of a component on a copper layer keeps its net name in the pair `net`; a primitive of a component on an internal plane is no item of its footprint (a line there is a cut in the plane, change c0124) and stays counted as `footprint-graphics` | S-0160, S-0161 | INFERRED | H-A-IMP-FPGFX |
 
 ## Rules
 
@@ -97,6 +112,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `layer_id` | layer | the Altium layer id |
 | `altium_name` | layer | the name the board record gives the layer |
 | `plane_net` | layer | the net of an internal plane |
+| `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
 | `origin` | board | `ORIGINX,ORIGINY` as written |
 | `stack_mode` | pad | the stack mode when it is not 0 |
 | `corner_percent` | pad | the corner percentage of a rounded rectangle |
@@ -105,11 +121,16 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `mask` | pad | `<mode>,<expansion in units>` |
 | `plated` | pad | `0` for a hole that is not plated |
 | `via_layers` | via | `<start id>,<end id>` when they are not the outer layers of the chain |
+| `pad_removed` | via | `<layer id>,…`: the Altium layer ids, in ascending order, for which the table at 209 of the via record holds a non-zero byte: the layers on which the via has no pad shape (change c0132; `pcb-copper.md`, "Via"). The model's via holds one diameter, so the pair is the only place that says it; it enters no id. The copper check on Altium input reads it ("Clearance of the copper check"); a write counts it and writes a pad on every layer |
+| `arc` | arc, graphic of kind `arc` | `<centre x>,<centre y>,<radius>,<start angle>,<end angle>` of the arc record it was read from: three integers in units of 1/10 000 mil in the document's frame, and the two angles as `float.hex()` of the stored doubles (change c0127). The three points of the model do not give the record back in every case; a write of the model uses the pair when it still says the points |
 | `net` | graphic | the net name of a copper shape |
 | `pour_index` | zone | `POURINDEX` |
 | `hatch_style` | zone | `HATCHSTYLE` |
 | `component_kind` | component | `COMPONENTKIND` when it is not 0 |
 | `part_ids` | component | the unique ids of its parts, joined by commas |
+| `pin_pads` | component | one pair per pin map record that `pin_pad_map` does not say in full: `<pin>=<pad>,<pad>…` (no pad, or a pad that another pin holds; a record of several pads is in the map since change c0123) |
+| `sheet_symbol` | module | the unique id of the sheet symbol of a `Repeat` channel |
+| `channel_index` | module | the channel index of a `Repeat` channel |
 | `source_designator` | footprint | `SOURCEDESIGNATOR` |
 | `source_lib_reference` | footprint | `SOURCELIBREFERENCE` |
 | `electrical` | pin | a pin type number outside the table |
@@ -121,6 +142,42 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `scope1` | rule | `SCOPE1EXPRESSION` |
 | `scope2` | rule | `SCOPE2EXPRESSION` |
 | `rule_kind` | rule | `RULEKIND` |
+| `cell` | rule | the pair of item kinds of a rule that holds one cell of a Clearance record's object matrix, such as `via-via` (change c0130) |
+| `cells_not_lifted` | rule | on the rule of a Clearance record's generic value: the entries of its object matrix that no rule holds, as written and joined by `;` (an object kind the copper check holds no item of; change c0130) |
+
+## The copper check and the parity comparison
+
+What `fenolite check` needs of the import beyond the model (change c0088): the board frame of the pads
+(`backends/altium/frame.py`), the clearance in force (`AltiumBackend.design_rules`) and the schematic side
+of the parity comparison (`adapter/parity.py`). No record is read that the import does not read already.
+
+### Board frame of the pads
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad lies at the footprint's position plus its own position turned by the footprint's angle, with no further mirror on the bottom side, and is turned by the sum of the two angles: the inverse of how the import stores it ("Pads and padstacks"). The copper of a layer of a stack lies at the pad's position plus that layer's offset | S-0160, S-0302 | INFERRED | H-A-IMP-FRAME |
+| The corner radius of a rounded rectangle is its corner percentage of half the shorter side (100 is fully round), the inverse of what the writer stores for KiCad's corner ratio (`pcbrecords.corner_percent`) | S-0160, S-0150 | INFERRED | H-A-IMP-PADSTACK |
+| A shape the import does not resolve (an octagon, a rounded rectangle without its percentage, a rounded rectangle of a per-layer stack, whose percentage is not in the model) is checked as the rectangle of its size, which contains it; the copper check then says `approximated` | S-0160 | INFERRED | H-A-IMP-PADSTACK |
+| The import reads no courtyard: the extent of a footprint is the hull of its pads' copper | S-0160 | INFERRED | H-A-IMP-FRAME |
+
+### Clearance of the copper check
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A polygon holds no clearance of its own: the gap its pour keeps comes from the Clearance rule that applies to it. The model's default zone clearance (0.5 mm) is therefore no value of the document, and the copper check judges a fill with the clearance rules alone (the zone's own clearance is 0, "none") | S-0530 | INFERRED | H-A-DRC-SAME |
+| An internal plane is drawn in negative: a line or an arc on its layer is a void, and the rest of the layer is copper that the document does not store. The objects on the layer of a plane are no copper, and the plane's own copper is not judged. Since change c0124 the import leaves those objects out ("Layers"), so the check takes nothing out of the board; it names the planes as copper it did not judge | S-0531 | INFERRED | H-A-DRC-SAME |
+| The document counts in units of 2.54 nm and the model in whole nanometres, so copper that is exactly a clearance apart in the document reads up to 4 nm closer. Measured on the seven public PCB documents: with the rule values as written, 1 447 clearance findings are short by 1 to 4 nm and by nothing else (626, 359, 118, 232 and 112 on the five documents that hold a mapped Clearance rule; four documents and 1 088 before change c0125); the clearance rules are lowered by 5 nm for the check | S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-SAME |
+| The slack of the copper check is one file unit per item of the pair (change c0131, the maintainer's rule of 2026-10-06): 2 × 2.54 = 5.08 nm for a pair, held as 5 whole nanometres, rounded down so that no gap is passed that the rule reports. The conversion moves a track or a via by up to 0.96 nm (a point 0.71, half a width 0.25), a vertex of a pour by 0.71 nm (1.21 at the bridge of a hole), a round or oval pad by 2.37 nm (its centre is rounded three times through the frame of its footprint) and a rectangular pad by 3.18 nm (each corner once more); an arc is judged with a band of 1 001 nm. One unit covers every item but a rectangular pad, and the pair slack every pair but a pad against a rectangular pad (5.55 and 6.36 nm). Measured on the eight public PCB documents (the heavy one included): the slack removes 6 075 findings (6 111 since change c0132 judges the vias without a pad by their holes), all 1 to 4 nm short and none between two pads, and 25 findings 8 to 20 nm short stay errors (2, 7 and 16 on three documents) | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 (`tests/corpus/test_altium_copper.py`, 2026-10-07) | CORPUS-VERIFIED (2026-10-07; test_altium_copper.py) | H-A-DRC-SAME |
+| A via without a pad shape on a layer is copper there by its hole alone: the via is drilled through the layer, copper of another net inside the hole would meet the plated barrel, and a polygon keeps its clearance to the hole. The copper check therefore judges such a via with its diameter on the layers where it has a pad and with its drill as diameter on the layers that the pair `pad_removed` names; nothing is left unjudged. Measured on the one public document that holds such vias: the 28 shorts between seven of them and the pours of other nets, and one clearance finding of a track beside one, are gone, and no other finding of the document changes | S-0600, S-0601 (`tests/corpus/test_altium_copper.py`, 2026-10-07) | INFERRED | H-A-IMP-VIA-PADLESS |
+| A Clearance record that is enabled and that the rule table does not map (a matrix of differing clearances, a scope outside the grammar, a key outside the table) may govern any pair: the check counts such records and says that its rules are incomplete. A record whose scope is a kind of layer the board does not hold governs no pair and is not counted (`rule-file.md`, "Layer scopes of Clearance"; the check maps the records with the board's copper layers, as the import does) | S-0286, S-0462, S-0555 | INFERRED | H-A-RD-PRJ-RULE-MAP |
+
+### Schematic side of the parity comparison
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The schematic names a footprint by the file of its footprint model and the model's name, and the PCB document by the library the component was placed from and the pattern: only the name is common. On the five public project sets 503 placed footprints differ in the library alone, and 5 in the name too | S-0174, S-0175, S-0176, S-0187, S-0188 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-PARITY |
+| The name the import gives a net is not always the name the PCB document holds for it (a net of a repeated sheet, a net named by precedence): on the two hierarchical sets 139 pads (129 and 10) are on a net of another name whose pads are the same. A schematic net and a board net are one net when, over the pads both hold on a net, every pad of the one is on the other | S-0187, S-0188 (`tests/corpus/test_altium_copper.py`, 2026-10-06) | CORPUS-VERIFIED (2026-10-06; test_altium_copper.py) | H-A-DRC-PARITY |
+| A pin names the pad of its own designator unless the component holds a pin-to-pad map, which then decides | S-0130, S-0131 | INFERRED | H-A-IMP-NETLIST |
 
 ## Differences from KiCad's importer
 
@@ -138,7 +195,7 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 | free pads | KiCad makes a footprint without a reference of a pad that belongs to no component, as the import does | counted, not paired (20 pads of four rows) |
 | pads without a number | KiCad returns an unplated hole without its pad number and does not return a pad on a paste layer (`pcb-read.md`, "What KiCad does not import") | the numbered pads on copper are compared; the others are left out |
 | pad size and drill | KiCad's pad of another stack mode or of a custom shape is not a plain pad | size and round drill are compared for simple pads of a plain shape only |
-| copper tracks and arcs without a net | KiCad returns no track for them (in one row some come back as graphic lines on the copper layer); the import keeps them as tracks without a net | counted, not compared (123 tracks of three rows) |
+| copper tracks and arcs without a net | KiCad returns no track for them (in one row some come back as graphic lines on the copper layer); the import keeps them as tracks without a net, except on the layer of an internal plane, where it makes no track either ("Layers", change c0124) | counted, not compared (6 tracks of one row; until change c0124 also the 74 and 43 lines on the planes of two rows) |
 | zone vertices | KiCad drops an outline vertex that repeats its neighbour | the import's outline is compared without such a vertex (2 vertices of two rows) |
 | zones with an arc | the model keeps no arc vertex, so the import's outline is empty | not compared (6 zones of two rows) |
 | board edge | KiCad draws the edge from the board record and adds graphics of other layers to `Edge.Cuts` | not compared: the requirement lists no edge comparison |

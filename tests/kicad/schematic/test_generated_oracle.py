@@ -18,7 +18,7 @@ from _boards import census
 from _buildhelp import blink, build
 from _checkrun import check, stage
 from _projects import tree_snapshot
-from _schbuild import built_units, write_files
+from _schbuild import built_stacked, built_units, write_files
 
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse
 from fenolite.lens.build import BuildOutput
@@ -29,6 +29,8 @@ DESIGNS = ("blink", "units")
 
 def output(name: str) -> BuildOutput:
     target = _probes.major()
+    if name == "stacked":
+        return built_stacked(target)
     return build(blink(), target) if name == "blink" else built_units(target)
 
 
@@ -219,7 +221,7 @@ def test_parity_controls() -> None:
 # -- the netlist
 
 
-@pytest.mark.parametrize("name", DESIGNS)
+@pytest.mark.parametrize("name", (*DESIGNS, "stacked"))
 def test_netlist(name: str) -> None:
     """The nets KiCad derives from the sheet are the circuit's, pins mapped to pads, plus one single-pin
     net per unconnected pad with the name the board carries."""
@@ -227,20 +229,76 @@ def test_netlist(name: str) -> None:
     assert built.schematic is not None
     design = built.design
     refs = {c.id: c.ref for c in design.circuit.components}
-    pads = {c.id: dict(c.pin_pad_map) for c in design.circuit.components}
+    by_id = {c.id: c for c in design.circuit.components}
     wanted: dict[str, set[tuple[str, str]]] = {}
     for net in design.circuit.nets:
-        members = {(refs[m.component_id], pads[m.component_id].get(m.pin, m.pin)) for m in net.members}
+        members = {
+            (refs[m.component_id], pad) for m in net.members for pad in by_id[m.component_id].pads_of(m.pin)
+        }
         if members:
             wanted[net.name.replace("/", "{slash}")] = members
     for (component_id, pad), net_name in built.schematic.pad_nets.items():
-        wanted[net_name] = {(refs[component_id], pad)}
+        wanted.setdefault(net_name, set()).add((refs[component_id], pad))  # the pads of one open pin
     sheet = f"{gen.stem(name)}.kicad_sch"
     found = _erc.netlist(_probes.runner(), sheet, gen.built(name, _probes.major()))
     found = {net: {n for n in nodes if not n[0].startswith("#")} for net, nodes in found.items()}
     assert found == wanted
     if name == "units":
         assert ("D1", "2") in found["GND"] and ("D1", "1") in found["mod{slash}LED_A"]
+    if name == "stacked":
+        assert found["unconnected-(U1-Pad15)"] == {("U1", "5"), ("U1", "15"), ("U1", "9")}
+        assert found["Net-(D2-K-Pad17)"] == {("D2", "21"), ("D2", "17")}
+
+
+# -- pins bonded to several pads (change c0123; H-K-SCH-STACKED, H-K-SCH-STACKED-OPEN)
+
+
+def test_stacked_erc() -> None:
+    """Capability kicad-oracle, "Stacked pins pass ERC, the netlist export and parity": ERC reports for
+    the stacked design what it reports for the same design with the first pad of each pin alone."""
+    report, first = gen.built_erc("stacked"), gen.built_erc("stacked-first")
+    assert report.loaded and first.loaded, report.stderr
+    found = _erc.types(_erc.violations(report))
+    assert found == _erc.types(_erc.violations(first)) == Counter({"pin_not_connected": 1}), found
+    assert _probes.run("sch-stacked-erc") == "equal"
+    print(f"sch-stacked-erc: equal on kicad-cli {_probes.version()}; violations {dict(found)}")
+
+
+def test_stacked_parity() -> None:
+    report = gen.built_parity("stacked")
+    assert report.loaded, report.stderr
+    found = _erc.parity(report)
+    assert found == [], [(v["type"], v["description"]) for v in found]
+    assert _probes.run("sch-stacked-parity") == "absent"
+    print(f"sch-stacked-parity: absent on kicad-cli {_probes.version()}")
+
+
+def test_stacked_check(tmp_path: Path) -> None:
+    """``fenolite check`` on the built stacked design: no parity finding, no difference of an assignment
+    between the model, the board, KiCad's netlist of the sheet and the export."""
+    folder = write_files(output("stacked"), tmp_path / "stacked")
+    _, env, _, err = check(folder)
+    assert env, err
+    assert not [i for i in env["issues"] if i["code"].startswith("parity.") and i["severity"] != "info"]
+    assert not [i for i in env["issues"] if i["code"] == "netlist.assignment-differs"]
+    compare = stage(env, "netlist.assignment_compare")
+    assert all(p["differences"] == 0 for p in compare["summary"]["pairs"]), compare["summary"]
+    assert stage(env, "parity")["status"] in ("ok", "infos"), stage(env, "parity")
+    # the parity stage read the sheets itself: its evidence names the rows a stacked design rests on
+    assert {"H-K-SCH-STACKED", "H-K-SCH-STACKED-OPEN"} <= set(stage(env, "parity")["evidence"]["hypotheses"])
+
+
+def test_stacked_resave() -> None:
+    """``sch upgrade --force`` keeps the stacked pins and the nets."""
+    if _probes.major() < 10:
+        pytest.skip("sch upgrade is a 10.0 command")
+    files = gen.built("stacked", 10)
+    sheet = "stacked.kicad_sch"
+    saved = gen.resave(files[sheet], files, sheet)
+    before = _erc.netlist(_probes.runner(), sheet, files)
+    after = _erc.netlist(_probes.runner(), sheet, {**files, sheet: saved})
+    # KiCad writes the pins of a symbol in its own layout; the stacked pins are still there
+    assert after == before and b'(number "23"' in saved and b'(number "23"' in files[sheet]
 
 
 # -- check

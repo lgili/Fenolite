@@ -8,6 +8,7 @@ from itertools import combinations, pairwise
 from pathlib import Path
 
 import pytest
+from _pintext import ALTIUM, body_box, body_end, findings, shown_texts
 
 from fenolite.backends.kicad.mod import read_footprint, write_footprint
 from fenolite.backends.kicad.sym import read_symbol_library, write_symbol_library
@@ -161,9 +162,45 @@ def test_polarity_and_amplifier_signs_match_pin_roles() -> None:
     for name in ("Capacitor_Polarized", "Capacitor_Electrolytic"):
         assert [pin.name for pin in get_symbol(f"Fenolite:{name}").pins] == ["+", "-"]
     for name in ("Operational_Amplifier", "Comparator"):
-        pins = {pin.name: pin for pin in get_symbol(f"Fenolite:{name}").pins}
+        symbol = get_symbol(f"Fenolite:{name}")
+        pins = {pin.name: pin for pin in symbol.pins}
         assert pins["+"].position.y > pins["-"].position.y
         assert pins["V+"].position.y > pins["V-"].position.y
+        # The names are hidden (change c0134): a plus stroke lies on the row of the "+" input and a
+        # minus stroke on the row of the "-" input, both just inside the triangle's left edge.
+        triangle, _output, plus_bar, plus_stem, minus_bar = symbol.graphics
+        edge = triangle.points[0].x
+        for bar, pin in ((plus_bar, pins["+"]), (minus_bar, pins["-"])):
+            assert bar.kind == "line" and bar.points[0].y == bar.points[1].y == pin.position.y
+            assert edge < bar.points[0].x < bar.points[1].x < 0
+        centre = (plus_bar.points[0].x + plus_bar.points[1].x) // 2
+        assert plus_stem.points[0].x == plus_stem.points[1].x == centre
+        assert plus_stem.points[0].y < pins["+"].position.y < plus_stem.points[1].y
+        assert (minus_bar.points[0].x, minus_bar.points[1].x) == (plus_bar.points[0].x, plus_bar.points[1].x)
+        assert symbol.pin_names_hidden
+
+
+def test_bridge_rectifier_marks_its_terminals_with_strokes() -> None:
+    """The names ``~``, ``~``, ``+`` and ``-`` are hidden (change c0134): a plus below the positive
+    corner, a minus above the negative one and a wave of three strokes beside each AC corner say the
+    same in both tools, upright."""
+    bridge = get_symbol("Fenolite:Bridge_Rectifier")
+    assert [pin.name for pin in bridge.pins] == ["~", "~", "+", "-"] and bridge.pin_names_hidden
+    marks = bridge.graphics[16:]  # after the four diode branches of four graphics each
+    assert len(marks) == 9 and all(mark.kind == "line" and mark.width == 254_000 for mark in marks)
+    plus_bar, plus_stem, minus_bar, *waves = marks
+    left_ac, right_ac, positive, negative = bridge.pins
+    assert plus_bar.points[0].y == plus_bar.points[1].y == plus_stem.points[0].y + 400_000
+    assert plus_stem.points[0].x == plus_stem.points[1].x == positive.position.x == 0
+    assert 0 < plus_stem.points[0].y < plus_stem.points[1].y < positive.position.y - positive.length
+    assert minus_bar.points[0].y == minus_bar.points[1].y == -plus_bar.points[0].y
+    assert negative.position.y + negative.length < minus_bar.points[0].y < 0
+    for wave, pin in ((waves[:3], left_ac), (waves[3:], right_ac)):
+        assert all(first.points[1] == second.points[0] for first, second in pairwise(wave))
+        xs = [point.x for stroke in wave for point in stroke.points]
+        inner = pin.position.x + (pin.length if pin.rotation == 0 else -pin.length)
+        assert all(0 < abs(x) < abs(inner) and (x < 0) == (inner < 0) for x in xs)
+        assert {point.y for stroke in wave for point in stroke.points} == {-150_000, 150_000}
 
 
 def test_resistor_zigzag_and_zener_bent_cathode_have_no_extra_contours() -> None:
@@ -213,6 +250,22 @@ def test_opto_has_clear_led_and_two_light_arrows() -> None:
         graphic.kind == "line" and graphic.points[0].x == graphic.points[1].x == 0
         for graphic in opto.graphics
     )
+    # The names are hidden (change c0134): an open arrowhead of two strokes at the outer end of the
+    # detector's lower leg marks the emitter, and the collector's leg carries none.
+    assert opto.pin_names_hidden
+    collector, emitter = opto.pins[2], opto.pins[3]
+    barbs = {
+        row: [
+            graphic.points[1]
+            for graphic in opto.graphics
+            if graphic.kind == "line"
+            and (graphic.points[0].x, graphic.points[0].y) == (3_200_000, row)
+            and graphic.points[1].y != row
+        ]
+        for row in (collector.position.y, emitter.position.y)
+    }
+    assert barbs[collector.position.y] == [] and len(barbs[emitter.position.y]) == 2
+    assert all(tip.x < 3_200_000 and tip.y > emitter.position.y for tip in barbs[emitter.position.y])
 
 
 @pytest.mark.parametrize("count", (2, 3, 4))
@@ -250,19 +303,41 @@ def test_coil_and_fuse_have_continuous_smooth_contours() -> None:
     assert min(point.y for graphic in get_symbol("Fenolite:Fuse").graphics for point in graphic.points) < 0
 
 
-def test_conceptual_ic_blocks_have_no_decorative_internal_strokes() -> None:
+def test_ic_blocks_are_plain_rectangles_and_amplifiers_carry_only_their_input_signs() -> None:
     for name in ("Linear_Regulator", "Offline_Power_Controller", "Microcontroller", "Power_Module"):
         symbol = get_symbol(f"Fenolite:{name}")
         assert len(symbol.graphics) == 1
         assert symbol.graphics[0].kind == "rect"
+        assert not symbol.pin_names_hidden
     for name in ("Operational_Amplifier", "Comparator"):
         symbol = get_symbol(f"Fenolite:{name}")
-        triangle, output = symbol.graphics
+        # The triangle, its output stub, and the plus and the minus of the two inputs (change c0134);
+        # ``test_polarity_and_amplifier_signs_match_pin_roles`` places the three sign strokes.
+        triangle, output, *signs = symbol.graphics
         assert triangle.kind == "polygon" and output.kind == "line"
+        assert [sign.kind for sign in signs] == ["line", "line", "line"]
         assert output.points[0] == triangle.points[-1]
         for supply in symbol.pins[-2:]:
             signed_length = supply.length if supply.rotation == 90_000_000 else -supply.length
             assert supply.position.y + signed_length in (-2_540_000, 2_540_000)
+
+
+def test_linear_regulator_is_a_square_that_holds_its_three_names() -> None:
+    """Scenario "Linear regulator" of "Legible pin texts" (change c0134): one pin on each side and one
+    below, and room for ``IN``, ``OUT`` and ``GND`` at the larger of the two text sizes."""
+    symbol = get_symbol("Fenolite:Linear_Regulator")
+    assert not symbol.pin_names_hidden and not symbol.pin_numbers_hidden
+    assert body_box(symbol) == (-7_620_000, -7_620_000, 7_620_000, 7_620_000)
+    assert {pin.name: body_end(pin) for pin in symbol.pins} == {
+        "IN": (-7_620_000, 5_080_000),
+        "GND": (0, -7_620_000),
+        "OUT": (7_620_000, 5_080_000),
+    }
+    names = {text.text: text.box for text in shown_texts(symbol, 1, ALTIUM) if text.kind == "name"}
+    assert names["IN"][1::2] == names["OUT"][1::2]  # one row
+    assert names["IN"][2] <= names["OUT"][0]  # IN ends where OUT begins
+    assert names["IN"][1] - names["GND"][3] == 2_667_000  # GND ends below that row
+    assert findings(symbol) == []
 
 
 def test_new_coupled_protection_and_dual_led_roles_remain_distinct() -> None:

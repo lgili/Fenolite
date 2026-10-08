@@ -172,6 +172,11 @@ Record 2, a pin: a property list (``RECORD=2``) or a binary pin record (``binary
 | `SWAPIDPART` | text | "" | `part_and_sequence` | S-0130 | INFERRED | H-A-RD-SCH-PIN |
 | `COLOR` | colour | 0 (black) | `color` | S-0131 | INFERRED | H-A-RD-SCH-PIN |
 
+`PINCONGLOMERATE` also gives `hidden` (bit 0x04), `name_shown` (bit 0x08) and `designator_shown`
+(bit 0x10). Since change c0148 the two last are show flags when bit 0x20 is set, as on every pin Altium
+saves, and hide flags when it is clear, as on the pins Fenolite wrote before 0.3.0 (fact rows and sources
+in `schematic-library.md`, "Binary pin record"; `H-A-SCHLIB-PINBITS`).
+
 ### 3 `IeeeSymbol`
 
 Record 3: an IEEE symbol near a pin.
@@ -890,3 +895,41 @@ Record 226: a hyperlink text; its address is text and never followed.
 | `FONTID` | integer | 0 | `font_id` | S-0130, S-0131 | INFERRED | H-A-RD-SCH-CASE |
 | `ORIENTATION` | quarter turns 0 to 3 | 0 | `orientation` | S-0130, S-0131 | INFERRED | H-A-RD-SCH-CASE |
 | `URL` | text | "" | `url` | S-0131 | INFERRED | H-A-RD-SCH-CASE |
+
+## What the writer sets (change c0086)
+
+The schematic writer (`fenolite.backends.altium.schdoc`, `schlib`, `ascii`) writes the records below since
+change c0086. Each row is a fact the writer relies on; the keys themselves are those of the record tables
+above. The observations of 2026-10-06 were made by reading the 16 cached corpus rows of use `altium-sch` with
+`read.sch.read_schematic` and counting key names only; they are not a committed test, so their rows stay
+`INFERRED`. The writer's own rows are `H-A-SCHX-*` (`docs/hypotheses.md`).
+
+### Graphics the writer draws
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A component's own graphics are children of its record 1 like its pins: a line is record 13 with `LOCATION` and `CORNER`, a rectangle record 14 with its bottom-left `LOCATION` and top-right `CORNER`, a closed polygon record 7 with `LOCATIONCOUNT` and `X<n>`, `Y<n>`, an ellipse record 8 with `LOCATION`, `RADIUS` and `SECONDARYRADIUS`; a circle is an ellipse of two equal radii | S-0130, S-0131 | INFERRED | H-A-SCHX-GRAPHICS |
+| A shape is filled when it holds `ISSOLID=T`, with the colour of `AREACOLOR`; saved shapes hold `AREACOLOR` with and without `ISSOLID` (observed 2026-10-06: rectangles, polygons and ellipses of saved components) | S-0130, S-0187, S-0188 | INFERRED | H-A-SCHX-GRAPHICS |
+| In saved components the keys stand in this order: record 13 `LOCATION.X`, `LOCATION.Y`, `CORNER.X`, `CORNER.Y`, `LINEWIDTH`, `COLOR`; record 7 `LINEWIDTH`, `COLOR`, `AREACOLOR`, `ISSOLID`, `LOCATIONCOUNT`, then `X1`, `X1_FRAC`, `Y1`, `Y1_FRAC` and so on; record 8 `LOCATION.X`, `LOCATION.Y`, `RADIUS`, `SECONDARYRADIUS`, `COLOR`, `AREACOLOR`, `ISSOLID`; `OWNERPARTID` follows the owner keys (observed 2026-10-06: 289 records 13, 23 records 7, 17 records 8) | S-0187, S-0188 | INFERRED | H-A-SCHX-GRAPHICS |
+| A graphic coordinate that is no whole unit of 10 mil is written with its `_FRAC` key, in 1/100 000 unit (2.54 nm); saved polygons of components hold `X<n>_FRAC` and `Y<n>_FRAC` (observed 2026-10-06). The writer rounds half up to that step and leaves a `_FRAC` of zero out; the integer and its fraction have the same sign | S-0130, S-0131, S-0187 | INFERRED | H-A-SCHX-GRAPHICS |
+
+Fenolite's choices: every graphic holds `LINEWIDTH=1`, `COLOR=128` and, when it can be filled,
+`AREACOLOR=11599871`, the values of the synthesised rectangle; the line width and the colours of the source
+symbol are not written. A rectangle of the source symbol holds `ISSOLID=T` only when the symbol fills it.
+No `ISNOTACCESIBLE` and no `INDEXINSHEET` is written, as on every Fenolite record. An open circle is an
+ellipse without `ISSOLID`.
+
+### Directions, buses, parameters and text
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `IOTYPE` of a port (record 18) and of a sheet entry (record 16) is 0 or absent for unspecified, 1 for output, 2 for input and 3 for bidirectional; saved ports and sheet entries hold 1, 2 and 3 (observed 2026-10-06: 14 ports and 30 sheet entries with the key, 43 and 161 without) | S-0130, S-0187, S-0188 | INFERRED | H-A-SCHX-DIR |
+| A bus is record 26, a polyline with `LINEWIDTH`, `COLOR`, `LOCATIONCOUNT` and `X<n>`, `Y<n>`; a bus entry is record 37, a line from `LOCATION` to `CORNER`. No corpus sheet holds either, so their key order is the writer's own | S-0130, S-0131 | INFERRED | H-A-SCHX-BUS |
+| A bus carries its members when a net label `<stem>[<a>..<b>]` lies on its line, and a port or a sheet entry of that text carries the bus off the sheet; the members are the nets that net labels `<stem><i>` name (`connectivity.md`, "Buses and harnesses") | S-0301, S-0185 | INFERRED | H-A-SCHX-BUS |
+| A parameter of a component is record 41 owned by the component (`OWNERINDEX`), with `OWNERPARTID=-1`, `LOCATION`, `COLOR`, `FONTID`, `ISHIDDEN=T` when it is not shown, `TEXT` (the value), `NAME` and `UNIQUEID`, in that order in saved files (observed 2026-10-06: the most frequent key order of 2 619 owned parameters) | S-0130, S-0187, S-0188 | INFERRED | H-A-SCHX-READBACK |
+| In saved files the `%UTF8%<key>` twin of a value stands right before the plain key (observed 2026-10-06: 734 twins, each before its plain key) | S-0130, S-0187, S-0188 | INFERRED | H-A-SCHX-TEXT |
+| Windows-1252 encodes every character it holds as one byte; the characters U+0080 to U+009F are control codes in Unicode and are not printable text | S-0280 | INFERRED | H-A-SCHX-TEXT |
+
+Fenolite's choices: a binary schematic is written in Windows-1252; a comment or a parameter value with a
+character outside printable 7-bit ASCII is written as `%UTF8%TEXT` in UTF-8 and then `TEXT` in the code
+page; every other text stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.

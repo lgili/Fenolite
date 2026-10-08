@@ -186,7 +186,8 @@
               }
             ],
             "items": false
-          }
+          },
+          "description": "Pairs of (symbol pin number, footprint pad number), in order. A pin may occur in several pairs: it is bonded to each of those pads, and the first is the pad a schematic symbol shows. A pad occurs once. A pin without a pair has the pad of its own number."
         }
       },
       "additionalProperties": false,

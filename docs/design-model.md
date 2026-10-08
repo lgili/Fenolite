@@ -190,7 +190,8 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   mirrored coordinates. `Pad.rotation` is relative to the footprint, and `Pad.layers` are real board
   layers without wildcards.
 - **Footprint assignment.** `Component.pin_pad_map` stores explicit symbol-pin-number to physical-pad-number
-  pairs. An empty map means identity assignment; net membership remains keyed by symbol pin number.
+  pairs. An empty map means identity assignment; net membership remains keyed by symbol pin number. A pin
+  may be bonded to several pads (section "Pins bonded to several pads").
   `Padstack.hole_shape`, `hole_length` and `hole_rotation` describe non-round drilled holes; `Pad.drill` is
   their width, and slot length includes both rounded ends. `hole_rotation` is the slot's axis in the pad's
   own frame, in a library footprint and on a board alike: it does not change when the pad or its footprint
@@ -203,6 +204,39 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   `Pin` per distinct non-empty pad number and net members from the numbered pads. `validate()`
   reports `model.duplicate-ref` as a warning (not an error) when the shared reference ends in `**`,
   or when every component sharing it is placed only by `board_only` footprints.
+
+## Pins bonded to several pads
+
+Normative text: requirement "Persist per-component pin-to-pad maps" of the `design-model` capability
+(change c0123).
+
+A pin of a part may be bonded to several pads: the tab and a pad of a regulator, the shield pads of a
+connector, the pads a footprint model lists for one pin. `Component.pin_pad_map` says so by holding the
+pin in several pairs: `(("3", "3"), ("3", "EP"))` bonds pin 3 to the pads 3 and EP.
+
+- **The pads of a pin** are the pads of its pairs, in map order. The first is the pad a schematic symbol
+  shows as the pin's number; the order has no other meaning. A pin that the map does not hold has one pad,
+  of its own number. A pad has one pin.
+- **Readers.** `Component.pads_of(pin)` gives the pads of a pin and `Component.pin_pads()` the pads of
+  every pin the map holds. No other code turns the pairs into pads: `dict(component.pin_pad_map)` keeps
+  one pad per pin, and a test refuses it anywhere in `src/fenolite` outside `model/circuit.py`.
+- **Canonical form.** The field did not change: same name, same type, same place, pairs written in the
+  order held, an empty map left out. A design whose pins have one pad each is written byte for byte as
+  before, and a document written before loads as it is; nothing is migrated. `SCHEMA_VERSION` stays `"0"`
+  (decided by the maintainer on 2026-10-06), and `schemas/fenolite.model.v0/circuit.json` gained only a
+  description of the field.
+- **The cost of keeping the version.** Fenolite 0.2.x and earlier read a document that holds a pin of
+  several pads without an error and apply one pad per pin. Read such a
+  document with the version that wrote it, or a later one.
+- **Validation.** `Design.validate()` reports `model.pin-pad-map` (error), with `where` set to
+  `<ref>-<pin>`, for a pair with an empty pin or pad, for a pair that occurs twice, and for a pad that two
+  pins name. For a component that holds pins, a pin outside the map names the pad of its own number, so
+  `(("1", "2"),)` on a part with the pins 1 and 2 is refused: the pad 2 would have two pins.
+- **What each consumer does** with a pin of several pads: the KiCad build gives every pad the pin's net
+  and embeds one hidden pin per further pad in the symbol (`docs/schematic.md`); the Altium build writes
+  the pads as the map of the footprint model (`docs/altium.md`); `netlist.assignment_compare` and level 2
+  of `equivalent` name every pad; the BOM, the placement file, the parity comparison and level 3 of
+  `equivalent` do not read the map.
 
 ## Padstack holes, offsets and component bodies
 
@@ -228,6 +262,48 @@ written before them still load.
 - `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
   whose `height` is below its `standoff` or whose `standoff` is negative.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
+
+## Footprint items and corner ratio
+
+Normative text: requirements "Graphics and texts of a footprint instance", "Corner ratio of a
+rounded-rectangle pad" and "Models without footprint items" of the `design-model` capability (change
+c0126).
+
+| Field | Meaning |
+|---|---|
+| `FootprintInstance.graphics` | the drawings of this placed footprint: `Graphic` entities (the entity of `Board.graphics`), in the order of their source; `()` by default |
+| `FootprintInstance.texts` | the free texts of this placed footprint: `Text` entities (the entity of `Board.texts`), in the order of their source; `()` by default |
+| `Pad.corner_ratio` | the corner radius of a `roundrect` pad, an integer in parts per million of the shorter side of `Pad.size`, from 0 to 500 000; `None` by default, and for every other shape |
+
+- **Frame.** A point `p` of a footprint's graphic or text is in the pad frame: it lies on the board at
+  `instance.position + R(instance.rotation)·p`, with no further mirror, so a bottom footprint holds
+  mirrored coordinates, as its pads do. `Text.rotation` is relative to the footprint.
+- **Layers.** `layer` is the board layer the item lies on: a silkscreen line of a bottom footprint is on
+  `B.SilkS`. A graphic may be of any kind and on any layer, a copper layer included; a consumer that
+  cannot use one counts it and says so.
+- **Reference and value.** Where they are drawn stays in `FootprintInstance.fields`; `texts` holds only
+  texts that are no field, with the string as the source stores it.
+- **Unit of the ratio.** 250 000 is a quarter of the shorter side (KiCad `roundrect_rratio` `0.25`,
+  Altium 50 %). One Altium percent is 5 000 ppm; a KiCad decimal `r` is `r · 1 000 000`, rounded half to
+  even when it has more than six decimals. No float and no decimal string is stored.
+  `Design.validate()` reports `model.corner-ratio` (error), with `where` set to the pad's id, for a value
+  outside the range and for a value on a pad that is no `roundrect`. A library pad (`FootprintDef.pads`)
+  carries the field alike.
+- **Who fills them.** The Altium import fills all three for a PCB document. An Altium build stores them
+  in `.fenolite/board.json` for the footprints it wrote. The KiCad readers and writers neither fill nor
+  read them: a design read from a KiCad board has empty `graphics` and `texts` and no ratio, and keeps
+  its footprint drawings where it always kept them, in the footprint's opaque slots.
+  `backends.kicad.fpitems.with_footprint_items` gives them on request, as read-only copies.
+- **Old model documents.** The three fields are additive and `SCHEMA_VERSION` stays `"0"`. The canonical
+  form leaves a field at its default out, so a design without footprint items gives the `board.json`
+  bytes it gave before, and a model document without the keys `graphics`, `texts` and `corner_ratio`
+  loads unchanged: `tests/data/model/v0.2.0/blink_2layer.board.json`, which release 0.2.0 itself wrote,
+  loads and serialises again to its own bytes.
+- **Release 0.2.0 cannot read a model document that carries one of the new keys: its reader refuses an
+  unknown key** (`unexpected property 'graphics'`). The same holds for every 0.2.x release, and it held
+  for every earlier additive change of the model. A `.fenolite/` folder that a newer release wrote for
+  an Altium build, or the model of an imported Altium board, is therefore not readable by 0.2.x; build
+  or import again with the older release if you must go back.
 
 ## Zone settings
 

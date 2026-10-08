@@ -217,4 +217,7 @@ def test_capability_invariants() -> None:
     altium = registry.get("altium").capabilities()
     assert altium.operations == ("detect", "read") and altium.write_kinds == () and altium.targets == ()
     assert altium.default_target is None and altium.downgrade == "unsupported"
-    assert not any(hasattr(registry.get("altium"), name) for name in ("write", "lower", "validate"))
+    assert not any(hasattr(registry.get("altium"), name) for name in ("lower", "validate"))
+    # change c0090: the backend writes a model, experimentally; its report names no write kind until the
+    # writers leave that state, so an agent that reads the report still does not count on it
+    assert callable(getattr(registry.get("altium"), "write", None))

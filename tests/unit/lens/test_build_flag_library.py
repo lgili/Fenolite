@@ -7,8 +7,8 @@ change c0143).
 A design with parts of the built-in catalog (library ``Fenolite``) and a ``Power`` interface was refused
 with ``build.vendor-unsafe-name``, because the flag lay in a library ``fenolite`` (releases 0.2.0 and
 0.2.1). The flag now joins a library of the design whose name differs from ``fenolite`` in letter case
-only; every other design keeps the library ``fenolite`` and its bytes. The Altium build of the releases
-0.2.x writes no flag and does not read the flag's library."""
+only; every other design keeps the library ``fenolite`` and its bytes. The Altium build of the same
+design is in ``test_build_flag_library_altium.py``."""
 
 from __future__ import annotations
 

@@ -21,7 +21,8 @@ DATA = ROOT / "tests" / "data" / "altium"
 PAGE = ROOT / "docs" / "formats" / "altium" / "import.md"
 NEEDED = (
     "u", "deg", "layer_id", "altium_name", "plane_net", "origin", "stack_mode", "corner_percent", "paste",
-    "mask", "plated", "via_layers", "net", "pour_index", "hatch_style", "component_kind", "part_ids",
+    "mask", "plated", "via_layers", "pad_removed", "arc", "net", "pour_index", "hatch_style",
+    "component_kind", "part_ids",
     "source_designator", "source_lib_reference", "electrical", "pin_symbols", "alias", "classes", "label",
     "harness_type", "scope1", "scope2", "rule_kind",
 )  # fmt: skip

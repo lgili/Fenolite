@@ -64,7 +64,40 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 | The long form of the first subrecord, at least 123 bytes, adds 40 is-comment and 41 is-designator (one byte each), 42 one byte, 43 the font type (0 stroke), 44 bold, 45 italic, 46 the font name as 64 bytes of UTF-16LE, 110 inverted, 111 the margin (32-bit) and 115 the wide-string index (32-bit). The MIT writer writes 137 bytes; the offsets after 43 follow the field sizes in order and are inferred | S-0002, S-0160, S-0143 | INFERRED | H-A-PCB-DOC-VIEWER |
 | `kicad-cli` 10.0.6 refuses a document whose texts use a 123-byte first subrecord ("Texts6 stream was not parsed correctly") and reads 137-byte ones, the MIT writer's length (local runs on Fenolite's own files, 2026-10-03) | S-0020, S-0143 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | The second subrecord is the text as one length byte and up to 255 8-bit characters. When the wide-string index names an entry of `WideStrings6`, a reader takes that entry instead | S-0002, S-0160 | INFERRED | H-A-PCB-DOC-VIEWER |
+| A free text of a board (change c0085) is the text record without a component (index `0xFFFF`) and with both the is-comment and the is-designator byte 0; its stroke font is 1 and its font type 0 (stroke). The seven saved documents hold free texts of the font types 0 and 1 on the overlay layers; a free text on a bottom layer is mirrored in every one read, and one on a top layer is not | S-0160, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-TEXT |
+| The 8-bit string of a text is in a code page of the machine that saved it: a saved text of CJK characters holds two bytes per character there, and its wide string holds the characters. KiCad decodes the 8-bit string as ISO-8859-1 and takes the wide string when the index names one, so a text survives through its wide string | S-0148, S-0160, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-TEXT |
+| KiCad imports a free 137-byte stroke text with its wide string (accented characters included), layer, height, stroke width and rotation; it anchors the text at its lower-left corner and mirrors a text whose mirror byte is set | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
 | In a PCB document a component's designator and comment are texts with the is-designator or is-comment flag and the component's index; KiCad places the reference at the designator text | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
+
+## Regions and keep-outs
+
+Change c0085 writes regions for filled graphics and for keep-outs. The framing of a region is on
+`pcb-read.md` ("Regions"); the rows here are what the writer relies on besides.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A region without a net, a polygon and a component has `0xFFFF` in the three indexes of its prefix, flags `0C 00`, and five zero bytes between the prefix and the length of its property text (a hole count of 0 among them): every region of the seven saved documents holds zero in the byte at 13 and in the two bytes at 16 | S-0160, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-READBACK |
+| The property text of a saved free region holds, in this order, `V7_LAYER`, `NAME` (one space), `KIND`, `SUBPOLYINDEX`, `UNIONINDEX`, `ARCRESOLUTION`, `ISSHAPEBASED` and `CAVITYHEIGHT`. Of the 328 regions read, 297 hold `KIND=0` (a copper or drawn shape; 1 is a cutout), 202 `SUBPOLYINDEX=-1` (the others belong to a pour), 306 `ARCRESOLUTION=0.5mil`, 313 `ISSHAPEBASED=FALSE` and all `CAVITYHEIGHT=0mil` | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0285 | INFERRED | H-A-PCBX-READBACK |
+| `V7_LAYER` names the region's layer: `TOP`, `BOTTOM`, `MID<n>`, `TOPOVERLAY`, `BOTTOMOVERLAY`, `TOPPASTE`, `BOTTOMPASTE`, `TOPSOLDER`, `BOTTOMSOLDER`, `MECHANICAL<n>` and `KEEPOUT` occur with the layer bytes 1, 32, n + 1, 33 to 38, 56 + n and 56 | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-READBACK |
+| Every region of `Regions6` has one record at the same position in `ShapeBasedRegions6` with the same property text, whose outline holds each vertex as 37 bytes and the first vertex again after the last; a vertex of a straight edge has the round flag 0 and zero in its centre, radius and angles | S-0160, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-READBACK |
+| A keep-out is a primitive whose second flag byte is 2. In the seven saved documents that byte is 2 on two arcs of a copper layer and on one region of the Keep-Out layer (56), and 0 on every other track, arc, fill, region, text, pad and via but for six vias; KiCad's parser takes a track, an arc, a fill or a region with that byte at 2 as a keep-out | S-0470, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-KEEPOUT |
+| A keep-out region carries its restrictions as the last key of its property text, `KEEPOUTRESTRICTIONS=<n>`, in `Regions6` and in `ShapeBasedRegions6` alike; the one saved keep-out region holds 24, with `V7_LAYER=KEEPOUT`. A keep-out arc of the long form holds the value in one byte after its long layer id (31 on the two saved arcs, where every plain track and arc holds 0) | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-KEEPOUT |
+| KiCad's parser reads the restrictions of a region from a key named `KEEPOUTRESTRIC` and takes 31 (every restriction) when the key is absent, so it does not read the key that the saved documents hold | S-0470, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| A keep-out region that holds `KEEPOUTRESTRIC=<n>` after `KEEPOUTRESTRICTIONS=<n>` imports into KiCad with exactly the restrictions of n. `KEEPOUTRESTRIC` is not a key Altium writes itself: no saved document read holds it, and it is written for KiCad's importer alone | S-0470, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| That Altium opens a region whose property text holds both keys, and takes the restrictions from `KEEPOUTRESTRICTIONS`, is not known from any source: a reader of property text takes the keys it knows, and no saved document was seen with a key it does not know of this kind | S-0160, S-0470 | INFERRED | H-A-PCBX-KEEPOUT |
+| The bits of the restrictions value, as KiCad's importer reads its key: 1 forbids vias, 2 tracks, 4 poured copper, and 8 with 16 together pads (8 or 16 alone forbids no pad kind of KiCad). The value 31 is every restriction, and the saved value 24 the two pad bits | S-0470, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| A keep-out region with the layer byte 56 imports into KiCad as one rule area on every copper layer of the stack; with the layer byte of a copper layer, as a rule area on that layer alone | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| Older saved documents draw a keep-out as tracks and arcs on layer 56 with the second flag byte 0, and three hold regions on layer 56 with the keys `LAYER=KEEPOUT`, `KEEPOUT=TRUE` and `ISBOARDCUTOUT=TRUE`; neither form is written | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-KEEPOUT |
+| KiCad imports a free 36-byte track and a free 47-byte arc on an overlay or a mechanical layer as a line, an arc or a circle of its width on `F.SilkS`, `B.SilkS` or `User.<n>`, and a free region there as a filled polygon | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+
+## Free pads as holes
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A hole of a board that belongs to no footprint is a pad without a component (index `0xFFFF`) on Multi-Layer (74): the seven saved documents hold fourteen free pads on that layer, six of them not plated. Four of those six have no name and no net, the round shape 1 and every size equal to the hole size, so no copper ring remains; their sixth subrecord is empty | S-0160, S-0161, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-HOLE |
+| A pad without a name has a first subrecord of one byte, the length 0 | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0160 | INFERRED | H-A-PCBX-HOLE |
+| KiCad imports a free pad as a footprint of its own; a free pad on Multi-Layer with the plated byte 0 becomes one non-plated through hole of the pad's hole size at its place | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| A slotted hole is hole shape 2 with a slot length and rotation in the sixth subrecord (see "Pad"); every slotted hole of the saved documents is plated and belongs to a component | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0160 | INFERRED | H-A-PCBX-HOLE |
 
 ## Layers
 
@@ -107,6 +140,31 @@ These are choices of the writer, not format facts:
   pad size, every inner shape 1, hole shape 0, no slot, zero offsets, the rounded flag 1, every alternate
   shape 9 and every percentage `round(200 · ratio)` clamped to 0 … 100.
 - Text subrecord 1 is the long form of 137 bytes, zero where nothing is set; the font name is empty.
+- **Free texts (change c0085).** A board text is a stroke text of that form with its own height, stroke
+  width and rotation, at the text's position, on the layer of the board layer map below. The model's text
+  has no mirror and no justification, so none is written but one: a text on a bottom-side layer is
+  mirrored, as the saved documents have it. The 8-bit string holds the text in ISO-8859-1 with `?` for a
+  character outside it and at most 255 characters; the wide string holds the text. An empty text, a text
+  with a control character or a line break, and a text without a positive height and stroke width are not
+  written.
+- **Board layer map (change c0085)**, `pcbrecords.BOARD_LAYER_MAP`, for free texts and graphics: the six
+  non-copper rows of the table above and `F.Paste` 35, `B.Paste` 36, `F.Mask` 37, `B.Mask` 38. An item on
+  another layer (copper, `Edge.Cuts`, a user layer) is not written.
+- **Graphics (change c0085).** A line is one 36-byte track without a net, an arc one 47-byte arc, a circle
+  one arc from 0 to 360 degrees; a drawn rectangle is four tracks and a drawn polygon one track per edge,
+  closed. A filled rectangle or polygon is one region with `KIND=0`, `SUBPOLYINDEX=-1`, `UNIONINDEX=0`,
+  `ARCRESOLUTION=0.5mil`, `ISSHAPEBASED=FALSE` and `CAVITYHEIGHT=0mil`, written in `Regions6` and, with
+  37-byte vertices, in `ShapeBasedRegions6`; its drawn width is not written. A filled circle, a drawn
+  shape without a positive width and a shape without an extent are not written.
+- **Keep-outs (change c0085).** One keep-out region (second flag byte 2; after the keys of a saved
+  region `KEEPOUTRESTRICTIONS` and then, by the maintainer's decision of 2026-10-06, `KEEPOUTRESTRIC` with
+  the same value, so that KiCad's import carries the restrictions) on
+  layer 56 when the keep-out names every copper layer of the board, else one per copper layer it names,
+  on that layer. The value is 1 for `no_vias`, 2 for `no_tracks`, 4 for `no_copper_pour` and 24 for
+  `no_pads`. `no_footprints` has no bit; a keep-out with no other restriction is not written.
+- **Holes (change c0085).** A board hole is a free round pad on layer 74 without a name, a net or copper:
+  every size is the drill, the plated byte is the hole's `plated`, and subrecord 6 is empty. The model's
+  board hole is round, so no slot is written.
 
 ### Worked pad
 

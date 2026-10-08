@@ -73,8 +73,10 @@ def test_payload_limit() -> None:
         frame_record((("K", "v" * 65532),))
 
 
-def test_frame_refuses_what_ascii_refuses() -> None:
-    for fields in ((("K", "a|b"),), (("K", "café"),), (("K", "a\r\nb"),), ()):
+def test_frame_refuses_what_no_form_carries() -> None:
+    """A code-page character is carried with its twin since change c0086 (``test_text_forms.py``); a
+    pipe, a line end, a character outside the code page and an empty record stay refused."""
+    for fields in ((("K", "a|b"),), (("K", "1 kΩ"),), (("K", "a\r\nb"),), ()):
         with pytest.raises(ValueError):
             frame_record(fields)
 

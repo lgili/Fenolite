@@ -99,10 +99,10 @@ def test_four_pin_part_of_the_sample() -> None:
     pins = {r["DESIGNATOR"]: r for _, r in children if r["RECORD"] == "2"}
     assert sorted(pins) == ["1", "2", "3", "4"]
     for designator, edge, conglomerate in (
-        ("1", left, "18"),
-        ("2", left, "18"),
-        ("3", right, "16"),
-        ("4", right, "16"),
+        ("1", left, "50"),  # c0148: 0x20 | 0x10 | left (18 before)
+        ("2", left, "50"),  # c0148: 0x20 | 0x10 | left (18 before)
+        ("3", right, "48"),  # c0148: 0x20 | 0x10 | right (16 before)
+        ("4", right, "48"),  # c0148: 0x20 | 0x10 | right (16 before)
     ):
         pin = pins[designator]
         assert int(pin["LOCATION.X"]) == edge and pin["PINCONGLOMERATE"] == conglomerate
@@ -277,7 +277,7 @@ def test_vertical_labels_ports_and_edge_codes() -> None:
     assert port["ORIENTATION"] == "3"
     pins = {r["DESIGNATOR"]: r for r in found if r["RECORD"] == "2"}
     assert pins["3"]["SYMBOL_INNEREDGE"] == "3" and "SYMBOL_OUTEREDGE" not in pins["3"]
-    assert "SYMBOL_INNEREDGE" not in pins["1"] and pins["1"]["PINCONGLOMERATE"] == str(1 | 0x08 | 0x10)
+    assert "SYMBOL_INNEREDGE" not in pins["1"] and pins["1"]["PINCONGLOMERATE"] == str(1 | 0x08 | 0x10 | 0x20)
     assert pins["1"]["PINLENGTH"] == "5" and pins["3"]["ELECTRICAL"] == "0"
 
 

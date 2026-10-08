@@ -13,7 +13,7 @@ from fenolite.checks import equivalence
 
 ROOT = Path(__file__).resolve().parents[4]
 PACKAGE = ROOT / "src" / "fenolite" / "checks" / "equivalence"
-MODULES = ("__init__.py", "codes.py", "exclusions.py", "levels.py", "model.py", "norm.py")
+MODULES = ("__init__.py", "codes.py", "exclusions.py", "levels.py", "model.py", "norm.py", "routing.py")
 ALLOWED = (
     "fenolite.core",
     "fenolite.model",

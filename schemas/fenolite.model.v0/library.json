@@ -423,6 +423,16 @@
               "type": "null"
             }
           ]
+        },
+        "corner_ratio": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

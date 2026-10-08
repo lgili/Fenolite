@@ -75,10 +75,11 @@ def test_rule_kind_map() -> None:
 
 
 def test_pending_kinds() -> None:
-    rows = table("rule-file.md", ["pending RULEKIND", "neutral kind", "reason"])
-    assert {kind: neutral for kind, neutral, _reason in rows} == PENDING_KINDS
-    assert {reason for _kind, _neutral, reason in rows} == {"no-verified-keys"}
-    assert not set(PENDING_KINDS) & set(RULE_KIND_MAP)
+    """Empty since change c0084: the page says so and holds no table of pending kinds."""
+    text = (PAGES / "rule-file.md").read_text(encoding="utf-8")
+    assert PENDING_KINDS == {}
+    assert "pending RULEKIND" not in text and "The table is empty since change c0084" in text
+    assert "no-verified-keys" in UNMAPPED_REASONS
 
 
 def test_reasons_in_order() -> None:

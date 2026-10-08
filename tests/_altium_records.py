@@ -218,6 +218,21 @@ def via(
     return ViaRecord(b"", prefix(74, **owner), at[0], at[1], diameter, hole, start, end, False, False, b"")
 
 
+def via_without_pads(
+    at: tuple[int, int],
+    layers: Sequence[int],
+    diameter: int = 16 * MIL,
+    hole: int = 8 * MIL,
+    **owner: int | None,
+) -> ViaRecord:
+    """A through via whose record is of 321 bytes and holds 1 in the table at 209 for each layer id of
+    ``layers`` (change c0132): the tail is the bytes of the subrecord from offset 31."""
+    tail = bytearray(321 - 31)
+    for layer in layers:
+        tail[209 - 31 + layer - 1] = 1
+    return ViaRecord(b"", prefix(74, **owner), at[0], at[1], diameter, hole, 1, 32, False, False, bytes(tail))
+
+
 def fill(
     a: tuple[int, int], b: tuple[int, int], rotation: float = 0.0, layer: int = 33, **owner: int | None
 ) -> FillRecord:
@@ -467,9 +482,11 @@ class Sheet:
         extra: str = "",
         parameters: Mapping[str, str] | None = None,
         pin_fields: Mapping[str, str] | None = None,
+        pin_map: Mapping[str, Sequence[str]] | None = None,
     ) -> int:
         """A component record with its designator, comment, parameters, pins ``(designator, x, y)`` and
-        footprint model; returns the record index."""
+        footprint model, whose map list holds one map record per pin of ``pin_map`` (pin designator to pad
+        names); returns the record index."""
         index = self.add(
             f"|RECORD=1|LIBREFERENCE={libref}|PARTCOUNT={parts + 1}|DISPLAYMODECOUNT=1|OWNERPARTID=-1"
             f"|LOCATION.X=0|LOCATION.Y=0|CURRENTPARTID={part}|SOURCELIBRARYNAME={library}"
@@ -497,11 +514,16 @@ class Sheet:
             self.add(f"|RECORD=2|OWNERINDEX={index}|OWNERPARTID={owner}{fields}")
         if footprint:
             models = self.add(f"|RECORD=44|OWNERINDEX={index}")
-            self.add(
+            model = self.add(
                 f"|RECORD=45|OWNERINDEX={models}|MODELNAME={footprint}|MODELTYPE=PCBLIB|ISCURRENT=T"
                 "|DATAFILECOUNT=1|MODELDATAFILEENTITY0=" + footprint + "|MODELDATAFILEKIND0=PCBLib"
                 "|MODELDATAFILE0=Lib\\Parts.PcbLib"
             )
+            if pin_map is not None:
+                listed = self.add(f"|RECORD=46|OWNERINDEX={model}")
+                for pin, pads in pin_map.items():
+                    names = "".join(f"|DESIMP{n}={pad}" for n, pad in enumerate(pads))
+                    self.add(f"|RECORD=47|OWNERINDEX={listed}|DESINTF={pin}|DESIMPCOUNT={len(pads)}{names}")
         return index
 
     def _points(self, points: Sequence[tuple[int, int]]) -> str:

@@ -182,7 +182,25 @@ RULE_KINDS = {
 }
 """Rule-kind number → ``RULEKIND`` (``pcb-copper.md``, "Rules")."""
 
-Primitive = Track | ArcRecord | PadRecord | TextRecord | ViaRecord
+
+@dataclass
+class BodyRecord:
+    """A component body (change c0121; ``pcb-bodies.md``, "Written form of an extruded body"): the prefix,
+    the keys of its text in order, its two heights as mil texts, and its vertices in units. ``closing`` is
+    the repeated first vertex of the shape-based form."""
+
+    prefix: Prefix
+    keys: list[tuple[str, str]]
+    vertices: list[tuple[int, int]]
+    closing: tuple[int, int] | None
+    length: int
+
+    def value(self, key: str) -> str:
+        (found,) = [value for name, value in self.keys if name == key][:1]
+        return found
+
+
+Primitive = Track | ArcRecord | PadRecord | TextRecord | ViaRecord | BodyRecord
 
 
 @dataclass
@@ -238,6 +256,8 @@ class PcbDoc:
     """The numbered copper layers from top to bottom, read through ``LAYER<n>NEXT`` from layer 1."""
     plane_nets: dict[int, str] = field(default_factory=dict)
     """Plane number k → the net of ``PLANE<k>NETNAME``, for the planes of the chain."""
+    bodies: list[BodyRecord] = field(default_factory=lambda: [])
+    """The component bodies of ``ComponentBodies6`` (change c0121); the twin storage holds the same."""
 
     @property
     def free_tracks(self) -> list[Track]:
@@ -375,6 +395,88 @@ def _pad(subs: list[bytes], where: str) -> PadRecord:
     return pad
 
 
+REGION = 11
+REGION_STORAGES = ("Regions6", "ShapeBasedRegions6")
+
+
+def count_regions(data: bytes, where: str) -> int:
+    """The number of region records of a stream: each the type byte 11, a 32-bit length and that many
+    bytes; the records are framed and not decoded."""
+    count = at = 0
+    while at < len(data):
+        if data[at] != REGION or at + 5 > len(data):
+            raise PcbReadError(f"{where}: byte {at} does not open a region record")
+        (length,) = struct.unpack_from("<I", data, at + 1)
+        at += 5 + length
+        if at > len(data):
+            raise PcbReadError(f"{where}: a region record runs past the end")
+        count += 1
+    return count
+
+
+BODY = 12
+BODY_STORAGES = ("ComponentBodies6", "ShapeBasedComponentBodies6")
+BODY_LAYERS = range(57, 73)
+
+
+def _body(body: bytes, where: str, shape_based: bool = False) -> BodyRecord:
+    """One body subrecord, decoded apart from the product reader: the prefix on a mechanical layer 1 to 16
+    without a net and a polygon, five zero bytes, the text and the outline, with nothing after it."""
+    if len(body) < 26:
+        raise PcbReadError(f"{where}: a component body subrecord of {len(body)} bytes is too short")
+    pre = _prefix(body)
+    if pre.layer not in BODY_LAYERS or pre.net != NO_INDEX or pre.polygon != NO_INDEX:
+        raise PcbReadError(f"{where}: a component body on layer {pre.layer}, or with a net or a polygon")
+    if body[9:13] != b"\xff" * 4 or body[13:18] != bytes(5):
+        raise PcbReadError(f"{where}: the bytes after the prefix of a component body are not the constants")
+    (length,) = struct.unpack_from("<I", body, 18)
+    raw = body[22 : 22 + length]
+    if len(raw) != length or not raw.endswith(b"\0") or raw.startswith(b"|"):
+        raise PcbReadError(f"{where}: the text of a component body is cut, open or starts with a bar")
+    keys = [tuple(piece.split("=", 1)) for piece in raw[:-1].decode("ascii").split("|")]
+    if any(len(pair) != 2 for pair in keys):
+        raise PcbReadError(f"{where}: a piece of the text of a component body holds no '='")
+    at = 22 + length
+    (count,) = struct.unpack_from("<I", body, at)
+    at += 4
+    vertices: list[tuple[int, int]] = []
+    closing: tuple[int, int] | None = None
+    if shape_based:
+        for number in range(count + 1):
+            is_round, x, y, cx, cy, radius, a1, a2 = struct.unpack_from("<B5i2d", body, at)
+            if is_round or (cx, cy, radius, a1, a2) != (0, 0, 0, 0.0, 0.0):
+                raise PcbReadError(f"{where}: a vertex of a component body is round")
+            at += 37
+            if number < count:
+                vertices.append((x, y))
+            else:
+                closing = (x, y)
+        if closing != vertices[0]:
+            raise PcbReadError(f"{where}: the last vertex of a shape-based body is not its first")
+    else:
+        for _ in range(count):
+            fx, fy = struct.unpack_from("<2d", body, at)
+            if not fx.is_integer() or not fy.is_integer():
+                raise PcbReadError(f"{where}: a vertex of a component body is not a whole unit")
+            vertices.append((int(fx), int(fy)))
+            at += 16
+    if at != len(body) or count < 3:
+        raise PcbReadError(f"{where}: a component body of {count} vertices, or with bytes after its outline")
+    return BodyRecord(pre, [(str(k), str(v)) for k, v in keys], vertices, closing, len(body))
+
+
+def decode_bodies(data: bytes, where: str, shape_based: bool = False) -> list[BodyRecord]:
+    """The component bodies of a body storage: each the type byte 12 and one subrecord."""
+    out: list[BodyRecord] = []
+    at = 0
+    while at < len(data):
+        if data[at] != BODY:
+            raise PcbReadError(f"{where}: byte {at} does not open a component body")
+        (body,), at = _subrecords(data, at + 1, 1, f"{where} record {len(out)}")
+        out.append(_body(body, f"{where} record {len(out)}", shape_based))
+    return out
+
+
 def _text(subs: list[bytes], where: str) -> TextRecord:
     body, text = subs
     if len(body) < TEXT_MIN:
@@ -387,7 +489,7 @@ def _text(subs: list[bytes], where: str) -> TextRecord:
     mirrored = body[35]
     (width,) = struct.unpack_from("<i", body, 36)
     record = TextRecord(
-        _prefix(body), x, y, height, font, rotation, mirrored, width, len(body), text[1:].decode("ascii")
+        _prefix(body), x, y, height, font, rotation, mirrored, width, len(body), text[1:].decode("iso-8859-1")
     )
     if len(body) >= TEXT_LONG:
         record.is_comment, record.is_designator = body[40], body[41]
@@ -443,6 +545,9 @@ def decode_primitives(data: bytes, where: str = "Data") -> list[Primitive]:
         elif kind == VIA:
             (body,), offset = _subrecords(data, offset, 1, at)
             out.append(_via(body, at))
+        elif kind == BODY:  # change c0121: a body of a library footprint
+            (body,), offset = _subrecords(data, offset, 1, at)
+            out.append(_body(body, at))
         else:
             raise PcbReadError(f"{at}: record type {kind} is not written by Fenolite")
     if offset != len(data):
@@ -857,6 +962,23 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
     counts["Polygons6"] = len(polygons)
     counts["Classes6"] = len(classes)
     counts["Rules6"] = len(rules)
+    for kind in REGION_STORAGES:  # change c0085: filled graphics and keep-outs
+        if storages.get(kind, (0, b""))[1]:
+            counts[kind] = count_regions(storages[kind][1], f"{kind}/Data")
+    if counts.get(REGION_STORAGES[0], 0) != counts.get(REGION_STORAGES[1], 0):
+        raise PcbReadError("Regions6 and ShapeBasedRegions6 hold different numbers of records")
+    bodies: list[list[BodyRecord]] = []
+    for kind, shape_based in zip(BODY_STORAGES, (False, True), strict=True):  # change c0121
+        found = decode_bodies(storages.get(kind, (0, b""))[1], f"{kind}/Data", shape_based)
+        bodies.append(found)
+        if found:
+            counts[kind] = len(found)
+    if [(b.prefix, b.keys, b.vertices) for b in bodies[0]] != [
+        (b.prefix, b.keys, b.vertices) for b in bodies[1]
+    ]:
+        raise PcbReadError("the two body storages do not hold the same bodies in the same order")
+    if any(b.prefix.component == NO_INDEX or b.prefix.component >= len(components) for b in bodies[0]):
+        raise PcbReadError("a component body of the document names no component")
     unique_ids = property_blocks(storages.get(UNIQUE_STORAGE, (0, b""))[1], f"{UNIQUE_STORAGE}/Data")
     if UNIQUE_STORAGE in storages:
         counts[UNIQUE_STORAGE] = len(unique_ids)
@@ -913,4 +1035,5 @@ def read_pcbdoc(data: bytes) -> PcbDoc:
         rules=rules,
         copper_chain=chain,
         plane_nets=planes,
+        bodies=bodies[0],
     )

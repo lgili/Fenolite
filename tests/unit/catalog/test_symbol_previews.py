@@ -55,11 +55,15 @@ def test_arrow_background_fill_and_thick_phase_circles_match_model() -> None:
         assert " · ".join(f"{p.number}={p.name}" for p in symbol.pins) in render((name,))
 
 
-def test_relay_bottom_roles_are_drawn_on_opposite_sides_of_their_stems() -> None:
-    root = ElementTree.fromstring(render(("Relay_SPDT",)))
+def test_relay_bottom_pins_are_labelled_on_opposite_sides_of_their_stems() -> None:
+    """The relay hides its pin names (change c0134), so a stem carries its number alone; the roles stay
+    in the line under the card."""
+    text = render(("Relay_SPDT",))
+    root = ElementTree.fromstring(text)
     labels = {e.text: e for e in root if e.tag.endswith("text")}
-    assert labels["2 COIL2"].get("text-anchor") == "end"
-    assert labels["3 COM"].get("text-anchor") == "start"
+    assert labels["2"].get("text-anchor") == "end"
+    assert labels["3"].get("text-anchor") == "start"
+    assert "1=COIL1 · 2=COIL2 · 3=COM · 4=NC · 5=NO" in text
 
 
 def test_functional_ic_roles_are_kept_outside_the_body_outline() -> None:

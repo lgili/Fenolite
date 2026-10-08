@@ -89,6 +89,11 @@ meaning = "The input comes from KiCad 8.0, which Fenolite reads but does not wri
 fix = "Convert it with 'kicad-cli pcb upgrade' of KiCad 10, or re-save it in KiCad 9, then run again."
 see = "KiCad output"
 
+["altium.bus-flattened"]
+meaning = "A bus of the design is drawn as its nets: its nets are not one stem followed by consecutive integers, or one of them is a power net, a harness net or a net of another bus."
+fix = "Nothing to do; name the nets <stem><n> with consecutive integers to have the bus drawn as a bus."
+see = "Build target"
+
 ["altium.copper-board-mismatch"]
 meaning = "The board given with --copper-from does not match the design: a component, a footprint, a pad net or the outline differs."
 fix = "Build the KiCad board from the same script first, or correct the script, so both describe one design."
@@ -115,8 +120,8 @@ fix = "Meet the conditions of the PCB document (see altium.pcbdoc-not-written) o
 see = "Build target"
 
 ["altium.copper-stack"]
-meaning = "The copper layers are not the two-layer or four-layer stack Fenolite writes for Altium, their count differs from board(copper=...), or a plane names a wrong layer or net."
-fix = "Use F.Cu and B.Cu, or F.Cu, In1.Cu, In2.Cu and B.Cu, and put planes on inner layers with nets of the design."
+meaning = "The number of copper layers of the board differs from the count the build asks for, a copper layer is named twice, or a plane names a wrong layer or net."
+fix = "Build with the copper count of the board, and put planes on inner layers with nets of the design."
 see = "Build target"
 
 ["altium.footprint-extras-dropped"]
@@ -189,6 +194,16 @@ meaning = "Two bus identifiers that join have different widths; the common prefi
 fix = "Make the two bus identifiers the same width in Altium, then check the joined members."
 see = "Altium import"
 
+["altium.import.channel-naming"]
+meaning = "Channels of a repeated sheet: components that the project's designator format could not name (they are <designator>@<channel>); or a sheet entry `Repeat(NAME)` whose parent sheet has no bus `NAME` with a member per channel; or components of `Repeat` channels that no board component links to; or components that the PCB document names otherwise than the format (its names are taken)."
+fix = "Import the project with its PCB document or set a predefined designator format; give the parent's bus one member per channel; check that the board was updated from the schematic."
+see = "Altium import"
+
+["altium.import.channels"]
+meaning = "A sheet is named by more than one sheet symbol, or by a sheet symbol whose designator is `Repeat(NAME, first, last)`. It is read once per symbol or once per index; each instance is a channel with its own components and nets, named by the board or by the project's designator format."
+fix = "Nothing."
+see = "Altium import"
+
 ["altium.import.copper-shape"]
 meaning = "Count of fills and regions on copper, imported as graphics with their net in the bag."
 fix = "Nothing to do; the shapes are graphics with their net in the bag."
@@ -259,6 +274,11 @@ meaning = "A project option that the import does not apply (`AppendSheetNumberTo
 fix = "Nothing to do; check the local net names if the option matters to you."
 see = "Altium import"
 
+["altium.import.pin-map"]
+meaning = "Count of pin map records of footprint models that name no pad for a pin, or a pad another pin holds. The model gives a pad one pin: such a pad is left off the pin, and the record is kept in the component's altium bag (`pin_pads`). A record that lists several pads is not counted: the pin takes each of them."
+fix = "Nothing. A pad left off its pin shows as covered by the PCB document only."
+see = "Altium import"
+
 ["altium.import.padstack-unknown"]
 meaning = "A pad's stack mode or hole shape is outside the table; the pad gets no padstack."
 fix = "Nothing to do for a read; the pad keeps its plain shape. Report the stack mode or hole shape if you need it."
@@ -275,8 +295,8 @@ fix = "Update the board from the schematic in Altium, or accept the nets as they
 see = "Altium import"
 
 ["altium.import.repeated-sheet"]
-meaning = "A sheet is named by more than one sheet symbol, or a designator holds a `Repeat(` statement; designators of repeated sheets are not annotated."
-fix = "Annotate the references by hand after the import, or flatten the repeated sheet in Altium first."
+meaning = "A `Repeat(` statement of a sheet symbol that is not instantiated: it has not the form `Repeat(NAME, first, last)`, its first index is above its last, or its channels would bring the project above 256 sheet instances. One instance of its sheet is read; the other channels are missing from the circuit."
+fix = "Correct the statement in Altium, or split the project so that it stays within 256 instances."
 see = "Altium import"
 
 ["altium.import.rule-unmapped"]
@@ -324,6 +344,11 @@ meaning = "Count of zones whose outline holds an arc vertex; their model outline
 fix = "Nothing to do for a read; draw the zone outline again if you need it in the model."
 see = "Altium import"
 
+["altium.import.zone-hole-outside"]
+meaning = "Count of holes of poured regions that lie outside their region's outline; they are dropped, so the fill is solid where the document meant a hole."
+fix = "Repour the polygon in the tool that wrote the document and import again; the count says how many holes were left out."
+see = "Altium import"
+
 ["altium.lib-id-form"]
 meaning = "A lib_id is not of the form library:name with both parts."
 fix = "Write the symbol reference as library:name."
@@ -345,12 +370,17 @@ fix = "Give the part a footprint in the script."
 see = "Build target"
 
 ["altium.not-lowered"]
-meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part."
-fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand."
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part, and where names one item as <kind>/<id> or the stack-up. With where design-rules/<kind> (a warning) it is one rule of the script that the PCB document does not hold, with its selector and the reason. With where body/<id> it is a component body (written with --altium-bodies extruded)."
+fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. For a rule: give every limit Altium's rule holds (min, opt and max for a width or a via; min and max for a hole size), and select all objects, a net or a net class. For a component body: build with --altium-bodies extruded, or set the height in Altium."
+see = "Build target"
+
+["altium.outjob-not-listed"]
+meaning = "The existing project file was kept and does not list the output job the build wrote. It was kept because it was changed since a build wrote it, or the folder holds no record of it; a project file that is as a build wrote it gets the job added by the build."
+fix = "Add the .OutJob file to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
 ["altium.pcb-not-in-project"]
-meaning = "The existing project file was kept, so the PCB files are not listed in it."
+meaning = "The existing project file was kept and does not list the PCB document or the PCB library that the build wrote. The info names the files the kept file lacks; when the kept file cannot be read, it names every PCB file and its hint says so."
 fix = "Add the files to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
@@ -530,7 +560,7 @@ fix = "Nothing to do; replace the symbols in Altium if their drawing matters."
 see = "Build target"
 
 ["altium.schlib-not-in-project"]
-meaning = "The existing project file was kept, so the libraries are not listed in it."
+meaning = "The existing project file was kept and does not list a schematic library that the build wrote. The info names the libraries the kept file lacks; when the kept file cannot be read, it names every library and its hint says so."
 fix = "Add the libraries to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
@@ -572,6 +602,11 @@ see = "Build target"
 ["altium.sheet-name-collision"]
 meaning = "Two top-level module names differ only in letter case, so their sheet files would collide."
 fix = "Rename one of the modules."
+see = "Build target"
+
+["altium.sheet-paper"]
+meaning = "The layout of a schematic document does not fit the paper of sheet(), so the drawing sheet was drawn on a larger page."
+fix = "Name a larger paper in sheet(), or split the design into module sheets with --altium-sheets modules."
 see = "Build target"
 
 ["altium.sheet.appearance"]
@@ -635,7 +670,7 @@ fix = "Redraw the item in the sheet specification if it matters; the import stil
 see = "template"
 
 ["altium.sheets-not-in-project"]
-meaning = "The existing project file was kept, so the module sheets and harness files are not listed in it."
+meaning = "The existing project file was kept and does not list a module sheet or a harness file that the build wrote. The info names the files the kept file lacks; when the kept file cannot be read, it names every one and its hint says so."
 fix = "Add them to the project in Altium, or remove the project file from --out and build again."
 see = "Build target"
 
@@ -650,13 +685,13 @@ fix = "Use a symbol drawn on the 10 mil grid, or correct the symbol."
 see = "Build target"
 
 ["altium.symbol-simplified"]
-meaning = "A symbol's graphics became rectangles, or its other body styles or alternates were dropped."
+meaning = "A symbol is drawn as one rectangle per part (--altium-symbols generic, no graphics, a graphic without a record such as an arc, or several units or body styles), or its other body styles or alternates were dropped."
 fix = "Nothing to do; redraw the symbol in Altium if its look matters."
 see = "Build target"
 
 ["altium.text-unwritable"]
-meaning = "A text cannot be written: it is not printable 7-bit ASCII, holds '|', is empty, has a blank at an end, or is a value that starts with '='."
-fix = "Change the text that 'where' names."
+meaning = "A text cannot be written: it is not printable 7-bit ASCII (a comment of a binary schematic may also hold Windows-1252 characters), holds '|', is empty, has a blank at an end, or is a value that starts with '='."
+fix = "Change the text that 'where' names; the message names the first character refused and says whether the binary form carries it."
 see = "Build target"
 
 ["altium.unique-id-collision"]
@@ -675,8 +710,8 @@ fix = "Correct pad_map so each listed pin is a pin of the symbol, each pad a pad
 see = "Build target"
 
 ["altium.via-unsupported"]
-meaning = "A via is blind, buried or micro, or does not span the top and the bottom layer."
-fix = "Use through vias, or leave the via out of the Altium build."
+meaning = "A micro via is not written to the Altium PCB document; through, blind and buried vias are."
+fix = "Use a blind via of the same span, or place the via in Altium."
 see = "Build target"
 
 ["altium.zone-unsupported"]
@@ -807,6 +842,11 @@ see = "build"
 ["build.no-footprint"]
 meaning = "Neither the part nor its symbol names a footprint."
 fix = "Give the part a footprint in the script."
+see = "build"
+
+["build.pad-map-default"]
+meaning = "A catalog diode or LED (pin 1 A, pin 2 K) sits on a catalog land whose pad 1 is the cathode and gives no pad_map, so the build applied pad_map={\"1\": \"2\", \"2\": \"1\"}: anode pin on the anode pad, cathode pin on the cathode pad. Earlier builds kept pin 1 on pad 1, so a design wired by pin number has its two pad nets swapped."
+fix = "Connect the part by pin name (A, K) and write pad_map={\"1\": \"2\", \"2\": \"1\"} on it to keep the map and silence the warning; to keep the pad order of earlier builds instead, write pad_map={\"1\": \"1\", \"2\": \"2\"}."
 see = "build"
 
 ["build.pad-without-pin"]
@@ -988,6 +1028,16 @@ meaning = "The model that the build stored in `.fenolite/` and the reading of th
 fix = "Rebuild the project with `fenolite build --confirm`; if the difference stays, a writer or the import has a defect: report the path."
 see = "check"
 
+["check.rta3-failed"]
+meaning = "A document was read, its model was written as new Altium documents, and the reading of those differs from the first reading inside the written scope; `where` is the path of the difference."
+fix = "Nothing to change in the input: a writer or the import has a defect. Report the path with the document's kind."
+see = "check"
+
+["check.rta3-unwritten"]
+meaning = "The round trip RT-A3 left out what the message counts per kind: model items that the writers do not carry, and (keys that start with `record:`) records of the input that the import maps to no model entity. The count is not part of the verdict."
+fix = "Nothing to do. Read the counts before you rely on a rewritten document: what is listed is not in it."
+see = "check"
+
 ["check.symbol-unresolved"]
 meaning = "A built component has no symbol reference."
 fix = "Give the part a symbol in the script and build again."
@@ -1136,6 +1186,36 @@ see = "equivalent"
 ["equiv.rotation"]
 meaning = "A footprint's rotation differs by more than the angle tolerance, modulo a full turn."
 fix = "Rotate the footprint, or pass --tolerance-udeg when the difference is rounding."
+see = "equivalent"
+
+["equiv.route-connectivity"]
+meaning = "The copper of a net joins other pads on one side than on the other: a connection is open, or two parts of the net are joined on one side only. The message lists the pad sets that only one side holds."
+fix = "Route the missing connection, or restore the track or via that was lost; --level 4 compares without routing."
+see = "equivalent"
+
+["equiv.route-length"]
+meaning = "For the same joined pads, the routed length on a copper layer differs by more than the tolerance. A track moved to another layer shows as two lengths that differ."
+fix = "Make the routes agree, or pass --tolerance-nm or --tolerance-ppm for the rounding of a conversion."
+see = "equivalent"
+
+["equiv.route-missing"]
+meaning = "One side holds copper (a track, an arc, a via or a zone fill) on a net and the other side holds none."
+fix = "Route the net on the other side, or compare with --level 4 when one board is not routed yet."
+see = "equivalent"
+
+["equiv.route-stub"]
+meaning = "The copper of a net that reaches no pad (a stub, a lone via) differs in number of pieces or in total length. It is a warning and does not fail the comparison."
+fix = "Check that no stitching via or stub was lost; name a known difference in an exclusion profile."
+see = "equivalent"
+
+["equiv.route-unjudged"]
+meaning = "A net holds a zone without a fill on a side, and its pads are not joined without it, so its connectivity was not judged."
+fix = "Fill the zones (fenolite fill) and compare again."
+see = "equivalent"
+
+["equiv.route-vias"]
+meaning = "For the same joined pads, the count of vias per pair of copper layers differs."
+fix = "Restore the via that was lost, or remove the one that was added."
 see = "equivalent"
 
 ["equiv.side"]
@@ -1697,6 +1777,56 @@ meaning = "An unlocked zone() differs from the zone on the board, and the board'
 fix = "Nothing to do; lock the zone() to make the script win."
 see = "build"
 
+["kit.file-changed"]
+meaning = "A file of the kit is missing or no longer has the SHA-256 that kit.json gives it. Every step of that sample fails, and no run is recorded from such a folder."
+fix = "Build the kit again with 'fenolite kit build' and repeat the run; change nothing outside results/."
+see = "kit"
+
+["kit.form"]
+meaning = "results/form.json is not sound as a whole: its schema, the tool version (AD <major>.<minor>), the system, the date or its fields."
+fix = "Fill the form as STEPS.md says, and keep exactly the fields the blank form has."
+see = "kit"
+
+["kit.pending"]
+meaning = "A check of a kit step was not run because the change that implements it is not there yet. The step passes on what was checked, and the rows that need the check stay pending."
+fix = "Nothing to do; the check runs once that change is implemented."
+see = "kit"
+
+["kit.privacy"]
+meaning = "A result file holds a string that looks like a home folder, another absolute path of the machine (on a drive, on a share or from a POSIX root) or a login name. result.privacy gives the file, the byte offset, the kind and the string."
+fix = "Read the list before publishing the archive; save the document again from a neutral folder if the string must not be published."
+see = "kit"
+
+["kit.project-resaved"]
+meaning = "The project file of a sample of the kit no longer has the bytes that kit.json names, and it still lists exactly the documents of its sample. Altium writes a project file again when the project is saved. The steps of the sample are judged, and the run record names the file."
+fix = "Nothing to do. Any other change of a kit file, or a project file with another list of documents, is kit.file-changed."
+see = "kit"
+
+["kit.record-refused"]
+meaning = "kit record wrote nothing: the run is synthetic, a file of the kit differs from kit.json, the form is not sound, or a record of that run exists with other content."
+fix = "Record a run that a tool performed on an unchanged kit; a committed record is never edited."
+see = "kit"
+
+["kit.stale"]
+meaning = "A register row carries the label of a kit run, and a sample that the row's steps use has other bytes in the kit the tree builds now."
+fix = "Record a new run, or set the row back to the level it had and name the stale run in its result."
+see = "kit"
+
+["kit.step-failed"]
+meaning = "A step of the kit failed: its result file does not pass a check, or its typed value is not the expected one. The message holds the reasons."
+fix = "Read the reasons; repeat the step in Altium, or report the difference: a failed step refutes the rows it names."
+see = "kit"
+
+["kit.step-skipped"]
+meaning = "A step of the kit was not done: its result file does not exist, or no value is typed. The rows it settles stay as they are."
+fix = "Do the step, or leave it: a run may leave groups out."
+see = "kit"
+
+["kit.synthetic"]
+meaning = "The form says that the run is synthetic, or does not say that it is not: no tool saved its files. Such a run verifies nothing and is never recorded."
+fix = "Set synthetic to false only in the form of a run that was performed in Altium."
+see = "kit"
+
 ["layout.alias-unused"]
 meaning = "A moved() alias matched nothing on the board, or its part was already matched in another way."
 fix = "Remove the alias from the script."
@@ -1801,6 +1931,11 @@ see = "manifest"
 meaning = "The fenolite-artifacts.json of the folder is not JSON, has another schema id or another shape. A producing command then writes nothing, rather than replace a file it does not understand; 'fenolite manifest' takes no entry from that folder."
 fix = "Move the file away or delete it, then run the command again; 'where' names the file."
 see = "manifest"
+
+["model.corner-ratio"]
+meaning = "A pad of the model holds a corner ratio that it cannot have: a value outside 0 to 500000 (parts per million of the pad's shorter side; 500000 is half of it), or a ratio on a pad whose shape is not roundrect. 'where' is the pad's id."
+fix = "Give the pad a ratio from 0 to 500000, or remove the ratio from a pad that is no rounded rectangle."
+see = "check"
 
 ["netlist.assignment-differs"]
 meaning = "A pad is on different nets in two sources of the design: the model, the board file or KiCad's own export."

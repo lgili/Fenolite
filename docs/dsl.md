@@ -482,7 +482,7 @@ design.via(
 |---|---|
 | `part.pad(number, *, index=None)` | the pads of `part` with that number (a `str` or an `int`); `index` picks one when several share the number, else the build takes the nearest |
 
-`Part(..., pad_map={"symbol pin": "physical pad"})` assigns physical footprint pad numbers per component. Pins omitted from `pad_map` keep identity mapping; net connections and no-connect declarations still use symbol pin designators. Both build targets apply the map: an Altium build puts each net on the mapped pad of the PCB document, checks script copper and a `--copper-from` board against the mapped pads, and writes the map into the footprint model of the schematic and of its library (change c0135; the releases 0.1.0 and 0.2.0 ignored `pad_map` in an Altium build: build such a project again). Both targets refuse a map that names a missing pin or pad, or that leaves one pad to two pins (`pad_map={"1": "2"}` on a part that has a pin 2: map pin 2 as well); the Altium build reports it as `altium.pin-pad-map-invalid`. `fenolite check` on an Altium project built with a renaming map still reports `netlist.assignment-differs`: it compares the schematic by pin and the board by pad, and learns the map in 0.3.0. Authored through-hole pads accept `drill_shape="slot"` with `drill` as width, `drill_length` as overall slot length, and `drill_rotation` as its axis in the footprint frame. KiCad output supports horizontal and vertical oval drills; Altium output currently refuses slots.
+`Part(..., pad_map={"symbol pin": "physical pad"})` assigns physical footprint pad numbers per component. Pins omitted from `pad_map` keep identity mapping; net connections and no-connect declarations still use symbol pin designators. A pin that is bonded to several pads lists them in a tuple or a list (change c0123): `Part("U1", "Lib:LDO", footprint="Lib:SOT-223", pad_map={"2": ("2", "4")})` puts the net of pin 2 on the pad 2 and on the tab 4. The first pad is the one the schematic symbol shows; a pad belongs to one pin, and a pad listed for two pins, an empty tuple and a pad listed twice are refused when the part is created. `part.pad_map` reads back a string for one pad and a tuple for several. Both build targets apply the map: an Altium build puts each net on every mapped pad of the PCB document, checks script copper and a `--copper-from` board against the mapped pads, and writes the map into the footprint model of the schematic (and of its library, when every part of the symbol links the footprint the symbol names). The releases 0.1.0 and 0.2.0 ignored `pad_map` in an Altium build (fixed in 0.2.1, change c0135): build such a project again. Both targets refuse a map that names a missing pin or pad, or that leaves one pad to two pins (`pad_map={"1": "2"}` on a part that has a pin 2: map pin 2 as well); the Altium build reports it as `altium.pin-pad-map-invalid`, the KiCad build as `build.pin-pad-map-invalid`, each beside the model's `model.pin-pad-map`. `fenolite check` on an Altium project built with a map compares the schematic and the board through the map and reports nothing for the mapped pins (the release 0.2.1 compares the schematic by pin and the board by pad, and reports `netlist.assignment-differs`). A part of an anode-first catalog symbol (`Fenolite:LED`, `Fenolite:Diode`, `Fenolite:Zener_Diode`, `Fenolite:Schottky_Diode`, `Fenolite:Photodiode`: pin 1 `A`, pin 2 `K`) on a catalog land whose pad 1 is the cathode (`Fenolite:LED0603_Kingbright_APT1608SURCK`, `Fenolite:LED0805_Kingbright_APT2012SURCK`, `Fenolite:SOD128_Nexperia_CFP5`) that gives no `pad_map` gets the catalog's default map `{"1": "2", "2": "1"}` in both build targets, and the build reports it with the warning `build.pad-map-default` (change c0147); an explicit `pad_map` always wins, and a design that authors the symbol or the land under the same lib id gets no default. The releases 0.2.0 and 0.2.1 kept pin 1 on pad 1 there: a design that wired such a part by pin number has its two pad nets swapped on the next build, and keeps the old pads with `pad_map={"1": "1", "2": "2"}`. Authored through-hole pads accept `drill_shape="slot"` with `drill` as width, `drill_length` as overall slot length, and `drill_rotation` as its axis in the footprint frame. KiCad output supports horizontal and vertical oval drills; Altium output currently refuses slots.
 | `via_step(x, y, *, to, diameter=None, drill=None, kind="through")` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro` |
 | `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, both `(x, y)` points; the path continues from `end` |
 | `design.track(key, *path, layer="F.Cu", width=None, net=None)` | a track along `path`: pad references, `(x, y)` points, arc steps and via steps, starting on `layer` |
@@ -637,9 +637,11 @@ design.rules.minimum(clearance=mm(0.2), track_width=mm(0.4), netclass="PWR")
 - **Beyond minimums.** `minimum()` covers six kinds on the board or on a class. Everything else is a
   `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. Custom expressions,
   differential-pair and length rules are not modelled.
-- **Altium.** `--target altium` does not write the minimums: the rules of the PCB document come from the
-  net classes. The build reports them with one `altium.not-lowered` info (`where` = `design-rules`), and
-  they stay in `.fenolite/rules.json`.
+- **Altium.** `--target altium` writes a minimum into the PCB document when Altium's rule holds that
+  one limit: `clearance` and `edge_clearance`. A `track_width`, `via_diameter`, `via_drill` or `hole_size`
+  minimum is reported with one `altium.not-lowered` warning (`where` = `design-rules/<kind>`), because
+  Altium's record also holds a maximum (and a preferred value): declare it with `rule()` and all its
+  limits (`docs/altium.md`, "Rules"). Every rule stays in `.fenolite/rules.json`.
 
 ### Rules with selectors
 
@@ -682,7 +684,8 @@ design.rules.rule(
   for it; `--allow-lossy` leaves the rule out with `rules.dropped-for-target`.
 - **Model.** One `Rule` per call, after the minimums, with the id `derived_id("rul", "dsl",
   "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
-- **Altium.** As for minimums: reported with `altium.not-lowered`, kept in `.fenolite/rules.json`.
+- **Altium.** Written into the PCB document by kind and scope, exactly or not at all; a rule that is
+  not written gives one `altium.not-lowered` warning with its reason (`docs/altium.md`, "Rules").
 
 ## Copper guard
 

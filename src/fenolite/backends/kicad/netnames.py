@@ -14,6 +14,7 @@ and the pad number. Nothing here reads a file.
 from __future__ import annotations
 
 import string
+from collections.abc import Sequence
 
 SLASH = "{slash}"
 UNCONNECTED_PREFIX = "unconnected-("
@@ -62,13 +63,42 @@ def unconnected_name(ref: str, *, unit: int, unit_count: int, pin_name: str, pad
     return f"{UNCONNECTED_PREFIX}{ref}{unit_letter(unit, unit_count)}-{pin_text(pin_name)}-Pad{pad_number})"
 
 
+JOINED_PREFIX = "Net-("
+"""The start of the name KiCad gives a net of several pins without a label."""
+
+
+def stack_pad(pads: Sequence[str]) -> str:
+    """The pad after which KiCad names the net of stacked pins without a label: the number that is the
+    lowest in code-point order (``H-K-SCH-STACKED-OPEN``; ``docs/formats/kicad/schematic.md``). The pad
+    itself for a pin of one pad."""
+    return min(pads)
+
+
+def open_name(
+    ref: str, *, unit: int, unit_count: int, pin_name: str, pads: Sequence[str], marked: bool
+) -> str:
+    """The net name KiCad derives for a pin on no net that stands for ``pads`` (one pad, or the pads of
+    stacked pins): ``unconnected_name`` with ``stack_pad(pads)``. Stacked pins without a no-connect flag
+    are a net of several pins to KiCad, so their name starts with ``Net-(`` instead of ``unconnected-(``
+    (``H-K-SCH-STACKED-OPEN``)."""
+    name = unconnected_name(
+        ref, unit=unit, unit_count=unit_count, pin_name=pin_name, pad_number=stack_pad(pads)
+    )
+    if len(pads) > 1 and not marked:
+        return JOINED_PREFIX + name.removeprefix(UNCONNECTED_PREFIX)
+    return name
+
+
 __all__ = [
+    "JOINED_PREFIX",
     "PROVED_PIN_CHARS",
     "SLASH",
     "UNCONNECTED_PREFIX",
     "model_name",
+    "open_name",
     "pin_text",
     "proved",
+    "stack_pad",
     "stored_name",
     "unconnected_name",
     "unit_letter",

@@ -121,7 +121,8 @@ def _own(schematic: Path) -> tuple[KicadNetlist, Evidence]:
         for name in sch.sheet_files(schematic).files[1:]
         if not name.startswith("../") and (folder / name).is_file()
     }
-    return sch_netlist.own_netlist(sheet, project=schematic.stem, children=children), sch_netlist.EVIDENCE
+    found = sch_netlist.own_netlist(sheet, project=schematic.stem, children=children)
+    return found, sch_netlist.evidence_of(sheet, children)
 
 
 def is_unconnected(name: str, pins: int) -> bool:

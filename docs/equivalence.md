@@ -1,7 +1,7 @@
 # Design equivalence
 
 `fenolite equivalent A [B]` says whether two designs are the same design, level by level, and locates
-every difference at a component (`REF`) or at a pin or pad (`REF-PIN`). The two sides may come from
+every difference at a component (`REF`), at a pin or pad (`REF-PIN`) or, for routing, at a net. The two sides may come from
 different file formats: each is read into the design model (`docs/design-model.md`) and the models are
 compared. The command, its options, its result keys and its exit codes are in `docs/cli-contract.md`,
 "equivalent"; this page defines what is compared.
@@ -16,7 +16,9 @@ reads no file, runs no tool and uses no floating-point number.
 ## Levels
 
 Levels are cumulative: `--level N` runs the levels 1 to `N`. The default is the highest level both sides
-hold: 4 when both have at least one footprint, else 2 (a schematic has no footprint).
+hold: 5 when both have at least one footprint and at least one track, arc or via, 4 when both have at least
+one footprint, else 2 (a schematic has no footprint). A script that compares a routed board with a copy
+whose copper it does not care about passes `--level 4`.
 
 | level | name | compares |
 |---|---|---|
@@ -24,8 +26,9 @@ hold: 4 when both have at least one footprint, else 2 (a schematic has no footpr
 | 2 | `netlist` | the net of every `REF-PIN`, as a partition of the elements into nets |
 | 3 | `footprints` | per component, the footprint name and every pad, in the footprint's own frame |
 | 4 | `placement` | per footprint, the side, the position and the rotation |
+| 5 | `routing` | per net, which pads the copper joins, the vias per pair of copper layers and the routed length per copper layer |
 
-Levels 5 to 8 of the roadmap (routing, rules, geometry, presentation) are not built.
+Levels 6 to 8 of the roadmap (rules, geometry, presentation) are not built.
 
 - **Components are paired by reference.** Model ids differ between backends. A reference that a side
   holds more than once, or an empty reference, cannot be paired: it gives one `ref-ambiguous` difference
@@ -44,13 +47,71 @@ Levels 5 to 8 of the roadmap (routing, rules, geometry, presentation) are not bu
   number; several pads of one number are sorted by `(x, y)` and paired in that order. Per-layer pad
   stacks, mask and paste, custom outlines, graphics, attributes and 3D models are not compared.
 
+## Level 5: routing
+
+Level 5 compares the copper of each net by what it does, not by how it is drawn: which pads it joins, how
+many vias it has between which copper layers, and how long it is on each copper layer. Two tools cut one
+route into different segments, and a conversion rounds every coordinate, so two files of the same board
+do not hold the same tracks; they hold the same connections. The path a track takes is not compared: two
+routes of one connection with the same layers and length are equal at this level. Exact geometry is
+level 7.
+
+- **Pieces.** `fenolite.checks.equivalence.routing.pieces(design)` groups the tracks, arcs, vias, zone
+  fills and pads of one net into connected pieces. Two items are joined when their copper touches on a
+  copper layer they share, by the exact touch test that the copper check uses for shorts (`docs/copper.md`).
+  A piece is described by the `REF-PAD` elements it holds, its vias per pair of copper spans, and its
+  routed length per copper span. A pad that nothing reaches is a piece of its own.
+- **Copper spans.** A layer is named by its place in the stack, as at level 3: `top` for the copper layer
+  of the lowest ordinal, `bottom` for the highest, `inner1`, `inner2`, … between them. `F.Cu` in one file
+  and the top layer of another are the same span. A via counts under its pair, `top-bottom` for a through
+  via.
+- **Pads.** A pad's copper is shaped from the model alone, on each copper layer of the pad: a disc for a
+  circle, a stadium for an oval, and the rectangle of its size for every other shape. For a rounded
+  rectangle, a trapezoid and a custom pad that rectangle is a little more than the pad. An unplated hole
+  has no copper. A pad without a number joins copper and names nothing, as at level 2.
+- **Length.** A track counts the distance of its two ends. The tracks of a piece that lie on one line are
+  added exactly and their sum is rounded once to the nearest nanometre, so a track cut at a point of
+  itself, or joined again, has the same length to the nanometre. An arc counts its true length, from its
+  three points, rounded half to even. Copper drawn twice counts twice. Zone fills and pads add no length.
+- **Zones.** A zone fill is copper and joins what it touches. A zone without a fill joins nothing:
+  `summary.zones_unfilled` counts them per side. A net that holds such a zone on a side, and more than one
+  piece there, is not judged: its connectivity depends on copper that is not in the file. It gives one
+  `route-unjudged` notice and nothing else. Fill the zones (`fenolite fill`) to have it judged.
+- **Which nets.** The nets are paired as level 2 pairs them: by their pads, whatever their names. A net
+  whose pads differ between the sides is a difference of level 2 and is not compared again;
+  `summary.nets_unpaired` counts the nets with copper that no pair holds. Only the pads of the components
+  that level 1 compared count; a net without copper on both sides is not compared. Copper on no net is
+  not compared; `summary.copper_no_net` counts it.
+
+For each paired net with copper, in this order:
+
+| kind | severity | what is compared | then |
+|---|---|---|---|
+| `route-unjudged` | info (notice) | a side holds a zone without a fill on the net and more than one piece | the net is left |
+| `route-missing` | error | one side has copper on the net (a track, an arc, a via or a fill) and the other has none | the net is left |
+| `route-connectivity` | error | the pad sets of the pieces, as multisets: the same pads are joined on both sides | the net is left |
+| `route-vias` | error | per pad set, the via counts per pair of copper spans | |
+| `route-length` | error | per pad set, the routed length per copper span, within the tolerance | |
+| `route-stub` | warning (notice) | the pieces without a pad (stubs, lone vias): their number and their total length | |
+
+A notice is reported and located as a difference is, under `result.notices`, and never makes two designs
+unequal. An error does. `where` is the net's name on side `a`; a kind that concerns one pad set adds `:`
+and the first three pads of the set, then `+n` for the rest (`VIN:C1-1,C2-1,U1-3,+4`). The values `a` and
+`b` are texts such as `top-bottom=2`, `top=20000000,bottom=10000000` or, for `route-connectivity`, the pad
+sets that only that side holds, separated by ` | `.
+
+The rule above is one table, `DEFAULT_RULE` in `routing.py`. It is the default definition of level 5
+(`docs/roadmap.md`, open decision 25): a stricter mode that matches copper item by item would be a second
+table beside it.
+
 ## Kinds of difference
 
 A difference is `{level, kind, where, field, a, b}`. `a` and `b` are the two values as exact strings: text
 verbatim, a length as an integer of nanometres, a point as `x,y`, a size as `wxh`, an angle as an integer
 of microdegrees, and the empty string for a missing object. `where` is `REF`, or `REF-PIN` for pin and pad
-kinds; a pad without a number is `REF-@x,y`, its position in the footprint. The differences of a level
-are sorted by `where`, then kind.
+kinds; a pad without a number is `REF-@x,y`, its position in the footprint. At level 5 `where` is the net's
+name on side `a`, with the first pads of a pad set after a `:` ("Level 5: routing"). The differences of a
+level are sorted by `where`, then kind.
 
 | level | kind | field | meaning |
 |---|---|---|---|
@@ -73,17 +134,28 @@ are sorted by `where`, then kind.
 | 4 | `side` | `side` | top on one side of the comparison, bottom on the other |
 | 4 | `position` | `position` | the positions differ beyond the tolerance, in the chosen frame |
 | 4 | `rotation` | `rotation` | the rotations differ beyond the tolerance |
+| 5 | `route-missing` | `copper` | one side has copper on the net and the other has none |
+| 5 | `route-connectivity` | `pads` | the copper of the net joins other pad sets; `a` and `b` are the pad sets that only that side holds |
+| 5 | `route-vias` | `vias` | for one pad set, the via counts per pair of copper spans differ |
+| 5 | `route-length` | `length` | for one pad set, a routed length per copper span differs beyond the tolerance |
+| 5 | `route-stub` | `stubs` | the pieces without a pad differ in number or in total length (a notice: a warning) |
+| 5 | `route-unjudged` | `zones` | the net's connectivity depends on a zone without a fill (a notice: an info) |
 
 The issue code of a difference is `equiv.<kind>`, except `net`, which carries
-`netlist.assignment-differs`, the code of the assignment comparison.
+`netlist.assignment-differs`, the code of the assignment comparison. Every kind is an error, except the
+two notices of level 5: `route-stub` is a warning and `route-unjudged` an info.
 
 ## Tolerances and normalisation
 
-Two integers: `--tolerance-nm` for lengths and `--tolerance-udeg` for angles. Both default to 0, because
-the model is exact and two reads of one file must be identical.
+Three integers: `--tolerance-nm` for lengths, `--tolerance-udeg` for angles and `--tolerance-ppm` for
+routed lengths. All default to 0, because the model is exact and two reads of one file must be identical.
 
 - **Length.** Two lengths are equal when they differ by at most the tolerance. Points and sizes are
   compared per coordinate; no distance is taken.
+- **Routed length.** Two routed lengths of level 5 are equal when they differ by at most the larger of
+  `--tolerance-nm` and `--tolerance-ppm` parts per million of the longer one (integer division). The
+  relative tolerance exists because a conversion rounds each end of each segment, so a route differs by
+  more the more segments it has. It applies to nothing else.
 - **Angle.** Angles are compared on the circle: −90° and 270° are equal. The period is 360° unless the pad
   rule below says otherwise.
 - **Text.** Values, references, pin numbers and footprint names are exact strings: no case folding, no
@@ -134,13 +206,15 @@ hypothesis = "H-G-EQ-FPNAME"
 ```
 
 - A profile holds `name`, `tool`, `tool_version`, `frame`, `tolerance_nm`, `tolerance_udeg` and its
-  rules. The profile supplies the frame and the tolerances; an option on the command line overrides them.
+  rules, and may hold `tolerance_ppm` (0 when absent). The profile supplies the frame and the tolerances;
+  an option on the command line overrides them.
 - A rule holds `id` (unique in the file), `level`, `kind` (a kind of that level), `where` (a glob over the
   difference's `where`, matched with letter case), `attribution` (`importer` or `undecided`), `reason`
   and `hypothesis`, and may hold `field` and `corpus` (a list of corpus row ids). The first matching rule
   in file order wins.
 - Any other key, a missing key, a kind of another level or a duplicate id is refused (`FEN-3004`).
-- A rule selects by level, kind, field and `where` only. It cannot match a value.
+- A rule selects by level, kind, field and `where` only. It cannot match a value. A rule of level 5 may
+  name a notice (`route-stub`, `route-unjudged`), which is then listed under `result.excluded` too.
 
 ## The triangle
 
@@ -151,7 +225,10 @@ Fenolite's KiCad reader. The two models are compared under the profile `kicad-im
 `src/fenolite/backends/kicad/data/altium_import_exclusions.toml`.
 
 - The profile's frame is `relative`: KiCad moves an imported board on its sheet. Its tolerance for 10.0
-  is 10 nm: KiCad holds a converted length in steps of 10 nm.
+  is 10 nm: KiCad holds a converted length in steps of 10 nm. For the routed lengths of level 5 it adds
+  20 parts per million, measured on the public documents.
+- A document with copper is compared at level 5. KiCad's importer leaves the zones of a document without
+  a fill, so a net that a pour joins is reported `equiv.route-unjudged` and not compared.
 - Each rule of the profile names one behaviour of KiCad's importer that was observed by running the tool.
   `importer` means that a public source or the tool's own output shows that the importer makes the change.
   `undecided` means that the two reads differ and no public source says which is right. A difference that

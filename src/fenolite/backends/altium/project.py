@@ -17,6 +17,7 @@ import dataclasses
 import hashlib
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Literal
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic, map_pins
@@ -34,7 +35,7 @@ from fenolite.backends.altium.layout import (
 from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
 from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
 from fenolite.backends.altium.prjpcb import write_prjpcb
-from fenolite.backends.altium.schdoc import write_schdoc
+from fenolite.backends.altium.schdoc import Frame, write_schdoc
 from fenolite.backends.altium.schlib import storage_name, write_schlib
 from fenolite.backends.altium.symbols import generic_symbol
 from fenolite.core.errors import Issue
@@ -44,6 +45,8 @@ from fenolite.model.design import Design
 
 PATH_PROPERTY = "fenolite.path"
 """The component property that holds the component path (set by the DSL)."""
+_HARNESS = "harness"
+"""The kind of the interfaces that ``fenolite.dsl.Harness`` records (``hierarchy.HARNESS_INTERFACE``)."""
 UNIQUE_ID_SALT = "fenolite.altium.uniqueid:"
 UNIQUE_ID_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXY"
 UNIQUE_ID_LENGTH = 8
@@ -77,11 +80,20 @@ EVIDENCE = Evidence(
         "H-A-SCH-NETS",
         "H-A-SCH-OPEN",
         "H-A-SCH-UID",
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE",
     ),
 )
 """The writer's format facts are inferred from public sources until the maintainer's author reports. The
 ``H-A-ECO-*`` rows are those of the change order (change c0048): the net class directives and the class
-generation keys of the project file."""
+generation keys of the project file. The ``H-A-SCHX-*`` rows are the writer's own rows of change c0086
+(symbol graphics, the sheet tree, directions, buses, text outside ASCII, parameters): its own readback
+row and the six rows that only Altium settles (Part Y)."""
 
 PowerStyle = Literal["ground", "bar"]
 SchematicForm = Literal["binary", "ascii"]
@@ -171,6 +183,17 @@ def unique_id(key: str) -> str:
     return "".join(letters)
 
 
+_NATIVE_UNIQUE_ID = re.compile(r"cmp:(?:.*\\)?([A-Z]{8})")
+
+
+def native_unique_id(component: Component) -> str | None:
+    """The unique id that a component read from an Altium document keeps as its native id (change c0090):
+    the last part of ``cmp:<source unique id>``, eight capital letters, or ``None``. A component of a
+    script has no such native id."""
+    match = _NATIVE_UNIQUE_ID.fullmatch(component.native_ids.get("altium", ""))
+    return match.group(1) if match is not None else None
+
+
 def power_styles(design: Design) -> dict[str, PowerStyle]:
     """Net id → port style of every net of a ``power`` interface: ``ground`` for a net that is only ever
     the ``lv`` member, ``bar`` otherwise."""
@@ -188,11 +211,115 @@ def component_path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY) or component.path or component.ref
 
 
-def _text(text: str, what: str, *, parameter: bool = False) -> str:
-    problem = text_problem(text, parameter=parameter)
+def _text(text: str, what: str, *, parameter: bool = False, form: SchematicForm = "ascii") -> str:
+    problem = text_problem(text, form=form, parameter=parameter)
     if problem is not None:
         raise ValueError(f"{what} {text!r} {problem}")
     return text
+
+
+RESERVED_PARAMETERS: frozenset[str] = frozenset({"comment", "designator", "footprint", "reference", "value"})
+"""Property names, in lower case, that are no parameter of a component: the writer already writes the
+designator, the comment and the footprint link as records of their own (change c0086)."""
+INTERNAL_PROPERTY_PREFIX = "fenolite."
+"""Properties that Fenolite keeps for itself, such as ``fenolite.path``, are no parameter either."""
+
+
+def parameters_of(
+    component: Component, *, form: SchematicForm = "ascii"
+) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """The properties of ``component`` that become hidden parameters, as (name, value) in code-point
+    order of the names, and those that cannot be written, as (name, reason) (change c0086, "Component
+    parameters"). A property is a parameter when it has a value and is neither Fenolite's own
+    (``fenolite.*``) nor a name of ``RESERVED_PARAMETERS`` in any letter case. It cannot be written when
+    its name is not 7-bit text, when ``form`` cannot carry its value (``ascii.text_problem``), or when
+    its name differs only in letter case from a parameter before it: a build keeps such a property in the
+    model and reports it, since a property is no part of the circuit."""
+    kept: list[tuple[str, str]] = []
+    skipped: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for key, value in sorted(component.properties.items()):
+        if not value or key.startswith(INTERNAL_PROPERTY_PREFIX) or key.lower() in RESERVED_PARAMETERS:
+            continue
+        name_problem = text_problem(key)
+        value_problem = text_problem(value, form=form, parameter=True)
+        if name_problem is not None:
+            skipped.append((key, f"its name {name_problem}"))
+        elif value_problem is not None:
+            skipped.append((key, f"its value {value_problem}"))
+        elif key.lower() in seen:
+            skipped.append((key, "its name differs only in letter case from another parameter"))
+        else:
+            seen.add(key.lower())
+            kept.append((key, value))
+    return kept, skipped
+
+
+@dataclass(frozen=True)
+class BusPlan:
+    """A bus of the model that is drawn as a bus (change c0086, "Bus records"): the model's ``name``, the
+    bus identifier ``label`` (``<stem>[<first>..<last>]``) and its member nets in member order, by name
+    and by id."""
+
+    name: str
+    label: str
+    members: tuple[str, ...]
+    net_ids: tuple[str, ...]
+
+
+_MEMBER = re.compile(r"(.*?)([0-9]+)")
+
+
+def bus_identifier(names: Sequence[str]) -> str | None:
+    """``<stem>[<first>..<last>]`` when ``names`` are one stem followed by consecutive integers, rising
+    or falling, written without leading zeros; ``None`` otherwise, and for fewer than two names
+    (``docs/formats/altium/connectivity.md``, "Buses and harnesses")."""
+    parsed: list[tuple[str, int]] = []
+    for name in names:
+        match = _MEMBER.fullmatch(name)
+        if match is None or not match.group(1) or str(int(match.group(2))) != match.group(2):
+            return None
+        parsed.append((match.group(1), int(match.group(2))))
+    if len(parsed) < 2 or len({stem for stem, _ in parsed}) != 1:
+        return None
+    numbers = [number for _, number in parsed]
+    step = numbers[1] - numbers[0]
+    if step not in (1, -1) or any(b - a != step for a, b in zip(numbers, numbers[1:], strict=False)):
+        return None
+    return f"{parsed[0][0]}[{numbers[0]}..{numbers[-1]}]"
+
+
+def lowered_buses(design: Design) -> tuple[list[BusPlan], list[tuple[str, str]]]:
+    """The buses of ``design`` that are drawn as buses, in code-point order of their names, and the others
+    as (bus name, reason), which are drawn as their nets and reported as ``altium.bus-flattened``. A bus
+    is drawn when its member nets have a bus identifier (``bus_identifier``), none of them is a net of a
+    ``power`` or a ``harness`` interface (those join through power ports and travel in their harness),
+    and none is a member of a bus drawn before it."""
+    names = {net.id: net.name for net in design.circuit.nets}
+    special = {
+        net_id: interface.kind
+        for interface in design.circuit.interfaces
+        if interface.kind in ("power", _HARNESS)
+        for net_id in interface.members.values()
+    }
+    taken: dict[str, str] = {}
+    drawn: list[BusPlan] = []
+    flattened: list[tuple[str, str]] = []
+    for bus in sorted(design.circuit.buses, key=lambda b: b.name):
+        ids = tuple(member.net_id for member in bus.members)
+        members = tuple(names.get(net_id, "") for net_id in ids)
+        label = bus_identifier(members) if all(members) else None
+        clash = next((net_id for net_id in ids if net_id in special or net_id in taken), None)
+        if label is None:
+            flattened.append((bus.name, "its member nets are not one stem followed by consecutive integers"))
+        elif clash is not None and clash in special:
+            flattened.append((bus.name, f"its net {names[clash]} is a net of a {special[clash]} interface"))
+        elif clash is not None:
+            flattened.append((bus.name, f"its net {names[clash]} is drawn in the bus {taken[clash]}"))
+        else:
+            drawn.append(BusPlan(bus.name, label, members, ids))
+            taken.update(dict.fromkeys(ids, bus.name))
+    return drawn, flattened
 
 
 def _link(text: str, what: str) -> tuple[str, str]:
@@ -203,13 +330,18 @@ def _link(text: str, what: str) -> tuple[str, str]:
 
 
 def part_specs(
-    design: Design, *, name: str = "", symbols: Mapping[str, AltiumSymbol] | None = None
+    design: Design,
+    *,
+    name: str = "",
+    symbols: Mapping[str, AltiumSymbol] | None = None,
+    form: SchematicForm = "ascii",
 ) -> list[PartSpec]:
     """One ``PartSpec`` per component, in component-path order, its body the library symbol of its lib id
     (``symbols`` first, generic otherwise). ``name`` is the design name, which gives the library file of
     KiCad lib ids (``schlib_name``). ``Circuit.no_connects`` fills ``PartSpec.no_connects``; a mark on an
     unknown component, on a pin the component does not hold or on a pin that a net lists raises
-    ``ValueError``."""
+    ``ValueError``. ``form`` is the schematic form that will carry the comment and the parameter values
+    (change c0086): the binary form also takes the characters of its code page."""
     bodies = {**generic_symbols(design), **(symbols or {})}
     styles = power_styles(design)
     components = {c.id: c for c in design.circuit.components}
@@ -260,21 +392,28 @@ def part_specs(
             _text(pin.designator, f"{component.ref} pin designator")
             _text(pin.name or pin.designator, f"{component.ref} pin name")
         pin_pads = map_pins(component, [pin.designator for pin in body.pins]) if footprint else ()
-        for _pin, pad in pin_pads:
-            _text(pad, f"{component.ref} pad name")
+        for _pin, pads in pin_pads:
+            for pad in pads:
+                _text(pad, f"{component.ref} pad name")
         specs.append(
             PartSpec(
                 key=component_path(component),
                 ref=_text(component.ref, "ref"),
-                comment=_text(component.value or symbol, f"{component.ref} comment", parameter=True),
+                comment=_text(
+                    component.value or symbol, f"{component.ref} comment", parameter=True, form=form
+                ),
                 library=library,
                 symbol=symbol,
                 footprint=footprint,
-                unique_id=unique_id(component.id),
+                unique_id=native_unique_id(component) or unique_id(component.id),
                 body=body,
                 nets=joins[component.id],
                 part_ids=tuple(unique_id(f"{component.id}#{k}") for k in range(2, body.parts + 1)),
                 no_connects=frozenset(marks[component.id]),
+                parameters=tuple(
+                    (key, value, unique_id(f"{component.id}:parameter:{key}"))
+                    for key, value in parameters_of(component, form=form)[0]
+                ),
                 pin_pads=pin_pads,
             )
         )
@@ -352,11 +491,19 @@ def with_class_marks(plan: SheetPlan, classes: Mapping[str, str], sheet: str) ->
 
 
 def plan_sheet(
-    design: Design, *, name: str = "", symbols: Mapping[str, AltiumSymbol] | None = None
+    design: Design,
+    *,
+    name: str = "",
+    symbols: Mapping[str, AltiumSymbol] | None = None,
+    form: SchematicForm = "ascii",
 ) -> SheetPlan:
-    """The sheet layout of ``design``: sheet size, placed components, stubs and the net class directives
-    of the single sheet ``<name>.SchDoc`` (change c0048)."""
-    plan = layout_sheet(part_specs(design, name=name, symbols=symbols))
+    """The sheet layout of ``design``: sheet size, placed components, stubs, the bus blocks of its lowered
+    buses (change c0086) and the net class directives of the single sheet ``<name>.SchDoc`` (change
+    c0048)."""
+    specs = part_specs(design, name=name, symbols=symbols, form=form)
+    here = {net.net for spec in specs for net in spec.nets.values()}
+    buses = [(bus.label, bus.members) for bus in lowered_buses(design)[0] if here & set(bus.members)]
+    plan = layout_sheet(specs, buses=buses)
     return with_class_marks(plan, net_class_names(design), f"{name}.SchDoc")
 
 
@@ -396,6 +543,9 @@ def write_project(
     footprints: Sequence[LibFootprint] = (),
     pcb: PcbDocSpec | None = None,
     sheets: SheetMode = DEFAULT_SHEETS,
+    outjob: bytes | None = None,
+    frames: Mapping[str, Frame] | None = None,
+    directions: bool = True,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -406,13 +556,15 @@ def write_project(
     c0037) ``<name>.SchDoc`` is the top sheet, each top-level module gets ``<name>_<module>.SchDoc``, each
     sheet with a harness block gets ``<sheet stem>.Harness``, and the project file lists them all; the
     libraries do not depend on the mode. A design with a net class (change c0048) gets the net class
-    directives on every sheet and the ``[PrjClassGen]`` section in the project file."""
+    directives on every sheet and the ``[PrjClassGen]`` section in the project file. ``outjob`` (change
+    c0087) are the bytes of ``<name>.OutJob``, which the project file then lists; ``frames`` maps a sheet
+    file to the drawing sheet drawn on it. Without both, every file keeps its bytes."""
     from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    planned = plan_sheets(design, name=name, sheets=sheets, form=form, symbols=symbols)
+    planned = plan_sheets(design, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions)
     for sheet in planned.sheets:
         size = sheet.plan.size
         if size.style is None and issues is not None:
@@ -439,9 +591,14 @@ def write_project(
             sheets=tuple(sheet.file for sheet in planned.modules),
             harnesses=tuple(harness_files),
             net_classes=bool(design.circuit.netclasses),
+            outjob=f"{name}.OutJob" if outjob is not None else None,
         )
     for sheet in planned.sheets:
-        files[sheet.file] = write_schdoc_binary(sheet.plan) if form == "binary" else write_schdoc(sheet.plan)
+        frame = (frames or {}).get(sheet.file)
+        if form == "binary":
+            files[sheet.file] = write_schdoc_binary(sheet.plan, frame)
+        else:
+            files[sheet.file] = write_schdoc(sheet.plan, frame)
     for harness, types in harness_files.items():
         files[harness] = write_harness(types)
     for library, found in libraries.items():
@@ -461,6 +618,8 @@ def write_project(
             files[f"{name}.PcbDoc"] = write_pcbdoc(pcb, filename=f"{name}.PcbDoc")
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbDoc", error) from error
+    if outjob is not None:
+        files[f"{name}.OutJob"] = outjob
     return files
 
 
@@ -483,6 +642,7 @@ __all__ = [
     "component_path",
     "generic_symbols",
     "library_symbols",
+    "native_unique_id",
     "net_class_names",
     "is_altium_footprint",
     "is_altium_link",

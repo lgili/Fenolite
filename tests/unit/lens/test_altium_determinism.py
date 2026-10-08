@@ -156,6 +156,7 @@ BLINK_PLANNED = {
     "blink.SchLib",
     "blink.PcbLib",
     "blink.PcbDoc",
+    "blink.OutJob",
     *(f".fenolite/{n}.json" for n in LAYERS),
 }
 
@@ -163,7 +164,8 @@ BLINK_PLANNED = {
 def test_blink_twice_in_process_and_twice_by_subprocess(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The KiCad-footprint sample (change c0035) gives the same five project files in every build."""
+    """The KiCad-footprint sample (change c0035) gives the same five project files in every build, and
+    the output job of change c0087."""
     config = tmp_path / "kicad-config"
     config.mkdir()
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(config))

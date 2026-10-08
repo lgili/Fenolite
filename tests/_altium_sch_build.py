@@ -99,7 +99,7 @@ def pin_payload(
     part: int = 1,
     mode: int = 0,
     electrical: int = 4,
-    conglomerate: int = 0x1A,
+    conglomerate: int = 0x3A,
     length: int = 20,
     x: int = -30,
     y: int = 10,
@@ -123,7 +123,7 @@ def pin_payload(
 
 
 WORKED_PIN = bytes.fromhex(
-    "02000000 00 0100 00 00000000 00 01 04 1a 1400 e2ff 0a00 00000000 02494e 0131 00 00 00".replace(" ", "")
+    "02000000 00 0100 00 00000000 00 01 04 3a 1400 e2ff 0a00 00000000 02494e 0131 00 00 00".replace(" ", "")
 )
 """The 34-byte payload of the worked pin of ``schematic-library.md``."""
 

@@ -27,6 +27,8 @@ from _altium import (
     hier,
     sample,
 )
+from _altium_job import grown_paper_issues, kept_project_issues
+from _altium_tree import with_bus
 
 import fenolite.lens.altium as lens_altium
 from fenolite.backends.altium import cfb
@@ -35,7 +37,9 @@ from fenolite.dsl import Design, DiffPair, Net, Part, connect, mm, no_connect, p
 from fenolite.lens.altium import ALTIUM_ISSUE_CODES, build_altium
 from fenolite.model.design import Design as ModelDesign
 
-PASS_THROUGH = ("model.", "build.layout-exists")
+PASS_THROUGH = ("model.", "build.layout-exists", "altium.sheet.")
+"""Codes of other tables that a build reports as they are; ``altium.sheet.*`` are the sheet template
+codes of ``read.sheet.ISSUE_CODES``, which a drawing sheet gives (change c0087)."""
 
 
 def _lib_id(d: Design) -> None:
@@ -47,7 +51,8 @@ def _footprint_form(d: Design) -> None:
 
 
 def _text(d: Design) -> None:
-    d.parts["power/C1"].value = "10µF"
+    # outside Windows-1252, so no form carries it; "10µF" is written by the binary form since c0086
+    d.parts["power/C1"].value = "1 kΩ"
 
 
 def _comment_reference(d: Design) -> None:
@@ -180,14 +185,14 @@ KICAD_CASES: dict[str, tuple[tuple[str, str], tuple[str, str], set[str]]] = {
     ),
     "off-grid": (
         ("", ""),
-        ("(at 0 3.81 270)", "(at 0.001 3.81 270)"),
+        ("(at 0 5.08 270)", "(at 0.001 5.08 270)"),
         {"altium.symbol-off-grid", "altium.symbol-simplified"},
     ),
     "lossy": (
         ("", ""),
         (
-            "(pin passive line\n\t\t\t\t(at 2.54 -7.62 90)",
-            "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -7.62 90)",
+            "(pin passive line\n\t\t\t\t(at 2.54 -15.24 90)",
+            "(pin no_connect non_logic\n\t\t\t\t(at 2.54 -15.24 90)",
         ),
         {
             "altium.pin-lossy",
@@ -368,9 +373,9 @@ def _copper_board(model: ModelDesign, **changes: object) -> ModelDesign:
 def _via_blind(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
     assert model.board is not None
     first, *rest = model.board.vias
-    blind = dataclasses.replace(first, via_type="blind", layers=("F.Cu", "In1.Cu"))
-    spans = dataclasses.replace(rest[0], layers=("F.Cu", "In2.Cu"))
-    return _copper_board(model, vias=(blind, spans, *rest[1:])), {}
+    micro = dataclasses.replace(first, via_type="micro", layers=("F.Cu", "In1.Cu"))
+    spans = dataclasses.replace(rest[0], layers=("F.Cu", "F.Cu"))
+    return _copper_board(model, vias=(micro, spans, *rest[1:])), {}
 
 
 def _copper_invalid(model: ModelDesign) -> tuple[ModelDesign, dict[str, object]]:
@@ -421,8 +426,8 @@ COPPER_CASES: dict[
     "zone": (_zone_opaque, {"altium.zone-unsupported": 2}),
     "plane": (_plane_copper, {"altium.plane-copper": 3}),
     "plane-net": (_plane_unknown, {"altium.copper-stack": 2}),
-    "stack": (_copper_stack, {"altium.copper-stack": 1}),
-    "via": (_via_blind, {"altium.via-unsupported": 2}),
+    "stack": (_copper_stack, {"altium.copper-layer": 3}),  # c0085: an odd count gives the default stack
+    "via": (_via_blind, {"altium.via-unsupported": 1, "altium.copper-invalid": 1}),  # c0085: a micro via
     "invalid": (_copper_invalid, {"altium.copper-invalid": 4}),
 }
 """Routed-sample variants (change c0038, "Copper issue codes"): the copper codes and their counts."""
@@ -519,7 +524,7 @@ def test_copper_case(name: str) -> None:
     counts: dict[str, int] = {}
     for found in issues:
         counts[found.code] = counts.get(found.code, 0) + 1
-        assert found.severity == "error" and found.where
+        assert found.severity == ALTIUM_ISSUE_CODES[found.code] and found.where
     assert counts == COPPER_CASES[name][1], [(i.code, i.where, i.message) for i in issues]
 
 
@@ -567,6 +572,12 @@ def test_unique_id_collision() -> None:
     assert sum("the port LED_DRV of led" in i.message for i in found) == 1
 
 
+def run_c0087_cases() -> list[Issue]:
+    """The two codes of change c0087: a kept project file that does not list the job, and a drawing
+    sheet whose paper the layout does not fit (``tests/_altium_job.py`` holds the cases)."""
+    return [*kept_project_issues(), *grown_paper_issues()]
+
+
 def test_closed_set() -> None:
     produced: dict[str, set[str]] = {}
     for name in CASES:
@@ -591,7 +602,10 @@ def test_closed_set() -> None:
         *run_too_large_case(),
         *run_too_large_case("ascii"),
         *run_pcb_too_large(),
+        *run_bus_case(),
     ):
+        produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_c0087_cases():
         produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
@@ -599,6 +613,17 @@ def test_closed_set() -> None:
         assert code in ALTIUM_ISSUE_CODES, code
         assert severities == {ALTIUM_ISSUE_CODES[code]}, (code, severities)
     assert set(ALTIUM_ISSUE_CODES) <= set(produced), set(ALTIUM_ISSUE_CODES) - set(produced)
+
+
+def run_bus_case() -> tuple[Issue, ...]:
+    """Change c0086: a bus whose nets are not one stem with consecutive integers is drawn as its nets."""
+    model = with_bus(to_model(sample()), "CTRL", ("EN", "LED_DRV"))
+    return build_altium(model, name="altium_sample").issues
+
+
+def test_bus_flattened_names_the_bus() -> None:
+    (found,) = [i for i in run_bus_case() if i.code == "altium.bus-flattened"]
+    assert found.severity == "info" and found.where == "CTRL" and "consecutive integers" in found.message
 
 
 def test_the_table() -> None:
@@ -626,8 +651,10 @@ def test_the_table() -> None:
         "altium.footprint-unresolved": "warning",
         "altium.footprint-unsupported": "warning",
         "altium.footprint-name-collision": "warning",
+        "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
+        "altium.bus-flattened": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
         "altium.schlib-generic": "info",
@@ -639,9 +666,10 @@ def test_the_table() -> None:
         "altium.pcb-staged": "info",
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
+        "altium.outjob-not-listed": "info",
         "altium.copper-stack": "error",
         "altium.copper-layer": "error",
-        "altium.via-unsupported": "error",
+        "altium.via-unsupported": "warning",
         "altium.copper-invalid": "error",
         "altium.zone-unsupported": "error",
         "altium.plane-copper": "error",

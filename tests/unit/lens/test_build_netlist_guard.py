@@ -11,7 +11,7 @@ from dataclasses import replace
 
 import pytest
 from _buildhelp import blink, build, codes
-from _schbuild import blink_unmarked, built_nested, built_units, units_design
+from _schbuild import blink_unmarked, built_nested, built_stacked, built_units, units_design
 
 from fenolite.backends.kicad import schgen, schlayout
 from fenolite.backends.kicad.schgen import GeneratedSchematic
@@ -259,3 +259,28 @@ def test_snap_wire_without_its_label_caught(monkeypatch: pytest.MonkeyPatch) -> 
     assert output.files == {}
     (found,) = [issue for issue in output.issues if issue.code == CODE]
     assert "wire-unlabelled" in found.message
+
+
+def test_stacked_pins_pass_the_guard() -> None:
+    """Capability kicad-schematic, "Pins with several pads on a generated sheet", "Netlist guard": one
+    element per pad of a pin (change c0123)."""
+    for target in (9, 10):
+        output = built_stacked(target)
+        assert "build.schematic-netlist-differs" not in codes(output) and output.schematic is not None
+        assert schematic_netlist_issue(output.design, output.schematic, "stacked") is None
+
+
+def test_a_stacked_pin_that_the_sheet_lacks_is_caught() -> None:
+    """The symbol of ``R1`` embedded without the pin of its further pad ``2``: the circuit has ``R1-2``
+    on ``OUT`` and the sheet has no such pin."""
+    output = built_stacked()
+    generated = output.schematic
+    assert generated is not None
+    sheet = generated.sheet
+    lib = next(d for d in sheet.lib_symbols if d.name.startswith("Mini_R"))
+    kept = tuple(pin for pin in lib.pins if not (pin.number == "2" and pin.hidden))
+    assert len(kept) == len(lib.pins) - 1
+    definitions = tuple(replace(d, pins=kept) if d is lib else d for d in sheet.lib_symbols)
+    defective = replace(generated, sheet=replace(sheet, lib_symbols=definitions))
+    found = schematic_netlist_issue(output.design, defective, "stacked")
+    assert found is not None and "R1-2" in found.message

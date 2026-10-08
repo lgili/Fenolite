@@ -267,3 +267,22 @@ def test_parts_from_kicad_rows() -> None:
 def test_evidence_of_the_kicad_source_is_the_backend_s() -> None:
     assert bom.EVIDENCE_KICAD is kicad_bom.EVIDENCE
     assert bom.EVIDENCE_KICAD.hypotheses == ("H-K-BOM-CSV",)
+
+
+def test_the_pin_to_pad_map_does_not_reach_the_bill() -> None:
+    """A pin bonded to several pads (change c0123) is no fact of the bill: a line is made of components
+    and their properties."""
+    design = design_of(Part("U1", "IC", QFP), Part("R1", "330"))
+    mapped = dataclasses.replace(
+        design,
+        circuit=dataclasses.replace(
+            design.circuit,
+            components=tuple(
+                dataclasses.replace(c, pin_pad_map=(("3", "3"), ("3", "EP"))) if c.ref == "U1" else c
+                for c in design.circuit.components
+            ),
+        ),
+    )
+    assert mapped != design and parts_from_model(mapped) == parts_from_model(design)
+    lines = group(parts_from_model(mapped), DEFAULT.bom)
+    assert table(lines, DEFAULT.bom) == table(group(parts_from_model(design), DEFAULT.bom), DEFAULT.bom)

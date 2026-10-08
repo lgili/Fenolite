@@ -618,7 +618,8 @@ STAGE = "copper.clearance"
 
 
 def rules_issues(rules: DesignRules | None) -> list[Issue]:
-    """The ``copper.rules-incomplete`` warnings of a rules source's answer (``None``: no source)."""
+    """The ``copper.rules-incomplete`` warnings of a rules source's answer (``None``: no source), and one
+    ``copper.item-unsupported`` per kind of copper it left out."""
     if rules is None:
         return [
             issue(
@@ -637,6 +638,14 @@ def rules_issues(rules: DesignRules | None) -> list[Issue]:
         )
     for name, message in rules.unread:
         found.append(issue("copper.rules-incomplete", f"{name} was not read: {message}", where=name))
+    for kind, count, reason in rules.left_out:
+        found.append(
+            issue(
+                "copper.item-unsupported",
+                f"{count} {kind} item(s) left out of the copper check: {reason}",
+                where=kind,
+            )
+        )
     return found
 
 

@@ -232,12 +232,12 @@ def document_of(root: Path, output: BuildOutput, variant: Variant, *, rules: boo
     """The PCB document of a built variant, written again from its spec with ``rules`` on or off: the
     bisection variants before ``c5`` hold no rule."""
     from fenolite.backends.altium.pcbdoc import write_pcbdoc
-    from fenolite.lens.altium import pcb_document, resolve_footprints
+    from fenolite.lens.altium import lowered_pcb, resolve_footprints
 
     footprints, _issues = resolve_footprints(
         output.design, blink_resolver(root, root / "examples" / "blink_2layer")
     )
-    spec, _issues = pcb_document(
+    spec, _issues = lowered_pcb(
         output.design,
         name=NAME,
         footprints=footprints,

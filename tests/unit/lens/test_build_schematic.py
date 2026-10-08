@@ -21,6 +21,7 @@ from _schbuild import (
     blink_slash,
     blink_unmarked,
     built_nested,
+    built_stacked,
     built_units,
     global_build,
     sheet_of,
@@ -407,3 +408,31 @@ def test_path_of_a_symbol_in_a_child_sheet(target: int) -> None:
     assert u1.find("path").atoms()[0].value == f"/{kicad_uuid(symbol)}"  # type: ignore[union-attr]
     lowered = lower_for_schematic(output.design, generated)
     assert lower_for_schematic(lowered, generated) == lowered
+
+
+def test_stacked_open_pins_share_one_net_on_the_board() -> None:
+    """Capability kicad-schematic, "Pins with several pads on a generated sheet", scenario "Open pin with
+    three pads" (change c0123): the pads of an open pin are one net, named as KiCad names it."""
+    for target in (9, 10):
+        output = built_stacked(target)
+        assert not [i for i in output.issues if i.severity == "error"]
+        board = read_board(output.files["stacked.kicad_pcb"].decode("utf-8"), file="stacked.kicad_pcb")
+        names = {net.id: net.name for net in board.circuit.nets}
+        refs = {c.id: c.ref for c in board.circuit.components}
+        assert board.board is not None
+        pads = {
+            (refs[fp.component_id], pad.number): names.get(pad.net_id or "", "")
+            for fp in board.board.footprints
+            for pad in fp.pads
+        }
+        assert pads[("U1", "5")] == pads[("U1", "15")] == pads[("U1", "9")] == "unconnected-(U1-Pad15)"
+        assert pads[("D2", "21")] == pads[("D2", "17")] == "Net-(D2-K-Pad17)"
+        assert pads[("U1", "3")] == pads[("U1", "23")] == pads[("R1", "1")] == pads[("R1", "2")] == "OUT"
+        assert pads[("U1", "7")] == pads[("U1", "27")] == "GND" and pads[("U1", "24")] == "VCC"
+        assert pads[("U1", "1")] == "unconnected-(U1-Pad1)" and pads[("U1", "30")] == ""
+        # one net per name: the pads of one pin do not make two nets of one name
+        assert len([n for n in board.circuit.nets if n.name == "unconnected-(U1-Pad15)"]) == 1
+        # the stored model holds none of these nets, and a second build is the first
+        assert output.layout is not None
+        assert not [n for n in output.layout.circuit.nets if n.name.startswith(("unconnected-(", "Net-("))]
+        assert built_stacked(target).files == output.files

@@ -373,3 +373,87 @@ def test_manifest_entry_of_a_preset_export_has_the_level_of_the_run(
     listed = _listed(work)
     assert listed["pos/board-pos.csv"]["evidence"] == "KICAD-VERIFIED"
     assert {listed[p]["evidence"] for p in listed if p.startswith("drill/")} == {"INFERRED"}
+
+
+# --- the Altium rule file (capability manufacturing-exports, "Altium rule file export"; change c0084) ---
+
+
+def test_altium_rule_file_needs_no_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    """Scenario "Rule file from a built project": dry run, confirm and receipt, with ``kicad-cli`` hidden."""
+    from fenolite.backends.altium import rulemap
+    from fenolite.backends.altium.read.rul import read_rule_file
+    from fenolite.backends.altium.read.rules import map_rules
+    from fenolite.model.rules import Selector
+
+    work = tmp_path / "work"
+    work.mkdir()
+    args = ("export", str(root), "--out", "fab", "--altium-rul")
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    assert [p["path"] for p in env["result"]["plan"]] == ["fab/board.RUL"] and list(work.iterdir()) == []
+    code, env, _, _ = run(monkeypatch, work, *args, "--manifest", "--confirm")
+    assert code == 0, env
+    assert [w["path"] for w in env["receipt"]["written"]] == ["fab/board.RUL", "fab/fenolite-artifacts.json"]
+    result = env["result"]
+    assert (
+        result["kinds"] == ["altium-rul"] and result["tool_version"] is None and result["tool_writes"] == []
+    )
+    assert result["rules"] == {
+        "written": [{"kind": "clearance", "selector": "net VIN", "rule": "Clearance_net_VIN"}],
+        "not_lowered": [],
+    }
+    assert [(a["path"], a["kind"]) for a in result["artifacts"]] == [("board.RUL", "altium-rul")]
+    assert env["evidence"]["level"] == "INFERRED" and env["evidence"]["oracle"] is None
+    assert set(env["evidence"]["hypotheses"]) == set(rulemap.EVIDENCE.hypotheses)
+    data = (work / "fab" / "board.RUL").read_bytes()
+    mapping = map_rules([r.fields for r in read_rule_file(data).records], origin="board.RUL")
+    (rule,) = mapping.ruleset.rules
+    assert (rule.kind, rule.min, rule.selector_a) == ("clearance", 200_000, Selector("net", "VIN"))
+    listed = json.loads((work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    (entry,) = listed["artifacts"]
+    assert (entry["path"], entry["kind"], entry["evidence"]) == ("board.RUL", "altium-rul", "INFERRED")
+    assert entry["tool"].startswith("fenolite ") and listed["tool"]["name"] == "fenolite"
+
+
+def test_altium_rule_file_beside_the_tool_kinds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    """``--all`` does not select the rule file; with a tool kind the envelope has the lower level."""
+    work = tmp_path / "work"
+    work.mkdir()
+    base = ("export", str(root), "--out", "fab", "--kicad-cli", _fake(tmp_path), "--dry-run")
+    code, env, _, _ = run(monkeypatch, work, *base, "--all")
+    assert code == 0 and "rules" not in env["result"], env
+    assert not [p for p in env["result"]["plan"] if p["path"].endswith(".RUL")]
+    code, env, _, _ = run(monkeypatch, work, *base, "--pos", "--altium-rul")
+    assert code == 0, env
+    assert env["result"]["kinds"] == ["pos", "altium-rul"]
+    assert [p["path"] for p in env["result"]["plan"]] == ["fab/board.RUL", "fab/pos/board-pos.csv"]
+    assert env["evidence"]["level"] == "INFERRED" and env["evidence"]["oracle"].startswith("kicad-cli ")
+
+
+def test_altium_rule_file_without_a_rule_that_lowers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    hide_kicad(monkeypatch, tmp_path)
+    work = tmp_path / "work"
+    work.mkdir()
+    for folder, rules in (("a", None), ("b", "one-rule")):
+        root = authored_project(tmp_path / folder, major=10, rules=rules)  # type: ignore[arg-type]
+        if rules is not None:  # a rule with a glob has no exact Altium form
+            path = root / "board.kicad_dru"
+            path.write_text(path.read_text(encoding="utf-8").replace("'VIN'", "'V*'"), encoding="utf-8")
+        args = ("export", str(root), "--out", "fab", "--altium-rul", "--confirm")
+        code, env, err, _ = run(monkeypatch, work, *args)
+        assert code == 5 and err["code"] == "FEN-5001", env
+        (failure,) = env["issues"]
+        assert (failure["code"], failure["where"]) == ("export.failed", "altium-rul")
+        assert "plan" not in env["result"] and not (work / "fab").exists()
+        if rules is not None:
+            assert env["result"]["rules"]["not_lowered"] == [
+                {"kind": "clearance", "selector": "net V*", "reason": "scope-unsupported"}
+            ]
+            assert "clearance (scope-unsupported)" in failure["message"]
+
+
+def test_no_kind_names_the_rule_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    code, _, err, _ = run(monkeypatch, tmp_path, "export", str(root), "--out", "fab", "--dry-run")
+    assert code == 2 and "--altium-rul" in err["hint"]

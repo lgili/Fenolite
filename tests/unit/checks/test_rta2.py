@@ -11,7 +11,7 @@ from fakes import FakeDocumentValidator, reading
 
 from fenolite.backends.base import ModelScope, ProjectRead
 from fenolite.checks.documents import run_document_checks
-from fenolite.checks.rta2 import BOARD_KINDS, CIRCUIT_KINDS, MAX_ISSUES, held, rta2_stage
+from fenolite.checks.rta2 import BOARD_KINDS, CIRCUIT_KINDS, MAX_ISSUES, held, predates_board, rta2_stage
 from fenolite.core.coords import Point, Size
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.board import Board, FootprintInstance, Pad, Track
@@ -88,7 +88,6 @@ def test_difference_is_located() -> None:
         "holds": False,
         "differences": 2,
         "compared": {"schematic": ["component"]},
-        "not_in_model": {},
     }
 
 
@@ -104,7 +103,7 @@ def test_circuit_kinds_go_to_the_schematic_and_the_rest_to_the_pcb() -> None:
         "schematic": ["component", "net", "no_connect"],
         "pcb": ["footprint", "netclass", "pad", "track"],
     }
-    assert stage.summary["not_in_model"] == {}
+    assert "not_in_model" not in stage.summary
     # the schematic reading holds no net class and is not asked for one; a footprint moved by 3 nm differs
     moved = ProjectRead(read.schematic, reading(_design("p", board=_board("p", shift=3, tracks=1))))
     assert [i.where for i in rta2_stage(model, moved, SCOPE).issues] == [
@@ -120,28 +119,43 @@ def test_circuit_kinds_go_to_the_schematic_and_the_rest_to_the_pcb() -> None:
     ]
 
 
-def test_board_kinds_the_model_does_not_hold_are_counted() -> None:
-    """The built model of the script holds no footprint and no copper: the reading's are counted, and the
-    level says nothing about them."""
-    model = _design("m", board=Board(id="brd_m"))
-    read = ProjectRead(reading(_design("s")), reading(_design("p", board=_board("p", tracks=3))))
+def test_no_kind_is_only_counted() -> None:
+    """Change c0090, "RT-A2 on a written model": every kind of the scope is compared, also one of which the
+    built model holds no entity. A track that only the reading holds is a difference, not a count."""
+    model = _design("m", board=_board("m"))
+    read = ProjectRead(reading(_design("s")), reading(_design("p", board=_board("p", tracks=2))))
     stage = rta2_stage(model, read, SCOPE)
-    assert stage.status == "ok" and stage.summary["holds"] is True
-    assert stage.summary["compared"] == {"schematic": ["component", "net", "no_connect"], "pcb": ["netclass"]}
-    assert stage.summary["not_in_model"] == {"pcb": {"footprint": 2, "pad": 2, "track": 3}}
-    # a kind the model holds is compared in full: a track that only the reading holds is a difference
-    some = _design("m", board=dataclasses.replace(_board("m", tracks=1), footprints=()))
-    stage = rta2_stage(some, read, SCOPE)
-    assert stage.summary["not_in_model"] == {"pcb": {"footprint": 2, "pad": 2}}
+    assert stage.summary["compared"] == {
+        "schematic": ["component", "net", "no_connect"],
+        "pcb": ["footprint", "netclass", "pad", "track"],
+    }
+    assert "not_in_model" not in stage.summary and stage.summary["differences"] == 2
     assert sorted(i.where for i in stage.issues) == ["pcb:/track/0", "pcb:/track/1"]
     assert "the written documents hold this" in stage.issues[0].message
-    assert set(held(model)) == set(BOARD_KINDS) and held(some)["track"] == 1
+    assert set(held(model)) == set(BOARD_KINDS) and held(read.pcb.design)["track"] == 2  # type: ignore[union-attr]
+
+
+def test_model_that_predates_the_board_is_skipped() -> None:
+    """A model stored before change c0090 holds no footprint while the PCB document holds some: the
+    pipeline skips the stage with ``model-predates-board`` instead of reporting every footprint."""
+    old = _design("m", board=Board(id="brd_m"))
+    reading_ = reading(_design("p", board=_board("p", tracks=1)))
+    assert predates_board(old, reading_.design)
+    assert not predates_board(_design("m", board=_board("m")), reading_.design)
+    assert not predates_board(old, _design("p", board=Board(id="brd_p")))
+    fake = FakeDocumentValidator(schematic=reading(_design("s")), pcb=reading_, scope=SCOPE)
+    report = run_document_checks(
+        documents=fake.documents_result, stages=("roundtrip.rta2",), validator=fake, model=old, built=True
+    )
+    (stage,) = report.stages
+    assert (stage.status, stage.reason, stage.issues) == ("skipped", "model-predates-board", ())
 
 
 def test_one_side_alone_and_the_issue_cap() -> None:
     model = _design("m")
     only_pcb = rta2_stage(model, ProjectRead(None, reading(_design("p"))), SCOPE)
-    assert only_pcb.summary["compared"] == {"pcb": ["netclass"]} and only_pcb.status == "ok"
+    assert only_pcb.summary["compared"] == {"pcb": ["footprint", "netclass", "pad", "track"]}
+    assert only_pcb.status == "ok"
     many = tuple(Component(id=f"cmp_m_{n}", ref=f"C{n}") for n in range(MAX_ISSUES + 20))
     big = dataclasses.replace(model, circuit=dataclasses.replace(model.circuit, components=many, nets=()))
     stage = rta2_stage(big, ProjectRead(reading(_design("s")), None), ModelScope({"component": ("ref",)}))

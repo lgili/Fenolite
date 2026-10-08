@@ -50,7 +50,17 @@ def test_contract_names_the_stages_the_codes_and_the_skip_reasons() -> None:
         assert f"`{stage}`" in section, stage
     for reason in SKIPS:
         assert f"`{reason}`" in section, reason
-    for key in ("backend", "project", "board", "built", "files", "documents", "skipped", "not_in_model"):
+    for key in (
+        "backend",
+        "project",
+        "board",
+        "built",
+        "files",
+        "documents",
+        "skipped",
+        "compared",
+        "unwritten",
+    ):
         assert f"`{key}`" in section, key
     for code in CODES:
         assert code in ISSUE_CODES and f"`{code}`" in contract, code
@@ -75,7 +85,7 @@ def test_altium_page_has_the_round_trips_section() -> None:
         "fenolite inspect",
     ):
         assert word in section, word
-    assert "--view records" in section and "not_in_model" in section
+    assert "--view records" in section and "model-predates-board" in section and "Written scope" in section
     assert "do not take Altium files yet" not in _page("altium.md")
 
 

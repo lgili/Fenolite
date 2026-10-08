@@ -26,11 +26,11 @@
 <line x1="709.306" y1="181.494" x2="709.306" y2="166.247" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="663.565" y1="181.494" x2="678.812" y2="166.247" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="694.059" y1="90.011" x2="694.059" y2="120.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="701.059" y="109.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 MT2</text>
+<text x="701.059" y="109.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="694.059" y1="211.989" x2="694.059" y2="181.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="701.059" y="200.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 MT1</text>
+<text x="701.059" y="200.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="633.070" y1="181.494" x2="663.565" y2="181.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="628.070" y="173.494" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 G</text>
+<text x="628.070" y="173.494" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="474" y="272" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=MT2 · 2=MT1 · 3=G</text>
 <rect x="10" y="310" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="24" y="339" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">TVS_Bidirectional</text>
@@ -227,13 +227,13 @@
 <circle cx="187.782" cy="1028.129" r="1.921" fill="none" stroke="#182a40" stroke-width="3.842" stroke-linejoin="round"/>
 <circle cx="262.218" cy="1028.129" r="1.921" fill="none" stroke="#182a40" stroke-width="3.842" stroke-linejoin="round"/>
 <line x1="194.506" y1="990.011" x2="194.506" y2="1020.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="187.506" y="1009.258" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 P1</text>
+<text x="187.506" y="1009.258" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="194.506" y1="1111.989" x2="194.506" y2="1081.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="187.506" y="1100.742" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 P2</text>
+<text x="187.506" y="1100.742" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="255.494" y1="990.011" x2="255.494" y2="1020.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="262.494" y="1009.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 S1</text>
+<text x="262.494" y="1009.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <line x1="255.494" y1="1111.989" x2="255.494" y2="1081.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="262.494" y="1100.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">4 S2</text>
+<text x="262.494" y="1100.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">4</text>
 <text x="24" y="1172" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=P1 · 2=P2 · 3=S1 · 4=S2</text>
 <rect x="460" y="910" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="474" y="939" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">Varistor</text>

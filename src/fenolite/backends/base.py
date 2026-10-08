@@ -731,7 +731,11 @@ class DesignRules:
     judged against, whether a governing custom clearance rule replaces the class clearances and whether
     the board minimum also raises a rule's value. ``opaque_clearance_rules`` counts the clearance rules
     that could not be lifted into the model, and ``unread`` names each file that failed to read, with the
-    error's message, in file-name order.
+    error's message, in file-name order. ``left_out`` names the copper that the project's files hold in a
+    form the model does not carry as copper, as (kind, count, reason) in kind order: ``design`` is then
+    without the items that stand for it, and the copper check reports each entry. ``clearance_cells`` counts
+    the cells of the clearance matrices of those files (clearances per pair of object kinds): those that a
+    rule of ``design`` holds, and those that none holds.
     """
 
     design: Design
@@ -741,6 +745,8 @@ class DesignRules:
     opaque_clearance_rules: int = 0
     unread: tuple[tuple[str, str], ...] = ()
     evidence: Evidence = Evidence()
+    left_out: tuple[tuple[str, int, str], ...] = ()
+    clearance_cells: tuple[int, int] = (0, 0)
 
 
 @runtime_checkable
@@ -926,6 +932,68 @@ class DocumentValidator(Protocol):
     def stage_evidence(self) -> Mapping[str, Evidence]: ...
 
 
+@runtime_checkable
+class DocumentParity(Protocol):
+    """A document backend that builds the schematic side of the parity comparison (``checks.parity``) from
+    the two readings of a set that ``DocumentValidator.read_documents`` gave: ``schematic`` is the design
+    of the schematic documents and ``board`` the design of the PCB document. It reads no file and runs no
+    tool; ``side`` is ``None`` when the schematic reading gives no side (``message`` says why)."""
+
+    def parity_side(self, schematic: Design, board: Design) -> SideOutcome: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRoundTrip:
+    """The verdict of a model round trip of a set of documents (change c0090; for Altium, RT-A3): the
+    documents are read, the model is written as new documents, and those are read again.
+
+    ``judged`` is false, with a ``reason``, when the trip could not run. ``equal`` tells that the two
+    readings are equal inside ``scope``; ``differences`` are the located differences. ``unwritten`` counts,
+    per kind, what the first reading holds and the written documents do not; it never changes ``equal``.
+    ``written`` counts the model items that were written, per kind, and ``files`` names the written
+    files. Nothing of the trip stays on disk."""
+
+    judged: bool
+    equal: bool
+    differences: tuple[Change, ...] = ()
+    unwritten: Mapping[str, int] = field(default_factory=lambda: {})
+    written: Mapping[str, int] = field(default_factory=lambda: {})
+    files: tuple[str, ...] = ()
+    reason: str = ""
+    evidence: Evidence = Evidence()
+
+
+class ModelCompare(Protocol):
+    """How two designs are compared under a scope (``checks.diff.diff_designs``): a backend imports no
+    check, so the caller hands the comparison in."""
+
+    def __call__(self, a: Design, b: Design, scope: ModelScope, /) -> DiffReport: ...
+
+
+@runtime_checkable
+class ModelWriter(Protocol):
+    """A document backend that writes a model as documents (change c0090). ``in_model_frame`` gives a
+    reading of documents that were written from ``model`` in the frame of ``model``: a writer may place
+    the board elsewhere in its document. ``model_roundtrip`` reads the document at ``path``, writes the
+    model and reads the result."""
+
+    def in_model_frame(self, model: Design, reading: Design) -> Design: ...
+
+    def model_roundtrip(self, path: Path, *, compare: ModelCompare) -> ModelRoundTrip: ...
+
+
+@runtime_checkable
+class BodyComparer(Protocol):
+    """A model writer that can write component bodies on request (change c0121). ``body_differences``
+    gives the differences of the kind ``body`` between ``model``, the model a build stored, and
+    ``reading``, the model of the documents it wrote, each a ``Change`` whose path starts with ``/body/``,
+    and the evidence of that comparison.
+    The stored model holds exactly the bodies that were written, so the caller compares bodies exactly
+    when it holds one; the kind is no part of ``written_scope()``."""
+
+    def body_differences(self, model: Design, reading: Design) -> tuple[tuple[Change, ...], Evidence]: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -948,6 +1016,7 @@ __all__ = [
     "BackendOperation",
     "BoardFrame",
     "BoardPad",
+    "BodyComparer",
     "CanaryState",
     "CapabilityReport",
     "Change",
@@ -958,6 +1027,7 @@ __all__ = [
     "DesignRulesSource",
     "DiffReport",
     "Document",
+    "DocumentParity",
     "DocumentRole",
     "DocumentSet",
     "DocumentValidator",
@@ -976,6 +1046,9 @@ __all__ = [
     "FillOutcome",
     "MATRIX_OPERATIONS",
     "MatrixRow",
+    "ModelCompare",
+    "ModelRoundTrip",
+    "ModelWriter",
     "ModelScope",
     "NetlistOracle",
     "NetlistOutcome",

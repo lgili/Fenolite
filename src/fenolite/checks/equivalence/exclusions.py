@@ -34,6 +34,7 @@ ROOT_KEYS = frozenset({"schema", "profile"})
 PROFILE_KEYS = frozenset({"name", "tool", "tool_version", "frame", "tolerance_nm", "tolerance_udeg", "rule"})
 RULE_REQUIRED = ("id", "level", "kind", "where", "attribution", "reason", "hypothesis")
 RULE_OPTIONAL = ("field", "corpus")
+PROFILE_OPTIONAL = ("rule", "tolerance_ppm")
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +73,7 @@ class Profile:
     tolerance_nm: int
     tolerance_udeg: int
     rules: tuple[Rule, ...] = ()
+    tolerance_ppm: int = 0
 
 
 def _text(table: Mapping[str, Any], key: str, where: str, file: str) -> str:
@@ -157,7 +159,7 @@ def load_profiles(text: str, *, file: str = "") -> tuple[Profile, ...]:
             raise FormatError("profile is an array of tables ([[profile]])", file=file)
         name = table.get("name")
         where = f"profile {name!r}"
-        _keys(table, sorted(PROFILE_KEYS - {"rule"}), ("rule",), where, file)
+        _keys(table, sorted(PROFILE_KEYS - {"rule"}), PROFILE_OPTIONAL, where, file)
         frame = _text(table, "frame", where, file)
         if frame not in FRAMES:
             raise FormatError(f"{where}: frame is one of {', '.join(FRAMES)}", file=file)
@@ -174,6 +176,7 @@ def load_profiles(text: str, *, file: str = "") -> tuple[Profile, ...]:
                 tolerance_nm=_count(table, "tolerance_nm", where, file),
                 tolerance_udeg=_count(table, "tolerance_udeg", where, file),
                 rules=tuple(_rule(rule, seen, name, file) for rule in cast(list[Mapping[str, Any]], rules)),
+                tolerance_ppm=_count(table, "tolerance_ppm", where, file) if "tolerance_ppm" in table else 0,
             )
         )
     return tuple(profiles)
@@ -192,17 +195,22 @@ def select_profile(profiles: Sequence[Profile], name: str, tool_version: str) ->
 
 
 def apply_rules(result: LevelResult, rules: Sequence[Rule]) -> LevelResult:
-    """``result`` with each difference that a rule matches moved to ``excluded``; the first matching rule,
-    in the given order, wins."""
-    kept: list[Difference] = []
+    """``result`` with each difference and each notice that a rule matches moved to ``excluded``; the first
+    matching rule, in the given order, wins."""
     excluded: list[Excluded] = list(result.excluded)
-    for difference in result.differences:
-        rule = next((r for r in rules if r.matches(difference)), None)
-        if rule is None:
-            kept.append(difference)
-        else:
-            excluded.append(Excluded(difference, rule.id, rule.reason))
-    return replace(result, differences=tuple(kept), excluded=tuple(excluded))
+
+    def kept(found: Sequence[Difference]) -> tuple[Difference, ...]:
+        left: list[Difference] = []
+        for difference in found:
+            rule = next((r for r in rules if r.matches(difference)), None)
+            if rule is None:
+                left.append(difference)
+            else:
+                excluded.append(Excluded(difference, rule.id, rule.reason))
+        return tuple(left)
+
+    differences, notices = kept(result.differences), kept(result.notices)
+    return replace(result, differences=differences, notices=notices, excluded=tuple(excluded))
 
 
 __all__ = [

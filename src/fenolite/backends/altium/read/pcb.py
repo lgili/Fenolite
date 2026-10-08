@@ -646,6 +646,20 @@ def read_pcbdoc(source: bytes | CompoundFile, *, file: str = "", strict: bool = 
     )
 
 
+def read_rule_fields(
+    source: bytes | CompoundFile, *, file: str = ""
+) -> tuple[tuple[tuple[str, str], ...], ...]:
+    """The pair list of every rule record of a PCB document, in stream order: the input of
+    ``read.rules.map_rules``, read from ``Rules6/Data`` alone, so that asking for the rules does not decode
+    the copper. ``()`` for a document without that stream; the errors are those of ``read_pcbdoc``."""
+    compound = _open(source, file=file)
+    path = "Rules6/Data"
+    if path not in compound:
+        return ()
+    records, _trailing, _problems = parse_blocks(compound.read(path), lead=2, where=path)
+    return tuple(record.fields for record in records)
+
+
 T = TypeVar("T")
 
 
@@ -694,6 +708,7 @@ __all__ = [
     "file_header",
     "open_container",
     "read_pcbdoc",
+    "read_rule_fields",
     "resolve_texts",
     "storages_of",
     "string_header",

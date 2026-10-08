@@ -22,7 +22,7 @@ from pathlib import Path
 
 import _erc
 from _buildhelp import LIBS, blink, build
-from _schbuild import built_units
+from _schbuild import built_stacked, built_units
 
 from fenolite.backends.kicad import netnames, sch, schlayout, symembed
 from fenolite.backends.kicad.cli import KicadCli
@@ -360,14 +360,49 @@ def shown_separate_outcome() -> str:
 
 @cache
 def built(name: str, target: int) -> Mapping[str, bytes]:
-    """The files that ``build`` writes for the blink or the units design, without the ``.fenolite/`` cache."""
-    output = build(blink(), target) if name == "blink" else built_units(target)
+    """The files that ``build`` writes for the blink, the units design, the stacked design (pins bonded to
+    several pads, change c0123) or the stacked design with the first pad of each pin alone, without the
+    ``.fenolite/`` cache."""
+    if name.startswith("stacked"):
+        output = built_stacked(target, first_pad_only=name == "stacked-first")
+    else:
+        output = build(blink(), target) if name == "blink" else built_units(target)
     assert output.files, [i.message for i in output.issues if i.severity == "error"]
     return {rel: data for rel, data in output.files.items() if not rel.startswith(".fenolite/")}
 
 
 def stem(name: str) -> str:
-    return "blink" if name == "blink" else "units"
+    return "stacked" if name.startswith("stacked") else "blink" if name == "blink" else "units"
+
+
+def stacked_erc_outcome() -> str:
+    """``equal`` when ERC reports for the stacked design the violations it reports for the same design
+    with the first pad of each pin alone: the stacked pins add none (``H-K-SCH-STACKED``). The one
+    violation of both is the open, unmarked pin of ``D2``."""
+    with_pads, first = built_erc("stacked"), built_erc("stacked-first")
+    if not with_pads.loaded or not first.loaded:
+        return "inconclusive"
+    found = _erc.types(_erc.violations(with_pads))
+    return "equal" if found == _erc.types(_erc.violations(first)) and found else "different"
+
+
+def stacked_parity_outcome() -> str:
+    """``absent`` when KiCad's parity test reports nothing on the built stacked design: every pad of a pin
+    is on the net the sheet gives it, the pads of an open pin included (``H-K-SCH-STACKED-OPEN``). The
+    control is the same board with one further pad taken off its net."""
+    report = built_parity("stacked")
+    files = dict(built("stacked", major()))
+    board = files["stacked.kicad_pcb"].decode("utf-8")
+    name = '"unconnected-(U1-Pad15)"'
+    if not report.loaded or board.count(name) < 3:
+        return "inconclusive"
+    cut = board.replace(name, '"unconnected-(U1-Pad5)"')
+    control = _erc.run_parity(
+        runner(), "stacked.kicad_pcb", {**files, "stacked.kicad_pcb": cut.encode("utf-8")}
+    )
+    if not control.loaded or not _erc.types(_erc.parity(control)).get("net_conflict"):
+        return "inconclusive"
+    return "absent" if not _erc.parity(report) else "present"
 
 
 @cache
@@ -463,6 +498,8 @@ def gen_probes() -> Probes:
     probes["sch-gen-erc-blink"] = (lambda: generated_erc_outcome("blink"), both)
     probes["sch-gen-erc-units"] = (lambda: generated_erc_outcome("units"), both)
     probes["sch-gen-resave"] = (resave_outcome, (10,))
+    probes["sch-stacked-erc"] = (stacked_erc_outcome, both)
+    probes["sch-stacked-parity"] = (stacked_parity_outcome, both)
     return probes
 
 

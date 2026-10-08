@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import posixpath
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 
@@ -47,6 +47,11 @@ EVIDENCE = Evidence(
 """``KICAD-VERIFIED``: ``H-K-NETLIST-OWN`` holds on 9.0.9 and 10.0.6 for the sheets ``build`` writes (c0063
 task 8.2), and the two rows of c0070 hold for the sheet tree and the wires. It says nothing of a sheet
 outside the grammar, which ``own_netlist`` refuses."""
+STACKED_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-STACKED",))
+"""What a netlist rests on besides ``EVIDENCE`` when a sheet holds stacked pins: pins of one symbol
+instance that have one name and connect at one point (a pin bonded to several pads, change c0123)."""
+STACKED_OPEN_EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-SCH-STACKED-OPEN",))
+"""And when such a stack carries no label: KiCad makes one net of it and names it after one of its pads."""
 CODE = "kicad.sch.netlist-unsupported"
 ISSUE_CODES: Mapping[str, Severity] = MappingProxyType({CODE: "error"})
 """The one code of this module; the closed set of the reader (``sch.ISSUE_CODES``) is not widened."""
@@ -319,7 +324,8 @@ def _sheet_issues(sheet: SchematicSheet, path: str, found: dict[str, tuple[str, 
     shared: list[str] = []
     for point, group in sorted(at.items(), key=lambda item: _key(item[0])):
         instances = {id(pin.instance) for pin in group}
-        if len(instances) > 1 or (len(group) > 1 and not names.get(point)):
+        stacked = len({pin.pin.name for pin in group}) == 1  # pins of one name: one net (c0123)
+        if len(instances) > 1 or (len(group) > 1 and not names.get(point) and not stacked):
             shared.append(" and ".join(sorted({f"{pin.ref}-{pin.pin.number}" for pin in group})))
     if shared:
         add("shared-point", f"several pins connect at one point without a label of their own: {shared[0]}")
@@ -378,6 +384,32 @@ def _components(sheets: Sequence[SchematicSheet], project: str) -> tuple[NetComp
     )
 
 
+def stack_evidence(sheets: Iterable[SchematicSheet]) -> tuple[Evidence, ...]:
+    """The evidence that the stacked pins of ``sheets`` add to ``EVIDENCE``: ``STACKED_EVIDENCE`` when a
+    symbol instance has several pins of one name at one point, and ``STACKED_OPEN_EVIDENCE`` too when such
+    a point carries no label. ``()`` for sheets without a stack, so that the evidence of a design whose
+    pins have one pad each is ``EVIDENCE`` itself, as before stacked pins were read."""
+    stacked = opened = False
+    for sheet in sheets:
+        groups = _Groups(_wires(sheet)[0])
+        labelled = {groups.of(label.position) for label in sheet.labels}
+        seen: dict[tuple[int, Point, str], str] = {}
+        for pin in _pins(sheet, None):
+            key = (id(pin.instance), pin.point, pin.pin.name)
+            if seen.setdefault(key, pin.pin.number) != pin.pin.number:
+                stacked = True
+                opened = opened or groups.of(pin.point) not in labelled
+    found = (STACKED_EVIDENCE,) if stacked else ()
+    return (*found, STACKED_OPEN_EVIDENCE) if opened else found
+
+
+def evidence_of(sheet: SchematicSheet, children: Mapping[str, SchematicSheet] = NO_CHILDREN) -> Evidence:
+    """The evidence of ``own_netlist(sheet, children=children)``: ``EVIDENCE``, combined with
+    ``stack_evidence`` of the sheets when they hold stacked pins (lowest level wins, ids listed)."""
+    extra = stack_evidence((sheet, *children.values()))
+    return Evidence.combine(EVIDENCE, *extra) if extra else EVIDENCE
+
+
 def own_netlist(
     sheet: SchematicSheet, *, project: str, children: Mapping[str, SchematicSheet] = NO_CHILDREN
 ) -> KicadNetlist:
@@ -402,7 +434,11 @@ def own_netlist(
         groups = _Groups(_wires(member)[0])
         labels = {groups.of(label.position): netnames.stored_name(label.name) for label in member.labels}
         flagged = {flag.position for flag in member.no_connects}
-        for pin in _pins(member, project):
+        pins = _pins(member, project)
+        stacks: dict[tuple[int, Point, str], list[str]] = defaultdict(list)
+        for pin in pins:
+            stacks[(id(pin.instance), pin.point, pin.pin.name)].append(pin.pin.number)
+        for pin in pins:
             key = (pin.ref, pin.pin.number)
             if not pin.ref or pin.ref.startswith("#") or key in placed:
                 continue
@@ -411,12 +447,14 @@ def own_netlist(
             placed.add(key)
             name = labels.get(groups.of(pin.point))
             if name is None:
-                name = netnames.unconnected_name(
+                name = netnames.open_name(
                     pin.ref,
                     unit=pin.instance.unit,
                     unit_count=pin.definition.unit_count,
                     pin_name=pin.pin.name,
-                    pad_number=pin.pin.number,
+                    # stacked pins without a label are one net, named after one of them
+                    pads=stacks[(id(pin.instance), pin.point, pin.pin.name)],
+                    marked=pin.point in flagged,
                 )
             suffix = NO_CONNECT_SUFFIX if pin.point in flagged else ""
             nets[name][key] = NetNode(pin.ref, pin.pin.number, f"{pin.pin.etype}{suffix}")
@@ -429,11 +467,15 @@ def own_netlist(
 __all__ = [
     "CODE",
     "EVIDENCE",
+    "STACKED_EVIDENCE",
+    "STACKED_OPEN_EVIDENCE",
     "HINT",
     "ISSUE_CODES",
     "REASONS",
     "WIRE_HEADS",
     "NetlistUnsupportedError",
+    "evidence_of",
     "grammar_issues",
     "own_netlist",
+    "stack_evidence",
 ]

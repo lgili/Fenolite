@@ -8,11 +8,11 @@
 <line x1="225.000" y1="166.247" x2="270.742" y2="181.494" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <polygon points="261.557,178.433 254.954,172.226 252.553,179.429" fill="white" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="179.258" y1="151.000" x2="209.753" y2="151.000" stroke="#182a40" stroke-width="3.049"/>
-<text x="174.258" y="143.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 B</text>
+<text x="174.258" y="143.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="270.742" y1="90.011" x2="270.742" y2="120.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="277.742" y="109.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 C</text>
+<text x="277.742" y="109.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="270.742" y1="211.989" x2="270.742" y2="181.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="277.742" y="200.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 E</text>
+<text x="277.742" y="200.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="24" y="272" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=B · 2=C · 3=E</text>
 <rect x="460" y="10" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="474" y="39" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">BJT_PNP</text>
@@ -22,11 +22,11 @@
 <line x1="675.000" y1="166.247" x2="720.742" y2="181.494" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <polygon points="700.752,174.831 707.355,181.026 709.756,173.823" fill="white" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="629.258" y1="151.000" x2="659.753" y2="151.000" stroke="#182a40" stroke-width="3.049"/>
-<text x="624.258" y="143.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 B</text>
+<text x="624.258" y="143.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="720.742" y1="90.011" x2="720.742" y2="120.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="727.742" y="109.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 C</text>
+<text x="727.742" y="109.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="720.742" y1="211.989" x2="720.742" y2="181.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="727.742" y="200.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 E</text>
+<text x="727.742" y="200.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="474" y="272" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=B · 2=C · 3=E</text>
 <rect x="10" y="310" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="24" y="339" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">MOSFET_N_Channel</text>
@@ -49,11 +49,11 @@
 <polygon points="267.560,458.203 281.967,458.203 274.763,443.797" fill="white" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="267.560" y1="443.797" x2="281.967" y2="443.797" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="168.033" y1="451.000" x2="198.528" y2="451.000" stroke="#182a40" stroke-width="3.049"/>
-<text x="163.033" y="443.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 G</text>
+<text x="163.033" y="443.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="259.516" y1="390.011" x2="259.516" y2="420.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="266.516" y="409.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 D</text>
+<text x="266.516" y="409.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="259.516" y1="511.989" x2="259.516" y2="481.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="266.516" y="500.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 S</text>
+<text x="266.516" y="500.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="24" y="572" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=G · 2=D · 3=S</text>
 <rect x="460" y="310" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="474" y="339" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">MOSFET_P_Channel</text>
@@ -76,11 +76,11 @@
 <polygon points="717.560,443.797 731.967,443.797 724.763,458.203" fill="white" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="717.560" y1="458.203" x2="731.967" y2="458.203" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="618.033" y1="451.000" x2="648.528" y2="451.000" stroke="#182a40" stroke-width="3.049"/>
-<text x="613.033" y="443.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 G</text>
+<text x="613.033" y="443.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="709.516" y1="390.011" x2="709.516" y2="420.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="716.516" y="409.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 D</text>
+<text x="716.516" y="409.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="709.516" y1="511.989" x2="709.516" y2="481.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="716.516" y="500.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 S</text>
+<text x="716.516" y="500.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="474" y="572" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=G · 2=D · 3=S</text>
 <rect x="10" y="610" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="24" y="639" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">IGBT</text>
@@ -91,11 +91,11 @@
 <line x1="225.000" y1="766.247" x2="270.742" y2="781.494" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <polygon points="261.557,778.433 254.954,772.226 252.553,779.429" fill="white" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="179.258" y1="751.000" x2="209.753" y2="751.000" stroke="#182a40" stroke-width="3.049"/>
-<text x="174.258" y="743.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 G</text>
+<text x="174.258" y="743.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="270.742" y1="690.011" x2="270.742" y2="720.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="277.742" y="709.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 C</text>
+<text x="277.742" y="709.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="270.742" y1="811.989" x2="270.742" y2="781.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="277.742" y="800.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 E</text>
+<text x="277.742" y="800.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="24" y="872" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=G · 2=C · 3=E</text>
 <rect x="460" y="610" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="474" y="639" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">SCR</text>
@@ -105,11 +105,11 @@
 <line x1="697.871" y1="766.247" x2="697.871" y2="781.494" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="667.376" y1="781.494" x2="697.871" y2="766.247" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="697.871" y1="690.011" x2="697.871" y2="720.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="704.871" y="709.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 A</text>
+<text x="704.871" y="709.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="697.871" y1="811.989" x2="697.871" y2="781.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="704.871" y="800.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 K</text>
+<text x="704.871" y="800.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="636.882" y1="781.494" x2="667.376" y2="781.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="631.882" y="773.494" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 G</text>
+<text x="631.882" y="773.494" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="474" y="872" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=A · 2=K · 3=G</text>
 <rect x="10" y="910" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="24" y="939" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">TRIAC</text>
@@ -125,11 +125,11 @@
 <line x1="259.306" y1="1081.494" x2="259.306" y2="1066.247" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="213.565" y1="1081.494" x2="228.812" y2="1066.247" fill="none" stroke="#182a40" stroke-width="3.049" stroke-linejoin="round"/>
 <line x1="244.059" y1="990.011" x2="244.059" y2="1020.506" stroke="#182a40" stroke-width="3.049"/>
-<text x="251.059" y="1009.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 MT2</text>
+<text x="251.059" y="1009.258" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="244.059" y1="1111.989" x2="244.059" y2="1081.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="251.059" y="1100.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 MT1</text>
+<text x="251.059" y="1100.742" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="183.070" y1="1081.494" x2="213.565" y2="1081.494" stroke="#182a40" stroke-width="3.049"/>
-<text x="178.070" y="1073.494" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 G</text>
+<text x="178.070" y="1073.494" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="24" y="1172" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=MT2 · 2=MT1 · 3=G</text>
 <rect x="460" y="910" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="474" y="939" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">Schottky_Diode</text>
@@ -139,10 +139,10 @@
 <line x1="704.176" y1="1011.946" x2="704.176" y2="1090.054" fill="none" stroke="#182a40" stroke-width="5.835" stroke-linejoin="round"/>
 <line x1="704.176" y1="1090.054" x2="689.588" y2="1090.054" fill="none" stroke="#182a40" stroke-width="5.835" stroke-linejoin="round"/>
 <line x1="689.588" y1="1090.054" x2="689.588" y2="1075.122" fill="none" stroke="#182a40" stroke-width="5.835" stroke-linejoin="round"/>
-<line x1="587.473" y1="1051.000" x2="645.824" y2="1051.000" stroke="#182a40" stroke-width="5.835"/>
-<text x="582.473" y="1043.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 A</text>
-<line x1="762.527" y1="1051.000" x2="704.176" y2="1051.000" stroke="#182a40" stroke-width="5.835"/>
-<text x="767.527" y="1043.000" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 K</text>
+<line x1="558.297" y1="1051.000" x2="645.824" y2="1051.000" stroke="#182a40" stroke-width="5.835"/>
+<text x="553.297" y="1043.000" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
+<line x1="791.703" y1="1051.000" x2="704.176" y2="1051.000" stroke="#182a40" stroke-width="5.835"/>
+<text x="796.703" y="1043.000" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <text x="474" y="1172" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=A · 2=K</text>
 <rect x="10" y="1210" width="430" height="280" rx="10" fill="white" stroke="#d7dce5"/>
 <text x="24" y="1239" font-family="Arial,sans-serif" font-size="18.000" font-weight="bold" fill="#0f172a">TVS_Bidirectional</text>
@@ -169,10 +169,10 @@
 <line x1="685.656" y1="1342.190" x2="685.656" y2="1367.194" fill="none" stroke="#182a40" stroke-width="4.263" stroke-linejoin="round"/>
 <polygon points="685.656,1367.194 690.691,1356.286 680.622,1356.286" fill="white" stroke="#182a40" stroke-width="4.263" stroke-linejoin="round"/>
 <line x1="589.748" y1="1384.815" x2="632.374" y2="1384.815" stroke="#182a40" stroke-width="4.263"/>
-<text x="584.748" y="1376.815" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1 A</text>
+<text x="584.748" y="1376.815" text-anchor="end" font-family="Arial,sans-serif" font-size="12" fill="#52667c">1</text>
 <line x1="685.656" y1="1299.564" x2="685.656" y2="1342.190" stroke="#182a40" stroke-width="4.263"/>
-<text x="692.656" y="1324.877" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2 W</text>
+<text x="692.656" y="1324.877" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">2</text>
 <line x1="760.252" y1="1384.815" x2="717.626" y2="1384.815" stroke="#182a40" stroke-width="4.263"/>
-<text x="765.252" y="1376.815" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3 B</text>
+<text x="765.252" y="1376.815" text-anchor="start" font-family="Arial,sans-serif" font-size="12" fill="#52667c">3</text>
 <text x="474" y="1472" font-family="Arial,sans-serif" font-size="12.000" fill="#64748b">1=A · 2=W · 3=B</text>
 </svg>

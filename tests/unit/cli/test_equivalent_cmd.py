@@ -1,12 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite equivalent`` (capability design-equivalence, "Equivalent command" and "Triangle oracle";
-change c0045). Hermetic: the two-path form runs no tool, and the triangle runs a fake ``kicad-cli``."""
+"""``fenolite equivalent`` (capability design-equivalence, "Equivalent command", "Level 5 in the equivalent
+command" and "Triangle oracle"; changes c0045 and c0089). Hermetic: the two-path form runs no tool, and the
+triangle runs a fake ``kicad-cli``."""
 
 from __future__ import annotations
 
 import dataclasses
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,8 @@ from _projects import authored_project, tree_snapshot
 from fenolite.backends import registry
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
+from fenolite.core.ids import derived_id
+from fenolite.model.board import Board
 from fenolite.model.design import Design
 
 DATA = Path(__file__).resolve().parents[2] / "data"
@@ -27,7 +31,7 @@ BLINK = DATA / "altium" / "blink"
 PCBDOC = BLINK / "blink.PcbDoc"
 KEYS = {
     "level", "equivalent", "sides", "tolerances", "frame", "translation", "levels", "differences", "excluded",
-    "profile",
+    "notices", "profile",
 }  # fmt: skip
 SIDE_KEYS = {"path", "sha256", "backend", "netlist_source", "components", "footprints"}
 EXCLUSIONS = """schema = 1
@@ -79,6 +83,18 @@ def _changed(tmp_path: Path, name: str = "copy.kicad_pcb", **moves: Any) -> Path
     return target
 
 
+def _rerouted(tmp_path: Path, edit: Callable[[Board], Board], name: str = "rerouted.kicad_pcb") -> Path:
+    """A copy of the two-layer board with its board changed by ``edit``, written with the KiCad backend."""
+    design = read_board(TWO_LAYER.read_text(encoding="utf-8"), file=TWO_LAYER.name)
+    assert design.board is not None
+    changed = dataclasses.replace(design, board=edit(design.board))
+    folder = tmp_path / "rerouted"
+    folder.mkdir(exist_ok=True)
+    target = folder / name
+    target.write_text(registry.get("kicad").write(changed).text, encoding="utf-8", newline="\n")
+    return target
+
+
 def _codes(env: dict[str, Any]) -> list[tuple[str, str, str]]:
     return [(i["code"], i["severity"], i["where"]) for i in env["issues"]]
 
@@ -87,18 +103,21 @@ def test_a_board_equals_itself(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(TWO_LAYER))
     result = env["result"]
     assert code == 0 and env["ok"] is True and set(result) == KEYS
-    assert (result["equivalent"], result["level"], result["profile"]) == (True, 4, None)
+    assert (result["equivalent"], result["level"], result["profile"]) == (True, 5, None)
     assert [(lv["level"], lv["name"], lv["differences"], lv["excluded"]) for lv in result["levels"]] == [
         (1, "components", 0, 0), (2, "netlist", 0, 0), (3, "footprints", 0, 0), (4, "placement", 0, 0),
+        (5, "routing", 0, 0),
     ]  # fmt: skip
-    assert [lv["compared"] for lv in result["levels"]] == [2, 4, 4, 2]
+    assert [lv["compared"] for lv in result["levels"]] == [2, 4, 4, 2, 3]
+    assert result["levels"][4]["notices"] == 0 and result["notices"] == []
+    assert result["levels"][4]["summary"]["vias"] == {"a": 1, "b": 1}
     assert result["sides"]["a"] == result["sides"]["b"] and set(result["sides"]["a"]) == SIDE_KEYS
     assert (
         result["sides"]["a"]["path"] == "two_layer.kicad_pcb" and result["sides"]["a"]["backend"] == "kicad"
     )
     assert (result["sides"]["a"]["netlist_source"], result["sides"]["a"]["footprints"]) == ("board", 2)
     assert len(result["sides"]["a"]["sha256"]) == 64
-    assert result["tolerances"] == {"length_nm": 0, "angle_udeg": 0}
+    assert result["tolerances"] == {"length_nm": 0, "angle_udeg": 0, "length_ppm": 0}
     assert (result["frame"], result["translation"]) == ("absolute", [0, 0])
     assert result["differences"] == [] and result["excluded"] == [] and env["issues"] == []
     assert env["input"]["path"] == "two_layer.kicad_pcb"
@@ -110,7 +129,8 @@ def test_differences_give_exit_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     code, env, err, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(copy))
     result = env["result"]
     assert code == 5 and env["ok"] is False and err["code"] == "FEN-5001"
-    assert result["equivalent"] is False and result["level"] == 4
+    # the two nets of R1 are a difference of level 2, so level 5 does not judge them again
+    assert result["equivalent"] is False and result["level"] == 5
     assert _codes(env) == [("netlist.assignment-differs", "error", "R1-1"), ("equiv.position", "error", "R1")]
     assert [(d["level"], d["kind"], d["where"], d["field"]) for d in result["differences"]] == [
         (2, "net", "R1-1", "net"), (4, "position", "R1", "position"),
@@ -119,7 +139,8 @@ def test_differences_give_exit_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
         "20000000,15000000",
         "21000000,15000000",
     )
-    assert [lv["differences"] for lv in result["levels"]] == [0, 1, 0, 1]
+    assert [lv["differences"] for lv in result["levels"]] == [0, 1, 0, 1, 0]
+    assert result["levels"][4]["summary"]["nets_unpaired"] == {"a": 2, "b": 2}
     code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(copy), "--level", "1")
     assert code == 0 and env["result"]["equivalent"] is True and len(env["result"]["levels"]) == 1
 
@@ -131,7 +152,7 @@ def test_built_design_against_its_board(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert code == 0, env["issues"]
     assert (result["sides"]["a"]["backend"], result["sides"]["b"]["backend"]) == ("fenolite", "kicad")
     assert (result["sides"]["a"]["path"], result["sides"]["a"]["sha256"]) == (".fenolite", None)
-    assert result["sides"]["b"]["path"] == "board.kicad_pcb" and result["level"] == 4
+    assert result["sides"]["b"]["path"] == "board.kicad_pcb" and result["level"] == 5
     assert env["evidence"]["level"] == "INFERRED"
     code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(project / "board.kicad_pro"), str(project))
     assert code == 0 and env["result"]["sides"]["a"]["path"] == "board.kicad_pcb"
@@ -142,8 +163,14 @@ def test_built_design_against_its_board(monkeypatch: pytest.MonkeyPatch, tmp_pat
     [
         ((str(TWO_LAYER),), "give B or --against kicad-import"),
         ((str(TWO_LAYER), str(TWO_LAYER), "--against", "kicad-import"), "give B or --against kicad-import"),
-        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "5"), "--level is one of 1, 2, 3, 4"),
-        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "0"), "--level is one of 1, 2, 3, 4"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "6"), "--level is one of 1, 2, 3, 4, 5"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--level", "0"), "--level is one of 1, 2, 3, 4, 5"),
+        ((str(TWO_LAYER), str(TWO_LAYER), "--tolerance-ppm", "-1"), "--tolerance-ppm is a non-negative"),
+        (
+            (str(TWO_LAYER), str(PCBDOC), "--level", "5"),
+            "level 5 needs a track, an arc or a via on both sides, and side b holds none; the highest level "
+            "available is 4",
+        ),
         (
             (str(TWO_LAYER), str(TWO_LAYER), "--tolerance-nm", "-1"),
             "--tolerance-nm is a non-negative integer",
@@ -167,7 +194,13 @@ def test_usage_errors(
 
 
 def test_bad_option_values(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    for extra in (("--level", "four"), ("--frame", "turned"), ("--tolerance-nm", "1.5"), ("--against", "x")):
+    for extra in (
+        ("--level", "four"),
+        ("--frame", "turned"),
+        ("--tolerance-nm", "1.5"),
+        ("--tolerance-ppm", "0.5"),
+        ("--against", "x"),
+    ):
         code, _, err, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(TWO_LAYER), *extra)
         assert code == 2 and err["code"] == "FEN-2001", extra
 
@@ -224,19 +257,20 @@ def test_relative_paths_resolve_against_the_working_directory(
 
 def test_frame_tolerance_and_ignore_ref(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     copy = _changed(tmp_path, net=False, r1=False, shift=Point(2_000_000, -1_000_000), turn=3)
-    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(copy))
+    # the copy moves the footprints and leaves the copper where it was: the placement is judged at level 4
+    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(copy), "--level", "4")
     assert code == 5
     assert _codes(env) == [
         ("equiv.position", "error", "D1"),
         ("equiv.rotation", "error", "D1"),
         ("equiv.position", "error", "R1"),
     ]
-    args = ("equivalent", str(TWO_LAYER), str(copy), "--frame", "relative")
+    args = ("equivalent", str(TWO_LAYER), str(copy), "--frame", "relative", "--level", "4")
     code, env, _, _ = run(monkeypatch, tmp_path, *args)
     assert code == 5 and _codes(env) == [("equiv.rotation", "error", "D1")]
     assert env["result"]["translation"] == [2_000_000, -1_000_000] and env["result"]["frame"] == "relative"
     code, env, _, _ = run(monkeypatch, tmp_path, *args, "--tolerance-udeg", "3")
-    assert code == 0 and env["result"]["tolerances"] == {"length_nm": 0, "angle_udeg": 3}
+    assert code == 0 and env["result"]["tolerances"] == {"length_nm": 0, "angle_udeg": 3, "length_ppm": 0}
     code, env, _, _ = run(monkeypatch, tmp_path, *args, "--ignore-ref", "D*", "--ignore-ref", "X?")
     assert code == 0 and env["result"]["levels"][0]["summary"]["ignored"] == 1
     assert [lv["compared"] for lv in env["result"]["levels"]] == [1, 2, 2, 1]
@@ -246,12 +280,16 @@ def test_profile_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch, tmp_pat
     rules = tmp_path / "rules.toml"
     rules.write_text(EXCLUSIONS, encoding="utf-8")
     copy = _changed(tmp_path, net=False, r1=False, shift=Point(2_000_000, -1_000_000), turn=3)
-    args = ("equivalent", str(TWO_LAYER), str(copy), "--exclusions", str(rules), "--profile", "moved")
+    level = ("--level", "4")  # the copy moves the footprints and leaves the copper where it was
+    args = ("equivalent", str(TWO_LAYER), str(copy), *level, "--exclusions", str(rules), "--profile", "moved")
     code, env, _, _ = run(monkeypatch, tmp_path, *args)
     result = env["result"]
     assert code == 0 and result["equivalent"] is True
     assert result["profile"] == {"name": "moved", "tool_version": "1", "rules": 1}
-    assert (result["frame"], result["tolerances"]) == ("relative", {"length_nm": 5, "angle_udeg": 0})
+    assert (result["frame"], result["tolerances"]) == (
+        "relative",
+        {"length_nm": 5, "angle_udeg": 0, "length_ppm": 0},
+    )
     assert result["excluded"] == [
         {"level": 4, "kind": "rotation", "where": "D1", "field": "rotation", "a": "30000000", "b": "30000003",
          "rule": "d1-rotation"}
@@ -265,7 +303,7 @@ def test_profile_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch, tmp_pat
     # an option on the command line overrides the profile's value
     code, env, _, _ = run(monkeypatch, tmp_path, *args, "--frame", "absolute", "--tolerance-nm", "0")
     assert code == 5 and env["result"]["frame"] == "absolute"
-    assert env["result"]["tolerances"] == {"length_nm": 0, "angle_udeg": 0}
+    assert env["result"]["tolerances"] == {"length_nm": 0, "angle_udeg": 0, "length_ppm": 0}
     assert [c for c in _codes(env) if c[1] == "error"] == [
         ("equiv.position", "error", "D1"), ("equiv.position", "error", "R1"),
     ]  # fmt: skip
@@ -277,6 +315,113 @@ def test_profile_defaults_and_overrides(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert code == 3 and err["code"] == "FEN-3004" and "d1-rotation" in err["message"]
     code, _, err, _ = run(monkeypatch, tmp_path, *args[:-3], str(tmp_path / "no.toml"), "--profile", "moved")
     assert code == 3 and err["code"] == "FEN-3001"
+
+
+# --- level 5 ---------------------------------------------------------------------------------------
+
+
+def test_the_default_level_compares_routing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Both sides hold copper, so a run without ``--level`` reaches level 5: footprints moved without their
+    copper are a difference of routing too, and ``--level 4`` gives the result of the first four levels."""
+    copy = _changed(tmp_path, net=False, r1=False, shift=Point(2_000_000, -1_000_000))
+    args = ("equivalent", str(TWO_LAYER), str(copy), "--frame", "relative")
+    code, env, _, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 5 and env["result"]["level"] == 5
+    assert [lv["differences"] for lv in env["result"]["levels"]] == [0, 0, 0, 0, 2]
+    assert _codes(env) == [
+        ("equiv.route-length", "error", "LED_A:R1-2"),
+        ("equiv.route-length", "error", "VCC:R1-1"),
+        ("equiv.route-stub", "warning", "LED_A"),
+        ("equiv.route-stub", "warning", "VCC"),
+    ]
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, "--level", "4")
+    assert code == 0 and env["result"]["level"] == 4 and env["issues"] == []
+
+
+def test_unrouted_side(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    bare = _rerouted(tmp_path, lambda board: dataclasses.replace(board, tracks=(), arcs=(), vias=()))
+    code, env, err, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(bare), "--level", "5")
+    assert code == 2 and err["code"] == "FEN-2001" and env["result"] == {}
+    assert "side b holds none; the highest level available is 4" in err["message"]
+    code, _, err, _ = run(monkeypatch, tmp_path, "equivalent", str(bare), str(TWO_LAYER), "--level", "5")
+    assert code == 2 and "side a holds none" in err["message"]
+    # without --level the comparison stops at what both sides hold
+    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(bare))
+    assert code == 0 and env["result"]["level"] == 4 and len(env["result"]["levels"]) == 4
+
+
+def _longer(board: Board) -> Board:
+    """The track of ``VCC`` (5 mm) made 100 nm longer: 20 parts per million."""
+    tracks = tuple(
+        dataclasses.replace(t, end=Point(t.end.x + 100, t.end.y))
+        if t.end == Point(25_000_000, 15_800_000)
+        else t
+        for t in board.tracks
+    )
+    assert tracks != board.tracks
+    return dataclasses.replace(board, tracks=tracks)
+
+
+def test_length_tolerances(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    copy = _rerouted(tmp_path, _longer)
+    args = ("equivalent", str(TWO_LAYER), str(copy))
+    code, env, _, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 5 and _codes(env) == [("equiv.route-length", "error", "VCC:R1-1")]
+    assert env["result"]["differences"] == [
+        {"level": 5, "kind": "route-length", "where": "VCC:R1-1", "field": "length", "a": "top=5000000",
+         "b": "top=5000100"}
+    ]  # fmt: skip
+    for extra, expected in (
+        (("--tolerance-nm", "99"), 5),
+        (("--tolerance-nm", "100"), 0),
+        (("--tolerance-ppm", "19"), 5),
+        (("--tolerance-ppm", "20"), 0),
+    ):
+        code, env, _, _ = run(monkeypatch, tmp_path, *args, *extra)
+        assert code == expected, extra
+    assert env["result"]["tolerances"] == {"length_nm": 0, "angle_udeg": 0, "length_ppm": 20}
+    # a profile supplies the relative tolerance, and the command line overrides it
+    rules = tmp_path / "rules.toml"
+    rules.write_text(
+        EXCLUSIONS.replace("tolerance_nm = 5", "tolerance_nm = 0\ntolerance_ppm = 20"), encoding="utf-8"
+    )
+    profile = ("--exclusions", str(rules), "--profile", "moved")
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, *profile)
+    assert code == 0 and env["result"]["tolerances"]["length_ppm"] == 20
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, *profile, "--tolerance-ppm", "0")
+    assert code == 5 and env["result"]["tolerances"]["length_ppm"] == 0
+    rules.write_text(
+        EXCLUSIONS.replace("tolerance_nm = 5", "tolerance_nm = 5\ntolerance_ppm = -1"), encoding="utf-8"
+    )
+    code, _, err, _ = run(monkeypatch, tmp_path, *args, *profile)
+    assert code == 3 and err["code"] == "FEN-3004" and "tolerance_ppm" in err["message"]
+
+
+def test_a_notice_does_not_fail_the_command(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A stub on one side is a warning: it is in ``result.notices`` and the exit code stays 0."""
+
+    def stub(board: Board) -> Board:
+        first = board.tracks[0]
+        lone = dataclasses.replace(
+            first,
+            id=derived_id("trk", "test", "stub"),
+            native_ids={},
+            provenance=None,
+            ext={},
+            start=Point(60_000_000, 60_000_000),
+            end=Point(61_000_000, 60_000_000),
+        )
+        return dataclasses.replace(board, tracks=(*board.tracks, lone))
+
+    copy = _rerouted(tmp_path, stub)
+    code, env, _, _ = run(monkeypatch, tmp_path, "equivalent", str(TWO_LAYER), str(copy))
+    result = env["result"]
+    assert code == 0 and env["ok"] is True and result["equivalent"] is True
+    assert result["differences"] == [] and result["levels"][4]["notices"] == 1
+    assert [(n["kind"], n["field"], n["a"], n["b"]) for n in result["notices"]] == [
+        ("route-stub", "stubs", "pieces=0,length=0", "pieces=1,length=1000000")
+    ]
+    assert [(code, severity) for code, severity, _ in _codes(env)] == [("equiv.route-stub", "warning")]
 
 
 def test_schematic_side_runs_levels_1_and_2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -441,7 +586,7 @@ def test_against_version_without_a_profile(monkeypatch: pytest.MonkeyPatch, tmp_
     warnings = [i for i in env["issues"] if i["code"] == "equiv.no-exclusion-profile"]
     assert len(warnings) == 1 and warnings[0]["severity"] == "warning" and "10.9.0" in warnings[0]["message"]
     assert result["profile"] is None and result["frame"] == "relative"
-    assert result["tolerances"] == {"length_nm": 0, "angle_udeg": 0}
+    assert result["tolerances"] == {"length_nm": 0, "angle_udeg": 0, "length_ppm": 0}
     assert result["sides"]["b"]["tool_version"] == "10.9.0"
     assert code == 5  # with no rule and no tolerance the rounding of the unit shows
     assert {d["kind"] for d in result["differences"]} == {"pad-size", "pad-drill", "pad-position", "position"}

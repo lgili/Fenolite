@@ -169,6 +169,30 @@ floating-point trigonometry.
   - it rounds the result and removes duplicate and collinear vertices;
   - it returns `None` when no area is left.
 - `polygons_intersect(a, b)` treats both polygons as closed sets, so touching polygons intersect.
+- `keyhole_ring(outer, holes)` gives one ring for a polygon with holes, the form in which a KiCad board
+  stores a filled polygon: each hole is joined to the ring around it by a bridge of zero width that is
+  walked once in each direction. It returns `Keyhole(ring, merged, outside)`.
+  - `outer` is kept as given, neither reversed nor rotated; each hole is turned to run against it. A
+    point inside a hole is then `OUTSIDE` of the ring under both fill rules, and a point on a bridge is
+    `BOUNDARY`, because a bridge lies in the region.
+  - Holes are merged by ascending leftmost vertex. A ray towards smaller `x` from that vertex meets the
+    ring built so far at the anchor: a vertex of the ring, or a point put into an edge with its `x`
+    rounded half to even, which bends that edge by less than a nanometre.
+  - A hole with fewer than three distinct points or without area is dropped. A hole whose leftmost
+    vertex is outside `outer` is dropped and counted in `outside`.
+  - `area2(ring)` is the outline's doubled area minus the holes' exactly when no anchor was rounded.
+  - Holes that overlap each other or cross the outline are not repaired.
+
+```python
+>>> from fenolite.geometry import area2, keyhole_ring, point_in_ring
+>>> found = keyhole_ring((Point(0, 0), Point(100, 0), Point(100, 100), Point(0, 100)),
+...                      [(Point(30, 40), Point(70, 40), Point(70, 60), Point(30, 60))])
+>>> found.ring[4:]
+(Point(x=0, y=40), Point(x=30, y=40), Point(x=30, y=60), Point(x=70, y=60), Point(x=70, y=40), Point(x=30, y=40), Point(x=0, y=40))
+>>> area2(found.ring), str(point_in_ring(Point(50, 50), found.ring))
+(18400, 'outside')
+
+```
 
 ## Mixed contours
 

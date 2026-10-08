@@ -50,6 +50,8 @@ TABLE = {
     "check.rta1-failed": ("error",),
     "check.rta1-normalised": ("info",),
     "check.rta2-failed": ("error",),
+    "check.rta3-failed": ("error",),
+    "check.rta3-unwritten": ("info",),
     "check.roundtrip-unjudged": ("info",),
     "parity.missing-footprint": ("error",),
     "parity.extra-footprint": ("error",),

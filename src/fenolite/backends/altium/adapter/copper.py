@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Free primitives of a PCB document as board objects (capability altium-import, "Tracks, arcs and vias",
-"Zones from polygons" and "Outline, graphics and texts"; ``docs/formats/altium/import.md``; change c0043).
+"Zones from polygons" and "Outline, graphics and texts"; ``docs/formats/altium/import.md``; changes c0043,
+c0122 and c0124).
 
 A free primitive carries no component index. On a copper layer of the chain a track is a ``Track``, an arc
-an ``Arc`` and a via a ``Via``; a polygon is a ``Zone`` whose regions are its fills. Everything else that is
-drawn becomes a ``Graphic`` or a ``Text``. What gives no entity is counted in the census.
+an ``Arc`` and a via a ``Via``; a polygon is a ``Zone`` whose regions are its fills, each one ring that
+holds the region's outline and its holes (``geometry.keyhole_ring``). Everything else that is drawn
+becomes a ``Graphic`` or a ``Text``. What gives no entity is counted in the census.
+
+An internal plane is the exception among the copper layers of the chain: it is stored in negative, so a free
+primitive on it cuts the plane and is no copper. It gives no entity and is counted as ``plane-cuts``
+(``_plane_cut``; capability altium-import, "Objects on an internal plane").
 """
 
 # evidence: see import_evidence
@@ -13,8 +19,10 @@ drawn becomes a ``Graphic`` or a ``Text``. What gives no entity is counted in th
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass
 from fractions import Fraction
+from typing import Any
 
 from fenolite.backends.altium.adapter import units
 from fenolite.backends.altium.adapter.codes import issue
@@ -29,12 +37,26 @@ from fenolite.backends.altium.read.pcbprims import (
     RawPrimitive,
     RegionRecord,
     RegionVertex,
+    TextRecord,
     TrackRecord,
+    via_pad_removed,
 )
 from fenolite.backends.altium.read.pcbstack import OutlineVertex
 from fenolite.core.coords import Point, Size
-from fenolite.geometry.transform import FULL_TURN, QUARTER_TURN, rotate_point
-from fenolite.model.board import Arc, Graphic, GraphicKind, Text, Track, Via, ViaType, Zone, ZoneFill
+from fenolite.geometry.polygon import keyhole_ring
+from fenolite.geometry.transform import FULL_TURN, QUARTER_TURN, Transform, rotate_point
+from fenolite.model.board import (
+    Arc,
+    FootprintField,
+    Graphic,
+    GraphicKind,
+    Text,
+    Track,
+    Via,
+    ViaType,
+    Zone,
+    ZoneFill,
+)
 
 POLYGON_TYPE = "polygon"
 _LAYER_TEXT = re.compile(r"(TOP|BOTTOM|MID|PLANE)(\d*)", re.IGNORECASE)
@@ -72,6 +94,16 @@ def _poured(item: TrackRecord | ArcRecord) -> bool:
     return item.prefix.polygon is not None
 
 
+def _plane_cut(ctx: Context, kind: str, layer_id: int) -> bool:
+    """Whether a free primitive of record kind ``kind`` on ``layer_id`` lies on an internal plane; it is
+    then counted, in the census and on its layer, and the caller makes no entity of it."""
+    if not ctx.layers.is_plane(layer_id):
+        return False
+    ctx.layers.cut(layer_id)
+    ctx.census.skip(kind, "plane-cuts")
+    return True
+
+
 def _graphic(
     ctx: Context,
     kind: GraphicKind,
@@ -82,8 +114,11 @@ def _graphic(
     filled: bool,
     locator: str,
     pairs: list[tuple[str, str]],
+    section: str = "gfx",
 ) -> Graphic:
-    ident = ctx.ids.content("gfx", "gfx", kind, layer, [_xy(p) for p in points], width, filled, sorted(pairs))
+    ident = ctx.ids.content(
+        "gfx", section, kind, layer, [_xy(p) for p in points], width, filled, sorted(pairs)
+    )
     return Graphic(
         id=ident,
         provenance=ctx.provenance(locator),
@@ -109,8 +144,9 @@ def _net_pair(ctx: Context, index: int | None) -> list[tuple[str, str]]:
 # --- tracks, arcs, vias ---------------------------------------------------------------------------------
 
 
-def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
-    """The free tracks: ``Track`` on a copper layer of the chain, a ``line`` graphic elsewhere."""
+def tracks(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[list[Track], list[Graphic]]:
+    """The free tracks: ``Track`` on a copper layer of the chain, a ``line`` graphic elsewhere, nothing
+    on an internal plane."""
     found: list[Track] = []
     graphics: list[Graphic] = []
     for index, item in enumerate(doc.tracks):
@@ -119,10 +155,13 @@ def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
             ctx.census.skip("tracks", "raw-primitives")
             continue
         if not _free(item, len(doc.components)):
-            ctx.census.skip("tracks", "footprint-graphics")
+            if item.prefix.component not in owned:  # else an item of its footprint (``footprint_items``)
+                ctx.census.skip("tracks", "footprint-graphics")
             continue
         if _poured(item):
             ctx.census.skip("tracks", "pour-primitives")
+            continue
+        if _plane_cut(ctx, "tracks", item.prefix.layer):
             continue
         exact = Exact(ctx.census)
         start = exact.point("start", item.x1, item.y1)
@@ -165,9 +204,23 @@ def tracks(doc: PcbDocument, ctx: Context) -> tuple[list[Track], list[Graphic]]:
     return found, graphics
 
 
-def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
+ARC_KEY = "arc"
+"""The bag key of an arc that an arc record gave (change c0127): the record's own centre, radius and
+angles, which the three points of the model do not give back in every case."""
+
+
+def arc_pair(item: ArcRecord) -> str:
+    """The value of the pair ``arc``: ``<centre x>,<centre y>,<radius>,<start angle>,<end angle>``, the
+    three integers of the record in units of 1/10 000 mil in the document's frame and its two angles as
+    ``float.hex()`` of the stored doubles."""
+    angles = f"{float(item.start_angle).hex()},{float(item.end_angle).hex()}"
+    return f"{item.cx},{item.cy},{item.radius},{angles}"
+
+
+def arcs(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[list[Arc], list[Graphic]]:
     """The free arcs: ``Arc`` on a copper layer of the chain (a full circle is a ``circle`` graphic with
-    its net in the bag), an ``arc`` or ``circle`` graphic elsewhere."""
+    its net in the bag), an ``arc`` or ``circle`` graphic elsewhere, nothing on an internal plane. An
+    ``Arc`` and an ``arc`` graphic keep their record in the pair ``arc`` (``arc_pair``)."""
     found: list[Arc] = []
     graphics: list[Graphic] = []
     for index, item in enumerate(doc.arcs):
@@ -176,10 +229,13 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
             ctx.census.skip("arcs", "raw-primitives")
             continue
         if not _free(item, len(doc.components)):
-            ctx.census.skip("arcs", "footprint-graphics")
+            if item.prefix.component not in owned:  # else an item of its footprint (``footprint_items``)
+                ctx.census.skip("arcs", "footprint-graphics")
             continue
         if _poured(item):
             ctx.census.skip("arcs", "pour-primitives")
+            continue
+        if _plane_cut(ctx, "arcs", item.prefix.layer):
             continue
         if item.radius <= 0:
             _bad(ctx, "arcs", "an arc needs a radius above 0", locator)
@@ -217,6 +273,7 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
             )
         else:
             start, mid, end = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
+            pairs.append((ARC_KEY, arc_pair(item)))
             if copper:
                 net_id = ctx.net(item.prefix.net)
                 found.append(
@@ -251,9 +308,16 @@ def arcs(doc: PcbDocument, ctx: Context) -> tuple[list[Arc], list[Graphic]]:
     return found, graphics
 
 
+PAD_REMOVED_KEY = "pad_removed"
+"""The bag key of a via whose record names layers without a pad shape: their Altium layer ids, in
+ascending order, separated by commas (change c0132; ``read.pcbprims.via_pad_removed``)."""
+
+
 def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
     """Every via with its span: ``through`` between the outer layers, ``blind`` with one outer layer,
-    ``buried`` otherwise. A start or end layer outside the chain gives the outer layers and a warning."""
+    ``buried`` otherwise. A start or end layer outside the chain gives the outer layers and a warning.
+    A via whose record names layers without a pad shape holds them in the pair ``pad_removed``; its
+    diameter and its id are those of the record without them."""
     found: list[Via] = []
     chain = ctx.layers.chain
     outer = {chain[0], chain[-1]}
@@ -288,6 +352,9 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
             names = (ctx.layers.name(chain[0]), ctx.layers.name(chain[-1]))
             via_type = "through"
             pairs.append(("via_layers", f"{ends[0]},{ends[1]}"))
+        removed = via_pad_removed(item)
+        if removed:  # the model holds one diameter: the layers without a pad shape are said here alone
+            pairs.append((PAD_REMOVED_KEY, ",".join(str(layer) for layer in removed)))
         net_id = ctx.net(item.prefix.net)
         found.append(
             Via(
@@ -374,6 +441,272 @@ def definition_graphics(primitives: Sequence[Primitive], ctx: Context, storage: 
     return found
 
 
+# --- the items of a component (change c0126) ------------------------------------------------------------
+
+REFERENCE_FIELD = "Reference"
+VALUE_FIELD = "Value"
+
+
+@dataclass(frozen=True, slots=True)
+class Owned:
+    """The primitives of one component that are no pad, each with its record index: the tracks, arcs,
+    fills, regions and texts that carry the component's index."""
+
+    tracks: tuple[tuple[int, TrackRecord], ...] = ()
+    arcs: tuple[tuple[int, ArcRecord], ...] = ()
+    fills: tuple[tuple[int, FillRecord], ...] = ()
+    regions: tuple[tuple[int, RegionRecord], ...] = ()
+    texts: tuple[tuple[int, TextRecord], ...] = ()
+
+
+def owned_primitives(doc: PcbDocument) -> dict[int, Owned]:
+    """Component index → the primitives that carry it, for the indexes that name a component record."""
+    count = len(doc.components)
+    found: dict[int, dict[str, list[tuple[int, Any]]]] = {}
+    kinds: tuple[tuple[str, Sequence[Primitive]], ...] = (
+        ("tracks", doc.tracks),
+        ("arcs", doc.arcs),
+        ("fills", doc.fills),
+        ("regions", doc.regions),
+        ("texts", doc.texts),
+    )
+    for name, items in kinds:
+        for index, item in enumerate(items):
+            if isinstance(item, RawPrimitive) or _free(item, count):
+                continue
+            owner = item.prefix.component
+            assert owner is not None
+            found.setdefault(owner, {}).setdefault(name, []).append((index, item))
+    return {
+        owner: Owned(**{name: tuple(held) for name, held in parts.items()}) for owner, parts in found.items()
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class FootprintItems:
+    """What ``footprint_items`` gives one footprint: its graphics (tracks, arcs, fills, regions, in that
+    order and, within each, in record order), the fields ``Reference`` and ``Value`` it has a text for,
+    and its other texts."""
+
+    graphics: tuple[Graphic, ...] = ()
+    fields: tuple[FootprintField, ...] = ()
+    texts: tuple[Text, ...] = ()
+
+
+def _is_rect(corners: Sequence[Point]) -> bool:
+    a, b, c, d = corners
+    return (a.y == b.y and b.x == c.x and c.y == d.y and d.x == a.x) or (
+        a.x == b.x and b.y == c.y and c.x == d.x and d.y == a.y
+    )
+
+
+def footprint_items(
+    owned: Owned,
+    ctx: Context,
+    frame: Transform,
+    rotation: int,
+    *,
+    native: str,
+    name_on: bool = True,
+    comment_on: bool = True,
+) -> FootprintItems:
+    """The primitives of one component as the graphics, the fields and the texts of its footprint
+    (capability altium-import, "Graphics, fields and texts of a component"; ``import.md``, "Primitives of a
+    component"). ``frame`` is the inverse of the footprint's placement, the transform of its pads, so
+    every point is footprint-local and a bottom footprint holds mirrored coordinates; ``rotation`` is the
+    footprint's angle, which a text's angle is taken relative to. ``native`` names the footprint in the
+    section of the content ids. The mapping of a record is that of ``definition_graphics``; an arc keeps
+    its record in the pair ``arc``, and a graphic on a copper layer its net name in the pair ``net``. The
+    first designator text and the first comment text give the fields ``Reference`` and ``Value``, shown
+    as ``name_on`` and ``comment_on`` say; every other text is a ``Text``. A primitive on an internal
+    plane gives no item and stays counted as ``footprint-graphics``."""
+    section = f"fp:{native}"
+    graphics: list[Graphic] = []
+
+    def on_plane(kind: str, layer_id: int) -> bool:
+        """A primitive of a component on an internal plane is no item of its footprint: a line there is a
+        cut in the plane, not a drawing (change c0124). It stays counted as ``footprint-graphics``."""
+        if not ctx.layers.is_plane(layer_id):
+            return False
+        ctx.census.skip(kind, "footprint-graphics")
+        return True
+
+    def add(
+        kind: GraphicKind,
+        layer_id: int,
+        net: int | None,
+        points: Sequence[Point],
+        width: int,
+        filled: bool,
+        locator: str,
+        pairs: list[tuple[str, str]],
+    ) -> None:
+        if ctx.layers.is_copper(layer_id):
+            pairs = pairs + _net_pair(ctx, net)
+        local = tuple(frame.apply(point) for point in points)
+        graphics.append(
+            _graphic(
+                ctx,
+                kind,
+                ctx.layers.name(layer_id),
+                local,
+                width=width,
+                filled=filled,
+                locator=locator,
+                pairs=pairs,
+                section=section,
+            )
+        )
+
+    for index, item in owned.tracks:
+        if on_plane("tracks", item.prefix.layer):
+            continue
+        exact = Exact(ctx.census)
+        start = exact.point("start", item.x1, item.y1)
+        end = exact.point("end", item.x2, item.y2)
+        width = max(exact.length("width", item.width), 0)
+        add(
+            "line",
+            item.prefix.layer,
+            item.prefix.net,
+            (start, end),
+            width,
+            False,
+            f"Tracks6/Data#{index}",
+            exact.pairs(),
+        )
+        ctx.census.map("tracks")
+    for index, item in owned.arcs:
+        locator = f"Arcs6/Data#{index}"
+        if on_plane("arcs", item.prefix.layer):
+            continue
+        if item.radius <= 0:
+            _bad(ctx, "arcs", "an arc needs a radius above 0", locator)
+            continue
+        exact = Exact(ctx.census)
+        exact.length("centre.x", item.cx)
+        exact.length("centre.y", item.cy)
+        exact.length("radius", item.radius)
+        width = max(exact.length("width", item.width), 0)
+        start_angle = exact.angle("start_angle", item.start_angle)
+        end_angle = exact.angle("end_angle", item.end_angle)
+        pairs = exact.pairs()
+        if units.sweep(start_angle, end_angle) == FULL_TURN:
+            points: tuple[Point, ...] = units.circle_points(item.cx, item.cy, item.radius)
+            add("circle", item.prefix.layer, item.prefix.net, points, width, False, locator, pairs)
+        else:
+            points = units.arc_points(item.cx, item.cy, item.radius, start_angle, end_angle)
+            pairs.append((ARC_KEY, arc_pair(item)))
+            add("arc", item.prefix.layer, item.prefix.net, points, width, False, locator, pairs)
+        ctx.census.map("arcs")
+    for index, item in owned.fills:
+        if on_plane("fills", item.prefix.layer):
+            continue
+        exact = Exact(ctx.census)
+        kind, points = _fill_points(item, exact)
+        if kind == "rect":
+            a, b = points
+            points = (a, Point(b.x, a.y), b, Point(a.x, b.y))
+        corners = tuple(frame.apply(point) for point in points)
+        # a fill that lies square in the document may be turned in the footprint's frame, and the reverse
+        shape: tuple[GraphicKind, tuple[Point, ...]] = (
+            ("rect", (corners[0], corners[2])) if _is_rect(corners) else ("polygon", corners)
+        )
+        pairs = exact.pairs()
+        if ctx.layers.is_copper(item.prefix.layer):
+            pairs += _net_pair(ctx, item.prefix.net)
+        graphics.append(
+            _graphic(
+                ctx,
+                shape[0],
+                ctx.layers.name(item.prefix.layer),
+                shape[1],
+                width=0,
+                filled=True,
+                locator=f"Fills6/Data#{index}",
+                pairs=pairs,
+                section=section,
+            )
+        )
+        ctx.census.map("fills")
+    for index, item in owned.regions:
+        locator = f"Regions6/Data#{index}"
+        if on_plane("regions", item.prefix.layer):
+            continue
+        points = region_points(item.outline)
+        if len(points) < 3:
+            _bad(ctx, "regions", "a region needs at least three vertices", locator)
+            continue
+        local = tuple(frame.apply(point) for point in points)
+        # A region of four vertices that is a rectangle square to the footprint is the filled ``rect`` that
+        # a fill of the same corners gives: the writer writes a filled rectangle as a region, and the two
+        # are one shape in the model.
+        shape = ("rect", (local[0], local[2])) if len(local) == 4 and _is_rect(local) else ("polygon", local)
+        pairs = _net_pair(ctx, item.prefix.net) if ctx.layers.is_copper(item.prefix.layer) else []
+        graphics.append(
+            _graphic(
+                ctx,
+                shape[0],
+                ctx.layers.name(item.prefix.layer),
+                shape[1],
+                width=0,
+                filled=True,
+                locator=locator,
+                pairs=pairs,
+                section=section,
+            )
+        )
+        ctx.census.map("regions")
+
+    fields: dict[str, FootprintField] = {}
+    texts: list[Text] = []
+    for index, item in owned.texts:
+        locator = f"Texts6/Data#{index}"
+        if on_plane("texts", item.prefix.layer):
+            continue
+        exact = Exact(ctx.census)
+        position = frame.apply(exact.point("position", item.x, item.y))
+        height = exact.length("size", item.height)
+        thickness = max(exact.length("thickness", item.stroke_width), 0)
+        angle = (exact.angle("rotation", item.rotation) - rotation) % FULL_TURN
+        layer = ctx.layers.name(item.prefix.layer if item.prefix.layer != MULTI else ctx.layers.chain[0])
+        name = REFERENCE_FIELD if item.is_designator else VALUE_FIELD if item.is_comment else ""
+        if name and name not in fields:
+            shown = name_on if name == REFERENCE_FIELD else comment_on
+            fields[name] = FootprintField(
+                id=ctx.ids.content("fld", section, name, _xy(position), layer, height, thickness, angle),
+                provenance=ctx.provenance(locator),
+                ext=bag(exact.pairs()),
+                name=name,
+                position=position,
+                layer=layer,
+                size=Size(height, height),
+                rotation=angle,
+                thickness=thickness,
+                visible=shown,
+                mirrored=bool(item.mirrored),
+            )
+        else:
+            texts.append(
+                Text(
+                    id=ctx.ids.content(
+                        "txt", section, item.text, _xy(position), layer, height, thickness, angle
+                    ),
+                    provenance=ctx.provenance(locator),
+                    ext=bag(exact.pairs()),
+                    text=item.text,
+                    position=position,
+                    layer=layer,
+                    size=Size(height, height),
+                    thickness=thickness,
+                    rotation=angle,
+                )
+            )
+        ctx.census.map("texts")
+    ordered = tuple(fields[name] for name in (REFERENCE_FIELD, VALUE_FIELD) if name in fields)
+    return FootprintItems(tuple(graphics), ordered, tuple(texts))
+
+
 # --- zones ----------------------------------------------------------------------------------------------
 
 
@@ -427,7 +760,9 @@ def _bad_vertex_text(record: PolygonRecord) -> bool:
 
 def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
     """One ``Zone`` per polygon of type ``Polygon`` on a copper layer of the chain, with the regions that
-    carry its index as fills; also the indexes of the polygons that became zones."""
+    carry its index as fills; also the indexes of the polygons that became zones. A fill is the keyhole
+    ring of its region: the outline without the holes. A hole that the ring does not hold is counted as
+    ``region-holes``, and the holes outside their outline are reported once."""
     mapped: dict[int, tuple[PolygonRecord, str, int]] = {}
     for index, record in enumerate(doc.polygons):
         locator = f"Polygons6/Data#{index}"
@@ -448,6 +783,7 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
     highest = max((record.pour_index or 0 for record, _, _ in mapped.values()), default=0)
     found: list[Zone] = []
     arcs_seen = 0
+    holes_outside = regions_outside = 0
     for index, (record, locator, layer_id) in mapped.items():
         exact = Exact(ctx.census)
         layer = ctx.layers.name(layer_id)
@@ -461,8 +797,15 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
             if not ctx.layers.is_copper(region.prefix.layer):
                 continue
             points = region_points(region.outline)
-            if len(points) >= 3:
-                fills.append(ZoneFill(ctx.layers.name(region.prefix.layer), points))
+            if len(points) < 3:
+                ctx.census.note("region-holes", len(region.holes))
+                continue
+            merged = keyhole_ring(points, [region_points(hole) for hole in region.holes])
+            fills.append(ZoneFill(ctx.layers.name(region.prefix.layer), merged.ring))
+            ctx.census.note("region-holes", len(region.holes) - merged.merged)
+            if merged.outside:
+                holes_outside += merged.outside
+                regions_outside += 1
         pairs = exact.pairs()
         if record.pour_index is not None:
             pairs.append(("pour_index", str(record.pour_index)))
@@ -502,6 +845,15 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
                 "Polygons6/Data",
             )
         )
+    if holes_outside:
+        ctx.issues.append(
+            issue(
+                "altium.import.zone-hole-outside",
+                f"{holes_outside} hole(s) of {regions_outside} poured region(s) lie outside the region's "
+                "outline; they are dropped and the fill is solid there",
+                "Regions6/Data",
+            )
+        )
     return found, set(mapped)
 
 
@@ -531,10 +883,14 @@ def _fill_points(item: FillRecord, exact: Exact) -> tuple[GraphicKind, tuple[Poi
     return "polygon", tuple(turned)
 
 
-def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graphic]:
+def shapes(
+    doc: PcbDocument, ctx: Context, fill_regions: set[int], owned: Collection[int] = ()
+) -> list[Graphic]:
     """The free fills and regions as filled graphics; one on a copper layer carries its net name in the
     pair ``net`` and is counted by ``altium.import.copper-shape``. ``fill_regions`` are the polygon indexes
-    that became zones: their regions are fills, not graphics."""
+    that became zones: their regions are fills, not graphics. The holes of a region that is a graphic are
+    not in the model and are counted as ``region-holes``. A free fill or region on an internal plane is no
+    shape of copper: it gives nothing."""
     found: list[Graphic] = []
     copper_shapes = 0
     for index, item in enumerate(doc.fills):
@@ -543,7 +899,10 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
             ctx.census.skip("fills", "raw-primitives")
             continue
         if not _free(item, len(doc.components)):
-            ctx.census.skip("fills", "footprint-graphics")
+            if item.prefix.component not in owned:  # else an item of its footprint (``footprint_items``)
+                ctx.census.skip("fills", "footprint-graphics")
+            continue
+        if _plane_cut(ctx, "fills", item.prefix.layer):
             continue
         exact = Exact(ctx.census)
         kind, points = _fill_points(item, exact)
@@ -559,12 +918,13 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
         if isinstance(item, RawPrimitive):
             ctx.census.skip("regions", "raw-primitives")
             continue
-        if item.holes:
-            ctx.census.note("region-holes", len(item.holes))
-        if not _free(item, len(doc.components)):
-            ctx.census.skip("regions", "footprint-graphics")
-            continue
         polygon = item.prefix.polygon
+        if not (polygon in fill_regions and ctx.layers.is_copper(item.prefix.layer)):
+            ctx.census.note("region-holes", len(item.holes))  # the holes of a fill are counted by ``zones``
+        if not _free(item, len(doc.components)):
+            if item.prefix.component not in owned:  # else an item of its footprint (``footprint_items``)
+                ctx.census.skip("regions", "footprint-graphics")
+            continue
         if polygon is not None:
             if polygon in fill_regions and ctx.layers.is_copper(item.prefix.layer):
                 ctx.census.map("regions")
@@ -572,6 +932,8 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
                 ctx.census.skip(
                     "regions", "pour-primitives" if polygon != SPLIT_PLANE_POLYGON else "polygons"
                 )
+            continue
+        if _plane_cut(ctx, "regions", item.prefix.layer):
             continue
         points = region_points(item.outline)
         if len(points) < 3:
@@ -599,8 +961,9 @@ def shapes(doc: PcbDocument, ctx: Context, fill_regions: set[int]) -> list[Graph
     return found
 
 
-def texts(doc: PcbDocument, ctx: Context) -> list[Text]:
-    """The free texts; the text is the wide string when the record names one (the reader resolved it)."""
+def texts(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> list[Text]:
+    """The free texts; the text is the wide string when the record names one (the reader resolved it).
+    A free text on an internal plane gives nothing."""
     found: list[Text] = []
     for index, item in enumerate(doc.texts):
         locator = f"Texts6/Data#{index}"
@@ -608,7 +971,10 @@ def texts(doc: PcbDocument, ctx: Context) -> list[Text]:
             ctx.census.skip("texts", "raw-primitives")
             continue
         if not _free(item, len(doc.components)):
-            ctx.census.skip("texts", "footprint-graphics")
+            if item.prefix.component not in owned:  # else an item of its footprint (``footprint_items``)
+                ctx.census.skip("texts", "footprint-graphics")
+            continue
+        if _plane_cut(ctx, "texts", item.prefix.layer):
             continue
         exact = Exact(ctx.census)
         position = exact.point("position", item.x, item.y)

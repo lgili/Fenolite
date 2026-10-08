@@ -22,14 +22,19 @@ and the values marked as choices are Fenolite's.
 
 from __future__ import annotations
 
-from fenolite.backends.altium.altsym import map_records
+from collections.abc import Callable, Sequence
+from typing import Protocol
+
+from fenolite.backends.altium.altsym import NM_PER_MIL, AltiumGraphic, map_records, unit_and_frac
 from fenolite.backends.altium.ascii import Field, coord_fields, encode_records, to_units
 from fenolite.backends.altium.layout import (
     COMMENT_DROP,
     DESIGNATOR_RISE,
     PORT_HEIGHT,
     SHEET_NAME_RISE,
+    BusBlock,
     ClassMark,
+    Crossing,
     HarnessBlock,
     NoConnectMark,
     PlacedEntry,
@@ -80,6 +85,95 @@ CLASS_PARAMETER = "ClassName"
 """The parameter of a directive that puts its net in a net class."""
 
 Record = list[Field]
+GRAPHIC_RECORDS = {"line": "13", "rectangle": "14", "polygon": "7", "ellipse": "8"}
+"""The record id of each graphic kind of ``altsym.AltiumGraphic`` (change c0086)."""
+IO_TYPES = {"unspecified": 0, "output": 1, "input": 2, "bidirectional": 3}
+"""``IOTYPE`` of a port and of a sheet entry by direction; 0 is left out, as saved files leave it out."""
+BUS_COLOR = "8388608"
+"""The colour of a bus line and of a bus entry (a Fenolite choice: the colour of its wires)."""
+BUS_WIDTH = "2"
+"""``LINEWIDTH`` of a bus line: one step wider than a wire (a Fenolite choice)."""
+
+
+def length_fields(key: str, nm: int) -> Record:
+    """``<key>`` in file units and, when the length is no whole unit, ``<key>_FRAC`` in 1/100 000 unit
+    (``schematic-records.md``, "Units"), for a length of ``nm`` nanometres."""
+    unit, frac = unit_and_frac(nm)
+    return [(key, str(unit)), *(((f"{key}_FRAC", str(frac)),) if frac else ())]
+
+
+def graphic_fields(
+    graphic: AltiumGraphic, place: Callable[[int, int], tuple[int, int]], owner: Sequence[Field] = ()
+) -> Record:
+    """The record of one symbol graphic (change c0086, "Symbol graphics in libraries and bodies").
+    ``place`` turns a symbol point in nanometres into a point of the file that holds the record, in
+    nanometres in that file's frame: the same point in a library, the point on the sheet in a schematic.
+    ``owner`` are the owner fields that follow ``RECORD`` (none in a library). The keys and their order
+    are those of ``docs/formats/altium/schematic-records.md`` ("Graphics the writer draws")."""
+    head: Record = [("RECORD", GRAPHIC_RECORDS[graphic.kind]), *owner, ("OWNERPARTID", str(graphic.part))]
+    fill: Record = [("AREACOLOR", COMPONENT_FILL), *((("ISSOLID", "T"),) if graphic.filled else ())]
+
+    def point(name: str, at: tuple[int, int]) -> Record:
+        x, y = place(*at)
+        return [*length_fields(f"{name}.X", x), *length_fields(f"{name}.Y", y)]
+
+    if graphic.kind == "line":
+        return [
+            *head,
+            *point("LOCATION", graphic.points[0]),
+            *point("CORNER", graphic.points[1]),
+            ("LINEWIDTH", "1"),
+            ("COLOR", COMPONENT_COLOR),
+        ]
+    if graphic.kind == "rectangle":
+        return [
+            *head,
+            *point("LOCATION", graphic.points[0]),
+            *point("CORNER", graphic.points[1]),
+            ("LINEWIDTH", "1"),
+            ("COLOR", COMPONENT_COLOR),
+            *fill,
+        ]
+    if graphic.kind == "ellipse":
+        # KiCad's importer (10.0.6) reads an open circle as a filled one, as an ellipse without ISSOLID
+        # and as a full arc alike (schematic-library.md, "Oracle observations"); Part Y looks at it in Altium
+        return [
+            *head,
+            *point("LOCATION", graphic.points[0]),
+            *length_fields("RADIUS", graphic.radius),
+            *length_fields("SECONDARYRADIUS", graphic.radius),
+            ("LINEWIDTH", "1"),
+            ("COLOR", COMPONENT_COLOR),
+            *fill,
+        ]
+    record: Record = [
+        *head,
+        ("LINEWIDTH", "1"),
+        ("COLOR", COMPONENT_COLOR),
+        *fill,
+        ("LOCATIONCOUNT", str(len(graphic.points))),
+    ]
+    for index, at in enumerate(graphic.points, start=1):
+        x, y = place(*at)
+        record += [*length_fields(f"X{index}", x), *length_fields(f"Y{index}", y)]
+    return record
+
+
+def io_field(crossing: Crossing) -> tuple[Field, ...]:
+    """``IOTYPE`` of the port or sheet entry of ``crossing``: left out when unspecified (change c0086,
+    "Port and sheet-entry directions")."""
+    code = IO_TYPES[crossing.io]
+    return (("IOTYPE", str(code)),) if code else ()
+
+
+class Frame(Protocol):
+    """The drawing sheet of a built schematic (change c0087; ``schdot.SheetFrame``): what it makes of
+    the sheet record, and its root records."""
+
+    @property
+    def records(self) -> Sequence[Sequence[Field]]: ...
+
+    def sheet_record(self, base: Sequence[Field]) -> list[Field]: ...
 
 
 def sheet_record(plan: SheetPlan) -> Record:
@@ -146,7 +240,14 @@ class _Writer:
                 ("AREACOLOR", COMPONENT_FILL),
             ]
         )
-        for rect in body.rectangles:
+
+        def place(sx: int, sy: int) -> tuple[int, int]:
+            """A symbol point in nanometres as a sheet point in nanometres, in the file frame."""
+            return placed.x * NM_PER_MIL + sx, (self.height - placed.y) * NM_PER_MIL + sy
+
+        for graphic in body.graphics:
+            self.add(graphic_fields(graphic, place, (("OWNERINDEX", str(owner)),)))
+        for rect in () if body.drawn else body.rectangles:
             self.add(
                 [
                     ("RECORD", "14"),
@@ -200,6 +301,22 @@ class _Writer:
                     ("COLOR", TEXT_COLOR),
                 ]
             )
+        for name, value, unique in spec.parameters:
+            # change c0086, "Component parameters": hidden, at the component's origin
+            self.add(
+                [
+                    ("RECORD", "41"),
+                    ("OWNERINDEX", str(owner)),
+                    ("OWNERPARTID", "-1"),
+                    *self.at("LOCATION", placed.x, placed.y),
+                    ("COLOR", TEXT_COLOR),
+                    ("FONTID", "1"),
+                    ("ISHIDDEN", "T"),
+                    ("TEXT", value),
+                    ("NAME", name),
+                    ("UNIQUEID", unique),
+                ]
+            )
         if spec.footprint is not None:
             library, footprint = spec.footprint
             listing = self.add([("RECORD", "44"), ("OWNERINDEX", str(owner))])
@@ -217,7 +334,7 @@ class _Writer:
                 ]
             )
             maps = self.add([("RECORD", "46"), ("OWNERINDEX", str(model))])
-            for record in map_records(spec.pin_pads, maps):  # none for a component without a map
+            for record in map_records(spec.pin_pads, maps):  # change c0123: none without a map
                 self.add(record)
             self.add([("RECORD", "48"), ("OWNERINDEX", str(model))])
 
@@ -246,6 +363,7 @@ class _Writer:
                     ("RECORD", "16"),
                     ("OWNERINDEX", str(owner)),
                     ("OWNERPARTID", "-1"),
+                    *io_field(crossing),
                     *((("SIDE", RIGHT_SIDE),) if entry.side == "right" else ()),
                     ("DISTANCEFROMTOP", str(entry.slot)),
                     ("COLOR", SYMBOL_COLOR),
@@ -278,6 +396,7 @@ class _Writer:
             [
                 ("RECORD", "18"),
                 ("OWNERPARTID", "-1"),
+                *io_field(crossing),
                 ("WIDTH", str(to_units(port.width))),
                 *self.at("LOCATION", port.x, port.y),
                 ("COLOR", SYMBOL_COLOR),
@@ -292,12 +411,54 @@ class _Writer:
         )
 
     def links(self, item: PlacedPort | PlacedEntry) -> None:
-        """The labelled wires of a port or sheet entry: its own stub, or those of its harness block."""
+        """The labelled wires of a port or sheet entry: its own stub, or those of its harness block, or
+        the records of its bus block."""
         if item.stub is not None:
             self.stub(item.stub)
         if item.block is not None:
             for stub in item.block.stubs:
                 self.stub(stub)
+        if item.bus is not None:
+            self.bus(item.bus)
+
+    def bus(self, block: BusBlock) -> None:
+        """The records of one bus block (change c0086, "Bus records"): the bus line (26), its net label
+        (25) at the block's start, then per member its bus entry (37) and its labelled wire."""
+        points: list[Field] = []
+        for index, (x, y) in enumerate(block.line, start=1):
+            points += [(f"X{index}", str(to_units(x))), (f"Y{index}", str(to_units(self.height - y)))]
+        self.add(
+            [
+                ("RECORD", "26"),
+                ("OWNERPARTID", "-1"),
+                ("LINEWIDTH", BUS_WIDTH),
+                ("COLOR", BUS_COLOR),
+                ("LOCATIONCOUNT", str(len(block.line))),
+                *points,
+            ]
+        )
+        self.add(
+            [
+                ("RECORD", "25"),
+                ("OWNERPARTID", "-1"),
+                *self.at("LOCATION", *block.point),
+                ("TEXT", block.label),
+                ("FONTID", "1"),
+                ("COLOR", TEXT_COLOR),
+            ]
+        )
+        for (start, end), stub in zip(block.entries, block.stubs, strict=True):
+            self.add(
+                [
+                    ("RECORD", "37"),
+                    ("OWNERPARTID", "-1"),
+                    *self.at("LOCATION", *start),
+                    *self.at("CORNER", *end),
+                    ("LINEWIDTH", "1"),
+                    ("COLOR", BUS_COLOR),
+                ]
+            )
+            self.stub(stub)
 
     def stub(self, stub: Stub) -> None:
         (x1, y1), (x2, y2) = stub.start, stub.end
@@ -387,10 +548,12 @@ class _Writer:
         )
 
 
-def schdoc_records(plan: SheetPlan) -> list[Record]:
-    """Every record after the header, in file order."""
+def schdoc_records(plan: SheetPlan, frame: Frame | None = None) -> list[Record]:
+    """Every record after the header, in file order. With ``frame`` (change c0087) the sheet record is the
+    frame's custom sheet and the frame's root records come last, so no owner index changes; without one
+    the records are those of the changes before."""
     writer = _Writer(plan)
-    writer.add(sheet_record(plan))
+    writer.add(sheet_record(plan) if frame is None else frame.sheet_record(sheet_record(plan)))
     for symbol in plan.symbols:
         writer.sheet_symbol(symbol)
     for placed in plan.parts:
@@ -401,12 +564,16 @@ def schdoc_records(plan: SheetPlan) -> list[Record]:
     for port in plan.ports:
         writer.port(port)
         writer.links(port)
+    for block in plan.buses:
+        writer.bus(block)
     for stub in plan.stubs:
         writer.stub(stub)
     for mark in plan.no_connects:
         writer.no_connect(mark)
     for item in plan.class_marks:
         writer.class_mark(item)
+    for record in frame.records if frame is not None else ():
+        writer.add(list(record))
     return writer.records
 
 
@@ -492,21 +659,27 @@ def additional_records(plan: SheetPlan) -> list[Record]:
     return found
 
 
-def write_schdoc(plan: SheetPlan) -> bytes:
-    """The bytes of the ASCII schematic of ``plan``. A plan with a harness block is refused: the place of
-    harness records in the ASCII form is not documented (``hierarchy.plan_sheets`` makes none for it)."""
+def write_schdoc(plan: SheetPlan, frame: Frame | None = None) -> bytes:
+    """The bytes of the ASCII schematic of ``plan``, with the drawing sheet ``frame`` (change c0087). A plan
+    with a harness block is refused: the place of harness records in the ASCII form is not documented
+    (``hierarchy.plan_sheets`` makes none for it)."""
     if plan.lines:
         raise ValueError("the ASCII form cannot carry a signal harness line: harness records are binary only")
     if plan.harnesses:
         names = ", ".join(sorted({block.name for block in plan.harnesses}))
         raise ValueError(f"the ASCII form cannot carry the harness {names}: harness records are binary only")
-    return encode_records(schdoc_records(plan))
+    return encode_records(schdoc_records(plan, frame))
 
 
 __all__ = [
     "FONT_NAME",
+    "Frame",
+    "GRAPHIC_RECORDS",
+    "IO_TYPES",
     "additional_records",
     "block_records",
+    "graphic_fields",
+    "io_field",
     "line_record",
     "schdoc_records",
     "sheet_record",

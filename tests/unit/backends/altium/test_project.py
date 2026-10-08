@@ -36,9 +36,10 @@ STDLIB_ALLOWED = {
     "typing",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
-READING_MODULES = {"backend.py", "docset.py", "roundtrip.py"}
-"""The modules of the reading side (changes c0043 and c0044): the registered backend, the document sets and
-the round-trip levels. ``test_backend.py``, ``test_docset.py`` and ``test_roundtrip.py`` hold their rules."""
+READING_MODULES = {"backend.py", "docset.py", "frame.py", "roundtrip.py", "rta3.py"}
+"""The modules of the reading side (changes c0043, c0044, c0088 and c0090): the registered backend, the
+document sets, the board frame of an import and the round-trip levels. ``test_backend.py``,
+``test_docset.py``, ``test_frame.py``, ``test_roundtrip.py`` and ``test_rta3.py`` hold their rules."""
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 
@@ -58,10 +59,12 @@ def test_files_of_the_sample() -> None:
 
 def test_the_writers_are_not_part_of_the_registered_backend() -> None:
     """Since change c0043 the package holds the registered backend ``altium``, which reads: it offers no
-    write kind, so the writers stay experimental features of ``build``."""
+    write kind, so the writers stay experimental. Since change c0090 the backend has ``write`` for a model
+    with a board ("Altium write of a model"), and its capabilities still name no write kind."""
     assert "fenolite.backends.altium.project" in sys.modules
     (altium,) = [b for b in registry.all_backends() if b.name == "altium"]
-    assert altium.capabilities().write_kinds == () and not hasattr(altium, "write")
+    assert altium.capabilities().write_kinds == () and "write" not in altium.capabilities().operations
+    assert callable(getattr(altium, "write", None))
 
 
 def test_imports_only_core_and_model() -> None:
@@ -107,6 +110,14 @@ def test_evidence_and_kinds() -> None:
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
         "H-A-ECO-SUPPLY",
+        # change c0086: the writer's own rows of the complete schematic
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE",
     }
     assert {h for h in EVIDENCE.hypotheses if h.startswith("H-A-ECO-")} == {
         "H-A-ECO-NETCLASS",
@@ -211,7 +222,7 @@ def test_member_pin_the_component_does_not_hold() -> None:
     ("ref", "change"),
     [
         ("R2", {"value": "=Value"}),
-        ("R2", {"value": "10µF"}),
+        ("R2", {"value": "1 kΩ"}),  # outside the code page; "10µF" is carried since change c0086
         ("R2", {"lib_symbol_ref": "RES"}),
         ("R2", {"lib_footprint_ref": "FenoliteSample.PcbLib:"}),
         ("R2", {"ref": "R 2 "}),

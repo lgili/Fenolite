@@ -20,7 +20,7 @@ thicknesses and the dielectrics between them. Without one, the stack is the two-
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
@@ -39,6 +39,17 @@ MASTER_STACK_NAME = "Master layer stack"
 SUBSTACK_NAME = "Board Layer Stack"
 ENABLED_MECHANICAL = (13, 14, 15, 16)
 """The mechanical layers of Fenolite's layer map (``pcbrecords.LAYER_MAP``), enabled in every library."""
+
+
+def enabled_mechanical(used_layers: Collection[int] = ()) -> tuple[int, ...]:
+    """The numbers of the enabled mechanical layers of a board record whose primitives lie on
+    ``used_layers`` (numbered layers 1 … 74): ``ENABLED_MECHANICAL`` and each of Mechanical 1 to 12 (the
+    layers 57 to 68) that is used (change c0126; ``pcb-document.md``, "Mechanical layers in use"). A
+    document that uses none of the twelve gives ``ENABLED_MECHANICAL``, and so the bytes of before."""
+    used = {layer - 56 for layer in used_layers if 57 <= layer <= 68}
+    return tuple(sorted({*ENABLED_MECHANICAL, *used}))
+
+
 SNAP_GRID = "50000.000000"
 """5 mil in binary units, the text form Altium uses for the snap grid."""
 VIEWPORT = (("VP.LX", 499_000_000), ("VP.HX", 501_000_000), ("VP.LY", 499_000_000), ("VP.HY", 501_000_000))
@@ -154,11 +165,33 @@ class StackSpec:
     thicknesses: tuple[int, ...]
     dielectrics: tuple[Dielectric, ...]
     plane_nets: tuple[str, ...] = ()
+    drill_pairs: tuple[tuple[int, int], ...] = ()
+    """The drill pairs besides the pair of the outer layers (change c0085): the two copper ids of each
+    span of a blind or buried via, the upper layer first, in stack order and without repeats."""
 
     def __post_init__(self) -> None:
-        if self.copper not in STACKS:
-            known = "; ".join(", ".join(str(i) for i in stack) for stack in STACKS)
-            raise ValueError(f"the copper layers {self.copper!r} are not a stack that is written ({known})")
+        if not valid_stack(self.copper):
+            raise ValueError(
+                f"the copper layers {self.copper!r} are not a stack that is written: the top layer 1, "
+                "then each inner layer as Mid-Layer k (k + 1) at position k or as the next internal plane "
+                "from 39, then the bottom layer 32, an even count with at most 16 signal layers"
+            )
+        for low, high in self.drill_pairs:
+            if (
+                low not in self.copper
+                or high not in self.copper
+                or not (self.copper.index(low) < self.copper.index(high))
+            ):
+                raise ValueError(f"the drill pair {low}, {high} is not two layers of the stack in order")
+        if (
+            len(set(self.drill_pairs)) != len(self.drill_pairs)
+            or (
+                self.copper[0],
+                self.copper[-1],
+            )
+            in self.drill_pairs
+        ):
+            raise ValueError("the drill pairs repeat a pair or hold the pair of the outer layers")
         if len(self.thicknesses) != len(self.copper) or any(t <= 0 for t in self.thicknesses):
             raise ValueError(
                 f"a stack of {len(self.copper)} copper layers needs as many positive thicknesses"
@@ -188,18 +221,33 @@ class StackSpec:
     def default(cls, copper: tuple[int, ...], plane_nets: tuple[str, ...] = ()) -> StackSpec:
         """Fenolite's default values: 1.4 mil copper; for two layers the dielectric of c0035 (12.6 mil,
         ``4.800``, ``FR-4``, kind ``unspecified``); for four layers a prepreg of 0.2 mm, a core of 1.0 mm
-        and a prepreg of 0.2 mm."""
+        and a prepreg of 0.2 mm; for more layers (change c0085) prepregs of 0.2 mm and cores in turn,
+        the outermost a prepreg, the cores sharing 1.0 mm."""
         if len(copper) == 2:
             dielectrics: tuple[Dielectric, ...] = (Dielectric("unspecified", 320_040),)
         else:
-            dielectrics = (
-                Dielectric("prepreg", 200_000),
-                Dielectric("core", 1_000_000),
-                Dielectric("prepreg", 200_000),
+            cores = (len(copper) - 1) // 2
+            dielectrics = tuple(
+                Dielectric("core", 1_000_000 // cores) if index % 2 else Dielectric("prepreg", 200_000)
+                for index in range(len(copper) - 1)
             )
-        return cls(
-            tuple(copper), (COPPER_THICKNESS,) * len(copper), dielectrics[: len(copper) - 1], plane_nets
-        )
+        return cls(tuple(copper), (COPPER_THICKNESS,) * len(copper), dielectrics, plane_nets)
+
+
+def valid_stack(copper: tuple[int, ...]) -> bool:
+    """Whether ``copper`` is a stack ``pcbrecords.copper_stack`` gives: 1, the inner ids, 32."""
+    if len(copper) < 2 or copper[0] != rec.TOP_LAYER or copper[-1] != rec.BOTTOM_LAYER:
+        return False
+    planes = [layer for layer in copper[1:-1] if layer >= rec.FIRST_PLANE]
+    if rec.stack_problem(len(copper), len(planes)) is not None:
+        return False
+    plane = rec.FIRST_PLANE
+    for position, layer in enumerate(copper[1:-1], start=1):
+        if layer == plane:
+            plane += 1
+        elif layer != position + 1:
+            return False
+    return True
 
 
 STACKS: tuple[tuple[int, ...], ...] = (
@@ -209,7 +257,8 @@ STACKS: tuple[tuple[int, ...], ...] = (
     rec.copper_stack(rec.COPPER_STACKS[1], ("In2.Cu",)),
     rec.copper_stack(rec.COPPER_STACKS[1], ("In1.Cu", "In2.Cu")),
 )
-"""Every copper stack that is written, as Altium ids."""
+"""The copper stacks of two and of four layers, as Altium ids (``valid_stack`` tells every stack that is
+written)."""
 _TWO_LAYERS = StackSpec.default(STACKS[0])
 
 
@@ -451,7 +500,8 @@ def _layer_fields(
     elif group == _DIELECTRIC:
         fields += spec.dielectrics[low - 1].fields()
     elif group == _MECHANICAL:
-        fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL)))
+        # Mechanical 1 to 12 are enabled when a primitive lies on them (change c0126)
+        fields.append(("MECHENABLED", _bool(low in ENABLED_MECHANICAL or (low <= 12 and long in used))))
     elif low in (10, 11):
         fields += [*_RESIST, ("COVERLAY_EXPANSION", "0mil")]
     out = [(f"{prefix}{sep}{key}", value) for key, value in fields]
@@ -512,21 +562,24 @@ def stack_fields(
     return out
 
 
-def legacy_lines(stack: StackSpec | None = None) -> list[list[Field]]:
+def legacy_lines(
+    stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL
+) -> list[list[Field]]:
     """The numbered layers and the ``LAYERV7_`` layers as lines: the first line holds layers 1 to 5 and no
-    ``RECORD=Board``; each later line starts with it. The copper layers of ``stack`` are linked in order."""
+    ``RECORD=Board``; each later line starts with it. The copper layers of ``stack`` are linked in order.
+    ``mechanical`` are the numbers of the enabled mechanical layers (``enabled_mechanical``)."""
     lines: list[list[Field]] = [[]]
-    for item in _legacy_layers(stack):
+    for item in _legacy_layers(stack, mechanical):
         if item == RECORD:
             lines.append([])
         lines[-1].append(item)
     return lines
 
 
-def layer_sets(stack: StackSpec | None = None) -> list[Field]:
+def layer_sets(stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     """``LAYERSETSCOUNT`` and the five layer sets; the signal mid layers and the planes of ``stack`` are
-    listed in their sets."""
-    return _layer_sets(stack)
+    listed in their sets, and so are the enabled mechanical layers ``mechanical``."""
+    return _layer_sets(stack, mechanical)
 
 
 def plane_net_fields(stack: StackSpec | None = None) -> list[Field]:
@@ -553,7 +606,9 @@ def view_configurations() -> list[list[Field]]:
     ]
 
 
-def _legacy_layers(stack: StackSpec | None = None) -> list[Field]:
+def _legacy_layers(
+    stack: StackSpec | None = None, mechanical: Sequence[int] = ENABLED_MECHANICAL
+) -> list[Field]:
     """``LAYER<n>…`` for n = 1 … 82 in groups of five, and the sixteen ``LAYERV7_<i>…`` layers. The copper
     layers of ``stack`` are linked from top to bottom; each carries its thickness and, but for the bottom,
     the dielectric below it."""
@@ -563,7 +618,7 @@ def _legacy_layers(stack: StackSpec | None = None) -> list[Field]:
     below = dict(zip(spec.copper, spec.dielectrics, strict=False))
     links.update({n: (0, 1) for n in (33, 35, 37)})
     links.update({n: (32, 0) for n in (34, 36, 38)})
-    enabled = {56 + n for n in ENABLED_MECHANICAL}
+    enabled = {56 + n for n in mechanical}
     out: list[Field] = []
     for layer in range(1, _LEGACY_COUNT + 1):
         if layer > 1 and layer % _CHUNK == 1:
@@ -593,11 +648,11 @@ def _legacy_layers(stack: StackSpec | None = None) -> list[Field]:
     return out
 
 
-def _layer_sets(stack: StackSpec | None = None) -> list[Field]:
+def _layer_sets(stack: StackSpec | None = None, enabled: Sequence[int] = ENABLED_MECHANICAL) -> list[Field]:
     inner = _stack(stack).copper[1:-1]
     mids = [f"MidLayer{layer - 1}" for layer in inner if layer < rec.FIRST_PLANE]
     planes = [f"InternalPlane{layer - rec.FIRST_PLANE + 1}" for layer in inner if layer >= rec.FIRST_PLANE]
-    mechanical = [f"Mechanical{n}" for n in ENABLED_MECHANICAL]
+    mechanical = [f"Mechanical{n}" for n in enabled]
     top = ["MultiLayer", "TopPaste", "TopOverlay", "TopSolder"]
     bottom = ["BottomSolder", "BottomOverlay", "BottomPaste", "DrillGuide", "KeepOutLayer"]
     low, rest = bottom[:3], bottom[3:]
@@ -729,6 +784,7 @@ __all__ = [
     "STACKS",
     "StackSpec",
     "ENABLED_MECHANICAL",
+    "enabled_mechanical",
     "KIND",
     "LINE_BREAK",
     "RECORD",

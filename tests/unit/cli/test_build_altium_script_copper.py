@@ -62,7 +62,9 @@ def test_routed_blink_built_for_altium(monkeypatch: pytest.MonkeyPatch, tmp_path
     found = envelope["result"]["copper"]
     assert (found["source"], found["from"], found["placements_from_board"]) == ("script", None, 0)
     assert (found["tracks"], found["arcs"], found["vias"], found["zones"]) == (11, 0, 7, 0)
-    assert "copper_input" not in envelope["result"] and "copper_check" not in envelope["result"]
+    assert "copper_input" not in envelope["result"]
+    guard = envelope["result"]["copper_check"]  # the guard of c0088 judged the document that was written
+    assert (guard["ran"], guard["shorts"], guard["clearance"]) == (True, 0, 0)
     assert not [i for i in envelope["issues"] if i["severity"] == "error"]
     assert "altium.not-lowered" not in codes(envelope) and "altium.pcb-staged" not in codes(envelope)
     assert not list(routed.out.glob("*.kicad_*")), "the in-memory KiCad build writes no file"

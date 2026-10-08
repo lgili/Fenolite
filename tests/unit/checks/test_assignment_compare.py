@@ -23,8 +23,10 @@ from fenolite.checks.assignment_compare import (
     NO_NET,
     assignment_stage,
     board_netlist,
+    bonded_label,
     compare,
     model_netlist,
+    net_text,
     schematic_file,
 )
 from fenolite.core.evidence import Evidence, Level
@@ -409,3 +411,57 @@ def test_schematic_file_of_a_project(tmp_path: Path) -> None:
     assert schematic_file(beside) == ""  # the copy set decides (c0062 plans the schematic into it)
     listed = ProjectSet(tmp_path, "x.kicad_pcb", {"x.kicad_pcb": board, "x.kicad_sch": sheet})
     assert schematic_file(listed) == "x.kicad_sch"
+
+
+def _several() -> tuple[Design, Component, Net]:
+    """``U1`` with the pins 1 and 3, pin 3 bonded to the pads 3 and EP and on ``GND`` (change c0123)."""
+    u1 = Component(
+        id="cmp_00000000-0000-4000-8000-0000000000a1",
+        ref="U1",
+        pins=(
+            Pin(id="pin_00000000-0000-4000-8000-0000000000a1", number="1"),
+            Pin(id="pin_00000000-0000-4000-8000-0000000000a3", number="3"),
+        ),
+        pin_pad_map=(("3", "3"), ("3", "EP")),
+    )
+    gnd = Net(id="net_00000000-0000-4000-8000-0000000000a1", name="GND", members=(PinRef(u1.id, "3"),))
+    model = dataclasses.replace(Design.new("m", seed=0), circuit=Circuit(components=(u1,), nets=(gnd,)))
+    return model, u1, gnd
+
+
+def test_several_pads_of_one_pin_are_elements() -> None:
+    """Capability verification-loop, "Assignment comparison names every pad of a pin", scenario "Pin of
+    two pads"."""
+    model, _u1, gnd = _several()
+    listed = model_netlist(model)
+    assert listed == PadNetList(
+        "model",
+        (PadAssignment("U1-3", gnd.id), PadAssignment("U1-EP", gnd.id), PadAssignment("U1-1", NO_NET)),
+    )
+    board = PadNetList(
+        "board", (PadAssignment("U1-1", NO_NET), PadAssignment("U1-3", "n"), PadAssignment("U1-EP", "n"))
+    )
+    result = compare(listed, board, min_pins=1)
+    assert (result.common, result.only_a, result.only_b, result.differences) == (3, (), (), ())
+    # a board that leaves the further pad off the net differs
+    split = PadNetList(
+        "board", (PadAssignment("U1-1", NO_NET), PadAssignment("U1-3", "n"), PadAssignment("U1-EP", NO_NET))
+    )
+    assert compare(listed, split, min_pins=1).differences
+
+
+def test_open_pin_of_several_pads_is_one_block() -> None:
+    """Scenario "Open pin of two pads": the pads of a pin are bonded, so on no net they still are one
+    block, as a board that names their net (``unconnected-(…)`` or ``Net-(…)``) has them."""
+    model, u1, _gnd = _several()
+    opened = dataclasses.replace(model, circuit=Circuit(components=(u1,)))
+    listed = model_netlist(opened)
+    label = bonded_label(u1, "3")
+    assert listed == PadNetList(
+        "model", (PadAssignment("U1-1", NO_NET), PadAssignment("U1-3", label), PadAssignment("U1-EP", label))
+    )
+    assert "U1" in label and "|" not in label and net_text(label, {}) == label
+    joined = PadNetList(
+        "board", (PadAssignment("U1-1", NO_NET), PadAssignment("U1-3", "x"), PadAssignment("U1-EP", "x"))
+    )
+    assert compare(listed, joined, min_pins=1).differences == ()

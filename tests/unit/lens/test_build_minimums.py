@@ -121,14 +121,27 @@ def _altium(document: bool, minimums: bool) -> tuple[dict[str, bytes], tuple[Iss
 
 
 @pytest.mark.parametrize("document", [False, True])
-def test_altium_reports_minimums_and_writes_the_same_files(document: bool) -> None:
+def test_altium_writes_or_reports_each_minimum(document: bool) -> None:
+    """Since change c0084 (altium-build, "Rules in an Altium build"): the clearance minimum is written into
+    the PCB document, the width minimum is reported (a Width record holds three limits), and without a
+    document both are reported; only the PCB document and the model's rules differ."""
     plain_files, plain_issues = _altium(document, minimums=False)
     files, issues = _altium(document, minimums=True)
-    (info,) = [i for i in issues if i.where == "design-rules"]
-    assert (info.code, info.severity) == ("altium.not-lowered", "info")
-    assert "min_clearance, min_track_width_PWR" in info.message
+    found = [i for i in issues if i.where.startswith("design-rules")]
+    assert all((i.code, i.severity) == ("altium.not-lowered", "warning") for i in found)
+    expected = (
+        ["design-rules/track_width"] if document else ["design-rules/track_width", "design-rules/clearance"]
+    )
+    assert [i.where for i in found] == expected
+    assert (
+        "'min_track_width_PWR' (netclass PWR)" in found[0].message and "value-unsupported" in found[0].message
+    )
+    if not document:
+        assert "'min_clearance' (all)" in found[1].message and "no-document" in found[1].message
     assert b"min_track_width_PWR" in files.pop(".fenolite/rules.json")
     assert b"min_" not in plain_files.pop(".fenolite/rules.json")
-    assert files == plain_files  # the model keeps the rules; no written file holds them
-    assert [i for i in issues if i is not info] == list(plain_issues)
-    assert not [i for i in plain_issues if i.where == "design-rules"]
+    changed = sorted(name for name in files if files[name] != plain_files[name])
+    # no other written file holds the rules; the build record lists the document's hash
+    assert changed == ([".fenolite/build.json", "blink.PcbDoc"] if document else [])
+    assert [i for i in issues if i not in found] == list(plain_issues)
+    assert not [i for i in plain_issues if i.where.startswith("design-rules")]

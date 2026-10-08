@@ -36,7 +36,7 @@ from fenolite.backends.altium.roundtrip import (
     rt_a0,
     rt_a1,
 )
-from fenolite.checks.diff import KIND_CLASSES, NEVER
+from fenolite.checks.diff import FOOTPRINT_ITEM_CLASSES, KIND_CLASSES, NEVER
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.verify import load_register
@@ -301,7 +301,11 @@ def _round_trips_section() -> str:
 
 def test_scope_documented() -> None:
     """Scenario "Left-out fields are documented": every field of a scoped kind is in the scope, or the
-    section "Round trips" of ``docs/altium.md`` names it in the row of its kind, with a reason."""
+    section "Round trips" of ``docs/altium.md`` names it in the row of its kind, with a reason.
+
+    Edited by change c0126: the kind ``footprint_graphic`` has its class in ``FOOTPRINT_ITEM_CLASSES`` (the
+    pinned ``KIND_CLASSES`` does not change), and the fields and texts of a footprint are written and not
+    compared, a fourth reason (``REASONS``)."""
     section = _round_trips_section()
     left_out: dict[str, set[str]] = {}
     for line in section.splitlines():
@@ -310,7 +314,7 @@ def test_scope_documented() -> None:
             left_out.setdefault(cells[0].strip("`"), set()).update(re.findall(r"`([a-z_]+)`", cells[1]))
     assert set(left_out) <= set(RT_A2_SCOPE.fields)
     for kind, fields in RT_A2_SCOPE.fields.items():
-        cls = KIND_CLASSES.get(kind)
+        cls = KIND_CLASSES.get(kind) or FOOTPRINT_ITEM_CLASSES.get(kind)
         if cls is None:
             assert fields == () and kind == "no_connect"
             continue
@@ -320,7 +324,12 @@ def test_scope_documented() -> None:
         assert f"| `{kind}` | " + ", ".join(f"`{name}`" for name in fields) in section, kind
 
 
-REASONS = ("the writer does not write it", "the writer writes a fixed value", "the reader maps it elsewhere")
+REASONS = (
+    "the writer does not write it",
+    "the writer writes a fixed value",
+    "the reader maps it elsewhere",
+    "written and not compared",  # change c0126: the fields and the texts of a footprint
+)
 MINIMUM = {
     "component": ("ref", "value"),
     "net": ("name", "members"),
@@ -340,7 +349,14 @@ def test_scope_holds_the_required_fields() -> None:
     assert RT_A2_SCOPE.length_tolerance == 2
     for kind, fields in MINIMUM.items():
         assert set(fields) <= set(RT_A2_SCOPE.fields[kind]), kind
-    assert set(STAGE_EVIDENCE) == {"erc.lite", "netlist.assignment_compare", "roundtrip.rta2"}
+    assert set(STAGE_EVIDENCE) == {
+        "erc.lite",
+        "copper.clearance",  # c0088
+        "parity",  # c0088
+        "netlist.assignment_compare",
+        "roundtrip.rta2",
+        "roundtrip.rta3",
+    }
     assert EVIDENCE_RT_A2.level is Level.INFERRED and STAGE_EVIDENCE["roundtrip.rta2"] is EVIDENCE_RT_A2
     register = {row.id: row for row in load_register(ROOT / "docs" / "hypotheses.md")}
     for evidence in STAGE_EVIDENCE.values():

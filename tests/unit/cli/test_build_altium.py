@@ -68,8 +68,9 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     assert list(result) == [
         "design", "target", "out", "files", "components", "nets", "labels", "power_ports", "no_connects",
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
-        "libraries", "symbols", "footprints", "pcb_document", "copper", "experimental", "script_output",
-        "plan",
+        "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "pcb", "copper_check",
+        "outjob",
+        "drawing_sheet", "rules", "experimental", "script_output", "plan",
     ]  # fmt: skip
 
 
@@ -392,7 +393,8 @@ def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_
     assert code == 0 and (out / "altium_hier.SchDoc").read_bytes() == flat_top
     assert (out / "altium_hier_flash.SchDoc").read_bytes() == module_sheet, "left in place"
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
-    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.SchDoc"]
+    # the kept project file is still as the first build wrote it and stays in the record (change c0138)
+    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.PrjPcb", "altium_hier.SchDoc"]
 
 
 @pytest.mark.parametrize("name", ["altium_hier_mcu.SchDoc", "altium_hier_flash.Harness"])
@@ -477,3 +479,121 @@ def test_plane_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     assert isinstance(result, dict) and result["copper"]["planes"] == {"In1.Cu": "GND"}
     issues = env["issues"]
     assert isinstance(issues, list) and "build.plane-not-lowered" not in [i["code"] for i in issues]
+
+
+# --- change c0086: symbol bodies, directions and result.schematic -------------------------------------
+
+KICAD_EXAMPLE = ROOT / "examples" / "altium_kicad" / "design.py"
+DATA = ROOT / "tests" / "data" / "altium"
+
+
+def test_symbols_option_picks_the_bodies(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``--altium-symbols``: ``graphics`` is the default; ``generic`` gives the bytes of earlier releases.
+
+    Change c0134 changed three symbols of the example library, so the generic build runs on a copy of the
+    example that holds the library of those releases (``tests/data/altium/generic/library/``)."""
+    args = ("--target", "altium", "--confirm")
+    code, env, _ = run(monkeypatch, str(KICAD_EXAMPLE), "--out", str(tmp_path / "A"), *args)
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict)
+    assert result["schematic"]["symbols"] == "graphics" and result["schematic"]["symbols_drawn"] > 0
+    assert (tmp_path / "A" / "altium_kicad.SchLib").read_bytes() == (
+        DATA / "kicad_example" / "altium_kicad.SchLib"
+    ).read_bytes()
+    earlier = tmp_path / "earlier"
+    earlier.mkdir()
+    for name in ("design.py", "sym-lib-table"):
+        (earlier / name).write_bytes((KICAD_EXAMPLE.parent / name).read_bytes())
+    library = DATA / "generic" / "library" / "FenoliteDemo.kicad_sym"
+    (earlier / library.name).write_bytes(library.read_bytes())
+    out = tmp_path / "B"
+    code, env, _ = run(
+        monkeypatch, str(earlier / "design.py"), "--out", str(out), *args, "--altium-symbols", "generic"
+    )
+    result = env["result"]
+    assert code == 0 and isinstance(result, dict)
+    assert result["schematic"]["symbols"] == "generic" and result["schematic"]["symbols_drawn"] == 0
+    for name in ("altium_kicad.SchLib", "altium_kicad.SchDoc"):
+        assert (out / name).read_bytes() == (DATA / "generic" / "kicad_example" / name).read_bytes()
+
+
+@pytest.mark.parametrize(
+    ("option", "value"), [("--altium-symbols", "generic"), ("--altium-directions", "off")]
+)
+def test_new_options_need_the_altium_target(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, option: str, value: str
+) -> None:
+    out = tmp_path / "B"
+    code, _, err = run(monkeypatch, str(SAMPLE), "--out", str(out), option, value, "--dry-run")
+    error = json.loads(err)
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == option and not out.exists()
+    code, _, err = run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", option, "maybe")
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001"
+
+
+def test_directions_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    for value, expected in (("on", "on"), ("off", "off")):
+        args = ("--target", "altium", "--altium-sheets", "modules", "--altium-directions", value, "--dry-run")
+        code, env, _ = run(monkeypatch, str(HIER), "--out", str(tmp_path / value), *args)
+        result = env["result"]
+        assert code == 0 and isinstance(result, dict)
+        assert result["schematic"]["directions"] == expected and result["schematic"]["sheets"] == 3
+        assert result["schematic"]["directed"] == 0  # generic pins are passive: nothing to say
+
+
+# --- component bodies (change c0121) ------------------------------------------------------------------
+
+
+def test_bodies_option_is_off_by_default_and_changes_no_byte(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Scenario "Without the option" on the command line: ``result.pcb.bodies`` is ``off`` after the other
+    keys of ``result.pcb``; with ``extruded`` a script, whose footprints hold no body, gives the same
+    files, and no body is counted or invented."""
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    built: dict[str, dict[str, bytes]] = {}
+    for value in ("", "off", "extruded"):
+        out = tmp_path / f"B{value}"
+        flags = ("--altium-bodies", value) if value else ()
+        code, env, err = run(
+            monkeypatch, str(BLINK), "--out", str(out), "--target", "altium", *flags, "--confirm"
+        )
+        assert code == 0, err
+        result = env["result"]
+        assert isinstance(result, dict)
+        pcb = result["pcb"]
+        assert list(pcb) == ["written", "not_lowered", "bodies"]
+        assert pcb["bodies"] == (value or "off") and pcb["written"]["body"] == 0
+        assert pcb["not_lowered"] == {}
+        issues = env["issues"]
+        assert isinstance(issues, list) and not [i for i in issues if str(i["where"]).startswith("body/")]
+        built[value] = {
+            path.name: path.read_bytes()
+            for path in sorted(out.iterdir())
+            if path.is_file() and path.suffix in (".PcbDoc", ".PcbLib", ".PrjPcb", ".SchDoc", ".SchLib")
+        }
+    assert built[""] == built["off"] == built["extruded"] and len(built[""]) == 5
+
+
+def test_bodies_option_needs_the_altium_target(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Refused for another target", and a value that is none of the two."""
+    out = tmp_path / "B"
+    option = ("--altium-bodies", "extruded", "--dry-run")
+    code, _, err = run(monkeypatch, str(BLINK), "--out", str(out), "--target", "kicad", *option)
+    error = json.loads(err)
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--altium-bodies"
+    assert not out.exists()
+    code, _, err = run(monkeypatch, str(BLINK), "--out", str(out), *option)
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001"
+    code, _, err = run(
+        monkeypatch,
+        str(BLINK),
+        "--out",
+        str(out),
+        "--target",
+        "altium",
+        "--altium-bodies",
+        "all",
+        "--dry-run",
+    )
+    assert code == 2 and json.loads(err)["code"] == "FEN-2001" and not out.exists()

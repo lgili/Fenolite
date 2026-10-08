@@ -13,13 +13,13 @@ from collections.abc import Mapping
 from types import MappingProxyType
 
 from fenolite.checks import codes as check_codes
-from fenolite.checks.equivalence.model import KINDS, Difference, EquivalenceReport
+from fenolite.checks.equivalence.model import KINDS, NOTICE_SEVERITY, Difference, EquivalenceReport
 from fenolite.core.errors import Issue, Severity
 
 NET_CODE = "netlist.assignment-differs"
 EQUIVALENCE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
     {
-        **{f"equiv.{kind}": ("error",) for _, kind, _ in KINDS if kind != "net"},
+        **{f"equiv.{kind}": (NOTICE_SEVERITY.get(kind, "error"),) for _, kind, _ in KINDS if kind != "net"},
         "equiv.excluded": ("info",),
         "equiv.import-message": ("info",),
         "equiv.no-exclusion-profile": ("warning",),
@@ -41,6 +41,13 @@ def _shown(value: str) -> str:
     return repr(value) if value else "nothing"
 
 
+HINTS = {
+    "route-unjudged": "a side has a zone without a fill on this net and its pads are not joined without "
+    "it, so an open connection may be hidden: fill the zones (fenolite fill) and compare again",
+}
+"""The hint of a kind whose message alone does not say what to do."""
+
+
 def _message(difference: Difference) -> str:
     return (
         f"{difference.where}: {difference.field} is {_shown(difference.a)} on side a "
@@ -49,8 +56,9 @@ def _message(difference: Difference) -> str:
 
 
 def difference_issues(report: EquivalenceReport) -> tuple[Issue, ...]:
-    """One error per difference that no rule excludes, in level order, then one ``equiv.excluded`` info per
-    rule that matched, with its count and reason."""
+    """One error per difference that no rule excludes, in level order, then one warning or info per notice
+    that no rule excludes, then one ``equiv.excluded`` info per rule that matched, with its count and
+    reason."""
     found: list[Issue] = []
     for difference in report.differences:
         if difference.kind == "net":
@@ -63,6 +71,9 @@ def difference_issues(report: EquivalenceReport) -> tuple[Issue, ...]:
             )
         else:
             found.append(issue(f"equiv.{difference.kind}", _message(difference), where=difference.where))
+    for notice in report.notices:
+        hint = HINTS.get(notice.kind, "")
+        found.append(issue(f"equiv.{notice.kind}", _message(notice), where=notice.where, hint=hint))
     counts = Counter(excluded.rule_id for excluded in report.excluded)
     reasons = {excluded.rule_id: excluded.reason for excluded in report.excluded}
     for rule_id, count in sorted(counts.items()):

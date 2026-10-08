@@ -35,6 +35,13 @@ FLAG_LIBRARY = "fenolite"
 FLAG_NAME = "PWR_FLAG"
 FLAG_REFERENCE = "#FLG"
 SHOWN_CODE = "kicad.sch.power-pin-shown"
+STACKED_TYPE = "passive"
+"""The electrical type of a stacked pin, the pin that stands for a further pad of a pin bonded to several
+(change c0123). ``passive`` joins any pin without an ERC conflict; a second ``power_in`` or ``output`` of
+the pin's own type is the other choice, and this constant is its one place."""
+STACKED_HIDDEN = True
+"""A stacked pin is hidden: the sheet shows the first pad of the pin, and the others are in the symbol's
+pin table. ``False`` draws every number, on top of each other."""
 _HIDDEN = "(at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes))"
 _FLAG_DESCRIPTION = (
     "Power flag authored for Fenolite: it tells the electrical rules check that its net is driven"
@@ -81,8 +88,35 @@ class EmbeddedSymbol:
 
 def variant_name(name: str, pin_pad_map: Sequence[tuple[str, str]]) -> str:
     """``<name>_<8 hex digits>``: the name of ``name`` with the pin numbers of ``pin_pad_map``."""
-    pairs = sorted([str(pin), str(pad)] for pin, pad in pin_pad_map)
-    return f"{name}_{content_hash(pairs)[:8]}"
+    return f"{name}_{content_hash([list(pair) for pair in variant_pairs(pin_pad_map)])[:8]}"
+
+
+def variant_pairs(pin_pad_map: Sequence[tuple[str, str]]) -> tuple[tuple[str, str], ...]:
+    """The pairs of a map in the order that names and keys a variant: sorted by pin, the pads of one pin in
+    map order, since the first is the one the symbol shows. For a map of one pad per pin these are the
+    sorted pairs."""
+    return tuple(sorted(((str(pin), str(pad)) for pin, pad in pin_pad_map), key=lambda pair: pair[0]))
+
+
+def pad_groups(pin_pad_map: Sequence[tuple[str, str]]) -> dict[str, tuple[str, ...]]:
+    """Pin → its pads in map order (``Component.pin_pads`` of the pairs)."""
+    found: dict[str, list[str]] = {}
+    for pin, pad in pin_pad_map:
+        found.setdefault(str(pin), []).append(str(pad))
+    return {pin: tuple(pads) for pin, pads in found.items()}
+
+
+def _stacked(pin: Node, number: str) -> Node:
+    """The pin that stands for the further pad ``number`` of ``pin``: at its place, with its length and
+    name, of type ``STACKED_TYPE``, hidden when ``STACKED_HIDDEN``, and without alternates."""
+    children: list[Node | Atom] = [Atom.symbol(STACKED_TYPE), Atom.symbol("line")]
+    for child in pin.children:
+        if isinstance(child, Atom) or _is_hide(child) or child.name == "alternate":
+            continue
+        children.append(_set_text(child, number) if child.name == "number" else child)
+        if child.name == "length" and STACKED_HIDDEN:
+            children.append(node("hide", Atom.symbol("yes")))
+    return pin.with_children(children)
 
 
 def _yes_no(head: str, value: bool) -> Node:
@@ -195,11 +229,16 @@ def _set_text(item: Node, text: str) -> Node:
 
 
 def _pins(
-    symbol: Node, name: str, numbers: Mapping[str, str], empty: set[tuple[str, str]], shown: list[str]
+    symbol: Node,
+    name: str,
+    numbers: Mapping[str, tuple[str, ...]],
+    empty: set[tuple[str, str]],
+    shown: list[str],
 ) -> Node:
-    """``symbol`` with its sub-symbols renamed to ``name`` and their pins rewritten: mapped numbers,
-    power inputs shown, and ``~`` as the empty name where the library meant it (``empty`` holds the
-    (number, name) pairs the reader gave an empty name)."""
+    """``symbol`` with its sub-symbols renamed to ``name`` and their pins rewritten: mapped numbers (the
+    first pad of a pin, and one stacked pin after it for each further pad), power inputs shown, and ``~``
+    as the empty name where the library meant it (``empty`` holds the (number, name) pairs the reader gave
+    an empty name)."""
     old = _first_text(symbol)
     children: list[Node | Atom] = []
     for child in symbol.children:
@@ -224,8 +263,10 @@ def _pins(
                 if part.name == "name" and _first_text(part) == "~" and (number, "name") in empty:
                     pin_children[index] = _set_text(part, "")
                 elif part.name == "number" and number in numbers:
-                    pin_children[index] = _set_text(part, numbers[number])
-            body.append(item.with_children(pin_children))
+                    pin_children[index] = _set_text(part, numbers[number][0])
+            written = item.with_children(pin_children)
+            body.append(written)
+            body += [_stacked(written, pad) for pad in numbers.get(number, ())[1:]]
         children.append(child.with_children(body))
     return _renamed(symbol.with_children(children), name)
 
@@ -294,7 +335,8 @@ def embed_symbol(
 
     ``definition`` is the resolved symbol (its own children as slots) and ``parents`` the symbols it
     extends as their library holds them, the nearest first. ``pin_numbers`` is a component's
-    ``pin_pad_map``: its pins take those numbers and the name of ``variant_name``. A token that ``target``
+    ``pin_pad_map``: its pins take those numbers (a pin of several pads its first, with one stacked pin
+    per further pad) and the name of ``variant_name``. A token that ``target``
     does not read raises ``LossyWriteError``, or is dropped with a warning when ``allow_lossy`` is set.
     """
     if target not in TARGET_MAJORS:
@@ -307,7 +349,7 @@ def embed_symbol(
     if literal:
         empty = {(pin.number, "name") for pin in definition.pins if not pin.name}
     shown: list[str] = []
-    flat = _pins(_renamed(flat, definition.name), name, dict(pin_numbers or ()), empty, shown)
+    flat = _pins(_renamed(flat, definition.name), name, pad_groups(pin_numbers or ()), empty, shown)
     if literal:
         flat = _untilde(flat, definition)
     authored = definition if not definition.ext.get("kicad") and not pin_numbers and not shown else None

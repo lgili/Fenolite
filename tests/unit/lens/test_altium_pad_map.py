@@ -205,10 +205,14 @@ def test_a_pad_that_two_pins_stand_for_is_refused(
             assert cli_main.main(args) == 5, target
         assert not folder.exists(), target
         codes[target] = [i for i in json.loads(out.getvalue())["issues"] if "pin-pad-map" in i["code"]]
-    (found,) = codes["altium"]
-    assert (found["code"], found["severity"], found["where"]) == ("altium.pin-pad-map-invalid", "error", "D1")
+    # Since change c0123 the model itself says ``model.pin-pad-map`` of such a pad, once per pin. Each build
+    # keeps its own code, which a user of 0.2.1 knows, and reports the model's finding beside it.
+    (found,) = [i for i in codes["altium"] if i["code"] == "altium.pin-pad-map-invalid"]
+    assert (found["severity"], found["where"]) == ("error", "D1")
     assert "the pins 1 and 2" in found["message"] and f"the pad {pad}" in found["message"]
-    assert [i["code"] for i in codes["kicad"]] == ["build.pin-pad-map-invalid"]
+    assert {i["code"] for i in codes["altium"]} == {"altium.pin-pad-map-invalid", "model.pin-pad-map"}
+    assert {i["code"] for i in codes["kicad"]} == {"build.pin-pad-map-invalid", "model.pin-pad-map"}
+    assert [i["code"] for i in codes["kicad"]].count("build.pin-pad-map-invalid") == 1
     with pytest.raises(DslError, match="more than one pin"):
         Part("X1", "Lib:S", pad_map={"1": "3", "2": "3"})
 
@@ -272,12 +276,17 @@ def test_a_repeated_pin_number_and_a_generic_pin_are_no_findings() -> None:
     assert issues_of(generic) == []
 
 
-def test_check_still_compares_the_schematic_by_pin(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """A stated limit of 0.2.x: ``fenolite check`` of a correct project built from a script with a renaming
-    ``pad_map`` reports ``netlist.assignment-differs`` and exits 5, because the comparison names a pin of
-    the schematic by its own number and a pad of the board by the pad. The written files are right (the
-    tests above); the comparison learns the map with the model of several pads per pin. A project
-    without a map is checked clean."""
+def test_check_compares_a_built_project_through_the_map(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """``fenolite check`` of a project built from a script with a renaming ``pad_map`` exits 0 and reports
+    no ``netlist.assignment-differs``, as for a project without a map: the import reads the map records of
+    the schematic into ``Component.pin_pad_map`` (change c0083) and the comparison names a pin by its pad.
+
+    On the 0.2.x line this test was ``test_check_still_compares_the_schematic_by_pin`` and pinned the
+    opposite, a stated limit of 0.2.1: there the import leaves the records out of the model, so the
+    schematic is compared by pin number and the board by pad number, and a correct project is reported
+    (exit 5). The development line never had that limit once the build wrote the records."""
     import io
     import json
     import sys
@@ -294,7 +303,6 @@ def test_check_still_compares_the_schematic_by_pin(monkeypatch: pytest.MonkeyPat
         return code, [i["message"] for i in issues if i["code"] == "netlist.assignment-differs"]
 
     code, differs = check(built(monkeypatch, tmp_path / "map", D1, SWAPPED))
-    assert code == 5 and any(message.startswith("D1-1 is on") for message in differs), differs
-    assert not any("in the model and on" in m and "in the pcb" in m for m in differs)  # the board is right
+    assert code == 0 and differs == []
     code, differs = check(built(monkeypatch, tmp_path / "plain", "", ""))
     assert code == 0 and differs == []

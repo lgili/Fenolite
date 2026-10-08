@@ -54,7 +54,8 @@ def committed() -> dict[str, bytes]:
 
 def _fields(record: sch.SchRecord) -> Fields:
     assert record.props is not None
-    return [(p.key, p.raw.decode("ascii")) for p in record.props.items if p.raw is not None]
+    # one character per byte, as the test reader decodes them (a value may hold code-page bytes, c0086)
+    return [(p.key, p.raw.decode("latin-1")) for p in record.props.items if p.raw is not None]
 
 
 def _schematic_problems(data: bytes) -> list[str]:

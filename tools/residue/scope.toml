@@ -35,6 +35,16 @@ pattern = "numeric-code"
 reason = "the same view window VP.LX/HX/LY/HY that libboard.py writes into every PCB library (c0038 golden file of the routed sample)"
 
 [[waiver]]
+path = "tests/data/altium/board6/board6.PcbLib"
+pattern = "numeric-code"
+reason = "the same view window VP.LX/HX/LY/HY that libboard.py writes into every PCB library (c0085 golden file of the six-layer sample)"
+
+[[waiver]]
+path = "tests/data/altium/body2/body2.PcbLib"
+pattern = "numeric-code"
+reason = "the view-window numbers VP.LX/HX/LY/HY that libboard.py writes into every PCB library: 499000000 and 501000000 units around the library origin at 50 000 mil, the same class as the waivers of blink.PcbLib, routed.PcbLib and board6.PcbLib (c0121 golden file of the sample with component bodies; approved per file on 2026-10-07)"
+
+[[waiver]]
 path = "tests/data/acceptance/*/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the finished projects of the v0.1 acceptance loop (c0025)"
@@ -43,3 +53,13 @@ reason = "KiCad INT_MAX Default class priority 2147483647, in the finished proje
 path = "tests/data/lens/sync_minimal/*.kicad_pro"
 pattern = "numeric-code"
 reason = "KiCad INT_MAX Default class priority 2147483647, in the example project of fenolite sync (c0069)"
+
+[[waiver]]
+path = "tests/data/altium/outjob/blink.OutJob"
+pattern = "numeric-code"
+reason = "the two film sizes of the Gerber settings record that outjob.py writes into every output job, FilmXSize=200000000 and FilmYSize=160000000: constant fields that both public output jobs of the corpus hold (docs/formats/altium/output-job.md, the field table, rows 8 and 9; S-0187, S-0299), in the committed sample of the written job (c0138; the record is written whole, so the sample cannot leave them out; approved per file on 2026-10-07)"
+
+[[waiver]]
+path = "tests/data/model/v0.2.0/blink_2layer.board.json"
+pattern = "numeric-code"
+reason = "board coordinates in nanometres of the example board, 100 mm to 150 mm from the origin (100000000 to 150000000: the outline corners and the three footprint positions of examples/blink_2layer/design.py), in the board.json that release 0.2.0 wrote and that c0126 commits byte for byte as the fixture of an old model document; the model's lengths are integer nanometres, so the file cannot leave them out (c0126, 2026-10-08; approved per file by the maintainer on 2026-10-08)"

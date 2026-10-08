@@ -44,12 +44,15 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 |---|---|---|---|
 | `Board6/Data` is exactly one property record; KiCad refuses an empty one | S-0160, S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | `Board6` holds `ORIGINX` and `ORIGINY` (mil text) and the layer stack `LAYER<i>NAME`, `LAYER<i>PREV`, `LAYER<i>NEXT` (layer ids, 0 the end), and per layer `LAYER<i>MECHENABLED`; an Altium-saved record lists i = 1 … 82 (`pcb-library.md`, "The board record") | S-0002, S-0160 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
+| **Mechanical layers in use.** In a saved document every mechanical layer 1 to 16 that a track, an arc, a fill, a region or a text lies on is enabled in the board record: `LAYER<56+n>MECHENABLED=TRUE` (43 of 43 such layers over the eight public documents; 16 more are enabled and hold no primitive), and the layer set `&Mechanical Layers` lists exactly the enabled mechanical layers 1 to 16 (8 of 8 records). A layer is therefore enabled where it is used. The writer keeps Mechanical 13 to 16 enabled in every document, as before, and enables each of Mechanical 1 to 12 that a primitive of the document lies on (`libboard.enabled_mechanical`), in the numbered layers and in the two layer sets that list the mechanical layers; it writes the `MECHENABLED` key of the same layer in the `V9` and `_V8` stack lists in step with them, as the library record does (`pcb-library.md`, "The board record"). A document that uses none of the twelve keeps its bytes | S-0580, S-0160 | CORPUS-VERIFIED (8 rows; 2026-10-08) | H-A-PCBX-MECH |
+| A primitive on Mechanical `n`, 1 to 16, holds the layer id `56 + n` in its prefix (`pcb-records.md`, "Layer ids"); the import names the layer `Mech.<n>`. The write of a board that was read from an Altium document takes those names for the items of its footprints and for its free texts and graphics; a build has no such layer | S-0160, S-0002 | INFERRED | H-A-PCBX-MECH |
 | KiCad builds the copper stack by following `NEXT` from layer 1 until 0. It reads the `LAYER<i>` keys from i = 1 until the first missing `NAME` and follows a link only to an id below the number of names read, so ids up to at least 33 must be listed for a two-layer board to reach 32 | S-0160, S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | The outline is the vertex list `VX<k>`, `VY<k>`, `KIND<k>` (0 a line; another value an arc with `CX<k>`, `CY<k>`, `R<k>`, `SA<k>`, `EA<k>`); KiCad turns it into `Edge.Cuts` segments. The MIT project closes the polygon by repeating the first vertex and writes `KIND=Protel_Advanced_PCB` and `VERSION=5.00`; KiCad reads the record of `VERSION=5.01` with the eight keys per vertex as well | S-0002, S-0160, S-0143 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | `Nets6/Data` holds one property record per net with `NAME`; a net's index is its position | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | `Components6/Data` holds one property record per component: `LAYER` (`TOP` or `BOTTOM`), `X`, `Y` (mil text), `ROTATION` (degrees), `LOCKED`, `NAMEON`, `COMMENTON`, `PATTERN` (the footprint name), `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY` and `SOURCELIBREFERENCE` | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 | KiCad takes the reference from `SOURCEDESIGNATOR`, the footprint id from `SOURCEFOOTPRINTLIBRARY` without path and extension plus `PATTERN`, and the footprint path from `SOURCEHIERARCHICALPATH` and `SOURCEUNIQUEID` with one leading backslash removed | S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | A PCB component made from a part on a child sheet holds `SOURCEUNIQUEID=\<sheet symbol unique id>\<component unique id>`, one id per level of the hierarchy (a repeated sheet adds one more), and `SOURCEHIERARCHICALPATH=<top sheet stem>\<sheet symbol designator>`. The link of a part placed on the top sheet of a hierarchical project was not observed: the saved top sheets hold no part | S-0164, S-0188 | INFERRED | H-A-SCH-HIER-ECO |
+| For a part two levels down, the link holds the unique ids of both sheet symbols, the upper one first (`connectivity.md`, "Component link": observed through two levels). What `SOURCEHIERARCHICALPATH` holds there was not read from a saved file: the writer of change c0086 extends the one-level form by one `\<sheet symbol designator>` per level, and the component class of such a sheet is named after its own sheet symbol | S-0164, S-0188 | INFERRED | H-A-SCHX-ECO |
 | `CHANNELOFFSET` counts the components of one sheet: in the saved board of a hierarchical project the components of each hierarchical path hold 0, 1, 2, …, and every instance of a repeated sheet starts again at 0. It is not an index over the whole board. A few sheets that were edited later hold one value twice | S-0188 | INFERRED | H-A-SCH-HIER-ECO |
 | With the two-id link written for parts on module sheets, the change order of Altium Designer 26.5 ("Design » Update PCB Document" on the board example of change c0037) lists no component change, no pin change and no net change: every part on a module sheet matches its board component and the nets match by name. It proposes the component classes, rooms and "Supply Nets" rules that Altium derives from the sheets, and the removal of a board net class that the schematic does not declare. The link of a part on the top sheet of a hierarchical project and a repeated sheet were not checked (maintainer's third report of Part H, 2026-10-03) | S-0164, S-0139 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-SCH-HIER-ECO |
 | Altium links a schematic component and its PCB component by the schematic component's unique id, stored on the PCB side as the path `\<id>` (one sheet level); when ids do not match it offers to link by designator, comment and footprint | S-0164, S-0139 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-LINK |
@@ -171,3 +174,34 @@ starting with `\|RECORD=Board`.
   difference from the saved files while looking for another fault, and it was corrected. On the
   rebuilt example the change order of Altium Designer 26.5 lists no component, pin or net change
   (third report of Part H, 2026-10-03).
+
+### A model that was read (change c0090)
+
+`fenolite.backends.altium.lower` writes a model that holds a board without a script. It adds no record
+and no field: every byte is one of the records above and of `pcb-records.md`. What differs from a build
+is which values the records get.
+
+- **Frame.** A board that was read from a PCB document is written in the document's own frame: the
+  import maps a point (x, y) of the document to (x, −y) of the model, and the write maps it back, so
+  every coordinate keeps its units. `ORIGINX` and `ORIGINY` get the values that the import kept. Any
+  other board is written like a build, with the outline's lower-left corner at (1000 mil, 1000 mil).
+- **Components.** A footprint of the model is one component record with its own pads; the model holds
+  no graphics of a footprint, so none is written. `UNIQUEID` is the unique id that the import kept for
+  the footprint, and `SOURCEUNIQUEID` the one it kept for the component, when one component alone
+  holds it. A component without a designator or without a comment gets no text record for it.
+- **Arcs** (change c0127). An arc that was read from an arc record is written with the centre, the
+  radius and the two angles of that record, which the import keeps in the pair `arc` of the entity's
+  bag (`import.md`, "Extension-bag keys"), when they still give the entity's three points within
+  2 nm. The record is the one of "Tracks and arcs" in `pcb-copper.md`; only its values differ from
+  the ones a build derives from three points. An arc without the pair, and an arc that was moved in
+  the model, is derived from its points.
+- **Vias with a hole equal to the diameter** (change c0128). A saved document can hold a via whose
+  hole equals its diameter (`pcb-copper.md`, "Via"). When the write is the rewrite of a document that
+  was read (`rewrite=True`), such a via is written as the via record of any other via with the two
+  equal values. In every other write, and in a build, it is refused.
+- **Free pads.** A pad that belongs to no component is a pad record whose component index is the
+  "none" value, like the pad that a hole is written as ("Free pads as holes"), here with its name, its
+  copper and its net.
+- **Texts outside 7-bit ASCII.** A designator or a comment that the 8-bit string cannot hold is written
+  as a free text is: the 8-bit string with `?` for each character outside ISO-8859-1, and the text
+  itself as the wide string.

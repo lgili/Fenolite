@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""RT-A2 on every example build (capability altium-verification, "Round-trip level RT-A2"; change c0044):
-each script under ``examples/`` is built for the Altium target into ``tmp_path``, in the binary and in the
-ASCII schematic form, and ``fenolite check --stages roundtrip.rta2`` judges the level. Evidence of level
-INFERRED (``H-A-VER-RTA2-2``): Fenolite's writers read by Fenolite's readers."""
+"""RT-A2 on every example build (capability altium-verification, "Round-trip level RT-A2" and "RT-A2 on a
+written model"; changes c0044 and c0090): each script under ``examples/`` is built for the Altium target
+into ``tmp_path``, in the binary and in the ASCII schematic form, and ``fenolite check --stages
+roundtrip.rta2`` judges the level. Since c0090 the stored model holds the board that was written, so
+footprints, pads and copper are compared and no kind is only counted. Evidence of level INFERRED
+(``H-A-VER-RTA2-3``): Fenolite's writers read by Fenolite's readers."""
 
 from __future__ import annotations
 
@@ -17,9 +19,13 @@ import pytest
 from _altium_built import BLINK, EXAMPLES, build_altium_example, built_blink
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.altium import pcbrecords as rec
+from fenolite.backends.altium.cfb import Storage, write_compound
+from fenolite.backends.altium.read import cfb as read_cfb
+from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.roundtrip import RT_A2_SCOPE
 from fenolite.checks.rta2 import CIRCUIT_KINDS
-from fenolite.model.canonical import load_dir
+from fenolite.model.canonical import dump_texts, load_dir
 
 FORMS = {"binary": (), "ascii": ("--altium-format", "ascii")}
 OFFICIAL = "blink_official/design.py"
@@ -40,8 +46,9 @@ SCHEMATIC_ONLY = {
     "altium_sample/design.py",
 }
 SCRIPTS = sorted(path.relative_to(EXAMPLES).as_posix() for path in EXAMPLES.glob("*/*.py"))
-NOT_IN_MODEL = {"footprint", "pad", "track", "arc", "via", "zone"}
-"""The board kinds that the built model of an Altium build does not hold today."""
+PCB_KINDS = sorted(kind for kind in RT_A2_SCOPE.fields if kind not in CIRCUIT_KINDS)
+"""The kinds compared with the PCB reading: every other kind of the scope."""
+ROUTED = EXAMPLES / "blink_routed" / "design.py"
 
 
 def _check(monkeypatch: pytest.MonkeyPatch, folder: Path) -> tuple[int, dict[str, Any]]:
@@ -63,7 +70,8 @@ def _judge(monkeypatch: pytest.MonkeyPatch, folder: Path, *, pcb: bool) -> dict[
     assert summary["compared"]["schematic"] == sorted(CIRCUIT_KINDS)
     assert ("pcb" in summary["compared"]) is pcb
     assert stage["evidence"]["level"] == "INFERRED"
-    assert "H-A-VER-RTA2-2" in stage["evidence"]["hypotheses"]
+    assert "H-A-VER-RTA2-3" in stage["evidence"]["hypotheses"]
+    assert "not_in_model" not in summary  # no kind is only counted
     assert not [i for i in env["issues"] if i["code"] == "check.rta2-failed"]
     return summary
 
@@ -80,14 +88,11 @@ def test_example_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, scr
     assert code == 0, error
     summary = _judge(monkeypatch, folder, pcb=script in WITH_PCB)
     if script in WITH_PCB:
-        # The built model is the script's model: it holds no footprint and no copper, so these kinds are
-        # counted and not compared. The net classes are compared.
-        assert "netclass" in summary["compared"]["pcb"]
-        outside = summary["not_in_model"]["pcb"]
-        assert set(outside) <= NOT_IN_MODEL and outside["footprint"] >= 3 and outside["pad"] >= 3
-        assert set(summary["compared"]["pcb"]) | set(outside) <= set(RT_A2_SCOPE.fields)
-    else:
-        assert summary["not_in_model"] == {}
+        # the stored model holds the board that was written: every kind of the scope is compared
+        assert summary["compared"]["pcb"] == PCB_KINDS
+        board = load_dir(folder / ".fenolite").board
+        assert board is not None and len(board.footprints) >= 3
+        assert sum(len(footprint.pads) for footprint in board.footprints) >= 3
 
 
 def test_module_sheets_hold_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -111,8 +116,10 @@ def test_built_blink_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     """Scenario "Built blink holds RT-A2"."""
     folder = built_blink(monkeypatch, tmp_path)
     summary = _judge(monkeypatch, folder, pcb=True)
-    assert summary["compared"] == {"schematic": ["component", "net", "no_connect"], "pcb": ["netclass"]}
-    assert summary["not_in_model"] == {"pcb": {"footprint": 3, "pad": 36}}
+    assert summary["compared"] == {"schematic": ["component", "net", "no_connect"], "pcb": PCB_KINDS}
+    board = load_dir(folder / ".fenolite").board
+    assert board is not None
+    assert (len(board.footprints), sum(len(fp.pads) for fp in board.footprints)) == (3, 36)
 
 
 def test_changed_document_is_caught_in_the_built_blink(
@@ -143,3 +150,150 @@ def test_built_model_stores_the_written_value(monkeypatch: pytest.MonkeyPatch, t
     assert 'Part("J1"' in script.read_text(encoding="utf-8")
     assert model.by_ref["J1"].value == "HDR2"
     assert all(component.value for component in model.circuit.components)
+
+
+def _move_first_track(document: Path) -> None:
+    """Move the first free track of the PCB document by one mil in X, by an edit of its record."""
+    data = document.read_bytes()
+    read = read_pcbdoc(data, file=document.name)
+    index = next(i for i, track in enumerate(read.tracks) if track.prefix.component is None)
+    track = read.tracks[index]
+    moved = rec.track_record(
+        track.prefix.layer,
+        (track.x1 + rec.UNITS_PER_MIL, track.y1),
+        (track.x2 + rec.UNITS_PER_MIL, track.y2),
+        track.width,
+        net=track.prefix.net if track.prefix.net is not None else rec.NO_INDEX,
+    )
+    raws, trailing = read.parts["Tracks6"]
+    stream = b"".join(moved if i == index else raws[i] for i in range(len(raws))) + trailing
+
+    def replaced(entries: Any) -> tuple[Any, ...]:
+        out: list[Any] = []
+        for entry in entries:
+            if isinstance(entry, Storage):
+                inner = entry.entries
+                if entry.name == "Tracks6":
+                    inner = tuple((name, stream if name == "Data" else content) for name, content in inner)
+                out.append(Storage(entry.name, replaced(inner) if entry.name != "Tracks6" else inner))
+            else:
+                out.append(entry)
+        return tuple(out)
+
+    document.write_bytes(write_compound(replaced(read_cfb.open_compound(data, file=document.name).tree())))
+
+
+def test_moved_track_is_caught(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Copper compared" (change c0090): one track of the routed blink's PCB document is moved by
+    a record edit, and the stage names a track."""
+    code, folder, error = build_altium_example(monkeypatch, tmp_path, ROUTED)
+    assert code == 0, error
+    _judge(monkeypatch, folder, pcb=True)
+    _move_first_track(folder / "blink_routed.PcbDoc")
+    code, env = _check(monkeypatch, folder)
+    assert code == 5
+    failed = [i for i in env["issues"] if i["code"] == "check.rta2-failed"]
+    assert failed and {i["where"].split("/")[1] for i in failed} == {"track"}
+    assert all(i["where"].startswith("pcb:/track/") and i["severity"] == "error" for i in failed)
+    assert env["result"]["stages"][0]["summary"]["holds"] is False
+
+
+def test_model_without_the_board_is_skipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A stored model that predates change c0090 holds no footprint while the PCB document holds some:
+    the stage is skipped with ``model-predates-board`` and reports nothing."""
+    folder = built_blink(monkeypatch, tmp_path)
+    model = load_dir(folder / ".fenolite")
+    assert model.board is not None
+    import dataclasses
+
+    old = dataclasses.replace(model, board=dataclasses.replace(model.board, footprints=()))
+    for name, text in dump_texts(old).items():
+        (folder / ".fenolite" / name).write_text(text, encoding="utf-8", newline="\n")
+    code, env = _check(monkeypatch, folder)
+    (stage,) = env["result"]["stages"]
+    assert code == 0 and (stage["status"], stage["reason"]) == ("skipped", "model-predates-board")
+
+
+# --- footprint graphics (change c0126, capability altium-verification, "Footprint graphics in the Altium
+# round trips") -------------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("script", sorted(WITH_PCB - {OFFICIAL}))
+def test_every_example_compares_its_footprint_graphics(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str
+) -> None:
+    """Scenario "Every example compares its footprint graphics": the kind ``footprint_graphic`` is compared
+    with 0 differences (``_judge``), and the stored board holds the graphics that the document draws for
+    each footprint, and the corner ratio of each rounded pad."""
+    code, folder, error = build_altium_example(monkeypatch, tmp_path, EXAMPLES / script)
+    assert code == 0, error
+    summary = _judge(monkeypatch, folder, pcb=True)
+    assert "footprint_graphic" in summary["compared"]["pcb"]
+    board = load_dir(folder / ".fenolite").board
+    assert board is not None and board.footprints
+    assert all(footprint.graphics for footprint in board.footprints)
+    rounded = [pad for footprint in board.footprints for pad in footprint.pads if pad.shape == "roundrect"]
+    assert all(pad.corner_ratio is not None and pad.corner_ratio % 5_000 == 0 for pad in rounded)
+
+
+def _move_component_track(document: Path, designator: str) -> None:
+    """Move the first track of the component ``designator`` by one mil in X, by an edit of its record."""
+    data = document.read_bytes()
+    read = read_pcbdoc(data, file=document.name)
+    owner = next(i for i, item in enumerate(read.components) if item.source_designator == designator)
+    index = next(i for i, track in enumerate(read.tracks) if track.prefix.component == owner)
+    track = read.tracks[index]
+    moved = rec.track_record(
+        track.prefix.layer,
+        (track.x1 + rec.UNITS_PER_MIL, track.y1),
+        (track.x2 + rec.UNITS_PER_MIL, track.y2),
+        track.width,
+        component=owner,
+    )
+    raws, trailing = read.parts["Tracks6"]
+    stream = b"".join(moved if i == index else raws[i] for i in range(len(raws))) + trailing
+
+    def replaced(entries: Any) -> tuple[Any, ...]:
+        out: list[Any] = []
+        for entry in entries:
+            if isinstance(entry, Storage):
+                inner = entry.entries
+                if entry.name == "Tracks6":
+                    inner = tuple((name, stream if name == "Data" else content) for name, content in inner)
+                out.append(Storage(entry.name, replaced(inner) if entry.name != "Tracks6" else inner))
+            else:
+                out.append(entry)
+        return tuple(out)
+
+    document.write_bytes(write_compound(replaced(read_cfb.open_compound(data, file=document.name).tree())))
+
+
+def test_moved_silkscreen_line_is_caught(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A moved silkscreen line is caught": one overlay track of ``R1`` in the built blink is moved
+    by a record edit, and every ``check.rta2-failed`` is under ``pcb:/footprint_graphic/``."""
+    folder = built_blink(monkeypatch, tmp_path)
+    _judge(monkeypatch, folder, pcb=True)
+    _move_component_track(folder / "blink.PcbDoc", "R1")
+    code, env = _check(monkeypatch, folder)
+    assert code == 5
+    failed = [i for i in env["issues"] if i["code"] == "check.rta2-failed"]
+    assert failed and all(i["where"].startswith("pcb:/footprint_graphic/") for i in failed)
+    assert env["result"]["stages"][0]["summary"]["holds"] is False
+
+
+def test_model_without_graphics_is_skipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A stored model that predates change c0126 holds footprints without graphics while the PCB document
+    draws some: the stage is skipped with ``model-predates-graphics`` and reports nothing."""
+    import dataclasses
+
+    folder = built_blink(monkeypatch, tmp_path)
+    model = load_dir(folder / ".fenolite")
+    assert model.board is not None
+    footprints = tuple(dataclasses.replace(fp, graphics=()) for fp in model.board.footprints)
+    old = dataclasses.replace(model, board=dataclasses.replace(model.board, footprints=footprints))
+    for name, text in dump_texts(old).items():
+        (folder / ".fenolite" / name).write_text(text, encoding="utf-8", newline="\n")
+    code, env = _check(monkeypatch, folder)
+    (stage,) = env["result"]["stages"]
+    assert code == 0 and (stage["status"], stage["reason"]) == ("skipped", "model-predates-graphics")
+    assert not [i for i in env["issues"] if i["code"] == "check.rta2-failed"]

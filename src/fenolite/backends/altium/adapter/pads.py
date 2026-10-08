@@ -20,7 +20,7 @@ from fenolite.backends.altium.read.pcbprims import PadRecord
 from fenolite.core.coords import Point, Size
 from fenolite.core.units import Udeg
 from fenolite.geometry.transform import FULL_TURN, Transform, rotate_point
-from fenolite.model.board import HoleShape, Pad, PadKind, PadShape, Padstack, PadstackLayer
+from fenolite.model.board import PPM_PER_PERCENT, HoleShape, Pad, PadKind, PadShape, Padstack, PadstackLayer
 
 SHAPE_ROUND, SHAPE_RECT, SHAPE_OCTAGON = 1, 2, 3
 ALTERNATE_ROUNDRECT = 9
@@ -217,8 +217,12 @@ def pad(
     pairs: list[tuple[str, str]] = []
     if record.stack_mode != MODE_SIMPLE:
         pairs.append(("stack_mode", str(record.stack_mode)))
+    corner_ratio: int | None = None
     if shape == "roundrect" and record.corner_percentages is not None:
-        pairs.append(("corner_percent", str(record.corner_percentages[slot])))
+        percent = record.corner_percentages[slot]
+        pairs.append(("corner_percent", str(percent)))
+        if 0 <= percent <= 100:  # one percent of half the shorter side is 5 000 ppm of the shorter side
+            corner_ratio = PPM_PER_PERCENT * percent
     if shape == "custom":
         pairs.append(("shape", str(shape_number)))
     if record.paste_mode != EXPANSION_FROM_RULE:
@@ -269,6 +273,7 @@ def pad(
         layers=names,
         net_id=net_id,
         padstack=stack,
+        corner_ratio=corner_ratio,
     )
 
 

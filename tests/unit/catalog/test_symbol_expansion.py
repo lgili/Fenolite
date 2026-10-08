@@ -115,6 +115,15 @@ def test_schottky_cathode_is_continuous_and_tvs_is_opposed_nonpolar() -> None:
     path = [g for g in s.graphics if g.kind == "line"]
     assert len(path) == 5
     assert all(a.points[-1] == b.points[0] for a, b in zip(path, path[1:], strict=False))
+    # The pins of the catalog's Diode (change c0134): 3.81 mm long, so the pin number of the cathode is
+    # drawn clear of the hook, which reaches 0.635 mm past the bar.
+    diode = get_symbol("Fenolite:Diode")
+    assert [(p.position, p.rotation, p.length) for p in s.pins] == [
+        (p.position, p.rotation, p.length) for p in diode.pins
+    ]
+    hook = max(point.x for stroke in path for point in stroke.points)
+    middle = s.pins[1].position.x - s.pins[1].length // 2  # where KiCad centres the pin number
+    assert middle - hook == 1_270_000
     left, right = _polygons("TVS_Bidirectional")
     assert left[1] == right[1] == (0, 0)
     assert left[0][0] < 0 < right[0][0]

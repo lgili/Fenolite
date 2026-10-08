@@ -18,6 +18,10 @@ _NM = 1_000_000
 _STROKE = 254_000
 _GRID = 2_540_000
 _HALF_GRID = 1_270_000
+_NAMED_BLOCKS = frozenset({"Linear_Regulator", "Offline_Power_Controller", "Microcontroller", "Power_Module"})
+"""The symbols that show their pin names: a plain rectangle says nothing about its pins, so each has
+room for the names (capability fenolite-component-catalog, "Legible pin texts"). Every other body is a
+drawing that tells its pins apart, so its names stay in the model and are not drawn."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -670,9 +674,10 @@ def _symbol_graph(name: str) -> tuple[tuple[SymbolPin, ...], tuple[SymbolGraphic
                 _line((_HALF_GRID, -_GRID), (_HALF_GRID, _GRID), 635_000 if polarized else _STROKE),
             )
             if polarized:
+                # The plus lies below the lead: KiCad draws the pin's number above it.
                 graphics += (
-                    _line((-2_200_000, 1_500_000), (-2_200_000, 2_300_000)),
-                    _line((-2_600_000, 1_900_000), (-1_800_000, 1_900_000)),
+                    _line((-2_200_000, -2_300_000), (-2_200_000, -1_500_000)),
+                    _line((-2_600_000, -1_900_000), (-1_800_000, -1_900_000)),
                 )
             labels = ("+", "-") if polarized else ("A", "B")
             return (
@@ -806,11 +811,22 @@ def _symbol_graph(name: str) -> tuple[tuple[SymbolPin, ...], tuple[SymbolGraphic
         )
         left_ac, right_ac = (-2 * _GRID, 0), (2 * _GRID, 0)
         positive, negative = (0, 2 * _GRID), (0, -2 * _GRID)
+
+        def tilde(x: int) -> tuple[SymbolGraphic, ...]:
+            wave = ((x, -150_000), (x + 300_000, 150_000), (x + 600_000, -150_000), (x + 900_000, 150_000))
+            return tuple(_line(a, b) for a, b in pairwise(wave))
+
         return pins, (
             *diode_branch(left_ac, positive),
             *diode_branch(right_ac, positive),
             *diode_branch(negative, left_ac),
             *diode_branch(negative, right_ac),
+            # The terminals are marked by strokes inside the diamond: the pin names are hidden.
+            _line((-400_000, 3_500_000), (400_000, 3_500_000)),
+            _line((0, 3_100_000), (0, 3_900_000)),
+            _line((-400_000, -3_500_000), (400_000, -3_500_000)),
+            *tilde(-3_950_000),
+            *tilde(3_050_000),
         )
     if name == "Optocoupler":
         pins = (
@@ -844,6 +860,9 @@ def _symbol_graph(name: str) -> tuple[tuple[SymbolPin, ...], tuple[SymbolGraphic
             _line((3_200_000, _GRID), (2 * _GRID, _GRID)),
             _line((1_900_000, -700_000), (3_200_000, -_GRID)),
             _line((3_200_000, -_GRID), (2 * _GRID, -_GRID)),
+            # An open arrowhead at the end of the lower leg marks the emitter: the pin names are hidden.
+            _line((3_200_000, -_GRID), (3_037_000, -1_737_000)),
+            _line((3_200_000, -_GRID), (2_498_000, -2_118_000)),
         )
     if name == "Dual_LED_Common_Cathode":
         pins = (
@@ -892,39 +911,46 @@ def _symbol_graph(name: str) -> tuple[tuple[SymbolPin, ...], tuple[SymbolGraphic
                 _STROKE,
             ),
             _line((3 * _HALF_GRID, 0), (2 * _GRID, 0)),
+            # A plus and a minus stroke tell the two inputs apart: the pin names are hidden.
+            _line((-2_940_000, _GRID), (-2_140_000, _GRID)),
+            _line((-_GRID, 2_140_000), (-_GRID, 2_940_000)),
+            _line((-2_940_000, -_GRID), (-2_140_000, -_GRID)),
         )
+    # The four blocks below are plain rectangles that show their pin names (``_NAMED_BLOCKS``). Each is
+    # sized on the 2.54 mm grid to hold those names at the larger of the two text sizes they are drawn
+    # in ("Legible pin texts"), so its pins lie further out than its rows alone would need.
     if name == "Linear_Regulator":
         pins = (
-            left("1", "IN", etype="power_in", outer=3 * _GRID, length=3 * _HALF_GRID),
-            _pin("2", "GND", 0, -3 * _GRID, etype="power_in", rotation=90_000_000, length=3 * _HALF_GRID),
-            right("3", "OUT", etype="power_out", outer=3 * _GRID, length=3 * _HALF_GRID),
+            left("1", "IN", 2 * _GRID, "power_in", outer=4 * _GRID),
+            _pin("2", "GND", 0, -4 * _GRID, etype="power_in", rotation=90_000_000),
+            right("3", "OUT", 2 * _GRID, "power_out", outer=4 * _GRID),
         )
-        return pins, (_rect(-3 * _HALF_GRID, -3 * _HALF_GRID, 3 * _HALF_GRID, 3 * _HALF_GRID, filled=True),)
+        return pins, (_rect(-3 * _GRID, -3 * _GRID, 3 * _GRID, 3 * _GRID, filled=True),)
     if name == "Offline_Power_Controller":
         pins = (
-            left("1", "VIN", _GRID, "power_in", outer=3 * _GRID),
-            left("2", "GND", -_GRID, outer=3 * _GRID),
-            right("3", "SW", _GRID, "output", outer=3 * _GRID),
-            right("4", "FB", -_GRID, "input", outer=3 * _GRID),
+            left("1", "VIN", _GRID, "power_in", outer=5 * _GRID),
+            left("2", "GND", -_GRID, outer=5 * _GRID),
+            right("3", "SW", _GRID, "output", outer=5 * _GRID),
+            right("4", "FB", -_GRID, "input", outer=5 * _GRID),
         )
-        return pins, (_rect(-2 * _GRID, -2 * _GRID, 2 * _GRID, 2 * _GRID, filled=True),)
+        return pins, (_rect(-4 * _GRID, -2 * _GRID, 4 * _GRID, 2 * _GRID, filled=True),)
     if name == "Microcontroller":
         ys = (2 * _GRID, _GRID, -_GRID, -2 * _GRID)
         pins = tuple(
-            left(str(i + 1), label, y, outer=4 * _GRID)
+            left(str(i + 1), label, y, outer=6 * _GRID)
             for i, (label, y) in enumerate(zip(("VDD", "VSS", "RESET", "IO1"), ys, strict=True))
         ) + tuple(
-            right(str(i + 5), label, y, outer=4 * _GRID)
+            right(str(i + 5), label, y, outer=6 * _GRID)
             for i, (label, y) in enumerate(zip(("IO2", "CLK", "ADC", "UART"), ys, strict=True))
         )
-        return pins, (_rect(-3 * _GRID, -3 * _GRID, 3 * _GRID, 3 * _GRID, filled=True),)
+        return pins, (_rect(-5 * _GRID, -3 * _GRID, 5 * _GRID, 3 * _GRID, filled=True),)
     if name == "Power_Module":
         labels = ("DC+", "DC-", "U", "V", "W", "IN1", "IN2", "IN3")
         ys = (2 * _GRID, _GRID, -_GRID, -2 * _GRID)
         pins = tuple(
-            left(str(i + 1), label, ys[i], outer=4 * _GRID) for i, label in enumerate(labels[:4])
-        ) + tuple(right(str(i + 5), label, ys[i], outer=4 * _GRID) for i, label in enumerate(labels[4:]))
-        return pins, (_rect(-3 * _GRID, -3 * _GRID, 3 * _GRID, 3 * _GRID, filled=True),)
+            left(str(i + 1), label, ys[i], outer=5 * _GRID) for i, label in enumerate(labels[:4])
+        ) + tuple(right(str(i + 5), label, ys[i], outer=5 * _GRID) for i, label in enumerate(labels[4:]))
+        return pins, (_rect(-4 * _GRID, -3 * _GRID, 4 * _GRID, 3 * _GRID, filled=True),)
     if name.startswith("Connector_"):
         count = int(name.rsplit("_", 1)[1])
         ys = tuple(((count - 1 - 2 * i) * _GRID) // 2 for i in range(count))
@@ -953,11 +979,7 @@ def _symbol(spec: _SymbolSpec) -> SymbolDef:
         units=(SymbolUnit(1, 1),),
         pins=pins,
         graphics=graphics,
-        pin_names_hidden=(
-            spec.category in {"Passive", "Protection", "Electromechanical interface"}
-            or spec.name in {"Diode", "Zener_Diode", "LED"}
-        )
-        and spec.name not in {"Potentiometer", "Transformer", "Switch_SPDT", "Pushbutton_NO", "Relay_SPDT"},
+        pin_names_hidden=spec.name not in _NAMED_BLOCKS,
     )
 
 
@@ -1525,7 +1547,7 @@ def _footprint(name: str) -> FootprintDef:
         return _two_terminal_footprint(name)
     if name == "SOD128_Nexperia_CFP5":
         # This package calls its left cathode terminal pad 1, unlike Fenolite's
-        # generic diode symbol; callers must provide the device pin-to-pad map.
+        # generic diode symbol; a build applies CATHODE_FIRST_PAD_MAP unless the part maps it.
         pads = (
             _pad(name, "1", -2_200_000, 0, 1_400_000, 2_100_000),
             _pad(name, "2", 2_200_000, 0, 1_400_000, 2_100_000),
@@ -1712,6 +1734,34 @@ def _footprint(name: str) -> FootprintDef:
     raise KeyError(name)
 
 
+CATHODE_FIRST_LANDS: tuple[str, ...] = (
+    "Fenolite:LED0603_Kingbright_APT1608SURCK",
+    "Fenolite:LED0805_Kingbright_APT2012SURCK",
+    "Fenolite:SOD128_Nexperia_CFP5",
+)
+"""The two-pad lands that keep the manufacturer's numbering with pad 1 at the cathode (change c0144)."""
+ANODE_FIRST_SYMBOLS: tuple[str, ...] = (
+    "Fenolite:Diode",
+    "Fenolite:LED",
+    "Fenolite:Photodiode",
+    "Fenolite:Schottky_Diode",
+    "Fenolite:Zener_Diode",
+)
+"""The two-pin symbols with pin 1 ``A`` (anode) and pin 2 ``K`` (cathode)."""
+CATHODE_FIRST_PAD_MAP: tuple[tuple[str, str], ...] = (("1", "2"), ("2", "1"))
+"""The pin-to-pad map of an anode-first symbol on a cathode-first land: pin 1 ``A`` on pad 2 (the anode),
+pin 2 ``K`` on pad 1 (the cathode). Pairs in the form of ``Component.pin_pad_map`` (change c0147)."""
+
+
+def default_pad_map(symbol_id: str, footprint_id: str) -> tuple[tuple[str, str], ...]:
+    """The pin-to-pad map the catalog applies to a part of ``symbol_id`` on ``footprint_id`` that gives no
+    map of its own: ``CATHODE_FIRST_PAD_MAP`` for an anode-first symbol on a cathode-first land, else ``()``
+    (capability fenolite-component-catalog, "Default pin-to-pad map of the cathode-first lands")."""
+    if symbol_id in ANODE_FIRST_SYMBOLS and footprint_id in CATHODE_FIRST_LANDS:
+        return CATHODE_FIRST_PAD_MAP
+    return ()
+
+
 def get_symbol(lib_id: str) -> SymbolDef:
     """Return a built-in generic symbol by stable ``library:name`` ID."""
     if not lib_id.startswith("Fenolite:"):
@@ -1733,4 +1783,14 @@ def get_footprint(lib_id: str) -> FootprintDef:
     return _footprint(name)
 
 
-__all__ = ["CatalogEntry", "ENTRIES", "get_footprint", "get_symbol", "list_entries"]
+__all__ = [
+    "ANODE_FIRST_SYMBOLS",
+    "CATHODE_FIRST_LANDS",
+    "CATHODE_FIRST_PAD_MAP",
+    "ENTRIES",
+    "CatalogEntry",
+    "default_pad_map",
+    "get_footprint",
+    "get_symbol",
+    "list_entries",
+]

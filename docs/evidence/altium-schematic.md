@@ -31,9 +31,9 @@ same bytes and that this table names them.
 | file | SHA-256 |
 |---|---|
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
-| `tests/data/altium/sample/altium_sample.SchDoc` | `d4df14ba6cd1220a1b4eaed0aa266360a9364f57036312b7c36391f18125a584` |
-| `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `f5595a9dc5ecf4172cb83f4f0298fa3683fe4b59f8dcce4d28b39f816004b63c` |
-| `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `b0fec55671a9aad36be1b9734bcfc21af8afa633978c6f8ff2a94349023877e3` |
+| `tests/data/altium/sample/altium_sample.SchDoc` | `fba12e59170cbbadd926a12e767745839c6808fedf3c77d163384deec430a3b0` |
+| `tests/data/altium/sample/variants/altium_sample_lf.SchDoc` | `5106f8dc626bf388bfafd43bef64f88948470f67239f888497790456db32ef27` |
+| `tests/data/altium/sample/variants/altium_sample_nouid.SchDoc` | `670d852303eeed40ad9834f333adf93f802b7ebfbc39548083645dce5ec6c826` |
 
 - `altium_sample.SchDoc` is an ASCII schematic ("SCH ASCII Version 5.0") with CR LF line ends: 123 lines,
   the header and 122 records. It holds an A4 sheet, 8 components with 19 pins, 19 wire stubs, 13 power
@@ -101,7 +101,7 @@ ASCII sample's project file.
 | binary file | SHA-256 |
 |---|---|
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
-| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `80ad9ea254cf57522527128fbe4e1a0cafb18e1eb8ee0610f341548672ee1c88` |
+| `tests/data/altium/sample/binary/altium_sample.SchDoc` | `86f5747454cca461a3eab5da270a994439d8b4f2bf4a29480d1360ca74a4ee1e` |
 
 - The free Altium 365 Viewer (S-0149) needs no Altium licence. It takes one file, or one project in a Zip
   archive, up to 200 MB.
@@ -147,12 +147,20 @@ that fresh builds give these bytes and that this table names them.
 
 | library or project file | SHA-256 |
 |---|---|
-| `tests/data/altium/sample/FenoliteSample.SchLib` | `f071c2fe861fb5a80fb219ccdc8a207b2c6429094fcf4a3002f366109912fdff` |
+| `tests/data/altium/sample/FenoliteSample.SchLib` | `fbcf22282d5c274f7220bbe0b3c862f2fb6932aad2407a14d179da1367d6cf1e` |
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
-| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `10c95992c6cab223fa2125493d07772a79855014bcc64553d4c757dbd88ed34a` |
-| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `ccdfe416efa57324236b30f0e7e73c0c9a3bbd229babf9aae150427feb7ed6b4` |
+| `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `1ecb0bb793cf06ecad44422d41615b624116976208f1a929d9b023ebc85e3c28` |
+| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `71abcfba4f4fc1d95f6ce37730817537d5432c26a78ef8e32e7b30f64d1a3b49` |
+
+2026-10-07 (change c0134): the two files of `kicad_example` above were built again, because the four
+symbols of the example library changed: `CONN2` no longer shows its pin names, which only repeated its pin
+numbers; `MCU8` and `DUAL_OPAMP` have larger bodies with their pins further out, so that their pin names
+do not lie on each other; the pins of `MCU8` are 5.08 mm long and 5.08 mm apart, so that its pin numbers
+stand clear of the inversion bubbles of pins 2 and 5; and the two pins of `R_V` are 2.54 mm long, so that
+its pin numbers stand clear of its body. The table names the new bytes; no report covers them, and no row
+changed.
 
 - `FenoliteSample.SchLib` holds the six generic symbols of the sample (`CAP`, `DRV4`, `HDR2`, `LDO3`,
   `LED`, `RES`), each of one part with the passive pins its components use, the designator `<prefix>?`
@@ -207,9 +215,15 @@ gives these bytes and that this table names them.
 | project, library or schematic file | SHA-256 |
 |---|---|
 | `tests/data/altium/no_connect/altium_no_connect.PrjPcb` | `72149d0bbaebd6fc87c9e1535b28db504b3d2a40b67986d4c81243d997a31c81` |
-| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `7cac02697be2a7b37dccaa0e2436786fb5dc55c550c0c03fa428197fe2aaaf4f` |
-| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `7ac872c78cebb8977eaaff78c29135024c4e5617991190644131c0290d990cdb` |
-| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `dd04eacceb2201fb3d8b168165bde92fb6a2cf1aae581609557b09d49d69b5c3` |
+| `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `80c45b5bafcd93aed4e4f9d38a29bd46dceccfed7d5819aaac401246a6474129` |
+| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `9b94a2d31d43d2297f1de97ccbc754b899dd6a2b44bc64520546e5a8f08d43af` |
+| `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `00fbe6dfcb752687b1dd036754cdd7072d84c35b6d36418105ae301f0dc81356` |
+
+2026-10-07 (change c0134): the library and the two schematics above were built again, because `CONN2`
+(`J1`) no longer shows its pin names, `MCU8` (`U1`) has a larger body with longer pins further out and
+further apart, and the two pins of `R_V` (`R1`) are 2.54 mm long. The
+nets, the three marked pins and the three directives are the same; the directives lie at the new ends of
+the pins. The table names the new bytes; no report covers them, and no row changed.
 
 - The design holds `J1` (`CONN2`), `R1` (`R_V`) and `U1` (`MCU8`) on the nets `VIN` (J1 1, R1 1, U1 1,
   U1 6), `GND` (J1 2, U1 7) and `OE_N` (R1 2, U1 5).
@@ -250,13 +264,13 @@ fresh build gives these bytes and that this table names them.
 
 | sheet, library or project file | SHA-256 |
 |---|---|
-| `tests/data/altium/hier/FenoliteHier.SchLib` | `3013953bfd734233a33dbd17396d1b3049c2b215f13e46d2a0c4c9d75c0c8a4a` |
+| `tests/data/altium/hier/FenoliteHier.SchLib` | `28253155935529e7c62fb723739044858277e39fcd7c61eb3c5dbdfcf0cebbc3` |
 | `tests/data/altium/hier/altium_hier.PrjPcb` | `5a93823a0b938462fb766cee0ce8254a7e31f29076e4fa9303f74a8ed88b30f6` |
-| `tests/data/altium/hier/altium_hier.SchDoc` | `47ade2caca275e6d5ac7bfab73b71dc396b2c49dc76e7a58d089f6ea4b594e4d` |
+| `tests/data/altium/hier/altium_hier.SchDoc` | `ee7353c17578de7e6c36904de4f30c8406afd1909837c92d64157067cd51d1f0` |
 | `tests/data/altium/hier/altium_hier_flash.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
-| `tests/data/altium/hier/altium_hier_flash.SchDoc` | `7c51ef59965632ae74686b5c868bcb8d4c89c64b3f097a9a1dd6d72ee87d8b61` |
+| `tests/data/altium/hier/altium_hier_flash.SchDoc` | `9782ddddfb92fcb6d746c6e14fd328da276643779c20398ad8b8ba9772dec46d` |
 | `tests/data/altium/hier/altium_hier_mcu.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |
-| `tests/data/altium/hier/altium_hier_mcu.SchDoc` | `eed364bf61d5be9f4771fba64edd5dd6c8a0e2728573fa95bb056bc3f52d5ffe` |
+| `tests/data/altium/hier/altium_hier_mcu.SchDoc` | `25e01b9cc051d34f391fa30b492a377f07bab53a257f0f2fc13eb40782167e67` |
 
 - These are the files rebuilt after the reports of 2026-10-03 (below). The top sheet changed after the
   first report, and the project file after each: it now lists the top sheet, the two module sheets, the
@@ -350,6 +364,413 @@ the repository; a variant that uses it is described here by what it holds.
 | l | Fenolite's minimal file with the documents in the order top sheet, `driver`, `led`, PCB document, PCB library, schematic library | whether the order of the documents is the cause (`H-A-SCH-HIER-ORDER`) |
 | m | Fenolite's minimal file with `HierarchyMode=0` under `[Design]` | whether that key alone is what the minimal file lacks |
 | n | the saved project file with every `[Document<n>]` section cut down to `DocumentPath` | whether the per-document keys of the saved file matter |
+
+## Part O: the output job in Altium Designer
+
+Change c0087 writes `<name>.OutJob` beside the PCB document of an Altium build. The file holds only the keys
+of `docs/formats/altium/output-job.md`, "The writer's choices": the outputs, their source documents and
+their containers, and no output setting. The part is named O because Part V is the Viewer's. Since change
+c0138 the job also holds `OutputDefault<i>=0` on every output and the settings record of its Gerber output;
+the files and the steps for that job are under "Session 2" below.
+
+The files are built outside the repository by `fenolite build examples/blink_routed/design.py --target altium
+--out DIR --confirm` and handed over; none is committed except the sample of the job's form,
+`tests/data/altium/outjob/blink.OutJob`, which a unit test keeps equal to a fresh write.
+
+| file of the build of 2026-10-06 | SHA-256 |
+|---|---|
+| `blink_routed.OutJob` | `9c6ff39690ef35813b3c57d9f3e3b4d7937e89c6385189749733e3e3ea722095` |
+| `blink_routed.PrjPcb` | `99bcc6d91837bf0c0f55876e5be11ae444eca9c11c10bf8c6dbf56c110a8093d` |
+| `blink_routed.PcbDoc` | `6691042bc82ef6250d4944f6b08ab8be16b8aeb83d39f0c6975d42cfc332333a` |
+| `blink_routed.PcbLib` | `640bbcdb207a1dd724d310963f135101f6fb7525b5b59d22516a23ecaa4955ce` |
+| `blink_routed.SchDoc` | `50a062c3ae03c6dec28e803f42c01d18c1e7c7c39cb439c640135611e4065c14` |
+| `blink_routed.SchLib` | `44e8f59b353162278a631fa533f02197e4df3f40d88de8831cc3f111abe12e22` |
+
+The table sent with the files (what steps O1 and O2 are read against):
+
+| output | type | source document | container |
+|---|---|---|---|
+| Gerber Files | `Gerber` | `blink_routed.PcbDoc` | `fab` (folder structure) |
+| NC Drill Files | `NC Drill` | `blink_routed.PcbDoc` | `fab` |
+| Pick and Place | `Pick Place` | `blink_routed.PcbDoc` | `fab` |
+| Bill of Materials | `BOM_PartType` | the project | `fab` |
+| Schematic Prints | `Schematic Print` | the project | `doc` (PDF) |
+| PCB Prints | `PCB Print` | `blink_routed.PcbDoc` | `doc` |
+
+1. O1: open `blink_routed.PrjPcb`; the Projects panel lists `blink_routed.OutJob`. Open it. Expected: no
+   message. Settles `H-A-OUTJOB-OPEN`.
+2. O2: read the outputs, their source documents and which container each is enabled for. Expected: the
+   table above. Settles `H-A-OUTJOB-OPEN`.
+3. O3: generate the container `fab`, then the container `doc`. Expected: no error; report the kinds of
+   files produced, not the files. Settles `H-A-OUTJOB-RUN`.
+4. O4: open the setup of the Gerber and of the NC drill output and read units, format and plotted layers.
+   Expected: Altium's defaults, since the job holds no setting; report them in one sentence each. Settles the
+   first half of `H-A-OUTJOB-OPTIONS`.
+
+No report yet: the four rows are `INFERRED`, "pending (author report)".
+
+**Since change c0138 (2026-10-07) the digest of the job in the table above is that of the files of session 1
+only.** A build of the same script now writes a job with eight more lines (`OutputDefault<i>=0` on each of
+its six outputs and the two configuration lines of the Gerber output), whose SHA-256 is in the table of
+"Session 2" below; the five other files of the build keep the digests of the table. The table is left as it
+is because it names the files that were opened and returned ("Returned folders of 2026-10-07").
+
+### Session 2 (change c0138, Altium Designer 26)
+
+The job of session 1 ran in Altium Designer 26 except for its Gerber output, which plotted no layer
+(`docs/evidence/altium-pcb.md`, "Returned folders of 2026-10-07"). Change c0138 writes the complete settings
+record on the Gerber output and `OutputDefault<i>=0` on every output
+(`docs/formats/altium/output-job.md`, "The Gerber settings record"). **Nothing of this section has been
+opened in Altium**: every row it names is `INFERRED`, "pending (author report)".
+
+Three projects, built on 2026-10-07 outside the repository into `~/fenolite-altium-checks/session-2/O-outjob/`
+(a `README.md` there repeats the steps): `blink_routed/` by `fenolite build examples/blink_routed/design.py
+--target altium --out DIR --confirm` (two copper layers, no preset); `blink_routed_p6/` by the same command
+with `--altium-outjob-preset precision6.toml`, a preset that holds `[gerbers]` `precision = 6`; `board6/`,
+the kit sample `examples/kit/board6` built as `fenolite kit build` builds it (six copper layers, the third
+an internal plane on `GND`; the `build` command gives that script two layers, so it is not used here).
+
+| file of the build of 2026-10-07 | SHA-256 |
+|---|---|
+| `blink_routed/blink_routed.OutJob` | `595be494ec0a3ce8edc084cd041d86b2fe4bab9cd94f05b5a7e557864f44f950` |
+| `board6/board6.OutJob` | `cffaa5da448480a99feba314a4e08a47a4f14dd27f016ad72ec5875c191a50e1` |
+| `blink_routed_p6/blink_routed.OutJob` | `bb3e5505a4bc91c07dd894c984e2a8710cd7d485be89de84ced996637236d5e5` |
+
+The five other files of `blink_routed/` and of `blink_routed_p6/` have the digests of the table of
+2026-10-06 above: only the job differs from the files of session 1. The record of each job reads back with
+`read_outjob` and `record_fields` to 44 fields; the unit is `Metric` in all three, the decimals are 4, 4 and 6.
+The three projects were built again later on 2026-10-07, after change c0134 changed the pin texts of the
+catalog symbols: the three jobs and every file of the two blink projects kept their bytes, and the
+schematic document and library of `board6/` changed (the `README.md` of the folder lists every digest).
+
+The layers each job asks Altium to plot, in the order of the record (what steps O3, O5 and O7 are read
+against). **No job asks for the board outline** (unknown U5 of the facts page):
+
+| # | `blink_routed` and `blink_routed_p6` (12) | `board6` (16) |
+|---|---|---|
+| 1 | Top Overlay | Top Overlay |
+| 2 | Top Paste | Top Paste |
+| 3 | Top Solder | Top Solder |
+| 4 | Top Layer | Top Layer |
+| 5 | Bottom Layer | Mid-Layer 1 |
+| 6 | Bottom Solder | Internal Plane 1 |
+| 7 | Bottom Paste | Mid-Layer 3 |
+| 8 | Bottom Overlay | Mid-Layer 4 |
+| 9 | Mechanical 13 | Bottom Layer |
+| 10 | Mechanical 14 | Bottom Solder |
+| 11 | Mechanical 15 | Bottom Paste |
+| 12 | Mechanical 16 | Bottom Overlay |
+| 13 | | Mechanical 13 |
+| 14 | | Mechanical 14 |
+| 15 | | Mechanical 15 |
+| 16 | | Mechanical 16 |
+
+The steps are written from Altium's documentation (S-0293, S-0605); a menu path or a dialog name may read
+differently in version 26. Steps O2 and O4 above are unchanged, still open, and not repeated.
+
+1. O1: open `blink_routed/blink_routed.PrjPcb` and then `blink_routed.OutJob`. Expected: no message. Settles
+   `H-A-OUTJOB-GERBER-ACCEPT` (with O5).
+2. O3: generate the container `fab`, then the container `doc`. All six output kinds are generated again,
+   because every output of the job now holds one more key than the job that ran in session 1. Expected: no
+   error; Gerber layer files beside the drill, pick-and-place and bill-of-materials files, and the PDF.
+   Report the extensions of the files that appear in the Gerber folder, as a list, and whether the report of
+   the Gerber output now names layers. Settles `H-A-OUTJOB-RUN-2` and `H-A-OUTJOB-GERBER-LAYERS`.
+3. O5: open the setup of the Gerber output (double-click it, or right-click and Configure) and read three
+   things: the units, the format or decimals, and which layers have their plot switch on. Expected:
+   millimetres, 4 decimals, and the twelve layers of the table. Settles `H-A-OUTJOB-GERBER-ACCEPT`,
+   `H-A-OUTJOB-OPTIONS-2` and, with O8, `H-A-OUTJOB-GERBER-DECIMALS`.
+4. O6: in the same setup, look at what Altium offers for the board shape: whether the layer list holds an
+   entry for the board outline (the documentation names one as the first entry), what it is called, and
+   whether its plot switch is on. Report that. Then turn it on if it exists, close with OK, save the job
+   under another name in the same folder and generate `fab` again; report whether an outline file is then
+   produced and its extension. Settles no row: it is the input for the outline proposal.
+5. O7: open `board6/board6.PrjPcb` and `board6.OutJob` and generate `fab`. Report the extensions, and whether
+   one file is the internal plane. Settles `H-A-OUTJOB-GERBER-PLANE`.
+6. O8: open `blink_routed_p6/blink_routed.PrjPcb` and its job, read units and decimals in the Gerber setup,
+   generate `fab`. Expected: millimetres and 6 decimals. Report what the setup shows (a value Altium replaced
+   is a result, not a failure) and whether files appear. Settles `H-A-OUTJOB-GERBER-DECIMALS`.
+
+To send back: the Altium version as `AD <major>.<minor>`, the date, one outcome per step (`as expected`, or
+what differed in one sentence), and the three lists of extensions. The job saved in O6 stays in the session
+folder; it is read outside the repository with `read_outjob`, and what its `Plot.Set` holds beside the written
+entries is recorded as an observation on the facts page. No file that Altium wrote is committed, and an
+author report never moves an operation out of `experimental`. Stating the outcome of the session of
+2026-10-07 with the minor version (the Gerber output of the old job plotted nothing) settles
+`H-A-OUTJOB-GERBER-EMPTY` without a new run.
+
+#### Reports
+
+**2026-10-08, `AD 26.5`, session 2 (S-0615).** Altium Designer 26.5.0 on the maintainer's own PC, a licence
+he may use for Fenolite (`LEGAL.md`, block A), on the folder `O-outjob/` of the session pack built from
+commit `695574ba` (the three jobs have the digests of the table above). His report: every output of the job
+was produced, the Gerber layer files among them, where the job of session 1 produced no layer file. Per step:
+
+- **O1 and O3.** The project and its job opened, and both containers generated their outputs, Gerber layer
+  files beside drill, pick and place, bill of materials and the prints. Confirms `H-A-OUTJOB-RUN-2`
+  (`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact)`).
+- **O3, the list.** The extensions and the count of the layer files were not reported, so
+  `H-A-OUTJOB-GERBER-LAYERS` stays pending with this observation.
+- **O5, O6, O7 and O8.** Not reported as values (the units, the decimals and the plotted layers of the
+  setup, the board outline entry, the six-layer job with its plane, the job of precision 6):
+  `H-A-OUTJOB-GERBER-ACCEPT`, `-PLANE`, `-DECIMALS` and `H-A-OUTJOB-OPTIONS-2` stay pending.
+- **O-S1.** Not stated with a minor version: `H-A-OUTJOB-GERBER-EMPTY` stays pending.
+
+The defect of session 1, a job that plotted no Gerber layer, is repaired by change c0138 as far as this
+report goes: the written job now yields Gerber files in Altium Designer 26.5. No file that Altium wrote is
+committed, and an author report moves no write kind out of `experimental`.
+
+## Part W: the sheet template and the drawing sheet in Altium Designer
+
+Change c0087 writes a sheet template (`.SchDot`) from a `*.sheet.toml` specification, and draws the same
+sheet on the schematic documents of a build whose script names a drawing sheet. The files are built outside
+the repository and handed over: the template by `fenolite template build
+src/fenolite/templates/examples/iso5457_generic.sheet.toml --target altium --out iso5457_generic.SchDot
+--confirm`, and a one-sheet project by an Altium build of the blink example with the lines
+`design.sheet("A4", drawing_sheet="frames/generic.sheet.toml")` and `design.title_block(title="Blink",
+revision="B", date="2026-10-06", organization="Fenolite")` after its `board()` line, the specification
+copied to `frames/generic.sheet.toml`. The reference is the PDF that `kicad-cli sch export pdf` (10.0.6)
+gives for the KiCad build of the same script; it is a visual reference only and settles nothing.
+
+| file of 2026-10-06 | SHA-256 |
+|---|---|
+| `iso5457_generic.SchDot` (the file of 2026-10-06, whose font table holds 10 points twice; since change c0146 the same command writes each distinct font once, three fonts where there were four, and the bytes pinned in `tests/unit/backends/altium/test_schdot_write.py` are `2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb`; no template file is committed, and the file of this row was not built again) | `0b161a6e93c98e4d7b5735c1657f3ea1f689f8ab99d95a5715b9489e4ca727d1` |
+| `blink.SchDoc` (the file of 2026-10-06, with the same four fonts; a build since change c0146 writes three, and this file was not built again) | `b95b062ead2024b560dfbaa811fb72106db401fa01ebaae12a01caa7ec256a43` |
+| `blink.PrjPcb` | `2c0fc10e49421372d5f65721d882751188c3eb42ee6b9fa5c43c7a45ba11b00c` |
+| `blink.PcbDoc` | `642ce93cdfd14136c421406e3ba261aab055fcdb437dff9cfc9fefebdd3e0a32` |
+| `blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
+| `blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
+| `blink.OutJob` (the file of 2026-10-06; since change c0138 the same build writes eight more lines, the key `OutputDefault<i>=0` per output and the Gerber record, and the job is `0a24a3b5d6eca281058a65aad86195bc159a7635756a409f8dae7954f894b436`, the committed sample `tests/data/altium/outjob/blink.OutJob`; no step of Part W reads the job) | `e6ac379aeb0e508866b8c45e6bc1e6516da1e50a2b3cf9f6117e68a81051db9e` |
+
+1. W1: open `iso5457_generic.SchDot`. Expected: no message; an A4 landscape sheet with a frame, reference
+   zones and a title block, and no second border around it. Settles `H-A-SCHDOT-OPEN`.
+2. W2: in a new schematic, set the template to that file (Design » Sheet Templates). Expected: the frame
+   appears. Settles `H-A-SCHDOT-OPEN`.
+3. W3: open `blink.PrjPcb` and print `blink.SchDoc` to PDF; compare it with the reference PDF: frame, zones,
+   title-block lines and labels. Report each difference in one sentence (known from the files: the text
+   heights and the line widths differ, see `docs/sheet-templates.md`). Settles `H-A-SCHDOT-OPEN`.
+4. W4: read the title block of `blink.SchDoc`: title, revision, date and legal owner, the sheet number,
+   and the sheet count where the title block shows one. Expected: `Blink`, `B`, `2026-10-06`, `Fenolite`, `1` and `1`. Then change the title in the document options
+   and read it again. Expected: the new value. Settles `H-A-SCHDOT-STRINGS`.
+
+No report yet: the two rows are `INFERRED`, "pending (author report)".
+
+
+## Part Y: the complete schematic (change c0086)
+
+Change c0086 draws each symbol from its own graphics, gives every module a sheet at any depth, writes
+port and sheet-entry I/O types, buses, hidden parameters and, in the binary form, comments and parameter
+values with Windows-1252 characters. **Nothing of this part has been opened in Altium.** Its seven rows
+are `H-A-SCHX-*`: `H-A-SCHX-READBACK` is settled by Fenolite's own reader (`INFERRED`); the other six stay
+`INFERRED` with `pending (author report)` until the steps below are reported.
+
+2026-10-07 (change c0134): the author has since opened files of this part, built before change c0134, and
+named pin names that lie on each other on five small symbols ("Author report of 2026-10-07 (opening
+only)" below). Change c0134 changed the definitions of those symbols and of the others with the same
+defect. The report carried out no step below, and nobody has opened the files built since: the rows are
+where that section leaves them, `INFERRED`.
+
+**What the earlier reports covered.** The reports of 2026-10-02 and 2026-10-03 below were made on files
+whose resolved symbols were drawn as rectangles. Since change c0086 the default build draws the symbols'
+graphics (`--altium-symbols graphics`, decision of the maintainer of 2026-10-06), and the committed
+schematics and schematic libraries of the samples `blink`, `kicad_example`, `no_connect` and `routed`
+were regenerated in that form. The files those reports covered are kept, byte for byte, under
+`tests/data/altium/generic/<sample>/` (the bytes of commit 6cdf0aea), and
+`tests/unit/lens/test_altium_schematic_complete.py -k generic` checks that `--altium-symbols generic`
+still builds them. The tables of Part L, Part N and of `docs/evidence/altium-pcb.md` name the SHA-256 of
+the regenerated files, because their golden tests compare the default build; no earlier report says
+anything about those bytes, and no row was raised because of them. The samples `sample` and `hier` use
+Altium links, are drawn as rectangles in both forms, and did not change.
+
+2026-10-07 (change c0134): the four symbols of the example library `FenoliteDemo.kicad_sym` changed, so
+`kicad_example` and `no_connect` were built once more in the graphics form. Their copies under `generic/`
+keep the bytes of commit 6cdf0aea: `-k generic` builds them from the library of that commit, kept as
+`tests/data/altium/generic/library/FenoliteDemo.kicad_sym`. `--altium-symbols generic` on the example as
+it is now gives other bytes, which no report covers.
+
+The nets and designators of every sample are the ones it had: `test_nets_unchanged` reads each committed
+project and compares it with `tests/data/altium/nets_before_c0086.json`, recorded from the files of commit
+6cdf0aea.
+
+**Files.** They are built outside the repository, into the maintainer's folder
+`~/fenolite-altium-checks/c0086-part-y/` (rebuilt on 2026-10-06 after the rebase onto c0084, c0085, c0087
+and c0089, with the same bytes as before it), by a script of the change's scratch area: the tree sample
+through `tests/_altium_tree.py`, the four samples through their own example builds, each with the lens
+defaults (no output job, no drawing sheet). None is committed beyond `tests/data/altium/tree/` (the folder
+`tree/binary` below, checked by `-k tree`) and the four regenerated samples. The handover files of Parts O
+and W above were built before this change, with rectangle bodies; a rebuild of them now draws the symbols'
+graphics unless `--altium-symbols generic` is given.
+
+2026-10-07 (change c0134): the table names the bytes that the same build gives since that change. The
+catalog symbols `BJT_NPN`, `Comparator`, `Operational_Amplifier` and `Linear_Regulator` of the tree sample
+and the four symbols of the example library changed, so 12 of the 19 files below differ from the build of
+2026-10-06; the other seven are the same bytes. The files the author opened on 2026-10-07 were built
+before this change ("Author report of 2026-10-07 (opening only)" below); the SHA-256 this table named
+until then are in the history of this page. No report covers the new bytes.
+
+| file | SHA-256 |
+|---|---|
+| `tree/binary/tree.PrjPcb` | `5f82374c7c3c16dac370815a2bc520bb026e0e30ccd55cd6b528353ec0f0ebb0` |
+| `tree/binary/tree.SchDoc` | `3680dbc37c00689a9abeddd27d019eab39129c688f4614a0629b68076bbee6c1` |
+| `tree/binary/tree.SchLib` | `92b40a49dc04ec9bba0b91eb00f9070a6066469c6b6f2dbc54f90519308e77d8` |
+| `tree/binary/tree_io.SchDoc` | `d1c8c94aa624e99aa233cd687bdf48ac2338cf0d1be6008ba834cf8921cf05d5` |
+| `tree/binary/tree_io.leds.SchDoc` | `8f197da032e893e509e0c3c88a63b33e0b3da965507dbcd00d3d0790aabe04ca` |
+| `tree/binary/tree_power.SchDoc` | `d0807006fc48f66067a414eeb70eeeaf7f7a499cb4f861cbca328dd7fe56c024` |
+| `tree/ascii/tree.SchDoc` | `c1223fb8609b1ea2e282dca90f0666ecd1d6a6ae827da10d8940289639dde7c5` |
+| `tree/ascii/tree_io.SchDoc` | `3f80bd2aa0a7abf83ec31f6551422fe18119d6f943f7b9d404290c8b224240b4` |
+| `tree/ascii/tree_io.leds.SchDoc` | `8e876d076c92dde71b6a9a2b019ceaafe58324db9fe5fdb4060fda59c735d74f` |
+| `tree/ascii/tree_power.SchDoc` | `e2fe01ed1e7bf94e5dc8f1433a6d20860e1b1167ddc4a66d107f95f1919082fa` |
+| `tree-bad/binary/tree_io.SchDoc` | `d1f72dc31255989fa32ab114e15acfde98e62c41ac9c4c15c9f5e94dcfbb01cb` |
+| `samples/kicad_example/altium_kicad.SchDoc` | `7d6276e4c63a89e4c567476cf9bc154664306217ef9a03d1ceff71854a19ac55` |
+| `samples/kicad_example/altium_kicad.SchLib` | `cbf419d33675f13d4de87fe063b9a11d802204ed6aafaecf59608317c0be517e` |
+| `samples/no_connect/altium_no_connect.SchDoc` | `5b1b5bb8b1c29b2ae9833738c7f4de892ac5e18f9b3128d205223301299d2792` |
+| `samples/no_connect/altium_no_connect.SchLib` | `ca9aa9fb7b50cd131fc48b42139a2f5fd68ad815dc8f3675e0492d55b7423522` |
+| `samples/blink/blink.SchDoc` | `d52160144438ee1fa2026cf704e37881c2f9b98d8389ace45ac73f01e56dcf43` |
+| `samples/blink/blink.SchLib` | `129dbf049df0a40cc2d1de1c1a54e7a49b2597ba35b4601db6a4d986a3e047c6` |
+| `samples/routed/routed.SchDoc` | `5c7ce5f3352ce91e6970dd49753f03d9f0b39c539f56b8a79b59d5c5679e7557` |
+| `samples/routed/routed.SchLib` | `db7d0c5b55210c9f7a113120595fa48427c43263cff13c76452ed44312dd0e07` |
+
+- The ASCII tree project shares `tree.PrjPcb` and `tree.SchLib` with the binary one; its two texts with
+  accented characters are replaced (`Inductor 10 uH`, `tolerance 10 %`), because the ASCII form refuses
+  them. `tree-bad` is the binary tree project with one sheet changed: the port `SENSE` of `io` says
+  input while its sheet entry on the top sheet says output. The four `samples` folders also hold their
+  project files and, for `blink` and `routed`, the PCB library and document, which did not change.
+- The tree design (`tests/data/altium/tree/design.py`): `J1`, `J2` and `U1` on the top sheet; `U2`, `L1`
+  and `C1` in `power`; `U3` and `Q1` in `io`; `D1` to `D4` in `io/leds`; 13 nets; the bus `D` of `D0` to
+  `D3` from `J2` to the LEDs.
+- Reference for the four symbols of steps Y2 and Y3, in words, since the change builds no picture:
+  `Resistor` is a zigzag of eight lines between its two pins; `LED` is a filled triangle with a bar at
+  its tip and two small arrows above it; `Comparator` is an open triangle pointing right with a short
+  line at its tip, a plus and a minus stroke inside at its two inputs on the left (since change c0134 it
+  shows no pin names), the output on the right, supply pins above and below;
+  `Connector_4` is a filled rectangle with four small open squares on its left side, one per pin.
+
+Steps:
+
+1. **Y1** (`tree/binary`): open the project. Expected: no repair prompt, no message; four schematic
+   documents and one library in the Projects panel.
+2. **Y2**: open `tree.SchLib` and look at `Resistor`, `LED`, `Comparator` and `Connector_4`. Expected: the
+   shapes described above, with the pin ends on the graphics. No symbol of this library holds a circle;
+   an open circle (an ellipse record without `ISSOLID`, as `Pushbutton_NO` of the catalog would give) is
+   not covered by this part.
+3. **Y3**: open `tree.SchDoc` and `tree_power.SchDoc`. Expected: the same graphics on the sheets, the
+   designator above and the comment below each part.
+4. **Y4**: "Project » Validate PCB Project", then the Navigator. Expected: no error; the tree `tree` →
+   `io` → `leds`, and `tree` → `power`.
+5. **Y5**: read the Messages panel for port and sheet-entry messages; then validate `tree-bad/binary`.
+   Expected: none for `tree`; at least one message that names `SENSE` for `tree-bad`.
+6. **Y6**: in the Navigator, list the nets of the bus `D[0..3]`. Expected: `D0` to `D3`, each with one pin
+   of `J2` and one LED anode.
+7. **Y7**: read the comment of `L1` (`Indutância 10 µH`) and the hidden parameter `Note` of `C1`
+   (`tolerância ±10 %`, with its parameter `MPN` = `X-1`). Expected: as written. Then open `tree/ascii`
+   and report whether it opens and what the comment of `L1` reads (`Inductor 10 uH`).
+8. **Y8**: "Design » Update PCB Document" into a new, empty PCB document added to `tree/binary`. Report
+   the number of components, nets, component classes and rooms the change order lists. Expected: 12
+   components, 13 nets, the component classes `tree`, `io`, `leds` and `power`, no room.
+9. **Y9**: open each of the four projects under `samples/` (the regenerated samples). Expected: each
+   opens without a prompt, and its three symbols of one unit show their own graphics, with the pins where
+   the rectangle form of the same library has them; `DUAL_OPAMP` of `kicad_example` has two units and
+   stays two rectangles.
+
+The maintainer reports one outcome per step (`as expected`, or what differed in one sentence), the tool as
+`AD <major>.<minor>` and the date; no file that Altium wrote is committed. A step that fails refutes the
+row it names: Y2, Y3 and Y9 `H-A-SCHX-GRAPHICS`; Y1 and Y4 `H-A-SCHX-TREE`; Y5 `H-A-SCHX-DIR`; Y6
+`H-A-SCHX-BUS`; Y7 `H-A-SCHX-TEXT`; Y8 `H-A-SCHX-ECO`.
+
+## Part R: channels of a `Repeat` statement (change c0083)
+
+The import instantiates a `Repeat` statement from Altium's documentation alone: no public file of the
+corpus holds one. **Nothing of this part has been opened in Altium.** It settles `H-A-IMP-RPT-COUNT`,
+`H-A-IMP-RPT-NETS` and `H-A-IMP-RPT-FORMAT`; the hypothesis of the annotation file is not registered
+(its reader is not written), and step R4 is what would let it be.
+
+**Files.** The authored two-channel project `tests/data/altium/channels/two/`, in the maintainer's folder
+`~/fenolite-altium-checks/session-2/R-repeated-sheet/` since 2026-10-08, with a guide in Portuguese. If
+step R1 fails on opening, draw the same project by hand and go on: a top sheet with a sheet symbol whose
+designator is `Repeat(CH,1,2)` on a child sheet, with the sheet entries `VCC` and `Repeat(OUT)`; the entry
+`Repeat(OUT)` on a bus labelled `OUT[1..2]` whose members `OUT1` and `OUT2` go to two pins of a component;
+on the child sheet `R1` and `C12`, `R1` pin 1 on the port `VCC`, `R1` pin 2 and `C12` pin 1 on a wire
+labelled `MID`, `C12` pin 2 on the port `OUT`.
+
+| file (since change c0146, 2026-10-08) | SHA-256 |
+|---|---|
+| `two.PrjPcb` (unchanged) | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` |
+| `two.SchDoc` | `e07048f42c930a5d1ac6d326aae2331c5b96f2da1e26d958ea09eea5a6d24112` |
+| `two_ch.SchDoc` | `3bd678fdf0ef16ee9a7bcba23ba6113353244a3a8533d982f093a42526892724` |
+
+**The first files showed a black page.** The files of 2026-10-06 (`two.SchDoc`
+`53c540c9af491840b9c2a1f48f3b31910d22c9b838c9eac6473c5f72221d3ed2`, `two_ch.SchDoc`
+`437e5357a673b9c0930d519538157ba2f5f0223f60877bb29218552810fb52d3`; they stay in the older folder
+`~/fenolite-altium-checks/c0083-part-r/`) were authored record by record for the reader's tests. Their
+sheet record held five keys (the font table, `SYSTEMFONT` and `SHEETSTYLE`) and no `AREACOLOR`; no record
+held `COLOR`, `AREACOLOR` or `FONTID`; pins had length 0 and components no graphics. On 2026-10-07 the
+maintainer said that the sheet showed as a page that was all black, and reported no step. What is believed,
+and not confirmed: an absent area colour reads as 0, which is black, and the objects, without a colour, are
+black on it (`H-A-SCHDOT-AREACOLOR`; every sheet the schematic writer writes and every sheet Altium saved holds
+`AREACOLOR=16317695`).
+
+**How the files are made now (change c0146).** The two sheets are sheet plans handed to the schematic
+writer (`tests/_altium_channels.py`: `binary.write_schdoc_binary`; the top sheet placed by
+`layout.layout_sheet`, the child sheet by hand from the same pieces), so they hold
+what every written sheet holds: the writer's sheet record with its grids and area colour, a colour and a
+font on every record that has them in a written sheet, a filled rectangle per component, pins of 200 mil,
+designators and comments. No build writes a `Repeat` statement; in the sample it is the name given to the
+writer's sheet symbol, `Repeat(OUT)` is the name given to its second sheet entry, and the bus the writer
+draws beside that entry is labelled `OUT[1..2]`. Those records differ from a plain sheet symbol and a plain
+sheet entry in their text alone. Two things differ from the first files in the drawing: every pin of the
+top sheet joins its net by a labelled wire, as on every written sheet, and on the child sheet the ports
+`VCC` and `OUT` lie directly on the ends of `R1` pin 1 and `C12` pin 2, without a wire (the writer draws no
+wire without a net label, and a label on the net of a repeated port would name it in every channel). The
+import reads the same circuit from both generations: the same modules, component and pin ids, designators,
+nets and bus (`tests/unit/backends/altium/adapter/test_repeat.py`, not edited by the change); the
+components now have a comment (`10k`, `100n`, `DRV2`, `CONN1`) and a library reference, which the first
+files left empty. The components name no footprint, as before: step R3 is about the designators and the
+nets that the change order lists. **Nothing of the new files has been opened in Altium**, and whether a
+port that lies on a pin end connects in Altium as it does in the import is part of what step R1 shows (a
+compile message about a floating port would say that it does not).
+
+1. R1: open `two.PrjPcb` in Altium Designer, look at both sheets, and compile the project. Expected: both
+   sheets show a pale page with their objects visible (supports `H-A-SCHDOT-AREACOLOR`; the new files differ
+   from the first in more than the area colour, so this does not isolate it); no error; the Navigator
+   shows two channels of the child sheet, `CH1` and `CH2`. Settles `H-A-IMP-RPT-COUNT`.
+2. R2: for each designator format offered in Project Options » Multi-Channel, select it, compile, and
+   write down the designator of the component `R1` in both channels; then, with `$Component_$RoomName`,
+   the same for each of the five room naming styles. Expected, for the formats in the order of the list:
+   `R1_CH1`, `CH1_R1`, `R1A`, `R1_CHA`, `R1_1`, `R1_CH1`, `R_1_1`, `R_CH1_1` in the first channel (style
+   "Flat Numeric With Names"), and for the styles `R1_CH1`, `R1_CHA`, `R1_CH1`, `R1_CHA` and, for the
+   mixed style, whatever Altium shows (the import does not name it). Settles `H-A-IMP-RPT-FORMAT`.
+3. R3: with the format `$Component_$RoomName` and the first style, run Design » Update PCB Document on an
+   empty board, and write down the designators of the four channel components, the names of the nets of
+   `C12` pin 2 in both channels and of `R1` pin 2 in both channels, and the form of the unique-id path
+   of one channel component as its properties show it (only the form: where the channel index stands
+   and what separates it from the unique ids, not the ids). Expected: `R1_CH1`,
+   `R1_CH2`, `C12_CH1`, `C12_CH2`; `OUT1` and `OUT2`; `MID_CH1` and `MID_CH2`. Settles
+   `H-A-IMP-RPT-NETS`, and gives the path form that the board link of a `Repeat` channel waits for.
+4. R4: run Tools » Annotation » Annotate Compiled Sheets, rename one channel's `R1`, save, and send only
+   the names of the keys of the `.Annotation` file that changed and the two designators.
+
+The maintainer reports one generic outcome per step (`as expected`, or what differed in one sentence),
+the tool as `AD <major>.<minor>` and the date. No file that Altium wrote is committed. A step that fails
+refutes the row it names. The steps were written from Altium's documentation; a menu path or a dialog name
+may read differently in version 26.
+
+No report yet: the three rows are `INFERRED`, "pending (author report)". The one thing reported so far, the
+black page of the first files on 2026-10-07, is no step of this part and moves no row.
+
+**Report of 2026-10-08, `AD 26.5`, session 2, step R1 only (S-0615).** Altium Designer 26.5.0, on the files
+of the table above (the folder `R-repeated-sheet/` of the session pack).
+
+- **The page.** Both sheets show a pale page with their objects: the black page of the first files is
+  gone. Confirms `H-A-SCHDOT-AREACOLOR` for what its criterion asks, without isolating the area colour.
+- **The child sheet.** It attached to the sheet symbol only after Altium's "Synchronize Sheet Entries and
+  Ports". After that the project compiled and showed the channels, with designators such as `R1_CH1` and
+  `C12_CH1`.
+- **The bus.** The bus did not split into the channels: the nets `OUT1` and `OUT2` each held one pin, and
+  Altium treated the entry `Repeat(OUT)` as a wire on a bus. **An open defect, not graduated.** Whether it
+  lies in the authored sheets (the entries that Altium had to synchronize, the bus that the writer draws
+  beside an entry) or in the statement of `H-A-IMP-RPT-NETS` is not known; the follow-up change c0151 is
+  proposed for it.
+- **Steps R2, R3 and R4.** Not done: owed. `H-A-IMP-RPT-COUNT` (its board half is R3), `H-A-IMP-RPT-NETS`
+  and `H-A-IMP-RPT-FORMAT` stay `INFERRED`, the first two with the observation above.
 
 ## Recording a report
 
@@ -695,3 +1116,200 @@ and no golden file was rebuilt.
   `H-A-SCH-NC-RECORD` is confirmed for the binary form; `H-A-SCH-NC-ERC` and `H-A-SCH-NC-VIEWER` stay
   `INFERRED` with `pending (author report)`. The committed sample of Part N, the ASCII form (N3) and the
   Viewer (N4) are not reported.
+
+## Author report of 2026-10-07 (opening only)
+
+On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
+(minor version not stated) with no problem, and what he sees looks right to him; on some small components
+the names of pins overlap, and he does not know whether that is intended.
+
+- **What he was given.** The session folder built from commit `bc306deb` (Parts Y, W, O, U and X, 63 files
+  with their SHA-256) and the kit built from `5adad054`. The three files of Part R were in the same pack; he
+  did not say that he opened them.
+- **What the report is.** An author report of opening and looking, on files that Fenolite wrote, with a
+  licence the author may use for Fenolite.
+- **What it is not.** It is not the numbered steps of the Parts. No value was read back (rules and scopes, the
+  layer stack, via spans, text positions, keep-out restrictions, title-block fields, outputs and containers),
+  and no compile, change order, rule check, repour or output-job run was reported. When this was written no
+  file that Altium saved had been received; the folders came back later the same day (next section).
+- **A second answer, the same day.** Asked whether any repair, upgrade or conversion prompt appeared
+  when he opened the kit's files, and for his minor version, the author answered: "nenhum erro ou pedido
+  de restaurar foi feito, tudo abriu como projeto Altium. E meu Altium é o 26" (no error and no request
+  to restore was made, everything opened as an Altium project; my Altium is 26). The answer does not use
+  the word upgrade and gives no minor version.
+- **What it moves.** No level. The two rows whose criterion is opening alone, `H-A-PH-CHECKSUM` and
+  `H-A-PH-LAYOUT`, are stated for the author's earlier writer with a value as reported, and the second
+  for another version of the tool; this report is about files that Fenolite's writers wrote and names no
+  value. Change c0092 restates that family for Fenolite's writers, and the answer above is then the
+  author report for the restated rows. The rows whose first step is opening carry a dated partial note in
+  `docs/hypotheses.md` (`H-A-SCHX-GRAPHICS`, `H-A-SCHDOT-OPEN`, `H-A-OUTJOB-OPEN`, `H-A-RULE-KINDS`,
+  `H-A-PH-CHECKSUM`, `H-A-PH-LAYOUT`), and `H-A-PCB-DOC-OPEN`, which was settled on 2026-10-03, names the
+  further documents. Every row that needs a value, one of Altium's engines or the recorded kit run is where
+  it was.
+- **Observation: names of pins that overlap.** The author named the symbols the same day: `BJT_NPN`,
+  `Comparator`, `Operational_Amplifier`, `CONN2` and `Linear_Regulator`, and asked for a correction. A scan of the
+  session's schematic libraries with Fenolite's own reader shows where a shown name can collide: a small
+  transistor body with three shown names, the triangle of a comparator or an operational amplifier with
+  names on four of five pins, and a two-pin connector whose name and number are the same text. The Altium
+  writer honours a symbol's hidden pin names, so the likely cause is in the symbol definitions, which leave
+  names visible on small discrete symbols; KiCad would then show the same. Change c0134 corrects the
+  definitions; the samples it regenerates are new files that this report does not cover.
+  2026-10-07, with change c0134: 26 catalog symbols and the four of the example library changed, the
+  regenerated files are named with their SHA-256 in Parts L, N and Y above, and the five projects of the
+  kit get other schematic bytes on their next build. Nobody has looked at any of them in Altium, and the
+  width that the change assumes for Altium's pin text is not measured.
+- The steps of the Parts were written from Altium's documentation; a menu path or a dialog name may read
+  differently in version 26.
+
+## Returned folders of 2026-10-07
+
+Later on 2026-10-07 the author returned the two folders he had been given, after working in them by hand in
+Altium Designer 26 (minor version not stated). He said of the session that all went right, that he saved
+some files of the kit, and that the sheet of Part R showed as a page that was all black. Nothing that Altium
+wrote is in this repository; the folders were read outside it, on 2026-10-07, with Fenolite's own readers and
+`fenolite kit verify` at commit `6f6227eb`.
+
+**What came back.**
+
+- The session folder: its 64 files unchanged, and 21 new ones. A project structure file stands beside nine of
+  the ten projects, the mark that Altium compiled them; the project of Part U has none. Under the project of
+  Part O are the files that the written output job produced. The reply form of the session's guide was not
+  filled, and no note came with the folder.
+- The kit: the project file of the sample `flat` rewritten in place by Altium, and saved documents of three
+  samples: a schematic document, a PCB document and the project file of `flat`; a schematic library and a
+  schematic document of `libs`; a schematic document of `board6`. The kit's form is as built: every value empty.
+
+**What the files show.**
+
+- **Every saved document reads back to the model that was written.** Fenolite's import of each of the five
+  saved compound documents equals its import of the file it wrote. The one model difference is on the PCB
+  document: a rule `HoleSize` that Altium adds by default. Altium's save adds its own bookkeeping (identifiers
+  on records, default parameters of the sheet, default classes and rules around the written ones, further
+  storages) and keeps what was written: the nets, the components, the five written rules in keys, values and
+  order, the two written classes, the six title-block values, the class settings of the project file.
+- **The output job runs, except for its Gerber output.** NC drill, pick and place, the bill of materials and a
+  schematic and PCB print of two pages were produced, each into the container of its kind. The drill files
+  hold 7 holes of 0.3 mm and 2 of 0.9 mm, which are the seven vias and the two pads of the through-hole part of
+  the written board; the three placement rows hold the three components on their sides at the positions of the
+  model (Altium reports the centre of a part's pads, not its reference point). **No Gerber layer file was
+  produced**: the report of that output names no layer, and its aperture files are empty, with no error
+  message. The written job holds no settings record for the Gerber output (a decision of change c0087: the
+  job holds outputs, sources and containers and no setting), and for this one output Altium's default
+  plots nothing. That is a defect of the written job. Change c0138 writes the settings record of the Gerber
+  output, with the plotted layers taken from the board.
+- **The kit.** `fenolite kit verify` on the folder as returned fails every step of the sample `flat` for one
+  reason: step K1.5 (save the project under another name) made Altium rewrite the kit's own project file,
+  which then differs from its digest. With that file restored from the history copy that Altium left beside
+  it, steps K1.1, K1.2, K1.3, K1.5 and K9.1 pass (the saved schematic document, PCB document, schematic
+  library and project file are read and are equal to the samples at the levels the steps name), and no step
+  fails on a difference. The other steps have no file or no form value. This is not a recorded kit run:
+  `fenolite kit record` refuses a folder whose kit files changed and whose form is empty. The defects this
+  showed in the kit itself (the step that rewrites a kit file, wrong expected values printed for integer
+  steps, a path that the kit's privacy check does not list, a step that cannot tell an update from a save) are
+  change c0139.
+- **Part R, the black page.** The two sheets of Part R were authored record by record, outside the schematic
+  writer, and their sheet record holds no area colour and their objects no colour; every sheet that the
+  schematic writer writes, and every sheet Altium saved, holds an area colour. An absent colour most likely
+  reads as black. The files of Part R are to be authored again with the writer's colours; until then Part R
+  has no outcome. 2026-10-08, change c0146: they are authored again, through the schematic writer itself, and
+  are in the folder of session 2 (Part R above, with the new SHA-256); nobody has opened them.
+- **Two equal fonts are saved as one.** The schematic document of the kit sample `flat` was written with a
+  font table of four entries, the first two both Times New Roman of size 10 (the system font, and the first
+  font of the drawing sheet, declared without looking at it); the copy that Altium saved holds three, and
+  the labels of the drawing sheet name the renumbered entries (S-0610; one file). Change c0146 makes the
+  writer hold each distinct font once: 10, 5 and 7 points for that sample. That is all the change claims;
+  whether a table with equal entries is an error for Altium is not known (`H-A-SCHDOT-FONT-MERGE`).
+
+**What it moves.** No level. The reply form was not filled, so no row that needs a value read from a dialog or
+a message panel has its value; the kit rows need a recorded run. Recorded in `docs/hypotheses.md` as
+observations, with the rows left where they were: `H-A-OUTJOB-RUN` (five kinds generated, the Gerber kind
+not) and `H-A-OUTJOB-OPTIONS` (the default of the Gerber output plots no layer), both waiting for the author
+to state the outcome and his minor version; `H-A-KIT-SCRIPT` (the author reports that the first call of the
+script probe, `Client.GetServerRecordCount`, is not known to Altium Designer 26; he did not go on with the
+script). The structure files of Part Y list the sheet tree of step Y4, and five of the six outputs of Part O
+exist: both support their rows and settle neither, because the step's own report is missing.
+
+What the saved files show of the formats (keys that Altium adds, drops or reorders on a save) is input for
+the format pages and is recorded there in a change of its own.
+
+## Pin visibility bits (author reports of 2026-10-08, change c0148)
+
+Two author reports of the same day, in Altium Designer 26, settle what bits 0x08 and 0x10 of a pin's
+`PINCONGLOMERATE` mean (`H-A-SCHLIB-PINBITS`). The photos are the maintainer's and are not committed.
+
+**First report: files written before change c0148 (S-0612).** In session 2 the maintainer looked at the
+LED `D1` of the kit sample `flat` (the catalog LED; its pins written with `PINCONGLOMERATE` 18 and 16,
+0x10 set and 0x08 clear, meant as "number shown, name hidden"). The Properties panel (Pins) marked both
+numbers hidden and both names visible, and the names K and A were drawn on the sheet. The LED
+`Mini:Mini_LED` of a build of `examples/blink_routed` (pins written with 2 and 0, no bit set) showed both
+names and both numbers. On the narrow LED body the two visible names crossed over, each ending past the
+middle, so K stood beside the anode pin and A beside the cathode, and the maintainer read the LED as
+reversed. The electrical side was right: PCB pad 1 is `GND` (cathode), pad 2 `LED_A`, and Altium listed
+"Pin 1 = K, Pin 2 = A" by pad number from the map records. The overlapping pin names of the report of
+2026-10-07 (above) most likely have the same cause: Fenolite wrote 0x08 to show a name, and Altium showed
+the names that the symbols meant hidden.
+
+**Second report: the check project `tests/data/altium/pinbits/` (S-0613).** The public sources read the
+two bits as show flags (S-0130, S-0131), and every pin that Altium saved in the corpus holds bit 0x20, which
+Fenolite never wrote (S-0614, table below). The check project holds the catalog LED four times, every pin
+with 0x20 set: V1 0x20, V2 0x20 | 0x10, V3 0x20 | 0x08, V4 0x20 | 0x18. Opened in Altium Designer
+Professional 26.5.0, V1 showed neither number nor name, V2 the numbers only, V3 the names only, V4 both:
+the expected answer.
+
+| file | SHA-256 |
+|---|---|
+| `pinbits.PrjPcb` | `da8fcf56f329256a9932eec8ee3e6203bc0f836f04d75d77e8e5fa6cef521cde` |
+| `pinbits.SchDoc` | `d0cc87c9cc2b3c8f074bde153a3a9b04323fdf3c383323927e3e9b1fa98ef491` |
+| `pinbits.SchLib` | `1211bea9e16da5a98b1bf4430c109c03404da4c5e4b16bdc6c5a614a6ea3e68b` |
+
+**Corpus census (S-0614; measured 2026-10-08 with Fenolite's own reader; held by `tests/corpus/test_altium_pin_bits.py`).** 4 175 pins: 2 974 in 36 of the
+38 schematic documents (two hold no pin) and 1 201 in the 9 libraries. Every one holds 0x20. By the bits
+0x08 and 0x10 and the number of pins of the owning component:
+
+| pins of | owner | neither | 0x10 only | 0x08 only | both |
+|---|---|---|---|---|---|
+| documents | at most 3 pins | 1 233 | 105 | 17 | 12 |
+| documents | more than 3 pins | 47 | 77 | 69 | 1 414 |
+| libraries | at most 3 pins | 75 | 40 | 24 | 2 |
+| libraries | more than 3 pins | 4 | 493 | 134 | 429 |
+
+The small components of the documents are resistors, capacitors and test points whose pins are named `1`
+and `2`; the large ones name their pins (`VCC`, `EN`, `TX1_P`). Read as show flags, the split is the usual
+one: passives hide pin texts, integrated circuits show them.
+
+**What it settles.** With 0x20 set, 0x08 shows the name and 0x10 the number; without 0x20, Altium
+Designer 26 reads the same two bits as hide flags (only the values 0, 2, 16 and 18 were seen without 0x20).
+Change c0148 writes 0x20 on every pin with the two bits as show flags, and the reader takes them as show
+flags with 0x20 and as hide flags without it. Files written before 0.3.0 show pin names that their symbols
+meant hidden and hide numbers that were meant shown; built again, their pins take the form of the check project. Nobody has
+opened a rebuilt kit or session file in Altium yet.
+
+**What moved in this page.** The tables that name committed files (`tests/data/altium/…`) carry the new
+digests; every committed schematic document and library differs from its former bytes in bit 0x20 of each
+pin alone (`tests/_pin_bits.py`). The tables that name the files in the maintainer's session folders
+(Parts L, N, W, Y and R) keep the digests of what he was given: those files hold pins without 0x20.
+
+## Session 2 of 2026-10-08
+
+The maintainer's second session of Altium work, in Altium Designer 26.5.0 on his own PC (S-0615), on the
+session pack built from commit `695574ba`. What it gave for the schematic side:
+
+- **Part O** (change c0138): every output of the job with the Gerber settings record was produced, Gerber
+  layer files among them; `H-A-OUTJOB-RUN-2` is confirmed and the rows that need a value of the setup stay
+  pending (Part O, "Reports").
+- **Part P** (change c0148): the pin visibility bits, recorded under "Pin visibility bits" above.
+- **Part S** (change c0134): the five symbols the author named on 2026-10-07 (`BJT_NPN`, `Comparator`,
+  `Operational_Amplifier`, `Linear_Regulator`, `CONN2`), on the sheet `simbolos.SchDoc` of the pack. His
+  answer to step S1: "ficou bom" (it looked good). No pin text over another text or a line was reported.
+  No register row names this check: change c0134 registered none, and `H-A-SCHX-GRAPHICS` asks for the
+  four symbols of Part Y against their pictures, which this step did not compare. The pack's symbols hold
+  pins without bit 0x20 (it was built before change c0148).
+- **Part R** (changes c0083 and c0146): step R1 only, under Part R above. The sheets are no longer black;
+  the bus of `Repeat(OUT)` does not split into the channels, an open defect.
+- **Not done, owed:** steps R2 to R4 of Part R, the Part K kit run (see `docs/evidence/altium-kit/README.md`
+  for the maintainer's decision on it), and Parts X8, V and G of the PCB page.
+
+The maintainer also stated, for the record of 0.3.0, that the schematic libraries, PCB libraries,
+schematic documents and PCB documents that Fenolite writes were opened and compiled in Altium Designer 24
+before and in 26 now. That is an author report of opening and compiling without a step, a value or a
+version beyond the major; it raises no row and no release claim.

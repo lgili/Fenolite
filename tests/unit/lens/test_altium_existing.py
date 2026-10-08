@@ -131,17 +131,23 @@ def test_project_saved_by_altium_is_kept(monkeypatch: pytest.MonkeyPatch, built:
 
 
 def test_unchanged_rebuild_and_lost_record(monkeypatch: pytest.MonkeyPatch, built: Path) -> None:
-    """A rebuild keeps every output; its record names only the files it planned, so the kept project file
-    drops out of ``build.json``. Without a record, only identical bytes pass."""
+    """A rebuild keeps every output. The kept project file, which is still as the first build wrote it,
+    stays in ``build.json`` with its digest (change c0138; before, the record named only the planned files
+    and the project file dropped out). Without a record, only identical bytes pass, and the project file
+    of a folder without a record is not recorded."""
     before = files_under(built)
     assert run(monkeypatch, built, "--confirm")[0] == 0
     after = {k: v for k, v in files_under(built).items() if not k.endswith(".bak")}
     record = ".fenolite/build.json"
     assert {k: v for k, v in after.items() if k != record} == {k: v for k, v in before.items() if k != record}
     assert list(json.loads(before[record])["files"]) == ["FenoliteSample.SchLib", PRJPCB, SCHDOC]
-    assert list(json.loads(after[record])["files"]) == ["FenoliteSample.SchLib", SCHDOC]
+    assert json.loads(after[record])["files"] == json.loads(before[record])["files"]
     shutil.rmtree(built / ".fenolite")
-    assert run(monkeypatch, built, "--confirm")[0] == 0, "identical bytes pass without a record"
+    code, env, _ = run(monkeypatch, built, "--confirm")
+    assert code == 0, "identical bytes pass without a record"
+    assert str(built / PRJPCB) not in env["result"]["files"]  # type: ignore[index]
+    lost = json.loads((built / ".fenolite" / "build.json").read_text(encoding="utf-8"))["files"]
+    assert list(lost) == ["FenoliteSample.SchLib", SCHDOC], "a project file without a record is not recorded"
     shutil.rmtree(built / ".fenolite")
     _edit_one_byte(built / SCHDOC)
     assert run(monkeypatch, built, "--confirm")[0] == 7, "without a record only identical bytes pass"
@@ -163,16 +169,34 @@ def test_library_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 
 
 def test_kept_project_names_the_libraries(monkeypatch: pytest.MonkeyPatch, built: Path) -> None:
-    (built / PRJPCB).write_bytes(
-        (built / PRJPCB).read_bytes() + b"\r\n[Document3]\r\nDocumentPath=x.PcbDoc\r\n"
-    )
+    """A kept project file is read: one that lists the library gives no library info, one that lacks it
+    names it (change c0138; before, the info was given for every kept project file)."""
+    written = (built / PRJPCB).read_bytes()
+    section = b"[Document2]\r\nDocumentPath=FenoliteSample.SchLib\r\n"
+    assert written.endswith(section)
+    (built / PRJPCB).write_bytes(written + b"\r\n[Document3]\r\nDocumentPath=x.PcbDoc\r\n")
     code, env, _ = run(monkeypatch, built, "--confirm")
     issues = env["issues"]
     assert code == 0 and isinstance(issues, list)
     codes = [i["code"] for i in issues]
-    assert "altium.project-kept" in codes
+    assert "altium.project-kept" in codes and "altium.schlib-not-in-project" not in codes
+    record = json.loads((built / ".fenolite" / "build.json").read_text(encoding="utf-8"))["files"]
+    assert PRJPCB not in record, "a changed project file is kept and not recorded"
+
+    (built / PRJPCB).write_bytes(written.removesuffix(section))
+    code, env, _ = run(monkeypatch, built, "--confirm")
+    issues = env["issues"]
+    assert code == 0 and isinstance(issues, list)
     (listing,) = [i for i in issues if i["code"] == "altium.schlib-not-in-project"]
-    assert SCHLIB in listing["message"]
+    assert SCHLIB in listing["message"] and listing["hint"] == ""
+
+    # a project file that the reader cannot read: the infos are given as before, and say so
+    (built / PRJPCB).write_bytes(b"\x00not a project file")
+    code, env, _ = run(monkeypatch, built, "--confirm")
+    issues = env["issues"]
+    assert code == 0 and isinstance(issues, list)
+    (listing,) = [i for i in issues if i["code"] == "altium.schlib-not-in-project"]
+    assert SCHLIB in listing["message"] and "could not be read" in listing["hint"]
 
 
 def test_edited_library_refused(monkeypatch: pytest.MonkeyPatch, built: Path) -> None:

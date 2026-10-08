@@ -15,6 +15,7 @@ import pytest
 from _altium import blink_pcbdoc_spec
 from _altium_pcb_read import PcbDoc, read_pcbdoc
 
+from fenolite.backends.altium import pcbrecords
 from fenolite.backends.altium.docboard import StackSpec, angle_text
 from fenolite.backends.altium.libboard import guid
 from fenolite.backends.altium.pcbdoc import (
@@ -29,6 +30,8 @@ from fenolite.backends.altium.pcbdoc import (
     record_layer,
     write_pcbdoc,
 )
+from fenolite.backends.altium.read.pcb import read_pcbdoc as read_document
+from fenolite.backends.altium.read.pcbprims import ViaRecord
 from fenolite.core.coords import Point
 from fenolite.model.board import Arc, Track, Via, Zone
 
@@ -480,6 +483,45 @@ def test_routed_arc_refusals() -> None:
             write_pcbdoc(copper_spec(arcs=(dataclasses.replace(bent, **changes),)))  # type: ignore[arg-type]
 
 
+def test_arc_written_from_a_record_of_its_own() -> None:
+    """Change c0127, "Writer options for a model that was read": an arc whose id ``arc_records`` names is
+    written with that centre, radius and pair of angles on its own layer, net and width, and is not refused
+    for points on one line; without the entry the same arc is derived from its points."""
+    bent = Arc(
+        id="arc_a", start=at(1, 1), mid=at(2, 2), end=at(3, 1), width=200_000, layer="F.Cu", net_id="GND"
+    )
+    flat = Arc(id="arc_b", start=at(5, 1), mid=at(6, 1), end=at(7, 1), width=150_000, layer="B.Cu")
+    records = {
+        "arc_a": pcbrecords.ArcGeometry(1_000_000, 2_000_000, 100, 30.0, 35.0),
+        "arc_b": pcbrecords.ArcGeometry(3_000_000, 4_000_000, 100, 0.0, 1.0),
+    }
+    doc, _ = copper_doc(arcs=(bent, flat), arc_records=records)
+    names = [n["NAME"] for n in doc.nets]
+    first, second = doc.free_arcs
+    assert (first.cx, first.cy, first.radius, first.start, first.end) == (
+        1_000_000,
+        2_000_000,
+        100,
+        30.0,
+        35.0,
+    )
+    assert (first.prefix.layer, names[first.prefix.net], first.width) == (1, "GND", 78740)
+    assert (second.cx, second.cy, second.radius, second.start, second.end) == (
+        3_000_000,
+        4_000_000,
+        100,
+        0.0,
+        1.0,
+    )
+    assert (second.prefix.layer, second.prefix.net, second.width) == (32, 0xFFFF, 59055)
+    derived, _ = copper_doc(arcs=(bent,))
+    (plain,) = derived.free_arcs
+    assert (plain.cx, plain.cy, plain.radius) != (first.cx, first.cy, first.radius)
+    with pytest.raises(ValueError, match="arc_b: the arc points .* are collinear"):
+        write_pcbdoc(copper_spec(arcs=(flat,), arc_records={"arc_a": records["arc_a"]}))
+    assert copper_spec().arc_records == {}
+
+
 def through(ident: str, x: float, y: float, net: str | None = "GND", **changes: object) -> Via:
     via = Via(
         id=ident, position=at(x, y), diameter=600_000, drill=300_000, layers=("F.Cu", "B.Cu"), net_id=net
@@ -511,17 +553,18 @@ def test_via_on_four_layers_spans_the_outer_layers() -> None:
     assert [(v.start_layer, v.end_layer) for v in doc.vias] == [(1, 32)]
 
 
-def test_blind_via_refused() -> None:
-    """Scenario "Blind via refused"."""
+def test_blind_via_written() -> None:
+    """A blind via is written with its span since change c0085 ("Blind and buried via records"); the
+    scenario "Blind via refused" of c0038 is superseded."""
     blind = through("via_blind", 10, 10, via_type="blind", layers=("F.Cu", "In1.Cu"))
-    with pytest.raises(ValueError, match="via_blind: a blind via is not written"):
-        write_pcbdoc(copper_spec(copper_layers=FOUR, vias=(blind,)))
+    doc, _ = copper_doc(copper_layers=FOUR, vias=(blind,))
+    assert [(v.start_layer, v.end_layer) for v in doc.vias] == [(1, 2)]
 
 
 @pytest.mark.parametrize(
     ("changes", "message"),
     [
-        ({"layers": ("F.Cu", "In1.Cu")}, "via_bad: the via spans F.Cu, In1.Cu, not F.Cu to B.Cu"),
+        ({"layers": ("F.Cu", "F.Cu")}, "via_bad: the via spans F.Cu, F.Cu, not two copper layers"),
         ({"layers": ()}, "via_bad: the via spans no layer"),
         ({"drill": 600_000}, "via_bad: the drill of 600000 nm is not below the diameter of 600000 nm"),
         ({"drill": 0}, "via_bad: the drill of 0 nm"),
@@ -534,8 +577,30 @@ def test_via_refusals(changes: dict[str, object], message: str) -> None:
         write_pcbdoc(copper_spec(copper_layers=FOUR, vias=(through("via_bad", 10, 10, **changes),)))
 
 
+def test_via_with_a_full_drill_needs_the_option() -> None:
+    """Scenario "Via with a full drill" (change c0128): a via whose drill equals its diameter is refused,
+    as c0038 pins it, unless ``PcbDocSpec.allow_full_drill`` is set, the option of the rewrite of a document
+    that was read; then the hole is the diameter and every other byte is that of the same via with a
+    smaller drill. A drill above the diameter and a drill of 0 are refused with and without the option."""
+    full = through("via_full", 10, 10, drill=600_000)
+    assert copper_spec().allow_full_drill is False
+    with pytest.raises(ValueError, match="via_full: the drill of 600000 nm is not below the diameter"):
+        write_pcbdoc(copper_spec(vias=(full,)))
+    # read with Fenolite's reader: the reader of these tests keeps the rule of a build and refuses the record
+    (via,) = read_document(write_pcbdoc(copper_spec(vias=(full,), allow_full_drill=True))).vias
+    (plain,) = read_document(write_pcbdoc(copper_spec(vias=(through("via_full", 10, 10),)))).vias
+    assert isinstance(via, ViaRecord) and isinstance(plain, ViaRecord)
+    assert (via.diameter, via.hole, via.start_layer, via.end_layer) == (236220, 236220, 1, 32)
+    assert (plain.diameter, plain.hole) == (236220, 118110) and len(via.raw) == len(plain.raw) == 326
+    hole = slice(5 + 25, 5 + 29)  # the type byte and the length, then the hole at 25
+    assert via.raw[: hole.start] == plain.raw[: hole.start] and via.raw[hole.stop :] == plain.raw[hole.stop :]
+    for drill in (600_001, 0, -1):
+        with pytest.raises(ValueError, match="via_bad: the drill of"):
+            write_pcbdoc(copper_spec(vias=(through("via_bad", 10, 10, drill=drill),), allow_full_drill=True))
+
+
 def test_copper_layers_must_be_a_known_stack() -> None:
-    with pytest.raises(ValueError, match="In1.Cu"):
+    with pytest.raises(ValueError, match="3 copper layers"):
         write_pcbdoc(copper_spec(copper_layers=("F.Cu", "In1.Cu", "B.Cu")))
 
 
