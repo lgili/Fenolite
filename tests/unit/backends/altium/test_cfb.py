@@ -146,14 +146,17 @@ def test_fat_count_covers_itself() -> None:
         assert (found.header.fat_sectors - 1) * 128 < used
 
 
-def test_too_large() -> None:
-    with pytest.raises(CompoundTooLarge):
+def test_too_large(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stream past the size a version 3 entry holds is refused (change c0160: a FAT of more than 109
+    sectors is written with DIFAT sectors, ``test_cfb_difat.py``)."""
+    monkeypatch.setattr(cfb, "MAX_STREAM_SIZE", 7_999_999)
+    with pytest.raises(CompoundTooLarge, match="'Big' holds 8000000 bytes"):
         write_compound([("Big", bytes(8_000_000))])
     assert issubclass(CompoundTooLarge, ValueError)
 
 
 def test_limit_is_read_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cfb, "MAX_FAT_SECTORS", 0)
+    monkeypatch.setattr(cfb, "MAX_REGULAR_SECTOR", 0)
     with pytest.raises(CompoundTooLarge):
         write_compound([("S", b"x")])
 

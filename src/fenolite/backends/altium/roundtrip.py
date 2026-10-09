@@ -414,7 +414,8 @@ def rt_a0(data: bytes, *, kind: str, file: str = "") -> ContainerRoundTrip:
     read the copy, and compare storage paths, stream paths (with the stored spelling) and stream bytes.
 
     CLSIDs, state bits, times, the sector size and the sector layout are not compared. Not judged, with a
-    reason: ``not-a-container`` for a text kind, ``too-large`` for a file that needs DIFAT sectors, and
+    reason: ``not-a-container`` for a text kind, ``too-large`` for a file larger than a version 3 file
+    holds (change c0160 writes DIFAT sectors), and
     ``writer-refused`` for any other tree the writer does not write. The reader's ``CompoundError`` is raised
     unchanged; nothing is written to disk.
     """

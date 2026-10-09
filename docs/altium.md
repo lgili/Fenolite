@@ -1362,8 +1362,9 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
 **A level that is not judged** is neither a pass nor a failure. The reasons:
 
 - `not-a-container` (RT-A0): the file is text (an ASCII schematic or a project file).
-- `too-large` (RT-A0): the file needs DIFAT sectors, which the compound writer does not write. RT-A1
-  still judges its records.
+- `too-large` (RT-A0): the file is larger than a version 3 compound file holds (before change c0160,
+  a file that needs DIFAT sectors, which the compound writer did not write). RT-A1 still judges its
+  records.
 - `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
   not write).
 - `native-input` (RT-A2): the files were not written by a Fenolite build. RT-A2 compares a stored model

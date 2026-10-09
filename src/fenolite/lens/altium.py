@@ -2223,7 +2223,7 @@ def build_altium(
         issues.append(
             issue(
                 "altium.pcb-too-large",
-                f"{error.file} is too large for a compound file without DIFAT sectors: {error}",
+                f"{error.file} is too large for a version 3 compound file: {error}",
                 error.file,
                 "build fewer footprints into one design",
             )
@@ -2235,7 +2235,7 @@ def build_altium(
         issues.append(
             issue(
                 "altium.library-too-large",
-                f"{error.library} is too large for a compound file without DIFAT sectors: {error}",
+                f"{error.library} is too large for a version 3 compound file: {error}",
                 error.library,
                 "split the design's symbols over fewer or smaller libraries",
             )

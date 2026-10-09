@@ -93,10 +93,8 @@ def test_row_holds_both_levels(item: CorpusItem) -> None:
     if not a0["judged"]:
         assert a0["reason"] in UNJUDGED, item.id
         assert (a0["reason"] == "not-a-container") is (entry["kind"] not in COMPOUND_KINDS), item.id
-        if a0["reason"] == "too-large":  # the writer writes no DIFAT sector
-            assert entry["difat_sectors"] > 0 and entry["fat_sectors"] > 109, item.id
-    elif entry["kind"] in COMPOUND_KINDS:
-        assert entry["difat_sectors"] == 0, item.id
+        # since change c0160 the writer writes DIFAT sectors: no saved file is too large for it
+        assert a0["reason"] != "too-large", item.id
     assert a1["judged"] and a1["passed"], f"{item.id}: RT-A1 differs in {a1['different']}"
     assert a1["streams"] >= 1 and a1["records"] >= 1, item.id
     census("altium-roundtrip", item.id, entry)

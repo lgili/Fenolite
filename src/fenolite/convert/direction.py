@@ -76,7 +76,7 @@ class Direction:
 
 class TargetLimitError(FenoliteError):
     """The target writer cannot hold the design at all (an Altium document larger than a compound file
-    without DIFAT sectors): nothing is converted, with or without consent to losses."""
+    larger than a version 3 compound file holds): nothing is converted, with or without consent to losses."""
 
     cli_code = "FEN-7001"
 

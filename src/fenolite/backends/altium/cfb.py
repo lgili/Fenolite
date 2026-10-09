@@ -8,8 +8,10 @@ Written from ``docs/formats/altium/compound-file.md`` (facts of [MS-CFB], S-0145
 only. ``write_compound`` lays the streams out in one fixed layout: the header, then the FAT sectors, the
 directory, the mini FAT, the mini stream and each large stream, every chain over consecutive sectors. Every
 directory entry is black, with zero CLSIDs, state bits and times, so the bytes depend only on the streams.
-No DIFAT sector is written: output whose FAT needs more sectors than the header can list is refused with
-``CompoundTooLarge``.
+A FAT of more than the 109 sectors that the header lists continues in DIFAT sectors, written right after
+the FAT sectors (change c0160, ``compound-file.md``, "DIFAT sectors"); a file of 109 FAT sectors or fewer
+has none and keeps the bytes it had before. ``CompoundTooLarge`` refuses only what a version 3 file cannot
+hold.
 
 Storages (change c0034): ``write_compound`` takes streams ``(name, data)`` and ``Storage`` values at any
 depth. Entries are numbered in pre-order; each storage gets its own sibling tree. ``Storage`` and
@@ -17,7 +19,7 @@ depth. Entries are numbered in pre-order; each storage gets its own sibling tree
 no sector or mini sector; their entry has size 0 and starts at ENDOFCHAIN.
 """
 
-# evidence: see binary, pcbdoc, pcblib, schlib
+# evidence: see binary, pcbdoc, pcblib, schlib; the DIFAT sectors rest on H-A-CONV-DIFAT (change c0160)
 
 from __future__ import annotations
 
@@ -35,10 +37,15 @@ MINI_SECTOR_SIZE = 64
 MINI_STREAM_CUTOFF = 4096
 """A stream smaller than this lies in the mini stream; a reader decides by the size alone."""
 MAX_FAT_SECTORS = 109
-"""The FAT sectors the header can list; past this a file needs DIFAT sectors, which are not written."""
+"""The FAT sectors the header can list; past this a file needs DIFAT sectors (change c0160)."""
+MAX_REGULAR_SECTOR = 0xFFFFFFFA
+"""The largest regular sector number of a version 3 file."""
+MAX_STREAM_SIZE = 2**32 - 1
+"""The largest stream size a version 3 directory entry holds (the high 4 bytes of the size are zero)."""
 ENDOFCHAIN = 0xFFFFFFFE
 FREESECT = 0xFFFFFFFF
 FATSECT = 0xFFFFFFFD
+DIFSECT = 0xFFFFFFFC
 NOSTREAM = 0xFFFFFFFF
 
 MINOR_VERSION = 0x003E
@@ -63,7 +70,9 @@ _ENTRY = struct.Struct("<64sHBBIII16sIQQIQ")
 
 
 class CompoundTooLarge(ValueError):
-    """The FAT would need more than ``MAX_FAT_SECTORS`` sectors, which needs DIFAT sectors."""
+    """The file is larger than a version 3 compound file holds: more sectors than ``MAX_REGULAR_SECTOR``
+    or a stream larger than ``MAX_STREAM_SIZE`` (before change c0160: more than ``MAX_FAT_SECTORS`` FAT
+    sectors, which needed the DIFAT sectors that are now written)."""
 
 
 @dataclass(frozen=True)
@@ -204,13 +213,46 @@ def _pad(data: bytes, unit: int) -> bytes:
     return data + bytes(-len(data) % unit)
 
 
+DIFAT_ENTRIES_PER_SECTOR = FAT_ENTRIES_PER_SECTOR - 1
+"""The FAT sector numbers of one DIFAT sector; its last entry names the next DIFAT sector."""
+
+
+def _difat_sectors(fat_sectors: int) -> int:
+    """The DIFAT sectors that list the FAT sectors past the header's ``MAX_FAT_SECTORS``."""
+    return _ceil(max(fat_sectors - MAX_FAT_SECTORS, 0), DIFAT_ENTRIES_PER_SECTOR)
+
+
+def fat_layout(rest: int) -> tuple[int, int]:
+    """``(FAT sectors, DIFAT sectors)`` of a file whose other sectors number ``rest``: the fewest FAT
+    sectors whose entries cover themselves, the DIFAT sectors and ``rest``."""
+    fat_sectors = 1
+    while fat_sectors * FAT_ENTRIES_PER_SECTOR < fat_sectors + _difat_sectors(fat_sectors) + rest:
+        fat_sectors += 1
+    return fat_sectors, _difat_sectors(fat_sectors)
+
+
+def _difat_bytes(fat_sectors: int, difat_sectors: int) -> bytes:
+    """The DIFAT sectors, which follow the FAT sectors: the FAT sector numbers past the header's 109,
+    127 per sector, FREESECT after the last, and the number of the next DIFAT sector (ENDOFCHAIN in the
+    last)."""
+    out: list[int] = []
+    numbers = list(range(MAX_FAT_SECTORS, fat_sectors))
+    for k in range(difat_sectors):
+        part = numbers[k * DIFAT_ENTRIES_PER_SECTOR : (k + 1) * DIFAT_ENTRIES_PER_SECTOR]
+        part += [FREESECT] * (DIFAT_ENTRIES_PER_SECTOR - len(part))
+        following = fat_sectors + k + 1 if k + 1 < difat_sectors else ENDOFCHAIN
+        out += [*part, following]
+    return struct.pack(f"<{len(out)}I", *out)
+
+
 def write_compound(entries: Sequence[Entry]) -> bytes:
     """The bytes of a version 3 compound file whose root storage holds exactly ``entries``.
 
     ``entries`` are streams ``(name, data)`` and ``Storage`` values, numbered in pre-order from 1: each
     storage is followed at once by its own entries. ``ValueError`` for an invalid, repeated or empty
-    or empty storage; ``CompoundTooLarge`` past the FAT limit. Streams only give c0033's bytes. An empty
-    stream (change c0035) takes no sector: its entry has size 0 and starting sector ENDOFCHAIN.
+    or empty storage; ``CompoundTooLarge`` past what a version 3 file holds. Streams only give c0033's
+    bytes. An empty stream (change c0035) takes no sector: its entry has size 0 and starting sector
+    ENDOFCHAIN. A FAT of more than 109 sectors is listed by DIFAT sectors after it (change c0160).
     """
     nodes = _flatten(entries)
     mini_used = 0
@@ -230,19 +272,25 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
     mini_sectors = _ceil(len(mini_stream), SECTOR_SIZE)
     large = [_ceil(len(s.data), SECTOR_SIZE) for s in placed if not s.small]
     rest = directory_sectors + minifat_sectors + mini_sectors + sum(large)
-    fat_sectors = 1
-    while fat_sectors * FAT_ENTRIES_PER_SECTOR < fat_sectors + rest:
-        fat_sectors += 1
-    if fat_sectors > MAX_FAT_SECTORS:
+    for s in placed:
+        if len(s.data) > MAX_STREAM_SIZE:
+            raise CompoundTooLarge(
+                f"the stream {nodes[s.index].name!r} holds {len(s.data)} bytes, more than a version 3 "
+                f"file holds ({MAX_STREAM_SIZE})"
+            )
+    fat_sectors, difat_sectors = fat_layout(rest)
+    if fat_sectors + difat_sectors + rest > MAX_REGULAR_SECTOR + 1:
         raise CompoundTooLarge(
-            f"the compound file needs {fat_sectors} FAT sectors, more than the {MAX_FAT_SECTORS} that "
-            "a file without DIFAT sectors can hold"
+            f"the compound file needs {fat_sectors + difat_sectors + rest} sectors, more than a version 3 "
+            "file holds"
         )
 
     fat = [FREESECT] * (fat_sectors * FAT_ENTRIES_PER_SECTOR)
     for number in range(fat_sectors):
         fat[number] = FATSECT
-    cursor = fat_sectors
+    for number in range(fat_sectors, fat_sectors + difat_sectors):
+        fat[number] = DIFSECT
+    cursor = fat_sectors + difat_sectors
 
     def chain(length: int) -> int:
         nonlocal cursor
@@ -294,7 +342,8 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
             records.append(_entry(node.name, TYPE_STREAM, left, right, NOSTREAM, start, size))
     records += [_UNUSED] * (directory_sectors * ENTRIES_PER_SECTOR - len(records))
 
-    difat = list(range(fat_sectors)) + [FREESECT] * (HEADER_DIFAT_ENTRIES - fat_sectors)
+    listed = min(fat_sectors, HEADER_DIFAT_ENTRIES)
+    difat = list(range(listed)) + [FREESECT] * (HEADER_DIFAT_ENTRIES - listed)
     header = _HEADER.pack(
         SIGNATURE,
         bytes(16),
@@ -311,13 +360,14 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
         MINI_STREAM_CUTOFF,
         first_minifat,
         minifat_sectors,
-        ENDOFCHAIN,
-        0,
+        fat_sectors if difat_sectors else ENDOFCHAIN,
+        difat_sectors,
         *difat,
     )
     parts = [
         header,
         struct.pack(f"<{len(fat)}I", *fat),
+        _difat_bytes(fat_sectors, difat_sectors),
         b"".join(records),
         struct.pack(f"<{len(minifat)}I", *minifat),
         _pad(mini_stream, SECTOR_SIZE),
@@ -331,15 +381,19 @@ __all__ = [
     "FATSECT",
     "FREESECT",
     "MAX_FAT_SECTORS",
+    "MAX_REGULAR_SECTOR",
+    "MAX_STREAM_SIZE",
     "MINI_SECTOR_SIZE",
     "MINI_STREAM_CUTOFF",
     "NOSTREAM",
     "SECTOR_SIZE",
     "SIGNATURE",
     "CompoundTooLarge",
+    "DIFSECT",
     "Entry",
     "Storage",
     "name_key",
+    "fat_layout",
     "storage_from_paths",
     "write_compound",
 ]

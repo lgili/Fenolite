@@ -247,12 +247,12 @@ def run_case(name: str) -> tuple[Issue, ...]:
 
 @contextmanager
 def _no_fat_sector() -> Iterator[None]:
-    original = cfb.MAX_FAT_SECTORS
-    cfb.MAX_FAT_SECTORS = 0
+    original = cfb.MAX_REGULAR_SECTOR
+    cfb.MAX_REGULAR_SECTOR = 0
     try:
         yield
     finally:
-        cfb.MAX_FAT_SECTORS = original
+        cfb.MAX_REGULAR_SECTOR = original
 
 
 def run_too_large_case(form: str = "binary") -> tuple[Issue, ...]:
@@ -683,7 +683,7 @@ def test_the_table() -> None:
 
 
 def test_too_large_refused() -> None:
-    """With ``cfb.MAX_FAT_SECTORS`` patched to 0 the binary build gives no file. The ASCII schematic is not
+    """With ``cfb.MAX_REGULAR_SECTOR`` patched to 0 the binary build gives no file. The ASCII schematic is not
     limited, but the libraries are always compound files, so the ASCII build gives
     ``altium.library-too-large`` instead (change c0034)."""
     found = [i for i in run_too_large_case() if i.code == "altium.schematic-too-large"]

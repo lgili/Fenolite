@@ -30,7 +30,7 @@ A level that is not judged is neither a pass nor a failure; it is counted by rea
 
 | reason | level | meaning |
 |---|---|---|
-| `too-large` | RT-A0 | the file needs DIFAT sectors, which the compound writer does not write |
+| `too-large` | RT-A0 | the file is larger than a version 3 compound file holds (before change c0160: a file that needs DIFAT sectors, which the compound writer did not write) |
 | `writer-refused` | RT-A0 | the compound writer refuses the tree (an empty storage, or a name it does not write) |
 | `not-a-container` | RT-A0 | the file is text (an ASCII schematic or a project file), so there is no container to copy |
 | `native-input` | RT-A2 | the files were not written by a Fenolite build; the level of such files is RT-A3 |
@@ -47,7 +47,7 @@ run: 2026-10-05, commit `5fb8ba31`, macOS, local corpus cache, with the heavy ro
 
 | level | rows | judged | passed | not judged | level label | hypothesis |
 |---|---|---|---|---|---|---|
-| RT-A0 | 65 | 57 | 57 | 8 (`too-large` 2, `not-a-container` 6, `writer-refused` 0) | `INFERRED` | `H-A-VER-RTA0` pending: the judged PCB libraries come from two repositories |
+| RT-A0 | 65 | 59 | 59 | 6 (`too-large` 0, `not-a-container` 6, `writer-refused` 0) | `INFERRED` | `H-A-VER-RTA0` pending: the judged PCB libraries come from two repositories |
 | RT-A1 | 65 | 65 | 65 | 0 | `INFERRED` | `H-A-VER-RTA1` pending, for the same reason |
 | RT-A2 | 21 builds | 21 | 21 | 0 | `INFERRED` | `H-A-VER-RTA2-3` (run of 2026-10-06, section "RT-A2") |
 | RT-A3 | 8 PCB documents, 5 project sets | 8 documents, 2 sets | 8 documents, 2 sets | 3 sets (`no-document`) | `INFERRED` (the stage) | `H-A-VER-RTA3` confirmed, `CORPUS-VERIFIED` since change c0127: the eight documents are equal; `H-A-VER-RTA3-PRJ` pending: three sets are not judged (run of 2026-10-06, section "RT-A3") |
@@ -56,8 +56,11 @@ run: 2026-10-05, commit `5fb8ba31`, macOS, local corpus cache, with the heavy ro
   2, schematic documents 5, schematic libraries 3. The criterion of
   `H-A-VER-RTA0` and `H-A-VER-RTA1` asks for three per kind, so both rows stay `INFERRED` although
   every judged row passes; `tests/corpus/test_altium_roundtrip.py` pins the count (`SHORT_OF_THREE`).
-- **`H-A-VER-WRITER`** holds: no row is `writer-refused`. The only files the compound writer cannot
-  copy are the two PCB documents that need DIFAT sectors.
+- **`H-A-VER-WRITER`** holds: no row is `writer-refused`. Since change c0160 the compound writer writes
+  DIFAT sectors, and the two PCB documents that Altium saved with DIFAT sectors (`altium-third-party-pcbdoc-01`,
+  one DIFAT sector, and `-08`, two) are copied and pass (local run of 2026-10-09, `FENOLITE_HEAVY=1 uv run
+  pytest tests/corpus/test_altium_roundtrip.py -k "pcbdoc-01 or pcbdoc-08"`); the other rows of the run
+  are those of 2026-10-05.
 - **`H-A-VER-BYTES`** holds: on every row the encoded bytes of every typed stream equal the bytes
   read (450 of 450 typed streams, 111628 records). No stream has
   `bytes_equal` false, so no `check.rta1-normalised` info is given on the corpus.
@@ -69,14 +72,14 @@ run: 2026-10-05, commit `5fb8ba31`, macOS, local corpus cache, with the heavy ro
 
 | row id | kind | bytes | licence | judged | passed | streams | FAT sectors | DIFAT sectors | reason |
 |---|---|---|---|---|---|---|---|---|---|
-| `altium-third-party-pcbdoc-01` | `altium_pcbdoc` | 10078208 | LGPL-3.0 | no | — | 158 | 154 | 1 | `too-large` |
+| `altium-third-party-pcbdoc-01` | `altium_pcbdoc` | 10078208 | LGPL-3.0 | yes | yes | 158 | 154 | 1 |  |
 | `altium-third-party-pcbdoc-02` | `altium_pcbdoc` | 6730752 | Apache-2.0 | yes | yes | 122 | 103 | 0 |  |
 | `altium-third-party-pcbdoc-03` | `altium_pcbdoc` | 2793984 | Apache-2.0 | yes | yes | 121 | 43 | 0 |  |
 | `altium-third-party-pcbdoc-04` | `altium_pcbdoc` | 2471424 | MIT | yes | yes | 99 | 38 | 0 |  |
 | `altium-third-party-pcbdoc-05` | `altium_pcbdoc` | 1696256 | BSD-2-Clause | yes | yes | 108 | 26 | 0 |  |
 | `altium-third-party-pcbdoc-06` | `altium_pcbdoc` | 1421312 | MIT | yes | yes | 116 | 22 | 0 |  |
 | `altium-third-party-pcbdoc-07` | `altium_pcbdoc` | 2900480 | MIT | yes | yes | 103 | 45 | 0 |  |
-| `altium-third-party-pcbdoc-08` | `altium_pcbdoc` | 23181312 | MIT | no | — | 168 | 354 | 2 | `too-large` |
+| `altium-third-party-pcbdoc-08` | `altium_pcbdoc` | 23181312 | MIT | yes | yes | 168 | 354 | 2 |  |
 | `altium-third-party-pcblib-01` | `altium_pcblib` | 99840 | MIT | yes | yes | 22 | 2 | 0 |  |
 | `altium-third-party-pcblib-02` | `altium_pcblib` | 119296 | MIT | yes | yes | 70 | 2 | 0 |  |
 | `altium-third-party-pcblib-03` | `altium_pcblib` | 103936 | GPL-2.0 | yes | yes | 25 | 2 | 0 |  |
@@ -135,7 +138,7 @@ run: 2026-10-05, commit `5fb8ba31`, macOS, local corpus cache, with the heavy ro
 | `altium-third-party-prjpcb-05` | `altium_prjpcb` | 49883 | Apache-2.0 | no | — | — | — | — | `not-a-container` |
 | `altium-third-party-prjpcb-06` | `altium_prjpcb` | 43022 | MIT | no | — | — | — | — | `not-a-container` |
 
-Unjudged files: `altium-third-party-pcbdoc-01` (`too-large`), `altium-third-party-pcbdoc-08` (`too-large`), `altium-third-party-prjpcb-01` (`not-a-container`), `altium-third-party-prjpcb-02` (`not-a-container`), `altium-third-party-prjpcb-03` (`not-a-container`), `altium-third-party-prjpcb-04` (`not-a-container`), `altium-third-party-prjpcb-05` (`not-a-container`), `altium-third-party-prjpcb-06` (`not-a-container`).
+Unjudged files: `altium-third-party-prjpcb-01` (`not-a-container`), `altium-third-party-prjpcb-02` (`not-a-container`), `altium-third-party-prjpcb-03` (`not-a-container`), `altium-third-party-prjpcb-04` (`not-a-container`), `altium-third-party-prjpcb-05` (`not-a-container`), `altium-third-party-prjpcb-06` (`not-a-container`).
 
 ## RT-A1
 

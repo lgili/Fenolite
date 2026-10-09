@@ -121,7 +121,7 @@ def test_unknown_altium_format(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
 
 
 def test_too_large_exits_5(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(cfb, "MAX_FAT_SECTORS", 0)
+    monkeypatch.setattr(cfb, "MAX_REGULAR_SECTOR", 0)
     out = tmp_path / "B"
     code, env, err = run(monkeypatch, str(SAMPLE), "--out", str(out), "--target", "altium", "--confirm")
     issues = env["issues"]
