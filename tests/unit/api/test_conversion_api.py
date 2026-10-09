@@ -23,7 +23,7 @@ from fenolite.core.evidence import Level
 
 def test_profiles_load() -> None:
     found = profiles()
-    assert sorted(found) == ["kicad-to-altium", "kicad-to-kicad"]
+    assert sorted(found) == ["kicad-downgrade", "kicad-to-altium", "kicad-to-kicad"]  # c0162: the downgrade
     altium = found["kicad-to-altium"]
     assert (altium.frame, altium.tolerance_nm, altium.tolerance_ppm) == ("relative", 3, 20)
     assert (found["kicad-to-kicad"].frame, found["kicad-to-kicad"].tolerance_nm) == ("absolute", 0)

@@ -3,7 +3,7 @@
 #
 # Authored by hand for Fenolite. One row per token row of tokens.toml whose since_major is above a target
 # of TARGET_MAJORS, per such form row, and per key path of pro.TEN_ONLY_PATHS (ids "project:<path>"),
-# plus the project's net_settings version. Each row says what a downgrade for `target` does with the
+# plus the project's net_settings version and the rows the board writer decides (resolver.WRITER_ROWS). Each row says what a downgrade for `target` does with the
 # construct (resolver.py):
 #   rewrite       written in the target's form (`form`, from `sources`); reported as changed
 #   same          dropped: the target behaves as the source with that value; reported as changed
@@ -471,6 +471,15 @@ action = "rewrite"
 form = "(net N)"
 sources = ["S-0030", "S-0033"]
 note = "nets by number with the net table, as target 9 boards are written (_pcbwrite.place_table)"
+
+# ----------------------------------------------------------------------- rows of the board writer
+
+[[row]]
+id = "npth-front-back"
+target = 9
+action = "design"
+sources = ["S-0020", "S-0029"]
+note = "an np_thru_hole pad on the outer copper layers only (F&B.Cu) of a board with inner layers: 10.0.6 reads such a pad of a board of format 9 with every copper layer (measured on 2026-10-09), so 9.0 checks the hole's clearance on the inner layers too; the pad is written as it is"
 
 # ---------------------------------------------------------------------------------- project keys
 

@@ -36,9 +36,12 @@ def test_table_is_closed() -> None:
     inventory = load_inventory()
     expected = {r.id for r in inventory.tokens if r.since_major == 10}
     expected |= {r.id for r in inventory.forms if r.since_major == 10}
-    expected |= {f"project:{path}" for path in TEN_ONLY_PATHS} | {resolver.PROJECT_VERSION_ROW}
+    expected |= {f"project:{path}" for path in TEN_ONLY_PATHS} | {
+        resolver.PROJECT_VERSION_ROW,
+        resolver.NPTH_ROW,
+    }
     assert set(table.rows) == expected
-    assert len(table.rows) == 63 + 1 + 11 + 1
+    assert len(table.rows) == 63 + 1 + 11 + 1 + 1
     assert {row.target for row in table.rows.values()} == {9}
 
 

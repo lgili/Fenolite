@@ -156,7 +156,7 @@ RESOLVED: dict[str, dict[tuple[str, str], int]] = {
         ("capping", "same"): 1, ("covering", "same"): 1, ("filling", "same"): 1, ("plugging", "same"): 1,
         ("footprint-duplicate-pad-numbers-are-jumpers", "same"): 112,
         ("tenting-back", "rewrite"): 1, ("tenting-front", "rewrite"): 1,
-        ("tenting-back", "same"): 633, ("tenting-front", "same"): 633,
+        ("tenting-back", "same"): 633, ("tenting-front", "same"): 633, ("npth-front-back", "design"): 9,
     },
     "12": {
         ("capping", "same"): 7, ("covering", "same"): 7, ("filling", "same"): 7, ("plugging", "same"): 7,
@@ -169,7 +169,9 @@ RESOLVED: dict[str, dict[tuple[str, str], int]] = {
 setup's tenting is rewritten and the 633 pad tentings of ``CM5_MINIMA_3`` (both sides ``none``) dropped
 as ``same``; the via protection of ``pic_programmer`` is counted on its seven vias, which the writer
 emits in 9's form, besides its setup; ``net-by-name`` counts the references written by number (its source
-is of format 20260206, ``CM5_MINIMA_3``'s 20250513 still numbers its nets)."""
+is of format 20260206, ``CM5_MINIMA_3``'s 20250513 still numbers its nets). The nine ``npth-front-back``
+of ``CM5_MINIMA_3`` are its holes without plating on the outer copper layers of a six-layer board, which
+9.0 gives every copper layer (task 4.2)."""
 
 
 @pytest.mark.parametrize("key", sorted(TEN_BOARDS))

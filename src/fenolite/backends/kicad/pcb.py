@@ -3211,6 +3211,71 @@ def _protection_edits(board: Board, target: int) -> list[resolver.Edit]:
     return found
 
 
+def _island_edits(board: Board) -> list[resolver.Edit]:
+    """The resolver's edits of the island flags of the read zone fills in a downgrade (change c0162): the
+    writer emits a fill in the target's form (``_emit_fill``: the bare ``(island)`` for 9), so the
+    resolver never sees ``(island yes)`` or ``(island no)``. A fill whose source held no flag has none."""
+    found: list[resolver.Edit] = []
+    for zone in board.zones:
+        bag = zone.ext.get("kicad")
+        for k, fill in enumerate(zone.fills):
+            slots = slotlib.from_ext(bag, f"fill[{k}]") if bag is not None else ()
+            if any(isinstance(slot, Modeled) and slot.field == "island" for slot in slots):
+                where = f"{_locator(zone)}/filled_polygon[{k}]"
+                row, action = ("island-yes", "rewrite") if fill.island else ("island-no", "same")
+                found.append(resolver.Edit(row, action, where))
+    return found
+
+
+def _npth_edits(board: Board) -> list[resolver.Edit]:
+    """The ``design`` edits of row ``npth-front-back`` in a downgrade (change c0162): an ``np_thru_hole``
+    pad with copper on some copper layers of the board but not all, which 9.0 reads with every copper
+    layer (``resolver.NPTH_ROW``). The pad is written as it is."""
+    copper = {layer.name for layer in board.layers if layer.kind == "copper"}
+    found: list[resolver.Edit] = []
+    for fp in board.footprints:
+        for pad in fp.pads:
+            held = set(pad.layers) & copper
+            if pad.kind == "np_thru_hole" and held and held != copper:
+                found.append(resolver.Edit(resolver.NPTH_ROW, "design", _locator(pad)))
+    return found
+
+
+def _thin_fills(root: Node) -> Node:
+    """Every zone of the tree (of the board and of its footprints) with ``(filled_areas_thickness no)``
+    after its ``min_thickness`` when it holds none: a zone of format 10 omits the flag, and 9.0.9 reads a
+    zone of format 9 without it with its fill grown by ``min_thickness / 2`` (``H-K-ZONE-FAT9``; the demo
+    project ``pic_programmer`` converted for 9 reported clearance violations without it, change c0162)."""
+
+    def zone(node: Node) -> Node:
+        if node.find("filled_areas_thickness") is not None:
+            return node
+        children = list(node.children)
+        at = next(
+            (i + 1 for i, c in enumerate(children) if isinstance(c, Node) and c.name == "min_thickness"),
+            next(
+                (i for i, c in enumerate(children) if isinstance(c, Node) and c.name in ("fill", "polygon")),
+                len(children),
+            ),
+        )
+        return node.with_children([*children[:at], FILLED_AREAS_THIN, *children[at:]])
+
+    def holder(node: Node) -> Node:
+        changed = False
+        children: list[Node | Atom] = []
+        for child in node.children:
+            new = child
+            if isinstance(child, Node) and child.name == "zone":
+                new = zone(child)
+            elif isinstance(child, Node) and child.name == "footprint":
+                new = holder(child)
+            changed = changed or new is not child
+            children.append(new)
+        return node.with_children(children) if changed else node
+
+    return holder(root)
+
+
 def _net_form_edits(root: Node, info: FormatInfo) -> list[resolver.Edit]:
     """One ``rewrite`` of the form row ``net-by-name`` per net reference written by number, for a source
     whose format references nets by name."""
@@ -3271,12 +3336,13 @@ def write_board(
         assert info is not None
         # the vias' protection values are the resolver's to decide (``_protection_edits``), not refusals
         writer.errors = [e for e in writer.errors if e.code != vialib.TOO_NEW]
-        found = _protection_edits(board, target)
+        found = [*_protection_edits(board, target), *_island_edits(board), *_npth_edits(board)]
         refused = [
             Issue(
                 resolver.DESIGN_CODE,
                 "error",
-                f"the via's {edit.row} needs KiCad 10.0: dropping it changes the design (row {edit.row})",
+                f"{edit.where}: KiCad 9.0 cannot hold the {edit.row} of KiCad 10.0, which changes the "
+                f"design (row {edit.row})",
                 where=edit.where,
                 hint=f"row {edit.row}",
             )
@@ -3293,7 +3359,7 @@ def write_board(
         if refused or (writer.errors and resolution is None):
             raise LossyWriteError([*writer.errors, *refused], droppable=not writer.errors)
         assert resolution is not None
-        root = resolution.root
+        root = _thin_fills(resolution.root) if target < 10 else resolution.root
         found += [*resolution.edits, *_net_form_edits(root, info)]
         issues += resolver.edit_issues(found, target)
         if edits is not None:

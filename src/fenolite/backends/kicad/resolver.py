@@ -35,9 +35,10 @@ from fenolite.backends.kicad.versions import (
 from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DOWN-ROWS", "H-K-DOWN-DEMOS"))
-"""The table's actions: ``INFERRED`` until each row's bench passes on 9.0.9 and 10.0.6 (``H-K-DOWN-ROWS``)
-and the demo projects of format 10 load in 9.0.9 (``H-K-DOWN-DEMOS``)."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-DOWN-ROWS", "H-K-DOWN-DEMOS"))
+"""The table's actions: each row's bench passes on 9.0.9 and 10.0.6 (``H-K-DOWN-ROWS``) and the demo
+projects of format 10 load in 9.0.9 with the checks of the source (``H-K-DOWN-DEMOS``), confirmed on
+2026-10-09; the rules and project rows, which have no bench, are ``design`` (consent) or a version."""
 
 Action = Literal["rewrite", "same", "presentation", "design"]
 ACTIONS: tuple[Action, ...] = ("rewrite", "same", "presentation", "design")
@@ -47,6 +48,13 @@ PROJECT_PREFIX = "project:"
 PROJECT_VERSION_ROW = "project:/net_settings/meta/version"
 """The row of the project's net settings version, which no key path of ``pro.TEN_ONLY_PATHS`` names."""
 NET_FORM_ROW = "net-by-name"
+NPTH_ROW = "npth-front-back"
+"""A construct of KiCad 10 that no token names, found by the demo census (task 4.2): an ``np_thru_hole``
+pad whose copper is the outer layers only (``"F&B.Cu"``) on a board with inner layers. 10.0.6 reads such
+a pad of a board of format 9 with every copper layer, so 9.0 cannot hold the restriction; the board writer
+decides it (``pcb._npth_edits``)."""
+WRITER_ROWS: tuple[str, ...] = (NPTH_ROW,)
+"""The rows the board writer resolves itself besides the inventory's, for a target older than 10."""
 TOO_NEW = "kicad.token.too-new"
 CHANGED_CODE = "kicad.downgrade.changed"
 LOST_CODE = "kicad.downgrade.lost"
@@ -110,8 +118,8 @@ class Table:
 
 def required_ids(target: int) -> frozenset[str]:
     """The ids the table must hold for ``target``: each token and form row of the inventory newer than
-    ``target``, each key path of ``pro.TEN_ONLY_PATHS`` for a target older than 10, and the project's net
-    settings version."""
+    ``target``, and for a target older than 10 each key path of ``pro.TEN_ONLY_PATHS``, the project's net
+    settings version and the ``WRITER_ROWS``."""
     inventory = load_inventory()
     ids = {row.id for row in inventory.tokens if row.since_major > target}
     ids |= {row.id for row in inventory.forms if row.since_major > target}
@@ -120,6 +128,7 @@ def required_ids(target: int) -> frozenset[str]:
 
         ids |= {PROJECT_PREFIX + path for path in TEN_ONLY_PATHS}
         ids.add(PROJECT_VERSION_ROW)
+        ids.update(WRITER_ROWS)
     return frozenset(ids)
 
 
@@ -283,9 +292,10 @@ REWRITERS: Mapping[str, Rewriter] = MappingProxyType(
     }
 )
 """The rewriter of each token row whose action is ``rewrite``."""
-PARENT_SCOPE: frozenset[str] = frozenset({"tenting-front", "tenting-back"})
+PARENT_SCOPE: frozenset[str] = frozenset({"tenting-front", "tenting-back", "hatch-position"})
 """Rows whose construct is the parent of the node the issue locates: ``front`` and ``back`` of one
-``tenting``."""
+``tenting``, and the zone ``property`` that holds ``hatch_position`` (9.0.9 refuses a zone ``property``
+left with its ``layer`` alone; the bench ``hatch-position``, task 4.1)."""
 
 
 # --- resolving ------------------------------------------------------------------------------------------
@@ -520,9 +530,11 @@ __all__ = [
     "ISSUE_CODES",
     "LOST_CODE",
     "NET_FORM_ROW",
+    "NPTH_ROW",
     "PROJECT_PREFIX",
     "PROJECT_VERSION_ROW",
     "REWRITERS",
+    "WRITER_ROWS",
     "Action",
     "Edit",
     "Resolution",

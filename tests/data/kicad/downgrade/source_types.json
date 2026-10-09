@@ -1,0 +1,445 @@
+{
+  "barcode": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "capping": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "capping-yes": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "covering": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "covering-yes": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "fill-cross-hatch": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "fill-hatch": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "fill-reverse-hatch": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "filling": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "filling-yes": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "footprint-duplicate-pad-numbers-are-jumpers": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "footprint-duplicate-pad-numbers-are-jumpers-yes": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "footprint-jumper-pad-groups": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "footprint-units": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "footprint-variant": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "gr-rect-radius": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "group-lib-id": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "hatch-position": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "island-no": [
+    "isolated_copper=1",
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "island-yes": [
+    "isolated_copper=1",
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "net-by-name": [
+    "lib_footprint_issues=1",
+    "track_dangling=2",
+    "unconnected_items=3",
+    "via_dangling=1"
+  ],
+  "npth-front-back": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "pad-die-delay": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "pad-property-pressfit": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "plugging": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "plugging-yes": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "point": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "sch-fill-cross-hatch": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-fill-hatch": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-fill-reverse-hatch": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-group": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-instance-variant": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-lib-body-styles": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-lib-in-pos-files": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-lib-in-pos-files-no": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-lib-power-global": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-lib-power-local": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-rectangle-radius": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-rule-area-dnp": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-rule-area-dnp-yes": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-rule-area-exclude-from-sim": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-rule-area-in-bom": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-rule-area-on-board": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-symbol-body-style": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-symbol-in-pos-files": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-symbol-in-pos-files-no": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sch-table-uuid": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "setup-zone-defaults": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "sym-body-styles": [
+    "load"
+  ],
+  "sym-fill-hatch": [
+    "load"
+  ],
+  "sym-in-pos-files": [
+    "load"
+  ],
+  "sym-in-pos-files-no": [
+    "load"
+  ],
+  "sym-jumper-pin-groups": [
+    "load"
+  ],
+  "sym-jumpers-duplicate": [
+    "endpoint_off_grid=6",
+    "footprint_link_issues=1",
+    "isolated_pin_label=2",
+    "lib_symbol_issues=1",
+    "unconnected_wire_endpoint=4",
+    "wire_dangling=1"
+  ],
+  "sym-jumpers-duplicate-yes": [
+    "load"
+  ],
+  "sym-power-global": [
+    "load"
+  ],
+  "sym-power-local": [
+    "load"
+  ],
+  "sym-rectangle-radius": [
+    "load"
+  ],
+  "table-uuid": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "tenting-back": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "tenting-front": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "tenting-pad-no": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "tenting-pad-none": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "tenting-via": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "textbox-knockout": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "variants": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "via-back-post-machining": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "via-backdrill": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "via-buried": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=3",
+    "via_dangling=2"
+  ],
+  "via-front-post-machining": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ],
+  "via-tertiary-drill": [
+    "lib_footprint_issues=1",
+    "track_dangling=1",
+    "unconnected_items=2",
+    "via_dangling=1"
+  ]
+}
