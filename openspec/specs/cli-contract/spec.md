@@ -2,7 +2,9 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
+
 ## Requirements
+
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -1290,3 +1292,248 @@ The receipt of a confirmed mutating command SHALL carry, beside `written` and `b
 - **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `parity` with its `example_args`
 - **THEN** the exit code is 0
 
+### Requirement: Deferred writes
+`fenolite.cli.api.PlannedWrite` SHALL have the fields `source: Callable[[], bytes] | None = None`, `size: int | None = None` and `sha256: str | None = None`, so that a command can plan a file whose bytes are costly to obtain without obtaining them.
+- A write with a `source` MUST have empty `data` and both `size` and `sha256` set; a `PlannedWrite` that breaks this MUST raise `ValueError` when it is created.
+- The plan (`result.plan`, with `--dry-run` and with the refusal of exit 4) MUST list such a write with its declared `bytes` and `sha256`, as it lists any other.
+- Without `--confirm` the dispatcher MUST NOT call `source`.
+- With `--confirm` the dispatcher MUST call `source()` once per deferred write, before it writes any file of the command, and MUST compare the length and the SHA-256 of what it returns with the declared values. A difference MUST exit 3 with `FEN-3006` and write nothing, not even the command's other files.
+- An exception of `source` that is a `CliError` MUST keep its code; nothing is written.
+- A write without a `source` MUST behave as before this requirement.
+- The hidden command `_echo` MUST accept `--defer PATH`, which plans a deferred write of fixed bytes, and `--defer-bad PATH`, whose source returns bytes of another digest, so that the suites can exercise the dispatcher without a network.
+
+#### Scenario: Dry run does not call the source
+- **GIVEN** `_echo --defer out.txt`, whose planned write has a source that the test counts
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k deferred_dry_run` runs it with `--dry-run`, and then without any protocol flag
+- **THEN** the first exits 0 and the second exits 4, both plans list `out.txt` with its declared size and digest, the source was called zero times, and the folder is empty
+
+#### Scenario: Confirmed deferred write
+- **WHEN** the same command runs with `--confirm`
+- **THEN** the source was called once, `out.txt` holds its bytes, and `receipt.written[0].sha256` equals the declared digest
+
+#### Scenario: Wrong bytes write nothing
+- **GIVEN** `_echo --defer-bad out.txt --write other.txt`, whose source returns bytes that do not have the declared digest
+- **WHEN** it runs with `--confirm`
+- **THEN** the exit code is 3, stderr carries `FEN-3006`, and neither `out.txt` nor `other.txt` exists
+
+### Requirement: Fetch error codes
+The registry of `fenolite.cli.errors` SHALL hold `FEN-6003` (exit 6, `retryable: true`, "download failed") and `FEN-3006` (exit 3, "fetched file does not match the pinned size or SHA-256"), and `docs/cli-contract.md` MUST list both with the other codes.
+- The hint of `FEN-6003` MUST name `--from FILE`.
+- The message of `FEN-3006` MUST hold the digest that was expected and the one that was found.
+- `src/fenolite/cli/data/explain.toml` MUST hold a table for each of the two codes ("Explain command").
+
+#### Scenario: Codes are registered and documented
+- **WHEN** `uv run pytest tests/unit/cli/test_exitcodes.py tests/consistency` runs
+- **THEN** both codes are in the registry with exit codes 6 and 3, and the contract page names both
+
+#### Scenario: Codes are explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain FEN-6003 --json`
+- **THEN** the suite passes with a table for each of the two codes, and the command exits 0 with a `fix` that names `--from`
+
+### Requirement: Fetch command
+`fenolite fetch NAME [--from FILE] [--dir DIR]` SHALL be registered by `src/fenolite/cli/cmd_fetch.py` with `mutates=True`, and SHALL install one external tool of the table `src/fenolite/cli/data/fetch.toml` after checking its size and its SHA-256. It is the only code of Fenolite that downloads a tool.
+- **Table.** Each row MUST hold `name`, `version`, `file`, `bytes`, `sha256`, `url`, `licence`, `source`, `env` and `needs`. A row whose name starts with `_` is hidden: no hint and no documentation names it. The table MUST hold the row `freerouting` with version `2.4.1`, file `freerouting-2.4.1.jar`, the address `https://github.com/freerouting/freerouting/releases/download/v2.4.1/freerouting-2.4.1.jar`, the size in bytes and the SHA-256 that `docs/evidence/routing.md` records for the gate's jar, licence `GPL-3.0`, source `S-0223` and env `FENOLITE_FREEROUTING_JAR`; and the hidden row `_selftest`, whose address is `package:` and whose file is `fetch-selftest.txt` of the same folder. A test MUST fail when a public row's `source` is not an id of `docs/evidence/sources.md` or its `url` is not `https`, and when the `bytes` or the `sha256` of the row `freerouting` differs from the value on that evidence page.
+- **Destination.** `fenolite.core.tools.tool_path(name, file)` (`routing`, "Tools folder"), or `DIR/<file>` with `--dir`.
+- **Plan.** The command MUST return one deferred write (`Deferred writes`) for the destination, with the row's `bytes` and `sha256`, or no write when the destination already holds bytes of that size and digest.
+- **No request without confirmation.** With `--dry-run`, and without any protocol flag, the command MUST open no network connection and MUST read no file named by `--from`.
+- **Network.** Without `--from`, the source MUST request the row's address with `urllib.request`, with the header `User-Agent: fenolite/<version>` and no other added header, a timeout of 60 s, and no query parameter; it MUST follow a redirect only to an `https` address, and MUST read at most `bytes + 1` bytes. Any failure MUST exit 6 with `FEN-6003`.
+- **File.** With `--from FILE` the source MUST read that file; a missing file MUST exit 3 with `FEN-3001`.
+- **Result.** `result` MUST hold `name`, `version`, `file`, `path`, `bytes`, `sha256`, `url`, `licence`, `origin` (`network`, `file` or `package`), `installed`, `needs` and `env`. `env` MUST map the row's variable to the destination when `--dir` is given, and MUST be empty otherwise.
+- **Unknown name.** An unknown or missing `NAME` MUST exit 2 with `FEN-2001` and a hint that lists the public names.
+- **Data.** The command sends no design data, so `result.sends_data_offsite` of `capabilities` MUST stay `false`.
+- **Evidence.** The envelope evidence is `UNVERIFIED`: installing a tool proves nothing about a board.
+- `example_args` MUST be `("_selftest", "--dir", "tools", "--dry-run")` and `mutation_example_args` `("_selftest", "--dir", "tools")`; both MUST run no subprocess and open no connection. `docs/cli-contract.md` MUST have a section `fetch` with the plan, the result keys, the two error codes and the sentence that no other command downloads.
+
+#### Scenario: Dry run of the real row makes no request
+- **GIVEN** `urllib.request.urlopen` patched to raise, and `FENOLITE_TOOLS_DIR` set to an empty folder of the test
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k dry_run` runs `fenolite fetch freerouting --dry-run --json`
+- **THEN** the exit code is 0, `result.plan` lists `freerouting/freerouting-2.4.1.jar` under that folder with the row's size and digest, `result.licence` is `GPL-3.0`, `result.needs` names Java 25, and the folder is still empty
+
+#### Scenario: Table agrees with the evidence page
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k table` reads `fetch.toml` and `docs/evidence/routing.md`
+- **THEN** the row `freerouting` holds the size and the digest of the page's rows `size` and `SHA-256`, an `https` address and the registered source `S-0223`
+
+#### Scenario: Confirmation required
+- **WHEN** `fenolite fetch freerouting --json` runs with the same patches
+- **THEN** the exit code is 4, stderr carries `FEN-4001`, and no connection was opened
+
+#### Scenario: Install from a file
+- **GIVEN** the row `freerouting` replaced in the test by one whose size and digest are those of a small file the test wrote
+- **WHEN** `fenolite fetch freerouting --from <that file> --confirm --json` runs
+- **THEN** the destination holds the file's bytes, `result.origin` is `file`, and a second run plans nothing and reports `installed: true`
+
+#### Scenario: Wrong file refused
+- **GIVEN** the same row and a file with other bytes
+- **WHEN** `fenolite fetch freerouting --from <it> --confirm` runs
+- **THEN** the exit code is 3, stderr carries `FEN-3006` with both digests, and the destination does not exist
+
+#### Scenario: Network failure
+- **GIVEN** `fetch.download` patched to raise `URLError`
+- **WHEN** `fenolite fetch freerouting --confirm` runs
+- **THEN** the exit code is 6, stderr carries `FEN-6003` with `retryable` true and a hint naming `--from`, and nothing is written
+
+#### Scenario: Self-test row through the consistency suite
+- **WHEN** `uv run pytest tests/consistency -k fetch tests/unit/cli/test_hermetic_examples.py` runs
+- **THEN** `fetch` passes the mutation protocol in an empty folder, writing `tools/fetch-selftest.txt`, with subprocess creation patched to raise
+
+#### Scenario: Unknown tool
+- **WHEN** `fenolite fetch kicad` runs
+- **THEN** the exit code is 2, and the hint names `freerouting` and not `_selftest`
+
+### Requirement: Command text
+`fenolite.cli.api.Result` SHALL have the field `text: str | None = None`, a text that a command wants printed as it is in text mode.
+- In text mode, when `text` is set and the command succeeded, stdout MUST start with the status line that every command prints (`fenolite <name>: ok`), one empty line, the text, and one newline; the `input`, `result` and `evidence` lines of the generic rendering MUST NOT be printed.
+- When the envelope holds issues or a receipt, their lines MUST follow the text after one empty line, in the form text mode gives them without `text`. An envelope with neither MUST end with the text's newline.
+- `--format concise` ("Concise output") MUST fold the issues before they are printed, as it does without `text`, and MUST NOT change the text.
+- In JSON mode `text` MUST have no effect: the envelope is unchanged and holds no key for it.
+- A command without `text` MUST print as before this requirement.
+
+#### Scenario: Text is printed after the status line
+- **GIVEN** `_echo --text-body "line one"`, a hidden option that sets `Result.text`
+- **WHEN** `uv run pytest tests/unit/cli/test_output.py -k command_text` runs it with `--text`, and with `--json`
+- **THEN** the first stdout is `fenolite _echo: ok`, an empty line and `line one`, and the second is an envelope without that text
+
+#### Scenario: Issues follow the text
+- **WHEN** `_echo --text-body "line one" --issue warning --text` runs
+- **THEN** stdout is the status line, an empty line, `line one`, an empty line and one line that starts with `warning:`
+
+### Requirement: Command description
+`fenolite.cli.describe` SHALL describe the arguments of every registered command as data taken from the command's own parser, so that documentation and other front ends never declare them a second time.
+- `describe(command) -> CommandDescription` MUST return `name`, `summary` (the command's help line), `mutates`, `usage` (one line starting with `fenolite <name>`) and `arguments`, a tuple of `Argument(name, flags, kind, type, choices, default, required, repeatable, help)` in the parser's order.
+- `kind` MUST be `positional`, `option` (takes a value) or `flag` (takes none). `type` MUST be `integer` or `number` for a parser type of `int` or `float`, `boolean` for a flag, and `string` otherwise. `flags` holds the option strings, empty for a positional. `choices` is a sorted list or `null`. `default` is a JSON value or `null`. `repeatable` is true for an argument that may be given more than once or takes several values.
+- The global flags (`--json`, `--text`, `--fields`, `--limit`, `--cursor`, `--format`, `--seed`, `--timestamp`, `--no-backup`, `--kicad-version`, `--allow-lossy`, and those a later change adds) MUST NOT be in `arguments`; `global_arguments()` MUST return them once, read from the same parser. `--dry-run` and `--confirm` MUST be in the `arguments` of a mutating command and of no other.
+- `describe` MUST build the description from the parser that `fenolite.cli.main.build_parser` gives the command, MUST run no command and MUST have no side effect.
+- `CommandDescription.to_json()` and `Argument.to_json()` MUST return plain JSON values with exactly the fields above.
+- A test MUST fail, for any registered command, when an option string that its `--help` prints is missing from its description or from `global_arguments()`, and when the description holds one that `--help` does not print.
+
+#### Scenario: Build is described
+- **WHEN** `uv run pytest tests/unit/cli/test_describe.py -k build` calls `describe` on the `build` command
+- **THEN** `arguments` holds a `positional` for the design script, the `option` `--out` with `required` true, the `option` `--target` with the choices `altium` and `kicad`, and the flags `--dry-run` and `--confirm`; and it holds no `--json`
+
+#### Scenario: Read-only command has no protocol flags
+- **WHEN** `describe` is called on `check`
+- **THEN** no argument has the flag `--confirm`, and `mutates` is `false`
+
+#### Scenario: Global flags are listed once
+- **WHEN** `uv run pytest tests/unit/cli/test_describe.py -k global_flags` calls `global_arguments()`
+- **THEN** it holds `--limit` with the type `integer`, `--cursor`, and `--format` with the choices `concise` and `detailed`, and no command's `arguments` holds any of the three
+
+#### Scenario: Descriptions agree with help
+- **WHEN** `uv run pytest tests/unit/cli/test_describe.py -k agrees_with_help` runs over the command registry
+- **THEN** for every command the option strings of its description and of `global_arguments()` equal the option strings found in its `--help` text, apart from `-h` and `--help`
+
+### Requirement: Brief capabilities
+`fenolite capabilities --brief` SHALL answer the first question of an agent in a reply whose size is bounded: what is installed here, what can it do, and where to read more. The default result of `capabilities` MUST stay as it is.
+- With `--brief`, `result` MUST hold exactly the keys `fenolite_version`, `commands`, `targets`, `tools`, `routers`, `guide`, `starters` and `sends_data_offsite`.
+- `commands` MUST list every command that is not hidden, sorted by name, each with exactly `name`, `summary` and `mutates`, `summary` being the command's help line.
+- `targets` MUST hold exactly `build`, `kicad` and `default`: `build` is the sorted list of choices of `build --target` (`altium` and `kicad`), read from the command's description; `kicad` and `default` are the target majors and the default target of the `kicad` backend's entry in the default view. The brief view MUST NOT state an evidence level or the word `experimental` for a target: the status of each Altium write kind stays in the default view ("Backends in capabilities", "Experimental features in capabilities", "Evidence matrix in capabilities").
+- `tools` and `sends_data_offsite` MUST equal the default view's.
+- `routers` MUST list the registered routers sorted by name, each with exactly `name`, `available` and `reason`, from `Router.available()`; with `--no-tools`, `available()` MUST NOT be called and both values MUST be `null`.
+- `guide` MUST list `guide.pages()` with exactly `topic`, `title` and `summary`, and `starters` MUST list `guide.starters()` with exactly `name` and `summary`.
+- The JSON of the brief `result` with `--no-tools` MUST be under 300 bytes per listed command plus 2 000 bytes, and MUST hold none of the keys `backends`, `experimental`, `extras` and `matrix`; a test MUST check both.
+- `--brief` and `--command` MUST exclude each other (exit 2, `FEN-2001`). `--fields` MUST work on the brief result. `--format concise` MUST be accepted with `--brief` and MUST NOT change `result`: it folds issues, and the view chooses the result.
+- `docs/cli-contract.md` MUST describe the brief view under "Discovery".
+
+#### Scenario: Brief view
+- **WHEN** `uv run fenolite capabilities --brief --no-tools --json` runs
+- **THEN** the exit code is 0, `result` has exactly the eight keys, `result.commands` names `build` with a non-empty `summary` and `mutates` true and holds no `_echo`, `result.targets.build` is `["altium", "kicad"]`, `result.routers` names `direct` with `available` `null`, `result.guide[0].topic` is `start`, and `result.starters` names `blink`
+
+#### Scenario: Router availability
+- **GIVEN** no Freerouting jar and no `FENOLITE_KRT`
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_brief.py -k routers` runs `capabilities --brief --json`
+- **THEN** `direct` has `available` true and a `null` reason, and `freerouting` has `available` false and a reason
+
+#### Scenario: Size bound
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_brief.py -k size` measures the brief result
+- **THEN** it is under 300 bytes per listed command plus 2 000 bytes, and holds no `experimental` key
+
+#### Scenario: Default view unchanged
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
+- **THEN** `result` holds the keys it held before this requirement, with `backends`, `experimental` and `matrix` unchanged
+
+### Requirement: Command view of capabilities
+`fenolite capabilities --command NAME` SHALL return the description of one command.
+- `result` MUST hold exactly `command` and `global_arguments`. `result.command` MUST be that command's entry of the default view's `commands`, extended with `summary`, `usage` and `arguments` from `fenolite.cli.describe.describe`; `result.global_arguments` MUST be `describe.global_arguments()` as JSON.
+- A hidden command MUST be described when it is named exactly.
+- An unknown name MUST exit 2 with `FEN-2001` and a hint that names the three closest command names.
+- The view MUST run no tool, with or without `--no-tools`.
+- `docs/cli-contract.md` MUST describe the view and the fields of an argument under "Discovery".
+
+#### Scenario: One command
+- **WHEN** `uv run fenolite capabilities --command route --json` runs
+- **THEN** the exit code is 0, `result.command.name` is `route`, `result.command.mutates` is true, `result.command.arguments` holds the option `--router`, and `result.global_arguments` holds `--fields`
+
+#### Scenario: Unknown command
+- **WHEN** `fenolite capabilities --command rout` runs
+- **THEN** the exit code is 2 and the hint names `route`
+
+### Requirement: Guide command
+`fenolite guide [TOPIC]` SHALL be registered by `src/fenolite/cli/cmd_guide.py` with `mutates=False`, and SHALL print the pages of the packaged agent guide (`agent-guide`, "Packaged agent guide") for the installed version, running no tool.
+- **Without a topic.** `result` MUST hold exactly `version` and `topics`; `topics` lists `guide.pages()` in order, each with exactly `topic`, `title`, `summary` and `lines`. The command text MUST be one line per page, `<topic>: <summary>`.
+- **With a topic.** `result` MUST hold exactly `topic`, `title`, `summary`, `text` and `version`. The command text ("Command text") MUST be the page's `text`, unchanged.
+- An unknown topic MUST exit 2 with `FEN-2001` and a hint that names the closest topics, or all topics when none is close.
+- The output MUST be deterministic and MUST hold no absolute path. The envelope evidence is `UNVERIFIED`.
+- `example_args` MUST be `("start",)`. `docs/cli-contract.md` MUST have a section `guide`.
+
+#### Scenario: List of pages
+- **WHEN** `uv run fenolite guide --json` runs
+- **THEN** the exit code is 0, `result.topics[0].topic` is `start`, and every entry has a one-line `summary`
+
+#### Scenario: One page as text
+- **WHEN** `uv run fenolite guide start --text` runs
+- **THEN** stdout is the status line, an empty line and the body of `SKILL.md` without its front matter
+
+#### Scenario: Unknown topic
+- **WHEN** `fenolite guide strat` runs
+- **THEN** the exit code is 2 and the hint names `start`
+
+### Requirement: Skill command
+`fenolite skill show` and `fenolite skill install [--agent NAME | --dir DIR] [--agents-md]` SHALL be registered by `src/fenolite/cli/cmd_skill.py` with `mutates=True`, and SHALL copy the packaged skill folder to where an agent reads it, only through the mutation protocol.
+- **`show`.** It MUST plan no write, and `result` MUST hold exactly `name`, `description`, `version`, `files` (each `path`, `bytes` and `sha256`, of `guide.skill_files()`) and `agents` (each `agent` and `dir`, of `guide.AGENT_DIRS`).
+- **`install`, the folder.** The target is `DIR`, or the folder of `guide.AGENT_DIRS[NAME]`; `--agent` and `--dir` MUST exclude each other, and an unknown agent MUST exit 2 with a hint that names the agents and `--dir`. The command MUST plan one write per file of `guide.skill_files()`, at `<target>/fenolite/<path>`.
+- **`install`, the version line.** The planned `SKILL.md` MUST be the packaged file followed by the line `<!-- installed from fenolite <version> -->`; every other file MUST be planned byte for byte.
+- **`install`, the pointer.** With `--agents-md` the command MUST also plan `AGENTS.md` in the working directory. Its content MUST be: for a missing file, `guide.AGENTS_SECTION` between the lines `<!-- fenolite:begin -->` and `<!-- fenolite:end -->`; for a file that holds both marker lines, the same file with everything between them replaced by the section; for a file without them, the file followed by an empty line and the marked section. A file that holds one marker without the other MUST exit 3 with `FEN-3004`.
+- `guide.AGENTS_SECTION` MUST tell an agent to run `fenolite guide start --text` before a task about a circuit board, MUST name `fenolite capabilities --brief`, and MUST be at most 12 lines.
+- `install` with none of `--agent`, `--dir` and `--agents-md` MUST exit 2 with `FEN-2001`.
+- **Result.** `result` MUST hold `action`, `target` (or `null` with `--agents-md` alone), `files` (the paths planned) and `version`.
+- The command MUST run no tool and open no connection.
+- `example_args` MUST be `("show",)` and `mutation_example_args` `("install", "--dir", "skills")`. `docs/cli-contract.md` MUST have a section `skill`.
+
+#### Scenario: Install into a named folder
+- **WHEN** `uv run pytest tests/unit/cli/test_skill_cmd.py -k install_dir` runs `fenolite skill install --dir skills --confirm --json` in an empty folder
+- **THEN** `skills/fenolite/SKILL.md` exists, its last line names the Fenolite version, its text before that line equals the packaged file, and the receipt lists every written file with its SHA-256
+
+#### Scenario: Install for an agent
+- **WHEN** `fenolite skill install --agent claude-code --dry-run --json` runs
+- **THEN** the plan lists `.claude/skills/fenolite/SKILL.md` and nothing is written
+
+#### Scenario: Pointer section is idempotent
+- **GIVEN** an `AGENTS.md` with two lines of the user's own text
+- **WHEN** `fenolite skill install --agents-md --confirm` runs twice
+- **THEN** after the first run the file holds the user's two lines, an empty line and the marked section; the second run plans a file with the same bytes; and `AGENTS.md.bak` holds the user's original file after the first run
+
+#### Scenario: Nothing asked
+- **WHEN** `fenolite skill install --dry-run` runs
+- **THEN** the exit code is 2 and the hint names `--agent`, `--dir` and `--agents-md`
+
+### Requirement: Init command
+`fenolite init DIR [--starter NAME] [--name NAME] [--force]` SHALL be registered by `src/fenolite/cli/cmd_init.py` with `mutates=True`, and SHALL write a starter project (`agent-guide`, "Starter projects") into `DIR`.
+- `--starter` MUST default to `blink`; an unknown starter MUST exit 2 with `FEN-2001` and a hint that names the starters.
+- The design name MUST be `--name`, else the last component of `DIR`; a name that does not match `^[A-Za-z0-9][A-Za-z0-9_.-]*$` MUST exit 2 with a hint that names `--name`.
+- The command MUST plan one write per file of `guide.render_starter(starter, name)`, at `DIR/<file>`.
+- When `DIR/design.py` exists, the command MUST exit 2 with `FEN-2001` and a hint that names `--force`, unless `--force` is given; with it the mutation protocol's backup applies.
+- `result` MUST hold `starter`, `name`, `design` (the path of the script) and `next`: the two command lines `fenolite build <design> --out DIR/build --dry-run --json` and the same with `--confirm`. A test MUST parse both with the command line's own parser.
+- The command MUST run no tool. `example_args` MUST be `("proj", "--dry-run")` and `mutation_example_args` `("proj",)`. `docs/cli-contract.md` MUST have a section `init`.
+
+#### Scenario: New project
+- **WHEN** `uv run pytest tests/unit/cli/test_init_cmd.py -k new_project` runs `fenolite init board --confirm --json` in an empty folder, and then the first command of `result.next`
+- **THEN** `board/design.py` exists, starts with the `CC0-1.0` line and names the design `board`, and the build's dry run exits 0
+
+#### Scenario: Existing script is kept
+- **GIVEN** `board/design.py` written by the user
+- **WHEN** `fenolite init board --confirm` runs, and then `fenolite init board --force --confirm`
+- **THEN** the first exits 2 with a hint naming `--force` and leaves the file, and the second replaces it and keeps the user's text in `board/design.py.bak`
+
+#### Scenario: Name that is not a design name
+- **WHEN** `fenolite init "my board" --dry-run` runs
+- **THEN** the exit code is 2 and the hint names `--name`

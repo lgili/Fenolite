@@ -2,7 +2,9 @@
 
 ## Purpose
 Run the same quality gates on every push and pull request as `make check` runs locally (lint, format, strict types, tests, residue scan) on ubuntu and macOS with a locked environment.
+
 ## Requirements
+
 ### Requirement: Unit CI job on two operating systems
 The repository SHALL contain a GitHub Actions workflow `.github/workflows/ci.yml` with a job `unit` that runs on every push and pull request, using `uv`, on these five combinations: `ubuntu-latest` with Python 3.11, 3.12 and 3.13, `macos-latest` with Python 3.12, and `windows-latest` with Python 3.12.
 - The steps MUST be the same on every combination.
@@ -272,11 +274,11 @@ The marker `needs_router` SHALL skip a test when `FENOLITE_KRT` does not name a 
 - **THEN** every test is skipped and the exit code is 0
 
 ### Requirement: Freerouting in the routing job
-The `routing` job of `.github/workflows/ci.yml` (c0016) SHALL also install Java 25 and download the Freerouting jar of `freerouting.PINNED_VERSION` from its release page, MUST verify the jar against a SHA-256 written in `ci.yml`, and MUST run `uv run pytest tests/routing -q -rA` with `FENOLITE_FREEROUTING_JAR` set and `freerouting` added to `FENOLITE_REQUIRE`. The job stays outside the merge gate. The marker `needs_freerouting` SHALL skip without the variable and fail, with the same message, when `FENOLITE_REQUIRE` lists `freerouting`. `tests/unit/test_ci_workflow.py` SHALL check the version, the checksum step and the environment textually.
+The `routing` job of `.github/workflows/ci.yml` (c0016) SHALL also install Java 25 and install the Freerouting jar of `freerouting.PINNED_VERSION` with `uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json` (`cli-contract`, "Fetch command"), which downloads it from its release page and writes it only when its size and its SHA-256 are those of the table row; the job MUST NOT download the jar in any other way. It MUST run `uv run pytest tests/routing -q -rA` with `FENOLITE_FREEROUTING_JAR` set to the fetched file and `freerouting` added to `FENOLITE_REQUIRE`. The job stays outside the merge gate. The marker `needs_freerouting` SHALL skip without the variable and fail, with the same message, when `FENOLITE_REQUIRE` lists `freerouting`. `tests/unit/test_ci_workflow.py` SHALL check the install step, the version and the environment textually.
 
 #### Scenario: Workflow shape checked
 - **WHEN** `uv run pytest tests/unit/test_ci_workflow.py -k freerouting` runs
-- **THEN** it passes only if the job downloads the pinned version, verifies a 64-hex SHA-256 and sets `FENOLITE_FREEROUTING_JAR`
+- **THEN** it passes only if the job installs the jar with `fenolite fetch freerouting --confirm` after Fenolite is installed and before the tests, downloads it in no other way, and sets `FENOLITE_FREEROUTING_JAR` to the file of the pinned version in the folder of `--dir`
 
 #### Scenario: Version drift caught
 - **GIVEN** `PINNED_VERSION` changed in the plugin and not in `ci.yml`
@@ -375,4 +377,3 @@ The `routing` job of `.github/workflows/ci.yml` (c0016) SHALL also install Java 
 #### Scenario: First nightly run
 - **WHEN** the job runs on `workflow_dispatch` after the change merges
 - **THEN** its log shows `kicad-cli version` reporting `10.0.6` and the `tests/kicad` suite passing, and the row of `H-K-CI-MACOSAPP` records the run's URL, or the fallback that was applied
-
