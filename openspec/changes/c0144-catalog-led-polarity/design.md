@@ -13,7 +13,7 @@
 - The figure "Recommended soldering pattern" holds neither a number nor a polarity; the pad numbers follow the package drawing.
 - The land dimensions are the catalog's (0.8 / 0.85 / 0.8 mm; 1.25 / 1.1 / 1.25 by 1.1 mm).
 
-**The register rows should be amended by the coordinator.** S-0412 and S-0413 say "pin 1 is cathode" under "page 1" and are dated 2026-10-05. They do not say that the terminals are numbered in the package drawing only, that the polarity is read from the diode symbol and the polarity mark, and that the soldering pattern is unnumbered; nor the revisions above and the reading of 2026-10-08. `docs/evidence/sources.md` is append-only in this batch, so no row was changed here and none was added.
+**The register rows should be amended by the coordinator.** S-0412 and S-0413 say "pin 1 is cathode" under "page 1" and are dated 2026-10-05. They do not say that the terminals are numbered in the package drawing only, that the polarity is read from the diode symbol and the polarity mark, and that the soldering pattern is unnumbered; nor the revisions above and the reading of 2026-10-08. `docs/evidence/sources.md` is append-only in this batch, so no row was changed here and none was added. Amended on 2026-10-09 (task 3.2): both rows now hold the reading of 2026-10-08 above.
 
 **In the repository.** The footprint builder puts pad 1 on the left with the fabrication-layer cathode mark on the left, as the datasheet, the summary ("pin 1 cathode") and `docs/catalog/sources.md` say. The other diode lands use pad 1 anode and pad 2 cathode with the mark on the right (`DO35`, `DO41`, `SOD123`, `SOD123F`, `SOD323`, `SOD523`, `DO214AA`, `DO214AB`), which fits the symbols. `SOD128_Nexperia_CFP5` has pad 1 at the cathode and the warning. KiCad's own convention for LED and diode symbols and footprints is not recorded in this repository's pages, and no KiCad library file was read for this change.
 
@@ -38,6 +38,8 @@
 - For: the pair then cannot be wired wrongly by a script that connects by pin name, which is what an agent writes.
 - Against, and the reason it is not done here: a design of a 0.2.x user that wired one of these lands by pin number without a map (as the kit did: `GND` on `d1[1]`) has a right board today. With a default map its two nets would swap pads on the next build, silently, on a board that may be made already.
 - Recommendation: do not apply a map silently. Report the pair instead: a build warning (a new code, for example `build.polarity-unmapped`) for a part of one of the three symbols on one of the three lands without a `pad_map`, naming the map to write. It moves no byte of any build, tells the released user and the agent alike, and leaves the decision in the script. That is a change of its own (an issue code, its `explain` entry, the closed set of `design-dsl`), proposed after this one if the maintainer agrees.
+
+**Answer of the maintainer (2026-10-08): a default map** ("deixa padrão automático", leave it automatic by default). The catalog applies `{"1": "2", "2": "1"}` to a part of one of these pairs that gives no `pad_map`, keeps an explicit map, and reports each such part with the warning `build.pad-map-default`, so the released user whose nets would swap pads is told on the next build. Implemented by change c0147 (`catalog-default-pad-map`), whose MODIFIED delta replaces this change's clause "The catalog MUST NOT apply a pin-to-pad map by itself". The recommendation above (a warning only) was not taken.
 
 ## Evidence
 

@@ -20,5 +20,7 @@
 
 ## 3. Owed
 
-- [ ] 3.1 `make check` on the rebased branch before the merge.
-- [ ] 3.2 `tests/kicad/altium/test_copper_from_bottom_oracle.py` on KiCad 10.x in CI.
+- [x] 3.1 `make check` on the rebased branch before the merge.
+  - 2026-10-09: closed by the full `make check` of 2026-10-08 on the release branch (c0154 task 4.3: exit 0, ruff clean, 1772 files formatted, pyright 0 errors, residue 0 hits with 11 waivers, `13828 passed, 2374 skipped` on Python 3.11.15; the residue and manifest tests are part of it) and the CI runs of `release-0.4.0` and its pull request #17, every job green (`unit` on Ubuntu with 3.11, 3.12 and 3.13, on macOS and on Windows, `kicad-9`, `kicad-10`, `routing` on KiCad 9 and 10, `wheel`, `dco`): 37836186018 (`32a19b3`), 37860490303 and 37860486308 (`acba81b`, whose tree is the released `591dc00` and `dev` at `a8732fc`); `openspec validate --all --strict --no-interactive` on 2026-10-09 reports only the known errors (c0084, c0085 twice, c0086, c0128) and long-requirement warnings, none for this change.
+- [x] 3.2 `tests/kicad/altium/test_copper_from_bottom_oracle.py` on KiCad 10.x in CI.
+  - 2026-10-09: ran in the `kicad-10` job (kicad-cli 10.0.6, `FENOLITE_REQUIRE=kicad,corpus`, so a skip there is a failure; the job selects `tests/kicad tests/corpus` with no marker filter) of CI runs 37860490303 and 37860486308 on `acba81b` (the tree of `0.4.0`) and 37836186018 on `32a19b3`, all green. The file is on that tree, marked `needs_kicad` only, and skips on major 9 alone.

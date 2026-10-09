@@ -382,7 +382,7 @@ Size of `.fenolite/board.json` and of the canonical `board.json` of an import, b
 | import of `tests/data/altium/routed/routed.PcbDoc` | 138 637 | 221 118 |
 | import of `tests/data/altium/board6/board6.PcbDoc` | 187 686 | 264 096 |
 
-An imported graphic or field costs about 2.3 to 2.5 kB of `board.json` with its provenance and bag (the estimate above was 1.3 kB per line). A graphic of a built board has no provenance and no bag: the blink build adds 11 242 bytes for 27 graphics and 34 corner ratios. The sizes of the imports of the eight public documents are owed with the corpus run of task 7.2.
+An imported graphic or field costs about 2.3 to 2.5 kB of `board.json` with its provenance and bag (the estimate above was 1.3 kB per line). A graphic of a built board has no provenance and no bag: the blink build adds 11 242 bytes for 27 graphics and 34 corner ratios. The sizes of the imports of the eight public documents were measured with the corpus run of task 7.2 on 2026-10-09: `docs/evidence/altium-roundtrip.md`, section "RT-A3" (for example `altium-third-party-pcbdoc-01` from 7 168 701 to 14 623 055 bytes, measured on the base `7f25ca8a` and on the tree of release 0.4.0).
 
 ## Decisions of the maintainer (2026-10-06)
 
