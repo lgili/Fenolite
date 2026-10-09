@@ -4,10 +4,11 @@
 nets (capability ``kicad-schematic``, "Netlist export reading"; change c0063).
 
 Facts: ``docs/formats/kicad/schematic.md``, "Netlist export" (S-0020; observed on 9.0.9 and 10.0.6). Only
-``components`` and ``nets`` are read. The sections ``design``, ``libparts``, ``libraries``, ``groups`` and
-``variants``, and the children ``code``, ``pinfunction``, ``sheetpath``, ``tstamps`` and ``units``, carry a
-date, paths of the run, numbering or a spelling that differs between the majors, so none of them reaches
-the result. ``KicadNetlist`` is also the type of Fenolite's own netlist of a generated sheet
+``components`` and ``nets`` are read; of a component's ``property`` children only the names of those
+without a value are kept, as its flags (``dnp``; change c0158). The sections ``design``, ``libparts``,
+``libraries``, ``groups`` and ``variants``, and the children ``code``, ``pinfunction``, ``sheetpath``,
+``tstamps`` and ``units``, carry a date, paths of the run, numbering or a spelling that differs between the
+majors, so none of them reaches the result. ``KicadNetlist`` is also the type of Fenolite's own netlist of a generated sheet
 (``sch_netlist``), and ``differences`` compares two of them.
 """
 
@@ -56,14 +57,16 @@ class NetlistNet:
 
 @dataclass(frozen=True, slots=True)
 class NetComponent:
-    """A component: reference, value, footprint, and its fields by name (``Reference`` and ``Value`` are
-    not among them)."""
+    """A component: reference, value, footprint, its fields by name (``Reference`` and ``Value`` are not
+    among them), and its flags: the names of its ``property`` children that hold no value, such as ``dnp``
+    for a do-not-populate symbol (``docs/formats/kicad/schematic.md``, "Netlist export"; change c0158)."""
 
     ref: str
     value: str = ""
     footprint: str = ""
     properties: Mapping[str, str] = field(default_factory=lambda: _EMPTY, hash=False)
     """Python 3.11 refuses an unhashable default, so the empty mapping comes from a factory."""
+    flags: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,11 +123,17 @@ def _component(comp: Node, file: str) -> NetComponent:
             continue
         atoms = item.atoms()
         fields.setdefault(name, atoms[0].value if atoms else "")
+    flags: set[str] = set()
+    for item in comp.nodes("property"):
+        name = _text(item, "name")
+        if name is not None and item.find("value") is None:
+            flags.add(name)
     return NetComponent(
         _required(comp, "ref", file),
         _text(comp, "value") or "",
         _text(comp, "footprint") or "",
         MappingProxyType(fields),
+        frozenset(flags),
     )
 
 

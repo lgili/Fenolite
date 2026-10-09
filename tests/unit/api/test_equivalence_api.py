@@ -157,3 +157,124 @@ def test_bare_import_leaves_the_api_out() -> None:
 
 def test_tool_hint_is_the_commands() -> None:
     assert api_sides.NO_TOOL_HINT == _kicadtool.NO_TOOL_HINT
+
+
+def test_replies_validate_against_the_schema(tmp_path: Path) -> None:
+    """Capability design-equivalence, "Equivalent result schema", for the forms the example does not give:
+    two models, differences, and a triangle whose converter gave no board."""
+    import _schema
+
+    schema = _schema.load("fenolite.equivalent.v0.json")
+    design = _board()
+    found = [equivalent(design, design, level=4), equivalent(TWO_LAYER, _moved(tmp_path))]
+    failed = EquivalenceResult(None, found[0].a, None, None, (), found[0].evidence, "10.0.6")
+    for result in (*found, failed):
+        assert _schema.validate(result.to_json(), schema) == []
+    assert failed.to_json()["level"] == 0 and failed.to_json()["sides"]["b"] is None
+
+
+# --- schematic sides -------------------------------------------------------------------------------
+
+NETLIST = """(export (version "E")
+  (components
+    (comp (ref "D1") (value "LED") (footprint "Mini:LED") {flag})
+    (comp (ref "R1") (value "1k") (footprint "Mini:R")))
+  (nets
+    (net (code "1") (name "A") (class "Default")
+      (node (ref "D1") (pin "1") (pintype "passive")) (node (ref "R1") (pin "1") (pintype "passive")))
+    (net (code "2") (name "unconnected-(D1-Pad2)") (class "Default")
+      (node (ref "D1") (pin "2") (pintype "passive")))
+    (net (code "3") (name "unconnected-(R1-Pad2)") (class "Default")
+      (node (ref "R1") (pin "2") (pintype "passive")))))
+"""
+
+
+def _refuse_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("a subprocess was started")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+
+
+def _built_blink(root: Path) -> Path:
+    from _projects import built_blink_project
+
+    return built_blink_project(root / "blink", target=10, cache=False)
+
+
+def test_schematic_own(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Generated schematic, no tool"."""
+    project = _built_blink(tmp_path)
+    _refuse_tools(monkeypatch)
+    found = equivalent(project / "blink.kicad_sch", project / "blink.kicad_pcb")
+    assert found.report is not None and found.equivalent
+    assert [level.level for level in found.report.levels] == [1, 2]
+    assert (
+        found.a.netlist_source == "schematic" and found.a.kind == "kicad_sch" and found.a.backend == "kicad"
+    )
+    assert found.a.components == 3 and found.a.footprints == 0 and found.a.sha256 is not None
+    assert "H-K-NETLIST-OWN" in found.evidence.hypotheses
+    import _schema
+
+    assert _schema.validate(found.to_json(), _schema.load("fenolite.equivalent.v0.json")) == []
+
+
+def test_schematic_power_symbols(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Power symbol left out"."""
+    project = _built_blink(tmp_path)
+    _refuse_tools(monkeypatch)
+    side = api_sides.read_side(project / "blink.kicad_sch")
+    from fenolite.backends.kicad.sch import read_schematic
+
+    sheet = read_schematic((project / "blink.kicad_sch").read_text(encoding="utf-8"), file="blink.kicad_sch")
+    refs = {symbol.ref for symbol in sheet.symbols if symbol.ref.startswith("#")}
+    assert refs == {"#FLG01", "#FLG02"} and side.power_symbols == len(refs)
+    assert not any(c.ref.startswith("#") for c in side.design.circuit.components)
+    assert side.design.board is None
+
+
+def test_schematic_dnp_from_the_export() -> None:
+    """Scenario "Flag read", for a netlist that ``kicad-cli`` exported."""
+    from fenolite.backends.kicad.netlist import read_netlist
+
+    marked = read_netlist(NETLIST.format(flag='(property (name "dnp"))'))
+    assert next(c for c in marked.components if c.ref == "D1").flags == frozenset({"dnp"})
+    side_a = api_sides.netlist_design(
+        marked, "a", dnp=frozenset(c.ref for c in marked.components if "dnp" in c.flags)
+    )
+    side_b = api_sides.netlist_design(read_netlist(NETLIST.format(flag="")), "b")
+    found = equivalent(side_a, side_b)
+    assert found.report is not None
+    assert [(d.kind, d.where, d.a, d.b) for d in found.report.differences] == [("dnp", "D1", "true", "false")]
+
+
+def test_schematic_dnp_from_the_own_netlist(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Flag read", for the own netlist: the symbol's ``dnp`` attribute."""
+    project = _built_blink(tmp_path)
+    sheet = project / "blink.kicad_sch"
+    text = sheet.read_text(encoding="utf-8")
+    first = text.index("(dnp no)", text.index("(lib_id"))
+    sheet.write_text(text[:first] + "(dnp yes)" + text[first + len("(dnp no)") :], encoding="utf-8")
+    _refuse_tools(monkeypatch)
+    side = api_sides.read_side(sheet)
+    marked = [c.ref for c in side.design.circuit.components if c.dnp]
+    assert len(marked) == 1
+    found = equivalent(sheet, project / "blink.kicad_pcb")
+    assert found.report is not None
+    assert [(d.kind, d.where) for d in found.report.differences] == [("dnp", marked[0])]
+
+
+def test_schematic_outside_the_grammar_needs_kicad_cli(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A sheet outside the own netlist's grammar is read through ``kicad-cli``: without one,
+    ``ToolMissingError`` (``FEN-6001``) naming the file."""
+    from fenolite.backends.kicad import cli as kicad_cli
+
+    monkeypatch.setenv("PATH", str(tmp_path))
+    monkeypatch.delenv("FENOLITE_KICAD_CLI", raising=False)
+    monkeypatch.setattr(kicad_cli, "MACOS_KICAD_CLI", tmp_path / "missing" / "kicad-cli")
+    with pytest.raises(api_sides.ToolMissingError) as raised:
+        equivalent(DATA / "kicad" / "schematic" / "flat.kicad_sch", TWO_LAYER)
+    assert raised.value.cli_code == "FEN-6001" and raised.value.where == "flat.kicad_sch"

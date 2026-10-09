@@ -7,7 +7,7 @@
 
 Supported annotations: bool, int, float, str, None, Any, Literal, X | None, list[T], tuple[T, ...],
 dict[str, T], Enum subclasses and nested dataclasses. Field metadata keys ``pattern``,
-``minimum`` and ``description`` are copied into the property schema.
+``minimum``, ``enum`` and ``description`` are copied into the property schema.
 """
 
 from __future__ import annotations
@@ -54,6 +54,12 @@ def _targets() -> list[Target]:
             "fenolite.artifacts.v0",
             "fenolite.exports.manifest:Manifest",
             "schemas/fenolite.artifacts.v0.json",
+            True,
+        ),
+        Target(
+            "fenolite.equivalent.v0",
+            "fenolite.api.schema:EquivalentReply",
+            "schemas/fenolite.equivalent.v0.json",
             True,
         ),
     ]
@@ -153,7 +159,7 @@ class SchemaBuilder:
 
 
 def _apply_metadata(prop: dict[str, Any], metadata: dict[str, Any]) -> None:
-    extra = {k: metadata[k] for k in ("pattern", "minimum", "description") if k in metadata}
+    extra = {k: metadata[k] for k in ("pattern", "minimum", "enum", "description") if k in metadata}
     if not extra:
         return
     if "anyOf" in prop:
