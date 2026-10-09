@@ -413,7 +413,7 @@ For a project that Fenolite built, the level RT-A2 SHALL compare every kind of `
 
 ### Requirement: Round-trip level RT-A3
 The level RT-A3 SHALL hold for an Altium document when the model that its import gives equals the model that the import gives after Fenolite wrote that model as new documents, inside `RT_A3_SCOPE` within 2 nm, once the items that the write reports as not written are taken out of the first model.
-- `AltiumBackend.model_roundtrip(path, *, compare)` MUST make the trip for a PCB document, a schematic document or a project file: read `path` with `read`, write the model with `lower.write_design(..., allow_lossy=True)` into a temporary folder of its own, read the written document of the same kind, and return the verdict of `rta3.rt_a3(first, written, second, compare=…, census=…, from_board=…)`. It MUST write nothing beside the input and MUST remove the folder. `backends.altium.rta3` MUST touch no file, and `backends.altium.roundtrip` stays free of paths.
+- `AltiumBackend.model_roundtrip(path, *, compare)` MUST make the trip for a PCB document, a schematic document or a project file: read `path` with `read`, write the model with `lower.write_design(..., allow_lossy=True, rewrite=True)` (change c0128: the trip is the rewrite of a document that was read, so a via whose drill equals its diameter is written) into a temporary folder of its own, read the written document of the same kind, and return the verdict of `rta3.rt_a3(first, written, second, compare=…, census=…, from_board=…)`. It MUST write nothing beside the input and MUST remove the folder. `backends.altium.rta3` MUST touch no file, and `backends.altium.roundtrip` stays free of paths.
 - `RT_A3_SCOPE` MUST be the written scope of the writers, as `AltiumBackend.written_scope()` returns it, and `docs/altium.md` MUST hold it as a table ("Written scope").
 - The verdict (`backends.base.ModelRoundTrip`) MUST hold `judged`, `equal`, the located `differences`, `written` (the model items written, per kind) and `unwritten`: per kind, the model items that the write left out (`lower.AltiumInputs.counts()`) and, under keys that start with `record:`, the records of the first reading that the import maps to no model entity, by the category of the import's census. `unwritten` MUST NOT change `equal`.
 - `rta3.without_unwritten` MUST take out of the first model exactly the entities that `AltiumInputs.not_lowered` names; for a PCB document read alone, whose circuit is synthesised from the pads, a component whose footprint was not written and a net member whose pads were not written go too. Nothing else is taken out: a difference of an item that was written is a defect of a writer or of the import.
@@ -430,6 +430,10 @@ The level RT-A3 SHALL hold for an Altium document when the model that its import
 #### Scenario: Corpus documents
 - **WHEN** `uv run pytest tests/corpus/test_altium_rta3.py -rA` runs with the corpus cached
 - **THEN** every listed PCB document is equal inside the scope, the equal documents come from at least three repositories, and the test prints the written and the unwritten counts per kind for the evidence page
+
+#### Scenario: Vias with a full drill
+- **WHEN** `uv run pytest tests/corpus/test_altium_rta3.py -k full_drill` reads the public document `altium-third-party-pcbdoc-02` with the corpus cached
+- **THEN** 48 of its 242 via records hold a hole equal to their diameter, the trip counts 242 vias as written and no via as not written and is equal inside the scope, and a write of the same model without `rewrite` counts 48 vias as not written
 
 #### Scenario: Project sets
 - **WHEN** the same test runs `test_sets` on the project sets of c0043
