@@ -81,7 +81,8 @@ The run of 2026-10-08 (job `yardstick` of https://github.com/lgili/Fenolite/acti
   (128 nets) cut by the budget after 3 097 s (`route.budget-exhausted`); 171 nets selected, 2 closed,
   connections 431 → 427, 16 tracks and 2 vias written. On the CI runner Freerouting closed far less than
   in the local run of 2026-10-08 on another 4-core machine (130 of 167 nets in 3 606 s): tier 1 ended
-  with the budget and 2 nets were closed in all; why is not measured yet.
+  with the budget and 2 nets were closed in all. The cause was measured on 2026-10-09 ("The routing gap
+  of run 37836196244" below): the copper that `route-pairs` lays before `route`, not the runner.
 - **The routed board** (`check-routed` exit 5, as the step expects): KiCad counts 459 open connections
   (`unconnected_items`, not capped) and 78 other DRC errors (44 `diff_pair_gap_out_of_range`, 30
   `track_width`, 2 `length_out_of_range`, 1 `skew_out_of_range`, 1 `diff_pair_uncoupled_length_too_long`);
@@ -102,6 +103,57 @@ The run of 2026-10-08 (job `yardstick` of https://github.com/lgili/Fenolite/acti
 
 One run is not three: the budgets and the ratchets stay provisional, and no `H-K-YARD-*` label moves,
 until three scheduled runs give `rebase` its records.
+
+## The routing gap of run 37836196244
+
+Measured on 2026-10-09 on a 4-core Linux machine with 16 094 MiB (Docker 29.8.2, `kicad-cli` 10.0.6 of
+the pinned image, Freerouting 2.4.1 on Temurin 25.0.4.1, KiCadRoutingTools 0.22.1 with the pinned
+library), at `ced6aa2`. About 85 minutes of routing runs in all.
+
+- **The CI result is reproduced locally.** `tools/yardstick.py run --skip-heavy` with the nightly's
+  command lines gave the same numbers as the CI run: `route` selected 171 nets and closed 2 (`OSC_IN`,
+  `OSC_OUT`), connections 431 → 427, 16 tracks and 2 vias, tier 0 done (901 s) and tier 1 (128 nets) cut
+  by the budget (2 688 s); after `fill-routed` KiCad counts 459 open connections and 78 other DRC errors,
+  as on the runner. Nothing of the container or the runner is needed for it.
+- **Not the environment.** The plugin runs Freerouting with `-mt 1`, so thread detection does not enter;
+  the JVM's default heap (a quarter of the memory: 3.4 GiB here, about 4 GiB on the runner) was not the
+  limit on the runner (`route` peak 2 080 MiB); the fanout stage of Freerouting took the same time on
+  every file below (136 s to 185 s, 770 SMD pins).
+- **The input differs from the local reference.** The run of 2026-10-08 that closed 130 of 167 nets
+  ("The `route` step, measured once", below) ran `route` alone on a board where the pair was never
+  routed. In the nightly, `route-pairs` runs first: KiCadRoutingTools routes `USB_DP` and `USB_DN` as
+  two nets (the pair and escape features of c0110 are undeclared), 127 segments on `F.Cu`, 114 mm and
+  122 mm long, meandered over a band 14 mm wide and 82 mm tall from the controller `U3` (145, 124) down
+  to the connector (`x` 136 to 150 mm, `y` 122 to 205 mm), with 136 segment pairs closer than the
+  default clearance of the design file (gap 0.15 mm). `route` writes that copper as protected wiring
+  without a net (c0109), and the plane fan-out of `U5-2` (`GND`) finds no via site beside it
+  (`kicad.fanout.failed`: "blocked by a track of USB_DP").
+- **Freerouting on the tier-1 design file**, the file the plugin writes, run alone with the plugin's
+  command line (one run at a time per file, two or three files at once on the 4 cores):
+
+  | file | first pass | unrouted after it | Freerouting's violations | second pass | unrouted after it |
+  |---|---|---|---|---|---|
+  | without the pair's copper (the reference's input) | 675 s | 46 | 316 | 200 s | 20 (10 from the third pass on, 105 s a pass) |
+  | the same without the fan-out of `U5-2` | 726 s | 47 | 316 | 189 s | 22 |
+  | the nightly's file (with the pair's copper) | 881 s | 65 | 710 | 1 035 s | 32 |
+  | without the pair's copper, then the pair's 127 segments added | 913 s | 69 | 744 | — | — |
+  | with 97 of the 127 segments | 864 s | 69 | 573 | — | — |
+
+  The pair's copper alone turns the file of the reference into the nightly's: the first pass is a third
+  slower, the second five times slower, and tier 1 does not end inside the budget: its run is cut and
+  gives no session, tier 2 is never started, and only tier 0's two nets are kept. The fan-out of `U5-2`
+  changes nothing. The violations Freerouting counts grow with the pair's segments (they lie 0.15 mm
+  apart, closer than the default rule of 0.2 mm that Freerouting keeps between pieces of copper without
+  a net, `H-G-DSN-NETLESS-2`), but the file with 30 segments fewer was as slow and left as many
+  connections open: this points to the band itself, beside the controller whose escape the `CH*` nets of
+  tier 1 need, as the obstacle (`INFERRED`: the band was not moved in any run).
+- **Proposed change to the nightly job** (to be made by its own change; c0119 is archived): while the
+  pair features of c0110 stay undeclared, give `route` the board before the pair is routed, by running
+  `route-pairs` after `route` (or leaving it out of the step list), so that the step measures what the
+  reference measured; once c0110's gate passes and the pair is routed as a coupled pair with its escape,
+  measure the order `route-pairs` then `route` again and size the budget of `route` on it. A design file
+  that keeps the pair's copper apart by the pair's gap rather than the default rule (declaring the pair's
+  nets with their class) is a separate question for the Specctra writer, not measured here.
 
 ## Budgets
 

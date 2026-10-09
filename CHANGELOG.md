@@ -31,6 +31,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Development: `AGENTS.md` says that a count that `summary.limits` of `drc.kicad` names is a lower bound (c0141). The roadmap records the maintainer's decisions of 2026-10-09: the leaner 1.0 is accepted, the pending decisions with a recommendation are decided as recommended, and the next release, `0.5.0`, is v0.5a alone (conversion between KiCad and the second backend, the controlled KiCad downgrade and the public `equivalent`).
 - Development: the pair oracle of the routing job (`tests/routing/test_pair_gate.py`) routes the pair bench through `fenolite route --router kicadroutingtools --confirm` (`test_krt_pair`) and runs the loop build, route, fill, build twice on it (`test_loop`); the escape half stays dropped (c0110).
 - Development: the entry check of c0104 is done on the living specs of 2026-10-09 (c0084, c0097 and c0103 archived); its MODIFIED deltas already hold the living text, `area` selector included.
+- Development: the routing gap of the nightly yardstick run 37836196244 (2 of 171 nets closed by `route`) is measured and recorded in `docs/evidence/yardstick.md`: reproduced locally with the same counts; the cause is the copper that `route-pairs` lays first (the USB pair routed as two meandered nets beside the controller), which makes Freerouting's passes on tier 1 up to five times slower, not the CI runner, Java or the budget. The page proposes running `route` before `route-pairs` until the pair features of c0110 are declared.
 
 ### Fixed
 
