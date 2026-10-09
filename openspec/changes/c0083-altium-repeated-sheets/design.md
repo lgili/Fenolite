@@ -56,6 +56,13 @@ Consequences for this change:
 - **Reused from the frozen branch `codex/board-authoring-gaps` (17536270), file by file.** `adapter/circuit.py`: the idea of its one added line (the imported component takes `pin_pad_map` from `PartGroup.pin_pads`); the line itself is not carried, because it lists several pads for one pin, which the living model spec forbids. `adapter/library.py` (`_selected_map`, a map on `SymbolDef`): read, nothing taken (the model's `SymbolDef` has no such field). `altsym.py`, `schlib.py`, `schdoc.py`, `lens/altium_maps.py` and its four test files: the write side, not read for this change. No allowance of that branch's import-graph, residue or guard tests is carried.
 - **"Import issue codes" and "Net identifier scope" are now MODIFIED deltas**, copied from the living text: the first gains `altium.import.channels`, `altium.import.channel-naming` and `altium.import.pin-map`, the second loses its sentence that a repeated sheet gives `altium.import.repeated-sheet`. Part 1 had left both as ADDED text only.
 
+## Found on 2026-10-09 (tasks 1.1, 2.1 and 3.2), and what changed
+
+- **The form of the annotation file has no public source.** Altium's board-level annotation page and its knowledge-base article on different designators (S-0725) say that the file is text, named after the project, managed by Altium, and that its designators override the schematic's on the way to the board; neither shows a line of it, and the one public file is empty. Writing no reader would leave source 2 open until Part R; writing one from a remembered or guessed set of key names would break the clean-room rule. The reader therefore assumes the one form that needs no key name: a `<key>=<value>` line whose key is a unique-id path (the recorded form of `SOURCEUNIQUEID`) and whose value is the designator. Every other key line is kept and reported (`altium.text.unknown-key`, info, a new code of the text readers), so a real file in another form gives no entry and changes nothing. The facts page states the form as Fenolite's choice and the fact row as `UNKNOWN`; Part R, step R4, which asks for the names of the keys, settles `H-A-IMP-RPT-ANNOT` and replaces the choice.
+- **Source 2 runs in `netlist._references`**, before the format, through `NetOptions.annotations` (the project's `annotation_designators()`), because the format's names are computed there; the board still wins in `project.link`. It applies to channel components only (the requirement is about channels) and never to a channel of a `Repeat` statement, whose path form is `UNKNOWN`.
+- **"Project loading" and "Text reader issue codes"** of `altium-project-reader` are MODIFIED deltas copied from the living text: `annotations` and `annotation_designators()`, and the code `altium.text.unknown-key`.
+- **The Part R files changed** since the table of 2026-10-08: change c0148 writes the pin bit 0x20 on every pin, so both sheets have new digests (task 4.2).
+
 ## Files and public API
 
 - `src/fenolite/backends/altium/read/annotation.py`: `read_annotation(data, *, file) -> AnnotationFile` (entries by unique-id path; the text kept byte for byte).
@@ -63,7 +70,7 @@ Consequences for this change:
 - `src/fenolite/backends/altium/adapter/channels.py`: `channel_designator(format, designator, names, *, style, separator, indexes)`, `room_name`, `channel_alpha`, `KEYWORDS`, `FLAT_STYLES`, `PATH_STYLES`, `NUMERIC_STYLES`, `ALPHA_STYLES` (the proposal's `NAMING_FORMATS` does not exist: a format is free text with keywords).
 - `src/fenolite/backends/altium/adapter/circuit.py`: `pin_pad_map(group)`, `CircuitImport.unlinkable`; `adapter/project.py`: `link(…, unlinkable)`.
 - `src/fenolite/backends/altium/adapter/codes.py`: `altium.import.channels` (info), `altium.import.channel-naming` (warning), `altium.import.pin-map` (info); `adapter/ids.py`: the bag keys `pin_pads`, `sheet_symbol`, `channel_index`.
-- Tests: `tests/unit/backends/altium/adapter/test_channels.py`, `test_repeat.py` and `test_channel_files.py`; the authored sample `tests/data/altium/channels/two/` (written by its `author.py` from `tests/_altium_channels.py`, declared in `tests/data/MANIFEST.toml`); `tests/corpus/test_altium_channels.py`. `tests/unit/backends/altium/read/test_annotation.py` waits for task 2.1.
+- Tests: `tests/unit/backends/altium/adapter/test_channels.py`, `test_repeat.py` and `test_channel_files.py`; the authored sample `tests/data/altium/channels/two/` (written by its `author.py` from `tests/_altium_channels.py`, declared in `tests/data/MANIFEST.toml`); `tests/corpus/test_altium_channels.py`. `tests/unit/backends/altium/read/test_annotation.py` (task 2.1, 2026-10-09) and the authored `tests/data/altium/channels/two/two.Annotation`.
 
 ## Sources registered by this change
 
@@ -84,7 +91,7 @@ Each new source gets the next free `S-` number in `docs/evidence/sources.md` whe
 | H-A-IMP-RPT-ANNOT | The annotation file of a project maps a unique-id path to the board-level designator | `tests/unit/backends/altium/read/test_annotation.py` and author report, Part R step 4 | the designators read from the file Altium saved equal those of the board |
 | H-A-IMP-PINMAP | A footprint model's pin map on the sheet names the pad of each pin, and the board's pads use those names | `tests/corpus/test_altium_channels.py::test_pin_map_never_uncovers_an_element` | on the corpus sets, applying the map never increases the elements on one side only nor the differences, and the page says which elements of `altium-set:02` remain (its 2 differing elements are not of the map) |
 
-All start `INFERRED`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06). Registered on 2026-10-06: `-BOARD` (`CORPUS-VERIFIED`), `-FORMAT`, `-COUNT`, `-NETS` and `H-A-IMP-PINMAP` (`INFERRED`); `-ANNOT` is not registered while task 2.1 is open.
+All start `INFERRED`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06). Registered on 2026-10-06: `-BOARD` (`CORPUS-VERIFIED`), `-FORMAT`, `-COUNT`, `-NETS` and `H-A-IMP-PINMAP` (`INFERRED`); `-ANNOT` is not registered while task 2.1 is open. Registered on 2026-10-09: `-ANNOT` (`INFERRED`), with the reader written in a form it assumes (see "Found on 2026-10-09").
 
 ## Author report: Part R, channel naming
 

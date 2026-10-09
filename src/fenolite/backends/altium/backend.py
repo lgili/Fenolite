@@ -514,7 +514,7 @@ class AltiumBackend:
         from fenolite.backends.altium.adapter.circuit import KIND
         from fenolite.backends.altium.adapter.ids import Ids
         from fenolite.backends.altium.adapter.netlist import DEFAULT_OPTIONS, NetOptions, SheetInput
-        from fenolite.backends.altium.read.project import read_project
+        from fenolite.backends.altium.read.project import load_project
         from fenolite.backends.altium.read.sch import read_schematic
         from fenolite.model.design import Design
 
@@ -527,11 +527,12 @@ class AltiumBackend:
         if documents.project is not None:
             head_name = documents.project
             try:
-                listed = read_project((root / documents.project).read_bytes(), file=documents.project)
+                loaded = load_project(root / documents.project)
             except FormatError as error:
                 errors[documents.project] = error
                 return None
-            options = NetOptions.from_project(listed)
+            listed = loaded.project
+            options = NetOptions.from_project(loaded)  # with its annotation files (c0083)
             order = {entry.posix.lower(): position for position, entry in enumerate(listed.documents)}
             names.sort(key=lambda name: (order.get(name.lower(), len(order)), name))
         found: list[Issue] = []

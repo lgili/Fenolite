@@ -1257,7 +1257,10 @@ one or an unreadable one is skipped with `altium.import.document-skipped`.
 symbol whose designator is `Repeat(NAME, first, last)` once per index; each instance is a
 channel with its own components and nets (`altium.import.channels`, info). Its components are named, in
 this order: by the PCB document of the project, whose components link to them by their unique-id path
-and hold the designators the project was annotated to; else by the project's designator format
+and hold the designators the project was annotated to; else by the project's annotation file, an entry
+of which names the unique-id path of a channel component (a form this reader assumes: no public source
+states the form of the file, `docs/formats/altium/project.md`, "The annotation file"; never tried for a
+channel of a `Repeat` statement); else by the project's designator format
 (`ChannelDesignatorFormatString` with `ChannelRoomNamingStyle`), for example `D9_3` for `D9` in the
 channel `3` under `$Component_$RoomName`. A format the import does not resolve gives
 `<designator>@<channel>` and `altium.import.channel-naming`. Sheets read without their project file keep
@@ -1296,8 +1299,8 @@ component's `altium` bag (`pin_pads`) and counted by `altium.import.pin-map`.
 gave no model entity.
 
 - Schematic drawings (the model holds no schematic presentation), sheet templates, variants, differential
-  pairs and the annotation file of a project (the form of a non-empty one is not known from a public
-  source).
+  pairs, and every line of a project's annotation file that is not in the form the reader assumes (the
+  form of a real file is not known from a public source; see "Channels").
 - Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
   and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
 - Rules of other kinds, disabled rules, Clearance rules with a matrix of differing clearances, and rules

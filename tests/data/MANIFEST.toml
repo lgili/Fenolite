@@ -1559,6 +1559,12 @@ corpus_id = ""
 notes = "script that writes the two-channel sample from the sheet plans of tests/_altium_channels.py (c0083; since c0146 the sheets are written by the schematic writer)"
 
 [[file]]
+path = "tests/data/altium/channels/two/two.Annotation"
+origin = "authored"
+corpus_id = ""
+notes = "annotation file of the two-channel sample in the entry form the annotation reader assumes (c0083, task 2.1; the form of a real file is UNKNOWN): two entries for U1 and J1; not listed by two.PrjPcb, not written by Altium"
+
+[[file]]
 path = "tests/data/altium/channels/two/two.PrjPcb"
 origin = "authored"
 corpus_id = ""

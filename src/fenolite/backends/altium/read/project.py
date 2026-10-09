@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal
 
+from fenolite.backends.altium.read.annotation import AnnotationFile, read_annotation
 from fenolite.backends.altium.read.ini import IniDocument, IniSection, parse_ini
 from fenolite.backends.altium.read.outjob import OutJobFile, read_outjob
 from fenolite.backends.altium.read.rul import RuleFile, read_rule_file
@@ -277,7 +278,8 @@ class LoadedDocument:
 class AltiumProject:
     """A project folder: the folder (``root``), the project's name, the project file, its documents, the
     text companions read (as ``(document index, result)`` pairs), the rule mapping of each rule file,
-    and the issues of the project file followed by those of each document in document order."""
+    and the issues of the project file followed by those of each document in document order.
+    ``annotations`` holds the annotation files read (change c0083), in the same pairs."""
 
     root: Path
     name: str
@@ -288,6 +290,15 @@ class AltiumProject:
     stackups: tuple[tuple[int, StackupFile], ...]
     rules: tuple[tuple[int, RuleMapping], ...]
     issues: tuple[Issue, ...]
+    annotations: tuple[tuple[int, AnnotationFile], ...] = ()
+
+    def annotation_designators(self) -> dict[str, str]:
+        """Unique-id path → designator over every annotation file read, the first file's entry first."""
+        found: dict[str, str] = {}
+        for _, annotation in self.annotations:
+            for path, designator in annotation.designators().items():
+                found.setdefault(path, designator)
+        return found
 
 
 _DRIVE = re.compile(r"^[A-Za-z]:")
@@ -335,16 +346,20 @@ def _locate(root: Path, posix: str) -> Path | None:
 
 def _read_companion(
     loaded: LoadedDocument, issues: list[Issue], file: str
-) -> OutJobFile | RuleFile | StackupFile | None:
+) -> OutJobFile | RuleFile | StackupFile | AnnotationFile | None:
     document = loaded.document
     if loaded.file is None:
         return None
     try:
         data = loaded.file.read_bytes()
         if document.kind == "output-job":
-            result: OutJobFile | RuleFile | StackupFile = read_outjob(data, file=document.posix)
+            result: OutJobFile | RuleFile | StackupFile | AnnotationFile = read_outjob(
+                data, file=document.posix
+            )
         elif document.kind == "rules":
             result = read_rule_file(data, file=document.posix)
+        elif document.kind == "annotation":
+            result = read_annotation(data, file=document.posix)
         else:
             result = read_stackup(data, file=document.posix)
     except (FormatError, OSError) as error:
@@ -363,10 +378,10 @@ def _read_companion(
 
 def load_project(path: str | Path) -> AltiumProject:
     """Read the project file at ``path`` and the text companions it lists inside its folder: output jobs,
-    rule files (each mapped with ``map_rules``) and stack-up files. Schematics, boards, libraries and every
-    other kind are listed, not opened; generated documents are not opened. ``FileNotFoundError`` for a
-    missing ``path``, ``FormatError`` for a project file that cannot be read. Warnings:
-    ``altium.project.document-outside`` (naming the document index, not the path),
+    rule files (each mapped with ``map_rules``), stack-up files and annotation files (c0083). Schematics,
+    boards, libraries and every other kind are listed, not opened; generated documents are not opened.
+    ``FileNotFoundError`` for a missing ``path``, ``FormatError`` for a project file that cannot be read.
+    Warnings: ``altium.project.document-outside`` (naming the document index, not the path),
     ``altium.project.document-missing`` and ``altium.project.companion-unreadable``. Nothing is
     written."""
     path = Path(path)
@@ -380,6 +395,7 @@ def load_project(path: str | Path) -> AltiumProject:
     outjobs: list[tuple[int, OutJobFile]] = []
     rule_files: list[tuple[int, RuleFile]] = []
     stackups: list[tuple[int, StackupFile]] = []
+    annotations: list[tuple[int, AnnotationFile]] = []
     rules: list[tuple[int, RuleMapping]] = []
     for document in project.documents:
         posix = document.posix
@@ -405,7 +421,7 @@ def load_project(path: str | Path) -> AltiumProject:
                 )
             )
             continue
-        if document.kind not in ("output-job", "rules", "stackup"):
+        if document.kind not in ("output-job", "rules", "stackup", "annotation"):
             continue
         result = _read_companion(loaded, issues, path.name)
         if isinstance(result, OutJobFile):
@@ -417,6 +433,8 @@ def load_project(path: str | Path) -> AltiumProject:
             rules.append((document.index, mapping))
         elif isinstance(result, StackupFile):
             stackups.append((document.index, result))
+        elif isinstance(result, AnnotationFile):
+            annotations.append((document.index, result))
     return AltiumProject(
         root=root,
         name=path.stem,
@@ -427,6 +445,7 @@ def load_project(path: str | Path) -> AltiumProject:
         stackups=tuple(stackups),
         rules=tuple(rules),
         issues=tuple(issues),
+        annotations=tuple(annotations),
     )
 
 

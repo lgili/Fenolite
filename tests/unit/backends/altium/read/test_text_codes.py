@@ -8,6 +8,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from fenolite.backends.altium.read.annotation import read_annotation
 from fenolite.backends.altium.read.ini import parse_ini
 from fenolite.backends.altium.read.outjob import read_outjob
 from fenolite.backends.altium.read.project import load_project, read_project
@@ -18,7 +19,18 @@ from fenolite.backends.altium.read.textfile import TEXT_READ_CODES, split_text
 from fenolite.core.errors import Issue
 
 READ = Path(__file__).resolve().parents[5] / "src" / "fenolite" / "backends" / "altium" / "read"
-TEXT_MODULES = ("textfile", "ini", "proptext", "project", "outjob", "rul", "rules", "scope", "stackup")
+TEXT_MODULES = (
+    "textfile",
+    "ini",
+    "proptext",
+    "project",
+    "outjob",
+    "rul",
+    "rules",
+    "scope",
+    "stackup",
+    "annotation",
+)
 LITERAL = re.compile(r"[\"'](altium\.(?:text|project|outjob|rule|stackup)\.[a-z0-9-]+)[\"']")
 
 
@@ -42,6 +54,7 @@ def _every_issue(tmp_path: Path) -> list[Issue]:
     issues += read_outjob(b"[OutputJobFile]\n[OutputGroup1]\nOutputName1=x\n").issues
     issues += read_rule_file(b"RULEKIND=Width|NAME=a\nNAME=b\n").issues
     issues += map_rules([[("RuleKind", "Width")]], origin="o", summary=True).issues
+    issues += read_annotation(b"[S]\nVersion=1\n").issues
     issues += read_stackup(b"|STACKUPVERSION=1|LAYER_V7_0COPTHICK=x|LAYER_V8_0COPTHICK=y").issues
     (tmp_path / "bad.RUL").write_bytes(b"hello")
     project = tmp_path / "p.PrjPcb"

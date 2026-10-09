@@ -143,10 +143,15 @@ is a `Repeat` statement is one channel per index (change c0083).
   sheet: the one on the bus line the entry lies on, else another net label of that bus name. A missing bus
   and a bus with fewer members than channels give `altium.import.channel-naming`. The statement never
   names a net.
-- **Order of sources.** The board first (`project.link`), then the format. The annotation file of a
-  project is not read: the one annotation file that a corpus project lists (set of S-0188) is empty at
-  the registered commit (0 bytes, measured on 2026-10-06), so the form of such a file is `UNKNOWN`. An
-  absent or empty one changes nothing.
+- **Order of sources.** The board first (`project.link`), then the project's annotation file, then the
+  format. The annotation file is read by `read.annotation` in a form that is this reader's assumption
+  (`project.md`, "The annotation file": the form is `UNKNOWN`, `H-A-IMP-RPT-ANNOT`): an entry whose
+  unique-id path is the native path of a channel component (`cmp:` and that path) gives its designator
+  (source `annotation`). It applies to the channels of a sheet that several sheet symbols name; a channel
+  of a `Repeat` statement has no recorded path form (row above), so no entry is tried for it. The one
+  annotation file that a public project lists (set of S-0188) is empty at the registered commit (0 bytes,
+  measured on 2026-10-06); an absent or empty one, or one whose lines are in another form, changes
+  nothing.
 - **Not instantiated.** A `Repeat(…)` statement that has not the form above, whose first index is above
   its last, or whose channels would bring the project above 256 sheet instances (`MAX_CHANNELS`, a bound of
   this import) gives one instance (`altium.import.repeated-sheet`).

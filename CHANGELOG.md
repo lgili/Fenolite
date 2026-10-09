@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The Altium import reads a project's annotation file (`read.annotation`, returned by `load_project` as `annotations`) and takes the designator of a channel component from it before the designator format, after the board (c0083). No public source states the form of that file, so the reader assumes one `<unique-id path>=<designator>` line per entry, reports every other line with `altium.text.unknown-key` (info) and keeps the bytes; the maintainer's Part R, step R4, settles `H-A-IMP-RPT-ANNOT`.
+
 ### Changed
 
 - The release workflow skips a version that PyPI already holds (`skip-existing` on the publish step), so a GitHub Release made for a version that was published earlier ends green; a new version is uploaded as before.

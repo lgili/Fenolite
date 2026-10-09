@@ -30,7 +30,7 @@ Each component of a channel SHALL get the designator its project gives it, from 
 - The import result MUST report, per source, how many components took their designator from it.
 - No two components of the imported circuit MAY share a reference because of a repeat; when sources 1 and 3 disagree for components, source 1 wins and one `altium.import.channel-naming` gives their count and both values of the first.
 - The unique-id path of a board component of a channel of a repeat has no recorded form (`UNKNOWN` on the facts page): the import MUST NOT try a path for it. A board component MAY link to such a channel component only when its own designator is the channel designator of source 3 and its source designator the designator of the sheet (`altium.import.linked-by-designator`); the channel components that no board component links to MUST be counted by one `altium.import.channel-naming`.
-- Source 2 is not implemented while "Annotation file read" is open: an absent or empty annotation file changes nothing.
+- Source 2 MUST take the entry of `load_project(…).annotation_designators()` (carried by `NetOptions.annotations`) whose unique-id path is the channel component's; it MUST NOT be tried for a channel of a repeat (no recorded path form) nor for a component that is not in a channel. An absent or empty annotation file, or one whose lines are not in the form "Annotation file read" assumes, changes nothing.
 
 #### Scenario: Designators from the board
 - **GIVEN** the corpus project `altium-set:02`
@@ -41,6 +41,11 @@ Each component of a channel SHALL get the designator its project gives it, from 
 - **GIVEN** `tests/data/altium/channels/two/` without a PCB document and without an annotation file
 - **WHEN** the import runs
 - **THEN** the four references are those of `channel_designator` for the project's format (`R1_CH1`, `R1_CH2`, `C12_CH1`, `C12_CH2`), and the result counts four components for the source `format`
+
+#### Scenario: Designators from the annotation file
+- **GIVEN** a sheet named by the sheet symbols `CH1` and `CH2`, the format `$Component_$RoomName`, and annotation entries for `R1` of `CH1` (`R1A`) and `C12` of `CH2` (`C12B`)
+- **WHEN** the import runs without a PCB document
+- **THEN** the references are `R1A`, `R1_CH2`, `C12_CH1` and `C12B`, and the result counts two components for the source `annotation` and two for `format`
 
 #### Scenario: Unknown format
 - **GIVEN** the same sheets with a designator format that holds a `$` word outside `KEYWORDS`

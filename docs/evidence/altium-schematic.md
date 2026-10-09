@@ -705,8 +705,8 @@ row it names: Y2, Y3 and Y9 `H-A-SCHX-GRAPHICS`; Y1 and Y4 `H-A-SCHX-TREE`; Y5 `
 
 The import instantiates a `Repeat` statement from Altium's documentation alone: no public file of the
 corpus holds one. **Nothing of this part has been opened in Altium.** It settles `H-A-IMP-RPT-COUNT`,
-`H-A-IMP-RPT-NETS` and `H-A-IMP-RPT-FORMAT`; the hypothesis of the annotation file is not registered
-(its reader is not written), and step R4 is what would let it be.
+`H-A-IMP-RPT-NETS` and `H-A-IMP-RPT-FORMAT`, and step R4 settles `H-A-IMP-RPT-ANNOT` (registered on
+2026-10-09, when the reader was written in a form of its own: the form of the file is in no public source).
 
 **Files.** The authored two-channel project `tests/data/altium/channels/two/`, in the maintainer's folder
 `~/fenolite-altium-checks/session-2/R-repeated-sheet/` since 2026-10-08, with a guide in Portuguese. If
@@ -716,11 +716,20 @@ designator is `Repeat(CH,1,2)` on a child sheet, with the sheet entries `VCC` an
 on the child sheet `R1` and `C12`, `R1` pin 1 on the port `VCC`, `R1` pin 2 and `C12` pin 1 on a wire
 labelled `MID`, `C12` pin 2 on the port `OUT`.
 
-| file (since change c0146, 2026-10-08) | SHA-256 |
-|---|---|
-| `two.PrjPcb` (unchanged) | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` |
-| `two.SchDoc` | `e07048f42c930a5d1ac6d326aae2331c5b96f2da1e26d958ea09eea5a6d24112` |
-| `two_ch.SchDoc` | `3bd678fdf0ef16ee9a7bcba23ba6113353244a3a8533d982f093a42526892724` |
+| file (built again on 2026-10-09, c0083 task 4.2) | SHA-256 | steps |
+|---|---|---|
+| `two.PrjPcb` (unchanged) | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` | R1 to R4 |
+| `two.SchDoc` | `42e8a02658ae0c7c09c04d08daf64a23995764796221e439953cbcb639a603eb` | R1 to R4 |
+| `two_ch.SchDoc` | `cad7f56662f5a1af94265ac243db10dd18390a0371b1f76a5436f460f1f05178` | R1 to R4 |
+
+**Built again on 2026-10-09.** The three files were written by `tests/data/altium/channels/two/author.py`'s
+plans (`tests/_altium_channels.files()`) into a folder outside the repository and handed over as one zip;
+they equal the committed sample byte for byte. The two sheets differ from those of session 2
+(c0146, 2026-10-08: `two.SchDoc` `e07048f42c930a5d1ac6d326aae2331c5b96f2da1e26d958ea09eea5a6d24112`, `two_ch.SchDoc`
+`3bd678fdf0ef16ee9a7bcba23ba6113353244a3a8533d982f093a42526892724`) by the pin visibility bit 0x20 alone,
+which change c0148 writes on every pin (section "Pin visibility bits"); the project file is the same. The
+sample's `two.Annotation` is not a file of this part: it is written in the form the annotation reader assumes,
+and step R4 is what tells the real form.
 
 **The first files showed a black page.** The files of 2026-10-06 (`two.SchDoc`
 `53c540c9af491840b9c2a1f48f3b31910d22c9b838c9eac6473c5f72221d3ed2`, `two_ch.SchDoc`

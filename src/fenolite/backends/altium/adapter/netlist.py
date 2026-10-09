@@ -13,10 +13,10 @@ different kinds never join by name; names are compared without letter case.
 from __future__ import annotations
 
 import re
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import PureWindowsPath
-from typing import Literal
+from typing import Literal, cast
 
 from fenolite.backends.altium.adapter import connectivity as geo
 from fenolite.backends.altium.adapter.channels import channel_designator, fallback
@@ -109,6 +109,9 @@ class NetOptions:
     project states none: the components of a repeated sheet then keep the designators of the sheet."""
     room_style: int | None = None
     room_separator: str = "_"
+    annotations: tuple[tuple[str, str], ...] = ()
+    """The project's annotation files as (unique-id path, designator) pairs (``read.annotation``, change
+    c0083): source 2 of the channel designators, before the format."""
 
     @classmethod
     def from_project(cls, project: object) -> NetOptions:
@@ -125,6 +128,9 @@ class NetOptions:
             return fallback if value is None else bool(value)
 
         chosen = str(scope).replace("-", "_") if scope is not None else "automatic"
+        designators = getattr(project, "annotation_designators", None)
+        pairs = cast("dict[str, str]", designators()) if callable(designators) else {}
+        annotations = tuple(pairs.items())
         return cls(
             scope=chosen if chosen in SCOPES else "automatic",  # type: ignore[arg-type]
             power_port_names_first=flag("power_port_names_take_priority", default.power_port_names_first),
@@ -136,6 +142,7 @@ class NetOptions:
             channel_format=getattr(options, "channel_designator_format", None) or "",
             room_style=getattr(options, "channel_room_naming_style", None),
             room_separator=getattr(options, "channel_room_level_separator", None) or "_",
+            annotations=annotations,
         )
 
 
@@ -628,10 +635,17 @@ def channel_name(text: str, instance: Instance, options: NetOptions) -> str | No
 
 
 def _references(
-    sheets: Sequence[SheetData], instances: Sequence[Instance], options: NetOptions
+    sheets: Sequence[SheetData],
+    instances: Sequence[Instance],
+    options: NetOptions,
+    components: Mapping[tuple[int, int], str],
 ) -> tuple[dict[tuple[int, int], str], dict[str, int], set[int]]:
     """The reference of every component, the count of channel components per designator source, and the
-    instances that are channels (their sheet is instantiated more than once)."""
+    instances that are channels (their sheet is instantiated more than once). A channel component takes
+    the designator of the annotation entry of its unique-id path (``components`` without ``cmp:``, source
+    ``annotation``), else the format's; a channel of a ``Repeat`` statement has no recorded path form, so
+    no entry is tried for it."""
+    annotated = dict(options.annotations)
     counts: dict[int, int] = {}
     for instance in instances:
         counts[instance.sheet] = counts.get(instance.sheet, 0) + 1
@@ -642,8 +656,13 @@ def _references(
         for number, group in enumerate(sheets[instance.sheet].groups):
             ref = group.ref
             if instance.index in channels:
+                path = components[(instance.index, number)].removeprefix("cmp:")
+                listed = annotated.get(path) if "[" not in path else None
                 named = channel_name(group.ref, instance, options)
-                if named is not None:
+                if listed:
+                    ref = listed
+                    sources["annotation"] = sources.get("annotation", 0) + 1
+                elif named is not None:
                     ref = named
                     sources["format"] = sources.get("format", 0) + 1
                 elif group.ref and (options.channel_format or options.room_style is not None):
@@ -936,7 +955,7 @@ def resolve(
             components[(instance.index, number)] = "cmp:" + "".join(
                 f"\\{uid}" for uid in (*instance.uids, tail)
             )
-    references, channel_sources, channel_instances = _references(data, instances, options)
+    references, channel_sources, channel_instances = _references(data, instances, options, components)
     pins: dict[Hashable, set[PinKey]] = {}
     idents: dict[Hashable, list[tuple[Ident, int]]] = {}
     firsts: dict[Hashable, list[tuple[int, int, str]]] = {}

@@ -17,6 +17,7 @@ HYPOTHESES = (
     "H-A-IMP-RPT-FORMAT",
     "H-A-IMP-RPT-COUNT",
     "H-A-IMP-RPT-NETS",
+    "H-A-IMP-RPT-ANNOT",
     "H-A-IMP-PINMAP",
     "H-A-IMP-PINMAP-MULTI",
     "H-A-IMP-SCOPE",

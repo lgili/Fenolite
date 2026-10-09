@@ -115,6 +115,36 @@ scopes get a row when the maintainer's author report names their numbers
   index, not the path. A missing companion is a warning, and a companion that is not readable is a
   warning too: the project still loads.
 
+## The annotation file (change c0083)
+
+A project that uses board-level annotation lists an annotation file (`.Annotation`, kind `annotation`).
+`fenolite.backends.altium.read.annotation` reads it and `load_project` returns it (`AltiumProject.annotations`);
+the import takes the designators of channel components from it (`docs/formats/altium/connectivity.md`,
+"Channels", source 2). **Its form is not known from any public source**: the rows below say what is known
+and which part of the reader is this reader's own assumption.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Board-level annotation stores its changes in a text file named after the project with the extension `.Annotation`, in the project folder, shown under "Settings\Annotation Documents" in the Projects panel; Altium creates and manages it | S-0725 | INFERRED | H-A-IMP-RPT-ANNOT |
+| While the file is part of the project, the designators it assigns override those of the schematic in the compiled designators, and those are the ones transferred to the PCB document | S-0725 | INFERRED | H-A-IMP-RPT-ANNOT |
+| The one annotation file that a public project lists (the project of S-0188) is empty at the registered commit: 0 bytes, SHA-256 `e3b0c442…b855`, fetched on 2026-10-06 and not a corpus row | S-0188 | INFERRED | H-A-IMP-RPT-ANNOT |
+| The form of a non-empty annotation file (its sections, its keys, how an entry names a component and its designator) is stated by no public source and shown by no public file. Part R, step R4 (`docs/evidence/altium-schematic.md`), asks the maintainer for the names of its keys | S-0725, S-0188 | UNKNOWN | H-A-IMP-RPT-ANNOT |
+
+### Fenolite's choices (annotation reader)
+
+- **The bytes are the source of truth.** The file is read with the text layer of the project file
+  (`read.textfile`, `read.ini`): `AnnotationFile.to_bytes()` gives the input back, and a compound file or a
+  NUL byte raises the located `FormatError` of the text readers. An empty file has no entry.
+- **The entry form is this reader's assumption, not a fact.** An entry is a `<key>=<value>` line, in any
+  section, whose key is a unique-id path in the form of a board component's `SOURCEUNIQUEID`
+  (`\<id>\<id>…`, `connectivity.md`, `H-A-IMP-LINK`) and whose value is the designator. Any other
+  key line is kept and reported once per line with the info `altium.text.unknown-key`. When step R4
+  reports the real keys, this choice is replaced and `H-A-IMP-RPT-ANNOT` says so; until then a real file
+  in another form gives no entry and changes nothing in the import.
+- **The authored sample** `tests/data/altium/channels/two/two.Annotation` is written in that assumed form
+  by `tests/data/altium/channels/two/author.py`. It is not listed by `two.PrjPcb` (the sample's import
+  stays the naming format's), it is not a file Altium wrote, and it is not handed over in Part R.
+
 ## Class generation
 
 Change c0048 writes the options that decide which classes and rooms "Design » Update PCB Document" derives
