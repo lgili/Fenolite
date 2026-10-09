@@ -45,6 +45,7 @@ import _fieldbench
 import _fieldprobe
 import _fillcases
 import _followcases
+import _fpitemsoracle
 import _fpwrite
 import _framecases
 import _gencases
@@ -261,6 +262,7 @@ def _probes() -> dict[str, Probe]:
     probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))
     # KiCad's importer on the rewrite of an own PCB document (c0090, RT-A3)
     probes["altium-rta3-kicad"] = Probe(_rta3oracle.outcome, (10,))
+    probes["altium-fpitems-kicad"] = Probe(_fpitemsoracle.outcome, (10,))  # change c0126, task 7.3
     for pid, (function, majors) in {
         **_rulecases.dru_probes(),
         **_procases.pro_probes(),

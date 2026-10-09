@@ -17,69 +17,21 @@ KiCad names the mechanical layers of an import by its own mapping, which this te
 mechanical, paste and solder-mask layers are counted together. Copper is left out: a rewrite writes no
 graphic of a footprint on copper (``footprint-copper``).
 
-The probe ``altium-fpitems-kicad`` is ``outcome()`` on the own documents. It is not yet in
-``tests/kicad/_probes.py``: its result must first be recorded with kicad-cli 10.0.6
-(``FENOLITE_PROBES_WRITE=1``), which change c0126 owes (task 7.3); ``test_probe_outcome`` runs it here.
+The probe ``altium-fpitems-kicad`` is ``_fpitemsoracle.outcome()`` on the own documents, in
+``tests/kicad/_probes.py`` for major 10 since its result was recorded on 10.0.6 (task 7.3 of c0126);
+``test_probe_outcome`` runs it here too.
 """
 
 from __future__ import annotations
 
-from collections import Counter
-from pathlib import Path
-
 import pytest
 from _corpus import manifest_items, require
-from _rta3oracle import SAMPLES, rewrite_sides
-
-from fenolite.backends.kicad import fpitems
-from fenolite.model.design import Design
+from _fpitemsoracle import OWN, both_counts, outcome
+from _rta3oracle import SAMPLES
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10)]
-OWN = ("blink/blink.PcbDoc", "routed/routed.PcbDoc", "board6/board6.PcbDoc")
-"""Fenolite's own PCB documents: each holds 27 lines and arcs of footprints (change c0126)."""
 ROWS = [item for item in manifest_items("rta") if "-pcbdoc-" in item.id and not item.heavy]
 IDS = [item.id for item in ROWS]
-Counts = Counter[tuple[str, str, str]]
-
-
-def layer_class(layer: str) -> str | None:
-    """``silkscreen``, ``drawing``, or ``None`` for a copper layer (left out)."""
-    if layer.endswith(".Cu") or layer == "*.Cu":
-        return None
-    return "silkscreen" if layer.endswith("SilkS") or layer.endswith("Silkscreen") else "drawing"
-
-
-def counts(design: Design) -> Counts:
-    """(reference, layer class, ``line`` or ``arc``) → the number of graphics of the footprints."""
-    refs = {component.id: component.ref for component in design.circuit.components}
-    found: Counts = Counter()
-    if design.board is None:
-        return found
-    for footprint in design.board.footprints:
-        ref = refs.get(footprint.component_id, "")
-        for graphic in footprint.graphics:
-            kind = {"line": "line", "arc": "arc", "circle": "arc"}.get(graphic.kind)
-            group = layer_class(graphic.layer)
-            if kind is not None and group is not None and ref:
-                found[(ref, group, kind)] += 1
-    return found
-
-
-def both_counts(source: Path, row: str = "") -> tuple[Counts, Counts]:
-    """The counts of Fenolite's read of the rewrite of ``source`` and of KiCad's projected import."""
-    sides = rewrite_sides(source, row)
-    return counts(sides.a), counts(fpitems.with_footprint_items(sides.b).design)
-
-
-def outcome() -> str:
-    """The probe ``altium-fpitems-kicad``: ``equal`` when, for each document of ``OWN``, KiCad's import of
-    the rewrite holds as many lines and arcs per footprint and layer class as Fenolite's read and both hold
-    some; ``different`` otherwise."""
-    for name in OWN:
-        mine, theirs = both_counts(SAMPLES / name)
-        if not mine or mine != theirs:
-            return "different"
-    return "equal"
 
 
 @pytest.mark.parametrize("name", OWN)

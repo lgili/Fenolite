@@ -1,5 +1,6 @@
 {
   "probes": {
+    "altium-fpitems-kicad": "equal",
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
     "altium-pcbx-holes": "equal",

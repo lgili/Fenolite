@@ -135,7 +135,7 @@ the settling test and the result of an id are in its register row.
 | `H-A-PCBX-BUILD-LOWER` | INFERRED |
 | `H-A-PCBX-FPGFX` | INFERRED |
 | `H-A-PCBX-FPGFX-AD` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
-| `H-A-PCBX-FPGFX-KICAD` | INFERRED |
+| `H-A-PCBX-FPGFX-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6, pinned image, local run; 2026-10-09) |
 | `H-A-PCBX-FPTEXT` | INFERRED |
 | `H-A-PCBX-HOLE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-KEEPOUT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
