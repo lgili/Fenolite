@@ -50,4 +50,8 @@ jobs:
         with:
           name: dist
           path: dist/
+      # A version already on PyPI (published earlier, e.g. by a workflow_dispatch run) is skipped, so a
+      # GitHub Release made afterwards for that version still ends green; a new version is uploaded.
       - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true

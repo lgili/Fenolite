@@ -772,3 +772,26 @@ def test_yardstick_steps_filters_and_gates() -> None:
     tested = nightly.replace(job, job + "      - run: uv run pytest tests/unit -q\n")
     assert "yardstick: the job must not run pytest" in yardstick_problems(tested, ci)
     assert macos_app_problems(nightly) == []  # the first job of the workflow is untouched
+
+
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+
+
+def release_publish_problems(workflow: str) -> list[str]:
+    """The publish step of the release workflow skips a version that PyPI already holds, so a GitHub
+    Release made for a version published earlier ends green."""
+    publish = job_text(workflow, "publish")
+    step = publish.split("uses: pypa/gh-action-pypi-publish@", 1)
+    if len(step) != 2:
+        return ["release: the publish job does not use pypa/gh-action-pypi-publish"]
+    if not re.search(r"^\s+with:\n\s+skip-existing: true$", step[1], re.MULTILINE):
+        return ["release: the publish step must set skip-existing: true"]
+    return []
+
+
+def test_release_publish_skips_existing_versions() -> None:
+    workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert release_publish_problems(workflow) == []
+    assert release_publish_problems(workflow.replace("skip-existing: true", "skip-existing: false")) == [
+        "release: the publish step must set skip-existing: true"
+    ]
