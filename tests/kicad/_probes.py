@@ -31,6 +31,7 @@ import _benches
 import _bodycases
 import _buildcases
 import _checkcases
+import _convcases
 import _copperparity
 import _couplebench
 import _creepbench
@@ -366,6 +367,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _couplebench.couple_probes().items():  # change c0110
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {**_eqsides.eq_side_probes(), **_ovalcases.oval_probes()}.items():  # c0158
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _convcases.conv_probes().items():  # change c0159
         probes[pid] = Probe(function, majors)
     # change c0105: `pro-tuning-gap-clearance-rule` is pinned since its outcome was read on 10.0.6 (task 1.3)
     for pid, (function, majors) in {**_zbench.tuning_probes(), **_zbench.width_probes()}.items():

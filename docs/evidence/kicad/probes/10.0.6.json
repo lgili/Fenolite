@@ -107,6 +107,8 @@
     "check-help-sch-export-pdf": "present",
     "check-help-sym-upgrade": "present",
     "check-unparsed-drc": "present",
+    "convert-retarget": "equal",
+    "convert-triangle": "equal",
     "copper-anchor-frame": "equal",
     "copper-anchor-frame-control": "different",
     "copper-anchor-moved": "absent",
