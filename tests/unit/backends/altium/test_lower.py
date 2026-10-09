@@ -610,3 +610,48 @@ def test_placement_rule_and_keepout_footprints_infos() -> None:
     wheres = [found.where for found in issues if found.where in ("placement-rule", "keepout-footprints")]
     assert sorted(wheres) == ["keepout-footprints", "placement-rule"]
     assert not {"placement-rule", "keepout-footprints"} & lower.LOSS_KINDS
+
+
+def _with_pads(design: Design, *shapes: tuple[str, str]) -> tuple[Design, list[str]]:
+    """``design`` with its first pads given the ``(shape, kind)`` pairs, and the ids of those pads."""
+    board = design.board
+    assert board is not None
+    footprint = board.footprints[0]
+    changed = [
+        dataclasses.replace(pad, shape=shape, kind=kind)  # type: ignore[arg-type]
+        for pad, (shape, kind) in zip(footprint.pads, shapes, strict=False)
+    ]
+    pads = (*changed, *footprint.pads[len(changed) :])
+    edited = dataclasses.replace(footprint, pads=pads)
+    board = dataclasses.replace(board, footprints=(edited, *board.footprints[1:]))
+    return dataclasses.replace(design, board=board), [pad.id for pad in changed]
+
+
+def test_every_reason_kept() -> None:
+    """Scenario "Every reason kept" (change c0159): a custom pad and a connector pad are left out for two
+    reasons; ``lost`` keeps both, one id each, and ``reasons`` keeps the first."""
+    first = _read(SAMPLES / "blink" / "blink.PcbDoc")
+    design, (custom, connector) = _with_pads(first, ("custom", "smd"), ("rect", "connect"))
+    inputs = lower.from_design(design, issues=[])
+    reasons = inputs.lost["pad"]
+    assert len(reasons) == 2 and sorted(reasons.values()) == sorted([(custom,), (connector,)])
+    assert inputs.reasons["pad"] == next(iter(reasons))
+    assert inputs.not_lowered["pad"] == (custom, connector)
+    assert "connector pad" in next(reason for reason, ids in reasons.items() if ids == (connector,))
+
+
+def test_do_not_populate_is_reported() -> None:
+    """Scenario "Do-not-populate is reported" (change c0159): a component whose ``dnp`` is set is counted
+    under ``dnp`` with one info; the write is not refused and the documents are those of a fitted part."""
+    design = KicadBackend().read(KICAD_ROUTED).design
+    first = AltiumBackend().write(design)
+    component = design.circuit.components[0]
+    flagged = dataclasses.replace(component, dnp=True)
+    circuit = dataclasses.replace(design.circuit, components=(flagged, *design.circuit.components[1:]))
+    written = AltiumBackend().write(dataclasses.replace(design, circuit=circuit))
+    found = [i for i in written.issues if i.where == "dnp"]
+    assert [(i.code, i.severity) for i in found] == [("altium.not-lowered", "info")]
+    assert found[0].message.startswith("1 dnp item(s)")
+    assert written.inputs.lost["dnp"] == {lower.DNP_REASON: (component.id,)}
+    assert "dnp" not in lower.LOSS_KINDS
+    assert written.files["two_layer.PcbDoc"] == first.files["two_layer.PcbDoc"]

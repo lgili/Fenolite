@@ -100,6 +100,7 @@ MORE_KINDS: tuple[str, ...] = (
     "footprint-text",
     "net-tie",
     "severity",
+    "dnp",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -113,7 +114,11 @@ holds what the model's map cannot say (the key ``pin_pads``: a record without a 
 another pin holds). Of the items of a footprint instance (change c0126): ``footprint-graphic`` is a graphic
 on a layer without a layer in the document, or one that no record holds; ``footprint-copper`` a graphic on a
 copper layer, which is not written; ``footprint-text`` a text or a field that the text record cannot hold.
-``AltiumInputs.written`` counts the written graphics and texts under the first and the third key."""
+``AltiumInputs.written`` counts the written graphics and texts under the first and the third key. ``dnp``
+(change c0159) is a component whose do-not-populate flag is set: the documents hold no fitted flag outside
+variants, so the part is written as fitted."""
+DNP_KIND = "dnp"
+DNP_REASON = "the Altium documents hold no fitted flag outside variants"
 NET_TIE_KIND = "net-tie"
 """A footprint with net-tie groups (change c0114): its pads are written, without a mark that ties them,
 because how Altium marks a net tie is no registered format fact. Not in ``LOSS_KINDS``: nothing of the
@@ -197,7 +202,9 @@ class AltiumInputs:
     """What the writers take for one design. ``pcb`` is ``None`` when no PCB document can be written;
     ``schematic`` is the design whose circuit the schematic writer takes. ``written`` counts the model
     items the PCB document holds, per kind; ``not_lowered`` maps a kind to the ids of the model entities
-    that it does not hold, and ``reasons`` to the reason of the first one."""
+    that it does not hold, and ``reasons`` to the reason of the first one. ``lost`` (change c0159) maps a
+    kind to its reasons and each reason to the ids left out for it, every item under its own reason;
+    ``not_lowered`` and ``reasons`` are views of it."""
 
     name: str
     pcb: pcbdoc.PcbDocSpec | None
@@ -210,6 +217,10 @@ class AltiumInputs:
     them, whether or not the board holds one."""
     body_reasons: Mapping[str, int] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
     """Reason → the number of component bodies that were not written for it."""
+    lost: Mapping[str, Mapping[str, tuple[str, ...]]] = dataclasses.field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    """Kind → reason → the ids of the model items left out for that reason, in the order of the write."""
 
     def counts(self) -> dict[str, int]:
         """Kind → number of model items that are not written, for the kinds that have any."""
@@ -269,6 +280,7 @@ class _Account:
         self.written: dict[str, int] = {}
         self.kept: dict[str, list[str]] = {}
         self.reasons: dict[str, str] = {}
+        self.lost: dict[str, dict[str, list[str]]] = {}
         self.body_reasons: dict[str, int] = {}
 
     def wrote(self, kind: str, count: int = 1) -> None:
@@ -277,6 +289,7 @@ class _Account:
     def skip(self, kind: str, ident: str, reason: str) -> None:
         self.kept.setdefault(kind, []).append(ident)
         self.reasons.setdefault(kind, reason)
+        self.lost.setdefault(kind, {}).setdefault(reason, []).append(ident)
 
     def skip_body(self, ident: str, reason: str) -> None:
         """A component body that is not written, counted under ``body`` and by its reason."""
@@ -640,11 +653,16 @@ def _extras(pad: Pad, ratios: Mapping[str, Decimal]) -> pcblib.PadExtras:
 
 def _pad_problem(pad: Pad, extras: pcblib.PadExtras, *, unnamed: bool = False) -> str | None:
     """Why the pad record cannot hold ``pad`` (``pcblib.check_footprint``), or ``None``. ``unnamed``
-    accepts a pad without a number: a free pad has none."""
+    accepts a pad without a number: a free pad has none. The reason names no pad number (change c0159):
+    the items left out are counted per reason, and the pad is named by its id."""
     probe = dataclasses.replace(pad, number="1") if unnamed and not pad.number else pad
-    return pcblib.check_footprint(
+    refusal = pcblib.check_footprint(
         FootprintDef(id=pad.id, name="pad", pads=(probe,)), {pad.id: extras}
     ).refusal
+    named = f"pad {probe.number!r}"
+    if refusal is not None and refusal.startswith(named):
+        return "the pad" + refusal[len(named) :]
+    return refusal
 
 
 def _library_pad(pad: Pad, *, bottom: bool) -> Pad:
@@ -1314,6 +1332,9 @@ def from_design(
         if "pin_pads" in pairs_of(component):
             reason = "a map record that names no pad, or a pad that another pin holds, is not written"
             account.skip("pin-pads", component.id, reason)
+    for component in design.circuit.components:
+        if component.dnp:
+            account.skip(DNP_KIND, component.id, DNP_REASON)
     for module in design.circuit.modules:
         account.skip(
             "module", module.id, "the generated schematic is one sheet: no sheet of a module is written"
@@ -1338,6 +1359,12 @@ def from_design(
         MappingProxyType(dict(account.reasons)),
         body_mode,
         MappingProxyType(dict(sorted(account.body_reasons.items()))),
+        MappingProxyType(
+            {
+                kind: MappingProxyType({reason: tuple(ids) for reason, ids in reasons.items()})
+                for kind, reasons in account.lost.items()
+            }
+        ),
     )
 
 
@@ -1766,6 +1793,8 @@ __all__ = [
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "MORE_KINDS",
+    "DNP_KIND",
+    "DNP_REASON",
     "NET_TIE_KIND",
     "NET_TIE_REASON",
     "SEVERITY_KIND",

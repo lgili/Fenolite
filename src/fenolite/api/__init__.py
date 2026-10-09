@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Fenolite's public Python surface (capability design-equivalence, "Public equivalence API"; change
-c0158).
+c0158; capability design-conversion, "Conversion verified by equivalence"; change c0159).
 
 ``fenolite.api`` sits on top of the packages: it may import the model, the backends, ``checks``,
 ``analysis``, ``convert`` and ``lens``, and only ``cli``, ``agent`` and the root modules may import it
@@ -10,10 +10,12 @@ c0158).
 
 from __future__ import annotations
 
+from fenolite.api.conversion import ConversionResult, convert
 from fenolite.api.equivalence import EquivalenceResult, Side, equivalent
 from fenolite.api.sides import SideError, SideMissingError, SideUsageError, ToolMajorError, ToolMissingError
 
 __all__ = [
+    "ConversionResult",
     "EquivalenceResult",
     "Side",
     "SideError",
@@ -21,5 +23,6 @@ __all__ = [
     "SideUsageError",
     "ToolMajorError",
     "ToolMissingError",
+    "convert",
     "equivalent",
 ]

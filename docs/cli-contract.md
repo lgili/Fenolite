@@ -2687,6 +2687,64 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10; `FEN-6001` also for a schematic side outside the own netlist's grammar without `kicad-cli` |
 | 3 | `FEN-3004` | `kicad-cli` exported no netlist of a schematic side |
 
+## convert
+
+`fenolite convert SRC --to kicad|altium --out DIR [--name NAME] [--altium-bodies extruded|off]
+[--report-ids] [--no-verify]`, with the global `--kicad-version` and `--allow-lossy`, converts a project to
+another backend, or to another KiCad major, and says per kind and per reason what it kept, changed and lost
+(change c0159; `docs/conversion.md` holds the kinds, the report, the verification and the directions). The
+command calls `fenolite.api.convert`; its `result` follows the schema `schemas/fenolite.convert.v0.json`.
+It is mutating: `--dry-run` gives `result.plan` with every file under `DIR`, and `--confirm` writes them all
+or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is given.
+
+- `SRC` is a `.kicad_pro`, a `.kicad_pcb` or a KiCad project folder, resolved as `check` resolves it; the
+  board is completed with the net classes and the custom rules of its project files. An Altium `.PrjPcb`,
+  `.PcbDoc` or folder is read too, and is refused until a direction from Altium is registered (c0161).
+- The directions are listed under `result.conversions` of `capabilities`: KiCad to Altium (experimental,
+  `INFERRED`), and KiCad to KiCad for the major of `--kicad-version` when it is not older than the
+  source's.
+- `DIR` may be an existing folder, but never the source's folder or a folder that holds it.
+- Every conversion is verified: the written project is read back with the target backend and compared with
+  the source by `fenolite.api.equivalent` under the direction's profile; each difference must be explained
+  by an item the report names as lost. `--no-verify` skips the step, and the evidence is then `UNVERIFIED`.
+
+| option | meaning |
+|---|---|
+| `--to kicad\|altium` | the backend of the converted project |
+| `--out DIR` | the folder of the converted project |
+| `--name NAME` | the stem of the written files (default: the source's) |
+| `--altium-bodies extruded\|off` | write the extruded component bodies into an Altium PCB document (default), or none |
+| `--report-ids` | list the ids of the changed and lost items under each reason of the report |
+| `--no-verify` | do not read the converted project back |
+
+`result` holds:
+
+| key | value |
+|---|---|
+| `source` | `path` (the file read: the board of a KiCad project, the project file or document of an Altium one), `backend`, `kind` (`kicad_pcb`, `kicad_pro`, `altium_prjpcb`, `altium_pcbdoc`) and `format_version` (a KiCad board's header version, else `null`) |
+| `target` | `backend`, and `major`: the KiCad major of a KiCad target, else `null` |
+| `files` | `{name, bytes}` per file of the converted project |
+| `report` | `lossy`, `refused` (the `refuse` kinds with losses) and `rows`: per kind, `kind`, `group`, `loss` (`refuse` or `report`), `source`, `written`, `changed`, `lost` and `reasons`, each `{reason, outcome, count}` (`ids` too with `--report-ids`), sorted by count and then reason |
+| `equivalence` | `null` with `--no-verify`, else the `result` of `equivalent` with `explained` (the differences that a lost item explains, each with `by`, its kind) and `unexplained` (a count) |
+| `experimental` | `true` for a direction that writes Altium documents |
+
+| code | severity | meaning |
+|---|---|---|
+| `convert.lossy` | warning | with `--allow-lossy`: items of a `refuse` kind are not converted (one per kind, counts per reason) |
+| `convert.changed` | info | items of a kind are written in another form that compares equal (one per kind) |
+| `convert.no-verify` | warning | the conversion was not read back |
+| `convert.unexplained` | error | a difference of the read-back that no lost item explains; nothing is planned |
+
+| exit | error | when |
+|---|---|---|
+| 0 | none | converted, every difference explained |
+| 2 | `FEN-2001` | `SRC` is no KiCad or Altium project, or a pair of backends without a direction; `--out` is the source's folder or holds it; a bad `--name` |
+| 3 | `FEN-3001`, the reader's code | `SRC` does not exist, or does not read |
+| 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
+| 5 | `FEN-5001` | a `convert.unexplained` error; nothing is planned |
+| 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), or a document too large for the Altium writer |
+| 7 | `FEN-7002` | `--kicad-version` older than the source's major |
+
 ## manifest
 
 `fenolite manifest PATH [--artifacts DIR]... [--stages a,b] [--no-check] [--verify] [--out FILE]

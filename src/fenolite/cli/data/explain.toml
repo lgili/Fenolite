@@ -1188,6 +1188,26 @@ meaning = "A waiver of the design script (design.waive) matched no finding of th
 fix = "Remove the waiver from the script, or name its items as the 'where' of the finding prints them, then build again."
 see = "check"
 
+["convert.changed"]
+meaning = "Items of the kind that 'where' names are written in another form that compares equal, such as a polygon written unpoured or a schematic generated from the circuit. The message counts them per reason."
+fix = "Nothing to do; repour the polygons in the target tool. result.report lists every reason."
+see = "convert"
+
+["convert.lossy"]
+meaning = "The converted project does not hold items of a kind that changes the board made or its bill of materials ('where' names the kind); --allow-lossy accepted the loss. The message counts them per reason."
+fix = "Read result.report; change the source so the target holds the items, or keep the loss."
+see = "convert"
+
+["convert.no-verify"]
+meaning = "The converted project was not read back and compared with the source (--no-verify), so nothing checks that it differs only where the report says; the evidence is UNVERIFIED."
+fix = "Run the conversion without --no-verify."
+see = "convert"
+
+["convert.unexplained"]
+meaning = "The converted project, read back, differs from the source at 'where', and no item that the report names as lost explains it: a writer changed the design without saying so. Nothing was written."
+fix = "Report it with the source; the message names the level, the kind and the two values."
+see = "convert"
+
 ["copper.clearance"]
 meaning = "Copper of two nets is closer than the clearance in force for the pair; 'where' names both items."
 fix = "Move the items apart, or correct the clearance of the net class or the rule."

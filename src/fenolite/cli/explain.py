@@ -66,6 +66,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.cli.cmd_restore", "ISSUE_CODES"),
     ("fenolite.cli.cmd_roundtrip", "ISSUE_CODES"),
     ("fenolite.cli.codes", "ISSUE_CODES"),
+    ("fenolite.convert.codes", "ISSUE_CODES"),
     ("fenolite.exports.codes", "ISSUE_CODES"),
     ("fenolite.exports.impedance", "ISSUE_CODES"),
     ("fenolite.lens.altium", "ALTIUM_ISSUE_CODES"),

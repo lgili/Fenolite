@@ -1,0 +1,32 @@
+# The verification profiles of the conversion directions (capability design-conversion, "Conversion
+# verified by equivalence"; change c0159).
+#
+# `fenolite.api.convert` reads the written project back with the target backend and compares it with the
+# design that was written, under the profile of the direction, in the exclusion format of change c0045
+# (docs/equivalence.md). A rule names a known, explained difference with its hypothesis; a difference that
+# a lost item of the report explains needs no rule (convert.report.EXPLAINS). `tool_version` is not used
+# to select a profile: a direction names its profile.
+
+schema = 1
+
+[[profile]]
+name = "kicad-to-altium"
+tool = "fenolite"
+tool_version = "0"
+# The writer moves the board's corner to the document's origin, so the comparison is relative. A length is
+# written in 1/10 000 mil (2.54 nm), and the read-back of the 16 KiCad 10.0.6 demo boards that the writer
+# writes differs by at most 2 nm per coordinate (tests/corpus/test_convert_census.py, 2026-10-09).
+frame = "relative"
+tolerance_nm = 3
+tolerance_udeg = 0
+# As the triangle's: a routed length differs by at most 20 parts per million after the rounding of its ends.
+tolerance_ppm = 20
+
+[[profile]]
+name = "kicad-to-kicad"
+tool = "fenolite"
+tool_version = "0"
+# The board is written with its own coordinates and units: no tolerance.
+frame = "absolute"
+tolerance_nm = 0
+tolerance_udeg = 0
