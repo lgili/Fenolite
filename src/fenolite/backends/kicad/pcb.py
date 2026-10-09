@@ -3289,6 +3289,37 @@ def _net_form_edits(root: Node, info: FormatInfo) -> list[resolver.Edit]:
     ]
 
 
+LAYER_UNDECLARED = "kicad.board.layer-undeclared"
+"""The writer's error for an item on a layer name that no row of the board's table declares (change
+c0161; ``board.md``, the row of ``H-K-BOARD-USERLAYERS``: KiCad refuses to load such a board)."""
+
+
+def undeclared_layers(board: Board) -> dict[str, int]:
+    """The modelled items of ``board`` per layer name that no layer of ``board.layers`` declares, sorted by
+    name: the fields, pads, graphics and texts of footprints, tracks, arcs, vias, zones, rule areas,
+    graphics, texts and dimensions. A wildcard (``*.Cu``, ``F&B.Cu``) counts under each real name it
+    stands for."""
+    declared = {layer.name for layer in board.layers}
+    copper = [layer.name for layer in board.layers if layer.kind == "copper"]
+    found: Counter[str] = Counter()
+
+    def count(names: Iterable[str]) -> None:
+        listed = list(names)
+        real = expand_layers(listed, copper) if has_wildcard(listed) else tuple(listed)
+        found.update(name for name in dict.fromkeys(real) if name not in declared)
+
+    for fp in board.footprints:
+        for item in (*fp.fields, *fp.graphics, *fp.texts):
+            count((item.layer,))
+        for pad in fp.pads:
+            count(pad.layers)
+    for item in (*board.tracks, *board.arcs, *board.graphics, *board.texts, *board.dimensions):
+        count((item.layer,))
+    for area in (*board.vias, *board.zones, *board.keepouts):
+        count(area.layers)
+    return dict(sorted(found.items()))
+
+
 def write_board(
     design: Design,
     *,

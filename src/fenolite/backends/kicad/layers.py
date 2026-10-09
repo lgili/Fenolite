@@ -169,7 +169,53 @@ def created_count(names: Sequence[str]) -> int | None:
 def created_layers(copper: int) -> tuple[Layer, ...]:
     """The layers of a created board, with the KiCad number, type and user name in ``ext["kicad"]``.
     ``copper`` is a count of ``CREATED_COPPER_COUNTS``; any other value raises ``ValueError``."""
-    rows = CREATED_ROWS[:1] + inner_rows(copper) + CREATED_ROWS[1:]
+    return layers_of_rows(CREATED_ROWS[:1] + inner_rows(copper) + CREATED_ROWS[1:])
+
+
+Row = tuple[int, str, str, str | None]
+"""A row of a board's layer table: number, name, type, user name (``None``: none written)."""
+MAX_COPPER = 32
+"""The most copper layers a KiCad board holds: ``F.Cu``, ``In1.Cu`` … ``In30.Cu``, ``B.Cu``
+(``board.md``, "Layer tables of any copper count"; ``H-K-PCB-LAYERS``)."""
+USER_FIRST_NUMBER = 39
+"""The number of ``User.1``; ``User.<n>`` is numbered ``39 + 2(n − 1)`` (``board.md``, "User layers";
+``H-K-BOARD-USERLAYERS``)."""
+USER_LAYERS: Mapping[int, int] = MappingProxyType({9: 45, 10: 45})
+"""The most user layers ``User.1`` … ``User.<n>`` a board of each target major holds (``board.md``, "User
+layers"; ``H-K-BOARD-USERLAYERS``)."""
+
+
+def board_rows(copper: int) -> tuple[Row, ...]:
+    """The layer table of a board of ``copper`` layers, any even count from 2 to ``MAX_COPPER``: the rows
+    of ``CREATED_ROWS`` with the inner rows ``(2k + 2, "In<k>.Cu", "signal")`` after ``F.Cu`` (change
+    c0161). ``CREATED_COPPER_COUNTS`` stays the counts a script may ask for; any other ``copper`` raises
+    ``ValueError``."""
+    if isinstance(copper, bool) or copper % 2 or not 2 <= copper <= MAX_COPPER:
+        raise ValueError(
+            f"a KiCad board has an even count of 2 to {MAX_COPPER} copper layers, not {copper!r}"
+        )
+    inner = tuple((2 * k + 2, f"In{k}.Cu", "signal", None) for k in range(1, copper - 1))
+    return (*CREATED_ROWS[:1], *inner, *CREATED_ROWS[1:])
+
+
+def user_rows(count: int, *, target: int, names: Sequence[str | None] = ()) -> tuple[Row, ...]:
+    """The rows of ``User.1`` … ``User.<count>``, numbered from ``USER_FIRST_NUMBER`` by two, with the user
+    name ``names[n − 1]`` where one is given. ``count`` above ``USER_LAYERS[target]`` raises
+    ``ValueError``."""
+    most = USER_LAYERS.get(target)
+    if most is None:
+        raise ValueError(f"no user layer count is recorded for KiCad {target}")
+    if count < 0 or count > most:
+        raise ValueError(f"a KiCad {target} board holds 0 to {most} user layers, not {count}")
+    given = list(names) + [None] * (count - len(names))
+    return tuple(
+        (USER_FIRST_NUMBER + 2 * (n - 1), f"User.{n}", "user", given[n - 1]) for n in range(1, count + 1)
+    )
+
+
+def layers_of_rows(rows: Sequence[Row]) -> tuple[Layer, ...]:
+    """The model layers of the table ``rows``, in order, with each row's number, type and user name in
+    ``ext["kicad"]``."""
     layers: list[Layer] = []
     for ordinal, (number, name, row_type, user_name) in enumerate(rows):
         pairs = [("number", str(number)), ("type", row_type)]
@@ -476,7 +522,12 @@ __all__ = [
     "LAYER_KINDS",
     "MERGE_ISSUE_CODES",
     "LayerMerge",
+    "MAX_COPPER",
     "PLANE_ROW_TYPE",
+    "USER_FIRST_NUMBER",
+    "USER_LAYERS",
+    "Row",
+    "board_rows",
     "created_count",
     "created_layers",
     "expand_layers",
@@ -485,7 +536,9 @@ __all__ = [
     "inner_rows",
     "is_canonical",
     "layer_kind",
+    "layers_of_rows",
     "merge_layers",
     "plane_layers",
+    "user_rows",
     "with_plane_types",
 ]

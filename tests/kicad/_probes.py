@@ -90,6 +90,7 @@ import _sheetcases
 import _stackbench
 import _tiebench
 import _triad
+import _userlayers
 import _vendorcases
 import _viabench
 import _zbench
@@ -375,6 +376,8 @@ def _probes() -> dict[str, Probe]:
         **_downbench.down_probes(runner),
         **_downbench.demo_probes(runner),
     }.items():  # c0162
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _userlayers.user_layer_probes(runner, major).items():  # change c0161
         probes[pid] = Probe(function, majors)
     # change c0105: `pro-tuning-gap-clearance-rule` is pinned since its outcome was read on 10.0.6 (task 1.3)
     for pid, (function, majors) in {**_zbench.tuning_probes(), **_zbench.width_probes()}.items():
