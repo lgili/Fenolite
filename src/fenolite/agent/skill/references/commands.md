@@ -19,6 +19,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 | `capabilities` | no | list commands, backends, extras and external tools available here |
 | `catalog` | no | inspect the built-in component catalog |
 | `check` | no | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only |
+| `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
 | `diff` | no | list the differences between two boards, libraries, built models or Altium files (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
@@ -137,6 +138,21 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--stages` (string): stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
 - `--kicad-cli` (string): the kicad-cli to run (unused for Altium input)
 - `--timeout` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
+
+## convert
+
+`fenolite convert [--dry-run] [--confirm] [--plan ID] --to {altium,kicad} --out DIR [--name NAME] [--altium-bodies {extruded,off}] [--report-ids] [--no-verify] SRC`
+
+- `--dry-run` (boolean): show the plan; write nothing
+- `--confirm` (boolean): perform the writes
+- `--plan` (string): with --confirm: write the reviewed plan of this id
+- `SRC` (string, required): a KiCad project, board or folder
+- `--to` (string, one of `altium`, `kicad`, required): the target backend
+- `--out` (string, required): the target folder (not the source's)
+- `--name` (string): the file stem
+- `--altium-bodies` (string, one of `extruded`, `off`, default `extruded`): Altium bodies: extruded (default) or none
+- `--report-ids` (boolean): list item ids in the report
+- `--no-verify` (boolean): skip the read-back (evidence UNVERIFIED)
 
 ## diff
 

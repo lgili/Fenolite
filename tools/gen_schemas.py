@@ -62,6 +62,12 @@ def _targets() -> list[Target]:
             "schemas/fenolite.equivalent.v0.json",
             True,
         ),
+        Target(
+            "fenolite.convert.v0",
+            "fenolite.api.schema:ConvertReply",
+            "schemas/fenolite.convert.v0.json",
+            True,
+        ),
     ]
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
     definitions = [

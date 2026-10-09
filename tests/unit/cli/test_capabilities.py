@@ -54,6 +54,23 @@ def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> N
     assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == ["equivalent"]
 
 
+def test_directions_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    """Capability cli-contract, "Conversions in capabilities", scenario "Directions listed" (change c0159);
+    the brief view names the command and no direction."""
+    result = _capabilities(capsys, "--no-tools")
+    conversions = result["conversions"]
+    assert [(c["from"], c["to"]) for c in conversions] == [("kicad", "altium"), ("kicad", "kicad")]  # type: ignore[index, union-attr]
+    altium, kicad = conversions  # type: ignore[misc]
+    assert altium["experimental"] is True and altium["targets"] == []
+    assert kicad["experimental"] is False and kicad["targets"] == [9, 10]
+    for entry in (altium, kicad):
+        assert set(entry) == {"from", "to", "targets", "experimental", "evidence"}
+        assert set(entry["evidence"]) == {"level", "oracle", "hypotheses"}
+    brief = _capabilities(capsys, "--brief", "--no-tools")
+    assert "convert" in {c["name"] for c in brief["commands"]}  # type: ignore[union-attr]
+    assert "conversions" not in brief
+
+
 def test_missing_tools_are_null_not_fatal(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

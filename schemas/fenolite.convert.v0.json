@@ -1,0 +1,724 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.convert.v0",
+  "title": "ConvertReply",
+  "description": "The result of fenolite convert.",
+  "type": "object",
+  "properties": {
+    "source": {
+      "$ref": "#/$defs/ConvertSource"
+    },
+    "target": {
+      "$ref": "#/$defs/ConvertTarget"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ConvertFile"
+      }
+    },
+    "report": {
+      "$ref": "#/$defs/ReportReply"
+    },
+    "equivalence": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ConvertEquivalence"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "experimental": {
+      "type": "boolean"
+    },
+    "plan": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "the planned writes"
+    },
+    "plan_id": {
+      "type": "string",
+      "description": "the id of the staged plan"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "target",
+    "files",
+    "report",
+    "equivalence",
+    "experimental"
+  ],
+  "$defs": {
+    "ConvertEquivalence": {
+      "description": "The verification of a conversion: the reply of fenolite equivalent with the explained differences.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "the highest level run; 0 when none ran"
+        },
+        "equivalent": {
+          "type": "boolean"
+        },
+        "sides": {
+          "$ref": "#/$defs/ReplySides"
+        },
+        "tolerances": {
+          "$ref": "#/$defs/ReplyTolerances"
+        },
+        "frame": {
+          "enum": [
+            "absolute",
+            "relative"
+          ]
+        },
+        "translation": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "items": false
+        },
+        "levels": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplyLevel"
+          }
+        },
+        "differences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplyDifference"
+          }
+        },
+        "notices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplyDifference"
+          }
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplyExcluded"
+          }
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReplyProfile"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tool_version": {
+          "type": "string",
+          "description": "kicad-cli of a triangle whose converter gave no board"
+        },
+        "explained": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReplyExplained"
+          }
+        },
+        "unexplained": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "equivalent",
+        "sides",
+        "tolerances",
+        "frame",
+        "translation",
+        "levels",
+        "differences",
+        "notices",
+        "excluded",
+        "profile",
+        "explained",
+        "unexplained"
+      ]
+    },
+    "ConvertFile": {
+      "description": "One file of the converted project.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "bytes"
+      ]
+    },
+    "ConvertSource": {
+      "description": "The source as read: the file read, its backend and input kind, and a KiCad board's format version.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "backend": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "format_version": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "backend",
+        "kind",
+        "format_version"
+      ]
+    },
+    "ConvertTarget": {
+      "description": "The target backend, and the KiCad major of a KiCad target.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "enum": [
+            "kicad",
+            "altium"
+          ]
+        },
+        "major": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "major"
+      ]
+    },
+    "ReplyDifference": {
+      "description": "A difference or a notice, located at ``REF``, ``REF-PIN`` or a net.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "component-missing",
+            "ref-ambiguous",
+            "value",
+            "dnp",
+            "pin-missing",
+            "net",
+            "footprint-missing",
+            "footprint-name",
+            "pad-missing",
+            "pad-kind",
+            "pad-shape",
+            "pad-size",
+            "pad-drill",
+            "pad-position",
+            "pad-rotation",
+            "pad-copper",
+            "side",
+            "position",
+            "rotation",
+            "route-missing",
+            "route-connectivity",
+            "route-vias",
+            "route-length",
+            "route-stub",
+            "route-unjudged"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "kind",
+        "where",
+        "field",
+        "a",
+        "b"
+      ]
+    },
+    "ReplyExcluded": {
+      "description": "A difference that a rule of the profile excluded.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "component-missing",
+            "ref-ambiguous",
+            "value",
+            "dnp",
+            "pin-missing",
+            "net",
+            "footprint-missing",
+            "footprint-name",
+            "pad-missing",
+            "pad-kind",
+            "pad-shape",
+            "pad-size",
+            "pad-drill",
+            "pad-position",
+            "pad-rotation",
+            "pad-copper",
+            "side",
+            "position",
+            "rotation",
+            "route-missing",
+            "route-connectivity",
+            "route-vias",
+            "route-length",
+            "route-stub",
+            "route-unjudged"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "rule": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "kind",
+        "where",
+        "field",
+        "a",
+        "b",
+        "rule"
+      ]
+    },
+    "ReplyExplained": {
+      "description": "A difference of the read-back that a lost item of the report explains.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "component-missing",
+            "ref-ambiguous",
+            "value",
+            "dnp",
+            "pin-missing",
+            "net",
+            "footprint-missing",
+            "footprint-name",
+            "pad-missing",
+            "pad-kind",
+            "pad-shape",
+            "pad-size",
+            "pad-drill",
+            "pad-position",
+            "pad-rotation",
+            "pad-copper",
+            "side",
+            "position",
+            "rotation",
+            "route-missing",
+            "route-connectivity",
+            "route-vias",
+            "route-length",
+            "route-stub",
+            "route-unjudged"
+          ]
+        },
+        "where": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "a": {
+          "type": "string"
+        },
+        "b": {
+          "type": "string"
+        },
+        "by": {
+          "type": "string",
+          "description": "the kind of the lost item, or source"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "kind",
+        "where",
+        "field",
+        "a",
+        "b",
+        "by"
+      ]
+    },
+    "ReplyLevel": {
+      "description": "One level that ran, with its counts and summary.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string",
+          "enum": [
+            "components",
+            "netlist",
+            "footprints",
+            "placement",
+            "routing"
+          ]
+        },
+        "compared": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "differences": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "notices": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "name",
+        "compared",
+        "differences",
+        "excluded",
+        "notices",
+        "summary"
+      ]
+    },
+    "ReplyProfile": {
+      "description": "The exclusion profile applied.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "rules": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "tool_version",
+        "rules"
+      ]
+    },
+    "ReplySide": {
+      "description": "One side of the comparison.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "the file or folder name, without its folder"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "backend": {
+          "type": "string"
+        },
+        "netlist_source": {
+          "type": "string",
+          "enum": [
+            "board",
+            "circuit",
+            "schematic"
+          ]
+        },
+        "components": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "footprints": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tool_version": {
+          "type": "string",
+          "description": "kicad-cli of the triangle's side b"
+        },
+        "power_symbols": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "a schematic side's power symbols"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "backend",
+        "netlist_source",
+        "components",
+        "footprints"
+      ]
+    },
+    "ReplySides": {
+      "description": "The two sides; ``b`` is null when the triangle's converter gave no board.",
+      "type": "object",
+      "properties": {
+        "a": {
+          "$ref": "#/$defs/ReplySide"
+        },
+        "b": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReplySide"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "a",
+        "b"
+      ]
+    },
+    "ReplyTolerances": {
+      "description": "The tolerances of the comparison.",
+      "type": "object",
+      "properties": {
+        "length_nm": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "angle_udeg": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length_ppm": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "length_nm",
+        "angle_udeg",
+        "length_ppm"
+      ]
+    },
+    "ReportReason": {
+      "description": "The items of one kind changed or lost for one reason.",
+      "type": "object",
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "changed",
+            "lost"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "with --report-ids"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "reason",
+        "outcome",
+        "count"
+      ]
+    },
+    "ReportReply": {
+      "description": "The conversion report.",
+      "type": "object",
+      "properties": {
+        "lossy": {
+          "type": "boolean"
+        },
+        "refused": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportRowReply"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "lossy",
+        "refused",
+        "rows"
+      ]
+    },
+    "ReportRowReply": {
+      "description": "One kind of the report.",
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "group": {
+          "enum": [
+            "circuit",
+            "footprint",
+            "copper",
+            "board",
+            "presentation",
+            "project"
+          ]
+        },
+        "loss": {
+          "enum": [
+            "refuse",
+            "report"
+          ]
+        },
+        "source": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "written": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lost": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ReportReason"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "group",
+        "loss",
+        "source",
+        "written",
+        "changed",
+        "lost",
+        "reasons"
+      ]
+    }
+  }
+}

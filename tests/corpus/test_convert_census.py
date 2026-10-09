@@ -20,6 +20,8 @@ fitted under ``dnp``.
 
 from __future__ import annotations
 
+import io
+import json
 import re
 import tempfile
 from collections import Counter
@@ -34,6 +36,7 @@ from fenolite.backends import registry
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.checks.equivalence import EquivalenceReport, Tolerances, compare_designs, max_level
+from fenolite.cli.main import main
 from fenolite.convert import TargetLimitError
 from fenolite.lens.altium import write_model
 from fenolite.model.design import Design
@@ -208,3 +211,24 @@ def test_too_large_boards_are_refused(key: str) -> None:
     with pytest.raises(TargetLimitError, match=f"needs {CONVERT_TOO_LARGE[key]} FAT sectors"):
         convert(require(ITEMS[key]), to="altium", allow_lossy=True)
 
+
+def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Exit 7 without consent": ``RoyalBlue54L-Feather`` loses pads and fitted flags; without
+    ``--allow-lossy`` the command exits 7 naming both kinds, with it the plan comes with one
+    ``convert.lossy`` warning per kind."""
+    board = require(ITEMS["13"])
+    monkeypatch.chdir(tmp_path)
+    argv = ["convert", str(board), "--to", "altium", "--out", "out", "--dry-run", "--json"]
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    assert main(argv) == 7
+    assert json.loads(err.getvalue())["code"] == "FEN-7001"
+    refused = {issue["where"] for issue in json.loads(out.getvalue())["issues"]}
+    assert {"pad", "dnp"} <= refused
+    out.truncate(0)
+    out.seek(0)
+    assert main(["--allow-lossy", *argv]) == 0
+    envelope = json.loads(out.getvalue())
+    lossy = {i["where"] for i in envelope["issues"] if i["code"] == "convert.lossy"}
+    assert lossy == refused and envelope["result"]["plan"]

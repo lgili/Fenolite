@@ -7,7 +7,7 @@ summary: Read a file Fenolite did not write, tell whether editing it is safe, co
 # Reading, comparing and undoing
 
 The commands of this page read files and answer. None runs a tool unless the page says so, and only
-`fmt` and `restore` write.
+`fmt`, `convert` and `restore` write.
 
 ## What is in a file
 
@@ -22,9 +22,8 @@ document, and reports its `kind`, its `format_version`, the KiCad `major` that w
 (`supported`, or why it is not) and `counts`: footprints, pads, nets, tracks, vias, zones. Start here
 with any file you are handed. `--streams` lists the streams of an Altium compound file.
 
-For more than counts, ask the board: `fenolite net`, `fenolite pads`, `fenolite region` and
-`fenolite neighbors` (pages `routing` and `placement`) work on any KiCad board, also one that Fenolite
-did not write.
+For more than counts, `net`, `pads`, `region` and `neighbors` (pages `routing`, `placement`) read any
+KiCad board.
 
 ## Is it safe to edit this file?
 
@@ -33,18 +32,17 @@ fenolite roundtrip blink/build/blink.kicad_pcb --json
 fenolite roundtrip blink/build/blink.kicad_pcb --level rt0 --json
 ```
 
-Before a command of Fenolite changes a file that Fenolite did not write, ask `roundtrip`. It reads the
-file and writes it back in memory, and writes nothing to disk:
+Before Fenolite changes a file it did not write, ask `roundtrip`, which writes the file back in memory
+only:
 
 - `rt0`: parsing the file, printing it and parsing it again gives an equal tree;
-- `rt1` (the default): also, Fenolite's rebuild of the board or schematic gives an equal tree, an equal
-  design and the same content that Fenolite does not model;
+- `rt1` (the default): also, Fenolite's rebuild of the board or schematic gives an equal tree, design
+  and unmodelled content;
 - `rt2`: also, KiCad's own checks give the same findings for the file and for Fenolite's copy of it
   (a project, with `kicad-cli`).
 
-`result.level` is the highest level that holds. Exit 5 with `roundtrip.failed` means reading the file
-and writing it back would change it, and `where` is the first difference: edit that file in KiCad, not
-with Fenolite.
+`result.level` is the highest level that holds. Exit 5 with `roundtrip.failed` (`where`: the first
+difference) means the write would change the file: edit it in KiCad, not with Fenolite.
 
 ## What changed between two files?
 
@@ -54,15 +52,10 @@ fenolite diff blink/build blink/other --json
 fenolite diff blink/build/blink.kicad_pcb blink/other/blink.kicad_pcb --view tree --json
 ```
 
-`diff A B` compares two boards, footprint files, symbol libraries, built projects or Altium files.
-
-- The default view compares what the files mean: `result.equal`, a `summary` of added, removed and
-  changed items per kind, and `differences`, each with a `path` and a `change`. A moved footprint is
-  one change, however many lines of the file moved.
-- `--view tree` compares the files as trees: `equal`, and `first_difference`, the first place where
-  they differ. Use it to say whether two KiCad files differ at all.
-- `diff` exits 0 whether the files are equal or not: read `result.equal`.
-- Two built folders compare the designs they hold (`.fenolite/`): parts, nets, rules.
+`diff A B` compares two boards, footprint files, symbol libraries, built projects (their `.fenolite/`
+designs) or Altium files by meaning: `result.equal`, a `summary` per kind and `differences`, each with a
+`path` and a `change` (a moved footprint is one change). `--view tree` gives the `first_difference` of
+the two trees. It exits 0 either way: read `result.equal`.
 
 ## Are two designs equivalent?
 
@@ -72,23 +65,20 @@ fenolite equivalent blink/build blink/other --level 2 --json
 fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --json
 ```
 
-`equivalent A B` answers level by level, and it can compare a KiCad project with an Altium one:
+`equivalent A B` compares level by level (1 components, 2 netlist, 3 footprints, 4 placement, 5
+routing), also a KiCad project with an Altium one, up to the highest level both hold (`--level 2`: the
+circuits only). Exit 0 with `result.equivalent` true, or exit 5 with one `equiv.*` issue per difference,
+at a reference, a pin or a net. `--tolerance-nm N`, `--frame relative` (one translation removed) and
+`--ignore-ref GLOB` loosen it. With two paths it runs no tool.
 
-| level | compares |
-|---|---|
-| 1 | the components |
-| 2 | the netlist |
-| 3 | the footprints |
-| 4 | the placement |
-| 5 | the routing |
+## Converting a project
 
-- Without `--level`, it runs up to the highest level both sides hold. `--level 2` asks only whether
-  the circuits are the same.
-- Exit 0 and `result.equivalent` true, or exit 5 with one `equiv.*` issue per difference, located at
-  a reference, a pin or a net.
-- `--tolerance-nm N` allows a distance between two positions; `--frame relative` removes one
-  translation of the whole board; `--ignore-ref GLOB` leaves parts out.
-- With two paths it runs no tool.
+```fenolite-cmd
+fenolite convert blink/build --to altium --out blink/altium --dry-run --json
+```
+
+`result.report` counts what is written, changed or lost per kind and reason. A lost pad, copper or
+fitted flag needs `--allow-lossy` (exit 7); an unexplained difference exits 5.
 
 ## The canonical print
 
@@ -113,13 +103,9 @@ fenolite restore blink/last-write.json --dry-run --json
 fenolite restore blink/last-write.json --confirm --json
 ```
 
-- `restore ENVELOPE` puts the backups of that one write back. `--in DIR` names the working directory
-  the write ran in, when it is not the current one.
-- It refuses when a written file changed since the write (`restore.changed-since`), so nothing is half
-  undone.
-- It never deletes a file: a file that the write created stays, with `restore.kept` (info).
-- When `receipt.undo` is `null` there is nothing to restore; a write with `--no-backup` keeps no
-  backup.
-- `restore` is itself a write: its own receipt undoes it.
+`restore ENVELOPE` puts the backups of that write back (`--in DIR`: the folder it ran in). It refuses
+when a written file changed since (`restore.changed-since`), never deletes a file the write created
+(`restore.kept`), and has nothing to do when `receipt.undo` is `null` (`--no-backup`). Its own receipt
+undoes it.
 
 Read next: `checks`, `altium`, `recovery`.

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The wire shape of the ``result`` of ``fenolite equivalent`` (capability design-equivalence, "Equivalent
-result schema"; change c0158).
+"""The wire shapes of the ``result`` of ``fenolite equivalent`` (capability design-equivalence, "Equivalent
+result schema"; change c0158) and of ``fenolite convert`` (capability design-conversion, "Convert result and
+exit codes"; change c0159).
 
 ``tools/gen_schemas.py`` writes ``schemas/fenolite.equivalent.v0.json`` from ``EquivalentReply``; nothing
 builds a reply from these classes (``EquivalenceResult.to_json`` does), they only describe it. The kinds of
@@ -128,4 +129,104 @@ class EquivalentReply:
     )
 
 
-__all__ = ["KIND_NAMES", "NETLIST_SOURCES", "EquivalentReply"]
+@dataclass(frozen=True)
+class ReplyExplained:
+    """A difference of the read-back that a lost item of the report explains."""
+
+    level: int = dataclasses.field(metadata={"minimum": 1})
+    kind: str = dataclasses.field(metadata={"enum": list(KIND_NAMES)})
+    where: str
+    field: str
+    a: str
+    b: str
+    by: str = dataclasses.field(metadata={"description": "the kind of the lost item, or source"})
+
+
+@dataclass(frozen=True)
+class ConvertEquivalence(EquivalentReply):
+    """The verification of a conversion: the reply of fenolite equivalent with the explained differences."""
+
+    explained: list[ReplyExplained] = dataclasses.field(default_factory=lambda: [])
+    unexplained: int = dataclasses.field(default=0, metadata=_COUNT)
+
+
+@dataclass(frozen=True)
+class ConvertSource:
+    """The source as read: the file read, its backend and input kind, and a KiCad board's format version."""
+
+    path: str
+    backend: str
+    kind: str
+    format_version: int | None
+
+
+@dataclass(frozen=True)
+class ConvertTarget:
+    """The target backend, and the KiCad major of a KiCad target."""
+
+    backend: Literal["kicad", "altium"]
+    major: int | None
+
+
+@dataclass(frozen=True)
+class ConvertFile:
+    """One file of the converted project."""
+
+    name: str
+    bytes: int = dataclasses.field(metadata=_COUNT)
+
+
+@dataclass(frozen=True)
+class ReportReason:
+    """The items of one kind changed or lost for one reason."""
+
+    reason: str
+    outcome: Literal["changed", "lost"]
+    count: int = dataclasses.field(metadata={"minimum": 1})
+    ids: list[str] = dataclasses.field(
+        default_factory=lambda: [], metadata={"optional": True, "description": "with --report-ids"}
+    )
+
+
+@dataclass(frozen=True)
+class ReportRowReply:
+    """One kind of the report."""
+
+    kind: str
+    group: Literal["circuit", "footprint", "copper", "board", "presentation", "project"]
+    loss: Literal["refuse", "report"]
+    source: int = dataclasses.field(metadata=_COUNT)
+    written: int = dataclasses.field(metadata=_COUNT)
+    changed: int = dataclasses.field(metadata=_COUNT)
+    lost: int = dataclasses.field(metadata=_COUNT)
+    reasons: list[ReportReason] = dataclasses.field(default_factory=lambda: [])
+
+
+@dataclass(frozen=True)
+class ReportReply:
+    """The conversion report."""
+
+    lossy: bool
+    refused: list[str]
+    rows: list[ReportRowReply]
+
+
+@dataclass(frozen=True)
+class ConvertReply:
+    """The result of fenolite convert."""
+
+    source: ConvertSource
+    target: ConvertTarget
+    files: list[ConvertFile]
+    report: ReportReply
+    equivalence: ConvertEquivalence | None
+    experimental: bool
+    plan: list[dict[str, Any]] = dataclasses.field(
+        default_factory=lambda: [], metadata={"optional": True, "description": "the planned writes"}
+    )
+    plan_id: str = dataclasses.field(
+        default="", metadata={"optional": True, "description": "the id of the staged plan"}
+    )
+
+
+__all__ = ["KIND_NAMES", "NETLIST_SOURCES", "ConvertReply", "EquivalentReply"]

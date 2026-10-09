@@ -190,6 +190,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         return Result(result=_command_view(discover(), str(args.described)))
 
     from fenolite.backends import matrix  # its rows import the claims of every backend package
+    from fenolite.convert import DIRECTIONS
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
 
     commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
@@ -205,6 +206,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             [(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE), (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE)]
         ),
         "matrix": [row.to_json() for row in matrix.rows()],
+        # the registered directions of fenolite convert (capability cli-contract, "Conversions in
+        # capabilities"; change c0159)
+        "conversions": [
+            direction.to_json()
+            for direction in sorted(DIRECTIONS.values(), key=lambda d: (d.source, d.target))
+        ],
         "extras": _extras(),
         "tools": {} if args.no_tools else detect_tools(),
         "routers": [
