@@ -19,6 +19,7 @@ All notable changes to Fenolite are documented here. The format follows
 - Development: the MODIFIED deltas of c0084, c0085, c0086 and c0128 keep the scenarios of the living specs, so `openspec validate --all --strict` reports no error. Archived the specs of c0084, c0087, c0088, c0101, c0103, c0113, c0116, c0117, c0118, c0138, c0141, c0144, c0147 and c0148 in the order of `docs/release/v0.4.md`, "Archive order".
 - Development: `AGENTS.md` says that a count that `summary.limits` of `drc.kicad` names is a lower bound (c0141). The roadmap records the maintainer's decisions of 2026-10-09: the leaner 1.0 is accepted, the pending decisions with a recommendation are decided as recommended, and the next release, `0.5.0`, is v0.5a alone (conversion between KiCad and the second backend, the controlled KiCad downgrade and the public `equivalent`).
 - Development: the pair oracle of the routing job (`tests/routing/test_pair_gate.py`) routes the pair bench through `fenolite route --router kicadroutingtools --confirm` (`test_krt_pair`) and runs the loop build, route, fill, build twice on it (`test_loop`); the escape half stays dropped (c0110).
+- Development: the entry check of c0104 is done on the living specs of 2026-10-09 (c0084, c0097 and c0103 archived); its MODIFIED deltas already hold the living text, `area` selector included.
 
 ### Fixed
 
