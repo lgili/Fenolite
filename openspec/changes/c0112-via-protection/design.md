@@ -343,3 +343,7 @@ Cut order: (1) `inspect` on Altium PCB documents (the key is then absent there, 
 - **Should an Altium build tent the sides nobody states, as KiCad does?** Default: no (Decision 12): no existing output moves on an `INFERRED` fact. Revisit when `H-A-PCB-CU-VIATENT` is `ALTIUM-VERIFIED`; it would then be a change of its own, with the goldens and the samples rebuilt once.
 - **Should RT-A2 compare the tenting of vias whose two sides are stated?** Default: no; the test of this change covers stated values.
 - **A per-via list in `inspect`.** Default: counts only; c0066's views can list vias.
+
+## Found on 2026-10-09 (task 10.2)
+
+- **The guide line needed a block built for target 10 alone.** c0080 is archived, and its living requirement "Executable blocks" builds every `fenolite-design` block for targets 9 and 10; target 9 refuses `protect(filling=True, capping=True)` with exit 7 (`kicad.board.via-protection-too-new`). This change therefore modifies that requirement: the fence argument `kicad10`, beside `altium`, builds a block for target 10 alone, and `fenolite.agent.guide.DESIGN_TARGETS` maps the arguments to their targets. The rule of the guide is unchanged for every other block. Rejected: accepting the `protect(tenting=True)` line of the `routing` page as this task's line, because the task asks for filling and capping, which only target 10 holds.

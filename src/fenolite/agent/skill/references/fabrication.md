@@ -128,6 +128,32 @@ fenolite render blink/build -o blink/views --png --width 800 --height 600 --conf
 and `bottom.png` (rendered images). They are for looking at a board, yours or the user's; they are not
 fabrication data. A view shows what no finding says: a part across the outline, a text over a pad.
 
+## Filled and capped vias
+
+`protection=protect(filling=True, capping=True)` asks for the vias of a stitch to be filled and capped,
+as vias inside a pad often are. A KiCad 9 board holds tenting only, so this block builds for target 10:
+target 9 exits 7. `fenolite inspect` counts the protected vias (`result.via_protection`).
+
+```fenolite-design kicad10
+from fenolite.dsl import Design, Net, Part, connect, mm, protect
+
+design = Design("filled")
+design.board(mm(20), mm(15))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
+d1 = Part("D1", "Fenolite:LED", footprint="Fenolite:Chip_0603", value="LED")
+design.add(j1, d1)
+vin, gnd = Net("VIN"), Net("GND")
+connect(vin, j1[1], d1[1])
+connect(gnd, j1[2], d1[2])
+j1.place(mm(5), mm(7))
+d1.place(mm(14), mm(7))
+# Vias inside pad 2 of D1, filled and capped.
+design.stitch(
+    "d1_vias", net=gnd, pitch=mm(1), region=d1.pad(2), diameter=mm(0.6), drill=mm(0.3), clearance=mm(0.2),
+    protection=protect(filling=True, capping=True),
+)
+```
+
 ## What is not produced
 
 - No panel: the files hold one board.

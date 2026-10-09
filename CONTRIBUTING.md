@@ -28,6 +28,9 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    the page `recovery` for a code. `tests/unit/agent/test_pages.py` names what is missing. The pages
    `commands` and `dsl-reference` are generated: run `uv run python tools/gen_agent_guide.py` after a
    change of a command's arguments or of `fenolite.dsl`; `make check-fast` runs its `--check`.
+   A `fenolite-design` block is built for KiCad 9 and 10; the fence argument `altium` builds it for
+   Altium instead, and `kicad10` for KiCad 10 alone, for a feature that a KiCad 9 board cannot hold
+   (`fenolite.agent.guide.DESIGN_TARGETS`).
 
 ## Parallel worktrees
 

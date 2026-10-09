@@ -9,6 +9,7 @@ All notable changes to Fenolite are documented here. The format follows
 ### Added
 
 - The Altium import reads a project's annotation file (`read.annotation`, returned by `load_project` as `annotations`) and takes the designator of a channel component from it before the designator format, after the board (c0083). No public source states the form of that file, so the reader assumes one `<unique-id path>=<designator>` line per entry, reports every other line with `altium.text.unknown-key` (info) and keeps the bytes; the maintainer's Part R, step R4, settles `H-A-IMP-RPT-ANNOT`.
+- Agent guide: a `fenolite-design` block whose fence carries `kicad10` is built for KiCad 10 alone (`fenolite.agent.guide.DESIGN_TARGETS`); the page `fabrication` uses it for a stitch whose vias are filled and capped with `protect(filling=True, capping=True)`, which a KiCad 9 board cannot hold (c0112).
 
 ### Changed
 

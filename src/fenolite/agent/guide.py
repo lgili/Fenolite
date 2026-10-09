@@ -61,6 +61,10 @@ FENCE = "```"
 BLOCK_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-design", "fenolite-recipe", "json", "text")
 """The tags a fenced block of a page may carry. The first four are run by the suites; ``json`` and
 ``text`` hold samples of output."""
+DESIGN_TARGETS: dict[str, tuple[str, ...]] = {"": ("9", "10"), "altium": ("altium",), "kicad10": ("10",)}
+"""The targets a ``fenolite-design`` block is built for, by the argument of its fence: none builds it for
+KiCad 9 and 10, ``altium`` for Altium, ``kicad10`` for KiCad 10 alone (a feature that a KiCad 9 board cannot
+hold, which the build for target 9 refuses with exit 7)."""
 PAGES_BEGIN = "<!-- pages:begin -->"
 PAGES_END = "<!-- pages:end -->"
 """The two marker lines of the start page; ``tools/gen_agent_guide.py`` writes the index between them."""
@@ -359,6 +363,7 @@ __all__ = [
     "AGENTS_SECTION",
     "AGENT_DIRS",
     "BLOCK_TAGS",
+    "DESIGN_TARGETS",
     "DSL_NOT_TAUGHT",
     "GENERATED_TOPICS",
     "PAGES_BEGIN",

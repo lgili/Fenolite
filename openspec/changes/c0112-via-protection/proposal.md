@@ -44,6 +44,7 @@ None.
 - `altium-build`: ADDED "Via protection in an Altium build".
 - `altium-pcb-writer`: ADDED "Via tenting flags".
 - `altium-import`: ADDED "Via tenting of imported vias".
+- `agent-guide`: MODIFIED "Executable blocks" (2026-10-09, task 10.2): a `fenolite-design` block may be built for target 10 alone (fence argument `kicad10`).
 
 ## Non-goals
 

@@ -159,10 +159,9 @@ def tag_problems(page: guide.Page) -> list[str]:
             problems.append(f"{where}: a block without a tag; the tags are {', '.join(guide.BLOCK_TAGS)}")
         elif block.tag not in guide.BLOCK_TAGS:
             problems.append(f"{where}: unknown tag {block.tag!r}; the tags are {', '.join(guide.BLOCK_TAGS)}")
-        elif block.tag == "fenolite-design" and block.argument not in ("", "altium"):
-            problems.append(
-                f"{where}: fenolite-design takes no argument but 'altium', not {block.argument!r}"
-            )
+        elif block.tag == "fenolite-design" and block.argument not in guide.DESIGN_TARGETS:
+            known = ", ".join(repr(name) for name in guide.DESIGN_TARGETS if name)
+            problems.append(f"{where}: fenolite-design takes no argument but {known}, not {block.argument!r}")
     return problems
 
 
@@ -388,7 +387,7 @@ DESIGNS = [
     for page in PAGES
     for block in guide.blocks(page)
     if block.tag == "fenolite-design"
-    for target in (("altium",) if block.argument == "altium" else KICAD_TARGETS)
+    for target in guide.DESIGN_TARGETS.get(block.argument, KICAD_TARGETS)
 ]
 
 
@@ -494,6 +493,23 @@ def test_design_blocks_exist_where_names_are_taught() -> None:
         block.argument for block in guide.blocks(guide.page("altium")) if block.tag == "fenolite-design"
     ]
     assert altium == ["altium"]
+
+
+def test_target_ten_block_is_built_for_ten_alone(tmp_path: Path, no_tools: None) -> None:
+    """Scenario "A block for target 10 alone": the block of the page ``fabrication`` that fills and caps the
+    vias of a stitch is built for target 10 only, and the build for target 9 refuses it with exit 7."""
+    (block,) = [b for b in guide.blocks(guide.page("fabrication")) if b.tag == "fenolite-design"]
+    assert block.argument == "kicad10" and guide.DESIGN_TARGETS["kicad10"] == ("10",)
+    assert [target for _topic, b, target in (p.values for p in DESIGNS) if b == block] == ["10"]
+    assert "protect(filling=True, capping=True)" in "\n".join(block.lines)
+    problems = build_problems(block, tmp_path / "nine", "9")
+    assert problems and "exit code 7" in problems[-1]
+    assert tag_problems(_with(guide.page("fabrication"), "x")) == []
+    fence = guide.FENCE
+    wrong = tag_problems(
+        _with(guide.page("fabrication"), f"{fence}fenolite-design kicad9\ndesign = 1\n{fence}\n")
+    )
+    assert len(wrong) == 1 and "'altium', 'kicad10'" in wrong[0]
 
 
 def test_design_block_that_does_not_build_is_reported(tmp_path: Path, no_tools: None) -> None:
