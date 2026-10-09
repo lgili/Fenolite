@@ -61,10 +61,11 @@ def test_directions_listed(capsys: pytest.CaptureFixture[str]) -> None:
     conversions = result["conversions"]
     assert [(c["from"], c["to"]) for c in conversions] == [("kicad", "altium"), ("kicad", "kicad")]  # type: ignore[index, union-attr]
     altium, kicad = conversions  # type: ignore[misc]
-    assert altium["experimental"] is True and altium["targets"] == []
+    assert altium["experimental"] is True and altium["targets"] == [] and altium["downgrade"] is False
     assert kicad["experimental"] is False and kicad["targets"] == [9, 10]
+    assert kicad["downgrade"] is True  # change c0162
     for entry in (altium, kicad):
-        assert set(entry) == {"from", "to", "targets", "experimental", "evidence"}
+        assert set(entry) == {"from", "to", "targets", "downgrade", "experimental", "evidence"}
         assert set(entry["evidence"]) == {"level", "oracle", "hypotheses"}
     brief = _capabilities(capsys, "--brief", "--no-tools")
     assert "convert" in {c["name"] for c in brief["commands"]}  # type: ignore[union-attr]

@@ -676,7 +676,8 @@
             "copper",
             "board",
             "presentation",
-            "project"
+            "project",
+            "downgrade"
           ]
         },
         "loss": {

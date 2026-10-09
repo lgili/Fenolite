@@ -35,20 +35,28 @@ class Options:
 class Written:
     """What a direction's writer returns: the files of the target project by name, the report, the design
     it wrote (the ids of the report are its ids), the writer's own issues, and the name of the file that
-    the target backend reads back to verify the conversion."""
+    the target backend reads back to verify the conversion. A downgrade (change c0162) also names the root
+    schematic to compare, its own profile and its own evidence."""
 
     files: Mapping[str, bytes]
     report: ConversionReport
     design: Design
     read_back: str
     issues: tuple[Issue, ...] = ()
+    schematic: str | None = None
+    """The root schematic among ``files`` that the verification compares with the source's (a downgrade)."""
+    profile: str | None = None
+    """The verification profile of this write when it is not the direction's (a downgrade)."""
+    evidence: Evidence | None = None
+    """The evidence of this write when it is not the direction's (a downgrade)."""
 
 
 @dataclass(frozen=True, slots=True)
 class Direction:
     """One registered direction: the source and target backends, the writer, the evidence of its writes,
     whether it is experimental, the name of its verification profile (``data/profiles.toml``), the KiCad
-    majors a KiCad target is written for, and the kinds its writer can name in a report."""
+    majors a KiCad target is written for, the kinds its writer can name in a report, and whether it writes a
+    KiCad target older than the source (``downgrade``)."""
 
     source: str
     target: Target
@@ -58,6 +66,8 @@ class Direction:
     profile: str
     targets: tuple[int, ...] = ()
     kinds: tuple[str, ...] = field(default=())
+    downgrade: bool = False
+    """Whether a KiCad target older than the source's major is written (change c0162)."""
 
     def to_json(self) -> dict[str, object]:
         """The entry of ``capabilities.conversions``."""
@@ -65,6 +75,7 @@ class Direction:
             "from": self.source,
             "to": self.target,
             "targets": list(self.targets),
+            "downgrade": self.downgrade,
             "experimental": self.experimental,
             "evidence": {
                 "level": self.evidence.level.value,

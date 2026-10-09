@@ -193,7 +193,7 @@ class ReportRowReply:
     """One kind of the report."""
 
     kind: str
-    group: Literal["circuit", "footprint", "copper", "board", "presentation", "project"]
+    group: Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
     loss: Literal["refuse", "report"]
     source: int = dataclasses.field(metadata=_COUNT)
     written: int = dataclasses.field(metadata=_COUNT)

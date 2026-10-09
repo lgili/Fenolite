@@ -86,7 +86,7 @@ and that the same command can be run again.
 | `FEN-4002` | the plan named by `--plan` cannot be written as reviewed | the dispatcher, for `--confirm --plan ID`: the message names the first reason (see "Staged plans"); nothing is written |
 | `FEN-6003` | download failed | `fenolite fetch NAME --confirm` without `--from` (retryable; the hint names `--from FILE`) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
-| `FEN-7002` | target format version older than the input; downgrade is not supported | `DowngradeRefusedError` |
+| `FEN-7002` | target format version older than the input; no downgrade was asked (hint: convert the project with `fenolite convert <project> --to kicad --kicad-version <target>`) | `DowngradeRefusedError` |
 | `FEN-7003` | input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source | `LegacyEditRefusedError` (hint names `kicad-cli pcb upgrade`) |
 
 ## Writing files
@@ -2701,8 +2701,12 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
   board is completed with the net classes and the custom rules of its project files. An Altium `.PrjPcb`,
   `.PcbDoc` or folder is read too, and is refused until a direction from Altium is registered (c0161).
 - The directions are listed under `result.conversions` of `capabilities`: KiCad to Altium (experimental,
-  `INFERRED`), and KiCad to KiCad for the major of `--kicad-version` when it is not older than the
-  source's.
+  `INFERRED`), and KiCad to KiCad for the major of `--kicad-version`; an entry's `downgrade` says whether a
+  target older than the source's major is written. A KiCad project of 10 converted with `--kicad-version 9`
+  is a downgrade (change c0162): every file is written for 9 through the capability resolver
+  (`docs/formats/kicad/versions.md`, "Downgrade"), the report holds one row per resolver id (kind
+  `downgrade:<id>`, group `downgrade`), and a `design` row needs `--allow-lossy`. `build`, `place`, `route`
+  and `fill` keep refusing such a source (`FEN-7002`, whose hint names `convert`).
 - `DIR` may be an existing folder, but never the source's folder or a folder that holds it.
 - Every conversion is verified: the written project is read back with the target backend and compared with
   the source by `fenolite.api.equivalent` under the direction's profile; each difference must be explained
@@ -2733,6 +2737,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | `convert.lossy` | warning | with `--allow-lossy`: items of a `refuse` kind are not converted (one per kind, counts per reason) |
 | `convert.changed` | info | items of a kind are written in another form that compares equal (one per kind) |
 | `convert.no-verify` | warning | the conversion was not read back |
+| `convert.schematic-unverified` | warning | a KiCad downgrade: the written root schematic could not be compared with the source's (its netlist needs `kicad-cli`) |
 | `convert.unexplained` | error | a difference of the read-back that no lost item explains; nothing is planned |
 
 | exit | error | when |
@@ -2743,7 +2748,6 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | 4 | `FEN-4001` | neither `--dry-run` nor `--confirm` |
 | 5 | `FEN-5001` | a `convert.unexplained` error; nothing is planned |
 | 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), or a document too large for the Altium writer |
-| 7 | `FEN-7002` | `--kicad-version` older than the source's major |
 
 ## manifest
 

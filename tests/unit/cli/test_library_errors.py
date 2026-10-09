@@ -89,7 +89,9 @@ def test_downgrade_maps_to_exit_7(run_raising: Callable[[Raiser, list[str]], tup
         raise DowngradeRefusedError(FileKind.BOARD, 10, 9)
 
     code, stderr = run_raising(raiser, ["--json"])
-    assert code == 7 and _error(stderr)["code"] == "FEN-7002"
+    error = _error(stderr)
+    assert code == 7 and error["code"] == "FEN-7002"
+    assert "fenolite convert <project> --to kicad --kicad-version 9" in str(error["hint"])
 
 
 def test_legacy_edit_maps_to_exit_7(run_raising: Callable[[Raiser, list[str]], tuple[int, str]]) -> None:

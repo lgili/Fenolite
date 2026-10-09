@@ -19,11 +19,19 @@ from typing import Any, Literal
 
 from fenolite.model.design import Design
 
-Group = Literal["circuit", "footprint", "copper", "board", "presentation", "project"]
+Group = Literal["circuit", "footprint", "copper", "board", "presentation", "project", "downgrade"]
 LossClass = Literal["refuse", "report"]
 Outcome = Literal["changed", "lost"]
 Scope = Literal["ref", "pin", "net", "net-pins", "footprint-nets", "same"]
-GROUPS: tuple[Group, ...] = ("circuit", "footprint", "copper", "board", "presentation", "project")
+GROUPS: tuple[Group, ...] = (
+    "circuit",
+    "footprint",
+    "copper",
+    "board",
+    "presentation",
+    "project",
+    "downgrade",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +81,22 @@ KINDS: tuple[KindRow, ...] = (
 )
 """The closed vocabulary of kinds, in report order. Every kind that ``lower.LOSS_KINDS`` names and ``dnp``
 are ``refuse``; ``schematic`` is a project file, generated (a change) or not converted (a loss)."""
-BY_NAME: Mapping[str, KindRow] = MappingProxyType({row.name: row for row in KINDS})
+DOWNGRADE_PREFIX = "downgrade:"
+
+
+def _downgrade_rows() -> tuple[KindRow, ...]:
+    """One kind per row of the KiCad downgrade resolver (change c0162), ``downgrade:<id>``: ``refuse`` when
+    the row can drop a construct of the design, else ``report``."""
+    from fenolite.backends.kicad import resolver  # noqa: PLC0415  (the table is the KiCad backend's)
+
+    rows = sorted(resolver.load().rows.values(), key=lambda row: row.id)
+    return tuple(KindRow(DOWNGRADE_PREFIX + row.id, "downgrade", row.loss or "report") for row in rows)
+
+
+DOWNGRADE_KINDS: tuple[KindRow, ...] = _downgrade_rows()
+"""The kinds of the downgrade direction, outside the table of ``KINDS``: they are the rows of
+``backends/kicad/data/downgrade.toml``, documented in ``docs/formats/kicad/tokens.md``."""
+BY_NAME: Mapping[str, KindRow] = MappingProxyType({row.name: row for row in (*KINDS, *DOWNGRADE_KINDS)})
 REFUSE: frozenset[str] = frozenset(row.name for row in KINDS if row.loss == "refuse")
 SOURCE = "source"
 """Not a kind: the explanation of a difference that the source holds against itself (a reference that
@@ -168,7 +191,7 @@ class ConversionReport:
         and lost; a kind without a count in ``written`` wrote what was neither changed nor lost."""
         written, changed, lost = written or {}, changed or {}, lost or {}
         kinds = set(source) | set(written) | set(changed) | set(lost)
-        order = [row.name for row in KINDS] + sorted(kinds - set(BY_NAME))
+        order = [row.name for row in KINDS] + sorted(kinds - {row.name for row in KINDS})
         rows: list[ReportRow] = []
         for kind in order:
             if kind not in kinds:
@@ -428,6 +451,8 @@ class Explainer:
 __all__ = [
     "AT_REF",
     "BY_NAME",
+    "DOWNGRADE_KINDS",
+    "DOWNGRADE_PREFIX",
     "EXPLAINS",
     "GROUPS",
     "KINDS",

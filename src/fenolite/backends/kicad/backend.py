@@ -51,7 +51,7 @@ CAPABILITIES = CapabilityReport(
     ),
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
-    downgrade="unsupported",
+    downgrade="supported",
     operations=("detect", "read", "write", "lower", "validate"),
     evidence=Evidence.combine(pcb.EVIDENCE, pcb.WRITE_EVIDENCE),
 )

@@ -30,3 +30,14 @@ tool_version = "0"
 frame = "absolute"
 tolerance_nm = 0
 tolerance_udeg = 0
+
+[[profile]]
+name = "kicad-downgrade"
+tool = "fenolite"
+tool_version = "0"
+# A KiCad project of a newer major written for an older one (change c0162): the same model in another
+# header, so the board is compared at level 5 and the root schematic at level 2 in the absolute frame,
+# without tolerance; a construct the resolver drops is no item that levels 1 to 5 compare.
+frame = "absolute"
+tolerance_nm = 0
+tolerance_udeg = 0

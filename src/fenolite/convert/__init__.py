@@ -62,7 +62,8 @@ class LossyConversionError(FenoliteError):
 class Conversion:
     """A conversion in memory: the target project's files by name, the report, the source as read, the
     target backend, the evidence, the issues (the source's read, the writer's and the ``convert.*``
-    ones), the direction, the design that was written, and the file the target backend reads back."""
+    ones), the direction, the design that was written, the file the target backend reads back, the
+    verification profile, and the root schematic the verification compares (a KiCad downgrade)."""
 
     files: Mapping[str, bytes]
     report: ConversionReport
@@ -73,6 +74,8 @@ class Conversion:
     direction: Direction
     design: Design
     read_back: str
+    profile: str = ""
+    schematic: str | None = None
 
 
 def _per_reason(row: ReportRow, outcome: Literal["changed", "lost"]) -> str:
@@ -137,11 +140,13 @@ def convert_project(
         report=report,
         source=read,
         target=to,
-        evidence=Evidence.combine(read.evidence, direction.evidence, EVIDENCE),
+        evidence=Evidence.combine(read.evidence, written.evidence or direction.evidence, EVIDENCE),
         issues=(*read.issues, *written.issues, *lossy, *changed),
         direction=direction,
         design=written.design,
         read_back=written.read_back,
+        profile=written.profile or direction.profile,
+        schematic=written.schematic,
     )
 
 

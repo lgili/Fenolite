@@ -86,11 +86,21 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert sorted(i["where"] for i in envelope["issues"] if i["code"] == "convert.lossy") == ["dnp", "pad"]
 
 
-def test_older_target_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Older target refused"."""
+def test_downgrade_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Change c0162 (it replaces c0159's "Older target refused"): a KiCad 10 project converted for KiCad 9
+    needs --allow-lossy for its design rows, and is then planned with one report row per resolver id."""
     argv = ["--kicad-version", "9", "convert", str(BLINK_T10), "--to", "kicad", "--out", "out", "--dry-run"]
     code, _, error, _ = run(monkeypatch, tmp_path, *argv)
-    assert code == 7 and error["code"] == "FEN-7002"
+    assert code == 7 and error["code"] == "FEN-7001"
+    code, envelope, error, _ = run(monkeypatch, tmp_path, "--allow-lossy", *argv)
+    assert code == 0, error
+    result = envelope["result"]
+    assert result["target"] == {"backend": "kicad", "major": 9}
+    kinds = {row["kind"]: row for row in result["report"]["rows"]}
+    assert kinds["downgrade:project:/tuning_profiles"]["group"] == "downgrade"
+    assert kinds["downgrade:project:/tuning_profiles"]["loss"] == "refuse"
+    assert result["equivalence"]["equivalent"] is True
+    assert _schema.validate(result, _schema.load("fenolite.convert.v0.json")) == []
 
 
 def test_kicad_retarget_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

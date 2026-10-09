@@ -26,7 +26,7 @@ from fenolite.convert import PROFILES_FILE, Conversion, convert_project, profile
 from fenolite.convert.codes import issue
 from fenolite.convert.direction import Target
 from fenolite.convert.report import Explainer
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
 
 
@@ -88,10 +88,37 @@ def _unexplained(difference: Difference) -> Issue:
     return issue("convert.unexplained", message, where=difference.where, hint=hint)
 
 
+SCHEMATIC_LEVEL = 2
+"""The level at which a downgrade's root schematic is compared with the source's (change c0162)."""
+
+
+def _schematic(
+    conversion: Conversion, folder: Path, profile: Profile | None
+) -> tuple[Difference, ...] | Issue:
+    """The differences between the source's root schematic and the written one at level 2, or the
+    ``convert.schematic-unverified`` warning when they cannot be compared (change c0162)."""
+    assert conversion.schematic is not None
+    source = conversion.source.root / f"{conversion.source.name}{PurePosixPath(conversion.schematic).suffix}"
+    try:
+        found = equivalent(source, folder / conversion.schematic, level=SCHEMATIC_LEVEL, profile=profile)
+    except FenoliteError as error:
+        return issue(
+            "convert.schematic-unverified",
+            f"the schematic was not compared with the source's: {error}",
+            where=conversion.schematic,
+            hint=getattr(error, "hint", "") or "install kicad-cli to compare the schematic too",
+        )
+    return found.report.differences if found.report is not None else ()
+
+
 def verify_conversion(conversion: Conversion, *, profile: Profile | None = None) -> ConversionResult:
     """The verification of ``conversion``: its files read back from a private temporary folder and
-    compared with the design that was written. ``profile`` overrides the direction's."""
-    chosen = profile if profile is not None else profiles().get(conversion.direction.profile)
+    compared with the design that was written, and a downgrade's root schematic with the source's at level
+    2. ``profile`` overrides the conversion's."""
+    chosen = (
+        profile if profile is not None else profiles().get(conversion.profile or conversion.direction.profile)
+    )
+    schematic: tuple[Difference, ...] | Issue = ()
     with tempfile.TemporaryDirectory(prefix="fenolite-convert-") as name:
         folder = Path(name)
         for key, data in conversion.files.items():
@@ -99,6 +126,8 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
         compared = equivalent(conversion.design, folder / conversion.read_back, profile=chosen)
+        if conversion.schematic is not None:
+            schematic = _schematic(conversion, folder, chosen)
     explainer = Explainer(conversion.design, conversion.report)
     explained: list[Explained] = []
     unexplained: list[Difference] = []
@@ -109,12 +138,14 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             unexplained.append(difference)
         else:
             explained.append(Explained(difference, kind))
+    unexplained += schematic if not isinstance(schematic, Issue) else ()
+    notes = (schematic,) if isinstance(schematic, Issue) else ()
     # the comparison's own errors are its differences: each is explained, or one convert.unexplained; its
     # notices are kept, and the read-back's own reader notes are not the conversion's
     kept = tuple(
         found for found in compared.issues if found.severity != "error" and found.code.startswith("equiv.")
     )
-    issues = (*conversion.issues, *(_unexplained(d) for d in unexplained), *kept)
+    issues = (*conversion.issues, *(_unexplained(d) for d in unexplained), *notes, *kept)
     evidence = Evidence.combine(conversion.evidence, compared.evidence)
     return ConversionResult(conversion, compared, tuple(explained), tuple(unexplained), issues, evidence)
 

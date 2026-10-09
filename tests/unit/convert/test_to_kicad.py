@@ -5,24 +5,80 @@ downgrade refused"; change c0159)."""
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
 import pytest
 from _convert import BLINK_T9, BLINK_T10, TWO_LAYER
 
-from fenolite.backends.kicad.versions import DowngradeRefusedError
-from fenolite.convert import convert_project
+from fenolite.api.conversion import convert
+from fenolite.convert import LossyConversionError, convert_project
 
 ROOT = Path(__file__).resolve().parents[3]
 WITH_SHEET = ROOT / "tests" / "data" / "kicad" / "parity" / "agree"
+TOKENS = ROOT / "tests" / "data" / "kicad" / "tokens"
 
 
-def test_older_target_refused() -> None:
-    """Scenario "Older target refused", without the CLI: a board of KiCad 10 is not written for 9."""
-    with pytest.raises(DowngradeRefusedError) as refused:
+def test_downgrade_needs_consent_for_design_rows() -> None:
+    """Change c0162 (it replaces c0159's "Older target refused"): a board of KiCad 10 is written for 9, and
+    the keys every KiCad 10 project holds (component classes, tuning profiles) are ``design`` rows of the
+    resolver, a loss that needs consent."""
+    with pytest.raises(LossyConversionError) as refused:
         convert_project(BLINK_T10, to="kicad", kicad_version=9)
-    assert refused.value.cli_code == "FEN-7002"
+    assert set(refused.value.report.refused) == {
+        "downgrade:project:/component_class_settings",
+        "downgrade:project:/net_settings/classes/*/tuning_profile",
+        "downgrade:project:/tuning_profiles",
+    }
+
+
+def test_downgrade_rows_per_resolver_id() -> None:
+    """Scenario "Rows per resolver id" on the blink example: one row per resolver id, the project's
+    libraries written for the target, and the verification under the profile ``kicad-downgrade``."""
+    conversion = convert_project(BLINK_T10, to="kicad", kicad_version=9, allow_lossy=True)
+    assert conversion.profile == "kicad-downgrade" and conversion.direction.downgrade
+    files = sorted(conversion.files)
+    assert "fp-lib-table" in files and "lib/Mini.pretty/Mini_R_0603.kicad_mod" in files
+    board = conversion.files["blink.kicad_pcb"].decode("utf-8")
+    assert "(version 20241229)" in board.splitlines()[1]
+    for key in files:
+        if key.endswith(".kicad_mod"):
+            assert "(version 20241229)" in conversion.files[key].decode("utf-8"), key
+    nets = conversion.report.row("downgrade:net-by-name")
+    assert nets is not None and nets.changed > 0 and nets.lost == 0 and nets.loss == "report"
+    version = conversion.report.row("downgrade:project:/net_settings/meta/version")
+    assert version is not None and version.changed == 1
+    lost = conversion.report.row("downgrade:project:/tuning_profiles")
+    assert lost is not None and lost.lost == 1 and lost.loss == "refuse"
+    assert lost.reasons[0].ids == ("blink.kicad_pro:/tuning_profiles",)
+    project = json.loads(conversion.files["blink.kicad_pro"])
+    assert "tuning_profiles" not in project and project["net_settings"]["meta"]["version"] == 4
+
+
+def test_downgrade_verified() -> None:
+    result = convert(BLINK_T10, to="kicad", kicad_version=9, allow_lossy=True)
+    assert result.equivalence is not None and result.equivalence.report is not None
+    assert result.unexplained == () and result.equivalence.report.equivalent
+
+
+def test_downgrade_of_a_schematic(tmp_path: Path) -> None:
+    """A schematic of KiCad 10 is re-targeted with the board (change c0162)."""
+    folder = tmp_path / "blink"
+    shutil.copytree(BLINK_T10, folder)
+    sheet = (TOKENS / "skeleton.kicad_sch").read_text(encoding="utf-8")
+    sheet = sheet.replace("(version 20231120)", "(version 20260306)").replace(
+        "\t\t(unit 1)\n", "\t\t(unit 1)\n\t\t(body_style 1)\n\t\t(in_pos_files yes)\n", 1
+    )
+    (folder / "blink.kicad_sch").write_text(sheet, encoding="utf-8")
+    conversion = convert_project(folder, to="kicad", kicad_version=9, allow_lossy=True)
+    written = conversion.files["blink.kicad_sch"].decode("utf-8")
+    assert "(version 20250114)" in written and "(convert 1)" in written and "in_pos_files" not in written
+    assert conversion.schematic == "blink.kicad_sch"
+    row = conversion.report.row("downgrade:sch-symbol-body-style")
+    assert row is not None and row.changed == 1
+    schematic = conversion.report.row("schematic")
+    assert schematic is not None and (schematic.source, schematic.written, schematic.lost) == (1, 1, 0)
 
 
 def test_same_major_gives_the_project_back() -> None:
