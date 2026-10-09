@@ -135,7 +135,29 @@ with a script that is not committed, and gave the same counts.
   `net` as an opaque child. The query therefore reports 2 open connections that KiCad does not. Copper
   drawings with a net are not modelled (`docs/analyses.md`, "Open connections").
 - `kicad-demo-10-0-6-pcb-14` holds four such drawings and gives equal counts.
-- The census under 9.0.9 was not run here: it needs the pinned image.
+- The census under 9.0.9 was run on 2026-10-09, below.
+
+The census on 9.0.9: local run in the pinned image `kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729`,
+2026-10-09, on the corpus manifest of `dev` at `e811f5e` (`FENOLITE_CENSUS_OUT=<file> uv run pytest
+tests/corpus/test_open_census.py -rA`, with `FENOLITE_KICAD_CLI=docker:kicad/kicad:9.0.9`: 38 passed,
+8 skipped; then the two heavy boards with `FENOLITE_HEAVY=1`, pytest run inside the same image: 6 passed).
+Of the 23 readable boards, 21 load on 9.0.9; `kicad-demo-10-0-6-pcb-01` (format 20250513) and
+`kicad-demo-10-0-6-pcb-12` (format 20260206) are newer than 9.0 reads, and `kicad-cli` writes no report for
+them:
+
+| boards | open connections (query) | unconnected items (KiCad 9.0.9) | nets that differ |
+|---|---|---|---|
+| `kicad-demo-10-0-6-pcb-09` | 148 | 148 | 0 |
+| `kicad-demo-10-0-6-pcb-16` | 1 | 1 | 0 |
+| `kicad-demo-10-0-6-pcb-11` | 2 | 0 | 1 |
+| the 18 others, the two heavy boards (`pcb-06`, `pcb-18`) among them | 0 | 0 | 0 |
+
+- No board reached the cap of 499; the counts are those of 10.0.6 board by board, and the one board that
+  differs is again `kicad-demo-10-0-6-pcb-11`, whose two copper drawings hold a net; `kicad-demo-10-0-6-pcb-14`
+  holds four such drawings and gives equal counts.
+- The two heavy boards on 10.0.6, local run in the pinned image `kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec`,
+  2026-10-09 (`FENOLITE_HEAVY=1`, `-k` on their ids, 4 passed): 0 open connections by the query and 0
+  unconnected items by KiCad on each, so the census of 10.0.6 is complete for the 23 readable boards too.
 
 ### Routers on nets that hold copper
 
