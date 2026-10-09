@@ -17,7 +17,9 @@ from typing import Literal
 from fenolite.backends.base import (
     BoardFrame,
     DesignRulesSource,
+    ExclusionSource,
     FillOracle,
+    LengthSource,
     Oracle,
     ParityInputs,
     Plotter,
@@ -28,12 +30,16 @@ from fenolite.backends.base import (
 from fenolite.checks.codes import issue
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
     "erc.kicad",
     "copper.clearance",
+    "length.rules",
+    "placement.rules",
     "zone.fill",
     "drc.kicad",
     "parity",
@@ -46,7 +52,11 @@ STAGE_ORDER: tuple[str, ...] = (
 external tool, so it runs before KiCad's DRC and is not an oracle stage. ``erc.kicad`` (change c0062) stands
 where ``erc.lite`` stood: the three rules of ``checks.erc_lite`` are no stage of this pipeline any more.
 ``parity`` (change c0072) runs after ``drc.kicad`` because it compares its findings with KiCad's parity
-entries when that stage judged them; it needs no tool itself, so it is not an oracle stage."""
+entries when that stage judged them; it needs no tool itself, so it is not an oracle stage.
+``placement.rules`` (change c0113) judges the placement rules of a built project and measures the wire
+length and the congestion of every board; it needs no tool either and follows ``copper.clearance``.
+``length.rules`` (change c0106) judges the length and skew rules on the net lengths a ``LengthSource``
+gives; it needs no tool, stands right after ``copper.clearance`` and so before ``drc.kicad``."""
 OPT_IN_STAGES: tuple[str, ...] = ("roundtrip.rt2", "render")
 """Stages that run only when ``--stages`` names them: RT2 costs two re-saves and three DRC runs."""
 DEFAULT_STAGES: tuple[str, ...] = tuple(name for name in STAGE_ORDER if name not in OPT_IN_STAGES)
@@ -60,7 +70,8 @@ ORACLE_STAGES: tuple[str, ...] = (
 )
 """Stages that need the external tool; selecting one runs the pre-flight and builds the oracle."""
 _READING_STAGES = frozenset(
-    {"roundtrip", "copper.clearance", "parity", *ORACLE_STAGES} - {"render", "erc.kicad"}
+    {"roundtrip", "copper.clearance", "length.rules", "placement.rules", "parity", *ORACLE_STAGES}
+    - {"render", "erc.kicad"}
 )
 """Stages that need the board read; ``erc.kicad`` needs only the schematic, and ``render`` only the files."""
 StageStatus = Literal["ok", "errors", "skipped"]
@@ -78,6 +89,7 @@ StageSkip = Literal[
     "model-predates-board",
     "no-document",
     "model-predates-graphics",
+    "no-frame",
 ]
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
 
@@ -131,6 +143,10 @@ class CheckReport:
     evidence: Evidence
     read_error: FenoliteError | None = None
     drc_reported: bool = False
+    waivers: Mapping[str, object] = field(
+        default_factory=lambda: {"declared": 0, "matched": {}, "unmatched": [], "unjudged": {}}
+    )
+    """What became of the design's waivers (``checks.waivers.WaiverOutcome.to_json``; change c0114)."""
 
 
 def relative_file(file: str, root: Path) -> str:
@@ -166,19 +182,26 @@ def run_checks(
     cache_error: str = "",
     plotter: Plotter | None = None,
     fill_oracle: FillOracle | None = None,
+    waivers: Sequence[Waiver] = (),
+    progress: Progress = NULL_PROGRESS,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
-    built project); ``validator.validate`` runs at most once."""
+    built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
+    (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
+    that runs is one unit of ``progress``, named by the stage."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
     from fenolite.checks.erc import erc_stage
     from fenolite.checks.fill import fill_stage
+    from fenolite.checks.length import length_stage
     from fenolite.checks.parity_stage import parity_stage
+    from fenolite.checks.placement import placement_stage
     from fenolite.checks.render import render_stage
     from fenolite.checks.roundtrip import roundtrip_stage
     from fenolite.checks.rt2 import rt2_stage
     from fenolite.checks.validate import BUILT_EVIDENCE, validate_stage
+    from fenolite.checks.waivers import combine
 
     wanted = DEFAULT_STAGES if stages is None else stages
     selected = [name for name in STAGE_ORDER if name in wanted]
@@ -218,13 +241,41 @@ def run_checks(
             rules_source=validator if isinstance(validator, DesignRulesSource) else None,
             frame=validator if isinstance(validator, BoardFrame) else None,
             evidence=validation.read.evidence,
+            waivers=waivers,
+        )
+
+    def length() -> StageResult:
+        if validation is None:
+            return skipped("length.rules", "read-refused")
+        return length_stage(
+            validation.read.design,
+            project=project,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            facts_source=validator if isinstance(validator, LengthSource) else None,
+            evidence=validation.read.evidence,
+        )
+
+    def placement() -> StageResult:
+        if validation is None:
+            return skipped("placement.rules", "read-refused")
+        if built and (cache_error or model is None):
+            return skipped("placement.rules", "cache-unreadable")
+        return placement_stage(
+            validation.read.design,
+            model=model,
+            built=built,
+            frame=validator if isinstance(validator, BoardFrame) else None,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            project=project,
+            evidence=validation.read.evidence,
         )
 
     def drc() -> StageResult:
         if oracle is None:
             raise ValueError("drc.kicad is selected but no oracle was given")
         design = validation.read.design if validation is not None else None
-        return drc_stage(oracle, project, built=built, design=design)
+        stored = validator.stored_exclusions(project) if isinstance(validator, ExclusionSource) else ()
+        return drc_stage(oracle, project, built=built, design=design, waivers=waivers, exclusions=stored)
 
     done: dict[str, StageResult] = {}
 
@@ -265,6 +316,8 @@ def run_checks(
         "model.validate": model_stage,
         "erc.kicad": erc,
         "copper.clearance": copper,
+        "length.rules": length,
+        "placement.rules": placement,
         "zone.fill": fill,
         "drc.kicad": drc,
         "parity": parity,
@@ -273,8 +326,10 @@ def run_checks(
         "roundtrip.rt2": rt2,
         "render": render,
     }
-    for name in selected:
+    for index, name in enumerate(selected):
+        progress.step(name, index=index + 1, total=len(selected))
         done[name] = runners[name]()
+        progress.done(name, detail=done[name].status)
     results = tuple(done[name] for name in selected)
     counted = [r.evidence for r in results if r.status != "skipped" or r.reason in _COUNTED_SKIPS]
     evidence = Evidence.combine(*counted) if counted else Evidence()
@@ -282,7 +337,8 @@ def run_checks(
         r.name == "drc.kicad" and not any(i.code == "check.oracle-failed" for i in r.issues) for r in results
     )
     issues = (*input_issues, *(i for r in results for i in r.issues))
-    return CheckReport(results, issues, evidence, read_error, drc_reported)
+    outcome = combine(waivers, (r.summary.get("waivers") for r in results))
+    return CheckReport(results, issues, evidence, read_error, drc_reported, outcome.to_json())
 
 
 __all__ = [

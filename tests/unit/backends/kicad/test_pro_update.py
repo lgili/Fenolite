@@ -177,3 +177,80 @@ def test_downgrade_refused() -> None:
 def test_target_10_keeps_every_key() -> None:
     out = read_project_text(update_project(ten_project(), HV3, target=10))
     assert "tuning_profiles" in out and "component_class_settings" in out
+
+
+# --- check severities (capability kicad-file-backend, "Project files carry the check severities";
+# --- change c0114) ---------------------------------------------------------------------------------
+
+
+def with_severities(source: Design, severities: dict[str, str]) -> Design:
+    from fenolite.model.rules import RuleSet
+
+    return dataclasses.replace(source, rules=RuleSet(id="rst_x", severities=severities))  # type: ignore[arg-type]
+
+
+def test_severity_update_changes_only_the_named_key() -> None:
+    """Scenario "Update changes only the named key": the others keep their value and their position."""
+    data = project(10)
+    table = data["board"]["design_settings"]["rule_severities"]  # type: ignore[index]
+    table["silk_overlap"] = "warning"  # type: ignore[index]
+    table["track_dangling"] = "ignore"  # type: ignore[index]
+    before = dict(table)  # type: ignore[arg-type]
+    made = with_severities(design({}, {}), {"kicad.drc.silk-overlap": "error"})
+    updated = read_project_text(update_project(text(data), made, target=10))
+    after = dict(updated["board"]["design_settings"]["rule_severities"])  # type: ignore[index, arg-type]
+    assert after["silk_overlap"] == "error" and after["track_dangling"] == "ignore"
+    assert list(after) == list(before)
+    assert {k: v for k, v in after.items() if k != "silk_overlap"} == {
+        k: v for k, v in before.items() if k != "silk_overlap"
+    }
+
+
+def test_severity_update_without_a_severity_keeps_the_table_text() -> None:
+    data = project(10)
+    data["board"]["design_settings"]["rule_severities"]["silk_overlap"] = "ignore"  # type: ignore[index]
+    source = text(data)
+    assert update_project(source, design({}, {}), target=10) == update_project(
+        source, with_severities(design({}, {}), {}), target=10
+    )
+    kept = read_project_text(update_project(source, design({}, {}), target=10))
+    assert kept["board"]["design_settings"]["rule_severities"]["silk_overlap"] == "ignore"  # type: ignore[index]
+
+
+def test_severity_update_unknown_key_refused() -> None:
+    made = with_severities(design({}, {}), {"kicad.drc.silk-overlaps": "ignore"})
+    with pytest.raises(LossyWriteError) as caught:
+        update_project(text(project(10)), made, target=10)
+    assert caught.value.droppable and caught.value.issues[0].code == "kicad.project.unknown-check"
+    found: list[Issue] = []
+    updated = update_project(text(project(10)), made, target=10, allow_lossy=True, issues=found)
+    assert "silk_overlaps" not in updated and [i.code for i in found] == ["kicad.project.dropped-check"]
+
+
+def test_severity_update_of_a_project_without_the_table() -> None:
+    data = project(10)
+    del data["board"]["design_settings"]["rule_severities"]  # type: ignore[index, union-attr]
+    made = with_severities(design({}, {}), {"kicad.drc.via-dangling": "error"})
+    updated = read_project_text(update_project(text(data), made, target=10))
+    assert updated["board"]["design_settings"]["rule_severities"] == {"via_dangling": "error"}  # type: ignore[index]
+
+
+def test_update_keeps_an_equal_pair_spelling() -> None:
+    """Scenario "Update keeps an equal spelling" (change c0104): a pair value that is equal in nanometres
+    keeps its text, and a pair key whose model value is ``None`` is left as it is."""
+    data = project(10)
+    usb = dict(data["net_settings"]["classes"][0])
+    usb.update(name="USB", diff_pair_gap=JsonNumber("0.150"), diff_pair_width=JsonNumber("0.2"))
+    data["net_settings"]["classes"].append(usb)
+    made = design({"USB": None}, {})
+    (cls,) = made.circuit.netclasses
+    cls = dataclasses.replace(cls, diff_pair_gap=150_000, diff_pair_width=None)
+    made = dataclasses.replace(made, circuit=dataclasses.replace(made.circuit, netclasses=(cls,)))
+    out = read_project_text(update_project(text(data), made, target=10))
+    entry = next(c for c in out["net_settings"]["classes"] if c["name"] == "USB")
+    assert entry["diff_pair_gap"] == JsonNumber("0.150") and entry["diff_pair_width"] == JsonNumber("0.2")
+    changed = dataclasses.replace(cls, diff_pair_gap=130_000, diff_pair_via_gap=400_000)
+    made = dataclasses.replace(made, circuit=dataclasses.replace(made.circuit, netclasses=(changed,)))
+    out = read_project_text(update_project(text(data), made, target=10))
+    entry = next(c for c in out["net_settings"]["classes"] if c["name"] == "USB")
+    assert entry["diff_pair_gap"] == JsonNumber("0.13") and entry["diff_pair_via_gap"] == JsonNumber("0.4")

@@ -40,7 +40,7 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
-from fenolite.model.circuit import Component, Net
+from fenolite.model.circuit import Component, Net, power_interface_nets
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef, SymbolPin
 from fenolite.model.presentation import SheetFrameRef
@@ -194,9 +194,7 @@ def unit_box(
 
 def _needs_flag(design: Design, components: Mapping[str, Component]) -> list[Net]:
     """The nets of power interfaces that no power-output pin of a fitted part drives, by name."""
-    supply = {
-        net_id for itf in design.circuit.interfaces if itf.kind == "power" for net_id in itf.members.values()
-    }
+    supply = power_interface_nets(design.circuit)
     found: list[Net] = []
     for net in design.circuit.nets:
         if net.id not in supply:

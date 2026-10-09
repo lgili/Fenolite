@@ -4,8 +4,10 @@
 
 from __future__ import annotations
 
+import itertools
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,9 @@ import pytest
 TESTS_DIR = Path(__file__).resolve().parent
 if str(TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(TESTS_DIR))
+# the plane bench of change c0107 lives beside the routing gates and is shared with the unit suites
+if str(TESTS_DIR / "routing") not in sys.path:
+    sys.path.insert(1, str(TESTS_DIR / "routing"))
 
 from _resources import (  # noqa: E402  (imported after the sys.path setup above)
     CORPUS_HINT,
@@ -100,3 +105,38 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         if version is not None and version[0] < needed:
             # An older major is present, not missing: required-resource mode never turns this into a failure.
             pytest.skip(f"needs kicad-cli {needed}.x; running {version[0]}.x")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _tools_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads the user's tools folder: ``FENOLITE_TOOLS_DIR`` names a folder of the run, which is
+    created only by a test that installs something there (capability routing, "Tools folder"; c0078). A
+    jar that ``fenolite fetch`` installed on this machine would otherwise make the router available.
+    Session-scoped, so that it changes the order of no test's own fixtures."""
+    name = "FENOLITE_TOOLS_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-tools")
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before
+
+
+_STATE_FOLDERS = itertools.count()
+
+
+@pytest.fixture(autouse=True)
+def _state_folder_of_the_test(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads or fills the user's state folder: ``FENOLITE_STATE_DIR`` names a folder of the test,
+    outside its ``tmp_path``, which exists only once a command staged a plan or kept a route record there
+    (capability cli-contract, "Staged plans"; c0120). One folder per test, so that no test finds the plan
+    or the record of another."""
+    name = "FENOLITE_STATE_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-state" / str(next(_STATE_FOLDERS)))
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before

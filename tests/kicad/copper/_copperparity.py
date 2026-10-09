@@ -15,6 +15,11 @@ Three benches, one per source of the clearance ``c``, each holding one row per p
 - ``floor``: written through the triad path; the probe nets stay in ``Default`` (0.2 mm) and ``c`` =
   0.4 mm is the project's ``min_clearance``. It also holds the row of a rule below the minimum.
 
+Change c0104 adds four pair benches (``pair-<case>``, "Differential pair clearance parity"): two nets
+that pair by name, both in a class of clearance 0.3 mm and pair gap 0.15 mm, at ``g − 10 µm``, ``g`` and
+``g + 10 µm`` of the value ``g`` in force inside the pair, and a control row of two nets of the class that
+do not pair, 0.2 mm apart.
+
 No row overlaps or touches: KiCad merges touching copper without pads into one net and does not report the
 short of this kind reliably (``docs/formats/kicad/copper.md``, "Via re-net"), so those verdicts cannot be
 pinned. The Fenolite half of every row is hermetic (``test_parity_bench.py``).
@@ -28,6 +33,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+import _pairbench as pb
 import _rulebench as rb
 
 from fenolite.backends.base import DrcReport
@@ -41,6 +47,7 @@ from fenolite.backends.kicad.triad import write_triad
 from fenolite.checks.copper import CopperReport, check_copper
 from fenolite.core.coords import Point
 from fenolite.model.board import Zone, ZoneFill
+from fenolite.model.circuit import NetClass
 from fenolite.model.rules import Rule, Selector
 
 Probes = dict[str, tuple[Callable[[], str], tuple[int, ...]]]
@@ -378,8 +385,64 @@ def _zone_floor_bench(target: int) -> ParityBench:
     return ParityBench("zone-floor", target, bench, tuple(maker.rows), files)
 
 
+# --- the pair benches (change c0104) --------------------------------------------------------------
+
+PAIR_CLASS = "PAIRC"
+PAIR_CLASS_CLEARANCE = 300_000
+PAIR_GAP = 150_000
+PAIR_CASES: dict[str, int] = {"class": 150_000, "rule": 300_000, "pair-rule": 150_000, "floor": 200_000}
+"""Pair case → the value ``g`` in force between the two nets of a pair: the class pair gap; a board-wide
+clearance rule of 0.3 mm; that rule followed by a clearance rule of 0.15 mm with the pair on both sides;
+and a board minimum of 0.2 mm without a rule."""
+PAIR_CONTROL = "pair-control"
+PAIR_CONTROL_GAP = 200_000
+
+
+def pair_source(case: str) -> str:
+    """The bench name of a pair case, for ``parity_bench``."""
+    return f"pair-{case}"
+
+
+def pair_group(case: str) -> str:
+    return f"pair-{case}"
+
+
+def _pair_bench(case: str, target: int) -> ParityBench:
+    g = PAIR_CASES[case]
+    maker = _Maker(target, "PP")
+    made = maker.made
+    made.classes[PAIR_CLASS] = NetClass(
+        id="cls_00000000-0000-4000-8000-000000000041",
+        name=PAIR_CLASS,
+        clearance=PAIR_CLASS_CLEARANCE,
+        diff_pair_gap=PAIR_GAP,
+    )
+    made.rule(_canary())
+    for index, delta in enumerate(GAPS.values(), start=1):
+        nets = (f"PP{index}_P", f"PP{index}_N")
+        maker.add("track-track", pair_group(case), g + delta, nets)
+        made.assign(PAIR_CLASS, *nets)
+    maker.add("track-track", PAIR_CONTROL, PAIR_CONTROL_GAP, ("PC_A", "PC_B"))
+    made.assign(PAIR_CLASS, "PC_A", "PC_B")
+    if case in ("rule", "pair-rule"):
+        made.rule(_rule(1, "board", PAIR_CLASS_CLEARANCE, Selector("all"), priority=0))
+    if case == "pair-rule":
+        every = Selector("diff_pair", "*")
+        made.rule(_rule(2, "inside", PAIR_GAP, every, every))
+    bench = made.build()
+    with pb.pair_support(target):
+        files = write_triad(bench.design, name=NAME, target=target)
+    if case == "floor":
+        data = _json.loads(files[PROJECT])
+        data["board"]["design_settings"]["rules"]["min_clearance"] = JsonNumber(f"{g / 1e6:g}")  # type: ignore[index]
+        files[PROJECT] = _json.dumps(data)
+    return ParityBench(pair_source(case), target, bench, tuple(maker.rows), files)
+
+
 @cache
 def parity_bench(source: str, target: int) -> ParityBench:
+    if source.startswith("pair-"):
+        return _pair_bench(source.removeprefix("pair-"), target)
     return {
         "rule": _rule_bench,
         "class": _class_bench,
@@ -505,6 +568,17 @@ def resolve(case: str) -> str:
     return _equal(compared("floor" if case == "floor-above-rule" else "class", (case,)))
 
 
+def pair_rows(case: str) -> list[tuple[Row, str, str]]:
+    """``(row, KiCad's verdict, Fenolite's verdict)`` of the three rows of a pair case and its control."""
+    return compared(pair_source(case), (pair_group(case), PAIR_CONTROL))
+
+
+def pair_resolve(case: str) -> str:
+    """``equal`` when every row of the pair case, the control included, has the same verdict in KiCad
+    and in Fenolite. KiCad's verdict is its ``clearance`` violation alone."""
+    return _equal(pair_rows(case))
+
+
 def boundary(name: str) -> str:
     ((_, kicad, _),) = compared("rule", (f"boundary-{name}",))
     return rb.outcome(kicad == "clearance")
@@ -543,6 +617,8 @@ def parity_probes() -> Probes:
     for case in ZONE_CASES:
         probes[f"copper-zoneclr-{case}"] = (lambda case=case: zone_clearance(case), both)
     probes["copper-fill-fill"] = (fill_fill, both)
+    for case in PAIR_CASES:  # change c0104
+        probes[f"copper-resolve-pair-{case}"] = (lambda case=case: pair_resolve(case), both)
     return probes
 
 
@@ -555,6 +631,8 @@ __all__ = [
     "FILL_VIA",
     "GAPS",
     "KINDS",
+    "PAIR_CASES",
+    "PAIR_CONTROL",
     "RESOLVE",
     "SOURCES",
     "ZONE_CASES",
@@ -568,6 +646,10 @@ __all__ = [
     "fenolite_verdict",
     "kicad_report",
     "kicad_verdict",
+    "pair_group",
+    "pair_resolve",
+    "pair_rows",
+    "pair_source",
     "parity",
     "parity_bench",
     "parity_probes",

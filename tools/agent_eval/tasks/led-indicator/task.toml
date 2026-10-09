@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite's agent evaluation; every number is a round value chosen for this task.
+title = "LED indicator"
+prompt = """
+Make a small printed-circuit board, as a KiCad project with its fabrication files.
+
+The circuit, by reference and pin number:
+- J1, a two-pin 2.54 mm header: pin 1 is the supply, pin 2 is ground.
+- R1, a chip resistor of 330 ohm.
+- D1, a chip LED: pin 1 is the anode, pin 2 the cathode.
+
+The nets:
+- J1 pin 1 and R1 pin 1.
+- R1 pin 2 and D1 pin 1.
+- D1 pin 2 and J1 pin 2.
+
+No other part and no other connection.
+
+The board has two copper layers and is at most 40 mm by 30 mm. Every net must be closed with copper,
+and the board must pass the electrical and design-rule checks of the tool you use, with KiCad's own
+checks among them.
+
+Leave the result in these folders, relative to the folder you are in:
+- board/build: the KiCad project (one board file) as the tool builds it;
+- board/fab: the fabrication files, with Gerber files (.gbr) and drill files (.drl).
+
+The sizes above are this task's own round numbers; they come from no product. Use parts that the tool
+provides itself: no KiCad library is installed on this machine and nothing may be downloaded.
+"""
+
+[budget]
+minutes = 20
+
+[expect]
+project = "board/build"
+copper_layers = 2
+max_size = ["40mm", "30mm"]
+outputs = ["board/fab/**/*.gbr", "board/fab/**/*.drl"]
+
+[expect.nets]
+VIN = ["J1-1", "R1-1"]
+LED_A = ["R1-2", "D1-1"]
+GND = ["D1-2", "J1-2"]

@@ -1,0 +1,152 @@
+(pcb blink
+  (parser
+    (string_quote ")
+    (space_in_quoted_tokens on)
+    (host_cad fenolite)
+  )
+  (resolution um 10)
+  (unit um)
+  (structure
+    (layer F.Cu
+      (type signal)
+    )
+    (layer B.Cu
+      (type signal)
+    )
+    (boundary
+      (rect pcb 100000 -130000 150000 -100000)
+    )
+    (boundary
+      (path signal 0 100000 -100000 150000 -100000 150000 -130000 100000 -130000)
+    )
+    (via Via_600_300)
+    (rule
+      (width 250)
+      (clearance 200)
+    )
+  )
+  (placement
+    (component D1
+      (place D1 138000 -120000 front 0
+        (lock_type position)
+      )
+    )
+    (component R1
+      (place R1 132000 -109000 front 0
+        (lock_type position)
+      )
+    )
+    (component U1
+      (place U1 114000 -115000 front 0
+        (lock_type position)
+      )
+    )
+  )
+  (library
+    (image D1
+      (pin P1 1 0 0)
+      (pin P2 2 2540 0)
+    )
+    (image R1
+      (pin P3 1 -800 0)
+      (pin P3 2 800 0)
+    )
+    (image U1
+      (pin P4 1 -4150 2800)
+      (pin P4 2 -4150 2000)
+      (pin P4 3 -4150 1200)
+      (pin P4 4 -4150 400)
+      (pin P4 5 -4150 -400)
+      (pin P4 6 -4150 -1200)
+      (pin P4 7 -4150 -2000)
+      (pin P4 8 -4150 -2800)
+      (pin P5 9 -2800 -4150)
+      (pin P5 10 -2000 -4150)
+      (pin P5 11 -1200 -4150)
+      (pin P5 12 -400 -4150)
+      (pin P5 13 400 -4150)
+      (pin P5 14 1200 -4150)
+      (pin P5 15 2000 -4150)
+      (pin P5 16 2800 -4150)
+      (pin P4 17 4150 -2800)
+      (pin P4 18 4150 -2000)
+      (pin P4 19 4150 -1200)
+      (pin P4 20 4150 -400)
+      (pin P4 21 4150 400)
+      (pin P4 22 4150 1200)
+      (pin P4 23 4150 2000)
+      (pin P4 24 4150 2800)
+      (pin P5 25 2800 4150)
+      (pin P5 26 2000 4150)
+      (pin P5 27 1200 4150)
+      (pin P5 28 400 4150)
+      (pin P5 29 -400 4150)
+      (pin P5 30 -1200 4150)
+      (pin P5 31 -2000 4150)
+      (pin P5 32 -2800 4150)
+    )
+    (padstack P1
+      (shape
+        (polygon F.Cu 0 -900 900 900 900 900 -900 -900 -900)
+      )
+      (shape
+        (polygon B.Cu 0 -900 900 900 900 900 -900 -900 -900)
+      )
+    )
+    (padstack P2
+      (shape
+        (circle F.Cu 1800)
+      )
+      (shape
+        (circle B.Cu 1800)
+      )
+    )
+    (padstack P3
+      (shape
+        (polygon F.Cu 0 -455 250 -437.5 338 -387.6 412.6 -313 462.5 -225 480 225 480 313 462.5 387.6 412.6 437.5 338 455 250 455 -250 437.5 -338 387.6 -412.6 313 -462.5 225 -480 -225 -480 -313 -462.5 -387.6 -412.6 -437.5 -338 -455 -250)
+      )
+    )
+    (padstack P4
+      (shape
+        (polygon F.Cu 0 -755 137.5 -744.2 192 -713.3 238.3 -667 269.2 -612.5 280 612.5 280 667 269.2 713.3 238.3 744.2 192 755 137.5 755 -137.5 744.2 -192 713.3 -238.3 667 -269.2 612.5 -280 -612.5 -280 -667 -269.2 -713.3 -238.3 -744.2 -192 -755 -137.5)
+      )
+    )
+    (padstack P5
+      (shape
+        (polygon F.Cu 0 -280 612.5 -269.2 667 -238.3 713.3 -192 744.2 -137.5 755 137.5 755 192 744.2 238.3 713.3 269.2 667 280 612.5 280 -612.5 269.2 -667 238.3 -713.3 192 -744.2 137.5 -755 -137.5 -755 -192 -744.2 -238.3 -713.3 -269.2 -667 -280 -612.5)
+      )
+    )
+    (padstack Via_600_300
+      (shape
+        (circle F.Cu 600)
+      )
+      (shape
+        (circle B.Cu 600)
+      )
+    )
+  )
+  (network
+    (net GND
+      (pins D1-1 U1-10)
+    )
+    (net LED_A
+      (pins D1-2 R1-2)
+    )
+    (net LED_DRV
+      (pins R1-1 U1-1)
+    )
+    (net VIN
+      (pins U1-9)
+    )
+    (class PWR GND VIN
+      (circuit
+        (use_via Via_600_300)
+      )
+      (rule
+        (width 500)
+        (clearance 200)
+      )
+    )
+  )
+  (wiring)
+)

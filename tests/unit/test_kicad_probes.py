@@ -1,24 +1,40 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The probe results file: write, compare and missing-file modes with a fake probe (capability
-kicad-oracle, "Probe results per kicad-cli version"; change c0017). No ``kicad-cli`` is run."""
+kicad-oracle, "Probe results per kicad-cli version"; change c0017). No ``kicad-cli`` is run.
+
+What the first three tests are for: ``_probes`` imports every probe registration of the oracle, so a fake
+test module that imports it must find every helper folder of ``tests/kicad``; the tests then prove that
+``verify`` writes the results file, compares with it and names a drift. The folders are derived
+(``helper_folders``), and ``test_helper_folders_are_those_of_the_oracle`` keeps them equal to the list of
+``tests/kicad/conftest.py``. The last tests prove, without docker, that the oracle's runner follows the
+``docker:<image>`` form of ``FENOLITE_KICAD_CLI``.
+"""
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 TESTS = Path(__file__).resolve().parents[1]
+
+
+def helper_folders() -> list[str]:
+    """Where the oracle's helper modules live: ``tests/kicad``, each of its folders that holds a helper
+    module (``_<name>.py``: a bench, a case table, a probe registration), and ``tests``. Derived, so a new
+    folder of ``tests/kicad`` needs no edit here; ``tests/kicad/conftest.py`` puts the same folders on the
+    path of the oracle run."""
+    root = TESTS / "kicad"
+    folders = sorted(p for p in root.iterdir() if p.is_dir() and any(p.glob("_*.py")))
+    return [str(root), *(str(p) for p in folders), str(TESTS)]
+
+
 FAKE = """
 import sys
-sys.path[:0] = [
-    {kicad!r}, {board!r}, {rules!r}, {project!r}, {build!r}, {sheets!r}, {check!r}, {lens!r},
-    {export!r}, {frame!r}, {zones!r}, {copper!r}, {fill!r}, {place!r}, {analysis!r}, {assembly!r},
-    {export!r}, {frame!r}, {zones!r}, {copper!r}, {fill!r}, {place!r}, {analysis!r}, {schematic!r},
-    {followups!r}, {tests!r}
-]
+sys.path[:0] = {paths!r}
 from pathlib import Path
 import _probes
 
@@ -42,28 +58,7 @@ def test_fake(monkeypatch):
 @pytest.fixture
 def fake(pytester: pytest.Pytester, tmp_path: Path) -> Path:
     folder = tmp_path / "probes"
-    source = FAKE.format(
-        kicad=str(TESTS / "kicad"),
-        board=str(TESTS / "kicad" / "board"),
-        rules=str(TESTS / "kicad" / "rules"),
-        project=str(TESTS / "kicad" / "project"),
-        build=str(TESTS / "kicad" / "build"),
-        sheets=str(TESTS / "kicad" / "sheets"),
-        check=str(TESTS / "kicad" / "check"),
-        lens=str(TESTS / "kicad" / "lens"),
-        export=str(TESTS / "kicad" / "export"),
-        frame=str(TESTS / "kicad" / "frame"),
-        zones=str(TESTS / "kicad" / "zones"),
-        copper=str(TESTS / "kicad" / "copper"),
-        fill=str(TESTS / "kicad" / "fill"),
-        place=str(TESTS / "kicad" / "place"),
-        analysis=str(TESTS / "kicad" / "analysis"),
-        assembly=str(TESTS / "kicad" / "assembly"),
-        schematic=str(TESTS / "kicad" / "schematic"),
-        followups=str(TESTS / "kicad" / "followups"),
-        tests=str(TESTS),
-        folder=str(folder),
-    )
+    source = FAKE.format(paths=helper_folders(), folder=str(folder))
     pytester.makepyfile(test_fake=source)
     return folder
 
@@ -154,3 +149,77 @@ def test_libtable_rows_follow_the_major() -> None:
     assert "(version 7)" in ten and '(type "Table")' in ten and '(name "Sub")' in ten
     nine = _libtables.table(_libtables.row("Mini", "Mini_v9.pretty", major=9), major=9)
     assert "(version" not in nine and "(name Mini)(type KiCad)(uri Mini_v9.pretty)" in nine
+
+
+def test_helper_folders_are_those_of_the_oracle() -> None:
+    """Every folder that ``tests/kicad/conftest.py`` puts on the path is derived here, so the fake module
+    imports ``_probes`` as the oracle run does."""
+    text = (TESTS / "kicad" / "conftest.py").read_text(encoding="utf-8")
+    listed = {str(TESTS / "kicad" / name) for name in re.findall(r'HERE / "([a-z_]+)"', text)}
+    derived = set(helper_folders())
+    assert listed and listed - derived <= {
+        str(p) for p in (TESTS / "kicad").iterdir() if p.is_dir() and not any(p.glob("_*.py"))
+    }
+    missing = {p for p in derived if p.startswith(str(TESTS / "kicad") + "/")} - listed
+    assert not missing, f"tests/kicad/conftest.py does not list {sorted(missing)}"
+
+
+def test_runner_follows_the_docker_form(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """``FENOLITE_KICAD_CLI=docker:<image>`` gives the oracle the image runner, and the command line it
+    would build runs ``kicad-cli`` in that image on the copied folder. Docker is not run."""
+    _kicad_paths()
+    import _probes
+    import _resources
+
+    from fenolite.backends.kicad.cli import DockerCli, KicadCli
+
+    image = "kicad/kicad:9.0.9@sha256:" + "0" * 64
+    monkeypatch.setenv("FENOLITE_KICAD_CLI", f"docker:{image}")
+    assert _resources.kicad_cli() == f"docker:{image}"
+    _probes.runner.cache_clear()
+    try:
+        found = _probes.runner()
+        assert isinstance(found, DockerCli) and found.image == image and found.timeout == 600
+        command = found._command(["pcb", "drc", "board.kicad_pcb"], tmp_path)  # pyright: ignore[reportPrivateUsage]
+        assert command[:2] == ["docker", "run"] and f"{tmp_path}:/w" in command
+        assert command[command.index(image) :] == [image, "kicad-cli", "pcb", "drc", "board.kicad_pcb"]
+        binary = tmp_path / "kicad-cli"
+        binary.write_text("", encoding="utf-8")
+        monkeypatch.setenv("FENOLITE_KICAD_CLI", str(binary))
+        _probes.runner.cache_clear()
+        plain = _probes.runner()
+        assert type(plain) is KicadCli and plain.path == binary
+    finally:
+        _probes.runner.cache_clear()
+
+
+def test_version_of_the_docker_form_without_docker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The version helper of the markers asks the image runner for the docker form, and gives ``None``
+    when the runner fails, as for a binary that cannot be run."""
+    import _resources
+
+    from fenolite.backends.kicad import cli as cli_module
+
+    asked: list[str] = []
+
+    class Fake:
+        def __init__(self, text: str | None) -> None:
+            self.text = text
+
+        def version(self) -> str:
+            if self.text is None:
+                raise cli_module.KicadCliError("no docker", cli_module.CliRun("exit", 125, "", "", {}))
+            return self.text
+
+    def fake_cli_for(path: Path, *, timeout: float = 120) -> Fake:
+        asked.append(str(path))
+        return Fake("9.0.9" if "good" in str(path) else None)
+
+    monkeypatch.setattr(cli_module, "cli_for", fake_cli_for)
+    _resources._version_of.cache_clear()  # pyright: ignore[reportPrivateUsage]
+    try:
+        assert _resources._version_of("docker:good") == (9, 0, 9)  # pyright: ignore[reportPrivateUsage]
+        assert _resources._version_of("docker:bad") is None  # pyright: ignore[reportPrivateUsage]
+        assert asked == ["docker:good", "docker:bad"]
+    finally:
+        _resources._version_of.cache_clear()  # pyright: ignore[reportPrivateUsage]

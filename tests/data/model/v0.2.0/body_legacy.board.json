@@ -1,0 +1,22 @@
+{
+  "id": "brd_ad38835e-ddd6-4f55-afa7-3207237751aa",
+  "footprints": [
+    {
+      "id": "fp_8b57f989-5175-5f9f-b1e4-fc20fb13d9b2",
+      "component_id": "",
+      "lib_ref": "",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "bodies": [
+        {
+          "id": "bdy_8b57f989-5175-5f9f-b1e4-fc20fb13d9b2",
+          "kind": "extruded",
+          "height": 300000,
+          "standoff": -100000
+        }
+      ]
+    }
+  ]
+}

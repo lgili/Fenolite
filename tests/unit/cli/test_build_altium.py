@@ -16,6 +16,7 @@ from _altium import HIER, SAMPLE, variant_script
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium import cfb
+from fenolite.core.ids import derived_id
 
 ROOT = Path(__file__).resolve().parents[3]
 GOLDEN = ROOT / "tests" / "data" / "altium" / "sample"
@@ -70,7 +71,7 @@ def test_dry_run_of_the_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
         "sheet", "kept", "schematic_format", "sheet_mode", "sheets", "ports", "sheet_entries", "harnesses",
         "schematic", "libraries", "symbols", "footprints", "pcb_document", "copper", "pcb", "copper_check",
         "outjob",
-        "drawing_sheet", "rules", "experimental", "script_output", "plan",
+        "drawing_sheet", "rules", "experimental", "script_output", "plan", "plan_id",
     ]  # fmt: skip
 
 
@@ -310,7 +311,9 @@ def test_flat_by_default(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     assert list(out.iterdir()) == []
     flat = ("--target", "altium", "--altium-sheets", "flat")
     code, explicit, _ = run(monkeypatch, str(HIER), "--out", str(out), *flat, "--dry-run")
-    assert code == 0 and explicit["result"] == result
+    # the plan id binds the arguments, and the two command lines differ by one
+    assert code == 0 and explicit["result"].pop("plan_id") != result.pop("plan_id")
+    assert explicit["result"] == result
 
 
 def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -478,7 +481,7 @@ def test_plane_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
     result = env["result"]
     assert isinstance(result, dict) and result["copper"]["planes"] == {"In1.Cu": "GND"}
     issues = env["issues"]
-    assert isinstance(issues, list) and "build.plane-not-lowered" not in [i["code"] for i in issues]
+    assert isinstance(issues, list) and not [i for i in issues if i["code"].startswith("build.plane-")]
 
 
 # --- change c0086: symbol bodies, directions and result.schematic -------------------------------------
@@ -597,3 +600,255 @@ def test_bodies_option_needs_the_altium_target(monkeypatch: pytest.MonkeyPatch, 
         "--dry-run",
     )
     assert code == 2 and json.loads(err)["code"] == "FEN-2001" and not out.exists()
+
+
+# --- change c0100: script layer counts (altium-build, "Script layer counts in an Altium build") -------
+
+
+def test_six_layers_with_a_plane_and_a_zone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Six layers with a plane and a zone": the PCB document of a six-layer script is planned."""
+    from _altium import blink_tree
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
+    script = blink_tree(tmp_path / "tree") / "design.py"
+    lines = script.read_text(encoding="utf-8").splitlines()
+    nets = next(line for line in lines if line.startswith("vin, gnd, led_drv, led_a = "))
+    lines.remove(nets)
+    board = lines.index("design.board(mm(50), mm(30))")
+    lines[board] = nets + '\ndesign.board(mm(50), mm(30), copper=6, planes={"In4.Cu": gnd})'
+    lines.append('design.zone(vin, layers=("In3.Cu",))')
+    script.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    code, env, err = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--dry-run"
+    )
+    assert code == 0, err
+    result = env["result"]
+    assert isinstance(result, dict)
+    assert "blink.PcbDoc" in [Path(p["path"]).name for p in result["plan"]]
+    copper = result["copper"]
+    assert copper["layers"] == 6 and copper["planes"] == {"In4.Cu": "GND"} and copper["zones"] == 1
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    assert "altium.copper-stack" not in [i["code"] for i in issues]
+    assert not [i for i in issues if i["code"] == "altium.not-lowered" and i.get("where") == "stackup"]
+    assert not [i for i in issues if i["severity"] == "error"]
+
+
+# --- net-tie groups and check severities: reported, not written (change c0114) --------------------
+
+
+def test_net_tie_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A net tie in an Altium build" (dsl-footprint-authoring, "Net-tie groups in authored
+    footprints"): the pads are written, no mark ties them, and one info of the kind ``net-tie`` says so."""
+    from _altium_drc import DOCUMENT, build_altium, coded
+    from _routed import Routed
+    from _waivercases import NET_TIE, plant
+
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.backends.altium.lower import LOSS_KINDS, NET_TIE_KIND
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    plant(routed, NET_TIE)
+    code, env, err = build_altium(routed, "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    planned = [Path(name).name for name in env["result"]["files"]]
+    assert DOCUMENT in planned and any(name.endswith(".PcbLib") for name in planned)
+    (found,) = [i for i in coded(env, "altium.not-lowered") if i["where"] == NET_TIE_KIND]
+    assert found["severity"] == "info" and "1 footprint(s)" in found["message"] and "NT1" in found["message"]
+    assert NET_TIE_KIND not in LOSS_KINDS
+    assert not coded(env, "copper.short")  # the tied pads are 0.5 mm apart
+    code, env, err = build_altium(routed, "--confirm")
+    assert code == 0, err
+    backend = AltiumBackend()
+    read = backend.board_from_bytes((routed.out / DOCUMENT).read_bytes(), file=DOCUMENT)
+    pads = [pad for pad in backend.board_pads(read.design) if pad.ref == "NT1"]
+    assert sorted(pad.number for pad in pads) == ["1", "2"]
+    assert read.design.board is not None
+    assert all(placed.net_ties == () for placed in read.design.board.footprints)  # the import reads none
+
+
+def test_severities_in_an_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Severities in an Altium build" (design-dsl, "Check severities in the DSL"): no severity is
+    written, one info of the kind ``severity`` names the code, and the documents are those of the build
+    without the call."""
+    from _altium_drc import build_altium, coded
+    from _routed import Routed
+    from _waivercases import ANCHOR, SEVERITY
+
+    from fenolite.backends.altium.lower import LOSS_KINDS, SEVERITY_KIND
+
+    plain = Routed(tmp_path / "plain", monkeypatch, confirm=False)
+    code, env, err = build_altium(plain, "--confirm")
+    assert code == 0, err
+    assert not [i for i in coded(env, "altium.not-lowered") if i["where"] == SEVERITY_KIND]
+    routed = Routed(tmp_path / "severity", monkeypatch, confirm=False)
+    routed.edit_script(ANCHOR, SEVERITY + ANCHOR)
+    code, env, err = build_altium(routed, "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    (found,) = [i for i in coded(env, "altium.not-lowered") if i["where"] == SEVERITY_KIND]
+    assert found["severity"] == "info" and "kicad.drc.silk-overlap" in found["message"]
+    assert SEVERITY_KIND not in LOSS_KINDS
+    code, env, err = build_altium(routed, "--confirm")
+    assert code == 0, err
+    model_only = {".fenolite/rules.json", ".fenolite/build.json"}  # the severity and the script's digest
+    documents = {name: data for name, data in routed.files().items() if name not in model_only}
+    assert documents == {name: data for name, data in plain.files().items() if name not in model_only}
+    assert b"kicad.drc.silk-overlap" in routed.files()[".fenolite/rules.json"]
+
+
+# --- placement rules and keep-outs that forbid footprints (change c0113) --------------------------------
+
+ROUTED = ROOT / "examples" / "blink_routed" / "design.py"
+NEAR = '\ndesign.near("led", d1, r1.pad(2), within=mm(5))\n'
+
+
+def routed_variant(folder: Path, append: str) -> Path:
+    """The routed blink with ``append`` added, beside library tables that name the mini library."""
+    from _buildhelp import blink_variant
+
+    script = blink_variant(folder)
+    script.write_text(ROUTED.read_text(encoding="utf-8") + append, encoding="utf-8")
+    return script
+
+
+def test_placement_rule_is_stored_and_announced(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Rules of an Altium build are stored and announced": the build judges no rule."""
+    script = routed_variant(tmp_path / "V", NEAR)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    result, issues = env["result"], env["issues"]
+    assert isinstance(result, dict) and isinstance(issues, list)
+    assert "placement" not in result
+    found = [i for i in issues if i["code"] == "altium.not-lowered" and i["where"] == "placement-rule"]
+    assert len(found) == 1 and found[0]["severity"] == "info"
+    assert "1 placement rule(s)" in found[0]["message"] and "fenolite check" in found[0]["message"]
+    assert not [i for i in issues if i["code"].startswith(("placement.", "place."))]
+    assert not out.exists()
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--confirm")
+    assert code == 0, (env.get("issues"), err)
+    stored = json.loads((out / ".fenolite" / "rules.json").read_text(encoding="utf-8"))
+    assert stored["proximity"] == [
+        {
+            "name": "led",
+            "parts": [{"path": "D1"}],
+            "anchor": [{"path": "R1", "number": "2"}],
+            "within": 5_000_000,
+        }
+    ]
+
+
+def test_no_placement_rule_gives_no_info_and_the_same_bytes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    script = routed_variant(tmp_path / "V", "")
+    code, env, _ = run(
+        monkeypatch, str(script), "--out", str(tmp_path / "B"), "--target", "altium", "--confirm"
+    )
+    issues = env["issues"]
+    assert code == 0 and isinstance(issues, list)
+    assert not [i for i in issues if i["where"] in ("placement-rule", "keepout-footprints")]
+    assert "proximity" not in (tmp_path / "B" / ".fenolite" / "rules.json").read_text(encoding="utf-8")
+
+
+AREA = (
+    '\ndesign.rule_area("ANT", [(mm(29), mm(6)), (mm(35), mm(6)), (mm(35), mm(12)), (mm(29), mm(12))], '
+    'layers=("F.Cu",), forbid=("footprints",))\n'
+)
+
+
+def test_keepout_footprints_is_announced(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Antenna keep-out in an Altium build": the restriction is in no record and is named."""
+    script = routed_variant(tmp_path / "V", AREA)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--target", "altium", "--dry-run")
+    assert code == 0, (env.get("issues"), err)
+    issues = env["issues"]
+    assert isinstance(issues, list)
+    found = [i for i in issues if i["code"] == "altium.not-lowered" and i["where"] == "keepout-footprints"]
+    assert len(found) == 1 and found[0]["severity"] == "info" and "ANT" in found[0]["message"]
+    assert not [i for i in issues if i["severity"] == "error"]
+
+
+def test_placement_rule_kinds_are_no_loss() -> None:
+    from typing import get_args
+
+    from fenolite.backends.altium import lower, rulemap
+    from fenolite.model.rules import RuleKind
+
+    assert lower.PLACEMENT_RULE_KIND == "placement-rule"
+    assert lower.KEEPOUT_FOOTPRINTS_KIND == "keepout-footprints"
+    assert not {lower.PLACEMENT_RULE_KIND, lower.KEEPOUT_FOOTPRINTS_KIND} & lower.LOSS_KINDS
+    # a proximity rule is no rule kind: the rule table keeps one row per kind and gains none
+    assert [row.neutral for row in rulemap.TABLE] == list(get_args(RuleKind))
+    assert not [row for row in rulemap.TABLE if "prox" in row.neutral or "near" in row.neutral]
+
+
+# --- change c0140: part heights and height limits on the Altium target ----------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+
+
+def test_height_an_altium_build_stores_and_announces(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "An Altium build stores and announces": the limit is stored and counted in the info of
+    kind ``placement-rule``, the script body is reported under the kind ``body`` and not written, no
+    placement rule is judged, and the documents are those of the build without the height and the limit."""
+    from _buildhelp import blink_variant
+
+    from fenolite.model.board import Board
+
+    routed = (ROOT / "examples" / "blink_routed" / "design.py").read_text(encoding="utf-8")
+    assert TALL_R1[0] in routed
+    documents: dict[str, dict[str, bytes]] = {}
+    envelopes: dict[str, dict[str, object]] = {}
+    for key, text in (
+        ("plain", routed),
+        ("tall", routed.replace(*TALL_R1) + '\ndesign.height_limit("LID", max=mm(5))\n'),
+    ):
+        script = blink_variant(tmp_path / f"{key}-src")
+        script.write_text(text, encoding="utf-8")
+        out = tmp_path / key
+        flags = ("--target", "altium", "--altium-bodies", "extruded", "--confirm")
+        code, env, err = run(monkeypatch, str(script), "--out", str(out), *flags)
+        assert code == 0, err
+        envelopes[key] = env
+        documents[key] = {
+            path.name: path.read_bytes()
+            for path in sorted(out.iterdir())
+            if path.is_file() and path.suffix in (".PcbDoc", ".PcbLib", ".PrjPcb", ".SchDoc", ".SchLib")
+        }
+    assert documents["tall"] == documents["plain"] and len(documents["plain"]) == 5
+    rules = json.loads((tmp_path / "tall" / ".fenolite" / "rules.json").read_text(encoding="utf-8"))
+    assert rules["heights"] == [{"area": "LID", "max": 5_000_000}]
+    board_text = (tmp_path / "tall" / ".fenolite" / "board.json").read_text(encoding="utf-8")
+    from fenolite.model import canonical
+
+    assert all(not fp.bodies for fp in canonical.loads(board_text, Board).footprints)
+    issues = envelopes["tall"]["issues"]
+    assert isinstance(issues, list)
+    not_lowered = [str(i["where"]) for i in issues if i["code"] == "altium.not-lowered"]
+    assert not_lowered.count("placement-rule") == 1
+    assert [where for where in not_lowered if where.startswith("body/")] == [
+        f"body/{derived_id('bdy', 'dsl', 'height:R1')}"
+    ]
+    assert not [i for i in issues if str(i["code"]).startswith("placement.")]
+    note = next(i for i in issues if i["where"] == "placement-rule")
+    assert "1 placement rule(s)" in str(note["message"])
+    plain_issues = envelopes["plain"]["issues"]
+    assert isinstance(plain_issues, list)
+    assert not [
+        i for i in plain_issues if i["where"] == "placement-rule" or str(i["where"]).startswith("body/")
+    ]
+
+
+def test_height_limit_is_no_row_of_the_rule_table() -> None:
+    from typing import get_args
+
+    from fenolite.backends.altium import rulemap
+    from fenolite.model.rules import RuleKind
+
+    assert [row.neutral for row in rulemap.TABLE] == list(get_args(RuleKind))
+    assert not [row for row in rulemap.TABLE if "height" in row.neutral.casefold()]

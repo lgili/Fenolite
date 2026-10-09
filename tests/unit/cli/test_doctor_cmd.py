@@ -178,6 +178,7 @@ def test_freerouting_jar_with_a_suitable_java(monkeypatch: pytest.MonkeyPatch, t
     assert code == 0
     entry = _freerouting_entry(env)
     assert entry["available"] is True and entry["java_major"] == 25 and entry["java_ok"] is True
+    assert entry["source"] == "env"
     assert not [issue for issue in env["issues"] if issue["where"] == "freerouting"]
 
 
@@ -188,5 +189,26 @@ def test_freerouting_jar_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert code == 0
     entry = _freerouting_entry(env)
     assert entry["available"] is False and "java_major" in entry
+    assert entry["source"] == "env" and "fenolite fetch freerouting --confirm" in entry["reason"]
     found = [issue for issue in env["issues"] if issue["where"] == "freerouting"]
     assert [issue["code"] for issue in found] == ["doctor.tool-missing"]
+
+
+@posix_tools
+def test_freerouting_fetched_jar_is_reported(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Capability routing, "Freerouting plugin" (c0078): ``source`` says where the jar came from."""
+    monkeypatch.delenv("FENOLITE_FREEROUTING_JAR", raising=False)
+    tools = tmp_path / "tools"
+    monkeypatch.setenv("FENOLITE_TOOLS_DIR", str(tools))
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path, version="25.0.1")))
+    fake = fake_kicad_cli(tmp_path / "kbin", help_pages=PAGES)
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--kicad-cli", str(fake))
+    entry = _freerouting_entry(env)
+    assert code == 0 and entry["source"] is None and entry["available"] is False
+    assert "fenolite fetch freerouting --confirm" in entry["reason"]
+    (tools / "freerouting").mkdir(parents=True)
+    jar = create_fake_jar(tools / "freerouting", "freerouting-2.4.1.jar")
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor", "--kicad-cli", str(fake))
+    entry = _freerouting_entry(env)
+    assert code == 0 and entry["source"] == "fetched" and entry["available"] is True
+    assert entry["path"] == str(jar) and entry["version"] == "2.4.1"

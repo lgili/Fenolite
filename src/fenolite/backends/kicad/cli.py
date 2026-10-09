@@ -280,12 +280,13 @@ class KicadCli:
         self,
         args: Sequence[str],
         *,
-        files: Mapping[str, Path],
+        files: Mapping[str, Path | bytes],
         env: Mapping[str, str] | None = None,
         folders: Sequence[str] = (),
     ) -> CliRun:
-        """Copy ``files`` (relative name → file or folder) to a fresh folder, create the empty ``folders``
-        there, and run."""
+        """Copy ``files`` (relative name → file or folder, or the bytes of a file that exists nowhere on
+        disk: a plot copy of change c0117) to a fresh folder, create the empty ``folders`` there, and
+        run. A file given as bytes is an output only when the run changed it, like any copied file."""
         tmp = Path(tempfile.mkdtemp(prefix="fenolite-kicad-"))
         try:
             config = tmp / CONFIG_DIR
@@ -293,14 +294,16 @@ class KicadCli:
             for name, source in files.items():
                 target = tmp / _relative(name)
                 target.parent.mkdir(parents=True, exist_ok=True)
-                if Path(source).is_dir():
+                if isinstance(source, bytes):
+                    target.write_bytes(source)
+                elif Path(source).is_dir():
                     shutil.copytree(source, target)
                 else:
                     shutil.copyfile(source, target)
             for name in folders:
                 (tmp / _relative(name)).mkdir(parents=True, exist_ok=True)
             before = {rel: _sha256(path) for rel, path in _files(tmp).items()}
-            command = self._command(args, tmp)
+            command = self._command(args, tmp, env)
             try:
                 proc = subprocess.run(
                     command,
@@ -325,14 +328,16 @@ class KicadCli:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
+    def _command(self, args: Sequence[str], tmp: Path, env: Mapping[str, str] | None = None) -> list[str]:
+        """The command line of one run. ``env`` is the run's extra environment: a runner whose tool does
+        not inherit the process environment (a container) passes it on the command line."""
         return [str(self.path), *map(str, args)]
 
     def _state(self, root: Path) -> dict[str, str]:
         """The run's private state variables: ``private_state`` under ``root``."""
         return private_state(root)
 
-    def _checked(self, args: Sequence[str], files: Mapping[str, Path], what: str) -> CliRun:
+    def _checked(self, args: Sequence[str], files: Mapping[str, Path | bytes], what: str) -> CliRun:
         run = self.run(args, files=files)
         if run.outcome == "timeout":
             raise KicadCliError(f"kicad-cli {what} timed out after {self.timeout} s", run)
@@ -369,7 +374,7 @@ class KicadCli:
         return _output(run, "board.d356", "pcb export ipcd356")
 
     def export(
-        self, args: Sequence[str], board: Path, *, files: Mapping[str, Path] | None = None, out: str
+        self, args: Sequence[str], board: Path, *, files: Mapping[str, Path | bytes] | None = None, out: str
     ) -> CliRun:
         """An export command (``args`` without the board) on a copy of ``board``, with the folder ``out``
         created in the run folder first; the caller reads ``returncode`` and the files under ``out``."""
@@ -542,7 +547,8 @@ class DockerCli(KicadCli):
         self.image = image
         super().__init__(Path(DOCKER_PREFIX + image), timeout=timeout)
 
-    def _command(self, args: Sequence[str], tmp: Path) -> list[str]:
+    def _command(self, args: Sequence[str], tmp: Path, env: Mapping[str, str] | None = None) -> list[str]:
+        extra = [part for name, value in sorted((env or {}).items()) for part in ("-e", f"{name}={value}")]
         return [
             "docker",
             "run",
@@ -561,6 +567,7 @@ class DockerCli(KicadCli):
             "LANG=C",
             "-e",
             "LC_ALL=C",
+            *extra,
             self.image,
             "kicad-cli",
             *map(str, args),
@@ -572,11 +579,27 @@ class DockerCli(KicadCli):
         return {}
 
 
+def docker_image(path: str | os.PathLike[str]) -> str | None:
+    """The image of a ``docker:<image>`` marker, else ``None``. A marker held in a ``Path`` on Windows
+    spells the slashes of the image as backslashes; an image reference holds no backslash, so each one is
+    turned back into a slash."""
+    name = os.fspath(path)
+    if not name.startswith(DOCKER_PREFIX):
+        return None
+    return name[len(DOCKER_PREFIX) :].replace("\\", "/")
+
+
+def marker_text(path: str | os.PathLike[str]) -> str:
+    """``path`` as text: a ``docker:<image>`` marker with the image as written, else the path itself."""
+    image = docker_image(path)
+    return os.fspath(path) if image is None else DOCKER_PREFIX + image
+
+
 def cli_for(path: Path, *, timeout: float = 120) -> KicadCli:
     """Build the package runner for a binary path or ``docker:<image>`` marker."""
-    name = os.fspath(path)
-    if name.startswith(DOCKER_PREFIX):
-        return DockerCli(name[len(DOCKER_PREFIX) :], timeout=timeout)
+    image = docker_image(path)
+    if image is not None:
+        return DockerCli(image, timeout=timeout)
     return KicadCli(path, timeout=timeout)
 
 
@@ -596,11 +619,12 @@ class ErcRun:
     report: ErcReport | None
 
 
-def _with(board: Path, files: Mapping[str, Path] | None) -> dict[str, Path]:
-    """The board under its own name, and the extra files next to it."""
-    found = {Path(board).name: Path(board)}
+def _with(board: Path, files: Mapping[str, Path | bytes] | None) -> dict[str, Path | bytes]:
+    """The board under its own name, and the extra files next to it. A file given as bytes under the
+    board's name replaces the board in the run folder."""
+    found: dict[str, Path | bytes] = {Path(board).name: Path(board)}
     for name, source in (files or {}).items():
-        found[name] = Path(source)
+        found[name] = source if isinstance(source, bytes) else Path(source)
     return found
 
 
@@ -646,7 +670,9 @@ __all__ = [
     "KicadCliVersionError",
     "RefillRun",
     "cli_for",
+    "docker_image",
     "find_kicad_cli",
     "kicad_cli_candidates",
+    "marker_text",
     "private_state",
 ]

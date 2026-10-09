@@ -13,6 +13,7 @@ from __future__ import annotations
 from fenolite.geometry.boolean import BACKEND_ORDER, BooleanBackend, available_backends, select_backend
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.index import SpatialIndex
+from fenolite.geometry.lengths import arc_length, arc_length_to, segment_length, segment_length_to
 from fenolite.geometry.polygon import (
     Keyhole,
     Path,
@@ -51,6 +52,7 @@ from fenolite.geometry.thick import (
     thick_touch,
     thick_witness,
 )
+from fenolite.geometry.touch import touch_groups
 from fenolite.geometry.transform import FULL_TURN, TRIG_BITS, Transform, cos_sin_fixed, rotate_point
 from fenolite.geometry.vector import Point, Size, Vec, add, cross, dot, neg, norm2, sub
 
@@ -82,6 +84,8 @@ __all__ = [
     "Transform",
     "Vec",
     "add",
+    "arc_length",
+    "arc_length_to",
     "area2",
     "assemble_rings",
     "available_backends",
@@ -105,6 +109,8 @@ __all__ = [
     "polygons_intersect",
     "rotate_point",
     "round_point",
+    "segment_length",
+    "segment_length_to",
     "segments_closer_than",
     "select_backend",
     "sub",
@@ -113,4 +119,5 @@ __all__ = [
     "thick_gap_floor",
     "thick_touch",
     "thick_witness",
+    "touch_groups",
 ]

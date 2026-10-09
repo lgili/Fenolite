@@ -1,0 +1,32 @@
+{
+  "outcomes": {
+    "krt-escape-bga-t10": {
+      "detail": "escape: 22 open, new error types none, 7 via(s) in a pad (bga_fanout.py exit 0 in 1.2 s, route.py exit 0 in 129.3 s); plain: 16 open, new error types none, 17 via(s) in a pad (route.py exit 0 in 213.7 s)",
+      "value": "different"
+    },
+    "krt-escape-bga-t9": {
+      "detail": "escape: 22 open, new error types none, 7 via(s) in a pad (bga_fanout.py exit 0 in 1.2 s, route.py exit 0 in 143.8 s); plain: 16 open, new error types none, 17 via(s) in a pad (route.py exit 0 in 236.3 s)",
+      "value": "different"
+    },
+    "krt-escape-qfn-t10": {
+      "detail": "escape: 0 open, new error types none, 0 via(s) in a pad (qfn_fanout.py exit 0 in 0.5 s, route.py exit 0 in 38.0 s); plain: 4 open, new error types none, 1 via(s) in a pad (route.py exit 0 in 40.5 s)",
+      "value": "equal"
+    },
+    "krt-escape-qfn-t9": {
+      "detail": "escape: 0 open, new error types none, 0 via(s) in a pad (qfn_fanout.py exit 0 in 0.5 s, route.py exit 0 in 40.8 s); plain: 4 open, new error types none, 1 via(s) in a pad (route.py exit 0 in 43.7 s)",
+      "value": "equal"
+    },
+    "krt-pair-names": {
+      "detail": "routed as pairs: ['A_P/A_N', 'B+/B-', 'C_P0/C_N0', 'E_DP/E_DN']; PAIR_NAME_FORMS gives: ['A_P/A_N', 'B+/B-', 'C_P0/C_N0', 'E_DP/E_DN']",
+      "value": "equal"
+    },
+    "krt-pair-t10": {
+      "detail": "target 10; unconnected 0; pair findings none; new error types none; skew none; steps [('route_diff.py', 0, 0.6), ('route.py', 0, 0.8)]",
+      "value": "equal"
+    },
+    "krt-pair-t9": {
+      "detail": "target 9; unconnected 0; pair findings none; new error types none; skew none; steps [('route_diff.py', 0, 0.7), ('route.py', 0, 0.9)]",
+      "value": "equal"
+    }
+  }
+}

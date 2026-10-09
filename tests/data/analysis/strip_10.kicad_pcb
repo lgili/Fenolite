@@ -1,0 +1,132 @@
+(kicad_pcb
+	(version 20260206)
+	(generator "fenolite")
+	(generator_version "10.0")
+	(general
+		(thickness 1.6)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(title_block
+		(title "strip_10: authored for Fenolite, illustrative values")
+	)
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(9 "F.Adhes" user "F.Adhesive")
+		(11 "B.Adhes" user "B.Adhesive")
+		(13 "F.Paste" user)
+		(15 "B.Paste" user)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(17 "Dwgs.User" user "User.Drawings")
+		(19 "Cmts.User" user "User.Comments")
+		(21 "Eco1.User" user "User.Eco1")
+		(23 "Eco2.User" user "User.Eco2")
+		(25 "Edge.Cuts" user)
+		(27 "Margin" user)
+		(31 "F.CrtYd" user "F.Courtyard")
+		(29 "B.CrtYd" user "B.Courtyard")
+		(35 "F.Fab" user)
+		(33 "B.Fab" user)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(footprint "Bench:Part"
+		(layer "F.Cu")
+		(uuid "6eca6184-2597-5142-80ee-0626d3588b3d")
+		(at 20.5 22.5)
+		(property "Reference" "J1"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(uuid "78cf8b4a-980e-57f8-bddc-8f55c3a23196")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "X"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "5510c84d-3528-5ff2-84fa-ca57955b423b")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(pad "1" smd rect
+			(at 0 0)
+			(size 1 5)
+			(layers "F.Cu")
+			(net "VBUS")
+			(uuid "5786f95f-b31e-5fc1-97b9-18db29b23561")
+		)
+	)
+	(footprint "Bench:Part"
+		(layer "F.Cu")
+		(uuid "cc5a215b-7236-536e-883b-414a0e177831")
+		(at 39.5 22.5)
+		(property "Reference" "U1"
+			(at 0 0 0)
+			(layer "F.SilkS")
+			(uuid "c3796c90-4912-526c-a1fb-66deab12f183")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "X"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "eb34a2ba-ae26-538c-a5b0-316abf0e1643")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(pad "1" smd rect
+			(at 0 0)
+			(size 1 5)
+			(layers "F.Cu")
+			(net "VBUS")
+			(uuid "0e50ddf6-8d9f-5b8a-a388-91aa83ab1c48")
+		)
+	)
+	(zone
+		(net "VBUS")
+		(layer "F.Cu")
+		(uuid "2d81e5b3-01a4-5810-b23d-324ba9f75285")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0.5)
+		)
+		(min_thickness 0.25)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+			(island_removal_mode 0)
+		)
+		(polygon
+			(pts
+				(xy 20 20) (xy 40 20) (xy 40 25) (xy 20 25)
+			)
+		)
+		(filled_polygon
+			(layer "F.Cu")
+			(pts
+				(xy 20 20) (xy 40 20) (xy 40 25) (xy 20 25)
+			)
+		)
+	)
+)

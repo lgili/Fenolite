@@ -7,27 +7,35 @@ model design with ids keyed by names and paths. It reads no library, file or env
 (``fenolite.lens.build``) resolves libraries and writes the KiCad project.
 """
 
-from fenolite.dsl import select
+from fenolite.dsl import select, shape, stack
 from fenolite.dsl.convert import (
     BOARD_ORIGIN,
     DSL_BACKEND,
     KEYS,
     drawing_sheet_source,
     fields,
+    heights,
     module_moves,
     moves,
     net_moves,
+    outline_locked,
     pad_zones,
     placements,
     planes,
+    stackup_locked,
     to_model,
+    via_protection_locked,
 )
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
+from fenolite.dsl.impedance import Trace, trace
 from fenolite.dsl.intents import (
+    Anchor,
+    AnchorRef,
     ArcStep,
     CopperIntent,
+    MeanderIntent,
     PadEnd,
     PadRef,
     StitchIntent,
@@ -36,21 +44,28 @@ from fenolite.dsl.intents import (
     ViaStep,
     arc_to,
     copper,
+    meanders,
+    protect,
     via_step,
 )
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
+from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
 from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, inch, mil, mm, nm
+from fenolite.model.board import MechanicalIntent
 
 __all__ = [
     "BOARD_ORIGIN",
     "DSL_BACKEND",
     "KEYS",
+    "Anchor",
+    "AnchorRef",
     "ArcStep",
     "CopperIntent",
+    "MeanderIntent",
     "Design",
     "DiffPair",
     "DslError",
@@ -60,6 +75,7 @@ __all__ = [
     "Interface",
     "Length",
     "Module",
+    "MechanicalIntent",
     "Net",
     "PadEnd",
     "PadRef",
@@ -69,14 +85,17 @@ __all__ = [
     "Power",
     "StitchIntent",
     "Symbol",
+    "Trace",
     "TrackIntent",
     "ViaIntent",
     "ViaStep",
     "arc_to",
     "connect",
     "copper",
+    "meanders",
     "drawing_sheet_source",
     "fields",
+    "heights",
     "inch",
     "mil",
     "mm",
@@ -85,17 +104,25 @@ __all__ = [
     "net_moves",
     "nm",
     "no_connect",
+    "outline_locked",
     "pad_zones",
     "placements",
     "planes",
+    "protect",
     "select",
+    "shape",
+    "stack",
+    "stackup_locked",
     "to_model",
+    "trace",
+    "via_protection_locked",
     "via_step",
     "I2C",
     "SPI",
     "UART",
     "USB2",
     "Quantity",
+    "RuleArea",
     "amp",
     "farad",
     "henry",

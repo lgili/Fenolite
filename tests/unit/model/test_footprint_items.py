@@ -40,14 +40,16 @@ FIXTURE = ROOT / "tests" / "data" / "model" / "v0.2.0" / "blink_2layer.board.jso
 FIXTURE_SHA256 = "92d4403617820108b8c7dbe5e077b8b7d797ca0abf46ea8086a357916f57eaad"
 TWO_LAYER = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 BLINK = {
-    "board.json": "92d4403617820108b8c7dbe5e077b8b7d797ca0abf46ea8086a357916f57eaad",
+    "board.json": "03c5e887a4c54cd5186aa4676fb554280a8167a5c2f90a2c7a32242e403ce4c6",
     "circuit.json": "705da4a0b455069c68bf620b8079af5b8becda9800ae71c1fe3633a77f2696a3",
     "findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
     "manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
     "rules.json": "3b6c856c3b9cf3c2d078597ebdf90a177882f9272e8fea1cc152620561b9341a",
 }
 """SHA-256 of each text of ``canonical.dump_texts`` of the built blink (KiCad 10), on ``f17b03e9``.
-``meta.json`` holds the package version and is left out."""
+``meta.json`` holds the package version and is left out. ``board.json`` was taken again when v0.4 was
+rebased onto 0.3.0: change c0102 writes the board outline from another corner, so the outline lines have
+other ids, locators and points and the written board file has another SHA-256; no footprint item moves."""
 BOARD_READ = {
     "board.json": "eb2899ac436e0d69bcda96553b5a8af9efd5b490e30f7ac19db20cf9ce1a1184",
     "circuit.json": "fa9b249147a3b2dc2852a127a8a3a7b19f55c6f7931c77e2d19a85f40addb02c",

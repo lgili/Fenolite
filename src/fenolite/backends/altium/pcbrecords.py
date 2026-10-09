@@ -40,6 +40,20 @@ NO_INDEX = 0xFFFF
 """A net, polygon or component index that names nothing."""
 FLAGS = (0x0C, 0x00)
 """The two flag bytes of every primitive: unlocked (bit 2) and bit 3, as the MIT writer writes."""
+UNLOCKED_BIT = 0x04
+"""Bit 2 of the first flag byte: set on an unlocked primitive, clear on a locked one."""
+LOCKED_FLAGS = (FLAGS[0] & ~UNLOCKED_BIT, FLAGS[1])
+"""The flag bytes of a locked free track, arc or via: ``08 00`` (``H-A-PCB-CU-LOCK``)."""
+LOCK_WRITTEN: frozenset[str] = frozenset({"track", "arc", "via"})
+"""The record kinds whose lock is written: those with a row "The locked flag of a free <kind>" in
+``docs/formats/altium/pcb-copper.md`` (change c0108, "Locked copper records"). A kind enters this set only
+after its row is on the page; a locked item of a kind outside it is written unlocked and the build says so."""
+VIA_TENTED_TOP = 0x20
+VIA_TENTED_BOTTOM = 0x40
+"""Bits 5 and 6 of the first flags byte of a via: tented on the top and on the bottom (``pcb-copper.md``,
+"Flags of a via"; the bits ``read.pcbprims`` reads as ``ViaRecord.tented_top`` and ``tented_bottom``)."""
+VIA_TENTING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-PCB-CU-VIATENT",))
+"""What a build or a write adds to its evidence when it sets a tenting flag (change c0112)."""
 TRACK = 4
 ARC = 1
 PAD = 2
@@ -277,11 +291,19 @@ def subrecord(data: bytes) -> bytes:
     return struct.pack("<I", len(data)) + data
 
 
-def prefix(layer: int, *, net: int = NO_INDEX, component: int = NO_INDEX) -> bytes:
-    """The common 13 bytes: layer, the two flag bytes, net, polygon (none), component and ``FF FF FF FF``."""
+def prefix(layer: int, *, net: int = NO_INDEX, component: int = NO_INDEX, locked: bool = False) -> bytes:
+    """The common 13 bytes: layer, the two flag bytes, net, polygon (none), component and ``FF FF FF FF``.
+    ``locked`` clears bit 2 of the first flag byte."""
     if not 0 < layer < 256:
         raise ValueError(f"layer id {layer} is not one byte")
-    return struct.pack("<BBBHHH", layer, *FLAGS, net, NO_INDEX, component) + b"\xff" * 4
+    flags = LOCKED_FLAGS if locked else FLAGS
+    return struct.pack("<BBBHHH", layer, *flags, net, NO_INDEX, component) + b"\xff" * 4
+
+
+def lock_written(kind: str, locked: bool) -> bool:
+    """Whether a ``locked`` item of the record kind ``kind`` is written locked: its kind is in
+    ``LOCK_WRITTEN``."""
+    return locked and kind in LOCK_WRITTEN
 
 
 def _decimal(value: int | Fraction) -> Decimal:
@@ -403,18 +425,30 @@ def track_record(
     *,
     net: int = NO_INDEX,
     component: int = NO_INDEX,
+    locked: bool = False,
 ) -> bytes:
-    """A track (type 4): one subrecord of 36 bytes; points and width in binary units."""
-    body = prefix(layer, net=net, component=component) + struct.pack("<5iHB", *a, *b, width, 0, 0)
+    """A track (type 4): one subrecord of 36 bytes; points and width in binary units. ``locked`` writes the
+    locked flag when ``track`` is in ``LOCK_WRITTEN``."""
+    held = lock_written("track", locked)
+    body = prefix(layer, net=net, component=component, locked=held) + struct.pack(
+        "<5iHB", *a, *b, width, 0, 0
+    )
     assert len(body) == TRACK_SIZE
     return bytes((TRACK,)) + subrecord(body)
 
 
 def arc_record(
-    layer: int, arc: ArcGeometry, width: int, *, net: int = NO_INDEX, component: int = NO_INDEX
+    layer: int,
+    arc: ArcGeometry,
+    width: int,
+    *,
+    net: int = NO_INDEX,
+    component: int = NO_INDEX,
+    locked: bool = False,
 ) -> bytes:
-    """An arc (type 1): one subrecord of 47 bytes."""
-    body = prefix(layer, net=net, component=component) + struct.pack(
+    """An arc (type 1): one subrecord of 47 bytes. ``locked`` writes the locked flag when ``arc`` is in
+    ``LOCK_WRITTEN``."""
+    body = prefix(layer, net=net, component=component, locked=lock_written("arc", locked)) + struct.pack(
         "<3iddiH", arc.cx, arc.cy, arc.radius, arc.start, arc.end, width, 0
     )
     assert len(body) == ARC_SIZE
@@ -436,14 +470,21 @@ def via_record(
     net: int = NO_INDEX,
     start: int = VIA_START,
     end: int = VIA_END,
+    locked: bool = False,
+    tented_top: bool = False,
+    tented_bottom: bool = False,
 ) -> bytes:
     """A via (type 3): one subrecord of 321 bytes, the form Altium saves, with the fixed values of
     ``pcb-copper.md`` ("Via") and zero in every other byte; position and sizes in binary units. ``start``
-    and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32)."""
+    and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32). ``locked`` writes
+    the locked flag when ``via`` is in ``LOCK_WRITTEN``. ``tented_top`` and ``tented_bottom`` set bits 5
+    and 6 of the first flags byte (``pcb-copper.md``, "Flags of a via"; ``H-A-PCB-CU-VIATENT``, change
+    c0112), beside the lock bit; no other byte follows them."""
     for layer in (start, end):
         layer_text(layer)
     body = bytearray(VIA_SIZE)
-    body[0:13] = prefix(MULTI_LAYER, net=net)
+    body[0:13] = prefix(MULTI_LAYER, net=net, locked=lock_written("via", locked))
+    body[1] |= (VIA_TENTED_TOP if tented_top else 0) | (VIA_TENTED_BOTTOM if tented_bottom else 0)
     struct.pack_into("<4i2B", body, 13, x, y, diameter, hole, start, end)
     struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
     struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
@@ -754,6 +795,9 @@ def body_record(
 
 
 __all__ = [
+    "VIA_TENTED_BOTTOM",
+    "VIA_TENTED_TOP",
+    "VIA_TENTING_EVIDENCE",
     "ARC",
     "ARC_SIZE",
     "BODY",

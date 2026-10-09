@@ -22,7 +22,9 @@ from functools import cache
 from pathlib import Path
 
 import _acceptance
+import _anchorbench
 import _arccases
+import _areacases
 import _asmcases
 import _bench
 import _benches
@@ -30,10 +32,15 @@ import _bodycases
 import _buildcases
 import _checkcases
 import _copperparity
+import _couplebench
 import _creepbench
+import _doccases
+import _drawbench
 import _drccases
 import _erccases
+import _exclcases
 import _exportcases
+import _featurebench
 import _fieldbench
 import _fieldprobe
 import _fillcases
@@ -42,17 +49,32 @@ import _fpwrite
 import _framecases
 import _gencases
 import _hiercases
+import _holebench
+import _itemcases
+import _keepoutcases
 import _kindcases
+import _layerbench
+import _layercases
+import _layertables
+import _lengthcases
 import _lenscases
 import _libtables
+import _limitsbench
+import _lockbench
 import _mincases
 import _netcases
 import _netlistcases
 import _offsetbench
+import _openbench
+import _outlinebench
+import _pairbench
 import _paircases
+import _pairclasses
 import _paritycases
 import _pcbxcases
 import _placecases
+import _planecases
+import _powerbench
 import _procases
 import _renamecases
 import _routetriangle
@@ -60,15 +82,20 @@ import _rta3oracle
 import _rulecases
 import _schcases
 import _sheetcases
+import _stackbench
+import _tiebench
 import _triad
 import _vendorcases
+import _viabench
+import _zbench
 import _zonebench
+import _zonelayers
 import pytest
 from _boards import FIXTURE, created_board
 from _resources import kicad_cli
 
 from fenolite.backends.kicad import drc as drcmod
-from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli
+from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli, cli_for
 from fenolite.backends.kicad.embed import place_footprint
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.mod import read_footprint
@@ -93,9 +120,12 @@ class Probe:
 
 @cache
 def runner() -> KicadCli:
+    """The runner of the oracle: a binary, or ``kicad-cli`` inside a local image when
+    ``FENOLITE_KICAD_CLI`` is ``docker:<image>`` (``fenolite.backends.kicad.cli.cli_for``, the form of
+    ``--kicad-cli docker:<image>`` in ``docs/cli-contract.md``)."""
     path = kicad_cli()
     assert path is not None  # the needs_kicad marker skips before this is reached
-    return KicadCli(Path(path), timeout=600)
+    return cli_for(Path(path), timeout=600)
 
 
 @cache
@@ -241,6 +271,7 @@ def _probes() -> dict[str, Probe]:
         **_renamecases.rename_probes(),
         **_followcases.followup_probes(),
         **_exportcases.export_probes(),
+        **_doccases.document_probes(),  # change c0116
         **_framecases.frame_probes(),
         **_fieldprobe.field_probes(),
         **_fieldbench.bench_probes(),
@@ -249,11 +280,21 @@ def _probes() -> dict[str, Probe]:
         **_copperparity.parity_probes(),
         **_fillcases.fill_probes(),
         **_placecases.place_probes(),
+        **_keepoutcases.keepout_probes(),  # change c0113
         **_creepbench.creepage_probes(),
+        **_powerbench.power_probes(),
         **_offsetbench.offset_probes(),
         **_arccases.arc_probes(),
         **_kindcases.kind_probes(),
         **_paircases.pair_probes(),
+        **_openbench.open_probes(),
+        **_lockbench.lock_probes(),
+        **_anchorbench.anchor_probes(),  # change c0111
+        **_areacases.area_probes(),  # change c0103
+        **_itemcases.item_probes(),
+        **_outlinebench.outline_probes(),  # change c0102
+        **_holebench.hole_probes(),  # change c0102
+        **_layerbench.layer_change_probes(),  # change c0102
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
     for pid, (function, majors) in _sheetcases.wks_probes().items():
@@ -284,6 +325,48 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _limitsbench.limit_probes().items():  # change c0141
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {  # change c0100
+        **_layertables.table_probes(),
+        **_layercases.layer_probes(),
+    }.items():
+        probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
+    for pid, (function, majors) in _stackbench.stackup_probes(runner).items():  # change c0101
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _viabench.via_probes(runner).items():  # change c0112
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _planecases.plane_probes().items():  # change c0107
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _tiebench.tie_probes().items():  # change c0114
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _exclcases.exclusion_probes().items():  # change c0114
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _drawbench.draw_probes().items():  # change c0117
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {  # change c0104
+        **_pairbench.pair_rule_probes(),
+        **_pairclasses.pair_class_probes(),
+    }.items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _zonelayers.zone_layer_probes().items():  # change c0145
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {  # change c0106
+        **_lengthcases.length_probes(runner),
+        **_lengthcases.meander_probes(runner),
+    }.items():
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _featurebench.feature_probes(runner).items():  # change c0118
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _couplebench.couple_probes().items():  # change c0110
+        probes[pid] = Probe(function, majors)
+    # change c0105: `pro-tuning-gap-clearance-rule` is printed by its test and not pinned, because its outcome
+    # (recorded either way) has not been read from a run yet
+    tuning = {
+        pid: entry for pid, entry in _zbench.tuning_probes().items() if pid != "pro-tuning-gap-clearance-rule"
+    }
+    for pid, (function, majors) in {**tuning, **_zbench.width_probes()}.items():
         probes[pid] = Probe(function, majors)
     return probes
 

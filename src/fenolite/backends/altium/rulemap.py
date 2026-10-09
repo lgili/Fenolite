@@ -78,6 +78,15 @@ class RuleRow:
 _CLEARANCE_KEYS = ("GAP", "GENERICCLEARANCE", "IGNOREPADTOPADCLEARANCEINFOOTPRINT", "OBJECTCLEARANCES")
 _VIA_KEYS = ("HOLEWIDTH", "WIDTH", "VIASTYLE", "MINHOLEWIDTH", "MINWIDTH", "MAXHOLEWIDTH", "MAXWIDTH")
 _ALL_LIMITS = ("min", "opt", "max")
+_PAIR_KINDS: tuple[tuple[RuleKind, str], ...] = (
+    ("diff_pair_gap", "the gap of a differential pair"),
+    ("diff_pair_uncoupled", "the uncoupled length of a differential pair"),
+    ("skew", "the length match of a group of nets"),
+    ("diff_pair_skew", "the length match within a differential pair"),
+    ("length", "the length of a net"),
+)
+"""The pair and length kinds of change c0104 and what each constrains, for the notes of their rows: no
+row of them is written, because no fact about their records is recorded."""
 TABLE: tuple[RuleRow, ...] = (
     RuleRow(
         "clearance", EXACT, "Clearance", 0, ("min",), _CLEARANCE_KEYS, "DifferentNets", (*_UNARY, "pair")
@@ -134,6 +143,22 @@ TABLE: tuple[RuleRow, ...] = (
         "creepage",
         "no-counterpart",
         note="Altium's Creepage Distance rule is in no public file, so its record is not known",
+    ),
+    RuleRow(
+        "no_tracks",
+        "no-counterpart",
+        note="Altium's Routing Layers rule, which names the layers a scope may be routed on, is the nearest "
+        "counterpart; its record (kind number, constraint keys) is in no public file read under the "
+        "sources register",
+    ),
+    *(
+        RuleRow(
+            kind,
+            "no-counterpart",
+            note=f"the record of the Altium rule that would carry {what} is in no public source that "
+            "pcb-copper.md records, so its keys are not known",
+        )
+        for kind, what in _PAIR_KINDS
     ),
 )
 """One row per kind of ``model.rules.RuleKind``, in the model's order (``pcb-copper.md``, "Rule kinds

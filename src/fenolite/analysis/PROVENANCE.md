@@ -3,7 +3,8 @@
 The capacity analysis uses one published fit. Its constants, its units and the range in which its source
 calls it valid are recorded one by one in `docs/analyses.md`, table "Capacity fit", each with the id of a
 source listed in `docs/evidence/sources.md`. The source attributes the fit to a standard; Fenolite did not
-consult that standard and reproduces none of its charts, tables or figures. The distance analyses are
+consult that standard and reproduces none of its charts, tables or figures. The impedance estimates use two
+closed forms, recorded constant by constant in the table "Impedance formulas". The distance analyses are
 Fenolite's own geometry and take no figure from any source. No requirement value is shipped.
 
 | fact-or-area | public source | licence of source | date | how used |
@@ -13,3 +14,8 @@ Fenolite's own geometry and take no figure from any source. No requirement value
 | a via's barrel cross-section `π · (finished hole + plating) · plating`, used with the outer constant | S-0270 | GPL-3.0-or-later; one fact, nothing transcribed or followed | 2026-10-03 | facts only |
 | the fit and `π` computed with `decimal`, identical on every platform | S-0012 | PSF License Version 2 | 2026-10-01 | facts only |
 | the requirements file parsed with `tomllib` | S-0273 | PSF License Version 2 | 2026-10-03 | facts only |
+| the extremal length of a family of curves and the lower bound that one metric gives, squared length over area; the two bounds of a fill region between two ports are Fenolite's own derivation from it | S-0681 | CC BY-SA 4.0; read as rendered for facts, nothing copied | 2026-10-08 | facts only |
+| the solution of the boundary problem minimises the Dirichlet energy among the functions with its boundary values; that a trial potential bounds a conductance is Fenolite's step | S-0682 | CC BY-SA 4.0; read as rendered for facts, nothing copied | 2026-10-08 | facts only |
+| the one-formula quasi-static microstrip form of 1977 with its thickness correction, its claimed error, and the 1975 form used only as a cross-check of the tests (`analysis.impedance`, change c0105) | S-0641 | CC-BY-SA-4.0; facts only: the formula is re-derived and written in Fenolite's own code and words, no text copied | 2026-10-08 | facts only |
+| the thick-strip form of a centred stripline with its claimed accuracy and range, and the estimate of an offset strip from two centred lines averaged as capacitances (`analysis.impedance`, change c0105) | S-0642 | CC-BY-SA-4.0; facts only: the formula is re-derived and written in Fenolite's own code and words, no text copied | 2026-10-08 | facts only |
+| the characteristic impedance of vacuum, 376.730 313 412 Ω (CODATA 2022), the constant of the microstrip form | S-0643 | public domain (US government) | 2026-10-08 | facts only |

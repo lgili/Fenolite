@@ -32,7 +32,8 @@ from fenolite.model.circuit import NetClass
 from fenolite.model.rules import Rule, RuleKind, RuleSet, Selector
 
 EVIDENCE = Evidence(
-    Level.KICAD_VERIFIED, hypotheses=("H-K-DRU-DIALECT", "H-K-DRU-ORDER", "H-K-DRU-COND", "H-K-DRU-KIND")
+    Level.KICAD_VERIFIED,
+    hypotheses=("H-K-DRU-DIALECT", "H-K-DRU-ORDER", "H-K-DRU-COND", "H-K-DRU-KIND", "H-K-DRU-PAIR"),
 )
 """Settled on ``kicad-cli`` 9.0.9 and 10.0.6 by the rules oracle (``tests/kicad/rules/``)."""
 LoweredRules = WriteResult
@@ -43,9 +44,14 @@ NETCLASS_KEYS: Mapping[str, str] = MappingProxyType(
         "track_width": "track_width",
         "via_diameter": "via_diameter",
         "via_drill": "via_drill",
+        "diff_pair_width": "diff_pair_width",
+        "diff_pair_gap": "diff_pair_gap",
+        "diff_pair_via_gap": "diff_pair_via_gap",
     }
 )
-"""Model ``NetClass`` field → project class key."""
+"""Model ``NetClass`` field → project class key. The three pair values are defaults of KiCad's router and
+no DRC limits; a pair gap below the class clearance lowers the clearance inside a pair of the class
+(``H-K-PRO-PAIR``)."""
 FLOOR_KEYS: Mapping[str, str] = MappingProxyType(
     {
         "clearance": "min_clearance",
@@ -149,7 +155,7 @@ def lower_netclass(
     issues: list[Issue] | None = None,
 ) -> JsonObject:
     """A project class entry for ``cls``: a copy of ``base`` (the project's ``Default`` entry) with
-    the name and the four modelled values written; every other key is kept.
+    the name and the seven modelled values written; every other key is kept.
 
     A value below its floor gives ``kicad.project.below-floor`` and is still written, because the floor
     governs (``H-K-PRO-FLOOR``); a description gives ``kicad.project.unlowered-field``.

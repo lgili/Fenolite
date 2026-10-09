@@ -29,7 +29,10 @@ def cls(**fields: object) -> NetClass:
 
 
 def test_keys() -> None:
-    assert set(NETCLASS_KEYS) == set(FLOOR_KEYS) == {"clearance", "track_width", "via_diameter", "via_drill"}
+    assert set(FLOOR_KEYS) == {"clearance", "track_width", "via_diameter", "via_drill"}
+    pair_keys = {"diff_pair_width", "diff_pair_gap", "diff_pair_via_gap"}  # change c0104: no floor entry
+    assert set(NETCLASS_KEYS) == set(FLOOR_KEYS) | pair_keys
+    assert all(NETCLASS_KEYS[key] == key for key in NETCLASS_KEYS)
     assert FLOOR_KEYS["via_drill"] == "min_through_hole_diameter"
 
 
@@ -58,3 +61,21 @@ def test_description_has_no_project_key() -> None:
     assert "description" not in entry
     assert [(i.code, i.severity) for i in issues] == [("kicad.project.unlowered-field", "info")]
     assert all(ISSUE_CODES[i.code] == i.severity for i in issues)
+
+
+def test_pair_values_lowered() -> None:
+    """Scenario "Pair values lowered" (change c0104): the three pair values are written as the four
+    lengths are, a ``None`` keeps the base value, and none has a floor."""
+    base: JsonObject = {**BASE, "diff_pair_via_gap": JsonNumber("0.25"), "diff_pair_gap": JsonNumber("0.25")}
+    made = NetClass(
+        id=derived_id("cls", "test", "usb"),
+        name="USB",
+        clearance=200_000,
+        diff_pair_width=300_000,
+        diff_pair_gap=150_000,
+    )
+    issues: list[Issue] = []
+    entry = lower_netclass(made, base=base, floors={"track_width": 200_000}, issues=issues)
+    assert entry["diff_pair_width"] == JsonNumber("0.3") and entry["diff_pair_gap"] == JsonNumber("0.15")
+    assert entry["diff_pair_via_gap"] == JsonNumber("0.25") and issues == []
+    assert entry["name"] == "USB" and entry["track_width"] == BASE["track_width"]

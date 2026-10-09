@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "fenolite.rules.v0",
   "title": "RuleSet",
-  "description": "The rules layer of a design (``rules.json``).",
+  "description": "The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool",
   "type": "object",
   "properties": {
     "id": {
@@ -35,6 +35,34 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/Rule"
+      }
+    },
+    "severities": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "error",
+          "warning",
+          "ignore"
+        ]
+      }
+    },
+    "proximity": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ProximityRule"
+      }
+    },
+    "heights": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/HeightLimit"
+      }
+    },
+    "impedance": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ImpedanceTarget"
       }
     }
   },
@@ -110,6 +138,122 @@
       },
       "additionalProperties": false
     },
+    "HeightLimit": {
+      "description": "A height limit: the parts under every rule area named ``area`` stay at most ``max`` tall.",
+      "type": "object",
+      "properties": {
+        "area": {
+          "type": "string"
+        },
+        "max": {
+          "type": "integer"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "max"
+      ]
+    },
+    "ImpedanceTarget": {
+      "description": "An impedance target of net classes (change c0105): its name, kind, the ids of the classes it",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "single",
+            "differential"
+          ]
+        },
+        "netclass_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ohms": {
+          "type": "string"
+        },
+        "tolerance_percent": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TraceGeometry"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "netclass_ids",
+        "ohms"
+      ]
+    },
+    "PadSelection": {
+      "description": "Pads of one part, named by its component path.",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "number": {
+          "type": "string"
+        },
+        "index": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
     "Provenance": {
       "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
       "type": "object",
@@ -137,6 +281,43 @@
         "file",
         "file_sha256",
         "locator"
+      ]
+    },
+    "ProximityRule": {
+      "description": "A placement rule: each part of ``parts`` stays near a pad of ``anchor``.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "parts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadSelection"
+          }
+        },
+        "anchor": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PadSelection"
+          }
+        },
+        "within": {
+          "type": "integer"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "parts",
+        "anchor",
+        "within"
       ]
     },
     "Rule": {
@@ -185,7 +366,13 @@
             "annular_width",
             "courtyard_clearance",
             "silk_clearance",
-            "creepage"
+            "creepage",
+            "no_tracks",
+            "diff_pair_gap",
+            "diff_pair_uncoupled",
+            "skew",
+            "diff_pair_skew",
+            "length"
           ]
         },
         "selector_a": {
@@ -268,6 +455,8 @@
             "ref",
             "layer",
             "item_kind",
+            "area",
+            "diff_pair",
             "and",
             "or",
             "not"
@@ -286,6 +475,40 @@
       "additionalProperties": false,
       "required": [
         "op"
+      ]
+    },
+    "TraceGeometry": {
+      "description": "One layer of an impedance target: the signal layer, its one or two reference layers in stack",
+      "type": "object",
+      "properties": {
+        "layer": {
+          "type": "string"
+        },
+        "references": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "width": {
+          "type": "integer"
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "layer",
+        "references",
+        "width"
       ]
     }
   }

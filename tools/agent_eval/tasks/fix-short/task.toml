@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite's agent evaluation; every number is a round value chosen for this task.
+title = "Repair a short"
+prompt = """
+The folder board/ holds a small printed-circuit board that somebody else started: the script
+board/design.py and, under board/build, the KiCad project that was built and routed from it.
+
+The circuit is right and must stay as it is, by reference and pin number:
+- J1 pin 1 and R1 pin 1.
+- R1 pin 2 and D1 pin 1.
+- D1 pin 2 and J1 pin 2.
+
+The board is not right: its copper joins two nets that must stay apart. Find out where, and repair
+the board. You may move parts and you may replace copper, but you may not add or remove a part or
+change a connection, and the board stays on two copper layers and within 30 mm by 20 mm.
+
+When you are done, every net must be closed with copper and the board must pass the electrical and
+design-rule checks of the tool you use, with KiCad's own checks among them.
+
+Leave the result in these folders, relative to the folder you are in:
+- board/build: the repaired KiCad project (one board file);
+- board/fab: the fabrication files, with Gerber files (.gbr) and drill files (.drl).
+
+The sizes above are this task's own round numbers; they come from no product. No KiCad library is
+installed on this machine and nothing may be downloaded.
+"""
+prepare = [
+    "fenolite build board/design.py --out board/build --confirm --json",
+    "fenolite route board/build --router direct --confirm --json",
+]
+
+[budget]
+minutes = 20
+
+[expect]
+project = "board/build"
+copper_layers = 2
+max_size = ["30mm", "20mm"]
+outputs = ["board/fab/**/*.gbr", "board/fab/**/*.drl"]
+
+[expect.nets]
+VIN = ["J1-1", "R1-1"]
+LED_A = ["R1-2", "D1-1"]
+GND = ["D1-2", "J1-2"]

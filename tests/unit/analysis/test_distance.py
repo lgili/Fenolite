@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import random
 
-from _analysis import MM, at, discs, slot_board
+from _analysis import MM, at, box, discs, slot_board, with_outline
 from _coppercheck import Copper
 
+from fenolite.analysis.boundary import board_boundary
 from fenolite.analysis.copper import net_copper
 from fenolite.analysis.distance import analyze_distances
 from fenolite.analysis.report import DistanceRow, Measure, judge
@@ -135,3 +136,20 @@ def test_pair_selection_missing() -> None:
 def test_unknown_net_gives_an_empty_row() -> None:
     found = row(analyze_distances(discs().build(), pads=None, boundary=None, pairs=(("A", "NOPE"),)))
     assert found.gaps == () and found.clearance is None and found.creepage is None
+
+
+def test_a_floating_track_shortens_the_clearance() -> None:
+    """Scenario "A floating track shortens the clearance" (change c0115): the chain crosses the track."""
+    made = Copper()
+    made.track("A", at(-2, 0), at(0, 0), width=MM, locator="/a")
+    made.track("B", at(10, 0), at(12, 0), width=MM, locator="/b")
+    made.track(None, at(5, -2), at(5, 2), width=MM, locator="/floating")
+    design = with_outline(made.build(), box(-10, -10, 20, 10))
+    assert design.board is not None
+    report = analyze_distances(design, pads=None, boundary=board_boundary(design.board), pairs=(("A", "B"),))
+    (row,) = report.rows
+    assert isinstance(row, DistanceRow) and row.clearance is not None
+    (gap,) = row.gaps
+    assert gap.layer == "F.Cu" and gap.low == 9_000_000
+    assert (row.clearance.low, row.clearance.high) == (8_000_000, 8_000_002)
+    assert row.clearance.over == ("/floating",) and row.clearance.items == ("/a", "/b")

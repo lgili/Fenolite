@@ -20,5 +20,6 @@
 - [x] 3.1 Run tests/residue and the manifest test. Proof: after `git add -A`, `uv run pytest tests/residue tests/corpus/test_manifest.py tests/unit/test_evidence_matrix_page.py -q`.
 - [x] 3.2 Update evidence labels: the row on `import.md`, the pages of Part D, `docs/roadmap.md`, `openspec/README.md` and `LEGAL-ANNEX.md`; regenerate the generated pages. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run python tools/gen_schemas.py --check`; `uv run python tools/gen_token_docs.py --check`.
 - [x] 3.3 Update `CHANGELOG.md` under `[Unreleased]`; run the fast checks. Proof: `make check-fast`.
-- [ ] 3.4 Run the full suite once on the rebased branch. Proof: `make check` passes.
+- [x] 3.4 Run the full suite once on the rebased branch. Proof: `make check` passes.
   - **2026-10-08.** Not run here: the coordinator runs it once at the merge.
+  - **2026-10-08**, on the release branch (`release-0.4.0`, `32a19b3` and the settlement commits of c0154): `make check` exit 0 (ruff check all passed, 1772 files already formatted, pyright 0 errors, residue 0 hits with 11 waivers and the private gate skipped, `13828 passed, 2374 skipped in 1243.06s` on Python 3.11.15, 4 workers) (c0154, task 4.3). CI run https://github.com/lgili/Fenolite/actions/runs/37836186018 of `32a19b3` passed every job; the change passed CI run 37774909847 on its branch.

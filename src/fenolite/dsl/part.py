@@ -15,10 +15,11 @@ from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import Quantity
 from fenolite.dsl.units import as_nm, as_udeg
+from fenolite.model.board import MechanicalIntent
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
-    from fenolite.dsl.intents import PadRef
+    from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
 
 Side = Literal["top", "bottom"]
@@ -107,6 +108,7 @@ class Placement:
     rotation: Udeg
     side: Side
     locked: bool
+    anchor: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +120,7 @@ class Request:
     rotation: Udeg
     side: Side
     locked: bool
+    anchor: MechanicalIntent | None = None
 
 
 PAD_ZONE_CONNECTIONS = ("solid", "thermal", "none", "thru_hole_only")
@@ -191,6 +194,7 @@ class Part:
         *,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
+        height: object = None,
     ) -> None:
         self.ref = check_name(ref, "ref")
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -234,6 +238,13 @@ class Part:
         self.pad_map: Mapping[str, str | tuple[str, ...]] = MappingProxyType(
             dict(sorted(checked_map.items()))
         )
+        self.height: Nm | None = None
+        """The top of the part's body above the board surface on its own side, in nm (change c0140); the
+        build turns it into a body of the placed footprint, and nothing else reads it."""
+        if height is not None:
+            self.height = as_nm(height, name=f"part {ref}: height")
+            if self.height <= 0:
+                raise DslError(f"part {ref}: height must be above 0")
         self.parent: Container | None = None
         self.request: Request | None = None
         self.field_requests: dict[str, FieldRequest] = {}
@@ -272,6 +283,16 @@ class Part:
 
         return pad_ref(self, number, index)
 
+    def at(self, dx: object = None, dy: object = None) -> AnchorRef:
+        """The point ``(dx, dy)`` from the origin of this part's footprint, in the footprint's frame as its
+        library draws it (X to the right, Y down), for a copper intent; a length left out is 0. The build
+        resolves it after placement, so the point turns and moves with the part and is mirrored with it
+        on the bottom side. ``part.pad(n).at(dx, dy)`` measures from a pad, which needs no library
+        coordinates."""
+        from fenolite.dsl.intents import anchor_ref
+
+        return anchor_ref(self, None, None, dx, dy)
+
     def place(
         self,
         x: object,
@@ -279,6 +300,8 @@ class Part:
         rot: int | str | float = 0,
         side: str = "top",
         locked: bool = False,
+        *,
+        anchor: MechanicalIntent | None = None,
     ) -> None:
         """Request a placement in the board frame (origin at the outline's top-left corner, Y down)."""
         if self.request is not None:
@@ -287,7 +310,13 @@ class Part:
             raise DslError(f"part {self.ref}: side must be 'top' or 'bottom', not {side!r}")
         if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {self.ref}: locked must be a bool")
-        self.request = Request(as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked)
+        if anchor is not None and not locked:
+            raise DslError(f"part {self.ref}: an anchor requires locked=True")
+        if anchor is not None and not isinstance(anchor, MechanicalIntent):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"part {self.ref}: anchor must be MechanicalIntent")
+        self.request = Request(
+            as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
+        )
 
     def field(
         self,

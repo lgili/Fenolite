@@ -33,6 +33,7 @@ from typing import Literal
 
 from fenolite.backends.base import (
     CanaryState,
+    DrcLimits,
     DrcOutcome,
     DrcReport,
     ErcOracle,
@@ -40,6 +41,7 @@ from fenolite.backends.base import (
     ErcReport,
     ErcRt2Outcome,
     FillOutcome,
+    LimitedOracle,
     NetlistOracle,
     NetlistOutcome,
     Oracle,
@@ -199,6 +201,11 @@ class KicadOracle:
 
     def major(self) -> int:
         return self.cli.major()
+
+    def report_limits(self) -> DrcLimits:
+        """Where the DRC report of this ``kicad-cli`` stops, per type (``LimitedOracle``;
+        ``drc.REPORT_LIMITS``). ``ValueError`` for a major that no probe measured."""
+        return drcmod.report_limits(self.major())
 
     def refill(self, project: ProjectSet) -> FillOutcome:
         """Refill a copy of the exact project set, without staging a DRC canary."""
@@ -661,6 +668,11 @@ def _protocols(  # pyright: ignore[reportUnusedFunction]
 ) -> tuple[Oracle, NetlistOracle, RoundTripOracle, ErcOracle]:
     """``KicadOracle`` as each of the four oracle protocols; ``pyright`` checks the assignment."""
     return oracle, oracle, oracle, oracle
+
+
+def _limited_protocol(oracle: KicadOracle) -> LimitedOracle:  # pyright: ignore[reportUnusedFunction]
+    """``KicadOracle`` as the oracle that states its report limits; ``pyright`` checks the assignment."""
+    return oracle
 
 
 def _schematic_protocol(oracle: KicadOracle) -> SchematicNetlistOracle:  # pyright: ignore[reportUnusedFunction]

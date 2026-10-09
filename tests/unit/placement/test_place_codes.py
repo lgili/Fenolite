@@ -26,12 +26,17 @@ EXPECTED = {
     "place.no-definition": "error",
     "place.locked": "error",
     "place.unknown-ref": "error",
+    "place.keepout": "error",
     "place.edge-clearance": "warning",
     "place.no-room": "warning",
     "place.copper-left": "warning",
     "place.script-locked": "warning",
+    "place.keepout-no-courtyard": "warning",
     "place.no-extent": "info",
     "place.no-outline": "info",
+    "place.constraint": "error",
+    "place.incomplete": "warning",
+    "place.objective": "warning",
 }
 BOTH_MAJORS = "KICAD-VERIFIED (9.0.x, 10.0.x)"
 

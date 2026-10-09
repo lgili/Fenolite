@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Which net names KiCad takes as one differential pair (capability kicad-oracle, "Differential pair names
-are probed"; hypothesis H-K-DIFFPAIR-NAMES; change c0073).
+are probed"; hypothesis H-K-DIFFPAIR-NAMES; change c0073), and the names with a tail of digits and
+underscores after the polarity character (hypothesis H-K-DIFFPAIR-NAMES-2; change c0104).
 
 One bench holds, per case, two parallel tracks 0.3 mm apart on the case's two nets. One rule per case
 selects ``A.inDiffPair('<base>')`` with a 3 mm clearance, so a pair that KiCad recognises gives a clearance
@@ -27,11 +28,35 @@ CASES: Mapping[str, tuple[str, str, str]] = MappingProxyType(
         "dpdm": ("USBC_D", "USBC_DP", "USBC_DM"),
         "lower": ("USBF_", "USBF_p", "USBF_n"),
         "mixed": ("USBH", "USBH_P", "USBH-"),
+        "tail-digit": ("TA_", "TA_P1", "TA_N1"),
+        "tail-underscore": ("TB_", "TB_P_2", "TB_N_2"),
+        "tail-bare": ("TD", "TDP1", "TDN1"),
+        "tail-differs": ("TC_", "TC_P1", "TC_N2"),
+        "tail-letter": ("TG_", "TG_PA", "TG_NA"),
+        "tail-base": ("TE_", "TE_P1", "TE_N1"),
+        "tail-base-short": ("TF_P", "TF_P1", "TF_N1"),
     }
 )
-"""Case → the base name of the rule's ``inDiffPair()`` and the two net names."""
-PAIRED = ("pn", "pn-full", "plusminus", "dpdn", "bare")
-"""The cases whose names are equal except for a last ``P`` then ``N``, or ``+`` then ``-``."""
+"""Case → the base name of the rule's ``inDiffPair()`` and the two net names. The ``tail-`` cases are those
+of ``H-K-DIFFPAIR-NAMES-2``: a run of digits and underscores after the polarity character."""
+OLD_CASES = ("pn", "pn-full", "plusminus", "dpdn", "bare", "dpdm", "lower", "mixed")
+"""The eight cases of ``H-K-DIFFPAIR-NAMES``, whose outcomes the new rule keeps."""
+PAIRED = (
+    "pn",
+    "pn-full",
+    "plusminus",
+    "dpdn",
+    "bare",
+    "tail-digit",
+    "tail-underscore",
+    "tail-bare",
+    "tail-base",
+)
+"""The cases whose rule finds the pair: the names are equal except for ``P`` then ``N``, or ``+`` then
+``-``, followed in both by the same run of digits and underscores, and the base is the text before it."""
+NAMES_PAIR = (*PAIRED, "tail-base-short")
+"""The cases whose two names form a pair. In ``tail-base-short`` they do, and the rule finds nothing,
+because its base is the name without its last character and not the text before the polarity."""
 GAP = 300_000
 
 
@@ -78,4 +103,15 @@ def pair_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
     return {f"dru-diffpair-{case}": (lambda case=case: pair_probe(case), (9, 10)) for case in CASES}
 
 
-__all__ = ["CASES", "PAIRED", "bench", "pair_probe", "pair_probes", "pairs", "recognised", "rules"]
+__all__ = [
+    "CASES",
+    "NAMES_PAIR",
+    "OLD_CASES",
+    "PAIRED",
+    "bench",
+    "pair_probe",
+    "pair_probes",
+    "pairs",
+    "recognised",
+    "rules",
+]

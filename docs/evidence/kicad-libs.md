@@ -131,6 +131,32 @@ The template tables compared are the install's `template/` tables and, for a fet
 counts are supporting data for `H-K-LIB-SCAN`, which stays `INFERRED`: the official libraries are one
 origin.
 
+## Fetched 3D models (change c0116)
+
+The first real fetch of official 3D models, made on 2026-10-08 with the maintainer's consent, given in his
+own chat on 2026-10-08 (task 6.3 of c0116). `examples/blink_official/design.py` was built for targets 9 and
+10 against the verified library caches of tags 9.0.9 and 10.0.6 (`FENOLITE_LIBS_CACHE`, fetched the same
+day with `tools/kicad_libs_fetch.py`), and `uv run python tools/kicad_libs_fetch.py --models
+<board>.kicad_pcb` fetched the models each board names, one file at a time, from `kicad-packages3D` at the
+pinned commits of `data/libraries.toml` (S-0700, S-0701). Both runs exit 0 with every line `fetched`; a
+second run of each gives every line `cached`. `fenolite models` on the board of target 10 then locates the
+three paths with source `cache` and none `missing`. Only names, sizes and digests are recorded here; the
+models are CC-BY-SA 4.0 with the library exception (S-0048) and stay in the cache.
+
+| tag | file under `kicad-packages3D/` | bytes | SHA-256 |
+|---|---|---|---|
+| 9.0.9 | `LED_THT.3dshapes/LED_D3.0mm.step` | 24 358 | `e83c2186ad887c36d869f44e28c7b80646ea10cb388697b4380f5a2777268371` |
+| 9.0.9 | `Package_QFP.3dshapes/LQFP-32_7x7mm_P0.8mm.step` | 422 757 | `be0e412f1c66fee70039b0e109e0cc7c823161dda97593718afa97569bc61ce3` |
+| 9.0.9 | `Resistor_SMD.3dshapes/R_0603_1608Metric.step` | 40 618 | `1875571c326d0d9e96f36b4efeb8094068ef7619f0a449c781caf0b49c2e5861` |
+| 10.0.6 | `LED_THT.3dshapes/LED_D3.0mm.step` | 24 358 | `e83c2186ad887c36d869f44e28c7b80646ea10cb388697b4380f5a2777268371` |
+| 10.0.6 | `Package_QFP.3dshapes/LQFP-32_7x7mm_P0.8mm.step` | 422 757 | `be0e412f1c66fee70039b0e109e0cc7c823161dda97593718afa97569bc61ce3` |
+| 10.0.6 | `Resistor_SMD.3dshapes/R_0603_1608Metric.step` | 40 618 | `1875571c326d0d9e96f36b4efeb8094068ef7619f0a449c781caf0b49c2e5861` |
+
+The three files are byte-equal at the two commits. The board of target 9 names them under
+`${KICAD9_3DMODEL_DIR}` and that of target 10 under `${KICAD10_3DMODEL_DIR}`, as the official footprints of
+each tag write them. Each file kept its size and its SHA-256 from the `HEAD` request of the files API, which
+is what `H-G-MODELS-FETCH` states.
+
 ## Not measured here
 
 - The `env` source (folders named by `KICAD10_*` variables) uses the same tests. It was not run: the

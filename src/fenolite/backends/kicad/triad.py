@@ -16,6 +16,7 @@ from collections.abc import Collection
 from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.pro import apply_sheet_keys, synthesize_project, update_project
+from fenolite.backends.kicad.tuning import apply_profile_keys
 from fenolite.backends.kicad.versions import DEFAULT_TARGET
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
@@ -62,6 +63,8 @@ def write_triad(
             renamed_nets=renamed_nets,
         )
     project = apply_sheet_keys(project, design, schematic=schematic, allow_lossy=allow_lossy, issues=found)
+    # the impedance targets as KiCad 10 tuning profiles; a target-9 project is returned unchanged (c0105)
+    project = apply_profile_keys(project, design, target=target, issues=found)
     if issues is not None:
         issues.extend(found)
     return {f"{name}.kicad_pcb": board.text, f"{name}.kicad_pro": project, f"{name}.kicad_dru": lowered.text}

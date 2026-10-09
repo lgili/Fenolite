@@ -3,18 +3,30 @@
 """Freerouting adapter (capability routing, "Freerouting plugin"; change c0023).
 
 Freerouting is a GPL-3.0 program: it runs as a subprocess, or in a container, on a Specctra design file in
-a temporary folder, and its session file is read back into tracks and vias. Fenolite never imports,
-vendors or downloads it (ADR-0006). The jar is ``path``, else ``FENOLITE_FREEROUTING_JAR``; ``java`` is
+a temporary folder, and its session file is read back into tracks and vias. Fenolite never imports or
+vendors it (ADR-0006), and this module opens no network connection: the jar is downloaded only by
+``fenolite fetch freerouting --confirm`` (ADR-0007). The jar is ``path``, else ``FENOLITE_FREEROUTING_JAR``,
+else the file that command installed in the tools folder (``fenolite.core.tools``); ``java`` is
 ``FENOLITE_JAVA``, else the one on ``PATH``. A ``path`` of the form ``docker:<image>`` runs that image with
 the network disabled.
 
-The flag that disables its analytics is always passed and cannot be removed through router options.
+A job is routed inside one time budget (``routing.budget``; change c0109): one run per tier, each on a
+design file that declares only the nets of that tier, with the copper of earlier tiers as protected
+wiring. The optimizer is switched off (``H-G-DSN-NOOPT``): with it on, the session is written only when
+the optimizer ends, and a run stopped before that gives nothing. ``optimize=on`` runs it afterwards on
+the time that is left and keeps the first session when that run is cut.
+
+The flag that disables its analytics is always passed and cannot be removed through router options, and
+so is the setting that turns the automatic neck-down off (change c0110). The router option ``fanout=off``
+turns its fanout stage off. The plugin declares no router feature: Freerouting 2.4.1 routes a pair as two
+single nets (``H-G-DSN-PAIR``), so a job never gives it a pair or an escape request.
 ``sends_data_offsite`` is ``False``: the pinned image routes with the network disabled (``H-G-DSN-OFFLINE``,
 recorded on 2026-10-04).
 """
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import re
 import shutil
@@ -24,20 +36,40 @@ import zipfile
 from pathlib import Path
 from typing import Any, cast
 
-from fenolite.backends.specctra.dsn import DsnDefaults, write_dsn
+from fenolite.backends.specctra.dsn import DsnDefaults, DsnResult, write_dsn
 from fenolite.backends.specctra.ses import read_session, to_copper
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.tools import tool_path
+from fenolite.model.board import Track, Via
 from fenolite.model.design import Design
-from fenolite.routing.protocol import RouterStatus, RoutingJob, RoutingResult
+from fenolite.routing.budget import Budget, exhausted
+from fenolite.routing.merge import RoutingError, apply
+from fenolite.routing.protocol import FinishedRun, JobNet, RouterRun, RouterStatus, RoutingJob, RoutingResult
 
 PINNED_VERSION = "2.4.1"
 PINNED_REVISION = "ae3d377740b6ffa744bed1bab26625fe0278fa90"
 """The commit of the tag ``v2.4.1`` (S-0223), which the jar's manifest names as its build revision."""
 JAVA_MIN = 25
 DEFAULT_PASSES = 20
-DEFAULT_TIMEOUT = 900
+DEFAULT_BUDGET = 900
+"""Seconds for the whole job when neither the job nor the constructor names a budget."""
+UNIT = "freerouting"
+"""The name of the unit of progress of a job of one tier; with several tiers each tier is one unit,
+``freerouting tier <n>`` (change c0120)."""
+OPTIMIZER_OFF = "--router.optimizer.enabled=false"
+"""The setting that stops the optimization stage (S-0222; ``-mt 0`` does not, ``H-G-DSN-NOOPT``)."""
+NECKDOWN_OFF = "--router.automatic_neckdown=false"
+"""Always passed: the automatic neck-down narrows wires at pins below their class (S-0222;
+``H-G-DSN-NARROW``; change c0110)."""
+FANOUT_OFF = "--router.fanout.enabled=false"
+"""Passed for the router option ``fanout=off``: the fanout stage is on by default (S-0222;
+``H-G-DSN-FANOUT``; change c0110)."""
 JAR_ENV = "FENOLITE_FREEROUTING_JAR"
+FETCH_NAME = "freerouting"
+"""The folder of the jar in the tools folder, and the name of its row in ``fenolite fetch``."""
+FETCH_COMMAND = "fenolite fetch freerouting --confirm"
+"""The command that installs the pinned jar where the plugin finds it (ADR-0007)."""
 JAVA_ENV = "FENOLITE_JAVA"
 DOCKER_PREFIX = "docker:"
 # The jar inside the pinned image: its default command starts the API server, so the plugin names the jar
@@ -47,7 +79,17 @@ FALLBACK = DsnDefaults(width=200_000, clearance=200_000, via_diameter=600_000, v
 """The board defaults of ``fenolite route`` for a design without a ``Default`` class."""
 EVIDENCE = Evidence(
     oracle=f"Freerouting {PINNED_VERSION}",
-    hypotheses=("H-G-DSN-ACCEPT", "H-G-DSN-PROTECT", "H-G-DSN-ROUTE", "H-G-DSN-UNITS"),
+    hypotheses=(
+        "H-G-DSN-ACCEPT",
+        "H-G-DSN-FANOUT-2",
+        "H-G-DSN-NARROW",
+        "H-G-DSN-NETLESS-2",
+        "H-G-DSN-NOOPT",
+        "H-G-DSN-PAIR",
+        "H-G-DSN-PROTECT",
+        "H-G-DSN-ROUTE",
+        "H-G-DSN-UNITS",
+    ),
 )
 """Describes the plugin; a route itself is always ``UNVERIFIED``."""
 _JAR_NAME = re.compile(r"freerouting-(\d+(?:\.\d+)+)(?:-[\w.]+)?\.jar$")
@@ -125,19 +167,50 @@ class FreeroutingRouter:
         "Specctra design file; its analytics are always disabled."
     )
     sends_data_offsite = False
+    default_budget: float = DEFAULT_BUDGET
+    features: frozenset[str] = frozenset()
+    """No pairs and no escape steps (capability routing, "Freerouting declares no router feature")."""
 
     def __init__(
-        self, path: str | Path | None = None, java: str | Path | None = None, timeout: float = DEFAULT_TIMEOUT
+        self, path: str | Path | None = None, java: str | Path | None = None, budget: float | None = None
     ) -> None:
         self._path = str(path) if path else ""
         self._java = str(java) if java else ""
-        self.timeout = timeout
+        self.budget = budget
+        """Seconds for a job that names no budget of its own; ``None`` gives ``DEFAULT_BUDGET``."""
 
-    # The environment is read on use, not at construction: the registry builds one instance per process.
+    # The environment and the tools folder are read on use, not at construction: the registry builds one
+    # instance per process.
+
+    def _located(self) -> tuple[str, str | None]:
+        """The location and which of the three places gave it: the constructor's path (``argument``),
+        ``FENOLITE_FREEROUTING_JAR`` (``env``), or the file ``fenolite fetch`` installed (``fetched``, only
+        when it exists); ``("", None)`` without any."""
+        if self._path:
+            return self._path, "argument"
+        named = os.environ.get(JAR_ENV, "")
+        if named:
+            return named, "env"
+        try:
+            fetched = tool_path(FETCH_NAME, f"freerouting-{PINNED_VERSION}.jar")
+        except ValueError:  # a relative FENOLITE_TOOLS_DIR names no folder
+            return "", None
+        return (str(fetched), "fetched") if fetched.is_file() else ("", None)
 
     @property
     def _raw(self) -> str:
-        return self._path or os.environ.get(JAR_ENV, "")
+        return self._located()[0]
+
+    @property
+    def jar_source(self) -> str | None:
+        """Which place gave the jar: ``argument``, ``env`` or ``fetched``; ``None`` without a jar."""
+        raw, source = self._located()
+        return None if not raw or raw.startswith(DOCKER_PREFIX) else source
+
+    @property
+    def jar_missing(self) -> bool:
+        """Whether a jar is what is missing: none is named, or the named file does not exist."""
+        return not self.image and (self.jar is None or not self.jar.is_file())
 
     @property
     def image(self) -> str:
@@ -147,7 +220,8 @@ class FreeroutingRouter:
 
     @property
     def jar(self) -> Path | None:
-        """The jar: the constructor's path, else ``FENOLITE_FREEROUTING_JAR``; ``None`` without either."""
+        """The jar: the constructor's path, else ``FENOLITE_FREEROUTING_JAR``, else the fetched file;
+        ``None`` without any."""
         raw = self._raw
         return Path(raw).expanduser() if raw and not raw.startswith(DOCKER_PREFIX) else None
 
@@ -185,11 +259,15 @@ class FreeroutingRouter:
         if self.jar is None:
             return RouterStatus(
                 False,
-                reason=f"set {JAR_ENV} to the Freerouting {PINNED_VERSION} jar (Fenolite never downloads it)",
+                reason=f"no Freerouting jar: run '{FETCH_COMMAND}', or set {JAR_ENV}",
             )
         if not self.jar.is_file():
             return RouterStatus(
-                False, path=str(self.jar), reason=f"the Freerouting jar {self.jar} is missing"
+                False,
+                path=str(self.jar),
+                reason=(
+                    f"the Freerouting jar {self.jar} is missing: run '{FETCH_COMMAND}', or correct {JAR_ENV}"
+                ),
             )
         version = jar_version(self.jar)
         line, major = self.java_version()
@@ -205,8 +283,12 @@ class FreeroutingRouter:
 
     # --- routing ----------------------------------------------------------------------------------
 
-    def command(self, folder: Path, passes: int) -> list[str]:
-        """The command line of one run in ``folder``; the analytics flag is always part of it."""
+    def command(
+        self, folder: Path, passes: int, *, optimizer: bool = False, fanout: bool = True
+    ) -> list[str]:
+        """The command line of one run in ``folder``; the analytics flag and the neck-down setting are
+        always part of it, the optimizer is switched off unless ``optimizer`` is true, and the fanout stage
+        unless ``fanout`` is true."""
         arguments = [
             "-de",
             "board.dsn",
@@ -218,7 +300,12 @@ class FreeroutingRouter:
             "1",
             "-da",
             "--gui.enabled=false",
+            NECKDOWN_OFF,
         ]
+        if not optimizer:
+            arguments.append(OPTIMIZER_OFF)
+        if not fanout:
+            arguments.append(FANOUT_OFF)
         if self.image:
             mount = f"{folder}:/work"
             return [
@@ -239,9 +326,94 @@ class FreeroutingRouter:
             evidence=Evidence(),
         )
 
+    def _options(self, job: RoutingJob, tiers: int, issues: list[Issue]) -> tuple[int, bool, bool]:
+        """The passes, whether the optimizer run is asked for and whether the fanout stage stays on; every
+        other option is reported."""
+        passes = DEFAULT_PASSES
+        optimize = False
+        fanout = True
+
+        def ignored(key: str, value: str, why: str) -> None:
+            issues.append(
+                Issue(
+                    "route.option-ignored",
+                    "warning",
+                    f"the router option {key}={value} {why} and was ignored",
+                    key,
+                    hint="supported: max-passes=N, optimize=on|off, fanout=on|off; analytics and the "
+                    "automatic neck-down are always disabled",
+                )
+            )
+
+        for key, value in job.options.items():
+            if key == "max-passes" and value.isdigit() and int(value) > 0:
+                passes = int(value)
+            elif key == "optimize" and value in ("on", "off"):
+                if value == "on" and tiers > 1:
+                    ignored(key, value, "cannot be used with more than one tier (--order)")
+                else:
+                    optimize = value == "on"
+            elif key == "fanout" and value in ("on", "off"):
+                fanout = value == "on"
+            else:
+                ignored(key, value, f"is not supported by {self.name}")
+        return passes, optimize, fanout
+
+    def _run(
+        self,
+        budget: Budget,
+        text: str,
+        passes: int,
+        *,
+        optimizer: bool,
+        fanout: bool = True,
+    ) -> tuple[str, str | None, tuple[str, ...], float, str]:
+        """One process on the design file ``text`` in a fresh temporary folder.
+
+        Returns the outcome (``done``, ``failed``, ``cut`` or ``unstarted``), the session text when one
+        was written by a process that ended in time, the tail of the output, the seconds and the whole
+        output. A process stopped by the budget gives no session: Freerouting writes it only when routing
+        has finished.
+        """
+        with tempfile.TemporaryDirectory(prefix="fenolite-freerouting-") as name:
+            folder = Path(name)
+            (folder / "board.dsn").write_text(text, encoding="utf-8", newline="\n")
+            done = budget.run(
+                self.command(folder, passes, optimizer=optimizer, fanout=fanout),
+                cwd=folder,
+                env={**os.environ, "HOME": str(folder), "LANG": "C", "LC_ALL": "C"},
+            )
+            output = done.stdout + "\n" + done.stderr
+            log = _tail(output, folder)
+            if not done.started:
+                return "unstarted", None, log, 0.0, output
+            if done.cut:
+                return "cut", None, log, done.seconds, output
+            session_file = folder / "board.ses"
+            if not session_file.is_file():
+                last = log[-1] if log else "no output"
+                why = f"Freerouting wrote no session (exit {done.returncode}): {last}"
+                return "failed", why, log, done.seconds, output
+            try:
+                return "done", session_file.read_text(encoding="utf-8"), log, done.seconds, output
+            except UnicodeDecodeError as error:
+                why = f"Freerouting's session cannot be read: {_line(str(error), folder)}"
+                return "failed", why, log, done.seconds, output
+
+    def _copper(
+        self, session_text: str, written: DsnResult, selected: tuple[str, ...]
+    ) -> tuple[tuple[Track, ...], tuple[Via, ...], tuple[Issue, ...]] | str:
+        """The copper of a session for ``selected``, or why the session cannot be read."""
+        try:
+            session = read_session(session_text, file="board.ses")
+            return to_copper(session, written.names, selected=selected)
+        except FormatError as error:
+            return f"Freerouting's session cannot be read: {_line(str(error), Path('board.ses'))}"
+
     def route(self, job: RoutingJob) -> RoutingResult:
-        """Write the design file, run Freerouting on it and return the session's copper for the job's
-        nets. Every failure comes back as an issue; nothing is written outside a temporary folder."""
+        """Route the job tier by tier inside its budget: write a design file, run Freerouting on it and
+        take the session's copper for the tier's nets. Every failure comes back as an issue; nothing is
+        written outside a temporary folder."""
         status = self.available()
         version = status.version
         if not status.available:
@@ -257,72 +429,145 @@ class FreeroutingRouter:
                 "route.tool-failed",
                 "Freerouting needs the board-frame pads and a closed board outline (RoutingJob.extra)",
             )
+        budget = Budget(job.budget or self.budget or DEFAULT_BUDGET)
         issues: list[Issue] = []
-        passes = DEFAULT_PASSES
-        for key, value in job.options.items():
-            if key == "max-passes" and value.isdigit() and int(value) > 0:
-                passes = int(value)
-            else:
-                issues.append(
-                    Issue(
-                        "route.option-ignored",
-                        "warning",
-                        f"the router option {key}={value} is not supported by {self.name} and was ignored",
-                        key,
-                        hint="supported: max-passes=N; analytics are always disabled",
-                    )
-                )
-        selected = tuple(net.name for net in job.nets)
+        tiers: dict[int, list[JobNet]] = {}
+        for net in job.nets:
+            tiers.setdefault(net.tier, []).append(net)
+        passes, optimize, fanout = self._options(job, len(tiers), issues)
+        defaults = _defaults(job.design)
+        current = job.design
+        tracks: list[Track] = []
+        vias: list[Via] = []
+        runs: list[RouterRun] = []
+        not_attempted: list[str] = []
+        incomplete: set[str] = set()
+        cut_nets = 0
+        ended = False
+        log: tuple[str, ...] = ()
+        declared: set[str] = set()
+        job_names = {net.name for net in job.nets}
+
+        def note(found: tuple[Issue, ...] | list[Issue]) -> None:
+            issues.extend(issue for issue in found if issue not in issues)
+
+        unit = ""  # the unit of progress under way: a tier, with its optimizer run when there is one
         try:
-            written = write_dsn(
-                job.design,
-                pads=cast(Any, pads),  # BoardPad records: typed in backends.base, out of a plugin's reach
-                outline=cast(Any, outline),
-                selected=selected,
-                defaults=_defaults(job.design),
-            )
-        except ValueError as error:
-            return self._failed(
-                job, version, "route.tool-failed", f"no design file could be written: {error}"
-            )
-        issues.extend(written.issues)
-        try:
-            with tempfile.TemporaryDirectory(prefix="fenolite-freerouting-") as name:
-                folder = Path(name)
-                (folder / "board.dsn").write_text(written.text, encoding="utf-8", newline="\n")
+            net_layers = {net.name: net.layers for net in job.nets if net.layers is not None}
+            for position, tier in enumerate(sorted(tiers)):
+                names = tuple(net.name for net in tiers[tier])
+                if ended or budget.left() <= 0:  # no process starts once the budget is spent
+                    ended = True
+                    not_attempted.extend(names)
+                    continue
                 try:
-                    done = subprocess.run(
-                        self.command(folder, passes),
-                        cwd=folder,
-                        env={**os.environ, "HOME": str(folder), "LANG": "C", "LC_ALL": "C"},
-                        capture_output=True,
-                        text=True,
-                        timeout=self.timeout,
-                        check=False,
+                    # The nets of earlier tiers are outside this run: they leave the network section and
+                    # their copper, old and new, is protected wiring without a net.
+                    written = write_dsn(
+                        current,
+                        pads=cast(Any, pads),  # BoardPad records: typed in backends.base, out of reach here
+                        outline=cast(Any, outline),
+                        selected=names,
+                        defaults=defaults,
+                        others="netless",
+                        # change c0107: the plane layers of the job and the layers its nets are kept
+                        # to; the rules travel in the design. A job without them writes the file it
+                        # wrote before.
+                        plane_layers=job.plane_layers,
+                        net_layers=net_layers,
                     )
-                except subprocess.TimeoutExpired:
+                except ValueError as error:
                     return self._failed(
-                        job,
-                        version,
-                        "route.tool-failed",
-                        f"Freerouting gave no session within {self.timeout:g} s",
+                        job, version, "route.tool-failed", f"no design file could be written: {error}"
                     )
-                output = done.stdout + "\n" + done.stderr
-                log = _tail(output, folder)
-                session_file = folder / "board.ses"
-                if not session_file.is_file():
-                    last = log[-1] if log else "no output"
-                    why = f"Freerouting wrote no session (exit {done.returncode}): {last}"
-                    return self._failed(job, version, "route.tool-failed", why, log)
+                note(written.issues)
+                declared.update(name for name in written.names.nets.values() if name not in names)
+                unit = UNIT if len(tiers) == 1 else f"{UNIT} tier {tier}"
+                job.progress.step(unit, index=position + 1, total=len(tiers))
+                outcome, session_text, log, seconds, output = self._run(
+                    budget, written.text, passes, optimizer=False, fanout=fanout
+                )
+                if outcome == "unstarted":
+                    ended = True
+                    not_attempted.extend(names)
+                    job.progress.done(unit, detail="timeout")
+                    unit = ""
+                    continue
+                if outcome == "cut":
+                    ended = True
+                    cut_nets += len(names)
+                    runs.append(RouterRun(names, tier, seconds, "cut"))
+                    job.progress.done(unit, detail="timeout")
+                    unit = ""
+                    continue
+                got = self._copper(session_text or "", written, names) if outcome == "done" else session_text
+                if isinstance(got, str) or got is None:
+                    runs.append(RouterRun(names, tier, seconds, "failed"))
+                    issues.append(Issue("route.tool-failed", "error", got or "no session", self.name))
+                    job.progress.done(unit, detail="failed")
+                    unit = ""
+                    continue
+                runs.append(RouterRun(names, tier, seconds, "done"))
+                if optimize:
+                    better = self._optimized(budget, written, passes, names, tier, runs, issues, fanout)
+                    if better is not None:
+                        got, log, output = better
+                run_tracks, run_vias, found = got
+                note(found)
+                open_nets, open_total = _unrouted_report(output)
+                incomplete.update(written.names.nets.get(name, name) for name in open_nets)
+                if open_total and not open_nets:
+                    issues.append(
+                        Issue(
+                            "route.unrouted",
+                            "warning",
+                            f"Freerouting reports {open_total} unrouted connection(s) and names no net",
+                            self.name,
+                            hint="run 'fenolite check': KiCad's DRC lists the unconnected items",
+                        )
+                    )
                 try:
-                    session = read_session(session_file.read_text(encoding="utf-8"), file="board.ses")
-                    tracks, vias, found = to_copper(session, written.names, selected=selected)
-                except (FormatError, UnicodeDecodeError) as error:
-                    why = f"Freerouting's session cannot be read: {_line(str(error), folder)}"
-                    return self._failed(job, version, "route.tool-failed", why, log)
+                    current = apply(current, RoutingResult(tracks=run_tracks, vias=run_vias))
+                except RoutingError as error:
+                    issues.extend(error.issues)
+                    runs[-1] = dataclasses.replace(runs[-1], outcome="failed")
+                    job.progress.done(unit, detail="failed")
+                    unit = ""
+                    continue
+                tracks.extend(run_tracks)
+                vias.extend(run_vias)
+                with_run = {item.net_id for item in (*run_tracks, *run_vias)}
+                if with_run and job.on_run is not None:  # before the next tier starts (change c0120)
+                    job.on_run(
+                        FinishedRun(
+                            nets=tuple(net.name for net in tiers[tier] if net.net_id in with_run),
+                            tracks=tuple(run_tracks),
+                            vias=tuple(run_vias),
+                            tier=tier,
+                            seconds=seconds,
+                        )
+                    )
+                job.progress.done(unit, detail="routed" if with_run else "no copper")
+                unit = ""
         except OSError as error:
+            if unit:
+                job.progress.done(unit, detail="failed")
             return self._failed(job, version, "route.tool-failed", f"Freerouting could not run: {error}")
-        issues.extend(found)
+        if cut_nets or not_attempted:
+            issues.append(exhausted(budget.seconds, cut_nets, len(not_attempted), self.name))
+        outside = sorted(declared - job_names)
+        if outside:
+            shown = ", ".join(outside[:5]) + (f" and {len(outside) - 5} more" if len(outside) > 5 else "")
+            issues.append(
+                Issue(
+                    "route.net-declared",
+                    "info",
+                    f"{len(outside)} net(s) outside the job stayed declared in the design file, because "
+                    f"their class clearance is larger than the default rule: {shown}",
+                    outside[0],
+                    hint="the router may route them too; that copper is not taken",
+                )
+            )
         if version != PINNED_VERSION:
             issues.append(
                 Issue(
@@ -333,39 +578,73 @@ class FreeroutingRouter:
                 )
             )
         with_copper = {item.net_id for item in (*tracks, *vias)}
-        open_nets, open_total = _unrouted_report(output)
-        incomplete = {written.names.nets.get(name, name) for name in open_nets}
-        if open_total and not incomplete:
-            issues.append(
-                Issue(
-                    "route.unrouted",
-                    "warning",
-                    f"Freerouting reports {open_total} unrouted connection(s) and names no net",
-                    self.name,
-                    hint="run 'fenolite check': KiCad's DRC lists the unconnected items",
-                )
-            )
         routed = tuple(
             net.name for net in job.nets if net.net_id in with_copper and net.name not in incomplete
         )
         return RoutingResult(
-            tracks=tracks,
-            vias=vias,
+            tracks=tuple(tracks),
+            vias=tuple(vias),
             routed=routed,
-            unrouted=tuple(name for name in selected if name not in routed),
+            unrouted=tuple(net.name for net in job.nets if net.name not in routed),
             issues=tuple(issues),
             tool=self.name,
             tool_version=version,
             log=log,
             evidence=Evidence(oracle=f"Freerouting {version}", hypotheses=EVIDENCE.hypotheses),
+            runs=tuple(runs),
+            not_attempted=tuple(not_attempted),
         )
+
+    def _optimized(
+        self,
+        budget: Budget,
+        written: DsnResult,
+        passes: int,
+        names: tuple[str, ...],
+        tier: int,
+        runs: list[RouterRun],
+        issues: list[Issue],
+        fanout: bool = True,
+    ) -> tuple[tuple[tuple[Track, ...], tuple[Via, ...], tuple[Issue, ...]], tuple[str, ...], str] | None:
+        """The second run of ``optimize=on``: the same design file with the optimizer, on the time left.
+
+        Returns its copper, log and output when it wrote a readable session in time; else ``None``, with
+        ``route.optimizer-cut`` (info) reported: the first session is kept.
+        """
+        outcome, session_text, log, seconds, output = self._run(
+            budget, written.text, passes, optimizer=True, fanout=fanout
+        )
+        if outcome != "unstarted":
+            runs.append(RouterRun(names, tier, seconds, "cut" if outcome == "cut" else "failed"))
+        got = self._copper(session_text or "", written, names) if outcome == "done" else None
+        if got is None or isinstance(got, str):
+            why = {
+                "unstarted": "no time was left for it",
+                "cut": "the budget ended before it wrote a session",
+            }.get(outcome, "it wrote no session that can be read")
+            issues.append(
+                Issue(
+                    "route.optimizer-cut",
+                    "info",
+                    f"the optimizer run of Freerouting gave nothing ({why}); the copper of the first "
+                    f"run is kept",
+                    self.name,
+                    hint="run route again with --rip and a larger --timeout to give the optimizer more time",
+                )
+            )
+            return None
+        runs[-1] = dataclasses.replace(runs[-1], outcome="done")
+        return got, log, output
 
 
 __all__ = [
+    "DEFAULT_BUDGET",
     "DEFAULT_PASSES",
-    "DEFAULT_TIMEOUT",
     "EVIDENCE",
+    "FANOUT_OFF",
     "JAVA_MIN",
+    "NECKDOWN_OFF",
+    "OPTIMIZER_OFF",
     "PINNED_REVISION",
     "PINNED_VERSION",
     "FreeroutingRouter",

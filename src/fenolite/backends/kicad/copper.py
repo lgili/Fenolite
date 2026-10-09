@@ -14,14 +14,14 @@ import dataclasses
 import hashlib
 import re
 import uuid
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Protocol, cast, runtime_checkable
+from typing import Protocol, TypeVar, cast, runtime_checkable
 
-from fenolite.backends.base import BoardPad
-from fenolite.backends.kicad.frame import board_pads
+from fenolite.backends.base import BoardPad, PadCopper
+from fenolite.backends.kicad.frame import PartFrame, board_pads, frame_with_pads
 from fenolite.backends.kicad.layers import expand_layers
 from fenolite.backends.kicad.outline import BoardOutline, board_outline
 from fenolite.backends.kicad.rulemap import rule_order
@@ -43,7 +43,7 @@ from fenolite.geometry import (
     round_point,
 )
 from fenolite.geometry import Arc as GeoArc
-from fenolite.model.board import Arc, Keepout, Track, Via, ViaType
+from fenolite.model.board import Arc, Keepout, Track, Via, ViaProtection, ViaType
 from fenolite.model.circuit import Net, NetClass
 from fenolite.model.design import Design
 
@@ -93,13 +93,30 @@ class PadEndLike(Protocol):
 
 
 @runtime_checkable
+class AnchorLike(Protocol):
+    """A point in the frame of a part's footprint: ``offset`` from the footprint's origin (``number`` is
+    ``None``) or from the position of the pads ``number`` and ``index`` name, as the library draws the
+    footprint. It stands wherever an intent holds a point, and is replaced by its board point first
+    (capability manual-copper, "Anchored points in script copper"). It joins no pad and gives no net."""
+
+    @property
+    def component(self) -> str: ...
+    @property
+    def number(self) -> str | None: ...
+    @property
+    def index(self) -> int | None: ...
+    @property
+    def offset(self) -> Point: ...
+
+
+@runtime_checkable
 class ViaStepLike(Protocol):
     """A via inside a track path, after which the track runs on ``layer``. Its ``kind`` (``through``,
     ``blind``, ``buried`` or ``micro``) is read by attribute when the step has one: a step without it is a
     through via, as the steps of earlier scripts are."""
 
     @property
-    def at(self) -> Point: ...
+    def at(self) -> Point | AnchorLike: ...
     @property
     def layer(self) -> str: ...
     @property
@@ -113,16 +130,16 @@ class ArcStepLike(Protocol):
     """An arc inside a track path: from the point of the element before it through ``mid`` to ``end``."""
 
     @property
-    def mid(self) -> Point: ...
+    def mid(self) -> Point | AnchorLike: ...
     @property
-    def end(self) -> Point: ...
+    def end(self) -> Point | AnchorLike: ...
 
 
 class TrackIntentLike(Protocol):
     @property
     def key(self) -> str: ...
     @property
-    def path(self) -> Sequence[PadEndLike | Point | ViaStepLike | ArcStepLike]: ...
+    def path(self) -> Sequence[PadEndLike | AnchorLike | Point | ViaStepLike | ArcStepLike]: ...
     @property
     def layer(self) -> str: ...
     @property
@@ -138,7 +155,7 @@ class ViaIntentLike(Protocol):
     @property
     def key(self) -> str: ...
     @property
-    def at(self) -> Point: ...
+    def at(self) -> Point | AnchorLike: ...
     @property
     def net(self) -> str | None: ...
     @property
@@ -148,6 +165,9 @@ class ViaIntentLike(Protocol):
 
 
 class StitchIntentLike(Protocol):
+    """Stitching vias. ``region`` is a ring of points, or a pad reference (``component``, ``number``,
+    ``index``): the copper of that pad, for a thermal array."""
+
     @property
     def key(self) -> str: ...
     @property
@@ -155,11 +175,11 @@ class StitchIntentLike(Protocol):
     @property
     def pitch(self) -> Nm: ...
     @property
-    def along(self) -> Sequence[Point]: ...
+    def along(self) -> Sequence[Point | AnchorLike]: ...
     @property
-    def region(self) -> Sequence[Point]: ...
+    def region(self) -> Sequence[Point | AnchorLike] | PadEndLike: ...
     @property
-    def origin(self) -> Point: ...
+    def origin(self) -> Point | AnchorLike: ...
     @property
     def diameter(self) -> Nm | None: ...
     @property
@@ -242,6 +262,37 @@ class _Board:
                 "kicad.copper.pad-not-found", f"{key}: no footprint of {component!r} on the board", key
             )
         return found
+
+    def placed(self, component: str, matched: Sequence[BoardPad], key: str) -> None:
+        """Refuse a component the build staged, named by its path or its reference."""
+        names = (
+            {component} | {pad.path for pad in matched if pad.path} | {pad.ref for pad in matched if pad.ref}
+        )
+        if names & self.unplaced:
+            raise _Refused(
+                "kicad.copper.end-unplaced",
+                f"{key}: {component} is not placed yet (it sits in the staging row), so no copper is created",
+                key,
+            )
+
+    def frame(
+        self, component: str, number: str | None, index: int | None, key: str
+    ) -> tuple[PartFrame, tuple[BoardPad, ...]]:
+        """The frame an anchor or a pad region names, and the records of its pads."""
+        self.placed(component, self.matches(component, key), key)
+        try:
+            return frame_with_pads(self.design, self.pads, component, number, index)
+        except KeyError as error:
+            raise _Refused("kicad.copper.pad-not-found", f"{key}: {error.args[0]}", key) from None
+        except ValueError as error:
+            raise _Refused("kicad.copper.bad-intent", f"{key}: {error}", key) from None
+
+    def spot(self, value: Point | AnchorLike, key: str) -> Point:
+        """A point as it is; an anchor as its board point on this design."""
+        if isinstance(value, Point):
+            return value
+        frame, _ = self.frame(value.component, value.number, value.index, key)
+        return frame.point(value.offset)
 
     def netclass(self, net: Net) -> NetClass | None:
         return self.classes.get(net.netclass_id) if net.netclass_id is not None else None
@@ -335,8 +386,10 @@ def _via(
     net: Net,
     kind: str = "through",
     layers: tuple[str, str] | None = None,
+    protection: ViaProtection | None = None,
 ) -> Via:
-    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via."""
+    """A via of ``kind``; ``layers`` is its span in stack order, the whole board for a through via, and
+    ``protection`` the protection of its intent (``None``: the via follows the board default)."""
     native = copper_uuid(key, locator)
     return Via(
         id=derived_id("via", "kicad", native),
@@ -347,7 +400,22 @@ def _via(
         layers=layers if layers is not None else (board.copper_layers[0], board.copper_layers[-1]),
         net_id=net.id,
         via_type=cast(ViaType, kind),
+        protection=protection if protection is not None else ViaProtection(),
     )
+
+
+def _via_protection(item: object, key: str) -> ViaProtection:
+    """The protection of a via step, a via intent or a stitch intent, read by attribute like ``kind``:
+    ``ViaProtection()`` when it has none, so the intents of earlier scripts keep their meaning. The board
+    default is not copied in: a field of ``None`` follows ``Board.via_protection``."""
+    protection: object = getattr(item, "protection", ViaProtection())
+    if not isinstance(protection, ViaProtection):
+        raise _Refused(
+            "kicad.copper.bad-intent",
+            f"{key}: the protection {protection!r} is not a ViaProtection (fenolite.model.board)",
+            key,
+        )
+    return protection
 
 
 def _via_kind(item: object, key: str) -> str:
@@ -401,8 +469,13 @@ def _dist2(a: Point, b: Point) -> int:
     return (a.x - b.x) ** 2 + (a.y - b.y) ** 2
 
 
+def _is_anchor(element: object) -> bool:
+    """Whether ``element`` is an anchor: it has ``offset`` (a ``Point`` has a method of that name)."""
+    return not isinstance(element, Point) and hasattr(element, "offset")
+
+
 def _is_pad_end(element: object) -> bool:
-    return not isinstance(element, Point) and hasattr(element, "component")
+    return not isinstance(element, Point) and hasattr(element, "component") and not _is_anchor(element)
 
 
 def _is_arc_step(element: object) -> bool:
@@ -427,20 +500,90 @@ def _copper_layer(board: _Board, layer: str, key: str) -> None:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _Step:
+    """A via step whose point is a board point."""
+
+    at: Point
+    layer: str
+    diameter: Nm | None
+    drill: Nm | None
+    kind: object
+    protection: object
+
+
+@dataclass(frozen=True, slots=True)
+class _Bend:
+    """An arc step whose points are board points."""
+
+    mid: Point
+    end: Point
+
+
+@dataclass(frozen=True, slots=True)
+class _TrackPlan:
+    """A track intent after the anchor pass: every point is a board point."""
+
+    key: str
+    path: tuple[PadEndLike | Point | _Step | _Bend, ...]
+    layer: str
+    width: Nm | None
+    net: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _ViaPlan:
+    """A via intent after the anchor pass."""
+
+    key: str
+    at: Point
+    net: str | None
+    diameter: Nm | None
+    drill: Nm | None
+    kind: object
+    layers: object
+    protection: object
+
+
+def _plan_track(board: _Board, intent: TrackIntentLike) -> _TrackPlan:
+    """``intent`` with each anchor of its path, its via steps and its arc steps replaced by its board
+    point. An anchor in a path is a point: it joins no pad and gives the track no net."""
+    key = intent.key
+    path: list[PadEndLike | Point | _Step | _Bend] = []
+    for element in intent.path:
+        if isinstance(element, Point):
+            path.append(element)
+        elif _is_anchor(element):
+            path.append(board.spot(cast(AnchorLike, element), key))
+        elif _is_pad_end(element):
+            path.append(cast(PadEndLike, element))
+        elif _is_arc_step(element):
+            arc = cast(ArcStepLike, element)
+            path.append(_Bend(board.spot(arc.mid, key), board.spot(arc.end, key)))
+        else:
+            step = cast(ViaStepLike, element)
+            kind: object = getattr(step, "kind", "through")
+            protection: object = getattr(step, "protection", ViaProtection())
+            path.append(
+                _Step(board.spot(step.at, key), step.layer, step.diameter, step.drill, kind, protection)
+            )
+    return _TrackPlan(key, tuple(path), intent.layer, intent.width, intent.net)
+
+
+def _plan_via(board: _Board, intent: ViaIntentLike) -> _ViaPlan:
+    key = intent.key
+    kind: object = getattr(intent, "kind", "through")
+    layers: object = getattr(intent, "layers", None)
+    protection: object = getattr(intent, "protection", ViaProtection())
+    at = board.spot(intent.at, key)
+    return _ViaPlan(key, at, intent.net, intent.diameter, intent.drill, kind, layers, protection)
+
+
 def _candidates(board: _Board, end: PadEndLike, layer: str, key: str) -> list[BoardPad]:
     """The pads a pad end may mean, with copper on ``layer``."""
     number = str(end.number)
     matched = board.matches(end.component, key)
-    names = (
-        {end.component} | {pad.path for pad in matched if pad.path} | {pad.ref for pad in matched if pad.ref}
-    )
-    staged = sorted(names & board.unplaced)
-    if staged:
-        raise _Refused(
-            "kicad.copper.end-unplaced",
-            f"{key}: {end.component} is not placed yet (it sits in the staging row), so no copper is created",
-            key,
-        )
+    board.placed(end.component, matched, key)
     numbered = [pad for pad in matched if pad.number == number]
     if not numbered:
         known = ", ".join(dict.fromkeys(pad.number for pad in matched if pad.number))
@@ -499,7 +642,7 @@ def _choose(options: Sequence[Sequence[BoardPad] | Point]) -> list[Point | Board
     return chosen
 
 
-def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track], list[Arc], list[Via]]:
+def _resolve_track(board: _Board, intent: _TrackPlan) -> tuple[list[Track], list[Arc], list[Via]]:
     key, path = intent.key, list(intent.path)
     if len(path) < 2:
         raise _Refused("kicad.copper.bad-intent", f"{key}: a track path needs at least two elements", key)
@@ -509,11 +652,13 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
     _copper_layer(board, intent.layer, key)
     layers: list[str] = []  # the layer of the segment that leaves each element
     spans: dict[int, tuple[str, tuple[str, str] | None]] = {}  # the kind and the layers of each via step
+    protections: dict[int, ViaProtection] = {}
     current = intent.layer
     for index, element in enumerate(path):
         if _is_via_step(element):
-            step = cast(ViaStepLike, element)
+            step = cast(_Step, element)
             kind = _via_kind(step, key)
+            protections[index] = _via_protection(step, key)
             _copper_layer(board, step.layer, key)
             if step.layer == current:
                 raise _Refused(
@@ -529,9 +674,9 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
         elif _is_pad_end(element):
             options.append(_candidates(board, cast(PadEndLike, element), layers[index], key))
         elif _is_arc_step(element):
-            options.append(cast(ArcStepLike, element).end)
+            options.append(cast(_Bend, element).end)
         else:
-            options.append(cast(ViaStepLike, element).at)
+            options.append(cast(_Step, element).at)
     chosen = _choose(options)
     ends = [(cast(PadEndLike, path[i]), pad) for i, pad in enumerate(chosen) if isinstance(pad, BoardPad)]
     named = _named_net(board, intent.net, key)
@@ -546,7 +691,7 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
         )
     _positive(width, "track width", key)
     sizes = {
-        index: _via_sizes((cast(ViaStepLike, e).diameter, cast(ViaStepLike, e).drill), cls, net, key)
+        index: _via_sizes((cast(_Step, e).diameter, cast(_Step, e).drill), cls, net, key)
         for index, e in enumerate(path)
         if _is_via_step(e)
     }
@@ -557,12 +702,14 @@ def _resolve_track(board: _Board, intent: TrackIntentLike) -> tuple[list[Track],
     for index, point in enumerate(points):
         if index in sizes:
             kind, span = spans[index]
-            vias.append(_via(key, f"via[{index}]", point, sizes[index], board, net, kind, span))
+            vias.append(
+                _via(key, f"via[{index}]", point, sizes[index], board, net, kind, span, protections[index])
+            )
         if index + 1 == len(points):
             break
         after = path[index + 1]
         if _is_arc_step(after):
-            mid, end = cast(ArcStepLike, after).mid, points[index + 1]
+            mid, end = cast(_Bend, after).mid, points[index + 1]
             if len({point, mid, end}) < 3 or _on_one_line(point, mid, end):
                 raise _Refused(
                     "kicad.copper.bad-intent",
@@ -612,11 +759,12 @@ def _required_net(board: _Board, name: str | None, key: str, what: str) -> Net:
     return net
 
 
-def _resolve_via(board: _Board, intent: ViaIntentLike) -> Via:
+def _resolve_via(board: _Board, intent: _ViaPlan) -> Via:
     key = intent.key
     net = _required_net(board, intent.net, key, "via")
     kind = _via_kind(intent, key)
-    named: object = getattr(intent, "layers", None)
+    protection = _via_protection(intent, key)
+    named: object = intent.layers
     span: tuple[str, str] | None = None
     if kind == "through":
         if named is not None:
@@ -638,7 +786,7 @@ def _resolve_via(board: _Board, intent: ViaIntentLike) -> Via:
         _copper_layer(board, second, key)
         span = _via_span(board, kind, first, second, key)
     sizes = _via_sizes((intent.diameter, intent.drill), board.netclass(net), net, key)
-    return _via(key, "via", intent.at, sizes, board, net, kind, span)
+    return _via(key, "via", intent.at, sizes, board, net, kind, span, protection)
 
 
 # --- stitching ------------------------------------------------------------------------------------
@@ -653,6 +801,8 @@ class _Obstacle:
     filled: bool
     net: str | None
     via: bool = False
+    pad: tuple[str, str] | None = None
+    """For the copper entry of a pad: its footprint id and its pad id. A hole has none."""
 
     def bbox(self) -> BBox:
         box = BBox.of_points(self.core)
@@ -688,7 +838,8 @@ def _obstacles(
 ) -> list[_Obstacle]:
     found: list[_Obstacle] = []
     for pad in board.pads:
-        found += [_Obstacle(entry.core, entry.width, entry.filled, None) for entry in pad.copper]
+        owner = (pad.footprint_id, pad.pad_id)
+        found += [_Obstacle(e.core, e.width, e.filled, None, pad=owner) for e in pad.copper]
         if pad.hole and pad.drill is not None:
             found.append(_Obstacle(pad.hole, pad.drill, False, None))
     for track in tracks:
@@ -775,21 +926,74 @@ def _along(points: Sequence[Point], pitch: int) -> list[tuple[str, Point]]:
     return [(f"via[{k}]", point) for k, point in enumerate(found)]
 
 
+def _in_ring(point: Point, ring: Sequence[Point], reach: int) -> bool:
+    """Whether ``point`` lies inside ``ring`` at least ``reach / 2`` from every edge, decided exactly."""
+    if point_in_ring(point, ring) is not Location.INSIDE:
+        return False
+    edges = zip(ring, (*ring[1:], ring[0]), strict=True)
+    return all(4 * dist2_point_segment(point, a, b) >= reach * reach for a, b in edges)
+
+
 def _region(ring: Sequence[Point], origin: Point, pitch: int, reach: int) -> list[tuple[str, Point]]:
     """The grid points ``origin + (i, j)·pitch`` inside ``ring`` at least ``reach / 2`` from every edge
     (``reach`` is the via diameter plus twice the margin), in order of ``j`` then ``i``."""
     xs, ys = [p.x for p in ring], [p.y for p in ring]
-    closed = (*ring[1:], ring[0])
-    edges = list(zip(ring, closed, strict=True))
     found: list[tuple[str, Point]] = []
     for j in range(-((origin.y - min(ys)) // pitch), (max(ys) - origin.y) // pitch + 1):
         for i in range(-((origin.x - min(xs)) // pitch), (max(xs) - origin.x) // pitch + 1):
             point = Point(origin.x + i * pitch, origin.y + j * pitch)
-            if point_in_ring(point, ring) is not Location.INSIDE:
-                continue
-            if all(4 * dist2_point_segment(point, a, b) >= reach * reach for a, b in edges):
+            if _in_ring(point, ring, reach):
                 found.append((f"via[{i},{j}]", point))
     return found
+
+
+def _disc_in_entry(point: Point, entry: PadCopper, reach: int) -> bool:
+    """Whether the disc of diameter ``reach`` around ``point`` lies inside the copper of ``entry``, the
+    points within ``width / 2`` of its core: decided exactly with integers and ``Fraction``.
+
+    Inside a filled core the point must keep ``reach / 2 − width / 2`` from the edges of the core;
+    elsewhere it must lie within ``width / 2 − reach / 2`` of the core."""
+    core, width = entry.core, entry.width
+    if entry.filled and point_in_ring(point, core) is not Location.OUTSIDE:
+        need = reach - width
+        if need <= 0:
+            return True
+        edges = zip(core, (*core[1:], core[0]), strict=True)
+        return all(4 * dist2_point_segment(point, a, b) >= need * need for a, b in edges)
+    slack = width - reach
+    if slack < 0:
+        return False
+    return 4 * _core_dist2(point, _Obstacle(core, width, entry.filled, None)) <= slack * slack
+
+
+def _framed(
+    frame: PartFrame, offset: Point, pitch: int, extent: Sequence[Point], keep: Callable[[Point], bool]
+) -> list[tuple[str, Point]]:
+    """The grid points ``frame.point(offset + (i, j)·pitch)`` that ``keep`` accepts, in order of ``j`` then
+    ``i``: a grid laid in a part's frame, so it turns with the part and is mirrored with its bottom side.
+    ``extent`` holds points that bound the region; no grid point farther from the grid's start than the
+    farthest of them is tried."""
+    start = frame.point(offset)
+    far = max(_dist2(start, point) for point in extent)
+    steps = ceil_sqrt(Fraction(far, pitch * pitch)) + 1
+    found: list[tuple[str, Point]] = []
+    for j in range(-steps, steps + 1):
+        for i in range(-steps, steps + 1):
+            point = frame.point(Point(offset.x + i * pitch, offset.y + j * pitch))
+            if keep(point):
+                found.append((f"via[{i},{j}]", point))
+    return found
+
+
+def _entry_extent(entries: Sequence[PadCopper]) -> list[Point]:
+    """The corners of the boxes of ``entries``, each grown by half its width."""
+    corners: list[Point] = []
+    for entry in entries:
+        box = BBox.of_points(entry.core).inflate(-(-entry.width // 2))
+        corners += [
+            Point(box.x0, box.y0), Point(box.x1, box.y0), Point(box.x1, box.y1), Point(box.x0, box.y1)
+        ]  # fmt: skip
+    return corners
 
 
 def _resolve_stitch(
@@ -800,8 +1004,35 @@ def _resolve_stitch(
     barriers: _Barriers | None = None,
 ) -> list[Via]:
     key = intent.key
-    along, region = tuple(intent.along), tuple(intent.region)
-    if bool(along) == bool(region):
+    # anchors first: the points of along and region, the origin, and the pads of a pad region
+    along = tuple(board.spot(point, key) for point in intent.along)
+    given: object = intent.region
+    grid: PartFrame | None = None
+    grid_offset = Point(0, 0)
+    origin = intent.origin
+    if _is_anchor(origin):
+        origin = cast(AnchorLike, origin)
+        grid, _ = board.frame(origin.component, origin.number, origin.index, key)
+        grid_offset = origin.offset
+    region: tuple[Point, ...] = ()
+    pad_region: PadEndLike | None = None
+    own: tuple[BoardPad, ...] = ()
+    side = "top"
+    if hasattr(given, "component"):
+        if _is_anchor(given):
+            raise _Refused(
+                "kicad.copper.bad-intent",
+                f"{key}: region is a ring of points or a pad reference, not an anchor",
+                key,
+            )
+        pad_region = cast(PadEndLike, given)
+        pad_frame, own = board.frame(pad_region.component, str(pad_region.number), pad_region.index, key)
+        side = pad_frame.side
+        if grid is None:  # a board-point origin gives no frame: the grid starts at the pad
+            grid = pad_frame
+    else:
+        region = tuple(board.spot(point, key) for point in cast("Sequence[Point | AnchorLike]", given))
+    if bool(along) == (pad_region is not None or bool(region)):
         raise _Refused(
             "kicad.copper.bad-intent", f"{key}: a stitch takes exactly one of along and region", key
         )
@@ -823,6 +1054,7 @@ def _resolve_stitch(
                 key,
             )
     net = _required_net(board, intent.net, key, "stitch")
+    protection = _via_protection(intent, key)
     cls = board.netclass(net)
     diameter, drill = _via_sizes((intent.diameter, intent.drill), cls, net, key)
     clearance = (
@@ -836,10 +1068,39 @@ def _resolve_stitch(
         )
     if clearance < 0:
         raise _Refused("kicad.copper.bad-size", f"{key}: the clearance {clearance} nm is negative", key)
+    reach_inside = diameter + 2 * intent.margin
+    exempt: frozenset[tuple[str, str]] = frozenset()
     if along:
         candidates = _along(along, intent.pitch)
+    elif pad_region is not None:
+        label = f"pad {str(pad_region.number)!r} of {pad_region.component}"
+        wrong = [pad for pad in own if pad.net != net.name]
+        if wrong:
+            raise _Refused(
+                "kicad.copper.net-conflict",
+                f"{key}: {label} is on {wrong[0].net or 'no net'}, not on {net.name}, the net of the stitch",
+                key,
+            )
+        outer = "B.Cu" if side == "bottom" else "F.Cu"
+        entries = [entry for pad in own for entry in pad.copper if entry.layer == outer]
+        if not entries:
+            raise _Refused("kicad.copper.layer-mismatch", f"{key}: {label} has no copper on {outer}", key)
+        exempt = frozenset((pad.footprint_id, pad.pad_id) for pad in own)
+        assert grid is not None
+        candidates = _framed(
+            grid,
+            grid_offset,
+            intent.pitch,
+            _entry_extent(entries),
+            lambda point: any(_disc_in_entry(point, entry, reach_inside) for entry in entries),
+        )
+    elif grid is not None:
+        candidates = _framed(
+            grid, grid_offset, intent.pitch, region, lambda point: _in_ring(point, region, reach_inside)
+        )
     else:
-        candidates = _region(region, intent.origin, intent.pitch, diameter + 2 * intent.margin)
+        assert isinstance(origin, Point)  # an anchor gave a frame above
+        candidates = _region(region, origin, intent.pitch, reach_inside)
     index = SpatialIndex[_Obstacle].build((obstacle.bbox(), obstacle) for obstacle in obstacles)
     reach = clearance + -(-diameter // 2)
     kept: list[Via] = []
@@ -849,10 +1110,12 @@ def _resolve_stitch(
         box = BBox(point.x - reach, point.y - reach, point.x + reach, point.y + reach)
         blocked = False
         for obstacle in index.query(box):
-            own = obstacle.net == net.name
-            if own and not obstacle.via:
+            if obstacle.pad in exempt:
+                continue  # the copper of the pads of a pad region is no obstacle to its own array
+            same = obstacle.net == net.name
+            if same and not obstacle.via:
                 continue  # own-net tracks and arcs may be touched
-            if _closer(point, diameter, obstacle, 0 if own else clearance, touching=own):
+            if _closer(point, diameter, obstacle, 0 if same else clearance, touching=same):
                 blocked = True
                 break
         blocked = blocked or (barriers is not None and barriers.blocks(point, diameter))
@@ -864,7 +1127,7 @@ def _resolve_stitch(
             dropped += 1
             continue
         cells.setdefault(cell, []).append(point)
-        kept.append(_via(key, locator, point, (diameter, drill), board, net))
+        kept.append(_via(key, locator, point, (diameter, drill), board, net, protection=protection))
     if dropped:
         issues.append(
             _issue(
@@ -894,8 +1157,16 @@ class CopperMerge:
     duplicates: int = 0
 
 
-def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
-    """The modelled fields of a copper item, with its net by name."""
+_Copper = TypeVar("_Copper", Track, Arc, Via)
+
+
+def _with_lock(items: Sequence[_Copper], locked: bool) -> list[_Copper]:
+    """The items of one intent with its lock (capability manual-copper, "Locked script copper")."""
+    return [dataclasses.replace(item, locked=True) for item in items] if locked else list(items)
+
+
+def _geometry(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
+    """The modelled fields of a copper item but its lock and a via's protection, with its net by name."""
     net = names.get(item.net_id) if item.net_id is not None else None
     if isinstance(item, Via):
         return ("via", item.position, item.diameter, item.drill, tuple(item.layers), item.via_type, net)
@@ -904,10 +1175,18 @@ def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, 
     return ("track", item.start, item.end, item.width, item.layer, net)
 
 
+def _fields(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
+    """What a regenerated item is compared by: its geometry, its net, its lock and, for a via, its
+    protection (change c0112)."""
+    protection = (item.protection,) if isinstance(item, Via) else ()
+    return (*_geometry(item, names), item.locked, *protection)
+
+
 def _shape_key(item: Track | Arc | Via, names: Mapping[str, str]) -> tuple[object, ...]:
     """What makes two items the same copper: the ends of a track or an arc as an unordered pair (an arc
-    with the same mid point)."""
-    fields = _fields(item, names)
+    with the same mid point). Neither the lock nor a via's protection is part of it: a locked copy, or a
+    copy that differs only by its protection, is still a duplicate."""
+    fields = _geometry(item, names)
     if isinstance(item, Track):
         first, second = sorted((item.start, item.end))
         return ("track", first, second, *fields[3:])
@@ -1004,6 +1283,10 @@ def resolve_copper(
     their order, followed by the created tracks, arcs and vias in intent order. An intent with an error
     creates nothing; ``unplaced`` names the components the build staged. Nothing is read or written.
 
+    An anchor (``AnchorLike``) may stand wherever an intent holds a point. Each is replaced first by its
+    board point on ``design``, ``part_frame(design, component, number=…, index=…).point(offset)``: give
+    the design at its effective placements and anchored copper follows its part, with the same uuids.
+
     Stitch vias also stay out of the rule areas that forbid vias, those of the design and the ``keepouts``
     given besides (a rebuild passes those of the existing board), and off the board edge: ``outline`` is
     the outline to keep clear of (default: ``board_outline(design)``), and ``edge_floor`` the project's
@@ -1034,11 +1317,13 @@ def resolve_copper(
             if key in seen:
                 raise _Refused("kicad.copper.bad-intent", f"{key}: the key is used by an earlier intent", key)
             seen.add(key)
+            locked = getattr(intent, "locked", False) is True
             if hasattr(intent, "path"):
-                new_tracks, new_arcs, new_vias = _resolve_track(board, cast(TrackIntentLike, intent))
-                tracks += new_tracks
-                arcs += new_arcs
-                vias += new_vias
+                plan = _plan_track(board, cast(TrackIntentLike, intent))
+                new_tracks, new_arcs, new_vias = _resolve_track(board, plan)
+                tracks += _with_lock(new_tracks, locked)
+                arcs += _with_lock(new_arcs, locked)
+                vias += _with_lock(new_vias, locked)
             elif hasattr(intent, "pitch"):
                 obstacles = _obstacles(
                     board,
@@ -1046,9 +1331,11 @@ def resolve_copper(
                     (*cast("list[Arc]", user[1]), *arcs),
                     (*cast("list[Via]", user[2]), *vias),
                 )
-                vias += _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found, barriers)
+                stitched = _resolve_stitch(board, cast(StitchIntentLike, intent), obstacles, found, barriers)
+                vias += _with_lock(stitched, locked)
             else:
-                vias.append(_resolve_via(board, cast(ViaIntentLike, intent)))
+                via = _resolve_via(board, _plan_via(board, cast(ViaIntentLike, intent)))
+                vias += _with_lock([via], locked)
         except _Refused as refused:
             found.append(refused.issue)
     built = dataclasses.replace(
@@ -1077,6 +1364,7 @@ __all__ = [
     "COPPER_MARKER",
     "EVIDENCE",
     "VIA_KINDS",
+    "AnchorLike",
     "ArcStepLike",
     "CopperIntentLike",
     "CopperMerge",

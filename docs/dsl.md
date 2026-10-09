@@ -32,8 +32,99 @@ registered ID first: the KiCad target writes the `.kicad_mod` into its project `
 places it on the board; the experimental Altium target lowers the supported subset into `.PcbLib` and
 uses it in `.PcbDoc` when the design has an outline.
 
+**Generated fields (c0077).** A KiCad footprint carries a `Reference` and a `Value` property, and
+`Footprint` declares neither. The KiCad build generates both, for an authored footprint and for a
+footprint of the built-in catalog, in the `.kicad_mod` of the project library and on the board:
+
+| field | library text | board text | layer | anchor |
+|---|---|---|---|---|
+| `Reference` | `REF**` | the part's reference | `F.SilkS` | 1 mm above the footprint's extent box, on the centre of its X range |
+| `Value` | the footprint's name | the part's value | `F.Fab` | 1 mm below the box, on the same X |
+
+The extent box is the box of the `F.CrtYd` graphics, else of the pads. Both fields are visible, centred
+and horizontal, with glyphs of 1 mm by 1 mm and a stroke of 0.15 mm; on a bottom part they are on
+`B.SilkS` and `B.Fab`, mirrored. `Part.field` moves or hides either one ("Field placement"). The placement
+is a Fenolite choice; that KiCad accepts such a project is `H-K-FP-FIELDS`. The Altium build names its
+components from the part and reads none of this.
+
 Python facts are cited from `docs/evidence/sources.md` (S-0070 … S-0074); KiCad facts from
 `docs/formats/kicad/`. Everything else on this page is a Fenolite choice.
+
+## Assembly and test features (c0118)
+
+A pad of an authored footprint takes a fabrication mark, the value KiCad calls the fabrication property of
+a pad:
+
+```python
+tp = Footprint("Local", "TestPad", kind="smd")
+tp.pad(
+    "1",
+    at=(mm(0), mm(0)),
+    size=(mm(1.5), mm(1.5)),
+    shape="circle",
+    layers=("F.Cu", "F.Mask"),
+    fab_property="test_point",
+)
+```
+
+| `fab_property=` | what it marks | what KiCad's copper Gerber says |
+|---|---|---|
+| `"test_point"` | a pad a test probe lands on | `TestPad` |
+| `"fiducial_global"`, `"fiducial_local"` | a fiducial of the board, or of one part | `FiducialPad,Global`, `FiducialPad,Local` |
+| `"bga"` | a ball of a BGA package | `BGAPad,CuDef` |
+| `"heatsink"` | a thermal pad | `HeatsinkPad` |
+| `"castellated"` | a plated half-hole on the board edge | `CastellatedPad` |
+| `"mechanical"` | a pad that only holds a part | as an unmarked pad |
+| `"press_fit"` | a press-fit hole (KiCad 10 only: a build for target 9 refuses it) | as an unmarked pad |
+
+- Any other value raises `DslError`. `castellated` and `mechanical` are refused on a pad that is not
+  `thru_hole`, because KiCad's DRC reports such a pad on every check.
+- The mark is written to the vendored footprint file and to the placed pad, so KiCad finds the placed
+  copy equal to its library. A pad without the keyword is unchanged, and so are the bytes of its file.
+- Give a test pad the mask layer of its copper side (`"F.Mask"` with `"F.Cu"`): a pad without it is
+  under the solder mask, and `fenolite testpoints` reports it as `testpoint.covered`.
+- KiCad's own `Fiducial` and `TestPoint` footprints carry no mark. `fenolite testpoints`
+  (`docs/assembly.md`, "Test points, fiducials and holes") lists marked pads only.
+- An Altium build writes a part with a marked pad as any other part; the mark itself is written to no
+  Altium record, and one `altium.not-lowered` info names the footprints concerned.
+
+Three calls place such parts with footprints and symbols generated in the library `Fenolite_Assembly`
+(`fenolite.dsl.assembly`), as `design.hole()` generates its own; no KiCad library is needed, and every size
+is the script's:
+
+```python
+design.board(mm(50), mm(30))
+design.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))
+design.fiducial("FID2", mm(47), mm(27), copper=mm(1), mask=mm(2), side="bottom")
+design.test_point("TP1", led_a, mm(30), mm(12), size=mm(1.5))
+design.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))
+```
+
+| call | footprint | symbol | placed |
+|---|---|---|---|
+| `fiducial(ref, x, y, *, copper, mask, clear=None, side="top", local=False)` | `Fiducial_<c>_Mask<m>[_Clear<k>]` (`Fiducial_Local_…` with `local=True`): an unnumbered copper pad `copper` wide on `F.Cu` and `F.Mask` marked `fiducial_global` or `fiducial_local`, an unnumbered pad `mask` wide on `F.Mask` that opens the mask, a courtyard circle of `clear`; kind `smd`, out of the BOM | `Fenolite_Assembly:Fiducial`, no pin, `FID` | on `side`, locked |
+| `test_point(ref, net, x, y, *, size, shape="circle", drill=None, courtyard=None, side="top", locked=False)` | `TestPoint_Pad_D<s>`, `TestPoint_Pad_<s>x<s>`, `TestPoint_THTPad_…_Drill<d>`, with `_Courtyard_<c>`: pad `1` marked `test_point`, SMD on `F.Cu` and `F.Mask` or plated through-hole on `*.Cu` and `*.Mask` with `drill`; out of the position file and the BOM | `Fenolite_Assembly:TestPoint`, one passive pin `1`, `TP` | on `side`, on `net` |
+| `tooling_hole(ref, x, y, *, drill, clear=None)` | `ToolingHole_<d>[_Clear<c>]`: the unnumbered not-plated hole of `hole()`, courtyards of `clear` (by default `drill`) on both sides | `Fenolite_Holes:Hole`, the symbol of `hole()` | on the top side, locked |
+
+- `mask` must be above `copper`; `clear` is at least `mask` for a fiducial (its default) and at least
+  `drill` for a tooling hole; a test point's `drill` is below `size` and its `courtyard` at least `size`.
+  Any other value raises `DslError` naming the argument, and nothing is recorded.
+- **Clear areas.** A fiducial declares the keep-out `clear_<ref>` with `rule_area()` on the copper layer of
+  its side, forbidding tracks, vias and pours; a tooling hole with `clear` declares one on every copper
+  layer. Pads stay allowed, so the feature's own pads are not reported. A keep-out outline holds points
+  only, so the area is the octagon of `fenolite.dsl.assembly.clear_outline(x, y, clear)`, which contains
+  the circle of that diameter and whose corners reach about 8 % further out. Its name may collide with an
+  area of your own: `rule_area()` then names it.
+- **Locked.** A keep-out stays where the script drew it, so fiducials and tooling holes are always placed
+  and locked by their call; neither takes `locked`, and a later `place()` on their parts raises.
+- The lib id prefix `Fenolite_Assembly:ToolingHole_` is the tooling mark that `fenolite testpoints`
+  reads: KiCad has no pad mark for a tooling hole.
+- Each definition is registered once per lib id; another definition under one of these lib ids, your own
+  included, raises `DslError`.
+- In an Altium build the test points are written as parts; the fiducials are left out of every document
+  with one `altium.not-lowered` info of the kind `assembly features`, because the PCB library takes no
+  unnumbered pad without copper; a tooling hole is a hole of `hole()` and becomes a board hole of the PCB
+  document.
 
 ## Authored symbols (c0058)
 
@@ -73,7 +164,8 @@ the script can do anything the user can do. **Never run `build` on a script you 
 from fenolite.dsl import Design, Net, Part, Power, connect, mm
 
 design = Design("blink")  # the name becomes the KiCad file stem
-design.board(mm(50), mm(30))  # outline width and height; copper=2 (default) or 4
+design.board(mm(50), mm(30))  # outline width and height; copper=2 (default), 4, 6 or 8
+# or a closed path: design.board(outline=shape.rect(…, radius=mm(3))); see "Board"
 
 u1 = Part("U1", "Mini:Mini_QFP32_IC", value="MCU")
 r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")
@@ -102,20 +194,40 @@ r1.place(mm(32), mm(9), rot=90, side="bottom")
 - `Design.sheet(paper, …, drawing_sheet=…)` and `Design.title_block(…)`: the paper, your drawing sheet and the title block ("Drawing sheet and title block").
 - `Design.moved(old, new)`: a path alias that keeps the layout of a renamed part or module ("Path
   aliases"); `Design.moved_net(old, new)`: the same for a renamed net.
-- `Design.board(width, height, copper=2, planes=None)`, once per design. `planes={"In1.Cu": gnd}` (with
-  `copper=4`) declares an inner layer as an internal plane on a net (a `Net` or a net name); a plane
-  holds one net. It is a build parameter, as `copper` is: the model does not change. The Altium target
-  writes the plane (`docs/altium.md`, "Copper"); the KiCad target keeps the signal layer and reports
-  `build.plane-not-lowered`. `planes(design)` returns the mapping from layer name to net name.
+- `Design.board(width, height, copper=2, planes=None)`, once per design. `copper` is 2, 4, 6 or 8
+  (`fenolite.dsl.design.COPPER_COUNTS`); any other value, a `bool` or a `float` included, is a
+  `DslError` that names the counts. `design.board(mm(50), mm(30), copper=6)` declares the layers `F.Cu`,
+  `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`. `Design.copper_layers` gives those names for the
+  declared count, top to bottom (`("F.Cu", "B.Cu")` before `board()`), and
+  `fenolite.dsl.design.inner_layers(copper)` the inner ones. Both KiCad targets get the layer table that
+  KiCad itself writes for the count (`docs/formats/kicad/board.md`, "Created boards").
+  `planes={"In1.Cu": gnd}` declares an inner layer as an internal plane on a net (a `Net` or a net
+  name); it takes any inner layer of the count, so `planes={"In4.Cu": gnd}` is valid with `copper=6` and
+  `In5.Cu` is not. A plane holds one net. It is a build parameter, as `copper` is: the model does not
+  change. The Altium target writes the plane (`docs/altium.md`, "Copper"). The KiCad target gives each
+  plane layer the row type `power` in the board it writes, also on a rebuild, after the layout merge
+  (change c0107); it never removes a type, so a layer typed in KiCad's board setup stays a plane layer
+  when the script names no plane on it. The copper of a plane is a zone: a plane whose net has no zone on
+  its layer gives `build.plane-zone-missing` (warning), whose hint names the script call that draws that
+  copper, `design.zone(<net>, layers=("<layer>",))`. `fenolite route` keeps tracks off a plane layer and
+  joins the SMD pads of its net to the plane (`docs/routing.md`). `planes(design)` returns the mapping
+  from layer name to net name.
 - `Design.zone(net, *, layers, …)`: one copper zone (pour) per call ("Zones").
+- `protect(…)`, `protection=` on `Design.via`, `via_step` and `Design.stitch`, and
+  `Design.via_protection(protection, *, locked=False)`: how vias are tented, covered, plugged, capped
+  and filled ("Via protection").
 - `Design.rules.rule(name, kind, *, where, between, layers, min, opt, max, severity, priority)` and
   `fenolite.dsl.select`: one design rule with selectors ("Rules with selectors").
-- `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, nets)`: every value
-  is optional; a net belongs to at most one class.
+- `design.rules.netclass(name, *, clearance, track_width, via_diameter, via_drill, diff_pair_width,
+  diff_pair_gap, diff_pair_via_gap, nets)`: every value is optional; a net belongs to at most one class.
+- `design.rules.pair(pair, *, gap_min, gap_max, clearance, uncoupled_max, skew_max, length_min,
+  length_max, severity, priority)` and `select.pair(pair)`: the rules of one differential pair
+  ("Differential pairs").
 - `design.rules.minimum(*, clearance, track_width, via_diameter, via_drill, hole_size, edge_clearance,
   netclass=None)`: design-rule minimums for the board, or for one net class ("Design rules").
 - `Interface`, `Power(hv, lv)` and `DiffPair(p, n)`: named groups of nets kept in the model. A
-  `DiffPair` is not lowered to KiCad (`build.interface-not-lowered`, info).
+  `DiffPair` reaches KiCad through its two net names and the rules that select it; one that no rule
+  selects gives `build.interface-not-lowered` (info).
 - `Harness(name, members)`: a named group of nets with different names, such as
   `Harness("SPI", {"MOSI": mosi, "MISO": miso, "SCK": sck})`. `name` is the harness type name and has no
   default; `members` maps an entry name to its net and may not be empty. The order of the entries carries
@@ -141,7 +253,8 @@ Nothing of the DSL is re-exported from the root `fenolite` package: the DSL `Des
   `Net(f"{m.path}/FB")`.
 - Errors are raised as `DslError` at the offending call, so the traceback points at the script line:
   duplicate paths, duplicate net, class or interface names, two `Net` objects with one name, a net in
-  two classes, a second `place()` or `board()`, `copper` other than 2 or 4, one designator on two nets,
+  two classes, a second `place()` or `board()`, a `copper` that is not 2, 4, 6 or 8, a plane or a zone
+  on a layer that the count does not have, one designator on two nets,
   an unknown `side`, an invalid name. Equal refs in different modules are reported by
   `Design.validate()` (`model.duplicate-ref`).
 
@@ -211,12 +324,17 @@ spi.attach(u4, role="peripheral", sck="SCK", mosi="SDI", miso="SDO", cs="CS", cs
     chip-select net, in order; a `peripheral` gives one `cs` pin and the index of its net. MOSI joins MOSI.
   - `USB2.attach(part, dp=, dn=, vbus=None, gnd=None)`: a role the interface has no net for raises.
 - **KiCad build.** The interfaces are kept in `.fenolite/circuit.json`; the other files do not depend on
-  them. A `diff_pair` or `usb2` interface gives `build.interface-not-lowered` (info).
+  them. KiCad files hold no pair object: a `diff_pair` or `usb2` interface reaches KiCad through its two
+  net names and through the rules that select it ("Differential pairs" below). A pair that no rule of the
+  design selects gives `build.interface-not-lowered` (info): KiCad then knows it by its names only.
 - **Checks in a build** (warnings):
   - `build.diff-pair-name`: the two nets of a `DiffPair` or of a `USB2` (`dp`, `dn`) are not a differential
-    pair for KiCad. KiCad pairs two names that are equal except for the last character, `P` then `N` or `+`
-    then `-`, and letter case counts: `USB_P`/`USB_N`, `USB+`/`USB-` and `USB_DP`/`USB_DN` are pairs,
-    `USB_DP`/`USB_DM` is not (measured, `docs/formats/kicad/rules.md`). The hint proposes a name.
+    pair for KiCad. KiCad pairs two names that are equal except for one character, `P` then `N` or `+`
+    then `-`, which only digits and underscores may follow, the same in both names; letter case counts.
+    `USB_P`/`USB_N`, `USB+`/`USB-`, `USB_DP`/`USB_DN` and `D_P0`/`D_N0` are pairs; `USB_DP`/`USB_DM` and
+    `D_P0`/`D_N1` are not (measured, `docs/formats/kicad/rules.md`). The hint proposes a name.
+  - `build.diff-pair-gap-shadowed`: the nets of a pair are in a class with a `diff_pair_gap`, and KiCad
+    would report two tracks laid at that gap ("Differential pairs" below).
   - `build.i2c-pullup-missing`: an I2C line has no part of exactly two pins between it and the `hv` net of
     a `Power` interface. A pull-up on another board, or in a resistor array, is not seen: ignore the
     warning then.
@@ -244,9 +362,86 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | interface | `itf` | `interface:<kind>:<name>` |
 | layer | `lay` | `layer:<KiCad name>` |
 | zone | `zon` | `zone:<zone name>` |
-| rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum) |
+| rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |
+| rule area | `kpo` | `area:<area name>` |
+| board text | `txt` | `text:<drawing key>` |
+| board graphic | `gfx` | `graphic:<drawing key>` |
+| dimension | `dim` | `dimension:<drawing key>` |
+| stack-up | `stk` | `stackup` |
+| stack-up entry | `sly` | `stack_layer:<k>`, k from 0, top to bottom |
+| impedance target | `imp` | `impedance:<target name>`; its derived rules are `rule:named:<derived rule name>` (change c0105) |
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
+
+## Board: outline, cut-outs and holes
+
+`board(width, height)` declares a rectangle. `board(outline=path)` declares any closed ring instead, and
+`cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given.
+
+```python
+from fenolite.dsl import arc_to, mm, shape
+
+design.board(outline=shape.rect(mm(0), mm(0), mm(60), mm(40), radius=mm(3)), copper=4)
+design.cutout(shape.circle(mm(10), mm(10), mm(3.2)))  # a round cut-out, milled
+design.cutout(shape.slot((mm(19), mm(30)), (mm(31), mm(30)), mm(2)))  # 12 mm × 2 mm overall
+design.cutout(((mm(40), mm(5)), (mm(50), mm(5)), arc_to((mm(52), mm(8)), (mm(50), mm(11))), (mm(40), mm(11))))
+```
+
+- **Paths.** A path is a sequence whose first element is an `(x, y)` pair of lengths in the frame of
+  `place()`; the others are such pairs and `arc_to(mid, end)` steps. Each element after the first is the
+  edge from the vertex before it to its end: straight for a pair, the arc through `mid` for a step. The
+  ring closes with a straight edge to its first point unless its last element ends there. `DslError`
+  names the call and the element for an empty path, a repeated vertex, an arc whose mid lies on the line
+  through its ends, and a ring of fewer than three vertices (two are enough when one edge is an arc).
+- **`fenolite.dsl.shape`** gives three paths, which a script may also write by hand:
+  `rect(x, y, width, height, *, radius=None)`, with quarter-arc corners when `radius` is given;
+  `circle(x, y, diameter)`, two half arcs; `slot(start, end, width)`, the stadium whose round ends are
+  centred on `start` and `end`. A diameter and a slot width are an even number of nanometres. A point
+  that is not a whole number of nanometres (the mid of a rounded corner, a point of a slot at an angle)
+  is rounded half to even once, with integers; a circle and a horizontal or vertical slot are exact.
+- **Cut-outs** keep their call order. `to_model` writes the board ring to `Outline.points`, the cut-outs
+  to `Outline.cutouts` and every arc to `Outline.arcs` (`docs/design-model.md`).
+- **What the build refuses.** `kicad.outline.invalid` (error, exit 5, nothing written) for a ring that
+  crosses or touches itself, two rings that cross or touch, a cut-out outside the board and a cut-out
+  inside another. This is KiCad 10's `invalid_outline`, a cut-out that only touches the edge included;
+  KiCad 9 accepts that case, and one verdict serves both targets.
+- **What is written.** One `gr_line` or `gr_arc` on `Edge.Cuts` per edge. A cut-out is milled, not
+  drilled: no drill file holds it. For a drilled hole use `design.hole()`.
+- **`locked=True`** makes the script's outline replace an outline edited in KiCad when the board is
+  rebuilt (`docs/lens.md`, "Outline changes"). `outline_locked(design)` returns it.
+
+### Holes
+
+```python
+design.hole("H1", mm(4), mm(4), drill=mm(3.2))  # round, not plated
+h2 = design.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))  # plated, 6 mm of copper
+connect(gnd, h2[1])
+design.hole("H3", mm(25), mm(26), drill=mm(1), length=mm(3), rot=30)  # a slot of 1 mm × 3 mm
+```
+
+`design.hole(ref, x, y, *, drill, length=None, rot=0, pad=None, courtyard=None, locked=True)` adds a
+part that stands for a hole and returns it. KiCad holds a hole only inside a footprint, so the hole is
+a part with a generated footprint and symbol, in the library `Fenolite_Holes`:
+
+- **Footprint.** One pad at the origin: an unnumbered `np_thru_hole` pad of the hole's size, or with
+  `pad` a `thru_hole` pad numbered `1` with copper that wide. `length` makes the hole a slot of that
+  overall length along the footprint's X axis. The flags `exclude_from_pos_files` and
+  `exclude_from_bom`, and a courtyard on `F.CrtYd` and on `B.CrtYd`, so the placement guard judges parts
+  on both sides: `courtyard` gives its width, by default that of the copper, or of the hole. Screw heads
+  and washers are the script's values: Fenolite ships no size.
+- **Names.** `NPTH_<d>mm`, `NPTH_Slot_<d>x<l>mm`, `PTH_<d>mm_Pad_<p>mm`, `PTH_Slot_<d>x<l>mm_Pad_<p>mm`,
+  followed by `_Courtyard_<c>mm` when `courtyard` is given: equal holes share one definition. The symbol
+  is `Fenolite_Holes:Hole` (no pin) or `Fenolite_Holes:Hole_Pad` (one passive pin `1`), both outside the
+  bill of materials. The build writes `lib/Fenolite_Holes.pretty/<name>.kicad_mod` and
+  `lib/Fenolite_Holes.kicad_sym`.
+- **Plated holes** join a net through their pin: `connect(net, part[1])`.
+- **The lock.** A hole is locked by default, unlike `place()`: an enclosure fixes it, so the script's
+  position wins over a move in KiCad (`layout.place-forced`). `locked=False` gives the board the last
+  word.
+- **The placements file.** A hole part is a part for the layout lens: `fenolite sync --to-source` lists
+  it in `placements.toml` with the others.
+- An authored footprint may hold holes of its own: `Footprint.pad("", kind="np_thru_hole", …)` takes
+  the empty number, several times if needed; such a pad maps to no pin.
 
 ## Frame and `BOARD_ORIGIN`
 
@@ -256,7 +451,8 @@ DSL coordinates are board-relative: the origin is the outline's top-left corner 
 the KiCad file. This is a Fenolite choice: (0, 0) would put the board under the drawing-sheet border,
 and centring on the paper would move every part when the paper size changes.
 
-Parts without `place()` are staged in one row, in component-path order, 5 mm right of the outline and
+Parts without `place()` are staged in one row, in component-path order, 5 mm right of the outline (of
+the box of its rings, arcs included) and
 top-aligned with it, 2 mm apart, on the top side at 0° and unlocked, each with a `layout.unplaced`
 warning.
 
@@ -361,7 +557,10 @@ such as a part number or a supplier code, as text.
 ## Field placement
 
 `Part.field("Reference", …)` and `Part.field("Value", …)` place the two text fields of the part's footprint.
-Without a request a field stays where the footprint library puts it.
+Without a request a field stays where the footprint library puts it. A footprint of the built-in catalog
+or of `dsl.Footprint` has no library file: its two fields are generated 1 mm above and below the
+footprint ("Authored footprints"), and a request moves or hides them like any other. A library footprint
+that lacks one of the two gets it at the same place, with the info `build.field-added`.
 
 ```python
 u1.place(mm(40), mm(30), rot=90)
@@ -476,21 +675,52 @@ design.via(
     diameter=mm(0.6),
     drill=mm(0.3),
 )
+# copper that belongs to a part: a fan-out via 1 mm below pad 9 of U1, and a thermal array in pad 33
+design.via("fan9", u1.pad(9).at(mm(0), mm(1)), net=vin, diameter=mm(0.6), drill=mm(0.3))
+design.track("fan9_stub", u1.pad(9), u1.pad(9).at(mm(0), mm(1)), width=mm(0.3))
+design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), drill=mm(0.3), margin=mm(0.1))
 ```
 
 | call | records |
 |---|---|
 | `part.pad(number, *, index=None)` | the pads of `part` with that number (a `str` or an `int`); `index` picks one when several share the number, else the build takes the nearest |
+| `part.pad(number).at(dx=None, dy=None)` | an anchor: the point `(dx, dy)` from the position of those pads, in the frame of the part's footprint; a length left out is 0 |
+| `part.at(dx=None, dy=None)` | an anchor measured from the origin of the part's footprint |
 
 `Part(..., pad_map={"symbol pin": "physical pad"})` assigns physical footprint pad numbers per component. Pins omitted from `pad_map` keep identity mapping; net connections and no-connect declarations still use symbol pin designators. A pin that is bonded to several pads lists them in a tuple or a list (change c0123): `Part("U1", "Lib:LDO", footprint="Lib:SOT-223", pad_map={"2": ("2", "4")})` puts the net of pin 2 on the pad 2 and on the tab 4. The first pad is the one the schematic symbol shows; a pad belongs to one pin, and a pad listed for two pins, an empty tuple and a pad listed twice are refused when the part is created. `part.pad_map` reads back a string for one pad and a tuple for several. Both build targets apply the map: an Altium build puts each net on every mapped pad of the PCB document, checks script copper and a `--copper-from` board against the mapped pads, and writes the map into the footprint model of the schematic (and of its library, when every part of the symbol links the footprint the symbol names). The releases 0.1.0 and 0.2.0 ignored `pad_map` in an Altium build (fixed in 0.2.1, change c0135): build such a project again. Both targets refuse a map that names a missing pin or pad, or that leaves one pad to two pins (`pad_map={"1": "2"}` on a part that has a pin 2: map pin 2 as well); the Altium build reports it as `altium.pin-pad-map-invalid`, the KiCad build as `build.pin-pad-map-invalid`, each beside the model's `model.pin-pad-map`. `fenolite check` on an Altium project built with a map compares the schematic and the board through the map and reports nothing for the mapped pins (the release 0.2.1 compares the schematic by pin and the board by pad, and reports `netlist.assignment-differs`). A part of an anode-first catalog symbol (`Fenolite:LED`, `Fenolite:Diode`, `Fenolite:Zener_Diode`, `Fenolite:Schottky_Diode`, `Fenolite:Photodiode`: pin 1 `A`, pin 2 `K`) on a catalog land whose pad 1 is the cathode (`Fenolite:LED0603_Kingbright_APT1608SURCK`, `Fenolite:LED0805_Kingbright_APT2012SURCK`, `Fenolite:SOD128_Nexperia_CFP5`) that gives no `pad_map` gets the catalog's default map `{"1": "2", "2": "1"}` in both build targets, and the build reports it with the warning `build.pad-map-default` (change c0147); an explicit `pad_map` always wins, and a design that authors the symbol or the land under the same lib id gets no default. The releases 0.2.0 and 0.2.1 kept pin 1 on pad 1 there: a design that wired such a part by pin number has its two pad nets swapped on the next build, and keeps the old pads with `pad_map={"1": "1", "2": "2"}`. Authored through-hole pads accept `drill_shape="slot"` with `drill` as width, `drill_length` as overall slot length, and `drill_rotation` as its axis in the footprint frame. KiCad output supports horizontal and vertical oval drills; Altium output currently refuses slots.
-| `via_step(x, y, *, to, diameter=None, drill=None, kind="through")` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro` |
-| `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, both `(x, y)` points; the path continues from `end` |
-| `design.track(key, *path, layer="F.Cu", width=None, net=None)` | a track along `path`: pad references, `(x, y)` points, arc steps and via steps, starting on `layer` |
-| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None)` | one via; a via that is not a through via names its two copper layers in `layers` |
-| `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None)` | through vias every `pitch` along a polyline, or on a grid inside a region |
-| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `ViaStep` and `ArcStep`), which the build resolves |
+| `via_step(x, y, *, to, diameter=None, drill=None, kind="through")`, `via_step(point, *, to, …)` | a via inside a track path, after which the track runs on the copper layer `to`; `kind` is `through`, `blind`, `buried` or `micro`. The point is two lengths, or one argument: an `(x, y)` pair or an anchor |
+| `arc_to(mid, end)` | an arc inside a track path: from the point of the element before it through `mid` to `end`, each an `(x, y)` point or an anchor; the path continues from `end` |
+| `design.track(key, *path, layer="F.Cu", width=None, net=None, locked=False)` | a track along `path`: pad references, `(x, y)` points, anchors, arc steps and via steps, starting on `layer` |
+| `design.via(key, x, y, *, net, diameter=None, drill=None, kind="through", layers=None, locked=False)`, `design.via(key, point, *, net, …)` | one via, at two lengths or at one point (an `(x, y)` pair or an anchor); a via that is not a through via names its two copper layers in `layers` |
+| `design.stitch(key, *, net, pitch, along=(), region=(), origin=None, diameter=None, drill=None, clearance=None, margin=None, locked=False)` | through vias every `pitch` along a polyline, or on a grid inside a region; `region=part.pad(number)` is the copper of that pad (a thermal array) |
+| `copper(design)` | the intents as frozen dataclasses in key order (`TrackIntent`, `ViaIntent`, `StitchIntent`, with `PadEnd`, `Anchor`, `ViaStep` and `ArcStep`), which the build resolves |
 
 - **Points** are `(x, y)` pairs of lengths in the frame of `place()`: the origin is the board's corner.
+- **Anchors** are points in a part's frame, for copper that belongs to a part: `part.pad(n).at(dx, dy)`
+  is measured from a pad, `part.at(dx, dy)` from the origin of the footprint. The offset is given as the
+  footprint's library draws it (X to the right, Y down), so it keeps its place among the pads when the
+  part is turned, and it is mirrored with the part on the bottom side. An anchor stands wherever a
+  point does: a waypoint of a track, `mid` and `end` of `arc_to`, the point of `via_step` and of
+  `design.via`, and the `along` points, the `region` points and the `origin` of a stitch. The build
+  resolves it after placement, so anchored copper follows a part that was moved in KiCad or by
+  `fenolite place` at the next build, with the same ids. Start from a pad anchor: it needs no library
+  coordinates. In this section the word "anchor" always means such a point in a part's frame.
+- **An anchor is a point, not a connection.** `part.pad(9)` in a path joins the pad and gives the
+  track its net; `part.pad(9).at()` is only the place where the pad is. A track still takes its net
+  from its pad ends, and a via or a stitch names its net. `part.pad(…)` where a point is expected is
+  refused with a hint to `.at()`. A via of another net anchored inside a pad is a short: the copper
+  guard of `build` refuses it (KiCad's own DRC does not report it, `docs/copper.md`).
+- **Thermal arrays.** `design.stitch(key, net=…, pitch=…, region=part.pad(n))` lays its grid from the
+  pad's position in the part's frame, keeps the vias whose disc plus `margin` lies inside the pad's
+  copper on the part's side, and does not count that pad as an obstacle. The pad must be on the
+  stitch's net. `origin` is left out, or is an anchor that moves the grid; a board-point `origin` is
+  refused with a pad region. The vias are through vias.
+- **Locks.** `locked=True` on `design.track`, `design.via` or `design.stitch` asks that the copper of
+  the intent be written locked: `(locked yes)` on each of its segments, arcs and vias, which KiCad's
+  editor then refuses to move. The value must be `True` or `False`; anything else is a `DslError` that
+  names the intent. Script copper is unlocked by default, and `fenolite route --rip` never removes
+  script copper, locked or not. This is the **copper lock**; `Part.place(..., locked=True)` is another
+  thing, the placement lock of a part.
 - **Keys** name intents (`^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$`, one use each). Every id of the copper
   an intent creates derives from its key, so a rebuild keeps the ids, and the seed plays no part.
 - **Nets.** A track takes the net of its pads; pads on two nets, or a pad on no net, is an error. `net=`
@@ -520,6 +750,34 @@ design.via(
   an edit of it in KiCad is replaced. Copper drawn in KiCad is the board's and is kept.
 - `to_model` does not change: intents are not model objects.
 
+### Meanders
+
+`Design.meander` brings a script track to a length: a `target`, or the length of another script track
+(`match`), counted as KiCad's DRC counts the net for the target major (change c0106; `docs/copper.md`,
+"Meanders").
+
+```python
+design.track("usb_p", u1.pad(1), (mm(8.6), mm(10)), (mm(8.6), mm(30)), j1.pad(1), width=mm(0.2))
+design.track("usb_n", u1.pad(2), (mm(10.8), mm(14)), (mm(14.8), mm(14)), j1.pad(2), width=mm(0.2))
+design.meander("n_tune", track="usb_n", segment=1, match="usb_p", amplitude=mm(0.5), pitch=mm(0.4))
+```
+
+- `track` is the key of a track recorded before the call, and `segment` the index of one of its straight
+  segments: segment `i` runs from path element `i` to element `i + 1`.
+- `amplitude` is the largest height of a bump from the segment's centre line, the band you leave free for
+  it; `pitch` is the distance between neighbouring legs, centre to centre, and must be above the track
+  width. `side` is `"left"` (the default) or `"right"` of the segment's direction, as KiCad displays the
+  board. `margin` is the straight run kept at each end of the segment: one pitch unless given.
+- Give either `target=` (a length) or `match=` (the key of another track). `dsl.meanders(design)` returns
+  the recorded `MeanderIntent`s in key order, every length in nanometres.
+- **Errors at the call.** `DslError` for a key that is not a copper key or is already used, an unknown
+  `track` or `match`, a `segment` that is not an index of a straight segment, a size that is not positive,
+  a negative `margin`, both or neither of `target` and `match`, and a second meander on one segment.
+- **Errors of the build** (`kicad.meander.*`, `docs/copper.md`): no room for the bumps, a track already
+  longer than the target, a pitch not above the width. The build then writes nothing.
+- The meander does not avoid other copper; the copper guard judges the result. Corners are square.
+- `result.copper.meanders` of `fenolite build` counts the meanders that changed copper.
+
 ## Zones
 
 A script declares its copper pours with `Design.zone`, after `board()`:
@@ -535,7 +793,7 @@ design.zone(
 | argument | meaning | default |
 |---|---|---|
 | `net` | a `Net`, which joins the design, or `None` for a zone without a net | required |
-| `layers` | the copper layers of the pour: `F.Cu`, `B.Cu`, and `In1.Cu`, `In2.Cu` with `copper=4` | required |
+| `layers` | the copper layers of the pour, any of `Design.copper_layers`: `F.Cu`, `B.Cu` and the inner layers `In1.Cu` … `In<copper − 2>.Cu` of the count (`In6.Cu` is the deepest with `copper=8`); a refused name lists the board's layers | required |
 | `name` | names the zone across builds; unique in the design | the net's name; required when `net` is `None` |
 | `outline` | at least three `(x, y)` points in the frame of `place()` | the board rectangle |
 | `priority` | an `int` of at least 0; a higher priority is filled first | 0 |
@@ -586,6 +844,145 @@ design.zone(
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.
 
+Without `outline`, a zone takes the box of the board ring: the smallest rectangle that holds its
+vertices and the mid points of its arcs, which for `board(width, height)` is the board rectangle.
+Cut-outs do not change it, and KiCad clips the fill to the board. An arc written by hand may bulge
+beyond that box; the build then names the zone with `kicad.outline.zone-short`.
+
+## Stack-up
+
+`design.stackup(*entries, finish=None, impedance_controlled=False, locked=False)` declares the build-up of
+the board from its top face to its bottom face (change c0101). It is called after `board()`, of either form,
+and once. The entries come from `fenolite.dsl.stack`:
+
+```python
+from fenolite.dsl import Design, mm, stack
+
+design = Design("blink")
+design.board(mm(50), mm(30), copper=4)
+design.stackup(
+    stack.mask("10um", color="Green"),
+    stack.copper("35um"),
+    stack.prepreg("0.2mm", material="FR4", epsilon_r="4.5", loss_tangent="0.02"),
+    stack.copper("17.5um"),
+    stack.core("1.2mm", material="FR4", epsilon_r="4.5"),
+    stack.copper("17.5um"),
+    stack.prepreg("0.2mm"),
+    stack.copper("35um"),
+    stack.mask("10um"),
+    finish="ENIG",
+)
+```
+
+| entry | arguments |
+|---|---|
+| `stack.silkscreen(*, color="")` | no thickness |
+| `stack.mask(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness of at least 0 |
+| `stack.copper(thickness)` | a thickness above 0 |
+| `stack.core(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` | a thickness above 0 |
+| `stack.prepreg(…)` | the arguments of `core` |
+
+- A thickness is a length with a unit (`"35um"`, `mm("0.2")`). `epsilon_r` and `loss_tangent` are an
+  `int`, a `fractions.Fraction` or a decimal text, never a `float`; they are stored as the shortest plain
+  decimal (`"4.50"` gives `"4.5"`). `epsilon_r` is above 0; `loss_tangent` may be 0.
+- The order is: at most one silkscreen, then at most one mask; one `copper()` per copper layer of
+  `board(copper=…)`, with at least one `core()` or `prepreg()` between neighbours; then at most one mask
+  and at most one silkscreen. Several dielectrics in one gap are the sheets of one dielectric and are all
+  of one kind. Any other sequence raises `DslError` naming the position (from 0) of the first entry out of
+  place.
+- The copper entries take the names of the board's copper layers from the top (`F.Cu`, `In1.Cu`, …,
+  `B.Cu`), the dielectrics of the gap below the j-th copper layer the name `dielectric <j>`, masks and
+  silkscreens `F.Mask`, `B.Mask`, `F.SilkS` and `B.SilkS`: the names KiCad gives the same rows, so a
+  rebuild compares equal names.
+- Fenolite supplies no thickness, material, dielectric constant or finish. A mask the script leaves out is
+  written with the thickness 0 (KiCad would count 0.01 mm for a row without one), and the board thickness
+  is the sum of the entries.
+- `to_model` gives the board a `Stackup` (`docs/design-model.md`, "Stack-up"); a design without
+  `stackup()` has none and builds the files it built before. `stackup_locked(design)` returns `locked`.
+- On a rebuild the board's stack-up wins over an unlocked script stack-up that differs
+  (`kicad.stackup.overridden`), and `locked=True` makes the script's replace it (`kicad.stackup.forced`):
+  `docs/lens.md`, "Stack-up across rebuilds".
+- `stack.preset(name)` gives the entries of a stack-up that a public fabricator page states:
+  "Stack-up presets" below.
+
+## Stack-up presets
+
+`stack.preset(name)` returns the entries of a packaged preset, from the top face to the bottom face, for
+`design.stackup(*stack.preset(name))` on a board of the preset's copper count; `stack.PRESETS` lists the
+names in code-point order, and an unknown name raises `DslError` listing them (change c0101).
+
+```python
+from fenolite.dsl import Design, mm, stack
+
+design = Design("blink")
+design.board(mm(50), mm(30), copper=4)
+design.stackup(*stack.preset("four-layer-1.6mm"), finish="ENIG")
+```
+
+Each preset is a file `src/fenolite/dsl/stackups/<name>.toml` that holds its source id, the page's URL,
+the date it was read, its copper count and one `[[entry]]` per row of the page's stack-up table (`kind`,
+`thickness` and, where the page states them, `material`, `epsilon_r` and `loss_tangent`). Every value is
+the page's millimetre value; a value the page does not state is left out, and Fenolite adds none. A
+dielectric constant comes from the row, else from the page's one "Dielectric" value of the board's
+substrate. The page's silkscreen thickness stays in the file: a stack-up silkscreen has none. The finish
+is not part of a preset; pass `finish=` yourself. The names say the copper count and the nominal board
+thickness, never the fabricator.
+
+| preset | copper | source | page | read |
+|---|---|---|---|---|
+| `two-layer-1.6mm` | 2: 1 oz copper on a 1.524 mm FR4 core (εr 4.5) | S-0720 | https://docs.oshpark.com/services/two-layer/ | 2026-10-08 |
+| `four-layer-1.6mm` | 4: 1 oz outer and 0.5 oz inner copper, two FR408HR 2113 prepregs of 0.1999 mm and a 0.9906 mm core | S-0721 | https://docs.oshpark.com/services/four-layer/ | 2026-10-08 |
+| `six-layer-1.6mm` | 6: 1 oz outer and 0.5 oz inner copper, two 106 prepregs of 0.1107 mm, two 2113 cores of 0.1016 mm and a 0.9256 mm core | S-0722 | https://docs.oshpark.com/services/six-layer/ | 2026-10-08 |
+
+A preset is `INFERRED`: it is what one page said on the date given, not a measured board, and the page
+can change. The fabricator's own stack-up for an order is the one that counts.
+
+## Via protection
+
+A via may be tented (covered by solder mask), covered, plugged, capped and filled. `protect()` says how,
+per via or for the whole board (change c0112):
+
+```python
+from fenolite.dsl import protect
+
+design.via_protection(protect(tenting=True))  # the board default: every via tented on both sides
+design.via("tp1", mm(5), mm(5), net=gnd, protection=protect(tenting=False))  # a test point, open
+design.stitch("pad", net=gnd, pitch=mm(1), region=ring, protection=protect(filling=True, capping=True))
+design.track(
+    "a", r1.pad(2), via_step(mm(8), mm(8), to="B.Cu", protection=protect(tenting="front")), d1.pad(2)
+)
+```
+
+- `protect(*, tenting=None, covering=None, plugging=None, capping=None, filling=None)` returns a
+  `ViaProtection` of the model (`docs/design-model.md`, "Via protection"). `tenting`, `covering` and
+  `plugging` have two sides and take `True` (both sides), `False` (neither), `"front"` or `"back"` (that
+  side, the other not) or `None`; `capping` and `filling` take `True`, `False` or `None`. Any other value
+  raises `DslError`. `None` means "not stated here": on a via the feature follows the board default, and in
+  the board default it is KiCad's own (tented on both sides, nothing else). A value for one side with
+  `None` for the other is built with `ViaProtection(...)` of `fenolite.model.board`.
+- `protection=` on `Design.via`, `via_step` and `Design.stitch` takes that value (or `None`); every via of
+  a stitch carries it. Anything else raises `DslError` naming the copper key.
+- `Design.via_protection(protection, *, locked=False)`, at most once, declares the board default. A script
+  without it, and without any `protection=`, builds every file with the bytes it had before.
+- **Rebuilds.** Script vias take the protection of their intent at every build: a protection set in KiCad
+  on a script via is replaced, with `kicad.copper.regenerated` (info). The board default follows the rule
+  of zones and of the stack-up: an edit in KiCad's Board Setup wins over an unlocked default
+  (`kicad.via.protection-overridden`, info), and `locked=True` makes the script's replace it
+  (`kicad.via.protection-forced`, warning): `docs/lens.md`, "Via protection across rebuilds".
+- **What each target holds.** KiCad 10 holds all five features, per via and as defaults. KiCad 9 holds
+  tenting only: `--kicad-version 9` refuses a covering, plugging, capping or filling of `True` with exit 7
+  (`kicad.board.via-protection-too-new`; `--allow-lossy` does not drop it), and writes nothing for `False`
+  and `None`. A target-9 board opened in KiCad 10 is converted by KiCad, which then tents the side that a
+  via's 9.0 child does not name; `fenolite build --kicad-version 10` keeps the mask that KiCad 9 plots.
+  The Altium target writes the tenting where the design states it and names the rest (`docs/altium.md`,
+  "Via protection").
+- **What reaches the fabrication files.** The solder mask plots follow tenting alone. Covering, plugging,
+  capping and filling reach only the drill side files and the IPC-2581 export of `kicad-cli` 10.0.6, and
+  only for the vias that carry the value themselves: a board default adds none. A build whose default
+  gives such a feature to vias that do not carry it says so with `kicad.via.protection-not-exported`
+  (info); set it with `protection=` on those vias, or state it in the fabrication notes. Fenolite supplies
+  no protection the script does not give, and checks none.
+
 ## Design rules
 
 A net class says what the copper of its nets should be; a minimum says what the design-rule check must
@@ -635,8 +1032,8 @@ design.rules.minimum(clearance=mm(0.2), track_width=mm(0.4), netclass="PWR")
   under names that do not start with `fenolite_`, are kept after them (`docs/lens.md`, "Project and rules
   files").
 - **Beyond minimums.** `minimum()` covers six kinds on the board or on a class. Everything else is a
-  `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. Custom expressions,
-  differential-pair and length rules are not modelled.
+  `rule()` (below): the other kinds, severities, `opt` and `max`, layers and selectors. The rules of a
+  differential pair are a `pair()` ("Differential pairs"). Custom expressions are not modelled.
 - **Altium.** `--target altium` writes a minimum into the PCB document when Altium's rule holds that
   one limit: `clearance` and `edge_clearance`. A `track_width`, `via_diameter`, `via_drill` or `hole_size`
   minimum is reported with one `altium.not-lowered` warning (`where` = `design-rules/<kind>`), because
@@ -659,13 +1056,38 @@ design.rules.rule(
 )  # your value, not Fenolite's
 ```
 
-- **Kinds.** The six of `minimum()`, and `hole_to_hole`, `hole_clearance`, `annular_width`,
-  `courtyard_clearance`, `silk_clearance` and `creepage`. Fenolite ships no value for any of them.
+- **Kinds.** The six of `minimum()`; `hole_to_hole`, `hole_clearance`, `annular_width`,
+  `courtyard_clearance`, `silk_clearance` and `creepage`; and the pair and length kinds `diff_pair_gap`,
+  `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length` ("Differential pairs"). Fenolite ships no
+  value for any of them.
 - **Selectors** come from `fenolite.dsl.select`: `net(name or Net)`, `netclass(name)`, `ref(reference or
-  Part)`, `item("track" | "via" | "pad" | "zone")` and `ALL` (the default). `&`, `|` and `~` combine them;
+  Part)`, `item("track" | "via" | "pad" | "zone")`, `area(name or RuleArea)`, `pair(pair interface, or a
+  base name, or "*")` and `ALL` (the default). `&`, `|` and `~` combine them;
   `ALL` stands alone. A name may hold `*`. A class named in a selector must be declared first, except
   `Default`.
 - **`between`** names the second item of a `clearance` or `creepage` rule. No other kind takes it.
+- **`no_tracks`** keeps a selection off some copper layers (change c0107):
+  `design.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))`.
+  It takes no limit (`min`, `opt` and `max` are refused) and needs `layers`; `where` is `ALL`, or nets and
+  classes. KiCad checks it (`disallow track`, target 10 until the probe of 9.0 is recorded), `route` routes
+  the selected nets on the other layers, and an Altium build reports it as not lowered. It is the rule
+  kind, and not the `no_tracks` flag of a keep-out, which forbids tracks inside an outline whatever their
+  net.
+- **`select.area(area)`** selects the items whose copper reaches into a rule area ("Rule areas"), on one
+  of the area's layers: an item that only crosses the area's edge is selected too. It is written as
+  `A.intersectsArea('<name>')`. The name is compared with letter case and may hold `*`. The call does not
+  check that the area exists, because an area may be drawn and named in KiCad: the build checks, after
+  it merged the existing board, that the board it is about to write holds a rule area of that name, and
+  stops with `build.area-unknown` (exit 5) otherwise, since KiCad would load the rule and apply it to
+  nothing. Every kind takes an area but `courtyard_clearance`, `silk_clearance`, `creepage`,
+  `no_tracks` and the five pair and length kinds ("Differential pairs"). The
+  selector is written for the KiCad majors on which its probe is recorded (`docs/formats/kicad/rules.md`).
+
+  ```python
+  bga = design.rule_area("BGA", [(mm(10), mm(10)), (mm(20), mm(10)), (mm(20), mm(20)), (mm(10), mm(20))])
+  design.rules.rule("neck", "track_width", where=select.area(bga), min=mm(0.1), priority=1)
+  design.rules.rule("hv", "clearance", where=select.area("HV"), min=mm(2))  # an area drawn in KiCad
+  ```
 - **Limits** carry a unit. `min` may be 0 (a courtyard rule of 0 forbids overlap); `opt` and `max` are above
   0; the limits rise from `min` to `max`. Which limits a kind takes is in `docs/formats/kicad/rules.md`: the
   six new kinds take `min` only.
@@ -686,6 +1108,251 @@ design.rules.rule(
   "rule:named:<name>")`. The build writes it as `fenolite_<priority>_<slug of the name>`.
 - **Altium.** Written into the PCB document by kind and scope, exactly or not at all; a rule that is
   not written gives one `altium.not-lowered` warning with its reason (`docs/altium.md`, "Rules").
+
+### Impedance targets
+
+`design.rules.impedance(name, *, ohms, netclass=None, pair=None, layers, tolerance=None, priority=1)`
+declares one impedance target, and `trace(layer, *, refs, width, gap=None)` (from `fenolite.dsl`) one layer
+of it (change c0105; the guide is `docs/impedance.md`):
+
+```python
+design.rules.impedance(
+    "USB90",
+    ohms=ohm(90),
+    pair=usb,
+    tolerance=10,
+    layers=(trace("F.Cu", refs="In1.Cu", width=mm(0.2), gap=mm(0.15)),),
+)
+```
+
+- **The geometry is yours.** Every width and gap comes from the script; Fenolite computes none into the
+  design. `fenolite impedance --estimate` gives `INFERRED` advice for single-ended lines only.
+- **Arguments.** `ohms` is `ohm(…)`, a positive `int` or a decimal string (a `float` is refused);
+  `tolerance` a positive `int` or decimal string below 100 (percent); exactly one of `netclass` (a class
+  name or names) and `pair` (a `DiffPair` or `USB2`, or several); `layers` one `trace()` per layer, each
+  layer once, with one or two reference layers; a pair needs a gap on every trace, and a gap on some
+  traces only is refused. `DslError` at the call, and nothing is recorded.
+- **Classes.** The named classes, or the class of each pair's two nets; a pair whose nets are in two
+  classes or in none is refused by `to_model`.
+- **Derived rules.** Per trace one `track_width` rule on that layer, named `track_width_<target>_<layer>`,
+  and for a pair one `diff_pair_gap` rule, named `diff_pair_gap_<target>_<layer>`, each with `min` =
+  `opt` = `max`, severity `error` and the call's priority, after the rules of `minimum()` and `rule()`.
+  A derived name equal to another rule's name is refused.
+- **Model.** `RuleSet.impedance` holds one `ImpedanceTarget` per call, in call order, with the id
+  `derived_id("imp", "dsl", "impedance:<name>")`; `ohms` and the tolerance are kept as exact decimal text.
+
+### Differential pairs
+
+A pair is a `DiffPair` or a `USB2`. Its width, gap and via gap are values of the net class of its two
+nets, and its limits are rules that `design.rules.pair()` declares in one call:
+
+```python
+from fenolite.dsl import USB2, select
+
+usb_p, usb_n = Net("USB_P"), Net("USB_N")
+usb = USB2(usb_p, usb_n, name="USB")
+design.rules.netclass(
+    "USB", clearance=mm(0.2), diff_pair_width=mm(0.2), diff_pair_gap=mm(0.15), nets=(usb_p, usb_n)
+)
+design.rules.pair(
+    usb,
+    gap_min=mm(0.13),
+    gap_max=mm(0.2),
+    clearance=mm(0.15),
+    uncoupled_max=mm(5),
+    skew_max=mm(0.5),
+    length_max=mm(60),
+)  # your values, not Fenolite's
+```
+
+- **Net names.** KiCad has no pair object: two nets are a pair by their names (the rule is under "Typed
+  interfaces", `build.diff-pair-name`). `select.pair(usb)` and `pair(usb, …)` take the base from the two
+  names (`USB_` here, `USB_D` for `USB_DP`/`USB_DN`) and raise `DslError` when the names do not pair.
+- **Class values.** `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` of `netclass()` are
+  lengths, written into the class of `<name>.kicad_pro`. KiCad's pair router lays a pair with them; none
+  is a limit that the DRC checks. One of them changes a check: a `diff_pair_gap` below the class
+  `clearance` lowers the clearance between the two nets of each pair of the class, in KiCad and in
+  `fenolite check` alike, where no clearance rule governs them.
+- **`pair(pair, …)`** records one rule per group that is given, named `pair:<pair name>:<group>`, and adds
+  the pair to the design:
+
+  | given | rule kind | what KiCad checks |
+  |---|---|---|
+  | `gap_min`, `gap_max` | `diff_pair_gap` | the edge-to-edge gap of the coupled tracks |
+  | `clearance` | `clearance`, with the pair on both sides | the clearance between the two nets of the pair |
+  | `uncoupled_max` | `diff_pair_uncoupled` | the length the pair runs uncoupled |
+  | `skew_max` | `diff_pair_skew` | the length difference between the two nets |
+  | `length_min`, `length_max` | `length` | the routed length of each net |
+
+  A call that gives no limit, or whose values `rule()` would refuse, raises `DslError` naming `pair()` and
+  records nothing. `pair()` takes no target value: a target (`opt`) is written with `rule()`, and KiCad's
+  DRC never checks it.
+- **Order.** The rules have priority 1 by default, like the class minimums of `minimum(netclass=…)`.
+  Rules of one priority are written in name order, and `pair:` sorts after `min_`, so a pair's rules come
+  later in the file and govern its items over a class minimum. A rule of your own with priority 1 and a
+  name after `pair:` governs instead.
+- **`select.pair(x)`** is the selector for `rule()`: `x` is a pair interface, a base name, or `"*"` for
+  every pair. It combines with `&`, `|` and `~` as the other selectors do, and the base keeps its letter
+  case. `design.rules.rule("every skew", "diff_pair_skew", where=select.pair("*"), max=mm(0.5))` holds for
+  every pair of the board; `skew` (without `diff_pair_`) matches a group of nets against its longest net.
+- **What KiCad measures.** A length counts each via by the board stack-up. Parallel tracks of a pair count
+  as coupled at any distance, so `gap_max` is what bounds how far a pair spreads.
+- **`build.diff-pair-gap-shadowed`** (warning). A design often has a board-wide clearance rule
+  (`minimum(clearance=…)`), and KiCad applies a custom clearance rule over the pair gap of a class. A pair
+  whose class gap is below such a rule would be reported when laid at its gap. The build warns, and the
+  hint names the fix: `pair(…, clearance=…, gap_min=…)` writes a clearance rule and a gap rule for the
+  pair, after the rules that shadow it. Fenolite writes no such rule on its own.
+- **Targets.** The pair kinds and the pair selector are written for the KiCad majors on which their
+  probes are recorded (`docs/formats/kicad/rules.md`): KiCad 10 today. For another major the build stops
+  with exit 7 (`rules.kind-unchecked`), and `--allow-lossy` leaves the rules out.
+- **Altium.** `--target altium` keeps the pair rules, the class pair values and the pair interfaces in
+  `.fenolite/` and names each in an `altium.not-lowered` message; it writes none of them
+  (`docs/altium.md`, "Differential pairs").
+
+## Rule areas
+
+`design.rule_area(name, outline, *, layers=None, forbid=())` declares one rule area and returns its
+`RuleArea` record. It is the one call for rule areas and keep-outs: a keep-out is a rule area that forbids
+something.
+
+```python
+design.rule_area(
+    "ANT",
+    [(mm(40), mm(0)), (mm(50), mm(0)), (mm(50), mm(10)), (mm(40), mm(10))],
+    forbid=("tracks", "vias", "pours"),
+)
+hv = design.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))
+```
+
+- **`name`** matches `^[A-Za-z0-9_.+-]+$` and is unique. Two names that differ only in letter case are
+  refused: KiCad compares area names with letter case, so a rule written for one would miss the other.
+- **`outline`** holds at least three `(x, y)` points in the frame of `place()`. An outline is a polygon: a
+  round keep-out is a polygon around the circle.
+- **`layers`** are copper layers of the board; `None` means every copper layer.
+- **`forbid`** takes `tracks`, `vias`, `pads`, `pours` and `footprints`. With an empty `forbid` the area
+  forbids nothing and only rules select it (`select.area`, "Rules with selectors"). `footprints` makes
+  the area a placement keep-out ("Placement rules" below).
+- **In the model** each area is a `Keepout` with its `name`, in name order, with the id
+  `derived_id("kpo", "dsl", "area:<name>")`. `design.rule_areas` holds the records by name.
+- **What a keep-out does.** KiCad's DRC reports a track (one that only crosses the edge too), a via or a
+  pad in an area that forbids it as `items_not_allowed`, on the area's layers only, and its filler leaves
+  an area that forbids pours out of every fill. Fenolite's copper check reports the same tracks, vias and
+  pads as `copper.keepout`, so the copper guard stops the build before KiCad sees the board
+  (`--copper-check warn` writes anyway). Stitch vias of `stitch()` stay out of areas that forbid vias.
+- **Rebuilds.** A script area is derived output: every build writes it again from the script, with a
+  marked uuid (`docs/lens.md`, "Board items declared in the script"). An edit made to it in KiCad is
+  undone, with `kicad.board-item.regenerated`; an area drawn in KiCad is never touched.
+- **Altium.** An area that forbids something is written as a keep-out with its restrictions; its name has
+  no place in the record and is reported, and an area that forbids nothing is reported and not written
+  (`docs/altium.md`, "Rule areas, texts and dimensions").
+
+## Board drawings
+
+Seven calls declare texts, graphics and dimensions of the board. Each takes a key first, which matches
+the pattern of copper keys and is unique across the seven calls; the key names the drawing across builds.
+
+```python
+design.text("rev", "REV A", (mm(5), mm(28)), justify="left bottom")
+design.line("fab/mid", (mm(0), mm(15)), (mm(50), mm(15)), layer="F.Fab", width=mm(0.1))
+design.rect("mask/window", (mm(1), mm(1)), (mm(4), mm(3)), layer="F.Mask", width=mm(0), fill=True)
+design.circle("mark", (mm(45), mm(25)), (mm(46), mm(25)), layer="F.SilkS", width=mm(0.12))
+design.arc("bend", (mm(0), mm(0)), (mm(1), mm(1)), (mm(2), mm(0)), layer="Dwgs.User", width=mm(0.1))
+design.polygon("flag", [(mm(10), mm(2)), (mm(12), mm(2)), (mm(11), mm(4))], layer="B.SilkS", width=mm(0.1))
+design.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))
+```
+
+- **Layers.** A drawing goes on a silkscreen, solder-mask, fabrication or user layer: `F.SilkS`, `B.SilkS`,
+  `F.Mask`, `B.Mask`, `F.Fab`, `B.Fab`, `Dwgs.User`, `Cmts.User`, `Eco1.User` and `Eco2.User`. Copper is
+  refused: the copper check cannot see glyphs, KiCad reports a copper text across a track as a short, and
+  it does not report a copper line across a track at all. `Edge.Cuts` belongs to the outline of `board()`.
+- **`text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`**: one
+  printable line, 1 mm high with a 0.15 mm stroke unless `size` and `thickness` say otherwise. `justify`
+  is `left` or `right`, then `top` or `bottom`; without it the text is centred on `at`. A text on a back
+  layer is mirrored. A centred label close to the board edge reaches it: KiCad then warns with
+  `silk_edge_clearance`.
+- **`line(key, start, end)`, `rect(key, start, end)`, `circle(key, center, edge)`, `arc(key, start, mid,
+  end)` and `polygon(key, points)`** take `layer` and `width`; `rect`, `circle` and `polygon` take
+  `fill=False`. `width` is above 0 for a line, an arc and a shape that is not filled, and may be `mm(0)` for
+  a filled one. The three points of an arc are not on one line.
+- **`dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4,
+  size=None, thickness=None, width=None)`**: a linear dimension. Without `direction` it is aligned with the
+  two points; with `horizontal` or `vertical` it measures that coordinate difference only. `offset` is the
+  signed distance of the dimension line from the measured points, KiCad's `height`: for a dimension from
+  left to right a negative offset puts the line above the points (towards smaller y), and for one from top
+  to bottom a negative offset puts it to their right. `units` is `mm` or `in`, `precision` 0 to 4
+  decimals. KiCad computes the text, its place and its angle from the points when it loads the board.
+- **In the model** a text is a `Text` (`txt`), a graphic a `Graphic` (`gfx`) and a dimension a `Dimension`
+  (`dim`), each in key order; `design.drawings` holds the records by key.
+- **Errors at the call** (`DslError`, nothing recorded): no `board()` yet, a key used twice, a layer that
+  takes no drawing, an empty or multi-line text, a bare number for a length, corners of a rectangle that
+  share a coordinate, a `direction` whose difference is 0, a `precision` outside 0 to 4.
+- **Rebuilds.** As for rule areas: script drawings are written again on every build, and what was drawn
+  in KiCad stays.
+- **Altium.** Centred texts and graphics are written; a justified text and a dimension are reported and
+  not written (`docs/altium.md`).
+
+## Placement rules
+
+`design.near(key, parts, anchor, *, within, severity="error")` records a proximity rule: each part of
+`parts` keeps one of its pads within `within` of a pad of `anchor`, pad centre to pad centre (change c0113;
+`docs/placement.md`, "Placement rules").
+
+```python
+design.near("dec7", c5.pad(1), u1.pad(7), within=mm(2))  # decoupling
+design.near("xtal", (y1, c13, c14), (u1.pad(12), u1.pad(13)), within=mm(5))  # crystal and load capacitors
+design.near("ch1", ch1, ch1_u1, within=mm(15))  # a module stays together
+design.near("gate", u2.pad(5), q1.pad(1), within=mm(4), severity="warning")  # reported, not gating
+```
+
+- `key` follows the pattern of copper keys and names one rule of the design. `parts` and `anchor` each
+  take a `part.pad(number)`, a part, a module, or a non-empty list or tuple of them. A part stands for
+  every pad of it, and a module for every part of it and of its sub-modules. `within` is a length above
+  0, and `severity` is `error` or `warning`.
+- A symbol pin (`part[7]`) is refused with the hint `part.pad(<number>)`: a rule names pads. A gate driver
+  takes two rules, its output near the gate and its return near the source.
+- The word *anchor* here is the reference side of a rule: the pads the parts must be near. It is no point
+  in a part's frame and no placement, and `near` adds no attribute of that name to a part or a design.
+- `to_model` writes the rules into `RuleSet.proximity` in key order (`docs/design-model.md`, "Proximity
+  rules"), a part as its path, a pad as path, number and index, a module as its parts in path order. A
+  part or a module that is not in the design is named in a `DslError`. A design without the call gives
+  the model, and the bytes, it gave before.
+- `fenolite check` judges the rules in its stage `placement.rules`; `build` and `place` report them as
+  warnings. Nothing moves a part to meet a rule.
+
+A rule area that forbids footprints is the other placement constraint of a board:
+`design.rule_area("ANT", outline, layers=("F.Cu",), forbid=("footprints",))` sets `Keepout.no_footprints`,
+the KiCad build writes `(footprints not_allowed)`, and `place` and the build's placement guard judge the
+area like one drawn in KiCad (`place.keepout`; `docs/placement.md`, "Keep-outs"). An Altium build names
+the area in one `altium.not-lowered` info of kind `keepout-footprints` (`docs/altium.md`).
+
+## Part heights and height limits
+
+A part states how tall it is, and a named rule area says how tall the parts under it may be (change c0140;
+`docs/placement.md`, "Height limits").
+
+```python
+j1 = Part("J1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", height=mm(9))
+design.rule_area(
+    "LID", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(15)), (mm(0), mm(15))], layers=("F.Cu",)
+)
+design.height_limit("LID", max=mm(5))  # severity="warning" reports without gating
+```
+
+- `Part(..., height=h)` takes `None` (the default) or a positive length: the top of the part above the
+  board surface on its own side. `dsl.heights(design)` returns the heights by component path, in path
+  order. `to_model` puts no height into the circuit: `Component` has no height field.
+- The build gives the placed footprint of the part one extruded `ComponentBody` of that height, with
+  standoff 0, **no outline** and the name `height`, after the bodies of its definition. A KiCad file holds
+  no body: `.fenolite/board.json` keeps it, also through a rebuild over an existing board, and no KiCad
+  file changes. An Altium build does not write it, because a body without an outline has no record
+  (`docs/altium.md`).
+- `design.height_limit(area, *, max, severity="error")` records `HeightLimit(area, max, severity)` in
+  `RuleSet.heights`, in area order (`docs/design-model.md`, "Height limits"). `area` is a name of the
+  pattern of refs and takes one limit; `max` is a length above 0; `severity` is `error` or `warning`. The
+  area is not looked up at the call: an area drawn in KiCad is known only on the board. A rule area that
+  forbids nothing serves as the area of a limit.
+- `fenolite check` judges the limits in its stage `placement.rules`; `build` and `place` report them as
+  warnings. A design without either call gives the model, and the bytes, it gave before.
 
 ## Copper guard
 
@@ -828,3 +1495,101 @@ labels and power ports on wire stubs, and a grid layout. Altium's engineering ch
 the PCB. This build reads no library, so lib ids and footprints name Altium library files
 (`"MyParts.SchLib:LDO"`, `"MyParts.PcbLib:SOT23"`), and designators must be pin numbers. The board,
 placements, net classes and diff pairs stay in `.fenolite/` only. See `docs/altium.md`.
+
+## Net ties
+
+A net tie joins pads of different nets on purpose: a star ground, a Kelvin lead. In an authored footprint
+the join is copper you draw (pads that overlap, or a `line`, `rect`, `circle` or `polygon` on a copper
+layer), and `net_tie()` says that it is meant:
+
+```python
+tie = Footprint("Local", "StarPoint", kind="smd")
+tie.pad("1", at=(mm(-0.5), mm(0)), size=(mm(0.5), mm(0.5)))
+tie.pad("2", at=(mm(0.5), mm(0)), size=(mm(0.5), mm(0.5)))
+tie.line((mm(-0.5), mm(0)), (mm(0.5), mm(0)), layer="F.Cu", width=mm(0.3))  # the copper bridge
+tie.net_tie("1", "2")
+design.add_footprint(tie)
+```
+
+- `net_tie(*numbers)` declares one group of at least two pad numbers. A number must name a pad of the
+  footprint and may be in one group only; both are checked when the definition is read.
+- The KiCad build writes `(net_tie_pad_groups "1, 2")` into the library footprint and the board
+  footprint, as KiCad's own net-tie footprints have it, and KiCad's DRC then judges no pair of pads of
+  the footprint.
+- Fenolite's copper check, and so the copper guard of the build, do not judge two pads of one group.
+  A pad outside the group, and a track near a tied pad, are judged as on any footprint. The bridge
+  itself is a graphic, which the copper check does not see.
+- A footprint from a KiCad library keeps the groups its file has; they cannot be edited from a script.
+- `--target altium` writes the pads and no mark that ties them, and says so (`docs/altium.md`).
+
+## Waivers
+
+`design.waive()` accepts one finding of `fenolite check`, or of the copper guard of the build, with a
+reason. The finding stays listed, as `info`, with the waiver's name and reason, so the exit code no
+longer counts it and nothing is hidden.
+
+```python
+design.waive("copper.clearance", "J1-3", "J1-4", reason="fixed by the mating connector", name="pitch")
+design.waive("copper.clearance", "J1-*", "*", min_gap=mm(0.15), reason="shield can keep-out")
+design.waive("kicad.drc.via-dangling", "*", reason="test points")
+design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by design")
+```
+
+- **Code.** `copper.short`, `copper.clearance`, `copper.zone-overlap`, or a finding of KiCad's DRC as
+  `check` prints it, `kicad.drc.<type>`. The three verdicts of the DRC stage (`rules-not-loaded`,
+  `rules-unchecked`, `parity-unchecked`) are not findings. ERC and parity findings are not waived: an
+  ERC finding has its own means in the script (`no_connect`, a power flag), and a parity finding is a
+  defect of the build.
+- **Items.** One name per item of the finding, as its `where` prints it: `REF-PIN` for a pad, `REF` for a
+  footprint, a locator for a track, a via or a zone, `@x,y` for an item without a name. The order does not
+  matter, a `Part` stands for its reference, and `*`, `?` and `[…]` are patterns. A copper finding has two
+  items.
+- **Reason.** One non-empty line. It is printed with every finding the waiver accepts.
+- **Shorts** (`copper.short`, `kicad.drc.shorting-items`) take exact names only: an intended short is one
+  net tie, and a pattern could cover a second one. Prefer `Footprint.net_tie` for a short inside a
+  footprint you author.
+- **`min_gap`** belongs to `copper.clearance`: the finding is accepted only while its gap is at least that
+  length, so a closer gap stays an error. A clearance waiver with a pattern needs it. A DRC finding has
+  no distance in KiCad's report, so `min_gap` is refused there.
+- **`name`** defaults to `<code>:<items joined by ",">`. Two waivers of one name are refused, so the same
+  waiver cannot be declared twice.
+- **Prefer a rule for a clearance that a selector can name.** A waiver accepts one finding by the names
+  of its items; a rule (`design.rules.rule()`) changes the clearance in force for every item it selects,
+  in both checks. A waiver is applied by Fenolite only: KiCad's own entry for the same copper stays an
+  error until it is waived too, by its `kicad.drc.*` code.
+
+The build stores the waivers in `.fenolite/findings.json`. `fenolite check` reports a waiver that
+matched nothing as `check.waiver-unmatched` (`docs/cli-contract.md`, "Waivers"); the names of tracks are
+locators, which shift when items are added, so name pads and footprints where you can.
+
+## Check severities
+
+`design.rules.severity()` gives one check of KiCad's DRC a severity in the project file:
+
+```python
+design.rules.severity("kicad.drc.silk-overlap", "ignore")
+design.rules.severity("kicad.drc.via-dangling", "error")
+```
+
+- The code is the finding code that `check` prints (`kicad.drc.<type>`); the level is `error`, `warning`
+  or `ignore`. A code may be given one severity.
+- The build writes the check's key of `rule_severities`. A code whose key the target KiCad does not have
+  is refused when the project is written (`kicad.project.unknown-check`): KiCad would ignore it without
+  a message, so a misspelt code would do nothing.
+- A `copper.*` finding takes no severity: accept one finding with `design.waive()`.
+- `kicad.drc.clearance` cannot be ignored, because `check` needs clearance entries to prove that the
+  rules were loaded.
+- `--target altium` writes no severity and says so (`docs/altium.md`).
+
+## Mechanical requests
+
+A fixed interface is a locked placement with a mechanical intent:
+`part.place(..., locked=True, anchor=MechanicalIntent(key, tolerance=..., source=..., status=...))`
+(change c0096). `MechanicalIntent` holds a stable key, the frame `board`, an integer tolerance in nm, a
+source, a status (`measured`, `estimated`, `proposed`) and evidence; an anchor without `locked=True` is
+refused. Intent metadata does not qualify assembly fit. A script declares holes with `design.hole()`
+("Holes") and keep-outs with `design.rule_area()` ("Rule areas"): the maintainer decided on 2026-10-07
+that these calls stand, so c0096 offers no hole or keep-out call of its own. `Hole.intent` and
+`Keepout.intent` remain in the model for model callers and readers; no script call fills them.
+The anchor's metadata is in `placements` output; a build and rebuild do not retain it in native files
+or the regenerable `.fenolite/` cache, and the physical locked position remains enforced.

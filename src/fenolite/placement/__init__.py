@@ -11,6 +11,15 @@ from __future__ import annotations
 
 from fenolite.placement.codes import EVIDENCE, ISSUE_CODES
 from fenolite.placement.grid import Box, GridResult, place
-from fenolite.placement.legality import TOUCHING_OVERLAPS, check
+from fenolite.placement.legality import KEEPOUT_EVIDENCE, TOUCHING_OVERLAPS, check
 
-__all__ = ["EVIDENCE", "ISSUE_CODES", "TOUCHING_OVERLAPS", "Box", "GridResult", "check", "place"]
+__all__ = [
+    "EVIDENCE",
+    "ISSUE_CODES",
+    "KEEPOUT_EVIDENCE",
+    "TOUCHING_OVERLAPS",
+    "Box",
+    "GridResult",
+    "check",
+    "place",
+]

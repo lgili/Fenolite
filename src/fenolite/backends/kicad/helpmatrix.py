@@ -30,7 +30,7 @@ class MatrixEntry:
     options: tuple[str, ...] = ()
 
 
-_EXPORTS = ("ipcd356", "pos", "svg", "gerbers", "drill", "stats", "ipc2581", "odb")
+_EXPORTS = ("ipcd356", "pos", "svg", "gerbers", "drill", "stats", "ipc2581", "odb", "step", "pdf", "dxf")
 MATRIX: tuple[MatrixEntry, ...] = (
     MatrixEntry(
         ("pcb", "drc"), ("--format", "--severity-all", "--schematic-parity", "--refill-zones", "--save-board")
@@ -43,6 +43,7 @@ MATRIX: tuple[MatrixEntry, ...] = (
     MatrixEntry(("sym", "upgrade")),
     MatrixEntry(("sch", "erc")),
     MatrixEntry(("sch", "export", "netlist")),
+    MatrixEntry(("sch", "export", "pdf")),
     MatrixEntry(("jobset", "run")),
 )
 

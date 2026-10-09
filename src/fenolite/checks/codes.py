@@ -16,6 +16,14 @@ stage issue codes", change c0062). ``type_suffix`` is the one rule that turns a 
 last part of a code, for DRC and ERC alike.
 The ``parity.*`` codes are those of the parity comparison and its stage (``checks.parity``; "Parity issue
 codes", change c0072).
+The last two codes report a waiver and a stored exclusion that no longer match a finding ("Waiver and
+exclusion issue codes", change c0114); the ``info`` severity of the three copper finding codes is that of a
+finding a waiver accepted (``checks.waivers``), which the copper check itself never gives.
+The ``placement.*`` codes are those of the placement rules (``checks.placement``; "Placement stage issue
+codes", change c0113, and "Height limit issue codes", change c0140); ``place`` and the placement guard of
+``build`` report them at most as warnings.
+The ``length.*`` codes are those of the length rules stage (``checks.length``; "Length stage issue codes",
+change c0106); the governing rule sets the severity of a finding.
 """
 
 from __future__ import annotations
@@ -42,6 +50,7 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "check.rt1-failed": ("error",),
         "check.oracle-failed": ("error",),
         "check.copy-skipped": ("info",),
+        "check.report-limit": ("warning",),
         f"{ORACLE}.drc.rules-not-loaded": ("error", "info"),
         f"{ORACLE}.drc.rules-unchecked": ("warning",),
         f"{ORACLE}.drc.parity-unchecked": ("warning",),
@@ -55,9 +64,10 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "erc.lite.power-undriven": ("warning",),
         "erc.lite.floating-pin": ("warning",),
         "render.failed": ("warning",),
-        "copper.short": ("error",),
-        "copper.clearance": ("error", "warning"),
-        "copper.zone-overlap": ("warning",),
+        "copper.short": ("error", "info"),
+        "copper.clearance": ("error", "warning", "info"),
+        "copper.zone-overlap": ("warning", "info"),
+        "copper.keepout": ("error",),
         "copper.rules-incomplete": ("warning",),
         "copper.item-unsupported": ("warning",),
         "copper.clearance-unset": ("info",),
@@ -80,6 +90,16 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "parity.footprint-mismatch": ("warning",),
         "parity.oracle-differs": ("warning",),
         "parity.pad-without-pin": ("info",),
+        "check.waiver-unmatched": ("warning",),
+        "check.exclusion-stale": ("warning",),
+        "placement.too-far": ("error", "warning"),
+        "placement.rule-unresolved": ("error",),
+        "placement.rule-skipped": ("info",),
+        "placement.too-tall": ("error", "warning"),
+        "placement.height-unknown": ("warning",),
+        "length.out-of-range": ("error", "warning"),
+        "length.skew-out-of-range": ("error", "warning"),
+        "length.input-missing": ("warning",),
     }
 )
 

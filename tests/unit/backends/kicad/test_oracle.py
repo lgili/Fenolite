@@ -13,6 +13,7 @@ from pathlib import Path
 import _ipc
 import pytest
 from _fakecli import calls, erc_entry, erc_report_with, fake_kicad_cli, report_with
+from _needles import absent
 from _projects import (
     STEM,
     authored_project,
@@ -480,7 +481,7 @@ def test_schematic_netlist_elements(tmp_path: Path) -> None:
     assert len(listed.assignments) == 8
     dumped = repr(outcome)
     for part in ("2026-01-01", "/authored", "KIPRJMOD", str(tmp_path)):
-        assert part not in dumped, part
+        assert absent(part, dumped), part
     assert outcome.evidence.oracle == "kicad-cli 10.0.6"
     assert outcome.evidence.level == oraclemod.netlistmod.EVIDENCE.level
     assert set(outcome.evidence.hypotheses) >= {"H-K-NETLIST-SHAPE", "H-K-CHECK-COPYSET"}

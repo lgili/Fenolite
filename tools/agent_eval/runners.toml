@@ -1,0 +1,41 @@
+# The runners of the agent evaluation (tools/agent_eval/run.py, change c0081).
+#
+# A row names how one agent is started without a person at the keyboard:
+#   argv          its command line; {prompt} and {workdir} are replaced
+#   version_argv  the command line that prints its version
+#   skill         how the guide is installed in the work folder: agent:<name>, agents-md or none
+#   source        the id, in docs/evidence/sources.md, of the public page the row was written from
+#   budget_flag   the words that give the agent its own cost or turn cap (optional)
+#   report        where its JSON output holds model, turns, tokens and cost (optional, dotted keys)
+#   isolation     the flags that keep it from loading the user's settings, memory and skills (optional;
+#                 a row without them is marked "not isolated" in every record)
+#   unconfigured  why the row cannot start yet (optional; a row with this text is refused)
+# Isolation and budget flags are put right after the program name.
+#
+# Every row but "replay" starts a real agent, which costs money: run.py refuses it while the variable CI
+# is set, and without --yes it prints the budget and starts nothing.
+
+[replay]
+# No agent: the reference solution of the task is played through the call log.
+skill = "none"
+
+[claude-code]
+# Written from S-0618 alone (the page "Run Claude Code programmatically", read 2026-10-08), and not yet
+# checked against the --help of an installed version:
+#   -p PROMPT                      runs without a session at the keyboard
+#   --allowedTools "Bash,Read,Edit"  lets it run commands and read and edit files without asking
+#   --output-format json           one JSON document with the result and total_cost_usd
+#   --bare                         skips hooks, skills, plugins, MCP servers, auto memory and CLAUDE.md
+argv = ["claude", "-p", "{prompt}", "--allowedTools", "Bash,Read,Edit", "--output-format", "json"]
+skill = "agent:claude-code"
+source = "S-0618"
+isolation = ["--bare"]
+report = { cost = "total_cost_usd" }
+unconfigured = """the maintainer completes this row before the first run (task 4.2 of c0081): \
+(1) version_argv is missing, because S-0618 names no flag that prints the version; \
+(2) S-0618 says that --bare also skips the skills of the work folder, so the guide that \
+'skill install --agent claude-code' writes there is not loaded: decide between the isolation flag and the \
+installed guide; (3) S-0618 names no flag for a cost or turn cap and no field for the model, the turns \
+or the tokens, so budget_flag and those report keys are left out; (4) S-0618 says that --bare reads no \
+login and needs ANTHROPIC_API_KEY in the environment, which this tool never reads or sets; \
+(5) check every flag against the --help of the installed version, then remove this key"""

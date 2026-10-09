@@ -108,7 +108,8 @@ FREEROUTING_HINT = (
 
 def freerouting_jar() -> Path | None:
     """The Freerouting jar named by ``FENOLITE_FREEROUTING_JAR``, or ``None`` when the variable is unset or
-    names no file. Fenolite never downloads the jar."""
+    names no file. The suites download nothing: ``fenolite fetch freerouting --confirm`` installs the jar,
+    and the gate reads it through this variable."""
     named = os.environ.get(FREEROUTING_ENV, "")
     return Path(named) if named and Path(named).is_file() else None
 
@@ -122,19 +123,26 @@ def required_resources() -> set[str]:
 def kicad_cli() -> str | None:
     """``FENOLITE_KICAD_CLI`` when set (``None`` if that file is missing), else PATH, else the macOS app
     (``fenolite.backends.kicad.cli.find_kicad_cli``)."""
-    from fenolite.backends.kicad.cli import find_kicad_cli
+    from fenolite.backends.kicad.cli import find_kicad_cli, marker_text
 
     found = find_kicad_cli()
-    return None if found is None else str(found)
+    return None if found is None else marker_text(found)
 
 
 @cache
 def _version_of(cli: str) -> tuple[int, int, int] | None:
+    """The version a ``kicad-cli`` prints; ``cli`` is a binary or the marker ``docker:<image>``, which runs
+    the tool in that local image (``fenolite.backends.kicad.cli.cli_for``)."""
+    from fenolite.backends.kicad.cli import DOCKER_PREFIX, KicadCliError, cli_for
+
     try:
-        out = subprocess.run(
-            [cli, "version"], capture_output=True, text=True, timeout=120, check=False
-        ).stdout
-    except (OSError, subprocess.TimeoutExpired):
+        if cli.startswith(DOCKER_PREFIX):
+            out = cli_for(Path(cli)).version()
+        else:
+            out = subprocess.run(
+                [cli, "version"], capture_output=True, text=True, timeout=120, check=False
+            ).stdout
+    except (OSError, subprocess.TimeoutExpired, KicadCliError):
         return None
     match = re.search(r"(\d+)\.(\d+)\.(\d+)", out)
     return (int(match.group(1)), int(match.group(2)), int(match.group(3))) if match else None

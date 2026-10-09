@@ -14,13 +14,18 @@ the kernel's ``classify_segments`` and ``point_in_ring``. A length is a sum of r
 each scaled by ``2**SCALE_BITS`` per nanometre, so the reported integer is below the length of the path
 by less than 2 nm. The direction across a wall uses a unit normal rounded at ``2**-NORMAL_BITS``.
 
-Copper does not block a leg; holes, solder mask, components and copper of other nets are ignored.
+Copper does not block a leg; holes, solder mask and components are ignored. Other copper may be given
+as bridges, the conductors: a path reaches a conductor and leaves it from any point of its copper at no
+length, and a conductor given on both faces joins them (``H-G-AN-OVER``). A path over conductors is a
+chain of shortest paths between consecutive conductors, so the search is Dijkstra over the two terminal
+sets and the conductors, each link found by the search above. No link is shorter than the gap of its two
+ends in plan view, which prunes the conductors that cannot help.
 """
 
 from __future__ import annotations
 
 import heapq
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from fractions import Fraction
 from math import ceil, floor, lcm
@@ -28,9 +33,12 @@ from typing import Literal
 
 from fenolite.analysis.boundary import BoardBoundary
 from fenolite.core.coords import Point
+from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry import (
+    BBox,
     Location,
     SegmentRelation,
+    SpatialIndex,
     Thick,
     area2,
     classify_segments,
@@ -38,7 +46,14 @@ from fenolite.geometry import (
     floor_sqrt,
     point_in_ring,
     round_point,
+    thick_bbox,
+    thick_gap_floor,
+    thick_touch,
 )
+
+BRIDGE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-AN-OVER",))
+"""``INFERRED``: KiCad stops a creepage at copper of another net (``H-K-AN-SPLIT``), so no tool computes
+a path over conductors."""
 
 Face = Literal["top", "bottom"]
 FACES: tuple[Face, Face] = ("top", "bottom")
@@ -65,12 +80,17 @@ class SurfacePath:
     """A shortest surface path: its ``length`` in nanometres (the path's length ``d`` satisfies
     ``length ≤ d < length + 2`` on a boundary without curved edges), ``band`` (the boundary's band per
     bend, plus the bands of the two conductors), the ``points`` with their faces, and the indices of the
-    two terminals it joins."""
+    two terminals it joins. ``over`` holds the indices in ``bridges`` of the conductors the path crosses,
+    in path order (the first terminal of each conductor); their bands are in ``band``. ``complete`` is
+    false when the search over conductors stopped at its budget: a shorter path over conductors that
+    were not reached may exist, so the length is then an upper bound."""
 
     length: int
     band: int
     points: tuple[tuple[Point, Face], ...]
     ends: tuple[int, int] = (0, 0)
+    over: tuple[int, ...] = ()
+    complete: bool = True
 
 
 # --- exact helpers --------------------------------------------------------------------------------
@@ -173,6 +193,7 @@ class _Board:
                 self.edges.append((point, ring[(i + 1) % len(ring)]))
         self.boxes = [(min(u.x, v.x), min(u.y, v.y), max(u.x, v.x), max(u.y, v.y)) for u, v in self.edges]
         self.normals = [_normal(u, v) for u, v in self.edges]
+        self.visible: dict[tuple[int, int], bool] = {}  # which vertices see each other, for every search
 
     def on_board(self, point: Point, scale: int = 1) -> bool:
         """Whether ``point / scale`` is on the board: not strictly outside the outline and not strictly
@@ -318,7 +339,7 @@ class _Search:
         self.source, self.sink = 2 * self.count, 2 * self.count + 1
         self.extra: dict[int, dict[int, _Leg]] = {}
         self._terminal: dict[bool, dict[int, _Leg]] = {}
-        self._visible: dict[tuple[int, int], bool] = {}
+        self._visible: dict[tuple[int, int], bool] = board.visible if board is not None else {}
         vertices = board.vertices if board is not None else []
         # lower bounds of the path from each vertex to the two terminal sets (the same on both faces)
         self.near_a = [_plan_gap((v, v), a) for v in vertices]
@@ -595,26 +616,21 @@ class _Search:
         return dist[self.sink], legs
 
 
-def surface_distance(
-    a: Sequence[Terminal],
-    b: Sequence[Terminal],
-    boundary: BoardBoundary | None,
-    *,
-    limit: int | None = None,
-) -> SurfacePath | None:
-    """The shortest surface path from a terminal of ``a`` to a terminal of ``b``; ``None`` when the two
-    cannot be joined, or when no path is shorter than ``limit``.
+CONDUCTOR_BUDGET = 4_000
+"""The number of gaps between conductors that one search measures from each of the two sets. A pair of
+nets far apart on a dense board has thousands of conductors within its reach, and every pair of them
+would be measured; the search then stops, and the path is reported as not complete."""
+_Found = tuple[int, list[_Stop], int, int]  # scaled length, stops, terminal of a, terminal of b
 
-    Without a boundary (or with ``source == "none"``) each face is an unbounded plane: only terminals of
-    the same face are joined, by their gap. Without a thickness no leg crosses a wall.
-    """
-    board = _Board(boundary) if boundary is not None and boundary.source != "none" else None
-    keep_a = [(i, t) for i, t in enumerate(a) if _usable(t, board)]
-    keep_b = [(i, t) for i, t in enumerate(b) if _usable(t, board)]
-    if not keep_a or not keep_b:
+
+def _shortest(
+    a: Sequence[Terminal], b: Sequence[Terminal], board: _Board | None, bound: int | None
+) -> _Found | None:
+    """The shortest path between two sets of usable terminals, no conductor between them: its scaled
+    length, its stops and the indices of the two terminals; ``None`` when none is shorter than ``bound``."""
+    if not a or not b or (bound is not None and bound <= 0):
         return None
-    bound = None if limit is None else limit << SCALE_BITS
-    search = _Search([t for _, t in keep_a], [t for _, t in keep_b], board)
+    search = _Search(a, b, board)
     search.direct()
     first = search.run(bound)
     search.crossings(bound if first is None else first[0])
@@ -627,15 +643,202 @@ def surface_distance(
         for stop in leg.stops:
             if not stops or stops[-1] != stop:
                 stops.append(stop)
-    index_a = keep_a[max(leg.index_a for leg in legs)][0]
-    index_b = keep_b[max(leg.index_b for leg in legs)][0]
-    bends = max(0, len(stops) - 2)
+    return total, stops, max(leg.index_a for leg in legs), max(leg.index_b for leg in legs)
+
+
+def _air(a: Sequence[Terminal], b: Sequence[Terminal], thickness: int | None) -> int | None:
+    """A lower bound, in nanometres, of every surface path between two sets of terminals: their smallest
+    gap in plan view on a common face, else the board thickness; ``None`` when nothing joins them."""
+    best: int | None = None
+    for first in a:
+        for second in b:
+            if first.face != second.face:
+                continue
+            gap = 0 if thick_touch(first.shape, second.shape) else thick_gap_floor(first.shape, second.shape)
+            if best is None or gap < best:
+                best = gap
+    if best is None and thickness is not None and a and b:
+        return thickness
+    return best
+
+
+def _grown(terminals: Sequence[Terminal], reach: int | None) -> list[BBox]:
+    boxes = [thick_bbox(terminal.shape) for terminal in terminals]
+    if reach is None:
+        return boxes
+    return [BBox(box.x0 - reach, box.y0 - reach, box.x1 + reach, box.y1 + reach) for box in boxes]
+
+
+def conductor_chain(
+    a: Sequence[Terminal],
+    b: Sequence[Terminal],
+    stations: Sequence[Sequence[Terminal]],
+    *,
+    thickness: int | None = None,
+    limit: int | None = None,
+    budget: int = CONDUCTOR_BUDGET,
+) -> tuple[dict[int, int], dict[int, int], bool]:
+    """Lower bounds, in nanometres, of the surface path from the set ``a`` and from the set ``b`` to each
+    conductor of ``stations`` that a path shorter than ``limit`` can use: the shortest chains of gaps in
+    plan view, a conductor on both faces joining them. A conductor is kept when its two bounds add up to
+    less than ``limit``; without a limit every conductor that both sets reach is kept. The third value
+    is false when a spread stopped after ``budget`` gaps: conductors may then be missing."""
+    boxes = [(_union(thick_bbox(t.shape) for t in group), k) for k, group in enumerate(stations)]
+    index = SpatialIndex[int].build(boxes)
+
+    complete = True
+
+    def spread(start: Sequence[Terminal]) -> dict[int, int]:
+        nonlocal complete
+        best: dict[int, int] = {}
+        done: set[int] = set()
+        heap: list[tuple[int, int]] = [(0, -1)]
+        measured = 0
+        while heap:
+            if measured >= budget:
+                complete = False
+                break
+            here, station = heapq.heappop(heap)
+            if station in done:
+                continue
+            done.add(station)
+            terminals = start if station < 0 else stations[station]
+            reach = None if limit is None else limit - here
+            near: set[int] = set()
+            for box in _grown(terminals, reach):
+                near.update(index.query(box) if reach is not None else range(len(stations)))
+            for other in sorted(near - done):
+                measured += 1
+                gap = _air(terminals, stations[other], thickness)
+                if gap is None or (limit is not None and here + gap >= limit):
+                    continue
+                if other not in best or here + gap < best[other]:
+                    best[other] = here + gap
+                    heapq.heappush(heap, (here + gap, other))
+        return best
+
+    from_a, from_b = spread(a), spread(b)
+    kept = {k for k in from_a if k in from_b and (limit is None or from_a[k] + from_b[k] < limit)}
+    return {k: from_a[k] for k in kept}, {k: from_b[k] for k in kept}, complete
+
+
+def _union(boxes: Iterable[BBox]) -> BBox:
+    found = list(boxes)
+    return BBox(
+        min(box.x0 for box in found), min(box.y0 for box in found),
+        max(box.x1 for box in found), max(box.y1 for box in found),
+    )  # fmt: skip
+
+
+def group_bridges(bridges: Sequence[Terminal], conductors: Sequence[int] | None) -> list[list[int]]:
+    """The indices of ``bridges`` per conductor: by the ids of ``conductors``, else terminals of one shape
+    are one conductor (a via or a pad given on both faces)."""
+    groups: dict[object, list[int]] = {}
+    for index, terminal in enumerate(bridges):
+        key: object = conductors[index] if conductors is not None else terminal.shape
+        groups.setdefault(key, []).append(index)
+    return list(groups.values())
+
+
+def surface_distance(
+    a: Sequence[Terminal],
+    b: Sequence[Terminal],
+    boundary: BoardBoundary | None,
+    *,
+    limit: int | None = None,
+    bridges: Sequence[Terminal] = (),
+    conductors: Sequence[int] | None = None,
+) -> SurfacePath | None:
+    """The shortest surface path from a terminal of ``a`` to a terminal of ``b``; ``None`` when the two
+    cannot be joined, or when no path is shorter than ``limit``.
+
+    ``bridges`` are terminals of other copper: a path may reach such a conductor and leave it from any
+    point of its copper at no length. Terminals of one shape on the two faces are one conductor, which
+    joins the faces; ``conductors`` gives one id per bridge instead, for a conductor whose copper differs
+    between the faces. Without a boundary (or with ``source == "none"``) each face is an unbounded plane:
+    terminals of the same face are joined by their gaps. Without a thickness no leg crosses a wall.
+    """
+    board = _Board(boundary) if boundary is not None and boundary.source != "none" else None
+    keep_a = [(i, t) for i, t in enumerate(a) if _usable(t, board)]
+    keep_b = [(i, t) for i, t in enumerate(b) if _usable(t, board)]
+    if not keep_a or not keep_b:
+        return None
+    set_a, set_b = [t for _, t in keep_a], [t for _, t in keep_b]
+    bound = None if limit is None else limit << SCALE_BITS
+    direct = _shortest(set_a, set_b, board, bound)
+    groups = [
+        [k for k in group if _usable(bridges[k], board)] for group in group_bridges(bridges, conductors)
+    ]
+    groups = [group for group in groups if group]
+    best: tuple[int, list[tuple[int, _Found]]] | None = None  # scaled length, the links with their target
+    complete = True
+    if direct is not None:
+        best = (direct[0], [(-2, direct)])
+    if groups:
+        stations = [[bridges[k] for k in group] for group in groups]
+        thickness = board.thickness if board is not None else None
+        cap = bound if best is None else best[0]
+        reach = None if cap is None else (cap >> SCALE_BITS) + 2
+        from_a, from_b, complete = conductor_chain(set_a, set_b, stations, thickness=thickness, limit=reach)
+        # Dijkstra over the conductors that can help; a link is searched once, within what is left
+        sink = -2
+        dist: dict[int, int] = {-1: 0}
+        before: dict[int, tuple[int, _Found]] = {}
+        done: set[int] = set()
+        heap: list[tuple[int, int]] = [(0, -1)]
+        while heap:
+            here, station = heapq.heappop(heap)
+            if station in done:
+                continue
+            done.add(station)
+            if station == sink:
+                break
+            cap = bound if best is None else best[0]
+            start = set_a if station == -1 else stations[station]
+            targets = [sink, *sorted(k for k in from_a if k not in done)] if station != -1 else sorted(from_a)
+            for other in targets:
+                ahead = 0 if other == sink else from_b[other] << SCALE_BITS
+                room = None if cap is None else cap - here - ahead
+                if room is not None and room <= 0:
+                    continue
+                found = _shortest(start, set_b if other == sink else stations[other], board, room)
+                if found is None:
+                    continue
+                total = here + found[0]
+                if other not in dist or total < dist[other]:
+                    dist[other] = total
+                    before[other] = (station, found)
+                    heapq.heappush(heap, (total, other))
+                    if other == sink and (best is None or total < best[0]):
+                        links: list[tuple[int, _Found]] = [(sink, found)]
+                        back = station
+                        while back != -1:
+                            previous, link = before[back]
+                            links.append((back, link))
+                            back = previous
+                        best = (total, links[::-1])
+    if best is None:
+        return None
+    total, links = best
+    stops: list[_Stop] = []
+    bends = 0
+    over: list[int] = []
+    for target, (_, leg_stops, _, _) in links:
+        bends += max(0, len(leg_stops) - 2)
+        stops += [stop for stop in leg_stops if not stops or stops[-1] != stop]
+        if target >= 0:
+            over.append(groups[target][0])
+    index_a = keep_a[links[0][1][2]][0]
+    index_b = keep_b[links[-1][1][3]][0]
     band = (board.band * bends if board is not None else 0) + a[index_a].band + b[index_b].band
+    band += sum(bridges[k].band for k in over)
     points: tuple[tuple[Point, Face], ...] = tuple((round_point(x, y), face) for (x, y), face in stops)
-    return SurfacePath(total >> SCALE_BITS, band, points, (index_a, index_b))
+    return SurfacePath(total >> SCALE_BITS, band, points, (index_a, index_b), tuple(over), complete)
 
 
 __all__ = [
+    "BRIDGE_EVIDENCE",
+    "CONDUCTOR_BUDGET",
     "FACES",
     "NORMAL_BITS",
     "SCALE_BITS",
@@ -643,6 +846,8 @@ __all__ = [
     "SurfacePath",
     "Terminal",
     "boundary_distance",
+    "conductor_chain",
+    "group_bridges",
     "surface_distance",
     "usable_terminals",
 ]

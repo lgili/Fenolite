@@ -19,7 +19,7 @@ from fenolite.backends.kicad.sexpr import parse
 from fenolite.backends.kicad.versions import inspect
 from fenolite.cli._examples import EXAMPLE_REFILLED, EXAMPLE_UNFILLED
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
@@ -47,6 +47,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
 def _source(path: str, ctx: Context) -> Path:
     given = Path(path)
     return given if given.is_absolute() else ctx.cwd / given
+
+
+REFILL = "refill"
+"""The one unit of progress of ``fill``: KiCad's refill of the board."""
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -82,6 +86,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     tool_writes: list[str] = []
     if args.from_board:
         source = _source(args.from_board, ctx)
+        read: list[Path] = [source]
         saved_text = source.read_text(encoding="utf-8")
         version = inspect(parse(saved_text)).generator_version or "unknown"
         evidence = dataclasses.replace(EVIDENCE, level=Level.INFERRED, oracle=f"kicad-cli {version}")
@@ -90,8 +95,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if cli.major() < 10:
             raise CliError("FEN-6002", f"kicad-cli {cli.version()} cannot refill zones", hint=TOOL_HINT)
         project = project_set(board)
+        read = list(project.files.values())
         others = {name: path for name, path in project.files.items() if name != project.board}
+        ctx.progress.step(REFILL, index=1, total=1)
         result = cli.refill(project.files[project.board], files=others)
+        ctx.progress.done(REFILL, detail=result.run.outcome)
         if result.run.outcome == "timeout":
             raise KicadCliError("kicad-cli zone refill timed out", result.run)
         if result.run.returncode != 0:
@@ -134,6 +142,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidence=evidence,
         input=input_ref,
         writes=writes,
+        depends=depends_on(ctx.cwd, board, *read),
     )
 
 

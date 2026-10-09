@@ -62,6 +62,7 @@ CONDITION_KEYS = (
     "not",
     "selector_b",
     "glob",
+    "diff_pair",
 )
 
 
@@ -273,6 +274,10 @@ def condition(key: str) -> tuple[Result, ...]:
         made.pair("probe", "PWR_A", "PWR_B")
         made.pair("control", "SIG_A", "SIG_B")
         return (run(made.build(), lowered(rule(a=net("PWR_*")), keys=("glob", "net"))),)
+    if key == "diff_pair":  # change c0104: the probe nets pair by name, the control nets do not
+        made.pair("probe", "DPX_P", "DPX_N")
+        made.pair("control", "DPC_A", "DPC_B")
+        return (run(made.build(), lowered(rule(a=Selector("diff_pair", "DPX_")), keys=("diff_pair",))),)
     if key == "case":
         made.pair("probe", "LC1", "LC2")
         made.pair("control", "LC3", "LC4")

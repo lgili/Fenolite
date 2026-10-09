@@ -42,21 +42,26 @@ from fenolite.checks.codes import issue
 from fenolite.checks.containers import container_stage
 from fenolite.checks.stages import CheckReport, StageResult, ran, skipped
 from fenolite.checks.validate import BUILT_EVIDENCE
+from fenolite.checks.waivers import combine
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 
 DOCUMENT_STAGES: tuple[str, ...] = (
     "model.validate",
     "erc.lite",
     "copper.clearance",
+    "placement.rules",
     "parity",
     "netlist.assignment_compare",
     "roundtrip.rta0",
     "roundtrip.rta1",
     "roundtrip.rta2",
 )
-"""The stages of a document check that run by default, in the order they run."""
+"""The stages of a document check that run by default, in the order they run. ``placement.rules`` (change
+c0113) judges the placement rules of a built project on the pad positions of the PCB document and measures
+every board."""
 OPT_IN_DOCUMENT_STAGES: tuple[str, ...] = ("roundtrip.rta3",)
 """The stages that run only when ``--stages`` names them (change c0090): RT-A3 writes a whole project
 into a temporary folder and reads it again."""
@@ -67,6 +72,7 @@ _READING_STAGES = frozenset(
         "model.validate",
         "erc.lite",
         "copper.clearance",
+        "placement.rules",
         "parity",
         "netlist.assignment_compare",
         "roundtrip.rta2",
@@ -153,7 +159,12 @@ def unjudged_copper(design: Design, rules: DesignRules | None) -> tuple[int, int
 
 
 def document_copper(
-    design: Design, *, project: ProjectSet, validator: DocumentValidator, evidence: Evidence
+    design: Design,
+    *,
+    project: ProjectSet,
+    validator: DocumentValidator,
+    evidence: Evidence,
+    waivers: Sequence[Waiver] = (),
 ) -> StageResult:
     """The ``copper.clearance`` stage of a document check: ``checks.copper.copper_stage`` on the PCB
     reading ``design``, with the rules of ``validator`` when it is a ``DesignRulesSource`` and its pads when
@@ -172,6 +183,7 @@ def document_copper(
         rules_source=None if rules is None else _Given(rules),
         frame=validator if isinstance(validator, BoardFrame) else None,
         evidence=evidence,
+        waivers=waivers,
     )
     unpoured, unjudged = unjudged_copper(design, rules)
     added: list[Issue] = []
@@ -214,10 +226,15 @@ def run_document_checks(
     built: bool,
     validator: DocumentValidator,
     cache_error: str = "",
+    waivers: Sequence[Waiver] = (),
 ) -> CheckReport:
     """Run the selected stages in ``DOCUMENT_STAGES`` order on ``documents`` (``model`` is the ``.fenolite/``
     model of a built project). ``validator.read_documents`` runs at most once, and
-    ``validator.container_roundtrip`` at most once per document and level."""
+    ``validator.container_roundtrip`` at most once per document and level.
+
+    ``waivers`` are the design's waivers (change c0114): they reach the ``copper.clearance`` stage and no
+    other. This pipeline has no DRC stage, so a ``<oracle>.drc.*`` waiver is listed as ``stage-not-run``,
+    and no stored exclusion is read."""
     from fenolite.checks import parity as parity_check
     from fenolite.checks.rta2 import body_total, predates_board, predates_graphics, rta2_stage
     from fenolite.checks.rta3 import compare, rta3_stage
@@ -274,8 +291,34 @@ def run_document_checks(
             return skipped(name, "single-source")
         if pcb is None:
             return skipped(name, "read-refused")
-        stage = document_copper(pcb.design, project=project, validator=validator, evidence=pcb.evidence)
+        stage = document_copper(
+            pcb.design, project=project, validator=validator, evidence=pcb.evidence, waivers=waivers
+        )
         return replace(stage, evidence=with_added(name, stage.evidence))
+
+    def placement() -> StageResult:
+        from fenolite.checks.placement import placement_stage
+
+        name = "placement.rules"
+        project = project_of(documents)
+        if project is None:
+            return skipped(name, "single-source")
+        if pcb is None:
+            return skipped(name, "read-refused")
+        if built and usable is None:
+            return skipped(name, "cache-unreadable")
+        stage = placement_stage(
+            pcb.design,
+            model=usable,
+            built=built,
+            frame=validator if isinstance(validator, BoardFrame) else None,
+            rules_source=validator if isinstance(validator, DesignRulesSource) else None,
+            project=project,
+            evidence=pcb.evidence,
+        )
+        return (
+            stage if stage.status == "skipped" else replace(stage, evidence=with_added(name, stage.evidence))
+        )
 
     def parity() -> StageResult:
         name = "parity"
@@ -394,6 +437,7 @@ def run_document_checks(
         "model.validate": model_stage,
         "erc.lite": erc,
         "copper.clearance": copper,
+        "placement.rules": placement,
         "parity": parity,
         "netlist.assignment_compare": assignment,
         "roundtrip.rta0": container("roundtrip.rta0"),
@@ -419,7 +463,8 @@ def run_document_checks(
     only = documents.documents[0].name if len(documents.documents) == 1 else None
     read_error = errors.get(only) if only is not None else None
     issues = (*input_issues, *(found for result in results for found in result.issues))
-    return CheckReport(results, issues, evidence, read_error)
+    outcome = combine(waivers, (result.summary.get("waivers") for result in results))
+    return CheckReport(results, issues, evidence, read_error, waivers=outcome.to_json())
 
 
 __all__ = [

@@ -15,6 +15,7 @@ from typing import Any
 import pytest
 from _altium_built import built_blink
 from _checkcli import run, without_elapsed
+from _needles import absent
 
 from fenolite.backends.altium import cfb as compound_writer
 from fenolite.checks.documents import ALL_DOCUMENT_STAGES, DOCUMENT_STAGES
@@ -74,7 +75,7 @@ def test_own_project_is_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert stages["roundtrip.rta1"]["summary"]["documents"] == 5
     assert not [i for i in env["issues"] if i["severity"] == "error"]
     assert env["input"]["path"] == "blink.PrjPcb" and env["input"]["kind"] == "altium_prjpcb"
-    assert len(env["input"]["sha256"]) == 64 and str(ROOT) not in raw
+    assert len(env["input"]["sha256"]) == 64 and absent(str(ROOT), raw)
 
 
 def test_levels_on_the_own_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -259,7 +260,7 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     stages = _stages(env)
     assert code == 0, env["issues"]
     assert env["result"]["project"]["built"] is True
-    assert [stage["status"] for stage in stages.values()] == ["ok"] * 8
+    assert [stage["status"] for stage in stages.values()] == ["ok"] * 9
     pairs = stages["netlist.assignment_compare"]["summary"]["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [
         ("model", "schematic", 0),
@@ -277,3 +278,78 @@ def test_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert code == 0 and env["issues"][0]["code"] == "check.cache-unreadable"
     assert stages["roundtrip.rta2"]["reason"] == "cache-unreadable"
     assert str(tmp_path) not in env["issues"][0]["message"]
+
+
+# --- the placement.rules stage on a built Altium project (change c0113) ---------------------------------
+
+
+def test_placement_rules_on_a_built_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "The same rule on a built Altium project": the routed blink with a ``near`` rule that its
+    placement does not meet, built for Altium and checked without any tool."""
+    from _altium_built import EXAMPLES, build_altium_example
+    from _buildhelp import blink_variant
+
+    script = blink_variant(tmp_path / "src")
+    routed = (EXAMPLES / "blink_routed" / "design.py").read_text(encoding="utf-8")
+    script.write_text(routed + '\ndesign.near("led", d1, r1.pad(2), within=mm(5))\n', encoding="utf-8")
+    code, root, error = build_altium_example(monkeypatch, tmp_path, script)
+    assert code == 0, error
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(root))
+    names = [stage["name"] for stage in env["result"]["stages"]]
+    assert names == list(DOCUMENT_STAGES)
+    assert names.index("copper.clearance") + 1 == names.index("placement.rules") == names.index("parity") - 1
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [("placement.too-far", "error", "D1")]
+    assert code == 5
+    stage = _stages(env)["placement.rules"]
+    assert stage["status"] == "errors"
+    assert stage["summary"]["rules"] == {"near": {"judged": 1, "failed": 1, "skipped": 0}}
+    assert stage["summary"]["measures"]["nets"] > 0
+    assert stage["evidence"]["level"] in ("INFERRED", "UNVERIFIED", "UNKNOWN")
+
+
+HEIGHT_LID = (
+    '\ndesign.rule_area("LID", [(mm(29), mm(6)), (mm(35), mm(6)), (mm(35), mm(12)), (mm(29), mm(12))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""A 6 mm square on ``F.Cu`` over ``R1`` of the routed blink (at (32, 9) mm), limited to 5 mm (c0140)."""
+
+
+def test_height_limit_on_a_built_altium_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A limit on a built Altium project" (change c0140): ``R1`` states 9 mm, but neither the
+    documents nor the stored board of an Altium build hold its body, and the PCB document holds no rule
+    area named ``LID`` (an area that forbids nothing has no record, and a keep-out record has no key for a
+    name: ``docs/altium.md``), so the limit is unresolved and no ``placement.too-tall`` is given."""
+    from _altium_built import EXAMPLES, build_altium_example
+    from _buildhelp import blink_variant
+
+    script = blink_variant(tmp_path / "src")
+    routed = (EXAMPLES / "blink_routed" / "design.py").read_text(encoding="utf-8")
+    plain = 'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")'
+    tall = 'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))'
+    assert plain in routed
+    script.write_text(routed.replace(plain, tall) + HEIGHT_LID, encoding="utf-8")
+    code, root, error = build_altium_example(monkeypatch, tmp_path, script)
+    assert code == 0, error
+    assert '"bodies"' not in (root / ".fenolite" / "board.json").read_text(encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "check", str(root), "--stages", "placement.rules")
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [
+        ("placement.rule-unresolved", "error", "LID")
+    ]
+    assert code == 5
+    (stage,) = env["result"]["stages"]
+    assert stage["summary"]["rules"]["height"] == {"judged": 0, "failed": 0, "unknown": 0}
+
+
+def test_placement_rules_on_documents_without_a_script(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "check", str(BLINK / "blink.PrjPcb"), "--stages", "placement.rules"
+    )
+    assert code == 0, env["issues"]
+    (stage,) = env["result"]["stages"]
+    assert (stage["name"], stage["status"]) == ("placement.rules", "ok")
+    assert stage["summary"]["rules"] == {"near": {"judged": 0, "failed": 0, "skipped": 0}}
+    assert stage["summary"]["measures"]["nets"] > 0

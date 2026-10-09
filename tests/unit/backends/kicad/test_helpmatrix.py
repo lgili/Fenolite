@@ -51,7 +51,9 @@ def test_row_key_and_probe_id() -> None:
 
 def test_matrix_is_closed() -> None:
     commands = [" ".join(e.command) for e in MATRIX]
-    assert len(commands) == len(set(commands)) == 17
+    assert len(commands) == len(set(commands)) == 21
+    for added in ("pcb export step", "pcb export pdf", "pcb export dxf", "sch export pdf"):  # c0116
+        assert added in commands
     assert MATRIX[0].command == ("pcb", "drc")
     assert MATRIX[0].options == (
         "--format",
@@ -86,7 +88,10 @@ class _FakeCli(KicadCli):
 TEN = {
     (): "Usage: kicad-cli [--version] [--help] {fp,jobset,pcb,sch,sym,version}",
     ("pcb",): "Usage: kicad-cli pcb [--help] {drc,export,import,render,upgrade}",
-    ("pcb", "export"): "Usage: pcb export [--help] {drill,gerbers,ipc2581,ipcd356,odb,pos,stats,svg}",
+    (
+        "pcb",
+        "export",
+    ): "Usage: pcb export [--help] {drill,dxf,gerbers,ipc2581,ipcd356,odb,pdf,pos,stats,step,svg}",
     ("pcb", "drc"): "Usage: pcb drc [--help] [--format FORMAT] [--schematic-parity] [--severity-all] "
     "[--refill-zones] [--save-board] INPUT_FILE",
     ("fp",): "Usage: kicad-cli fp [--help] {export,upgrade}",
@@ -103,7 +108,9 @@ def test_matrix_from_pages() -> None:
     assert matrix.version == "10.0.6"
     assert matrix.unparsed == ()
     assert all(matrix.rows.values())
-    assert len(matrix.rows) == 17 + 5  # every command and every pcb drc option
+    assert len(matrix.rows) == 21 + 5  # every command and every pcb drc option
+    for row in ("pcb export step", "pcb export pdf", "pcb export dxf", "sch export pdf"):
+        assert matrix.rows[row] is True
     assert len(cli.asked) == 9
 
 

@@ -380,3 +380,76 @@ def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
     assert [record.kind for record in lowered.records] == sorted(
         (record.kind for record in lowered.records), key=rulemap.KIND_ORDER.index
     )
+
+
+# -- the pair and length kinds (change c0104)
+
+PAIR_KINDS = ("diff_pair_gap", "diff_pair_uncoupled", "skew", "diff_pair_skew", "length")
+USB_PAIR = Selector("diff_pair", "USB_")
+
+
+def test_pair_and_length_rules_are_named_not_written() -> None:
+    """Scenario "Pair and length rules are named, not written"."""
+    rules = [
+        rule("diff_pair_gap", USB_PAIR, min=130_000, max=170_000),
+        rule("diff_pair_uncoupled", USB_PAIR, max=5 * MM),
+        rule("skew", USB_PAIR, max=MM),
+        rule("diff_pair_skew", USB_PAIR, max=150_000),
+        rule("length", USB_PAIR, min=10 * MM, max=60 * MM),
+    ]
+    lowered = lower(rules)
+    assert lowered.records == () and lowered.written == ()
+    assert [(item.kind, item.selector, item.reason) for item in lowered.not_lowered] == [
+        (kind, "diff_pair USB_", "no-counterpart") for kind in PAIR_KINDS
+    ]
+    assert all(item.detail for item in lowered.not_lowered)
+
+
+def test_pair_rows_name_no_kind_number_and_no_key() -> None:
+    """The five rows come after ``no_tracks`` in the model's order, each ``no-counterpart`` with a note that
+    says the record is in no recorded public source; none names an Altium kind, a number or a key."""
+    rows = TABLE[-5:]
+    assert tuple(row.neutral for row in rows) == PAIR_KINDS == get_args(RuleKind)[-5:]
+    assert TABLE[-6].neutral == "no_tracks"
+    for row in rows:
+        assert (row.status, row.altium, row.number, row.limits, row.fields) == (
+            "no-counterpart",
+            "",
+            -1,
+            (),
+            (),
+        )
+        assert "no public source" in row.note and "pcb-copper.md" in row.note
+        assert not any(character.isdigit() for character in row.note)
+        assert row.note == row.note.lower().replace("altium", "Altium")  # no key in capitals
+
+
+def test_pair_leaf_is_outside_the_written_scopes() -> None:
+    """A rule of an ``exact`` kind with a ``diff_pair`` leaf is refused with ``scope-unsupported``; the
+    other rules of the kind are written."""
+    rules = [
+        rule("clearance", min=200_000),
+        rule("clearance", USB_PAIR, between=USB_PAIR, min=150_000, name="inside", priority=1),
+        rule("track_width", USB_PAIR, min=150_000, opt=200_000, max=300_000),
+    ]
+    lowered = lower(rules)
+    assert [record.kind for record in lowered.records] == ["Clearance"]
+    assert [(item.kind, item.reason) for item in lowered.not_lowered] == [
+        ("clearance", "scope-unsupported"),
+        ("track_width", "scope-unsupported"),
+    ]
+    assert "diff_pair USB_" in lowered.not_lowered[0].selector
+
+
+def test_pair_content_is_never_lifted() -> None:
+    """``lift`` never returns a rule of the five kinds or a selector with a pair leaf: the lifted rules of
+    every exact kind hold neither."""
+
+    def leaves(selector: Selector | None) -> list[str]:
+        if selector is None:
+            return []
+        return [selector.op, *(op for item in selector.items for op in leaves(item))]
+
+    lifted, _ = lift(lower(one_of_each(PWR)).records)
+    assert lifted and not {r.kind for r in lifted} & set(PAIR_KINDS)
+    assert not any("diff_pair" in (*leaves(r.selector_a), *leaves(r.selector_b)) for r in lifted)

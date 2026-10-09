@@ -1,0 +1,38 @@
+# A stack-up preset of fenolite.dsl.stack (docs/dsl.md, "Stack-up presets"; change c0101).
+# Every value is the one the page of `source` states (its "Stackup" and "Material Specs" tables,
+# millimetre values); a value the page does not state is left out. The core's dielectric constant is the
+# page's "Dielectric" line, which names one value for the board's one substrate.
+source = "S-0720"
+url = "https://docs.oshpark.com/services/two-layer/"
+retrieved = "2026-10-08"
+copper = 2
+
+[[entry]]
+kind = "silkscreen"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "mask"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0356mm"
+
+[[entry]]
+kind = "core"
+thickness = "1.5240mm"
+material = "175Tg FR4"
+epsilon_r = "4.5"
+
+[[entry]]
+kind = "copper"
+thickness = "0.0356mm"
+
+[[entry]]
+kind = "mask"
+thickness = "0.0152mm"
+
+[[entry]]
+kind = "silkscreen"
+thickness = "0.0152mm"

@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite's agent evaluation; every number is a round value chosen for this task.
+title = "Shunt regulator with a ground zone"
+prompt = """
+Make a printed-circuit board for a Zener shunt regulator, as a KiCad project with its fabrication
+files.
+
+The circuit, by reference and pin number, all through-hole parts:
+- J1, a two-pin 2.54 mm header, the input: pin 1 is the input voltage, pin 2 is ground.
+- R1, an axial resistor of 220 ohm.
+- D1, an axial Zener diode: pin 1 is the anode, pin 2 the cathode.
+- C1, a film capacitor of 100 nF.
+- J2, a two-pin 2.54 mm header, the output: pin 1 is the regulated voltage, pin 2 is ground.
+
+The nets:
+- input: J1 pin 1, R1 pin 1.
+- output: R1 pin 2, D1 pin 2, C1 pin 1, J2 pin 1.
+- ground: J1 pin 2, D1 pin 1, C1 pin 2, J2 pin 2.
+
+No other part and no other connection.
+
+Requirements for the board:
+- two copper layers, at most 40 mm by 30 mm;
+- the input and the output net belong to one net class whose tracks are 0.6 mm wide;
+- the ground net is a copper zone that covers the board on the bottom layer, and the zone is filled;
+- every net is closed with copper, and the board passes the electrical and design-rule checks of
+  the tool you use, with KiCad's own checks among them.
+
+Leave the result in these folders, relative to the folder you are in:
+- board/build: the KiCad project (one board file) as the tool builds it;
+- board/fab: the fabrication files, with Gerber files (.gbr) and drill files (.drl).
+
+The sizes above are this task's own round numbers; they come from no product. Use parts that the tool
+provides itself: no KiCad library is installed on this machine and nothing may be downloaded.
+"""
+
+[budget]
+minutes = 20
+
+[expect]
+project = "board/build"
+copper_layers = 2
+max_size = ["40mm", "30mm"]
+outputs = ["board/fab/**/*.gbr", "board/fab/**/*.drl"]
+
+[expect.nets]
+VIN = ["J1-1", "R1-1"]
+VOUT = ["R1-2", "D1-2", "C1-1", "J2-1"]
+GND = ["J1-2", "D1-1", "C1-2", "J2-2"]

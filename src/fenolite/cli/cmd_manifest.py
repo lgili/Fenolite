@@ -27,7 +27,7 @@ from fenolite.checks import DEFAULT_STAGES, STAGE_ORDER
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format
 from fenolite.cli._manifest import FENOLITE, FENOLITE_TOOL, read_folder
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_check import Checked, parse_stages, run_stages
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -168,13 +168,16 @@ def _symbol_side(root: Path) -> list[str]:
 
 def design_files(board: Path) -> list[str]:
     """The design files of the project of ``board``, relative to its folder and sorted: the copy set of
-    ``check`` (a library folder file by file), the schematic with its sheets, and the symbol side."""
+    ``check`` (a library folder file by file), the schematic with its sheets, the symbol side, and the
+    3D models vendored below ``3dmodels/`` (``fenolite models --vendor``; change c0116)."""
     root = board.parent
     names: set[str] = set()
     for name, path in project_set(board).files.items():
         names.update(_files_under(path, root) if path.is_dir() else [name])
     names.update(_sheets(root, board.stem))
     names.update(_symbol_side(root))
+    if (root / manifest.MODEL_FOLDER).is_dir():
+        names.update(_files_under(root / manifest.MODEL_FOLDER, root))
     return sorted(name for name in names if name == board.name or not _skipped(name))
 
 
@@ -520,6 +523,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidence=evidence,
         input=_input(board),
         writes=(PlannedWrite(shown, manifest.dumps(data).encode("utf-8"), "manifest"),),
+        depends=depends_on(
+            ctx.cwd,
+            *(root / item.path for item in entries),
+            *(file for file in (root / folder / manifest.FILE_NAME for folder in folders) if file.is_file()),
+        ),
+        # the manifest is the report of the check: it is written whether or not the check found errors
+        write_on_error=True,
     )
 
 

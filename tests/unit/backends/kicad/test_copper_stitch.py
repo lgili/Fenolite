@@ -6,6 +6,7 @@ and on a region grid, and the exact clearance test checked against brute force. 
 from __future__ import annotations
 
 import dataclasses
+import math
 import random
 from fractions import Fraction
 
@@ -14,10 +15,12 @@ from _copper import stitch
 from _placed import Part, design_of, mm, pt
 
 from fenolite.backends.kicad.copper import copper_uuid, edge_clearance_in_force, resolve_copper
+from fenolite.backends.kicad.frame import find_pads, part_frame
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.ids import derived_id
+from fenolite.dsl import Anchor, PadEnd
 from fenolite.geometry import dist2_point_segment
 from fenolite.model.board import Arc, Keepout, Outline, Track, Via
 from fenolite.model.circuit import NetClass
@@ -430,3 +433,201 @@ def test_region_grid_keeps_off_a_cut_out() -> None:
     design = _edge_rule(_with(_empty(), outline=outline), mm(0.2))  # type: ignore[arg-type]
     vias, _ = _resolve(design, stitch("s", region=SQUARE, pitch=mm(2.5), origin=pt(0, 0), margin=mm(0.2)))
     assert pt(5, 5) not in [v.position for v in vias] and len(vias) == 8
+
+
+# -- pad regions and grids in a part's frame (change c0111)
+
+THERMAL: dict[str, object] = {"pitch": mm(1), "margin": mm(0.1)}
+"""The thermal array of the scenarios: 1 mm pitch, 0.6 mm vias, 0.1 mm margin, 0.2 mm clearance."""
+NINE = [(i, j) for j in (-1, 0, 1) for i in (-1, 0, 1)]
+
+
+def _anchor_part(rot: float = 0, side: str = "top", **nets: str) -> Part:
+    pads = {"1": "VIN", "4": "GND", **nets}
+    return Part("U1", "Frame_Anchor", 20, 20, rot, side, nets=pads, library="Frame")  # type: ignore[arg-type]
+
+
+def _locators(key: str, vias: list[Via]) -> dict[str, Point]:
+    wanted = {copper_uuid(key, f"via[{i},{j}]"): f"via[{i},{j}]" for i in range(-3, 4) for j in range(-3, 4)}
+    return {wanted[v.native_ids["kicad"]]: v.position for v in vias}
+
+
+def test_pad_region_makes_a_thermal_array() -> None:
+    """Scenario "Thermal array in a pad": the pad is no obstacle to its own array."""
+    design = design_of(_anchor_part())
+    vias, found = _resolve(design, stitch("ep", region=PadEnd("U1", "4", None), **THERMAL))
+    assert found == []
+    assert _locators("ep", vias) == {f"via[{i},{j}]": pt(21 + i, 20 + j) for i, j in NINE}
+    assert [v.position for v in vias] == [pt(21 + i, 20 + j) for i, j in NINE], "in order of j then i"
+    assert all(v.layers == ("F.Cu", "B.Cu") and v.net_id == _net(design, "GND") for v in vias)
+    # the same region as a ring of board points keeps nothing: every candidate is in a pad
+    ring = (pt(19.5, 18.5), pt(22.5, 18.5), pt(22.5, 21.5), pt(19.5, 21.5))
+    none, blocked = _resolve(design, stitch("ring", region=ring, origin=pt(21, 20), **THERMAL))
+    assert none == [] and [i.code for i in blocked] == [
+        "kicad.copper.stitch-skipped",
+        "kicad.copper.stitch-empty",
+    ]
+
+
+def test_pad_region_grid_turns_with_the_part() -> None:
+    """Scenario "The grid turns with the part": 30° on the bottom, the same locators as at 0°."""
+    design = design_of(_anchor_part(30, "bottom"))
+    vias, found = _resolve(design, stitch("ep", region=PadEnd("U1", "4", None), **THERMAL))
+    frame = part_frame(design, "U1", number="4")
+    assert found == []
+    assert _locators("ep", vias) == {f"via[{i},{j}]": frame.point(Point(mm(i), mm(j))) for i, j in NINE}
+    flat, _ = _resolve(design_of(_anchor_part()), stitch("ep", region=PadEnd("U1", "4"), **THERMAL))
+    assert {v.native_ids["kicad"] for v in vias} == {v.native_ids["kicad"] for v in flat}
+    assert vias[4].position == find_pads(design, "U1", 4)[0].position, "via[0,0] is the pad's centre"
+    assert {v.position for v in vias} != {v.position for v in flat}
+
+
+def test_pad_region_of_another_net() -> None:
+    """Scenario "A pad region of another net"."""
+    design = design_of(_anchor_part(), Part("J1", "Mini_Edge_Cases", 40, 20))
+    vias, found = _resolve(
+        design,
+        stitch("ep", net="VIN", region=PadEnd("U1", "4", None), **THERMAL),
+        stitch("j1", region=PadEnd("J1", "1", None), **THERMAL),
+    )
+    assert vias == []
+    assert [(i.where, i.code) for i in found] == [
+        ("ep", "kicad.copper.net-conflict"),
+        ("j1", "kicad.copper.bad-intent"),
+    ]
+    assert all(word in found[0].message for word in ("ep", "U1", "'4'"))
+    assert all(word in found[1].message for word in ("j1", "J1", "'1'"))
+
+
+def test_keepout_across_a_pad_region() -> None:
+    """Scenario "A keep-out across a pad region": the pad's own copper is no obstacle, the keep-out is."""
+    ring = (pt(21.6, 18.5), pt(22.4, 18.5), pt(22.4, 21.5), pt(21.6, 21.5))
+    area = Keepout(id=derived_id("kpo", "test", "pad"), outline=ring, layers=("F.Cu", "B.Cu"), no_vias=True)
+    design = _with(design_of(_anchor_part()), keepouts=(area,))
+    vias, found = _resolve(design, stitch("ep", region=PadEnd("U1", "4", None), **THERMAL))
+    assert sorted(v.position for v in vias) == sorted(pt(x, 20 + j) for x in (20, 21) for j in (-1, 0, 1))
+    assert [i.code for i in found] == ["kicad.copper.stitch-skipped"]
+    assert " 3 stitch candidate(s)" in found[0].message
+
+
+def test_pad_region_with_an_anchored_origin() -> None:
+    """An anchored origin lays the grid of a pad region from that anchor, in its part's frame."""
+    design = design_of(_anchor_part(90))
+    origin = Anchor("U1", "4", None, Point(mm(0.5), mm(0.5)))
+    vias, found = _resolve(design, stitch("ep", region=PadEnd("U1", "4"), origin=origin, **THERMAL))
+    frame = part_frame(design, "U1", number=4)
+    assert found == []
+    assert _locators("ep", vias) == {
+        f"via[{i},{j}]": frame.point(Point(mm(0.5 + i), mm(0.5 + j))) for j in (-1, 0) for i in (-1, 0)
+    }
+
+
+def test_ring_region_with_an_anchored_origin() -> None:
+    """A ring region whose origin is an anchor: the grid is laid in the anchor's part's frame, and the
+    anchors among the ring's points are resolved first."""
+    design = design_of(_anchor_part(30, "bottom"), extra_nets=("AUX",))
+    corners = [Point(mm(4), mm(-2)), Point(mm(8), mm(-2)), Point(mm(8), mm(2)), Point(mm(4), mm(2))]
+    ring = tuple(Anchor("U1", None, None, corner) for corner in corners)
+    origin = Anchor("U1", None, None, Point(mm(6), 0))
+    vias, found = _resolve(design, stitch("s", net="AUX", region=ring, origin=origin, **THERMAL))
+    frame = part_frame(design, "U1")
+    assert found == []
+    assert _locators("s", vias) == {f"via[{i},{j}]": frame.point(Point(mm(6 + i), mm(j))) for i, j in NINE}
+    # a board-point origin keeps the board-frame grid for the same ring
+    start = frame.point(Point(mm(6), 0))
+    board_grid, _ = _resolve(design, stitch("s", net="AUX", region=ring, origin=start, **THERMAL))
+    assert all(
+        (v.position.x - start.x) % mm(1) == 0 and (v.position.y - start.y) % mm(1) == 0 for v in board_grid
+    )
+    assert board_grid and {v.position for v in board_grid} != {v.position for v in vias}
+
+
+def test_along_takes_anchors() -> None:
+    design = design_of(_anchor_part(90), extra_nets=("AUX",))
+    line = (Anchor("U1", None, None, Point(mm(6), mm(-4))), Anchor("U1", None, None, Point(mm(6), mm(4))))
+    vias, found = _resolve(design, stitch("s", net="AUX", along=line, pitch=mm(2)))
+    # at 90° on the top the offset (6, y) of the part is the board point (20 + y, 20 − 6)
+    assert [v.position for v in vias] == [pt(16 + 2 * k, 14) for k in range(5)] and found == []
+
+
+def test_other_pads_and_the_holes_of_the_region_still_block() -> None:
+    """The exemption covers only the copper entries of the region's own pads."""
+    # a through-hole pad: a disc of 1.7 mm with a 1 mm hole, so the centre candidate meets the hole
+    design = design_of(Part("J1", "Mini_Edge_Cases", 40, 20, nets={"4": "GND"}))
+    small = {"diameter": mm(0.2), "drill": mm(0.1), "clearance": mm(0.05), "pitch": mm(0.7)}
+    vias, found = _resolve(design, stitch("tht", region=PadEnd("J1", "4"), **small))
+    assert sorted(v.position for v in vias) == sorted(
+        [pt(36 - 0.7, 20), pt(36 + 0.7, 20), pt(36, 20 - 0.7), pt(36, 20 + 0.7)]
+    )
+    assert [i.code for i in found] == ["kicad.copper.stitch-skipped"] and " 1 stitch" in found[0].message
+    # a pad of the same net that the region does not name is an obstacle: pads 3 and 4 are both on GND
+    near = design_of(_anchor_part(**{"3": "GND"}))
+    wide = {"clearance": mm(3), "pitch": mm(1), "margin": mm(0.1)}
+    vias, found = _resolve(near, stitch("ep", region=PadEnd("U1", "4"), **wide))
+    # pad 3 ends at x = 16.75 mm: with 3 mm of clearance a via needs its centre at x ≥ 20.05 mm
+    assert sorted({v.position.x for v in vias}) == [mm(21), mm(22)]
+    assert " 3 stitch candidate(s)" in found[0].message
+
+
+def test_pad_region_on_the_bottom_uses_the_bottom_copper() -> None:
+    design = design_of(_anchor_part(0, "bottom"))
+    assert [e.layer for e in find_pads(design, "U1", 4)[0].copper] == ["B.Cu"]
+    vias, found = _resolve(design, stitch("ep", region=PadEnd("U1", "4"), **THERMAL))
+    assert len(vias) == 9 and found == []
+
+
+def _inside_shape(shape: str, w: float, h: float, x: float, y: float, grow: float) -> bool:
+    """Whether the pad-frame point lies in the pad of ``shape`` and size ``w`` x ``h`` grown by ``grow``
+    (floats, nanometres): the pad as its definition draws it, not as the copper entries hold it."""
+    ax, ay = abs(x), abs(y)
+    if shape == "circle":
+        return math.hypot(ax, ay) <= w / 2 + grow
+    if shape == "rect":
+        return ax <= w / 2 + grow and ay <= h / 2 + grow
+    radius = min(w, h) / 2 if shape == "oval" else 0.25 * min(w, h)
+    cx, cy = max(ax - (w / 2 - radius), 0.0), max(ay - (h / 2 - radius), 0.0)
+    return math.hypot(cx, cy) <= radius + grow
+
+
+@pytest.mark.parametrize("angle", [0, 30])
+@pytest.mark.parametrize(
+    ("number", "shape", "w", "h"),
+    [
+        ("1", "circle", 0.8, 0.8),
+        ("2", "rect", 0.8, 0.6),
+        ("3", "oval", 1.0, 0.6),
+        ("4", "roundrect", 1.0, 0.8),
+    ],
+)
+def test_exact_inside_test_against_sampling(number: str, shape: str, w: float, h: float, angle: int) -> None:
+    """The exact test of a pad region against a 10 µm sampling of the pad: no sampled candidate is kept
+    whose disc leaves the pad, and every candidate whose disc stays 2 µm inside it is kept."""
+    from fenolite.backends.kicad.copper import _disc_in_entry  # pyright: ignore[reportPrivateUsage]
+
+    design = design_of(Part("U1", "Frame_Shapes", 10, 10, angle, library="Frame"))
+    (pad,) = find_pads(design, "U1", number)
+    (entry,) = pad.copper
+    reach = mm(0.3)  # a via of 0.2 mm with a margin of 0.05 mm: a disc of radius 0.15 mm
+    radius = reach / 2
+    turn = math.radians(pad.rotation / 1_000_000)
+    cos, sin = math.cos(turn), math.sin(turn)
+    rim = [
+        (radius * math.cos(2 * math.pi * k / 32), radius * math.sin(2 * math.pi * k / 32)) for k in range(32)
+    ]
+
+    def within(dx: float, dy: float, grow: float) -> bool:
+        return _inside_shape(shape, mm(w), mm(h), dx * cos - dy * sin, dx * sin + dy * cos, grow)
+
+    step, half = 10_000, mm(max(w, h)) // 2 + 20_000
+    kept = wrong = missed = 0
+    for sx in range(-half, half + 1, step):
+        for sy in range(-half, half + 1, step):
+            exact = _disc_in_entry(Point(pad.position.x + sx, pad.position.y + sy), entry, reach)
+            kept += exact
+            if exact:
+                wrong += not all(within(sx + rx, sy + ry, 2.0) for rx, ry in rim)
+            elif within(sx, sy, -radius - 2_000):
+                missed += 1
+    assert kept > 100, "the sampling must reach inside the pad"
+    assert wrong == 0, f"{wrong} kept candidate(s) whose disc leaves the {shape} pad at {angle}°"
+    assert missed == 0, f"{missed} candidate(s) refused although the disc stays 2 µm inside the pad"

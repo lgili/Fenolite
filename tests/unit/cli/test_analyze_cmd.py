@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from _analysis import creep_bench
+from _boards import with_two_layer_node
 from _checkcli import run
 from _projects import tree_snapshot
 
@@ -176,3 +177,49 @@ def test_unreadable_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_missing_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, _, err = analyze(monkeypatch, tmp_path, str(tmp_path / "none.kicad_pcb"))
     assert code == 3 and err["code"] == "FEN-3001"
+
+
+# -- thicknesses from the stack-up (capability board-analyses, "Stack-up thicknesses in analyze"; c0101)
+
+
+def stacked(tmp_path: Path) -> Path:
+    """A copy of ``two_layer.kicad_pcb`` with a complete two-layer node and ``general`` thickness 1.59."""
+    path = tmp_path / "stacked.kicad_pcb"
+    path.write_text(with_two_layer_node(FIXTURE.read_text(encoding="utf-8")), encoding="utf-8")
+    return path
+
+
+def missing(env: dict[str, Any], what: str) -> list[dict[str, Any]]:
+    return [i for i in env["issues"] if i["code"] == "analysis.input-missing" and what in i["message"]]
+
+
+def test_thicknesses_from_the_stackup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _ = analyze(
+        monkeypatch, tmp_path, str(stacked(tmp_path)), "--kinds", "current", "--temp-rise", "10"
+    )
+    assert code == 0, env
+    assert env["result"]["current"] and all(row["thickness"] == 35_000 for row in env["result"]["current"])
+    inputs = env["result"]["inputs"]
+    assert inputs["board_thickness"] == 1_590_000 and inputs["board_thickness_source"] == "stackup"
+    assert inputs["stackup"] == {"thickness": 1_590_000, "copper": {"F.Cu": 35_000, "B.Cu": 35_000}}
+    assert missing(env, "copper thickness") == []
+
+
+def test_an_option_wins_over_the_stackup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _ = analyze(
+        monkeypatch, tmp_path, str(stacked(tmp_path)), "--kinds", "current", "--temp-rise", "10",
+        "--board-thickness", "1.6mm", "--copper-thickness", "70um",
+    )  # fmt: skip
+    assert code == 0, env
+    inputs = env["result"]["inputs"]
+    assert inputs["board_thickness"] == 1_600_000 and inputs["board_thickness_source"] == "option"
+    assert all(row["thickness"] == 70_000 for row in env["result"]["current"])
+    assert inputs["stackup"]["thickness"] == 1_590_000
+
+
+def test_a_board_without_a_stackup_assumes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _ = analyze(monkeypatch, tmp_path, str(FIXTURE), "--kinds", "current", "--temp-rise", "10")
+    inputs = env["result"]["inputs"]
+    assert inputs["board_thickness_source"] is None and inputs["stackup"] is None
+    assert inputs["board_thickness"] is None
+    assert len(missing(env, "copper thickness")) == 1

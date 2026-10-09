@@ -22,7 +22,7 @@ SEMICONDUCTOR_ROLES = {
 
 
 def test_exact_planned_inventory_and_source_registration() -> None:
-    inventory = Path("docs/catalog/target-20-symbols.md").read_text()
+    inventory = Path("docs/catalog/target-20-symbols.md").read_text(encoding="utf-8")
     rows = [
         line.split("|")
         for line in inventory.splitlines()
@@ -30,7 +30,7 @@ def test_exact_planned_inventory_and_source_registration() -> None:
     ]
     assert [int(row[1]) for row in rows] == list(range(1, 21))
     assert len({row[2] for row in rows}) == 20
-    sources = Path("docs/evidence/sources.md").read_text()
+    sources = Path("docs/evidence/sources.md").read_text(encoding="utf-8")
     for row in rows:
         assert row[3].strip() and row[4].strip()
         for source in row[5].strip().split(", "):
@@ -268,7 +268,7 @@ def test_all_49_symbols_include_exact_expansion_and_distinct_new_drawings() -> N
     assert len(entries) == 49
     names = set(SEMICONDUCTOR_ROLES) | set(ADDITIONAL_ROLES)
     assert len(names) == 20
-    inventory = Path("docs/catalog/target-20-symbols.md").read_text()
+    inventory = Path("docs/catalog/target-20-symbols.md").read_text(encoding="utf-8")
     assert all(f"`{name}`" in inventory for name in names)
     assert {f"Fenolite:{name}" for name in names} <= {e.lib_id for e in entries}
     patterns = {get_symbol(f"Fenolite:{name}").graphics for name in names}

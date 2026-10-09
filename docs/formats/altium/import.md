@@ -52,12 +52,14 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A via spans from its start layer to its end layer; it is a through via when they are the outer layers, blind when one is, buried otherwise (every via of the documents compared is a through via) | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-05; test_import_oracle.py) | H-A-IMP-LAYERS |
+| The two tenting flags of a via record become `Via.protection`: `tenting_front` from the top flag (`ViaRecord.tented_top`) and `tenting_back` from the bottom flag, both explicit booleans; a clear flag is read as "not tented", because an Altium via carries its own flags and follows no board default. Covering, plugging, capping and filling stay `None`, `Board.via_protection` stays `None`, and the solder-mask expansion of the via is not read (change c0112; `pcb-copper.md`, "Via") | S-0160, S-0630 | INFERRED | H-A-PCB-CU-VIATENT |
 | A polygon of type `Polygon` on a copper layer is a zone: its vertices are the outline (the last repeats the first), `NET` its net, `NAME` its name | S-0161, S-0285, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-05; test_import_oracle.py) | H-A-IMP-ZONE |
 | `POURINDEX` gives the pour order, the lowest first; the zone poured first gets the highest model priority | S-0161 | INFERRED | H-A-IMP-ZONE |
 | The regions of `Regions6` that carry a polygon's index are its poured copper; tracks and arcs with a polygon index are the strokes of a hatched pour | S-0161, S-0285 | INFERRED | H-A-IMP-ZONE |
 | The holes of a poured region are free of its copper: the fill is the region's outline without its holes, and another region of the same polygon may lie inside a hole as an island. The model holds the fill as one ring with a bridge of zero width to each hole (`geometry.keyhole_ring`); a hole outside its outline is dropped and reported (`altium.import.zone-hole-outside`) | S-0160 (the holes of a region record), S-0020 (`kicad-cli pcb import` on the document of S-0172: the same pieces of copper per net in both reads, five islands among them) | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06; test_triangle_level5.py) | H-A-IMP-ZONE-HOLES |
 | The board outline of the board record becomes graphics on `Edge.Cuts`, one per segment, a line or an arc | S-0161 | INFERRED | H-A-IMP-FRAME |
 | A free fill is a rectangle given by two corners and a rotation about its centre; a free region is a polygon | S-0160, S-0285 | INFERRED | H-A-IMP-FRAME |
+| A free track, a free arc and a via take `locked` from their record's prefix: `True` when bit 2 of the first flag byte is clear (`pcb-read.md`, row `Prefix.locked`), `False` otherwise. A component primitive, a pour primitive and a graphic take no lock from it (change c0108) | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
 
 ## Primitives of a component
 

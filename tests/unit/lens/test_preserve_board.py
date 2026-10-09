@@ -6,9 +6,12 @@ c0019)."""
 from __future__ import annotations
 
 from _buildhelp import blink
-from _preserve_help import board_text, merged
+from _preserve_help import board_text, fresh, merged
 
+from fenolite.backends.kicad.boarditems import is_item_uuid
 from fenolite.backends.kicad.slots import from_ext
+from fenolite.dsl import Design, mm
+from fenolite.lens.preserve import fill_inputs_digest
 
 
 def test_root_slots_and_layers_kept() -> None:
@@ -42,8 +45,63 @@ def test_edge_edited_is_kept() -> None:
     assert [i.severity for i in result.issues if i.code == "layout.outline-kept"] == ["warning"]
 
 
-def test_copper_mismatch() -> None:
+def test_copper_count_follows_the_script() -> None:
+    """A count change between two created tables adapts the board (change c0102); ``layout.copper-mismatch``
+    stays for a table that is not a created one."""
     d = blink()
     d.copper = 4
     result, _ = merged(d, board_text())
-    assert [(i.code, i.severity) for i in result.issues] == [("layout.copper-mismatch", "error")]
+    assert [(i.code, i.severity) for i in result.issues] == [("kicad.layers.added", "info")]
+    odd = board_text().replace('(2 "B.Cu" signal)', '(4 "In1.Cu" signal)\n\t\t(2 "B.Cu" signal)')
+    assert odd != board_text()
+    refused, _ = merged(blink(), odd)
+    assert [(i.code, i.severity) for i in refused.issues] == [("layout.copper-mismatch", "error")]
+
+
+# --- board items declared in the script (change c0103) -------------------------------------------------
+
+
+def _with_items() -> Design:
+    d = blink()
+    d.rule_area(
+        "ANT", [(mm(40), mm(0)), (mm(50), mm(0)), (mm(50), mm(4)), (mm(40), mm(4))], forbid=("tracks",)
+    )
+    d.text("rev", "REV A", (mm(2), mm(2)))
+    d.line("mark", (mm(1), mm(29)), (mm(9), mm(29)), layer="F.Fab", width=mm(0.1))
+    d.dimension("width", (mm(0), mm(0)), (mm(40), mm(0)), offset=mm(-3))
+    return d
+
+
+def test_script_board_items_are_regenerated_in_a_merge() -> None:
+    """The existing copies of the script's items are dropped and the built ones follow what is kept; an
+    unchanged rule area leaves the fill digest as it was."""
+    text = fresh(10, _with_items()).files["blink.kicad_pcb"].decode("utf-8")
+    result, board = merged(_with_items(), text)
+    merged_board = result.design.board
+    assert merged_board is not None and board.board is not None
+    assert result.summary["board_items"] == {"regenerated": 0, "stale": 0}
+    assert not [i for i in result.issues if i.code.startswith("kicad.board-item.")]
+    assert [k.name for k in merged_board.keepouts] == ["ANT"]
+    assert [t.text for t in merged_board.texts] == ["REV A"] and len(merged_board.dimensions) == 1
+    scripted = [g for g in merged_board.graphics if is_item_uuid(g.native_ids.get("kicad", ""))]
+    assert len(scripted) == 1 and scripted[0].provenance is None  # the built copy, not the read one
+    kept = [g for g in merged_board.graphics if not is_item_uuid(g.native_ids.get("kicad", ""))]
+    assert kept == [g for g in board.board.graphics if not is_item_uuid(g.native_ids.get("kicad", ""))]
+    assert merged_board.graphics[-1] is scripted[0]
+    same = fill_inputs_digest(result.design, project=None, rules=None)
+    assert same == fill_inputs_digest(board, project=None, rules=None)
+
+
+def test_script_board_items_removed_from_the_script_are_stale() -> None:
+    text = fresh(10, _with_items()).files["blink.kicad_pcb"].decode("utf-8")
+    result, board = merged(blink(), text)
+    merged_board = result.design.board
+    assert merged_board is not None
+    assert result.summary["board_items"] == {"regenerated": 0, "stale": 4}
+    stale = [i for i in result.issues if i.code == "kicad.board-item.stale"]
+    assert len(stale) == 4 and all(i.severity == "warning" for i in stale)
+    assert merged_board.keepouts == () and merged_board.texts == () and merged_board.dimensions == ()
+    assert not [g for g in merged_board.graphics if is_item_uuid(g.native_ids.get("kicad", ""))]
+    # a rule area that the script removed changes what a fill depends on
+    changed = fill_inputs_digest(result.design, project=None, rules=None)
+    assert changed != fill_inputs_digest(board, project=None, rules=None)

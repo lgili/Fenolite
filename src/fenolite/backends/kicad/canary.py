@@ -24,6 +24,7 @@ from typing import Literal
 
 from fenolite.backends.base import DrcReport, DrcViolation
 from fenolite.backends.kicad import _json
+from fenolite.backends.kicad.drc import REPORT_LIMITS
 from fenolite.backends.kicad.pcb import CANONICAL_ORDER
 from fenolite.backends.kicad.rulemap import SELECTOR_SUPPORT, rule_nodes
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, parse_bytes
@@ -50,8 +51,9 @@ CANARY_TWO_RUN: frozenset[int] = frozenset({9, 10})
 """Majors where the canary is not neutral, so a plain run gives the report and the canary run the verdict:
 on boards with hundreds of violations, 9.0.9 and 10.0.6 name other partner items, and sometimes report
 one violation more or less, with the canary tracks present (``H-K-CHECK-CANARY-3``)."""
-CLEARANCE_REPORT_LIMIT = 499
-"""The count near which ``pcb drc`` stops reporting ``clearance`` violations (``H-K-DRC-LIMIT``): 10.0.6
+CLEARANCE_REPORT_LIMIT = REPORT_LIMITS[10].limit("clearance")
+"""The ``clearance`` value of ``drc.REPORT_LIMITS``, which the mark of ``check`` also reads (c0141): the
+count near which ``pcb drc`` stops reporting ``clearance`` violations (``H-K-DRC-LIMIT``): 10.0.6
 reports exactly 499 on a board with more, and 9.0.9 a few more. At or above it the canary's own violation
 competes for a place, so a report without it proves nothing."""
 CLEARANCE_SEVERITY = "/board/design_settings/rule_severities/clearance"
@@ -152,7 +154,9 @@ def _segment(net: Atom | tuple[Atom, ...], uid: str, x: int, y: int) -> Node:
         "net": Node(Atom.symbol("net"), net_atoms),
         "uuid": Node(Atom.symbol("uuid"), (Atom.string(uid),)),
     }
-    return Node(Atom.symbol("segment"), tuple(children[name] for name in CANONICAL_ORDER["segment"]))
+    # a canary segment is unlocked: it holds no ``locked`` child
+    order = [name for name in CANONICAL_ORDER["segment"] if name in children]
+    return Node(Atom.symbol("segment"), tuple(children[name] for name in order))
 
 
 def insertions(data: bytes, *, file: str = "") -> list[tuple[int, bytes]]:

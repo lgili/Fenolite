@@ -10,19 +10,19 @@ import pytest
 from _probes import run
 
 from fenolite.backends.kicad.plot import png_size
-from fenolite.exports.plan import KINDS
+from fenolite.exports.plan import FAB_KINDS, KINDS
 
 pytestmark = pytest.mark.needs_kicad
 BYTE_EQUAL = {"gerbers": False, "drill": False, "pos": True, "ipcd356": True}
 """Whether two exports are byte-equal, per kind, as recorded in ``docs/evidence/kicad-export.md``."""
 
 
-@pytest.mark.parametrize("kind", sorted(KINDS))
+@pytest.mark.parametrize("kind", sorted(FAB_KINDS))
 def test_files(kind: str) -> None:
     assert run(f"export-files-{kind}") == "equal"
 
 
-@pytest.mark.parametrize("kind", sorted(KINDS))
+@pytest.mark.parametrize("kind", sorted(FAB_KINDS))
 def test_repeat(kind: str) -> None:
     unknown = _exportcases.unknown_lines(kind)
     assert not unknown, f"{kind}: lines that differ between two runs and are no known date line: {unknown}"

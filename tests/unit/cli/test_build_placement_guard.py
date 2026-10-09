@@ -5,6 +5,8 @@ c0022). Hermetic: the guard reads the planned bytes back and runs no tool."""
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -25,6 +27,8 @@ from fenolite.placement import ISSUE_CODES
 MM = 1_000_000
 R1_PLACE = "r1.place(mm(32), mm(9))"
 D1_PLACE = 'd1.place(mm(38), mm(20), side="bottom")'
+NO_RULES: dict[str, Any] = {"rules": {"near": {"judged": 0, "failed": 0, "skipped": 0}}}
+"""``result.placement.rules`` of a design without placement rules (change c0113)."""
 
 
 @pytest.fixture(autouse=True)
@@ -84,7 +88,7 @@ def test_overlap_reported_and_build_written(monkeypatch: pytest.MonkeyPatch, tmp
     code, env, err, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), "--confirm")
     assert code == 0, (env["issues"], err)
     assert place_issues(env) == [("place.courtyard-overlap", "warning", "D1,R1")]
-    assert env["result"]["placement"] == {"ran": True, "counts": {"place.courtyard-overlap": 1}}
+    assert env["result"]["placement"] == {"ran": True, "counts": {"place.courtyard-overlap": 1}, **NO_RULES}
     assert (out / "blink.kicad_pcb").is_file()
     assert env["result"]["copper_check"]["shorts"] == 0
 
@@ -107,7 +111,7 @@ def test_staged_parts_are_not_judged(monkeypatch: pytest.MonkeyPatch, tmp_path: 
         ("layout.unplaced", "R1")
     ]
     assert place_issues(env) == [] and env["result"]["staged"] == ["R1"]
-    assert env["result"]["placement"] == {"ran": True, "counts": {}}
+    assert env["result"]["placement"] == {"ran": True, "counts": {}, **NO_RULES}
 
 
 @pytest.mark.parametrize("target", [9, 10])
@@ -125,7 +129,7 @@ def test_clean_blink_stays_clean(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
         "--confirm",
     )
     assert code == 0, (env["issues"], err)
-    assert place_issues(env) == [] and env["result"]["placement"] == {"ran": True, "counts": {}}
+    assert place_issues(env) == [] and env["result"]["placement"] == {"ran": True, "counts": {}, **NO_RULES}
     # the guard changes no byte: the files are those of ``build_design``
     expected = build(blink(), target).files
     written = {rel: (out / rel).read_bytes() for rel in expected}
@@ -137,13 +141,13 @@ def test_refused_build_does_not_run_the_guard(monkeypatch: pytest.MonkeyPatch, t
     script = variant(tmp_path, ("connect(led_a, r1[2], d1[2])", "connect(led_a, r1[2], d1[2], r1[9])"))
     code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
     assert code == 5
-    assert env["result"]["placement"] == {"ran": False, "counts": {}} and place_issues(env) == []
+    assert env["result"]["placement"] == {"ran": False, "counts": {}, **NO_RULES} and place_issues(env) == []
 
 
 def test_guard_on_planned_files() -> None:
     files = dict(build(blink(), 10).files)
-    assert placement_guard(files, name="blink") == ((), {"ran": True, "counts": {}})
-    assert placement_guard({}, name="blink") == ((), {"ran": False, "counts": {}})
+    assert placement_guard(files, name="blink") == ((), {"ran": True, "counts": {}, **NO_RULES})
+    assert placement_guard({}, name="blink") == ((), {"ran": False, "counts": {}, **NO_RULES})
     # every part of the blink is at least 3 mm from the edge, and none is 20 mm from it
     assert placement_guard(files, name="blink", edge_clearance=3 * MM)[0] == ()
     issues, summary = placement_guard(files, name="blink", edge_clearance=20 * MM)
@@ -173,3 +177,119 @@ def test_lens_build_is_unchanged() -> None:
     assert not [code for code in lens_build.BUILD_ISSUE_CODES if code.startswith("place.")]
     source = Path(lens_build.__file__).read_text(encoding="utf-8")
     assert "fenolite.placement" not in source
+
+
+# --- placement rules and keep-outs in the guard (change c0113) ------------------------------------------
+
+NEAR = '\ndesign.near("led", d1, r1.pad(2), within=mm(5))\n'
+
+
+def test_rules_reported_as_warnings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Rules reported as warnings": a rule that fails never refuses a build."""
+    script = blink_variant(tmp_path / "src", append=NEAR)
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [("placement.too-far", "warning", "D1")]
+    assert "rule led" in found[0]["message"] and "R1-2" in found[0]["message"]
+    assert env["result"]["placement"] == {
+        "ran": True,
+        "counts": {"placement.too-far": 1},
+        "rules": {"near": {"judged": 1, "failed": 1, "skipped": 0}},
+    }
+    assert place_issues(env) == []
+    assert not (tmp_path / "out").exists()
+
+
+def test_rule_met_gives_no_issue_and_is_stored(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = blink_variant(tmp_path / "src", append=NEAR.replace("mm(5)", "mm(13)"))
+    out = tmp_path / "out"
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), "--confirm")
+    assert code == 0, env["issues"]
+    assert not [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert env["result"]["placement"]["rules"] == {"near": {"judged": 1, "failed": 0, "skipped": 0}}
+    stored = json.loads((out / ".fenolite" / "rules.json").read_text(encoding="utf-8"))
+    assert stored["proximity"] == [
+        {
+            "name": "led",
+            "parts": [{"path": "D1"}],
+            "anchor": [{"path": "R1", "number": "2"}],
+            "within": 13 * MM,
+        }
+    ]
+
+
+def test_rule_on_a_staged_part_is_skipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = variant(tmp_path, (D1_PLACE, ""))
+    script.write_text(script.read_text(encoding="utf-8") + NEAR, encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [
+        (i["code"], i["severity"], i["where"]) for i in env["issues"] if i["code"].startswith("placement.")
+    ]
+    assert found == [("placement.rule-skipped", "info", "D1")]
+    assert env["result"]["placement"]["rules"] == {"near": {"judged": 0, "failed": 0, "skipped": 1}}
+
+
+def test_guard_judges_the_keepouts_of_the_planned_board() -> None:
+    """A rule area that forbids footprints, drawn over ``R1`` on the planned board: one warning."""
+    from fenolite.backends.kicad.pcb import write_board
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Keepout
+
+    files = dict(build(blink(), 10).files)
+    design = read_board(files["blink.kicad_pcb"].decode("utf-8"), file="blink.kicad_pcb")
+    assert design.board is not None
+    r1 = next(fp for fp in design.board.footprints if footprint_ref(design, fp) == "R1")
+    x, y = r1.position.x, r1.position.y
+    ring = tuple(Point(x + dx * MM, y + dy * MM) for dx, dy in ((-3, -3), (3, -3), (3, 3), (-3, 3)))
+
+    def planned(*layers: str) -> dict[str, bytes]:
+        area = Keepout(
+            id="kpo_00000000-0000-4000-8000-000000000001", outline=ring, layers=layers, no_footprints=True
+        )
+        board = dataclasses.replace(design.board, keepouts=(area,))  # type: ignore[arg-type]
+        text = write_board(dataclasses.replace(design, board=board), target=10).text
+        assert text.count("(footprints not_allowed)") == 1
+        return {**files, "blink.kicad_pcb": text.encode("utf-8")}
+
+    issues, summary = placement_guard(planned("F.Cu"), name="blink")
+    assert [(i.code, i.severity, i.where) for i in issues] == [("place.keepout", "warning", "R1")]
+    assert summary["counts"] == {"place.keepout": 1} and ISSUE_CODES["place.keepout"] == "error"
+    assert placement_guard(planned("B.Cu"), name="blink")[0] == ()  # R1 is on the top
+
+
+# --- height limits in the guard (change c0140) ----------------------------------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+LID_OVER_R1_U1 = (
+    '\ndesign.rule_area("LID", [(mm(5), mm(5)), (mm(35), mm(5)), (mm(35), mm(25)), (mm(5), mm(25))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""An area on ``F.Cu`` over the top-side parts ``R1`` (32, 9) and ``U1`` (14, 15); ``D1`` is on the bottom."""
+
+
+def test_height_limits_reported_as_warnings(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Limits reported as warnings": a part above a limit never refuses a build."""
+    script = variant(tmp_path, TALL_R1)
+    script.write_text(script.read_text(encoding="utf-8") + LID_OVER_R1_U1, encoding="utf-8")
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [
+        ("placement.height-unknown", "warning", "U1"),
+        ("placement.too-tall", "warning", "R1"),
+    ]
+    assert env["result"]["placement"]["rules"]["height"] == {"judged": 2, "failed": 1, "unknown": 1}
+    assert env["result"]["placement"]["counts"] == {"placement.height-unknown": 1, "placement.too-tall": 1}
+    assert not (tmp_path / "out").exists()
+
+
+def test_height_no_limit_no_family(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    script = variant(tmp_path, TALL_R1)
+    code, env, _, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", "out", "--dry-run")
+    assert code == 0, env["issues"]
+    assert env["result"]["placement"]["rules"] == NO_RULES["rules"]

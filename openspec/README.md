@@ -23,8 +23,9 @@ c0093 was taken for the release of v0.2 on the same day.
 Since 2026-10-07 (c0136) v0.3 is the whole second backend, its read part and its write part, and v0.4
 names the proposals that are written on other branches and are not in this table: c0077–c0081 (the
 agent track), c0096, c0097 and c0099 (board authoring) and c0100–c0120 (the complex board). c0095 is
-reserved and c0098 is on hold. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
-keep the names of their day.
+reserved; c0098 is in v0.4 by the maintainer's decision of 2026-10-08 (roadmap, "Open decisions", row 35) and has its row below. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
+keep the names of their day. The changes of v0.4 were gathered on the branch `v04` and are released as
+`0.4.0` by c0154; their folders are not all rows of this table.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -110,6 +111,7 @@ keep the names of their day.
 | c0092 | `altium-write-graduation` | v0.3 write | c0091 |
 | c0093 | `release-v0-2` | release of v0.2a and v0.2b as `0.2.0`: release record, guard, version | every v0.2a and v0.2b change |
 | c0094 | `bom-dnp-grouping` | correction of v0.2a: a BOM line is all DNP or all fitted | c0064 |
+| c0098 | `electrical-readiness` | v0.4 (the maintainer's decision of 2026-10-08): `fenolite ready`, one read-only reply on whether a KiCad project is electrically ready: open nets, KiCad's ERC and DRC, unconnected pins, power nets without a declared width or a zone, parts without a footprint or a value | c0062, c0108 |
 | c0121 | `altium-component-bodies` | v0.3 follow-up: the component bodies that c0085 cut, fact rows first | c0085 |
 | c0122 | `altium-zone-holes` | correction of v0.3: a zone fill keeps the holes of its poured region | c0043 |
 | c0124 | `altium-plane-lines` | correction of v0.3: the Altium import makes no track of a line on an internal plane | c0043, c0088 |
@@ -131,7 +133,9 @@ keep the names of their day.
 | c0148 | `altium-pin-hide-bits` | correction of v0.3 (found in Altium Designer 26 on 2026-10-08): every written pin holds bit 0x20 of `PINCONGLOMERATE`, with 0x08 and 0x10 as show flags; the reader reads the two bits as hide flags on pins without 0x20 | c0032, c0034, c0040 |
 | c0149 | `release-0-2-2` | patch release `0.2.2`: the record, the version | c0133, c0143 |
 | c0150 | `release-0-3-0` | release of the write part of v0.3 as `0.3.0`: the release record with the verdict of the rule of c0092 per Altium write kind and the maintainer's exception for the kit, its guard, the version and the changelog cut; c0149 is the patch release `0.2.2` on its own branch, and c0151 and c0152 are proposed as the follow-ups the record names | c0083–c0092, c0121–c0148 |
+| c0140 | `part-height-rules` | v0.4: part heights as bodies of their footprint, read by one function, and height limits over named rule areas judged by `check`, `place` and `build` | c0099, c0103, c0113 |
 | c0152 | `clearance-rounding` | follow-up of c0131 (Altium's rule check of 2026-10-08, S-0616): the copper check on Altium input lowers its clearance rules by Altium's observed tolerance, 3.5 file units in whole nanometres (9 nm), where that is above the unit's slack | c0131, c0132 |
 | c0153 | `kicad-cli-per-worker` | correction (two transient failures of the kicad-9 job on 2026-10-08): every `kicad-cli` run gets private temporary, runtime, cache and state folders, so parallel runs share no instance lock file | c0009, c0082 |
+| c0154 | `release-0-4-0` | release of v0.4 as `0.4.0`: the release record with the verdict per change, what is deferred to the next release by the maintainer's decision of 2026-10-08 and the follow-ups found that day, its guard, the version and the changelog cut | c0077–c0081, c0096–c0120, c0137, c0140, c0141, c0145, c0152, c0153 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

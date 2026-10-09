@@ -13,6 +13,7 @@ import zipfile
 from pathlib import Path
 
 import pytest
+from _needles import absent
 from _simulate import DATE, VERSION, simulate, simulated_judge
 
 from fenolite.cli._kit import kit_sources
@@ -72,7 +73,7 @@ def test_record_of_a_run(run: tuple[Path, KitVerdict]) -> None:
     assert steps["K8.1"]["source"] == verdict.kit.files["templates/iso5457_generic.SchDot"]
     text = record.record_bytes(made).decode("utf-8")
     for needle in (str(folder), str(ROOT), folder.parent.name, "/" + USERS + "/", "\\\\"):
-        assert needle not in text
+        assert absent(needle, text), needle
     assert all(entry["path"].startswith("results/") for entry in made["results"])
     assert json.loads(text) == made and text.endswith("}\n")
 

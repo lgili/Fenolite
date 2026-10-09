@@ -14,6 +14,7 @@ from typing import Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.base import Entity
+from fenolite.model.pairs import base_matches
 
 RuleKind = Literal[
     "clearance",
@@ -28,13 +29,27 @@ RuleKind = Literal[
     "courtyard_clearance",
     "silk_clearance",
     "creepage",
+    "no_tracks",
+    "diff_pair_gap",
+    "diff_pair_uncoupled",
+    "skew",
+    "diff_pair_skew",
+    "length",
 ]
-"""The first six kinds are those of v0.1; the last six were added by change c0071. Which sides, selector
-ops and layer clause a kind takes, and for which targets it is written, is the backend's to say
+"""The first six kinds are those of v0.1; the next six were added by change c0071, and ``no_tracks`` (no
+track or arc of the selected items on the rule's layers; it takes no limit) by change c0107. The last five,
+the pair and length kinds, were added by change c0104 (``skew`` compares every net a rule selects with the
+longest of them, ``diff_pair_skew`` the two nets of each pair it selects). Which sides, selector ops and
+layer clause a kind takes, and for which targets it is written, is the backend's to say
 (``backends.kicad.rulemap.KIND_SELECTORS`` and ``KIND_SUPPORT``)."""
 RuleSeverity = Literal["error", "warning", "ignore"]
-SelectorOp = Literal["all", "net", "netclass", "ref", "layer", "item_kind", "and", "or", "not"]
-LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind")
+SelectorOp = Literal[
+    "all", "net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair", "and", "or", "not"
+]
+LEAF_OPS = ("net", "netclass", "ref", "layer", "item_kind", "area", "diff_pair")
+"""The leaves. The value of ``diff_pair`` is a pair base (``model.pairs``) or ``*``, compared with its
+letter case; the value of ``area`` is the name of a rule area, compared with its letter case and with ``*``
+as a glob; the other leaves hold globs over names."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +61,10 @@ class RuleSubject:
     netclass: str | None = None
     ref: str | None = None
     layer: str | None = None
+    areas: frozenset[str] = frozenset()
+    """The names of the rule areas the object lies in (letter case counts)."""
+    #: The base of the subject's net when the design holds the coupled net (``model.pairs.net_bases``).
+    diff_pair: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +105,10 @@ class Selector:
                 return _glob(subject.layer, self.value)
             case "item_kind":
                 return _glob(subject.item_kind, self.value)
+            case "area":
+                return any(fnmatch.fnmatchcase(name, self.value) for name in subject.areas)
+            case "diff_pair":
+                return base_matches(subject.diff_pair, self.value)
 
 
 def _glob(value: str | None, pattern: str) -> bool:
@@ -108,11 +131,161 @@ class Rule(Entity):
     priority: int = 0
 
 
+PlacementSeverity = Literal["error", "warning"]
+"""The severity of a placement rule. A rule that judges nothing (``ignore``) is not a value."""
+
+
+@dataclass(frozen=True, slots=True)
+class PadSelection:
+    """Pads of one part, named by its component path.
+
+    Every pad of the part, those of one ``number``, or the one at ``index`` among the pads of that number
+    in the footprint's pad order.
+    """
+
+    path: str
+    number: str = ""
+    index: int | None = None
+
+    def __post_init__(self) -> None:
+        if not self.path:
+            raise ValueError("a pad selection needs a component path")
+        if self.index is not None:
+            if isinstance(self.index, bool) or self.index < 0:
+                raise ValueError("the index of a pad selection is a non-negative integer")
+            if not self.number:
+                raise ValueError("the index of a pad selection needs a pad number")
+
+
+@dataclass(frozen=True, slots=True)
+class ProximityRule:
+    """A placement rule: each part of ``parts`` stays near a pad of ``anchor``.
+
+    A part keeps one of its selected pads within ``within`` (nm, pad centre to pad centre) of a selected
+    pad of ``anchor``. A value object of the rules layer: its ``name`` is its key, it has no id and no
+    ``RuleKind``, and no backend lowers it.
+    """
+
+    name: str
+    parts: tuple[PadSelection, ...] = field(metadata={"ordered": True})
+    anchor: tuple[PadSelection, ...] = field(metadata={"ordered": True})
+    within: Nm
+    severity: PlacementSeverity = "error"
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a proximity rule needs a name")
+        if not self.parts:
+            raise ValueError(f"proximity rule {self.name!r} names no part")
+        if not self.anchor:
+            raise ValueError(f"proximity rule {self.name!r} names no anchor")
+        if isinstance(self.within, bool) or self.within <= 0:
+            raise ValueError(f"proximity rule {self.name!r} needs a positive distance")
+        if self.severity not in ("error", "warning"):
+            raise ValueError(f"proximity rule {self.name!r}: severity is 'error' or 'warning'")
+
+
+ImpedanceKind = Literal["single", "differential"]
+"""A ``single`` target governs single-ended tracks; a ``differential`` one the two tracks of a pair, whose
+rows carry a gap (change c0105)."""
+
+
+@dataclass(frozen=True, slots=True)
+class TraceGeometry:
+    """One layer of an impedance target: the signal layer, its one or two reference layers in stack
+    order, the track width and, for a differential target, the gap between the two tracks (nm).
+
+    A value object of the rules layer; the geometry is always the user's (``docs/impedance.md``)."""
+
+    layer: str
+    references: tuple[str, ...] = field(metadata={"ordered": True})
+    width: Nm
+    gap: Nm | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ImpedanceTarget(Entity):
+    """An impedance target of net classes (change c0105): its name, kind, the ids of the classes it
+    governs, the target in ohms and its tolerance in percent as decimal text (``"90"``, ``"7.5"``; ``""``
+    when not given), and one ``TraceGeometry`` per layer in stack order.
+
+    ``ohms`` is ``""`` only for a target read from a file that gives none."""
+
+    name: str
+    kind: ImpedanceKind
+    netclass_ids: tuple[str, ...] = field(metadata={"ordered": True})
+    ohms: str
+    tolerance_percent: str = ""
+    layers: tuple[TraceGeometry, ...] = field(default=(), metadata={"ordered": True})
+
+
+@dataclass(frozen=True, slots=True)
+class HeightLimit:
+    """A height limit: the parts under every rule area named ``area`` stay at most ``max`` tall.
+
+    The height of a part is ``fenolite.model.board.outward_height`` of its footprint (change c0140). A
+    value object of the rules layer: its ``area`` is its key, it has no id and no ``RuleKind``, and no
+    backend lowers it.
+    """
+
+    area: str
+    max: Nm
+    severity: PlacementSeverity = "error"
+
+    def __post_init__(self) -> None:
+        if not self.area:
+            raise ValueError("a height limit needs the name of a rule area")
+        if isinstance(self.max, bool) or self.max <= 0:
+            raise ValueError(f"height limit {self.area!r} needs a positive height")
+        if self.severity not in ("error", "warning"):
+            raise ValueError(f"height limit {self.area!r}: severity is 'error' or 'warning'")
+
+
 @dataclass(frozen=True, slots=True)
 class RuleSet(Entity):
-    """The rules layer of a design (``rules.json``)."""
+    """The rules layer of a design (``rules.json``). ``severities`` gives the checks of a design-rule tool
+    a severity, by the finding code of the check (``<oracle>.drc.<suffix>``; change c0114): a severity is
+    not a rule, so it has no ``RuleKind``.
+
+    ``proximity`` holds the placement rules, in name order; it is left out of the file when empty
+    (change c0113). ``heights`` holds the height limits, in area order, left out when empty (change c0140).
+    ``impedance`` holds the impedance targets in declaration order; it is left out of the file when empty
+    (change c0105).
+    """
 
     rules: tuple[Rule, ...] = ()
+    severities: dict[str, RuleSeverity] = field(default_factory=lambda: {})
+    proximity: tuple[ProximityRule, ...] = field(default=(), metadata={"ordered": True})
+    heights: tuple[HeightLimit, ...] = field(default=(), metadata={"ordered": True})
+    impedance: tuple[ImpedanceTarget, ...] = field(default=(), metadata={"ordered": True})
+
+    def __post_init__(self) -> None:
+        seen: set[str] = set()
+        for rule in self.proximity:
+            if rule.name in seen:
+                raise ValueError(f"two proximity rules are named {rule.name!r}")
+            seen.add(rule.name)
+        areas: set[str] = set()
+        for limit in self.heights:
+            if limit.area in areas:
+                raise ValueError(f"two height limits name the area {limit.area!r}")
+            areas.add(limit.area)
 
 
-__all__ = ["LEAF_OPS", "Rule", "RuleKind", "RuleSet", "RuleSeverity", "RuleSubject", "Selector", "SelectorOp"]
+__all__ = [
+    "LEAF_OPS",
+    "HeightLimit",
+    "ImpedanceKind",
+    "ImpedanceTarget",
+    "PadSelection",
+    "PlacementSeverity",
+    "ProximityRule",
+    "Rule",
+    "RuleKind",
+    "RuleSet",
+    "RuleSeverity",
+    "RuleSubject",
+    "Selector",
+    "SelectorOp",
+    "TraceGeometry",
+]

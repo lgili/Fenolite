@@ -11,11 +11,15 @@ from pathlib import Path
 
 import _schema
 import pytest
+from _boards import with_two_layer_node
 from _checkcli import hide_kicad, run
-from _fakecli import calls, fake_kicad_cli
-from _projects import authored_project, tree_snapshot
+from _fakecli import PDF, calls, fake_kicad_cli
+from _models import BOX, BOX_REL, official, with_models
+from _needles import absent
+from _projects import SCHEMATICS, authored_project, tree_snapshot
 
-from fenolite.exports import EVIDENCE
+from fenolite.backends.kicad.models import board_models
+from fenolite.exports import DOCUMENTS_EVIDENCE, EVIDENCE
 from fenolite.exports.manifest import content_sha256
 
 ALL = ("--all", "--manifest")
@@ -88,7 +92,7 @@ def test_manifest_matches_the_files(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert all("evidence" not in a for a in result.values())
     assert result["pos/board-pos.csv"]["sha256"] == result["pos/board-pos.csv"]["content_sha256"]
     for needle in (str(tmp_path), str(Path.home()), "fenolite-kicad-"):
-        assert needle not in text and needle not in json.dumps(env["result"])
+        assert absent(needle, text, json.dumps(env["result"])), needle
 
     code, _, _, _ = run(monkeypatch, work, *args, "--confirm", "--no-backup")
     assert code == 0 and (work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8") == text
@@ -127,7 +131,8 @@ def test_one_failing_kind_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_pa
         monkeypatch, work, "export", str(root), "--out", "fab", "--all", "--kicad-cli", fake, "--confirm"
     )
     assert code == 5 and err["code"] == "FEN-5001"
-    (failure,) = env["issues"]
+    # the board holds no stack-up: the Gerber kind also gives its info (c0101)
+    (failure,) = [found for found in env["issues"] if found["severity"] == "error"]
     assert failure["code"] == "export.failed" and failure["where"] == "drill"
     assert "plan" not in env["result"] and env["receipt"] is None
     assert not (work / "fab").exists()
@@ -349,7 +354,7 @@ def test_unreadable_manifest_is_refused(
     args = ("export", str(root), "--out", "fab", "--gerbers", "--manifest", "--kicad-cli", _fake(tmp_path))
     code, env, err, _ = run(monkeypatch, work, *args, "--confirm")
     assert code == 5 and err["code"] == "FEN-5001"
-    (refusal,) = env["issues"]
+    (refusal,) = [found for found in env["issues"] if found["severity"] == "error"]
     assert refusal["code"] == "manifest.unreadable" and refusal["severity"] == "error"
     assert refusal["where"] == "fab/fenolite-artifacts.json"
     assert "plan" not in env["result"] and env["receipt"] is None and tree_snapshot(work) == before
@@ -457,3 +462,393 @@ def test_altium_rule_file_without_a_rule_that_lowers(monkeypatch: pytest.MonkeyP
 def test_no_kind_names_the_rule_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
     code, _, err, _ = run(monkeypatch, tmp_path, "export", str(root), "--out", "fab", "--dry-run")
     assert code == 2 and "--altium-rul" in err["hint"]
+
+
+# -- document kinds (c0116)
+
+DOCUMENT_FLAGS = ("--ipc2581", "--odb", "--step", "--pdf", "--dxf")
+DOCUMENT_FILES = [
+    "fab/3d/board.step",
+    "fab/dxf/board-Edge_Cuts.dxf",
+    "fab/ipc2581/board.xml",
+    "fab/odb/board.zip",
+    "fab/pdf/board-Edge_Cuts.pdf",
+    "fab/pdf/board-F_Cu.pdf",
+]
+
+
+def _with_schematic(root: Path) -> None:
+    """The authored two-sheet hierarchy as the schematic of the board."""
+    (root / "board.kicad_sch").write_bytes((SCHEMATICS / "hier" / "top.kicad_sch").read_bytes())
+    (root / "child.kicad_sch").write_bytes((SCHEMATICS / "hier" / "child.kicad_sch").read_bytes())
+
+
+def _all_calls(fake: str) -> list[list[str]]:
+    return [c["args"] for c in calls(Path(fake)) if c["args"][1:2] == ["export"]]
+
+
+def test_documents_are_planned(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", *DOCUMENT_FLAGS, "--kicad-cli", fake, "--dry-run")
+    code, env, _, out = run(monkeypatch, tmp_path, *args)
+    assert code == 0, env
+    result = env["result"]
+    assert [p["path"] for p in result["plan"]] == DOCUMENT_FILES
+    assert result["kinds"] == ["ipc2581", "odb", "step", "pdf", "dxf"]
+    assert result["repeat"] == {
+        "ipc2581": "none", "odb": "none", "step": "none", "pdf": "content", "dxf": "bytes",
+    }  # fmt: skip
+    # the footprints of the authored board name Mini models that no source holds: each is reported
+    # as missing, with a warning, and the exit code stays 0
+    assert result["models"] and all(
+        m["source"] == "missing" and m["sha256"] is None for m in result["models"]
+    )
+    assert [m["path"] for m in result["models"]] == sorted(m["path"] for m in result["models"])
+    assert {i["code"] for i in env["issues"]} == {"kicad.lib.missing-3d-model"}
+    assert len(env["issues"]) == len(result["models"])
+    layers = {a["path"]: a["layer"] for a in result["artifacts"]}
+    assert layers["pdf/board-F_Cu.pdf"] == "F.Cu" and layers["dxf/board-Edge_Cuts.dxf"] == "Edge.Cuts"
+    assert layers["3d/board.step"] is None
+    hashes = {a["path"]: (a["sha256"], a["content_sha256"]) for a in result["artifacts"]}
+    assert hashes["3d/board.step"][0] == hashes["3d/board.step"][1]  # nothing to leave out
+    assert hashes["pdf/board-F_Cu.pdf"][0] != hashes["pdf/board-F_Cu.pdf"][1]  # the creation date
+    assert [a[2] for a in _all_calls(fake)] == ["ipc2581", "odb", "step", "pdf", "dxf"]
+    for needle in (str(tmp_path), str(Path.home()), "fenolite-kicad-"):
+        assert needle not in out
+
+
+def test_all_keeps_the_four_kinds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    fake = _fake(tmp_path)
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "export", str(root), "--out", "fab", "--all", "--kicad-cli", fake, "--dry-run"
+    )
+    assert code == 0
+    assert [a[:3] for a in _all_calls(fake)] == [
+        ["pcb", "export", "gerbers"],
+        ["pcb", "export", "drill"],
+        ["pcb", "export", "pos"],
+        ["pcb", "export", "ipcd356"],
+    ]
+    assert env["result"]["kinds"] == ["gerbers", "drill", "pos", "ipcd356"]
+    assert env["result"]["repeat"] == {
+        "gerbers": "content", "drill": "content", "pos": "bytes", "ipcd356": "bytes",
+    }  # fmt: skip
+    assert env["result"]["models"] == []
+
+
+def test_a_preset_leaves_a_document_kind_alone(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "fab.toml").write_text(PRESET, encoding="utf-8")
+    fake = _fake(tmp_path)
+    args = (
+        "export",
+        str(root),
+        "--out",
+        "fab",
+        "--drill",
+        "--dxf",
+        "--preset",
+        "fab.toml",
+        "--kicad-cli",
+        fake,
+    )
+    code, env, _, _ = run(monkeypatch, work, *args, "--manifest", "--dry-run")
+    assert code == 0, env
+    seen = _export_calls(fake)
+    assert seen["drill"][seen["drill"].index("--excellon-units") + 1] == "in"
+    assert seen["dxf"] == [
+        "pcb", "export", "dxf", "-o", "dxf/", "--mode-multi", "--output-units", "mm", "--layers",
+        "Edge.Cuts,F.Fab,B.Fab,F.CrtYd,B.CrtYd", "board.kicad_pcb",
+    ]  # fmt: skip
+
+
+def test_schematic_pdf_without_a_schematic(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--sch-pdf", "--kicad-cli", fake, "--dry-run")
+    code, _, err, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 3 and err["code"] == "FEN-3001"
+    assert "board.kicad_sch" in err["message"] and "--pdf" in err["hint"] and "--step" in err["hint"]
+    assert calls(Path(fake)) == []
+
+
+def test_a_missing_sheet_writes_nothing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    _with_schematic(root)
+    (root / "child.kicad_sch").unlink()
+    work = tmp_path / "work"
+    work.mkdir()
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--pdf", "--sch-pdf", "--kicad-cli", fake, "--confirm")
+    code, env, err, _ = run(monkeypatch, work, *args)
+    assert code == 5 and err["code"] == "FEN-5001", env
+    (refusal,) = env["issues"]
+    assert (refusal["code"], refusal["where"]) == ("export.sheet-missing", "child.kicad_sch")
+    assert "plan" not in env["result"] and not (work / "fab").exists()
+    assert not any(a[:3] == ["sch", "export", "pdf"] for a in _all_calls(fake))
+
+
+def test_evidence_of_a_document_kind(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    fake = _fake(tmp_path)
+    args = ("export", str(root), "--out", "fab", "--gerbers", "--step", "--manifest", "--kicad-cli", fake)
+    code, env, _, _ = run(monkeypatch, tmp_path, *args, "--confirm")
+    assert code == 0, env
+    assert DOCUMENTS_EVIDENCE.level.value == "KICAD-VERIFIED"
+    assert env["evidence"]["level"] == "KICAD-VERIFIED" and env["evidence"]["oracle"] == "kicad-cli 10.0.6"
+    assert "H-K-EXPORT-MODELS" in env["evidence"]["hypotheses"]
+    assert "H-K-EXPORT-FILES" in env["evidence"]["hypotheses"]
+    manifest = json.loads((tmp_path / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    levels = {e["path"]: e["evidence"] for e in manifest["artifacts"]}
+    assert levels["3d/board.step"] == DOCUMENTS_EVIDENCE.level.value
+    assert levels["gerbers/board-F_Cu.gbr"] == EVIDENCE.level.value != "INFERRED"
+    # a document kind alone carries the level of the document kinds
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "export", str(root), "--out", "x", "--odb", "--kicad-cli", fake, "--dry-run"
+    )
+    assert env["evidence"]["hypotheses"] == list(DOCUMENTS_EVIDENCE.hypotheses)
+
+
+def test_document_manifest_joins_the_folder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    _with_schematic(root)
+    work = tmp_path / "work"
+    work.mkdir()
+    fake = _fake(tmp_path)
+    base = ("export", str(root), "--out", "fab", "--manifest", "--kicad-cli", fake, "--confirm")
+    assert run(monkeypatch, work, *base, "--gerbers")[0] == 0
+    code, env, _, _ = run(monkeypatch, work, *base, "--step", "--sch-pdf", "--no-backup")
+    assert code == 0, env
+    manifest = json.loads((work / "fab" / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    assert _schema.validate(manifest, _schema.load("fenolite.artifacts.v0.json")) == []
+    entries = {e["path"]: e for e in manifest["artifacts"]}
+    board_sha = hashlib.sha256((root / "board.kicad_pcb").read_bytes()).hexdigest()
+    sheet_sha = hashlib.sha256((root / "board.kicad_sch").read_bytes()).hexdigest()
+    assert "gerbers/board-F_Cu.gbr" in entries
+    assert entries["3d/board.step"]["from"] == {"board": board_sha}
+    assert entries["schematic/board.pdf"]["from"] == {"schematic": sheet_sha}
+    for path in ("3d/board.step", "schematic/board.pdf", "gerbers/board-F_Cu.gbr"):
+        assert entries[path]["state"] == "generated" and entries[path]["tool"] == "kicad-cli 10.0.6"
+    assert entries["schematic/board.pdf"]["kind"] == "sch-pdf" and entries["3d/board.step"]["kind"] == "step"
+    call = next(c for c in calls(Path(fake)) if c["args"][:3] == ["sch", "export", "pdf"])
+    assert call["args"] == ["sch", "export", "pdf", "-o", "schematic/board.pdf", "board.kicad_sch"]
+    assert {"board.kicad_sch", "child.kicad_sch"} <= set(call["tree"])
+
+
+def test_document_manifest_layer_and_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    _with_schematic(root)
+    work = tmp_path / "work"
+    work.mkdir()
+    args = (
+        "export",
+        str(root),
+        "--out",
+        "out",
+        "--pdf",
+        "--sch-pdf",
+        "--manifest",
+        "--kicad-cli",
+        _fake(tmp_path),
+    )
+    code, env, _, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 0, env
+    manifest = json.loads((work / "out" / "fenolite-artifacts.json").read_text(encoding="utf-8"))
+    entries = {e["path"]: e for e in manifest["artifacts"]}
+    board_sha = hashlib.sha256((root / "board.kicad_pcb").read_bytes()).hexdigest()
+    sheet_sha = hashlib.sha256((root / "board.kicad_sch").read_bytes()).hexdigest()
+    assert (
+        entries["pdf/board-F_Cu.pdf"]["layer"] == "F.Cu"
+        and entries["pdf/board-Edge_Cuts.pdf"]["layer"] == "Edge.Cuts"
+    )
+    assert entries["pdf/board-F_Cu.pdf"]["from"] == {"board": board_sha}
+    assert entries["schematic/board.pdf"]["layer"] is None
+    assert entries["schematic/board.pdf"]["from"] == {"schematic": sheet_sha}
+    assert all(e["evidence"] == DOCUMENTS_EVIDENCE.level.value for e in entries.values())
+    data = (work / "out" / "pdf" / "board-F_Cu.pdf").read_bytes()
+    assert data == PDF.encode("latin-1")
+    assert (
+        entries["pdf/board-F_Cu.pdf"]["content_sha256"]
+        == content_sha256(data, "pdf")
+        != entries["pdf/board-F_Cu.pdf"]["sha256"]
+    )
+
+
+def test_step_reports_its_models_and_a_warning_holds_nothing_back(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    board = root / "board.kicad_pcb"
+    text = board.read_text(encoding="utf-8")
+    refs = [
+        line.split('"')[3] for line in text.splitlines() if line.strip().startswith('(property "Reference"')
+    ]
+    assert len(refs) >= 2
+    absent = official("Fenolite.3dshapes/Absent.step")
+    board.write_text(
+        with_models(text, {refs[0]: official(), refs[1]: absent}), encoding="utf-8", newline="\n"
+    )
+    empty = tmp_path / "config-home"
+    empty.mkdir()
+    # a model folder that holds the authored box under its own name and under the name of the Mini
+    # model that the first footprint already names, so that every model of that part is located
+    folder = tmp_path / "models"
+    for ref in board_models(text):
+        if ref.ref == refs[0]:
+            target = folder / ref.path.split("/", 1)[1]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(BOX.read_bytes())
+    (folder / BOX_REL).parent.mkdir(parents=True, exist_ok=True)
+    (folder / BOX_REL).write_bytes(BOX.read_bytes())
+    monkeypatch.setenv("KICAD10_3DMODEL_DIR", str(folder))
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(empty))
+    work = tmp_path / "work"
+    work.mkdir()
+    fake = _fake(tmp_path, export_output={"step": f"Could not add 3D model for {refs[0]}.\n"})
+    args = ("export", str(root), "--out", "fab", "--step", "--kicad-cli", fake, "--confirm")
+    code, env, _, out = run(monkeypatch, work, *args)
+    assert code == 0, env  # warnings never change the exit code
+    assert {i["code"] for i in env["issues"]} == {"export.model-unread", "kicad.lib.missing-3d-model"}
+    assert [i["where"] for i in env["issues"] if i["code"] == "export.model-unread"] == [refs[0]]
+    assert all(i["severity"] == "warning" for i in env["issues"])
+    assert (work / "fab" / "3d" / "board.step").is_file()
+    found = {m["path"]: m for m in env["result"]["models"]}
+    assert found[absent] == {
+        "path": absent,
+        "source": "missing",
+        "sha256": None,
+        "bytes": None,
+        "refs": [refs[1]],
+    }
+    assert found[official()] == {
+        "path": official(),
+        "source": "env",
+        "sha256": hashlib.sha256(BOX.read_bytes()).hexdigest(),
+        "bytes": BOX.stat().st_size,
+        "refs": [refs[0]],
+    }
+    call = next(c for c in calls(Path(fake)) if c["args"][:3] == ["pcb", "export", "step"])
+    assert f"3dmodels/{BOX_REL}" in call["tree"] and call["env"] == {"KICAD10_3DMODEL_DIR": "3dmodels"}
+    assert "--subst-models" in call["args"]
+    assert str(tmp_path) not in out
+    assert not (root / "3dmodels").exists()  # the copies went into the run, never into the project
+
+
+# -- the stack-up note (capability manufacturing-exports, "Stack-up note in exports"; change c0101)
+
+
+def with_stackup(project: Path) -> None:
+    """Give the board of the copied project a complete two-layer node and the matching thickness."""
+    board = project / "board.kicad_pcb"
+    board.write_text(with_two_layer_node(board.read_text(encoding="utf-8")), encoding="utf-8")
+
+
+def stack_notes(env: dict[str, object]) -> list[dict[str, str]]:
+    return [found for found in env["issues"] if found["code"] == "export.stackup-default"]  # type: ignore[union-attr]
+
+
+def test_stackup_note_for_a_board_without_a_stackup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    args = ("export", str(root), "--out", "fab", "--gerbers", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    (note,) = stack_notes(env)
+    assert note["severity"] == "info" and note["where"] == "gerbers"
+    assert "0.035 mm copper" in note["message"] and "0.01 mm masks" in note["message"]
+    assert "FR4" in note["message"] and "finish None" in note["message"]
+    assert "design.stackup()" in note["hint"] and "Board Setup" in note["hint"]
+    assert [p["path"] for p in env["result"]["plan"]] == [f for f in FILES if f.startswith("fab/gerbers/")]
+    code, env, _, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 0 and len(env["receipt"]["written"]) == 3  # the info does not stop the writes
+
+
+def test_no_stackup_note_for_a_board_with_a_stackup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    with_stackup(root)
+    args = ("export", str(root), "--out", "fab", "--gerbers", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0 and stack_notes(env) == [] and env["issues"] == []
+
+
+def test_no_stackup_note_for_other_kinds(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    args = ("export", str(root), "--out", "fab", "--drill", "--pos", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0 and env["issues"] == []
+
+
+# -- what stops the writes (capability cli-contract, MODIFIED "Export command"; change c0101)
+
+
+def reporting(monkeypatch: pytest.MonkeyPatch, severity: str) -> None:
+    """Make every kind's run report one authored issue of ``severity`` besides its artefacts."""
+    from fenolite.cli import cmd_export
+    from fenolite.core.errors import Issue
+    from fenolite.exports.plan import KindResult
+
+    real = cmd_export.run_kind
+
+    def run_kind(*args: object, **kwargs: object) -> KindResult:
+        found = real(*args, **kwargs)  # type: ignore[arg-type]
+        note = Issue("export.authored-note", severity, "an authored issue of the test", where="drill")  # type: ignore[arg-type]
+        return KindResult(
+            artifacts=found.artifacts, issues=(*found.issues, note), tool_writes=found.tool_writes
+        )
+
+    monkeypatch.setattr(cmd_export, "run_kind", run_kind)
+
+
+DRILL_FILES = [f for f in FILES if f.startswith("fab/drill/")]
+
+
+def test_severity_info_does_not_stop_the_writes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    """An info that is not the stack-up note: the drill kind states no stack-up."""
+    work = tmp_path / "work"
+    work.mkdir()
+    reporting(monkeypatch, "info")
+    args = ("export", str(root), "--out", "fab", "--drill", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+    assert code == 0, env
+    assert [(i["code"], i["severity"]) for i in env["issues"]] == [("export.authored-note", "info")]
+    assert [p["path"] for p in env["result"]["plan"]] == DRILL_FILES and DRILL_FILES
+    code, env, _, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 0 and [w["path"] for w in env["receipt"]["written"]] == DRILL_FILES
+    assert all((work / path).is_file() for path in DRILL_FILES)
+
+
+def test_severity_error_stops_the_writes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path) -> None:
+    """An error plans nothing and nothing is written (exit 5), although the kind ran."""
+    work = tmp_path / "work"
+    work.mkdir()
+    reporting(monkeypatch, "error")
+    args = ("export", str(root), "--out", "fab", "--drill", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 5 and [i["severity"] for i in env["issues"]] == ["error"]
+    assert "plan" not in env["result"] and env["receipt"] is None
+    assert not (work / "fab").exists()
+    assert len(env["result"]["artifacts"]) == len(DRILL_FILES)
+
+
+def test_severity_warning_holds_nothing_back(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: Path
+) -> None:
+    """The rule of c0116 on the tip, pinned beside the info: a warning never holds the files back."""
+    work = tmp_path / "work"
+    work.mkdir()
+    reporting(monkeypatch, "warning")
+    args = ("export", str(root), "--out", "fab", "--drill", "--kicad-cli", _fake(tmp_path))
+    code, env, _, _ = run(monkeypatch, work, *args, "--confirm")
+    assert code == 0 and [i["severity"] for i in env["issues"]] == ["warning"]
+    assert [w["path"] for w in env["receipt"]["written"]] == DRILL_FILES

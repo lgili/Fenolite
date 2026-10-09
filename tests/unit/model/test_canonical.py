@@ -95,6 +95,25 @@ def test_directory_layout_and_regeneration(tmp_path: Path) -> None:
         assert (tmp_path / "a" / name).read_bytes() == (tmp_path / "b" / name).read_bytes()
 
 
+def test_proximity_rules_keep_their_order_and_regenerate(tmp_path: Path) -> None:
+    """Change c0113: the rules are value objects in the order given, and an empty tuple is left out."""
+    from fenolite.model.rules import PadSelection, ProximityRule
+
+    design = Design.new("demo", seed=5)
+    assert design.rules is not None
+    assert "proximity" not in dumps(design.rules)
+    rules = (
+        ProximityRule("b", (PadSelection("C2"), PadSelection("C1")), (PadSelection("U1", "7"),), 3_000_000),
+        ProximityRule("a", (PadSelection("Y1"),), (PadSelection("U1", "12", 0),), 5_000_000, "warning"),
+    )
+    design = dataclasses.replace(design, rules=dataclasses.replace(design.rules, proximity=rules))
+    dump_dir(design, tmp_path / "a")
+    loaded = load_dir(tmp_path / "a")
+    assert loaded.rules is not None and loaded.rules.proximity == rules
+    dump_dir(loaded, tmp_path / "b")
+    assert (tmp_path / "a" / "rules.json").read_bytes() == (tmp_path / "b" / "rules.json").read_bytes()
+
+
 def test_wrong_type_reports_json_pointer(tmp_path: Path) -> None:
     design = Design.new("demo", seed=6)
     rng = random.Random(6)

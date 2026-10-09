@@ -594,3 +594,34 @@ def test_parity_flag_only_when_asked(
         "b.kicad_pcb",
     ]  # fmt: skip
     assert plain == ["pcb", "drc", "--format", "json", "--severity-all", "-o", DRC_REPORT, "b.kicad_pcb"]
+
+
+# --- sources given as bytes (capability manufacturing-exports, "Drawing plot copies"; change c0117) ---
+
+
+def test_bytes_source_is_written_under_its_name(
+    fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_MODE", "list")
+    original = board.read_bytes()
+    copy = original + b"(table)"
+    files = {"b.kicad_pcb": copy, "sub/sheet.kicad_wks": b"(kicad_wks)", "other.kicad_pcb": board}
+    run = KicadCli(fake).run(["pcb", "export", "svg", "b.kicad_pcb"], files=files)
+    assert json.loads(run.stdout) == [STATE_DIR, "b.kicad_pcb", "config", "other.kicad_pcb", "sub"]
+    assert sorted(run.outputs) == ["out.svg"]  # a file given as bytes is no output unless the run changed it
+    assert board.read_bytes() == original
+
+
+def test_bytes_source_changed_by_the_run(fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FAKE_MODE", "inplace")
+    run = KicadCli(fake).run(["pcb", "upgrade", "b.kicad_pcb"], files={"b.kicad_pcb": b"(copy)"})
+    assert run.outputs == {"b.kicad_pcb": b"(copy)(rewritten)"}
+
+
+def test_bytes_source_replaces_the_board_of_an_export(
+    fake: Path, board: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FAKE_MODE", "inplace")
+    original = board.read_bytes()
+    run = KicadCli(fake).export(["pcb", "export", "pdf"], board, files={"b.kicad_pcb": b"(copy)"}, out="o")
+    assert run.outputs["b.kicad_pcb"] == b"(copy)(rewritten)" and board.read_bytes() == original

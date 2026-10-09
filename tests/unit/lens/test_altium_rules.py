@@ -23,7 +23,7 @@ from hypothesis import strategies as st
 from fenolite.backends.altium import pcbdoc, rulemap
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.rules import map_rules
-from fenolite.dsl import Design, mm, placements, to_model
+from fenolite.dsl import USB2, Design, Net, mm, placements, to_model, trace
 from fenolite.dsl.select import net, netclass
 from fenolite.lens.altium import build_altium
 from fenolite.lens.build import BuildOutput
@@ -429,3 +429,184 @@ def test_board6_rules_are_written_and_read_back() -> None:
     for file in ("board6.PcbDoc", "board6.PcbLib", "board6.PrjPcb", "board6.SchDoc", "board6.SchLib"):
         assert plain.files[file] == (data / file).read_bytes(), file
         assert (output.files[file] == plain.files[file]) is (file != name), file
+
+
+def test_no_tracks_rule_is_reported_and_not_written() -> None:
+    """Scenario "A track layer rule in an Altium build" (capability altium-pcb-writer, "Track layer rules in
+    the Altium rule table"; change c0107): one ``altium.not-lowered`` warning naming the rule, the reason
+    ``no-counterpart`` in the result, and the rule records of the same script without the rule."""
+    plain = built(blink())
+    design = blink()
+    design.rules.rule("sig-outer", "no_tracks", where=netclass("PWR"), layers=("F.Cu",))
+    output = built(design)
+    ((where, severity, message),) = not_lowered(output)
+    assert (where, severity) == ("design-rules/no_tracks", "warning")
+    assert "'sig-outer' (netclass PWR on F.Cu)" in message and "no-counterpart" in message
+    assert summary(output) == {
+        "written": [],
+        "not_lowered": [
+            {"kind": "no_tracks", "selector": "netclass PWR on F.Cu", "reason": "no-counterpart"}
+        ],
+    }
+    assert read_back(output)[0] == read_back(plain)[0]
+    document = read_pcbdoc(output.files[DOCUMENT], file=DOCUMENT)
+    before = read_pcbdoc(plain.files[DOCUMENT], file=DOCUMENT)
+    assert [r.fields for r in document.rules] == [r.fields for r in before.rules]
+    # the thirteenth row: the five pair and length kinds of change c0104 follow it
+    row = rulemap.TABLE[12]
+    assert (row.neutral, row.status, row.exact) == ("no_tracks", "no-counterpart", False)
+    assert "Routing Layers" in row.note and "no public file" in row.note
+    lowered = rulemap.lower(to_model(design).rules.rules)  # type: ignore[union-attr]
+    assert lowered.written == () and len(lowered.not_lowered) == 1
+
+
+# -- differential pairs in an Altium build (capability altium-build; change c0104)
+
+
+def pair_design(*, pair_content: bool = True, document: bool = True) -> Design:
+    """The blink (the example of the build without a PCB document when ``document`` is false) with a USB
+    pair in the class ``USB``; with ``pair_content`` the class holds a pair gap and the pair has its
+    rules."""
+    design = blink() if document else example()
+    usb_p, usb_n = Net("USB_P"), Net("USB_N")
+    usb = USB2(usb_p, usb_n)
+    design.add(usb)
+    gap = mm(0.15) if pair_content else None
+    design.rules.netclass("USB", clearance=mm(0.2), diff_pair_gap=gap, nets=(usb_p, usb_n))
+    if pair_content:
+        design.rules.pair(
+            usb,
+            gap_min=mm(0.13),
+            clearance=mm(0.15),
+            uncoupled_max=mm(5),
+            skew_max=mm(0.5),
+            length_max=mm(60),
+        )
+    return design
+
+
+@pytest.mark.parametrize("document", [True, False])
+def test_pair_rules_in_an_altium_build(document: bool) -> None:
+    """Scenario "Pair rules in an Altium build": nothing raises, each pair or length rule is named with
+    ``no-counterpart``, the pair clearance rule with ``scope-unsupported``, and the class pair values in
+    one info, with and without a PCB document."""
+    output = built(pair_design(document=document), document=document)
+    values = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "pair-values"]
+    assert [(i.severity, "USB" in i.message, "PWR" in i.message) for i in values] == [("info", True, False)]
+    interfaces = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "interfaces"]
+    assert len(interfaces) == 1 and "USB_P/USB_N" in interfaces[0].message
+    if not document:  # no document: every rule is named with that reason, the pair rules included
+        reasons = {entry["kind"]: entry["reason"] for entry in summary(output)["not_lowered"]}
+        assert reasons.pop("clearance") in ("no-document", "scope-unsupported")
+        assert reasons == dict.fromkeys(
+            ("diff_pair_gap", "diff_pair_uncoupled", "diff_pair_skew", "length"), "no-counterpart"
+        )
+        return
+    found = not_lowered(output)
+    assert [(where, severity) for where, severity, _message in found] == [
+        ("design-rules/diff_pair_gap", "warning"),
+        ("design-rules/clearance", "warning"),
+        ("design-rules/diff_pair_uncoupled", "warning"),
+        ("design-rules/diff_pair_skew", "warning"),
+        ("design-rules/length", "warning"),
+    ]
+    reasons = ["no-counterpart", "scope-unsupported", "no-counterpart", "no-counterpart", "no-counterpart"]
+    for (_where, _severity, message), reason in zip(found, reasons, strict=True):
+        assert reason in message and "diff_pair USB_" in message
+    assert [(entry["kind"], entry["reason"]) for entry in summary(output)["not_lowered"]] == [
+        ("diff_pair_gap", "no-counterpart"),
+        ("clearance", "scope-unsupported"),
+        ("diff_pair_uncoupled", "no-counterpart"),
+        ("diff_pair_skew", "no-counterpart"),
+        ("length", "no-counterpart"),
+    ]
+
+
+@pytest.mark.parametrize("document", [True, False])
+def test_pair_files_equal_without_the_pair_content(document: bool) -> None:
+    """Scenario "Files equal without the pair content": every planned file outside ``.fenolite/`` is
+    byte-equal to the file of the design without the pair rules and the class pair gap."""
+    with_pair = built(pair_design(document=document), document=document)
+    without = built(pair_design(pair_content=False, document=document), document=document)
+    outside = {name for name in without.files if not name.startswith(".fenolite/")}
+    assert outside and outside == {name for name in with_pair.files if not name.startswith(".fenolite/")}
+    assert all(with_pair.files[name] == without.files[name] for name in outside)
+    assert b"diff_pair_gap" in with_pair.files[".fenolite/circuit.json"]
+    assert b"diff_pair_skew" in with_pair.files[".fenolite/rules.json"]
+    assert not [i for i in without.issues if i.where == "pair-values"]
+
+
+# -- impedance targets in an Altium build (capability altium-build; change c0105)
+
+
+def impedance_design(*, target: bool = True, pair: bool = False, layer: str = "B.Cu") -> Design:
+    """The blink with two made-up signal nets in the class ``SE50`` and, with ``target``, a single-ended
+    target on ``F.Cu`` and ``layer``; with ``pair``, a ``USB2`` pair of the class ``USB90`` and a
+    differential target on ``F.Cu``."""
+    design = blink()
+    design.rules.netclass("SE50", clearance=mm(0.2), nets=(Net("SIG_A"), Net("SIG_B")))
+    if target:
+        design.rules.impedance(
+            "SE50",
+            ohms=50,
+            netclass="SE50",
+            layers=(trace("F.Cu", refs="B.Cu", width=mm(0.35)), trace(layer, refs="F.Cu", width=mm(0.35))),
+        )
+    if pair:
+        usb = USB2(Net("USB_P"), Net("USB_N"))
+        design.rules.netclass("USB90", clearance=mm(0.2), nets=tuple(usb.members.values()))
+        design.rules.impedance(
+            "USB90", ohms=90, pair=usb, layers=(trace("F.Cu", refs="B.Cu", width=mm(0.2), gap=mm(0.15)),)
+        )
+    return design
+
+
+def test_impedance_target_in_an_altium_build() -> None:
+    """Scenario "Target in an Altium build"."""
+    output = built(impedance_design())
+    without = built(impedance_design(target=False))
+    outside = {name for name in without.files if not name.startswith(".fenolite/")}
+    assert outside == {name for name in output.files if not name.startswith(".fenolite/")}
+    assert all(output.files[name] == without.files[name] for name in outside)
+    assert b'"impedance"' in output.files[".fenolite/rules.json"]
+    assert b"track_width_SE50_F.Cu" in output.files[".fenolite/rules.json"]
+    infos = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "impedance"]
+    assert len(infos) == 1 and infos[0].severity == "info"
+    assert "SE50" in infos[0].message and "2 rule(s)" in infos[0].message
+    found = not_lowered(output)
+    assert [(where, severity) for where, severity, _ in found] == [
+        ("design-rules/track_width", "warning"),
+        ("design-rules/track_width", "warning"),
+    ]
+    assert all("scope-unsupported" in message for _, _, message in found)
+    named = " ".join(message for _, _, message in found)
+    assert "track_width_SE50_F.Cu" in named and "track_width_SE50_B.Cu" in named
+    assert [(e["kind"], e["reason"]) for e in summary(output)["not_lowered"]] == [
+        ("track_width", "scope-unsupported"),
+        ("track_width", "scope-unsupported"),
+    ]
+    assert not [i for i in without.issues if i.where == "impedance"]
+
+
+def test_impedance_pair_target_in_an_altium_build() -> None:
+    """Scenario "Pair target in an Altium build"."""
+    output = built(impedance_design(target=False, pair=True))
+    assert [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "impedance"]
+    found = not_lowered(output)
+    assert ("design-rules/track_width", "warning") in [(w, s) for w, s, _ in found]
+    assert any(w == "design-rules/diff_pair_gap" and "no-counterpart" in m for w, _, m in found)
+
+
+def test_impedance_layer_refuses_an_altium_build() -> None:
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        design = impedance_design(layer="In1.Cu")
+        output = build_altium(
+            to_model(design),
+            name=design.name,
+            placed=tuple(placements(design)),
+            placements=placements(design),
+            resolver=blink_resolver(root, blink_tree(root)),
+        )
+    assert output.files == {}
+    assert [i.severity for i in output.issues if i.code == "build.impedance-layer"] == ["error"]

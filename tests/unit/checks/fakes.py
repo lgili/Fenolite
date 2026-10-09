@@ -20,6 +20,7 @@ from fenolite.backends.base import (
     Document,
     DocumentSet,
     DrcItem,
+    DrcLimits,
     DrcOutcome,
     DrcReport,
     DrcViolation,
@@ -155,6 +156,16 @@ class FakeOracle:
     def drc(self, project: ProjectSet) -> DrcOutcome:
         self.calls.append(project)
         return self.result
+
+
+@dataclass
+class FakeLimitedOracle(FakeOracle):
+    """A fake that also satisfies ``LimitedOracle`` (change c0141): its report stops at ``limits``."""
+
+    limits: DrcLimits = field(default_factory=lambda: DrcLimits({"unconnected_items": 499}, others=199))
+
+    def report_limits(self) -> DrcLimits:
+        return self.limits
 
 
 @dataclass

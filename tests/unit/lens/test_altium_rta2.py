@@ -5,7 +5,9 @@ written model"; changes c0044 and c0090): each script under ``examples/`` is bui
 into ``tmp_path``, in the binary and in the ASCII schematic form, and ``fenolite check --stages
 roundtrip.rta2`` judges the level. Since c0090 the stored model holds the board that was written, so
 footprints, pads and copper are compared and no kind is only counted. Evidence of level INFERRED
-(``H-A-VER-RTA2-3``): Fenolite's writers read by Fenolite's readers."""
+(``H-A-VER-RTA2-3``): Fenolite's writers read by Fenolite's readers. An example that no Altium build
+writes is named in ``REFUSED`` with the measured reason, and is held to that reason where the official
+libraries are installed."""
 
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from _altium_built import BLINK, EXAMPLES, build_altium_example, built_blink
+from _altium_built import BLINK, EXAMPLES, LIBRARY_VARIABLES, build_altium_example, built_blink
 
 import fenolite.cli.main as cli_main
 from fenolite.backends.altium import pcbrecords as rec
@@ -45,6 +47,16 @@ SCHEMATIC_ONLY = {
     "altium_kicad/no_connect.py",
     "altium_sample/design.py",
 }
+REFUSED = {
+    "yardstick/design.py": (
+        "needs the official KiCad libraries, and with them the Altium build is refused in both forms: "
+        "altium.text-unwritable on the description of Isolator_Analog:AMC1200BDWV, which holds U+00B1"
+    ),
+}
+"""The examples that no Altium build writes, each with the reason as measured (10.0.6 libraries,
+2026-10-08): nothing is written, so there is nothing for RT-A2 to judge. ``test_refused_example_is_refused``
+holds each entry to its reason where the libraries are installed, so that an example which starts to build
+fails there and is moved to ``WITH_PCB`` or ``SCHEMATIC_ONLY``."""
 SCRIPTS = sorted(path.relative_to(EXAMPLES).as_posix() for path in EXAMPLES.glob("*/*.py"))
 PCB_KINDS = sorted(kind for kind in RT_A2_SCOPE.fields if kind not in CIRCUIT_KINDS)
 """The kinds compared with the PCB reading: every other kind of the scope."""
@@ -78,11 +90,13 @@ def _judge(monkeypatch: pytest.MonkeyPatch, folder: Path, *, pcb: bool) -> dict[
 
 def test_every_example_is_classified() -> None:
     """A new script under ``examples/`` must be named here, so that it is built and judged."""
-    assert set(SCRIPTS) == WITH_PCB | SCHEMATIC_ONLY and not WITH_PCB & SCHEMATIC_ONLY
+    assert set(SCRIPTS) == WITH_PCB | SCHEMATIC_ONLY | set(REFUSED)
+    assert not WITH_PCB & SCHEMATIC_ONLY and not (WITH_PCB | SCHEMATIC_ONLY) & set(REFUSED)
+    assert all(reason for reason in REFUSED.values())
 
 
 @pytest.mark.parametrize("form", sorted(FORMS))
-@pytest.mark.parametrize("script", [s for s in SCRIPTS if s != OFFICIAL])
+@pytest.mark.parametrize("script", [s for s in SCRIPTS if s != OFFICIAL and s not in REFUSED])
 def test_example_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str, form: str) -> None:
     code, folder, error = build_altium_example(monkeypatch, tmp_path, EXAMPLES / script, *FORMS[form])
     assert code == 0, error
@@ -110,6 +124,34 @@ def test_official_example_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     if code != 0:
         pytest.skip(f"the official libraries do not resolve here: {error[:200]}")
     _judge(monkeypatch, folder, pcb=True)
+
+
+@pytest.mark.needs_libs
+@pytest.mark.parametrize("form", sorted(FORMS))
+@pytest.mark.parametrize("script", sorted(REFUSED))
+def test_refused_example_is_refused(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, script: str, form: str
+) -> None:
+    """An example of ``REFUSED`` is still refused for the reason its entry states: the build ends with
+    findings, every error is the code that the reason names, and no file is written."""
+    config = tmp_path / "kicad-config"
+    config.mkdir()
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(config))
+    for name in LIBRARY_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+    folder = tmp_path / "built"
+    out, err = io.StringIO(), io.StringIO()
+    with monkeypatch.context() as patch:
+        patch.setattr(sys, "stdout", out)
+        patch.setattr(sys, "stderr", err)
+        args = ["build", str(EXAMPLES / script), "--out", str(folder), "--target", "altium", *FORMS[form]]
+        code = cli_main.main([*args, "--confirm", "--json"])
+    if code == 3:
+        pytest.skip(f"the official libraries do not resolve here: {err.getvalue()[:200]}")
+    assert code == 5, err.getvalue()
+    errors = [i for i in json.loads(out.getvalue())["issues"] if i["severity"] == "error"]
+    assert errors and all(i["code"] in REFUSED[script] and i["where"] in REFUSED[script] for i in errors)
+    assert not folder.exists() or not any(folder.iterdir())
 
 
 def test_built_blink_holds_rta2(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

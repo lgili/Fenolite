@@ -331,3 +331,42 @@ def test_arc_step_counts_as_its_end_point_in_a_path() -> None:
 def test_arc_and_kind_reexports() -> None:
     for name in ("ArcStep", "arc_to"):
         assert name in dsl.__all__ and hasattr(dsl, name)
+
+
+# --- copper locks (change c0108; capability design-dsl, "Copper locks in the DSL") -------------------
+
+
+def test_locked_via_track_and_stitch_are_recorded() -> None:
+    """Scenario "A locked via is recorded"."""
+    design, r1, _, gnd = _blink()
+    design.via("tie", mm(10), mm(5), net=gnd, locked=True)
+    design.via("free", mm(12), mm(5), net=gnd)
+    design.track("t", r1.pad(2), (mm(5), mm(0)), locked=True)
+    design.track("u", r1.pad(2), (mm(5), mm(2)))
+    design.stitch("s", net=gnd, pitch=mm(2), along=[(mm(1), mm(1)), (mm(9), mm(1))], locked=True)
+    found = {intent.key: intent for intent in copper(design)}
+    assert isinstance(found["tie"], ViaIntent) and found["tie"].locked is True
+    assert found["free"].locked is False and found["u"].locked is False
+    assert isinstance(found["t"], TrackIntent) and found["t"].locked is True
+    assert isinstance(found["s"], StitchIntent) and found["s"].locked is True
+
+
+def test_locked_is_the_last_field_and_defaults_to_false() -> None:
+    """An intent built without ``locked`` compares equal to that of an earlier script."""
+    for cls in (TrackIntent, ViaIntent, StitchIntent):
+        last = dataclasses.fields(cls)[-1]
+        assert (last.name, last.default) == ("locked", False), cls.__name__
+    assert ViaIntent("v", Point(0, 0), "GND") == ViaIntent("v", Point(0, 0), "GND", locked=False)
+    assert ViaIntent("v", Point(0, 0), "GND") != ViaIntent("v", Point(0, 0), "GND", locked=True)
+
+
+def test_locked_must_be_a_bool() -> None:
+    """Scenario "Not a bool"."""
+    design, r1, _, gnd = _blink()
+    with pytest.raises(DslError, match="track t: locked"):
+        design.track("t", r1.pad(1), (mm(5), mm(0)), locked="yes")  # type: ignore[arg-type]
+    with pytest.raises(DslError, match="via v: locked"):
+        design.via("v", mm(1), mm(1), net=gnd, locked=1)  # type: ignore[arg-type]
+    with pytest.raises(DslError, match="stitch s: locked"):
+        design.stitch("s", net=gnd, pitch=mm(2), along=[(mm(1), mm(1)), (mm(9), mm(1))], locked=None)  # type: ignore[arg-type]
+    assert not design.copper_intents

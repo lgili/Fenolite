@@ -32,7 +32,7 @@ from fenolite.cli._assembly import (
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli._manifest import needs_out, table_manifest
-from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.api import Command, Context, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -204,7 +204,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             writes, ctx, evidence=evidence.level.value, board=board.manifest_ref()
         )
         issues += refused
-    return Result(result=result, issues=tuple(issues), evidence=evidence, input=board.ref(), writes=writes)
+    schematic = board.path.with_suffix(".kicad_sch")
+    return Result(
+        result=result,
+        issues=tuple(issues),
+        evidence=evidence,
+        input=board.ref(),
+        writes=writes,
+        depends=depends_on(
+            ctx.cwd,
+            board.path,
+            None if other is None else other.path,
+            schematic if args.source == "kicad" and schematic.is_file() else None,
+            args.template,
+        ),
+    )
 
 
 _EXAMPLE = (EXAMPLE_BOARD, "--source", "model")

@@ -203,16 +203,22 @@ def test_library_without_the_field(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         text.replace(old, 'footprint="NoValue:NoValue_R"') + '\nr1.field("Value", visible=False)\n', "utf-8"
     )
     project.script = script
-    code, _, err = project.build("--dry-run")
-    assert code == 3 and err["code"] == "FEN-3004"
-    assert "NoValue:NoValue_R" in str(err["message"]) and "Value" in str(err["message"])
-    assert not project.out.exists()
-    # the same script without the request builds: only the request needs the field
+    # since c0077 every placed footprint holds both fields: the missing one is added at the default
+    # placement, the build says so, and the request applies to it (before, the request ended in FEN-3004)
+    code, env, err = project.build("--confirm")
+    assert code == 0, err
+    added = [i for i in env["issues"] if i["code"] == "build.field-added"]  # type: ignore[index, union-attr]
+    assert len(added) == 1 and "NoValue:NoValue_R" in added[0]["message"] and "Value" in added[0]["message"]
+    value = field(footprint(project.read(), "R1"), "Value")
+    assert value.visible is False and value.layer == "F.Fab"
+    # the same script without the request builds too, and the added field is visible
     script.write_text(
         script.read_text(encoding="utf-8").replace('r1.field("Value", visible=False)', ""), "utf-8"
     )
-    code, _, err = project.build("--dry-run")
+    project.out = tmp_path / "C"
+    code, _, err = project.build("--confirm")
     assert code == 0, err
+    assert field(footprint(project.read(), "R1"), "Value").visible is True
 
 
 def test_bad_request_is_a_script_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

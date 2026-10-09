@@ -62,7 +62,7 @@ def test_default_without_a_file() -> None:
     assert (placement.units, placement.origin, placement.y_axis) == ("mm", "page", "up")
     assert (placement.decimals, placement.rotation_decimals) == (4, 2)
     assert (placement.sides.top, placement.sides.bottom) == ("top", "bottom")
-    assert (placement.exclude_dnp, placement.smd_only) == (True, False)
+    assert (placement.exclude_dnp, placement.smd_only, placement.fiducials) == (True, False, True)
     assert placement.rotation.top == placement.rotation.bottom == SideRotation(1, 0)
     assert placement.rotation.footprint == ()
     assert DEFAULT.csv == CsvOptions(",", "minimal", "lf", True, "utf-8")
@@ -274,3 +274,19 @@ def test_a_rendered_table_reads_back(
 def test_natural_order() -> None:
     refs = ["R10", "R2", "C1", "R1", "U1A", "R02"]
     assert sorted(refs, key=lambda r: (natural_key(r), r)) == ["C1", "R1", "R02", "R2", "R10", "U1A"]
+
+
+def test_the_fiducial_key_and_field() -> None:
+    """``[placement]`` takes the boolean ``fiducials`` and the column field ``fiducial`` (change c0118)."""
+    from fenolite.exports.assembly import PLACEMENT_FIELDS
+
+    assert PLACEMENT_FIELDS[-1] == "fiducial"
+    template = read_template(
+        '[placement]\nfiducials = false\ncolumns = [{ name = "Fid", field = "fiducial" }]\n'
+    )
+    assert template.placement.fiducials is False
+    assert [column.field for column in template.placement.columns] == ["fiducial"]
+    with pytest.raises(TemplateError):
+        read_template('[placement]\nfiducials = "no"\n')
+    with pytest.raises(TemplateError):
+        read_template('[bom]\ncolumns = [{ name = "Fid", field = "fiducial" }]\n')

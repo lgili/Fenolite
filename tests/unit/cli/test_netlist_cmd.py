@@ -15,6 +15,7 @@ import pytest
 from _buildhelp import blink, build
 from _checkcli import hide_kicad, run, without_elapsed
 from _fakecli import calls, fake_kicad_cli
+from _needles import absent
 from _projects import authored_project, tree_snapshot
 from _schbuild import built_nested, write_files
 
@@ -93,7 +94,7 @@ def test_kicad_source_on_a_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
     assert _net(result, "VIN")["unconnected"] is False, "one pin, and a name the designer gave"
     assert "2026-01-01" in EXPORT and "/authored" in EXPORT, "the export holds a date and a path"
     for part in (str(tmp_path), "/authored", "KIPRJMOD", "Eeschema", "2026-01-01"):
-        assert part not in out, part
+        assert absent(part, out), part
     assert env["input"]["path"] == "board.kicad_sch" and env["input"]["kind"] == "kicad_sch"
     assert env["receipt"] is None and tree_snapshot(root) == before
     (call,) = [c for c in calls(fake) if c["args"][:3] == ["sch", "export", "netlist"]]
@@ -187,7 +188,7 @@ def test_own_reading_without_a_tool(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert env["evidence"]["level"] == sch_netlist.EVIDENCE.level.value
     assert env["evidence"]["oracle"] is None
     assert env["evidence"]["hypotheses"] == list(sch_netlist.EVIDENCE.hypotheses)
-    assert str(tmp_path) not in out and tree_snapshot(root) == before
+    assert absent(str(tmp_path), out) and tree_snapshot(root) == before
 
 
 def test_own_reading_equals_the_export_of_its_own_netlist(

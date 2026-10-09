@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """Interface checks of a build (capability design-dsl, "Interface checks in a build" and "Interfaces in the
-DSL"; altium-build, "Typed interfaces in an Altium build"; change c0073)."""
+DSL"; altium-build, "Typed interfaces in an Altium build"; change c0073), with the pair rule, the narrowed
+info and ``build.diff-pair-gap-shadowed`` of change c0104."""
 
 from __future__ import annotations
 
@@ -16,13 +17,30 @@ from _rulesdesign import script
 
 import fenolite.cli.main as cli_main
 from fenolite.core.errors import Issue
-from fenolite.dsl import I2C, UART, USB2, Design, DiffPair, Net, Part, connect, ohm, to_model
+from fenolite.dsl import I2C, UART, USB2, Design, DiffPair, Net, Part, connect, mm, ohm, select, to_model
 from fenolite.lens.altium import build_altium
 from fenolite.lens.build import is_pair, pair_hint
 
-PAIRS = (("X_P", "X_N"), ("X+", "X-"), ("X_DP", "X_DN"), ("XP", "XN"))
+PAIRS = (
+    ("X_P", "X_N"),
+    ("X+", "X-"),
+    ("X_DP", "X_DN"),
+    ("XP", "XN"),
+    ("D_P0", "D_N0"),
+    ("D_P_2", "D_N_2"),
+    ("DP1", "DN1"),
+)
 """The names KiCad pairs, as the probes of ``tests/kicad/rules/test_diffpair_names.py`` record."""
-NOT_PAIRS = (("X_DP", "X_DM"), ("X_p", "X_n"), ("X_P", "X-"), ("X_N", "X_P"), ("X_P", "Y_N"), ("P", "N2"))
+NOT_PAIRS = (
+    ("X_DP", "X_DM"),
+    ("X_p", "X_n"),
+    ("X_P", "X-"),
+    ("X_N", "X_P"),
+    ("X_P", "Y_N"),
+    ("P", "N2"),
+    ("D_P1", "D_N2"),
+    ("D_PA", "D_NA"),
+)
 
 
 def found(design: Design, code: str) -> list[Issue]:
@@ -139,3 +157,111 @@ def test_i2c_in_an_altium_build() -> None:
     extra = [i for i in built.issues if i not in plain.issues]
     assert [(i.code, i.severity, i.where) for i in extra] == [("altium.not-lowered", "info", "interfaces")]
     assert f"{first}/{second} (i2c)" in extra[0].message
+
+
+# -- pairs with a tail, pairs that rules select, and the shadowed class gap (change c0104)
+
+
+def test_pair_names_with_a_tail() -> None:
+    d = blink()
+    d.add(DiffPair(Net("D_P0"), Net("D_N0")))
+    assert found(d, "build.diff-pair-name") == []
+    d = blink()
+    d.add(DiffPair(Net("D_P0"), Net("D_N1")))
+    (warning,) = found(d, "build.diff-pair-name")
+    assert "D_N0" in warning.hint and "D_P0" in warning.message and "D_N1" in warning.message
+
+
+def test_pair_selected_by_a_rule() -> None:
+    d = blink()
+    pair = DiffPair(Net("USB_P"), Net("USB_N"))
+    d.add(pair)
+    (info,) = found(d, "build.interface-not-lowered")
+    assert "USB_P/USB_N" in info.message and "net names" in info.message
+    d.rules.pair(pair, uncoupled_max=mm(5))
+    assert found(d, "build.interface-not-lowered") == []
+    d = blink()
+    d.add(DiffPair(Net("USB_P"), Net("USB_N")))
+    d.rules.rule("every", "diff_pair_uncoupled", where=select.pair("*"), max=mm(5))
+    assert found(d, "build.interface-not-lowered") == []
+    d = blink()
+    d.add(DiffPair(Net("USB_P"), Net("USB_N")))
+    d.rules.rule("other", "diff_pair_uncoupled", where=select.pair("CLK_"), max=mm(5))
+    assert len(found(d, "build.interface-not-lowered")) == 1
+
+
+def shadowed_design(*, gap: object = mm(0.15), clearance: object = mm(0.2)) -> tuple[Design, USB2]:
+    d = blink()
+    usb_p, usb_n = Net("USB_P"), Net("USB_N")
+    usb = USB2(usb_p, usb_n)
+    d.add(usb)
+    d.rules.netclass("USB", clearance=clearance, diff_pair_gap=gap, nets=(usb_p, usb_n))
+    return d, usb
+
+
+def test_pair_gap_under_a_board_wide_clearance_rule() -> None:
+    d, usb = shadowed_design()
+    assert found(d, "build.diff-pair-gap-shadowed") == []
+    d.rules.minimum(clearance=mm(0.2))
+    (warning,) = found(d, "build.diff-pair-gap-shadowed")
+    assert warning.severity == "warning" and warning.where == "USB_P/USB_N"
+    for text in ("USB_P", "USB_N", "0.15", "'min_clearance'"):
+        assert text in warning.message, text
+    assert (
+        "design.rules.pair(" in warning.hint and "clearance=" in warning.hint and "gap_min=" in warning.hint
+    )
+    d.rules.pair(usb, clearance=mm(0.15), gap_min=mm(0.13))
+    assert found(d, "build.diff-pair-gap-shadowed") == []
+
+
+def test_board_minimum_above_the_pair_gap_needs_a_gap_rule() -> None:
+    """The build writes the least clearance of the board-wide rule and the later rules as the board minimum;
+    above the class gap it makes KiCad check the gap unless a gap rule selects the pair."""
+    d, usb = shadowed_design(gap=mm(0.1))
+    d.rules.minimum(clearance=mm(0.2))
+    d.rules.pair(usb, clearance=mm(0.15))
+    (warning,) = found(d, "build.diff-pair-gap-shadowed")
+    assert "'pair:USB_P/USB_N:clearance'" in warning.message and "0.1 mm" in warning.message
+    d, usb = shadowed_design(gap=mm(0.1))
+    d.rules.minimum(clearance=mm(0.2))
+    # a rule that silences the clearance inside the pair: the board minimum still checks the gap
+    inside = select.pair(usb)
+    d.rules.rule(
+        "quiet", "clearance", where=inside, between=inside, min=mm(0.12), severity="ignore", priority=1
+    )
+    (warning,) = found(d, "build.diff-pair-gap-shadowed")
+    assert "board minimum" in warning.message and "0.12" in warning.message
+    d.rules.rule("gap", "diff_pair_gap", where=select.pair(usb), min=mm(0.1), priority=1)
+    assert found(d, "build.diff-pair-gap-shadowed") == []
+
+
+def test_no_shadow_warning_without_a_class_gap_or_a_pair() -> None:
+    d, _ = shadowed_design(gap=None)
+    d.rules.minimum(clearance=mm(0.2))
+    assert found(d, "build.diff-pair-gap-shadowed") == []
+    d = blink()  # the nets pair by name, and the script calls them no pair
+    usb_p, usb_n = Net("USB_P"), Net("USB_N")
+    d.rules.netclass("USB", clearance=mm(0.2), diff_pair_gap=mm(0.15), nets=(usb_p, usb_n))
+    d.rules.minimum(clearance=mm(0.2))
+    assert found(d, "build.diff-pair-gap-shadowed") == []
+    d = blink()  # the two nets are in different classes
+    usb_p, usb_n = Net("USB_P"), Net("USB_N")
+    d.add(USB2(usb_p, usb_n))
+    d.rules.netclass("USB", clearance=mm(0.2), diff_pair_gap=mm(0.15), nets=(usb_p,))
+    d.rules.minimum(clearance=mm(0.2))
+    assert found(d, "build.diff-pair-gap-shadowed") == []
+
+
+def test_pair_content_changes_no_other_file() -> None:
+    """The checks change no file: with the pair interface, the board and the project are those of the
+    design without it, and the rules file gains the pair's rules only."""
+    plain_design, _ = shadowed_design()
+    plain_design.interfaces.pop("USB_P/USB_N")
+    plain = build(plain_design)
+    d, usb = shadowed_design()
+    d.rules.pair(usb, uncoupled_max=mm(5))
+    built = build(d)
+    assert built.files["blink.kicad_pcb"] == plain.files["blink.kicad_pcb"]
+    assert built.files["blink.kicad_pro"] == plain.files["blink.kicad_pro"]
+    assert b"diff_pair_uncoupled" in built.files["blink.kicad_dru"]
+    assert b'"diff_pair_gap": 0.15' in built.files["blink.kicad_pro"]

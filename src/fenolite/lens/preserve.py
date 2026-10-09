@@ -22,10 +22,11 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, cast
 
+from fenolite.backends.kicad import boarditems, dru, layers, pcb, pro, slots
 from fenolite.backends.kicad import copper as copper_mod
-from fenolite.backends.kicad import dru, pcb, pro, slots
+from fenolite.backends.kicad import outline as outline_mod
 from fenolite.backends.kicad import zones as zones_mod
-from fenolite.backends.kicad.embed import PATH_PROPERTY, placement_uuid
+from fenolite.backends.kicad.embed import MANDATORY_FIELDS, PATH_PROPERTY, placement_uuid
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps, parse_fragment
 from fenolite.backends.kicad.versions import FileKind, FutureFormatError, load_inventory
@@ -81,6 +82,10 @@ OVERRIDE_HINT = (
     "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout"
 )
 FILE_HINT = "lock the placement in the script, or edit placements.toml"
+OUTLINE_HINT = (
+    "lock the outline in the script with board(..., locked=True), edit it in KiCad, "
+    "or re-run with --discard-layout"
+)
 STALE_HINT = "run fenolite sync --to-source"
 BAG = "kicad"
 
@@ -244,30 +249,24 @@ def _edge_graphics(design: Design) -> list[Graphic]:
     return [g for g in board.graphics if g.layer in edge]
 
 
-def _outline_edges(points: Sequence[Point]) -> set[frozenset[Point]]:
-    return {frozenset((points[i], points[(i + 1) % len(points)])) for i in range(len(points))}
-
-
 def _edges_are_outline(design: Design, board: Design) -> bool:
-    """The board's edge content is absent or exactly the lines of ``design``'s outline."""
+    """The board's edge content is absent or exactly the edges of ``design``'s outline, lines and arcs
+    compared as edge texts (``outline.edge_texts``)."""
     graphics = _edge_graphics(board)
     if not graphics:
         return True
     outline = design.board.outline if design.board is not None else None
-    if outline is None or any(g.kind != "line" or len(g.points) != 2 for g in graphics):
-        return False
-    lines = [frozenset(g.points) for g in graphics]
-    return len(lines) == len(set(lines)) == len(outline.points) and set(lines) == _outline_edges(
-        outline.points
-    )
+    return outline_mod.edges_equal(outline, graphics)
 
 
 def _off_board(fp: FootprintInstance, design: Design, board: Design) -> bool:
     outline = design.board.outline if design.board is not None else None
     if outline is None or not outline.points or not _edges_are_outline(design, board):
         return False
-    xs, ys = [p.x for p in outline.points], [p.y for p in outline.points]
-    return not (min(xs) <= fp.position.x <= max(xs) and min(ys) <= fp.position.y <= max(ys))
+    box = outline_mod.outline_box(design)
+    if box is None:
+        return False
+    return not (box[0] <= fp.position.x <= box[2] and box[1] <= fp.position.y <= box[3])
 
 
 def off_board(fp: FootprintInstance, design: Design, board: Design) -> bool:
@@ -572,6 +571,30 @@ def _apply_user_properties(
     return dataclasses.replace(kept, fields=tuple(fields), ext={**kept.ext, BAG: bag}), written
 
 
+def _apply_mandatory_fields(kept: FootprintInstance, built: FootprintInstance) -> FootprintInstance:
+    """``kept`` with the ``Reference`` or ``Value`` field that its board node lacks (c0077).
+
+    A board written before Fenolite generated the two fields for catalog and authored footprints holds
+    footprints without them. A missing one is the built copy's field, with its id, uuid and placement,
+    before the node's first field, ``Reference`` before ``Value``. A field or a property node of that name
+    that the board holds is left as it is.
+    """
+    held = {f.name for f in kept.fields} | {n for n in map(_property_name, _slots(kept)) if n is not None}
+    # The writer puts read fields in file order and created ones after them. An added field takes the
+    # provenance of the node's first field, so it sorts with that field and, being listed first, is
+    # written before it.
+    first = kept.fields[0].provenance if kept.fields else None
+    added = [
+        dataclasses.replace(field, provenance=first)
+        for name in MANDATORY_FIELDS
+        for field in built.fields
+        if field.name == name and name not in held
+    ]
+    if not added:
+        return kept
+    return dataclasses.replace(kept, fields=(*added, *kept.fields))
+
+
 def _net_names(design: Design) -> dict[str, str]:
     return {n.id: n.name for n in design.circuit.nets}
 
@@ -674,26 +697,44 @@ def merge_layout(
     *,
     net_aliases: Mapping[str, str] | None = None,
     identities: Mapping[str, Mapping[str, str]] | None = None,
+    lock_outline: bool = False,
 ) -> Merged:
     """The layout to write: the existing board with the built design's circuit and footprints merged.
+
+    The existing board is adapted first: to the script's copper count (``layers.merge_layers``) and then
+    to the script's outline (``outline.merge_outline``, with ``lock_outline`` as its lock). Every other
+    rule applies to the adapted board (``docs/lens.md``, "Outline changes" and "Copper count changes").
 
     ``net_aliases`` (new name → old) lets copper follow a renamed net. ``identities`` maps the component
     path of an alias match to its identity map (``lens.moved.identity_map``): with it the footprint is
     kept under its new path, and without it an alias match is re-placed."""
     assert built.board is not None and board.board is not None
     issues: list[Issue] = []
-    copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
     wanted_copper = [layer.name for layer in built.board.layers if layer.kind == "copper"]
+    wanted_count = layers.created_count(wanted_copper)
+    if wanted_count is not None:
+        # a count change between two created tables adapts the board instead of refusing it (c0102)
+        adapted_layers = layers.merge_layers(board, wanted_count)
+        board = adapted_layers.board
+        issues += adapted_layers.issues
+        assert board.board is not None
+    copper = [layer.name for layer in board.board.layers if layer.kind == "copper"]
     if copper != wanted_copper:
         issues.append(
             issue(
                 "layout.copper-mismatch",
-                f"the board's copper layers {copper} differ from the design's {wanted_copper}",
+                f"the board has {len(copper)} copper layers ({', '.join(copper)}) and the script declares "
+                f"{len(wanted_copper)} ({', '.join(wanted_copper)})",
                 "board",
-                "rebuild with --discard-layout to create the board on the new stack-up",
+                f"rebuild with --discard-layout to create the board on the script's {len(wanted_copper)} "
+                "copper layers without its layout",
             )
         )
         return Merged(built, tuple(issues), {})
+    adapted_outline = outline_mod.merge_outline(built, board, locked=lock_outline)
+    board = adapted_outline.board
+    issues += adapted_outline.issues
+    assert board.board is not None
     components = {c.id: c for c in built.circuit.components}
     by_path = {p: c for p, c in _paths(built).items()}
     built_fps = {fp.component_id: fp for fp in built.board.footprints}
@@ -749,9 +790,13 @@ def merge_layout(
                         )
                     )
                 node, written = _apply_user_properties(kept_fp, copy, found.path)
+                node = _apply_mandatory_fields(node, copy)
                 pad_nets = {p.number: p.net_id for p in copy.pads}
                 kept_pads = tuple(dataclasses.replace(p, net_id=pad_nets.get(p.number)) for p in node.pads)
-                placed.append(dataclasses.replace(node, component_id=component.id, pads=kept_pads))
+                # a KiCad file holds no body: the built copy is the only source of its bodies (c0140)
+                placed.append(
+                    dataclasses.replace(node, component_id=component.id, pads=kept_pads, bodies=copy.bodies)
+                )
                 props = dict(read.properties) if read is not None else {}
                 if identity is not None and PATH_PROPERTY in props:
                     props[PATH_PROPERTY] = found.path
@@ -896,6 +941,11 @@ def merge_layout(
                 new,
             )
         )
+    # rule areas, texts, graphics and dimensions that the script declares are regenerated (c0103); the
+    # others stay as the board has them
+    items = boarditems.merge_items(board, built)
+    issues += items.issues
+    scripted = boarditems.script_items(built)
     # board content and the outline rule
     edge = _edge_graphics(board)
     outline = None if edge else built.board.outline
@@ -905,7 +955,7 @@ def merge_layout(
                 "layout.outline-kept",
                 "the board's edge content differs from the design's board() outline and is kept",
                 "board",
-                "change the outline in KiCad, or re-run with --discard-layout",
+                OUTLINE_HINT,
             )
         )
     # the paper and the title block that the script declares are the script's (c0074); without a call
@@ -924,6 +974,10 @@ def merge_layout(
         arcs=tuple(arcs),
         vias=tuple(vias),
         zones=tuple(zones),
+        keepouts=(*items.keepouts, *scripted["keepouts"]),
+        texts=(*items.texts, *scripted["texts"]),
+        graphics=(*items.graphics, *scripted["graphics"]),
+        dimensions=(*items.dimensions, *scripted["dimensions"]),
     )
     nets = tuple(
         dataclasses.replace(net, members=tuple(sorted({*net.members, *extra_members.get(net.id, [])})))
@@ -949,6 +1003,7 @@ def merge_layout(
             "stale": script.stale,
             "duplicates": script.duplicates,
         },
+        "board_items": {"regenerated": items.regenerated, "stale": items.stale},
     }
     return Merged(dataclasses.replace(built, circuit=circuit, board=merged_board), tuple(issues), summary)
 
@@ -1055,10 +1110,14 @@ def fill_inputs_digest(
                 f"keepout {k.outline} {'+'.join(k.layers)} {k.no_tracks}{k.no_vias}{k.no_pads}"
                 f"{k.no_copper_pour}{k.no_footprints}"
             )
+        # an edge is digested as its text, so an outline of the model and the same outline read back as
+        # edge graphics give one digest (c0102: a re-signed outline keeps the fills)
         for g in _edge_graphics(design):
-            lines.append(f"edge {g.kind} {g.points} {g.width}")
-        if board.outline is not None:
-            lines.append(f"outline {board.outline.points} {board.outline.cutouts}")
+            text = outline_mod.graphic_text(g)
+            lines.append(f"edge {g.kind} {g.points} {g.width}" if text is None else f"edge {text} {g.width}")
+        if board.outline is not None and not _edge_graphics(design):
+            for text in outline_mod.edge_texts(board.outline):
+                lines.append(f"edge {text} {pcb.OUTLINE_WIDTH}")
     if project is not None:
         info = pro.read_project(project, issues=[])
         for cls in info.classes:

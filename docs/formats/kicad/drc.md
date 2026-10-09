@@ -25,6 +25,7 @@ names were recorded, and the files are never vendored or read at runtime. Source
 | `kicad-cli` 9.0.9 and 10.0.6 write strict JSON reports that hold the 7 required keys; `ignored_checks` appears in the 10.0.6 report and not in the 9.0.9 one | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-JSON |
 | The unrouted blink placed through the model API (`tests/kicad/build/_probe_boards.py`), for target 9 on 9.0.9 and for targets 9 and 10 on 10.0.6, gives one violation type, `lib_footprint_issues` with severity `warning`, and 3 `unconnected_items`; the variant with one part moved off the board outline gives the same type, severity and count | S-0020, S-0022 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BUILD-TRIAD |
 | The custom-rule kinds of change c0071 are reported under the types `hole_to_hole`, `hole_clearance`, `annular_width`, `courtyards_overlap` (courtyard clearance), `silk_overlap` and `silk_over_copper` (silkscreen clearance) and `creepage` (10.0.6 only), each with the rule name and the limit and actual values in its `description` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
+| A rule area reports `items_not_allowed` per setting: `tracks` for a track inside it and for one that only crosses its edge, `vias` for a via (not for a track beside it), `pads` once per pad of a footprint, `footprints` for the footprint and not for its pads; nothing for an item outside the area or on a layer the area is not on. A stored fill over an area that forbids `copperpour` is not reported, and the refill of 10.0.6 leaves the area out of the fill (probes `area-keepout-*`, recorded for 9.0.9 and 10.0.6; the refill is 10.0.6 only). The description of the violation differs per major, so only the type and the item uuids are read | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-AREA-KEEPOUT |
 
 ## How Fenolite reads it
 
@@ -84,6 +85,55 @@ both `<stem>.kicad_pro` and `<stem>.kicad_dru`, and is placed only in temporary 
 | On demo boards with hundreds of violations, the canary tracks change other violations run after run: 9.0.9 and 10.0.6 name other partner items for some clearance violations, and sometimes report one violation more or less (`kicad-demo-10-0-6-pcb-01`, `-07`, `-13`), so the counted report comes from a separate plain run | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CHECK-CANARY-3 |
 | `pcb drc` stops reporting `clearance` violations near 499 per run: 10.0.6 reports exactly 499 on a board with more, 9.0.9 between 499 and 508; the canary's violation then competes for a place and can be missing although the rules were loaded (4 of 110 canary runs on `kicad-demo-10-0-6-pcb-01` and `-13`); below 499 it was never missing | S-0020 (measured; no statement found in S-0010, S-0022, S-0038) | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMIT |
 | Two DRC runs of one unchanged project differ at most in the report order and in entries of the types `clearance`, `hole_clearance` and `unconnected_items` (six of the 21 demo boards); every other type, the return code and the written files repeat | S-0020, S-0022 | KICAD-VERIFIED (10.0.x) | H-K-DRC-REPEAT |
+
+## Report limits
+
+`kicad-cli pcb drc` stops writing entries of one type at a fixed count, and the report does not say so. The
+limits are measured with an authored bench (`tests/kicad/check/_limitsbench.py`, change c0141): a board of
+400 mm × 400 mm with a `{}` project and a rules file, holding N copies of one small construct per type, each
+giving one entry of its type and none of another. No public statement of the limits was found; KiCad's
+source was not read. `fenolite.backends.kicad.drc.REPORT_LIMITS` holds them per major (499 for `clearance`
+and `unconnected_items`, 199 for every other type), `KicadOracle.report_limits()` returns them, and the
+canary's `CLEARANCE_REPORT_LIMIT` is the table's `clearance` value. A type that no probe measured is taken
+to stop at 199; `MEASURED_TYPES` of the same module names the measured types per major (thirteen on
+10.0.6, twelve on 9.0.9, where `hole_clearance` is not measured). `check` marks every count that reached its limit as a lower bound (`summary.limits`,
+`check.report-limit`; `docs/cli-contract.md`). The 9.0.9 rows are the bench's run of 2026-10-08 in the
+pinned image (the `kicad-9` job of CI has not run it yet); the counts are in
+`docs/evidence/kicad-check.md`, "DRC report limits per type".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| 10.0.6 writes at most 499 entries of violations of type `clearance` per run: 700 copies of the bench construct give 499 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 499 entries of the list `unconnected_items` per run: 700 copies of the bench construct give 499 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `track_dangling` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `via_dangling` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `copper_edge_clearance` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `track_width` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `hole_to_hole` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `hole_clearance` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `annular_width` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `silk_overlap` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `courtyards_overlap` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `lib_footprint_issues` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 10.0.6 writes at most 199 entries of violations of type `shorting_items` per run: 700 copies of the bench construct give 199 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 stops writing violations of type `clearance` at 499 or a few more per run (499 on this bench at 700 copies; 500 on the board of nine benches of 2026-10-05; 499 to 508 on the bench of `H-K-DRC-LIMIT`) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 499 entries of the list `unconnected_items` per run: 700 copies give 499 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `track_dangling` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `via_dangling` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `copper_edge_clearance` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `track_width` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `hole_to_hole` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `silk_overlap` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `courtyards_overlap` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `lib_footprint_issues` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `annular_width` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes at most 199 entries of violations of type `shorting_items` per run: 700 copies give 199 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| 9.0.9 writes no entry of type `hole_clearance` for a pad 0.5 mm from an unplated hole under a rule of 1 mm, the construct that 10.0.6 reports: 0 entries at 3 and at 700 copies, in one footprint or in two, with or without a net | S-0029 | KICAD-VERIFIED (9.0.x) | H-K-DRC-LIMITS |
+| On 9.0.9 the limit of `hole_clearance` is taken to be the 199 of the other types; no run measured it there (the type is reported there between a via hole and a track, `H-K-DRU-KIND-2`) | S-0020, S-0029 | INFERRED | H-K-DRC-LIMITS |
+| A type under its limit is written in full: 150 copies of `track_dangling`, of `silk_overlap` and of the unconnected construct give 150 entries each (9.0.9, 10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMITS |
+| `--all-track-errors` does not lift the limit: 700 dangling tracks give 199 `track_dangling` entries with and without it (9.0.9, 10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMITS |
+| The limits are per type and independent: one board that holds 700 copies of each of the thirteen constructs gives each type its own limit (10.0.6; on 9.0.9 each of the twelve types it reports) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMITS |
+| No key of the report says that a type was cut: its top-level keys are `$schema`, `coordinate_units`, `date`, `ignored_checks`, `included_severities`, `kicad_version`, `schematic_parity`, `source`, `unconnected_items` and `violations` (10.0.6); the report of 9.0.9 has the same keys without `ignored_checks` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-LIMITS |
 
 ## Findings
 
@@ -169,3 +219,60 @@ These are Fenolite's choices:
 - **Verdict.** RT2 holds when the remaining keys have equal counts. A difference is a failure only when
   no key is unstable, that is when every run of each side gave the same report. Otherwise RT2 is not
   judged on that board: the stage says so, reports no failure and carries no evidence.
+
+## Net ties (c0114)
+
+What `pcb drc` reports on a footprint that holds `net_tie_pad_groups`, measured on the bench of
+`tests/kicad/check/_tiebench.py`: one board written by Fenolite, every footprint an authored definition
+with `Footprint.net_tie`, a `{}` project (KiCad's `Default` class, 0.2 mm), and a control pair of tracks
+whose `clearance` violation must be in the report. Only `shorting_items`, `clearance`,
+`solder_mask_bridge` and `unconnected_items` are counted. The same probes give the same outcomes on 9.0.9:
+`tests/kicad/check/test_net_ties.py` passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226
+(2026-10-08), so the rows name both majors.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A footprint with `net_tie_pad_groups` gets no `shorting_items` and no `clearance` between two of its pads, whether the two share a group or not: pads of one group that overlap, pads of one group 0.1 mm apart, three pads of one group, and pads of two groups or outside every group that overlap or sit 0.15 mm apart | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+| Between two pads of such a footprint that overlap and share no group, `solder_mask_bridge` is still reported; between two pads of one group it is not | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+| With the token, a pad is not judged against a filled copper polygon of its own footprint (the form of the footprints of KiCad's own net-tie library); without it the polygon, which has no net, is reported against each pad it touches, with `solder_mask_bridge` and with `shorting_items` or `clearance` at an actual distance of 0 (both types in one run on 10.0.6) | S-0020, S-0018 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+| A track is judged against the pads of a net-tie footprint as against any pad: a track of the net of pad 1 that ends 0.1 mm from pad 2 gives `clearance` (the track and pad 2) and `unconnected_items` (pad 1 and the track), with the token and without it | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+| The group string `"1,2"` is read as `"1, 2"` is | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+| Without the token, two overlapping pads of two nets give `shorting_items` and `solder_mask_bridge`, and two pads 0.1 mm apart give `clearance` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-NETTIE-DRC |
+
+Fenolite's copper check follows the first row only for two pads of one group (`copper.md`, "Supported
+cases"): a touch between a tied pad and a pad the designer did not tie is a defect, so it stays a finding.
+
+## Stored exclusions (c0114)
+
+A project file stores the DRC exclusions of its board in `board.design_settings.drc_exclusions`
+(`project.md`, "Stored exclusions"). Measured on the bench of `tests/kicad/check/_exclcases.py`: two
+tracks 0.1 mm apart, a lone via at (30.123456, 20.654321) mm, and project files that differ only in that
+list, each key built from the report of a first run. `tests/kicad/check/test_drc_exclusions.py` passed on
+9.0.9 and 10.0.6 in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `pcb drc` applies a stored exclusion only when its type, its position in nanometres and its two uuids in order equal those of a violation: the position is that of the violation's first item, and the second uuid of an entry of one item is the nil uuid | S-0020, S-0055 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-EXCL |
+| A position that is 1 nm off, another uuid, or the two uuids of a clearance entry in the other order exclude nothing, and the report says nothing about the key | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-EXCL |
+| An excluded entry keeps its severity and gains `excluded: true` and `comment`, the text stored with the key (empty for a key stored as a plain string); an entry that is not excluded carries no `excluded` key | S-0020, S-0055 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-EXCL |
+| A run does not write the project file | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-EXCL |
+
+`fenolite check` therefore says what the tool does not (`cli-contract.md`, "Waivers"): the issue of an
+excluded entry ends with its comment, and a stored exclusion that no longer applies is reported as
+`check.exclusion-stale`, `moved` when an entry of its type and uuids is reported again and `gone` when
+none is. Exclusions of the types `clearance`, `hole_clearance`, `unconnected_items` and `shorting_items`
+are not judged, because KiCad does not repeat their entries from run to run (`H-K-DRC-REPEAT`,
+`H-K-VIA-RENET`). Fenolite reads exclusions and never writes one: the key needs the marker position,
+which the report gives only as item positions.
+
+## Tuning profiles (c0105)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| On 10.0.6 a profile named by a class key makes DRC check the width of each listed layer, and for a differential profile the pair gap (`diff_pair_gap_out_of_range`), with `min` = `max` = the row's value, at the severity of `tuning_profile_track_geometries` (template: `ignore`) | S-0038, S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A layer without a row is not checked, and a differential profile does not check single tracks of its class; DRC does not use `target_impedance` | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A class key naming an absent profile gives the warning `missing_tuning_profile` | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| The gap of a differential profile relaxes the clearance between the two nets of its pairs where no custom clearance rule governs them, at any severity of the profile check | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+
+The probes `pro-tuning-*` of `tests/kicad/impedance/test_tuning_drc.py` settle these rows; they are written
+and await their first recorded run (`docs/evidence/impedance.md`).

@@ -2,8 +2,9 @@
 # Copyright (c) 2026 Fenolite contributors
 """The issue codes of ``fenolite export`` and ``fenolite render`` (capability manufacturing-exports,
 "Export kinds and their arguments"), of ``fenolite bom`` and ``fenolite pnp`` (capability
-assembly-outputs, "Assembly issue codes and evidence"), and of the manifest (capability
-manufacturing-exports, "Project manifest")."""
+assembly-outputs, "Assembly issue codes and evidence"), of the manifest (capability
+manufacturing-exports, "Project manifest"), and of the drawing kinds (the seven ``drawing.*`` codes of
+change c0117; ``docs/drawings.md``)."""
 
 from __future__ import annotations
 
@@ -16,7 +17,11 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
     {
         "export.failed": "error",
         "export.kind-unavailable": "error",
+        "export.stackup-default": "info",
         "render.failed": "warning",
+        "export.sheet-missing": "error",
+        "export.model-unread": "warning",
+        "export.page-too-small": "warning",
         "assembly.template-invalid": "error",
         "bom.property-missing": "info",
         "bom.field-unsupported": "error",
@@ -26,6 +31,19 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "manifest.changed": ("warning", "error"),
         "manifest.stale": "warning",
         "manifest.unlisted": "info",
+        "drawing.no-room": "error",
+        "drawing.drill-mismatch": "error",
+        "drawing.sheet-unread": "error",
+        "drawing.drill-report-unread": "warning",
+        "drawing.stackup-missing": "info",
+        "drawing.side-empty": "info",
+        "drawing.designators-added": "info",
+        "testpoint.covered": "warning",
+        "testpoint.no-net": "warning",
+        "testpoint.none": "info",
+        "testpoint.coverage-low": "error",
+        "testpoint.too-close": "error",
+        "fiducial.too-few": "error",
     }
 )
 """Code → severity. A code with two severities is a warning when ``fenolite manifest`` writes (the file is

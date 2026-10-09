@@ -42,9 +42,9 @@ objects change; the diff matches such objects by content.
 | `meta.json` | `DesignHeader` | id, name, `schema_version` (`"0"`), `fenolite_version` |
 | `circuit.json` | `Circuit` | components (pins), nets (pin members), net classes, interfaces, modules, no-connect marks |
 | `board.json` | `Board` | outline, layers, stack-up, footprints (pads), tracks, arcs, vias, zones, keep-outs, texts, graphics, holes |
-| `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest) |
+| `rules.json` | `RuleSet` | rules: kind, selectors, layers, min/opt/max, severity, priority (1 = highest); check severities |
 | `manufacturing.json` | `Manifest` | generated artefacts with tool, version, revision, variant, evidence, state |
-| `findings.json` | `Findings` | issues |
+| `findings.json` | `Findings` | issues, waivers |
 
 `Design` aggregates them and offers read-only indexes (`by_id`, `by_ref`, `by_net`, `by_layer`)
 and `validate()` (duplicate ids and references, dangling references, empty and single-pin nets, and
@@ -178,12 +178,14 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
 |---|---|
 | `FootprintInstance.attributes` | ordered footprint flags: `smd`, `through_hole`, `board_only`, `exclude_from_pos_files`, `exclude_from_bom`, `dnp`, `allow_missing_courtyard`, `allow_soldermask_bridges` |
 | `Via.via_type` | `through` (default), `blind`, `buried` or `micro` |
+| `Track.locked`, `Arc.locked`, `Via.locked` | the copper lock (change c0108): tools must not move or remove the item. `fenolite route --rip` keeps it, the KiCad backend reads and writes it as `(locked yes)`, and an Altium build writes it as the lock bit of the record. `False` by default, and the key is written only when true, so a design without locked copper serialises to the bytes it had. Releases 0.2.x and 0.3.x cannot read a model document that carries the key `locked` on a track, an arc or a via: their reader refuses an unknown key |
 | `ZoneFill.island` | the fill is an island; a zone may have several fills per layer, in file order |
 | `Zone.name` | the zone's name, `""` when it has none |
 | `Zone.settings` | how the zone is filled (section "Zone settings") |
 | `Zone.filled` | the board's own fill flag, kept apart from `Zone.fills`: a zone may be filled with an empty result |
 | `Zone.locked` | the zone is locked against edits in the board editor |
 | `Pad.zone_connection` | how zones connect to the pad: `solid`, `thermal`, `none` or `thru_hole_only`; `None` means that the pad follows its footprint and the zone |
+| `Pad.fab_property` | the fabrication mark of the pad (change c0118), what KiCad calls the fabrication property of a pad: `bga`, `fiducial_global`, `fiducial_local`, `test_point`, `heatsink`, `castellated`, `mechanical` or `press_fit`; `None` for no mark. Board pads and library pads carry it; the model does not check it against the pad's kind or layers. The key is written only when a mark is set, so a design without marks serialises to the bytes it had. Releases 0.2.x and 0.3.0 cannot read a model document that carries the key `fab_property`: their reader refuses an unknown key |
 
 - **Pad frame.** `Pad.position` is footprint-local: absolute = `instance.position +
   R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,
@@ -198,6 +200,14 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   is rotated.
 - **Outlines.** An empty `Zone.outline` or `Keepout.outline` means the backend keeps the outline as
   an opaque slot. `Board.outline` is `None` for an imported board; its edge graphics are authoritative.
+- **Outline arcs.** `Outline.points` and `Outline.cutouts` hold the vertices of each ring, in order.
+  `Outline.arcs` makes an edge an arc: `OutlineArc(ring, edge, mid)`, where ring 0 is `points`, ring k is
+  `cutouts[k − 1]`, and edge i of a ring of n vertices joins vertex i to vertex (i + 1) mod n; the arc
+  runs from the first vertex through `mid` to the second. Entries are sorted by `(ring, edge)`, at most
+  one per edge. A ring has three vertices or more, or two when one of its two edges is an arc: a circle
+  is two arcs. The canonical writer omits `arcs` when it is empty, so a `board.json` written before
+  loads unchanged and an outline without arcs keeps its bytes.
+  Release 0.2.x cannot read a model document that carries `arcs`: its reader refuses an unknown key.
 - **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name
   are in `Layer.ext[<backend>]`.
 - **Synthesised circuit.** A board read without a schematic gets one `Component` per footprint, one
@@ -257,10 +267,29 @@ written before them still load.
   board surface to the top of the body), `standoff` (from the board surface to its underside, 0 by
   default), `outline` (a polygon in the footprint frame, empty when the source gives none), `layer`,
   `model` (the name of a 3D model for the kind `model`) and `name`.
-- A body states a volume above the side the footprint is placed on and carries no model data. The height
-  of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- A legacy body states a volume above its mounted side and carries no model data. Outward height
+  is the largest known z_max (or legacy height); without known extents it is unknown.
+- `fenolite.model.board.outward_height(footprint)` (change c0140) is the one function of the package that
+  computes the height of a placed part: the largest upper bound of the footprint's known bodies, `None`
+  when it has no known body or that bound is not positive. A body is known when its `projection_unknown`
+  is false; its upper bound is its `z_max` when it has signed bounds (change c0099), and its `height`
+  otherwise. It reads neither the component, nor a footprint property, nor a 3D model, nor `standoff`, nor
+  `z_min`. No other field holds a part's height: `Component` has none, and a script states a height by
+  giving the part a body (`docs/dsl.md`, `Part(height=…)`). Every consumer (the height limits of
+  `docs/placement.md`, a checker, an exporter) calls it.
 - `Design.validate()` reports `model.body-height` (error), with `where` set to the body's id, for a body
-  whose `height` is below its `standoff` or whose `standoff` is negative.
+  without signed bounds and without unknown projection whose `height` is below its `standoff`
+  or whose `standoff` is negative.
+- Signed body intervals use integer-nm `z_min` and `z_max`, both present and ordered, in the
+  mounted-face frame with positive Z outwards. They take precedence over source height/standoff;
+  `model.body-volume` reports a half-specified or reversed interval at the body id.
+- `projection_unknown` defaults to false. Unknown projections are retained but have no qualified
+  extrusion; malformed source heights use 0, reversed heights, unsupported model types and mismatched
+  projection sides produce warnings and bypass `model.body-height`. Explicit intervals still validate.
+- Known imports serialize both bounds equal to source standoff/height, including negative standoff.
+  Old v0.2.0 body documents retain default fields and identical bytes; legacy validation applies until
+  source reimport. The canonical readers of releases 0.2.x and 0.3.0 refuse documents containing the new
+  body keys.
 - The KiCad backend reads and writes no body: a KiCad build keeps the bodies of a design in `.fenolite/`.
 
 ## Footprint items and corner ratio
@@ -305,6 +334,175 @@ c0126).
   an Altium build, or the model of an imported Altium board, is therefore not readable by 0.2.x; build
   or import again with the older release if you must go back.
 
+## Stack-up
+
+`Board.stackup` describes the board's build-up from its top face to its bottom face (change c0101);
+a board whose source states none has `stackup` `None`, and the model then holds no board thickness.
+
+- `Stackup.layers` lists every entry the source keeps, in order. A `copper` entry is named after its
+  copper layer in `Board.layers`. `soldermask`, `silkscreen` and `solderpaste` entries describe the outer
+  layers and lie above the first copper entry or below the last; silkscreen and paste entries have the
+  thickness 0. Every entry between two copper entries is a `dielectric`; a dielectric made of several
+  sheets is one entry per sheet, consecutive, the sheets sharing a name.
+- `StackLayer.dielectric_kind` is `core`, `prepreg` or `None` (not stated); `StackLayer.color` is the
+  colour as the source names it; `Stackup.impedance_controlled` is true when the dielectric values are
+  requirements for the fabricator. `epsilon_r` and `loss_tangent` are plain decimal texts or empty.
+- `Stackup.thickness()` is the sum of the entries: the board thickness of the model, and the only one.
+  `Stackup.depth(name)` gives the depths, below the top face, of the two faces of the first entry of that
+  name (`KeyError` for an unknown name). `Stackup.between(upper, lower)` gives the entries strictly
+  between two entries, top to bottom (`KeyError` for an unknown name, `ValueError` when `upper` does not
+  lie above `lower`).
+- `Design.validate()` reports, with `where` set to the stack-up's id and at most once each, naming the
+  first problem: `model.stackup-order` (error) for an outer entry between two copper entries, two entries
+  of one outer kind on one side, a dielectric outside the outer copper entries, two neighbouring copper
+  entries with nothing between them, the dielectrics of one gap with different kinds, or a
+  `dielectric_kind` on an entry that is not a dielectric; `model.stackup-copper` (error) for a stack-up
+  without a copper entry, or whose copper entries are not the board's copper layers in ordinal order;
+  `model.stackup-value` (error) for a negative thickness, a copper or dielectric entry of thickness 0, an
+  `epsilon_r` that is neither empty nor a plain decimal above 0, or a `loss_tangent` that is neither empty
+  nor a plain decimal (digits, an optional point and digits, no sign and no exponent; a loss tangent of 0
+  is what KiCad writes for a solder mask).
+- The three fields are additive: `canonical` omits the defaults, a `board.json` written before them loads
+  unchanged and serialises to its own bytes (`tests/data/model/v0.2.1/blink_2layer.board.json`), and
+  `schema_version` stays `"0"`. The other direction does not hold. Release 0.2.x cannot read a model
+  document that carries `dielectric_kind`, `color` or `impedance_controlled`: its reader refuses an
+  unknown key.
+
+## Rule areas, board items and the area selector
+
+Change c0103 adds what a script needs to declare rule areas and drawings:
+
+- `Keepout.name: str = ""`, the name of a rule area. A `Keepout` whose five settings are false is a named
+  area that only rules select.
+- `Text.h_justify` and `Text.v_justify` (`left`, `center`, `right` and `top`, `center`, `bottom`; `center`
+  by default), in the reading frame of the text.
+- `Dimension`, a linear dimension between two points: `kind` (`aligned` or `orthogonal`), `layer`, `start`,
+  `end`, `offset` (the signed distance of the dimension line from the points), `direction` (`horizontal`
+  or `vertical`, for an orthogonal one), `units` (`mm` or `in`), `precision` (4 by default), and `size`,
+  `thickness` and `width`, where `None` means the backend's default. The measured value is not a field: it
+  follows from the points. `Board.dimensions` holds them; the id prefix is `dim`.
+- The selector op `area`: `Selector("area", v)` matches a subject whose `RuleSubject.areas` (the names of
+  the rule areas it lies in) holds a name that `v` matches with `fnmatch.fnmatchcase`. Letter case counts
+  and `*` is a glob.
+- The keys are additive: `canonical` omits the defaults, and a document written before them loads
+  unchanged and serialises to its own bytes. The other direction does not hold. Release 0.2.x cannot read
+  a model document that carries one of the new keys (`name` of a keep-out, `h_justify` and `v_justify` of
+  a board text, `dimensions` of a board) or a selector of the op `area`: its reader refuses an unknown key
+  and its schema an unknown op.
+
+## Via protection
+
+`Via.protection` and `Board.via_protection` say how vias are protected (change c0112). Both hold a
+`ViaProtection`, a value object without an entity header and with eight fields, each `True`, `False` or
+`None`: `tenting_front`, `tenting_back`, `covering_front`, `covering_back`, `plugging_front`,
+`plugging_back`, `capping` and `filling`. `True` means that the feature is applied on that side (or to the
+via, for `capping` and `filling`), `False` that it is not.
+
+- On a via, `None` means that the field follows the board's default. A via without protection holds
+  `ViaProtection()`, every field `None`. `protection` is the field before `locked` (c0108), which stays
+  the last field of `Via`.
+- `Board.via_protection` is the default for every via. `None`, whole or for one field, means the backend's
+  own default: KiCad tents both sides and applies nothing else (`docs/formats/kicad/board.md`, "Via
+  protection"); the Altium backend leaves the tenting flags clear (`docs/altium.md`).
+- The model computes no effective value: `fenolite.backends.kicad.via_protection.effective` does, for the
+  KiCad backend.
+- The two fields are additive: `canonical` omits the defaults, so a via whose protection is
+  `ViaProtection()` and a board without a default write the text they wrote before, a `board.json` written
+  before them loads unchanged and serialises to its own bytes
+  (`tests/data/model/v0.2.1/blink_2layer.board.json`), and `schema_version` stays `"0"`. The other
+  direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `board.json` that carries `protection` or
+  `via_protection`: their reader of the canonical form is strict.
+
+## Differential pairs
+
+A differential pair is an `Interface` whose kind is a key of `fenolite.model.pairs.PAIR_ROLES`
+(change c0104): `diff_pair` with the roles `p` and `n`, and `usb2` with `dp` and `dn`, the positive role
+first. The model holds no other pair entity, and a pair holds no constraint of its own: its width, gap
+and via gap are values of the net class of its two nets, and its limits are rules that select it.
+
+- **Name rule** (`H-K-DIFFPAIR-NAMES-2`, `docs/formats/kicad/rules.md`). `split_pair_name(name)` takes the
+  longest trailing run of digits and `_` as the tail; the character before it must be `P`, `N`, `+` or `-`
+  (the polarity), and the text before that is the base. `coupled_name` swaps the polarity;
+  `pair_base(positive, negative)` is the base when the first name has the polarity `P` or `+` and the
+  second is its coupled name. `USB_P`/`USB_N` has the base `USB_`, `USB_DP`/`USB_DN` the base `USB_D`,
+  `D_P0`/`D_N0` the base `D_`. Letter case counts. `net_bases(names)` gives the base of every name whose
+  coupled name is among `names`; `pair_nets(interface)` gives the two net ids of a pair interface.
+- **Class values.** `NetClass.diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` are lengths in
+  nm or `None` (the default), stored in `circuit.json`. They are what a router lays a pair with, not
+  limits.
+- **Rule kinds.** `RuleKind` holds five kinds for pairs and nets: `diff_pair_gap`, `diff_pair_uncoupled`,
+  `skew` (every selected net against the longest of them), `diff_pair_skew` (the two nets of each
+  selected pair) and `length`.
+- **The pair leaf.** `SelectorOp` and `LEAF_OPS` hold `diff_pair`, whose value is a pair base or `*`.
+  `RuleSubject.diff_pair` is the base of the subject's net when the design holds its coupled net, and
+  `Selector("diff_pair", v)` matches a subject whose base matches `v` as a glob with its letter case, or
+  ends with `_` and matches `v` without that `_`.
+- The fields, the kinds and the leaf are additive: `canonical` omits the defaults, a `circuit.json` and a
+  `rules.json` written before them load unchanged, and `schema_version` stays `"0"`. The other direction
+  does not hold. Fenolite 0.2.x and 0.3.0 cannot read a `circuit.json` or a `rules.json` that carries them
+  (one of the three class keys, one of the five kinds or a `diff_pair` leaf): their reader of the canonical
+  form is strict. A build regenerates `.fenolite/`.
+
+## Proximity rules
+
+`RuleSet.proximity` holds the placement rules of a design (change c0113): which parts belong near which
+pads. `fenolite.model.rules` defines two frozen value objects for it, without an entity header.
+
+- `PadSelection(path, number="", index=None)` selects pads of one part by its component path: every pad
+  when `number` is empty, the pads of that number otherwise, and only the one at `index` among them, in
+  the footprint's pad order, when `index` is given. An `index` needs a `number`.
+- `ProximityRule(name, parts, anchor, within, severity="error")`: each part of `parts` keeps one of its
+  selected pads within `within` (nm, pad centre to pad centre) of a selected pad of `anchor`. `severity`
+  is `error` or `warning` (`PlacementSeverity`). `parts` and `anchor` are not empty and `within` is above
+  0; a `RuleSet` refuses two rules of one name.
+- A rule is named by its key and has no id. It is no rule of `RuleSet.rules` and has no `RuleKind`: no
+  backend lowers it, and a board read from a file has none. `to_model` writes the rules in name order
+  (`docs/dsl.md`, `near`), and `fenolite.checks.placement.judge` judges them (`docs/placement.md`).
+- The field is additive: `canonical` omits `proximity` when it is empty, so a design that declares no
+  rule writes the bytes it wrote before and every output of 0.2.0 keeps its bytes, a `rules.json` written
+  before the field loads unchanged, and `schema_version` stays `"0"`. The other direction does not hold.
+  Fenolite 0.2.x and 0.3.0 cannot read a `rules.json` that carries `proximity`: their reader of the
+  canonical form is strict.
+
+## Height limits
+
+`RuleSet.heights` holds the height limits of a design (change c0140): where parts may not be tall.
+`fenolite.model.rules` defines the frozen value object for it, without an entity header.
+
+- `HeightLimit(area, max, severity="error")`: every rule area (`Keepout`) whose `name` is `area` limits the
+  parts under it to `max` (nm, the outward height of `outward_height`). `area` is not empty, `max` is above
+  0, `severity` is `error` or `warning` (`PlacementSeverity`); a `RuleSet` refuses two limits of one area.
+- A limit is keyed by its area and has no id. It is no rule of `RuleSet.rules` and has no `RuleKind`: no
+  backend lowers it, and a board read from a file has none. `to_model` writes the limits in area order
+  (`docs/dsl.md`, `height_limit`), and `fenolite.checks.placement.judge_heights` judges them
+  (`docs/placement.md`).
+- The field is additive: `canonical` omits `heights` when it is empty, so a design that declares no limit
+  writes the bytes it wrote before, a `rules.json` written before the field loads unchanged, and
+  `schema_version` stays `"0"`. The other direction does not hold. Fenolite 0.2.x and 0.3.0 cannot read a
+  `rules.json` that carries `heights`: their reader of the canonical form is strict.
+
+## Impedance targets
+
+`RuleSet.impedance` holds the impedance targets of a design (change c0105; guide `docs/impedance.md`).
+
+- `ImpedanceKind` is `single` or `differential`.
+- `TraceGeometry(layer, references, width, gap=None)` is a value object: a copper layer, one or two
+  reference layers in stack order (none equal to the layer), the width in nm above 0, and the gap in nm
+  above 0 for a `differential` target, `None` for a `single` one.
+- `ImpedanceTarget(name, kind, netclass_ids, ohms, tolerance_percent="", layers=())` is an entity (prefix `imp`): the
+  ids of the classes it governs, `ohms` and `tolerance_percent` as decimal text (`"90"`, `"7.5"`; never
+  from a `float`; `ohms` is `""` only for a target read from a file that gives none), and one geometry per
+  layer in stack order. Targets keep their declaration order.
+- `Design.validate()` reports `model.impedance-invalid` (error) for an unknown class, a class of two
+  targets, two targets of one name, a layer given twice, a gap that does not fit the kind, a width or gap
+  of 0 or less, a reference count other than one or two, a reference equal to the layer, and an `ohms` or
+  tolerance text that is not a positive decimal or a tolerance of 100 or more.
+- Every width and gap is the user's or a KiCad profile's: no estimate enters the model.
+- The field is additive: `canonical` omits `impedance` when it is empty, a `rules.json` written before the
+  field loads with an empty tuple, and `schema_version` stays `"0"`. The other direction does not hold:
+  0.2.x and 0.3.0 cannot read a `rules.json` that carries the key `impedance`, because their reader of the
+  canonical form is strict.
+
 ## Zone settings
 
 Normative text: requirement "Zone settings in the board model" of the `design-model` capability (change
@@ -337,6 +535,8 @@ c0031); KiCad facts in `docs/formats/kicad/board.md`, "Zone settings".
   empty. It does not enter `effective()`.
 - **Pads.** `Pad.zone_connection` overrides the zone for one pad. Board pads and library pads carry it
   alike, so a library footprint can make its exposed pad solid in a thermal pour.
+  `Pad.fab_property` (change c0118) is carried the same way: a library pad marked as a BGA ball, a
+  fiducial or a test point keeps its mark on every placed copy.
 - **Old documents.** The four fields have defaults, so a `board.json` written before them still loads.
 
 ## Placed copies
@@ -405,3 +605,52 @@ atoms, and respelled fields written from changed model values).
 For a design authored in Fenolite, the exported tool project is the source of truth for layout;
 `.fenolite/` is a regenerable, git-ignored cache; imported third-party files are kept immutable by
 SHA-256 under `native/`.
+
+## Rule kinds (c0107)
+
+`model.rules.RuleKind` holds eighteen kinds. The thirteenth, `no_tracks`, was added by change c0107: tracks
+and arcs of the items that `selector_a` selects are not allowed on the copper layers of `layers`. It takes
+no limit and no `selector_b`, and it follows the twelve kinds of before, so the first twelve keep their
+order; the five pair and length kinds of change c0104 ("Differential pairs") follow it.
+
+The kind is additive in one direction only. A `rules.json` without a `no_tracks` rule is, byte for byte,
+what it was (`tests/data/model/v0.2.1/twelve_kinds.rules.json` loads and serialises to its own bytes), and
+`schema_version` stays `"0"`.
+Releases 0.2.x and 0.3.x cannot read a model document that holds a `no_tracks` rule: their `RuleKind` lacks
+the value.
+## Net ties, waivers and check severities
+
+Three keys of change c0114. Each is omitted at its default, so a design that uses none of them writes the
+documents it wrote before, byte for byte.
+
+- **`net_ties`** (`board.json`, `library.json`). `FootprintInstance.net_ties` and `FootprintDef.net_ties`
+  are tuples of groups, each group the numbers of pads of different nets that the footprint joins on
+  purpose, in the order its source lists them; ordered, `()` by default. A backend reads them from its
+  own form (KiCad: the `net_tie_pad_groups` child), the copper check does not judge two pads of one
+  group, and `Design.validate()` does not check the numbers against the pads. A backend that reads no
+  groups leaves the field empty: the Altium import does. 0.2.x and 0.3.0 cannot read a document that
+  carries `net_ties`.
+- **`waivers`** (`findings.json`). `Findings.waivers` holds `Waiver(name, code, items, reason, min_gap)`
+  values, sorted by name: the acceptance of one finding with a reason. `code` is a finding code
+  (`copper.short`, `copper.clearance`, `copper.zone-overlap` or `<oracle>.drc.<suffix>`), `items` are
+  the names of the finding's items as `where` prints them, or patterns of them, and `min_gap` is in
+  integer nm. What a waiver may say is checked where it is declared (`design.waive()`, `docs/dsl.md`);
+  how it matches is `fenolite.checks.waivers`. 0.2.x and 0.3.0 cannot read a `findings.json` that carries
+  `waivers`.
+- **`severities`** (`rules.json`). `RuleSet.severities` maps the finding code of a check of a
+  design-rule tool (`<oracle>.drc.<suffix>`) to `error`, `warning` or `ignore`, written with its keys
+  sorted. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table. 0.2.x and
+  0.3.0 cannot read a `rules.json` that carries `severities`.
+### Optional mechanical intent (c0096)
+
+`Hole.intent`, `Keepout.intent` and `FootprintInstance.anchor` optionally hold `MechanicalIntent`:
+a stable key, board-relative frame, integer nm tolerance, supplied source/evidence and `measured`,
+`estimated` or `proposed` status. Conversion adds the board origin once; absent fields remain omitted
+canonically. An anchor requires a locked DSL placement. Metadata records an input, not assembly fit.
+No script call fills `Hole.intent` or `Keepout.intent`: holes and keep-outs of a script come from
+`hole()` (c0102) and `rule_area()` (c0103), the calls the maintainer kept on 2026-10-07.
+Planner reservations reference existing physical drill pads and never add a hole or change a net.
+
+The DSL's intent metadata is conversion-only: `Placement.anchor` in `placements`. Builds and rebuilds do not persist these fields in a native
+project or its `.fenolite/` cache. `FootprintInstance.anchor` is available to callers that explicitly
+construct a neutral model; the build does not synthesize it from a placement request.

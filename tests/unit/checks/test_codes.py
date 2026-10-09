@@ -14,7 +14,7 @@ from fenolite.checks import STAGE_ORDER, codes
 from fenolite.checks.codes import ERC_FINDING, FINDING, ISSUE_CODES, issue, oracle_code, table_key
 
 CHECKS = Path(codes.__file__).resolve().parent
-CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.")
+CODE = ("check.", "erc.lite.", "netlist.", "render.", "copper.", "zone.", "parity.", "placement.", "length.")
 TABLE = {
     "check.read-refused": ("error",),
     "check.cache-unreadable": ("warning",),
@@ -23,6 +23,7 @@ TABLE = {
     "check.rt1-failed": ("error",),
     "check.oracle-failed": ("error",),
     "check.copy-skipped": ("info",),
+    "check.report-limit": ("warning",),
     "<oracle>.drc.rules-not-loaded": ("error", "info"),
     "<oracle>.drc.rules-unchecked": ("warning",),
     "<oracle>.drc.parity-unchecked": ("warning",),
@@ -36,9 +37,10 @@ TABLE = {
     "erc.lite.power-undriven": ("warning",),
     "erc.lite.floating-pin": ("warning",),
     "render.failed": ("warning",),
-    "copper.short": ("error",),
-    "copper.clearance": ("error", "warning"),
-    "copper.zone-overlap": ("warning",),
+    "copper.short": ("error", "info"),
+    "copper.clearance": ("error", "warning", "info"),
+    "copper.zone-overlap": ("warning", "info"),
+    "copper.keepout": ("error",),
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
@@ -61,6 +63,16 @@ TABLE = {
     "parity.footprint-mismatch": ("warning",),
     "parity.oracle-differs": ("warning",),
     "parity.pad-without-pin": ("info",),
+    "check.waiver-unmatched": ("warning",),
+    "check.exclusion-stale": ("warning",),
+    "placement.too-far": ("error", "warning"),
+    "placement.rule-unresolved": ("error",),
+    "placement.rule-skipped": ("info",),
+    "placement.too-tall": ("error", "warning"),
+    "placement.height-unknown": ("warning",),
+    "length.out-of-range": ("error", "warning"),
+    "length.skew-out-of-range": ("error", "warning"),
+    "length.input-missing": ("warning",),
 }
 
 

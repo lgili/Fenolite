@@ -17,7 +17,7 @@ from fenolite.backends.kicad.outline import board_outline
 from fenolite.cli._assembly import board_input, objects, planned, read_design, template_of
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._manifest import needs_out, table_manifest
-from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.api import Command, Context, Result, depends_on
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
 from fenolite.exports import manifest, placement
@@ -73,7 +73,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             writes, ctx, evidence=evidence.level.value, board=board.manifest_ref()
         )
         issues += refused
-    return Result(result=result, issues=tuple(issues), evidence=evidence, input=board.ref(), writes=writes)
+    return Result(
+        result=result,
+        issues=tuple(issues),
+        evidence=evidence,
+        input=board.ref(),
+        writes=writes,
+        depends=depends_on(ctx.cwd, board.path, args.template),
+    )
 
 
 COMMAND = Command(

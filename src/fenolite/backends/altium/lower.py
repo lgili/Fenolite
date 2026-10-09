@@ -73,6 +73,7 @@ KINDS: tuple[str, ...] = (
     "zone",
     "text",
     "graphic",
+    "dimension",
     "keep-out",
     "hole",
     "body",
@@ -85,6 +86,7 @@ MORE_KINDS: tuple[str, ...] = (
     "copper-shape",
     "zone-fill",
     "via-pad-shape",
+    "via-protection",
     "plane",
     "stackup",
     "outline",
@@ -96,6 +98,8 @@ MORE_KINDS: tuple[str, ...] = (
     "footprint-graphic",
     "footprint-copper",
     "footprint-text",
+    "net-tie",
+    "severity",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -110,6 +114,23 @@ another pin holds). Of the items of a footprint instance (change c0126): ``footp
 on a layer without a layer in the document, or one that no record holds; ``footprint-copper`` a graphic on a
 copper layer, which is not written; ``footprint-text`` a text or a field that the text record cannot hold.
 ``AltiumInputs.written`` counts the written graphics and texts under the first and the third key."""
+NET_TIE_KIND = "net-tie"
+"""A footprint with net-tie groups (change c0114): its pads are written, without a mark that ties them,
+because how Altium marks a net tie is no registered format fact. Not in ``LOSS_KINDS``: nothing of the
+board that is made is lost."""
+SEVERITY_KIND = "severity"
+"""A check severity of ``RuleSet.severities`` (change c0114): KiCad data, and no rule kind, so the rule
+table has no row for it and none is written. Not in ``LOSS_KINDS``."""
+NET_TIE_REASON = "the pads are written, without a mark that ties them: a net-tie group is KiCad data"
+
+
+def severity_reason(codes: Sequence[str]) -> str:
+    return (
+        f"the check severities of {', '.join(codes)} are KiCad data: a severity is no rule kind, and no "
+        "Altium rule holds one"
+    )
+
+
 LOSS_KINDS: frozenset[str] = frozenset(
     {
         "footprint",
@@ -127,6 +148,13 @@ LOSS_KINDS: frozenset[str] = frozenset(
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
 NOT_LOWERED = "altium.not-lowered"
+PLACEMENT_RULE_KIND = "placement-rule"
+"""The kind under which a write says that the proximity rules of the design (``RuleSet.proximity``, change
+c0113) are in no document: they are model data, ``fenolite check`` judges them, and nothing is lost. It is
+not in ``LOSS_KINDS``."""
+KEEPOUT_FOOTPRINTS_KIND = "keepout-footprints"
+"""The kind under which a write names the rule areas whose restriction on footprints (``no_footprints``) is
+in no record: ``docs/formats/altium/`` holds no fact row for it. It is not in ``LOSS_KINDS``."""
 PAD_REMOVED_KEY = "pad_removed"
 """The bag key under which the import keeps the layers on which a via has no pad shape
 (``adapter.copper.PAD_REMOVED_KEY``; change c0132)."""
@@ -268,6 +296,43 @@ class _Account:
         return found
 
 
+def placement_rule_info(design: Design) -> Issue | None:
+    """The one ``altium.not-lowered`` info of kind ``placement-rule``: how many proximity rules and height
+    limits (change c0140) ``design`` holds, and that ``fenolite check`` judges them; ``None`` for a design
+    without one. A height limit has no ``RuleKind``, so no row of the rule table writes it."""
+    rules = design.rules
+    count = len(rules.proximity) + len(rules.heights) if rules is not None else 0
+    if not count:
+        return None
+    message = (
+        f"{count} placement rule(s) of the design are not judged by this build and are in no Altium "
+        "document: they are stored in .fenolite/rules.json, and 'fenolite check' judges them on the "
+        "written board (stage placement.rules)"
+    )
+    return Issue(NOT_LOWERED, "info", message, where=PLACEMENT_RULE_KIND, hint="run fenolite check")
+
+
+def keepout_footprints_info(keepouts: Sequence[Keepout]) -> Issue | None:
+    """The one ``altium.not-lowered`` info of kind ``keepout-footprints``, naming the rule areas whose
+    restriction on footprints is not written (by name when they have one, else by id); ``None`` when no
+    area forbids footprints."""
+    names = [str(getattr(k, "name", "") or k.id) for k in keepouts if k.no_footprints]
+    if not names:
+        return None
+    message = (
+        f"the restriction on footprints of {len(names)} rule area(s) is not written ({', '.join(names)}): "
+        "the keep-out record holds tracks, vias, pads and copper only, and no stage judges a part in a "
+        "keep-out on Altium documents"
+    )
+    return Issue(
+        NOT_LOWERED,
+        "info",
+        message,
+        where=KEEPOUT_FOOTPRINTS_KIND,
+        hint="add a component keep-out in Altium",
+    )
+
+
 def pairs_of(entity: object) -> dict[str, str]:
     """The pairs of the ``altium`` bag of a model entity (the last value of a repeated key)."""
     bag = getattr(entity, "ext", {}).get(BACKEND)
@@ -343,7 +408,9 @@ def stack_from_stackup(
 ) -> StackSpec | None:
     """The stack values of ``stackup`` when it fits the document: one copper layer per copper layer of the
     board, named like it and in order, with exactly one dielectric between neighbours; ``None`` otherwise.
-    Solder mask, silkscreen and paste layers of the stack-up are passed over."""
+    Solder mask, silkscreen and paste layers of the stack-up are passed over. A dielectric whose
+    ``dielectric_kind`` is stated is written with that kind (``DIELTYPE``, ``pcb-copper.md``, "Layer
+    stack"); one without keeps the kind of ``dielectric_kinds`` by count (change c0101)."""
     physical = [layer for layer in stackup.layers if layer.kind in ("copper", "dielectric")]
     if len(physical) != 2 * len(layers) - 1:
         return None
@@ -354,12 +421,66 @@ def stack_from_stackup(
         return None
     try:
         dielectrics = tuple(
-            Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
+            Dielectric(
+                layer.dielectric_kind or kind,  # type: ignore[arg-type]
+                layer.thickness,
+                layer.epsilon_r or "4.800",
+                layer.material or "FR-4",
+            )
             for kind, layer in zip(dielectric_kinds(len(between)), between, strict=True)
         )
         return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics, nets)
     except ValueError:
         return None
+
+
+def stack_gap(stackup: Stackup) -> str | None:
+    """The first gap between two copper entries that holds two or more dielectric entries (the sheets of one
+    dielectric), as ``"between <upper> and <lower> (<n> dielectric entries)"``, or ``None``. The document
+    holds one dielectric per gap, and sheets are never merged, dropped or averaged (change c0101)."""
+    upper: str | None = None
+    count = 0
+    for layer in stackup.layers:
+        if layer.kind == "copper":
+            if upper is not None and count > 1:
+                return f"between {upper} and {layer.name} ({count} dielectric entries)"
+            upper, count = layer.name, 0
+        elif layer.kind == "dielectric":
+            count += 1
+    return None
+
+
+def stack_unheld(stackup: Stackup) -> tuple[str, ...]:
+    """The kinds of value of ``stackup`` for which the document has no recorded key: a solder mask
+    thickness above 0, a colour, the finish and the impedance-control flag (change c0101)."""
+    found: list[str] = []
+    if any(layer.kind == "soldermask" and layer.thickness > 0 for layer in stackup.layers):
+        found.append("the solder mask thickness")
+    if any(layer.color for layer in stackup.layers):
+        found.append("the colours")
+    if stackup.finish:
+        found.append("the finish")
+    if stackup.impedance_controlled:
+        found.append("the impedance-control flag")
+    return tuple(found)
+
+
+def stack_unfit_reason(stackup: Stackup) -> str:
+    """Why ``stackup`` does not fit the document, naming a gap of several sheets when there is one."""
+    gap = stack_gap(stackup)
+    if gap is not None:
+        return (
+            f"the stack-up holds several dielectric sheets {gap} and the document holds one dielectric per "
+            "gap"
+        )
+    return (
+        "the stack-up does not hold one copper layer per copper layer of the board with one dielectric "
+        "between neighbours"
+    )
+
+
+def stack_unheld_reason(unheld: Sequence[str]) -> str:
+    return f"the document has no key for {', '.join(unheld)}; the copper and dielectric values are written"
 
 
 def _stack(
@@ -393,12 +514,10 @@ def _stack(
     if board.stackup is not None and problem is None:
         found = stack_from_stackup(board.stackup, names, ids, plane_nets)
         if found is None:
-            account.skip(
-                "stackup",
-                board.stackup.id,
-                "the stack-up does not hold one copper layer per copper layer of the board with one "
-                "dielectric between neighbours; the default stack values are written",
-            )
+            reason = f"{stack_unfit_reason(board.stackup)}; the default stack values are written"
+            account.skip("stackup", board.stackup.id, reason)
+        elif stack_unheld(board.stackup):
+            account.skip("stackup", board.stackup.id, stack_unheld_reason(stack_unheld(board.stackup)))
     return names, found or StackSpec.default(ids, plane_nets), frozenset(planes)
 
 
@@ -901,6 +1020,14 @@ def _copper(
             account.skip("via", via.id, problem)
         else:
             vias.append(dataclasses.replace(via, net_id=named(via.net_id)))
+            unwritten = pcbdoc.unwritten_features(via, board.via_protection)
+            if unwritten:
+                account.skip(
+                    "via-protection",
+                    via.id,
+                    f"{', '.join(unwritten)} of the via is not written: the Altium document holds the "
+                    "tenting of a via only",
+                )
             if PAD_REMOVED_KEY in pairs_of(via):
                 account.skip(
                     "via-pad-shape",
@@ -950,6 +1077,8 @@ def _items(
         problem = pcbdoc.text_problem_of(text)
         if pcbdoc.board_layer(text.layer, layer_ids) is None:
             problem = f"the layer {text.layer} has no layer in the document for a text"
+        if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
+            problem = "the text record has no key for a justification other than centred"
         if problem is None:
             texts.append(text)
         else:
@@ -984,6 +1113,8 @@ def _items(
             holes.append(hole)
         else:
             account.skip("hole", hole.id, "a hole needs a positive drill")
+    for dimension in board.dimensions:
+        account.skip("dimension", dimension.id, "the document has no dimension record")
     account.wrote("text", len(texts))
     account.wrote("graphic", len(graphics) + outline)
     account.wrote("keep-out", len(keepouts))
@@ -1192,6 +1323,12 @@ def from_design(
                 "channel", module.id, "a repeated sheet is not written: its components are on the one sheet"
             )
     issues += account.issues()
+    for note in (
+        placement_rule_info(design),
+        keepout_footprints_info(board.keepouts if board is not None else ()),
+    ):
+        if note is not None:
+            issues.append(note)
     return AltiumInputs(
         name,
         spec,
@@ -1259,6 +1396,12 @@ def _document(
     )
     texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
+    for footprint in board.footprints:
+        if footprint.net_ties:
+            account.skip(NET_TIE_KIND, footprint.id, NET_TIE_REASON)
+    codes = sorted(design.rules.severities) if design.rules is not None else []
+    for code in codes:
+        account.skip(SEVERITY_KIND, code, severity_reason(codes))
     account.wrote("rule", sum(len(record.rules) for record in lowered.records))
     for item in lowered.not_lowered:
         account.skip("rule", item.rule.id, f"{item.kind} ({item.selector}): {item.reason}")
@@ -1275,6 +1418,7 @@ def _document(
         tracks=tuple(tracks),
         arcs=tuple(arcs),
         vias=tuple(vias),
+        via_protection=board.via_protection,  # the default of the tenting flags (c0112)
         zones=tuple(zones),
         net_classes=_classes(design, nets, account),
         texts=tuple(texts_),
@@ -1618,10 +1762,15 @@ __all__ = [
     "FENOLITE_MECHANICAL",
     "KINDS",
     "DEFINITION_LAYERS",
+    "KEEPOUT_FOOTPRINTS_KIND",
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "MORE_KINDS",
+    "NET_TIE_KIND",
+    "NET_TIE_REASON",
+    "SEVERITY_KIND",
     "NOT_LOWERED",
+    "PLACEMENT_RULE_KIND",
     "AltiumInputs",
     "LossyWriteError",
     "LowerOptions",
@@ -1635,6 +1784,10 @@ __all__ = [
     "pairs_of",
     "schematic_design",
     "stack_from_stackup",
+    "stack_gap",
+    "stack_unfit_reason",
+    "stack_unheld",
+    "stack_unheld_reason",
     "stored_board",
     "unique_links",
     "write_design",

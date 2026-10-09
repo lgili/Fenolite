@@ -111,6 +111,12 @@
         "$ref": "#/$defs/Hole"
       }
     },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Dimension"
+      }
+    },
     "sheet": {
       "anyOf": [
         {
@@ -130,6 +136,16 @@
           "type": "null"
         }
       ]
+    },
+    "via_protection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ViaProtection"
+        },
+        {
+          "type": "null"
+        }
+      ]
     }
   },
   "additionalProperties": false,
@@ -138,6 +154,7 @@
   ],
   "$defs": {
     "Arc": {
+      "description": "An arc track through ``mid``. ``locked`` as for a track.",
       "type": "object",
       "properties": {
         "id": {
@@ -190,6 +207,9 @@
               "type": "null"
             }
           ]
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -258,6 +278,29 @@
         },
         "name": {
           "type": "string"
+        },
+        "z_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "z_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection_unknown": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -265,6 +308,117 @@
         "id",
         "kind",
         "height"
+      ]
+    },
+    "Dimension": {
+      "description": "A linear dimension between two points. The measured value is not a field: it follows from the",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "kind": {
+          "enum": [
+            "aligned",
+            "orthogonal"
+          ]
+        },
+        "layer": {
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point"
+        },
+        "end": {
+          "$ref": "#/$defs/Point"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "enum": [
+                "horizontal",
+                "vertical"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "units": {
+          "enum": [
+            "mm",
+            "in"
+          ]
+        },
+        "precision": {
+          "type": "integer"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Size"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "layer",
+        "start",
+        "end",
+        "offset"
       ]
     },
     "Evidence": {
@@ -514,6 +668,25 @@
           "items": {
             "$ref": "#/$defs/Text"
           }
+        },
+        "net_ties": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -625,6 +798,16 @@
         },
         "plated": {
           "type": "boolean"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -635,7 +818,7 @@
       ]
     },
     "Keepout": {
-      "description": "An area where some kinds of objects are not allowed.",
+      "description": "A rule area: an area where some kinds of objects are not allowed, or, with every setting false,",
       "type": "object",
       "properties": {
         "id": {
@@ -690,6 +873,19 @@
         },
         "no_footprints": {
           "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,
@@ -756,6 +952,40 @@
         "ordinal"
       ]
     },
+    "MechanicalIntent": {
+      "description": "Declared mechanical provenance; a measured coordinate is still not a qualified fit.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "frame": {
+          "enum": [
+            "board"
+          ]
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "proposed"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
     "Outline": {
       "description": "Board outline polygon and cut-outs (points in order).",
       "type": "object",
@@ -800,11 +1030,38 @@
               "$ref": "#/$defs/Point"
             }
           }
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineArc"
+          }
         }
       },
       "additionalProperties": false,
       "required": [
         "id"
+      ]
+    },
+    "OutlineArc": {
+      "description": "One edge of a board outline that is an arc through ``mid``.",
+      "type": "object",
+      "properties": {
+        "ring": {
+          "type": "integer"
+        },
+        "edge": {
+          "type": "integer"
+        },
+        "mid": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ring",
+        "edge",
+        "mid"
       ]
     },
     "Pad": {
@@ -922,6 +1179,25 @@
           "anyOf": [
             {
               "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fab_property": {
+          "anyOf": [
+            {
+              "enum": [
+                "bga",
+                "fiducial_global",
+                "fiducial_local",
+                "test_point",
+                "heatsink",
+                "castellated",
+                "mechanical",
+                "press_fit"
+              ]
             },
             {
               "type": "null"
@@ -1149,7 +1425,7 @@
       ]
     },
     "StackLayer": {
-      "description": "One physical layer of the stack-up. Dielectric constants are decimal strings, never floats.",
+      "description": "One entry of the stack-up. Dielectric constants are decimal strings, never floats.",
       "type": "object",
       "properties": {
         "id": {
@@ -1201,6 +1477,22 @@
         },
         "loss_tangent": {
           "type": "string"
+        },
+        "dielectric_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "core",
+                "prepreg"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "color": {
+          "type": "string"
         }
       },
       "additionalProperties": false,
@@ -1212,7 +1504,7 @@
       ]
     },
     "Stackup": {
-      "description": "The stack-up, from top to bottom (order is semantic).",
+      "description": "The stack-up, from the top face to the bottom face (order is semantic).",
       "type": "object",
       "properties": {
         "id": {
@@ -1249,6 +1541,9 @@
         },
         "finish": {
           "type": "string"
+        },
+        "impedance_controlled": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1302,6 +1597,20 @@
         },
         "rotation": {
           "type": "integer"
+        },
+        "h_justify": {
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
+        },
+        "v_justify": {
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
         }
       },
       "additionalProperties": false,
@@ -1349,6 +1658,7 @@
       "additionalProperties": false
     },
     "Track": {
+      "description": "A straight track. ``locked`` marks copper that tools must not move or remove.",
       "type": "object",
       "properties": {
         "id": {
@@ -1398,6 +1708,9 @@
               "type": "null"
             }
           ]
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1410,7 +1723,7 @@
       ]
     },
     "Via": {
-      "description": "A via between ``layers`` (the two outermost copper layers it spans).",
+      "description": "A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track.",
       "type": "object",
       "properties": {
         "id": {
@@ -1471,6 +1784,12 @@
             "buried",
             "micro"
           ]
+        },
+        "protection": {
+          "$ref": "#/$defs/ViaProtection"
+        },
+        "locked": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -1480,6 +1799,93 @@
         "diameter",
         "drill"
       ]
+    },
+    "ViaProtection": {
+      "description": "How a via is protected: tenting, covering and plugging per side, capping and filling for the via.",
+      "type": "object",
+      "properties": {
+        "tenting_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tenting_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covering_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "covering_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plugging_front": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plugging_back": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capping": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "filling": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "Zone": {
       "description": "A copper zone (pour). ``fills`` are derived and discarded when the zone changes.",

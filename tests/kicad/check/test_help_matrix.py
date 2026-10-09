@@ -16,7 +16,18 @@ pytestmark = pytest.mark.needs_kicad
 
 TEN_ONLY = (("pcb", "import"), ("pcb", "upgrade"))
 TEN_ONLY_OPTIONS = ("--refill-zones", "--save-board")
-BOTH = (("pcb", "export", "ipcd356"), ("pcb", "export", "pos"), ("pcb", "export", "svg"))
+BOTH = (
+    ("pcb", "export", "ipcd356"),
+    ("pcb", "export", "pos"),
+    ("pcb", "export", "svg"),
+    # the document exports of c0116
+    ("pcb", "export", "ipc2581"),
+    ("pcb", "export", "odb"),
+    ("pcb", "export", "step"),
+    ("pcb", "export", "pdf"),
+    ("pcb", "export", "dxf"),
+    ("sch", "export", "pdf"),
+)
 BOTH_OPTIONS = ("--format", "--severity-all")
 
 

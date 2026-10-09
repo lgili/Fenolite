@@ -2,23 +2,33 @@
 # Copyright (c) 2026 Fenolite contributors
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
+from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 
-from _checkcli import run
+import pytest
+from _checkcli import hide_kicad, run
 from _fakefreerouting import create_fake_jar, create_fake_java
 from _fakerouter import create_fake_router
+from _openconn import rb
 from _resources import posix_tools
 from _specctra import two_pads
 
+from fenolite.analysis.connectivity import connectivity
 from fenolite.backends.base import BoardPad
+from fenolite.backends.kicad.copper import copper_uuid
 from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.cli import cmd_route
+from fenolite.cli._examples import EXAMPLE_UNROUTED
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
-from fenolite.model.board import Zone
+from fenolite.core.ids import derived_id
+from fenolite.model.board import Track, Zone
+from fenolite.model.design import Design
+from fenolite.routing import registry
 from fenolite.routing.plugins.kicad.routingtools import KicadRoutingToolsRouter
 from fenolite.routing.plugins.specctra.freerouting import FreeroutingRouter
 from fenolite.routing.protocol import RouterStatus, RoutingJob, RoutingResult
@@ -73,7 +83,13 @@ def test_fake_router_and_net_filter(monkeypatch, tmp_path: Path) -> None:
     )
     assert code == 0, (env, error)
     assert env["result"]["selected"] == ["ROUTE_ME"]
-    assert env["result"]["routed"] == ["ROUTE_ME"]
+    # the fake tool appends a short track that joins nothing; the plugin lists the net as routed, and the
+    # verdict comes from the board after the merge (change c0108)
+    assert env["result"]["routed"] == [] and env["result"]["unrouted"] == ["ROUTE_ME"]
+    assert env["result"]["connections"] == {"before": 1, "after": 1}
+    messages = [issue["message"] for issue in env["issues"] if issue["code"] == "route.unrouted"]
+    assert len(messages) == 1 and "listed the net as routed" in messages[0]
+    assert env["result"]["plan"][0]["path"] == "routed.kicad_pcb"
 
 
 def test_offsite_router_requires_explicit_flag(monkeypatch, tmp_path: Path) -> None:
@@ -185,6 +201,45 @@ def test_freerouting_is_refused_without_allow_offsite(monkeypatch, tmp_path: Pat
     assert "--allow-offsite" in error["hint"]
 
 
+def test_missing_jar_names_the_fetch_command(monkeypatch, tmp_path: Path) -> None:
+    """Capability routing, "Freerouting plugin" (c0078): scenario "Missing jar names the command"."""
+    monkeypatch.delenv("FENOLITE_FREEROUTING_JAR", raising=False)
+    monkeypatch.setenv("FENOLITE_TOOLS_DIR", str(tmp_path / "no-tools"))
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_text(write_board(two_pads().design, target=10).text, encoding="utf-8")
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "freerouting", "--dry-run"
+    )
+    assert code == 6 and error["code"] == "FEN-6001" and error["retryable"] is True
+    assert error["hint"] == "run 'fenolite fetch freerouting --confirm'"
+    assert "fenolite fetch freerouting --confirm" in error["message"]
+    hide_kicad(monkeypatch, tmp_path)  # doctor then finds no tool of this machine to run
+    code, env, _, _ = run(monkeypatch, tmp_path, "doctor")
+    entry = next(router for router in env["result"]["routers"] if router["name"] == "freerouting")
+    assert code == 0 and entry["available"] is False and entry["source"] is None
+    assert "fenolite fetch freerouting --confirm" in entry["reason"]
+    # a jar that is named but absent is a missing jar too
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "freerouting",
+        "--router-path", str(tmp_path / "absent.jar"), "--dry-run",
+    )  # fmt: skip
+    assert code == 6 and error["hint"] == "run 'fenolite fetch freerouting --confirm'"
+
+
+@posix_tools
+def test_missing_jar_hint_is_not_given_for_a_missing_java(monkeypatch, tmp_path: Path) -> None:
+    """With a jar and no suitable Java the registry's hint stays: ``fetch`` installs no Java."""
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path, version="17.0.2")))
+    board = tmp_path / "two_pads.kicad_pcb"
+    board.write_text(write_board(two_pads().design, target=10).text, encoding="utf-8")
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "freerouting",
+        "--router-path", str(create_fake_jar(tmp_path)), "--dry-run",
+    )  # fmt: skip
+    assert code == 6 and error["code"] == "FEN-6001" and "Java 25" in error["message"]
+    assert "fetch" not in error["hint"] and "capabilities" in error["hint"]
+
+
 @posix_tools
 def test_freerouting_through_the_command(monkeypatch, tmp_path: Path) -> None:
     """The whole path with a fake java: ``--router-path`` names the jar, ``--router-option max-passes``
@@ -266,7 +321,9 @@ def test_net_classes_come_from_the_project(monkeypatch, tmp_path: Path) -> None:
     design = read_board(board_path.read_text(encoding="utf-8"), file=board_path.name)
     assert not [net for net in design.circuit.nets if net.netclass_id], "the board alone names no class"
     issues: list[Issue] = []
-    classed = cmd_route._with_project_classes(design, board_path, issues)  # pyright: ignore[reportPrivateUsage]
+    found = cmd_route._project_rules(design, board_path, issues)  # pyright: ignore[reportPrivateUsage]
+    classed = found.design
+    assert classed.rules is not None, "the rules file is read too (change c0107)"
     classes = {item.id: item for item in classed.circuit.netclasses}
     widths = {
         net.name: classes[net.netclass_id].track_width for net in classed.circuit.nets if net.netclass_id
@@ -276,6 +333,816 @@ def test_net_classes_come_from_the_project(monkeypatch, tmp_path: Path) -> None:
 
     board_path.with_suffix(".kicad_pro").write_text("{ not json", encoding="utf-8")
     issues = []
-    assert cmd_route._with_project_classes(design, board_path, issues) is design  # pyright: ignore[reportPrivateUsage]
+    unread = cmd_route._project_rules(design, board_path, issues).design  # pyright: ignore[reportPrivateUsage]
+    assert unread.circuit == design.circuit and unread.rules is not None, "left as the other file gives it"
     assert [(issue.code, issue.severity) for issue in issues] == [("route.project-unread", "warning")]
-    assert cmd_route._with_project_classes(design, tmp_path / "none.kicad_pcb", []) is design  # pyright: ignore[reportPrivateUsage]
+    assert "blink.kicad_pro" in issues[0].message and "default class values" in issues[0].message
+    board_path.with_suffix(".kicad_dru").write_text("(version 1) (rule", encoding="utf-8")
+    issues = []
+    assert cmd_route._project_rules(design, board_path, issues).design == design  # pyright: ignore[reportPrivateUsage]
+    assert [issue.code for issue in issues] == ["route.project-unread"] * 2
+    assert cmd_route._project_rules(design, tmp_path / "none.kicad_pcb", []).design is design  # pyright: ignore[reportPrivateUsage]
+
+
+# --- open nets (change c0108) ------------------------------------------------------------------------
+
+MM = 1_000_000
+NET = "ROUTE_ME"
+PLAIN_UUID = "0a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d"
+LOCKED_UUID = "1a1b2c3d-4e5f-4a6b-8c7d-0e1f2a3b4c5d"
+
+
+def _track(design: Design, start: Point, end: Point, native: str, *, locked: bool = False) -> Track:
+    net = next(item for item in design.circuit.nets if item.name == NET)
+    return Track(
+        id=derived_id("trk", "kicad", native),
+        native_ids={"kicad": native},
+        start=start,
+        end=end,
+        width=250_000,
+        layer="F.Cu",
+        net_id=net.id,
+        locked=locked,
+    )
+
+
+def stub_board(folder: Path, *tracks: tuple[Point, Point, str, bool], name: str = "board.kicad_pcb") -> Path:
+    """The authored two-pad board (``J1-1`` at the origin, ``J2-1`` 10 mm to its right) with ``tracks``
+    (start, end, KiCad uuid, locked) on its net."""
+    design = read_board(Path(EXAMPLE_UNROUTED).read_text(encoding="utf-8"))
+    assert design.board is not None
+    added = tuple(_track(design, a, b, native, locked=locked) for a, b, native, locked in tracks)
+    design = dataclasses.replace(
+        design, board=dataclasses.replace(design.board, tracks=(*design.board.tracks, *added))
+    )
+    path = folder / name
+    path.write_text(write_board(design, target=10).text, encoding="utf-8")
+    return path
+
+
+def segments(path: Path) -> list[Track]:
+    design = read_board(path.read_text(encoding="utf-8"))
+    assert design.board is not None
+    return list(design.board.tracks)
+
+
+class _Router:
+    name = "test"
+    description = "a test router"
+    sends_data_offsite = False
+
+    def __init__(self) -> None:
+        self.jobs: list[RoutingJob] = []
+
+    def available(self) -> RouterStatus:
+        return RouterStatus(True)
+
+
+class StubRouter(_Router):
+    """Returns one 2 mm track from the first pad of every net, and claims what ``claim`` says."""
+
+    def __init__(self, name: str, claim: str) -> None:
+        super().__init__()
+        self.name, self.claim = name, claim
+
+    def route(self, job: RoutingJob) -> RoutingResult:
+        self.jobs.append(job)
+        tracks = tuple(
+            Track(
+                id="",
+                start=net.pads[0].position,
+                end=Point(net.pads[0].position.x + 2 * MM, net.pads[0].position.y),
+                width=net.width,
+                layer="F.Cu",
+                net_id=net.net_id,
+            )  # fmt: skip
+            for net in job.nets
+        )
+        names = tuple(net.name for net in job.nets)
+        if self.claim == "routed":
+            return RoutingResult(tracks=tracks, routed=names, tool=self.name, tool_version="1")
+        return RoutingResult(tracks=tracks, unrouted=names, tool=self.name, tool_version="1")
+
+
+class OneStepRouter(_Router):
+    """Joins the shortest open connection of each net, one per run."""
+
+    name = "test-one-step"
+
+    def route(self, job: RoutingJob) -> RoutingResult:
+        self.jobs.append(job)
+        pads = job.extra["board_pads"]
+        assert isinstance(pads, tuple)
+        typed = tuple(pad for pad in pads if isinstance(pad, BoardPad))
+        report = connectivity(job.design, pads=typed, nets=[net.name for net in job.nets])
+        tracks: list[Track] = []
+        for net in job.nets:
+            found = report.net(net.name)
+            assert found is not None and found.open
+            first = min(found.open, key=lambda link: link.length)
+            tracks.append(Track(id="", start=first.a.position, end=first.b.position,
+                                width=net.width, layer="F.Cu", net_id=net.net_id))  # fmt: skip
+        names = tuple(net.name for net in job.nets)
+        return RoutingResult(tracks=tuple(tracks), routed=names, tool=self.name, tool_version="1")
+
+
+@pytest.fixture
+def test_routers() -> Iterator[dict[str, _Router]]:
+    """Test routers registered through ``routing.registry.register``, removed again after the test."""
+    made: dict[str, _Router] = {
+        "test-claims": StubRouter("test-claims", "routed"),
+        "test-partial": StubRouter("test-partial", "unrouted"),
+        "test-one-step": OneStepRouter(),
+    }
+    for router in made.values():
+        registry.register(router)  # type: ignore[arg-type]
+    try:
+        yield made
+    finally:
+        for name in made:
+            registry._BUILTINS.pop(name, None)  # pyright: ignore[reportPrivateUsage]
+
+
+def codes(env: dict) -> list[str]:
+    return [issue["code"] for issue in env["issues"]]
+
+
+# --- the example and the selection ------------------------------------------------------------------
+
+
+def test_example_confirm_routes_the_two_pads(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Direct route of the example"."""
+    args = cmd_route.COMMAND.mutation_example_args
+    assert args is not None and cmd_route.COMMAND.paged == "open"
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", *args, "--confirm")
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["routed"] == [NET] and result["selected"] == [NET] and result["unrouted"] == []
+    assert result["connections"] == {"before": 1, "after": 0} and result["open"] == []
+    assert result["rip_kept"] == {"locked": 0, "script": 0}
+    assert env["evidence"]["level"] == "UNVERIFIED"
+    assert len(segments(tmp_path / "fenolite-routed.kicad_pcb")) == len(segments(Path(EXAMPLE_UNROUTED))) + 1
+
+
+def test_nothing_to_route_on_a_closed_board(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Nothing to route"."""
+    board = stub_board(tmp_path, (Point(0, 0), Point(10 * MM, 0), PLAIN_UUID, False))
+    before = board.read_bytes()
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--confirm")
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["selected"] == [] and result["open"] == []
+    assert result["connections"] == {"before": 0, "after": 0}
+    assert "receipt" not in env or not env["receipt"]
+    assert board.read_bytes() == before
+
+
+def test_stub_net_is_routed(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "A net with a stub is routed": copper of its own does not exclude a net."""
+    board = stub_board(tmp_path, (Point(0, 0), Point(3 * MM, 0), PLAIN_UUID, False))
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--confirm")
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["selected"] == [NET] and result["routed"] == [NET] and result["unrouted"] == []
+    assert result["connections"] == {"before": 1, "after": 0}
+    found = segments(board)
+    assert len(found) == 2
+    assert [t for t in found if t.native_ids.get("kicad") == PLAIN_UUID and t.end == Point(3 * MM, 0)]
+
+
+def test_a_closed_net_is_not_given_to_the_router(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "A closed net is not given to the router"."""
+    builder = rb.Builder()
+    for index, net in enumerate(("CLOSED", "OPEN")):
+        y = builder.row()
+        builder.part(f"a{index}", f"RA{index}", Point(rb.LEFT, y), target=10, nets={"1": net})
+        builder.part(f"b{index}", f"RB{index}", Point(rb.RIGHT, y), target=10, nets={"1": net})
+        if net == "CLOSED":
+            builder.track("joined", net, y, x0=rb.LEFT - 800_000, x1=rb.RIGHT - 800_000)
+    board = tmp_path / "two_nets.kicad_pcb"
+    board.write_text(write_board(builder.build().design, target=10).text, encoding="utf-8")
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial", "--dry-run"
+    )
+    assert code == 0, (env, error)
+    (job,) = test_routers["test-partial"].jobs
+    assert [net.name for net in job.nets] == ["OPEN"]
+    assert env["result"]["selected"] == ["OPEN"]
+
+
+# --- the verdict after the merge --------------------------------------------------------------------
+
+
+def test_claim_of_the_router_does_not_decide(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "The router's claim does not decide"."""
+    board = stub_board(tmp_path)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-claims", "--confirm"
+    )
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["routed"] == [] and result["unrouted"] == [NET]
+    assert result["connections"] == {"before": 1, "after": 1}
+    (entry,) = result["open"]
+    assert entry["net"] == NET and entry["islands"] == 2
+    (link,) = entry["connections"]
+    assert link["length"] == 8 * MM
+    ends = {link["a"]["kind"]: link["a"], link["b"]["kind"]: link["b"]}
+    assert ends["track"]["position"] == {"x": 2 * MM, "y": 0} and ends["pad"]["where"] == "J2-1"
+    assert ends["pad"]["layers"] == ["F.Cu", "B.Cu"] and ends["track"]["layers"] == ["F.Cu"]
+    assert codes(env).count("route.partial") == 1 and codes(env).count("route.unrouted") == 1
+    (warning,) = [issue for issue in env["issues"] if issue["code"] == "route.unrouted"]
+    assert warning["severity"] == "warning" and "listed the net as routed" in warning["message"]
+    assert "1 open connection" in warning["message"] and "8mm" in warning["message"].replace(" ", "")
+    assert env["receipt"]["written"][0]["path"] == board.name
+    (track,) = segments(board)
+    assert (track.start, track.end) == (Point(0, 0), Point(2 * MM, 0))
+
+
+def test_partial_copper_is_merged(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "Partial copper is merged" (capability routing, "Router copper on open nets")."""
+    board = stub_board(tmp_path)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial", "--confirm"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["unrouted"] == [NET] and env["result"]["tracks"] == 1
+    (info,) = [issue for issue in env["issues"] if issue["code"] == "route.partial"]
+    assert info["severity"] == "info" and NET in info["message"] and "1 item" in info["message"]
+    (warning,) = [issue for issue in env["issues"] if issue["code"] == "route.unrouted"]
+    assert "listed the net as routed" not in warning["message"]
+    assert len(segments(board)) == 1
+    assert env["result"]["fills_stale"] is False
+
+
+def test_required_complete_writes_nothing(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "Required complete"."""
+    board = stub_board(tmp_path)
+    before = board.read_bytes()
+    code, env, _error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "route",
+        board.name,
+        "--router",
+        "test-claims",
+        "--require-complete",
+        "--confirm",
+    )
+    assert code == 5
+    (failed,) = [issue for issue in env["issues"] if issue["code"] == "route.incomplete"]
+    assert (
+        failed["severity"] == "error" and NET in failed["message"] and "1 selected net" in failed["message"]
+    )
+    assert not env.get("receipt") and "plan" not in env["result"]
+    assert board.read_bytes() == before
+    assert env["result"]["unrouted"] == [NET] and len(env["result"]["open"]) == 1
+    # a run that closes every net is not stopped by the option
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--require-complete", "--confirm"
+    )
+    assert code == 0, (env, error)
+    assert "route.incomplete" not in codes(env) and env["result"]["routed"] == [NET]
+
+
+def test_second_pass_completes_a_net(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "A second pass completes a net": three pads, one connection joined per run."""
+    builder = rb.Builder()
+    y = builder.row()
+    builder.part("a", "RA", Point(rb.LEFT, y), target=10, nets={"1": "N3"})
+    builder.part("b", "RB", Point(rb.RIGHT, y), target=10, nets={"1": "N3"})
+    builder.part("c", "RC", Point(rb.LEFT + 5 * MM, y + 4 * MM), target=10, nets={"1": "N3"})
+    board = tmp_path / "three.kicad_pcb"
+    board.write_text(write_board(builder.build().design, target=10).text, encoding="utf-8")
+    args = ("route", board.name, "--router", "test-one-step", "--confirm")
+    code, env, error, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0, (env, error)
+    assert env["result"]["unrouted"] == ["N3"] and env["result"]["connections"] == {"before": 2, "after": 1}
+    assert codes(env).count("route.partial") == 1
+    code, env, error, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0, (env, error)
+    assert env["result"]["selected"] == ["N3"] and env["result"]["routed"] == ["N3"]
+    assert env["result"]["connections"] == {"before": 1, "after": 0}
+    assert len(segments(board)) == 2
+    # a third run finds nothing to do and writes nothing
+    before = board.read_bytes()
+    code, env, error, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0 and env["result"]["selected"] == [] and board.read_bytes() == before
+
+
+def test_open_list_is_paged(monkeypatch, tmp_path: Path, test_routers) -> None:
+    board = stub_board(tmp_path)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-claims", "--dry-run", "--limit", "1"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["page"]["path"] == "open" and env["result"]["page"]["total"] == 1
+
+
+# --- locks and the rip ------------------------------------------------------------------------------
+
+
+def test_rip_keeps_locked_and_script_copper(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Rip keeps locked and script copper"."""
+    script = copper_uuid("stub", "seg[0]")
+    board = stub_board(
+        tmp_path,
+        (Point(0, 2 * MM), Point(MM, 2 * MM), LOCKED_UUID, True),
+        (Point(0, 3 * MM), Point(MM, 3 * MM), script, False),
+        (Point(0, 4 * MM), Point(MM, 4 * MM), PLAIN_UUID, False),
+    )
+    assert board.read_text(encoding="utf-8").count("(locked yes)") == 1
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--rip", "--nets", NET,
+        "--out", "routed.kicad_pcb", "--confirm",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["ripped"] == 1 and result["rip_kept"] == {"locked": 1, "script": 1}
+    kept = {track.native_ids.get("kicad") for track in segments(tmp_path / "routed.kicad_pcb")}
+    assert {LOCKED_UUID, script} <= kept and PLAIN_UUID not in kept and len(kept) == 3
+    written = (tmp_path / "routed.kicad_pcb").read_text(encoding="utf-8")
+    assert written.count("(locked yes)") == 1
+    # without --rip nothing is ripped and nothing is counted as kept
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--dry-run")
+    assert code == 0 and env["result"]["ripped"] == 0
+    assert env["result"]["rip_kept"] == {"locked": 0, "script": 0}
+
+
+def test_rip_without_new_copper_is_not_written(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """A rip that is followed by no new copper plans no write (design, Decision 8)."""
+
+    class Nothing(_Router):
+        name = "test-nothing"
+
+        def route(self, job: RoutingJob) -> RoutingResult:
+            return RoutingResult(unrouted=tuple(net.name for net in job.nets), tool=self.name)
+
+    monkeypatch.setattr(cmd_route, "_router", lambda _name, _args: Nothing())
+    board = stub_board(tmp_path, (Point(0, 0), Point(10 * MM, 0), PLAIN_UUID, False))
+    before = board.read_bytes()
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-nothing", "--rip", "--confirm"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["ripped"] == 1 and env["result"]["unrouted"] == [NET]
+    assert "route.partial" not in codes(env) and not env.get("receipt")
+    assert board.read_bytes() == before
+
+
+# --- the budget of the step and tiers (change c0109) -------------------------------------------------
+
+
+def rows_board(folder: Path, *nets: str, wide: tuple[str, ...] = ()) -> Path:
+    """An authored board with one open two-pad net per name, written with its project and rules files;
+    the nets of ``wide`` are in a class of their own with a 0.4 mm track."""
+    from fenolite.backends.kicad.triad import write_triad
+    from fenolite.model.circuit import NetClass
+
+    builder = rb.Builder()
+    for index, net in enumerate(nets):
+        y = builder.row()
+        builder.part(f"a{index}", f"RA{index}", Point(rb.LEFT, y), target=10, nets={"1": net})
+        builder.part(f"b{index}", f"RB{index}", Point(rb.RIGHT, y), target=10, nets={"1": net})
+    design = builder.build().design
+    if wide:
+        cls = NetClass(id="cls_00000000-0000-4000-8000-000000000109", name="WIDE", track_width=400_000)
+        circuit = replace(
+            design.circuit,
+            netclasses=(*design.circuit.netclasses, cls),
+            nets=tuple(
+                replace(net, netclass_id=cls.id) if net.name in wide else net for net in design.circuit.nets
+            ),
+        )
+        design = replace(design, circuit=circuit)
+    for name, text in write_triad(design, name="rows", target=10).items():
+        (folder / name).write_text(text, encoding="utf-8", newline="\n")
+    return folder / "rows.kicad_pcb"
+
+
+def test_budget_finished_run_written_and_cut_run_reported(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Finished run written, cut run reported"."""
+    monkeypatch.setenv("FENOLITE_TEST_SOURCE", str(ROOT / "src"))
+    monkeypatch.setenv("FAKE_ROUTER_SLEEP_NET", "B1")
+    runs = tmp_path / "runs.jsonl"
+    monkeypatch.setenv("FAKE_ROUTER_RUNS", str(runs))
+    board = rows_board(tmp_path, "A1", "B1", wide=("B1",))
+    before = len(segments(board))
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name,
+        "--router", "kicadroutingtools", "--router-path", str(create_fake_router(tmp_path)),
+        "--router-python", sys.executable, "--timeout", "2", "--confirm",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["budget"]["seconds"] == 2 and result["budget"]["exhausted"] is True
+    assert 2 <= result["budget"]["spent"] < 6
+    assert [(item["tier"], item["nets"], item["outcome"]) for item in result["runs"]] == [
+        (0, 1, "done"),
+        (0, 1, "cut"),
+    ]
+    assert all(isinstance(item["seconds"], float) for item in result["runs"])
+    assert result["not_attempted"] == []
+    assert codes(env).count("route.budget-exhausted") == 1 and "route.tool-failed" not in codes(env)
+    found = segments(board)
+    assert len(found) == before + 1, "the track of the run that finished is written"
+    recorded = [json.loads(line) for line in runs.read_text(encoding="utf-8").splitlines()]
+    assert [item["nets"] for item in recorded] == [["A1"], ["B1"]]
+    widths = [item["argv"][item["argv"].index("--track-width") + 1] for item in recorded]
+    assert widths[1] == "0.4" and widths[0] != "0.4"
+
+
+def test_timeout_is_the_budget_of_the_job_without_a_sentinel(
+    monkeypatch, tmp_path: Path, test_routers
+) -> None:
+    """Scenario "No sentinel": 600 is 600 for every router, and no value is the plugin's default."""
+    board = stub_board(tmp_path)
+    router = test_routers["test-partial"]
+    for arguments, budget in ((("--timeout", "600"), 600), ((), None), (("--timeout", "0.5"), 0.5)):
+        code, env, error, _ = run(
+            monkeypatch, tmp_path, "route", board.name, "--router", "test-partial", *arguments, "--dry-run"
+        )
+        assert code == 0, (env, error)
+        assert router.jobs[-1].budget == budget
+        # a router without a budget of its own is not timed: the reply stays the same bytes
+        assert env["result"]["budget"] == {"seconds": budget, "spent": 0.0, "exhausted": False}
+        assert env["result"]["runs"] == [] and env["result"]["not_attempted"] == []
+    import argparse
+
+    given = argparse.Namespace(router_path=None, router_python=None, timeout=600.0)
+    built = cmd_route._router("freerouting", given)  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(built, FreeroutingRouter) and built.budget == 600
+    built = cmd_route._router("kicadroutingtools", given)  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(built, KicadRoutingToolsRouter) and built.budget == 600
+    absent = argparse.Namespace(router_path=None, router_python=None, timeout=None)
+    registered = cmd_route._router("freerouting", absent)  # pyright: ignore[reportPrivateUsage]
+    assert isinstance(registered, FreeroutingRouter) and registered.budget is None
+    assert registered.default_budget == 900 == KicadRoutingToolsRouter.default_budget
+
+
+def test_order_puts_nets_in_tiers(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "Order in tiers"."""
+    board = rows_board(tmp_path, "A", "CLK1", "D0")
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial",
+        "--order", "CLK*", "--order", "D*", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    (job,) = test_routers["test-partial"].jobs
+    assert [(net.name, net.tier) for net in job.nets] == [("CLK1", 0), ("D0", 1), ("A", 2)]
+    assert env["result"]["selected"] == ["A", "CLK1", "D0"], "--order changes no selection"
+    # a net takes the first glob it matches, and --order selects nothing by itself
+    test_routers["test-partial"].jobs.clear()
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial",
+        "--nets", "CLK*", "--nets", "A", "--order", "*", "--order", "CLK*", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    (job,) = test_routers["test-partial"].jobs
+    assert [(net.name, net.tier) for net in job.nets] == [("A", 0), ("CLK1", 0)]
+    test_routers["test-partial"].jobs.clear()
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial", "--dry-run"
+    )
+    assert code == 0 and [net.tier for net in test_routers["test-partial"].jobs[0].nets] == [0, 0, 0]
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "nan", "inf"])
+def test_timeout_bad_budget(monkeypatch, tmp_path: Path, value: str) -> None:
+    """Scenario "Bad budget"."""
+    board = stub_board(tmp_path)
+    code, _env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", f"--timeout={value}", "--dry-run"
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and "--timeout" in error["message"]
+
+
+def test_budget_keys_of_the_direct_router(monkeypatch, tmp_path: Path) -> None:
+    board = stub_board(tmp_path)
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--timeout", "30", "--dry-run"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["budget"] == {"seconds": 30, "spent": 0.0, "exhausted": False}
+    assert env["result"]["runs"] == [] and env["result"]["not_attempted"] == []
+
+
+# --- plane nets (change c0107, cli-contract "Plane nets in the route command") ------------------------
+
+
+@pytest.fixture
+def plane_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """The plane bench built for target 10: ``In1.Cu`` and ``In2.Cu`` of type ``power``, with its project
+    and rules files."""
+    import _planebench as pb
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    return pb.build_project(tmp_path / "bench")
+
+
+def plane_run(monkeypatch, tmp_path: Path, board: Path, *more: str) -> tuple[int, dict, str]:
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(board), "--router", "direct", *more)
+    return code, env, error
+
+
+def codes_of(env: dict, code: str) -> list[dict]:
+    return [issue for issue in env["issues"] if issue["code"] == code]
+
+
+def test_plane_fanout_and_signals_routed(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "Plane nets fanned out, signals routed"."""
+    import _planebench as pb
+
+    before = plane_board.read_text(encoding="utf-8")
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--dry-run")
+    assert code == 0, (env, error)
+    result = env["result"]
+    assert result["plane_layers"] == ["In1.Cu", "In2.Cu"]
+    assert result["plane_fanout"] == {
+        "nets": ["GND", "VCC"], "pads": 6, "joined": 0, "tracks": 6, "vias": 6, "failed": [],
+    }  # fmt: skip
+    assert [i["where"] for i in codes_of(env, "route.plane-net")] == ["GND", "VCC"]
+    assert all(i["severity"] == "info" for i in codes_of(env, "route.plane-net"))
+    assert codes_of(env, "route.zone-net-skipped") == [] and codes_of(env, "kicad.fanout.failed") == []
+    assert "GND" not in result["selected"] and "VCC" not in result["selected"]
+    assert sorted(result["selected"]) == sorted((*pb.SIGNALS, *pb.HIGH))
+    assert result["plan"] and plane_board.read_text(encoding="utf-8") == before
+    # the same command with --confirm: the written board holds the fan-out copper and the direct tracks
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--confirm")
+    assert code == 0, (env, error)
+    board = read_board(plane_board).board
+    assert board is not None
+    names = {net.id: net.name for net in read_board(plane_board).circuit.nets}
+    plane_vias = [via for via in board.vias if names[via.net_id or ""] in ("GND", "VCC")]
+    plane_tracks = [track for track in board.tracks if names[track.net_id or ""] in ("GND", "VCC")]
+    assert len(plane_vias) == len(board.vias) == 6 and len(plane_tracks) == 6
+    assert all(via.layers == ("F.Cu", "B.Cu") for via in plane_vias)
+    assert not [t for t in board.tracks if t.layer in ("In1.Cu", "In2.Cu")], "no track on a plane layer"
+    assert len(board.tracks) == 6 + len(result["selected"])
+    # a second run: every plane pad is joined, nothing is fanned out again
+    code, env, _ = plane_run(monkeypatch, tmp_path, plane_board, "--dry-run")
+    assert code == 0 and env["result"]["plane_fanout"] == {
+        "nets": ["GND", "VCC"], "pads": 6, "joined": 6, "tracks": 0, "vias": 0, "failed": [],
+    }  # fmt: skip
+
+
+def test_plane_fanout_skipped(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "Fan-out skipped"."""
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--no-plane-fanout", "--dry-run")
+    assert code == 0, (env, error)
+    assert env["result"]["plane_fanout"] == {
+        "nets": [], "pads": 0, "joined": 0, "tracks": 0, "vias": 0, "failed": [],
+    }  # fmt: skip
+    assert env["result"]["plane_layers"] == ["In1.Cu", "In2.Cu"]
+    assert "GND" not in env["result"]["selected"] and "VCC" not in env["result"]["selected"]
+    assert len(codes_of(env, "route.plane-net")) == 2
+
+
+def test_plane_nets_with_the_zone_nets_option(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "Zone nets option": a plane net is not traced with ``--include-zone-nets`` either."""
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--include-zone-nets", "--dry-run")
+    assert code == 0, (env, error)
+    assert "GND" not in env["result"]["selected"] and "VCC" not in env["result"]["selected"]
+    assert env["result"]["plane_fanout"]["vias"] == 6
+
+
+def test_plane_fanout_alone_is_written(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """The write rule: the fan-out copper is written when no net goes to a router."""
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--nets", "GND", "--confirm")
+    assert code == 0, (env, error)
+    assert env["result"]["selected"] == [] and env["result"]["tracks"] == 0
+    assert env["result"]["plane_fanout"]["nets"] == ["GND"] and env["result"]["plane_fanout"]["vias"] == 3
+    assert [i["where"] for i in codes_of(env, "route.plane-net")] == ["GND"]
+    board = read_board(plane_board).board
+    assert board is not None and len(board.vias) == 3 and len(board.tracks) == 3
+    # --rip takes the fan-out of the selected plane net away and makes it again: the same copper
+    again = plane_board.read_text(encoding="utf-8")
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--nets", "GND", "--rip", "--dry-run")
+    assert code == 0, (env, error)
+    assert env["result"]["ripped"] == 6 and env["result"]["plane_fanout"]["vias"] == 3
+    assert plane_board.read_text(encoding="utf-8") == again
+
+
+def test_board_without_plane_layers(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Board without plane layers": the example of the command, with the two new keys empty."""
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", str(EXAMPLE_UNROUTED), "--router", "direct", "--out",
+        "fenolite-routed.kicad_pcb", "--confirm",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    assert env["result"]["plane_layers"] == []
+    assert env["result"]["plane_fanout"] == {
+        "nets": [], "pads": 0, "joined": 0, "tracks": 0, "vias": 0, "failed": [],
+    }  # fmt: skip
+    # change c0110 adds ``pairs`` and ``escape`` after the two keys of change c0107
+    keys = list(env["result"])
+    assert keys[keys.index("plane_layers") : keys.index("plane_layers") + 4] == [
+        "plane_layers", "plane_fanout", "pairs", "escape",
+    ]  # fmt: skip
+    assert env["result"]["pairs"] == [] and env["result"]["escape"] == []
+    assert env["result"]["routed"] == ["ROUTE_ME"]
+
+
+def test_net_with_no_allowed_layer(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    """Scenario "A net with no allowed layer", and a net kept to one layer."""
+    rules = plane_board.with_suffix(".kicad_dru")
+    extra = "".join(
+        f'(rule "sig5_{n}" (layer "{layer}") (condition "A.NetName == \'SIG5\'")'
+        " (constraint disallow track))\n"
+        for n, layer in enumerate(("F.Cu", "B.Cu"))
+    )
+    hv = '(rule "hv_bottom" (layer "F.Cu") (condition "A.NetClass == \'HV\'") (constraint disallow track))\n'
+    rules.write_text(rules.read_text(encoding="utf-8") + extra + hv, encoding="utf-8")
+    code, env, error = plane_run(monkeypatch, tmp_path, plane_board, "--confirm")
+    assert code == 0, (env, error)
+    (found,) = codes_of(env, "route.no-layer")
+    assert found["severity"] == "warning" and found["where"] == "SIG5" and "SIG5" in found["message"]
+    assert "SIG5" not in env["result"]["selected"] and "SIG6" in env["result"]["selected"]
+    design = read_board(plane_board)
+    assert design.board is not None
+    names = {net.id: net.name for net in design.circuit.nets}
+    layers = {names[t.net_id or ""]: t.layer for t in design.board.tracks}
+    assert layers["HV1"] == layers["HV2"] == "B.Cu", "the direct router keeps the class off F.Cu"
+    assert "SIG5" not in layers and layers["SIG1"] == "F.Cu"
+
+
+def test_edge_minimum_of_the_project_becomes_a_rule(monkeypatch, tmp_path: Path, plane_board: Path) -> None:
+    design = read_board(plane_board)
+    found = cmd_route._project_rules(design, plane_board, [])  # pyright: ignore[reportPrivateUsage]
+    minimum = cmd_route._edge_minimum(plane_board)  # pyright: ignore[reportPrivateUsage]
+    with_rule = cmd_route._with_edge_rule(found.design, minimum)  # pyright: ignore[reportPrivateUsage]
+    assert minimum == 500_000 and with_rule.rules is not None
+    (rule,) = [r for r in with_rule.rules.rules if r.name == cmd_route.EDGE_MINIMUM]
+    assert (rule.kind, rule.min, rule.selector_a.op, rule.layers) == ("edge_clearance", 500_000, "all", ())
+    assert cmd_route._edge_clearance(with_rule) == 500_000  # pyright: ignore[reportPrivateUsage]
+    assert cmd_route._with_edge_rule(design, 0) is design  # pyright: ignore[reportPrivateUsage]
+    assert cmd_route._edge_minimum(tmp_path / "none.kicad_pcb") == 0  # pyright: ignore[reportPrivateUsage]
+    bare = cmd_route._with_edge_rule(design, 300_000)  # pyright: ignore[reportPrivateUsage]
+    assert bare.rules is not None and [r.min for r in bare.rules.rules] == [300_000]
+
+
+def test_failed_fanout_is_reported_and_does_not_change_the_exit_code(
+    monkeypatch, tmp_path: Path, plane_board: Path
+) -> None:
+    design = read_board(plane_board)
+    assert design.board is not None
+    from fenolite.backends.kicad.outline import board_outline
+    from fenolite.model.board import Keepout
+
+    ring = board_outline(design).rings[0]
+
+    area = Keepout(
+        id=derived_id("kpo", "test", "all"),
+        outline=tuple(ring),
+        layers=("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"),
+        no_vias=True,
+    )
+    blocked = dataclasses.replace(design, board=dataclasses.replace(design.board, keepouts=(area,)))
+    plane_board.write_text(write_board(blocked, target=10).text, encoding="utf-8")
+    code, env, error = plane_run(
+        monkeypatch, tmp_path, plane_board, "--nets", "GND", "--nets", "VCC", "--dry-run"
+    )
+    assert code == 0, (env, error)
+    fanned = env["result"]["plane_fanout"]
+    assert fanned["failed"] == ["C1-1", "C1-2", "C2-1", "C2-2", "U1-4", "U1-8"] and fanned["vias"] == 0
+    assert len(codes_of(env, "kicad.fanout.failed")) == 6 and not env["result"].get("plan")
+
+
+# --- pairs, escape requests and the width guard (change c0110) ------------------------------------------
+
+PAIR_BOARD = ROOT / "tests/data/kicad/routing/pair_two_headers.kicad_pcb"
+PAIR_NETS = ("USB_P", "USB_N", "S1", "S2")
+
+
+def pair_triad() -> dict[str, str]:
+    """The authored pair board and its project and rules files: the pair ``USB_P``/``USB_N`` and the single
+    nets ``S1`` and ``S2``, each open between a part on the left (``U1`` holds ``S1``) and one on the right,
+    all in the class ``HS`` (0.2 mm track and pair width, 0.15 mm clearance and pair gap)."""
+    from fenolite.backends.kicad.triad import write_triad
+    from fenolite.model.circuit import NetClass
+
+    builder = rb.Builder()
+    for index, net in enumerate(PAIR_NETS):
+        y = builder.row()
+        left = "U1" if net == "S1" else f"J{index + 1}"
+        builder.part(f"a{index}", left, Point(rb.LEFT, y), target=10, nets={"1": net})
+        builder.part(f"b{index}", f"J{index + 5}", Point(rb.RIGHT, y), target=10, nets={"1": net})
+    design = builder.build().design
+    hs = NetClass(
+        id="cls_00000000-0000-4000-8000-000000000110",
+        name="HS",
+        track_width=200_000,
+        clearance=150_000,
+        diff_pair_width=200_000,
+        diff_pair_gap=150_000,
+    )
+    circuit = replace(
+        design.circuit,
+        netclasses=(*design.circuit.netclasses, hs),
+        nets=tuple(replace(net, netclass_id=hs.id) for net in design.circuit.nets),
+    )
+    return write_triad(replace(design, circuit=circuit), name="pair_two_headers", target=10)
+
+
+def test_pair_board_is_the_authored_one() -> None:
+    """The committed files are what ``pair_triad`` writes (regenerate them from it when this fails)."""
+    for name, text in pair_triad().items():
+        if name.endswith((".kicad_pcb", ".kicad_pro")):
+            assert (PAIR_BOARD.parent / name).read_text(encoding="utf-8") == text, name
+
+
+def pair_run(monkeypatch, tmp_path: Path, *more: str, router: str = "direct") -> tuple[int, dict, dict]:
+    code, env, error, _ = run(monkeypatch, tmp_path, "route", str(PAIR_BOARD), "--router", router, *more,
+                              "--dry-run")  # fmt: skip
+    return code, env, error
+
+
+def test_pair_skipped(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "A router without pairs", with the fake java of Freerouting."""
+    monkeypatch.setenv("FENOLITE_JAVA", str(create_fake_java(tmp_path)))
+    given: list[RoutingJob] = []
+
+    def route(_self: FreeroutingRouter, job: RoutingJob) -> RoutingResult:
+        given.append(job)  # the run itself is the plugin's tests' (the pair board has no outline)
+        return RoutingResult(unrouted=tuple(net.name for net in job.nets), tool="freerouting")
+
+    monkeypatch.setattr(FreeroutingRouter, "route", route)
+    code, env, error = pair_run(
+        monkeypatch, tmp_path, "--router-path", str(create_fake_jar(tmp_path)), router="freerouting"
+    )
+    assert code == 0, (env, error)
+    assert env["result"]["selected"] == ["S1", "S2"] and env["result"]["pairs"] == []
+    (skipped,) = [issue for issue in env["issues"] if issue["code"] == "route.pair-skipped"]
+    assert "USB_P/USB_N" in skipped["message"] and skipped["severity"] == "warning"
+    assert "--pairs-as-nets" in skipped["hint"] and "kicadroutingtools" in skipped["hint"]
+    assert [job.pairs for job in given] == [()] and [n.name for n in given[0].nets] == ["S1", "S2"]
+
+
+def test_pairs_as_single_nets(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Pairs as single nets"."""
+    code, env, error = pair_run(monkeypatch, tmp_path, "--pairs-as-nets")
+    assert code == 0, (env, error)
+    assert set(env["result"]["selected"]) == set(PAIR_NETS) and env["result"]["pairs"] == []
+    (uncoupled,) = [issue for issue in env["issues"] if issue["code"] == "route.pair-uncoupled"]
+    assert "USB_P/USB_N" in uncoupled["message"] and uncoupled["severity"] == "info"
+    assert "route.pair-skipped" not in codes(env)
+
+
+def test_pairs_reach_a_router_with_the_feature(monkeypatch, tmp_path: Path) -> None:
+    """A router whose ``features`` holds ``pairs`` gets the pair with the class pair values, and the
+    reply lists it."""
+
+    class PairRouter(StubRouter):
+        features = frozenset({"pairs", "escape"})
+
+    router = PairRouter("test-pairs", "routed")
+    monkeypatch.setattr(cmd_route, "_router", lambda _name, _args: router)
+    code, env, error = pair_run(monkeypatch, tmp_path, "--escape", "U1", router="test-pairs")
+    assert code == 0, (env, error)
+    (job,) = router.jobs
+    assert [(p.name, p.positive, p.negative, p.width, p.gap) for p in job.pairs] == [
+        ("USB_P/USB_N", "USB_P", "USB_N", 200_000, 150_000)
+    ]
+    assert {net.name for net in job.nets} == set(PAIR_NETS)
+    assert [(e.ref, e.nets) for e in job.escape] == [("U1", ("S1",))]
+    (pair,) = env["result"]["pairs"]
+    assert pair["name"] == "USB_P/USB_N" and pair["width"] == 200_000 and pair["gap"] == 150_000
+    assert pair["routed"] is False  # the stub's 2 mm tracks join nothing
+    (escape,) = env["result"]["escape"]
+    assert escape["ref"] == "U1" and escape["nets"] == ["S1"] and escape["kind"] in ("grid", "perimeter")
+
+
+def test_escape_without_the_feature(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Escape without the feature"."""
+    code, env, error = pair_run(monkeypatch, tmp_path, "--escape", "U*")
+    assert code == 0, (env, error)
+    assert env["result"]["escape"] == []
+    (skipped,) = [issue for issue in env["issues"] if issue["code"] == "route.escape-skipped"]
+    assert "U1" in skipped["message"] and "direct" in skipped["message"]
+
+
+def test_unknown_escape_kind(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Unknown escape kind"."""
+    code, env, error = pair_run(monkeypatch, tmp_path, "--escape", "U1=ring")
+    assert code == 2 and error["code"] == "FEN-2001" and "ring" in error["message"]
+
+
+def test_narrower_copper_reported(monkeypatch, tmp_path: Path) -> None:
+    """Scenario "Narrower copper reported"."""
+
+    class Narrow(StubRouter):
+        def route(self, job: RoutingJob) -> RoutingResult:
+            done = super().route(job)
+            return replace(done, tracks=tuple(replace(t, width=t.width - 400) for t in done.tracks))
+
+    monkeypatch.setattr(cmd_route, "_router", lambda _name, _args: Narrow("test-narrow", "routed"))
+    code, env, error = pair_run(monkeypatch, tmp_path, "--nets", "S1", router="test-narrow")
+    assert code == 0, (env, error)
+    (found,) = [issue for issue in env["issues"] if issue["code"] == "route.width-below-job"]
+    assert found["where"] == "S1" and "0.1996mm" in found["message"] and "0.2mm" in found["message"]
+    assert env["result"]["plan"]
+    guard = cmd_route._width_guard  # pyright: ignore[reportPrivateUsage]
+    narrow = RoutingResult(tracks=(Track(id="", start=Point(0, 0), end=Point(1, 0), width=100, layer="F.Cu",
+                                         net_id="n1"),))  # fmt: skip
+    (hinted,) = guard(narrow, [cmd_route.JobNet("A", "n1", (), 200, 1, 1, 1)], (), "freerouting")
+    assert "fanout=off" in (hinted.hint or "")

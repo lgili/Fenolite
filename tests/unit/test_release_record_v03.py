@@ -46,6 +46,11 @@ NOT_IN_RELEASE = (
 defects with their proposed follow-ups, and the owed Altium parts."""
 EXCEPTION_WORDS = ("exception", "condition (d)", "fenolite kit verify", "fenolite kit record", "c0148")
 """What "Graduation of the Altium write" must say about the maintainer's decision on the kit."""
+ADDED_AFTER_RELEASE: dict[str, tuple[str, ...]] = {
+    "altium_pcbdoc": ("H-A-PCB-CU-LOCK", "H-A-PCB-CU-VIATENT"),
+}
+"""Ids that v0.4 changes added to a write cell after ``0.3.0`` (c0108: locked copper; c0112: via
+tenting). The record counts the cell of the released tree, so the guard leaves these out of the count."""
 
 
 def section(text: str, title: str) -> str:
@@ -155,7 +160,14 @@ def graduation_problems(text: str) -> list[str]:
             experimental = "write" in kinds[kind].experimental
             if experimental != (verdict == "experimental"):
                 problems.append(f"graduation: {kind} says {verdict!r}, the matrix disagrees")
-            if len(row) > 2 and row[2].isdigit() and int(row[2]) != len(kinds[kind].write.hypotheses):
+            later = ADDED_AFTER_RELEASE.get(kind, ())
+            problems.extend(
+                f"graduation: {kind} no longer names {name}, listed as added after {RELEASED}"
+                for name in later
+                if name not in kinds[kind].write.hypotheses
+            )
+            counted = [name for name in kinds[kind].write.hypotheses if name not in later]
+            if len(row) > 2 and row[2].isdigit() and int(row[2]) != len(counted):
                 problems.append(
                     f"graduation: {kind} counts {row[2]} ids, the write cell names another number"
                 )

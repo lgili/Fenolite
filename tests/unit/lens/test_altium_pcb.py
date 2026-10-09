@@ -404,6 +404,7 @@ NO_COPPER = {
     "arcs": 0,
     "vias": 0,
     "zones": 0,
+    "locked": {"tracks": 0, "arcs": 0, "vias": 0},
     "net_classes": 1,
     "placements_from_board": 0,
 }
@@ -575,7 +576,10 @@ def test_stack_values_come_from_the_stackup(tmp_path: Path) -> None:
 
     between = ((180_000, "4.4", "PP"), (710_000, "4.5", ""), (180_000, "", "PP"))
     output = routed_build(tmp_path, _with_stackup(routed_model(()), FOUR, between))  # type: ignore[arg-type]
-    assert not [i for i in output.issues if i.where == "stackup"]
+    # the stack-up fits; its solder mask of 10 um has no key in the document and is named once (c0101)
+    (unheld,) = [i for i in output.issues if i.where == "stackup"]
+    assert unheld.severity == "info" and "the solder mask thickness" in unheld.message
+    assert "the copper and dielectric values are written" in unheld.message
     board = read_pcbdoc(output.files["routed.PcbDoc"]).board
     assert [board[f"V9_STACK_LAYER{i}_DIELTYPE"] for i in (4, 6, 8)] == ["2", "1", "2"]
     assert (
@@ -652,6 +656,7 @@ def test_zone_of_the_routed_model_becomes_two_unpoured_polygons(tmp_path: Path) 
         "arcs": 1,
         "vias": 3,
         "zones": 2,
+        "locked": {"tracks": 0, "arcs": 0, "vias": 0},
         "placements_from_board": 0,
     }
     (info,) = [i for i in output.issues if i.code == "altium.zones-unpoured"]
@@ -1059,3 +1064,123 @@ def test_hier_board_project_lists_the_schematics_first(tmp_path: Path) -> None:
         rows = records(output.files[name])
         assert rows[0]["WEIGHT"] == str(len(rows) - 1)
         assert all(r.get("NAME") != "FenoliteNote" for r in rows), name
+
+
+# --- outlines with arcs and the parts of design.hole() (change c0102, "PCB document output") ---------
+
+LAST_LINE = 'd1.place(mm(38), mm(20), side="bottom")\n'
+
+
+def build_blink_script(root: Path, text: str, new: str) -> BuildOutput:
+    """The blink with ``text`` replaced by ``new``, built with the definitions its script generated."""
+    project = blink_tree(root)
+    design = blink(text, new)
+    return build_altium(
+        to_model(design),
+        name=design.name,
+        placed=tuple(placements(design)),
+        placements=placements(design),
+        resolver=blink_resolver(root, project),
+        authored_footprints={key: fp.definition for key, fp in design.footprints.items()},
+        authored_symbols={key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+    )
+
+
+def test_an_outline_with_arcs_no_document(tmp_path: Path) -> None:
+    """Scenario "An outline with arcs, no document"."""
+    rounded = (
+        "from fenolite.dsl import shape\n"
+        "design.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(2)))\n"
+    )
+    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", rounded)
+    assert not [i for i in output.issues if i.severity == "error"]
+    assert "blink.PcbLib" in output.files and "blink.PcbDoc" not in output.files
+    (found,) = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    assert "arcs" in found.message and output.summary["pcb_document"] is None
+
+
+def test_a_round_board_names_its_arcs_not_a_missing_outline(tmp_path: Path) -> None:
+    round_board = (
+        "from fenolite.dsl import shape\ndesign.board(outline=shape.circle(mm(25), mm(15), mm(60)))\n"
+    )
+    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", round_board)
+    (found,) = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    assert "arcs" in found.message and "no board outline" not in found.message
+
+
+def test_a_round_hole_becomes_a_free_pad(tmp_path: Path) -> None:
+    """Scenario "A round hole becomes a free pad"."""
+    from _altium_pcb_read import read_pcbdoc
+
+    from fenolite.backends.altium.pcbrecords import to_units
+
+    hole = LAST_LINE + 'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
+    output = build_blink_script(tmp_path, LAST_LINE, hole)
+    assert not [i for i in output.issues if i.severity == "error"]
+    pcb = output.summary["pcb"]
+    assert pcb["written"]["hole"] == 1 and "hole" not in pcb["not_lowered"]  # type: ignore[index]
+    assert not [i for i in output.issues if i.code == "altium.not-lowered" and "H1" in i.message]
+    doc = read_pcbdoc(output.files["blink.PcbDoc"])
+    assert sorted(c["SOURCEDESIGNATOR"] for c in doc.components) == ["D1", "R1", "U1"]
+    free = [pad for pad in doc.pads if pad.hole == to_units(3_200_000)]
+    assert len(free) == 1 and free[0].plated == 0
+    # every size equals the hole size, so no copper ring remains (pcb-records.md, "Free pads as holes")
+    assert all(size == (free[0].hole, free[0].hole) for size in free[0].sizes) and free[0].name == ""
+    plain = read_pcbdoc(build_blink_placed(tmp_path / "plain").files["blink.PcbDoc"])
+    assert len(doc.pads) == len(plain.pads) + 1
+    # neither the schematic nor the PCB library holds the hole or a footprint of its library
+    assert sorted(read_pcblib(output.files["blink.PcbLib"]).footprints) == BLINK_NAMES
+    designators = {r.get("TEXT") for r in records(output.files["blink.SchDoc"]) if r.get("RECORD") == "34"}
+    assert "H1" not in designators and {"D1", "R1", "U1"} <= designators
+    assert b"Fenolite_Holes" not in output.files["blink.SchLib"]
+    assert not [name for name in output.files if "Fenolite_Holes" in name]
+
+
+def test_a_plated_hole_and_a_slot_are_reported(tmp_path: Path) -> None:
+    """Scenario "A plated hole and a slot are reported"."""
+    holes = (
+        LAST_LINE
+        + 'h2 = design.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))\n'
+        + "connect(gnd, h2[1])\n"
+        + 'design.hole("H3", mm(25), mm(4), drill=mm(1), length=mm(3))\n'
+    )
+    output = build_blink_script(tmp_path, LAST_LINE, holes)
+    assert not [i for i in output.issues if i.severity == "error"]
+    assert "blink.PcbDoc" in output.files
+    pcb = output.summary["pcb"]
+    assert pcb["not_lowered"]["hole"] == 2 and pcb["written"]["hole"] == 0  # type: ignore[index]
+    reported = [i for i in output.issues if i.code == "altium.not-lowered" and i.where.startswith("hole/")]
+    assert len(reported) == 2 and all(i.severity == "info" for i in reported)
+    by_ref = {("H2" if "H2" in i.message else "H3"): i for i in reported}
+    assert "copper" in by_ref["H2"].message and "GND" in by_ref["H2"].message
+    assert "slot" in by_ref["H3"].message and "copper" not in by_ref["H3"].message
+    model = to_model(blink(LAST_LINE, holes))
+    ids = {c.ref: c.id for c in model.circuit.components}
+    assert {i.where for i in reported} == {f"hole/{ids['H2']}", f"hole/{ids['H3']}"}
+    # a hole of each kind beside a round one: one written, two reported
+    mixed = build_blink_script(
+        tmp_path / "mixed", LAST_LINE, holes + 'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
+    )
+    pcb = mixed.summary["pcb"]
+    assert pcb["written"]["hole"] == 1 and pcb["not_lowered"]["hole"] == 2  # type: ignore[index]
+
+
+def test_holes_without_a_document_are_counted_by_the_holes_issue(tmp_path: Path) -> None:
+    rounded = (
+        "from fenolite.dsl import shape\n"
+        "design.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(2)))\n"
+        'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
+        'design.hole("H3", mm(25), mm(4), drill=mm(1), length=mm(3))\n'
+    )
+    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", rounded)
+    assert "blink.PcbDoc" not in output.files
+    (found,) = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "holes"]
+    assert found.message.startswith("2 ")
+    assert not [i for i in output.issues if i.where.startswith("hole/")]
+
+
+def test_the_hole_library_name_is_the_dsls() -> None:
+    from fenolite.dsl import holes
+    from fenolite.lens import altium
+
+    assert altium.HOLE_LIBRARY == holes.HOLE_LIBRARY

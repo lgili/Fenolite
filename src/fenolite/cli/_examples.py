@@ -33,9 +33,13 @@ EXAMPLE_PARITY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/
 """A committed board and schematic of the blink, as ``build`` writes them for target 10: they agree
 (``fenolite parity``). A test keeps them equal to a fresh build."""
 
+EXAMPLE_READY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/ready/blink.kicad_pcb")
+"""The starter of ``fenolite init``, built and routed: a project that ``fenolite ready`` finds ready."""
+
 __all__ = [
     "EXAMPLE_BOARD",
     "EXAMPLE_PARITY",
+    "EXAMPLE_READY",
     "EXAMPLE_SCHEMATIC",
     "EXAMPLE_UNFILLED",
     "EXAMPLE_REFILLED",

@@ -224,3 +224,26 @@ def test_zone_ids_from_the_zone_name() -> None:
 def test_designs_without_zones_are_unchanged() -> None:
     d, _, _ = design()
     assert zones(d) == ()
+
+
+def test_zone_on_a_round_board() -> None:
+    """A zone without an outline takes the box of the board ring's vertices and arc mid points (c0102)."""
+    from fenolite.dsl import arc_to, shape
+
+    d = Design("zones")
+    d.board(outline=shape.circle(mm(20), mm(20), mm(40)))
+    d.zone(Net("GND"), layers=("B.Cu",))
+    (zone,) = zones(d)
+    corners = ((100, 100), (140, 100), (140, 140), (100, 140))
+    assert zone.outline == tuple(Point(x * MM, y * MM) for x, y in corners)
+    # cut-outs do not change the box, and an outline given to zone() is written as before
+    e = Design("zones")
+    bulge = arc_to((mm(45), mm(25)), (mm(40), mm(30)))
+    e.board(outline=((mm(0), mm(0)), (mm(40), mm(0)), bulge, (mm(0), mm(30))))
+    e.cutout(shape.circle(mm(10), mm(10), mm(4)))
+    e.zone(Net("GND"), layers=("B.Cu",))
+    e.zone(Net("VIN"), layers=("F.Cu",), outline=((mm(1), mm(1)), (mm(9), mm(1)), (mm(9), mm(9))))
+    gnd, vin = zones(e)
+    box = ((100, 100), (145, 100), (145, 130), (100, 130))
+    assert gnd.outline == tuple(Point(x * MM, y * MM) for x, y in box)
+    assert vin.outline == (Point(101 * MM, 101 * MM), Point(109 * MM, 101 * MM), Point(109 * MM, 109 * MM))

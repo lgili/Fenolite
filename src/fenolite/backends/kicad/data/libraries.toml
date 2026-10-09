@@ -40,3 +40,19 @@ project = "kicad/libraries/kicad-symbols"
 commit = "ad36cd14bcd1b1cd0484f629ccdd3481366f74f3"
 tree = "6f9d65c40608681f8fc7a99dba7e2ad5dccd44a5201cee2ddf7e6e19c79cc96b"
 files = 233
+
+# Pins of the official 3D models (capability kicad-library-resolution, "3D model pins"; c0116): one per
+# tag above. `commit` is the tag's commit from the tags API (S-0700), read on 2026-10-07. No tree hash:
+# the models are fetched one file at a time by `tools/kicad_libs_fetch.py --models`, each checked against
+# the size and SHA-256 that the files API gives for that commit (S-0701).
+[[models]]
+tag = "10.0.6"
+major = 10
+project = "kicad/libraries/kicad-packages3D"
+commit = "e62ed1fc7862da83f789bd562671b5e4b82afcdf"
+
+[[models]]
+tag = "9.0.9"
+major = 9
+project = "kicad/libraries/kicad-packages3D"
+commit = "a0244fe3442823dbb052ebc4820b4c2951e1742c"

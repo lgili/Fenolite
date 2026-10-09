@@ -23,9 +23,17 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from fenolite.backends.base import BoardFrame, BoardPad, DesignRules, DesignRulesSource, ProjectSet
-from fenolite.checks.clearance import ZONE_SOURCE, Clearance, ClearanceResolver, CopperKind
+from fenolite.checks.clearance import (
+    ZONE_SOURCE,
+    Clearance,
+    ClearanceExplanation,
+    ClearanceResolver,
+    CopperKind,
+)
 from fenolite.checks.codes import issue
 from fenolite.checks.stages import StageResult, ran, skipped
+from fenolite.checks.waivers import COPPER_CODES, Candidate, apply_waivers, copper_waivers
+from fenolite.checks.waivers import judge as judge_waivers
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -44,8 +52,9 @@ from fenolite.geometry import (
     thick_witness,
 )
 from fenolite.model.base import Entity
-from fenolite.model.board import Board, Zone
+from fenolite.model.board import Board, Keepout, Zone
 from fenolite.model.design import Design
+from fenolite.model.findings import Waiver
 from fenolite.model.rules import RuleSubject
 
 ARC_TOL_NM = 1_000
@@ -55,7 +64,19 @@ EVIDENCE = Evidence(
 )
 """``INFERRED`` also once the three rows are settled: the canaries cover pair kinds and clearance sources
 on benches, and fills on 10.0 only, not every board."""
+AREA_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-COPPER-AREA", "H-K-AREA-KEEPOUT"))
+"""Joins the report of a board that holds a rule area or a keep-out (change c0103): the two rows cover
+benches, recorded for 10.0.6 so far."""
 NO_NET = "<no net>"
+FORBIDDEN_KINDS: Mapping[str, tuple[str, str]] = {
+    "track": ("no_tracks", "tracks"),
+    "arc": ("no_tracks", "tracks"),
+    "via": ("no_vias", "vias"),
+    "pad": ("no_pads", "pads"),
+}
+"""Kind of a copper item → the keep-out setting that forbids it and that setting's name in a message.
+Fills are never reported: KiCad's DRC does not report a stored fill in a copper-pour keep-out and its
+filler leaves the area out (``H-K-AREA-KEEPOUT``)."""
 APPROXIMATED = " (approximated pad shape)"
 _WILDCARDS = ("*", "&")
 
@@ -69,6 +90,8 @@ class CopperRef:
     where: str
     entity_id: str
     net: str
+    footprint_id: str = ""
+    net_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +108,14 @@ class CopperFinding:
     clearance: Nm | None
     source: str
     message: str
+    explanation: ClearanceExplanation | None = None
+
+    @property
+    def relation(self) -> str:
+        first, second = self.items
+        if first.footprint_id and second.footprint_id:
+            return "intrinsic" if first.footprint_id == second.footprint_id else "inter_component"
+        return "routed_or_free"
 
     @property
     def where(self) -> str:
@@ -103,6 +134,24 @@ class CopperReport:
     issues: tuple[Issue, ...]
     summary: Mapping[str, object] = field(default_factory=lambda: {})
     evidence: Evidence = Evidence()
+
+
+@dataclass(frozen=True, slots=True)
+class CopperReviewGroup:
+    relation: str
+    source: str
+    findings: tuple[CopperFinding, ...]
+
+
+def group_findings(report: CopperReport) -> tuple[CopperReviewGroup, ...]:
+    """Group for review without dropping, rewriting or exempting any original finding."""
+    groups: dict[tuple[str, str], list[CopperFinding]] = {}
+    for finding in report.findings:
+        groups.setdefault((finding.relation, finding.source), []).append(finding)
+    return tuple(
+        CopperReviewGroup(relation, source, tuple(findings))
+        for (relation, source), findings in sorted(groups.items())
+    )
 
 
 # --- copper items ---------------------------------------------------------------------------------
@@ -132,6 +181,9 @@ class _Item:
     shapes: dict[str, list[_Shape]] = field(default_factory=lambda: {})
     zone_clearance: Nm | None = None
     """For a fill: the own clearance of its zone (``settings.clearance``)."""
+    tie: tuple[str, int] | None = None
+    """For a pad whose number is in a net-tie group of its footprint: the footprint's id and the index of
+    that group (change c0114). Two pads with one ``tie`` are not judged."""
 
 
 def _sort_key(found: Issue) -> tuple[str, str, str]:
@@ -193,6 +245,14 @@ class _Items:
         self.copper = copper_layers(board)
         self._nets = {net.id: net.name for net in design.circuit.nets}
         self._band = arc_tol + 1
+        self._ties: dict[str, dict[str, int]] = {}
+        for footprint in board.footprints:
+            groups: dict[str, int] = {}
+            for index, group in enumerate(footprint.net_ties):
+                for number in group:
+                    groups.setdefault(number, index)
+            if groups:
+                self._ties[footprint.id] = groups
         self._tracks(board)
         self._arcs(board, arc_tol)
         self._vias(board)
@@ -210,7 +270,7 @@ class _Items:
         self.kinds[item.ref.kind] += 1
 
     def _ref(self, kind: CopperKind, entity: Entity, net_id: str | None) -> CopperRef:
-        return CopperRef(kind, _where(entity), entity.id, self.net_name(net_id))
+        return CopperRef(kind, _where(entity), entity.id, self.net_name(net_id), net_id=net_id)
 
     def _tracks(self, board: Board) -> None:
         for track in board.tracks:
@@ -277,8 +337,12 @@ class _Items:
             self.approximated += sum(1 for _, _, exact in shapes if not exact)
             holder = record.ref or record.footprint_id
             where = f"{holder}-{record.number}" if record.number else holder
-            ref = CopperRef("pad", where, record.pad_id, self.net_name(record.net_id))
-            item = _Item(ref, record.net_id, record.ref or None)
+            ref = CopperRef(
+                "pad", where, record.pad_id, self.net_name(record.net_id), record.footprint_id, record.net_id
+            )
+            group = self._ties.get(record.footprint_id, {}).get(record.number) if record.number else None
+            tie = None if group is None else (record.footprint_id, group)
+            item = _Item(ref, record.net_id, record.ref or None, tie=tie)
             self._add(item, [(layer, shape, shape, exact) for layer, shape, exact in shapes])
 
     def _fills(self, board: Board) -> None:
@@ -293,12 +357,129 @@ class _Items:
                 shapes.append((fill.layer, shape, shape, True))
             if shapes:
                 item = _Item(
-                    CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id)),
+                    CopperRef("fill", _where(zone), zone.id, self.net_name(zone.net_id), net_id=zone.net_id),
                     zone.net_id,
                     zone_clearance=zone.settings.clearance,
                 )
                 self._add(item, shapes)
                 self.kinds["fill"] += len(shapes) - 1  # fills are counted, not zones
+
+
+# --- rule areas and keep-outs ---------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class _Area:
+    keepout: Keepout
+    shape: Thick
+    label: str
+    """The area's name, else its locator."""
+
+
+def _area_on(keepout: Keepout, layer: str) -> bool:
+    """Whether ``layer`` is one of the area's layers (``*.Cu`` and ``F&B.Cu`` included)."""
+    for name in keepout.layers:
+        if name == layer:
+            return True
+        if any(mark in name for mark in _WILDCARDS) and fnmatch.fnmatchcase(
+            layer, name.replace("F&B", "[FB]")
+        ):
+            return True
+    return False
+
+
+class _Areas:
+    """The rule areas of a board whose outline can be shaped, and which items lie in them. An item lies in
+    an area on a layer when the layer is one of the area's and its narrow shape touches the area's outline
+    taken as a filled polygon: copper, not centre lines (``H-K-AREA-COND``)."""
+
+    def __init__(self, board: Board, items: _Items) -> None:
+        self.items = items
+        self.areas: list[_Area] = []
+        for keepout in board.keepouts:
+            try:
+                ring = Polygon(_clean_ring(keepout.outline)).outer
+                shape = Thick(ring, 0, filled=True)
+            except (GeometryError, ValueError):
+                items.unsupported["rule-area"] += 1
+                continue
+            self.areas.append(_Area(keepout, shape, keepout.name or _where(keepout)))
+        self.named = sum(1 for area in self.areas if area.keepout.name)
+        self._index = SpatialIndex[int].build((thick_bbox(a.shape), i) for i, a in enumerate(self.areas))
+        self._memo: dict[tuple[int, str], tuple[int, ...]] = {}
+
+    def of(self, index: int, layer: str) -> tuple[int, ...]:
+        """The areas (their positions in ``areas``) that item ``index`` lies in on ``layer``."""
+        key = (index, layer)
+        found = self._memo.get(key)
+        if found is None:
+            hits: set[int] = set()
+            if self.areas:
+                for shape in self.items.items[index].shapes.get(layer, ()):
+                    for k in self._index.query(thick_bbox(shape.narrow)):
+                        area = self.areas[k]
+                        if (
+                            k not in hits
+                            and _area_on(area.keepout, layer)
+                            and thick_touch(shape.narrow, area.shape)
+                        ):
+                            hits.add(k)
+            found = tuple(sorted(hits))
+            self._memo[key] = found
+        return found
+
+    def names(self, index: int, layer: str) -> frozenset[str]:
+        """The names of the rule areas item ``index`` lies in on ``layer``."""
+        if not self.named:
+            return frozenset()
+        return frozenset(
+            self.areas[k].keepout.name for k in self.of(index, layer) if self.areas[k].keepout.name
+        )
+
+    def findings(self, layers: Sequence[str]) -> list[CopperFinding]:
+        """One ``copper.keepout`` per item and keep-out whose settings forbid the item's kind, on the first
+        layer, in ``layers`` order, where the item lies in it."""
+        forbidding = {k for k, a in enumerate(self.areas) if any(
+            getattr(a.keepout, setting) for setting, _ in FORBIDDEN_KINDS.values()
+        )}  # fmt: skip
+        found: list[CopperFinding] = []
+        if not forbidding:
+            return found
+        for index, item in enumerate(self.items.items):
+            rule = FORBIDDEN_KINDS.get(item.ref.kind)
+            if rule is None:
+                continue
+            setting, plural = rule
+            seen: set[int] = set()
+            for layer in layers:
+                if layer not in item.shapes:
+                    continue
+                for k in self.of(index, layer):
+                    area = self.areas[k]
+                    if k in seen or k not in forbidding or not getattr(area.keepout, setting):
+                        continue
+                    seen.add(k)
+                    shape = next(s.narrow for s in item.shapes[layer] if thick_touch(s.narrow, area.shape))
+                    at = thick_witness(shape, area.shape)
+                    ref = CopperRef("keepout", area.label, area.keepout.id, NO_NET)
+                    message = (
+                        f"{item.ref.kind} of {item.ref.net} lies in the keep-out {area.label}, which forbids "
+                        f"{plural}, on {layer} at {_point(at)}"
+                    )
+                    found.append(
+                        CopperFinding(
+                            "copper.keepout",
+                            "error",
+                            layer,
+                            at,
+                            (item.ref, ref),
+                            0,
+                            None,
+                            f"keepout:{area.label}",
+                            message,
+                        )
+                    )
+        return found
 
 
 # --- zone outlines --------------------------------------------------------------------------------
@@ -326,7 +507,10 @@ def _zone_overlaps(board: Board, items: _Items) -> list[CopperFinding]:
             if not shared or not polygons_intersect(outline_a, outline_b):
                 continue
             refs = sorted(
-                (CopperRef("zone", _where(z), z.id, items.net_name(z.net_id)) for z in (first, second)),
+                (
+                    CopperRef("zone", _where(z), z.id, items.net_name(z.net_id), net_id=z.net_id)
+                    for z in (first, second)
+                ),
                 key=lambda ref: (ref.kind, ref.where),
             )
             at = thick_witness(Thick(outline_a.outer, 0, filled=True), Thick(outline_b.outer, 0, filled=True))
@@ -348,8 +532,23 @@ _Pairs = dict[tuple[int, int], list[tuple[int, _Shape, _Shape]]]
 
 
 def _judged(a: _Item, b: _Item) -> bool:
-    """Two items are judged when their nets differ; two items without a net are not."""
-    return a.net_id != b.net_id
+    """Two items are judged when their nets differ; two items without a net are not. Two pads of one
+    net-tie group of one footprint are not judged either: KiCad's DRC does not judge them
+    (``H-K-NETTIE-DRC``), and the footprint joins them on purpose."""
+    return a.net_id != b.net_id and (a.tie is None or a.tie != b.tie)
+
+
+def _net_tie_pairs(items: Sequence[_Item]) -> int:
+    """The item pairs that only their net-tie group keeps from being judged: two pads of one group whose
+    nets differ, every physical pad of a repeated number counted."""
+    groups: dict[tuple[str, int], list[str | None]] = {}
+    for item in items:
+        if item.tie is not None:
+            groups.setdefault(item.tie, []).append(item.net_id)
+    count = 0
+    for nets in groups.values():
+        count += sum(1 for i, a in enumerate(nets) for b in nets[i + 1 :] if a != b)
+    return count
 
 
 def _candidates(items: _Items, layers: Sequence[str], grow: int, *, every_pair: bool) -> tuple[_Pairs, int]:
@@ -378,10 +577,13 @@ def _candidates(items: _Items, layers: Sequence[str], grow: int, *, every_pair: 
 
 
 class _Judge:
-    def __init__(self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver) -> None:
+    def __init__(
+        self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver, areas: _Areas
+    ) -> None:
         self.items = items
         self.layers = layers
         self.resolver = resolver
+        self.areas = areas
         self.judged = 0
         self.unset = 0
         self._subjects: dict[tuple[int, str], RuleSubject] = {}
@@ -391,7 +593,13 @@ class _Judge:
         found = self._subjects.get(key)
         if found is None:
             item = self.items.items[index]
-            found = self.resolver.subject(item.ref.kind, item.net_id, ref=item.component, layer=layer)
+            found = self.resolver.subject(
+                item.ref.kind,
+                item.net_id,
+                ref=item.component,
+                layer=layer,
+                areas=self.areas.names(index, layer),
+            )
             self._subjects[key] = found
         return found
 
@@ -457,7 +665,20 @@ class _Judge:
                     f"copper of {refs[0].net} and {refs[1].net} touches on {layer} at {_point(at)}{note}"
                 )
                 return CopperFinding(
-                    "copper.short", "error", layer, at, refs, 0, found.value, found.source, message
+                    "copper.short",
+                    "error",
+                    layer,
+                    at,
+                    refs,
+                    0,
+                    found.value,
+                    found.source,
+                    message,
+                    self.resolver.explain(
+                        self._subject(a, layer),
+                        self._subject(b, layer),
+                        zone_clearance=self._zone_clearance(a, b),
+                    ),
                 )
         unset = False
         for rank in dict.fromkeys(entry[0] for entry in ordered):
@@ -493,6 +714,11 @@ class _Judge:
                     found.value,
                     found.source,
                     message,
+                    self.resolver.explain(
+                        self._subject(a, layer),
+                        self._subject(b, layer),
+                        zone_clearance=None if found is base else self._zone_clearance(a, b),
+                    ),
                 )
         self.unset += unset
         return None
@@ -521,10 +747,11 @@ def _run(
     findings: list[CopperFinding] = []
     others: list[Issue] = []
     summary: dict[str, object] = {"arc_tol": arc_tol, "max_clearance": resolver.max_value}
-    counts = {"pairs": 0, "judged": 0, "unset_pairs": 0, "approximated": 0}
+    counts = {"pairs": 0, "judged": 0, "unset_pairs": 0, "approximated": 0, "net_tie_pairs": 0}
     layers: tuple[str, ...] = ()
     kinds: Counter[str] = Counter()
     unsupported: Counter[str] = Counter()
+    rule_areas = 0
     if board is not None:
         items = _Items(design, pads, arc_tol)
         used = {layer for item in items.items for layer in item.shapes}
@@ -534,13 +761,21 @@ def _run(
         pairs, counts["pairs"] = _candidates(
             items, layers, (resolver.max_value + 1) // 2, every_pair=every_pair
         )
-        judge = _Judge(items, layers, resolver)
+        areas = _Areas(board, items)
+        rule_areas = areas.named
+        judge = _Judge(items, layers, resolver, areas)
         for (a, b), shapes in sorted(pairs.items()):
             found = judge.pair(a, b, shapes)
             if found is not None:
                 findings.append(found)
+        findings += areas.findings(layers)
         findings += _zone_overlaps(board, items)
-        counts.update(judged=judge.judged, unset_pairs=judge.unset, approximated=items.approximated)
+        counts.update(
+            judged=judge.judged,
+            unset_pairs=judge.unset,
+            approximated=items.approximated,
+            net_tie_pairs=_net_tie_pairs(items.items),
+        )
         kinds, unsupported = items.kinds, items.unsupported
     for kind, count in sorted(unsupported.items()):
         if kind == "zone-outline":
@@ -569,11 +804,14 @@ def _run(
         shorts=by_code["copper.short"],
         clearance=by_code["copper.clearance"],
         zone_overlaps=by_code["copper.zone-overlap"],
+        keepouts=by_code["copper.keepout"],
+        rule_areas=rule_areas,
         unsupported=dict(sorted(unsupported.items())),
         **counts,
     )
     issues = (*(f.to_issue() for f in findings), *sorted(others, key=_sort_key))
-    evidence = Evidence.combine(EVIDENCE, *inputs)
+    with_areas = board is not None and bool(board.keepouts)
+    evidence = Evidence.combine(EVIDENCE, *((AREA_EVIDENCE,) if with_areas else ()), *inputs)
     if any(i.code in LOWERING_CODES for i in issues):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
     return CopperReport(
@@ -615,6 +853,23 @@ def check_copper(
 
 
 STAGE = "copper.clearance"
+
+
+def waived_issues(
+    report: CopperReport, waivers: Sequence[Waiver]
+) -> tuple[tuple[Issue, ...], dict[str, int]]:
+    """The issues of ``report`` with every finding that a copper waiver of ``waivers`` accepts marked
+    (``checks.waivers.apply_waivers``: severity ``info``, the waiver's name and reason), and the number of
+    findings each waiver matched. The names of a finding are the ``where`` of its two items, and its gap is
+    ``CopperFinding.gap``. The other issues of the report follow unchanged."""
+    candidates = [
+        Candidate(found.to_issue(), tuple(item.where for item in found.items), found.gap)
+        for found in report.findings
+        if found.code in COPPER_CODES  # a ``copper.keepout`` finding takes no waiver and follows unchanged
+    ]
+    marked, counts = apply_waivers(copper_waivers(waivers), candidates)
+    others = tuple(found for found in report.issues if found.code not in COPPER_CODES)
+    return (*marked, *others), counts
 
 
 def rules_issues(rules: DesignRules | None) -> list[Issue]:
@@ -667,11 +922,16 @@ def copper_stage(
     rules_source: DesignRulesSource | None,
     frame: BoardFrame | None,
     evidence: Evidence,
+    waivers: Sequence[Waiver] = (),
 ) -> StageResult:
     """The ``copper.clearance`` stage: ``check_copper`` on the board model that ``run_checks`` read
     (``design``; ``None`` when that read was refused), with the rules of the project's own files from
     ``rules_source`` and the pads of ``frame``. ``evidence`` is the evidence of the board read. No tool
-    runs, and nothing is written."""
+    runs, and nothing is written.
+
+    ``waivers`` are the design's waivers (change c0114): a finding that a ``copper.*`` waiver accepts is
+    kept as ``info``, a copper waiver that matched nothing gives ``check.waiver-unmatched``, and
+    ``summary.waivers`` says which matched. Waivers change no evidence."""
     if design is None:
         return skipped(STAGE, "read-refused")
     rules = rules_source.design_rules(design, project) if rules_source is not None else None
@@ -686,15 +946,23 @@ def copper_stage(
         floor_over_rules=rules.floor_over_rules if rules is not None else False,
         inputs=inputs,
     )
-    issues = [*report.issues, *rules_issues(rules)]
+    summary: dict[str, object] = {**report.summary, "rules": rules_summary(rules)}
+    own = copper_waivers(waivers)
+    found, counts = waived_issues(report, own)
+    issues = [*found, *rules_issues(rules)]
+    if own:
+        outcome, stale = judge_waivers(own, counts)
+        issues += stale
+        summary["waivers"] = {key: value for key, value in outcome.to_json().items() if key != "declared"}
     level = report.evidence
     if any(found.code in LOWERING_CODES for found in issues):
         level = Evidence(Level.UNVERIFIED, hypotheses=level.hypotheses)
-    return ran(STAGE, issues, level, {**report.summary, "rules": rules_summary(rules)})
+    return ran(STAGE, issues, level, summary)
 
 
 __all__ = [
     "ARC_TOL_NM",
+    "AREA_EVIDENCE",
     "EVIDENCE",
     "LOWERING_CODES",
     "STAGE",
@@ -702,9 +970,12 @@ __all__ = [
     "CopperKind",
     "CopperRef",
     "CopperReport",
+    "CopperReviewGroup",
+    "group_findings",
     "check_copper",
     "copper_layers",
     "copper_stage",
     "rules_issues",
     "rules_summary",
+    "waived_issues",
 ]

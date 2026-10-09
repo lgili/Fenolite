@@ -24,10 +24,10 @@ PREFIXES: frozenset[str] = frozenset(
         "dsn",  # Design
         "cmp", "pin", "net", "cls", "itf", "mod", "bus",  # circuit
         "brd", "lay", "stk", "sly", "fp", "pad", "pst", "trk", "arc", "via",  # board
-        "zon", "kpo", "txt", "gfx", "hol", "out",  # board
+        "zon", "kpo", "txt", "gfx", "hol", "out", "dim",  # board
         "fld",  # footprint fields
         "bdy",  # component bodies
-        "rst", "rul",  # rules
+        "rst", "rul", "imp",  # rules (imp: impedance targets, change c0105)
         "mfn",  # manufacturing
         "fpd", "sym",  # library definitions
         "wks",  # drawing-sheet definitions

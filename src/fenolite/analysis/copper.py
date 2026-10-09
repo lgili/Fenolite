@@ -98,17 +98,35 @@ def copper_layers(board: Board) -> tuple[str, ...]:
 def net_copper(design: Design, *, pads: Sequence[BoardPad] | None, arc_tol: int = ARC_TOL_NM) -> NetCopper:
     """The copper of the board per net. Copper without a net is left out. With ``pads`` ``None``, every
     pad that carries copper is counted as unsupported."""
+    return _collect(design, pads, arc_tol)[0]
+
+
+def loose_copper(
+    design: Design, *, pads: Sequence[BoardPad] | None, arc_tol: int = ARC_TOL_NM
+) -> tuple[CopperShape, ...]:
+    """The copper of the board that has no net: its tracks, arcs, vias, pads and fills, shaped as
+    ``net_copper`` shapes the copper of the nets. Such copper conducts, so a creepage path or a clearance
+    chain crosses it at no length (capability board-analyses, "Creepage over conductors")."""
+    return _collect(design, pads, arc_tol)[1]
+
+
+def _collect(
+    design: Design, pads: Sequence[BoardPad] | None, arc_tol: int
+) -> tuple[NetCopper, tuple[CopperShape, ...]]:
     board = design.board
     if board is None:
-        return NetCopper()
+        return NetCopper(), ()
     names = {net.id: net.name for net in design.circuit.nets}
     copper = copper_layers(board)
     found: dict[str, list[CopperShape]] = {}
+    loose: list[CopperShape] = []
     unsupported: Counter[str] = Counter()
 
     def add(net_id: str | None, shape: CopperShape) -> None:
         if net_id is not None:
             found.setdefault(names.get(net_id, net_id), []).append(shape)
+        else:
+            loose.append(shape)
 
     for track in board.tracks:
         try:
@@ -166,7 +184,7 @@ def net_copper(design: Design, *, pads: Sequence[BoardPad] | None, arc_tol: int 
             add(zone.net_id, CopperShape(shape, fill.layer, "fill", _where(zone), zone.id))
     outer = (copper[0], copper[-1]) if copper else None
     by_net = {name: tuple(shapes) for name, shapes in sorted(found.items())}
-    return NetCopper(by_net, dict(sorted(unsupported.items())), outer, copper)
+    return NetCopper(by_net, dict(sorted(unsupported.items())), outer, copper), tuple(loose)
 
 
-__all__ = ["ARC_TOL_NM", "CopperShape", "NetCopper", "copper_layers", "net_copper"]
+__all__ = ["ARC_TOL_NM", "CopperShape", "NetCopper", "copper_layers", "loose_copper", "net_copper"]

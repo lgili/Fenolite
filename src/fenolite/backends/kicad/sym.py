@@ -121,9 +121,9 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
     for symbol in sorted(symbols, key=lambda item: item.lib_id):
         out += [
             f"\t(symbol {q(symbol.name)}",
-            "\t\t(exclude_from_sim no)",
-            "\t\t(in_bom yes)",
-            "\t\t(on_board yes)",
+            f"\t\t(exclude_from_sim {'yes' if symbol.exclude_from_sim else 'no'})",
+            f"\t\t(in_bom {'yes' if symbol.in_bom else 'no'})",
+            f"\t\t(on_board {'yes' if symbol.on_board else 'no'})",
         ]
         props = symbol.properties
         for key, default, y in (
