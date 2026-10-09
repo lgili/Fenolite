@@ -2,7 +2,9 @@
 
 ## Purpose
 Keep the work done in KiCad when `fenolite build` runs over an existing project: parts are matched to footprints by uuid, `fenolite.path` or a `moved()` alias; placements follow the precedence locked `place()`, board, `place()`, staging; routing, zones, fills, board-only footprints, board settings, project keys and user rules survive while what they depend on is unchanged; and a rebuild over its own output is byte-identical. Behaviour: `docs/lens.md`; facts: `docs/formats/kicad/board.md`.
+
 ## Requirements
+
 ### Requirement: Layout lens module
 The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build`, and MUST import only the standard library, `core`, `model` and `backends` (`package-layering`), never `geometry`, `dsl` or `lens.build`.
 - Public names: `ExistingProject`, `read_existing`, `footprint_uuid`, `FootprintMatch`, `LayoutMatch`, `match_footprints`, `PlacementLike`, `KeptPlacement`, `effective_placements`, `Prepared`, `prepare`, `Merged`, `merge_layout`, `zone_digest`, `fill_inputs_digest`, `drop_stale_fills`, `merge_rules`, `PRESERVE_ISSUE_CODES` and `EVIDENCE`.
@@ -747,3 +749,29 @@ A rebuild over a board that KiCad updated from the generated schematic SHALL kee
 - **WHEN** `uv run pytest tests/kicad/lens/test_update_stand_in.py -rA` runs on 9.0.9 and on 10.0.6
 - **THEN** `kicad-cli` loads the rebuilt board, and its parity test reports nothing
 
+### Requirement: Layer count across rebuilds
+`build` over an existing board SHALL keep the layout of a board of every count of `layers.CREATED_COPPER_COUNTS` whose copper layer names equal those of `layers.created_layers(copper)`, and SHALL name the board's count when they differ.
+- The copper rule of "Board content outside the design is kept" MUST hold at 6 and 8 copper layers as at 2 and 4: with equal names the layout is kept, with the board's own layer rows (types and user names set in KiCad) unchanged.
+- When the names differ, `layout.copper-mismatch` (error, nothing written) MUST name the board's copper layers, their count and the script's count.
+- When `layers.created_count(<the board's copper names>)` gives a count m, the hint MUST name `design.board(..., copper=m)`, which keeps the board's layout, and `--discard-layout`, which creates the board on the script's count without its layout. Otherwise the hint MUST name `--discard-layout` only.
+- A change of the count MUST NOT keep the layout through this requirement.
+
+#### Scenario: Six layers rebuilt
+- **GIVEN** a confirmed target-10 build of the six-layer blink variant of `design-dsl`, "Copper layer counts in a build"
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, `result.preserved.board` is true, and every file outside `.bak` files has the bytes of the first build
+
+#### Scenario: Layers added in KiCad
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=4`, whose board gets the rows `(8 "In3.Cu" signal)` and `(10 "In4.Cu" signal)` right after the `In2.Cu` row by token edit, as KiCad's board setup adds two layers
+- **WHEN** `design.py` is changed to `copper=6` and the build runs with `--confirm`
+- **THEN** the exit code is 0, `result.preserved.kept` holds `D1`, `R1` and `U1`, and the written board has the six copper layers `F.Cu`, `In1.Cu` to `In4.Cu` and `B.Cu`
+
+#### Scenario: Mismatch names the board's count
+- **GIVEN** the same edited board and `design.py` still declared with `copper=4`
+- **WHEN** the build runs with `--confirm`
+- **THEN** the exit code is 5, `issues` holds one `layout.copper-mismatch` whose message names 6 and 4 and whose hint names `copper=6` and `--discard-layout`, and nothing is written
+
+#### Scenario: Table that Fenolite does not create
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=8`, whose board gets the rows `(16 "In7.Cu" signal)` and `(18 "In8.Cu" signal)` right after the `In6.Cu` row by token edit
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 5, `issues` holds one `layout.copper-mismatch` whose message names 10 and 8 and whose hint names `--discard-layout` and no `copper=` value, and nothing is written
