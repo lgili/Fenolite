@@ -1,14 +1,16 @@
 ## ADDED Requirements
 
 ### Requirement: Public equivalence API
-The package `fenolite.api` SHALL provide `equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None, against=None, kicad_cli=None, timeout=300.0) -> EquivalenceResult`. `a` and `b` MUST each be a path (a `str` or a `Path`) of any side that `fenolite equivalent` reads, or a `fenolite.model.design.Design`; `b` MUST be `None` exactly when `against` is `"kicad-import"`.
-- It MUST read the sides as "Equivalent command" describes, run `compare_designs` with the highest level both sides hold when `level` is `None`, and return an `EquivalenceResult` with `report`, `a`, `b`, `profile`, `issues` and `evidence`; `to_json()` MUST return the command's `result`.
-- A `Design` given directly MUST be a side with `backend` `model`, `sha256` `None` and the evidence `INFERRED`.
-- Usage faults MUST raise `ValueError`, which the command maps to `FEN-2001`.
+The package `fenolite.api` SHALL provide `equivalent(a, b, *, level=None, tolerances=None, frame=None, ignore_refs=(), profile=None, against=None, kicad_cli=None, timeout=300.0) -> EquivalenceResult`. It MUST read the sides as "Equivalent command" describes, run `compare_designs` at the highest level both sides hold when `level` is `None`, and return an `EquivalenceResult` with `report`, `a`, `b`, `profile`, `issues` and `evidence`, whose `to_json()` MUST return the command's `result`.
 
 #### Scenario: Same reply as the command
 - **WHEN** `uv run pytest tests/unit/api/test_equivalence_api.py -k same_as_cli` calls `equivalent` and runs `fenolite equivalent --json` on the two-layer board and its copy with one footprint moved
 - **THEN** `to_json()` of the call equals `result` of the reply, and the issues are equal in order
+
+### Requirement: Public equivalence API inputs
+`a` and `b` of `fenolite.api.equivalent` MUST each be a path (a `str` or a `Path`) of any side that `fenolite equivalent` reads, or a `fenolite.model.design.Design`; `b` MUST be `None` exactly when `against` is `"kicad-import"`.
+- A `Design` given directly MUST be a side with `backend` `model`, `sha256` `None` and the evidence `INFERRED`.
+- Usage faults MUST raise `ValueError`, which the command maps to `FEN-2001`.
 
 #### Scenario: Two models
 - **GIVEN** the design read from `tests/data/kicad/board/two_layer.kicad_pcb` and the same design with one value changed
@@ -28,10 +30,15 @@ The package `fenolite.api` SHALL provide `equivalent(a, b, *, level=None, tolera
 - **THEN** the call returns an equivalent report and the folder is unchanged
 
 ### Requirement: Schematic sides
-A side whose path ends in `.kicad_sch` SHALL be read, with the sheets that its tree names in its folder, into a `Design` that holds a circuit and no board.
-- The netlist MUST be `sch_netlist.own_netlist` when `sch_netlist.grammar_issues` reports nothing for the tree, and otherwise the netlist that `oracle.export_schematic_netlist` reads from `kicad-cli sch export netlist`; without a `kicad-cli` that path MUST exit 6 with `FEN-6001`.
-- Each netlist component MUST give one component with its reference and value; each netlist net one net with its `REF-PIN` members. A component of the netlist that has no footprint field and whose symbol is a power symbol MUST be left out and counted in the side's `power_symbols`.
-- `max_level` of such a side MUST be 2, and its `netlist_source` MUST be `schematic`. Its evidence MUST be that of the own netlist, or `ORACLE-VERIFIED(kicad-cli)` for the exported one.
+A side whose path ends in `.kicad_sch` SHALL be read, with the sheets that its tree names in its folder, into a `Design` that holds a circuit and no board. `max_level` of such a side MUST be 2, and its `netlist_source` MUST be `schematic`. Its evidence MUST be that of the own netlist, or `ORACLE-VERIFIED(kicad-cli)` for the exported one ("Schematic side netlist").
+
+#### Scenario: Level above a schematic side
+- **WHEN** `fenolite equivalent proj.kicad_sch proj.kicad_pcb --level 3` runs
+- **THEN** the exit code is 2 with `FEN-2001`, and the message names side `a` and the highest level, 2
+
+### Requirement: Schematic side netlist
+The netlist of a schematic side SHALL be `sch_netlist.own_netlist` when `sch_netlist.grammar_issues` reports nothing for the tree, and otherwise the netlist that `oracle.export_schematic_netlist` reads from `kicad-cli sch export netlist`; without a `kicad-cli` that path MUST exit 6 with `FEN-6001`.
+- Each netlist component MUST give one component with its reference and value; each netlist net one net with its `REF-PIN` members.
 
 #### Scenario: Generated schematic, no tool
 - **GIVEN** a project built for target 10 from the blink design, and `subprocess.run` patched to raise
@@ -43,17 +50,21 @@ A side whose path ends in `.kicad_sch` SHALL be read, with the sheets that its t
 - **WHEN** `uv run pytest tests/kicad/equivalence/test_schematic_side.py -rA` compares it with the board of the same demo project
 - **THEN** levels 1 and 2 run with `netlist_source` `schematic` on side `a`, and the probe `equiv-schside` records the outcome
 
-#### Scenario: Level above a schematic side
-- **WHEN** `fenolite equivalent proj.kicad_sch proj.kicad_pcb --level 3` runs
-- **THEN** the exit code is 2 with `FEN-2001`, and the message names side `a` and the highest level, 2
+### Requirement: Power symbols of a schematic side
+A schematic side SHALL hold no component for a power symbol (a symbol whose reference starts with `#`), which KiCad's netlist and Fenolite's own one leave out (`H-K-NETLIST-SHAPE`); a netlist component whose reference starts with `#` MUST be left out too. The side's `power_symbols` MUST be the number of distinct such references of its sheets.
+
+#### Scenario: Power symbol left out
+- **GIVEN** the built blink project, whose sheet holds power symbols
+- **WHEN** `uv run pytest tests/unit/api/test_equivalence_api.py -k power` reads `blink.kicad_sch` as a side
+- **THEN** no component of the side's circuit has a reference starting with `#`, and its `power_symbols` is the number of `#` references of the sheet
 
 ### Requirement: Fitted flag of a schematic side
-The do-not-populate flag of a schematic side SHALL come from the netlist field that `H-K-EQ-SCHSIDE` names. When the netlist holds no such field, every component of the side is fitted, level 1 MUST NOT compare `dnp` for it, and the side gives one `equiv.dnp-unknown` info.
+The do-not-populate flag of a component of a schematic side SHALL come from the field that `H-K-EQ-SCHSIDE` names: a `comp` of the exported netlist that holds a `property` named `dnp` is not fitted, and for the own netlist the `dnp` attribute of the component's symbol, which KiCad exports as that property, gives the flag. Level 1 MUST compare it as for any other side.
 
-#### Scenario: Flag unknown
-- **GIVEN** a netlist without the field, read as side `a`, and side `b` with one component marked do-not-populate
-- **WHEN** level 1 runs
-- **THEN** no `dnp` difference is reported and the issues hold one `equiv.dnp-unknown` info
+#### Scenario: Flag read
+- **GIVEN** a netlist export whose `D1` holds `(property (name "dnp"))`, read as side `a`, and side `b` with `D1` fitted
+- **WHEN** `uv run pytest tests/unit/api/test_equivalence_api.py -k dnp` runs level 1
+- **THEN** one `dnp` difference is reported at `D1`, `true` on side `a` and `false` on side `b`
 
 ### Requirement: Equivalent result schema
 `schemas/fenolite.equivalent.v0.json` SHALL be a JSON Schema of the `result` object of `fenolite equivalent`: every key of "Equivalent command" with its type, `additionalProperties` false on every object, and the kinds of difference as the closed list of `docs/equivalence.md`. `tests/consistency` MUST validate the `result` of every command for which a file `schemas/fenolite.<name>.v0.json` exists.

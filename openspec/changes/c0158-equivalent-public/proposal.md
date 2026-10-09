@@ -23,7 +23,7 @@ Size: 4.5 design-days; cut order in the design.
 None.
 
 ### Modified Capabilities
-- `design-equivalence`: MODIFIED "Equivalent command", "Tolerances and normalisation"; ADDED "Public equivalence API", "Schematic sides", "Equivalent result schema".
+- `design-equivalence`: MODIFIED "Equivalent command", "Tolerances and normalisation"; ADDED "Public equivalence API", "Public equivalence API inputs", "Public API errors and effects", "Schematic sides", "Schematic side netlist", "Power symbols of a schematic side", "Fitted flag of a schematic side", "Equivalent result schema".
 - `package-layering`: MODIFIED "Allowed import edges" (the `api` row).
 - `cli-contract`: ADDED "Levels and sides of equivalent in capabilities".
 
