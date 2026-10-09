@@ -482,64 +482,101 @@ sources = ["S-0020", "S-0029"]
 note = "an np_thru_hole pad on the outer copper layers only (F&B.Cu) of a board with inner layers: 10.0.6 reads such a pad of a board of format 9 with every copper layer (measured on 2026-10-09), so 9.0 checks the hole's clearance on the inner layers too; the pad is written as it is"
 
 # ---------------------------------------------------------------------------------- project keys
+# A project row's `when` is ["default"]: the key holds what a fresh KiCad 10 project writes there (the 10
+# template, pro.holds_default; docs/formats/kicad/project.md, "Default sections of KiCad 10"). Every KiCad
+# 10 project holds these sections; the maintainer decided on 2026-10-09 that their defaults are `same`
+# and any content a `design` loss.
 
 [[row]]
 id = "project:/component_class_settings"
 target = 9
-action = "design"
-note = "component classes: 9.0 has none"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
+note = "component classes: 9.0 has none; the default (no assignment, sheet classes off) is what 9.0 does"
 
 [[row]]
 id = "project:/component_class_settings/assignments"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/component_class_settings/meta"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/component_class_settings/meta/version"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/component_class_settings/sheet_component_classes"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/component_class_settings/sheet_component_classes/enabled"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/net_settings/classes/*/tuning_profile"
 target = 9
-action = "design"
-note = "the tuning profile of a net class: 9.0 has none"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
+note = "the tuning profile of a net class: 9.0 has none; the default is the empty name (no profile)"
 
 [[row]]
 id = "project:/tuning_profiles"
 target = 9
-action = "design"
-note = "tuning profiles (impedance targets): 9.0 has none"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
+note = "tuning profiles (impedance targets): 9.0 has none; the default is an empty list"
 
 [[row]]
 id = "project:/tuning_profiles/meta"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/tuning_profiles/meta/version"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/tuning_profiles/tuning_profiles_impedance_geometric"
 target = 9
-action = "design"
+action = "same"
+when = ["default"]
+else = "design"
+sources = ["S-0020", "S-0029"]
 
 [[row]]
 id = "project:/net_settings/meta/version"

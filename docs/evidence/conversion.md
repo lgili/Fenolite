@@ -325,9 +325,14 @@ of its source.
 `kicad/kicad:10.0.6`). Each project folder is rebuilt from the corpus (board, sheets, project file,
 `fp-lib-table` and `CM5IO.pretty` for `cm5_minima`) and converted with
 `fenolite.api.convert(folder, to="kicad", kicad_version=9, allow_lossy=True)`: no difference is
-unexplained. The report's `refuse` losses are the project rows `project:/component_class_settings` and
+unexplained. The report's `refuse` losses were the project rows `project:/component_class_settings` and
 `project:/net_settings/classes/*/tuning_profile` (both projects), `project:/tuning_profiles`
-(`pic_programmer`) and `npth-front-back` (`CM5_MINIMA_3`). DRC and ERC by violation type, without counts:
+(`pic_programmer`) and `npth-front-back` (`CM5_MINIMA_3`). Since the maintainer's decision of 2026-10-09
+the project rows are `same` when their sections hold the defaults of a fresh KiCad 10 project, as they do in
+both projects: re-run on 2026-10-09, `fenolite --kicad-version 9 convert <project> --to kicad --confirm`
+exits 0 for `pic_programmer` without `--allow-lossy`, and `CM5_MINIMA_3` is refused for
+`npth-front-back` alone (`tests/kicad/downgrade/test_demos.py::test_default_project_sections`). The
+written files are the same as before; only the report class of the three project rows changed. DRC and ERC by violation type, without counts:
 
 | project | 10.0.6, source | 9.0.9, converted |
 |---|---|---|

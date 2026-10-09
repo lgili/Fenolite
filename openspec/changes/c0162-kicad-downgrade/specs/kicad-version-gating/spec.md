@@ -23,12 +23,17 @@
 - **THEN** the written board holds its `setup` node with its `tenting` in 9's form `(tenting front back)`, the 633 `tenting` nodes of its pads, whose sides are all `none`, are removed as `same`, and the counts per row equal those of the design's measurement
 
 ### Requirement: Downgrade consent
-`resolver.resolve` SHALL return the tree, the row of each edit and the counts per row and action. A `design` edit MUST raise `LossyWriteError` naming its row unless the writer was given `allow_lossy`; with it the node is removed and the row reported as a loss.
+`resolver.resolve` SHALL return the tree, the row of each edit and the counts per row and action. A `design` edit MUST raise `LossyWriteError` naming its row unless the writer was given `allow_lossy`; with it the node is removed and the row reported as a loss. A `project:` row MUST be `same` when its key holds what a fresh KiCad 10 project writes there, and `design` otherwise.
 
 #### Scenario: Design loss needs consent
 - **GIVEN** a board of major 10 with one via whose `capping` is set
 - **WHEN** `write_board(design, target=9, downgrade=True)` runs, and again with `allow_lossy=True`
 - **THEN** the first raises `LossyWriteError` naming the row `capping`, and the second writes the board without the node and reports the row
+
+#### Scenario: Default project sections
+- **GIVEN** a KiCad 10 project whose `component_class_settings`, `tuning_profiles` and class `tuning_profile` hold what a fresh KiCad 10.0.6 project writes, and the same project with a tuning profile
+- **WHEN** each is written with `update_project(text, design, target=9, downgrade=True)` for a board read at 10
+- **THEN** the first drops the three sections as `same` without `allow_lossy`, and the second raises `LossyWriteError` naming the row `project:/tuning_profiles`
 
 ## MODIFIED Requirements
 

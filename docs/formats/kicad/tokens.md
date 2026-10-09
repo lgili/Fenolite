@@ -260,18 +260,18 @@ written for KiCad 9.
 
 | id | target | downgrade | note |
 |---|---|---|---|
-| `project:/component_class_settings` | 9 | design (INFERRED) | component classes: 9.0 has none |
-| `project:/component_class_settings/assignments` | 9 | design (INFERRED) |  |
-| `project:/component_class_settings/meta` | 9 | design (INFERRED) |  |
-| `project:/component_class_settings/meta/version` | 9 | design (INFERRED) |  |
-| `project:/component_class_settings/sheet_component_classes` | 9 | design (INFERRED) |  |
-| `project:/component_class_settings/sheet_component_classes/enabled` | 9 | design (INFERRED) |  |
-| `project:/net_settings/classes/*/tuning_profile` | 9 | design (INFERRED) | the tuning profile of a net class: 9.0 has none |
+| `project:/component_class_settings` | 9 | same when default, else design (INFERRED) | component classes: 9.0 has none; the default (no assignment, sheet classes off) is what 9.0 does |
+| `project:/component_class_settings/assignments` | 9 | same when default, else design (INFERRED) |  |
+| `project:/component_class_settings/meta` | 9 | same when default, else design (INFERRED) |  |
+| `project:/component_class_settings/meta/version` | 9 | same when default, else design (INFERRED) |  |
+| `project:/component_class_settings/sheet_component_classes` | 9 | same when default, else design (INFERRED) |  |
+| `project:/component_class_settings/sheet_component_classes/enabled` | 9 | same when default, else design (INFERRED) |  |
+| `project:/net_settings/classes/*/tuning_profile` | 9 | same when default, else design (INFERRED) | the tuning profile of a net class: 9.0 has none; the default is the empty name (no profile) |
 | `project:/net_settings/meta/version` | 9 | rewrite to `4` (INFERRED) | the net settings version of 9.0 (pro.PROJECT_VERSIONS[9]) |
-| `project:/tuning_profiles` | 9 | design (INFERRED) | tuning profiles (impedance targets): 9.0 has none |
-| `project:/tuning_profiles/meta` | 9 | design (INFERRED) |  |
-| `project:/tuning_profiles/meta/version` | 9 | design (INFERRED) |  |
-| `project:/tuning_profiles/tuning_profiles_impedance_geometric` | 9 | design (INFERRED) |  |
+| `project:/tuning_profiles` | 9 | same when default, else design (INFERRED) | tuning profiles (impedance targets): 9.0 has none; the default is an empty list |
+| `project:/tuning_profiles/meta` | 9 | same when default, else design (INFERRED) |  |
+| `project:/tuning_profiles/meta/version` | 9 | same when default, else design (INFERRED) |  |
+| `project:/tuning_profiles/tuning_profiles_impedance_geometric` | 9 | same when default, else design (INFERRED) |  |
 
 ## Downgrade rows of the board writer
 

@@ -57,8 +57,9 @@ way to write a design of 10 for 9: `build`, `place`, `route` and `fill` keep ref
 - The report holds one row per resolver id, kind `downgrade:<id>` in the group `downgrade`: `rewrite` and
   `same` are `changed`, `presentation` and `design` are `lost`; a row that can be `design` is a `refuse`
   kind, so a design loss needs `--allow-lossy`. The ids of an item are `<file>:<locator>`. Every KiCad 10
-  project holds `component_class_settings` and `tuning_profiles`, which are `design` rows: a downgrade
-  needs `--allow-lossy` even when they hold their defaults.
+  project holds `component_class_settings` and `tuning_profiles`: they are `same` when they hold what a
+  fresh KiCad 10 project writes there, and `design` rows (`--allow-lossy`) when they hold content (the
+  maintainer's decision of 2026-10-09; `docs/formats/kicad/project.md`, "Default sections of KiCad 10").
 - The verification compares the board at level 5 and the root schematic at level 2 under the profile
   `kicad-downgrade`. A schematic whose netlist needs `kicad-cli` and finds none is not compared: one
   `convert.schematic-unverified` warning says so.

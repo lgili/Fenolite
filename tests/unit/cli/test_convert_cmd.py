@@ -87,20 +87,35 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
 
 
 def test_downgrade_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Change c0162 (it replaces c0159's "Older target refused"): a KiCad 10 project converted for KiCad 9
-    needs --allow-lossy for its design rows, and is then planned with one report row per resolver id."""
+    """Change c0162 (it replaces c0159's "Older target refused"): a KiCad 10 project whose component
+    classes and tuning profiles hold their defaults is converted for KiCad 9 without --allow-lossy (the
+    maintainer's decision of 2026-10-09), and planned with one report row per resolver id; with a tuning
+    profile it needs --allow-lossy."""
     argv = ["--kicad-version", "9", "convert", str(BLINK_T10), "--to", "kicad", "--out", "out", "--dry-run"]
-    code, _, error, _ = run(monkeypatch, tmp_path, *argv)
-    assert code == 7 and error["code"] == "FEN-7001"
-    code, envelope, error, _ = run(monkeypatch, tmp_path, "--allow-lossy", *argv)
+    code, envelope, error, _ = run(monkeypatch, tmp_path, *argv)
     assert code == 0, error
     result = envelope["result"]
     assert result["target"] == {"backend": "kicad", "major": 9}
     kinds = {row["kind"]: row for row in result["report"]["rows"]}
     assert kinds["downgrade:project:/tuning_profiles"]["group"] == "downgrade"
     assert kinds["downgrade:project:/tuning_profiles"]["loss"] == "refuse"
+    assert (kinds["downgrade:project:/tuning_profiles"]["changed"], result["report"]["refused"]) == (1, [])
     assert result["equivalence"]["equivalent"] is True
     assert _schema.validate(result, _schema.load("fenolite.convert.v0.json")) == []
+    source = tmp_path / "blink"
+    shutil.copytree(BLINK_T10, source)
+    path = source / "blink.kicad_pro"
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            '"tuning_profiles_impedance_geometric": []', '"tuning_profiles_impedance_geometric": [{}]'
+        ),
+        encoding="utf-8",
+    )
+    argv[3] = str(source)
+    code, _, error, _ = run(monkeypatch, tmp_path, *argv)
+    assert code == 7 and error["code"] == "FEN-7001"
+    code, _, error, _ = run(monkeypatch, tmp_path, "--allow-lossy", *argv)
+    assert code == 0, error
 
 
 def test_kicad_retarget_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

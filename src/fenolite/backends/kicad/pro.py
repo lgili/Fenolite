@@ -837,6 +837,36 @@ def synthesize_project(
     return _json.dumps(data)
 
 
+def values_at(data: JsonObject, path: str) -> list[Any]:
+    """The values at ``path`` (list items written ``*``), in file order."""
+    found: list[Any] = []
+
+    def walk(node: Any, rest: list[str]) -> None:
+        if not rest:
+            found.append(node)
+            return
+        head, tail = rest[0], rest[1:]
+        if head == "*":
+            for item in cast(list[Any], node) if isinstance(node, list) else []:
+                walk(item, tail)
+        elif isinstance(node, dict):
+            key = head.replace("~1", "/").replace("~0", "~")
+            obj = cast(JsonObject, node)
+            if key in obj:
+                walk(obj[key], tail)
+
+    walk(data, path.split("/")[1:])
+    return found
+
+
+def holds_default(data: JsonObject, path: str) -> bool:
+    """True when every value of ``data`` at ``path`` equals a value of the KiCad 10 template there: what a
+    fresh KiCad 10 project writes (project.md, "Default sections of KiCad 10"; key order aside, numbers
+    compared as written)."""
+    defaults = values_at(template(10), path)
+    return all(any(value == default for default in defaults) for value in values_at(data, path))
+
+
 def _remove(data: JsonObject, path: str) -> None:
     """Remove every key at ``path`` (list items written ``*``)."""
     parts = path.split("/")[1:]
@@ -912,12 +942,15 @@ def _resolve_nine(
     edits: list[resolver.Edit] | None,
 ) -> None:
     """The downgrade of a project of KiCad 10: each top key path by its ``project:`` row of the resolver,
-    and the net settings version by ``project:/net_settings/meta/version``."""
+    and the net settings version by ``project:/net_settings/meta/version``. A row's value is
+    ``resolver.PROJECT_DEFAULT`` when the path holds what a fresh KiCad 10 project writes there
+    (``holds_default``), else ``resolver.PROJECT_CONTENT``."""
     table = resolver.load()
     found: list[resolver.Edit] = []
     for path in top:
         row = table.row(resolver.PROJECT_PREFIX + path)
-        found.append(resolver.Edit(row.id, row.decide(()), path))
+        value = resolver.PROJECT_DEFAULT if holds_default(data, path) else resolver.PROJECT_CONTENT
+        found.append(resolver.Edit(row.id, row.decide((value,)), path))
     if pair == PROJECT_VERSIONS[10]:
         found.append(resolver.Edit(resolver.PROJECT_VERSION_ROW, "rewrite", "/net_settings/meta/version"))
     refused = [
@@ -1066,6 +1099,7 @@ __all__ = [
     "apply_project",
     "apply_sheet_keys",
     "classify_project",
+    "holds_default",
     "pattern_matches",
     "project_floors",
     "project_minimums",
@@ -1075,5 +1109,6 @@ __all__ = [
     "synthesize_project",
     "template",
     "update_project",
+    "values_at",
     "write_project_text",
 ]

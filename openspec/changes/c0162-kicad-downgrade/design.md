@@ -54,7 +54,8 @@
    | `footprint-duplicate-pad-numbers-are-jumpers`, `sym-jumpers-duplicate` | `same` when `no`, `design` when `yes` |
    | `sch-symbol-in-pos-files`, `sch-lib-in-pos-files` | `same` when `yes` (9 puts every symbol in the position files), `design` when `no` |
    | `covering`, `plugging`, `capping`, `filling` | `same` when the value is the absent default (task 1.2 records it), else `design` (via protection is manufactured) |
-   | `via-backdrill`, `via-tertiary-drill`, `via-front-post-machining`, `via-back-post-machining`, `pad-property-pressfit`, `pad-die-delay`, `variants`, `footprint-variant`, `sch-instance-variant`, `footprint-jumper-pad-groups`, `sym-jumper-pin-groups`, the 7 rules rows, `project:tuning_profiles`, `project:component_class_settings` | `design` |
+   | `via-backdrill`, `via-tertiary-drill`, `via-front-post-machining`, `via-back-post-machining`, `pad-property-pressfit`, `pad-die-delay`, `variants`, `footprint-variant`, `sch-instance-variant`, `footprint-jumper-pad-groups`, `sym-jumper-pin-groups`, the 7 rules rows | `design` |
+   | `project:tuning_profiles`, `project:component_class_settings`, `project:net_settings/classes/*/tuning_profile` (and their sub-paths) | `same` when the key holds what a fresh KiCad 10 project writes there (`pro.holds_default`, the 10 template), else `design`; first `design` for every value, corrected by the maintainer on 2026-10-09 (task 6.1) |
    | `fill-hatch` and its two siblings, `hatch-position`, `textbox-knockout`, `gr-rect-radius`, `sch-rectangle-radius`, `sym-rectangle-radius`, `barcode`, `footprint-units`, `point`, `table-uuid`, `group-lib-id`, `sch-table-uuid`, `sch-fill-*`, `sym-fill-hatch`, `sch-lib-body-styles`, `sym-body-styles`, `sch-rule-area-*`, `sch-group` | `presentation` |
    | `project:net_settings/meta/version` | `rewrite` to 9's version pair (`pro.PROJECT_VERSIONS[9]`) |
 

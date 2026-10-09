@@ -20,17 +20,50 @@ WITH_SHEET = ROOT / "tests" / "data" / "kicad" / "parity" / "agree"
 TOKENS = ROOT / "tests" / "data" / "kicad" / "tokens"
 
 
-def test_downgrade_needs_consent_for_design_rows() -> None:
-    """Change c0162 (it replaces c0159's "Older target refused"): a board of KiCad 10 is written for 9, and
-    the keys every KiCad 10 project holds (component classes, tuning profiles) are ``design`` rows of the
-    resolver, a loss that needs consent."""
+DEFAULT_SECTIONS = {
+    "downgrade:project:/component_class_settings",
+    "downgrade:project:/net_settings/classes/*/tuning_profile",
+    "downgrade:project:/tuning_profiles",
+}
+"""The report rows of the sections every KiCad 10 project holds (component classes, tuning profiles)."""
+
+
+def _with_profile(tmp_path: Path) -> Path:
+    """A copy of the blink project whose tuning profiles and component classes hold content."""
+    folder = tmp_path / "blink"
+    shutil.copytree(BLINK_T10, folder)
+    path = folder / "blink.kicad_pro"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["tuning_profiles"]["tuning_profiles_impedance_geometric"] = [{"profile_name": "Z50"}]
+    data["component_class_settings"]["assignments"] = [{"component_class": "X", "conditions": []}]
+    data["net_settings"]["classes"][-1]["tuning_profile"] = "Z50"
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return folder
+
+
+def test_downgrade_of_default_sections_needs_no_consent() -> None:
+    """Change c0162 (it replaces c0159's "Older target refused"): a board of KiCad 10 is written for 9; the
+    sections every KiCad 10 project holds are dropped as ``same`` when they hold the defaults of a fresh
+    project (the maintainer's decision of 2026-10-09), so no consent is needed."""
+    conversion = convert_project(BLINK_T10, to="kicad", kicad_version=9)
+    assert conversion.report.refused == ()
+    for kind in DEFAULT_SECTIONS:
+        row = conversion.report.row(kind)
+        assert row is not None and (row.changed, row.lost, row.loss) == (1, 0, "refuse"), kind
+
+
+def test_downgrade_needs_consent_for_design_rows(tmp_path: Path) -> None:
+    """The same sections with content are ``design`` rows of the resolver, a loss that needs consent."""
     with pytest.raises(LossyConversionError) as refused:
-        convert_project(BLINK_T10, to="kicad", kicad_version=9)
-    assert set(refused.value.report.refused) == {
-        "downgrade:project:/component_class_settings",
-        "downgrade:project:/net_settings/classes/*/tuning_profile",
-        "downgrade:project:/tuning_profiles",
-    }
+        convert_project(_with_profile(tmp_path), to="kicad", kicad_version=9)
+    assert set(refused.value.report.refused) == DEFAULT_SECTIONS
+    conversion = convert_project(
+        _with_profile(tmp_path / "again"), to="kicad", kicad_version=9, allow_lossy=True
+    )
+    lost = conversion.report.row("downgrade:project:/tuning_profiles")
+    assert lost is not None and lost.lost == 1 and lost.loss == "refuse"
+    assert lost.reasons[0].ids == ("blink.kicad_pro:/tuning_profiles",)
+    assert "tuning_profiles" not in json.loads(conversion.files["blink.kicad_pro"])
 
 
 def test_downgrade_rows_per_resolver_id() -> None:
@@ -49,9 +82,9 @@ def test_downgrade_rows_per_resolver_id() -> None:
     assert nets is not None and nets.changed > 0 and nets.lost == 0 and nets.loss == "report"
     version = conversion.report.row("downgrade:project:/net_settings/meta/version")
     assert version is not None and version.changed == 1
-    lost = conversion.report.row("downgrade:project:/tuning_profiles")
-    assert lost is not None and lost.lost == 1 and lost.loss == "refuse"
-    assert lost.reasons[0].ids == ("blink.kicad_pro:/tuning_profiles",)
+    dropped = conversion.report.row("downgrade:project:/tuning_profiles")
+    assert dropped is not None and (dropped.changed, dropped.lost, dropped.loss) == (1, 0, "refuse")
+    assert dropped.reasons[0].ids == ("blink.kicad_pro:/tuning_profiles",)
     project = json.loads(conversion.files["blink.kicad_pro"])
     assert "tuning_profiles" not in project and project["net_settings"]["meta"]["version"] == 4
 

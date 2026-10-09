@@ -92,7 +92,11 @@ unknown or repeated id and an incomplete `rewrite`. Each row has an action, and 
 
 The actions of every row are in the column `downgrade` of `tokens.md` and its section "Downgrade of
 project keys". The maintainer decided on 2026-10-09 that a dropped via-protection value is `design`
-unless it is the default, and so is a dropped position-file flag (`in_pos_files no`).
+unless it is the default, and so is a dropped position-file flag (`in_pos_files no`). The same day he
+decided that the project keys every KiCad 10 project holds (`component_class_settings`,
+`tuning_profiles`, the class key `tuning_profile`) are `same` when they hold what a fresh KiCad 10
+project writes there (`when = ["default"]`, `pro.holds_default`; `project.md`, "Default sections of
+KiCad 10"), and `design` when they hold content.
 
 **Edits at the node.** `resolver.resolve(root, kind, target)` edits, for each `kicad.token.too-new` issue
 of `check_emittable`, the node that the issue locates, inside opaque content too: a `rewrite` replaces it,

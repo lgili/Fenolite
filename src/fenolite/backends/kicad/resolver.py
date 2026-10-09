@@ -38,7 +38,9 @@ from fenolite.core.evidence import Evidence, Level
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-DOWN-ROWS", "H-K-DOWN-DEMOS"))
 """The table's actions: each row's bench passes on 9.0.9 and 10.0.6 (``H-K-DOWN-ROWS``) and the demo
 projects of format 10 load in 9.0.9 with the checks of the source (``H-K-DOWN-DEMOS``), confirmed on
-2026-10-09; the rules and project rows, which have no bench, are ``design`` (consent) or a version."""
+2026-10-09; the rules rows, which have no bench, are ``design`` (consent), and the project rows a
+version, or ``same`` for the default sections a fresh KiCad 10 project writes (both demo projects drop
+them with no change of DRC or ERC type) and ``design`` for any other content."""
 
 Action = Literal["rewrite", "same", "presentation", "design"]
 ACTIONS: tuple[Action, ...] = ("rewrite", "same", "presentation", "design")
@@ -47,6 +49,12 @@ CHANGED: frozenset[Action] = frozenset({"rewrite", "same"})
 PROJECT_PREFIX = "project:"
 PROJECT_VERSION_ROW = "project:/net_settings/meta/version"
 """The row of the project's net settings version, which no key path of ``pro.TEN_ONLY_PATHS`` names."""
+PROJECT_DEFAULT = "default"
+"""The value of a project key that holds what a fresh KiCad 10 project writes there (the values of the
+10 template, ``pro.template(10)``); the only value a ``when`` of a ``project:`` row may name. The
+maintainer's decision of 2026-10-09: a default section is ``same``, one with content a ``design`` loss."""
+PROJECT_CONTENT = "content"
+"""The value of a project key that holds anything else than the default of ``PROJECT_DEFAULT``."""
 NET_FORM_ROW = "net-by-name"
 NPTH_ROW = "npth-front-back"
 """A construct of KiCad 10 that no token names, found by the demo census (task 4.2): an ``np_thru_hole``
@@ -180,6 +188,8 @@ def parse_table(text: str, *, file: str = TABLE_FILE) -> Table:
         )
         if when is not None and row.otherwise is None:
             raise _fail(f"{label}: when needs an else action", file)
+        if ident.startswith(PROJECT_PREFIX) and row.when not in (None, (PROJECT_DEFAULT,)):
+            raise _fail(f"{label}: the when of a project row is [{PROJECT_DEFAULT!r}]", file)
         if row.action == "rewrite":
             if not row.form or not row.sources:
                 raise _fail(f"{label}: a rewrite needs its form and its sources", file)
@@ -531,6 +541,8 @@ __all__ = [
     "LOST_CODE",
     "NET_FORM_ROW",
     "NPTH_ROW",
+    "PROJECT_CONTENT",
+    "PROJECT_DEFAULT",
     "PROJECT_PREFIX",
     "PROJECT_VERSION_ROW",
     "REWRITERS",

@@ -175,32 +175,79 @@ def test_downgrade_refused() -> None:
 
 
 def test_downgrade_on_request() -> None:
-    """Change c0162: a project of a board read at 10 written for 9 with ``downgrade``; its ten-only keys
-    are ``design`` rows of the resolver and need ``allow_lossy``, the version pair is rewritten."""
+    """Change c0162: a project of a board read at 10 written for 9 with ``downgrade``. Its ten-only
+    sections hold the defaults of a fresh KiCad 10 project, so they are dropped as ``same`` without
+    ``allow_lossy`` (the maintainer's decision of 2026-10-09); the version pair is rewritten."""
+    from fenolite.backends.kicad import resolver
+
+    ten = on_board(HV3, board_10())
+    edits: list[resolver.Edit] = []
+    found: list[Issue] = []
+    out = read_project_text(
+        update_project(ten_project(), ten, target=9, downgrade=True, issues=found, edits=edits)
+    )
+    assert "tuning_profiles" not in out and "component_class_settings" not in out
+    assert all("tuning_profile" not in c for c in out["net_settings"]["classes"])
+    assert out["net_settings"]["meta"]["version"] == JsonNumber("4")
+    assert {(e.row, e.action) for e in edits} == {
+        ("project:/component_class_settings", "same"),
+        ("project:/net_settings/classes/*/tuning_profile", "same"),
+        ("project:/tuning_profiles", "same"),
+        ("project:/net_settings/meta/version", "rewrite"),
+    }
+    assert {i.code for i in found if i.code.startswith("kicad.downgrade")} == {resolver.CHANGED_CODE}
+
+
+def _with_content() -> str:
+    data = project(10)
+    data["component_class_settings"]["assignments"] = [{"component_class": "X", "conditions": []}]
+    data["tuning_profiles"]["tuning_profiles_impedance_geometric"] = [{"profile_name": "Z50"}]
+    data["net_settings"]["classes"][1]["tuning_profile"] = "Z50"
+    return text(data)
+
+
+def test_downgrade_of_content_needs_consent() -> None:
+    """The same sections with content (a component class assignment, a tuning profile and a class naming
+    it) are ``design`` losses: refused without ``allow_lossy``, dropped and reported with it."""
     from fenolite.backends.kicad import resolver
 
     ten = on_board(HV3, board_10())
     with pytest.raises(LossyWriteError) as caught:
-        update_project(ten_project(), ten, target=9, downgrade=True)
+        update_project(_with_content(), ten, target=9, downgrade=True)
     assert caught.value.droppable
-    rows = {resolver.row_id(i) for i in caught.value.issues}
-    assert {"project:/tuning_profiles", "project:/component_class_settings"} <= rows
+    assert {resolver.row_id(i) for i in caught.value.issues} == {
+        "project:/component_class_settings",
+        "project:/net_settings/classes/*/tuning_profile",
+        "project:/tuning_profiles",
+    }
     assert {i.code for i in caught.value.issues} == {resolver.DESIGN_CODE}
     edits: list[resolver.Edit] = []
     found: list[Issue] = []
     out = read_project_text(
         update_project(
-            ten_project(), ten, target=9, downgrade=True, allow_lossy=True, issues=found, edits=edits
+            _with_content(), ten, target=9, downgrade=True, allow_lossy=True, issues=found, edits=edits
         )
     )
     assert "tuning_profiles" not in out and "component_class_settings" not in out
-    assert out["net_settings"]["meta"]["version"] == JsonNumber("4")
     actions = {(e.row, e.action) for e in edits}
     assert ("project:/net_settings/meta/version", "rewrite") in actions
     assert ("project:/tuning_profiles", "design") in actions
     assert {i.code for i in found if i.code.startswith("kicad.downgrade")} == {
         resolver.CHANGED_CODE,
         resolver.LOST_CODE,
+    }
+
+
+def test_one_section_with_content() -> None:
+    """Only the section that holds content is a loss: a single class naming a profile."""
+    from fenolite.backends.kicad import resolver
+
+    data = project(10)
+    data["net_settings"]["classes"][1]["tuning_profile"] = "Z50"
+    with pytest.raises(LossyWriteError) as caught:
+        update_project(text(data), on_board(HV3, board_10()), target=9, downgrade=True)
+    assert {resolver.row_id(i) for i in caught.value.issues} == {
+        "project:/net_settings/classes/*/tuning_profile"
     }
 
 

@@ -11,7 +11,8 @@ from importlib import resources
 import pytest
 
 from fenolite.backends.kicad import resolver
-from fenolite.backends.kicad.pro import TEN_ONLY_PATHS
+from fenolite.backends.kicad._json import JsonNumber
+from fenolite.backends.kicad.pro import TEN_ONLY_PATHS, holds_default, template, values_at
 from fenolite.backends.kicad.sexpr import parse
 from fenolite.backends.kicad.versions import FileKind, LossyWriteError, check_emittable, load_inventory
 from fenolite.core.errors import FormatError
@@ -110,6 +111,49 @@ def test_maintainer_decisions() -> None:
     for row_id in ("sch-symbol-in-pos-files", "sch-lib-in-pos-files", "sym-in-pos-files"):
         row = table.row(row_id)
         assert (row.action, row.when, row.otherwise) == ("same", ("yes",), "design"), row_id
+
+
+def test_project_defaults_are_same() -> None:
+    """The maintainer's decision of 2026-10-09: each ten-only project key is ``same`` when it holds what a
+    fresh KiCad 10 project writes there, else a ``design`` loss."""
+    table = resolver.load()
+    for path in TEN_ONLY_PATHS:
+        row = table.row(resolver.PROJECT_PREFIX + path)
+        assert (row.action, row.when, row.otherwise) == ("same", (resolver.PROJECT_DEFAULT,), "design"), path
+        assert row.decide([resolver.PROJECT_DEFAULT]) == "same"
+        assert row.decide([resolver.PROJECT_CONTENT]) == "design"
+        assert row.loss == "refuse"
+    assert resolver.describe(table.row("project:/tuning_profiles")) == "same when default, else design"
+
+
+def test_project_condition_names_the_default() -> None:
+    broken = TEXT.replace(
+        'id = "project:/tuning_profiles"\ntarget = 9\naction = "same"\nwhen = ["default"]',
+        'id = "project:/tuning_profiles"\ntarget = 9\naction = "same"\nwhen = ["empty"]',
+    )
+    assert broken != TEXT
+    with pytest.raises(FormatError, match="the when of a project row"):
+        resolver.parse_table(broken)
+
+
+def test_holds_default() -> None:
+    """``pro.holds_default`` compares a path with the KiCad 10 template, list items included."""
+    data = template(10)
+    for path in TEN_ONLY_PATHS:
+        assert holds_default(data, path), path
+    data["component_class_settings"]["sheet_component_classes"]["enabled"] = True
+    assert not holds_default(data, "/component_class_settings")
+    assert holds_default(data, "/component_class_settings/assignments")
+    data["net_settings"]["classes"].append(dict(data["net_settings"]["classes"][0], name="HV"))
+    assert holds_default(data, "/net_settings/classes/*/tuning_profile")
+    data["net_settings"]["classes"][1]["tuning_profile"] = "Z50"
+    assert not holds_default(data, "/net_settings/classes/*/tuning_profile")
+    assert values_at(data, "/net_settings/classes/*/tuning_profile") == ["", "Z50"]
+    reordered = template(10)
+    reordered["tuning_profiles"] = dict(reversed(list(reordered["tuning_profiles"].items())))
+    assert holds_default(reordered, "/tuning_profiles")
+    reordered["tuning_profiles"]["meta"]["version"] = JsonNumber("1")
+    assert not holds_default(reordered, "/tuning_profiles")
 
 
 # --- edits at the node --------------------------------------------------------------------------------

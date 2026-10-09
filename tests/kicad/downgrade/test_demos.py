@@ -5,9 +5,10 @@ capability design-conversion, "KiCad downgrade direction", scenario "Demo projec
 
 Run once per pinned image with the corpus cached. On 10.0.6 each source project gives the DRC and ERC
 violation types of ``_downbench.DEMO_TYPES`` and the board its conversion writes, re-saved by 10.0.6,
-equals the source at level 5; on 9.0.9 the converted project loads and gives the same types. The design
-rows the report names (the component classes and tuning profiles every KiCad 10 project holds, and no
-construct that DRC or ERC reads) change no violation type.
+equals the source at level 5; on 9.0.9 the converted project loads and gives the same types. The
+component classes and tuning profiles every KiCad 10 project holds are default in both projects, so they
+are dropped as ``same`` (the maintainer's decision of 2026-10-09); the one design row left
+(``npth-front-back`` of ``CM5_MINIMA_3``) changes no violation type.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import _probes
 import pytest
 
 import fenolite.cli.main as cli_main
+from fenolite.convert import LossyConversionError, convert_project
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.needs_corpus]
 
@@ -61,3 +63,33 @@ def test_demo_project_for_kicad_9(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     board = tmp_path / "out" / "pic_programmer.kicad_pcb"
     assert "(version 20241229)" in board.read_text(encoding="utf-8").splitlines()[1]
     assert _probes.runner().drc(board).report is not None
+
+
+PROJECT_ROWS = (
+    "downgrade:project:/component_class_settings",
+    "downgrade:project:/net_settings/classes/*/tuning_profile",
+    "downgrade:project:/tuning_profiles",
+)
+
+
+@pytest.mark.parametrize(
+    ("name", "refused"), [("CM5_MINIMA_3", ("downgrade:npth-front-back",)), ("pic_programmer", ())]
+)
+def test_default_project_sections(tmp_path: Path, name: str, refused: tuple[str, ...]) -> None:
+    """The project sections of both demo projects hold the defaults of a fresh KiCad 10 project: they are
+    ``same`` (changed, never lost), so ``pic_programmer`` converts without consent and ``CM5_MINIMA_3`` is
+    refused for its board row ``npth-front-back`` alone."""
+    folder = _downbench.demo_folder(tmp_path / "source", name)
+    if folder is None:
+        pytest.skip("the demo project is not cached")
+    if refused:
+        with pytest.raises(LossyConversionError) as caught:
+            convert_project(folder, to="kicad", kicad_version=9)
+        assert caught.value.report.refused == refused
+    else:
+        assert convert_project(folder, to="kicad", kicad_version=9).report.refused == ()
+    conversion = convert_project(folder, to="kicad", kicad_version=9, allow_lossy=True)
+    assert conversion.report.refused == refused
+    for kind in PROJECT_ROWS:
+        row = conversion.report.row(kind)
+        assert row is None or (row.changed, row.lost) == (1, 0), kind
