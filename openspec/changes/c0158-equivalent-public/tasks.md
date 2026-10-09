@@ -1,0 +1,35 @@
+## 0. Entry check
+
+- [ ] 0.1 Read `openspec list`, the living `design-equivalence`, `package-layering` and `cli-contract` specs, and the designs of c0159 to c0162. Write under this task, with the date: whether "Equivalent command", "Tolerances and normalisation" or "Allowed import edges" changed since `f802b60` (then regenerate that MODIFIED block from the living text, with only this change's edits); whether another open change adds a row to the layering table or a side to `equivalent`; whether the maintainer answered the open questions of the design (an answer other than the recommended one is applied before task 2.1). Proof: `openspec validate c0158-equivalent-public --strict --no-interactive` passes.
+
+## 1. Measure and register
+
+- [ ] 1.1 Add the rows `H-K-EQ-SCHSIDE` and `H-K-EQ-OVAL` to `docs/hypotheses.md` (level `INFERRED`, the tests and criteria of the design, result `pending`). Run `kicad-cli sch export netlist` on two generated example projects and three demo schematics of the corpus in both pinned images, and record which field holds the do-not-populate flag and which netlist components are power symbols. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py`; the field names written under this task.
+- [ ] 1.2 Write `tests/corpus/test_equal_oval.py`: on the three KiCad 10.0.6 demo boards of the design's measurement 1, the write of `lens.altium.write_model` read back gives the `pad-shape` counts 40, 180 and 85 before the shape rule (marked `xfail(strict=True)` after task 4.1, then 0). Proof: `uv run pytest tests/corpus/test_equal_oval.py -rA` with the corpus cached.
+
+## 2. The public API
+
+- [ ] 2.1 Create `src/fenolite/api/` with the `api` row in `tests/unit/test_import_graph.py`; move `_side`, `_preflight` and `_imported` of `cmd_equivalent.py` to `api/sides.py` with no change of behaviour (scenario "Public API stays on top"). Proof: `uv run pytest tests/unit/test_import_graph.py tests/unit/cli/test_equivalent_cmd.py tests/unit/checks/equivalence -q` passes unchanged.
+- [ ] 2.2 Write `fenolite.api.equivalent`, `EquivalenceResult`, `Side` and `to_json()`; the command parses, calls and replies (scenarios "Same reply as the command", "Two models", "Usage fault"). Proof: `uv run pytest tests/unit/api/test_equivalence_api.py tests/unit/cli/test_equivalent_cmd.py -q`.
+
+## 3. Schema and schematic side
+
+- [ ] 3.1 Write `schemas/fenolite.equivalent.v0.json` and the result validation in `tests/consistency` for every command with a schema file (scenarios "Reply validates", "Unknown key refused"). Proof: `uv run pytest tests/consistency -q`.
+- [ ] 3.2 Write the schematic side with the own netlist, the power symbols and `equiv.dnp-unknown` (scenarios "Generated schematic, no tool", "Level above a schematic side", "Schematic against an Altium project"). Proof: `uv run pytest tests/unit/api/test_equivalence_api.py -k schematic tests/unit/cli/test_equivalent_cmd.py -k schematic -q`.
+- [ ] 3.3 Write the `kicad-cli` path of the schematic side and `tests/kicad/equivalence/test_schematic_side.py`; register the probe `equiv-schside` for majors 9 and 10 (scenario "Hand-drawn schematic through kicad-cli"). First item of the cut order. Proof: `uv run pytest tests/kicad/equivalence/test_schematic_side.py -rA` in the pinned 9.0.9 and 10.0.6 images; `FENOLITE_PROBES_WRITE=1` updates both probe files; `uv run pytest tests/kicad/test_probe_results.py`.
+
+## 4. Shape rule
+
+- [ ] 4.1 Write `shape_class` in `norm.py` and use it at level 3 (scenario "Equal-sized oval is a circle"); task 1.2's counts become 0. Proof: `uv run pytest tests/unit/checks/equivalence -q` and `uv run pytest tests/corpus/test_equal_oval.py -rA`.
+- [ ] 4.2 Write `tests/kicad/equivalence/test_oval_disc.py` (an equal-sized oval and a circle of one size, plotted by both majors, compared) and record `equiv-oval-disc`. Proof: `uv run pytest tests/kicad/equivalence/test_oval_disc.py -rA` in both pinned images; `uv run pytest tests/kicad/test_probe_results.py`.
+
+## 5. Discovery and documentation
+
+- [ ] 5.1 Add `levels` and `sides` to the `equivalent` entry of `capabilities` (scenario "Levels and sides listed"); add the `fenolite-cmd` line of a schematic side to the page `checks` of the agent guide and run `uv run python tools/gen_agent_guide.py`. Second item of the cut order. Proof: `uv run pytest tests/unit/cli/test_capabilities.py tests/unit/agent -q`.
+- [ ] 5.2 Document the API, the schematic side, the shape rule and the schema in `docs/equivalence.md` and `docs/cli-contract.md` ("equivalent"). Proof: `uv run pytest tests/unit/checks/equivalence/test_codes.py -k docs tests/consistency -q`.
+
+## 6. Closing
+
+- [ ] 6.1 Update the evidence labels: `H-K-EQ-SCHSIDE` and `H-K-EQ-OVAL` hold their measured levels and results in `docs/hypotheses.md`, and the evidence of a schematic side names its row. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py`.
+- [ ] 6.2 Add to `CHANGELOG.md` under Unreleased: the public `fenolite.api.equivalent`, the schema `fenolite.equivalent.v0`, the KiCad schematic side, and that an equal-sized oval no longer differs from a circle of its size. Proof: `grep -n "fenolite.api.equivalent" CHANGELOG.md`.
+- [ ] 6.3 Run the residue scan and the fast suite. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes; `openspec validate c0158-equivalent-public --strict --no-interactive` passes.

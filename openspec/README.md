@@ -36,6 +36,7 @@ to X7 and X9 to X12 of Part X) c0085. Later still, after the maintainer waived t
 (task 5.2: `kicad-cli` reads no schematic document), c0086, c0090, c0124, c0127, c0128, c0121, c0155, c0107
 and c0104 were archived, in that order, and then c0108, c0109, c0112 and c0110, whose deferred tasks
 were closed on 2026-10-09.
+The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and proposed on the branch `dev-v05a-proposals`; c0157 is the yardstick change of another branch.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -150,5 +151,6 @@ were closed on 2026-10-09.
 | c0155 | `altium-bodies-default` | the maintainer's decision of 2026-10-09: an Altium build writes the extruded component bodies by default (`--altium-bodies extruded`; `off` turns it off) | c0121 |
 | c0156 | `kicad-cli-docker-user` | correction of c0015 and c0153 (two agents running as root on 2026-10-09): a `docker:<image>` run of `kicad-cli` runs the container as the owner of the run folder, with `HOME` in its state folder, so it can write that folder for any host user | c0015, c0153 |
 | c0157 | `yardstick-route-order` | the maintainer's decision of 2026-10-09 (the routing gap of nightly run 37836196244): the yardstick runner runs `route` (Freerouting) before `route-pairs` (KiCadRoutingTools) until the pair is routed as a coupled pair; measured again then | c0119 |
+| c0158 | `equivalent-public` | v0.5a: the public `equivalent`: `fenolite.api.equivalent`, the result schema `fenolite.equivalent.v0`, a KiCad schematic as a side, an equal-sized oval equal to a circle | c0045, c0089 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
