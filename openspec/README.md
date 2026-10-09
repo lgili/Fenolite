@@ -32,7 +32,9 @@ this table whose folder is still in `changes/` is open, and `docs/release/v0.4.m
 what each open change with every task closed waits for. Later on 2026-10-09, after the maintainer's Altium
 report of that day closed their last tasks, c0084, c0087, c0088, c0101, c0103, c0113, c0116, c0117, c0118,
 c0138, c0141, c0144, c0147 and c0148 were archived too, and after his second report of that day (steps X1
-to X7 and X9 to X12 of Part X) c0085. c0155 (the default of `--altium-bodies`) waits for c0121.
+to X7 and X9 to X12 of Part X) c0085. Later still, after the maintainer waived the KiCad oracle of c0086
+(task 5.2: `kicad-cli` reads no schematic document), c0086, c0090, c0124, c0127, c0128, c0121, c0155, c0107
+and c0104 were archived, in that order.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
