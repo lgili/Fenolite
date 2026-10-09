@@ -1198,6 +1198,11 @@ meaning = "The converted project does not hold items of a kind that changes the 
 fix = "Read result.report; change the source so the target holds the items, or keep the loss."
 see = "convert"
 
+["convert.schematic-unverified"]
+meaning = "The schematic of a KiCad downgrade could not be compared with the source's at level 2: its netlist needs kicad-cli, which was not found, or the tool exported none. The board was compared."
+fix = "Install kicad-cli (or pass --kicad-cli) and convert again to check the schematic too."
+see = "convert"
+
 ["convert.no-verify"]
 meaning = "The converted project was not read back and compared with the source (--no-verify), so nothing checks that it differs only where the report says; the evidence is UNVERIFIED."
 fix = "Run the conversion without --no-verify."
@@ -1527,6 +1532,26 @@ see = "build"
 meaning = "A rule area, text, drawing or dimension that an earlier build wrote has no call in the script any more and was removed from the board."
 fix = "Nothing to do; put the call back to keep the item."
 see = "build"
+
+["kicad.downgrade.changed"]
+meaning = "A downgrade (fenolite convert to an older KiCad major) wrote constructs of the newer major in the target's form, or dropped them because the target behaves the same without them; the hint names the resolver row."
+fix = "Nothing to do: the target reads the design as the source holds it."
+see = "convert"
+
+["kicad.downgrade.design-loss"]
+meaning = "A downgrade would drop a construct of the newer major that changes what is made or checked (a design row of the capability resolver), and --allow-lossy was not given."
+fix = "Pass --allow-lossy to accept the loss that the report names, or keep the project at its own KiCad major."
+see = "convert"
+
+["kicad.downgrade.lost"]
+meaning = "With --allow-lossy, a downgrade dropped constructs that the target cannot hold: a drawing, a text or metadata (presentation) or a part of the design (design); the hint names the resolver row."
+fix = "Nothing to do if the loss is accepted; else keep the project at its own KiCad major."
+see = "convert"
+
+["kicad.downgrade.unresolved"]
+meaning = "A construct newer than the target has no row in the downgrade resolver's table, or is still there after its edit: a defect of the table, nothing is written."
+fix = "Report it with the file; keep the project at its own KiCad major meanwhile."
+see = "convert"
 
 ["kicad.board.dropped-too-new"]
 meaning = "With --allow-lossy, content that the target KiCad version cannot read was removed from the written board."

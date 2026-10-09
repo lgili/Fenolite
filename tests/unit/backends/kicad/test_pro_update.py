@@ -174,6 +174,36 @@ def test_downgrade_refused() -> None:
     assert (error.source_major, error.target_major) == (10, 9)
 
 
+def test_downgrade_on_request() -> None:
+    """Change c0162: a project of a board read at 10 written for 9 with ``downgrade``; its ten-only keys
+    are ``design`` rows of the resolver and need ``allow_lossy``, the version pair is rewritten."""
+    from fenolite.backends.kicad import resolver
+
+    ten = on_board(HV3, board_10())
+    with pytest.raises(LossyWriteError) as caught:
+        update_project(ten_project(), ten, target=9, downgrade=True)
+    assert caught.value.droppable
+    rows = {resolver.row_id(i) for i in caught.value.issues}
+    assert {"project:/tuning_profiles", "project:/component_class_settings"} <= rows
+    assert {i.code for i in caught.value.issues} == {resolver.DESIGN_CODE}
+    edits: list[resolver.Edit] = []
+    found: list[Issue] = []
+    out = read_project_text(
+        update_project(
+            ten_project(), ten, target=9, downgrade=True, allow_lossy=True, issues=found, edits=edits
+        )
+    )
+    assert "tuning_profiles" not in out and "component_class_settings" not in out
+    assert out["net_settings"]["meta"]["version"] == JsonNumber("4")
+    actions = {(e.row, e.action) for e in edits}
+    assert ("project:/net_settings/meta/version", "rewrite") in actions
+    assert ("project:/tuning_profiles", "design") in actions
+    assert {i.code for i in found if i.code.startswith("kicad.downgrade")} == {
+        resolver.CHANGED_CODE,
+        resolver.LOST_CODE,
+    }
+
+
 def test_target_10_keeps_every_key() -> None:
     out = read_project_text(update_project(ten_project(), HV3, target=10))
     assert "tuning_profiles" in out and "component_class_settings" in out

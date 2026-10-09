@@ -246,6 +246,21 @@ def test_ten_only_dropped_with_allow_lossy() -> None:
     assert "bridged_mask" in write_rules(read_rules(fixture("ten_only")), target=10)
 
 
+def test_ten_only_downgrade_is_a_design_loss() -> None:
+    """Change c0162: with ``downgrade`` a ten-only rules row is a ``design`` edit of the resolver; it
+    still needs ``allow_lossy``, and the output equals that of the lossy write without it."""
+    from fenolite.backends.kicad import resolver
+
+    ruleset = read_rules(fixture("ten_only"))
+    with pytest.raises(RulesLossError):
+        write_rules(ruleset, target=9, downgrade=True)
+    edits: list[resolver.Edit] = []
+    text = write_rules(ruleset, target=9, allow_lossy=True, downgrade=True, edits=edits)
+    assert text == write_rules(ruleset, target=9, allow_lossy=True)
+    assert [(e.row, e.action) for e in edits] == [("rules-type-bridged-mask", "design")]
+    assert edits[0].where.startswith("rule ")
+
+
 FROBNICATE = (
     "(version 1)\n"
     "(rule odd (condition \"A.NetName == 'X'\") (constraint clearance (min 1mm)) (frobnicate 1))\n"

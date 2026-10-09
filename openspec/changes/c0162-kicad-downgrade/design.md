@@ -77,8 +77,8 @@
 | `src/fenolite/convert/to_kicad.py`, `data/profiles.toml` | the older-target branch; the profile `kicad-downgrade` |
 | `tools/gen_token_docs.py`, `docs/formats/kicad/tokens.md` | a column `downgrade` with each row's action |
 | `docs/formats/kicad/versions.md` | "Downgrade" replaces "Downgrade stays refused…" |
-| `tests/unit/backends/kicad/test_resolver.py` (new) | closure of the table, edits at the node, the measured counts |
-| `tests/kicad/downgrade/_benches.py`, `test_rows.py`, `test_demos.py` (new) | `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS` |
+| `tests/unit/backends/kicad/test_downgrade_resolver.py` (new; `test_resolver.py` is the library resolver's) | closure of the table, edits at the node, the measured counts |
+| `tests/kicad/downgrade/_downbench.py`, `test_rows.py`, `test_demos.py` (new) | `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS` |
 
 ## Sources registered by this change
 
@@ -97,9 +97,9 @@ Both start `INFERRED`. Ids used without changing their level: `H-K-TOK-CONSTANTS
 
 | behaviour | level required | proof |
 |---|---|---|
-| the table is closed and loads | mechanical | `test_resolver.py` |
+| the table is closed and loads | mechanical | `test_downgrade_resolver.py` |
 | each row's action | `KICAD-VERIFIED (9.0.x, 10.0.x)` per row (`H-K-DOWN-ROWS`); a row without a passing bench is `design` | `test_rows.py` in both pinned images |
-| edits at the node; no coarse drop | mechanical; the measured counts as a corpus test | `test_resolver.py`, `tests/corpus/test_downgrade_census.py` |
+| edits at the node; no coarse drop | mechanical; the measured counts as a corpus test | `test_downgrade_resolver.py`, `tests/corpus/test_downgrade_census.py` |
 | the demo projects | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-DOWN-DEMOS`) | `test_demos.py` |
 | the refusal without `downgrade` | mechanical | the existing refusal tests, unchanged but for the hint |
 

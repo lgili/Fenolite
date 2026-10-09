@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
+from fenolite.backends.kicad import resolver  # noqa: E402
 from fenolite.backends.kicad.versions import Inventory, load_inventory  # noqa: E402
 
 PAGE = ROOT / "docs" / "formats" / "kicad" / "tokens.md"
@@ -48,7 +49,14 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|")
 
 
-def render(inventory: Inventory, results: list[dict[str, Any]]) -> str:
+def _downgrade(row_id: str, table: resolver.Table) -> str:
+    """The cell of the column ``downgrade``: the resolver's action for target 9 (change c0162)."""
+    row = table.rows.get(row_id)
+    return resolver.describe(row) if row is not None else ""
+
+
+def render(inventory: Inventory, results: list[dict[str, Any]], table: resolver.Table | None = None) -> str:
+    table = table if table is not None else resolver.load()
     levels = _fuzz().row_levels(inventory, results)
     versions = sorted(str(r["kicad_cli"]["version"]) for r in results)
     lines = [
@@ -58,11 +66,13 @@ def render(inventory: Inventory, results: list[dict[str, Any]]) -> str:
         f"`docs/evidence/kicad/token-fuzz/` (results for kicad-cli {', '.join(versions) or 'none'}).",
         "Do not edit by hand. The rows are authored from public sources; the levels are computed from the",
         "committed fuzz results: `KICAD-VERIFIED` when the major's cases prove the row, else `INFERRED`.",
+        "The column `downgrade` is the row's action when a file of KiCad 10 is written for KiCad 9",
+        '(`src/fenolite/backends/kicad/data/downgrade.toml`, change c0162; `versions.md`, "Downgrade").',
         "",
         "## Token rows",
         "",
-        "| id | kinds | path | value | since | until | sources | hypothesis | 9.0 | 10.0 |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| id | kinds | path | value | since | until | sources | hypothesis | 9.0 | 10.0 | downgrade |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for row in inventory.tokens:
         since = f"{row.since_major}" + (f" ({row.since_version})" if row.since_version else "")
@@ -81,14 +91,15 @@ def render(inventory: Inventory, results: list[dict[str, Any]]) -> str:
             row.hypothesis or "",
             str(level[0]),
             str(level[1]),
+            _downgrade(row.id, table),
         ]
         lines.append("| " + " | ".join(_cell(c) for c in cells) + " |")
     lines += [
         "",
         "## Form rows",
         "",
-        "| id | kinds | applies to | since | description | sources | hypothesis | 9.0 | 10.0 |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "| id | kinds | applies to | since | description | sources | hypothesis | 9.0 | 10.0 | downgrade |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for form in inventory.forms:
         since = f"{form.since_major}" + (f" ({form.since_version})" if form.since_version else "")
@@ -103,8 +114,25 @@ def render(inventory: Inventory, results: list[dict[str, Any]]) -> str:
             form.hypothesis or "",
             str(levels[form.id].get(9, "—")),
             str(levels[form.id].get(10, "—")),
+            _downgrade(form.id, table),
         ]
         lines.append("| " + " | ".join(_cell(c) for c in cells) + " |")
+    project = [r for r in table.rows.values() if r.id.startswith(resolver.PROJECT_PREFIX)]
+    if project:
+        lines += [
+            "",
+            "## Downgrade of project keys",
+            "",
+            "Key paths of the KiCad 10 project template that the KiCad 9 template lacks",
+            "(`pro.TEN_ONLY_PATHS`), and the version of the net settings, when a project of KiCad 10 is",
+            "written for KiCad 9.",
+            "",
+            "| id | target | downgrade | note |",
+            "|---|---|---|---|",
+        ]
+        for row in sorted(project, key=lambda r: r.id):
+            cells = [f"`{row.id}`", str(row.target), resolver.describe(row), row.note]
+            lines.append("| " + " | ".join(_cell(c) for c in cells) + " |")
     sections = (
         ("kicad_pcb", "## Dated board-format versions (S-0030)"),
         ("kicad_sch", "## Dated schematic-format versions (S-0031)"),

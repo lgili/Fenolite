@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: KiCad downgrade direction
-`fenolite convert SRC --to kicad` with a `--kicad-version` older than the major of the source's board SHALL write the project for that target with `downgrade=True`: the board, the root schematic and its sheets, the footprint and symbol libraries of the project's own library tables, and the project and rules files. The report MUST hold one row per resolver id with its counts per action (`rewrite` and `same` as `changed`, `presentation` as a `report` loss, `design` as a `refuse` loss), and the verification MUST compare the board at level 5 and the schematic at level 2 under the profile `kicad-downgrade`.
+`fenolite convert SRC --to kicad` with a `--kicad-version` older than the major of the source's board SHALL write the project for that target with `downgrade=True`: the board, the root schematic and its sheets, the footprint and symbol libraries of the project's own library tables, and the project and rules files. `build`, `place`, `route` and `fill` MUST keep refusing such a source.
 
 #### Scenario: Demo project for KiCad 9
 - **GIVEN** the KiCad 10.0.6 demo project `pic_programmer` in the corpus
@@ -12,3 +12,17 @@
 - **GIVEN** a target-9 project whose board was re-saved by KiCad 10.0.6
 - **WHEN** `fenolite --kicad-version 9 build <script> --out <project> --dry-run` runs
 - **THEN** the exit code is 7 with `FEN-7002`, and its hint names `fenolite convert`
+
+### Requirement: KiCad downgrade report
+The report of a downgrade MUST hold one row per resolver id with its counts per action: `rewrite` and `same` as `changed`, `presentation` as a `report` loss, `design` as a `refuse` loss. The verification MUST compare the board at level 5 and the root schematic at level 2 under the profile `kicad-downgrade`.
+
+#### Scenario: Rows per resolver id
+- **GIVEN** the KiCad 10.0.6 demo project `pic_programmer` in the corpus
+- **WHEN** it is converted for KiCad 9 with `allow_lossy`
+- **THEN** the report holds the row `downgrade:footprint-units` with 63 `report` losses, the row `downgrade:tenting-front` as a change, and the verification finds no unexplained difference
+
+## REMOVED Requirements
+
+### Requirement: KiCad downgrade refused
+**Reason**: change c0162 registers the downgrade direction ("KiCad downgrade direction"); c0159 refused a target older than the source's major only until then.
+**Migration**: convert with `fenolite --kicad-version 9 convert <project> --to kicad`; a target older than the source without the direction's resolver rows is refused by the resolver, not by the direction.

@@ -26,7 +26,7 @@ from typing import Literal, TypeVar, get_args
 
 from fenolite import __version__
 from fenolite.backends.base import WriteResult
-from fenolite.backends.kicad import _pcbwrite, netnames
+from fenolite.backends.kicad import _pcbwrite, netnames, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import via_protection as vialib
@@ -69,7 +69,7 @@ from fenolite.backends.kicad._libread import (
     load_source,
 )
 from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind
-from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, walk
 from fenolite.backends.kicad.versions import (
     DEFAULT_TARGET,
     FORMAT_VERSIONS,
@@ -81,6 +81,8 @@ from fenolite.backends.kicad.versions import (
     LossyWriteError,
     check_target,
     classify,
+    is_downgrade,
+    load_inventory,
     major_for,
     require_editable,
 )
@@ -3188,12 +3190,55 @@ def _fragment_head(slot: Slot) -> str | None:
     return child.name if isinstance(child, Node) else None
 
 
-def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False) -> WriteResult:
+def _protection_edits(board: Board, target: int) -> list[resolver.Edit]:
+    """The resolver's edits of the protection of the read vias in a downgrade (change c0162): the writer
+    emits a via's children in the target's form (``vialib.emit_via``), so the resolver never sees them.
+    Tenting is written in 9's form (``rewrite``); covering, plugging, capping and filling, which 9.0 cannot
+    hold, are decided by their rows on the via's values (``none`` for a value the board gives)."""
+    table = resolver.load()
+    found: list[resolver.Edit] = []
+    for via in board.vias:
+        where = _locator(via)
+        for feature in vialib.FEATURES:
+            values = vialib.values_of(via.protection, feature)
+            if all(v is None for v in values):
+                continue
+            if feature == "tenting":
+                found += [resolver.Edit(row, "rewrite", where) for row in ("tenting-front", "tenting-back")]
+                continue
+            words = ["none" if v is None else "yes" if v else "no" for v in values]
+            found.append(resolver.Edit(feature, table.row(feature).decide(words), where))
+    return found
+
+
+def _net_form_edits(root: Node, info: FormatInfo) -> list[resolver.Edit]:
+    """One ``rewrite`` of the form row ``net-by-name`` per net reference written by number, for a source
+    whose format references nets by name."""
+    form = load_inventory().form(resolver.NET_FORM_ROW)
+    if form.since_version is None or info.version < form.since_version:
+        return []
+    return [
+        resolver.Edit(resolver.NET_FORM_ROW, "rewrite", loc)
+        for loc, found in walk(root)
+        if found.name == "net" and loc.count("/") > 1
+    ]
+
+
+def write_board(
+    design: Design,
+    *,
+    target: int = DEFAULT_TARGET,
+    allow_lossy: bool = False,
+    downgrade: bool = False,
+    edits: list[resolver.Edit] | None = None,
+) -> WriteResult:
     """The text of a ``.kicad_pcb`` for KiCad ``target``.0 (see ``board.md``, "The writer").
 
     ``WriteResult.issues`` holds warnings and infos; errors raise ``LossyWriteError``,
     ``FutureFormatError``, ``DowngradeRefusedError`` or ``LegacyEditRefusedError``. Nothing is written
-    to disk.
+    to disk. A board read from a file of a newer major than ``target`` is refused unless ``downgrade``:
+    its tree is then resolved by ``resolver.resolve`` at each construct (change c0162), a ``design`` loss
+    needs ``allow_lossy``, and the resolver's edits are appended to ``edits`` when a list is given.
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
@@ -3201,9 +3246,11 @@ def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bo
     if board is None:
         raise ValueError("the design has no board")
     info = source_info(design)
+    down = False
     if info is not None:
         require_editable(info)
-        check_target(info, target)
+        check_target(info, target, downgrade=downgrade)
+        down = downgrade and is_downgrade(info, target)
         if major_for(FileKind.BOARD, info.version) == 8:
             raise LegacyEditRefusedError(FileKind.BOARD, info.version)
     if board.holes:
@@ -3220,10 +3267,42 @@ def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bo
     else:
         root, obsolete = _pcbwrite.drop_obsolete(root, target)
         issues += obsolete
+    if down:
+        assert info is not None
+        # the vias' protection values are the resolver's to decide (``_protection_edits``), not refusals
+        writer.errors = [e for e in writer.errors if e.code != vialib.TOO_NEW]
+        found = _protection_edits(board, target)
+        refused = [
+            Issue(
+                resolver.DESIGN_CODE,
+                "error",
+                f"the via's {edit.row} needs KiCad 10.0: dropping it changes the design (row {edit.row})",
+                where=edit.where,
+                hint=f"row {edit.row}",
+            )
+            for edit in found
+            if edit.action == "design" and not allow_lossy
+        ]
+        try:
+            resolution = resolver.resolve(root, FileKind.BOARD, target, allow_lossy=allow_lossy)
+        except LossyWriteError as error:
+            if not error.droppable:
+                raise
+            refused += error.issues
+            resolution = None
+        if refused or (writer.errors and resolution is None):
+            raise LossyWriteError([*writer.errors, *refused], droppable=not writer.errors)
+        assert resolution is not None
+        root = resolution.root
+        found += [*resolution.edits, *_net_form_edits(root, info)]
+        issues += resolver.edit_issues(found, target)
+        if edits is not None:
+            edits.extend(found)
+        opaque = set[str]()
     droppable, kept, others = _pcbwrite.gate(root, target, opaque)
     errors = [*writer.errors, *kept]
     if errors or droppable:
-        lossy = [issue for found in droppable.values() for issue in found]
+        lossy = [issue for found_issues in droppable.values() for issue in found_issues]
         if errors or not allow_lossy:
             raise LossyWriteError([*errors, *lossy], droppable=not errors)
         root = _pcbwrite.remove(root, droppable)

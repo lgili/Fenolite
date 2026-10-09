@@ -124,7 +124,8 @@ class UnsupportedFormatError(FormatError):
 
 
 class DowngradeRefusedError(FenoliteError):
-    """Writing for an older major than the input's would drop what that major cannot read."""
+    """Writing for an older major than the input's would drop what that major cannot read, and no
+    downgrade was asked: a downgrade is a conversion (``fenolite convert``, change c0162)."""
 
     cli_code = "FEN-7002"
 
@@ -132,7 +133,10 @@ class DowngradeRefusedError(FenoliteError):
         self.kind = kind
         self.source_major = source_major
         self.target_major = target_major
-        self.hint = f"use a target of KiCad {source_major}.0 or newer"
+        self.hint = (
+            f"use a target of KiCad {source_major}.0 or newer, or convert the project with "
+            f"'fenolite convert <project> --to kicad --kicad-version {target_major}'"
+        )
         super().__init__(
             f"{kind.value} read as KiCad {source_major}.0 cannot be written for KiCad {target_major}.0"
         )
@@ -318,16 +322,26 @@ def version_issues(info: FormatInfo) -> tuple[Issue, ...]:
     return ()
 
 
-def check_target(info: FormatInfo, target_major: int) -> int:
-    """The header version to write for ``target_major``; refuses old, future and downgrades."""
+def check_target(info: FormatInfo, target_major: int, *, downgrade: bool = False) -> int:
+    """The header version to write for ``target_major``; refuses old and future inputs, and a target older
+    than the input's major unless ``downgrade`` (the caller then resolves the tree with
+    ``resolver.resolve`` before its emit check; change c0162)."""
     if target_major not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target_major}; supported targets: {TARGET_MAJORS}")
     require_editable(info)
     source = major_for(info.kind, info.version)
     assert source is not None  # SUPPORTED always has a major
-    if target_major < source:
+    if target_major < source and not downgrade:
         raise DowngradeRefusedError(info.kind, source, target_major)
     return FORMAT_VERSIONS[info.kind][target_major]
+
+
+def is_downgrade(info: FormatInfo | None, target_major: int) -> bool:
+    """Whether writing ``info``'s file for ``target_major`` is a downgrade: its major is newer."""
+    if info is None:
+        return False
+    source = major_for(info.kind, info.version)
+    return source is not None and target_major < source
 
 
 # --- custom-rules text ----------------------------------------------------------------------------
@@ -803,6 +817,7 @@ __all__ = [
     "classify",
     "detect_version",
     "inspect",
+    "is_downgrade",
     "kind_for_suffix",
     "kind_of",
     "load_inventory",

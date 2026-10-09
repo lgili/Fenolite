@@ -5,8 +5,8 @@
 and ``_sheet_bench`` of ``sheets/``, ``_checkcases`` of ``check/``, ``_exportcases`` of ``export/``, and
 ``_zonebench`` and ``_gerber`` of ``zones/``, ``_benches`` of ``copper/``, ``_placecases`` of
 ``place/``, ``_asmcases`` of ``assembly/``, ``_schcases`` of ``schematic/``, ``_viabench`` of
-``vias/``, ``_drawbench`` of ``drawings/``, ``_lengthcases`` of ``length/``, and ``_zbench`` of
-``impedance/``)."""
+``vias/``, ``_drawbench`` of ``drawings/``, ``_lengthcases`` of ``length/``, ``_zbench`` of
+``impedance/``, and ``_downbench`` of ``downgrade/``)."""
 
 from __future__ import annotations
 
@@ -38,6 +38,7 @@ for folder in (
     HERE / "drawings",
     HERE / "length",
     HERE / "impedance",
+    HERE / "downgrade",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))

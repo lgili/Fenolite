@@ -15,7 +15,7 @@ import dataclasses
 from collections.abc import Iterable, Mapping
 from types import MappingProxyType
 
-from fenolite.backends.kicad import _pcbwrite, embed
+from fenolite.backends.kicad import _pcbwrite, embed, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import (
     DEF_FIELDS,
@@ -58,6 +58,7 @@ from fenolite.backends.kicad.versions import (
     FormatInfo,
     LossyWriteError,
     classify,
+    is_downgrade,
     major_for,
     require_editable,
 )
@@ -512,19 +513,27 @@ def write_footprint(
     target: int = DEFAULT_TARGET,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
+    downgrade: bool = False,
+    edits: list[resolver.Edit] | None = None,
 ) -> str:
     """The text of one ``.kicad_mod`` file for KiCad ``target``.0 (libraries.md, "Writing footprints").
 
-    Warnings are appended to ``issues``; errors raise ``LossyWriteError`` or ``FutureFormatError``.
+    Warnings are appended to ``issues``; errors raise ``LossyWriteError`` or ``FutureFormatError``. With
+    ``downgrade``, a definition read at a newer major than ``target`` is resolved by ``resolver.resolve``
+    at each construct (change c0162), and the edits are appended to ``edits`` when a list is given;
+    without it such a definition keeps the slot-level drop of ``allow_lossy``.
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
     defn = prepare_authored_definition(defn)
     slots = _slots(defn)
     version = _source_version(defn, slots)
+    down = False
     if version is not None:
         kind = FileKind.FOOTPRINT
-        require_editable(FormatInfo(kind, version, major_for(kind, version), classify(kind, version)))
+        info = FormatInfo(kind, version, major_for(kind, version), classify(kind, version))
+        require_editable(info)
+        down = downgrade and is_downgrade(info, target)
     checks = _Projections()
     checks.definition(defn, slots)
     for pad in defn.pads:
@@ -546,9 +555,15 @@ def write_footprint(
 
     root = emit_footprint(edited, root_chain=_ROOT, opaque=opaque)
     located = _pcbwrite.opaque_locators(root, seen)
+    found: list[Issue] = []
+    if down:
+        resolution = resolver.resolve(root, FileKind.FOOTPRINT, target, allow_lossy=allow_lossy)
+        root, located = resolution.root, set[str]()
+        found += resolver.edit_issues(resolution.edits, target)
+        if edits is not None:
+            edits.extend(resolution.edits)
     droppable, kept, others = _pcbwrite.gate(root, target, located, FileKind.FOOTPRINT)
     errors = [*checks.errors, *kept]
-    found: list[Issue] = []
     if errors or droppable:
         lossy = [issue for group in droppable.values() for issue in group]
         if errors or not allow_lossy:
@@ -572,8 +587,11 @@ def write_pretty(
     target: int = DEFAULT_TARGET,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
+    downgrade: bool = False,
+    edits: list[resolver.Edit] | None = None,
 ) -> dict[str, str]:
-    """``"<name>.kicad_mod"`` → text for each definition, sorted by name; nothing is written to disk."""
+    """``"<name>.kicad_mod"`` → text for each definition, sorted by name; nothing is written to disk.
+    ``downgrade`` and ``edits`` are those of ``write_footprint``; an edit's ``file`` is its file name."""
     chosen: dict[str, FootprintDef] = {}
     for defn in defs:
         if any(c in defn.name for c in "/\\:") or not defn.name:
@@ -581,12 +599,20 @@ def write_pretty(
         if defn.name in chosen:
             raise ValueError(f"two footprints are named {defn.name!r}")
         chosen[defn.name] = defn
-    return {
-        f"{name}.kicad_mod": write_footprint(
-            chosen[name], target=target, allow_lossy=allow_lossy, issues=issues
+    written: dict[str, str] = {}
+    for name in sorted(chosen):
+        found: list[resolver.Edit] = []
+        written[f"{name}.kicad_mod"] = write_footprint(
+            chosen[name],
+            target=target,
+            allow_lossy=allow_lossy,
+            issues=issues,
+            downgrade=downgrade,
+            edits=found,
         )
-        for name in sorted(chosen)
-    }
+        if edits is not None:
+            edits += [dataclasses.replace(edit, file=f"{name}.kicad_mod") for edit in found]
+    return written
 
 
 __all__ = [

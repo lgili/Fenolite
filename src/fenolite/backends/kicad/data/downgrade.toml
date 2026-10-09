@@ -1,0 +1,541 @@
+# The capability resolver of the KiCad downgrade (openspec change c0162, capability kicad-version-gating,
+# "Downgrade resolver").
+#
+# Authored by hand for Fenolite. One row per token row of tokens.toml whose since_major is above a target
+# of TARGET_MAJORS, per such form row, and per key path of pro.TEN_ONLY_PATHS (ids "project:<path>"),
+# plus the project's net_settings version. Each row says what a downgrade for `target` does with the
+# construct (resolver.py):
+#   rewrite       written in the target's form (`form`, from `sources`); reported as changed
+#   same          dropped: the target behaves as the source with that value; reported as changed
+#   presentation  dropped: a drawing, a text or metadata changes; reported as a loss (report)
+#   design        dropped: what is made or checked changes; a loss that needs --allow-lossy (refuse)
+# `when` lists the values for which `action` holds (every symbol value of the node and of its children
+# must be one of them); `else` is the action for any other value, and of a rewrite the target cannot
+# hold. A row's bench (tests/kicad/downgrade/test_rows.py, probe down-row-<id>) proves it on 9.0.9 and
+# 10.0.6; a row whose bench differs moves to design, never the reverse without a new bench.
+# Rendered in the column "downgrade" of docs/formats/kicad/tokens.md by tools/gen_token_docs.py.
+format = 1
+
+# ------------------------------------------------------------------------------------ token rows
+
+[[row]]
+id = "textbox-knockout"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0020"]
+
+[[row]]
+id = "fill-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0020"]
+
+[[row]]
+id = "fill-reverse-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0033", "S-0020"]
+
+[[row]]
+id = "fill-cross-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0033", "S-0020"]
+
+[[row]]
+id = "tenting-front"
+target = 9
+action = "rewrite"
+else = "design"
+form = "(tenting front back)"
+sources = ["S-0030", "S-0024", "S-0039"]
+note = "9.0 writes (tenting front back); 10.0.6 reads the named sides of a pad or via as yes and the others as none"
+
+[[row]]
+id = "tenting-back"
+target = 9
+action = "rewrite"
+else = "design"
+form = "(tenting front back)"
+sources = ["S-0030", "S-0024", "S-0039"]
+note = "rewritten with tenting-front: one tenting node holds both"
+
+[[row]]
+id = "covering"
+target = 9
+action = "same"
+when = ["no", "none"]
+else = "design"
+sources = ["S-0030", "S-0033", "S-0024"]
+note = "9.0 has no covering; 10.0.6 reads a board of format 9 as (covering (front no) (back no))"
+
+[[row]]
+id = "plugging"
+target = 9
+action = "same"
+when = ["no", "none"]
+else = "design"
+sources = ["S-0030", "S-0033", "S-0024"]
+note = "9.0 has no plugging; 10.0.6 reads a board of format 9 as (plugging (front no) (back no))"
+
+[[row]]
+id = "capping"
+target = 9
+action = "same"
+when = ["no", "none"]
+else = "design"
+sources = ["S-0030", "S-0033", "S-0024"]
+note = "9.0 has no capping; 10.0.6 reads a board of format 9 as (capping no)"
+
+[[row]]
+id = "filling"
+target = 9
+action = "same"
+when = ["no", "none"]
+else = "design"
+sources = ["S-0030", "S-0033", "S-0024"]
+note = "9.0 has no filling; 10.0.6 reads a board of format 9 as (filling no)"
+
+[[row]]
+id = "hatch-position"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0033", "S-0039"]
+
+[[row]]
+id = "footprint-jumper-pad-groups"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0039"]
+
+[[row]]
+id = "footprint-duplicate-pad-numbers-are-jumpers"
+target = 9
+action = "same"
+when = ["no"]
+else = "design"
+sources = ["S-0030", "S-0033", "S-0024"]
+note = "no is the behaviour of 9.0: pads of the same number are not jumpers"
+
+[[row]]
+id = "pad-die-delay"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0039"]
+
+[[row]]
+id = "group-lib-id"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0033", "S-0020"]
+
+[[row]]
+id = "island-yes"
+target = 9
+action = "rewrite"
+form = "(island)"
+sources = ["S-0030", "S-0020"]
+note = "8.0 and 9.0 write (island) without a value"
+
+[[row]]
+id = "island-no"
+target = 9
+action = "same"
+sources = ["S-0030", "S-0020"]
+note = "9.0 writes no island node for a fill that is not an island"
+
+[[row]]
+id = "pad-property-pressfit"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0020", "S-0029"]
+
+[[row]]
+id = "gr-rect-radius"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0020"]
+
+[[row]]
+id = "point"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0033", "S-0024", "S-0039"]
+
+[[row]]
+id = "table-uuid"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0039"]
+
+[[row]]
+id = "footprint-units"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0024", "S-0039"]
+
+[[row]]
+id = "barcode"
+target = 9
+action = "presentation"
+sources = ["S-0030", "S-0033", "S-0039"]
+
+[[row]]
+id = "via-buried"
+target = 9
+action = "rewrite"
+else = "design"
+form = "(via blind ...)"
+sources = ["S-0030", "S-0033", "S-0020"]
+note = "9.0 has one type for blind and buried vias, written blind, with the same layer span"
+
+[[row]]
+id = "via-backdrill"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0020", "S-0039"]
+
+[[row]]
+id = "via-tertiary-drill"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0020", "S-0039"]
+
+[[row]]
+id = "via-front-post-machining"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0020"]
+
+[[row]]
+id = "via-back-post-machining"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0020"]
+
+[[row]]
+id = "variants"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0039"]
+
+[[row]]
+id = "footprint-variant"
+target = 9
+action = "design"
+sources = ["S-0030", "S-0033", "S-0039"]
+
+[[row]]
+id = "setup-zone-defaults"
+target = 9
+action = "presentation"
+sources = ["S-0033", "S-0039"]
+
+[[row]]
+id = "rules-type-bridged-mask"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "rules-type-solder-mask-expansion"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "rules-type-solder-paste-abs-margin"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "rules-type-solder-paste-rel-margin"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "rules-type-via-dangling"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "rules-disallow-through-via"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "rules-disallow-blind-via"
+target = 9
+action = "design"
+sources = ["S-0038", "S-0034"]
+note = "9.0.9 drops the whole rules file on a constraint it does not know"
+
+[[row]]
+id = "sch-fill-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-fill-reverse-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-fill-cross-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-lib-power-local"
+target = 9
+action = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0 has no local power symbol: its net would join globally"
+
+[[row]]
+id = "sch-lib-power-global"
+target = 9
+action = "rewrite"
+form = "(power)"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0.9 loads the bare (power) only"
+
+[[row]]
+id = "sch-table-uuid"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-group"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-rule-area-exclude-from-sim"
+target = 9
+action = "same"
+when = ["no"]
+else = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "no is the behaviour of a rule area of 9.0; the simulation is not made or checked"
+
+[[row]]
+id = "sch-rule-area-in-bom"
+target = 9
+action = "same"
+when = ["yes"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "yes is the behaviour of a rule area of 9.0; another value changes the bill of materials"
+
+[[row]]
+id = "sch-rule-area-on-board"
+target = 9
+action = "same"
+when = ["yes"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "yes is the behaviour of a rule area of 9.0; another value changes the board"
+
+[[row]]
+id = "sch-rule-area-dnp"
+target = 9
+action = "same"
+when = ["no"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "no is the behaviour of a rule area of 9.0; another value changes the bill of materials"
+
+[[row]]
+id = "sch-symbol-body-style"
+target = 9
+action = "rewrite"
+form = "(convert N)"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0.9 loads convert in its place"
+
+[[row]]
+id = "sch-lib-body-styles"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-rectangle-radius"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-instance-variant"
+target = 9
+action = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sch-symbol-in-pos-files"
+target = 9
+action = "same"
+when = ["yes"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0 puts every symbol in the position files"
+
+[[row]]
+id = "sch-lib-in-pos-files"
+target = 9
+action = "same"
+when = ["yes"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0 puts every symbol in the position files"
+
+[[row]]
+id = "sym-jumpers-duplicate"
+target = 9
+action = "same"
+when = ["no"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "no is the behaviour of 9.0: pins of the same number are not jumpers"
+
+[[row]]
+id = "sym-jumper-pin-groups"
+target = 9
+action = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sym-rectangle-radius"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sym-power-local"
+target = 9
+action = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0 has no local power symbol: its net would join globally"
+
+[[row]]
+id = "sym-power-global"
+target = 9
+action = "rewrite"
+form = "(power)"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0.9 loads the bare (power) only"
+
+[[row]]
+id = "sym-body-styles"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+[[row]]
+id = "sym-in-pos-files"
+target = 9
+action = "same"
+when = ["yes"]
+else = "design"
+sources = ["S-0031", "S-0368", "S-0020"]
+note = "9.0 puts every symbol in the position files"
+
+[[row]]
+id = "sym-fill-hatch"
+target = 9
+action = "presentation"
+sources = ["S-0031", "S-0368", "S-0020"]
+
+# ------------------------------------------------------------------------------------- form rows
+
+[[row]]
+id = "net-by-name"
+target = 9
+action = "rewrite"
+form = "(net N)"
+sources = ["S-0030", "S-0033"]
+note = "nets by number with the net table, as target 9 boards are written (_pcbwrite.place_table)"
+
+# ---------------------------------------------------------------------------------- project keys
+
+[[row]]
+id = "project:/component_class_settings"
+target = 9
+action = "design"
+note = "component classes: 9.0 has none"
+
+[[row]]
+id = "project:/component_class_settings/assignments"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/component_class_settings/meta"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/component_class_settings/meta/version"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/component_class_settings/sheet_component_classes"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/component_class_settings/sheet_component_classes/enabled"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/net_settings/classes/*/tuning_profile"
+target = 9
+action = "design"
+note = "the tuning profile of a net class: 9.0 has none"
+
+[[row]]
+id = "project:/tuning_profiles"
+target = 9
+action = "design"
+note = "tuning profiles (impedance targets): 9.0 has none"
+
+[[row]]
+id = "project:/tuning_profiles/meta"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/tuning_profiles/meta/version"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/tuning_profiles/tuning_profiles_impedance_geometric"
+target = 9
+action = "design"
+
+[[row]]
+id = "project:/net_settings/meta/version"
+target = 9
+action = "rewrite"
+form = "4"
+sources = ["S-0024"]
+note = "the net settings version of 9.0 (pro.PROJECT_VERSIONS[9])"
