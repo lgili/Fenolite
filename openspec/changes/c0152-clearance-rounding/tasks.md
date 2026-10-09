@@ -2,6 +2,7 @@
 
 - [x] 0.1 Measure the seven findings of `altium-third-party-pcbdoc-03`: the pad and track records, the model's geometry, the rule in force, and where the 8 to 9 nm come from (conversion of coordinates, end caps, polygonisation, pad size, rule, or Altium's comparison). Write it into the design. Proof: `openspec validate c0152-clearance-rounding --strict --no-interactive` passes.
   - **2026-10-08.** The document's integers put the straight segment 49 996.5 units from the pad's edge (3.5 units, 8.89 nm inside 5 mil); the model reads 126 991 nm against an exact 126 991.11. No rounding of Fenolite's takes part; Altium's comparison passes at least 3.5 units. Validation: valid.
+  - 2026-10-09: c0124 is archived. The MODIFIED "Clearance rules of a PCB document" of this change's `altium-verification` delta was written on the text before c0124 and dropped its scenario "Planes of an imported board"; it now carries c0124's edits of the living text (the rules source takes no track or arc out; what an internal plane layer is, and the number of objects left out in the reason of `left_out`; that scenario) with this change's own. `openspec validate --all --strict --no-interactive` reports no error.
 
 ## 1. The tolerance
 
