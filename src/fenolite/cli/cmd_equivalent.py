@@ -5,73 +5,38 @@ difference located at ``REF`` or ``REF-PIN``, and at the net for routing (capabi
 "Equivalent command", "Level 5 in the equivalent command" and "Triangle oracle";
 ``docs/cli-contract.md``, "equivalent"; ``docs/equivalence.md``).
 
-With two paths it reads both through the backend registry and runs no tool. With ``--against
-kicad-import`` side ``b`` is the board that ``kicad-cli pcb import`` converts ``A`` to, compared under
-the importer's exclusion profile of the running version line. It writes no file.
+The command parses its arguments, calls ``fenolite.api.equivalent`` and replies with
+``EquivalenceResult.to_json()`` (change c0158). With two paths no tool runs unless a KiCad schematic side
+needs ``kicad-cli``. With ``--against kicad-import`` side ``b`` is the board that ``kicad-cli pcb import``
+converts ``A`` to, compared under the importer's exclusion profile of the running version line. It writes
+no file.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
-from collections import Counter
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
-from fenolite.backends import registry
-from fenolite.backends.kicad import altium_import
-from fenolite.backends.kicad.cli import KicadCli, KicadCliError, KicadCliVersionError, cli_for, find_kicad_cli
-from fenolite.backends.kicad.projectset import resolve_board
-from fenolite.checks.equivalence import (
-    LEVEL_NAMES,
-    LEVELS,
-    EquivalenceReport,
-    Profile,
-    Tolerances,
-    compare_designs,
-    difference_issues,
-    load_profiles,
-    max_level,
-    select_profile,
-)
-from fenolite.checks.equivalence import codes as equivalence_codes
-from fenolite.checks.equivalence.model import FRAMES, Difference
+from fenolite.api.equivalence import AGAINST, equivalent
+from fenolite.api.sides import READS, SideError
+from fenolite.checks.equivalence import LEVELS, Profile, load_profiles
+from fenolite.checks.equivalence.model import FRAMES
 from fenolite.cli._examples import EXAMPLE_BOARD
-from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, NO_TOOL_HINT
+from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
 from fenolite.cli.api import Command, Context, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.core.errors import FenoliteError, Issue
-from fenolite.core.evidence import Evidence, Level
-from fenolite.model.canonical import load_dir
-from fenolite.model.design import Design
 
 HELP = "say whether two designs are equivalent, level by level, and locate each difference"
-BUILT_FILES = ("meta.json", "build.json")
-"""A folder that holds one of these directly is a built design (a ``.fenolite/`` folder)."""
-BUILT_BACKEND = "fenolite"
-BUILT_EVIDENCE = Evidence(Level.INFERRED)
-AGAINST = ("kicad-import",)
 PCB_DOCUMENT = ".pcbdoc"
-IMPORT_MAJOR = 10
-READS = (
-    "a KiCad board, project file or folder, an Altium document or project, or a .fenolite/ folder of a "
-    "built design"
-)
-
-
-@dataclass(frozen=True, slots=True)
-class _Side:
-    name: str
-    sha256: str | None
-    backend: str
-    design: Design
-    issues: tuple[Issue, ...]
-    evidence: Evidence
-    kind: str
-    tool_version: str | None = None
-    messages: tuple[str, ...] = ()
+OPTIONS = {
+    "level": "--level",
+    "b": "B",
+    "profile": "--exclusions",
+    "frame": "--frame",
+    "against": "--against",
+}
+"""The option of the command that a parameter of ``fenolite.api.equivalent`` named in an error stands for."""
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -114,79 +79,6 @@ def _path(given: str, ctx: Context) -> Path:
     return path
 
 
-def _digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def _notices(issues: list[Issue] | tuple[Issue, ...]) -> tuple[Issue, ...]:
-    """The warnings and infos of a read; a reader raises its errors."""
-    return tuple(issue for issue in issues if issue.severity != "error")
-
-
-def _side(path: Path) -> _Side:
-    """One side: a built design, a KiCad project resolved to its board, or any file a backend reads."""
-    if path.is_dir() and any((path / name).is_file() for name in BUILT_FILES):
-        return _Side(path.name, None, BUILT_BACKEND, load_dir(path), (), BUILT_EVIDENCE, "fenolite_model")
-    if path.is_dir() or path.suffix == ".kicad_pro":
-        path = resolve_board(path)
-    backend = registry.for_path(path)
-    if backend is None:
-        raise _usage(f"equivalent does not read {path.name}", where=path.name, hint="it reads " + READS)
-    found: list[Issue] = []
-    read = backend.read(path, issues=found)
-    if not isinstance(read.content, Design):
-        raise _usage(
-            f"{path.name} is a library, not a design", where=path.name, hint="compare libraries with diff"
-        )
-    kind = path.suffix.lower().lstrip(".")
-    return _Side(path.name, _digest(path), backend.name, read.content, _notices(found), read.evidence, kind)
-
-
-def _preflight(explicit: str | None, timeout: float) -> KicadCli:
-    """The ``kicad-cli`` that converts side ``a``: ``FEN-6001`` without one, ``FEN-6002`` for another
-    major than 10. No import runs before both hold."""
-    path = find_kicad_cli(explicit)
-    if path is None:
-        raise CliError("FEN-6001", "kicad-cli not found", hint=NO_TOOL_HINT)
-    cli = cli_for(path, timeout=timeout)
-    try:
-        major = cli.major()
-    except (KicadCliError, ValueError, OSError) as exc:
-        raise CliError(
-            "FEN-6001", f"{path.name} did not report a kicad-cli version", hint=NO_TOOL_HINT
-        ) from exc
-    if major != IMPORT_MAJOR:
-        raise CliError(
-            "FEN-6002",
-            f"--against kicad-import needs kicad-cli 10.0 (pcb import); running {cli.version()}",
-            hint="use kicad-cli 10.0, for example the kicad-10 job's container",
-        )
-    return cli
-
-
-def _imported(cli: KicadCli, source: Path, name: str) -> _Side | Issue:
-    """Side ``b`` of the triangle, or the ``equiv.oracle-failed`` issue of a run that gives no board."""
-    try:
-        found = altium_import.import_design(cli, source)
-    except KicadCliVersionError:
-        raise
-    except FenoliteError as error:
-        return equivalence_codes.issue("equiv.oracle-failed", str(error), where=name)
-    read = found.read
-    return _Side(
-        name, None, altium_import.PROFILE, read.design, _notices(read.issues), read.evidence, "kicad_pcb",
-        found.tool_version, found.messages,
-    )  # fmt: skip
-
-
-def _import_messages(messages: tuple[str, ...]) -> list[Issue]:
-    counts = Counter(messages)
-    return [
-        equivalence_codes.issue("equiv.import-message", f"kicad-cli pcb import, {count} time(s): {text}")
-        for text, count in sorted(counts.items())
-    ]
-
-
 def _user_profile(args: argparse.Namespace, ctx: Context) -> Profile | None:
     if (args.exclusions is None) != (args.profile is None):
         raise _usage("--exclusions and --profile go together", where="--exclusions")
@@ -203,117 +95,19 @@ def _user_profile(args: argparse.Namespace, ctx: Context) -> Profile | None:
     return chosen
 
 
-def _tolerances(args: argparse.Namespace, profile: Profile | None) -> Tolerances:
-    for flag, value in (
-        ("--tolerance-nm", args.tolerance_nm),
-        ("--tolerance-udeg", args.tolerance_udeg),
-        ("--tolerance-ppm", args.tolerance_ppm),
+def _tolerances(args: argparse.Namespace) -> dict[str, int]:
+    """The tolerances given on the command line; the others come from the profile, else 0."""
+    given: dict[str, int] = {}
+    for flag, field, value in (
+        ("--tolerance-nm", "length_nm", args.tolerance_nm),
+        ("--tolerance-udeg", "angle_udeg", args.tolerance_udeg),
+        ("--tolerance-ppm", "length_ppm", args.tolerance_ppm),
     ):
         if value is not None and value < 0:
             raise _usage(f"{flag} is a non-negative integer", where=flag)
-    length = args.tolerance_nm if args.tolerance_nm is not None else (profile.tolerance_nm if profile else 0)
-    angle = args.tolerance_udeg
-    if angle is None:
-        angle = profile.tolerance_udeg if profile else 0
-    relative = args.tolerance_ppm
-    if relative is None:
-        relative = profile.tolerance_ppm if profile else 0
-    return Tolerances(length, angle, relative)
-
-
-def _level(args: argparse.Namespace, a: _Side, b: _Side) -> int:
-    highest = max_level(a.design, b.design)
-    if args.level is None:
-        return highest
-    if args.level not in LEVELS:
-        raise _usage(f"--level is one of {', '.join(map(str, LEVELS))}", where="--level")
-    return int(args.level)
-
-
-def _row(difference: Difference) -> dict[str, Any]:
-    return {
-        "level": difference.level,
-        "kind": difference.kind,
-        "where": difference.where,
-        "field": difference.field,
-        "a": difference.a,
-        "b": difference.b,
-    }
-
-
-def _side_json(side: _Side) -> dict[str, Any]:
-    board = side.design.board
-    footprints = len(board.footprints) if board is not None else 0
-    row: dict[str, Any] = {
-        "path": side.name,
-        "sha256": side.sha256,
-        "backend": side.backend,
-        "netlist_source": "board" if footprints else "circuit",
-        "components": len(side.design.circuit.components),
-        "footprints": footprints,
-    }
-    if side.tool_version is not None:
-        row["tool_version"] = side.tool_version
-    return row
-
-
-def _result(a: _Side, b: _Side, report: EquivalenceReport, profile: Profile | None) -> dict[str, Any]:
-    return {
-        "level": report.levels[-1].level,
-        "equivalent": report.equivalent,
-        "sides": {"a": _side_json(a), "b": _side_json(b)},
-        "tolerances": {
-            "length_nm": report.tolerances.length_nm,
-            "angle_udeg": report.tolerances.angle_udeg,
-            "length_ppm": report.tolerances.length_ppm,
-        },
-        "frame": report.frame,
-        "translation": [report.translation.x, report.translation.y],
-        "levels": [
-            {
-                "level": level.level,
-                "name": LEVEL_NAMES[level.level],
-                "compared": level.compared,
-                "differences": len(level.differences),
-                "excluded": len(level.excluded),
-                "notices": len(level.notices),
-                "summary": dict(level.summary),
-            }
-            for level in report.levels
-        ],
-        "differences": [_row(difference) for difference in report.differences],
-        "notices": [_row(notice) for notice in report.notices],
-        "excluded": [{**_row(found.difference), "rule": found.rule_id} for found in report.excluded],
-        "profile": None
-        if profile is None
-        else {"name": profile.name, "tool_version": profile.tool_version, "rules": len(profile.rules)},
-    }
-
-
-def _failed(a: _Side, failure: Issue, version: str) -> Result:
-    """The result of a triangle whose converter gave no board: no level ran."""
-    side = _side_json(a)
-    result: dict[str, Any] = {
-        "level": 0,
-        "equivalent": False,
-        "sides": {"a": side, "b": None},
-        "tolerances": {"length_nm": 0, "angle_udeg": 0, "length_ppm": 0},
-        "frame": "relative",
-        "translation": [0, 0],
-        "levels": [],
-        "differences": [],
-        "notices": [],
-        "excluded": [],
-        "profile": None,
-        "tool_version": version,
-    }
-    evidence = Evidence(a.evidence.level, altium_import.ORACLE, a.evidence.hypotheses)
-    return Result(
-        result=result,
-        issues=(failure, *a.issues),
-        evidence=evidence,
-        input=InputRef(path=a.name, sha256=a.sha256, kind=a.kind, format_version=None),
-    )
+        if value is not None:
+            given[field] = value
+    return given
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -323,12 +117,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             where="B",
             hint="equivalent A B, or equivalent A.PcbDoc --against kicad-import",
         )
-    notices: list[Issue] = []
     path_a = _path(args.a, ctx)
+    profile: Profile | None = None
+    path_b: Path | None = None
     if args.against is None:
         profile = _user_profile(args, ctx)
-        a, b = _side(path_a), _side(_path(args.b, ctx))
-        frame = args.frame or (profile.frame if profile else "absolute")
+        path_b = _path(args.b, ctx)
     else:
         if args.exclusions is not None or args.profile is not None:
             raise _usage(
@@ -341,47 +135,30 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 where=path_a.name,
                 hint="pass a .PcbDoc file",
             )
-        cli = _preflight(args.kicad_cli, args.timeout)
-        a = _side(path_a)
-        found = _imported(cli, path_a, a.name)
-        if isinstance(found, Issue):
-            return _failed(a, found, cli.version())
-        b = found
-        version = cli.version()
-        profiles = load_profiles(altium_import.exclusions_text(), file=altium_import.EXCLUSIONS_FILE)
-        profile = select_profile(profiles, altium_import.PROFILE, version)
-        if profile is None:
-            notices.append(
-                equivalence_codes.issue(
-                    "equiv.no-exclusion-profile",
-                    f"no exclusion profile for kicad-cli {version}: the comparison ran with no rule, in the "
-                    "relative frame and without tolerance",
-                )
-            )
-        frame = args.frame or (profile.frame if profile else "relative")
-    tolerances = _tolerances(args, profile)
-    level = _level(args, a, b)
+    tolerances = _tolerances(args)
+    if args.level is not None and args.level not in LEVELS:
+        raise _usage(f"--level is one of {', '.join(map(str, LEVELS))}", where="--level")
     try:
-        report = compare_designs(
-            a.design,
-            b.design,
-            level=level,
+        found = equivalent(
+            path_a,
+            path_b,
+            level=args.level,
             tolerances=tolerances,
-            frame=frame,
+            frame=args.frame,
             ignore_refs=tuple(args.ignore_ref),
-            rules=profile.rules if profile else (),
+            profile=profile,
+            against=args.against,
+            kicad_cli=args.kicad_cli,
+            timeout=args.timeout,
         )
-    except ValueError as error:
-        raise _usage(str(error), where="--level") from None
-    notices += _import_messages(b.messages)
-    evidence = Evidence.combine(a.evidence, b.evidence)
-    if args.against is not None:
-        evidence = Evidence(evidence.level, altium_import.ORACLE, evidence.hypotheses)
+    except SideError as error:
+        where = OPTIONS.get(error.where, error.where)
+        raise CliError(error.cli_code, error.message, where=where, hint=error.hint) from None
     return Result(
-        result=_result(a, b, report, profile),
-        issues=(*difference_issues(report), *notices, *a.issues, *b.issues),
-        evidence=evidence,
-        input=InputRef(path=a.name, sha256=a.sha256, kind=a.kind, format_version=None),
+        result=found.to_json(),
+        issues=found.issues,
+        evidence=found.evidence,
+        input=InputRef(path=found.a.name, sha256=found.a.sha256, kind=found.a.kind, format_version=None),
     )
 
 

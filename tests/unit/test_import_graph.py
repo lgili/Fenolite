@@ -46,6 +46,7 @@ ALLOWED: dict[str, set[str]] = {
     "exports": {"model", "geometry", "backends*"},
     "convert": {"model", "geometry", "backends*"},
     "verify": {"model", "geometry", "backends*"},
+    "api": {"model", "geometry", "backends*", "checks", "analysis", "convert", "lens"},
     "agent": {"cli"},
 }
 STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog"}
@@ -232,6 +233,13 @@ def test_layering() -> None:
         ("lens", "backends.kicad", True),
         ("checks", "backends.kicad", False),
         ("analysis", "backends.kicad", False),
+        ("api", "backends.kicad", True),
+        ("api", "checks", True),
+        ("api", "cli", False),
+        ("checks", "api", False),
+        ("backends.kicad", "api", False),
+        ("cli", "api", True),
+        ("agent", "api", False),
     ],
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:
@@ -265,6 +273,19 @@ def test_backend_may_not_import_another_backend(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
     problems = _violations()
     assert any("backends.kicad → backends.other" in p for p in problems), problems
+
+
+def test_public_api_stays_on_top(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Public API stays on top" (c0158)."""
+    fake = _fake_tree(tmp_path, "checks/equivalence/levels.py", "import fenolite.api\n")
+    (fake / "api").mkdir()
+    (fake / "api" / "sides.py").write_text(
+        "import fenolite.backends.registry\nimport fenolite.checks.equivalence\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any("checks → api" in p for p in problems), problems
+    assert not any("api →" in p for p in problems), problems
 
 
 def test_bare_import_without_extras() -> None:
