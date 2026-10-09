@@ -185,7 +185,7 @@ Sources under a copyleft or an all-rights-reserved licence are read for facts on
 | H-A-PCBX-BODY-LIB | Altium opens a PCB library whose footprint holds an extruded body written in the document's form with the component index `0xFFFF` | author report, step X8.7 | the body is listed in the footprint with its heights |
 | H-A-PCBX-BODY-KICAD | `kicad-cli pcb import` reads a document with written bodies as it reads the same document without them, and shows no model for an extruded body | `tests/kicad/altium/test_pcb_bodies_oracle.py` | probe `altium-pcbx-bodies` `equal` |
 
-All start `INFERRED`. `H-A-PCBX-BODY`, the id that the design of c0085 reserved, was never registered and stays unused: its statement is split over `-OPEN` and `-SHORT`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06). The pattern `ALTIUM_HYPOTHESES` of `tests/unit/test_format_facts.py` accepts the stem `H-A-PCBX-`.
+All start `INFERRED`. The id of the body row that the design of c0085 reserved (the stem `H-A-PCBX-` with `BODY`, archived with c0085 on 2026-10-09) was never registered and stays unused: its statement is split over `-OPEN` and `-SHORT`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06). The pattern `ALTIUM_HYPOTHESES` of `tests/unit/test_format_facts.py` accepts the stem `H-A-PCBX-`.
 
 ## Author report: Part X, step X8 (component bodies)
 
