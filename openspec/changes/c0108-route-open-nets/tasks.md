@@ -67,6 +67,7 @@
   - 2026-10-07: the mapping is in `backends/altium/adapter/copper.py`, where the three items are built (not in `board.py`); the row is in `docs/formats/altium/import.md`. `uv run pytest tests/unit/backends/altium/adapter -k "locked or own_files or routed" tests/unit/test_format_facts.py`: 23 passed, exit 0. The ids of imported items do not depend on the lock.
 - [x] 4.7 Add to the verification kit's requests one step for the author report of `H-A-PCB-CU-LOCK` (a document with one locked track, arc and via: are they shown locked in Altium Designer 26), without running it; the hypothesis row names the step. If the kit's request table is closed by an archived change, write the step under this task for the maintainer instead. Proof: `uv run pytest tests/unit/test_hypotheses_register.py`; the row of `H-A-PCB-CU-LOCK` names the step.
   - 2026-10-07: step X12 added to Part X of `docs/evidence/altium-pcb.md`, not run; the row of `H-A-PCB-CU-LOCK` names it. `uv run pytest tests/unit/test_hypotheses_register.py --deselect …::test_cited_ids_registered`: 35 passed, 1 deselected, exit 0. Another change of this wave may also take the number X12: the coordinator renumbers when the branches are stacked.
+  - 2026-10-09: step X12 was reported by the maintainer as expected for each item kind (Altium Designer 26.5, S-0726; `docs/evidence/altium-pcb.md`, "Reports"): `H-A-PCB-CU-LOCK` is `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact)`.
 
 ## 5. The net command
 

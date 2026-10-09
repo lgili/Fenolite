@@ -101,7 +101,7 @@ the settling test and the result of an id are in its register row.
 | `H-A-OUTJOB-RUN-2` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact) |
 | `H-A-PCB-CU-CLASS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
 | `H-A-PCB-CU-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) |
-| `H-A-PCB-CU-LOCK` | INFERRED |
+| `H-A-PCB-CU-LOCK` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCB-CU-PLANE` | INFERRED |
 | `H-A-PCB-CU-REPOUR` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
 | `H-A-PCB-CU-ROUNDTRIP` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) |
@@ -137,16 +137,16 @@ the settling test and the result of an id are in its register row.
 | `H-A-PCBX-FPGFX-AD` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-FPGFX-KICAD` | INFERRED |
 | `H-A-PCBX-FPTEXT` | INFERRED |
-| `H-A-PCBX-HOLE` | INFERRED |
-| `H-A-PCBX-KEEPOUT` | INFERRED |
+| `H-A-PCBX-HOLE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-KEEPOUT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) |
 | `H-A-PCBX-MECH` | INFERRED |
 | `H-A-PCBX-READBACK` | INFERRED |
-| `H-A-PCBX-REPOUR` | INFERRED |
-| `H-A-PCBX-STACK` | INFERRED |
-| `H-A-PCBX-TEXT` | INFERRED |
+| `H-A-PCBX-REPOUR` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-STACK` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-TEXT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-VIA-FULL` | CORPUS-VERIFIED |
-| `H-A-PCBX-VIASPAN` | INFERRED |
+| `H-A-PCBX-VIASPAN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PRJ-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
 | `H-A-RD-PCB-CODEC` | CORPUS-VERIFIED |
 | `H-A-RD-PCB-FRAME` | CORPUS-VERIFIED |

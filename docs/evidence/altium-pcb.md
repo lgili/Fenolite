@@ -290,7 +290,8 @@ Fenolite writes no room and no "Supply Nets" rule: no permitted source holds the
 
 ## Part X: complete board (change c0085)
 
-Only step X8 is reported (2026-10-09, "Reports" below); steps X1 to X7 and X9 to X12 are not. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
+Every step is reported (2026-10-09, "Reports" below): step X8 in the first report of that day, steps X1 to X7
+and X9 to X12 in the second. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
 copper layers with one item of every kind that change c0085 writes. The five files are the committed
 golden files; `FENOLITE_ALTIUM_BOARD6=<folder outside the repository> uv run pytest
 tests/unit/lens/test_altium_pcb_complete.py -k golden` writes the same bytes into a folder to open in
@@ -429,15 +430,15 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
     although the record holds the second key; then save the document, reopen it and read the restrictions
     again. Expected: no message, the same two restrictions before and after the save
     (`H-A-PCBX-KEEPOUT`).
-12. **X12** Copper locks (change c0108; added on 2026-10-07; not run). Build a document whose model holds
+12. **X12** Copper locks (change c0108; added on 2026-10-07; reported on 2026-10-09). Build a document whose model holds
     one locked track, one locked arc and one locked via beside unlocked ones: the routed sample with those
     three items set `locked=True` (`tests/unit/backends/altium/test_pcbdoc_copper.py -k locked` builds it
     in memory; write it to a folder outside the repository). Open it in Altium Designer 26, select each of
     the three items and read the property "Locked"; select one unlocked track, arc and via too. Expected:
     the three items locked, the others not, and no message on load (`H-A-PCB-CU-LOCK`). Then try to drag
     the locked track: Altium should ask before it moves a locked primitive. Report one generic outcome per
-    item kind. Until this step is reported, the lock bit rests on a public reader's statement and on
-    Fenolite's own reader, and the row stays `INFERRED`.
+    item kind. Before this step was reported, the lock bit rested on a public reader's statement and on
+    Fenolite's own reader, and the row was `INFERRED`.
 
 A step that fails refutes the row it names: the row keeps its id and gets a registered successor. An
 author report never moves an operation out of `experimental`.
@@ -794,6 +795,37 @@ pad size read. The follow-up that the answer called for is change c0152, opened 
 own comparison passes the pairs; `docs/evidence/altium-roundtrip.md`). Steps D1 to D3 (optional) were not
 run, so `H-A-DRC-ALTIUM` stays open.
 
+### 2026-10-09, `AD 26.5`, Part X, steps X1 to X7 and X9 to X12
+
+- Tool: Altium Designer 26.5. Reported by the maintainer on 2026-10-09 in his own chat, a second report of
+  that day (S-0726). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact)`.
+- Files: Fenolite's own files of Part X (`board6`) and, for step X12, the document with locked copper built
+  from the routed sample. No file opened or saved in the session enters the repository; the digests of the
+  opened copies were not reported.
+
+Outcome per step, each as expected:
+
+- **X1, opening.** No repair prompt and no message in the Messages panel. Adds the Messages panel to
+  `H-A-PCB-DOC-OPEN`, which is an author report since 2026-10-03.
+- **X2 and X3, the layer stack.** Confirms `H-A-PCBX-STACK`.
+- **X4, via spans and drill pairs.** Confirms `H-A-PCBX-VIASPAN`.
+- **X5, the four texts.** Confirms `H-A-PCBX-TEXT`. Which corner of each text lies at the record's position
+  was not named.
+- **X6 and X11, the keep-out.** Confirms `H-A-PCBX-KEEPOUT`: no message on load, the same two restrictions
+  before and after a save, with both keys in the record.
+- **X7, the hole.** Confirms `H-A-PCBX-HOLE`.
+- **X9, repour.** Confirms `H-A-PCBX-REPOUR`.
+- **X10, save.** Done; the size of the saved file was not given. It settles no row.
+- **X12, copper locks (change c0108).** As expected for each item kind. Confirms `H-A-PCB-CU-LOCK`.
+
+Reading of the report:
+
+- No step named a fault, so no fact of the format pages and no golden file changed, and no row is refuted.
+- Not given, and still owed: the counts of step X8.6 (`H-A-PCBX-BODY-ID` stays pending) and the list of
+  Gerber extensions of step O3 (`H-A-OUTJOB-GERBER-LAYERS` stays pending); the maintainer will send both
+  later. Steps D1 to D3 of Part D were not run: `H-A-DRC-ALTIUM` stays pending.
+- An author report moves no write kind out of `experimental`: every Altium write stays experimental.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
@@ -943,7 +975,8 @@ one public document opened read-only (S-0616). Nothing that Altium wrote is in t
 On 2026-10-09 the maintainer reported, for his sessions of 2026-10-07 and 2026-10-08 in Altium Designer
 26.5, the parts that were owed (S-0724), one generic outcome per step: Part U (c0084), step X8 of Part X
 (c0121), Part G (c0126), Part V (c0132), all as expected, and his answer to D4 to D6 confirmed. The outcomes
-and the rows they move are under "Reports", "2026-10-09". Still owed on this page: steps X1 to X7 and X9 to
-X12 of Part X, the counts of step X8.6, and steps D1 to D3 of Part D (optional). The kit run (`fenolite kit
+and the rows they move are under "Reports", "2026-10-09". A second report of the same day (S-0726) covers
+steps X1 to X7 and X9 to X12 of Part X, all as expected (under "Reports" too). Still owed on this page: the
+counts of step X8.6, and steps D1 to D3 of Part D (optional; not done, so `H-A-DRC-ALTIUM` stays pending). The kit run (`fenolite kit
 verify` and `fenolite kit record`, change c0091) is not part of this report. The schematic side of the same
 report is in `docs/evidence/altium-schematic.md`, "Report of 2026-10-09".

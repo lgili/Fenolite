@@ -525,8 +525,9 @@ Fenolite never writes poured copper: a pour is the result of Altium's rules and 
 fill computed elsewhere would be shown as poured while disagreeing with what a repour gives. Clearance and
 thermal reliefs of a polygon come from Altium's rules, not from the polygon. What KiCad's importer reads
 of these items is checked by `tests/kicad/altium/test_pcb_complete_oracle.py` (`H-A-PCBX-KICAD`); that
-Altium shows them is Part X of `docs/evidence/altium-pcb.md`, not yet reported, so every row is
-`INFERRED`.
+Altium shows them is Part X of `docs/evidence/altium-pcb.md`, reported on 2026-10-09 with every step as
+expected: the six rows of the items (`H-A-PCBX-STACK`, `-VIASPAN`, `-TEXT`, `-KEEPOUT`, `-HOLE`,
+`-REPOUR`) are author reports. The write stays experimental.
 - One net class per `design.rules.netclass(...)`, with its nets.
 - Clearance, Width and Routing Via Style rules: one per class value, and one `All` rule per kind with
   Fenolite's defaults (0.2 mm, 0.25 mm, a 0.6 mm via with a 0.3 mm hole). Width and via limits span the
@@ -621,8 +622,9 @@ record kind whose fact row is on that page (`pcbrecords.LOCK_WRITTEN`; today the
 without its row, the items are written unlocked and the build gives one `altium.not-lowered` **warning**
 with `where` `copper/locked` that names the kind and the count: a lock is never dropped in silence. The
 Altium import reads the same bit back into `locked`. A design without locked copper gives the documents it
-gave before. The lock is `INFERRED`: a public reader's statement and Fenolite's own reader; Altium
-Designer's view is step X12 of `docs/evidence/altium-pcb.md`, which has not been run. A lock changes no
+gave before. The lock rests on a public reader's statement and Fenolite's own reader, and Altium
+Designer showed the three items locked in step X12 of `docs/evidence/altium-pcb.md`, reported on 2026-10-09
+(`H-A-PCB-CU-LOCK`, an author report). A lock changes no
 copper, and no rule of the document depends on it.
 
 **Oracles.** `tests/kicad/altium/test_pcbdoc_copper_oracle.py` imports the routed sample and the plane
