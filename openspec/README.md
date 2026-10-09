@@ -25,7 +25,11 @@ names the proposals that are written on other branches and are not in this table
 agent track), c0096, c0097 and c0099 (board authoring) and c0100–c0120 (the complex board). c0095 is
 reserved; c0098 is in v0.4 by the maintainer's decision of 2026-10-08 (roadmap, "Open decisions", row 35) and has its row below. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
 keep the names of their day. The changes of v0.4 were gathered on the branch `v04` and are released as
-`0.4.0` by c0154; their folders are not all rows of this table.
+`0.4.0` by c0154; their folders are not all rows of this table. On 2026-10-09 every change whose tasks were all
+closed and whose archive order allowed it was moved to `changes/archive/` (c0078–c0080, c0096–c0100,
+c0102, c0106, c0111, c0115, c0119, c0120, c0134, c0136, c0140, c0142, c0145, c0153 and c0154); a row of
+this table whose folder is still in `changes/` is open, and `docs/release/v0.4.md`, "Archive order", says
+what each open change with every task closed waits for.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
