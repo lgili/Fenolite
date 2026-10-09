@@ -6,6 +6,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The release workflow skips a version that PyPI already holds (`skip-existing` on the publish step), so a GitHub Release made for a version that was published earlier ends green; a new version is uploaded as before.
+- Development: the version is `0.5.0.dev0` after the release of `0.4.0`, so that changes are recorded under Unreleased again; the release of `0.5.0` sets `0.5.0` in the package, its alias and the alias pin.
+- Development: recorded the maintainer's Altium report of 2026-10-09 for his sessions of 2026-10-07 and 2026-10-08 (Altium Designer 26.5): Parts O, W and Y of the schematic page, Parts U, G and V and step X8 of Part X of the PCB page, and the catalog LED on a rebuilt kit, every step as expected. Twenty-two register rows are author reports now; every Altium write stays experimental, and `--altium-bodies` stays `off` by default.
+- Development: the MODIFIED deltas of c0084, c0085, c0086 and c0128 keep the scenarios of the living specs, so `openspec validate --all --strict` reports no error.
+- Development: `AGENTS.md` says that a count that `summary.limits` of `drc.kicad` names is a lower bound (c0141). The roadmap records the maintainer's decisions of 2026-10-09: the leaner 1.0 is accepted, the pending decisions with a recommendation are decided as recommended, and the next release, `0.5.0`, is v0.5a alone (conversion between KiCad and the second backend, the controlled KiCad downgrade and the public `equivalent`).
+
 ## [0.4.0] - 2026-10-08
 
 ### Added
