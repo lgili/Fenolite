@@ -529,11 +529,11 @@ and drawings a manufacturer asks for, and one yardstick board with the agent loo
 | c0105 | `impedance-targets`: built on `v04`; the KiCad 10 GUI save of tuning profiles is deferred to the next release |
 | c0106 | `length-measure-tune`: built on `v04`; takes matched-length and skew analysis from v0.6; archived on 2026-10-09 |
 | c0107 | `route-planes-layers`: built on `v04`; archived on 2026-10-09 |
-| c0108 | `route-open-nets`: built on `v04` |
-| c0109 | `routing-scale-control`: built on `v04` |
-| c0110 | `route-pairs-fanout` |
+| c0108 | `route-open-nets`: built on `v04`; archived on 2026-10-09 |
+| c0109 | `routing-scale-control`: built on `v04`; archived on 2026-10-09 |
+| c0110 | `route-pairs-fanout`; archived on 2026-10-09 |
 | c0111 | `copper-part-anchors`; on `v04`, every task closed on 2026-10-08: ships in 0.4; archived on 2026-10-09 |
-| c0112 | `via-protection`; on `v04`, closed for 0.4 on 2026-10-08 except the line of the guide's `fabrication` page (task 10.2: target 9 refuses capping and filling, and the guide builds every block for both targets) |
+| c0112 | `via-protection`; on `v04`, closed for 0.4 on 2026-10-08 except the line of the guide's `fabrication` page (task 10.2: target 9 refuses capping and filling, and the guide builds every block for both targets); archived on 2026-10-09 |
 | c0113 | `placement-constraints`; on `v04`, every task closed on 2026-10-08: ships in 0.4. It leaves the placer of v0.5a the `near` rules of `.fenolite/rules.json`, the keep-outs that forbid footprints and the measures of `placement.rules` (wire length and congestion) as its inputs; archived on 2026-10-09 |
 | c0114 | `net-ties-waivers`; on `v04`, every task closed on 2026-10-08: ships in 0.4 |
 | c0115 | `power-copper-analysis`; on `v04`, closed for 0.4 on 2026-10-08: the 9.0.9 outcomes of the plain neck and of the inner layers (tasks 1.2, 11.1, 12.2) were read from CI run 37803522539, both `equal`; archived on 2026-10-09 |

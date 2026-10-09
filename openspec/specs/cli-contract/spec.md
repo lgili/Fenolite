@@ -598,19 +598,25 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** dry-run writes nothing and confirmed output has receipts and matching geometry hashes
 
 ### Requirement: Route command
-`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_route.py` with `mutates=True`, and SHALL add routed copper to the board that `PATH` names.
+`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--require-complete] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_route.py` with `mutates=True` and `paged = "open"`, and SHALL add routed copper to the board that `PATH` names.
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`.
 - **Router.** `NAME` MUST be a key of `routing.registry.routers()`; otherwise the command MUST exit 2 with `FEN-2001` and a hint listing the registered names. A router whose `available()` is false MUST exit 6 with `FEN-6001` and its reason. A router with `sends_data_offsite` MUST be refused with exit 2 unless `--allow-offsite` is given.
-- **Job.** The command MUST select nets with `routing.select.unrouted` (after `select.rip` when `--rip` is given), build `JobPad`s from the backend's `BoardFrame.board_pads`, and take each net's width, clearance and via sizes from its net class, else from the project's default class.
-- **Write.** The command MUST merge the result with `routing.merge.apply` and return one `PlannedWrite` for the board, written by `write_board` for the board's own major, at `--out` when given and at the board's path otherwise. It MUST return none when no net was selected or the result holds no copper. The mutation protocol applies unchanged.
-- **Result.** `result` MUST hold `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `tracks`, `vias`, `ripped`, `fills_stale` and `log` (at most 20 lines, sanitised: no temporary path, no home directory).
-- **Issues and exit codes.** Each selected net left unrouted MUST give `route.unrouted` (warning). The exit code MUST be 5 for `route.bad-item` or `route.tool-failed`, and 0 otherwise.
+- **Rip.** With `--rip`, every net that matches the patterns, has two or more pads and is not carried by a zone (unless `--include-zone-nets`) MUST be ripped with `routing.select.rip`, whose `keep` holds the ids of the script copper of those nets (items whose KiCad uuid satisfies `backends.kicad.copper.is_copper_uuid`).
+- **Job.** The command MUST compute the open connections of the board (`board-analyses`, "Open connections of a net") from the backend's `BoardFrame.board_pads`, after the rip and after any copper the command adds before the router, and MUST select nets with `routing.select.unrouted` and those open nets. It MUST build `JobPad`s from `board_pads`, and take each net's width, clearance and via sizes from its net class, else from the project's default class.
+- **Verdict.** After the merge, the command MUST compute the open connections of the selected nets again. `routed` MUST hold the selected nets that have none, and `unrouted` the others, whatever the router listed.
+- **Write.** The command MUST merge the result with `routing.merge.apply`, the copper of nets that stay open included, and return one `PlannedWrite` for the board, written by `write_board` for the board's own major, at `--out` when given and at the board's path otherwise. It MUST return none when the command added no track, arc or via (merged from the router, or added by a step before the router), when an issue of severity `error` was reported, or when the text is unchanged and `--out` is not given. The mutation protocol applies unchanged.
+- **Result.** `result` MUST hold `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale` and `log` (at most 20 lines, sanitised: no temporary path, no home directory).
+  - `open` MUST hold one object per net of `unrouted`, sorted by name, with `net`, `islands` and `connections`: each connection with `a` and `b` (`kind`, `where`, `position`, `layers`) and `length` in nanometres.
+  - `connections` MUST hold `before` and `after`: the number of open connections of the selected nets before the router and after the merge.
+  - `rip_kept` MUST hold `locked` and `script`: the numbers of items of the ripped nets that the rip kept because they are locked or script copper, 0 without `--rip`.
+  - `fills_stale` MUST be true, with one `route.fill-stale` (info), when the board has fills and the command added copper, whether or not a net was completed.
+- **Issues and exit codes.** Each net of `unrouted` MUST give `route.unrouted` (warning) with its number of open connections and its shortest one; when the router listed that net as routed, the message MUST say so. Each net of `unrouted` that got copper from the router MUST give `route.partial` (info) with the number of items kept. With `--require-complete` and a non-empty `unrouted`, the command MUST add one `route.incomplete` (error) naming the number of open nets and the first five, and MUST plan no write. The exit code MUST be 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
 - **Evidence.** The envelope evidence MUST be `UNVERIFIED`, with the router's name and version as the oracle text.
 - `example_args` MUST be `(EXAMPLE_UNROUTED, "--router", "direct", "--out", "fenolite-routed.kicad_pcb", "--dry-run")`, and `mutation_example_args` the same without `--dry-run`; both MUST run no subprocess.
 
 #### Scenario: Direct route of the example
 - **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k example` runs the mutation example with `--confirm` in an empty folder
-- **THEN** the exit code is 0, `fenolite-routed.kicad_pcb` holds one more segment than the example board, `result.routed` names its net, and `evidence.level` is `UNVERIFIED`
+- **THEN** the exit code is 0, `fenolite-routed.kicad_pcb` holds one more segment than the example board, `result.routed` names its net, `result.connections` is `{"before": 1, "after": 0}`, and `evidence.level` is `UNVERIFIED`
 
 #### Scenario: Unknown router
 - **WHEN** `fenolite route <board> --router nope --dry-run` runs
@@ -622,9 +628,34 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** the exit code is 6, stderr carries `FEN-6001`, and the hint names the repository and the pinned tag
 
 #### Scenario: Nothing to route
-- **GIVEN** a board whose every net has copper
+- **GIVEN** a board whose every net is closed
 - **WHEN** `fenolite route <board> --router direct --confirm` runs
 - **THEN** the exit code is 0, `result.selected` is empty, and no file changes
+
+#### Scenario: A net with a stub is routed
+- **GIVEN** `two_pads.kicad_pcb` with a 3 mm track from `J1-1` on `ROUTE_ME`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k stub` runs `fenolite route <board> --router direct --confirm`
+- **THEN** `result.selected` and `result.routed` are `["ROUTE_ME"]`, `result.unrouted` is empty, and the written board holds the 3 mm track and the new one
+
+#### Scenario: The router's claim does not decide
+- **GIVEN** a test router that returns one 2 mm track from `J1-1` of `two_pads.kicad_pcb` and lists `ROUTE_ME` as routed
+- **WHEN** `fenolite route <board> --router <test router> --confirm` runs
+- **THEN** the exit code is 0, the board holds the track, `result.unrouted` is `["ROUTE_ME"]`, `result.open` holds one connection of `length` 8 000 000 from the free end of the track to `J2-1`, and the issues hold one `route.partial` and one `route.unrouted` whose message says that the router listed the net as routed
+
+#### Scenario: Required complete
+- **GIVEN** the same test router
+- **WHEN** `fenolite route <board> --router <test router> --require-complete --confirm` runs
+- **THEN** the exit code is 5, the issues hold one `route.incomplete` naming `ROUTE_ME`, there is no receipt, and the board's bytes are unchanged
+
+#### Scenario: A second pass completes a net
+- **GIVEN** a board with a net of three pads and no copper, and a test router that joins one open connection of each net per run
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k second_pass` runs `fenolite route --confirm` twice
+- **THEN** after the first run `result.unrouted` names the net and `result.connections` is `{"before": 2, "after": 1}`; after the second, `result.selected` and `result.routed` name it and `result.connections` is `{"before": 1, "after": 0}`
+
+#### Scenario: Rip keeps locked and script copper
+- **GIVEN** a board whose net `N` holds a track written with `(locked yes)`, a track whose uuid is a copper uuid, and an unlocked track with a version-4 uuid
+- **WHEN** `fenolite route <board> --router direct --rip --nets N --dry-run` runs
+- **THEN** `result.ripped` is 1 and `result.rip_kept` is `{"locked": 1, "script": 1}`
 
 #### Scenario: Routes survive a rebuild
 - **GIVEN** a confirmed blink build routed with the fake tool and `--confirm`
@@ -2035,3 +2066,106 @@ The global flag `--progress` SHALL make a command write progress records on stde
 - **GIVEN** the bench with a `no_tracks` rule on `net SIG5` over `F.Cu` and `B.Cu`
 - **WHEN** the first command runs
 - **THEN** `issues` hold one `route.no-layer` naming `SIG5`, which is not in `result.selected`
+
+### Requirement: Open connections in the net command
+`fenolite net PATH [NAME]` (c0066, "Net command") SHALL report the open connections of the board's nets (`board-analyses`, "Open connections of a net"), computed from the board-frame pads it already reads.
+- Each row of `result.nets` MUST add `islands` and `open`, the number of open connections.
+- `result.net` MUST add `islands`, `fill_islands` and `open`: the list of connections, each with `a` and `b` (`kind`, `where`, `position`, `layers`) and `length` in nanometres.
+- The envelope evidence MUST be `Evidence.combine` of the board read's evidence, `frame.EVIDENCE` and `connectivity.EVIDENCE`, and the `analysis.item-unsupported` issues of the query MUST be passed on.
+- `docs/cli-contract.md` MUST describe the keys and say that they are computed from the board, with the limits of the query.
+
+#### Scenario: Rows of the authored board
+- **WHEN** `uv run fenolite net tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** the rows `GND`, `LED_A` and `VCC` have `open` 0, 1 and 0 and `islands` 1, 2 and 1
+
+#### Scenario: Pins on no net
+- **GIVEN** the board of a confirmed build of `examples/blink_2layer/design.py`, whose pins on no net each hold a net named `unconnected-(…)`
+- **WHEN** `uv run pytest tests/unit/cli/test_views_cmd.py -k unconnected` runs `fenolite net <board> --json`
+- **THEN** each of those rows has `islands` 1 and `open` 0
+
+#### Scenario: One open net
+- **WHEN** `uv run fenolite net tests/data/kicad/board/two_layer.kicad_pcb LED_A --json` runs
+- **THEN** `result.net.islands` is 2 and `result.net.open` holds one connection between `D1-2` (`kind` `pad`) and an end of the arc (`kind` `arc`)
+
+### Requirement: Route command budget and tiers
+`fenolite route` SHALL bound the routing step by one budget and SHALL let the caller route some nets first.
+- **Budget.** `--timeout SECONDS` MUST set `RoutingJob.budget` for every router (`routing`, "Routing time budget"); without it the job's budget is `None`, which gives the plugin's `DEFAULT_BUDGET`. The command MUST build a router with the given value whatever it is: `--timeout 600` gives 600 s to Freerouting too. A value that is not a positive number MUST exit 2 with `FEN-2001`.
+- **Tiers.** `--order GLOB` (repeatable, `fnmatch` on the net name) MUST set `JobNet.tier` (`routing`, "Routing tiers"): a selected net takes the index of the first `--order` glob it matches, and a net that matches none takes the count of globs. `--order` changes no selection: it orders the nets that `--nets` and the selection give.
+- **Result.** `result` MUST hold `budget` (`seconds`, the budget used; `spent`, seconds rounded to 0.1; `exhausted`, a boolean), `runs` (one object per `RouterRun`: `tier`, `nets` as a count, `seconds` rounded to 0.1, `outcome`) and `not_attempted` (net names), beside the keys of "Route command".
+- **Write.** When the budget ended, the copper of the finished runs MUST be merged and planned as any routed copper; the exit code MUST stay 0 when no issue of severity error is present.
+- `docs/cli-contract.md` MUST describe `--timeout` as the budget of the step, `--order`, the three result keys, `route.budget-exhausted` and `route.optimizer-cut`.
+
+#### Scenario: Finished run written, cut run reported
+- **GIVEN** the fake KiCadRoutingTools in a mode that sleeps 5 s when its `--nets` names a net of the second group, and an authored board with two size groups
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k budget` runs `fenolite route <board> --router kicadroutingtools --router-path <fake> --timeout 2 --confirm`
+- **THEN** the exit code is 0, the written board holds the track of the first run, `result.budget.exhausted` is `true`, `result.runs` has the outcomes `done` then `cut`, and the issues hold one `route.budget-exhausted`
+
+#### Scenario: No sentinel
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k timeout` runs `fenolite route <board> --router freerouting --timeout 600 --dry-run` with a router that records its job
+- **THEN** the recorded job's `budget` is 600
+
+#### Scenario: Order in tiers
+- **WHEN** `fenolite route <board> --router <recording router> --order 'CLK*' --order 'D*' --dry-run` runs on a board with unrouted nets `A`, `CLK1`, `D0`
+- **THEN** the recorded job holds `CLK1` with tier 0, `D0` with tier 1 and `A` with tier 2, in that order
+
+#### Scenario: Bad budget
+- **WHEN** `fenolite route <board> --router direct --timeout 0 --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+### Requirement: Via protection in inspect
+`fenolite inspect` SHALL report the via protection of a board it reads, a KiCad board or an Altium PCB document, as an addition to the `result` of "Inspect command", through `fenolite.backends.kicad.via_protection.summary(design)` for a KiCad board and the same counts over the imported model for an Altium PCB document.
+- For a KiCad board, `result.via_protection` MUST hold `default`, `effective` and `by_default`. `default` holds the eight fields of `effective_default(Board.via_protection)` as booleans, and `source`: `board` when `Board.via_protection` is set, `kicad` otherwise. `effective` holds, per field, the number of vias whose effective value (`effective(via.protection, Board.via_protection)`) is `True`. `by_default` holds, per field, how many of those take it from the default, their own value being `None`. Footprint files and symbol libraries MUST NOT carry the key.
+- For an Altium PCB document (kind `altium_pcbdoc`), `result.via_protection` MUST hold the same three keys: `default` with `source` `altium` and the eight fields `false` (an Altium via carries its own tenting flags, so no default applies); `effective` with, for `tenting_front` and `tenting_back`, the number of vias whose flag is set (`altium-import`, "Via tenting of imported vias"), and 0 for the six other fields; `by_default` with 0 for every field. The envelope's evidence is that of the reading, `INFERRED` for these two fields. Altium libraries and schematic documents MUST NOT carry the key.
+- The view MUST run no external tool, so "Inspect is hermetic" still holds.
+- `docs/cli-contract.md` MUST describe the key under `inspect`, and say that on 10.0.6 a covering, plugging, capping or filling counted in `by_default` reaches no fabrication file.
+
+#### Scenario: Authored board
+- **WHEN** `uv run fenolite inspect tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** the exit code is 0, `result.via_protection.default` has `source` `kicad`, both tenting fields `true` and the six others `false`, and `effective` and `by_default` hold 1 for both tenting fields and 0 for the six others, the board having one via without protection children
+
+#### Scenario: Altium PCB document
+- **GIVEN** a PCB document written with four through vias whose flags are `0C`, `2C`, `4C` and `6C`
+- **WHEN** `uv run pytest tests/unit/cli/test_inspect_cmd.py -k altium_via_protection` runs `inspect` on it
+- **THEN** `result.via_protection.default.source` is `altium`, `effective.tenting_front` and `effective.tenting_back` are both 2, the six other fields are 0, and every field of `by_default` is 0
+
+#### Scenario: Board with protected vias
+- **GIVEN** a copy of the authored board whose `setup` holds `(tenting none)` and whose via holds `(tenting front)`
+- **WHEN** `uv run pytest tests/unit/cli/test_inspect_cmd.py -k via_protection` runs `inspect` on it
+- **THEN** `result.via_protection.default` has `source` `board` and both tenting fields `false`, `effective.tenting_front` is 1, `effective.tenting_back` is 0, and `by_default.tenting_front` is 0
+
+### Requirement: Pairs and escape in the route command
+`fenolite route` SHALL also take `--escape REF[=grid|perimeter]` (repeatable) and `--pairs-as-nets`, and SHALL give the router the differential pairs and the escape requests of the job, in addition to what "Route command" states.
+- **Pairs.** After the candidates are selected, the command MUST call `routing.pairs.job_pairs` unless `--pairs-as-nets` is given. When `router_features(router)` lacks `pairs`, the nets of every pair MUST be removed from the job, each pair with one `route.pair-skipped` (warning) whose hint names `--pairs-as-nets` and the registered routers that have the feature. With `--pairs-as-nets`, the nets of each pair MUST be routed as single nets, each pair giving one `route.pair-uncoupled` (info).
+- **Escape.** Requests MUST come from `routing.escape.requests` over the board-frame pads of the board. When `router_features(router)` lacks `escape`, every request MUST be removed, each with `route.escape-skipped` (warning) naming the router. A value of `--escape` with a suffix other than `=grid` or `=perimeter` MUST exit 2 with `FEN-2001`.
+- **Width guard.** A routed track or arc narrower than the width the job gave its net, the pair's width for a pair net, MUST give one `route.width-below-job` (warning) per net, naming the smallest width found and the width asked, with a hint naming `--router-option fanout=off` when the router is `freerouting`; the copper is kept, and KiCad's DRC judges it.
+- **Result.** `result` MUST gain `pairs`, a list of `{name, positive, negative, width, gap, routed}` for the pairs given to the router, `routed` being true when both nets are in `result.routed`, and `escape`, a list of `{ref, kind, pitch, nets}` for the requests given to it. `result.selected` MUST name every net given to the router, pair nets included.
+- **Codes.** `route.pair-skipped` (warning), `route.pair-uncoupled` (info), `route.escape-skipped` (warning) and `route.width-below-job` (warning) MUST be keys of `routing.codes.ISSUE_CODES` and MUST be described in `docs/cli-contract.md`. None changes the exit code, which stays as "Route command" states.
+
+#### Scenario: A router without pairs
+- **GIVEN** the unrouted board `tests/data/kicad/routing/pair_two_headers.kicad_pcb`, authored for Fenolite, with the pair `USB_P`/`USB_N` and the single nets `S1` and `S2` in one class with pair values, and the fake `java` of `tests/_fakefreerouting.py`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k pair_skipped` runs `fenolite route <board> --router freerouting --router-path <jar> --dry-run`
+- **THEN** the exit code is 0, `result.selected` is `["S1", "S2"]`, `result.pairs` is empty, and one `route.pair-skipped` names `USB_P/USB_N` with a hint naming `--pairs-as-nets` and `kicadroutingtools`
+
+#### Scenario: Pairs as single nets
+- **WHEN** the same command runs with `--pairs-as-nets`
+- **THEN** `result.selected` holds `USB_N`, `USB_P`, `S1` and `S2`, and one `route.pair-uncoupled` names the pair
+
+#### Scenario: Escape without the feature
+- **WHEN** `fenolite route <board> --router direct --escape 'U*' --dry-run` runs on a board with a QFN `U1` that has a selected net
+- **THEN** the exit code is 0, `result.escape` is empty, and one `route.escape-skipped` names `U1` and `direct`
+
+#### Scenario: Unknown escape kind
+- **WHEN** `fenolite route <board> --router direct --escape U1=ring --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001` naming `ring`
+
+#### Scenario: Narrower copper reported
+- **GIVEN** a test router that returns, for the net `A` of width 0.2 mm, a track of 0.1996 mm
+- **WHEN** `fenolite route <board> --router <test router> --dry-run` runs
+- **THEN** one `route.width-below-job` names `A`, 0.1996 mm and 0.2 mm, the plan holds the board, and the exit code is 0
+
+### Requirement: Router pair and escape features in capabilities
+Each entry of `result.routers` of `fenolite capabilities` SHALL also hold `features`, the sorted list of `routing.protocol.router_features(router)`, read without running anything. The key is added to the router entries only: `result.matrix` and the kinds of the Altium backend in the reply are not changed.
+
+#### Scenario: Features listed
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities.py -k features` runs `fenolite capabilities --json --no-tools`
+- **THEN** `direct` and `freerouting` list no feature, and `kicadroutingtools` lists the features that its gate outcomes allowed

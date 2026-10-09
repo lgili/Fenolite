@@ -332,3 +332,49 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **GIVEN** `Mini_Edge_Cases` placed at (0, 0) for `J1`, its two pads `1` at (−2 mm, 0) and (2 mm, 0), and the via intents `a` at `Anchor("J1", "1", None, Point(0, 0))` and `b` at `Anchor("J1", "1", 1, Point(0, 0))` on `GND`
 - **WHEN** they are resolved with `issues=found`
 - **THEN** `a` creates nothing and `found` holds one `kicad.copper.bad-intent` naming `a`, `J1` and `1`; `b` creates one via at (2 mm, 0)
+
+### Requirement: Locked script copper
+`resolve_copper` SHALL give every track, arc and via that it creates from an intent whose `locked` is true `locked=True`, and `locked=False` otherwise. An intent without the attribute MUST be read as unlocked, so the intents of earlier scripts and tests keep their meaning. `merge_copper` SHALL compare `locked` with the fields that "Script copper is regenerated" compares, so script copper whose lock was changed in KiCad is regenerated with one `kicad.copper.regenerated` info. The duplicate rule of that requirement MUST ignore `locked`: an item that differs from script copper only by its lock is a duplicate.
+
+#### Scenario: Locked track written
+- **GIVEN** the blink built for target 10 and the track intent `led_a` of `examples/blink_routed/design.py` with `locked=True`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_merge.py -k locked` resolves it and writes the board
+- **THEN** every item of `led_a` has `locked == True`, and each `segment` of the text holds `(locked yes)` after `width`
+
+#### Scenario: A lock changed in KiCad is regenerated
+- **GIVEN** the resolved blink whose track with locator `seg[0]` of an unlocked intent was locked in KiCad, keeping its uuid
+- **WHEN** it is resolved again with the same intents
+- **THEN** the track is unlocked again, and one `kicad.copper.regenerated` info names its uuid
+
+#### Scenario: A locked copy is a duplicate
+- **GIVEN** the resolved blink plus a locked copy of a script track with a version-4 uuid
+- **WHEN** it is resolved again with the same intents
+- **THEN** the copy is removed with one `kicad.copper.duplicate` info
+
+### Requirement: Via protection of script copper
+`resolve_copper` SHALL give every via it creates the protection of the intent that makes it: the `protection` attribute of the via step, of the via intent or of the stitch intent, read by attribute like `kind`. A step or an intent without the attribute gives `ViaProtection()`, so the intents of earlier scripts and tests keep their meaning.
+- A `protection` that is not a `fenolite.model.board.ViaProtection` MUST give `kicad.copper.bad-intent` naming the key, and the intent creates nothing.
+- Every via of a stitch MUST carry the stitch's protection.
+- `merge_copper` MUST compare `Via.protection` with the other modelled fields of "Script copper is regenerated": an existing script via whose protection differs from its regenerated copy MUST give the `kicad.copper.regenerated` info, and the copy's protection is written. Whether an item without a copper uuid is a duplicate MUST still be judged without it, so a user's copy that differs only by its protection is removed as before.
+- The board default is not copied into script vias: a script via whose fields are `None` follows `Board.via_protection` as any via does (`kicad-file-backend`, "Via protection defaults on boards").
+- `copper.py` keeps the import rule of "Copper module": `ViaProtection` comes from `fenolite.model`, never from `fenolite.dsl`.
+
+#### Scenario: Via intent with a protection
+- **GIVEN** the blink built for target 10 and the via intent `tp1` on `GND` with `protection=ViaProtection(tenting_front=True, tenting_back=False)`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_tracks.py -k protection` resolves it
+- **THEN** the created via has that protection, and an intent without the attribute gives a via whose protection is `ViaProtection()`
+
+#### Scenario: Every stitch via protected
+- **GIVEN** a stitch intent along a polyline on `GND` with `protection=ViaProtection(filling=True, capping=True)`
+- **WHEN** it is resolved
+- **THEN** every created via has `filling == True` and `capping == True`
+
+#### Scenario: Protection edited in KiCad is regenerated
+- **GIVEN** the blink resolved with the via intent `tp1`, after which the via's protection is changed to `ViaProtection(tenting_front=False, tenting_back=False)`, its uuid kept
+- **WHEN** it is resolved again with the same intents
+- **THEN** the via has the intent's protection again, and one `kicad.copper.regenerated` info names its uuid
+
+#### Scenario: Not a protection
+- **GIVEN** a via intent whose `protection` attribute is the string `"tented"`
+- **WHEN** it is resolved with `issues=found`
+- **THEN** nothing is created, and `found` holds one `kicad.copper.bad-intent` naming its key

@@ -12,7 +12,7 @@ Write the Altium PCB library (`.PcbLib`) and PCB document (`.PcbDoc`) from the m
 - `string_block(text)` MUST return a 32-bit little-endian length, then one length byte and the 7-bit ASCII text; texts that `ascii.text_problem` refuses or that exceed 255 bytes MUST raise `ValueError`.
 - `property_block(fields)` MUST return c0033's `binary.frame_record(fields)`.
 - Angles MUST be written as IEEE-754 doubles in degrees, counter-clockwise, computed from microdegrees or from exact coordinates with `decimal` and converted to a double once with `float(Decimal)`. No `math` trigonometric function may produce a written value.
-- The common prefix of a track, arc and pad geometry MUST be: layer byte, flags `0x0C 0x00` (unlocked), net index, polygon index `0xFFFF`, component index (all uint16, `NO_INDEX = 0xFFFF` for none), then `FF FF FF FF`.
+- The common prefix of a track, arc and pad geometry MUST be: layer byte, two flag bytes, net index, polygon index `0xFFFF`, component index (all uint16, `NO_INDEX = 0xFFFF` for none), then `FF FF FF FF`. The flag bytes MUST be `0x0C 0x00` (unlocked) for every item but a locked free track, arc or via of a record kind in `pcbrecords.LOCK_WRITTEN`, whose flag bytes MUST be `0x08 0x00`: bit 2 of the first byte clear, every other bit as in the unlocked form ("Locked copper records").
 - `pcbrecords.EVIDENCE` MUST be `INFERRED` and name every `H-A-PCB-*` row this change registers.
 
 #### Scenario: Units
@@ -26,6 +26,10 @@ Write the Altium PCB library (`.PcbLib`) and PCB document (`.PcbDoc`) from the m
 #### Scenario: Angles do not depend on the platform
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k angle` runs the arc of start (−0.29, −1.08) mm, mid (1.27, −1.65) mm and end (2.83, −1.08) mm
 - **THEN** the start and end angles equal the doubles pinned in the test, computed once with `decimal` at 40 digits, and no module of `backends/altium` imports a trigonometric function of `math`
+
+#### Scenario: Flag bytes of a locked track
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k locked` builds the same track record with `locked=False` and with `locked=True`, `track` being in `LOCK_WRITTEN`
+- **THEN** the two records differ in one byte, the first flag byte, `0C` against `08`
 
 ### Requirement: PCB layer map
 `pcbrecords.LAYER_MAP` SHALL map Fenolite layer names to Altium layer ids, and `pcbrecords.FLIP_PAIRS` SHALL give each mapped id its other-side id (S-0002, S-0160, S-0161).
@@ -334,20 +338,15 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** `write_pcbdoc` raises `ValueError` naming the track's id and `In1.Cu`
 
 ### Requirement: Via records
-`pcbrecords.via_record(x, y, diameter, hole, *, net=NO_INDEX, start=1, end=32)` SHALL write one via as record type 3 with one subrecord of 321 bytes, the form Altium saves (S-0150, S-0160, S-0173, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIA`).
-- The subrecord MUST start with the common prefix on layer 74 with flags `0C 00`, polygon and component `0xFFFF`; then x at 13, y at 17, the diameter at 21, the hole at 25, the start layer at 29 and the end layer at 30: 1 and 32 for a through via, the ids of the two copper layers of its span for a blind or buried via (change c0085, "Blind and buried via records").
+`pcbrecords.via_record(x, y, diameter, hole, *, net=NO_INDEX, start=1, end=32, locked=False)` SHALL write one via as record type 3 with one subrecord of 321 bytes, the form Altium saves (S-0150, S-0160, S-0173, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIA`).
+- The subrecord MUST start with the common prefix on layer 74 with flags `0C 00`, or `08 00` for a locked via when `via` is in `LOCK_WRITTEN` ("PCB units and record framing", "Locked copper records"), polygon and component `0xFFFF`; then x at 13, y at 17, the diameter at 21, the hole at 25, the start layer at 29 and the end layer at 30: 1 and 32 for a through via, the ids of the two copper layers of its span for a blind or buried via (change c0085, "Blind and buried via records").
 - The later fields MUST follow the rows of `pcb-copper.md`, "Via": thermal-relief air gap 10 mil at 32, 4 conductors at 36, conductor width 10 mil at 38, 20 mil at 42 and at 46, solder-mask expansion 4 mil at 54 and at 242, stack mode 0 at 74, thirty-two diameters at 75, the 16-bit 15 and the 32-bit 259 at 203, `2A` at 254, `0x7FFFFFFF` at 291 and at 295, the entry size 30 at 304, 9 at 308 and 1 at 320; every other byte 0.
-- `pcbdoc.write_pcbdoc` MUST write each `model.board.Via` of `PcbDocSpec.vias` in `Vias6`, sorted by net name, position, diameter and then entity id, at its converted position, with its net's index. It MUST raise `ValueError` for a via whose `via_type` is `micro`, whose `layers` are not two different copper layers of the board, or whose drill is not below its diameter. With `PcbDocSpec.allow_full_drill` (change c0128; `False` by default, and no build sets it) a via whose drill equals its diameter MUST be written instead: the hole at 25 holds the value of the diameter at 21, and every other byte is that of any via. A drill above the diameter and a drill of 0 or less MUST be refused in both cases.
+- `pcbdoc.write_pcbdoc` MUST write each `model.board.Via` of `PcbDocSpec.vias` in `Vias6`, sorted by net name, position, diameter and then entity id, at its converted position, with its net's index and its `locked`. It MUST raise `ValueError` for a via whose `via_type` is `micro`, whose `layers` are not two different copper layers of the board, or whose drill is not below its diameter. With `PcbDocSpec.allow_full_drill` (change c0128; `False` by default, and no build sets it) a via whose drill equals its diameter MUST be written instead: the hole at 25 holds the value of the diameter at 21, and every other byte is that of any via. A drill above the diameter and a drill of 0 or less MUST be refused in both cases.
 - Vias MUST NOT be listed in `UniqueIDPrimitiveInformation`.
 
 #### Scenario: Via bytes
 - **WHEN** `via_record(393701, 393701, 236220, 118110, net=2)` runs
 - **THEN** the record is `03`, the length 321 and a subrecord whose bytes 0 to 4 are `4A 0C 00 02 00`, whose bytes 29 and 30 are `01 20`, and whose 32-bit values at 21, 25, 75 and 199 are 236220, 118110, 236220 and 236220
-
-#### Scenario: Via with a full drill
-- **GIVEN** a spec with a through via of diameter 600 000 nm and drill 600 000 nm
-- **WHEN** `write_pcbdoc` runs, and again with `allow_full_drill=True`
-- **THEN** the first raises `ValueError` naming the via's id, as before change c0128; the second writes one via record whose 32-bit values at 21 and 25 are both 236220, and with a drill of 600 001 nm it raises `ValueError` too
 
 #### Scenario: Micro via refused
 - **WHEN** a spec holds a via with `via_type="micro"` between `F.Cu` and `In1.Cu`
@@ -356,6 +355,15 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 #### Scenario: Blind via refused
 - **WHEN** a spec holds a via with `via_type="blind"` whose two layers are both `F.Cu`, a span that is not two different copper layers of the board (a blind via with a span of two copper layers is written since change c0085, "Blind and buried via records")
 - **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
+
+#### Scenario: Via with a full drill
+- **GIVEN** a spec with a through via of diameter 600 000 nm and drill 600 000 nm
+- **WHEN** `write_pcbdoc` runs, and again with `allow_full_drill=True`
+- **THEN** the first raises `ValueError` naming the via's id, as before change c0128; the second writes one via record whose 32-bit values at 21 and 25 are both 236220, and with a drill of 600 001 nm it raises `ValueError` too
+
+#### Scenario: Locked via bytes
+- **WHEN** `via_record(393701, 393701, 236220, 118110, net=2, locked=True)` runs with `via` in `LOCK_WRITTEN`
+- **THEN** bytes 0 to 4 of the subrecord are `4A 08 00 02 00`, and every other byte equals that of the unlocked record
 
 ### Requirement: Polygon pour records
 `pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, without poured copper (S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196; `H-A-PCB-CU-REPOUR`).
@@ -732,3 +740,41 @@ The writer SHALL return, per kind of model item (footprint, pad, track, arc, via
 - **GIVEN** the four-layer blink variant with `design.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))`
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_rules.py -k no_tracks` builds it with `--target altium --dry-run --json`
 - **THEN** the exit code is 0, `issues` hold one `altium.not-lowered` warning with `where` `design-rules/no_tracks` naming `sig-outer`, `result.rules.not_lowered` holds it with the reason `no-counterpart`, and the PCB document holds the rule records of the same script without the rule
+
+### Requirement: Locked copper records
+`pcbrecords.track_record`, `arc_record` and `via_record` SHALL take `locked: bool = False`, and `pcbdoc.write_pcbdoc` SHALL pass the `locked` of each free `Track`, `Arc` and `Via` of the spec (`design-model`, "Copper locks in the board model"), so a locked item of the model is a locked primitive of the document (`H-A-PCB-CU-LOCK`).
+- **Fact first.** `pcbrecords.LOCK_WRITTEN` MUST be the closed set of the record kinds, among `track`, `arc` and `via`, for which `docs/formats/altium/pcb-copper.md` holds a row saying that bit 2 of the first flag byte, clear, locks a free primitive of that kind, with a public source of `docs/evidence/sources.md` and a label. A kind MUST NOT enter the set before its row is on the page; a test MUST compare the set with the page.
+- A record of a kind in `LOCK_WRITTEN` built with `locked=True` MUST differ from the unlocked record in that one bit. A record of a kind outside it MUST be the unlocked record whatever `locked` is; the build reports those items (`altium-build`, "Copper locks in an Altium build"), so a lock is never dropped without an issue.
+- With `locked=False` every record MUST have the bytes it had before this change, and a document of a design without locked copper MUST keep its bytes.
+- Component primitives, pads, fills, regions and texts are not changed: their flag bytes stay `0x0C 0x00`.
+- The order of the records in `Tracks6`, `Arcs6` and `Vias6` MUST NOT depend on `locked`.
+
+#### Scenario: Three locked items in a document
+- **GIVEN** the routed sample's model with one track, one arc and one via set `locked=True`, and `LOCK_WRITTEN` holding the three kinds
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbdoc_copper.py -k locked` writes the document and reads it with `backends.altium.read`
+- **THEN** exactly those three primitives have `Prefix.locked` true, and the document differs from that of the unlocked model in three bytes
+
+#### Scenario: The set follows the page
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k lock_written` compares `LOCK_WRITTEN` with the rows of the locked flag in `pcb-copper.md`
+- **THEN** each kind of the set has its row with a source id and a label, and a kind without a row is not in the set
+
+#### Scenario: A design without locks keeps its bytes
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_copper.py -k bytes` builds the routed sample
+- **THEN** `<name>.PcbDoc` has the SHA-256 it had before this change
+
+### Requirement: Via tenting flags
+`pcbrecords.via_record` SHALL take the keywords `tented_top=False` and `tented_bottom=False` and write them as bits 5 and 6 of the first flags byte of the via's subrecord, the bits that `read.pcbprims` reads as `ViaRecord.tented_top` and `ViaRecord.tented_bottom` (`docs/formats/altium/pcb-copper.md`, "Flags of a via"; S-0160, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIATENT`). This requirement refines the flags that "Via records" states; every other byte of the record is as that requirement states it.
+- The first flags byte MUST be the byte that "Locked copper records" (c0108) states for the via's lock (`0x0C` unlocked, `0x08` locked), plus `0x20` when `tented_top` is true, plus `0x40` when `tented_bottom` is true: `0C`, `2C`, `4C` or `6C` for an unlocked via, `08`, `28`, `48` or `68` for a locked one. The lock bit and the two tenting bits are independent. The second flags byte stays `00`. With both keywords false the record MUST equal, byte for byte, the record written before this change.
+- `pcbdoc.write_pcbdoc` MUST set the two keywords of each via of `PcbDocSpec.vias` with `pcbdoc.via_tenting(via, PcbDocSpec.via_protection)` (`altium-build`, "Via protection in an Altium build"): the via's own `tenting_front` and `tenting_back`, else the value of `PcbDocSpec.via_protection`, the board default that the lowering hands over (default `None`), else false. The vias of the spec keep the protection the model holds, so the model that a build stores does not change. It MUST write nothing for `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping` and `filling`, and MUST NOT raise for any value of them.
+- The solder-mask expansions of the record (at 54 and at 242) MUST stay the values of "Via records": no fact recorded here ties them to the tenting flags.
+- A via written with tenting flags MUST read back, through `read.pcbprims`, with `tented_top` and `tented_bottom` equal to the keywords.
+- `docs/formats/altium/pcb-copper.md` MUST hold a fact row for the written flags with its sources, the label `INFERRED` and `H-A-PCB-CU-VIATENT`, MUST take "tented vias" out of its list of what is not written, and MUST say in "Vias" that the flags are `0C 00` only for a via that is not tented.
+
+#### Scenario: Flags of the four cases
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcb_vias.py -k tenting` calls `via_record(393701, 393701, 236220, 118110, net=2)` with no tenting keyword, with `tented_top=True`, with `tented_bottom=True` and with both
+- **THEN** bytes 0 to 4 of the subrecord are `4A 0C 00 02 00`, `4A 2C 00 02 00`, `4A 4C 00 02 00` and `4A 6C 00 02 00`, the four records are equal in every other byte, and the first equals the record of "Via bytes"
+
+#### Scenario: Written flags read back
+- **GIVEN** a PCB document written with four through vias, one per case
+- **WHEN** it is read with the PCB reader
+- **THEN** the four via records hold (`tented_top`, `tented_bottom`) = (false, false), (true, false), (false, true) and (true, true)
