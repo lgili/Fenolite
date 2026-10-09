@@ -34,6 +34,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Fixed
 
+- `FENOLITE_KICAD_CLI=docker:<image>` works for any host user, root included (c0156): the container runs as the user that owns the run folder (`--user <uid>:<gid>`, or `0:0` under a rootless daemon) with `HOME` in the run's state folder. Before, the image's own user could not write the run folder of mode 0700, and `kicad-cli` printed "Permission denied" and wrote no report.
 - `tools/agent_eval`: on Windows a real runner started through a batch launcher (`claude.cmd`) got its prompt cut at the first line break by `cmd.exe`. A row can now give the prompt on standard input (`prompt_stdin = true`) or in a file (`{prompt_file}`); a `{prompt}` row whose program is a batch launcher is refused before anything is built, and the program is started as the file `PATH` names. POSIX runs are unchanged (c0081).
 
 ## [0.4.0] - 2026-10-08
