@@ -56,7 +56,7 @@
 - **THEN** `DslError` is raised naming the pattern
 
 ### Requirement: Board and placements in the DSL
-`Design.board(width, height, copper=2, planes=None)` SHALL declare a rectangular board, its copper layer count and its internal planes, and `Part.place(x, y, rot=0, side="top", locked=False)` SHALL request a placement, both in a board-relative frame.
+`Design.board(width, height, copper=2, planes=None)` SHALL declare a rectangular board, its copper layer count and its internal planes, and `Part.place(x, y, rot=0, side="top", locked=False, anchor=None)` SHALL request a placement, both in a board-relative frame.
 - The frame has its origin at the top-left corner of the outline, with Y down. `BOARD_ORIGIN` MUST be `Point(100_000_000, 100_000_000)`, a Fenolite choice: the outline is written from `BOARD_ORIGIN` to `BOARD_ORIGIN + (width, height)`, and a part placed at `(x, y)` is written at `BOARD_ORIGIN + (x, y)`.
 - `width` and `height` MUST be positive lengths. `copper` MUST be an `int` of `fenolite.dsl.design.COPPER_COUNTS`, which MUST be `(2, 4, 6, 8)` and equal `layers.CREATED_COPPER_COUNTS` of the KiCad backend; any other value, a `bool` or a `float` included, MUST raise `DslError` naming those counts.
 - `inner_layers(copper)` (`dsl/design.py`) MUST return the inner copper layer names `In1.Cu` … `In<copper − 2>.Cu`, top to bottom, and an empty tuple for `copper=2`. `Design.copper_layers` MUST return `("F.Cu", *inner_layers(copper), "B.Cu")` for the declared count, and `("F.Cu", "B.Cu")` before `board()` is called.
@@ -64,7 +64,7 @@
 - `Design.planes` MUST hold the mapping from layer name to net name, in layer order, empty by default. `planes(design) -> Mapping[str, str]` (`dsl/convert.py`, re-exported by `fenolite.dsl` as "DSL package" allows) MUST return it and MUST raise `DslError` naming a net that the design does not hold.
 - A plane is a build parameter, as `copper` is: `to_model` MUST NOT change, the model gets no plane entity, and a plane layer stays a layer of kind `copper`. What a target does with a plane is its build's rule ("Planes in a build").
 - `rot` is the model rotation, the stored footprint angle on both sides (c0017).
-- `placements(design) -> Mapping[str, Placement]` MUST map each placed component path, in path order, to `Placement(at, rotation, side, locked)`. Unplaced parts MUST be absent.
+- `placements(design) -> Mapping[str, Placement]` MUST map each placed component path, in path order, to `Placement(at, rotation, side, locked, anchor=None)`. Unplaced parts MUST be absent.
 
 #### Scenario: Placement in board coordinates
 - **GIVEN** `r1.place(mm(10), mm(5), rot=90, side="bottom", locked=True)`
@@ -101,6 +101,12 @@
 - **GIVEN** `design.board(mm(50), mm(30), copper=4, planes={"In2.Cu": "NOPE"})` and no net `NOPE`
 - **WHEN** `planes(design)` is called
 - **THEN** `DslError` is raised naming `NOPE`
+
+An `anchor` SHALL be a `MechanicalIntent` and SHALL require `locked=True`. It SHALL be retained in the DSL `placements` output only; build and rebuild do not persist it in native files or `.fenolite/`.
+
+#### Scenario: Anchor requires a lock
+- **WHEN** `Part.place` is called with an anchor and `locked=False`
+- **THEN** it raises `DslError` naming `locked=True`
 
 ### Requirement: Planes in a build
 `fenolite build` SHALL hand the script's planes to the build of its target. This requirement extends "Build command" (a step of `cmd_build`) and "Build issue codes" (one code).

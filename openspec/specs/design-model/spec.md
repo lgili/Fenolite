@@ -843,3 +843,13 @@ The closed prefix table SHALL include `sch` (schematic sheet), `sci` (symbol ins
 #### Scenario: Compatibility is documented
 - **WHEN** `uv run pytest tests/unit/model/test_rules.py -k documented` reads `docs/design-model.md`
 - **THEN** the section on `heights` holds the sentence that 0.2.x and 0.3.0 cannot read a document that carries the key
+
+### Requirement: Mechanical intent metadata
+The model SHALL expose MechanicalIntent with stable key, board frame, integer tolerance, source,
+input status (`measured`, `estimated` or `proposed`) and evidence. FootprintInstance.anchor, Hole.intent and Keepout.intent SHALL default
+to None, preserving legacy canonical output. Intent MUST NOT change pad nets or create geometry.
+
+#### Scenario: Legacy canonical output
+- **GIVEN** a board contains no declared mechanical intent
+- **WHEN** its canonical JSON is produced
+- **THEN** the new default fields are omitted and existing geometry is unchanged

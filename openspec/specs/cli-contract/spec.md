@@ -500,12 +500,12 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** `release_verified` of each level is `False`
 
 ### Requirement: Place command
-`fenolite place PATH [--strategy grid|manual] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_place.py` with `mutates=True`, and SHALL move footprints of the board that `PATH` names.
+`fenolite place PATH [--strategy grid|manual|constrained] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT] [--constraints FILE] [--max-candidates N] [--preview-dir DIR]` SHALL be registered by `src/fenolite/cli/cmd_place.py` with `mutates=True`, and SHALL move footprints of the board that `PATH` names.
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`.
 - **Grid.** With `--strategy grid` (the default without `--move`), the command MUST place every footprint that is off the board (`layout-lens`, "Placement precedence"), or those of `--only`, with `placement.grid.place`, in component-path order (reference order for footprints without `fenolite.path`). It only translates.
 - **Manual.** Each `--move` MUST name a reference and a position in the frame of the DSL's `place()` (relative to the top-left corner of the bounding box of the board ring, Y down; relative to the file origin when the board has no outline), with lengths in the DSL's syntax, an optional rotation in degrees and an optional side. An unknown reference MUST give `place.unknown-ref`. A rotation or side change MUST resolve definitions from the project's `fp-lib-table`.
-- **Legality.** After the moves, `placement.legality.check` MUST run on the whole layout. With any `place.*` error and without `--force`, the command MUST return no `PlannedWrite` and exit 5. With `--force` it MUST write and still report the issues.
-- **Write.** One `PlannedWrite` for the board, at `--out` when given and at the board's path otherwise; none when nothing moved. The mutation protocol applies unchanged.
+- **Legality.** For grid/manual, after the moves, `placement.legality.check` MUST run on the whole layout. With any `place.*` error and without `--force`, the command MUST return no `PlannedWrite` and exit 5. With `--force` it MUST write and still report the issues.
+- **Write.** For grid/manual, one `PlannedWrite` for the board, at `--out` when given and at the board's path otherwise; none when nothing moved. The mutation protocol applies unchanged.
 - **Result.** `result` MUST hold `board`, `strategy`, `moved` (`ref`, `path`, `from`, `to`, each placement as `x`, `y` in nm, `rotation` in µdeg and `side`; sorted by reference), `unplaced` and `legality` (counts by code).
 - **Built projects.** When `.fenolite/` holds a locked placement for a moved part, the command MUST report `place.script-locked` (warning), because the next build restores the script's placement.
 - No subprocess MUST run. Two runs on equal boards MUST write equal bytes.
@@ -534,6 +534,13 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
 - **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `place` with its `example_args`
 - **THEN** the exit code is 0 and the plan names `fenolite-placed.kicad_pcb`
+
+- **Constrained.** With `--strategy constrained`, the command SHALL use bounded neutral proposals from the integer `fenolite.placement-request.v0` request, preserve manual/grid defaults and refuse `--force`. `--constraints`, `--max-candidates` and `--preview-dir` SHALL apply to this strategy. `result.placement` SHALL contain positions, source/request hashes, unplaced reasons, objective metrics, intrinsic findings and placement assessment. `result.preview` SHALL identify the written/read-back geometry; dry-run previews MUST not write files. The constrained transaction MAY add planned preview writes alongside the board write and SHALL retain its hard-check findings instead of applying grid/manual force semantics.
+
+#### Scenario: Constrained dry-run then confirmed placement
+- **GIVEN** an authored request and preview directory
+- **WHEN** dry-run is followed by --confirm
+- **THEN** dry-run writes nothing and confirmed output has receipts and matching geometry hashes
 
 ### Requirement: Route command
 `fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_route.py` with `mutates=True`, and SHALL add routed copper to the board that `PATH` names.
