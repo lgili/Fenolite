@@ -290,7 +290,7 @@ Fenolite writes no room and no "Supply Nets" rule: no permitted source holds the
 
 ## Part X: complete board (change c0085)
 
-Not yet reported. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
+Only step X8 is reported (2026-10-09, "Reports" below); steps X1 to X7 and X9 to X12 are not. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
 copper layers with one item of every kind that change c0085 writes. The five files are the committed
 golden files; `FENOLITE_ALTIUM_BOARD6=<folder outside the repository> uv run pytest
 tests/unit/lens/test_altium_pcb_complete.py -k golden` writes the same bytes into a folder to open in
@@ -347,10 +347,11 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    (`H-A-PCBX-KEEPOUT`).
 7. **X7** Select the hole; read plated and the hole size. Expected: not plated, 3.2 mm (`H-A-PCBX-HOLE`).
    The sample holds no slot: the model's board hole is round.
-8. **X8** Component bodies (change c0121; added on 2026-10-07; not run). This step belongs to **session 2**
+8. **X8** Component bodies (change c0121; added on 2026-10-07; reported on 2026-10-09). This step belongs to **session 2**
    of the maintainer's Altium work, with Altium Designer 26: session 1 is the folder he already has, and
    nothing is added to it. Change c0085 cut bodies; change c0121 writes the extruded ones on request
-   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported**. The step runs on
+   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported** (it was reported on 2026-10-09; the default is still
+   `off`, and making `extruded` the default is the maintainer's decision, not taken). The step runs on
    a sample of its own, `body2` (`tests/_altium_body2.py`), so that a body that Altium refused cannot hide
    the answers of the other steps on `board6`.
 
@@ -444,8 +445,8 @@ author report never moves an operation out of `experimental`.
 ## Part U: rules (change c0084)
 
 Change c0084 writes the rules of the design by kind and scope (`docs/altium.md`, "Rules";
-`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"). No step of this part has been run: every row
-it names is `INFERRED`, and nothing here is `ALTIUM-VERIFIED`.
+`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"). Steps U1 to U6 were reported on 2026-10-09
+("Reports" below): the four rows they settle are author reports.
 
 **Files.** The routed sample of Part C with one rule of every `exact` kind, the class `PWR` (`GND`,
 `VIN`) and two planted violations, plus the same rules as a rule file. They are built outside the
@@ -530,12 +531,11 @@ A pass shows that KiCad's importer accepts the records; it settles no Altium row
 
 ## Part G: footprint items of a rewrite (change c0126)
 
-Not yet reported. Change c0126 puts the graphics and free texts of a footprint and the corner ratio of a pad
+Reported on 2026-10-09 ("Reports" below). Change c0126 puts the graphics and free texts of a footprint and the corner ratio of a pad
 into the model; a PCB document that Fenolite reads and writes again keeps the lines, arcs, fills, regions,
 designator and comment of its components on the overlays and on Mechanical 1 to 16. This part asks whether
-Altium Designer shows the written primitives as parts of their component. No step has been run: the row it
-settles, `H-A-PCBX-FPGFX-AD`, is `INFERRED`, and nothing here is `ALTIUM-VERIFIED` before the report is
-recorded. The steps are written for Altium Designer 26 from Altium's public documentation; a menu path or a
+Altium Designer shows the written primitives as parts of their component. The row it settles,
+`H-A-PCBX-FPGFX-AD`, is an author report since the report of 2026-10-09. The steps are written for Altium Designer 26 from Altium's public documentation; a menu path or a
 panel name may read differently in the version that is run.
 
 **Files.** Built outside the repository and never committed:
@@ -747,6 +747,53 @@ Reading of the repeat:
 - No step named a fault, so no fact and no golden file changed. The SHA-256 values that this page names
   for committed files were compared with the golden files on the day of this record and are equal.
 
+### 2026-10-09, `AD 26.5`, Parts U, X (step X8), G and V
+
+- Tool: Altium Designer 26.5, the installation of session 2 on the maintainer's own PC, a licence he may use
+  for Fenolite (`LEGAL.md`, block A). Reported by the maintainer on 2026-10-09 for his sessions of
+  2026-10-07 and 2026-10-08 (S-0724). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no
+  artefact)`.
+- Files: Fenolite's own files of the tables of Parts U, X (step X8) and G, from his session folders, and for
+  Part V a board of his own drawing. No file opened or saved in the sessions enters the repository; the
+  digests of the opened copies were not reported.
+
+Outcome per step:
+
+- **U1 to U6, rules (change c0084).** Each as expected: the rules editor lists the written rules under
+  their kinds with the values of the table, no kind holds only Altium's default rule, the scopes read as
+  written and the rule check names only `Width_PWR` and `Clearance_net_LED_DRV_to_net_LED_A` among the
+  written kinds, the planted `VIN` track is judged by `Width_PWR`, and the rule file imports without a
+  message. Confirms `H-A-RULE-KINDS`, `H-A-RULE-SCOPE`, `H-A-RULE-PRIORITY` and `H-A-RULE-FILE`. The number
+  of violations per rule was not given.
+- **X8.1 to X8.4, bodies, set `saved` (change c0121).** As expected. Confirms `H-A-PCBX-BODY-OPEN`.
+- **X8.5, set `short`.** As expected. Confirms `H-A-PCBX-BODY-SHORT`.
+- **X8.6, the saved file.** Done; the counts that `-k saved_report` prints were not given, so
+  `H-A-PCBX-BODY-ID`, a measurement, stays pending with this observation.
+- **X8.7, the library body.** As expected. Confirms `H-A-PCBX-BODY-LIB`.
+- **G1 to G7, footprint items of a rewrite (change c0126).** Each as expected. Confirms `H-A-PCBX-FPGFX-AD`.
+- **Part V, vias without inner pads (change c0132, task 4.3).** A four-layer board of the maintainer's own
+  drawing whose inner layers have the ids 3 and 5, one via used on the outer layers only, "Remove Unused
+  Pad Shapes" run for vias, saved; its via record read with `fenolite`. As expected: the table at 209 holds
+  1 at 211 and at 213 and 0 elsewhere, an index by layer id. Confirms `H-A-IMP-VIA-PADLESS`. The second
+  question of the task, the nine further bytes of the long record, was not reported.
+
+Reading of the report:
+
+- No step named a fault, so no fact of the format pages and no golden file changed, and no row is refuted.
+- Step X8 decides, by its own rule (Part X above): with X8.1 to X8.4 as expected, the file set `saved`
+  stays the written form. The default of `--altium-bodies` may become `extruded` by a one-line change with
+  its changelog line, outside change c0121; it is not made here and the option stays `off`.
+- An author report moves no write kind out of `experimental`: every Altium write stays experimental.
+
+### 2026-10-09, `AD 26.5`, Part D, steps D4 to D6 (confirmation)
+
+The maintainer confirmed on 2026-10-09 (S-0724) his answer of 2026-10-08 to steps D4 to D6 of
+`openspec/changes/c0088-altium-light-drc/design.md` ("Session 2 of 2026-10-08" below, S-0616) as his
+report of those steps: done as expected for what they ask, the count N reported (N = 0 on `-03`) and the
+pad size read. The follow-up that the answer called for is change c0152, opened and closed since (Altium's
+own comparison passes the pairs; `docs/evidence/altium-roundtrip.md`). Steps D1 to D3 (optional) were not
+run, so `H-A-DRC-ALTIUM` stays open.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
@@ -889,3 +936,14 @@ one public document opened read-only (S-0616). Nothing that Altium wrote is in t
     or 9 nm short go and the 9 that are 10 to 20 nm short stay errors (1 on `-01`, 8 on `-08`). D5 above stays the evidence of what Altium shows.
 - **Parts X8 (c0121), V (c0132) and G (c0126).** Not done: owed. `--altium-bodies extruded` stays off by
   default, and the rows of the three parts are where they were.
+  The report of 2026-10-09 below covers them.
+
+## Report of 2026-10-09
+
+On 2026-10-09 the maintainer reported, for his sessions of 2026-10-07 and 2026-10-08 in Altium Designer
+26.5, the parts that were owed (S-0724), one generic outcome per step: Part U (c0084), step X8 of Part X
+(c0121), Part G (c0126), Part V (c0132), all as expected, and his answer to D4 to D6 confirmed. The outcomes
+and the rows they move are under "Reports", "2026-10-09". Still owed on this page: steps X1 to X7 and X9 to
+X12 of Part X, the counts of step X8.6, and steps D1 to D3 of Part D (optional). The kit run (`fenolite kit
+verify` and `fenolite kit record`, change c0091) is not part of this report. The schematic side of the same
+report is in `docs/evidence/altium-schematic.md`, "Report of 2026-10-09".

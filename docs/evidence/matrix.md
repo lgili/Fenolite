@@ -88,14 +88,14 @@ the settling test and the result of an id are in its register row.
 | `H-A-IMP-RPT-NETS` | INFERRED |
 | `H-A-IMP-SCOPE` | CORPUS-VERIFIED |
 | `H-A-IMP-SYMFRAME` | INFERRED |
-| `H-A-IMP-VIA-PADLESS` | INFERRED |
+| `H-A-IMP-VIA-PADLESS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-IMP-WIRE` | CORPUS-VERIFIED |
 | `H-A-IMP-ZONE` | ORACLE-VERIFIED(kicad-cli) (10.0.6) |
 | `H-A-IMP-ZONE-HOLES` | ORACLE-VERIFIED(kicad-cli) (10.0.6) |
-| `H-A-OUTJOB-GERBER-ACCEPT` | INFERRED |
+| `H-A-OUTJOB-GERBER-ACCEPT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-OUTJOB-GERBER-LAYERS` | INFERRED |
 | `H-A-OUTJOB-GERBER-RECORD` | INFERRED |
-| `H-A-OUTJOB-OPEN` | INFERRED |
+| `H-A-OUTJOB-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-OUTJOB-READBACK` | INFERRED |
 | `H-A-OUTJOB-RUN-2` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact) |
 | `H-A-PCB-CU-CLASS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
@@ -127,13 +127,13 @@ the settling test and the result of an id are in its register row.
 | `H-A-PCBX-BODY-FORM` | CORPUS-VERIFIED |
 | `H-A-PCBX-BODY-ID` | INFERRED |
 | `H-A-PCBX-BODY-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-07) |
-| `H-A-PCBX-BODY-LIB` | INFERRED |
-| `H-A-PCBX-BODY-OPEN` | INFERRED |
+| `H-A-PCBX-BODY-LIB` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-BODY-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-BODY-READBACK` | INFERRED |
-| `H-A-PCBX-BODY-SHORT` | INFERRED |
+| `H-A-PCBX-BODY-SHORT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-BUILD-LOWER` | INFERRED |
 | `H-A-PCBX-FPGFX` | INFERRED |
-| `H-A-PCBX-FPGFX-AD` | INFERRED |
+| `H-A-PCBX-FPGFX-AD` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-PCBX-FPGFX-KICAD` | INFERRED |
 | `H-A-PCBX-FPTEXT` | INFERRED |
 | `H-A-PCBX-HOLE` | INFERRED |
@@ -183,11 +183,11 @@ the settling test and the result of an id are in its register row.
 | `H-A-RD-SCH-TEXT-2` | CORPUS-VERIFIED |
 | `H-A-RULE-CLEARANCE-CELLS` | INFERRED |
 | `H-A-RULE-CLEARANCE-FORMS` | INFERRED |
-| `H-A-RULE-FILE` | INFERRED |
-| `H-A-RULE-KINDS` | INFERRED |
-| `H-A-RULE-PRIORITY` | INFERRED |
+| `H-A-RULE-FILE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-RULE-KINDS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-RULE-PRIORITY` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-RULE-READBACK` | INFERRED |
-| `H-A-RULE-SCOPE` | INFERRED |
+| `H-A-RULE-SCOPE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-SCH-HARN-FILE` | INFERRED |
 | `H-A-SCH-HARN-NETS` | INFERRED |
 | `H-A-SCH-HARN-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
@@ -208,9 +208,9 @@ the settling test and the result of an id are in its register row.
 | `H-A-SCHBIN-FRAME` | ALTIUM-VERIFIED(author-report; A365 Viewer; 2026-10-02; no artefact) |
 | `H-A-SCHBIN-STORAGE` | ALTIUM-VERIFIED(author-report; A365 Viewer; 2026-10-02; no artefact) |
 | `H-A-SCHBIN-VIEWER` | INFERRED |
-| `H-A-SCHDOT-OPEN` | INFERRED |
+| `H-A-SCHDOT-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-SCHDOT-READBACK` | INFERRED |
-| `H-A-SCHDOT-STRINGS` | INFERRED |
+| `H-A-SCHDOT-STRINGS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-SCHLIB-IMPLIDX` | INFERRED |
 | `H-A-SCHLIB-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) |
 | `H-A-SCHLIB-OPEN` | INFERRED |
@@ -218,13 +218,13 @@ the settling test and the result of an id are in its register row.
 | `H-A-SCHLIB-PIN` | INFERRED |
 | `H-A-SCHLIB-PINBITS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact) |
 | `H-A-SCHLIB-SECTIONKEY` | INFERRED |
-| `H-A-SCHX-BUS` | INFERRED |
-| `H-A-SCHX-DIR` | INFERRED |
-| `H-A-SCHX-ECO` | INFERRED |
-| `H-A-SCHX-GRAPHICS` | INFERRED |
+| `H-A-SCHX-BUS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHX-DIR` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHX-ECO` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHX-GRAPHICS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-SCHX-READBACK` | INFERRED |
-| `H-A-SCHX-TEXT` | INFERRED |
-| `H-A-SCHX-TREE` | INFERRED |
+| `H-A-SCHX-TEXT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHX-TREE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-VER-RTA2-3` | INFERRED |
 | `H-A-VER-RTA3` | CORPUS-VERIFIED |
 | `H-G-DSN-ACCEPT` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-04) |

@@ -203,6 +203,11 @@ The `Data` stream of a symbol SHALL be a sequence of framed records owned by its
 - **WHEN** `plan_sheets` runs with `sheets="modules"`
 - **THEN** `C1` (path `mcu/decoupling/C1`) is on `altium_hier_mcu.decoupling.SchDoc`, the sheet of `mcu` holds `U1` and a sheet symbol named `decoupling`, and the sheet of `decoupling` holds no port, because `C1` is on power nets only
 
+#### Scenario: Nested module is flattened
+- **GIVEN** a variant of the sample whose `C1` is in a module `decoupling` inside `mcu`
+- **WHEN** `plan_sheets` runs with `sheets="flat"`
+- **THEN** `C1` (path `mcu/decoupling/C1`) is on the one sheet `altium_hier.SchDoc`, and no file is named after `mcu` or `decoupling`; only `sheets="modules"` gives a module its own sheet
+
 #### Scenario: Harness members cross as nets in the ASCII form
 - **WHEN** `plan_sheets` runs on the sample with `sheets="modules"` and `form="ascii"`
 - **THEN** the crossings of `flash` are the nets `FLASH_WP`, `SPI_CS`, `SPI_MISO`, `SPI_MOSI` and `SPI_SCK`, and no plan holds a harness block

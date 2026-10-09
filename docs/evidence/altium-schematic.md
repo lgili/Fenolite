@@ -407,7 +407,9 @@ The table sent with the files (what steps O1 and O2 are read against):
    Expected: Altium's defaults, since the job holds no setting; report them in one sentence each. Settles the
    first half of `H-A-OUTJOB-OPTIONS`.
 
-No report yet: the four rows are `INFERRED`, "pending (author report)".
+On the files of this table only the opening (O1) was reported, on 2026-10-07. Steps O2 and O4 were reported on 2026-10-09 on the
+job of session 2 (`H-A-OUTJOB-OPEN` is an author report since); `H-A-OUTJOB-RUN` and `H-A-OUTJOB-OPTIONS`,
+which name this job, stay `INFERRED`, "pending (author report)", restated by `-RUN-2` and `-OPTIONS-2`.
 
 **Since change c0138 (2026-10-07) the digest of the job in the table above is that of the files of session 1
 only.** A build of the same script now writes a job with eight more lines (`OutputDefault<i>=0` on each of
@@ -420,8 +422,8 @@ is because it names the files that were opened and returned ("Returned folders o
 The job of session 1 ran in Altium Designer 26 except for its Gerber output, which plotted no layer
 (`docs/evidence/altium-pcb.md`, "Returned folders of 2026-10-07"). Change c0138 writes the complete settings
 record on the Gerber output and `OutputDefault<i>=0` on every output
-(`docs/formats/altium/output-job.md`, "The Gerber settings record"). **Nothing of this section has been
-opened in Altium**: every row it names is `INFERRED`, "pending (author report)".
+(`docs/formats/altium/output-job.md`, "The Gerber settings record"). The reports of 2026-10-08 and
+2026-10-09 under "Reports" below say which rows of this section are author reports and which stay pending.
 
 Three projects, built on 2026-10-07 outside the repository into `~/fenolite-altium-checks/session-2/O-outjob/`
 (a `README.md` there repeats the steps): `blink_routed/` by `fenolite build examples/blink_routed/design.py
@@ -519,6 +521,29 @@ The defect of session 1, a job that plotted no Gerber layer, is repaired by chan
 report goes: the written job now yields Gerber files in Altium Designer 26.5. No file that Altium wrote is
 committed, and an author report moves no write kind out of `experimental`.
 
+**2026-10-09, `AD 26.5`, Parts O and W (S-0724).** Reported by the maintainer on 2026-10-09 for his sessions
+of 2026-10-07 and 2026-10-08, in Altium Designer 26.5 (the installation of session 2), on the three projects
+of the folder `O-outjob/` of the table above. Every step of this section, with steps O2 and O4 above on the
+same job, as expected. Per step:
+
+- **O1 and O2.** The job opened without a message; its outputs, their sources and their containers are
+  the table of session 1, which the job of change c0138 keeps. Confirms `H-A-OUTJOB-OPEN`.
+- **O3.** As expected (already reported on 2026-10-08, `H-A-OUTJOB-RUN-2`). The count of the layer files
+  and the list of their extensions were not given, so `H-A-OUTJOB-GERBER-LAYERS` stays pending.
+- **O4 and O5.** The NC drill setup with its defaults; the Gerber setup with millimetres, 4 decimals and
+  the twelve layers of the table. Confirms `H-A-OUTJOB-GERBER-ACCEPT` and `H-A-OUTJOB-OPTIONS-2`.
+- **O6.** As expected; it settles no row, and the board outline entry it asks about was not described, so
+  the outline proposal has no input from it.
+- **O7.** The six-layer job produced a file for the internal plane. Confirms `H-A-OUTJOB-GERBER-PLANE`; the
+  extensions were not listed.
+- **O8.** Millimetres and 6 decimals, no value replaced; with O5, confirms `H-A-OUTJOB-GERBER-DECIMALS`.
+- **O-S1.** Not stated: `H-A-OUTJOB-GERBER-EMPTY` stays pending. `H-A-OUTJOB-RUN` and `H-A-OUTJOB-OPTIONS`
+  name the job of session 1, which was not run again; they stay as they are, restated by `-RUN-2` and
+  `-OPTIONS-2`.
+
+Part W of the same report is under "Reports" below. No file that Altium wrote is committed, and the job and
+the template stay experimental.
+
 ## Part W: the sheet template and the drawing sheet in Altium Designer
 
 Change c0087 writes a sheet template (`.SchDot`) from a `*.sheet.toml` specification, and draws the same
@@ -552,16 +577,16 @@ gives for the KiCad build of the same script; it is a visual reference only and 
    and the sheet count where the title block shows one. Expected: `Blink`, `B`, `2026-10-06`, `Fenolite`, `1` and `1`. Then change the title in the document options
    and read it again. Expected: the new value. Settles `H-A-SCHDOT-STRINGS`.
 
-No report yet: the two rows are `INFERRED`, "pending (author report)".
+Reported on 2026-10-09 ("Reports" below): both rows are author reports.
 
 
 ## Part Y: the complete schematic (change c0086)
 
 Change c0086 draws each symbol from its own graphics, gives every module a sheet at any depth, writes
 port and sheet-entry I/O types, buses, hidden parameters and, in the binary form, comments and parameter
-values with Windows-1252 characters. **Nothing of this part has been opened in Altium.** Its seven rows
-are `H-A-SCHX-*`: `H-A-SCHX-READBACK` is settled by Fenolite's own reader (`INFERRED`); the other six stay
-`INFERRED` with `pending (author report)` until the steps below are reported.
+values with Windows-1252 characters. Its seven rows are `H-A-SCHX-*`: `H-A-SCHX-READBACK` is settled by
+Fenolite's own reader (`INFERRED`); the other six are author reports since steps Y1 to Y9 were reported on
+2026-10-09 ("Reports" below).
 
 2026-10-07 (change c0134): the author has since opened files of this part, built before change c0134, and
 named pin names that lie on each other on five small symbols ("Author report of 2026-10-07 (opening
@@ -1117,6 +1142,40 @@ and no golden file was rebuilt.
   `INFERRED` with `pending (author report)`. The committed sample of Part N, the ASCII form (N3) and the
   Viewer (N4) are not reported.
 
+### 2026-10-09, `AD 26.5`, Parts W and Y
+
+- Tool: Altium Designer 26.5, the installation of session 2 on the maintainer's own PC, a licence he may
+  use for Fenolite (`LEGAL.md`, block A). Reported by the maintainer on 2026-10-09 for his sessions of
+  2026-10-07 and 2026-10-08 (S-0724). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no
+  artefact)`.
+- Files: Fenolite's own files of the tables of Part W and Part Y, from his session folders; whether the
+  files of Part Y were the build before or after change c0134 was not stated, and their pins hold no bit
+  0x20 (both builds precede change c0148). No file opened or saved in the sessions enters the repository.
+  Part O of the same report is under Part O, "Session 2", "Reports".
+
+Outcome per step:
+
+- **W1 to W3.** As expected: the template opens as an A4 landscape sheet with its frame, zones and title
+  block, applies to a new schematic, and the print of `blink.SchDoc` matches the reference within what the
+  two tools draw (the text heights and line widths that `docs/sheet-templates.md` names). Confirms
+  `H-A-SCHDOT-OPEN`.
+- **W4.** As expected: the five title-block values as set, and the changed title read back. Confirms
+  `H-A-SCHDOT-STRINGS`.
+- **Y1 and Y4.** As expected: no prompt, four documents and one library, no compile error and the tree
+  `tree` → `io` → `leds`, `tree` → `power`. Confirms `H-A-SCHX-TREE`.
+- **Y2, Y3 and Y9.** As expected: the four symbols as described in words, the same graphics on the sheets,
+  and the four regenerated samples open with their own graphics. Confirms `H-A-SCHX-GRAPHICS` for what the
+  description says; no picture was sent.
+- **Y5.** As expected: no message on `tree`, a message naming `SENSE` on `tree-bad`. Confirms
+  `H-A-SCHX-DIR`.
+- **Y6.** As expected: `D0` to `D3`, each with one pin of `J2` and one LED anode. Confirms `H-A-SCHX-BUS`.
+- **Y7.** As expected, in the binary form and in the ASCII tree. Confirms `H-A-SCHX-TEXT`.
+- **Y8.** As expected: 12 components, 13 nets, the four component classes, no room. Confirms
+  `H-A-SCHX-ECO`.
+
+No step named a fault, so no fact and no golden file changed and no row is refuted. An author report moves
+no write kind out of `experimental`.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
@@ -1281,8 +1340,29 @@ one: passives hide pin texts, integrated circuits show them.
 Designer 26 reads the same two bits as hide flags (only the values 0, 2, 16 and 18 were seen without 0x20).
 Change c0148 writes 0x20 on every pin with the two bits as show flags, and the reader takes them as show
 flags with 0x20 and as hide flags without it. Files written before 0.3.0 show pin names that their symbols
-meant hidden and hide numbers that were meant shown; built again, their pins take the form of the check project. Nobody has
-opened a rebuilt kit or session file in Altium yet.
+meant hidden and hide numbers that were meant shown; built again, their pins take the form of the check project. Nobody had
+opened a rebuilt kit or session file in Altium until the report of 2026-10-09 below.
+
+**Third report: the catalog LED on a rebuilt kit (2026-10-09, `AD 26.5`, S-0724).** Reported by the
+maintainer on 2026-10-09 for his sessions of 2026-10-07 and 2026-10-08, in Altium Designer 26.5 (the
+installation of session 2), on a kit rebuilt from the tree after changes c0144 and c0148 (the commit of the
+build was not stated). One generic outcome per item, each as expected:
+
+- **The pin texts of the catalog LED (change c0148, task 4.3).** The pin bits V1 to V4 read as the check
+  project read them, and the LED `D1` of the rebuilt kit shows its pin texts as its symbol means them, with
+  bit 0x20 written: the crossed names of the first report are gone. `H-A-SCHLIB-PINBITS` keeps its label of
+  2026-10-08; this report repeats it on a written kit.
+- **The LED `D1` of the rebuilt kit (change c0144, task 3.4).** The kit's steps that read `D1`: `GND` on
+  pin 2 (`K`) in the schematic and on pad 1 of the board, `LED_A` on pin 1 (`A`) and pad 2, with the two
+  pin-map records of the four samples. The board half was reported on 2026-10-08 already.
+- **The default pin map (change c0147, task 3.3).** A design of a 0.2.x user with a cathode-first land and
+  no map, built for KiCad and for Altium: the pads swapped by the default map in both, and the warning
+  `build.pad-map-default` given. The KiCad half is the maintainer's own look at the KiCad build, not an
+  oracle run.
+
+No row moves for these items: no register row names them (changes c0144 and c0147 registered none). The
+kit run itself (`fenolite kit verify` and `fenolite kit record`, change c0091 task 5.3, and the revalidation
+that `docs/evidence/altium-kit/README.md` names) is not part of this report and stays owed.
 
 **What moved in this page.** The tables that name committed files (`tests/data/altium/…`) carry the new
 digests; every committed schematic document and library differs from its former bytes in bit 0x20 of each
@@ -1313,3 +1393,24 @@ The maintainer also stated, for the record of 0.3.0, that the schematic librarie
 schematic documents and PCB documents that Fenolite writes were opened and compiled in Altium Designer 24
 before and in 26 now. That is an author report of opening and compiling without a step, a value or a
 version beyond the major; it raises no row and no release claim.
+
+## Report of 2026-10-09
+
+On 2026-10-09 the maintainer reported, for his sessions of 2026-10-07 and 2026-10-08 in Altium Designer
+26.5, the schematic parts that were owed (S-0724), one generic outcome per step, all as expected:
+
+- **Parts O and W** (changes c0087 and c0138): under Part O, "Session 2", "Reports", and under "Reports",
+  "2026-10-09". `H-A-OUTJOB-OPEN`, `-GERBER-ACCEPT`, `-GERBER-PLANE`, `-GERBER-DECIMALS`, `-OPTIONS-2`,
+  `H-A-SCHDOT-OPEN` and `-STRINGS` are author reports; `H-A-OUTJOB-GERBER-LAYERS` (no list of extensions)
+  and `-GERBER-EMPTY` (no statement) stay pending.
+- **Part Y** (change c0086): under "Reports", "2026-10-09"; the six `H-A-SCHX-*` rows of the steps are
+  author reports.
+- **The catalog LED on a rebuilt kit** (changes c0144, c0147 and c0148): under "Pin visibility bits".
+- **Not done, owed:** steps R1 to R4 of Part R (changes c0083 and c0146; R1 was reported in part on
+  2026-10-08), step R5 (change c0151, on its own branch), and the kit run with `fenolite kit verify` and
+  `fenolite kit record` (change c0091). The optional author reports of `H-A-RULE-CLEARANCE-FORMS` and
+  `-CELLS` (changes c0125 and c0130) were not reported.
+
+Every Altium write stays experimental: an author report moves no write kind out of `experimental`, and the
+graduation rule of change c0092 is not applied by this report. The PCB side of the same report is in
+`docs/evidence/altium-pcb.md`, "Report of 2026-10-09".

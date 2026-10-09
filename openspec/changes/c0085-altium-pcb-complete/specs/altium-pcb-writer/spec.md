@@ -138,6 +138,10 @@ The writer SHALL return, per kind of model item (footprint, pad, track, arc, via
 - **WHEN** a spec holds a via with `via_type="micro"` between `F.Cu` and `In1.Cu`
 - **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
 
+#### Scenario: Blind via refused
+- **WHEN** a spec holds a via with `via_type="blind"` whose two layers are both `F.Cu`, a span that is not two different copper layers of the board (a blind via with a span of two copper layers is written since change c0085, "Blind and buried via records")
+- **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
+
 ### Requirement: Polygon pour records
 `pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, without poured copper (S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196; `H-A-PCB-CU-REPOUR`).
 - A record MUST hold, in this order: the seven common keys with `LAYER` = the layer text; `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Polygon`, `POUROVER=TRUE`, `REMOVEDEAD=TRUE` (`FALSE` for a zone whose islands are never removed, change c0085), `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`, `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`; per vertex `KIND<k>=0`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` as the board outline writes them, the first vertex repeated last; `SHELVED=FALSE`, `RESTORELAYER=UNKNOWN`, `RESTORENET` (empty), `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`, `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`, `POUROVERSTYLE=1`, `NAME`, `POURINDEX`, `IGNOREVIOLATIONS=FALSE`, `AUTONAME` (only when the name is generated), `OPTIMALVOIDROTATION=TRUE`, and `NET` (the net's index; left out without a net).

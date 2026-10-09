@@ -255,9 +255,10 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   The sample is `examples/altium_hier/design.py`, with its built files under `tests/data/altium/hier/`.
 - **Evidence of change c0086.** Symbol graphics, sheets below the first level, I/O types, bus records,
   text with a UTF-8 copy and parameters read back with Fenolite's own reader (`H-A-SCHX-READBACK`),
-  and KiCad's importer reads the library graphics as the model holds them. Nothing of it has been
-  opened in Altium: the six rows `H-A-SCHX-GRAPHICS`, `-TREE`, `-DIR`, `-BUS`, `-TEXT` and `-ECO` wait
-  for the report of Part Y of `docs/evidence/altium-schematic.md`. The sample is
+  and KiCad's importer reads the library graphics as the model holds them. The maintainer reported Part Y
+  of `docs/evidence/altium-schematic.md` on 2026-10-09 (Altium Designer 26.5, every step as expected): the
+  six rows `H-A-SCHX-GRAPHICS`, `-TREE`, `-DIR`, `-BUS`, `-TEXT` and `-ECO` are author reports, which move
+  no write kind out of `experimental`. The sample is
   `tests/data/altium/tree/design.py` with its built files beside it. The author reports of 2026-10-02
   and 2026-10-03 covered the samples `blink`, `kicad_example`, `no_connect` and `routed` with rectangle
   bodies; those bytes are kept under `tests/data/altium/generic/` and `--altium-symbols generic` still
@@ -509,11 +510,12 @@ sample `tests/_altium_body2.py` is.
   corpus gives a value rule. For two, `MODELID` and `MODEL.CHECKSUM`, it gives none: Fenolite writes
   stand-ins (a GUID derived from the body's id, and `0`), and only Altium can say whether it takes them.
   That is `H-A-PCBX-BODY-OPEN`, step X8 of the author report (`docs/evidence/altium-pcb.md`, Part X),
-  which is **not settled**. The option stays `off` until that step is reported.
+  reported as expected on 2026-10-09: an author report. The option stays `off` by default; making
+  `extruded` the default is the maintainer's decision, not taken.
 - **How far the evidence goes.** It is thin. The rows of the record were measured on 1272 saved extruded
   bodies of five public documents of three repositories, and 1265 of the 1272 come from one repository.
-  They say what Altium saved in those files, not what Altium accepts. Nothing that Fenolite writes for a
-  body was opened in Altium. Fenolite's own reader reads a written body back to the model's body
+  They say what Altium saved in those files, not what Altium accepts. What Fenolite writes for a body was
+  opened in Altium by the maintainer alone (step X8, 2026-10-09, an author report). Fenolite's own reader reads a written body back to the model's body
   (`H-A-PCBX-BODY-READBACK`, `INFERRED`), and KiCad's importer reads the document as it reads the same
   document without bodies and shows nothing for an extruded body (`H-A-PCBX-BODY-KICAD`): neither says
   that Altium shows the body. `result.pcb.bodies` records the value used, and with `off` every file is
@@ -703,7 +705,8 @@ a board that the script forbids.
   `tests/unit/lens/test_altium_rules.py`).
 - **Evidence.** The constraints come from Altium's public documentation and the keys from public PCB
   documents (`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"); that Altium lists and applies
-  the written rules is `INFERRED` until the author report, Part U of `docs/evidence/altium-pcb.md`.
+  the written rules is an author report since 2026-10-09 (Part U of `docs/evidence/altium-pcb.md`, every
+  step as expected; `ALTIUM-VERIFIED(author-report)`).
   `kicad-cli pcb import` loads a document with all seven kinds and takes the zone clearance from the
   Clearance rule; it shows no other kind (`tests/kicad/altium/test_rules_oracle.py`).
 
@@ -786,8 +789,9 @@ Altium (Fenolite runs no output and produces none of Altium's files). `--altium-
   settings record plots no layer. The Gerber output now carries the complete record of 44 fields that the
   public saved jobs hold (`docs/formats/altium/output-job.md`, "The Gerber settings record"), and every
   output carries the key `OutputDefault<i>=0`, as every saved output does. The record is written whole or
-  the job is not written. **Altium has not opened such a job yet** (Part O, "Session 2", of
-  `docs/evidence/altium-schematic.md`).
+  the job is not written. Such a job was opened and run in Altium Designer 26.5 by the maintainer, every
+  step as expected (Part O, "Session 2", of `docs/evidence/altium-schematic.md`; author reports of
+  2026-10-08 and 2026-10-09).
   - *Unit and decimals.* Millimetres. The decimals are `gerbers.precision` of the preset you give with
     `--altium-outjob-preset FILE` (5 or 6), and 4 without one. Millimetres with 4 decimals is the one pair a
     public job holds; whether Altium takes 5 or 6 beside millimetres is not known yet, so read the setup of
@@ -845,10 +849,11 @@ Altium (Fenolite runs no output and produces none of Altium's files). `--altium-
   `read_outjob` returns, and `from_preset(preset, name=…, copper=…)` gives the job above for a board with
   the given copper stack. `write_outjob` refuses a Gerber output without the complete record and a setting
   on any other output. `read_outjob` gives the settings of an output (`JobOutput.settings`) and
-  `record_fields` the fields of a record. What is confirmed is own readback only (`H-A-OUTJOB-READBACK`,
-  `H-A-OUTJOB-GERBER-READBACK`) and that the record has the form of two public jobs: whether Altium opens
-  the job, takes the record and generates the outputs is Part O of `docs/evidence/altium-schematic.md`,
-  not reported yet.
+  `record_fields` the fields of a record. Fenolite's own readback (`H-A-OUTJOB-READBACK`,
+  `H-A-OUTJOB-GERBER-READBACK`) and the form of two public jobs back the record; that Altium opens the
+  job, takes the record and generates the outputs is Part O of `docs/evidence/altium-schematic.md`,
+  reported as expected by the maintainer (author reports, which leave the job experimental; the count
+  and extensions of the Gerber files were not reported).
 - **Every written `.OutJob` differs from the one a build before change c0138 wrote.** No release wrote a
   job (0.2.x writes none), so this is about folders built from the development branch. A rebuild into such
   a folder **replaces the job and keeps the old one as `<name>.OutJob.bak`**, as for every other file the
@@ -895,7 +900,8 @@ title block shows them.
   template (`docs/sheet-templates.md`, "Building an Altium sheet template").
 - Confirmed is own readback only (`H-A-SCHDOT-READBACK`): `import_sheet` reads the frame of a built
   schematic back to the lines and texts of the specification. That Altium draws it as KiCad does and fills
-  the strings is Part W of `docs/evidence/altium-schematic.md`, not reported yet.
+  the strings is Part W of `docs/evidence/altium-schematic.md`, reported as expected on 2026-10-09 (an
+  author report: `H-A-SCHDOT-OPEN`, `H-A-SCHDOT-STRINGS`).
 
 ## Change order
 
@@ -1622,9 +1628,9 @@ One flat sheet by default, or one sheet per module at any depth with `--altium-s
 repeated sheets, no routed wires between sheet symbols, no harness in the ASCII form, no harness below
 the first level, no nested harnesses); a sheet that passes a bus through draws it twice; no bus in the
 DSL, no variants; an output job whose Gerber output holds its settings and plots no board outline, no drill drawing and no pad master, and whose other outputs (NC drill, pick and place, bill of materials, prints) hold no settings; a drawing sheet without a logo; the PCB document has unpoured polygons, no
-split planes, no micro vias, component bodies only on request (extruded ones, experimental, never opened in Altium) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
+split planes, no micro vias, component bodies only on request (extruded ones, experimental, opened in Altium by the maintainer alone) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
+ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Change c0086 was opened in Altium by the maintainer alone (Part Y, an author report of 2026-10-09). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.
 
 ## Stack-ups with masks, sheets and kinds (c0101)

@@ -34,8 +34,13 @@ The Altium build SHALL write the rules of `design.rules` into the PCB document w
 
 #### Scenario: Minimums are written or reported
 - **GIVEN** a design with a class `PWR`, `design.rules.minimum(clearance=mm(0.15))` and `design.rules.minimum(track_width=mm(0.5), netclass="PWR")`
-- **WHEN** `uv run pytest tests/unit/lens/test_build_minimums.py -k altium` builds it for Altium, once as the blink with its PCB document and once as a design without one
-- **THEN** the build with the PCB document has one `altium.not-lowered` warning, with `where == "design-rules/track_width"`, naming `min_track_width_PWR` and `value-unsupported`, and only `blink.PcbDoc`, `.fenolite/build.json` and `.fenolite/rules.json` differ from the same build without the two `minimum()` calls; the build without a document has that warning and one with `where == "design-rules/clearance"` naming `min_clearance` and `no-document`, and only `.fenolite/rules.json` differs
+- **WHEN** `uv run pytest tests/unit/lens/test_build_minimums.py -k altium` builds it for Altium as the blink with its PCB document
+- **THEN** the build has one `altium.not-lowered` warning, with `where == "design-rules/track_width"`, naming `min_track_width_PWR` and `value-unsupported`, and only `blink.PcbDoc`, `.fenolite/build.json` and `.fenolite/rules.json` differ from the same build without the two `minimum()` calls
+
+#### Scenario: Minimums are reported, not written
+- **GIVEN** the same design without a PCB document
+- **WHEN** `uv run pytest tests/unit/lens/test_build_minimums.py -k altium` builds it for Altium
+- **THEN** the build has the warning of `min_track_width_PWR` and one with `where == "design-rules/clearance"` naming `min_clearance` and `no-document`, no rule is written, and only `.fenolite/rules.json` differs from the same build without the two `minimum()` calls
 
 #### Scenario: No rules, no report
 - **GIVEN** the blink design as committed

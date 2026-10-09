@@ -20,6 +20,10 @@
 - **WHEN** a spec holds a via with `via_type="micro"` between `F.Cu` and `In1.Cu`
 - **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
 
+#### Scenario: Blind via refused
+- **WHEN** a spec holds a via with `via_type="blind"` whose two layers are both `F.Cu`, a span that is not two different copper layers of the board (a blind via with a span of two copper layers is written since change c0085, "Blind and buried via records")
+- **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
+
 ### Requirement: Imported boards are written from the model
 `backends.altium.lower.from_design(design, *, issues, corner_ratios=None, rewrite=False)` SHALL return the inputs of the PCB and schematic writers (`AltiumInputs`) from a `Design`: footprints with their pads taken from the board's footprint instances (no library is read), placements, copper, zones, free items, rules, the stack and the classes.
 - A footprint instance MUST be written as a component with its own pads: its footprint definition holds exactly the pads of the instance that the pad record can hold. A footprint instance of the model holds no graphics, so none is written; the lines and arcs of a footprint in a document that was read are records without a model entity and are counted by RT-A3.

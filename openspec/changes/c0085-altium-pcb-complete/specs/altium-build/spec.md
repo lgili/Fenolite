@@ -45,6 +45,11 @@
 - **WHEN** `build_altium` runs
 - **THEN** the files are written, `issues` holds one `altium.via-unsupported` warning whose `where` is `via/<id>`, and `result.pcb.not_lowered` is `{"via": 1}`
 
+#### Scenario: Blind via refused
+- **GIVEN** the routed model with one more via of `via_type="blind"` whose two layers are both `F.Cu` (a blind via with a span of two different copper layers is written since this change)
+- **WHEN** `build_altium` runs
+- **THEN** `files` is empty and `issues` holds one `altium.copper-invalid` error whose `where` is the via's id
+
 #### Scenario: Copper on a missing layer
 - **GIVEN** the routed model built with `copper=2`
 - **WHEN** `build_altium` runs
