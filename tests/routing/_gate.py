@@ -32,7 +32,7 @@ import _planebench as pb
 from _resources import kicad_cli
 
 from fenolite.backends.base import BoardPad, DrcReport
-from fenolite.backends.kicad.cli import KicadCli
+from fenolite.backends.kicad.cli import KicadCli, cli_for
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.pcb import read_board, write_board
 from fenolite.backends.specctra.dsn import DsnResult
@@ -193,9 +193,11 @@ def merged_board(
 
 
 def runner() -> KicadCli:
+    """The ``kicad-cli`` of this machine: a binary, or the ``docker:<image>`` form of
+    ``FENOLITE_KICAD_CLI`` (``cli_for``)."""
     binary = kicad_cli()
     assert binary is not None
-    return KicadCli(Path(binary), timeout=600)
+    return cli_for(Path(binary), timeout=600)
 
 
 def drc(board: Path) -> DrcReport:

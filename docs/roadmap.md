@@ -552,8 +552,9 @@ capabilities list each router's `features`, Freerouting runs without automatic n
 the dog-bone escape left 22 connections open and 7 vias in pads against 16 and 17 without it), so it
 declares no `escape`, the requirement "KiCadRoutingTools escapes parts" is removed from the change, and
 `--escape` gives `route.escape-skipped` with every router. Freerouting's fanout stage stays on by
-default: it was better than `fanout=off` on both benches and majors. Open: task 6.1 (`test_krt_pair`
-through `fenolite route` and the pair loop).
+default: it was better than `fanout=off` on both benches and majors. Task 6.1 done on 2026-10-09:
+`test_krt_pair` goes through `fenolite route` and the pair loop `test_loop` passes on 10.0.6 (`equal`); the
+9.0.9 run is the `routing` job's.
 
 **c0104 on `v04` (2026-10-08).** Built; its five KiCad rows are verified on 9.0.9 and 10.0.6 (CI run 37772583226 on `04ef42a`). Left: the pair-gap row of `ClearanceResolver.explain`, which comes with c0097.
 
