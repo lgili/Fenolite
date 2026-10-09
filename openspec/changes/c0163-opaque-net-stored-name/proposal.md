@@ -13,7 +13,7 @@ The maintainer decided on 2026-10-09 that this gets a correction change of its o
 ## What Changes
 
 - **`backends/kicad/pcb.py`**: `_Writer.source_table` maps a number to `stored_net_name(net)` instead of `net.name`.
-- **Tests**: a unit test on a board authored in the test (a teardrop zone on a net stored with `{slash}`), for both targets; a corpus test that writes every readable non-heavy major-9 demo board for target 9 (no `kicad-cli`); a KiCad 9 oracle test on the RoyalBlue board (the target-9 text loads and its DRC report equals the source's).
+- **Tests**: a unit test on a board authored in the test (a teardrop zone on a net stored with `{slash}`), for both targets; a corpus test that writes every readable non-heavy major-9 demo board for target 9 (no `kicad-cli`); a KiCad 9 oracle test on the RoyalBlue board (the target-9 text loads and its DRC report equals the source's on the keys KiCad repeats).
 - **Pages**: `docs/formats/kicad/board.md` (a fact row on the teardrops of the demo board and the oracle result; the writer's "Net forms" bullet).
 
 Size: 0.25 design-day (a size, not time).
@@ -35,7 +35,7 @@ None.
 ## Evidence level required
 
 - The board's form (teardrop zones reference nets stored with `{slash}` by number, with `net_name` in the stored spelling): `CORPUS-VERIFIED` (S-0058).
-- The written target-9 board loads on 9.0.9 with the source's DRC report: `KICAD-VERIFIED (9.0.x)`.
+- The written target-9 board loads with the source's DRC report (on the keys KiCad repeats): `KICAD-VERIFIED (9.0.x, 10.0.x)`, 9.0.9 and 10.0.6 in the pinned images.
 
 ## Impact
 

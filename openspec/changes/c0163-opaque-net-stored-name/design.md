@@ -18,13 +18,16 @@
 
 ## Census of the corpus (2026-10-09)
 
-`write_board` for the board's own major and for 10 over every cached `.kicad_pcb` row of `tests/corpus/manifest.toml` whose header is of major 9 or 10, before and after the fix: see `tasks.md`, task 0.2, for the counts. Only `kicad-demo-10-0-6-pcb-13` was refused before the fix; after it, none is. The target-10 texts of the other rows are byte-equal before and after the fix, so no other cached board references a net stored with `{slash}` from opaque content.
+`write_board` for the board's own major and for 10 over every `.kicad_pcb` row of `tests/corpus/manifest.toml` (27 rows), before the fix (`source_table` as on 833eefa) and after it:
+- 23 boards are read: 21 of major 9 (written for 9 and 10) and 2 of major 10 (written for 10). The three third-party rows are below the read floor, and `kicad-demo-9-0-9-1-pcb-04` (the 9.0.9.1 copy of RoyalBlue54L-Feather) is refused by the parser as its manifest row says ("content after the root list"), a known defect of the published file that this change does not touch.
+- Before the fix one write is refused: `kicad-demo-10-0-6-pcb-13` for target 9 (the four errors above). After it, none.
+- The SHA-256 of every other written text (42 of the 44 writes) is the same before and after the fix; the two texts of `kicad-demo-10-0-6-pcb-13` change (target 10: the four teardrops now name their nets with `{slash}`). No other cached board holds the defect.
 
 ## Tests
 
 - `tests/unit/backends/kicad/test_pcb_write_nets.py`: the skeleton board with net 2 stored as `Net-(U1-P1{slash}XL1)` and a teardrop on it, written for both targets (the new scenario of "Net form per target").
 - `tests/corpus/test_board_write_own.py` (`needs_corpus`, no `kicad-cli`): every readable non-heavy demo board of major 9 is written for target 9 without an error, and the re-read model equals the source's apart from net numbers and opaque fragment texts.
-- `tests/kicad/board/test_written_own_target.py` (`needs_kicad`, `needs_corpus`): the RoyalBlue board written for target 9 loads on the running `kicad-cli` (9.0.9 is the proof; 10.0.6 reads it too), and its DRC report has the same violation and unconnected counts per type as the source's.
+- `tests/kicad/board/test_written_own_target.py` (`needs_kicad`, `needs_corpus`): the RoyalBlue board written for target 9 loads on the running `kicad-cli` (9.0.9 is the proof; 10.0.6 reads it too), and its DRC report equals the source's as RT2 judges a re-dump (`checks.rt2.compare_runs`, three runs per side): KiCad does not repeat its own report on this board (54 to 84 of about 1 100 keys differ between runs of one file, all clearances), so a key whose count differs between the runs of one side is left out, and every other key must be equal.
 
 ## Released output
 

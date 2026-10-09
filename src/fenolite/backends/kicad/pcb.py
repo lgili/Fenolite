@@ -2499,8 +2499,10 @@ class _Writer:
         return child
 
     def source_table(self) -> dict[int, str]:
+        """Each number of the source net table and the stored name of its net (c0163): the spelling the
+        target-9 table numbers and every reference writes, ``{slash}`` included."""
         return {
-            int(_ext_pairs(n)["number"]): n.name
+            int(_ext_pairs(n)["number"]): stored_net_name(n)
             for n in self.design.circuit.nets
             if "number" in _ext_pairs(n)
         }
