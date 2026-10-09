@@ -90,6 +90,32 @@ of the `CFG2D.` ones. They are editor state, not design data.
 | `2DCONFIGURATION` and `3DCONFIGURATION` hold a view configuration as one value: `RECORD=Board` and the `CFGALL.` and `CFG2D.` (or `CFG3D.`) fields, each opened by a backtick in place of `\|`, every `;` written `?`. `2DCONFIGURATION` holds exactly the `RECORD=Board` group of view keys written after the layer sets. `3DCONFIGURATION` holds `CFGALL.CONFIGURATIONKIND=3`, a default description and 37 `CFG3D.` switches, colours and opacities | S-0170 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-LIB-OPEN |
 | The last group holds the 3D camera (`LOOKAT.X/Y/Z`, `EYEROTATION.X/Y/Z`, `ZOOMMULT`, `VIEWSIZE.X/Y`), the snap options (`EGRANGE=8mil`, `EGMULT`, `EGENABLED`, `EGSNAPTOBOARDOUTLINE`, `EGSNAPTOARCCENTERS`, `EGUSEALLLAYERS`, `OGSNAPENABLED`, `MGSNAPENABLED`, `POINTGUIDEENABLED`, `GRIDSNAPENABLED`, `NEAROBJECTSENABLED`, `FAROBJECTSENABLED`, `NEAROBJECTSET` and `FAROBJECTSET` of 27 digits, `NEARDISTANCE`) and the closing keys of the record | S-0170, S-0171 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-LIB-OPEN |
 
+## Pads of a converted board (change c0160)
+
+Rows added by change c0160: the read rows of `import.md`, "Pads and padstacks" (S-0160, S-0302), and the
+offsets of `pcb-records.md`, "Pad", restated for writing the pads that a KiCad board holds and a build never
+wrote. They hold for a pad of a library footprint and for one of a PCB document alike. Fenolite's reader and
+KiCad's importer read the written records back (`H-A-CONV-PADSTACK`); Altium Designer's view is Part T.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The pad mode at offset 62 of subrecord 5 is the stack mode: 0 Simple (the top size and shape on every layer), 1 Top-Middle-Bottom (the top size and shape at 21, 25 and 49, the middle at 29, 33 and 50 for every mid layer, the bottom at 37, 41 and 51), 2 Full Stack | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| In a full stack the sixth subrecord gives each mid layer its own size and shape: Mid-Layer n at index n − 1 of the 29 inner sizes (x at 0, y at 116) and of the 29 inner shapes (232); the top and the bottom keep the sizes and shapes of subrecord 5 | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| The 32 alternate shapes (532) and corner percentages (564) of the sixth subrecord are indexed by layer: 0 the top, the layer id − 1 for a mid layer (Mid-Layer n has the id n + 1, so the index n), 31 the bottom; an alternate shape 9 with main shape 1 is a rounded rectangle of that percentage on that layer | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| A slotted hole is hole shape 2 at 262 of the sixth subrecord, the slot length (32-bit, binary units, along the slot's axis) at 263 and the slot rotation (double, degrees, relative to the pad) at 267; the hole size at 45 of subrecord 5 is the slot's width | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| The paste mask and the solder mask of a pad each follow the rules or a manual expansion (mode 1 or 2 at 101 and 102, the expansion at 86 and 90); a solder mask expansion that is negative and at least the pad's radius tents the pad completely, and a paste expansion that removes the pad's half size leaves no paste | S-0302, S-0740, S-0160 | INFERRED | H-A-CONV-PADSTACK, H-A-PCB-PAD |
+| A free pad may have an empty designator; Altium's page says that a pad of a component "usually" carries its pin number and does not state that it may be empty. A pad without a name has a first subrecord of the length 0 alone (`pcb-records.md`, "Free pads as holes") | S-0740, S-0160 | INFERRED | H-A-CONV-PADSTACK, H-A-PCBX-HOLE |
+
+Fenolite's choices for these pads (change c0160):
+
+- a pad with a per-layer stack is written with mode 1 when its mid layers share one shape and size and with
+  mode 2 otherwise; a rounded rectangle on a layer other than the top keeps the pad's corner ratio, and a
+  layer with an offset copper or a custom shape keeps the pad a reported loss;
+- a KiCad connector pad (kind `connect`: copper without a hole, paste or mask) is a surface pad with the
+  manual paste and solder-mask expansions `−max(width, height)`, which remove both openings;
+- a pad without a number inside a footprint is written as a free pad at its board position (no public page
+  says that a component's pad may have an empty designator), counted `changed` under `pad`.
+
 ## Version 2 not used
 
 AltiumSharp version 2 (2026) cites a decompilation folder that is not public, so no fact found only in

@@ -8,6 +8,14 @@ A pad whose per-layer stack gives every copper layer a circle, an oval, a rectan
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_pcblib_stacks.py` writes it and reads the document back
 - **THEN** the pad has stack mode 1, and its shape and size per copper layer equal the model's
 
+### Requirement: Slotted pad holes
+A through-hole pad whose padstack holds no copper layer of its own and an oval hole (`hole_shape` `slot` with a length) SHALL be written with stack mode 0 and the sixth subrecord holding hole shape 2, the slot length and the slot rotation relative to the pad (`docs/formats/altium/pcb-records.md`, "Pad"). The hole size is the slot's width.
+
+#### Scenario: Slot read back
+- **GIVEN** a footprint with one plated pad of 1.2 by 2.4 mm with an oval drill of 0.6 by 1.8 mm
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcblib_stacks.py -k slot` writes it and reads the document back
+- **THEN** the pad has hole shape `slot`, a drill of 0.6 mm and a hole length of 1.8 mm
+
 ### Requirement: Connector and free pads
 A pad of kind `connect` SHALL be written as a surface pad whose paste and solder-mask expansions remove both openings. A pad without a number inside a footprint SHALL be written as a pad of that footprint with an empty designator when `pcb-library.md` holds a row with a public source that allows it, and otherwise as a free pad at its board position, counted `changed` under `pad` with that reason.
 
@@ -17,12 +25,20 @@ A pad of kind `connect` SHALL be written as a surface pad whose paste and solder
 - **THEN** the pad is a surface pad on its copper layer with no paste and no mask opening, and the report has no lost `pad`
 
 ### Requirement: Mechanical layers of KiCad drawings
-`lower.KICAD_MECHANICAL` SHALL map `User.1` to `User.8` to Mechanical 1 to 8, `Dwgs.User` to Mechanical 9, `Cmts.User` to Mechanical 10, and `Eco1.User` and `Eco2.User` to Mechanical 11 and 12; the fabrication and courtyard layers keep Mechanical 13 to 16. A graphic or text on a mapped layer MUST be written there and the document MUST name the layer after its KiCad name. A text on a copper layer MUST be written as a text record on that copper layer. A layer outside the map MUST stay a reported loss.
+`lower.KICAD_MECHANICAL` SHALL map `User.1` to `User.8` to Mechanical 1 to 8, `Dwgs.User` to Mechanical 9, `Cmts.User` to Mechanical 10, and `Eco1.User` and `Eco2.User` to Mechanical 11 and 12; the fabrication and courtyard layers keep Mechanical 13 to 16. A graphic or text on a mapped layer MUST be written there and the document MUST name the layer after its KiCad name.
 
 #### Scenario: Drawing on Dwgs.User
 - **GIVEN** a board with one line on `Dwgs.User` and one text on `F.Cu`
 - **WHEN** it is written and read back
 - **THEN** the line is on Mechanical 9, the text on the top copper layer, and the report loses neither
+
+### Requirement: Copper texts and unmapped layers
+A free text on a copper layer of the written stack MUST be written as a text record on that copper layer. A graphic or text on a layer outside `lower.KICAD_MECHANICAL`, the overlays and the copper layers (`User.9` and above, `Margin`) MUST stay a reported loss with its reason.
+
+#### Scenario: Layer outside the map
+- **GIVEN** a board with one line on `User.9`
+- **WHEN** it is written
+- **THEN** the line is not written and the report counts it lost under `graphic` with the reason that names the layer
 
 ### Requirement: Derived PCB library
 A conversion to Altium SHALL write `<name>.PcbLib` with one footprint per distinct footprint name of the board (the part of `lib_ref` after its last `:`), built from the first instance in reference order in the footprint's frame, and every component of the document MUST link that library. An instance whose pads or graphics differ from its library footprint MUST be counted `changed` under `footprint` with the reason "differs from the library footprint"; the document keeps the instance as it is.

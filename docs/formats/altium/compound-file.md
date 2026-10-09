@@ -69,14 +69,31 @@ also name `H-A-SCHLIB-KICAD`.
 | The order of the entries in the directory array is free: links, not positions, give the trees | S-0145 | INFERRED | H-A-SCHLIB-OPEN |
 | A stream may be empty: its directory entry gives the size 0. Such a stream needs no sector and no mini sector; Fenolite writes ENDOFCHAIN as its starting sector, a choice no section of the specification states for a size of 0 (change c0035, which needs empty `Data` streams; KiCad reads them in a local probe) | S-0145, S-0020 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 
+## DIFAT sectors (change c0160)
+
+Rows added by change c0160, which writes PCB documents whose FAT needs more than the 109 sectors that the
+header lists (two KiCad 10.0.6 demo boards converted to Altium need 119 and 181). They restate the DIFAT
+rows of [MS-CFB] (S-0145, section 2.5) for writing; no saved file of the corpus needs a DIFAT sector, so
+Fenolite's reader (`read/cfb.py`, which follows the chain since change c0039) and KiCad's importer are the
+readers that check them (`H-A-CONV-DIFAT`).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The DIFAT lists every FAT sector in order: the first 109 numbers lie in the header from offset 0x4C, and the rest in DIFAT sectors | S-0145 | INFERRED | H-A-CONV-DIFAT, H-A-SCHBIN-CFB |
+| A DIFAT sector holds `sector size / 4 − 1` FAT sector numbers (127 in version 3), then the number of the next DIFAT sector; the last DIFAT sector holds ENDOFCHAIN there, and its unused entries are FREESECT | S-0145 | INFERRED | H-A-CONV-DIFAT |
+| The header's first DIFAT sector field names the first DIFAT sector (ENDOFCHAIN when there is none) and its number of DIFAT sectors field counts them | S-0145 | INFERRED | H-A-CONV-DIFAT |
+| A DIFAT sector is marked DIFSECT (`0xFFFFFFFC`) in the FAT, as a FAT sector is marked FATSECT; the FAT's own sectors and the DIFAT sectors are counted among the sectors the FAT covers | S-0145 | INFERRED | H-A-CONV-DIFAT |
+| A version 3 file holds at most `0xFFFFFFFA` regular sectors; Fenolite refuses a file past 2³² − 6 sectors or larger than a 32-bit stream size, which no document reaches | S-0145 | INFERRED | H-A-CONV-DIFAT |
+
 ## Fenolite's writer choices
 
 These are choices of the writer, not format facts (design of change c0033):
 
 - version 3, one fixed layout: the header, then the FAT sectors, the directory, the mini FAT, the mini
   stream, then each large stream in the given order; every chain runs through consecutive sectors;
-- the FAT sector count covers the FAT's own sectors; no DIFAT sector is written, and output that needs
-  more than 109 FAT sectors is refused;
+- the FAT sector count covers the FAT's own sectors and the DIFAT sectors; a file that needs 109 FAT
+  sectors or fewer is written with no DIFAT sector (the bytes it had before change c0160), and a larger
+  one with its DIFAT sectors right after the FAT sectors, before the directory (change c0160);
 - every entry is black, with zero CLSIDs, state bits and times; the root's child is the top of a binary
   search tree built from the middle element (`len // 2`) of each sorted run; entries 1 … n are the
   streams in the given order;
