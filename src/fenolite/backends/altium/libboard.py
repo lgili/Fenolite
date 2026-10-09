@@ -20,7 +20,7 @@ thicknesses and the dielectrics between them. Without one, the stack is the two-
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Literal
@@ -168,6 +168,10 @@ class StackSpec:
     drill_pairs: tuple[tuple[int, int], ...] = ()
     """The drill pairs besides the pair of the outer layers (change c0085): the two copper ids of each
     span of a blind or buried via, the upper layer first, in stack order and without repeats."""
+    mechanical_names: tuple[tuple[int, str], ...] = ()
+    """``(n, name)`` of the mechanical layers that carry a name of their own (change c0160: a converted
+    KiCad board names Mechanical 1 to 16 after the KiCad layers of ``lower.KICAD_MECHANICAL``); every
+    other mechanical layer is ``Mechanical <n>``."""
 
     def __post_init__(self) -> None:
         if not valid_stack(self.copper):
@@ -402,8 +406,10 @@ def long_id(layer: int) -> int:
     raise ValueError(f"layer {layer} has no long id")
 
 
-def _name(long: int) -> str:
+def _name(long: int, mechanical: Mapping[int, str] | None = None) -> str:
     group, low = long & 0xFFFF_0000, long & 0xFFFF
+    if group == _MECHANICAL and mechanical and low in mechanical:
+        return mechanical[low]
     if long == _BOTTOM:
         return "Bottom Layer"
     if group == _SIGNAL:
@@ -417,8 +423,8 @@ def _name(long: int) -> str:
     return _MISC_NAMES[low]
 
 
-def _legacy_name(layer: int) -> str:
-    return _name(long_id(layer))
+def _legacy_name(layer: int, mechanical: Mapping[int, str] | None = None) -> str:
+    return _name(long_id(layer), mechanical)
 
 
 def _stack_ids(stack: StackSpec | None = None) -> list[int]:
@@ -488,7 +494,7 @@ def _layer_fields(
     group, low = long & 0xFFFF_0000, long & 0xFFFF
     fields: list[Field] = [
         ("ID", guid(f"layer:{long}")),
-        ("NAME", _name(long)),
+        ("NAME", _name(long, dict(spec.mechanical_names))),
         ("LAYERID", str(long)),
         ("USEDBYPRIMS", _bool(long in used)),
     ]
@@ -625,7 +631,7 @@ def _legacy_layers(
             out.append(RECORD)
         prev, following = links.get(layer, (0, 0))
         fields: tuple[Field, ...] = (
-            ("NAME", _legacy_name(layer)),
+            ("NAME", _legacy_name(layer, dict(spec.mechanical_names))),
             ("PREV", str(prev)),
             ("NEXT", str(following)),
             ("MECHENABLED", _bool(layer in enabled)),

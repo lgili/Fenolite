@@ -2733,6 +2733,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | `convert.lossy` | warning | with `--allow-lossy`: items of a `refuse` kind are not converted (one per kind, counts per reason) |
 | `convert.changed` | info | items of a kind are written in another form that compares equal (one per kind) |
 | `convert.no-verify` | warning | the conversion was not read back |
+| `convert.schematic-unread` | info | the KiCad source's schematic is not read; the generated sheet is written (change c0160) |
 | `convert.unexplained` | error | a difference of the read-back that no lost item explains; nothing is planned |
 
 | exit | error | when |

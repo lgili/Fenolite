@@ -50,7 +50,7 @@ run: 2026-10-05, commit `5fb8ba31`, macOS, local corpus cache, with the heavy ro
 | RT-A0 | 65 | 59 | 59 | 6 (`too-large` 0, `not-a-container` 6, `writer-refused` 0) | `INFERRED` | `H-A-VER-RTA0` pending: the judged PCB libraries come from two repositories |
 | RT-A1 | 65 | 65 | 65 | 0 | `INFERRED` | `H-A-VER-RTA1` pending, for the same reason |
 | RT-A2 | 21 builds | 21 | 21 | 0 | `INFERRED` | `H-A-VER-RTA2-3` (run of 2026-10-06, section "RT-A2") |
-| RT-A3 | 8 PCB documents, 5 project sets | 8 documents, 2 sets | 8 documents, 2 sets | 3 sets (`no-document`) | `INFERRED` (the stage) | `H-A-VER-RTA3` confirmed, `CORPUS-VERIFIED` since change c0127: the eight documents are equal; `H-A-VER-RTA3-PRJ` pending: three sets are not judged (run of 2026-10-06, section "RT-A3") |
+| RT-A3 | 8 PCB documents, 5 project sets | 8 documents, 5 sets | 8 documents, 4 sets | 0 | `INFERRED` (the stage) | `H-A-VER-RTA3` confirmed, `CORPUS-VERIFIED` since change c0127: the eight documents are equal; `H-A-VER-RTA3-PRJ` pending: since change c0160 the five sets are judged and four are equal, `altium-set:02` differs in 19 net names (run of 2026-10-09, section "RT-A3") |
 
 - **Repositories per compound kind** (judged rows of RT-A0): PCB documents 5, PCB libraries
   2, schematic documents 5, schematic libraries 3. The criterion of
@@ -453,16 +453,25 @@ schematic of a rewrite is generated from the circuit, with generic symbols on on
 
 | set | inside the scope | what was compared, or why not | `netlist.assignment_compare` |
 |---|---|---|---|
-| `altium-set:01` | not judged (`no-document`) | the PCB document is written; a comment starts with `=`, which Altium reads as a reference to another parameter; the schematic writer refuses it | — |
-| `altium-set:02` | not judged (`no-document`) | the PCB document is written; the import puts one pin on two nets, and the schematic writer refuses that circuit | — |
+| `altium-set:01` | equal (since change c0160) | circuit and board; a comment that starts with `=` is written as read, and the six pads of components with an empty designator are written as such | original and rewrite: as before (the test asserts that they agree) |
+| `altium-set:02` | judged, 19 differences (since change c0160) | circuit and board; the import puts 127 pins on two nets, each counted lost under `pin-net`; the rewrite holds each pin on the net with more pins, and 19 nets of the first reading that held only such pins are read back under the name of the net that keeps them (`/net/<name>/members`, the one kind that differs) | not run on a set that differs |
 | `altium-set:03` | equal | circuit and board | original: none; rewrite: netlist.uncovered (info) |
-| `altium-set:04` | not judged (`no-document`) | the PCB document is written; a comment holds characters outside Windows-1252, which no form of the schematic holds | — |
+| `altium-set:04` | equal (since change c0160) | circuit and board; a comment outside Windows-1252 is written in the binary form with its `%UTF8%` twin and `?` for each character outside the code page | original and rewrite: as before (the test asserts that they agree) |
 | `altium-set:05` | equal | circuit and board | original: none; rewrite: netlist.uncovered (info) |
 
-Two of five sets are equal; three are not judged, each for a text or a circuit that the schematic
-writer of the build refuses. `H-A-VER-RTA3-PRJ` therefore stays `INFERRED` and pending: its criterion
-asks for the five sets. Decision of the maintainer, 2026-10-06: v0.3 records the sets 01, 02 and 04 as
-not judged; a tolerant schematic write for circuits that were read belongs to v0.5a, with `convert`.
+**Since change c0160** (tolerant schematic write for circuits that were read; measured on 2026-10-09 with
+`FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA`, 5 passed): the five sets are
+judged; four are equal, and `altium-set:02` differs in 19 net names, all of them nets whose pins the
+import also puts on another net (the 127 memberships counted under `pin-net`). Three fixes of the write
+of a read circuit came with it: a symbol name that two lib ids would share in one library gets a number
+(`<symbol>_<n>`), two symbols that no record names are two stand-ins (`PART`, `PART_2`), and a component
+without a reference whose free pad is not written leaves the comparison as its footprint does.
+`H-A-VER-RTA3-PRJ` stays `INFERRED`: its criterion asks for the five sets equal.
+
+Before change c0160: two of five sets were equal; three were not judged, each for a text or a circuit that
+the schematic writer of the build refused. Decision of the maintainer, 2026-10-06: v0.3 records the sets
+01, 02 and 04 as not judged; a tolerant schematic write for circuits that were read belongs to v0.5a, with
+`convert`.
 
 Measured again on 2026-10-06 after the rebase onto the changes c0083 (repeated sheets, pin-to-pad maps)
 and c0088: no verdict and no count of the tables above moved. The three sets are refused for the same
@@ -473,9 +482,9 @@ module of these sets carries a channel index. Since change c0123 the map of a co
 its footprint model, and `pin-pad-map` counts a map that has no footprint model to hold it: two on
 `altium-set:02` (the two components with a map link a footprint without a library, so the generated
 schematic gives them no footprint model; the second map is new, its component had only the two bag
-records before). No set holds a `pin-pads` record. No verdict moved: the three sets are not judged for
-the same reasons. The sets 03 and 05 hold no module and no map. On the two equal sets the rewrite gets one `netlist.uncovered` info that the
-original does not have: the pins of the pads that were not written have no pad on the rewrite.
+records before). No set holds a `pin-pads` record. The sets 03 and 05 hold no module and no map. On the
+two equal sets the rewrite gets one `netlist.uncovered` info that the original does not have: the pins of
+the pads that were not written have no pad on the rewrite.
 
 **KiCad's importer on the rewrites** (`H-A-VER-RTA3-KICAD`; `tests/kicad/altium/test_rta3_oracle.py` on
 `kicad-cli` 10.0.6, probe `altium-rta3-kicad` `equal`). `kicad-cli pcb import` reads each rewrite, and its

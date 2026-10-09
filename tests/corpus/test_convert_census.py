@@ -232,3 +232,51 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     envelope = json.loads(out.getvalue())
     lossy = {i["where"] for i in envelope["issues"] if i["code"] == "convert.lossy"}
     assert lossy == refused and envelope["result"]["plan"]
+
+
+SCHEMATIC_ROWS = {"complex_hierarchy": ("02", ("kicad-demo-10-0-6-sch-01", "kicad-demo-10-0-6-sch-010"))}
+"""The demo projects whose schematic tree the corpus holds beside the board (change c0160): name →
+(board key, schematic rows, root first)."""
+
+
+@pytest.mark.needs_kicad
+@pytest.mark.parametrize("name", sorted(SCHEMATIC_ROWS))
+def test_converted_schematic(name: str, tmp_path: Path) -> None:
+    """Scenario "Netlist kept" (change c0160, ``H-A-CONV-SCHEMATIC``): the project folder (the board and its
+    sheets) is converted; the written project holds one schematic document per KiCad sheet, and its circuit
+    read by Fenolite equals the KiCad schematic's at levels 1 and 2. The KiCad side's netlist is exported
+    by ``kicad-cli`` (the tree is outside the grammar of Fenolite's own netlist)."""
+    import dataclasses
+    import shutil
+
+    from fenolite.api import equivalent
+    from fenolite.backends.kicad import parity_inputs
+    from fenolite.convert import convert_project
+    from fenolite.convert.schematic import sheet_paths
+
+    key, rows = SCHEMATIC_ROWS[name]
+    sheets = {item.id: item for item in manifest_items("sch")}
+    folder = tmp_path / name
+    folder.mkdir()
+    shutil.copyfile(require(ITEMS[key]), folder / f"{name}.kicad_pcb")
+    for row in rows:
+        source = require(sheets[row])
+        shutil.copyfile(source, folder / source.name)
+    root = folder / f"{name}.kicad_sch"
+    conversion = convert_project(folder / f"{name}.kicad_pcb", to="altium", allow_lossy=True)
+    tree = sheet_paths(parity_inputs.read_sheets(root), root.name, name)
+    documents = sorted(file for file in conversion.files if file.endswith(".SchDoc"))
+    print(f"{name}: {len(tree)} KiCad sheets, {documents}")
+    assert len(documents) == len(tree) == 3
+    out = tmp_path / "out"
+    out.mkdir()
+    for file, data in conversion.files.items():
+        (out / file).write_bytes(data)
+    backend = registry.for_path(out / f"{name}.PrjPcb")
+    assert backend is not None
+    design = backend.read(out / f"{name}.PrjPcb").content
+    assert isinstance(design, Design)
+    result = equivalent(dataclasses.replace(design, board=None), root)
+    print(f"{name}: levels {[(lv.level, lv.compared) for lv in result.report.levels]}")
+    assert [level.level for level in result.report.levels] == [1, 2]
+    assert result.report.differences == ()

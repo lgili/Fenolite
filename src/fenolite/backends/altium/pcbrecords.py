@@ -20,7 +20,7 @@ import hashlib
 import re
 import struct
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_EVEN, Context, Decimal, localcontext
 from fractions import Fraction
 from types import MappingProxyType
@@ -520,6 +520,40 @@ def corner_percent(ratio: Fraction | Decimal) -> int:
     return max(0, min(100, _round_away(Fraction(ratio) * 200)))
 
 
+@dataclass(frozen=True, slots=True)
+class LayerShape:
+    """The copper of a pad on one layer of its stack (change c0160): the size in binary units, the main
+    shape (1 round, 2 rectangle) and, for a rounded rectangle, its corner percentage."""
+
+    size: tuple[int, int]
+    shape: int
+    corner: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PadStackRecord:
+    """The stack of a pad beyond the Simple mode, and its hole form (change c0160; ``pcb-library.md``,
+    "Pads of a converted board"). ``mode`` is 0, 1 or 2; ``top`` is the top's copper in place of the
+    pad's size, shape and corner; ``mid`` is the copper of every mid layer in
+    mode 1 (and of a mid layer without an entry in mode 2); ``inner`` maps Mid-Layer n (1 … 29) to its
+    copper in mode 2; ``bottom`` is the bottom's copper (the top's is the pad's own). ``hole_shape`` is 0
+    round, 1 square, 2 slot, with ``slot_length`` in binary units and ``slot_rotation`` in degrees
+    relative to the pad."""
+
+    mode: int = 0
+    top: LayerShape | None = None
+    mid: LayerShape | None = None
+    bottom: LayerShape | None = None
+    inner: Mapping[int, LayerShape] = field(default_factory=lambda: MappingProxyType({}))
+    hole_shape: int = 0
+    slot_length: int = 0
+    slot_rotation: float = 0.0
+
+
+MANUAL_EXPANSION = 2
+"""The mask and paste mode of a manual expansion (``pcb-records.md``, "Pad")."""
+
+
 def pad_record(
     *,
     name: str,
@@ -534,24 +568,60 @@ def pad_record(
     corner: int | None = None,
     net: int = NO_INDEX,
     component: int = NO_INDEX,
+    stack: PadStackRecord | None = None,
+    paste: int | None = None,
+    mask: int | None = None,
 ) -> bytes:
     """A pad (type 2): six subrecords. Lengths in binary units, ``rotation`` in degrees; ``corner`` is the
-    corner percentage of a rounded rectangle, which adds the 596-byte subrecord 6."""
-    w, h = size
+    corner percentage of a rounded rectangle, which adds the 596-byte subrecord 6. ``stack`` (change c0160)
+    writes a Top-Middle-Bottom or Full Stack pad or a slotted hole; ``paste`` and ``mask`` are manual
+    expansions (binary units) in place of the paste mode 0 and the solder mode from the rules. Without
+    them a pad keeps the bytes it had before."""
+    top = stack.top if stack is not None and stack.top is not None else LayerShape(size, shape, corner)
+    (w, h), shape, corner = top.size, top.shape, top.corner
+    mode = stack.mode if stack is not None else 0
+    mid = stack.mid if stack is not None and stack.mid is not None else top
+    bottom = stack.bottom if stack is not None and stack.bottom is not None else top
+    if mode == 0:
+        mid = bottom = top
     geometry = prefix(layer, net=net, component=component)
-    geometry += struct.pack("<2i6ii3Bd3B", x, y, w, h, w, h, w, h, hole, shape, shape, shape, rotation,
-                            1 if plated else 0, 0, 0)  # fmt: skip
+    geometry += struct.pack("<2i6ii3Bd3B", x, y, w, h, *mid.size, *bottom.size, hole, shape, mid.shape,
+                            bottom.shape, rotation, 1 if plated else 0, 0, mode)  # fmt: skip
     geometry += struct.pack("<Biihiii", *_V1_DEFAULTS)
-    geometry += struct.pack("<2i", 0, 0) + bytes(7) + struct.pack("<2B", 0, SOLDER_FROM_RULES) + bytes(3)
+    paste_mode, mask_mode = (0, SOLDER_FROM_RULES)
+    if paste is not None:
+        paste_mode = MANUAL_EXPANSION
+    if mask is not None:
+        mask_mode = MANUAL_EXPANSION
+    geometry += (
+        struct.pack("<2i", paste or 0, mask or 0) + bytes(7) + struct.pack("<2B", paste_mode, mask_mode)
+    )
+    geometry += bytes(3)
     geometry += struct.pack("<iHh", 0, 0, 0)
     assert len(geometry) == PAD_GEOMETRY_SIZE
     layers = b""
-    if corner is not None:
-        if not 0 <= corner <= 100:
-            raise ValueError(f"corner percentage {corner} is outside 0 … 100")
-        layers = struct.pack(f"<{_INNER}i", *[w] * _INNER) + struct.pack(f"<{_INNER}i", *[h] * _INNER)
-        layers += bytes([shape] * _INNER) + bytes(2) + struct.pack("<id", 0, 0.0)
-        layers += bytes(8 * _STACK) + b"\x01" + bytes([ROUNDED_ALTERNATE] * _STACK) + bytes([corner] * _STACK)
+    hole_shape = stack.hole_shape if stack is not None else 0
+    corners = [c.corner for c in (top, mid, bottom, *(stack.inner.values() if stack else ()))]
+    if corner is not None or mode == 2 or hole_shape or any(c is not None for c in corners):
+        for found in corners:
+            if found is not None and not 0 <= found <= 100:
+                raise ValueError(f"corner percentage {found} is outside 0 … 100")
+        inner = [
+            (stack.inner.get(n, mid) if stack is not None and mode == 2 else mid)
+            for n in range(1, _INNER + 1)
+        ]
+        # index 0 the top, the layer id − 1 for a mid layer (Mid-Layer n: n), 31 the bottom
+        per_layer = [top, *inner, mid, bottom]
+        rounded = any(c.corner is not None for c in per_layer)
+        layers = struct.pack(f"<{_INNER}i", *(c.size[0] for c in inner))
+        layers += struct.pack(f"<{_INNER}i", *(c.size[1] for c in inner))
+        layers += bytes(c.shape for c in inner) + bytes(1) + bytes((hole_shape,))
+        slot_length = stack.slot_length if stack is not None else 0
+        slot_rotation = stack.slot_rotation if stack is not None else 0.0
+        layers += struct.pack("<id", slot_length, slot_rotation)
+        layers += bytes(8 * _STACK) + (b"\x01" if rounded else b"\x00")
+        layers += bytes(ROUNDED_ALTERNATE if c.corner is not None else c.shape for c in per_layer)
+        layers += bytes(c.corner or 0 for c in per_layer)
         assert len(layers) == PAD_LAYERS_SIZE
     named = short_string(name) if name else b"\0"  # a hole of the board has no name (change c0085)
     parts = (named, b"\0", PAD_SUBRECORD_3, b"\0", geometry, layers)
@@ -839,10 +909,13 @@ __all__ = [
     "MULTI_LAYER",
     "NO_INDEX",
     "PAD",
+    "MANUAL_EXPANSION",
     "PAD_GEOMETRY_SIZE",
     "PAD_LAYERS_SIZE",
     "PAD_SHAPES",
     "ROUNDED_ALTERNATE",
+    "LayerShape",
+    "PadStackRecord",
     "TEXT",
     "TRACK",
     "TRACK_SIZE",

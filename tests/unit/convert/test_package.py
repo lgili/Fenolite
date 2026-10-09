@@ -37,7 +37,9 @@ def test_hermetic_conversion(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(subprocess, "run", refuse)
     monkeypatch.setattr(subprocess, "Popen", refuse)
     conversion = convert_project(folder / TWO_LAYER.name, to="altium")
-    assert sorted(conversion.files) == [f"two_layer.{s}" for s in ("PcbDoc", "PrjPcb", "SchDoc", "SchLib")]
+    assert sorted(conversion.files) == [
+        f"two_layer.{s}" for s in ("PcbDoc", "PcbLib", "PrjPcb", "SchDoc", "SchLib")
+    ]
     assert conversion.read_back == "two_layer.PcbDoc" and conversion.target == "altium"
     assert _snapshot(folder) == before
 

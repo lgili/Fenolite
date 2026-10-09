@@ -40,7 +40,7 @@
 - **THEN** it does not raise, and its issues hold one `altium.not-lowered` info whose `where` is `dnp` and whose message counts 1
 
 #### Scenario: Every reason kept
-- **GIVEN** a design with one custom pad and one connector pad
+- **GIVEN** a design with one custom pad and one trapezoid pad (one connector pad until change c0160, which writes it)
 - **WHEN** `lower.from_design(design)` runs
 - **THEN** `inputs.lost["pad"]` holds two reasons with one id each, and `inputs.reasons["pad"]` is the first of them
 

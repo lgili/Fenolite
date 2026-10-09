@@ -41,8 +41,8 @@ c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*
 an import row ``H-A-IMP-*`` (c0043), a row of the complete PCB document ``H-A-PCBX-*`` (c0085), a row
 of the output-job and template writers (c0087), a rule-lowering row ``H-A-RULE-*`` (c0084), or a row of
 the complete schematic ``H-A-SCHX-*`` (c0086; the fix c0135 of the 0.2.x line added the family there for
-its two rows of the pin map), or a row of the light DRC ``H-A-DRC-*`` (c0088), or a write row of the KiCad-to-Altium conversion
-``H-A-CONV-*`` (c0160)."""
+its two rows of the pin map), or a row of the light DRC ``H-A-DRC-*`` (c0088), or a write row of the
+KiCad-to-Altium conversion ``H-A-CONV-*`` (c0160)."""
 
 
 def _cells(line: str) -> list[str]:

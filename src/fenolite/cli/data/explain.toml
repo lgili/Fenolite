@@ -1203,6 +1203,11 @@ meaning = "The converted project was not read back and compared with the source 
 fix = "Run the conversion without --no-verify."
 see = "convert"
 
+["convert.schematic-unread"]
+meaning = "The KiCad source's root schematic (or a sheet of its tree) could not be read, so the converted project holds the schematic generated from the circuit on one sheet, not the source's own symbols and sheets."
+fix = "Check that every sheet of the tree is beside the root schematic and loads in KiCad; the message names the error."
+see = "convert"
+
 ["convert.unexplained"]
 meaning = "The converted project, read back, differs from the source at 'where', and no item that the report names as lost explains it: a writer changed the design without saying so. Nothing was written."
 fix = "Report it with the source; the message names the level, the kind and the two values."

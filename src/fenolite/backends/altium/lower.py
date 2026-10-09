@@ -30,6 +30,7 @@ import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
+from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
@@ -101,6 +102,8 @@ MORE_KINDS: tuple[str, ...] = (
     "net-tie",
     "severity",
     "dnp",
+    "comment",
+    "pin-net",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -117,6 +120,22 @@ copper layer, which is not written; ``footprint-text`` a text or a field that th
 ``AltiumInputs.written`` counts the written graphics and texts under the first and the third key. ``dnp``
 (change c0159) is a component whose do-not-populate flag is set: the documents hold no fitted flag outside
 variants, so the part is written as fitted."""
+COMMENT_KIND = "comment"
+"""A comment of a circuit read from KiCad that starts with ``=`` (change c0160): written with a leading
+space, counted ``changed``. Not in ``LOSS_KINDS``."""
+COMMENT_REASON = (
+    "a comment that starts with '=' is written with a leading space: Altium reads '=' as a reference to "
+    "another parameter"
+)
+EMPTY_COMMENT_REASON = "an empty comment is written as the name of the symbol: a comment needs a text"
+PIN_NET_KIND = "pin-net"
+"""A pin that the import of a circuit puts on two nets (change c0160): written on the net with more pins,
+the other membership counted lost. Not in ``LOSS_KINDS``: the board is written as read."""
+PIN_NET_REASON = (
+    "the pin is on two nets in the circuit that was read: it is written on the net with more pins"
+)
+READ_BACKENDS = ("altium", "kicad")
+"""The backends whose components are a circuit read from a file (``Provenance.backend``)."""
 DNP_KIND = "dnp"
 DNP_REASON = "the Altium documents hold no fitted flag outside variants"
 NET_TIE_KIND = "net-tie"
@@ -127,6 +146,11 @@ SEVERITY_KIND = "severity"
 """A check severity of ``RuleSet.severities`` (change c0114): KiCad data, and no rule kind, so the rule
 table has no row for it and none is written. Not in ``LOSS_KINDS``."""
 NET_TIE_REASON = "the pads are written, without a mark that ties them: a net-tie group is KiCad data"
+CONNECT_REASON = (
+    "a connector pad is written as a surface pad whose paste expansion removes its paste opening, and its "
+    "mask expansion its mask opening where it lists no mask layer"
+)
+"""The reason of a ``connect`` pad (change c0160): counted ``changed`` under ``pad``."""
 
 
 def severity_reason(codes: Sequence[str]) -> str:
@@ -173,6 +197,25 @@ MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType({f"Mech.{n}": 56 + n for
 """The names the import gives the mechanical layers 1 to 16 (``adapter.layers``) and their Altium ids
 (``pcb-records.md``, "Layer ids"): the layers of the items of a board that was read from an Altium
 document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126)."""
+KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
+    {
+        **{f"User.{n}": 56 + n for n in range(1, 9)},
+        "Dwgs.User": 65,
+        "Cmts.User": 66,
+        "Eco1.User": 67,
+        "Eco2.User": 68,
+        "F.Fab": 69,
+        "B.Fab": 70,
+        "F.CrtYd": 71,
+        "B.CrtYd": 72,
+    }
+)
+"""The closed map of KiCad's drawing and user layers to Altium's mechanical layers (change c0160;
+``docs/conversion.md``, "The layer map"): ``User.1`` to ``User.8`` on Mechanical 1 to 8, ``Dwgs.User`` on 9,
+``Cmts.User`` on 10, ``Eco1.User`` and ``Eco2.User`` on 11 and 12, and the fabrication and courtyard layers
+on 13 to 16, where ``pcbrecords.LAYER_MAP`` puts them since c0126. A layer outside it (``User.9`` and
+above, ``Margin``) stays a reported loss. The written document names each of these mechanical layers after
+its KiCad layer."""
 DEFINITION_LAYERS: frozenset[str] = frozenset(
     name for name, ident in rec.LAYER_MAP.items() if ident in rec.FLIP_PAIRS and not name.endswith(".Cu")
 )
@@ -221,6 +264,15 @@ class AltiumInputs:
         default_factory=lambda: MappingProxyType({})
     )
     """Kind → reason → the ids of the model items left out for that reason, in the order of the write."""
+    changed: Mapping[str, Mapping[str, tuple[str, ...]]] = dataclasses.field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    """Kind → reason → the ids of the model items written in another form (change c0160): a pad without a
+    number written as a free pad, a connector pad written as a surface pad without openings. They are
+    not counted in ``written``."""
+    library: tuple[pcblib.LibFootprint, ...] = ()
+    """The footprints of the derived ``<name>.PcbLib`` of a conversion (change c0160, ``library=True``);
+    empty otherwise."""
 
     def counts(self) -> dict[str, int]:
         """Kind → number of model items that are not written, for the kinds that have any."""
@@ -281,7 +333,9 @@ class _Account:
         self.kept: dict[str, list[str]] = {}
         self.reasons: dict[str, str] = {}
         self.lost: dict[str, dict[str, list[str]]] = {}
+        self.changed: dict[str, dict[str, list[str]]] = {}
         self.body_reasons: dict[str, int] = {}
+        self.library: tuple[pcblib.LibFootprint, ...] = ()
 
     def wrote(self, kind: str, count: int = 1) -> None:
         self.written[kind] = self.written.get(kind, 0) + count
@@ -290,6 +344,10 @@ class _Account:
         self.kept.setdefault(kind, []).append(ident)
         self.reasons.setdefault(kind, reason)
         self.lost.setdefault(kind, {}).setdefault(reason, []).append(ident)
+
+    def change(self, kind: str, ident: str, reason: str) -> None:
+        """An item written in another form (change c0160), not counted as written."""
+        self.changed.setdefault(kind, {}).setdefault(reason, []).append(ident)
 
     def skip_body(self, ident: str, reason: str) -> None:
         """A component body that is not written, counted under ``body`` and by its reason."""
@@ -652,9 +710,10 @@ def _extras(pad: Pad, ratios: Mapping[str, Decimal]) -> pcblib.PadExtras:
 
 
 def _pad_problem(pad: Pad, extras: pcblib.PadExtras, *, unnamed: bool = False) -> str | None:
-    """Why the pad record cannot hold ``pad`` (``pcblib.check_footprint``), or ``None``. ``unnamed``
-    accepts a pad without a number: a free pad has none. The reason names no pad number (change c0159):
-    the items left out are counted per reason, and the pad is named by its id."""
+    """Why the pad record cannot hold ``pad`` (``pcblib.check_footprint``), or ``None``. A pad without a
+    number is written with an empty designator (change c0160); ``unnamed`` is kept for the callers of
+    before. The reason names no pad number (change c0159): the items left out are counted per reason, and
+    the pad is named by its id."""
     probe = dataclasses.replace(pad, number="1") if unnamed and not pad.number else pad
     refusal = pcblib.check_footprint(
         FootprintDef(id=pad.id, name="pad", pads=(probe,)), {pad.id: extras}
@@ -665,17 +724,50 @@ def _pad_problem(pad: Pad, extras: pcblib.PadExtras, *, unnamed: bool = False) -
     return refusal
 
 
+OUTER_ONLY_REASON = (
+    "the through-hole pad has copper on the outer layers only, and a pad on Multi-Layer has it on every "
+    "copper layer of the stack"
+)
+"""Why a through-hole pad of a board with inner layers is not written when its layers name the outer
+copper layers only (change c0160: such pads had no number in the demo boards and were lost for that)."""
+
+
+NO_COPPER_REASON = "the hole has no copper layer, and a pad on Multi-Layer has copper on every copper layer"
+"""Why a non-plated hole of a footprint that lists no copper layer is not written (change c0160)."""
+
+
+def _outer_only(pad: Pad, copper: Sequence[str]) -> str | None:
+    """``OUTER_ONLY_REASON`` for a through-hole pad without a padstack whose copper layers are the outer
+    layers of a stack with inner layers, ``NO_COPPER_REASON`` for a non-plated hole of a model read from
+    KiCad that lists no copper layer, else ``None``."""
+    if pad.kind not in ("thru_hole", "np_thru_hole") or pad.padstack is not None:
+        return None
+    layers = set(pad.layers)
+    if pad.kind == "np_thru_hole" and layers and not any(name.endswith(".Cu") for name in layers):
+        return NO_COPPER_REASON
+    if len(copper) <= 2:
+        return None
+    if layers & {"*.Cu", "In*.Cu"} or not layers & {"F.Cu", "B.Cu", "F&B.Cu"}:
+        return None
+    return OUTER_ONLY_REASON if not all(name in layers for name in copper[1:-1]) else None
+
+
 def _library_pad(pad: Pad, *, bottom: bool) -> Pad:
     """An instance's pad as ``pcbdoc.place_component`` takes it: on the bottom side the writer mirrors the
     position and the angle and swaps the layers, so they are given as on the top side."""
     if not bottom:
         return dataclasses.replace(pad, net_id=None)
+    stack = pad.padstack
+    if stack is not None:  # change c0160: the stack's sides swap, and its slot is mirrored with the pad
+        layers = tuple(dataclasses.replace(entry, layer=_other_side(entry.layer)) for entry in stack.layers)
+        stack = dataclasses.replace(stack, layers=layers, hole_rotation=(-stack.hole_rotation) % FULL_TURN)
     return dataclasses.replace(
         pad,
         net_id=None,
         position=Point(pad.position.x, -pad.position.y),
         rotation=(-pad.rotation) % FULL_TURN,
         layers=tuple(_other_side(layer) for layer in pad.layers),
+        padstack=stack,
     )
 
 
@@ -710,6 +802,7 @@ def _footprint_items(
     copper: Sequence[str],
     frame: pcbdoc.Frame,
     account: _Account,
+    text_layers: Mapping[str, int] | None = None,
 ) -> _Items:
     """The graphics, the fields ``Reference`` and ``Value`` and the texts of ``fp`` as the document writes
     them (capability altium-pcb-writer, "Footprint items of a written component"; change c0126).
@@ -760,7 +853,7 @@ def _footprint_items(
             account.skip("footprint-graphic", graphic.id, problem)
 
     def place(item: Text | FootprintField, what: str) -> pcbdoc.TextPlace | None:
-        layer = pcbdoc.board_layer(item.layer, layers)
+        layer = pcbdoc.board_layer(item.layer, text_layers if text_layers is not None else layers)
         height, stroke = item.size.h, item.thickness
         problem = None
         if layer is None:
@@ -812,6 +905,18 @@ def _link(text: str, suffix: str) -> tuple[str, str]:
     return (library if _field_ok(library) else "", name if name and text_problem(name) is None else "")
 
 
+def sheet_link(module: str) -> tuple[str, str]:
+    """``(sheet symbols, sheet names)`` of a component on the sheet of ``module``: the unique ids of the
+    sheet symbols of its module, one per level from the top sheet down, and their names (change c0086,
+    "Sheets of a module tree"), as a PCB component's link to its sheet holds them."""
+    import fenolite.backends.altium.hierarchy as hierarchy
+
+    segments = module.split(hierarchy.PATH_SEPARATOR)
+    chain = [hierarchy.PATH_SEPARATOR.join(segments[: k + 1]) for k in range(len(segments))]
+    symbols = "\\".join(project.unique_id(hierarchy.symbol_key(m)) for m in chain)
+    return symbols, "\\".join(segments)
+
+
 def _built_component(
     component: Component, fp: FootprintInstance, options: LowerOptions
 ) -> tuple[str, str, str, str, str, str, tuple[str, str] | None]:
@@ -826,12 +931,7 @@ def _built_component(
     link = project.split_link(component.lib_symbol_ref)
     symbol = link[1] if link is not None else ""
     module = hierarchy.sheet_of(component) if options.sheets == "modules" else None
-    sheet: tuple[str, str] | None = None
-    if module is not None:
-        segments = module.split(hierarchy.PATH_SEPARATOR)
-        chain = [hierarchy.PATH_SEPARATOR.join(segments[: k + 1]) for k in range(len(segments))]
-        symbols = "\\".join(project.unique_id(hierarchy.symbol_key(m)) for m in chain)
-        sheet = (symbols, "\\".join(segments))
+    sheet = sheet_link(module) if module is not None else None
     return (
         pattern,
         project.pcblib_name(fp.lib_ref, design=options.name),
@@ -841,6 +941,96 @@ def _built_component(
         written_comment(component)[0],
         sheet,
     )
+
+
+LIBRARY_CHANGED = "differs from the library footprint"
+"""The reason of an instance whose pads or graphics differ from its footprint in the derived library
+(change c0160): it is counted ``changed`` under ``footprint``, and the document keeps it as it is."""
+_NUMBER_RUN = re.compile(r"([0-9]+)")
+
+
+def reference_key(ref: str) -> tuple[tuple[int, int | str], ...]:
+    """The order of references: their runs of digits by value (``R2`` before ``R10``), the rest as text."""
+    return tuple((1, int(part)) if part.isdigit() else (0, part) for part in _NUMBER_RUN.split(ref) if part)
+
+
+@dataclass
+class _Derived:
+    """The derived PCB library of a conversion (change c0160): the design's name and each written
+    component's reference, footprint id and footprint, in board order."""
+
+    name: str
+    instances: list[tuple[str, str, pcblib.LibFootprint]] = dataclasses.field(default_factory=lambda: [])
+    modules: Mapping[str, str] = dataclasses.field(default_factory=lambda: {})
+    """Component id → the module whose sheet holds it in the written schematic (``sheets="modules"``)."""
+
+
+def _shape_key(footprint: pcblib.LibFootprint) -> tuple[object, ...]:
+    """What the library compares of two instances: the pads and the drawn graphics of their definitions in
+    the top-side form, without ids, nets or bags, as text in a fixed order."""
+    pads = sorted(
+        repr(
+            (
+                pad.number,
+                pad.kind,
+                pad.shape,
+                (pad.size.w, pad.size.h),
+                (pad.position.x, pad.position.y),
+                pad.rotation % FULL_TURN,
+                pad.drill,
+                tuple(sorted(pad.layers)),
+                pad.corner_ratio,
+                None
+                if pad.padstack is None
+                else (
+                    tuple(
+                        (e.layer, e.shape, (e.size.w, e.size.h), (e.offset.x, e.offset.y))
+                        for e in pad.padstack.layers
+                    ),
+                    pad.padstack.hole_shape,
+                    pad.padstack.hole_length,
+                    pad.padstack.hole_rotation,
+                ),
+            )
+        )
+        for pad in footprint.defn.pads
+    )
+    graphics = sorted(
+        repr((g.kind, g.layer, tuple((p.x, p.y) for p in g.points), g.width, g.filled))
+        for g in footprint.defn.graphics
+    )
+    return (tuple(pads), tuple(graphics))
+
+
+def derived_library(
+    instances: Sequence[tuple[str, str, pcblib.LibFootprint]], account: _Account
+) -> tuple[pcblib.LibFootprint, ...]:
+    """One footprint per distinct name, from its first instance in reference order (capability
+    altium-pcb-writer, "Derived PCB library"; change c0160). An instance whose pads or graphics differ from
+    that footprint is counted ``changed`` under ``footprint`` with ``LIBRARY_CHANGED`` and is not counted
+    as written; the document keeps it as it is. A name whose library storage another name already takes
+    is not in the library, and its instances are counted with that reason."""
+    from fenolite.backends.altium.schlib import storage_name
+
+    first: dict[str, tuple[pcblib.LibFootprint, tuple[object, ...]]] = {}
+    storages: dict[str, str] = {}
+    for _ref, ident, footprint in sorted(instances, key=lambda item: (reference_key(item[0]), item[1])):
+        name = footprint.defn.name
+        key = _shape_key(footprint)
+        if name not in first:
+            storage = storage_name(name).upper()
+            if storage in storages and storages[storage] != name:
+                reason = f"its library footprint {name!r} shares a storage name with {storages[storage]!r}"
+                account.change("footprint", ident, reason)
+                account.wrote("footprint", -1)
+                continue
+            storages[storage] = name
+            first[name] = (footprint, key)
+            continue
+        if first[name][1] != key:
+            account.change("footprint", ident, LIBRARY_CHANGED)
+            account.wrote("footprint", -1)
+    return tuple(found for found, _key in first.values())
 
 
 def _footprints(
@@ -856,6 +1046,8 @@ def _footprints(
     layer_ids: Mapping[str, int] | None = None,
     copper: Sequence[str] = (),
     options: LowerOptions | None = None,
+    text_ids: Mapping[str, int] | None = None,
+    derived: _Derived | None = None,
 ) -> tuple[list[pcbdoc.PlacedComponent], list[pcbdoc.FreePad]]:
     """The components and the free pads of the document. With ``bodies`` ``extruded`` (change c0121) the
     bodies of a written footprint that have a record are appended to ``placed_bodies``, placed in
@@ -902,9 +1094,17 @@ def _footprints(
         nets_by_pad: dict[str, str] = {}
         for pad in fp.pads:
             extras = _extras(pad, ratios)
-            problem = _pad_problem(pad, extras)
+            problem = _pad_problem(pad, extras) or _outer_only(pad, copper)
             if problem is not None:
                 account.skip("pad", pad.id, problem)
+                continue
+            if pad.kind == "connect":
+                account.change("pad", pad.id, CONNECT_REASON)
+                pads.append(_library_pad(pad, bottom=bottom))
+                extras_of[pad.id] = extras
+                name = net_names.get(pad.net_id or "")
+                if name is not None:
+                    nets_by_pad[pad.id] = name
                 continue
             pads.append(_library_pad(pad, bottom=bottom))
             extras_of[pad.id] = extras
@@ -920,11 +1120,20 @@ def _footprints(
         if options is not None and component is not None:
             built = _built_component(component, fp, options)
             pattern, library, symbol, symbol_library, unique, comment, sheet = built
+        elif derived is not None:  # change c0160: every component links the derived library
+            found = fp.lib_ref.rpartition(":")[2]
+            pattern = found if found and text_problem(found) is None and _field_ok(found) else ""
+            library = f"{derived.name}.PcbLib"
+            module = derived.modules.get(component.id) if component is not None else None
+            sheet = sheet_link(module) if module else None
         own = _Items()
         if frame is not None and (fp.graphics or fp.texts or fp.fields):
             ids = {**rec.BOARD_LAYER_MAP, **(layer_ids or {})}
-            own = _footprint_items(fp, ids, copper, frame, account)
+            texts = {**rec.BOARD_LAYER_MAP, **(text_ids or layer_ids or {})}
+            own = _footprint_items(fp, ids, copper, frame, account, texts)
         defn = FootprintDef(id=fp.id, name=pattern or "FOOTPRINT", pads=tuple(pads), graphics=own.graphics)
+        if derived is not None:
+            derived.instances.append((ref, fp.id, pcblib.LibFootprint(defn, extras_of)))
         native = _FP_NATIVE.fullmatch(fp.native_ids.get(BACKEND, ""))
         placed.append(
             pcbdoc.PlacedComponent(
@@ -950,7 +1159,7 @@ def _footprints(
             )
         )
         account.wrote("footprint")
-        account.wrote("pad", len(pads))
+        account.wrote("pad", sum(1 for pad in pads if pad.kind != "connect"))
         for body in fp.bodies:
             if bodies == "off" or frame is None or placed_bodies is None:
                 account.skip_body(body.id, pcbdoc.BODIES_OFF)
@@ -1089,11 +1298,15 @@ def _items(
     records: dict[str, rec.ArcGeometry],
     account: _Account,
     layer_ids: Mapping[str, int] | None = None,
+    text_ids: Mapping[str, int] | None = None,
 ) -> tuple[list[Text], list[Graphic], list[Keepout], list[Hole]]:
+    """The free texts, graphics, keep-outs and holes of the document. ``text_ids`` are the layers a text may
+    lie on besides ``BOARD_LAYER_MAP`` (change c0160: the copper layers of a converted board), ``layer_ids``
+    those of a graphic."""
     texts: list[Text] = []
     for text in board.texts:
         problem = pcbdoc.text_problem_of(text)
-        if pcbdoc.board_layer(text.layer, layer_ids) is None:
+        if pcbdoc.board_layer(text.layer, text_ids if text_ids is not None else layer_ids) is None:
             problem = f"the layer {text.layer} has no layer in the document for a text"
         if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
             problem = "the text record has no key for a justification other than centred"
@@ -1178,7 +1391,131 @@ def unique_links(design: Design) -> dict[str, str]:
     return {ident: unique for ident, unique in found.items() if unique is not None and count[unique] == 1}
 
 
-def schematic_design(design: Design, name: str) -> Design:
+def _read_from(component: Component) -> str | None:
+    """The backend a component was read from, when it is one of ``READ_BACKENDS``."""
+    provenance = component.provenance
+    backend = provenance.backend if provenance is not None else None
+    return backend if backend in READ_BACKENDS else None
+
+
+def written_comment_of(component: Component) -> str:
+    """The comment that the generated schematic gives a component of a circuit that was read (change
+    c0160): its value, with a leading space when a KiCad value starts with ``=``, else the name of its
+    symbol (``schematic_design``)."""
+    value = component.value
+    if value:
+        return " " + value if value.startswith("=") and _read_from(component) == "kicad" else value
+    return component.lib_symbol_ref.rpartition(":")[2] or "PART"
+
+
+def _comment_read(component: Component, account: _Account | None) -> Component:
+    """A component of a circuit read from a file, with its comment as the writer takes it (change c0160):
+    a comment that starts with ``=`` and was read from Altium is written as read, one read from KiCad with
+    a leading space and counted ``changed`` under ``comment``; a comment outside ``CODE_PAGE`` is written
+    with its ``%UTF8%`` twin in the binary form. Every other component is returned as it is."""
+    backend = _read_from(component)
+    if backend is None:
+        return component
+    if not component.value:
+        if account is not None and component.ref:
+            account.change(COMMENT_KIND, component.id, EMPTY_COMMENT_REASON)
+        return component
+    value = component.value
+    tolerant = value.startswith("=") or any(not ch.isascii() for ch in value)
+    if not tolerant:
+        return component
+    if value.startswith("=") and backend == "kicad":
+        value = " " + value
+        if account is not None:
+            account.change(COMMENT_KIND, component.id, COMMENT_REASON)
+    properties = {**component.properties, project.READ_COMMENT_PROPERTY: "1"}
+    return dataclasses.replace(component, value=value, properties=properties)
+
+
+def pin_net_drops(design: Design) -> dict[str, set[tuple[str, str]]]:
+    """Net id → the memberships ``(component id, pin)`` that the tolerant write takes out of it (change
+    c0160): a pin of a circuit read from a file that two nets hold stays on the net with more pins (the
+    smaller name on a tie)."""
+    read = {c.id for c in design.circuit.components if _read_from(c) is not None}
+    holders: dict[tuple[str, str], list[Net]] = {}
+    for net in design.circuit.nets:
+        for member in net.members:
+            if member.component_id in read:
+                holders.setdefault((member.component_id, member.pin), []).append(net)
+    dropped: dict[str, set[tuple[str, str]]] = {}
+    for key, nets in holders.items():
+        unique = list({net.id: net for net in nets}.values())
+        if len(unique) < 2:
+            continue
+        keep = min(unique, key=lambda net: (-len(net.members), net.name))
+        for net in unique:
+            if net.id != keep.id:
+                dropped.setdefault(net.id, set()).add(key)
+    return dropped
+
+
+def _one_net_per_pin(design: Design, account: _Account | None) -> tuple[Net, ...]:
+    """The nets of a circuit read from a file with each pin on one net (``pin_net_drops``); each membership
+    taken out is counted lost under ``pin-net`` with the id of its net."""
+    dropped = pin_net_drops(design)
+    for net_id, keys in dropped.items():
+        for _key in sorted(keys):
+            if account is not None:
+                account.skip(PIN_NET_KIND, net_id, PIN_NET_REASON)
+    if not dropped:
+        return design.circuit.nets
+    return tuple(
+        dataclasses.replace(
+            net,
+            members=tuple(
+                m for m in net.members if (m.component_id, m.pin) not in dropped.get(net.id, set())
+            ),
+        )
+        for net in design.circuit.nets
+    )
+
+
+def _numbered(symbol: str, number: int) -> str:
+    """``<symbol>_<number>``, the symbol cut so that the name fits a storage name (31 characters)."""
+    suffix = f"_{number}"
+    return symbol[: 31 - len(suffix)] + suffix if len(symbol) + len(suffix) > 31 else symbol + suffix
+
+
+def _distinct_symbols(components: Sequence[Component], name: str) -> list[Component]:
+    """``components`` with distinct storage names in each written library (change c0160): two lib ids
+    that would be one symbol of one library file (``storage_name`` under the MS-CFB order) keep the first
+    lib id, and each later one is renamed ``<symbol>_<n>`` with the first free ``n`` (``_numbered``). A
+    circuit read from a file may hold such ids (``R`` without a library beside ``foc_schlib:R``); the write
+    had refused it."""
+    from fenolite.backends.altium.schlib import storage_name
+
+    def key(link: str) -> tuple[str, str]:
+        library, _colon, symbol = link.partition(":")
+        file = project.schlib_name(link, design=name) if library else f"{name}.SchLib"
+        return file.upper(), storage_name(symbol).upper()
+
+    owner: dict[tuple[str, str], str] = {}
+    renamed: dict[str, str] = {}
+    for component in components:
+        link = component.lib_symbol_ref
+        if link in renamed or owner.get(key(link)) in (None, link):
+            owner.setdefault(key(link), link)
+            continue
+        library, _colon, symbol = link.partition(":")
+        number = 2
+        while key(candidate := f"{library}:{_numbered(symbol, number)}") in owner:
+            number += 1
+        renamed[link] = candidate
+        owner[key(candidate)] = candidate
+    if not renamed:
+        return list(components)
+    return [
+        dataclasses.replace(c, lib_symbol_ref=renamed[c.lib_symbol_ref]) if c.lib_symbol_ref in renamed else c
+        for c in components
+    ]
+
+
+def schematic_design(design: Design, name: str, account: _Account | None = None) -> Design:
     """The design whose circuit the schematic writer takes: every component with a reference, a symbol
     link, a value and pins. A component without a reference (a free pad) is left out with its net
     members; a symbol link that is not ``<library>:<name>`` becomes ``<name>.SchLib:<its text or PART>``;
@@ -1187,7 +1524,17 @@ def schematic_design(design: Design, name: str) -> Design:
     replaced the same way, and a footprint link that no record holds is left out. Two components of one
     path (two footprints of one reference on a board read alone) get paths of their own, and a native
     unique id that two components share (the instances of a repeated sheet) is not reused. The schematic
-    is generated: no drawing of the source is kept."""
+    is generated: no drawing of the source is kept. A circuit read from a file is written tolerantly
+    (change c0160): its comments as ``_comment_read`` gives them, each pin on one net
+    (``_one_net_per_pin``); ``account`` counts what that changes or loses."""
+    design = dataclasses.replace(
+        design,
+        circuit=dataclasses.replace(
+            design.circuit,
+            components=tuple(_comment_read(c, account) for c in design.circuit.components),
+            nets=_one_net_per_pin(design, account),
+        ),
+    )
     used: dict[str, list[str]] = {}
     for net in design.circuit.nets:
         for member in net.members:
@@ -1195,16 +1542,25 @@ def schematic_design(design: Design, name: str) -> Design:
     links = unique_links(design)
     paths: dict[str, int] = {}
     components: list[Component] = []
+    stand_ins: dict[str, str] = {}
     for component in design.circuit.components:
         if not component.ref:
             continue
-        link = component.lib_symbol_ref
+        original = link = component.lib_symbol_ref
         parts = project.split_link(link)
         if parts is None:
             _library, symbol = _link(component.lib_footprint_ref, ".PcbLib")
             link = f"{name}.SchLib:{link if link and text_problem(link) is None else symbol or 'PART'}"
         elif text_problem(parts[0]) is not None or text_problem(parts[1]) is not None:
             link = f"{name}.SchLib:{parts[1] if text_problem(parts[1]) is None else 'PART'}"
+        if link != original and original:
+            # change c0160: two symbols that no record names (``PART``) stay two symbols
+            library, _colon, symbol = link.partition(":")
+            number = 2
+            while stand_ins.get(link, original) != original:
+                link = f"{library}:{_numbered(symbol, number)}"
+                number += 1
+            stand_ins[link] = original
         path = project.component_path(component)
         seen = paths.get(path, 0)
         paths[path] = seen + 1
@@ -1242,6 +1598,7 @@ def schematic_design(design: Design, name: str) -> Design:
                 value=component.value or link.rpartition(":")[2],
             )
         )
+    components = _distinct_symbols(components, name)
     kept = {component.id: {pin.number for pin in component.pins} for component in components}
     nets: list[Net] = []
     for net in design.circuit.nets:
@@ -1264,6 +1621,17 @@ def design_name(design: Design) -> str:
     return name if safe else "design"
 
 
+def _modules(schematic: Design | None, sheets: project.SheetMode) -> dict[str, str]:
+    """Component id → the module whose sheet holds it, for a given schematic written one sheet per
+    module (change c0160)."""
+    import fenolite.backends.altium.hierarchy as hierarchy
+
+    if schematic is None or sheets != "modules":
+        return {}
+    found = {component.id: hierarchy.sheet_of(component) for component in schematic.circuit.components}
+    return {ident: module for ident, module in found.items() if module}
+
+
 def from_design(
     design: Design,
     *,
@@ -1272,6 +1640,9 @@ def from_design(
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
     bodies: str = "off",
+    library: bool = False,
+    schematic: Design | None = None,
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -1322,8 +1693,11 @@ def from_design(
                 rewrite=rewrite,
                 bodies=body_mode,
                 options=options,
+                library=name if library and options is None else None,
+                modules=_modules(schematic, sheets),
             )
-    schematic = schematic_design(design, name)
+    given = schematic
+    schematic = schematic_design(given if given is not None else design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
     for component in design.circuit.components:
         if component.pin_pad_map and not modelled.get(component.id):
@@ -1365,6 +1739,13 @@ def from_design(
                 for kind, reasons in account.lost.items()
             }
         ),
+        MappingProxyType(
+            {
+                kind: MappingProxyType({reason: tuple(ids) for reason, ids in reasons.items()})
+                for kind, reasons in account.changed.items()
+            }
+        ),
+        account.library,
     )
 
 
@@ -1378,6 +1759,8 @@ def _document(
     rewrite: bool = False,
     bodies: pcbdoc.BodyMode = "off",
     options: LowerOptions | None = None,
+    library: str | None = None,
+    modules: Mapping[str, str] | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -1403,8 +1786,20 @@ def _document(
             if found[0] is not None and found[1] is not None:
                 origin = Point(found[0][0], found[1][0])
     placed_bodies: list[pcbdoc.PlacedBody] = []
-    # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126)
+    derived = _Derived(library, modules=modules or {}) if library is not None else None
+    # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126);
+    # a board of another source has KiCad's layers, on the mechanical layers of KICAD_MECHANICAL and, for
+    # a text, on the copper layers of the stack (change c0160)
     layer_ids: Mapping[str, int] = MECHANICAL_LAYERS if read else MappingProxyType({})
+    text_ids: Mapping[str, int] = layer_ids
+    if not read and options is None:
+        layer_ids = KICAD_MECHANICAL
+        signal = {
+            name: ident for name, ident in zip(layers, stack.copper, strict=True) if ident < rec.FIRST_PLANE
+        }
+        text_ids = MappingProxyType({**KICAD_MECHANICAL, **signal})
+        names = tuple(sorted((ident - 56, name) for name, ident in KICAD_MECHANICAL.items()))
+        stack = dataclasses.replace(stack, mechanical_names=names)
     components, free_pads = _footprints(
         design,
         board,
@@ -1415,13 +1810,19 @@ def _document(
         frame=frame,
         placed_bodies=placed_bodies,
         layer_ids=layer_ids,
+        text_ids=text_ids,
         copper=layers,
         options=options,
+        derived=derived,
     )
+    if derived is not None:
+        account.library = derived_library(derived.instances, account)
     tracks, arcs, vias, zones, arc_records = _copper(
         board, layers, planes, net_names, frame, account, full_drill=rewrite
     )
-    texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
+    texts_, graphics, keepouts, holes = _items(
+        board, layers, frame, arc_records, account, layer_ids, text_ids
+    )
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     for footprint in board.footprints:
         if footprint.net_ties:
@@ -1456,7 +1857,7 @@ def _document(
         frame=None if options is not None else frame,
         origin=origin,
         free_pads=tuple(free_pads),
-        layer_ids=layer_ids,
+        layer_ids=text_ids,
         arc_records=MappingProxyType(arc_records),
         allow_full_drill=rewrite,
         bodies=tuple(placed_bodies),
@@ -1471,6 +1872,10 @@ def write_design(
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
     bodies: str = "off",
+    library: bool = False,
+    schematic: Design | None = None,
+    symbols: Mapping[str, AltiumSymbol] | None = None,
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
     holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
@@ -1478,16 +1883,40 @@ def write_design(
     with ``where`` ``schematic`` says why). Without ``allow_lossy``, ``LossyWriteError`` when an item of
     ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
     ``from_design``: the write of the reading of an Altium document. ``bodies`` is that of ``from_design``
-    too: ``extruded`` writes the extruded component bodies (change c0121)."""
+    too: ``extruded`` writes the extruded component bodies (change c0121). ``library`` (change c0160, a
+    conversion) writes the derived ``<name>.PcbLib`` (``derived_library``) and links every component to
+    it. ``schematic`` is the design whose circuit the schematic writer takes in place of ``design``'s,
+    ``symbols`` the library symbols by lib id and ``sheets`` the sheet mode (change c0160: the schematic of
+    a KiCad source, its symbols' graphics and one sheet per KiCad sheet); a component on a module sheet
+    links its sheet in the PCB document."""
     issues: list[Issue] = []
-    inputs = from_design(design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies)
+    inputs = from_design(
+        design,
+        issues=issues,
+        corner_ratios=corner_ratios,
+        rewrite=rewrite,
+        bodies=bodies,
+        library=library,
+        schematic=schematic,
+        sheets=sheets,
+    )
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
         raise LossyWriteError(lost)
     name = inputs.name
     files: dict[str, bytes] = {}
     try:
-        files.update(project.write_project(inputs.schematic, name=name, issues=issues, pcb=inputs.pcb))
+        files.update(
+            project.write_project(
+                inputs.schematic,
+                name=name,
+                issues=issues,
+                pcb=inputs.pcb,
+                footprints=inputs.library,
+                symbols=symbols,
+                sheets=sheets,
+            )
+        )
     except CompoundTooLarge:
         raise
     except (ValueError, KeyError) as error:
@@ -1495,6 +1924,8 @@ def write_design(
         issues.append(Issue(NOT_LOWERED, "info", message, where="schematic"))
         if inputs.pcb is not None:
             files[f"{name}.PcbDoc"] = pcbdoc.write_pcbdoc(inputs.pcb, filename=f"{name}.PcbDoc")
+        if inputs.library:
+            files[f"{name}.PcbLib"] = pcblib.write_pcblib(inputs.library, filename=f"{name}.PcbLib")
     return ProjectWrite(MappingProxyType(dict(sorted(files.items()))), tuple(issues), inputs)
 
 
@@ -1790,6 +2221,10 @@ __all__ = [
     "KINDS",
     "DEFINITION_LAYERS",
     "KEEPOUT_FOOTPRINTS_KIND",
+    "COMMENT_KIND",
+    "KICAD_MECHANICAL",
+    "LIBRARY_CHANGED",
+    "PIN_NET_KIND",
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
     "MORE_KINDS",
@@ -1804,7 +2239,12 @@ __all__ = [
     "LossyWriteError",
     "LowerOptions",
     "ProjectWrite",
+    "derived_library",
+    "pin_net_drops",
+    "written_comment_of",
     "design_name",
+    "reference_key",
+    "sheet_link",
     "dielectric_kinds",
     "from_design",
     "in_frame_of",

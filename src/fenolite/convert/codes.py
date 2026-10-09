@@ -14,13 +14,15 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "convert.changed": ("info",),
         "convert.lossy": ("warning",),
         "convert.no-verify": ("warning",),
+        "convert.schematic-unread": ("info",),
         "convert.unexplained": ("error",),
     }
 )
 """Every ``convert.*`` code with its only severity: ``convert.lossy`` per ``refuse`` kind with losses
 under ``allow_lossy``, ``convert.changed`` per kind with changes, ``convert.no-verify`` for a conversion
-that was not read back, and ``convert.unexplained`` per difference of the read-back that no loss and no
-rule explains."""
+that was not read back, ``convert.schematic-unread`` for a KiCad source's schematic that is not read
+(change c0160: the generated sheet is written), and ``convert.unexplained`` per difference of the
+read-back that no loss and no rule explains."""
 
 
 def issue(code: str, message: str, *, where: str = "", hint: str = "") -> Issue:

@@ -96,7 +96,9 @@ def record_bytes(fields: Sequence[Field]) -> bytes:
     field whose value is printable 7-bit ASCII is the text of ``format_record``; a field whose value holds
     another character of ``CODE_PAGE`` is written twice, first as ``|%UTF8%<KEY>=`` and the value in
     UTF-8, then as ``|<KEY>=`` and the value in the code page (``schematic-records.md``, "Text": the twin
-    holds the text, and saved files put it first). ``ValueError`` for any other value."""
+    holds the text, and saved files put it first). A printable character outside the code page (change
+    c0160: a comment read from a file, ``read_text_problem``) is ``?`` in the plain value and itself in the
+    twin. ``ValueError`` for ``|`` or a character that is not printable."""
     if not fields:
         raise ValueError("a record needs at least one field")
     parts: list[bytes] = []
@@ -106,11 +108,12 @@ def record_bytes(fields: Sequence[Field]) -> bytes:
             continue
         if not key or not _printable(key) or any(ch in key for ch in "|= "):
             raise ValueError(f"invalid record key {key!r}")
-        if not all(in_code_page(ch) for ch in value):
-            raise ValueError(f"the value {value!r} of {key} holds a character outside {CODE_PAGE_NAME}")
+        if any(ch == "|" or not ch.isprintable() for ch in value):
+            raise ValueError(f"the value {value!r} of {key} holds '|' or a character that is not printable")
         head = key.encode("ascii")
+        plain = "".join(ch if _printable(ch) or in_code_page(ch) else UNHELD for ch in value)
         parts.append(b"|" + UTF8_PREFIX.encode("ascii") + head + b"=" + value.encode("utf-8"))
-        parts.append(b"|" + head + b"=" + value.encode(CODE_PAGE))
+        parts.append(b"|" + head + b"=" + plain.encode(CODE_PAGE))
     line = b"".join(parts)
     if line.endswith(b"|>"):
         raise ValueError(f"a line must not end with '|>': {line!r}")
@@ -154,6 +157,34 @@ def text_problem(text: str, *, form: TextForm = "ascii", parameter: bool = False
     return None
 
 
+UNHELD = "?"
+"""The plain value's stand-in for a character outside ``CODE_PAGE`` (change c0160)."""
+
+
+def read_text_problem(text: str, *, form: TextForm = "ascii") -> str | None:
+    """Why the comment ``text`` of a circuit that was read from a file cannot be written, or ``None``
+    (capability altium-schematic-writer, "Tolerant texts of a read circuit"; change c0160). It may start
+    with ``=`` (it is written as read) and with a space (the stand-in of a KiCad comment that starts with
+    ``=``). The binary form takes every printable character, a character outside ``CODE_PAGE`` as ``?``
+    with its ``%UTF8%`` twin (``record_bytes``); the ASCII form takes printable 7-bit ASCII only."""
+    if form not in ("ascii", "binary"):
+        raise ValueError(f"unknown schematic form {form!r}")
+    if not text.strip(" "):
+        return "is empty"
+    for ch in text:
+        if ch == "|":
+            return "holds the character '|', which no form can escape"
+        if FIRST_PRINTABLE <= ord(ch) <= LAST_PRINTABLE or (form == "binary" and ch.isprintable()):
+            continue
+        where = f"holds the character {ch!r} (U+{ord(ch):04X})"
+        if form == "binary":
+            return f"{where}, which is not printable"
+        return f"{where}, outside printable 7-bit ASCII; the binary form carries it with its %UTF8% twin"
+    if text != text.rstrip(" "):
+        return "ends with a space, which readers trim"
+    return None
+
+
 def to_units(mils: int) -> int:
     """A length in mils as file units of 10 mil; ``ValueError`` when negative or off the 10-mil grid."""
     if mils < 0 or mils % GRID:
@@ -167,6 +198,8 @@ def coord_fields(name: str, x: int, y: int) -> tuple[Field, Field]:
 
 
 __all__ = [
+    "UNHELD",
+    "read_text_problem",
     "CODE_PAGE",
     "CODE_PAGE_NAME",
     "GRID",

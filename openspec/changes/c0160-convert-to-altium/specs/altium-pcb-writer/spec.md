@@ -17,12 +17,20 @@ A through-hole pad whose padstack holds no copper layer of its own and an oval h
 - **THEN** the pad has hole shape `slot`, a drill of 0.6 mm and a hole length of 1.8 mm
 
 ### Requirement: Connector and free pads
-A pad of kind `connect` SHALL be written as a surface pad whose paste and solder-mask expansions remove both openings. A pad without a number inside a footprint SHALL be written as a pad of that footprint with an empty designator when `pcb-library.md` holds a row with a public source that allows it, and otherwise as a free pad at its board position, counted `changed` under `pad` with that reason.
+A pad of kind `connect` SHALL be written as a surface pad whose manual paste expansion removes its paste opening, and whose manual solder-mask expansion removes its mask opening when the pad lists no solder-mask layer. Such a pad MUST be counted `changed` under `pad`, not lost.
 
 #### Scenario: Connector pad
-- **GIVEN** a footprint with one `connect` pad
+- **GIVEN** a footprint with one `connect` pad on `F.Cu` alone
 - **WHEN** the board is written and read back
 - **THEN** the pad is a surface pad on its copper layer with no paste and no mask opening, and the report has no lost `pad`
+
+### Requirement: Free pads for pads without a number
+A pad without a number inside a footprint SHALL be written as a pad of that footprint with an empty designator when `pcb-library.md` holds a row with a public source that allows it, and otherwise as a free pad at its board position, counted `changed` under `pad` with that reason.
+
+#### Scenario: Unnamed pad
+- **GIVEN** a footprint whose pad has no number, and the corpus row of `pcb-library.md` that shows Altium-saved documents holding component pads with an empty designator
+- **WHEN** the board is written and read back
+- **THEN** the pad is a pad of its component with an empty designator, and the report has no lost or changed `pad` for it
 
 ### Requirement: Mechanical layers of KiCad drawings
 `lower.KICAD_MECHANICAL` SHALL map `User.1` to `User.8` to Mechanical 1 to 8, `Dwgs.User` to Mechanical 9, `Cmts.User` to Mechanical 10, and `Eco1.User` and `Eco2.User` to Mechanical 11 and 12; the fabrication and courtyard layers keep Mechanical 13 to 16. A graphic or text on a mapped layer MUST be written there and the document MUST name the layer after its KiCad name.
@@ -47,3 +55,27 @@ A conversion to Altium SHALL write `<name>.PcbLib` with one footprint per distin
 - **GIVEN** a board with `R1` and `R2` of footprint `R_0603`, and `R2` with one pad moved by 0.1 mm
 - **WHEN** it is converted to Altium
 - **THEN** the library holds one footprint `R_0603` with the pads of `R1`, both components link it, and the report counts one `changed` footprint
+
+## MODIFIED Requirements
+
+### Requirement: Footprint content checks
+`pcblib.check_footprint(defn, extras)` SHALL return a `FootprintCheck` that refuses the footprint, or lists what is dropped. `extras` maps each pad id to a `pcblib.PadExtras(corner_ratio, refusal, dropped)` that `lens.altium.pad_extras` builds from the KiCad children the model keeps opaque.
+- The footprint MUST be refused, with the reason, when: a pad has shape `trapezoid` or `custom`, or a padstack that `pcblib.stack_problem` refuses (a layer that no Altium stack holds, a copper offset, a layer shape other than a circle, an oval, a rectangle or a rounded rectangle, a slot without a length, or a surface pad whose stack differs from its own copper); a through-hole pad has no drill, a drill offset, or copper on only one side; a pad has chamfered corners; a `roundrect` pad has no corner ratio; a pad number that is not empty, or the footprint name, fails `ascii.text_problem` or exceeds 255 bytes (an empty pad number is written as an empty designator, change c0160); or a graphic lies on a copper layer.
+- The check MUST list as dropped: `polygon` graphics, filled `rect` and `circle` graphics, graphics on layers outside `LAYER_MAP`, and the pad settings in `PadExtras.dropped` (solder mask and paste margins, zone connection, thermal settings, a missing paste or mask layer).
+- Texts, properties and 3D model links of the footprint MUST be listed as extras, not as dropped primitives.
+- A refused footprint MUST NOT be written; a dropped item MUST NOT be written.
+
+#### Scenario: Written connector pad and stack
+- **GIVEN** a footprint with one `connect` pad and one through-hole pad whose padstack gives its outer and inner layers circles
+- **WHEN** it is checked
+- **THEN** it is not refused (change c0160: "Full-stack pad records", "Connector and free pads")
+
+#### Scenario: Refused pad shapes
+- **GIVEN** footprints with one `trapezoid` pad, one `custom` pad, one oval-drilled through-hole pad, and one `roundrect` pad without ratio
+- **WHEN** each is checked
+- **THEN** each is refused with a reason that names the pad
+
+#### Scenario: Dropped polygon
+- **GIVEN** a footprint with a `polygon` on `F.SilkS` and a line on `Dwgs.User`
+- **WHEN** it is checked and written
+- **THEN** both are listed as dropped, and the written footprint holds only its pads and other graphics

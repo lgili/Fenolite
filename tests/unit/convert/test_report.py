@@ -77,15 +77,16 @@ def test_merge_adds_counts_and_joins_reasons() -> None:
 
 
 def test_reasons_are_counted_apart(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Reasons are counted apart": one custom pad and two pads without a number give the row
-    ``pad`` with ``lost`` 3 and two reasons, of count 2 and 1."""
-    design, _, _ = with_pads(two_layer(), {"shape": "custom"}, {"number": ""}, {"number": ""})
+    """Scenario "Reasons are counted apart": one custom pad and two trapezoid pads give the row ``pad``
+    with ``lost`` 3 and two reasons, of count 2 and 1 (change c0160 writes a pad without a number as a free
+    pad, so the scenario's second reason is a trapezoid)."""
+    design, _, _ = with_pads(two_layer(), {"shape": "custom"}, {"shape": "trapezoid"}, {"shape": "trapezoid"})
     read_as(monkeypatch, design)
     conversion = convert_project("two_layer.kicad_pcb", to="altium", allow_lossy=True)
     pad = conversion.report.row("pad")
     assert pad is not None and pad.lost == 3
     assert sorted(reason.count for reason in pad.reasons) == [1, 2]
-    assert pad.reasons[0].count == 2 and "empty" in pad.reasons[0].reason
+    assert pad.reasons[0].count == 2 and "trapezoid" in pad.reasons[0].reason
 
 
 def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -99,3 +100,18 @@ def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:
     assert explainer.explain("position", ref, "0,0", "1,1") is None
     assert explainer.explain("ref-ambiguous", "X", "2", "2") == SOURCE
     assert explainer.explain("ref-ambiguous", "X", "1", "2") is None
+
+
+def test_explainer_locates_changed_pads(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A pad written in another form (change c0160: a connector pad written as a surface pad) explains the
+    ``pad-kind`` of its own pin, and nothing else."""
+    design, (pad_id,), ref = with_pads(two_layer(), {"kind": "connect", "layers": ("F.Cu",), "drill": None})
+    read_as(monkeypatch, design)
+    conversion = convert_project("two_layer.kicad_pcb", to="altium", allow_lossy=True)
+    pad = conversion.report.row("pad")
+    assert pad is not None and pad.ids("changed") == (pad_id,) and not pad.lost
+    number = next(p.number for fp in design.board.footprints for p in fp.pads if p.id == pad_id)  # type: ignore[union-attr]
+    explainer = Explainer(conversion.design, conversion.report)
+    assert explainer.explain("pad-kind", f"{ref}-{number}", "connect", "smd") == "pad"
+    assert explainer.explain("pad-missing", f"{ref}-{number}", "1", "0") is None
+    assert explainer.explain("pad-size", f"{ref}-{number}", "1", "2") is None

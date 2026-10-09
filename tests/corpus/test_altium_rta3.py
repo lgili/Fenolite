@@ -54,14 +54,26 @@ PLANE_CUTS: dict[str, tuple[int, int]] = {
 The import makes no track of a line that cuts a plane, so a rewrite holds none: the lines are counted as
 records without a model entity, never as a track that was written or refused."""
 UNCOVERED = ("netlist.uncovered", "info")
-UNJUDGED_SETS: dict[str, str] = {
-    "altium-set:01": "a comment starts with '=', which Altium reads as a reference to another parameter",
-    "altium-set:02": "the import puts one pin on two nets, and the schematic writer refuses that circuit",
-    "altium-set:04": "a comment holds characters outside Windows-1252, which no form of the schematic holds",
-}
+UNJUDGED_SETS: dict[str, str] = {}
 """Set → why its rewrite holds no project to read: the PCB document is written, and the schematic that is
 generated from the circuit is not. Each is a row of the evidence page; a set that starts to pass fails
-this test, so that the page is corrected."""
+this test, so that the page is corrected. Empty since change c0160: the tolerant write judges the three
+sets it held (a comment that starts with '=', one pin on two nets in the import, a comment outside
+Windows-1252)."""
+
+
+SET_DIFFERENCES: dict[str, tuple[str, int, str]] = {
+    "altium-set:02": (
+        "net",
+        19,
+        "the import puts 127 pins on two nets (counted lost under pin-net); the rewrite holds each pin on "
+        "one net, and 19 nets of the first reading that held only such pins are read back under the name of "
+        "the net that keeps them",
+    ),
+}
+"""Set → the one kind that differs, the number of differences and their cause, for a set that is judged and
+whose two models differ for a reason that the report counts (change c0160; ``docs/evidence/
+altium-roundtrip.md``, "Project sets"). A set that starts to pass, or differs otherwise, fails here."""
 
 
 def _repository(url: str) -> tuple[str, ...]:
@@ -246,6 +258,14 @@ def test_sets(
     census("altium-rta3", name, entry)
     with capsys.disabled():
         print("\n" + _line(name, entry))
+    if name in SET_DIFFERENCES:
+        kind, count, _cause = SET_DIFFERENCES[name]
+        found = [change for change in trip.differences]
+        assert trip.judged and len(found) == count, (
+            f"{name}: {len(found)} differences, first {entry['first_difference']}"
+        )
+        assert all(change.path.split("/")[1] == kind and change.change == "changed" for change in found), name
+        return
     if name in UNJUDGED_SETS:
         assert not trip.judged and trip.reason == "no-document", f"{name} is judged now: correct the page"
         assert ".PcbDoc" in entry["files"] and ".SchDoc" not in entry["files"]

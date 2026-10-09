@@ -33,14 +33,15 @@ majors it writes, whether it is experimental, and its evidence.
 
 | from | to | writer | experimental | evidence |
 |---|---|---|---|---|
-| kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the schematic, its libraries and the project file when the schematic writer takes the circuit | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE` |
+| kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design(..., library=True)`: the PCB document, the derived PCB library, and the schematic (from the source's own schematic when the board has one), its libraries and the project file when the schematic writer takes the circuit (change c0160, "KiCad to Altium" below) | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE` and `H-A-CONV-*` |
 | kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`) |
 
 - A KiCad target older than the source's major exits 7 (`FEN-7002`): the downgrade is change c0162.
 - A schematic of another major is not converted: the report counts it as a lost `schematic` (a `report`
   kind, which needs no consent).
-- An Altium document larger than a compound file without DIFAT sectors is not written (`FEN-7001`, with
-  or without consent); two KiCad demo boards are (`docs/evidence/conversion.md`).
+- An Altium document larger than a version 3 compound file holds is not written (`FEN-7001`, with or
+  without consent). Since change c0160 the compound writer writes DIFAT sectors, so the two KiCad demo
+  boards whose documents need more than 109 FAT sectors are written (`docs/evidence/conversion.md`).
 
 ## The report
 
@@ -68,6 +69,8 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `channel` | circuit | report |
 | `pin-pad-map` | circuit | report |
 | `pin-pads` | circuit | report |
+| `comment` | circuit | report |
+| `pin-net` | circuit | report |
 | `footprint` | footprint | refuse |
 | `pad` | footprint | refuse |
 | `footprint-copper` | footprint | refuse |
@@ -104,9 +107,65 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   marked do-not-populate is written as fitted, so a bill of materials of the converted project would
   list it. The maintainer decided on 2026-10-09 that this loss is a refusal.
 - **Changes of KiCad to Altium.** `zone-fill`: a polygon is written unpoured, and Altium fills it on a
-  repour (decision of 2026-10-06). `schematic`: the schematic is generated from the circuit on one sheet
-  with generic symbols. A schematic that the writer refuses is a loss, and the writer's message stays an
-  `altium.not-lowered` issue.
+  repour (decision of 2026-10-06). `schematic`: the source's own schematic with its symbols and sheets,
+  laid out by the writer ("positions and wires are not converted"), or, for a board without its root
+  schematic, the schematic generated from the circuit on one sheet with generic symbols. A schematic that
+  the writer refuses is a loss, and the writer's message stays an `altium.not-lowered` issue. `pad`: a
+  connector pad is a surface pad without paste (change c0160). `footprint`: an instance that differs from
+  its footprint in the derived library. `comment`: a KiCad comment that starts with `=` (written with a
+  leading space) or an empty one (written as the symbol's name).
+
+## KiCad to Altium (change c0160)
+
+What change c0160 closes of the losses that c0159 measured, each on a public format fact or a reader that
+reads the written records back (`docs/evidence/conversion.md`, "KiCad to Altium, before c0160" and the
+ledger above it for after):
+
+- **DIFAT sectors.** `cfb.write_compound` lists the FAT sectors past the header's 109 in DIFAT sectors
+  (`docs/formats/altium/compound-file.md`, S-0145; `H-A-CONV-DIFAT`). Every demo board is written.
+- **Slots and stacks.** A pad whose padstack holds a slotted hole is written with hole shape 2, its length
+  and its rotation; a per-layer stack of circles, ovals, rectangles and rounded rectangles is written in
+  stack mode 1 (one copper for every mid layer) or 2 (`pcb-library.md`, "Pads of a converted board";
+  `H-A-CONV-PADSTACK`). A custom shape on a layer, a copper offset or a layer no Altium stack holds stays a
+  lost `pad` with its reason.
+- **Connector pads and pads without a number.** A KiCad connector pad is a surface pad whose manual paste
+  expansion removes its paste, and whose mask expansion removes its mask opening where it lists no mask
+  layer (counted `changed`; the read-back holds it as a surface pad, so its `pad-kind` difference is
+  explained). A pad without a number is written in its component with an empty designator, which saved
+  Altium documents hold (`CORPUS-VERIFIED`).
+- **The layer map.** One closed table, `lower.KICAD_MECHANICAL`; the written document names each of these
+  mechanical layers after its KiCad layer. A free text on a copper layer is a text record on that layer.
+
+  | KiCad layer | Altium layer |
+  |---|---|
+  | `User.1` … `User.8` | Mechanical 1 … 8 |
+  | `Dwgs.User` | Mechanical 9 |
+  | `Cmts.User` | Mechanical 10 |
+  | `Eco1.User`, `Eco2.User` | Mechanical 11, 12 |
+  | `F.Fab`, `B.Fab`, `F.CrtYd`, `B.CrtYd` | Mechanical 13 … 16 (since c0126) |
+
+  `User.9` and above and `Margin` stay a reported loss. A user map of the layers (`--altium-layer-map`) is
+  not in v0.5a (the maintainer's decision of 2026-10-09).
+- **The derived PCB library.** `<name>.PcbLib` holds one footprint per distinct footprint name of the board
+  (the part of `lib_ref` after its last `:`), built from its first instance in reference order (`R2` before
+  `R10`) in the footprint's own frame; every component links it. An instance whose pads or drawn graphics
+  differ from it is counted `changed` under `footprint` ("differs from the library footprint"); the document
+  keeps the instance as it is (`H-A-CONV-LIBRARY`).
+- **The schematic of a KiCad source.** When the board has its root schematic `<stem>.kicad_sch` beside it,
+  the converted schematic takes the board's components with the symbols their placed symbols name, drawn
+  from the schematic's own `lib_symbols` (`--altium-symbols graphics`), one Altium sheet per KiCad sheet of
+  the tree (`--altium-sheets modules`, a sheet instance as a module), and the board's nets on the symbols'
+  pins. Positions and wires come from the writer's layout (the maintainer's decision of 2026-10-09:
+  presentation is after 1.0). A tree that cannot be read keeps the generated sheet, with one
+  `convert.schematic-unread` info (`H-A-CONV-SCHEMATIC`).
+- **The tolerant write of a read circuit** (a converted source or an RT-A3 rewrite): a comment that starts
+  with `=` and was read from Altium is written as read, one read from KiCad with a leading space; a comment
+  outside Windows-1252 is written in the binary form with its `%UTF8%` twin and `?` for each character
+  outside the code page; a pin that the import puts on two nets is written on the net with more pins and
+  the other membership is a lost `pin-net`.
+- **What stays reported.** Custom pad shapes, the fitted flag (`dnp`), net ties, dimensions, a keep-out
+  without a restriction that the record carries, the arcs of an outline written as edges, the stack-up
+  values without a key.
 
 ## Verification
 
@@ -141,6 +200,7 @@ these places. "Level 5" is `route-missing`, `route-connectivity`, `route-vias`, 
 | `net` | the net | level 5 |
 | `dnp` | its reference | `dnp` |
 | `footprint-copper`, `net-tie` | a net of the pads of its footprint | level 5 |
+| `pad` | its `REF-PIN`, for a changed pad (a connector pad written as a surface pad, change c0160) | `pad-kind` |
 | `source` | a reference held as often on both sides | `ref-ambiguous` |
 <!-- explains:end -->
 

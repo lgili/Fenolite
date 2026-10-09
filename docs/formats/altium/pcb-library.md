@@ -105,6 +105,7 @@ KiCad's importer read the written records back (`H-A-CONV-PADSTACK`); Altium Des
 | A slotted hole is hole shape 2 at 262 of the sixth subrecord, the slot length (32-bit, binary units, along the slot's axis) at 263 and the slot rotation (double, degrees, relative to the pad) at 267; the hole size at 45 of subrecord 5 is the slot's width | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
 | The paste mask and the solder mask of a pad each follow the rules or a manual expansion (mode 1 or 2 at 101 and 102, the expansion at 86 and 90); a solder mask expansion that is negative and at least the pad's radius tents the pad completely, and a paste expansion that removes the pad's half size leaves no paste | S-0302, S-0740, S-0160 | INFERRED | H-A-CONV-PADSTACK, H-A-PCB-PAD |
 | A free pad may have an empty designator; Altium's page says that a pad of a component "usually" carries its pin number and does not state that it may be empty. A pad without a name has a first subrecord of the length 0 alone (`pcb-records.md`, "Free pads as holes") | S-0740, S-0160 | INFERRED | H-A-CONV-PADSTACK, H-A-PCBX-HOLE |
+| A pad of a component may have an empty designator: three of the eight saved documents of the corpus hold 10 such pads in 9 components (2 of `J3` in S-0172, 2 of `J2` in S-0200, one of each of six microphones in S-0187), each with the first subrecord of the length 0 alone, and Fenolite's reader holds them in their component | census of S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 (files kept outside the repository; 2026-10-09) | CORPUS-VERIFIED | H-A-CONV-PADSTACK |
 
 Fenolite's choices for these pads (change c0160):
 
@@ -113,8 +114,9 @@ Fenolite's choices for these pads (change c0160):
   layer with an offset copper or a custom shape keeps the pad a reported loss;
 - a KiCad connector pad (kind `connect`: copper without a hole, paste or mask) is a surface pad with the
   manual paste and solder-mask expansions `−max(width, height)`, which remove both openings;
-- a pad without a number inside a footprint is written as a free pad at its board position (no public page
-  says that a component's pad may have an empty designator), counted `changed` under `pad`.
+- a pad without a number inside a footprint is written as a pad of that footprint with an empty designator:
+  no public page says it, but the corpus census above (`CORPUS-VERIFIED`) shows Altium-saved documents that
+  hold such pads, which is the row with a public source that the design asks for.
 
 ## Version 2 not used
 

@@ -74,9 +74,10 @@ def test_payload_limit() -> None:
 
 
 def test_frame_refuses_what_no_form_carries() -> None:
-    """A code-page character is carried with its twin since change c0086 (``test_text_forms.py``); a
-    pipe, a line end, a character outside the code page and an empty record stay refused."""
-    for fields in ((("K", "a|b"),), (("K", "1 kΩ"),), (("K", "a\r\nb"),), ()):
+    """A code-page character is carried with its twin since change c0086 (``test_text_forms.py``), and a
+    printable character outside the code page since change c0160 (``?`` in the plain value); a pipe, a
+    line end and an empty record stay refused."""
+    for fields in ((("K", "a|b"),), (("K", "a\r\nb"),), ()):
         with pytest.raises(ValueError):
             frame_record(fields)
 

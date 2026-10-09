@@ -20,18 +20,35 @@ from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.report import ConversionReport, census
+from fenolite.convert.schematic import source_schematic
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3", "H-A-VER-RTA3", "H-K-CONV-TRIANGLE"))
+EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-LIBRARY",
+        "H-A-CONV-PADSTACK",
+        "H-A-CONV-SCHEMATIC",
+        "H-A-VER-RTA2-3",
+        "H-A-VER-RTA3",
+        "H-K-CONV-TRIANGLE",
+    ),
+)
 """The level of the Altium writers (``lower.EVIDENCE``), with the triangle that checks this direction
-(``H-K-CONV-TRIANGLE``, partly confirmed on 2026-10-09: the samples and 14 of 16 demo boards)."""
+(``H-K-CONV-TRIANGLE``, partly confirmed on 2026-10-09: the samples and 14 of 16 demo boards) and the rows
+of change c0160 that its writes rest on: the DIFAT sectors (``cfb``), the stacked, slotted and connector
+pads (``pcbrecords``, ``pcblib``), the derived library and the converted schematic."""
 PROFILE = "kicad-to-altium"
 CHANGES: Mapping[str, str] = {
     "zone-fill": "a polygon is written unpoured; Altium fills it on a repour",
     "schematic": "the schematic is generated from the circuit on one sheet with generic symbols",
 }
+CONVERTED_SCHEMATIC = "positions and wires are not converted"
+"""The reason of the row ``schematic`` when the KiCad source's own schematic is converted (change c0160):
+its symbols and sheets are kept, the writer lays them out."""
 """The kinds this direction writes in another form, with the reason the report gives them."""
 CHANGE_KINDS = frozenset(CHANGES)
 WRITER_KINDS: tuple[str, ...] = (
@@ -78,14 +95,25 @@ def _extra_losses(design: Design, write: lower.ProjectWrite) -> dict[str, dict[s
 
 
 def write(source: SourceProject, options: Options) -> Written:
-    """The Altium project of a KiCad source, with its report."""
+    """The Altium project of a KiCad source, with its report. A source whose board has a root schematic
+    of its stem gets the schematic of its own symbols and sheets (``convert.schematic``, change c0160)."""
     design = fpitems.with_footprint_items(_named(source.design, options.name)).design
+    found = source_schematic(design, source.path) if source.backend == KICAD else None
+    converted = found is not None and bool(found.sheets)
     try:
-        written = lower.write_design(design, allow_lossy=True, bodies=options.bodies)
+        written = lower.write_design(
+            design,
+            allow_lossy=True,
+            bodies=options.bodies,
+            library=True,
+            schematic=found.design if found is not None and converted else None,
+            symbols=found.symbols if found is not None and converted else None,
+            sheets="modules" if converted else "flat",
+        )
     except CompoundTooLarge as error:
         raise TargetLimitError(
             f"the PCB document of {source.name} cannot be written: {error}",
-            hint="the Altium writer does not write DIFAT sectors yet; nothing was converted",
+            hint="the document is larger than a version 3 compound file holds; nothing was converted",
         ) from None
     inputs = written.inputs
     lost: dict[str, dict[str, tuple[str, ...]]] = {
@@ -96,17 +124,21 @@ def write(source: SourceProject, options: Options) -> Written:
         for kind, reasons in inputs.lost.items()
         if kind in CHANGE_KINDS
     }
+    for kind, reasons in inputs.changed.items():  # change c0160: free pads and connector pads
+        changed.setdefault(kind, {}).update(reasons)
     lost.update(_extra_losses(design, written))
     counts = census(design)
     if design.circuit.components:
         counts[SCHEMATIC] = 1
     name = inputs.name
     if f"{name}.SchDoc" in written.files:
-        changed[SCHEMATIC] = {CHANGES[SCHEMATIC]: (design.header.id,)}
+        changed[SCHEMATIC] = {CONVERTED_SCHEMATIC if converted else CHANGES[SCHEMATIC]: (design.header.id,)}
     report = ConversionReport.of(source=counts, written=dict(inputs.written), changed=changed, lost=lost)
     issues = tuple(
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
     )
+    if found is not None:
+        issues = (*found.issues, *issues)
     return Written(written.files, report, design, f"{name}.PcbDoc", issues)
 
 
@@ -120,4 +152,4 @@ DIRECTION = Direction(
     kinds=WRITER_KINDS,
 )
 
-__all__ = ["CHANGES", "DIRECTION", "EVIDENCE", "PROFILE", "WRITER_KINDS", "write"]
+__all__ = ["CHANGES", "CONVERTED_SCHEMATIC", "DIRECTION", "EVIDENCE", "PROFILE", "WRITER_KINDS", "write"]

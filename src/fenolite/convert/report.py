@@ -43,7 +43,11 @@ def _rows(group: Group, refuse: Iterable[str], report: Iterable[str]) -> tuple[K
 
 
 KINDS: tuple[KindRow, ...] = (
-    *_rows("circuit", ("net", "netclass", "dnp"), ("module", "channel", "pin-pad-map", "pin-pads")),
+    *_rows(
+        "circuit",
+        ("net", "netclass", "dnp"),
+        ("module", "channel", "pin-pad-map", "pin-pads", "comment", "pin-net"),
+    ),
     *_rows(
         "footprint",
         ("footprint", "pad", "footprint-copper"),
@@ -301,11 +305,14 @@ class Explains:
     """A lost item of ``kind`` explains a difference of one of ``differences`` located in ``scope``:
     ``ref`` its reference or a pin of it, ``pin`` its own ``REF-PIN``, ``net`` its net, ``net-pins`` a pin
     on its net, ``footprint-nets`` the net of a pad of its footprint, ``same`` a difference whose two sides
-    hold the same value (the source's own, kind ``SOURCE``)."""
+    hold the same value (the source's own, kind ``SOURCE``). ``outcome`` ``changed`` (change c0160) is an
+    item written in another form that the read-back shows: a connector pad written as a surface pad
+    explains the differences of its own pin."""
 
     kind: str
     differences: tuple[str, ...]
     scope: Scope
+    outcome: Outcome = "lost"
 
 
 EXPLAINS: tuple[Explains, ...] = (
@@ -323,9 +330,12 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("footprint-copper", LEVEL5, "footprint-nets"),
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
+    Explains("pad", ("pad-kind",), "pin", "changed"),
 )
 """The closed table of which differences a lost item explains. A lost pad explains only its own
-``pad-missing`` and ``pin-missing`` and the level-5 kinds of its net, not every difference at its pin."""
+``pad-missing`` and ``pin-missing`` and the level-5 kinds of its net, not every difference at its pin.
+A changed pad (change c0160: a connector pad written as a surface pad) explains the ``pad-kind`` of its
+own pin only."""
 
 
 def _prefixes(where: str, separator: str) -> Iterable[str]:
@@ -367,7 +377,15 @@ class Explainer:
             return {net_names[p.net_id] for p in fp.pads if p.net_id and p.net_id in net_names}
 
         self._places: dict[tuple[str, Scope], set[str]] = {}
+        self._changed: dict[tuple[str, Scope], set[str]] = {}
         for row in report.rows:
+            changed = row.ids("changed")
+            if row.kind == "pad" and changed:
+                placed = [pad_place[i] for i in changed if i in pad_place]
+                found = {f"{ref}-{number}" for ref, number, _ in placed}
+                found.discard("")
+                if found:
+                    self._changed.setdefault(("pad", "pin"), set()).update(found)
             ids = row.ids("lost")
             if not ids:
                 continue
@@ -413,7 +431,8 @@ class Explainer:
                 if a == b and a:
                     return row.kind
                 continue
-            places = self._places.get((row.kind, row.scope))
+            chosen = self._changed if row.outcome == "changed" else self._places
+            places = chosen.get((row.kind, row.scope))
             if not places:
                 continue
             if row.scope in ("ref", "pin", "net-pins"):

@@ -13,6 +13,8 @@ The KiCad-only facts the model keeps opaque (corner ratio, drill forms, margins)
 
 from __future__ import annotations
 
+import dataclasses
+import re
 import struct
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -25,7 +27,7 @@ from fenolite.backends.altium.libboard import board_text, guid
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.model.board import ComponentBody, Graphic, Pad
+from fenolite.model.board import ComponentBody, Graphic, Pad, PadstackLayer
 from fenolite.model.library import FootprintDef
 
 MAX_TEXT = 255
@@ -53,8 +55,19 @@ EVIDENCE = Evidence(
 )
 """The library file is inferred from public sources; the kicad-cli oracle checks only what KiCad reads.
 A body of a library footprint (change c0121) is written in the form of a document's body: no extruded
-body of a saved library was read (``H-A-PCBX-BODY-LIB``)."""
+body of a saved library was read (``H-A-PCBX-BODY-LIB``). The stacked, slotted and connector pads and the
+derived library of a conversion (change c0160) rest on ``H-A-CONV-PADSTACK`` and ``H-A-CONV-LIBRARY``, which
+the conversion's evidence names (``convert.to_altium.EVIDENCE``): a build does not claim them."""
 COPPER_WILDCARDS = ("*.Cu", "F&B.Cu")
+MASK_LAYERS = frozenset({"*.Mask", "F&B.Mask", "F.Mask", "B.Mask"})
+"""The layers that give a pad a solder mask opening."""
+INNER_WILDCARDS = ("In*.Cu", "Inner")
+"""The names a padstack gives every inner layer: the model's wildcard and KiCad's ``Inner``."""
+STACK_SHAPES = ("circle", "oval", "rect", "roundrect")
+"""The shapes a layer of a written stack may have (change c0160)."""
+HOLE_SHAPE_NUMBERS: Mapping[str, int] = {"round": 0, "square": 1, "slot": 2}
+"""The hole shape byte of the sixth subrecord (``pcb-records.md``, "Pad")."""
+_INNER_LAYER = re.compile(r"In([0-9]+)\.Cu")
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,14 +167,14 @@ def _text_refusal(text: str, what: str) -> str | None:
 
 def _pad_refusal(pad: Pad, extras: PadExtras) -> str | None:
     where = f"pad {pad.number!r}"
-    if (problem := _text_refusal(pad.number, "the pad number")) is not None:
+    # a pad without a number is written with an empty designator (change c0160; ``pcb-library.md``,
+    # "Pads of a converted board": saved documents hold such pads in components)
+    if pad.number and (problem := _text_refusal(pad.number, "the pad number")) is not None:
         return problem
     if pad.shape in ("trapezoid", "custom"):
         return f"{where} has the shape {pad.shape}, which has no exact Altium form"
-    if pad.kind == "connect":
-        return f"{where} is a connector pad (kind connect)"
-    if pad.padstack is not None:
-        return f"{where} has a per-layer padstack"
+    if pad.padstack is not None and (problem := stack_problem(pad, extras)) is not None:
+        return f"{where} {problem}"
     if extras.refusal is not None:
         return f"{where}: {extras.refusal}"
     sides = _copper_sides(pad)
@@ -175,6 +188,122 @@ def _pad_refusal(pad: Pad, extras: PadExtras) -> str | None:
     if pad.shape == "roundrect" and extras.corner_ratio is None:
         return f"{where} is a rounded rectangle without a corner ratio"
     return None
+
+
+def _stack_layers(
+    pad: Pad,
+) -> tuple[PadstackLayer | None, PadstackLayer | None, PadstackLayer | None, dict[int, PadstackLayer]] | str:
+    """``(top, every inner layer, bottom, Mid-Layer n → its layer)`` of a pad's padstack, each ``None``
+    where the stack names no such layer, or the reason it cannot be written."""
+    assert pad.padstack is not None
+    top = bottom = inner = None
+    named: dict[int, PadstackLayer] = {}
+    for layer in pad.padstack.layers:
+        match = _INNER_LAYER.fullmatch(layer.layer)
+        if layer.layer == "F.Cu":
+            top = layer
+        elif layer.layer == "B.Cu":
+            bottom = layer
+        elif layer.layer in INNER_WILDCARDS:
+            inner = layer
+        elif match is not None and 1 <= int(match.group(1)) <= 29:
+            named[int(match.group(1))] = layer
+        else:
+            return f"has a padstack layer {layer.layer}, which no Altium stack holds"
+        if layer.offset.x or layer.offset.y:
+            return f"has a padstack whose copper on {layer.layer} is offset from the hole"
+        if layer.shape not in STACK_SHAPES:
+            shape = layer.shape
+            return f"has the shape {shape} on {layer.layer} of its padstack, which has no exact Altium form"
+    return top, inner, bottom, named
+
+
+def stack_problem(pad: Pad, extras: PadExtras) -> str | None:
+    """Why the per-layer stack or the hole of ``pad`` cannot be written (change c0160; ``pcb-library.md``,
+    "Pads of a converted board"), or ``None``: a layer that no Altium stack holds, a copper offset, a
+    shape other than ``STACK_SHAPES``, a rounded rectangle without the pad's corner ratio, a slot without a
+    length, or a surface pad whose stack differs from its own copper."""
+    stack = pad.padstack
+    if stack is None:
+        return None
+    found = _stack_layers(pad)
+    if isinstance(found, str):
+        return found
+    if stack.hole_shape not in HOLE_SHAPE_NUMBERS:
+        return f"has the hole shape {stack.hole_shape}, which has no Altium form"
+    if stack.hole_shape == "slot" and (
+        stack.hole_length is None or pad.drill is None or stack.hole_length < pad.drill
+    ):
+        return "has a slotted hole without a length"
+    top, inner, bottom, named = found
+    layers = [layer for layer in (top, inner, bottom, *named.values()) if layer is not None]
+    if any(layer.shape == "roundrect" for layer in layers) and extras.corner_ratio is None:
+        return "has a rounded rectangle in its padstack without a corner ratio"
+    if pad.kind not in ("thru_hole", "np_thru_hole"):
+        own = (pad.shape, pad.size)
+        if inner is not None or named or any((layer.shape, layer.size) != own for layer in layers):
+            return "is a surface pad with a per-layer padstack"
+    return None
+
+
+def _layer_shape(shape: str, size: tuple[int, int], extras: PadExtras) -> rec.LayerShape:
+    corner = None
+    if shape == "roundrect":
+        assert extras.corner_ratio is not None
+        corner = rec.corner_percent(extras.corner_ratio)
+    return rec.LayerShape((rec.to_units(size[0]), rec.to_units(size[1])), rec.PAD_SHAPES[shape], corner)
+
+
+def stack_record(pad: Pad, extras: PadExtras, *, flip: bool = False) -> rec.PadStackRecord | None:
+    """The stack of ``pad`` as the pad record writes it (change c0160), or ``None`` for a pad that the
+    Simple mode with a round hole writes: mode 1 when every mid layer has one copper, mode 2 when they
+    differ, mode 0 for a slotted or square hole of one copper. The top's copper is the stack's ``F.Cu``
+    entry, else the pad's own. ``flip`` (a pad on the bottom side) mirrors the slot's rotation;
+    ``pad_bytes`` swaps the top and the bottom, and the mid layers keep their numbers."""
+    stack = pad.padstack
+    if (
+        stack is None
+        or stack_problem(pad, extras) is not None
+        or pad.kind not in ("thru_hole", "np_thru_hole")
+    ):
+        return None
+    found = _stack_layers(pad)
+    assert not isinstance(found, str)
+    top_layer, inner_layer, bottom_layer, named = found
+
+    def copper(layer: PadstackLayer | None) -> rec.LayerShape:
+        if layer is None:
+            return _layer_shape(pad.shape, (pad.size.w, pad.size.h), extras)
+        return _layer_shape(layer.shape, (layer.size.w, layer.size.h), extras)
+
+    top = copper(top_layer)
+    mid = copper(inner_layer) if inner_layer is not None else top
+    bottom = copper(bottom_layer)
+    inner = {n: copper(layer) for n, layer in sorted(named.items())}
+    mode = 0
+    if inner and set(inner.values()) != {mid}:
+        mode = 2
+    elif inner:
+        mid = next(iter(inner.values()))
+        mode = 1
+    elif top != mid or bottom != top:
+        mode = 1
+    hole = HOLE_SHAPE_NUMBERS[stack.hole_shape]
+    if mode == 0 and hole == 0:
+        return None
+    length = rec.to_units(stack.hole_length) if stack.hole_shape == "slot" and stack.hole_length else 0
+    turn = -stack.hole_rotation if flip else stack.hole_rotation
+    rotation = rec.degrees_of(turn % 360_000_000) if hole else 0.0
+    return rec.PadStackRecord(
+        mode=mode,
+        top=top,
+        mid=mid if mode else None,
+        bottom=bottom if mode else None,
+        inner=inner if mode == 2 else {},
+        hole_shape=hole,
+        slot_length=length,
+        slot_rotation=rotation,
+    )
 
 
 def _pad_drops(pad: Pad, extras: PadExtras) -> list[str]:
@@ -323,24 +452,37 @@ def pad_bytes(
     layer = pad_layer(pad)
     if flip:
         layer = rec.FLIP_PAIRS[layer]
+    stack = stack_record(pad, extras, flip=flip)
+    size = (rec.to_units(pad.size.w), rec.to_units(pad.size.h))
+    shape = rec.PAD_SHAPES[pad.shape]
     corner = None
     if pad.shape == "roundrect":
         assert extras.corner_ratio is not None
         corner = rec.corner_percent(extras.corner_ratio)
+    if stack is not None and flip and stack.mode:
+        stack = dataclasses.replace(stack, top=stack.bottom, bottom=stack.top)
     hole = rec.to_units(pad.drill) if pad.kind in ("thru_hole", "np_thru_hole") and pad.drill else 0
+    paste = mask = None
+    if pad.kind == "connect":  # change c0160: no paste; a mask opening only where a layer lists it
+        paste = -max(size)
+        if not set(pad.layers) & MASK_LAYERS:
+            mask = -max(size)
     return rec.pad_record(
         name=pad.number,
         layer=layer,
         x=rec.to_units(at.x),
         y=rec.to_units(at.y),
-        size=(rec.to_units(pad.size.w), rec.to_units(pad.size.h)),
-        shape=rec.PAD_SHAPES[pad.shape],
+        size=size,
+        shape=shape,
         rotation=rec.degrees_of(rotation_udeg),
         hole=hole,
         plated=pad.kind == "thru_hole",
         corner=corner,
         net=net,
         component=component,
+        stack=stack,
+        paste=paste,
+        mask=mask,
     )
 
 

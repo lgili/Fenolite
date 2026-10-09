@@ -64,7 +64,9 @@ def test_bytes_of_a_value_with_its_twin() -> None:
     assert record_bytes(plain) == format_record(plain).encode("ascii")
     props = parse(frame_record(fields)[4:-1])
     assert props.text("TEXT") == "10µF" and props.raw("TEXT") == b"10\xb5F"
-    for bad in ((("TEXT", "1 kΩ"),), (("TEXT", "a|b"),), (("TE XT", "é"),), ()):
+    # a character outside the code page is "?" in the plain value since change c0160 (a read comment)
+    assert record_bytes((("TEXT", "1 kΩ"),)).endswith(b"|TEXT=1 k?")
+    for bad in ((("TEXT", "a|b"),), (("TE XT", "é"),), ()):
         with pytest.raises(ValueError):
             record_bytes(bad)
     with pytest.raises(ValueError):

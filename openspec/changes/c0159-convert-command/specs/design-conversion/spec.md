@@ -25,7 +25,7 @@ A KiCad source SHALL be a `.kicad_pro`, a `.kicad_pcb` or a folder, resolved as 
 A `ConversionReport` SHALL hold one row per kind of `fenolite.convert.report.KINDS` that the source holds or the write touches, in table order, each with `kind`, `source`, `written`, `changed`, `lost` and `reasons`. `reasons` MUST count every changed or lost item under its own reason, sorted by count and then by reason; a first reason standing for all MUST NOT be used.
 
 #### Scenario: Reasons are counted apart
-- **GIVEN** a KiCad board with one custom pad and two pads without a number
+- **GIVEN** a KiCad board with one custom pad and two trapezoid pads (two pads without a number until change c0160, which writes them as free pads)
 - **WHEN** it is converted to Altium with `allow_lossy=True`
 - **THEN** the row `pad` has `lost` 3 and two reasons, one with count 2 and one with count 1
 

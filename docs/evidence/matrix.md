@@ -302,7 +302,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `backend` | none: the facade of the registered backend: every read returns the evidence of import_evidence |
 | `binary` | `EVIDENCE` INFERRED: `H-A-SCHBIN-AD`, `H-A-SCHBIN-CFB`, `H-A-SCHBIN-FRAME`, `H-A-SCHBIN-STORAGE`, `H-A-SCHBIN-VIEWER` |
 | `bodydiff` | see `roundtrip` |
-| `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib` |
+| `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib; the DIFAT sectors rest on H-A-CONV-DIFAT (change c0160)` |
 | `docboard` | see `pcbdoc` |
 | `docset` | see `import_evidence` |
 | `frame` | `EVIDENCE` INFERRED: `H-A-IMP-FRAME`, `H-A-IMP-PADSTACK` |

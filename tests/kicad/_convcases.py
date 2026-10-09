@@ -9,13 +9,16 @@ under the importer's profile ``kicad-import``. A difference that a lost item of 
 explains (``convert.report.Explainer``) is no fault of the triangle.
 
 The re-target converts a project built for KiCad 9 to KiCad 10 and runs DRC on the source in 9.0.9 and on
-the written board in 10.0.6; the two reports must name the same violation types. One major runs per
+the written board in 10.0.6; the two reports must name the same violation types. Change c0160 adds the
+probes of a document with DIFAT sectors (``convert-difat``) and of stacked and slotted pads
+(``convert-padstack``), built from the blink sample in memory. One major runs per
 session, so the probe of each major records the types its runner gives in ``docs/evidence/conversion.md``
 and the test compares them with the other major's recorded list.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import shutil
 import tempfile
 from collections import Counter
@@ -26,6 +29,7 @@ from pathlib import Path
 
 from _resources import kicad_cli
 
+from fenolite.backends.altium import lower
 from fenolite.backends.kicad import altium_import
 from fenolite.backends.kicad.cli import KicadCli, cli_for
 from fenolite.checks.equivalence import (
@@ -39,6 +43,8 @@ from fenolite.checks.equivalence import (
 from fenolite.checks.equivalence.model import Difference
 from fenolite.convert import convert_project
 from fenolite.convert.report import Explainer
+from fenolite.model.board import Pad
+from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[2]
 TWO_LAYER = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -229,8 +235,170 @@ def retarget_outcome() -> str:
     return "equal"
 
 
+# --- change c0160: the large document and the pads of a converted board ---------------------------------
+
+LARGE_TRACKS = 180_000
+"""The lines added to the blink sample for the large document of ``convert-difat``: their stream alone
+needs more than the 109 FAT sectors that the header lists."""
+KICAD_IMPORT_NM = 10
+"""KiCad's importer rounds each length to 10 nm (``docs/evidence/conversion.md``, "The triangle")."""
+
+
+def _blink_model() -> Design:
+    """The blink sample as a conversion projects it (``fpitems.with_footprint_items``)."""
+    from fenolite.backends.kicad import fpitems
+    from fenolite.backends.kicad.backend import KicadBackend
+
+    return fpitems.with_footprint_items(KicadBackend().read(BLINK_T10 / "blink.kicad_pcb").design).design
+
+
+def _imported(design: Design) -> tuple[lower.ProjectWrite, Design]:
+    """``design`` written with ``lower.write_design`` and its PCB document imported by ``kicad-cli``."""
+    written = lower.write_design(design, allow_lossy=True)
+    with tempfile.TemporaryDirectory(prefix="fenolite-convlarge-") as name:
+        folder = Path(name)
+        for key, data in written.files.items():
+            (folder / key).write_bytes(data)
+        document = next(folder / key for key in written.files if key.endswith(".PcbDoc"))
+        imported = altium_import.import_design(runner(), document)
+    return written, imported.read.design
+
+
+def large_design() -> Design:
+    """The blink sample with ``LARGE_TRACKS`` lines on ``F.SilkS`` inside its outline: a PCB document that
+    needs DIFAT sectors (the lines are tracks on the overlay, which KiCad imports as graphics; the importer
+    keeps no free copper track without a net)."""
+    from fenolite.core.coords import Point
+    from fenolite.core.ids import derived_id
+    from fenolite.model.board import Graphic
+
+    design = _blink_model()
+    board = design.board
+    assert board is not None
+    lines = tuple(
+        Graphic(
+            id=derived_id("gfx", "test", f"large:{k}"),
+            kind="line",
+            layer="F.SilkS",
+            points=(
+                Point(102_000_000 + (k % 400) * 100_000, 102_000_000 + (k // 400) * 50_000),
+                Point(102_050_000 + (k % 400) * 100_000, 102_000_000 + (k // 400) * 50_000),
+            ),
+            width=20_000,
+        )
+        for k in range(LARGE_TRACKS)
+    )
+    return dataclasses.replace(design, board=dataclasses.replace(board, graphics=(*board.graphics, *lines)))
+
+
+def silk_lines(design: Design) -> int:
+    board = design.board
+    assert board is not None
+    return sum(1 for graphic in board.graphics if graphic.layer == "F.SilkS" and graphic.kind == "line")
+
+
+@cache
+def difat_outcome() -> str:
+    """``equal`` when the large document, written with DIFAT sectors, is imported by ``kicad-cli`` with
+    every line and equals the source at level 4 under the profile ``kicad-import``; else ``different``."""
+    design = large_design()
+    written, back = _imported(design)
+    data = next(data for key, data in written.files.items() if key.endswith(".PcbDoc"))
+    if int.from_bytes(data[0x48:0x4C], "little") == 0:  # the header's count of DIFAT sectors
+        return "different"
+    if silk_lines(back) != silk_lines(design):
+        return "different"
+    report = compare_designs(
+        design, back, level=4, tolerances=Tolerances(KICAD_IMPORT_NM, 0, 0), frame="relative"
+    )
+    return "equal" if not report.differences else "different"
+
+
+def padstack_design() -> Design:
+    """The blink sample whose LED ``D1`` holds a pad of 1.6 mm round on the top and 2.0 mm round on the
+    bottom (stack mode 1) and a 1.2 by 2.4 mm oval pad with a 0.6 by 1.8 mm slot."""
+    from fenolite.core.coords import Size
+    from fenolite.core.ids import derived_id
+    from fenolite.model.board import Padstack, PadstackLayer
+
+    design = _blink_model()
+    board = design.board
+    assert board is not None
+    refs = {c.id: c.ref for c in design.circuit.components}
+    stack = Padstack(
+        id=derived_id("pst", "test", "convert-padstack:stack"),
+        layers=(
+            PadstackLayer("F.Cu", "circle", Size(1_600_000, 1_600_000)),
+            PadstackLayer("B.Cu", "circle", Size(2_000_000, 2_000_000)),
+        ),
+    )
+    slot = Padstack(
+        id=derived_id("pst", "test", "convert-padstack:slot"), hole_shape="slot", hole_length=1_800_000
+    )
+    footprints = []
+    for fp in board.footprints:
+        if refs.get(fp.component_id) == "D1":
+            pads = []
+            for pad in fp.pads:
+                if pad.number == "2":
+                    pad = dataclasses.replace(
+                        pad, shape="circle", size=Size(1_600_000, 1_600_000), padstack=stack
+                    )
+                elif pad.number == "1":
+                    pad = dataclasses.replace(
+                        pad, shape="oval", size=Size(1_200_000, 2_400_000), drill=600_000, padstack=slot
+                    )
+                pads.append(pad)
+            fp = dataclasses.replace(fp, pads=tuple(pads))
+        footprints.append(fp)
+    return dataclasses.replace(design, board=dataclasses.replace(board, footprints=tuple(footprints)))
+
+
+def copper_of(pad: Pad, layer: str) -> tuple[str, int, int]:
+    """The shape and size of ``pad`` on the outer copper layer ``layer``."""
+    entries = {entry.layer: entry for entry in (pad.padstack.layers if pad.padstack else ())}
+    entry = entries.get(layer)
+    if entry is None:
+        return pad.shape, pad.size.w, pad.size.h
+    return entry.shape, entry.size.w, entry.size.h
+
+
+def _pads_of(design: Design, ref: str) -> dict[str, Pad]:
+    refs = {c.id: c.ref for c in design.circuit.components}
+    board = design.board
+    assert board is not None
+    return {pad.number: pad for fp in board.footprints if refs.get(fp.component_id) == ref for pad in fp.pads}
+
+
+def _near(a: int, b: int) -> bool:
+    return abs(a - b) <= KICAD_IMPORT_NM
+
+
+@cache
+def padstack_outcome() -> str:
+    """``equal`` when ``kicad-cli`` imports the stacked pad of ``padstack_design`` with the copper of the
+    model on each outer layer and the slotted pad with its slot; else ``different``."""
+    design = padstack_design()
+    _written, back = _imported(design)
+    model, read = _pads_of(design, "D1"), _pads_of(back, "D1")
+    for layer in ("F.Cu", "B.Cu"):
+        a, b = copper_of(model["2"], layer), copper_of(read["2"], layer)
+        if a[0] != b[0] or not (_near(a[1], b[1]) and _near(a[2], b[2])):
+            return "different"
+    slot = read["1"]
+    stack = slot.padstack
+    if stack is None or stack.hole_shape != "slot" or stack.hole_length is None or slot.drill is None:
+        return "different"
+    return "equal" if _near(slot.drill, 600_000) and _near(stack.hole_length, 1_800_000) else "different"
+
+
 def conv_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
-    return {"convert-triangle": (triangle_outcome, (10,)), "convert-retarget": (retarget_outcome, (9, 10))}
+    return {
+        "convert-triangle": (triangle_outcome, (10,)),
+        "convert-retarget": (retarget_outcome, (9, 10)),
+        "convert-difat": (difat_outcome, (10,)),
+        "convert-padstack": (padstack_outcome, (10,)),
+    }
 
 
 __all__ = [
@@ -239,6 +407,12 @@ __all__ = [
     "Triangle",
     "SOURCE_TYPES_9",
     "conv_probes",
+    "copper_of",
+    "difat_outcome",
+    "large_design",
+    "padstack_design",
+    "padstack_outcome",
+    "silk_lines",
     "DEMO_RETARGETS",
     "converted_types",
     "drc_types",

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from fenolite.backends.altium.altsym import AltiumSymbol, from_generic, map_pins
-from fenolite.backends.altium.ascii import text_problem
+from fenolite.backends.altium.ascii import read_text_problem, text_problem
 from fenolite.backends.altium.binary import write_schdoc_binary
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.layout import (
@@ -45,6 +45,10 @@ from fenolite.model.design import Design
 
 PATH_PROPERTY = "fenolite.path"
 """The component property that holds the component path (set by the DSL)."""
+READ_COMMENT_PROPERTY = "fenolite.comment-read"
+"""The component property, ``"1"``, that marks a comment read from a file (change c0160,
+``lower.schematic_design``): ``ascii.read_text_problem`` checks it in place of ``text_problem``, so it is
+written as read."""
 _HARNESS = "harness"
 """The kind of the interfaces that ``fenolite.dsl.Harness`` records (``hierarchy.HARNESS_INTERFACE``)."""
 UNIQUE_ID_SALT = "fenolite.altium.uniqueid:"
@@ -329,6 +333,18 @@ def _link(text: str, what: str) -> tuple[str, str]:
     return _text(link[0], f"{what} library"), _text(link[1], f"{what} name")
 
 
+def _comment(component: Component, symbol: str, form: SchematicForm) -> str:
+    """The comment of a part: ``_text`` of a parameter, or for a comment read from a file
+    (``READ_COMMENT_PROPERTY``) ``ascii.read_text_problem`` (change c0160)."""
+    text = component.value or symbol
+    if component.properties.get(READ_COMMENT_PROPERTY) != "1":
+        return _text(text, f"{component.ref} comment", parameter=True, form=form)
+    problem = read_text_problem(text, form=form)
+    if problem is not None:
+        raise ValueError(f"{component.ref} comment {text!r} {problem}")
+    return text
+
+
 def part_specs(
     design: Design,
     *,
@@ -399,9 +415,7 @@ def part_specs(
             PartSpec(
                 key=component_path(component),
                 ref=_text(component.ref, "ref"),
-                comment=_text(
-                    component.value or symbol, f"{component.ref} comment", parameter=True, form=form
-                ),
+                comment=_comment(component, symbol, form),
                 library=library,
                 symbol=symbol,
                 footprint=footprint,
@@ -633,6 +647,7 @@ __all__ = [
     "PCBLIB_KIND",
     "PcbTooLarge",
     "PATH_PROPERTY",
+    "READ_COMMENT_PROPERTY",
     "WRITE_KINDS",
     "SCHDOC_KINDS",
     "SCHLIB_KIND",

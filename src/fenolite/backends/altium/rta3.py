@@ -21,6 +21,7 @@ from types import MappingProxyType
 from typing import Any
 
 import fenolite.backends.altium.import_evidence as import_evidence
+import fenolite.backends.altium.lower as lower
 from fenolite.backends.altium.lower import ProjectWrite
 from fenolite.backends.altium.roundtrip import (
     EVIDENCE_BODIES,
@@ -37,7 +38,13 @@ _BOARD_FIELDS: Mapping[str, str] = MappingProxyType(
 )
 
 
-def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from_board: bool) -> Design:
+def without_unwritten(
+    design: Design,
+    kept: Mapping[str, Sequence[str]],
+    *,
+    from_board: bool,
+    changed: Mapping[str, Mapping[str, Sequence[str]]] | None = None,
+) -> Design:
     """``design`` without the entities whose ids ``kept`` lists per kind (``lower.AltiumInputs.not_lowered``):
     what a write left out and counted is not part of the comparison. A footprint that was not written goes
     with its pads, and a component body that was not written leaves its footprint (change c0121).
@@ -45,7 +52,10 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
     read alone): then a component whose footprint was not written goes too, and a net loses the members
     whose pads were not written, as the second reading cannot hold them. The graphics and texts of a
     footprint that are counted under ``footprint-graphic``, ``footprint-copper`` and ``footprint-text`` go
-    too (change c0126)."""
+    too (change c0126). Change c0160: a pin that the tolerant write puts on one of its two nets
+    (``pin-net``) leaves the other net; a component without a reference whose footprint (a free pad) was
+    not written goes; and, for a circuit read from schematics, a comment that ``changed`` names under
+    ``comment`` is the one the generated schematic gives (``lower.written_comment_of``)."""
     board = design.board
     gone = {kind: frozenset(ids) for kind, ids in kept.items()}
     circuit = design.circuit
@@ -75,7 +85,26 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
             changes[name] = tuple(item for item in getattr(board, name) if item.id not in gone.get(kind, ()))
         board = dataclasses.replace(board, **changes)
     nets = [net for net in circuit.nets if net.id not in gone.get("net", ())]
-    components = list(circuit.components)
+    if gone.get(lower.PIN_NET_KIND):
+        drops = lower.pin_net_drops(design)
+        nets = [
+            dataclasses.replace(
+                net,
+                members=tuple(
+                    m for m in net.members if (m.component_id, m.pin) not in drops.get(net.id, set())
+                ),
+            )
+            for net in nets
+        ]
+    components = [c for c in circuit.components if c.ref or c.id not in lost_components]
+    # the comment of the generated schematic; a document read alone takes its comment from the PCB document
+    rewritten: set[str] = set()
+    if not from_board:
+        rewritten = {i for ids in (changed or {}).get(lower.COMMENT_KIND, {}).values() for i in ids}
+    components = [
+        dataclasses.replace(c, value=lower.written_comment_of(c)) if c.id in rewritten else c
+        for c in components
+    ]
     if from_board:
         components = [c for c in components if c.id not in lost_components]
         nets = [
@@ -134,7 +163,9 @@ def rt_a3(
             False, False, unwritten=counts, written=done, files=files, reason="no-document",
             evidence=Evidence(Level.UNVERIFIED),
         )  # fmt: skip
-    reference = without_unwritten(first, written.inputs.not_lowered, from_board=from_board)
+    reference = without_unwritten(
+        first, written.inputs.not_lowered, from_board=from_board, changed=written.inputs.changed
+    )
     report = compare(reference, second, RT_A3_SCOPE)
     evidence = Evidence.combine(EVIDENCE_RT_A3, import_evidence.EVIDENCE)
     changes = report.changes
