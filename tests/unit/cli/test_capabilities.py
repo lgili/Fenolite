@@ -47,7 +47,8 @@ def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> N
     entry = commands["equivalent"]
     assert entry["levels"] == [1, 2, 3, 4, 5]
     assert entry["sides"] == [
-        "altium_pcbdoc", "altium_prjpcb", "altium_schdoc", "fenolite_model", "kicad_pcb", "kicad_pro", "kicad_sch",
+        "altium_pcbdoc", "altium_prjpcb", "altium_schdoc", "fenolite_model", "kicad_pcb", "kicad_pro",
+        "kicad_sch",
     ]  # fmt: skip
     assert entry["sides"] == sorted(entry["sides"])
     assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == ["equivalent"]
