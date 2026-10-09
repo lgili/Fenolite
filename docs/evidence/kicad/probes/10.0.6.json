@@ -792,6 +792,7 @@
     "pro-tuning-exact": "present",
     "pro-tuning-gap": "present",
     "pro-tuning-gap-clearance": "absent",
+    "pro-tuning-gap-clearance-rule": "present",
     "pro-tuning-missing": "present",
     "pro-tuning-norow": "absent",
     "pro-tuning-rule-governs": "absent",

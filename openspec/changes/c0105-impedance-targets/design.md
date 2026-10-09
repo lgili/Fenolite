@@ -100,6 +100,7 @@
 
    - Rejected: refusing a shadowed target with an error. A narrower rule outside an area is legal in KiCad and may be meant; the warning names it.
    - Rejected: the gap-clearance warning on target 10. The profile relaxes the pair's own clearance there (measured without a custom clearance rule); the probe `pro-tuning-gap-clearance-rule` decides the case with one, and the warning extends to it if KiCad then reports the pair.
+   - 2026-10-09: `pro-tuning-gap-clearance-rule` = `present` on 10.0.6 (local run in the pinned image): under a board-wide custom clearance rule of 0.2 mm the pair at its 0.15 mm gap gets a `clearance` finding between its tracks. The warning extends to target 10 where the custom clearance rule that governs the pair (the last `clearance` rule whose selectors select it) is above the gap. Only the board-wide rule was measured; a rule of the class or the pair is taken to govern the same way (`INFERRED`).
 
 10. **The stack-up flag stays the user's.** c0101's `Stackup.impedance_controlled` writes `(dielectric_constraints yes)`, which makes the job file state `ImpedanceControlled` and the dielectric constants (measured here and by c0101). A design with targets whose board has no stack-up, or whose flag is false, gets `build.impedance-stackup` with the call to make.
     - Rejected: setting the flag from the targets. On a rebuild c0101's merge keeps the board's unlocked stack-up, so the build would either fight that rule or write a flag the script never stated.

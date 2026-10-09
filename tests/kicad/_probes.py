@@ -361,12 +361,8 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _couplebench.couple_probes().items():  # change c0110
         probes[pid] = Probe(function, majors)
-    # change c0105: `pro-tuning-gap-clearance-rule` is printed by its test and not pinned, because its outcome
-    # (recorded either way) has not been read from a run yet
-    tuning = {
-        pid: entry for pid, entry in _zbench.tuning_probes().items() if pid != "pro-tuning-gap-clearance-rule"
-    }
-    for pid, (function, majors) in {**tuning, **_zbench.width_probes()}.items():
+    # change c0105: `pro-tuning-gap-clearance-rule` is pinned since its outcome was read on 10.0.6 (task 1.3)
+    for pid, (function, majors) in {**_zbench.tuning_probes(), **_zbench.width_probes()}.items():
         probes[pid] = Probe(function, majors)
     return probes
 

@@ -910,8 +910,8 @@ fix = "Set the class value of design.rules.netclass() to the target's width or g
 see = "build"
 
 ["build.impedance-gap-clearance"]
-meaning = "On KiCad 9 a pair target's gap is below the clearance of its class and the class has no pair gap at or below it, so KiCad 9 reports the clearance between the two tracks of the pair."
-fix = "Set diff_pair_gap= of design.rules.netclass() at or below the gap, or give the pair its own clearance with design.rules.pair(…, clearance=…)."
+meaning = "On KiCad 9 a pair target's gap is below the clearance of its class and the class has no pair gap at or below it, so KiCad 9 reports the clearance between the two tracks of the pair. On KiCad 10 the tuning profile relaxes that clearance, except where a custom clearance rule governs the pair: a rule above the gap is reported there as well."
+fix = "Set diff_pair_gap= of design.rules.netclass() at or below the gap, narrow a custom clearance rule so that it does not select the pair, or give the pair its own clearance with design.rules.pair(…, clearance=…)."
 see = "build"
 
 ["build.impedance-layer"]

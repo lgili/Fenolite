@@ -45,7 +45,7 @@ A build SHALL check the impedance targets of the design after the parts are reso
 | `build.impedance-layer` | error | a trace's layer or reference is not a copper layer of the board |
 | `build.impedance-shadowed` | warning | a rule of the same kind as a derived rule, emitted after it, selects a target class on a trace's layer (below) |
 | `build.impedance-class-width` | warning | a target class has a value that differs from a trace's: `track_width` for a single target; c0104's `diff_pair_width` or `diff_pair_gap` for a differential one |
-| `build.impedance-gap-clearance` | warning | target 9: a trace's gap is below the clearance of its class, and the class has no `diff_pair_gap` (c0104) at or below that gap |
+| `build.impedance-gap-clearance` | warning | target 9: a trace's gap is below the clearance of its class, and the class has no `diff_pair_gap` (c0104) at or below that gap; target 10: the custom clearance rule that governs the pair on the trace's layer (the last `clearance` rule whose selectors select the pair as for `build.impedance-shadowed`) is above that gap |
 | `build.impedance-stackup` | warning | the board has no stack-up, or one whose `impedance_controlled` (c0101) is false |
 | `build.impedance-rules-only` | info | target 9: the targets are written as rules only |
 

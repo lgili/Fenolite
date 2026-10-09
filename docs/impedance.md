@@ -60,7 +60,7 @@ design.stackup(..., impedance_controlled=True)
 | `build.impedance-layer` | error | a trace's layer or reference is not a copper layer of the board |
 | `build.impedance-shadowed` | warning | a later rule of the same kind selects a target class, a pair of it or the whole board on a trace's layer |
 | `build.impedance-class-width` | warning | a class value (`track_width`, or `diff_pair_width`/`diff_pair_gap` for a pair) differs from a trace: routers lay tracks at the class value |
-| `build.impedance-gap-clearance` | warning | KiCad 9: a pair's gap is below its class clearance and the class has no pair gap at or below it |
+| `build.impedance-gap-clearance` | warning | KiCad 9: a pair's gap is below its class clearance and the class has no pair gap at or below it; KiCad 10: a custom clearance rule that governs the pair is above its gap |
 | `build.impedance-stackup` | warning | the board has no stack-up, or it is not marked `impedance_controlled` |
 | `build.impedance-rules-only` | info | KiCad 9: the targets are written as rules only |
 
