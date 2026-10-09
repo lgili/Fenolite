@@ -158,7 +158,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 `fenolite equivalent [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N] [--frame {absolute,relative}] [--ignore-ref GLOB] [--exclusions FILE] [--profile NAME] [--against {kicad-import}] [--kicad-cli PATH] [--timeout SECONDS] A [B]`
 
-- `A` (string, required): a KiCad board, project file or folder, an Altium document or project, or a .fenolite/ folder of a built design
+- `A` (string, required): a KiCad board, project file, folder or root schematic, an Altium document or project, or a .fenolite/ folder of a built design
 - `B` (string, optional): the design to compare with A
 - `--level` (integer): run the levels 1 to N (default: the highest available)
 - `--tolerance-nm` (integer): length tolerance per coordinate

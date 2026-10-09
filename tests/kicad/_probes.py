@@ -37,6 +37,7 @@ import _creepbench
 import _doccases
 import _drawbench
 import _drccases
+import _eqsides
 import _erccases
 import _exclcases
 import _exportcases
@@ -68,6 +69,7 @@ import _netlistcases
 import _offsetbench
 import _openbench
 import _outlinebench
+import _ovalcases
 import _pairbench
 import _paircases
 import _pairclasses
@@ -362,6 +364,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _featurebench.feature_probes(runner).items():  # change c0118
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _couplebench.couple_probes().items():  # change c0110
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {**_eqsides.eq_side_probes(), **_ovalcases.oval_probes()}.items():  # c0158
         probes[pid] = Probe(function, majors)
     # change c0105: `pro-tuning-gap-clearance-rule` is pinned since its outcome was read on 10.0.6 (task 1.3)
     for pid, (function, majors) in {**_zbench.tuning_probes(), **_zbench.width_probes()}.items():

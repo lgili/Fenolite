@@ -1344,7 +1344,7 @@ fix = "Correct the footprint, or pass --tolerance-udeg when the difference is ro
 see = "equivalent"
 
 ["equiv.pad-shape"]
-meaning = "The shape of a pad differs between the two sides."
+meaning = "The shape of a pad differs between the two sides. An oval whose two sizes are equal within the length tolerance counts as a circle."
 fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
 see = "equivalent"
 

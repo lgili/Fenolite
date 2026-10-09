@@ -273,6 +273,8 @@
     "dru-pair-sel-underscore": "present",
     "dru-pair-skew-within-equal": "absent",
     "dru-pair-uncoupled-far": "absent",
+    "equiv-oval-disc": "equal",
+    "equiv-schside": "equal",
     "erc-copyset": "equal",
     "erc-ignored-checks": "absent",
     "erc-position-scale": "equal",

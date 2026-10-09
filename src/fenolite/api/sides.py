@@ -47,6 +47,9 @@ SCHEMATIC_KIND = "kicad_sch"
 SCHEMATIC_SOURCE = "schematic"
 SCHEMATIC_HYPOTHESIS = "H-K-EQ-SCHSIDE"
 EXPORT_ORACLE = "kicad-cli"
+OWN_EVIDENCE = Evidence(Level.KICAD_VERIFIED, None, (SCHEMATIC_HYPOTHESIS,))
+"""``KICAD-VERIFIED``: a schematic side read through the own netlist gives the circuit and the fitted flags
+that ``kicad-cli``'s export gives, on 9.0.9 and 10.0.6 (``H-K-EQ-SCHSIDE``, c0158 task 3.3)."""
 EXPORT_EVIDENCE = Evidence(Level.ORACLE_VERIFIED, EXPORT_ORACLE, (SCHEMATIC_HYPOTHESIS, "H-K-NETLIST-SHAPE"))
 """The evidence of a schematic side whose netlist ``kicad-cli`` exported."""
 NETLIST_ORIGIN = "kicad-netlist"
@@ -56,6 +59,17 @@ DNP = "dnp"
 attribute of its symbol for the own netlist (``H-K-EQ-SCHSIDE``)."""
 POWER_PREFIX = "#"
 NO_TOOL_HINT = "install KiCad 9 or 10, set FENOLITE_KICAD_CLI or pass --kicad-cli"
+SIDE_KINDS = (
+    "altium_pcbdoc",
+    "altium_prjpcb",
+    "altium_schdoc",
+    "fenolite_model",
+    "kicad_pcb",
+    "kicad_pro",
+    "kicad_sch",
+)
+"""The kinds of side ``fenolite equivalent`` reads, sorted (capability cli-contract, "Levels and sides of
+equivalent in capabilities")."""
 READS = (
     "a KiCad board, project file, folder or root schematic, an Altium document or project, or a .fenolite/ "
     "folder of a built design"
@@ -224,7 +238,7 @@ def read_schematic(path: Path, *, kicad_cli: str | None = None, timeout: float =
         netlist = parity_inputs.own_netlist(sheets, project=project)
         flags = parity_inputs.symbol_flags(sheets, project)
         dnp = frozenset(ref for ref, held in flags.items() if DNP in held)
-        evidence = parity_inputs.own_evidence(sheets)
+        evidence = Evidence.combine(parity_inputs.own_evidence(sheets), OWN_EVIDENCE)
     else:
         tool = find_kicad_cli(kicad_cli)
         if tool is None:
@@ -303,6 +317,7 @@ def imported(cli: KicadCli, source: Path, name: str) -> ReadSide | Issue:
 
 
 __all__ = [
+    "SIDE_KINDS",
     "BUILT_BACKEND",
     "BUILT_EVIDENCE",
     "BUILT_FILES",

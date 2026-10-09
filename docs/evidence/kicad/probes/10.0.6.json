@@ -314,6 +314,8 @@
     "dru-pair-skew-within-equal": "absent",
     "dru-pair-uncoupled-far": "absent",
     "equiv-l5-triangle": "equal",
+    "equiv-oval-disc": "equal",
+    "equiv-schside": "equal",
     "erc-copyset": "equal",
     "erc-ignored-checks": "present",
     "erc-position-scale": "equal",

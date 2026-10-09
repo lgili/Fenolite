@@ -95,8 +95,17 @@ def test_equal_ovals_read_back_as_circles(item_id: str) -> None:
     assert found == MEASURED[item_id]
 
 
+@pytest.mark.xfail(strict=True, reason="the shape rule of task 4.1: an equal-sized oval is a circle")
 @pytest.mark.parametrize("item_id", sorted(MEASURED))
 def test_pad_shape_reported_before_the_rule(item_id: str) -> None:
     """Before the shape rule (task 4.1) level 3 reported one ``pad-shape`` per such pad."""
     a, b = _sides(item_id)
     assert _reported(a, b) == MEASURED[item_id]
+
+
+@pytest.mark.parametrize("item_id", sorted(MEASURED))
+def test_no_pad_shape_after_the_rule(item_id: str) -> None:
+    """Capability design-equivalence, "Tolerances and normalisation", "Pad shape": none of those pads
+    differs in shape."""
+    a, b = _sides(item_id)
+    assert _reported(a, b) == 0

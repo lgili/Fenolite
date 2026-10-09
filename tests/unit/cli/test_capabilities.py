@@ -40,6 +40,19 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
     assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "mcp", "oracles"}  # type: ignore[arg-type]
 
 
+def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> None:
+    """Capability cli-contract, "Levels and sides of equivalent in capabilities", scenario "Levels and sides
+    listed" (change c0158)."""
+    commands = {c["name"]: c for c in _capabilities(capsys, "--no-tools")["commands"]}  # type: ignore[union-attr]
+    entry = commands["equivalent"]
+    assert entry["levels"] == [1, 2, 3, 4, 5]
+    assert entry["sides"] == [
+        "altium_pcbdoc", "altium_prjpcb", "altium_schdoc", "fenolite_model", "kicad_pcb", "kicad_pro", "kicad_sch",
+    ]  # fmt: skip
+    assert entry["sides"] == sorted(entry["sides"])
+    assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == ["equivalent"]
+
+
 def test_missing_tools_are_null_not_fatal(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

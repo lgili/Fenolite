@@ -89,6 +89,29 @@ def test_rotation_of_other_shapes() -> None:
     assert not norm.pads_equal_turned(custom, custom, Tolerances())
 
 
+def test_equal_sized_oval_is_a_circle() -> None:
+    """Scenario "Equal-sized oval is a circle" (change c0158)."""
+    disc = _cases.pad("1", shape="oval", size=Size(1_600_000, 1_600_000))
+    circle = _cases.pad("1", shape="circle", size=Size(1_600_000, 1_600_000))
+    assert (
+        norm.shape_class(disc, Tolerances()) == "circle"
+        and norm.shape_class(circle, Tolerances()) == "circle"
+    )
+    assert _one(disc, circle) == [] and _one(circle, disc) == []
+    long = dataclasses.replace(disc, size=Size(1_600_000, 1_700_000))
+    assert norm.shape_class(long, Tolerances()) == "oval"
+    assert _one(long, circle) == ["pad-shape", "pad-size"]
+    a = _cases.design([("R1", "")], {"R1": [long]})
+    b = _cases.design([("R1", "")], {"R1": [circle]})
+    result, _ = level_footprints(a, b, ["R1"], Tolerances())
+    shape = next(d for d in result.differences if d.kind == "pad-shape")
+    assert (shape.a, shape.b) == ("oval", "circle")
+    # within the length tolerance an oval of two near sizes is a disc too; its sizes are still compared
+    near = dataclasses.replace(disc, size=Size(1_600_000, 1_600_005))
+    assert _one(near, circle, Tolerances(length_nm=5)) == []
+    assert _one(near, circle) == ["pad-shape", "pad-size"]
+
+
 def test_copper_span_reads_the_board_layers() -> None:
     board = _cases.design([("R1", "")], {"R1": []}).board
     assert board is not None

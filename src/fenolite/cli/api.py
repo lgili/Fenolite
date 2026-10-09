@@ -126,6 +126,9 @@ class Command:
     result holds is paged."""
     default_limit: int | None = None
     """The page size in force without ``--limit``; ``None`` gives the whole list."""
+    discovery: tuple[tuple[str, tuple[str | int, ...]], ...] = ()
+    """Keys that the command's entry in ``fenolite capabilities`` holds besides those of every entry, each
+    with its list (``equivalent``: ``levels`` and ``sides``; change c0158)."""
 
     @property
     def hidden(self) -> bool:

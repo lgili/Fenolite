@@ -123,6 +123,7 @@ def _entry(command: Command) -> dict[str, Any]:
         {"name": command.name, "mutates": command.mutates, "schema": command.schema, "hidden": command.hidden}
         | ({"example_tools": list(command.example_tools)} if command.example_tools else {})
         | ({"paged": command.paged, "default_limit": command.default_limit} if command.paged else {})
+        | {key: list(values) for key, values in command.discovery}
     )
 
 

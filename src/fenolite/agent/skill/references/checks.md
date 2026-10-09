@@ -127,6 +127,21 @@ fenolite parity blink/build --json
 - `netlist.assignment-differs`, from the stage `netlist.assignment_compare`, means a pad is on another
   net than the script says: build again, and look for copper drawn on the wrong pad.
 
+## Two designs compared
+
+```fenolite-cmd
+fenolite equivalent blink/build/blink.kicad_sch blink/build/blink.kicad_pcb --json
+fenolite equivalent blink/build blink/altium/blink.PrjPcb --frame relative --tolerance-nm 1 --json
+```
+
+- `equivalent A B` says level by level whether two designs are the same: components, netlist,
+  footprints, placement, routing. Exit 5 lists each difference at `REF` or `REF-PIN`; it writes nothing.
+- A side is a board, a project folder, an Altium document or project, a `.fenolite/` folder, or a root
+  `.kicad_sch`, which is compared at levels 1 and 2 only. A schematic that `build` did not write needs
+  `kicad-cli` (exit 6 without one).
+- `capabilities --command equivalent` lists the `levels` and the `sides` it reads; the reply follows the
+  schema `fenolite.equivalent.v0`. In Python, `fenolite.api.equivalent(a, b)` gives the same result.
+
 ## What is installed
 
 ```fenolite-cmd

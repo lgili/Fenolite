@@ -18,7 +18,7 @@ import argparse
 from pathlib import Path
 
 from fenolite.api.equivalence import AGAINST, equivalent
-from fenolite.api.sides import READS, SideError
+from fenolite.api.sides import READS, SIDE_KINDS, SideError
 from fenolite.checks.equivalence import LEVELS, Profile, load_profiles
 from fenolite.checks.equivalence.model import FRAMES
 from fenolite.cli._examples import EXAMPLE_BOARD
@@ -169,6 +169,7 @@ COMMAND = Command(
     register=_register,
     run=_run,
     example_args=(EXAMPLE_BOARD, EXAMPLE_BOARD, "--level", "4"),
+    discovery=(("levels", LEVELS), ("sides", SIDE_KINDS)),
 )
 
 __all__ = ["COMMAND"]

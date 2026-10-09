@@ -2606,13 +2606,21 @@ read's combined with the board frame's (`frame.EVIDENCE`).
 `fenolite equivalent A [B] [--level N] [--tolerance-nm N] [--tolerance-udeg N] [--tolerance-ppm N]
 [--frame absolute|relative] [--ignore-ref GLOB]… [--exclusions FILE --profile NAME] [--against kicad-import]
 [--kicad-cli PATH] [--timeout SECONDS]` says whether two designs are equivalent, level by level, and locates
-every difference at `REF` or `REF-PIN`, and at the net for routing. It is read-only. With two paths it runs no tool. `docs/equivalence.md`
-defines the levels, the kinds of difference, the tolerance rules and the exclusion file.
+every difference at `REF` or `REF-PIN`, and at the net for routing. It is read-only. With two paths it runs no tool, unless a
+KiCad schematic outside the grammar of Fenolite's own netlist needs `kicad-cli`. `docs/equivalence.md`
+defines the levels, the kinds of difference, the tolerance rules, the exclusion file and the schematic
+side. The command parses its options and calls `fenolite.api.equivalent`, the same comparison as a library
+call; its `result` is `EquivalenceResult.to_json()` and follows the schema
+`schemas/fenolite.equivalent.v0.json`. The entry `equivalent` of `capabilities` lists `levels`
+(`[1, 2, 3, 4, 5]`) and `sides`, the side kinds it reads.
 
 Each of `A` and `B` is one of:
 
 - a `.fenolite/` folder (it holds `meta.json` or `build.json`): the built design, backend `fenolite`;
 - a `.kicad_pro` file or a project folder, resolved to its board as `check` resolves it;
+- a root KiCad schematic, a file ending in `.kicad_sch`, read with its sheet tree into a circuit and
+  compared at levels 1 and 2 only: through Fenolite's own netlist for a schematic that `build` wrote, else
+  through `kicad-cli sch export netlist` (`--kicad-cli`);
 - any other file that a backend reads into a design: a KiCad board, an Altium PCB document, schematic
   document or project file.
 
@@ -2625,15 +2633,15 @@ Each of `A` and `B` is one of:
 | `--ignore-ref GLOB` | leave out the components whose reference matches (repeatable) |
 | `--exclusions FILE --profile NAME` | apply the rules of one profile of an exclusion file. The profile also gives the frame and the tolerances; an option on the command line overrides its value |
 | `--against kicad-import` | instead of `B`: convert `A`, an Altium PCB document, with `kicad-cli pcb import` (10.0 only) and compare Fenolite's read of `A` with the read of the converted board, under the `kicad-import` profile of the running version line |
-| `--kicad-cli PATH`, `--timeout SECONDS` | the tool of `--against` and its time limit (default 300 s) |
+| `--kicad-cli PATH`, `--timeout SECONDS` | the tool of `--against`, or of a schematic side outside the own netlist's grammar, and its time limit (default 300 s) |
 
 `result` holds:
 
 | key | value |
 |---|---|
-| `level` | the highest level that ran |
+| `level` | the highest level that ran (0 when the triangle's converter gave no board; `result.tool_version` then names the `kicad-cli`) |
 | `equivalent` | `true` when no difference remains outside the rules |
-| `sides` | `a` and `b`, each with `path` (the name without its folder), `sha256` (of a file; `null` for a folder), `backend` (`kicad`, `altium`, `fenolite` or `kicad-import`), `netlist_source` (`board` or `circuit`), `components` and `footprints` (counts); side `b` of `--against` also has `tool_version` |
+| `sides` | `a` and `b`, each with `path` (the name without its folder), `sha256` (of a file; `null` for a folder), `backend` (`kicad`, `altium`, `fenolite` or `kicad-import`), `netlist_source` (`board`, `circuit` or `schematic`), `components` and `footprints` (counts); side `b` of `--against` also has `tool_version`, and a schematic side `power_symbols`, the count of its `#` references, which are no components |
 | `tolerances` | `length_nm`, `angle_udeg` and `length_ppm` |
 | `frame`, `translation` | the frame, and `[x, y]`, the translation removed from side `b` |
 | `levels` | one object per level run: `level`, `name`, `compared`, `differences`, `excluded` and `notices` (counts) and `summary`. The summary of level 5 holds `nets` (compared), `pieces`, `vias` and `length` (totals of side `a` and `b` over those nets), `unjudged`, `nets_unpaired`, `zones_unfilled`, `copper_no_net` and `unshaped` |
@@ -2676,7 +2684,8 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 | 2 | `FEN-2001` | neither `B` nor `--against`, or both; a level above what both sides hold (the message names the side without footprints, or without copper for level 5) or above 5; a bad value; `--exclusions` without `--profile` or the reverse; a profile the file lacks; an input no backend reads, or a library; `--against` on anything but an Altium PCB document |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | the reader's code | an input or the exclusion file cannot be read |
-| 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10 |
+| 6 | `FEN-6001`, `FEN-6002` | `--against` without `kicad-cli`, or with a major other than 10; `FEN-6001` also for a schematic side outside the own netlist's grammar without `kicad-cli` |
+| 3 | `FEN-3004` | `kicad-cli` exported no netlist of a schematic side |
 
 ## manifest
 

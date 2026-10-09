@@ -8,8 +8,8 @@ Facts: ``docs/formats/kicad/schematic.md``, "Netlist export" (S-0020; observed o
 without a value are kept, as its flags (``dnp``; change c0158). The sections ``design``, ``libparts``,
 ``libraries``, ``groups`` and ``variants``, and the children ``code``, ``pinfunction``, ``sheetpath``,
 ``tstamps`` and ``units``, carry a date, paths of the run, numbering or a spelling that differs between the
-majors, so none of them reaches the result. ``KicadNetlist`` is also the type of Fenolite's own netlist of a generated sheet
-(``sch_netlist``), and ``differences`` compares two of them.
+majors, so none of them reaches the result. ``KicadNetlist`` is also the type of Fenolite's own netlist of
+a generated sheet (``sch_netlist``), and ``differences`` compares two of them.
 """
 
 from __future__ import annotations
