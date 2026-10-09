@@ -325,11 +325,11 @@ mib = 8700
 seconds = 1250
 mib = 7900
 
-[stage4.steps.route-pairs]
-seconds = 900  # its --timeout of 600 s plus 300 s for the merge and the write
-
 [stage4.steps.route]
 seconds = 3900  # its --timeout of 3600 s plus 300 s for the merge and the write (Decision 10)
+
+[stage4.steps.route-pairs]  # after route since c0157
+seconds = 900  # its --timeout of 600 s plus 300 s for the merge and the write
 
 [stage4.ratchets]
 # Provisional bounds until the first three scheduled runs of the stage (rebase prints the largest
@@ -415,11 +415,11 @@ mib = 8700
 seconds = 1250
 mib = 7900
 
-[stage5.steps.route-pairs]
-seconds = 900  # its --timeout of 600 s plus 300 s for the merge and the write
-
 [stage5.steps.route]
 seconds = 3900  # its --timeout of 3600 s plus 300 s for the merge and the write (Decision 10)
+
+[stage5.steps.route-pairs]  # after route since c0157
+seconds = 900  # its --timeout of 600 s plus 300 s for the merge and the write
 
 [stage5.ratchets]
 # Provisional bounds until the first three scheduled runs of the stage (rebase prints the largest

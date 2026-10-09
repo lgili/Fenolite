@@ -37,7 +37,7 @@ official KiCad libraries is kept here.
 | 1 | reached | four copper layers with inner zones, classes, minimums, the high-voltage clearance and creepage rules, the `USB2` interface, the built schematic, BOM, placement table and manifest | reached on 2026-10-08 by run 37836196244, dispatched at `32a19b3` with the verdict `passed` (task 5.2 of c0119) |
 | 2 | reached | six copper layers (`GND` on In1.Cu, `+3V3` and `VIN48` on In4.Cu, `HV_RTN` on both under the strip) and the stack-up preset `six-layer-1.6mm` (S-0722), impedance-controlled, ENIG | reached by the same run (complete for 0.4: c0100, c0101) |
 | 3 | reached | a board outline with corners rounded to 3 mm, slots under the two isolators and the creepage minimum raised to 7.5 mm, four plated `design.hole` mounting holes with keep-outs of tracks and vias, the strip as the rule area `HV` with a clearance of 0.6 mm between its `HV` nets, the class `USB` with pair values, the pair's gap, clearance, uncoupled, skew and length rules, the impedance target `USB90`, filled and capped thermal via arrays in the controller's exposed pad and the eight high-side tabs, `near` rules for the decoupling, the crystal and the gates, the net tie `NT1` between `GND` and `SGND`; the step `impedance` | reached by the same run (complete for 0.4: c0102, c0103, c0104, c0105, c0111, c0112, c0113, c0114); part heights (c0140) take no part: the example has no lid |
-| 4 | reached | `In1.Cu` and `In4.Cu` typed as planes; the steps `route-pairs` (KiCadRoutingTools, the pair and the controller's escape), `route` (Freerouting, plane fan-out, `--timeout 3600` and two tiers), `fill-routed`, `check-routed` against the ratchets, `net` and `analyze` (clearance, creepage with the 1 mm groove, insulation) | reached by the same run (complete for 0.4: c0106, c0107, c0108, c0109, c0110, c0115); c0110's `pairs` and `escape` features stay undeclared in 0.4 (its gate is deferred), so `route-pairs` routes nothing and the pair stays open, counted by the ratchets |
+| 4 | reached | `In1.Cu` and `In4.Cu` typed as planes; the steps `route` (Freerouting, plane fan-out, `--timeout 3600` and two tiers), `route-pairs` (KiCadRoutingTools, the pair and the controller's escape; after `route` since c0157, until the pair is routed as a coupled pair; run 37836196244 ran it first), `fill-routed`, `check-routed` against the ratchets, `net` and `analyze` (clearance, creepage with the 1 mm groove, insulation) | reached by the same run (complete for 0.4: c0106, c0107, c0108, c0109, c0110, c0115); c0110's `pairs` and `escape` features stay undeclared in 0.4 (its gate is deferred), so `route-pairs` routes nothing and the pair stays open, counted by the ratchets |
 | 5 | reached | three global fiducials, two tooling holes and five test points; the steps `export-package` (IPC-2581, ODB++, STEP, board PDF and DXF, schematic PDF, fabrication and assembly drawings, with the manifest) and `testpoints` | reached by the same run (complete for 0.4: c0116, c0117, c0118) |
 
 The example went from stage 1 to stage 5 in one step on 2026-10-08: the coordinator decided that day that
@@ -82,7 +82,8 @@ The run of 2026-10-08 (job `yardstick` of https://github.com/lgili/Fenolite/acti
   connections 431 → 427, 16 tracks and 2 vias written. On the CI runner Freerouting closed far less than
   in the local run of 2026-10-08 on another 4-core machine (130 of 167 nets in 3 606 s): tier 1 ended
   with the budget and 2 nets were closed in all. The cause was measured on 2026-10-09 ("The routing gap
-  of run 37836196244" below): the copper that `route-pairs` lays before `route`, not the runner.
+  of run 37836196244" below): the copper that `route-pairs` lays before `route`, not the runner. This
+  run took the order of c0119, `route-pairs` then `route`; since c0157 the runner takes `route` first.
 - **The routed board** (`check-routed` exit 5, as the step expects): KiCad counts 459 open connections
   (`unconnected_items`, not capped) and 78 other DRC errors (44 `diff_pair_gap_out_of_range`, 30
   `track_width`, 2 `length_out_of_range`, 1 `skew_out_of_range`, 1 `diff_pair_uncoupled_length_too_long`);
@@ -147,11 +148,14 @@ library), at `ced6aa2`. About 85 minutes of routing runs in all.
   a net, `H-G-DSN-NETLESS-2`), but the file with 30 segments fewer was as slow and left as many
   connections open: this points to the band itself, beside the controller whose escape the `CH*` nets of
   tier 1 need, as the obstacle (`INFERRED`: the band was not moved in any run).
-- **Proposed change to the nightly job** (to be made by its own change; c0119 is archived): while the
-  pair features of c0110 stay undeclared, give `route` the board before the pair is routed, by running
-  `route-pairs` after `route` (or leaving it out of the step list), so that the step measures what the
-  reference measured; once c0110's gate passes and the pair is routed as a coupled pair with its escape,
-  measure the order `route-pairs` then `route` again and size the budget of `route` on it. A design file
+- **Change to the nightly job, made by c0157** (the maintainer's decision of 2026-10-09, row 39 of "Open
+  decisions" in `docs/roadmap.md`): while the yardstick's pair is not routed as a coupled pair, `route`
+  gets the board before the pair is routed: `route-pairs` runs after `route` (it stays in the step list,
+  rather than being left out), so that the step measures what the reference measured. Once the pair is
+  routed as a coupled pair with its escape, the order `route-pairs` then `route` is measured again and
+  the budget of `route` sized on it, by a change of its own. The budgets and ratchets are keyed by step
+  name and by the routed board, so they do not depend on the order; the first three scheduled runs after
+  c0157 give `rebase` its records, not this run. A design file
   that keeps the pair's copper apart by the pair's gap rather than the default rule (declaring the pair's
   nets with their class) is a separate question for the Specctra writer, not measured here.
 
