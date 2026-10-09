@@ -2,7 +2,9 @@
 
 ## Purpose
 Check a KiCad project without writing to it: `fenolite check` runs model validation, ERC lite, KiCad's DRC on a closed copy of the project with a rules canary, and the RT1 round trip, in a fixed order, each stage with its own status and evidence. `fenolite inspect` summarises a file's header and counts, and `fenolite doctor` reports the `kicad-cli` binaries and their command matrices. Contract: `docs/cli-contract.md`; facts: `docs/formats/kicad/cli.md` and `docs/formats/kicad/drc.md`.
+
 ## Requirements
+
 ### Requirement: Check command input
 `fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
@@ -1052,3 +1054,155 @@ When the DRC run tested schematic parity (`kicad-oracle`, "Parity in the DRC run
 - **WHEN** `uv run pytest tests/unit/checks/test_parity.py -k closed_set` collects the codes that `test_parity.py` and `test_parity_stage.py` name
 - **THEN** each is a key of `PARITY_ISSUE_CODES` with an allowed severity, and every key is produced by at least one test
 
+### Requirement: Shared readiness definitions
+`model.circuit.power_interface_nets(circuit)` SHALL return the ids of the nets that an interface of kind `power` names, and `checks.validate.unresolved_footprints(design)` SHALL return, in circuit order, the parts that are not DNP and have an empty `lib_footprint_ref` or no footprint instance.
+- `checks.erc_lite` and `backends.kicad.schgen` MUST use the first in place of their own sets, and `validate_stage` the second, with their output unchanged.
+
+#### Scenario: The shared helpers keep their callers' output
+- **WHEN** `uv run pytest tests/unit/checks tests/unit/backends/kicad -k "validate or erc_lite or flag or power"` runs
+- **THEN** every test passes unchanged
+
+### Requirement: Open nets check
+`checks.readiness.open_stage(nets, *, evidence, issues)` SHALL give the check `nets.open`, with one `ready.net-open` (error, `where` the net name) per net with open connections, whose message names the count and the ends and length of the shortest, and `summary` `{nets, connections}`.
+
+#### Scenario: Two open nets
+- **GIVEN** two `OpenNet` rows, `A` with 2 connections and `B` with 1
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k open_stage` runs
+- **THEN** the stage has status `errors`, two `ready.net-open` issues and `summary` `{"nets": 2, "connections": 3}`
+
+### Requirement: Unconnected pins rule
+`checks.readiness.unconnected_pins(design, *, flagged)` SHALL return, in circuit order, each pin of a part that is not DNP whose type is not `no_connect`, that no `Circuit.no_connects` entry marks, that is not in `flagged`, and that is on no net or the only member of its net.
+- `pins_stage` MUST give `pins.unconnected`, with one `ready.pin-unconnected` (error, `where` `REF-PIN`) per pin.
+
+#### Scenario: A marked pin is not unconnected
+- **GIVEN** `U1` with pin `1` on `VCC` with `R1-1`, `2` on no net, `3` on no net and marked, `4` of type `no_connect`, `5` alone on `X`, and a DNP part with a pin on no net
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k pins` runs
+- **THEN** the rule returns `U1-2` and `U1-5` only, and with `U1-5` in `flagged` only `U1-2`
+
+### Requirement: Power nets rule
+`checks.readiness.power_nets(intent, *, board)` SHALL return one row per power net, sorted by name: a net of `power_interface_nets` (source `interface`), else a net with a `power_in` or `power_out` member pin (source `pin-type`).
+- A row MUST hold `width` ("Power net coverage") and `zones`, the zones of `board` on a net of that name.
+- `power_stage` MUST give `power.nets` with one `ready.power-net-unsized` (error) per row whose `width` is `null` and `zones` 0.
+
+#### Scenario: Power nets and their coverage
+- **GIVEN** a `Power` interface over `VCC` and `GND`, a net `V5` with a `power_out` pin, a net `SIG` of `passive` pins, and a zone on `GND`
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k power` runs
+- **THEN** the rows name `GND` (`interface`, zones 1), `V5` (`pin-type`) and `VCC` (`interface`), and none names `SIG`; without the zone, `GND` gives one `ready.power-net-unsized`
+
+### Requirement: Power net coverage
+The `width` of a power net SHALL be `class:<name>` when its class is not `Default` and has a `track_width`, else `rule:<name>` for the first rule of kind `track_width`, of severity other than `ignore` and whose `selector_a` is not `all`, that selects `RuleSubject("track", net, netclass)`, else `null`.
+
+#### Scenario: Class and rule widths
+- **GIVEN** `VCC` in a class `PWR` with a track width, a `track_width` rule `v5` selecting `net V5`, and a `track_width` rule selecting `all`
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k width` runs
+- **THEN** `VCC` has `class:PWR`, `V5` has `rule:v5`, and `GND`, which only the `all` rule selects, has `null`
+
+### Requirement: Part fields rule
+`checks.readiness.parts_stage(design)` SHALL give `parts.fields`, with one `check.footprint-unresolved` per part of `unresolved_footprints` and one `ready.part-value-missing` (error, `where` the reference) per part that is not DNP and whose value is empty after stripping.
+
+#### Scenario: Part fields
+- **GIVEN** `R1` without a value, `R2` without a footprint reference, and a DNP part `R3` without either
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k parts` runs
+- **THEN** the stage reports `ready.part-value-missing` for `R1`, `check.footprint-unresolved` for `R2`, and nothing for `R3`
+
+### Requirement: Readiness issue codes
+`checks.readiness.READY_ISSUE_CODES` SHALL be the closed table of `ready.net-open`, `ready.pin-unconnected`, `ready.power-net-unsized`, `ready.part-value-missing` (error) and `ready.check-skipped` (warning, given by `skipped_check`); the three rules carry `EVIDENCE` (`INFERRED`, `H-G-READY-RULES`).
+- `cli.explain.TABLES` MUST name the table, with an entry per code whose `see` is `ready`.
+
+#### Scenario: Every code is explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs
+- **THEN** it passes, and `fenolite explain ready.power-net-unsized --json` exits 0 with `see` `ready`
+
+### Requirement: Length rules stage
+`fenolite check` SHALL gain the stage `length.rules`, right after `copper.clearance` in `STAGE_ORDER` and so before `drc.kicad`, as "Check stages and statuses" allows. It MUST be a default stage, MUST NOT be in `ORACLE_STAGES`, and MUST be run by `checks.length.length_stage(design, *, project, rules_source, facts_source, evidence) -> StageResult` on the board model that `run_checks` read (`Validation.read.design`), with `Validation.read.evidence` as `evidence`, the validator as `rules_source` when it satisfies `DesignRulesSource` and as `facts_source` when it satisfies `LengthSource`, and `None` for each otherwise.
+- **Rules.** With a rules source, the stage MUST judge `rules_source.design_rules(design, project).design`; without one, the design as read, with one `length.input-missing` warning naming the missing rules source. The rules of the kinds `length`, `skew` and `diff_pair_skew` of c0104 are judged. A rule governs a net when its `selector_a` matches the net's `RuleSubject(item_kind="track", net=<name>, netclass=<class>, diff_pair=<base>)`, the base being that of `model.pairs.net_bases` over the design's net names. The governing length rule of a net MUST be the last matching `length` rule in `rule_precedence` order; its governing skew rule the last matching rule of the kinds `skew` and `diff_pair_skew` together, which KiCad writes as one constraint. A governing rule of severity `ignore` MUST judge nothing.
+- **Lengths.** With a facts source, the totals MUST be those of `facts_source.length_facts(<checked design>, project=project, nets=<the governed nets>)`; without one, the routed lengths of `geometry-kernel` "Path lengths", with one `length.input-missing` warning naming the length facts. A governed net with a pad and no copper MUST be judged at length 0 (`H-K-NETLEN-RULES`).
+- **Length rules.** A total below the `min` or above the `max` of the net's governing `length` rule MUST give one `length.out-of-range` with the rule's severity, whose message names the net, the total, the limit and the rule, and gives the routed, via and die parts in millimetres. `opt` MUST NOT be judged.
+- **Skew rules.** The nets governed by one `skew` rule MUST form one group; those governed by one `diff_pair_skew` rule MUST form one group per base. In a group of two nets or more, the skew of a net MUST be its total less the longest total of the group, ties going to the first net name; a skew whose magnitude exceeds the rule's `max` MUST give one `length.skew-out-of-range` with the rule's severity, whose message names the net, its total, the net of the longest total and that total, the skew and `max`. The net of the longest total is never reported.
+- **Skip, status and summary.** The stage MUST be skipped with reason `read-refused` when the board read was refused. Its status is `ok` without an issue of severity `error`, `errors` otherwise. `summary` MUST hold `rules` (`{"length": n, "skew": n}`), `nets` (the count of governed nets judged), `major` and `stackup` (those of the facts, `None` without them).
+- **Evidence.** `Evidence.combine` of `checks.length.EVIDENCE`, which is `Evidence(Level.INFERRED, hypotheses=("H-K-NETLEN-RULES",))`, `evidence`, `LengthFacts.evidence` and `DesignRules.evidence` when given; `UNVERIFIED` when the stage gave `length.input-missing`.
+- The stage MUST run no subprocess, so it needs no `kicad-cli`, and MUST keep "Check is read-only" and "Check output is deterministic".
+- The stage belongs to the pipeline of KiCad input only. It MUST NOT be in `checks.documents.DOCUMENT_STAGES` or `OPT_IN_DOCUMENT_STAGES`: `fenolite check` on Altium input ("Document check pipeline") neither runs nor names it, and `--stages length.rules` on such input is the usage error that pipeline gives for a stage it does not hold.
+
+#### Scenario: Pair skew without kicad-cli
+- **GIVEN** a project of `tests/_lengthbench.py` whose board holds `SK_P` (one 20 mm track) and `SK_N` (one 21 mm track) and whose rules file holds a `diff_pair_skew` rule (c0104) on `diff_pair SK_` with `max` 0.1 mm; no `kicad-cli` on `PATH`, no `FENOLITE_KICAD_CLI`, and `MACOS_KICAD_CLI` patched to a missing path
+- **WHEN** `uv run pytest tests/unit/checks/test_length_stage.py -k pair` runs `fenolite check <project> --stages length.rules --json`
+- **THEN** the exit code is 5, no subprocess ran, and the issues hold exactly one `length.skew-out-of-range` error, naming `SK_P` with a skew of −1 mm against `SK_N` at 21 mm
+
+#### Scenario: Minimum on a short net and on a net of pads only
+- **GIVEN** a project whose rules file holds a `length` rule with `min` 5 mm and `max` 50 mm on `SHORT` (2.4 mm of track) and on `NOTRK` (two pads, no copper), and a rule with only `opt` 5 mm on `OPTONLY` (2.4 mm of track)
+- **WHEN** the stage runs
+- **THEN** it gives one `length.out-of-range` error for `SHORT` with total 2.4 mm and one for `NOTRK` with total 0, and nothing for `OPTONLY`
+
+#### Scenario: No length rule
+- **GIVEN** `tests/_projects.py::authored_project(tmp_path, major=10, built=True)`
+- **WHEN** `fenolite check <project> --stages length.rules --json` runs
+- **THEN** the stage has status `ok`, no issue, and `summary.rules` equal to `{"length": 0, "skew": 0}`
+
+#### Scenario: Default stage order
+- **GIVEN** the native `two_layer` project and a fake `kicad-cli` 10.0.6 that writes a DRC report and an IPC-D-356 export
+- **WHEN** `uv run pytest tests/unit/cli/test_check_cmd.py -k default_stages` runs `fenolite check <project> --json`
+- **THEN** `result.stages` names `length.rules` right after `copper.clearance`, and before `drc.kicad`
+
+#### Scenario: Altium input has no length stage
+- **GIVEN** the Altium project of the blink sample
+- **WHEN** `uv run pytest tests/unit/checks/test_length_stage.py -k document` runs `fenolite check <project> --json`
+- **THEN** `result.stages` holds the stages of `DOCUMENT_STAGES` and no `length.rules`, and `checks.documents.ALL_DOCUMENT_STAGES` does not name it
+
+### Requirement: Length stage issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. Each MUST have a table in `src/fenolite/cli/data/explain.toml`, as every code that `fenolite explain` knows.
+
+| code | severity | when |
+|---|---|---|
+| `length.out-of-range` | error, warning | a net's total lies outside the `min` and `max` of its governing length rule; the rule sets the severity |
+| `length.skew-out-of-range` | error, warning | a net's skew from the longest net of its group exceeds the `max` of its governing skew rule; the rule sets the severity |
+| `length.input-missing` | warning | no rules source, or no length facts, so via heights and die lengths are not counted |
+
+#### Scenario: Length literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** each `length.*` literal is a key of `ISSUE_CODES` with the severities of this table
+
+#### Scenario: Length codes documented
+- **WHEN** `uv run pytest tests/consistency` runs
+- **THEN** the three `length.*` codes appear in `docs/cli-contract.md`
+
+### Requirement: Height limits in the placement stage
+The stage `placement.rules` of "Placement rules stage" SHALL also judge the height limits of a built project, in both check pipelines, in addition to what that requirement says.
+- **What runs.** On a built project whose `rules_of(model)` holds a height limit, the stage MUST run `judge_heights` ("Height limits judged", capability `placement`) with those limits, `heights_of(design, model)` and `extents` from `frame.placed_extents`, which MUST be called only then. On native input, and on a built project without a limit, nothing of this requirement runs and the stage is as "Placement rules stage" leaves it.
+- **Summary.** `summary.rules` MUST gain the family `height` with the counts of `judge_heights`; without a limit the family is absent.
+- **Status and evidence.** An issue of severity `error` gives the status `errors`, so a part above a limit of severity `error` makes `check` exit 5. A judged limit counts as a judged rule for the evidence rule of "Placement rules stage".
+- **Both backends.** On a KiCad project the heights come from the bodies of the `.fenolite/` model; on Altium documents from the bodies of the PCB reading, and for a footprint that holds none there, from the stored model ("Height limits judged"). A part under a limit without a body in either MUST give `placement.height-unknown`, never a pass. The areas are those of the board being judged: a PCB reading that holds no area of the limit's name gives `placement.rule-unresolved` for the limit.
+- The stage stays read-only, deterministic and without a subprocess.
+
+#### Scenario: A part above a limit fails the check
+- **GIVEN** the blink built with `R1` created with `height=mm(9)`, `design.rule_area("LID", <a square over R1>, layers=("F.Cu",))` and `design.height_limit("LID", max=mm(5))`; no `kicad-cli` on `PATH`
+- **WHEN** `uv run pytest tests/unit/checks/test_placement_stage.py -k height` runs `fenolite check <dir> --stages placement.rules --json`
+- **THEN** the exit code is 5, no subprocess ran, the issues hold one `placement.too-tall` error with `where == "R1"`, and `summary.rules.height` is `{"judged": 1, "failed": 1, "unknown": 0}`
+
+#### Scenario: No limit, no extents
+- **GIVEN** the blink built with `R1` created with `height=mm(9)` and no limit, and a validator whose `placed_extents` raises
+- **WHEN** the stage runs
+- **THEN** it has status `ok`, `summary.rules` holds no `height`, and `placed_extents` was not called
+
+#### Scenario: A limit on a built Altium project
+- **GIVEN** the routed blink with `R1` created with `height=mm(9)`, the area `LID` over `R1` and `design.height_limit("LID", max=mm(5))`, built with `--target altium --confirm`
+- **WHEN** `uv run pytest tests/unit/cli/test_check_altium.py -k height` runs `fenolite check <dir> --stages placement.rules --json`
+- **THEN** the issues hold one `placement.rule-unresolved` error with `where == "LID"`, no `placement.too-tall` and no `placement.height-unknown`, `summary.rules.height` is `{"judged": 0, "failed": 0, "unknown": 0}`, and the exit code is 5: the Altium reader models no keep-out and the keep-out record has no key for a name (`docs/altium.md`), so the PCB reading holds no area named `LID`; the document holds no body for `R1` either, and the stored board of an Altium build holds only written bodies
+
+### Requirement: Height limit issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), beside those of "Placement stage issue codes", and `docs/cli-contract.md` MUST document each. `place` and the placement guard of `build` emit the same codes, each with a severity no higher than `warning`. `src/fenolite/cli/data/explain.toml` MUST hold one table for each (`cli-contract`, "Explain command").
+
+| code | severity | when |
+|---|---|---|
+| `placement.too-tall` | error, warning | a part under a height-limited area is taller than the limit; the limit sets the severity |
+| `placement.height-unknown` | warning | a part under a height-limited area has no known height |
+
+A height limit whose area the board does not hold gives `placement.rule-unresolved` of "Placement stage issue codes".
+
+#### Scenario: Height literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** `placement.too-tall` and `placement.height-unknown` are keys of `ISSUE_CODES` with the severities of this table
+
+#### Scenario: Height codes documented and explained
+- **WHEN** `uv run pytest tests/consistency tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain placement.too-tall --json`
+- **THEN** both codes appear in `docs/cli-contract.md`, the explain test passes with a table for each, and the command exits 0 with a non-empty `result.meaning` and `result.fix`

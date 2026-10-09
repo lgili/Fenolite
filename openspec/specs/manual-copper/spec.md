@@ -2,7 +2,9 @@
 
 ## Purpose
 Turn copper intents (tracks from pad to pad, single vias, stitching vias) into tracks and vias of a KiCad design after placement, with nets inferred and checked and ids derived from the caller's keys, and regenerate that script copper on every build so that it follows its pads and disappears with its intent.
+
 ## Requirements
+
 ### Requirement: Copper module
 The module `fenolite.backends.kicad.copper` SHALL resolve copper intents into tracks, arcs and vias of a KiCad design and SHALL merge script copper with existing copper, and MUST import only the standard library, `core`, `model`, `geometry`, `backends.base` and modules of `backends.kicad` (`package-layering`), never `fenolite.dsl`.
 - Public names: `COPPER_MARKER`, `copper_uuid`, `is_copper_uuid`, `PadEndLike`, `ViaStepLike`, `ArcStepLike`, `TrackIntentLike`, `ViaIntentLike`, `StitchIntentLike`, `CopperIntentLike`, `resolve_copper`, `merge_copper`, `CopperMerge`, `COPPER_ISSUE_CODES` and `EVIDENCE`. `fenolite.backends.kicad` MUST re-export `resolve_copper`.
@@ -138,12 +140,13 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **THEN** nothing is created and `found` holds one `kicad.copper.bad-layer` naming its key
 
 ### Requirement: Stitching vias
-`resolve_copper` SHALL turn each stitch intent (`key`, `net`, `pitch`, `along`, `region`, `origin`, `diameter`, `drill`, `clearance`, `margin`) into through vias of its net, along a polyline or on a grid inside a region, keeping clear of other copper.
-- Exactly one of `along` (at least two points) and `region` (at least three points forming a simple ring) MUST be given, `pitch` MUST be positive and `margin` not negative; otherwise `kicad.copper.bad-intent`.
+`resolve_copper` SHALL turn each stitch intent (`key`, `net`, `pitch`, `along`, `region`, `origin`, `diameter`, `drill`, `clearance`, `margin`) into through vias of its net, along a polyline, on a grid inside a region, or on a grid inside a pad of its net, keeping clear of other copper.
+- Exactly one of `along` (at least two points) and `region` (at least three points forming a simple ring, or one pad reference) MUST be given, `pitch` MUST be positive and `margin` not negative; otherwise `kicad.copper.bad-intent`. Anchors among these points and in `origin` are replaced by their points first ("Anchored points in script copper").
 - **Along.** Each segment of the polyline MUST be divided into the fewest equal parts no longer than `pitch` (the smallest `n ≥ 1` with `n²·pitch²` at least the squared length). The candidates MUST be the division points, each vertex once, rounded half to even, numbered `k = 0, 1, …` from the first vertex.
-- **Region.** The candidates MUST be the points `origin + (i·pitch, j·pitch)` for integers `i` and `j` that lie inside the region at a distance of at least `diameter / 2 + margin` from every edge, decided exactly, in order of `j` then `i`.
-- **Clearance.** A candidate MUST be dropped when its via disc comes closer than `clearance` to a copper entry or hole of any pad (`board-frame`), or to a track, arc or via of another net or of no net, or when it touches a via of its own net. Existing items, the vias of earlier intents and the candidates already kept MUST count. Distances MUST be decided exactly with integers and `Fraction`, using c0005's predicates; an arc MUST count as its polyline of `Arc.polygonize(DEFAULT_TOL)` with its width grown by `2·DEFAULT_TOL + 2`. Zones MUST NOT count.
-- **Keep-outs and the edge.** A candidate MUST also be dropped when its via disc meets the outline of a `Keepout` with `no_vias` on a copper layer (a through via crosses every copper layer), or comes closer than the edge clearance in force to a ring of `board_outline`: the `min` of the governing board-wide `edge_clearance` rule in `rulemap.rule_order`, else the project's `min_copper_edge_clearance` (`H-K-STITCH-AVOID`). A candidate that lies off the board, outside the board ring or inside a cut-out, MUST be dropped too. Without a closed outline the edge MUST NOT be checked. On a rebuild the rule areas and the outline of the existing board MUST count, because the lens keeps them. These candidates are dropped candidates for the count below.
+- **Region.** The candidates MUST be the grid points `(i, j)`, for integers `i` and `j`, that lie inside the region at a distance of at least `diameter / 2 + margin` from every edge, decided exactly, in order of `j` then `i`. The grid point `(i, j)` MUST be `origin + (i·pitch, j·pitch)` in the board frame when `origin` is a point, and `part_frame(design, component, number=number, index=index).point(offset + (i·pitch, j·pitch))` when `origin` is an anchor, so that the grid turns with the anchor's part and is mirrored with its bottom side.
+- **Pad region.** A `region` that has `component` is a pad reference (`component`, `number`, `index`). It MUST name its pads as an anchor at offset (0, 0) does, with the codes of "Anchored points in script copper": one pad with `index`, else every pad of the number, which MUST lie at one position. Every pad named MUST be on the stitch's net, else `kicad.copper.net-conflict`, and one at least MUST have a copper entry on the outer copper layer of the part's side (`F.Cu` on the top, `B.Cu` on the bottom), else `kicad.copper.layer-mismatch`. When `origin` is a point, the grid is that of an anchor at the pads' position with offset (0, 0); when it is an anchor, the grid is that anchor's. A grid point MUST be a candidate when the disc of radius `r = diameter / 2 + margin` around it lies inside one of those copper entries: for an entry of core `K` and width `w`, when `K` is a filled ring and the point lies inside it, its distance to the edges of `K` MUST be at least `r − w / 2`; otherwise its distance to `K` MUST be at most `w / 2 − r`. Both are decided exactly with integers and `Fraction`.
+- **Clearance.** A candidate MUST be dropped when its via disc comes closer than `clearance` to a copper entry or hole of any pad (`board-frame`), the copper entries of the pads of its own pad region excepted, or to a track, arc or via of another net or of no net, or when it touches a via of its own net. Existing items, the vias of earlier intents and the candidates already kept MUST count. Distances MUST be decided exactly with integers and `Fraction`, using c0005's predicates; an arc MUST count as its polyline of `Arc.polygonize(DEFAULT_TOL)` with its width grown by `2·DEFAULT_TOL + 2`. Zones MUST NOT count.
+- **Keep-outs and the edge.** A candidate MUST also be dropped when its via disc meets the outline of a `Keepout` with `no_vias` on a copper layer (a through via crosses every copper layer), or comes closer than the edge clearance in force to a ring of `board_outline`: the `min` of the governing board-wide `edge_clearance` rule in `rulemap.rule_order`, else the project's `min_copper_edge_clearance` (`H-K-STITCH-AVOID`). A candidate that lies off the board, outside the board ring or inside a cut-out, MUST be dropped too. Without a closed outline the edge MUST NOT be checked. On a rebuild the rule areas and the outline of the existing board MUST count, because the lens keeps them. These candidates are dropped candidates for the count below. This bullet applies to the candidates of a pad region as to any other: the exception of "Clearance" covers only the copper entries of the region's own pads.
 - `clearance` MUST be the intent's, else the clearance of the class of its net, else `kicad.copper.size-missing`.
 - The dropped candidates of an intent MUST give one `kicad.copper.stitch-skipped` info with their count, and an intent that keeps no candidate one `kicad.copper.stitch-empty` warning.
 
@@ -171,6 +174,26 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **GIVEN** a design with a closed outline whose left edge is the line x = 0, a board-wide `edge_clearance` rule of 0.5 mm, and a stitch intent along the line x = 0.4 mm with diameter 0.6 mm
 - **WHEN** the stitch is resolved
 - **THEN** no via is created, and one `kicad.copper.stitch-empty` warning is given
+
+#### Scenario: Thermal array in a pad
+- **GIVEN** `Frame_Anchor` placed for `U1` at (20 mm, 20 mm), 0°, on the top, its 3 mm × 3 mm pad `4` (at (1 mm, 0) in the footprint) on `GND`, and a stitch `ep` on `GND` whose `region` is the pad reference (`U1`, `4`, `None`) and whose `origin` is a point, with pitch 1 mm, diameter 0.6 mm, drill 0.3 mm, margin 0.1 mm and clearance 0.2 mm
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_stitch.py -k pad_region` resolves it with `issues=found`
+- **THEN** it creates nine vias at (21 + i, 20 + j) mm for i and j in −1, 0 and 1, with the locators `via[i,j]`, and `found` holds no issue: the pad is no obstacle to its own array
+
+#### Scenario: The grid turns with the part
+- **GIVEN** the stitch of "Thermal array in a pad" with `U1` placed at (20 mm, 20 mm), 30°, on the bottom
+- **WHEN** it is resolved
+- **THEN** the nine vias lie at `part_frame(design, "U1", number="4").point(Point(i·1_000_000, j·1_000_000))` for i and j in −1, 0 and 1, with the same locators `via[i,j]` as at 0°
+
+#### Scenario: A pad region of another net
+- **GIVEN** the design of "Thermal array in a pad" with `Mini_Edge_Cases` also placed for `J1` at (40 mm, 20 mm), the stitch `ep` on `VIN`, the net of pad `1` of `U1`, instead of `GND`, and a stitch `j1` on `GND` whose region is pad `1` of `J1`, whose two pads `1` lie at different positions, without an index
+- **WHEN** they are resolved with `issues=found`
+- **THEN** neither creates a via, and `found` holds one `kicad.copper.net-conflict` naming `ep`, `U1` and `4`, and one `kicad.copper.bad-intent` naming `j1`, `J1` and `1`
+
+#### Scenario: A keep-out across a pad region
+- **GIVEN** the design of "Thermal array in a pad" with a `Keepout` with `no_vias` on both copper layers that covers x from 21.6 mm to 22.4 mm over the height of pad `4`
+- **WHEN** the stitch `ep` is resolved with `issues=found`
+- **THEN** it creates the six vias at (20 mm, 20 + j mm) and (21 mm, 20 + j mm) for j in −1, 0 and 1, and `found` holds one `kicad.copper.stitch-skipped` with the count 3: the pad's own copper is no obstacle, the keep-out still is
 
 ### Requirement: Script copper is regenerated
 `merge_copper(existing, built) -> CopperMerge` SHALL decide which tracks, arcs and vias of the design `existing` stay beside the script copper of the design `built`, its tracks, arcs and vias whose KiCad uuid is a copper uuid, and `resolve_copper` SHALL use it with its input as `existing` and a design holding only the items it creates as `built`.
@@ -236,3 +259,76 @@ Every item that `resolve_copper` creates SHALL carry one net of the design, infe
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_issues.py -k evidence` reads `copper.EVIDENCE`
 - **THEN** its level is `INFERRED` and its hypotheses are `H-G-FRAME-UUID` and `H-G-FRAME-ROUTE`
 
+### Requirement: Meanders from intents
+`fenolite.backends.kicad.meander.resolve_meanders(design, meanders, *, major, issues=None) -> Design` SHALL replace, for each meander intent (`key`, `track`, `segment`, `amplitude`, `pitch`, `target`, `match`, `side`, `margin`), the track with the uuid `copper_uuid(track, f"seg[{segment}]")` that `resolve_copper` created by a square-wave meander that gives the track intent its target length. The module MUST import only the standard library, `core`, `model`, `geometry`, `backends.base` and modules of `backends.kicad`, never `fenolite.dsl`; it MUST read intents by attribute through the protocol `MeanderIntentLike`, and the function MUST be pure.
+- **Length of an intent.** The length of a track intent MUST be the sum of the `segment_length` of its tracks, the `arc_length` of its arcs, the heights of its vias as major `major` counts a via that only the two segments of its via step join (`board-frame`, "KiCad net lengths"), and the die lengths of the pads its ends chose. The target MUST be `target`, or the length of the intent `match` after its own meander, when it has one.
+- **Shape.** Let `P` and `Q` be the start and end of the replaced track, `u` the unit vector from `P` to `Q`, `n` the unit normal on `side` (`left` is the side where `orient2d(P, Q, X) < 0`), `m` the margin (`pitch` when `None`), `E` the target less the intent's length, `N = ⌈E / (2·amplitude)⌉` and `h = E / (2N)`. The points MUST be `P`; then, for each bump `i` from 0 to `N − 1`, `P + (m + 2i·pitch)·u`, the same point plus `h·n`, `P + (m + (2i + 1)·pitch)·u + h·n` and `P + (m + (2i + 1)·pitch)·u`; then `Q`. Each point MUST be computed with at least 64 fractional bits and rounded half to even per axis. One track MUST join each two consecutive points, with the width, layer and net of the replaced track and the uuid `copper_uuid(key, f"m[{k}]")`, `k` counting in path order, and the new tracks MUST take the place of the replaced one in `Board.tracks`.
+- **Correction.** The intent's length MUST be measured on the built shape; while it differs from the target by more than `LENGTH_TOLERANCE_NM = 10`, half of the difference MUST be added to the height of the last bump and the shape built again, at most twice. No bump MUST be higher than `amplitude` plus 10 nm.
+- **Refusals.** `0 ≤ E ≤ LENGTH_TOLERANCE_NM` MUST change nothing and give `kicad.meander.not-needed`, because the intent already lies within the tolerance of its target; `E < 0` `kicad.meander.too-long`; a `pitch` not above the replaced track's width `kicad.meander.bad-shape`; `(2N − 1)·pitch + 2m` above the length of `P`–`Q` `kicad.meander.no-room`, whose message gives `E` and the most the run can add; a track intent without the segment, because it had an error or ended at a staged part, `kicad.meander.no-segment`; a `match` whose intent created nothing, or matches that form a cycle, `kicad.meander.bad-match`; a length still more than 10 nm from the target `kicad.meander.inexact`; a key, side, size or segment that is malformed `kicad.meander.bad-intent`. A refused meander MUST change nothing, and the other meanders are still resolved.
+- **Order.** Meanders MUST be resolved in key order, except that a meander whose `match` intent has a meander comes after that one.
+- The same design and intents MUST give the same tracks, uuids and issues in every process, whatever `PYTHONHASHSEED`. The tracks carry copper uuids, so `merge_copper` and `merge_layout` keep, regenerate and drop them as script copper.
+- `MEANDER_ISSUE_CODES` MUST be the closed table of these codes; as `kicad.*` codes they pass through the closed tables of the build and of the lens unchanged. `meander.EVIDENCE` MUST be `Evidence(Level.INFERRED, hypotheses=("H-K-NETLEN-MEANDER",))`.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.meander.bad-intent` | error | a key, side, size or segment index is malformed, or the segment is an arc |
+| `kicad.meander.bad-shape` | error | the pitch is not above the track's width |
+| `kicad.meander.too-long` | error | the intent is already longer than the target |
+| `kicad.meander.no-room` | error | the segment cannot add the needed length with the amplitude, pitch and margin |
+| `kicad.meander.bad-match` | error | `match` names an intent without copper, or matches form a cycle |
+| `kicad.meander.inexact` | error | after two corrections the length differs from the target by more than 10 nm |
+| `kicad.meander.no-segment` | warning | the track intent created no segment of that index; the meander creates nothing |
+| `kicad.meander.not-needed` | info | the intent already has the target length, within 10 nm |
+
+#### Scenario: A run along an axis
+- **GIVEN** a design with the track intent `t` of net `N` from (0, 0) to (20 mm, 0) on `F.Cu`, width 0.2 mm, resolved by `resolve_copper`, and the meander `m` on segment 0 with `target=23 mm`, `amplitude=1 mm`, `pitch=1 mm` and side `left`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_meander.py -k axis` calls `resolve_meanders(design, [m], major=10)`
+- **THEN** the track `seg[0]` of `t` is gone, nine tracks with the uuids `copper_uuid("m", "m[0]")` to `m[8]` join (0, 0), (1 mm, 0), (1 mm, −0.75 mm), (2 mm, −0.75 mm), (2 mm, 0), (3 mm, 0), (3 mm, −0.75 mm), (4 mm, −0.75 mm), (4 mm, 0) and (20 mm, 0), and their lengths sum to 23 000 000
+
+#### Scenario: A run at 30 degrees
+- **GIVEN** the same intent from (0, 0) to (17.320508 mm, 10 mm) and a meander with `target=23 mm`
+- **WHEN** it is resolved
+- **THEN** the intent's length differs from 23 mm by at most 10 nm, and every point lies within `amplitude` plus 10 nm of the run on its left
+
+#### Scenario: Matching another intent
+- **GIVEN** the track intents `p` of 20 mm and `n` of 18.8 mm, and a meander on `n` with `match="p"`
+- **WHEN** it is resolved
+- **THEN** the length of `n` differs from that of `p` by at most 10 nm, and `p` is unchanged
+
+#### Scenario: Refusals change nothing
+- **GIVEN** the intent of "A run along an axis"
+- **WHEN** meanders with `target=60 mm`, with `target=15 mm` and with `pitch=0.2 mm` are resolved, one at a time
+- **THEN** each design is unchanged, and the issues hold `kicad.meander.no-room` (naming 40 mm needed and at most 18 mm possible), `kicad.meander.too-long` and `kicad.meander.bad-shape`
+
+### Requirement: Anchored points in script copper
+`resolve_copper` SHALL accept an anchor wherever an intent holds a point, in addition to the elements and fields that "Copper module", "Tracks from intents", "Single vias" and "Stitching vias" read: a path element, the `at` of a via step or of a via intent, the `mid` and the `end` of an arc step, and the `along` points, the `region` points and the `origin` of a stitch. It SHALL replace each anchor by its board point before any other rule reads the intent.
+- An anchor is an object with `component`, `number`, `index` and `offset`, read by attribute through the protocol `AnchorLike`, which `copper` exports in addition to the names of "Copper module". An element or a field that has `offset` MUST be read as an anchor, never as a pad end.
+- Its point MUST be `part_frame(design, component, number=number, index=index).point(offset)` (`board-frame`, "Anchor points in a part's frame"), on the design given to `resolve_copper`. A build gives the design at its effective placements (`design-dsl`, "Copper intents in a build"), so anchored copper follows a part that was placed in KiCad or by `fenolite place`.
+- An anchor is a point and nothing more: it joins no pad and gives no net. A track's net still comes from its pad ends, and a via or a stitch names its net ("Nets of script copper").
+- An anchor that cannot be resolved MUST make its intent create nothing, while the next intents are still resolved, with a code of "Copper issue codes" and its severity: `kicad.copper.pad-not-found` when no footprint matches the component, no pad has the number, or the index is beyond the pads of the number; `kicad.copper.bad-intent` when the pads of the number lie at more than one position and no index is given; `kicad.copper.end-unplaced` when `unplaced` names the component, by path or reference, as for a pad end. Each issue MUST name the intent's key and the anchor's component, and its number when it has one.
+- The locator and the uuid of an item are those of the element or candidate the anchor stands for ("Copper uuids and ids"), so resolving again after the part moved regenerates the same items ("Script copper is regenerated"). An intent without an anchor MUST resolve as before.
+
+#### Scenario: A via anchored beside a pad
+- **GIVEN** the blink built for target 10, whose `U1` sits at 0° on the top, and the via intent `fan9` on `VIN` at `Anchor("U1", "9", None, Point(0, 1_000_000))` with diameter 0.6 mm and drill 0.3 mm
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_copper_anchor.py -k beside` resolves it
+- **THEN** the design gains one via at the position of the record of `U1` pad `9` plus (0, 1 mm), on `VIN`, with the uuid `copper_uuid("fan9", "via")`
+
+#### Scenario: Anchored copper follows a turned part
+- **GIVEN** the result of "A via anchored beside a pad", in which the footprint of `U1` is then placed again with `place_footprint` at the same point at 90°
+- **WHEN** it is resolved again with `fan9` and `issues=found`
+- **THEN** the via lies at the record of pad `9` plus (1 mm, 0), which `part_frame(design, "U1", number="9").point(Point(0, 1_000_000))` returns, with the same uuid, and `found` holds one `kicad.copper.regenerated` naming that uuid
+
+#### Scenario: An anchor is not a pad end
+- **GIVEN** the blink and a track intent `stub` without net, width 0.3 mm, whose path is `PadEnd("R1", "2", None)` then `Anchor("R1", "2", None, Point(1_000_000, 0))`, and a track intent `loose` whose path holds two anchors and no pad end, without net
+- **WHEN** both are resolved with `issues=found`
+- **THEN** `stub` creates one track from `R1` pad `2` to the point 1 mm beside it, on `LED_A`, the net of its pad end; `loose` creates nothing, and `found` holds one `kicad.copper.no-net` naming it
+
+#### Scenario: Anchors that cannot be resolved
+- **GIVEN** the blink and via intents anchored to `R9`, which has no footprint, to pad `7` of `R1`, and to `D1`
+- **WHEN** they are resolved with `unplaced=("D1",)` and `issues=found`
+- **THEN** no via is created, and `found` holds two `kicad.copper.pad-not-found`, naming `R9` and `R1` with `7`, and one `kicad.copper.end-unplaced` naming `D1`
+
+#### Scenario: An anchor on a shared number needs an index
+- **GIVEN** `Mini_Edge_Cases` placed at (0, 0) for `J1`, its two pads `1` at (−2 mm, 0) and (2 mm, 0), and the via intents `a` at `Anchor("J1", "1", None, Point(0, 0))` and `b` at `Anchor("J1", "1", 1, Point(0, 0))` on `GND`
+- **WHEN** they are resolved with `issues=found`
+- **THEN** `a` creates nothing and `found` holds one `kicad.copper.bad-intent` naming `a`, `J1` and `1`; `b` creates one via at (2 mm, 0)

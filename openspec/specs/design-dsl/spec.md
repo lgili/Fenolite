@@ -1794,3 +1794,122 @@ A build that writes a schematic SHALL prove, before it returns any file and with
 - **GIVEN** a confirmed v0.2a-form build of that design, made with `--schematic-layout grid`, whose board was then edited by moving two footprints by token edit
 - **WHEN** it is built again with the default layout
 - **THEN** the two footprints keep their edited positions, every footprint `path` of a part in a module takes the hierarchical form, and `issues` hold no `layout.orphan` and no `layout.net-removed`
+
+### Requirement: Meanders in the DSL
+`Design.meander(key, *, track, segment, amplitude, pitch, target=None, match=None, side="left", margin=None)` SHALL record a meander intent that the build resolves, and `dsl.meanders(design)` SHALL return the recorded intents as frozen `MeanderIntent(key, track, segment, amplitude, pitch, target, match, side, margin)` of `dsl/intents.py`, in key order, every length as `int` nanometres. The DSL MUST still import only `core` and `model`, and `to_model` MUST NOT change: meanders are not model objects.
+- `track` is the key of a track intent recorded before the call, and `segment` the index `i` of its segment `seg[i]`, from path element `i` to element `i + 1`. `amplitude` is the largest height of a bump from the segment's centre line, and `pitch` the distance between neighbouring legs, centre to centre. `target` is the length the track intent must reach, or `match` names another track intent whose length is the target. `side` is `"left"` or `"right"` of the segment's direction as KiCad displays the board. `margin` is the straight run kept at each end of the segment; `None` means one pitch.
+- `DslError` MUST be raised at the call for: a key that does not match the copper key pattern, or that a copper intent or another meander already uses; a `track` that is not the key of a recorded track intent; a `segment` that is not an `int` with `0 ≤ segment < len(path) − 1`, or whose element `segment + 1` is an arc step; an `amplitude` or a `pitch` that is not a positive length; a negative `margin`; both or neither of `target` and `match`; a `target` that is not positive; a `match` that equals `track` or is not the key of a recorded track intent; a `side` other than the two names; a second meander on the same segment of the same track.
+- `fenolite.dsl` MUST re-export `MeanderIntent` and `meanders`; "DSL package" lets later requirements add both.
+
+#### Scenario: A meander on a pair
+- **GIVEN** the track intents `usb_p` and `usb_n`, each from a pad of `U1` through two points to a pad of `J1`
+- **WHEN** `uv run pytest tests/unit/dsl/test_meander_dsl.py -k record` calls `design.meander("n_tune", track="usb_n", segment=1, match="usb_p", amplitude=mm(0.5), pitch=mm(0.4))` and `meanders(design)`
+- **THEN** it returns one `MeanderIntent` with key `n_tune`, track `usb_n`, segment 1, amplitude 500 000, pitch 400 000, target `None`, match `usb_p`, side `left` and margin `None`
+
+#### Scenario: Malformed meanders fail at the call
+- **WHEN** `design.meander("m1", track="nope", segment=0, target=mm(30), amplitude=mm(1), pitch=mm(1))`, `design.meander("m2", track="usb_n", segment=5, target=mm(30), amplitude=mm(1), pitch=mm(1))`, `design.meander("m3", track="usb_n", segment=1, amplitude=mm(1), pitch=mm(1))` and `design.meander("m4", track="usb_n", segment=1, target=mm(30), match="usb_p", amplitude=mm(1), pitch=mm(1))` are called
+- **THEN** each raises `DslError`, the first naming `nope` and the second the segment index
+
+### Requirement: Meanders in a build
+`lens.build.build_design` SHALL accept the keyword-only argument `meanders: Sequence[MeanderIntentLike] = ()` and SHALL resolve it with `meander.resolve_meanders` (`manual-copper`, "Meanders from intents") right after `resolve_copper` and before the build checks and `Design.validate()`, with `major` the build's target; `cli/cmd_build.py` SHALL pass `dsl.meanders(design)`.
+- An error of `resolve_meanders` MUST make `build_design` return no files, so `build` exits 5 and writes nothing. Its `kicad.meander.*` codes join the `build` envelope unchanged, as "Build issue codes" allows.
+- `result.copper.meanders` MUST count the meanders that changed copper; it is an addition that "Copper intents in a build" allows, and the key MUST be absent from the reply of a build without meanders. An Altium build passes the meanders to the KiCad build it runs in memory, and the `kicad.meander.*` warnings and infos of that build pass with its script copper codes.
+- The copper guard ("Copper guard before writing") judges the meander's copper with the rest of the board.
+- A call without `meanders` MUST behave as before. `--seed`, `--timestamp` and `PYTHONHASHSEED` MUST NOT change any file of a build with meanders, and a second confirmed build of the same script over the first MUST write the same bytes.
+
+#### Scenario: A pair matched in a build
+- **GIVEN** the design script that `tests/_meanderdesign.py::pair_script(tmp_path)` writes: `USB_P` and `USB_N` drawn by the script tracks `usb_p` and `usb_n` from `U1` to `J1`, `usb_n` 1.2 mm shorter, and the meander `n_tune` of "A meander on a pair"
+- **WHEN** `uv run pytest tests/unit/lens/test_build_meander.py -k pair` builds it with `--dry-run --json` for target 9 and for target 10
+- **THEN** the exit code is 0, `result.copper.meanders` is 1, and `length_facts` of the planned board for the target's major gives `USB_N` a total within 10 nm of the total of `USB_P`
+
+#### Scenario: No room stops the build
+- **GIVEN** the same design with `amplitude=mm(0.1)`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 5, `issues` hold `kicad.meander.no-room` naming `n_tune`, and nothing is written
+
+#### Scenario: Rebuild writes the same bytes
+- **GIVEN** a confirmed target-10 build of the design of "A pair matched in a build" in `B`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** every file keeps its bytes, and `issues` hold no `kicad.copper.stale`
+
+### Requirement: Copper anchors in the DSL
+`Part.at(dx=None, dy=None) -> AnchorRef` and `PadRef.at(dx=None, dy=None) -> AnchorRef` SHALL name a point in the frame of the part's footprint as its library draws it (X to the right, Y down), measured from the footprint's origin or from the position of the pads the `PadRef` names, and the copper calls of "Copper intents in the DSL" SHALL accept an `AnchorRef` wherever they take a point, in addition to the forms that requirement gives. The build resolves the point after placement (`manual-copper`, "Anchored points in script copper").
+- `dx` and `dy` MUST be lengths as "DSL lengths and angles" defines them; one left out is 0. `PadRef.at` keeps the number and the index of its reference.
+- An `AnchorRef` MUST be accepted as a path element of `Design.track`, as the `mid` or the `end` of `arc_to`, as a point of the `along` or the `region` of `Design.stitch`, and as its `origin`. `via_step(at, *, to, diameter=None, drill=None, kind="through")` and `Design.via(key, at, *, net, diameter=None, drill=None, kind="through", layers=None)` MUST also take the point as one argument, an `AnchorRef` or an `(x, y)` pair, in place of `x` and `y`; the forms with `x` and `y` keep working, and `diameter`, `drill`, `kind` and `layers` MUST mean in the one-argument forms what "Copper intents in the DSL" says.
+- `Design.stitch` MUST also take `region=part.pad(number, index=…)`: the copper of that pad (`manual-copper`, "Stitching vias"). Such a region is not a ring, so the three-point rule of "Copper intents in the DSL" does not apply to it, and its `origin` MUST be left out or be an `AnchorRef`.
+- In a track path an `AnchorRef` is a point: it joins no pad and gives the track no net.
+- `DslError` MUST be raised at the call for: a `dx` or `dy` that is not a length; an `AnchorRef` or a pair given to `via_step` or `Design.via` together with `y`, or a lone first argument that is neither; a `PadRef` where a point is expected (`at`, `mid`, `end`, an `along` or `region` point, `origin`), with a message naming `.at()`; a board-point `origin` given with a pad region; and two consecutive path elements that are equal `AnchorRef`s.
+- `dsl.copper(design)` MUST return `Anchor(component, number, index, offset)`, a frozen dataclass of `dsl/intents.py`, wherever an `AnchorRef` was given: the part's component path, the pad number as text or `None`, the index, and the offset as a `Point` of `int` nanometres, not shifted by `BOARD_ORIGIN`. A pad region MUST be returned as `PadEnd(component, number, index)` in `StitchIntent.region`. An `AnchorRef` or a pad region of a part that is not in the design MUST raise `DslError` naming it.
+- `fenolite.dsl` MUST re-export `AnchorRef` and `Anchor`, as "DSL package" allows. The package keeps importing only the standard library, `core` and `model`, and `to_model` MUST NOT change. A script without anchors MUST record the same intents as before.
+
+#### Scenario: Anchors recorded
+- **GIVEN** the blink with `design.via("fan9", u1.pad(9).at(mm(0), mm(1)), net=vin, diameter=mm(0.6), drill=mm(0.3))` and `design.track("stub", r1.pad(2), r1.pad(2).at(mm(1)), width=mm(0.3))`
+- **WHEN** `copper(design)` is called
+- **THEN** the via intent's `at` is `Anchor("U1", "9", None, Point(0, 1_000_000))`, and the track's path is `PadEnd("R1", "2", None)` then `Anchor("R1", "2", None, Point(1_000_000, 0))`
+
+#### Scenario: A thermal stitch recorded
+- **GIVEN** a design with a part `U1` and `design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), drill=mm(0.3), margin=mm(0.1))`
+- **WHEN** `copper(design)` is called
+- **THEN** the `StitchIntent` has `region == PadEnd("U1", "33", None)`, `along == ()` and the default `origin`, the board corner, which "Stitching vias" reads as the pad's position
+
+#### Scenario: One-argument points and earlier forms
+- **GIVEN** the blink with three track intents whose via step is `via_step(mm(36), mm(14), to="B.Cu")`, `via_step((mm(36), mm(14)), to="B.Cu")` and `via_step(u1.at(mm(2)), to="B.Cu")`
+- **WHEN** `copper(design)` is called
+- **THEN** the first two steps equal `ViaStep(Point(136_000_000, 114_000_000), "B.Cu", None, None)`, and the third has `at == Anchor("U1", None, None, Point(2_000_000, 0))`
+
+#### Scenario: A blind via at an anchor
+- **GIVEN** a four-layer design with `design.via("esc", u1.pad(9).at(mm(0), mm(1)), net=vin, kind="blind", layers=("F.Cu", "In1.Cu"))`
+- **WHEN** `copper(design)` is called
+- **THEN** the via intent has `at == Anchor("U1", "9", None, Point(0, 1_000_000))`, `kind == "blind"` and `layers == ("F.Cu", "In1.Cu")`
+
+#### Scenario: Refused anchor calls
+- **WHEN** `u1.at(1, 2)`, `design.via("v", u1.pad(1), net=gnd)`, `via_step(u1.at(), mm(1), to="B.Cu")`, `design.stitch("s", net=gnd, pitch=mm(1), region=u1.pad(33), origin=(mm(1), mm(1)))` and `design.track("t", u1.at(mm(1)), u1.at(mm(1)), net=gnd)` are called
+- **THEN** each raises `DslError`, the second naming `.at()`
+
+#### Scenario: Part not in the design
+- **GIVEN** a via intent at `r9.pad(1).at()` of a part `R9` that was never added
+- **WHEN** `copper(design)` is called
+- **THEN** `DslError` is raised naming `R9`
+
+### Requirement: Part heights and height limits in the DSL
+The keyword-only `height=None` of `Part(…)`, `dsl.heights(design)` and `Design.height_limit(area, *, max, severity="error")` SHALL let a script state how tall a part is and where parts may not be tall. They are additions that "DSL package" and "DSL to model" allow, and a design that uses none of them gives the model and the intents it gave before.
+- **Heights.** `Part(…, height=h)` MUST take `None` or a positive length ("DSL lengths and angles"), else raise `DslError`; `Part.height` holds the value in nm. It is the top of the part's body above the board surface on the part's own side.
+- **Hand-over.** `dsl.heights(design) -> Mapping[str, Nm]` MUST return the height of each part that states one, by component path, in path order; `fenolite.dsl` MUST re-export it. `to_model` MUST NOT put a height into the circuit: `Component` has no height field, and the build turns each entry into a body on the placed footprint ("Part heights in a build"). `outward_height` (`design-model`, "Outward height of a part") is then the only reader.
+- **`height_limit`.** `area` MUST match `^[A-Za-z0-9_.+-]+$` and MUST NOT carry a limit already; `max` MUST be a positive length and `severity` `"error"` or `"warning"`; `DslError` otherwise. The area is not looked up at the call: an area drawn in KiCad is known only on the board. `to_model` MUST write the limits into `RuleSet.heights` in area order (`design-model`, "Height limits in the model").
+- A rule area that forbids nothing and carries a name ("Rule areas in the DSL") serves as the area of a limit.
+
+#### Scenario: A height recorded
+- **GIVEN** the blink with `Part("J1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", height=mm(9))` added and `design.height_limit("LID", max=mm(5))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_part_height.py -k recorded` calls `heights(design)` and `to_model(design)`
+- **THEN** `heights(design) == {"J1": 9_000_000}`, `RuleSet.heights` is `(HeightLimit("LID", 5_000_000),)`, and no component of the model has a height attribute
+
+#### Scenario: Refused calls
+- **WHEN** `Part("R9", "Mini:Mini_R", height=mm(-1))`, `Part("R9", "Mini:Mini_R", height=0)`, `design.height_limit("L I D", max=mm(5))`, `design.height_limit("LID", max=mm(0))`, `design.height_limit("LID", max=mm(5), severity="ignore")` and `design.height_limit("LID", max=mm(5))` twice are called
+- **THEN** each raises `DslError`, the last on its second call
+
+#### Scenario: Unchanged designs
+- **WHEN** `to_model` and `heights` run on the blink, which uses neither call
+- **THEN** `heights(design)` is empty and `canonical.dump_texts` of its model gives the texts it gave before this change
+
+### Requirement: Part heights in a build
+`fenolite build` SHALL turn each entry of `dsl.heights(design)` into a body of the part's placed footprint, and its placement guard SHALL judge the design's height limits.
+- **The body.** `lens.build.build_design(…, heights=None)` MUST give the placed footprint of each named component path one `ComponentBody` with the id `derived_id("bdy", "dsl", "height:<path>")`, `kind == "extruded"`, `height` the stated value, `standoff == 0`, an empty `outline`, no signed bounds and `name == "height"`, after the bodies its definition brings. A path that names no placed footprint MUST be ignored without an issue: the part is reported where it is missing. The lens receives plain data and MUST NOT import `fenolite.dsl`.
+- **Kept in `.fenolite/`.** As "Component bodies" says, no KiCad file changes. `.fenolite/board.json` MUST hold the body on its footprint, also after a rebuild over an existing board: the merge of `layout-lens` MUST carry the built footprint's `bodies` onto the footprint it keeps, because a KiCad file holds no body.
+- **The guard.** With the KiCad target, `cmd_build.placement_guard` ("Placement legality in a build") MUST also run `checks.placement.judge_heights` (`placement`, "Height limits judged") with the limits and the heights of the built model, on the planned board read back. Each `placement.too-tall` and `placement.height-unknown` MUST be reported with a severity no higher than `warning`, so a build never refuses for a height. `result.placement.rules` MUST gain the family `height`.
+- **The Altium target.** `build --target altium` MUST store `RuleSet.heights` in `.fenolite/rules.json` and judge none of them; the `altium.not-lowered` info of kind `placement-rule` that "Placement legality in a build" gives for placement rules MUST count the height limits too, and MUST be given when the design holds only height limits. A body from `Part(height=…)` has no outline: with `--altium-bodies extruded` it MUST be counted under the kind `body` of `altium.not-lowered` as any body without an outline is (`altium-pcb-writer`, "Component bodies are reported"), and without the option no body is written. The stored board of an Altium build keeps the rule of that requirement: it holds the bodies that were written, so it does not hold this one.
+- A design without `height=` and without a limit MUST build the bytes it built before this change, for both targets.
+
+#### Scenario: The body is stored and survives a rebuild
+- **GIVEN** the blink with `R1` created with `height=mm(9)`, built with `--confirm` into `B`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_bodies.py -k rebuild` loads `B/.fenolite/board.json`, then builds the same script again over `B` and loads it again
+- **THEN** both times the footprint of `R1` holds one body with `height == 9_000_000`, `kind == "extruded"` and an empty outline, `outward_height` of it is `9_000_000`, no other footprint holds a body, and `B/blink.kicad_pcb` has the bytes of a build without `height=`
+
+#### Scenario: Limits reported as warnings
+- **GIVEN** the blink with `R1` created with `height=mm(9)`, `design.rule_area("LID", <an outline that covers the top-side parts R1 and U1 and no other part>, layers=("F.Cu",))` and `design.height_limit("LID", max=mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_placement_guard.py -k height` builds it with `--dry-run --json`
+- **THEN** the exit code is 0, `issues` hold one `placement.too-tall` warning naming `R1` and one `placement.height-unknown` warning naming `U1`, and `result.placement.rules.height` is `{"judged": 2, "failed": 1, "unknown": 1}`
+
+#### Scenario: An Altium build stores and announces
+- **GIVEN** the routed blink with `R1` created with `height=mm(9)` and `design.height_limit("LID", max=mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k height` builds it with `--target altium --altium-bodies extruded --dry-run --json`
+- **THEN** the exit code is 0, the planned `.fenolite/rules.json` holds the limit under `heights`, `issues` hold one `altium.not-lowered` info whose `where` is `placement-rule` and one `altium.not-lowered` whose `where` is `body/<the body id>`, no `placement.*` issue, and the planned documents equal those of the build without `height=` and without the limit

@@ -2,7 +2,9 @@
 
 ## Purpose
 Use `kicad-cli` 9.0 and 10.0 as external oracles: pinned Docker images, an isolated environment per run, per-kind load checks, and the token fuzz harness whose committed results prove each inventory row on each major. Facts and sources: `docs/formats/kicad/versions.md`.
+
 ## Requirements
+
 ### Requirement: Load check per file kind
 `tools/kicad_token_fuzz.py` SHALL decide whether `kicad-cli` loads a case file with one command per kind, and SHALL record the outcome `load`, `reject`, `timeout` or `inconclusive`:
 
@@ -2107,3 +2109,90 @@ The outcomes MUST be recorded in `docs/evidence/routing.md` and `docs/evidence/r
 - **WHEN** `uv run pytest tests/kicad/schematic/test_hierarchy_oracle.py -k generated -rA` runs on each major
 - **THEN** all 25 designs build, with at least ten child sheets and five satellites among them, and every check holds
 
+### Requirement: Net length parity canaries
+`tests/kicad/length/test_length_parity.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-NETLEN-TOTAL`, `H-K-NETLEN-STACKUP`, `H-K-NETLEN-RULES`, and `H-K-NETLEN-VIA10` on 10.0.x or `H-K-NETLEN-VIA9` on 9.0.x, on the benches of `tests/_lengthbench.py` written for the running major: two layers without a stack-up, with a stack-up and with `use_height_for_length_calcs` set to `false`; four layers without a stack-up and with the explicit stack-up of the design's Context; six and eight layers without a stack-up; pads at vias; and the rules benches. DRC MUST be judged only from the JSON report, and every rules file MUST hold the scoped canary of c0071.
+- **Totals.** For each net of a case, the test MUST run `pcb drc` once with the rule `length (max T − 1 µm)` and once with `length (max T + 1 µm)`, `T` being the net's total in `length_facts` for the running major. Probe `length-total-<case>`, or `length-via-<case>` for a via case, MUST record `equal` when the first run reports the net and the second does not, and `different` otherwise. The `actual` that the first run prints MUST be written to `docs/evidence/length.md`.
+- **Rules.** On the rules benches the stage `length.rules` MUST name the same nets, with `length.out-of-range` and `length.skew-out-of-range`, as KiCad's `length_out_of_range` and `skew_out_of_range` violations; probe `length-rules-<case>` records `equal` or `different`. Until the stage exists (it needs the rule kinds of change c0104), the test MUST compare KiCad's violations with the nets that `H-K-NETLEN-RULES` predicts, and no `length-rules-*` probe is registered.
+- **A node that is not read.** For the four-layer bench whose stack-up node lost its silkscreen and paste rows, probe `length-via-four-unprojected` MUST record `equal` when KiCad counts the thicknesses of that node (the bracket built from the totals of the explicit stack-up) and `different` otherwise; `length_facts` MUST say `none` for that board.
+- A run whose canary does not fire MUST fail. The outcomes MUST be recorded in both probe files, and the facts MUST be written to `docs/formats/kicad/length.md` with S-0020, S-0029 and their labels. A `different` outcome MUST stop the part it settles and be written into the register row.
+
+#### Scenario: Both majors
+- **WHEN** `uv run pytest tests/kicad/length/test_length_parity.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `length-total-*`, `length-via-*` and `length-rules-*` probe records `equal`, and the canary fires in every run
+
+#### Scenario: The two majors count a via apart
+- **GIVEN** the four-layer bench with the explicit stack-up and its net of a through via between `F.Cu` and `In1.Cu`
+- **WHEN** the test runs on each major
+- **THEN** the total that passes the bracket is 20 153 750 nm on 10.0.6 and 20 000 000 nm on 9.0.9
+
+### Requirement: Meanders pass the oracle
+`tests/kicad/length/test_meander_oracle.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-NETLEN-MEANDER` on three designs built with `build_design` for the running major: a segment along an axis meandered to a target, a pair on four layers with a via step matched with `match`, and a segment at 30° meandered to a target. Each board MUST be written with the scoped canary and, for each meandered net, the two length rules of "Net length parity canaries" around its target.
+- Probe `length-meander-<case>` MUST record `equal` when KiCad reports the net with the rule 1 µm below the target, does not report it with the rule 1 µm above, and reports no violation that the same design built without the meander lacks, apart from the length rules; `different` otherwise.
+- For the pair, a skew rule judged within the pair with `max 0.001mm` MUST give no violation.
+
+#### Scenario: Meanders on both majors
+- **WHEN** `uv run pytest tests/kicad/length/test_meander_oracle.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the three `length-meander-*` probes record `equal`, and the canary fires in every run
+
+### Requirement: Anchored copper passes the oracle
+`tests/kicad/frame/test_anchor_oracle.py` (markers `needs_kicad`, major-aware) SHALL prove on the running `kicad-cli`, with the probe rules of "Script copper passes the oracle", where anchored points land, that a thermal array in a pad passes KiCad's DRC, and that anchored copper follows a part moved by `fenolite place`. Its bench, `tests/kicad/frame/_anchorbench.py`, MUST be design scripts built by `fenolite build` for the running major from the authored footprint `Frame:Frame_Anchor` and a project-authored symbol of four pins, and the DRC MUST be judged only from the JSON report read with `read_drc_report`.
+- **Frame** (`H-G-FRAME-ANCHOR`). `Frame_Anchor` placed at 0° and at 90° on the top and at 30° on the bottom, each with vias of a marker net: anchored by `part.at` at the library positions of pads `1` and `3`, by `pad.at` at an offset inside pad `4`, and by `pad.at` on a 3 × 3 grid of 1 mm in pad `4`. The bench is built with `--copper-check warn`, because each marker shorts its pad on purpose.
+  - `copper-anchor-frame` (majors 9 and 10): `equal` when the report names every marker via with the net of the pad its anchor names, since KiCad gives a via the net of the pad it touches (`H-K-VIA-RENET`), and no `shorting_items` names a marker; `different` otherwise.
+  - `copper-anchor-frame-control` (majors 9 and 10): the offsets of the bottom part given as board points computed without the mirror; `different` when the vias of pads `1` and `3` are named with each other's nets.
+- **Thermal array** (`H-K-VIA-IN-PAD`). `Frame_Anchor` with pad `4` on its own net and a stitch whose `region` is that pad, pitch 1 mm, vias of 0.6 mm and 0.3 mm, margin 0.1 mm.
+  - `copper-anchor-thermal` (majors 9 and 10): with a track of the net through the via centres on the other outer layer, its points anchored with `pad.at`; `absent` when no violation and no unconnected item names a via or the track.
+  - `copper-anchor-thermal-alone` (majors 9 and 10): without the track; `present` when each via gives exactly one `via_dangling` warning and nothing else names it.
+  - The copper guard of both builds MUST report nothing.
+- **Moved part** (`H-G-FRAME-ANCHOR`). The joined thermal bench with the part unlocked, built, then moved and turned with `fenolite place <board> --move U1=<x>,<y>,90 --confirm`, then built again.
+  - `copper-anchor-moved` (majors 9 and 10): `absent` when the array lies in pad `4` at its new place: no `via_dangling` and no unconnected item; the rebuild MUST report `kicad.copper.regenerated` for each via and track of the array.
+  - `copper-anchor-moved-control` (majors 9 and 10): the same array and track given to `design.via` and `Design.track` as board points; `present` when, after the same move and rebuild, its vias give `via_dangling`.
+- An outcome other than the expected one MUST stop that part of the change, and the register row MUST record what KiCad showed. The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and built files MUST NOT be committed.
+
+#### Scenario: Anchors land in their pads
+- **WHEN** `uv run pytest tests/kicad/frame/test_anchor_oracle.py -k frame` runs on the local KiCad 10.0.6 and in the `kicad-9` job
+- **THEN** `copper-anchor-frame` is `equal` and `copper-anchor-frame-control` is `different` on both majors
+
+#### Scenario: A thermal array passes DRC
+- **WHEN** `uv run pytest tests/kicad/frame/test_anchor_oracle.py -k thermal` runs on both majors
+- **THEN** `copper-anchor-thermal` is `absent` and `copper-anchor-thermal-alone` is `present` on both
+
+#### Scenario: Anchored copper follows a moved part
+- **WHEN** `uv run pytest tests/kicad/frame/test_anchor_oracle.py -k moved` runs on both majors
+- **THEN** `copper-anchor-moved` is `absent` and `copper-anchor-moved-control` is `present` on both
+
+### Requirement: Private state per kicad-cli run
+Every `KicadCli.run` SHALL run `kicad-cli` with the variables of `private_state(<run folder>/.fenolite-state)` (`cli.STATE_VARIABLES`: owner-only temporary, runtime, cache and state folders; S-0703, S-0704, S-0705), applied before `KICAD_CONFIG_HOME`, `LANG`, `LC_ALL` and `env`, so that parallel runs share no instance lock (`H-K-CLI-STATE`).
+
+#### Scenario: A run sees its own folders
+- **GIVEN** a fake `kicad-cli` that records six variables and the mode of each folder, and a caller environment where all six name `/shared`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_cli_runner.py -k private_state` runs a command
+- **THEN** each variable names its folder under `<tmp>/.fenolite-state/` with mode 0700, and a file the fake writes there is not in `outputs`
+
+#### Scenario: Parallel runs
+- **GIVEN** the same fake `kicad-cli`
+- **WHEN** eight runs start at once
+- **THEN** their `TMPDIR` values are eight different folders, none of which exists afterwards
+
+### Requirement: Reserved state folder
+`.fenolite-state` SHALL be a reserved name like `config` (`cli.RESERVED_DIRS`): `KicadCli.run` MUST refuse it as a run file name and never report a file under it as an output, and the copy set of a check MUST skip it as `reserved-name`. The runner MUST NOT change `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME` or `XDG_DATA_DIRS`.
+
+#### Scenario: A library row in the state folder
+- **GIVEN** a project whose `fp-lib-table` names `${KIPRJMOD}/.fenolite-state/Z.pretty`
+- **WHEN** `project_set` plans the copy set
+- **THEN** the row is skipped as `reserved-name` and the folder is not copied
+
+### Requirement: Docker runs keep the caller's state
+`DockerCli` SHALL pass no private state: each container (`--rm`) has its own `/tmp`, and the `docker` client MUST keep the caller's environment, `XDG_RUNTIME_DIR` included, with the container command unchanged.
+
+#### Scenario: Docker keeps the caller's runtime folder
+- **GIVEN** a fake `docker` and a caller with `XDG_RUNTIME_DIR=/run/user/1000`
+- **WHEN** `DockerCli(image).version()` runs
+- **THEN** the `docker` client sees `XDG_RUNTIME_DIR=/run/user/1000`, and the command's `-e` entries are `KICAD_CONFIG_HOME=/w/config`, `LANG=C` and `LC_ALL=C` only
+
+### Requirement: Oracle tests run kicad-cli with private state
+The tests' own `kicad-cli` launchers (`tests/_kicad.py`, `tests/_libs.py`, and every oracle that builds its environment with `_kicad.oracle_env`) SHALL give each call private folders made by `private_state`, removed afterwards, and `tests/kicad/check/test_parallel_runs_oracle.py` SHALL run `kicad-cli` in parallel in the `kicad-9` and `kicad-10` jobs.
+
+#### Scenario: Parallel runs of the real tool
+- **GIVEN** `kicad-cli` 9.0.9 or 10.0.6
+- **WHEN** `uv run pytest tests/kicad/check/test_parallel_runs_oracle.py` runs eight `version` runs, eight `sch erc` runs of an unloadable schematic, and eight raw helper runs at once
+- **THEN** every run gives its usual result (each ERC run "Failed to load schematic", exit 3, no report) and none prints a lock message, and a run given `TMPDIR` creates `org.kicad.kicad/instances` in that folder
