@@ -29,6 +29,7 @@ last word is a subcommand, or its option a long option, on its parent's page.
 | `pcb drc --refill-zones` and `--save-board` exist in 10.0 only | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-01 |
 | `pcb upgrade` exists in 10.0 and not in 9.0 | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
 | `pcb drc --format`, `--severity-all` and `--schematic-parity`, and `pcb export ipcd356`, `pos` and `svg`, exist in 9.0 and 10.0 | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
+| `sch` has the subcommands `erc`, `export` and `upgrade` only: there is no schematic import (10.0 adds `pcb import` and nothing for schematics). An Altium schematic document is not read: on the built `tests/data/altium/tree/`, `sch export netlist --format kicadxml -o out.net tree.SchDoc`, `sch export netlist -o out.net tree.PrjPcb`, `sch upgrade tree.SchDoc` and `sch erc -o erc.rpt tree.SchDoc` answer "Failed to load schematic" on 10.0.6; on 9.0.9 the same, except that `sch upgrade` of a `.SchDoc` is refused as a usage error. Only the GUI importer reads a `.SchDoc`; an Altium schematic LIBRARY is converted by `sym upgrade` (local run in the pinned images `kicad/kicad:10.0.6@sha256:18693567…` and `kicad/kicad:9.0.9@sha256:e638b79b…`, 2026-10-09; change c0086, task 5.2) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | — |
 
 ## Refill on a copy
 
