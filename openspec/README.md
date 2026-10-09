@@ -149,5 +149,6 @@ were closed on 2026-10-09.
 | c0154 | `release-0-4-0` | release of v0.4 as `0.4.0`: the release record with the verdict per change, what is deferred to the next release by the maintainer's decision of 2026-10-08 and the follow-ups found that day, its guard, the version and the changelog cut | c0077–c0081, c0096–c0120, c0137, c0140, c0141, c0145, c0152, c0153 |
 | c0155 | `altium-bodies-default` | the maintainer's decision of 2026-10-09: an Altium build writes the extruded component bodies by default (`--altium-bodies extruded`; `off` turns it off) | c0121 |
 | c0156 | `kicad-cli-docker-user` | correction of c0015 and c0153 (two agents running as root on 2026-10-09): a `docker:<image>` run of `kicad-cli` runs the container as the owner of the run folder, with `HOME` in its state folder, so it can write that folder for any host user | c0015, c0153 |
+| c0157 | `yardstick-route-order` | the maintainer's decision of 2026-10-09 (the routing gap of nightly run 37836196244): the yardstick runner runs `route` (Freerouting) before `route-pairs` (KiCadRoutingTools) until the pair is routed as a coupled pair; measured again then | c0119 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
