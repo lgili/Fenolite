@@ -22,7 +22,7 @@
    - `pic_programmer`: 139 tokens: `footprint/units` 63, `duplicate_pad_numbers_are_jumpers` 63, `point` 7, the six via-protection tokens 1 each; 134 nodes removed: 63 `units`, 63 `duplicate_pad_numbers_are_jumpers`, 7 `point` and 1 `setup`.
    - Both written boards read back equal to the source at level 5 of `equivalent`: what was dropped is nothing that levels 1 to 5 compare. Whether 9.0.9 loads them was not run.
 2. *Schematics.* Of the 114 schematic sheets of the demo projects, 10 have a format of major 10 (8 at 20250610, 2 at 20260101). `check_emittable(root, SCHEMATIC, 9)` on their trees gives: `body_style` 124, `in_pos_files` 124, `duplicate_pin_numbers_are_jumpers` 99, `in_pos_files` of a library symbol 29, `power global` 27, `body_styles` 1, and the header 10.
-3. *Found on the way.* `RoyalBlue54L-Feather` (format 9) is refused even for target 9: 4 `kicad.board.opaque-net-ref` errors (an opaque `(net 41)` names `Net-(U1-P1.00/XL1)`, which is not a net of the design). Not a downgrade; reported as a follow-up.
+3. *Found on the way.* `RoyalBlue54L-Feather` (format 9) is refused even for target 9: 4 `kicad.board.opaque-net-ref` errors (an opaque `(net 41)` names `Net-(U1-P1.00/XL1)`, which is not a net of the design). Not a downgrade; the maintainer decided on 2026-10-09 (open question 4) that it gets a correction change of its own in v0.5a, after this one: c0163.
 
 ## Goals / Non-Goals
 
@@ -133,7 +133,9 @@ Cut order: (1) schematics and symbol libraries (the board, footprints, project a
 
 ## Open questions
 
-1. **Is a downgrade only a `convert` (never `build --kicad-version 9` on a project saved by 10)?** Recommended: yes; `build` keeps the refusal and its hint names `convert`. A build that silently drops a 10 construct of the user's layout is the failure the refusal exists for.
-2. **Are dropped via-protection values (covering, plugging, capping, filling) `design`?** Recommended: yes unless the value is the default; they reach the fabrication outputs.
-3. **Is a dropped position-file flag (`in_pos_files no`) `design`?** Recommended: yes; the placement file changes.
-4. **The follow-up for `RoyalBlue54L-Feather` (opaque `(net N)` that names no net of the design, refused at its own target)?** Recommended: a correction change of its own in v0.5a, after this one, with the census of the corpus boards that hold such a reference.
+All answered on 2026-10-09: the maintainer accepted every recommended answer (`docs/roadmap.md`, Open decisions row 40).
+
+1. **Is a downgrade only a `convert` (never `build --kicad-version 9` on a project saved by 10)?** Recommended: yes; `build` keeps the refusal and its hint names `convert`. A build that silently drops a 10 construct of the user's layout is the failure the refusal exists for. Decided by the maintainer on 2026-10-09: yes; a downgrade is only a `convert`, and `build` keeps the refusal with a hint that names `convert`.
+2. **Are dropped via-protection values (covering, plugging, capping, filling) `design`?** Recommended: yes unless the value is the default; they reach the fabrication outputs. Decided by the maintainer on 2026-10-09: yes, unless the value is the default.
+3. **Is a dropped position-file flag (`in_pos_files no`) `design`?** Recommended: yes; the placement file changes. Decided by the maintainer on 2026-10-09: yes; the placement file changes.
+4. **The follow-up for `RoyalBlue54L-Feather` (opaque `(net N)` that names no net of the design, refused at its own target)?** Recommended: a correction change of its own in v0.5a, after this one, with the census of the corpus boards that hold such a reference. Decided by the maintainer on 2026-10-09: a correction change of its own in v0.5a, after this one, with the census of the corpus boards that hold such a reference: c0163.

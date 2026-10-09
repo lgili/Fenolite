@@ -128,7 +128,9 @@ Cut order: (1) symbols from `.SchLib` (generic symbols for every component); (2)
 
 ## Open questions
 
-1. **Refuse items on undeclared layers for every caller, or only in conversion?** Recommended: every caller; a silent item on a layer KiCad does not know is the defect, wherever it comes from.
-2. **Mechanical layers beyond KiCad's user layers: lost, or merged onto the last one?** Recommended: lost and reported; merging mixes drawings a fabricator reads apart.
-3. **The pads without a component (free pads): footprints without a reference, or one footprint `FREE_PADS` holding them all?** Recommended: one footprint per free pad without a reference, as KiCad's importer does, so the two converters agree.
-4. **Should the maintainer convert one Altium board of his own drawing and report KiCad's view?** Recommended: optional, after the census; it is a KiCad check, so the oracle already covers it, and his board stays private (the report gives outcomes only).
+All answered on 2026-10-09: the maintainer accepted every recommended answer (`docs/roadmap.md`, Open decisions row 40).
+
+1. **Refuse items on undeclared layers for every caller, or only in conversion?** Recommended: every caller; a silent item on a layer KiCad does not know is the defect, wherever it comes from. Decided by the maintainer on 2026-10-09: every caller refuses items on undeclared layers.
+2. **Mechanical layers beyond KiCad's user layers: lost, or merged onto the last one?** Recommended: lost and reported; merging mixes drawings a fabricator reads apart. Decided by the maintainer on 2026-10-09: lost and reported; never merged onto the last user layer.
+3. **The pads without a component (free pads): footprints without a reference, or one footprint `FREE_PADS` holding them all?** Recommended: one footprint per free pad without a reference, as KiCad's importer does, so the two converters agree. Decided by the maintainer on 2026-10-09: one footprint per free pad, without a reference, as KiCad's importer does.
+4. **Should the maintainer convert one Altium board of his own drawing and report KiCad's view?** Recommended: optional, after the census; it is a KiCad check, so the oracle already covers it, and his board stays private (the report gives outcomes only). Decided by the maintainer on 2026-10-09: optional, after the census; his board stays private and the report gives outcomes only.

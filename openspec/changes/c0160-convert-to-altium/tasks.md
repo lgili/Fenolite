@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living `altium-compound-reader`, `altium-pcb-writer` and `altium-schematic-writer` specs, and c0159's delta. Write under this task, with the date: that c0159 is archived or its report and census are on the branch (else stop: the baseline needs them); whether c0126, c0123 and c0146, which write footprint items and schematic fonts, are archived; whether another open change adds a requirement of the same name to one of the three specs; the maintainer's answers to the open questions. Proof: `openspec validate c0160-convert-to-altium --strict --no-interactive` passes.
+- [ ] 0.1 Read `openspec list`, the living `altium-compound-reader`, `altium-pcb-writer` and `altium-schematic-writer` specs, and c0159's delta. Write under this task, with the date: that c0159 is archived or its report and census are on the branch (else stop: the baseline needs them); whether c0126, c0123 and c0146, which write footprint items and schematic fonts, are archived; whether another open change adds a requirement of the same name to one of the three specs; the maintainer's answers to the open questions (given on 2026-10-09: every recommended answer, `docs/roadmap.md` Open decisions row 40). Proof: `openspec validate c0160-convert-to-altium --strict --no-interactive` passes.
 
 ## 1. Baseline, facts and register
 

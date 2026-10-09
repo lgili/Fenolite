@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living `backend-protocol` and `cli-contract` specs, and c0158's delta. Write under this task, with the date: that c0158 is archived or its API is on the branch (else stop: the verification needs `fenolite.api.equivalent`); whether "Altium write of a model" changed since `f802b60` (then regenerate the MODIFIED block from the living text with only this change's edits); whether `tests/unit/test_import_graph.py` still holds the row `convert` → `model`, `geometry`, `backends*`; and the maintainer's answers to the open questions of the design. Proof: `openspec validate c0159-convert-command --strict --no-interactive` passes.
+- [ ] 0.1 Read `openspec list`, the living `backend-protocol` and `cli-contract` specs, and c0158's delta. Write under this task, with the date: that c0158 is archived or its API is on the branch (else stop: the verification needs `fenolite.api.equivalent`); whether "Altium write of a model" changed since `f802b60` (then regenerate the MODIFIED block from the living text with only this change's edits); whether `tests/unit/test_import_graph.py` still holds the row `convert` → `model`, `geometry`, `backends*`; and the maintainer's answers to the open questions of the design (given on 2026-10-09: every recommended answer, `docs/roadmap.md` Open decisions row 40). Proof: `openspec validate c0159-convert-command --strict --no-interactive` passes.
 
 ## 1. Measure and register
 

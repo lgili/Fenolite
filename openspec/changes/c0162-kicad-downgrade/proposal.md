@@ -32,7 +32,7 @@ None.
 - KiCad 8 output, and any target outside `TARGET_MAJORS`.
 - A downgrade inside `build`, `place`, `route` or `fill`: those keep refusing a source saved by a newer major.
 - Footprint and symbol libraries outside the project (the official libraries are fetched for a major, never written).
-- The defect found on the way: `RoyalBlue54L-Feather` (format 9) is refused even for target 9 (`kicad.board.opaque-net-ref`, 4 items); a follow-up change, named in the design.
+- The defect found on the way: `RoyalBlue54L-Feather` (format 9) is refused even for target 9 (`kicad.board.opaque-net-ref`, 4 items); a correction change of its own, c0163, after this one (decided by the maintainer on 2026-10-09, open question 4 of the design).
 
 ## Evidence level required
 

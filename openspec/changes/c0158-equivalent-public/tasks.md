@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living `design-equivalence`, `package-layering` and `cli-contract` specs, and the designs of c0159 to c0162. Write under this task, with the date: whether "Equivalent command", "Tolerances and normalisation" or "Allowed import edges" changed since `f802b60` (then regenerate that MODIFIED block from the living text, with only this change's edits); whether another open change adds a row to the layering table or a side to `equivalent`; whether the maintainer answered the open questions of the design (an answer other than the recommended one is applied before task 2.1). Proof: `openspec validate c0158-equivalent-public --strict --no-interactive` passes.
+- [ ] 0.1 Read `openspec list`, the living `design-equivalence`, `package-layering` and `cli-contract` specs, and the designs of c0159 to c0162. Write under this task, with the date: whether "Equivalent command", "Tolerances and normalisation" or "Allowed import edges" changed since `f802b60` (then regenerate that MODIFIED block from the living text, with only this change's edits); whether another open change adds a row to the layering table or a side to `equivalent`; whether the maintainer answered the open questions of the design (he did on 2026-10-09 and accepted every recommended answer, `docs/roadmap.md` Open decisions row 40, so nothing is applied before task 2.1). Proof: `openspec validate c0158-equivalent-public --strict --no-interactive` passes.
 
 ## 1. Measure and register
 

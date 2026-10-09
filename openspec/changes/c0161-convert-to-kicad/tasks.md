@@ -1,6 +1,6 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living `kicad-file-backend` spec and the deltas of c0159 and c0160. Write under this task, with the date: that c0159 is archived or its package and verification are on the branch (else stop); whether c0160 is archived (its derived library is the model of this change's; its `KICAD_MECHANICAL` is the inverse map and must not contradict this one); whether another open change adds a requirement on layers to `kicad-file-backend`; the maintainer's answers to the open questions. Proof: `openspec validate c0161-convert-to-kicad --strict --no-interactive` passes.
+- [ ] 0.1 Read `openspec list`, the living `kicad-file-backend` spec and the deltas of c0159 and c0160. Write under this task, with the date: that c0159 is archived or its package and verification are on the branch (else stop); whether c0160 is archived (its derived library is the model of this change's; its `KICAD_MECHANICAL` is the inverse map and must not contradict this one); whether another open change adds a requirement on layers to `kicad-file-backend`; the maintainer's answers to the open questions (given on 2026-10-09: every recommended answer, `docs/roadmap.md` Open decisions row 40). Proof: `openspec validate c0161-convert-to-kicad --strict --no-interactive` passes.
 
 ## 1. Measure, facts and register
 

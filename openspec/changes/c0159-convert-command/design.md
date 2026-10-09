@@ -155,7 +155,9 @@ Cut order: (1) `--report-ids`; (2) the KiCad to KiCad direction (c0162 then adds
 
 ## Open questions
 
-1. **Is a lost do-not-populate flag a refusal (exit 7 without `--allow-lossy`)?** Recommended: yes; the converted bill of materials lists a part that the source does not fit.
-2. **Verify by default?** Recommended: yes, with `--no-verify` dropping the label to `UNVERIFIED`; the read-back costs at most twice the conversion on the measured boards.
-3. **May `--out` be an existing folder with files?** Recommended: yes, with `.bak` of overwritten files as every write does, but never the source's folder or a folder that holds it.
-4. **Name of the command: `convert`?** Recommended: yes, the word of the roadmap and of the reserved package.
+All answered on 2026-10-09: the maintainer accepted every recommended answer (`docs/roadmap.md`, Open decisions row 40).
+
+1. **Is a lost do-not-populate flag a refusal (exit 7 without `--allow-lossy`)?** Recommended: yes; the converted bill of materials lists a part that the source does not fit. Decided by the maintainer on 2026-10-09: yes; a lost do-not-populate flag is a refusal (exit 7 without `--allow-lossy`).
+2. **Verify by default?** Recommended: yes, with `--no-verify` dropping the label to `UNVERIFIED`; the read-back costs at most twice the conversion on the measured boards. Decided by the maintainer on 2026-10-09: yes; the conversion verifies by default, and `--no-verify` drops the label to `UNVERIFIED`.
+3. **May `--out` be an existing folder with files?** Recommended: yes, with `.bak` of overwritten files as every write does, but never the source's folder or a folder that holds it. Decided by the maintainer on 2026-10-09: yes, with `.bak` of overwritten files, but never the source's folder or a folder that holds it.
+4. **Name of the command: `convert`?** Recommended: yes, the word of the roadmap and of the reserved package. Decided by the maintainer on 2026-10-09: yes; the command is `convert`.
