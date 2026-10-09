@@ -1544,6 +1544,18 @@ they write the model as it is. Run `fenolite check` on the written documents.
 - The schematic of a rewrite is written only when the build's schematic writer takes the circuit. A
   tolerant schematic write for circuits that were read belongs to v0.5a, with `convert`.
 
+### Converting a KiCad project (c0159)
+
+`fenolite convert SRC --to altium --out DIR` is this write of a model as a command: a KiCad project (its
+board with the net classes and rules of its project files) is projected and written with
+`lower.write_design`, and its report counts per kind and per reason what the documents hold, hold in
+another form or leave out. Each item left out is counted under its own reason (`AltiumInputs.lost`), and
+a component marked do-not-populate is counted under the kind `dnp`: the documents hold no fitted flag
+outside variants, so `AltiumBackend.write` and `build --target altium` report one `altium.not-lowered`
+info for it, and the conversion refuses it without `--allow-lossy`. Every conversion is read back and
+compared with its source. The command, the report, the verification and the measured demo boards are in
+`docs/conversion.md` and `docs/evidence/conversion.md`.
+
 ## Checks
 
 `fenolite check` on an Altium project, folder or document runs nine stages without any tool

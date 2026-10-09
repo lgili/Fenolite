@@ -261,3 +261,42 @@ difference it causes:
 - the schematic writer refuses the circuits of `CM5_MINIMA_3` (one pin on two nets) and `tinytapeout-demo`
   (two symbols with one storage name), so their conversions hold the PCB document alone;
 - `jetson-agx-thor-baseboard` and `vme-wren` are not written at all: their documents need DIFAT sectors.
+
+## The triangle (`H-K-CONV-TRIANGLE`)
+
+`tests/kicad/convert/test_triangle.py`, in the pinned image `kicad/kicad:10.0.6` on 2026-10-09: each board
+is converted to Altium, `kicad-cli pcb import` converts the written PCB document back, and the board KiCad
+makes is compared with the design that was written at level 5 under the importer's profile `kicad-import`.
+
+- **Samples.** `tests/data/kicad/board/two_layer.kicad_pcb` and the board of
+  `tests/data/acceptance/blink_2layer_t10`: level 5, no difference, no rule applied. Probe
+  `convert-triangle` = `equal`.
+- **Demo boards.** Of the 16 boards the census writes, 14 give no difference that the report or the
+  profile does not explain (the explained ones are those of the ledger, a few fewer where the importer's
+  profile excludes a pad first). Two give differences of KiCad's importer, listed in the test:
+  `One-Air-Max`, whose six components without a reference KiCad names `UNK` (`ref-ambiguous` at the empty
+  reference and at `UNK`), and `RoyalBlue54L-NFC-Antenna`, whose routed antenna on `F.Cu` differs by 8491 nm of 396.45 mm
+  (21.4 parts per million, above the 20 of the profile) after the importer's rounding of each segment end
+  to 10 nm.
+
+## The re-target (`H-K-CONV-RETARGET`)
+
+`tests/kicad/convert/test_retarget.py`, in the pinned images `kicad/kicad:9.0.9` and `kicad/kicad:10.0.6` on
+2026-10-09: DRC (`pcb drc --severity-all`, with the project and rules files of the stem and the source's
+footprint table) of each KiCad 9 source in 9.0.9, and of its conversion to 10 in 10.0.6. The types are the
+same for every source; the counts of the conversion equal those of the source read by 10.0.6, and two
+counts differ between the majors on the source alone (KiCad 10's own checks).
+
+| source | 9.0.9, source | 10.0.6, conversion |
+|---|---|---|
+| `blink_2layer_t9` | none | none |
+| `board_40parts_t9` | none | none |
+| `two_layer.kicad_pcb` (no project file) | clearance 1, hole_clearance 1, isolated_copper 1, lib_footprint_issues 2, silk_over_copper 1, solder_mask_bridge 1, track_dangling 2, unconnected_items 1, via_dangling 1 | the same, silk_over_copper 2 (2 for the source in 10.0.6 too) |
+| `custom_pads_test` (demo, with its project file) | clearance 3 | clearance 4 (4 for the source in 10.0.6 too) |
+| `flat_hierarchy` (demo, with its project file) | lib_footprint_issues 64, silk_edge_clearance 2 | the same |
+| `pic_programmer` (demo, with its project file) | lib_footprint_issues 63 | the same |
+| `test_pads_inside_pads` (demo) | lib_footprint_issues 4 | the same |
+| `carte_test` (demo) | copper_edge_clearance 1, hole_clearance 1, lib_footprint_issues 42, silk_edge_clearance 4 | the same |
+
+Probe `convert-retarget` = `equal` on both majors. No ERC ran: the sources of format 9 hold no schematic of
+their own stem in the committed data, and a schematic of another major is not converted (change c0162).

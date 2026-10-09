@@ -25,7 +25,8 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3", "H-A-VER-RTA3", "H-K-CONV-TRIANGLE"))
-"""The level of the Altium writers (``lower.EVIDENCE``), with the triangle that checks this direction."""
+"""The level of the Altium writers (``lower.EVIDENCE``), with the triangle that checks this direction
+(``H-K-CONV-TRIANGLE``, partly confirmed on 2026-10-09: the samples and 14 of 16 demo boards)."""
 PROFILE = "kicad-to-altium"
 CHANGES: Mapping[str, str] = {
     "zone-fill": "a polygon is written unpoured; Altium fills it on a repour",

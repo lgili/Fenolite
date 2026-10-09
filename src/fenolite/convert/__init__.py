@@ -28,8 +28,9 @@ from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CONV-LEDGER",))
-"""The report and its verification: mechanical, and ``H-G-CONV-LEDGER`` over the KiCad demo boards."""
+EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-G-CONV-LEDGER",))
+"""The report and its verification: mechanical, and every difference of the KiCad 10.0.6 demo boards that
+the Altium direction writes is explained (``H-G-CONV-LEDGER``, confirmed on 2026-10-09)."""
 DIRECTIONS: dict[tuple[str, str], Direction] = {
     (direction.source, direction.target): direction for direction in (to_altium.DIRECTION, to_kicad.DIRECTION)
 }

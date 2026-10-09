@@ -25,8 +25,9 @@ from fenolite.convert.sources import KICAD, SourceProject
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
-"""The board writer's re-target, checked by ``H-K-CONV-RETARGET``."""
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
+"""The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
+source in 9.0.9 (``H-K-CONV-RETARGET``, confirmed on 2026-10-09)."""
 PROFILE = "kicad-to-kicad"
 SCHEMATIC = "schematic"
 SCHEMATIC_SUFFIX = ".kicad_sch"
