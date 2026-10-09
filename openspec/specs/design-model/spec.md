@@ -677,16 +677,16 @@ The board layer SHALL describe a pad's hole and its copper offsets in `Padstack`
 
 ### Requirement: Component bodies
 The board layer SHALL describe the physical body of a part as the entity `fenolite.model.board.ComponentBody`, in `FootprintInstance.bodies: tuple[ComponentBody, ...]` and `FootprintDef.bodies: tuple[ComponentBody, ...]`, both ordered and empty by default.
-- `ComponentBody` MUST carry the common entity header and: `kind: BodyKind` (`extruded` or `model`); `height: Nm`, the distance from the board surface to the top of the body; `standoff: Nm = 0`, the distance from the board surface to its underside; `outline: tuple[Point, ...] = ()`, ordered, the body's footprint as a polygon in the footprint frame of "Board entities read from file backends" (empty when the source gives none); `layer: str = ""`, the layer the body is drawn on; `model: str = ""`, the name of a 3D model for the kind `model`; and `name: str = ""`.
-- A body states a volume above the side the footprint is placed on. It carries no model data: `FootprintDef.models` keeps its meaning (the model references of a definition), and no file is embedded.
-- The height of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- `ComponentBody` MUST carry the common entity header and: `kind: BodyKind` (`extruded` or `model`); `height: Nm`, the distance from the board surface to the top of the body; `standoff: Nm = 0`, the distance from the board surface to its underside; `outline: tuple[Point, ...] = ()`, ordered, the body's footprint as a polygon in the footprint frame of "Board entities read from file backends" (empty when the source gives none); `layer: str = ""`, the layer the body is drawn on; `model: str = ""`, the name of a 3D model for the kind `model`; and `name: str = ""`. Optional `z_min: Nm | None = None` and `z_max: Nm | None = None` MUST form a signed authoritative interval in the mounted-face frame, positive outwards from that board surface. `projection_unknown: bool = False` SHALL mark retained source geometry with unproved projection; analysis MUST not project such a body. Both MUST be absent or both present with z_min <= z_max; no float enters the model.
+- A legacy body without signed bounds states a volume above the side the footprint is placed on. A body with signed bounds may cross that surface; its interval and documented footprint/side transform state that extent without zero-clamping native source values. It carries no model data: `FootprintDef.models` keeps its meaning (the model references of a definition), and no file is embedded.
+- The outward height of a part is the largest authoritative upper bound of its known bodies (`z_max` when present, legacy `height` otherwise). Below-surface extent MUST remain available to volume analysis. A part without known body extents has unknown height.
 - The closed prefix table SHALL include `bdy`.
-- `Design.validate()` MUST report `model.body-height` (error), with `where` set to the body's id, for a body whose `height` is below its `standoff` or whose `standoff` is negative.
+- `Design.validate()` MUST report `model.body-height` (error), with `where` set to the body's id, for a body without signed bounds and without projection_unknown whose `height` is below its `standoff` or whose `standoff` is negative. A half-specified or reversed signed interval MUST report `model.body-volume` (error) at the body's id. When the interval is present it is authoritative; legacy source height/standoff values may remain as provenance and MUST NOT override it.
 - No reader or writer of the KiCad backend changes: definitions read from KiCad files hold no body, so a placed copy has none, and a KiCad build MUST keep the bodies of a design in `.fenolite/` only.
-- `tools/gen_schemas.py` MUST regenerate `board.json` and `library.json` with `ComponentBody` and `bodies`. `docs/design-model.md` MUST describe the entity, and `docs/cli-contract.md` MUST list `model.body-height`.
+- `tools/gen_schemas.py` MUST regenerate `board.json` and `library.json` with `ComponentBody` and `bodies`. `docs/design-model.md` MUST describe the entity, and `docs/cli-contract.md` MUST list `model.body-height` and `model.body-volume` and document the mounted-face frame and authoritative-interval precedence.
 
 #### Scenario: Old documents still load
-- **GIVEN** a `board.json` and a `library.json` written before this change
+- **GIVEN** a `board.json` and a `library.json` written before component bodies were introduced, with no bodies keys
 - **WHEN** `canonical.loads` reads them
 - **THEN** every footprint and every definition has `bodies == ()`
 
@@ -708,6 +708,21 @@ The board layer SHALL describe the physical body of a part as the entity `fenoli
 #### Scenario: Body prefix
 - **WHEN** `derived_id("bdy", "altium", "x")` and `derived_id("bdyx", "altium", "x")` are called
 - **THEN** the first returns an id that starts with `bdy_` and the second raises `ValueError`
+
+#### Scenario: Signed interval validation
+- **GIVEN** an authored body has both signed bounds in order and crosses its mounting plane
+- **WHEN** canonical serialization and Design.validate run
+- **THEN** both bounds survive and the legacy negative-standoff rule does not invalidate the authoritative interval
+
+#### Scenario: Incomplete interval refused
+- **GIVEN** an authored body specifies only one signed bound or supplies them in reverse order
+- **WHEN** Design.validate runs
+- **THEN** it reports model.body-volume at that body instead of inferring or reordering the interval
+
+#### Scenario: Legacy body document compatibility
+- **GIVEN** a body document generated by the model at tag v0.2.0
+- **WHEN** canonical.loads and canonical.dumps run
+- **THEN** z_min and z_max default to None, projection_unknown defaults to False, and the bytes are unchanged; legacy height validation still applies until source reimport
 
 ### Requirement: Schematic sheet definitions
 `fenolite.model.schematic` SHALL provide the schematic-sheet definition `SchematicSheet`, an entity with the common header, and the entities and value objects it holds:
