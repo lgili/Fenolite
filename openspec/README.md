@@ -155,5 +155,6 @@ The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and 
 | c0159 | `convert-command` | v0.5a: `fenolite convert`, the conversion report and its verification by `equivalent`; KiCad to Altium and KiCad to KiCad with today's writers | c0158, c0090 |
 | c0160 | `convert-to-altium` | v0.5a: KiCad to Altium without the measured losses; the derived PCB library and the tolerant schematic write that the decisions of 2026-10-06 put in v0.5a | c0159, c0126 |
 | c0161 | `convert-to-kicad` | v0.5a: Altium to KiCad, with the refusal of items on layers a KiCad board does not declare | c0159, c0043 |
+| c0162 | `kicad-downgrade` | v0.5a: the controlled KiCad downgrade (capability resolver) through `fenolite convert` | c0159, c0007 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
