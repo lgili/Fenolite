@@ -565,7 +565,7 @@ through `fenolite route` and the pair loop).
 
 **c0109 on `v04` (2026-10-08).** Built; the grouped KiCadRoutingTools run is verified on both majors. Its scale numbers are those of 2026-10-05 and are to be measured again on an authored bench.
 
-**c0141 on `v04` (2026-10-08).** `drc-report-limits`, split off c0120 on 2026-10-07: `fenolite check` marks every DRC type whose count reached the limit of KiCad's report (`summary.limits`, `check.report-limit`); ships in 0.4. Open: the line in the CLI section of `AGENTS.md`, the maintainer's (task 3.1), and the unit suite on Python 3.11 (task 4.1, the `unit` job of the release branch).
+**c0141 on `v04` (2026-10-08).** `drc-report-limits`, split off c0120 on 2026-10-07: `fenolite check` marks every DRC type whose count reached the limit of KiCad's report (`summary.limits`, `check.report-limit`); ships in 0.4. Open then: the line in the CLI section of `AGENTS.md`, the maintainer's (task 3.1), and the unit suite on Python 3.11 (task 4.1, the `unit` job of the release branch); both closed since, the line written by the coordinator at the maintainer's request on 2026-10-09.
 
 **Reconciled when they come to `dev`.** The three groups were written apart. Known overlaps: c0113,
 c0103 and c0102 with c0096; c0100 and c0101 with c0085. Ids, slugs and the split between changes may

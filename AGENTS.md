@@ -62,3 +62,4 @@ Read this file before changing anything. Humans: this is also the short version 
 7. The loop is `capabilities`, `build`, `place`, `route`, `fill`, `check`, `export`, `render`, `inspect`:
    `src/fenolite/agent/skill/SKILL.md` holds the ten commands and what to do for each exit code.
    `fenolite guide start --text` prints that page for the installed version.
+8. A count that `summary.limits` of `drc.kicad` names is a lower bound (`check.report-limit`).
