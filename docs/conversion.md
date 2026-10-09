@@ -29,16 +29,39 @@ memory, which writes no file and runs no tool.
 ## Directions
 
 `fenolite capabilities` lists the registered directions under `result.conversions`, each with the KiCad
-majors it writes, whether it is experimental, and its evidence.
+majors it writes, whether it writes a KiCad target older than the source (`downgrade`), whether it is
+experimental, and its evidence.
 
 | from | to | writer | experimental | evidence |
 |---|---|---|---|---|
 | kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the schematic, its libraries and the project file when the schematic writer takes the circuit | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE` |
-| kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`) |
+| kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal; for an older target, every file written through the downgrade resolver (below) | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`; a downgrade: `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS`) |
 
-- A KiCad target older than the source's major exits 7 (`FEN-7002`): the downgrade is change c0162.
-- A schematic of another major is not converted: the report counts it as a lost `schematic` (a `report`
-  kind, which needs no consent).
+- A schematic of an older major than the target is not converted (a schematic is not upgraded): the
+  report counts it as a lost `schematic` (a `report` kind, which needs no consent).
+
+### KiCad downgrade
+
+A KiCad target older than the source's major is a downgrade (change c0162): a KiCad 10 project written
+for KiCad 9 with `fenolite --kicad-version 9 convert <project> --to kicad --out <dir>`. It is the only
+way to write a design of 10 for 9: `build`, `place`, `route` and `fill` keep refusing such a source
+(`FEN-7002`, whose hint names `convert`).
+
+- Every file is written with `downgrade=True`: the board and the project and rules files (`write_triad`,
+  `dru.write_rules`), each schematic sheet (`sch.retarget_schematic`), the footprints of the project's own
+  `.pretty` folders (`mod.write_footprint`) and its own symbol libraries (`sym.retarget_symbol_library`).
+  The library tables and drawing sheets, whose formats both majors read, are copied.
+- The capability resolver (`docs/formats/kicad/versions.md`, "Downgrade") decides each construct of 10
+  where it is: written in 9's form (`rewrite`), dropped because 9 behaves the same (`same`), dropped with
+  a reported loss of a drawing or of metadata (`presentation`) or of the design (`design`).
+- The report holds one row per resolver id, kind `downgrade:<id>` in the group `downgrade`: `rewrite` and
+  `same` are `changed`, `presentation` and `design` are `lost`; a row that can be `design` is a `refuse`
+  kind, so a design loss needs `--allow-lossy`. The ids of an item are `<file>:<locator>`. Every KiCad 10
+  project holds `component_class_settings` and `tuning_profiles`, which are `design` rows: a downgrade
+  needs `--allow-lossy` even when they hold their defaults.
+- The verification compares the board at level 5 and the root schematic at level 2 under the profile
+  `kicad-downgrade`. A schematic whose netlist needs `kicad-cli` and finds none is not compared: one
+  `convert.schematic-unverified` warning says so.
 - An Altium document larger than a compound file without DIFAT sectors is not written (`FEN-7001`, with
   or without consent); two KiCad demo boards are (`docs/evidence/conversion.md`).
 
@@ -150,13 +173,14 @@ it was.
 
 ### Profiles
 
-`src/fenolite/convert/data/profiles.toml` holds one profile per direction, in the exclusion format of
-`docs/equivalence.md`; neither holds a rule today.
+`src/fenolite/convert/data/profiles.toml` holds one profile per direction, and `kicad-downgrade` for the
+downgrade, in the exclusion format of `docs/equivalence.md`; none holds a rule today.
 
 | profile | frame | tolerances | why |
 |---|---|---|---|
 | `kicad-to-altium` | relative | 3 nm, 20 ppm | the writer moves the board's corner to the document's origin; a length is written in 1/10 000 mil (2.54 nm), and the 16 demo boards read back within 2 nm per coordinate; a routed length as in the triangle |
 | `kicad-to-kicad` | absolute | none | the board is written with its own coordinates |
+| `kicad-downgrade` | absolute | none | the same model in another header: a construct the resolver drops is no item that levels 1 to 5 compare |
 
 ## Evidence
 
@@ -169,6 +193,8 @@ Altium direction stays experimental until change c0092's rule lets its write kin
 | every difference of the 16 written KiCad 10.0.6 demo boards is explained (`H-G-CONV-LEDGER`) | `CORPUS-VERIFIED` | `tests/corpus/test_convert_census.py`, `docs/evidence/conversion.md` |
 | `kicad-cli pcb import` of a converted board equals the source (`H-K-CONV-TRIANGLE`) | see `docs/hypotheses.md` | `tests/kicad/convert/test_triangle.py` |
 | a KiCad 9 project converted to 10 gives the DRC of the source (`H-K-CONV-RETARGET`) | `KICAD-VERIFIED (9.0.x, 10.0.x)` | `tests/kicad/convert/test_retarget.py` |
+| each row of the downgrade resolver, benched on 9.0.9 and 10.0.6 (`H-K-DOWN-ROWS`) | see `docs/hypotheses.md` | `tests/kicad/downgrade/test_rows.py` |
+| the demo projects of format 10 converted for 9 load in 9.0.9 with the DRC and ERC of the source (`H-K-DOWN-DEMOS`) | see `docs/hypotheses.md` | `tests/kicad/downgrade/test_demos.py`, `docs/evidence/conversion.md` |
 
 A conversion's report is Fenolite's view: what Altium Designer does with the documents is the question of
 the verification kit and the author reports (`docs/altium-kit.md`).

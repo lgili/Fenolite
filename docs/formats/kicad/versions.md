@@ -65,8 +65,63 @@ list of names (S-0036). The rules grammar is not frozen, although its header sta
 - **Targets** are 9 and 10 (`check_target`).
   - It returns the header to write.
   - It refuses a target older than the input's major with `DowngradeRefusedError` (`FEN-7002`, exit 7),
-    because writing for an older major would drop what that major cannot read.
-  - Downgrade stays refused until a capability resolver exists.
+    because writing for an older major would drop what that major cannot read, unless the caller asks
+    for a downgrade (`downgrade=True`, below); the hint names `fenolite convert`.
+
+## Downgrade
+
+A downgrade writes a file that KiCad 10 saved for KiCad 9 (change c0162). It is asked for with
+`downgrade=True` on `check_target`, `pcb.write_board`, `mod.write_footprint` and `mod.write_pretty`,
+`sch.retarget_schematic`, `sym.retarget_symbol_library`, `pro.update_project` and `dru.write_rules`; only
+`fenolite convert` asks for it (`docs/conversion.md`). `build`, `place`, `route` and `fill` never do: a
+layout saved by 10 is not silently rebuilt for 9. Without `downgrade` every output is unchanged.
+
+**The capability resolver.** `data/downgrade.toml` holds one row per token row of `tokens.md` newer than
+9, per such form row, per key path of the KiCad 10 project template that the 9 template lacks
+(`pro.TEN_ONLY_PATHS`, ids `project:<path>`), for the project's net settings version, and for the
+constructs the board writer decides (`npth-front-back`). `resolver.load()` refuses a missing row, an
+unknown or repeated id and an incomplete `rewrite`. Each row has an action, and may hold the values
+`when` for which it holds and an action `else` for the others:
+
+| action | the downgrade | reported as |
+|---|---|---|
+| `rewrite` | writes the construct in 9's form | `changed` |
+| `same` | drops it: 9 behaves as the source with that value | `changed` |
+| `presentation` | drops it: a drawing, a text or metadata changes, nothing that is made or checked | `lost` (`report`) |
+| `design` | drops it: what is made or checked changes; needs `--allow-lossy` | `lost` (`refuse`) |
+
+The actions of every row are in the column `downgrade` of `tokens.md` and its section "Downgrade of
+project keys". The maintainer decided on 2026-10-09 that a dropped via-protection value is `design`
+unless it is the default, and so is a dropped position-file flag (`in_pos_files no`).
+
+**Edits at the node.** `resolver.resolve(root, kind, target)` edits, for each `kicad.token.too-new` issue
+of `check_emittable`, the node that the issue locates, inside opaque content too: a `rewrite` replaces it,
+the other actions remove it. Two rows edit the parent of the located node: `tenting-front` and
+`tenting-back` (one `tenting` holds both sides) and `hatch-position` (the zone `property` that holds it).
+No node that only holds a construct is removed: a board keeps its `setup`. The board writer emits the
+modelled vias and zone fills in 9's form itself and records their edits (`via protection`, `island`), it
+writes the nets by number with a net table (`net-by-name`), and it gives every zone
+`(filled_areas_thickness no)`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The absent default of `covering`, `plugging`, `capping` and `filling` is `no`: 10.0.6 re-saves a board of format 10 without them with `no` in `setup` and nothing on a via (each value the board's), and a board of format 9 with `no` on every via; 9.0.9 rejects them | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DOWN-ROWS |
+| 9.0 has one type for blind and buried vias: `(via blind …)` with an inner span loads in 9.0.9 with the DRC of the buried via in 10.0.6, which reads it back as a blind via of that span | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DOWN-ROWS |
+| 10.0.6 reads 9's `(tenting front)` on a via or a pad as `(front yes) (back none)` and drops `(tenting none)` there, while in `setup` it reads it as `(front yes) (back no)`; a via's or pad's side `no` has no 9 form | S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-DOWN-ROWS |
+| 9.0.9 refuses a zone `property` left with its `layer` alone, and 10.0.6 does not load its own save of a silkscreen zone with `hatch_position` (the property on the layer `UNDEFINED`) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DOWN-ROWS |
+| A zone of format 10 has no `filled_areas_thickness`; written for 9 without `(filled_areas_thickness no)`, its fill is grown by `min_thickness / 2` (the converted `pic_programmer` gave clearance violations in 9.0.9 and 10.0.6) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-ZONE-FAT9 |
+| 10.0.6 reads an `np_thru_hole` pad of a board of format 9 with every copper layer, whatever its `layers` say (`"F&B.Cu"`, `"F.Cu" "B.Cu"`): a hole restricted to the outer layers of a board with inner layers has no 9 form (row `npth-front-back`, `design`) | S-0020, S-0029 | KICAD-VERIFIED (10.0.x) | H-K-DOWN-DEMOS |
+| A label on a single pin is `label_dangling` or `global_label_dangling` in 9.0.9's ERC and `isolated_pin_label` in 10.0.6's | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-ERC-TYPES |
+
+**Benches.** Each row of a board, footprint, schematic or symbol kind has a bench
+(`tests/kicad/downgrade/_downbench.py`): the row's fuzz example in the fuzz skeleton at the header of 10,
+saved by 10.0.6 (`tests/data/kicad/downgrade/`; a construct 10.0.6 does not write back keeps its authored
+file), with a variant per other value of a `when` row. Fenolite downgrades it; 9.0.9 loads it and its DRC
+or ERC by type equals 10.0.6's on the source; for `rewrite` and `same`, 10.0.6's re-save of the downgraded
+file gives the source (level 5 for a board, the tree for a schematic or a library). The probes
+`down-row-<bench>` record each outcome; the rules rows (every one `design`: 9.0.9 drops the whole rules
+file on a constraint it does not know) and the project rows have no bench. The demo projects of format 10
+are the probe `down-demos` (`H-K-DOWN-DEMOS`).
 
 ## Token inventory and the emit check
 

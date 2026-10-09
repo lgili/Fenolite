@@ -300,3 +300,44 @@ counts differ between the majors on the source alone (KiCad 10's own checks).
 
 Probe `convert-retarget` = `equal` on both majors. No ERC ran: the sources of format 9 hold no schematic of
 their own stem in the committed data, and a schematic of another major is not converted (change c0162).
+
+## The downgrade (`H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS`)
+
+Change c0162, measured on 2026-10-09. **Census** (`tests/corpus/test_downgrade_census.py`): of the 18
+KiCad 10.0.6 demo boards, two have a format of major 10, `CM5_MINIMA_3` (20250513) and `pic_programmer`
+(20260206); of the 114 demo sheets, ten (the eight sheets of `cm5_minima` at 20250610, the two of
+`pic_programmer` at 20260101). Before the resolver, the writer's slot-level drop removed the outermost
+opaque node that holds a too-new token: 746 nodes of `CM5_MINIMA_3` and 134 of `pic_programmer`, the
+`setup` of each among them. The resolver edits each construct where it is:
+
+| board | edits per row and action |
+|---|---|
+| `CM5_MINIMA_3` | `tenting-front`, `tenting-back`: 1 `rewrite` (the setup's) and 633 `same` (pads with both sides `none`); `footprint-duplicate-pad-numbers-are-jumpers`: 112 `same`; `capping`, `covering`, `filling`, `plugging`: 1 `same` each (the setup's `no`); `npth-front-back`: 9 `design` |
+| `pic_programmer` | `net-by-name`: 725 `rewrite`; `tenting-front`, `tenting-back`: 1 `rewrite`; `capping`, `covering`, `filling`, `plugging`: 7 `same` each (the setup and six vias); `footprint-duplicate-pad-numbers-are-jumpers`: 63 `same`; `footprint-units`: 63 `presentation`; `point`: 7 `presentation` |
+
+Both written boards keep their `setup` and read back equal to the source at level 5. The ten sheets are
+re-targeted with no design loss: `sch-lib-power-global` 27 `rewrite`, `sch-symbol-body-style` 124
+`rewrite`, `sch-symbol-in-pos-files` 124 `same`, `sch-lib-in-pos-files` 29 `same`,
+`sym-jumpers-duplicate` 99 `same`, `sch-lib-body-styles` 1 `presentation`; each reads back with the model
+of its source.
+
+**Demo projects** (`tests/kicad/downgrade/test_demos.py`, in the pinned images `kicad/kicad:9.0.9` and
+`kicad/kicad:10.0.6`). Each project folder is rebuilt from the corpus (board, sheets, project file,
+`fp-lib-table` and `CM5IO.pretty` for `cm5_minima`) and converted with
+`fenolite.api.convert(folder, to="kicad", kicad_version=9, allow_lossy=True)`: no difference is
+unexplained. The report's `refuse` losses are the project rows `project:/component_class_settings` and
+`project:/net_settings/classes/*/tuning_profile` (both projects), `project:/tuning_profiles`
+(`pic_programmer`) and `npth-front-back` (`CM5_MINIMA_3`). DRC and ERC by violation type, without counts:
+
+| project | 10.0.6, source | 9.0.9, converted |
+|---|---|---|
+| `CM5_MINIMA_3` | DRC: copper_edge_clearance, courtyards_overlap, holes_co_located, isolated_copper, silk_edge_clearance, silk_over_copper, silk_overlap, solder_mask_bridge, text_height, text_thickness, via_dangling; ERC: footprint_link_issues, lib_symbol_issues | the same |
+| `pic_programmer` | DRC: lib_footprint_issues; ERC: footprint_link_issues, lib_symbol_issues | the same |
+
+Without `(filled_areas_thickness no)` on the zones, the converted boards gave `clearance` (both),
+`hole_clearance` and `items_not_allowed` (`CM5_MINIMA_3`) in 9.0.9: a zone of format 9 without the flag
+has its fill grown by `min_thickness / 2` (`H-K-ZONE-FAT9`); the board writer now writes it on every zone
+of a downgrade. 10.0.6's re-save of each converted board equals the source at level 5, apart from the
+copper of the nine holes of `CM5_MINIMA_3` restricted to the outer layers (`"F&B.Cu"`), which 10.0.6
+reads in a board of format 9 with every copper layer: the row `npth-front-back` names them as a `design`
+loss. Probe `down-demos` = `equal` on both majors.

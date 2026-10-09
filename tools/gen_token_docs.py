@@ -26,6 +26,9 @@ from fenolite.backends.kicad.versions import Inventory, load_inventory  # noqa: 
 
 PAGE = ROOT / "docs" / "formats" / "kicad" / "tokens.md"
 RESULTS = ROOT / "docs" / "evidence" / "kicad" / "token-fuzz"
+PROBES = ROOT / "docs" / "evidence" / "kicad" / "probes"
+BENCH_VERSIONS = ("9.0.9", "10.0.6")
+"""The pinned ``kicad-cli`` versions whose probe files prove a downgrade row (``down-row-<id>``)."""
 MAJORS = (9, 10)
 
 
@@ -49,10 +52,30 @@ def _cell(text: str) -> str:
     return text.replace("|", "\\|")
 
 
+def _probes() -> list[dict[str, str]]:
+    found: list[dict[str, str]] = []
+    for version in BENCH_VERSIONS:
+        path = PROBES / f"{version}.json"
+        found.append(json.loads(path.read_text(encoding="utf-8"))["probes"] if path.is_file() else {})
+    return found
+
+
+def _level(row_id: str) -> str:
+    """``KICAD-VERIFIED`` when the row's bench (probe ``down-row-<id>``) is ``equal`` in the probe files of
+    9.0.9 and 10.0.6, else ``INFERRED`` (a row without a bench: the rules and project rows)."""
+    probe = f"down-row-{row_id}"
+    return "KICAD-VERIFIED" if all(p.get(probe) == "equal" for p in _probes()) else "INFERRED"
+
+
+def _described(row: resolver.Row) -> str:
+    return f"{resolver.describe(row)} ({_level(row.id)})"
+
+
 def _downgrade(row_id: str, table: resolver.Table) -> str:
-    """The cell of the column ``downgrade``: the resolver's action for target 9 (change c0162)."""
+    """The cell of the column ``downgrade``: the resolver's action for target 9 and the row's level
+    (change c0162)."""
     row = table.rows.get(row_id)
-    return resolver.describe(row) if row is not None else ""
+    return _described(row) if row is not None else ""
 
 
 def render(inventory: Inventory, results: list[dict[str, Any]], table: resolver.Table | None = None) -> str:
@@ -66,7 +89,8 @@ def render(inventory: Inventory, results: list[dict[str, Any]], table: resolver.
         f"`docs/evidence/kicad/token-fuzz/` (results for kicad-cli {', '.join(versions) or 'none'}).",
         "Do not edit by hand. The rows are authored from public sources; the levels are computed from the",
         "committed fuzz results: `KICAD-VERIFIED` when the major's cases prove the row, else `INFERRED`.",
-        "The column `downgrade` is the row's action when a file of KiCad 10 is written for KiCad 9",
+        "The column `downgrade` is the row's action when a file of KiCad 10 is written for KiCad 9, and its",
+        "level from the probes `down-row-<id>` of 9.0.9 and 10.0.6",
         '(`src/fenolite/backends/kicad/data/downgrade.toml`, change c0162; `versions.md`, "Downgrade").',
         "",
         "## Token rows",
@@ -131,7 +155,21 @@ def render(inventory: Inventory, results: list[dict[str, Any]], table: resolver.
             "|---|---|---|---|",
         ]
         for row in sorted(project, key=lambda r: r.id):
-            cells = [f"`{row.id}`", str(row.target), resolver.describe(row), row.note]
+            cells = [f"`{row.id}`", str(row.target), _described(row), row.note]
+            lines.append("| " + " | ".join(_cell(c) for c in cells) + " |")
+    writer = [table.rows[ident] for ident in resolver.WRITER_ROWS if ident in table.rows]
+    if writer:
+        lines += [
+            "",
+            "## Downgrade rows of the board writer",
+            "",
+            "Constructs of KiCad 10 that no token row names, which the board writer decides in a downgrade.",
+            "",
+            "| id | target | downgrade | note |",
+            "|---|---|---|---|",
+        ]
+        for row in writer:
+            cells = [f"`{row.id}`", str(row.target), _described(row), row.note]
             lines.append("| " + " | ".join(_cell(c) for c in cells) + " |")
     sections = (
         ("kicad_pcb", "## Dated board-format versions (S-0030)"),

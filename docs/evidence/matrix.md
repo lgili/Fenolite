@@ -405,6 +405,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `proerrors` | none: issue codes of the project file |
 | `projectset` | see `oracle` |
 | `replace` | `EVIDENCE` KICAD-VERIFIED: `H-K-PLACE-MOVE` |
+| `resolver` | `EVIDENCE` KICAD-VERIFIED: `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS` |
 | `roundtrip` | see `pcb` |
 | `rulemap` | see `dru`, `lowering` |
 | `sch` | `EVIDENCE` CORPUS-VERIFIED: `H-K-SCH-READ`, `H-K-SCH-COMPONENTS-2`<br>`WRITE_EVIDENCE` KICAD-VERIFIED: `H-K-SCH-MINIMAL` |
