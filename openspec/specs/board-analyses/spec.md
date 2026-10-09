@@ -96,7 +96,7 @@ Compute engineering measures on a board with `fenolite analyze`: the current cap
 
 ### Requirement: Board boundary
 `fenolite.analysis.boundary.board_boundary(board, *, arc_tol=DEFAULT_TOL, thickness=None) -> BoardBoundary` SHALL return the frozen record `BoardBoundary(outer, cutouts, thickness, band, source)`: the outer ring, the cut-out rings, the board thickness, the bound in nanometres of the approximation of curved edges, and `source`, one of `model`, `edge` and `none`.
-- With `Board.outline`, `outer` MUST be its `points`, `cutouts` its `cutouts`, `band` 0 and `source` `model`.
+- With `Board.outline`, `outer` MUST be its board ring and `cutouts` its cut-outs, each with the arcs of `Outline.arcs` (`design-model`, "Board outline arcs") replaced by their polygonisation at `arc_tol`, and `source` MUST be `model`. `band` MUST then be `arc_tol + 1` when the outline holds an arc, and 0 otherwise.
 - Otherwise the graphics on the layer of kind `edge` MUST be chained with `geometry.assemble_rings` by exact endpoint equality. Arcs and circles MUST be replaced by their polygonisation at `arc_tol`, and `band` MUST then be `arc_tol + 1`. The ring of largest area is `outer`; a ring inside it is a cut-out. `source` is `edge`.
 - When no ring closes, or a `GeometryError` is raised, `source` MUST be `none` and `outer` empty; the function MUST NOT raise.
 - `thickness` MUST be the argument when given, else the sum of the `thickness` of `Board.stackup.layers`, else `None`. Fenolite MUST NOT assume a board thickness.
@@ -115,6 +115,11 @@ Compute engineering measures on a board with `fenolite analyze`: the current cap
 - **GIVEN** a board whose `edge` layer holds three lines that do not close
 - **WHEN** `board_boundary(board)` runs
 - **THEN** `source == "none"` and nothing raised
+
+#### Scenario: Model outline with a round cut-out
+- **GIVEN** a board whose `outline` is a 20 mm × 10 mm rectangle with a cut-out of the two vertices (11 mm, 5 mm) and (9 mm, 5 mm) joined by the arcs through (10 mm, 4 mm) and (10 mm, 6 mm)
+- **WHEN** `uv run pytest tests/unit/analysis/test_boundary.py -k model_arcs` calls `board_boundary(board)`
+- **THEN** `source == "model"`, `band == DEFAULT_TOL + 1`, and the one cut-out has more than two vertices, each within 1 nm of the circle of radius 1 mm centred at (10 mm, 5 mm)
 
 ### Requirement: Copper of a net as thick shapes
 `fenolite.analysis.copper.net_copper(design, *, pads, arc_tol=ARC_TOL_NM) -> NetCopper` SHALL turn the copper of the board into `Thick` shapes (`geometry-kernel`, "Thick shapes") per net and per copper layer, with the shapes that `copper-check` defines in "Copper items and their shapes": tracks, arcs as polylines with their band, vias on every layer of their span, pads from the `PadCopper` entries of c0028's `BoardPad` records, and zone fills. `fenolite.analysis` MUST NOT import `fenolite.checks`.
