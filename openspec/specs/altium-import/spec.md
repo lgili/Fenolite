@@ -545,7 +545,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - For a design, `issues` MUST be the readers' issues, then the adapter's, then those of `design.validate()`; `evidence` MUST be `adapter.EVIDENCE`. In a project read, the project reader's `altium.project.document-outside` and `altium.project.document-missing` issues about a sheet or a PCB document are replaced by `altium.import.document-skipped`, so that one document gives one issue.
 - A project document outside the project folder, a missing document and a document that a reader refuses MUST NOT stop the import: each gives `altium.import.document-skipped` (warning) with the reason, and the design is built from the rest. A project file that names no readable sheet and no readable PCB document MUST raise `FormatError`.
 - Reader errors of the file that `read` was called on MUST be raised unchanged. The backend MUST call the readers in their lenient mode.
-- `capabilities()` MUST return `CAPABILITIES`: `read_kinds == ("altium_pcbdoc", "altium_pcblib", "altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")`, `write_kinds == ()`, `targets == ()`, `default_target is None`, `downgrade == "unsupported"`, `operations == ("detect", "read")` and `evidence == adapter.EVIDENCE`. The backend MUST NOT offer `write`, `lower` or `validate`; the writers stay experimental features of `build`.
+- `capabilities()` MUST return `CAPABILITIES`: `read_kinds == ("altium_pcbdoc", "altium_pcblib", "altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")`, `write_kinds == ()`, `targets == ()`, `default_target is None`, `downgrade == "unsupported"`, `operations == ("detect", "read")` and `evidence == adapter.EVIDENCE`. The backend MUST NOT offer `lower` or `validate`. It offers `write(design, …)` for a model (`backend-protocol`, "Altium write of a model"; change c0090), which is experimental like the writers of `build`: the report names no write kind and lists no `write` operation until the writers leave that state.
 - Registering the backend MUST NOT change what `fenolite inspect` and `fenolite check` accept: `cli-contract` "Inspect command" and `verification-loop` "Check command input" decide that, and this change edits neither command.
 
 #### Scenario: Detection by suffix
@@ -563,7 +563,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 #### Scenario: Capability invariants
 - **WHEN** `uv run pytest tests/unit/backends/test_registry.py -k capability_invariants` checks every registered backend
-- **THEN** the Altium report lists only `detect` and `read`, both callable, with an empty `write_kinds`, empty `targets` and `default_target` `None`
+- **THEN** the Altium report lists only `detect` and `read`, both callable, with an empty `write_kinds`, empty `targets` and `default_target` `None`, and the backend has a callable `write` that the report does not list
 
 #### Scenario: Skipped document
 - **GIVEN** a copy of the blink project under `tmp_path` whose project file also lists `..\outside\x.SchDoc` and `missing.SchDoc`
