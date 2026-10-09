@@ -71,7 +71,7 @@ class PadExtras:
 class LibFootprint:
     """One footprint to write: the definition, its pad extras by pad id, and its number of texts.
     ``bodies`` (change c0121) are the component bodies to write into the library with it: empty, the value
-    of every write without ``--altium-bodies extruded``, or the bodies of the definition."""
+    of every write with ``bodies="off"`` (``--altium-bodies off``), or the bodies of the definition."""
 
     defn: FootprintDef
     extras: Mapping[str, PadExtras] = field(default_factory=lambda: {})

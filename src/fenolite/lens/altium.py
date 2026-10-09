@@ -191,7 +191,7 @@ the kicad-cli oracle checks only what KiCad's importer reads. It names the rows 
 (``hierarchy.EVIDENCE``: every ``H-A-SCH-HIER-*`` and ``H-A-SCH-HARN-*`` row, change c0037), and the rule
 rows ``H-A-RULE-*`` of the PCB document (``rulemap.EVIDENCE``, change c0084). The rows of a component body
 (``H-A-PCBX-BODY-*``, change c0121) come with ``pcbdoc.EVIDENCE`` and ``pcblib.EVIDENCE``: they are claims
-of a build that writes bodies, which is on request only."""
+of a build that writes bodies, which is the default of a build since change c0155."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",
@@ -1947,18 +1947,19 @@ def build_altium(
     directions: bool = True,
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     symbol_bodies: SymbolBodies = DEFAULT_BODIES,
-    bodies: str = "off",
+    bodies: str = "extruded",
     body_form: pcbrecords.BodyForm = "saved",
     heights: Mapping[str, Nm] | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
-    ``bodies`` (change c0121, ``--altium-bodies``) is ``off`` (the default: no component body is written and
-    every file is the file of earlier changes) or ``extruded``: the extruded component bodies of the
-    board's footprints are written into the PCB document and those of the footprint definitions into the
-    PCB library; a body that names a 3D model, has no outline or no height above its standoff is reported.
-    Another value raises ``ValueError``. The default stays ``off`` until step X8 of the author report is
-    in: two keys of a written body are stand-ins (``H-A-PCBX-BODY-OPEN``). ``body_form`` is ``saved``;
+    ``bodies`` (change c0121, ``--altium-bodies``) is ``extruded`` (the default since change c0155: the
+    extruded component bodies of the board's footprints are written into the PCB document and those of the
+    footprint definitions into the PCB library; a body that names a 3D model, has no outline or no height
+    above its standoff is reported) or ``off`` (no component body is written and every file is the file of
+    earlier changes). Another value raises ``ValueError``. Step X8 of the author report was reported as
+    expected on 2026-10-09: Altium opened the bodies with their two stand-in keys (``H-A-PCBX-BODY-OPEN``),
+    and the maintainer made ``extruded`` the default the same day. ``body_form`` is ``saved``;
     ``short`` exists for the second file set of that step and no command selects it. ``heights`` maps a
     component path to the height of ``Part(height=…)`` (change c0140): its body (``height_body``) has no
     outline, so it is reported under the kind ``body`` and never written, and the stored board, which

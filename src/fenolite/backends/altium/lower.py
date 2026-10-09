@@ -1481,7 +1481,7 @@ def stored_board(design: Design, spec: pcbdoc.PcbDocSpec) -> Board:
     zone is one entity per written polygon, so a zone on two layers is two. The board's other fields are
     kept. Ids are derived from the component's id and the entity's place. A footprint holds the component
     bodies that ``spec`` writes for its component (change c0121) and no other: the stored board of a build
-    without ``--altium-bodies extruded`` holds no body, as before.
+    with ``--altium-bodies off`` holds no body, as before.
 
     Since change c0126 a rounded-rectangle pad holds ``corner_ratio``, ``PPM_PER_PERCENT`` per written
     percent, and a footprint holds the graphics that the document holds for its component, in the pad

@@ -3,7 +3,7 @@
 """The kind ``body`` of the Altium round trips (capability altium-verification, "Component bodies in the
 round trips"; change c0121; ``H-A-PCBX-BODY-READBACK``).
 
-Component bodies are written on request only, so they are no kind of ``roundtrip.RT_A2_SCOPE``.
+Component bodies are written only when asked, so they are no kind of ``roundtrip.RT_A2_SCOPE``.
 ``body_differences`` compares the bodies of a model that holds exactly the bodies that were written with
 those of the reading of the written document, inside ``roundtrip.BODY_SCOPE``, and gives plain values
 (``roundtrip.body_changes`` makes the ``Change`` values of a report from them): RT-A2 hands it the model

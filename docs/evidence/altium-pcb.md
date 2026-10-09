@@ -351,8 +351,8 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
 8. **X8** Component bodies (change c0121; added on 2026-10-07; reported on 2026-10-09). This step belongs to **session 2**
    of the maintainer's Altium work, with Altium Designer 26: session 1 is the folder he already has, and
    nothing is added to it. Change c0085 cut bodies; change c0121 writes the extruded ones on request
-   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported** (it was reported on 2026-10-09; the default is still
-   `off`, and making `extruded` the default is the maintainer's decision, not taken). The step runs on
+   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported** (it was reported on 2026-10-09, and the
+   maintainer made `extruded` the default the same day: change c0155; `off` gives the earlier files). The step runs on
    a sample of its own, `body2` (`tests/_altium_body2.py`), so that a body that Altium refused cannot hide
    the answers of the other steps on `board6`.
 

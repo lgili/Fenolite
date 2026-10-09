@@ -330,17 +330,17 @@ byte for byte.
 `--altium-directions {on,off}` (default `on`; a usage error `FEN-2001` without `--target altium`) picks
 the I/O type of ports and sheet entries: `on` writes output, input or bidirectional where the pin types
 on the net say so (`docs/altium.md`, "Port directions"), `off` leaves every one unspecified.
-`--altium-bodies {off,extruded}` (change c0121; default `off`; a usage error `FEN-2001` without
+`--altium-bodies {off,extruded}` (change c0121; default `extruded` since change c0155; a usage error `FEN-2001` without
 `--target altium`) picks what the build does with the component bodies of the board's footprints:
 `off` writes none and reports each with `altium.not-lowered` (`where` = `body/<id>`); `extruded`
 writes each extruded body that has an outline and a height above its standoff into the PCB document
 (and the bodies of a footprint definition into the PCB library) and reports the others. With `off`
 every file is the file of earlier versions, byte for byte; a design whose footprints hold no body
-gives those bytes with `extruded` too, and a script declares no body today. The option is
-experimental and stays `off` by default: two keys of a written body are stand-ins (`docs/altium.md`,
-"Component bodies"). Step X8 of the author report was reported as expected on 2026-10-09
-(`docs/evidence/altium-pcb.md`), so the default may become `extruded` by the maintainer's decision, which
-is not taken. The evidence for the record is thin: its keys were measured on 1272 saved extruded bodies of five public documents of three repositories, 1265 of them from one repository, and the written bodies were opened in Altium Designer 26.5 by the maintainer alone (an author report).
+gives those bytes with `extruded` too, and a script declares no body with an outline today. **The
+default changed in change c0155** (the maintainer's decision of 2026-10-09, after step X8 of the author
+report was reported as expected, `docs/evidence/altium-pcb.md`): without the option the build writes the
+extruded bodies, and `result.pcb.bodies` is `extruded`; `off` gives the earlier files. The write is
+experimental: two keys of a written body are stand-ins (`docs/altium.md`, "Component bodies"). The evidence for the record is thin: its keys were measured on 1272 saved extruded bodies of five public documents of three repositories, 1265 of them from one repository, and the written bodies were opened in Altium Designer 26.5 by the maintainer alone (an author report).
 `result.schematic` holds `sheets`, `symbols` (`graphics` or `generic`), `symbols_drawn` (library symbols drawn from their own graphics),
 `symbols_simplified` (those drawn as a rectangle), `buses` (bus blocks drawn), `parameters` (hidden
 component parameters written), `directions` (`on` or `off`) and `directed` (ports and sheet entries that

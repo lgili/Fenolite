@@ -1146,7 +1146,7 @@ class ModelWriter(Protocol):
 
 @runtime_checkable
 class BodyComparer(Protocol):
-    """A model writer that can write component bodies on request (change c0121). ``body_differences``
+    """A model writer that can write component bodies when asked (change c0121). ``body_differences``
     gives the differences of the kind ``body`` between ``model``, the model a build stored, and
     ``reading``, the model of the documents it wrote, each a ``Change`` whose path starts with ``/body/``,
     and the evidence of that comparison.

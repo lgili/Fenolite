@@ -45,8 +45,9 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   (the default) from its own graphics, `generic` as one rectangle per part. **The default output of an
   Altium build changed with this option**: `generic` gives the files that earlier versions wrote, byte
   for byte. `--altium-directions {on,off}` (default `on`) picks the I/O types of ports and sheet
-  entries. `--altium-bodies {off,extruded}` (change c0121, default `off`) picks whether the extruded
-  component bodies of the board's footprints are written ("Component bodies" below). All three are
+  entries. `--altium-bodies {off,extruded}` (change c0121; default `extruded` since change c0155) picks
+  whether the extruded component bodies of the board's footprints are written ("Component bodies"
+  below); `off` gives the files of earlier versions. All three are
   usage errors without `--target altium`. `result.schematic` holds `sheets`,
   `symbols`, `symbols_drawn`, `symbols_simplified`, `buses`, `parameters`, `directions` and `directed`.
 - `--altium-format {binary,ascii}` picks the schematic form; without it the form is `binary`. Any other
@@ -482,7 +483,7 @@ in one of the two; an item that is not written has an issue whose `where` is `<k
 | graphics | lines, arcs, circles and drawn rectangles and polygons as tracks and arcs without a net; filled rectangles and polygons as regions; on the silkscreen, paste, solder-mask, fabrication and courtyard layers | a graphic on copper or on a user layer, a filled circle, a drawn shape of width 0 (a graphic on `Edge.Cuts` is the outline) |
 | keep-outs | one keep-out region with its restrictions for vias, tracks, pads and copper (in the key Altium saves and, for KiCad's importer, in `KEEPOUTRESTRIC` too), on the Keep-Out layer when it names every copper layer, else one per layer | `no_footprints` (reported, the keep-out is written with the others); a keep-out with no other restriction |
 | holes | a free pad without copper, plated or not | a slot (the model's board hole is round) |
-| component bodies | with `--altium-bodies extruded` only (change c0121): an extruded body with an outline and a height above its standoff, as one record in `ComponentBodies6` and its twin in `ShapeBasedComponentBodies6`, owned by its component, with its two heights, its side, a mechanical layer (its own when it is Mechanical 1 to 16, else Mechanical 13 on the top side and 14 on the bottom side) and its name. **Experimental, off by default, never opened in Altium** | without the option, every body; with it: a body that names a 3D model (the model holds a name and no data), a body without an outline, a height that is not above the standoff or a standoff below the board surface, a body whose footprint is no component of the document; each `altium.not-lowered` (`where` = `body/<id>`) with its height and its reason. No body is made for a footprint that has none |
+| component bodies | with `--altium-bodies extruded`, the default since change c0155 (change c0121): an extruded body with an outline and a height above its standoff, as one record in `ComponentBodies6` and its twin in `ShapeBasedComponentBodies6`, owned by its component, with its two heights, its side, a mechanical layer (its own when it is Mechanical 1 to 16, else Mechanical 13 on the top side and 14 on the bottom side) and its name. **Experimental; opened in Altium Designer 26.5 by the maintainer (step X8, an author report)** | with `--altium-bodies off`, every body; with `extruded`: a body that names a 3D model (the model holds a name and no data), a body without an outline, a height that is not above the standoff or a standoff below the board surface, a body whose footprint is no component of the document; each `altium.not-lowered` (`where` = `body/<id>`) with its height and its reason. No body is made for a footprint that has none |
 | zones | one **unpoured** polygon per layer, as above; a zone whose islands are never removed keeps them | poured copper, always: **repour the board in Altium** ("Tools » Polygon Pours » Repour All") |
 
 **Component bodies (change c0121).** The model can hold component bodies on a footprint: an extruded
@@ -490,9 +491,11 @@ body has an outline, a height and a standoff; a body of kind `model` names a 3D 
 none today (the DSL has no height), so bodies come from an import or from a model built in Python, as the
 sample `tests/_altium_body2.py` is.
 
-- **What is written, and when.** Only with `--altium-bodies extruded` (in the library: `bodies="extruded"`
-  on `lens.altium.build_altium`, `lens.altium.write_model`, `lower.from_design`, `lower.write_design`,
-  `AltiumBackend.write` and `AltiumBackend.model_roundtrip`). Each extruded body with an outline of at
+- **What is written, and when.** With `--altium-bodies extruded`, the default of `fenolite build` and of
+  `lens.altium.build_altium` since change c0155 (in the library: `bodies="extruded"`, which
+  `lens.altium.write_model`, `lower.from_design`, `lower.write_design`, `AltiumBackend.write` and
+  `AltiumBackend.model_roundtrip` take on request only: their default stays `off`, for the rewrite of a
+  read document and the round trips). Each extruded body with an outline of at
   least three points and a height above its standoff becomes one record in `ComponentBodies6` and its
   twin in `ShapeBasedComponentBodies6`, linked to its component by index: the outline placed with the
   component and rounded to whole units, the standoff and the overall height, the board side of the
@@ -505,21 +508,23 @@ sample `tests/_altium_body2.py` is.
   written is one `altium.not-lowered` (info) with `where` `body/<id>`, its height and its reason.
 - **Nothing is invented.** A footprint without a body gets none: no outline is derived from a courtyard
   or any other graphic, and no height is assumed.
-- **Off by default, and why.** The saved form of an extruded body holds 35 keys
+- **On by default, and why.** The saved form of an extruded body holds 35 keys
   (`docs/formats/altium/pcb-bodies.md`, "Written form of an extruded body"). For 33 of them the public
   corpus gives a value rule. For two, `MODELID` and `MODEL.CHECKSUM`, it gives none: Fenolite writes
   stand-ins (a GUID derived from the body's id, and `0`), and only Altium can say whether it takes them.
   That is `H-A-PCBX-BODY-OPEN`, step X8 of the author report (`docs/evidence/altium-pcb.md`, Part X),
-  reported as expected on 2026-10-09: an author report. The option stays `off` by default; making
-  `extruded` the default is the maintainer's decision, not taken.
+  reported as expected on 2026-10-09: an author report. On the same day the maintainer decided that a
+  build writes bodies by default (change c0155; `docs/roadmap.md`, "Open decisions", row 33):
+  `--altium-bodies off` gives the files of earlier versions. A design whose footprints hold no extruded
+  body with an outline, every script today among them, gives the same files either way.
 - **How far the evidence goes.** It is thin. The rows of the record were measured on 1272 saved extruded
   bodies of five public documents of three repositories, and 1265 of the 1272 come from one repository.
   They say what Altium saved in those files, not what Altium accepts. What Fenolite writes for a body was
   opened in Altium by the maintainer alone (step X8, 2026-10-09, an author report). Fenolite's own reader reads a written body back to the model's body
   (`H-A-PCBX-BODY-READBACK`, `INFERRED`), and KiCad's importer reads the document as it reads the same
   document without bodies and shows nothing for an extruded body (`H-A-PCBX-BODY-KICAD`): neither says
-  that Altium shows the body. `result.pcb.bodies` records the value used, and with `off` every file is
-  the file of earlier versions, byte for byte.
+  that Altium shows the body. `result.pcb.bodies` records the value used (`extruded` without the
+  option), and with `off` every file is the file of earlier versions, byte for byte.
 
 Fenolite never writes poured copper: a pour is the result of Altium's rules and Altium's algorithm, and a
 fill computed elsewhere would be shown as poured while disagreeing with what a repour gives. Clearance and
@@ -1443,7 +1448,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `graphics` | the reader maps it elsewhere: graphics are the kind `footprint_graphic` |
 | `footprint` | `fields`, `texts` | written and not compared: the write of a model writes the fields `Reference` and `Value` at their place and the free texts as texts of the component (change c0126), but a build places the designator and the comment itself and its stored board holds no field for them; their read-back is covered by unit tests (`tests/unit/backends/altium/test_lower_items.py`) |
 | `footprint` | `net_ties` | the writer does not write it: a net-tie group is KiCad data, the pads are written without a mark that ties them, and the build says so with `altium.not-lowered` (kind `net-tie`; change c0114) |
-| `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
+| `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121; `write_model` and the round trips keep that default, while a build writes bodies by default since change c0155), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
 | `pad` | `fab_property` | the writer does not write it: no public source says where an Altium pad record holds a fabrication mark, and the build names the marked footprints in one `altium.not-lowered` info (change c0118) |
@@ -1633,7 +1638,7 @@ One flat sheet by default, or one sheet per module at any depth with `--altium-s
 repeated sheets, no routed wires between sheet symbols, no harness in the ASCII form, no harness below
 the first level, no nested harnesses); a sheet that passes a bus through draws it twice; no bus in the
 DSL, no variants; an output job whose Gerber output holds its settings and plots no board outline, no drill drawing and no pad master, and whose other outputs (NC drill, pick and place, bill of materials, prints) hold no settings; a drawing sheet without a logo; the PCB document has unpoured polygons, no
-split planes, no micro vias, component bodies only on request (extruded ones, experimental, opened in Altium by the maintainer alone) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
+split planes, no micro vias, extruded component bodies only (experimental, written by default by a build since change c0155, opened in Altium by the maintainer alone) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Change c0086 was opened in Altium by the maintainer alone (Part Y, an author report of 2026-10-09). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.

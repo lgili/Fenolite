@@ -547,12 +547,12 @@ def test_directions_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
 # --- component bodies (change c0121) ------------------------------------------------------------------
 
 
-def test_bodies_option_is_off_by_default_and_changes_no_byte(
+def test_bodies_option_is_extruded_by_default_and_changes_no_byte(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Scenario "Without the option" on the command line: ``result.pcb.bodies`` is ``off`` after the other
-    keys of ``result.pcb``; with ``extruded`` a script, whose footprints hold no body, gives the same
-    files, and no body is counted or invented."""
+    """Scenario "Without the option" on the command line (change c0155): ``result.pcb.bodies`` is
+    ``extruded`` after the other keys of ``result.pcb``; with ``off`` a script, whose footprints hold no
+    body, gives the same files, and no body is counted or invented."""
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
     built: dict[str, dict[str, bytes]] = {}
     for value in ("", "off", "extruded"):
@@ -566,7 +566,7 @@ def test_bodies_option_is_off_by_default_and_changes_no_byte(
         assert isinstance(result, dict)
         pcb = result["pcb"]
         assert list(pcb) == ["written", "not_lowered", "bodies"]
-        assert pcb["bodies"] == (value or "off") and pcb["written"]["body"] == 0
+        assert pcb["bodies"] == (value or "extruded") and pcb["written"]["body"] == 0
         assert pcb["not_lowered"] == {}
         issues = env["issues"]
         assert isinstance(issues, list) and not [i for i in issues if str(i["where"]).startswith("body/")]

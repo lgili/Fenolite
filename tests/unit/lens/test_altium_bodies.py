@@ -12,8 +12,9 @@ X8 there, ``saved/`` and ``short/``, with a ``README.md``, for the maintainer to
 the folder must lie outside the repository. With ``FENOLITE_ALTIUM_BODY2_SAVED=<file>`` the test ``-k
 saved_report`` prints counts of a document that Altium saved (step X8.6); the file is never committed.
 
-Everything here is Fenolite reading what Fenolite wrote. Nothing says that Altium takes a written body:
-that is step X8, which is pending, and it is why the option is off by default.
+Everything here is Fenolite reading what Fenolite wrote. That Altium takes a written body is step X8,
+reported as expected on 2026-10-09 (an author report); since change c0155 the option is ``extruded`` by
+default, and ``off`` gives the files of before.
 """
 
 from __future__ import annotations
@@ -202,6 +203,16 @@ def test_body2_golden_files() -> None:
     assert sorted(p.name for p in BODY2_DIR.iterdir()) == sorted(FILES)
     for name in FILES:
         assert (BODY2_DIR / name).read_bytes() == files[name], f"{name} differs from a fresh build"
+
+
+def test_bodies_are_written_by_default() -> None:
+    """Change c0155, scenario "Sample with bodies": ``build_altium`` without ``bodies`` writes the bodies,
+    and gives the files of the build with ``extruded``."""
+    with tempfile.TemporaryDirectory() as folder:
+        output = body2_build(Path(folder), bodies=None)
+    pcb = output.summary["pcb"]
+    assert pcb["bodies"] == "extruded" and pcb["written"]["body"] == 3  # type: ignore[index]
+    assert project_files(output) == project_files(built())
 
 
 def test_body2_records() -> None:

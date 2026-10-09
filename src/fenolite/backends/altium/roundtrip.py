@@ -110,8 +110,8 @@ BODY_SCOPE = ModelScope(
 )
 """What a written component body carries of the model's body (change c0121; capability
 altium-verification, "Component bodies in the round trips"). It is no part of ``RT_A2_SCOPE``: bodies are
-written on request only, and they are compared, by ``bodydiff.body_differences``, exactly when they were
-written."""
+written only when the write asks for them, and they are compared, by ``bodydiff.body_differences``,
+exactly when they were written."""
 EVIDENCE_BODIES = Evidence(Level.INFERRED, hypotheses=("H-A-PCBX-BODY-READBACK",))
 """The evidence of a comparison of bodies: Fenolite reads what Fenolite wrote."""
 

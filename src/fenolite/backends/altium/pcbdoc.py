@@ -252,10 +252,11 @@ EVIDENCE = Evidence(
 ``H-A-PCB-CU-*`` rows are those of the copper (change c0038), and ``H-A-ECO-COMPCLASS`` and
 ``H-A-ECO-SHEETCLASS`` those of the component classes of the sheets (change c0048). The
 ``H-A-PCBX-BODY-*`` rows are those a written component body rests on (change c0121): the saved form is
-measured on public documents, thinly, and whether Altium takes the two stand-in values of a body is an
-author report that is pending, so bodies are written only on request. ``H-A-PCBX-FPGFX``, ``-FPTEXT``,
-``-MECH`` and ``-BUILD-LOWER`` are those of the items of a footprint instance and of the build through the
-lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait for KiCad's importer and for the author."""
+measured on public documents, thinly, and Altium took the two stand-in values of a body in an author
+report (step X8, 2026-10-09), so a build writes bodies by default since change c0155.
+``H-A-PCBX-FPGFX``, ``-FPTEXT``, ``-MECH`` and ``-BUILD-LOWER`` are those of the items of a footprint
+instance and of the build through the lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait
+for KiCad's importer and for the author."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,8 +367,9 @@ class FreePad:
 BodyMode = Literal["off", "extruded"]
 BODY_MODES: tuple[BodyMode, ...] = ("off", "extruded")
 """What a write does with component bodies (change c0121, ``--altium-bodies``): ``off`` writes none, and
-``extruded`` writes the extruded bodies that ``body_problem`` passes. The default is ``off`` until step X8
-of the author report is in (``H-A-PCBX-BODY-OPEN``)."""
+``extruded`` writes the extruded bodies that ``body_problem`` passes. The writers default to ``off``; the
+build (``fenolite build``, ``lens.altium.build_altium``) defaults to ``extruded`` since change c0155, after
+step X8 of the author report (``H-A-PCBX-BODY-OPEN``)."""
 BODIES_OFF = "component bodies are not written without --altium-bodies extruded"
 BODY_NO_FOOTPRINT = "its footprint is not written"
 

@@ -164,9 +164,10 @@ ALTIUM_DIRECTIONS: tuple[str, ...] = ("on", "off")
 DEFAULT_DIRECTIONS = "on"
 ALTIUM_BODIES: tuple[str, ...] = ("off", "extruded")
 """The values of ``--altium-bodies`` (change c0121)."""
-DEFAULT_ALTIUM_BODIES = "off"
-"""No component body is written unless asked: two keys of a written body are stand-ins that only Altium
-can settle (``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
+DEFAULT_ALTIUM_BODIES = "extruded"
+"""The extruded component bodies are written unless ``off`` is asked (change c0155, the maintainer's
+decision of 2026-10-09): Altium Designer 26.5 opened the written bodies with their two stand-in keys
+(``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
@@ -264,7 +265,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=ALTIUM_BODIES,
         default=None,
         help=f"with --target altium: extruded writes the extruded component bodies of the board's "
-        f"footprints (experimental: not yet opened in Altium), off writes none and reports each body; a "
+        f"footprints (experimental), off writes none and reports each body, as earlier versions did; a "
         f"usage error with --target kicad (default: {DEFAULT_ALTIUM_BODIES})",
     )
     parser.add_argument(
