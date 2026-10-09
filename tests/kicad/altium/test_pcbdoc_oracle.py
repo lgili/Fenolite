@@ -14,7 +14,6 @@ A pass checks only what KiCad's importer reads; it settles no Altium-only fact.
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -24,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from _altium import blink, blink_resolver
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.kicad.pcb import read_board
@@ -79,7 +79,7 @@ def imported() -> Imported:
         root = Path(folder)
         source, target, report = root / "blink.PcbDoc", root / "b.kicad_pcb", root / "r.json"
         source.write_bytes(data)
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "pcb", "import", "--format", "altium", "--report-format", "json",
              "--report-file", str(report), "-o", str(target), str(source)],

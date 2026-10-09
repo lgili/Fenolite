@@ -38,6 +38,10 @@ templates come only from GUI saves** (see "Templates").
 | The project Fenolite writes from board-wide rules lets every rule value take effect | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-WRITE |
 | A board-wide custom clearance rule governs the items of a class with a larger clearance: the class clearance is not applied | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-MIN-CLASS |
 | Net-class track widths and via sizes are defaults for new items, not DRC limits | S-0038, S-0010 | INFERRED | H-K-PRO-MIN-CLASS |
+| The class keys `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` are defaults of the interactive pair router and no DRC limits: a pair laid 0.15 mm apart with 0.2 mm tracks in a class of pair gap 0.4 mm and pair width 0.3 mm, and two vias of a pair 0.3 mm apart under a via gap of 0.5 mm, report nothing | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-PAIR |
+| A class `diff_pair_gap` below the class clearance lowers the clearance between the two nets of a pair of that class (nets that pair by name): at 0.15 mm in a class of clearance 0.2 mm and pair gap 0.1 mm there is no `clearance` violation, while two nets of the class that do not pair, and a pair in a class whose pair gap is 0.25 mm, are reported | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-PAIR |
+| A custom clearance rule that governs the pair replaces the class pair gap: under a board-wide rule of 0.2 mm the pair at 0.15 mm is reported, and a later clearance rule of 0.1 mm with `inDiffPair` on both sides makes it clean again; a `diff_pair_gap` rule does not lower the clearance | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-PAIR |
+| A board `min_clearance` above the class pair gap is a floor inside a pair, and adds a gap check at that minimum (`diff_pair_gap_out_of_range`, "netclass … (diff pair) minimum gap") unless a `diff_pair_gap` rule governs the pair: with a minimum of 0.12 mm a pair at 0.11 mm gets both violations and a pair at 0.13 mm none | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PRO-PAIR |
 
 ## Versions
 
@@ -78,7 +82,13 @@ templates come only from GUI saves** (see "Templates").
 - every other key keeps its template value, `boards` (`[]`) included.
 
 Class values are written by `lowering.lower_netclass` from the `Default` entry of the project being
-written: the four values as exact millimetre texts, every other key copied. A value below its
+written: the seven values of `lowering.NETCLASS_KEYS` as exact millimetre texts (`clearance`,
+`track_width`, `via_diameter`, `via_drill`, and since change c0104 `diff_pair_width`, `diff_pair_gap` and
+`diff_pair_via_gap`), every other key copied. A model value of `None` keeps the value of the `Default`
+entry, so a class without pair values carries the template's 0.2, 0.25 and 0.25 mm. The three pair
+values have no board-setup minimum and get no floor warning; what a pair gap does to the clearance inside
+a pair is in the facts above, and `checks.clearance` follows it (`copper.md`). Both templates hold the
+three keys in every class entry, so both targets write them. A value below its
 board-setup minimum is still written, with the warning `kicad.project.below-floor`, because the
 minimum governs. The minimums themselves are written first ("Board-setup minimums").
 
@@ -137,8 +147,9 @@ another class; `allow_lossy` writes it without a pattern instead (`kicad.project
 
 `update_project(existing_text, design, *, target)` changes only the managed keys:
 
-- class entries named like a model class get their four values replaced; a value equal in nanometres
-  keeps its spelling. Model classes absent from the file are appended, lowered from the file's
+- class entries named like a model class get their seven values replaced (the four lengths and the
+  three pair values); a value equal in nanometres keeps its spelling, and a key whose model value is
+  `None` is left as it is. Model classes absent from the file are appended, lowered from the file's
   `Default` entry. A class is never deleted;
 - exact-name pattern entries (no `*` or `?`) naming a model net are regenerated and placed first;
   every other entry is kept verbatim after them. A kept entry or assignment that gives a model net
@@ -152,7 +163,8 @@ each path (`kicad.project.too-new-key`). `allow_lossy` removes the paths, writes
 
 ## Reading
 
-`read_project(source)` returns a `ProjectInfo`; `apply_project(design, info)` gives the design the
+`read_project(source)` returns a `ProjectInfo` whose `ProjectClass` entries hold the seven lowered
+values in nm, the three pair values among them; `apply_project(design, info)` gives the design the
 project's classes (ids `derived_id("cls", "kicad", "netclass:<name>")`) and each net the matching class
 of highest priority (lowest `priority`, ties in file order). Several candidates give
 `kicad.project.multiple-classes`, because KiCad aggregates them while the model keeps one class per
@@ -172,12 +184,15 @@ net.
 | `kicad.project.pattern-conflict` | warning | on update, a kept entry gives a model net another class |
 | `kicad.project.inexact-value` | info | a class value or floor that is not a whole number of nm |
 | `kicad.project.unlowered-field` | info | a non-empty `NetClass.description` |
-| `kicad.project.unread-entry` | info | a pattern or assignment entry of unexpected shape |
+| `kicad.project.unread-entry` | info | a pattern or assignment entry of unexpected shape, or a tuning profile or layer entry that cannot be read into an impedance target (c0105) |
 | `kicad.project.minimum-replaced` | info | an update writes a minimum that is absent, not a number, or different in nanometres |
 | `kicad.project.minimum-kept` | info | the governing board-wide rule has a severity other than `error` or no `min` |
 | `kicad.project.rule-below-minimum` | warning | a rule asks for less than a minimum that is not written, on a major of `FLOOR_OVER_RULES` |
 | `kicad.project.class-shadowed` | warning | a board-wide clearance rule overrides a larger class clearance |
 | `kicad.project.default-over-rule` | warning | the template `Default` clearance stays above a board-wide clearance rule, on a major outside `RULES_OVER_CLASSES` |
+| `kicad.project.unknown-check` | error | a check severity names a code whose key is not a `rule_severities` key of the target's template (c0114); droppable |
+| `kicad.project.dropped-check` | warning | with `--allow-lossy`, that severity was left out |
+| `kicad.project.profile-reassigned` | warning | a class of an impedance target named another non-empty tuning profile, and the build set its key to the target (c0105) |
 
 ## Census
 
@@ -185,3 +200,86 @@ Measured on 2026-10-01 and 2026-10-02 (key names and counts only): the demos hol
 files at 10.0.6 and 37 at 9.0.9.1; the version pair (3, 5) appears only at 10.0.6. The 19 template
 projects of S-0066 all hold (3, 4), `boards: []` and `netclass_assignments: null`. Counts from the
 corpus rows are in `docs/evidence/kicad-project.md`.
+
+## Check severities (c0114)
+
+`board.design_settings.rule_severities` gives each DRC check a severity (`error`, `warning` or `ignore`),
+by the check's key.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| 10.0.6 applies exactly the 62 `rule_severities` keys of the packaged template of 10: with every one at `ignore`, `ignored_checks` lists those 62 and no entry remains on a bench whose control run fires six checks | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-SEV-KEYS |
+| 10.0.6 ignores a key outside that set without a message: `overlapping_pads` and an invented key at `ignore` are not listed and change nothing | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-SEV-KEYS |
+| A severity that the project writer sets from the design reaches the report: `via_dangling` at `error` makes the entry an `error`, where the template gives `warning` | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-SEV-KEYS |
+| The packaged template of 9 holds the same 62 keys as that of 10, from which it was derived; which keys 9.0.9 applies cannot be read from a run, because its report lists no ignored check | S-0029 | INFERRED | H-K-PRO-SEV-KEYS |
+| Six keys of the templates appear in no demo project of tag 9.0.9.1 (`footprint_symbol_field_mismatch`, `missing_tuning_profile`, `text_on_edge_cuts`, `track_not_centered_on_via`, `track_on_post_machined_layer`, `tuning_profile_track_geometries`), and two keys absent from the templates appear in most (`hole_near_hole`, `overlapping_pads`): a demo project holds the keys of the KiCad that last saved it | S-0058 | INFERRED | H-K-PRO-SEV-KEYS |
+
+The last row is the census that change c0114 states (2026-10-05); this change did not run it again. For
+target 9 a key of a check that 9.0.9 lacks would therefore be written and have no effect.
+
+- **Key rule.** The key of the finding code `kicad.drc.<suffix>` is the suffix with `-` as `_`
+  (`kicad.drc.silk-overlap` → `silk_overlap`). `pro.SEVERITY_KEYS[target]` is the key set of the target's
+  packaged template: exact for 10, `INFERRED` for 9.
+- **Writing.** `synthesize_project` and `update_project` set the key of each code of
+  `RuleSet.severities` (`design.rules.severity()`). A key the design does not name keeps its template
+  value on synthesis and its file value on an update, its position included.
+- **Unknown key.** A code whose key is outside `SEVERITY_KEYS[target]` is refused with
+  `kicad.project.unknown-check` (`FEN-7001`, droppable), because KiCad would ignore it silently; with
+  `--allow-lossy` it is left out and reported as `kicad.project.dropped-check`.
+
+## Stored exclusions (c0114)
+
+`board.design_settings.drc_exclusions` lists the DRC entries the user excluded in KiCad.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| An entry is the string `<type>\|<x>\|<y>\|<uuid>\|<uuid>`, `x` and `y` in integer nanometres and the nil uuid for a missing second item, or a list of that string and a comment; `pcb drc` applies both forms | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRC-EXCL |
+
+A public demo project of tag 10.0.6 stores five exclusions in the list form, each with its comment
+(S-0058; the reading that change c0114 states, not run again here).
+
+`read_project` returns them as `ProjectInfo.exclusions` (`StoredExclusion`: type, position, the two
+uuids, comment), in file order; an entry of another shape is skipped with `kicad.project.unread-entry`.
+`KicadBackend.stored_exclusions(project)` reads the project file of a copy set and returns `()` when it
+is missing or cannot be read. Nothing writes the list: `update_project` keeps it verbatim, and when
+KiCad applies an entry is in `drc.md`, "Stored exclusions".
+
+## Tuning profiles (c0105)
+
+A KiCad 10 tuning profile is an entry of `tuning_profiles.tuning_profiles_impedance_geometric`; a class
+names it by its key `tuning_profile`. Fenolite writes one profile per impedance target of the design
+(`backends/kicad/tuning.py`; guide `docs/impedance.md`), and reads back the profiles a class names.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A profile written with `profile_name`, `type`, `target_impedance`, `enable_time_domain_tuning`, `layer_entries` (each `signal_layer`, `top_reference_layer`, `bottom_reference_layer`, `width`, `diff_pair_gap`, `delay`), `via_prop_delay` and `via_overrides` is loaded by `pcb drc` 10.0.6 and judged (measured 2026-10-05, design of c0105; owed: probe `pro-tuning-width` on kicad-cli 10); the keys `frequency`, `model_solder_mask` and `net_chain_bridge_prop_delay` with `meta.version` 2 are loaded with the same findings (measured 2026-10-05). Whether a GUI save writes the same key set is not known (owed: the GUI save of `H-K-PRO-TUNING-KEYS`) | S-0020 | INFERRED | H-K-PRO-TUNING-KEYS |
+| `type` 1 makes a profile check the pair gap of its class (`diff_pair_gap_out_of_range`) and not its single tracks; `type` 0 checks single tracks (measured 2026-10-05, design of c0105; owed: probes `pro-tuning-gap`, `pro-tuning-single-under-diff` and `pro-tuning-width` on kicad-cli 10) | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A profile whose layer entries lack the two reference keys is not loaded: DRC reports `missing_tuning_profile` for the class that names it | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A width written `350000.0` is loaded, and the keys of later schemas with `meta.version` 2 are loaded without a change in the findings | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| `pcb upgrade --force` leaves a project with profiles byte for byte unchanged: `kicad-cli` never saves a project, so the key set a GUI save writes is not observable headless | S-0020, S-0022 | INFERRED | H-K-PRO-TUNING-KEYS |
+
+What Fenolite writes, for target 10 only (`tuning.apply_profile_keys`, called by `write_triad` after
+`apply_sheet_keys`):
+
+- `lower_profile(target)`: `profile_name` the target's name; `type` 0 or 1; `target_impedance` the exact
+  text of `ohms` (`0` when empty); `enable_time_domain_tuning` false; one layer entry per layer in stack
+  order (with one reference, it is `bottom_reference_layer` and `top_reference_layer` is `""`; with two,
+  the upper one is the top); `width` and `diff_pair_gap` as integers of nanometres (`0` for a single
+  target); `delay` 0; `via_prop_delay` 0; `via_overrides` empty. This is the key set of `meta.version` 0,
+  which the 10.0.6 template holds. The key names and kinds are those of the bench that `pcb drc` 10.0.6
+loaded on 2026-10-05; no source document states them (the maintainer's clean-room correction of 2026-10-08 withdrew the one
+first cited, a page of KiCad's source code).
+- A profile named like a target is replaced in place, the other targets are appended sorted by name, and
+  every other profile is kept, structurally equal and with its number spellings. None is deleted.
+- The class key of each class of a target is set to the target's name; a class that named another
+  non-empty profile gives `kicad.project.profile-reassigned`. A class without a target keeps its key.
+- `tuning.PROFILE_KEY_PATHS` are taken out of the template-value, added-path and keep rules of
+  "Synthesis" and "Updates". For target 9 and for a design without targets the text is returned
+  unchanged, and the paths stay in `TEN_ONLY_PATHS`.
+
+Reading (`read_project`, `apply_project`): `ProjectInfo.profiles` holds the profiles and
+`ProjectInfo.class_profiles` the class keys. Each profile that a class names becomes an
+`ImpedanceTarget` of those classes: kind from `type`, `ohms` the decimal text of `target_impedance` (`""`
+for 0), no tolerance, one row per entry with copper layers. An entry that lacks a key of the written form,
+has a width or gap that is not a whole number of nanometres, or names a layer the board does not have, is
+skipped with `kicad.project.unread-entry`. A profile that no class names stays in the file only.

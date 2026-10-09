@@ -464,6 +464,23 @@ def test_unselected_nets_are_still_declared() -> None:
     assert all(node.first("circuit") is None for node in network.all("class"))
 
 
+def test_no_pair_list() -> None:
+    """Scenario "No pair list" (requirement "Differential pairs in design files"; change c0110): the two nets
+    of a pair whose class has pair values are written as two nets, and no list is headed ``pair``."""
+    fast = NetClass(id=_id("cls", 4), name="HS", diff_pair_width=mm(0.2), diff_pair_gap=mm(0.15))
+    design = design_of(
+        Part("R1", "Mini_R_0603", 10, 10, nets={"1": "USB_P", "2": "USB_N"}),
+        Part("R2", "Mini_R_0603", 20, 10, nets={"1": "USB_P", "2": "USB_N"}),
+        classes=(fast,),
+        class_of={"USB_P": "HS", "USB_N": "HS"},
+    )
+    result = bench(design, selected=("USB_P", "USB_N")).write()
+    network = _section(result.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["USB_N", "USB_P"]
+    assert network.all("pair") == ()
+    assert "(pair" not in result.text
+
+
 def test_net_of_a_pin_on_no_net_is_left_out() -> None:
     """The one-pad net KiCad names after an unused pin (c0061) is no net for a router: the file is the one
     of the same board with that pad on no net. A net of that spelling with two pads is still declared."""
@@ -501,6 +518,139 @@ def test_renamed_and_quoted_net_names() -> None:
     assert result.names.nets == {"NET1": 'A"B', "N (1)": "N (1)"}
     (renamed,) = [issue for issue in result.issues if issue.code == "specctra.renamed"]
     assert renamed.severity == "info" and renamed.where == 'A"B' and "NET1" in renamed.message
+
+
+# --- nets outside the job (change c0109) -------------------------------------------------------------
+
+
+def _two_nets() -> Bench:
+    """Nets ``A`` and ``B`` of two pads each, one track on ``B``; ``A`` is the job."""
+    b = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": "B", "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": "B"}),
+        )
+    )
+    track = Track(
+        id=_id("trk", 1),
+        start=pt(9.2, 10),
+        end=pt(9.2, 14),
+        width=mm(0.25),
+        layer="F.Cu",
+        net_id=_net_id(b.design, "B"),
+    )
+    return _with_board(b, tracks=(track,))
+
+
+def _pins(text: str) -> list[tuple[str, str]]:
+    """Every pin of every image, as (reference, pin)."""
+    library = _section(text, "library")
+    return [(image.words[0], pin.words[1]) for image in library.all("image") for pin in image.all("pin")]
+
+
+def test_netless_unselected_net_left_out() -> None:
+    """Scenario "Unselected net left out"."""
+    b = _two_nets()
+    declared, netless = b.write(), b.write(others="netless")
+    network = _section(netless.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["A"]
+    assert network.first("net") == SNode("net", ("A", SNode("pins", ("R1-2", "R2-1"))))
+    assert [net.words[0] for net in _section(declared.text, "network").all("net")] == ["A", "B"]
+    assert _pins(netless.text) == _pins(declared.text) == [("R1", "1"), ("R1", "2"), ("R2", "1"), ("R2", "2")]
+    protect = SNode("type", ("protect",))
+    path = SNode("path", ("F.Cu", "250", "9200", "-10000", "9200", "-14000"))
+    assert _section(netless.text, "wiring").items == (SNode("wire", (path, protect)),)
+    assert _section(declared.text, "wiring").items == (SNode("wire", (path, SNode("net", ("B",)), protect)),)
+    assert netless.names.nets == {"A": "A"} and set(netless.names.net_ids) == {"A"}
+    assert netless.names.protected_wires == frozenset({("", "F.Cu", mm(0.25), pt(9.2, 10), pt(9.2, 14))})
+    # every other part of the file is as with "declared"
+    for head in ("structure", "placement", "library"):
+        assert _section(netless.text, head) == _section(declared.text, head), head
+    assert netless.names.pins == declared.names.pins and netless.names.vias == declared.names.vias
+    assert netless.text == b.write(others="netless").text
+
+
+def test_netless_and_unconnected_pin_on_no_net_in_both_modes() -> None:
+    """Scenario "A pin on no net in both modes"."""
+    lone = "unconnected-(R1-Pad1)"
+    b = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": lone, "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A"}),
+        )
+    )
+    declared, netless = b.write(others="declared"), b.write(others="netless")
+    assert lone not in declared.text and lone not in netless.text
+    assert ("R1", "1") in _pins(declared.text) and ("R1", "1") in _pins(netless.text)
+    assert declared.text == netless.text
+
+
+def test_netless_declared_mode_is_unchanged() -> None:
+    """Scenario "Declared mode unchanged"."""
+    golden = (DATA / "two_pads.dsn").read_text(encoding="utf-8")
+    assert two_pads().write().text == two_pads().write(others="declared").text == golden
+    # the two-pad board holds no net outside the job, so the netless file is the same file
+    assert two_pads().write(others="netless").text == golden
+
+
+def test_netless_class_emptied_by_the_mode() -> None:
+    """Scenario "A class emptied by the mode"."""
+    power = NetClass(id=_id("cls", 1), name="PWR", track_width=mm(0.5))
+    signal = NetClass(id=_id("cls", 2), name="SIG", clearance=mm(0.15), track_width=mm(0.2))
+    b = bench(
+        design_of(
+            Part("R1", "Mini_R_0603", 10, 10, nets={"1": "VCC", "2": "A"}),
+            Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": "GND"}),
+            Part("R3", "Mini_R_0603", 20, 15, nets={"1": "VCC", "2": "GND"}),
+            classes=(power, signal),
+            class_of={"VCC": "PWR", "GND": "PWR", "A": "SIG"},
+        ),
+        selected=("A",),
+    )
+    declared, netless = b.write(), b.write(others="netless")
+    classes = _section(netless.text, "network").all("class")
+    assert [node.words[0] for node in classes] == ["SIG"]
+    before = {node.words[0]: node for node in _section(declared.text, "network").all("class")}
+    assert sorted(before) == ["PWR", "SIG"] and classes[0] == before["SIG"]
+    assert _section(netless.text, "structure") == _section(declared.text, "structure")
+
+
+def test_netless_keeps_a_net_of_a_wider_class_declared() -> None:
+    """Scenario "A wider class stays declared": a router keeps only the default rule from copper without
+    a net, so a net whose class clearance is larger than the default rule stays declared with its class
+    (the fallback of design decision 4, taken after ``dsn-netless`` was measured as ``present``)."""
+    b = _classed()  # VCC in Power (clearance 0.3 mm, default rule 0.2 mm), B in Plain, A in no class
+    result = b.write(selected=("A",), others="netless")
+    network = _section(result.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["A", "VCC"]
+    (power,) = network.all("class")
+    assert power.words[:2] == ("Power", "VCC") and power.first("circuit") is None
+    assert power.first("rule") == SNode("rule", (SNode("width", ("500",)), SNode("clearance", ("300",))))
+    assert result.names.nets == {"A": "A", "VCC": "VCC"}
+    # a class whose clearance is the default rule's, or smaller, does not keep its nets declared
+    equal = NetClass(id=_id("cls", 7), name="Same", clearance=DEFAULTS.clearance, track_width=mm(1))
+    design = design_of(
+        Part("R1", "Mini_R_0603", 10, 10, nets={"1": "P", "2": "A"}),
+        Part("R2", "Mini_R_0603", 20, 10, nets={"1": "A", "2": "P"}),
+        classes=(equal,),
+        class_of={"P": "Same"},
+    )
+    result = bench(design).write(others="netless")
+    assert [net.words[0] for net in _section(result.text, "network").all("net")] == ["A"]
+
+
+def test_netless_with_nothing_selected_declares_only_the_wider_classes() -> None:
+    result = _classed().write(selected=(), others="netless")
+    network = _section(result.text, "network")
+    assert [net.words[0] for net in network.all("net")] == ["VCC"]
+    assert result.names.nets == {"VCC": "VCC"} and _section(result.text, "structure").first("via") == SNode(
+        "via", ("Via_600_300",)
+    )
+
+
+def test_netless_refuses_another_value() -> None:
+    with pytest.raises(ValueError, match="others"):
+        two_pads().write(others="hidden")
 
 
 # --- wiring -------------------------------------------------------------------------------------
@@ -649,16 +799,27 @@ def test_issue_codes() -> None:
         "specctra.unknown-padstack": "error",
         "specctra.session-moved": "error",
         "specctra.pad-approximated": "warning",
+        "specctra.plane-skipped": "warning",  # change c0107, with the two rule codes
         "specctra.rounded": "info",
         "specctra.renamed": "info",
         "specctra.unknown-list": "info",
+        "specctra.rule-not-sent": "info",
+        "specctra.rule-widened": "info",
     }
     assert set(dsn.ISSUE_CODES.values()) <= set(SEVERITIES)
 
 
 def test_evidence_stays_inferred_until_the_probes_run() -> None:
     assert dsn.EVIDENCE.level is Level.INFERRED
-    assert dsn.EVIDENCE.hypotheses == ("H-G-DSN-ACCEPT", "H-G-DSN-PROTECT", "H-G-DSN-UNITS")
+    assert dsn.EVIDENCE.hypotheses == (
+        "H-G-DSN-ACCEPT",
+        "H-G-DSN-CLEARANCE",
+        "H-G-DSN-EDGE-2",
+        "H-G-DSN-LAYERS",
+        "H-G-DSN-PLANE",
+        "H-G-DSN-PROTECT",
+        "H-G-DSN-UNITS",
+    )
 
 
 def test_not_a_registered_backend() -> None:
@@ -671,3 +832,56 @@ def test_package_holds_its_provenance_and_nothing_of_the_reference() -> None:
     text = (package / "PROVENANCE.md").read_text(encoding="utf-8")
     assert "S-0224" in text and "ADR-0006" in text
     assert sorted(p.name for p in package.glob("*.pdf")) == []
+
+
+# --- the text of the writer before change c0107 ---------------------------------------------------------
+
+
+def _unchanged_inputs(
+    tmp_path: Path,
+) -> dict[str, tuple[Design, tuple[object, ...], object, tuple[str, ...]]]:
+    """The two boards of the scenario "Same text without planes, layers and rules": the four-layer plane
+    bench without its rules, and the blink built for target 10; every net of two pads or more is selected."""
+    import _planebench as pb
+    from _copper import built_blink
+
+    from fenolite.backends.kicad.frame import board_pads
+    from fenolite.backends.kicad.outline import board_outline
+
+    found = pb.load(pb.build_project(tmp_path, rules=False))
+    blink = built_blink(10)
+    cases = {}
+    for name, design, pads, rings in (
+        ("planebench_norules", found.design, found.pads, found.outline),
+        ("blink_t10", blink, board_pads(blink), board_outline(blink).rings),
+    ):
+        selected = tuple(
+            sorted(n.name for n in design.circuit.nets if len(design.by_net.get(n.name, ())) >= 2)
+        )
+        cases[name] = (design, pads, rings, selected)
+    return cases
+
+
+def test_unchanged_without_planes_layers_and_rules(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Same text without planes, layers and rules": a call without ``plane_layers`` and
+    ``net_layers``, for a design without a rule, writes the text recorded from the writer of the commit
+    before change c0107 (``FENOLITE_GOLDEN_WRITE=1`` recorded it, once, before the writer was changed)."""
+    import os
+
+    monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "kicad-config"))
+    for name, (design, pads, rings, selected) in _unchanged_inputs(tmp_path).items():
+        assert design.rules is None or design.rules.rules == ()
+        result = write_dsn(design, pads=pads, outline=rings, selected=selected, defaults=DEFAULTS)  # type: ignore[arg-type]
+        golden = DATA / f"c0107_before_{name}.dsn"
+        if os.environ.get("FENOLITE_GOLDEN_WRITE") == "1" and os.environ.get("FENOLITE_C0107_RECORD") == "1":
+            golden.write_text(result.text, encoding="utf-8", newline="\n")
+        assert result.text == golden.read_text(encoding="utf-8"), name
+        layers = [node for node in _section(result.text, "structure").lists if node.head == "layer"]
+        assert layers and all("(type signal)" in dumps_of(node) for node in layers)
+        assert "plane" not in {node.head for node in _section(result.text, "structure").lists}
+
+
+def dumps_of(node: SNode) -> str:
+    from fenolite.backends.specctra.lexer import dumps
+
+    return dumps(node)

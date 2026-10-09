@@ -126,7 +126,8 @@ def test_the_fake_is_a_document_parity() -> None:
     assert isinstance(ParityFake(), DocumentParity) and not isinstance(
         FakeDocumentValidator(), DocumentParity
     )
-    assert DOCUMENT_STAGES.index("parity") == DOCUMENT_STAGES.index("copper.clearance") + 1
+    # placement.rules (c0113) stands between the copper check and parity
+    assert DOCUMENT_STAGES.index("parity") == DOCUMENT_STAGES.index("copper.clearance") + 2
 
 
 def test_agreeing_project() -> None:

@@ -490,17 +490,24 @@ a pin that the map bonds to several pads is an element for each of them.
 
 | set | documents | listed and missing | common | only schematic | only PCB | differences | floating pins | undriven power nets | No ERC marks | exit |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | 5 |
+| `altium-set:01` | 20 | 6 | 2016 | 6 | 33 | 0 | 50 | 12 | 90 | 5 (before c0099; not run since: heavy) |
 | `altium-set:02` | 15 | 2 | 698 | 7 | 27 | 2 | 20 | 12 | 5 | 5 |
-| `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 5 |
+| `altium-set:03` | 3 | 0 | 96 | 0 | 0 | 0 | 0 | 4 | 1 | 0 |
 | `altium-set:04` | 3 | 2 | 139 | 0 | 4 | 0 | 0 | 6 | 0 | 5 |
-| `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 5 |
+| `altium-set:05` | 6 | 1 | 106 | 0 | 0 | 0 | 0 | 0 | 10 | 0 |
 
-- Every set exits 5: `model.validate` reports `model.*` error findings of the PCB reading on each of
-  them (`model.body-height` on the four sets without a heavy row, and `model.duplicate-ref` on
-  `altium-set:02`, whose PCB document holds twelve components without a designator: the empty
-  reference is counted twelve times, which is a finding about the validation rule, not about channels; it waits for the follow-up that gives a component without a reference a finding of its own), which the check passes on unchanged. The container stages pass on every set: no
+- Before change c0099 every set exited 5: `model.validate` reports `model.*` error findings of the PCB
+  reading on each of them (`model.body-height` on the four sets without a heavy row, and
+  `model.duplicate-ref` on `altium-set:02`, whose PCB document holds twelve components without a
+  designator: the empty reference is counted twelve times, which is a finding about the validation rule,
+  not about channels; it waits for the follow-up that gives a component without a reference a finding of
+  its own), which the check passes on unchanged. The container stages pass on every set: no
   `check.rta0-failed` and no `check.rta1-failed`.
+- Measured on 2026-10-07 for c0099 without heavy rows: sets 02 and 04 exit 5;
+  sets 03 and 05 exit 0 (previously 5). Set 01 was not rerun; its other counts above
+  remain the earlier measurement. Signed intervals remove 52 `model.body-height` errors
+  across sets 02–05 (32, 7, 9 and 4 before; zero after). Other findings, including
+  `model.duplicate-ref` on set 02, remain. The container stages pass on the measured sets.
 - `altium-set:02` shows 698 common elements, 2 differing, 7 that only the schematic covers and 27
   that only the PCB document covers (measured again on 2026-10-06, change c0123, with every pad of a
   pin an element). The row read 694, 2, 7 and 31 after change c0083, which named the channels and
@@ -547,16 +554,16 @@ document are included). The parity table was measured again on the tree that hol
 and the pin-to-pad map of c0083. Counts only. A third-party board may hold real findings: the test
 asserts what the stage promises, not that a board is clean.
 
-| document | fills, pads, tracks, arcs, vias | pairs judged | shorts | clearance | mapped and opaque Clearance rules | unpoured | zones without a clearance | planes | findings the unit's slack removes | level |
+| document | fills, pads, tracks, arcs, vias | pairs judged | shorts | clearance | mapped and opaque Clearance rules | unpoured | zones without a clearance | planes | findings the slack removes | level |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `altium-third-party-pcbdoc-01` | 40, 735, 1 346, 0, 646 | 10 482 | 0 | 2 | 1, 0 | 0 | 0 | 2 | 626 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-01` | 40, 735, 1 346, 0, 646 | 10 482 | 0 | 1 | 1, 0 | 0 | 0 | 2 | 627 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-02` | 11, 143, 191, 0, 242 | 553 | 0 | 0 | 0, 1 | 1 | 11 | 2 | 0 | `UNVERIFIED` |
-| `altium-third-party-pcbdoc-03` | 6, 383, 604, 0, 47 | 3 204 | 0 | 7 | 2, 0 | 0 | 0 | 0 | 359 | `INFERRED` |
+| `altium-third-party-pcbdoc-03` | 6, 383, 604, 0, 47 | 3 204 | 0 | 0 | 2, 0 | 0 | 0 | 0 | 366 | `INFERRED` |
 | `altium-third-party-pcbdoc-04` | 11, 53, 149, 0, 67 | 990 | 0 | 8 | 1, 1 | 0 | 0 | 0 | 118 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-05` | 5, 96, 194, 0, 59 | 1 156 | 0 | 0 | 1, 0 | 0 | 0 | 0 | 232 | `INFERRED` |
 | `altium-third-party-pcbdoc-06` | 11, 106, 111, 3, 42 | 250 | 0 | 0 | 0, 2 | 0 | 10 | 0 | 0 | `UNVERIFIED` |
 | `altium-third-party-pcbdoc-07` | 16, 112, 475, 20, 60 | 2 528 | 0 | 0 | 2, 1 | 0 | 0 | 0 | 112 | `UNVERIFIED` |
-| `altium-third-party-pcbdoc-08` (heavy) | 128, 2 126, 8 355, 529, 1 770 | 59 571 | 0 | 16 | 2, 3 | 0 | 0 | 0 | 4 664 | `UNVERIFIED` |
+| `altium-third-party-pcbdoc-08` (heavy) | 128, 2 126, 8 355, 529, 1 770 | 59 571 | 0 | 8 | 2, 3 | 0 | 0 | 0 | 4 672 | `UNVERIFIED` |
 
 - **No pour is judged against a default.** c0122 measured 266 clearance findings on
   `altium-third-party-pcbdoc-03`, all against the model's default zone clearance of 0.5 mm. They are gone.
@@ -583,9 +590,10 @@ asserts what the stage promises, not that a board is clean.
   the matrices of `-02` and `-06` tell a through-hole pad from a surface pad, or an arc from a track,
   which the check cannot, and carry the option that ignores the pads of one footprint: both documents
   are as before (27 and 8 cells unjudged).
-- **The findings of `-08`.** 16 clearance findings are 8 to 13 nm short of the rule's value (6 track to
-  track, 8 track to via, 1 pad to track, 1 via to via against the cell): the class of `-03` and `-01`
-  below. The 28 shorts and the clearance finding of 33.9 µm that this entry listed until change c0132
+- **The findings of `-08`.** 8 clearance findings are 10 to 13 nm short of the rule's value (4 track to
+  track, 3 track to via, 1 via to via against the cell): the class of `-01` below. Until change c0152
+  there were 16, 8 to 13 nm short; the 8 that are 8 or 9 nm short are within Altium's observed
+  tolerance (below). The 28 shorts and the clearance finding of 33.9 µm that this entry listed until change c0132
   (7 vias against the pour of another net on each of the four inner layers, and a track beside one
   such via) were a limit of the import and are gone: the pour stands at the via's drill radius plus the
   generic clearance from its centre (to 4 nm), and the via has no pad there (the entry above).
@@ -594,14 +602,18 @@ asserts what the stage promises, not that a board is clean.
   two: one for a net with a matrix of differing clearances, and one for all objects with that option.
   A neutral rule holds one value and no selector says "two pads of one component", so these stay unread
   and reported (`docs/formats/altium/rule-file.md`, "Clearance forms that map").
-- **The 17 findings that remain.** On `-03`, seven pad-to-track pairs on the bottom layer, each 8 to 9 nm
+- **The findings that remain, and Altium's tolerance (change c0152).** Until change c0152 there were 17.
+  On `-03`, seven pad-to-track pairs on the bottom layer, each 8 to 9 nm
   short of the 0.127 mm rule: one square through-hole pad 637 795 units wide, whose edge lies on half a
   unit of the document, and seven segments of one track net that runs around it, with a track edge about
   49 996.5 units away where the rule asks for 50 000 (Altium's own check on this pad is a required step
   of the maintainer's Altium session 2: c0088's design, "Session 2"). They are
-  short by the document's own numbers, beyond what the unit's rounding explains (below); whether Altium's
-  check tolerates them is not known. On `-01`, two pad-to-track pairs 9 nm and 20 nm short of the 0.1524 mm
-  rule, the same class. On `-04`, six fill-to-pad and two pad-to-track pairs up to 50 µm short of the 0.15 mm rule; that
+  short by the document's own numbers, beyond what the unit's rounding explains (below). Altium Designer
+  26.5.0 reports none of them (S-0616; `docs/evidence/altium-pcb.md`, "Session 2", Part D): its check
+  allows at least 3.5 units. Since change c0152 the check lowers each rule by 9 nm, that tolerance in
+  whole nanometres (`docs/formats/altium/import.md`, "Clearance of the copper check"), and `-03` has no
+  clearance finding. On `-01`, two pad-to-track pairs 9 nm and 20 nm short of the 0.1524 mm rule, the
+  same class; the first is gone since c0152, the second (7.9 units) stays an error. On `-04`, six fill-to-pad and two pad-to-track pairs up to 50 µm short of the 0.15 mm rule; that
   document holds one more Clearance rule whose scope is outside the grammar, which the stage reports, so
   these pairs may be governed by it.
 - **Internal planes.** Before the lines of a plane were taken out, `-01` gave 66 shorts and 48 clearance
@@ -624,7 +636,10 @@ asserts what the stage promises, not that a board is clean.
   7.9 file units for the pair where the rule gives 2. Nothing lies between 4 and 8 nm: the conversion
   explains the first group and not the second. The design of c0131 holds the bound per kind of item
   and two open decisions (these 25 findings; a pad against a rectangular pad, whose worst case of 6.36 nm
-  is above the rule and which no document shows).
+  is above the rule and which no document shows). Change c0152 settles both: Altium passes the seven of
+  `-03`, the rules are lowered by 9 nm, and 9 findings stay (1, 0 and 8), 10 to 20 nm short; 9 nm is
+  above the 6.36 nm of a pad against a rectangular pad. The findings the slack removes are now 6 127
+  (627, 0, 366, 118, 232, 0, 112 and 4 672).
 - **Not compared with KiCad's import.** `kicad-cli pcb import` writes no rules for an imported document,
   so the clearance findings of the two readings cannot be compared; `H-A-DRC-SAME` rests on the samples
   built for both targets (`tests/kicad/altium/test_copper_same.py`: equal findings on the routed blink as

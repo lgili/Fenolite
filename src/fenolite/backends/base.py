@@ -10,9 +10,10 @@ another backend.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
@@ -392,6 +393,39 @@ class Oracle(Protocol):
     def drc(self, project: ProjectSet) -> DrcOutcome: ...
 
 
+UNCONNECTED_ITEMS = "unconnected_items"
+"""The key of ``DrcLimits`` that stands for the list of unconnected items of a ``DrcReport``."""
+
+
+@dataclass(frozen=True, slots=True)
+class DrcLimits:
+    """Where a DRC tool stops writing its report: the largest number of entries it writes for each named
+    type (``per_type``), and for every other type (``others``). ``unconnected_items`` stands for the list
+    of unconnected items; every other key is a violation ``type`` in the tool's own spelling. A count that
+    reaches its limit is a lower bound."""
+
+    per_type: Mapping[str, int]
+    others: int
+
+    def __post_init__(self) -> None:
+        for name, value in (("others", self.others), *self.per_type.items()):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise ValueError(f"the report limit of {name!r} is not a positive int: {value!r}")
+        object.__setattr__(self, "per_type", MappingProxyType(dict(self.per_type)))
+
+    def limit(self, type: str) -> int:  # noqa: A002 (the report's own key)
+        """The limit of ``type``: its own, or ``others``."""
+        return self.per_type.get(type, self.others)
+
+
+@runtime_checkable
+class LimitedOracle(Protocol):
+    """An oracle that says where its DRC report stops. It stands beside ``Oracle``: an oracle that does not
+    satisfy it says nothing about limits."""
+
+    def report_limits(self) -> DrcLimits: ...
+
+
 @dataclass(frozen=True, slots=True)
 class ErcOutcome:
     """An oracle's ERC run: the report (``None`` when none was written, ``message`` then being the first
@@ -692,6 +726,51 @@ class BoardPad:
 
 
 @dataclass(frozen=True, slots=True)
+class PlotTable:
+    """A table of a plot copy (change c0117): never stored in the model, only written into the copy of a
+    board that a drawing is plotted from. ``at`` is its top-left corner; ``cells`` holds one tuple of
+    texts per row, each as long as ``column_widths``; a row of ``header`` rows is ruled off below."""
+
+    name: str
+    layer: str
+    at: Point
+    column_widths: tuple[Nm, ...]
+    row_heights: tuple[Nm, ...]
+    cells: tuple[tuple[str, ...], ...]
+    text_size: Nm
+    border: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class PlotText:
+    """A text of a plot copy, centred on ``at``; a text on a back layer is written mirrored."""
+
+    name: str
+    text: str
+    layer: str
+    at: Point
+    size: Nm
+
+
+@dataclass(frozen=True, slots=True)
+class PlotDimension:
+    """An orthogonal dimension of a plot copy between ``start`` and ``end``, its line ``offset`` away
+    from them (negative: above a horizontal one, left of a vertical one), in millimetres."""
+
+    name: str
+    layer: str
+    start: Point
+    end: Point
+    offset: Nm
+    direction: Literal["horizontal", "vertical"]
+    precision: int
+    text_size: Nm
+
+
+PlotItem = PlotTable | PlotText | PlotDimension
+
+
+@dataclass(frozen=True, slots=True)
 class PlacedExtent:
     """The courtyard of a placed footprint in the board frame: the rings of its front and back faces, where
     they come from, and whether they are exact. Each ring is in the normal form."""
@@ -757,6 +836,89 @@ class DesignRulesSource(Protocol):
     def design_rules(
         self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
     ) -> DesignRules: ...
+
+
+NIL_UUID = "00000000-0000-0000-0000-000000000000"
+"""The uuid that stands for the missing second item of a stored exclusion of one item."""
+
+
+@dataclass(frozen=True, slots=True)
+class StoredExclusion:
+    """One DRC exclusion that a project's own files store (change c0114): the tool's check ``type``, the
+    stored marker ``position`` in integer nm, the two stored item ``uuids`` in order (the second is
+    ``NIL_UUID`` for an entry of one item) and the ``comment`` stored with it."""
+
+    type: str
+    position: Point
+    uuids: tuple[str, str]
+    comment: str = ""
+
+
+@runtime_checkable
+class ExclusionSource(Protocol):
+    """A backend that gives the DRC exclusions a project's own files store, so that ``checks`` can say
+    which of them the tool still applies. A pure query, not an operation: it never raises for a project
+    file that fails to read, and returns ``()`` then."""
+
+    def stored_exclusions(self, project: ProjectSet) -> tuple[StoredExclusion, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class NetLength:
+    """The length of one net as a tool counts it, in nm: ``routed`` is the centre-line length of its tracks
+    and arcs, ``vias`` the sum of the heights its vias add, ``die`` the sum of the die lengths of its pads;
+    ``total`` is their sum, and ``via_count`` counts its vias."""
+
+    net: str
+    routed: Nm
+    vias: Nm
+    die: Nm
+    total: Nm
+    via_count: int
+
+    def __post_init__(self) -> None:
+        if self.total != self.routed + self.vias + self.die:
+            raise ValueError(f"the total of net {self.net!r} is not the sum of its parts")
+
+
+@dataclass(frozen=True, slots=True)
+class LengthFacts:
+    """The lengths of nets as a tool counts them.
+
+    ``nets`` maps a net name to its length. ``depths`` maps each copper layer to its depth as the tool
+    counts it (empty when unknown), ``die`` maps a pad id to its die length (a pad without one has no
+    entry). ``major`` names the tool version whose counting the facts follow, ``stackup`` says where the
+    depths come from (``none`` when they are unknown), and ``count_vias`` is false when the project counts
+    no via height."""
+
+    nets: Mapping[str, NetLength]
+    depths: Mapping[str, Nm]
+    die: Mapping[str, Nm]
+    major: int | None
+    stackup: Literal["board", "default", "none"]
+    count_vias: bool
+    evidence: Evidence
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "nets", MappingProxyType(dict(self.nets)))
+        object.__setattr__(self, "depths", MappingProxyType(dict(self.depths)))
+        object.__setattr__(self, "die", MappingProxyType(dict(self.die)))
+
+
+@runtime_checkable
+class LengthSource(Protocol):
+    """A backend that gives the length of nets as its tool counts them. A pure query, not an operation: it
+    never raises for a project file that fails to read, and appends warnings and infos to ``issues``."""
+
+    def length_facts(
+        self,
+        design: Design,
+        *,
+        project: ProjectSet | None = None,
+        major: int | None = None,
+        nets: Collection[str] | None = None,
+        issues: list[Issue] | None = None,
+    ) -> LengthFacts: ...
 
 
 ChangeKind = Literal["added", "removed", "changed"]
@@ -1012,6 +1174,7 @@ class Backend(Protocol):
 
 
 __all__ = [
+    "NIL_UUID",
     "Backend",
     "BackendOperation",
     "BoardFrame",
@@ -1024,6 +1187,8 @@ __all__ = [
     "ContainerLevel",
     "ContainerRoundTrip",
     "DesignRules",
+    "ExclusionSource",
+    "StoredExclusion",
     "DesignRulesSource",
     "DiffReport",
     "Document",
@@ -1033,6 +1198,7 @@ __all__ = [
     "DocumentValidator",
     "Downgrade",
     "DrcItem",
+    "DrcLimits",
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
@@ -1044,12 +1210,16 @@ __all__ = [
     "ErcViolation",
     "FillOracle",
     "FillOutcome",
+    "LengthFacts",
+    "LengthSource",
+    "LimitedOracle",
     "MATRIX_OPERATIONS",
     "MatrixRow",
     "ModelCompare",
     "ModelRoundTrip",
     "ModelWriter",
     "ModelScope",
+    "NetLength",
     "NetlistOracle",
     "NetlistOutcome",
     "Oracle",
@@ -1058,7 +1228,11 @@ __all__ = [
     "PadNetList",
     "ParityInputs",
     "PlacedExtent",
+    "PlotDimension",
+    "PlotItem",
     "PlotOutcome",
+    "PlotTable",
+    "PlotText",
     "PlotView",
     "Plotter",
     "ProjectRead",
@@ -1073,6 +1247,7 @@ __all__ = [
     "Rt2Outcome",
     "SkipReason",
     "SkippedFile",
+    "UNCONNECTED_ITEMS",
     "Uncovered",
     "Validation",
     "Validator",

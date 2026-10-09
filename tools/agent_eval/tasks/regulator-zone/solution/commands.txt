@@ -1,0 +1,4 @@
+fenolite build board/design.py --out board/build --confirm --json
+fenolite fill board/build --confirm --json
+fenolite check board/build --json
+fenolite export board/build -o board/fab --all --manifest --confirm --json

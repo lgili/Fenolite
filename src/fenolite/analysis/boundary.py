@@ -3,10 +3,11 @@
 """The boundary of a board for the distance analyses: the outer ring, the cut-outs and the thickness
 (capability board-analyses, "Board boundary").
 
-From ``Board.outline`` when the model has one; otherwise from the graphics on the layer of kind ``edge``,
-chained by exact endpoint equality with ``geometry.assemble_rings``. Curved edges are polygonised, and
-``band`` bounds that approximation. A board without a closed outline gives ``source == "none"``: this
-function never raises on what it finds. No thickness is assumed.
+From ``Board.outline`` when the model has one, its arcs (``Outline.arcs``) polygonised; otherwise from the
+graphics on the layer of kind ``edge``, chained by exact endpoint equality with
+``geometry.assemble_rings``. Curved edges are polygonised, and ``band`` bounds that approximation. A board
+without a closed outline gives ``source == "none"``: this function never raises on what it finds. No
+thickness is assumed.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from fenolite.geometry import (
     assemble_rings,
     point_in_ring,
 )
-from fenolite.model.board import Board, Graphic
+from fenolite.model.board import Board, Graphic, Outline
 
 Ring = tuple[Point, ...]
 Source = Literal["model", "edge", "none"]
@@ -108,12 +109,42 @@ def _edge_rings(board: Board, arc_tol: int) -> tuple[list[Ring], bool]:
     return [ring for ring in rings if len(ring) >= 3 and area2(ring) != 0], curved
 
 
+def _model_ring(outline: Outline, index: int, arc_tol: int) -> tuple[Ring, bool]:
+    """Ring ``index`` of a model outline (0 is the board ring, k is cut-out k − 1) with the arcs of
+    ``Outline.arcs`` replaced by their polygonisation at ``arc_tol``, and whether it holds one."""
+    ring = outline.points if index == 0 else outline.cutouts[index - 1]
+    mids = {arc.edge: arc.mid for arc in outline.arcs if arc.ring == index}
+    if not mids:
+        return _clean(tuple(ring)), False
+    points: list[Point] = []
+    curved = False
+    for k, start in enumerate(ring):
+        end = ring[(k + 1) % len(ring)]
+        points.append(start)
+        mid = mids.get(k)
+        if mid is None or start == end:
+            continue
+        try:
+            arc = Arc(start, mid, end)
+        except (GeometryError, ValueError):
+            continue
+        if arc.is_straight:
+            continue
+        curved = True
+        points += arc.polygonize(arc_tol)[1:-1]
+    return _clean(tuple(points)), curved
+
+
 def board_boundary(board: Board, *, arc_tol: int = DEFAULT_TOL, thickness: Nm | None = None) -> BoardBoundary:
     """The boundary of ``board``: from its outline, else from its edge graphics, else ``source`` ``none``."""
     thick = _thickness(board, thickness)
-    if board.outline is not None and len(board.outline.points) >= 3:
-        cutouts = tuple(_clean(tuple(ring)) for ring in board.outline.cutouts if len(ring) >= 3)
-        return BoardBoundary(_clean(tuple(board.outline.points)), cutouts, thick, 0, "model")
+    if board.outline is not None:
+        outer, bent = _model_ring(board.outline, 0, arc_tol)
+        if len(outer) >= 3:
+            found = [_model_ring(board.outline, k + 1, arc_tol) for k in range(len(board.outline.cutouts))]
+            cutouts = tuple(ring for ring, _ in found if len(ring) >= 3)
+            curved = bent or any(flag for ring, flag in found if len(ring) >= 3)
+            return BoardBoundary(outer, cutouts, thick, arc_tol + 1 if curved else 0, "model")
     try:
         rings, curved = _edge_rings(board, arc_tol)
     except (GeometryError, ValueError):

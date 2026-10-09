@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The v0.1 acceptance loop on both examples and both KiCad majors (capability release-gate, "Acceptance
-loop" and "Agent guide is executable"; change c0025).
+loop"; change c0025). The loop block of the agent guide runs in
+``tests/kicad/acceptance/test_skill_block.py`` since change c0079.
 
 The loop runs on the local ``kicad-cli`` with Freerouting. With ``FENOLITE_ACCEPTANCE_WRITE=1`` each
 finished project is written to ``tests/data/acceptance/<example>_t<major>/``; without it the test writes
@@ -10,12 +11,9 @@ nothing in the repository.
 
 from __future__ import annotations
 
-import json
+import hashlib
 import os
-import re
-import shlex
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -111,28 +109,69 @@ def test_loop(example: str, target: int, tmp_path: Path) -> None:
         record(run, example, target)
 
 
-def test_skill_block(tmp_path: Path) -> None:
-    """Scenario "Ten commands close the loop": the lines of the agent guide run as written, in a folder
-    laid out as the repository, and each envelope carries an evidence level (acceptance item 7)."""
-    guide = (ROOT / "agent" / "SKILL.md").read_text(encoding="utf-8")
-    blocks = re.findall(r"^```fenolite-loop\n(.*?)^```$", guide, re.MULTILINE | re.DOTALL)
-    assert len(blocks) == 1
-    lines = [line for line in blocks[0].splitlines() if line.strip()]
-    assert 1 <= len(lines) <= 10
-    shutil.copytree(ROOT / "examples" / "blink_2layer", tmp_path / "examples" / "blink_2layer")
-    shutil.copytree(ROOT / "tests" / "data" / "libs", tmp_path / "tests" / "data" / "libs")
-    for line in lines:
-        words = shlex.split(line)
-        assert words[0] == "fenolite"
-        process = subprocess.run(
-            [sys.executable, "-m", "fenolite", *words[1:]],
-            cwd=tmp_path,
-            env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
-            capture_output=True,
-            text=True,
-            timeout=900,
-            check=False,
-        )
-        assert process.returncode == 0, f"{line}\n{process.stderr or process.stdout}"
-        envelope = json.loads(process.stdout)
-        assert envelope["evidence"]["level"], line
+def _counting(folder: Path, name: str, real: str) -> tuple[Path, Path]:
+    """A launcher that appends its arguments to a log and runs ``real``: the launcher and its log."""
+    log = folder / f"{name}.calls"
+    script = folder / f"{name}-counted"
+    script.write_text(f'#!/bin/sh\necho "$@" >> "{log}"\nexec "{real}" "$@"\n', encoding="utf-8")
+    script.chmod(0o755)
+    return script, log
+
+
+def _calls(log: Path) -> list[str]:
+    return log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="the counting launchers are shell scripts")
+def test_loop_plan_reviewed_then_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """One pass of the 40-part example in which every writing step is reviewed with ``--dry-run`` and
+    written with ``--confirm --plan`` (capability cli-contract, "Staged plans"; change c0120): no tool
+    runs for the write, and the written hashes equal the plan rows."""
+    from _resources import freerouting_jar, kicad_cli
+
+    real_kicad, jar, java = kicad_cli(), freerouting_jar(), shutil.which("java")
+    assert real_kicad is not None and jar is not None and java is not None
+    kicad, kicad_log = _counting(tmp_path, "kicad-cli", str(real_kicad))
+    counted_java, java_log = _counting(tmp_path, "java", java)
+    monkeypatch.setenv("FENOLITE_KICAD_CLI", str(kicad))
+    monkeypatch.setenv("FENOLITE_JAVA", str(counted_java))
+    monkeypatch.setenv("FENOLITE_FREEROUTING_JAR", str(jar))
+    monkeypatch.setenv("FENOLITE_STATE_DIR", str(tmp_path / "state"))
+    example, target = "board_40parts", 10
+    project = tmp_path / "project"
+    name = f"{EXAMPLES[example]}.kicad_pcb"
+    outputs = tmp_path / "outputs"
+    stamp = ["--seed", "250025", "--timestamp", "2026-10-04T00:00:00Z", "--no-backup"]
+    script = ROOT / "examples" / example / "design.py"
+    steps: list[tuple[str, Path, list[str]]] = [
+        ("build", tmp_path, ["build", str(script), "--out", str(project), "--kicad-version", str(target)]),
+        ("place", project, ["place", name, "--strategy", "grid", "--margin", "3mm", "--gap", "2mm"]),
+        ("route", project, ["route", name, "--router", ROUTER, "--timeout", "600"]),
+        ("fill", project, ["fill", name]),
+        ("export", project, ["export", name, "-o", str(outputs / "fab"), "--all", "--manifest"]),
+        ("render", project, ["render", name, "-o", str(outputs / "views"), "--svg", "--png"]),
+    ]
+    for step, cwd, args in steps:
+        code, reviewed, error = run_cli(cwd, *args, *stamp, "--dry-run", timeout=900)
+        assert code == 0, f"{step} --dry-run: {error or reviewed}"
+        result = reviewed["result"]
+        assert isinstance(result, dict)
+        plan, rows = result["plan_id"], result["plan"]
+        assert isinstance(plan, str) and isinstance(rows, list) and rows, step
+        tools = (_calls(kicad_log), _calls(java_log))
+        if step == "route":
+            assert len([line for line in tools[1] if "-de" in line.split()]) == 1, "one router run"
+        code, written, error = run_cli(cwd, *args, *stamp, "--confirm", "--plan", plan, timeout=900)
+        assert code == 0, f"{step} --confirm --plan: {error or written}"
+        assert (_calls(kicad_log), _calls(java_log)) == tools, f"{step}: a tool ran for the write"
+        receipt = written["receipt"]
+        assert isinstance(receipt, dict) and receipt["plan"] == plan
+        planned = {row["path"]: row["sha256"] for row in rows}
+        assert {w["path"]: w["sha256"] for w in receipt["written"]} == planned, step
+        for path, digest in planned.items():
+            assert hashlib.sha256((cwd / path).read_bytes()).hexdigest() == digest, (step, path)
+        print(f"{step}: {len(planned)} file(s) written as reviewed, plan {plan}")
+    assert not list((tmp_path / "state" / "plans").iterdir()), "every written plan was removed"
+    code, checked, error = run_cli(project, "check", name)
+    assert code == 0, error or checked
+    assert_finished(LoopRun(project, project / name, {"check": checked}))

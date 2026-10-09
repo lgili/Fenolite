@@ -52,3 +52,20 @@ def test_one_entry_per_binary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
 def test_missing_files_are_left_out(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("FENOLITE_KICAD_CLI", str(tmp_path / "nowhere"))
     assert kicad_cli_candidates([tmp_path / "missing-too"]) == ()
+
+
+def test_docker_marker_keeps_its_image_in_a_windows_path() -> None:
+    """A ``docker:<image>`` marker held in a Windows path spells the image's slashes as backslashes; the
+    runner and the marker text give the image as written (the unit job on Windows found the backslash)."""
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    from fenolite.backends.kicad.cli import DockerCli, cli_for, docker_image, marker_text
+
+    image = "kicad/kicad:9.0.9@sha256:" + "0" * 64
+    windows = PureWindowsPath(f"docker:{image}")
+    assert str(windows) != f"docker:{image}"  # the form the Windows job saw
+    for held in (windows, PurePosixPath(f"docker:{image}"), f"docker:{image}"):
+        assert docker_image(held) == image and marker_text(held) == f"docker:{image}"
+    runner = cli_for(Path(f"docker:{image}"))
+    assert isinstance(runner, DockerCli) and runner.image == image
+    assert docker_image(Path("kicad-cli")) is None and marker_text("kicad-cli") == "kicad-cli"

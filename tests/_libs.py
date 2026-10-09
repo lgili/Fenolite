@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 from fenolite.backends.kicad import libcache
+from fenolite.backends.kicad.cli import private_state
 from fenolite.backends.kicad.sexpr import Node, dumps, load
 
 MINI = Path(__file__).resolve().parent / "data" / "libs"
@@ -39,6 +40,7 @@ def isolated_kicad_env(tmp_path: Path) -> dict[str, str]:
     config = tmp_path / "kicad-config"
     config.mkdir(exist_ok=True)
     env = {k: v for k, v in os.environ.items() if not k.startswith(("KICAD", "KIPRJMOD"))}
+    env.update(private_state(tmp_path / "kicad-state"))  # no shared instance lock (c0153)
     env.update({"KICAD_CONFIG_HOME": str(config), "LANG": "C", "LC_ALL": "C"})
     return env
 

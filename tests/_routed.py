@@ -74,7 +74,7 @@ class Routed:
 
     def files(self) -> dict[str, bytes]:
         return {
-            str(p.relative_to(self.out)): p.read_bytes()
+            p.relative_to(self.out).as_posix(): p.read_bytes()
             for p in sorted(self.out.rglob("*"))
             if p.is_file() and not p.name.endswith(".bak")
         }

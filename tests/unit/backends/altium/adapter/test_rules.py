@@ -276,7 +276,7 @@ def test_the_copper_check_counts_the_cells(monkeypatch: pytest.MonkeyPatch) -> N
     ]
 
 
-# --- The slack of the unit (change c0131) --------------------------------------------------------------
+# --- The slack of the unit (change c0131) and Altium's observed tolerance (change c0152) ----------------
 
 
 def _two_tracks(inside_units: int):  # noqa: ANN202
@@ -291,20 +291,40 @@ def _two_tracks(inside_units: int):  # noqa: ANN202
     return rec.document(nets=("A", "B"), rules=[rule], tracks=tracks)
 
 
+def test_the_slack_is_derived() -> None:
+    """The constants of the slack are arithmetic on the unit and on the observed tolerance, never chosen."""
+    from fractions import Fraction
+
+    from fenolite.backends.altium.backend import (
+        ALTIUM_PASSED_NM,
+        ALTIUM_PASSED_UNITS,
+        CLEARANCE_SLACK_NM,
+        FILE_UNIT_NM,
+        PAIR_SLACK_NM,
+        UNIT_SLACK_NM,
+    )
+
+    assert PAIR_SLACK_NM == 2 * FILE_UNIT_NM and UNIT_SLACK_NM == 5
+    assert ALTIUM_PASSED_UNITS == Fraction(7, 2) and ALTIUM_PASSED_NM == Fraction(889, 100)
+    assert CLEARANCE_SLACK_NM == 9
+    # 9 is the least whole value that passes a model gap 8.89 nm short once that gap is rounded down
+    assert CLEARANCE_SLACK_NM - 1 < ALTIUM_PASSED_NM <= CLEARANCE_SLACK_NM
+
+
 @pytest.mark.parametrize(
-    ("inside_units", "gap", "found"), [(0, 254_000, 0), (2, 253_995, 0), (3, 253_992, 1)]
+    ("inside_units", "gap", "found"),
+    [(0, 254_000, 0), (2, 253_995, 0), (3, 253_992, 0), (4, 253_990, 1)],
 )
-def test_one_file_unit_per_item_on_records(
+def test_the_slack_on_records(
     inside_units: int, gap: int, found: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Scenario "At the bound, on records": copper two file units inside its clearance is no finding (one
-    unit per item of the pair), and copper three units inside is one. The file cannot hold a gap between
-    the two: its grid is the unit."""
-    from fenolite.backends.altium.backend import FILE_UNIT_NM, PAIR_SLACK_NM, UNIT_SLACK_NM
+    """Scenario "At the bound, on records": copper up to 3.5 file units inside its clearance is no
+    finding, and copper four units inside is one. The two tracks' grid is the unit, so no record of them
+    holds a gap between the last two."""
+    from fenolite.backends.altium.backend import CLEARANCE_SLACK_NM
     from fenolite.backends.altium.read import pcb
     from fenolite.checks.copper import check_copper
 
-    assert PAIR_SLACK_NM == 2 * FILE_UNIT_NM and UNIT_SLACK_NM == 5
     document = _two_tracks(inside_units)
     design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
     assert design.board is not None
@@ -315,20 +335,63 @@ def test_one_file_unit_per_item_on_records(
     report = check_copper(rules.design, pads=())
     assert [f.code for f in report.findings] == ["copper.clearance"] * found
     if found:
-        assert (report.findings[0].gap, report.findings[0].clearance) == (gap, 254_000 - UNIT_SLACK_NM)
+        assert (report.findings[0].gap, report.findings[0].clearance) == (gap, 254_000 - CLEARANCE_SLACK_NM)
 
 
-@pytest.mark.parametrize(("moved", "found"), [(0, 0), (1, 1)])
-def test_one_nanometre_inside_the_bound(moved: int, found: int, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "One nanometre inside the bound": the model of the document with one track moved by a
-    nanometre, which no file can hold, so that the gap is 6 nm below the rule's value."""
+PAD_UNITS = 637_795
+"""An odd size of a square pad, so that its edge lies on a half unit (authored for Fenolite)."""
+
+
+@pytest.mark.parametrize(("half_units_inside", "found"), [(7, 0), (9, 1)])
+def test_a_pad_and_a_track_at_the_observed_tolerance(
+    half_units_inside: int, found: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario "At Altium's observed tolerance": a rectangular pad of an odd size and a track of another
+    net under a Clearance of 5 mil. With the track's edge 3.5 units inside the clearance (the pair kind and
+    the shortfall that Altium passes, S-0616) there is no finding; one unit nearer, 4.5 units inside, there
+    is one."""
+    from fractions import Fraction
+
+    from fenolite.backends.altium.backend import ALTIUM_PASSED_UNITS, CLEARANCE_SLACK_NM
+    from fenolite.backends.altium.read import pcb
+    from fenolite.checks.copper import check_copper
+
+    rule = rec.rule("Clearance", "Clearance", GAP="5mil", GENERICCLEARANCE="5mil", OBJECTCLEARANCES="")
+    edge = Fraction(PAD_UNITS, 2)
+    centre = edge + 50_000 - Fraction(half_units_inside, 2) + 25_000
+    assert centre.denominator == 1
+    x = int(centre)
+    pad = rec.pad("1", (0, 0), size=(PAD_UNITS, PAD_UNITS), shape=2, layer=1, net=0)
+    track = rec.track((x, -400_000), (x, 400_000), 50_000, layer=1, net=1)
+    document = rec.document(nets=("A", "B"), rules=[rule], pads=[pad], tracks=[track])
+    design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
+    monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
+    backend = AltiumBackend()
+    rules = backend.rules_from_bytes(design, b"document", file="a.PcbDoc")
+    report = check_copper(rules.design, pads=backend.board_pads(rules.design))
+    assert [f.code for f in report.findings] == ["copper.clearance"] * found
+    shortfall = Fraction(half_units_inside, 2)
+    assert (shortfall <= ALTIUM_PASSED_UNITS) == (not found)
+    if found:
+        (finding,) = report.findings
+        assert sorted(item.kind for item in finding.items) == ["pad", "track"]
+        assert finding.clearance == 127_000 - CLEARANCE_SLACK_NM
+        assert finding.gap == 126_988  # 49 995.5 units, 126 988.57 nm, read in whole nanometres
+
+
+@pytest.mark.parametrize(("moved", "gap", "found"), [(1, 253_991, 0), (2, 253_990, 1)])
+def test_one_nanometre_inside_the_bound(
+    moved: int, gap: int, found: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scenario "One nanometre inside the bound": the model of the document with one track moved by one or
+    two nanometres, which no file can hold. 9 nm below the rule's value is no finding, 10 nm is one."""
     import dataclasses
 
     from fenolite.backends.altium.read import pcb
     from fenolite.checks.copper import check_copper
     from fenolite.core.coords import Point
 
-    document = _two_tracks(2)
+    document = _two_tracks(3)
     design = import_board(document, file="a.PcbDoc", sha256=rec.SHA)
     assert design.board is not None
     first, second = design.board.tracks
@@ -338,10 +401,11 @@ def test_one_nanometre_inside_the_bound(moved: int, found: int, monkeypatch: pyt
         start=Point(second.start.x, second.start.y + sign * moved),
         end=Point(second.end.x, second.end.y + sign * moved),
     )
+    assert abs(nearer.start.y - first.start.y) - first.width == gap
     board = dataclasses.replace(design.board, tracks=(first, nearer))
     monkeypatch.setattr(pcb, "read_rule_fields", lambda data, file: [r.fields for r in document.rules])
     rules = AltiumBackend().rules_from_bytes(
         dataclasses.replace(design, board=board), b"document", file="a.PcbDoc"
     )
     report = check_copper(rules.design, pads=())
-    assert [(f.code, f.gap) for f in report.findings] == [("copper.clearance", 253_994)] * found
+    assert [(f.code, f.gap) for f in report.findings] == [("copper.clearance", gap)] * found

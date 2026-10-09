@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: CC0-1.0
+# Authored for Fenolite's agent evaluation; the part U1 is invented and every number is a round value
+# chosen for this task.
+title = "A part with an authored footprint"
+prompt = """
+Make a printed-circuit board that holds a part the tool does not provide, as a KiCad project with its
+fabrication files. You describe that part yourself: its symbol and its footprint.
+
+The parts:
+- J1, a three-pin 2.54 mm header.
+- U1, a surface-mount sensor with three pins and four pads. Its pins, by number: 1 is VDD, 2 is GND,
+  3 is OUT; all three are passive. Its footprint, origin at the centre, sizes as width by height:
+  - pads 1, 2 and 3, each 1.2 mm by 0.8 mm, at x = -2 mm and y = -1.5 mm, 0 and 1.5 mm;
+  - pad 4, 2 mm by 3.6 mm, at x = 1.5 mm, y = 0.
+  Pin 1 takes pad 1, pin 3 takes pad 3, and pin 2 takes the two pads 2 and 4.
+
+The nets:
+- J1 pin 1 and U1 pin 1.
+- J1 pin 2 and U1 pin 2.
+- J1 pin 3 and U1 pin 3.
+
+No other part and no other connection.
+
+The board has two copper layers and is at most 30 mm by 20 mm. Every net is closed with copper, the
+two pads of pin 2 included, and the board passes the electrical and design-rule checks of the tool
+you use, with KiCad's own checks among them.
+
+Leave the result in these folders, relative to the folder you are in:
+- board/build: the KiCad project (one board file);
+- board/fab: the fabrication files, with Gerber (.gbr) and drill (.drl) files.
+
+U1 is invented for this task and its sizes are round numbers from no product. No KiCad library is
+installed on this machine and nothing may be downloaded.
+"""
+
+[budget]
+minutes = 30
+
+[expect]
+project = "board/build"
+copper_layers = 2
+max_size = ["30mm", "20mm"]
+outputs = ["board/fab/**/*.gbr", "board/fab/**/*.drl"]
+
+[expect.nets]
+VDD = ["J1-1", "U1-1"]
+GND = ["J1-2", "U1-2"]
+OUT = ["J1-3", "U1-3"]

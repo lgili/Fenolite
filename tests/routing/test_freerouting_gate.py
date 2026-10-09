@@ -12,6 +12,11 @@ The tests run the jar named by ``FENOLITE_FREEROUTING_JAR`` as a subprocess, wit
 it with ``fenolite route --router freerouting`` and compares KiCad's DRC before and after, under
 ``kicad-cli`` of the board's own major (the local one, or the pinned image when it is here already).
 ``test_repeat`` compares two runs and ``test_offline`` runs the pinned Freerouting image without a network.
+
+Change c0109 adds ``test_no_optimizer`` (``H-G-DSN-NOOPT``: the setting that stops the optimization stage,
+and ``-mt 0``, which does not) and ``test_netless`` (``H-G-DSN-NETLESS``: a net left out of the network
+section gets no wire, and whether the router keeps the clearance KiCad asks for against it; ``-inc`` as the
+control).
 """
 
 from __future__ import annotations
@@ -29,17 +34,20 @@ from pathlib import Path
 import pytest
 from _copper import built_blink
 from _resources import FREEROUTING_ENV, kicad_cli
-from _specctra import DEFAULTS, Bench, two_pads
+from _specctra import DEFAULTS, NETLESS_GAP, WIDE_CLEARANCE, Bench, netless_bench, two_pads
 
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.cli import DockerCli, KicadCli
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.outline import board_outline
+from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.specctra.dsn import DsnResult
 from fenolite.backends.specctra.ses import Session, read_session, to_copper
 from fenolite.model.board import Track
-from fenolite.routing.plugins.specctra.freerouting import FreeroutingRouter
-from fenolite.routing.protocol import JobNet, RoutingJob
+from fenolite.model.design import Design
+from fenolite.routing.merge import apply
+from fenolite.routing.plugins.specctra.freerouting import OPTIMIZER_OFF, FreeroutingRouter
+from fenolite.routing.protocol import JobNet, RoutingJob, RoutingResult
 
 pytestmark = pytest.mark.needs_freerouting
 
@@ -98,6 +106,17 @@ def _record(outcome: str, value: str, detail: str = "") -> None:
 def _route(written: DsnResult, folder: Path) -> tuple[Session | None, str]:
     """Run Freerouting on ``written`` in ``folder``; the session it wrote (``None`` without one) and the
     tail of its output."""
+    session, output = _run(written, folder)
+    tail = "\n".join(output.splitlines()[-20:])
+    return session, tail if session is not None else f"no session\n{tail}"
+
+
+def _run(
+    written: DsnResult, folder: Path, *extra: str, threads: str = "1", first: tuple[str, ...] = ()
+) -> tuple[Session | None, str]:
+    """Run Freerouting on ``written`` in ``folder`` with ``-mt <threads>``, ``first`` before the other
+    arguments and ``extra`` after them; the session it wrote (``None`` without one) and its whole
+    output."""
     java = _java()
     match = re.search(r'"?(\d+)[.\d]*', _java_version(java).split("version")[-1])
     if match is None or int(match.group(1)) < JAVA_MIN:
@@ -109,6 +128,7 @@ def _route(written: DsnResult, folder: Path) -> tuple[Session | None, str]:
         java,
         "-jar",
         os.environ[FREEROUTING_ENV],
+        *first,
         "-de",
         "board.dsn",
         "-do",
@@ -116,19 +136,20 @@ def _route(written: DsnResult, folder: Path) -> tuple[Session | None, str]:
         "-mp",
         str(PASSES),
         "-mt",
-        "1",
+        threads,
         "-da",
         "--gui.enabled=false",
+        *extra,
     ]
     env = {**os.environ, "HOME": str(folder), "LANG": "C"}
     done = subprocess.run(
         command, cwd=folder, env=env, capture_output=True, text=True, timeout=TIMEOUT, check=False
     )
-    tail = "\n".join((done.stdout + done.stderr).splitlines()[-20:])
+    output = done.stdout + done.stderr
     session = folder / "board.ses"
     if not session.is_file():
-        return None, f"exit {done.returncode}, no session\n{tail}"
-    return read_session(session.read_text(encoding="utf-8"), file="board.ses"), tail
+        return None, f"{output}\nexit {done.returncode}, no session"
+    return read_session(session.read_text(encoding="utf-8"), file="board.ses"), output
 
 
 def _blink() -> Bench:
@@ -394,3 +415,151 @@ def test_offline() -> None:
         "; ".join(failed) or f"{len(result.tracks)} track(s)",
     )
     assert present, failed or result.log
+
+
+# --- the optimizer switch and nets outside the job (change c0109) --------------------------------------
+
+OPTIMIZATION = "Optimization stage"
+"""What Freerouting 2.4.1 prints when its optimizer starts and ends (read from its output here)."""
+
+
+def test_no_optimizer(tmp_path: Path) -> None:
+    """``H-G-DSN-NOOPT``: with the setting ``router.optimizer.enabled=false`` no optimization stage is
+    logged and a session is written; ``-mt 0`` alone does not stop the stage."""
+    written = _blink().write()
+    found: dict[str, tuple[bool, bool]] = {}
+    for name, extra, threads in (("noopt", (OPTIMIZER_OFF,), "1"), ("mt0", (), "0"), ("plain", (), "1")):
+        folder = tmp_path / name
+        folder.mkdir()
+        session, output = _run(written, folder, *extra, threads=threads)
+        found[name] = (OPTIMIZATION in output, session is not None and bool(session.wires))
+    noopt = "absent" if found["noopt"] == (False, True) else "present"
+    mt0 = "present" if found["mt0"][0] else "absent"
+    text = "; ".join(
+        f"{name}: optimization stage logged: {stage}, session with wires: {session}"
+        for name, (stage, session) in found.items()
+    )
+    _record("dsn-noopt", noopt, f"blink, {OPTIMIZER_OFF}: {text}")
+    _record("dsn-mt0", mt0, f"blink, -mt 0 without the setting: {text}")
+    assert found["plain"][0], "the control run logs the stage, so its absence means something"
+    assert noopt == "absent", text
+    assert mt0 == "present", text
+
+
+def _local_cli() -> KicadCli:
+    binary = kicad_cli()
+    assert binary is not None
+    return KicadCli(Path(binary), timeout=300)
+
+
+def _local_target() -> int:
+    """The KiCad major the boards judged by the local ``kicad-cli`` are written for."""
+    return min(_local_cli().major(), 10)
+
+
+def _clearance_errors(design: Design, folder: Path) -> tuple[list[str], str]:
+    """KiCad's clearance violations on ``design``, written with its project and rules files into
+    ``folder``, and the version of the tool."""
+    cli = _local_cli()
+    folder.mkdir(parents=True, exist_ok=True)
+    target = min(cli.major(), 10)
+    for name, text in write_triad(design, name="bench", target=target).items():
+        (folder / name).write_text(text, encoding="utf-8", newline="\n")
+    related = {name: folder / name for name in ("bench.kicad_pro", "bench.kicad_dru")}
+    run = cli.drc(folder / "bench.kicad_pcb", files={k: v for k, v in related.items() if v.is_file()})
+    assert run.report is not None, run.run.stderr or run.run.stdout
+    found = [item.type for item in run.report.violations if item.type == "clearance"]
+    return found, cli.version()
+
+
+def _routed(b: Bench, session: Session, written: DsnResult) -> Design:
+    tracks, vias, issues = to_copper(session, written.names, selected=b.selected)
+    assert not [issue for issue in issues if issue.severity == "error"], issues
+    return apply(b.design, RoutingResult(tracks=tracks, vias=vias))
+
+
+def _without_class(b: Bench, net: str) -> Bench:
+    """``b`` with ``net`` in no class: the design file of ``others="netless"`` then leaves the net out,
+    whatever its class asks for. This is the file the mode wrote before the fallback of design decision 4."""
+    nets = tuple(
+        dataclasses.replace(item, netclass_id=None) if item.name == net else item
+        for item in b.design.circuit.nets
+    )
+    circuit = dataclasses.replace(b.design.circuit, nets=nets)
+    return dataclasses.replace(b, design=dataclasses.replace(b.design, circuit=circuit))
+
+
+@pytest.mark.needs_kicad
+def test_netless(tmp_path: Path) -> None:
+    """``H-G-DSN-NETLESS``: a net left out of the network section gets no wire, and its pins and copper
+    stay obstacles at the default rule. Whether the router also keeps the clearance KiCad asks for when
+    the left-out class is wider than the default rule is recorded either way (``dsn-netless``); the mode
+    as built keeps such a net declared, and that file must give no clearance violation
+    (``dsn-netless-declared``). ``-inc`` is the control: a class named with it is still routed."""
+    target = _local_target()  # the footprints of the bench are those of the major that judges it
+    b = netless_bench(target=target)
+    before, version = _clearance_errors(b.design, tmp_path / "before")
+    assert before == [], "the unrouted bench is clean"
+    left_out = _without_class(b, "B")
+    cases = {
+        # B left out of the network section, judged with its class of 0.4 mm
+        "left-out": (left_out.write(others="netless"), b),
+        # the same routed copper, judged with B in the default class: the default rule is kept
+        "default": (left_out.write(others="netless"), left_out),
+        # the mode as built: the wider class keeps B declared
+        "built": (b.write(others="netless"), b),
+    }
+    assert "B" not in cases["left-out"][0].names.nets.values()
+    assert "B" in cases["built"][0].names.nets.values()
+    facts: dict[str, tuple[int, int, int]] = {}
+    for name, (written, judged) in cases.items():
+        folder = tmp_path / name
+        folder.mkdir()
+        session, output = _run(written, folder, OPTIMIZER_OFF)
+        assert session is not None, output[-2000:]
+        routed = _routed(judged, session, written)
+        assert routed.board is not None
+        on_b = sum(1 for wire in session.wires if written.names.nets.get(wire.net) not in ("A", "C"))
+        errors, _ = _clearance_errors(routed, tmp_path / f"{name}-routed")
+        facts[name] = (on_b, len(errors), len(routed.board.tracks) - 1)
+    wires, errors, tracks = facts["left-out"]
+    netless = "absent" if wires == 0 and errors == 0 else "present"
+    gap, wide, rule = NETLESS_GAP / 1e6, WIDE_CLEARANCE / 1e6, DEFAULTS.clearance / 1e6
+    _record(
+        "dsn-netless",
+        netless,
+        f"kicad-cli {version}: the net B (class clearance {wide:g} mm, default rule {rule:g} mm) left out "
+        f"between A and C, whose straight routes pass {gap:g} mm from its pads: {wires} session wire(s) "
+        f"on B, {tracks} new track(s), {errors} clearance violation(s) by KiCad; the same copper judged "
+        f"with B in the default class: {facts['default'][1]} clearance violation(s)",
+    )
+    built_wires, built_errors, built_tracks = facts["built"]
+    _record(
+        "dsn-netless-declared",
+        "absent" if built_errors == 0 else "present",
+        f'kicad-cli {version}: the same bench written with others="netless" as built, where the wider '
+        f"class keeps B declared: {built_tracks} new track(s), {built_errors} clearance violation(s) by "
+        f"KiCad, {built_wires} session wire(s) on B (its protected track, read back)",
+    )
+    # the control: the class of an open net named with -inc
+    opened = netless_bench(joined=False, target=target)
+    written = opened.write()
+    ignored = written.names.nets
+    assert "B" in ignored.values()
+    counts: list[int] = []
+    for name, first, extra in (("inc-first", ("-inc", "WIDE"), ()), ("inc-last", (), ("-inc", "WIDE"))):
+        folder = tmp_path / name
+        folder.mkdir()
+        session, output = _run(written, folder, OPTIMIZER_OFF, *extra, first=first)
+        assert session is not None, output[-2000:]
+        counts.append(sum(1 for wire in session.wires if ignored.get(wire.net) == "B"))
+    inc = "present" if all(counts) else "absent"
+    _record(
+        "dsn-inc",
+        inc,
+        f"the open net B in the class WIDE, declared, with -inc WIDE as the first and as the last "
+        f"argument: {counts[0]} and {counts[1]} session wire(s) on B",
+    )
+    assert wires == 0, "a net left out of the network section gets no wire"
+    assert facts["default"][1] == 0, "netless pins and protected wiring are obstacles at the default rule"
+    assert built_errors == 0, "the design file as built gives no clearance violation against B"

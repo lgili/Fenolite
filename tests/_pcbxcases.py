@@ -11,7 +11,6 @@ What KiCad's importer does not read is not compared and is listed in ``NOT_COMPA
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 import tempfile
@@ -21,6 +20,7 @@ from functools import cache
 from pathlib import Path
 
 from _altium_board6 import LAYERS, NAME, PLANES, board6_build, board6_model
+from _kicad import oracle_env
 from _resources import kicad_cli
 
 from fenolite.backends.kicad.pcb import read_board
@@ -59,7 +59,7 @@ def import_document(data: bytes, name: str = f"{NAME}.PcbDoc") -> Imported:
         root = Path(folder)
         source, target = root / name, root / "b.kicad_pcb"
         source.write_bytes(data)
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "pcb", "import", "--format", "altium", "-o", str(target), str(source)],
             capture_output=True, text=True, timeout=300, env=env, check=False,

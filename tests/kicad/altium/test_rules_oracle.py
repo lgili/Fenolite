@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
 import re
 import subprocess
 import tempfile
@@ -24,6 +23,7 @@ from pathlib import Path
 
 import pytest
 from _altium_copper import NAME, routed_build, routed_model
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium import pcbdoc, rulemap
@@ -100,7 +100,7 @@ def imported(with_rules: bool) -> Imported:
         kinds = tuple(rule.rule_kind or "" for rule in read_pcbdoc(data, file=f"{NAME}.PcbDoc").rules)
         source, target, report = root / f"{NAME}.PcbDoc", root / "b.kicad_pcb", root / "r.json"
         source.write_bytes(data)
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "pcb", "import", "--format", "altium", "--report-format", "json",
              "--report-file", str(report), "-o", str(target), str(source)],

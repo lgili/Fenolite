@@ -11,7 +11,19 @@ import pytest
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
-from fenolite.routing.protocol import JobNet, JobPad, Router, RouterStatus, RoutingJob, RoutingResult
+from fenolite.routing.direct import DirectRouter
+from fenolite.routing.protocol import (
+    ROUTER_FEATURES,
+    JobEscape,
+    JobNet,
+    JobPad,
+    JobPair,
+    Router,
+    RouterStatus,
+    RoutingJob,
+    RoutingResult,
+    router_features,
+)
 
 
 def test_job_is_model_data_with_nm_constraints() -> None:
@@ -49,3 +61,51 @@ def test_router_protocol_has_readiness_and_route_contract() -> None:
     job = RoutingJob(Design.new("routing-test", seed=1), (), ())
     assert router.available().available
     assert router.route(job).unrouted == ()
+
+
+# --- pairs, escape requests and router features (change c0110) ----------------------------------------
+
+
+def test_pairs_and_escape_default_to_empty() -> None:
+    """Scenario "A job built as before"."""
+    design = Design.new("routing-test", seed=1)
+    job = RoutingJob(design, (), ("F.Cu",))
+    assert job.pairs == () and job.escape == ()
+    assert job == RoutingJob(design, (), ("F.Cu",), pairs=(), escape=())
+    pair = JobPair("USB_P/USB_N", "USB_P", "USB_N", 200_000, 150_000, skew_max=100_000)
+    escape = JobEscape("U1", "perimeter", 500_000, ("Q01", "Q02"))
+    held = RoutingJob(design, (), ("F.Cu",), pairs=(pair,), escape=(escape,))
+    assert held.pairs[0].via_gap is None and held.escape[0].nets == ("Q01", "Q02")
+    with pytest.raises(FrozenInstanceError):
+        pair.gap = 1  # type: ignore[misc]
+
+
+def test_router_features_of_routers_without_a_valid_set() -> None:
+    """Scenario "A router without features"."""
+
+    class Bare:
+        name = "bare"
+        description = "test router"
+        sends_data_offsite = False
+
+        def available(self) -> RouterStatus:
+            return RouterStatus(True)
+
+        def route(self, job: RoutingJob) -> RoutingResult:
+            return RoutingResult()
+
+    class Listed(Bare):
+        features = ["pairs"]
+
+    class Unknown(Bare):
+        features = frozenset({"pairs", "meanders"})
+
+    class Both(Bare):
+        features = frozenset({"pairs", "escape"})
+
+    bare: Router = Bare()
+    assert router_features(bare) == frozenset()
+    assert router_features(Listed()) == frozenset()
+    assert router_features(DirectRouter()) == frozenset()
+    assert router_features(Unknown()) == frozenset()
+    assert router_features(Both()) == ROUTER_FEATURES == frozenset({"pairs", "escape"})

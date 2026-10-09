@@ -11,7 +11,7 @@ import os
 import random
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import opaque_count, opaque_digests, read_board, rebuild_board
@@ -27,6 +27,9 @@ from fenolite.model.board import (
     Keepout,
     Outline,
     Pad,
+    StackKind,
+    StackLayer,
+    Stackup,
     Text,
     Track,
     Via,
@@ -41,6 +44,8 @@ from fenolite.model.design import Design
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
 
 FIXTURE = Path(__file__).resolve().parent / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+STACKUP_FIXTURE = FIXTURE.with_name("stackup_four.kicad_pcb")
+"""The authored four-layer board with a stack-up (c0101): ``four_layer_stackup()`` on a created board."""
 LAYERS = (
     '(layers (0 "F.Cu" signal) (4 "In1.Cu" signal) (2 "B.Cu" signal) (1 "F.Mask" user) (3 "B.Mask" user)'
     ' (25 "Edge.Cuts" user))'
@@ -150,6 +155,33 @@ SCENARIOS: dict[str, str] = {
 }
 
 
+def _stack_scenario(node: str) -> str:
+    """A board whose ``setup`` holds ``node`` (the table of ``LAYERS``: three copper layers, two masks)."""
+    return board().replace("(setup (pad_to_mask_clearance 0))", f"(setup {node} (pad_to_mask_clearance 0))")
+
+
+_STACK_ROWS = (
+    '(layer "F.Mask" (type "Top Solder Mask") (thickness 0.01))'
+    ' (layer "F.Cu" (type "copper") {top})'
+    ' (layer "dielectric 1" (type "core") (thickness 0.7))'
+    ' (layer "In1.Cu" (type "copper") (thickness 0.035))'
+    ' (layer "dielectric 2" (type "prepreg") (thickness 0.775))'
+    ' (layer "B.Cu" (type "copper") (thickness 0.035))'
+    ' (layer "B.Mask" (type "Bottom Solder Mask") (thickness 0.01))'
+)
+SCENARIOS.update(
+    {
+        "stackup-unused": _stack_scenario('(stackup (layer "F.Cu" (type "copper") (thickness 0.035)))'),
+        "stackup-unmodelled": _stack_scenario(f"(stackup {_STACK_ROWS.format(top='')})"),
+        "stackup-thickness": _stack_scenario(
+            f'(stackup {_STACK_ROWS.format(top="(thickness 0.07)")} (copper_finish "None"))'
+        ),
+    }
+)
+"""The three ``kicad.board.stackup-*`` codes of a read (c0101): a node KiCad ignores, a copper row without
+a thickness, and rows that sum to 1.635 mm on a board that states 1.6 mm."""
+
+
 def _without_provenance(value: Any) -> Any:
     if isinstance(value, dict):
         return {k: _without_provenance(v) for k, v in value.items() if k != "provenance"}  # pyright: ignore[reportUnknownVariableType]
@@ -220,12 +252,12 @@ def square(x0: float, y0: float, x1: float, y1: float) -> tuple[Point, ...]:
     return (mm(x0, y0), mm(x1, y0), mm(x1, y1), mm(x0, y1))
 
 
-def created_board(copper: Literal[2, 4] = 2) -> Design:
+def created_board(copper: int = 2) -> Design:
     """The created test board of the writer (c0017 Decision 19): ``created_layers(copper)``, a 50 × 30 mm
     outline, the nets GND, LED_A and VIN, one created entity of every ``CANONICAL_ORDER`` head (its
     footprint with a ``Reference`` field at (0, −1.5 mm) and a hidden ``Value`` field, c0030), an A4
-    sheet and a seven-field title block (c0012), so that every name of ``pcb.FLOOR_HEADS`` is written
-    for target 9."""
+    sheet and a seven-field title block (c0012) and the stack-up ``created_stackup(copper)`` (c0101), so
+    that every name of ``pcb.FLOOR_HEADS`` is written for target 9."""
     rng = random.Random(copper)
     design = Design.new("created", seed=copper)
     nets = {name: Net(id=new_id("net", rng), name=name) for name in CREATED_NETS}
@@ -292,6 +324,7 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
         graphics=graphics,
         sheet=SheetFrameRef("A4"),
         title_block=CREATED_TITLE_BLOCK,
+        stackup=created_stackup(copper),
     )  # fmt: skip
     members = {gnd: (PinRef(u1.id, "1"),), led: (PinRef(u1.id, "2"),)}
     circuit = Circuit(
@@ -299,6 +332,109 @@ def created_board(copper: Literal[2, 4] = 2) -> Design:
         nets=tuple(dataclasses.replace(n, members=members.get(n.id, ())) for n in nets.values()),
     )
     return dataclasses.replace(design, circuit=circuit, board=board)
+
+
+def stack_entry(name: str, kind: StackKind, thickness: int, **more: Any) -> StackLayer:
+    """A stack-up entry with an id derived from its name, kind and values."""
+    key = f"{name}:{kind}:{thickness}:{sorted(more.items())}"
+    return StackLayer(id=derived_id("sly", "tests", key), name=name, kind=kind, thickness=thickness, **more)
+
+
+def stack_of(*entries: StackLayer, finish: str = "", impedance_controlled: bool = False) -> Stackup:
+    key = ":".join(e.id for e in entries)
+    return Stackup(
+        id=derived_id("stk", "tests", key), layers=entries, finish=finish,
+        impedance_controlled=impedance_controlled,
+    )  # fmt: skip
+
+
+def four_layer_stackup(*, outer: bool = True) -> Stackup:
+    """The stack-up of ``stackup_four.kicad_pcb`` (2.025 mm): masks of 10 µm (the top one ``Green``), a
+    prepreg, a core of two sheets (the second 0.3 mm of ``Laminate B``) and a prepreg, finish ``ENIG``,
+    impedance controlled. ``outer=False`` leaves out the four silkscreen and paste entries."""
+    fr4 = {"material": "FR4", "epsilon_r": "4.5", "loss_tangent": "0.02"}
+    top = (stack_entry("F.SilkS", "silkscreen", 0), stack_entry("F.Paste", "solderpaste", 0))
+    bottom = (stack_entry("B.Paste", "solderpaste", 0), stack_entry("B.SilkS", "silkscreen", 0))
+    middle = (
+        stack_entry("F.Mask", "soldermask", 10_000, color="Green"),
+        stack_entry("F.Cu", "copper", 35_000),
+        stack_entry("dielectric 1", "dielectric", 200_000, dielectric_kind="prepreg", **fr4),
+        stack_entry("In1.Cu", "copper", 17_500),
+        stack_entry("dielectric 2", "dielectric", 1_200_000, dielectric_kind="core", **fr4),
+        stack_entry("dielectric 2", "dielectric", 300_000, dielectric_kind="core", material="Laminate B",
+                    epsilon_r="3.66", loss_tangent="0.004"),
+        stack_entry("In2.Cu", "copper", 17_500),
+        stack_entry("dielectric 3", "dielectric", 200_000, dielectric_kind="prepreg", **fr4),
+        stack_entry("B.Cu", "copper", 35_000),
+        stack_entry("B.Mask", "soldermask", 10_000),
+    )  # fmt: skip
+    entries = (*top, *middle, *bottom) if outer else middle
+    return stack_of(*entries, finish="ENIG", impedance_controlled=True)
+
+
+def created_stackup(copper: int = 2) -> Stackup:
+    """The stack-up of the created test board (c0101), 1.6 mm for every created copper count (c0100): masks
+    of 10 µm (the top one with a colour), 35 µm copper, a core of two sheets with a material and both
+    decimals in the middle gap, and a prepreg of 0.1 mm in every other gap."""
+    fr4 = {"material": "FR4", "epsilon_r": "4.5", "loss_tangent": "0.02"}
+    names = [la.name for la in created_layers(copper) if la.kind == "copper"]
+    rest = 1_600_000 - 20_000 - 35_000 * copper - 100_000 * (copper - 2) - 500_000
+    entries: list[StackLayer] = [stack_entry("F.Mask", "soldermask", 10_000, color="Green")]
+    for k, name in enumerate(names, 1):
+        entries.append(stack_entry(name, "copper", 35_000))
+        if k == copper // 2:
+            entries += [
+                stack_entry(f"dielectric {k}", "dielectric", sheet, dielectric_kind="core", **fr4)
+                for sheet in (500_000, rest)
+            ]
+        elif k < copper:
+            entries.append(
+                stack_entry(f"dielectric {k}", "dielectric", 100_000, dielectric_kind="prepreg", **fr4)
+            )
+    entries.append(stack_entry("B.Mask", "soldermask", 10_000))
+    return stack_of(*entries, finish="ENIG")
+
+
+def bare_board(copper: int = 2, stackup: Stackup | None = None) -> Design:
+    """A created 50 × 30 mm board with one track per copper layer and no net (the stack-up benches)."""
+    design = Design.new("bare", seed=copper)
+    layers = created_layers(copper)
+    names = [la.name for la in layers if la.kind == "copper"]
+    tracks = tuple(
+        Track(id=derived_id("trk", "bare", name), start=mm(5, 5 + 3 * k), end=mm(45, 5 + 3 * k),
+              width=250_000, layer=name)
+        for k, name in enumerate(names)
+    )  # fmt: skip
+    board = Board(
+        id=derived_id("brd", "bare", str(copper)),
+        outline=Outline(id=derived_id("out", "bare", str(copper)), points=square(0, 0, 50, 30)),
+        layers=layers,
+        tracks=tracks,
+        stackup=stackup,
+    )
+    return dataclasses.replace(design, board=board)
+
+
+TWO_LAYER_NODE = (
+    '(stackup (layer "F.SilkS" (type "Top Silk Screen")) (layer "F.Paste" (type "Top Solder Paste"))'
+    ' (layer "F.Mask" (type "Top Solder Mask") (thickness 0.01))'
+    ' (layer "F.Cu" (type "copper") (thickness 0.035))'
+    ' (layer "dielectric 1" (type "core") (thickness 1.5))'
+    ' (layer "B.Cu" (type "copper") (thickness 0.035))'
+    ' (layer "B.Mask" (type "Bottom Solder Mask") (thickness 0.01))'
+    ' (layer "B.Paste" (type "Bottom Solder Paste")) (layer "B.SilkS" (type "Bottom Silk Screen"))'
+    ' (copper_finish "None") (dielectric_constraints no))'
+)
+"""A complete two-layer node: 35 µm copper, a 1.5 mm core and 10 µm masks (1.59 mm)."""
+
+
+def with_two_layer_node(text: str) -> str:
+    """The text of ``two_layer.kicad_pcb`` with ``TWO_LAYER_NODE`` in its ``setup`` and the board thickness
+    1.59 mm, by token edit (c0101: the boards of the ``analyze`` and ``export`` scenarios)."""
+    assert text.count("(setup") == 1 and text.count("(thickness 1.6)") == 1
+    return text.replace("(setup", f"(setup {TWO_LAYER_NODE}", 1).replace(
+        "(thickness 1.6)", "(thickness 1.59)", 1
+    )
 
 
 def large_board(*, min_bytes: int = 5 * 2**20) -> Design:

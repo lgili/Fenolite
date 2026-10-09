@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import math
 import re
 import uuid
 from collections import Counter
@@ -27,10 +28,14 @@ from fenolite import __version__
 from fenolite.backends.base import WriteResult
 from fenolite.backends.kicad import _pcbwrite, netnames
 from fenolite.backends.kicad import slots as slotlib
+from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
+from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_digest, outline_edges
 from fenolite.backends.kicad._fpmap import (
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
+    NET_TIES,
     PAD_FIELDS,
     PAD_POSITIONAL,
     Ids,
@@ -39,10 +44,14 @@ from fenolite.backends.kicad._fpmap import (
     emit_graphic,
     emit_pad,
     layers_node,
+    net_tie_groups,
     node,
+    opaque_fab_properties,
     opaque_zone_connects,
     padstack_key,
     point_node,
+    projected_fab_property,
+    projected_net_ties,
     projected_zone_connect,
     read_graphic,
     read_pad,
@@ -79,11 +88,14 @@ from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import FENOLITE_NS, content_hash, content_id, derived_id
-from fenolite.core.units import Udeg
+from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity, ExtBag, Modeled, Opaque, Slot
 from fenolite.model.board import (
     Arc,
     Board,
+    Dimension,
+    DimensionDirection,
+    DimensionUnits,
     FieldJustifyH,
     FieldJustifyV,
     FootprintAttribute,
@@ -93,9 +105,11 @@ from fenolite.model.board import (
     Keepout,
     Layer,
     Pad,
+    Stackup,
     Text,
     Track,
     Via,
+    ViaProtection,
     ViaType,
     Zone,
     ZoneFill,
@@ -120,6 +134,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.net-name-collision": "info",
         KEPT_CODE: "info",
         "kicad.board.paper-unmodelled": "info",
+        **stacklib.READ_ISSUE_CODES,
     }
 )
 PIN_TYPES: Mapping[str, PinType] = MappingProxyType({t: t for t in get_args(PinType)})
@@ -142,6 +157,7 @@ ROOT_FIELDS: Mapping[str, str] = MappingProxyType(
         "zone": "zones",
         **{head: f"graphics.{head}" for head in GR_GRAPHIC_HEADS},
         "gr_text": "texts",
+        "dimension": "dimensions",
     }
 )
 FOOTPRINT_FIELDS: Mapping[str, str] = MappingProxyType(
@@ -179,6 +195,7 @@ TRACK_FIELDS: Mapping[str, str] = MappingProxyType(
         "mid": "mid",
         "end": "end",
         "width": "width",
+        "locked": "locked",
         "layer": "layer",
         "net": "net_id",
         "uuid": "native_ids",
@@ -190,10 +207,14 @@ VIA_FIELDS: Mapping[str, str] = MappingProxyType(
         "size": "diameter",
         "drill": "drill",
         "layers": "layers",
+        "locked": "locked",
+        **{feature: feature for feature in vialib.FEATURES},
         "net": "net_id",
         "uuid": "native_ids",
     }
 )
+"""The children of a via. Each protection child (``tenting``, ``capping``, ``covering``, ``plugging``,
+``filling``) is a slot field of its own name; together they hold ``Via.protection`` (``via_protection``)."""
 VIA_POSITIONAL = ("via_type",)
 ZONE_FIELDS: Mapping[str, str] = MappingProxyType(
     {
@@ -212,18 +233,38 @@ ZONE_FIELDS: Mapping[str, str] = MappingProxyType(
         "fill": "fill_settings",
     }
 )
+ZONE_LAYER_HEADS = ("layer", "layers")
+"""The two heads that hold the layers of a zone or rule area; KiCad writes the first for one layer."""
 ZONE_SETTING_FIELDS: Mapping[str, str] = MappingProxyType(
     {head: ZONE_FIELDS[head] for head in zonelib.SETTING_HEADS}
 )
 """The setting children of a copper zone and the slot fields they map to (``zones.py``)."""
 KEEPOUT_FIELDS: Mapping[str, str] = MappingProxyType(
+    {k: v for k, v in ZONE_FIELDS.items() if v not in ("priority", "fills", *ZONE_SETTING_FIELDS.values())}
+)
+"""A rule area has no priority, fills or zone settings in the model; those children stay opaque."""
+DIMENSION_FIELDS: Mapping[str, str] = MappingProxyType(
     {
-        k: v
-        for k, v in ZONE_FIELDS.items()
-        if v not in ("name", "priority", "fills", *ZONE_SETTING_FIELDS.values())
+        "type": "kind",
+        "layer": "layer",
+        "uuid": "native_ids",
+        "pts": "points",
+        "height": "offset",
+        "orientation": "direction",
     }
 )
-"""A rule area has no name, priority, fills or zone settings in the model; those children stay opaque."""
+"""The modelled children of a linear dimension. ``format``, ``style`` and the ``gr_text`` stay opaque
+slots, projected into ``units``, ``precision``, ``width``, ``size`` and ``thickness`` (``board.md``,
+"Dimensions")."""
+DIMENSION_KINDS = ("aligned", "orthogonal")
+DIMENSION_UNITS: Mapping[str, DimensionUnits] = MappingProxyType({"2": "mm", "0": "in"})
+DIMENSION_PROJECTED: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {"format": ("units", "precision"), "style": ("width",), "gr_text": ("size", "thickness")}
+)
+"""Per projected child of a dimension, the model fields it holds."""
+DIMENSION_WIDTH = 100_000
+"""Line width of a created dimension without one (a Fenolite choice)."""
+INCH = 25_400_000
 FILL_FIELDS: Mapping[str, str] = MappingProxyType({"layer": "layer", "island": "island", "pts": "polygon"})
 TEXT_FIELDS: Mapping[str, str] = MappingProxyType({"at": "position", "layer": "layer", "uuid": "native_ids"})
 TEXT_POSITIONAL = ("text",)
@@ -384,6 +425,11 @@ def _emit_board_pad(pad: Pad, rotation: Udeg, nets: _Nets) -> Items:
     return emit_pad(pad, nets.node(pad.net_id, pad=True), angle=angle)
 
 
+def _lock_items(locked: bool) -> list[Node | Atom]:
+    """``(locked yes)`` for a locked track, arc or via; nothing for an unlocked one (``H-K-LOCK-FORM``)."""
+    return [node("locked", Atom.symbol("yes"))] if locked else []
+
+
 def _emit_track(track: Track | Arc, nets: _Nets) -> Items:
     points: Items = {"start": [point_node("start", track.start)], "end": [point_node("end", track.end)]}
     if isinstance(track, Arc):
@@ -391,19 +437,35 @@ def _emit_track(track: Track | Arc, nets: _Nets) -> Items:
     return {
         **points,
         "width": [node("width", Atom.from_nm(track.width))],
+        "locked": _lock_items(track.locked),
         "layer": [node("layer", Atom.string(track.layer))],
         "net_id": _opt(nets.node(track.net_id)),
         "native_ids": uuid_items(track.native_ids),
     }
 
 
-def _emit_via(via: Via, nets: _Nets) -> Items:
+def _emit_via(
+    via: Via,
+    nets: _Nets,
+    *,
+    major: int,
+    default: ViaProtection | None = None,
+    none_written: Collection[str] | None = None,
+) -> Items:
+    """The modelled fields of a via; ``major`` picks the form of the protection children, ``default`` is
+    the board's default (a 9.0 child needs it for a side the via leaves to the board), and
+    ``none_written`` names the children written with ``none`` values (the via's bag when not given)."""
+    if none_written is None:
+        none_written = _ext_pairs(via).get(vialib.NONE_KEY, "").split()
+    protection = vialib.emit_via(via.protection, major=major, default=default, none_written=none_written)
     return {
         "via_type": [] if via.via_type == "through" else [Atom.symbol(via.via_type)],
         "position": [point_node("at", via.position)],
         "diameter": [node("size", Atom.from_nm(via.diameter))],
         "drill": [node("drill", Atom.from_nm(via.drill))],
         "layers": [layers_node("layers", via.layers)],
+        "locked": _lock_items(via.locked),
+        **{feature: [child] for feature, child in protection.items()},
         "net_id": _opt(nets.node(via.net_id)),
         "native_ids": uuid_items(via.native_ids),
     }
@@ -437,6 +499,7 @@ def _emit_zone(zone: Zone | Keepout, nets: _Nets, *, major: int) -> Items:
             items[field] = [emitted[head]] if head in emitted else []
     else:
         items["net_id"] = _opt(nets.node(None, zone=True))
+        items["name"] = [node("name", Atom.string(zone.name))]
         settings = [
             node(head, Atom.symbol("not_allowed" if getattr(zone, attr) else "allowed"))
             for head, attr in KEEPOUT_SETTINGS
@@ -465,6 +528,79 @@ def _emit_text(text: Text) -> Items:
         "layer": [node("layer", Atom.string(text.layer))],
         "native_ids": uuid_items(text.native_ids),
     }
+
+
+def _emit_dimension(dimension: Dimension) -> Items:
+    """The modelled children of a linear dimension."""
+    direction: list[Node | Atom] = []
+    if dimension.direction is not None:
+        direction = [node("orientation", Atom.integer(0 if dimension.direction == "horizontal" else 1))]
+    return {
+        "kind": [node("type", Atom.symbol(dimension.kind))],
+        "layer": [node("layer", Atom.string(dimension.layer))],
+        "native_ids": uuid_items(dimension.native_ids),
+        "points": [_pts((dimension.start, dimension.end))],
+        "offset": [node("height", Atom.from_nm(dimension.offset))],
+        "direction": direction,
+    }
+
+
+def dimension_value(dimension: Dimension) -> str:
+    """The text a created dimension caches: the measured length in its units, rounded half away from zero
+    to ``precision`` decimals with integers only, then `` mm`` or `` in``. KiCad recomputes it on load
+    (``H-K-DIM``)."""
+    dx, dy = dimension.end.x - dimension.start.x, dimension.end.y - dimension.start.y
+    if dimension.direction == "horizontal":
+        dy = 0
+    elif dimension.direction == "vertical":
+        dx = 0
+    scale = 10**dimension.precision
+    unit = INCH if dimension.units == "in" else 1_000_000
+    # round(sqrt(d2) * scale / unit) = floor((2 * scale * sqrt(d2) + unit) / (2 * unit))
+    count = (math.isqrt(4 * scale * scale * (dx * dx + dy * dy)) + unit) // (2 * unit)
+    whole, part = divmod(count, scale)
+    digits = f"{whole}.{part:0{dimension.precision}d}" if dimension.precision else str(whole)
+    return f"{digits} {dimension.units}"
+
+
+def _atom_nm(atom: Atom) -> Nm | None:
+    """A number atom in nanometres, or ``None`` when it is not a number or not exact."""
+    if atom.kind != AtomKind.NUMBER:
+        return None
+    try:
+        scaled = Decimal(atom.text).scaleb(6)
+    except ArithmeticError:
+        return None
+    return int(scaled) if scaled == scaled.to_integral_value() else None
+
+
+def _exact_nm(parent: Node | None, head: str) -> Nm | None:
+    """The single number of ``parent/head`` in nanometres, or ``None`` when it is absent or not exact."""
+    child = parent.find(head) if parent is not None else None
+    atoms = tuple(child.atoms()) if child is not None else ()
+    return _atom_nm(atoms[0]) if len(atoms) == 1 else None
+
+
+def project_dimension(
+    item: Node,
+) -> tuple[DimensionUnits, int, Nm | None, Size | None, Nm | None]:
+    """``(units, precision, width, size, thickness)`` of a dimension node, from its ``format``, ``style``
+    and ``gr_text`` children; a value outside the model is the field's default."""
+    fmt, style, text = item.find("format"), item.find("style"), item.find("gr_text")
+    units_node = fmt.find("units") if fmt is not None else None
+    units_text = [a.text for a in units_node.atoms()] if units_node is not None else []
+    units: DimensionUnits = DIMENSION_UNITS.get(units_text[0], "mm") if len(units_text) == 1 else "mm"
+    precision_node = fmt.find("precision") if fmt is not None else None
+    found = [a.text for a in precision_node.atoms()] if precision_node is not None else []
+    precision = int(found[0]) if len(found) == 1 and found[0] in ("0", "1", "2", "3", "4") else 4
+    effects = text.find("effects") if text is not None else None
+    font = effects.find("font") if effects is not None else None
+    size_node = font.find("size") if font is not None else None
+    size: Size | None = None
+    if size_node is not None and len(size_node.atoms()) == 2:
+        h, w = _atom_nm(size_node.atoms()[0]), _atom_nm(size_node.atoms()[1])
+        size = Size(w, h) if h is not None and w is not None else None
+    return units, precision, _exact_nm(style, "thickness"), size, _exact_nm(font, "thickness")
 
 
 def _ext_pairs(entity: Entity) -> dict[str, str]:
@@ -763,6 +899,7 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
         items["zones"] = [_rebuild(z, "zone", ctx) for z in _sorted(entity.zones)]
         items["keepouts"] = [_rebuild(k, "zone", ctx) for k in _sorted(entity.keepouts)]
         items["texts"] = [_rebuild(t, "gr_text", ctx) for t in _sorted(entity.texts)]
+        items["dimensions"] = [_rebuild(d, "dimension", ctx) for d in _sorted(entity.dimensions)]
         for head in GR_GRAPHIC_HEADS:
             items[f"graphics.{head}"] = [
                 _rebuild(g, head, ctx) for g in _sorted(g for g in entity.graphics if _index(g)[0] == head)
@@ -780,13 +917,17 @@ def model_source(entity: Entity, ctx: EmitContext) -> ModelSource:
     elif isinstance(entity, (Track, Arc)):
         items = _emit_track(entity, ctx.nets)
     elif isinstance(entity, Via):
-        items = _emit_via(entity, ctx.nets)
+        board = ctx.design.board
+        default = board.via_protection if board is not None else None
+        items = _emit_via(entity, ctx.nets, major=ctx.major, default=default)
     elif isinstance(entity, (Zone, Keepout)):
         items = _emit_zone(entity, ctx.nets, major=ctx.major)
         if isinstance(entity, Zone):
             items["fills"] = [_rebuild_fill(entity, k, fill, ctx) for k, fill in enumerate(entity.fills)]
     elif isinstance(entity, Text):
         items = _emit_text(entity)
+    elif isinstance(entity, Dimension):
+        items = _emit_dimension(entity)
     elif isinstance(entity, Graphic):
         items = emit_graphic(entity, _index(entity)[0])
     else:
@@ -1058,6 +1199,7 @@ class _Reader:
         names: set[str] = set()
         path = ""
         pads: list[tuple[Pad, Node, str]] = []
+        net_ties: tuple[tuple[str, ...], ...] = ()
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
@@ -1093,6 +1235,8 @@ class _Reader:
                 locked = symbols(child) != ["no"]
             elif head == "path":
                 path = text_of(child)
+            elif head == NET_TIES:
+                net_ties += net_tie_groups(child)  # the child stays an opaque slot: a projection
             elif head == "pad":
                 try:
                     pad = read_pad(
@@ -1129,6 +1273,7 @@ class _Reader:
             attributes=tuple(attributes),
             pads=tuple(pad for pad, _, _ in pads),
             fields=tuple(fields),
+            net_ties=net_ties,
         )
         self.check(item, loc, slots, _emit_footprint(instance, path), FP_ROOT, nested=("pads", "fields"))
         instance = dataclasses.replace(instance, ext={"kicad": slotlib.to_ext(slots)})
@@ -1248,11 +1393,14 @@ class _Reader:
         width: int | None = None
         layer: str | None = None
         net_id: str | None = None
+        locked = False
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
             head = child.name
-            if head in ("start", "mid", "end"):
+            if head == "locked":
+                locked = symbols(child) != ["no"]
+            elif head in ("start", "mid", "end"):
                 points[head] = ctx.point(child, child_loc)
             elif head == "width":
                 width = self.nm_of(child, child_loc)
@@ -1281,6 +1429,7 @@ class _Reader:
                 width=width,
                 layer=layer,
                 net_id=net_id,
+                locked=locked,
             )
         else:
             ident, native_ids = self.ids.of("trk", "segment", item)
@@ -1293,6 +1442,7 @@ class _Reader:
                 width=width,
                 layer=layer,
                 net_id=net_id,
+                locked=locked,
             )
         self.check(item, loc, slots, _emit_track(entity, self.emit_nets), chain)
         return dataclasses.replace(entity, ext={"kicad": slotlib.to_ext(slots)})
@@ -1313,12 +1463,15 @@ class _Reader:
         drill: int | None = None
         layers: tuple[str, ...] = ()
         net_id: str | None = None
+        locked = False
         for index, (child_loc, child) in enumerate(child_locators(loc, item)):
             if not isinstance(child, Node):
                 continue
             head = child.name
             if head == "at":
                 position = ctx.point(child, child_loc)
+            elif head == "locked":
+                locked = symbols(child) != ["no"]
             elif head == "size":
                 diameter = self.nm_of(child, child_loc)
             elif head == "drill":
@@ -1333,6 +1486,8 @@ class _Reader:
             missing = "at" if position is None else "size" if diameter is None else "drill"
             raise ctx.error(f"via has no {missing}", loc, item)
         ident, native_ids = self.ids.of("via", "via", item)
+        major = form_major(ctx.version)
+        read = vialib.project_via(item.children, major=major)
         via = Via(
             id=ident,
             native_ids=native_ids,
@@ -1343,9 +1498,14 @@ class _Reader:
             layers=layers,
             net_id=net_id,
             via_type=via_type,
+            locked=locked,
+            protection=read.value,
         )
-        self.check(item, loc, slots, _emit_via(via, self.emit_nets), chain)
-        return dataclasses.replace(via, ext={"kicad": slotlib.to_ext(slots)})
+        emitted = _emit_via(via, self.emit_nets, major=major, none_written=read.none_written)
+        self.check(item, loc, slots, emitted, chain)
+        kept = sorted((h for h in read.none_written if Modeled(h) in slots), key=vialib.FEATURES.index)
+        base = ExtBag(None, ((vialib.NONE_KEY, " ".join(kept)),)) if kept else None
+        return dataclasses.replace(via, ext={"kicad": slotlib.to_ext(slots, base)})
 
     # -- zones
 
@@ -1391,7 +1551,7 @@ class _Reader:
                 if expanded is not None:
                     layers = expanded
                     self.keep(slots, index, child, chain)
-            elif head == "name" and keepout_node is None:
+            elif head == "name":
                 name = text_of(child)
             elif head == "priority" and keepout_node is None:
                 atoms = child.atoms()
@@ -1431,6 +1591,7 @@ class _Reader:
                 no_pads=settings["no_pads"],
                 no_copper_pour=settings["no_copper_pour"],
                 no_footprints=settings["no_footprints"],
+                name=name,
             )
         else:
             entity = Zone(
@@ -1537,6 +1698,8 @@ class _Reader:
         values = at.atoms()
         font_loc = f"{loc}/effects[0]/font[0]"
         size = ctx.point(size_node, f"{font_loc}/size[0]")
+        assert effects is not None
+        h_justify, v_justify, _mirrored = field_justify(effects)
         ident, native_ids = self.ids.of("txt", "gr_text", item)
         text = Text(
             id=ident,
@@ -1548,9 +1711,57 @@ class _Reader:
             layer=layer_node.atoms()[0].value if layer_node.atoms() else "",
             size=Size(size.y, size.x),
             thickness=self.nm_of(thickness_node, f"{font_loc}/thickness[0]"),
+            h_justify=h_justify,
+            v_justify=v_justify,
         )
         self.check(item, loc, slots, _emit_text(text), chain)
         return dataclasses.replace(text, ext={"kicad": slotlib.to_ext(slots)})
+
+    def dimension(self, item: Node, loc: str) -> Dimension | None:
+        """A linear dimension, or ``None`` for a node that stays an opaque root slot: another type, a
+        ``pts`` that does not hold exactly two points, or an orthogonal one without ``orientation``."""
+        ctx = self.ctx
+        chain = (*ROOT, "dimension")
+        type_node, pts = item.find("type"), item.find("pts")
+        layer_node, height = item.find("layer"), item.find("height")
+        kind = symbols(type_node) if type_node is not None else []
+        if len(kind) != 1 or kind[0] not in DIMENSION_KINDS:
+            return None
+        if pts is None or layer_node is None or height is None or len(layer_node.atoms()) != 1:
+            return None
+        orientation = item.find("orientation")
+        direction: DimensionDirection | None = None
+        if kind[0] == "orthogonal":
+            found = [a.text for a in orientation.atoms()] if orientation is not None else []
+            if found not in (["0"], ["1"]):
+                return None
+            direction = "horizontal" if found == ["0"] else "vertical"
+        elif orientation is not None:
+            return None
+        points = self.points(pts, f"{loc}/pts[0]")
+        if points is None or len(points) != 2:
+            return None
+        units, precision, width, size, thickness = project_dimension(item)
+        slots = ctx.split(item, dict(DIMENSION_FIELDS), chain)
+        ident, native_ids = self.ids.of("dim", "dimension", item)
+        dimension = Dimension(
+            id=ident,
+            native_ids=native_ids,
+            provenance=ctx.provenance(loc),
+            kind=kind[0],  # type: ignore[arg-type]
+            layer=layer_node.atoms()[0].value,
+            start=points[0],
+            end=points[1],
+            offset=self.nm_of(height, f"{loc}/height[0]"),
+            direction=direction,
+            units=units,
+            precision=precision,
+            size=size,
+            thickness=thickness,
+            width=width,
+        )
+        self.check(item, loc, slots, _emit_dimension(dimension), chain)
+        return dataclasses.replace(dimension, ext={"kicad": slotlib.to_ext(slots)})
 
     def graphic(self, item: Node, loc: str) -> Graphic:
         kind = GR_GRAPHIC_HEADS[item.name]
@@ -1590,7 +1801,8 @@ class _Reader:
         components: list[Component] = []
         board_pads: list[tuple[Component, Pad]] = []
         collections: dict[str, list[Entity]] = {
-            "tracks": [], "arcs": [], "vias": [], "zones": [], "keepouts": [], "texts": [], "graphics": []
+            "tracks": [], "arcs": [], "vias": [], "zones": [], "keepouts": [], "texts": [], "graphics": [],
+            "dimensions": [],
         }  # fmt: skip
         for index, (loc, child) in enumerate(children):
             if not isinstance(child, Node) or not isinstance(slots[index], Modeled):
@@ -1619,11 +1831,22 @@ class _Reader:
                     collections["graphics"].append(self.graphic(child, loc))
                 elif head == "gr_text":
                     collections["texts"].append(self.text(child, loc))
+                elif head == "dimension":
+                    dimension = self.dimension(child, loc)
+                    if dimension is None:
+                        self.keep(slots, index, child, ROOT)
+                    else:
+                        collections["dimensions"].append(dimension)
             except InexactValueError as error:
                 self.keep_inexact(error, slots, index, child, ROOT)
             except _Unmodelled as why:
                 self.keep_unmodelled(f"{why}; kept as written", slots, index, child, loc, ROOT)
         nets = self.circuit_nets(board_pads)
+        setup = root.find("setup")
+        stackup = stacklib.project_stackup(setup, layers, issues=ctx.issues) if setup is not None else None
+        if stackup is not None:
+            self.stack_thickness(root, stackup)
+        via_protection = vialib.project_setup(setup, major=form_major(ctx.version))
         board = Board(
             id=derived_id("brd", "kicad", "kicad_pcb"),
             provenance=ctx.provenance("/kicad_pcb"),
@@ -1637,8 +1860,11 @@ class _Reader:
             keepouts=tuple(collections["keepouts"]),  # type: ignore[arg-type]
             texts=tuple(collections["texts"]),  # type: ignore[arg-type]
             graphics=tuple(collections["graphics"]),  # type: ignore[arg-type]
+            dimensions=tuple(collections["dimensions"]),  # type: ignore[arg-type]
             sheet=sheet,
             title_block=title_block,
+            stackup=stackup,
+            via_protection=via_protection,
         )
         header_items = _emit_header(board)
         header_items["nets"] = [
@@ -1657,6 +1883,24 @@ class _Reader:
             fenolite_version=__version__,
         )
         return Design(header=header, circuit=Circuit(components=tuple(components), nets=nets), board=board)
+
+    def stack_thickness(self, root: Node, stackup: Stackup) -> None:
+        """``kicad.board.stackup-thickness`` when ``general`` states another thickness than the rows sum to
+        (``board.md``, "Stack-up": the job file states the first, the IPC-2581 export the second)."""
+        general = root.find("general")
+        node_ = general.find("thickness") if general is not None else None
+        atoms = node_.atoms() if node_ is not None else ()
+        if not atoms or atoms[0].kind != AtomKind.NUMBER:
+            return
+        stated, total = atoms[0].text, stackup.thickness()
+        if atoms[0].to_nm(exact=False) != total or Atom.from_nm(total).text != _plain(stated):
+            self.issue(
+                stacklib.THICKNESS,
+                f"the board thickness is stated as {stated} mm and the stack-up sums to "
+                f"{Atom.from_nm(total).text} mm; KiCad's job file states the first and its IPC-2581 export "
+                "the second, and the model keeps the sum",
+                "/kicad_pcb/general[0]/thickness[0]",
+            )
 
     def circuit_nets(self, board_pads: Sequence[tuple[Component, Pad]]) -> tuple[Net, ...]:
         members: dict[str, list[PinRef]] = {entry.id: [] for entry in self.nets.values()}
@@ -1705,6 +1949,11 @@ class _Reader:
         return name
 
 
+def _plain(text: str) -> str:
+    """A decimal text without trailing zeros and without a trailing point."""
+    return (text.rstrip("0").rstrip(".") or "0") if "." in text else text
+
+
 def read_board(source: Source, *, file: str = "", issues: list[Issue] | None = None) -> Design:
     """A board from a ``.kicad_pcb`` path, file text or a parsed node (see ``board.md``).
 
@@ -1730,6 +1979,8 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.projection-read-only": "error",
         "kicad.board.outline-conflict": "error",
         "kicad.board.flip-unsupported": "error",
+        **stacklib.WRITE_ISSUE_CODES,
+        **vialib.WRITE_ISSUE_CODES,
     }
 )
 CREATED_ROOT_HEADS: tuple[str, ...] = (
@@ -1737,20 +1988,27 @@ CREATED_ROOT_HEADS: tuple[str, ...] = (
 )  # fmt: skip
 """The root head set of a created board: c0007's skeleton (``net`` for target 9 only)."""
 FLOOR_HEADS: tuple[str, ...] = (
-    "arc", "attr", "center", "comment", "company", "copperpour", "date", "filled_polygon", "footprints",
-    "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text", "hatch_border_algorithm", "hatch_gap",
-    "hatch_min_hole_area", "hatch_orientation", "hatch_smoothing_level", "hatch_smoothing_value",
-    "hatch_thickness", "hide", "island", "island_area_min", "island_removal_mode", "justify", "keepout",
-    "locked", "mid", "mode", "name", "pads", "path", "priority", "radius", "rev", "smoothing", "title",
-    "title_block", "tracks", "vias", "zone_connect",
+    "arc", "arrow_length", "attr", "center", "color", "comment", "company", "copper_finish", "copperpour",
+    "date", "dielectric_constraints", "dimension", "epsilon_r", "extension_height", "extension_offset",
+    "filled_polygon", "footprints", "format", "gr_arc", "gr_circle", "gr_line", "gr_poly", "gr_text",
+    "hatch_border_algorithm", "hatch_gap", "hatch_min_hole_area", "hatch_orientation",
+    "hatch_smoothing_level", "hatch_smoothing_value", "hatch_thickness", "height", "hide", "island",
+    "island_area_min", "island_removal_mode", "justify", "keepout", "locked", "loss_tangent", "material",
+    "mid", "mode", "name", "orientation", "pads", "path", "precision", "prefix", "priority", "radius", "rev",
+    "smoothing", "stackup", "style", "suffix", "text_position_mode", "title", "title_block", "tracks",
+    "units", "units_format", "vias", "zone_connect",
 )  # fmt: skip
 """Names the writer creates that the 8.0 format already has and that neither the token inventory nor
-the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0)."""
+the skeleton holds (``board.md``, S-0021 and S-0033 at tag 8.0.0). The names of a linear dimension
+(``dimension``, ``height``, ``orientation``, ``format`` and ``style`` with their children; change c0103) are
+those the demo boards of 9.0.9 and 10.0.6 hold (S-0058); the aligned dimensions of the 8.0.0 demo boards
+in the 8.0 format hold all of them but ``orientation`` (S-0723), which the format page documents for an
+orthogonal dimension (S-0001). The writer has no target below 9."""
 CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "kicad_pcb": (
             *CREATED_ROOT_HEADS[:5], "title_block", *CREATED_ROOT_HEADS[5:], "footprint", *GR_GRAPHIC_HEADS,
-            "gr_text", "segment", "arc", "via", "zone",
+            "gr_text", "dimension", "segment", "arc", "via", "zone",
         ),
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
@@ -1759,10 +2017,14 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
         "font": ("size", "thickness"),
-        "pad": (*PAD_POSITIONAL, "at", "size", "drill", "layers", "net", "zone_connect", "uuid"),
-        "segment": ("start", "end", "width", "layer", "net", "uuid"),
-        "arc": ("start", "mid", "end", "width", "layer", "net", "uuid"),
-        "via": (*VIA_POSITIONAL, "at", "size", "drill", "layers", "net", "uuid"),
+        "pad": (
+            *PAD_POSITIONAL, "at", "size", "drill", "property", "layers", "net", "zone_connect", "uuid",
+        ),
+        "segment": ("start", "end", "width", "locked", "layer", "net", "uuid"),
+        "arc": ("start", "mid", "end", "width", "locked", "layer", "net", "uuid"),
+        "via": (
+            *VIA_POSITIONAL, "at", "size", "drill", "layers", "locked", *vialib.FEATURES, "net", "uuid",
+        ),
         "zone": (
             "net", "net_name", "locked", "layer", "layers", "uuid", "name", "hatch", "priority",
             "connect_pads", "min_thickness", "filled_areas_thickness", "keepout", "fill", "polygon",
@@ -1785,10 +2047,24 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "gr_poly": ("pts", "stroke", "fill", "layer", "uuid"),
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
+        "dimension": (
+            "type", "layer", "uuid", "pts", "height", "orientation", "format", "style", "gr_text",
+        ),
+        "format": ("prefix", "suffix", "units", "units_format", "precision"),
+        "style": (
+            "thickness", "arrow_length", "text_position_mode", "arrow_direction", "extension_height",
+            "extension_offset", "keep_text_aligned",
+        ),
     }
 )  # fmt: skip
 """Per head the writer can create: positional fields, then children in the order KiCad 9.0 and 10.0
 write them (``board.md``, observed in KiCad-written boards; never taken from KiCad's code)."""
+OPAQUE_BEFORE: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType(
+    {"via": MappingProxyType(dict.fromkeys(vialib.FEATURES, ("free", "zone_layer_connections")))}
+)
+"""Per head: field → heads of children the model does not hold and that KiCad writes before the field. A
+protection child added to a read via lands after its ``free`` and ``zone_layer_connections`` children, as
+a re-save by 10.0.6 orders them (``board.md``, "Via protection"; probe ``via-prot-order``)."""
 POSITIONAL: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "footprint": FOOTPRINT_POSITIONAL,
@@ -1826,6 +2102,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
         "gr_text": {**TEXT_FIELDS, "effects": "effects"},
+        "dimension": DIMENSION_FIELDS,
     }
 )  # fmt: skip
 _READ_FIELDS: Mapping[str, Mapping[str, str]] = MappingProxyType(
@@ -1841,11 +2118,25 @@ _READ_FIELDS: Mapping[str, Mapping[str, str]] = MappingProxyType(
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, GRAPHIC_FIELDS),
         "gr_text": TEXT_FIELDS,
+        "dimension": DIMENSION_FIELDS,
     }
 )
 """The field maps of the reader: which opaque children stand for a model value."""
 COLLECTION_FIELDS: frozenset[str] = frozenset(
-    {"nets", "footprints", "tracks", "arcs", "vias", "zones", "keepouts", "texts", "pads", "fills", "fields"}
+    {
+        "nets",
+        "footprints",
+        "tracks",
+        "arcs",
+        "vias",
+        "zones",
+        "keepouts",
+        "texts",
+        "pads",
+        "fills",
+        "fields",
+        "dimensions",
+    }
     | {f"graphics.{head}" for head in GR_GRAPHIC_HEADS}
 )
 """Fields that hold whole items; an opaque item never stands for a model value."""
@@ -1922,7 +2213,9 @@ def _stroke(width: int) -> Node:
     )
 
 
-def _effects(size: Size, thickness: int, *, mirror: bool) -> Node:
+def _effects(
+    size: Size, thickness: int, *, mirror: bool, h_justify: str = "center", v_justify: str = "center"
+) -> Node:
     font = _ordered(
         "font",
         {
@@ -1930,8 +2223,50 @@ def _effects(size: Size, thickness: int, *, mirror: bool) -> Node:
             "thickness": [node("thickness", Atom.from_nm(thickness))],
         },
     )
-    justify: list[Node | Atom] = [node("justify", Atom.symbol("mirror"))] if mirror else []
+    words = [w for w in (h_justify, v_justify) if w != "center"] + (["mirror"] if mirror else [])
+    justify: list[Node | Atom] = [node("justify", *(Atom.symbol(w) for w in words))] if words else []
     return _ordered("effects", {"font": [font], "justify": justify})
+
+
+def _dimension_children(dimension: Dimension, native: str) -> Items:
+    """The ``format``, ``style`` and ``gr_text`` of a created dimension (``board.md``, "Dimensions")."""
+    size = dimension.size if dimension.size is not None else TEXT_SIZE
+    thickness = dimension.thickness if dimension.thickness is not None else TEXT_THICKNESS
+    width = dimension.width if dimension.width is not None else DIMENSION_WIDTH
+    middle = Point((dimension.start.x + dimension.end.x) // 2, (dimension.start.y + dimension.end.y) // 2)
+    fmt = _ordered(
+        "format",
+        {
+            "prefix": [node("prefix", Atom.string(""))],
+            "suffix": [node("suffix", Atom.string(""))],
+            "units": [node("units", Atom.integer(0 if dimension.units == "in" else 2))],
+            "units_format": [node("units_format", Atom.integer(1))],
+            "precision": [node("precision", Atom.integer(dimension.precision))],
+        },
+    )
+    style = _ordered(
+        "style",
+        {
+            "thickness": [node("thickness", Atom.from_nm(width))],
+            "arrow_length": [node("arrow_length", Atom.from_nm(1_270_000))],
+            "text_position_mode": [node("text_position_mode", Atom.integer(0))],
+            "arrow_direction": [node("arrow_direction", Atom.symbol("outward"))],
+            "extension_height": [node("extension_height", Atom.from_nm(586_420))],
+            "extension_offset": [node("extension_offset", Atom.from_nm(500_000))],
+            "keep_text_aligned": [node("keep_text_aligned", Atom.symbol("yes"))],
+        },
+    )
+    text = _ordered(
+        "gr_text",
+        {
+            "text": [Atom.string(dimension_value(dimension))],
+            "at": [at_node(middle, 0, always=True)],
+            "layer": [node("layer", Atom.string(dimension.layer))],
+            "uuid": [_uuid_node(native)],
+            "effects": [_effects(size, thickness, mirror=False)],
+        },
+    )
+    return {"format": [fmt], "style": [style], "gr_text": [text]}
 
 
 def _locator(entity: Entity) -> str:
@@ -1993,6 +2328,13 @@ def _key(child: Node, copper: Sequence[str]) -> object:
     return (head, values, tuple(_key(c, copper) for c in child.nodes()))
 
 
+def _zone_layers_key(child: Node, copper: Sequence[str]) -> object:
+    """The layers that the ``layer`` or ``layers`` child of a zone or rule area names, as the reader takes
+    them: every name, a wildcard expanded, whichever of the two heads holds them."""
+    names = tuple(a.value for a in child.atoms())
+    return expand_layers(names, copper) if has_wildcard(names) else names
+
+
 def _spelling_only(child: Node, new: Node | None) -> bool:
     """Whether ``child`` holds nothing beyond what the emitter writes for its head, so it can be
     written from the model (Decision 10 of c0017)."""
@@ -2007,6 +2349,8 @@ def _spelling_only(child: Node, new: Node | None) -> bool:
     if head == "layers":
         names = [a.value for a in atoms]
         return all(a.kind != AtomKind.NUMBER for a in atoms) and not has_wildcard(names)
+    if head == "layer" and has_wildcard([a.value for a in atoms]):
+        return False
     if head == "attr":
         return all(a.kind == AtomKind.SYMBOL and a.value in FOOTPRINT_ATTRIBUTES for a in atoms)
     if head == "fill":
@@ -2100,9 +2444,50 @@ class _Writer:
         self.field_owner = {f.id: fp for fp in board.footprints for f in fp.fields}
         self.copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
         self.opaque_ids: set[int] = set()
+        self.notes: list[Issue] = []
+        self.stack_checked: bool | None = None
+        pairs = _ext_pairs(board)
+        self.source_major = form_major(int(pairs["version"])) if "version" in pairs else target
+        """The major whose forms the read board uses; the target for a created board."""
 
     def error(self, code: str, message: str, where: str) -> None:
         self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where))
+
+    def stack_writable(self) -> bool:
+        """True when ``Board.stackup`` can be written as a complete node; one
+        ``kicad.board.stackup-invalid`` otherwise (kicad-file-backend, "Stack-up written to boards")."""
+        stackup = self.board.stackup
+        if stackup is None:
+            return False
+        if self.stack_checked is None:
+            why = stacklib.invalid(stackup, self.board.layers)
+            self.stack_checked = why is None
+            if why is not None:
+                self.error(stacklib.INVALID, f"the stack-up cannot be written: {why}", _locator(stackup))
+        return self.stack_checked
+
+    def stack_changed(self, slots: Sequence[Slot]) -> bool:
+        """True when ``Board.stackup`` differs from the projection of the read ``setup`` child."""
+        for slot in slots:
+            if isinstance(slot, Opaque) and _fragment_head(slot) == "setup":
+                child = slotlib.opaque_child(slot)
+                assert isinstance(child, Node)
+                found = stacklib.project_stackup(child, self.board.layers)
+                return stacklib.values(found) != stacklib.values(self.board.stackup)
+        return False
+
+    def protection_changed(self, setup: Node) -> bool:
+        """True when ``Board.via_protection`` differs in effect from the projection of ``setup``."""
+        found = vialib.project_setup(setup, major=self.source_major)
+        return vialib.effective_default(found) != vialib.effective_default(self.board.via_protection)
+
+    def protection_too_new(self, protection: ViaProtection | None, what: str, where: str) -> bool:
+        """``kicad.board.via-protection-too-new`` when a KiCad 9 target is given a covering, plugging,
+        capping or filling of ``True`` (kicad-file-backend, "Via protection on boards")."""
+        fields = vialib.too_new(protection) if self.target < 10 else ()
+        if fields:
+            self.error(vialib.TOO_NEW, vialib.too_new_message(what, fields), where)
+        return bool(fields)
 
     def read_only(self, field: str, where: str, detail: str) -> None:
         self.error(READ_ONLY_CODE, f"field {field!r} cannot be written from the model: {detail}", where)
@@ -2145,7 +2530,10 @@ class _Writer:
             if field not in canonical:
                 raise ValueError(f"{head}: field {field!r} has no position in CANONICAL_ORDER")
         source = ModelSource({f: v for f, v in items.items() if f in wanted})
-        return slotlib.rebuild(Atom.symbol(head), slot_list, source, canonical=canonical, opaque=self.opaque)
+        return slotlib.rebuild(
+            Atom.symbol(head), slot_list, source, canonical=canonical, opaque=self.opaque,
+            after=OPAQUE_BEFORE.get(head),
+        )  # fmt: skip
 
     def entity(self, entity: Entity, head: str) -> Node:
         bag = entity.ext.get("kicad")
@@ -2175,6 +2563,8 @@ class _Writer:
                 for head, field in ZONE_SETTING_FIELDS.items()
                 if parts[head] == zonelib.DEFAULT_PARTS[head]
             }
+        if isinstance(entity, Keepout):
+            return set() if entity.name else {"name"}
         if isinstance(entity, FootprintInstance):
             component = self.components.get(entity.component_id)
             path = component.path if component is not None else ""
@@ -2198,7 +2588,8 @@ class _Writer:
         elif isinstance(entity, (Track, Arc)):
             items = _emit_track(entity, self.nets)
         elif isinstance(entity, Via):
-            items = _emit_via(entity, self.nets)
+            self.protection_too_new(entity.protection, "the via", _locator(entity))
+            items = _emit_via(entity, self.nets, major=self.target, default=self.board.via_protection)
         elif isinstance(entity, (Zone, Keepout)):
             items = _emit_zone(entity, self.nets, major=self.target)
             if isinstance(entity, Zone):
@@ -2209,7 +2600,19 @@ class _Writer:
                         items["filled_areas_thickness"] = [FILLED_AREAS_THIN]
         elif isinstance(entity, Text):
             items = _emit_text(entity)
-            items["effects"] = [_effects(entity.size, entity.thickness, mirror=entity.layer.startswith("B."))]
+            items["effects"] = [
+                _effects(
+                    entity.size,
+                    entity.thickness,
+                    mirror=entity.layer.startswith("B."),
+                    h_justify=entity.h_justify,
+                    v_justify=entity.v_justify,
+                )
+            ]
+        elif isinstance(entity, Dimension):
+            items = _emit_dimension(entity)
+            if created:
+                items.update(_dimension_children(entity, kicad_uuid(entity)))
         elif isinstance(entity, Graphic):
             items = emit_graphic(entity, head)
             if created:
@@ -2231,6 +2634,10 @@ class _Writer:
             if names.count(name) > 1:
                 raise ValueError(f"{_locator(fp)}: two fields are named {name!r}")
         if created:
+            if fp.net_ties:
+                self.read_only(
+                    "net_ties", _locator(fp), "only a placed library definition carries net-tie groups"
+                )
             items["fields"] = []
             items["properties"] = self.properties(fp, component)
         else:
@@ -2312,6 +2719,13 @@ class _Writer:
         if not slots:
             stack = board.stackup.layers if board.stackup is not None else ()
             thickness = sum(layer.thickness for layer in stack) or DEFAULT_THICKNESS
+            setup: list[Node | Atom] = [node("pad_to_mask_clearance", Atom.integer(0))]
+            if board.stackup is not None and self.stack_writable():
+                setup.insert(0, stacklib.stackup_node(board.stackup, board.layers))
+            if board.via_protection is not None and not self.protection_too_new(
+                board.via_protection, "the board default", vialib.SETUP_WHERE
+            ):
+                setup += vialib.setup_children(board.via_protection, major=self.target)
             general = node(
                 "general",
                 node("thickness", Atom.from_nm(thickness)),
@@ -2321,9 +2735,13 @@ class _Writer:
             items["paper"] = [paper_node(board.sheet)]
             if has_title(board.title_block):
                 items["title_block"] = [title_block_node(_block_fields(board.title_block))]
-            items["setup"] = [node("setup", node("pad_to_mask_clearance", Atom.integer(0)))]
+            items["setup"] = [node("setup", *setup)]
         else:
             slots = _with_title_block(list(slots), board.title_block)
+            if "setup" not in [_fragment_head(s) for s in slots]:
+                for field, value in (("stackup", board.stackup), ("via_protection", board.via_protection)):
+                    if value is not None:
+                        self.read_only(field, _locator(board), "the board has no setup node to hold it")
             rows = _sorted(n for n in self.design.circuit.nets if "number" in _ext_pairs(n))
             items["nets"] = [_net_row(int(_ext_pairs(n)["number"]), stored_net_name(n)) for n in rows]
         items["footprints"] = [self.entity(fp, "footprint") for fp in _write_order(board.footprints)]
@@ -2333,18 +2751,24 @@ class _Writer:
         items["zones"] = [self.entity(z, "zone") for z in _write_order(board.zones)]
         items["keepouts"] = [self.entity(k, "zone") for k in _write_order(board.keepouts)]
         items["texts"] = [self.entity(t, "gr_text") for t in _write_order(board.texts)]
+        items["dimensions"] = [self.entity(d, "dimension") for d in _write_order(board.dimensions)]
         for head in GR_GRAPHIC_HEADS:
             graphics = [g for g in _write_order(board.graphics) if _graphic_head(g) == head]
             items[f"graphics.{head}"] = [self.entity(g, head) for g in graphics]
-        items["graphics.gr_line"] += self.outline()
+        lines, arcs = self.outline()
+        items["graphics.gr_line"] += lines
+        items["graphics.gr_arc"] += arcs
         return self.node(board, "kicad_pcb", items, slots)
 
-    def outline(self) -> list[Node | Atom]:
-        """One ``gr_line`` on ``Edge.Cuts`` per edge of each ring of ``Board.outline``."""
+    def outline(self) -> tuple[list[Node | Atom], list[Node | Atom]]:
+        """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring, on
+        ``Edge.Cuts``. An arc is written with a positive ``orient2d(start, mid, end)``, the form KiCad's
+        re-save keeps (``H-G-ARC-DIR``), and every uuid is signed with the outline's digest
+        (``_edgesign``; ``board.md``, "Outline")."""
         board = self.board
         outline = board.outline
         if outline is None or not outline.points:
-            return []
+            return [], []
         kinds = {layer.name: layer.kind for layer in board.layers}
         edges = [g for g in board.graphics if kinds.get(g.layer, layer_kind(g.layer)) == "edge"]
         if edges:
@@ -2353,26 +2777,41 @@ class _Writer:
                 f"the board has an outline and {len(edges)} graphic(s) on an edge layer; remove one of them",
                 _locator(edges[0]),
             )
-            return []
+            return [], []
+        found = outline_edges(outline)
+        texts = [edge_text(e.start, e.end, e.mid) for e in found]
+        digest = outline_digest(texts)
         lines: list[Node | Atom] = []
-        for ring_index, ring in enumerate((outline.points, *outline.cutouts)):
-            if len(ring) < 2:
-                continue
-            for k, start in enumerate(ring):
-                end = ring[(k + 1) % len(ring)]
+        arcs: list[Node | Atom] = []
+        for edge, text in zip(found, texts, strict=True):
+            common: dict[str, Sequence[Node | Atom]] = {
+                "stroke": [_stroke(OUTLINE_WIDTH)],
+                "layer": [node("layer", Atom.string("Edge.Cuts"))],
+                "uuid": [_uuid_node(edge_uuid(outline, digest, text))],
+            }
+            start, end, mid = edge.start, edge.end, edge.mid
+            if mid is None:
                 lines.append(
                     _ordered(
                         "gr_line",
-                        {
-                            "start": [point_node("start", start)],
-                            "end": [point_node("end", end)],
-                            "stroke": [_stroke(OUTLINE_WIDTH)],
-                            "layer": [node("layer", Atom.string("Edge.Cuts"))],
-                            "uuid": [_uuid_node(kicad_uuid(outline, f"outline:{ring_index}:{k}"))],
-                        },
+                        {"start": [point_node("start", start)], "end": [point_node("end", end)], **common},
                     )
                 )
-        return lines
+                continue
+            if (mid.x - start.x) * (end.y - start.y) - (mid.y - start.y) * (end.x - start.x) < 0:
+                start, end = end, start
+            arcs.append(
+                _ordered(
+                    "gr_arc",
+                    {
+                        "start": [point_node("start", start)],
+                        "mid": [point_node("mid", mid)],
+                        "end": [point_node("end", end)],
+                        **common,
+                    },
+                )
+            )
+        return lines, arcs
 
     # -- projections
 
@@ -2421,11 +2860,14 @@ class _Writer:
                 field == "outline" and isinstance(entity, (Zone, Keepout)) and not entity.outline
             ):
                 continue
-            new = next(
-                (c for c in items.get(field, ()) if isinstance(c, Node) and c.name == child.name), None
-            )
-            if _key(child, self.copper) == (_key(new, self.copper) if new is not None else None):
-                kept.setdefault(field, []).append(child.name)
+            # The layers of a zone or rule area are one family: the emitter picks ``layer`` or ``layers``
+            # by the number of layers, whatever head the file used.
+            zone_layers = field == "layers" and isinstance(entity, (Zone, Keepout))
+            family = ZONE_LAYER_HEADS if zone_layers else (child.name,)
+            key = _zone_layers_key if zone_layers else _key
+            new = next((c for c in items.get(field, ()) if isinstance(c, Node) and c.name in family), None)
+            if key(child, self.copper) == (key(new, self.copper) if new is not None else None):
+                kept.setdefault(field, []).extend(family)
             elif _spelling_only(child, new):
                 slots[i] = Modeled(field)
             else:
@@ -2436,6 +2878,8 @@ class _Writer:
         if isinstance(entity, FootprintInstance):
             self.check_properties(entity, file_properties, where)
             self.check_removed_fields(entity, slots, where)
+            if entity.net_ties and "net_ties" not in covered:
+                self.read_only("net_ties", where, f"the footprint has no {NET_TIES} child to hold the groups")
         return covered
 
     def reconcile_field(self, field: FootprintField, slots: list[Slot], items: Items) -> set[str]:
@@ -2539,6 +2983,50 @@ class _Writer:
     ) -> str | None:
         """Handle a child projected into a field that the emitters never write; return that field."""
         name = child.name
+        if isinstance(entity, Board) and name in ("general", "setup"):
+            slot = slots[i]
+            assert isinstance(slot, Opaque)
+            stackup = entity.stackup
+            if name == "setup" and self.protection_changed(child):
+                # each projection rewrites only its own children of ``setup``
+                if not self.protection_too_new(
+                    entity.via_protection, "the board default", vialib.SETUP_WHERE
+                ):
+                    child = vialib.rewrite_setup(child, entity.via_protection, major=self.target)
+                    slots[i] = slot = Opaque(dumps(child, style="compact"), slot.min_version)
+            if not self.stack_changed(slots) or (stackup is not None and not self.stack_writable()):
+                return name
+            if name == "setup":
+                rewritten, lost = stacklib.rewrite_setup(child, stackup, entity.layers)
+                slots[i] = Opaque(dumps(rewritten, style="compact"), slot.min_version)
+                if lost:
+                    message = (
+                        "the stack-up of the board was rewritten from the model; these children of the "
+                        f"replaced node are not in the model and were not written: {', '.join(lost)}"
+                    )
+                    self.notes.append(
+                        Issue(stacklib.REWRITTEN, WRITE_ISSUE_CODES[stacklib.REWRITTEN], message,
+                              where=stacklib.WHERE)
+                    )  # fmt: skip
+            elif stackup is not None:
+                total = node("thickness", Atom.from_nm(stacklib.complete(stackup, entity.layers).thickness()))
+                held = child.find("thickness")
+                children = (
+                    [total if c is held else c for c in child.children]
+                    if held is not None
+                    else [total, *child.children]
+                )
+                slots[i] = Opaque(dumps(child.with_children(children), style="compact"), slot.min_version)
+            return name
+        if isinstance(entity, Via) and name in vialib.FEATURE_FIELDS:
+            # a protection child kept as written: it keeps its fragment while the model agrees with it and
+            # the target reads it as the source did; otherwise the child is written from the model
+            found = vialib.read_child(child, major=self.source_major)
+            unset = (None,) * len(vialib.FEATURE_FIELDS[name])
+            same = (unset if found is None else found) == vialib.values_of(entity.protection, name)
+            if not same or (found is not None and self.source_major != self.target):
+                slots[i] = Modeled(name)
+            return name
         if isinstance(entity, Board) and name in ("paper", "title_block"):
             slot = slots[i]
             assert isinstance(slot, Opaque)
@@ -2563,7 +3051,24 @@ class _Writer:
             elif key not in ("Reference", "Value"):
                 file_properties[key] = value
             return "properties"
+        if isinstance(entity, FootprintInstance) and name == NET_TIES:
+            first = next(
+                k
+                for k, s in enumerate(slots)
+                if isinstance(s, Opaque) and s.fragment.startswith(f"({NET_TIES}")
+            )
+            if i == first and projected_net_ties(slots) != entity.net_ties:
+                where = _child_locator(entity, slots, i, name, "net_ties")
+                self.read_only("net_ties", where, "the net-tie groups are written as read")
+            return "net_ties"
         if isinstance(entity, FootprintInstance) and name == "locked":
+            if (symbols(child) != ["no"]) != entity.locked:
+                self.read_only(
+                    "locked", _locator(entity), f"{dumps(child, style='compact')} is kept as written"
+                )
+            return "locked"
+        if isinstance(entity, (Track, Arc, Via)) and name == "locked":
+            # a lock that Fenolite would not write this way (``(locked no)``) is kept as written
             if (symbols(child) != ["no"]) != entity.locked:
                 self.read_only(
                     "locked", _locator(entity), f"{dumps(child, style='compact')} is kept as written"
@@ -2590,6 +3095,12 @@ class _Writer:
                 where = _child_locator(entity, slots, i, name, "zone_connection")
                 self.read_only("zone_connection", where, "the zone connection is written as read")
             return "zone_connection"
+        if isinstance(entity, Pad) and name == "property":
+            first = opaque_fab_properties(slots)[0][0]
+            if i == first and projected_fab_property(slots) != entity.fab_property:
+                where = _child_locator(entity, slots, i, name, "fab_property")
+                self.read_only("fab_property", where, "the pad property is written as read")
+            return "fab_property"
         if isinstance(entity, Pad) and name == "padstack":
             model = entity.padstack
             expected = (
@@ -2616,7 +3127,18 @@ class _Writer:
             )
             if found != ((_mm(entity.size.h), _mm(entity.size.w)), (_mm(entity.thickness),)):
                 self.read_only("size", _locator(entity), "the text effects are written as read")
+            if field_justify(child)[:2] != (entity.h_justify, entity.v_justify):
+                self.read_only("h_justify", _locator(entity), "the text effects are written as read")
             return "effects"
+        if isinstance(entity, Dimension) and name in DIMENSION_PROJECTED:
+            units, precision, width, size, thickness = project_dimension(node("dimension", child))
+            found_values = {
+                "units": units, "precision": precision, "width": width, "size": size, "thickness": thickness
+            }  # fmt: skip
+            for field in DIMENSION_PROJECTED[name]:
+                if found_values[field] != getattr(entity, field):
+                    self.read_only(field, _locator(entity), f"the {name} of a dimension is written as read")
+            return name
         return None
 
     def check_properties(self, fp: FootprintInstance, found: Mapping[str, str], where: str) -> None:
@@ -2690,7 +3212,7 @@ def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bo
     stored = [stored_net_name(n) for n in design.circuit.nets]
     forms = _pcbwrite.NetForms.of(target, writer.source_table(), stored)
     root = _pcbwrite.convert_nets(root, forms, writer.errors)
-    issues: list[Issue] = []
+    issues: list[Issue] = list(writer.notes)
     if target < 10:
         root = _pcbwrite.place_table(root, forms.table())
     else:
@@ -2720,6 +3242,8 @@ __all__ = [
     "BOARD_PAD_FIELDS",
     "CANONICAL_ORDER",
     "COLLECTION_FIELDS",
+    "DIMENSION_FIELDS",
+    "DIMENSION_WIDTH",
     "CREATED_ROOT_HEADS",
     "DEFAULT_THICKNESS",
     "EVIDENCE",

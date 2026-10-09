@@ -13,6 +13,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from fenolite.backends.kicad.outline import BoardOutline, board_outline
+from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Level
 from fenolite.exports import placement
@@ -26,6 +27,8 @@ from fenolite.exports.assembly import (
     read_template,
 )
 from fenolite.exports.placement import NoOutlineError, apply, rotate, rows_from_model, table
+from fenolite.model.board import Pad
+from fenolite.model.design import Design
 
 
 def _template(**changes: object) -> PlacementTemplate:
@@ -206,3 +209,77 @@ def test_the_pin_to_pad_map_does_not_reach_the_placement_rows() -> None:
     assert table(apply(rows_from_model(mapped), DEFAULT.placement), DEFAULT.placement) == table(
         apply(rows_from_model(design), DEFAULT.placement), DEFAULT.placement
     )
+
+
+# --- fiducial rows (change c0118) -----------------------------------------------------------------
+
+
+def _with_marks(design: Design, marks: dict[str, str | None]) -> Design:
+    """``design`` with one pad per named part, carrying the mark given for it."""
+    board = design.board
+    assert board is not None
+    refs = {component.id: component.ref for component in design.circuit.components}
+    footprints = []
+    for footprint in board.footprints:
+        ref = refs[footprint.component_id]
+        if ref in marks:
+            pad = Pad(
+                id=f"pad_{ref}",
+                number="",
+                shape="circle",
+                size=Size(MM, MM),
+                position=Point(0, 0),
+                layers=("F.Cu", "F.Mask"),
+                fab_property=marks[ref],  # type: ignore[arg-type]
+            )
+            footprint = dataclasses.replace(footprint, pads=(pad,))
+        footprints.append(footprint)
+    return dataclasses.replace(design, board=dataclasses.replace(board, footprints=tuple(footprints)))
+
+
+def _fiducial_design() -> Design:
+    design = design_of(
+        Part("FID1", "mark", x=3, y=3),
+        Part("FID2", "mark", x=47, y=27, side="bottom"),
+        Part("R1", "330", x=20, y=15),
+        Part("U1", "MCU", QFP, x=30, y=15),
+    )
+    return _with_marks(design, {"FID1": "fiducial_global", "FID2": "fiducial_local", "R1": None, "U1": "bga"})
+
+
+def test_fiducial_rows_are_marked_and_kept_by_default() -> None:
+    """Scenario "Fiducials kept by default": the default template keeps KiCad's rows (``H-K-POS-ROWS``)."""
+    rows = rows_from_model(_fiducial_design())
+    assert [(row.ref, row.fiducial) for row in rows] == [
+        ("FID1", True), ("FID2", True), ("R1", False), ("U1", False),
+    ]  # fmt: skip
+    assert DEFAULT.placement.fiducials is True
+    placed = apply(rows, DEFAULT.placement)
+    assert [(row.ref, row.fiducial) for row in placed] == [(row.ref, row.fiducial) for row in rows]
+    assert table(placed, DEFAULT.placement)[0] == (
+        "FID1", "mark", "Mini_R_0603", "3.0000", "-3.0000", "0.00", "top",
+    )  # fmt: skip
+
+
+def test_a_template_drops_fiducial_rows() -> None:
+    """Scenario "A template drops them", with the DNP and ``smd_only`` filters."""
+    rows = rows_from_model(_fiducial_design())
+    assert [row.ref for row in apply(rows, _template(fiducials=False))] == ["R1", "U1"]
+    assert [row.ref for row in apply(rows, _template(fiducials=False, smd_only=True))] == ["R1", "U1"]
+    template = read_template(
+        '[placement]\nfiducials = true\ncolumns = [{ name = "Ref", field = "ref" }, '
+        '{ name = "Fid", field = "fiducial" }]\n'
+    ).placement
+    assert table(apply(rows, template), template) == (
+        ("FID1", "yes"), ("FID2", "yes"), ("R1", ""), ("U1", ""),
+    )  # fmt: skip
+    dropped = read_template("[placement]\nfiducials = false\n").placement
+    assert dropped.fiducials is False and [row.ref for row in apply(rows, dropped)] == ["R1", "U1"]
+
+
+def test_a_fiducial_left_out_of_the_position_file_stays_out() -> None:
+    design = _with_marks(
+        design_of(Part("FID1", "mark", attributes=("smd", "exclude_from_pos_files")), Part("R1", "330")),
+        {"FID1": "fiducial_global"},
+    )
+    assert [row.ref for row in rows_from_model(design)] == ["R1"]

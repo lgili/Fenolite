@@ -21,7 +21,7 @@ from typing import Any
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.sexpr import dumps, first_line_difference, parse_bytes
 from fenolite.cli._examples import EXAMPLE_BOARD
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue, Severity
@@ -104,6 +104,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             path=path.name, sha256=hashlib.sha256(data).hexdigest(), kind=kind.value, format_version=None
         ),
         writes=writes,
+        depends=depends_on(ctx.cwd, path),
     )
 
 

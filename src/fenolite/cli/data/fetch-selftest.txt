@@ -1,0 +1,4 @@
+Fenolite fetch self-test file.
+It is installed by the hidden row "_selftest" of fetch.toml,
+so that the test suites can run "fenolite fetch" without a network.
+It is not a tool and nothing reads it.

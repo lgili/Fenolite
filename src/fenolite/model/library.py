@@ -46,6 +46,8 @@ class FootprintDef(Entity):
     graphics: tuple[Graphic, ...] = field(default=(), metadata=ORDERED)
     models: tuple[str, ...] = field(default=(), metadata=ORDERED)
     bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
+    net_ties: tuple[tuple[str, ...], ...] = field(default=(), metadata=ORDERED)
+    """The net-tie groups of the footprint (change c0114), as ``FootprintInstance.net_ties``."""
 
     @property
     def lib_id(self) -> str:

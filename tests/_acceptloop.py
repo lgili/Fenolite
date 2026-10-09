@@ -17,6 +17,10 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = {"blink_2layer": "blink", "board_40parts": "board_40parts"}
 ROUTER = "freerouting"
 ROUTER_LIMIT = 600
+"""The budget of the route step, in seconds (``route --timeout``). Since change c0109 the value is the
+budget itself for every router: before it, 600 stood for the default and Freerouting got 900 s. The loop
+needs well under a minute on both examples, and a route cut by the budget would leave nets open and fail
+the loop's own check of ``unrouted``."""
 SEED = "250025"
 TIMESTAMP = "2026-10-04T00:00:00Z"
 STEPS = ("build", "place", "route", "fill", "check", "export", "render")

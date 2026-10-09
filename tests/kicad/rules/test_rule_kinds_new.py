@@ -37,6 +37,24 @@ def test_new_kind(kind: str) -> None:
     assert run(f"dru-kind-{kind}") == "present"
 
 
+def test_no_tracks_rule() -> None:
+    """A ``no_tracks`` rule written by ``lower_rules`` gives one ``items_not_allowed`` for the track of its
+    net on its layer, and none for that net's track on another layer or another net's track on its layer
+    (capability kicad-oracle, "Plane routing passes the oracle"; ``H-K-DRU-NOTRACKS``, change c0107)."""
+    result = kc.no_tracks()
+    report = rb.require_canary(result.report, result.bench)
+    assert "(constraint disallow track)" in kc.no_tracks_rules()
+    probe, other_layer, other_net = (result.bench.uuids(label) for label in kc.NO_TRACKS_LABELS)
+    found = [v for v in report.violations if v.type in kc.NO_TRACKS_TYPES]
+    assert len(found) == 1 and {i.uuid for i in found[0].items} & set(probe), found
+    assert other_layer and other_net
+    for label in kc.NO_TRACKS_LABELS[1:]:
+        assert not result.of(label, kc.NO_TRACKS_TYPES), (
+            f"the control track {label} is reported as not allowed"
+        )
+    assert run("dru-kind-no_tracks") == "present"
+
+
 def test_courtyard_selection() -> None:
     by_reference, by_member = kc.courtyard("reference"), kc.courtyard("member")
     for result in (by_reference, by_member):

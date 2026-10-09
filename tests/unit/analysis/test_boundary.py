@@ -90,3 +90,42 @@ def test_thickness_from_the_stackup_and_never_assumed() -> None:
     board = dataclasses.replace(design.board, stackup=Stackup(id=ident("stu", 1), layers=layers))
     assert board_boundary(board).thickness == 1_600_000
     assert board_boundary(board, thickness=800_000).thickness == 800_000
+
+
+def test_outline_from_the_model_arcs() -> None:
+    """Scenario "Model outline with a round cut-out" (change c0102): the arcs of ``Outline.arcs`` are
+    polygonised and give the band of curved edges."""
+    from fenolite.core.ids import derived_id
+    from fenolite.geometry import DEFAULT_TOL
+    from fenolite.model.board import Outline, OutlineArc
+
+    mm = 1_000_000
+    outline = Outline(
+        id=derived_id("out", "boundary", "arcs"),
+        points=(Point(0, 0), Point(20 * mm, 0), Point(20 * mm, 10 * mm), Point(0, 10 * mm)),
+        cutouts=((Point(11 * mm, 5 * mm), Point(9 * mm, 5 * mm)),),
+        arcs=(OutlineArc(1, 0, Point(10 * mm, 4 * mm)), OutlineArc(1, 1, Point(10 * mm, 6 * mm))),
+    )
+    board = Board(id=derived_id("brd", "boundary", "arcs"), outline=outline)
+    found = board_boundary(board)
+    assert found.source == "model" and found.band == DEFAULT_TOL + 1
+    assert found.outer == outline.points and len(found.cutouts) == 1
+    (ring,) = found.cutouts
+    assert len(ring) > 2
+    for point in ring:
+        distance2 = (point.x - 10 * mm) ** 2 + (point.y - 5 * mm) ** 2
+        assert (mm - 1) ** 2 <= distance2 <= (mm + 1) ** 2
+    coarse = board_boundary(board, arc_tol=50_000)
+    assert coarse.band == 50_001 and len(coarse.cutouts[0]) < len(ring)
+    # an outline without arcs keeps its band of 0, and a round board of two arcs is a boundary
+    plain = board_boundary(Board(id=board.id, outline=Outline(id=outline.id, points=outline.points)))
+    assert plain.band == 0 and plain.source == "model"
+    disc = Outline(
+        id=outline.id,
+        points=(Point(20 * mm, 10 * mm), Point(0, 10 * mm)),
+        arcs=(OutlineArc(0, 0, Point(10 * mm, 0)), OutlineArc(0, 1, Point(10 * mm, 20 * mm))),
+    )
+    round_board = board_boundary(Board(id=board.id, outline=disc))
+    assert (
+        round_board.source == "model" and len(round_board.outer) > 8 and round_board.band == DEFAULT_TOL + 1
+    )

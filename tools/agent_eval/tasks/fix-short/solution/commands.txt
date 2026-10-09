@@ -1,0 +1,4 @@
+fenolite place board/build --move R1=15mm,14mm --move D1=15mm,6mm --confirm --json
+fenolite route board/build --router direct --rip --confirm --json
+fenolite check board/build --json
+fenolite export board/build -o board/fab --all --manifest --confirm --json

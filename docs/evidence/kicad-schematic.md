@@ -125,7 +125,8 @@ projects written for its own major. The probe outcomes are committed in
 
 | probe | what is measured | 9.0.9 | 10.0.6 |
 |---|---|---|---|
-| `sch-pin-frame-<angle>-<mirror>` (12 probes) | a label at `schlayout.pin_point` leaves no `pin_not_connected`, for the angles 0, 90, 180, 270 and the mirrors none, `x`, `y`; a control with the labels of another frame leaves pins open | `absent` (12 of 12) | `absent` (12 of 12) |
+| `sch-pin-frame-<angle>-<mirror>` (12 probes) | a label at `schlayout.pin_point` leaves no `pin_not_connected`, for the angles 0, 90, 180, 270 and the mirrors none, `x`, `y`; a control with the labels of another frame leaves pins open. Both mirrors map the 32 pins onto themselves, so these probes cannot tell the order of mirror and rotation (change c0137) | `absent` (12 of 12) | `absent` (12 of 12) |
+| no probe: `tests/kicad/schematic/test_pin_frame_oracle.py` (c0137) | an asymmetric three-pin symbol in the twelve frames: each pin on the net of the label at `schlayout.pin_point` (rotate, then mirror); with the labels of the mirror-first order the pins of the four mirrored instances at 90° and 270° are off their nets | owed (CI) | owed (CI) |
 | `sch-unconnected-plain` | the named pins of the 32-pin IC: `unconnected-(U1-<name>-Pad<n>)` | `equal` | `equal` |
 | `sch-unconnected-unnamed` | two pins without a name: `unconnected-(U1-Pad1)`, `unconnected-(U1-Pad16)` | `equal` | `equal` |
 | `sch-unconnected-units` | the eight pins of the three units of `Mini_DualGate`: `unconnected-(U2C-GND-Pad7)` for a named pin, `unconnected-(U2-Pad1)` for a pin without a name | `equal` | `equal` |

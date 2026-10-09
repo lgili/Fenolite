@@ -113,3 +113,37 @@ def test_default_class_and_globs_need_no_declaration() -> None:
 
 def test_design_without_rules_is_unchanged() -> None:
     assert to_model(design()).rules.rules == ()  # type: ignore[union-attr]
+
+
+# -- track layer rules (change c0107)
+
+
+def test_no_tracks_rule_in_the_model_and_the_rules_file() -> None:
+    """Scenario "A class kept on the outer layers"."""
+    d = Design("rules")
+    d.rules.netclass("SIG", clearance=mm(0.2))
+    d.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))
+    (rule,) = to_model(d).rules.rules  # type: ignore[union-attr]
+    assert (rule.kind, rule.selector_a, rule.selector_b) == ("no_tracks", Selector("netclass", "SIG"), None)
+    assert rule.layers == ("In1.Cu", "In2.Cu") and (rule.min, rule.opt, rule.max) == (None, None, None)
+    text = lower_rules(to_model(d).rules, target=10).text  # type: ignore[arg-type]
+    assert text.count("(constraint disallow track)") == 2
+    assert '(layer "In1.Cu")' in text and '(layer "In2.Cu")' in text
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "word"),
+    [
+        ({"layers": ("In1.Cu",), "min": mm(0.1)}, "min"),
+        ({"layers": ("In1.Cu",), "opt": mm(0.1)}, "opt"),
+        ({"layers": ("In1.Cu",), "max": mm(0.1)}, "max"),
+        ({}, "layers"),
+        ({"layers": ("In1.Cu",), "between": select.netclass("HV")}, "between"),
+    ],
+)
+def test_no_tracks_malformed(kwargs: dict[str, object], word: str) -> None:
+    """Scenario "Malformed track layer rules"."""
+    d = design()
+    with pytest.raises(DslError, match=word):
+        d.rules.rule("x", "no_tracks", **kwargs)  # type: ignore[arg-type]
+    assert d.rules.named == {}

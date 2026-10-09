@@ -221,3 +221,82 @@ def test_refused_build_does_not_run_the_guard(tmp_path: Path, monkeypatch: pytes
     assert code == 5 and "build.unknown-pin" in [i["code"] for i in env["issues"]]  # type: ignore[union-attr,index]
     assert env["result"]["copper_check"] == {"mode": "refuse", "ran": False}  # type: ignore[index]
     assert copper_issues(env) == []
+
+
+# --- waivers in the guard (capability design-dsl, "Waivers in the copper guard"; change c0114) -----
+
+
+def test_waiver_lets_a_short_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "A waived short builds": an authored footprint whose two pads overlap, on two nets and
+    without a net-tie group. The waiver names the pads as the refused build prints them: on a base where
+    an authored footprint has no ``Reference`` on the board (before change c0077) that is its footprint id
+    and the pad number, afterwards ``KS1-1`` and ``KS1-2``."""
+    from _routed import Routed
+    from _waivercases import KELVIN, plant
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    plant(routed, KELVIN)
+    code, env, _ = routed.build("--dry-run")
+    (short,) = [i for i in copper_issues(env) if i["code"] == "copper.short"]
+    assert code == 5 and short["severity"] == "error" and env["result"]["files"] == []
+    first, second = short["where"].split(", ")
+    assert first.endswith("-1") and second.endswith("-2")
+    plant(routed, f'design.waive("copper.short", "{first}", "{second}", reason="Kelvin pad")\n')
+    name = f"copper.short:{first},{second}"
+    code, env, err = routed.build("--confirm")
+    assert code == 0, (env.get("issues"), err)
+    (short,) = [i for i in copper_issues(env) if i["code"] == "copper.short"]
+    assert short["severity"] == "info" and short["message"].endswith(f"(waived by {name}: Kelvin pad)")
+    check = env["result"]["copper_check"]
+    assert check["waivers"] == {"matched": {name: 1}, "unmatched": []} and check["shorts"] == 1
+    assert env["result"]["files"] and routed.board.is_file()
+    assert name in (routed.out / ".fenolite" / "findings.json").read_text(encoding="utf-8")
+
+
+def test_waiver_unmatched_is_listed_in_the_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Unmatched waiver listed in the build": the guard names it and emits no
+    ``check.waiver-unmatched``; ``fenolite check`` reports stale waivers."""
+    from _routed import Routed
+    from _waivercases import KELVIN_APART, WAIVER, WAIVER_NAME, plant
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    plant(routed, KELVIN_APART, WAIVER)
+    code, env, err = routed.build("--dry-run")
+    assert code == 0, err
+    assert env["result"]["copper_check"]["waivers"] == {"matched": {}, "unmatched": [WAIVER_NAME]}
+    assert not [i for i in env["issues"] if i["code"] == "check.waiver-unmatched"]
+
+
+def test_waiver_is_applied_before_the_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A waived finding is ``info`` in ``refuse`` and in ``warn`` mode: it gains no warn note, while the
+    findings that no waiver names become warnings with it."""
+    from _routed import Routed
+    from _waivercases import PITCH, tight
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    tight(routed, PITCH)
+    code, env, _ = routed.build("--dry-run")
+    assert code == 5
+    severities = {i["where"]: i["severity"] for i in copper_issues(env) if i["code"] == "copper.clearance"}
+    assert severities.pop("U1-10, U1-9") == "info" and set(severities.values()) == {"error"}
+    code, env, err = routed.build("--copper-check", "warn", "--dry-run")
+    assert code == 0, err
+    found = {i["where"]: i for i in copper_issues(env) if i["code"] == "copper.clearance"}
+    waived = found.pop("U1-10, U1-9")
+    assert waived["severity"] == "info" and WARN_NOTE not in waived["message"]
+    assert len(found) == 3 and all(i["message"].endswith(WARN_NOTE) for i in found.values())
+
+
+def test_waiver_guard_on_a_triad() -> None:
+    """The guard function itself: a waiver that names the two items of the bench's short."""
+    from fenolite.model.findings import Waiver
+
+    files = triad()
+    issues, _ = copper_guard(files, name="bench", mode="refuse", target=10)
+    (short,) = [i for i in issues if i.code == "copper.short"]
+    items = tuple(short.where.split(", "))
+    waiver = Waiver("bench", "copper.short", items, "re-net bench")
+    issues, check = copper_guard(files, name="bench", mode="refuse", target=10, waivers=(waiver,))
+    (short,) = [i for i in issues if i.code == "copper.short"]
+    assert short.severity == "info" and short.message.endswith("(waived by bench: re-net bench)")
+    assert check["waivers"] == {"matched": {"bench": 1}, "unmatched": []}

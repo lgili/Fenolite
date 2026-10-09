@@ -1,0 +1,428 @@
+# Budgets of the yardstick board (examples/yardstick), read by tools/yardstick.py run
+# (capability release-gate, "Yardstick budgets"; change c0119).
+#
+# One table per stage. `source` says where the values come from: "provisional" (one local run: seconds
+# times 4 and MiB times 2, rounded up to 10 s and to 50 MiB), or the three scheduled runs they were read
+# from (median seconds times 1.5, largest MiB times 1.25, rounded the same way). `tools/yardstick.py
+# rebase` prints the tables that the rule gives. A step without a table is recorded and fails nothing;
+# `heavy-read` and `heavy-rt1` get theirs from the first scheduled runs.
+#
+# A commit that raises a budget, or adds an accepted finding under [stage<n>.accepted.<key>] with
+# `stage`, `type`, `reason` and `owner`, adds a row to docs/evidence/yardstick.md with the reason.
+# Seconds and MiB are measures of one runner: no evidence label moves on a budget.
+
+[stage1]
+# From the local run of 2026-10-07T16:22Z at 7392159d (docs/evidence/yardstick.md, "Budgets"); no
+# accepted finding: every `check` stage but `drc.kicad` is `ok` on the example.
+source = "provisional"
+
+[stage1.steps.capabilities]
+seconds = 10
+mib = 150
+
+[stage1.steps.build-dry]
+seconds = 90
+mib = 250
+
+[stage1.steps.build]
+seconds = 90
+mib = 250
+
+[stage1.steps.fill]
+seconds = 100
+mib = 500
+
+[stage1.steps.check]
+seconds = 190
+mib = 550
+
+[stage1.steps.export]
+seconds = 30
+mib = 450
+
+[stage1.steps.render]
+seconds = 20
+mib = 450
+
+[stage1.steps.bom]
+seconds = 20
+mib = 200
+
+[stage1.steps.pnp]
+seconds = 20
+mib = 200
+
+[stage1.steps.manifest]
+seconds = 20
+mib = 200
+
+[stage1.steps.rebuild-dry]
+seconds = 110
+mib = 300
+
+[stage1.steps.rebuild]
+seconds = 110
+mib = 300
+
+[stage1.steps.inspect]
+seconds = 20
+mib = 200
+
+[stage1.steps.build-install]
+seconds = 850
+mib = 450
+
+# The heavy demo boards, provisional by the same rule from the local run of 2026-10-08 (task 1.3 of
+# c0119; Linux x86_64 with 4 cores and 16 GiB, Fenolite run from source at a105cc0, the machine shared
+# with a route of the example): docs/evidence/yardstick.md, "Budgets".
+[stage1.steps."heavy-read:kicad-demo-10-0-6-pcb-06"]
+seconds = 320
+mib = 3450
+
+[stage1.steps."heavy-read:kicad-demo-10-0-6-pcb-18"]
+seconds = 310
+mib = 2750
+
+[stage1.steps."heavy-rt1:kicad-demo-10-0-6-pcb-06"]
+seconds = 1320
+mib = 8700
+
+[stage1.steps."heavy-rt1:kicad-demo-10-0-6-pcb-18"]
+seconds = 1250
+mib = 7900
+
+
+[stage2]
+# Copied from [stage1] as provisional (task 6.1 of c0119): no local run of this stage was possible on
+# 2026-10-08 (no kicad-cli on the machine); the first three scheduled runs replace these values.
+source = "provisional"
+
+[stage2.steps.capabilities]
+seconds = 10
+mib = 150
+
+[stage2.steps.build-dry]
+seconds = 90
+mib = 250
+
+[stage2.steps.build]
+seconds = 90
+mib = 250
+
+[stage2.steps.fill]
+seconds = 100
+mib = 500
+
+[stage2.steps.check]
+seconds = 190
+mib = 550
+
+[stage2.steps.export]
+seconds = 30
+mib = 450
+
+[stage2.steps.render]
+seconds = 20
+mib = 450
+
+[stage2.steps.bom]
+seconds = 20
+mib = 200
+
+[stage2.steps.pnp]
+seconds = 20
+mib = 200
+
+[stage2.steps.manifest]
+seconds = 20
+mib = 200
+
+[stage2.steps.rebuild-dry]
+seconds = 110
+mib = 300
+
+[stage2.steps.rebuild]
+seconds = 110
+mib = 300
+
+[stage2.steps.inspect]
+seconds = 20
+mib = 200
+
+[stage2.steps.build-install]
+seconds = 850
+mib = 450
+
+[stage2.steps."heavy-read:kicad-demo-10-0-6-pcb-06"]
+seconds = 320
+mib = 3450
+
+[stage2.steps."heavy-read:kicad-demo-10-0-6-pcb-18"]
+seconds = 310
+mib = 2750
+
+[stage2.steps."heavy-rt1:kicad-demo-10-0-6-pcb-06"]
+seconds = 1320
+mib = 8700
+
+[stage2.steps."heavy-rt1:kicad-demo-10-0-6-pcb-18"]
+seconds = 1250
+mib = 7900
+
+
+[stage3]
+# Copied from [stage1] as provisional (task 6.1 of c0119): no local run of this stage was possible on
+# 2026-10-08 (no kicad-cli on the machine); the first three scheduled runs replace these values.
+source = "provisional"
+
+[stage3.steps.capabilities]
+seconds = 10
+mib = 150
+
+[stage3.steps.build-dry]
+seconds = 90
+mib = 250
+
+[stage3.steps.build]
+seconds = 90
+mib = 250
+
+[stage3.steps.fill]
+seconds = 100
+mib = 500
+
+[stage3.steps.check]
+seconds = 190
+mib = 550
+
+[stage3.steps.export]
+seconds = 30
+mib = 450
+
+[stage3.steps.render]
+seconds = 20
+mib = 450
+
+[stage3.steps.bom]
+seconds = 20
+mib = 200
+
+[stage3.steps.pnp]
+seconds = 20
+mib = 200
+
+[stage3.steps.manifest]
+seconds = 20
+mib = 200
+
+[stage3.steps.rebuild-dry]
+seconds = 110
+mib = 300
+
+[stage3.steps.rebuild]
+seconds = 110
+mib = 300
+
+[stage3.steps.inspect]
+seconds = 20
+mib = 200
+
+[stage3.steps.build-install]
+seconds = 850
+mib = 450
+
+[stage3.steps."heavy-read:kicad-demo-10-0-6-pcb-06"]
+seconds = 320
+mib = 3450
+
+[stage3.steps."heavy-read:kicad-demo-10-0-6-pcb-18"]
+seconds = 310
+mib = 2750
+
+[stage3.steps."heavy-rt1:kicad-demo-10-0-6-pcb-06"]
+seconds = 1320
+mib = 8700
+
+[stage3.steps."heavy-rt1:kicad-demo-10-0-6-pcb-18"]
+seconds = 1250
+mib = 7900
+
+
+[stage4]
+# Copied from [stage1] as provisional (task 6.1 of c0119): no local run of this stage was possible on
+# 2026-10-08 (no kicad-cli on the machine); the first three scheduled runs replace these values.
+source = "provisional"
+
+[stage4.steps.capabilities]
+seconds = 10
+mib = 150
+
+[stage4.steps.build-dry]
+seconds = 90
+mib = 250
+
+[stage4.steps.build]
+seconds = 90
+mib = 250
+
+[stage4.steps.fill]
+seconds = 100
+mib = 500
+
+[stage4.steps.check]
+seconds = 190
+mib = 550
+
+[stage4.steps.export]
+seconds = 30
+mib = 450
+
+[stage4.steps.render]
+seconds = 20
+mib = 450
+
+[stage4.steps.bom]
+seconds = 20
+mib = 200
+
+[stage4.steps.pnp]
+seconds = 20
+mib = 200
+
+[stage4.steps.manifest]
+seconds = 20
+mib = 200
+
+[stage4.steps.rebuild-dry]
+seconds = 110
+mib = 300
+
+[stage4.steps.rebuild]
+seconds = 110
+mib = 300
+
+[stage4.steps.inspect]
+seconds = 20
+mib = 200
+
+[stage4.steps.build-install]
+seconds = 850
+mib = 450
+
+[stage4.steps."heavy-read:kicad-demo-10-0-6-pcb-06"]
+seconds = 320
+mib = 3450
+
+[stage4.steps."heavy-read:kicad-demo-10-0-6-pcb-18"]
+seconds = 310
+mib = 2750
+
+[stage4.steps."heavy-rt1:kicad-demo-10-0-6-pcb-06"]
+seconds = 1320
+mib = 8700
+
+[stage4.steps."heavy-rt1:kicad-demo-10-0-6-pcb-18"]
+seconds = 1250
+mib = 7900
+
+[stage4.steps.route-pairs]
+seconds = 900  # its --timeout of 600 s plus 300 s for the merge and the write
+
+[stage4.steps.route]
+seconds = 3900  # its --timeout of 3600 s plus 300 s for the merge and the write (Decision 10)
+
+[stage4.ratchets]
+# Provisional bounds until the first three scheduled runs of the stage (rebase prints the largest
+# counts of the routed board): a route that leaves KiCad's count at its cap of 499 fails.
+open_connections = 498
+drc_errors = 499
+
+
+[stage5]
+# Copied from [stage1] as provisional (task 6.1 of c0119): no local run of this stage was possible on
+# 2026-10-08 (no kicad-cli on the machine); the first three scheduled runs replace these values.
+source = "provisional"
+
+[stage5.steps.capabilities]
+seconds = 10
+mib = 150
+
+[stage5.steps.build-dry]
+seconds = 90
+mib = 250
+
+[stage5.steps.build]
+seconds = 90
+mib = 250
+
+[stage5.steps.fill]
+seconds = 100
+mib = 500
+
+[stage5.steps.check]
+seconds = 190
+mib = 550
+
+[stage5.steps.export]
+seconds = 30
+mib = 450
+
+[stage5.steps.render]
+seconds = 20
+mib = 450
+
+[stage5.steps.bom]
+seconds = 20
+mib = 200
+
+[stage5.steps.pnp]
+seconds = 20
+mib = 200
+
+[stage5.steps.manifest]
+seconds = 20
+mib = 200
+
+[stage5.steps.rebuild-dry]
+seconds = 110
+mib = 300
+
+[stage5.steps.rebuild]
+seconds = 110
+mib = 300
+
+[stage5.steps.inspect]
+seconds = 20
+mib = 200
+
+[stage5.steps.build-install]
+seconds = 850
+mib = 450
+
+[stage5.steps."heavy-read:kicad-demo-10-0-6-pcb-06"]
+seconds = 320
+mib = 3450
+
+[stage5.steps."heavy-read:kicad-demo-10-0-6-pcb-18"]
+seconds = 310
+mib = 2750
+
+[stage5.steps."heavy-rt1:kicad-demo-10-0-6-pcb-06"]
+seconds = 1320
+mib = 8700
+
+[stage5.steps."heavy-rt1:kicad-demo-10-0-6-pcb-18"]
+seconds = 1250
+mib = 7900
+
+[stage5.steps.route-pairs]
+seconds = 900  # its --timeout of 600 s plus 300 s for the merge and the write
+
+[stage5.steps.route]
+seconds = 3900  # its --timeout of 3600 s plus 300 s for the merge and the write (Decision 10)
+
+[stage5.ratchets]
+# Provisional bounds until the first three scheduled runs of the stage (rebase prints the largest
+# counts of the routed board): a route that leaves KiCad's count at its cap of 499 fails.
+open_connections = 498
+drc_errors = 499

@@ -24,7 +24,7 @@ from fenolite.core.errors import Issue, Severity
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, format_length, parse_length
 from fenolite.model.base import Modeled, Slot
-from fenolite.model.rules import Rule, RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import Rule, RuleKind, RuleSeverity, Selector, SelectorOp
 
 KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
     {
@@ -40,9 +40,24 @@ KIND_MAP: Mapping[RuleKind, str] = MappingProxyType(
         "courtyard_clearance": "courtyard_clearance",
         "silk_clearance": "silk_clearance",
         "creepage": "creepage",
+        "no_tracks": "disallow",
+        "diff_pair_gap": "diff_pair_gap",
+        "diff_pair_uncoupled": "diff_pair_uncoupled",
+        "skew": "skew",
+        "diff_pair_skew": "skew",
+        "length": "length",
     }
 )
-"""Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``."""
+"""Model kind → written constraint type; ``via_drill`` adds the conjunct ``A.Type == 'Via'``,
+``no_tracks`` is written ``disallow track`` (``DISALLOW_ITEM``), and ``diff_pair_skew`` adds the list of
+``KIND_FLAGS`` after its limits."""
+DISALLOW_ITEM = "track"
+"""The one item type of a ``disallow`` constraint that is modelled (rules.md, "Track layer rules";
+``H-K-DRU-NOTRACKS``). Every other ``disallow`` rule stays opaque."""
+KIND_FLAGS: Mapping[RuleKind, str] = MappingProxyType({"diff_pair_skew": "within_diff_pairs"})
+"""Kind → the empty list written after the limits of its constraint: ``(within_diff_pairs)`` makes a skew
+rule compare the two nets of each pair (``H-K-DRU-PAIR``). Written as a list: a bare atom disables the
+rules (``H-K-TOK-RULES-FLOOR``)."""
 LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
     {
         "clearance": frozenset({"min"}),
@@ -57,9 +72,22 @@ LIMITS: Mapping[RuleKind, frozenset[str]] = MappingProxyType(
         "courtyard_clearance": frozenset({"min"}),
         "silk_clearance": frozenset({"min"}),
         "creepage": frozenset({"min"}),
+        "no_tracks": frozenset(),
+        "diff_pair_gap": frozenset({"min", "opt", "max"}),
+        "diff_pair_uncoupled": frozenset({"max"}),
+        "skew": frozenset({"opt", "max"}),
+        "diff_pair_skew": frozenset({"opt", "max"}),
+        "length": frozenset({"min", "opt", "max"}),
     }
 )
-"""The six kinds of change c0071 take ``min`` only: that is what the oracle measured for them."""
+"""The six kinds of change c0071 take ``min`` only: that is what the oracle measured for them.
+``no_tracks`` takes no limit at all (``NO_LIMIT_KINDS``). For the five pair and length kinds KiCad's DRC
+checks ``min`` and ``max`` and never ``opt``, which is written for its interactive tools
+(``H-K-DRU-PAIR``)."""
+NO_LIMIT_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
+"""The kinds whose rule holds no limit; every other kind needs one."""
+LAYER_KINDS: frozenset[RuleKind] = frozenset({"no_tracks"})
+"""The kinds whose rule needs at least one layer (one rule is written per layer)."""
 LIMIT_ORDER = ("min", "opt", "max")
 
 
@@ -74,7 +102,8 @@ class KindGrammar:
     glob: bool = True
 
 
-_LEAVES = frozenset({"net", "netclass", "ref", "item_kind"})
+_LEAVES = frozenset({"net", "netclass", "ref", "item_kind", "area", "diff_pair"})
+_PAIR_LEAVES = frozenset({"diff_pair", "net", "netclass"})
 KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
     {
         "clearance": KindGrammar(_LEAVES, side_b=True, layers=True),
@@ -89,11 +118,19 @@ KIND_SELECTORS: Mapping[RuleKind, KindGrammar] = MappingProxyType(
         "courtyard_clearance": KindGrammar(frozenset({"ref"}), glob=False),
         "silk_clearance": KindGrammar(frozenset()),
         "creepage": KindGrammar(frozenset({"net", "netclass"}), side_b=True),
+        "no_tracks": KindGrammar(frozenset({"net", "netclass"}), layers=True),
+        "diff_pair_gap": KindGrammar(_PAIR_LEAVES, layers=True),
+        "diff_pair_uncoupled": KindGrammar(_PAIR_LEAVES),
+        "skew": KindGrammar(_PAIR_LEAVES),
+        "diff_pair_skew": KindGrammar(_PAIR_LEAVES),
+        "length": KindGrammar(_PAIR_LEAVES),
     }
 )
 """Each kind → the selectors it takes (rules.md, "Selectors per kind"). A courtyard rule selects footprints,
 so its ``ref`` is written ``A.Reference == '…'`` (``H-K-DRU-COURTYARD``); a silkscreen rule is board-wide,
-because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards."""
+because KiCad also applies it between a footprint's silkscreen and its own neighbours' courtyards. ``area``
+(``S.intersectsArea('…')``, ``H-K-AREA-COND``) is a leaf of the first nine kinds only. The pair and length
+kinds read nets, not pads or item types, and only the pair gap was measured with a layer clause."""
 REFERENCE_KINDS: frozenset[RuleKind] = frozenset({"courtyard_clearance"})
 """The kinds whose ``ref`` leaf is the footprint itself (``Reference``), not a member of it."""
 ITEM_TYPES: Mapping[str, str] = MappingProxyType(
@@ -105,6 +142,8 @@ SELECTOR_KEYS = (
     "netclass",
     "ref",
     "item_kind",
+    "area",
+    "diff_pair",
     "and",
     "or",
     "not",
@@ -113,9 +152,12 @@ SELECTOR_KEYS = (
     "layer_clause",
 )
 _BOTH = frozenset({9, 10})
-SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType({key: _BOTH for key in SELECTOR_KEYS})
+_ONLY_10 = frozenset({10})
+SELECTOR_SUPPORT: Mapping[str, frozenset[int]] = MappingProxyType(dict.fromkeys(SELECTOR_KEYS, _BOTH))
 """Each key → the KiCad majors on which its ``dru-cond-<key>`` probe recorded ``present``
-(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``; every key holds on both majors)."""
+(``docs/evidence/kicad/probes/9.0.9.json`` and ``10.0.6.json``). Every key holds on both majors: ``area``
+(``dru-cond-area``, ``H-K-AREA-COND``) and ``diff_pair`` (``dru-cond-diff_pair``, ``H-K-DRU-PAIRSEL``) since
+their probes were recorded ``present`` on 9.0.9 on 2026-10-08."""
 KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
     {
         "clearance": _BOTH,
@@ -129,13 +171,23 @@ KIND_SUPPORT: Mapping[RuleKind, frozenset[int]] = MappingProxyType(
         "annular_width": _BOTH,
         "courtyard_clearance": _BOTH,
         "silk_clearance": _BOTH,
-        "creepage": frozenset({10}),
+        "creepage": _ONLY_10,
+        "no_tracks": _BOTH,
+        "diff_pair_gap": _BOTH,
+        "diff_pair_uncoupled": _BOTH,
+        "skew": _BOTH,
+        "diff_pair_skew": _BOTH,
+        "length": _BOTH,
     }
 )
 """Each kind → the KiCad majors on which ``kicad-cli`` enforces it as written: for the six kinds of v0.1,
 ``H-K-DRU-KIND``; for the six of change c0071, the majors whose ``dru-kind-<kind>`` probe recorded
 ``present`` (``H-K-DRU-KIND-2``). 9.0.9 loads a ``creepage`` rule and reports nothing for it, so it is written
-for 10 only. A modelled rule of a kind outside its entry gives ``rules.kind-unchecked``."""
+for 10 only. ``no_tracks`` (change c0107) follows its own probe ``dru-kind-no_tracks`` (``H-K-DRU-NOTRACKS``),
+recorded ``present`` on 10.0.6 and, on 2026-10-08, on 9.0.9, so it holds both majors. The five pair and
+length kinds hold the majors whose ``dru-kind-<kind>`` probe is recorded ``present`` (``H-K-DRU-PAIR``):
+10.0.6 and, since 2026-10-08, 9.0.9. A modelled rule of a kind outside its entry gives
+``rules.kind-unchecked``."""
 KIND_UNCHECKED_CODE = "rules.kind-unchecked"
 RULE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
@@ -159,6 +211,11 @@ CLAUSE_ORDER = ("name", "layer", "condition", "constraint", "severity")
 _VALUE = re.compile(r"^([+-]?(?:\d+(?:\.\d*)?|\.\d+))(mm|mil|in)$")
 _LEAF_PROPS = {"net": "NetName", "netclass": "NetClass", "item_kind": "Type"}
 _PROP_OPS = {prop: op for op, prop in _LEAF_PROPS.items()}
+_CALL_OPS: Mapping[str, SelectorOp] = MappingProxyType(
+    {"memberOfFootprint": "ref", "intersectsArea": "area", "inDiffPair": "diff_pair"}
+)
+"""Each function of a condition that is lifted → the leaf it gives; its one argument is a non-empty
+string."""
 _TYPE_KINDS = {name: kind for kind, name in ITEM_TYPES.items()}
 _FORBIDDEN = frozenset("'\"?[]")
 
@@ -231,6 +288,10 @@ def _term(selector: Selector, side: str, target: int, rule: Rule, issues: list[I
         if rule.kind in REFERENCE_KINDS:
             return f"{side}.Reference == '{value}'"
         return f"{side}.memberOfFootprint('{value}')"
+    if op == "area":
+        return f"{side}.intersectsArea('{value}')"
+    if op == "diff_pair":
+        return f"{side}.inDiffPair('{value}')"
     if op == "item_kind":
         if value not in ITEM_TYPES:
             return refuse(f"item kind {value!r} is not one of {', '.join(ITEM_TYPES)}")
@@ -328,11 +389,13 @@ class _Parse:
             self.take(")")
             return found
         side, prop = self.take(kind="leaf").split(".", 1)
-        if prop == "memberOfFootprint":
+        if prop in _CALL_OPS:
             self.take("(")
             value = self.take(kind="str")[1:-1]
             self.take(")")
-            return ("leaf", (side, Selector("ref", value)))
+            if not value:
+                raise ValueError("empty value")
+            return ("leaf", (side, Selector(_CALL_OPS[prop], value)))
         op = "ref" if prop == "Reference" and self.reference else _PROP_OPS.get(prop)
         if op is None:
             raise ValueError(f"property {prop!r} is outside the closed grammar")
@@ -431,7 +494,7 @@ def rule_nodes(
     issues: list[Issue] = []
     constraint_type = KIND_MAP[rule.kind]
     limits = [(name, getattr(rule, name)) for name in LIMIT_ORDER if getattr(rule, name) is not None]
-    if not limits:
+    if not limits and rule.kind not in NO_LIMIT_KINDS:
         issues.append(_issue("rules.unsupported-limit", f"a {rule.kind} rule needs a limit", rule))
     for name, _ in limits:
         if name not in LIMITS[rule.kind]:
@@ -440,6 +503,15 @@ def rule_nodes(
     issues += found
     if rule.layers and not KIND_SELECTORS[rule.kind].layers:
         issues.append(_issue("rules.unsupported-selector", f"a {rule.kind} rule takes no layer clause", rule))
+    if rule.kind in LAYER_KINDS:
+        if not rule.layers:
+            issues.append(
+                _issue("rules.unsupported-layer", f"a {rule.kind} rule needs at least one layer", rule)
+            )
+        if rule.selector_b is not None and rule.selector_b.op == "all":  # another B: condition_text
+            issues.append(
+                _issue("rules.unsupported-selector", f"a {rule.kind} rule takes no selector_b", rule)
+            )
     for layer in rule.layers:
         if not is_canonical(layer):
             issues.append(
@@ -454,7 +526,9 @@ def rule_nodes(
     constraint = _node(
         "constraint",
         Atom.symbol(constraint_type),
+        *((Atom.symbol(DISALLOW_ITEM),) if rule.kind == "no_tracks" else ()),
         *(_node(name, Atom.symbol(format_value(value))) for name, value in limits),
+        *((_node(KIND_FLAGS[rule.kind]),) if rule.kind in KIND_FLAGS else ()),
     )
     fields = {s.field for s in slots if isinstance(s, Modeled)}
     severity = not slots or "severity" in fields or rule.severity != "error"
@@ -501,21 +575,42 @@ def lift_rule(node: Node) -> Rule | str:
         return "a clause appears twice"
     constraint = clauses["constraint"][0]
     types = constraint.atoms()
+    disallow = bool(types) and types[0].kind == AtomKind.SYMBOL and types[0].value == KIND_MAP["no_tracks"]
+    if disallow:
+        items = [a.text for a in types[1:]]
+        if items != [DISALLOW_ITEM] or constraint.nodes():
+            return (
+                f"constraint disallow {' '.join(items) or '()'} is not 'disallow {DISALLOW_ITEM}' alone, "
+                "the one disallow rule that is modelled"
+            )
+        if "layer" not in clauses:
+            return f"a 'disallow {DISALLOW_ITEM}' rule without a layer clause is not modelled"
+        types = types[:1]
     kinds: list[RuleKind] = [
-        k for k, written in KIND_MAP.items() if k != "via_drill" and types and written == types[0].value
+        k
+        for k, written in KIND_MAP.items()
+        if k != "via_drill" and k not in KIND_FLAGS and types and written == types[0].value
     ]
     if len(types) != 1 or types[0].kind != AtomKind.SYMBOL or not kinds:
         return f"constraint {' '.join(a.text for a in types) or '()'} is not a lowered kind"
     kind: RuleKind = kinds[0]
     limits: dict[str, Nm] = {}
-    for child in constraint.nodes():
+    children = list(constraint.nodes())
+    for flagged, flag in KIND_FLAGS.items():
+        # the flag is the last child, an empty list; anywhere else it keeps the rule opaque
+        if KIND_MAP[flagged] == types[0].value and children and children[-1].name == flag:
+            if children[-1].children:
+                return f"the list {flag!r} takes no value"
+            kind = flagged
+            children.pop()
+    for child in children:
         found = _limit(child)
         if isinstance(found, str):
             return found
         if found[0] in limits or found[0] not in LIMITS[kind]:
             return f"limit {found[0]!r} is not allowed for {kind}"
         limits[found[0]] = found[1]
-    if not limits:
+    if not limits and kind not in NO_LIMIT_KINDS:
         return "the constraint has no limit"
     selector_a, selector_b = Selector("all"), None
     if "condition" in clauses:
@@ -615,6 +710,7 @@ __all__ = [
     "CLAUSE_ORDER",
     "KindGrammar",
     "ITEM_TYPES",
+    "KIND_FLAGS",
     "KIND_MAP",
     "KIND_SELECTORS",
     "KIND_SUPPORT",

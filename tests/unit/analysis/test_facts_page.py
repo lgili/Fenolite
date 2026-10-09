@@ -110,3 +110,85 @@ def test_example_is_marked_as_authored() -> None:
     first = EXAMPLE.read_text(encoding="utf-8").splitlines()[0]
     assert first.startswith("#") and MARK in first
     assert MARK in PAGE.read_text(encoding="utf-8")
+
+
+def test_power_page_states_the_model() -> None:
+    """Scenario "The page states the model" (change c0115)."""
+    import re
+
+    text = PAGE.read_text(encoding="utf-8")
+    for section in ("Power paths", "Insulation between layers", "Grooves", "Conductors on the path"):
+        assert f"\n## {section}\n" in text, section
+    sources = (ROOT / "docs" / "evidence" / "sources.md").read_text(encoding="utf-8")
+    for source in ("S-0681", "S-0682"):
+        assert source in text and f"\n| {source} | https://" in sources, source
+    assert "R_s · ℓ² / A" in text and "R_s · A / w²" in text and "not a simulation" in text
+    for limit in (
+        "ideal contacts",
+        "upper bound",
+        "analysis.path-open",
+        "counted and not used",
+        "0.2.x and 0.3.0",
+    ):
+        assert limit in text, limit
+    for hypothesis in (
+        "H-G-AN-SECTION",
+        "H-G-AN-POUR",
+        "H-G-AN-NETWORK",
+        "H-G-AN-INSUL",
+        "H-G-AN-GROOVE",
+        "H-G-AN-OVER",
+    ):
+        assert hypothesis in text, hypothesis
+    # a resistivity with a number is an example: its paragraph says that the value is illustrative
+    for paragraph in text.split("\n\n"):
+        if re.search(r"resistivity[^\n]*\d|--resistivity \d", paragraph):
+            assert "illustrative" in paragraph, paragraph[:120]
+    assert "every resistivity in this guide is illustrative" in text
+
+
+def test_power_modules_ship_no_requirement_value() -> None:
+    """No resistivity, groove width, insulation distance or sheet count in the package: such a value in
+    the units of the package is an integer of at least 10 000, and the new modules hold none beside the
+    scale of the drop (microohms times milliamperes to millivolts) and hold no float."""
+    import ast
+
+    package = ROOT / "src" / "fenolite" / "analysis"
+    for name in ("power.py", "section.py", "network.py", "fills.py", "grooves.py", "insulation.py"):
+        tree = ast.parse((package / name).read_text(encoding="utf-8"))
+        constants = [node.value for node in ast.walk(tree) if isinstance(node, ast.Constant)]
+        large = {value for value in constants if type(value) is int and abs(value) >= 10_000}
+        assert large <= ({1_000_000} if name == "power.py" else set()), (name, sorted(large))
+        assert not [value for value in constants if type(value) is float], name
+
+
+def impedance_table(text: str) -> list[list[str]]:
+    """The cells of the rows of the table under the heading "Impedance formulas" (change c0105)."""
+    section = text.split("### Impedance formulas", 1)[1].split("\n## ", 1)[0]
+    rows = [line for line in section.splitlines() if line.startswith("|")]
+    return [[cell.strip() for cell in row.strip().strip("|").split("|")] for row in rows[2:]]
+
+
+def test_impedance_table_equals_the_code() -> None:
+    """Scenario "Table equals the code" of "Impedance formula sources are recorded"."""
+    from fenolite.analysis import impedance
+
+    text = PAGE.read_text(encoding="utf-8")
+    sources = set(re.findall(r"^\| (S-\d{4}) \|", SOURCES.read_text(encoding="utf-8"), re.MULTILINE))
+    hypotheses = set(
+        re.findall(r"^\| (H-[A-Z0-9-]+) \|", HYPOTHESES.read_text(encoding="utf-8"), re.MULTILINE)
+    )
+    rows = impedance_table(text)
+    names = [cells[0].strip("`") for cells in rows]
+    assert sorted(names) == sorted(impedance.CONSTANTS) and len(names) == len(set(names))
+    for cells in rows:
+        name = cells[0].strip("`")
+        assert len(cells) == 7, name
+        assert Decimal(cells[1]) == getattr(impedance, name), name
+        assert cells[4] in sources and cells[5] == "INFERRED" and cells[6] in hypotheses, name
+    module_constants = {
+        name for name, value in vars(impedance).items() if name.isupper() and isinstance(value, Decimal)
+    }
+    assert module_constants == set(impedance.CONSTANTS)
+    for limit in ("solder mask", "etch angle", "frequency", "loss", "copper roughness"):
+        assert limit in text.split("## Impedance estimates", 1)[1].split("\n## ", 1)[0].lower(), limit

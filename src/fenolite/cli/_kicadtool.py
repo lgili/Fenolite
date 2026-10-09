@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fenolite.backends.kicad import versions
-from fenolite.backends.kicad.cli import DOCKER_PREFIX, KicadCli, KicadCliError, cli_for, find_kicad_cli
+from fenolite.backends.kicad.cli import KicadCli, KicadCliError, cli_for, docker_image, find_kicad_cli
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError
@@ -36,8 +36,9 @@ def supported_tool(explicit: str | None, timeout: float, *, hint: str = NO_TOOL_
     try:
         major = cli.major()
     except (KicadCliError, ValueError, OSError) as exc:
-        if str(path).startswith(DOCKER_PREFIX):
-            hint = f"docker pull {str(path)[len(DOCKER_PREFIX) :]}"
+        image = docker_image(path)
+        if image is not None:
+            hint = f"docker pull {image}"
         raise CliError("FEN-6001", f"{path.name} did not report a kicad-cli version", hint=hint) from exc
     if major not in versions.TARGET_MAJORS:
         raise CliError("FEN-6002", f"kicad-cli {cli.version()} is not supported",

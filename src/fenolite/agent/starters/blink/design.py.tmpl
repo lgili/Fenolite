@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: CC0-1.0
+"""@NAME@: a two-pin header feeds a LED through a resistor, on a 30 mm by 20 mm two-layer board.
+
+A starter written by ``fenolite init``. Every part comes from the built-in catalog (``Fenolite:`` ids),
+so the script builds on a machine that has no KiCad library. Change it, then build it again.
+"""
+
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("@NAME@")
+design.board(mm(30), mm(20))
+
+# What the board house can make. These are this starter's own numbers: replace them with your fab's.
+design.rules.minimum(
+    clearance=mm(0.2), track_width=mm(0.2), via_diameter=mm(0.6), via_drill=mm(0.3), edge_clearance=mm(0.3)
+)
+
+# The parts: a symbol for the schematic and a footprint for the board, both catalog ids.
+# `fenolite catalog list` shows what else is there.
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="330")
+d1 = Part("D1", "Fenolite:LED", footprint="Fenolite:Chip_0603", value="LED")
+design.add(j1, r1, d1)
+
+# The nets: three, of two pads each.
+vin, led_a, gnd = Net("VIN"), Net("LED_A"), Net("GND")
+connect(vin, j1[1], r1[1])
+connect(led_a, r1[2], d1[1])
+connect(gnd, d1[2], j1[2])
+
+# The placement, from the board's top-left corner. It is chosen so that a straight track between the
+# two pads of each net crosses nothing: `fenolite route --router direct` can then close the board.
+# That router draws straight tracks and checks nothing. A real board needs a real router
+# (`fenolite capabilities --brief` lists them) or copper written in this script.
+j1.place(mm(6), mm(9))
+r1.place(mm(15), mm(14))
+d1.place(mm(15), mm(6), rot=180)

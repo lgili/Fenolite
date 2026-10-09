@@ -274,6 +274,65 @@ S-0022, S-0038); it is measured (S-0020). `KicadOracle.drc` therefore gives `inc
 `clearance-limit`, not `absent`, when the canary run's report holds no canary pair and at least
 `CLEARANCE_REPORT_LIMIT` = 499 `clearance` violations; it does not repeat the run.
 
+## DRC report limits per type (change c0141)
+
+Counts only (`H-K-DRC-LIMITS`). The bench is authored (`tests/kicad/check/_limitsbench.py`): a board of
+400 mm × 400 mm in format 20241229 with a `{}` project and a rules file of four rules (`track_width` 0.2 mm,
+`hole_to_hole` 1 mm, `hole_clearance` 1 mm, `annular_width` 0.15 mm), one construct per cell of a 4 mm grid.
+Each construct gives one entry of its type and none of another: at 3 copies of one type the report holds
+3 entries of that type and nothing else, for each of the thirteen types (10.0.6, 2026-10-07).
+
+### One board of 13 × 700 constructs (`drc-limit-<type>`)
+
+| type | copies | entries, 10.0.6 macOS (2026-10-07, this bench) | entries, 9.0.9 pinned image (2026-10-05, one board of nine benches on the review branch) |
+|---|---|---|---|
+| `clearance` | 700 | 499 | 500 |
+| `unconnected_items` | 700 | 499 | 499 |
+| `track_dangling` | 700 | 199 | 199 |
+| `via_dangling` | 700 | 199 | 199 |
+| `copper_edge_clearance` | 700 | 199 | 199 |
+| `track_width` | 700 | 199 | 199 |
+| `hole_to_hole` | 700 | 199 | 199 |
+| `hole_clearance` | 700 | 199 | not measured |
+| `annular_width` | 700 | 199 | not measured |
+| `silk_overlap` | 700 | 199 | 199 |
+| `courtyards_overlap` | 700 | 199 | 199 |
+| `lib_footprint_issues` | 700 | 199 | 199 |
+| `shorting_items` | 700 | 199 | not measured |
+
+The 10.0.6 run wrote 3386 entries (2 × 499 + 11 × 199) in 13 s and no entry of a type outside the bench. The
+first measurement of 2026-10-05 on 10.0.6, with one bench per type, gave the same thirteen counts. The 9.0.9
+column above is the first measurement of 2026-10-05, on another board.
+
+With this bench in the pinned 9.0.9 image (`kicad/kicad:9.0.9@sha256:e638b79b…`, linux/amd64, local run
+of 2026-10-08; the `kicad-9` job of CI has not run it yet), the board of 13 × 700 constructs gives 499
+`clearance`, 499 `unconnected_items`, 199 of each of `track_dangling`, `via_dangling`,
+`copper_edge_clearance`, `track_width`, `hole_to_hole`, `annular_width`, `silk_overlap`,
+`courtyards_overlap`, `lib_footprint_issues` and `shorting_items`, and **no entry of `hole_clearance`**
+(0, where 10.0.6 gives 199). A diagnosis of the same day, not recorded as a probe: 9.0.9 gives no
+`hole_clearance` entry for a pad beside an unplated hole in one footprint or in two, with or without a
+net, at 3 and at 700 copies; 10.0.6 gives 3 and 199 for each of the four forms. So the limit of
+`hole_clearance` on 9.0.9 is not measured (`drc-limit-hole_clearance` = `different` there), and
+`drc.MEASURED_TYPES[9]` lacks the type. At 150 copies 9.0.9 gives 150, 150 and 150; with
+`--all-track-errors` 199 `track_dangling`. Its report has nine top-level keys, those of 10.0.6 without
+`ignored_checks`; `drc-limit-keys` compares with the keys of the running major and is `equal` on both.
+
+### Under the limit, `--all-track-errors`, and the keys (10.0.6 macOS, 2026-10-07)
+
+| probe | bench | result |
+|---|---|---|
+| `drc-limit-below` | 150 copies each of `track_dangling`, `silk_overlap` and the unconnected construct | 150, 150 and 150 entries; nothing else |
+| `drc-limit-all-track-errors` | 700 dangling tracks, with `--all-track-errors` | 199 `track_dangling`, as without the option |
+| `drc-limit-keys` | the board of 13 × 700 | `$schema`, `coordinate_units`, `date`, `ignored_checks`, `included_severities`, `kicad_version`, `schematic_parity`, `source`, `unconnected_items`, `violations`: no key marks a type as cut |
+
+### `check` on the bench (10.0.6 macOS, 2026-10-07)
+
+`fenolite check <bench> --stages drc.kicad --json` on 700 dangling tracks: exit 0, stage `ok`, canary `fired`,
+`by_type` `{"track_dangling": 199}`, `summary.limits` `[{"type": "track_dangling", "reported": 199,
+"limit": 199}]` and one `check.report-limit` warning with `where` `kicad.drc.track-dangling`; two runs give
+equal stdout apart from `elapsed_ms`. On 150 dangling tracks `summary.limits` is `[]` and no warning is
+reported.
+
 ## ERC and schematic parity (change c0062)
 
 Measured on 2026-10-05 with `kicad-cli` 10.0.6 (macOS) and 9.0.9 (pinned image) by

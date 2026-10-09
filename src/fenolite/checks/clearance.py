@@ -21,10 +21,12 @@ from typing import Literal
 
 from fenolite.core.units import Nm
 from fenolite.model.design import Design
-from fenolite.model.rules import LEAF_OPS, Rule, RuleSubject, Selector
+from fenolite.model.pairs import coupled_name, net_bases
+from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
 
-CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone"]
-"""The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``."""
+CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout"]
+"""The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
+the area of a ``copper.keepout`` finding; no rule subject takes it."""
 ITEM_KINDS: dict[str, str] = {
     "track": "track",
     "arc": "track",
@@ -35,6 +37,8 @@ ITEM_KINDS: dict[str, str] = {
 }
 DEFAULT_CLASS = "Default"
 """The class of a net without one, when the design holds a class of this name."""
+PAIR_GAP_SOURCE = "pair-gap"
+"""The prefix of the source of a value that is the pair gap of a class: ``pair-gap:<class name>``."""
 ZONE_SOURCE = "zone"
 """The source of a value that is the own clearance of the zone of a fill."""
 
@@ -42,7 +46,7 @@ ZONE_SOURCE = "zone"
 @dataclass(frozen=True, slots=True)
 class Clearance:
     """What ``resolve`` returns: the value in nanometres, the severity of a finding below it, and where the
-    value comes from (``rule:<name>``, ``class:<name>``, ``zone`` or ``floor``).
+    value comes from (``rule:<name>``, ``class:<name>``, ``pair-gap:<class name>``, ``zone`` or ``floor``).
 
     ``value`` is ``None`` when the pair is not judged for clearance: ``source`` is then ``rule:<name>`` for a
     governing rule of severity ``ignore``, and empty when nothing sets a clearance.
@@ -61,6 +65,31 @@ class Clearance:
 UNSET = Clearance(None, None)
 
 
+@dataclass(frozen=True, slots=True)
+class ClearanceCandidate:
+    """An immutable value candidate; rule identity never depends on its display name."""
+
+    source: str
+    value: Nm | None
+    severity: RuleSeverity | None
+    rule_id: str | None = None
+    priority: int | None = None
+    layers: tuple[str, ...] = ()
+    selector_a: Selector | None = None
+    selector_b: Selector | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ClearanceExplanation:
+    """Matched subjects and candidate values, without entities or design advice."""
+
+    subjects: tuple[RuleSubject, RuleSubject]
+    candidates: tuple[ClearanceCandidate, ...]
+    rules_over_classes: bool
+    floor_over_rules: bool
+    governing: Clearance
+
+
 def rule_precedence(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     """The rules in the order a backend writes them: priority 0 first, then descending priority (priority 1
     last); ties by name, then id. The later rule governs (``H-K-DRU-ORDER``)."""
@@ -72,7 +101,12 @@ def _fold(text: str | None) -> str | None:
 
 
 def _fold_selector(selector: Selector) -> Selector:
-    """``selector`` with every leaf value case-folded: names compare without regard to letter case."""
+    """``selector`` with every leaf value case-folded: names compare without regard to letter case. An
+    ``area`` leaf is kept as written: KiCad compares area names with letter case (``H-K-AREA-COND``). A
+    ``diff_pair`` leaf keeps its value too, because KiCad compares a pair base with its letter case
+    (``H-K-DRU-PAIRSEL``)."""
+    if selector.op in ("area", "diff_pair"):
+        return selector
     if selector.op in LEAF_OPS:
         return dataclasses.replace(selector, value=selector.value.casefold())
     if selector.items:
@@ -87,7 +121,16 @@ def _fold_subject(subject: RuleSubject) -> RuleSubject:
         netclass=_fold(subject.netclass),
         ref=_fold(subject.ref),
         layer=_fold(subject.layer),
+        areas=subject.areas,
+        diff_pair=subject.diff_pair,
     )
+
+
+def selector_matches(selector: Selector, subject: RuleSubject) -> bool:
+    """Whether ``selector`` selects ``subject``, names compared as the clearance rules compare them: without
+    regard to letter case, except an ``area`` leaf and a ``diff_pair`` leaf (``_fold_selector``). The
+    length stage (``checks.length``) matches its rules with it."""
+    return _fold_selector(selector).matches(_fold_subject(subject))
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,6 +166,15 @@ class ClearanceResolver:
         self._class_values: dict[str, Nm] = {
             name: netclass.clearance for name, netclass in named.items() if netclass.clearance is not None
         }
+        self._pair_gaps: dict[str, Nm] = {
+            name: netclass.diff_pair_gap
+            for name, netclass in named.items()
+            if netclass.diff_pair_gap is not None
+            and netclass.clearance is not None
+            and netclass.diff_pair_gap < netclass.clearance
+        }
+        """Class name → its pair gap, for the classes whose gap is below their clearance."""
+        self._bases = net_bases(net.name for net in circuit.nets)
         self._nets: dict[str, tuple[str, str]] = {}
         for net in circuit.nets:
             netclass = classes.get(net.netclass_id) if net.netclass_id is not None else None
@@ -159,26 +211,57 @@ class ClearanceResolver:
         """The largest value ``resolve`` can return for the design, the own clearance of every zone that
         has fills included, or 0."""
 
-    def subject(self, kind: CopperKind, net_id: str | None, *, ref: str | None, layer: str) -> RuleSubject:
-        """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, and the
-        component reference for a pad. An item without a net, or whose net has no class, is in the class
-        named ``Default``."""
+    def subject(
+        self,
+        kind: CopperKind,
+        net_id: str | None,
+        *,
+        ref: str | None,
+        layer: str,
+        areas: frozenset[str] = frozenset(),
+    ) -> RuleSubject:
+        """The subject of a copper item of ``kind`` on ``layer``: its net name and class name, the
+        component reference for a pad, and the names of the rule areas it lies in on that layer. An item
+        without a net, or whose net has no class, is in the class named ``Default``. ``diff_pair`` is the
+        base of the net when the design holds its coupled net."""
         name, netclass = (
             self._nets.get(net_id, (None, DEFAULT_CLASS)) if net_id is not None else (None, DEFAULT_CLASS)
         )
-        return RuleSubject(item_kind=ITEM_KINDS[kind], net=name, netclass=netclass, ref=ref, layer=layer)
+        return RuleSubject(
+            item_kind=ITEM_KINDS[kind],
+            net=name,
+            netclass=netclass,
+            ref=ref,
+            layer=layer,
+            areas=areas,
+            diff_pair=self._bases.get(name) if name is not None else None,
+        )
+
+    def _class_candidates(self, a: RuleSubject, b: RuleSubject) -> tuple[tuple[Nm, str], ...]:
+        return tuple(
+            (self._class_values[name], name)
+            for name in sorted({n for n in (a.netclass, b.netclass) if n is not None})
+            if name in self._class_values
+        )
 
     def _class_value(self, a: RuleSubject, b: RuleSubject) -> tuple[Nm, str] | None:
         """The larger clearance of the two subjects' classes that set one, and the name of that class."""
-        found = [
-            (self._class_values[name], name)
-            for name in {a.netclass, b.netclass}
-            if name is not None and name in self._class_values
-        ]
+        found = self._class_candidates(a, b)
         if not found:
             return None
         value = max(v for v, _ in found)
         return value, min(name for v, name in found if v == value)
+
+    def _pair_gap(self, a: RuleSubject, b: RuleSubject) -> tuple[Nm, str] | None:
+        """The pair gap of the class of two subjects on the two nets of one pair, and the name of that
+        class, when the gap is below the class clearance: KiCad then judges the pair by the gap
+        (``H-K-PRO-PAIR``)."""
+        if a.diff_pair is None or a.diff_pair != b.diff_pair or a.net is None or a.net == b.net:
+            return None
+        if a.netclass is None or a.netclass != b.netclass or coupled_name(a.net) != b.net:
+            return None
+        gap = self._pair_gaps.get(a.netclass)
+        return None if gap is None else (gap, a.netclass)
 
     def resolve(self, a: RuleSubject, b: RuleSubject, *, zone_clearance: Nm | None = None) -> Clearance:
         """The clearance in force between two subjects on the same layer; the same for ``(b, a)``.
@@ -203,7 +286,10 @@ class ClearanceResolver:
         floor = self._floor
         # the values a rule may replace, the class first: among equal values the class names the source
         kept: list[Clearance] = []
-        if classes is not None:
+        pair = self._pair_gap(a, b)
+        if pair is not None:
+            kept.append(Clearance(pair[0], "error", f"{PAIR_GAP_SOURCE}:{pair[1]}"))
+        elif classes is not None:
             kept.append(Clearance(classes[0], "error", f"class:{classes[1]}"))
         if zone is not None:
             kept.append(Clearance(zone, "error", ZONE_SOURCE))
@@ -228,14 +314,57 @@ class ClearanceResolver:
             found = Clearance(floor, "error", "floor")
         return found
 
+    def explain(
+        self, a: RuleSubject, b: RuleSubject, *, zone_clearance: Nm | None = None
+    ) -> ClearanceExplanation:
+        """Explain the same resolution, including overshadowed matching rules and class values."""
+        folded_a, folded_b = _fold_subject(a), _fold_subject(b)
+        rows = [
+            ClearanceCandidate(
+                source=f"rule:{c.rule.name}",
+                value=c.rule.min,
+                severity=c.rule.severity,
+                rule_id=c.rule.id,
+                priority=c.rule.priority,
+                layers=c.rule.layers,
+                selector_a=c.rule.selector_a,
+                selector_b=c.rule.selector_b,
+            )
+            for c in reversed(self._candidates)
+            if c.matches(folded_a, folded_b)
+        ]
+        pair = self._pair_gap(a, b)
+        if pair is not None:
+            # the resolver's own candidate: the pair gap that replaces the class value (c0104)
+            rows.append(ClearanceCandidate(f"{PAIR_GAP_SOURCE}:{pair[1]}", pair[0], "error"))
+        rows.extend(
+            ClearanceCandidate(f"class:{name}", value, "error")
+            for value, name in self._class_candidates(a, b)
+        )
+        if self._floor is not None:
+            rows.append(ClearanceCandidate("floor", self._floor, "error"))
+        if zone_clearance is not None and zone_clearance > 0:
+            rows.append(ClearanceCandidate(ZONE_SOURCE, zone_clearance, "error"))
+        return ClearanceExplanation(
+            (a, b),
+            tuple(rows),
+            self._rules_over_classes,
+            self._floor_over_rules,
+            self.resolve(a, b, zone_clearance=zone_clearance),
+        )
+
 
 __all__ = [
     "DEFAULT_CLASS",
     "ITEM_KINDS",
+    "PAIR_GAP_SOURCE",
     "UNSET",
     "ZONE_SOURCE",
     "Clearance",
+    "ClearanceCandidate",
+    "ClearanceExplanation",
     "ClearanceResolver",
     "CopperKind",
     "rule_precedence",
+    "selector_matches",
 ]

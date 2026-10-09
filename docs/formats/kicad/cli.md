@@ -38,6 +38,23 @@ last word is a subcommand, or its option a long option, on its parent's page.
 | With an authored board of either target major, 10.0.6 writes a saved board, a `.kicad_prl` and `drc.json` in the run folder | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-FILL-SAVE |
 | `docker run --rm --pull never --platform linux/amd64 -v HOST:/w -w /w -e KICAD_CONFIG_HOME=/w/config -e LANG=C -e LC_ALL=C IMAGE kicad-cli …` runs a named image with the copied project mounted at `/w`; the runner never pulls an image | S-0205 | INFERRED | H-K-CLI-DOCKER |
 
+## Per-run state
+
+Parallel `kicad-cli` processes on one machine must not share state that the tool writes outside its run
+folder (c0153). Each run of the package runner therefore gets its own temporary, runtime, cache and state
+folders under `<run folder>/.fenolite-state/` (`cli.private_state`), next to its own `KICAD_CONFIG_HOME`;
+the folders are removed with the run folder. Configuration and data folders are not moved: KiCad's
+configuration is already `KICAD_CONFIG_HOME`, and fonts and user data are only read.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A process on a POSIX system takes `TMPDIR` as the folder for its temporary files; Python's `tempfile`, as an example of the convention, tries `TMPDIR`, then `TEMP`, then `TMP` | S-0703, S-0705 | INFERRED | H-K-CLI-STATE |
+| `XDG_RUNTIME_DIR` names a per-user folder for runtime files (sockets, named pipes) that only the user may read and write (mode 0700); `XDG_CACHE_HOME` and `XDG_STATE_HOME` name the user's cache and state folders | S-0704 | INFERRED | H-K-CLI-STATE |
+| `KICAD_CONFIG_HOME` moves KiCad's configuration folder | S-0045 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
+| Under parallel runs on one machine, `kicad-cli` 9.0.9 and 10.0.6 have printed "Invalid lock file '/tmp/org.kicad.kicad/instances/kicad-cli-<major>.0'": the tool keeps an instance lock file named by its program and major in a folder `org.kicad.kicad/instances` of the shared temporary folder, the same file for every process of that major. Runs that printed it lost their usual result: an unloadable schematic gave no "Failed to load schematic" (kicad-9 job, 2026-10-08), a broken drawing sheet gave no "Error loading drawing sheet" (kicad-9 job, 2026-10-08; c0082 on 10.0.6), and an import added the warning (c0051, kicad-10 job) | S-0020 | INFERRED | H-K-CLI-STATE |
+| With `TMPDIR`, `TMP` and `TEMP` naming a private folder, the instance folder `org.kicad.kicad/instances` is created in that folder, so runs with different folders share no lock file; eight runs at once with private folders give their usual result and print no lock message (`tests/kicad/check/test_parallel_runs_oracle.py`, the `kicad-9` and `kicad-10` jobs of CI run https://github.com/lgili/Fenolite/actions/runs/37836186018, 2026-10-08) | S-0020, S-0703 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-STATE |
+| The Docker runner keeps the caller's environment for the `docker` client (a rootless daemon's socket is under `XDG_RUNTIME_DIR`); each container (`--rm`) has its own `/tmp` | S-0205, S-0704 | INFERRED | H-K-CLI-DOCKER |
+
 ## Copy set of a check
 
 `kicad-cli` writes into the folder it runs in, so `fenolite check` gives it only a copy of the files a
@@ -73,11 +90,18 @@ The `check-help-*` probes pinned in `docs/evidence/kicad/probes/` (`tests/kicad/
 | `pcb export stats` | absent | present |
 | `pcb export ipc2581` | present | present |
 | `pcb export odb` | present | present |
+| `pcb export step` | present | present |
+| `pcb export pdf` | present | present |
+| `pcb export dxf` | present | present |
 | `fp upgrade` | present | present |
 | `sym upgrade` | present | present |
 | `sch erc` | present | present |
 | `sch export netlist` | present | present |
+| `sch export pdf` | present | present |
 | `jobset run` | present | present |
+
+The rows of `pcb export step`, `pdf` and `dxf` and of `sch export pdf` were added by change c0116 and recorded on
+10.0.6 on 2026-10-07 and on 9.0.9 (the pinned image, local run) on 2026-10-08.
 
 Every page that `command_matrix` reads parsed on both versions. On 9.0.9 the rows `pcb import`,
 `pcb upgrade`, `pcb export stats`, `pcb drc --refill-zones` and `pcb drc --save-board` are absent; every
@@ -113,6 +137,27 @@ changes between identical runs gives `inconclusive` instead of a false differenc
 | `--check-zones` exists on 10.0 only and refills zones before plotting; Fenolite never passes it | S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CLI-HELP |
 | `pcb export svg --mode-single -o <file> --layers <list>` writes one SVG on both majors; `--mirror` mirrors it | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
 | `pcb render --side top\|bottom --width W --height H -o <file>.png` writes a PNG no larger than that size (368 × 280 for 400 × 300) with no display | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-RENDER |
+| `pcb export ipc2581`, `odb`, `step`, `pdf` and `dxf` and `sch export pdf` exist on 9.0.9 and 10.0.6; 10.0.6 adds `pcb export 3dpdf`, `ps`, `stats`, `stpz` and `u3d` (c0116) | S-0020, S-0022, S-0029, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| Options of one major only: `--variant` (all six commands), `--bom-rev` (ipc2581), `--check-zones` (odb, pdf, dxf), `--scale` (pdf, dxf), `--bg-color` and `--no-property-popups` (pdf), `--no-extra-pad-thickness` (step) and `--draw-hop-over` (sch pdf) on 10.0.6; `--plot-invisible-text` (pdf, dxf) on 9.0.9. Fenolite passes none of them | S-0020, S-0022, S-0029, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| Equal defaults on both majors, which Fenolite passes explicitly where they decide the file: ipc2581 `--precision 6`, `--version C`, `--units mm`; odb `--precision 2`, `--compression zip`, `--units mm`; dxf `--output-units in` (Fenolite asks for `mm`) | S-0020, S-0022, S-0037 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| `pcb export ipc2581 -o <folder>/<stem>.xml`, `pcb export odb -o <folder>/<stem>.zip` and `pcb export step -o <folder>/<stem>.step` each write the one file named; the STEP run prints `STEP file '<path>' created.` and `Export time … s` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| `pcb export pdf --mode-separate --layers <list> -o <folder>/` and `pcb export dxf --mode-multi --layers <list> -o <folder>/` write one file per listed layer, `<stem>-<layer name as KiCad shows it, dots as underscores>.pdf` or `.dxf` (`F_Courtyard` for `F.CrtYd`, `F_Silkscreen` for `F.SilkS`); `--common-layers Edge.Cuts` and `--include-border-title` add the outline and the frame to every PDF page | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| `pcb export pdf --mode-multipage -o X` writes the file X on 10.0.6 and a folder `X/` holding `<stem>.pdf` on 9.0.9; with `-o <folder>/`, multipage or no mode exits 2 on 10.0.6. Fenolite uses `--mode-separate` only | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| `pcb export dxf` without a mode prints on 10.0.6 that its behaviour will change in a future release to match `--mode-multi`; Fenolite always passes `--mode-multi` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| `sch export pdf -o <folder>/<stem>.pdf <root>.kicad_sch` writes one PDF with one page per sheet instance of the hierarchy | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| No document holds the user's name or a temporary path; a PDF's `/Title` is its file name | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS |
+| Two runs of `pcb export dxf` on one board are byte-equal | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS-REPEAT |
+| Two runs of `pcb export pdf` or `sch export pdf` differ only in the line `/CreationDate (D:…)`, written as `D:2026:10:05:21:44:59` by 10.0.6 and as `D:20261005135825` by 9.0.9 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS-REPEAT |
+| Two STEP exports of one board differ beyond the `FILE_NAME(` line (date and output name): entity numbers and colour entities differ, and the files are not equal even as sets of lines | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS-REPEAT |
+| An IPC-2581 file holds the date in `<HistoryRecord … origination="…" … lastChange="…">` and `<AvlHeader … datetime="…"/>`; without those lines two runs are equal on 9.0.9 and not on 10.0.6, where contour points and line order vary | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS-REPEAT |
+| An ODB++ zip differs on every run; written as a folder (`--compression none`, 63 files for a four-layer board), `misc/info` and `steps/pcb/eda/data` hold dates, and on 10.0.6 six front-layer `features` files also vary | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-DOCS-REPEAT |
+| A STEP exported with no origin option lies at the coordinates of the board file with y negated: an outline from (100, 100) to (176, 192) mm gives points from x 0 to 176 mm and y −192 to 0 mm; `--board-only` leaves the component bodies out | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-MODELS |
+| `sch export pdf` plots a page for a sheet whose file is missing, prints only `Plotted to '…'` and `Done.` and exits 0, on both majors; Fenolite therefore refuses such a hierarchy before the run | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-SHEETS |
+| The page of `pcb export pdf` is the board's paper whatever the extent of the board: an outline of 158 × 179 mm from (100, 100) mm on A4 gives `/MediaBox [0 0 841.896 595.296]` (A4 landscape), with and without `--include-border-title` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EXPORT-PDF-PAGE |
+
+The rows of the six document kinds (change c0116) were measured on 2026-10-05 on both majors and are probed by
+`tests/kicad/export/test_document_probes.py`; the probes are recorded for both majors, and the tests passed in the
+`kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08), so the rows are `KICAD-VERIFIED (9.0.x, 10.0.x)`. How `pcb export step` finds 3D model files is in `libraries.md`, "3D models".
 
 ## Importer differences
 
@@ -150,3 +195,24 @@ that `fenolite build` wrote; no manual page is cited.
 | A user property named in `--fields` gives its column, with the value of each symbol that has it; a field that no symbol has gives an empty column, and the run exits 0 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
 | The call without `--fields` writes the header `"Refs","Value","Footprint","Qty","DNP"` and one row per part, on both majors | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-CSV |
 | For a project that `build` wrote, the rows equal the parts of the built model: reference, value, footprint, DNP mark, description, datasheet and user properties | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOM-MODEL |
+
+## Drawings
+
+The drawing kinds of `fenolite export` (change c0117; `docs/drawings.md`) plot copies of the board with
+`pcb export pdf` and take KiCad's drill maps and report. Everything below was measured by running the
+binary (S-0020) on the authored bench of `tests/_drawdesign.py`; the outcomes are in
+`docs/evidence/kicad-drawings.md`. The probes are recorded on 9.0.9 and 10.0.6, and the tests of
+`tests/kicad/drawings/` passed in the `kicad-9` and `kicad-10` jobs of CI run 37772583226 (2026-10-08).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| At the default scale `pcb export pdf` and `svg --mode-single` draw an item at the page point of its board coordinates; `--mirror` maps x to W − x for the page width W | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-PAGE |
+| `--drill-shape-opt 0` draws no hole on a plot; the default draws pad holes and no via hole | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-PAGE |
+| `pcb export pdf` and `pcb export svg` have `--scale` on 10.0.6 | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-DRAW-PAGE |
+| `-D NAME=value` sets a text variable for one run, in a board text and in a drawing-sheet text | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ITEMS |
+| Without a project sheet, the plotted sheet has borders 10 mm and 12 mm inside the page edges and its title block from (W − 120, H − 44) to (W − 12, H − 12) mm, on A4 to A0 landscape | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-SHEET |
+| Landscape pages are plotted 297.0022 × 210.0072 (A4), 419.9890 × 297.0022 (A3), 594.0044 × 419.9890 (A2), 840.9940 × 594.0044 (A1) and 1188.9994 × 840.9940 mm (A0) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-SHEET |
+| `pcb export drill --excellon-separate-th --generate-map --map-format pdf --generate-report` writes `<stem>-PTH.drl`, `<stem>-NPTH.drl`, one `<stem>-front-in1.drl` for the vias of `F.Cu` to `In1.Cu`, a `<name>-drl_map.pdf` beside each, and `<stem>-drill.rpt` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-DRILL |
+| The drill report lists, per drill file, one line per tool with its diameter in millimetres (three decimals) and its hole count; a slot is counted with the round holes of its width; a line of several holes closes with `))` on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-DRILL |
+| `--crossout-DNP-footprints-on-fab-layers` adds strokes over a do-not-populate footprint, `--hide-DNP-footprints-on-fab-layers` removes its fabrication items, `--sketch-pads-on-fab-layers` adds pad outlines and numbers; `--exclude-value` removes value texts of a PDF plot and is no option of `pcb export svg` on 10.0.6 | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ASSEMBLY |
+| Two `pcb export pdf` runs of one board differ only in the line `/CreationDate`, two drill reports only in the line `Created on` | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-REPEAT |

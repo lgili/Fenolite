@@ -10,20 +10,28 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast, get_args
 
 from fenolite.core.units import Nm
+from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
+from fenolite.dsl.impedance import Trace
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
-from fenolite.dsl.part import NAME, Net, Part
+from fenolite.dsl.part import NAME, Net, Part, connect
+from fenolite.dsl.quantity import Quantity, decimal_text
 from fenolite.dsl.select import ALL, Select
-from fenolite.dsl.units import as_nm, as_nm2
-from fenolite.model.board import IslandRemoval, ZoneConnection, ZoneSettings
+from fenolite.dsl.select import pair as select_pair
+from fenolite.dsl.shape import RingSpec, closed_ring
+from fenolite.dsl.stack import DIELECTRICS, StackEntry
+from fenolite.dsl.units import Length, as_nm, as_nm2
+from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
+from fenolite.model.findings import Waiver
+from fenolite.model.pairs import PAIR_ROLES
 from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, TitleBlock
-from fenolite.model.rules import RuleKind, RuleSeverity, Selector
+from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
-    from fenolite.dsl.intents import Recorded
+    from fenolite.dsl.intents import MeanderIntent, Recorded
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 """A design name becomes the stem of the KiCad files."""
@@ -31,8 +39,20 @@ PAPERS: tuple[str, ...] = get_args(PaperSize)
 """The paper names of ``sheet()``; ``custom`` takes ``width`` and ``height``."""
 SHEET_SUFFIXES: tuple[str, ...] = (".kicad_wks", ".sheet.toml")
 """What a drawing sheet named by ``sheet()`` ends in."""
-INNER_LAYERS: tuple[str, ...] = ("In1.Cu", "In2.Cu")
-"""The inner copper layers of a four-layer board, top to bottom: the layers a plane can take."""
+COPPER_COUNTS: tuple[int, ...] = (2, 4, 6, 8)
+"""The copper layer counts of ``board()`` (change c0100). The KiCad backend holds the same counts in
+``layers.CREATED_COPPER_COUNTS``; the DSL imports only the model, so a unit test keeps the two equal."""
+
+
+def _counts_text() -> str:
+    counts = [str(count) for count in COPPER_COUNTS]
+    return f"{', '.join(counts[:-1])} or {counts[-1]}"
+
+
+def inner_layers(copper: int) -> tuple[str, ...]:
+    """The inner copper layers of a board of ``copper`` layers, top to bottom: ``In1.Cu`` …
+    ``In<copper − 2>.Cu``, the layers a plane can take. Empty for two layers."""
+    return tuple(f"In{k}.Cu" for k in range(1, copper - 1))
 
 
 @dataclass(frozen=True)
@@ -43,12 +63,16 @@ class NetClassSpec:
     via_diameter: Nm | None
     via_drill: Nm | None
     nets: tuple[Net, ...]
+    diff_pair_width: Nm | None = None
+    diff_pair_gap: Nm | None = None
+    diff_pair_via_gap: Nm | None = None
 
 
 @dataclass(frozen=True)
 class ZoneSpec:
     """One ``zone()`` call: the net name (``None`` for a zone without a net), the copper layers, the
-    outline as board-relative ``(x, y)`` nanometres (``None`` for the board rectangle), and the settings."""
+    outline as board-relative ``(x, y)`` nanometres (``None`` for the box of the board ring), and the
+    settings."""
 
     name: str
     net: str | None
@@ -85,10 +109,52 @@ class MinimumSpec:
     min: Nm
 
 
+WAIVED_COPPER: tuple[str, ...] = ("copper.short", "copper.clearance", "copper.zone-overlap")
+"""The copper finding codes a waiver can name (``checks.waivers.COPPER_CODES``; ``dsl`` imports no
+check)."""
+DRC_VERDICTS: tuple[str, ...] = ("rules-not-loaded", "rules-unchecked", "parity-unchecked")
+"""The suffixes of ``kicad.drc.*`` that are verdicts of the DRC stage and not findings
+(``checks.drc_json.RESERVED_SUFFIXES``): no waiver and no severity names one."""
+DRC_CODE = re.compile(r"kicad\.drc\.([a-z0-9]+(?:-[a-z0-9]+)*)")
+SHORT_CODES: tuple[str, ...] = ("copper.short", "kicad.drc.shorting-items")
+"""A short is waived by exact names only: an intended short is one net tie, and a pattern could cover a
+second one."""
+GLOB_CHARS = "*?["
+
+
+def _drc_suffix(code: object) -> str | None:
+    """The suffix of a ``kicad.drc.<suffix>`` finding code, or ``None`` for anything else and for the
+    verdicts of the stage."""
+    match = DRC_CODE.fullmatch(code) if isinstance(code, str) else None
+    if match is None or match.group(1) in DRC_VERDICTS:
+        return None
+    return match.group(1)
+
+
+PLACEMENT_SEVERITIES: tuple[str, ...] = get_args(PlacementSeverity)
+
+
+@dataclass(frozen=True)
+class NearSpec:
+    """One ``near()`` call: the two sides as the script gave them (``PadRef``, ``Part`` or ``Module``
+    objects), the distance in nanometres and the severity. ``to_model`` turns the sides into pad
+    selections."""
+
+    key: str
+    parts: tuple[object, ...]
+    anchor: tuple[object, ...]
+    within: Nm
+    severity: PlacementSeverity
+
+
 RULE_KINDS: tuple[str, ...] = get_args(RuleKind)
 RULE_SEVERITIES: tuple[str, ...] = get_args(RuleSeverity)
 BINARY_KINDS: frozenset[str] = frozenset({"clearance", "creepage"})
 """The rule kinds that take a second selector (``between``)."""
+NO_LIMIT_KINDS: frozenset[str] = frozenset({"no_tracks"})
+"""The rule kinds that take no limit and need ``layers``: a track layer rule keeps the tracks of the
+selected items off those layers (it is not the ``no_tracks`` flag of a keep-out, which forbids tracks
+inside an outline)."""
 
 
 @dataclass(frozen=True)
@@ -106,6 +172,53 @@ class RuleSpec:
     max: Nm | None
     severity: RuleSeverity
     priority: int
+
+
+@dataclass(frozen=True)
+class ImpedanceSpec:
+    """One ``design.rules.impedance()`` call: the target's name, ``ohms`` and ``tolerance`` as decimal
+    text (``""`` without a tolerance), the class names or the pair interfaces it governs, its traces as
+    given and the priority of its derived rules (change c0105)."""
+
+    name: str
+    ohms: str
+    tolerance: str
+    netclasses: tuple[str, ...]
+    pairs: tuple[Interface, ...]
+    traces: tuple[Trace, ...]
+    priority: int
+
+    @property
+    def differential(self) -> bool:
+        return any(t.gap is not None for t in self.traces)
+
+
+_DECIMAL = re.compile(r"\d+(?:\.\d+)?")
+
+
+def _positive_text(value: object, what: str, *, unit: str = "") -> str:
+    """The exact decimal text of a positive ``int``, decimal string or (with ``unit``) ``Quantity``."""
+    other = f", or {unit}()" if unit else ""
+    if isinstance(value, float):
+        raise DslError(f"{what}: {value!r} is a float; give an int or a decimal string such as '42.5'{other}")
+    if unit and isinstance(value, Quantity):
+        if value.unit != unit:
+            raise DslError(f"{what}: {value} is not a value in {unit}")
+        text = decimal_text(value.value, what)
+    elif isinstance(value, int) and not isinstance(value, bool):
+        text = str(value)
+    elif isinstance(value, str) and _DECIMAL.fullmatch(value.strip()):
+        whole, _, part = value.strip().partition(".")
+        part = part.rstrip("0")
+        text = (whole.lstrip("0") or "0") + (f".{part}" if part else "")
+    else:
+        raise DslError(
+            f"{what}: {value!r} is not a positive number; "
+            f"give an int or a decimal string such as '42.5'{other}"
+        )
+    if not any(c in "123456789" for c in text):
+        raise DslError(f"{what}: {value!r} must be above 0")
+    return text
 
 
 def _leaf_values(selector: Selector | None, op: str) -> list[str]:
@@ -126,6 +239,114 @@ class Rules:
         self.netclasses: dict[str, NetClassSpec] = {}
         self.minimums: dict[tuple[RuleKind, str | None], MinimumSpec] = {}
         """Minimums by ``(kind, net class name or None)``, as declared by ``minimum()``."""
+        self.severities: dict[str, RuleSeverity] = {}
+        """Check severities by finding code, as declared by ``severity()``."""
+        self.impedance_targets: dict[str, ImpedanceSpec] = {}
+        """The targets of ``impedance()`` by name, in call order (change c0105)."""
+
+    def impedance(
+        self,
+        name: str,
+        *,
+        ohms: object,
+        netclass: str | Sequence[str] | None = None,
+        pair: Interface | Sequence[Interface] | None = None,
+        layers: Sequence[Trace],
+        tolerance: object = None,
+        priority: int = 1,
+    ) -> None:
+        """Declare one impedance target (``docs/impedance.md``): ``ohms`` (``ohm(90)``, ``90`` or
+        ``"42.5"``), the net classes it governs (``netclass``, a name or names) or the differential pairs
+        (``pair``, a ``DiffPair`` or ``USB2``, or several), and one ``trace()`` per layer with its width,
+        and its gap for a pair. ``tolerance`` is in percent. The geometry is yours: the build adds, per
+        trace, a ``track_width`` rule and, for a pair, a ``diff_pair_gap`` rule on that layer with
+        ``min`` = ``opt`` = ``max``, at ``priority``, and writes a KiCad 10 tuning profile."""
+        if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"impedance(): a target name must be a non-empty string, not {name!r}")
+        if name in self.impedance_targets:
+            raise DslError(f"impedance(): the target {name!r} is declared twice")
+        what = f"impedance() {name!r}"
+        ohms_text = _positive_text(ohms, f"{what}: ohms", unit="ohm")
+        tolerance_text = ""
+        if tolerance is not None:
+            if isinstance(tolerance, Quantity):
+                raise DslError(f"{what}: tolerance is a number of percent, not {tolerance}")
+            tolerance_text = _positive_text(tolerance, f"{what}: tolerance")
+            if int(tolerance_text.split(".")[0]) >= 100:
+                raise DslError(f"{what}: tolerance {tolerance_text} % must be below 100")
+        if (netclass is None) == (pair is None):
+            raise DslError(f"{what}: give netclass= or pair=, one of the two")
+        classes: tuple[str, ...] = ()
+        pairs: tuple[Interface, ...] = ()
+        if netclass is not None:
+            given = (netclass,) if isinstance(netclass, str) else tuple(netclass)
+            if not given or not all(isinstance(c, str) and c for c in given):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(
+                    f"{what}: netclass must be a class name or a sequence of names, not {netclass!r}"
+                )
+            classes = tuple(dict.fromkeys(given))
+        else:
+            given_pairs = (pair,) if isinstance(pair, Interface) else tuple(cast(Sequence[Interface], pair))
+            if not given_pairs or not all(
+                isinstance(p, Interface) and p.kind in PAIR_ROLES  # pyright: ignore[reportUnnecessaryIsInstance]
+                for p in given_pairs
+            ):
+                raise DslError(f"{what}: pair must be a DiffPair or a USB2 interface, or a sequence of them")
+            pairs = tuple(dict.fromkeys(given_pairs))
+        traces = tuple(cast(Sequence[object], layers)) if isinstance(layers, (tuple, list)) else ()
+        if not traces:
+            raise DslError(f"{what}: layers must be a non-empty tuple of trace() values")
+        checked: list[Trace] = []
+        for item in traces:
+            if not isinstance(item, Trace):
+                raise DslError(f"{what}: {item!r} is not a trace(); write trace('F.Cu', refs=..., width=...)")
+            if any(t.layer == item.layer for t in checked):
+                raise DslError(f"{what}: the layer {item.layer} is given twice")
+            checked.append(item)
+        missing = [t.layer for t in checked if t.gap is None]
+        if pairs and missing:
+            raise DslError(
+                f"{what}: a pair target needs a gap on every trace; {', '.join(missing)} has no gap"
+            )
+        if missing and len(missing) != len(checked):
+            raise DslError(f"{what}: a gap is given on some traces only; {', '.join(missing)} has no gap")
+        if type(priority) is not int or priority < 0:
+            raise DslError(f"{what}: priority must be an integer of 0 or more, not {priority!r}")
+        for itf in pairs:
+            self._design.register_interface(itf)
+        self.impedance_targets[name] = ImpedanceSpec(
+            name, ohms_text, tolerance_text, classes, pairs, tuple(checked), priority
+        )
+
+    def severity(self, code: str, level: str) -> None:
+        """Give one check of KiCad's DRC a severity: ``code`` is the finding code as ``fenolite check``
+        prints it (``kicad.drc.<type>``), ``level`` is ``error``, ``warning`` or ``ignore``
+        (``docs/dsl.md``, "Check severities"). The build writes it into the project file; whether the
+        target has the check is judged there. A copper finding takes no severity: accept one with
+        ``design.waive()``."""
+        if isinstance(code, str) and code.startswith("copper."):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"severity(): {code!r} is a finding of Fenolite's copper check, which takes no severity; "
+                "accept one finding with design.waive()"
+            )
+        if _drc_suffix(code) is None:
+            raise DslError(
+                f"severity(): {code!r} is not the code of a KiCad DRC check; give 'kicad.drc.<type>' as "
+                "'fenolite check' prints it (the verdicts rules-not-loaded, rules-unchecked and "
+                "parity-unchecked are not checks)"
+            )
+        if level not in RULE_SEVERITIES:
+            raise DslError(
+                f"severity(): the level of {code} is one of {', '.join(RULE_SEVERITIES)}, not {level!r}"
+            )
+        if code == "kicad.drc.clearance" and level == "ignore":
+            raise DslError(
+                "severity(): kicad.drc.clearance cannot be ignored: 'fenolite check' needs clearance "
+                "entries to prove that the rules were loaded (canary reason clearance-ignored)"
+            )
+        if code in self.severities:
+            raise DslError(f"severity(): {code} already has the severity {self.severities[code]!r}")
+        self.severities[code] = cast(RuleSeverity, level)
 
     def minimum(
         self,
@@ -173,7 +394,7 @@ class Rules:
         layers: tuple[str, ...] = (),
         min: object = None,  # noqa: A002  (the model's field name)
         opt: object = None,
-        max: object = None,  # noqa: A002
+        max: object = None,
         severity: str = "error",
         priority: int = 0,
     ) -> None:
@@ -207,7 +428,12 @@ class Rules:
         for label, value in (("min", min), ("opt", opt), ("max", max)):
             limits[label] = None if value is None else as_nm(value, name=f"rule() {name!r}: {label}")
         given = [(label, value) for label, value in limits.items() if value is not None]
-        if not given:
+        if kind in NO_LIMIT_KINDS:
+            if given:
+                raise DslError(f"rule() {name!r}: a {kind} rule takes no limit, so {given[0][0]} is refused")
+            if not layers:
+                raise DslError(f'rule() {name!r}: a {kind} rule needs layers, for example layers=("In1.Cu",)')
+        elif not given:
             raise DslError(f"rule() {name!r}: give at least one limit, for example min=mm(0.2)")
         if limits["min"] is not None and limits["min"] < 0:
             raise DslError(f"rule() {name!r}: min must not be negative")
@@ -238,6 +464,62 @@ class Rules:
             priority,
         )
 
+    def pair(
+        self,
+        pair: Interface,
+        *,
+        gap_min: object = None,
+        gap_max: object = None,
+        clearance: object = None,
+        uncoupled_max: object = None,
+        skew_max: object = None,
+        length_min: object = None,
+        length_max: object = None,
+        severity: str = "error",
+        priority: int = 1,
+    ) -> None:
+        """Declare the rules of one differential pair (a ``DiffPair``, a ``USB2`` or another pair
+        interface), one rule per given group, named ``pair:<pair name>:<group>``: the gap between the two
+        tracks, the clearance between the two nets, the longest uncoupled length, the largest length
+        difference between the two nets, and the length of each net. The pair joins the design.
+
+        With the default priority 1 the rules govern over the board minimums and over the class minimums
+        of ``minimum(netclass=…)``."""
+        if isinstance(pair, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError("pair(): give the pair interface itself, not a base name")
+        try:
+            where = select_pair(pair)
+        except DslError as error:
+            raise DslError(f"pair(): {error}") from None
+        groups: tuple[tuple[str, str, dict[str, object]], ...] = (
+            ("gap", "diff_pair_gap", {"min": gap_min, "max": gap_max}),
+            ("clearance", "clearance", {"min": clearance, "between": where}),
+            ("uncoupled", "diff_pair_uncoupled", {"max": uncoupled_max}),
+            ("skew", "diff_pair_skew", {"max": skew_max}),
+            ("length", "length", {"min": length_min, "max": length_max}),
+        )
+        given = [g for g in groups if any(g[2].get(limit) is not None for limit in ("min", "max"))]
+        if not given:
+            raise DslError(
+                f"pair() {pair.name}: give at least one limit, for example gap_min=mm(0.13) "
+                "or uncoupled_max=mm(5)"
+            )
+        before = dict(self.named)
+        try:
+            for group, kind, limits in given:
+                self.rule(
+                    f"pair:{pair.name}:{group}",
+                    kind,
+                    where=where,
+                    severity=severity,
+                    priority=priority,
+                    **limits,  # type: ignore[arg-type]
+                )
+            self._design.register_interface(pair)
+        except DslError as error:
+            self.named = before
+            raise DslError(f"pair() {pair.name}: {error}") from None
+
     def netclass(
         self,
         name: str,
@@ -246,9 +528,14 @@ class Rules:
         track_width: object = None,
         via_diameter: object = None,
         via_drill: object = None,
+        diff_pair_width: object = None,
+        diff_pair_gap: object = None,
+        diff_pair_via_gap: object = None,
         nets: Iterable[Net] = (),
     ) -> None:
-        """Declare one net class with lengths and its member nets."""
+        """Declare one net class with lengths and its member nets. The three ``diff_pair_`` values are the
+        width, the gap and the via gap a router lays the differential pairs of the class with; they are
+        no limits, and a pair's limits are declared with ``pair()``."""
         if not isinstance(name, str) or not name:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"a net-class name must be a non-empty string, not {name!r}")
         if name in self.netclasses:
@@ -270,11 +557,25 @@ class Rules:
             length(via_diameter, "via_diameter"),
             length(via_drill, "via_drill"),
             members,
+            length(diff_pair_width, "diff_pair_width"),
+            length(diff_pair_gap, "diff_pair_gap"),
+            length(diff_pair_via_gap, "diff_pair_via_gap"),
         )
         for net in members:
             self._design.register_net(net)
             net.netclass = name
         self.netclasses[name] = spec
+
+
+@dataclass(frozen=True, slots=True)
+class StackupSpec:
+    """The stack-up of ``Design.stackup()``: its entries with their names, top to bottom, the finish
+    (``""`` when the script gives none), the impedance-control flag and the lock."""
+
+    entries: tuple[tuple[str, StackEntry], ...]
+    finish: str = ""
+    impedance_controlled: bool = False
+    locked: bool = False
 
 
 class Design(Container):
@@ -290,6 +591,13 @@ class Design(Container):
         self.planes: dict[str, str] = {}
         """``board(planes=…)``: inner layer name → net name, in layer order; empty by default."""
         self.size: tuple[Nm, Nm] | None = None
+        """``board(width, height)``: the two lengths; ``None`` before ``board()`` and for ``outline=``."""
+        self.outline_path: RingSpec | None = None
+        """The board ring of ``board()``, of either form, in the written frame; ``None`` before the call."""
+        self.cutout_paths: list[RingSpec] = []
+        """The rings of ``cutout()``, in call order."""
+        self.outline_locked = False
+        """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.parts: dict[str, Part] = {}
         self.footprints: dict[str, Footprint] = {}
         self.symbols: dict[str, object] = {}
@@ -308,8 +616,92 @@ class Design(Container):
         """The title block of ``title_block()``."""
         self.copper_intents: dict[str, Recorded] = {}
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
+        self.meander_intents: dict[str, MeanderIntent] = {}
+        """Meander intents by key, as recorded by ``meander()``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
+        self.stack: StackupSpec | None = None
+        """The stack-up of ``stackup()``."""
+        self.via_default: tuple[ViaProtection, bool] | None = None
+        """The board's default via protection and its lock, as declared by ``via_protection()``."""
+        self.waivers: dict[str, Waiver] = {}
+        """Waivers by name, as declared by ``waive()``."""
+        self.rule_areas: dict[str, itemlib.RuleArea] = {}
+        """Rule areas by name, as declared by ``rule_area()``, in call order."""
+        self.drawings: dict[str, itemlib.Drawing] = {}
+        """Board drawings by key, as declared by ``text()``, ``line()``, ``rect()``, ``circle()``, ``arc()``,
+        ``polygon()`` and ``dimension()``, in call order."""
+        self.near_rules: dict[str, NearSpec] = {}
+        """Proximity rules by key, as declared by ``near()``."""
+        self.height_limits: dict[str, HeightLimit] = {}
+        """Height limits by area name, as declared by ``height_limit()`` (change c0140)."""
+
+    def waive(
+        self,
+        code: str,
+        *items: object,
+        reason: str,
+        min_gap: object = None,
+        name: str | None = None,
+    ) -> None:
+        """Accept one finding of ``fenolite check`` or of the build's copper guard, with a reason
+        (``docs/dsl.md``, "Waivers").
+
+        ``code`` is ``copper.short``, ``copper.clearance``, ``copper.zone-overlap`` or ``kicad.drc.<type>``.
+        ``items`` are the names of the finding's items as its ``where`` prints them (``REF-PIN``, ``REF``, a
+        locator, ``@x,y``), in any order; a ``Part`` stands for its reference, and ``*``, ``?`` and ``[…]``
+        are patterns. A short takes exact names only. ``min_gap`` belongs to ``copper.clearance``: the
+        finding is accepted only while its gap is at least that, and a pattern needs it. The finding stays
+        listed, as ``info``, with the waiver's name and reason; a waiver that matches nothing is reported by
+        ``fenolite check``."""
+        suffix = _drc_suffix(code)
+        if code not in WAIVED_COPPER and suffix is None:
+            raise DslError(
+                f"waive(): {code!r} is not a finding that can be waived; only copper and DRC findings "
+                f"are: {', '.join(WAIVED_COPPER)} or 'kicad.drc.<type>' (the verdicts "
+                f"{', '.join(DRC_VERDICTS)} are not findings)"
+            )
+        names: list[str] = []
+        for item in items:
+            text = item.ref if isinstance(item, Part) else item
+            if not isinstance(text, str) or not text or ", " in text or "\n" in text:
+                raise DslError(
+                    f"waive(): an item of {code} is a Part or the name of an item as 'where' prints it "
+                    f"(a non-empty string without ', '), not {item!r}"
+                )
+            names.append(text)
+        if len(names) not in (1, 2) or (code in WAIVED_COPPER and len(names) != 2):
+            wanted = "two items" if code in WAIVED_COPPER else "one or two items"
+            raise DslError(f"waive(): a finding of {code} has {wanted}; {len(names)} were given")
+        globbed = any(mark in text for text in names for mark in GLOB_CHARS)
+        if code in SHORT_CODES and globbed:
+            raise DslError(
+                f"waive(): a short ({code}) is waived by exact names only; {', '.join(names)} holds a pattern"
+            )
+        if not isinstance(reason, str) or not reason.strip() or "\n" in reason or "\r" in reason:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"waive(): the reason of {code} is one non-empty line of text, not {reason!r}")
+        gap: Nm | None = None
+        if min_gap is not None:
+            if code != "copper.clearance":
+                raise DslError(
+                    f"waive(): min_gap belongs to copper.clearance; a finding of {code} has no distance"
+                )
+            gap = as_nm(min_gap, name="waive(): min_gap")
+            if gap <= 0:
+                raise DslError("waive(): min_gap is a positive length")
+        elif code == "copper.clearance" and globbed:
+            raise DslError(
+                f"waive(): a copper.clearance waiver with a pattern ({', '.join(names)}) needs min_gap, "
+                "so that a closer gap stays an error"
+            )
+        label = f"{code}:{','.join(names)}" if name is None else name
+        if not isinstance(label, str) or not label.strip() or "\n" in label or "\r" in label:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"waive(): the name of a waiver is one non-empty line of text, not {name!r}")
+        if label in self.waivers:
+            raise DslError(f"waive(): a waiver named {label!r} is already recorded")
+        self.waivers[label] = Waiver(
+            name=label, code=code, items=tuple(names), reason=reason.strip(), min_gap=gap
+        )
 
     def add_footprint(self, footprint: Footprint) -> None:
         """Register a project-authored library footprint for backend builds (not model persistence)."""
@@ -340,26 +732,376 @@ class Design(Container):
 
     def board(
         self,
-        width: object,
-        height: object,
+        width: object = None,
+        height: object = None,
         copper: int = 2,
         planes: Mapping[str, Net | str] | None = None,
+        *,
+        outline: object = None,
+        locked: bool = False,
     ) -> None:
-        """A rectangular board of ``width`` × ``height`` with 2 or 4 copper layers. An inner layer is a
-        signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an internal
-        plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build parameter, as
-        ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``)."""
-        if self.size is not None:
+        """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
+        lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
+        ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
+        layer is a signal layer unless ``planes`` names it: ``planes={"In1.Cu": gnd}`` makes that layer an
+        internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
+        parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
+        ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
+        rebuilt (``docs/lens.md``, "Outline changes")."""
+        if self.outline_path is not None:
             raise DslError("board() is called once")
-        if copper not in (2, 4):
-            raise DslError(f"copper must be 2 or 4, not {copper!r}")
-        w, h = as_nm(width, name="width"), as_nm(height, name="height")
-        if w <= 0 or h <= 0:
-            raise DslError("the board width and height must be positive")
+        if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"copper must be {_counts_text()}, not {copper!r}")
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"board(): locked must be a bool, not {locked!r}")
+        size: tuple[Nm, Nm] | None = None
+        if outline is not None:
+            if width is not None or height is not None:
+                raise DslError("board(): give width and height, or outline=, not both")
+            ring = closed_ring(outline, "board(): outline")
+        else:
+            if width is None or height is None:
+                raise DslError("board(): give width and height, or outline=")
+            w, h = as_nm(width, name="width"), as_nm(height, name="height")
+            if w <= 0 or h <= 0:
+                raise DslError("the board width and height must be positive")
+            size = (w, h)
+            ring = closed_ring(
+                (
+                    (Length(0), Length(0)),
+                    (Length(w), Length(0)),
+                    (Length(w), Length(h)),
+                    (Length(0), Length(h)),
+                ),
+                "board()",
+            )
         declared = self._planes(copper, planes)
-        self.size = (w, h)
+        self.size = size
+        self.outline_path = ring
+        self.outline_locked = locked
         self.copper = copper
         self.planes = declared
+
+    def hole(
+        self,
+        ref: str,
+        x: object,
+        y: object,
+        *,
+        drill: object,
+        length: object = None,
+        rot: int | str | float = 0,
+        pad: object = None,
+        courtyard: object = None,
+        locked: bool = True,
+    ) -> Part:
+        """A hole of ``drill`` at ``(x, y)``: a part named ``ref`` whose symbol and footprint are generated
+        in the library ``Fenolite_Holes`` (``fenolite.dsl.holes``). ``length`` makes it a slot of that
+        overall length along the footprint's X axis, turned by ``rot``; ``pad`` gives it copper that wide,
+        and the part then has the pin ``1`` (``connect(net, part[1])``); ``courtyard`` widens its courtyard.
+        The part is placed on the top side and locked by default: an enclosure fixes a hole, so the
+        script's position wins over a move in KiCad. This is the one call that declares a hole."""
+        from fenolite.dsl import holes
+
+        footprint = holes.hole_footprint(drill, length=length, pad=pad, courtyard=courtyard)
+        symbol = holes.HoleSymbol(holes.hole_symbol(plated=pad is not None))
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"hole(): locked must be a bool, not {locked!r}")
+        part = Part(ref, symbol.lib_id, footprint=footprint.lib_id, value=footprint.name)
+        if part.path in self.parts:
+            raise DslError(f"hole(): two components have the path {part.path!r}")
+        known = self.footprints.get(footprint.lib_id)
+        if known is not None and known.definition != footprint.definition:
+            raise DslError(
+                f"hole(): footprint {footprint.lib_id!r} is already registered with another definition"
+            )
+        held = self.symbols.get(symbol.lib_id)
+        if held is not None and getattr(held, "definition", None) != symbol.definition:
+            raise DslError(f"hole(): symbol {symbol.lib_id!r} is already registered with another definition")
+        part.place(x, y, rot=rot, side="top", locked=locked)
+        self.footprints.setdefault(footprint.lib_id, footprint)
+        self.symbols.setdefault(symbol.lib_id, symbol)
+        self.add(part)
+        return part
+
+    # -- assembly and test features (``docs/dsl.md``, "Assembly and test features"; change c0118)
+
+    def _feature_part(
+        self, call: str, ref: str, footprint: Footprint, symbol: object, net: Net | None = None
+    ) -> Part:
+        """The part of a generated feature, checked against what the design holds before anything is
+        recorded: its path, its two definitions under their lib ids, and its net's name."""
+        lib_id = cast("str", getattr(symbol, "lib_id"))  # noqa: B009 - a symbol holder
+        try:
+            part = Part(ref, lib_id, footprint=footprint.lib_id, value=footprint.name)
+        except DslError as error:
+            raise DslError(f"{call}: {error}") from None
+        if part.path in self.parts:
+            raise DslError(f"{call}: two components have the path {part.path!r}")
+        known = self.footprints.get(footprint.lib_id)
+        if known is not None and known.definition != footprint.definition:
+            raise DslError(
+                f"{call}: footprint {footprint.lib_id!r} is already registered with another definition"
+            )
+        held = self.symbols.get(lib_id)
+        if held is not None and getattr(held, "definition", None) != getattr(symbol, "definition"):  # noqa: B009
+            raise DslError(f"{call}: symbol {lib_id!r} is already registered with another definition")
+        if net is not None:
+            named = self.nets.get(net.name)
+            if named is not None and named is not net:
+                raise DslError(f"{call}: two distinct nets are named {net.name!r}")
+        return part
+
+    def _feature_record(self, part: Part, footprint: Footprint, symbol: object) -> None:
+        self.footprints.setdefault(footprint.lib_id, footprint)
+        self.symbols.setdefault(part.lib_id, symbol)
+        self.add(part)
+
+    def _feature_side(self, call: str, side: object) -> str:
+        if side not in ("top", "bottom"):
+            raise DslError(f"{call}: side must be 'top' or 'bottom', not {side!r}")
+        return cast("str", side)
+
+    def fiducial(
+        self,
+        ref: str,
+        x: object,
+        y: object,
+        *,
+        copper: object,
+        mask: object,
+        clear: object = None,
+        side: str = "top",
+        local: bool = False,
+    ) -> Part:
+        """A fiducial at ``(x, y)``: a part named ``ref`` whose footprint and symbol are generated in the
+        library ``Fenolite_Assembly`` (``fenolite.dsl.assembly``). Its copper pad is ``copper`` wide and
+        carries the mark ``fiducial_global`` (``fiducial_local`` with ``local=True``); a second pad opens
+        the mask ``mask`` wide. ``clear`` (by default ``mask``) is the diameter of its clear area: a
+        keep-out ``clear_<ref>`` for tracks, vias and pours on the copper layer of ``side``, declared with
+        ``rule_area()``. The part is placed and locked: its keep-out stays where the script draws it."""
+        from fenolite.dsl import assembly
+
+        call = "fiducial()"
+        if self.outline_path is None:
+            raise DslError(f"{call}: call board() first")
+        width = assembly.check_length(call, "copper", copper)
+        opening = assembly.check_length(call, "mask", mask, least=width + 1, what="a length above copper")
+        area = (
+            opening
+            if clear is None
+            else assembly.check_length(call, "clear", clear, least=opening, what="a length of at least mask")
+        )
+        on = self._feature_side(call, side)
+        if not isinstance(local, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{call}: local must be a bool, not {local!r}")
+        at_x, at_y = as_nm(x, name=f"{call}: x"), as_nm(y, name=f"{call}: y")
+        footprint = assembly.fiducial_footprint(width, opening, area, local=local)
+        symbol = assembly.AssemblySymbol(assembly.fiducial_symbol())
+        part = self._feature_part(call, ref, footprint, symbol)
+        keepout = itemlib.rule_area(
+            f"clear_{ref}",
+            [(Length(p.x), Length(p.y)) for p in assembly.clear_outline(at_x, at_y, area)],
+            ("F.Cu",) if on == "top" else ("B.Cu",),
+            ("tracks", "vias", "pours"),
+            copper=self.copper_layers,
+            taken=tuple(self.rule_areas),
+        )
+        part.place(Length(at_x), Length(at_y), side=on, locked=True)
+        self._feature_record(part, footprint, symbol)
+        self.rule_areas[keepout.name] = keepout
+        return part
+
+    def test_point(
+        self,
+        ref: str,
+        net: Net,
+        x: object,
+        y: object,
+        *,
+        size: object,
+        shape: str = "circle",
+        drill: object = None,
+        courtyard: object = None,
+        side: str = "top",
+        locked: bool = False,
+    ) -> Part:
+        """A test point on ``net`` at ``(x, y)``: a part named ``ref`` whose footprint and symbol are
+        generated in the library ``Fenolite_Assembly``. Its pad ``1`` is ``size`` wide, ``circle`` or
+        ``rect``, and carries the mark ``test_point``: a surface pad, or a plated through-hole pad with
+        ``drill``. ``courtyard`` widens its courtyard. The part is connected to ``net`` and placed."""
+        from fenolite.dsl import assembly
+
+        call = "test_point()"
+        if self.outline_path is None:
+            raise DslError(f"{call}: call board() first")
+        if not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{call}: net must be a Net, not {net!r}")
+        width = assembly.check_length(call, "size", size)
+        if shape not in ("circle", "rect"):
+            raise DslError(f"{call}: shape must be 'circle' or 'rect', not {shape!r}")
+        hole = None
+        if drill is not None:
+            hole = assembly.check_length(call, "drill", drill)
+            if hole >= width:
+                raise DslError(f"{call}: drill must be a positive length below size")
+        yard = None
+        if courtyard is not None:
+            yard = assembly.check_length(
+                call, "courtyard", courtyard, least=width, what="a length of at least size"
+            )
+        on = self._feature_side(call, side)
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"{call}: locked must be a bool, not {locked!r}")
+        at_x, at_y = as_nm(x, name=f"{call}: x"), as_nm(y, name=f"{call}: y")
+        footprint = assembly.test_point_footprint(width, shape=shape, drill=hole, courtyard=yard)
+        symbol = assembly.AssemblySymbol(assembly.test_point_symbol())
+        part = self._feature_part(call, ref, footprint, symbol, net)
+        part.place(Length(at_x), Length(at_y), side=on, locked=locked)
+        connect(net, part[1])
+        self._feature_record(part, footprint, symbol)
+        return part
+
+    def tooling_hole(self, ref: str, x: object, y: object, *, drill: object, clear: object = None) -> Part:
+        """A non-plated tooling hole of ``drill`` at ``(x, y)``: the part of ``hole()`` (symbol
+        ``Fenolite_Holes:Hole``) with a footprint ``ToolingHole_<d>`` generated in ``Fenolite_Assembly``,
+        whose library name is the tooling mark. ``clear`` widens its courtyards and declares a keep-out
+        ``clear_<ref>`` for tracks, vias and pours on every copper layer. Placed on the top side, locked."""
+        from fenolite.dsl import assembly, holes
+
+        call = "tooling_hole()"
+        if self.outline_path is None:
+            raise DslError(f"{call}: call board() first")
+        hole = assembly.check_length(call, "drill", drill)
+        area = None
+        if clear is not None:
+            area = assembly.check_length(call, "clear", clear, least=hole, what="a length of at least drill")
+        at_x, at_y = as_nm(x, name=f"{call}: x"), as_nm(y, name=f"{call}: y")
+        footprint = assembly.tooling_hole_footprint(hole, area)
+        symbol = holes.HoleSymbol(holes.hole_symbol(plated=False))
+        part = self._feature_part(call, ref, footprint, symbol)
+        keepout = None
+        if area is not None:
+            keepout = itemlib.rule_area(
+                f"clear_{ref}",
+                [(Length(p.x), Length(p.y)) for p in assembly.clear_outline(at_x, at_y, area)],
+                None,
+                ("tracks", "vias", "pours"),
+                copper=self.copper_layers,
+                taken=tuple(self.rule_areas),
+            )
+        part.place(Length(at_x), Length(at_y), side="top", locked=True)
+        self._feature_record(part, footprint, symbol)
+        if keepout is not None:
+            self.rule_areas[keepout.name] = keepout
+        return part
+
+    def cutout(self, path: object) -> None:
+        """One cut-out of the board: a closed path as ``board(outline=…)`` takes it. Cut-outs keep their
+        call order. The build refuses rings that cross or touch and cut-outs outside the board."""
+        if self.outline_path is None:
+            raise DslError("cutout(): call board() first")
+        self.cutout_paths.append(closed_ring(path, "cutout()"))
+
+    @property
+    def copper_layers(self) -> tuple[str, ...]:
+        """The copper layer names of the declared count, top to bottom: ``F.Cu``, the inner layers and
+        ``B.Cu``. ``("F.Cu", "B.Cu")`` before ``board()`` is called."""
+        return ("F.Cu", *inner_layers(self.copper), "B.Cu")
+
+    def stackup(
+        self,
+        *entries: StackEntry,
+        finish: str | None = None,
+        impedance_controlled: bool = False,
+        locked: bool = False,
+    ) -> None:
+        """The stack-up of the board, from its top face to its bottom face: at most one
+        ``stack.silkscreen()`` and then at most one ``stack.mask()``; one ``stack.copper()`` per copper
+        layer of ``board()``, with at least one ``stack.core()`` or ``stack.prepreg()`` between neighbours
+        (the dielectrics of one gap all of one kind: they are the sheets of one dielectric); then at most
+        one mask and at most one silkscreen. ``finish`` is the copper finish as the fabricator names it,
+        ``impedance_controlled`` marks the dielectric values as requirements, and ``locked`` makes this
+        stack-up replace a different one of an existing board (``docs/lens.md``). Fenolite supplies no
+        value the script does not give (``docs/dsl.md``, "Stack-up")."""
+        if self.outline_path is None:
+            raise DslError("stackup() is called after board()")
+        if self.stack is not None:
+            raise DslError("stackup() is called once")
+        if finish is not None and (not isinstance(finish, str) or not finish.strip()):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"stackup(): finish must be None or a non-empty string, not {finish!r}")
+        for name, flag in (("impedance_controlled", impedance_controlled), ("locked", locked)):
+            if not isinstance(flag, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise DslError(f"stackup(): {name} must be a bool, not {flag!r}")
+        named = self._stack_names(entries)
+        self.stack = StackupSpec(named, finish or "", impedance_controlled, locked)
+
+    def via_protection(self, protection: ViaProtection, *, locked: bool = False) -> None:
+        """The board's default protection for every via: the value of ``protect()``. A via whose own
+        ``protection=`` leaves a feature at ``None`` takes it from here, and a feature this default leaves
+        at ``None`` is KiCad's own (tented on both sides, nothing else). ``locked`` makes this default
+        replace a different one of an existing board (``docs/lens.md``); otherwise an edit in KiCad's
+        Board Setup wins. Called at most once (``docs/dsl.md``, "Via protection")."""
+        if self.via_default is not None:
+            raise DslError("via_protection() is called once")
+        if not isinstance(protection, ViaProtection):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(
+                f"via_protection(): the default must be the value of protect(), not {protection!r}"
+            )
+        if not isinstance(locked, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"via_protection(): locked must be a bool, not {locked!r}")
+        self.via_default = (protection, locked)
+
+    def _stack_names(self, entries: Sequence[object]) -> tuple[tuple[str, StackEntry], ...]:
+        """The entries with the names KiCad gives their rows; ``DslError`` naming the position of the
+        first entry out of place."""
+        copper = self.copper_layers  # the names of the declared count (c0100)
+        named: list[tuple[str, StackEntry]] = []
+        seen = 0  # copper entries so far
+        gap: list[str] = []  # the dielectric kinds since the last copper entry
+        outer: list[str] = []  # the outer kinds on the current side
+
+        def refuse(position: int, why: str) -> DslError:
+            return DslError(f"stackup(): entry {position} is out of place: {why}")
+
+        for position, entry in enumerate(entries):
+            if not isinstance(entry, StackEntry):
+                raise refuse(position, f"{entry!r} is not an entry of fenolite.dsl.stack")
+            kind = entry.kind
+            side = "F" if seen == 0 else "B"
+            if kind in ("silkscreen", "mask"):
+                if 0 < seen < len(copper) or gap:
+                    raise refuse(position, f"a {kind} lies above the first copper layer or below the last")
+                wanted = ["silkscreen", "mask"] if seen == 0 else ["mask", "silkscreen"]
+                if kind in outer or (outer and wanted.index(kind) < wanted.index(outer[-1])):
+                    raise refuse(
+                        position, f"the {'top' if seen == 0 else 'bottom'} side lists {wanted}, once"
+                    )
+                outer.append(kind)
+                named.append((f"{side}.{'SilkS' if kind == 'silkscreen' else 'Mask'}", entry))
+            elif kind == "copper":
+                if seen == len(copper):
+                    raise refuse(position, f"the board has {len(copper)} copper layers")
+                if seen and not gap:
+                    raise refuse(position, "two copper layers need a core or a prepreg between them")
+                named.append((copper[seen], entry))
+                seen, gap, outer = seen + 1, [], []
+            elif kind in DIELECTRICS:
+                if seen == 0 or seen == len(copper):
+                    raise refuse(position, f"a {kind} lies between two copper layers")
+                if gap and gap[-1] != kind:
+                    raise refuse(
+                        position, f"the dielectrics of one gap are all of one kind, not {gap[-1]} and {kind}"
+                    )
+                gap.append(kind)
+                named.append((f"dielectric {seen}", entry))
+            else:
+                raise refuse(position, f"unknown kind {kind!r}")
+        if seen != len(copper):
+            raise refuse(
+                len(entries), f"the stack-up holds {seen} copper layers and the board has {len(copper)}"
+            )
+        return tuple(named)
 
     def sheet(
         self,
@@ -449,20 +1191,23 @@ class Design(Container):
             return {}
         if not isinstance(planes, Mapping):
             raise DslError(f"planes must map an inner layer name to a net, not {planes!r}")
+        inner = inner_layers(copper)
         found: dict[str, str] = {}
         for layer, net in planes.items():  # pyright: ignore[reportUnknownVariableType]
-            if copper != 4:
-                raise DslError(f"planes need copper=4: a board of {copper} copper layers has no inner layer")
-            if layer not in INNER_LAYERS:
-                names = " or ".join(INNER_LAYERS)
-                raise DslError(f"a plane lies on an inner layer ({names}), not on {layer!r}")
+            if not inner:
+                raise DslError(
+                    f"planes need copper={_counts_text().removeprefix('2, ')}: "
+                    f"a board of {copper} copper layers has no inner layer"
+                )
+            if layer not in inner:
+                raise DslError(f"a plane lies on an inner layer ({', '.join(inner)}), not on {layer!r}")
             if isinstance(net, Net):
                 found[layer] = net.name
             elif isinstance(net, str) and net and net == net.strip():
                 found[layer] = net
             else:
                 raise DslError(f"the plane on {layer} needs a Net or a net name, not {net!r}")
-        return {layer: found[layer] for layer in INNER_LAYERS if layer in found}
+        return {layer: found[layer] for layer in inner if layer in found}
 
     def zone(
         self,
@@ -488,7 +1233,7 @@ class Design(Container):
         setting left at ``None`` takes KiCad's new-zone value (``docs/dsl.md``, "Zones"). ``locked=True``
         makes the script win over an edit of the zone in KiCad, and locks the zone there.
         """
-        if self.size is None:
+        if self.outline_path is None:
             raise DslError("zone(): call board() first")
         if net is not None and not isinstance(net, Net):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"zone(): net must be a Net or None, not {net!r}")
@@ -552,7 +1297,7 @@ class Design(Container):
         )
 
     def _zone_layers(self, layers: object, what: str) -> tuple[str, ...]:
-        allowed = ("F.Cu", *(INNER_LAYERS if self.copper == 4 else ()), "B.Cu")
+        allowed = self.copper_layers
         if isinstance(layers, str) or not isinstance(layers, Sequence) or not layers:
             raise DslError(
                 f"{what}: layers must be a non-empty sequence of copper layer names, not {layers!r}"
@@ -592,6 +1337,140 @@ class Design(Container):
             )
         return tuple(points)
 
+    # -- rule areas and board drawings (``docs/dsl.md``, "Rule areas" and "Board drawings")
+
+    def rule_area(
+        self,
+        name: str,
+        outline: Sequence[tuple[object, object]],
+        *,
+        layers: Sequence[str] | None = None,
+        forbid: Sequence[str] = (),
+    ) -> itemlib.RuleArea:
+        """One rule area named ``name``: a polygon of at least three ``(x, y)`` points in the frame of
+        ``place()``, on ``layers`` (every copper layer of the board when ``None``).
+
+        ``forbid`` takes ``tracks``, ``vias``, ``pads``, ``pours`` and ``footprints``: the area is then a
+        keep-out for them (``footprints``: no part may be placed there, change c0113).
+        With an empty ``forbid`` it is a named area that only rules select (``select.area``). This is the
+        one call for rule areas and keep-outs. Names differ in more than letter case.
+        """
+        if self.outline_path is None:
+            raise DslError("rule_area(): call board() first")
+        area = itemlib.rule_area(
+            name, outline, layers, forbid, copper=self.copper_layers, taken=tuple(self.rule_areas)
+        )
+        self.rule_areas[area.name] = area
+        return area
+
+    def _drawing(self, call: str, key: object) -> str:
+        if self.outline_path is None:
+            raise DslError(f"{call}(): call board() first")
+        return itemlib.drawing_key(key, self.drawings)
+
+    def text(
+        self,
+        key: str,
+        text: str,
+        at: tuple[object, object],
+        *,
+        layer: str = "F.SilkS",
+        size: object = None,
+        thickness: object = None,
+        rot: object = 0,
+        justify: str | None = None,
+    ) -> None:
+        """One line of board text at ``at``, 1 mm high with a 0.15 mm stroke unless ``size`` and
+        ``thickness`` say otherwise; ``justify`` is ``left`` or ``right``, then ``top`` or ``bottom``."""
+        found = itemlib.text(self._drawing("text", key), text, at, layer, size, thickness, rot, justify)
+        self.drawings[found.key] = found
+
+    def line(
+        self, key: str, start: tuple[object, object], end: tuple[object, object], *, layer: str, width: object
+    ) -> None:
+        """A line from ``start`` to ``end``."""
+        found = itemlib.line(self._drawing("line", key), start, end, layer, width)
+        self.drawings[found.key] = found
+
+    def rect(
+        self,
+        key: str,
+        start: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+        fill: bool = False,
+    ) -> None:
+        """A rectangle with the opposite corners ``start`` and ``end``."""
+        found = itemlib.rect(self._drawing("rect", key), start, end, layer, width, fill)
+        self.drawings[found.key] = found
+
+    def circle(
+        self,
+        key: str,
+        center: tuple[object, object],
+        edge: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+        fill: bool = False,
+    ) -> None:
+        """A circle around ``center`` through ``edge``."""
+        found = itemlib.circle(self._drawing("circle", key), center, edge, layer, width, fill)
+        self.drawings[found.key] = found
+
+    def arc(
+        self,
+        key: str,
+        start: tuple[object, object],
+        mid: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        layer: str,
+        width: object,
+    ) -> None:
+        """An arc from ``start`` through ``mid`` to ``end``."""
+        found = itemlib.arc(self._drawing("arc", key), start, mid, end, layer, width)
+        self.drawings[found.key] = found
+
+    def polygon(
+        self,
+        key: str,
+        points: Sequence[tuple[object, object]],
+        *,
+        layer: str,
+        width: object,
+        fill: bool = False,
+    ) -> None:
+        """A closed polygon of at least three points."""
+        found = itemlib.polygon(self._drawing("polygon", key), points, layer, width, fill)
+        self.drawings[found.key] = found
+
+    def dimension(
+        self,
+        key: str,
+        start: tuple[object, object],
+        end: tuple[object, object],
+        *,
+        offset: object,
+        layer: str = "Dwgs.User",
+        direction: str | None = None,
+        units: str = "mm",
+        precision: int = 4,
+        size: object = None,
+        thickness: object = None,
+        width: object = None,
+    ) -> None:
+        """A linear dimension between ``start`` and ``end``, its line ``offset`` away from them: aligned
+        with the two points, or, with ``direction``, ``horizontal`` or ``vertical``. KiCad computes the
+        text from the points (``docs/dsl.md``, "Board drawings")."""
+        found = itemlib.dimension(
+            self._drawing("dimension", key), start, end, offset, layer, direction, units, precision, size,
+            thickness, width,
+        )  # fmt: skip
+        self.drawings[found.key] = found
+
     def moved(self, old: str, new: str) -> None:
         """Record that the part or the module at path ``new`` was at ``old`` in an earlier build, so a
         rebuild keeps its layout (``docs/lens.md``, "moved()" and "Module aliases")."""
@@ -623,33 +1502,80 @@ class Design(Container):
     # -- copper intents (resolved by the build after placement; ``docs/dsl.md``, "Copper")
 
     def track(
-        self, key: str, *path: object, layer: str = "F.Cu", width: object = None, net: Net | None = None
+        self,
+        key: str,
+        *path: object,
+        layer: str = "F.Cu",
+        width: object = None,
+        net: Net | None = None,
+        locked: bool = False,
     ) -> None:
         """A track along ``path``: ``part.pad(…)`` ends, ``(x, y)`` points in the frame of ``place()``,
-        ``arc_to(…)`` bends and ``via_step(…)`` layer changes. The net comes from the pads; the width from
-        ``width`` or the net's class. ``key`` names the intent, so its copper keeps its ids across builds."""
+        anchors in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), ``arc_to(…)`` bends and
+        ``via_step(…)`` layer changes. The net comes from the pads; the width from ``width`` or the net's
+        class. ``key`` names the intent, so its copper keeps its ids across builds. ``locked=True``
+        writes the copper locked (the copper lock, not the placement lock of a part)."""
         from fenolite.dsl import intents
 
-        intents.record_track(self, key, path, layer, width, net)
+        intents.record_track(self, key, path, layer, width, net, locked)
 
     def via(
         self,
         key: str,
         x: object,
-        y: object,
+        y: object = None,
         *,
         net: Net,
         diameter: object = None,
         drill: object = None,
         kind: str = "through",
         layers: object = None,
+        locked: bool = False,
+        protection: object = None,
     ) -> None:
-        """One via at ``(x, y)`` on ``net``; sizes from the arguments or the net's class. ``kind`` is
-        ``through``, ``blind``, ``buried`` or ``micro``; a via that is not a through via names its two
-        copper layers in ``layers``."""
+        """One via on ``net`` at ``(x, y)``, or at the one point given after the key: an ``(x, y)`` pair
+        or an anchor in a part's frame (``part.at(…)``, ``part.pad(…).at(…)``), which follows its part.
+        Sizes come from the arguments or the net's class. ``kind`` is ``through``, ``blind``, ``buried``
+        or ``micro``; a via that is not a through via names its two copper layers in ``layers``.
+        ``locked=True`` writes the via locked. ``protection`` is the value of ``protect()``: how the via is
+        tented, covered, plugged, capped or filled (``None``: it follows the board default)."""
         from fenolite.dsl import intents
 
-        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers)
+        intents.record_via(self, key, x, y, net, diameter, drill, kind, layers, locked, protection)
+
+    def meander(
+        self,
+        key: str,
+        *,
+        track: str,
+        segment: int,
+        amplitude: object,
+        pitch: object,
+        target: object = None,
+        match: str | None = None,
+        side: str = "left",
+        margin: object = None,
+    ) -> None:
+        """A square-wave meander on the straight segment ``segment`` of the track ``track`` (from its path
+        element ``segment`` to the next), which brings that track to the length ``target`` or to the length
+        of the track ``match``. The bumps stand on ``side`` of the segment (``"left"`` or ``"right"`` of
+        its direction, as KiCad displays the board), at most ``amplitude`` high and ``pitch`` apart, and
+        ``margin`` of straight run is kept at each end (one pitch by default). The build resolves it after
+        the tracks; it does not avoid other copper (``docs/copper.md``, "Meanders")."""
+        from fenolite.dsl import intents
+
+        intents.record_meander(
+            self,
+            key,
+            track=track,
+            segment=segment,
+            amplitude=amplitude,
+            pitch=pitch,
+            target=target,
+            match=match,
+            side=side,
+            margin=margin,
+        )
 
     def stitch(
         self,
@@ -658,15 +1584,21 @@ class Design(Container):
         net: Net,
         pitch: object,
         along: Sequence[object] = (),
-        region: Sequence[object] = (),
+        region: object = (),
         origin: object = None,
         diameter: object = None,
         drill: object = None,
         clearance: object = None,
         margin: object = None,
+        locked: bool = False,
+        protection: object = None,
     ) -> None:
         """Through vias of ``net`` every ``pitch`` along a polyline, or on a grid inside a region (the grid
-        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper."""
+        starts at ``origin``, the board corner by default), kept ``clearance`` from other copper. Points
+        may be anchors; an anchored ``origin`` lays the grid in its part's frame. ``region=part.pad(n)``
+        makes a thermal array: the grid starts at the pad, turns with the part, and keeps the vias whose
+        disc plus ``margin`` lies inside the pad's copper. ``locked=True`` writes the vias locked. Every
+        via carries ``protection``, the value of ``protect()``."""
         from fenolite.dsl import intents
 
         intents.record_stitch(
@@ -681,7 +1613,77 @@ class Design(Container):
             drill=drill,
             clearance=clearance,
             margin=margin,
+            locked=locked,
+            protection=protection,
         )
+
+    def near(
+        self,
+        key: str,
+        parts: object,
+        anchor: object,
+        *,
+        within: object,
+        severity: str = "error",
+    ) -> None:
+        """A placement rule: each part of ``parts`` keeps one of its pads within ``within`` of a pad of
+        ``anchor``, pad centre to pad centre. Each side is a ``part.pad(…)``, a part, a module, or a list
+        or tuple of them; a part stands for all its pads and a module for all its parts. ``anchor`` is the
+        reference side of the rule. ``fenolite check`` judges the rule in its stage ``placement.rules``;
+        ``build`` and ``place`` report it as a warning (``docs/dsl.md``, "Placement rules")."""
+        from fenolite.dsl.intents import KEY
+
+        if not isinstance(key, str) or not KEY.fullmatch(key):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"near(): the key {key!r} must match {KEY.pattern}")
+        if key in self.near_rules:
+            raise DslError(f"near(): the rule {key!r} is declared twice")
+        what = f"near() {key!r}"
+        sides = (self._near_side(parts, f"{what}: parts"), self._near_side(anchor, f"{what}: anchor"))
+        length = as_nm(within, name=f"{what}: within")
+        if length <= 0:
+            raise DslError(f"{what}: within must be above 0")
+        if severity not in PLACEMENT_SEVERITIES:
+            raise DslError(f"{what}: severity {severity!r} is not one of {', '.join(PLACEMENT_SEVERITIES)}")
+        self.near_rules[key] = NearSpec(key, sides[0], sides[1], length, cast(PlacementSeverity, severity))
+
+    def height_limit(self, area: str, *, max: object, severity: str = "error") -> None:
+        """A height limit: the parts under every rule area named ``area`` are at most ``max`` tall. The
+        area is not looked up here: one drawn in KiCad is known only on the board. ``fenolite check``
+        judges the limit in its stage ``placement.rules``; ``build`` and ``place`` report it as a warning
+        (``docs/dsl.md``, "Part heights and height limits")."""
+        if not isinstance(area, str) or not NAME.fullmatch(area):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"height_limit(): the area {area!r} must match {NAME.pattern}")
+        if area in self.height_limits:
+            raise DslError(f"height_limit(): the area {area!r} has a limit already")
+        what = f"height_limit() {area!r}"
+        length = as_nm(max, name=f"{what}: max")
+        if length <= 0:
+            raise DslError(f"{what}: max must be above 0")
+        if severity not in PLACEMENT_SEVERITIES:
+            raise DslError(f"{what}: severity {severity!r} is not one of {', '.join(PLACEMENT_SEVERITIES)}")
+        self.height_limits[area] = HeightLimit(area, length, cast(PlacementSeverity, severity))
+
+    @staticmethod
+    def _near_side(value: object, what: str) -> tuple[object, ...]:
+        """One side of ``near()`` as a tuple of ``PadRef``, ``Part`` and ``Module`` objects."""
+        from fenolite.dsl.intents import PadRef
+        from fenolite.dsl.part import PinHandle
+
+        items: tuple[object, ...] = tuple(value) if isinstance(value, (list, tuple)) else (value,)  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+        if not items:
+            raise DslError(f"{what} names nothing; give a part.pad(<number>), a part or a module")
+        for item in items:
+            if isinstance(item, PinHandle):
+                raise DslError(
+                    f"{what} takes pads, not the pin {item.part.ref}[{item.designator!r}]: "
+                    "use part.pad(<number>)"
+                )
+            if not isinstance(item, (PadRef, Part, Module)):
+                raise DslError(
+                    f"{what} takes a part.pad(<number>), a part, a module, or a list or tuple of them, "
+                    f"not {item!r}"
+                )
+        return items
 
     # -- registration (called by add(), connect() and netclass())
 
@@ -723,12 +1725,15 @@ class Design(Container):
 
 
 __all__ = [
+    "COPPER_COUNTS",
     "DESIGN_NAME",
-    "INNER_LAYERS",
     "MINIMUM_KINDS",
     "Design",
     "MinimumSpec",
+    "NearSpec",
     "NetClassSpec",
     "Rules",
+    "StackupSpec",
     "ZoneSpec",
+    "inner_layers",
 ]

@@ -18,6 +18,7 @@ global options, ``--dry-run`` and ``--confirm`` to this command's own parser, so
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 from pathlib import Path
 from typing import Any, cast
@@ -26,7 +27,7 @@ from fenolite.backends.altium import schdot
 from fenolite.backends.altium.read.sheet import import_sheet
 from fenolite.backends.kicad.versions import LossyWriteError
 from fenolite.backends.kicad.wks import WRITE_EVIDENCE, write_drawing_sheet
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
@@ -89,6 +90,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    return dataclasses.replace(_made(args, ctx), depends=depends_on(ctx.cwd, args.spec))
+
+
+def _made(args: argparse.Namespace, ctx: Context) -> Result:
     spec_arg = Path(args.spec)
     path = spec_arg if spec_arg.is_absolute() else ctx.cwd / spec_arg
     try:

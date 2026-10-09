@@ -20,7 +20,7 @@ from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
 from fenolite.cli._manifest import with_manifest
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
@@ -70,7 +70,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     for name, view in sorted(VIEWS.items()):
         if view.kind not in kinds:
             continue
+        ctx.progress.step(name)
         data, message = plot_view(cli, name, board, others, width=args.width, height=args.height)
+        ctx.progress.done(name, detail="failed" if data is None else "plotted")
         if data is None:
             issues.append(issue("render.failed", f"{name} was not produced: {message}", where=name))
             continue
@@ -111,6 +113,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None if number is None else str(number),
         ),
         writes=tuple(writes),
+        depends=depends_on(ctx.cwd, board, *project.files.values()),
     )
 
 

@@ -22,6 +22,18 @@ corpus_id = ""
 path = "tests/data/kicad/routing/two_pads.kicad_pcb"
 origin = "authored"
 corpus_id = ""
+
+[[file]]
+path = "tests/data/kicad/routing/pair_two_headers.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the pair USB_P/USB_N and the single nets S1 and S2, open between two parts each, in the class HS with pair values (c0110); written through the model API by pair_triad of tests/unit/cli/test_route_cmd.py, which checks it"
+
+[[file]]
+path = "tests/data/kicad/routing/pair_two_headers.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "the project of pair_two_headers.kicad_pcb, with the class HS of 0.2 mm pair width and 0.15 mm pair gap (c0110); written by pair_triad of tests/unit/cli/test_route_cmd.py"
 #
 # [[file]]
 # path = "tests/data/blink.kicad_pcb"
@@ -1385,6 +1397,18 @@ corpus_id = ""
 notes = "schematic of the same build (c0072), beside its board"
 
 [[file]]
+path = "tests/data/kicad/ready/blink.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the starter of 'fenolite init', built for target 10 and routed with 'fenolite route --router direct' on 2026-10-08 (c0098): the ready project of the example of 'fenolite ready'"
+
+[[file]]
+path = "tests/data/kicad/ready/blink.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0098), beside its board"
+
+[[file]]
 path = "tests/data/altium/board6/board6.PcbDoc"
 origin = "authored"
 corpus_id = ""
@@ -1611,3 +1635,93 @@ path = "tests/data/model/v0.2.0/blink_2layer.board.json"
 origin = "authored"
 corpus_id = ""
 notes = "the .fenolite/board.json that Fenolite 0.2.0 wrote (the code of the tag v0.2.0, commit ea9e8b4b, in a scratch worktree) for examples/blink_2layer/design.py at that tag, copied byte for byte: fenolite build examples/blink_2layer/design.py --out DIR --target kicad --kicad-version 10 --seed 1 --timestamp 2026-10-06T00:00:00Z --confirm; a model document without the keys graphics, texts and corner_ratio (c0126: old model documents load unchanged); sha256 92d4403617820108b8c7dbe5e077b8b7d797ca0abf46ea8086a357916f57eaad"
+
+[[file]]
+path = "tests/data/kicad/layers/l6_t9_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the six-layer blink variant of tests/kicad/build/_layercases.py built for target 9 and filled by KiCad 10.0.6 (c0100, the 9.0.9 half of the build oracle)"
+
+[[file]]
+path = "tests/data/kicad/layers/l8_t9_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the eight-layer blink variant of tests/kicad/build/_layercases.py built for target 9 and filled by KiCad 10.0.6 (c0100, the 9.0.9 half of the build oracle)"
+
+[[file]]
+path = "tests/data/models/box_2x1.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored CC0 board of 2 x 1 mm and 0.5 mm thickness (format 20241229, an outline and nothing else), written for c0116 as the source of the authored 3D model beside it"
+
+[[file]]
+path = "tests/data/models/Fenolite.3dshapes/Box_2x1.step"
+origin = "authored"
+corpus_id = ""
+notes = "authored CC0 3D model for the STEP export tests of c0116: a box of 2 x 1 x 0.5 mm, written on 2026-10-07 by kicad-cli 10.0.6 from box_2x1.kicad_pcb with `kicad-cli pcb export step --board-only -o Box_2x1.step box_2x1.kicad_pcb`; no official library model is in the repository"
+
+[[file]]
+path = "tests/data/model/v0.2.1/blink_2layer.board.json"
+origin = "authored"
+corpus_id = ""
+notes = "the .fenolite/board.json that the code of release 0.2.1 (commit f36e08d9) wrote for examples/blink_2layer built for KiCad 10: a model document from before the stack-up keys of c0101, which must load and serialise to its own bytes (tests/unit/model/test_stackup.py)"
+
+[[file]]
+path = "tests/data/kicad/board/stackup_four.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored CC0 four-layer board (format 20241229) with a stack-up in setup: masks of 10 um (the top one Green), a prepreg, a core of two sheets (the second 0.3 mm of the material Laminate B) and a prepreg, finish ENIG, dielectric constraints, a board thickness equal to the sum of its rows (2.025 mm); written by Fenolite's own board writer from tests/_boards.py (bare_board(4, four_layer_stackup())) for change c0101"
+
+[[file]]
+path = "tests/data/analysis/strip_10.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored board of the power-path analysis (c0115): a 20 mm x 5 mm fill between two pads, written by write_board for target 10 from tests/_power.py::written_strip; round illustrative numbers, no value of any standard"
+
+[[file]]
+path = "examples/yardstick/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the yardstick board of c0119: an invented eight-channel buck controller on official library lib ids, every value a round one chosen for the example; DSL source only"
+
+[[file]]
+path = "tests/data/model/v0.2.1/twelve_kinds.rules.json"
+origin = "authored"
+corpus_id = ""
+notes = "a rules.json with one invented rule of each of the twelve rule kinds of release 0.2.1, written by the rules model and the canonical serialiser of the commit before change c0107 (7d8c0d0a; the two modules are unchanged since release 0.2.1): a model document from before the kind no_tracks, which must load and serialise to its own bytes (tests/unit/backends/kicad/test_rulemap_no_tracks.py)"
+
+[[file]]
+path = "tests/data/specctra/c0107_before_planebench_norules.dsn"
+origin = "authored"
+corpus_id = ""
+notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from the authored plane bench of tests/routing/_planebench.py without its rules, with no plane layer and no layer set: the text that write_dsn must still give for such a call (tests/unit/backends/specctra/test_dsn.py -k unchanged)"
+
+[[file]]
+path = "tests/data/specctra/c0107_before_blink_t10.dsn"
+origin = "authored"
+corpus_id = ""
+notes = "written by Fenolite's own Specctra writer of the commit before change c0107 (7d8c0d0a) from examples/blink_2layer built for target 10: the text that write_dsn must still give for a design without a rule (tests/unit/backends/specctra/test_dsn.py -k unchanged)"
+
+[[file]]
+path = "tests/data/libs/Frame.pretty/Frame_Anchor.kicad_mod"
+origin = "authored"
+corpus_id = ""
+notes = "synthetic geometry for anchors in a part's frame (c0111): three 1.5 mm x 1 mm pads and one 3 mm x 3 mm pad, off the footprint origin; not a validated land pattern"
+
+[[file]]
+path = "tests/data/kicad/routing/planebench_t9_before_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the authored plane bench of tests/routing/_planebench.py built for target 9 and filled by KiCad 10.0.6 through fenolite fill (c0107, the 9.0.9 half of the fan-out oracle: the bench without the fan-out); written by tests/kicad/routing/test_fanout_oracle.py with FENOLITE_PROBES_WRITE=1"
+
+[[file]]
+path = "tests/data/kicad/routing/planebench_t9_after_filled.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the same bench after fenolite route --router direct on its two plane nets, filled by KiCad 10.0.6 through fenolite fill (c0107, the 9.0.9 half of the fan-out oracle: the board with the fan-out); written by tests/kicad/routing/test_fanout_oracle.py with FENOLITE_PROBES_WRITE=1"
+
+[[file]]
+path = "tests/data/model/v0.2.0/body_legacy.board.json"
+origin = "authored"
+corpus_id = ""
+notes = "Authored round-number body generated by Fenolite model code at tag v0.2.0 in a scratch worktree; c0099 compatibility fixture"

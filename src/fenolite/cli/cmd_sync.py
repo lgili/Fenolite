@@ -19,7 +19,7 @@ import fenolite
 from fenolite.backends.kicad import sch
 from fenolite.cli._padmap import apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, run_design_script
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_build import MINIMAL
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -166,6 +166,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             format_version=None,
         ),
         writes=writes,
+        depends=depends_on(
+            ctx.cwd,
+            script_path,
+            *(
+                file
+                for file in (out_dir / f"{design.name}.kicad_pcb", out_dir / f"{design.name}.kicad_sch")
+                if file.is_file()
+            ),
+        ),
     )
 
 

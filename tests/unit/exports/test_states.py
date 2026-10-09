@@ -118,6 +118,22 @@ def test_sheet_roundtrip() -> None:
     assert found[BOM.path].state == "checked"  # its sources are checked; it never needs more
 
 
+def test_testpoints_table_follows_its_board() -> None:
+    """Scenario "The test-point table follows its board" (change c0118)."""
+    table = file_entry("fab/tp.csv", "testpoints", b"kind,ref", from_={"board": BOARD.sha256})
+    assert role_of(table) == "derived"
+    entries = (*ALL, table)
+    found = {e.path: e for e in assign(entries, stages=PASSING, sheets_ok=SHEETS, current=_current(entries))}
+    assert (found[table.path].state, found[table.path].stale, found[table.path].held) == (
+        "checked",
+        False,
+        "",
+    )
+    changed = {**_current(entries), BOARD.path: "e" * 64}
+    found = {e.path: e for e in assign(entries, stages=PASSING, sheets_ok=SHEETS, current=changed)}
+    assert (found[table.path].state, found[table.path].stale) == ("generated", True)
+
+
 def test_derived_file_of_a_checked_board() -> None:
     found = _states(PASSING)
     gerber = found[GERBER.path]
@@ -169,7 +185,9 @@ def test_roles_and_ranks() -> None:
         "board", "sheet", "board-support", "board-support", "board-support", "schematic-support",
         "board-support", "schematic-support", "other", "derived", "derived",
     ]  # fmt: skip
-    assert frozenset({"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "render"}) == DERIVED
+    fabrication = {"gerbers", "drill", "pos", "ipcd356", "bom", "pnp", "testpoints", "render"}
+    documents = {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"}
+    assert frozenset(fabrication | documents | {"fab-drawing", "assembly-drawing"}) == DERIVED
     assert not any(rule.state == "oracle-verified" for rules in RULES.values() for rule in rules)
 
 
@@ -234,3 +252,59 @@ def test_states_never_exceed_what_the_stages_give(
             assert native and current[BOARD.path] == BOARD.sha256
     if not stages:
         assert {item.state for item in found} == {"generated"}
+
+
+# --- document kinds and vendored models (c0116)
+
+
+def test_documents_follow_their_source() -> None:
+    assert {"ipc2581", "odb", "step", "pdf", "dxf", "sch-pdf"} <= DERIVED
+    step = file_entry("fab/3d/board.step", "step", b"ISO", from_={"board": BOARD.sha256})
+    sch_pdf = file_entry("fab/schematic/board.pdf", "sch-pdf", b"%PDF", from_={"schematic": SHEET.sha256})
+    vendored = file_entry("3dmodels/Fenolite.3dshapes/Box_2x1.step", "3d-model", b"ISO-10303-21;")
+    entries = (*DESIGN, step, sch_pdf, vendored)
+    assert role_of(step) == role_of(sch_pdf) == "derived" and role_of(vendored) == "other"
+
+    def states(current: dict[str, str]) -> dict[str, ArtifactEntry]:
+        found = assign(entries, stages=PASSING, sheets_ok=SHEETS, current=current)
+        return {item.path: item for item in found}
+
+    found = states(_current(entries))
+    for item in (step, sch_pdf):
+        assert (found[item.path].state, found[item.path].stale, found[item.path].held) == (
+            "checked",
+            False,
+            "",
+        )
+    # the DRC does not load a vendored model, and the STEP export that reads it judges nothing about it
+    assert (found[vendored.path].state, found[vendored.path].held) == ("checked", "")
+
+    edited = {**_current(entries), BOARD.path: "0" * 64}
+    found = states(edited)
+    assert (found[step.path].state, found[step.path].stale) == ("generated", True)
+    assert (found[sch_pdf.path].state, found[sch_pdf.path].stale) == ("checked", False)
+
+
+# --- drawing kinds (capability manufacturing-exports, "Artefact states"; change c0117)
+
+
+def test_a_drawing_follows_its_board() -> None:
+    assert {"fab-drawing", "assembly-drawing"} <= DERIVED
+    fab = file_entry("fab/drawings/b-fab.pdf", "fab-drawing", b"%PDF", from_={"board": BOARD.sha256})
+    top = file_entry(
+        "fab/drawings/b-assembly-top.pdf", "assembly-drawing", b"%PDF", from_={"board": BOARD.sha256}
+    )
+    entries = (*DESIGN, fab, top)
+    assert role_of(fab) == role_of(top) == "derived"
+
+    def states(current: dict[str, str]) -> dict[str, ArtifactEntry]:
+        found = assign(entries, stages=PASSING, sheets_ok=SHEETS, current=current)
+        return {item.path: item for item in found}
+
+    found = states(_current(entries))
+    assert found[BOARD.path].state == "native-verified"
+    for item in (fab, top):  # a derived file reaches `checked` and no higher rung
+        assert (found[item.path].state, found[item.path].stale) == ("checked", False)
+    found = states({**_current(entries), BOARD.path: "0" * 64})
+    for item in (fab, top):
+        assert (found[item.path].state, found[item.path].stale) == ("generated", True)

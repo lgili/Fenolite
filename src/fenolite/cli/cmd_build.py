@@ -65,6 +65,7 @@ from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import CopperIntentLike
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.libs import LibraryConfig, LibraryResolver
+from fenolite.backends.kicad.meander import MeanderIntentLike
 from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.replace import footprint_ref
 from fenolite.backends.kicad.schgen import LAYOUTS as SCHEMATIC_LAYOUTS
@@ -78,10 +79,19 @@ from fenolite.catalog import (
 from fenolite.catalog import (
     get_symbol as catalog_symbol,
 )
-from fenolite.checks.copper import LOWERING_CODES, check_copper, rules_issues, rules_summary
+from fenolite.checks import placement as placement_rules
+from fenolite.checks.copper import (
+    LOWERING_CODES,
+    CopperReport,
+    check_copper,
+    rules_issues,
+    rules_summary,
+    waived_issues,
+)
+from fenolite.checks.waivers import copper_waivers
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
-from fenolite.cli.api import Command, Context, PlannedWrite, Result
+from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.cmd_export import preset_file
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -93,13 +103,18 @@ from fenolite.dsl import (
     copper,
     drawing_sheet_source,
     fields,
+    heights,
+    meanders,
     module_moves,
     moves,
     net_moves,
+    outline_locked,
     pad_zones,
     placements,
     planes,
+    stackup_locked,
     to_model,
+    via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
@@ -129,6 +144,7 @@ from fenolite.lens.preserve import ExistingProject, FilePlacement, Prepared, pre
 from fenolite.lens.schplacements import FILE_NAME as SYMBOL_PLACEMENTS_FILE
 from fenolite.lens.schplacements import read_placements as read_symbol_placements
 from fenolite.model.design import Design as ModelDesign
+from fenolite.model.findings import Waiver
 from fenolite.model.presentation import DrawingSheet
 from fenolite.placement import legality
 from fenolite.templates import build_sheet, load_spec
@@ -155,7 +171,7 @@ COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
 WARN_NOTE = " (copper guard in warn mode)"
-SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "layout.unplaced")
+SCRIPT_COPPER_CODES: tuple[str, ...] = ("kicad.copper.", "kicad.frame.", "kicad.meander.", "layout.unplaced")
 """The warnings and infos of the in-memory KiCad build that an Altium build with script copper reports
 (change c0053): what the copper intents created or left out, and the parts that build staged. Its other
 warnings and infos concern KiCad files that are not written. Every error passes."""
@@ -311,10 +327,27 @@ def _evidence_json(evidence: Evidence) -> dict[str, object]:
     }
 
 
+def guard_waivers(
+    report: CopperReport, waivers: Sequence[Waiver]
+) -> tuple[tuple[Issue, ...], dict[str, object]]:
+    """The issues of ``report`` after the design's ``copper.*`` waivers (a matched finding is ``info``, so
+    no mode of a guard refuses it or turns it into a warning), and ``result.copper_check.waivers``:
+    ``matched`` (name → findings) and ``unmatched`` (names), in name order. A guard emits no
+    ``check.waiver-unmatched``: ``fenolite check`` reports stale waivers (change c0114)."""
+    own = copper_waivers(waivers)
+    found, counts = waived_issues(report, own)
+    names = sorted(waiver.name for waiver in own)
+    return found, {
+        "matched": {name: counts[name] for name in names if counts.get(name)},
+        "unmatched": [name for name in names if not counts.get(name)],
+    }
+
+
 def copper_guard(
-    files: Mapping[str, bytes], *, name: str, mode: str, target: int
+    files: Mapping[str, bytes], *, name: str, mode: str, target: int, waivers: Sequence[Waiver] = ()
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The copper issues of the triad ``files`` that a build is about to write, and ``result.copper_check``.
+    ``waivers`` are the design's waivers: they are applied before the mode (``guard_waivers``).
 
     The planned board text is read back with ``read_board``, the planned project and rules texts are
     applied with ``design_rules_from_texts`` for ``target`` (the build's KiCad major), the pads come from the
@@ -348,7 +381,8 @@ def copper_guard(
         floor_over_rules=rules.floor_over_rules,
         inputs=(kicad_pcb.EVIDENCE, rules.evidence),
     )
-    found = [*report.issues, *rules_issues(rules)]
+    judged, waived = guard_waivers(report, waivers)
+    found = [*judged, *rules_issues(rules)]
     evidence = Evidence.combine(report.evidence, kicad_pcb.EVIDENCE, rules.evidence)
     if any(issue.code in LOWERING_CODES for issue in found):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
@@ -366,6 +400,7 @@ def copper_guard(
         "clearance": report.summary["clearance"],
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
+        "waivers": waived,
     }
     return tuple(found), summary
 
@@ -374,7 +409,7 @@ CLEARANCE_NOTE = " (reported, not refused: the Altium copper guard refuses short
 
 
 def altium_copper_guard(
-    files: Mapping[str, bytes], *, name: str, mode: str
+    files: Mapping[str, bytes], *, name: str, mode: str, waivers: Sequence[Waiver] = ()
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The copper issues of the PCB document ``<name>.PcbDoc`` of ``files`` that an Altium build is about
     to write, and ``result.copper_check`` (capability altium-build, "Copper guard in an Altium build").
@@ -384,7 +419,9 @@ def altium_copper_guard(
     Altium board frame, and ``check_copper`` judges the result. A ``copper.short`` keeps its severity, so the
     build refuses; every other error is reported as a warning with ``CLEARANCE_NOTE``. With
     ``mode == "warn"`` the short is a warning too, with ``WARN_NOTE``. Nothing is read from disk and
-    nothing is written; a build without a PCB document is not judged (``ran`` false)."""
+    nothing is written; a build without a PCB document is not judged (``ran`` false). ``waivers`` are the
+    design's waivers, applied before the mode as on the KiCad target (``guard_waivers``): a waived short is
+    ``info`` and does not refuse the build."""
     if mode not in COPPER_CHECK_MODES:
         raise ValueError(f"unknown copper-check mode {mode!r}; use one of {', '.join(COPPER_CHECK_MODES)}")
     document = f"{name}.PcbDoc"
@@ -404,8 +441,9 @@ def altium_copper_guard(
         inputs=(read.evidence, rules.evidence),
     )
     unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
+    judged, waived = guard_waivers(report, waivers)
     found: list[Issue] = []
-    for issue in (*report.issues, *rules_issues(rules)):
+    for issue in (*judged, *rules_issues(rules)):
         if issue.severity != "error":
             found.append(issue)
         elif issue.code != "copper.short":
@@ -427,6 +465,7 @@ def altium_copper_guard(
         "unpoured": unpoured,
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
+        "waivers": waived,
     }
     return tuple(found), summary
 
@@ -478,18 +517,27 @@ def pad_map_issues(applied: Sequence[DefaultPadMap]) -> list[Issue]:
 
 
 def placement_guard(
-    files: Mapping[str, bytes], *, name: str, staged: Sequence[str] = (), edge_clearance: int = 0
+    files: Mapping[str, bytes],
+    *,
+    name: str,
+    staged: Sequence[str] = (),
+    edge_clearance: int = 0,
+    rules: placement_rules.PlacementRules | None = None,
+    model: ModelDesign | None = None,
 ) -> tuple[tuple[Issue, ...], dict[str, object]]:
     """The placement issues of the board that a build is about to write, and ``result.placement``.
 
     The planned board text is read back with ``read_board``, the courtyards come from the KiCad board
-    frame and the outline from ``board_outline``, and ``legality.check`` judges every footprint whose
-    component path is not in ``staged``. Every issue is at most a warning: a build never refuses for
-    placement. Nothing is read from disk and nothing is written.
+    frame, the outline from ``board_outline`` and the keep-outs from the board, and ``legality.check``
+    judges every footprint whose component path is not in ``staged``. ``rules`` are the placement rules of
+    the built model (``checks.placement.rules_of``), judged on the pads of the same board; its height
+    limits are judged on the same extents with the heights of ``model``, the built model, whose footprints
+    hold the bodies of ``Part(height=…)`` (change c0140). Every issue is at most a warning: a build never
+    refuses for placement. Nothing is read from disk and nothing is written.
     """
     data = files.get(f"{name}.kicad_pcb")
     if data is None:
-        return (), {"ran": False, "counts": {}}
+        return (), {"ran": False, "counts": {}, "rules": placement_rules.empty_counts()}
     design = kicad_pcb.read_board(data.decode("utf-8"), file=f"{name}.kicad_pcb")
     footprints = design.board.footprints if design.board is not None else ()
     components = {c.id: c for c in design.circuit.components}
@@ -503,15 +551,32 @@ def placement_guard(
         if path in staged:
             left_out.add(footprint.id)
     extents = [e for e in KicadBackend().placed_extents(design) if e.footprint_id not in left_out]
-    found = legality.check(extents, board_outline(design).rings, edge_clearance=edge_clearance, names=names)
+    keepouts = design.board.keepouts if design.board is not None else ()
+    found = legality.check(
+        extents,
+        board_outline(design).rings,
+        edge_clearance=edge_clearance,
+        names=names,
+        keepouts=keepouts,
+    )
+    report = placement_rules.RuleReport()
+    if rules:
+        report = placement_rules.judge(design, rules, pads=KicadBackend().board_pads(design))
+    judged = {family: dict(family_counts) for family, family_counts in report.counts.items()}
+    heights = placement_rules.RuleReport((), {})
+    if rules is not None and rules.heights:
+        heights = placement_rules.judge_heights(
+            design, rules.heights, placement_rules.heights_of(design, model), extents=extents
+        )
+        judged.update({family: dict(family_counts) for family, family_counts in heights.counts.items()})
     issues = tuple(
         dataclasses.replace(issue, severity="warning") if issue.severity == "error" else issue
-        for issue in found
+        for issue in (*found, *report.issues, *heights.issues)
     )
     counts: dict[str, int] = {}
     for issue in issues:
         counts[issue.code] = counts.get(issue.code, 0) + 1
-    return issues, {"ran": True, "counts": dict(sorted(counts.items()))}
+    return issues, {"ran": True, "counts": dict(sorted(counts.items())), "rules": judged}
 
 
 def read_source(
@@ -583,6 +648,12 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    # the inputs a review can see: the design script and, when the build reads one, the copper source
+    read = depends_on(ctx.cwd, args.design, getattr(args, "copper_from", None))
+    return dataclasses.replace(_built(args, ctx), depends=read)
+
+
+def _built(args: argparse.Namespace, ctx: Context) -> Result:
     script = Path(args.design)
     script_path = script if script.is_absolute() else ctx.cwd / script
     out = Path(args.out)
@@ -684,6 +755,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         net_aliases = net_moves(design)
         plane_nets = planes(design)
         intents = copper(design)
+        meander_intents = meanders(design)
         field_requests = fields(design)
         pad_zone_requests = pad_zones(design)
     except DslError as error:
@@ -712,6 +784,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             intents,
             frame_sheet,
             sheet_result,
+            meanders=meander_intents,
         )
         return dataclasses.replace(
             made,
@@ -754,7 +827,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         model,
         prepared.placements if prepared is not None else requested,
         name=design.name,
-        copper=design.copper,  # type: ignore[arg-type]
+        copper=design.copper,
         resolver=resolver,
         target=ctx.kicad_target,
         allow_lossy=ctx.allow_lossy,
@@ -762,6 +835,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         record=record,
         prepared=prepared,
         copper_intents=intents,
+        meanders=meander_intents,
         fields=field_requests,
         pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,
@@ -771,6 +845,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         schematic=schematic,
         symbol_placements=symbol_placements,
         schematic_layout=cast(Literal["readable", "grid"], args.schematic_layout or SCHEMATIC_LAYOUTS[0]),
+        lock_stackup=stackup_locked(design),
+        lock_via_protection=via_protection_locked(design),
+        planes=plane_nets,
+        lock_outline=outline_locked(design),
+        heights=heights(design),
     )
     files = {} if refused else dict(built.files)
     if any(found.severity == "error" for found in symbol_issues):
@@ -783,10 +862,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         name=design.name,
         staged=cast(Sequence[str], built.summary.get("staged", ())),
         edge_clearance=legality.edge_clearance(built.design),
+        rules=placement_rules.rules_of(built.design),
+        model=built.design,
     )
     if files:
         copper_issues, copper_check = copper_guard(
-            files, name=design.name, mode=mode, target=ctx.kicad_target
+            files,
+            name=design.name,
+            mode=mode,
+            target=ctx.kicad_target,
+            waivers=built.design.findings.waivers,
         )
         if any(issue.severity == "error" for issue in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
@@ -829,7 +914,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             *default_issues,
             *built.issues,
             *symbol_issues,
-            *plane_issues(plane_nets),
+            *plane_issues(plane_nets, built.layout or built.design),
             *copper_issues,
             *placement_issues,
         ),
@@ -915,6 +1000,8 @@ def _run_altium(
     intents: Sequence[CopperIntentLike] = (),
     drawing_sheet: DrawingSheet | None = None,
     sheet_result: Mapping[str, object] | None = None,
+    *,
+    meanders: Sequence[MeanderIntentLike] = (),
 ) -> Result:
     """The ``--target altium`` branch (capability altium-build, "Altium build target"): only the symbol
     libraries of KiCad lib ids and the footprint libraries of KiCad footprint links are read, through a
@@ -1016,11 +1103,14 @@ def _run_altium(
             model,
             requested,
             name=name,
-            copper=run.design.copper,  # type: ignore[arg-type]
+            copper=run.design.copper,
             resolver=resolver,
             target=ctx.kicad_target,
             copper_intents=intents,
-            authored_footprints={key: fp.definition for key, fp in run.design.footprints.items()},
+            meanders=meanders,
+            # the catalog definitions too: a design that names only catalog ids has no library (c0077)
+            authored_footprints=authored_footprints,
+            authored_symbols=authored_symbols,
         )
         refused = not resolved.files or any(found.severity == "error" for found in resolved.issues)
         script_issues = [
@@ -1064,13 +1154,16 @@ def _run_altium(
             symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
             bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
             authored_symbols=authored_symbols,
+            heights=heights(run.design),
         )
     files = dict(built.files)
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
     if files:
-        copper_issues, copper_check = altium_copper_guard(files, name=name, mode=mode)
+        copper_issues, copper_check = altium_copper_guard(
+            files, name=name, mode=mode, waivers=model.findings.waivers
+        )
         if any(found.severity == "error" for found in copper_issues):
             files = {}  # refused: a build with an error issue plans no write
     if files:

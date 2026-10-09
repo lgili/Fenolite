@@ -16,6 +16,14 @@ pass `get_footprint(lib_id)` definitions in `authored_footprints` and symbol def
 overrides the catalog for that build only. Other component packs can be added without requiring a
 CAD installation or network access.
 
+A catalog footprint definition holds no text field. The KiCad build generates the two a KiCad
+footprint needs (change c0077): `Reference` (`REF**` in the project library, the part's reference on the
+board) on `F.SilkS`, 1 mm above the footprint's courtyard box, and `Value` (the footprint's name in the
+library, the part's value on the board) on `F.Fab`, 1 mm below it. `Part.field("Reference", …)` and
+`Part.field("Value", …)` move or hide them (`docs/dsl.md`, "Field placement"). So a board that names
+only catalog ids passes `fenolite check`: `tests/_catalog_design.py` holds such a design, and
+`tests/unit/cli/test_catalog_only.py` and `tests/kicad/build/test_catalog_only.py` build and check it.
+
 The schematic symbols use aligned wire connection points, inward-facing stems and 0.254 mm body
 strokes. Their outlines are Fenolite-authored interpretations of familiar electrical shapes.
 Review sheets render the actual catalog geometry, including background fill and terminal roles.

@@ -17,7 +17,6 @@ library that does not convert is expected to fail (``H-A-SCHLIB-KICAD9``).
 
 from __future__ import annotations
 
-import os
 import subprocess
 import tempfile
 from functools import cache
@@ -25,6 +24,7 @@ from pathlib import Path
 
 import pytest
 from _altium_tree import project_files, tree_build
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium.altsym import from_symbol_def
@@ -48,7 +48,7 @@ def convert(data: bytes) -> dict[str, SymbolDef]:
         root = Path(folder)
         source, target = root / "lib.SchLib", root / "out.kicad_sym"
         source.write_bytes(data)
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "sym", "upgrade", str(source), "-o", str(target)],
             capture_output=True,

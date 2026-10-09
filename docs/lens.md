@@ -153,6 +153,14 @@ from the script. It is a two-way merge without a stored base, as for footprints.
   request applied.
 - User properties follow "User properties on kept footprints": their values are the script's and their
   placement the board's. Requests never name them.
+- **A missing `Reference` or `Value`** (c0077). A board built before Fenolite generated the two fields
+  for catalog and authored footprints holds footprints without them. A kept footprint whose node lacks
+  one gains the built copy's field, with its id, uuid and placement and with the script's reference or
+  value as its text, before the node's first field, `Reference` before `Value`
+  (`lens.preserve._apply_mandatory_fields`). The built copy has the script's requests applied, so a
+  request reaches an added field. A field the node has is never touched by this rule, and everything
+  else of the node stays. No issue is raised; `build --dry-run` lists the board as changed, and the
+  build after that changes nothing.
 
 No issue is raised. `result.preserved.fields` holds three sorted lists of `"<component path>:<field>"`:
 
@@ -275,14 +283,154 @@ unlocked request differs from the setting of a board pad, which wins) and `force
 replaced the setting of a board pad). Both are empty on a first build and on a rebuild of an unedited
 board.
 
+## Board items declared in the script
+
+Rule areas, texts, graphics and dimensions that the script declares (`docs/dsl.md`, "Rule areas" and
+"Board drawings") are derived output, as script copper is. The build gives each one the KiCad uuid
+`boarditems.item_uuid(<its id>)`: version 8, the marker `fenitm` in its first 48 bits, and the first 74
+bits of the SHA-256 of `kicad-item:<id>`. A rebuild tells them from items drawn in KiCad by that marker.
+
+| existing item | what a rebuild does |
+|---|---|
+| an item uuid that the build creates again | replaced by the new copy; `kicad.board-item.regenerated` (info) when a modelled field differs, because it was edited in KiCad |
+| an item uuid whose call is gone | removed; `kicad.board-item.stale` (warning) |
+| any other rule area, text, graphic or dimension | kept as it is |
+
+- The fields compared are: for a rule area its name, outline, layers and settings; for a text its string,
+  position, layer, size, thickness, rotation and justification; for a graphic its kind, layer, points,
+  width and fill; for a dimension its kind, layer, points, offset, direction, units and precision.
+- The kept items come first, in the board's order; the script's items follow, in key order.
+- `result.preserved.board_items` holds the counts `regenerated` and `stale` (0 without an existing board),
+  and `result.board_items` the counts `rule_areas`, `texts`, `graphics` and `dimensions` of the script.
+- A rule area that did not change leaves the fill digest as it was; one that the script adds, moves or
+  removes changes it, and the fills it concerns are dropped ("Fill digests").
+- To keep an edit made in KiCad, change the call, or remove the call and draw the item in KiCad.
+
+## Stack-up across rebuilds
+
+`design.stackup()` declares the stack-up of the board (`docs/dsl.md`, "Stack-up"). When a build merges
+an existing board, `backends.kicad.stackup.merge_stackup` decides it, as for zones (change c0101). The
+script's stack-up is completed from the layer table (one entry of thickness 0 for each silkscreen, paste
+and mask layer it leaves out) and compared with the board's projected one, ids aside:
+
+| script | board | written | code |
+|---|---|---|---|
+| none | any | the board's, with its text | none |
+| declared | none, or a node KiCad ignores | the script's | none |
+| declared | equal | the board's, with its text | none |
+| declared, unlocked | different | the board's, with its text | `kicad.stackup.overridden` (info) |
+| declared, `locked=True` | different | the script's | `kicad.stackup.forced` (warning) |
+
+- For the `stackup` child of `setup` and the `thickness` of `general` this rule replaces "board content
+  outside the design is kept"; every other child of `setup` stays as the board has it.
+- KiCad has no lock for a stack-up: the lock lives in the script. An edit in KiCad's Board Setup therefore
+  survives a rebuild until the script locks its own.
+- `result.stackup.source` says whose stack-up the written board holds (`script` or `board`).
+- The codes are `kicad.*` codes: they pass through the closed layout and build tables unchanged. The
+  normal-form pass does not decide again, so a rebuild over the build's own output writes the same bytes.
+
+## Plane layers across rebuilds
+
+`design.board(planes=…)` names the plane layers of the script (`docs/dsl.md`). The build gives each of them
+the KiCad row type `power` after the layout merge (`backends.kicad.layers.with_plane_types`, change c0107).
+Every other copper layer keeps the type of the board the build is written from, `signal` for a created
+board:
+
+- a plane declared after the first build changes its row and nothing else of the board;
+- a type set in KiCad's board setup stays, also when the script names no plane on that layer;
+- a plane removed from the script leaves its type: the build never writes `signal` over `power`.
+
+A plane whose net has no zone on its layer, in the script or on the existing board, gives
+`build.plane-zone-missing`.
+
+## Via protection across rebuilds
+
+`design.via_protection()` declares the board's default via protection (`docs/dsl.md`, "Via protection").
+When a build merges an existing board, `backends.kicad.via_protection.merge_default` decides it, as for
+zones and for the stack-up (change c0112). The two defaults are compared in effect: each with the fields it
+leaves open filled by KiCad's own default (tented on both sides, nothing else).
+
+| script | existing board | written default | code |
+|---|---|---|---|
+| none | any | the board's, with its text | none |
+| declared | none | the script's | none |
+| declared | equal in effect | the board's, with its text | none |
+| declared, unlocked | different | the board's, with its text | `kicad.via.protection-overridden` (info) |
+| declared, `locked=True` | different | the script's | `kicad.via.protection-forced` (warning) |
+
+- For the protection children of `setup` this rule replaces "board content outside the design is kept";
+  every other child of `setup` stays under that rule, and the stack-up keeps its own.
+- KiCad has no lock for the default in the file, so the lock lives in the script.
+- The vias are not decided here: script vias take the protection of their intent at every build
+  (`docs/copper.md`, "The merge with an existing board"), and every other via keeps its protection with
+  the rest of its fields.
+- After the decision the build gives `kicad.via.protection-not-exported` (info) when vias take a covering,
+  plugging, capping or filling of `True` from the default only: `kicad-cli` 10.0.6 writes such a default to
+  no fabrication file.
+- The normal-form pass does not decide again: the written board holds the decided default, so a rebuild
+  over the build's own output writes the same bytes. An unlocked default that still differs is reported at
+  every build, as an overridden zone is.
+
 ## Board content and the outline rule
 
 The layout is the existing board with its own root content: setup, stack-up, plot settings, groups,
-dimensions, images, title block, paper and layers stay as KiCad wrote them. Edge graphics are kept; the
-script's outline is used only when the board has none. When the edge content is not exactly the
-script's rectangle, `layout.outline-kept` says so: a new size needs KiCad or `--discard-layout`. A
-board whose copper layers differ from `board(copper=…)` cannot be preserved (`layout.copper-mismatch`,
-error).
+dimensions, images, title block, paper and layers stay as KiCad wrote them, except what the two
+adaptations below change. They run first, the copper count and then the outline, and every other rule
+applies to the adapted board.
+
+### Outline changes
+
+The writer signs the outline it writes: the uuid of each edge holds the digest of all edge texts and the
+edge's own text (`docs/formats/kicad/board.md`, "Outline"). So the edge graphics of a board tell
+whether they are an outline Fenolite wrote and nobody changed: a move in KiCad keeps the uuid and
+changes the text, and a re-save keeps both.
+
+| the board's edge graphics | compared with the script's outline | result |
+|---|---|---|
+| none | — | the script's outline is used |
+| any | equal | kept; edges under the position uuids of an older Fenolite are signed again |
+| signed (Fenolite's, unchanged) | different | replaced, `kicad.outline.replaced` (info) |
+| not signed (changed, drawn in KiCad, or older) | different, `board(..., locked=True)` | replaced, `kicad.outline.forced` (warning) |
+| not signed | different, not locked | kept, `layout.outline-kept` (warning), its hint naming the lock |
+
+- **Replaced** means that the board's edge graphics go and the script's outline is written, signed.
+- **Dropped copper.** A track, arc or via that is not script copper is dropped when it no longer fits:
+  when its copper touches a ring, or its first point lies outside the board or inside a cut-out.
+  `kicad.outline.copper-dropped` (warning) gives the counts and the nets; `--dry-run` shows them before
+  anything is written, and `fenolite route` closes what reopened. KiCad's own check would not report
+  copper left wholly outside the outline.
+- **Zones.** A zone declared without an outline follows the board: it takes the box of the new board
+  ring. A zone with an outline of its own stays.
+- **Edge items inside footprints** are left alone: they belong to their footprints, which the script
+  does not draw. KiCad chains them into the outline, so the message of `kicad.outline.replaced` or
+  `kicad.outline.forced` names their footprints.
+- **Footprints never move.** The placement guard names those the new outline leaves outside
+  (`place.outside-outline`). Fills are dropped by the fill digest, which holds the edge content.
+- **Old boards.** The first build after this change signs the edges that an older Fenolite wrote and
+  nobody changed. When such edges differ from the script's outline, nothing tells whether KiCad edited
+  them, so they count as edited.
+
+### Copper count changes
+
+A board whose copper layers are those of a table that Fenolite creates (2, 4, 6 or 8 layers: `F.Cu`,
+`In1.Cu` … `B.Cu`) follows a new `board(copper=…)`:
+
+- **Rows.** The rows of the layers that stay keep what KiCad set on them; new inner rows are added
+  (`kicad.layers.added`, info); a smaller count removes the deepest inner layers.
+- **Items on a removed layer.** Tracks and arcs are dropped; a via whose two layers name it is dropped,
+  a through via stays; zones and rule areas lose the layer, and go when none is left; graphics and
+  texts on it are dropped. One `kicad.layers.removed` (warning) per layer gives the counts. KiCad would
+  load these items and report `item_on_disabled_layer`.
+- **Pads** whose layers are a wildcard (`*.Cu`) are projected again on the new table.
+- **The stack-up.** A `stackup` of the board setup that names other copper layers than the new table is
+  removed (`kicad.layers.stackup-reset`, warning): KiCad then derives its default, where a stale one
+  leaves the Gerber job file without thicknesses. The stack-up that was read into the model goes with
+  it, so the build is not refused by `model.stackup-copper`; a stack-up that the script declares for
+  the new count is then written. Without one, set the stack-up again in KiCad's board setup.
+- A table that Fenolite does not create (ten layers, or an inner layer under another name) cannot
+  follow: `layout.copper-mismatch` (error), nothing is written, and the hint names `--discard-layout`.
+
+Copper is never moved between layers: that would change what was routed.
 
 The paper and the title block are the board's too, unless the script declares them with
 `design.sheet()` or `design.title_block()`: a declared one is written again from the script on every
@@ -323,6 +471,13 @@ rule wins in KiCad (`H-K-DRU-ORDER`), so a user rule overrides a Fenolite rule o
 rules pass the target gating too: a 10.0-only construct is refused for target 9 (`FEN-7001`) or dropped
 with `--allow-lossy`. A rules file of version 2 or more is refused (`FEN-3002`), and a rules file that
 does not parse is refused with its line (`FEN-3004`).
+
+### Check severities
+
+A severity that the script names (`design.rules.severity()`) is rewritten by every build: its key of
+`rule_severities` takes the script's level, also over a value set in KiCad. Every other key of the table
+keeps the project's value and its place, and so does `drc_exclusions`, which Fenolite reads and never
+writes (change c0114).
 
 ## The normal form
 
@@ -414,7 +569,7 @@ the next build would drop or overwrite:
 
 | code | severity | when |
 |---|---|---|
-| `layout.copper-mismatch` | error | the board's copper layers differ from `board(copper=…)` |
+| `layout.copper-mismatch` | error | the board's copper layers are no table that Fenolite creates, so the board cannot follow `board(copper=…)`; the message names both counts and the hint `--discard-layout` |
 | `layout.source-invalid` | error | a table or key of `placements.toml` is invalid |
 | `layout.orphan` | warning | a footprint with `fenolite.path` matched no part and is removed |
 | `layout.alias-unused` | warning | a part alias, given or expanded from a module alias, matched nothing, or its part matched by uuid or path |
@@ -433,12 +588,20 @@ the next build would drop or overwrite:
 | `kicad.copper.stale` | warning | script copper whose intent is gone was removed (`docs/copper.md`) |
 | `kicad.copper.regenerated` | info | script copper was edited in KiCad, or its pads moved, and was replaced |
 | `kicad.copper.duplicate` | info | an item equal to script copper was removed |
+| `kicad.board-item.stale` | warning | a rule area, text, graphic or dimension that an earlier build wrote is no longer declared and was removed |
+| `kicad.board-item.regenerated` | info | a rule area, text, graphic or dimension of the script was edited in KiCad and was written again |
 | `kicad.zone.forced` | warning | a locked `zone()` replaced a board zone that differed from it |
 | `kicad.zone.orphan` | warning | a zone the script wrote for a `zone()` it no longer declares was removed |
 | `kicad.zone.overridden` | info | an unlocked `zone()` differs from the kept board zone |
 | `kicad.pad.zone-unknown-pad` | error | a `zone_connection()` request names a pad number or index that the footprint does not have |
 | `kicad.pad.zone-forced` | warning | a locked `zone_connection()` replaced the setting that a pad of a kept footprint carries |
 | `kicad.pad.zone-overridden` | info | an unlocked `zone_connection()` differs from the setting of a kept pad, which stays |
+| `kicad.outline.forced` | warning | a locked `board()` replaced edge content that is not Fenolite's unchanged outline |
+| `kicad.outline.copper-dropped` | warning | tracks, arcs or vias that do not fit the new outline were dropped |
+| `kicad.outline.replaced` | info | the board's own unchanged outline was replaced by the script's new one |
+| `kicad.layers.removed` | warning | an inner layer was removed for the new copper count, with the items on it (counts per kind) |
+| `kicad.layers.stackup-reset` | warning | the board's stack-up did not match the new layers and was removed |
+| `kicad.layers.added` | info | inner layers were added for the new copper count |
 
 ## Evidence
 

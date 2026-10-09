@@ -1,0 +1,30 @@
+# The external tools that `fenolite fetch NAME --confirm` installs (docs/adr/0007-fetching-external-tools.md).
+# One [[tool]] table per row. A row is added only by a decision of its own: its `source` is an id of
+# docs/evidence/sources.md, its `url` is https, and its `bytes` and `sha256` are the values recorded on an
+# evidence page. A row whose name starts with `_` is hidden: it serves the test suites, and no hint and
+# no documentation names it. tests/unit/cli/test_fetch_cmd.py keeps the rows in step with those pages.
+
+[[tool]]
+name = "freerouting"
+version = "2.4.1"
+file = "freerouting-2.4.1.jar"
+# The size and the digest of the jar of the gate: docs/evidence/routing.md, rows "size" and "SHA-256".
+bytes = 64076787
+sha256 = "251101c3eeac22d7e7dfcf6796603279e5d1000283eb82d8f093780f7afc6aa9"
+url = "https://github.com/freerouting/freerouting/releases/download/v2.4.1/freerouting-2.4.1.jar"
+licence = "GPL-3.0"
+source = "S-0223"
+env = "FENOLITE_FREEROUTING_JAR"
+needs = ["Java 25 or newer (not installed by this command)"]
+
+[[tool]]
+name = "_selftest"
+version = "1"
+file = "fetch-selftest.txt"
+bytes = 199
+sha256 = "646365bac4168d643fddfddd8bef551edf232f4d21a03d82f4a53b28c4db443f"
+url = "package:"
+licence = "Apache-2.0"
+source = ""
+env = ""
+needs = []

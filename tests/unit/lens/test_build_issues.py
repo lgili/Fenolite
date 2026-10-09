@@ -5,6 +5,7 @@ changes c0011, c0027, c0019 and c0036; preservation codes are build codes)."""
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from pathlib import Path
 
@@ -12,8 +13,12 @@ from _buildhelp import blink, build, codes
 
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
+from fenolite.core.ids import derived_id
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
+from fenolite.model.board import Zone
+from fenolite.model.circuit import Net
+from fenolite.model.design import Design
 
 ROOT = Path(__file__).resolve().parents[3]
 TESTS = ROOT / "tests" / "unit" / "lens"
@@ -28,13 +33,18 @@ def test_closed_set() -> None:
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning", "layout.unplaced": "warning", "build.pad-without-pin": "info",
         "build.global-library": "info", "build.interface-not-lowered": "info",
+        "build.field-added": "info",  # c0077
         # c0027
         "build.property-reserved": "error", "build.property-invalid": "error",
         "build.property-conflict": "error", "build.vendor-unsafe-name": "error",
         "build.library-changed": "warning",
         "build.no-connect-on-net": "error",  # c0036
-        "build.plane-not-lowered": "info",  # c0038
+        "build.plane-zone-missing": "warning",  # c0107 (build.plane-not-lowered of c0038 left the table)
         "build.diff-pair-name": "warning", "build.i2c-pullup-missing": "warning",  # c0073
+        "build.diff-pair-gap-shadowed": "warning",  # c0104
+        "build.impedance-layer": "error", "build.impedance-shadowed": "warning",  # c0105
+        "build.impedance-class-width": "warning", "build.impedance-gap-clearance": "warning",
+        "build.impedance-stackup": "warning", "build.impedance-rules-only": "info",
         # c0061: the build codes of the generated schematic
         "build.schematic-too-large": "error", "build.symbol-overlap": "warning",
         "build.symbol-short": "error", "build.symbol-placement-unknown": "warning",
@@ -44,6 +54,7 @@ def test_closed_set() -> None:
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
+        "build.area-unknown": "error",  # c0103: a rule names no rule area
         **PRESERVE_ISSUE_CODES,  # c0019
     }  # fmt: skip
     assert dict(BUILD_ISSUE_CODES) == table
@@ -93,9 +104,24 @@ def test_bottom_parts_add_the_flip_rows() -> None:
 
 
 def test_plane_issues() -> None:
-    """``design-dsl`` "Planes in a build" (change c0038): one info per plane, naming the layer and the net."""
-    assert plane_issues({}) == []
-    first, second = plane_issues({"In1.Cu": "GND", "In2.Cu": "VIN"})
-    assert (first.code, first.severity, first.where) == ("build.plane-not-lowered", "info", "In1.Cu")
-    assert "In1.Cu" in first.message and "GND" in first.message and "zone on In1.Cu" in first.hint
+    """``design-dsl`` "Planes in a build" (change c0107): one warning per plane whose net has no zone on its
+    layer, naming the layer and the net; a plane with its zone gives none."""
+    gnd = Net(id=derived_id("net", "test", "GND"), name="GND")
+    vin = Net(id=derived_id("net", "test", "VIN"), name="VIN")
+    zone = Zone(id=derived_id("zon", "test", "z"), net_id=gnd.id, layers=("In3.Cu",), outline=())
+    base = Design.new("planes", seed=0)
+    assert base.board is not None
+    design = dataclasses.replace(
+        base,
+        circuit=dataclasses.replace(base.circuit, nets=(gnd, vin)),
+        board=dataclasses.replace(base.board, zones=(zone,)),
+    )
+    assert plane_issues({}, design) == []
+    assert plane_issues({"In3.Cu": "GND"}, design) == []
+    first, second = plane_issues({"In1.Cu": "GND", "In3.Cu": "GND", "In2.Cu": "VIN"}, design)
+    assert (first.code, first.severity, first.where) == ("build.plane-zone-missing", "warning", "In1.Cu")
+    assert "In1.Cu" in first.message and "GND" in first.message
+    assert "design.zone(" in first.hint and "GND" in first.hint and 'layers=("In1.Cu",)' in first.hint
+    assert "KiCad" not in first.hint and 'layers=("In2.Cu",)' in second.hint
     assert second.where == "In2.Cu" and "VIN" in second.message
+    assert "build.plane-not-lowered" not in BUILD_ISSUE_CODES

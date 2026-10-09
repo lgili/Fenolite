@@ -212,6 +212,24 @@ copies.
   stays pending until reported. `tests/unit/cli/test_build_altium_script_copper.py -k protocol` checks the
   digest. The bisection variants below do not apply to this step.
 
+- **C8** (via tenting, change c0112; `~/fenolite-altium-checks/session-2/ViaTenting/blink.PcbDoc`, SHA-256
+  `eca2619850f48f745d66d6d8714c7af4ada6b290d816c9f55cc5a1cb57d2a02e`): the blink with four through vias of
+  0.8 mm (hole 0.4 mm) on `GND`, 4 mm above the bottom edge, at 10, 15, 20 and 25 mm from the left edge,
+  whose first flags byte is `0C`, `2C`, `4C` and `6C`. The sample was built outside the repository on
+  2026-10-07 with `fenolite build <copy of examples/blink_2layer>/design.py --out <folder> --target altium
+  --confirm --timestamp 2026-10-07T00:00:00Z --seed 112`, the script extended by the four lines
+  `design.via("v1", mm(10), mm(26), net=gnd, diameter=mm(0.8), drill=mm(0.4), protection=protect(tenting=False))`,
+  `v2` at `mm(15)` with `protect(tenting="front")`, `v3` at `mm(20)` with `protect(tenting="back")` and `v4`
+  at `mm(25)` with `protect(tenting=True)`; its folder holds a `README.md` with the steps. Open the
+  document in Altium Designer 26 (a menu path or a dialog name may read differently there), select each of
+  the four vias and read the "Tented" check boxes of its solder mask settings in the Properties panel.
+  Expected: no message on opening; via 1 tented on neither side, via 2 on the top only, via 3 on the bottom
+  only, via 4 on both; the Top Solder and Bottom Solder layers show an opening exactly where a via is not
+  tented. Question for the report: which sides does Altium Designer 26 show as tented for each via, and
+  does the document open without a message? Also report the solder mask expansion the panel shows: the
+  written record holds 4 mil on both sides whatever the flags. Settles `H-A-PCB-CU-VIATENT`, which stays
+  `INFERRED` until the report is recorded here. The bisection variants below do not apply to this step.
+
 When a step fails, open the variants in order and report the first that fails. They are written outside
 the repository with `FENOLITE_ALTIUM_VARIANTS=<folder> uv run pytest
 tests/unit/lens/test_altium_copper_golden.py -k variants`: `c0` two layers with tracks and an arc; `c1` adds
@@ -410,6 +428,15 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
     although the record holds the second key; then save the document, reopen it and read the restrictions
     again. Expected: no message, the same two restrictions before and after the save
     (`H-A-PCBX-KEEPOUT`).
+12. **X12** Copper locks (change c0108; added on 2026-10-07; not run). Build a document whose model holds
+    one locked track, one locked arc and one locked via beside unlocked ones: the routed sample with those
+    three items set `locked=True` (`tests/unit/backends/altium/test_pcbdoc_copper.py -k locked` builds it
+    in memory; write it to a folder outside the repository). Open it in Altium Designer 26, select each of
+    the three items and read the property "Locked"; select one unlocked track, arc and via too. Expected:
+    the three items locked, the others not, and no message on load (`H-A-PCB-CU-LOCK`). Then try to drag
+    the locked track: Altium should ask before it moves a locked primitive. Report one generic outcome per
+    item kind. Until this step is reported, the lock bit rests on a public reader's statement and on
+    Fenolite's own reader, and the row stays `INFERRED`.
 
 A step that fails refutes the row it names: the row keeps its id and gets a registered successor. An
 author report never moves an operation out of `experimental`.
@@ -850,9 +877,15 @@ one public document opened read-only (S-0616). Nothing that Altium wrote is in t
     with Fenolite's reading of 63.7795 mil and cannot tell it from a pad of 63.78 mil.
   - **What follows.** By the design of c0088 (N = 0), the seven findings of `-03` are not findings of the
     board for Altium; the 18 others of their class (2 on `-01`, 16 on `-08`) were not checked in Altium.
-    D6 does not show the pad-size fact that
-    Fenolite reads otherwise, so the cause is open: a follow-up change, c0152, is proposed to find it
-    (the size of the pad, the rounding of the gap, or Altium's own tolerance). Until then the findings
-    stay errors, as c0131 decided, and no tolerance is added.
+    D6 does not show the pad-size fact that Fenolite reads otherwise.
+  - **The fix landed (change c0152, 2026-10-08).** The cause is Altium's own tolerance, not Fenolite's
+    reading: the document's integers put the straight track segment 49 996.5 units from the edge of the
+    637 795-unit pad, 3.5 units (8.89 nm) inside the 50 000-unit rule, and Fenolite reads that gap as
+    126 991 nm against an exact 126 991.11; no rounding of coordinates, track ends or polygons takes
+    part, and a pad of 63.78 mil would be nearer still. Altium passes it, so its check allows at least 3.5
+    units. The copper check on Altium input now lowers each clearance rule by 9 nm (that tolerance in
+    whole nanometres; `docs/formats/altium/import.md`, "Clearance of the copper check",
+    `ALTIUM-VERIFIED(author-report)`): `-03` has no clearance finding, and of the 18 others the 9 that are 8
+    or 9 nm short go and the 9 that are 10 to 20 nm short stay errors (1 on `-01`, 8 on `-08`). D5 above stays the evidence of what Altium shows.
 - **Parts X8 (c0121), V (c0132) and G (c0126).** Not done: owed. `--altium-bodies extruded` stays off by
   default, and the rows of the three parts are where they were.

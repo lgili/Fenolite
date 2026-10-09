@@ -18,6 +18,11 @@ empty project are 0.25 mm for both hole distances and 0.1 mm for the annular rin
   the control pair is 0.3 mm apart, and a footprint's own silkscreen is 0.157 mm from its own pads;
 - ``creepage``: the slot bench of the board analyses (c0047), with a rule 50 µm below and 50 µm above the
   11 mm that Fenolite computes.
+
+Change c0107 adds the kind ``no_tracks`` (capability kicad-oracle, "Plane routing passes the oracle";
+hypothesis H-K-DRU-NOTRACKS): a track of the net ``NT`` on ``B.Cu`` under a rule that keeps ``NT`` off
+``B.Cu``, with two controls, a track of ``NT`` on ``F.Cu`` and a track of another net on ``B.Cu``. Its rules
+are written by ``lower_rules``.
 """
 
 from __future__ import annotations
@@ -34,10 +39,13 @@ from _analysis import BRACKET_NM, CreepBench, creep_bench
 
 from fenolite.backends.base import DrcReport
 from fenolite.backends.kicad import pro
+from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.backends.kicad.sexpr import Node, parse
 from fenolite.core.coords import Point
+from fenolite.core.ids import derived_id
 from fenolite.core.units import format_length
+from fenolite.model.rules import Rule, RuleSet, Selector
 
 MM = rb.MM
 NEW_KINDS = (
@@ -240,6 +248,54 @@ def kind_probe(kind: str) -> str:
     return rb.outcome(flagged(result, kind, "probe") and not flagged(result, kind, "control"))
 
 
+# -- track layer rules (change c0107)
+
+NO_TRACKS_TYPES = frozenset({"items_not_allowed"})
+"""The DRC violation type of a ``disallow track`` rule (``docs/formats/kicad/rules.md``)."""
+NO_TRACKS_LABELS = ("no_tracks_probe", "no_tracks_other_layer", "no_tracks_other_net")
+
+
+def no_tracks_rule() -> Rule:
+    """The model rule of the bench: the net ``NT`` takes no track on ``B.Cu``."""
+    return Rule(
+        id=derived_id("rul", "oracle", "no_tracks"),
+        name="no_tracks",
+        kind="no_tracks",
+        selector_a=Selector("net", "NT"),
+        layers=("B.Cu",),
+    )
+
+
+def no_tracks_rules() -> str:
+    """The rules text of the bench, written by ``lower_rules``, with the scoped canary."""
+    ruleset = RuleSet(id=derived_id("rst", "oracle", "no_tracks"), rules=(no_tracks_rule(),))
+    return rb.with_scoped_canary(lower_rules(ruleset, target=10).text)
+
+
+@cache
+def no_tracks_bench() -> rb.Bench:
+    made = rb.builder()
+    made.track("no_tracks_probe", "NT", made.row(), layer="B.Cu")
+    made.track("no_tracks_other_layer", "NT", made.row(), layer="F.Cu")
+    made.track("no_tracks_other_net", "NTC", made.row(), layer="B.Cu")
+    return made.build()
+
+
+@cache
+def no_tracks() -> Run:
+    return run(no_tracks_bench(), no_tracks_rules())
+
+
+def no_tracks_probe() -> str:
+    """``present`` when the track of the net on the rule's layer is the one item reported as not allowed:
+    neither its track on the other layer nor the other net's track on the rule's layer is."""
+    result = no_tracks()
+    if not result.canary:
+        return "inconclusive"
+    probe, *controls = (result.of(label, NO_TRACKS_TYPES) for label in NO_TRACKS_LABELS)
+    return rb.outcome(probe and not any(controls))
+
+
 # -- how a courtyard rule selects a footprint
 
 
@@ -353,6 +409,7 @@ def kind_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
     probes: dict[str, tuple[Callable[[], str], tuple[int, ...]]] = {}
     for kind in NEW_KINDS:
         probes[f"dru-kind-{kind}"] = (lambda kind=kind: kind_probe(kind), both)
+    probes["dru-kind-no_tracks"] = (no_tracks_probe, both)  # change c0107
     for form in ("reference", "member"):
         probes[f"dru-courtyard-{form}"] = (lambda form=form: courtyard_probe(form), both)
     for direction in ("forward", "reverse"):
@@ -389,6 +446,11 @@ __all__ = [
     "hole_order_probe",
     "kind_probe",
     "kind_probes",
+    "no_tracks",
+    "no_tracks_bench",
+    "no_tracks_probe",
+    "no_tracks_rule",
+    "no_tracks_rules",
     "rule_text",
     "rules_text",
 ]

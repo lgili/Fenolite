@@ -211,6 +211,17 @@
               "type": "null"
             }
           ]
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{16}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": false,

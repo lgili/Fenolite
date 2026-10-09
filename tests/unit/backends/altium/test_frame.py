@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from fenolite.backends.altium import frame
-from fenolite.backends.altium.backend import UNIT_SLACK_NM, AltiumBackend
+from fenolite.backends.altium.backend import CLEARANCE_SLACK_NM, AltiumBackend
 from fenolite.backends.altium.frame import corner_radius, shape_entries
 from fenolite.backends.base import BoardFrame, DesignRulesSource, DocumentParity, ProjectSet
 from fenolite.core.coords import Point, Size
@@ -239,14 +239,14 @@ def test_rules_source_of_a_built_sample() -> None:
     assert rules.min_clearance is None and rules.rules_over_classes and not rules.floor_over_rules
     assert rules.opaque_clearance_rules == 0 and rules.unread == () and rules.left_out == ()
     assert rules.evidence.level is Level.INFERRED
-    # a polygon has no clearance of its own, and the clearance rules carry the slack of the unit
+    # a polygon has no clearance of its own, and the clearance rules carry the slack (c0131, c0152)
     assert design.board is not None and rules.design.board is not None
     assert {zone.settings.clearance for zone in design.board.zones} == {500_000}
     assert {zone.settings.clearance for zone in rules.design.board.zones} == {0}
     read = {rule.name: rule.min for rule in design.rules.rules if rule.kind == "clearance"}  # type: ignore[union-attr]
     held = {rule.name: rule.min for rule in rules.design.rules.rules if rule.kind == "clearance"}  # type: ignore[union-attr]
     assert read == {"Clearance": 200_000, "Clearance_PWR": 200_000}
-    assert held == {name: value - UNIT_SLACK_NM for name, value in read.items()}
+    assert held == {name: value - CLEARANCE_SLACK_NM for name, value in read.items()}
     other = [rule for rule in rules.design.rules.rules if rule.kind != "clearance"]  # type: ignore[union-attr]
     assert other == [rule for rule in design.rules.rules if rule.kind != "clearance"]  # type: ignore[union-attr]
     assert rules.design.board.tracks == design.board.tracks

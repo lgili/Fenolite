@@ -7,6 +7,7 @@ and capabilities."""
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from pathlib import Path, PurePosixPath
 
 from fenolite.backends.base import (
@@ -15,17 +16,21 @@ from fenolite.backends.base import (
     CapabilityReport,
     DesignRules,
     DesignRulesSource,
+    ExclusionSource,
+    LengthFacts,
+    LengthSource,
     PadNetList,
     PlacedExtent,
     ProjectSet,
     ReadResult,
     SideOutcome,
+    StoredExclusion,
     Validation,
     Validator,
     WriteResult,
 )
 from fenolite.backends.kicad import pcb, versions
-from fenolite.core.errors import Issue
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.model.design import Design
 from fenolite.model.presentation import DrawingSheet
@@ -190,6 +195,36 @@ class KicadBackend:
             found.evidence,
         )
 
+    def stored_exclusions(self, project: ProjectSet) -> tuple[StoredExclusion, ...]:
+        """The DRC exclusions that ``<stem>.kicad_pro`` of the copy set stores, in file order
+        (``pro.project_exclusions``; ``ExclusionSource`` protocol): ``()`` when the set has no project
+        file or it fails to read. Nothing is written."""
+        from fenolite.backends.kicad import pro
+
+        name = PurePosixPath(project.board).with_suffix(".kicad_pro").as_posix()
+        path = project.files.get(name)
+        if path is None:
+            return ()
+        try:
+            return pro.read_project(path.read_text(encoding="utf-8"), file=name).exclusions
+        except (OSError, UnicodeDecodeError, FenoliteError):
+            return ()
+
+    def length_facts(
+        self,
+        design: Design,
+        *,
+        project: ProjectSet | None = None,
+        major: int | None = None,
+        nets: Collection[str] | None = None,
+        issues: list[Issue] | None = None,
+    ) -> LengthFacts:
+        """The length of each net as KiCad ``major`` counts it in its DRC (``lengths.length_facts``;
+        ``LengthSource`` protocol): tracks, arcs, a height per via and the die lengths of its pads."""
+        from fenolite.backends.kicad import lengths
+
+        return lengths.length_facts(design, project=project, major=major, nets=nets, issues=issues)
+
     def write_sheet(
         self, sheet: DrawingSheet, *, target: int | None = None, allow_lossy: bool = False
     ) -> WriteResult:
@@ -248,7 +283,11 @@ _VALIDATOR: Validator = KicadBackend()
 _FRAME: BoardFrame = KicadBackend()
 """The KiCad backend satisfies ``BoardFrame`` (checked by pyright)."""
 _RULES_SOURCE: DesignRulesSource = KicadBackend()
+_EXCLUSION_SOURCE: ExclusionSource = KicadBackend()
+"""The KiCad backend satisfies ``ExclusionSource`` (checked by pyright; change c0114)."""
 """The KiCad backend satisfies ``DesignRulesSource`` (checked by pyright)."""
+_LENGTHS: LengthSource = KicadBackend()
+"""The KiCad backend satisfies ``LengthSource`` (checked by pyright)."""
 
 
 __all__ = ["CAPABILITIES", "SYMBOL_DIR_SUFFIX", "KicadBackend"]

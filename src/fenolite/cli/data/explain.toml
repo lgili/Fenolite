@@ -9,6 +9,16 @@ meaning = "Fenolite raised an exception it did not expect. This is a bug in Feno
 fix = "Report the command line and the input; do not retry the same call unchanged."
 see = "Exit codes"
 
+["FEN-1002"]
+meaning = "A file of the plan could not be written: the folder or the file refused it, the disk is full, or a path is blocked. Everything was put back: every file holds what it held before the command, and no new file or folder is left."
+fix = "Read the path and the reason in the message, remove the cause, and run the same command again; under --plan the staged plan is still there. This is not a bug of Fenolite: retryable is true."
+see = "Writing files"
+
+["FEN-1003"]
+meaning = "The command was stopped by a signal (SIGTERM, or SIGINT from Ctrl+C). The tools it had started were stopped, a write in progress was put back, and nothing was written."
+fix = "Run the same command again. A stopped route goes on from the router runs that had finished."
+see = "Writing files"
+
 ["FEN-2001"]
 meaning = "The command line is wrong: an unknown flag, a missing argument, a value outside the accepted set, or an input the command does not take."
 fix = "Read the message and the hint, or run the command with --help, and correct the arguments."
@@ -54,9 +64,19 @@ meaning = "Geometry in the input cannot be represented exactly, for example an a
 fix = "Correct the geometry the message names, with its code and points."
 see = "Exit codes"
 
+["FEN-3006"]
+meaning = "A file that 'fenolite fetch' obtained, from the network or from --from FILE, does not have the size or the SHA-256 pinned for the tool. Nothing was written. The message holds the digest that was expected and the one that was found."
+fix = "Run the command again; a download may have been cut or altered on the way. With --from, name the file of the pinned version, downloaded from the address that --dry-run shows."
+see = "fetch"
+
 ["FEN-4001"]
 meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
 fix = "Review result.plan, then run the same command with --confirm to write, or with --dry-run to only preview."
+see = "Writing files"
+
+["FEN-4002"]
+meaning = "The plan named by --plan cannot be written as it was reviewed: a target or a declared input changed since the dry run, the command line or the working folder is another one, the staged bytes are damaged, or no plan of that id is staged and the plan made now has another id. Nothing was written."
+fix = "Read the message, which names the first reason. Run the command with --dry-run again, review the new plan, and confirm it with --confirm --plan and its new id."
 see = "Writing files"
 
 ["FEN-5001"]
@@ -73,6 +93,11 @@ see = "Discovery"
 meaning = "The external tool was found but its version is not supported, or it is older than the file it has to read."
 fix = "Install a supported version; 'fenolite capabilities' lists the supported majors."
 see = "Discovery"
+
+["FEN-6003"]
+meaning = "'fenolite fetch' could not download the tool: no network, a proxy or a firewall, a redirect to an address that is not https, or the publisher's address did not answer. Nothing was written."
+fix = "Retry later. On a machine without a network, download the file another way from the address that --dry-run shows and install it with --from FILE: the size and the SHA-256 are checked the same way."
+see = "fetch"
 
 ["FEN-7001"]
 meaning = "The operation would lose or overwrite information, so Fenolite refused it and wrote nothing."
@@ -175,13 +200,18 @@ fix = "Read the issue's location and correct the object in Altium (a size of 0 o
 see = "Altium import"
 
 ["altium.import.bad-length"]
-meaning = "A length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped."
+meaning = "A length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped. Component bodies are retained with unknown projection."
 fix = "Read the issue's location, open the record in Altium and save the document again; report the text if Altium shows it as valid."
 see = "Altium import"
 
 ["altium.import.bad-stack"]
 meaning = "The copper chain of the board record holds fewer than two layers; the board is read with `F.Cu` and `B.Cu`."
 fix = "Check the board file in Altium: its layer stack holds fewer than two copper layers, or the board record is damaged."
+see = "Altium import"
+
+["altium.import.body-unknown"]
+meaning = "A retained component body has an unproved projection or extent."
+fix = "Review the source body side, model type and heights; supply evidenced geometry before mechanical analysis."
 see = "Altium import"
 
 ["altium.import.bus-member"]
@@ -370,8 +400,8 @@ fix = "Give the part a footprint in the script."
 see = "Build target"
 
 ["altium.not-lowered"]
-meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part, and where names one item as <kind>/<id> or the stack-up. With where design-rules/<kind> (a warning) it is one rule of the script that the PCB document does not hold, with its selector and the reason. With where body/<id> it is a component body (written with --altium-bodies extruded)."
-fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. For a rule: give every limit Altium's rule holds (min, opt and max for a width or a via; min and max for a hole size), and select all objects, a net or a net class. For a component body: build with --altium-bodies extruded, or set the height in Altium."
+meaning = "Part of the design stays in the model only and is not written to the Altium files; the message says which part. where names one item as <kind>/<id>, the stack-up, design-rules/<kind> (a warning: a rule of the script that the PCB document does not hold), body/<id> (a component body), via-protection (covering, plugging, capping, filling or an unstated tenting side of vias) or impedance (targets)."
+fix = "Nothing to do if you do not need it in Altium; otherwise enter it there by hand. A rule: give every limit Altium's rule holds and select all objects, a net or a net class. A component body: build with --altium-bodies extruded, or set the height in Altium. Via protection: state the tenting with design.via_protection(protect(tenting=...)) or protection=."
 see = "Build target"
 
 ["altium.outjob-not-listed"]
@@ -739,6 +769,11 @@ meaning = "The shortest path along the board surface between two conductors is b
 fix = "Move the conductors apart or add a slot between them."
 see = "analyze"
 
+["analysis.creepage-over"]
+meaning = "The clearance or the creepage of a pair of nets crosses copper of a third net, at no length. The distances from each net of the pair to that third net are the ones its voltage acts across."
+fix = "Select the pairs the hint names (each net with the third net) and judge those distances; the value of the pair is the conservative one."
+see = "analyze"
+
 ["analysis.creepage-undecided"]
 meaning = "The requirement lies inside the interval for the creepage, or the search was cut short."
 fix = "Measure the path by hand, or increase the distance until the lower bound passes."
@@ -747,6 +782,16 @@ see = "analyze"
 ["analysis.current-exceeded"]
 meaning = "The current capacity of a track or via is below the current its net requires."
 fix = "Widen the track, add copper thickness or vias, or correct the required current."
+see = "analyze"
+
+["analysis.drop-above"]
+meaning = "The low end of the voltage drop of a power path, at the row's current and with the resistivity you gave, is above the row's `drop_mv`."
+fix = "Widen or shorten the copper of the path, add copper in parallel, or correct the row; `result.power` lists each element with its resistance interval."
+see = "analyze"
+
+["analysis.drop-undecided"]
+meaning = "The row's `drop_mv` lies inside the interval of the voltage drop, or the drop has no high end (a region with more than two ports, a bound that is only one-sided, or a missing input)."
+fix = "Read the interval in `result.power`; give the missing input, or treat the drop as not shown to be met."
 see = "analyze"
 
 ["analysis.embedded-below"]
@@ -764,9 +809,49 @@ meaning = "An input that Fenolite does not assume is absent, so the items that n
 fix = "Pass the missing input, for example --temp-rise or --copper-thickness."
 see = "analyze"
 
+["analysis.insulation-below"]
+meaning = "The distance through the laminate between copper of two nets on two layers is below the `insulation_nm` you require."
+fix = "Move the copper apart in plan view, choose a thicker dielectric, or correct the requirement; the measure names the two layers and items."
+see = "analyze"
+
+["analysis.insulation-undecided"]
+meaning = "The `insulation_nm` you require lies inside the interval of the distance through the laminate, so the measure does not decide."
+fix = "Read the interval of the row; the approximation of curved copper bounds its width."
+see = "analyze"
+
 ["analysis.item-unsupported"]
 meaning = "Copper that could not be given a shape, or a conductor outside the board, was left out of the analysis."
 fix = "Check those items by hand; 'where' names the kind."
+see = "analyze"
+
+["analysis.length-open"]
+meaning = "The copper of a measured net does not join its start pad to the pads the message names, so those pads have no pin-to-pin length. Tracks that only cross without an end inside each other are not joined."
+fix = "Route the open connection, or pass --from to measure from another pad of the net."
+see = "analyze"
+
+["analysis.length-stub"]
+meaning = "Part of the copper of a measured net lies on no path from its start pad to another pad: a stub, a branch end or dangling copper. KiCad's length of the net counts it, so the total is longer than any pin-to-pin length."
+fix = "Remove the stub if it is not wanted; if it is, judge the pin-to-pin lengths in `result.lengths[].paths` beside the total."
+see = "analyze"
+
+["analysis.path-exceeded"]
+meaning = "An element that carries the whole current of a power path (a part of a track in series, a via group in series, or a fill between two ports) has a capacity by the fit below that current."
+fix = "Widen the track, add vias to the group or widen the narrowest section the message locates; or correct the current or the temperature rise of the row."
+see = "analyze"
+
+["analysis.path-open"]
+meaning = "The copper of the net does not join the start pads of a power path to its end pads: a track, via, pad or fill is missing, or the copper is of a kind the analysis does not read (a graphic, or plane copper an import does not hold)."
+fix = "Route or fill the connection, refill the zones, and check the pads the message names."
+see = "analyze"
+
+["analysis.path-undecided"]
+meaning = "An element of a power path has a capacity below the whole current, but its share of the current is not computed (copper in parallel), or its section is only a bound."
+fix = "Read the element in `result.power`: it passes only if its share is below its capacity, which Fenolite does not compute."
+see = "analyze"
+
+["analysis.path-unmatched"]
+meaning = "A power path names a pad the board does not hold, or its pads belong to more than one net or to none, or the backend gives no board-frame pads."
+fix = "Name pads as REF-PIN, all of one net, as `fenolite inspect` lists them."
 see = "analyze"
 
 ["analysis.requirement-unmatched"]
@@ -789,9 +874,24 @@ meaning = "A column of the BOM template names a property that no part of the des
 fix = "Check the spelling of the property in the template, or add the property to the parts in the design script."
 see = "bom"
 
+["build.area-unknown"]
+meaning = "A rule selects a rule area by name (select.area) and the board that the build is about to write holds no rule area of that name. KiCad would load the rule and apply it to nothing."
+fix = "Declare the area with design.rule_area(), draw and name it in KiCad, or remove the selector. Area names are compared with letter case."
+see = "build"
+
+["build.diff-pair-gap-shadowed"]
+meaning = "The two nets of a pair interface are in a net class with a pair gap, but KiCad would report two tracks laid at that gap: a clearance rule above the gap governs between the two nets, or the board minimum clearance is above the gap and no diff_pair_gap rule selects the pair."
+fix = "Call design.rules.pair(pair, clearance=…, gap_min=…) with values at or below the class gap: it writes a clearance rule and a gap rule for the pair after the rules that shadow it. Or raise the class pair gap."
+see = "build"
+
 ["build.diff-pair-name"]
 meaning = "The two nets of a diff_pair or usb2 interface do not form a differential pair for KiCad by their names, so KiCad's pair rules and its pair router do not see them as one."
 fix = "Rename the nets as the hint proposes (a common base name with the suffixes KiCad pairs)."
+see = "build"
+
+["build.field-added"]
+meaning = "A footprint read from a library file has no Reference or no Value property. Each footprint placed from it got the missing field at the default placement: Reference on the silkscreen above the footprint, Value on the fabrication layer below it."
+fix = "Nothing to do. Add the property to the library footprint to place it there, or move or hide the field with Part.field in the script."
 see = "build"
 
 ["build.global-library"]
@@ -804,9 +904,39 @@ meaning = "A line of an I2C interface has no part of exactly two pins between it
 fix = "Add a pull-up resistor from each line to the supply net, or ignore the warning if the pull-ups are elsewhere."
 see = "build"
 
+["build.impedance-class-width"]
+meaning = "A net class of an impedance target has a track width, or a pair width or pair gap, that differs from the target's trace. Routers, KiCad 9's among them, lay tracks at the class value, which the derived rules then report."
+fix = "Set the class value of design.rules.netclass() to the target's width or gap, or accept the warning when the layers of the target differ."
+see = "build"
+
+["build.impedance-gap-clearance"]
+meaning = "On KiCad 9 a pair target's gap is below the clearance of its class and the class has no pair gap at or below it, so KiCad 9 reports the clearance between the two tracks of the pair."
+fix = "Set diff_pair_gap= of design.rules.netclass() at or below the gap, or give the pair its own clearance with design.rules.pair(…, clearance=…)."
+see = "build"
+
+["build.impedance-layer"]
+meaning = "An impedance target names a layer or a reference layer that is not a copper layer of the board, so its derived rules and its tuning profile would name a layer KiCad does not have."
+fix = "Name the copper layers of board(copper=…) in trace(): F.Cu, In1.Cu … B.Cu, or give the board more copper layers."
+see = "build"
+
+["build.impedance-rules-only"]
+meaning = "KiCad 9 has no tuning profile, so the impedance targets of a build for KiCad 9 are written as design rules only."
+fix = "Nothing to do. Build for KiCad 10 to also get the tuning profiles that its router and length tuner read."
+see = "build"
+
+["build.impedance-shadowed"]
+meaning = "A rule of the same kind as a rule derived from an impedance target is written after it and selects a class of the target (or the whole board, or a pair of the class) on the target's layer. KiCad lets the later rule govern, so the target's width or gap is not the one checked."
+fix = "Give the other rule a lower priority, narrow it to a rule area with select.area() for a deliberate neck-down, or remove it."
+see = "build"
+
+["build.impedance-stackup"]
+meaning = "The design has impedance targets and the board has no stack-up, or a stack-up whose impedance_controlled flag is false. The Gerber job file then states neither ImpedanceControlled nor the dielectric constants the fabricator needs."
+fix = "Declare the stack-up with design.stackup(…, impedance_controlled=True)."
+see = "build"
+
 ["build.interface-not-lowered"]
-meaning = "An interface such as a differential pair is kept in the model and is not written to the KiCad files."
-fix = "Nothing to do; enter the pair in KiCad if the router needs it."
+meaning = "A differential pair of the design (a diff_pair or usb2 interface) is selected by no rule, so nothing of it is written: KiCad files hold no pair object, and KiCad knows the pair by its two net names only. A pair that a rule selects with select.pair() or design.rules.pair() gets no such message."
+fix = "Nothing to do when the pair needs no limits. To constrain it, call design.rules.pair(pair, …), or write a rule on select.pair(pair)."
 see = "build"
 
 ["build.layout-exists"]
@@ -874,9 +1004,9 @@ meaning = "A pin that is connected to a net has no pad in the footprint."
 fix = "Choose a footprint with that pad, or map the pin to an existing pad."
 see = "build"
 
-["build.plane-not-lowered"]
-meaning = "A plane of the script is not written to the KiCad board; one issue per plane."
-fix = "Draw a zone for it with zone() in the script, or in KiCad."
+["build.plane-zone-missing"]
+meaning = "A plane of the script has no copper on a KiCad board: no zone of its net lies on its layer. The layer is still written as a plane layer (type power); one issue per plane."
+fix = "Draw that copper in the script with design.zone(<net>, layers=(\"<layer>\",))."
 see = "Build target"
 
 ["build.property-conflict"]
@@ -973,6 +1103,11 @@ meaning = "The project file lists a document that is not a file in the project f
 fix = "Restore the document, or remove it from the project in Altium; the other documents are still checked."
 see = "check"
 
+["check.exclusion-stale"]
+meaning = "The project file stores a KiCad DRC exclusion that KiCad no longer applies: 'moved' when the entry is reported again at another marker position, 'gone' when no entry of that type names those items. KiCad ignores such an exclusion without a message."
+fix = "Open the DRC dialog in KiCad and remove the exclusion, or exclude the entry again there. For a project that Fenolite builds, prefer design.waive() in the script, which matches by name."
+see = "check"
+
 ["check.footprint-unresolved"]
 meaning = "A component that is not marked do-not-populate has no footprint reference or no footprint on the board."
 fix = "Give the part a footprint and build again."
@@ -986,6 +1121,11 @@ see = "check"
 ["check.read-refused"]
 meaning = "Fenolite cannot read the board; the message starts with the FEN code of the reason."
 fix = "Run 'fenolite explain' on that FEN code and correct the file at the place 'where' names."
+see = "check"
+
+["check.report-limit"]
+meaning = "KiCad's DRC report stops at a fixed number of entries per type: 499 of clearance and of unconnected items, 199 of any other type. The count of the type named in where reached that limit, so the board holds at least that many findings of the type, and the report does not show the others."
+fix = "Read the count as a lower bound. Repair the reported findings of the type and run check again: the next ones then appear. summary.limits of the stage drc.kicad lists every such type."
 see = "check"
 
 ["check.roundtrip-unjudged"]
@@ -1043,6 +1183,11 @@ meaning = "A built component has no symbol reference."
 fix = "Give the part a symbol in the script and build again."
 see = "check"
 
+["check.waiver-unmatched"]
+meaning = "A waiver of the design script (design.waive) matched no finding of this run: the finding is gone, or its items have other names now. 'where' is the waiver's name."
+fix = "Remove the waiver from the script, or name its items as the 'where' of the finding prints them, then build again."
+see = "check"
+
 ["copper.clearance"]
 meaning = "Copper of two nets is closer than the clearance in force for the pair; 'where' names both items."
 fix = "Move the items apart, or correct the clearance of the net class or the rule."
@@ -1056,6 +1201,11 @@ see = "check"
 ["copper.item-unsupported"]
 meaning = "Copper items of a kind were left out of the copper check; 'where' is the kind."
 fix = "Check those items with KiCad's DRC."
+see = "check"
+
+["copper.keepout"]
+meaning = "A track, arc, via or pad lies in a keep-out (a rule area) whose settings forbid its kind, on a layer of the keep-out. KiCad's DRC reports the same item as items_not_allowed."
+fix = "Move the item out of the area, change what the area forbids, or build with --copper-check warn to write anyway."
 see = "check"
 
 ["copper.rules-incomplete"]
@@ -1087,6 +1237,41 @@ see = "doctor"
 meaning = "A kicad-cli that was found has a major other than 9 or 10, or reports no version."
 fix = "Install KiCad 9 or 10, or name another binary."
 see = "doctor"
+
+["drawing.designators-added"]
+meaning = "An assembly drawing shows references that Fenolite added: the footprints named by the count show no reference on their fabrication layer, so a text of each reference was put at the centre of its courtyard in the plot copy. The board file is unchanged."
+fix = "Nothing to do. Set designators = false or designator_size under [assembly] in the drawing specification to leave them out or to change their size."
+see = "export"
+
+["drawing.drill-mismatch"]
+meaning = "The drill table of the fabrication drawing states another hole count for a diameter than KiCad's drill report gives for the drill file that 'where' names. The drawing would state a count the drill files do not hold, so no file of the export was written."
+fix = "Read both counts in the message and compare the board with drawings/<board>-drill.rpt of a drill export. A difference is a defect of Fenolite's drill table: report the board."
+see = "export"
+
+["drawing.drill-report-unread"]
+meaning = "KiCad's drill report names no drill file that Fenolite can read, so the drill table of the fabrication drawing was not checked against it. The drawing is written with the table."
+fix = "Open the report under drawings/ and compare its counts with the table yourself; a newer kicad-cli may write the report in another form."
+see = "export"
+
+["drawing.no-room"]
+meaning = "A drawing page does not hold its content at 1:1: the board box or the block that 'where' names lies outside the page, on the drawing sheet, or on a fixed corner that is taken. No file of the export was written."
+fix = "Set [page] paper in the drawing specification to the paper the message names, or leave it \"auto\"; free the fixed corner (at); for a board that lies outside every page, move it onto the page in KiCad."
+see = "export"
+
+["drawing.sheet-unread"]
+meaning = "The drawing sheet of the pages cannot be read or built: the file that the drawing specification or the project names is missing, is not a drawing sheet, or is a sheet template that does not build. No file of the export was written."
+fix = "Correct the path of drawing_sheet under [page], or the sheet the project names; 'where' names the file. Leave both out to plot with KiCad's default sheet."
+see = "export"
+
+["drawing.side-empty"]
+meaning = "No part sits on the side that 'where' names, so that assembly drawing is not made."
+fix = "Nothing to do. Name only the sides you want under [assembly] sides in the drawing specification."
+see = "export"
+
+["drawing.stackup-missing"]
+meaning = "The board holds no stack-up that Fenolite reads, so the fabrication drawing has no stack-up table and its board table no thickness, finish or impedance row."
+fix = "Define the stack-up of the board (Board Setup in KiCad), or leave stackup out of [fab] tables in the drawing specification."
+see = "export"
 
 ["equiv.component-missing"]
 meaning = "A component reference exists on one side of the comparison only."
@@ -1253,10 +1438,75 @@ meaning = "The running kicad-cli major cannot export this kind, so no tool ran f
 fix = "Use a kicad-cli that has the command, or drop the kind from the request."
 see = "export"
 
+["export.model-unread"]
+meaning = "kicad-cli reported that it could not add the 3D model of the part that 'where' names, although Fenolite gave it the model file. The STEP is written without that body."
+fix = "Run 'fenolite models' on the board to see which file was given, and open the model in KiCad: the file may be damaged or in a format the STEP export does not read."
+see = "export"
+
+["export.page-too-small"]
+meaning = "The outline of the board does not fit the page of its drawing sheet, so the board PDF is cut at the page. The files are written all the same."
+fix = "Choose a larger paper for the board (Design.sheet(paper=...) in a script, or Page Settings in KiCad), or move the board onto the page, and export again."
+see = "export"
+
+["export.sheet-missing"]
+meaning = "The schematic PDF was refused: the hierarchy names a sheet file that is missing, outside the project folder, part of a cycle or too large to copy. kicad-cli would plot an empty page for it and report nothing."
+fix = "Restore the sheet file that 'where' names inside the project folder, or export without --sch-pdf. No file of the export was written."
+see = "export"
+
+["export.stackup-default"]
+meaning = "The board holds no stack-up, so the Gerber job file that KiCad writes states KiCad's own default: 0.035 mm copper, 0.01 mm solder masks, equal FR4 dielectrics that fill the board thickness, and the finish None."
+fix = "Declare the stack-up with design.stackup() in the script, or enter it in KiCad's Board Setup, when the fabricator reads the job file."
+see = "export"
+
+["fiducial.too-few"]
+meaning = "A side that the report covers holds surface-mount parts and fewer global fiducials than --min-fiducials asks; 'where' is the side. Fiducials are footprints with a pad that carries a fiducial mark."
+fix = "Add fiducials to that side with design.fiducial(), or lower --min-fiducials to what the assembler asks."
+see = "testpoints"
+
 ["fmt.would-change"]
 meaning = "The file is not in Fenolite's canonical print; 'where' names the first line that differs."
 fix = "Run 'fenolite fmt' on the file with --confirm; its tree does not change."
 see = "fmt"
+
+["impedance.estimate-unsupported"]
+meaning = "Some rows have no closed form: differential rows, one reference on an inner layer, or two references on an outer layer. Fenolite estimates single-ended surface microstrip and stripline only."
+fix = "Nothing to do. Take the geometry of those rows from your fabricator or a field solver."
+see = "impedance"
+
+["impedance.mixed-dielectric"]
+meaning = "A row's height crosses dielectrics of different permittivity; the estimate combines them in series, which a closed form does not model exactly."
+fix = "Read the estimate as rough, and ask the fabricator for the row's impedance."
+see = "impedance"
+
+["impedance.no-stackup"]
+meaning = "An estimate needs the heights and the permittivity of the board's stack-up, and the board has none, or a row's layers or a dielectric's permittivity are not in it. The rows left out are counted in result.counts.left_out."
+fix = "Declare the stack-up with design.stackup() and its dielectrics' epsilon_r, then build again."
+see = "impedance"
+
+["impedance.none"]
+meaning = "The design holds no impedance target, so the impedance table has no row."
+fix = "Declare targets with design.rules.impedance() and build, or give a KiCad 10 project whose classes name tuning profiles."
+see = "impedance"
+
+["impedance.off-target"]
+meaning = "A row's estimate lies outside the target's tolerance. The estimate is INFERRED and omits solder mask, etch, frequency and loss."
+fix = "Compare with suggested_width, and confirm the geometry with your fabricator before changing the script."
+see = "impedance"
+
+["impedance.out-of-range"]
+meaning = "A row lies outside the range in which the source of its closed form claims its accuracy."
+fix = "Read the estimate as rough, and ask the fabricator or a field solver for the row's impedance."
+see = "impedance"
+
+["kicad.board-item.regenerated"]
+meaning = "A rule area, text, drawing or dimension that the script declares was edited in KiCad; it was written again from the script. The message names the fields that differed."
+fix = "Nothing to do; to keep the edit, change the call in the script, or remove the call and draw the item in KiCad."
+see = "build"
+
+["kicad.board-item.stale"]
+meaning = "A rule area, text, drawing or dimension that an earlier build wrote has no call in the script any more and was removed from the board."
+fix = "Nothing to do; put the call back to keep the item."
+see = "build"
 
 ["kicad.board.dropped-too-new"]
 meaning = "With --allow-lossy, content that the target KiCad version cannot read was removed from the written board."
@@ -1318,10 +1568,40 @@ meaning = "A value that Fenolite shows from kept content, other than the referen
 fix = "Change it in KiCad, or leave the value as it was read."
 see = "KiCad output"
 
+["kicad.board.stackup-invalid"]
+meaning = "The stack-up of the model cannot be written as a complete KiCad stack-up: it has a model.stackup-* finding, or its copper entries are not the copper layers of the board in order."
+fix = "Correct the stack-up; the message names the first problem. --allow-lossy does not drop this error."
+see = "KiCad output"
+
+["kicad.board.stackup-rewritten"]
+meaning = "The stack-up of a read board was rewritten from the model, and the replaced node held values that the model does not hold (for example a locked thickness); they were not written."
+fix = "Nothing to do; set them again in KiCad's Board Setup if they matter."
+see = "KiCad output"
+
+["kicad.board.stackup-thickness"]
+meaning = "The board states a total thickness that differs from the sum of its stack-up layers. KiCad's Gerber job file states the first and its IPC-2581 export the second; the model keeps the sum."
+fix = "Open Board Setup in KiCad and save the physical stack-up again, or declare a locked stack-up in the script so that a build writes both."
+see = "inspect"
+
+["kicad.board.stackup-unmodelled"]
+meaning = "The board's stack-up is complete, but it holds a value the model cannot hold exactly: a thickness that is not a whole number of nanometres, a copper, dielectric or mask layer without a thickness, a decimal that is not plain, or a dielectric outside the outer copper layers. It is kept as written and the model holds no stack-up."
+fix = "Nothing to do; correct the value in KiCad's Board Setup to have the stack-up in the model."
+see = "inspect"
+
+["kicad.board.stackup-unused"]
+meaning = "The board holds a stack-up node that KiCad does not use: its rows are not exactly the board's silkscreen, paste, mask and copper layers with one dielectric between neighbouring copper layers. KiCad's job file states no thickness for such a board, and the model holds no stack-up."
+fix = "Open Board Setup in KiCad and save the physical stack-up, or declare the stack-up in the script; a build then writes a complete one."
+see = "inspect"
+
 ["kicad.board.unknown-net"]
 meaning = "An item refers to a net number that the file's net table does not hold; it is read without a net."
 fix = "Re-save the board in KiCad."
 see = "inspect"
+
+["kicad.board.via-protection-too-new"]
+meaning = "A via, or the board default, holds a covering, plugging, capping or filling of True, and the board is written for KiCad 9, whose format holds tenting only. KiCad 9 refuses to load a board that carries the newer children, so nothing is written."
+fix = "Build for target 10, or clear the value (protect() without that feature, or the feature set to False). The error cannot be dropped."
+see = "KiCad output"
 
 ["kicad.board.zone-outline-opaque"]
 meaning = "A zone or rule area has an outline with arcs or with several polygons, which the model does not hold; it is kept verbatim."
@@ -1458,6 +1738,31 @@ meaning = "A pad's copper is given as a shape that is at least as large as the r
 fix = "Nothing to do; distances to that pad may be reported slightly short."
 see = "check"
 
+["kicad.layers.added"]
+meaning = "The script declares more copper layers than the existing board has, and both tables are ones that Fenolite creates: the board got the new inner layers and kept its layout."
+fix = "Nothing to do; route the new layers, or declare planes on them with board(planes=...)."
+see = "build"
+
+["kicad.layers.removed"]
+meaning = "The script declares fewer copper layers than the existing board has. The deepest inner layers were removed, with the tracks, arcs, blind or buried vias, zones, rule areas, graphics and texts on them; the message gives the counts for one layer."
+fix = "Run the build with --dry-run first to see the counts; run fenolite route to close what reopened, or restore the .bak file and keep the board's count in board(copper=...)."
+see = "build"
+
+["kicad.layers.stackup-reset"]
+meaning = "The board's stack-up names other copper layers than the new layer table, so it was removed: KiCad derives its default stack-up. A stale one would leave the Gerber job file without thicknesses."
+fix = "Set the stack-up again in KiCad's board setup for the new layer count."
+see = "build"
+
+["kicad.length.bad-die"]
+meaning = "A pad holds a die length that is not a non-negative decimal of millimetres. It counts as 0 in the length of its net."
+fix = "Correct the die length of the pad in KiCad's pad properties."
+see = "analyze"
+
+["kicad.length.default-stackup"]
+meaning = "The board holds no stack-up, so the height of each via is counted on the default stack-up KiCad assumes for such a file: copper layers of 35 µm and equal dielectrics that fill the board thickness less 20 µm. The total is what KiCad's DRC judges for this file, not a property of a real board."
+fix = "Declare the stack-up in the design script or in KiCad's Board Setup, then measure again."
+see = "analyze"
+
 ["kicad.lib.disabled"]
 meaning = "A library nickname exists only in rows of the library table that are disabled."
 fix = "Enable the row or name another library."
@@ -1538,6 +1843,71 @@ meaning = "A library table row has a type other than KiCad or Table."
 fix = "Convert the library to KiCad's format."
 see = "build"
 
+["kicad.outline.copper-dropped"]
+meaning = "The script's new outline replaced the board's, and tracks, arcs or vias that are not script copper no longer fit it: they touch an edge, or lie outside the board or inside a cut-out. They were dropped; the message gives the counts and the nets."
+fix = "Run the build with --dry-run first to see the counts; run fenolite route to close what reopened, or restore the .bak file."
+see = "build"
+
+["kicad.outline.forced"]
+meaning = "board(..., locked=True) replaced edge content that was changed in KiCad, or that Fenolite did not write, with the script's outline. Edge items inside footprints stay; the message names their footprints."
+fix = "Remove locked=True from board() to keep the outline drawn in KiCad."
+see = "build"
+
+["kicad.outline.invalid"]
+meaning = "The script's outline cannot be written: a ring crosses or touches itself, two rings cross or touch, a cut-out lies outside the board or inside another cut-out, or an arc or a ring breaks the model's form. KiCad 10 reports such a board as invalid_outline. Nothing is written."
+fix = "Keep every cut-out inside the board ring and clear of the edge and of the other cut-outs; the message names the rings."
+see = "build"
+
+["kicad.outline.replaced"]
+meaning = "The board held the outline that Fenolite wrote, unchanged, and the script declares another one: the board's edges were replaced by the script's. Edge items inside footprints stay; the message names their footprints."
+fix = "Nothing to do; check the parts that the new outline leaves outside (place.outside-outline)."
+see = "build"
+
+["kicad.outline.zone-short"]
+meaning = "An arc of the board ring bulges beyond the box of its vertices and mid points, which a zone declared without an outline takes: the fill of the named zones stops short of that edge."
+fix = "Give the zone an outline that holds the arc, or add a vertex at the extreme of the arc."
+see = "build"
+
+["kicad.meander.bad-intent"]
+meaning = "A meander() call of the script is malformed: its key, side, amplitude, pitch, margin or segment index, it has both or neither of target and match, its key is used twice, or its segment is an arc."
+fix = "Correct the meander() call that 'where' names; a meander stands on a straight segment of a track."
+see = "build"
+
+["kicad.meander.bad-match"]
+meaning = "The track a meander matches created no copper, or the matches of several meanders form a cycle."
+fix = "Check the issues of the matched track, or give one of the meanders a target length."
+see = "build"
+
+["kicad.meander.bad-shape"]
+meaning = "The pitch of a meander is not above the width of its track, so neighbouring legs would touch."
+fix = "Give a pitch of at least the track width plus the clearance of the net."
+see = "build"
+
+["kicad.meander.inexact"]
+meaning = "After two corrections of the last bump, the length of the meandered track still lies more than 10 nm from its target."
+fix = "Meander a segment that runs along an axis, or choose a target a few nanometres away."
+see = "build"
+
+["kicad.meander.no-room"]
+meaning = "The segment is too short for the bumps the missing length needs with this amplitude, pitch and margin. The message gives the length needed and the most the segment can add."
+fix = "Raise the amplitude, lower the pitch or the margin, or meander a longer segment."
+see = "build"
+
+["kicad.meander.no-segment"]
+meaning = "The track a meander names created no segment of that index, because the track had an error or one of its ends waits for a staged part. The meander creates nothing."
+fix = "Fix the issues of the track, or place the part its end names; the meander is resolved on the next build."
+see = "build"
+
+["kicad.meander.not-needed"]
+meaning = "The track already has its target length, within 10 nm, so the meander changes nothing."
+fix = "Nothing to do; remove the meander() call if the track will stay as it is."
+see = "build"
+
+["kicad.meander.too-long"]
+meaning = "The track is already longer than the target of its meander. A meander only adds length."
+fix = "Shorten the track, raise the target, or meander the other track of the pair instead."
+see = "build"
+
 ["kicad.pad.zone-forced"]
 meaning = "A locked request of the design script set the zone connection of a pad, and the board held another value. The script's value was written."
 fix = "Nothing to do if the script is right; remove the lock from the request to keep what the board has."
@@ -1567,6 +1937,11 @@ see = "check"
 meaning = "The clearance of the Default class stays above a board-wide clearance rule on this KiCad version, so the rule does not lower it."
 fix = "Lower the Default class clearance if the rule's value is the one wanted."
 see = "check"
+
+["kicad.project.dropped-check"]
+meaning = "With --allow-lossy, a severity of design.rules.severity() was left out of the project file, because the target KiCad has no DRC check with that key."
+fix = "Name the code as 'fenolite check' prints it (kicad.drc.<type>), or remove the call for this target."
+see = "KiCad output"
 
 ["kicad.project.dropped-pattern"]
 meaning = "With --allow-lossy, a net whose name cannot be a safe pattern was written without its class assignment."
@@ -1613,6 +1988,11 @@ meaning = "A net with a class has '*' or '?' in its name, or its exact-name patt
 fix = "Rename the net."
 see = "KiCad output"
 
+["kicad.project.profile-reassigned"]
+meaning = "A net class of an impedance target named another tuning profile in the project, and the build set it to the target's profile. The other profile is kept in the file."
+fix = "Nothing to do when the script's target is meant. To keep the profile set in KiCad, take the class out of the target or copy the profile's values into the script."
+see = "KiCad output"
+
 ["kicad.project.reserved-variable"]
 meaning = "A text variable of the design uses a name that KiCad reserves."
 fix = "Rename the variable."
@@ -1626,6 +2006,11 @@ see = "check"
 ["kicad.project.too-new-key"]
 meaning = "The project holds a setting that only KiCad 10 reads, and it is being written for KiCad 9."
 fix = "Target KiCad 10, or pass --allow-lossy to drop the setting."
+see = "KiCad output"
+
+["kicad.project.unknown-check"]
+meaning = "design.rules.severity() names a code whose key the target KiCad does not have among its DRC checks. KiCad ignores an unknown key without a message, so the build refuses it."
+fix = "Name the code as 'fenolite check' prints it (kicad.drc.<type>); pass --allow-lossy to build without that severity."
 see = "KiCad output"
 
 ["kicad.project.unknown-class"]
@@ -1722,6 +2107,31 @@ meaning = "The name KiCad gives the net of this unconnected pin was not measured
 fix = "Ignore the parity warning for this pad, or rename the pin in the symbol library with letters, digits and the characters + - _ . / ~."
 see = "build"
 
+["kicad.stackup.forced"]
+meaning = "A locked stackup() of the script replaced the stack-up of the board, which differed from it."
+fix = "Nothing to do; remove locked=True to keep what is entered in KiCad."
+see = "build"
+
+["kicad.stackup.overridden"]
+meaning = "An unlocked stackup() differs from the stack-up on the board, and the board's stack-up was kept."
+fix = "Lock the stack-up in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout."
+see = "build"
+
+["kicad.via.protection-forced"]
+meaning = "A locked via_protection() of the script replaced the via protection default of the board, which differed from it."
+fix = "Nothing to do; remove locked=True to keep what is entered in KiCad's Board Setup."
+see = "build"
+
+["kicad.via.protection-not-exported"]
+meaning = "The board default gives vias a covering, plugging, capping or filling that they do not carry themselves. kicad-cli 10.0.6 writes such a default to no fabrication file: its drill side files and its IPC-2581 export hold only the vias that carry the value themselves, and the Gerber and Excellon files hold none of the four features."
+fix = "Give the value to the vias with protection= on Design.via, via_step or Design.stitch, or state it in the fabrication notes."
+see = "build"
+
+["kicad.via.protection-overridden"]
+meaning = "An unlocked via_protection() differs from the via protection default on the board, and the board's default was kept."
+fix = "Lock the default in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout."
+see = "build"
+
 ["kicad.wks.below-resolution"]
 meaning = "A length of the drawing sheet is not a whole number of micrometres, which the file format cannot hold."
 fix = "Round the length to a micrometre."
@@ -1771,6 +2181,11 @@ see = "build"
 meaning = "A zone that an earlier build created has no zone() in the script any more and was removed."
 fix = "Nothing to do; put the call back to keep the zone."
 see = "build"
+
+["kicad.fanout.failed"]
+meaning = "route found no room for the fan-out via of an SMD pad of a plane net: none of the 72 candidates around the pad keeps the clearances, lies inside the plane's zone and on the board, and avoids the keep-outs. The pad stays open; the message names what blocked the first candidate."
+fix = "Move the part or free room beside the pad, or join the pad to its plane in the design script, then run route again."
+see = "route"
 
 ["kicad.zone.overridden"]
 meaning = "An unlocked zone() differs from the zone on the board, and the board's zone was kept."
@@ -1843,8 +2258,8 @@ fix = "Nothing to do."
 see = "build"
 
 ["layout.copper-mismatch"]
-meaning = "The existing board's copper layers differ from board(copper=...) of the script."
-fix = "Make the script's layer count equal to the board's, or change the stack-up in KiCad."
+meaning = "The existing board's copper layers are not a layer table that Fenolite creates, so the board cannot follow board(copper=...) of the script. A count change between two tables that Fenolite creates is applied instead (kicad.layers.added, kicad.layers.removed)."
+fix = "Give the board KiCad's inner layer names In1.Cu to In<n>.Cu in its board setup, or rebuild with --discard-layout to create the board on the script's count."
 see = "build"
 
 ["layout.footprint-replaced"]
@@ -1874,7 +2289,7 @@ see = "build"
 
 ["layout.outline-kept"]
 meaning = "The board's edge drawing differs from the script's outline, and the board's was kept."
-fix = "Remove the outline from the script, or redraw the edge in KiCad to match."
+fix = "Lock the outline in the script with board(..., locked=True) to replace the board's, edit the edge in KiCad to match, or rebuild with --discard-layout."
 see = "build"
 
 ["layout.place-forced"]
@@ -1906,6 +2321,21 @@ see = "sync"
 meaning = "A part has no placement, so its footprint was put in a row beside the board."
 fix = "Place it with place() in the script, with 'fenolite place', or in KiCad."
 see = "build"
+
+["length.input-missing"]
+meaning = "The stage length.rules had no rules source, so only the rules of the board model were judged, or no length facts, so the routed lengths were judged without via heights and die lengths. The stage's evidence is UNVERIFIED."
+fix = "Check a KiCad project, whose backend gives the project's rules and the net lengths as KiCad counts them."
+see = "check"
+
+["length.out-of-range"]
+meaning = "A net's total length, as the target KiCad major counts it (tracks, arcs, via heights and die lengths), lies below the min or above the max of the length rule that governs it. The opt of a rule is not judged, as KiCad does not; a net of pads only is judged at length 0. The rule sets the severity."
+fix = "Change the routing of the net (a meander adds length: Design.meander), or change the limits of the rule."
+see = "check"
+
+["length.skew-out-of-range"]
+meaning = "A net's length differs from the longest net of its group by more than the max of the skew rule that governs it. A skew rule groups every net it governs; a diff_pair_skew rule each pair among them. The longest net is never reported; the rule sets the severity."
+fix = "Lengthen the shorter net (Design.meander), shorten the longer one, or change the rule."
+see = "check"
 
 ["manifest.changed"]
 meaning = "A file is not the one its manifest lists: its SHA-256 differs. Under 'manifest --verify' it is an error. When 'fenolite manifest' writes, it is a warning: the file is listed as it is now, without its tool and source, so it stays 'generated'."
@@ -2002,6 +2432,16 @@ meaning = "A courtyard is closer to the board edge than the edge clearance."
 fix = "Move the part away from the edge."
 see = "place"
 
+["place.keepout"]
+meaning = "The courtyard of a footprint enters a rule area that forbids footprints, on the face the area's copper layer judges (F.Cu the front, B.Cu the back); KiCad's DRC reports the same part as 'items not allowed'. An area that only touches the courtyard does not count."
+fix = "Move the part out of the area; 'fenolite place' refuses the move unless --force is given, and its grid leaves such areas free."
+see = "place"
+
+["place.keepout-no-courtyard"]
+meaning = "A footprint without a courtyard has pads in a rule area that forbids footprints. KiCad's DRC does not report a part without a courtyard, so only this warning tells."
+fix = "Move the part out of the area, or give its footprint a courtyard so that KiCad judges it too."
+see = "place"
+
 ["place.locked"]
 meaning = "The footprint is locked on the board, so it was not moved."
 fix = "Pass --force to move it, or unlock it in KiCad."
@@ -2042,10 +2482,65 @@ meaning = "--move or --only names a reference that the board does not hold."
 fix = "Correct the reference; 'fenolite inspect' and 'fenolite net' show what the board holds."
 see = "place"
 
+["placement.height-unknown"]
+meaning = "A part lies under a rule area that has a height limit, and no height is known for it: its footprint has no body, neither on the board nor in the .fenolite/ model of the build. An unknown height under a limit is never a pass."
+fix = "State the part's height in the script with Part(..., height=...) and build again, or move the part out of the area."
+see = "check"
+
+["placement.rule-skipped"]
+meaning = "A placement rule names a part that lies off the board (a part the build staged beside it), so the rule is not judged for that part."
+fix = "Place the part on the board, with place() in the script or with 'fenolite place', and check again."
+see = "check"
+
+["placement.rule-unresolved"]
+meaning = "A placement rule of the design names a part or a pad that the board does not hold, so it cannot be judged; an unresolved anchor leaves the whole rule unjudged."
+fix = "Correct the near() call in the script, or build the design again so that the board and the rules of .fenolite/ agree."
+see = "check"
+
+["placement.too-far"]
+meaning = "A part of a near() rule has no selected pad within the rule's distance of a pad of the anchor, measured between pad centres. The message names the rule, the nearest anchor pad and the distance, rounded up to the nanometre."
+fix = "Move the part nearer to the pad it belongs to, or change the distance or the severity of the near() call."
+see = "check"
+
+["placement.too-tall"]
+meaning = "A part under a rule area with a height_limit() is taller than the limit. The height is the top of the part's bodies above its own side of the board; the message names the area, the limit and the height."
+fix = "Move the part out of the area, choose a lower part and state its height, or raise the limit or lower its severity in height_limit()."
+see = "check"
+
+["plan.not-staged"]
+meaning = "The planned bytes could not be kept in the state folder: it is turned off (FENOLITE_STATE_DIR=off), it is not writable, or the plan is larger than the store. The plan and its id are right all the same."
+fix = "Nothing is needed: --confirm --plan with the id runs the command once more and writes only when the new plan has the same id. To write the reviewed bytes without a second run, name a writable folder in FENOLITE_STATE_DIR."
+see = "Writing files"
+
 ["pnp.no-outline"]
 meaning = "The placement template asks for positions relative to the board outline, and the board has no closed outline. No row and no file is written."
 fix = "Close the outline on the board, or set the origin of the template to the file origin."
 see = "pnp"
+
+["ready.check-skipped"]
+meaning = "A check of 'fenolite ready' did not run: --no-kicad was given for ERC and DRC, or the stage skipped itself (for example ERC on a project without a schematic). The reply is not complete, and result.complete is false."
+fix = "Run 'fenolite ready' without --no-kicad where kicad-cli 9 or 10 is installed, or add the schematic beside the board; until then 'ready' says nothing about that check."
+see = "ready"
+
+["ready.net-open"]
+meaning = "A net still has open connections on the board: islands of its copper and pads that nothing joins. The message gives their number and the shortest one."
+fix = "Run 'fenolite route' again, or add the copper in the script; 'fenolite net BOARD NAME' lists each open connection."
+see = "ready"
+
+["ready.part-value-missing"]
+meaning = "A fitted part has an empty value, so the bill of materials and the assembly drawings cannot say what to place."
+fix = "Give the part a value in the script (value=...) or in the schematic, or mark it DNP if it is not fitted."
+see = "ready"
+
+["ready.pin-unconnected"]
+meaning = "A pin of a fitted part is on no net, or alone on its net, and carries no no-connect mark: either a connection is missing or the pin is meant to stay open and says nothing."
+fix = "Connect the pin, or mark it as unconnected on purpose (no_connect() in the script, a no-connect flag in the schematic)."
+see = "ready"
+
+["ready.power-net-unsized"]
+meaning = "A power net (named by a Power interface, or holding a power input or output pin) has neither a track width of its own net class or of a track_width rule that selects it, nor a zone, so it would be routed at the default width."
+fix = "Put the net in a net class with a track width, add a track_width rule for it, or pour a zone on it."
+see = "ready"
 
 ["render.failed"]
 meaning = "A view could not be produced; 'where' is the view. It is never an error: a render is not a gate."
@@ -2082,6 +2577,11 @@ meaning = "The router returned copper that is malformed, so nothing was written.
 fix = "Report it with the router's name; try another router."
 see = "route"
 
+["route.budget-exhausted"]
+meaning = "The time budget of the route step (--timeout) ended before every router run was done. The copper of the runs that finished is kept and written; the run under way was stopped and gave none."
+fix = "Run route again: it continues with the nets that are still open. Or raise --timeout, or make smaller runs with --order or --router-option group-nets=N."
+see = "route"
+
 ["route.copper-removed"]
 meaning = "The router dropped copper that the board already had."
 fix = "Compare with 'fenolite diff' before confirming; route fewer nets if the loss is not wanted."
@@ -2092,9 +2592,44 @@ meaning = "The new copper makes the filled zones out of date."
 fix = "Run 'fenolite fill' on the board."
 see = "route"
 
+["route.incomplete"]
+meaning = "With --require-complete, a selected net still has an open connection after the run, so nothing was written."
+fix = "Read result.open, then run route again without --require-complete to keep the partial copper, or free some space first."
+see = "route"
+
+["route.net-declared"]
+meaning = "Nets outside the job stayed declared in the design file given to Freerouting, because their class clearance is larger than the board's default rule and the router keeps only the default rule from copper without a net. Freerouting may route them too; that copper is not taken."
+fix = "Nothing to do. To keep the router's time for the job, route those nets first, or select them with --nets."
+see = "route"
+
+["route.pair-skipped"]
+meaning = "A differential pair was not given to the router, and neither were its two nets: the router does not route pairs, only one net of the pair was selected, the two nets are in different classes, the class has no pair width or gap, or the router does not pair names of that form. Half a pair routed alone, or a pair routed as two single nets, is uncoupled copper that KiCad's pair rules reject."
+fix = "Route with a router that lists the feature pairs in fenolite capabilities, select both nets, give their class a pair width and gap, or pass --pairs-as-nets to route them as two single nets on purpose."
+see = "route"
+
+["route.pair-uncoupled"]
+meaning = "With --pairs-as-nets, the two nets of a differential pair were given to the router as two single nets: their copper is not coupled at the pair gap."
+fix = "Nothing to do if that is what you want. KiCad's diff_pair_gap and diff_pair_uncoupled rules judge the result; route with a router that has the feature pairs to couple them."
+see = "route"
+
+["route.optimizer-cut"]
+meaning = "With --router-option optimize=on, Freerouting's optimizer run did not write a session in the time that was left. The copper of the first run, made without the optimizer, is kept."
+fix = "Nothing is lost. To give the optimizer more time, run route again with --rip and a larger --timeout."
+see = "route"
+
 ["route.option-ignored"]
 meaning = "A --router-option that this router does not support was ignored."
 fix = "Remove the option, or use the router that takes it."
+see = "route"
+
+["route.partial"]
+meaning = "The router returned copper for a net that stays open; the copper is kept and written."
+fix = "Run route again: the net is selected again and completed from this copper. Pass --rip with --nets to start that net again."
+see = "route"
+
+["route.resumed"]
+meaning = "An earlier call of the same route on the same board was stopped or wrote nothing, and the copper of its router runs that had finished was kept. This call reused that copper and did not route those nets again; result.resumed counts the runs and the nets."
+fix = "Nothing is needed. Copper made in two calls need not equal the copper of one: to start over, turn the state folder off for one call (FENOLITE_STATE_DIR=off) or pass --rip."
 see = "route"
 
 ["route.tool-failed"]
@@ -2117,9 +2652,39 @@ meaning = "A selected net is still not fully routed, or the router reports open 
 fix = "Route the rest by hand, give the router more passes, or free some space."
 see = "route"
 
+["route.escape-skipped"]
+meaning = "An --escape request was not given to the router: the pattern matched no part, the part has no pad on a net of the job, or the router has no escape step (the feature escape in fenolite capabilities)."
+fix = "Check the reference pattern of --escape, select a net of the part with --nets, or route with a router that lists the feature escape."
+see = "route"
+
+["route.width-below-job"]
+meaning = "The router returned a track or arc narrower than the width the job gave its net (the pair width for a pair net). The copper is kept; KiCad's DRC judges it against the board minimum and the class."
+fix = "Run fenolite check. With freerouting, pass --router-option fanout=off: its fanout stage writes narrow wires at fine-pitch pins."
+see = "route"
+
 ["route.zone-net-skipped"]
 meaning = "A net that a zone carries was left out of the routing."
 fix = "Pass the flag that includes zone nets if tracks are wanted for it."
+see = "route"
+
+["route.plane-net"]
+meaning = "A net that has a zone on a plane layer (a copper layer of type power) is never given to a router: its pads reach the plane through vias. One issue per plane net that the --nets patterns select."
+fix = "Nothing to do. route makes one fan-out via per SMD pad of the net unless --no-plane-fanout is given; run fill afterwards so the plane connects them."
+see = "route"
+
+["route.no-layer"]
+meaning = "Track layer rules (no_tracks) forbid every routing layer to a selected net, so it was not given to the router."
+fix = "Free at least one copper layer for the net in the no_tracks rules of the design, or route it by hand."
+see = "route"
+
+["route.constraint-not-sent"]
+meaning = "The router takes no option for plane layers or for the layers a net is kept to, so it was told neither; its tracks may lie on a plane layer or on a layer a no_tracks rule forbids."
+fix = "Run check after routing, or route with freerouting, which is told both."
+see = "route"
+
+["route.project-unread"]
+meaning = "The project file or the rules file beside the board could not be read. Without the project every net takes the default class values; without the rules file the rules of the design are not given to the router."
+fix = "Repair the file that 'where' names, or rebuild the project, and run route again."
 see = "route"
 
 ["rules.dropped-for-target"]
@@ -2180,6 +2745,21 @@ see = "route"
 ["specctra.unknown-padstack"]
 meaning = "The router's result uses a via that the design file did not offer."
 fix = "Run the router again; report it if it repeats."
+see = "route"
+
+["specctra.plane-skipped"]
+meaning = "A zone on a plane layer has no outline of three points or more, so the Specctra file holds no plane for it and the router does not count its net as joined there."
+fix = "Give the zone an outline, or let design.zone() take the board outline."
+see = "route"
+
+["specctra.rule-not-sent"]
+meaning = "A design rule is not in the Specctra file, because the format has no list for it: a rule on single nets, references or item kinds, a glob, a 'not', or a kind other than clearance, track width and edge clearance."
+fix = "Nothing to do for the router; KiCad's design-rule check still judges the routed board against the rule."
+see = "route"
+
+["specctra.rule-widened"]
+meaning = "A clearance or edge-clearance rule names layers. The Specctra file has no clearance per layer, so the rule was written for every layer and the router keeps it everywhere."
+fix = "Nothing to do; the router keeps at least what the rule asks."
 see = "route"
 
 ["sync.net-dropped"]
@@ -2257,6 +2837,31 @@ meaning = "A listed page size would need more than 8 letter rows for its zones."
 fix = "Use fewer rows, or drop that page size."
 see = "template"
 
+["testpoint.coverage-low"]
+meaning = "Fewer nets hold a reachable test point than --min-coverage asks. A net counts when it has two pads or more, and it is covered when a pad marked as a test point on it is open on the asked side."
+fix = "Add test points to the nets the hint names with design.test_point(), or lower --min-coverage."
+see = "testpoints"
+
+["testpoint.covered"]
+meaning = "A pad marked as a test point has no side where its copper layer and its mask layer are both present, so a probe does not reach it; 'where' is the pad."
+fix = "Give the pad the mask layer of its copper side: F.Mask with F.Cu, B.Mask with B.Cu."
+see = "testpoints"
+
+["testpoint.no-net"]
+meaning = "A pad marked as a test point is on no net, so it probes nothing; 'where' is the pad."
+fix = "Connect the test point to the net it is for, or remove it."
+see = "testpoints"
+
+["testpoint.none"]
+meaning = "No pad of the board carries the test-point mark, so the report lists no test point. KiCad's library test points carry no mark."
+fix = "Place test points with design.test_point(), or mark an authored pad with Footprint.pad(fab_property=\"test_point\")."
+see = "testpoints"
+
+["testpoint.too-close"]
+meaning = "Two test points that share an access side are closer, centre to centre, than --min-pitch asks; 'where' names both."
+fix = "Move one of the two, or lower --min-pitch to the pitch of the test fixture."
+see = "testpoints"
+
 ["zone.fill-mismatch"]
 meaning = "A zone exists in only one of the two boards, so the refilled board is not a refill of this one."
 fix = "Pass the refill of the same board to --from."
@@ -2286,3 +2891,20 @@ see = "fill"
 meaning = "KiCad's refill produces copper for a zone, but the saved board has none for it."
 fix = "Run 'fenolite fill' on the board."
 see = "check"
+
+["place.constraint"]
+meaning = "A hard placement constraint is violated."
+fix = "Review the named outline, keepout, drill, copper or volume condition."
+see = "place"
+
+
+["place.incomplete"]
+meaning = "Placement review has missing or conservative inputs."
+fix = "Supply the named geometry, electrical or assembly inputs; retain the incomplete state."
+see = "place"
+
+
+["place.objective"]
+meaning = "A supplied pad-distance objective is unmet or unknown."
+fix = "Review the named pad identities and distance target; routing remains a separate stage."
+see = "place"

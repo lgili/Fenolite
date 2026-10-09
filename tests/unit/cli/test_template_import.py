@@ -62,6 +62,7 @@ def test_dry_run_reports_the_import(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert result["strings"]["=Title"] == "{title}" and result["parameters"] == []
     assert result["target"] == "kicad" and result["kicad_version"] == 10 and result["output"] == "t.kicad_wks"
     keys = "sheet source imported reported strings parameters target kicad_version drawn output plan"
+    keys += " plan_id"
     assert set(result) == set(keys.split())
     assert env["input"]["kind"] == "altium-sheet"
     assert env["input"]["sha256"] == hashlib.sha256((tmp_path / "t.SchDot").read_bytes()).hexdigest()

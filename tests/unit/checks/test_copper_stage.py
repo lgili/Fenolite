@@ -56,7 +56,9 @@ def codes(stage: StageResult) -> list[str]:
 def test_stage_is_a_default_stage_without_a_tool() -> None:
     assert STAGE in DEFAULT_STAGES and STAGE not in ORACLE_STAGES
     assert DEFAULT_STAGES.index("erc.kicad") + 1 == DEFAULT_STAGES.index(STAGE)
-    assert DEFAULT_STAGES.index(STAGE) + 1 == DEFAULT_STAGES.index("zone.fill")
+    # length.rules (c0106) and placement.rules (c0113) need no tool either and stand between the copper
+    # check and the refill
+    assert DEFAULT_STAGES.index(STAGE) + 3 == DEFAULT_STAGES.index("zone.fill")
 
 
 def test_refused_read() -> None:

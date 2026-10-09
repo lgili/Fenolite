@@ -53,6 +53,7 @@ from fenolite.model.board import (
     Text,
     Track,
     Via,
+    ViaProtection,
     ViaType,
     Zone,
     ZoneFill,
@@ -184,6 +185,7 @@ def tracks(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple
                     width=width,
                     layer=layer,
                     net_id=net_id,
+                    locked=item.prefix.locked,
                 )
             )
         else:
@@ -289,6 +291,7 @@ def arcs(doc: PcbDocument, ctx: Context, owned: Collection[int] = ()) -> tuple[l
                         width=width,
                         layer=layer,
                         net_id=net_id,
+                        locked=item.prefix.locked,
                     )
                 )
             else:
@@ -317,7 +320,9 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
     """Every via with its span: ``through`` between the outer layers, ``blind`` with one outer layer,
     ``buried`` otherwise. A start or end layer outside the chain gives the outer layers and a warning.
     A via whose record names layers without a pad shape holds them in the pair ``pad_removed``; its
-    diameter and its id are those of the record without them."""
+    diameter and its id are those of the record without them. The two tenting flags of the record become
+    ``Via.protection`` (``tenting_front`` from the top flag, ``tenting_back`` from the bottom flag, both
+    explicit; ``H-A-PCB-CU-VIATENT``); the solder-mask expansion of the via is not read."""
     found: list[Via] = []
     chain = ctx.layers.chain
     outer = {chain[0], chain[-1]}
@@ -367,6 +372,10 @@ def vias(doc: PcbDocument, ctx: Context) -> list[Via]:
                 layers=names,
                 net_id=net_id,
                 via_type=via_type,
+                locked=item.prefix.locked,
+                # both sides explicit: an Altium via carries its own flags and follows no board default,
+                # and a ``None`` would be read by the KiCad backend as "tented" (change c0112)
+                protection=ViaProtection(tenting_front=item.tented_top, tenting_back=item.tented_bottom),
             )
         )
         ctx.census.map("vias")

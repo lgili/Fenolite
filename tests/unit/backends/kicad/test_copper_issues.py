@@ -85,6 +85,63 @@ def test_closed_set() -> None:
     assert literals == set(TABLE)
 
 
+def test_anchor_cases_use_the_closed_set() -> None:
+    """The anchors and pad regions of change c0111 add no code: an anchor that cannot be resolved and a
+    pad region that cannot hold an array give five codes of the table, each with its severity."""
+    from _placed import Part, design_of
+
+    from fenolite.core.coords import Point
+    from fenolite.dsl import Anchor, PadEnd
+
+    design = design_of(
+        Part("U1", "Frame_Anchor", 20, 20, library="Frame", nets={"1": "VIN", "4": "GND"}),
+        Part("J1", "Mini_Edge_Cases", 40, 20, nets={"": "GND"}),
+        Part("D1", "Mini_R_0603", 40, 40, nets={"1": "GND"}),
+    )
+    zero = Point(0, 0)
+    found = _codes(
+        design,
+        via("nopart", Anchor("R9", None, None, zero)),  # type: ignore[arg-type]
+        via("nopad", Anchor("U1", "7", None, zero)),  # type: ignore[arg-type]
+        via("beyond", Anchor("U1", "4", 1, zero)),  # type: ignore[arg-type]
+        via("shared", Anchor("J1", "1", None, zero)),  # type: ignore[arg-type]
+        via("staged", Anchor("D1", "1", None, zero)),  # type: ignore[arg-type]
+        track("waypoint", at(1, 1), Anchor("R9", None, None, zero), net="GND"),
+        stitch("line", along=(at(1, 1), Anchor("U1", "7", None, zero))),
+        stitch("origin", region=(at(0, 0), at(5, 0), at(5, 5)), origin=Anchor("J1", "1", None, zero)),
+        stitch("othernet", pitch=mm(1), region=PadEnd("U1", "1")),
+        stitch("nocopper", pitch=mm(1), region=PadEnd("J1", "")),
+        stitch("sharedpad", pitch=mm(1), region=PadEnd("J1", "1")),
+        stitch("stagedpad", pitch=mm(1), region=PadEnd("D1", "1")),
+        stitch("anchor", pitch=mm(1), region=Anchor("U1", "4", None, zero)),
+        unplaced=("D1",),
+    )
+    assert [(i.where, i.code) for i in found] == [
+        ("nopart", "kicad.copper.pad-not-found"),
+        ("nopad", "kicad.copper.pad-not-found"),
+        ("beyond", "kicad.copper.pad-not-found"),
+        ("shared", "kicad.copper.bad-intent"),
+        ("staged", "kicad.copper.end-unplaced"),
+        ("waypoint", "kicad.copper.pad-not-found"),
+        ("line", "kicad.copper.pad-not-found"),
+        ("origin", "kicad.copper.bad-intent"),
+        ("othernet", "kicad.copper.net-conflict"),
+        ("nocopper", "kicad.copper.layer-mismatch"),
+        ("sharedpad", "kicad.copper.bad-intent"),
+        ("stagedpad", "kicad.copper.end-unplaced"),
+        ("anchor", "kicad.copper.bad-intent"),
+    ]
+    assert {i.code for i in found} == {
+        "kicad.copper.pad-not-found",
+        "kicad.copper.bad-intent",
+        "kicad.copper.end-unplaced",
+        "kicad.copper.net-conflict",
+        "kicad.copper.layer-mismatch",
+    }
+    assert all(i.severity == TABLE[i.code] for i in found)
+    assert all(i.message.startswith(f"{i.where}: ") for i in found), "each issue names its intent's key"
+
+
 def test_messages_hold_no_absolute_path() -> None:
     found = _codes(built_blink(), track("conflict", end("R1", 1), end("D1", 2)))
     assert all(str(Path.home()) not in i.message and i.where == "conflict" for i in found)

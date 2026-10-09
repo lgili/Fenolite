@@ -73,6 +73,13 @@ def _decimal(value: Fraction, what: str) -> tuple[str, str]:
     return (digits[:-places], digits[-places:]) if places else (digits, "")
 
 
+def decimal_text(value: Fraction, what: str) -> str:
+    """The shortest exact decimal text of a non-negative ``value`` (``42.5``); ``DslError`` naming
+    ``what`` when it does not terminate."""
+    whole, part = _decimal(value, what)
+    return f"{whole}.{part}" if part else whole
+
+
 @dataclass(frozen=True, slots=True)
 class Quantity:
     """An exact value of one unit; build one with ``ohm()``, ``farad()`` and the other constructors."""
@@ -223,4 +230,16 @@ def second(value: int | Fraction | str) -> Quantity:
     return _make("second", value)
 
 
-__all__ = ["UNITS", "Quantity", "amp", "farad", "henry", "hertz", "ohm", "second", "volt", "watt"]
+__all__ = [
+    "UNITS",
+    "Quantity",
+    "amp",
+    "decimal_text",
+    "farad",
+    "henry",
+    "hertz",
+    "ohm",
+    "second",
+    "volt",
+    "watt",
+]

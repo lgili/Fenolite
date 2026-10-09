@@ -280,13 +280,15 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         made_bodies: list[ComponentBody] = []
         for body_index, body in bodies.get(index, []):
             found = component_body(
-                body, frame, ctx, locator=f"{BODY_STORAGE}/Data#{body_index}", section="bodies"
+                body,
+                frame,
+                ctx,
+                locator=f"{BODY_STORAGE}/Data#{body_index}",
+                section="bodies",
+                mounted_side=side,
             )
-            if found is None:
-                ctx.census.skip("bodies", "bodies")
-            else:
-                made_bodies.append(found)
-                ctx.census.map("bodies")
+            made_bodies.append(found)
+            ctx.census.map("bodies")
         items = copper.footprint_items(
             owned.get(index, copper.Owned()),
             ctx,

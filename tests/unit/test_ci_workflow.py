@@ -251,50 +251,65 @@ def test_routing_job_runs_pinned_tool_and_oracle_loop() -> None:
     assert "run: uv run pytest tests/routing -q -rA" in job
 
 
-JAR_URL = "https://github.com/freerouting/freerouting/releases/download/v{0}/freerouting-{0}.jar"
-JAR_CHECK = re.compile(r"echo '([0-9a-f]{64})  (\S+freerouting-([\d.]+)\.jar)' \| sha256sum --check")
+FETCH_STEP = "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm --json"
+"""The install step of the ``routing`` job: the command checks the pinned size and SHA-256 itself and
+writes nothing when they differ (ADR-0007; change c0078)."""
+FETCH_RUN = re.compile(r"run: uv run fenolite fetch freerouting --dir (\S+) --confirm\b")
 
 
 def freerouting_problems(workflow: str, pinned: str) -> list[str]:
     """Problems of the Freerouting steps of the ``routing`` job against the plugin's pinned version
-    (capability ci-baseline, "Freerouting in the routing job"; change c0023)."""
+    (capability ci-baseline, "Freerouting in the routing job"; changes c0023 and c0078)."""
     job = job_text(workflow, "routing")
     problems: list[str] = []
-    downloads = re.findall(r"releases/download/v([\d.]+)/freerouting-([\d.]+)\.jar", job)
-    if not downloads:
-        problems.append("the routing job downloads no Freerouting jar from its release page")
-    for tag, name in downloads:
-        if (tag, name) != (pinned, pinned):
-            problems.append(f"ci.yml downloads Freerouting {tag} ({name}); the plugin pins {pinned}")
-    check = JAR_CHECK.search(job)
-    if check is None:
-        problems.append("the routing job does not verify the jar against a 64-hex SHA-256")
-    elif check.group(3) != pinned:
-        problems.append(f"ci.yml verifies Freerouting {check.group(3)}; the plugin pins {pinned}")
+    fetch = FETCH_RUN.search(job)
+    if fetch is None:
+        problems.append(
+            "the routing job does not install the jar with 'fenolite fetch freerouting --confirm'"
+        )
+    if re.search(r"releases/download/\S*freerouting-[\d.]+\.jar", job):
+        problems.append("the routing job downloads the Freerouting jar itself, beside 'fenolite fetch'")
     jar = re.search(r"FENOLITE_FREEROUTING_JAR: (\S+)", job)
     if jar is None:
         problems.append("the routing job does not set FENOLITE_FREEROUTING_JAR")
-    elif check is not None and jar.group(1) != check.group(2):
-        problems.append("FENOLITE_FREEROUTING_JAR does not name the verified jar")
+    else:
+        named = re.fullmatch(r"(\S+)/freerouting-([\d.]+)\.jar", jar.group(1))
+        if named is None:
+            problems.append("FENOLITE_FREEROUTING_JAR does not name a freerouting-<version>.jar")
+        else:
+            if named.group(2) != pinned:
+                problems.append(
+                    f"FENOLITE_FREEROUTING_JAR names Freerouting {named.group(2)}; the plugin pins {pinned}"
+                )
+            if fetch is not None and named.group(1) != fetch.group(1):
+                problems.append("FENOLITE_FREEROUTING_JAR does not name the folder the jar is fetched into")
     required = re.search(r"FENOLITE_REQUIRE: (\S+)", job)
     if required is None or "freerouting" not in required.group(1).split(","):
         problems.append("FENOLITE_REQUIRE of the routing job does not list freerouting")
     if "actions/setup-java" not in job or 'java-version: "25"' not in job:
         problems.append("the routing job does not install Java 25")
-    if check is not None and job.find("sha256sum --check", check.start()) > job.find("run: uv run pytest"):
-        problems.append("the jar is verified after the tests run")
+    if fetch is not None and fetch.start() > job.find("run: uv run pytest"):
+        problems.append("the jar is fetched after the tests run")
+    if fetch is not None and fetch.start() < job.find("run: uv sync --locked"):
+        problems.append("the jar is fetched before Fenolite is installed")
     return problems
 
 
 def test_routing_job_installs_the_pinned_freerouting() -> None:
-    """Scenario "Workflow shape checked"."""
+    """Scenario "Workflow shape checked": the job installs the jar with ``fenolite fetch``, whose table
+    row holds the plugin's pinned version, and downloads it in no other way."""
+    from fenolite.cli import fetch
     from fenolite.routing.plugins.specctra.freerouting import JAVA_MIN, PINNED_VERSION
 
     text = WORKFLOW.read_text(encoding="utf-8")
     assert freerouting_problems(text, PINNED_VERSION) == []
-    assert JAR_URL.format(PINNED_VERSION) in job_text(text, "routing")
+    job = job_text(text, "routing")
+    assert FETCH_STEP in job and "curl" not in job[job.index("Install pinned Freerouting jar") :]
+    row = fetch.rows()["freerouting"]
+    assert row.version == PINNED_VERSION and row.file == f"freerouting-{PINNED_VERSION}.jar"
+    assert f"FENOLITE_FREEROUTING_JAR: /tmp/freerouting/{row.file}" in job
     assert JAVA_MIN == 25
-    assert "run: uv run pytest tests/routing -q -rA" in job_text(text, "routing")
+    assert "run: uv run pytest tests/routing -q -rA" in job
 
 
 def test_freerouting_version_drift_is_caught() -> None:
@@ -306,9 +321,22 @@ def test_freerouting_version_drift_is_caught() -> None:
 
 def test_freerouting_steps_missing_or_unverified() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
-    unverified = re.sub(r"\n +echo '[0-9a-f]{64}  \S+freerouting\S+' \| sha256sum --check", "", text)
-    assert "the routing job does not verify the jar against a 64-hex SHA-256" in freerouting_problems(
-        unverified, "2.4.1"
+    by_hand = text.replace(
+        FETCH_STEP,
+        "run: curl -fsSL https://github.com/freerouting/freerouting/releases/download/v2.4.1/"
+        "freerouting-2.4.1.jar -o /tmp/freerouting/freerouting-2.4.1.jar",
+    )
+    assert by_hand != text
+    found = freerouting_problems(by_hand, "2.4.1")
+    assert "the routing job does not install the jar with 'fenolite fetch freerouting --confirm'" in found
+    assert "the routing job downloads the Freerouting jar itself, beside 'fenolite fetch'" in found
+    unconfirmed = text.replace(FETCH_STEP, FETCH_STEP.replace("--confirm", "--dry-run"))
+    assert "the routing job does not install the jar with 'fenolite fetch freerouting --confirm'" in (
+        freerouting_problems(unconfirmed, "2.4.1")
+    )
+    elsewhere = text.replace("--dir /tmp/freerouting --confirm", "--dir /tmp/other --confirm")
+    assert "FENOLITE_FREEROUTING_JAR does not name the folder the jar is fetched into" in (
+        freerouting_problems(elsewhere, "2.4.1")
     )
     no_variable = text.replace("FENOLITE_FREEROUTING_JAR: ", "SOMETHING_ELSE: ")
     assert "the routing job does not set FENOLITE_FREEROUTING_JAR" in freerouting_problems(
@@ -340,6 +368,9 @@ WHEEL_STEPS = [
     ("install", "--no-index --find-links dist fenolite"),
     ("capabilities", "fenolite capabilities --json"),
     ("metadata", "all('extra ==' in x for x in r)"),
+    ("guide", "fenolite guide start --text"),
+    ("starter", "fenolite init blink --dry-run --json"),
+    ("starter plan", "== ['blink/design.py']"),
     ("wheel contents", 'n.startswith(("tests/", "private/", "examples/"))'),
 ]
 
@@ -404,6 +435,12 @@ def test_wheel_job() -> None:
     indexed = job.replace("--no-index --find-links dist fenolite", "fenolite")
     assert "wheel: step 'install' missing" in ordered_problems(indexed, "wheel", WHEEL_STEPS)
     assert ordered_problems("", "wheel", WHEEL_STEPS) == ["wheel: job missing"]
+    # the wheel carries the agent guide (capability agent-guide, scenario "Wheel carries the guide")
+    no_guide = job.replace("/tmp/wheel-venv/bin/fenolite guide start --text > /tmp/guide.txt\n", "")
+    assert "wheel: step 'guide' missing" in ordered_problems(no_guide, "wheel", WHEEL_STEPS)
+    no_starter = job.replace("fenolite init blink --dry-run --json", "fenolite init --help")
+    assert "wheel: step 'starter' missing" in ordered_problems(no_starter, "wheel", WHEEL_STEPS)
+    assert "cd /tmp/empty-project" in job and job.index("cd /tmp/empty-project") < job.index("guide start")
 
 
 def test_dco_job() -> None:
@@ -545,3 +582,193 @@ def test_macos_app_triggers_and_order() -> None:
 
 def test_macos_app_is_not_a_job_of_the_pull_request_workflow() -> None:
     assert job_text(WORKFLOW.read_text(encoding="utf-8"), "macos-app") == ""
+
+
+# ---- the yardstick nightly job (capability ci-baseline, "Yardstick nightly job"; change c0119)
+
+HEAVY_BOARDS = ("kicad-demo-10-0-6-pcb-06", "kicad-demo-10-0-6-pcb-18")
+YARDSTICK_RUN = (
+    'run --out "$RUNNER_TEMP/yardstick" --record "$RUNNER_TEMP/yardstick/record.json" '
+    '--summary "$GITHUB_STEP_SUMMARY"'
+)
+YARDSTICK_STEPS = [
+    ("checkout", "uses: actions/checkout@v4"),
+    ("setup-uv", "uses: astral-sh/setup-uv"),
+    ("uv sync", "run: uv sync --locked --extra dev"),
+    ("kicad-cli version", "kicad-cli version | grep -F 10.0.6"),
+    (
+        "library cache",
+        "key: kicad-libs-10.0.6-${{ hashFiles('src/fenolite/backends/kicad/data/libraries.toml') }}",
+    ),
+    ("library fetch", "run: uv run python tools/kicad_libs_fetch.py --tag 10.0.6 --cache "),
+    ("heavy cache", "key: corpus-heavy-${{ hashFiles('tests/corpus/manifest.toml') }}"),
+    ("heavy fetch", "run: uv run python tools/corpus_fetch.py --uses heavy --only " + " ".join(HEAVY_BOARDS)),
+    ("yardstick run", "uv run python tools/yardstick.py " + YARDSTICK_RUN),
+    ("upload", "uses: actions/upload-artifact@v4"),
+]
+KICAD_IMAGE = re.compile(r"^\s+image: (kicad/kicad:10\.0\.6\S*)\s*$", re.MULTILINE)
+YARDSTICK_ROUTERS = [
+    ("heavy fetch", "run: uv run python tools/corpus_fetch.py --uses heavy --only "),
+    (
+        "router checkout",
+        "git clone --depth 1 --branch v0.22.1 https://github.com/drandyhaas/KiCadRoutingTools.git",
+    ),
+    ("router library", "grid_router-linux-x86_64.so"),
+    ("router digest", "sha256sum --check"),
+    ("java", "uses: actions/setup-java@v4"),
+    ("freerouting", "run: uv run fenolite fetch freerouting --dir /tmp/freerouting --confirm"),
+    ("yardstick run", "uv run python tools/yardstick.py run"),
+]
+"""From stage 4 of the example: the router steps of the job, between the heavy fetch and the runner, as the
+``routing`` job of ``ci.yml`` installs them (requirement "Yardstick nightly job", step 7)."""
+
+
+def _example_stage() -> int:
+    match = re.search(
+        r"^STAGE = (\d)", (ROOT / "examples" / "yardstick" / "design.py").read_text("utf-8"), re.M
+    )
+    return int(match.group(1)) if match else 0
+
+
+def yardstick_problems(nightly: str, ci: str, stage: int | None = None) -> list[str]:
+    """What is wrong with the ``yardstick`` job of ``nightly.yml``, read as text; ``stage`` is that of the
+    example unless given."""
+    stage = _example_stage() if stage is None else stage
+    job = job_text(nightly, "yardstick")
+    if not job:
+        return ["yardstick: job missing"]
+    problems: list[str] = []
+    on = triggers(nightly)
+    if not re.search(r"^  schedule:", on, re.MULTILINE) or not re.search(
+        r"^  workflow_dispatch:", on, re.MULTILINE
+    ):
+        problems.append("yardstick: the workflow must run on schedule and on workflow_dispatch")
+    for trigger in ("push", "pull_request"):
+        if re.search(rf"^  {trigger}:", on, re.MULTILINE):
+            problems.append(f"yardstick: the workflow must not run on {trigger}: it is not a merge gate")
+    if not re.search(r"^\s+runs-on: ubuntu-latest\s*$", job, re.MULTILINE):
+        problems.append("yardstick: must run on ubuntu-latest")
+    if not re.search(r"^\s+timeout-minutes: \d+\s*$", job, re.MULTILINE):
+        problems.append("yardstick: must set timeout-minutes")
+    pinned = KICAD_IMAGE.search(job_text(ci, "kicad-10"))
+    image = KICAD_IMAGE.search(job)
+    if image is None:
+        problems.append("yardstick: must run in the image kicad/kicad:10.0.6")
+    elif "@sha256:" not in image.group(1) or pinned is None or image.group(1) != pinned.group(1):
+        problems.append(
+            f"yardstick: the image {image.group(1)} must be pinned by the SHA-256 of the kicad-10 job"
+        )
+    if not re.search(r"^\s+options: --user 0\s*$", job, re.MULTILINE):
+        problems.append("yardstick: the container must run with --user 0")
+    problems += ordered_problems(job, "yardstick", YARDSTICK_STEPS)
+    cache = re.search(r"^\s+FENOLITE_LIBS_CACHE: (\S+)\s*$", job, re.MULTILINE)
+    if cache is None:
+        problems.append("yardstick: FENOLITE_LIBS_CACHE must name the folder of the library cache")
+    elif "--cache " + cache.group(1) not in job:
+        problems.append("yardstick: the library fetch must fill the folder that FENOLITE_LIBS_CACHE names")
+    upload = job[job.find("uses: actions/upload-artifact@v4") :] if "upload-artifact@v4" in job else ""
+    before = job[: job.find("uses: actions/upload-artifact@v4")].rsplit("- name:", 1)[-1]
+    if upload and "if: always()" not in before + upload:
+        problems.append("yardstick: the upload step must run with if: always()")
+    if upload and not re.search(r"^\s+retention-days: 90\s*$", upload, re.MULTILINE):
+        problems.append("yardstick: the upload step must keep the artefact 90 days (retention-days: 90)")
+    if upload and ("record.json" not in upload or "replies" not in upload):
+        problems.append("yardstick: the upload step must take the record and the replies")
+    if "pytest" in job:
+        problems.append("yardstick: the job must not run pytest")
+    if re.search(r"git (push|commit)|contents: write", job):
+        problems.append("yardstick: the job must not write to the repository")
+    if "continue-on-error" in job:
+        problems.append("yardstick: the job must fail when the runner exits non-zero")
+    if stage >= 4:
+        problems += [
+            f"{p} (stage {stage} routes)" for p in ordered_problems(job, "yardstick", YARDSTICK_ROUTERS)
+        ]
+        routing = job_text(ci, "routing")
+        for digest in re.findall(r"echo '([0-9a-f]{64})  ", routing):
+            if digest not in job:
+                problems.append(f"yardstick: the router digest {digest[:12]}… of the routing job is missing")
+        for variable in ("FENOLITE_KRT:", "FENOLITE_KRT_PYTHON:", "FENOLITE_FREEROUTING_JAR:"):
+            if variable not in job:
+                problems.append(
+                    f"yardstick: the runner step must set {variable.rstrip(':')} (stage {stage} routes)"
+                )
+        if 'java-version: "25"' not in job:
+            problems.append("yardstick: Freerouting needs Java 25")
+    return problems
+
+
+def _workflows() -> tuple[str, str]:
+    return NIGHTLY.read_text(encoding="utf-8"), WORKFLOW.read_text(encoding="utf-8")
+
+
+def test_yardstick_job() -> None:
+    """Scenario "Workflow shape checked"."""
+    nightly, ci = _workflows()
+    problems = yardstick_problems(nightly, ci)
+    assert not problems, "\n".join(problems)
+    for path in sorted((ROOT / ".github" / "workflows").glob("*.yml")):
+        text = path.read_text(encoding="utf-8")
+        if path != NIGHTLY:
+            assert job_text(text, "yardstick") == "" and "tools/yardstick.py" not in text, path.name
+    assert yardstick_problems(nightly.replace("  yardstick:", "  other:"), ci) == ["yardstick: job missing"]
+
+
+def test_yardstick_unpinned_image_rejected() -> None:
+    """Scenario "Unpinned image rejected"."""
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    unpinned = nightly.replace(job, re.sub(r"(image: kicad/kicad:10\.0\.6)@sha256:[0-9a-f]{64}", r"\1", job))
+    problems = yardstick_problems(unpinned, ci)
+    assert len(problems) == 1 and problems[0].startswith(
+        "yardstick: the image kicad/kicad:10.0.6 must be pinned"
+    )
+    other = nightly.replace(job, re.sub(r"@sha256:[0-9a-f]{64}", "@sha256:" + "0" * 64, job))
+    assert any(
+        "must be pinned by the SHA-256 of the kicad-10 job" in p for p in yardstick_problems(other, ci)
+    )
+
+
+def test_yardstick_upload_only_on_success_rejected() -> None:
+    """Scenario "Upload only on success rejected"."""
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    assert job.count("        if: always()\n") == 1
+    problems = yardstick_problems(nightly.replace(job, job.replace("        if: always()\n", "")), ci)
+    assert problems == ["yardstick: the upload step must run with if: always()"]
+    short = nightly.replace(job, job.replace("retention-days: 90", "retention-days: 5"))
+    assert any("retention-days: 90" in p for p in yardstick_problems(short, ci))
+
+
+def test_yardstick_router_steps_from_stage_4() -> None:
+    """From stage 4 the job installs both routers, checked by the digests of the routing job."""
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    assert yardstick_problems(nightly, ci, stage=4) == []
+    unchecked = nightly.replace(job, job.replace("| sha256sum --check", ""))
+    assert any(
+        "router digest" in p or "router digest" in p for p in yardstick_problems(unchecked, ci, stage=4)
+    )
+    no_java = nightly.replace(job, job.replace('java-version: "25"', 'java-version: "21"'))
+    assert "yardstick: Freerouting needs Java 25" in yardstick_problems(no_java, ci, stage=4)
+    assert yardstick_problems(no_java, ci, stage=3) == []  # no router before stage 4
+
+
+def test_yardstick_steps_filters_and_gates() -> None:
+    nightly, ci = _workflows()
+    job = job_text(nightly, "yardstick")
+    wider = nightly.replace(job, job.replace(" --only " + " ".join(HEAVY_BOARDS), ""))
+    assert "yardstick: step 'heavy fetch' missing" in yardstick_problems(wider, ci)
+    other_tag = nightly.replace(job, job.replace("--tag 10.0.6", "--tag 9.0.9"))
+    assert "yardstick: step 'library fetch' missing" in yardstick_problems(other_tag, ci)
+    sync = "      - name: Sync (locked)\n        run: uv sync --locked --extra dev\n"
+    assert sync in job
+    late = nightly.replace(job, job.replace(sync, "") + sync)
+    assert any("must come after" in p for p in yardstick_problems(late, ci))
+    gated = nightly.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n")
+    assert "yardstick: the workflow must not run on pull_request: it is not a merge gate" in (
+        yardstick_problems(gated, ci)
+    )
+    tested = nightly.replace(job, job + "      - run: uv run pytest tests/unit -q\n")
+    assert "yardstick: the job must not run pytest" in yardstick_problems(tested, ci)
+    assert macos_app_problems(nightly) == []  # the first job of the workflow is untouched

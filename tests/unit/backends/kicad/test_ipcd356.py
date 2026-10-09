@@ -23,7 +23,7 @@ def test_through_hole_record() -> None:
     line = _record("317", "GND", "D1", "1", "D0315PA00X+0001000Y-0002000X0591Y0000R030S0")
     export = read_ipcd356(HEADER + line + "\n999\n")
     assert export.unit_nm == 2540
-    assert export.records == (Ipcd356Record("317", "GND", "D1", "1", 1000, -2000, 30, "both"),)
+    assert export.records == (Ipcd356Record("317", "GND", "D1", "1", 1000, -2000, 30, "both", "none"),)
 
 
 def test_surface_record_on_the_bottom() -> None:
@@ -57,3 +57,22 @@ def test_missing_units() -> None:
 def test_unsupported_units() -> None:
     with pytest.raises(FormatError, match="CUST 1"):
         read_ipcd356("P  UNITS CUST 1\n")
+
+
+def test_mask_codes() -> None:
+    """Scenario "Mask codes": the ``S`` field names the sides whose solder mask covers the pad."""
+    lines = (
+        _record("327", "A", "TP1", "1", "      A01X+000100Y+000200X0591Y0591R000S2"),
+        _record("327", "B", "TP2", "1", "      A02X+000300Y+000200X0591Y0591R000S1"),
+        _record("317", "C", "TP3", "1", "D0315PA00X+000500Y+000200X0591Y0000R000S0"),
+        _record("327", "D", "TP4", "1", "      A01X+000700Y+000200X0591Y0591R000S3"),
+    )
+    records = read_ipcd356(HEADER + "\n".join(lines) + "\n").records
+    assert [r.covered for r in records] == ["bottom", "top", "none", "both"]
+
+
+def test_record_without_a_mask_code() -> None:
+    line = _record("327", "A", "R1", "2", "      A01X+000100Y+000200X0591Y0591R000")
+    (record,) = read_ipcd356(HEADER + line).records
+    assert record.covered is None
+    assert Ipcd356Record("327", "A", "R1", "2", 100, 200, 0, "top") == record

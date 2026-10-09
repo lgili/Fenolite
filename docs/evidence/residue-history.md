@@ -4,7 +4,7 @@ Run before each tag (`uv run python tools/residue/scan.py --history`). The publi
 patterns and the public blob list, always runs. The private gate, a token list and a blob list that live
 outside the repository, is optional: the column below says whether it was on. It was not run for v0.1.0, nor for v0.2.0, nor for v0.2.1, nor for v0.2.2. The scan reads every distinct blob reachable
 from any ref; it prints `path:offset:pattern-id` for hits and never the matched text.
-It was not run for v0.3.0 either.
+It was not run for v0.3.0 either, nor for v0.4.0.
 
 | date | tag | commit range | blobs scanned | public patterns | private gate | hits |
 |---|---|---|---|---|---|---|
@@ -14,3 +14,4 @@ It was not run for v0.3.0 either.
 | 2026-10-07 | v0.2.1 | root .. 2c38a10 | 6825 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-08 | v0.2.2 | root .. a58604d | 6832 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
 | 2026-10-08 | v0.3.0 | root .. c293a56 | 6821 blobs reachable from any ref | 5 structural + blob list | not run | 0 |
+| 2026-10-08 | v0.4.0 | root .. 367cdf8 | 8053 blobs reachable from any ref | 5 structural + blob list | not run | 0 |

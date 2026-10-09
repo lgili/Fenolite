@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from fenolite.core.coords import Point, Size
+from fenolite.core.evidence import Evidence, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.base import Entity
 from fenolite.model.presentation import SheetFrameRef, TitleBlock
@@ -24,6 +25,7 @@ LayerKind = Literal[
     "mechanical",
 ]
 StackKind = Literal["copper", "dielectric", "soldermask", "silkscreen", "solderpaste"]
+DielectricKind = Literal["core", "prepreg"]
 PadShape = Literal["circle", "rect", "oval", "roundrect", "trapezoid", "custom"]
 PadKind = Literal["smd", "thru_hole", "np_thru_hole", "connect"]
 Side = Literal["top", "bottom"]
@@ -42,6 +44,17 @@ ViaType = Literal["through", "blind", "buried", "micro"]
 ZoneConnection = Literal["solid", "thermal", "none", "thru_hole_only"]
 """How a zone connects to a pad of its net; ``thru_hole_only`` means thermal reliefs on through-hole pads
 and solid connections on the others."""
+PadFabProperty = Literal[
+    "bga",
+    "fiducial_global",
+    "fiducial_local",
+    "test_point",
+    "heatsink",
+    "castellated",
+    "mechanical",
+    "press_fit",
+]
+"""The fabrication mark of a pad: what KiCad calls the fabrication property of a pad."""
 HoleShape = Literal["round", "square", "slot"]
 BodyKind = Literal["extruded", "model"]
 ZoneFillMode = Literal["solid", "hatched"]
@@ -50,7 +63,32 @@ ZoneSmoothing = Literal["none", "chamfer", "fillet"]
 HatchBorder = Literal["hatch_thickness", "min_thickness"]
 FieldJustifyH = Literal["left", "center", "right"]
 FieldJustifyV = Literal["top", "center", "bottom"]
+DimensionKind = Literal["aligned", "orthogonal"]
+DimensionDirection = Literal["horizontal", "vertical"]
+DimensionUnits = Literal["mm", "in"]
 ORDERED = {"ordered": True}
+
+
+@dataclass(frozen=True, slots=True)
+class MechanicalIntent:
+    """Declared mechanical provenance; a measured coordinate is still not a qualified fit."""
+
+    key: str
+    frame: Literal["board"] = "board"
+    tolerance: Nm = 0
+    source: str = ""
+    status: Literal["measured", "estimated", "proposed"] = "proposed"
+    evidence: Evidence = Evidence(Level.UNKNOWN)
+
+    def __post_init__(self) -> None:
+        if not self.key or not self.key.isprintable() or self.key != self.key.strip():
+            raise ValueError("mechanical key must be nonempty printable text without surrounding spaces")
+        if self.frame != "board":
+            raise ValueError("only the board-relative mechanical frame is supported")
+        if type(self.tolerance) is not int or self.tolerance < 0:
+            raise ValueError("mechanical tolerance must be nonnegative integer nm")
+        if self.status not in ("measured", "estimated", "proposed"):
+            raise ValueError("mechanical status must be measured, estimated or proposed")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +102,11 @@ class Layer(Entity):
 
 @dataclass(frozen=True, slots=True)
 class StackLayer(Entity):
-    """One physical layer of the stack-up. Dielectric constants are decimal strings, never floats."""
+    """One entry of the stack-up. Dielectric constants are decimal strings, never floats.
+
+    ``dielectric_kind`` says whether a dielectric is a core or a prepreg (``None``: not stated), and
+    ``color`` is the colour as the source names it. A dielectric made of several sheets is one entry per
+    sheet, consecutive, the sheets sharing a name."""
 
     name: str
     kind: StackKind
@@ -72,22 +114,70 @@ class StackLayer(Entity):
     material: str = ""
     epsilon_r: str = ""
     loss_tangent: str = ""
+    dielectric_kind: DielectricKind | None = None
+    color: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class Stackup(Entity):
-    """The stack-up, from top to bottom (order is semantic)."""
+    """The stack-up, from the top face to the bottom face (order is semantic).
+
+    ``impedance_controlled`` is true when the dielectric values are requirements for the fabricator."""
 
     layers: tuple[StackLayer, ...] = field(default=(), metadata=ORDERED)
     finish: str = ""
+    impedance_controlled: bool = False
+
+    def thickness(self) -> Nm:
+        """The sum of the entries' thicknesses: the board thickness of the model."""
+        return sum(layer.thickness for layer in self.layers)
+
+    def _index(self, name: str) -> int:
+        for index, layer in enumerate(self.layers):
+            if layer.name == name:
+                return index
+        raise KeyError(name)
+
+    def depth(self, name: str) -> tuple[Nm, Nm]:
+        """The depths, below the top face of the first entry, of the top and the bottom face of the first
+        entry named ``name``. ``KeyError`` for an unknown name."""
+        index = self._index(name)
+        top = sum(layer.thickness for layer in self.layers[:index])
+        return top, top + self.layers[index].thickness
+
+    def between(self, upper: str, lower: str) -> tuple[StackLayer, ...]:
+        """The entries strictly between the first entries named ``upper`` and ``lower``, top to bottom.
+        ``KeyError`` for an unknown name, ``ValueError`` when ``upper`` does not lie above ``lower``."""
+        first, last = self._index(upper), self._index(lower)
+        if first >= last:
+            raise ValueError(f"{upper!r} does not lie above {lower!r}")
+        return self.layers[first + 1 : last]
+
+
+@dataclass(frozen=True, slots=True)
+class OutlineArc:
+    """One edge of a board outline that is an arc through ``mid``.
+
+    Edge ``edge`` of ring ``ring`` runs from its first vertex through ``mid`` to its second. Ring 0 is
+    ``Outline.points`` and ring k is ``Outline.cutouts[k - 1]``; edge i of a ring of n vertices joins
+    vertex i to vertex (i + 1) mod n."""
+
+    ring: int
+    edge: int
+    mid: Point
 
 
 @dataclass(frozen=True, slots=True)
 class Outline(Entity):
-    """Board outline polygon and cut-outs (points in order)."""
+    """Board outline polygon and cut-outs (points in order).
+
+    An edge is straight unless ``arcs`` holds an entry for it; ``arcs`` is sorted by ``(ring, edge)`` and
+    holds at most one entry per edge. A ring has three vertices or more, or two when one of its two edges
+    is an arc (a circle is two arcs)."""
 
     points: tuple[Point, ...] = field(default=(), metadata=ORDERED)
     cutouts: tuple[tuple[Point, ...], ...] = field(default=(), metadata=ORDERED)
+    arcs: tuple[OutlineArc, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +228,9 @@ class Pad(Entity):
     """The corner radius of a ``roundrect`` pad in parts per million of the shorter side of ``size``, from 0
     to ``MAX_CORNER_RATIO`` (change c0126): 250 000 is a quarter of the shorter side. ``None`` when the model
     does not know it, and for every other shape."""
+    fab_property: PadFabProperty | None = None
+    """The fabrication mark of the pad (fiducial, test point, BGA ball and the like); ``None`` for no mark.
+    The model does not check it against the pad's kind or layers."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,7 +264,9 @@ class ComponentBody(Entity):
     ``height`` is the distance from the board surface to the top of the body and ``standoff`` the distance
     to its underside. ``outline`` is the body's footprint as a polygon in the footprint frame (empty when
     the source gives none), ``layer`` the layer it is drawn on, and ``model`` the name of a 3D model for
-    the kind ``model``. No model data is carried."""
+    the kind ``model``. Optional signed ``z_min``/``z_max`` bound the extrusion away from the mounted
+    face. ``projection_unknown`` retains source information without claiming volume geometry.
+    No model data is carried."""
 
     kind: BodyKind
     height: Nm
@@ -180,6 +275,9 @@ class ComponentBody(Entity):
     layer: str = ""
     model: str = ""
     name: str = ""
+    z_min: Nm | None = None
+    z_max: Nm | None = None
+    projection_unknown: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,30 +303,81 @@ class FootprintInstance(Entity):
     bodies: tuple[ComponentBody, ...] = field(default=(), metadata=ORDERED)
     graphics: tuple[Graphic, ...] = field(default=(), metadata=ORDERED)
     texts: tuple[Text, ...] = field(default=(), metadata=ORDERED)
+    net_ties: tuple[tuple[str, ...], ...] = field(default=(), metadata=ORDERED)
+    """The net-tie groups of the footprint (change c0114): each group lists the numbers of pads of
+    different nets that the footprint joins on purpose, in the order its source lists them."""
+    anchor: MechanicalIntent | None = None
+
+
+def outward_height(footprint: FootprintInstance) -> Nm | None:
+    """The height of a placed part above the board surface on its own side, or ``None`` when unknown.
+
+    The largest upper bound of the footprint's known bodies (change c0140): a body is known when its
+    ``projection_unknown`` is false, and its upper bound is its ``z_max`` when it has signed bounds (change
+    c0099), its ``height`` otherwise. ``None`` when the footprint has no known body or that bound is not
+    positive. The one place of the package that computes a part's height: it reads neither the component,
+    nor a property, nor a 3D model, nor ``standoff``, nor ``z_min``."""
+    tops = [
+        body.height if body.z_max is None else body.z_max
+        for body in footprint.bodies
+        if not body.projection_unknown
+    ]
+    if not tops:
+        return None
+    top = max(tops)
+    return top if top > 0 else None
 
 
 @dataclass(frozen=True, slots=True)
 class Track(Entity):
+    """A straight track. ``locked`` marks copper that tools must not move or remove."""
+
     start: Point
     end: Point
     width: Nm
     layer: str
     net_id: str | None = None
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class Arc(Entity):
+    """An arc track through ``mid``. ``locked`` as for a track."""
+
     start: Point
     mid: Point
     end: Point
     width: Nm
     layer: str
     net_id: str | None = None
+    locked: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class ViaProtection:
+    """How a via is protected: tenting, covering and plugging per side, capping and filling for the via.
+
+    ``True`` means that the feature is applied (on that side), ``False`` that it is not. On a via, ``None``
+    means that the field follows the board's default; in ``Board.via_protection``, ``None`` (whole, or for
+    one field) means the backend's own default. Effective values are computed by the backends, never
+    stored (``docs/design-model.md``, "Via protection")."""
+
+    tenting_front: bool | None = None
+    tenting_back: bool | None = None
+    covering_front: bool | None = None
+    covering_back: bool | None = None
+    plugging_front: bool | None = None
+    plugging_back: bool | None = None
+    capping: bool | None = None
+    filling: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class Via(Entity):
-    """A via between ``layers`` (the two outermost copper layers it spans)."""
+    """A via between ``layers`` (the two outermost copper layers it spans). ``locked`` as for a track.
+
+    ``protection`` holds the via's own protection values; a field of ``None`` follows
+    ``Board.via_protection``. ``locked`` stays the last field (change c0108)."""
 
     position: Point
     diameter: Nm
@@ -236,6 +385,8 @@ class Via(Entity):
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
     net_id: str | None = None
     via_type: ViaType = "through"
+    protection: ViaProtection = ViaProtection()
+    locked: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,7 +465,8 @@ class Zone(Entity):
 
 @dataclass(frozen=True, slots=True)
 class Keepout(Entity):
-    """An area where some kinds of objects are not allowed."""
+    """A rule area: an area where some kinds of objects are not allowed, or, with every setting false,
+    a named area that only rules select (``Selector("area", name)``)."""
 
     outline: tuple[Point, ...] = field(metadata=ORDERED)
     layers: tuple[str, ...] = field(default=(), metadata=ORDERED)
@@ -323,6 +475,8 @@ class Keepout(Entity):
     no_pads: bool = False
     no_copper_pour: bool = False
     no_footprints: bool = False
+    name: str = ""
+    intent: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -333,6 +487,9 @@ class Text(Entity):
     size: Size
     thickness: Nm
     rotation: Udeg = 0
+    h_justify: FieldJustifyH = "center"
+    v_justify: FieldJustifyV = "center"
+    """The justification, in the reading frame of the text."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -347,12 +504,32 @@ class Graphic(Entity):
 
 
 @dataclass(frozen=True, slots=True)
+class Dimension(Entity):
+    """A linear dimension between two points. The measured value is not a field: it follows from the
+    points. ``offset`` is the signed distance of the dimension line from the measured points; ``None``
+    for ``size``, ``thickness`` and ``width`` means the backend's default."""
+
+    kind: DimensionKind
+    layer: str
+    start: Point
+    end: Point
+    offset: Nm
+    direction: DimensionDirection | None = None
+    units: DimensionUnits = "mm"
+    precision: int = 4
+    size: Size | None = None
+    thickness: Nm | None = None
+    width: Nm | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class Hole(Entity):
     """A mechanical hole that is not part of a footprint."""
 
     position: Point
     drill: Nm
     plated: bool = False
+    intent: MechanicalIntent | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -371,8 +548,11 @@ class Board(Entity):
     texts: tuple[Text, ...] = ()
     graphics: tuple[Graphic, ...] = ()
     holes: tuple[Hole, ...] = ()
+    dimensions: tuple[Dimension, ...] = ()
     sheet: SheetFrameRef | None = None
     title_block: TitleBlock | None = None
+    via_protection: ViaProtection | None = None
+    """The board's default protection for every via; ``None`` is the backend's own default."""
 
 
 __all__ = [
@@ -380,6 +560,11 @@ __all__ = [
     "Board",
     "BodyKind",
     "ComponentBody",
+    "DielectricKind",
+    "Dimension",
+    "DimensionDirection",
+    "DimensionKind",
+    "DimensionUnits",
     "FieldJustifyH",
     "FieldJustifyV",
     "FootprintAttribute",
@@ -396,8 +581,11 @@ __all__ = [
     "PPM_PER_PERCENT",
     "Layer",
     "LayerKind",
+    "MechanicalIntent",
     "Outline",
+    "OutlineArc",
     "Pad",
+    "PadFabProperty",
     "PadKind",
     "PadShape",
     "Padstack",
@@ -409,6 +597,7 @@ __all__ = [
     "Text",
     "Track",
     "Via",
+    "ViaProtection",
     "ViaType",
     "Zone",
     "ZoneConnection",
@@ -417,4 +606,5 @@ __all__ = [
     "ZoneHatch",
     "ZoneSettings",
     "ZoneSmoothing",
+    "outward_height",
 ]

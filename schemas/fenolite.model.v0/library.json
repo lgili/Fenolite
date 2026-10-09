@@ -79,6 +79,29 @@
         },
         "name": {
           "type": "string"
+        },
+        "z_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "z_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection_unknown": {
+          "type": "boolean"
         }
       },
       "additionalProperties": false,
@@ -241,6 +264,15 @@
           "type": "array",
           "items": {
             "$ref": "#/$defs/ComponentBody"
+          }
+        },
+        "net_ties": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -428,6 +460,25 @@
           "anyOf": [
             {
               "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fab_property": {
+          "anyOf": [
+            {
+              "enum": [
+                "bga",
+                "fiducial_global",
+                "fiducial_local",
+                "test_point",
+                "heatsink",
+                "castellated",
+                "mechanical",
+                "press_fit"
+              ]
             },
             {
               "type": "null"

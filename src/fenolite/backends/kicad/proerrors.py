@@ -35,6 +35,9 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.project.rule-below-minimum": "warning",
         "kicad.project.class-shadowed": "warning",
         "kicad.project.default-over-rule": "warning",
+        "kicad.project.unknown-check": "error",
+        "kicad.project.dropped-check": "warning",
+        "kicad.project.profile-reassigned": "warning",
     }
 )
 

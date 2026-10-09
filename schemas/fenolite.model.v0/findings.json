@@ -2,13 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "fenolite.findings.v0",
   "title": "Findings",
-  "description": "The findings layer of a design (``findings.json``).",
+  "description": "The findings layer of a design (``findings.json``). ``waivers`` are sorted by name.",
   "type": "object",
   "properties": {
     "issues": {
       "type": "array",
       "items": {
         "$ref": "#/$defs/Issue"
+      }
+    },
+    "waivers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Waiver"
       }
     }
   },
@@ -47,6 +53,44 @@
         "code",
         "severity",
         "message"
+      ]
+    },
+    "Waiver": {
+      "description": "The acceptance of one finding, with a reason (change c0114).",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "min_gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "code",
+        "items",
+        "reason"
       ]
     }
   }

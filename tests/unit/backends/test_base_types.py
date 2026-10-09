@@ -432,3 +432,90 @@ def test_document_validator_narrows_a_backend() -> None:
     assert isinstance(fakes.FakeDocumentValidator(), DocumentValidator)
     assert not isinstance(KicadBackend(), DocumentValidator)
     assert not isinstance(fakes.FakeValidator(), DocumentValidator)
+
+
+# --- stored exclusions source (capability backend-protocol, "Stored exclusions source"; c0114) -----
+
+
+def test_exclusion_source_is_satisfied_by_the_kicad_backend(tmp_path: Path) -> None:
+    """Scenario "KiCad backend is an exclusion source": a project that stores none gives ``()``."""
+    from fenolite.backends.base import NIL_UUID, ExclusionSource, ProjectSet, StoredExclusion
+    from fenolite.backends.kicad.backend import KicadBackend
+    from fenolite.core.coords import Point
+
+    board = tmp_path / "b.kicad_pcb"
+    project = tmp_path / "b.kicad_pro"
+    board.write_text("(kicad_pcb)", encoding="utf-8")
+    project.write_text('{"board": {"design_settings": {}}}', encoding="utf-8")
+    files = {"b.kicad_pcb": board, "b.kicad_pro": project}
+    copy_set = ProjectSet(root=tmp_path, board="b.kicad_pcb", files=files, has_project=True)
+    backend = KicadBackend()
+    assert isinstance(backend, ExclusionSource) and backend.stored_exclusions(copy_set) == ()
+    key = f"via_dangling|30123456|20654321|11111111-1111-4111-8111-111111111111|{NIL_UUID}"
+    project.write_text(
+        '{"board": {"design_settings": {"drc_exclusions": [["' + key + '", "test point"]]}}}',
+        encoding="utf-8",
+    )
+    assert backend.stored_exclusions(copy_set) == (
+        StoredExclusion(
+            "via_dangling",
+            Point(30_123_456, 20_654_321),
+            ("11111111-1111-4111-8111-111111111111", NIL_UUID),
+            "test point",
+        ),
+    )
+    assert "stored_exclusions" not in backend.capabilities().operations
+    assert dataclasses.is_dataclass(StoredExclusion) and StoredExclusion.__dataclass_params__.frozen  # type: ignore[attr-defined]
+
+
+def test_exclusion_source_never_raises_for_an_unreadable_project(tmp_path: Path) -> None:
+    """Scenario "An unreadable project gives no exclusion"."""
+    from fenolite.backends.base import ProjectSet
+    from fenolite.backends.kicad.backend import KicadBackend
+
+    board = tmp_path / "b.kicad_pcb"
+    board.write_text("(kicad_pcb)", encoding="utf-8")
+    alone = ProjectSet(root=tmp_path, board="b.kicad_pcb", files={"b.kicad_pcb": board})
+    assert KicadBackend().stored_exclusions(alone) == ()
+    project = tmp_path / "b.kicad_pro"
+    files = {"b.kicad_pcb": board, "b.kicad_pro": project}
+    copy_set = ProjectSet(root=tmp_path, board="b.kicad_pcb", files=files, has_project=True)
+    assert KicadBackend().stored_exclusions(copy_set) == ()  # the file is missing
+    project.write_text("not json", encoding="utf-8")
+    assert KicadBackend().stored_exclusions(copy_set) == ()
+    project.write_bytes(b"\xff\xfe")
+    assert KicadBackend().stored_exclusions(copy_set) == ()
+
+
+# -- length facts (backend-protocol, "Length facts source"; change c0106)
+
+
+def test_length_source_protocol() -> None:
+    backend = KicadBackend()
+    assert isinstance(backend, base.LengthSource)
+    assert "length_facts" not in backend.capabilities().operations
+    assert not isinstance(object(), base.LengthSource)
+    source = Path(sys.modules[KicadBackend.__module__].__file__ or "").read_text(encoding="utf-8")
+    assert "_LENGTHS: LengthSource = KicadBackend()" in source
+
+
+def test_length_records_are_plain_data() -> None:
+    for record in (base.NetLength, base.LengthFacts):
+        assert dataclasses.is_dataclass(record) and record.__dataclass_params__.frozen  # type: ignore[attr-defined]
+        assert hasattr(record, "__slots__")
+        for annotation in typing.get_type_hints(record).values():
+            modules = _names(annotation)
+            assert all(
+                m in ("builtins", "typing", "types", "collections.abc", base.__name__)
+                or m.startswith(("fenolite.core", "fenolite.model"))
+                for m in modules
+            ), modules
+    test_base_imports_no_backend()
+    length = base.NetLength("N", 10, 2, 1, 13, 1)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        length.total = 4  # type: ignore[misc]
+    with pytest.raises(ValueError, match="sum of its parts"):
+        base.NetLength("N", 10, 2, 1, 14, 1)
+    facts = base.LengthFacts({"N": length}, {"F.Cu": 0}, {}, 10, "default", True, base.Evidence())
+    with pytest.raises(TypeError):
+        facts.nets["M"] = length  # type: ignore[index]

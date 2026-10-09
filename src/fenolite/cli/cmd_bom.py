@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from fenolite.backends.kicad import bom as kicad_bom
-from fenolite.backends.kicad.cli import BOM, CONFIG_DIR
+from fenolite.backends.kicad.cli import BOM, RESERVED_DIRS
 from fenolite.cli._assembly import (
     BoardInput,
     board_input,
@@ -32,7 +32,7 @@ from fenolite.cli._assembly import (
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, preflight
 from fenolite.cli._manifest import needs_out, table_manifest
-from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.api import Command, Context, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -90,7 +90,7 @@ def _sheet_files(board: BoardInput) -> dict[str, Path]:
         folders = parts[:-1]
         if path == schematic or not path.is_file():
             continue
-        if any(f.startswith(".") or f == CONFIG_DIR or f.endswith(SKIPPED_FOLDERS) for f in folders):
+        if any(f.startswith(".") or f in RESERVED_DIRS or f.endswith(SKIPPED_FOLDERS) for f in folders):
             continue
         files["/".join(parts)] = path
     return files
@@ -204,7 +204,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             writes, ctx, evidence=evidence.level.value, board=board.manifest_ref()
         )
         issues += refused
-    return Result(result=result, issues=tuple(issues), evidence=evidence, input=board.ref(), writes=writes)
+    schematic = board.path.with_suffix(".kicad_sch")
+    return Result(
+        result=result,
+        issues=tuple(issues),
+        evidence=evidence,
+        input=board.ref(),
+        writes=writes,
+        depends=depends_on(
+            ctx.cwd,
+            board.path,
+            None if other is None else other.path,
+            schematic if args.source == "kicad" and schematic.is_file() else None,
+            args.template,
+        ),
+    )
 
 
 _EXAMPLE = (EXAMPLE_BOARD, "--source", "model")

@@ -69,6 +69,27 @@ def test_new_stages_are_read_only(monkeypatch: pytest.MonkeyPatch, project: tupl
     _untouched(root, before)
 
 
+def test_placement_rules_stage_is_read_only_and_runs_no_tool(
+    monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]
+) -> None:
+    """The stage ``placement.rules`` (change c0113) reads the board and ``.fenolite/`` and starts no tool,
+    with or without a ``kicad-cli`` at hand; two runs give the same stage."""
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(
+        monkeypatch, root, "check", str(root), "--kicad-cli", str(fake), "--stages", "placement.rules"
+    )
+    assert code == 0, env["issues"]
+    (stage,) = env["result"]["stages"]
+    assert (stage["name"], stage["status"]) == ("placement.rules", "ok")
+    assert stage["summary"]["rules"] == {"near": {"judged": 0, "failed": 0, "skipped": 0}}
+    assert calls(fake) == []
+    _untouched(root, before)
+    again = run(monkeypatch, root, "check", str(root), "--stages", "placement.rules")[1]
+    assert again["result"]["stages"] == env["result"]["stages"]
+    _untouched(root, before)
+
+
 def test_inspect_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Path, Path]) -> None:
     root, _ = project
     before = tree_snapshot(root)
@@ -113,7 +134,13 @@ def test_doctor_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tuple[Pat
 
 
 @pytest.mark.parametrize(
-    "command", [("export", "--all", "--manifest"), ("render", "--svg", "--png")], ids=["export", "render"]
+    "command",
+    [
+        ("export", "--all", "--manifest"),
+        ("render", "--svg", "--png"),
+        ("export", "--ipc2581", "--odb", "--step", "--pdf", "--dxf", "--manifest"),  # c0116
+    ],
+    ids=["export", "render", "export-documents"],
 )
 @pytest.mark.parametrize("protocol", ["--dry-run", "--confirm"])
 def test_export_and_render_leave_the_source_untouched(
@@ -148,7 +175,11 @@ def test_place_dry_run_is_read_only(monkeypatch: pytest.MonkeyPatch, project: tu
     _untouched(root, before)
 
 
-@pytest.mark.parametrize("command", [("bom", "--source", "model"), ("pnp",)], ids=["bom", "pnp"])
+@pytest.mark.parametrize(
+    "command",
+    [("bom", "--source", "model"), ("pnp",), ("testpoints",)],
+    ids=["bom", "pnp", "testpoints"],
+)
 @pytest.mark.parametrize("protocol", ["--dry-run", "--confirm"])
 def test_bom_and_pnp_leave_the_source_untouched(
     monkeypatch: pytest.MonkeyPatch,
@@ -164,7 +195,7 @@ def test_bom_and_pnp_leave_the_source_untouched(
     name, *flags = command
     code, env, _, _ = run(monkeypatch, elsewhere, name, str(root), *flags, "--out", "table.csv", protocol)
     assert code == 0, env["issues"]
-    assert calls(fake) == []  # neither command runs a tool
+    assert calls(fake) == []  # none of the commands runs a tool
     assert (elsewhere / "table.csv").is_file() is (protocol == "--confirm")
     assert tree_snapshot(root) == before
 
@@ -223,4 +254,18 @@ def test_netlist_is_read_only(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -
     assert code == 0, env
     assert any(c["args"][:3] == ["sch", "export", "netlist"] for c in calls(fake))  # the fake ran on a copy
     assert env["receipt"] is None and env["result"]["counts"]["components"] == 3
+    _untouched(root, before)
+
+
+@pytest.mark.parametrize("flags", [(), ("--vendor", "--dry-run")], ids=["list", "vendor-plan"])
+def test_models_is_read_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, project: tuple[Path, Path], flags: tuple[str, ...]
+) -> None:
+    """``models`` without ``--vendor`` writes nothing and runs no tool; with ``--vendor --dry-run`` it only
+    plans (cli-contract, "Models command"; change c0116)."""
+    root, fake = project
+    before = tree_snapshot(root)
+    code, env, _, _ = run(monkeypatch, tmp_path, "models", str(root), *flags)
+    assert code == 0, env["issues"]
+    assert calls(fake) == []
     _untouched(root, before)

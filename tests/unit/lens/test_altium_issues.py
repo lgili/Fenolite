@@ -935,3 +935,56 @@ def test_net_class_name_is_checked_without_a_pcb_document(name: str) -> None:
     found = [i for i in output.issues if i.code == "altium.text-unwritable"]
     assert output.files == {} and len(found) == 1
     assert found[0].severity == "error" and f"net class name {name!r}" in found[0].message
+
+
+# --- change c0100: script layer counts (altium-build, "Script layer counts in an Altium build") -------
+
+
+def test_eight_layers_read_back() -> None:
+    """Scenario "Eight layers read back": the document of a script of eight layers holds its eight copper
+    layers in order, and no issue is an error."""
+    from _altium_board6 import read_document
+
+    from fenolite.dsl.design import COPPER_COUNTS
+    from fenolite.lens import altium_copper
+
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        project = blink_tree(root)
+        design = blink("design.board(mm(50), mm(30))", "design.board(mm(50), mm(30), copper=8)")
+        assert design.copper == 8
+        output = build_altium(
+            to_model(design),
+            name=design.name,
+            placed=tuple(placements(design)),
+            placements=placements(design),
+            copper=design.copper,
+            resolver=blink_resolver(root, project),
+        )
+    assert [i for i in output.issues if i.severity == "error"] == []
+    assert not [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "stackup"]
+    _document, back = read_document(output.files["blink.PcbDoc"], "blink.PcbDoc")
+    assert back.board is not None
+    names = tuple(layer.name for layer in back.board.layers if layer.kind == "copper")
+    assert names == ("F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "In5.Cu", "In6.Cu", "B.Cu")
+    assert names == design.copper_layers
+    for count in COPPER_COUNTS:  # no count of the DSL is refused as such
+        layers, issues = altium_copper.board_layers(to_model(design), count)
+        assert issues == [] and len(layers) == count
+
+
+def test_stack_hint_without_the_old_counts() -> None:
+    """Scenario "Hint without the old counts": a board of four copper layers and a script count of six."""
+    from _altium_copper import routed_build, routed_model
+
+    from fenolite.backends.kicad.layers import created_layers
+    from fenolite.lens.altium_copper import STACK_HINT
+
+    model = _copper_board(routed_model(()), layers=created_layers(4))
+    with tempfile.TemporaryDirectory() as folder:
+        output = routed_build(Path(folder), model, copper=6)
+    found = [i for i in output.issues if i.code == "altium.copper-stack"]
+    assert output.files == {} and len(found) == 1
+    assert "4" in found[0].message and "6" in found[0].message
+    assert found[0].hint == STACK_HINT and "copper=…" in STACK_HINT
+    assert "copper=2" not in STACK_HINT and "copper=4" not in STACK_HINT

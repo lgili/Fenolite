@@ -265,3 +265,71 @@ def test_protocol_names_the_script_copper_bytes(monkeypatch: pytest.MonkeyPatch,
     assert "examples/blink_routed/design.py" in step and "--target altium" in step
     assert "H-A-PCB-CU-TRACK" in step and "H-A-PCB-CU-VIA" in step
     assert "pending" in step and "ALTIUM-VERIFIED" not in step
+
+
+# --- anchors (change c0111): resolved by the in-memory KiCad build, so they reach the document ------
+
+ANCHORED = (
+    'design.via("fan9", u1.pad(9).at(mm(-1), mm(1.5)), net=vin, diameter=mm(0.6), drill=mm(0.3))\n'
+    'design.track("stub", u1.pad(9), u1.pad(9).at(mm(-1), mm(1.5)), width=mm(0.3))\n'
+)
+
+
+def test_anchored_copper_reaches_the_altium_document(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The anchored variant of the routed blink: the dry run plans the document with the anchored via and
+    track, and the document a confirmed build writes holds the via at the point ``part_frame`` gives. A dry
+    run writes nothing, so the read-back is of the confirmed build of the same script."""
+    from fenolite.backends.kicad.frame import part_frame
+    from fenolite.core.coords import Point
+
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    routed.script.write_text(routed.script.read_text(encoding="utf-8") + ANCHORED, encoding="utf-8")
+    code, envelope, err = altium(routed, "--dry-run")
+    assert code == 0, (envelope.get("issues"), err)
+    found = envelope["result"]["copper"]
+    assert (found["source"], found["tracks"], found["vias"]) == ("script", 12, 8)
+    assert DOCUMENT in json.dumps(envelope["result"]["plan"]) and not routed.out.exists()
+    assert not [c for c in codes(envelope) if c.startswith("kicad.copper.")]
+    code, envelope, err = altium(routed, "--confirm")
+    assert code == 0, (envelope.get("issues"), err)
+    doc = read_pcbdoc((routed.out / DOCUMENT).read_bytes())
+    design = run_design_script(routed.script).design
+    resolver = LibraryResolver(LibraryConfig(target_major=10, project_dir=routed.script.parent))
+    built = build_design(
+        to_model(design),
+        placements(design),
+        name=NAME,
+        copper=design.copper,  # type: ignore[arg-type]
+        resolver=resolver,
+        copper_intents=copper(design),
+    )
+    board = built.design.board
+    assert board is not None and board.outline is not None
+    left = min(p.x for p in board.outline.points)
+    bottom = max(p.y for p in board.outline.points)
+    spot = part_frame(built.design, "U1", number=9).point(Point(-1_000_000, 1_500_000))
+    wanted = (CORNER + pcbrecords.to_units(spot.x - left), CORNER + pcbrecords.to_units(bottom - spot.y))
+    on_vin = [v for v in doc.vias if doc.nets[v.prefix.net]["NAME"] == "VIN"]
+    (via,) = on_vin
+    assert abs(via.x - wanted[0]) <= 1 and abs(via.y - wanted[1]) <= 1
+    (stub,) = [t for t in doc.free_tracks if doc.nets[t.prefix.net]["NAME"] == "VIN"]
+    ends = sorted(
+        [(stub.x1, stub.y1), (stub.x2, stub.y2)], key=lambda p: abs(p[0] - via.x) + abs(p[1] - via.y)
+    )
+    assert abs(ends[0][0] - via.x) <= 1 and abs(ends[0][1] - via.y) <= 1, "the track ends at the via"
+
+
+def test_anchor_error_refuses_the_altium_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """An anchor that names pad ``7`` of ``R1``: the code of the anchor passes into the Altium build's
+    issues ("Nothing silent"), the build exits 5 and plans no file."""
+    routed = Routed(tmp_path, monkeypatch, confirm=False)
+    broken = ANCHORED.replace("u1.pad(9).at(mm(-1), mm(1.5)), net=vin", "r1.pad(7).at(), net=vin")
+    assert broken != ANCHORED
+    routed.script.write_text(routed.script.read_text(encoding="utf-8") + broken, encoding="utf-8")
+    code, envelope, _ = altium(routed, "--dry-run")
+    assert code == 5
+    (found,) = [i for i in envelope["issues"] if i["code"] == "kicad.copper.pad-not-found"]
+    assert found["severity"] == "error" and "fan9" in found["message"] and "R1" in found["message"]
+    result = envelope["result"]
+    assert result["copper"] is None and result["pcb_document"] is None and result["files"] == []
+    assert not result.get("plan") and not routed.out.exists()

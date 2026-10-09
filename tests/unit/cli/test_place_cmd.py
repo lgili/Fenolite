@@ -20,6 +20,7 @@ from fenolite.cli.cmd_place import COMMAND, Move, parse_move
 from fenolite.cli.errors import CliError
 from fenolite.geometry import BBox
 from fenolite.model.board import FootprintInstance
+from fenolite.placement import KEEPOUT_EVIDENCE
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -317,3 +318,161 @@ def test_native_board_and_the_example(monkeypatch: pytest.MonkeyPatch, tmp_path:
     # a native board has no staged part, so the grid has nothing to do
     code, env, _, _ = run(monkeypatch, tmp_path, "place", str(FIXTURE), "--dry-run")
     assert code == 0 and env["result"]["moved"] == [] and env["result"]["strategy"] == "grid"
+
+
+# --- keep-outs, rules and measures (change c0113) -------------------------------------------------------
+
+NEAR = '\ndesign.near("led", d1, r1.pad(2), within=mm(5))\n'
+NO_RULES = {"near": {"judged": 0, "failed": 0, "skipped": 0}}
+
+
+def with_keepout(folder: Path, box: tuple[int, int, int, int], *layers: str) -> None:
+    """Draw a rule area that forbids footprints on the built board, ``box`` in millimetres from the
+    outline's top-left corner, as a user would in KiCad."""
+    import dataclasses
+
+    from fenolite.backends.kicad.pcb import write_board
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Keepout
+
+    path = folder / "blink.kicad_pcb"
+    design = read_board(path)
+    assert design.board is not None
+    x0, y0, x1, y1 = (ORIGIN + value * MM for value in box)
+    ring = (Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
+    area = Keepout(
+        id="kpo_00000000-0000-4000-8000-000000000001", outline=ring, layers=layers, no_footprints=True
+    )
+    board = dataclasses.replace(design.board, keepouts=(area,))
+    path.write_text(write_board(dataclasses.replace(design, board=board), target=10).text, encoding="utf-8")
+
+
+def test_nothing_to_place_reports_rules_and_measures(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Nothing to place": no move, no change of the measures, no write."""
+    folder = built(monkeypatch, tmp_path)
+    snapshot = tree_snapshot(folder)
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--confirm")
+    assert code == 0 and tree_snapshot(folder) == snapshot
+    result = env["result"]
+    assert result["moved"] == [] and result["rules"] == NO_RULES
+    measures = result["measures"]
+    assert measures["change"] == {"hpwl": 0, "ratsnest": 0}
+    assert measures["nets"] > 0 and measures["hpwl"] >= measures["ratsnest"] > 0
+    assert set(measures) == {"nets", "hpwl", "ratsnest", "longest", "left_out", "congestion", "change"}
+    # the class Default of the built project: a 0.2 mm track and a 0.2 mm clearance
+    assert measures["congestion"]["pitch"] == 400_000 and measures["congestion"]["tracks_per_layer"] == 5
+    assert env["evidence"]["level"] == "KICAD-VERIFIED"
+
+
+def test_keepout_avoided_by_the_grid_and_refused_for_a_move(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Scenario "Keep-out avoided by the grid and refused for a move"."""
+    plain = built(monkeypatch, tmp_path, STAGED[0], name="plain")
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(plain), "--confirm")
+    assert code == 0
+    free = footprints(plain)["R1"].position
+    corner = BBox(ORIGIN, ORIGIN, ORIGIN + 8 * MM, ORIGIN + 8 * MM)
+    assert corner.contains_point(free)  # without the area, the grid puts R1 into the corner
+
+    folder = built(monkeypatch, tmp_path, STAGED[0])
+    with_keepout(folder, (0, 0, 8, 8), "F.Cu")
+    code, env, err, _ = run(monkeypatch, tmp_path, "place", str(folder), "--confirm")
+    assert code == 0, (env["issues"], err)
+    placed = footprints(folder)["R1"].position
+    assert region(folder).contains_point(placed) and not corner.contains_point(placed)
+    assert [row["ref"] for row in env["result"]["moved"]] == ["R1"]
+    assert not [c for c in codes(env) if c.startswith("place.keepout")]
+    # the board holds a rule area that forbids footprints: the keep-out evidence joins the envelope
+    assert "H-K-PLACE-KEEPOUT" in env["evidence"]["hypotheses"]
+    assert env["evidence"]["level"] == KEEPOUT_EVIDENCE.level.value
+
+    snapshot = tree_snapshot(folder)
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--confirm")
+    assert code == 5 and tree_snapshot(folder) == snapshot
+    found = [i for i in env["issues"] if i["code"] == "place.keepout"]
+    assert [(i["severity"], i["where"]) for i in found] == [("error", "R1")]
+    assert env["result"]["legality"] == {"place.keepout": 1}
+    code, env, _, _ = run(
+        monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--force", "--confirm"
+    )
+    assert code == 5 and "place.keepout" in codes(env)
+    assert corner.contains_point(footprints(folder)["R1"].position)  # written all the same
+
+
+def test_keepout_on_the_back_does_not_judge_a_part_on_the_top(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    folder = built(monkeypatch, tmp_path)
+    with_keepout(folder, (0, 0, 8, 8), "B.Cu")
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--dry-run")
+    assert code == 0 and not [c for c in codes(env) if c.startswith("place.keepout")]
+
+
+def test_rules_and_measures_of_a_move(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Rules and measures of a move": a rule is reported as a warning and never refuses."""
+    script = blink_variant(tmp_path / "near-src", append=NEAR)
+    folder = tmp_path / "near"
+    code, env, err, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", str(folder), "--confirm")
+    assert code == 0, (env.get("issues"), err)
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=36mm,18mm", "--dry-run")
+    assert code == 0, env["issues"]
+    assert "placement.too-far" not in codes(env)
+    assert env["result"]["rules"] == {"near": {"judged": 1, "failed": 0, "skipped": 0}}
+    assert env["result"]["measures"]["change"]["hpwl"] < 0
+    # a judged rule is Fenolite's own definition: the envelope is never above INFERRED
+    assert env["evidence"]["level"] == "INFERRED"
+
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=2mm,2mm", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [i for i in env["issues"] if i["code"] == "placement.too-far"]
+    assert [(i["severity"], i["where"]) for i in found] == [("warning", "D1")]
+    assert env["result"]["rules"] == {"near": {"judged": 1, "failed": 1, "skipped": 0}}
+    assert len(env["result"]["plan"]) == 1  # a rule never refuses the write
+    assert env["result"]["measures"]["change"]["hpwl"] != 0
+
+
+def test_native_board_has_measures_and_no_rules(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(FIXTURE), "--strategy", "manual", "--dry-run")
+    assert code == 0, env["issues"]
+    assert env["result"]["rules"] == NO_RULES and env["result"]["measures"]["nets"] > 0
+    assert env["result"]["measures"]["change"] == {"hpwl": 0, "ratsnest": 0}
+
+
+# --- height limits after the moves (change c0140) -------------------------------------------------------
+
+TALL_R1 = (
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330")',
+    'r1 = Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", height=mm(9))',
+)
+LOW_CORNER = (
+    'design.rule_area("LID", [(mm(0), mm(0)), (mm(8), mm(0)), (mm(8), mm(8)), (mm(0), mm(8))], '
+    'layers=("F.Cu",))\ndesign.height_limit("LID", max=mm(5))\n'
+)
+"""The 8 mm square at the top-left corner of the blink's board, on ``F.Cu``, limited to 5 mm; the courtyard of
+``U1`` at (14, 15) mm reaches into a 10 mm square, so the square is smaller than that."""
+
+
+def test_height_a_move_under_a_low_area(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A move under a low area": reported as a warning, never refused."""
+    folder = built(monkeypatch, tmp_path, TALL_R1, ("d1.place(", LOW_CORNER + "d1.place("), name="low")
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--dry-run")
+    assert code == 0, env["issues"]
+    found = [i for i in env["issues"] if i["code"].startswith("placement.")]
+    assert [(i["code"], i["severity"], i["where"]) for i in found] == [
+        ("placement.too-tall", "warning", "R1")
+    ]
+    assert env["result"]["rules"]["height"] == {"judged": 1, "failed": 1, "unknown": 0}
+    assert len(env["result"]["plan"]) == 1  # a height never refuses the write
+    assert env["evidence"]["level"] == "INFERRED"
+    again = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=4mm,4mm", "--dry-run")[1]
+    assert again["result"]["rules"] == env["result"]["rules"] and again["issues"] == env["issues"]
+
+
+def test_height_no_limit_same_reply(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "No limit, same reply"."""
+    folder = built(monkeypatch, tmp_path, TALL_R1, name="tall")
+    code, env, _, _ = run(monkeypatch, tmp_path, "place", str(folder), "--move", "R1=12mm,8mm", "--dry-run")
+    assert code == 0, env["issues"]
+    assert "height" not in env["result"]["rules"]
+    assert env["result"]["rules"] == NO_RULES

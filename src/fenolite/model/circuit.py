@@ -131,6 +131,10 @@ class NetClass(Entity):
     via_diameter: Nm | None = None
     via_drill: Nm | None = None
     description: str = ""
+    #: The width, gap and via gap of a differential pair of the class: defaults of a router, not limits.
+    diff_pair_width: Nm | None = None
+    diff_pair_gap: Nm | None = None
+    diff_pair_via_gap: Nm | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +198,17 @@ class Circuit:
     no_connects: tuple[PinRef, ...] = ()
 
 
+def power_interface_nets(circuit: Circuit) -> frozenset[str]:
+    """The ids of the nets that an interface of kind ``power`` names (the DSL's ``Power``): the one set that
+    ERC lite, the schematic writer's power flags and ``fenolite ready`` take as the declared supplies."""
+    return frozenset(
+        net_id
+        for interface in circuit.interfaces
+        if interface.kind == "power"
+        for net_id in interface.members.values()
+    )
+
+
 __all__ = [
     "Bus",
     "BusMember",
@@ -208,5 +223,6 @@ __all__ = [
     "PinType",
     "normal_pin_pad_map",
     "pin_pad_map_problems",
+    "power_interface_nets",
     "with_normal_pin_maps",
 ]

@@ -15,7 +15,6 @@ A pass on 10.0.6 checks only what KiCad's importer reads; it settles no Altium-o
 
 from __future__ import annotations
 
-import os
 import struct
 import subprocess
 import tempfile
@@ -26,6 +25,7 @@ from pathlib import Path
 
 import pytest
 from _altium import example, example_resolver, sample_model
+from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium.altsym import AltiumSymbol
@@ -74,7 +74,7 @@ def convert(data: bytes, name: str = "lib.SchLib") -> Converted:
         root = Path(folder)
         source, target = root / name, root / "out.kicad_sym"
         source.write_bytes(data)
-        env = {**os.environ, "KICAD_CONFIG_HOME": str(root / "config")}
+        env = oracle_env(root / "config")
         proc = subprocess.run(
             [cli, "sym", "upgrade", str(source), "-o", str(target)],
             capture_output=True,

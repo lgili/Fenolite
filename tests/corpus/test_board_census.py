@@ -25,6 +25,7 @@ from _boardcorpus import (
     census_pintypes,
     census_uuids,
     census_validation,
+    census_via_protection,
     census_zone_settings,
     census_zones,
     entry,
@@ -69,6 +70,31 @@ def test_footprint_fields() -> None:
     assert total > 0
 
 
+def test_board_items() -> None:
+    """How many dimensions of the corpus boards are modelled and how many stay opaque root children, and
+    the rule areas with a name and the justified texts (change c0103). Counts only."""
+    data: dict[str, dict[str, int]] = {}
+    for found in entries():
+        board = found.design.board
+        assert board is not None
+        written = sum(1 for child in found.root.nodes() if child.name == "dimension")
+        counts = {
+            "dimensions_modelled": len(board.dimensions),
+            "dimensions_opaque": written - len(board.dimensions),
+            "named_rule_areas": sum(1 for k in board.keepouts if k.name),
+            "justified_texts": sum(
+                1 for text in board.texts if (text.h_justify, text.v_justify) != ("center", "center")
+            ),
+        }
+        assert counts["dimensions_opaque"] >= 0
+        if any(counts.values()):
+            data[found.id] = counts
+    census("board_items", "native", data)
+    print("board items:", data or "none")
+    assert not [i for found in entries() for i in found.issues if i.code == "kicad.board.duplicate-uuid"
+                and "dimension" in i.where]  # fmt: skip
+
+
 def test_uuid_repeats() -> None:
     data = census_uuids(entries())
     census("uuids", "native", data)
@@ -109,6 +135,16 @@ def test_zone_settings() -> None:
     print("zone settings:", counts)
     assert sum(c.get("zones", 0) for c in counts.values()) > 0
     assert not problems, "setting children kept opaque: " + "; ".join(problems)
+
+
+def test_via_protection() -> None:
+    """Every protection child of a via of the readable boards is a modelled slot, and the forms are those
+    of ``docs/formats/kicad/board.md``, "Via protection" (change c0112; counts go to the census file)."""
+    counts, problems = census_via_protection(entries())
+    census("via_protection", "native", counts)
+    print("via protection:", counts)
+    assert sum(c.get("vias", 0) for c in counts.values()) > 0
+    assert not problems, "protection children kept opaque: " + "; ".join(problems)
 
 
 @pytest.mark.needs_kicad

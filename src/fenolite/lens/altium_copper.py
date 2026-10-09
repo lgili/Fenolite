@@ -35,6 +35,12 @@ from typing import Literal
 from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords, rulemap
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
+from fenolite.backends.altium.lower import (
+    keepout_footprints_info,
+    stack_unfit_reason,
+    stack_unheld,
+    stack_unheld_reason,
+)
 from fenolite.backends.altium.project import component_path
 from fenolite.backends.kicad.embed import PATH_PROPERTY
 from fenolite.backends.kicad.netnames import UNCONNECTED_PREFIX
@@ -44,6 +50,7 @@ from fenolite.lens.build import PlacementRequest
 from fenolite.model.board import (
     Arc,
     Board,
+    ComponentBody,
     FootprintInstance,
     Graphic,
     Hole,
@@ -53,6 +60,7 @@ from fenolite.model.board import (
     Text,
     Track,
     Via,
+    ViaProtection,
     Zone,
 )
 from fenolite.model.design import Design
@@ -78,7 +86,10 @@ COPPER_COUNTS: Mapping[int, tuple[str, ...]] = MappingProxyType(
     {len(stack): stack for stack in pcbrecords.COPPER_STACKS}
 )
 """Copper layer count of the script → the board's copper layers, top to bottom."""
-STACK_HINT = "use design.board(..., copper=2) or copper=4, or give the board its copper layers"
+STACK_HINT = (
+    "make design.board(..., copper=…) equal to the board's copper layer count, "
+    "or give the board its copper layers"
+)
 KINDS: tuple[str, ...] = (
     "footprint",
     "pad",
@@ -88,6 +99,7 @@ KINDS: tuple[str, ...] = (
     "zone",
     "text",
     "graphic",
+    "dimension",
     "keep-out",
     "hole",
     "body",
@@ -134,6 +146,8 @@ class CopperPlan:
     holes: tuple[Hole, ...] = ()
     counts: Mapping[str, tuple[int, int]] = dataclasses.field(default_factory=lambda: MappingProxyType({}))
     """Kind of ``KINDS`` → (items written, items not lowered), for the kinds the lowering decides."""
+    via_protection: ViaProtection | None = None
+    """The default via protection of the board that holds the copper (change c0112)."""
 
     @property
     def failed(self) -> bool:
@@ -315,6 +329,47 @@ def _vias(vias: Sequence[Via], low: _Lowering, issues: list[Issue]) -> list[Via]
     return out
 
 
+VIA_PROTECTION_WHERE = "via-protection"
+VIA_PROTECTION_HINT = (
+    "state the tenting of every via with design.via_protection(protect(tenting=…)), or per via with "
+    "protection=; covering, plugging, capping and filling are entered in Altium by hand"
+)
+
+
+def via_protection_info(vias: Sequence[Via], default: ViaProtection | None) -> Issue | None:
+    """The one ``altium.not-lowered`` info at ``via-protection`` (altium-build, "Via protection in an
+    Altium build"), or ``None``. It names (a) the vias for which covering, plugging, capping or filling is
+    ``True``, by their own value or by the board default, with those features: no Altium fact is recorded
+    for them, so they stay in the model; and (b), when the design states a protection at all, the vias
+    with a tenting side that neither the via nor the default states: KiCad tents such a side, and the
+    Altium document leaves its flag clear."""
+    features: list[str] = []
+    kept = 0
+    for via in vias:
+        found = pcbdoc.unwritten_features(via, default)
+        kept += bool(found)
+        features += [name for name in found if name not in features]
+    stated = default is not None or any(via.protection != ViaProtection() for via in vias)
+    unstated = sum(1 for via in vias if pcbdoc.unstated_tenting(via, default)) if stated else 0
+    parts: list[str] = []
+    if kept:
+        order = [feature for feature, _ in pcbdoc.UNWRITTEN_FEATURES if feature in features]
+        parts.append(
+            f"{kept} via(s) hold {', '.join(order)}, which the Altium document does not hold: the "
+            "values stay in the model only"
+        )
+    if unstated:
+        parts.append(
+            f"{unstated} via(s) have a tenting side that neither the via nor the board default states: "
+            "KiCad tents such a via, and the Altium document leaves its tenting flag clear"
+        )
+    if not parts:
+        return None
+    return Issue(
+        "altium.not-lowered", "info", "; ".join(parts), where=VIA_PROTECTION_WHERE, hint=VIA_PROTECTION_HINT
+    )
+
+
 def _zones(zones: Sequence[Zone], low: _Lowering, issues: list[Issue], merged: list[str]) -> list[Zone]:
     """The zones to write. A zone layer on a plane whose net is the plane's net is left to the plane and
     described in ``merged``; with another net, or none, it gives ``altium.plane-copper``."""
@@ -401,7 +456,9 @@ def stack_from_stackup(
 ) -> StackSpec | None:
     """The stack values of ``stackup`` when it fits the document: one copper layer per copper layer of the
     board, named like it and in order, with exactly one dielectric between neighbours; ``None`` otherwise.
-    Solder mask, silkscreen and paste layers of the stack-up are passed over."""
+    Solder mask, silkscreen and paste layers of the stack-up are passed over. A dielectric whose
+    ``dielectric_kind`` is stated is written with that kind (``DIELTYPE``, ``pcb-copper.md``, "Layer
+    stack"); one without keeps the kind of ``dielectric_kinds`` by count (change c0101)."""
     physical = [layer for layer in stackup.layers if layer.kind in ("copper", "dielectric")]
     if len(physical) != 2 * len(layers) - 1:
         return None
@@ -412,7 +469,12 @@ def stack_from_stackup(
         return None
     try:
         dielectrics = tuple(
-            Dielectric(kind, layer.thickness, layer.epsilon_r or "4.800", layer.material or "FR-4")  # type: ignore[arg-type]
+            Dielectric(
+                layer.dielectric_kind or kind,  # type: ignore[arg-type]
+                layer.thickness,
+                layer.epsilon_r or "4.800",
+                layer.material or "FR-4",
+            )
             for kind, layer in zip(dielectric_kinds(len(between)), between, strict=True)
         )
         return StackSpec(copper, tuple(layer.thickness for layer in coppers), dielectrics, nets)
@@ -434,11 +496,11 @@ def stack_values(
         return StackSpec.default(copper, nets), []
     found = stack_from_stackup(stackup, layers, copper, nets)
     if found is not None:
-        return found, []
-    message = (
-        "the stack-up does not hold one copper layer per copper layer of the board with one dielectric "
-        "between neighbours; the document gets Fenolite's default stack values"
-    )
+        unheld = stack_unheld(stackup)
+        if not unheld:
+            return found, []
+        return found, [Issue("altium.not-lowered", "info", stack_unheld_reason(unheld), where="stackup")]
+    message = f"{stack_unfit_reason(stackup)}; the document gets Fenolite's default stack values"
     return StackSpec.default(copper, nets), [Issue("altium.not-lowered", "info", message, where="stackup")]
 
 
@@ -478,6 +540,7 @@ BOARD_KINDS: tuple[tuple[str, str], ...] = (
     ("texts", "board texts"),
     ("graphics", "graphics"),
     ("holes", "holes"),
+    ("dimensions", "dimensions"),
 )
 """Board fields that only the PCB document holds, and what a message calls them."""
 BOARD_WHERES: tuple[str, ...] = tuple(name for name, _what in BOARD_KINDS)
@@ -529,6 +592,12 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
         problem = pcbdoc.text_problem_of(text)
         if text.layer not in pcbrecords.BOARD_LAYER_MAP:
             problem = f"the layer {text.layer} has no layer in the document for a text"
+        if problem is None and (text.h_justify, text.v_justify) != ("center", "center"):
+            words = " ".join(w for w in (text.h_justify, text.v_justify) if w != "center")
+            problem = (
+                f"the text record has no key for the justification {words!r}, and a centred text would "
+                "be at another place"
+            )
         if problem is None:
             texts.append(text)
         else:
@@ -551,9 +620,16 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
     for keepout in board.keepouts:
         problem = pcbdoc.keepout_problem(keepout, layers)
         if problem is not None:
-            issues.append(_kept("keepout", keepout.id, f"the keep-out is not written: {problem}"))
+            named = f" {keepout.name!r}" if keepout.name else ""
+            issues.append(_kept("keepout", keepout.id, f"the keep-out{named} is not written: {problem}"))
             continue
         keepouts.append(keepout)
+        if keepout.name:
+            message = (
+                f"the name {keepout.name!r} of the keep-out is not written: the record has no key for a "
+                "name; the keep-out is written with its restrictions"
+            )
+            issues.append(_kept("keepout", keepout.id, message))
         if keepout.no_footprints:
             message = (
                 "the restriction no_footprints of the keep-out is not written: the record holds vias, "
@@ -561,6 +637,9 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
             )
             issues.append(_kept("keepout", keepout.id, message, "add a component keep-out in Altium"))
     counts["keep-out"] = (len(keepouts), len(board.keepouts) - len(keepouts))
+    forbidden = keepout_footprints_info(board.keepouts)  # one info naming every such area (change c0113)
+    if forbidden is not None:
+        issues.append(forbidden)
     holes: list[Hole] = []
     for hole in board.holes:
         if hole.drill > 0:
@@ -569,6 +648,13 @@ def lower_items(board: Board | None, layers: Sequence[str], issues: list[Issue])
             message = f"the hole is not written: a drill of {mm_text(hole.drill)} mm is not positive"
             issues.append(_kept("hole", hole.id, message))
     counts["hole"] = (len(holes), len(board.holes) - len(holes))
+    for dimension in board.dimensions:
+        message = (
+            f"the {dimension.kind} dimension on {dimension.layer} is not written: the document has no "
+            "dimension record"
+        )
+        issues.append(_kept("dimension", dimension.id, message))
+    counts["dimension"] = (0, len(board.dimensions))
     return LoweredItems(tuple(texts), tuple(graphics), tuple(keepouts), tuple(holes), counts)
 
 
@@ -581,6 +667,7 @@ def lower_bodies(
     spec: pcbdoc.PcbDocSpec,
     mode: pcbdoc.BodyMode,
     issues: list[Issue],
+    script: Sequence[tuple[str, ComponentBody]] = (),
 ) -> tuple[tuple[pcbdoc.PlacedBody, ...], tuple[int, int]]:
     """The component bodies of the board's footprints that the document ``spec`` writes, and (bodies
     written, bodies not lowered) (change c0121, capability altium-pcb-writer, "Component bodies are
@@ -588,53 +675,64 @@ def lower_bodies(
     that ``spec`` gives the component of its footprint (``pcbdoc.place_body``), in the order of the
     components and, within one, of its bodies. Each body without a record gives one ``altium.not-lowered``
     with ``where`` ``body/<id>``, its height and its reason. A footprint without a body gives nothing: no
-    body is derived from a courtyard or any other graphic, and no height is assumed."""
+    body is derived from a courtyard or any other graphic, and no height is assumed.
+
+    ``script`` holds the bodies of ``Part(height=…)`` by component path (change c0140): they are judged
+    after the board's own, as the bodies of that component's footprint. Such a body has no outline, so it
+    is reported and never written."""
     board = design.board
     if board is None:
         return (), (0, 0)
     refs = {component.id: component.ref for component in design.circuit.components}
+    by_path = {component_path(component): component.ref for component in design.circuit.components}
     index = {component.ref: number for number, component in enumerate(spec.components)}
     frame = spec.frame if spec.frame is not None else pcbdoc.Frame.of(spec.outline)
     placed: list[pcbdoc.PlacedBody] = []
     kept = 0
-    for footprint in board.footprints:
-        number = index.get(refs.get(footprint.component_id, ""))
-        for body in footprint.bodies:
-            if mode == "off":
-                found: pcbdoc.PlacedBody | str = pcbdoc.BODIES_OFF
-            elif number is None:
-                found = pcbdoc.BODY_NO_FOOTPRINT
-            else:
-                component = spec.components[number]
-                found = pcbdoc.place_body(
-                    body,
-                    component=number,
-                    at=component.at,
-                    rotation=component.rotation,
-                    bottom=component.side == "bottom",
-                    frame=frame,
-                )
-            if isinstance(found, str):
-                kept += 1
-                message = (
-                    f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not "
-                    f"written: {found}"
-                )
-                issues.append(_kept("body", body.id, message, BODIES_HINT if mode == "off" else BODY_HINT))
-            else:
-                placed.append(found)
+    owned = [(refs.get(fp.component_id, ""), body) for fp in board.footprints for body in fp.bodies]
+    owned += [(by_path.get(path, ""), body) for path, body in script]
+    for ref, body in owned:
+        number = index.get(ref)
+        if mode == "off":
+            found: pcbdoc.PlacedBody | str = pcbdoc.BODIES_OFF
+        elif number is None:
+            found = pcbdoc.BODY_NO_FOOTPRINT
+        else:
+            component = spec.components[number]
+            found = pcbdoc.place_body(
+                body,
+                component=number,
+                at=component.at,
+                rotation=component.rotation,
+                bottom=component.side == "bottom",
+                frame=frame,
+            )
+        if isinstance(found, str):
+            kept += 1
+            message = (
+                f"the component body {body.name or body.id} (height {mm_text(body.height)} mm) is not "
+                f"written: {found}"
+            )
+            issues.append(_kept("body", body.id, message, BODIES_HINT if mode == "off" else BODY_HINT))
+        else:
+            placed.append(found)
     placed.sort(key=lambda body: body.component)
     return tuple(placed), (len(placed), kept)
 
 
 def account(
-    design: Design, spec: pcbdoc.PcbDocSpec, plan: CopperPlan, source: Design | None = None
+    design: Design,
+    spec: pcbdoc.PcbDocSpec,
+    plan: CopperPlan,
+    source: Design | None = None,
+    script_bodies: int = 0,
 ) -> dict[str, dict[str, int]]:
     """``result.pcb`` of a build that writes the document ``spec`` (capability altium-pcb-writer, "Written
     items are accounted"): ``written`` maps every kind of ``KINDS`` to the number of model items the
     document holds, and ``not_lowered`` the kinds with items that it does not hold to their number. The
-    copper is that of ``source`` when the build took a copper source. ``RuntimeError`` when an item of a
-    kind is in neither count: nothing is absent without a line."""
+    copper is that of ``source`` when the build took a copper source. ``script_bodies`` counts the bodies
+    of ``Part(height=…)`` among the model's bodies (change c0140). ``RuntimeError`` when an item of a kind is
+    in neither count: nothing is absent without a line."""
     board = design.board
     copper = (source or design).board
     rules = len(design.rules.rules) if design.rules is not None else 0
@@ -654,7 +752,7 @@ def account(
         "graphic": len(board.graphics) if board is not None else 0,
         "keep-out": len(board.keepouts) if board is not None else 0,
         "hole": len(board.holes) if board is not None else 0,
-        "body": sum(len(fp.bodies) for fp in board.footprints) if board is not None else 0,
+        "body": script_bodies + (sum(len(fp.bodies) for fp in board.footprints) if board is not None else 0),
     }
     for kind, total in totals.items():
         written, kept = counts.get(kind, (0, 0))
@@ -722,6 +820,41 @@ def outline_corner(board: Board | None) -> Point:
     return Point(min(p.x for p in points), min(p.y for p in points))
 
 
+LOCK_WHERE = "copper/locked"
+"""``where`` of the warning about locked copper written unlocked (change c0108)."""
+LOCK_HINT = "lock the items in Altium Designer's editor after the import"
+
+
+def locked_counts(
+    tracks: Sequence[Track], arcs: Sequence[Arc], vias: Sequence[Via]
+) -> dict[str, tuple[int, int]]:
+    """Per record kind (``track``, ``arc``, ``via``): the locked items written locked and those written
+    unlocked, because the kind is not in ``pcbrecords.LOCK_WRITTEN``."""
+    out: dict[str, tuple[int, int]] = {}
+    for kind, items in (("track", tracks), ("arc", arcs), ("via", vias)):
+        count = sum(1 for item in items if item.locked)
+        out[kind] = (count, 0) if kind in pcbrecords.LOCK_WRITTEN else (0, count)
+    return out
+
+
+def lock_issues(
+    tracks: Sequence[Track], arcs: Sequence[Arc], vias: Sequence[Via], low: _Lowering | None = None
+) -> list[Issue]:
+    """One ``altium.not-lowered`` warning per record kind that holds a locked item and whose lock is not
+    written (capability altium-build, "Copper locks in an Altium build"): a lock is never dropped in
+    silence."""
+    found: list[Issue] = []
+    for kind, (_written, dropped) in locked_counts(tracks, arcs, vias).items():
+        if dropped:
+            message = (
+                f"{dropped} locked {kind}(s) are written unlocked: the locked flag of a free {kind} is "
+                "not recorded for the Altium document"
+            )
+            text = low.text(message) if low is not None else message
+            found.append(Issue("altium.not-lowered", "warning", text, where=LOCK_WHERE, hint=LOCK_HINT))
+    return found
+
+
 def lower_copper(
     design: Design,
     *,
@@ -756,6 +889,12 @@ def lower_copper(
     tracks = _tracks(board.tracks, low, issues)
     arcs = _arcs(board.arcs, low, issues)
     vias = _vias(board.vias, low, issues)
+    issues += lock_issues(tracks, arcs, vias, low)
+    # the default of the board that holds the copper; a copper source without one follows the script's
+    default = board.via_protection if board.via_protection is not None else design.board.via_protection
+    named = via_protection_info(board.vias, default)
+    if named is not None:
+        issues.append(named)
     merged: list[str] = []
     zones = _zones(board.zones, low, issues, merged)
     for name, items in sorted(low.missing.items()):
@@ -799,6 +938,7 @@ def lower_copper(
         items.keepouts,
         items.holes,
         MappingProxyType(counts),
+        default,
     )
 
 
@@ -811,6 +951,7 @@ def with_copper(spec: pcbdoc.PcbDocSpec, plan: CopperPlan) -> pcbdoc.PcbDocSpec:
         tracks=plan.tracks,
         arcs=plan.arcs,
         vias=plan.vias,
+        via_protection=plan.via_protection,
         zones=plan.zones,
         net_classes=plan.net_classes,
         texts=plan.texts,
@@ -847,6 +988,10 @@ def copper_summary(
         "arcs": len(spec.arcs),
         "vias": len(spec.vias),
         "zones": sum(len(zone.layers) for zone in spec.zones),
+        "locked": {
+            f"{kind}s": written
+            for kind, (written, _dropped) in locked_counts(spec.tracks, spec.arcs, spec.vias).items()
+        },
         "net_classes": len(spec.net_classes),
         "placements_from_board": placed,
     }

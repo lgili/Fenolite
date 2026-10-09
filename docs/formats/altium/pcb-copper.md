@@ -44,6 +44,10 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | Fields after offset 30 of the 321-byte form, with the values of a plain through via: 31 the plane-connection style (byte, 0); 32 the thermal-relief air gap (32-bit, 10 mil); 36 the conductor count (16-bit, 4); 38 the conductor width (32-bit, 10 mil); 42 and 46 two lengths of 20 mil (plane relief expansion and plane clearance); 50 the paste expansion (0); 54 the solder-mask expansion (4 mil); 61 to 64 four cache flags (0); 66 the solder-mask cache state (0); 74 the diameter stack mode (byte, 0 = simple); 75 to 202 thirty-two 32-bit diameters, one per signal layer, each the via's diameter for a simple via | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Fixed bytes of the tail, constant in the saved 321-byte vias: at 203 a 16-bit 15 and at 205 a 32-bit 259 (where version 1 stops, at byte 208); at 242 the back solder-mask expansion (32-bit, 4 mil); at 254 the byte `0x2A`; at 259 and 275 two 16-byte ids; at 291 and 295 two hole tolerances `0x7FFFFFFF`; at 300 the polygon-connect count (32-bit, 0); at 304 its entry size (32-bit, 30); at 308 the byte 9; at 320 the byte 1. The meaning of the bytes at 203, 254, 308 and 320 is not known | S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca), S-0173, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | Flags of a via: `0x0C` unlocked and untented; bit 5 tents the top, bit 6 the bottom. The net index is at 3; polygon and component are `0xFFFF` for a free via | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
+| Written tenting flags (change c0112): the first flags byte of a written via is `0x0C`, plus `0x20` (bit 5) when the via is tented on the top, plus `0x40` (bit 6) when it is tented on the bottom: `0C`, `2C`, `4C` or `6C`; the second flags byte stays `00`, and no other byte of the record follows the tenting, the two solder-mask expansions (54 and 242) included. They are the bits the reader reads as `ViaRecord.tented_top` and `tented_bottom` (`pcb-read.md`) | S-0160, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIATENT |
+| The two bits in the eight public documents (2 933 via records; counts only, table below): neither bit set in 734 records, bit 5 alone in 1, bit 6 alone in 0, both in 2 198. Five documents hold one combination for every via, three hold two. The first flags byte is `0C` in 729 records, `2C` in 1, `6C` in 2 156, `68` in 36, `88` in 5 and `E8` in 6: bits 2 and 7 vary too, and the second flags byte is `01` in 11 records of one document and `00` elsewhere | S-0630 | CORPUS-VERIFIED | H-A-RD-PCB-LENGTHS |
+| KiCad's importer reads the two bits as tenting: `kicad-cli pcb import --format altium` 10.0.6 writes the four written vias with the first flags byte `0C`, `2C`, `4C` and `6C` as `(tenting (front no) (back no))`, `(front yes) (back no)`, `(front no) (back yes)` and `(front yes) (back yes)`, explicit on every via, which is the reading of Fenolite's own import. It says what KiCad reads, not what Altium Designer shows | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-07; test_via_tenting_oracle.py) | H-A-PCB-CU-VIATENT |
+| The solder-mask expansion at 54 does not follow the two bits in those documents: two documents hold a negative expansion on every via, with both bits set on every via; three hold 4 mil on every via with both bits set on every via; and the two documents whose vias have neither bit set (but one via) hold 1 mil and 4 mil. No recorded fact says which of the two, the bits or the expansion, decides the mask opening that Altium Designer plots | S-0630 | INFERRED | H-A-PCB-CU-VIATENT |
 | Vias are not listed in `UniqueIDPrimitiveInformation`; only pads are | S-0174, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A blind, buried or micro via needs a via type and a drill pair in the layer stack. The documents read hold one pair only (`LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`) | S-0197, S-0172, S-0174, S-0175, S-0176 (files kept outside the repository) | INFERRED | H-A-PCB-CU-VIA |
 | A blind or buried via is the via record with the ids of the two copper layers it spans at 29 and 30, the upper layer first, and the other bytes of a through via; an end on an internal plane holds the plane's id (39 to 54). No saved document read holds such a via: every one of their 1 103 vias spans 1 to 32 | S-0160, S-0197, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-VIASPAN |
@@ -56,6 +60,26 @@ itself is in `pcb-document.md`, the primitive records in `pcb-records.md`.
 | A non-zero byte of the table at 209 says that the via has no pad shape on that layer. On the one document that holds such bytes, measured for each of the 123 vias on each of the four inner layers: where the byte is 1 (419 places), the poured copper of another net stands at the drill radius plus the generic clearance from the via's centre, within 30 nm, at 28 places, never nearer and never at the pad radius plus the clearance, and no track of the via's net ends on the via; where the byte is 0 (73 places), a track of the via's net ends on the via at 72. No via of the 321-byte form has copper of another net nearer than its pad allows (6 588 places; the pour stands at the pad at 1 977). The table is read as indexed by layer id, as the table of diameters at 75 is; one document shows it, and its ids do not tell that index from the position in the stack | S-0600, S-0601 | INFERRED | H-A-IMP-VIA-PADLESS |
 | KiCad's importer does not carry the table: `kicad-cli pcb import --format altium` writes the 1 770 vias of that document as through vias between `F.Cu` and `B.Cu` with their size and drill, and none with `remove_unused_layers`, `keep_end_layers` or `zone_layer_connections`; the 123 are written as the others are | S-0601, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-07) | H-A-PCB-CU-KICAD |
 | KiCad reads a 321-byte via with start 1 and end 32 as a through via between `F.Cu` and `B.Cu` with its net, position, diameter and drill; start 1 and end 2 reads as a blind via, start 2 and end 3 as a buried one | S-0160, S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-CU-KICAD |
+
+Measured on 2026-10-07 with Fenolite's own reader over the eight public PCB documents of the corpus
+manifest (`FENOLITE_HEAVY=1` for the eighth), counts only (S-0630). "top, bottom" is bit 5 and bit 6 of
+the first flags byte; the expansion is the 32-bit value at 54, in mil:
+
+| corpus row | vias | first flags byte | second flags byte | top, bottom | expansion at 54 | records with removed pad shapes (c0132), of them tented |
+|---|---|---|---|---|---|---|
+| `altium-third-party-pcbdoc-01` | 646 | `0C` 645, `2C` 1 | `00` 646 | clear, clear 645; set, clear 1 | 1 mil 646 | 0, 0 |
+| `altium-third-party-pcbdoc-02` | 242 | `6C` 231, `88` 5, `E8` 6 | `00` 231, `01` 11 | clear, clear 5; set, set 237 | 4 mil 242 | 0, 0 |
+| `altium-third-party-pcbdoc-03` | 47 | `0C` 47 | `00` 47 | clear, clear 47 | 4 mil 47 | 0, 0 |
+| `altium-third-party-pcbdoc-04` | 67 | `6C` 67 | `00` 67 | set, set 67 | −15.9843 mil 67 | 0, 0 |
+| `altium-third-party-pcbdoc-05` | 59 | `68` 36, `6C` 23 | `00` 59 | set, set 59 | −23.622 mil 59 | 0, 0 |
+| `altium-third-party-pcbdoc-06` | 42 | `6C` 42 | `00` 42 | set, set 42 | 4 mil 42 | 0, 0 |
+| `altium-third-party-pcbdoc-07` | 60 | `6C` 60 | `00` 60 | set, set 60 | 4 mil 60 | 0, 0 |
+| `altium-third-party-pcbdoc-08` (heavy) | 1 770 | `0C` 37, `6C` 1 733 | `00` 1 770 | clear, clear 37; set, set 1 733 | 2 mil 1 748, 1.9685 mil 16, 0 mil 6 | 123, 123 |
+| all | 2 933 | `0C` 729, `2C` 1, `6C` 2 156, `68` 36, `88` 5, `E8` 6 | `00` 2 922, `01` 11 | clear, clear 734; set, clear 1; clear, set 0; set, set 2 198 | | 123, 123 |
+
+The tenting bits and the table of removed pad shapes at 209 (change c0132) are independent fields of one
+record: the 123 records with removed pad shapes all have both bits set, as 1 610 other records of that
+document do.
 
 ## Polygon pour
 
@@ -178,6 +202,32 @@ limits of its row.
 | `courtyard_clearance` | — | — | — | — | — | no-counterpart |
 | `silk_clearance` | — | — | — | — | — | no-counterpart |
 | `creepage` | — | — | — | — | — | no-counterpart |
+| `no_tracks` | — | — | — | — | — | no-counterpart |
+| `diff_pair_gap` | — | — | — | — | — | no-counterpart |
+| `diff_pair_uncoupled` | — | — | — | — | — | no-counterpart |
+| `skew` | — | — | — | — | — | no-counterpart |
+| `diff_pair_skew` | — | — | — | — | — | no-counterpart |
+| `length` | — | — | — | — | — | no-counterpart |
+
+The row of `no_tracks` (change c0107): Altium's Routing Layers rule says which signal layers may be used for
+routing, with one switch per layer, and is the nearest counterpart in meaning (S-0660, `INFERRED`). Its
+record (kind number, constraint keys) is in no public file read under the sources register, so the row
+cannot be `exact`: a `no_tracks` rule is reported with `altium.not-lowered` and no record is written.
+
+## Locked flag of a free primitive
+
+Change c0108 writes the lock of a free track, a free arc and a via. Each row below is the write-side
+fact of one record kind: `pcbrecords.LOCK_WRITTEN` holds a kind only while its row is here, and a test
+compares the two. The rows restate, per kind, what the read side already records from the same source
+(`pcb-records.md`, the row of the two flag bytes; `pcb-read.md`, the row `Prefix.locked`; the rows of the
+track and via flags above). Altium Designer's own view of a written lock is step X12 of
+`docs/evidence/altium-pcb.md`, which has not been run.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The locked flag of a free track: byte 1 of the record's 13-byte prefix (the first flag byte), bit 2. Set, the track is unlocked; clear, it is locked. A locked track is written with the flag bytes `08 00` where an unlocked one has `0C 00`, and every other byte the same | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
+| The locked flag of a free arc: the arc record starts with the same 13-byte prefix as a track, and bit 2 of its first flag byte has the same meaning. A locked arc is written with the flag bytes `08 00` where an unlocked one has `0C 00`, and every other byte the same | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
+| The locked flag of a via: the via's subrecord starts with the prefix on layer 74, and bit 2 of its first flag byte, clear, locks it; bits 5 and 6 of that byte (tenting) are not touched. A locked via is written with the flag bytes `08 00` where an unlocked one has `0C 00`, and every other byte the same | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-CU-LOCK |
 
 ## Oracle
 
@@ -195,8 +245,9 @@ limits of its row.
   open in Altium Designer 26.5 (`H-A-PCB-CU-TRACK`).
 - `Regions6` and `ShapeBasedRegions6`: polygons are written unpoured, and a zone's fills are not copied
   (`H-A-PCB-CU-REPOUR`). Hatched pours, shelved polygons and polygon cutouts.
-- Micro vias and via types; tented vias; the two 16-byte ids of a via (zero); the polygon-connect
-  entry of the 351-byte form. (Blind and buried vias and their drill pairs are written since c0085.)
+- Micro vias and via types; the two 16-byte ids of a via (zero); the polygon-connect
+  entry of the 351-byte form; covering, plugging, capping and filling of a via (no fact is recorded for
+  them; the tenting flags are written since c0112). (Blind and buried vias and their drill pairs are written since c0085.)
 - The `Split Plane` polygon record and the pull-back tracks of a plane, split planes, and the Plane
   Connect and Plane Clearance rules (`H-A-PCB-CU-PLANE`): Altium's defaults apply.
 - `COPPERORIENTATION`, `DIELLOSSTANGENT`, the hole-shape pairs (`HOLESHAPEHASHSIZE=0`).
@@ -220,11 +271,16 @@ limits of its row.
   written with an even number of copper layers from 2 to 32 that holds at most 16 signal layers and 16 internal planes;
   any other count gives the stack of the two outer layers and `altium.not-lowered` with `where`
   `stackup`.
-- **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, after the component
+- **Tracks and arcs.** The short forms (36 and 47 bytes) with flags `0C 00`, or `08 00` for a locked
+  track or arc of the model (change c0108, "Locked flag of a free primitive"), after the component
   primitives in `Tracks6` and `Arcs6`, sorted by stack position of the layer, net name, start, end, width
   and entity id. Points are converted like placed points (`pcb-document.md`, frame).
 - **Vias.** The 321-byte form with the values of the "Via" table and zero in every other byte, the two
-  ids included; flags `0C 00` (not tented); start 1 and end 32 for a through via, the ids of the two
+  ids included; flags `0C 00` only for a via that is neither locked nor tented: a locked via of the
+  model gets `08 00` (change c0108), and a via tented on the top gets bit 5 as well, on the bottom
+  bit 6 (`2C 00`, `4C 00`, `6C 00`, or `28 00`, `48 00`, `68 00` when locked; change c0112: for each
+  side the via's own tenting, else the board default's, else a clear flag; `H-A-PCB-CU-VIATENT`);
+  start 1 and end 32 for a through via, the ids of the two
   layers of its span, the upper one first, for a blind or buried via (change c0085); sorted by net name,
   position, diameter and entity id. The board record gets one drill pair per distinct span besides
   `TOP` to `BOTTOM`, in stack order of the upper and then of the lower layer. A micro via is not written.

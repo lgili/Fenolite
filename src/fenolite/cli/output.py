@@ -48,6 +48,9 @@ class Receipt:
     """The identity of the write: :func:`receipt_id` of ``written`` and ``backup``."""
     undo: str | None = field(default=None, metadata={"optional": True})
     """The command that puts the backups back, reading this envelope from stdin; ``None`` without one."""
+    plan: str | None = field(default=None, metadata={"pattern": r"^[0-9a-f]{16}$", "optional": True})
+    """The id of the reviewed plan that ``--confirm --plan`` wrote; ``None`` for a write without ``--plan``.
+    It takes no part in ``id``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,13 +84,15 @@ def receipt_id(written: Sequence[WrittenFile], backup: Sequence[str]) -> str:
     return hashlib.sha256(canonical_json(body).encode("utf-8")).hexdigest()[:16]
 
 
-def make_receipt(written: Sequence[WrittenFile], backup: Sequence[str]) -> Receipt:
-    """The receipt of a confirmed write, with its ``id`` and, when a backup was kept, its ``undo``."""
+def make_receipt(written: Sequence[WrittenFile], backup: Sequence[str], plan: str | None = None) -> Receipt:
+    """The receipt of a confirmed write, with its ``id`` and, when a backup was kept, its ``undo``; ``plan``
+    is the id that ``--plan`` named."""
     return Receipt(
         written=tuple(written),
         backup=tuple(backup),
         id=receipt_id(written, backup),
         undo=UNDO_COMMAND if backup else None,
+        plan=plan,
     )
 
 
@@ -222,22 +227,17 @@ def _scalar(value: Any) -> str:
     return str(value)
 
 
-def render_text(envelope: Envelope) -> str:
-    """Human rendering of the same envelope (never a different data set)."""
-    data = to_jsonable(envelope)
-    status = "ok" if envelope.ok else "FAILED"
-    lines = [f"fenolite {envelope.command}: {status}"]
-    if data["input"]:
-        lines.append(f"input: {data['input']['path']} ({data['input']['kind']})")
-    if data["result"]:
-        lines.append("result:")
-        lines.extend(_text_lines(data["result"], 1))
+def _issue_lines(envelope: Envelope) -> list[str]:
+    lines: list[str] = []
     for issue in envelope.issues:
         where = f" [{issue.where}]" if issue.where else ""
         hint = f" (hint: {issue.hint})" if issue.hint else ""
         lines.append(f"{issue.severity}: {issue.code}: {issue.message}{where}{hint}")
-    oracle = f"({envelope.evidence.oracle})" if envelope.evidence.oracle else ""
-    lines.append(f"evidence: {envelope.evidence.level}{oracle}")
+    return lines
+
+
+def _receipt_lines(envelope: Envelope) -> list[str]:
+    lines: list[str] = []
     if envelope.receipt:
         for written in envelope.receipt.written:
             lines.append(f"wrote: {written.path} sha256={written.sha256[:12]}")
@@ -245,6 +245,33 @@ def render_text(envelope: Envelope) -> str:
             lines.append(f"backup: {backup}")
         if envelope.receipt.undo:
             lines.append(f"undo: {envelope.receipt.undo} (receipt {envelope.receipt.id})")
+    return lines
+
+
+def render_text(envelope: Envelope, text: str | None = None) -> str:
+    """Human rendering of the same envelope (never a different data set).
+
+    ``text`` is a command's own text (``Result.text``). For a command that succeeded it is printed as
+    it is after the status line and one empty line, in place of the ``input``, ``result`` and
+    ``evidence`` lines; the issue and receipt lines, when there are any, follow it after one empty line.
+    """
+    data = to_jsonable(envelope)
+    status = "ok" if envelope.ok else "FAILED"
+    lines = [f"fenolite {envelope.command}: {status}"]
+    if text is not None and envelope.ok:
+        body = text[:-1] if text.endswith("\n") else text
+        lines += ["", body]
+        tail = _issue_lines(envelope) + _receipt_lines(envelope)
+        return "\n".join(lines + ["", *tail] if tail else lines)
+    if data["input"]:
+        lines.append(f"input: {data['input']['path']} ({data['input']['kind']})")
+    if data["result"]:
+        lines.append("result:")
+        lines.extend(_text_lines(data["result"], 1))
+    lines.extend(_issue_lines(envelope))
+    oracle = f"({envelope.evidence.oracle})" if envelope.evidence.oracle else ""
+    lines.append(f"evidence: {envelope.evidence.level}{oracle}")
+    lines.extend(_receipt_lines(envelope))
     return "\n".join(lines)
 
 

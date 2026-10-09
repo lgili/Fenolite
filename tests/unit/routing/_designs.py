@@ -14,11 +14,18 @@ from fenolite.model.board import FootprintInstance, Layer, Pad, Track, Zone
 from fenolite.model.circuit import Circuit, Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 
+STUB_ROW = 5_000_000
+"""The row of the pads of the net ``S`` of ``routing_design(stub=True)``, which are 8.4 mm apart."""
 
-def routing_design() -> Design:
+
+def routing_design(*, stub: bool = False) -> Design:
+    """Nets ``A`` (two pads, no copper), ``B`` (two pads joined by one track), ``GND`` (three pads, one
+    zone) and ``NC`` (one pad). With ``stub``, also ``S``: two pads 8.4 mm apart and a 3 mm track from the
+    first (change c0108)."""
     rng = random.Random(160016)
     design = Design.new("routing-unit", seed=160016)
-    nets = {name: Net(id=new_id("net", rng), name=name) for name in ("A", "B", "GND", "NC")}
+    names = ("A", "B", "GND", "NC", "S") if stub else ("A", "B", "GND", "NC")
+    nets = {name: Net(id=new_id("net", rng), name=name) for name in names}
     pads: list[Pad] = []
     for name, count in (("A", 2), ("B", 2), ("GND", 3), ("NC", 1)):
         for index in range(count):
@@ -31,6 +38,19 @@ def routing_design() -> Design:
                     position=Point(index * 1_000_000, 0),
                     layers=("F.Cu", "B.Cu"),
                     net_id=nets[name].id,
+                )
+            )
+    if stub:
+        for index, x in enumerate((0, 8_400_000)):
+            pads.append(
+                Pad(
+                    id=new_id("pad", rng),
+                    number=f"S{index + 1}",
+                    shape="circle",
+                    size=Size(600_000, 600_000),
+                    position=Point(x, STUB_ROW),
+                    layers=("F.Cu", "B.Cu"),
+                    net_id=nets["S"].id,
                 )
             )
     component_id = new_id("cmp", rng)
@@ -57,6 +77,18 @@ def routing_design() -> Design:
         net_id=nets["B"].id,
     )
     zone = Zone(id=new_id("zon", rng), outline=(), layers=("F.Cu",), net_id=nets["GND"].id)
+    tracks = [track]
+    if stub:
+        tracks.append(
+            Track(
+                id=new_id("trk", rng),
+                start=Point(0, STUB_ROW),
+                end=Point(3_000_000, STUB_ROW),
+                width=250_000,
+                layer="F.Cu",
+                net_id=nets["S"].id,
+            )
+        )
     board = dataclasses.replace(
         design.board,
         layers=(
@@ -76,9 +108,60 @@ def routing_design() -> Design:
             ),
         ),
         footprints=(footprint,),
-        tracks=(track,),
+        tracks=tuple(tracks),
         zones=(zone,),
     )
+    return dataclasses.replace(
+        design, circuit=Circuit(components=(component,), nets=tuple(nets.values())), board=board
+    )
+
+
+def named_design(*names: str) -> Design:
+    """One footprint whose nets are ``names``, each on two through-hole pads 4 mm apart in a row of its
+    own, and no copper (change c0109: the size groups and tiers of a job)."""
+    rng = random.Random(160109)
+    design = Design.new("routing-groups", seed=160109)
+    nets = {name: Net(id=new_id("net", rng), name=name) for name in names}
+    pads = [
+        Pad(
+            id=new_id("pad", rng),
+            number=f"{name}{index + 1}",
+            shape="circle",
+            size=Size(600_000, 600_000),
+            position=Point(index * 4_000_000, row * 2_000_000),
+            layers=("F.Cu", "B.Cu"),
+            net_id=nets[name].id,
+        )
+        for row, name in enumerate(names)
+        for index in range(2)
+    ]
+    component_id = new_id("cmp", rng)
+    component = Component(
+        id=component_id, ref="J1", pins=tuple(Pin(id=new_id("pin", rng), number=pad.number) for pad in pads)
+    )
+    members = {
+        name: tuple(PinRef(component_id, pad.number) for pad in pads if pad.net_id == net.id)
+        for name, net in nets.items()
+    }
+    nets = {name: dataclasses.replace(net, members=members[name]) for name, net in nets.items()}
+    footprint = FootprintInstance(
+        id=new_id("fp", rng),
+        component_id=component_id,
+        lib_ref="Test:Rows",
+        position=Point(0, 0),
+        pads=tuple(pads),
+    )
+    layers = tuple(
+        Layer(
+            id=new_id("lay", rng),
+            name=name,
+            kind="copper",
+            ordinal=ordinal,
+            ext={"kicad": ExtBag(payload=(("number", str(ordinal)), ("type", "signal")))},
+        )
+        for name, ordinal in (("F.Cu", 0), ("B.Cu", 31))
+    )
+    board = dataclasses.replace(design.board, layers=layers, footprints=(footprint,))
     return dataclasses.replace(
         design, circuit=Circuit(components=(component,), nets=tuple(nets.values())), board=board
     )

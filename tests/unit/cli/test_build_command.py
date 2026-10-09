@@ -259,24 +259,73 @@ def plane_script(tmp_path: Path, board: str) -> Path:
     return script
 
 
-def test_plane_in_a_kicad_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Scenario "Plane in a KiCad build": one info, and the board of the variant without ``planes``."""
-    board = "design.board(mm(50), mm(30), copper=4)"
-    plain = plane_script(tmp_path / "a", board)
-    code, expected, _ = run(monkeypatch, str(plain), "--out", str(tmp_path / "A"), "--dry-run")
-    assert code == 0 and "build.plane-not-lowered" not in [i["code"] for i in expected["issues"]]  # type: ignore[index]
-    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
-    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "A"), "--dry-run")
+ZONE_LINE = '\ndesign.zone(gnd, layers=("In1.Cu",))\n'
+
+
+def plane_codes(envelope: dict[str, object]) -> list[str]:
+    return [i["code"] for i in envelope["issues"] if i["code"].startswith("build.plane-")]  # type: ignore[index, union-attr]
+
+
+def built_board(monkeypatch: pytest.MonkeyPatch, script: Path, out: Path) -> tuple[dict[str, object], str]:
+    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
     assert code == 0
-    found = [i for i in env["issues"] if i["code"] == "build.plane-not-lowered"]  # type: ignore[index]
-    assert len(found) == 1 and found[0]["severity"] == "info"
-    assert "In1.Cu" in found[0]["message"] and "GND" in found[0]["message"]
+    return env, (out / "blink.kicad_pcb").read_text(encoding="utf-8")
 
-    def digests(envelope: dict[str, object]) -> dict[str, str]:
-        plan = envelope["result"]["plan"]  # type: ignore[index]
-        return {Path(p["path"]).name: p["sha256"] for p in plan if not Path(p["path"]).name.endswith(".json")}
 
-    assert digests(env) == digests(expected) and "blink.kicad_pcb" in digests(env)
+def test_plane_in_a_kicad_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Plane in a KiCad build" (change c0107): the plane layer gets the row type ``power``, no
+    plane issue is given, and the board differs from the one without ``planes`` in that row only."""
+    plain = plane_script(tmp_path / "a", "design.board(mm(50), mm(30), copper=4)")
+    plain.write_text(plain.read_text(encoding="utf-8") + ZONE_LINE, encoding="utf-8")
+    expected, without = built_board(monkeypatch, plain, tmp_path / "A")
+    assert plane_codes(expected) == []
+    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
+    script.write_text(script.read_text(encoding="utf-8") + ZONE_LINE, encoding="utf-8")
+    code, dry, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--dry-run")
+    assert code == 0 and plane_codes(dry) == []
+    env, board = built_board(monkeypatch, script, tmp_path / "B")
+    assert plane_codes(env) == []
+    assert '(4 "In1.Cu" power)' in board and '(6 "In2.Cu" signal)' in board
+    assert '(4 "In1.Cu" signal)' in without
+    assert board == without.replace('(4 "In1.Cu" signal)', '(4 "In1.Cu" power)')
+    for name in ("blink.kicad_pro", "blink.kicad_dru", "blink.kicad_sch"):
+        assert (tmp_path / "A" / name).read_bytes() == (tmp_path / "B" / name).read_bytes(), name
+
+
+def test_plane_without_its_zone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Plane without its zone": one warning whose hint names the script call, and the type."""
+    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})')
+    code, env, _ = run(monkeypatch, str(script), "--out", str(tmp_path / "B"), "--dry-run")
+    assert code == 0 and plane_codes(env) == ["build.plane-zone-missing"]
+    (found,) = [i for i in env["issues"] if i["code"] == "build.plane-zone-missing"]  # type: ignore[index, union-attr]
+    assert found["severity"] == "warning" and "In1.Cu" in found["message"] and "GND" in found["message"]
+    assert "design.zone" in found["hint"] and "In1.Cu" in found["hint"]
+    _, board = built_board(monkeypatch, script, tmp_path / "B")
+    assert '(4 "In1.Cu" power)' in board and '(6 "In2.Cu" signal)' in board
+
+
+def test_plane_declared_after_the_first_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenarios "Plane declared after the first build" and "A type set in KiCad stays"."""
+    script = plane_script(tmp_path / "a", "design.board(mm(50), mm(30), copper=4)")
+    out = tmp_path / "A"
+    _, first = built_board(monkeypatch, script, out)
+    assert '(4 "In1.Cu" signal)' in first and '(6 "In2.Cu" signal)' in first
+    # KiCad's board setup gives In2.Cu the type power; the script still names no plane
+    (out / "blink.kicad_pcb").write_text(
+        first.replace('(6 "In2.Cu" signal)', '(6 "In2.Cu" power)'), encoding="utf-8", newline="\n"
+    )
+    _, kept = built_board(monkeypatch, script, out)
+    assert '(6 "In2.Cu" power)' in kept and '(4 "In1.Cu" signal)' in kept
+    text = script.read_text(encoding="utf-8")
+    assert "copper=4)" in text
+    script.write_text(text.replace("copper=4)", 'copper=4, planes={"In1.Cu": gnd})'), encoding="utf-8")
+    _, second = built_board(monkeypatch, script, out)
+    assert '(4 "In1.Cu" power)' in second and '(6 "In2.Cu" power)' in second
+    assert second == kept.replace('(4 "In1.Cu" signal)', '(4 "In1.Cu" power)'), "the layout is kept"
+    # the plane leaves the script: its type stays, as one set in KiCad would
+    script.write_text(text, encoding="utf-8")
+    _, third = built_board(monkeypatch, script, out)
+    assert third == second
 
 
 def test_unknown_plane_net_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -288,3 +337,132 @@ def test_unknown_plane_net_stops_the_build(monkeypatch: pytest.MonkeyPatch, tmp_
     for target in ("kicad", "altium"):
         code, _env, err = run(monkeypatch, str(script), "--out", str(out), "--target", target, "--dry-run")
         assert code == 3 and "FEN-3004" in err
+
+
+# --- copper layer counts (change c0100, design-dsl "Copper layer counts in a build") ------------------
+
+SIX = ["F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "B.Cu"]
+EIGHT = [*SIX[:-1], "In5.Cu", "In6.Cu", "B.Cu"]
+VIA_IMPORT = "from fenolite.dsl import Design, Net, Part, Power, connect, mm, no_connect"
+DEEP_TRACK = """
+design.track(
+    "led_a",
+    r1.pad(2), (mm(36), mm(9)),
+    via_step(mm(36), mm(14), to="In6.Cu", diameter=mm(0.6), drill=mm(0.3)),
+    (mm(41.5), mm(14)),
+    via_step(mm(41.5), mm(17), to="B.Cu", diameter=mm(0.6), drill=mm(0.3)),
+    (mm(41.5), mm(20)), d1.pad(2),
+    width=mm(0.3),
+)
+"""
+
+
+def layers_script(tmp_path: Path, copper: int, extra: str) -> Path:
+    """The blink copy declared with ``copper`` layers, ``via_step`` imported and ``extra`` appended."""
+    script = _variant(tmp_path, extra)
+    text = script.read_text(encoding="utf-8")
+    assert BOARD_LINE in text and VIA_IMPORT in text
+    text = text.replace(BOARD_LINE, f"design.board(mm(50), mm(30), copper={copper})")
+    script.write_text(text.replace(VIA_IMPORT, f"{VIA_IMPORT}, via_step"), encoding="utf-8")
+    return script
+
+
+def test_plane_on_a_six_layer_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Plane on a six-layer board": any inner layer of the count takes the type, and the hint of
+    the missing zone names the script call and not the KiCad editor."""
+    plain = plane_script(tmp_path / "a", "design.board(mm(50), mm(30), copper=6)")
+    _, without = built_board(monkeypatch, plain, tmp_path / "A")
+    script = plane_script(tmp_path / "b", 'design.board(mm(50), mm(30), copper=6, planes={"In4.Cu": gnd})')
+    env, board = built_board(monkeypatch, script, tmp_path / "B")
+    (found,) = [i for i in env["issues"] if i["code"] == "build.plane-zone-missing"]  # type: ignore[index, union-attr]
+    assert found["severity"] == "warning" and "In4.Cu" in found["message"] and "GND" in found["message"]
+    assert (
+        "design.zone(" in found["hint"] and "GND" in found["hint"] and 'layers=("In4.Cu",)' in found["hint"]
+    )
+    assert "KiCad" not in found["hint"]
+    assert '(10 "In4.Cu" signal)' in without
+    assert board == without.replace('(10 "In4.Cu" signal)', '(10 "In4.Cu" power)')
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_six_layer_build_on_both_targets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, target: int
+) -> None:
+    """Scenario "Six-layer build on both targets"."""
+    from fenolite.backends.kicad.pcb import read_board
+
+    script = layers_script(tmp_path, 6, '\ndesign.zone(gnd, layers=("In4.Cu",))\n')
+    out = tmp_path / "B"
+    code, _env, err = run(
+        monkeypatch, str(script), "--out", str(out), "--kicad-version", str(target), "--confirm"
+    )
+    assert code == 0, err
+    back = read_board(out / "blink.kicad_pcb")
+    assert back.board is not None
+    rows = [
+        (
+            layer.name,
+            dict(layer.ext["kicad"].payload).get("number"),
+            dict(layer.ext["kicad"].payload).get("user_name"),
+        )
+        for layer in back.board.layers
+        if layer.kind == "copper"
+    ]
+    assert rows == [
+        (name, number, None) for name, number in zip(SIX, ("0", "4", "6", "8", "10", "2"), strict=True)
+    ]
+    refs = {c.id: c.ref for c in back.circuit.components}
+    (d1,) = [fp for fp in back.board.footprints if refs[fp.component_id] == "D1"]
+    (pad,) = [p for p in d1.pads if p.number == "1"]
+    assert [name for name in pad.layers if name.endswith(".Cu")] == SIX
+    (zone,) = back.board.zones
+    assert zone.name == "GND" and zone.layers == ("In4.Cu",)
+
+
+def test_six_layer_pads_in_the_built_model() -> None:
+    """The built model of the six-layer blink: a ``*.Cu`` pad covers the six copper layers."""
+    from _buildhelp import blink, build
+
+    design = blink()
+    design.copper = 6
+    for target in (9, 10):
+        built = build(design, target).design
+        assert built.board is not None
+        assert [layer.name for layer in built.board.layers if layer.kind == "copper"] == SIX
+        refs = {c.id: c.ref for c in built.circuit.components}
+        (d1,) = [fp for fp in built.board.footprints if refs[fp.component_id] == "D1"]
+        (pad,) = [p for p in d1.pads if p.number == "1"]
+        assert [name for name in pad.layers if name.endswith(".Cu")] == SIX
+
+
+def test_script_copper_on_the_deepest_layer_of_eight(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Script copper on the deepest layer of eight"."""
+    from fenolite.backends.kicad.pcb import read_board
+
+    script = layers_script(tmp_path, 8, DEEP_TRACK)
+    out = tmp_path / "B"
+    code, env, err = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    assert code == 0, err
+    assert not [
+        i for i in env["issues"] if i["code"].startswith("kicad.copper.") and i["severity"] == "error"
+    ]  # type: ignore[index, union-attr]
+    back = read_board(out / "blink.kicad_pcb")
+    assert back.board is not None
+    assert [layer.name for layer in back.board.layers if layer.kind == "copper"] == EIGHT
+    led_a = back.nets_by_name["LED_A"].id
+    assert "In6.Cu" in {track.layer for track in back.board.tracks if track.net_id == led_a}
+    assert len([via for via in back.board.vias if via.net_id == led_a]) == 2
+
+
+def test_layer_outside_the_table(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Layer outside the table": ``In7.Cu`` is no layer of an eight-layer board."""
+    extra = (
+        DEEP_TRACK
+        + 'design.track("deep", (mm(44), mm(5)), (mm(47), mm(5)), layer="In7.Cu", net=led_a, width=mm(0.3))\n'
+    )
+    script = layers_script(tmp_path, 8, extra)
+    out = tmp_path / "B"
+    code, env, _ = run(monkeypatch, str(script), "--out", str(out), "--confirm")
+    found = [i for i in env["issues"] if i["code"] == "kicad.copper.bad-layer"]  # type: ignore[index, union-attr]
+    assert code == 5 and len(found) == 1 and not out.exists()
+    assert "In7.Cu" in found[0]["message"] and all(name in found[0]["message"] for name in EIGHT)

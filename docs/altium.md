@@ -126,6 +126,17 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   sheet and the warning `altium.sheet-custom`.
 - **Unique ids.** Each component's unique id is derived from its component path. A rebuild that keeps
   the paths keeps the ids, so Altium keeps the links between schematic and PCB components.
+- **Differential pairs** (change c0104). An Altium build keeps the pair content of a design in
+  `.fenolite/` and writes none of it, because no public source recorded in `docs/formats/altium/` states
+  the pair record or the records of the pair and length rules. Each part is named: a rule of kind
+  `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` or `length` gives one
+  `altium.not-lowered` warning at `design-rules/<kind>` with the reason `no-counterpart` (the record is
+  not known, which is not a statement that Altium has no such rule); a rule of a written kind that
+  selects a pair, such as the clearance rule of `design.rules.pair(…, clearance=…)`, gives the reason
+  `scope-unsupported`; the net classes that hold a pair width, gap or via gap are named in one info at
+  `pair-values`, with and without a PCB document; and a `diff_pair` or `usb2` interface stays in the
+  info at `interfaces`, whether or not a rule selects it. Every other file is byte-equal to the file of
+  the design without that content.
 - **Not lowered.** The board outline, placements, the rule values of net classes, diff pairs and typed interfaces have no
   place in these files (the nets of a net class are declared by directives, see "Change order"). They stay in `.fenolite/`, and each kind gives one `altium.not-lowered` info. By default modules
   only order the layout and the schematic is one flat sheet; `--altium-sheets modules` gives each
@@ -334,6 +345,10 @@ every component (change c0034). Facts: `docs/formats/altium/schematic-library.md
   its common pins as Part Zero; its body is its own graphics, or a synthesised rectangle per part where
   "The schematic" says so (`altium.symbol-simplified`). Symbols the script authored or took from the
   catalog are written the same way, and no library is read for them (change c0086).
+  The `Reference` and `Value` fields that the KiCad build generates for catalog and authored footprints
+  (change c0077) change no Altium document: a placed component is named from the part's reference and
+  value. The KiCad build that resolves script copper for an Altium project takes the catalog's
+  definitions too, so a design that names only catalog ids and declares tracks builds.
   Other body styles and pin alternates are dropped. Pins off the 10-mil grid are refused
   (`altium.symbol-off-grid`; KiCad's 50-mil grid is on it). Types and shapes with no Altium equivalent
   are mapped with the warning `altium.pin-lossy`. The designator prefix is the `Reference` property, the
@@ -401,6 +416,25 @@ Document" should match every component (`H-A-PCB-DOC-LINK`). When the document i
 the placements and the net classes are no longer reported by `altium.not-lowered`, and a board's keep-outs,
 texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
+
+**Outlines with arcs, and holes.** An outline with arcs plans no PCB document, as an outline with
+cut-outs: `altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in
+the board outline of the document. The parts of `design.hole()` are not components of an Altium
+build: they get no schematic symbol, no library footprint and no component record. A round hole that
+is not plated is written as a board hole, the free pad without copper, and counted under `hole` of
+`result.pcb.written`. A slot and a plated hole have no such record: each gives one
+`altium.not-lowered` whose `where` is `hole/<component id>` and is counted under `hole` of
+`result.pcb.not_lowered`; the pin of a plated hole is then absent from its net in the Altium project.
+A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of a
+hole part is not written: a free pad has none.
+
+**Assembly and test features** (change c0118). The parts of `design.test_point()` are written as any
+authored part. The parts of `design.fiducial()` are left out of the schematic and of the PCB library and
+document, because the library takes no unnumbered pad and no surface pad without copper: one
+`altium.not-lowered` info whose `where` is `assembly features` names them, and their keep-outs stay board
+keep-outs. A part of `design.tooling_hole()` has the symbol of `design.hole()` and is written as its board
+hole. No fabrication mark of a pad (`Pad.fab_property`) is written: one `altium.not-lowered` info whose
+`where` is `pad properties` names every written footprint with a marked pad.
 
 **Oracles.** `kicad-cli fp upgrade <name>.PcbLib -o <dir>.pretty` converts the library back (10.0 and
 9.0); `tests/kicad/altium/test_pcblib_oracle.py` counts the files, since a footprint KiCad cannot find
@@ -507,10 +541,17 @@ Altium shows them is Part X of `docs/evidence/altium-pcb.md`, not yet reported, 
 | first inner layer declared as a plane | plane | Internal Plane 1 (39) |
 | second inner layer declared as a plane | plane | Internal Plane 2 (40) |
 
+A script of 6 or 8 copper layers (`design.board(..., copper=6)`) is written with the stack of
+"Complete board" below, which takes any even count: no count that `board()` accepts is refused, and no
+record is added for it. When the board names no copper layer, the document's copper layers are those of
+`Design.copper_layers`, `F.Cu`, `In1.Cu` … `In<copper − 2>.Cu`, `B.Cu`, so a plane, a zone or script
+copper on `In4.Cu` of the script lies on a layer of the document.
+
 `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})` makes `In1.Cu` an internal plane on
-`GND`. A plane holds one net and no primitive: through vias and pads cross it, and Altium's default plane
+`GND`; a plane takes any inner layer of the count. A plane holds one net and no primitive: through vias and pads cross it, and Altium's default plane
 rules decide how they join it. A zone of the plane's net on that layer is left to the plane
-(`altium.plane-zone-merged`). The KiCad target writes no plane; it reports `build.plane-not-lowered`.
+(`altium.plane-zone-merged`). The KiCad target gives the layer the row type `power` and takes the copper
+from the zone of the plane's net; a plane without that zone gives `build.plane-zone-missing` (change c0107).
 
 **Refused, with an error and no file.** Nothing is dropped to make a document fit.
 
@@ -567,8 +608,20 @@ the footprints as the board places them, so every component is written where the
 texts, graphics and holes of the board are not copied (`altium.not-lowered`).
 
 `result.copper` reports what was written: `source` (`none`, `model`, `script` or `board`), `from`,
-`layers`, `planes`, `tracks`, `arcs`, `vias`, `zones` (polygons), `net_classes` and
+`layers`, `planes`, `tracks`, `arcs`, `vias`, `zones` (polygons), `locked`, `net_classes` and
 `placements_from_board`.
+
+**Locks (change c0108).** A locked track, arc or via of the model, from any copper source, is written as
+a locked primitive: bit 2 of the first flag byte of its record is clear (`docs/formats/altium/pcb-copper.md`,
+"Locked flag of a free primitive"). `result.copper.locked` holds `tracks`, `arcs` and `vias`, the numbers
+of items written locked, so the count can be checked against the board. The lock is written only for a
+record kind whose fact row is on that page (`pcbrecords.LOCK_WRITTEN`; today the three kinds). For a kind
+without its row, the items are written unlocked and the build gives one `altium.not-lowered` **warning**
+with `where` `copper/locked` that names the kind and the count: a lock is never dropped in silence. The
+Altium import reads the same bit back into `locked`. A design without locked copper gives the documents it
+gave before. The lock is `INFERRED`: a public reader's statement and Fenolite's own reader; Altium
+Designer's view is step X12 of `docs/evidence/altium-pcb.md`, which has not been run. A lock changes no
+copper, and no rule of the document depends on it.
 
 **Oracles.** `tests/kicad/altium/test_pcbdoc_copper_oracle.py` imports the routed sample and the plane
 variant with `kicad-cli pcb import` and compares the copper and the layer types;
@@ -653,6 +706,40 @@ a board that the script forbids.
   the written rules is `INFERRED` until the author report, Part U of `docs/evidence/altium-pcb.md`.
   `kicad-cli pcb import` loads a document with all seven kinds and takes the zone clearance from the
   Clearance rule; it shows no other kind (`tests/kicad/altium/test_rules_oracle.py`).
+
+### Rule areas, texts and dimensions (change c0103)
+
+A script may declare rule areas, texts, graphics and dimensions (`docs/dsl.md`, "Rule areas" and "Board
+drawings"). An Altium build writes what the PCB document has a record for and names the rest, item by
+item, with `altium.not-lowered` (info) and `where` `<kind>/<id>`:
+
+| script item | in the PCB document | reported |
+|---|---|---|
+| a rule area that forbids tracks, vias, pads or pours | a keep-out with those restrictions | its name: the keep-out record has no key for one (`keepout/<id>`) |
+| a rule area that forbids nothing (for rules only) | not written: a keep-out without a restriction has no record | the area (`keepout/<id>`), counted under `keep-out` of `result.pcb.not_lowered` |
+| a part height (`Part(height=…)`, change c0140) | not written: its body has no outline, which the body record needs | the body (`body/<id>`), counted under `body` with `--altium-bodies extruded` as every other body; the stored board, which holds the bodies that were written, does not hold it |
+| a height limit (`design.height_limit`, change c0140) | not written: stored in `.fenolite/rules.json`; Altium's own rule kind `Height` is seen in the corpus and not mapped (`docs/formats/altium/rule-file.md`) | counted in the one `altium.not-lowered` info of kind `placement-rule` |
+| a centred text | a text | nothing |
+| a text with a `justify` | not written: the text record has no key for a justification, and a centred text would be at another place | the text and its justification (`text/<id>`) |
+| a line, rectangle, circle, arc or polygon | a graphic, as before | as before |
+| a dimension | not written: the document has no dimension record | the dimension (`dimension/<id>`); `result.pcb.not_lowered` holds `dimension` |
+
+- A rule whose selector holds `select.area(...)` has no scope in the rule records: it is not written and
+  gives the `altium.not-lowered` warning of this section with the reason `scope-unsupported`
+  (`where` `design-rules/<kind>`). `build.area-unknown` stays a check of the KiCad build.
+- A build that plans no PCB document reports the dimensions of the board with one info (`where`
+  `dimensions`), as it reports keep-outs, texts, graphics and holes.
+- The copper guard judges the document it reads back. A `copper.keepout` finding is reported as a warning
+  and does not stop an Altium build, as every copper error but a short. The Altium reader models no
+  keep-out so far, so a document read back holds none and the guard finds none.
+- Height limits (change c0140, `docs/placement.md`, "Height limits"): `build --target altium` judges
+  none, and `fenolite check` on the documents finds no rule area of the limit's name, because the reader
+  models no keep-out and the record has no key for a name; each limit then gives
+  `placement.rule-unresolved`. A part's height is read from the bodies of the document, so a limit is
+  judged for a part only on documents that hold a named area and a body for it; a script height is in no
+  document. This is a limit of the target, removed when a script body can carry an outline.
+- A model written with `fenolite write` follows the same rules: a justified text and a dimension are
+  counted as not written.
 
 ## Project file and outputs
 
@@ -875,7 +962,7 @@ An author report never raises the build's evidence level.
 | `altium.section-key` | info | a lib ref longer than 31 characters is stored under a section key |
 | `altium.schlib-generic` | info | a library is written with generic symbols |
 | `altium.schlib-not-in-project` | info | the project file is kept, so the libraries are not listed in it |
-| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); as a **warning**, one per rule of the script that is not written into the PCB document (`where` = `design-rules/<kind>`, with the selector and the reason: "Rules"); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied |
+| `altium.not-lowered` | info | the board, placements, the rule values of the net classes (their nets are declared in the schematic), diff pairs, typed interfaces (`i2c`, `spi`, `uart`, `usb2`) or harnesses are kept in the model only (without a PCB document); as a **warning**, one per rule of the script that is not written into the PCB document (`where` = `design-rules/<kind>`, with the selector and the reason: "Rules"); a board's keep-outs, texts, graphics and holes without a PCB document, and with one each item that has no record (`where` = `<kind>/<id>`: a text, graphic, keep-out, hole or component body; `stackup` for a stack that is not written); a stack-up that does not fit; items of a copper source that are not copied; the fiducials of `design.fiducial()` (`where` = `assembly features`) and the fabrication marks of pads (`where` = `pad properties`; change c0118) |
 | `altium.project-kept` | info | `<name>.PrjPcb` exists in `--out` and is kept |
 | `altium.pcb-too-large` | error | the PCB library or document needs more than 109 FAT sectors |
 | `altium.footprint-unresolved` | warning | a KiCad footprint link does not resolve |
@@ -1297,9 +1384,9 @@ reading of the schematic documents, and every other kind with the reading of the
 | `footprint` | `position`, `rotation`, `side` | PCB document |
 | `pad` | `number`, `net_id`, `position`, `size`, `corner_ratio` | PCB document |
 | `footprint_graphic` | `kind`, `layer`, `points`, `width`, `filled` | PCB document |
-| `track` | `start`, `end`, `width`, `layer`, `net_id` | PCB document |
-| `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id` | PCB document |
-| `via` | `position`, `diameter`, `drill`, `net_id` | PCB document |
+| `track` | `start`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
+| `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
+| `via` | `position`, `diameter`, `drill`, `net_id`, `locked` | PCB document |
 | `zone` | `outline`, `layers`, `net_id` | PCB document |
 
 **The built model holds the board that was written** (change c0090). A build that writes a PCB document
@@ -1335,17 +1422,22 @@ Fields of these kinds that the scope leaves out, and why:
 | `net` | `netclass_id` | the reader maps it elsewhere: a class is a record of the PCB document, and a schematic reading holds none |
 | `netclass` | `clearance`, `track_width`, `via_diameter`, `via_drill` | the reader maps it elsewhere: the values are written as design rules and read as rules |
 | `netclass` | `description` | the writer does not write it |
+| `netclass` | `diff_pair_width`, `diff_pair_gap`, `diff_pair_via_gap` | the writer does not write it: no public source recorded in `docs/formats/altium/` says where a document holds them (c0104) |
 | `footprint` | `component_id` | the reader maps it elsewhere: a footprint is matched by the reference of its component |
 | `footprint` | `lib_ref` | the writer writes a fixed value: the name of the generated PCB library |
 | `footprint` | `locked` | the writer does not write it from the model: the lock comes with the placement request |
+| `footprint` | `anchor` | the writer does not write it: authoring intent metadata stays in the neutral model |
 | `footprint` | `attributes` | the writer does not write it |
 | `footprint` | `pads` | the reader maps it elsewhere: pads are the kind `pad` |
 | `footprint` | `graphics` | the reader maps it elsewhere: graphics are the kind `footprint_graphic` |
 | `footprint` | `fields`, `texts` | written and not compared: the write of a model writes the fields `Reference` and `Value` at their place and the free texts as texts of the component (change c0126), but a build places the designator and the comment itself and its stored board holds no field for them; their read-back is covered by unit tests (`tests/unit/backends/altium/test_lower_items.py`) |
+| `footprint` | `net_ties` | the writer does not write it: a net-tie group is KiCad data, the pads are written without a mark that ties them, and the build says so with `altium.not-lowered` (kind `net-tie`; change c0114) |
 | `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
+| `pad` | `fab_property` | the writer does not write it: no public source says where an Altium pad record holds a fabrication mark, and the build names the marked footprints in one `altium.not-lowered` info (change c0118) |
 | `via` | `layers` | the writer writes a fixed value: only through vias are written |
+| `via` | `protection` | the writer writes a fixed value for a tenting side that neither the via nor the board default states (a clear flag, read back as `False`), and nothing for covering, plugging, capping and filling: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere (c0112). Stated tenting is written and read back, and a test of c0112 proves it |
 | `via` | `via_type` | the writer writes a fixed value: only through vias are written |
 | `zone` | `name` | the writer writes a fixed value for a zone without a name: a generated one |
 | `zone` | `priority` | the reader maps it elsewhere: the priority is written as the pour order |
@@ -1438,8 +1530,10 @@ they write the model as it is. Run `fenolite check` on the written documents.
 
 ## Checks
 
-`fenolite check` on an Altium project, folder or document runs eight stages without any tool
-(`docs/cli-contract.md`, "check on Altium input"). Two of them are the light DRC of change c0088:
+`fenolite check` on an Altium project, folder or document runs nine stages without any tool
+(`docs/cli-contract.md`, "check on Altium input"). One of them, `placement.rules`, is described under
+"Placement rules and keep-outs that forbid footprints" below. Two of them are the light DRC of change
+c0088:
 
 - **`copper.clearance`** finds shorts and clearance violations in the copper of the PCB document: tracks,
   arcs, vias, pads and the poured regions of polygons. The clearance in force comes from the Clearance
@@ -1473,6 +1567,40 @@ documentation (`docs/formats/altium/pcb-copper.md`, "Via"; `H-A-IMP-VIA-PADLESS`
 `fenolite build --target altium` runs the copper check on the PCB document before it writes and refuses
 a board with a short (`docs/cli-contract.md`, "Copper guard of an Altium build").
 
+### Impedance targets (c0105)
+
+An Altium build keeps the impedance targets of a design (`docs/impedance.md`) in the model and in
+`.fenolite/rules.json` only: no public source recorded in `docs/formats/altium/` states the record of an
+impedance profile. One `altium.not-lowered` info at `impedance` names the targets and the number of
+rules derived from them. Those rules are rules of the design like any other: each `track_width` rule of a
+target carries a layer and is reported with `scope-unsupported`, each `diff_pair_gap` rule with
+`no-counterpart`, one warning at `design-rules/<kind>` and one entry of `result.rules.not_lowered` each.
+Every planned file outside `.fenolite/` equals the file of the same design without the targets. A trace on
+a layer the board does not have gives `build.impedance-layer`, which refuses the build as in KiCad.
+
+### Placement rules and keep-outs that forbid footprints (c0113)
+
+- **The stage `placement.rules`** is part of the document check, after `copper.clearance` and before
+  `parity`. On a built project it judges the `near` rules of the script on the pad positions of the
+  written `.PcbDoc` and gives the wire length and the congestion of the placement; on documents that no
+  Fenolite build wrote it gives the measures only. The verdict of one script built for KiCad and for
+  Altium is the same when the pad positions are equal. The pitch of the congestion estimate is that of a
+  net class `Default` when the document's rules give one; otherwise the counts by layer are `null`. The
+  stage is skipped with `single-source` for a set without a PCB document. Its evidence is never above the
+  level of the reading.
+- **`build --target altium` judges no placement rule.** It runs no placement guard and returns no
+  `result.placement`. The proximity rules are stored in `.fenolite/rules.json` as on the KiCad target, and
+  the build says so in one `altium.not-lowered` info whose `where` is `placement-rule`, naming their
+  count: run `fenolite check` on the built project to have them judged. A design without such a rule gives
+  no info and the bytes it gave before.
+- **A rule area that forbids footprints** is written with its other restrictions, as before. The
+  restriction on footprints has no fact row in `docs/formats/altium/` and is in no record: one
+  `altium.not-lowered` info whose `where` is `keepout-footprints` names the areas. Neither kind is a loss
+  (`lower.LOSS_KINDS`), so neither refuses a write.
+- **No stage judges a part in a keep-out on Altium input.** `fenolite place` moves footprints of KiCad
+  boards only, and the document check holds no legality stage: on a KiCad project KiCad's DRC reports such
+  a part, and on Altium documents nothing does. Check the component keep-outs in Altium Designer.
+
 ## Evidence
 
 - Every format fact is `INFERRED` from public sources (`docs/formats/altium/`). `kicad-cli` cannot read a
@@ -1498,3 +1626,99 @@ split planes, no micro vias, component bodies only on request (extruded ones, ex
 alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
 ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
 schematic and other Altium records are interpreted by later changes.
+
+## Stack-ups with masks, sheets and kinds (c0101)
+
+Since change c0101 a KiCad board read with a stack-up, or a script with `design.stackup()`, holds a
+`Board.stackup` with solder mask, silkscreen and paste entries, dielectric sheets, a stated kind per
+dielectric, colours, a finish and an impedance-control flag. Both writers of the stack values
+(`lens.altium_copper.stack_from_stackup` for a build, `backends.altium.lower.stack_from_stackup` for the
+write of a model) follow the same rules:
+
+- Solder mask, silkscreen and paste entries are passed over: the stack of the document holds the copper
+  layers and the dielectrics between them.
+- A dielectric whose `dielectric_kind` is stated is written with that kind (`DIELTYPE` 1 for a core, 2 for
+  a prepreg; `docs/formats/altium/pcb-copper.md`, "Layer stack"). An entry without one keeps the kind of
+  the table by count, so a stack-up without the new fields gives the document it gave before, byte for
+  byte, and every committed sample keeps its bytes.
+- A gap that holds two or more dielectric entries (the sheets of one dielectric) does not fit the
+  document, which holds one dielectric per gap: the default stack values are written, and one
+  `altium.not-lowered` info with `where` `stackup` names the gap. Sheets are never merged, dropped or
+  averaged.
+- A solder mask thickness above 0, a colour, a finish and the impedance-control flag have no recorded key
+  in the document: one `altium.not-lowered` info with `where` `stackup` lists the kinds of value left out,
+  and the copper and dielectric values are written.
+- The Altium import does not fill `dielectric_kind`, `color` or `impedance_controlled`.
+
+No record, key, format fact or issue code is added, and the evidence of the build does not change.
+
+## Via protection (c0112)
+
+`Via.protection` and `Board.via_protection` say how vias are tented, covered, plugged, capped and filled
+(`docs/design-model.md`, "Via protection"; `docs/dsl.md`, "Via protection"). The Altium documents hold a
+part of it.
+
+- **What is written: tenting, where the design states it.** A via record has two tenting flags, for the
+  top and for the bottom (`docs/formats/altium/pcb-copper.md`, "Via"). For each side the flag is set from
+  the via's own value (`tenting_front` for the top, `tenting_back` for the bottom); else from the board
+  default, when the design declares one that states that side; else it stays clear. This holds for a
+  build (`fenolite build --target altium`, with script copper or with `--copper-from` a routed KiCad
+  board, whose own default then applies) and for the write of a model. No other byte of the record
+  follows the tenting: the solder-mask expansion stays the fixed 4 mil.
+- **The side nobody states.** KiCad tents a via side that neither the via nor the board default states;
+  the Altium document leaves its flag clear, which is what it held before this change. So the same script
+  gives tented vias in KiCad and clear flags in Altium unless it states the tenting. A design that states
+  no protection at all builds the Altium files it built before, byte for byte, and gets no message. As
+  soon as a design states any protection, one `altium.not-lowered` info whose `where` is `via-protection`
+  counts the vias with a side stated nowhere; `design.via_protection(protect(tenting=True))` states it for
+  every via.
+- **What is not written.** Covering, plugging, capping and filling: no fact about them is recorded for the
+  Altium format, so they stay in the model, and the same info names the vias that hold one and the
+  features. A via is counted as written in `result.pcb` whatever its protection. A board default as such
+  is not written either: every Altium via carries its own flags.
+- **What is read.** `import_board` gives every via `protection` with both tenting sides explicit: `True`
+  for a set flag, `False` for a clear one, and `None` for the six other fields; `Board.via_protection` is
+  `None`. A clear flag is read as "not tented", so an imported board written for KiCad holds a `tenting`
+  child on every via and none follows KiCad's default. Altium can also close a via's mask opening through
+  its solder-mask expansion (public documents hold negative expansions); the expansion is not read, so the
+  imported value says what the flags say, not what the plotted mask shows.
+- **Round trips.** RT-A2 and the equivalence levels do not compare `Via.protection` ("The scope of
+  RT-A2"): a side stated nowhere is written as a clear flag and read back as `False`. Stated tenting is
+  written and read back unchanged. The rewrite of a document that was read keeps its tenting flags, since
+  every imported via states both sides.
+- **Evidence.** The two flags are `INFERRED` (`H-A-PCB-CU-VIATENT`): they rest on one public description
+  and on a count over eight public documents, not on Altium's own word. Step C8 of
+  `docs/evidence/altium-pcb.md` asks the maintainer what Altium Designer 26 shows for the four flag
+  values. `fenolite inspect` of a PCB document counts the set flags under `result.via_protection`
+  (`docs/cli-contract.md`).
+
+## Net ties, waivers and check severities (change c0114)
+
+- **Waivers apply on both targets.** A waiver is Fenolite's, not KiCad's: `fenolite check` on a built
+  Altium project applies the `copper.*` waivers of its `.fenolite/` model in the stage `copper.clearance`,
+  and the copper guard of `build --target altium` applies them before its mode, so a waived
+  `copper.short` is `info` and does not refuse the build. `result.waivers` and
+  `result.copper_check.waivers` have the keys they have on KiCad. The document pipeline has no DRC stage:
+  a `kicad.drc.*` waiver is listed as `stage-not-run`, and no exclusion is read. No ERC and no parity
+  finding is waived, on either target.
+- **Net-tie groups are reported, not written.** `Footprint.net_tie` is KiCad data. The Altium build
+  writes the pads and their copper as for any footprint, writes no mark that ties them, and reports the
+  footprints that have groups in one `altium.not-lowered` info whose `where` is `net-tie`. How Altium
+  marks a net tie is no registered format fact yet. The guard therefore judges tied pads that touch: a
+  `copper.short` waiver accepts them by name.
+- **An imported board has no groups.** The Altium import reads none, so `FootprintInstance.net_ties` is
+  empty and the copper check judges every pad pair of the board.
+- **Check severities are reported, not written.** `design.rules.severity()` names checks of KiCad's
+  DRC. The build writes no severity and reports the codes in one `altium.not-lowered` info whose `where`
+  is `severity`. A severity is no rule kind, so the rule table has no row for it.
+
+Neither kind is a loss of the board that is made: both are `info`, and a write is not refused for them.
+## Retained body projections (c0099)
+
+Native import retains each component body admitted by the existing component-owner adapter.
+Unknown projection, unsupported model type and unordered heights produce body-unknown and set
+projection_unknown; malformed heights additionally produce bad-length. Model references and
+source locators remain present. Source bytes stay with the native reader record rather than an
+unbounded hex extension. The inferred 0=top/1=bottom mapping is not native-verified. Signed bounds
+and projection_unknown are analysis metadata; the body writer of change c0121 writes a body from its
+`height` and `standoff` and reads neither the signed bounds nor `projection_unknown`.

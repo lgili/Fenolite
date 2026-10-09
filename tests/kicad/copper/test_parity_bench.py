@@ -6,6 +6,7 @@ helper on authored reports."""
 
 from __future__ import annotations
 
+import _areacases as ac
 import _copperparity as cp
 import pytest
 
@@ -67,6 +68,38 @@ def test_fenolite_half_of_the_parity_rows(source: str, target: int) -> None:
         finding.source.split(":")[0] for finding in report.findings if finding.code == "copper.clearance"
     }
     assert {"rule": "rule", "class": "class", "floor": "floor"}[source] in sources
+
+
+@pytest.mark.parametrize("target", [9, 10])
+@pytest.mark.parametrize("case", cp.PAIR_CASES)
+def test_fenolite_half_of_the_pair_rows(case: str, target: int) -> None:
+    """Change c0104: below the value in force inside the pair is a clearance finding, at it and above it
+    is clean, and the two nets that do not pair are judged by the class clearance. The value comes from
+    the pair gap, the governing rule or the board minimum."""
+    source = cp.pair_source(case)
+    bench = cp.parity_bench(source, target)
+    g = cp.PAIR_CASES[case]
+    rows = [row for row in bench.rows if row.group == cp.pair_group(case)]
+    assert [row.gap - g for row in rows] == [-10_000, 0, 10_000]
+    for row in rows:
+        assert cp.fenolite_verdict(source, target, row) == ("clearance" if row.gap < g else "clean"), row
+    (control,) = [row for row in bench.rows if row.group == cp.PAIR_CONTROL]
+    assert cp.fenolite_verdict(source, target, control) == "clearance"
+    report, uuid_of = cp.fenolite_report(source, target)
+    below = set(bench.bench.uuids(f"{rows[0].label}_a"))
+    sources = {
+        finding.source
+        for finding in report.findings
+        if finding.code == "copper.clearance"
+        and below & {uuid_of.get(item.entity_id) for item in finding.items}
+    }
+    expected = {
+        "class": "pair-gap:PAIRC",
+        "rule": "rule:fenolite_0_board",
+        "pair-rule": "rule:fenolite_1_inside",
+        "floor": "floor",
+    }[case]
+    assert sources == {expected}
 
 
 def test_rule_bench_holds_the_zone_rows_for_target_10_only() -> None:
@@ -174,3 +207,71 @@ def test_zone_clearance_missing_canary_fails(source: str) -> None:
     bench = cp.parity_bench(source, 10)
     with pytest.raises(pytest.fail.Exception, match="rules file not loaded"):
         cp.kicad_verdict(report(), bench, bench.rows[0])
+
+
+# --- net-tie rows (capability kicad-oracle, "Net-tie parity canaries"; change c0114) ---------------
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_net_tie_rows_of_the_fenolite_half(target: int) -> None:
+    """Scenario "Hermetic net-tie rows": the grouped cases give no finding, the copies without groups a
+    short for ``touching`` and a clearance finding for ``close``, and each ungrouped case one finding that
+    names its two ungrouped pads."""
+    import _tiebench as tb
+
+    for label in ("official", "touching", "close", "spelling", "three"):
+        assert tb.pad_findings(target, label) == [], label
+    assert tb.pad_findings(target, "touching-plain") == [("copper.short", "1", "2")]
+    assert tb.pad_findings(target, "close-plain") == [("copper.clearance", "1", "2")]
+    for label, found in tb.RECORDED.items():
+        assert tb.pad_findings(target, label) == [found], label
+    # the two round pads of the official form are 0.5 mm apart, and graphics are not copper to the check
+    assert tb.pad_findings(target, "official-plain") == []
+    assert tb.pad_findings(target, "track-near") == [] and tb.pad_findings(target, "track-near-plain") == []
+    # the only other findings: the control pair, and the track against pad 2 of the two track cases
+    others = sorted(
+        (finding.code, {item.kind for item in finding.items} == {"track"})
+        for finding in tb.other_findings(target)
+    )
+    assert others == [("copper.clearance", False), ("copper.clearance", False), ("copper.clearance", True)]
+    report, _ = tb.fenolite_report(target)
+    assert report.summary["net_tie_pairs"] == 14  # every pad pair of one group, over the ten footprints
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_net_tie_bench_is_written_with_its_groups(target: int) -> None:
+    import _tiebench as tb
+
+    bench = tb.tie_bench(target)
+    assert bench.text.count("(net_tie_pad_groups ") == len(tb.CASES)
+    assert bench.text.count('(net_tie_pad_groups "1,2")') == 1 and len(bench.refs) == len(tb.LABELS) == 14
+    assert len(tb.CASES) == 10 and sum(case.plain is not None for case in tb.CASES) == 4
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_fenolite_half_of_the_keepout_bench(target: int) -> None:
+    """Scenario "Hermetic half" (change c0103): the track inside, the crossing track and the track on the
+    back layer of the tracks keep-out, the via of the vias keep-out and both pads of the pads keep-out;
+    never the controls, and never the track in the vias keep-out."""
+    bench = ac.keepout_parity_bench(target)
+    wanted = {
+        uuid
+        for label in ("track_in", "track_cross", "track_back", "via_in", "pads_in")
+        for uuid in bench.uuids(label)
+    }
+    assert ac.fenolite_keepouts(bench) == wanted and len(wanted) == 6
+    report = ac.copper_report(bench)
+    assert report.summary["keepouts"] == 6 and report.summary["rule_areas"] == 3
+    assert not report.summary["unsupported"]
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_fenolite_half_of_the_area_bench(target: int) -> None:
+    """The pair inside the area, the pair on the back layer under it and the pair that crosses its edge
+    break the 2 mm rule; the pair outside is not judged by it."""
+    bench = ac.area_parity_bench(target)
+    wanted = {
+        frozenset((*bench.uuids(f"{label}_a"), *bench.uuids(f"{label}_b")))
+        for label in ("in", "back", "cross")
+    }
+    assert ac.fenolite_area_pairs(bench) == wanted

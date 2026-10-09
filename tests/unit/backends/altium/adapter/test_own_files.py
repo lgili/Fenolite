@@ -206,3 +206,67 @@ def test_routed_project(tmp_path: Path) -> None:
     )
     assert len(board.zones) == sum(len(zone.layers) for zone in want.zones)
     assert len([layer for layer in board.layers if layer.kind == "copper"]) == 4
+
+
+# --- copper locks (change c0108; capability altium-import, "Copper locks from an Altium board") -----
+
+
+def _locked_counts(design: Design) -> dict[str, int]:
+    assert design.board is not None
+    board = design.board
+    return {
+        "tracks": sum(1 for item in board.tracks if item.locked),
+        "arcs": sum(1 for item in board.arcs if item.locked),
+        "vias": sum(1 for item in board.vias if item.locked),
+    }
+
+
+def test_locked_copper_survives_the_round_trip(tmp_path: Path) -> None:
+    """Scenario "Locks survive the round trip": exactly the track, the arc and the via that were locked
+    are locked in the import of the written project."""
+    import dataclasses
+
+    from _altium_copper import routed_model
+
+    model = routed_model()
+    assert model.board is not None
+    board = model.board
+    track, arc, via = board.tracks[0], board.arcs[0], board.vias[0]
+    locked = dataclasses.replace(
+        model,
+        board=dataclasses.replace(
+            board,
+            tracks=(dataclasses.replace(track, locked=True), *board.tracks[1:]),
+            arcs=(dataclasses.replace(arc, locked=True), *board.arcs[1:]),
+            vias=(dataclasses.replace(via, locked=True), *board.vias[1:]),
+        ),
+    )
+    built = routed_build(tmp_path / "tree", locked)
+    read = read_built(tmp_path / "out", built.files).design
+    assert read.board is not None
+    assert _locked_counts(read) == {"tracks": 1, "arcs": 1, "vias": 1}
+    (got_track,) = [item for item in read.board.tracks if item.locked]
+    (got_via,) = [item for item in read.board.vias if item.locked]
+    (got_arc,) = [item for item in read.board.arcs if item.locked]
+    # lengths come back within one file unit (2.54 nm)
+    assert got_track.layer == track.layer and abs(got_track.width - track.width) <= 2
+    assert abs(got_via.diameter - via.diameter) <= 2 and abs(got_via.drill - via.drill) <= 2
+    assert got_arc.layer == arc.layer and abs(got_arc.width - arc.width) <= 2
+    # but for the locks, the import is that of the same project written without them
+    plain = read_built(tmp_path / "plain", routed_build(tmp_path / "tree2").files).design
+    assert plain.board is not None and _locked_counts(plain) == {"tracks": 0, "arcs": 0, "vias": 0}
+
+    def unlocked(items):  # type: ignore[no-untyped-def]
+        return tuple(dataclasses.replace(item, locked=False, provenance=None) for item in items)
+
+    assert unlocked(read.board.tracks) == unlocked(plain.board.tracks)
+    assert unlocked(read.board.arcs) == unlocked(plain.board.arcs)
+    assert unlocked(read.board.vias) == unlocked(plain.board.vias)
+
+
+def test_locked_is_false_for_a_document_without_locks() -> None:
+    """Scenario "A document without locks": the committed routed sample imports with nothing locked."""
+    sample = Path(__file__).resolve().parents[4] / "data" / "altium" / "routed"
+    read = AltiumBackend().read(sample / "routed.PrjPcb").design
+    assert read.board is not None and read.board.tracks and read.board.vias
+    assert _locked_counts(read) == {"tracks": 0, "arcs": 0, "vias": 0}

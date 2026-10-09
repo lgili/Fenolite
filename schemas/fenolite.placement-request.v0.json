@@ -1,0 +1,333 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.placement-request.v0",
+  "title": "PlacementRequest",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "enum": [
+        "fenolite.placement-request.v0"
+      ]
+    },
+    "constraints": {
+      "$ref": "#/$defs/PlacementConstraints"
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PlacementObjective"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "GroupRegion": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "footprint_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "footprint_ids",
+        "outline"
+      ]
+    },
+    "MechanicalConstraints": {
+      "type": "object",
+      "properties": {
+        "board_thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowed_penetrations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalVolume"
+          }
+        },
+        "obstacles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalVolume"
+          }
+        },
+        "missing_assembly": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "MechanicalIntent": {
+      "description": "Declared mechanical provenance; a measured coordinate is still not a qualified fit.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "frame": {
+          "enum": [
+            "board"
+          ]
+        },
+        "tolerance": {
+          "type": "integer"
+        },
+        "source": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "measured",
+            "estimated",
+            "proposed"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ]
+    },
+    "MechanicalReservation": {
+      "description": "Use one existing drill; declared volumes are in the board frame and never create a Hole.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "footprint_id": {
+          "type": "string"
+        },
+        "pad_id": {
+          "type": "string"
+        },
+        "volumes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalVolume"
+          }
+        },
+        "fixed": {
+          "type": "boolean"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MechanicalIntent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "footprint_id",
+        "pad_id"
+      ]
+    },
+    "MechanicalVolume": {
+      "description": "An explicitly supplied board-frame reservation volume, in integer nm.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "outline": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Point"
+          }
+        },
+        "z_min": {
+          "type": "integer"
+        },
+        "z_max": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "exact",
+            "conservative"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "outline",
+        "z_min",
+        "z_max"
+      ]
+    },
+    "PlacementConstraints": {
+      "type": "object",
+      "properties": {
+        "pitch": {
+          "type": "integer"
+        },
+        "edge_clearance": {
+          "type": "integer"
+        },
+        "gap": {
+          "type": "integer"
+        },
+        "max_candidates": {
+          "type": "integer"
+        },
+        "reservations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MechanicalReservation"
+          }
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/GroupRegion"
+          }
+        },
+        "volumes": {
+          "$ref": "#/$defs/MechanicalConstraints"
+        },
+        "source_frame": {
+          "type": "string"
+        },
+        "source_hashes": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PlacementObjective": {
+      "description": "A pad-centre distance surrogate; no routed electrical property is inferred.",
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "first_pad": {
+          "type": "string"
+        },
+        "second_pad": {
+          "type": "string"
+        },
+        "max_distance": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "weight": {
+          "type": "integer"
+        },
+        "require_connected": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "first_pad",
+        "second_pad"
+      ]
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    }
+  }
+}

@@ -294,6 +294,32 @@ def test_altium_build_places_from_the_file(tmp_path: Path, monkeypatch: pytest.M
 # -- the registered example
 
 
+def test_a_hole_in_the_placements_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "A hole in the placements file" (design-dsl, "Board holes in a build"; change c0102): a
+    hole part is a part for the layout lens, with no rule of its own."""
+    p = Project(tmp_path, monkeypatch)
+    p.script.write_text(
+        p.script.read_text(encoding="utf-8")
+        + 'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
+        + 'h2 = design.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))\n'
+        + "connect(gnd, h2[1])\n",
+        encoding="utf-8",
+    )
+    code, _, err = p.build("--confirm")
+    assert code == 0, err
+    code, _, err = p.run("sync", *SYNC, "--confirm")
+    assert code == 0, err
+    text = source(p).read_text(encoding="utf-8")
+    assert '[part."H1"]' in text and '[part."H2"]' in text
+    entries = read_placements(text, origin=BOARD_ORIGIN).entries
+    assert entries["H1"].locked and entries["H2"].locked  # type: ignore[attr-defined]
+    assert entries["H1"].at == footprint(p.read(), "H1")[0].position  # type: ignore[attr-defined]
+    code, env, err = p.build("--confirm")
+    assert code == 0, err
+    named = [i for i in env["issues"] if "H1" in i["message"] or "H2" in i["message"]]  # type: ignore[union-attr, index]
+    assert not [i for i in named if i["code"] in ("layout.place-forced", "layout.source-stale")]
+
+
 def test_command_registration() -> None:
     assert (COMMAND.name, COMMAND.mutates, COMMAND.schema) == ("sync", True, "fenolite.sync.v0")
     assert COMMAND.example_args == (str(MINIMAL), "--out", EXAMPLE_SYNC_OUT, "--to-source", "--dry-run")

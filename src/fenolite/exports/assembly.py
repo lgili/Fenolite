@@ -53,8 +53,10 @@ PLACEMENT_FIELDS: tuple[str, ...] = (
     "y",
     "rotation",
     "side",
+    "fiducial",
 )
-"""The fields of a placement column, besides ``property:<NAME>``."""
+"""The fields of a placement column, besides ``property:<NAME>``; ``fiducial`` prints ``yes`` for a
+footprint with a fiducial pad and nothing otherwise."""
 UNITS: tuple[str, ...] = ("mm", "in", "mil")
 MAX_DECIMALS = 6
 FULL_TURN: Udeg = 360_000_000
@@ -155,6 +157,7 @@ class PlacementTemplate:
     exclude_dnp: bool = True
     smd_only: bool = False
     rotation: RotationRule = RotationRule()
+    fiducials: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -384,6 +387,7 @@ def _placement(reader: _Reader, value: Any, where: str) -> Any:
         "sides": _sides,
         "exclude_dnp": _boolean,
         "smd_only": _boolean,
+        "fiducials": _boolean,
         "rotation": _rotation,
     }
     return PlacementTemplate(**_table(reader, value, where, handlers))

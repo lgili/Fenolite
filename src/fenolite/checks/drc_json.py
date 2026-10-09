@@ -114,24 +114,53 @@ def finding_types(report: DrcReport, *, oracle: str) -> dict[str, str]:
     return dict(sorted({type_code(oracle, v.type): v.type for v in _entries(report)}.items()))
 
 
-def finding_issues(report: DrcReport, *, oracle: str, design: Design | None) -> tuple[Issue, ...]:
-    """One issue per violation, unconnected item and schematic parity entry of ``report`` (the parity
-    list is empty unless the run asked for the parity test; "Parity findings")."""
+def excluded_note(violation: DrcViolation) -> str:
+    """What the issue of an entry that the report marks ``excluded`` ends with: the comment the project
+    stores with the exclusion, when it has one ("Exclusions in the DRC stage", change c0114)."""
+    if not violation.excluded:
+        return ""
+    return (
+        f" (excluded in the project: {violation.comment})"
+        if violation.comment
+        else " (excluded in the project)"
+    )
+
+
+def finding_entries(
+    report: DrcReport, *, oracle: str, design: Design | None
+) -> tuple[tuple[Issue, tuple[str, ...], DrcViolation], ...]:
+    """One ``(issue, the locations of its items, the entry)`` per violation, unconnected item and
+    schematic parity entry of ``report``, in report order. The locations are the parts of the issue's
+    ``where``: what a waiver names."""
     locations = item_locations(design, oracle)
-    issues: list[Issue] = []
+    found: list[tuple[Issue, tuple[str, ...], DrcViolation]] = []
     for violation in _entries(report):
-        where = ", ".join(
+        names = tuple(
             locations.get(item.uuid.lower()) or format_position(item.position) for item in violation.items
         )
         message = sanitise(f"{violation.type}: {violation.description}", source=report.source)
-        issues.append(
-            issue(type_code(oracle, violation.type), message, severity=issue_severity(violation), where=where)
+        message += excluded_note(violation)
+        made = issue(
+            type_code(oracle, violation.type),
+            message,
+            severity=issue_severity(violation),
+            where=", ".join(names),
         )
-    return tuple(issues)
+        found.append((made, names, violation))
+    return tuple(found)
+
+
+def finding_issues(report: DrcReport, *, oracle: str, design: Design | None) -> tuple[Issue, ...]:
+    """One issue per violation, unconnected item and schematic parity entry of ``report`` (the parity
+    list is empty unless the run asked for the parity test; "Parity findings"). An excluded entry ends
+    with its exclusion's comment (``excluded_note``)."""
+    return tuple(made for made, _, _ in finding_entries(report, oracle=oracle, design=design))
 
 
 __all__ = [
     "RESERVED_SUFFIXES",
+    "excluded_note",
+    "finding_entries",
     "finding_issues",
     "finding_types",
     "format_position",

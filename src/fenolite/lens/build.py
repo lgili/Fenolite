@@ -12,6 +12,7 @@ build record. A design with an error gives no file.
 from __future__ import annotations
 
 import dataclasses
+import fnmatch
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
@@ -20,8 +21,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Literal, Protocol, TypeGuard, cast
 
-from fenolite.backends.kicad import copper as copper_mod
 from fenolite.backends.kicad import (
+    boarditems,
     dru,
     embed,
     frame,
@@ -30,6 +31,7 @@ from fenolite.backends.kicad import (
     netnames,
     pcb,
     pro,
+    rulemap,
     sch,
     sch_netlist,
     schgen,
@@ -38,18 +40,31 @@ from fenolite.backends.kicad import (
     versions,
     wks,
 )
+from fenolite.backends.kicad import copper as copper_mod
+from fenolite.backends.kicad import lengths as lengths_mod
+from fenolite.backends.kicad import meander as meander_mod
+from fenolite.backends.kicad import stackup as stacklib
+from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad.copper import CopperIntentLike, is_copper_uuid, resolve_copper
 from fenolite.backends.kicad.embed import (
+    MANDATORY_FIELDS,
     PATH_PROPERTY,
     footprint_extent,
     place_footprint,
     uuid_locators,
     with_property,
 )
-from fenolite.backends.kicad.layers import created_layers
+from fenolite.backends.kicad.layers import created_layers, with_plane_types
 from fenolite.backends.kicad.liberrors import LibraryError
 from fenolite.backends.kicad.libs import LibraryResolver, LibRow, LibTable, Location, write_lib_table
-from fenolite.backends.kicad.outline import BoardOutline, board_outline
+from fenolite.backends.kicad.meander import MeanderIntentLike
+from fenolite.backends.kicad.outline import (
+    BoardOutline,
+    board_outline,
+    check_outline,
+    outline_box,
+    outline_case,
+)
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
 from fenolite.backends.kicad.schgen import GeneratedSchematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
@@ -60,17 +75,18 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
-from fenolite.core.units import Udeg
+from fenolite.core.units import Nm, Udeg
 from fenolite.lens import preserve
 from fenolite.lens.fields import FieldRequestLike, apply_requests, merge_fields
 from fenolite.lens.moved import identity_map
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES, Prepared
-from fenolite.model import canonical
-from fenolite.model.board import FootprintInstance, Pad, Side
-from fenolite.model.circuit import Component, Net, Pin, PinRef
+from fenolite.model import canonical, pairs
+from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
+from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
+from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
 
 RECORD_FILE = ".fenolite/build.json"
@@ -100,18 +116,27 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.property-conflict": "error",
         "build.vendor-unsafe-name": "error",
         "build.schematic-netlist-differs": "error",
+        "build.area-unknown": "error",
         "build.pin-ambiguous": "warning",
         "build.unused-pin-without-pad": "warning",
         "build.library-too-new": "warning",
         "build.library-changed": "warning",
         "build.diff-pair-name": "warning",
+        "build.diff-pair-gap-shadowed": "warning",
         "build.i2c-pullup-missing": "warning",
         "build.pad-map-default": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
         "build.global-library": "info",
+        "build.field-added": "info",
         "build.interface-not-lowered": "info",
-        "build.plane-not-lowered": "info",
+        "build.plane-zone-missing": "warning",
+        "build.impedance-layer": "error",
+        "build.impedance-shadowed": "warning",
+        "build.impedance-class-width": "warning",
+        "build.impedance-gap-clearance": "warning",
+        "build.impedance-stackup": "warning",
+        "build.impedance-rules-only": "info",
         **{code: severity for code, severity in schgen.ISSUE_CODES.items() if code.startswith("build.")},
         **PRESERVE_ISSUE_CODES,
     }
@@ -143,17 +168,29 @@ def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:
     return Issue(code, BUILD_ISSUE_CODES[code], message, where=where, hint=hint)
 
 
-def plane_issues(planes: Mapping[str, str]) -> list[Issue]:
-    """One ``build.plane-not-lowered`` info per internal plane of the script (layer name → net name): the
-    KiCad target writes the layer as the signal layer it is, and no plane (change c0038)."""
+def plane_issues(planes: Mapping[str, str], design: Design) -> list[Issue]:
+    """One ``build.plane-zone-missing`` warning per internal plane of the script (layer name → net name)
+    whose net has no zone on its layer in ``design``, the design the board is written from (the script's
+    zones and those of the existing board). The KiCad target gives the layer the row type ``power`` and
+    writes no copper for the plane: the zone is the copper (change c0107). The hint names the script call
+    that draws it (change c0100)."""
+    board = design.board
+    by_id = {net.id: net.name for net in design.circuit.nets}
+    covered = {
+        (layer, by_id.get(zone.net_id or ""))
+        for zone in (board.zones if board is not None else ())
+        for layer in zone.layers
+    }
     return [
         issue(
-            "build.plane-not-lowered",
-            f"the plane on {layer} (net {net}) is not written: {layer} stays a signal layer of the board",
+            "build.plane-zone-missing",
+            f"the plane on {layer} (net {net}) has no copper: no zone of {net} lies on {layer}; "
+            f"the layer is written as a plane layer (type power) all the same",
             layer,
-            f"draw a zone on {layer} for the net {net} in KiCad",
+            f'draw that copper in the script: design.zone(<the net {net}>, layers=("{layer}",))',
         )
         for layer, net in planes.items()
+        if (layer, net) not in covered
     ]
 
 
@@ -449,57 +486,195 @@ def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
     return out
 
 
-PAIR_KINDS: Mapping[str, tuple[str, str, str]] = MappingProxyType(
-    {"diff_pair": ("p", "n", "diff pair"), "usb2": ("dp", "dn", "USB 2.0 pair")}
-)
-"""Interface kind → the roles of its positive and negative nets, and the words of its messages."""
-PAIR_ENDS: tuple[tuple[str, str], ...] = (("P", "N"), ("+", "-"))
-"""The last characters of the two names of a KiCad differential pair (``H-K-DIFFPAIR-NAMES``)."""
+PAIR_WORDS: Mapping[str, str] = MappingProxyType({"diff_pair": "diff pair", "usb2": "USB 2.0 pair"})
+"""Pair interface kind (``model.pairs.PAIR_ROLES``) → the words of its messages."""
 
 
 def is_pair(first: str, second: str) -> bool:
-    """Whether KiCad takes the two net names as one differential pair: equal except for the last
-    character, ``P`` then ``N`` or ``+`` then ``-``; letter case counts."""
-    return first[:-1] == second[:-1] and (first[-1:], second[-1:]) in PAIR_ENDS
+    """Whether KiCad takes the two net names as one differential pair, the positive one first
+    (``model.pairs.pair_base``, ``H-K-DIFFPAIR-NAMES-2``): equal except for a polarity character, ``P``
+    then ``N`` or ``+`` then ``-``, which only digits and ``_`` may follow; letter case counts."""
+    return pairs.pair_base(first, second) is not None
 
 
 def pair_hint(first: str, second: str) -> str:
     """The names to use instead of a pair that ``is_pair`` refuses."""
-    for positive, negative in PAIR_ENDS:
-        if first.endswith(positive):
-            return f"name the second net {first[:-1]}{negative}: KiCad pairs it with {first}, not {second}"
-    return f"name the nets {first}_P and {first}_N: KiCad pairs names that end in P and N, or in + and -"
+    split = pairs.split_pair_name(first)
+    if split is not None and split.polarity in pairs.POSITIVE:
+        return f"name the second net {pairs.coupled_name(first)}: KiCad pairs it with {first}, not {second}"
+    return (
+        f"name the nets {first}_P and {first}_N: KiCad pairs names that hold P and N, or + and -, "
+        "followed by nothing but digits and underscores"
+    )
+
+
+def _leaves(selector: Selector | None, op: str) -> list[Selector]:
+    if selector is None:
+        return []
+    if selector.items:
+        return [leaf for item in selector.items for leaf in _leaves(item, op)]
+    return [selector] if selector.op == op else []
+
+
+def _fold(selector: Selector) -> Selector:
+    """``selector`` as the copper check compares it (``checks.clearance``, which this package may not
+    import): every leaf value without letter case, a ``diff_pair`` leaf with it."""
+    if selector.items:
+        return dataclasses.replace(selector, items=tuple(_fold(item) for item in selector.items))
+    if selector.op in ("all", "diff_pair"):
+        return selector
+    return dataclasses.replace(selector, value=selector.value.casefold())
+
+
+def _selects(rule: Rule, a: RuleSubject, b: RuleSubject) -> bool:
+    """Whether a rule holds between two track subjects, as the copper check decides it."""
+    if rule.layers and a.layer not in {layer.casefold() for layer in rule.layers}:
+        return False
+    first = _fold(rule.selector_a)
+    if rule.selector_b is None:
+        return first.matches(a) or first.matches(b)
+    second = _fold(rule.selector_b)
+    return (first.matches(a) and second.matches(b)) or (first.matches(b) and second.matches(a))
+
+
+def pair_gap_issue(
+    design: Design, itf: Interface, first: Net, second: Net, base: str, *, target: int, layers: Sequence[str]
+) -> Issue | None:
+    """``build.diff-pair-gap-shadowed`` for one pair whose nets share a class with a pair gap ``g``, when
+    KiCad would report two tracks of the pair ``g`` apart (``H-K-PRO-PAIR``): the clearance in force
+    between them on a copper layer is above ``g`` (the value of the copper check, "Clearance in force"
+    and "Clearance between the nets of a differential pair", with the switches of ``target``), or the board
+    minimum clearance that the build writes is above ``g`` and no ``diff_pair_gap`` rule selects the pair."""
+    classes = {c.id: c for c in design.circuit.netclasses}
+    cls = classes.get(first.netclass_id or "")
+    if cls is None or first.netclass_id != second.netclass_id or cls.diff_pair_gap is None:
+        return None
+    gap = cls.diff_pair_gap
+    ruleset = design.rules
+    ordered = rulemap.rule_order(ruleset.rules if ruleset is not None else ())
+    floor = lowering.lower_minimums(ruleset, target=target, current={}).get("min_clearance")
+    over_classes = target in lowering.RULES_OVER_CLASSES
+    over_rules = target in lowering.FLOOR_OVER_RULES.get("min_clearance", frozenset())
+    words = PAIR_WORDS[itf.kind]
+    hint = (
+        "design.rules.pair(…, clearance=…, gap_min=…) writes a clearance rule and a gap rule for the "
+        "pair, after the rules that shadow its class gap"
+    )
+
+    def text(nm: int) -> str:
+        return lowering.millimetres(nm).text
+
+    def found(what: str) -> Issue:
+        return issue(
+            "build.diff-pair-gap-shadowed",
+            f"{words} {itf.name}: the nets {first.name} and {second.name} are in the class {cls.name}, "
+            f"whose pair gap is {text(gap)} mm, but {what}; KiCad reports two tracks of the pair laid "
+            "at that gap",
+            itf.name,
+            hint,
+        )
+
+    # the class value inside the pair: the pair gap where it is below the class clearance
+    inside = cls.clearance if cls.clearance is not None and cls.clearance <= gap else gap
+    for layer in layers:
+        a, b = (
+            RuleSubject(
+                "track",
+                net=net.name.casefold(),
+                netclass=cls.name.casefold(),
+                layer=layer.casefold(),
+                diff_pair=base,
+            )
+            for net in (first, second)
+        )
+        governing = next(
+            (
+                rule
+                for rule in reversed(ordered)
+                if rule.kind == "clearance" and rule.min is not None and _selects(rule, a, b)
+            ),
+            None,
+        )
+        if governing is None or governing.severity == "ignore" or governing.min is None:
+            continue
+        if not over_classes and inside > governing.min:
+            continue
+        if governing.min > gap and not (over_rules and floor is not None and floor > governing.min):
+            return found(
+                f"the clearance rule {governing.name!r} ({text(governing.min)} mm) governs between them"
+            )
+    if floor is not None and floor > gap:
+        subjects = [
+            RuleSubject("track", net=net.name.casefold(), netclass=cls.name.casefold(), diff_pair=base)
+            for net in (first, second)
+        ]
+        gap_rule = any(
+            rule.kind == "diff_pair_gap" and any(_fold(rule.selector_a).matches(x) for x in subjects)
+            for rule in ordered
+        )
+        if not gap_rule:
+            return found(
+                f"the board minimum clearance that the build writes is {text(floor)} mm and no "
+                "diff_pair_gap rule selects the pair"
+            )
+    return None
 
 
 def interface_checks(
-    design: Design, pins: Mapping[str, Sequence[Pin]], on_net: Mapping[str, Mapping[str, str]]
+    design: Design,
+    pins: Mapping[str, Sequence[Pin]],
+    on_net: Mapping[str, Mapping[str, str]],
+    *,
+    target: int = versions.DEFAULT_TARGET,
+    layers: Sequence[str] = ("F.Cu", "B.Cu"),
 ) -> list[Issue]:
-    """What a build says about the interfaces of ``design`` (change c0073): one info per pair that is kept
-    in the model only, ``build.diff-pair-name`` for a pair whose names KiCad does not pair, and
+    """What a build says about the interfaces of ``design`` (changes c0073 and c0104): one info per pair
+    that no rule selects, ``build.diff-pair-name`` for a pair whose names KiCad does not pair,
+    ``build.diff-pair-gap-shadowed`` for a pair KiCad would report at its class gap, and
     ``build.i2c-pullup-missing`` for an I2C line without a two-pin part to the ``hv`` net of a ``power``
-    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``. Nothing is changed."""
+    interface. ``pins`` and ``on_net`` are those of ``_resolve_pins``; ``layers`` are the copper layers of
+    the board. Nothing is changed."""
     found: list[Issue] = []
+    nets = {net.id: net for net in design.circuit.nets}
     names = {net.id: net.name for net in design.circuit.nets}
+    rules = design.rules.rules if design.rules is not None else ()
+    pair_leaves = [
+        leaf
+        for rule in rules
+        for leaf in (*_leaves(rule.selector_a, "diff_pair"), *_leaves(rule.selector_b, "diff_pair"))
+    ]
     supplies = {i.members["hv"] for i in design.circuit.interfaces if i.kind == "power" and "hv" in i.members}
     for itf in design.circuit.interfaces:
-        if itf.kind in PAIR_KINDS:
-            positive, negative, words = PAIR_KINDS[itf.kind]
-            found.append(
-                issue(
-                    "build.interface-not-lowered", f"{words} {itf.name} is kept in the model only", itf.name
-                )
+        if itf.kind in pairs.PAIR_ROLES:
+            words = PAIR_WORDS[itf.kind]
+            ids = pairs.pair_nets(itf)
+            first, second = (nets.get(ids[0]), nets.get(ids[1])) if ids is not None else (None, None)
+            base = (
+                pairs.pair_base(first.name, second.name) if first is not None and second is not None else None
             )
-            first, second = names.get(itf.members.get(positive, "")), names.get(itf.members.get(negative, ""))
-            if first is not None and second is not None and not is_pair(first, second):
+            if base is None or not any(pairs.base_matches(base, leaf.value) for leaf in pair_leaves):
+                found.append(
+                    issue(
+                        "build.interface-not-lowered",
+                        f"{words} {itf.name} is kept in the model only: no rule of the design selects it, "
+                        "so KiCad knows the pair by its net names only",
+                        itf.name,
+                    )
+                )
+            if first is not None and second is not None and base is None:
                 found.append(
                     issue(
                         "build.diff-pair-name",
-                        f"{words} {itf.name}: KiCad does not take the nets {first} and {second} as a "
-                        "differential pair, so its pair router and inDiffPair() do not find them",
+                        f"{words} {itf.name}: KiCad does not take the nets {first.name} and {second.name} "
+                        "as a differential pair, so its pair router and inDiffPair() do not find them",
                         itf.name,
-                        pair_hint(first, second),
+                        pair_hint(first.name, second.name),
                     )
                 )
+            if first is not None and second is not None and base is not None:
+                shadowed = pair_gap_issue(design, itf, first, second, base, target=target, layers=layers)
+                if shadowed is not None:
+                    found.append(shadowed)
         elif itf.kind == "i2c":
             for line in ("sda", "scl"):
                 net_id = itf.members.get(line)
@@ -518,6 +693,164 @@ def interface_checks(
     return found
 
 
+def _shadows(rule: Rule, classes: Sequence[str], bases: Sequence[str], layer: str) -> bool:
+    """Whether ``rule`` selects a target class on ``layer`` as ``impedance_checks`` counts it: its first
+    selector is one leaf, or an ``or`` of leaves, each ``all``, a ``netclass`` leaf naming a target class,
+    or a ``diff_pair`` leaf naming a pair of a target class or ``*``; its layers are empty or hold
+    ``layer``. Any other selector, an area leaf among them, does not count."""
+    if rule.layers and layer not in rule.layers:
+        return False
+    selector = rule.selector_a
+    leaves = selector.items if selector.op == "or" else (selector,)
+    for leaf in leaves:
+        if leaf.op == "all":
+            continue
+        if leaf.op == "netclass" and any(fnmatch.fnmatchcase(name, leaf.value) for name in classes):
+            continue
+        if leaf.op == "diff_pair" and (
+            leaf.value == "*" or any(pairs.base_matches(b, leaf.value) for b in bases)
+        ):
+            continue
+        return False
+    return True
+
+
+def _mm(nm: int) -> str:
+    return lowering.millimetres(nm).text
+
+
+def _class_issues(imp: ImpedanceTarget, row: TraceGeometry, cls: NetClass, *, target: int) -> list[Issue]:
+    """``build.impedance-class-width`` and, for target 9, ``build.impedance-gap-clearance`` of one class
+    of a target on one of its layers."""
+    found: list[Issue] = []
+    values = (
+        (("track_width", cls.track_width, row.width),)
+        if imp.kind == "single"
+        else (
+            ("diff_pair_width", cls.diff_pair_width, row.width),
+            ("diff_pair_gap", cls.diff_pair_gap, row.gap),
+        )
+    )
+    for key, value, wanted in values:
+        if value is not None and wanted is not None and value != wanted:
+            found.append(
+                issue(
+                    "build.impedance-class-width",
+                    f"the class {cls.name} has {key} {_mm(value)} mm, and the target {imp.name} gives "
+                    f"{_mm(wanted)} mm on {row.layer}; routers lay tracks at the class value",
+                    cls.name,
+                    f"set {key}= of design.rules.netclass({cls.name!r}) to the target's value",
+                )
+            )
+    gap = row.gap
+    if (
+        target == 9
+        and gap is not None
+        and cls.clearance is not None
+        and gap < cls.clearance
+        and not (cls.diff_pair_gap is not None and cls.diff_pair_gap <= gap)
+    ):
+        found.append(
+            issue(
+                "build.impedance-gap-clearance",
+                f"the target {imp.name} gives the gap {_mm(gap)} mm on {row.layer}, below the clearance "
+                f"{_mm(cls.clearance)} mm of the class {cls.name}: KiCad 9 reports the pair's own clearance",
+                cls.name,
+                f"set design.rules.netclass({cls.name!r}, diff_pair_gap=…) at or below the gap, "
+                "or design.rules.pair(…, clearance=…) for the pair",
+            )
+        )
+    return found
+
+
+def impedance_checks(design: Design, *, target: int) -> list[Issue]:
+    """What a build says about the impedance targets of ``design`` (``docs/impedance.md``; change c0105):
+    ``build.impedance-layer`` for a layer or a reference that is not a copper layer of the board,
+    ``build.impedance-shadowed`` for a rule emitted after a derived rule that selects a target class on its
+    layer, ``build.impedance-class-width`` for a class value that differs from a trace, and, for target 9,
+    ``build.impedance-gap-clearance`` and ``build.impedance-rules-only``; ``build.impedance-stackup`` when
+    the board's stack-up is missing or not marked impedance-controlled. Nothing is changed."""
+    ruleset = design.rules
+    targets = ruleset.impedance if ruleset is not None else ()
+    if not targets:
+        return []
+    found: list[Issue] = []
+    board = design.board
+    copper = (
+        {layer.name for layer in board.layers if layer.kind == "copper"} if board is not None else set[str]()
+    )
+    classes = {c.id: c for c in design.circuit.netclasses}
+    nets = {net.id: net for net in design.circuit.nets}
+
+    ordered = rulemap.rule_order(ruleset.rules if ruleset is not None else ())
+    position = {rule.id: index for index, rule in enumerate(ordered)}
+    for imp in targets:
+        names = [classes[i].name for i in imp.netclass_ids if i in classes]
+        bases: list[str] = []
+        for itf in design.circuit.interfaces:
+            ids = pairs.pair_nets(itf)
+            if ids is None or ids[0] not in nets or ids[1] not in nets:
+                continue
+            first, second = nets[ids[0]], nets[ids[1]]
+            base = pairs.pair_base(first.name, second.name)
+            if base is not None and first.netclass_id in imp.netclass_ids:
+                bases.append(base)
+        for row in imp.layers:
+            wrong = [name for name in (row.layer, *row.references) if name not in copper]
+            if wrong:
+                found.append(
+                    issue(
+                        "build.impedance-layer",
+                        f"impedance target {imp.name}: {', '.join(wrong)} is not a copper layer of the board",
+                        f"impedance/{imp.name}",
+                        "name the copper layers of board(copper=…): F.Cu, In1.Cu … B.Cu",
+                    )
+                )
+            for kind in ("track_width", "diff_pair_gap") if imp.kind == "differential" else ("track_width",):
+                own = next(
+                    (r for r in ordered if r.name == f"{kind}_{imp.name}_{row.layer}" and r.kind == kind),
+                    None,
+                )
+                if own is None:
+                    continue
+                for later in ordered[position[own.id] + 1 :]:
+                    if later.kind == kind and _shadows(later, names, bases, row.layer):
+                        found.append(
+                            issue(
+                                "build.impedance-shadowed",
+                                f"the rule {later.name!r} is written after {own.name!r} and governs the "
+                                f"{kind} of the target {imp.name} on {row.layer}",
+                                later.name,
+                                "give the rule a lower priority, narrow it to an area, or remove it",
+                            )
+                        )
+            for class_id in imp.netclass_ids:
+                cls = classes.get(class_id)
+                if cls is not None:
+                    found += _class_issues(imp, row, cls, target=target)
+    stackup = board.stackup if board is not None else None
+    if stackup is None or not stackup.impedance_controlled:
+        state = "has no stack-up" if stackup is None else "has a stack-up whose impedance_controlled is false"
+        found.append(
+            issue(
+                "build.impedance-stackup",
+                f"the board {state}, and the impedance targets {', '.join(t.name for t in targets)} need it: "
+                "the job file states ImpedanceControlled and the dielectric constants only then",
+                "board",
+                "declare design.stackup(…, impedance_controlled=True)",
+            )
+        )
+    if target == 9:
+        found.append(
+            issue(
+                "build.impedance-rules-only",
+                "KiCad 9 has no tuning profile: the impedance targets are written as design rules only",
+                "impedance",
+            )
+        )
+    return list(dict.fromkeys(found))
+
+
 def _pulled_up(
     net_id: str,
     supplies: set[str],
@@ -534,9 +867,18 @@ def _pulled_up(
 
 
 def _staging(design: Design) -> tuple[int, int]:
-    assert design.board is not None and design.board.outline is not None
-    points = design.board.outline.points
-    return max(p.x for p in points) + STAGING_OFFSET, min(p.y for p in points)
+    """Where the staging row starts: right of the box of the outline, arcs included, at its top."""
+    box = outline_box(design)
+    assert box is not None
+    return box[2] + STAGING_OFFSET, box[1]
+
+
+def height_body(path: str, height: Nm) -> ComponentBody:
+    """The body of a part whose script states its height (change c0140): extruded, standoff 0, no outline
+    and no signed bounds; ``outward_height`` reads ``height`` as its top."""
+    return ComponentBody(
+        id=derived_id("bdy", DSL_BACKEND, f"height:{path}"), kind="extruded", height=height, name="height"
+    )
 
 
 def build_design(
@@ -544,7 +886,7 @@ def build_design(
     placements: Mapping[str, PlacementRequest],
     *,
     name: str,
-    copper: Literal[2, 4],
+    copper: int,
     resolver: LibraryResolver,
     target: int = versions.DEFAULT_TARGET,
     allow_lossy: bool = False,
@@ -552,6 +894,7 @@ def build_design(
     record: Mapping[str, str] | None = None,
     prepared: Prepared | None = None,
     copper_intents: Sequence[CopperIntentLike] = (),
+    meanders: Sequence[MeanderIntentLike] = (),
     fields: Mapping[str, Sequence[FieldRequestLike]] = MappingProxyType({}),
     pad_zones: Mapping[str, Sequence[PadZoneRequestLike]] = MappingProxyType({}),
     authored_footprints: Mapping[str, FootprintDef] = MappingProxyType({}),
@@ -561,8 +904,31 @@ def build_design(
     schematic: Literal["write", "skip"] = "write",
     symbol_placements: Mapping[str, SymbolPlacement] | None = None,
     schematic_layout: Literal["readable", "grid"] = "readable",
+    lock_stackup: bool = False,
+    lock_via_protection: bool = False,
+    planes: Mapping[str, str] | None = None,
+    lock_outline: bool = False,
+    heights: Mapping[str, Nm] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
+
+    The outline of the model is judged first (``outline.check_outline``): rings that cross or touch stop
+    the build. ``lock_outline`` is ``board(..., locked=True)`` of the script: with an existing board, the
+    script's outline then replaces an outline edited in KiCad (``docs/lens.md``, "Outline changes").
+
+    ``planes`` are the script's internal planes (layer name → net name). Each plane layer gets the KiCad
+    row type ``power`` in the written board, after the merge with an existing board; every other copper
+    layer keeps the type of the board it is written from, so a type set in KiCad stays (``docs/lens.md``,
+    "Plane layers across rebuilds"; change c0107). The copper of a plane is the script's zone.
+
+    ``Board.stackup`` of ``design`` is the script's stack-up. Against an existing board it is decided by
+    ``stackup.merge_stackup``: the board's wins unless ``lock_stackup`` is set (``docs/lens.md``,
+    "Stack-up across rebuilds"); ``summary["stackup"]`` says whose stack-up the written board holds.
+
+    ``Board.via_protection`` of ``design`` is the script's default via protection. Against an existing
+    board it is decided by ``via_protection.merge_default``: the board's wins unless ``lock_via_protection``
+    is set (``docs/lens.md``, "Via protection across rebuilds"). A default of covering, plugging, capping
+    or filling that vias take from the board only gives ``kicad.via.protection-not-exported``.
 
     ``source_sha256`` is the hash of the ``placements.toml`` that was read, recorded in
     ``.fenolite/build.json`` so a later check can tell that the layout's source changed.
@@ -573,6 +939,9 @@ def build_design(
     of project rows); ``record`` holds the hashes of the last build, for ``build.library-changed``.
     ``copper_intents`` are resolved into tracks and vias after the parts are placed, so script copper
     follows a footprint that an existing board placed elsewhere (``docs/copper.md``).
+    ``meanders`` are resolved right after them (``meander.resolve_meanders``): each replaces one straight
+    segment of a script track by a meander that brings the track to its target length, counted as KiCad
+    ``target`` counts it; an error of a meander is an error of the build.
     ``fields`` maps a component path to the field placement requests of its part, applied to the placed or
     staged footprint (``docs/dsl.md``, "Field placement"); a footprint without the field raises
     ``FormatError``.
@@ -584,6 +953,10 @@ def build_design(
     ``symbol_placements`` fixes symbol origins on the sheet (``lens.schplacements``).
     ``schematic_layout`` is ``"readable"`` (a sheet per module under ``sheets/``, and 2-pin parts beside
     the IC pins they connect to) or ``"grid"`` (the one flat sheet of v0.2a).
+    ``heights`` maps a component path to the height its script states (``Part(height=…)``, change c0140):
+    the footprint of that path gets one extruded body of that height (``height_body``), after the bodies
+    of its definition. No KiCad file holds a body; ``.fenolite/board.json`` keeps it, also through a
+    rebuild. A path that names no footprint is ignored.
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -599,10 +972,19 @@ def build_design(
     pins, on_net = _resolve_pins(design, parts, issues)
     marks = _resolve_marks(design, parts, pins, on_net, issues)
     _case_collisions(design, issues)
-    issues += interface_checks(design, pins, on_net)
+    issues += interface_checks(
+        design,
+        pins,
+        on_net,
+        target=target,
+        layers=tuple(x.name for x in created_layers(copper) if x.kind == "copper"),
+    )
     board = design.board
     if board is None or board.outline is None:
         issues.append(issue("build.no-board", "the design has no board(); nothing can be placed", "board"))
+        return _refused(design, issues, libraries)
+    issues += check_outline(design)
+    if any(found.code == "kicad.outline.invalid" for found in issues):
         return _refused(design, issues, libraries)
     layers = tuple(
         dataclasses.replace(layer, id=derived_id("lay", DSL_BACKEND, f"layer:{layer.name}"))
@@ -622,7 +1004,21 @@ def build_design(
         else set[str]()
     )
     identities: dict[str, Mapping[str, str]] = {}
+    lacking: set[str] = set()
     for part in parts:
+        missing = [name for name in MANDATORY_FIELDS if name not in part.footprint.properties]
+        if missing and part.footprint.lib_id not in lacking:
+            # a library footprint of another origin: ``place_footprint`` adds the fields (c0077)
+            lacking.add(part.footprint.lib_id)
+            issues.append(
+                issue(
+                    "build.field-added",
+                    f"{part.footprint.lib_id} has no {' and no '.join(missing)} field: each footprint "
+                    "placed from it gets one at the default placement",
+                    part.footprint.lib_id,
+                    "add the property to the library footprint, or move the field with Part.field",
+                )
+            )
         extended = with_property(part.footprint, name=PATH_PROPERTY, value=part.path)
         user_locators: list[str] = []
         for prop_name, prop_value in _user_properties(part, issues):
@@ -673,6 +1069,11 @@ def build_design(
             placed.append(part.path)
             bottom = bottom or request.side == "bottom"
         instance = apply_requests(instance, fields.get(part.path, ()))
+        stated = (heights or {}).get(part.path)
+        if stated is not None:
+            instance = dataclasses.replace(
+                instance, bodies=(*instance.bodies, height_body(part.path, stated))
+            )
         instance = apply_pad_connections(
             instance, pad_zones.get(part.path, ()), where=part.path, issues=issues
         )
@@ -710,6 +1111,14 @@ def build_design(
         ),
         board=dataclasses.replace(board, layers=layers, footprints=tuple(footprints)),
     )
+    # the rule areas and drawings of the script get their marked uuids before copper resolves (c0103)
+    built = boarditems.mark_items(built)
+    board_items = {
+        "rule_areas": len(board.keepouts),
+        "texts": len(board.texts),
+        "graphics": len(board.graphics),
+        "dimensions": len(board.dimensions),
+    }
     copper_counts = {"intents": len(copper_intents), "tracks": 0, "arcs": 0, "vias": 0}
     if copper_intents:
         assert built.board is not None
@@ -723,22 +1132,39 @@ def build_design(
             copper_intents,
             unplaced=staged,
             issues=issues,
-            # a rebuild keeps the rule areas and the edge of the existing board: stitch vias avoid those
-            keepouts=held.board.keepouts if held is not None and held.board is not None else (),
-            outline=_kept_outline(held, built),
+            # a rebuild keeps the rule areas and the edge of the existing board: stitch vias avoid those;
+            # the script's own areas are in ``built``, and their copies on the board are regenerated
+            keepouts=[
+                area
+                for area in (held.board.keepouts if held is not None and held.board is not None else ())
+                if not boarditems.is_item_uuid(area.native_ids.get("kicad", ""))
+            ],
+            outline=_kept_outline(held, built, lock_outline),
             edge_floor=pro.project_minimums(project_data).get("min_copper_edge_clearance", 0),
         )
         assert built.board is not None
         created = (("tracks", built.board.tracks), ("arcs", built.board.arcs), ("vias", built.board.vias))
         for kind, items in created:
             copper_counts[kind] = sum(1 for i in items if is_copper_uuid(i.native_ids.get("kicad", "")))
+    if meanders:
+        built = meander_mod.resolve_meanders(built, meanders, major=target, issues=issues)
+        assert built.board is not None
+        copper_counts["meanders"] = meander_mod.changed(built, meanders)
+        copper_counts["tracks"] = sum(
+            1 for i in built.board.tracks if is_copper_uuid(i.native_ids.get("kicad", ""))
+        )
     existing = prepared.existing if prepared is not None else preserve.ExistingProject()
     board_read = prepared is not None and prepared.board is not None
     preserved: dict[str, object] = {}
     target_design = built
     if prepared is not None and prepared.board is not None and prepared.match is not None:
         merged = preserve.merge_layout(
-            built, prepared.board, prepared.match, net_aliases=prepared.net_aliases, identities=identities
+            built,
+            prepared.board,
+            prepared.match,
+            net_aliases=prepared.net_aliases,
+            identities=identities,
+            lock_outline=lock_outline,
         )
         issues += merged.issues
         preserved.update(merged.summary)
@@ -747,6 +1173,58 @@ def build_design(
         target_design, preserved["pad_zones"] = _keep_pad_zones(
             decided.design, cast(Sequence[str], merged.summary.get("kept", ())), pad_zones, issues
         )
+    stack_source: stacklib.StackupSource | None = None
+    if target_design.board is not None:
+        scripted = built.board.stackup if built.board is not None else None
+        if board_read:
+            decided_stack = stacklib.merge_stackup(
+                scripted, target_design.board.stackup, layers=target_design.board.layers, locked=lock_stackup
+            )
+            issues += decided_stack.issues
+            stack_source = decided_stack.source
+            if decided_stack.stackup is not target_design.board.stackup:
+                target_design = dataclasses.replace(
+                    target_design,
+                    board=dataclasses.replace(target_design.board, stackup=decided_stack.stackup),
+                )
+        elif scripted is not None:
+            stack_source = "script"
+    scripted_default = built.board.via_protection if built.board is not None else None
+    if target_design.board is not None:
+        if board_read:
+            decided_default = vialib.merge_default(
+                scripted_default, target_design.board.via_protection, locked=lock_via_protection
+            )
+            issues += decided_default.issues
+            if decided_default.default != target_design.board.via_protection:
+                target_design = dataclasses.replace(
+                    target_design,
+                    board=dataclasses.replace(target_design.board, via_protection=decided_default.default),
+                )
+        unexported = vialib.not_exported(target_design)
+        if unexported is not None:
+            issues.append(unexported)
+    if planes and target_design.board is not None:
+        # after the merge: the table may be the existing board's, whose other types are kept
+        held_copper = {layer.name for layer in target_design.board.layers if layer.kind == "copper"}
+        typed = with_plane_types(
+            target_design.board.layers, tuple(name for name in planes if name in held_copper)
+        )
+        if typed != target_design.board.layers:
+            target_design = dataclasses.replace(
+                target_design, board=dataclasses.replace(target_design.board, layers=typed)
+            )
+    for rule_name, value in boarditems.unknown_areas(target_design):
+        issues.append(
+            issue(
+                "build.area-unknown",
+                f"rule {rule_name!r} selects the area {value!r}, and the board holds no rule area of that "
+                "name: KiCad would load the rule and select nothing",
+                rule_name,
+                "declare the area with design.rule_area() or remove the selector",
+            )
+        )
+    issues += impedance_checks(target_design, target=target)
     issues += list(target_design.validate())
     if any(i.severity == "error" for i in issues):
         return _refused(built, issues, libraries)
@@ -814,7 +1292,9 @@ def build_design(
         issues += written_sheet.issues
         files[f"{name}{SHEET_SUFFIX}"] = written_sheet.text.encode("utf-8")
     readback = read_board(texts[pcb_name], file=pcb_name, issues=[])
-    layout = preserve.merge_layout(built, readback, preserve.match_footprints(built, readback)).design
+    layout = preserve.merge_layout(
+        built, readback, preserve.match_footprints(built, readback), lock_outline=lock_outline
+    ).design
     vendored = _vendor(plan, target, files, record, issues)
     authored_ids = {part.footprint.lib_id for part in parts if part.location is None}
     for lib_id in sorted(authored_ids):
@@ -911,11 +1391,25 @@ def build_design(
         evidence_items.append(dru.EVIDENCE)
     if copper_intents:
         evidence_items += [copper_mod.EVIDENCE, frame.EVIDENCE]
+    if any(board_items.values()):
+        evidence_items.append(boarditems.EVIDENCE)  # the script declares rule areas or drawings
+    if meanders:
+        evidence_items += [meander_mod.EVIDENCE, lengths_mod.EVIDENCE]
+    written_stack = target_design.board.stackup if target_design.board is not None else None
+    if written_stack is not None:
+        evidence_items.append(stacklib.EVIDENCE)
+    if scripted_default is not None or any(
+        via.protection != ViaProtection() for via in (built.board.vias if built.board is not None else ())
+    ):
+        evidence_items.append(vialib.EVIDENCE)  # the script states a via protection
     if generated is not None:
         evidence_items += [schgen.EVIDENCE, sch.WRITE_EVIDENCE]
         # a design with a pin bonded to several pads rests on what KiCad does with stacked pins (c0123);
         # a design of one pad per pin adds nothing, so its envelope is the one it was
         evidence_items += sch_netlist.stack_evidence((generated.sheet, *generated.children.values()))
+        # a placements file that mirrors and turns a unit by 90 or 270 degrees rests on the order of the
+        # two operations, read from the corpus (c0137)
+        evidence_items += sch_netlist.frame_evidence((generated.sheet, *generated.children.values()))
     merged_copper = cast(Mapping[str, int], preserved.get("copper", {}))
     summary: dict[str, object] = {
         "components": len(components),
@@ -925,6 +1419,14 @@ def build_design(
         "vendored": [f"lib/{nick}.pretty/{entry}" for nick, entry in vendored],
         "libraries": libraries,
         "preserved": _preserved(prepared, preserved),
+        "board_items": board_items,
+        "stackup": None
+        if written_stack is None
+        else {
+            "source": stack_source,
+            "thickness": written_stack.thickness(),
+            "copper": sum(1 for entry in written_stack.layers if entry.kind == "copper"),
+        },
         "copper": {
             **copper_counts,
             **{key: merged_copper.get(key, 0) for key in ("regenerated", "stale", "duplicates")},
@@ -1022,10 +1524,14 @@ def _keep_pad_zones(
     return design, {key: sorted(set(values)) for key, values in summary.items()}
 
 
-def _kept_outline(existing: Design | None, built: Design) -> BoardOutline:
-    """The outline a build writes: the edge content of the existing board when it has any (the lens keeps
-    it), else the design's outline."""
-    if existing is not None:
+def _kept_outline(existing: Design | None, built: Design, lock_outline: bool = False) -> BoardOutline:
+    """The outline a build writes: the edge content of the existing board when it has any and the lens
+    keeps it, else the design's outline (also when ``outline.merge_outline`` replaces the board's)."""
+    if existing is not None and outline_case(built, existing, locked=lock_outline) not in (
+        "replaced",
+        "forced",
+        "resigned",
+    ):
         held = board_outline(existing)
         if held.problem != "no-edge-content":
             return held
@@ -1050,6 +1556,7 @@ def _preserved(prepared: Prepared | None, merged: Mapping[str, object]) -> dict[
         "fills": merged.get("fills", {"kept": 0, "dropped": 0}),
         "fields": merged.get("fields", {"kept": [], "forced": [], "carried": []}),
         "pad_zones": merged.get("pad_zones", {"kept": [], "forced": []}),
+        "board_items": merged.get("board_items", {"regenerated": 0, "stale": 0}),
         "aliases": dict(prepared.aliases) if prepared is not None else {},
         "module_aliases": dict(prepared.module_aliases) if board_read(prepared) else {},
         "net_aliases": dict(prepared.net_aliases) if board_read(prepared) else {},
@@ -1066,6 +1573,7 @@ def _refused(design: Design, issues: list[Issue], libraries: Mapping[str, str]) 
         "vendored": [],
         "libraries": dict(libraries),
         "preserved": _preserved(None, {}),
+        "stackup": None,
         "schematic": None,
     }
     return BuildOutput(design, {}, tuple(issues), BUILD_EVIDENCE, summary)
@@ -1469,6 +1977,7 @@ def check_existing(
 __all__ = [
     "BUILD_EVIDENCE",
     "BUILD_ISSUE_CODES",
+    "impedance_checks",
     "PROPERTY_EVIDENCE",
     "RECORD_FILE",
     "RECORD_SCHEMA",

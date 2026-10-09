@@ -37,6 +37,7 @@ HYPOTHESES = (
     "H-A-IMP-PLANE-CUT",
     "H-A-IMP-VIA-PADLESS",
     "H-A-IMP-BODY",
+    "H-A-IMP-BODY-Z",
     "H-A-IMP-SYMFRAME",
     "H-A-IMP-FPGFX",
 )
@@ -58,7 +59,12 @@ LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {
 READER_LEVELS = (Level.INFERRED, Level.CORPUS_VERIFIED, Level.CORPUS_VERIFIED)
 """The levels of ``read.sch.EVIDENCE``, ``read.pcb.EVIDENCE`` and ``read.pcblib.EVIDENCE``, repeated here so
 that importing the evidence loads no reader; ``test_package.py`` compares them with the readers' values."""
-EVIDENCE = Evidence(min_level(*LEVELS.values(), *READER_LEVELS), hypotheses=HYPOTHESES)
+MAPPING_HYPOTHESES = ("H-A-PCB-CU-VIATENT",)
+"""Rows of the writer that the import rests on too: the two tenting flags of a via record become
+``Via.protection`` (change c0112), and the same author report settles what they mean."""
+EVIDENCE = Evidence(
+    min_level(*LEVELS.values(), *READER_LEVELS), hypotheses=(*HYPOTHESES, *MAPPING_HYPOTHESES)
+)
 """``INFERRED`` while any row is: the lowest level wins."""
 
-__all__ = ["EVIDENCE", "HYPOTHESES", "LEVELS", "READER_LEVELS"]
+__all__ = ["EVIDENCE", "HYPOTHESES", "LEVELS", "MAPPING_HYPOTHESES", "READER_LEVELS"]
