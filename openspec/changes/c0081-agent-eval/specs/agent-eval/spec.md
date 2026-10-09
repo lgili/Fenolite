@@ -85,6 +85,7 @@
 - **Budget.** It MUST stop the agent's process group when `budget.minutes` have passed, and MUST then judge what the folder holds.
 - **Result.** It MUST write `result.json` beside the work folder with `task`, `runner`, `runner_version`, `model`, `isolated`, `fenolite_version`, `commit`, `verdict` (status and checks), `minutes`, `timed_out`, `calls`, `calls_by_exit`, `first_failure` (the first call with a non-zero exit: its number, its command name and its `error_code`, or `null`) and `turns`, `tokens` and `cost` (each `null` when the runner does not report it). It MUST print one line with the verdict and the counts.
 - **Runners.** `runners.toml` MUST hold `replay` and MAY hold rows for real agents, each with `argv`, `version_argv`, `skill`, `source` (an id of `docs/evidence/sources.md`), and optionally `budget_flag`, `report` and `isolation`. A row for a real agent without `isolation` MUST give `isolated: false` in the result; `replay` starts no agent and gives `true`. A row MAY hold `unconfigured`, a text that says what the row still lacks: such a row MAY leave `version_argv` out and MUST be refused with exit 2 and that text.
+- **Prompt delivery.** `argv` MUST hold `{prompt}` (the prompt as one argument) or `{prompt_file}` (the path of `prompt.txt`, written beside the work folder in UTF-8), unless the row holds `prompt_stdin = true`: then the prompt MUST be written to the agent's standard input in UTF-8, which is then closed, and `argv` MUST hold neither. On Windows the program MUST be started as the file that `PATH` and `PATHEXT` give; when that file is a batch launcher (`.cmd`, `.bat`), which `cmd.exe` runs and which ends the command line at the first line break of an argument, a row with `{prompt}` MUST be refused with exit 2 before anything is built, with a message that names the launcher and the two other ways. Elsewhere the command line MUST stay the row's, its program name as written.
 - **Replay.** The runner `replay` MUST copy `solution/files/` into the work folder and run each line of `solution/commands.txt` there through the shim, in order, stopping at the first non-zero exit.
 - **Guards.** A runner other than `replay` MUST be refused with exit 2 when the environment variable `CI` is set, whatever the options. Outside CI, a runner other than `replay` MUST NOT start without `--yes`: the runner prints the task, the runner, the time budget and the cost cap, starts nothing and exits 2. `--task all` MUST be refused without `--yes`. Every refusal happens before anything is built. `--repeat N` MUST run the task N times, each in its own place.
 - The temporary folder MUST be removed at the end unless `--keep` is given; with `--keep` its path is printed.
@@ -107,6 +108,11 @@
 - **GIVEN** no variable `CI`, and a row `fake-agent` with a `budget_flag` added to a copy of `runners.toml`
 - **WHEN** the runner runs it without `--yes`
 - **THEN** it prints the task, the runner, the time budget and the cost cap, exits 2 with a message that names `--yes`, and has built and started nothing; the committed row `claude-code`, which is `unconfigured`, exits 2 with `--yes` as well
+
+#### Scenario: The whole prompt on Windows
+- **GIVEN** a row whose program `claude` resolves to `claude.cmd` on a simulated Windows `PATH`, and a prompt of several lines
+- **WHEN** `uv run pytest tests/unit/test_agent_eval.py -k "batch_launcher or executable_on_windows or posix_launch or standard_input or otherwise"` runs
+- **THEN** the row with `{prompt}` is refused naming the first line break, the row with `prompt_stdin` starts `claude.cmd` with the whole prompt on its standard input, the row with `{prompt_file}` names a file that holds the whole prompt, an `.exe` gets the prompt as one argument, and on POSIX the command line is unchanged
 
 #### Scenario: Time budget
 - **GIVEN** a test runner whose program sleeps, and a task copy with a budget of one minute patched to two seconds
