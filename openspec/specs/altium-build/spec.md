@@ -42,14 +42,14 @@ Build a design script into an experimental Altium project with `fenolite build -
 - **THEN** the exit code is 0, `result.plan` lists `B/blink.PrjPcb`, `B/blink.SchDoc`, `B/blink.SchLib`, `B/blink.PcbLib` with the kind `altium_pcblib` and `B/blink.PcbDoc` with the kind `altium_pcbdoc`, `result.footprints` is `3`, `result.pcb_document` is `B/blink.PcbDoc`, and `B` is still empty
 
 ### Requirement: Altium build outputs
-`lens.altium.build_altium(design, *, name, placed=(), placements=None, project_exists=False, form=DEFAULT_FORM, resolver=None, sheets=DEFAULT_SHEETS) -> BuildOutput` SHALL return every file of an Altium project for `design` as bytes, and SHALL return no file when any issue has severity `error`. `BuildOutput` is c0011's `lens.build.BuildOutput`.
-- The steps MUST run in this order: the build checks of "Altium build issue codes" and "Hierarchy issue codes"; the symbol of every lib id and the pins of every component ("Altium symbol sources": generic pins for Altium links, the symbol's pins for KiCad lib ids) set as `Component.pins`; `Design.validate()`; the footprint of every footprint link, its checks and `lens.altium.pad_extras` ("Altium footprint sources", "PCB library outputs"); the PCB document's conditions and placements ("PCB document output"); `backends.altium.project.write_project(model, name=name, project=not project_exists, issues=…, form=form, symbols=…, footprints=…, pcb=…, sheets=sheets)`, where `footprints` are the `pcblib.LibFootprint` values to write and `pcb` is a `pcbdoc.PcbDocSpec` or `None`; the `.fenolite/` texts and record; evidence.
+`lens.altium.build_altium(design, *, name, placed=(), placements=None, project_exists=False, form=DEFAULT_FORM, resolver=None, sheets=DEFAULT_SHEETS, outjob=False, outjob_preset=None, outjob_listed=False, drawing_sheet=None, allow_lossy=False) -> BuildOutput` SHALL return every file of an Altium project for `design` as bytes, and SHALL return no file when any issue has severity `error`. `BuildOutput` is c0011's `lens.build.BuildOutput`.
+- The steps MUST run in this order: the build checks of "Altium build issue codes" and "Hierarchy issue codes"; the symbol of every lib id and the pins of every component ("Altium symbol sources": generic pins for Altium links, the symbol's pins for KiCad lib ids) set as `Component.pins`; `Design.validate()`; the footprint of every footprint link, its checks and `lens.altium.pad_extras` ("Altium footprint sources", "PCB library outputs"); the PCB document's conditions and placements ("PCB document output"); `backends.altium.project.write_project(model, name=name, project=not project_exists, issues=…, form=form, symbols=…, footprints=…, pcb=…, sheets=sheets, outjob=…, frames=…)`, where `footprints` are the `pcblib.LibFootprint` values to write, `pcb` is a `pcbdoc.PcbDocSpec` or `None`, `outjob` is the bytes of the output job or `None` ("Output job in an Altium build") and `frames` maps a sheet file to its `schdot.SheetFrame` ("Drawing sheet in an Altium build"); the `.fenolite/` texts and record; evidence.
 - An issue of severity `error` before the writer MUST give a `BuildOutput` with its issues and empty `files`.
-- The layout MUST be `<name>.PrjPcb` (only when `project_exists` is false), `<name>.SchDoc`, every planned `<library>.SchLib` ("Schematic library outputs"), `<name>.PcbLib` when it holds a footprint ("PCB library outputs"), `<name>.PcbDoc` when its conditions hold ("PCB document output"), with `sheets="modules"` one `<name>_<module>.SchDoc` per top-level module and the planned `.Harness` files ("Module sheets in an Altium build"), the six layer files under `.fenolite/` and `.fenolite/build.json`, with the design name as stem.
+- The layout MUST be `<name>.PrjPcb` (only when `project_exists` is false), `<name>.SchDoc`, every planned `<library>.SchLib` ("Schematic library outputs"), `<name>.PcbLib` when it holds a footprint ("PCB library outputs"), `<name>.PcbDoc` when its conditions hold ("PCB document output"), `<name>.OutJob` when `outjob` is true and the PCB document is written ("Output job in an Altium build"), with `sheets="modules"` one `<name>_<module>.SchDoc` per top-level module and the planned `.Harness` files ("Module sheets in an Altium build"), the six layer files under `.fenolite/` and `.fenolite/build.json`, with the design name as stem.
 - The layer texts MUST come from `canonical.dump_texts` of the model with its pins and rewritten net members, with an empty `findings.json`.
 - `.fenolite/build.json` MUST be `{"design": <name>, "files": {<path>: <sha256>, …}, "schema": "fenolite.build-record.v0", "target": "altium"}` with sorted keys, no date and a final newline, and MUST record the SHA-256 of every planned file outside `.fenolite/`.
-- The build MUST NOT write a project structure file, a date or an absolute path, and MUST NOT write a PCB library or PCB document other than these two.
-- `summary` MUST hold `components`, `nets`, `labels`, `power_ports`, `sheet`, `schematic_format`, `libraries`, `symbols`, `footprints`, `pcb_document`, `sheet_mode`, `sheets`, `ports`, `sheet_entries`, `harnesses`, `kept` (paths relative to `--out`) and `experimental`, which `cmd_build` copies into `result`, with `kept` under `--out`.
+- The build MUST NOT write a project structure file, a date or an absolute path, and MUST NOT write a PCB library or PCB document other than these two. With `outjob` false and `drawing_sheet` `None`, every file MUST hold the bytes it held before change c0087.
+- `summary` MUST hold `components`, `nets`, `labels`, `power_ports`, `sheet`, `schematic_format`, `libraries`, `symbols`, `footprints`, `pcb_document`, `sheet_mode`, `sheets`, `ports`, `sheet_entries`, `harnesses`, `outjob` (`None` without a job), `drawing_sheet` (`None` without one), `kept` (paths relative to `--out`) and `experimental`, which `cmd_build` copies into `result`, with `kept` under `--out`.
 
 #### Scenario: Files of the sample
 - **WHEN** `build_altium` runs on the model of `examples/altium_sample/design.py` with `project_exists=False`
@@ -79,6 +79,10 @@ Build a design script into an experimental Altium project with `fenolite build -
 #### Scenario: Flat build of the hierarchy sample
 - **WHEN** `build_altium` runs on the same model with the default `sheets`
 - **THEN** `files` holds `altium_hier.SchDoc` and no other `.SchDoc` or `.Harness` file, and `summary["sheet_mode"]` is `flat`
+
+#### Scenario: Files of the sample with a job
+- **WHEN** `build_altium` runs on the model of `examples/blink_2layer/design.py` with its placements, a resolver of the example's tables and `outjob=True`
+- **THEN** `files` holds the files of "Files of the KiCad-footprint sample" and `blink.OutJob`, and `.fenolite/build.json` maps the six project files to their SHA-256
 
 ### Requirement: Altium build issue codes
 The Altium build SHALL report its own findings only with the codes of the closed table `lens.altium.ALTIUM_ISSUE_CODES`. The codes of `Design.validate()` (`model.*`) and the `build.layout-exists` issues of `LayoutExistsError` MUST pass through unchanged.
@@ -114,7 +118,10 @@ The Altium build SHALL report its own findings only with the codes of the closed
 
 ### Requirement: Edited Altium outputs are not overwritten
 The Altium build SHALL apply the rule of the `design-dsl` requirement "Edited outputs are not overwritten" to every planned file outside `.fenolite/`: a file changed since Fenolite last wrote it is refused with `LayoutExistsError` (`FEN-7001`, exit 7, one `build.layout-exists` issue per file) unless `--discard-layout` is given, before the plan is returned.
-- `<name>.PrjPcb` MUST be planned only when it does not exist in `--out`. An existing project file MUST be kept, whatever its content and whatever `--discard-layout`, and MUST be listed in `result.kept` with the info `altium.project-kept`.
+- `<name>.PrjPcb` MUST be planned when it does not exist in `--out`, and in one more case (change c0138): the build writes an output job, the existing project file does not list it, and the SHA-256 of the existing file is the one that `.fenolite/build.json` of `--out` records for it, so that the file is as a build wrote it. The project file is then planned with the bytes that a build into an empty folder writes, it is replaced like every other planned file whose bytes the record names (a `.bak` is kept unless `--no-backup` is given), it MUST NOT be listed in `result.kept`, and none of the infos about a kept project file (`altium.project-kept`, `altium.schlib-not-in-project`, `altium.pcb-not-in-project`, `altium.sheets-not-in-project`, `altium.outjob-not-listed`) MUST be given. `cmd_build` MUST pass that digest to `build_altium` as `project_digest`, and `None` for a file whose digest the record does not hold.
+- Every other existing project file MUST be kept, whatever its content and whatever `--discard-layout`, and MUST be listed in `result.kept` with the info `altium.project-kept`: one that was changed since a build wrote it, one in a folder without a record, one that lists the job, and every one of a build that writes no job.
+- **The record of a kept project file.** `.fenolite/build.json` of the build MUST hold `<name>.PrjPcb` with its digest when the project file is kept and `project_digest` is given, that is when the bytes of the kept file are the ones the record of `--out` held before the build, and MUST NOT hold it for any other kept project file: one that was changed since a build wrote it, and one in a folder whose record did not hold it. So a rebuild that keeps an unchanged project file keeps it known as built, and no build records an edited file as built. The keys of the record's `files` stay sorted. A kept project file MUST NOT be in `result.files`, in the plan or in the receipt, whether the record holds it or not.
+- **What a kept project file lacks.** `cmd_build` MUST read an existing project file with `read.project.read_project` and pass the document paths it lists to `build_altium` as `project_listed` (`lens.altium.kept_documents`: case-folded). With `project_listed`, each of `altium.schlib-not-in-project`, `altium.pcb-not-in-project`, `altium.sheets-not-in-project` and `altium.outjob-not-listed` MUST be given only when the kept file does not list a document of its kind that the build writes, and MUST name those documents alone; a kept file that lists them all gets `altium.project-kept` and none of the four. This takes precedence over the requirements that state the four infos for a kept project file. Without `project_listed` (`None`: a caller that did not read the file) every document is named, as those requirements say. A project file that cannot be read MUST be passed as `project_listed=None` with `project_unreadable=True`, and each of the infos MUST then carry the hint `lens.altium.UNREAD_PROJECT_HINT`.
 - `--discard-layout` MUST replace an edited `<name>.SchDoc`, and the mutation protocol keeps a `.bak` of it unless `--no-backup` is given.
 
 #### Scenario: Edited schematic refused
@@ -131,6 +138,26 @@ The Altium build SHALL apply the rule of the `design-dsl` requirement "Edited ou
 - **GIVEN** a confirmed sample build in `B` whose `B/altium_sample.PrjPcb` gets a line appended afterwards, as when a PCB document is added to the project
 - **WHEN** the Altium build runs again with `--confirm`, and then with `--discard-layout --confirm`
 - **THEN** both exit 0, `B/altium_sample.PrjPcb` keeps the appended line, `result.kept` lists `B/altium_sample.PrjPcb`, no planned write names it, and `issues` holds `altium.project-kept`
+
+#### Scenario: Project file of an earlier build gains the job
+- **GIVEN** a folder `B` built with `--altium-outjob off` from the routed blink, whose `B/blink.PrjPcb` does not list an output job and whose record holds its digest (the folder a build of 0.2.x leaves)
+- **WHEN** the Altium build runs again with `--confirm` and the job
+- **THEN** the exit code is 0, `B/blink.PrjPcb` has the bytes of a build into an empty folder and lists `blink.OutJob` after `blink.PcbDoc`, `B/blink.PrjPcb.bak` holds the earlier bytes, `result.files` names the project file, `result.kept` is empty, and `issues` holds neither `altium.project-kept` nor `altium.outjob-not-listed`
+
+#### Scenario: Changed project file without the job is kept
+- **GIVEN** the same folder with a line appended to `B/blink.PrjPcb`, and a second such folder whose `.fenolite` folder was deleted
+- **WHEN** the Altium build runs with `--confirm`, and in the first folder also with `--discard-layout --confirm`
+- **THEN** every run exits 0, the project file keeps its bytes, no `blink.PrjPcb.bak` is written, `result.kept` lists the project file, `issues` holds `altium.outjob-not-listed` with a hint that names deleting the project file, and the record that the build writes does not hold the project file
+
+#### Scenario: Unchanged kept project file stays known
+- **GIVEN** a folder `B` built twice with `--altium-outjob off` from the routed blink
+- **WHEN** the record of `B` is read, and the build then runs with the job
+- **THEN** the record holds `blink.PrjPcb` with the SHA-256 of the file although the second build kept it, the second build's `result.files` and receipt do not name it, and the third build writes the project file again with `blink.OutJob` listed and `B/blink.PrjPcb.bak`
+
+#### Scenario: Kept project file that lists everything
+- **GIVEN** an Altium build of the routed blink with `project_exists=True` and `project_listed` holding the schematic document, the PCB document, the output job and both libraries
+- **WHEN** `build_altium` runs with the job
+- **THEN** the infos about the kept project file are `altium.project-kept` alone; with the PCB document taken out of `project_listed` they are `altium.project-kept` and one `altium.pcb-not-in-project` that names `blink.PcbDoc` and not `blink.PcbLib`
 
 ### Requirement: Reproducible Altium builds
 Two Altium builds of the same script SHALL give byte-identical files under `--out`, `.fenolite/` included and `.bak` files excluded, whatever the values of `--seed`, `--timestamp` and `PYTHONHASHSEED`.
@@ -1116,21 +1143,26 @@ The golden files SHALL be rebuilt, and `docs/evidence/altium-pcb.md` SHALL hold 
 - **THEN** its section "Copper" names `Design.track`, `examples/blink_routed` and `kicad.copper.`, and `grep -c "when it lands" docs/altium.md` prints `0`
 
 ### Requirement: Rule minimums in an Altium build
-The Altium build SHALL NOT write the rules of `design.rules` into any file, and it SHALL report them instead of dropping them silently.
-- When `design.rules` holds at least one rule, `lens.altium.build_altium` MUST add exactly one `altium.not-lowered` info with `where` = `design-rules`, whose message names every rule by `Rule.name` in name order and says that the rules of the PCB document come from the net classes.
-- The info MUST be given with and without a planned PCB document: the filter that removes the `board`, `placements` and `rules` kinds when the document is written ("Copper in an Altium build") MUST NOT remove it.
-- Every written file except `.fenolite/rules.json`, which holds the rules, MUST be byte-identical with and without them: the `Rules6` records of the PCB document keep coming from the net classes and the `All` defaults (`altium-pcb-writer`).
-- A design without rules MUST give no such info.
+The Altium build SHALL write the rules of `design.rules` into the PCB document where Altium has an exact rule for them ("Rules in an Altium build"), and it SHALL report the others instead of dropping them silently.
+- For each rule of `design.rules` that is not written, `lens.altium.build_altium` MUST add exactly one `altium.not-lowered` warning with `where` = `design-rules/<kind>`, whose message names the rule by `Rule.name` with its selector and the reason. A `clearance` or `edge_clearance` minimum is written; a `track_width`, `via_diameter`, `via_drill` or `hole_size` minimum gives `value-unsupported`, because Altium's record also holds a maximum (and a preferred value).
+- The warnings MUST be given with and without a planned PCB document: the filter that removes the `board`, `placements` and `rules` kinds when the document is written ("Copper in an Altium build") MUST NOT remove them. Without a document every rule is reported, with the reason `no-document` where the rule would have been written.
+- Every written file except `.fenolite/rules.json`, which holds the rules, the PCB document, whose `Rules6` holds the written ones, and `.fenolite/build.json`, which lists the document's hash, MUST be byte-identical with and without them.
+- A design without rules MUST give no such issue.
+
+#### Scenario: Minimums are written or reported
+- **GIVEN** a design with a class `PWR`, `design.rules.minimum(clearance=mm(0.15))` and `design.rules.minimum(track_width=mm(0.5), netclass="PWR")`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_minimums.py -k altium` builds it for Altium as the blink with its PCB document
+- **THEN** the build has one `altium.not-lowered` warning, with `where == "design-rules/track_width"`, naming `min_track_width_PWR` and `value-unsupported`, and only `blink.PcbDoc`, `.fenolite/build.json` and `.fenolite/rules.json` differ from the same build without the two `minimum()` calls
 
 #### Scenario: Minimums are reported, not written
-- **GIVEN** a design with a class `PWR`, `design.rules.minimum(clearance=mm(0.15))` and `design.rules.minimum(track_width=mm(0.5), netclass="PWR")`
-- **WHEN** `uv run pytest tests/unit/lens/test_build_minimums.py -k altium` builds it for Altium, once as the blink with its PCB document and once as a design without one
-- **THEN** each build has one `altium.not-lowered` info with `where == "design-rules"` naming `min_clearance` and `min_track_width_PWR`, and every written file except `.fenolite/rules.json` equals the file of the same build without the two `minimum()` calls
+- **GIVEN** the same design without a PCB document
+- **WHEN** `uv run pytest tests/unit/lens/test_build_minimums.py -k altium` builds it for Altium
+- **THEN** the build has the warning of `min_track_width_PWR` and one with `where == "design-rules/clearance"` naming `min_clearance` and `no-document`, no rule is written, and only `.fenolite/rules.json` differs from the same build without the two `minimum()` calls
 
 #### Scenario: No rules, no report
 - **GIVEN** the blink design as committed
 - **WHEN** it is built with `--target altium`
-- **THEN** no issue has `where == "design-rules"`
+- **THEN** no issue has a `where` that starts with `design-rules`
 
 ### Requirement: Typed interfaces in an Altium build
 An Altium build SHALL keep interfaces of the kinds `i2c`, `spi`, `uart` and `usb2` (`design-dsl`, "Typed interfaces in the DSL") in the model only, and SHALL report them with the `altium.not-lowered` info that names the design's diff pairs.
@@ -1231,3 +1263,193 @@ The Altium build SHALL write the PCB document of a script declared with any coun
 - **GIVEN** a model whose `board.layers` holds the copper layers `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu`
 - **WHEN** `build_altium` runs with `copper=6`
 - **THEN** `files` is empty and `issues` holds one `altium.copper-stack` that names 4 and 6, whose hint holds neither "copper=2" nor "copper=4"
+
+### Requirement: Rules in an Altium build
+`fenolite build --target altium` SHALL write every rule of the design that `rulemap.lower` lowers into `<name>.PcbDoc`, and SHALL report each rule that is not written with one `altium.not-lowered` (warning) whose `where` is `design-rules/<kind>` and whose message holds the rule's name, its selector and the reason.
+- `result.rules` MUST hold `written` and `not_lowered`, each a list of `{kind, selector}`; an entry of `written` also holds `rule`, the name of the Altium rule, and an entry of `not_lowered` holds `reason`. `result.rules` is `null` only when the build is refused before the PCB document is planned.
+- The reasons are those of `rulemap.NOT_LOWERED_REASONS` and, when the build plans no PCB document, `no-document` for every rule that would otherwise be written.
+- No issue with `where` `design-rules` alone MAY be reported.
+- A design without rules MUST get the rules the build wrote before this change (the rules of the net classes and the `All` defaults), byte for byte.
+- The build's evidence MUST name the hypotheses of `rulemap.EVIDENCE` whenever it names those of the PCB writer.
+- A script whose copper intents are resolved through the KiCad build in memory ("Script copper in an Altium build") is still judged by that build: a rule that the KiCad lowering refuses (for example a `via_drill` rule with `opt`) refuses the Altium build as before.
+
+#### Scenario: Edge clearance reaches the board
+- **GIVEN** the blink script with `design.rules.minimum(edge_clearance=mm(0.5))`
+- **WHEN** it is built for Altium and the PCB document is read back
+- **THEN** the board's rules hold that edge clearance, and `result.rules.written` lists the kind `edge_clearance` with the rule `BoardOutlineClearance`
+
+#### Scenario: A kind without a counterpart
+- **GIVEN** the same script with a `silk_clearance` rule and a `creepage` rule
+- **WHEN** it is built
+- **THEN** one `altium.not-lowered` warning per rule has `where` `design-rules/silk_clearance` and `design-rules/creepage`, and `result.rules.not_lowered` holds both with the reason `no-counterpart`
+
+#### Scenario: Read back equal
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_rules.py -k readback` builds the blink with one rule of every `exact` kind, the example scripts and generated rule sets, and maps the rule records of each PCB document with `read.rules.map_rules`
+- **THEN** every record maps, and the rules read under the names of `result.rules.written` equal the lowered rules of the design within 2 nm (`H-A-RULE-READBACK`)
+
+### Requirement: Output job in an Altium build
+`fenolite build --target altium` SHALL write `<name>.OutJob` with `backends.altium.outjob.write_outjob(from_preset(preset, name=<name>, copper=<stack>))` when the build writes a PCB document, where `<stack>` is `StackSpec.copper` of that document (the Altium ids of its copper layers from top to bottom), and SHALL list it in the project file it writes, as the document after the PCB document.
+- `--altium-outjob on|off` (default `on`) MUST select it, and `--altium-outjob-preset FILE` MUST name the export preset (`fenolite.export-preset.v0`, the file that `fenolite export --preset` reads); without it the preset is the default one. Both options MUST be a usage error (exit 2, `FEN-2001`) with `--target kicad`, and `--altium-outjob-preset` MUST be one with `--altium-outjob off`. A preset that cannot be read or is malformed MUST fail as it does for `export`.
+- A build that writes no PCB document MUST write no output job, and `result.outjob` MUST be `null`.
+- The Gerber output of the job MUST carry the complete settings record ("Output job written"), with the plotted layers of the board that the build writes and the decimals of the preset. No other output of the job MUST carry a settings record. Every output of the job MUST carry `OutputDefault<i>=0` ("Output job written").
+- An output job that exists and differs from the one the build would write MUST be handled by the rule of every other planned file: when the state of the output folder (`.fenolite/build.json`) records the digest of the job as it stands, the build MUST replace it and keep the old bytes as `<name>.OutJob.bak`; when the job was edited since the build that the state records, or the state is missing, the build MUST refuse it as an edited output (exit 7, `FEN-7001`, nothing written), and `--discard-layout` MUST replace it with the same backup. So a job that a build before change c0138 wrote is replaced by a rebuild into its folder, and refused only when it was edited or its state is lost.
+- When the project file exists and does not list `<name>.OutJob`, the build MUST write the project file again with the job listed when the file is as a build wrote it ("Edited Altium outputs are not overwritten": `project_digest`), and otherwise MUST keep it and report `altium.outjob-not-listed` (info), with a hint that says how to get the job listed. A kept project file that lists the job MUST give no such issue.
+- `result.outjob` MUST hold, in this order, `file` (under `--out`), `media` (name and type of each container), `outputs` (per output its `kind`, `type`, `name`, `category`, `document`, `enabled` and the name of its container, in the order of `OUTPUT_KINDS`), `gerber`, `defaults` and `preset` (`null`, or the file as given and its SHA-256).
+- `result.outjob.gerber` MUST hold, in this order, `unit` (`"Metric"`), `decimals` (the integer written), `layers` and `outline`. `layers` MUST hold one object per entry of the record's `Plot.Set`, in its order, with `id` (the long layer id) and `name` (the layer's name as `pcbrecords.LAYER_NAMES` gives it).
+- `result.outjob.gerber.outline` MUST be the object `{"plotted": false, "reason": outjob.OUTLINE_REASON}`, and `OUTLINE_REASON` MUST be the text `the PCB document holds the board outline as the board shape and on no layer, and no public source gives the entry of the board shape among the plotted layers; turn the outline on in the Gerber setup in Altium`. The Gerber set of the written job holds no plot of the board outline, and `docs/altium.md` MUST say so beside the description of the job.
+- `result.outjob.defaults` MUST hold the options that the preset sets and the writer has no key for, as sorted `table.key` texts; `gerbers.precision` is not among them.
+- With `--altium-outjob off`, and for every file other than `<name>.OutJob`, the bytes MUST be those of the build before change c0138.
+- The evidence of a build with a job MUST name `H-A-OUTJOB-READBACK`, `H-A-OUTJOB-OPEN`, `H-A-OUTJOB-RUN-2`, `H-A-OUTJOB-GERBER-RECORD`, `H-A-OUTJOB-GERBER-ACCEPT` and `H-A-OUTJOB-GERBER-LAYERS`, and the level stays `INFERRED`.
+
+#### Scenario: Job beside the board
+- **WHEN** the routed blink is built for Altium into an empty folder
+- **THEN** `blink.OutJob` is written, `blink.PrjPcb` lists it after `blink.PcbDoc`, `result.outjob.outputs` holds six entries, all enabled, and `result.outjob.defaults` is empty
+
+#### Scenario: Turned off
+- **WHEN** the same build runs with `--altium-outjob off`
+- **THEN** no output job is written, `result.outjob` is `null`, and every other file holds the bytes it held before change c0087
+
+#### Scenario: A preset names what the job does not set
+- **GIVEN** a preset file with `[drill]` `units = "in"`
+- **WHEN** the build runs with `--altium-outjob-preset` naming it
+- **THEN** `result.outjob.defaults` is `["drill.units"]` and `result.outjob.preset.sha256` is the SHA-256 of the file
+
+#### Scenario: Kept project file
+- **GIVEN** a folder that holds the `blink.PrjPcb` of a build made with `--altium-outjob off`
+- **WHEN** the build runs again with the job
+- **THEN** `blink.PrjPcb` is written again and lists `blink.OutJob`, `blink.PrjPcb.bak` holds the earlier bytes, and `altium.outjob-not-listed` is not reported; with a line appended to the project file before the second build, `blink.PrjPcb` keeps its bytes and `altium.outjob-not-listed` is reported
+
+#### Scenario: The job of an earlier build is replaced
+- **GIVEN** an output folder that holds the `blink.OutJob` of a build before change c0138 and the state that records its digest
+- **WHEN** the build runs into that folder
+- **THEN** the exit code is 0, `blink.OutJob` holds the Gerber record, and `blink.OutJob.bak` holds the bytes of the earlier job
+
+#### Scenario: A job without its state is refused
+- **GIVEN** the same folder without its `.fenolite` folder
+- **WHEN** the build runs into it
+- **THEN** the exit code is 7 with `FEN-7001`, the error names `blink.OutJob` and no other file, its hint names `--discard-layout`, nothing is written, and the same build with `--discard-layout` replaces the job and writes `blink.OutJob.bak`
+
+#### Scenario: The Gerber record of the built job
+- **WHEN** the routed blink is built for Altium and `blink.OutJob` is read with `read_outjob`
+- **THEN** the Gerber output holds one setting of 44 fields, no other output holds a setting, `result.outjob.gerber.unit` is `Metric`, `result.outjob.gerber.decimals` is 4, and `result.outjob.gerber.layers` names Top Overlay, Top Paste, Top Solder, Top Layer, Bottom Layer, Bottom Solder, Bottom Paste, Bottom Overlay and Mechanical 13 to 16, with the ids of the record's `Plot.Set` in the same order, and no entry of `layers` is an outline
+
+#### Scenario: The preset's precision is carried
+- **GIVEN** a preset file with `[gerbers]` `precision = 6`
+- **WHEN** the build runs with `--altium-outjob-preset` naming it
+- **THEN** `result.outjob.gerber.decimals` is 6 and `result.outjob.defaults` is empty
+
+#### Scenario: The set holds no outline
+- **WHEN** the routed blink is built for Altium with `--json`
+- **THEN** `result.outjob.gerber.outline.plotted` is `false`, `result.outjob.gerber.outline.reason` is the text of `outjob.OUTLINE_REASON`, the keys of `result.outjob.gerber` are `unit`, `decimals`, `layers` and `outline`, in that order, and the keys of `result.outjob` are `file`, `media`, `outputs`, `gerber`, `defaults` and `preset`, in that order
+
+#### Scenario: Only the job changes
+- **WHEN** the routed blink is built for Altium at this change and at the commit before it
+- **THEN** `blink.OutJob` differs by eight inserted lines, `OutputDefault<i>=0` for each of its six outputs and the two configuration lines of the Gerber output, and every other written file has equal bytes in both builds
+
+### Requirement: Drawing sheet in an Altium build
+When the script names a drawing sheet with `design.sheet(drawing_sheet=…)`, `fenolite build --target altium` SHALL draw it on every schematic document it writes, with `schdot.sheet_frame`, and SHALL write the title-block values of `design.title_block(…)` as sheet parameters.
+- The sheet record MUST be a custom sheet of the exact size of the page: the paper and the orientation of `design.sheet()` when the layout of the document fits it, otherwise the smallest of A4, A3, A2, A1 and A0 in that orientation that holds the layout, otherwise the layout's own area. A page other than the paper of `sheet()` MUST give `altium.sheet-paper` (warning) naming the document and both sizes. The built-in border MUST be off.
+- The graphics MUST be root records after every other record of the document, so that no owner index of the document changes, and the sheet parameters MUST follow them: `Title`, `Revision`, `Date`, `Organization`, `DocumentNumber`, `DrawnBy` and `ApprovedBy` for the fields of the title block that are not empty, `SheetNumber` and `SheetTotal` (the position of the document among the schematic documents of the build, from 1, and their count), and each variable of the title block under its own name, in code-point order. A value that a record cannot hold MUST give `altium.text-unwritable` (error).
+- A part of the drawing sheet that the Altium form cannot carry MUST give its `altium.sheet.*` code ("Altium sheet template writing"); a loss MUST need `--allow-lossy`, and without it the build MUST fail with `FEN-7001` and write nothing.
+- `result.drawing_sheet` MUST hold `source` (the path as written in the script), `items` and `pages`: per schematic document its paper name, width and height (nm).
+- A script without a drawing sheet MUST give the schematic it gave before this change, byte for byte.
+- The evidence of such a build MUST name `H-A-SCHDOT-READBACK`, `H-A-SCHDOT-OPEN` and `H-A-SCHDOT-STRINGS`.
+
+#### Scenario: Frame on the sheet
+- **GIVEN** the blink script with `design.sheet("A4", drawing_sheet="frames/generic.sheet.toml")` and `design.title_block(title="Blink", revision="B")`
+- **WHEN** it is built for Altium and the schematic is read back
+- **THEN** `import_sheet` of the document, with `allow_lossy`, gives a drawing sheet equal to that of the specification inside the written scope on an A4 landscape page, and the sheet parameters hold `Title` = `Blink`, `Revision` = `B`, `SheetNumber` = `1` and `SheetTotal` = `1`
+
+#### Scenario: No drawing sheet
+- **WHEN** the unchanged blink script is built for Altium
+- **THEN** `blink.SchDoc` holds the bytes it held before change c0087 and `result.drawing_sheet` is `null`
+
+### Requirement: Copper guard in an Altium build
+`fenolite build --target altium` SHALL judge the copper of the PCB document it is about to write with `fenolite.checks.copper.check_copper`, in `cmd_build.altium_copper_guard`, after `lens.altium.build_altium` returns its files and before `cmd_build` calls `check_existing` and returns its plan, on `--dry-run` and `--confirm` alike. The guard lives in `cli` because `lens` may not import `checks` (`package-layering`).
+- **What is judged.** The planned bytes of `<name>.PcbDoc` MUST be read back with the Altium reader and adapter (`AltiumBackend.board_from_bytes`), the rules MUST be those of that document (`AltiumBackend.rules_from_bytes`, "Clearance rules of a PCB document" of `altium-verification`), and the pads MUST come from the Altium board frame. The guard MUST read and write no file. A build that plans no PCB document, or that was refused, MUST NOT be judged (`ran` false).
+- **Modes.** The option is `--copper-check refuse|warn` of the KiCad target (`design-dsl`, "Copper guard before writing"), default `refuse`. With `refuse` a `copper.short` MUST keep its severity, so the build returns no planned write and exits 5. Every other copper issue of severity `error` MUST be reported with severity `warning` and ` (reported, not refused: the Altium copper guard refuses shorts)` appended to its message, and MUST NOT stop the build. With `warn` the short MUST be a warning too, with ` (copper guard in warn mode)` appended, and the build MUST plan its writes. There is no way to switch the guard off.
+- **Result.** `result.copper_check` MUST hold `mode`, `ran`, `shorts`, `clearance`, `unpoured` (the zones without a fill), `rules` and `evidence`, and MUST stand after `copper` in the result. The evidence MUST be `UNVERIFIED` when `unpoured` is not 0 or an issue lowers it.
+
+#### Scenario: Short refused
+- **GIVEN** the routed blink whose script holds one more track of `LED_A` that crosses the track of `LED_DRV` on `F.Cu`
+- **WHEN** it is built for Altium with `--confirm`
+- **THEN** the exit code is 5, `copper.short` names the two nets, and the output folder holds no file
+
+#### Scenario: Warn mode and clearance findings write
+- **WHEN** `uv run pytest tests/unit/cli/test_build_altium_guard.py` builds that script with `--copper-check warn`, and a script whose extra track ends 0.15 mm from another net's track
+- **THEN** both builds exit 0 and write the PCB document, the short is a warning that ends with `(copper guard in warn mode)`, and the clearance finding is a warning
+
+### Requirement: Assembly and test features in an Altium build
+An Altium build SHALL write the parts of `test_point()` as ordinary parts, SHALL leave the parts of `fiducial()` out of the schematic and of the PCB library and document, because the PCB library writer refuses their footprints, and SHALL write the parts of `tooling_hole()` as the holes of `hole()` ("PCB document output", c0102).
+- **Test points.** A test-point part MUST be planned like any part with an authored definition: its symbol in the schematic library and on its sheet, its footprint in the PCB library, and its component in the PCB document with pad `1` on the part's net. Its footprint holds one numbered pad with copper, which `pcblib.check_footprint` accepts.
+- **Marks.** `Pad.fab_property` MUST NOT be written to any Altium record: no public source yet says how a pad record holds a test-point, fiducial or other fabrication mark. Every footprint that is written and holds a marked pad (the test points, and an authored footprint with `fab_property=`) MUST be named by one `altium.not-lowered` info of the kind "pad properties".
+- **Fiducials.** Their parts MUST be left out before the footprint check, so that they give no `altium.footprint-unsupported` and never make the build withhold the PCB document (`altium.pcbdoc-not-written`), and MUST be named by one `altium.not-lowered` info of the kind "assembly features". Their keep-outs are board keep-outs and are reported as "PCB document output" reports every keep-out.
+- **Tooling holes.** A tooling-hole part has the symbol `Fenolite_Holes:Hole`, so it is a hole part of "PCB document output": it is no component, and its round hole that is not plated is written as a board hole of the PCB document. Its courtyard is not written, as for every hole part.
+- These two kinds extend the list of c0032's `altium.not-lowered` row, as the kinds of "PCB document output" do.
+- Every other file and item MUST be planned as for the same design without the fiducials.
+
+#### Scenario: Test point written, fiducial left out
+- **GIVEN** a variant of `examples/blink_2layer/design.py` with `d.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))`, `d.tooling_hole("TH1", mm(46), mm(4), drill=mm(3))` and `d.test_point("TP1", led_a, mm(30), mm(12), size=mm(1.5))`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_assembly.py -k altium` builds it with `--target altium --dry-run --json`, and then with `--confirm`
+- **THEN** the exit code is 0; the PCB document is planned and holds the component `TP1` with its pad on `LED_A`; no written document holds `FID1` or `TH1`; the stored board holds a board hole of 3 mm; and `issues` holds one `altium.not-lowered` info of the kind "assembly features" naming `FID1`, one of the kind "pad properties" naming the test-point footprint, and neither `altium.footprint-unsupported` nor `altium.pcbdoc-not-written`
+
+### Requirement: Stack-ups with masks, sheets and kinds in an Altium build
+The Altium build SHALL take the stack values of the PCB document from a `Board.stackup` that holds the entries and fields of `design-model`, "Stack-up in the board model" (solder mask, silkscreen and paste entries, sheets, `dielectric_kind`, `color`, `impedance_controlled`), by the rules below, and SHALL name every value that the document does not hold. The rules apply alike to `lens.altium_copper.stack_from_stackup` (a build, "Copper in an Altium build") and to `backends.altium.lower.stack_from_stackup` (the write of a model), which reports through its account where the build gives an issue.
+- Entries of kind `soldermask`, `silkscreen` and `solderpaste` MUST be passed over: the stack of the document holds the copper layers and the dielectrics between them (`altium-pcb-writer`, "Layer stacks of any even count").
+- A dielectric entry whose `dielectric_kind` is set MUST be written with that kind: `DIELTYPE` 1 for `core` and 2 for `prepreg`, the values recorded in `docs/formats/altium/pcb-copper.md` ("Layer stack"). An entry without one MUST take the kind of `dielectric_kinds(count)` as before. A stack-up that holds none of the new fields MUST therefore give the document it gave before this requirement, byte for byte.
+- A gap between two copper entries that holds two or more dielectric entries (the sheets of one dielectric) does not fit the document, which holds one dielectric per gap. The build MUST then write Fenolite's default stack values and give one `altium.not-lowered` info with `where` `stackup` whose message names the gap, as "Copper in an Altium build" rules for a stack-up that does not fit. Sheets MUST NOT be merged, dropped or averaged.
+- When the stack-up fits and holds a value for which the document has no recorded key (a solder mask entry of thickness above 0, a non-empty `color`, a non-empty `finish`, or `impedance_controlled` true), the build MUST give one `altium.not-lowered` info with `where` `stackup` that lists the kinds of value left out; the copper and dielectric values MUST be written. A stack-up without such a value MUST give no issue.
+- The Altium import MUST NOT fill `dielectric_kind`, `color` or `impedance_controlled` through this requirement: an imported stack-up keeps the defaults, and the round trips of `altium-verification` compare the models they compared before.
+- This requirement adds no record, key or format fact and no issue code, and the evidence of the build does not change.
+
+#### Scenario: Script stack-up with masks and stated kinds
+- **GIVEN** a four-layer blink variant whose `design.stackup(...)` lists a 10 µm mask, 35 µm copper, a 0.2 mm prepreg, 17.5 µm copper, a 1.2 mm core, 17.5 µm copper, a 0.2 mm prepreg, 35 µm copper and a 10 µm mask, without a colour and without a finish
+- **WHEN** it is built with `--target altium` and the PCB document is read back
+- **THEN** the board has four copper layers with those copper thicknesses, the three dielectrics are a prepreg, a core and a prepreg with those heights within 2 nm, and `issues` holds one `altium.not-lowered` info with `where` `stackup` that names the solder mask thickness and nothing else
+
+#### Scenario: A core where the table says prepreg
+- **GIVEN** a two-layer model whose stack-up holds `F.Cu`, one dielectric entry with `dielectric_kind == "prepreg"` and `B.Cu`
+- **WHEN** `build_altium` runs and the document is read back
+- **THEN** the one dielectric has `DIELTYPE` 2, where the same model without `dielectric_kind` gives 1, and `issues` holds no `altium.not-lowered` with `where` `stackup`
+
+#### Scenario: Two sheets in one gap
+- **GIVEN** the four-layer board of `kicad-file-backend`, "Four-layer node projected" (`tests/data/kicad/board/stackup_four.kicad_pcb`), whose core between `In1.Cu` and `In2.Cu` holds two sheets
+- **WHEN** its model is written as an Altium PCB document
+- **THEN** the document holds the default stack values, and exactly one `altium.not-lowered` (or one skipped `stackup` entry of the account) names the gap between `In1.Cu` and `In2.Cu`
+
+#### Scenario: Stack-ups without the new fields keep their bytes
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pcb_complete.py tests/unit/lens/test_altium_pcb_golden.py tests/unit/lens/test_altium_copper_golden.py` builds the committed Altium samples
+- **THEN** every file equals the committed one
+
+### Requirement: Rule areas, board items and area rules in an Altium build
+The Altium build SHALL treat the rule areas, texts, graphics and dimensions that a script declares (`design-dsl`, "Rule areas in the DSL", "Board drawings in the DSL") as the board items they are in the model: written to a planned PCB document where `altium-pcb-writer` has a record for them ("Board text records", "Board graphics and keep-out records"), and reported item by item where it has none ("Complete board in an Altium build"). This requirement adds no record, key or format fact.
+- **Rule areas.** A keep-out that sets at least one of `no_tracks`, `no_vias`, `no_pads` and `no_copper_pour` MUST be written with those restrictions. `Keepout.name` has no recorded key in the keep-out record: it MUST NOT be written, and each named keep-out MUST give one `altium.not-lowered` info whose `where` is `keepout/<id>` and whose message names the name that is lost. A rule area that forbids nothing, a named area for rules only, has no record, as any keep-out without a restriction: it MUST give one `altium.not-lowered` with `where` `keepout/<id>` and MUST be counted under `keep-out` of `result.pcb.not_lowered`.
+- **Texts.** A board text whose `h_justify` and `v_justify` are both `center` MUST be written as before. Another justification has no recorded key in the text record: the text MUST NOT be written at a guessed position, and MUST give one `altium.not-lowered` with `where` `text/<id>` that names the justification.
+- **Dimensions.** `lens.altium_copper.KINDS`, the kinds of "Written items are accounted", MUST gain `dimension`. No dimension record is written: each `Dimension` of the board MUST give one `altium.not-lowered` with `where` `dimension/<id>`, and `result.pcb.not_lowered` MUST hold `dimension` with their count. `lens.altium_copper.BOARD_KINDS` MUST gain the row `("dimensions", "dimensions")`, so that a build without a PCB document reports the dimensions with one info, as it reports keep-outs, texts, graphics and holes.
+- **Area rules.** A rule whose selector holds an `area` leaf (`rules-model`, "Closed selector grammar") has no scope in the closed scope grammar of the rule records. `backends.altium.rulemap.lower` MUST give it the reason `scope-unsupported`, for that rule only ("Scoped rule records"), and the build MUST report it with the `altium.not-lowered` warning of "Rules in an Altium build" (`where` `design-rules/<kind>`) and list it under `result.rules.not_lowered`. `rulemap.TABLE` gains no row: `area` is a selector, not a rule kind. `build.area-unknown` (`design-dsl`, "Board items in a build") stays a check of the KiCad build and of the in-memory KiCad build that resolves script copper ("Script copper in an Altium build").
+- **Copper guard.** The copper guard of an Altium build ("Copper guard in an Altium build") judges the document it reads back with the same `check_copper`, so it can find `copper.keepout` (`copper-check`, "Keep-out findings") for the keep-outs that the document holds. As that requirement rules for every copper error other than a short, the finding MUST be reported with severity `warning` and the guard's suffix, and MUST NOT stop the build. Area rules are not in the document, so the guard does not apply them.
+- A design without rule areas, justified texts, dimensions and area rules MUST give the files and the issues it gave before this requirement.
+
+#### Scenario: Script items in an Altium build
+- **GIVEN** the blink variant of `design-dsl`, "Blink with a keep-out, a label and a dimension": `d.rule_area("ANT", …, forbid=("tracks", "vias"))`, `d.text("rev", "REV A", (mm(2), mm(2)))` and `d.dimension("width", (mm(0), mm(0)), (mm(40), mm(0)), offset=mm(-3))`
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `result.pcb.written` holds `keep-out` 1 and `text` 1, `result.pcb.not_lowered` holds `dimension` 1, and the `altium.not-lowered` issues for these items are exactly two infos: one with `where` `keepout/<id>` that names `ANT`, and one with `where` `dimension/<id>`
+
+#### Scenario: A rules-only area and a justified text
+- **GIVEN** a blink variant with `d.rule_area("HV", …)` without `forbid` and one text declared with a `justify` other than the centred default
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `result.pcb.not_lowered` holds `keep-out` 1 and `text` 1, and `issues` holds one `altium.not-lowered` with `where` `keepout/<id>` and one with `where` `text/<id>` that names the justification
+
+#### Scenario: An area rule is not lowered
+- **GIVEN** a blink variant with the rule area `HV` and a `clearance` rule `hv` whose `selector_a` is `area HV` and whose `min` is 2 mm
+- **WHEN** it is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `issues` holds one `altium.not-lowered` warning with `where` `design-rules/clearance` that names `hv` and `scope-unsupported`, `result.rules.not_lowered` lists the rule with that reason, and every other rule of the design is written as before
+
+#### Scenario: Dimensions without a document
+- **GIVEN** a model without a board outline whose board holds one `Dimension`
+- **WHEN** `build_altium` runs
+- **THEN** no `.PcbDoc` is planned, and `issues` holds one `altium.not-lowered` info with `where` `dimensions` that names the count 1
+
+#### Scenario: No new item, no new issue
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pcb_complete.py tests/unit/lens/test_altium_pcb_golden.py tests/unit/lens/test_altium_rules.py` builds the committed samples
+- **THEN** every file equals the committed one, and no `altium.not-lowered` names a dimension, a name or a justification

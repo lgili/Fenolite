@@ -2,7 +2,9 @@
 
 ## Purpose
 The bill of materials and the placement table of a board, written through a column template that the user supplies: the `bom` and `pnp` commands, their sources (`model` and `kicad`), grouping, units, rotation offsets and side names. No template of any assembly house ships with Fenolite.
+
 ## Requirements
+
 ### Requirement: Neutral BOM parts and lines
 `fenolite.exports.bom` SHALL define `BomPart(ref, value, footprint, description, datasheet, dnp, properties)`, `BomLine(refs, quantity, fields, key)`, `parts_from_model(design) -> tuple[BomPart, ...]` and `group(parts, template) -> tuple[BomLine, ...]`, where `template` is the `[bom]` table of an assembly template and `key` holds the line's values of the `group_by` fields (its reference when `group_by` is empty), with `DNP` after them for a line of DNP parts as said below.
 - `parts_from_model` MUST give one part per component that has a placed footprint, leaving out a component whose footprint has the attribute `board_only` or `exclude_from_bom` and a reference that starts with `#`. `footprint` MUST be `Component.lib_footprint_ref`; `dnp` MUST be true when `Component.dnp` is true or the footprint has the attribute `dnp`; `properties` MUST be the component's properties without `Reference`, `Value`, `Footprint`, `Datasheet` and `Description`; `description` and `datasheet` MUST be those two properties, or `""`.
@@ -169,3 +171,18 @@ The bill of materials and the placement table of a board, written through a colu
 - **WHEN** `uv run pytest tests/unit/test_repo_layout.py tests/residue` runs
 - **THEN** it passes with `docs/assembly.md` present and linked from `README.md` and `docs/exports.md`
 
+### Requirement: Fiducial rows in the placement table
+`exports.placement.PlacementRow` and `PlacedRow` SHALL gain `fiducial: bool = False`, true when a pad of the footprint has `fab_property` `fiducial_global` or `fiducial_local`. The `[placement]` table of an assembly template SHALL take the key `fiducials`, a boolean, `true` by default, and `fiducial` SHALL join the placement column fields, its cell `yes` for a fiducial row and empty otherwise.
+- `apply` MUST leave out the fiducial rows when `fiducials` is false, together with the DNP and `smd_only` filters.
+- The default template MUST keep the rows of KiCad's own position file (`H-K-POS-ROWS`): a fiducial whose footprint lacks `exclude_from_pos_files` stays a row.
+- `docs/assembly.md` MUST describe the key and the field.
+
+#### Scenario: Fiducials kept by default
+- **GIVEN** a built board with the fiducial `FID1` of `design.fiducial()` and the resistor `R1`
+- **WHEN** `fenolite pnp` runs with the default template
+- **THEN** the rows are `FID1` and `R1`, and only the row of `FID1` has `fiducial` true
+
+#### Scenario: A template drops them
+- **GIVEN** the same board and a template whose `[placement]` table holds `fiducials = false`
+- **WHEN** `fenolite pnp --template` runs with it
+- **THEN** the only row is `R1`; with `fiducials = true` and a column `{ name = "Fid", field = "fiducial" }`, the cell of `FID1` is `yes` and that of `R1` is empty

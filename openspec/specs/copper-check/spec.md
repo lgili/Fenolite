@@ -2,7 +2,9 @@
 
 ## Purpose
 Give Fenolite its own check of the copper of a board for shorts and clearance, without `kicad-cli`: tracks, arcs, vias, pads and zone fills become exact integer thick shapes, pairs of different nets on a shared layer are judged against the clearance in force (classes, custom rules and board minimums), and the findings are deterministic, located, documented case by case against KiCad's DRC and labelled with their evidence.
+
 ## Requirements
+
 ### Requirement: Copper check function
 `fenolite.checks.copper.check_copper(design, *, pads, min_clearance=None, rules_over_classes=True, floor_over_rules=False, arc_tol=ARC_TOL_NM, inputs=()) -> CopperReport` SHALL judge the copper of `design.board` for shorts and clearance, and SHALL be a pure function: it MUST read no file, run no subprocess and write nothing.
 - `pads` MUST be the board-frame pad records of c0028's `BoardFrame.board_pads(design)` (`backend-protocol`, "Board-frame protocol"), or `None` when no frame is available.
@@ -88,8 +90,8 @@ Give Fenolite its own check of the copper of a board for shorts and clearance, w
 
 ### Requirement: Clearance in force
 `fenolite.checks.clearance.ClearanceResolver(design, *, min_clearance=None, rules_over_classes=True, floor_over_rules=False)` SHALL return, through `resolve(a, b, *, zone_clearance=None)` for two `RuleSubject`s on the same layer, a `Clearance(value, severity, source)`:
-- **Subjects.** `item_kind` is `track` for tracks and arcs, `via`, `pad` or `zone` (fills); `net` is the net name; `netclass` is the name of the net's class, or `Default` when its `netclass_id` is `None`; `ref` is the component reference for a pad and `None` otherwise; `layer` is the shared layer.
-- **Rules.** The candidates MUST be the rules of `design.rules.rules` (none when `design.rules` is `None`) with `kind == "clearance"`, a `min` limit, and empty `layers` or `layers` holding the shared layer. A rule MUST match the pair when `selector_a` matches one subject and `selector_b` (or every subject, when it is `None`) matches the other, in either order. Leaf values and subject names MUST be compared without regard to letter case (`H-K-DRU-COND`).
+- **Subjects.** `item_kind` is `track` for tracks and arcs, `via`, `pad` or `zone` (fills); `net` is the net name; `netclass` is the name of the net's class, or `Default` when its `netclass_id` is `None`; `ref` is the component reference for a pad and `None` otherwise; `layer` is the shared layer; `areas` holds the names of the rule areas the item lies in on that layer ("Rule areas in the copper check") and is empty for a subject built without them. `ClearanceResolver.subject(kind, net_id, *, ref, layer, areas=frozenset())` builds a subject.
+- **Rules.** The candidates MUST be the rules of `design.rules.rules` (none when `design.rules` is `None`) with `kind == "clearance"`, a `min` limit, and empty `layers` or `layers` holding the shared layer. A rule MUST match the pair when `selector_a` matches one subject and `selector_b` (or every subject, when it is `None`) matches the other, in either order. Leaf values and subject names MUST be compared without regard to letter case (`H-K-DRU-COND`), except `area` leaves and area names, which MUST be compared with letter case and with `*` as a glob, as KiCad compares them (`H-K-AREA-COND`).
 - **Precedence.** The governing rule MUST be the last matching rule in the order of `rule_precedence(rules)`, which MUST equal c0018's `rulemap.rule_order`: priority 0 first, then descending priority, ties by name, then id.
 - **Value.** Let `k` be the larger `clearance` of the two nets' classes that set one, the class of a net whose `netclass_id` is `None` being the class named `Default` when `design.circuit.netclasses` holds one, let `f` be `min_clearance` when it is positive, and let `z` be `zone_clearance` when it is positive.
   - A governing rule with severity `ignore` MUST give `value=None` and `severity=None`, so the pair is not judged for clearance.
@@ -144,6 +146,16 @@ Give Fenolite its own check of the copper of a board for shorts and clearance, w
 - **GIVEN** a board whose zone of net `A` has a clearance of 0.5 mm and a stored fill, a track of net `B` 0.3 mm from that fill, and a second zone of net `B`, also with a clearance of 0.5 mm, whose stored fill is 0.3 mm from the first fill, both nets in a class with a clearance of 0.2 mm
 - **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k zone_clearance` runs `check_copper`
 - **THEN** it reports exactly one `copper.clearance`, between the first fill and the track, with clearance 500 000 nm and source `zone`
+
+#### Scenario: Rule scoped to an area
+- **GIVEN** a clearance rule `hv` with `selector_a = area HV` and `min = 2 mm`, and two tracks of nets `A` and `B` in a class with a clearance of 0.2 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_clearance.py -k area` resolves the pair with `areas={"HV"}` on the first subject, and again with no areas
+- **THEN** the first gives 2 mm with source `rule:hv`, and the second 0.2 mm with source `class:<class name>`
+
+#### Scenario: Area names keep their case
+- **GIVEN** the same rule and a subject whose `areas` is `{"hv"}`
+- **WHEN** the pair is resolved
+- **THEN** the rule does not govern
 
 ### Requirement: Clearance findings
 `check_copper` SHALL report one `copper.clearance` finding for each judged item pair that does not short and whose shapes are closer than the clearance in force on a shared copper layer (`thick_closer_than(a, b, value)`, a strict comparison). For a pair that involves an arc, the arc's shape MUST first be widened by twice its band, so that no violation is missed. When the value in force of such a pair comes from a zone (`source == "zone"`), the pair MUST be judged twice: the widened shape with the value that `resolve` gives without `zone_clearance`, and the arc's shape narrowed by twice its band, never below a width of 0, with the zone's value. The pair is a finding when either is too close; it carries the zone's value and source when the narrowed shape is, and the other value and its source otherwise. KiCad's filler cuts a fill to the zone's clearance around the true arc, so the widened shape judged with the zone's value would report fills that KiCad just made; with this rule no finding of the earlier rule is lost.
@@ -233,3 +245,57 @@ Each copper finding SHALL locate both items and a point, and the report SHALL be
 - **WHEN** `FENOLITE_CENSUS_OUT=copper-census.json uv run pytest tests/corpus/test_copper_perf.py -m slow` runs in a temporary folder
 - **THEN** the JSON file holds 21 boards under `copper`, each with its counts and time, and `docs/evidence/copper-check.md`, written from it, passes `uv run python tools/residue/scan.py`
 
+### Requirement: Rule areas in the copper check
+`check_copper` SHALL find, for each copper item and each copper layer it is on, the names of the rule areas it lies in, and SHALL pass them to `ClearanceResolver.subject` as `areas`, so that clearance rules scoped to an area are judged where KiCad's DRC applies them (`H-K-AREA-COND`).
+- A rule area is a `Keepout` of `design.board.keepouts` with a non-empty `name`. An item lies in it on a layer when the layer is one of the area's `layers` and the item's shape on that layer, narrowed by its band for an arc as for shorts, touches or overlaps the area's outline taken as a filled polygon (`thick_touch`). Fills count as items; zone outlines do not.
+- An item lies in a name that two areas carry when it lies in either.
+- A `Keepout` whose outline is empty (kept opaque by the reader) or refused by `Polygon` MUST be left out, counted in `summary.unsupported` under `rule-area`, and reported by one `copper.item-unsupported` warning with the count, as "Copper items and their shapes" does for items it cannot shape. Its name then matches no item and its settings are not judged ("Keep-out findings").
+- `summary.rule_areas` MUST report the count of rule areas that were used.
+- The membership is computed once per item and layer, from a spatial index of the areas' boxes, and changes no shape and no pair of "Pairs that are judged".
+
+#### Scenario: Larger clearance inside a high-voltage area
+- **GIVEN** a rule area `HV` on `F.Cu` and `B.Cu`, a clearance rule with `selector_a = area HV` and `min = 2 mm`, and two pairs of tracks of different nets 1 mm apart, one inside the area and one outside
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k area` runs `check_copper`
+- **THEN** it reports one `copper.clearance` with source `rule:<name>` for the pair inside and nothing for the pair outside
+
+#### Scenario: Neck-down inside a BGA area
+- **GIVEN** a board-wide clearance rule of 0.2 mm, then a rule of priority 1 with `selector_a = area BGA` and `min = 0.1 mm`, and two pairs 0.15 mm apart, one inside the area and one outside
+- **WHEN** `check_copper` runs
+- **THEN** it reports one `copper.clearance` for the pair outside and none for the pair inside
+
+#### Scenario: An area on one layer
+- **GIVEN** the rule area `HV` on `F.Cu` only, the 2 mm rule, and a pair 1 mm apart on `B.Cu` under the area
+- **WHEN** `check_copper` runs
+- **THEN** it reports no finding for the pair
+
+#### Scenario: Copper just outside the area
+- **GIVEN** the 2 mm rule and a pair whose first track's copper ends 50 µm outside the area, and again with the area reaching 50 µm into that copper
+- **WHEN** `check_copper` runs on both
+- **THEN** it reports nothing for the first and one `copper.clearance` for the second
+
+#### Scenario: Opaque area outline
+- **GIVEN** a board read from a file whose rule area `HV` has an arc in its `pts`
+- **WHEN** `check_copper` runs
+- **THEN** `summary.unsupported` holds `rule-area: 1`, the issues hold one `copper.item-unsupported` naming it, and no item lies in `HV`
+
+### Requirement: Keep-out findings
+`check_copper` SHALL report one `copper.keepout` error for each copper item that lies, on a layer of a `Keepout`, in an area whose settings forbid its kind: a track or an arc where `no_tracks` is true, a via where `no_vias` is true, and a pad where `no_pads` is true (`H-K-AREA-KEEPOUT`). Lying in an area is decided as in "Rule areas in the copper check", for every `Keepout`, named or not.
+- One finding MUST be given per item and keep-out, on the first such layer in copper table order. Fills MUST NOT be reported, because KiCad's DRC does not report a stored fill in a copper-pour keep-out and its filler leaves the area out; zone outlines and footprints are not copper items here.
+- The `CopperFinding` MUST hold the code, severity `error`, the layer, a point of the overlap (`thick_witness`), the item and the area as `CopperRef("keepout", <the area's name, else its locator>, <its id>, "<no net>")`, a gap of 0, no clearance, and the source `keepout:<name or locator>`. `CopperKind` gains `keepout`, which no rule subject takes.
+- The message MUST name the item's kind and net, the area, the setting that forbids it, the layer and the point in millimetres.
+- `summary.keepouts` MUST report the count of findings, and the findings MUST follow the order of "Locations and deterministic output".
+
+#### Scenario: Track in a tracks keep-out
+- **GIVEN** a keep-out on `F.Cu` with `no_tracks`, a track inside it, a track crossing its edge, a track outside it, and a track on `B.Cu` under it
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k keepout` runs `check_copper`
+- **THEN** it reports exactly two `copper.keepout` errors, naming the track inside and the crossing track, on `F.Cu`
+
+#### Scenario: Only the forbidden kind
+- **GIVEN** a keep-out on both copper layers with `no_vias` only, holding a via and a track
+- **WHEN** `check_copper` runs
+- **THEN** it reports one `copper.keepout` for the via and none for the track
+
+#### Scenario: Pads and fills
+- **GIVEN** a keep-out with `no_pads` and `no_copper_pour` over a placed two-pad footprint and over part of a zone's stored fill
+- **WHEN** `check_copper` runs
+- **THEN** it reports one `copper.keepout` per pad and none for the fill

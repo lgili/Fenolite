@@ -386,15 +386,16 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** it lists a 10.0.6 candidate with `selected: true`, and an entry or a `doctor.tool-missing` warning for each of `java` and `docker`
 
 ### Requirement: Export command
-`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_export.py` with `mutates=True`, and SHALL write the fabrication files that `kicad-cli` produces from a copy of the board that `PATH` names.
+`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf] [--dxf] [--sch-pdf] [--all] [--altium-rul] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_export.py` with `mutates=True`, and SHALL write the fabrication files and documents that `kicad-cli` produces from a copy of the board that `PATH` names and, for `--sch-pdf`, of its schematic, and, with `--altium-rul`, the project's rules as an Altium rule file (`manufacturing-exports`, "Altium rule file export").
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`; the usage and input errors are `check`'s (`FEN-2001`, `FEN-3001`).
-- **Kinds.** `--all` MUST select the four kinds. A call that selects none MUST exit 2 with `FEN-2001`.
-- **Preset.** `--preset FILE` MUST be read with `exports.preset.read_preset` before any run, and each selected kind MUST run with `arguments(kind, preset, …)` (`manufacturing-exports`, "Export presets"); a preset error MUST exit 3 with `FEN-3004`. `result.preset` MUST hold `file` (the name as given) and `sha256`, or be `null` without a preset.
-- **Tool.** The command MUST exit 6 with `FEN-6001` when no `kicad-cli` is found and with `FEN-6002` for an unsupported major or a board newer than the tool reads. `--timeout` MUST default to 300 and apply to each run.
-- **Source.** The board, its project files and its folder MUST NOT change; every run happens on the copy set of `projectset.project_set`.
-- **Writes.** The command MUST return one `PlannedWrite` per artefact at `DIR/<artefact path>`, and with `--manifest` one for `DIR/fenolite-artifacts.json`; `DIR` is relative to the working directory. When any selected kind fails, the command MUST return no `PlannedWrite`, MUST report the kind's issue and MUST exit 5. The mutation protocol (`--dry-run`, `--confirm`, backup, receipt) applies unchanged.
-- **Result.** `result` MUST hold `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`, `content_sha256`; sorted by path), `tool_version` and `tool_writes`. No value MUST hold a temporary path, the home directory or a date.
-- **Exit codes.** 0 when the files are planned or written; 5 with `export.failed` or `export.kind-unavailable`; 3 for a board Fenolite cannot read.
+- **Kinds.** `--all` MUST select the four fabrication kinds (`FAB_KINDS`: `gerbers`, `drill`, `pos`, `ipcd356`) and MUST NOT select `altium-rul` or a document kind; each document kind (`DOCUMENT_KINDS`: `ipc2581`, `odb`, `step`, `pdf`, `dxf` and `sch-pdf`) MUST be selected by its own flag. A call that selects no kind and no `--altium-rul` MUST exit 2 with `FEN-2001`.
+- **Schematic.** With `--sch-pdf`, a board without `<stem>.kicad_sch` beside it MUST exit 3 with `FEN-3001` before any run, with a hint that names the other kinds.
+- **Preset.** `--preset FILE` MUST be read with `exports.preset.read_preset` before any run, and each selected kind MUST run with `arguments(kind, preset, …)` (`manufacturing-exports`, "Export presets"); a preset error MUST exit 3 with `FEN-3004`. `result.preset` MUST hold `file` (the name as given) and `sha256`, or be `null` without a preset. A document kind has no preset table: it MUST run with the fixed arguments of "Export kinds and their arguments" whatever the preset holds.
+- **Tool.** When a fabrication kind or a document kind is selected, the command MUST exit 6 with `FEN-6001` when no `kicad-cli` is found and with `FEN-6002` for an unsupported major or a board newer than the tool reads. `--timeout` MUST default to 300 and apply to each run. With `--altium-rul` alone no tool is looked for or run.
+- **Source.** The board, its project files and its folder MUST NOT change; every run happens on the copy set of `projectset.project_set`, with the model files of `manufacturing-exports`, "STEP export with 3D models", for the `step` kind.
+- **Writes.** The command MUST return one `PlannedWrite` per artefact at `DIR/<artefact path>`, and with `--manifest` one for `DIR/fenolite-artifacts.json`; `DIR` is relative to the working directory. When any selected kind fails, the command MUST return no `PlannedWrite`, MUST report the kind's issue and MUST exit 5. Only an issue of severity `error` stops the writes: an issue of severity `info` MUST NOT (`manufacturing-exports`, "Stack-up note in exports", gives the first one), and neither does a warning, as "Exit codes" states. The mutation protocol (`--dry-run`, `--confirm`, backup, receipt) applies unchanged.
+- **Result.** `result` MUST hold `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`, `content_sha256`; sorted by path), `tool_version` (`null` when no tool ran), `tool_writes`, `repeat` (each selected fabrication or document kind mapped to its `Kind.repeat`) and `models` (the `ModelUse` objects of the `step` kind, `[]` without it), and with `--altium-rul` `rules` (`written`, `not_lowered`). No value MUST hold a temporary path, the home directory or a date.
+- **Exit codes.** 0 when the files are planned or written, whatever the warnings (`kicad.lib.missing-3d-model`, `export.model-unread`, `export.page-too-small`); 5 with `export.failed`, `export.kind-unavailable` or `export.sheet-missing`; 3 for a board Fenolite cannot read or a missing schematic.
 - `example_args` MUST be `(EXAMPLE_BOARD, "--out", "fab", "--all", "--manifest", "--dry-run")`, `mutation_example_args` the same without `--dry-run`, and `example_tools` MUST be `("kicad-cli",)`.
 
 #### Scenario: Plan, then write
@@ -433,6 +434,46 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 #### Scenario: Invalid preset
 - **WHEN** the same command runs with a preset whose schema is `other.v1`
 - **THEN** the exit code is 3, stderr carries `FEN-3004`, and the fake saw no run
+
+#### Scenario: The rule file needs no tool
+- **GIVEN** an authored project with one clearance rule on a net, and no `kicad-cli` on the machine
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k altium_rule_file_needs_no_tool` runs `fenolite export <dir> --out fab --altium-rul --dry-run` and then `--manifest --confirm`
+- **THEN** the first plans `fab/board.RUL` and writes nothing, the second writes it and the manifest, `result.kinds` is `["altium-rul"]`, `result.tool_version` is `null`, and the evidence is `INFERRED` with no oracle
+
+#### Scenario: Document kinds
+- **GIVEN** a fake `kicad-cli` 10.0.6 that writes one file for `ipc2581`, `odb` and `step`, two layer files for `pdf` and one for `dxf`
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k documents` runs `fenolite export <board> --out fab --ipc2581 --odb --step --pdf --dxf --dry-run`
+- **THEN** the exit code is 0, the plan holds the six files, `result.repeat` maps `ipc2581`, `odb` and `step` to `none`, `pdf` to `content` and `dxf` to `bytes`, and `result.models` is a list
+
+#### Scenario: All keeps the four kinds
+- **GIVEN** a recording fake `kicad-cli`
+- **WHEN** `fenolite export <board> --out fab --all --dry-run` runs
+- **THEN** the fake saw exactly the runs of `gerbers`, `drill`, `pos` and `ipcd356`, and `result.kinds` holds neither a document kind nor `altium-rul`
+
+#### Scenario: A preset leaves a document kind alone
+- **GIVEN** a recording fake `kicad-cli` and a preset with `[drill]` `units = "in"`
+- **WHEN** `fenolite export <board> --out fab --drill --dxf --preset fab.toml --dry-run` runs
+- **THEN** the drill run saw `--excellon-units in`, and the `dxf` run saw exactly the arguments of "Export kinds and their arguments"
+
+#### Scenario: Schematic PDF without a schematic
+- **GIVEN** `two_layer.kicad_pcb`, which has no `two_layer.kicad_sch` beside it
+- **WHEN** `fenolite export <board> --out fab --sch-pdf --dry-run` runs
+- **THEN** the exit code is 3, stderr carries `FEN-3001` naming `two_layer.kicad_sch`, and the fake saw no run
+
+#### Scenario: A missing sheet writes nothing
+- **GIVEN** a board with a schematic whose sub-sheet file is missing, and a fake `kicad-cli`
+- **WHEN** `fenolite export <board> --out fab --pdf --sch-pdf --confirm` runs
+- **THEN** the exit code is 5, the issues hold `export.sheet-missing`, and `fab` does not exist
+
+#### Scenario: An info does not stop the writes
+- **GIVEN** a fake `kicad-cli` 10.0.6 and a run of the drill kind that reports one issue of severity `info` that is not `export.stackup-default`
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k severity` runs `fenolite export <board> --out fab --drill --dry-run` and then `--confirm`
+- **THEN** the first exits 0 with the plan of the drill files and the info among its issues, and the second writes those files
+
+#### Scenario: An error stops the writes
+- **GIVEN** the same run reporting one issue of severity `error`
+- **WHEN** `fenolite export <board> --out fab --drill --confirm` runs
+- **THEN** the exit code is 5, `result` holds no plan, the receipt is `null` and `fab` does not exist
 
 ### Requirement: Render command
 `fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_render.py` with `mutates=True`, and SHALL write the review views of the board that `PATH` names.
@@ -502,13 +543,17 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 ### Requirement: Place command
 `fenolite place PATH [--strategy grid|manual|constrained] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT] [--constraints FILE] [--max-candidates N] [--preview-dir DIR]` SHALL be registered by `src/fenolite/cli/cmd_place.py` with `mutates=True`, and SHALL move footprints of the board that `PATH` names.
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`.
-- **Grid.** With `--strategy grid` (the default without `--move`), the command MUST place every footprint that is off the board (`layout-lens`, "Placement precedence"), or those of `--only`, with `placement.grid.place`, in component-path order (reference order for footprints without `fenolite.path`). It only translates.
+- **Rules of a built project.** The command MUST load the board folder's `.fenolite/` with `canonical.load_dir` at most once, and take from it the locked placements of "Built projects" and `checks.placement.rules_of(<that model>)`. Without a readable `.fenolite/` it judges no rule.
+- **Grid.** With `--strategy grid` (the default without `--move`), the command MUST place every footprint that is off the board (`layout-lens`, "Placement precedence"), or those of `--only`, with `placement.grid.place`, in component-path order (reference order for footprints without `fenolite.path`). It only translates. The bounding box of every rule area of the board that forbids footprints (`Keepout.no_footprints`) MUST join the cut-outs that the grid avoids.
 - **Manual.** Each `--move` MUST name a reference and a position in the frame of the DSL's `place()` (relative to the top-left corner of the bounding box of the board ring, Y down; relative to the file origin when the board has no outline), with lengths in the DSL's syntax, an optional rotation in degrees and an optional side. An unknown reference MUST give `place.unknown-ref`. A rotation or side change MUST resolve definitions from the project's `fp-lib-table`.
-- **Legality.** For grid/manual, after the moves, `placement.legality.check` MUST run on the whole layout. With any `place.*` error and without `--force`, the command MUST return no `PlannedWrite` and exit 5. With `--force` it MUST write and still report the issues.
+- **Legality.** For grid/manual, after the moves, `placement.legality.check` MUST run on the whole layout, with the board's keep-outs as `keepouts`. With any `place.*` error and without `--force`, the command MUST return no `PlannedWrite` and exit 5. With `--force` it MUST write and still report the issues.
+- **Rules.** After the moves, `checks.placement.judge` MUST run on the layout with the rules of the built project. Each `placement.*` issue MUST be reported with a severity no higher than `warning` and MUST NOT refuse the write.
+- **Measures.** `checks.placement.measure` MUST run on the layout after the moves, with the track width plus the clearance of the class `Default` of `KicadBackend().design_rules` on the board's copy set as `pitch` (`None` without that class).
 - **Write.** For grid/manual, one `PlannedWrite` for the board, at `--out` when given and at the board's path otherwise; none when nothing moved. The mutation protocol applies unchanged.
-- **Result.** `result` MUST hold `board`, `strategy`, `moved` (`ref`, `path`, `from`, `to`, each placement as `x`, `y` in nm, `rotation` in µdeg and `side`; sorted by reference), `unplaced` and `legality` (counts by code).
+- **Result.** `result` MUST hold `board`, `strategy`, `moved` (`ref`, `path`, `from`, `to`, each placement as `x`, `y` in nm, `rotation` in µdeg and `side`; sorted by reference), `unplaced`, `legality` (counts by code), `rules` (the counts of `judge` by rule family, all zero without rules) and `measures` (`Measures.to_json()` of the layout after the moves, with `change`: `hpwl` and `ratsnest` after minus before, in nm, both 0 when nothing moved).
 - **Built projects.** When `.fenolite/` holds a locked placement for a moved part, the command MUST report `place.script-locked` (warning), because the next build restores the script's placement.
-- No subprocess MUST run. Two runs on equal boards MUST write equal bytes.
+- **Evidence.** The envelope MUST carry `placement.EVIDENCE`, combined with `placement.legality.KEEPOUT_EVIDENCE` when the board holds a rule area that forbids footprints, and with `checks.placement.EVIDENCE` when a rule was judged.
+- No subprocess MUST run. Two runs on equal boards MUST write equal bytes and return equal results.
 - `example_args` MUST be `(EXAMPLE_BOARD, "--move", "R1=12mm,8mm", "--out", "fenolite-placed.kicad_pcb", "--dry-run")`, and `mutation_example_args` the same without `--dry-run`.
 
 #### Scenario: Grid places staged parts
@@ -528,12 +573,22 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 #### Scenario: Nothing to place
 - **GIVEN** a built blink with every part placed
 - **WHEN** `fenolite place <dir> --confirm` runs
-- **THEN** the exit code is 0, `result.moved` is empty, and no file changes
+- **THEN** the exit code is 0, `result.moved` is empty, `result.measures.change` is `{"hpwl": 0, "ratsnest": 0}`, and no file changes
 
 #### Scenario: Example is hermetic
 - **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
 - **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `place` with its `example_args`
 - **THEN** the exit code is 0 and the plan names `fenolite-placed.kicad_pcb`
+
+#### Scenario: Keep-out avoided by the grid and refused for a move
+- **GIVEN** a confirmed build of a blink variant with `R1` staged and a rule area on `F.Cu` that forbids footprints over the 8 mm square at the top-left corner of the board, where the grid would otherwise put `R1`
+- **WHEN** `uv run pytest tests/unit/cli/test_place_cmd.py -k keepout` runs `fenolite place <dir> --confirm`, and then `fenolite place <dir> --move R1=4mm,4mm --confirm`
+- **THEN** the first run places `R1` outside the area's box with exit code 0; the second exits 5 with `place.keepout` naming `R1`, and writes nothing
+
+#### Scenario: Rules and measures of a move
+- **GIVEN** the blink built with `design.near("led", d1, r1.pad(2), within=mm(5))`
+- **WHEN** `fenolite place <dir> --move R1=36mm,18mm --dry-run --json` runs, which brings `R1`'s pads within 5 mm of `D1`'s, and then the same command with `--move R1=2mm,2mm`
+- **THEN** the first reply holds no `placement.too-far` and a negative `result.measures.change.hpwl`; the second holds one `placement.too-far` warning naming `D1` and exits 0, since a rule never refuses `place`
 
 - **Constrained.** With `--strategy constrained`, the command SHALL use bounded neutral proposals from the integer `fenolite.placement-request.v0` request, preserve manual/grid defaults and refuse `--force`. `--constraints`, `--max-candidates` and `--preview-dir` SHALL apply to this strategy. `result.placement` SHALL contain positions, source/request hashes, unplaced reasons, objective metrics, intrinsic findings and placement assessment. `result.preview` SHALL identify the written/read-back geometry; dry-run previews MUST not write files. The constrained transaction MAY add planned preview writes alongside the board write and SHALL retain its hard-check findings instead of applying grid/manual force semantics.
 
@@ -973,11 +1028,11 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** the exit code is 6, stderr carries `FEN-6001`, and the hint names `--no-check` and `--stages`
 
 ### Requirement: Manifest option of producing commands
-`export`, `render`, `bom` and `pnp` SHALL accept `--manifest`, and with it SHALL plan, beside their files, the manifest of their output folder merged with their entries (`manufacturing-exports`, "Manifest merging").
-- The output folder is `--out DIR` for `export` and `render`, and the folder of `--out FILE` for `bom` and `pnp`; `--manifest` without `--out` MUST exit 2 with `FEN-2001` for `bom` and `pnp`.
-- The entries MUST have the kinds of `KINDS` for `export`, `render` for each view, `bom` and `pnp`; `layer` is set only for Gerbers.
-- `from` MUST hold the SHA-256 of the board for `export`, `render` and `pnp`, and for `bom` that of the schematic (source `kicad`) or of the board (source `model`).
-- `tool` MUST be `kicad-cli <version>` for files that tool wrote and `fenolite <version>` for the tables Fenolite rendered. `evidence` MUST be the level of the command's envelope: `exports.EVIDENCE`'s for a file `kicad-cli` wrote with the fixed options, the lower level of an export with a preset (c0074), and the level of the rows for a table.
+`export`, `render`, `bom`, `pnp` and `testpoints` SHALL accept `--manifest`, and with it SHALL plan, beside their files, the manifest of their output folder merged with their entries (`manufacturing-exports`, "Manifest merging").
+- The output folder is `--out DIR` for `export` and `render`, and the folder of `--out FILE` for `bom`, `pnp` and `testpoints`; `--manifest` without `--out` MUST exit 2 with `FEN-2001` for `bom`, `pnp` and `testpoints`.
+- The entries MUST have the kinds of `KINDS` for `export`, `render` for each view, `bom`, `pnp` and `testpoints`; `layer` is `Artifact.layer`: set for a Gerber and for each layer file of `pdf` and `dxf`, `null` otherwise.
+- `from` MUST hold the SHA-256 of the board for `export` (for its `sch-pdf` entry that of the root schematic instead), `render`, `pnp` and `testpoints`, and for `bom` that of the schematic (source `kicad`) or of the board (source `model`).
+- `tool` MUST be `kicad-cli <version>` for files that tool wrote and `fenolite <version>` for the tables Fenolite rendered. `evidence` MUST be the level of the entry's own claim (`manufacturing-exports`, "Artefact manifest"): `exports.EVIDENCE`'s for a file of a fabrication kind or a view that `kicad-cli` wrote with the fixed options, `exports.DOCUMENTS_EVIDENCE`'s for a file of a document kind, the lower level of an export with a preset (c0074), and the level of the rows for a table.
 - A folder whose manifest cannot be read (`manifest.unreadable`) MUST make the command plan no file at all, its own files included.
 - `bom --source kicad` is not available yet (c0064 waits for the schematic writer); until it is, the `from` of a bill always holds the board's hash.
 - A view that failed (`render.failed`) MUST have no entry.
@@ -995,6 +1050,15 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 #### Scenario: Manifest needs a folder
 - **WHEN** `fenolite pnp <dir> --manifest` runs without `--out`
 - **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+#### Scenario: Layer and source of document entries
+- **GIVEN** a fake `kicad-cli` and a board with a schematic beside it
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k document_manifest` runs `fenolite export <board> --out out --pdf --sch-pdf --manifest --confirm`
+- **THEN** each `pdf` entry of `out/fenolite-artifacts.json` has its layer's canonical name in `layer` and the board's hash in `from`, and the `sch-pdf` entry has `layer` `null` and the root schematic's hash in `from`
+
+#### Scenario: The test-point table joins the manifest
+- **WHEN** `uv run pytest tests/unit/cli/test_testpoints_cmd.py -k manifest` runs `fenolite testpoints <dir> --out out/tp.csv --manifest --confirm` in a folder where `pnp --manifest` ran
+- **THEN** the manifest of `out` lists `pnp.csv` and `tp.csv`, the second with kind `testpoints`, `tool` naming `fenolite` and the board's hash in `from`
 
 ### Requirement: Paged results
 The dispatcher SHALL accept the global flags `--limit N` and `--cursor TOKEN` and SHALL cut the paged list of a command to one page, without keeping any state between calls.
@@ -1827,3 +1891,114 @@ The global flag `--progress` SHALL make a command write progress records on stde
 - **GIVEN** the built blink without a height limit
 - **WHEN** `fenolite place <dir> --move R1=12mm,8mm --dry-run --json` runs
 - **THEN** `result.rules` holds no `height`
+
+### Requirement: Models command
+`fenolite models PATH [--vendor]` SHALL be registered by `src/fenolite/cli/cmd_models.py` with `mutates=True`, and SHALL list the 3D models that the footprints of a board name, with the source where Fenolite finds each; with `--vendor` it SHALL plan copies of them into the project's `3dmodels/` folder, which the `step` export kind reads first (`manufacturing-exports`, "STEP export with 3D models").
+- **Board.** `PATH` MUST resolve with `projectset.resolve_board`; the usage and input errors are `check`'s (`FEN-2001`, `FEN-3001`). A path that names no KiCad board (an Altium document or project) is refused there, as `export` refuses it.
+- **Models.** The paths MUST be those of `models.board_models` on the board text, each located once as the `step` kind locates it. The command MUST run no tool and make no request.
+- **Result.** `result.models` MUST hold one object per distinct path, sorted by path: `path`, `source` (`project`, `env`, `kicad-config`, `install`, `cache`, `in-place` or `missing`), `sha256` and `bytes` (`null` when missing or in place), and `refs` (sorted). `result.counts` MUST hold `paths`, `located` and `missing`.
+- **Missing models.** Each path that is not located MUST give one `kicad.lib.missing-3d-model` (warning) naming the path and its references; the exit code stays 0.
+- **`--vendor`.** The command MUST return one `PlannedWrite` of kind `3d-model` per located `${KICAD<N>_3DMODEL_DIR}/<rel>` path whose source is not `project`, at `<board folder>/3dmodels/<rel>` relative to the working directory, holding the bytes of the located file, and nothing else. Without `--vendor` it MUST return none. The mutation protocol applies. The board, its footprints and their model paths MUST NOT change.
+- **Determinism.** No value MUST hold an absolute path or a date; two runs on unchanged inputs MUST give the same stdout apart from `elapsed_ms`.
+- **Evidence.** The envelope evidence MUST be `models.EVIDENCE`, `INFERRED` (`H-K-EXPORT-MODELS`) until that hypothesis is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
+- `example_args` MUST be `(EXAMPLE_BOARD,)` and `mutation_example_args` `(EXAMPLE_BOARD, "--vendor")`, and both MUST run no subprocess. The command MUST declare `paged = "models"` ("Paged results").
+- `docs/cli-contract.md` MUST describe the command, its result keys and the order of the sources.
+
+#### Scenario: Located and missing models
+- **GIVEN** a copy of `two_layer.kicad_pcb` in `tmp_path` whose `R1` names `${KICAD10_3DMODEL_DIR}/Fenolite.3dshapes/Box_2x1.step` and whose `D1` names `${KICAD10_3DMODEL_DIR}/Fenolite.3dshapes/Absent.step`, with `KICAD10_3DMODEL_DIR` set to `tests/data/models` and no install
+- **WHEN** `uv run pytest tests/unit/cli/test_models_cmd.py -k list` runs `fenolite models <board> --json`
+- **THEN** the exit code is 0, `result.counts` is `{"paths": 2, "located": 1, "missing": 1}`, the `Box_2x1.step` entry has source `env` and the file's SHA-256, and the issues hold one `kicad.lib.missing-3d-model` naming `D1`
+
+#### Scenario: Vendored, then read from the project
+- **GIVEN** the same board
+- **WHEN** `fenolite models <board> --vendor --confirm` runs, and then `fenolite models <board> --json`
+- **THEN** the first writes `3dmodels/Fenolite.3dshapes/Box_2x1.step` beside the board, byte-equal to its source, and nothing else; the second reports that path with source `project`; the board file is unchanged
+
+#### Scenario: The command is hermetic
+- **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
+- **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py tests/consistency -k models` runs the examples
+- **THEN** both exit 0 and the outputs hold no absolute path
+
+### Requirement: Drawing options of the export command
+`fenolite export` SHALL take `--fab-drawing`, `--assembly-drawing` and `--drawing-spec FILE`, and SHALL run the drawing kinds of `manufacturing-exports` beside the kinds of the requirement "Export command", under its board, tool, source, write and exit-code rules.
+- Each flag MUST select its kind. A drawing kind MUST count as a selected kind for the rule that a call selecting no kind and no `--altium-rul` exits 2, and `--all` MUST NOT select one. A drawing kind runs `kicad-cli`: the "Tool" clause of "Export command" (`FEN-6001`, `FEN-6002`, `--timeout` per run) MUST apply when one is selected. `--preset` MUST NOT change the arguments of a drawing kind, and `result.repeat`, where "Export command" has it, MUST map both drawing kinds to `content`.
+- The drawing kinds are KiCad's: `PATH` resolves with `projectset.resolve_board` as for every kind, so an Altium document or project is refused there (exit 2, `FEN-2001`) before the spec is read or a tool is looked for. `result.kinds` MUST list the drawing kinds after the other selected kinds, `fab-drawing` first.
+- `--drawing-spec` MUST be read before any tool runs. Without a drawing flag it MUST exit 2 with `FEN-2001`; a missing file MUST exit 3 with `FEN-3001`; a `SpecError` MUST exit 3 with `FEN-3004` and list its problems in the message. Without the option, `drawing_spec.DEFAULT` MUST apply.
+- `cmd_export` MUST compute each page's obstacles: through `templates.layout` for the spec's or the project's drawing sheet, through `drawing.default_sheet_obstacles` when the project names none. A sheet that cannot be read or built MUST give `drawing.sheet-unread` (error).
+- A drawing issue of severity error MUST make the command plan no write and exit 5, as `export.failed` does; an info or a warning MUST NOT change the exit code.
+- `result.drawings` MUST hold one object per page, in the order fabrication, assembly top, assembly bottom, with `kind`, `path`, `paper`, `portrait`, `sheet` (`spec`, `project` or `kicad-default`) and `blocks` (each with `name`, `at` and `size` in integer nanometres), and, for an assembly page, `side` and `designators_added`. No value MUST hold a temporary path, the home directory or a date.
+- With a drawing kind selected, the envelope's evidence MUST be `Evidence.combine` of `exports.drawings.EVIDENCE` and the evidence of every other selected kind, with the oracle `kicad-cli <version>`.
+- `docs/cli-contract.md` MUST describe the three options and `result.drawings`, and `docs/drawings.md` the spec file, the pages, the tables and the seven `drawing.*` codes.
+
+#### Scenario: Plan, then write
+- **GIVEN** a fake `kicad-cli` 10.0.6 that writes the files of both drawing kinds
+- **WHEN** `uv run pytest tests/unit/cli/test_export_drawings.py -k plan` runs `fenolite export <board> --out fab --fab-drawing --assembly-drawing --dry-run` and then the same with `--confirm`
+- **THEN** the first exits 0, plans the drawing files under `fab/drawings/` and writes nothing, and the second writes them with a receipt that lists each file with its SHA-256
+
+#### Scenario: A spec without a drawing flag
+- **WHEN** `fenolite export <board> --out fab --gerbers --drawing-spec d.toml --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+#### Scenario: An invalid spec runs no tool
+- **GIVEN** `d.toml` holding `[page] paper = "B9"` and `subprocess.run` patched to record its calls
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --drawing-spec d.toml --dry-run` runs
+- **THEN** the exit code is 3, stderr carries `FEN-3004` naming `page.paper`, and no `kicad-cli` run was made
+
+#### Scenario: No room writes nothing
+- **GIVEN** `d.toml` with `[page] paper = "A4"` and a board whose outline reaches y = 279 mm
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --drawing-spec d.toml --confirm` runs
+- **THEN** the exit code is 5, the issues hold `drawing.no-room`, and `fab` does not exist
+
+#### Scenario: The reply describes the pages
+- **WHEN** the first command of "Plan, then write" runs with `--json`
+- **THEN** `result.drawings` holds one object per page produced, each with its `paper`, `sheet` `kicad-default` and its blocks, and `result.kinds` ends with `fab-drawing`, `assembly-drawing`
+
+#### Scenario: A drawing kind alone needs the tool
+- **GIVEN** no `kicad-cli` on `PATH` and no `FENOLITE_KICAD_CLI`
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --dry-run` runs
+- **THEN** the exit code is 6 and stderr carries `FEN-6001`, although no fabrication kind is selected
+
+### Requirement: Testpoints command
+`fenolite testpoints PATH [--side top|bottom|both] [--template FILE] [--min-coverage PERCENT] [--min-pitch LENGTH] [--min-fiducials N] [-o FILE] [--manifest]` SHALL be registered by `src/fenolite/cli/cmd_testpoints.py`, with `mutates=True` for `--out` only, and SHALL report the test points, fiducials, holes and net coverage of a board (`assembly-test-features`).
+- `PATH` is a `.kicad_pcb`, a `.kicad_pro` or a project folder, read as `pnp` reads it: from the board file, with no tool run. An Altium document or project is refused as `pnp` refuses it: marks are read from KiCad's pad property, and no Altium record is known to hold one.
+- The command MUST declare `paged = "test_points"` ("Paged results").
+- `result` MUST hold `side`; `test_points`, `fiducials` and `holes`, rows of "Test-point report rows" with lengths in integer nanometres in the board frame; `coverage` with `eligible`, `covered` and `uncovered`; `counts` with `test_points`, `fiducials_top`, `fiducials_bottom`, `holes` and `tooling_holes`; and `template`, `units`, `origin` and `y_axis`. `issues` MUST hold the findings of "Assembly and test findings", and `evidence` MUST combine `exports.testpoints.EVIDENCE` with the read's.
+- `--min-coverage` MUST be an integer from 0 to 100, `--min-pitch` a positive length with a unit, and `--min-fiducials` an integer of at least 1; another value MUST exit 2 (`FEN-2001`).
+- `-o FILE` MUST plan one CSV file through the mutation protocol. Its header is `kind,ref,pad,net,x,y,side,access,width,height,drill`, with `kind` `test_point`, `fiducial`, `tooling_hole` or `hole`, one row per report row in that order; positions and sizes in the origin, Y axis, units and decimals of the template's `[placement]` table, sides by its side names, and its CSV options. No file MUST be planned when a finding is an error, or when the origin needs a board outline the board lacks (`pnp.no-outline`).
+- `--manifest` follows "Manifest option of producing commands": with `-o FILE` it plans the manifest of the file's folder with one entry of kind `testpoints`; without `-o` it MUST exit 2 with `FEN-2001`.
+- The exit code MUST be 0 without an error finding, 5 with one, and 3 for a file that cannot be read.
+- The command MUST name `example_args` on the example board, and `mutation_example_args` that write `testpoints.csv`.
+- `docs/cli-contract.md` MUST hold a section `testpoints` with its options, its result and its codes.
+
+#### Scenario: A board without marks
+- **WHEN** `fenolite testpoints tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** it exits 0, `result.test_points` is empty, `result.coverage.covered` is 0, and `issues` holds one `testpoint.none` info
+
+#### Scenario: A coverage target missed
+- **GIVEN** the build of "Features in a build" (`design-dsl`, "Assembly and test features in a build")
+- **WHEN** `fenolite testpoints <board> --min-coverage 100 --out tp.csv --dry-run --json` runs
+- **THEN** it exits 5, `issues` holds `testpoint.coverage-low`, `result.coverage.covered` is 1, and no write is planned
+
+#### Scenario: The CSV of a build
+- **GIVEN** the same build
+- **WHEN** `fenolite testpoints <board> --out tp.csv --dry-run --json` runs
+- **THEN** it exits 0 and plans `tp.csv`, whose first line is `kind,ref,pad,net,x,y,side,access,width,height,drill` and which holds a `test_point` row for `TP1` with the net `LED_A` and the access `top`, two `fiducial` rows and one `tooling_hole` row for `TH1`
+
+#### Scenario: The CSV joins the manifest
+- **GIVEN** the same build
+- **WHEN** `uv run pytest tests/unit/cli/test_testpoints_cmd.py -k manifest` runs `fenolite testpoints <board> --out out/tp.csv --manifest --confirm`, and `fenolite testpoints <board> --manifest`
+- **THEN** the first writes `out/tp.csv` and `out/fenolite-artifacts.json`, which lists `tp.csv` with kind `testpoints`, `tool` naming `fenolite` and the board's hash in `from`; the second exits 2 with `FEN-2001`
+
+### Requirement: Stack-up in inspect
+`fenolite inspect` SHALL report the stack-up of a board it reads, as an addition to the `result` of "Inspect command".
+- For a board, `result.stackup` MUST be `null` when `Board.stackup` is `None`, and otherwise hold `thickness` (`Stackup.thickness()`, in nm), `finish`, `impedance_controlled` and `layers`: one object per entry, top to bottom, with `name`, `kind` and `thickness`, and with `dielectric_kind`, `material`, `epsilon_r`, `loss_tangent` and `color` when they are set. Footprint files and symbol libraries MUST NOT carry the key.
+- The `kicad.board.stackup-*` issues of the reader MUST be reported as reader issues, as "Inspect command" requires of every reader issue.
+- `docs/cli-contract.md` MUST describe the key under `inspect`.
+
+#### Scenario: Board with a stack-up
+- **WHEN** `uv run fenolite inspect tests/data/kicad/board/stackup_four.kicad_pcb --json` runs
+- **THEN** the exit code is 0, `result.stackup.thickness` is 2025000, `result.stackup.finish` is `ENIG`, and `result.stackup.layers` holds 14 objects, the first named `F.SilkS` with kind `silkscreen` and thickness 0
+
+#### Scenario: Board without a stack-up
+- **WHEN** `uv run fenolite inspect tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** `result.stackup` is `null`, and the other keys are those of "Authored board summary"

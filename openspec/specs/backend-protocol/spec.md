@@ -308,9 +308,10 @@ The records MUST be frozen dataclasses with slots whose field types are builtins
 - **THEN** it equals `back`
 
 ### Requirement: Design rules source
-`fenolite.backends.base` SHALL define the frozen dataclass `DesignRules(design: Design, min_clearance: Nm | None = None, rules_over_classes: bool = True, floor_over_rules: bool = False, opaque_clearance_rules: int = 0, unread: tuple[tuple[str, str], ...] = (), evidence: Evidence = Evidence())` and the `@runtime_checkable` protocol `DesignRulesSource` with the method `design_rules(design: Design, project: ProjectSet, *, issues: list[Issue] | None = None) -> DesignRules`. Through it, `checks` reaches the clearance rules that a project's own files hold, without importing a backend.
+`fenolite.backends.base` SHALL define the frozen dataclass `DesignRules(design: Design, min_clearance: Nm | None = None, rules_over_classes: bool = True, floor_over_rules: bool = False, opaque_clearance_rules: int = 0, unread: tuple[tuple[str, str], ...] = (), evidence: Evidence = Evidence(), left_out: tuple[tuple[str, int, str], ...] = ())` and the `@runtime_checkable` protocol `DesignRulesSource` with the method `design_rules(design: Design, project: ProjectSet, *, issues: list[Issue] | None = None) -> DesignRules`. Through it, `checks` reaches the clearance rules that a project's own files hold, without importing a backend.
 - `DesignRules.design` MUST be `design` with the net classes, the class of each net and the design rules that the project's files give; what a missing or unread file would give MUST keep `design`'s own value.
 - `min_clearance` MUST be the project's board minimum clearance in nm, or `None`. `rules_over_classes` and `floor_over_rules` MUST say, for the tool version the board is judged against, whether a governing custom clearance rule replaces the class clearances and whether the board minimum also raises rule values (`copper-check`, "Clearance in force"). `opaque_clearance_rules` MUST count the project's clearance rules that could not be lifted into the model. `unread` MUST name each project file that failed to read, with the error's message, in file-name order.
+- `left_out` MUST name the copper that the project's files hold in a form the model does not carry as copper, as (kind, count, reason) in kind order; `DesignRules.design` is then without the items that stand for it, and `checks.copper.rules_issues` MUST give one `copper.item-unsupported` per entry, `where` = the kind. It is empty for a KiCad project.
 - `design_rules` MUST NOT raise for a file that fails to read, and MUST append the readers' warnings and infos to `issues` when a list is given.
 - `design_rules` is not an operation: `CapabilityReport.operations` stays the closed list of "Capability reports".
 - `KicadBackend` MUST satisfy `DesignRulesSource` (`kicad-file-backend`, "Design rules for the copper check"), and `backends/kicad/backend.py` MUST hold the statement `_RULES_SOURCE: DesignRulesSource = KicadBackend()`, which pyright checks.
@@ -546,3 +547,34 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 - **GIVEN** the two-layer and four-layer benches of `tests/_lengthbench.py`
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_lengths.py -k parts` computes `KicadBackend().length_facts` for major 9 and for major 10
 - **THEN** every `NetLength` has `total == routed + vias + die`, and every net with a pad, track, arc or via has an entry
+
+### Requirement: Document parity protocol
+`fenolite.backends.base` SHALL define the `@runtime_checkable` protocol `DocumentParity` with the method `parity_side(schematic: Design, board: Design) -> SideOutcome`: a document backend builds the schematic side of the parity comparison (`checks.parity`) from the two readings that `DocumentValidator.read_documents` gave. It MUST read no file and run no tool; `side` is `None` when the schematic reading gives no side, with a `message`.
+- `ParityInputs` is unchanged: it serves a backend that reads the schematic of a `ProjectSet` itself and may take an oracle's netlist. A document backend has both readings already, so it is not asked to read them again.
+- `AltiumBackend` MUST satisfy `DocumentParity`, `BoardFrame` and `DesignRulesSource`, and `backends/altium/backend.py` MUST hold the three statements that pyright checks. None of the three is an operation: `CapabilityReport.operations` of the Altium backend stays `("detect", "read")`.
+
+#### Scenario: Altium backend satisfies the three protocols
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_frame.py -k backend_is` checks `isinstance(AltiumBackend(), …)` for `BoardFrame`, `DesignRulesSource` and `DocumentParity`
+- **THEN** each is true, and the operations are `("detect", "read")`
+
+### Requirement: DRC report limits of an oracle
+`fenolite.backends.base` SHALL define how a DRC oracle says where its report stops, so that `checks` can tell a complete count from a cut one without importing a backend.
+- `DrcLimits(per_type: Mapping[str, int], others: int)` MUST be a frozen dataclass: the largest number of entries the tool writes for each named type of its report, and for every other type. `DrcLimits.limit(type) -> int` MUST give `per_type[type]`, or `others`. Every value MUST be a positive `int`; construction MUST raise `ValueError` otherwise. The key `unconnected_items` stands for the list of unconnected items of a `DrcReport`; every other key is a violation `type`, in the tool's own spelling.
+- `LimitedOracle` MUST be a `@runtime_checkable` `typing.Protocol` with `report_limits() -> DrcLimits`. It stands beside `Oracle`, as the netlist and round-trip oracles do, and "Oracle protocol" is unchanged: an oracle MAY satisfy both, and an oracle that does not satisfy `LimitedOracle` says nothing about limits.
+- `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy `LimitedOracle`, returning `fenolite.backends.kicad.drc.REPORT_LIMITS[major]` for the major of its `kicad-cli`: `DrcLimits({"clearance": 499, "unconnected_items": 499}, others=199)` for 9 and for 10. The table MUST hold one row per major and measured values only, each pinned to a probe of `H-K-DRC-LIMITS` (`kicad-oracle`, "DRC report limits are probed"); `fenolite.backends.kicad.drc.MEASURED_TYPES[major]` MUST name the types whose limit a probe of that major measured (corrected on 2026-10-08: thirteen on 10, and twelve on 9, without `hole_clearance`), every other type being assumed to stop at `others`; a major without a row MUST raise the error that an unsupported major raises today.
+- `fenolite.backends.kicad.canary.CLEARANCE_REPORT_LIMIT` MUST be the `clearance` value of that table, so that the canary's verdict `clearance-limit` and the mark of `check` rest on one number.
+- No Altium module satisfies `LimitedOracle`: Fenolite runs no Altium tool that writes a report. The findings an Altium document gets come from Fenolite's own checks, which report every finding.
+
+#### Scenario: Limits by type
+- **WHEN** `uv run pytest tests/unit/backends/test_base_drc_limits.py -k limit` calls `DrcLimits({"clearance": 499}, others=199).limit` with `clearance` and with `silk_overlap`
+- **THEN** it returns 499 and 199, and `DrcLimits({}, others=0)` raises `ValueError`
+
+#### Scenario: The KiCad oracle states its limits
+- **GIVEN** `KicadOracle` over a fake `kicad-cli` of version 10.0.6, and over one of version 9.0.9
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle_limits.py` calls `report_limits()` on each
+- **THEN** both return limits of 499 for `clearance` and `unconnected_items` and 199 for `track_dangling`, `isinstance(oracle, LimitedOracle)` is true, and `canary.CLEARANCE_REPORT_LIMIT` equals the `clearance` value
+
+#### Scenario: An oracle without limits
+- **GIVEN** the fake `Oracle` of `tests/unit/checks/fakes.py`, which has no `report_limits`
+- **WHEN** `isinstance(fake, LimitedOracle)` is evaluated
+- **THEN** it is false, and `uv run pytest tests/unit/test_import_graph.py` still finds no `fenolite.backends.<x>` import in `fenolite.backends.base`

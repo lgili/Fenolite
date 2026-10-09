@@ -29,7 +29,9 @@ keep the names of their day. The changes of v0.4 were gathered on the branch `v0
 closed and whose archive order allowed it was moved to `changes/archive/` (c0078–c0080, c0096–c0100,
 c0102, c0106, c0111, c0115, c0119, c0120, c0134, c0136, c0140, c0142, c0145, c0153 and c0154); a row of
 this table whose folder is still in `changes/` is open, and `docs/release/v0.4.md`, "Archive order", says
-what each open change with every task closed waits for.
+what each open change with every task closed waits for. Later on 2026-10-09, after the maintainer's Altium
+report of that day closed their last tasks, c0084, c0087, c0088, c0101, c0103, c0113, c0116, c0117, c0118,
+c0138, c0141, c0144, c0147 and c0148 were archived too.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|

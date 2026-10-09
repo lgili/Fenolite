@@ -2,7 +2,9 @@
 
 ## Purpose
 Write Altium schematic files from a model `Design` as pure functions that return bytes: the records and keys of a sheet, the component bodies, designators and library links, the connectivity drawn on the sheet, the deterministic layout, the stable unique ids and the project file. Every fact comes from public sources recorded in `docs/formats/altium/`; the writer opens no file and starts no process.
+
 ## Requirements
+
 ### Requirement: Altium writer package
 `fenolite.backends.altium` SHALL provide `project.write_project(design, *, name, project=True, issues=None, form=DEFAULT_FORM, symbols=None) -> dict[str, bytes]`, which returns `<name>.SchDoc`, one `<library>.SchLib` per library that the components' lib ids name ("Schematic library file") and, when `project` is true, `<name>.PrjPcb`, for a model `Design` whose components hold their pins, and writes no file. `symbols` maps each lib id of the design to its `altsym.AltiumSymbol`; a lib id missing from it, or `symbols=None`, gets its generic symbol ("Generic library symbols").
 - The package MUST import only `fenolite.core` and `fenolite.model`, and MUST NOT open a file, start a process or read the environment. It MUST NOT resolve a library: `lens.altium` passes the resolved symbols in.
@@ -90,7 +92,7 @@ Each component whose lib id is an Altium link (`altium-build`, "Altium symbol so
 - Component record: `RECORD=1`, `LIBREFERENCE`, `DESIGNITEMID`, `SOURCELIBRARYNAME`, `PARTCOUNT=2`, `DISPLAYMODECOUNT=1`, `CURRENTPARTID=1`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (the body's top-left corner), `UNIQUEID`, `COLOR=128`, `AREACOLOR=11599871`; no orientation and no mirror (S-0130, S-0131, S-0137).
 - Rectangle record: `RECORD=14`, `OWNERINDEX`, `OWNERPARTID=1`, `LOCATION.X`, `LOCATION.Y` (bottom-left), `CORNER.X`, `CORNER.Y` (top-right), `LINEWIDTH=1`, `COLOR=128`, `AREACOLOR=11599871`, `ISSOLID=T` (S-0130, S-0131).
 - Pin record: `RECORD=2`, `OWNERINDEX`, `OWNERPARTID=1`, `FORMALTYPE=1`, `ELECTRICAL=4` (passive), `PINCONGLOMERATE`, `PINLENGTH=20`, `LOCATION.X`, `LOCATION.Y`, `NAME`, `DESIGNATOR` (S-0130, S-0131).
-  - `LOCATION` MUST be the pin's body end on the body edge. `PINCONGLOMERATE` MUST be the direction (2 leftwards for left pins, 0 rightwards for right pins) plus 0x10 (number shown), plus 0x08 (name shown) only when the name differs from the designator.
+  - `LOCATION` MUST be the pin's body end on the body edge. `PINCONGLOMERATE` MUST be the direction (2 leftwards for left pins, 0 rightwards for right pins) plus 0x20, plus 0x10 (number shown), plus 0x08 (name shown) only when the name differs from the designator ("Binary pin record" for the meaning of the bits).
   - The electrical hot end is `LOCATION` plus `PINLENGTH` in the pin's direction, away from the body (S-0130, S-0131, S-0140).
 - Children carry absolute sheet coordinates (S-0131).
 
@@ -100,7 +102,7 @@ Each component whose lib id is an Altium link (`altium-build`, "Altium symbol so
 
 #### Scenario: Four-pin part of the sample
 - **WHEN** the records of the sample's `U2` are read
-- **THEN** its rectangle is 600 × 300 mil, pins `1` and `2` are on its left edge with `PINCONGLOMERATE=18`, pins `3` and `4` are on its right edge with `PINCONGLOMERATE=16`, every pin has `PINLENGTH=20`, `ELECTRICAL=4` and `OWNERINDEX` equal to the record number of `U2`
+- **THEN** its rectangle is 600 × 300 mil, pins `1` and `2` are on its left edge with `PINCONGLOMERATE=50`, pins `3` and `4` are on its right edge with `PINCONGLOMERATE=48`, every pin has `PINLENGTH=20`, `ELECTRICAL=4` and `OWNERINDEX` equal to the record number of `U2`
 
 #### Scenario: A part without connected pins
 - **GIVEN** a component that no net names, and whose lib id no other component uses
@@ -414,17 +416,26 @@ The `Data` stream of a symbol SHALL be a sequence of framed records owned by its
 `backends.altium.schlib.pin_record(pin)` SHALL return one framed binary record for an `altsym.AltiumPin`: a 32-bit little-endian word `(1 << 24) | <payload length>`, then the payload, without a NUL (S-0131, S-0148, S-0150).
 - The payload MUST be, little-endian: record id 2 (4 bytes); byte 0; `OWNERPARTID` (2 bytes, signed); display mode 0 (1 byte); the inner-edge, outer-edge, inside and outside symbol codes (1 byte each); the description as a short string; `FORMALTYPE` 1 (1 byte); the electrical type (1 byte); `PINCONGLOMERATE` (1 byte); the pin length, `LOCATION.X` and `LOCATION.Y` of the body end (2 bytes each, signed, 10-mil units); the colour 0 (4 bytes); then the short strings name, designator, swap group, part-and-sequence and default value.
 - A short string MUST be one length byte and that many ASCII bytes. Description, swap group, part-and-sequence and default value MUST be empty.
-- `PINCONGLOMERATE` MUST be the direction (0 right, 1 up, 2 left, 3 down, from the body end to the hot end), plus 0x04 when hidden, 0x08 when the name is shown, 0x10 when the number is shown.
+- `PINCONGLOMERATE` MUST be the direction (0 right, 1 up, 2 left, 3 down, from the body end to the hot end), plus 0x20 on every pin, plus 0x04 when hidden, 0x08 when the name is shown, 0x10 when the number is shown (`altsym.AltiumPin.conglomerate`, the one place of this choice).
+- With 0x20 set, 0x08 shows the name and 0x10 the number: every pin Altium saves holds 0x20 (the corpus, S-0614), and Altium Designer 26.5.0 drew the four combinations of the check project `tests/data/altium/pinbits/` as written (S-0613). Without 0x20 Altium Designer 26 reads the two bits as hide flags (S-0612), so a pin without it MUST NOT be written; `H-A-SCHLIB-PINBITS`.
 - A name or designator over 255 bytes, a value outside the signed 16-bit range, or a code outside 0 … 255 MUST raise `ValueError`.
 - That two public implementations agree on this layout is recorded in the fact page; that Altium shows such pins as written is `H-A-SCHLIB-PIN`. The `FORMALTYPE` byte is 1 here and 0 in S-0150; the page records the difference.
 
 #### Scenario: Worked pin
 - **WHEN** `pin_record` is called on pin `1` named `IN`, passive, leftwards, name and number shown, length 20 units, body end (-30, 10) units, part 1
-- **THEN** it returns the hex bytes `22000001` `02000000` `00` `0100` `00` `00000000` `00` `01` `04` `1a` `1400` `e2ff` `0a00` `00000000` `02494e` `0131` `00` `00` `00`
+- **THEN** it returns the hex bytes `22000001` `02000000` `00` `0100` `00` `00000000` `00` `01` `04` `3a` `1400` `e2ff` `0a00` `00000000` `02494e` `0131` `00` `00` `00`
 
 #### Scenario: Too long a name
 - **WHEN** `pin_record` is called on a pin whose name has 256 characters
 - **THEN** it raises `ValueError`
+
+#### Scenario: Name hidden, number shown
+- **WHEN** `pin_record` is called on a leftwards pin whose name is hidden and whose number is shown
+- **THEN** its `PINCONGLOMERATE` byte is 0x32: 0x20 and 0x10 set, 0x08 clear
+
+#### Scenario: Name shown, number hidden
+- **WHEN** `pin_record` is called on a leftwards pin whose name is shown and whose number is hidden
+- **THEN** its `PINCONGLOMERATE` byte is 0x2A: 0x20 and 0x08 set, 0x10 clear
 
 ### Requirement: Library symbols from KiCad symbols
 `backends.altium.altsym.from_symbol_def(symbol, *, lib_ref, footprint, issues)` SHALL map a resolved `SymbolDef` to an `AltiumSymbol` (S-0131 for the importer's reverse mapping, `docs/formats/altium/schematic-library.md`).
@@ -897,4 +908,3 @@ The schematic document writer, in both forms, and the schematic library writer S
 #### Scenario: The form the public sets hold
 - **WHEN** `FENOLITE_REQUIRE=corpus uv run pytest tests/corpus/test_altium_map_records.py` counts the map records of the footprint models of `altium-set:02` to `altium-set:05`
 - **THEN** 295 models hold 7 records: 293 hold none, one holds 6 for its 6 pins and one holds 1 for its 8 pins; no record names the pin's own pad alone, and every record numbers its pads from 0 without a gap
-

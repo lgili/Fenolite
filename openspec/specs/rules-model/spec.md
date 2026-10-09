@@ -2,7 +2,9 @@
 
 ## Purpose
 Specify the neutral design-rule model (rule sets, selectors and constraints) and how it is lowered to a backend's rules files, with a closed selector grammar, target gating and a self-check.
+
 ## Requirements
+
 ### Requirement: Fenolite lowers only the design's rules
 `fenolite.backends.kicad.lowering.lower_rules(ruleset, *, target=DEFAULT_TARGET, allow_lossy=False)` SHALL write the rules of `ruleset` and nothing else, and SHALL return `LoweredRules(text, issues)`, where `lowering.LoweredRules` is c0017's `backends.base.WriteResult`.
 - Fenolite MUST NOT ship requirement values, rule tables or default rules, in code or in package data, for the files it writes for the user: the output of `lower_rules` and `write_rules`, and build outputs. A rule reaches such a file only when the user's `RuleSet` holds it.
@@ -113,6 +115,7 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 | `netclass v` | `S.NetClass == 'v'` |
 | `ref v` | `S.memberOfFootprint('v')`; for `courtyard_clearance`, `S.Reference == 'v'` (`H-K-DRU-COURTYARD`) |
 | `item_kind v`, v in `track`, `via`, `pad`, `zone` | `S.Type == 'Track'`, `'Via'`, `'Pad'` or `'Zone'` |
+| `area v` | `S.intersectsArea('v')` (`H-K-AREA-COND`) |
 | `and(x, y, …)` | `(x && y && …)` |
 | `or(x, y, …)` | `(x \|\| y \|\| …)` |
 | `not(x)` | `!(x)` |
@@ -120,7 +123,9 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 - The two sides MUST combine as `<A> && <B>`, each side a leaf or a parenthesised compound. An `all` side adds no term, and a rule whose sides are both `all` has no condition clause.
 - `selector_b` MUST be used only with `clearance` and `creepage`.
 - `rulemap.KIND_SELECTORS` MUST narrow the grammar per kind: `hole_to_hole`, `hole_clearance` and `annular_width` take side A only and no layer clause; `courtyard_clearance` takes `all`, or `ref` leaves without a glob combined with `and`, `or` and `not`, on side A only and with no layer clause; `silk_clearance` takes `all` only; `creepage` takes `net` and `netclass` leaves combined with `and`, `or` and `not`, on both sides, with no layer clause. The first six kinds take the grammar as this requirement states it.
-- `rulemap.SELECTOR_SUPPORT` MUST have the keys `net`, `netclass`, `ref`, `item_kind`, `and`, `or`, `not`, `glob` (a `*` inside a leaf value), `selector_b` (a `selector_b` other than `all`) and `layer_clause` (a non-empty `Rule.layers`). Each entry MUST hold exactly the majors on which that key's `dru-cond-*` probe passed (`H-K-DRU-COND`, `H-K-DRU-GLOB`); a key without a passing probe MUST have an empty entry. `all` at the top level writes no term and needs no entry.
+- `area v` names the rule areas of the board whose `Keepout.name` matches `v`, with letter case and with `*` as a glob; it selects the items whose copper overlaps such an area on one of the area's layers (`H-K-AREA-COND`). `area` MUST be a leaf of the grammar of the first six kinds (`clearance`, `edge_clearance`, `track_width`, `via_diameter`, `hole_size` and `via_drill`), on side A and, for `clearance`, on side B, and `rulemap.KIND_SELECTORS` MUST add it to the side-A leaves of `hole_to_hole`, `hole_clearance` and `annular_width`. `courtyard_clearance`, `silk_clearance` and `creepage` MUST NOT take it, and neither does `no_tracks`, whose selector "Track layer rules" limits to nets and classes: an `area` leaf in one of their rules is a selector outside the kind's entry. Whether the board holds such an area is checked by the build (`design-dsl`, "Board items in a build"), not by the lowering.
+- `read_rules` MUST lift `S.intersectsArea('v')` to `area v`, on either side. A condition that uses `S.enclosedByArea` or `S.insideArea` MUST keep its rule opaque (`rules.kept-opaque`).
+- `rulemap.SELECTOR_SUPPORT` MUST have the keys `net`, `netclass`, `ref`, `item_kind`, `area`, `and`, `or`, `not`, `glob` (a `*` inside a leaf value), `selector_b` (a `selector_b` other than `all`) and `layer_clause` (a non-empty `Rule.layers`). Each entry MUST hold exactly the majors on which that key's `dru-cond-*` probe passed (`H-K-DRU-COND`, `H-K-DRU-GLOB`, and `H-K-AREA-COND` for `area`); a key without a passing probe MUST have an empty entry. `all` at the top level writes no term and needs no entry.
 - A key MUST be written for a target only when that target is in its entry. The unit scenarios of this capability set every entry to `{9, 10}` unless they say otherwise.
 - The error `rules.unsupported-selector` MUST be given for: the `layer` op; `all` below the top level; an `item_kind` value outside the table; a value containing `'`, `"`, `?`, `[` or `]`; a `*` for a target outside the `glob` entry; `selector_b` with a kind other than `clearance` and `creepage`, or for a target outside its entry; a selector or a layer clause outside the kind's `KIND_SELECTORS` entry; and any op outside its entry. A selector MUST never be approximated.
 
@@ -160,7 +165,7 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 - **THEN** each entry holds exactly the majors whose file records `present` for that key's `dru-cond-<key>` probe
 
 #### Scenario: Each op selects its items in KiCad
-- **GIVEN** one bench per op (`net`, `netclass`, `ref`, `item_kind`, layer clause, `and`, `or`, `not`, `selector_b`, glob), each with a probe pair and a control pair 4 mm apart, a 5 mm rule and the canary
+- **GIVEN** one bench per op (`net`, `netclass`, `ref`, `item_kind`, `area`, layer clause, `and`, `or`, `not`, `selector_b`, glob), each with a probe pair and a control pair 4 mm apart, a 5 mm rule and the canary
 - **WHEN** `uv run pytest tests/kicad/rules/test_rule_conditions.py` runs on 9.0.9 and on 10.0.6
 - **THEN** for each op the report holds the probe pair's violation, not the control pair's, and the canary violation, and each outcome is recorded under its `dru-cond-*` probe id
 
@@ -173,6 +178,26 @@ Selectors SHALL lower only through this table, where side `S` is `A` for `select
 - **GIVEN** a `silk_clearance` rule on `ref U1`
 - **WHEN** it is lowered
 - **THEN** `RulesLossError` is raised with one `rules.unsupported-selector` naming `silk_clearance`, and its hint does not offer `--allow-lossy`
+
+#### Scenario: Area on one side
+- **GIVEN** a `track_width` rule `neck` with `selector_a = area BGA` and `min = 0.1 mm`
+- **WHEN** it is lowered for target 9
+- **THEN** its condition is `"A.intersectsArea('BGA')"`
+
+#### Scenario: Areas on both sides
+- **GIVEN** a `clearance` rule with `selector_a = area P` and `selector_b = area Q`
+- **WHEN** it is lowered for target 10 and the text is read back with `read_rules`
+- **THEN** the condition is `"A.intersectsArea('P') && B.intersectsArea('Q')"`, and the lifted rule has the same two selectors
+
+#### Scenario: Enclosed area stays opaque
+- **GIVEN** a hand-written rule with the condition `"A.enclosedByArea('HV')"`
+- **WHEN** it is read with `read_rules` and an `issues` list
+- **THEN** the rule is an opaque slot and `issues` hold one `rules.kept-opaque` naming the condition
+
+#### Scenario: Area refused for a creepage rule
+- **GIVEN** a `creepage` rule with `selector_a = area HV`
+- **WHEN** it is lowered
+- **THEN** `RulesLossError` is raised with one `rules.unsupported-selector` naming `creepage`, and its hint does not offer `--allow-lossy`
 
 ### Requirement: Rule layers and lowered names
 `lower_rules` SHALL name each lowered rule `fenolite_<priority>_<slug>` and SHALL write one rule per layer of `Rule.layers`.
@@ -390,4 +415,3 @@ When lowering produces an issue of severity `error`, `lower_rules` MUST raise `R
 - **GIVEN** the committed `KIND_SUPPORT` and the probe files of both majors
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_rulemap.py -k kind_support` runs
 - **THEN** each new kind's entry holds exactly the majors whose file records `present` for `dru-kind-<kind>`, and `KIND_SUPPORT` and `KIND_SELECTORS` have the keys of `RuleKind`
-

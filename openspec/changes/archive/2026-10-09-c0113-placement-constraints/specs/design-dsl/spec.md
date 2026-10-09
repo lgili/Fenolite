@@ -67,7 +67,7 @@
 
 ### Requirement: Rule areas in the DSL
 `Design.rule_area(name, outline, *, layers=None, forbid=()) -> RuleArea` SHALL declare one rule area, and `dsl.to_model` SHALL put one model `Keepout` per declared area into `Board.keepouts`, in name order. This adds rule areas to the `Board` of "DSL to model". `Design.rule_area` is the one call of the DSL that declares a rule area or a keep-out: a keep-out is a rule area with a non-empty `forbid`, and the DSL has no `keepout()` call.
-- `board()` MUST have been called first.
+- `board()` MUST have been called first, in either of its forms (`width` and `height`, or `outline=` of change c0102).
 - `name` MUST match `^[A-Za-z0-9_.+-]+$`. Two areas MUST NOT have names that are equal after `str.casefold()`, because KiCad compares area names with letter case (`H-K-AREA-COND`).
 - `outline` MUST hold at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added.
 - `layers` is `None`, which means every copper layer of the board in table order, or a non-empty sequence of distinct copper layer names of the board.
@@ -86,6 +86,11 @@
 - **GIVEN** the same board and `hv = d.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))`
 - **WHEN** `to_model(d)` runs
 - **THEN** the keep-out `HV` has layers `("F.Cu",)` and its five settings false, and `hv.name == "HV"`
+
+#### Scenario: A shaped board takes rule areas
+- **GIVEN** `d.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(3)), copper=4)`
+- **WHEN** `d.rule_area("HV", [(mm(1), mm(1)), (mm(5), mm(1)), (mm(5), mm(5))], layers=("In1.Cu",))` is called and `to_model` runs
+- **THEN** `d.rule_areas` holds `HV` and `board.keepouts` holds one keep-out named `HV`
 
 #### Scenario: Refused calls
 - **WHEN** `d.rule_area("HV", …)` is called before `board()`, and after it `d.rule_area("H V", …)`, `d.rule_area("A", [(mm(0), mm(0)), (mm(1), mm(1))])`, `d.rule_area("B", …, layers=("In1.Cu",))` on a two-layer board, `d.rule_area("C", …, forbid=("silkscreen",))`, and `d.rule_area("hv", …)` after `d.rule_area("HV", …)`
