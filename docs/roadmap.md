@@ -1,6 +1,6 @@
 # Roadmap to 1.0
 
-Status on 2026-10-08. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
+Status on 2026-10-09. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
 maintainer's verdict in `docs/release/v0.2.md` (change c0093), and `v0.2.1` (2026-10-07), the first
 patch release of the series. Since 2026-10-07 the write side of the second backend is v0.3, released
@@ -11,7 +11,9 @@ It is released as `0.4.0`, pending publication: its release change is c0154 and 
 `docs/release/v0.4.md`, with what each change ships and what waits for the next release by the
 maintainer's decision of 2026-10-08. On 2026-10-09 every change whose tasks are all closed and whose
 archive order allows it was archived (c0154 among them); the others stay open folders, named in the
-milestone rows below and in `docs/release/v0.4.md`, "Archive order".
+milestone rows below and in `docs/release/v0.4.md`, "Archive order". The maintainer decided on
+2026-10-09 that the next release is `0.5.0`, v0.5a alone, and accepted the cuts for a leaner 1.0
+(Open decisions, rows 3 and 38).
 
 Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
 pin-to-pad map in the Altium build (c0135); `0.2.2` (change c0149), cut from the tag `v0.2.1`, with the
@@ -73,10 +75,10 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | read part: every change archived (c0039–c0047); in the `0.2.0` package, with no acceptance claimed for it (`docs/release/v0.2.md`, “Also in this package”). Write part, to be released as `0.3.0`: c0032–c0038, c0053, c0055 and c0056 done; c0089 and c0122 archived on 2026-10-07; open on `dev`: c0083, c0084, c0085, c0086, c0087, c0088, c0090, c0091, c0092, c0121, c0124, c0125, c0126, c0127, c0128, c0130, c0131 and c0134 (c0092, c0121 and c0126 with no task ticked); not a folder on `dev` yet: c0123 and c0132 (each a folder on its own branch) and c0129 (reserved) Release `0.3.0` approved by the maintainer on 2026-10-08, c0150 archived (`docs/release/v0.3.md`): every Altium write stays experimental, because by the rule of c0092 no write kind has the evidence to leave it and no kit run is recorded (the maintainer's exception for the kit is recorded there). Archived on 2026-10-09: c0134, c0136 and c0142. Still open: c0083–c0088, c0090–c0092, c0121, c0123–c0128, c0130–c0132, c0138, c0139, c0144 and c0146–c0148: each holds a task of the maintainer (an author report, the kit run, Altium Designer) or waits in the archive order for one that does |
 | — | v0.4 | the agent track c0077–c0081; board authoring c0096–c0099 (c0098 since 2026-10-08); the complex board c0100–c0120; written on `v04` after `0.3.0`: c0137, c0140, c0141, c0145, c0152, c0153 | an agent's first project, guide and measure; placement, copper findings, electrical readiness and bodies; the gaps to a complex board | on `v04`; released as `0.4.0`, pending publication (release change c0154, archived on 2026-10-09; record `docs/release/v0.4.md`, with the verdict): every change ships, 23 with every task closed; the tasks that depend on the maintainer's own tests are deferred to the next release by his decision of 2026-10-08, and the tasks that wait for the CI of the release branch or the first `yardstick` run are listed there ([v0.4](#v04-the-agent-track-board-authoring-and-the-complex-board)). Archived on 2026-10-09: c0078, c0079, c0080, c0096, c0097, c0098, c0099, c0100, c0102, c0106, c0111, c0115, c0119, c0120, c0140, c0145, c0153 and c0154. Open with every task closed, in the archive order: c0077 (after c0123 and c0126), c0101, c0116, c0117 and c0118 (after c0084), c0103 and c0113 (after c0101), c0107 (with c0104, whose delta renames two of its scenarios), c0114 (after c0084, c0088 and c0126), c0137 (after c0123) and c0152 (after c0088 and c0125). Open with deferred tasks: c0081, c0104, c0105, c0108, c0109, c0110, c0112 and c0141 |
-| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | conversion, MCP server, freeze | estimate |
+| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | not allocated | v0.5a: conversion between KiCad and the second backend with a report of what is kept or lost, controlled KiCad downgrade, public `equivalent`; v0.5b: the MCP server; v0.6: nothing remains; v1.0: freeze | estimate; the next release is `0.5.0`, v0.5a only (Open decisions, rows 3 and 38, 2026-10-09) |
 
-About 70 changes to 1.0 on this map, or about 61 with the proposed cuts (see
-[Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
+About 70 changes to 1.0 on this map before the cuts, and about 61 with the cuts the maintainer accepted
+on 2026-10-09 (see [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
 hold the changes of v0.4, which were not on `dev` then.
 
 ## Phase 1: foundations (done)
@@ -575,15 +577,17 @@ change at that point.
 
 | milestone | scope |
 |---|---|
-| v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`; annealing placer |
-| v0.5b | multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; MCP server |
-| v0.6 | equivalence levels 6–7; an emulated-evidence category for corpus cases; matched-length and skew analysis (net and pin-to-pin lengths, pair skew and length rules moved to v0.4 with c0106); optional KiCad IPC, only if KiCad 11 is released; in the project plan also SPICE (optional) and an ASCII inspection format for the second backend's PCB documents |
+| v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`. The next release, `0.5.0`, is v0.5a alone (Open decisions, row 38); the annealing placer moved after 1.0 (row 3) |
+| v0.5b | the MCP server. The rest of the former v0.5b (multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation) moved after 1.0 (row 3) |
+| v0.6 | nothing remains: matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3). The milestone is empty unless a later decision fills it |
 | v1.0 | freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
+| after 1.0 | the annealing placer; multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; equivalence levels 6–7; the emulated-evidence category; KiCad 11 IPC; SPICE; the ASCII inspection format (Open decisions, row 3) |
 
 ## Proposed cuts for a leaner 1.0
 
-> **Proposal, pending the maintainer's decision.** Nothing in this section is decided. The project
-> plan already allows moving v0.5b and v0.6 after 1.0 if dedication falls below 40 %.
+> **Decided by the maintainer on 2026-10-09: accepted** (Open decisions, row 3). Every item under "Move
+> after 1.0" moves after 1.0; c0023 stays in v0.1 (row 5). The project plan already allowed moving
+> v0.5b and v0.6 after 1.0 if dedication falls below 40 %.
 
 This section was written before 2026-10-07 and does not place the proposals of v0.4 (the agent track,
 board authoring, the complex board): whether each is kept for 1.0 is decided when they come to `dev`.
@@ -614,12 +618,12 @@ board authoring, the complex board): whether each is kept for 1.0 is decided whe
 | ASCII inspection format | v0.6 | — |
 | Specctra DSN/SES and Freerouting (c0023) | v0.1 | c0016's KiCadRoutingTools feasibility gate passed on KiCad 9.0.9 and 10.0.6; the maintainer's accepted decision in Open decisions row 5 keeps c0023 in v0.1 regardless |
 
-\* Placed by this page with the rest of its milestone; the maintainer may keep any of them.
+\* Placed by this page with the rest of its milestone; the maintainer kept none of them for 1.0.
 
-**Effect:** about 61 changes to 1.0 instead of about 70 (estimate).
+**Effect:** about 61 changes to 1.0 instead of about 70 (estimate, made before 2026-10-07).
 
-Under the v0.1 cut order (Open decisions, row 2), if accepted, c0023 is the first change to move
-to v0.2a when v0.1 overruns. This proposal would move it further, after 1.0.
+Under the v0.1 cut order (Open decisions, row 2, accepted), c0023 is the first change to move
+to v0.2a when v0.1 overruns. It stayed in v0.1 (row 5), so the cuts leave it where it is.
 
 ## Time and pace
 
@@ -715,24 +719,24 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 |---|---|---|---|
 | 1 | Re-baselined budget: about 31 days for the batch and about 102 to v0.1, against about 36 in the project plan's lines | Open Questions of c0009, c0014, c0017, c0018 | accepted; superseded as a forecast by the measured pace ([Time and pace](#time-and-pace)) |
 | 2 | v0.1 cut order: c0023 to v0.2a first, then c0021 to v0.2a, then c0020's measurement-only items | same | accepted |
-| 3 | Leaner 1.0 ([Proposed cuts](#proposed-cuts-for-a-leaner-10)) | this page | none; pending |
-| 4 | Dogfood gaps in v0.1: all of c0026–c0031 (about 63.5 design-days), or c0030 and c0031 moved to v0.2a (about −18 design-days, about half a calendar day at the measured pace; c0015 then writes the target-9 fill flag that c0031 adds) | this page; designs of c0026–c0031 | pending. Recommended: keep all six in v0.1 |
+| 3 | Leaner 1.0 ([Proposed cuts](#proposed-cuts-for-a-leaner-10)) | this page | decided by the maintainer on 2026-10-09: accepted. The items of "Move after 1.0" move after 1.0: the annealing placer, multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation, equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format; c0023 stays in v0.1 (row 5) |
+| 4 | Dogfood gaps in v0.1: all of c0026–c0031 (about 63.5 design-days), or c0030 and c0031 moved to v0.2a (about −18 design-days, about half a calendar day at the measured pace; c0015 then writes the target-9 fill flag that c0031 adds) | this page; designs of c0026–c0031 | decided by the maintainer on 2026-10-09: as recommended (keep all six in v0.1) |
 | 5 | c0023 in v0.1 or in v0.2a, and ADR-0006 (reading the Specctra reference for facts; running Freerouting as a subprocess) | designs of c0016 and c0023 | decided by the maintainer on 2026-10-03: c0023 stays in v0.1 whatever c0016's gate says, and the decision of ADR-0006 is accepted |
 | 6 | `macos-app` nightly job of the project plan's CI matrix | design of c0025 | decided by the maintainer on 2026-10-03: left out of v0.1; proposed for v0.2a in c0068 |
-| 7 | v0.2a: the id block c0060–c0068, taken as one block although c0057 is free | this page; `openspec/README.md` | pending. Recommended: keep the block |
-| 8 | v0.2a: the schematic is written by `build` (`--schematic write\|skip`), with no `sch build` command, and a schematic edited in KiCad is replaced with a warning | design of c0061 | pending. Recommended: as proposed |
-| 9 | v0.2a: built boards change once: net names hold `{slash}` for `/`, and pads of unconnected pins carry KiCad's net names in the written board only | design of c0061 | pending. Recommended: as proposed; both come from measurements on 9.0.9 and 10.0.6 |
-| 10 | v0.2a: the three-rule ERC leaves `check` as a stage and stays as a function for the second backend's documents (c0044) | designs of c0062 and c0044 | pending. Recommended: as proposed |
-| 11 | v0.2a: `restore` takes the receipt of a write as its undo token; no journal is kept on disk | design of c0066 | pending. Recommended: as proposed |
-| 12 | v0.2a: the demo schematics join the corpus (about 43 MB more per KiCad tag in the fetch cache, nothing committed) | design of c0060 | pending. Recommended: yes |
-| 13 | v0.2a: the pad shape offset is repaired in c0068, ahead of the zone clearance | design of c0068 | pending. Recommended: yes; it is a wrong verdict of `check` in v0.1 |
+| 7 | v0.2a: the id block c0060–c0068, taken as one block although c0057 is free | this page; `openspec/README.md` | decided by the maintainer on 2026-10-09: as recommended (keep the block) |
+| 8 | v0.2a: the schematic is written by `build` (`--schematic write\|skip`), with no `sch build` command, and a schematic edited in KiCad is replaced with a warning | design of c0061 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
+| 9 | v0.2a: built boards change once: net names hold `{slash}` for `/`, and pads of unconnected pins carry KiCad's net names in the written board only | design of c0061 | decided by the maintainer on 2026-10-09: as recommended (as proposed; both come from measurements on 9.0.9 and 10.0.6) |
+| 10 | v0.2a: the three-rule ERC leaves `check` as a stage and stays as a function for the second backend's documents (c0044) | designs of c0062 and c0044 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
+| 11 | v0.2a: `restore` takes the receipt of a write as its undo token; no journal is kept on disk | design of c0066 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
+| 12 | v0.2a: the demo schematics join the corpus (about 43 MB more per KiCad tag in the fetch cache, nothing committed) | design of c0060 | decided by the maintainer on 2026-10-09: as recommended (yes) |
+| 13 | v0.2a: the pad shape offset is repaired in c0068, ahead of the zone clearance | design of c0068 | decided by the maintainer on 2026-10-09: as recommended (yes; it is a wrong verdict of `check` in v0.1) |
 | 14 | follow-ups not taken by c0068: export presets, outline snapping, per-command result schemas, `inspect` of project and rules files | design of c0068, Decision 13 | proposed in c0074 for export presets, outline snapping and stitching; result schemas with the v1.0 freeze; `inspect` of project and rules files unscheduled |
-| 15 | v0.2b: the id block c0069–c0074 | this page; `openspec/README.md` | pending. Recommended: keep the block |
-| 16 | v0.2b: a footprint matched through `moved()` keeps its board node under the new identity (uuids, `fenolite.path`, group members), and `placements.toml` is written only by `sync --to-source` and survives `--discard-layout` | design of c0069 | pending. Recommended: as proposed |
+| 15 | v0.2b: the id block c0069–c0074 | this page; `openspec/README.md` | decided by the maintainer on 2026-10-09: as recommended (keep the block) |
+| 16 | v0.2b: a footprint matched through `moved()` keeps its board node under the new identity (uuids, `fenolite.path`, group members), and `placements.toml` is written only by `sync --to-source` and survives `--discard-layout` | design of c0069 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
 | 17 | v0.2b: the schematic layout defaults to `readable` (module sheets and snapped 2-pin parts), so projects built in v0.2a change once; `--schematic-layout grid` keeps the v0.2a form | design of c0070 | decided on 2026-10-06: `readable` is the default |
-| 18 | v0.2b: creepage rules are refused for KiCad 9, whose DRC reports no creepage violation on the measured bench; `--allow-lossy` drops them | design of c0071 | pending. Recommended: as proposed |
-| 19 | v0.2b: the parity acceptance compares Fenolite's counts with KiCad's parity test on public demos and authored edits, in place of the project plan's reference counts | design of c0072 | pending. Recommended: as proposed |
-| 20 | v0.2b: a user's `.kicad_wks` is re-written for the target rather than copied, and outline endpoints closer than 10 µm are joined, as both majors do | design of c0074 | pending. Recommended: as proposed |
+| 18 | v0.2b: creepage rules are refused for KiCad 9, whose DRC reports no creepage violation on the measured bench; `--allow-lossy` drops them | design of c0071 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
+| 19 | v0.2b: the parity acceptance compares Fenolite's counts with KiCad's parity test on public demos and authored edits, in place of the project plan's reference counts | design of c0072 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
+| 20 | v0.2b: a user's `.kicad_wks` is re-written for the target rather than copied, and outline endpoints closer than 10 µm are joined, as both majors do | design of c0074 | decided by the maintainer on 2026-10-09: as recommended (as proposed) |
 | 21 | v0.3: the id block c0083–c0092, ten changes, although c0057 and c0077–c0081 were free then | this page; `openspec/README.md` | ten, by the start of implementation on 2026-10-06 |
 | 22 | v0.3: the verification kit is a checklist with files that Altium saves and exports, checked by `fenolite kit verify`, and may hold a script that runs inside Altium | proposal and design of c0091 | decided by the maintainer on 2026-10-06: checklist plus script. The script is authored for Fenolite from Altium's public scripting documentation, the user starts it from inside Altium, and the checklist works alone |
 | 23 | v0.3: polygons are written unpoured and repoured in Altium; Fenolite writes no poured copper | proposal of c0085 | decided by the maintainer on 2026-10-06: as proposed |
@@ -750,6 +754,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 35 | c0098 electrical readiness: in v0.4 or not | this page, the section of v0.4; proposal of c0098 | decided by the maintainer on 2026-10-08: in v0.4 |
 | 36 | v0.4: Fenolite may download the pinned Freerouting jar, only inside `fenolite fetch` and only with `--confirm` | proposal of c0078; ADR-0007 | decided by the maintainer on 2026-10-05, confirmed on 2026-10-07 |
 | 37 | v0.4 released as `0.4.0` with deferred tasks: what depends on the maintainer's own tests (KiCad GUI saves made by him, a run of a real agent, Altium Designer checks) waits for the next release; everything else ships | `docs/release/v0.4.md`; change c0154 | decided by the maintainer on 2026-10-08 |
+| 38 | The next release is `0.5.0`, and it is v0.5a only: conversion between KiCad and the second backend with a report of what is kept or lost, the controlled KiCad downgrade (capability resolver) and the public `equivalent` ([Phase 5](#phase-5-to-10-estimate-ids-not-allocated)) | this page | decided by the maintainer on 2026-10-09 |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074 and c0083–c0092).
