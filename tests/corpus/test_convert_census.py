@@ -33,74 +33,80 @@ from _corpus import manifest_items, require
 
 from fenolite.api import convert
 from fenolite.backends import registry
-from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.checks.equivalence import EquivalenceReport, Tolerances, compare_designs, max_level
 from fenolite.cli.main import main
-from fenolite.convert import TargetLimitError
 from fenolite.lens.altium import write_model
 from fenolite.model.design import Design
 
 pytestmark = pytest.mark.needs_corpus
 PREFIX = "kicad-demo-10-0-6-pcb-"
-TOO_LARGE = {"06": 119, "18": 180}
-"""The boards the write refuses (``CompoundTooLarge``), with the FAT sectors their document needs."""
-CONVERT_TOO_LARGE = {"06": 119, "18": 181}
-"""The same boards converted: ``convert`` writes the extruded bodies by default, and ``vme-wren`` then
-needs one sector more."""
+LARGE = ("06", "18")
+"""The boards whose PCB document needs DIFAT sectors (more than 109 FAT sectors): refused before change c0160
+(119 and 180 FAT sectors without bodies, 181 for ``vme-wren`` with them), written since."""
 NOT_WRITTEN: dict[str, dict[str, int]] = {
     "01": {
-        "dnp": 2, "footprint-graphic": 33, "graphic": 31, "outline": 1, "pad": 30, "stackup": 1,
-        "text": 149, "zone-fill": 13,
+        "dnp": 2, "footprint-graphic": 3, "outline": 1, "pad": 11, "pin-net": 2, "stackup": 1, "text": 149,
+        "zone-fill": 13,
     },
     "02": {"stackup": 1, "text": 2, "zone-fill": 1},
-    "03": {"footprint-graphic": 4, "stackup": 1, "zone-fill": 1},
-    "04": {"footprint-graphic": 4, "pad": 10, "stackup": 1, "zone-fill": 1},
-    "05": {"dimension": 2, "pad": 62, "stackup": 1, "text": 6, "zone-fill": 1},
-    "07": {"pad": 5, "stackup": 1, "text": 5, "zone-fill": 3},
-    "08": {"footprint-copper": 4, "graphic": 3},
-    "09": {"footprint-graphic": 32, "keep-out": 4, "pad": 35, "text": 2, "zone-fill": 1},
-    "10": {"footprint-graphic": 32, "keep-out": 4, "pad": 35, "text": 2, "zone-fill": 2},
+    "03": {"stackup": 1, "zone-fill": 1},
+    "04": {"stackup": 1, "zone-fill": 1},
+    "05": {"dimension": 2, "stackup": 1, "zone-fill": 1},
+    "06": {
+        "dimension": 24, "dnp": 113, "footprint-graphic": 303116, "footprint-text": 16, "keep-out": 2,
+        "net-tie": 6, "pad": 73, "pin-net": 12, "stackup": 1, "text": 102, "zone-fill": 97,
+    },
+    "07": {"stackup": 1, "text": 1, "zone-fill": 3},
+    "08": {"footprint-copper": 4},
+    "09": {"keep-out": 4, "text": 2, "zone-fill": 1},
+    "10": {"keep-out": 4, "text": 2, "zone-fill": 2},
     "11": {
-        "dnp": 11, "copper-shape": 2, "footprint-copper": 3, "footprint-graphic": 29, "graphic": 2,
-        "net-tie": 2, "outline": 20, "pad": 23, "stackup": 1, "text": 25, "zone-fill": 34,
+        "copper-shape": 2, "dnp": 11, "footprint-copper": 3, "footprint-graphic": 1, "net-tie": 2,
+        "outline": 20, "pad": 12, "stackup": 1, "text": 25, "zone-fill": 34,
     },
-    "12": {"footprint-graphic": 6, "pad": 11, "stackup": 1, "text": 19, "zone-fill": 1},
+    "12": {"pad": 2, "stackup": 1, "zone-fill": 1},
     "13": {
-        "dnp": 22, "footprint-copper": 1, "footprint-graphic": 4, "footprint-text": 2, "net-tie": 1,
-        "outline": 4, "pad": 67, "stackup": 1, "text": 1, "zone": 2, "zone-fill": 2,
+        "dnp": 22, "footprint-copper": 1, "net-tie": 1, "outline": 4, "pad": 48, "stackup": 1, "text": 1,
+        "zone": 2, "zone-fill": 2,
     },
-    "14": {"copper-shape": 4, "footprint-graphic": 11, "outline": 1},
-    "15": {
-        "dimension": 1, "footprint-graphic": 2, "footprint-text": 2, "stackup": 1, "text": 8, "zone-fill": 1,
-    },
+    "14": {"copper-shape": 4, "footprint-graphic": 5, "outline": 1},
+    "15": {"dimension": 1, "stackup": 1, "zone-fill": 1},
     "16": {
-        "dnp": 11, "dimension": 6, "footprint-copper": 25, "footprint-graphic": 19, "footprint-text": 1,
-        "graphic": 2, "net-tie": 9, "outline": 1, "pad": 27, "stackup": 1, "text": 224, "zone-fill": 2,
+        "dimension": 6, "dnp": 11, "footprint-copper": 25, "footprint-graphic": 15, "graphic": 2,
+        "net-tie": 9, "outline": 1, "pad": 20, "stackup": 1, "text": 224, "zone-fill": 2,
     },
-    "17": {"dimension": 2, "graphic": 14, "pad": 144, "stackup": 1, "text": 1, "zone-fill": 2},
+    "17": {"dimension": 2, "stackup": 1, "zone-fill": 2},
+    "18": {
+        "dimension": 2, "dnp": 3, "footprint-copper": 26, "graphic": 7, "keep-out": 2, "outline": 1,
+        "pad": 2, "stackup": 1, "text": 513, "track": 5, "zone-fill": 122,
+    },
 }  # fmt: skip
-"""Per board, the model items ``write_model`` leaves out, per kind (measured on 2026-10-09)."""
+"""Per board, the model items ``write_model`` leaves out, per kind (measured again on 2026-10-09 with change
+c0160; every board is written since the compound writer writes DIFAT sectors)."""
 DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
-    "01": (5, {"dnp": 2, "pad-missing": 15, "pin-missing": 6}),
+    "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 6}),
     "02": (5, {}),
     "03": (5, {}),
-    "04": (5, {"pad-missing": 10, "pin-missing": 9}),
-    "05": (5, {"pad-missing": 62, "pin-missing": 62}),
-    "07": (5, {"pad-missing": 5, "pin-missing": 3}),
+    "04": (5, {}),
+    "05": (5, {"pad-kind": 62}),
+    "06": (5, {"dnp": 113, "pad-kind": 20, "pad-missing": 33, "pin-missing": 19, "ref-ambiguous": 1}),
+    "07": (5, {}),
     "08": (4, {"ref-ambiguous": 1}),
-    "09": (5, {"pad-missing": 19, "pin-missing": 19}),
-    "10": (5, {"pad-missing": 19, "pin-missing": 19}),
-    "11": (5, {"dnp": 11, "pad-missing": 20, "pin-missing": 17, "ref-ambiguous": 1}),
-    "12": (5, {"pad-missing": 10, "pin-missing": 2}),
-    "13": (5, {"dnp": 22, "pad-missing": 35, "pin-missing": 25, "route-connectivity": 2}),
+    "09": (5, {}),
+    "10": (5, {}),
+    "11": (5, {"dnp": 11, "pad-missing": 12, "pin-missing": 12, "ref-ambiguous": 1}),
+    "12": (5, {"pad-missing": 2, "pin-missing": 2}),
+    "13": (5, {"dnp": 22, "pad-kind": 6, "pad-missing": 22, "pin-missing": 18, "route-connectivity": 2}),
     "14": (5, {}),
     "15": (5, {}),
-    "16": (5, {"dnp": 11, "pad-missing": 24, "pin-missing": 4, "ref-ambiguous": 4, "route-connectivity": 1}),
-    "17": (5, {"pad-missing": 128, "pin-missing": 120}),
+    "16": (5, {"dnp": 11, "pad-missing": 17, "ref-ambiguous": 4, "route-connectivity": 1}),
+    "17": (5, {"pad-kind": 120}),
+    "18": (5, {"dnp": 3, "pad-missing": 2, "pin-missing": 2}),
 }
-"""Per board, the level compared and the differences per kind, within 10 nm and 20 ppm (2026-10-09)."""
-LARGEST_NM = 2
+"""Per board, the level compared and the differences per kind, within 10 nm and 20 ppm (2026-10-09, with change
+c0160)."""
+LARGEST_NM = 3
 """The largest per-coordinate difference without tolerance over every written board (2026-10-09): the
 written unit is 2.54 nm and the reader rounds it to the nanometre."""
 LEDGER = Path(__file__).resolve().parents[2] / "docs" / "evidence" / "conversion.md"
@@ -147,12 +153,16 @@ def _largest(report: EquivalenceReport) -> int:
     return largest
 
 
-@pytest.mark.parametrize("key", sorted(TOO_LARGE))
-def test_too_large_boards(key: str) -> None:
+@pytest.mark.parametrize("key", LARGE)
+def test_large_boards_hold_difat_sectors(key: str) -> None:
+    """Change c0160: the documents that need more than 109 FAT sectors are written with DIFAT sectors."""
     path = require(ITEMS[key])
     design = read_board(path.read_text(encoding="utf-8"), file=path.name)
-    with pytest.raises(CompoundTooLarge, match=f"needs {TOO_LARGE[key]} FAT sectors"):
-        write_model(design, allow_lossy=True)
+    written = write_model(design, allow_lossy=True)
+    document = next(data for name, data in written.files.items() if name.endswith(".PcbDoc"))
+    fat, difat = int.from_bytes(document[0x2C:0x30], "little"), int.from_bytes(document[0x48:0x4C], "little")
+    print(f"{path.stem}: {fat} FAT sectors, {difat} DIFAT sector(s)")
+    assert fat > 109 and difat >= 1
 
 
 @pytest.mark.parametrize("key", sorted(NOT_WRITTEN))
@@ -204,12 +214,6 @@ def test_conversion_is_explained(key: str) -> None:
     explained = Counter((e.difference.kind, e.kind) for e in result.explained)
     found = [(board, kind, by, str(n)) for (kind, by), n in sorted(explained.items())]
     assert found == [row for row in _table("explained") if row[0] == board]
-
-
-@pytest.mark.parametrize("key", sorted(CONVERT_TOO_LARGE))
-def test_too_large_boards_are_refused(key: str) -> None:
-    with pytest.raises(TargetLimitError, match=f"needs {CONVERT_TOO_LARGE[key]} FAT sectors"):
-        convert(require(ITEMS[key]), to="altium", allow_lossy=True)
 
 
 def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

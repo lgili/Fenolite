@@ -592,6 +592,79 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    layers. Expected: Mechanical 1 and Mechanical 5 are listed and shown, and the two lines of `R1` lie on
    them.
 
+## Part T: converted projects (change c0160)
+
+Not run yet: the maintainer runs it in the same Altium session as the kit run that c0091 owes (his
+decision of 2026-10-09, design of c0160, open question 4). Change c0160 writes what `fenolite convert --to
+altium` could not: documents with DIFAT sectors, slotted and stacked pads, connector pads and pads
+without a number, KiCad's drawing layers on mechanical layers, a derived PCB library and the source's own
+schematic. This part asks whether Altium Designer opens three converted projects, compiles them, and
+proposes no change when the PCB is updated from the schematic. The rows it settles are `H-A-CONV-DIFAT`
+(T1), `H-A-CONV-SCHEMATIC` (T2), `H-A-CONV-LIBRARY` (T5, T6) and `H-A-CONV-PADSTACK` (T6); each stays
+`INFERRED` until the report, and none is marked `ALTIUM-VERIFIED` before it. The author report never
+moves a write kind out of `experimental` (c0092's rule). The steps are written for Altium Designer 26
+from Altium's public documentation; a menu path or a panel name may read differently in the version
+that is run.
+
+**Files.** Built outside the repository and never committed:
+`FENOLITE_HEAVY=1 FENOLITE_ALTIUM_PART_T=~/fenolite-altium-checks/session-3/T-convert uv run pytest
+tests/corpus/test_altium_part_t.py` (with the corpus cached; the test refuses a folder inside the
+repository) writes three projects and a `README.md` with the SHA-256 of every file:
+
+- `T-difat/`: the KiCad 10.0.6 demo board `vme-wren` converted; its PCB document needs 124 FAT sectors
+  and its schematic 181, so both compound files hold one DIFAT sector.
+- `T-pads/`: Fenolite's blink sample with, on the LED `D1`, a pad of 1.6 mm round on the top and 2.0 mm
+  on the bottom (stack mode 1) and a 1.2 by 2.4 mm oval pad with a 0.6 by 1.8 mm slot; on `R1` a connector
+  pad (no paste, no mask opening); and on `U1` a pad without a number; written as a conversion writes it,
+  with its derived library.
+- `T-schematic/`: the KiCad 10.0.6 demo project `complex_hierarchy` (board and its three sheets)
+  converted: the derived library and one schematic document per KiCad sheet, drawn with the schematic's
+  own symbols.
+
+Built on 2026-10-09 on `dev-c0160` (the tree of change c0160); the SHA-256 of every file of that build
+(`README.md` of the folder holds the same table):
+
+| file | SHA-256 | bytes |
+|---|---|---|
+| `T-difat/vme-wren.PcbDoc` | `98f8d2ccb81e6d5b8c71494cd7ded081e0b7689c656a7bfa8b65e5610d43a24d` | 8089600 |
+| `T-difat/vme-wren.PcbLib` | `0b5e5bd4d33cfd920b2c8af6b4c77d4e96a8a8046933e70a8966d7b61935244d` | 1362944 |
+| `T-difat/vme-wren.PrjPcb` | `1000223c0966a8ce8dfe5766d0fb9fd16f29619bd35a7fa1d45f7657fe456f0b` | 283 |
+| `T-difat/vme-wren.SchDoc` | `4332bf92ac00a95b1586673b7bf399d7704e056978ad91458cd23d01495ce35b` | 11801088 |
+| `T-difat/vme-wren.SchLib` | `57d20a5a00cbf7d73750790dd84d42544f95560e054db692c295943f52984ed7` | 178176 |
+| `T-pads/blink.PcbDoc` | `a5da2936fb4c6f33b3659425813c8bd313ff11a118ca012a84c16c7609d8ce2f` | 145408 |
+| `T-pads/blink.PcbLib` | `54995fc5843ae316b992efa0b62541363334647514e6056bc636263e3a393eb6` | 130560 |
+| `T-pads/blink.PrjPcb` | `426634a3010e2cbb6d5bc8cd6017378b2bb4bc1c63ae30471204590d94b9f2a7` | 271 |
+| `T-pads/blink.SchDoc` | `04bb1ee2cb2aff009d5d636d28abd6a67e5e2baf8aec2fbd6af0c93778a91fc1` | 13312 |
+| `T-pads/blink.SchLib` | `9a1e79251a2796f72fe93af08fc3423b36d66e3ba70c8e069c989373c6bef235` | 7168 |
+| `T-schematic/complex_hierarchy.PcbDoc` | `a91a64ea28cd5f343b2fc4aaa8b4037210b2b84d829ea8e7af9fce729b3d645f` | 312832 |
+| `T-schematic/complex_hierarchy.PcbLib` | `95a25270702d4091351b7e78c28e5b82be0858b54e646e2c77263c61ad3520d4` | 141312 |
+| `T-schematic/complex_hierarchy.PrjPcb` | `9dceff67f350177ae90faf783575193781caf6e8421bd989f1c0654f73616fd6` | 625 |
+| `T-schematic/complex_hierarchy.SchDoc` | `5c69c2ec9adae0af7ce7109083546e5d60a58da0564781cb6425981b3db6154b` | 31232 |
+| `T-schematic/complex_hierarchy.SchLib` | `7a84d906a40ec76e2f29bf62552164f945b6a96fdda495755bd05fa0097f279f` | 16384 |
+| `T-schematic/complex_hierarchy_ampli_ht_horizontal.SchDoc` | `7888a886f73bb85d8535be0d807b3eff33cf2122a7f63d2bd8e87f5f1a1c7f22` | 69632 |
+| `T-schematic/complex_hierarchy_ampli_ht_vertical.SchDoc` | `458089e674a2190b7527b4240c92f53b6d8b3ed87e1f21d20e7ed48a379f5d96` | 69632 |
+
+Steps; report one generic outcome per step (`as expected`, or what differed in one sentence), the tool as
+`AD <major>.<minor>` and the date.
+
+1. **T1** Open `T-difat/vme-wren.PrjPcb` and its PCB document. Expected: no repair prompt, every layer and
+   component shown (`H-A-CONV-DIFAT`).
+2. **T2** Open `T-schematic/complex_hierarchy.PrjPcb` and compile it (Project » Validate PCB Project).
+   Expected: no error; report the number of warnings and messages (`H-A-CONV-SCHEMATIC`). The three sheets
+   are the top sheet and the sheets of `ampli_ht_vertical` and `ampli_ht_horizontal`.
+3. **T3** In each of the three projects, open the PCB document and repour every polygon (Tools » Polygon
+   Pours » Repour All). Expected: the pours fill without a message.
+4. **T4** Run the design rule check of each PCB document with the document's own rules (Tools » Design Rule
+   Check, Run Design Rule Check). Report the count of violations per rule.
+5. **T5** In `T-schematic/`, run Design » Update PCB Document `complex_hierarchy.PcbDoc`. Expected: the
+   Engineering Change Order proposes no change; if it proposes some, report their kinds and counts
+   (`H-A-CONV-LIBRARY`).
+6. **T6** Open `T-pads/blink.PcbLib` and place its footprint `Mini_LED_THT_3mm` on the PCB document of
+   `T-pads/`. Expected: it places; the stacked pad of `D1` shows 1.6 mm on the Top Layer and 2.0 mm on the
+   Bottom Layer in the pad's properties (Size and Shape: Top-Middle-Bottom), the slot of `D1` pad 1 is a
+   slot of 1.8 mm, `R1` pad 1 has no paste and no solder mask opening, and `U1` holds a pad with an empty
+   designator (`H-A-CONV-PADSTACK`, `H-A-CONV-LIBRARY`).
+
 ## Reports
 
 ### 2026-10-03, `AD 26.5`, Part D

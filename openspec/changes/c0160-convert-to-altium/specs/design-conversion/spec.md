@@ -5,7 +5,7 @@
 
 #### Scenario: Census after the change
 - **WHEN** `uv run pytest tests/corpus/test_convert_census.py -rA` runs with the corpus cached
-- **THEN** all 18 demo boards are written, no board gives `convert.unexplained`, and the lost `pad` rows hold only custom shapes
+- **THEN** all 18 demo boards are written, no board gives `convert.unexplained`, and the lost `pad` rows hold only custom shapes and pads that hold no copper a pad record carries (a surface pad without a copper layer, a through-hole pad with copper on the outer layers only of a board with inner layers, a hole without copper)
 
 #### Scenario: Part T recorded
 - **GIVEN** the maintainer's author report of Part T in `docs/evidence/altium-pcb.md`
