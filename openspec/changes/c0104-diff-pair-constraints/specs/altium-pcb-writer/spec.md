@@ -41,9 +41,9 @@
 - `lift` is unchanged: a record of that Altium kind in a document is counted among the records it does not map.
 - The row MAY become `exact` only through a later change that registers a public file holding the record.
 
-#### Scenario: Eighteen rows
+#### Scenario: Thirteen rows
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_rulemap.py -k complete` compares the kinds of `model/rules.py` with `TABLE` and with the page's table
-- **THEN** every kind has exactly one row, the thirteenth is `no_tracks` with the status `no-counterpart` and a note, and the page's table equals `TABLE`
+- **THEN** every kind has exactly one row, eighteen in all: the thirteen rows that change c0107 left keep their place, the thirteenth is `no_tracks` with the status `no-counterpart` and a note, the five pair and length kinds follow, and the page's table equals `TABLE`
 
 #### Scenario: A track layer rule in an Altium build
 - **GIVEN** the four-layer blink variant with `design.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))`

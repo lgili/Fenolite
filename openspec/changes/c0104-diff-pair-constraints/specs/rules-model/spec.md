@@ -63,9 +63,9 @@ The eighteen model kinds SHALL lower one to one, with these constraints and limi
 - **WHEN** it is lowered
 - **THEN** `RulesLossError` is raised with one `rules.unsupported-limit` naming the rule
 
-#### Scenario: Eighteen kinds, one without a limit
+#### Scenario: Thirteen kinds, one without a limit
 - **WHEN** `uv run pytest tests/unit/dsl/test_minimums.py tests/unit/backends/kicad/test_lowering.py -k "kinds or no_tracks"` counts the kinds of `RuleKind` and lowers a `no_tracks` rule without a limit and a `clearance` rule without a limit
-- **THEN** `RuleKind` holds eighteen kinds with `no_tracks` thirteenth and the five pair and length kinds after it, the first rule is written, and the second raises `RulesLossError` with one `rules.unsupported-limit`
+- **THEN** `RuleKind` holds the thirteen kinds that change c0107 left, with `no_tracks` thirteenth, and the five pair and length kinds after them, eighteen in all; the first rule is written, and the second raises `RulesLossError` with one `rules.unsupported-limit`
 
 #### Scenario: Pair gap rule
 - **GIVEN** a `diff_pair_gap` rule on `diff_pair USB_` with `min=130_000` and `max=200_000`
