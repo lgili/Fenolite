@@ -567,7 +567,7 @@ default: it was better than `fanout=off` on both benches and majors. Task 6.1 do
 
 **c0108 on `v04` (2026-10-08).** Built. `krt-partial` was read from CI run 37803522539: `different` on 9.0.9 and 10.0.6 (KiCadRoutingTools leaves one of the bench's six open connections open; nothing depends on it). Open, deferred to the next release: the census of open connections on KiCad 9.0.9, which the `kicad-9` job does not run. Copper drawings that hold a net (a graphic on a copper layer with a `net`) are not modelled: the open-connection query counts them as absent, which is where it differs from KiCad on one corpus board.
 
-**c0109 on `v04` (2026-10-08).** Built; the grouped KiCadRoutingTools run is verified on both majors. Its scale numbers are those of 2026-10-05 and are to be measured again on an authored bench.
+**c0109 on `v04` (2026-10-08).** Built; the grouped KiCadRoutingTools run is verified on both majors. Its scale numbers were measured again on 2026-10-09 on an authored bench (`tests/routing/scalebench`; `docs/evidence/routing.md`, "Scale (c0109)").
 
 **c0141 on `v04` (2026-10-08).** `drc-report-limits`, split off c0120 on 2026-10-07: `fenolite check` marks every DRC type whose count reached the limit of KiCad's report (`summary.limits`, `check.report-limit`); ships in 0.4. Open then: the line in the CLI section of `AGENTS.md`, the maintainer's (task 3.1), and the unit suite on Python 3.11 (task 4.1, the `unit` job of the release branch); both closed since, the line written by the coordinator at the maintainer's request on 2026-10-09; archived on 2026-10-09.
 
