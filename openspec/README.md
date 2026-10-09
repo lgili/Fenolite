@@ -152,5 +152,6 @@ The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and 
 | c0156 | `kicad-cli-docker-user` | correction of c0015 and c0153 (two agents running as root on 2026-10-09): a `docker:<image>` run of `kicad-cli` runs the container as the owner of the run folder, with `HOME` in its state folder, so it can write that folder for any host user | c0015, c0153 |
 | c0157 | `yardstick-route-order` | the maintainer's decision of 2026-10-09 (the routing gap of nightly run 37836196244): the yardstick runner runs `route` (Freerouting) before `route-pairs` (KiCadRoutingTools) until the pair is routed as a coupled pair; measured again then | c0119 |
 | c0158 | `equivalent-public` | v0.5a: the public `equivalent`: `fenolite.api.equivalent`, the result schema `fenolite.equivalent.v0`, a KiCad schematic as a side, an equal-sized oval equal to a circle | c0045, c0089 |
+| c0159 | `convert-command` | v0.5a: `fenolite convert`, the conversion report and its verification by `equivalent`; KiCad to Altium and KiCad to KiCad with today's writers | c0158, c0090 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
