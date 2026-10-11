@@ -25,10 +25,18 @@ from fenolite.backends.altium.libboard import board_text, guid
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.model.board import ComponentBody, Graphic, Pad
+from fenolite.geometry.transform import FULL_TURN
+from fenolite.model.board import ComponentBody, Graphic, Pad, PadstackLayer
 from fenolite.model.library import FootprintDef
 
 MAX_TEXT = 255
+PLAIN_PAD_SHAPES = ("circle", "oval", "rect", "roundrect")
+"""The model shapes one layer of a pad stack may carry and be written exactly (``rec.PAD_SHAPES``); any
+other shape (``custom``, ``trapezoid``) keeps the pad a loss (change c0160)."""
+INNER_WILDCARD = "In*.Cu"
+INNER_WILDCARDS = frozenset({"In*.Cu", "Inner"})
+"""The two spellings of the wildcard for every inner copper layer: the model's own ``In*.Cu`` (what the
+Altium reader writes) and ``Inner`` (the layer a KiCad file writes, kept by the KiCad reader)."""
 LIBRARY_HEADER_TEXT = "PCB 6.0 Binary Library File"
 """The text of ``FileHeader``."""
 LIBRARY_VERSION = 5.01
@@ -152,18 +160,87 @@ def _text_refusal(text: str, what: str) -> str | None:
     return None
 
 
-def _pad_refusal(pad: Pad, extras: PadExtras) -> str | None:
+def _pad_part(layer: PadstackLayer, corner: int | None) -> rec.PadPart:
+    """The record part of one layer of a padstack; ``ValueError`` names a shape with no exact form."""
+    if layer.shape not in PLAIN_PAD_SHAPES:
+        raise ValueError(f"gives the layer {layer.layer} the shape {layer.shape}, which has no exact form")
+    return rec.PadPart(
+        rec.PAD_SHAPES[layer.shape],
+        (rec.to_units(layer.size.w), rec.to_units(layer.size.h)),
+        corner if layer.shape == "roundrect" else None,
+    )
+
+
+def pad_stack(pad: Pad, *, corner: int | None, copper_layers: Sequence[str] = ()) -> rec.PadStack | None:
+    """The record stack of ``pad``: ``None`` when it gives one shape to every copper layer, else the mode
+    (1 Top-Middle-Bottom when the inner layers share one shape and size, 2 Full Stack otherwise) and its
+    parts (change c0160; ``pcb-library.md``, "Pad records of a written footprint").
+
+    ``copper_layers`` is the board's copper layers in stack order for a document, empty for a library
+    footprint, whose inner layers are the wildcard ``In*.Cu`` of a mode 1 stack or the ``In<k>.Cu`` a mode 2
+    stack names. ``ValueError`` names a layer the stack leaves out and a shape with no exact form.
+    """
+    stack = pad.padstack
+    if stack is None or not stack.layers:
+        return None
+    by_layer = {layer.layer: layer for layer in stack.layers}
+    top, bottom = by_layer.get("F.Cu"), by_layer.get("B.Cu")
+    if top is None or bottom is None:
+        raise ValueError("gives no F.Cu or B.Cu part to its per-layer stack")
+    top_part, bottom_part = _pad_part(top, corner), _pad_part(bottom, corner)
+    wildcard = next((by_layer[name] for name in INNER_WILDCARDS if name in by_layer), None)
+    if wildcard is not None and not copper_layers:
+        mid = _pad_part(wildcard, corner)
+        return rec.PadStack(rec.PAD_MODE_TOP_MID_BOTTOM, top_part, mid, bottom_part)
+    names = (
+        list(copper_layers[1:-1])
+        if copper_layers
+        else [layer.layer for layer in stack.layers if layer.layer not in ("F.Cu", "B.Cu")]
+    )
+    parts: list[rec.PadPart] = []
+    for name in names:
+        layer = by_layer.get(name, wildcard) if copper_layers else by_layer[name]
+        if layer is None:
+            raise ValueError(f"names no layer for {name}")
+        parts.append(_pad_part(layer, corner))
+    if not parts:
+        # No inner layer holds the pad (a two-layer board): the top and bottom parts alone. When they
+        # share one shape and size there is nothing to write, else it is a mode 1 stack without a middle.
+        if (top_part.shape, top_part.size) == (bottom_part.shape, bottom_part.size):
+            return None
+        return rec.PadStack(rec.PAD_MODE_TOP_MID_BOTTOM, top_part, top_part, bottom_part)
+    mid = parts[0]
+    if all((part.shape, part.size) == (mid.shape, mid.size) for part in parts):
+        return rec.PadStack(rec.PAD_MODE_TOP_MID_BOTTOM, top_part, mid, bottom_part)
+    return rec.PadStack(rec.PAD_MODE_FULL, top_part, mid, bottom_part, inner=tuple(parts))
+
+
+def pad_hole(pad: Pad) -> tuple[int, int, float]:
+    """The hole shape of ``pad``, the slot length in record units and the slot rotation in degrees: the
+    three fields of a hole that is not round (change c0160; ``pcb-records.md``, "Pad"). The rotation is
+    relative to the pad, which is what the reader adds the pad's own angle to."""
+    stack = pad.padstack
+    if stack is None or stack.hole_shape == "round":
+        return rec.HOLE_SHAPE_ROUND, 0, 0.0
+    if stack.hole_shape == "square":
+        return rec.HOLE_SHAPE_SQUARE, 0, 0.0
+    length = rec.to_units(stack.hole_length) if stack.hole_length else rec.to_units(pad.drill or 0)
+    rotation = rec.degrees_of((stack.hole_rotation - pad.rotation) % FULL_TURN)
+    return rec.HOLE_SHAPE_SLOT, length, rotation
+
+
+def _pad_refusal(pad: Pad, extras: PadExtras, *, copper_layers: Sequence[str] = ()) -> str | None:
     where = f"pad {pad.number!r}"
-    if (problem := _text_refusal(pad.number, "the pad number")) is not None:
+    if pad.number and (problem := _text_refusal(pad.number, "the pad number")) is not None:
         return problem
     if pad.shape in ("trapezoid", "custom"):
         return f"{where} has the shape {pad.shape}, which has no exact Altium form"
-    if pad.kind == "connect":
-        return f"{where} is a connector pad (kind connect)"
-    if pad.padstack is not None:
-        return f"{where} has a per-layer padstack"
     if extras.refusal is not None:
         return f"{where}: {extras.refusal}"
+    try:
+        pad_stack(pad, corner=None, copper_layers=copper_layers)
+    except ValueError as error:
+        return f"{where} {error}"
     sides = _copper_sides(pad)
     if pad.kind in ("thru_hole", "np_thru_hole"):
         if pad.drill is None or pad.drill <= 0:
@@ -214,19 +291,26 @@ def check_footprint(
     *,
     texts: int = 0,
     bodies: Sequence[ComponentBody] = (),
+    copper_layers: Sequence[str] = (),
 ) -> FootprintCheck:
     """Refuse ``defn`` (a reason naming the pad or graphic) or list what is written, dropped and extra.
     ``bodies`` (change c0121) are the component bodies asked for: one that ``body_problem`` passes and that
     keeps three vertices in the library's units is written; each other body of ``bodies`` and of the
-    definition is counted in the notes."""
+    definition is counted in the notes. ``copper_layers`` (change c0160) is the board's copper layers in
+    stack order when the footprint is written into a document, and empty in a library."""
     if (problem := _text_refusal(defn.name, "the footprint name")) is not None:
         return FootprintCheck(problem)
     dropped: list[str] = []
+    kept: list[Pad] = []
     for pad in defn.pads:
         pad_extras = extras.get(pad.id, PadExtras())
-        refusal = _pad_refusal(pad, pad_extras)
+        refusal = _pad_refusal(pad, pad_extras, copper_layers=copper_layers)
         if refusal is not None:
             return FootprintCheck(refusal)
+        if not pad.number:
+            dropped.append("the pad has no number, which a library footprint cannot hold (change c0160)")
+            continue
+        kept.append(pad)
         dropped += _pad_drops(pad, pad_extras)
     graphics: list[Graphic] = []
     for graphic in defn.graphics:
@@ -251,7 +335,7 @@ def check_footprint(
     unwritten = sum(1 for body in {b.id: b for b in (*defn.bodies, *bodies)}.values() if body.id not in ids)
     if unwritten:
         notes.append(f"{unwritten} component bod{'y' if unwritten == 1 else 'ies'}")
-    return FootprintCheck(None, tuple(dropped), tuple(notes), defn.pads, tuple(graphics), written)
+    return FootprintCheck(None, tuple(dropped), tuple(notes), tuple(kept), tuple(graphics), written)
 
 
 Frame = Callable[[Point], Point]
@@ -318,8 +402,11 @@ def pad_bytes(
     flip: bool = False,
     net: int = rec.NO_INDEX,
     component: int = rec.NO_INDEX,
+    copper_layers: Sequence[str] = (),
 ) -> bytes:
-    """One pad record at ``at`` (nanometres, Y-up frame) with ``rotation_udeg``; ``flip`` swaps its layer."""
+    """One pad record at ``at`` (nanometres, Y-up frame) with ``rotation_udeg``; ``flip`` swaps its layer.
+    ``copper_layers`` (change c0160) is the board's copper layers in stack order for a document, empty in a
+    library; the pad's per-layer stack and a hole that is not round are written from it."""
     layer = pad_layer(pad)
     if flip:
         layer = rec.FLIP_PAIRS[layer]
@@ -327,7 +414,12 @@ def pad_bytes(
     if pad.shape == "roundrect":
         assert extras.corner_ratio is not None
         corner = rec.corner_percent(extras.corner_ratio)
+    stack = pad_stack(pad, corner=corner, copper_layers=copper_layers)
+    hole_shape, slot_length, slot_rotation = pad_hole(pad)
     hole = rec.to_units(pad.drill) if pad.kind in ("thru_hole", "np_thru_hole") and pad.drill else 0
+    # A connector pad has copper only: no paste and no mask opening, so neither mask takes the rule's
+    # expansion (change c0160; ``pcb-library.md``, "Pad records of a written footprint", U1 and U2).
+    solder_mode = rec.PAD_EXPANSION_NONE if pad.kind == "connect" else rec.SOLDER_FROM_RULES
     return rec.pad_record(
         name=pad.number,
         layer=layer,
@@ -341,6 +433,11 @@ def pad_bytes(
         corner=corner,
         net=net,
         component=component,
+        stack=stack,
+        hole_shape=hole_shape,
+        slot_length=slot_length,
+        slot_rotation=slot_rotation,
+        solder_mode=solder_mode,
     )
 
 

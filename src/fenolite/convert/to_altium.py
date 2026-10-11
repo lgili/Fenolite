@@ -96,6 +96,8 @@ def write(source: SourceProject, options: Options) -> Written:
         for kind, reasons in inputs.lost.items()
         if kind in CHANGE_KINDS
     }
+    for kind, reasons in inputs.changed.items():
+        changed[kind] = {**changed.get(kind, {}), **reasons}
     lost.update(_extra_losses(design, written))
     counts = census(design)
     if design.circuit.components:

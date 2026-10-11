@@ -119,6 +119,12 @@ copper layer, which is not written; ``footprint-text`` a text or a field that th
 variants, so the part is written as fitted."""
 DNP_KIND = "dnp"
 DNP_REASON = "the Altium documents hold no fitted flag outside variants"
+CONNECT_REASON = "a connector pad is written as a surface pad with no paste and no mask opening"
+"""The reason a pad of kind ``connect`` is counted changed under ``pad`` (change c0160): the record has no
+such kind, so it is a surface pad whose two mask openings the writer removes."""
+FREE_PAD_REASON = "the pad number is empty, so it is written as a free pad at its board position"
+"""The reason a pad without a number is counted changed under ``pad`` (change c0160): Altium leaves a
+designator empty for a free pad only, so it leaves its footprint and the document holds it as a free pad."""
 NET_TIE_KIND = "net-tie"
 """A footprint with net-tie groups (change c0114): its pads are written, without a mark that ties them,
 because how Altium marks a net tie is no registered format fact. Not in ``LOSS_KINDS``: nothing of the
@@ -221,6 +227,10 @@ class AltiumInputs:
         default_factory=lambda: MappingProxyType({})
     )
     """Kind → reason → the ids of the model items left out for that reason, in the order of the write."""
+    changed: Mapping[str, Mapping[str, tuple[str, ...]]] = dataclasses.field(
+        default_factory=lambda: MappingProxyType({})
+    )
+    """Kind → reason → the ids of the model items written in another form for that reason (change c0160)."""
 
     def counts(self) -> dict[str, int]:
         """Kind → number of model items that are not written, for the kinds that have any."""
@@ -281,6 +291,7 @@ class _Account:
         self.kept: dict[str, list[str]] = {}
         self.reasons: dict[str, str] = {}
         self.lost: dict[str, dict[str, list[str]]] = {}
+        self.changed: dict[str, dict[str, list[str]]] = {}
         self.body_reasons: dict[str, int] = {}
 
     def wrote(self, kind: str, count: int = 1) -> None:
@@ -290,6 +301,11 @@ class _Account:
         self.kept.setdefault(kind, []).append(ident)
         self.reasons.setdefault(kind, reason)
         self.lost.setdefault(kind, {}).setdefault(reason, []).append(ident)
+
+    def change(self, kind: str, ident: str, reason: str) -> None:
+        """An item written in another form (change c0160), counted under its kind and reason but not left
+        out: ``lost`` holds what is not written, ``changed`` what is written differently."""
+        self.changed.setdefault(kind, {}).setdefault(reason, []).append(ident)
 
     def skip_body(self, ident: str, reason: str) -> None:
         """A component body that is not written, counted under ``body`` and by its reason."""
@@ -906,6 +922,18 @@ def _footprints(
             if problem is not None:
                 account.skip("pad", pad.id, problem)
                 continue
+            if not pad.number:
+                # Altium leaves a designator empty for a free pad only (change c0160): the pad leaves its
+                # footprint, and the document writes it as a free pad at its board position.
+                normalized = _library_pad(pad, bottom=bottom)
+                at = Transform.placement(fp.position, fp.rotation).apply(normalized.position)
+                rotation = (fp.rotation + normalized.rotation) % FULL_TURN
+                moved = dataclasses.replace(normalized, position=at, rotation=rotation)
+                free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
+                account.change("pad", pad.id, FREE_PAD_REASON)
+                continue
+            if pad.kind == "connect":
+                account.change("pad", pad.id, CONNECT_REASON)
             pads.append(_library_pad(pad, bottom=bottom))
             extras_of[pad.id] = extras
             name = net_names.get(pad.net_id or "")
@@ -1363,6 +1391,12 @@ def from_design(
             {
                 kind: MappingProxyType({reason: tuple(ids) for reason, ids in reasons.items()})
                 for kind, reasons in account.lost.items()
+            }
+        ),
+        MappingProxyType(
+            {
+                kind: MappingProxyType({reason: tuple(ids) for reason, ids in reasons.items()})
+                for kind, reasons in account.changed.items()
             }
         ),
     )

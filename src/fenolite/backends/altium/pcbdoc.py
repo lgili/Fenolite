@@ -788,11 +788,20 @@ def _extend(box: list[int], x: int, y: int, reach: int = 0) -> None:
     box[2], box[3] = max(box[2], x + reach), max(box[3], y + reach)
 
 
-def place_component(component: PlacedComponent, index: int, frame: Frame, nets: Mapping[str, int]) -> _Placed:
+def place_component(
+    component: PlacedComponent,
+    index: int,
+    frame: Frame,
+    nets: Mapping[str, int],
+    copper_layers: Sequence[str] = (),
+) -> _Placed:
     """The pads, tracks and arcs of one component at absolute Altium coordinates, and the box of its pads
-    and graphics (nanometres, Altium frame)."""
+    and graphics (nanometres, Altium frame). ``copper_layers`` (change c0160) is the board's copper layers
+    in stack order, which a pad's per-layer stack needs."""
     footprint = component.footprint
-    check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts)
+    check = check_footprint(
+        footprint.defn, footprint.extras, texts=footprint.texts, copper_layers=copper_layers
+    )
     if check.refusal is not None:
         raise ValueError(f"{component.ref}: {check.refusal}")
     bottom = component.side == "bottom"
@@ -818,6 +827,7 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
                 flip=bottom,
                 net=net,
                 component=index,
+                copper_layers=copper_layers,
             )
         )
         _extend(box, at.x, at.y, max(pad.size.w, pad.size.h) // 2)
@@ -1236,7 +1246,16 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
     for free in spec.free_pads:
         net = rec.NO_INDEX if free.net is None else copper.net(free.pad.id, free.net)
         at = frame(free.pad.position)
-        out.pads.append(pad_bytes(free.pad, free.extras, at=at, rotation_udeg=free.pad.rotation, net=net))
+        out.pads.append(
+            pad_bytes(
+                free.pad,
+                free.extras,
+                at=at,
+                rotation_udeg=free.pad.rotation,
+                net=net,
+                copper_layers=spec.copper_layers,
+            )
+        )
     return out
 
 
@@ -1659,7 +1678,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
-        placed = place_component(component, index, frame, nets)
+        placed = place_component(component, index, frame, nets, spec.copper_layers)
         pads += placed.pads
         tracks += placed.tracks
         arcs += placed.arcs

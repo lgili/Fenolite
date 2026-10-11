@@ -353,6 +353,12 @@ corpus_id = ""
 notes = "authored board with one dimension between two segments, for the writer's unknown-child test (c0017)"
 
 [[file]]
+path = "tests/data/kicad/convert/padstack.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored four-layer board holding one pad with a per-layer padstack (mode 1), for the full-stack pad triangle of change c0160"
+
+[[file]]
 path = "tests/data/kicad/drc/report_mils.json"
 origin = "authored"
 corpus_id = ""

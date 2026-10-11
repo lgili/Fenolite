@@ -628,16 +628,20 @@ def _with_pads(design: Design, *shapes: tuple[str, str]) -> tuple[Design, list[s
 
 
 def test_every_reason_kept() -> None:
-    """Scenario "Every reason kept" (change c0159): a custom pad and a connector pad are left out for two
-    reasons; ``lost`` keeps both, one id each, and ``reasons`` keeps the first."""
+    """Scenario "Every reason kept" (change c0159, amended by change c0160): a custom pad is left out and a
+    connector pad is written in another form; ``lost`` keeps the first, ``changed`` the second, one id
+    each, and ``reasons`` keeps the first."""
     first = _read(SAMPLES / "blink" / "blink.PcbDoc")
     design, (custom, connector) = _with_pads(first, ("custom", "smd"), ("rect", "connect"))
     inputs = lower.from_design(design, issues=[])
-    reasons = inputs.lost["pad"]
-    assert len(reasons) == 2 and sorted(reasons.values()) == sorted([(custom,), (connector,)])
-    assert inputs.reasons["pad"] == next(iter(reasons))
-    assert inputs.not_lowered["pad"] == (custom, connector)
-    assert "connector pad" in next(reason for reason, ids in reasons.items() if ids == (connector,))
+    lost = inputs.lost["pad"]
+    assert len(lost) == 1 and next(iter(lost.values())) == (custom,)
+    assert inputs.reasons["pad"] == next(iter(lost))
+    assert inputs.not_lowered["pad"] == (custom,)
+    assert "custom" in next(iter(lost))
+    changed = inputs.changed["pad"]
+    assert len(changed) == 1 and next(iter(changed.values())) == (connector,)
+    assert "connector pad" in next(iter(changed))
 
 
 def test_do_not_populate_is_reported() -> None:

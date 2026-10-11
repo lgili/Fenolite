@@ -166,9 +166,13 @@ def test_not_written_per_kind(key: str) -> None:
 def test_differences_per_kind(key: str) -> None:
     a, b = _sides(key)
     level = max_level(a, b)
-    report = compare_designs(a, b, level=level, tolerances=Tolerances(10, 0, 20), frame="relative")
+    # A free pad reads back as a component with no designator (a board-only footprint), not a component:
+    # level 1 ignores the empty reference (change c0160).
+    report = compare_designs(
+        a, b, level=level, tolerances=Tolerances(10, 0, 20), frame="relative", ignore_refs=("",)
+    )
     found = dict(sorted(Counter(d.kind for d in report.differences).items()))
-    exact = compare_designs(a, b, level=min(level, 4), frame="relative")
+    exact = compare_designs(a, b, level=min(level, 4), frame="relative", ignore_refs=("",))
     print(f"{ITEMS[key].path.stem}: level {level}, {found}, largest {_largest(exact)} nm")
     assert (level, found) == DIFFERENCES[key]
     assert _largest(exact) <= LARGEST_NM

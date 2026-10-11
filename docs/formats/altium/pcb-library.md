@@ -90,6 +90,34 @@ of the `CFG2D.` ones. They are editor state, not design data.
 | `2DCONFIGURATION` and `3DCONFIGURATION` hold a view configuration as one value: `RECORD=Board` and the `CFGALL.` and `CFG2D.` (or `CFG3D.`) fields, each opened by a backtick in place of `\|`, every `;` written `?`. `2DCONFIGURATION` holds exactly the `RECORD=Board` group of view keys written after the layer sets. `3DCONFIGURATION` holds `CFGALL.CONFIGURATIONKIND=3`, a default description and 37 `CFG3D.` switches, colours and opacities | S-0170 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-LIB-OPEN |
 | The last group holds the 3D camera (`LOOKAT.X/Y/Z`, `EYEROTATION.X/Y/Z`, `ZOOMMULT`, `VIEWSIZE.X/Y`), the snap options (`EGRANGE=8mil`, `EGMULT`, `EGENABLED`, `EGSNAPTOBOARDOUTLINE`, `EGSNAPTOARCCENTERS`, `EGUSEALLLAYERS`, `OGSNAPENABLED`, `MGSNAPENABLED`, `POINTGUIDEENABLED`, `GRIDSNAPENABLED`, `NEAROBJECTSENABLED`, `FAROBJECTSENABLED`, `NEAROBJECTSET` and `FAROBJECTSET` of 27 digits, `NEARDISTANCE`) and the closing keys of the record | S-0170, S-0171 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-LIB-OPEN |
 
+## Pad records of a written footprint
+
+The write side of `import.md`, "Pads and padstacks", for the pads a converted board brings (change c0160).
+The record's offsets and tables are in `pcb-records.md`, "Pad"; the rows here say what this writer makes of
+a model pad. `tests/unit/backends/altium/test_pcblib_stacks.py` checks each rule.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad record's mode byte selects the stack of a pad: 0 Simple (one shape and size on every signal copper layer), 1 Top-Middle-Bottom (a size and a shape for the top, for the middle and for the bottom), 2 Full Stack (a size and a shape for every signal copper layer). The page names the three modes and says that a mode's X and Y size and shape are the pad's attributes on the signal copper layers; their offsets are those of `pcb-records.md`, "Pad" | S-0302, S-0160 | INFERRED | H-A-CONV-PADSTACK |
+| A mode 1 pad carries its three sizes and shapes in the three triples of subrecord 5 (the top, the middle and the bottom); a mode 2 pad carries those triples as well and its per-layer tables in subrecord 6 (29 inner sizes X and 29 inner sizes Y, the 29 inner shapes, 32 alternate shapes and 32 corner percentages), read by index: the top at 0, a mid layer at its layer id − 1 and the bottom at 31 | S-0302, S-0160 | INFERRED | H-A-CONV-PADSTACK |
+| A pad that the model gives a plain shape on every signal copper layer of its stack (a circle, an oval, a rectangle, or a rounded rectangle with its corner ratio) is therefore written with mode 1 when the inner layers share one shape and one size and with mode 2 otherwise; a layer whose shape has no exact Altium form keeps the pad a loss with its reason | S-0302, S-0160 | INFERRED | H-A-CONV-PADSTACK |
+| A pad that is part of a component takes the component pin number as its designator; a *free* pad "can include a designator or the field can be left empty". A saved document writes a pad without a name as a first subrecord of one byte, the length 0 | S-0302, S-0160 | INFERRED | H-A-CONV-PADSTACK |
+| A hole that is not round is written with its shape in the sixth subrecord (1 a square, 2 a slot with round ends) and, for a slot, its length along the axis (32-bit) and its rotation (a double, relative to the pad, which the reader adds the pad's own angle to). Hole shape 2 is the reason the census of c0159 gives for the 108 pads it loses, and every one of them is a slot: `Pad.drill` is the hole's size, the side of a square hole or the width of a slot | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| The paste mask and the solder mask of a pad are each either the expansion of the applicable design rule, a manual expansion value, or a standard mask shape. The paste shape carries an `Enabled` option that turns the pad's paste-mask shape off, and the solder mask carries a `Tented` option which, when enabled, "results in no opening in the solder mask" on that side. The mask layers are shown in the negative: an object on one of them is an opening | S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| The record carries both expansions (32-bit) and both modes (0 none, 1 from the rules, 2 manual) in subrecord 5. A mode that follows the rule is the one the reader leaves out of the model's bag, so a written pad reports a mask in its bag exactly when its mode is not the rule's | S-0160, S-0302 | INFERRED | H-A-CONV-PADSTACK |
+| No source read states which bytes of the record carry the paste `Enabled` switch or the solder `Tented` option, and none states which mode Altium reads as a pad with no opening: the two unknowns U1 and U2 below | S-0302, S-0160 | INFERRED | H-A-CONV-PADSTACK |
+
+**Unknowns.**
+
+- **U1.** Which bytes of subrecord 5 carry the paste-mask `Enabled` switch and the solder-mask `Tented`
+  option of the page. The writer's own read-back cannot tell them: it reads back the fields it wrote.
+- **U2.** Which mode Altium reads as a pad with no opening for a mask. The reader reads 0 as `none`, 1 as
+  the rule's expansion and 2 as manual; every pad of the four committed libraries (`tests/data/altium/`,
+  `blink`, `routed`, `board6` and `body2`) carries paste mode 0 and solder mode 1, and Fenolite's own
+  reader reports `paste=0,0` for each of them, so the two fields do not by themselves say whether an
+  opening is drawn. The form a connector pad is written with is therefore a writer choice, measured by
+  `test_pcblib_stacks.py` and by Part T step T6 (`docs/evidence/altium-pcb.md`).
+
 ## Version 2 not used
 
 AltiumSharp version 2 (2026) cites a decompilation folder that is not public, so no fact found only in
@@ -124,3 +152,12 @@ an independent source (`pcb-document.md`).
   printable 7-bit ASCII), `ITEMGUID` and `REVISIONGUID` (empty); `WideStrings` is an empty property block (only the NUL); `Data` holds the pads in definition
   order, then the tracks and arcs in graphic order; `UNIQUEID` is `project.unique_id("pcblib:<name>:<i>")`
   with `i` the zero-based primitive index.
+- A pad of kind `connect` is a surface pad on its copper layer whose paste mask and solder mask carry mode
+  0 (`none`) with the expansion 0, the form the reader reports as a bag entry for each mask; the page's
+  `Enabled` and `Tented` options are what that form must stand for (U1, U2), so
+  `tests/unit/backends/altium/test_pcblib_stacks.py` and Part T step T6 measure it (change c0160).
+- A pad without a number is left out of a library footprint, because Altium leaves a designator empty for a
+  *free* pad only; the board document writes it as a free pad at its board position (the footprint's
+  position plus the pad's own position turned by the footprint's angle, with no component index), with its
+  own net and layer, counted `changed` under `pad` with the reason "the pad number '' is empty"
+  (change c0160).

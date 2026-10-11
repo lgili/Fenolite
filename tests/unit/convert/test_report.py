@@ -77,15 +77,17 @@ def test_merge_adds_counts_and_joins_reasons() -> None:
 
 
 def test_reasons_are_counted_apart(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Scenario "Reasons are counted apart": one custom pad and two pads without a number give the row
-    ``pad`` with ``lost`` 3 and two reasons, of count 2 and 1."""
+    """Scenario "Reasons are counted apart" (amended by change c0160): one custom pad and two pads without
+    a number give the row ``pad`` with ``lost`` 1 (the custom shape) and ``changed`` 2 (the two pads
+    written as free pads), each under its own reason."""
     design, _, _ = with_pads(two_layer(), {"shape": "custom"}, {"number": ""}, {"number": ""})
     read_as(monkeypatch, design)
     conversion = convert_project("two_layer.kicad_pcb", to="altium", allow_lossy=True)
     pad = conversion.report.row("pad")
-    assert pad is not None and pad.lost == 3
-    assert sorted(reason.count for reason in pad.reasons) == [1, 2]
-    assert pad.reasons[0].count == 2 and "empty" in pad.reasons[0].reason
+    assert pad is not None and pad.lost == 1 and pad.changed == 2
+    by_outcome = {reason.outcome: reason for reason in pad.reasons}
+    assert by_outcome["lost"].count == 1 and "custom" in by_outcome["lost"].reason
+    assert by_outcome["changed"].count == 2 and "empty" in by_outcome["changed"].reason
 
 
 def test_explainer_locates_lost_pads(monkeypatch: pytest.MonkeyPatch) -> None:

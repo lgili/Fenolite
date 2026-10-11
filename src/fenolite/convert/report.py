@@ -334,7 +334,7 @@ class Explains:
 EXPLAINS: tuple[Explains, ...] = (
     Explains("footprint", AT_REF, "ref"),
     Explains("footprint", LEVEL5, "footprint-nets"),
-    Explains("pad", ("pad-missing", "pin-missing"), "pin"),
+    Explains("pad", ("pad-missing", "pin-missing", "pad-kind"), "pin"),
     Explains("pad", LEVEL5, "net"),
     Explains("track", LEVEL5, "net"),
     Explains("arc", LEVEL5, "net"),
@@ -347,8 +347,9 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
 )
-"""The closed table of which differences a lost item explains. A lost pad explains only its own
-``pad-missing`` and ``pin-missing`` and the level-5 kinds of its net, not every difference at its pin."""
+"""The closed table of which differences a lost or changed item explains. A lost or changed pad explains
+only its own ``pad-missing``, ``pin-missing`` and ``pad-kind`` and the level-5 kinds of its net, not every
+difference at its pin."""
 
 
 def _prefixes(where: str, separator: str) -> Iterable[str]:
@@ -391,7 +392,9 @@ class Explainer:
 
         self._places: dict[tuple[str, Scope], set[str]] = {}
         for row in report.rows:
-            ids = row.ids("lost")
+            # A changed item explains the same difference a lost one does: it was written, but in another
+            # form, so the difference it causes is the one its own rows describe (change c0160).
+            ids = (*row.ids("lost"), *row.ids("changed"))
             if not ids:
                 continue
             kind = row.kind

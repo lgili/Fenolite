@@ -125,7 +125,14 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             target = folder.joinpath(*PurePosixPath(key).parts)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-        compared = equivalent(conversion.design, folder / conversion.read_back, profile=chosen)
+        compared = equivalent(
+            conversion.design,
+            folder / conversion.read_back,
+            profile=chosen,
+            # A free pad reads back as a component with no designator (a board-only footprint): it is a
+            # pad, not a component, so level 1 ignores the empty reference (change c0160).
+            ignore_refs=("",),
+        )
         if conversion.schematic is not None:
             schematic = _schematic(conversion, folder, chosen)
     explainer = Explainer(conversion.design, conversion.report)

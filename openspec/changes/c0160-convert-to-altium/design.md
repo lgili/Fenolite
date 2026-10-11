@@ -46,6 +46,44 @@
 8. **What stays reported.** Custom pad shapes, the fitted flag, net ties, dimensions, a keep-out without a restriction that the record carries, the arcs of an outline written as edges, the stack-up values without a key. Each keeps its reason in the report.
 9. **Part T of the maintainer's Altium work.** Three converted demo projects (one with DIFAT sectors, one with full-stack pads, one with a converted schematic), handed in `~/fenolite-altium-checks/session-3/T-convert/` with their SHA-256: T1 open the project; T2 compile the schematic (no error, the messages counted); T3 open the PCB document and repour; T4 run the design rule check with the document's rules (count of violations per rule); T5 update the PCB from the schematic and say whether the update proposes changes; T6 open the PCB library and place one footprint. The report is recorded as an author report (tool `AD <major>.<minor>`, date, one generic outcome per step, no artefact). It does not make any write leave `experimental`.
 
+## Found on 2026-10-10 (implementation)
+
+**The reason `the pad has a per-layer padstack` covers slotted holes, not per-layer stacks, in this
+corpus.** Measured with Fenolite's own KiCad reader over the 18 demo boards (task 2.2): **108 pads on eight
+boards** carry that reason (`CM5_MINIMA_3` 12, `ecc83-pp_v2` 9, `kit-dev-coldfire-xilinx_5213` 3,
+`multichannel_mixer-unrouted` 35, `multichannel_mixer` 35, `One-Air-Max` 6, `RoyalBlue54L-Feather` 4,
+`tinytapeout-demo` 4), and **every one of them is a slotted hole**: `Padstack.layers` is empty and
+`Padstack.hole_shape` is `slot` with a `hole_length` (70 roundrect pads, 37 oval, 1 rect). **No pad of the
+corpus has a per-layer stack** (`Padstack.layers` non-empty). The design's own "Context" suspected this
+("per-layer padstack on 2 … the others not named by the first reason") without measuring the cause, and
+decision 2 answers a case the corpus never exercises.
+
+**Decision of the maintainer, 2026-10-10: task 2.2 also writes slotted holes.** The slot fields are public
+format facts already recorded by change c0035 (`pcb-records.md`, "Pad": the hole shape at offset 262, the
+slot length at 263 and its rotation at 267 of the sixth subrecord) and already read by
+`adapter/pads.py` (`HOLE_SHAPES`, `record.hole_shape`, `record.slot_length`, `record.slot_rotation`), so
+this adds a write row and no new fact. Without it the scenario "Census after the change" of the
+`design-conversion` delta cannot hold: 108 pads would stay lost under a reason other than a custom shape.
+A square hole (shape 1) is written with it, since it is the same field. Task 5.1 measures the result.
+
+**The KiCad reader spells the inner wildcard `Inner`, not `In*.Cu`** (task 2.4). `read_padstack`
+(`_fpmap.py`) keeps KiCad's own layer name `Inner`, while the model doc (`design-model.md`) and the Altium
+reader (`adapter/pads.py`) use `In*.Cu`; `pad_stack` matched only the latter, so a KiCad-read board's
+padstack was never recognised in a document. `pcblib.INNER_WILDCARDS` now accepts both, and a two-layer
+board whose top and bottom parts differ is a mode 1 stack rather than a simple pad. The corpus never
+exercised it (no board has a per-layer stack, task 2.2), which is why the padstack triangle of task 2.4
+found it. The two probes `convert-difat` and `convert-padstack` are `equal` on 10.0.6.
+
+**A free pad reads back as a component with no designator, which the equivalence does not know** (task
+2.3). `adapter/board.py` builds, for every free pad, a board-only footprint and a `Component` with
+`ref=""`; the KiCad reader builds no component for a board-only footprint, so level 1 saw 9 empty
+references on the target side that the source does not hold, and every board whose nameless pad moved out
+of a footprint failed with `convert.unexplained` (exit 5). The fix is the existing `ignore_refs` parameter
+of the equivalence, which is exactly the meaning of a free pad: `api/conversion.py`'s `verify_conversion`
+passes `ignore_refs=("",)`, and the census's `_sides`/`test_differences_per_kind` pass it too, so the
+artifact stays out of the report and the measurement. It is not a row of `EXPLAINS` because it is not a
+difference a lost item explains, but a component-level comparison of a pad. No format fact changes.
+
 ## Files and public API
 
 | file | content |

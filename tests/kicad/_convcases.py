@@ -47,6 +47,10 @@ BLINK_T10 = ROOT / "tests" / "data" / "acceptance" / "blink_2layer_t10"
 FORTY_T9 = ROOT / "tests" / "data" / "acceptance" / "board_40parts_t9"
 SAMPLES = {"two_layer": TWO_LAYER, "blink": BLINK_T10}
 """The committed KiCad boards of the triangle."""
+PADSTACK = ROOT / "tests" / "data" / "kicad" / "convert" / "padstack.kicad_pcb"
+"""A committed board whose one pad has a per-layer stack written with stack mode 1 (change c0160)."""
+DIFAT_ROW = "kicad-demo-10-0-6-pcb-18"
+"""The demo board whose written PCB document needs DIFAT sectors (``vme-wren``, 181 FAT sectors)."""
 RETARGETS = {"blink": BLINK_T9, "board_40parts": FORTY_T9, "two_layer": TWO_LAYER}
 """The committed KiCad 9 sources of the re-target: two projects and a board without project files."""
 DEMO_RETARGETS: dict[str, tuple[str, str | None]] = {
@@ -79,8 +83,10 @@ class Triangle:
 
 
 @cache
-def triangle(source: Path) -> Triangle:
-    """Convert ``source`` to Altium, import its PCB document with ``kicad-cli`` and compare."""
+def triangle(source: Path, *, level: int | None = None, ignore_refs: tuple[str, ...] = ()) -> Triangle:
+    """Convert ``source`` to Altium, import its PCB document with ``kicad-cli`` and compare at ``level``
+    (every level when ``None``); ``ignore_refs`` is passed to level 1 (a free pad reads back as a component
+    with no designator, change c0160)."""
     conversion = convert_project(source, to="altium", allow_lossy=True)
     with tempfile.TemporaryDirectory(prefix="fenolite-convtri-") as name:
         folder = Path(name)
@@ -94,9 +100,10 @@ def triangle(source: Path) -> Triangle:
     report = compare_designs(
         design,
         back,
-        level=max_level(design, back),
+        level=max_level(design, back) if level is None else level,
         tolerances=Tolerances(profile.tolerance_nm, profile.tolerance_udeg, profile.tolerance_ppm),
         frame="relative",
+        ignore_refs=ignore_refs,
         rules=profile.rules,
     )
     explainer = Explainer(design, conversion.report)
@@ -119,6 +126,32 @@ def triangle_outcome() -> str:
         if found.unexplained or found.report.levels[-1].level != 5:
             return "different"
     return "equal"
+
+
+def _large_source(row: str) -> Path | None:
+    """The cached path of the heavy board ``row``, or ``None`` when heavy is off or it is not cached."""
+    from _corpus import heavy_enabled, manifest_items
+
+    if not heavy_enabled():
+        return None
+    return next((item.path for item in manifest_items("rt0") if item.id == row and item.path.is_file()), None)
+
+
+def difat_outcome() -> str:
+    """``equal`` when ``kicad-cli pcb import`` reads the DIFAT document of ``vme-wren`` and it equals the
+    source at level 4; ``inconclusive`` when the heavy board is not cached (change c0160)."""
+    source = _large_source(DIFAT_ROW)
+    if source is None:
+        return "inconclusive"
+    found = triangle(source, level=4, ignore_refs=("",))
+    return "equal" if not found.unexplained else "different"
+
+
+def padstack_outcome() -> str:
+    """``equal`` when ``kicad-cli pcb import`` reads the full-stack pad document and it equals the source
+    at level 4 (change c0160)."""
+    found = triangle(PADSTACK, level=4, ignore_refs=("",))
+    return "equal" if not found.unexplained else "different"
 
 
 LIBRARY_FILES = ("fp-lib-table", "lib")
@@ -230,7 +263,12 @@ def retarget_outcome() -> str:
 
 
 def conv_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
-    return {"convert-triangle": (triangle_outcome, (10,)), "convert-retarget": (retarget_outcome, (9, 10))}
+    return {
+        "convert-triangle": (triangle_outcome, (10,)),
+        "convert-retarget": (retarget_outcome, (9, 10)),
+        "convert-difat": (difat_outcome, (10,)),  # change c0160, task 2.4
+        "convert-padstack": (padstack_outcome, (10,)),  # change c0160, task 2.4
+    }
 
 
 __all__ = [
