@@ -14,7 +14,7 @@ reports, the place it names and its hint.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from fenolite import __version__
@@ -258,6 +258,22 @@ def read_schematic(path: Path, *, kicad_cli: str | None = None, timeout: float =
         dnp = frozenset(c.ref for c in netlist.components if DNP in c.flags)
         evidence = EXPORT_EVIDENCE
     design = netlist_design(netlist, project, dnp=dnp)
+    schematic = parity_inputs.side_of(path, sheets, parity_inputs.netlist_nodes(netlist))
+    components = tuple(
+        replace(
+            component,
+            pins=tuple(
+                Pin(
+                    id=derived_id("pin", NETLIST_ORIGIN, f"{project}:{component.ref}:{number}"), number=number
+                )
+                for number in sorted(schematic.components[component.ref].pins)
+            ),
+        )
+        if component.ref in schematic.components
+        else component
+        for component in design.circuit.components
+    )
+    design = replace(design, circuit=replace(design.circuit, components=components))
     return ReadSide(
         path.name, _digest(path), SCHEMATIC_BACKEND, design, (), evidence, SCHEMATIC_KIND,
         netlist_source=SCHEMATIC_SOURCE, power_symbols=_power_symbols(sheets, project),

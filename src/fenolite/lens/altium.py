@@ -167,6 +167,7 @@ ALTIUM_BUILD_EVIDENCE = Evidence.combine(
         ),
     ),
     binary.EVIDENCE,
+    project.EVIDENCE,
     Evidence(
         Level.INFERRED,
         hypotheses=(

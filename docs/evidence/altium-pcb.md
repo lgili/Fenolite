@@ -980,3 +980,24 @@ steps X1 to X7 and X9 to X12 of Part X, all as expected (under "Reports" too). S
 counts of step X8.6, and steps D1 to D3 of Part D (optional; not done, so `H-A-DRC-ALTIUM` stays pending). The kit run (`fenolite kit
 verify` and `fenolite kit record`, change c0091) is not part of this report. The schematic side of the same
 report is in `docs/evidence/altium-schematic.md`, "Report of 2026-10-09".
+
+## Part T — converted projects (c0160)
+
+Pending maintainer report; no Altium verification is claimed. The runtime bundle contains three
+KiCad cases: two registered public projects (large DIFAT document and a source schematic with repeated
+child sheets) and an authored four-layer Full Stack case with different inner-layer shapes/sizes.
+It includes conversion reports, a README and SHA-256 hashes. Work on scratch copies.
+
+| step | action | report |
+|---|---|---|
+| T1 | Open all three project, PCB, schematic and library documents | load outcome and any errors |
+| T2 | Compile each project; inspect sheet instances and connectivity | compile outcome |
+| T3 | Repour polygons in each PCB | repour outcome |
+| T4 | Run DRC on each converted board | counts by rule category; losses are listed in the conversion report |
+| T5 | Update PCB from schematic and inspect the ECO | unexpected footprint changes, without executing them on the only copy |
+| T6 | Place a PcbLib footprint in a scratch board; inspect its padstack and connector masks | placement and pad/mask outcome |
+
+Send the Altium Designer major/minor version, date and one generic result for each step. No source
+project, screenshots or employer details are needed. T1/T3 settle `H-A-CONV-DIFAT`, T4/T6 settle
+`H-A-CONV-PADSTACK`, T5/T6 settle `H-A-CONV-LIBRARY`, and T1/T2 settle `H-A-CONV-SCHEMATIC`.
+These four hypotheses remain open until the corresponding actual report is recorded.

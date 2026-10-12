@@ -106,6 +106,7 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-NETS",
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
+        "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",

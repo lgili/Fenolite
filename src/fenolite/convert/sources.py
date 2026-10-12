@@ -62,6 +62,8 @@ class SourceProject:
     format_version: int | None = None
     major: int | None = None
     files: Mapping[str, Path] = field(default_factory=lambda: MappingProxyType({}))
+    schematic: Design | None = None
+    """Optional schematic circuit prepared by the API; conversion itself runs no exporter (c0160)."""
 
     @property
     def name(self) -> str:

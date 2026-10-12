@@ -119,4 +119,6 @@ fenolite kit status --json
 - `kit status` lists recorded runs; `kit record` records one in Fenolite's repository.
 - Until a person runs the kit on this release, report projects as built and not opened.
 
+Convert keeps symbols/sheets and derives a PcbLib; see `docs/conversion.md`.
+
 Read next: `files`, `rules`, `checks`.

@@ -18,7 +18,7 @@ the physical lists, the layer sets and ``PLANE<k>NETNAME`` follow it (``pcb-copp
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from decimal import Decimal
 
 import fenolite.backends.altium.pcbrecords as rec
@@ -442,11 +442,15 @@ def board_text(
     unique_id: str,
     used_layers: Collection[int] = (),
     stack: StackSpec | None = None,
+    layer_names: Mapping[int, str] | None = None,
 ) -> str:
     """The text of the ``Board6`` record: each line as ``|KEY=VALUE`` fields, the lines joined by one CR."""
     lines = board_records(
         filename, vertices, origin, unique_id=unique_id, used_layers=used_layers, stack=stack
     )
+    if layer_names:
+        names = {f"Mechanical {layer - 56}": name for layer, name in layer_names.items() if 57 <= layer <= 72}
+        lines = [[(key, names.get(value, value)) for key, value in line] for line in lines]
     return LINE_BREAK.join(format_line(line) for line in lines)
 
 

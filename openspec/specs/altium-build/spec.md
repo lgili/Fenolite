@@ -2,9 +2,7 @@
 
 ## Purpose
 Build a design script into an experimental Altium project with `fenolite build --target altium`: which files are written, the issues the build reports, when an edited output is refused, how builds stay reproducible, and the evidence the outputs carry. The committed samples and the protocol of the maintainer's author reports belong here; the bytes of each file belong to the writer capabilities.
-
 ## Requirements
-
 ### Requirement: Altium build target
 `fenolite build DESIGN.py --out DIR --target altium` SHALL build the design into an experimental Altium project instead of a KiCad project. This requirement adds the option `--target` to the `design-dsl` requirement "Build command", whose rules hold unchanged for `--target kicad`, the default.
 - `--target` MUST accept `kicad` and `altium`. Any other value MUST be a usage error (exit 2, `FEN-2001`).
@@ -1595,3 +1593,28 @@ An Altium build that writes a PCB document SHALL store in `.fenolite/board.json`
 - **GIVEN** the first design without its `design.via_protection(…)` call
 - **WHEN** it is built with `--target altium --dry-run --json`
 - **THEN** the second via keeps the flags `0C 00`, and the info at `via-protection` also names the 8 vias whose tenting is stated nowhere (the second added via and the seven routed vias)
+
+### Requirement: Native sheet template in an Altium build
+`fenolite build` SHALL accept `--altium-template FILE.SchDot` only with an Altium target and binary
+schematic output. It SHALL apply the native template to every generated sheet without conversion to
+the neutral drawing-sheet model and copy its bytes unchanged into `templates/sheet.SchDot`.
+The build SHALL preserve template page settings, font entries, graphic coordinates, special strings,
+embedded storage and opaque properties, maintain template ownership, and rebase generated ownership
+and font references. Generated sheet parameter values SHALL override matching template defaults.
+The option SHALL conflict with a script's neutral drawing sheet. Unsupported or malformed templates
+SHALL produce an input error and no writes. Builds without the option SHALL keep existing output.
+The result SHALL report the template SHA-256 and applied sheets, and evidence SHALL remain INFERRED
+until an Altium author report or verification kit proves application.
+
+#### Scenario: Template applied without flattening
+- **WHEN** a binary template holds different fonts, native page settings, owned drawings and images
+- **THEN** every built sheet retains them, generated circuit references are valid, and the copied
+  template is byte-identical to the input
+
+#### Scenario: Reviewed template changes
+- **WHEN** the template changes between dry run and confirmation
+- **THEN** the existing plan input guard refuses confirmation and writes nothing
+
+#### Scenario: Unsupported combination
+- **WHEN** native application is requested with KiCad, ASCII output, or a neutral drawing sheet
+- **THEN** the build refuses the combination without silently converting the template

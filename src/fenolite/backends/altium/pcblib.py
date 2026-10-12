@@ -50,6 +50,9 @@ BODY_OBJECT = "Body"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-LIBRARY",
+        "H-A-CONV-PADSTACK",
         "H-A-PCB-GRAPHICS",
         "H-A-PCB-KICAD-LIB",
         "H-A-PCBX-BODY-FORM",
@@ -85,6 +88,9 @@ class LibFootprint:
     extras: Mapping[str, PadExtras] = field(default_factory=lambda: {})
     texts: int = 0
     bodies: tuple[ComponentBody, ...] = ()
+    extra_primitives: tuple[tuple[str, bytes], ...] = ()
+    """Additional graphics and texts encoded by the model writer in the library frame (c0160)."""
+    wide_strings: bytes = rec.EMPTY_PROPERTY_BLOCK
 
 
 @dataclass(frozen=True, slots=True)
@@ -555,6 +561,7 @@ def footprint_primitives(footprint: LibFootprint) -> list[tuple[str, bytes]]:
     for graphic in check.graphics:
         for record in graphic_records(graphic):
             out.append(("Track" if record[0] == rec.TRACK else "Arc", record))
+    out.extend(footprint.extra_primitives)
     for body in check.bodies:
         record = rec.body_record(
             rec.body_layer(body.layer, bottom=False),
@@ -590,14 +597,19 @@ def _footprint_storage(key: str, footprint: LibFootprint) -> Storage:
     entries: tuple[Entry, ...] = (
         ("Header", _u32(len(primitives))),
         ("Parameters", _parameters(defn)),
-        ("WideStrings", rec.EMPTY_PROPERTY_BLOCK),
+        ("WideStrings", footprint.wide_strings),
         ("Data", rec.string_block(defn.name) + b"".join(record for _kind, record in primitives)),
         Storage(UNIQUE_STORAGE, (("Header", _u32(len(listed))), ("Data", unique))),
     )
     return Storage(key, entries)
 
 
-def write_pcblib(footprints: Sequence[LibFootprint], *, filename: str = DEFAULT_FILENAME) -> bytes:
+def write_pcblib(
+    footprints: Sequence[LibFootprint],
+    *,
+    filename: str = DEFAULT_FILENAME,
+    disambiguate_storages: bool = False,
+) -> bytes:
     """The bytes of one PCB library holding ``footprints`` (``pcb-library.md``, "Fenolite's choices").
     ``filename`` is the library's file name without a folder: the board record's ``FILENAME`` and the key
     of the library's ids. ``ValueError`` for a refused footprint, two equal storage names or a file name
@@ -610,6 +622,15 @@ def write_pcblib(footprints: Sequence[LibFootprint], *, filename: str = DEFAULT_
     for footprint in footprints:
         key = storage_name(footprint.defn.name)
         order = name_key(key)
+        if order in keyed and disambiguate_storages:
+            if any(f.defn.name == footprint.defn.name for _, f in keyed.values()):
+                raise ValueError(f"duplicate footprint name {footprint.defn.name!r}")
+            index = 2
+            while order in keyed:
+                suffix = f"_{index}"
+                key = storage_name(footprint.defn.name)[: 31 - len(suffix)] + suffix
+                order = name_key(key)
+                index += 1
         if order in keyed:
             other = keyed[order][1].defn.name
             raise ValueError(

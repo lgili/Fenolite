@@ -37,24 +37,49 @@
 
 ## 3. Layers and library
 
-- [ ] 3.1 Write `lower.KICAD_MECHANICAL` and copper texts (scenario "Drawing on Dwgs.User"). Third item of the cut order for the layers beyond the fabrication layers. Proof: `uv run pytest tests/unit/backends/altium/test_lower_layers.py -q`.
-- [ ] 3.2 Write the derived `<name>.PcbLib` and the `changed` count of edited instances (scenario "Two instances, one edited"). Proof: `uv run pytest tests/unit/backends/altium/test_derived_library.py tests/unit/convert -q`.
+- [x] 3.1 Write `lower.KICAD_MECHANICAL` and copper texts (scenario "Drawing on Dwgs.User"). Third item of the cut order for the layers beyond the fabrication layers. Proof: `uv run pytest tests/unit/backends/altium/test_lower_layers.py -q`.
+- [x] 3.2 Write the derived `<name>.PcbLib` and the `changed` count of edited instances (scenario "Two instances, one edited"). Proof: `uv run pytest tests/unit/backends/altium/test_derived_library.py tests/unit/convert -q`.
 
 ## 4. Schematic
 
-- [ ] 4.1 Take the circuit and the symbol graphics of a KiCad source's schematic and write one Altium sheet per KiCad sheet (scenario "Netlist kept"). First item of the cut order. Proof: `uv run pytest tests/unit/convert/test_to_altium_schematic.py -q`; `uv run pytest tests/corpus/test_convert_census.py -k complex_hierarchy -rA`.
-- [ ] 4.2 Write the tolerant texts and nets (scenario "Text outside the code page"). Proof: `uv run pytest tests/unit/backends/altium/test_schematic_tolerant.py -q`.
+- [x] 4.1 Take the circuit and the symbol graphics of a KiCad source's schematic and write one Altium sheet per KiCad sheet (scenario "Netlist kept"). First item of the cut order. Proof: `uv run pytest tests/unit/convert/test_to_altium_schematic.py -q`; `uv run pytest tests/corpus/test_convert_census.py -k complex_hierarchy -rA`.
+- [x] 4.2 Write the tolerant texts and nets (scenario "Text outside the code page"). Proof: `uv run pytest tests/unit/backends/altium/test_schematic_tolerant.py -q`.
 - [ ] 4.3 Run RT-A3 over the public project sets (scenario "Public project sets judged") and write the table again in `docs/evidence/altium-roundtrip.md`, "Project sets", with `H-A-VER-RTA3-PRJ` measured again. Proof: `uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA` with the corpus cached.
 
 ## 5. Census and Part T
 
-- [ ] 5.1 Run the census (scenario "Census after the change") and write "KiCad to Altium, after c0160" into `docs/evidence/conversion.md`. Proof: `uv run pytest tests/corpus/test_convert_census.py -rA` with the corpus cached.
-- [ ] 5.2 Build the three projects of Part T into `~/fenolite-altium-checks/session-3/T-convert/` with a `README.md` and their SHA-256, and write Part T (steps T1 to T6) into `docs/evidence/altium-pcb.md`. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
+- [x] 5.1 Run the census (scenario "Census after the change") and write "KiCad to Altium, after c0160" into `docs/evidence/conversion.md`. Proof: `uv run pytest tests/corpus/test_convert_census.py -rA` with the corpus cached.
+- [x] 5.2 Build the three projects of Part T into `~/fenolite-altium-checks/session-3/T-convert/` with a `README.md` and their SHA-256, and write Part T (steps T1 to T6) into `docs/evidence/altium-pcb.md`. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
 - [ ] 5.3 **Maintainer, in Altium Designer.** Run Part T and give the report; record it under "Reports" of `docs/evidence/altium-pcb.md` (tool `AD <major>.<minor>`, date, one generic outcome per step, no artefact), register its source, and set the four rows' results (scenario "Part T recorded"). OPEN until Altium was run; nothing is marked `ALTIUM-VERIFIED` before. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py`.
 
 ## 6. Closing
 
-- [ ] 6.1 Document the closed losses, the layer map, the derived library, the converted schematic and the tolerant write in `docs/conversion.md` and `docs/altium.md`. Proof: `uv run pytest tests/unit/convert/test_docs.py -q`.
-- [ ] 6.2 Update the evidence labels: the four rows and `H-A-VER-RTA3-PRJ` hold their measured levels and results; `pcbdoc.EVIDENCE`, `pcblib.EVIDENCE`, `cfb` and `schdoc` name the rows they rest on; `uv run python tools/gen_evidence_matrix.py`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py tests/unit/test_evidence_matrix_page.py -q`.
-- [ ] 6.3 Add to `CHANGELOG.md` under Unreleased: DIFAT sectors, full-stack, connector and free pads, the layer map, the derived PCB library, the converted schematic and the tolerant write, with the census counts. Proof: `grep -n "DIFAT" CHANGELOG.md`.
-- [ ] 6.4 Run the residue scan and the fast suite. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes; `openspec validate c0160-convert-to-altium --strict --no-interactive` passes.
+- [x] 6.1 Document the closed losses, the layer map, the derived library, the converted schematic and the tolerant write in `docs/conversion.md` and `docs/altium.md`. Proof: `uv run pytest tests/unit/convert/test_docs.py -q`.
+- [x] 6.2 Update the evidence labels: the four rows and `H-A-VER-RTA3-PRJ` hold their measured levels and results; `pcbdoc.EVIDENCE`, `pcblib.EVIDENCE`, `cfb` and `schdoc` name the rows they rest on; `uv run python tools/gen_evidence_matrix.py`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py tests/unit/test_evidence_matrix_page.py -q`.
+- [x] 6.3 Add to `CHANGELOG.md` under Unreleased: DIFAT sectors, full-stack, connector and free pads, the layer map, the derived PCB library, the converted schematic and the tolerant write, with the census counts. Proof: `grep -n "DIFAT" CHANGELOG.md`.
+- [x] 6.4 Repair the fast gate baseline and evidence/text regression expectations for c0160: retain historic PCB byte goldens only for the measured example keys while checking every current example against its lowered specification; add the maintainer-required sign-off to the unsigned local starting commit without changing its tree or any other branch. Run the residue scan and the fast suite. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes; `openspec validate c0160-convert-to-altium --strict --no-interactive` passes.
+
+- 2026-10-12, task 3.1: 18 authored layer tests passed; all 16 mechanical mappings name and enable their target layer, copper texts read back on top/bottom, and User.9/Margin stay losses. Script builds keep the existing layer map.
+
+- 2026-10-12, task 3.2: derived-library and conversion unit proofs passed (39 tests). The library is selected by reference order, links PCB and schematic footprint models, retains representable instance graphics/texts in its local frame, and reports edited pads/graphics without replacing them on the board.
+
+- 2026-10-12, task 4.1: authored four-sheet conversion kept levels 1/2 with subprocesses blocked; cached public complex_hierarchy passed the API comparison (one root plus two instances of the repeated child). Physical-only pads are excluded from the separate schematic comparison. The pure conversion accepts a prepared SourceProject; the API prepares out-of-grammar schematics with its existing exporter, preserving the package no-tool contract.
+
+- 2026-10-12, task 4.2: tolerant schematic, ASCII and binary proofs passed (52 tests). Binary properties carry UTF8 twins with replacement fallback outside Windows-1252; script validation and ASCII refusal remain strict. Imported Altium parameter references are preserved, and conflicting pin memberships select the largest net with lexical tie-breaking and report pin-net losses requiring consent.
+
+- 2026-10-12, task 4.3 light proof: 4 passed, 1 skipped (set 01 is heavy and reserved for CI by the maintainer). Sets 02 and 04 now produce a schematic/project. Set 04 is equal after generated symbols with differing pin sets get distinct entries. Set 02 has 8 refused anonymous footprints and 21 net membership differences, each checked against exact refused source entities/memberships or an intact renumbered label alias; assignment finding counts stay equal. The full five-set task stays open until CI runs set 01.
+- 2026-10-12, task 5.1: census proof 50 passed, 4 heavy skips in 115.70 s; all 16 measured light demo boards convert with zero unexplained differences. Live report/reason and explained tables regenerated from measured results; the before-c0160 table is unchanged. The heavy DIFAT board tests now require successful writes/conversions instead of expecting obsolete refusals; CI runs them.
+- 2026-10-12, tasks 6.1/6.2: conversion docs, verification docs, hypotheses, provenance and evidence matrix proofs passed; writer declarations name their c0160 hypotheses and the generated matrix was refreshed. No Altium verification level is raised. Part T instructions are written; its bundle/report tasks remain open.
+- 2026-10-12, task 6.3: Unreleased describes DIFAT, padstacks, connectors/free pads, mechanical mapping, derived libraries, source schematic instances and tolerant text/net writes, with the measured 16-board census scope.
+- 2026-10-12, task 6.4 baseline repair: current branch alone replaces unsigned save 1e3e21fc with ae689e57 and its signed c0164 child with acf236d2, preserving both trees byte for byte. Every current example checks its lowered PCB bytes/pads; historical SHA-256 checks apply only to their original recorded keys, and a guard prevents recorded examples disappearing. Focused proof: 51 passed, including both former-document modes; no golden hash changed.
+
+- 2026-10-12, follow-up for tasks 2.3/3.2/4.3: free pads use the model's absolute board frame and real copper layers, including bottom footprints. Derived libraries select the actual footprint id rather than an ambiguous designator. RT-A3 compares the exact reported detached pads in the reader's free-pad representation, with anonymous owners ordered by geometry; shifted pads still fail comparison.
+
+- 2026-10-12, task 5.2: the three public-source projects were generated with conversion reports, SHA-256 and T1–T6 instructions. Each API conversion reports zero unexplained differences; the DIFAT project has a nonzero DIFAT sector count. Verification/document proof: 27 passed. Actual Altium outcomes remain task 5.3.
+- 2026-10-12, task 6.4 follow-up: evidence guards include the new conversion hypotheses; the historical v0.3 count excludes explicitly named post-release additions rather than rewriting the release record. Unicode serialization asserts both the UTF-8 twin and the replacement fallback. Focused gate repairs: 86 passed.
+
+- 2026-10-12, final fast gate: `make check-fast` passed unfiltered: **13184 passed, 27 skipped**, 614.17 s; ruff, formatting, generated guide, pyright and the residue scan passed. Detached-pad/library and light public PCB RT-A3 proof: **32 passed, 2 heavy skips** (5 unrelated project-set cases deselected in this focused command). Tasks 4.3 and 5.3 remain open for CI's heavy set and the actual maintainer Altium report. No merge or full local suite was run.
+
+- Part T padstack selection: the measured demo census contains no per-layer padstack. Its PADSTACK project therefore uses the existing Fenolite-authored four-layer fixture, with distinct In1/In2 shapes and sizes to exercise Full Stack mode 2. This is runtime test material only; DIFAT and SCHEMATIC retain registered public demo sources.
+
+- Part T final runtime proof: the generated PCB and PcbLib both contain Full Stack mode 2, with distinct first/second inner-layer shapes and sizes; every manifest SHA-256 matches. The refreshed ZIP includes exactly the three chosen cases. Post-archive native-template/CLI and Part T documentation proofs: **26 passed**. Living OpenSpec validation: **56 passed, 0 failed**; c0160 strict validation passed.

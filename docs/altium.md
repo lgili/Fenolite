@@ -309,10 +309,9 @@ never by file name.
   differ. Facts: `docs/formats/altium/compound-file.md` and `schematic-binary.md`.
 - **ASCII (`--altium-format ascii`).** One record per CR LF line (change c0032). Its bytes are exactly
   what c0032 writes; the ASCII golden files under `tests/data/altium/sample/` are this form.
-- **Size limit.** Fenolite's compound-file writer writes no DIFAT sector, so the header can list at most
-  109 FAT sectors, about 7 MB of file. A larger binary schematic is refused with the error
-  `altium.schematic-too-large` (exit 5, nothing written); `--altium-format ascii` has no such limit. A
-  schematic that size has thousands of parts.
+- **Size limit.** The compound-file writer uses DIFAT sectors beyond the header's 109 FAT entries
+  (c0160). Binary schematics are subject to the compound format's version 3 size limits, rather than
+  the former approximately 7 MB cap; `--altium-format ascii` has no compound-container limit.
 - **Switching forms.** A rebuild that only changes `--altium-format` replaces an unchanged schematic
   without `--discard-layout`: the edited-output check compares the file on disk with the last build
   record, not with the new form.
@@ -1362,8 +1361,8 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
 **A level that is not judged** is neither a pass nor a failure. The reasons:
 
 - `not-a-container` (RT-A0): the file is text (an ASCII schematic or a project file).
-- `too-large` (RT-A0): the file needs DIFAT sectors, which the compound writer does not write. RT-A1
-  still judges its records.
+- `too-large` (RT-A0): the file exceeds the compound writer's version 3 limits. DIFAT sectors are
+  supported since c0160. RT-A1 still judges its records.
 - `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
   not write).
 - `native-input` (RT-A2): the files were not written by a Fenolite build. RT-A2 compares a stored model
@@ -1750,3 +1749,13 @@ source locators remain present. Source bytes stay with the native reader record 
 unbounded hex extension. The inferred 0=top/1=bottom mapping is not native-verified. Signed bounds
 and projection_unknown are analysis metadata; the body writer of change c0121 writes a body from its
 `height` and `standoff` and reads neither the signed bounds nor `projection_unknown`.
+
+## Converted project libraries and schematics
+
+Change c0160 writes a derived PCB library and a schematic from the KiCad source's embedded symbols
+and sheet instances. Pads and drawings on supported layers are retained; presentation is regenerated
+and every remaining loss is reported. Mechanical-layer mapping, edited instances, Unicode comments
+and conflicting pin memberships are described in `docs/conversion.md`, "KiCad to Altium with c0160".
+The writers use DIFAT sectors for large compound documents. Altium opening, compile, repour, DRC,
+ECO and library placement checks are Part T in `docs/evidence/altium-pcb.md`; they remain unverified
+until the maintainer reports the actual outcomes.

@@ -70,6 +70,7 @@ PCBDOC_KIND = "altium_pcbdoc"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
@@ -211,8 +212,10 @@ def component_path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY) or component.path or component.ref
 
 
-def _text(text: str, what: str, *, parameter: bool = False, form: SchematicForm = "ascii") -> str:
-    problem = text_problem(text, form=form, parameter=parameter)
+def _text(
+    text: str, what: str, *, parameter: bool = False, form: SchematicForm = "ascii", read: bool = False
+) -> str:
+    problem = text_problem(text, form=form, parameter=parameter, read=read)
     if problem is not None:
         raise ValueError(f"{what} {text!r} {problem}")
     return text
@@ -226,7 +229,7 @@ INTERNAL_PROPERTY_PREFIX = "fenolite."
 
 
 def parameters_of(
-    component: Component, *, form: SchematicForm = "ascii"
+    component: Component, *, form: SchematicForm = "ascii", read: bool = False
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """The properties of ``component`` that become hidden parameters, as (name, value) in code-point
     order of the names, and those that cannot be written, as (name, reason) (change c0086, "Component
@@ -242,7 +245,7 @@ def parameters_of(
         if not value or key.startswith(INTERNAL_PROPERTY_PREFIX) or key.lower() in RESERVED_PARAMETERS:
             continue
         name_problem = text_problem(key)
-        value_problem = text_problem(value, form=form, parameter=True)
+        value_problem = text_problem(value, form=form, parameter=True, read=read)
         if name_problem is not None:
             skipped.append((key, f"its name {name_problem}"))
         elif value_problem is not None:
@@ -335,6 +338,7 @@ def part_specs(
     name: str = "",
     symbols: Mapping[str, AltiumSymbol] | None = None,
     form: SchematicForm = "ascii",
+    read_circuit: bool = False,
 ) -> list[PartSpec]:
     """One ``PartSpec`` per component, in component-path order, its body the library symbol of its lib id
     (``symbols`` first, generic otherwise). ``name`` is the design name, which gives the library file of
@@ -347,7 +351,7 @@ def part_specs(
     components = {c.id: c for c in design.circuit.components}
     joins: dict[str, dict[str, PinNet]] = {cid: {} for cid in components}
     for net in sorted(design.circuit.nets, key=lambda n: n.name):
-        _text(net.name, "net name")
+        _text(net.name, "net name", form=form, read=read_circuit)
         style = styles.get(net.id)
         how = PinNet(net.name, "label") if style is None else PinNet(net.name, "port", style)
         for member in net.members:
@@ -400,7 +404,11 @@ def part_specs(
                 key=component_path(component),
                 ref=_text(component.ref, "ref"),
                 comment=_text(
-                    component.value or symbol, f"{component.ref} comment", parameter=True, form=form
+                    component.value if read_circuit else component.value or symbol,
+                    f"{component.ref} comment",
+                    parameter=True,
+                    form=form,
+                    read=read_circuit,
                 ),
                 library=library,
                 symbol=symbol,
@@ -412,7 +420,7 @@ def part_specs(
                 no_connects=frozenset(marks[component.id]),
                 parameters=tuple(
                     (key, value, unique_id(f"{component.id}:parameter:{key}"))
-                    for key, value in parameters_of(component, form=form)[0]
+                    for key, value in parameters_of(component, form=form, read=read_circuit)[0]
                 ),
                 pin_pads=pin_pads,
             )
@@ -496,11 +504,12 @@ def plan_sheet(
     name: str = "",
     symbols: Mapping[str, AltiumSymbol] | None = None,
     form: SchematicForm = "ascii",
+    read_circuit: bool = False,
 ) -> SheetPlan:
     """The sheet layout of ``design``: sheet size, placed components, stubs, the bus blocks of its lowered
     buses (change c0086) and the net class directives of the single sheet ``<name>.SchDoc`` (change
     c0048)."""
-    specs = part_specs(design, name=name, symbols=symbols, form=form)
+    specs = part_specs(design, name=name, symbols=symbols, form=form, read_circuit=read_circuit)
     here = {net.net for spec in specs for net in spec.nets.values()}
     buses = [(bus.label, bus.members) for bus in lowered_buses(design)[0] if here & set(bus.members)]
     plan = layout_sheet(specs, buses=buses)
@@ -546,6 +555,8 @@ def write_project(
     outjob: bytes | None = None,
     frames: Mapping[str, Frame] | None = None,
     directions: bool = True,
+    extra_modules: Sequence[str] = (),
+    read_circuit: bool = False,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -564,7 +575,16 @@ def write_project(
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    planned = plan_sheets(design, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions)
+    planned = plan_sheets(
+        design,
+        name=name,
+        sheets=sheets,
+        form=form,
+        symbols=symbols,
+        directions=directions,
+        extra_modules=extra_modules,
+        read_circuit=read_circuit,
+    )
     for sheet in planned.sheets:
         size = sheet.plan.size
         if size.style is None and issues is not None:
@@ -610,7 +630,9 @@ def write_project(
             raise LibraryTooLarge(library, error) from error
     if footprints:
         try:
-            files[f"{name}.PcbLib"] = write_pcblib(footprints, filename=f"{name}.PcbLib")
+            files[f"{name}.PcbLib"] = write_pcblib(
+                footprints, filename=f"{name}.PcbLib", disambiguate_storages=read_circuit
+            )
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
     if pcb is not None:

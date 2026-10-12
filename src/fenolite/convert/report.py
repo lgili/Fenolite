@@ -51,7 +51,9 @@ def _rows(group: Group, refuse: Iterable[str], report: Iterable[str]) -> tuple[K
 
 
 KINDS: tuple[KindRow, ...] = (
-    *_rows("circuit", ("net", "netclass", "dnp"), ("module", "channel", "pin-pad-map", "pin-pads")),
+    *_rows(
+        "circuit", ("net", "netclass", "dnp", "pin-net"), ("module", "channel", "pin-pad-map", "pin-pads")
+    ),
     *_rows(
         "footprint",
         ("footprint", "pad", "footprint-copper"),
@@ -76,7 +78,7 @@ KINDS: tuple[KindRow, ...] = (
             "keepout-footprints",
         ),
     ),
-    *_rows("presentation", (), ("text", "graphic", "dimension")),
+    *_rows("presentation", (), ("text", "graphic", "dimension", "schematic-text")),
     *_rows("project", (), ("schematic",)),
 )
 """The closed vocabulary of kinds, in report order. Every kind that ``lower.LOSS_KINDS`` names and ``dnp``
@@ -343,6 +345,7 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("net", ("net",), "net-pins"),
     Explains("net", LEVEL5, "net"),
     Explains("dnp", ("dnp",), "ref"),
+    Explains("pin-net", ("net",), "pin"),
     Explains("footprint-copper", LEVEL5, "footprint-nets"),
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
@@ -420,6 +423,16 @@ class Explainer:
                 )
             elif kind == "dnp":
                 self._add(kind, "ref", {refs[i] for i in ids if i in refs})
+            elif kind == "pin-net":
+                self._add(
+                    kind,
+                    "pin",
+                    {
+                        f"{refs[component]}-{pin}"
+                        for i in ids
+                        if (component := i.rpartition(":")[0]) in refs and (pin := i.rpartition(":")[2])
+                    },
+                )
             elif kind == "footprint-copper":
                 holders = {footprint_of_graphic.get(i) for i in ids}
                 self._add(kind, "footprint-nets", {net for fp_id in holders for net in fp_nets(fp_id)})

@@ -24,15 +24,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
+from typing import cast
 
 import fenolite.backends.altium.pcbdoc as pcbdoc
 import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.project as project
 import fenolite.backends.altium.rulemap as rulemap
+from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
-from fenolite.backends.altium.cfb import CompoundTooLarge
+from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
+from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
@@ -55,11 +58,13 @@ from fenolite.model.board import (
     Via,
     Zone,
 )
-from fenolite.model.circuit import Component, Net, Pin
+from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 
-EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3", "H-A-VER-RTA3"))
+EVIDENCE = Evidence(
+    Level.INFERRED, hypotheses=("H-A-CONV-LIBRARY", "H-A-CONV-SCHEMATIC", "H-A-VER-RTA2-3", "H-A-VER-RTA3")
+)
 """The lowering is checked by Fenolite's own readers only: the documents it gives are read back and
 compared (RT-A2 on a built project, RT-A3 on a document that was read)."""
 BACKEND = "altium"
@@ -101,6 +106,8 @@ MORE_KINDS: tuple[str, ...] = (
     "net-tie",
     "severity",
     "dnp",
+    "pin-net",
+    "schematic-text",
 )
 """What a write of a model accounts for besides ``KINDS``: a net or a net class whose name no record
 holds, a filled shape on a copper layer (the model holds it as a graphic), the poured copper of a zone (a
@@ -144,6 +151,7 @@ def severity_reason(codes: Sequence[str]) -> str:
 
 LOSS_KINDS: frozenset[str] = frozenset(
     {
+        "pin-net",
         "footprint",
         "pad",
         "track",
@@ -179,6 +187,20 @@ MECHANICAL_LAYERS: Mapping[str, int] = MappingProxyType({f"Mech.{n}": 56 + n for
 """The names the import gives the mechanical layers 1 to 16 (``adapter.layers``) and their Altium ids
 (``pcb-records.md``, "Layer ids"): the layers of the items of a board that was read from an Altium
 document, beside ``pcbrecords.BOARD_LAYER_MAP`` (change c0126)."""
+KICAD_MECHANICAL: Mapping[str, int] = MappingProxyType(
+    {
+        **{f"User.{n}": 56 + n for n in range(1, 9)},
+        "Dwgs.User": 65,
+        "Cmts.User": 66,
+        "Eco1.User": 67,
+        "Eco2.User": 68,
+        "F.Fab": 69,
+        "B.Fab": 70,
+        "F.CrtYd": 71,
+        "B.CrtYd": 72,
+    }
+)
+"""Closed KiCad drawing-layer map of conversion c0160; unsupported layers remain losses."""
 DEFINITION_LAYERS: frozenset[str] = frozenset(
     name for name, ident in rec.LAYER_MAP.items() if ident in rec.FLIP_PAIRS and not name.endswith(".Cu")
 )
@@ -822,6 +844,9 @@ def _footprint_items(
 def _link(text: str, suffix: str) -> tuple[str, str]:
     """``(library file, name)`` of a ``<library>:<name>`` reference, each ``""`` when no record holds it."""
     parts = project.split_link(text) if text else None
+    if parts is not None and suffix == ".PcbLib":
+        prefix, _, pattern = text.rpartition(":")
+        parts = prefix, pattern
     library, name = parts if parts is not None else ("", text)
     if library and not library.lower().endswith(suffix.lower()):
         library += suffix
@@ -925,10 +950,9 @@ def _footprints(
             if not pad.number:
                 # Altium leaves a designator empty for a free pad only (change c0160): the pad leaves its
                 # footprint, and the document writes it as a free pad at its board position.
-                normalized = _library_pad(pad, bottom=bottom)
-                at = Transform.placement(fp.position, fp.rotation).apply(normalized.position)
-                rotation = (fp.rotation + normalized.rotation) % FULL_TURN
-                moved = dataclasses.replace(normalized, position=at, rotation=rotation)
+                at = Transform.placement(fp.position, fp.rotation).apply(pad.position)
+                rotation = (fp.rotation + pad.rotation) % FULL_TURN
+                moved = dataclasses.replace(pad, position=at, rotation=rotation, net_id=None)
                 free.append(pcbdoc.FreePad(moved, extras, net_names.get(pad.net_id or "")))
                 account.change("pad", pad.id, FREE_PAD_REASON)
                 continue
@@ -1206,7 +1230,7 @@ def unique_links(design: Design) -> dict[str, str]:
     return {ident: unique for ident, unique in found.items() if unique is not None and count[unique] == 1}
 
 
-def schematic_design(design: Design, name: str) -> Design:
+def schematic_design(design: Design, name: str, account: _Account | None = None) -> Design:
     """The design whose circuit the schematic writer takes: every component with a reference, a symbol
     link, a value and pins. A component without a reference (a free pad) is left out with its net
     members; a symbol link that is not ``<library>:<name>`` becomes ``<name>.SchLib:<its text or PART>``;
@@ -1267,13 +1291,53 @@ def schematic_design(design: Design, name: str) -> Design:
                 lib_symbol_ref=link,
                 lib_footprint_ref=footprint,
                 pins=pins,
-                value=component.value or link.rpartition(":")[2],
+                value=component.value,
             )
         )
+    storages: dict[tuple[tuple[int, tuple[int, ...]], tuple[int, tuple[int, ...]]], set[str]] = {}
+    pin_sets: dict[str, set[tuple[tuple[str, str, str], ...]]] = {}
+    for component in components:
+        symbol = component.lib_symbol_ref.rpartition(":")[2]
+        key = (
+            name_key(project.schlib_name(component.lib_symbol_ref, design=name)),
+            name_key(storage_name(symbol)),
+        )
+        storages.setdefault(key, set()).add(component.lib_symbol_ref)
+        pin_sets.setdefault(component.lib_symbol_ref, set()).add(
+            tuple(sorted((p.number, p.name, p.etype) for p in component.pins))
+        )
+    collisions = {link for links in storages.values() if len(links) > 1 for link in links}
+    collisions.update(link for link, shapes in pin_sets.items() if len(shapes) > 1)
+    components = [
+        dataclasses.replace(c, lib_symbol_ref=f"{name}.SchLib:PART_{c.ref}")
+        if c.lib_symbol_ref in collisions
+        else c
+        for c in components
+    ]
     kept = {component.id: {pin.number for pin in component.pins} for component in components}
+    winners: dict[PinRef, str] = {}
+    for net in sorted(design.circuit.nets, key=lambda n: (-len(set(n.members)), n.name, n.id)):
+        for member in net.members:
+            winners.setdefault(member, net.id)
     nets: list[Net] = []
     for net in design.circuit.nets:
-        members = tuple(m for m in net.members if m.pin in kept.get(m.component_id, ()))
+        members = tuple(
+            m for m in net.members if m.pin in kept.get(m.component_id, ()) and winners[m] == net.id
+        )
+        if account is not None:
+            for member in net.members:
+                if member.component_id in kept and member.pin not in kept[member.component_id]:
+                    account.skip(
+                        "pin-net",
+                        f"{member.component_id}:{member.pin}",
+                        f"the pin's membership of {net.name} is omitted: the component holds no such pin",
+                    )
+                elif member.pin in kept.get(member.component_id, ()) and winners[member] != net.id:
+                    account.skip(
+                        "pin-net",
+                        f"{member.component_id}:{member.pin}",
+                        f"the pin's membership of {net.name} is omitted: the largest net, then name, wins",
+                    )
         nets.append(dataclasses.replace(net, members=members))
     marks = tuple(m for m in design.circuit.no_connects if m.pin in kept.get(m.component_id, ()))
     circuit = dataclasses.replace(
@@ -1351,7 +1415,7 @@ def from_design(
                 bodies=body_mode,
                 options=options,
             )
-    schematic = schematic_design(design, name)
+    schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
     for component in design.circuit.components:
         if component.pin_pad_map and not modelled.get(component.id):
@@ -1438,7 +1502,16 @@ def _document(
                 origin = Point(found[0][0], found[1][0])
     placed_bodies: list[pcbdoc.PlacedBody] = []
     # a board that was read names its mechanical layers Mech.<n>: the document holds them (change c0126)
-    layer_ids: Mapping[str, int] = MECHANICAL_LAYERS if read else MappingProxyType({})
+    layer_ids: Mapping[str, int] = MappingProxyType(
+        {
+            **(MECHANICAL_LAYERS if read else KICAD_MECHANICAL if options is None else {}),
+            **(
+                dict(zip(layers, rec.copper_stack(layers, tuple(planes)), strict=True))
+                if options is None
+                else {}
+            ),
+        }
+    )
     components, free_pads = _footprints(
         design,
         board,
@@ -1505,6 +1578,10 @@ def write_design(
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
     bodies: str = "off",
+    derive_library: bool = False,
+    schematic: Design | None = None,
+    symbols: Mapping[str, AltiumSymbol] | None = None,
+    sheets: project.SheetMode = project.DEFAULT_SHEETS,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
     holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
@@ -1515,13 +1592,43 @@ def write_design(
     too: ``extruded`` writes the extruded component bodies (change c0121)."""
     issues: list[Issue] = []
     inputs = from_design(design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies)
+    if schematic is not None:
+        inputs = dataclasses.replace(inputs, schematic=schematic_design(schematic, inputs.name))
+        if inputs.pcb is not None and sheets == "modules":
+            from fenolite.backends.altium.hierarchy import sheet_of, symbol_id
+
+            parts = {c.ref: c for c in inputs.schematic.circuit.components}
+            placed = tuple(
+                dataclasses.replace(c, sheet=(symbol_id(module), module))
+                if (part := parts.get(c.ref)) is not None and (module := sheet_of(part))
+                else c
+                for c in inputs.pcb.components
+            )
+            inputs = dataclasses.replace(inputs, pcb=dataclasses.replace(inputs.pcb, components=placed))
+    library: tuple[pcblib.LibFootprint, ...] = ()
+    if derive_library:
+        inputs, library = derived_library(design, inputs)
     lost = [found for found in issues if found.where in LOSS_KINDS]
     if lost and not allow_lossy:
         raise LossyWriteError(lost)
     name = inputs.name
     files: dict[str, bytes] = {}
     try:
-        files.update(project.write_project(inputs.schematic, name=name, issues=issues, pcb=inputs.pcb))
+        files.update(
+            project.write_project(
+                inputs.schematic,
+                name=name,
+                issues=issues,
+                pcb=inputs.pcb,
+                footprints=library,
+                symbols=symbols,
+                sheets=sheets,
+                extra_modules=tuple(m.path for m in schematic.circuit.modules)
+                if schematic is not None
+                else (),
+                read_circuit=True,
+            )
+        )
     except CompoundTooLarge:
         raise
     except (ValueError, KeyError) as error:
@@ -1529,7 +1636,152 @@ def write_design(
         issues.append(Issue(NOT_LOWERED, "info", message, where="schematic"))
         if inputs.pcb is not None:
             files[f"{name}.PcbDoc"] = pcbdoc.write_pcbdoc(inputs.pcb, filename=f"{name}.PcbDoc")
+        if library:
+            files[f"{name}.PcbLib"] = pcblib.write_pcblib(
+                library, filename=f"{name}.PcbLib", disambiguate_storages=True
+            )
     return ProjectWrite(MappingProxyType(dict(sorted(files.items()))), tuple(issues), inputs)
+
+
+def _shape(value: object) -> object:
+    """Geometry without instance identity or connected nets, including nested padstacks."""
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return tuple(
+            (f.name, _shape(getattr(value, f.name)))
+            for f in dataclasses.fields(value)
+            if f.name not in ("id", "native_ids", "provenance", "ext", "net_id")
+        )
+    if isinstance(value, tuple):
+        return tuple(_shape(item) for item in cast(tuple[object, ...], value))
+    return value
+
+
+def derived_library(
+    design: Design, inputs: AltiumInputs
+) -> tuple[AltiumInputs, tuple[pcblib.LibFootprint, ...]]:
+    """One library definition per pattern, chosen by reference order; board instances retain their edits."""
+    if inputs.pcb is None or design.board is None:
+        return inputs, ()
+    footprints = {fp.id: fp for fp in design.board.footprints}
+    library: dict[str, pcblib.LibFootprint] = {}
+    shapes: dict[str, object] = {}
+    changed: list[str] = []
+    for placed in sorted(inputs.pcb.components, key=lambda c: (c.ref, c.unique_id)):
+        fp = footprints.get(placed.footprint.defn.id)
+        if fp is None:
+            continue
+        pattern = placed.footprint.defn.name
+        bottom = fp.side == "bottom"
+        shape = _shape(
+            (
+                tuple(_library_pad(p, bottom=bottom) for p in fp.pads),
+                tuple(_library_graphic(g, bottom=bottom) for g in fp.graphics),
+            )
+        )
+        if pattern in library:
+            if shape != shapes[pattern]:
+                changed.append(fp.id)
+            continue
+        shapes[pattern] = shape
+        mirror = Transform.placement(Point(0, 0), 0, mirror=bottom)
+        items = tuple(
+            dataclasses.replace(
+                item,
+                graphic=_library_graphic(item.graphic, bottom=bottom),
+                layer=rec.FLIP_PAIRS.get(item.layer, item.layer) if bottom else item.layer,
+                arc=None,
+            )
+            for item in placed.items
+        )
+        empty = pcblib.LibFootprint(FootprintDef(id=fp.id, name=pattern))
+        local = dataclasses.replace(
+            placed, footprint=empty, at=Point(0, 0), rotation=0, side="top", items=items, arc_records={}
+        )
+        primitives = pcbdoc.place_component(local, rec.NO_INDEX, pcbdoc.Frame.document(), {})
+        extra = [
+            (kind, record)
+            for kind, records in (
+                ("Track", primitives.tracks),
+                ("Arc", primitives.arcs),
+                ("Region", primitives.regions),
+            )
+            for record in records
+        ]
+        wide: list[tuple[str, str]] = []
+        for number, item in enumerate(placed.texts):
+            place = item.place
+            layer = rec.FLIP_PAIRS.get(place.layer, place.layer) if bottom else place.layer
+            extra.append(
+                (
+                    "Text",
+                    pcbdoc.text_record(
+                        item.text,
+                        layer=layer,
+                        at=pcblib.library_frame(mirror.apply(place.position)),
+                        component=rec.NO_INDEX,
+                        designator=False,
+                        wide_index=number,
+                        mirrored=place.mirrored != bottom,
+                        free=True,
+                        height=place.height,
+                        stroke=place.stroke,
+                        rotation=mirror.apply_angle(place.rotation),
+                    ),
+                )
+            )
+            wide.append((f"ENCODEDTEXT{number}", ",".join(str(ord(char)) for char in item.text)))
+        bodies = (
+            tuple(
+                dataclasses.replace(
+                    body,
+                    outline=tuple(mirror.apply(p) for p in body.outline),
+                    layer=_other_side(body.layer) if bottom else body.layer,
+                )
+                for body in fp.bodies
+            )
+            if inputs.bodies == "extruded"
+            else ()
+        )
+        library[pattern] = dataclasses.replace(
+            placed.footprint,
+            extra_primitives=tuple(extra),
+            wide_strings=rec.property_block(wide) if wide else rec.EMPTY_PROPERTY_BLOCK,
+            bodies=bodies,
+        )
+    schematic_parts = {c.ref: c for c in inputs.schematic.circuit.components}
+    linked = tuple(
+        dataclasses.replace(
+            c,
+            footprint_library=f"{inputs.name}.PcbLib",
+            component_library=project.schlib_name(part.lib_symbol_ref, design=inputs.name),
+            lib_reference=part.lib_symbol_ref.rpartition(":")[2],
+        )
+        if (part := schematic_parts.get(c.ref)) is not None
+        else c
+        for c in inputs.pcb.components
+    )
+    refs = {c.ref: c.footprint.defn.name for c in linked}
+    circuit = dataclasses.replace(
+        inputs.schematic.circuit,
+        components=tuple(
+            dataclasses.replace(c, lib_footprint_ref=f"{inputs.name}.PcbLib:{refs[c.ref]}")
+            if c.ref in refs
+            else c
+            for c in inputs.schematic.circuit.components
+        ),
+    )
+    changes = dict(inputs.changed)
+    if changed:
+        changes["footprint"] = {
+            **changes.get("footprint", {}),
+            "differs from the library footprint": tuple(changed),
+        }
+    return dataclasses.replace(
+        inputs,
+        pcb=dataclasses.replace(inputs.pcb, components=linked),
+        schematic=dataclasses.replace(inputs.schematic, circuit=circuit),
+        changed=changes,
+    ), tuple(library.values())
 
 
 # --- the board a build wrote ----------------------------------------------------------------------------
@@ -1826,6 +2078,7 @@ __all__ = [
     "KEEPOUT_FOOTPRINTS_KIND",
     "LOSS_KINDS",
     "MECHANICAL_LAYERS",
+    "KICAD_MECHANICAL",
     "MORE_KINDS",
     "DNP_KIND",
     "DNP_REASON",

@@ -18,7 +18,7 @@ of its conversion is excluded by the profile or explained by an item the report 
 nothing about what Altium Designer does with the documents (the kit's and the author reports' question,
 `docs/altium-kit.md`), and it does not raise the Altium writers' own level (`INFERRED`, experimental).
 
-## The boards
+## The boards (baseline before c0160)
 
 Measured on 2026-10-09 on `dev` at `3cfb65b` with this change (local run, Linux, 4 CPUs).
 
@@ -225,74 +225,63 @@ compares equal; `lost`: not written).
 | board | kind | outcome | count | reason |
 |---|---|---|---|---|
 | CM5_MINIMA_3 | dnp | lost | 2 | the Altium documents hold no fitted flag outside variants |
-| CM5_MINIMA_3 | pad | lost | 16 | the pad number '' is empty |
-| CM5_MINIMA_3 | pad | lost | 12 | the pad has a per-layer padstack |
-| CM5_MINIMA_3 | pad | lost | 2 | the pad is a connector pad (kind connect) |
-| CM5_MINIMA_3 | footprint-graphic | lost | 16 | the layer Cmts.User has no layer in the document for a graphic |
-| CM5_MINIMA_3 | footprint-graphic | lost | 6 | the layer Eco2.User has no layer in the document for a graphic |
-| CM5_MINIMA_3 | footprint-graphic | lost | 5 | the layer Eco1.User has no layer in the document for a graphic |
+| CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J502-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
+| CM5_MINIMA_3 | pin-net | lost | 1 | the pin's membership of unconnected-(J503-MountPin-PadMP)_1 is omitted: the largest net, then name, wins |
+| CM5_MINIMA_3 | footprint | changed | 33 | differs from the library footprint |
+| CM5_MINIMA_3 | pad | changed | 14 | the pad number is empty, so it is written as a free pad at its board position |
+| CM5_MINIMA_3 | pad | changed | 2 | a connector pad is written as a surface pad with no paste and no mask opening |
+| CM5_MINIMA_3 | pad | lost | 2 | the pad is a surface pad without a copper layer |
 | CM5_MINIMA_3 | footprint-graphic | lost | 3 | a filled circle has no record: a region holds straight edges only |
-| CM5_MINIMA_3 | footprint-graphic | lost | 2 | the layer Dwgs.User has no layer in the document for a graphic |
-| CM5_MINIMA_3 | footprint-graphic | lost | 1 | the layer User.2 has no layer in the document for a graphic |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
 | CM5_MINIMA_3 | outline | lost | 1 | the board holds no closed outline; the box of its items is written |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
-| CM5_MINIMA_3 | text | lost | 149 | the layer Dwgs.User has no layer in the document for a text |
-| CM5_MINIMA_3 | graphic | lost | 27 | the layer Dwgs.User has no layer in the document for a graphic |
-| CM5_MINIMA_3 | graphic | lost | 4 | the layer User.4 has no layer in the document for a graphic |
-| CM5_MINIMA_3 | schematic | lost | 1 | the schematic writer refuses the circuit: no schematic and no project file are written |
+| CM5_MINIMA_3 | text | lost | 131 | the text record has no key for a justification other than centred |
+| CM5_MINIMA_3 | text | lost | 18 | the text is empty |
+| CM5_MINIMA_3 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
+| complex_hierarchy | footprint | changed | 28 | differs from the library footprint |
 | complex_hierarchy | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | complex_hierarchy | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
-| complex_hierarchy | text | lost | 1 | the layer B.Cu has no layer in the document for a text |
-| complex_hierarchy | text | lost | 1 | the layer F.Cu has no layer in the document for a text |
+| complex_hierarchy | text | lost | 2 | the text holds a control character or a line break |
 | complex_hierarchy | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| ecc83-pp | footprint-graphic | lost | 4 | the layer Cmts.User has no layer in the document for a graphic |
+| ecc83-pp | footprint | changed | 5 | differs from the library footprint |
 | ecc83-pp | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | ecc83-pp | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | ecc83-pp | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| ecc83-pp_v2 | pad | lost | 9 | the pad has a per-layer padstack |
-| ecc83-pp_v2 | pad | lost | 1 | the pad number '' is empty |
-| ecc83-pp_v2 | footprint-graphic | lost | 4 | the layer Cmts.User has no layer in the document for a graphic |
+| ecc83-pp_v2 | footprint | changed | 4 | differs from the library footprint |
+| ecc83-pp_v2 | pad | changed | 1 | the pad number is empty, so it is written as a free pad at its board position |
 | ecc83-pp_v2 | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | ecc83-pp_v2 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
 | ecc83-pp_v2 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| interf_u | pad | lost | 62 | the pad is a connector pad (kind connect) |
+| interf_u | footprint | changed | 6 | differs from the library footprint |
+| interf_u | pad | changed | 62 | a connector pad is written as a surface pad with no paste and no mask opening |
 | interf_u | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | interf_u | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
-| interf_u | text | lost | 3 | the layer B.Cu has no layer in the document for a text |
-| interf_u | text | lost | 3 | the layer F.Cu has no layer in the document for a text |
 | interf_u | dimension | lost | 2 | the document has no dimension record |
 | interf_u | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| kit-dev-coldfire-xilinx_5213 | pad | lost | 3 | the pad has a per-layer padstack |
-| kit-dev-coldfire-xilinx_5213 | pad | lost | 2 | the pad number '' is empty |
+| kit-dev-coldfire-xilinx_5213 | footprint | changed | 87 | differs from the library footprint |
+| kit-dev-coldfire-xilinx_5213 | pad | changed | 2 | the pad number is empty, so it is written as a free pad at its board position |
 | kit-dev-coldfire-xilinx_5213 | zone-fill | changed | 3 | a polygon is written unpoured; Altium fills it on a repour |
 | kit-dev-coldfire-xilinx_5213 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| kit-dev-coldfire-xilinx_5213 | text | lost | 4 | the layer F.Cu has no layer in the document for a text |
-| kit-dev-coldfire-xilinx_5213 | text | lost | 1 | the layer B.Cu has no layer in the document for a text |
+| kit-dev-coldfire-xilinx_5213 | text | lost | 1 | the text holds a control character or a line break |
 | kit-dev-coldfire-xilinx_5213 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | microwave | footprint-copper | lost | 4 | a graphic of a footprint on a copper layer has no record written: it would be copper |
-| microwave | graphic | lost | 3 | the layer Dwgs.User has no layer in the document for a graphic |
 | microwave | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| multichannel_mixer-unrouted | pad | lost | 35 | the pad has a per-layer padstack |
-| multichannel_mixer-unrouted | footprint-graphic | lost | 32 | the layer Cmts.User has no layer in the document for a graphic |
+| multichannel_mixer-unrouted | footprint | changed | 68 | differs from the library footprint |
 | multichannel_mixer-unrouted | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer-unrouted | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer-unrouted | text | lost | 1 | the layer Eco1.User has no layer in the document for a text |
-| multichannel_mixer-unrouted | text | lost | 1 | the text holds a control character or a line break |
+| multichannel_mixer-unrouted | text | lost | 2 | the text holds a control character or a line break |
 | multichannel_mixer-unrouted | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| multichannel_mixer | pad | lost | 35 | the pad has a per-layer padstack |
-| multichannel_mixer | footprint-graphic | lost | 32 | the layer Cmts.User has no layer in the document for a graphic |
+| multichannel_mixer | footprint | changed | 68 | differs from the library footprint |
 | multichannel_mixer | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | multichannel_mixer | keep-out | lost | 4 | the keep-out sets no restriction that the record carries (tracks, vias, pads, copper) |
-| multichannel_mixer | text | lost | 1 | the layer Eco1.User has no layer in the document for a text |
 | multichannel_mixer | text | lost | 1 | the text holds a control character or a line break |
+| multichannel_mixer | text | lost | 1 | the text record has no key for a justification other than centred |
 | multichannel_mixer | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | One-Air-Max | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
+| One-Air-Max | footprint | changed | 118 | differs from the library footprint |
 | One-Air-Max | pad | lost | 12 | the pad has the shape custom, which has no exact Altium form |
-| One-Air-Max | pad | lost | 6 | the pad has a per-layer padstack |
-| One-Air-Max | pad | lost | 5 | the pad number '' is empty |
+| One-Air-Max | pad | changed | 5 | the pad number is empty, so it is written as a free pad at its board position |
 | One-Air-Max | footprint-copper | lost | 3 | a graphic of a footprint on a copper layer has no record written: it would be copper |
-| One-Air-Max | footprint-graphic | lost | 28 | the layer Cmts.User has no layer in the document for a graphic |
 | One-Air-Max | footprint-graphic | lost | 1 | degenerate arc on F.SilkS is not written |
 | One-Air-Max | net-tie | lost | 2 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
 | One-Air-Max | copper-shape | lost | 2 | a shape on a copper layer has no record written |
@@ -301,24 +290,20 @@ compares equal; `lost`: not written).
 | One-Air-Max | stackup | lost | 1 | the document has no key for the solder mask thickness, the finish; the copper and dielectric values are written |
 | One-Air-Max | text | lost | 24 | the text record has no key for a justification other than centred |
 | One-Air-Max | text | lost | 1 | the text holds a control character or a line break |
-| One-Air-Max | graphic | lost | 2 | the layer Dwgs.User has no layer in the document for a graphic |
 | One-Air-Max | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| pic_programmer | pad | lost | 9 | the pad number '' is empty |
+| pic_programmer | footprint | changed | 18 | differs from the library footprint |
+| pic_programmer | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
 | pic_programmer | pad | lost | 2 | the pad has the shape custom, which has no exact Altium form |
-| pic_programmer | footprint-graphic | lost | 6 | the layer Cmts.User has no layer in the document for a graphic |
 | pic_programmer | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | pic_programmer | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours; the copper and dielectric values are written |
-| pic_programmer | text | lost | 17 | the layer F.Cu has no layer in the document for a text |
-| pic_programmer | text | lost | 2 | the layer B.Cu has no layer in the document for a text |
 | pic_programmer | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | RoyalBlue54L-Feather | dnp | lost | 22 | the Altium documents hold no fitted flag outside variants |
-| RoyalBlue54L-Feather | pad | lost | 39 | the pad number '' is empty |
-| RoyalBlue54L-Feather | pad | lost | 18 | the pad has the shape custom, which has no exact Altium form |
-| RoyalBlue54L-Feather | pad | lost | 6 | the pad is a connector pad (kind connect) |
-| RoyalBlue54L-Feather | pad | lost | 4 | the pad has a per-layer padstack |
+| RoyalBlue54L-Feather | footprint | changed | 24 | differs from the library footprint |
+| RoyalBlue54L-Feather | pad | lost | 39 | the pad has the shape custom, which has no exact Altium form |
+| RoyalBlue54L-Feather | pad | lost | 9 | the pad is a surface pad without a copper layer |
+| RoyalBlue54L-Feather | pad | changed | 9 | the pad number is empty, so it is written as a free pad at its board position |
+| RoyalBlue54L-Feather | pad | changed | 6 | a connector pad is written as a surface pad with no paste and no mask opening |
 | RoyalBlue54L-Feather | footprint-copper | lost | 1 | a graphic of a footprint on a copper layer has no record written: it would be copper |
-| RoyalBlue54L-Feather | footprint-graphic | lost | 4 | the layer Cmts.User has no layer in the document for a graphic |
-| RoyalBlue54L-Feather | footprint-text | lost | 2 | a text of a footprint: the layer Cmts.User has no layer in the document for a text |
 | RoyalBlue54L-Feather | net-tie | lost | 1 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
 | RoyalBlue54L-Feather | zone | lost | 2 | the model holds no outline of the zone (an outline with an arc is kept by the reader) |
 | RoyalBlue54L-Feather | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
@@ -326,44 +311,37 @@ compares equal; `lost`: not written).
 | RoyalBlue54L-Feather | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | RoyalBlue54L-Feather | text | lost | 1 | the text holds a control character or a line break |
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 6 | the layer Cmts.User has no layer in the document for a graphic |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 5 | the layer Edge.Cuts has no layer in the document for a graphic |
 | RoyalBlue54L-NFC-Antenna | copper-shape | lost | 4 | a shape on a copper layer has no record written |
 | RoyalBlue54L-NFC-Antenna | outline | lost | 1 | the board holds no closed outline; the box of its items is written |
 | RoyalBlue54L-NFC-Antenna | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
-| sonde xilinx | footprint-graphic | lost | 2 | the layer Dwgs.User has no layer in the document for a graphic |
-| sonde xilinx | footprint-text | lost | 2 | a text of a footprint: the layer Dwgs.User has no layer in the document for a text |
+| sonde xilinx | footprint | changed | 3 | differs from the library footprint |
 | sonde xilinx | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
 | sonde xilinx | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| sonde xilinx | text | lost | 7 | the layer F.Cu has no layer in the document for a text |
-| sonde xilinx | text | lost | 1 | the layer B.Cu has no layer in the document for a text |
 | sonde xilinx | dimension | lost | 1 | the document has no dimension record |
 | sonde xilinx | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | tinytapeout-demo | dnp | lost | 11 | the Altium documents hold no fitted flag outside variants |
+| tinytapeout-demo | footprint | changed | 63 | differs from the library footprint |
 | tinytapeout-demo | pad | lost | 16 | the pad has the shape custom, which has no exact Altium form |
-| tinytapeout-demo | pad | lost | 7 | the pad number '' is empty |
-| tinytapeout-demo | pad | lost | 4 | the pad has a per-layer padstack |
+| tinytapeout-demo | pad | lost | 4 | the pad is a surface pad without a copper layer |
+| tinytapeout-demo | pad | changed | 3 | the pad number is empty, so it is written as a free pad at its board position |
 | tinytapeout-demo | footprint-copper | lost | 25 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | tinytapeout-demo | footprint-graphic | lost | 9 | the layer Edge.Cuts has no layer in the document for a graphic |
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
-| tinytapeout-demo | footprint-graphic | lost | 4 | the layer Cmts.User has no layer in the document for a graphic |
-| tinytapeout-demo | footprint-text | lost | 1 | a text of a footprint: the layer User.4 has no layer in the document for a text |
 | tinytapeout-demo | net-tie | lost | 9 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | tinytapeout-demo | outline | lost | 1 | the board holds no closed outline; the box of its items is written |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
 | tinytapeout-demo | text | lost | 215 | the text record has no key for a justification other than centred |
-| tinytapeout-demo | text | lost | 8 | the text holds a control character or a line break |
-| tinytapeout-demo | text | lost | 1 | the layer User.1 has no layer in the document for a text |
+| tinytapeout-demo | text | lost | 9 | the text holds a control character or a line break |
 | tinytapeout-demo | graphic | lost | 2 | a filled circle has no record: a region holds straight edges only |
 | tinytapeout-demo | dimension | lost | 6 | the document has no dimension record |
-| tinytapeout-demo | schematic | lost | 1 | the schematic writer refuses the circuit: no schematic and no project file are written |
-| video | pad | lost | 120 | the pad is a connector pad (kind connect) |
-| video | pad | lost | 24 | the pad number '' is empty |
+| tinytapeout-demo | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
+| video | footprint | changed | 119 | differs from the library footprint |
+| video | pad | changed | 120 | a connector pad is written as a surface pad with no paste and no mask opening |
+| video | pad | changed | 24 | the pad number is empty, so it is written as a free pad at its board position |
 | video | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
 | video | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
-| video | text | lost | 1 | the layer B.Cu has no layer in the document for a text |
-| video | graphic | lost | 14 | the layer Dwgs.User has no layer in the document for a graphic |
 | video | dimension | lost | 2 | the document has no dimension record |
 | video | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 <!-- ledger:end -->
@@ -375,42 +353,39 @@ Each difference of the read-back, per board, with the kind of the lost item that
 <!-- explained:begin -->
 | board | difference | explained by | count |
 |---|---|---|---|
-| CM5_MINIMA_3 | dnp | dnp | 2 |
-| CM5_MINIMA_3 | pad-missing | pad | 15 |
-| CM5_MINIMA_3 | pin-missing | pad | 6 |
-| ecc83-pp_v2 | pad-missing | pad | 10 |
-| ecc83-pp_v2 | pin-missing | pad | 9 |
-| interf_u | pad-missing | pad | 62 |
-| interf_u | pin-missing | pad | 62 |
-| kit-dev-coldfire-xilinx_5213 | pad-missing | pad | 5 |
-| kit-dev-coldfire-xilinx_5213 | pin-missing | pad | 3 |
+| CM5_MINIMA_3 | dnp | dnp | 1 |
+| CM5_MINIMA_3 | dnp | footprint | 1 |
+| CM5_MINIMA_3 | pad-kind | pad | 2 |
+| CM5_MINIMA_3 | pad-missing | pad | 8 |
+| ecc83-pp_v2 | pad-missing | pad | 1 |
+| interf_u | pad-kind | pad | 62 |
+| kit-dev-coldfire-xilinx_5213 | pad-missing | pad | 2 |
 | microwave | ref-ambiguous | source | 1 |
-| multichannel_mixer-unrouted | pad-missing | pad | 19 |
-| multichannel_mixer-unrouted | pin-missing | pad | 19 |
-| multichannel_mixer | pad-missing | pad | 19 |
-| multichannel_mixer | pin-missing | pad | 19 |
-| One-Air-Max | dnp | dnp | 11 |
-| One-Air-Max | pad-missing | pad | 20 |
-| One-Air-Max | pin-missing | pad | 17 |
-| One-Air-Max | ref-ambiguous | source | 1 |
+| One-Air-Max | dnp | dnp | 1 |
+| One-Air-Max | dnp | footprint | 10 |
+| One-Air-Max | pad-missing | pad | 15 |
+| One-Air-Max | pin-missing | pad | 12 |
 | pic_programmer | pad-missing | pad | 10 |
 | pic_programmer | pin-missing | pad | 2 |
-| RoyalBlue54L-Feather | dnp | dnp | 22 |
-| RoyalBlue54L-Feather | pad-missing | pad | 35 |
-| RoyalBlue54L-Feather | pin-missing | pad | 25 |
-| RoyalBlue54L-Feather | route-connectivity | zone | 2 |
-| tinytapeout-demo | dnp | dnp | 11 |
-| tinytapeout-demo | pad-missing | pad | 24 |
-| tinytapeout-demo | pin-missing | pad | 4 |
+| RoyalBlue54L-Feather | dnp | dnp | 20 |
+| RoyalBlue54L-Feather | dnp | footprint | 2 |
+| RoyalBlue54L-Feather | pad-kind | pad | 6 |
+| RoyalBlue54L-Feather | pad-missing | pad | 28 |
+| RoyalBlue54L-Feather | pin-missing | pad | 18 |
+| RoyalBlue54L-Feather | route-connectivity | footprint | 1 |
+| RoyalBlue54L-Feather | route-connectivity | zone | 1 |
+| tinytapeout-demo | dnp | dnp | 9 |
+| tinytapeout-demo | dnp | footprint | 2 |
+| tinytapeout-demo | pad-missing | pad | 20 |
 | tinytapeout-demo | ref-ambiguous | source | 4 |
-| tinytapeout-demo | route-connectivity | pad | 1 |
-| video | pad-missing | pad | 128 |
-| video | pin-missing | pad | 120 |
+| tinytapeout-demo | route-connectivity | footprint | 1 |
+| video | pad-kind | pad | 120 |
+| video | pad-missing | pad | 8 |
 <!-- explained:end -->
 
 ## What the ledger asks of the writers
 
-The losses of `refuse` kinds that the census measures are the work of change c0160 (closing the losses of
+The losses of `refuse` kinds that the baseline census measured are the work of change c0160 (closing the losses of
 KiCad to Altium); none of them is a fault of the conversion, which reports each one and explains every
 difference it causes:
 
@@ -507,3 +482,15 @@ of a downgrade. 10.0.6's re-save of each converted board equals the source at le
 copper of the nine holes of `CM5_MINIMA_3` restricted to the outer layers (`"F&B.Cu"`), which 10.0.6
 reads in a board of format 9 with every copper layer: the row `npth-front-back` names them as a `design`
 loss. Probe `down-demos` = `equal` on both majors.
+
+## KiCad to Altium, after c0160
+
+Measured on 2026-10-12 on the c0164 branch with c0160 implemented: all **16 light demo boards**
+convert and have **zero unexplained differences**. The live ledger and explained tables above contain
+this measurement; the before-c0160 table remains frozen. DIFAT boards 06 and 18 are guarded by
+`FENOLITE_HEAVY=1` and reserved for CI, so this is not a claim of a complete 18-board run.
+
+Connector pads, unnumbered pads, plain per-layer stacks and mapped mechanical drawings are written;
+unsupported shapes, unsupported layers and other losses remain itemized. Every conversion includes
+a derived PCB library. The cached complex_hierarchy project separately preserves its schematic
+netlist and three sheet instances, with the schematic drawing regenerated.

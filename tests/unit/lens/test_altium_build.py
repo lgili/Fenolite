@@ -244,6 +244,7 @@ def test_evidence() -> None:
         "H-A-PCBX-",
         "H-A-ECO-",
         "H-A-RULE-",
+        "H-A-CONV-",
     )
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted
@@ -254,6 +255,9 @@ def test_evidence() -> None:
     board_rows = {i for i in rows if i.startswith(("H-A-PCB-", "H-A-PCBX-", "H-A-RULE-"))} | {
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-LIBRARY",
+        "H-A-CONV-PADSTACK",
     }
     # the component classes and the rules of the design (c0084) are in the document
     assert set(PCB_BUILD_EVIDENCE.hypotheses) == board_rows

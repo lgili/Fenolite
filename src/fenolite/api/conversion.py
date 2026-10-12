@@ -14,18 +14,21 @@ gives one ``convert.unexplained`` error. Nothing outside the temporary folder is
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import fenolite.convert as convert_package
 from fenolite.api.equivalence import EquivalenceResult, equivalent
+from fenolite.api.sides import read_schematic
 from fenolite.checks.equivalence import Profile, load_profiles
 from fenolite.checks.equivalence.model import Difference
 from fenolite.convert import PROFILES_FILE, Conversion, convert_project, profiles_text
 from fenolite.convert.codes import issue
 from fenolite.convert.direction import Target
 from fenolite.convert.report import Explainer
+from fenolite.convert.schematic import root_schematic
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
 
@@ -98,9 +101,24 @@ def _schematic(
     """The differences between the source's root schematic and the written one at level 2, or the
     ``convert.schematic-unverified`` warning when they cannot be compared (change c0162)."""
     assert conversion.schematic is not None
-    source = conversion.source.root / f"{conversion.source.name}{PurePosixPath(conversion.schematic).suffix}"
+    suffix = ".kicad_sch" if conversion.target == "altium" else PurePosixPath(conversion.schematic).suffix
+    source = conversion.source.root / f"{conversion.source.name}{suffix}"
+    target = folder / conversion.schematic
+    if conversion.target == "altium":
+        from fenolite.backends.altium.project import write_prjpcb
+
+        stem = PurePosixPath(conversion.read_back).stem
+        # Physical pads can include unused pins absent from the schematic circuit.
+        target = folder / "schematic-verification.PrjPcb"
+        target.write_bytes(
+            write_prjpcb(
+                schematic=f"{stem}.SchDoc",
+                sheets=tuple(f for f in conversion.files if f.endswith(".SchDoc") and f != f"{stem}.SchDoc"),
+                libraries=tuple(f for f in conversion.files if f.endswith(".SchLib")),
+            )
+        )
     try:
-        found = equivalent(source, folder / conversion.schematic, level=SCHEMATIC_LEVEL, profile=profile)
+        found = equivalent(source, target, level=SCHEMATIC_LEVEL, profile=profile)
     except FenoliteError as error:
         return issue(
             "convert.schematic-unverified",
@@ -171,8 +189,11 @@ def convert(
     (capability design-conversion, "Conversion verified by equivalence"). The arguments are those of
     ``fenolite.convert.convert_project``; its errors are raised unchanged. Without ``verify`` the result
     holds no comparison, one ``convert.no-verify`` warning, and the evidence ``UNVERIFIED``."""
+    prepared = convert_package.read_source(Path(source))
+    if to == "altium" and prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
+        prepared = replace(prepared, schematic=read_schematic(root).design)
     conversion = convert_project(
-        source, to=to, kicad_version=kicad_version, allow_lossy=allow_lossy, bodies=bodies, name=name
+        prepared, to=to, kicad_version=kicad_version, allow_lossy=allow_lossy, bodies=bodies, name=name
     )
     if verify:
         return verify_conversion(conversion)

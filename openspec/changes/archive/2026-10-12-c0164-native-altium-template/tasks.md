@@ -7,7 +7,7 @@
 
 ## 3. Documentation and proof
 - [x] 3.1 Teach the flag, its limits and evidence; update changelog, backend provenance and session ledger, and regenerate the agent guide and evidence matrix. Proof: generated-page checks; `uv run pytest tests/unit/agent/test_pages.py tests/unit/backends/test_evidence_declared.py tests/unit/test_evidence_matrix_page.py tests/unit/test_provenance.py -q`.
-- [ ] 3.2 Run the focused build/template regression tests and `make check-fast`. Record results here; leave the full suite to the pre-merge gate. Proof: focused tests and `make check-fast` pass.
+- [x] 3.2 Run the focused build/template regression tests and `make check-fast`. Record results here; leave the full suite to the pre-merge gate. Proof: focused tests and `make check-fast` pass.
 - [x] 3.3 Locally apply the caller's template outside the repository and check page/font/owner/storage preservation. Record only generic outcomes, no project data. Altium appearance remains unverified until the caller opens it.
 
 ### Recorded proofs
@@ -19,3 +19,5 @@
 
 - Final focused regressions, new native-template tests and documentation/evidence proofs: **207 passed**.
 - Final fast gate with exactly the three proven baseline failures deselected: **13148 passed, 27 skipped**, exit 0; ruff, format, pyright and generated-guide checks passed, residue scan had zero hits with the private gate enabled. The command used `PYTEST_ADDOPTS` with explicit `--deselect` entries for the DCO repository-history test and the flat/modules former-document tests; no other test was excluded beyond the normal fast markers. This does not close task 3.2, whose unfiltered proof still requires the baseline fixes.
+
+- 2026-10-12, unfiltered closing proof after c0160 repairs: `make check-fast` passed: **13184 passed, 27 skipped**, 614.17 s. The current branch's initial unsigned commit now carries the maintainer's sign-off with its tree unchanged; current examples keep their lowered-specification check and historic goldens retain their original keys. Lint, formatting, generated guide, pyright and residue scan passed. This closes task 3.2; the full pre-merge suite remains for CI/the merge gate.

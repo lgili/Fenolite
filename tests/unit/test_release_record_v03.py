@@ -47,10 +47,22 @@ defects with their proposed follow-ups, and the owed Altium parts."""
 EXCEPTION_WORDS = ("exception", "condition (d)", "fenolite kit verify", "fenolite kit record", "c0148")
 """What "Graduation of the Altium write" must say about the maintainer's decision on the kit."""
 ADDED_AFTER_RELEASE: dict[str, tuple[str, ...]] = {
-    "altium_pcbdoc": ("H-A-PCB-CU-LOCK", "H-A-PCB-CU-VIATENT"),
+    "altium_pcbdoc": (
+        "H-A-PCB-CU-LOCK",
+        "H-A-PCB-CU-VIATENT",
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-LIBRARY",
+        "H-A-CONV-PADSTACK",
+        "H-A-CONV-SCHEMATIC",
+    ),
+    "altium_pcblib": ("H-A-CONV-DIFAT", "H-A-CONV-LIBRARY", "H-A-CONV-PADSTACK"),
+    "altium_prjpcb": ("H-A-CONV-SCHEMATIC",),
+    "altium_schdoc_ascii": ("H-A-CONV-SCHEMATIC",),
+    "altium_schdoc_binary": ("H-A-CONV-SCHEMATIC",),
 }
 """Ids that v0.4 changes added to a write cell after ``0.3.0`` (c0108: locked copper; c0112: via
-tenting). The record counts the cell of the released tree, so the guard leaves these out of the count."""
+tenting; c0160: conversion). The record counts the cell of the released tree, so the guard leaves
+these out of the count."""
 
 
 def section(text: str, title: str) -> str:

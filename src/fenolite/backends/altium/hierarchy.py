@@ -141,10 +141,10 @@ def module_key(path: str) -> tuple[object, ...]:
     return tuple(natural_key(segment) for segment in path.split(PATH_SEPARATOR))
 
 
-def sheet_tree(design: Design) -> tuple[str, ...]:
+def sheet_tree(design: Design, extra_modules: Sequence[str] = ()) -> tuple[str, ...]:
     """The modules of ``design`` that get a sheet: every module that holds a component, directly or
     below it, depth first with siblings in natural order (change c0086, "Sheets of a module tree")."""
-    found: set[str] = set()
+    found: set[str] = set(extra_modules)
     for component in design.circuit.components:
         module = sheet_of(component)
         while module:
@@ -263,7 +263,7 @@ def direction(design: Design, net: Net, module: str) -> str:
 
 
 def crossings(
-    design: Design, *, form: SchematicForm, directions: bool = True
+    design: Design, *, form: SchematicForm, directions: bool = True, extra_modules: Sequence[str] = ()
 ) -> dict[str, tuple[Crossing, ...]]:
     """Module → its crossings, in code-point order of their names; every module of ``sheet_tree`` has an
     entry, in that order. A net that is not a member of a ``power`` interface crosses a module when it has
@@ -275,7 +275,7 @@ def crossings(
     direction of ``direction``, or ``unspecified`` when ``directions`` is false (change c0086)."""
     _form(form)
     sheets = {c.id: sheet_of(c) for c in design.circuit.components}
-    modules = sheet_tree(design)
+    modules = sheet_tree(design, extra_modules)
     power = set(power_styles(design))
     nets = {net.id: net for net in design.circuit.nets}
     names = {net.id: net.name for net in design.circuit.nets}
@@ -405,6 +405,8 @@ def plan_sheets(
     form: SchematicForm,
     symbols: Mapping[str, AltiumSymbol] | None = None,
     directions: bool = True,
+    extra_modules: Sequence[str] = (),
+    read_circuit: bool = False,
 ) -> ProjectSheets:
     """The sheets of ``design``: the single sheet of ``project.plan_sheet`` for ``flat``; for ``modules``
     the top sheet ``<name>.SchDoc`` and one sheet per module of ``sheet_tree``, at any depth (change
@@ -417,13 +419,18 @@ def plan_sheets(
     if sheets == "flat":
         return ProjectSheets(
             "flat",
-            (SheetFile(sheet_file(name), plan_sheet(design, name=name, symbols=symbols, form=form)),),
+            (
+                SheetFile(
+                    sheet_file(name),
+                    plan_sheet(design, name=name, symbols=symbols, form=form, read_circuit=read_circuit),
+                ),
+            ),
         )
     if sheets != "modules":
         raise ValueError(f"unknown sheet mode {sheets!r}")
-    crossing = crossings(design, form=form, directions=directions)
+    crossing = crossings(design, form=form, directions=directions, extra_modules=extra_modules)
     by_sheet: dict[str | None, list[PartSpec]] = {None: [], **{module: [] for module in crossing}}
-    for spec in part_specs(design, name=name, symbols=symbols, form=form):
+    for spec in part_specs(design, name=name, symbols=symbols, form=form, read_circuit=read_circuit):
         by_sheet[module_of(spec.key) or None].append(spec)
     buses = lowered_buses(design)[0]
     lines = harness_lines(design, crossing)

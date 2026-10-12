@@ -204,6 +204,8 @@ COMMENT_DROP = 1_500_000
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-PADSTACK",
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
         "H-A-PCB-CU-CLASS",
@@ -609,6 +611,7 @@ def board_record(
     stack: StackSpec | None = None,
     frame: Frame | None = None,
     origin: Point | None = None,
+    layer_names: Mapping[int, str] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
@@ -630,6 +633,7 @@ def board_record(
         unique_id=unique_id(f"pcbdoc:{filename}:board"),
         used_layers=used_layers,
         stack=stack,
+        layer_names=layer_names,
     )
     return rec.text_block(text)
 
@@ -1800,6 +1804,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
                     stack=stack,
                     frame=spec.frame,
                     origin=spec.origin,
+                    layer_names={
+                        ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")
+                    },
                 )
             ],
         ),

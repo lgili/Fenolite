@@ -161,3 +161,11 @@ an independent source (`pcb-document.md`).
   position plus the pad's own position turned by the footprint's angle, with no component index), with its
   own net and layer, counted `changed` under `pad` with the reason "the pad number '' is empty"
   (change c0160).
+
+### Derived-library storage choices (c0160)
+
+Derived libraries disambiguate colliding storage keys with a numeric suffix within 31 characters,
+recording each full footprint name in `SectionKeys`. Direct writes retain the existing refusal unless
+`disambiguate_storages=True`. This uses the registered `H-A-PCB-LIB-NAME` form; the suffix is a
+Fenolite choice, not a claim about how Altium generates its keys. No source file or third-party parser
+implementation is used to choose the suffix.
