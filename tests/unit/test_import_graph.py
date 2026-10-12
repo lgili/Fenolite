@@ -30,11 +30,12 @@ ALLOWED: dict[str, set[str]] = {
     "core": set(),
     "model": set(),
     "geometry": set(),
-    "dsl": {"model"},
+    "dsl": {"model", "schematic"},
+    "schematic": set(),
     "catalog": {"model"},
-    "lens": {"model", "backends*"},
+    "lens": {"model", "backends*", "schematic"},
     "backends": {"model", "geometry", "backends*"},
-    "backends.<x>": {"model", "geometry", "backends.base"},
+    "backends.<x>": {"model", "geometry", "backends.base", "schematic"},
     "libs": {"model", "geometry"},
     "checks": {"model", "geometry", "backends.base"},
     "analysis": {"model", "geometry", "backends.base"},
@@ -49,7 +50,7 @@ ALLOWED: dict[str, set[str]] = {
     "api": {"model", "geometry", "backends*", "checks", "analysis", "convert", "lens"},
     "agent": {"cli"},
 }
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog"}
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
@@ -266,6 +267,21 @@ def test_registry_may_import_a_backend(tmp_path: Path, monkeypatch: pytest.Monke
     (fake / "backends" / "base.py").write_text("import fenolite.model.design\n")
     monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
     assert _violations() == []
+
+
+def test_schematic_core_cannot_depend_on_dsl_backends_or_extras(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _fake_tree(
+        tmp_path,
+        "schematic/layout.py",
+        "import fenolite.dsl.design\nimport fenolite.backends.altium.layout\nimport numpy\n",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any("schematic → dsl" in p for p in problems)
+    assert any("schematic → backends.altium" in p for p in problems)
+    assert any("must be stdlib-only (imports numpy)" in p for p in problems)
 
 
 def test_backend_may_not_import_another_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

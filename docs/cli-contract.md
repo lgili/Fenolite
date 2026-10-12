@@ -276,6 +276,18 @@ harness types drawn). The hierarchy has five issue codes of its own: the errors
 `altium.harness-power-net` (exit 5, in both modes), and the info `altium.sheets-not-in-project` (a kept
 project file does not list the module sheets and harness files).
 
+`--altium-layout {grid,blocks}` (c0165) selects legacy cells or functional block composition.
+Omission inherits `design.schematic_layout(mode="blocks")`, otherwise keeps legacy bytes. An explicit
+`grid` contradicting DSL declarations, or the flag on KiCad, is `FEN-2001` (exit 2). Active DSL
+composition on KiCad is bad script input (exit 3). Blocks keep the electrical sheet hierarchy and
+every symbol unit. Hard `composition.*` findings refuse all writes (exit 5); label fallback is info.
+`result.schematic_composition` holds `fenolite.schematic-composition.v0`: algorithm, evidence, nm units,
+baseline origin, replayed sheets, limits, per-sheet regions, blocks, placements, attachment decisions,
+connection metrics and findings. Confirmation writes `.fenolite/schematic-composition.json` and
+`.fenolite/schematic-preview/<sheet>.svg` in the same transaction. Synced native bytes remain authoritative;
+changed intent/baselines yield `build.altium-layout-conflict` even with `--discard-layout`. Text metrics
+and native acceptance remain `INFERRED`. See `docs/schematic-composition.md`.
+
 `--altium-outjob {on,off}` (change c0087) writes `<name>.OutJob`, an Altium output job, beside the PCB
 document of an Altium build: `on` is the default, `off` writes none, and a build without a PCB document
 writes none either. The job holds the containers `fab` (a folder) and `doc` (a PDF) and six outputs: Gerber,
@@ -413,7 +425,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 `fenolite build DESIGN.py --out DIR [--discard-layout] [--vendor all|project] [--schematic write|skip]
 [--schematic-layout readable|grid]
 [--target kicad|altium]
-[--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-outjob on|off]
+[--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
 [--altium-bodies off|extruded]
 [--copper-check refuse|warn]` runs the design script
@@ -548,6 +560,15 @@ side stated nowhere (`docs/altium.md`, "Via protection"). No flag is added, and 
 protection builds every file with the bytes it had before.
 
 ## `sync`
+
+`--target kicad` is the default. `--target altium` captures complete native schematic sheets into
+`altium-schematic-layout.json` beside the script, after validating their identities and connectivity
+against the generated baselines in `DIR/.fenolite/altium-generated/`. Its result holds `target`, `sheets`
+and `files`; `--check` reports a stale snapshot with `sync.would-change`. Altium builds replay these bytes
+only when the fresh generated baseline matches; otherwise `build.altium-layout-conflict` refuses all
+writes. Captures that change circuitry give `sync.altium-connectivity-changed`; incomplete or unresolved
+inputs give `sync.altium-unverified`. Both exit 5. The mutation protocol and input bindings apply to every
+native sheet and baseline. Scope, evidence and recovery: `docs/altium-schematic-layout.md`.
 
 `fenolite sync DESIGN.py --out DIR --to-source [--check]` copies the layout of a built project into the
 source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating command: the writes follow

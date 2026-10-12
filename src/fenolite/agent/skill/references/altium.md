@@ -1,19 +1,17 @@
 ---
 topic: altium
 title: Building for Altium Designer
-summary: build --target altium, what it writes, the status of each written file kind as capabilities reports it, and the kit that a person runs.
+summary: Altium builds, blocks, native sync, evidence and the verification kit.
 ---
 
 # Building for Altium Designer
 
-`fenolite build --target altium` builds the same design script into an Altium Designer project instead
-of a KiCad one. Nothing of Altium is needed to build, and nothing of Fenolite can open the result in
-Altium: only a person with Altium Designer can say that it opens.
+Use `fenolite build --target altium`; verify the result in Altium Designer.
 
 ## A script and its build
 
 ```fenolite-design altium
-from fenolite.dsl import Design, Net, Part, Power, connect, mm
+from fenolite.dsl import Design, Net, Part, Power, connect, mm, schematic_composition
 
 design = Design("lamp")
 design.board(mm(30), mm(20))
@@ -30,6 +28,11 @@ connect(vin, j1[1], r1[1])
 connect(anode, r1[2], d1[1])
 connect(gnd, d1[2], j1[2])
 
+design.schematic_layout(mode="blocks", flow="left-to-right")
+design.schematic_block("input", members=[j1], title="Input")
+design.schematic_block("lamp", members=[r1, d1], after="input")
+assert schematic_composition(design) is not None
+
 j1.place(mm(6), mm(9))
 r1.place(mm(15), mm(14))
 d1.place(mm(15), mm(6), rot=180)
@@ -37,6 +40,7 @@ d1.place(mm(15), mm(6), rot=180)
 
 ```fenolite-cmd
 fenolite build blink/design.py --out blink/altium --target altium --dry-run --json
+fenolite build blink/design.py --out blink/altium --target altium --altium-layout blocks --dry-run --json
 fenolite build blink/design.py --out blink/altium --target altium --confirm --json
 fenolite build blink/design.py --out blink/altium --target altium --altium-format ascii --confirm --json
 fenolite build blink/design.py --out blink/altium --target altium --copper-from blink/build/blink.kicad_pcb --confirm --json
@@ -44,33 +48,18 @@ fenolite build blink/design.py --out blink/altium --target altium --copper-from 
 
 ## What it writes
 
-For a design named `lamp`, under `--out`:
+Under `--out`: `lamp.PrjPcb` (project), `lamp.SchDoc` (schematic), `lamp.SchLib` (symbols),
+`lamp.PcbDoc` (board), `lamp.PcbLib` (footprints), `lamp.OutJob` (unless `--altium-outjob off`)
+and `.fenolite/` (model/state). Board files need board content.
 
-- `lamp.PrjPcb`, the project file;
-- `lamp.SchDoc`, the schematic, and `lamp.SchLib`, the symbols it uses;
-- `lamp.PcbDoc`, the board with the outline, the placed footprints, their nets and the rules that Altium
-  holds, and `lamp.PcbLib`, the footprints;
-- `lamp.OutJob`, an output job, unless `--altium-outjob off`;
-- `.fenolite/`, the design as data, as in a KiCad build.
+`--altium-format ascii` selects text; binary is default. `--altium-sheets modules` splits sheets
+and draws `Harness` interfaces. `--copper-from BOARD.kicad_pcb` copies routed copper.
 
-Options: `--altium-format ascii` writes the schematic in Altium's text form instead of its binary form;
-`--altium-sheets modules` gives each top-level module a sheet of its own, and draws a `Harness` as a
-signal harness; `--copper-from BOARD.kicad_pcb` copies the tracks, vias and zones of a routed KiCad
-board of the same design into the PCB document. `--kicad-version` and `--allow-lossy` change nothing
-here.
-
-What Altium cannot hold in the form the design gives it is not dropped in silence: each case is one
-`altium.not-lowered` issue whose `where` names it. A board minimum for `track_width`, for example, is a
-warning, because Altium's width rule also needs a maximum; declare such a rule with
-`design.rules.rule(...)` and all its limits (page `rules`). Read every issue of the dry run.
+Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page `rules`).
 
 ## The status of each file kind
 
-This table repeats `fenolite capabilities --json`; a test fails when the two differ. The status
-`write_kinds` means the kind is listed in `write_kinds` of the Altium entry of `result.backends`. The
-status `experimental` means it is not, and that `result.matrix` marks its write as `experimental`: its
-output, its options and its issue codes may change in any release. The evidence is the level of
-`write` in the kind's row of `result.matrix`.
+This table matches `capabilities`: `write_kinds` in `result.backends`; status/evidence in `result.matrix`.
 
 | kind | file | status | evidence |
 |---|---|---|---|
@@ -84,8 +73,7 @@ output, its options and its issue codes may change in any release. The evidence 
 | `altium_schdot` | `.SchDot`, from `fenolite template` | `experimental` | `INFERRED` |
 | `altium_schlib` | `.SchLib` | `experimental` | `INFERRED` |
 
-`INFERRED` means that no tool judged the file. Say the status and the level of each kind you hand
-over, and read them again after an upgrade of Fenolite: they change from release to release.
+Report status/evidence; recheck after upgrades.
 
 ## Checking an Altium project without Altium
 
@@ -96,18 +84,34 @@ fenolite inspect blink/altium/lamp.PcbDoc --json
 fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ```
 
-- `check` on an Altium project runs Fenolite's own stages and no tool: the design as data, a light
-  electrical check, shorts and clearances of the copper, the parity of schematic and board, and the
-  round trips. Its evidence is Fenolite's own reading, `INFERRED`.
-- `equivalent` compares the Altium project with the KiCad build of the same script (page `files`):
-  `--level 2` asks whether both hold the same circuit.
-- None of this replaces opening the project in Altium Designer.
+`check` measures model/ERC/copper/parity/readback with `INFERRED` evidence; run native checks too.
+`equivalent --level 2` compares circuits (page `files`).
+
+## Keep native schematic presentation
+
+Review `result.schematic_composition` and its SVGs (`INFERRED`; estimated text). Groups follow explicit
+blocks, modules, signals. Recovery by code: `composition.invalid-intent`: fix members/order;
+`composition.overflow`: larger paper/smaller blocks; `composition.budget-exhausted`: less congestion;
+`composition.overlap`: separate named units; `composition.template-unverified`: bounded template;
+`composition.transform-unsupported`: supported geometry; `composition.label-fallback`: inspect labelled
+endpoints; `composition.connectivity-changed`: preserve files/report failure. SVGs show the baseline;
+report lists replayed sheets. Changed block intent conflicts after sync.
+
+Capture saved Altium edits beside the script:
+
+```fenolite-cmd
+fenolite sync blink/design.py --out blink/altium --target altium --to-source --dry-run --json
+fenolite sync blink/design.py --out blink/altium --target altium --to-source --confirm --json
+```
+
+Keep `altium-schematic-layout.json`: build replays native bytes; changed sheets give
+`build.altium-layout-conflict`. Sync refuses electrical or symbol differences
+(`sync.altium-connectivity-changed`) and unresolved inputs (`sync.altium-unverified`). Evidence: `INFERRED`.
+`--discard-layout` cannot bypass the snapshot. Archive it and build elsewhere to deliberately start again.
 
 ## The verification kit is a person's run
 
-The Altium verification kit is a run that a person performs in Altium Designer: a folder of sample
-projects with a script that Altium executes, which opens each one and writes down what it found. You
-can build the kit and judge the files a run left. You cannot perform the run.
+The Altium verification kit is a run that a person performs in Altium Designer.
 
 ```fenolite-cmd
 fenolite kit build --out kit --dry-run --json
@@ -116,13 +120,7 @@ fenolite kit verify kit --json
 fenolite kit status --json
 ```
 
-- `kit build` writes the kit folder. Hand it to a person who has Altium Designer, with its
-  instructions.
-- `kit verify DIR` judges the files that a run left in the folder, and exits 3 for a folder that is
-  not a kit.
-- `kit status` lists the runs a repository has recorded; `kit record` adds one, in the repository of
-  Fenolite itself.
-- Until a person has run the kit on the release you use, report an Altium project as built and not
-  opened.
+`kit build` writes samples/instructions; `kit verify DIR` checks results (exit 3: invalid kit).
+`kit status` lists runs; `kit record` records one. Claim native opening only after a reported run.
 
 Read next: `files`, `rules`, `checks`.

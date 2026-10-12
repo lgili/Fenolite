@@ -536,6 +536,9 @@ To drop the file, delete it.
 
 ## sync
 
+The default target is KiCad. For native Altium schematic presentation, use `--target altium`; the workflow
+and conservative source-conflict handling are in [Native Altium schematic layout](altium-schematic-layout.md).
+
 `fenolite sync DESIGN.py --out DIR --to-source` reads the board in `DIR`, matches it with the script as
 a build does, and writes `placements.toml` beside the script when its text would change
 (`fenolite.lens.sync.plan_sync`; `docs/cli-contract.md`, "sync"). It also says, before any build, what

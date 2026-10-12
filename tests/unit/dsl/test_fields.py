@@ -175,4 +175,7 @@ def test_re_exports_and_import_edges() -> None:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("fenolite."):
-                assert node.module.split(".")[1] in ("core", "model", "dsl"), (path.name, node.module)
+                assert node.module.split(".")[1] in ("core", "model", "dsl", "schematic"), (
+                    path.name,
+                    node.module,
+                )

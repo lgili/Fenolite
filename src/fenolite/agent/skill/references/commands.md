@@ -91,7 +91,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## build
 
-`fenolite build [--dry-run] [--confirm] [--plan ID] --out DIR [--discard-layout] [--target {altium,kicad}] [--altium-format {ascii,binary}] [--altium-sheets {flat,modules}] [--altium-outjob {off,on}] [--altium-outjob-preset FILE] [--altium-symbols {generic,graphics}] [--altium-directions {off,on}] [--altium-bodies {extruded,off}] [--copper-from BOARD.kicad_pcb] [--copper-check {refuse,warn}] [--vendor {all,project}] [--schematic {skip,write}] [--schematic-layout {grid,readable}] DESIGN.py`
+`fenolite build [--dry-run] [--confirm] [--plan ID] --out DIR [--discard-layout] [--target {altium,kicad}] [--altium-format {ascii,binary}] [--altium-sheets {flat,modules}] [--altium-outjob {off,on}] [--altium-outjob-preset FILE] [--altium-symbols {generic,graphics}] [--altium-directions {off,on}] [--altium-bodies {extruded,off}] [--copper-from BOARD.kicad_pcb] [--copper-check {refuse,warn}] [--vendor {all,project}] [--schematic {skip,write}] [--schematic-layout {grid,readable}] [--altium-layout {blocks,grid}] DESIGN.py`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
@@ -112,6 +112,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 - `--vendor` (string, one of `all`, `project`, default `all`): all: copy the placed footprints of every library into DIR/lib/ (the copies keep their library's licence); project: copy only those of project tables
 - `--schematic` (string, one of `skip`, `write`): write (default): also write DIR/<name>.kicad_sch, its symbol libraries under DIR/lib/ and sym-lib-table, and name the pads of unconnected pins as KiCad does; skip: write the board without a schematic; a usage error with --target altium
 - `--schematic-layout` (string, one of `grid`, `readable`): readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form of v0.2a; a usage error with --target altium
+- `--altium-layout` (string, one of `blocks`, `grid`): Altium arrangement: grid preserves legacy layout; blocks composes functional blocks
 
 ## capabilities
 
@@ -502,13 +503,14 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## sync
 
-`fenolite sync [--dry-run] [--confirm] [--plan ID] --out DIR [--to-source] [--check] DESIGN.py`
+`fenolite sync [--dry-run] [--confirm] [--plan ID] --out DIR [--target {altium,kicad}] [--to-source] [--check] DESIGN.py`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
 - `--plan` (string): with --confirm: write the reviewed plan of this id
 - `DESIGN` (string, required): the design script (executed in-process)
 - `--out` (string, required): the built project folder to read
+- `--target` (string, one of `altium`, `kicad`, default `kicad`): the backend to synchronise (default kicad)
 - `--to-source` (boolean): the direction: from the board in DIR to the files beside DESIGN.py (required)
 - `--check` (boolean): write nothing; report each file that would change as an error (for CI)
 

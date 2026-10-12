@@ -11,7 +11,9 @@ of every file of their Altium builds with a fixed seed and timestamp, recorded o
 table again and says so in its own notes. Recorded again when c0140 was stacked on v0.4 after its rebase
 onto 0.3.0, on the commit before c0140 there (the c0118 commit): 0.3.0 changed the Altium build (c0146's
 font table and c0148's pin bits move the ``.SchDoc`` and ``.SchLib``; c0126 stores footprint items in
-``.fenolite/board.json``, and ``build.json`` follows), and the build with c0140 gives the same table."""
+``.fenolite/board.json``, and ``build.json`` follows), and the build with c0140 gives the same table.
+Change c0164 adds generated schematic baselines and updates only their build receipts; the native
+document hashes remain unchanged. Those extra files and receipt hashes were recorded on 2026-10-12."""
 
 from __future__ import annotations
 
@@ -33,8 +35,11 @@ EXAMPLES = ROOT / "examples"
 SCRIPTS = ("blink_2layer", "blink_routed")
 RECORDED: dict[str, dict[str, str]] = {
     "blink_2layer": {
+        ".fenolite/altium-generated/blink.SchDoc": (
+            "9707faf2c4ccf508e1c57256de9dfcdda838a42c2165e99c23c489133d19aca4"
+        ),
         ".fenolite/board.json": "c5eda4a1cdb0bf5a03f747d3e17c6609e64a7a63f6d8a1c6a0b4762c001af202",
-        ".fenolite/build.json": "e2cbc8ac1c1b4905d2e66f2676ce5e03dfec09fc22b453bafbc0a11aabe82c84",
+        ".fenolite/build.json": "32677f65ae54f6508bdef5b77e6f99bce478370c04eba1fba8b80d8617c57515",
         ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -48,8 +53,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink.SchLib": "1c97388753b0826ae3029506aad502cc0c63b65a6a72f0d0ac3cb374a347c48d",
     },
     "blink_routed": {
+        ".fenolite/altium-generated/blink_routed.SchDoc": (
+            "c1c352438adcc9e0ff6ae003fb9123f5a83bf3e06f42de6f7f448da0b56b29a6"
+        ),
         ".fenolite/board.json": "e461b091e03652df7adee52a7e8070ab479270efb12fcf9b47ab0cf7866f2ceb",
-        ".fenolite/build.json": "a85dddc544b48c9f09402454755d37d4323781fccf79e617a06470a9f2db481c",
+        ".fenolite/build.json": "88ea3241de8ac3dc24174020a9835e5436ea2137d65db2faf98e954a80699ea5",
         ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",

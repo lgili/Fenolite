@@ -22,6 +22,7 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.module import Module as DslModule
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
+from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
 from fenolite.model.board import (
     Board,
@@ -675,6 +676,7 @@ __all__ = [
     "KEYS",
     "PATH_PROPERTY",
     "drawing_sheet_source",
+    "schematic_composition",
     "fields",
     "pad_zones",
     "key_id",
