@@ -6,6 +6,15 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Native Altium templates
+
+- `fenolite build --target altium --altium-template FILE.SchDot` applies a native binary sheet template
+  to every generated schematic without neutral drawing conversion (c0164). It retains native page
+  settings, fonts, special strings, graphic ownership and embedded storage, and copies the supplied
+  template unchanged to `templates/sheet.SchDot`. The reviewed plan tracks the template input. ASCII
+  output and a script's neutral drawing sheet conflict with this option. Application remains INFERRED
+  until checked in Altium Designer.
+
 ### Added
 
 - **A controlled KiCad downgrade through `fenolite convert --to kicad --kicad-version 9`** (c0162): a project saved by KiCad 10 is written for KiCad 9 (board, schematic sheets, the footprint and symbol libraries of the project's own tables, project and rules files), each construct of 10 resolved where it is by the capability resolver `src/fenolite/backends/kicad/data/downgrade.toml`: written in 9's form (`rewrite`), dropped because 9 behaves the same (`same`), or dropped with a reported loss of a drawing or metadata (`presentation`) or of the design (`design`, which needs `--allow-lossy`). The report holds one row per resolver id (kind `downgrade:<id>`, group `downgrade`), and the verification compares the board at level 5 and the root schematic at level 2 under the profile `kicad-downgrade` (`convert.schematic-unverified` when the schematic's netlist needs a `kicad-cli` that is not there). Every resolver row is benched on 9.0.9 and 10.0.6 (`H-K-DOWN-ROWS`, 71 probes `down-row-<bench>`), and the demo projects `CM5_MINIMA_3` and `pic_programmer` load in 9.0.9 with the DRC and ERC types of the source (`H-K-DOWN-DEMOS`, probe `down-demos`); `docs/formats/kicad/versions.md`, "Downgrade", and the column `downgrade` of `docs/formats/kicad/tokens.md`.

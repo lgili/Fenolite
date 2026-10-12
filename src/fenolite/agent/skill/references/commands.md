@@ -91,13 +91,14 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## build
 
-`fenolite build [--dry-run] [--confirm] [--plan ID] --out DIR [--discard-layout] [--target {altium,kicad}] [--altium-format {ascii,binary}] [--altium-sheets {flat,modules}] [--altium-outjob {off,on}] [--altium-outjob-preset FILE] [--altium-symbols {generic,graphics}] [--altium-directions {off,on}] [--altium-bodies {extruded,off}] [--copper-from BOARD.kicad_pcb] [--copper-check {refuse,warn}] [--vendor {all,project}] [--schematic {skip,write}] [--schematic-layout {grid,readable}] DESIGN.py`
+`fenolite build [--dry-run] [--confirm] [--plan ID] --out DIR [--altium-template FILE.SchDot] [--discard-layout] [--target {altium,kicad}] [--altium-format {ascii,binary}] [--altium-sheets {flat,modules}] [--altium-outjob {off,on}] [--altium-outjob-preset FILE] [--altium-symbols {generic,graphics}] [--altium-directions {off,on}] [--altium-bodies {extruded,off}] [--copper-from BOARD.kicad_pcb] [--copper-check {refuse,warn}] [--vendor {all,project}] [--schematic {skip,write}] [--schematic-layout {grid,readable}] DESIGN.py`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
 - `--plan` (string): with --confirm: write the reviewed plan of this id
 - `DESIGN` (string, required): the design script (executed in-process)
 - `--out` (string, required): the project folder to write
+- `--altium-template` (string): apply a native binary sheet template to every Altium schematic, preserving page settings, fonts and embedded images; requires binary Altium output and no drawing_sheet in the script
 - `--discard-layout` (boolean): replace outputs changed since the last build (backups kept)
 - `--target` (string, one of `altium`, `kicad`, default `kicad`): kicad (default), or altium: an experimental Altium project file and schematic instead
 - `--altium-format` (string, one of `ascii`, `binary`): the form of the Altium schematic with --target altium: binary (default, Altium's own) or ascii; a usage error with --target kicad (default form: binary)

@@ -1,5 +1,35 @@
 # Sheet templates (`*.sheet.toml`)
 
+## Native Altium templates
+
+For an existing binary `.SchDot`, build directly with the native template:
+
+```bash
+fenolite build design.py --target altium --altium-template A3.SchDot --out output --dry-run --json
+fenolite build design.py --target altium --altium-template A3.SchDot --out output --confirm --plan PLAN_ID --json
+```
+
+Replace `PLAN_ID` with `result.plan_id` of the dry run. The template path is relative to the command's
+working directory or absolute. Every generated `.SchDoc`, including module sheets, receives the native
+page settings, fonts, graphics, parameters and embedded image storage. The original template is copied
+byte for byte to `output/templates/sheet.SchDot`; references use that relative path. Generated circuit
+objects keep their generated positions, so choose a suitable script page size for their layout.
+`design.title_block(...)` values override matching template defaults; each sheet receives its own
+`SheetNumber` and the shared `SheetTotal`.
+
+This option requires binary Altium output and cannot be combined with `sheet(drawing_sheet=...)`.
+Remove that argument from the script when switching from a converted neutral sheet. An ASCII template,
+a template containing circuit objects or nested templates, or invalid ownership/font references is
+refused with no writes. Changes to the template invalidate the reviewed plan. `result.native_template`
+reports the input digest and applied pages. Without this option, the existing neutral drawing-sheet
+flow remains available.
+
+Native application is **INFERRED**: automated readback checks retained records and embedded bytes,
+but only opening the output in Altium Designer verifies its appearance and special-string resolution.
+Caller templates remain project inputs and are not included in Fenolite's source or catalog.
+
+## Neutral drawing sheets
+
 A sheet template describes a drawing sheet (frame, reference zones, title block, optional logo) in a
 small, closed TOML format. `fenolite template build` turns it into a `.kicad_wks` that KiCad 9.0 and 10.0
 load, with the same bytes for both. The normative text is the openspec capability `sheet-templates`; the

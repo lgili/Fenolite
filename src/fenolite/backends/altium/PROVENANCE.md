@@ -89,3 +89,4 @@ implementation, and nothing was transcribed or followed. The three public templa
 into the corpus cache, read there for counts per record kind and key name, and never committed. No template, logo or
 title block of any organisation is in the package or in the tests: the test templates are authored in
 `tests/_altium_sheet.py` and built in memory.
+| native template application (c0164): record 31 settings, record 39 ownership, font references and original Storage | S-0130, S-0261, S-0264, S-0265 | WTFPL v2; Altium documentation (facts only); public corpus sources as registered | 2026-10-12 | code from the registered format pages; authored tests only; caller template bytes remain runtime inputs outside the repository |

@@ -6,9 +6,8 @@ summary: build --target altium, what it writes, the status of each written file 
 
 # Building for Altium Designer
 
-`fenolite build --target altium` builds the same design script into an Altium Designer project instead
-of a KiCad one. Nothing of Altium is needed to build, and nothing of Fenolite can open the result in
-Altium: only a person with Altium Designer can say that it opens.
+`fenolite build --target altium` builds a script into an Altium project without Altium installed.
+A person with Altium Designer must check that it opens.
 
 ## A script and its build
 
@@ -39,10 +38,15 @@ d1.place(mm(15), mm(6), rot=180)
 fenolite build blink/design.py --out blink/altium --target altium --dry-run --json
 fenolite build blink/design.py --out blink/altium --target altium --confirm --json
 fenolite build blink/design.py --out blink/altium --target altium --altium-format ascii --confirm --json
+fenolite build blink/design.py --out blink/altium --target altium --altium-template A3.SchDot --dry-run --json
 fenolite build blink/design.py --out blink/altium --target altium --copper-from blink/build/blink.kicad_pcb --confirm --json
 ```
 
 ## What it writes
+
+`--altium-template FILE.SchDot` retains native fonts, page settings and images on every sheet; it
+conflicts with ASCII output and `sheet(drawing_sheet=...)`. `result.native_template` lists its digest
+and pages. The unchanged copy is `templates/sheet.SchDot`; application stays `INFERRED`.
 
 For a design named `lamp`, under `--out`:
 
@@ -53,11 +57,9 @@ For a design named `lamp`, under `--out`:
 - `lamp.OutJob`, an output job, unless `--altium-outjob off`;
 - `.fenolite/`, the design as data, as in a KiCad build.
 
-Options: `--altium-format ascii` writes the schematic in Altium's text form instead of its binary form;
-`--altium-sheets modules` gives each top-level module a sheet of its own, and draws a `Harness` as a
-signal harness; `--copper-from BOARD.kicad_pcb` copies the tracks, vias and zones of a routed KiCad
-board of the same design into the PCB document. `--kicad-version` and `--allow-lossy` change nothing
-here.
+Options: `--altium-format ascii` writes text schematics; `--altium-sheets modules` splits top-level
+modules and draws each `Harness` as a signal harness. `--copper-from BOARD.kicad_pcb` copies routed
+tracks, vias and zones of the same design. `--kicad-version` and `--allow-lossy` have no effect here.
 
 What Altium cannot hold in the form the design gives it is not dropped in silence: each case is one
 `altium.not-lowered` issue whose `where` names it. A board minimum for `track_width`, for example, is a
@@ -66,11 +68,9 @@ warning, because Altium's width rule also needs a maximum; declare such a rule w
 
 ## The status of each file kind
 
-This table repeats `fenolite capabilities --json`; a test fails when the two differ. The status
-`write_kinds` means the kind is listed in `write_kinds` of the Altium entry of `result.backends`. The
-status `experimental` means it is not, and that `result.matrix` marks its write as `experimental`: its
-output, its options and its issue codes may change in any release. The evidence is the level of
-`write` in the kind's row of `result.matrix`.
+This tested table matches `fenolite capabilities --json`. `write_kinds` lists supported kinds under
+`result.backends`; `experimental` kinds are instead marked in `result.matrix` and may change between
+releases. Evidence is the kind's `write` level in that matrix.
 
 | kind | file | status | evidence |
 |---|---|---|---|
@@ -84,8 +84,7 @@ output, its options and its issue codes may change in any release. The evidence 
 | `altium_schdot` | `.SchDot`, from `fenolite template` | `experimental` | `INFERRED` |
 | `altium_schlib` | `.SchLib` | `experimental` | `INFERRED` |
 
-`INFERRED` means that no tool judged the file. Say the status and the level of each kind you hand
-over, and read them again after an upgrade of Fenolite: they change from release to release.
+`INFERRED` means no tool judged the file. Report each kind's status and level; check again after upgrades.
 
 ## Checking an Altium project without Altium
 
@@ -105,9 +104,8 @@ fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 
 ## The verification kit is a person's run
 
-The Altium verification kit is a run that a person performs in Altium Designer: a folder of sample
-projects with a script that Altium executes, which opens each one and writes down what it found. You
-can build the kit and judge the files a run left. You cannot perform the run.
+The Altium verification kit is a run that a person performs in Altium Designer.
+Fenolite builds its samples and judges the returned files; it cannot perform that run.
 
 ```fenolite-cmd
 fenolite kit build --out kit --dry-run --json
@@ -116,13 +114,9 @@ fenolite kit verify kit --json
 fenolite kit status --json
 ```
 
-- `kit build` writes the kit folder. Hand it to a person who has Altium Designer, with its
-  instructions.
-- `kit verify DIR` judges the files that a run left in the folder, and exits 3 for a folder that is
-  not a kit.
-- `kit status` lists the runs a repository has recorded; `kit record` adds one, in the repository of
-  Fenolite itself.
-- Until a person has run the kit on the release you use, report an Altium project as built and not
-  opened.
+- `kit build` writes samples and instructions for a person with Altium Designer.
+- `kit verify DIR` judges returned files; exit 3 means the folder is not a kit.
+- `kit status` lists recorded runs; `kit record` records one in Fenolite's repository.
+- Until a person runs the kit on this release, report projects as built and not opened.
 
 Read next: `files`, `rules`, `checks`.
