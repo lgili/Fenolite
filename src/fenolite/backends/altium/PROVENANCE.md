@@ -89,3 +89,9 @@ implementation, and nothing was transcribed or followed. The three public templa
 into the corpus cache, read there for counts per record kind and key name, and never committed. No template, logo or
 title block of any organisation is in the package or in the tests: the test templates are authored in
 `tests/_altium_sheet.py` and built in memory.
+
+The c0165 composition adapter and transformations reuse the recorded absolute-coordinate,
+orientation, pin-direction, root text and polyline facts of `schematic-ascii.md` (S-0002, S-0130,
+S-0131 and S-0140). No third-party source was reopened. The grouping, geometry estimates, bounded
+search and examples are Fenolite-authored choices. Full native electrical readback uses Fenolite's
+own reader; it establishes no Altium GUI acceptance. See `docs/evidence/schematic-composition.md`.

@@ -2968,3 +2968,43 @@ see = "sync"
 meaning = "The generated baselines or edited sheets are incomplete, altered or unresolved, or the project sheet list or netlist options changed."
 fix = "Restore the complete generated project, retain component IDs and resolve reader findings before synchronising."
 see = "sync"
+
+["composition.invalid-intent"]
+meaning = "Block declarations or sheet membership conflict."
+fix = "Resolve the named members, anchors or ordering."
+see = "build"
+
+["composition.overflow"]
+meaning = "A block cannot fit the selected paper."
+fix = "Choose a larger sheet or split the functional blocks."
+see = "build"
+
+["composition.overlap"]
+meaning = "Computed presentation geometry intersects occupied content."
+fix = "Separate the named blocks or simplify their contents."
+see = "build"
+
+["composition.template-unverified"]
+meaning = "Template occupancy cannot be verified."
+fix = "Use a template with bounded graphics and text."
+see = "build"
+
+["composition.transform-unsupported"]
+meaning = "A symbol transformation cannot preserve its geometry."
+fix = "Use a supported symbol or retain its original orientation."
+see = "build"
+
+["composition.connectivity-changed"]
+meaning = "The composed native schematic changes electrical meaning."
+fix = "Report the named net or pin as a generator defect."
+see = "build"
+
+["composition.budget-exhausted"]
+meaning = "Deterministic placement search exhausted its candidate budget."
+fix = "Reduce sheet congestion or split blocks."
+see = "build"
+
+["composition.label-fallback"]
+meaning = "A local wire could not be drawn safely; labels retain the net."
+fix = "Inspect the named endpoints in the generated preview."
+see = "build"

@@ -42,6 +42,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
+from fenolite.schematic.intent import CompositionIntent
 
 PATH_PROPERTY = "fenolite.path"
 """The component property that holds the component path (set by the DSL)."""
@@ -496,6 +497,7 @@ def plan_sheet(
     name: str = "",
     symbols: Mapping[str, AltiumSymbol] | None = None,
     form: SchematicForm = "ascii",
+    composition: CompositionIntent | None = None,
 ) -> SheetPlan:
     """The sheet layout of ``design``: sheet size, placed components, stubs, the bus blocks of its lowered
     buses (change c0086) and the net class directives of the single sheet ``<name>.SchDoc`` (change
@@ -504,7 +506,15 @@ def plan_sheet(
     here = {net.net for spec in specs for net in spec.nets.values()}
     buses = [(bus.label, bus.members) for bus in lowered_buses(design)[0] if here & set(bus.members)]
     plan = layout_sheet(specs, buses=buses)
-    return with_class_marks(plan, net_class_names(design), f"{name}.SchDoc")
+    plan = with_class_marks(plan, net_class_names(design), f"{name}.SchDoc")
+    if composition is not None:
+        from fenolite.backends.altium.composition import compose_project
+        from fenolite.backends.altium.hierarchy import ProjectSheets, SheetFile
+
+        plan = compose_project(
+            ProjectSheets("flat", (SheetFile(f"{name}.SchDoc", plan),)), design, composition
+        ).top.plan
+    return plan
 
 
 def library_symbols(
@@ -546,6 +556,8 @@ def write_project(
     outjob: bytes | None = None,
     frames: Mapping[str, Frame] | None = None,
     directions: bool = True,
+    composition: CompositionIntent | None = None,
+    composition_margins: tuple[int, int, int, int] | None = None,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -565,9 +577,23 @@ def write_project(
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
     planned = plan_sheets(design, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions)
+    baseline = planned
+    if composition is not None:
+        from fenolite.backends.altium.composition import compose_project
+        from fenolite.schematic.composition import fail
+
+        for block in composition.blocks:
+            if problem := text_problem(block.title, form=form):
+                raise fail(
+                    "invalid-intent",
+                    f"unwritable block title: {problem}",
+                    block.key,
+                    "use single-line representable title text",
+                )
+        planned = compose_project(planned, design, composition, frames, margins=composition_margins)
     for sheet in planned.sheets:
         size = sheet.plan.size
-        if size.style is None and issues is not None:
+        if size.style is None and issues is not None and composition is None:
             issues.append(
                 Issue(
                     "altium.sheet-custom",
@@ -599,6 +625,14 @@ def write_project(
             files[sheet.file] = write_schdoc_binary(sheet.plan, frame)
         else:
             files[sheet.file] = write_schdoc(sheet.plan, frame)
+    if composition is not None:
+        from fenolite.backends.altium.verification import verify
+
+        writer = write_schdoc_binary if form == "binary" else write_schdoc
+        verify(
+            {s.file: writer(s.plan, (frames or {}).get(s.file)) for s in baseline.sheets},
+            {s.file: files[s.file] for s in planned.sheets},
+        )
     for harness, types in harness_files.items():
         files[harness] = write_harness(types)
     for library, found in libraries.items():

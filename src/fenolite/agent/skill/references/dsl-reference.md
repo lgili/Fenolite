@@ -174,6 +174,10 @@ Function: `protect(*, tenting: 'object' = None, covering: 'object' = None, plugg
 
 How a via is protected.
 
+## schematic_composition
+
+Function: `schematic_composition(design: 'Design', *, target: 'str \| None' = None, enabled: 'bool' = False) -> 'CompositionIntent \| None'`
+
 ## second
 
 Function: `second(value: 'int \| Fraction \| str') -> 'Quantity'`

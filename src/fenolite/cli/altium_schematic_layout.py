@@ -25,10 +25,21 @@ def prepare_files(files: Mapping[str, bytes], snapshot: str | None) -> dict[str,
     generated = {name: data for name, data in files.items() if name.lower().endswith(".schdoc")}
     if snapshot is not None:
         result.update(replay(generated, snapshot))
+    from fenolite.schematic.report import REPORT_FILE
+
+    if REPORT_FILE in result:
+        from fenolite.lens.altium_schematic import read_snapshot
+        from fenolite.schematic.report import encode
+
+        report = json.loads(result[REPORT_FILE])
+        report["replayed_sheets"] = sorted(read_snapshot(snapshot)) if snapshot is not None else []
+        result[REPORT_FILE] = encode(report)
     result.update({f"{BASELINE_DIR}/{name}": data for name, data in generated.items()})
     record: dict[str, Any] = json.loads(result[RECORD_FILE])
     for name in (*generated, *(f"{BASELINE_DIR}/{name}" for name in generated)):
         record["files"][name] = digest(result[name])
+    if REPORT_FILE in result:
+        record["files"][REPORT_FILE] = digest(result[REPORT_FILE])
     result[RECORD_FILE] = (json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False) + "\n").encode()
     return result
 

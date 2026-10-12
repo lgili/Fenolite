@@ -74,7 +74,9 @@ from fenolite.model.board import PPM_PER_PERCENT, ComponentBody, FootprintInstan
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
-from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetFrameRef, TitleBlock
+from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
+from fenolite.schematic.composition import CompositionError, fail
+from fenolite.schematic.intent import CompositionIntent
 
 TARGET = "altium"
 """The value of ``build --target`` for this builder, and of ``target`` in its result and record."""
@@ -1736,6 +1738,7 @@ def sheet_frames(
     issues: list[Issue],
     *,
     allow_lossy: bool = False,
+    composition: bool = False,
 ) -> tuple[dict[str, schdot.SheetFrame], dict[str, object]]:
     """The drawing sheet of every planned schematic document (change c0087, "Drawing sheet in an Altium
     build"): sheet file → its ``schdot.SheetFrame``, and ``summary["drawing_sheet"]``. The issues of the
@@ -1752,6 +1755,12 @@ def sheet_frames(
     for number, sheet in enumerate(planned.sheets, start=1):
         size = sheet.plan.size
         shown, width, height, other = sheet_page(ref, (size.width * NM_PER_MIL, size.height * NM_PER_MIL))
+        if composition:
+            if ref is not None:
+                shown, width, height, _ = wanted
+            width = width // (10 * NM_PER_MIL) * (10 * NM_PER_MIL)
+            height = height // (10 * NM_PER_MIL) * (10 * NM_PER_MIL)
+            other = False
         if other:
             issues.append(
                 issue(
@@ -1950,6 +1959,7 @@ def build_altium(
     bodies: str = "extruded",
     body_form: pcbrecords.BodyForm = "saved",
     heights: Mapping[str, Nm] | None = None,
+    composition: CompositionIntent | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
@@ -2188,7 +2198,14 @@ def build_altium(
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
         evidence = Evidence.combine(evidence, schdot.EVIDENCE)
-        frames, sheet_info = sheet_frames(model, planned, drawing_sheet, issues, allow_lossy=allow_lossy)
+        frames, sheet_info = sheet_frames(
+            model,
+            planned,
+            drawing_sheet,
+            issues,
+            allow_lossy=allow_lossy,
+            composition=composition is not None,
+        )
         if not frames:
             return BuildOutput(
                 model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
@@ -2205,6 +2222,29 @@ def build_altium(
             )
         )
     try:
+        margins = None
+        if drawing_sheet is not None:
+            setup = drawing_sheet.setup
+            margins = (setup.left_margin, setup.right_margin, setup.top_margin, setup.bottom_margin)
+        if composition is not None:
+            from fenolite.backends.altium.composition import compose_project
+
+            if drawing_sheet is not None and any(
+                isinstance(item, SheetBitmap) for item in drawing_sheet.items
+            ):
+                raise fail(
+                    "template-unverified",
+                    "native template bitmap output is unavailable",
+                    "template",
+                    "use bounded vector template content for composition",
+                )
+            planned = compose_project(planned, model, composition, frames, margins=margins)
+            issues.extend(
+                i
+                for sheet in planned.sheets
+                if sheet.plan.composition is not None
+                for i in sheet.plan.composition.issues
+            )
         files = project.write_project(
             model,
             name=name,
@@ -2218,6 +2258,12 @@ def build_altium(
             outjob=job_writer.write_outjob(job) if job is not None else None,
             frames=frames,
             directions=directions,
+            composition=composition,
+            composition_margins=margins,
+        )
+    except CompositionError as error:
+        return BuildOutput(
+            model, {}, (*issues, *error.issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
     except project.PcbTooLarge as error:
         issues.append(
@@ -2263,6 +2309,16 @@ def build_altium(
             for found in issues
             if not (found.code in KEPT_PROJECT_CODES and found.where == f"{name}.PrjPcb")
         ]
+    if composition is not None:
+        from fenolite.schematic.report import artifacts
+
+        files.update(
+            artifacts(
+                tuple(
+                    sheet.plan.composition for sheet in planned.sheets if sheet.plan.composition is not None
+                )
+            )
+        )
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     if kept and project_digest is not None:
         # A kept project file that is still as a build wrote it stays in the state, so that a later build

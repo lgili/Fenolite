@@ -18,6 +18,7 @@ from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part, connect
 from fenolite.dsl.quantity import Quantity, decimal_text
+from fenolite.dsl.schematic import BlockRequest, Flow, record_block, set_flow
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.select import pair as select_pair
 from fenolite.dsl.shape import RingSpec, closed_ring
@@ -586,6 +587,8 @@ class Design(Container):
         if not isinstance(name, str) or not DESIGN_NAME.fullmatch(name):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"design name {name!r} must match {DESIGN_NAME.pattern}")
         self.name = name
+        self.schematic_flow: Flow | None = None
+        self.schematic_blocks: dict[str, BlockRequest] = {}
         self.rules = Rules(self)
         self.copper = 2
         self.planes: dict[str, str] = {}
@@ -635,6 +638,22 @@ class Design(Container):
         """Proximity rules by key, as declared by ``near()``."""
         self.height_limits: dict[str, HeightLimit] = {}
         """Height limits by area name, as declared by ``height_limit()`` (change c0140)."""
+
+    def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
+        """Enable presentation-only functional block composition (Altium)."""
+        set_flow(self, mode=mode, flow=flow)
+
+    def schematic_block(
+        self,
+        key: str,
+        *,
+        members: Sequence[Part],
+        title: str | None = None,
+        anchor: Part | None = None,
+        after: str | None = None,
+    ) -> None:
+        """Declare functional membership and reading order without positioning individual parts."""
+        record_block(self, key, members=members, title=title, anchor=anchor, after=after)
 
     def waive(
         self,

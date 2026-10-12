@@ -112,6 +112,7 @@ from fenolite.dsl import (
     pad_zones,
     placements,
     planes,
+    schematic_composition,
     stackup_locked,
     to_model,
     via_protection_locked,
@@ -307,6 +308,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC "
         "pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form "
         f"of v0.2a; a usage error with --target {ALTIUM_TARGET}",
+    )
+    parser.add_argument(
+        "--altium-layout",
+        choices=("grid", "blocks"),
+        default=None,
+        help="Altium arrangement: grid preserves legacy layout; blocks composes functional blocks",
     )
 
 
@@ -676,6 +683,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
+    if args.altium_layout is not None and args.target != ALTIUM_TARGET:
+        raise CliError("FEN-2001", "--altium-layout requires --target altium", where="--altium-layout")
     for option, value in (
         ("--altium-outjob", args.altium_outjob),
         ("--altium-outjob-preset", args.altium_outjob_preset),
@@ -749,7 +758,15 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             )
     run = run_design_script(script_path)
     design = run.design
+    if args.altium_layout == "grid" and (design.schematic_flow is not None or design.schematic_blocks):
+        raise CliError(
+            "FEN-2001",
+            "--altium-layout grid contradicts the script's block composition",
+            where="--altium-layout",
+            hint="select blocks or remove the script's layout declarations",
+        )
     try:
+        schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
         model = to_model(design)
         requested = placements(design)
         aliases = moves(design)
@@ -1157,6 +1174,9 @@ def _run_altium(
             bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
             authored_symbols=authored_symbols,
             heights=heights(run.design),
+            composition=schematic_composition(
+                run.design, target="altium", enabled=args.altium_layout == "blocks"
+            ),
         )
     files = dict(built.files)
     from fenolite.cli.altium_schematic_layout import prepare_files
@@ -1230,6 +1250,10 @@ def _run_altium(
         result["copper_input"] = copper_input
     if native_forms:
         result["schematic_layout"] = {"file": str(layout_path), "formats": dict(sorted(native_forms.items()))}
+    from fenolite.schematic.report import REPORT_FILE
+
+    if REPORT_FILE in files:
+        result["schematic_composition"] = json.loads(files[REPORT_FILE])
     data = script_path.read_bytes()
     evidence = built.evidence
     if board_path is not None:

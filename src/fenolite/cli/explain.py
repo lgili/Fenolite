@@ -79,6 +79,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.model.design", "MODEL_ISSUE_CODES"),
     ("fenolite.placement.codes", "ISSUE_CODES"),
     ("fenolite.routing.codes", "ISSUE_CODES"),
+    ("fenolite.schematic.composition", "ISSUE_CODES"),
     ("fenolite.templates.spec", "ISSUE_CODES"),
 )
 """``(module, name)`` of every mapping of the package whose name ends in ``ISSUE_CODES``, sorted."""

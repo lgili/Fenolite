@@ -90,6 +90,7 @@ def test_imports_only_core_and_model() -> None:
                             "fenolite.core.",
                             "fenolite.model.",
                             "fenolite.geometry.",
+                            "fenolite.schematic.",
                             "fenolite.backends.altium.",
                         )
                     ), f"{path.name} imports {name}"
