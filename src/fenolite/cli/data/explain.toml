@@ -2953,3 +2953,18 @@ see = "place"
 meaning = "A supplied pad-distance objective is unmet or unknown."
 fix = "Review the named pad identities and distance target; routing remains a separate stage."
 see = "place"
+
+["build.altium-layout-conflict"]
+meaning = "A saved native schematic sheet no longer matches the fresh generated baseline, or was removed. No output is written."
+fix = "Keep the native layout snapshot and resolve the source change. To deliberately regenerate, archive altium-schematic-layout.json and build into a new folder; --discard-layout does not bypass a source snapshot."
+see = "build"
+
+["sync.altium-connectivity-changed"]
+meaning = "Native schematic edits changed component identities, symbol assignments, parameters or electrical connectivity."
+fix = "Resolve the difference between the saved sheets and the Python circuit before synchronising."
+see = "sync"
+
+["sync.altium-unverified"]
+meaning = "The generated baselines or edited sheets are incomplete, altered or unresolved, or the project sheet list or netlist options changed."
+fix = "Restore the complete generated project, retain component IDs and resolve reader findings before synchronising."
+see = "sync"

@@ -502,13 +502,14 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## sync
 
-`fenolite sync [--dry-run] [--confirm] [--plan ID] --out DIR [--to-source] [--check] DESIGN.py`
+`fenolite sync [--dry-run] [--confirm] [--plan ID] --out DIR [--target {altium,kicad}] [--to-source] [--check] DESIGN.py`
 
 - `--dry-run` (boolean): show the plan; write nothing
 - `--confirm` (boolean): perform the writes
 - `--plan` (string): with --confirm: write the reviewed plan of this id
 - `DESIGN` (string, required): the design script (executed in-process)
 - `--out` (string, required): the built project folder to read
+- `--target` (string, one of `altium`, `kicad`, default `kicad`): the backend to synchronise (default kicad)
 - `--to-source` (boolean): the direction: from the board in DIR to the files beside DESIGN.py (required)
 - `--check` (boolean): write nothing; report each file that would change as an error (for CI)
 

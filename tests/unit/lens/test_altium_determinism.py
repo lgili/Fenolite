@@ -21,6 +21,7 @@ from fenolite.lens.altium import build_altium
 
 LAYERS = ("board", "build", "circuit", "findings", "manufacturing", "meta", "rules")
 PLANNED = {
+    ".fenolite/altium-generated/altium_sample.SchDoc",
     "altium_sample.PrjPcb",
     "altium_sample.SchDoc",
     "FenoliteSample.SchLib",
@@ -102,6 +103,7 @@ def test_a_changed_value_keeps_every_unique_id() -> None:
 
 
 EXAMPLE_PLANNED = {
+    ".fenolite/altium-generated/altium_kicad.SchDoc",
     "altium_kicad.PrjPcb",
     "altium_kicad.SchDoc",
     "altium_kicad.SchLib",
@@ -151,6 +153,7 @@ def test_example_twice_in_process_and_twice_by_subprocess(
 
 BLINK = Path(__file__).resolve().parents[3] / "examples" / "blink_2layer" / "design.py"
 BLINK_PLANNED = {
+    ".fenolite/altium-generated/blink.SchDoc",
     "blink.PrjPcb",
     "blink.SchDoc",
     "blink.SchLib",
@@ -202,6 +205,9 @@ def test_blink_twice_in_process_and_twice_by_subprocess(
 # --- module sheets (change c0037, "Altium sheets option", "Reproducible module sheets") --------------
 
 HIER_PLANNED = {
+    ".fenolite/altium-generated/altium_hier.SchDoc",
+    ".fenolite/altium-generated/altium_hier_flash.SchDoc",
+    ".fenolite/altium-generated/altium_hier_mcu.SchDoc",
     "altium_hier.PrjPcb",
     "altium_hier.SchDoc",
     "altium_hier_flash.SchDoc",

@@ -72,6 +72,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.exports.impedance", "ISSUE_CODES"),
     ("fenolite.lens.altium", "ALTIUM_ISSUE_CODES"),
     ("fenolite.lens.altium_copper", "COPPER_ISSUE_CODES"),
+    ("fenolite.lens.altium_schematic", "ISSUE_CODES"),
     ("fenolite.lens.build", "BUILD_ISSUE_CODES"),
     ("fenolite.lens.preserve", "PRESERVE_ISSUE_CODES"),
     ("fenolite.lens.sync", "SYNC_ISSUE_CODES"),

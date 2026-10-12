@@ -651,7 +651,8 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     # the inputs a review can see: the design script and, when the build reads one, the copper source
     read = depends_on(ctx.cwd, args.design, getattr(args, "copper_from", None))
-    return dataclasses.replace(_built(args, ctx), depends=read)
+    built = _built(args, ctx)
+    return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
 
 
 def _built(args: argparse.Namespace, ctx: Context) -> Result:
@@ -1158,6 +1159,30 @@ def _run_altium(
             heights=heights(run.design),
         )
     files = dict(built.files)
+    from fenolite.cli.altium_schematic_layout import prepare_files
+    from fenolite.lens.altium_schematic import FILE_NAME as ALTIUM_LAYOUT_FILE
+    from fenolite.lens.altium_schematic import LayoutConflict
+
+    layout_path = script_path.resolve().parent / ALTIUM_LAYOUT_FILE
+    layout_issues: tuple[Issue, ...] = ()
+    native_forms: dict[str, SchematicForm] = {}
+    if files:
+        snapshot = layout_path.read_text(encoding="utf-8") if layout_path.is_file() else None
+        try:
+            files = prepare_files(files, snapshot)
+            if snapshot is not None:
+                from fenolite.backends.altium.read import sch as native_sch
+
+                for relative, data in files.items():
+                    if relative.startswith(".fenolite/") or not relative.lower().endswith(".schdoc"):
+                        continue
+                    actual = native_sch.detect(data)
+                    if actual not in ("ascii", "binary"):
+                        raise FormatError("saved layout is not a schematic document", file=relative)
+                    native_forms[relative] = actual
+        except LayoutConflict as error:
+            layout_issues = error.issues
+            files = {}
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
@@ -1170,7 +1195,7 @@ def _run_altium(
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
-        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, form))
+        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, native_forms.get(rel, form)))
         for rel, data in sorted(files.items())
     )
     summary = built.summary
@@ -1203,6 +1228,8 @@ def _run_altium(
     }
     if copper_input is not None:
         result["copper_input"] = copper_input
+    if native_forms:
+        result["schematic_layout"] = {"file": str(layout_path), "formats": dict(sorted(native_forms.items()))}
     data = script_path.read_bytes()
     evidence = built.evidence
     if board_path is not None:
@@ -1211,7 +1238,7 @@ def _run_altium(
         evidence = Evidence.combine(evidence, kicad_copper.EVIDENCE, kicad_frame.EVIDENCE)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues),
+        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),
@@ -1220,6 +1247,7 @@ def _run_altium(
             format_version=None,
         ),
         writes=writes,
+        depends=depends_on(ctx.cwd, layout_path),
     )
 
 

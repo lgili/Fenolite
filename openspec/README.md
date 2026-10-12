@@ -157,5 +157,6 @@ The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and 
 | c0161 | `convert-to-kicad` | v0.5a: Altium to KiCad, with the refusal of items on layers a KiCad board does not declare | c0159, c0043 |
 | c0162 | `kicad-downgrade` | v0.5a: the controlled KiCad downgrade (capability resolver) through `fenolite convert` | c0159, c0007 |
 | c0163 | `opaque-net-stored-name` | correction (found while c0162 was written; the maintainer's decision of 2026-10-09): a numbered net reference inside opaque content resolves to the stored name of its net, so a board whose teardrops are on a net stored with `{slash}` (`RoyalBlue54L-Feather`) is written for its own target 9 instead of refused, and named rightly for 10 | c0017, c0061 |
+| c0164 | `altium-schematic-layout` | native schematic layout capture through Altium sync, byte-exact replay and conservative source conflicts | c0032, c0040, c0043, c0069 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

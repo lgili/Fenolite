@@ -6,9 +6,8 @@ summary: build --target altium, what it writes, the status of each written file 
 
 # Building for Altium Designer
 
-`fenolite build --target altium` builds the same design script into an Altium Designer project instead
-of a KiCad one. Nothing of Altium is needed to build, and nothing of Fenolite can open the result in
-Altium: only a person with Altium Designer can say that it opens.
+`fenolite build --target altium` generates an Altium project without Altium installed. A person must
+open and verify it in Altium Designer.
 
 ## A script and its build
 
@@ -59,18 +58,14 @@ signal harness; `--copper-from BOARD.kicad_pcb` copies the tracks, vias and zone
 board of the same design into the PCB document. `--kicad-version` and `--allow-lossy` change nothing
 here.
 
-What Altium cannot hold in the form the design gives it is not dropped in silence: each case is one
-`altium.not-lowered` issue whose `where` names it. A board minimum for `track_width`, for example, is a
-warning, because Altium's width rule also needs a maximum; declare such a rule with
-`design.rules.rule(...)` and all its limits (page `rules`). Read every issue of the dry run.
+Read every `altium.not-lowered` issue in the dry run. Its `where` names what could not be written.
+A `track_width` minimum needs a maximum too: use `design.rules.rule(...)` with all limits (page `rules`).
 
 ## The status of each file kind
 
-This table repeats `fenolite capabilities --json`; a test fails when the two differ. The status
-`write_kinds` means the kind is listed in `write_kinds` of the Altium entry of `result.backends`. The
-status `experimental` means it is not, and that `result.matrix` marks its write as `experimental`: its
-output, its options and its issue codes may change in any release. The evidence is the level of
-`write` in the kind's row of `result.matrix`.
+This table matches `fenolite capabilities --json`. `write_kinds` means listed in the Altium entry of
+`result.backends`; `experimental` means the write in `result.matrix` remains experimental. Outputs,
+options and issue codes may change. Evidence comes from the matrix's `write` row.
 
 | kind | file | status | evidence |
 |---|---|---|---|
@@ -84,8 +79,7 @@ output, its options and its issue codes may change in any release. The evidence 
 | `altium_schdot` | `.SchDot`, from `fenolite template` | `experimental` | `INFERRED` |
 | `altium_schlib` | `.SchLib` | `experimental` | `INFERRED` |
 
-`INFERRED` means that no tool judged the file. Say the status and the level of each kind you hand
-over, and read them again after an upgrade of Fenolite: they change from release to release.
+Report each file kind's status and evidence. `INFERRED` means no tool judged it; check again after upgrades.
 
 ## Checking an Altium project without Altium
 
@@ -96,18 +90,28 @@ fenolite inspect blink/altium/lamp.PcbDoc --json
 fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ```
 
-- `check` on an Altium project runs Fenolite's own stages and no tool: the design as data, a light
-  electrical check, shorts and clearances of the copper, the parity of schematic and board, and the
-  round trips. Its evidence is Fenolite's own reading, `INFERRED`.
-- `equivalent` compares the Altium project with the KiCad build of the same script (page `files`):
-  `--level 2` asks whether both hold the same circuit.
-- None of this replaces opening the project in Altium Designer.
+- `check` checks the model, electrical rules, copper, parity and round trips through Fenolite's reader,
+  with `INFERRED` evidence. It replaces no native Altium check.
+- `equivalent --level 2` compares circuits across backends (page `files`).
+
+## Keep native schematic presentation
+
+After a person organises and saves the generated sheets in Altium, capture them beside the script:
+
+```fenolite-cmd
+fenolite sync blink/design.py --out blink/altium --target altium --to-source --dry-run --json
+fenolite sync blink/design.py --out blink/altium --target altium --to-source --confirm --json
+```
+
+Keep `altium-schematic-layout.json` with the source: build replays its native bytes. Changed saved sheets,
+including added parts, give `build.altium-layout-conflict`. Sync refuses electrical or symbol differences
+(`sync.altium-connectivity-changed`) and unresolved inputs (`sync.altium-unverified`). Evidence: `INFERRED`.
+`--discard-layout` cannot bypass the snapshot. Archive it and build elsewhere to deliberately start again.
 
 ## The verification kit is a person's run
 
-The Altium verification kit is a run that a person performs in Altium Designer: a folder of sample
-projects with a script that Altium executes, which opens each one and writes down what it found. You
-can build the kit and judge the files a run left. You cannot perform the run.
+The Altium verification kit is a run that a person performs in Altium Designer. Build the samples and
+inspect the results; an agent cannot perform that native run.
 
 ```fenolite-cmd
 fenolite kit build --out kit --dry-run --json
@@ -116,13 +120,9 @@ fenolite kit verify kit --json
 fenolite kit status --json
 ```
 
-- `kit build` writes the kit folder. Hand it to a person who has Altium Designer, with its
-  instructions.
-- `kit verify DIR` judges the files that a run left in the folder, and exits 3 for a folder that is
-  not a kit.
-- `kit status` lists the runs a repository has recorded; `kit record` adds one, in the repository of
-  Fenolite itself.
-- Until a person has run the kit on the release you use, report an Altium project as built and not
-  opened.
+- `kit build` writes the kit and instructions for that person.
+- `kit verify DIR` checks the run results; exit 3 means the folder is no kit.
+- `kit status` lists recorded runs; `kit record` adds one in Fenolite's repository.
+- Until a native run is reported, describe the project as built and not opened.
 
 Read next: `files`, `rules`, `checks`.

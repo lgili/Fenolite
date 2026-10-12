@@ -549,6 +549,15 @@ protection builds every file with the bytes it had before.
 
 ## `sync`
 
+`--target kicad` is the default. `--target altium` captures complete native schematic sheets into
+`altium-schematic-layout.json` beside the script, after validating their identities and connectivity
+against the generated baselines in `DIR/.fenolite/altium-generated/`. Its result holds `target`, `sheets`
+and `files`; `--check` reports a stale snapshot with `sync.would-change`. Altium builds replay these bytes
+only when the fresh generated baseline matches; otherwise `build.altium-layout-conflict` refuses all
+writes. Captures that change circuitry give `sync.altium-connectivity-changed`; incomplete or unresolved
+inputs give `sync.altium-unverified`. Both exit 5. The mutation protocol and input bindings apply to every
+native sheet and baseline. Scope, evidence and recovery: `docs/altium-schematic-layout.md`.
+
 `fenolite sync DESIGN.py --out DIR --to-source [--check]` copies the layout of a built project into the
 source tree (`docs/lens.md`, "sync" and "placements.toml"). It is a mutating command: the writes follow
 "Writing files", `.bak` files included. It runs `DESIGN.py` as `build` does and starts no external tool.
