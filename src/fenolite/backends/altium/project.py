@@ -645,6 +645,23 @@ def write_project(
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
     if pcb is not None:
+        # Native compilation links a multipart component through its last written part (c0166).
+        # Keep the PCB link in step with the actual sheet plans, including resolved symbol units.
+        part_links = {
+            part.spec.unique_id: part.spec.part_id(part.part)
+            for sheet in planned.sheets
+            for part in sheet.plan.parts
+        }
+        pcb = dataclasses.replace(
+            pcb,
+            components=tuple(
+                dataclasses.replace(
+                    part,
+                    source_unit_unique_id=part_links.get(part.unique_id, part.source_unit_unique_id),
+                )
+                for part in pcb.components
+            ),
+        )
         try:
             files[f"{name}.PcbDoc"] = write_pcbdoc(pcb, filename=f"{name}.PcbDoc")
         except CompoundTooLarge as error:

@@ -129,8 +129,8 @@ ALTIUM = {
     # the mapped pins only (``altsym.MAP_RECORDS_FOR_EVERY_PIN``): the map of
     # ``D1`` names both of its pins, so both forms are the same two records. An Altium ``build`` envelope
     # is no file of the build, so the hypothesis row added with that switch moves no pin.
-    "units@ascii": "6f2a800d420b",  # c0166: SchLib model owners/common component models
-    "units@binary": "2f9aab32cdf6",  # c0166: SchLib model owners/common component models
+    "units@ascii": "d218a362172f",  # c0166: source unit link only; was 6f2a800d420b
+    "units@binary": "afbcfae8aaf4",  # c0166: source unit link only; was 2f9aab32cdf6
 }
 
 

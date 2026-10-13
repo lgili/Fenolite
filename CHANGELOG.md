@@ -6,6 +6,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Keep physical PCB component/document identities fixed while correcting
+  multipart source-unit links. Refresh the two affected exact build pins.
+- Match multipart Altium PCB components to the last emitted schematic unit ID,
+  preserving single-part output. Native comparison recognizes all 68 components
+  in the public hierarchical case without manual linking or footprint replacement.
+
 - Set the via solder-mask cache to manual when a written side is tented, so
   Altium's rule cache does not clear the requested tenting during opening/saving.
   Untented via bytes remain unchanged; native Gerbers confirm all four mask cases.

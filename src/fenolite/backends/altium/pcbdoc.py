@@ -340,6 +340,9 @@ class PlacedComponent:
     ones. Written after the definition's graphics."""
     texts: tuple[ComponentText, ...] = ()
     """The free texts of the component (change c0126), written after its designator and comment."""
+    source_unit_unique_id: str | None = None
+    """The emitted schematic unit used for SOURCEUNIQUEID (c0166). None uses unique_id;
+    an override changes neither the physical component identity nor the document GUID."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -673,7 +676,7 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     at = frame(component.at)
-    link, path = "\\" + component.unique_id, ""
+    link, path = "\\" + (component.source_unit_unique_id or component.unique_id), ""
     if component.sheet is not None:
         symbol, module = component.sheet
         link = f"\\{symbol}{link}"
