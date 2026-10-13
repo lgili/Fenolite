@@ -2,9 +2,7 @@
 
 ## Purpose
 Read KiCad board files into the neutral model without losing anything: typed reading of `.kicad_pcb` from KiCad 8.0 on with slots (modelled, projected and opaque children kept in place), the version policy, layers, nets in both forms, the pad frame, zones and rule areas, exact numbers, stable ids, a closed set of issue codes, a synthesised circuit, and the same-version rebuild (RT1). Facts and sources: `docs/formats/kicad/board.md`.
-
 ## Requirements
-
 ### Requirement: Board file reading
 `fenolite.backends.kicad.pcb.read_board(source, *, file="", issues=None)` SHALL accept an `os.PathLike` (a `.kicad_pcb` file), a `str` (file text) or a parsed `Node`, and SHALL return a `Design`.
 - `header.name` MUST be the file stem for a path and `""` otherwise.
@@ -520,7 +518,7 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **Target 10.** The root holds no net table, and the source's opaque `(net 0 "")` slot MUST be removed. Every reference is `(net "<name>")`, and zones write no `net_name`.
 - Net 0 and the empty name mean no net. For target 9, a zone or rule area whose net is `None` MUST write `(net 0)` and `(net_name "")`, and every other item whose `net_id` is `None` MUST carry no `net` child. For target 10, an item whose net is `None` MUST NOT carry a `net` child.
 - Inside opaque fragments, `(net 0)`, `(net 0 "")` and `(net "")` MUST be written `(net 0)` for target 9 and removed for target 10, and MUST NOT give `kicad.board.opaque-net-ref`.
-- Inside opaque fragments, a numbered reference MUST be resolved through the source net table kept by `read_board`, and a named reference by its name; both MUST be re-emitted in the target's form.
+- Inside opaque fragments, a numbered reference MUST be resolved through the source net table kept by `read_board` to the stored name of that net (`pcb.stored_net_name`, "Net names in KiCad's stored form"), never to its model name, and a named reference by its name; both MUST be re-emitted in the target's form (c0163).
 - A `net` node in opaque content that matches none of `(net N)`, `(net N "name")` and `(net "name")`, or whose number N ≥ 1 is absent from the source table, MUST give `kicad.board.opaque-net-ref` (error). `allow_lossy` MUST NOT drop it.
 
 #### Scenario: Numbered table for target 9
@@ -537,6 +535,11 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **GIVEN** a copy of `tests/data/kicad/tokens/skeleton.kicad_pcb`, built in the test, with an added teardrop zone (an `attr` child holding `teardrop`) that holds `(net 2)` and `(net_name "B")`, where net 2 is `B` in the source table, read with `read_board`, so the teardrop zone is an opaque root slot
 - **WHEN** it is written for target 10
 - **THEN** the teardrop zone holds `(net "B")` and no `net_name`, and every other child of it is tree-equal to the source
+
+#### Scenario: Opaque reference to a net stored with a slash
+- **GIVEN** a copy of `skeleton.kicad_pcb`, built in the test, whose net 2 is stored `Net-(U1-P1{slash}XL1)`, with an added teardrop zone that holds `(net 2)` and `(net_name "Net-(U1-P1{slash}XL1)")`, read with `read_board` (the net's model name is `Net-(U1-P1/XL1)`)
+- **WHEN** it is written for target 9 and for target 10
+- **THEN** both writes succeed with no `kicad.board.opaque-net-ref`; the target-9 teardrop holds `(net i)` and `(net_name "Net-(U1-P1{slash}XL1)")`, where i is the number of the table row `Net-(U1-P1{slash}XL1)`; the target-10 teardrop holds `(net "Net-(U1-P1{slash}XL1)")`; neither text holds `Net-(U1-P1/XL1)`
 
 #### Scenario: Unknown opaque net reference
 - **GIVEN** a copy of `skeleton.kicad_pcb` whose segment holds `(net 7)` while the source table ends at 2, read with `read_board`, which keeps that reference opaque (c0009 "Nets in both forms")

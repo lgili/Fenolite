@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive completed `c0163-opaque-net-stored-name` and apply its validated requirements to the living specifications.
+
 - Give generated harness projects explicit wire-label naming priority, removing
   native multiple-name warnings while preserving all net memberships.
 - Keep physical PCB component/document identities fixed while correcting
