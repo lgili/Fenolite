@@ -871,6 +871,39 @@ and one-level UID serialization pass their scoped checks, but R3 as a whole
 remains open. This experiment does not verify nested UID paths, production
 footprints or the importer's UID-based PCB association.
 
+**R1 diagnostic continuation, 2026-10-14, `AD 26.5` (S-0739).** After license
+reactivation, reopening the native-factory saved sheet in a fresh authored
+project still yields three errors, six components and eleven pin memberships;
+OUT1/OUT2 each contain only the top pin. Compiled port inspection associates the
+child output port with NetC12_2. Compiled bus inspection reports OUT[1..2] with
+prefix OUT and width 2, while two scalar Repeat(OUT) nets each have width 1.
+Changing the child port to Repeat(OUT) or OUT[1..2] produces explicit
+port/sheet-entry mismatches. Keeping the original port and adding OUT or LOCAL
+labels at its connection produces channel-local names and alias warnings naming
+the inferred OUT1/OUT2 sheet entries, but still does not join the parent pins.
+Explicit new indexing also retains the three errors. These are diagnostic
+failures, not a supported alternative syntax or a proven root cause. No
+production bus repair or complete Part R pass is claimed; all native outputs
+remain ignored.
+
+The native Project menu's Validate PCB Project command independently reproduces
+the same three errors and separated outputs; this is not only a direct
+DM_Compile observation. Reversing bus-entry endpoints leaves the result
+unchanged. A wire stub with its bus label placed on the bus removes the
+wire-sheet-entry-on-bus error, but both output memberships still fail. The first
+wire-stub control put the bus label on a wire and is retained as an invalid
+label-placement control. A whole sheet symbol and its two entries created by
+the native factory, saved and reopened as a fresh project, also reproduce the
+three errors with six components. The pre-save live compile retained the
+removed symbol and is not used as that control's proof.
+
+R2's Options dialog lists Flat Numeric With Names, Flat Alpha With Names,
+Numeric Name Path, Alpha Name Path and Mixed Name Path, matching the five
+tested room styles. Enumeration of the component-format list remains open:
+its native dropdown stopped responding, so cancellation was queued only to the
+owned test dialog. The application was not force-closed and no options were
+accepted or saved. This UI interruption is separate from the circuit failures.
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the

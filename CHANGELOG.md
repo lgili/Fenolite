@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record native Repeat reload and compiled port/bus diagnostics, keeping the
+  disconnected output nets and unresolved cause explicit.
+
 - Retain refuted Altium import hypotheses in the complete inventory while
   excluding them from live evidence; verify both sets against the register.
 
