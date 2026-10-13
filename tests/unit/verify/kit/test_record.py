@@ -149,8 +149,9 @@ def test_load_records(run: tuple[Path, KitVerdict], tmp_path: Path) -> None:
         record.load_records(tmp_path)
 
 
-def test_no_run_is_committed_yet() -> None:
-    assert record.load_records(ROOT) == ()
+def test_committed_run_records_are_valid() -> None:
+    for made in record.load_records(ROOT):
+        assert record.record_problems(made) == []
 
 
 def test_candidate_rows(run: tuple[Path, KitVerdict]) -> None:

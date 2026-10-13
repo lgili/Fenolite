@@ -50,7 +50,7 @@ PENDING_BLOCKS: Mapping[str, tuple[str, ...]] = {}
 SCRIPT_HYPOTHESIS = "H-A-KIT-SCRIPT"
 """Settled only by a run in which the script did every scripted step."""
 MAX_PRIVACY_PER_FILE = 20
-_ERROR_LINE = re.compile(r"^\s*\[?\s*(fatal error|error)\s*\]?(\s|$)", re.IGNORECASE)
+_ERROR_LINE = re.compile(r"^\s*\[{0,2}\s*(fatal error|error)\s*\]{0,2}(\s|$)", re.IGNORECASE)
 HOME_FOLDER = re.compile(
     r"(?:[A-Za-z]:\\(?:Users|Documents and Settings)\\|/Users/|/home/)[^\\/\x00-\x1f\"'<>|*?:]{1,64}"
 )

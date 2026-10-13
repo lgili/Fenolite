@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reject error and fatal-error compile messages whose native class is bracketed
+  again by the Altium kit script; warning-only logs continue to pass.
+- Isolate the kit status no-record test from actual native run records committed
+  in the checkout; validate checked-in native records instead of requiring none.
+
 - Correct the conversion census ledger for the public microwave board's two
   modified POLY footprints; retain the exact report assertion and PCB geometry.
 - Preserve KiCad pad copper offsets in Altium PCB conversion and derived PcbLibs,
