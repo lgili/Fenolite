@@ -174,13 +174,14 @@ def test_mode_2_when_an_inner_layer_differs() -> None:
     )
     found = record_of(pad(stack=stack))
     assert found.mode == 2
-    assert found.inner_shapes[:2] == (1, 2)
-    assert found.inner_sizes[0] == (units(mm("1.2")), units(mm("1.2")))
-    assert found.inner_sizes[1] == (units(mm("1.2")), units(mm("0.9")))
-    assert found.inner_shapes[2] == 1, "a Mid-Layer the stack does not name keeps the middle shape"
+    assert found.shapes[1] == 1
+    assert found.sizes[1] == (units(mm("1.2")), units(mm("1.2")))
+    assert found.inner_shapes[:2] == (2, 1)
+    assert found.inner_sizes[0] == (units(mm("1.2")), units(mm("0.9")))
+    assert found.inner_sizes[1] == found.sizes[1], "an unnamed layer keeps the middle geometry"
 
 
-def test_a_mode_2_pad_reads_back_as_mid_layer_1_to_29(tmp_path: Path) -> None:
+def test_a_mode_2_pad_reads_back_as_mid_layer_1_to_30(tmp_path: Path) -> None:
     stack = Padstack(
         id=PADSTACK_ID,
         layers=(
@@ -193,10 +194,34 @@ def test_a_mode_2_pad_reads_back_as_mid_layer_1_to_29(tmp_path: Path) -> None:
     written = read_back(definition(pad(stack=stack)), tmp_path)
     assert written.padstack is not None
     names = [entry.layer for entry in written.padstack.layers]
-    assert names == ["F.Cu"] + [f"In{n}.Cu" for n in range(1, 30)] + ["B.Cu"]
+    assert names == ["F.Cu"] + [f"In{n}.Cu" for n in range(1, 31)] + ["B.Cu"]
+    assert written.padstack.layers[1].shape == "circle"
+    assert sizes_close(written.padstack.layers[1].size, Size(mm("1.2"), mm("1.2")))
     assert written.padstack.layers[2].layer == "In2.Cu"
     assert written.padstack.layers[2].shape == "rect"
     assert sizes_close(written.padstack.layers[2].size, Size(mm("1.2"), mm("0.9")))
+
+
+def test_full_stack_keeps_the_thirtieth_inner_layer(tmp_path: Path) -> None:
+    stack = Padstack(
+        id=PADSTACK_ID,
+        layers=(
+            layer("F.Cu", "circle", "1.6"),
+            *(layer(f"In{n}.Cu", "circle", "1.2") for n in range(1, 30)),
+            layer("In30.Cu", "rect", "1.4", "1.1"),
+            layer("B.Cu", "circle", "1.6"),
+        ),
+    )
+    pad_ = pad(stack=stack)
+    found = record_of(pad_)
+    assert found.mode == 2 and len(found.inner_sizes) == 29
+    assert found.inner_shapes[-1] == 2
+    assert found.inner_sizes[-1] == (units(mm("1.4")), units(mm("1.1")))
+    written = read_back(definition(pad_), tmp_path)
+    assert written.padstack is not None
+    last = written.padstack.layers[-2]
+    assert (last.layer, last.shape) == ("In30.Cu", "rect")
+    assert sizes_close(last.size, Size(mm("1.4"), mm("1.1")))
 
 
 def test_a_layer_the_stack_leaves_out_is_refused() -> None:

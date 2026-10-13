@@ -544,7 +544,8 @@ class PadStack:
     """The per-layer stack of a pad record (change c0160; ``pcb-records.md``, "Pad", and
     ``pcb-library.md``, "Pad records of a written footprint"): the mode (1 Top-Middle-Bottom or 2 Full
     Stack), the top, middle and bottom parts of subrecord 5, and, for mode 2, one part per Mid-Layer n at
-    ``inner[n - 1]``. ``offsets`` holds the copper offset of a layer slot in record units, index 0 the top,
+    ``inner[n - 1]``. Mid-Layer 1 uses ``mid`` in subrecord 5; the remaining 29 parts use subrecord 6.
+    ``offsets`` holds the copper offset of a layer slot in record units, index 0 the top,
     n Mid-Layer n and 31 the bottom."""
 
     mode: int
@@ -556,16 +557,16 @@ class PadStack:
 
 
 def _pad_layers(stack: PadStack, hole_shape: int, slot_length: int, slot_rotation: float) -> bytes:
-    """The 596-byte sixth subrecord: the inner sizes and shapes by Mid-Layer index, the hole shape and slot,
+    """The 596-byte sixth subrecord: sizes and shapes of Mid-Layer 2 through 30, the hole shape and slot,
     then the alternate shapes, corner percentages and copper offsets by layer slot (0 the top, ``id − 1``
     for a mid layer, 31 the bottom)."""
     parts = [stack.top] + [stack.mid] * (_STACK - 2) + [stack.bottom]
     if stack.mode == PAD_MODE_SIMPLE:
         parts = [stack.top] * _STACK
     elif stack.mode == PAD_MODE_FULL:
-        for number, part in enumerate(stack.inner[:_INNER], start=1):
+        for number, part in enumerate(stack.inner[: _STACK - 2], start=1):
             parts[number] = part
-    inner = list(stack.inner) if stack.mode == PAD_MODE_FULL else []
+    inner = list(stack.inner[1:]) if stack.mode == PAD_MODE_FULL else []
     inner = (inner + [stack.mid] * _INNER)[:_INNER]
     offsets = list(stack.offsets) + [(0, 0)] * (_STACK - len(stack.offsets))
     out = struct.pack(f"<{_INNER}i", *(part.size[0] for part in inner))

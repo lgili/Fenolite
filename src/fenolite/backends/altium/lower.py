@@ -714,6 +714,17 @@ def _library_pad(pad: Pad, *, bottom: bool) -> Pad:
         position=Point(pad.position.x, -pad.position.y),
         rotation=(-pad.rotation) % FULL_TURN,
         layers=tuple(_other_side(layer) for layer in pad.layers),
+        padstack=dataclasses.replace(
+            pad.padstack,
+            layers=tuple(
+                dataclasses.replace(
+                    layer, layer=_other_side(layer.layer), offset=Point(layer.offset.x, -layer.offset.y)
+                )
+                for layer in pad.padstack.layers
+            ),
+        )
+        if pad.padstack is not None
+        else None,
     )
 
 

@@ -158,6 +158,18 @@ The author report never promotes a write kind out of `experimental` (c0092's rul
 
 Cut order: (1) the schematic from the source's symbols (the generic sheet stays, reported `changed`); (2) connector and free pads (reported); (3) the layer map beyond the fabrication layers. Not cut: DIFAT, full-stack pads, the derived library, the tolerant write (a decision of the maintainer).
 
+## Native Full Stack acceptance follow-up (2026-10-13)
+
+The authored Part T case failed native inspection: both Mid-Layer 1 and 2 appeared
+round at 1.2 mm despite distinct extended entries. Self-readback shared the writer's
+index assumption and did not detect this. S-0002 documents thirty legacy mid layers,
+the main middle geometry, and only twenty-nine extended size/shape entries. The
+corrected association is inferred as Mid-Layer 1 in the main geometry and Mid-Layer
+2 through 30 in the extended table. Correct writer and adapter together; keep the
+raw decoder's table representation unchanged. Test raw field placement separately
+from round trips and include the final inner layer. Native acceptance remains open
+until the regenerated PCB and placed library footprint have actually been inspected.
+
 ## Open questions
 
 All answered on 2026-10-09: the maintainer accepted every recommended answer (`docs/roadmap.md`, Open decisions row 40).

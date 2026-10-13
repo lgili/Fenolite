@@ -6,6 +6,13 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Fix Altium Full Stack pad layer association: the first inner layer uses the main
+  middle geometry, while the 29 extended entries represent inner layers 2 through
+  30. The writer and reader now agree with that association; regression tests check
+  distinct first/second inner layers and the final inner layer independently of
+  round trips. Native Altium 26.5.0 inspection confirms the authored four-layer
+  PCB and placement from its PcbLib retain distinct first/second inner geometries.
+
 - Record background native Altium acceptance collection and Save As proofs:
   21 boards inspected and 11 documents saved through authored runtime scripts,
   with serialized jobs and unchanged inputs. A guarded retry resolves the initial

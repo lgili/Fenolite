@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import struct
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 
 import fenolite.backends.altium.pcbrecords as rec
@@ -25,7 +25,7 @@ from fenolite.backends.altium.libboard import board_text, guid
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.geometry.transform import FULL_TURN
+from fenolite.geometry.transform import FULL_TURN, rotate_point
 from fenolite.model.board import ComponentBody, Graphic, Pad, PadstackLayer
 from fenolite.model.library import FootprintDef
 
@@ -219,6 +219,26 @@ def pad_stack(pad: Pad, *, corner: int | None, copper_layers: Sequence[str] = ()
     if all((part.shape, part.size) == (mid.shape, mid.size) for part in parts):
         return rec.PadStack(rec.PAD_MODE_TOP_MID_BOTTOM, top_part, mid, bottom_part)
     return rec.PadStack(rec.PAD_MODE_FULL, top_part, mid, bottom_part, inner=tuple(parts))
+
+
+def _pad_offsets(pad: Pad, copper_layers: Sequence[str], flip: bool) -> tuple[tuple[int, int], ...]:
+    """Copper offsets from the hole in each record slot, in the pad's local Y-up frame."""
+    if pad.padstack is None:
+        return ()
+    by_layer = {layer.layer: layer for layer in pad.padstack.layers}
+    wildcard = next((by_layer[name] for name in INNER_WILDCARDS if name in by_layer), None)
+    offsets = [(0, 0)] * 32
+    for slot in range(32):
+        name = "F.Cu" if slot == 0 else "B.Cu" if slot == 31 else f"In{slot}.Cu"
+        if 0 < slot < 31 and copper_layers and slot < len(copper_layers) - 1:
+            name = copper_layers[slot]
+        layer = by_layer.get(name, wildcard if 0 < slot < 31 else None)
+        if layer is None:
+            continue
+        local = rotate_point(layer.offset, -pad.rotation)
+        target = 31 if flip and slot == 0 else 0 if flip and slot == 31 else slot
+        offsets[target] = (rec.to_units(local.x), rec.to_units(local.y if flip else -local.y))
+    return tuple(offsets) if any(pair != (0, 0) for pair in offsets) else ()
 
 
 def pad_hole(pad: Pad) -> tuple[int, int, float]:
@@ -421,6 +441,16 @@ def pad_bytes(
         assert extras.corner_ratio is not None
         corner = rec.corner_percent(extras.corner_ratio)
     stack = pad_stack(pad, corner=corner, copper_layers=copper_layers)
+    offsets = _pad_offsets(pad, copper_layers, flip)
+    if offsets:
+        part = rec.PadPart(
+            rec.PAD_SHAPES[pad.shape], (rec.to_units(pad.size.w), rec.to_units(pad.size.h)), corner
+        )
+        stack = (
+            replace(stack, offsets=offsets)
+            if stack
+            else rec.PadStack(rec.PAD_MODE_SIMPLE, part, part, part, offsets=offsets)
+        )
     hole_shape, slot_length, slot_rotation = pad_hole(pad)
     hole = rec.to_units(pad.drill) if pad.kind in ("thru_hole", "np_thru_hole") and pad.drill else 0
     # A connector pad has copper only: no paste and no mask opening, so neither mask takes the rule's
