@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record native Repeat naming checks for eight designator formats and five room
+  styles; preserve the unresolved bus connectivity and mixed-style scope.
+
 - Archive completed `c0091-altium-verification-kit` and apply its validated requirements to the living specifications.
 
 - Reconcile c0091's first-run task with the committed 32-step native Altium kit

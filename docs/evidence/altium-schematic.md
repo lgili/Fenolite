@@ -812,6 +812,38 @@ of the table above (the folder `R-repeated-sheet/` of the session pack).
 - **Steps R2, R3 and R4.** Not done: owed. `H-A-IMP-RPT-COUNT` (its board half is R3), `H-A-IMP-RPT-NETS`
   and `H-A-IMP-RPT-FORMAT` stay `INFERRED`, the first two with the observation above.
 
+**Report of 2026-10-13, `AD 26.5`, Part R naming matrix (S-0736).** Thirteen
+fresh, uniquely named authored projects were compiled through the native API:
+the eight documented designator formats at room style 0, then the five room
+styles with `$Component_$RoomName`. All twelve combinations the import resolves
+agree exactly with the native physical designators of both `R1` and `C12`.
+
+| designator format at style 0 | native R1 in channel 1 | native R1 in channel 2 |
+|---|---|---|
+| `$Component_$RoomName` | R1_CH1 | R1_CH2 |
+| `$RoomName_$Component` | CH1_R1 | CH2_R1 |
+| `$Component$ChannelAlpha` | R1A | R1B |
+| `$Component_$ChannelPrefix$ChannelAlpha` | R1_CHA | R1_CHB |
+| `$Component_$ChannelIndex` | R1_1 | R1_2 |
+| `$Component_$ChannelPrefix$ChannelIndex` | R1_CH1 | R1_CH2 |
+| `$ComponentPrefix_$ChannelIndex_$ComponentIndex` | R_1_1 | R_2_1 |
+| `$ComponentPrefix_$RoomName_$ComponentIndex` | R_CH1_1 | R_CH2_1 |
+
+For room styles 0 through 4, the native pairs are respectively R1_CH1/R1_CH2,
+R1_CHA/R1_CHB, R1_CH1/R1_CH2, R1_CHA/R1_CHB and R1_CHA/R1_CHB. Style 4 is
+observed only for this one-level hierarchy; the import's unknown general mixed
+style remains unresolved. The UI's offered-format list was not independently
+enumerated, and the physical PCB transfer remains R3. This is the native naming
+portion of R2, not completion of Part R.
+
+Every naming case still reports three bus/connectivity errors. Separate
+authored controls retain that failure after changing keyword capitalization,
+the child port endpoint, explicit output I/O, an unlabelled child wire,
+hierarchy/name options, bus label position, straight bus geometry, native
+entry-name setters, native Save As and reopening the saved sheet. The failed
+controls remain ignored; no rules are relaxed and no library repair is inferred
+from unsuccessful controls. R1 bus connectivity and R3/R4 remain open.
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the

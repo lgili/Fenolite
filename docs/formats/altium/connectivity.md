@@ -121,6 +121,14 @@ is a `Repeat` statement is one channel per index (change c0083).
 | The designator format also names the nets inside a channel. That a net label local to a channel is renamed by the format as a designator is (`MID_CH1`) is the reading of this page: no file of the corpus holds such a label | S-0520 | INFERRED | H-A-IMP-RPT-NETS |
 | The documentation writes the unique-id path of a board component as `\SheetSymbolUID\SchComponentUID` for several sheet symbols and as `\ChannelIndex+SheetSymbolUID\SchComponentUID` for a `Repeat` statement, without an example. How the index and the unique id are joined is `UNKNOWN`: no public file shows such a path | S-0520 | UNKNOWN | H-A-IMP-RPT-COUNT |
 
+Native check of the one-level authored Repeat sample on 2026-10-13: eight
+documented formats at style 0 and styles 0-3 with `$Component_$RoomName` produce
+exactly the import's physical R1/C12 designators in AD 26.5 (S-0736,
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)`). Mixed style
+4 yields the alpha room suffix in this one-level case only; its general/nested
+mapping remains `UNKNOWN`. This naming measurement does not verify the sample's
+bus connectivity or PCB links.
+
 - **What the import resolves.** `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$ChannelPrefix` (the
   designator of the channel's sheet symbol, the channel identifier of a `Repeat` statement) and
   `$RoomName`; for a channel of a `Repeat` statement also `$ChannelIndex` and `$ChannelAlpha` (indexes 1
