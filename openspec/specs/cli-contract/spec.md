@@ -2,9 +2,7 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
-
 ## Requirements
-
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -2169,3 +2167,10 @@ Each entry of `result.routers` of `fenolite capabilities` SHALL also hold `featu
 #### Scenario: Features listed
 - **WHEN** `uv run pytest tests/unit/cli/test_capabilities.py -k features` runs `fenolite capabilities --json --no-tools`
 - **THEN** `direct` and `freerouting` list no feature, and `kicadroutingtools` lists the features that its gate outcomes allowed
+
+### Requirement: Levels and sides of equivalent in capabilities
+The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hold, besides the keys of every entry, `levels` (the list `LEVELS` of `fenolite.checks.equivalence`) and `sides` (the side kinds the command reads, sorted: `altium_pcbdoc`, `altium_prjpcb`, `altium_schdoc`, `fenolite_model`, `kicad_pcb`, `kicad_pro`, `kicad_sch`). No other entry gains these keys.
+
+#### Scenario: Levels and sides listed
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
+- **THEN** the entry named `equivalent` has `levels` `[1, 2, 3, 4, 5]` and `sides` holding `kicad_sch`

@@ -6,6 +6,8 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive completed `c0158-equivalent-public` and apply its validated requirements to the living specifications.
+
 - Archive completed `c0157-yardstick-route-order` and apply its validated requirements to the living specifications.
 
 - Archive completed `c0156-kicad-cli-docker-user` and apply its validated requirements to the living specifications.
