@@ -68,6 +68,7 @@ def test_the_chain_of_a_footprint_model() -> None:
     assert [dict(record)["RECORD"] for record in mapped] == ["44", "45", "46", "47", "47", "48"]
     assert dict(mapped[3]) == {
         "RECORD": "47",
+        "OWNERINDEX": "3",
         "DESINTF": "3",
         "DESIMPCOUNT": "2",
         "DESIMP0": "3",
@@ -91,6 +92,24 @@ def test_the_library_holds_the_map_that_every_component_holds() -> None:
     assert dict(symbols["Mini_R"].pin_pads) == {"1": ("1", "2"), "2": ("3", "4")}
     # the two LEDs hold other maps on other footprints: the library symbol holds none
     assert symbols["Mini_LED"].pin_pads == ()
+
+
+def test_resolved_library_symbols_inherit_only_common_component_models() -> None:
+    model = generic_pins(to_model(stacked_design()))
+    resolved = {
+        link: dataclasses.replace(symbol, footprint=None)
+        for link, symbol in project.generic_symbols(model).items()
+    }
+    libraries = project.library_symbols(model, name="stacked", symbols=resolved)
+    symbols = {symbol.lib_ref: symbol for found in libraries.values() for symbol in found}
+    resistor_users = [c for c in model.circuit.components if c.lib_symbol_ref.endswith(":Mini_R")]
+    expected_link = resistor_users[0].lib_footprint_ref
+    assert symbols["Mini_R"].footprint == (
+        project.pcblib_name(expected_link, design="stacked"),
+        expected_link.rpartition(":")[2],
+    )
+    assert dict(symbols["Mini_R"].pin_pads) == {"1": ("1", "2"), "2": ("3", "4")}
+    assert symbols["Mini_LED"].footprint is None
     specs = {spec.ref: spec for spec in project.part_specs(model, name="stacked")}
     assert dict(specs["D1"].pin_pads) == {"1": ("2",), "2": ("1",)}
     assert dict(specs["D2"].pin_pads) == {"1": ("21", "17")}

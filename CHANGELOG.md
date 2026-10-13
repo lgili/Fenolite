@@ -6,6 +6,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Refresh the authored SchLib goldens and their exact byte pins after footprint
+  model/owner repairs; preserve the scope of earlier native evidence.
+- Attach SchLib footprint models and pin maps to their parent records so native
+  full-symbol updates retain footprint associations and mapped connectivity.
+- Include the common component footprint in generated resolved SchLib symbols
+  without a default model. Native full replacement preserves the seven authored
+  kit components' footprint parity and LED pin mapping.
+
 - Reject error and fatal-error compile messages whose native class is bracketed
   again by the Altium kit script; warning-only logs continue to pass.
 - Isolate the kit status no-record test from actual native run records committed

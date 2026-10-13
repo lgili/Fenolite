@@ -197,7 +197,7 @@ them, so Fenolite does not use them, and no row above rests on them:
 - that `WEIGHT` is a record count of the whole library as Altium writes it;
 - that a writer reproduces a corpus of real libraries byte for byte;
 - that Altium writes the records 44 … 48 at the end of `Data`;
-- that a library writer writes no `OWNERINDEX` (version 1 sets an owner index).
+- whether omitting model-chain `OWNERINDEX` preserves native library updates (version 1 sets an owner index).
 
 Facts that c0032's and c0033's pages cite from S-0142 (unpinned AltiumSharp) and that version 1 does
 not give. Each of those rows also cites another source, except the two marked "S-0142 only"; c0034
@@ -269,8 +269,10 @@ These are choices of the writer, not format facts (design of change c0034):
 - `Data` holds the component, the binary pins ordered by part and then by number in natural order, one
   rectangle per part, the designator `<prefix>?`, the `Comment` parameter and, with a footprint, the
   records 44, 45, 46 and 48, with one record 47 after record 46 for each pin that the parts of the design
-  map to another pad than its own (change c0135; `connectivity.md`, "Component link"); no record carries
-  `OWNERINDEX`, and no coordinate carries `_FRAC`;
+  map to another pad than its own (change c0135; `connectivity.md`, "Component link"). Model records
+  carry `OWNERINDEX`: record 44 belongs to component 0, 45 to 44, 46 to 45, 47 to 46
+  and 48 to 45, using indices within Data (c0166; S-0131/S-0150 ownership facts above;
+  INFERRED pending native retry). No coordinate carries `_FRAC`;
 - the component carries `UNIQUEID=<project.unique_id("schlib:<library>:<lib ref>")>`, and neither
   `LIBRARYPATH`, `SOURCELIBRARYNAME` nor `TARGETFILENAME`;
 - binary pins carry all five short strings, `FORMALTYPE` 1, an empty description, swap group,

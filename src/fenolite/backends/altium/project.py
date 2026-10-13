@@ -527,16 +527,25 @@ def library_symbols(
     for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components}):
         library = schlib_name(lib_id, design=name)
         symbol = given.get(lib_id) or generic[lib_id]
+        users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
+        if symbol.footprint is None:
+            common = {c.lib_footprint_ref for c in users}
+            if len(common) == 1 and (link := common.pop()):
+                symbol = dataclasses.replace(symbol, footprint=split_link(link))
         # the library holds the pin map that every component of the symbol holds on the footprint its
         # footprint model names (record 45), and none otherwise: a map is a map onto one footprint, and a
         # part may link another footprint than its symbol's own. The sheet holds the map of each component.
-        if symbol.footprint is not None:
-            users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
+        footprint = symbol.footprint
+        if footprint is not None:
             designators = [pin.designator for pin in symbol.pins]
             maps = {map_pins(c, designators) for c in users}
-            on_model = all(split_link(c.lib_footprint_ref) == symbol.footprint for c in users)
+            on_model = all(split_link(c.lib_footprint_ref) == footprint for c in users)
             if len(maps) == 1 and (only := maps.pop()) and on_model:
                 symbol = dataclasses.replace(symbol, pin_pads=only)
+            model_library, model_name = footprint
+            symbol = dataclasses.replace(
+                symbol, footprint=(pcblib_name(f"{model_library}:{model_name}", design=name), model_name)
+            )
         libraries.setdefault(library, []).append(symbol)
     return {key: libraries[key] for key in sorted(libraries, key=name_key)}
 

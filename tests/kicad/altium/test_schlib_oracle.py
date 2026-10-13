@@ -260,7 +260,11 @@ def test_example_library_converts_with_the_source_pins() -> None:
         if source.footprint:
             assert read.footprint.split(":")[-1] == source.footprint.split(":")[-1], name
         else:
-            assert read.footprint == "", name
+            # c0166: the authored example's common component models are now
+            # carried into symbols without a library default. Pin comparisons
+            # above still compare with the original source library.
+            model = {"CONN2": "PinHeader_1x02", "R_V": "R0603", "MCU8": "SOIC8"}[name]
+            assert read.footprint == f"altium_kicad:{model}", name
 
 
 def test_example_shapes_and_overbars() -> None:

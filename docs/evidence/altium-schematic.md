@@ -1,5 +1,11 @@
 # Altium schematic writer: the maintainer's check
 
+2026-10-13 (c0166): current authored SchLib fixtures were regenerated for footprint
+model parent indices and shared component models. Their current protocol hashes
+are updated below. Earlier native reports retain their historical scope; these
+new library bytes require their own acceptance. The fresh kit's seven-symbol
+full update is recorded in [the native campaign](altium-native-acceptance.md).
+
 This page is the protocol by which the maintainer checks, in Altium Designer, the files that
 `fenolite build DESIGN.py --out DIR --target altium` writes (change c0032, capability `altium-build`,
 "Altium author reports"), and the record of each report.
@@ -147,12 +153,12 @@ that fresh builds give these bytes and that this table names them.
 
 | library or project file | SHA-256 |
 |---|---|
-| `tests/data/altium/sample/FenoliteSample.SchLib` | `fbcf22282d5c274f7220bbe0b3c862f2fb6932aad2407a14d179da1367d6cf1e` |
+| `tests/data/altium/sample/FenoliteSample.SchLib` | `61e68c6461438a1b76c75d285b62f491fc43dbd91f7a1ccea09ac25e1ee5be6c` |
 | `tests/data/altium/sample/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/sample/binary/altium_sample.PrjPcb` | `082b8c32ea1318af5576405d53fd4a3362a49760d0f48081b32ce6305c547aa0` |
 | `tests/data/altium/kicad_example/altium_kicad.PrjPcb` | `0a6f26d9afc01438b641d182ab62d40b3a57fc46773db2ac09ae2a8827808296` |
 | `tests/data/altium/kicad_example/altium_kicad.SchDoc` | `1ecb0bb793cf06ecad44422d41615b624116976208f1a929d9b023ebc85e3c28` |
-| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `71abcfba4f4fc1d95f6ce37730817537d5432c26a78ef8e32e7b30f64d1a3b49` |
+| `tests/data/altium/kicad_example/altium_kicad.SchLib` | `61d202f01f53c3f485a2a8f57a6d00c565cc85cebc43a48c98e1cb60752fc5ea` |
 
 2026-10-07 (change c0134): the two files of `kicad_example` above were built again, because the four
 symbols of the example library changed: `CONN2` no longer shows its pin names, which only repeated its pin
@@ -216,7 +222,7 @@ gives these bytes and that this table names them.
 |---|---|
 | `tests/data/altium/no_connect/altium_no_connect.PrjPcb` | `72149d0bbaebd6fc87c9e1535b28db504b3d2a40b67986d4c81243d997a31c81` |
 | `tests/data/altium/no_connect/altium_no_connect.SchDoc` | `80c45b5bafcd93aed4e4f9d38a29bd46dceccfed7d5819aaac401246a6474129` |
-| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `9b94a2d31d43d2297f1de97ccbc754b899dd6a2b44bc64520546e5a8f08d43af` |
+| `tests/data/altium/no_connect/altium_no_connect.SchLib` | `08a7eeb5e03977982ec17df669aebc9e8f74a790a428b5c50d915fab108017a5` |
 | `tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc` | `00fbe6dfcb752687b1dd036754cdd7072d84c35b6d36418105ae301f0dc81356` |
 
 2026-10-07 (change c0134): the library and the two schematics above were built again, because `CONN2`
@@ -264,7 +270,7 @@ fresh build gives these bytes and that this table names them.
 
 | sheet, library or project file | SHA-256 |
 |---|---|
-| `tests/data/altium/hier/FenoliteHier.SchLib` | `28253155935529e7c62fb723739044858277e39fcd7c61eb3c5dbdfcf0cebbc3` |
+| `tests/data/altium/hier/FenoliteHier.SchLib` | `4bb9a7bded8be3d14827d29112fac29648ad3f7d8066908e310a99831870c15a` |
 | `tests/data/altium/hier/altium_hier.PrjPcb` | `5a93823a0b938462fb766cee0ce8254a7e31f29076e4fa9303f74a8ed88b30f6` |
 | `tests/data/altium/hier/altium_hier.SchDoc` | `ee7353c17578de7e6c36904de4f30c8406afd1909837c92d64157067cd51d1f0` |
 | `tests/data/altium/hier/altium_hier_flash.Harness` | `83c0f6606a5ac53075a7c5b8c2a2e785cb56eeb197ec9e10a920ede54c8da733` |

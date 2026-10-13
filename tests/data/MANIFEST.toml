@@ -728,7 +728,7 @@ notes = "binary (MS-CFB) schematic written from examples/altium_sample with form
 path = "tests/data/altium/sample/FenoliteSample.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_sample, written by fenolite build --target altium (c0034 golden file)"
+notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_sample, written by fenolite build --target altium (c0034 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/kicad_example/altium_kicad.PrjPcb"
@@ -746,7 +746,7 @@ notes = "binary schematic of examples/altium_kicad drawn from its library symbol
 path = "tests/data/altium/kicad_example/altium_kicad.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of examples/altium_kicad with the symbols of FenoliteDemo.kicad_sym (c0034 golden file)"
+notes = "schematic library of examples/altium_kicad with the symbols of FenoliteDemo.kicad_sym (c0034 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/blink/blink.PcbLib"
@@ -770,7 +770,7 @@ notes = "binary schematic of examples/blink_2layer linking its footprints to bli
 path = "tests/data/altium/blink/blink.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of examples/blink_2layer with the mini symbols (c0035 golden file)"
+notes = "schematic library of examples/blink_2layer with the mini symbols (c0035 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/blink/blink.PcbDoc"
@@ -800,7 +800,7 @@ notes = "binary schematic of examples/altium_kicad/no_connect.py with three No E
 path = "tests/data/altium/no_connect/altium_no_connect.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of examples/altium_kicad/no_connect.py with the symbols of FenoliteDemo.kicad_sym (c0036 golden file)"
+notes = "schematic library of examples/altium_kicad/no_connect.py with the symbols of FenoliteDemo.kicad_sym (c0036 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc"
@@ -812,13 +812,13 @@ notes = "ASCII schematic of examples/altium_kicad/no_connect.py with three No ER
 path = "tests/data/altium/hier/FenoliteHier.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_hier (c0037 golden file)"
+notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_hier (c0037 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/hier/altium_hier.PrjPcb"
 origin = "authored"
 corpus_id = ""
-notes = "project file of examples/altium_hier listing its three sheets first, then its library and its two harness definition files (c0037 golden file)"
+notes = "project file of examples/altium_hier listing its three sheets first, then its library and its two harness definition files (c0037 golden file); c0166 adds explicit wire-label net naming, native H3/H4 preserves nine nets without alias warnings"
 
 [[file]]
 path = "tests/data/altium/hier/altium_hier.SchDoc"
@@ -878,7 +878,7 @@ notes = "binary schematic of the routed sample (c0038 golden file)"
 path = "tests/data/altium/routed/routed.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the routed sample with the mini symbols (c0038 golden file)"
+notes = "schematic library of the routed sample with the mini symbols (c0038 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/libs/Frame.pretty/Frame_NoCourtyard.kicad_mod"
@@ -1442,7 +1442,7 @@ notes = "binary schematic of the six-layer sample, the blink design named board6
 path = "tests/data/altium/board6/board6.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file)"
+notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/outjob/blink.OutJob"
@@ -1472,7 +1472,7 @@ notes = "binary top sheet of the tree sample: symbols drawn from their graphics,
 path = "tests/data/altium/tree/tree.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the tree sample: eight catalog symbols written with their own graphics (c0086 golden file)"
+notes = "schematic library of the tree sample: eight catalog symbols written with their own graphics (c0086 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/tree/tree_io.SchDoc"
@@ -1508,7 +1508,7 @@ notes = "blink.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the 
 path = "tests/data/altium/generic/blink/blink.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "blink.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "blink.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/kicad_example/altium_kicad.SchDoc"
@@ -1520,7 +1520,7 @@ notes = "altium_kicad.SchDoc as committed before c0086 (bytes of commit 6cdf0aea
 path = "tests/data/altium/generic/kicad_example/altium_kicad.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "altium_kicad.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "altium_kicad.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/no_connect/altium_no_connect.SchDoc"
@@ -1532,7 +1532,7 @@ notes = "altium_no_connect.SchDoc as committed before c0086 (bytes of commit 6cd
 path = "tests/data/altium/generic/no_connect/altium_no_connect.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "altium_no_connect.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "altium_no_connect.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/no_connect/ascii/altium_no_connect.SchDoc"
@@ -1550,7 +1550,7 @@ notes = "routed.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the
 path = "tests/data/altium/generic/routed/routed.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/library/FenoliteDemo.kicad_sym"
@@ -1640,7 +1640,7 @@ notes = "binary schematic of the sample with component bodies, the blink design 
 path = "tests/data/altium/body2/body2.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file)"
+notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/model/v0.2.0/blink_2layer.board.json"
