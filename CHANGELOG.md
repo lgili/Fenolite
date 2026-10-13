@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Declare the 72 existing authored KiCad downgrade fixtures in the data manifest,
+  including the recorded checksum of their measured DRC/ERC types. This repairs
+  the corpus-policy gate without changing fixture bytes.
+
 - Fix Altium Full Stack pad layer association: the first inner layer uses the main
   middle geometry, while the 29 extended entries represent inner layers 2 through
   30. The writer and reader now agree with that association; regression tests check
