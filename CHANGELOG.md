@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record separate native acceptance repair commits and four validated OpenSpec
+  archives, retaining the remaining native, probe and dependency blockers.
+
 - Archive completed `c0158-equivalent-public` and apply its validated requirements to the living specifications.
 
 - Archive completed `c0157-yardstick-route-order` and apply its validated requirements to the living specifications.

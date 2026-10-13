@@ -480,7 +480,8 @@ remain unverified pending a successful render.
 Latest fast quality gate after the source-link identity and harness naming
 repairs: 13092 passed, 151 skipped (1444.83 s), all static gates passed. A single
 full gate now runs with the restored KiCad CLI and heavy corpus cases enabled.
-The earlier failed gates remain retained; no change is archived or committed.
+The earlier failed gates remain retained. The subsequent cleanup commits and
+eligible archives are recorded below; this campaign remains open.
 
 Repeat R5 remote-commit probe, 2026-10-13: local remote ref
 origin/c0151-repeat-bus-split contains commit 4958647d, which is not integrated
@@ -494,3 +495,35 @@ Thus the remote proposed correction does not settle R5 on this native run.
 Commit/input hashes and the full result log remain ignored; no merge/cherry-pick
 is applied. The branch absence is no longer an inability to test its artefacts,
 but current integration and the native bus/connectivity defect remain open.
+
+Repository cleanup, 2026-10-13: the maintainer requested separate commits for
+completed work and eligible archives. Twelve signed-off Conventional Commits
+separate campaign planning, pad stacks, fixture provenance, no-connect markers,
+copper offsets, kit checks, library models, via tenting, multipart links,
+harness naming, portable acceptance proofs and measured native evidence.
+Their proof scope is recorded in each commit body; a pending full gate is not
+reported as passed.
+
+| completed change | archive commit | updated living specifications |
+|---|---|---|
+| c0163-opaque-net-stored-name | cb962d7e | kicad-file-backend |
+| c0156-kicad-cli-docker-user | cfa8ccf9 | kicad-oracle |
+| c0157-yardstick-route-order | 741559b0 | release-gate |
+| c0158-equivalent-public | da39b667 | cli-contract, design-equivalence, package-layering |
+
+Each archived change had all tasks checked with its existing proof record,
+passed strict change validation and was archived through OpenSpec. Every updated
+living specification passed strict validation. These archives do not assert
+completion of the broader Altium campaign or the current full gate.
+
+Other task-complete changes remain open in dependency order: c0123 waits for
+c0083; c0126 waits for c0123; c0077 and c0114 wait for c0126; c0137 waits for
+c0123; c0139 waits for c0091; c0131 waits for c0125/c0130; c0132 waits for
+c0130/c0131; c0152 waits for that clearance chain. Optional native tasks of
+c0125/c0130 remain unchecked. c0160/c0161/c0162 and c0166 retain their explicit
+incomplete tasks. No pending native test or probe is silently marked passed.
+
+Cleanup proof: the focused verification-docs, hypotheses, provenance and
+repository-layout tests pass (61 passed, 71.20 s). Strict c0166 validation and
+the whitespace check also pass. The single full suite continues separately;
+this focused proof does not close the full-gate task.
