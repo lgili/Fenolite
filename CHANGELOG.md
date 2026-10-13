@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record background native Altium acceptance collection and Save As proofs:
+  21 boards inspected and 11 documents saved through authored runtime scripts,
+  with serialized jobs and unchanged inputs. A guarded retry resolves the initial
+  flat PCB parity finding; complete native campaign acceptance remains pending.
+
 ### Native Altium templates
 
 - `fenolite build --target altium --altium-template FILE.SchDot` applies a native binary sheet template
