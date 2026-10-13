@@ -785,7 +785,8 @@ compile message about a floating port would say that it does not).
    and what separates it from the unique ids, not the ids). Expected: `R1_CH1`,
    `R1_CH2`, `C12_CH1`, `C12_CH2`; `OUT1` and `OUT2`; `MID_CH1` and `MID_CH2`. Settles
    `H-A-IMP-RPT-NETS`, and gives the path form that the board link of a `Repeat` channel waits for.
-4. R4: run Tools » Annotation » Annotate Compiled Sheets, rename one channel's `R1`, save, and send only
+4. R4: run Tools » Annotation » Board Level Annotate, disable Apply for the chosen component,
+   rename one channel's `R1`, accept/validate/execute the annotation ECO, save its Annotation document, and send only
    the names of the keys of the `.Annotation` file that changed and the two designators.
 
 The maintainer reports one generic outcome per step (`as expected`, or what differed in one sentence),
@@ -843,6 +844,18 @@ hierarchy/name options, bus label position, straight bus geometry, native
 entry-name setters, native Save As and reopening the saved sheet. The failed
 controls remain ignored; no rules are relaxed and no library repair is inferred
 from unsuccessful controls. R1 bus connectivity and R3/R4 remain open.
+
+**R4 continuation, 2026-10-13, `AD 26.5` (S-0737).** The menu path is corrected:
+Annotate Compiled Sheets numbers sheets, while Board Level Annotate assigns
+component designators. One owned annotation ECO validates/executes and its
+Annotation document saves 305 bytes. The native file uses indexed pairs under
+DesignatorManager, refuting the former flat-key assumption. Native reload
+identifies the changed resistor as CH2, now R101_CH1, with CH1 still R1_CH1;
+the proposal's UI label alone did not identify the stored channel reliably.
+The repaired import matches all six physical designators and seven internal
+VCC/MID memberships. PCB transfer remains R3 and the Repeat bus still fails.
+See the campaign report for the complete key list, proof scope and retained
+native artefacts; no native binary or native annotation file is committed.
 
 ## Recording a report
 

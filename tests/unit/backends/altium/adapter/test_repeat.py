@@ -29,6 +29,7 @@ from fenolite.backends.altium.adapter.netlist import (
     resolve,
 )
 from fenolite.backends.altium.adapter.parts import part_groups
+from fenolite.backends.altium.read.annotation import read_annotation
 from fenolite.backends.altium.read.project import read_project
 from fenolite.checks.assignment_compare import model_netlist
 from fenolite.checks.equivalence.levels import level_netlist
@@ -254,6 +255,54 @@ def test_designator_options_come_from_the_project_file() -> None:
     project = read_project(two.project_text("$Component$ChannelAlpha").encode("utf-8"), file=two.PROJECT)
     circuit, _ = read(options=NetOptions.from_project(project))
     assert sorted(c.ref for c in circuit.components if c.ref[-1] in "AB") == ["C12A", "C12B", "R1A", "R1B"]
+
+
+def test_native_annotation_distinguishes_repeat_channels_without_changing_ids_or_nets() -> None:
+    annotation = read_annotation(
+        b"[DesignatorManager]\nUniqueID0=\\1SYMBOL01\\RUID0001\nPhysicalDesignator0=R71\n"
+        b"UniqueID5=\\2SYMBOL01\\RUID0001\nPhysicalDesignator5=R72\n"
+    )
+    options = dataclasses.replace(OPTIONS, annotations=tuple(annotation.designators().items()))
+    original, _ = read()
+    circuit, issues = read(options=options)
+    assert sorted(c.ref for c in circuit.components) == ["C12_CH1", "C12_CH2", "J1", "R71", "R72", "U1"]
+    assert [c.id for c in circuit.components] == [c.id for c in original.components]
+    assert circuit.nets == original.nets
+    assert [m.id for m in circuit.modules] == [m.id for m in original.modules]
+    assert "channel-naming" not in codes(issues)
+
+
+def test_native_annotation_changes_only_its_matching_repeat_component() -> None:
+    options = dataclasses.replace(OPTIONS, annotations=(("\\2SYMBOL01\\RUID0001", "R74"),))
+    original, _ = read()
+    identities = {c.ref: c.id for c in original.components}
+    circuit, _ = read(options=options)
+    refs = {c.id: c.ref for c in circuit.components}
+    assert refs[identities["R1_CH1"]] == "R1_CH1"
+    assert refs[identities["R1_CH2"]] == "R74"
+    assert sorted(c.ref for c in circuit.components if c.ref.startswith("C")) == ["C12_CH1", "C12_CH2"]
+
+
+def test_import_bracket_path_is_not_guessed_as_a_native_repeat_annotation() -> None:
+    options = dataclasses.replace(OPTIONS, annotations=(("\\SYMBOL01[2]\\RUID0001", "R74"),))
+    circuit, _ = read(options=options)
+    assert sorted(c.ref for c in circuit.components if c.ref.startswith("R")) == ["R1_CH1", "R1_CH2"]
+
+
+def test_nested_repeat_annotation_paths_remain_unresolved() -> None:
+    top = rec.Sheet("top.SchDoc")
+    top.symbol("Repeat(BANK,1,2)", "bank.SchDoc", (100, 200), uid="BANKSYM1")
+    bank = rec.Sheet("bank.SchDoc")
+    bank.symbol("Repeat(CH,1,2)", "ch.SchDoc", (100, 200), uid="CHANSYM1")
+    channel = rec.Sheet("ch.SchDoc")
+    channel.component("R1", [("1", 10, 10)], uid="RUID0001")
+    options = NetOptions(
+        channel_format=two.FORMAT,
+        room_style=2,
+        annotations=(("\\1BANKSYM1\\2CHANSYM1\\RUID0001", "R74"),),
+    )
+    circuit = import_circuit((top.input(), bank.input(), channel.input()), options=options)
+    assert sorted(c.ref for c in circuit.components) == [f"R1_BANK{b}_CH{c}" for b in (1, 2) for c in (1, 2)]
 
 
 def board(*parts: object) -> BoardInput:

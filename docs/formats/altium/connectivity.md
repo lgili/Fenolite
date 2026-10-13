@@ -152,11 +152,14 @@ bus connectivity or PCB links.
   and a bus with fewer members than channels give `altium.import.channel-naming`. The statement never
   names a net.
 - **Order of sources.** The board first (`project.link`), then the project's annotation file, then the
-  format. The annotation file is read by `read.annotation` in a form that is this reader's assumption
-  (`project.md`, "The annotation file": the form is `UNKNOWN`, `H-A-IMP-RPT-ANNOT`): an entry whose
+  format. The annotation file is read by `read.annotation` in its measured indexed
+  form or the legacy authored flat form (`project.md`, "The annotation file",
+  S-0737): an entry whose
   unique-id path is the native path of a channel component (`cmp:` and that path) gives its designator
   (source `annotation`). It applies to the channels of a sheet that several sheet symbols name; a channel
-  of a `Repeat` statement has no recorded path form (row above), so no entry is tried for it. The one
+  of a one-level `Repeat` statement uses the observed annotation index-before-UID
+  path. Nested Repeat annotation paths remain unresolved, and PCB linking still
+  uses its existing designator fallback. The one
   annotation file that a public project lists (set of S-0188) is empty at the registered commit (0 bytes,
   measured on 2026-10-06); an absent or empty one, or one whose lines are in another form, changes
   nothing.

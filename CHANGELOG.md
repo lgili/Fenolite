@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Read native indexed Altium annotation records without changing their bytes and
+  apply measured one-level Repeat channel mappings; preserve legacy authored
+  flat maps and leave unmeasured nested paths unresolved.
+
 - Record native Repeat naming checks for eight designator formats and five room
   styles; preserve the unresolved bus connectivity and mixed-style scope.
 

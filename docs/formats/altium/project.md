@@ -117,6 +117,20 @@ scopes get a row when the maintainer's author report names their numbers
 
 ## The annotation file (change c0083)
 
+Native observation, 2026-10-13 (S-0737): an authored AD 26.5 board-level
+annotation saves an INI `DesignatorManager` section. A record's numbered keys
+are `LogicalDesignator<n>`, `LogicalPartID<n>`, `DocumentName<n>`,
+`ChannelName<n>`, `UniqueID<n>`, `PhysicalDesignator<n>` and
+`PhysicalDesignatorLocked<n>`. The UID and physical-designator values are the
+mapping. `SheetNumberManager` separately carries `SheetNumberOrder` and
+`SheetNumberMethod`. These key names are
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)` for the
+authored saved/reloaded case; no native file is committed. A one-level Repeat
+mapping prefixes the index to its parent sheet-symbol UID in the path before
+the component UID. Native reload renames the CH2 resistor only. Nested Repeat
+paths and the corresponding PCB UID remain unverified. The older unknown/flat
+form statements below describe the pre-report assumption, retained historically.
+
 A project that uses board-level annotation lists an annotation file (`.Annotation`, kind `annotation`).
 `fenolite.backends.altium.read.annotation` reads it and `load_project` returns it (`AltiumProject.annotations`);
 the import takes the designators of channel components from it (`docs/formats/altium/connectivity.md`,
@@ -135,12 +149,14 @@ and which part of the reader is this reader's own assumption.
 - **The bytes are the source of truth.** The file is read with the text layer of the project file
   (`read.textfile`, `read.ini`): `AnnotationFile.to_bytes()` gives the input back, and a compound file or a
   NUL byte raises the located `FormatError` of the text readers. An empty file has no entry.
-- **The entry form is this reader's assumption, not a fact.** An entry is a `<key>=<value>` line, in any
-  section, whose key is a unique-id path in the form of a board component's `SOURCEUNIQUEID`
-  (`\<id>\<id>…`, `connectivity.md`, `H-A-IMP-LINK`) and whose value is the designator. Any other
-  key line is kept and reported once per line with the info `altium.text.unknown-key`. When step R4
-  reports the real keys, this choice is replaced and `H-A-IMP-RPT-ANNOT` says so; until then a real file
-  in another form gives no entry and changes nothing in the import.
+- **Native indexed mappings.** The measured `DesignatorManager` pairs are read
+  by equal index, without requiring consecutive indexes or a particular key
+  order. Complete records' measured metadata is retained, as are the two measured
+  sheet-number keys. Incomplete/invalid pairs and unknown keys are retained with
+  located `altium.text.unknown-key` information.
+- **Legacy authored flat mappings.** A `<unique-id path>=<designator>` line in
+  any section remains supported for compatibility. This was the pre-report
+  assumption, not the observed native form. The first entry of each path wins.
 - **The authored sample** `tests/data/altium/channels/two/two.Annotation` is written in that assumed form
   by `tests/data/altium/channels/two/author.py`. It is not listed by `two.PrjPcb` (the sample's import
   stays the naming format's), it is not a file Altium wrote, and it is not handed over in Part R.

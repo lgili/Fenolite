@@ -2,8 +2,8 @@
 
 ### Requirement: Annotation file read
 `fenolite.backends.altium.read.annotation.read_annotation(data, *, file)` SHALL read a project's `.Annotation` file into its entries, each a unique-id path with the designator it assigns, and SHALL keep the text so that it can be written back byte for byte ("Text forms are kept byte for byte").
-- The facts of the file's form MUST be recorded in `docs/formats/altium/project.md` with their sources and labels before the reader is written. Where no public source states the form, the page MUST say so (`UNKNOWN`) and state the form the reader assumes as Fenolite's choice: an entry is a `<key>=<value>` line, in any section, whose key is a unique-id path and whose value is the designator (`H-A-IMP-RPT-ANNOT`, settled by Part R, step R4).
-- A file that does not have that form MUST raise the located `FormatError` of the text readers; an entry that names no unique-id path MUST be kept and reported with `altium.text.unknown-key`.
+- The facts of the file's form MUST be recorded in `docs/formats/altium/project.md` with their sources and labels before the reader is written. The native `DesignatorManager` form SHALL pair `UniqueID<n>` and `PhysicalDesignator<n>` of the same index; indexes need not be consecutive. Legacy authored `<unique-id path>=<designator>` lines SHALL remain supported.
+- Non-text input MUST raise the located `FormatError` of the text readers. Known metadata of complete native records and measured sheet-number metadata SHALL be kept; unknown keys and incomplete or invalid mappings MUST be kept and reported with `altium.text.unknown-key`.
 - `load_project` MUST return the annotation file of a project that lists one.
 
 #### Scenario: Authored annotation file
@@ -15,6 +15,16 @@
 - **GIVEN** a project file that lists `p.Annotation`, a file holding one entry
 - **WHEN** `load_project` runs
 - **THEN** `annotations` holds one `(1, AnnotationFile)` pair and `annotation_designators()` gives that entry
+
+#### Scenario: Native indexed annotation records
+- **GIVEN** authored `DesignatorManager` records with matching `UniqueID0`/`PhysicalDesignator0` and `UniqueID7`/`PhysicalDesignator7`, in either key order
+- **WHEN** `read_annotation` runs
+- **THEN** both mappings are read, the first entry of a repeated path wins, and all bytes are retained
+
+#### Scenario: Incomplete indexed annotation record
+- **GIVEN** a native record missing its physical designator, an invalid path, or similarly named keys in another section
+- **WHEN** `read_annotation` runs
+- **THEN** no unsupported mapping is invented and the original keys are retained with located unknown-key information
 
 ## MODIFIED Requirements
 

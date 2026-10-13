@@ -221,7 +221,7 @@ Only their unreported supplementary measurements remain below.
 | PCB D1-D3 | pad dimensions/holes, long names, library project listing, empty-board ECO and bottom-side placement | long-name native save preserves full name/two pads; other details pending, prior opening/matching-ECO reports retained |
 | Copper C1-C2/C6-C7 | exact nets/sizes, stack thicknesses, internal-plane connectivity and script-authored copper | C1 native geometry and C2 stack passed; C7 preserves 11 tracks/7 vias; C6 plane/GND assignment preserved, direct connectivity pending |
 | Via tenting C8 | none, top, bottom and both, including mask openings/expansion | passed after manual-cache repair; native saved flags and top/bottom Gerber apertures verified |
-| Repeat R1-R4 | retest connectivity, designator/room formats, ECO and annotation | focused R1 retry: 3 errors/8 warnings, remaining bus entry conflict; R2-R4 pending |
+| Repeat R1-R4 | retest connectivity, designator/room formats, ECO and annotation | R2 naming matrix: twelve known combinations match native, mixed style observed at one level; R1 bus conflict and R3/R4 pending |
 | Repeat R5 | c0151 bus split follow-up | remote 4958647d artefacts tested: three errors/six warnings, bus and OUT links still fail; implementation not integrated here |
 | Bodies X8.6 | counts from the native saved file | measured: 3 plain/3 shape-based, 0 original MODELID retained, 3 nonzero checksums, 35 keys each; X8.1-X8.5/X8.7 prior reports retained |
 | Via supplementary measurement | nine further bytes of the long via record before/after removing shapes and changing end-layer options | pending; Part V's layer-id mask already reported as expected |
@@ -527,3 +527,57 @@ Cleanup proof: the focused verification-docs, hypotheses, provenance and
 repository-layout tests pass (61 passed, 71.20 s). Strict c0166 validation and
 the whitespace check also pass. The single full suite continues separately;
 this focused proof does not close the full-gate task.
+
+Continuation in dependency order, 2026-10-13: c0091 is reconciled with the
+completed current kit and archived in edc3f5a4. Fresh native verification passes;
+status has four records, no stale rows and no problems. Publication stays under
+c0092 and no write kind graduates from this archive alone.
+
+Part R naming matrix (S-0736): eight documented formats and five room styles
+were compiled in thirteen uniquely named authored projects. All twelve resolved
+predictions match the physical R1/C12 designators exactly. The one-level mixed
+style yields alpha suffixes; its general mapping stays unknown. Every case
+retains the three OUT/bus errors. Keyword case, child endpoint/I/O/wire, project
+scope/naming flags, bus label/line geometry, native setters and native save/reopen
+controls have not repaired the underlying connectivity failure.
+
+Part R annotation (S-0737): the original R4 menu path opens sheet numbering.
+The component workflow is Tools / Annotation / Board Level Annotate. On one
+owned authored project, the naming-scheme checkbox of a resistor row is disabled
+and a custom physical designator is proposed. The native ECO contains one
+physical-component annotation, validates and executes with green check/done
+states. Its Annotation document is saved through the native client as a
+305-byte indexed INI file, then reloaded in a fresh project. The file stores
+LogicalDesignator0, LogicalPartID0, DocumentName0, ChannelName0, UniqueID0,
+PhysicalDesignator0 and PhysicalDesignatorLocked0 under DesignatorManager, and
+SheetNumberOrder/SheetNumberMethod under SheetNumberManager.
+
+The UI proposal label names R1_CH1, but the saved channel/UID and the fresh native
+compile identify the CH2 resistor as the changed component. The actual result
+is R1_CH2 to R101_CH1, while R1_CH1 remains unchanged; the stored/reloaded identity
+is authoritative. No cause or general native UI defect is asserted. The repaired
+reader retains every byte and reads one mapping with zero annotation issues;
+the repaired one-level Repeat association agrees with all six native physical
+designators and exactly seven internal VCC/MID pin memberships. OUT/bus
+connectivity still fails and PCB transfer is not proved. Nested Repeat annotation
+paths remain unresolved. Initial reader regressions: 17 passed; combined reader,
+Repeat and channel proof: 93 passed; pyright: zero errors/warnings. Native files,
+UI captures and the scoped proof JSON stay ignored.
+
+Full gate checkpoint before the annotation repair: 16397 passed, 331 skipped,
+three expected failures and two failures (7394.12 s). The failing net-tie case
+ungrouped-touching has an extra native shorting_items finding; its probe records
+different rather than the frozen equal verdict. The failed gate is preserved.
+It does not validate the subsequent annotation repair, and no probe baseline is
+silently updated. c0083 and the current campaign remain open.
+
+Native KiCad diagnosis after the failed gate: five serial DRC runs on the same
+authored board SHA-256 vary without any input-byte change. Ungrouped-touching
+reports shorting_items plus solder_mask_bridge four times and mask only once;
+ungrouped-close reports clearance once and no counted copper violation four
+times. Five further runs restricted to one inherited CPU also vary (touching
+short three times, close clearance three times). This establishes native oracle
+instability for these exact cases; CPU affinity does not resolve it, and the
+underlying cause is not established. All ten reports and the identical input
+hash are retained ignored. No test expectation, probe baseline or production
+KiCad behavior is changed to turn this into a pass.

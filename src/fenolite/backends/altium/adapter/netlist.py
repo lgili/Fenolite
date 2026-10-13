@@ -643,8 +643,9 @@ def _references(
     """The reference of every component, the count of channel components per designator source, and the
     instances that are channels (their sheet is instantiated more than once). A channel component takes
     the designator of the annotation entry of its unique-id path (``components`` without ``cmp:``, source
-    ``annotation``), else the format's; a channel of a ``Repeat`` statement has no recorded path form, so
-    no entry is tried for it."""
+    ``annotation``), else the format's. S-0737 measures the index-before-UID
+    annotation path of a one-level Repeat; nested Repeat paths remain unresolved.
+    Component ids and PCB-link paths are not changed."""
     annotated = dict(options.annotations)
     counts: dict[int, int] = {}
     for instance in instances:
@@ -658,6 +659,14 @@ def _references(
             if instance.index in channels:
                 path = components[(instance.index, number)].removeprefix("cmp:")
                 listed = annotated.get(path) if "[" not in path else None
+                if (
+                    listed is None
+                    and len(instance.uids) == len(instance.indexes) == 1
+                    and (channel_index := instance.indexes[0]) is not None
+                ):
+                    symbol_uid = instance.uids[0].removesuffix(f"[{channel_index}]")
+                    component_uid = path.rsplit("\\", 1)[-1]
+                    listed = annotated.get(f"\\{channel_index}{symbol_uid}\\{component_uid}")
                 named = channel_name(group.ref, instance, options)
                 if listed:
                     ref = listed
