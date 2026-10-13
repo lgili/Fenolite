@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive completed `c0091-altium-verification-kit` and apply its validated requirements to the living specifications.
+
+- Reconcile c0091's first-run task with the committed 32-step native Altium kit
+  result; retain archive publication and write-kind graduation under c0092.
+
 - Record separate native acceptance repair commits and four validated OpenSpec
   archives, retaining the remaining native, probe and dependency blockers.
 

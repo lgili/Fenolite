@@ -30,6 +30,13 @@ Native archives remain in ignored local storage
 and have not been published. See [the acceptance campaign](../altium-native-acceptance.md)
 for measured scopes, the original failed save and the remaining work.
 
+Closure reconciliation, 2026-10-13 (c0091): the completed current run is
+committed and a fresh `kit verify` passes. `kit status` lists four records,
+no stale rows and no problems. This satisfies c0091's first-run proof.
+Archive publication remains c0092 task 3.1; no write kind graduates merely
+because this kit implementation is archived. The original native result
+folder still reports privacy findings separately from its passing step verdict.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported that the projects of the kit built from `5adad054` opened in Altium
