@@ -6,43 +6,56 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Give generated harness projects explicit wire-label naming priority, removing
+  native multiple-name warnings while preserving all net memberships.
+- Keep physical PCB component/document identities fixed while correcting
+  multipart source-unit links. Refresh the two affected exact build pins.
+- Record native ASCII CRLF/no-UID preservation and the LF-only import failure;
+  normalizing the authored LF control to CRLF preserves its eight components.
+
 - Restore corpus parity lookup with POSIX manifest keys on Windows. Pin measured
   KiCad importer free-pad wrapper counts and rotated-slot discrepancies after
   confirming that native Altium retains the original slotted-hole dimensions.
+
 - Keep acceptance rebuild metadata filtering portable on Windows and expand the
   guide oracle to cover both additional rules examples. SchLib oracle assertions
   now check the inherited common footprint models while retaining source pins.
-- Give the subprocess budget regression enough Windows startup time while still
-  proving deadline exhaustion and persistence of only the completed router run.
 
-- Give generated harness projects explicit wire-label naming priority, removing
-  native multiple-name warnings while preserving all net memberships.
-
-- Keep physical PCB component/document identities fixed while correcting
-  multipart source-unit links. Refresh the two affected exact build pins.
 - Match multipart Altium PCB components to the last emitted schematic unit ID,
   preserving single-part output. Native comparison recognizes all 68 components
   in the public hierarchical case without manual linking or footprint replacement.
+
+- Record a complete current-kit native Altium 26.5 run: all 32 K1-K9 steps pass,
+  including ECO, full library update, repour, OutJob output and title rendering.
+  The broader native acceptance campaign and final quality gate remain open.
+
+- Refresh the authored SchLib goldens and their exact byte pins after footprint
+  model/owner repairs; preserve the scope of earlier native evidence.
+- Give the subprocess budget regression enough Windows startup time while still
+  proving deadline exhaustion and persistence of only the completed router run.
 
 - Set the via solder-mask cache to manual when a written side is tented, so
   Altium's rule cache does not clear the requested tenting during opening/saving.
   Untented via bytes remain unchanged; native Gerbers confirm all four mask cases.
 
-- Refresh the authored SchLib goldens and their exact byte pins after footprint
-  model/owner repairs; preserve the scope of earlier native evidence.
 - Attach SchLib footprint models and pin maps to their parent records so native
   full-symbol updates retain footprint associations and mapped connectivity.
 - Include the common component footprint in generated resolved SchLib symbols
   without a default model. Native full replacement preserves the seven authored
   kit components' footprint parity and LED pin mapping.
+- Correct the conversion census ledger for the public microwave board's two
+  modified POLY footprints; retain the exact report assertion and PCB geometry.
 
 - Reject error and fatal-error compile messages whose native class is bracketed
   again by the Altium kit script; warning-only logs continue to pass.
 - Isolate the kit status no-record test from actual native run records committed
   in the checkout; validate checked-in native records instead of requiring none.
 
-- Correct the conversion census ledger for the public microwave board's two
-  modified POLY footprints; retain the exact report assertion and PCB geometry.
+- Record background native Altium acceptance collection and Save As proofs:
+  21 boards inspected and 11 documents saved through authored runtime scripts,
+  with serialized jobs and unchanged inputs. A guarded retry resolves the initial
+  flat PCB parity finding; complete native campaign acceptance remains pending.
+
 - Preserve KiCad pad copper offsets in Altium PCB conversion and derived PcbLibs,
   including rotated pads and bottom-side instances, without editing source slots.
   Native DRC on the public hierarchical case now reports zero clearance violations
@@ -65,11 +78,6 @@ All notable changes to Fenolite are documented here. The format follows
   distinct first/second inner layers and the final inner layer independently of
   round trips. Native Altium 26.5.0 inspection confirms the authored four-layer
   PCB and placement from its PcbLib retain distinct first/second inner geometries.
-
-- Record background native Altium acceptance collection and Save As proofs:
-  21 boards inspected and 11 documents saved through authored runtime scripts,
-  with serialized jobs and unchanged inputs. A guarded retry resolves the initial
-  flat PCB parity finding; complete native campaign acceptance remains pending.
 
 ### Native Altium templates
 

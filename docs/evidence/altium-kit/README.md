@@ -16,7 +16,19 @@ The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON 
   here holds a passing verdict for it and the kit of that run is the kit the tree builds
   (`fenolite kit status` lists the runs and the stale rows).
 
-No run is recorded yet.
+Three partial native runs are recorded for 2026-10-13, in Altium Designer 26.5
+on Windows: `2026-10-13-61513e18` (8 passed steps) and
+`2026-10-13-e8794749` (26 passed steps, no failures, 6 pending), and
+`2026-10-13-fccaa526` (3 passed steps, no failures, 29 pending) on the newly
+generated kit after the full-library-update repair. The older two runs precede
+the library change; their digests and verdicts remain historical.
+A fourth run, `2026-10-13-462b38ba`, completes the corrected current kit:
+32 passed steps, zero failures and zero pending. The archive digest is
+`462b38ba3cc4812ddeea626865c8c097e50f0ed9f2473dc0f79a7455f80a4b93`
+(1236513 bytes). The broader legacy/Part T/Viewer campaign remains incomplete.
+Native archives remain in ignored local storage
+and have not been published. See [the acceptance campaign](../altium-native-acceptance.md)
+for measured scopes, the original failed save and the remaining work.
 
 ## Author report of 2026-10-07 (opening only)
 

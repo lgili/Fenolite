@@ -1,0 +1,534 @@
+{
+  "altium_version": "AD 26.5",
+  "archive": {
+    "name": "altium-kit-2026-10-13-e8794749.zip",
+    "sha256": "e8794749f50c3526295b4b97042a817fba297df42a803611ce0308daca271444",
+    "size": 991955
+  },
+  "date": "2026-10-13",
+  "fenolite_version": "0.5.0.dev0",
+  "hypotheses": [
+    {
+      "form": true,
+      "id": "H-A-KIT-COMPILE",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-KIT-DRC",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-REPOUR",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-RESAVE",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-SCRIPT",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-OUTJOB-OPEN",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN-2",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-KEEPOUT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-PCBX-REPOUR",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-STACK",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-TEXT",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-VIASPAN",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-CHECKSUM",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-LAYOUT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-PH-NO-CACHE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-ZERO-FIELDS",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-KINDS",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-SCOPE",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHDOT-OPEN",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHDOT-STRINGS",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHLIB-UPDATE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHX-TREE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBDOC",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBLIB",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHDOC",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHLIB",
+      "outcome": "skipped"
+    }
+  ],
+  "kit_fenolite_version": "0.5.0.dev0",
+  "kit_resaved": [],
+  "kit_sha256": "8bc111041b13f90e0fb2b350da63a43c1b27801729decf6baaee4695025993c7",
+  "kit_version": 1,
+  "os_family": "Windows",
+  "privacy_findings": 22,
+  "results": [
+    {
+      "path": "results/board6/board6.PcbDoc",
+      "sha256": "f2eeec54bbc735dcae86cf2ccb7a6b917aa35b624f8f218385f1ad93adb9522a",
+      "size": 206336
+    },
+    {
+      "path": "results/board6/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/flat/flat.PcbDoc",
+      "sha256": "2968b2a80c90f8b0612cb4640bb0dc3652a6faec826b42e5a3fd3e4529ca7812",
+      "size": 183808
+    },
+    {
+      "path": "results/flat/flat.PrjPcb",
+      "sha256": "f9b90f1bb3d3b0f20678e360a4d6439ea2464ad7b874ef7e7c4816d97cadac02",
+      "size": 31982
+    },
+    {
+      "path": "results/flat/flat.SchDoc",
+      "sha256": "4f993f4906cb92d938871b6d163babaa23817f01714fb2b2e996411fe1f7b8eb",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/flat_ascii.SchDoc",
+      "sha256": "ca867d52c942c833abe3ee3f75c94a68322291098ce90c952ccf1b5b47287a74",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/form.json",
+      "sha256": "db9c6a8f4ccd512c7375267029b207c4ebfbe3ce14baa662ecd966fa1b9c86b3",
+      "size": 415
+    },
+    {
+      "path": "results/libs/libs.PcbLib",
+      "sha256": "cf0a8f9efc97fad7c937c94fd76c9994725164b3b478406c7d22667aeed9ec16",
+      "size": 133632
+    },
+    {
+      "path": "results/libs/libs.SchLib",
+      "sha256": "fa8b0d979c5b4c4acc686597f5e45c1418fc34f09519a542712a1278f7fc8fe2",
+      "size": 16384
+    },
+    {
+      "path": "results/libs/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/routed/drc.html",
+      "sha256": "dc3a0e70d9a69866b33ce2e368b538156d368359672e285da77101b03e336843",
+      "size": 19349
+    },
+    {
+      "path": "results/routed/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/routed/outputs.txt",
+      "sha256": "f84832ae064a03e20771ec3fcbf174b6ff3883f72bbe48ee20983989150b25b1",
+      "size": 327
+    },
+    {
+      "path": "results/routed/routed.PcbDoc",
+      "sha256": "1ae11605641b65246ba23cfa4bc12f3a5e37fdd97627e0b3fd6f688d7d5e37da",
+      "size": 200704
+    },
+    {
+      "path": "results/script.log",
+      "sha256": "95db5c59a0f188b75c991dbb2ffe0fc8d476b9f5f4271f0e1b749343905b00a9",
+      "size": 66
+    },
+    {
+      "path": "results/templates/iso5457_generic.SchDot",
+      "sha256": "0274872b292483d3acf22529fd9ed8c25936ebebe1d7730b19d5204fc536d797",
+      "size": 18944
+    },
+    {
+      "path": "results/tree/messages.txt",
+      "sha256": "6e73033b96d4c7be44b7807df40d3a391fa49695fca6d85e84d2a529ed720935",
+      "size": 230
+    },
+    {
+      "path": "results/tree/tree.SchDoc",
+      "sha256": "efc64e3e44d69cd468fec6fc6e00dff5730e73bc810c232153a382ed74342150",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_io.SchDoc",
+      "sha256": "4ced49e8a5dad05beb255abf272c4eee151898e89c3bc78cd1d8292b7c519e96",
+      "size": 22528
+    },
+    {
+      "path": "results/tree/tree_io.leds.SchDoc",
+      "sha256": "228d64a0f3a2ab3b26fa3d174596cfb6c3b41dd2fa9510c07d05443bc404b5a5",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_power.SchDoc",
+      "sha256": "31de05fbab91becde11f7302f37300accf1ad6c4627231ba1c41fac9bc1e0cdd",
+      "size": 31232
+    }
+  ],
+  "run_id": "2026-10-13-e8794749",
+  "samples": {
+    "board6": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075",
+    "flat": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5",
+    "libs": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd",
+    "routed": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2",
+    "tree": "2a6c7ba2b46d790143db272008d2ecbae0af93421c94389b8ec360df0d09bff5"
+  },
+  "schema": "fenolite.altium-kit-run.v0",
+  "script_sha256": "685ab54f38e643789f2f3abb87d9a590854957d685c42a5067eec8375e26d197",
+  "steps": [
+    {
+      "id": "K1.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K1.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K1.5",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.6",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.7",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2a6c7ba2b46d790143db272008d2ecbae0af93421c94389b8ec360df0d09bff5"
+    },
+    {
+      "id": "K1.8",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K2.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K2.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "2a6c7ba2b46d790143db272008d2ecbae0af93421c94389b8ec360df0d09bff5"
+    },
+    {
+      "id": "K2.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K2.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K2.5",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K3.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K3.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K4.1",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K4.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K4.3",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K4.4",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K5.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.3",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.4",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.5",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K6.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K7.1",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K7.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K8.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb"
+    },
+    {
+      "id": "K8.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K8.3",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K9.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K9.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    }
+  ],
+  "synthetic": false
+}
