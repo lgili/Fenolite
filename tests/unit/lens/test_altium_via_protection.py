@@ -102,7 +102,7 @@ def test_tenting_written_and_the_rest_named(monkeypatch: pytest.MonkeyPatch, tmp
     assert "H-A-PCB-CU-VIATENT" in envelope["evidence"]["hypotheses"]
     assert envelope["evidence"]["level"] == "INFERRED"
     # every file outside .fenolite/ but the PCB document equals that of the design without protection,
-    # and the document differs only in the first flags byte of the via records whose tenting is stated
+    # and the document differs only in the via flags and the manual solder-mask cache state
     plain = project(tmp_path, monkeypatch, "plain", PLAIN)
     code, plain_envelope, err = altium(plain, "--confirm")
     assert code == 0, err
@@ -117,8 +117,9 @@ def test_tenting_written_and_the_rest_named(monkeypatch: pytest.MonkeyPatch, tmp
     for ours_via, theirs_via in zip(vias, plain_vias, strict=True):
         assert len(ours_via.raw) == len(theirs_via.raw)
         changed = [k for k, (a, b) in enumerate(zip(ours_via.raw, theirs_via.raw, strict=True)) if a != b]
-        assert len(changed) == 1  # the first flags byte
+        assert changed == [6, 71]  # payload flags byte 1 and solder-mask cache byte 66
         assert ours_via.raw[changed[0]] & 0x9F == theirs_via.raw[changed[0]] == 0x0C
+        assert ours_via.raw[71] == 2 and theirs_via.raw[71] == 0
 
 
 def test_a_side_nobody_states(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -479,7 +479,7 @@ def via_record(
     and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32). ``locked`` writes
     the locked flag when ``via`` is in ``LOCK_WRITTEN``. ``tented_top`` and ``tented_bottom`` set bits 5
     and 6 of the first flags byte (``pcb-copper.md``, "Flags of a via"; ``H-A-PCB-CU-VIATENT``, change
-    c0112), beside the lock bit; no other byte follows them."""
+    c0112), beside the lock bit. A tented side selects manual mask cache state at byte 66."""
     for layer in (start, end):
         layer_text(layer)
     body = bytearray(VIA_SIZE)
@@ -489,6 +489,8 @@ def via_record(
     struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
     struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
     struct.pack_into("<i", body, 54, 4 * _MIL)  # solder-mask expansion
+    if tented_top or tented_bottom:
+        body[66] = 2  # manual solder-mask cache: rules otherwise override tenting
     struct.pack_into(f"<{_VIA_LAYERS}i", body, 75, *[diameter] * _VIA_LAYERS)
     struct.pack_into("<Hi", body, 203, 15, 259)
     struct.pack_into("<i", body, 242, 4 * _MIL)  # back solder-mask expansion

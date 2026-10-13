@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Set the via solder-mask cache to manual when a written side is tented, so
+  Altium's rule cache does not clear the requested tenting during opening/saving.
+  Untented via bytes remain unchanged; native Gerbers confirm all four mask cases.
+
 - Refresh the authored SchLib goldens and their exact byte pins after footprint
   model/owner repairs; preserve the scope of earlier native evidence.
 - Attach SchLib footprint models and pin maps to their parent records so native

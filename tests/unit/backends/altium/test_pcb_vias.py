@@ -114,7 +114,7 @@ FLAG_CASES = ((False, False), (True, False), (False, True), (True, True))
 
 
 def test_tenting_flags_of_the_four_cases() -> None:
-    """Scenario "Flags of the four cases": bytes 0 to 4 of the subrecord, and nothing else moves."""
+    """Each tented case selects manual mask expansion so the rule cache cannot discard its flags."""
     plain = pcbrecords.via_record(393701, 393701, 236220, 118110, net=2)
     records = [
         pcbrecords.via_record(393701, 393701, 236220, 118110, net=2, tented_top=top, tented_bottom=bottom)
@@ -127,7 +127,8 @@ def test_tenting_flags_of_the_four_cases() -> None:
     assert records[0] == plain
     for record in records[1:]:
         assert len(record) == len(plain)
-        assert [k for k, (a, b) in enumerate(zip(record, plain, strict=True)) if a != b] == [6]
+        assert [k for k, (a, b) in enumerate(zip(record, plain, strict=True)) if a != b] == [6, 71]
+    assert [body[66] for body in bodies] == [0, 2, 2, 2]
     # the solder-mask expansions stay the values of "Via records": no recorded fact ties them to the flags
     assert {record[5 + 54 : 5 + 58] for record in records} == {plain[5 + 54 : 5 + 58]}
     assert {record[5 + 242 : 5 + 246] for record in records} == {plain[5 + 242 : 5 + 246]}
