@@ -1,5 +1,7 @@
 [Design]
 Version=1.0
+AllowPortNetNames=0
+AllowSheetEntryNetNames=0
 
 [Document1]
 DocumentPath=altium_hier.SchDoc

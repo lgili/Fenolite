@@ -217,3 +217,13 @@ from the schematic.
   document and before the libraries, with `DocumentPath` alone. A project without a job keeps its bytes.
 - A project file that exists is kept (the rule above): when it does not list the job, the build reports
   `altium.outjob-not-listed` and the user adds the job in Altium.
+
+### Harness label naming control (c0166)
+
+Setting AllowPortNetNames=0 and AllowSheetEntryNetNames=0 in [Design] prevents
+the measured generated harness project's implicit SPI.CS-style entry names from
+competing with explicit SPI_CS-style wire labels. The native paired control and
+generated retry retain the same nine names/25 memberships, with zero warnings
+instead of four. The writer emits these options only when harness definition
+files are present. Source S-0734, ALTIUM-VERIFIED(author-report), AD 26.5.0,
+2026-10-13; the other naming options remain separately inferred.

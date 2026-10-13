@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Give generated harness projects explicit wire-label naming priority, removing
+  native multiple-name warnings while preserving all net memberships.
+
 - Keep physical PCB component/document identities fixed while correcting
   multipart source-unit links. Refresh the two affected exact build pins.
 - Match multipart Altium PCB components to the last emitted schematic unit ID,

@@ -30,6 +30,13 @@ def test_no_byte_order_mark_and_ascii_only() -> None:
     assert data.count(b"\r\n") == 5 and b"\n" not in data.replace(b"\r\n", b"")
 
 
+def test_harness_projects_use_explicit_net_labels() -> None:
+    data = write_prjpcb(schematic="top.SchDoc", sheets=("child.SchDoc",), harnesses=("child.Harness",))
+    assert data.startswith(b"[Design]\r\nVersion=1.0\r\nAllowPortNetNames=0\r\nAllowSheetEntryNetNames=0\r\n")
+    plain = write_prjpcb(schematic="top.SchDoc", sheets=("child.SchDoc",))
+    assert b"AllowPortNetNames" not in plain and b"AllowSheetEntryNetNames" not in plain
+
+
 @pytest.mark.parametrize("name", ["", "sub/x.SchDoc", "sub\\x.SchDoc", "µ.SchDoc", "a|b.SchDoc"])
 def test_unwritable_names(name: str) -> None:
     with pytest.raises(ValueError):
@@ -66,7 +73,8 @@ def test_pcb_document_path_refused() -> None:
 def test_project_with_a_module_sheet_and_a_harness_file() -> None:
     data = write_prjpcb(schematic="a.SchDoc", sheets=("a_x.SchDoc",), harnesses=("a.Harness",))
     assert data == (
-        b"[Design]\r\nVersion=1.0\r\n\r\n[Document1]\r\nDocumentPath=a.SchDoc\r\n" + SHEET_KEYS + b"\r\n"
+        b"[Design]\r\nVersion=1.0\r\nAllowPortNetNames=0\r\nAllowSheetEntryNetNames=0\r\n"
+        b"\r\n[Document1]\r\nDocumentPath=a.SchDoc\r\n" + SHEET_KEYS + b"\r\n"
         b"[Document2]\r\nDocumentPath=a_x.SchDoc\r\n" + SHEET_KEYS + b"\r\n"
         b"[Document3]\r\nDocumentPath=a.Harness\r\n"
     )
