@@ -6,6 +6,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Correct the conversion census ledger for the public microwave board's two
+  modified POLY footprints; retain the exact report assertion and PCB geometry.
+- Preserve KiCad pad copper offsets in Altium PCB conversion and derived PcbLibs,
+  including rotated pads and bottom-side instances, without editing source slots.
+  Native DRC on the public hierarchical case now reports zero clearance violations
+  instead of 23. Native repour/save now retains polygon fill; the other DRC
+  categories and remaining acceptance checks remain under investigation.
+
 - Preserve explicit KiCad no-connect pins when reading and converting schematics
   to Altium, including the prepared netlist path. Isolated marked pins no longer
   become named wired nets; a marked pin on an actual net remains a validation

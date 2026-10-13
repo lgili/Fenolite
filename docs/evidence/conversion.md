@@ -221,6 +221,14 @@ sectors with the four tests that read them. One row per kind and reason of the r
 One row per kind and reason of the report, per board (`outcome` `changed`: written in another form that
 compares equal; `lost`: not written).
 
+The 2026-10-13 c0166 retry measures two modified `POLY` instances in the public
+`microwave` board. Compared with the derived library's first instance, their
+pad sizes are 612140 nm rather than 1224280 nm and their local Y positions are
+-304800 and +304800 nm rather than zero; their polygon graphics also differ.
+The PCB retains those instance edits. This source geometry explains the two
+changed-footprint rows; it is unrelated to nonzero drill offsets (none occur in
+this board). The ledger assertion remains exact.
+
 <!-- ledger:begin -->
 | board | kind | outcome | count | reason |
 |---|---|---|---|---|
@@ -264,6 +272,7 @@ compares equal; `lost`: not written).
 | kit-dev-coldfire-xilinx_5213 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish; the copper and dielectric values are written |
 | kit-dev-coldfire-xilinx_5213 | text | lost | 1 | the text holds a control character or a line break |
 | kit-dev-coldfire-xilinx_5213 | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
+| microwave | footprint | changed | 2 | differs from the library footprint |
 | microwave | footprint-copper | lost | 4 | a graphic of a footprint on a copper layer has no record written: it would be copper |
 | microwave | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | multichannel_mixer-unrouted | footprint | changed | 68 | differs from the library footprint |

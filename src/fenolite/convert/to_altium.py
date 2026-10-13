@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from fenolite.backends.altium import lower
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
-from fenolite.convert import schematic
+from fenolite.convert import pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.report import ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
@@ -80,7 +80,7 @@ def _extra_losses(design: Design, write: lower.ProjectWrite) -> dict[str, dict[s
 
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report."""
-    design = fpitems.with_footprint_items(_named(source.design, options.name)).design
+    design = pads.project(fpitems.with_footprint_items(_named(source.design, options.name)).design)
     sch, symbols, changed_comments = schematic.inputs(source, design)
     try:
         written = lower.write_design(

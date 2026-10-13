@@ -640,7 +640,12 @@ def pad_record(
     geometry += struct.pack("<iHh", 0, 0, 0)
     assert len(geometry) == PAD_GEOMETRY_SIZE
     layers = b""
-    if corner is not None or stack.mode != PAD_MODE_SIMPLE or hole_shape != HOLE_SHAPE_ROUND:
+    if (
+        corner is not None
+        or stack.mode != PAD_MODE_SIMPLE
+        or hole_shape != HOLE_SHAPE_ROUND
+        or any(pair != (0, 0) for pair in stack.offsets)
+    ):
         if corner is not None and not 0 <= corner <= 100:
             raise ValueError(f"corner percentage {corner} is outside 0 … 100")
         layers = _pad_layers(stack, hole_shape, slot_length, slot_rotation)
