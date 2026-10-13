@@ -857,6 +857,20 @@ VCC/MID memberships. PCB transfer remains R3 and the Repeat bus still fails.
 See the campaign report for the complete key list, proof scope and retained
 native artefacts; no native binary or native annotation file is committed.
 
+**R3 continuation, 2026-10-13, `AD 26.5` (S-0738).** An isolated authored
+project assigns all six components the authored two-pad Mini_R_0603 placeholder
+footprint and transfers them to an empty test PCB. Every proposed ECO operation
+validates and executes; the native saved PCB reads without issues and contains
+six distinct physical designators and twelve pads. The four repeated components
+have SOURCEUNIQUEID paths such as `\1SYMBOL01\RUID0001` and
+`\2SYMBOL01\RUID0001`. All seven VCC/MID memberships match the schematic.
+The outputs still fail: C12_CH1/C12_CH2 pin 2 belong to NetC12_CH1_2 and
+NetC12_CH2_2, while OUT1/OUT2 contain only the top component pins. The native
+compiler retains three bus/output errors. Thus component count, internal nets
+and one-level UID serialization pass their scoped checks, but R3 as a whole
+remains open. This experiment does not verify nested UID paths, production
+footprints or the importer's UID-based PCB association.
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the

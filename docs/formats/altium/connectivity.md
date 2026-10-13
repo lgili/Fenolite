@@ -129,6 +129,15 @@ exactly the import's physical R1/C12 designators in AD 26.5 (S-0736,
 mapping remains `UNKNOWN`. This naming measurement does not verify the sample's
 bus connectivity or PCB links.
 
+Native PCB transfer of the authored one-level sample on 2026-10-13 (S-0738,
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)`) saves
+SOURCEUNIQUEID as `\1SYMBOL01\RUID0001` for R1_CH1 and
+`\2SYMBOL01\RUID0001` for R1_CH2: the decimal channel index immediately
+precedes the sheet-symbol UID, without a separator between them. All four
+repeated components have this form. Nested paths remain unmeasured. The import
+still uses the designator fallback described below; this observation alone
+does not change that association algorithm or graduate the whole count/net row.
+
 - **What the import resolves.** `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$ChannelPrefix` (the
   designator of the channel's sheet symbol, the channel identifier of a `Repeat` statement) and
   `$RoomName`; for a channel of a `Repeat` statement also `$ChannelIndex` and `$ChannelAlpha` (indexes 1
