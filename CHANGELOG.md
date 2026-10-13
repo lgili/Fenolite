@@ -9,6 +9,9 @@ All notable changes to Fenolite are documented here. The format follows
 - Record the native Repeat PCB transfer's passing component counts, internal
   nets and one-level UID paths, retaining the failing output bus as an open test.
 
+- Keep historical and successor annotation hypotheses in the aggregate Altium
+  import evidence inventory, preserving its complete coverage and lowest level.
+
 - Read native indexed Altium annotation records without changing their bytes and
   apply measured one-level Repeat channel mappings; preserve legacy authored
   flat maps and leave unmeasured nested paths unresolved.

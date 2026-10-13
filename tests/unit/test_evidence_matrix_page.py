@@ -107,7 +107,10 @@ def test_register_level_shown_next_to_the_id() -> None:
     listed = re.findall(r"^\| `(H-[AGK]-[A-Z0-9-]+)` \|", text, re.M)
     assert listed == named
     for ident in named:
-        assert f"| `{ident}` | {rows[ident].level_text.replace('|', chr(92) + '|')} |" in text, ident
+        expected = rows[ident].level_text.replace("|", chr(92) + "|")
+        if rows[ident].refuted:
+            expected += " (refuted)"
+        assert f"| `{ident}` | {expected} |" in text, ident
 
 
 def test_module_without_a_claim_is_visible() -> None:
