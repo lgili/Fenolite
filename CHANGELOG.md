@@ -10,7 +10,8 @@ All notable changes to Fenolite are documented here. The format follows
   disconnected output nets and unresolved cause explicit.
 
 - Retain refuted Altium import hypotheses in the complete inventory while
-  excluding them from live evidence; verify both sets against the register.
+  excluding them from live evidence; verify complete, retired and active sets
+  against the register, with the fast quality gate passing.
 
 - Record the native Repeat PCB transfer's passing component counts, internal
   nets and one-level UID paths, retaining the failing output bus as an open test.
