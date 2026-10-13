@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from fenolite.backends.altium import project
 from fenolite.backends.altium.altsym import AltiumSymbol, from_symbol_def
 from fenolite.backends.kicad import parity_inputs
+from fenolite.backends.kicad.netlist import NO_CONNECT_SUFFIX
 from fenolite.convert.sources import SourceError, SourceProject
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
@@ -66,6 +67,15 @@ def inputs(
                     members=tuple(PinRef(ids[p.ref], p.pin) for p in n.nodes if p.ref in ids),
                 )
                 for n in netlist.nets
+                if len(n.nodes) != 1 or not n.nodes[0].pintype.endswith(NO_CONNECT_SUFFIX)
+            ),
+            no_connects=tuple(
+                dict.fromkeys(
+                    PinRef(ids[p.ref], p.pin)
+                    for n in netlist.nets
+                    for p in n.nodes
+                    if p.ref in ids and p.pintype.endswith(NO_CONNECT_SUFFIX)
+                )
             ),
         )
     board_ids = {c.ref: c.id for c in design.circuit.components}
@@ -162,7 +172,13 @@ def inputs(
     return (
         dataclasses.replace(
             design,
-            circuit=dataclasses.replace(circuit, components=tuple(parts), nets=nets, modules=modules),
+            circuit=dataclasses.replace(
+                circuit,
+                components=tuple(parts),
+                nets=nets,
+                modules=modules,
+                no_connects=tuple(PinRef(ids[m.component_id], m.pin) for m in circuit.no_connects),
+            ),
             board=None,
         ),
         symbols,

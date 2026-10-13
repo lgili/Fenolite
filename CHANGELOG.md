@@ -6,6 +6,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Preserve explicit KiCad no-connect pins when reading and converting schematics
+  to Altium, including the prepared netlist path. Isolated marked pins no longer
+  become named wired nets; a marked pin on an actual net remains a validation
+  conflict. The public hierarchical Part T case compiles in Altium 26.5.0 with
+  zero errors after this repair (18 warnings retained).
+
 - Declare the 72 existing authored KiCad downgrade fixtures in the data manifest,
   including the recorded checksum of their measured DRC/ERC types. This repairs
   the corpus-policy gate without changing fixture bytes.

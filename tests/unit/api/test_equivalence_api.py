@@ -19,6 +19,7 @@ from _projects import tree_snapshot
 from fenolite.api import EquivalenceResult, SideUsageError, equivalent
 from fenolite.api import sides as api_sides
 from fenolite.backends import registry
+from fenolite.backends.kicad.netlist import NetComponent, NetlistNet, NetNode, build_netlist
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.cli import _kicadtool
 from fenolite.cli import main as cli_main
@@ -28,6 +29,26 @@ from fenolite.model.design import Design
 
 DATA = Path(__file__).resolve().parents[2] / "data"
 TWO_LAYER = DATA / "kicad" / "board" / "two_layer.kicad_pcb"
+
+
+@pytest.mark.parametrize("connected", [False, True])
+def test_netlist_no_connect_intent_and_conflicts(connected: bool) -> None:
+    nodes = (NetNode("U1", "1", "input+no_connect"),)
+    if connected:
+        nodes += (NetNode("U2", "1", "passive"),)
+    netlist = build_netlist(
+        (NetComponent("U1"), NetComponent("U2")),
+        (
+            NetlistNet("marked", "", nodes),
+            NetlistNet("signal", "", (NetNode("U1", "2", "input"), NetNode("U2", "2", "output"))),
+        ),
+    )
+    design = api_sides.netlist_design(netlist, "no-connect")
+    refs = {c.id: c.ref for c in design.circuit.components}
+    assert [(refs[m.component_id], m.pin) for m in design.circuit.no_connects] == [("U1", "1")]
+    assert {n.name for n in design.circuit.nets} == ({"marked", "signal"} if connected else {"signal"})
+    conflicts = [i for i in design.validate() if i.code == "model.no-connect-on-net"]
+    assert bool(conflicts) is connected
 
 
 def _board() -> Design:

@@ -21,7 +21,7 @@ from fenolite import __version__
 from fenolite.backends import registry
 from fenolite.backends.kicad import altium_import, oracle, parity_inputs
 from fenolite.backends.kicad.cli import KicadCli, KicadCliError, KicadCliVersionError, cli_for, find_kicad_cli
-from fenolite.backends.kicad.netlist import KicadNetlist
+from fenolite.backends.kicad.netlist import NO_CONNECT_SUFFIX, KicadNetlist
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.equivalence import codes as equivalence_codes
 from fenolite.core.errors import FenoliteError, Issue
@@ -179,7 +179,9 @@ def read_path(path: Path) -> ReadSide:
 def netlist_design(netlist: KicadNetlist, name: str, *, dnp: frozenset[str] = frozenset()) -> Design:
     """A design that holds the circuit of ``netlist`` and no board: one component per reference with its
     value and the pins its nodes name, one net per net with its ``REF-PIN`` members. A reference that
-    starts with ``#`` (a power symbol) is left out; a reference in ``dnp`` is not fitted."""
+    starts with ``#`` (a power symbol) is left out; a reference in ``dnp`` is not fitted.
+    Explicit no-connect pins become marks; their isolated pseudo-nets are omitted.
+    A marked pin on a multi-pin net remains connected so validation reports the conflict."""
     kept = [c for c in netlist.components if not c.ref.startswith(POWER_PREFIX)]
     pins: dict[str, dict[str, None]] = {c.ref: {} for c in kept}
     for net in netlist.nets:
@@ -208,12 +210,21 @@ def netlist_design(netlist: KicadNetlist, name: str, *, dnp: frozenset[str] = fr
             members=tuple(PinRef(ids[node.ref], node.pin) for node in net.nodes if node.ref in ids),
         )
         for net in netlist.nets
+        if len(net.nodes) != 1 or not net.nodes[0].pintype.endswith(NO_CONNECT_SUFFIX)
+    )
+    marks = tuple(
+        dict.fromkeys(
+            PinRef(ids[node.ref], node.pin)
+            for net in netlist.nets
+            for node in net.nodes
+            if node.ref in ids and node.pintype.endswith(NO_CONNECT_SUFFIX)
+        )
     )
     header = DesignHeader(
         id=derived_id("dsn", NETLIST_ORIGIN, name), name=name, schema_version=SCHEMA_VERSION,
         fenolite_version=__version__,
     )  # fmt: skip
-    return Design(header=header, circuit=Circuit(components=components, nets=nets))
+    return Design(header=header, circuit=Circuit(components=components, nets=nets, no_connects=marks))
 
 
 def _power_symbols(sheets: dict[str, SchematicSheet], project: str) -> int:
