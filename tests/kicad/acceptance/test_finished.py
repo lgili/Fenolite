@@ -137,7 +137,7 @@ def test_rebuild_is_the_identity(name: str, tmp_path: Path) -> None:
     def changed(*extra: str) -> list[str]:
         code, envelope, error = _build(folder, example, target, "--dry-run", *extra)
         assert code == 0, error
-        plan = [write for write in envelope["result"]["plan"] if "/.fenolite/" not in write["path"]]
+        plan = [write for write in envelope["result"]["plan"] if ".fenolite" not in Path(write["path"]).parts]
         assert plan, "a build lists the files of the project"
         return [
             Path(write["path"]).name

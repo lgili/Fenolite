@@ -724,19 +724,23 @@ def test_budget_finished_run_written_and_cut_run_reported(monkeypatch, tmp_path:
     """Scenario "Finished run written, cut run reported"."""
     monkeypatch.setenv("FENOLITE_TEST_SOURCE", str(ROOT / "src"))
     monkeypatch.setenv("FAKE_ROUTER_SLEEP_NET", "B1")
+    monkeypatch.setenv("FAKE_ROUTER_SLEEP", "10")
     runs = tmp_path / "runs.jsonl"
     monkeypatch.setenv("FAKE_ROUTER_RUNS", str(runs))
     board = rows_board(tmp_path, "A1", "B1", wide=("B1",))
     before = len(segments(board))
+    # The fake B1 run sleeps ten seconds; allow both Python processes to start
+    # under Windows suite load before testing the routing deadline.
+    budget = 5
     code, env, error, _ = run(
         monkeypatch, tmp_path, "route", board.name,
         "--router", "kicadroutingtools", "--router-path", str(create_fake_router(tmp_path)),
-        "--router-python", sys.executable, "--timeout", "2", "--confirm",
+        "--router-python", sys.executable, "--timeout", str(budget), "--confirm",
     )  # fmt: skip
     assert code == 0, (env, error)
     result = env["result"]
-    assert result["budget"]["seconds"] == 2 and result["budget"]["exhausted"] is True
-    assert 2 <= result["budget"]["spent"] < 6
+    assert result["budget"]["seconds"] == budget and result["budget"]["exhausted"] is True
+    assert budget <= result["budget"]["spent"] < budget + 4
     assert [(item["tier"], item["nets"], item["outcome"]) for item in result["runs"]] == [
         (0, 1, "done"),
         (0, 1, "cut"),

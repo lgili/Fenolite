@@ -6,6 +6,15 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Restore corpus parity lookup with POSIX manifest keys on Windows. Pin measured
+  KiCad importer free-pad wrapper counts and rotated-slot discrepancies after
+  confirming that native Altium retains the original slotted-hole dimensions.
+- Keep acceptance rebuild metadata filtering portable on Windows and expand the
+  guide oracle to cover both additional rules examples. SchLib oracle assertions
+  now check the inherited common footprint models while retaining source pins.
+- Give the subprocess budget regression enough Windows startup time while still
+  proving deadline exhaustion and persistence of only the completed router run.
+
 - Give generated harness projects explicit wire-label naming priority, removing
   native multiple-name warnings while preserving all net memberships.
 
