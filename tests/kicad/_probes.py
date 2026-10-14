@@ -90,6 +90,7 @@ import _sheetcases
 import _stackbench
 import _tiebench
 import _triad
+import _v03acceptance
 import _vendorcases
 import _viabench
 import _zbench
@@ -263,6 +264,7 @@ def _probes() -> dict[str, Probe]:
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
     probes.update(fp_write_probes())
     # the level-5 triangle on the routed sample (c0089); `pcb import` exists from 10.0 only
+    probes["acceptance-v03"] = Probe(_v03acceptance.outcome, (10,))
     probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))
     # KiCad's importer on the rewrite of an own PCB document (c0090, RT-A3)
     probes["altium-rta3-kicad"] = Probe(_rta3oracle.outcome, (10,))

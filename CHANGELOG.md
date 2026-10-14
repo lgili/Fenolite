@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Register the v0.3 acceptance as a KiCad-10 probe after its complete CI test
+  passed, sharing the cached run with the acceptance test and retaining every
+  existing versioned probe outcome.
+
 - Classify the new acceptance example in both RT-A2 build forms and keep
   graduation adapters within the verification package's stdlib/core import boundary.
 

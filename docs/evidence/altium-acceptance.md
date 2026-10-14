@@ -1,9 +1,11 @@
 # Altium v0.3 acceptance
 
 The authored acceptance tree is prepared and its local readback proofs passed on
-2026-10-14. The complete KiCad-import acceptance and native acceptance of this new
-project remain pending. No write kind graduates from these results. Evidence remains `INFERRED`: the
-local results use Fenolite's own writers and readers, not the external importer.
+2026-10-14. The complete KiCad-import acceptance test passed in CI 38504478797.
+Aggregate verification of its newly registered probe and native acceptance of
+this new project remain pending. No write kind graduates from these results. The register retains `INFERRED` until the new probe criterion is verified. Local
+readback uses Fenolite's own writers and readers; the separate CI import result is
+recorded below.
 
 ## Project and scope
 
@@ -32,8 +34,8 @@ project and typed keep-out records; it does not rely solely on its model cache.
 | Altium model validation and RT-A1 | passed |
 | Altium project RT-A3 | passed |
 | KiCad board versus Altium PCB document, level 5 | passed |
-| KiCad importer versus the KiCad board, level 5 | pending CI |
-| Probe `acceptance-v03` and frozen outcome | pending measured CI result |
+| KiCad importer versus the KiCad board, level 5 | passed in CI 38504478797, KiCad 10.0.6 |
+| Probe `acceptance-v03` and frozen outcome | registered as equal from the full CI acceptance; aggregate probe verification pending next batch |
 | Native kit correspondence and publication | pending task 3.1 |
 
 The focused acceptance tests passed (5 tests); fixture-manifest and hypothesis/provenance
@@ -70,3 +72,23 @@ they are not committed, because receipts may contain local paths. An existing
 output folder is refused so an earlier result cannot be overwritten. Task 2.1
 remains open until the complete oracle proof, probe outcome and evidence update
 pass. Archive still requires actual successful CI and the dependency order.
+
+## Complete oracle result and native-kit reconciliation
+
+The KiCad-10 job of [run 38504478797](https://github.com/lgili/Fenolite/actions/runs/38504478797)
+passed on pinned KiCad 10.0.6 (3274 passed, 116 skipped, 3 expected failures).
+It includes the complete acceptance test, including the import comparison. Its
+result justifies adding the new `acceptance-v03: equal` probe criterion for
+10.0.6; all 992 pre-existing outcomes remain unchanged. The test and probe now
+share the same cached full acceptance. Registration tests passed 19 cases without
+launching an external tool. Task 2.1 still waits for the new aggregate probe proof.
+
+A fresh `kit status` on this tree confirms four records, no stale rows and no
+problems. Completed run `2026-10-13-462b38ba` uses AD 26.5 and the current kit
+digest `af3c911e0fc76db4bac6dabeb48c401f1ca12ac216b3951f9c99cace2ae15483`.
+Its 32 passed steps remain valid; no failure is recorded. Its archive publication
+and privacy review remain pending task 3.1. All 27 hypotheses settled by that run
+currently retain their existing inferred/author-report levels; this reconciliation
+changes no evidence label and does not claim native acceptance of the newly
+authored acceptance project. Task 3.2 will apply eligible promotions after the
+publication requirement is met.

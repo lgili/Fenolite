@@ -1,5 +1,6 @@
 {
   "probes": {
+    "acceptance-v03": "equal",
     "altium-fpitems-kicad": "equal",
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
