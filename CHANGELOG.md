@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile the native acceptance campaign with the completed optional Clearance
+  checks and the five dependency-ordered archives, retaining remaining requests.
+
 - Archive `c0152-clearance-rounding` after completed tasks and CI run 38511480776;
   synchronize its requirements while retaining measured evidence levels.
 
