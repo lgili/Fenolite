@@ -641,3 +641,18 @@ assertion. Local proof: 45 guard/workflow tests passed; all 69 tests in the
 affected files collect; both actual cached boards select KiCad-10 and give an
 explicit newer-format skip for direct KiCad-9 export. Static checks passed. The
 complete gate and archive remain pending the newly published batch.
+
+## Completed batch 38504478797
+
+[Run 38504478797](https://github.com/lgili/Fenolite/actions/runs/38504478797),
+commit `0f13b2d5`, completed with passing KiCad-9, KiCad-10, both routing jobs,
+wheel and DCO. The four unit jobs with available logs each reported the same
+four failures: the acceptance example classification, its expected PCB scope
+in ASCII and binary RT-A2, and the verification package import boundary.
+Commit `1bc8464c` repairs them; local proofs passed 104 tests and static checks.
+
+The macOS check annotation reports lost runner/server communication, with a
+separate notice about macOS ARM capacity constraints. Its test log is unavailable
+(HTTP 404); no specific test failure or resource-exhaustion cause can be established.
+A fresh run on the corrected commit is required. This batch is not a passing
+complete gate, and no archive or evidence promotion follows from it.
