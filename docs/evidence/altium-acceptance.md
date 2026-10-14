@@ -95,6 +95,16 @@ publication requirement is met.
 
 ## Archive publication review
 
+CI completion on 2026-10-14: [run 38520443552](https://github.com/lgili/Fenolite/actions/runs/38520443552)
+passed all 11 jobs on exact commit `d9d980d7046cb2254ca9bcb94f0ccdcd96555626`.
+The pinned 10.0.6 job ran the full KiCad/corpus selection with heavy inputs:
+3274 passed, 116 skipped, 3 expected failures. Neither the complete acceptance
+nor the aggregate probe test appears in the reported skips. The new
+`acceptance-v03: equal` outcome is confirmed, closing c0092 task 2.1 and making
+`H-A-ACC-V03` `KICAD-VERIFIED (10.0.x)` within its established triangle profile.
+This is not a native Altium run of the new acceptance project. The later
+Clearance/archive batch has its own CI run and is outside this verdict.
+
 The full-run ZIP matches its committed SHA-256 and its size of 1236513 bytes;
 it contains 27 members. A fresh privacy scan reproduces the record's 43
 home-folder findings across eight files: five native binary documents/libraries

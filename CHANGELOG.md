@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile completed CI proofs for the Altium acceptance and five native-campaign
+  prerequisite repairs; confirm the v0.3 acceptance probe on pinned KiCad 10.0.6.
+
 - Reconcile the native acceptance campaign with the completed optional Clearance
   checks and the five dependency-ordered archives, retaining remaining requests.
 
