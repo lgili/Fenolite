@@ -2,9 +2,7 @@
 
 ## Purpose
 Write Altium schematic files from a model `Design` as pure functions that return bytes: the records and keys of a sheet, the component bodies, designators and library links, the connectivity drawn on the sheet, the deterministic layout, the stable unique ids and the project file. Every fact comes from public sources recorded in `docs/formats/altium/`; the writer opens no file and starts no process.
-
 ## Requirements
-
 ### Requirement: Altium writer package
 `fenolite.backends.altium` SHALL provide `project.write_project(design, *, name, project=True, issues=None, form=DEFAULT_FORM, symbols=None) -> dict[str, bytes]`, which returns `<name>.SchDoc`, one `<library>.SchLib` per library that the components' lib ids name ("Schematic library file") and, when `project` is true, `<name>.PrjPcb`, for a model `Design` whose components hold their pins, and writes no file. `symbols` maps each lib id of the design to its `altsym.AltiumSymbol`; a lib id missing from it, or `symbols=None`, gets its generic symbol ("Generic library symbols").
 - The package MUST import only `fenolite.core` and `fenolite.model`, and MUST NOT open a file, start a process or read the environment. It MUST NOT resolve a library: `lens.altium` passes the resolved symbols in.
@@ -867,12 +865,13 @@ The test reader `tests/_altium_read.py` SHALL rebuild the net classes of a writt
 - **THEN** `net_classes_from_sheet` raises `ReadError`
 
 ### Requirement: Pin map records of a footprint model
-The schematic document writer, in both forms, and the schematic library writer SHALL write the pin map of a component whose `pin_pad_map` renames a pad as `MapDefiner` records (record 47) of its footprint model, directly after the `MapDefinerList` (record 46) of that model (`H-A-SCHX-PINMAP`; `docs/formats/altium/schematic-records.md`, records 46 and 47). In a schematic document each record names record 46 as its owner (`OWNERINDEX`); in a library no record carries an owner key, and the record belongs to the component it follows.
-- One record MUST be written for each pin of the component whose pad differs from what a reader assumes without a record, the pad of the pin's own designator: `DESINTF` the pin's designator, `DESIMPCOUNT` `1`, and `DESIMP0` the pad that `pin_pad_map` gives the pin. A pin outside the map, and a pin that the map leaves on the pad of its own designator, gets no record. This is the form that Altium saves (`H-A-SCHX-PINMAP-FORM`: of 295 footprint models of four public project sets, 293 hold no record, one holds a record for each of its 6 pins and one holds 1 record for 8 pins, and no record names the pin's own pad alone); the count says what Altium writes, not that Altium applies a record Fenolite writes.
+The schematic document writer, in both forms, and the schematic library writer SHALL write the pin map of a component whose `pin_pad_map` gives a pin other pads than the pad of its own designator alone as `MapDefiner` records (record 47) of its footprint model, directly after the `MapDefinerList` (record 46) of that model (`H-A-SCHX-PINMAP`; `docs/formats/altium/schematic-records.md`, records 46 and 47). In a schematic document each record names record 46 as its owner (`OWNERINDEX`); in a library no record carries an owner key, and the record belongs to the component it follows.
+- One record MUST be written for each pin of the component whose pads differ from what a reader assumes without a record, the pad of the pin's own designator: `DESINTF` the pin's designator, `DESIMPCOUNT` the number of its pads, and `DESIMP0`, `DESIMP1`, … the pads of `Component.pads_of`, in map order (change c0123: a pin may be bonded to several pads). A pin outside the map, and a pin whose one pad is the pad of its own designator, gets no record. This is the form that Altium saves (`H-A-SCHX-PINMAP-FORM`: of 295 footprint models of four public project sets, 293 hold no record, one holds a record for each of its 6 pins and one holds 1 record for 8 pins, and no record names the pin's own pad alone); the count says what Altium writes, not that Altium applies a record Fenolite writes.
 - The records MUST be in the order of the pins of the symbol, whatever the order of the pairs of the map.
+- `altsym.MAP_RECORDS_FOR_EVERY_PIN` MUST be the one place of the choice of that form, false by default; set to true, every pin of a component with a map gets a record, a pin outside the map one that names its own designator. The import MUST read both forms to the same `pin_pad_map`.
 - A component without such a pin MUST get record 46 without a record 47, as before this requirement, so the files of a design without a renaming map have the bytes they had.
 - A component without a footprint model has no record 46 and writes no map.
-- The schematic library MUST write the map of a library component only when every component of the design that uses its symbol links the footprint that the library's footprint model names (record 45) and has the same pad for every pin; otherwise the library component holds no record 47. A map is a map onto one footprint: a part that links another footprint than its symbol's own gets its map on the sheet alone. The schematic document carries the map of each component in every case.
+- The schematic library MUST write the map of a library component only when every component of the design that uses its symbol links the footprint that the library's footprint model names (record 45) and has the same pads for every pin; otherwise the library component holds no record 47. A map is a map onto one footprint: a part that links another footprint than its symbol's own gets its map on the sheet alone. The schematic document carries the map of each component in every case.
 - A pad name of a map that `text_problem` refuses MUST give `altium.text-unwritable` (error, nothing written), as any written text does.
 - `docs/formats/altium/connectivity.md` ("Component link") MUST state the numbering of `DESIMP<i>` and which pins of a footprint model hold a record, with the counts of the public sets, under `H-A-SCHX-PINMAP-FORM`, and what Fenolite writes under `H-A-SCHX-PINMAP`.
 
@@ -880,6 +879,20 @@ The schematic document writer, in both forms, and the schematic library writer S
 - **GIVEN** the blink with `pad_map={"1": "2", "2": "1"}` on its `D1`, which links the footprint its symbol names
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_pad_map.py -k hold_the_map` builds it for the Altium target in the ASCII and in the binary form and reads the written sheet and library with Fenolite's readers
 - **THEN** the footprint model of `D1` on the sheet, and the library component `Mini_LED`, each hold two records 47, of the pins `1` and `2` with the pads `2` and `1`
+
+#### Scenario: Several pads written and read back
+- **GIVEN** the blink with its `R1` on a 32-pad footprint and `pad_map={"1": ("1", "5"), "2": ("7", "6")}`
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pin_map.py -k "read_back or own_footprint"` builds it for the Altium target in the ASCII and in the binary form and reads the written sheet and library
+- **THEN** the footprint model of `R1` on the sheet holds a record 47 for each of its two pins, with the pads `1, 5` and `7, 6`; the library component `Mini_R`, whose footprint model names the symbol's own footprint, holds none; and the blink without a map holds no record 47
+
+#### Scenario: Records of a pin of several pads
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pin_map_records.py` asks `altsym.map_pins` and `altsym.map_records` for a component with the pins `1`, `2`, `3` and the map `(("3", "3"), ("3", "EP"))`
+- **THEN** there is one record 47, of pin `3`, with `DESIMPCOUNT=2`, `DESIMP0=3` and `DESIMP1=EP`; and with `altsym.MAP_RECORDS_FOR_EVERY_PIN` true there are three records in pin order, with `DESINTF` `1`, `2` and `3` and the pads `("1",)`, `("2",)` and `("3", "EP")`
+
+#### Scenario: Both forms are read alike
+- **GIVEN** the blink with its `D1` on a 32-pad footprint and `pad_map={"2": ("2", "5")}`, built for the Altium target with `MAP_RECORDS_FOR_EVERY_PIN` false and with it true
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pin_map.py -k both_forms` reads each written sheet, and `tests/unit/backends/altium/adapter/test_repeat.py -k partial` imports an authored sheet in each form
+- **THEN** the first sheet holds the record of pin `2` alone and the second one record per pin; both import to `pin_pad_map == (("2", "2"), ("2", "5"))`, and both builds hold RT-A2
 
 #### Scenario: Records of one map
 - **GIVEN** the blink with its `R1` on a 32-pad footprint, which is not the footprint its symbol names, and `pad_map={"1": "1", "2": "3"}`

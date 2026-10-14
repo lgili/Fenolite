@@ -2,9 +2,7 @@
 
 ## Purpose
 Check a KiCad project without writing to it: `fenolite check` runs model validation, ERC lite, KiCad's DRC on a closed copy of the project with a rules canary, and the RT1 round trip, in a fixed order, each stage with its own status and evidence. `fenolite inspect` summarises a file's header and counts, and `fenolite doctor` reports the `kicad-cli` binaries and their command matrices. Contract: `docs/cli-contract.md`; facts: `docs/formats/kicad/cli.md` and `docs/formats/kicad/drc.md`.
-
 ## Requirements
-
 ### Requirement: Check command input
 `fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
@@ -1338,3 +1336,24 @@ A height limit whose area the board does not hold gives `placement.rule-unresolv
 #### Scenario: Codes explained
 - **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain place.keepout --json`
 - **THEN** the test passes with a table for `place.keepout`, `place.keepout-no-courtyard`, `placement.too-far`, `placement.rule-unresolved` and `placement.rule-skipped`, and the command exits 0 with a non-empty `result.meaning` and `result.fix`
+
+### Requirement: Assignment comparison names every pad of a pin
+`checks.assignment_compare.model_netlist(model)` SHALL give one `PadAssignment` per pad of each pin, where the pads of a pin are `Component.pads_of(pin)`: for a `PinRef` member of a net, each pad with the net's id as label; for every other pin of a component, its pad with `NO_NET`, or, for a pin of several pads, each pad with one label of the pin's own (`assignment_compare.bonded_label`), because the pads of one pin are joined inside the part and a board that names their net (`unconnected-(…)` or `Net-(…)`) has them as one block. This says, for a pin of several pads, what the bullet "Sources" of "Assignment compare stage" says for a pin of one.
+- An element MUST be listed once: a pad that a net member already named is not listed again on `NO_NET`.
+- For a model whose pins have one pad each the result MUST be the list, in the order, that the function gave before this requirement.
+- The function MUST NOT build a mapping of one pad per pin from `pin_pad_map`.
+
+#### Scenario: Pin of two pads
+- **GIVEN** a model whose component `U1` has the pins `1` and `3`, `pin_pad_map == (("3", "3"), ("3", "EP"))`, and whose net `GND` lists pin `3`
+- **WHEN** `uv run pytest tests/unit/checks/test_assignment_compare.py -k several` calls `model_netlist`
+- **THEN** the elements `U1-3` and `U1-EP` are on `GND`, `U1-1` is on no net, and a board whose pads `3` and `EP` of `U1` carry `GND` compares without a difference and without an element on one side only
+
+#### Scenario: Open pin of two pads
+- **GIVEN** the same component with pin `3` on no net
+- **WHEN** `model_netlist` runs
+- **THEN** `U1-3` and `U1-EP` are listed with one label that is neither `NO_NET` nor a net id, and a board that holds the two pads on one net of any name compares without a difference
+
+#### Scenario: One pad per pin
+- **GIVEN** the model of "Mapped pins are named by their pads" ("Assignment compare stage")
+- **WHEN** `model_netlist` runs
+- **THEN** the assignments equal, in order, those the function returned before this change (a list written in the test)
