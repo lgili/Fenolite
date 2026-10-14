@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive `c0083-altium-repeated-sheets` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
 - Review the native kit archive for publication, confirming its recorded digest
   and documenting privacy findings without exposing personal paths or modifying
   the original evidence.

@@ -2,9 +2,7 @@
 
 ## Purpose
 Read the text files of an Altium project (the project file, output jobs, rule files and stack-up files) while keeping each byte for byte, load a project with its documents, and map the rules onto the neutral model where a closed scope grammar allows it.
-
 ## Requirements
-
 ### Requirement: Text forms are kept byte for byte
 `fenolite.backends.altium.read.textfile.split_text(data, *, file="")` SHALL split the bytes of a text file into a `TextBytes(bom, encoding, lines)` and `TextBytes.to_bytes()` MUST return exactly `data`, for every input it accepts.
 - `bom` MUST be the UTF-8 byte-order mark (`EF BB BF`) when `data` starts with it, else `b""`.
@@ -279,11 +277,11 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 - **THEN** `FormatError` is raised naming `STACKUPVERSION`
 
 ### Requirement: Project loading
-`fenolite.backends.altium.read.project.load_project(path)` SHALL read the project file at `path` and the text companions it lists, and SHALL return an `AltiumProject(root, name, project, documents, outjobs, rule_files, stackups, rules, issues)`. It is the entry point for the import change (c0043).
+`fenolite.backends.altium.read.project.load_project(path)` SHALL read the project file at `path` and the text companions it lists, and SHALL return an `AltiumProject(root, name, project, documents, outjobs, rule_files, stackups, rules, issues, annotations)`. It is the entry point for the import change (c0043).
 - `root` is the folder of `path`. `documents` MUST hold one `LoadedDocument(document, file, present)` per `ProjectFile.documents` entry, where `file` is `root / document.posix` and `present` says whether it is a file.
 - A document whose path is absolute, starts with a drive letter or `\\`, or leaves `root` through `..` MUST NOT be opened: `file` is `None`, and the warning `altium.project.document-outside` names the document index, not the path.
 - A listed document that is not a file MUST add the warning `altium.project.document-missing`. Paths MUST be resolved as written; when no file of that spelling exists and exactly one file of `root` matches without case, that file is used.
-- Present documents of the kinds `output-job`, `rules` and `stackup` MUST be read with `read_outjob`, `read_rule_file` and `read_stackup` and stored in `outjobs`, `rule_files` and `stackups` as `(document index, result)` pairs. A `FormatError` of a companion MUST NOT fail the load: it adds the warning `altium.project.companion-unreadable` naming the document index and the error.
+- Present documents of the kinds `output-job`, `rules`, `stackup` and `annotation` MUST be read with `read_outjob`, `read_rule_file`, `read_stackup` and `read_annotation` and stored in `outjobs`, `rule_files`, `stackups` and `annotations` as `(document index, result)` pairs; `annotation_designators()` MUST give the unique-id path → designator of every annotation file read, the first entry of a path winning. A `FormatError` of a companion MUST NOT fail the load: it adds the warning `altium.project.companion-unreadable` naming the document index and the error.
 - `rules` MUST hold one `(document index, RuleMapping)` per rule file, from `map_rules(file.records, origin=<document posix path>, summary=file.kind == "summary")`.
 - Documents of every other kind MUST be listed and not opened. `generated` documents MUST NOT be opened.
 - `issues` MUST hold the issues of the project file, then those of each companion in document order.
@@ -306,7 +304,7 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 - **THEN** the load succeeds, `rule_files == ()`, and the issues hold one `altium.project.companion-unreadable` naming the document index
 
 #### Scenario: No compound reader
-- **GIVEN** the modules of `fenolite.backends.altium.read` named `textfile`, `ini`, `proptext`, `project`, `outjob`, `rul`, `rules`, `scope` and `stackup`
+- **GIVEN** the modules of `fenolite.backends.altium.read` named `textfile`, `ini`, `proptext`, `project`, `outjob`, `rul`, `rules`, `scope`, `stackup` and `annotation`
 - **WHEN** `uv run pytest tests/unit/backends/altium/read/test_text_imports.py` runs
 - **THEN** none of them imports `fenolite.backends.altium.read.cfb` or `fenolite.backends.altium.cfb`, and each imports only the standard library, `fenolite.core`, `fenolite.model` and its sibling text modules
 
@@ -319,6 +317,7 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 | `altium.text.mixed-line-ends` | info | more than one kind of line end |
 | `altium.text.duplicate-key` | info | a key repeated in one section |
 | `altium.text.stray-line` | info | a line that is neither a section, a key nor empty |
+| `altium.text.unknown-key` | info | a key line of an annotation file that names no unique-id path with a designator |
 | `altium.project.no-design-section` | warning | a project file without `[Design]` |
 | `altium.project.hierarchy-mode-unknown` | warning | a `HierarchyMode` outside `HIERARCHY_MODES` |
 | `altium.project.document-kind-unknown` | info | a document extension outside `DOCUMENT_KINDS` |
@@ -337,7 +336,7 @@ No issue of this capability MUST have the severity `error`: malformed input rais
 #### Scenario: Closed set
 - **GIVEN** the issues produced by the unit cases of this capability and the `altium.text.`, `altium.project.`, `altium.outjob.`, `altium.rule.` and `altium.stackup.` literals in `src/fenolite/backends/altium/read/*.py`
 - **WHEN** `uv run pytest tests/unit/backends/altium/read/test_text_codes.py` runs
-- **THEN** every produced code is a key of `TEXT_READ_CODES` with the table's severity, and the set of literals of the nine text modules equals the keys of `TEXT_READ_CODES`
+- **THEN** every produced code is a key of `TEXT_READ_CODES` with the table's severity, and the set of literals of the ten text modules equals the keys of `TEXT_READ_CODES`
 
 ### Requirement: Altium text corpus rows
 `tests/corpus/manifest.toml` SHALL contain twelve rows for the text files, under the rules of `corpus-policy` "Second-backend corpus rows" (change c0039): three project files (`altium-third-party-prjpcb-01` to `-03`), three output jobs (`altium-third-party-outjob-01` to `-03`), three rule files (`altium-third-party-rules-01` in the export form, `-02` and `-03` in the summary form) and three stack-up files (`altium-third-party-stackup-01` to `-03`).
@@ -483,3 +482,29 @@ The reading of Altium rules onto the neutral model SHALL map every kind that `ru
 - **GIVEN** the corpus rows `altium-third-party-outjob-01` and `altium-third-party-outjob-03` in the cache
 - **WHEN** the record of each Gerber output is split with `record_fields`
 - **THEN** the names of its first 44 fields equal those of `GERBER_FIELDS`, every field whose rule is `constant` holds the value that `GERBER_FIELDS` gives, at 31 positions, and only row 01 holds a 45th field
+
+### Requirement: Annotation file read
+`fenolite.backends.altium.read.annotation.read_annotation(data, *, file)` SHALL read a project's `.Annotation` file into its entries, each a unique-id path with the designator it assigns, and SHALL keep the text so that it can be written back byte for byte ("Text forms are kept byte for byte").
+- The facts of the file's form MUST be recorded in `docs/formats/altium/project.md` with their sources and labels before the reader is written. The native `DesignatorManager` form SHALL pair `UniqueID<n>` and `PhysicalDesignator<n>` of the same index; indexes need not be consecutive. Legacy authored `<unique-id path>=<designator>` lines SHALL remain supported.
+- Non-text input MUST raise the located `FormatError` of the text readers. Known metadata of complete native records and measured sheet-number metadata SHALL be kept; unknown keys and incomplete or invalid mappings MUST be kept and reported with `altium.text.unknown-key`.
+- `load_project` MUST return the annotation file of a project that lists one.
+
+#### Scenario: Authored annotation file
+- **GIVEN** `tests/data/altium/channels/two/two.Annotation`, authored from the recorded facts
+- **WHEN** `read_annotation` runs
+- **THEN** it returns the two entries of the file, and writing the read value gives the same bytes
+
+#### Scenario: Annotation file listed by the project
+- **GIVEN** a project file that lists `p.Annotation`, a file holding one entry
+- **WHEN** `load_project` runs
+- **THEN** `annotations` holds one `(1, AnnotationFile)` pair and `annotation_designators()` gives that entry
+
+#### Scenario: Native indexed annotation records
+- **GIVEN** authored `DesignatorManager` records with matching `UniqueID0`/`PhysicalDesignator0` and `UniqueID7`/`PhysicalDesignator7`, in either key order
+- **WHEN** `read_annotation` runs
+- **THEN** both mappings are read, the first entry of a repeated path wins, and all bytes are retained
+
+#### Scenario: Incomplete indexed annotation record
+- **GIVEN** a native record missing its physical designator, an invalid path, or similarly named keys in another section
+- **WHEN** `read_annotation` runs
+- **THEN** no unsupported mapping is invented and the original keys are retained with located unknown-key information
