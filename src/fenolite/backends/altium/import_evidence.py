@@ -34,6 +34,7 @@ HYPOTHESES = (
     "H-A-IMP-LINK",
     "H-A-IMP-FRAME",
     "H-A-IMP-LAYERS",
+    "H-A-IMP-KEEPOUT-LAYER",
     "H-A-IMP-PADSTACK",
     "H-A-IMP-ZONE",
     "H-A-IMP-ZONE-HOLES",

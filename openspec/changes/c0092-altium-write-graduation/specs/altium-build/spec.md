@@ -22,3 +22,12 @@ The repository SHALL hold an acceptance project for the second backend's write s
 #### Scenario: Acceptance run
 - **WHEN** `uv run pytest tests/kicad/acceptance/test_v03_acceptance.py -rA` runs with KiCad 10.0.6
 - **THEN** every step of the script passes, and the probe `acceptance-v03` records `equal`
+
+## MODIFIED Requirements
+
+### Requirement: Altium build evidence
+The Altium build envelope SHALL combine the evidence of its inputs with the write cells of the kinds actually written. An author report never promotes a kind; graduation follows "Graduation of a write kind".
+
+#### Scenario: Evidence follows written kinds
+- **WHEN** an Altium project is built
+- **THEN** the envelope uses the lowest evidence of its input and written kinds.

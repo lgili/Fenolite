@@ -32,7 +32,8 @@ EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-G-CONV-LEDGER",))
 """The report and its verification: mechanical, and every difference of the KiCad 10.0.6 demo boards that
 the Altium direction writes is explained (``H-G-CONV-LEDGER``, confirmed on 2026-10-09)."""
 DIRECTIONS: dict[tuple[str, str], Direction] = {
-    (direction.source, direction.target): direction for direction in (to_altium.DIRECTION, to_kicad.DIRECTION)
+    (direction.source, direction.target): direction
+    for direction in (to_altium.DIRECTION, to_kicad.DIRECTION, to_kicad.ALTIUM_DIRECTION)
 }
 """The registered directions by ``(source backend, target backend)``. Changes c0161 and c0162 add theirs."""
 PROFILES_FILE = "profiles.toml"

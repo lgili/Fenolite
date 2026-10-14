@@ -24,6 +24,8 @@ rows they name are stronger.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from fenolite.backends.base import MatrixRow
 from fenolite.backends.kicad import dru, libs, lowering, mod, pcb, pro, sch, schgen, sym, versions, wks
 from fenolite.core.evidence import Evidence
@@ -32,7 +34,7 @@ NAME = "kicad"
 LIB_TABLE_KIND = "kicad_lib_table"
 PROJECT_KIND = "kicad_pro"
 
-MATRIX: tuple[MatrixRow, ...] = (
+_ROWS: tuple[MatrixRow, ...] = (
     MatrixRow(
         NAME,
         versions.FileKind.RULES.value,
@@ -82,6 +84,22 @@ MATRIX: tuple[MatrixRow, ...] = (
         write=wks.WRITE_EVIDENCE,
         roundtrip_exact=wks.EVIDENCE,
     ),
+)
+
+READBACKS = {
+    "kicad_dru": "tests/unit/backends/kicad/test_dru.py",
+    "kicad_lib_table": "tests/unit/backends/kicad/test_libs_sources.py",
+    "kicad_mod": "tests/unit/backends/kicad/test_mod.py",
+    "kicad_pcb": "tests/unit/backends/kicad/test_pcb_rebuild.py",
+    "kicad_pro": "tests/unit/backends/kicad/test_pro_update.py",
+    "kicad_sch": "tests/unit/backends/kicad/test_sch_tree.py",
+    "kicad_sym": "tests/unit/backends/kicad/test_sym.py",
+    "kicad_wks": "tests/unit/backends/kicad/test_wks_write.py",
+}
+MODEL_ROUNDTRIPS: dict[str, str] = {}
+MATRIX = tuple(
+    replace(row, readback=READBACKS.get(row.kind, ""), model_roundtrip=MODEL_ROUNDTRIPS.get(row.kind, ""))
+    for row in _ROWS
 )
 
 __all__ = ["LIB_TABLE_KIND", "MATRIX", "NAME", "PROJECT_KIND"]

@@ -35,6 +35,7 @@ experimental, and its evidence.
 | from | to | writer | experimental | evidence |
 |---|---|---|---|---|
 | kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the schematic, its libraries and the project file when the schematic writer takes the circuit | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE` |
+| altium | kicad | 9, 10 | `altium-to-kicad`; derived libraries, generated schematic, reported losses |
 | kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal; for an older target, every file written through the downgrade resolver (below) | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`; a downgrade: `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS`) |
 
 - A schematic of an older major than the target is not converted (a schematic is not upgraded): the
@@ -238,3 +239,35 @@ receive distinct library entries. These read-circuit allowances do not relax scr
 Local proof covers 16 light demo boards with no unexplained differences and four light Altium project
 sets. Heavy corpus cases and the full suite remain CI work. Part T is required before c0160 archives;
 Fenolite read-back alone does not prove that Altium opens or compiles the generated files.
+
+## Altium to KiCad (c0161)
+
+Verification profile: `altium-to-kicad`, absolute frame, 1 nm tolerance.
+
+`fenolite convert input.PrjPcb --to kicad --kicad-version 10 --out out --dry-run --json`
+prepares a reviewed project; commit it with `--confirm --plan <plan_id>`. Targets 9 and 10 are supported.
+The result includes PCB/project/rules, a derived `.pretty` library and table, and (when the imported
+circuit has unique designators) generated schematic sheets and a symbol library/table.
+
+Mechanical layers map in numerical order to User.1..45, preserving their name as the layer alias.
+Unknown/out-of-stack layers and excess mechanical layers are reported as losses. Closed Keep-Out
+outlines become all-copper rule areas forbidding tracks, vias and pours; open/branching lines are lost.
+Curved boundaries are polygonized with at most 5000 nm chord error, reported as changed.
+An odd copper count gains an empty inner layer; its original stack-up is reported changed.
+`kicad.board.layer-undeclared` refuses any caller's modelled item on an undeclared layer, even with consent.
+
+Arbitrary slots rotate circular pads without changing copper; incompatible non-circular pads are
+reported lost. Derived footprints use the first instance in reference order in its top-side local frame;
+instances that differ are reported without replacing board geometry. Filename collisions are disambiguated.
+Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and
+wires are regenerated. Duplicate designators refuse the schematic alone, with an explicit report.
+Unsupported imported rules and nonportable component bodies are reported. Libraries and projects use
+relative paths. Evidence stays INFERRED until the full KiCad oracle gates run; no Altium run is needed.
+
+Unmapped source rule diagnostics are included as lost rule groups with the original message;
+group counts are not counts of individual rules. A multiply assigned schematic pin retains
+the last imported net assignment and produces a consent-requiring `pin-net` loss.
+
+Generated schematics mark unused symbol pins as no-connects. ERC connection errors are
+checked independently; inherited power-drive findings may remain, so a conversion is not
+a claim that the source circuit is electrically ERC-clean.

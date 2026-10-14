@@ -179,6 +179,11 @@ meaning = "Components that name Altium library links were drawn with generic bod
 fix = "Nothing to do; replace the symbols in Altium if their drawing matters."
 see = "Build target"
 
+["altium.experimental"]
+meaning = "Some written Altium file kinds lack the complete evidence required for graduation."
+fix = "Read the missing conditions in capabilities; only a valid recorded kit and verified hypotheses can promote a kind."
+see = "Build target"
+
 ["altium.harness-name"]
 meaning = "A harness type or entry name holds '=', ',' or ';', collides with another name in letter case, or equals a net name."
 fix = "Rename the harness type or the entry."
@@ -1591,6 +1596,11 @@ see = "inspect"
 ["kicad.board.obsolete-dropped"]
 meaning = "Writing for KiCad 10 removed or converted content that only KiCad 9 writes."
 fix = "Nothing to do; KiCad 10 does the same when it saves the board."
+see = "KiCad output"
+
+["kicad.board.layer-undeclared"]
+meaning = "An item uses a layer absent from the board's declared layer table."
+fix = "Declare the intended layer or move the item to a declared layer; consent cannot waive this refusal."
 see = "KiCad output"
 
 ["kicad.board.opaque-net-ref"]

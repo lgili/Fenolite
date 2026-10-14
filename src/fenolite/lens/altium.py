@@ -19,6 +19,7 @@ import json
 from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
+from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import Literal
 
@@ -116,6 +117,7 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
+        "altium.experimental": "info",
         "altium.bus-flattened": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
@@ -2304,6 +2306,35 @@ def build_altium(
         directions=directions,
         symbol_bodies=symbol_bodies,
     )
+    # c0092: a successful build claims only the write cells of the files it produced.
+    from fenolite.backends.altium.claims import MATRIX
+    from fenolite.backends.base import graduation_rows
+
+    kinds = {
+        ".prjpcb": "altium_prjpcb",
+        ".pcblib": "altium_pcblib",
+        ".pcbdoc": "altium_pcbdoc",
+        ".schlib": "altium_schlib",
+        ".schdot": "altium_schdot",
+        ".outjob": "altium_outjob",
+        ".harness": "altium_harness",
+        ".schdoc": f"altium_schdoc_{form}",
+    }
+    written_kinds = {
+        kinds[PurePosixPath(file).suffix.lower()]
+        for file in files
+        if PurePosixPath(file).suffix.lower() in kinds
+    }
+    rows = [row for row in graduation_rows(MATRIX) if row.kind in written_kinds]
+    evidence = Evidence.combine(*(row.write for row in rows if row.write is not None))
+    if authored_footprints:
+        evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
+    experimental = sorted(row.kind for row in rows if "write" in row.experimental)
+    summary["experimental"] = bool(experimental)
+    if experimental:
+        issues.append(
+            issue("altium.experimental", "Experimental write kinds: " + ", ".join(experimental), name)
+        )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
 
 

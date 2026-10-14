@@ -83,7 +83,7 @@ def test_page_order_and_matrix_lines() -> None:
     head = text[: text.index("\n## ")]
     assert "tools/gen_evidence_matrix.py" in head and "Do not edit by" in head
     titles = re.findall(r"^## (.+)$", text, re.M)
-    assert titles == ["Operations", "Matrix", "Hypotheses", "Modules"]
+    assert titles == ["Operations", "Matrix", "Write graduation", "Hypotheses", "Modules"]
     for name, _ in _tool().MEANINGS:
         assert f"| `{name}` |" in _section(text, "Operations")
     table = _section(text, "Matrix")

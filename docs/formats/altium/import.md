@@ -209,3 +209,12 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 |---|---|---|---|
 | KiCad 10.0.6 imports free PCB pads from seven measured demo conversions into separate blank-reference footprints: cases 01/04/07/12/13/16/17 add 14/1/2/9/9/3/24 such wrappers. The counts equal their separately recorded free-pad conversion counts; numbered components remain compared | S-0733 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-13; Windows) | H-K-CONV-TRIANGLE |
 | Eight rotated ecc83 U1 slots import with one-number oval drills, observed as `(drill oval 0.762)`, which Fenolite retains opaque. The zero-angle U1-5 does not produce that drill discrepancy. Native Altium still exposes all nine holes with HoleSize=401575, HoleWidth=799213 and HoleType=2: approximately 1.02 by 2.03 mm | S-0732, S-0733 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-13; Windows) and ALTIUM-VERIFIED(author-report) (AD 26.5.0; 2026-10-13) | H-K-CONV-TRIANGLE |
+
+## Keep-Out Layer conversion (c0161)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Objects placed on the Keep-Out Layer apply across signal layers; object-specific restrictions can select tracks, vias, copper and pads | S-0742 | INFERRED | H-A-IMP-KEEPOUT-LAYER |
+
+Fenolite's choice: a closed imported outline becomes an all-copper rule area forbidding tracks, vias
+and pours. An open line is a reported loss; unknown object-specific restrictions are not inferred.

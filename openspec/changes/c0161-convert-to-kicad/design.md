@@ -60,7 +60,7 @@
 
 | file | content |
 |---|---|
-| `src/fenolite/convert/to_kicad.py` | the direction Altium to KiCad: layers, keep-outs, slots, names, libraries, schematic, project |
+| `src/fenolite/convert/to_kicad.py`, `altium_to_kicad.py` | the direction and private lowering helpers for Altium to KiCad: layers, keep-outs, slots, names, libraries, schematic, project |
 | `src/fenolite/backends/kicad/layers.py` | `board_rows(copper)`, `user_rows(count, *, target)` |
 | `src/fenolite/backends/kicad/pcb.py`, `_fpmap.py` | `kicad.board.layer-undeclared`; slots turned with a round or aligned pad |
 | `docs/formats/kicad/board.md`, `docs/formats/altium/import.md` | the user layer rows; the keep-out layer row |

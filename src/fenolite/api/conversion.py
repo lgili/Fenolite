@@ -101,6 +101,15 @@ def _schematic(
     """The differences between the source's root schematic and the written one at level 2, or the
     ``convert.schematic-unverified`` warning when they cannot be compared (change c0162)."""
     assert conversion.schematic is not None
+    if conversion.source.backend == "altium":
+        found = equivalent(
+            replace(conversion.design, board=None),
+            folder / conversion.schematic,
+            level=SCHEMATIC_LEVEL,
+            profile=profile,
+            ignore_refs=("",),
+        )
+        return found.report.differences if found.report is not None else ()
     suffix = ".kicad_sch" if conversion.target == "altium" else PurePosixPath(conversion.schematic).suffix
     source = conversion.source.root / f"{conversion.source.name}{suffix}"
     target = folder / conversion.schematic
@@ -153,7 +162,10 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
         )
         if conversion.schematic is not None:
             schematic = _schematic(conversion, folder, chosen)
-    explainer = Explainer(conversion.design, conversion.report)
+    explanation_model = (
+        conversion.source.design if conversion.source.backend == "altium" else conversion.design
+    )
+    explainer = Explainer(explanation_model, conversion.report)
     explained: list[Explained] = []
     unexplained: list[Difference] = []
     report = compared.report
@@ -163,7 +175,12 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             unexplained.append(difference)
         else:
             explained.append(Explained(difference, kind))
-    unexplained += schematic if not isinstance(schematic, Issue) else ()
+    for difference in schematic if not isinstance(schematic, Issue) else ():
+        kind = explainer.explain(difference.kind, difference.where, difference.a, difference.b)
+        if kind is None:
+            unexplained.append(difference)
+        else:
+            explained.append(Explained(difference, kind))
     notes = (schematic,) if isinstance(schematic, Issue) else ()
     # the comparison's own errors are its differences: each is explained, or one convert.unexplained; its
     # notices are kept, and the read-back's own reader notes are not the conversion's

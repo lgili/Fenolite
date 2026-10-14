@@ -1,5 +1,4 @@
 {
-  "version": "9.0.9",
   "probes": {
     "analysis-neck-plain": "equal",
     "area-cond-case": "absent",
@@ -76,6 +75,8 @@
     "check-help-sch-export-pdf": "present",
     "check-help-sym-upgrade": "present",
     "check-unparsed-drc": "present",
+    "convert-a2k-load": "equal",
+    "convert-a2k-sch": "equal",
     "convert-retarget": "equal",
     "copper-anchor-frame": "equal",
     "copper-anchor-frame-control": "different",
@@ -645,6 +646,7 @@
     "pcb-stackup-job-8": "equal",
     "pcb-stackup-nopaste-table": "present",
     "pcb-stackup-order": "present",
+    "pcb-user-layers": "equal",
     "pcb-write-dimension-10": "reject",
     "pcb-write-dimension-9": "load",
     "pcb-write-heads-10": "reject",
@@ -825,5 +827,6 @@
     "wks-value-top": "load",
     "wks-value-unknown": "reject",
     "zone-fat9": "equal"
-  }
+  },
+  "version": "9.0.9"
 }

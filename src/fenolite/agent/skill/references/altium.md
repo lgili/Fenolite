@@ -105,7 +105,6 @@ fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ## The verification kit is a person's run
 
 The Altium verification kit is a run that a person performs in Altium Designer.
-Fenolite builds its samples and judges the returned files; it cannot perform that run.
 
 ```fenolite-cmd
 fenolite kit build --out kit --dry-run --json
@@ -117,8 +116,12 @@ fenolite kit status --json
 - `kit build` writes samples and instructions for a person with Altium Designer.
 - `kit verify DIR` judges returned files; exit 3 means the folder is not a kit.
 - `kit status` lists recorded runs; `kit record` records one in Fenolite's repository.
-- Until a person runs the kit on this release, report projects as built and not opened.
+- Report builds as unopened until the kit runs in Altium.
 
-Convert keeps symbols/sheets and derives a PcbLib; see `docs/conversion.md`.
+Conversion details: `docs/conversion.md`.
+
+```fenolite-cmd
+fenolite convert blink/altium/lamp.PrjPcb --to kicad --out converted --dry-run --json
+```
 
 Read next: `files`, `rules`, `checks`.

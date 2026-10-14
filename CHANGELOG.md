@@ -115,6 +115,18 @@ All notable changes to Fenolite are documented here. The format follows
   round trips. Native Altium 26.5.0 inspection confirms the authored four-layer
   PCB and placement from its PcbLib retain distinct first/second inner geometries.
 
+### Altium to KiCad
+
+- Altium projects can be converted with `fenolite convert --to kicad` for KiCad 9/10
+  (c0161, experimental). Outputs include the board, rules, project, derived footprint
+  and symbol libraries and regenerated schematics. Mechanical layers map to named
+  user layers; closed Keep-Out outlines become rule areas. Changed presentation and
+  unsupported items are reported. Seven light public PCB documents have no unexplained
+  read-back differences; full independent corpus checks remain for CI.
+- `write_board` refuses items on undeclared layers with `kicad.board.layer-undeclared`,
+  including when `allow_lossy=True`. Authored fixtures now declare their used layers.
+
+
 ### Native Altium templates
 
 - `fenolite build --target altium --altium-template FILE.SchDot` applies a native binary sheet template

@@ -7,3 +7,12 @@
 #### Scenario: Computed from the matrix
 - **WHEN** `uv run pytest tests/unit/cli/test_capabilities_altium.py` compares `capabilities --json` with `graduated` for every Altium row
 - **THEN** `write_kinds` holds exactly the graduated kinds, and each experimental kind lists what is missing
+
+## MODIFIED Requirements
+
+### Requirement: Experimental features in capabilities
+`fenolite capabilities` SHALL derive Altium experimental write kinds from the evidence matrix. Entries SHALL include the missing graduation conditions per kind, and SHALL run no external tool. Graduated kinds SHALL appear in the Altium backend write_kinds.
+
+#### Scenario: Missing evidence is visible
+- **WHEN** capabilities runs with --no-tools
+- **THEN** each experimental Altium write kind names its missing conditions and no unverified kind is promoted.

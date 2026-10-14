@@ -234,3 +234,61 @@ DIRECTION = Direction(
 )
 
 __all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KINDS", "write"]
+
+
+def write_altium(source: SourceProject, options: Options) -> Written:
+    """Altium to a coherent KiCad project and derived libraries (c0161)."""
+    from fenolite.convert.altium_to_kicad import Ledger, footprint_files, prepare, schematic_files
+
+    ledger = Ledger()
+    name = options.name or source.name
+    design = prepare(source, name, options.kicad_version, ledger)
+    issues: list[Issue] = []
+    texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
+    texts.update(footprint_files(design, texts[f"{name}.kicad_pcb"], name, options.kicad_version, ledger))
+    schematic, notes = schematic_files(source, design, name, options.kicad_version, ledger)
+    texts.update(schematic)
+    issues.extend(notes)
+    counts = census(source.design)
+    counts["schematic"] = 1
+    unmapped = [issue for issue in source.issues if issue.code == "altium.import.rule-unmapped"]
+    counts["rule"] = counts.get("rule", 0) + len(unmapped)
+    for index, issue in enumerate(unmapped):
+        ledger.drop("rule", f"unmapped-rule-group-{index}", f"unmapped imported rule group: {issue.message}")
+    report = ConversionReport.of(
+        source=counts,
+        changed={
+            kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.changed.items()
+        },
+        lost={kind: {r: tuple(ids) for r, ids in reasons.items()} for kind, reasons in ledger.lost.items()},
+    )
+    return Written(
+        {key: value.encode("utf-8") for key, value in sorted(texts.items())},
+        report,
+        design,
+        f"{name}.kicad_pcb",
+        tuple(issues),
+        schematic=f"{name}.kicad_sch" if schematic else None,
+    )
+
+
+ALTIUM_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-K-CONV-A2K-LOAD",
+        "H-K-CONV-A2K-IMPORT",
+        "H-K-CONV-A2K-SCH",
+        "H-K-BOARD-USERLAYERS",
+        "H-A-IMP-KEEPOUT-LAYER",
+    ),
+)
+ALTIUM_DIRECTION = Direction(
+    source="altium",
+    target=KICAD,
+    write=write_altium,
+    evidence=ALTIUM_EVIDENCE,
+    experimental=True,
+    profile="altium-to-kicad",
+    targets=TARGET_MAJORS,
+    kinds=("schematic",),
+)

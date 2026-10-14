@@ -21,7 +21,7 @@
 3. **Order of work.** (1) run the acceptance script; (2) the maintainer runs the kit; (3) record the run; (4) relabel rows; (5) apply the rule and regenerate the matrix; (6) rewrite the documentation from the result. If the run fails for a kind, the change is still completed: that kind stays experimental and the page says why.
 4. **Acceptance project.** `examples/kit/` samples plus one design that uses everything v0.3 writes (the six-layer board with a module tree, rules of every exact kind, an output job and a drawing sheet). The acceptance script: build for KiCad and for Altium; `check` both; `equivalent` between the two at level 5; `roundtrip --level rta3` on the Altium project; `equivalent` between the KiCad board and KiCad's import of the Altium documents at level 5.
 5. **Notice.** The build's `experimental` notice names the kinds, and is absent when none of the written kinds is experimental.
-6. **Cut order.** Nothing is cut: this change is small and closes the milestone. If the kit run is not available, tasks 2 to 4 wait and say so; the milestone is then not done.
+6. **Cut order.** Nothing is cut: this change is small and closes the milestone. Authorization on 2026-10-13 permits implementing tasks 1, 2 and 4 while kit reports remain pending. No kind graduates without the actual evidence; the milestone remains open.
 
 ## Files and public API
 
@@ -79,3 +79,16 @@ Total: 3.25. This is a size, not a calendar estimate.
 
 - **Is one kit run on one Altium version enough to graduate a kind?** Decided by the maintainer on 2026-10-06: yes, with the version named everywhere the level is shown.
 - **Should the release notes of 0.3.0 call the Altium target stable?** Default: no: "write kinds verified with AD <version>; see the written scope".
+
+## Implementation clarification — 2026-10-13
+
+The pure base rule receives typed register and run snapshots; it imports only core/model.
+Matrix rows name an own-readback suite file and, for model kinds, their RT-A3 hypothesis.
+A tested generated JSON resource carries the public register levels and validated committed
+kit outcomes into installed wheels, which cannot assume a repository checkout. The evidence
+matrix generator checks both this resource and the page; missing evidence fails closed.
+No Altium process runs while listing capabilities or building a project. Recorded-kit
+freshness is measured against the kit built by this tree when generating the resource.
+An own-code INFERRED hypothesis remains insufficient for promotion even if its test passes.
+The implementation does not weaken that rule to make graduation possible prematurely.
+Acceptance tooling reports failed steps rather than declaring success without oracle checks.

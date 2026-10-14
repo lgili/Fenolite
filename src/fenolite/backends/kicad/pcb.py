@@ -68,7 +68,7 @@ from fenolite.backends.kicad._libread import (
     leading_atoms,
     load_source,
 )
-from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind
+from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind, undeclared_layers
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, walk
 from fenolite.backends.kicad.versions import (
     DEFAULT_TARGET,
@@ -1981,6 +1981,7 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.projection-read-only": "error",
         "kicad.board.outline-conflict": "error",
         "kicad.board.flip-unsupported": "error",
+        "kicad.board.layer-undeclared": "error",
         **stacklib.WRITE_ISSUE_CODES,
         **vialib.WRITE_ISSUE_CODES,
     }
@@ -3310,6 +3311,25 @@ def write_board(
     board = design.board
     if board is None:
         raise ValueError("the design has no board")
+    unknown = undeclared_layers(board)
+    if unknown:
+        # Preserve the existing structural stack-up diagnostic before layer-use diagnostics.
+        if board.stackup is not None and (reason := stacklib.invalid(board.stackup, board.layers)):
+            raise LossyWriteError(
+                (Issue(stacklib.INVALID, "error", reason, where=board.stackup.id),), droppable=False
+            )
+        raise LossyWriteError(
+            tuple(
+                Issue(
+                    "kicad.board.layer-undeclared",
+                    "error",
+                    f"layer {name!r} is not declared by the board ({count} item(s))",
+                    where=name,
+                )
+                for name, count in unknown.items()
+            ),
+            droppable=False,
+        )
     info = source_info(design)
     down = False
     if info is not None:

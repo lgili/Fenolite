@@ -17,16 +17,20 @@ from collections.abc import Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from fenolite.backends import matrix  # noqa: E402
-from fenolite.backends.base import MATRIX_OPERATIONS, MatrixRow  # noqa: E402
+from fenolite.backends.base import MATRIX_OPERATIONS, MatrixRow, graduated, graduation_context  # noqa: E402
 from fenolite.core.evidence import Evidence  # noqa: E402
 from fenolite.verify import HypothesisRow, load_register  # noqa: E402
+from tools._graduation import snapshot  # noqa: E402
 
 PAGE = ROOT / "docs" / "evidence" / "matrix.md"
 REGISTER = ROOT / "docs" / "hypotheses.md"
+SNAPSHOT = ROOT / "src/fenolite/backends/graduation.json"
 PAGE_NAME = "docs/evidence/matrix.md"
 TOOL_NAME = "tools/gen_evidence_matrix.py"
 COMMAND = f"uv run python {TOOL_NAME}"
@@ -115,6 +119,12 @@ def render(
     for row in rows:
         cells = [_operation(row, operation) for operation in MATRIX_OPERATIONS]
         lines.append(_line([row.backend, f"`{row.kind}`", *cells, _ids(row.verified_by())]))
+    support, runs = graduation_context()
+    lines += ["", "## Write graduation", "", "| backend | kind | missing conditions |", "|---|---|---|"]
+    for row in rows:
+        if row.write is not None:
+            ok, missing = graduated(row, support, runs)
+            lines.append(_line([row.backend, f"`{row.kind}`", "graduated" if ok else "<br>".join(missing)]))
     named = sorted({ident for row in rows for ident in row.verified_by()})
     lines += [
         "",
@@ -162,6 +172,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="exit 1 when the committed page is out of date")
     parser.add_argument("--page", type=Path, default=PAGE)
     args = parser.parse_args(argv)
+    resource = snapshot(ROOT, load_register(REGISTER))
+    if args.check:
+        if not SNAPSHOT.is_file() or SNAPSHOT.read_text() != resource:
+            print(f"graduation resource is out of date: run '{COMMAND}'", file=sys.stderr)
+            return 1
+    else:
+        SNAPSHOT.write_text(resource)
     text = render()
     if args.check:
         current = args.page.read_bytes().decode("utf-8") if args.page.is_file() else ""

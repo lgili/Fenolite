@@ -28,6 +28,7 @@ from fenolite.backends.kicad._fpmap import (
     PAD_SHAPES,
     PADSTACK_MODES,
     Ids,
+    aligned_slot_pad,
     emit_footprint,
     net_tie_groups,
     padstack_key,
@@ -525,7 +526,13 @@ def write_footprint(
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
-    defn = prepare_authored_definition(defn)
+    pads: list[Pad] = []
+    for pad in defn.pads:
+        try:
+            pads.append(aligned_slot_pad(pad))
+        except ValueError:
+            pads.append(pad)  # the existing projection check supplies the refusal
+    defn = prepare_authored_definition(dataclasses.replace(defn, pads=tuple(pads)))
     slots = _slots(defn)
     version = _source_version(defn, slots)
     down = False

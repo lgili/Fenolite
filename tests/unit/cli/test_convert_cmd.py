@@ -172,3 +172,23 @@ def test_bad_name_and_missing_source(tmp_path: Path, monkeypatch: pytest.MonkeyP
         monkeypatch, tmp_path, "convert", "nope.kicad_pcb", "--to", "altium", "--out", "o"
     )
     assert code == 3 and error["code"] == "FEN-3001"
+
+
+def test_altium_to_kicad_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from _convert import ROOT
+
+    code, envelope, error, _ = run(
+        monkeypatch,
+        tmp_path,
+        "convert",
+        str(ROOT / "tests/data/altium/blink/blink.PrjPcb"),
+        "--to",
+        "kicad",
+        "--out",
+        "out",
+        "--dry-run",
+    )
+    assert code == 0, error
+    result = envelope["result"]
+    assert result["equivalence"]["equivalent"] is True
+    assert any(row["path"].endswith("blink.kicad_pcb") for row in result["plan"])

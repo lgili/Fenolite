@@ -12,7 +12,7 @@ import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
 from functools import cache
-from typing import Any
+from typing import Any, cast
 
 from fenolite import __version__
 from fenolite.agent import guide
@@ -103,17 +103,51 @@ def _register(parser: argparse.ArgumentParser) -> None:
 def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> list[dict[str, Any]]:
     """One entry per experimental feature, sorted by name, its evidence written as a backend's
     (``docs/cli-contract.md``, "Discovery")."""
-    entries: list[dict[str, Any]] = [
-        {
-            **entry,
-            "evidence": {
-                "level": evidence.level.value,
-                "oracle": evidence.oracle,
-                "hypotheses": list(evidence.hypotheses),
-            },
-        }
-        for entry, evidence in features
-    ]
+    from fenolite.backends import matrix
+    from fenolite.backends.base import graduated, graduation_context
+
+    support, runs = graduation_context()
+    rows = {row.kind: row for row in matrix.rows() if row.backend == "altium" and row.write}
+    entries: list[dict[str, Any]] = []
+    for entry, evidence in features:
+        listed = cast(Sequence[str], entry["write_kinds"])
+        kinds = [kind for kind in listed if kind in rows and "write" in rows[kind].experimental]
+        if not kinds:
+            continue
+        entries.append(
+            {
+                **entry,
+                "write_kinds": kinds,
+                "evidence": {
+                    "level": evidence.level.value,
+                    "oracle": evidence.oracle,
+                    "hypotheses": list(evidence.hypotheses),
+                },
+                "missing": {kind: list(graduated(rows[kind], support, runs)[1]) for kind in kinds},
+            }
+        )
+    listed = {kind for entry in entries for kind in entry["write_kinds"]}
+    auxiliary = sorted(
+        kind for kind, row in rows.items() if "write" in row.experimental and kind not in listed
+    )
+    if auxiliary:
+        evidence = Evidence.combine(
+            *(row.write for row in rows.values() if row.kind in auxiliary and row.write is not None)
+        )
+        entries.append(
+            {
+                "name": "altium-auxiliary-writer",
+                "command": "build",
+                "option": "--target altium",
+                "write_kinds": auxiliary,
+                "evidence": {
+                    "level": evidence.level.value,
+                    "oracle": evidence.oracle,
+                    "hypotheses": list(evidence.hypotheses),
+                },
+                "missing": {kind: list(graduated(rows[kind], support, runs)[1]) for kind in auxiliary},
+            }
+        )
     return sorted(entries, key=lambda e: str(e["name"]))
 
 

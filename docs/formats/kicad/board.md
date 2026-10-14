@@ -875,3 +875,12 @@ probes are recorded on 9.0.9 and 10.0.6 and passed in CI run 37772583226 (2026-1
 | Two lines of a text are 1.61 × the text size apart; a line of n glyphs of advance a is n × a + 0.25 × the size long, and no advance of printable ASCII and `±µ°×ΩÄÖÜßéèçñ–—…` exceeds 1.45 × the size | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-TEXT |
 | A `gr_text` with `(justify mirror)` on `B.Fab` reads right in a `--mirror` plot | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ASSEMBLY |
 | A layer table that lacks `Dwgs.User`, `F.Fab` or `B.Fab` loads with the rows `(17 "Dwgs.User" user "User.Drawings")`, `(35 "F.Fab" user)` and `(33 "B.Fab" user)` added at its end, and items on those layers are drawn | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-LAYER |
+
+## User layers for conversion (c0161)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Authored boards declaring `User.1` through `User.45` at odd numbers `39` through `127` load in 9.0.9 and 10.0.6, and SVG export selects the first and last user layer. A modelled drawing on an unknown layer makes loading fail | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-USERLAYERS |
+
+Fenolite assigns mechanical layers to successive user rows and preserves their Altium name as the
+row's user name. It reports overflow rather than merging unrelated drawings.

@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from fenolite.backends.base import MatrixRow
+from fenolite.backends.base import MatrixRow, graduation_rows
 from fenolite.core.evidence import Evidence, Level
 
 ROOT_PACKAGE = "fenolite.backends"
@@ -199,7 +199,7 @@ def rows() -> tuple[MatrixRow, ...]:
     """The rows of every backend package, sorted by ``(backend, kind)``. Runs no tool and reads no file
     but the modules it imports."""
     found = [row for package in packages() for row in _load_rows(package) or ()]
-    return tuple(sorted(found, key=lambda row: (row.backend, row.kind)))
+    return graduation_rows(tuple(sorted(found, key=lambda row: (row.backend, row.kind))))
 
 
 def _declaration_problems(package: str) -> list[str]:

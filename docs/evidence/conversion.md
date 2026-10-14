@@ -503,3 +503,34 @@ Connector pads, unnumbered pads, plain per-layer stacks and mapped mechanical dr
 unsupported shapes, unsupported layers and other losses remain itemized. Every conversion includes
 a derived PCB library. The cached complex_hierarchy project separately preserves its schematic
 netlist and three sheet instances, with the schematic drawing regenerated.
+
+## Altium to KiCad — c0161, local progress on 2026-10-13
+
+Authored samples pass load plus DRC and schematic export plus ERC on the installed Linux
+KiCad 9.0.9 and 10.0.6 images. The authored routed PCB also agrees at level 5 with
+KiCad 10.0.6's independent Altium importer, under its registered profile. These are
+sample proofs; full independent public-corpus oracles and the whole probe register remain
+for CI. The direction and new conversion hypotheses therefore remain INFERRED.
+The macOS 10.0.6 executable aborts DRC with exit -6, including existing guide boards;
+the Linux checks produce reports. This is recorded as a local tool limitation.
+
+The light corpus census has 18 passing cases and two heavy skips: baseline and converted
+checks for seven public PCB documents, plus four public project sets (02–05). All conversions
+have zero unexplained read-back differences. The static losses below omit additional grouped
+source rules already reported by the importer; those groups are explicitly itemized in the
+conversion report with their original diagnostic. Counts of a rule group are groups, not
+individual rules.
+
+| Public PCB document | Explicit losses |
+| --- | --- |
+| 01 | 247 bodies, 1 rule, 20 open keep-out graphics |
+| 02 | 42 bodies, 1 rule, 1 text |
+| 03 | 50 bodies, 2 rules, 1 schematic (duplicate designators) |
+| 04 | 33 bodies, 1 rule |
+| 05 | 23 bodies, 1 rule |
+| 06 | 27 bodies, 1 rule, 3 graphics on an out-of-stack layer |
+| 07 | 24 bodies, 8 incompatible turned-slot pads |
+
+Project set 02 holds multiply assigned schematic pins. The generated schematic retains
+the last imported assignment and reports each affected pin as a `pin-net` loss requiring
+consent. This is not a claim of preservation of every source net alias.

@@ -28,6 +28,7 @@ This module states no level: every cell is an evidence constant of a module of t
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from types import MappingProxyType
 
 from fenolite.backends.altium import (
@@ -56,7 +57,7 @@ IMPORT = import_evidence.EVIDENCE
 SCHEMATIC_READ = Evidence.combine(read_sch.EVIDENCE, IMPORT)
 WRITE = ("write",)
 
-MATRIX: tuple[MatrixRow, ...] = (
+_ROWS: tuple[MatrixRow, ...] = (
     MatrixRow(NAME, project.HARNESS_KIND, write=hierarchy.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, outjob.OUTJOB_KIND, write=outjob.EVIDENCE, experimental=WRITE),
     MatrixRow(
@@ -133,5 +134,27 @@ ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
 """Read kind → the highest round-trip level that holds over the public corpus, with its hypothesis
 (capability altium-verification, "Round-trip claims of the Altium kinds"; change c0090). The matrix has
 no column for a note: its round-trip cells say ``exact`` or nothing, and these kinds have nothing."""
+
+READBACKS = {
+    "altium_harness": "tests/unit/backends/altium/test_hierarchy.py",
+    "altium_outjob": "tests/unit/backends/altium/test_outjob_write.py",
+    "altium_pcbdoc": "tests/unit/backends/altium/test_pcbdoc_copper.py",
+    "altium_pcblib": "tests/unit/backends/altium/test_pcblib.py",
+    "altium_prjpcb": "tests/unit/backends/altium/test_project.py",
+    "altium_schdoc_ascii": "tests/unit/backends/altium/test_schdoc.py",
+    "altium_schdoc_binary": "tests/unit/backends/altium/test_binary.py",
+    "altium_schdot": "tests/unit/backends/altium/test_schdot_write.py",
+    "altium_schlib": "tests/unit/backends/altium/test_schlib.py",
+}
+MODEL_ROUNDTRIPS: dict[str, str] = {
+    "altium_pcbdoc": "H-A-VER-RTA3",
+    "altium_prjpcb": "H-A-VER-RTA3-PRJ",
+    "altium_schdoc_ascii": "H-A-VER-RTA3-PRJ",
+    "altium_schdoc_binary": "H-A-VER-RTA3-PRJ",
+}
+MATRIX = tuple(
+    replace(row, readback=READBACKS.get(row.kind, ""), model_roundtrip=MODEL_ROUNDTRIPS.get(row.kind, ""))
+    for row in _ROWS
+)
 
 __all__ = ["MATRIX", "NAME", "ROUND_TRIP_NOTES"]
