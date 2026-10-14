@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive `c0152-clearance-rounding` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
 - Archive `c0132-altium-via-inner-pads` after completed tasks and CI run 38511480776;
   synchronize its requirements while retaining measured evidence levels.
 

@@ -24,3 +24,5 @@
 - [x] 3.4 Run the full suite once on the rebased branch. Proof: `make check` passes.
   - **2026-10-08.** Not run here: the coordinator runs it once at the merge.
   - **2026-10-08**, on the release branch (`release-0.4.0`, `32a19b3` and the settlement commits of c0154): `make check` exit 0 (ruff check all passed, 1772 files already formatted, pyright 0 errors, residue 0 hits with 11 waivers and the private gate skipped, `13828 passed, 2374 skipped in 1243.06s` on Python 3.11.15, 4 workers) (c0154, task 4.3). CI run https://github.com/lgili/Fenolite/actions/runs/37836186018 of `32a19b3` passed every job; the change passed CI run 37774909847 on its branch.
+
+Closure 2026-10-14: CI run [38511480776](https://github.com/lgili/Fenolite/actions/runs/38511480776) passed all 11 jobs on exact implementation commit `84019c03e761861828fc12634983a8f4bc565ebf`. Archive preparation and spec synchronization use an isolated checkout of that approved commit. Existing measured evidence levels are preserved. Subsequent local c0092 work and the combined documentation batch require their own CI verdict. No local full-suite run is claimed.
