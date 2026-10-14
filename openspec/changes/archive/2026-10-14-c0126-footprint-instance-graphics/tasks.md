@@ -127,3 +127,5 @@ So that a later copy can be made from a newer text (task 0.1):
 - `backend-protocol`, "Altium write of a model": the bullet that starts "The model holds no corner ratio of a rounded-rectangle pad."; the bullet that starts "`fenolite build --target altium` does not go through this write"; the THEN of "Build and write agree".
 - `altium-build`, "Stored board of an Altium build": the sentence "A pad keeps the extension bag of its library definition, …"; the bullet that starts "The build does not go through `lower.from_design`"; the THEN of "Stored board of the routed blink".
 - `altium-verification`, "Round-trip level RT-A3": the end of the bullet on `unwritten`; the THEN of "Own sample".
+
+Closure 2026-10-14: CI run [38511480776](https://github.com/lgili/Fenolite/actions/runs/38511480776) passed all 11 jobs on exact implementation commit `84019c03e761861828fc12634983a8f4bc565ebf`. Archive preparation and spec synchronization use an isolated checkout of that approved commit. Existing measured evidence levels are preserved. Subsequent local c0092 work and the combined documentation batch require their own CI verdict. No local full-suite run is claimed.

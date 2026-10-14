@@ -2,9 +2,7 @@
 
 ## Purpose
 Define what every file-format backend offers, independent of any one backend: the `Backend` protocol (detect, read, capabilities), read results that hold a `Design` or a `Library`, capability reports that list only implemented operations, and the registry through which the CLI, checks and placement reach backends. Module: `fenolite.backends.base` and `fenolite.backends.registry`.
-
 ## Requirements
-
 ### Requirement: Backend protocol
 `fenolite.backends.base` SHALL define `Backend` as a `typing.Protocol` with the attribute `name: str` and the methods `detect(path) -> bool`, `read(path, *, issues=None) -> ReadResult` and `capabilities() -> CapabilityReport`.
 - `backends.base` MUST import only `core` and `model`.
@@ -587,10 +585,10 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 - `target` MUST be `None`: the Altium writers have one form, and any other value raises `ValueError`.
 - The write MUST be deterministic: two calls on equal designs give equal bytes.
 - When the schematic writer refuses the circuit (a text that no record holds, one pin on two nets), the PCB document MUST still be written, and one `altium.not-lowered` info with `where` `schematic` says why the schematic and the project file are not.
-- The model holds no corner ratio of a rounded-rectangle pad. A pad read from an Altium document carries its corner percentage in its `altium` bag, which `from_design` reads; a pad read from a KiCad board keeps the ratio in KiCad's own bag, which a backend does not read. `lens.altium.write_model(design, allow_lossy=…)` is the write of such a design: it reads the ratios (`lens.altium.corner_ratios`) and passes them to `lower.write_design(…, corner_ratios=…)`. Without a ratio a rounded-rectangle pad is not written and counts as a lost pad; no ratio is guessed.
+- The corner ratio of a rounded-rectangle pad is `Pad.corner_ratio` (`design-model`, "Corner ratio of a rounded-rectangle pad"), which the Altium import fills. A design read from a KiCad board holds neither the ratio nor a footprint's graphics until it is projected: `lens.altium.write_model(design, allow_lossy=…)` is the write of such a design, and it MUST project the design with `backends.kicad.fpitems.with_footprint_items` before it calls `lower.write_design`. A backend still reads no bag of another backend. A model stored before change c0126 is written from the pair `corner_percent` of its pads; `corner_ratios=` of `lower.write_design` stays for a caller that knows a ratio the model does not hold. Without a ratio a rounded-rectangle pad is not written and counts as a lost pad; no ratio is guessed.
 - The write is experimental: `capabilities()` of the backend names no write kind and lists no `write` operation (`altium-import`, "Altium backend").
 - The write runs no check of the board: the copper guard of `fenolite build --target altium` (change c0088, "Copper guard of an Altium build") belongs to the build command, so a model with a short is written as it is. `fenolite check` on the written documents judges it.
-- `fenolite build --target altium` does not go through this write (`altium-build`, "Stored board of an Altium build"): it stores the board it wrote, and writing that stored model gives a PCB document that reads to the same model.
+- `fenolite build --target altium` goes through the same lowering (`altium-build`, "Altium build through the lowering"): it places the footprints into the model and calls `lower.from_design` with its options. It stores the board it wrote, and writing that stored model gives a PCB document that reads to the same model.
 
 #### Scenario: A KiCad board written as Altium documents
 - **GIVEN** the routed two-layer KiCad sample `tests/data/kicad/board/two_layer.kicad_pcb`, read with the KiCad backend
@@ -599,7 +597,7 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 
 #### Scenario: Build and write agree
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k build_agrees` builds the routed blink and writes its stored model with `write_model`
-- **THEN** the PCB document of the build and the one of the write read to equal models inside the written scope, the stored model equals the reading of the write in its own frame, and the two files are not equal byte for byte (the build writes the graphics of the library footprints)
+- **THEN** the PCB document of the build and the one of the write read to equal models inside the written scope, footprint graphics included, and the stored model equals the reading of the write in its own frame. The two files are not promised equal byte for byte: the canonical form does not keep the order of a footprint's pads, so the records of a component may come in another order
 
 #### Scenario: Rewrite is the caller's word
 - **GIVEN** the reading of `tests/data/altium/routed/routed.PcbDoc` with the drill of one via set to the via's diameter
