@@ -151,12 +151,12 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 - **THEN** `FormatError` is raised
 
 ### Requirement: Rules onto the neutral model
-`fenolite.backends.altium.read.rules.map_rules(records, *, origin, summary=False, layers=None)` SHALL return a `RuleMapping(ruleset, unmapped, issues)`. Each element of `records` is a field list: the `(key, value)` pairs of one rule in order, such as `PropRecord.fields`. Every input record appears exactly once: as the source of one or two rules of `ruleset`, or as one `Unmapped(index, kind, name, reason, detail)`. No record MUST be dropped: `RuleMapping.sources`, the indexes of the records that gave at least one rule, and the indexes of `unmapped` MUST be disjoint and together MUST be every index of `records`.
+`fenolite.backends.altium.read.rules.map_rules(records, *, origin, summary=False, layers=None)` SHALL return a `RuleMapping(ruleset, unmapped, issues, rule_records, matrix_cells)`. Each element of `records` is a field list: the `(key, value)` pairs of one rule in order, such as `PropRecord.fields`. Every input record appears exactly once: as the source of one or more rules of `ruleset` (two for a Routing Via Style; for a Clearance one and one more per cell of "Cells of an object matrix"), or as one `Unmapped(index, kind, name, reason, detail)`. No record MUST be dropped: `RuleMapping.sources`, the indexes of the records that gave at least one rule, and the indexes of `unmapped` MUST be disjoint and together MUST be every index of `records`.
 - Only the kinds of the closed table `rules.RULE_KIND_MAP` map:
 
   | `RULEKIND` | neutral kind | limits | further conditions |
   |---|---|---|---|
-  | `Clearance` | `clearance` | `min` = `GAP` | `NETSCOPE=DifferentNets`; `OBJECTCLEARANCES` absent, blank or uniform; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; the keys `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or with the values of "More forms of a Clearance record" |
+  | `Clearance` | `clearance` | `min` = `GAP` | `NETSCOPE=DifferentNets`; `OBJECTCLEARANCES` absent, blank, uniform or a matrix that "Cells of an object matrix" reads; `GENERICCLEARANCE` absent or equal to `GAP`; `IGNOREPADTOPADCLEARANCEINFOOTPRINT` absent or `FALSE`; the keys `ISMATRIX`, `SOURCERULE`, `CELLROWNAME`, `CELLROWTYPE`, `CELLCOLNAME`, `CELLCOLTYPE`, `INNERLAYERS` and `OUTERLAYERS` absent or with the values of "More forms of a Clearance record" |
   | `Width` | `track_width` | `min` = `MINLIMIT`, `opt` = `PREFEREDWIDTH`, `max` = `MAXLIMIT` | `NETSCOPE=AnyNet` |
   | `RoutingVias` | `via_diameter` and `via_drill` (two rules) | diameter: `MINWIDTH`, `WIDTH`, `MAXWIDTH`; drill: `MINHOLEWIDTH`, `HOLEWIDTH`, `MAXHOLEWIDTH` as `min`, `opt`, `max` | `NETSCOPE=AnyNet`; `VIASTYLE=Through Hole` |
   | `HoleSize` | `hole_size` | `min` = `MINLIMIT`, `max` = `MAXLIMIT` | `NETSCOPE=AnyNet`; `ABSOLUTEVALUES=TRUE`; `MINPERCENT` and `MAXPERCENT` are allowed and unused |
@@ -181,7 +181,7 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
   | `no-layer` | the two scopes are a layer condition for a kind of layer that the board does not hold, so the rule applies to no object ("More forms of a Clearance record") |
 
 - The header keys are the closed tuple `rules.HEADER_KEYS`: `RULEKIND`, `NETSCOPE`, `LAYERKIND`, `SCOPE1EXPRESSION`, `SCOPE2EXPRESSION`, `NAME`, `ENABLED`, `PRIORITY`, `COMMENT`, `UNIQUEID` and `DEFINEDBYLOGICALDOCUMENT`, the keys that every rule record of a PCB document holds after its common keys (`docs/formats/altium/pcb-copper.md`, c0038). So the rules that Fenolite's own writer puts in `Rules6` map without a `keys` reason.
-- A mapped `Rule` MUST have: `name` = `NAME`; `priority` = `PRIORITY` (1 the highest, as in Altium); `severity = "error"`; `selector_a` from `SCOPE1EXPRESSION`; for `Clearance`, `selector_b` from `SCOPE2EXPRESSION`, `None` when it is `All`; `layers = ()`, or the neutral names of the board's copper layers for a layer condition that maps ("More forms of a Clearance record"); `native_ids == {"altium": UNIQUEID}` when the record has one; `id = derived_id("rul", "altium", "<origin>:<index>:<neutral kind>")`; and `ext["altium"]` an `ExtBag` whose payload is `(("record", <the record text>),)`.
+- A mapped `Rule` MUST have: `name` = `NAME`; `priority` = `PRIORITY` (1 the highest, as in Altium); `severity = "error"`; `selector_a` from `SCOPE1EXPRESSION`; for `Clearance`, `selector_b` from `SCOPE2EXPRESSION`, `None` when it is `All`; `layers = ()`, or the neutral names of the board's copper layers for a layer condition that maps ("More forms of a Clearance record"); `native_ids == {"altium": UNIQUEID}` when the record has one; `id = derived_id("rul", "altium", "<origin>:<index>:<neutral kind>")`; and `ext["altium"]` an `ExtBag` whose payload starts with `("record", <the record text>)`; "Cells of an object matrix" adds one pair to it and says what a cell rule holds instead.
 - A length MUST be a decimal number followed by `mil` or `mm` (`proptext.parse_length`). It MUST be converted exactly as a fraction and rounded half to even to the integer nanometre (`core.units.round_half_even_div`). No float MUST be used.
 - For `RoutingVias`, a group (diameter or drill) without any of its three keys gives no rule; when both groups are empty the reason is `value`.
 - `ruleset` MUST be a `RuleSet` with `id = derived_id("rst", "altium", origin)` and its rules in record order.
@@ -207,7 +207,7 @@ Read the text files of an Altium project (the project file, output jobs, rule fi
 - **THEN** `unmapped == ()` and the rule set holds two `clearance` rules, two `track_width` rules, one `via_diameter` rule and one `via_drill` rule
 
 #### Scenario: Every other kind is reported
-- **GIVEN** five records: `ShortCircuit`, `PlaneConnect`, `BoardOutlineClearance`, a disabled `Width`, and a `Clearance` whose `OBJECTCLEARANCES` is neither blank nor a uniform matrix
+- **GIVEN** five records: `ShortCircuit`, `PlaneConnect`, `BoardOutlineClearance`, a disabled `Width`, and a `Clearance` whose `OBJECTCLEARANCES` is no object matrix
 - **WHEN** they are mapped
 - **THEN** the rule set is empty, `unmapped` has five entries with the reasons `no-counterpart`, `no-counterpart`, `net-scope` (the `BoardOutlineClearance` record has `NETSCOPE=AnyNet`), `disabled` and `keys` in record order, and the issues hold five infos `altium.rule.unmapped`
 
@@ -515,7 +515,7 @@ The reading of Altium rules onto the neutral model SHALL map every kind that `ru
 ### Requirement: More forms of a Clearance record
 The rule mapper SHALL map a `Clearance` record in each of the forms below, and only where the neutral rule says exactly what the record says; every other form MUST stay unmapped with a reason that names it. The forms are read and MUST NOT be written by `rulemap.lower`.
 - **Blank matrix.** An `OBJECTCLEARANCES` that is empty or holds white space only holds no entry: the record is one clearance, `GAP`.
-- **Uniform matrix.** An `OBJECTCLEARANCES` whose entries (`ClearanceObj_<kind>-ClearanceObj_<kind>:<count>` joined by `;`, a count being 0.0001 mil, `rules.MATRIX_UNIT`) all hold the length of `GAP`, to the nanometre, is one clearance, `GAP`. A matrix with an entry of another length MUST give the reason `keys` with a detail that calls it a matrix of differing clearances and counts the differing entries; text that is no entry MUST give `keys` too. `rules.matrix_problem(text, gap)` decides.
+- **Uniform matrix.** An `OBJECTCLEARANCES` whose entries (`ClearanceObj_<kind>-ClearanceObj_<kind>:<count>` joined by `;`, a count being 0.0001 mil, `rules.MATRIX_UNIT`) all hold the length of `GAP`, to the nanometre, is one clearance, `GAP`. A matrix with an entry of another length is read by "Cells of an object matrix". Text that is no entry MUST give the reason `keys`. `rules.matrix_problem(text, gap)` says why a matrix is refused, or `""`.
 - **Matrix cell.** The keys of a cell of the clearance matrix between net classes are allowed with these values only: `ISMATRIX=TRUE`, `CELLROWNAME=All`, `CELLROWTYPE=0`, `CELLCOLNAME=All`, `CELLCOLTYPE=0`, `INNERLAYERS=TRUE`, `OUTERLAYERS=TRUE`, and `SOURCERULE` with any value. They are not read further: the record's scopes, `GAP` and `PRIORITY` say what it governs. Any other value MUST give `keys`.
 - **Layer condition.** `scope.parse_layer_scope(text)` MUST return a `LayerScope` for a scope that is, as a whole and with at most one pair of enclosing parentheses, `OnMid`, `ExistsOnLayer('<name>')`, or such `ExistsOnLayer` terms joined by `Or` (or `||`), and `None` for any other text; `parse_scope` keeps refusing every layer function. A layer condition is considered only for `Clearance`, only when `layers` is given, and only when the two scopes give equal `LayerScope` values (the same condition on both objects of a pair); otherwise the reason is `scope`.
   - `ExistsOnLayer`: each name MUST be the document's name of exactly one copper layer of the board, letter for letter, else `scope`. When the names are every copper layer of the board the record MUST map to a rule with `selector_a` `all`, no `selector_b` and `layers` = the neutral names of the board's copper layers from top to bottom. When they are some of the copper layers the reason MUST be `scope`, with a detail that names the other layers: a via or a through-hole pad that exists on a named layer is also judged on the others, where the neutral layer condition does not hold.
@@ -533,10 +533,10 @@ The rule mapper SHALL map a `Clearance` record in each of the forms below, and o
 - **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k uniform_matrix` maps it
 - **THEN** it gives one `clearance` rule of 254 000 nm
 
-#### Scenario: A matrix of differing clearances
-- **GIVEN** a `Clearance` record with `GAP=6mil` and the entries `ClearanceObj_Track-ClearanceObj_Track:60000` and `ClearanceObj_Track-ClearanceObj_Hole:0`
-- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k differing` maps it
-- **THEN** it is unmapped with `keys`, and the detail says that 1 of its 2 entries differs from `GAP`
+#### Scenario: Text that is no matrix
+- **GIVEN** `Clearance` records whose `OBJECTCLEARANCES` is `x:1`, names the object kind `OutlineEdge`, or holds two entries for one pair of kinds
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k no_matrix` maps them
+- **THEN** each is unmapped with `keys` and a detail that says which
 
 #### Scenario: Every copper layer of the board
 - **GIVEN** a board whose copper layers are `Top Layer` and `Bottom Layer`, and a `Clearance` record of 5 mil whose two scopes are `(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))`, with the cell keys and `OUTERLAYERS=TRUE`
@@ -562,3 +562,38 @@ The rule mapper SHALL map a `Clearance` record in each of the forms below, and o
 - **GIVEN** two pairs of parallel tracks 0.2 mm apart, one pair on `F.Cu` and one on `B.Cu`, a clearance rule of 0.1 mm and a clearance rule of 0.3 mm with `layers == ("B.Cu",)` and priority 1
 - **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k rule_of_some_layers` runs the copper check
 - **THEN** the one finding is the pair on `B.Cu`, against 0.3 mm
+
+### Requirement: Cells of an object matrix
+A `Clearance` record whose `OBJECTCLEARANCES` holds clearances that differ from `GAP` SHALL map to the rule of `GAP` and one more `clearance` rule per cell, where the neutral rule says the cell exactly, and SHALL stay unmapped otherwise. `rules.read_matrix(text, gap)` MUST return a `Matrix(cells, judged, unjudged)` or a string that says why the matrix is refused. The forms are read and MUST NOT be written by `rulemap.lower`.
+- **Kinds.** `rules.MATRIX_KINDS` MUST map the object kinds of the matrix to the item kinds of the copper check (`rules.ITEM_KINDS` = `track`, `pad`, `via`, `zone`): `Arc` and `Track` to `track`, `SMDPad` and `THPad` to `pad`, `Via` to `via`, `Poly` to `zone`, and `Fill`, `Region`, `Text` and `Hole` to none (the check holds no item of the kind). A name outside the table, two entries for one pair of kinds, and entries without a `GAP` that is a length MUST give the reason `keys`.
+- **Value of a pair.** A pair of object kinds holds the length of its entry (a count is `rules.MATRIX_UNIT`), or `GAP` when the text holds no entry for it.
+- **Exact cells only.** A pair of item kinds is said exactly when every pair of object kinds in it holds one value. That value is a cell when it differs from `GAP`, to the nanometre. When the object kinds of one item kind disagree (an arc and a track, a through-hole pad and a surface pad), no neutral rule says the pair: the record MUST stay unmapped with the reason `keys` and a detail that names each such pair of item kinds (`track to pad`) and says that a neutral rule tells no arc from a track and no through-hole pad from a surface pad. Nothing of such a record is mapped: no cell is judged with a value the record does not hold for all its objects.
+- **Cell rules.** For a cell of the item kinds `a` and `b` the mapper MUST add a rule with `kind` `clearance`, `min` the cell's value (0 for a cell of 0), `name` `<NAME>/<a>-<b>`, the record's `priority`, `severity`, `layers` and `native_ids`, `id = derived_id("rul", "altium", "<origin>:<index>:clearance:<a>-<b>")`, `selector_a` = the record's first selector narrowed to `item_kind a` and `selector_b` = its second selector (`all` when the scope is `All`) narrowed to `item_kind b`; narrowing `all` gives the `item_kind` leaf, narrowing another selector gives `and(selector, item_kind)`. When `a` and `b` differ and the two selectors of the record differ, a second rule `<NAME>/<b>-<a>` with the kinds exchanged MUST be added, because either object may be of either kind. The bag of a cell rule MUST hold `("record", <the record text>)` and `("cell", "<a>-<b>")`.
+- **Order.** The cell rules follow the rule of `GAP` in `ruleset`, in the order of `ITEM_KINDS`. A cell rule governs its pairs above the rule of `GAP` of its record and below every record of a higher priority: it has the record's priority and a longer name, and among rules of one priority the later name governs (`checks.clearance.rule_precedence`).
+- **Entries that no rule holds.** An entry with an object kind that maps to none changes no rule. The rule of `GAP` MUST carry them in its bag as `("cells_not_lifted", <the entries as written, joined by ;>)`.
+- **Counts.** `RuleMapping.matrix_cells` MUST hold, for each enabled `Clearance` record whose `OBJECTCLEARANCES` is not blank, `(index, judged, unjudged)`: for a mapped record the entries whose two object kinds map to an item kind, and the others; for an unmapped record 0 and the number of its entries.
+
+#### Scenario: One cell
+- **GIVEN** a `Clearance` record for all objects with `GAP=4mil`, priority 4 and the entry `ClearanceObj_Via-ClearanceObj_Via:35000`
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k one_cell` maps it
+- **THEN** the rules are `Clearance` (101 600 nm, all objects) and `Clearance/via-via` (88 900 nm, `item_kind via` on both sides) with one priority, and `matrix_cells == ((0, 1, 0),)`
+
+#### Scenario: Cells of the poured polygons
+- **GIVEN** a record with `GAP=4mil` and eight entries: arc, track, surface pad, through-hole pad, via, fill and polygon against polygon at 15 mil, and via against via at 3.5 mil
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k by_item_kind` maps it
+- **THEN** the cell rules are `track-zone`, `pad-zone`, `via-via`, `via-zone` and `zone-zone`, the rule of `GAP` names the entry of the fill in `cells_not_lifted`, and `matrix_cells == ((0, 7, 1),)`
+
+#### Scenario: A cell without a counterpart
+- **GIVEN** records whose matrix holds an entry for a track against a through-hole pad only, or 0 for an arc against a polygon and 0.25 mm for a track against a polygon
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k disagree` maps them
+- **THEN** each is unmapped with `keys`, the detail names `track to pad` or `track to zone`, and every entry is counted as unjudged
+
+#### Scenario: Cells of a scoped record
+- **GIVEN** a record whose first scope is `InNet('A')` and second `All`, with cells for via against polygon and via against via
+- **WHEN** `uv run pytest tests/unit/backends/altium/read/test_rule_map.py -k scoped_record` maps it
+- **THEN** the cell rules are `via-via`, `via-zone` and `zone-via`, each with `and(net A, item_kind …)` on its first side
+
+#### Scenario: Cell rules in the import
+- **GIVEN** a PCB document with the record of "One cell" and an entry for a track against text
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k cell_rules` imports it
+- **THEN** the cell rule has a native id and a bag of its own, the clearance in force between two vias is 88 900 nm from `Clearance/via-via`, and between a via and a track 101 600 nm from `Clearance`
