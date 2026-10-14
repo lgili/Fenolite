@@ -136,3 +136,11 @@ v0.4.0 for supplemental publication. The uploaded asset was downloaded again:
 its SHA-256 and size match the immutable record and GitHub's asset digest.
 Task 3.1 is complete; no hypothesis is promoted here. This record was generated
 by `0.5.0.dev0` and does not revalidate the released v0.4.0 package binaries.
+
+Task 3.2 reconciliation on 2026-10-14 labels the 27 passing kit candidates,
+with the committed run and archive digest and explicit typed-form qualifiers.
+Their prior observations are retained in the register. The
+[remaining hypothesis inventory](altium-kit/2026-10-14-graduation-inventory.md)
+states the independent criterion or missing kit proof for the other 102 rows
+used by write cells and acceptance/kit families. This changes no capability;
+all nine write kinds still fail the complete graduation rule.

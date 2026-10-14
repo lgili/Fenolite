@@ -58,13 +58,13 @@ or substitute for passing CI. Other backends retain their existing release polic
 | kind | missing graduation conditions |
 |---|---|
 | `altium_harness` | H-A-SCH-HARN-FILE is not release-verified<br>H-A-SCH-HARN-NETS is not release-verified<br>H-A-SCH-HARN-OPEN is not release-verified<br>H-A-SCH-HARN-UNUSED is not release-verified<br>H-A-SCH-HIER-COMPILE is not release-verified<br>H-A-SCH-HIER-ECO is not release-verified<br>H-A-SCH-HIER-NAMES is not release-verified<br>H-A-SCH-HIER-OPEN is not release-verified<br>H-A-SCH-HIER-ORDER is not release-verified<br>H-A-SCH-HIER-PRJ is not release-verified<br>write cell has no current committed kit hypothesis |
-| `altium_outjob` | H-A-OUTJOB-GERBER-ACCEPT is not release-verified<br>H-A-OUTJOB-GERBER-LAYERS is not release-verified<br>H-A-OUTJOB-GERBER-RECORD is not release-verified<br>H-A-OUTJOB-OPEN is not release-verified<br>H-A-OUTJOB-READBACK is not release-verified<br>H-A-OUTJOB-RUN-2 is not release-verified<br>write cell has no current committed kit hypothesis |
-| `altium_pcbdoc` | H-A-CONV-DIFAT is not release-verified<br>H-A-CONV-LIBRARY is not release-verified<br>H-A-CONV-PADSTACK is not release-verified<br>H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-COMPCLASS is not release-verified<br>H-A-ECO-SHEETCLASS is not release-verified<br>H-A-PCB-CU-CLASS is not release-verified<br>H-A-PCB-CU-LOCK is not release-verified<br>H-A-PCB-CU-PLANE is not release-verified<br>H-A-PCB-CU-REPOUR is not release-verified<br>H-A-PCB-CU-RULES is not release-verified<br>H-A-PCB-CU-STACK is not release-verified<br>H-A-PCB-CU-TRACK is not release-verified<br>H-A-PCB-CU-VIA is not release-verified<br>H-A-PCB-CU-VIATENT is not release-verified<br>H-A-PCB-CU-VIEWER is not release-verified<br>H-A-PCB-DOC-BOTTOM is not release-verified<br>H-A-PCB-DOC-LINK is not release-verified<br>H-A-PCB-DOC-NETS is not release-verified<br>H-A-PCB-DOC-OPEN is not release-verified<br>H-A-PCB-DOC-VIEWER is not release-verified<br>H-A-PCB-ECO is not release-verified<br>H-A-PCB-GRAPHICS is not release-verified<br>H-A-PCB-LIB-NAME is not release-verified<br>H-A-PCB-LIB-OPEN is not release-verified<br>H-A-PCB-PAD is not release-verified<br>H-A-PCB-PRJ is not release-verified<br>H-A-PCBX-BODY-ID is not release-verified<br>H-A-PCBX-BODY-OPEN is not release-verified<br>H-A-PCBX-BODY-READBACK is not release-verified<br>H-A-PCBX-BODY-SHORT is not release-verified<br>H-A-PCBX-BUILD-LOWER is not release-verified<br>H-A-PCBX-FPGFX is not release-verified<br>H-A-PCBX-FPGFX-AD is not release-verified<br>H-A-PCBX-FPTEXT is not release-verified<br>H-A-PCBX-HOLE is not release-verified<br>H-A-PCBX-KEEPOUT is not release-verified<br>H-A-PCBX-MECH is not release-verified<br>H-A-PCBX-READBACK is not release-verified<br>H-A-PCBX-REPOUR is not release-verified<br>H-A-PCBX-STACK is not release-verified<br>H-A-PCBX-TEXT is not release-verified<br>H-A-PCBX-VIASPAN is not release-verified<br>H-A-RULE-CLEARANCE-CELLS is not release-verified<br>H-A-RULE-CLEARANCE-FORMS is not release-verified<br>H-A-RULE-FILE is not release-verified<br>H-A-RULE-KINDS is not release-verified<br>H-A-RULE-PRIORITY is not release-verified<br>H-A-RULE-READBACK is not release-verified<br>H-A-RULE-SCOPE is not release-verified<br>H-A-VER-RTA2-3 is not release-verified<br>write cell has no current committed kit hypothesis |
+| `altium_outjob` | H-A-OUTJOB-GERBER-ACCEPT is not release-verified<br>H-A-OUTJOB-GERBER-LAYERS is not release-verified<br>H-A-OUTJOB-GERBER-RECORD is not release-verified<br>H-A-OUTJOB-READBACK is not release-verified |
+| `altium_pcbdoc` | H-A-CONV-DIFAT is not release-verified<br>H-A-CONV-LIBRARY is not release-verified<br>H-A-CONV-PADSTACK is not release-verified<br>H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-COMPCLASS is not release-verified<br>H-A-ECO-SHEETCLASS is not release-verified<br>H-A-PCB-CU-CLASS is not release-verified<br>H-A-PCB-CU-LOCK is not release-verified<br>H-A-PCB-CU-PLANE is not release-verified<br>H-A-PCB-CU-REPOUR is not release-verified<br>H-A-PCB-CU-RULES is not release-verified<br>H-A-PCB-CU-STACK is not release-verified<br>H-A-PCB-CU-TRACK is not release-verified<br>H-A-PCB-CU-VIA is not release-verified<br>H-A-PCB-CU-VIATENT is not release-verified<br>H-A-PCB-CU-VIEWER is not release-verified<br>H-A-PCB-DOC-BOTTOM is not release-verified<br>H-A-PCB-DOC-LINK is not release-verified<br>H-A-PCB-DOC-NETS is not release-verified<br>H-A-PCB-DOC-OPEN is not release-verified<br>H-A-PCB-DOC-VIEWER is not release-verified<br>H-A-PCB-ECO is not release-verified<br>H-A-PCB-GRAPHICS is not release-verified<br>H-A-PCB-LIB-NAME is not release-verified<br>H-A-PCB-LIB-OPEN is not release-verified<br>H-A-PCB-PAD is not release-verified<br>H-A-PCB-PRJ is not release-verified<br>H-A-PCBX-BODY-ID is not release-verified<br>H-A-PCBX-BODY-OPEN is not release-verified<br>H-A-PCBX-BODY-READBACK is not release-verified<br>H-A-PCBX-BODY-SHORT is not release-verified<br>H-A-PCBX-BUILD-LOWER is not release-verified<br>H-A-PCBX-FPGFX is not release-verified<br>H-A-PCBX-FPGFX-AD is not release-verified<br>H-A-PCBX-FPTEXT is not release-verified<br>H-A-PCBX-HOLE is not release-verified<br>H-A-PCBX-MECH is not release-verified<br>H-A-PCBX-READBACK is not release-verified<br>H-A-RULE-CLEARANCE-CELLS is not release-verified<br>H-A-RULE-CLEARANCE-FORMS is not release-verified<br>H-A-RULE-FILE is not release-verified<br>H-A-RULE-PRIORITY is not release-verified<br>H-A-RULE-READBACK is not release-verified<br>H-A-VER-RTA2-3 is not release-verified |
 | `altium_pcblib` | H-A-CONV-DIFAT is not release-verified<br>H-A-CONV-LIBRARY is not release-verified<br>H-A-CONV-PADSTACK is not release-verified<br>H-A-PCB-DOC-BOTTOM is not release-verified<br>H-A-PCB-DOC-LINK is not release-verified<br>H-A-PCB-DOC-NETS is not release-verified<br>H-A-PCB-DOC-OPEN is not release-verified<br>H-A-PCB-DOC-VIEWER is not release-verified<br>H-A-PCB-ECO is not release-verified<br>H-A-PCB-GRAPHICS is not release-verified<br>H-A-PCB-LIB-NAME is not release-verified<br>H-A-PCB-LIB-OPEN is not release-verified<br>H-A-PCB-PAD is not release-verified<br>H-A-PCB-PRJ is not release-verified<br>H-A-PCBX-BODY-LIB is not release-verified<br>write cell has no current committed kit hypothesis |
-| `altium_prjpcb` | H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-NETCLASS is not release-verified<br>H-A-ECO-PRJ-KEYS is not release-verified<br>H-A-ECO-ROOMS is not release-verified<br>H-A-ECO-SUPPLY is not release-verified<br>H-A-PRJ-OPEN is not release-verified<br>H-A-SCH-LINEEND is not release-verified<br>H-A-SCH-LINK is not release-verified<br>H-A-SCH-NETS is not release-verified<br>H-A-SCH-OPEN is not release-verified<br>H-A-SCH-UID is not release-verified<br>H-A-SCHX-BUS is not release-verified<br>H-A-SCHX-DIR is not release-verified<br>H-A-SCHX-ECO is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>H-A-SCHX-TEXT is not release-verified<br>H-A-SCHX-TREE is not release-verified<br>H-A-VER-RTA3-PRJ is not release-verified<br>write cell has no current committed kit hypothesis |
-| `altium_schdoc_ascii` | H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-NETCLASS is not release-verified<br>H-A-ECO-PRJ-KEYS is not release-verified<br>H-A-ECO-ROOMS is not release-verified<br>H-A-ECO-SUPPLY is not release-verified<br>H-A-PRJ-OPEN is not release-verified<br>H-A-SCH-LINEEND is not release-verified<br>H-A-SCH-LINK is not release-verified<br>H-A-SCH-NETS is not release-verified<br>H-A-SCH-OPEN is not release-verified<br>H-A-SCH-UID is not release-verified<br>H-A-SCHX-BUS is not release-verified<br>H-A-SCHX-DIR is not release-verified<br>H-A-SCHX-ECO is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>H-A-SCHX-TEXT is not release-verified<br>H-A-SCHX-TREE is not release-verified<br>H-A-VER-RTA3-PRJ is not release-verified<br>write cell has no current committed kit hypothesis |
-| `altium_schdoc_binary` | H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-NETCLASS is not release-verified<br>H-A-ECO-PRJ-KEYS is not release-verified<br>H-A-ECO-ROOMS is not release-verified<br>H-A-ECO-SUPPLY is not release-verified<br>H-A-PRJ-OPEN is not release-verified<br>H-A-SCH-LINEEND is not release-verified<br>H-A-SCH-LINK is not release-verified<br>H-A-SCH-NETS is not release-verified<br>H-A-SCH-OPEN is not release-verified<br>H-A-SCH-UID is not release-verified<br>H-A-SCHBIN-AD is not release-verified<br>H-A-SCHBIN-CFB is not release-verified<br>H-A-SCHBIN-FRAME is not release-verified<br>H-A-SCHBIN-STORAGE is not release-verified<br>H-A-SCHBIN-VIEWER is not release-verified<br>H-A-SCHX-BUS is not release-verified<br>H-A-SCHX-DIR is not release-verified<br>H-A-SCHX-ECO is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>H-A-SCHX-TEXT is not release-verified<br>H-A-SCHX-TREE is not release-verified<br>H-A-VER-RTA3-PRJ is not release-verified<br>write cell has no current committed kit hypothesis |
-| `altium_schdot` | H-A-SCHDOT-OPEN is not release-verified<br>H-A-SCHDOT-READBACK is not release-verified<br>H-A-SCHDOT-STRINGS is not release-verified<br>write cell has no current committed kit hypothesis |
+| `altium_prjpcb` | H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-NETCLASS is not release-verified<br>H-A-ECO-PRJ-KEYS is not release-verified<br>H-A-ECO-ROOMS is not release-verified<br>H-A-ECO-SUPPLY is not release-verified<br>H-A-PRJ-OPEN is not release-verified<br>H-A-SCH-LINEEND is not release-verified<br>H-A-SCH-LINK is not release-verified<br>H-A-SCH-NETS is not release-verified<br>H-A-SCH-OPEN is not release-verified<br>H-A-SCH-UID is not release-verified<br>H-A-SCHX-BUS is not release-verified<br>H-A-SCHX-DIR is not release-verified<br>H-A-SCHX-ECO is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>H-A-SCHX-TEXT is not release-verified<br>H-A-VER-RTA3-PRJ is not release-verified |
+| `altium_schdoc_ascii` | H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-NETCLASS is not release-verified<br>H-A-ECO-PRJ-KEYS is not release-verified<br>H-A-ECO-ROOMS is not release-verified<br>H-A-ECO-SUPPLY is not release-verified<br>H-A-PRJ-OPEN is not release-verified<br>H-A-SCH-LINEEND is not release-verified<br>H-A-SCH-LINK is not release-verified<br>H-A-SCH-NETS is not release-verified<br>H-A-SCH-OPEN is not release-verified<br>H-A-SCH-UID is not release-verified<br>H-A-SCHX-BUS is not release-verified<br>H-A-SCHX-DIR is not release-verified<br>H-A-SCHX-ECO is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>H-A-SCHX-TEXT is not release-verified<br>H-A-VER-RTA3-PRJ is not release-verified |
+| `altium_schdoc_binary` | H-A-CONV-SCHEMATIC is not release-verified<br>H-A-ECO-NETCLASS is not release-verified<br>H-A-ECO-PRJ-KEYS is not release-verified<br>H-A-ECO-ROOMS is not release-verified<br>H-A-ECO-SUPPLY is not release-verified<br>H-A-PRJ-OPEN is not release-verified<br>H-A-SCH-LINEEND is not release-verified<br>H-A-SCH-LINK is not release-verified<br>H-A-SCH-NETS is not release-verified<br>H-A-SCH-OPEN is not release-verified<br>H-A-SCH-UID is not release-verified<br>H-A-SCHBIN-AD is not release-verified<br>H-A-SCHBIN-CFB is not release-verified<br>H-A-SCHBIN-FRAME is not release-verified<br>H-A-SCHBIN-STORAGE is not release-verified<br>H-A-SCHBIN-VIEWER is not release-verified<br>H-A-SCHX-BUS is not release-verified<br>H-A-SCHX-DIR is not release-verified<br>H-A-SCHX-ECO is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>H-A-SCHX-TEXT is not release-verified<br>H-A-VER-RTA3-PRJ is not release-verified |
+| `altium_schdot` | H-A-SCHDOT-READBACK is not release-verified |
 | `altium_schlib` | H-A-SCHLIB-IMPLIDX is not release-verified<br>H-A-SCHLIB-OPEN is not release-verified<br>H-A-SCHLIB-PARTS is not release-verified<br>H-A-SCHLIB-PIN is not release-verified<br>H-A-SCHLIB-PINBITS is not release-verified<br>H-A-SCHLIB-SECTIONKEY is not release-verified<br>H-A-SCHX-GRAPHICS is not release-verified<br>H-A-SCHX-READBACK is not release-verified<br>write cell has no current committed kit hypothesis |
 
 ## Hypotheses
@@ -119,9 +119,9 @@ the settling test and the result of an id are in its register row.
 | `H-A-OUTJOB-GERBER-ACCEPT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-OUTJOB-GERBER-LAYERS` | INFERRED |
 | `H-A-OUTJOB-GERBER-RECORD` | INFERRED |
-| `H-A-OUTJOB-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-OUTJOB-OPEN` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-OUTJOB-READBACK` | INFERRED |
-| `H-A-OUTJOB-RUN-2` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-08; no artefact) |
+| `H-A-OUTJOB-RUN-2` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-PCB-CU-CLASS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
 | `H-A-PCB-CU-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) |
 | `H-A-PCB-CU-LOCK` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
@@ -161,15 +161,15 @@ the settling test and the result of an id are in its register row.
 | `H-A-PCBX-FPGFX-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6, pinned image, local run; 2026-10-09) |
 | `H-A-PCBX-FPTEXT` | INFERRED |
 | `H-A-PCBX-HOLE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
-| `H-A-PCBX-KEEPOUT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-KEEPOUT` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-PCBX-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) |
 | `H-A-PCBX-MECH` | INFERRED |
 | `H-A-PCBX-READBACK` | INFERRED |
-| `H-A-PCBX-REPOUR` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
-| `H-A-PCBX-STACK` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
-| `H-A-PCBX-TEXT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-REPOUR` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
+| `H-A-PCBX-STACK` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
+| `H-A-PCBX-TEXT` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-PCBX-VIA-FULL` | CORPUS-VERIFIED |
-| `H-A-PCBX-VIASPAN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-PCBX-VIASPAN` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-PRJ-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
 | `H-A-RD-PCB-CODEC` | CORPUS-VERIFIED |
 | `H-A-RD-PCB-FRAME` | CORPUS-VERIFIED |
@@ -208,10 +208,10 @@ the settling test and the result of an id are in its register row.
 | `H-A-RULE-CLEARANCE-CELLS` | INFERRED |
 | `H-A-RULE-CLEARANCE-FORMS` | INFERRED |
 | `H-A-RULE-FILE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
-| `H-A-RULE-KINDS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-RULE-KINDS` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-RULE-PRIORITY` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-RULE-READBACK` | INFERRED |
-| `H-A-RULE-SCOPE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-RULE-SCOPE` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-SCH-HARN-FILE` | INFERRED |
 | `H-A-SCH-HARN-NETS` | INFERRED |
 | `H-A-SCH-HARN-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) |
@@ -232,9 +232,9 @@ the settling test and the result of an id are in its register row.
 | `H-A-SCHBIN-FRAME` | ALTIUM-VERIFIED(author-report; A365 Viewer; 2026-10-02; no artefact) |
 | `H-A-SCHBIN-STORAGE` | ALTIUM-VERIFIED(author-report; A365 Viewer; 2026-10-02; no artefact) |
 | `H-A-SCHBIN-VIEWER` | INFERRED |
-| `H-A-SCHDOT-OPEN` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHDOT-OPEN` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-SCHDOT-READBACK` | INFERRED |
-| `H-A-SCHDOT-STRINGS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHDOT-STRINGS` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-SCHLIB-IMPLIDX` | INFERRED |
 | `H-A-SCHLIB-KICAD` | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-02) |
 | `H-A-SCHLIB-OPEN` | INFERRED |
@@ -248,7 +248,7 @@ the settling test and the result of an id are in its register row.
 | `H-A-SCHX-GRAPHICS` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
 | `H-A-SCHX-READBACK` | INFERRED |
 | `H-A-SCHX-TEXT` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
-| `H-A-SCHX-TREE` | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) |
+| `H-A-SCHX-TREE` | ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; 2026-10-13-87c930fa) |
 | `H-A-VER-RTA2-3` | INFERRED |
 | `H-A-VER-RTA3` | CORPUS-VERIFIED |
 | `H-G-DSN-ACCEPT` | ORACLE-VERIFIED(freerouting 2.4.1) (local run; 2026-10-04) |

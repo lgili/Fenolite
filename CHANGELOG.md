@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Link 27 native Altium hypotheses to the published kit record and archive,
+  retaining typed-form qualifications and historical observations. Inventory
+  the remaining proofs and require real recorded kit verdicts in legacy guards.
+
 - Classify the native DRC-report observation under the DRC hypothesis family,
   preserving its scoped INFERRED result and the PCB export evidence guards.
   Confirm the completed CI reported only the two corrected unit failures;

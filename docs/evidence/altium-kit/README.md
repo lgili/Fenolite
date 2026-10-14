@@ -5,7 +5,9 @@ passes 32 steps. It preserves the historical form observations while repeating
 native saves in a neutral namespace; it is not a complete fresh replay.
 See [its provenance and privacy review](2026-10-13-87c930fa-publication.md).
 It is published as [supplemental evidence for v0.4.0](https://github.com/lgili/Fenolite/releases/download/v0.4.0/altium-kit-2026-10-13-87c930fa.zip),
-with its downloaded digest and size verified. Evidence promotion remains pending.
+with its downloaded digest and size verified. Its 27 passing candidates are now
+labelled with the committed run, archive digest and typed-form qualifiers.
+See [the remaining hypothesis inventory](2026-10-14-graduation-inventory.md).
 
 The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON file per run, named
 `<run id>.json` (`<date>-<first 8 hex digits of the archive digest>`), with the schema
