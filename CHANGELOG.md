@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Classify the native DRC-report observation under the DRC hypothesis family,
+  preserving its scoped INFERRED result and the PCB export evidence guards.
+
 - Publish the reviewed native Altium kit as supplemental v0.4.0 evidence;
   verify the downloaded archive's recorded SHA-256 and size and close c0092's
   publication task without changing historical release validation claims.

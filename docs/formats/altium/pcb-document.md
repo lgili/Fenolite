@@ -4,7 +4,7 @@
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| A batch DRC writes a report only with Create Report File enabled. TXT and HTML reports use the project's Output Path; their names are `Design Rule Check - <PCBDocumentName>.drc` and `.html` | S-0745 | INFERRED | H-A-PCB-DRC-REPORT |
+| A batch DRC writes a report only with Create Report File enabled. TXT and HTML reports use the project's Output Path; their names are `Design Rule Check - <PCBDocumentName>.drc` and `.html` | S-0745 | INFERRED | H-A-DRC-REPORT |
 
 The owned 2026-10-14 AD 26.5.0 retry supports this observation. Its native TXT
 is retained unchanged for the publication edition; the HTML includes a personal

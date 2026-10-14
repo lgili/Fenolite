@@ -42,7 +42,7 @@ Each new source gets the next free `S-` number in `docs/evidence/sources.md` whe
 |---|---|---|---|
 | H-A-ACC-V03 | The acceptance project built for both targets is equal between them at level 5, passes `check` on both, holds RT-A3 on its Altium documents, and its Altium documents imported by KiCad equal the KiCad board at level 5 | `tests/kicad/acceptance/test_v03_acceptance.py` | probe `acceptance-v03` `equal` on KiCad 10.0.6; the exclusions are those of the triangle profile |
 | H-A-ACC-KIT | A kit run on the acceptance tree passes every step of the groups K1 to K8 | the recorded kit run | the run record holds no failed step in those groups |
-| H-A-PCB-DRC-REPORT | Native batch DRC creates TXT/HTML reports only when Create Report File is enabled, in the project's Output Path | owned native report retry described in docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md | newly created report files use the configured output folder and retain the measured rule counts |
+| H-A-DRC-REPORT | Native batch DRC creates TXT/HTML reports only when Create Report File is enabled, in the project's Output Path | owned native report retry described in docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md | newly created report files use the configured output folder and retain the measured rule counts |
 
 All start `INFERRED`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06).
 
