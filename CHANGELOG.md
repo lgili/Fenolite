@@ -9,6 +9,10 @@ All notable changes to Fenolite are documented here. The format follows
 - Record the passing Windows check-fast checkpoint (13176 passed, 151 skipped)
   and close the native campaign validation-policy prerequisite.
 
+- Prepare a verified publication edition of the native Altium kit, preserving
+  its original evidence and historical form scope while removing personal paths
+  from selected native documents and using an unaltered native text DRC report.
+
 - Reconcile completed CI proofs for the Altium acceptance and five native-campaign
   prerequisite repairs; confirm the v0.3 acceptance probe on pinned KiCad 10.0.6.
 

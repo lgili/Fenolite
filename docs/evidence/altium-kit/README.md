@@ -1,5 +1,11 @@
 # docs/evidence/altium-kit
 
+The publication edition `2026-10-13-87c930fa` was prepared on 2026-10-14 and
+passes 32 steps. It preserves the historical form observations while repeating
+native saves in a neutral namespace; it is not a complete fresh replay.
+See [its provenance and privacy review](2026-10-13-87c930fa-publication.md).
+Release publication and evidence promotion remain pending.
+
 The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON file per run, named
 `<run id>.json` (`<date>-<first 8 hex digits of the archive digest>`), with the schema
 `fenolite.altium-kit-run.v0`.

@@ -116,3 +116,20 @@ Changing result bytes changes the archive digest, so a cleaned version cannot
 be published as the original run. A new native save in a neutral folder, followed
 by verification and a new record, is the proposed publication path. This review
 changes no native verdict or evidence level.
+
+### Publication edition prepared on 2026-10-14
+
+New record `2026-10-13-87c930fa` passes 32 steps with no failure or skip.
+Its 1199847-byte archive has SHA-256
+`87c930fa06446319df87edd49a010f80a9448cf350effb452c500b293eda232a`.
+The [publication provenance](altium-kit/2026-10-13-87c930fa-publication.md)
+records five new native saves, the one display-only ECO metadata derivative,
+the actual new DRC and the retained historical form/script observations.
+The date in the record remains the historical form's date; this is not a
+complete fresh replay. The original archive and record are preserved.
+
+Privacy review has zero home-folder/login findings and seven absolute references
+in the neutral Fenolite namespace. The native TXT is used unchanged for K4.2
+under its legacy `drc.html` filename; the HTML with a personal logo reference
+remains outside the publication results. Task 3.1 still waits for the chosen
+release and digest-verified asset publication; no hypothesis is promoted here.

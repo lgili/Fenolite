@@ -1,0 +1,45 @@
+# Publication edition of the 2026-10-13 native kit run
+
+Prepared on 2026-10-14 from native run `2026-10-13-462b38ba`, in Altium Designer
+Professional 26.5.0. This is a publication derivative, not a fresh replay of all
+32 steps. The historical form and script observations retain their original
+2026-10-13 date. The original immutable record and ZIP remain unchanged.
+
+The new record is `2026-10-13-87c930fa.json`; its archive is
+`altium-kit-2026-10-13-87c930fa.zip`, 1199847 bytes, SHA-256
+`87c930fa06446319df87edd49a010f80a9448cf350effb452c500b293eda232a`.
+Its kit digest remains
+`af3c911e0fc76db4bac6dabeb48c401f1ca12ac216b3951f9c99cace2ae15483`.
+
+Preparation and proof:
+
+- Five native documents/libraries with path findings were opened and saved by
+  Altium in a dedicated neutral Fenolite namespace. Source inputs and the original
+  archived result bytes were preserved.
+- The ECO board retained a personal reference in its documented
+  `2DCONFIGFULLFILENAME` property. A separate scratch input replaced only that
+  display reference with `(Not Saved)`, using Fenolite's CFB writer. All other
+  stream payloads and property pairs were asserted byte-identical. Altium then
+  opened and saved this derivative; the final kit verifier checks its circuit
+  and physical model against the generated reference.
+- A new owned report project ran DRC with `Create Report File` explicitly on.
+  Its native report is dated 2026-10-14 and has seven violations: the two kit
+  criteria remain one Width violation of `PWR` and one Clearance violation of
+  `VIN`/`LED_A`. The other categories are retained in the complete native report.
+- The native HTML includes a personal `img src` reference to a logo. It is
+  preserved in ignored review storage and excluded from the publication result
+  set. The unaltered native TXT is retained as `.drc` and copied byte-for-byte
+  to K4.2's legacy `results/routed/drc.html` name. That member contains plain
+  text, not HTML; no violation or report text was edited.
+- Full `fenolite kit verify` passes all 32 steps, with zero failures/skips.
+  Privacy review finds no home-folder or login-name value. Seven absolute-path
+  findings remain, all in the reviewed neutral Fenolite namespace. They are
+  retained in the record's privacy count; no zero-findings claim is made.
+- `kit record --dry-run` was reviewed and its exact plan confirmed. The receipt
+  and a second archive digest check match the committed record. Raw native files,
+  logs, reports and review artifacts remain outside Git.
+
+The original archive remains 1236513 bytes with SHA-256
+`462b38ba3cc4812ddeea626865c8c097e50f0ed9f2473dc0f79a7455f80a4b93`.
+No publication or hypothesis promotion is claimed until the destination release
+is chosen and its uploaded asset is verified against this new digest.
