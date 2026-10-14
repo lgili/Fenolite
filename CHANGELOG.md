@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Classify the new acceptance example in both RT-A2 build forms and keep
+  graduation adapters within the verification package's stdlib/core import boundary.
+
 - Select direct corpus-board oracle tests by the actual board format version,
   retaining KiCad-10 downgrade inputs without sending them unconverted to KiCad 9.
 

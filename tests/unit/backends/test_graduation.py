@@ -176,7 +176,7 @@ def test_real_committed_records_remain_unknown_without_current_kit() -> None:
 
 
 def test_matrix_both_directions_and_legacy_backends() -> None:
-    from fenolite.verify.graduation import matrix_problems
+    from fenolite.backends.base import graduation_matrix_problems as matrix_problems
 
     context = {"own_readbacks": {ROW.kind: TEST}, "suite_tests": (TEST,)}
     assert matrix_problems([ROW], REGISTER, (RECORD,), **context) == (
@@ -194,8 +194,9 @@ def test_matrix_current_kit_matches_committed_claims() -> None:
     from pathlib import Path
 
     from fenolite.backends.altium.claims import MATRIX, OWN_READBACK
+    from fenolite.backends.base import graduation_matrix_problems as matrix_problems
     from fenolite.cli._kit import kit_sources
-    from fenolite.verify.graduation import matrix_problems, readback_tests, run_snapshots
+    from fenolite.verify.graduation import readback_tests, run_snapshots
     from fenolite.verify.hypotheses import load_register
     from fenolite.verify.kit.manifest import KIT_FILE, kit_files, read_kit
     from fenolite.verify.kit.record import load_records

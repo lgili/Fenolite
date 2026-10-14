@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 
 class Level(StrEnum):
@@ -68,4 +69,31 @@ class Evidence:
         return Evidence(weakest.level, weakest.oracle, hypotheses)
 
 
-__all__ = ["Evidence", "Level", "min_level", "strength"]
+class GraduationHypothesis(Protocol):
+    """The register fields used by the pure graduation rule."""
+
+    @property
+    def level(self) -> Level: ...
+
+    @property
+    def level_text(self) -> str: ...
+
+    @property
+    def refuted(self) -> bool: ...
+
+
+@dataclass(frozen=True, slots=True)
+class GraduationRun:
+    """A validated committed kit record and its freshness against the current kit.
+
+    The caller validates the record and computes stale hypotheses using the existing
+    kit verifier. Unknown freshness or an uncommitted record cannot support graduation.
+    """
+
+    run_id: str
+    passed_hypotheses: frozenset[str]
+    stale_hypotheses: frozenset[str] | None = None
+    committed: bool = False
+
+
+__all__ = ["Evidence", "GraduationHypothesis", "GraduationRun", "Level", "min_level", "strength"]

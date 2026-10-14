@@ -10,7 +10,7 @@ another backend.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -18,7 +18,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
-from fenolite.core.evidence import Evidence, Level
+from fenolite.core.evidence import Evidence, GraduationHypothesis, GraduationRun, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import PadKind, Side, ZoneFill
 from fenolite.model.design import Design
@@ -281,33 +281,6 @@ class MatrixRow:
         return row
 
 
-class GraduationHypothesis(Protocol):
-    """The register fields used by the pure graduation rule."""
-
-    @property
-    def level(self) -> Level: ...
-
-    @property
-    def level_text(self) -> str: ...
-
-    @property
-    def refuted(self) -> bool: ...
-
-
-@dataclass(frozen=True, slots=True)
-class GraduationRun:
-    """A validated committed kit record and its freshness against the current kit.
-
-    The caller validates the record and computes stale hypotheses using the existing
-    kit verifier. Unknown freshness or an uncommitted record cannot support graduation.
-    """
-
-    run_id: str
-    passed_hypotheses: frozenset[str]
-    stale_hypotheses: frozenset[str] | None = None
-    committed: bool = False
-
-
 def graduated(
     row: MatrixRow,
     register: Mapping[str, GraduationHypothesis],
@@ -377,6 +350,33 @@ def graduated(
     else:
         missing.append(f"no graduation policy for backend {row.backend}")
     return not missing, tuple(missing)
+
+
+def graduation_matrix_problems(
+    rows: Sequence[MatrixRow],
+    register: Mapping[str, GraduationHypothesis],
+    runs: Collection[GraduationRun],
+    *,
+    own_readbacks: Mapping[str, str],
+    suite_tests: Collection[str],
+) -> tuple[str, ...]:
+    """Altium write cells are experimental exactly when their proofs are insufficient."""
+    problems: list[str] = []
+    for row in rows:
+        if row.backend != "altium" or row.write is None:
+            continue
+        passed, reasons = graduated(
+            row,
+            register,
+            runs,
+            own_readback=own_readbacks.get(row.kind),
+            suite_tests=suite_tests,
+        )
+        if passed and "write" in row.experimental:
+            problems.append(f"{row.kind} graduated but is listed as experimental")
+        elif not passed and "write" not in row.experimental:
+            problems.append(f"{row.kind} is not graduated: " + "; ".join(reasons))
+    return tuple(problems)
 
 
 SkipReason = Literal[
@@ -1316,6 +1316,7 @@ __all__ = [
     "GraduationHypothesis",
     "GraduationRun",
     "graduated",
+    "graduation_matrix_problems",
     "ModelCompare",
     "ModelRoundTrip",
     "ModelWriter",

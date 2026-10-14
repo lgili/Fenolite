@@ -33,6 +33,7 @@ FORMS = {"binary": (), "ascii": ("--altium-format", "ascii")}
 OFFICIAL = "blink_official/design.py"
 """The one example that needs the official KiCad libraries: built only where they are installed."""
 WITH_PCB = {
+    "acceptance_v03/design.py",
     "altium_hier_board/design.py",
     "blink_2layer/design.py",
     "blink_official/design.py",

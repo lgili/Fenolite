@@ -87,3 +87,7 @@ The former all-backend matrix scenario would newly reclassify existing KiCad and
 ## Acceptance preparation on 2026-10-14
 
 The DSL declares the common circuit, placement, six-layer stack, copper, rule kinds and drawing sheet. The authored model hook supplies the arbitrary ranged bus, free mechanical hole and explicit body geometry, as the existing kit samples supply model-only items. KiCad represents the free hole as an anonymous non-plated footprint, Altium as a free pad; both drill counts and sizes are verified before the established triangle exclusions apply. Preparation launches no external tool and never counts as complete acceptance. Full comparison uses the existing committed importer profile, with no added tolerance or exclusion. The acceptance check stages are model and readback checks; full DRC cleanliness is not claimed for the sparse exercise board. Probe registration waits for the measured full CI result.
+
+## Verification import boundary reconciliation
+
+CI exposed the stricter stdlib/core-only verification import rule. GraduationHypothesis and GraduationRun are data contracts in core.evidence, re-exported by backends.base for existing callers. Graduation evaluation and the matrix consistency check remain in backends.base; verify.graduation only adapts register/kit data through core types. The import guard remains unchanged.

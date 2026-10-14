@@ -9,11 +9,11 @@ unknown. This module does not build samples or launch any external application.
 from __future__ import annotations
 
 import ast
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from fenolite.backends.base import GraduationHypothesis, GraduationRun, MatrixRow, graduated
+from fenolite.core.evidence import GraduationRun
 from fenolite.verify.hypotheses import HypothesisRow
 from fenolite.verify.kit.manifest import Kit
 from fenolite.verify.kit.record import record_problems, stale_rows
@@ -72,31 +72,4 @@ def run_snapshots(
     )
 
 
-def matrix_problems(
-    rows: Sequence[MatrixRow],
-    register: Mapping[str, GraduationHypothesis],
-    runs: Collection[GraduationRun],
-    *,
-    own_readbacks: Mapping[str, str],
-    suite_tests: Collection[str],
-) -> tuple[str, ...]:
-    """Altium write cells are experimental exactly when their proofs are insufficient."""
-    problems: list[str] = []
-    for row in rows:
-        if row.backend != "altium" or row.write is None:
-            continue
-        passed, reasons = graduated(
-            row,
-            register,
-            runs,
-            own_readback=own_readbacks.get(row.kind),
-            suite_tests=suite_tests,
-        )
-        if passed and "write" in row.experimental:
-            problems.append(f"{row.kind} graduated but is listed as experimental")
-        elif not passed and "write" not in row.experimental:
-            problems.append(f"{row.kind} is not graduated: " + "; ".join(reasons))
-    return tuple(problems)
-
-
-__all__ = ["matrix_problems", "readback_tests", "run_snapshots"]
+__all__ = ["readback_tests", "run_snapshots"]
