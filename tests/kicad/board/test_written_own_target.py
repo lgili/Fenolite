@@ -14,6 +14,8 @@ on 9.0.9; 10.0.6 reads the text too. Copies are made in ``tmp_path`` only.
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -38,6 +40,7 @@ def _reports(root: Path) -> tuple[DrcReport, ...]:
         report = runner().drc(root / f"{STEM}.kicad_pcb", files=files).report
         assert report is not None, root.name
         reports.append(report)
+        (root / f"drc-{len(reports)}.json").write_text(json.dumps(asdict(report), indent=2), encoding="utf-8")
     return tuple(reports)
 
 
@@ -50,7 +53,15 @@ def test_written_for_target_9_keeps_the_drc_report(item: CorpusItem, tmp_path: P
     loaded = runner().load_board_svg(board, files={f"{STEM}.kicad_pro": written / f"{STEM}.kicad_pro"})
     assert loaded.ok and "out.svg" in loaded.outputs, item.id
     after = _reports(written)
-    outcome = Rt2Outcome(_reports(source), after[0], False, runner().version(), repeats=after[1:])
+    before = _reports(source)
+    control = demo_project(tmp_path / "control", item)
+    assert (source / f"{STEM}.kicad_pcb").read_bytes() == (control / f"{STEM}.kicad_pcb").read_bytes()
+    controls = _reports(control)
+    control_verdict = compare_runs(
+        Rt2Outcome(before, controls[0], False, runner().version(), repeats=controls[1:])
+    )
+    print(f"SOURCE COPY CONTROL: {control_verdict}")
+    outcome = Rt2Outcome(before, after[0], False, runner().version(), repeats=after[1:])
     verdict = compare_runs(outcome)
     assert verdict is not None and verdict.holds, (item.id, verdict)
     print(f"{item.id}: DRC parity on {runner().version()}, {verdict.unstable} unstable key(s) left out")

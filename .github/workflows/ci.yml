@@ -2,6 +2,8 @@ name: ci
 
 on:
   push:
+    branches-ignore:
+      - codex/diagnose-royalblue-rt2
   pull_request:
 
 permissions:

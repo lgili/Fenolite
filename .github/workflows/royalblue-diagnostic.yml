@@ -1,0 +1,46 @@
+name: RoyalBlue RT2 diagnostic
+
+on:
+  push:
+    branches:
+      - codex/diagnose-royalblue-rt2
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      image: kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec
+      options: --user 0
+    env:
+      FENOLITE_CORPUS_CACHE: /root/.cache/fenolite/corpus
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked --extra dev
+      - run: kicad-cli version
+      - uses: actions/cache@v4
+        with:
+          path: /root/.cache/fenolite/corpus
+          key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}
+      - run: uv run python tools/corpus_fetch.py --uses rt0
+      - name: Two focused native runs, retaining both verdicts
+        shell: bash
+        env:
+          FENOLITE_REQUIRE: kicad,corpus
+        run: |
+          result_code=0
+          for case_index in 1 2; do
+            uv run pytest tests/kicad/board/test_written_own_target.py -q -s -n 0 --basetemp "build/royalblue-diagnostic/run-$case_index" || result_code=1
+          done
+          exit "$result_code"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: royalblue-native-drc
+          path: build/royalblue-diagnostic

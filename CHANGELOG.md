@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Diagnostic branch only: retain repeated RoyalBlue native DRC reports and
+  a byte-identical source-copy control on pinned KiCad 10.0.6, without changing
+  the production comparison or granting a passing full CI gate.
+
 - Reconcile Altium limits, milestone status and the five acceptance criteria with
   measured kit/corpus results; preserve the unmet write-promotion criterion and
   prepare the maintainer review without claiming acceptance or archive.
