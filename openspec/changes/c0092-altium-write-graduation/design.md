@@ -25,7 +25,7 @@
 
 ## Files and public API
 
-- `src/fenolite/backends/base.py`: `graduated(row, register, runs) -> tuple[bool, tuple[str, ...]]` (the verdict and what is missing).
+- `src/fenolite/backends/base.py`: `graduated(row, register, runs, *, own_readback=None, suite_tests=()) -> tuple[bool, tuple[str, ...]]` (the verdict and what is missing). The rule is pure: register rows satisfy a structural protocol, and `GraduationRun` snapshots contain validated committed run ids, passing hypotheses and freshness computed by the kit verifier. Missing readback metadata or unknown freshness fails closed. Claims and matrix integration supplies suite membership; passing CI is a separate closing gate. No dependency on `verify` is introduced into `backends.base`.
 - `tools/acceptance_v03.py`: the acceptance script (runs `fenolite` commands; writes a JSON summary).
 - `docs/evidence/altium-acceptance.md`.
 - Tests: `tests/unit/backends/test_graduation.py`, `tests/unit/cli/test_capabilities_altium.py`, `tests/kicad/acceptance/test_v03_acceptance.py`.
@@ -62,7 +62,7 @@ Total: 3.25. This is a size, not a calendar estimate.
 ## Spec deltas and archive order
 
 - `backend-protocol`, "Evidence matrix rows"; `cli-contract`, "Experimental features in capabilities"; `altium-build`, "Altium build evidence": superseded in the sentences that fix every Altium write as experimental and the envelope as `INFERRED`. Task 0.1 writes them as MODIFIED from the living text.
-- Archive order: last of the write part of v0.3.
+- Archive order: last of the write part of v0.3. On 2026-10-14 the maintainer authorized implementation before dependency CI completes; archive still waits for actual CI success and dependency archive.
 
 ## Risks / Trade-offs
 

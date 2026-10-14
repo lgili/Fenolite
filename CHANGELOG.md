@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Add the pure c0092 write-graduation rule, rejecting missing readback proofs,
+  weak or refuted hypotheses, missing RT-A3 and stale or uncommitted kit runs.
+  Integration and acceptance remain pending; dependency CI still gates archive.
+
 - Check the exact KiCad-major-specific footprint namespace in the authored
   Altium SchLib oracle while retaining every model and source-pin comparison.
 
