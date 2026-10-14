@@ -22,6 +22,7 @@ and the values marked as choices are Fenolite's.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
@@ -414,7 +415,11 @@ class _Writer:
         """The labelled wires of a port or sheet entry: its own stub, or those of its harness block, or
         the records of its bus block."""
         if item.stub is not None:
-            self.stub(item.stub)
+            stub = item.stub
+            if isinstance(item, PlacedEntry) and item.bus is not None:
+                stem = item.bus.label.partition("[")[0]
+                stub = dataclasses.replace(stub, net=dataclasses.replace(stub.net, net=stem))
+            self.stub(stub)
         if item.block is not None:
             for stub in item.block.stubs:
                 self.stub(stub)

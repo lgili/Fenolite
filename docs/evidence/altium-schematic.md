@@ -508,6 +508,27 @@ author report never moves an operation out of `experimental`. Stating the outcom
 
 #### Reports
 
+### 2026-10-14, `AD 26.5`, Part R corrected-writer acceptance
+
+- **R1:** the authored named-wire parent and unchanged child compile with zero
+  errors, six components, five real nets and eleven intended memberships.
+- **R2:** the interface offers the eight documented formats and five documented
+  styles. All thirteen corrected cases compile without errors; the twelve
+  supported combinations match import designators and every membership. Mixed
+  style is measured at one level only and remains unresolved for nested paths.
+- **R3:** the owned empty-PCB ECO validates/executes; native saved readback has
+  six components, twelve pads, four expected one-level channel UID paths and
+  all eleven intended memberships. Footprints are authored test placeholders.
+- **R4:** the original indexed native annotation preserves all 305 bytes and
+  changes only the stored CH2 resistor to `R101_CH1` after reload. Native and
+  imported six designators/five nets/eleven memberships agree. The stored
+  channel UID, rather than the earlier UI proposal, determines identity.
+
+Sources S-0740/S-0741/S-0742 retain the measured scope. Native binaries,
+private window captures and local paths are not published. Remaining final
+quality gates do not change these native outcomes.
+
+
 **2026-10-08, `AD 26.5`, session 2 (S-0615).** Altium Designer 26.5.0 on the maintainer's own PC, a licence
 he may use for Fenolite (`LEGAL.md`, block A), on the folder `O-outjob/` of the session pack built from
 commit `695574ba` (the three jobs have the digests of the table above). His report: every output of the job
@@ -722,11 +743,18 @@ designator is `Repeat(CH,1,2)` on a child sheet, with the sheet entries `VCC` an
 on the child sheet `R1` and `C12`, `R1` pin 1 on the port `VCC`, `R1` pin 2 and `C12` pin 1 on a wire
 labelled `MID`, `C12` pin 2 on the port `OUT`.
 
-| file (built again on 2026-10-09, c0083 task 4.2) | SHA-256 | steps |
+| file (current parent rebuilt on 2026-10-14, c0083 task 4.2) | SHA-256 | steps |
 |---|---|---|
 | `two.PrjPcb` (unchanged) | `38384a5c609a963bd3c072d9b95deea42bb137565b2664ae28bb6ddfc16c6737` | R1 to R4 |
-| `two.SchDoc` | `42e8a02658ae0c7c09c04d08daf64a23995764796221e439953cbcb639a603eb` | R1 to R4 |
+| `two.SchDoc` | `68ed687753a7761d6de388d8f9408d86ba218d21d6fe8c6d1c9cfa814256f0ab` | R1 to R4 |
 | `two_ch.SchDoc` | `cad7f56662f5a1af94265ac243db10dd18390a0371b1f76a5436f460f1f05178` | R1 to R4 |
+
+**Parent rebuilt on 2026-10-14.** The writer now connects `Repeat(OUT)` through
+a wire labelled `OUT`, with the ranged label on the bus beyond that wire. Only
+`two.SchDoc` changes from SHA-256
+`42e8a02658ae0c7c09c04d08daf64a23995764796221e439953cbcb639a603eb`;
+the child, project and authored legacy annotation remain byte-identical. The
+current parent is 7168 bytes and its digest is in the table above.
 
 **Built again on 2026-10-09.** The three files were written by `tests/data/altium/channels/two/author.py`'s
 plans (`tests/_altium_channels.files()`) into a folder outside the repository and handed over as one zip;
@@ -903,6 +931,55 @@ tested room styles. Enumeration of the component-format list remains open:
 its native dropdown stopped responding, so cancellation was queued only to the
 owned test dialog. The application was not force-closed and no options were
 accepted or saved. This UI interruption is separate from the circuit failures.
+
+**R1 named-wire control, 2026-10-14, `AD 26.5` (S-0740).** The wire bridge
+between the Repeat entry and the bus must carry the bus stem label. Keeping
+the preceding wire-stub geometry and adding OUT on the wire produces zero
+compile errors, six components and all eleven intended memberships: OUT1
+contains U1 pin 1/C12_CH1 pin 2; OUT2 contains U1 pin 2/C12_CH2 pin 2; VCC
+has three pins and MID_CH1/MID_CH2 each have two. Six missing-footprint
+warnings are expected for this intentional no-library fixture and are
+separate from R3. Before product changes, the importer matches those pin
+memberships but incorrectly retains an empty OUT net; that reader defect has
+its own repair task. Native binaries/logs remain ignored. The subsequent
+product writer compiles without errors and the repaired importer matches all
+eleven native memberships, with five real nets and no empty bridge net. The
+different-stem and detached-bus controls match too. Focused writer/layout/read
+proof: 448 tests passed; native membership comparison passes for all four
+cases, including the saved annotation reload. Final quality gates remain open.
+
+**R3/R4 corrected-writer retry, 2026-10-14, `AD 26.5` (S-0741).** The
+owned empty PCB receives six components, five nets, classes and rooms. The
+ECO validates and executes its proposed changes; native Save As/readback has
+six components, twelve pads, zero reader issues and all eleven intended
+VCC/MID/OUT memberships, including both capacitor outputs. All four repeated
+components retain the measured one-level index-before-symbol UID form. Each
+component uses an authored two-pad placeholder footprint; J1's spare second
+pad is unconnected. This is connectivity acceptance, not physical routing.
+The old failed output remains intact.
+
+The original 305-byte native annotation is reloaded with corrected sheets.
+It renames only the CH2 resistor to its actually stored `R101_CH1` value,
+leaving the CH1 resistor unchanged; native compilation and the importer agree
+on all six references, five nets and eleven memberships. The initial retry
+paused on a native annotation-found informational warning; acknowledging that
+owned warning allowed it to finish. The subsequent R2 inventory/matrix retry is recorded under S-0742 below.
+Final quality gates remain pending.
+
+**R2 corrected-writer retry, 2026-10-14, `AD 26.5` (S-0742).** The actual
+component-format popup offers all eight formats in the table above, in that
+order. The owned native message click/capture succeeds; generic combo-box
+queries returned zero because the custom control does not expose that API,
+so those queries are not used as inventory evidence. No UIA expansion is used.
+The options dialog is cancelled without saving. Thirteen disposable projects
+repeat the eight formats at style 0 and all five styles with
+`$Component_$RoomName`: every case compiles without errors, and all twelve
+supported combinations match imported component designators and all eleven
+memberships. Mixed style 4 still yields alpha names at this one level; nested
+semantics remain unmeasured. The launcher timed out while later cases were
+still running; the native log subsequently completed every case and `DONE`,
+and separate verification checks the completed results rather than assuming
+launch success. Original failures and the completed retry remain ignored.
 
 ## Recording a report
 

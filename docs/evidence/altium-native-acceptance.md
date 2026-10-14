@@ -581,3 +581,12 @@ instability for these exact cases; CPU affinity does not resolve it, and the
 underlying cause is not established. All ten reports and the identical input
 hash are retained ignored. No test expectation, probe baseline or production
 KiCad behavior is changed to turn this into a pass.
+
+Latest Part R repair (S-0740/S-0741/S-0742): native named-wire Repeat connection,
+different parent stem, detached bus, corrected empty-PCB ECO and original indexed
+annotation reload now match all eleven intended memberships/five nets. Thirteen
+corrected format/style projects compile without errors; twelve supported cases
+match complete imported memberships. The interface's eight formats and five
+styles are confirmed. R1-R4 are complete in c0083; R5's separate branch artefacts
+retain their earlier failed result pending reconciliation. Historical failures
+remain intact in the preceding notes and runtime logs.

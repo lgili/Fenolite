@@ -6,6 +6,12 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Connect repeated Altium sheet entries through a named scalar wire to their
+  ranged bus, so the native compiler joins each channel to its intended signal.
+  Import those bridges using their actual bus stem without creating empty nets;
+  preserve ambiguous inputs and genuine scalar nets. Native PCB transfer and
+  annotation reload confirm all eleven intended memberships.
+
 - Record native Repeat reload and compiled port/bus diagnostics, keeping the
   disconnected output nets and unresolved cause explicit.
 

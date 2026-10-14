@@ -7,6 +7,7 @@ model"; change c0083). The sheets are authored record by record (``_altium_chann
 from __future__ import annotations
 
 import dataclasses
+import re
 
 import _altium_channels as two
 import _altium_records as rec
@@ -35,6 +36,7 @@ from fenolite.checks.assignment_compare import model_netlist
 from fenolite.checks.equivalence.levels import level_netlist
 from fenolite.core.errors import Issue
 from fenolite.model.circuit import Circuit
+from fenolite.model.design import Design
 
 OPTIONS = NetOptions(channel_format=two.FORMAT, room_style=0)
 
@@ -380,10 +382,106 @@ def test_nets_of_a_bus_that_is_too_short() -> None:
 
 
 def test_nets_of_a_repeated_entry_without_a_bus() -> None:
-    circuit, issues = read(bus="DATA[1..2]")
+    top, child = two.sheets()
+    authored = repeat_top(top)
+    authored.records = [record.replace("TEXT=OUT[1..2]", "TEXT=DATA[1..2]") for record in authored.records]
+    issues: list[Issue] = []
+    circuit = import_circuit((authored.input(), child.input()), options=OPTIONS, issues=issues)
     (said,) = [i for i in issues if i.code == "altium.import.channel-naming"]
     assert "no bus named OUT" in said.message and "2 channel(s)" in said.message
     assert nets(circuit)["OUT1"] == [("U1", "1")]
+
+
+def repeat_top(sheet: two.WrittenSheet) -> rec.Sheet:
+    """Editable authored records, keeping indexes and component UIDs unchanged."""
+    authored = rec.Sheet(sheet.file)
+    authored.records = [
+        "".join(f"|{key}={record.props.get(key)}" for key in record.props.keys())
+        for record in sheet.document().records
+    ]
+    return authored
+
+
+@pytest.mark.parametrize("stem", ["OUT", "MB"])
+@pytest.mark.parametrize("detached", [False, True])
+def test_named_repeat_bridge_selects_parent_bus_without_a_scalar_net(stem: str, detached: bool) -> None:
+    top, child = two.sheets()
+    authored = repeat_top(top)
+    if stem != "OUT":
+        authored.records = [
+            record.replace("|TEXT=OUT", "|TEXT=MB") if "|RECORD=25|" in record else record
+            for record in authored.records
+        ]
+    if detached:
+        # Moving only the bus leaves the named scalar bridge and member wires intact.
+        authored.records = [
+            re.sub(r"(\|X\d+=)(-?\d+)", lambda m: f"{m[1]}{int(m[2]) + 10000}", record)
+            if "|RECORD=26|" in record
+            else record
+            for record in authored.records
+        ]
+        # Its ranged label must move with it to remain a bus identifier.
+        authored.records = [
+            re.sub(r"(\|LOCATION.X=)(-?\d+)", lambda m: f"{m[1]}{int(m[2]) + 10000}", record)
+            if f"|TEXT={stem}[1..2]" in record
+            else record
+            for record in authored.records
+        ]
+    issues: list[Issue] = []
+    circuit = import_circuit((authored.input(), child.input()), options=OPTIONS, issues=issues)
+    baseline, _ = read()
+    expected = {name.replace("OUT", stem): members for name, members in nets(baseline).items()}
+    assert nets(circuit) == expected
+    assert len(circuit.nets) == 5 and sum(len(net.members) for net in circuit.nets) == 11
+    assert [c.id for c in circuit.components] == [c.id for c in baseline.components]
+    assert "channel-naming" not in codes(issues)
+    assert not any(
+        issue.code == "model.dangling-net"
+        for issue in dataclasses.replace(Design.new("repeat-test", seed=83), circuit=circuit).validate()
+    )
+
+
+@pytest.mark.parametrize("problem", ["ambiguous-label", "ambiguous-range", "unnamed"])
+def test_repeat_bridge_does_not_guess_an_ambiguous_bus(problem: str) -> None:
+    top, child = two.sheets()
+    authored = repeat_top(top)
+    point = tuple(
+        length.units
+        for length in next(label for label in top.document().net_labels() if label.text == "OUT").location
+    )
+    if problem == "ambiguous-label":
+        authored.label("OTHER", *point)
+    elif problem == "unnamed":
+        authored.records = [record.replace("|TEXT=OUT|", "|TEXT=|") for record in authored.records]
+    else:
+        authored.bus((10000, 10000), (11000, 10000))
+        authored.label("OUT[3..4]", 10000, 10000)
+    issues: list[Issue] = []
+    circuit = import_circuit((authored.input(), child.input()), options=OPTIONS, issues=issues)
+    assert "channel-naming" in codes(issues)
+    assert nets(circuit)["OUT1"] == [("U1", "1")]
+
+
+@pytest.mark.parametrize("pin_on_bridge", [False, True])
+def test_repeat_bridge_preserves_genuine_scalar_nets(pin_on_bridge: bool) -> None:
+    top, child = two.sheets()
+    authored = repeat_top(top)
+    authored.wire((10000, 10000), (11000, 10000))
+    authored.label("UNCONNECTED", 10000, 10000)
+    if pin_on_bridge:
+        point = tuple(
+            length.units
+            for length in next(label for label in top.document().net_labels() if label.text == "OUT").location
+        )
+        authored.component("TP1", [("1", *point)], uid="TESTPIN1")
+    circuit = import_circuit((authored.input(), child.input()), options=OPTIONS)
+    assert nets(circuit)["UNCONNECTED"] == []
+    assert any(
+        issue.code == "model.dangling-net"
+        for issue in dataclasses.replace(Design.new("repeat-test", seed=83), circuit=circuit).validate()
+    )
+    if pin_on_bridge:
+        assert nets(circuit)["OUT"] == [("TP1", "1")]
 
 
 def test_nets_of_a_plain_entry_join_every_channel() -> None:
