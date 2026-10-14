@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile Altium limits, milestone status and the five acceptance criteria with
+  measured kit/corpus results; preserve the unmet write-promotion criterion and
+  prepare the maintainer review without claiming acceptance or archive.
+
 - Audit the historical v0.3 Altium release table against declarations extracted
   from its exact tag, preserving its recorded counts as current claims evolve.
 

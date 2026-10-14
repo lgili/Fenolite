@@ -65,7 +65,10 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
   schematic documents per module, both libraries, the project file, an output job and the drawing sheet;
   `fenolite check` judges copper and parity on Altium input, `equivalent --level 5` compares routing, and
   `fenolite kit` builds the Altium verification kit (`docs/altium.md`, `docs/altium-kit.md`). All of it is
-  experimental: the release record says per file kind what is proved and what is missing.
+  experimental: `capabilities` lists missing proofs per kind. The AD 26.5 kit has
+  32 passed steps and a published supplemental archive; the acceptance project
+  passed on KiCad 10.0.6 within its comparison profile. See
+  [measured acceptance](docs/evidence/altium-acceptance.md); no write kind graduates yet.
 
 - **The agent guide.** `fenolite guide` prints the guide that ships in the package, `fenolite skill
   install` puts it where an agent finds it, `fenolite init` writes a starter project, and

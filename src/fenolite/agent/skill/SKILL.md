@@ -176,7 +176,7 @@ command lines, which the tests run.
 
 - The releases prove the loop on two-layer boards, for KiCad 9.0 and 10.0. `build --target altium` also
   writes an Altium project: the status and the evidence level of each of its file kinds are in
-  `result.matrix` of `fenolite capabilities --json`, and they change from release to release.
+  `result.matrix` of `fenolite capabilities --json`; all nine remain experimental, with missing proofs per kind.
 - The `direct` router is for the starter and for boards as simple. It never looks at clearances.
 - The full contract of the command line (`docs/cli-contract.md`), the design script (`docs/dsl.md`) and
   what was and was not proved for each release (`docs/release/`) are in the source repository.
