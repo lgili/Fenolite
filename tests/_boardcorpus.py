@@ -13,6 +13,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+import pytest
 from _corpus import CorpusItem, manifest_items
 
 from fenolite.backends.kicad import slots as slotlib
@@ -52,6 +53,23 @@ def read(path: Path) -> tuple[Design, tuple[Issue, ...]]:
     issues: list[Issue] = []
     design = read_board(path, issues=issues)
     return design, tuple(issues)
+
+
+@cache
+def board_cli_major(path: Path) -> int:
+    """The oldest supported CLI that reads this board; unknown headers fail loudly."""
+    version = versions.detect_version(load(path), file=path.name)
+    required = versions.major_for(versions.FileKind.BOARD, version)
+    if required is None:
+        pytest.fail(f"{path.name}: unsupported board format version {version}", pytrace=False)
+    return required
+
+
+def require_cli_board_version(path: Path, running: int) -> None:
+    """A direct export never asks an older CLI to open a newer, unconverted file."""
+    required = board_cli_major(path)
+    if required > running:
+        pytest.skip(f"{path.name} requires KiCad {required}; direct oracle is KiCad {running}")
 
 
 # --- census (counts only: origins, manifest ids, head chains and codes, never content) -------------

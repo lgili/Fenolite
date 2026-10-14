@@ -623,3 +623,21 @@ its existing rt2-9/sch-9 inputs under a distinct cache key. KiCad 10 enables
 and fetches the three already declared heavy inputs. Workflow/manifest proofs
 pass (85 tests, 4.94 s); expected probe files are unchanged. Exact-commit CI
 results remain required before closing changes.
+
+## Remote CI checkpoint, 2026-10-14
+
+[Run 38497126575](https://github.com/lgili/Fenolite/actions/runs/38497126575),
+commit `af8c8b21`, completed with ten passing jobs and one failed job. All five
+unit environments, both routing jobs, KiCad-10, wheel and DCO passed. KiCad-9
+reported six failures: direct position, IPC-D-356 and rebuilt SVG exports of
+`kicad-demo-10-0-6-pcb-01` and `kicad-demo-10-0-6-pcb-12`. Its remaining results
+were 1240 passed, 771 skipped and one expected failure.
+
+The added downgrade prerequisites made those unconverted KiCad-10 boards available
+to direct-load tests. The fix gates direct oracle calls by the declared format
+version, retains the files for downgrade and KiCad-10, and fails on unknown or
+malformed versions. It changes no probe expectation, source bytes or export
+assertion. Local proof: 45 guard/workflow tests passed; all 69 tests in the
+affected files collect; both actual cached boards select KiCad-10 and give an
+explicit newer-format skip for direct KiCad-9 export. Static checks passed. The
+complete gate and archive remain pending the newly published batch.

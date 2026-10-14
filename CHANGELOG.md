@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Select direct corpus-board oracle tests by the actual board format version,
+  retaining KiCad-10 downgrade inputs without sending them unconverted to KiCad 9.
+
 - Add the authored v0.3 acceptance tree and a preparation mode that builds both
   targets, checks written scope and records JSON results; external import validation
   runs separately in the KiCad CI job.
