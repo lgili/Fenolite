@@ -92,3 +92,17 @@ currently retain their existing inferred/author-report levels; this reconciliati
 changes no evidence label and does not claim native acceptance of the newly
 authored acceptance project. Task 3.2 will apply eligible promotions after the
 publication requirement is met.
+
+## Archive publication review
+
+The full-run ZIP matches its committed SHA-256 and its size of 1236513 bytes;
+it contains 27 members. A fresh privacy scan reproduces the record's 43
+home-folder findings across eight files: five native binary documents/libraries
+and three reports. No personal value is reproduced here. A value-free local
+review is saved under `build/c0092-publication-review.md`.
+
+The original ZIP and immutable run record remain unchanged and unpublished.
+Changing result bytes changes the archive digest, so a cleaned version cannot
+be published as the original run. A new native save in a neutral folder, followed
+by verification and a new record, is the proposed publication path. This review
+changes no native verdict or evidence level.

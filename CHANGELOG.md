@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Review the native kit archive for publication, confirming its recorded digest
+  and documenting privacy findings without exposing personal paths or modifying
+  the original evidence.
+
 - Register the v0.3 acceptance as a KiCad-10 probe after its complete CI test
   passed, sharing the cached run with the acceptance test and retaining every
   existing versioned probe outcome.
