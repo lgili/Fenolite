@@ -1,0 +1,62 @@
+{
+  "date": "2026-10-14",
+  "tool": "Altium Designer Professional 26.5.0",
+  "source": "S-0744",
+  "scope": "Authored two-layer Clearance checks only; no kit or full hypothesis graduation.",
+  "cases": {
+    "M-layer-scope": {
+      "input_sha256": "eb6c73fef8e0b5114ac7c07b4aba4bc8f560f3d3295c3cf7554855b8a2e43303",
+      "native_saved_sha256": "4b89227c302669fa645073b8e2caf7d6cded9727d1d938ee0792aca2f7146a5f",
+      "native_report_sha256": "eab471247ffb5c0d09a5fc08c7f23cb24f06d7f613f0ad19bb898c9963e5e872",
+      "violations": [
+        "Violation between Clearance Constraint: (4mil < 5mil) Between Track (100mil,486mil)(130mil,486mil) on Top Layer And Track (100mil,500mil)(130mil,500mil) on Top Layer",
+        "Violation between Clearance Constraint: (4mil < 5mil) Between Track (300mil,481mil)(330mil,481mil) on Bottom Layer And Via (300mil,500mil) from Top Layer to Bottom Layer",
+        "Violation between Clearance Constraint: (4mil < 5mil) Between Via (500mil,500mil) from Top Layer to Bottom Layer And Via (524mil,500mil) from Top Layer to Bottom Layer"
+      ],
+      "native_clearance_count": 3,
+      "fenolite_clearance_count": 3,
+      "saved_clearance_rules": [
+        {
+          "SCOPE1EXPRESSION": "OnMid",
+          "SCOPE2EXPRESSION": "OnMid",
+          "NAME": "Fallback_1",
+          "GAP": "7mil",
+          "OBJECTCLEARANCES": " "
+        },
+        {
+          "SCOPE1EXPRESSION": "(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))",
+          "SCOPE2EXPRESSION": "(ExistsOnLayer('Top Layer') Or ExistsOnLayer('Bottom Layer'))",
+          "NAME": "Fallback_2",
+          "GAP": "5mil",
+          "OBJECTCLEARANCES": " "
+        },
+        {
+          "SCOPE1EXPRESSION": "All",
+          "SCOPE2EXPRESSION": "All",
+          "NAME": "Fallback",
+          "GAP": "10mil",
+          "OBJECTCLEARANCES": " "
+        }
+      ]
+    },
+    "C-matrix-cells": {
+      "input_sha256": "012199188724c789d642701ae16a320b60926e41fc67c5c67d0b3429a39eadfb",
+      "native_saved_sha256": "0c2d72159493153fed3c14b8d4172b4c067060eb49ed41494081e9ed0f9ffd19",
+      "native_report_sha256": "5999489bbb53606a73c7bcb535326474f3d7553af2f995665a0cb29398f44315",
+      "violations": [
+        "Violation between Clearance Constraint: (3.7mil < 4mil) Between Track (300mil,481.3mil)(330mil,481.3mil) on Bottom Layer And Via (300mil,500mil) from Top Layer to Bottom Layer"
+      ],
+      "native_clearance_count": 1,
+      "fenolite_clearance_count": 1,
+      "saved_clearance_rules": [
+        {
+          "SCOPE1EXPRESSION": "All",
+          "SCOPE2EXPRESSION": "All",
+          "NAME": "Matrix",
+          "GAP": "4mil",
+          "OBJECTCLEARANCES": "ClearanceObj_Via-ClearanceObj_Via:35000"
+        }
+      ]
+    }
+  }
+}

@@ -988,6 +988,7 @@ report is in `docs/evidence/altium-schematic.md`, "Report of 2026-10-09".
 
 ## Part T — converted projects (c0160)
 
+
 Pending maintainer report; no Altium verification is claimed. The runtime bundle contains three
 KiCad cases: two registered public projects (large DIFAT document and a source schematic with repeated
 child sheets) and an authored four-layer Full Stack case with different inner-layer shapes/sizes.
@@ -1006,3 +1007,33 @@ Send the Altium Designer major/minor version, date and one generic result for ea
 project, screenshots or employer details are needed. T1/T3 settle `H-A-CONV-DIFAT`, T4/T6 settle
 `H-A-CONV-PADSTACK`, T5/T6 settle `H-A-CONV-LIBRARY`, and T1/T2 settle `H-A-CONV-SCHEMATIC`.
 These four hypotheses remain open until the corresponding actual report is recorded.
+
+## Clearance checks of 2026-10-14
+
+At the maintainer's request, both optional checks of c0125/c0130 ran through guarded
+scripts and owned dialog messages in native Altium Designer Professional 26.5.0.
+The two scratch boards are authored for Fenolite; no private or vendor board is used.
+S-0744 and `altium-clearance-2026-10-14.json` retain fingerprints and constraint lines.
+Raw reports and native saved boards remain ignored because they contain local paths.
+
+| case | authored constraints and planted copper | actual native result |
+|---|---|---|
+| M1-M3, layer scopes | Two copper layers; inner `OnMid` 7 mil, outer `ExistsOnLayer` 5 mil, parent matrix 10 mil. Separate track-track on top, via-track on bottom and via-via pairs, each with a 4-mil edge gap | Three violations, each explicitly `4mil < 5mil`; none uses 7 or 10 mil. Native save keeps all three tracks and three vias and both scope expressions |
+| C1-C2, matrix cell | Generic 4 mil with `ClearanceObj_Via-ClearanceObj_Via:35000` (3.5 mil). Separate via-via and via-track pairs, both at 3.7 mil | One violation, via-track, explicitly `3.7mil < 4mil`. The via-via pair passes. Native save keeps all three vias, the track and the cell text |
+
+The original M report executed no Clearance check and is retained as an invalid attempt,
+not as a zero-violation pass. The retry selects rule kind 0 and proves that Clearance ran.
+The C dialog's first launch timed out while open and was cancelled; its retry completed.
+Native report headings group the M violations under the 10-mil parent matrix, while each
+constraint line gives the actual 5-mil limit. On save, Altium renames its child rules to
+`Fallback_1` (inner) and `Fallback_2` (outer). A parent heading alone cannot identify the
+governing child; this differs from the original protocol's expectation of a named child
+in the summary and changes no imported scope or clearance.
+
+Native saved readback agrees with Fenolite's copper check: three findings in M, one in C.
+Input hashes remain unchanged. The verifier asserts report counts, pair kinds, exact
+thresholds, native saved scopes/cell values and matching Fenolite counts.
+These outcomes complete the two requested experiments. The wider hypothesis rows
+`H-A-RULE-CLEARANCE-FORMS` and `H-A-RULE-CLEARANCE-CELLS` remain `INFERRED`: no human
+author report or published kit archive is claimed, and this experiment does not test
+four-layer scoping, all matrix object kinds or cross-rule priority.
