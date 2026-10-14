@@ -509,8 +509,9 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 ### Requirement: Rules where they map
 `import_board` and `import_project` SHALL fill `Design.rules` from the rule records through the mapper of c0042, `read.rules.map_rules`, and SHALL never approximate a rule.
-- `adapter.rules.import_rules(records, ids, *, file, sha256, issues)` MUST call `map_rules(records, origin=<file name>)` with `records == [r.fields for r in doc.rules]`: `RuleRecord.fields` of c0041 is the record's whole pair list, which is the mapper's input. It MUST take from the returned `RuleMapping` the neutral rules and the unmapped list, and MUST NOT hold a rule table of its own. The kinds that map are those of c0042: Clearance, Width, Routing Via Style and Hole Size.
+- `adapter.rules.import_rules(records, ids, *, file, sha256, issues, storage="Rules6", layers=None)` MUST call `map_rules(records, origin=<file name>, layers=layers)` with `records == [r.fields for r in doc.rules]`: `RuleRecord.fields` of c0041 is the record's whole pair list, which is the mapper's input. It MUST take from the returned `RuleMapping` the neutral rules and the unmapped list, and MUST NOT hold a rule table of its own. The kinds that map are those of c0042: Clearance, Width, Routing Via Style and Hole Size.
 - The adapter MUST keep each mapped rule's kind, name, limits, selectors, `priority` and `severity` as the mapper gives them, and MUST replace its header: the id and native id of "Identifiers and provenance" (also for the rule set), the provenance, and a bag with the pairs `rule_kind`, `scope1` and `scope2` in place of the mapper's.
+- `import_board` MUST pass the copper layers of the board as `layers` (`LayerMap.copper_layers()`: for each layer of the copper chain the name the board record gives it, its neutral name, and `inner_signal` for an id between the top layer's and the bottom layer's), so that a layer condition of a `Clearance` record maps where `altium-project-reader`, "More forms of a Clearance record", says it does. `adapter.layers.copper_layers_of(layers)` MUST give the same value from the `Layer` entities of an imported board, and `None` when a copper layer holds no `layer_id` and `altium_name` pair. The rules of a rule file are mapped without layers.
 - A layer name in a mapped rule MUST be the neutral name of "Layers and stack-up".
 - `priority` MUST be the record's, 1 the highest, as the model defines it. A disabled rule MUST NOT be mapped: the mapper lists it as unmapped with the reason `disabled`, because a rule of severity `ignore` would silence the rule that applies in its place.
 - Each unmapped rule MUST be counted by one `altium.import.rule-unmapped` info per rule kind, with the count and the mapper's reasons. The mapper's per-rule infos `altium.rule.unmapped` MUST NOT be forwarded; its other issues are.
@@ -530,6 +531,11 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **GIVEN** a rule record whose first scope is `InPolygon`
 - **WHEN** it is imported
 - **THEN** `design.rules` does not hold it, and `altium.import.rule-unmapped` counts one rule of its kind with the mapper's reason
+
+#### Scenario: Layer conditions take the layers of the board
+- **GIVEN** a document of two copper layers named `Top Layer` and `Bottom Layer` whose `Rules6` holds the three records of "A clearance matrix on a two-layer board"
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k "take_the_layers or four_layers"` imports it
+- **THEN** `design.rules` holds the 5 mil rule with `layers == ("F.Cu", "B.Cu")` and the 10 mil rule, and one `altium.import.rule-unmapped` says `no-layer 1`; with a copper chain of four layers the two layer conditions are unmapped with `scope 2`
 
 ### Requirement: Footprint libraries
 `import_footprints` SHALL map a `PcbLibrary` to a `Library` of `FootprintDef`s.

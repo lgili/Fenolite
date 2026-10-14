@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Archive `c0125-altium-clearance-scopes` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
 - Record both optional native Clearance experiments for c0125/c0130 on authored
   two-layer boards, including native saved readback and matching copper verdicts.
   Retain parent-matrix reporting differences and existing hypothesis levels.
