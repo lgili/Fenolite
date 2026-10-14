@@ -133,3 +133,81 @@ def test_matrix_altium_writes_still_experimental() -> None:
             passed, reasons = graduated(row, register, ())
             assert not passed and reasons
             assert "write" in row.experimental
+
+
+def test_claims_declare_real_readback_for_every_altium_write() -> None:
+    from pathlib import Path
+
+    from fenolite.backends.altium.claims import MATRIX, OWN_READBACK
+    from fenolite.verify.graduation import readback_tests
+
+    assert set(OWN_READBACK) == {row.kind for row in MATRIX if row.write is not None}
+    assert readback_tests(Path("."), OWN_READBACK) == frozenset(OWN_READBACK.values())
+
+
+def test_readback_suite_membership_rejects_missing_and_invalid_nodes(tmp_path) -> None:
+    from fenolite.verify.graduation import readback_tests
+
+    assert not readback_tests(tmp_path, {"missing": "tests/test_missing.py::test_proof"})
+    source = tmp_path / "test_proof.py"
+    source.write_text("def test_other(): pass\n", encoding="utf-8")
+    assert not readback_tests(tmp_path, {"missing": "test_proof.py::test_proof"})
+    source.write_text("raise RuntimeError('never import me')\ndef test_proof(): pass\n", encoding="utf-8")
+    assert readback_tests(tmp_path, {"proof": "test_proof.py::test_proof"}) == {"test_proof.py::test_proof"}
+    with pytest.raises(ValueError, match="invalid own-readback"):
+        readback_tests(tmp_path, {"invalid": "../test_proof.py::test_proof"})
+
+
+def test_real_committed_records_remain_unknown_without_current_kit() -> None:
+    from pathlib import Path
+
+    from fenolite.verify.graduation import run_snapshots
+    from fenolite.verify.hypotheses import load_register
+    from fenolite.verify.kit.record import load_records
+
+    register = load_register(Path("docs/hypotheses.md"))
+    records = load_records(Path("."))
+    snapshots = run_snapshots(register, records, None, committed=True)
+    assert snapshots and all(run.committed and run.stale_hypotheses is None for run in snapshots)
+    assert {run.run_id for run in snapshots} == {record["run_id"] for record in records}
+    assert all(not run.committed for run in run_snapshots(register, records, None))
+    with pytest.raises(ValueError, match="invalid graduation kit record"):
+        run_snapshots(register, [{"synthetic": True}], None, committed=True)
+
+
+def test_matrix_both_directions_and_legacy_backends() -> None:
+    from fenolite.verify.graduation import matrix_problems
+
+    context = {"own_readbacks": {ROW.kind: TEST}, "suite_tests": (TEST,)}
+    assert matrix_problems([ROW], REGISTER, (RECORD,), **context) == (
+        ROW.kind + " graduated but is listed as experimental",
+    )
+    graduated_row = replace(ROW, experimental=())
+    assert not matrix_problems([graduated_row], REGISTER, (RECORD,), **context)
+    assert matrix_problems([graduated_row], REGISTER, (), **context)
+    assert not matrix_problems([ROW], REGISTER, (), **context)
+    legacy = replace(graduated_row, backend="specctra")
+    assert not matrix_problems([legacy], {}, (), **context)
+
+
+def test_matrix_current_kit_matches_committed_claims() -> None:
+    from pathlib import Path
+
+    from fenolite.backends.altium.claims import MATRIX, OWN_READBACK
+    from fenolite.cli._kit import kit_sources
+    from fenolite.verify.graduation import matrix_problems, readback_tests, run_snapshots
+    from fenolite.verify.hypotheses import load_register
+    from fenolite.verify.kit.manifest import KIT_FILE, kit_files, read_kit
+    from fenolite.verify.kit.record import load_records
+
+    register = load_register(Path("docs/hypotheses.md"))
+    kit = read_kit(kit_files(kit_sources())[KIT_FILE])
+    runs = run_snapshots(register, load_records(Path(".")), kit, committed=True)
+    assert not matrix_problems(
+        MATRIX,
+        {row.id: row for row in register},
+        runs,
+        own_readbacks=OWN_READBACK,
+        suite_tests=readback_tests(Path("."), OWN_READBACK),
+    )
+    assert all(run.stale_hypotheses == frozenset() for run in runs)

@@ -112,6 +112,27 @@ MATRIX: tuple[MatrixRow, ...] = (
     ),
 )
 
+_HIERARCHY_READBACK = (
+    "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms"
+)
+OWN_READBACK: dict[str, str] = {
+    project.HARNESS_KIND: _HIERARCHY_READBACK,
+    outjob.OUTJOB_KIND: "tests/unit/backends/altium/test_outjob_write.py::test_readback",
+    project.PCBDOC_KIND: (
+        "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model"
+    ),
+    project.PCBLIB_KIND: "tests/unit/backends/altium/test_pcblib.py::test_library_of_the_mini_footprints",
+    "altium_prjpcb": _HIERARCHY_READBACK,
+    "altium_schdoc_ascii": _HIERARCHY_READBACK,
+    "altium_schdoc_binary": _HIERARCHY_READBACK,
+    schdot.SCHDOT_KIND: "tests/unit/backends/altium/test_schdot_write.py::test_readback",
+    project.SCHLIB_KIND: "tests/unit/backends/altium/test_schlib.py::test_round_trip_of_a_mapped_symbol",
+}
+"""Write kind to authored own-readback proof; membership is checked against the test suite.
+
+These tests use Fenolite's readers and do not replace a native kit or corpus oracle.
+"""
+
 RT_A1_NOTE = "RT-A1 (H-A-VER-RTA1): every typed stream gives equal records after an encode and a read"
 ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
     {
@@ -134,4 +155,4 @@ ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
 (capability altium-verification, "Round-trip claims of the Altium kinds"; change c0090). The matrix has
 no column for a note: its round-trip cells say ``exact`` or nothing, and these kinds have nothing."""
 
-__all__ = ["MATRIX", "NAME", "ROUND_TRIP_NOTES"]
+__all__ = ["MATRIX", "NAME", "OWN_READBACK", "ROUND_TRIP_NOTES"]

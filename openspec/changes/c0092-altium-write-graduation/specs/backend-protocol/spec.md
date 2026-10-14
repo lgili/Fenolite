@@ -7,7 +7,7 @@
 - every hypothesis id of the write cell is release-verified (`verification-evidence`, "Release-verified levels");
 - at least one hypothesis id of the cell is `ALTIUM-VERIFIED(kit)` from a committed run that is not stale.
 
-A write cell that graduates MUST NOT be listed in the row's `experimental`, and a write cell that does not MUST be listed. This holds for every backend; for the KiCad rows the fourth condition is replaced by a `KICAD-VERIFIED` hypothesis.
+A write cell that graduates MUST NOT be listed in the row's `experimental`, and a write cell that does not MUST be listed. This graduation policy applies to the Altium write kinds; other backends retain their existing release policy. The pure helper also supports KiCad-specific verification without reclassifying its rows in this change.
 - The evidence matrix page MUST show, for each write cell that is experimental, the conditions that are missing.
 
 #### Scenario: Evidence short by one row
@@ -16,7 +16,7 @@ A write cell that graduates MUST NOT be listed in the row's `experimental`, and 
 - **THEN** it returns false and names that hypothesis
 
 #### Scenario: Both directions are enforced
-- **WHEN** `uv run pytest tests/unit/backends/test_graduation.py -k matrix` checks every row of every backend
+- **WHEN** `uv run pytest tests/unit/backends/test_graduation.py -k matrix` checks every Altium write row
 - **THEN** each write cell is experimental exactly when `graduated` is false
 
 #### Scenario: A stale run undoes graduation

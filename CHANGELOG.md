@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Declare own-readback proofs for all nine Altium write kinds and list missing
+  graduation conditions in the evidence matrix using current committed kit records.
+
 - Add the pure c0092 write-graduation rule, rejecting missing readback proofs,
   weak or refuted hypotheses, missing RT-A3 and stale or uncommitted kit runs.
   Integration and acceptance remain pending; dependency CI still gates archive.

@@ -79,3 +79,7 @@ Total: 3.25. This is a size, not a calendar estimate.
 
 - **Is one kit run on one Altium version enough to graduate a kind?** Decided by the maintainer on 2026-10-06: yes, with the version named everywhere the level is shown.
 - **Should the release notes of 0.3.0 call the Altium target stable?** Default: no: "write kinds verified with AD <version>; see the written scope".
+
+## Entry reconciliation on 2026-10-14
+
+The former all-backend matrix scenario would newly reclassify existing KiCad and Specctra writes, outside this Altium milestone. The entry inventory found eight KiCad write kinds and one Specctra write kind with established policies. This change enforces graduation for Altium rows and preserves those policies. Claims declare own-readback test nodes; the generated matrix checks suite membership by parsing authored test source and computes kit freshness from the same generated kit bytes as `kit status`, using committed validated records. No tool is launched and no kit file is written.
