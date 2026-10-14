@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Publish the reviewed native Altium kit as supplemental v0.4.0 evidence;
+  verify the downloaded archive's recorded SHA-256 and size and close c0092's
+  publication task without changing historical release validation claims.
+
 - Record the passing Windows check-fast checkpoint (13176 passed, 151 skipped)
   and close the native campaign validation-policy prerequisite.
 

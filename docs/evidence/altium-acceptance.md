@@ -36,7 +36,7 @@ project and typed keep-out records; it does not rely solely on its model cache.
 | KiCad board versus Altium PCB document, level 5 | passed |
 | KiCad importer versus the KiCad board, level 5 | passed in CI 38504478797, KiCad 10.0.6 |
 | Probe `acceptance-v03` and frozen outcome | registered as equal from the full CI acceptance; aggregate probe verification pending next batch |
-| Native kit correspondence and publication | pending task 3.1 |
+| Native kit correspondence and publication | task 3.1 complete; supplemental v0.4.0 asset, see provenance below |
 
 The focused acceptance tests passed (5 tests); fixture-manifest and hypothesis/provenance
 checks passed (91 tests). The comparison uses the committed
@@ -131,5 +131,8 @@ complete fresh replay. The original archive and record are preserved.
 Privacy review has zero home-folder/login findings and seven absolute references
 in the neutral Fenolite namespace. The native TXT is used unchanged for K4.2
 under its legacy `drc.html` filename; the HTML with a personal logo reference
-remains outside the publication results. Task 3.1 still waits for the chosen
-release and digest-verified asset publication; no hypothesis is promoted here.
+remains outside the publication results. On 2026-10-14 the maintainer selected
+v0.4.0 for supplemental publication. The uploaded asset was downloaded again:
+its SHA-256 and size match the immutable record and GitHub's asset digest.
+Task 3.1 is complete; no hypothesis is promoted here. This record was generated
+by `0.5.0.dev0` and does not revalidate the released v0.4.0 package binaries.
