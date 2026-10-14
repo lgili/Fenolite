@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record the passing Windows check-fast checkpoint (13176 passed, 151 skipped)
+  and close the native campaign validation-policy prerequisite.
+
 - Reconcile completed CI proofs for the Altium acceptance and five native-campaign
   prerequisite repairs; confirm the v0.3 acceptance probe on pinned KiCad 10.0.6.
 
