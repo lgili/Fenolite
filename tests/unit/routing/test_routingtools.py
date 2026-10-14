@@ -99,7 +99,7 @@ def test_missing_router_is_available_as_a_readiness_result(monkeypatch) -> None:
     assert not status.available and "FENOLITE_KRT" in status.reason
 
 
-def test_budget_and_unpinned_checkout_are_reported(tmp_path, monkeypatch) -> None:
+def test_budget_and_unpinned_checkout_are_reported(tmp_path, monkeypatch, controlled_router_clock) -> None:
     """Reaching the budget is a warning, not ``route.tool-failed`` (change c0109); the constructor's
     budget serves a job that names none."""
     checkout = create_fake_router(tmp_path, version="0.23.0")

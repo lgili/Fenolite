@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Record fake-router subprocess launches before loading the board model, keeping
+  sleeping/failing test modes independent of model import time and preserving
+  the production routing deadline checks. Test plugin scheduling with a controlled
+  clock while retaining the separate real-process deadline integration tests.
+
 - Connect repeated Altium sheet entries through a named scalar wire to their
   ranged bus, so the native compiler joins each channel to its intended signal.
   Import those bridges using their actual bus stem without creating empty nets;
