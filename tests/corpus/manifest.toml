@@ -27,7 +27,7 @@ sha256 = "123e209e6245cbcc344c1c70b425dcb44a12cd0a2d05f00a39d3f2e7ff307ffa"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3382011 bytes."
 
 [[file]]
@@ -148,7 +148,7 @@ sha256 = "1ca70b620506818eb0227e2863bbd573d1fec1672072dc43d0dbe8475e69c8fb"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "oracle", "origin:kicad-demos"]
+uses = ["rt0", "oracle", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo board at tag 10.0.6 (commit caf7377e9cb6); format 20260206; 643403 bytes."
 
 [[file]]
@@ -335,7 +335,7 @@ sha256 = "1a0847becc9c4d39e05de34495bfab7fd01b66ec991def5eeb65a5779bb7acb6"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3815 bytes."
 
 [[file]]
@@ -346,7 +346,7 @@ sha256 = "ddecf22d80344006838423c4bc9a3853ad7e96d63a1882c19817ae23b6fb7ede"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4632 bytes."
 
 [[file]]
@@ -357,7 +357,7 @@ sha256 = "c3545933d62808bc9b71ff71cd6b0cb12b6a0ce285ff46d85bd72f0e64d9d4a7"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5233 bytes."
 
 [[file]]
@@ -368,7 +368,7 @@ sha256 = "40b8bacca43685af9aa2f8f78066dd30bb669990968267cd845caec500439f93"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4973 bytes."
 
 [[file]]
@@ -379,7 +379,7 @@ sha256 = "800f960206a408ec690f6e016bced0818e650a9de2405549da266e77c7aaba20"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5035 bytes."
 
 [[file]]
@@ -390,7 +390,7 @@ sha256 = "2833aa07c0d2503f7efb65517d9ccdf0b16249e54857b18b198a692c00c9033e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6453 bytes."
 
 [[file]]
@@ -401,7 +401,7 @@ sha256 = "c7e352338bd413d79f2679a3a5c185a5a0fa484bd33326fb2a3ddf26c2cdae8f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4774 bytes."
 
 [[file]]
@@ -412,7 +412,7 @@ sha256 = "cb3a49aee00a8c9f61d7789c225373584302075d40661e8490f84f123b7ce851"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9898 bytes."
 
 [[file]]
@@ -423,7 +423,7 @@ sha256 = "ac31f667cf23b3f65c2e25837f508904fcafce965f20c7da7236bacb6dfc444c"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9815 bytes."
 
 [[file]]
@@ -434,7 +434,7 @@ sha256 = "a6468a4164056d7e5e67c88d2cdb50e9916d15040d3c5ac5bb3ccdcd41b9da2b"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 12225 bytes."
 
 [[file]]
@@ -445,7 +445,7 @@ sha256 = "93c58c4e6616677427fcfa425b72d772552a0c252d70d573620e3106eea83d5f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9271 bytes."
 
 [[file]]
@@ -456,7 +456,7 @@ sha256 = "8bb983fa89864d1e23f7d02f652a77c61ace9c2cba09685a95c44234e973956e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 7007 bytes."
 
 [[file]]
@@ -467,7 +467,7 @@ sha256 = "ddb68f56ea534cf8940e624f12ee09ad8363dead641140e7ac609e44145a249b"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 48739 bytes."
 
 [[file]]
@@ -478,7 +478,7 @@ sha256 = "fcca12a6fdbe6eb9c2447d400d6f7af6bee831f1d821fe3d03b46d20a6f75ca3"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3772 bytes."
 
 [[file]]
@@ -489,7 +489,7 @@ sha256 = "28ee7dec98b9717335aaf453d712a7970d925a71e8a555a8b4173abdd06f5eb0"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8139 bytes."
 
 [[file]]
@@ -500,7 +500,7 @@ sha256 = "9abd0a83fa9f1055f128d3e3871e3a0ae6cbc1482bd8afbbb08efeaaa688c1ba"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5369 bytes."
 
 [[file]]
@@ -511,7 +511,7 @@ sha256 = "f4b909a1e8a6964536b946d14ae81cc8143b0cbd62c1ce5ea4759534b03dc394"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 23254 bytes."
 
 [[file]]
@@ -522,7 +522,7 @@ sha256 = "d12c7919599c413cd1d24f15e14717db1f658ecd655234ca51e03556fa2234c4"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2377 bytes."
 
 [[file]]
@@ -533,7 +533,7 @@ sha256 = "1d275e07dd1fea378a27f543c6a4c65ef336a905f789cd0f828153e38e2a5a78"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 1981 bytes."
 
 [[file]]
@@ -544,7 +544,7 @@ sha256 = "00ef80b4ca87f538d93f6b5a25b45dbbaf036efb0f6edbfbd31d9002c8f0f050"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2284 bytes."
 
 [[file]]
@@ -555,7 +555,7 @@ sha256 = "9c74a948a1d5b39eed04f6b3828c52ed95262a46db1b7ea0759c167f16a0817f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4660 bytes."
 
 [[file]]
@@ -566,7 +566,7 @@ sha256 = "d64dd9490baf09b5a0f0b4c2d3489549f42272cae78d295f5f0b221f2b5695be"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 25548 bytes."
 
 [[file]]
@@ -577,7 +577,7 @@ sha256 = "4da8a2a1dc1283dd31b4b8fc62d804dff6148d67717d57384eff301fc25fd04e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 26423 bytes."
 
 [[file]]
@@ -588,7 +588,7 @@ sha256 = "4a2fe35695a01ae8b9bda3356acb2eb79caa63113a5b124323584a7ed2775fe7"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5360 bytes."
 
 [[file]]
@@ -599,7 +599,7 @@ sha256 = "1f2940bbc27eb517e71a4c8c37c8f5a5ff6ca711c94cdaadd97e307fbefcf5de"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6393 bytes."
 
 [[file]]
@@ -610,7 +610,7 @@ sha256 = "b2c0b1307122cc2b0a0dee9f6d63d9b9277bc330e7c59f57fe0e4f3f11bdd5f7"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5241 bytes."
 
 [[file]]
@@ -621,7 +621,7 @@ sha256 = "a70be0485f26449087c1471c33916b7c73bfd99442d42834a6cd1abfc0615e0e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4578 bytes."
 
 [[file]]
@@ -632,7 +632,7 @@ sha256 = "49ea6c2bdab31de3ad714014889dfd6a3d1c279f4c8aa8ebc567c8f37886f8c3"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5699 bytes."
 
 [[file]]
@@ -643,7 +643,7 @@ sha256 = "0ba3d01c5639b5e9490f83149c5a6e202dffec92b51f9cc9708a685ab378b699"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4695 bytes."
 
 [[file]]
@@ -654,7 +654,7 @@ sha256 = "d8891e503eb8de91cb9274b2586727549551f9d02048730ca7fb96a600df45da"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 1727 bytes."
 
 [[file]]
@@ -665,7 +665,7 @@ sha256 = "142fbe3d5c86efcf7f924efb1da96f85045d0f15a8988888a71337a5e457b49a"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 1809 bytes."
 
 [[file]]
@@ -676,7 +676,7 @@ sha256 = "aab45fc2dabbae914b2b7646af96dd9f6647b64341a7ab807fb7da6fa9a4a950"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8239 bytes."
 
 [[file]]
@@ -687,7 +687,7 @@ sha256 = "fbe39b3f91237978c94d534e8c10f98684fb591efd72a45927f8d34ea665e374"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6344 bytes."
 
 [[file]]
@@ -698,7 +698,7 @@ sha256 = "cb05c70333345ce173c8c09e8de37bb0e3f3b623835c7a4f9deb1175e5424dce"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9876 bytes."
 
 [[file]]
@@ -709,7 +709,7 @@ sha256 = "5efbff74cf3df30b7bef6aa14072859653a473382ff714aee9d1c4cf4006b86e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6001 bytes."
 
 [[file]]
@@ -720,7 +720,7 @@ sha256 = "2887a6d4efae7c07267c43a9418260f60f84e2a4f2debe95f12e52a2914f314e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4574 bytes."
 
 [[file]]
@@ -731,7 +731,7 @@ sha256 = "adcc8ac11cccfa07c2c731c99696d59b843dc6e18bfe1133681465fddea87a2d"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9377 bytes."
 
 [[file]]
@@ -742,7 +742,7 @@ sha256 = "dfc69c587852c2d3b7a5cb6175a5c78f582533eb11bff0ff233ea3c3cd1777a1"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8848 bytes."
 
 [[file]]
@@ -753,7 +753,7 @@ sha256 = "fb8f67244984f356f66ac236a636524c26a5e76239c1388b9b585632d017b736"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5451 bytes."
 
 [[file]]
@@ -764,7 +764,7 @@ sha256 = "e1fed064f48c9f4827be3076dddae25e22776a92969e941b0bf7c3003e461ed9"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9003 bytes."
 
 [[file]]
@@ -775,7 +775,7 @@ sha256 = "5d038dc0f5468e13393fdf070c8cbafb73784a40ccad28ded4ba3c1d5206a827"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6950 bytes."
 
 [[file]]
@@ -786,7 +786,7 @@ sha256 = "e3453dc46dfb5bb73bfe768cdb83373dd48a17e6b05e6be099f50eb3c32db975"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5436 bytes."
 
 [[file]]
@@ -797,7 +797,7 @@ sha256 = "4e8a886c5b8dbe5eb17c6aa1b08f6522c8f0fb610cdf891747440df11f93f4da"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5034 bytes."
 
 [[file]]
@@ -808,7 +808,7 @@ sha256 = "695afd83e14d05f8a56792ed7b907bf2e222096315d07d6aefce107cab211474"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5224 bytes."
 
 [[file]]
@@ -819,7 +819,7 @@ sha256 = "ed75a5dc00567b701cbd0b000223b0e3680e79fe38acae613fe807d6d78c8931"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6496 bytes."
 
 [[file]]
@@ -830,7 +830,7 @@ sha256 = "e52cdf97d7ce4bba45bc6e7eda3527fa2de18709c3ff472ffa83abdb93fa8bdd"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6171 bytes."
 
 [[file]]
@@ -841,7 +841,7 @@ sha256 = "2f94bfd08dec6f715b653f45447d5c9123e76c72621fca75a012975be4fab334"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 11084 bytes."
 
 [[file]]
@@ -852,7 +852,7 @@ sha256 = "916fcfea0c25ddbf2e774f7c4808bbdc09c3847356b43898537bb0a318e8ab22"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 6149 bytes."
 
 [[file]]
@@ -863,7 +863,7 @@ sha256 = "ba427a6271a94f7d634c4cd0da670e2533557d00df6ef62766689b9454a2edc9"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 4837 bytes."
 
 [[file]]
@@ -874,7 +874,7 @@ sha256 = "ad959f6889bf253b5664732b95b43f38b14eb82f700845bb1fa460ce40a20da8"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5782 bytes."
 
 [[file]]
@@ -885,7 +885,7 @@ sha256 = "6958e4c6b7d0cb515d199b60666b8cd01159e2e6358824f2f0de96b39f5b2919"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 5319 bytes."
 
 [[file]]
@@ -896,7 +896,7 @@ sha256 = "fd989d8d1c13cbd371f5f07bcd4444c7f00bd1bfcd5a76e5eb712f3a11c833fe"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8066 bytes."
 
 [[file]]
@@ -907,7 +907,7 @@ sha256 = "c0d73fe57596ba37afa9611102b0c67bdd55fbdd59b0a42ad03057c469d9f38f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 8270 bytes."
 
 [[file]]
@@ -918,7 +918,7 @@ sha256 = "0fb3041ad3e1ef584c02c4047f46e8c003dcced1d3d0058152691306d33606f1"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 38554 bytes."
 
 [[file]]
@@ -929,7 +929,7 @@ sha256 = "4ad1d9365dc75a4666f8da19355700168bd8bdff1c722bbe357a12d9aec1df7c"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2708 bytes."
 
 [[file]]
@@ -940,7 +940,7 @@ sha256 = "bc0a064c0fb0b691521e7273159f67306b6a0b81d4a453e872327f25a44468b7"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 2679 bytes."
 
 [[file]]
@@ -951,7 +951,7 @@ sha256 = "31e95cee624e3049a647aba17f9f180c6b428904ed931103e21a6e0df5e1eb5f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 16147 bytes."
 
 [[file]]
@@ -962,7 +962,7 @@ sha256 = "541d06190ecf457bde08e6832f7172f7e812c0689a89e2c9096081814e71961c"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 9264 bytes."
 
 [[file]]
@@ -973,7 +973,7 @@ sha256 = "51ee585a33cffd8dec420122fd2b266b2a4f9517fc277320566db8550629c6b2"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 11976 bytes."
 
 [[file]]
@@ -984,7 +984,7 @@ sha256 = "cca1537000f9ad659438c521b94770018685c98ec0f25fa3c5b117de565a5045"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 20250513; 3036 bytes."
 
 [[file]]
@@ -1204,7 +1204,7 @@ sha256 = "7546c2f069c301d990137482b1d5e4742b5c8c6c40fe61333e931e3a28a97c19"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "libs", "origin:kicad-demos"]
+uses = ["rt0", "libs", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo file at tag 10.0.6 (commit caf7377e9cb6); format 7; 121 bytes."
 
 [[file]]
@@ -1556,7 +1556,7 @@ sha256 = "aa5b004bb45d70028612f6591b2cd5fa4754095e7542dbbca974753e4399526a"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 23441 bytes."
 
 [[file]]
@@ -1677,7 +1677,7 @@ sha256 = "3b0ac39da5af86d0baa2a64da55a89c39ba00148dc82b54f3062f5c3650a5cc5"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["project", "origin:kicad-demos"]
+uses = ["project", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo project file at tag 10.0.6 (commit caf7377e9cb6); 17842 bytes."
 
 [[file]]
@@ -2688,7 +2688,7 @@ sha256 = "adf319d48ed84d685e3660995650cf30a7998b05930c51655fb759c5945bce4f"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 189243 bytes."
 
 [[file]]
@@ -2699,7 +2699,7 @@ sha256 = "b40a486994138c07a45d20e08e6f42405e4b99a88e82a3d55f23704ca9ddc0e7"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 187616 bytes."
 
 [[file]]
@@ -2710,7 +2710,7 @@ sha256 = "87c70624b7ef5d5e920cf3fb961bcbdf84d7a9e209fbfbee7240251b7cd26cd6"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 35247 bytes."
 
 [[file]]
@@ -2721,7 +2721,7 @@ sha256 = "c9558c21e63bda58d6893943c54ebbe9372d37373449cfab5c546f20db19293c"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 60068 bytes."
 
 [[file]]
@@ -2732,7 +2732,7 @@ sha256 = "57adc114d891f568263b153a0b72bb0c3c99dcec0d1d40f7d2ca991038561afd"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 67592 bytes."
 
 [[file]]
@@ -2743,7 +2743,7 @@ sha256 = "745b39eb73b97ae3d655921ac36fd38a5622b1b62de9eee23f2a2f8720074e0e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos"]
+uses = ["rt0", "sch", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 118901 bytes."
 
 [[file]]
@@ -2754,7 +2754,7 @@ sha256 = "62c448d1135746caba304569459e0a39ab4851b29b1eeef57859e2315b816ca3"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 140477 bytes."
 
 [[file]]
@@ -2765,7 +2765,7 @@ sha256 = "16cacf7bd02b47c8247e5d62c855d8ba76d9e7f97bb58508118f57bfc50d199e"
 license = "CC-BY-SA-4.0"
 license_variant = "CERN-OHL-S-2.0"
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20250610; 71209 bytes."
 
 [[file]]
@@ -3095,7 +3095,7 @@ sha256 = "cf92bff8aebe19e45444f13b2ccd1c8ad578df6a226acd5381e2eff95e2fc08f"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus"]
+uses = ["rt0", "sch", "origin:kicad-demos", "sch-root", "sch-bus", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20260101; 229174 bytes."
 
 [[file]]
@@ -3106,7 +3106,7 @@ sha256 = "8cbf575b53b205280ca277df8affc6477cf20c5d06c63c267cd6fb19b6d771ae"
 license = "CC-BY-SA-4.0"
 license_variant = ""
 embeddable = false
-uses = ["rt0", "sch", "origin:kicad-demos"]
+uses = ["rt0", "sch", "origin:kicad-demos", "downgrade-demo"]
 notes = "Demo schematic at tag 10.0.6 (commit caf7377e9cb6); format 20260101; 97976 bytes."
 
 [[file]]

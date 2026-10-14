@@ -582,6 +582,13 @@ underlying cause is not established. All ten reports and the identical input
 hash are retained ignored. No test expectation, probe baseline or production
 KiCad behavior is changed to turn this into a pass.
 
+Validation strategy, 2026-10-14: the maintainer explicitly stopped local full
+suites on this slow Windows PC. The current local full gate (last displayed
+progress 33%) and all-probes retry are interrupted without a verdict, with logs
+preserved. Local work uses check-fast and focused proofs; accumulated commits
+are published to their working branch for GitHub's parallel jobs. Existing
+required CI criteria still gate archives and merges.
+
 Latest Part R repair (S-0740/S-0741/S-0742): native named-wire Repeat connection,
 different parent stem, detached bus, corrected empty-PCB ECO and original indexed
 annotation reload now match all eleven intended memberships/five nets. Thirteen
@@ -590,3 +597,29 @@ match complete imported memberships. The interface's eight formats and five
 styles are confirmed. R1-R4 are complete in c0083; R5's separate branch artefacts
 retain their earlier failed result pending reconciliation. Historical failures
 remain intact in the preceding notes and runtime logs.
+
+CI checkpoint on commit 56477fff, run 38483187426: all five unit matrix jobs,
+both routing jobs, wheel and DCO pass. KiCad 9 fails the example SchLib's
+namespace expectation and the uncached KiCad-10 downgrade demos; KiCad 10's
+DIFAT probe is inconclusive when heavy inputs are disabled. These failures are
+not suppressed. The measured 9.0.9 import uses `altium_kicad.PcbLib` as its
+footprint namespace, whereas 10.0.6 uses `altium_kicad` (S-0743). The exact model
+names and source-pin/unit/reference assertions remain required; the native
+retry of the adjusted expectation belongs to CI.
+
+Local fast retry after the strategy change: 4 failed, 13118 passed, 151 skipped
+(1976.07 s). Three failures require process startup/preparation to fit within
+50 ms or 2 s; a controlled-clock boundary now tests those plugin scheduling
+scenarios, while the separate real Budget process-kill/time-left tests remain
+unchanged. All routing and parallel-rule focused tests pass (109 passed,
+44 platform skips, 97.63 s). Explicit make check-in-CI and single-full-suite
+wording restores the AGENTS documentation guard. The failed fast run remains
+preserved and is not reported as a passing gate.
+
+CI prerequisites repair: 75 existing manifest entries belonging only to the
+two downgrade demo folders gain a selection tag; every URL, SHA-256 and other
+manifest field remains unchanged. KiCad 9 fetches that narrow selection with
+its existing rt2-9/sch-9 inputs under a distinct cache key. KiCad 10 enables
+and fetches the three already declared heavy inputs. Workflow/manifest proofs
+pass (85 tests, 4.94 s); expected probe files are unchanged. Exact-commit CI
+results remain required before closing changes.

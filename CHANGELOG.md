@@ -9,6 +9,10 @@ All notable changes to Fenolite are documented here. The format follows
 - Check the exact KiCad-major-specific footprint namespace in the authored
   Altium SchLib oracle while retaining every model and source-pin comparison.
 
+- Keep local Windows validation to the fast gate and focused proofs; send batches
+  to GitHub CI for complete validation in parallel. Restore its narrowly selected
+  downgrade demo inputs and enable the three declared heavy oracle inputs.
+
 - Record fake-router subprocess launches before loading the board model, keeping
   sleeping/failing test modes independent of model import time and preserving
   the production routing deadline checks. Test plugin scheduling with a controlled
