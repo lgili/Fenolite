@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile c0092's closing evidence matrix and acceptance review: the tested
+  graduation rule retains all nine Altium write kinds as experimental. Measured
+  results and remaining conditions are in `docs/evidence/altium-acceptance.md`;
+  self-readback alone does not supply independent format verification.
+
 - Reconcile Altium limits, milestone status and the five acceptance criteria with
   measured kit/corpus results; preserve the unmet write-promotion criterion and
   prepare the maintainer review without claiming acceptance or archive.

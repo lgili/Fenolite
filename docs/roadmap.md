@@ -473,6 +473,13 @@ review under c0092 task 5.2. Publication and passing CI do not waive the unmet
 write-promotion part of item 5. Details: `docs/evidence/altium-acceptance.md`
 and `docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md`.
 
+The remaining conditions include own-readback hypotheses still labelled
+`INFERRED`: Fenolite writing and reading its own output proves internal
+consistency, but supplies no independent format verification. A passing CI
+or kit run cannot automatically promote those hypotheses. The
+[remaining inventory](evidence/altium-kit/2026-10-14-graduation-inventory.md)
+records their individual criteria; acceptance review must retain this limit.
+
 **Equivalence levels** (`equivalent A B --level N`, project plan):
 
 | level | compares | milestone |
