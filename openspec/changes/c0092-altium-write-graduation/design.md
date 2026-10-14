@@ -92,3 +92,7 @@ The DSL declares the common circuit, placement, six-layer stack, copper, rule ki
 ## Verification import boundary reconciliation
 
 CI exposed the stricter stdlib/core-only verification import rule. GraduationHypothesis and GraduationRun are data contracts in core.evidence, re-exported by backends.base for existing callers. Graduation evaluation and the matrix consistency check remain in backends.base; verify.graduation only adapts register/kit data through core types. The import guard remains unchanged.
+
+## Installed runtime graduation decisions
+
+Task 4.1 generates a packaged JSON snapshot from the pure graduation rule, the register, declared readback tests and validated committed kit records against current generated kit bytes. Runtime loads only this package resource, never checkout documentation or external tools. The snapshot records each kind's write hypothesis ids, readback node and missing conditions; changed declarations fail closed. A generator check and focused tests compare every packaged decision with the rule. Claims derive experimental flags from these decisions; capabilities derives write kinds from the resulting matrix, while the build combines only actually written kinds with input evidence. This does not promote any of the current nine kinds.

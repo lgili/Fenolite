@@ -6,6 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Apply generator-checked Altium graduation decisions per format in capabilities
+  and build notices; include missing conditions for all experimental kinds and
+  combine evidence only for emitted documents and inputs. Current kinds remain
+  experimental; installed packages do not require checkout evidence files.
+
 - Link 27 native Altium hypotheses to the published kit record and archive,
   retaining typed-form qualifications and historical observations. Inventory
   the remaining proofs and require real recorded kit verdicts in legacy guards.

@@ -671,7 +671,41 @@ def write_project(
     return files
 
 
+BUILD_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+        "H-A-PRJ-KEEP",
+        "H-A-PRJ-OPEN",
+        "H-A-SCH-ECO",
+        "H-A-SCH-LINEEND",
+        "H-A-SCH-LINK",
+        "H-A-SCH-NC-ERC",
+        "H-A-SCH-NC-RECORD",
+        "H-A-SCH-NC-VIEWER",
+        "H-A-SCH-NETS",
+        "H-A-SCH-OPEN",
+        "H-A-SCH-RELINK",
+        "H-A-SCH-UID",
+        "H-A-SCH-UPDATE",
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-PINMAP",
+        "H-A-SCHX-PINMAP-FORM",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE",
+    ),
+)
+"""Evidence of the DSL build's schematic/library presentation and update choices."""
+
 __all__ = [
+    "BUILD_EVIDENCE",
     "DEFAULT_FORM",
     "DEFAULT_SHEETS",
     "EVIDENCE",

@@ -44,6 +44,7 @@ from fenolite.backends.altium import (
     schdot,
     schlib,
 )
+from fenolite.backends.altium.graduation import decisions
 from fenolite.backends.altium.read import pcb as read_pcb
 from fenolite.backends.altium.read import pcblib as read_pcblib
 from fenolite.backends.altium.read import project as read_project
@@ -56,7 +57,7 @@ IMPORT = import_evidence.EVIDENCE
 SCHEMATIC_READ = Evidence.combine(read_sch.EVIDENCE, IMPORT)
 WRITE = ("write",)
 
-MATRIX: tuple[MatrixRow, ...] = (
+RAW_MATRIX: tuple[MatrixRow, ...] = (
     MatrixRow(NAME, project.HARNESS_KIND, write=hierarchy.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, outjob.OUTJOB_KIND, write=outjob.EVIDENCE, experimental=WRITE),
     MatrixRow(
@@ -82,7 +83,7 @@ MATRIX: tuple[MatrixRow, ...] = (
         "altium_prjpcb",
         detect=IMPORT,
         read=Evidence.combine(read_project.EVIDENCE, IMPORT),
-        write=project.EVIDENCE,
+        write=Evidence.combine(project.EVIDENCE, project.BUILD_EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(NAME, schdot.SCHDOT_KIND, write=schdot.EVIDENCE, experimental=WRITE),
@@ -91,7 +92,7 @@ MATRIX: tuple[MatrixRow, ...] = (
         "altium_schdoc_ascii",
         detect=IMPORT,
         read=SCHEMATIC_READ,
-        write=project.EVIDENCE,
+        write=Evidence.combine(project.EVIDENCE, project.BUILD_EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(
@@ -99,7 +100,7 @@ MATRIX: tuple[MatrixRow, ...] = (
         "altium_schdoc_binary",
         detect=IMPORT,
         read=SCHEMATIC_READ,
-        write=Evidence.combine(project.EVIDENCE, binary.EVIDENCE),
+        write=Evidence.combine(project.EVIDENCE, project.BUILD_EVIDENCE, binary.EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(
@@ -107,7 +108,7 @@ MATRIX: tuple[MatrixRow, ...] = (
         project.SCHLIB_KIND,
         detect=IMPORT,
         read=SCHEMATIC_READ,
-        write=schlib.EVIDENCE,
+        write=Evidence.combine(schlib.EVIDENCE, schlib.BUILD_EVIDENCE),
         experimental=WRITE,
     ),
 )
@@ -133,6 +134,8 @@ OWN_READBACK: dict[str, str] = {
 These tests use Fenolite's readers and do not replace a native kit or corpus oracle.
 """
 
+MATRIX, GRADUATION_MISSING = decisions(RAW_MATRIX, OWN_READBACK)
+
 RT_A1_NOTE = "RT-A1 (H-A-VER-RTA1): every typed stream gives equal records after an encode and a read"
 ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
     {
@@ -155,4 +158,4 @@ ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
 (capability altium-verification, "Round-trip claims of the Altium kinds"; change c0090). The matrix has
 no column for a note: its round-trip cells say ``exact`` or nothing, and these kinds have nothing."""
 
-__all__ = ["MATRIX", "NAME", "OWN_READBACK", "ROUND_TRIP_NOTES"]
+__all__ = ["GRADUATION_MISSING", "MATRIX", "NAME", "OWN_READBACK", "RAW_MATRIX", "ROUND_TRIP_NOTES"]

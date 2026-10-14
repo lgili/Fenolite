@@ -141,6 +141,6 @@ Task 3.2 reconciliation on 2026-10-14 labels the 27 passing kit candidates,
 with the committed run and archive digest and explicit typed-form qualifiers.
 Their prior observations are retained in the register. The
 [remaining hypothesis inventory](altium-kit/2026-10-14-graduation-inventory.md)
-states the independent criterion or missing kit proof for the other 102 rows
+states the independent criterion or missing kit proof for the other 115 rows
 used by write cells and acceptance/kit families. This changes no capability;
 all nine write kinds still fail the complete graduation rule.

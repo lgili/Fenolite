@@ -254,7 +254,10 @@ libraries and, for KiCad footprints, a PCB library and an experimental PCB docum
 It reads only the KiCad libraries that KiCad lib ids and footprint links name, `result.target` is the
 string `altium`, `result.footprints` and `result.pcb_document` describe the PCB files,
 `result.no_connects` counts the No ERC directives written for the pins marked with `no_connect`,
-`result.experimental` is `true`, and `--kicad-version` and `--allow-lossy` change none of its bytes.
+`result.experimental` is true when at least one emitted kind remains experimental;
+one `altium.experimental` info lists those kinds. The envelope combines the write
+cells of emitted kinds with input evidence; kept documents and cache files add no
+write claim. `--kicad-version` and `--allow-lossy` change none of its bytes.
 Any other `--target` value is a usage error (`FEN-2001`, exit 2).
 
 `--altium-format {binary,ascii}` picks the form of the Altium schematic: `binary` (the default, a
@@ -643,12 +646,15 @@ A command whose examples need an external tool also lists `example_tools` (`expo
 examples run with no subprocess.
 
 `result.experimental` lists, sorted by `name`, the features that may change their output, options or
-issue codes in any release. Each entry has exactly the keys `name`, `command`, `option`, `write_kinds`
-and `evidence` (written as a backend's evidence), and its level is never one that counts as verified for
+issue codes in any release. Each Altium entry has the keys `name`, `command`, `option`, `write_kinds`,
+`missing` (conditions per kind) and `evidence` (written as a backend's evidence), and its level is never one that counts as verified for
 a release. Listing them runs no external tool, so the list is the same with `--no-tools`. An
 experimental feature appears in `result.backends` only when it is a registered backend. Today the list
-holds two entries, which share no write kind: the Altium PCB writer (`altium-pcb-writer`, write kinds
-`altium_pcbdoc` and `altium_pcblib`, change c0035) and the Altium schematic writer:
+holds three entries, which share no write kind: the Altium PCB writer (`altium-pcb-writer`, write kinds
+`altium_pcbdoc` and `altium_pcblib`, change c0035), the Altium schematic writer,
+and `altium-support-writer` for the remaining matrix kinds (OutJob and SchDot).
+Graduated kinds are excluded; an empty feature entry is omitted. The following
+examples abbreviate the additional `missing` mapping:
 
 ```json
 {"name": "altium-pcb-writer", "command": "build", "option": "--target altium",
@@ -682,7 +688,12 @@ The entry `altium` (change c0043) reads and does not write, so it lists no targe
  "evidence": {"level": "INFERRED", "oracle": null, "hypotheses": ["H-A-IMP-NETLIST", "…"]}}
 ```
 
-The Altium writers are not part of that report: they stay under `result.experimental`.
+Altium `write_kinds` are computed from the evidence matrix: only kinds that
+satisfy the graduation rule appear there. The current nine kinds still remain
+under `result.experimental`; no current kind is promoted. Packaged decisions are
+checked against the register, own-readback tests, RT-A3 and current committed kit
+evidence by `uv run python tools/gen_altium_graduation.py --check`. Discovery of
+an installed wheel needs neither checkout evidence files nor external tools.
 
 The backend's `evidence` is the lowest of what its `read` and `write` return for an arbitrary board, so
 it is `INFERRED` although the two rows it names are stronger in `docs/hypotheses.md`

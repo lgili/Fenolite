@@ -479,6 +479,11 @@ meaning = "The PCB library or document would need more than 109 FAT sectors."
 fix = "Reduce the board content, for example the number of distinct footprints."
 see = "Build target"
 
+["altium.experimental"]
+meaning = "The emitted Altium formats still lack some graduation proofs."
+fix = "Read capabilities --json --no-tools: experimental.missing lists the remaining conditions for each format. Validate generated documents in Altium."
+see = "Discovery"
+
 ["altium.pcbdoc-not-written"]
 meaning = "The conditions for writing the PCB document do not hold, so only the other files are written; the message says which condition."
 fix = "Meet the condition the message names, for example a board with an outline and resolved footprints."

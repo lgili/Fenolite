@@ -12,6 +12,11 @@ acceptance and kit families. These rows have no passing verdict in this run;
 their levels remain unchanged. Already established independent evidence is
 retained; its absence from this kit does not refute it or require repetition.
 
+Task 4.1 adds 13 existing schematic/library presentation hypotheses to the
+matrix's write declarations, so this inventory now covers 115 remaining rows.
+Those facts were previously present only in the build envelope; their levels
+and recorded observations are unchanged.
+
 | hypothesis | current level | remaining kit support or independent criterion |
 |---|---|---|
 | H-A-ACC-KIT | INFERRED | No passing verdict in this run; still requires its stated proof: recorded run contains no failed step in those groups |
@@ -116,6 +121,20 @@ retained; its absence from this kit does not refute it or require repetition.
 | H-A-SCHX-TEXT | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact) | No passing verdict in this run; still requires its stated proof: the two sample strings read as written |
 | H-A-VER-RTA2-3 | INFERRED | No passing verdict in this run; still requires its stated proof: equal for every example script, both schematic forms, with no kind only counted |
 | H-A-VER-RTA3 | CORPUS-VERIFIED | Independent evidence already established; no new kit verdict. Criterion: equal on every listed corpus document, from at least three repositories; the unwritten counts are recorded per kind |
+
+| H-A-PRJ-KEEP | INFERRED | No passing verdict in this run; still requires its stated proof: both documents listed after the rebuild; the change order runs; the key names Altium added are recorded |
+| H-A-SCH-ECO | INFERRED | No passing verdict in this run; still requires its stated proof: every component and net added; no change marked invalid |
+| H-A-SCH-NC-ERC | INFERRED | No passing verdict in this run; still requires its stated proof: no message names pins 2, 4 or 8; a floating-input message names pin 3 |
+| H-A-SCH-NC-RECORD | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) | No passing verdict in this run; still requires its stated proof: no prompt or repair offer; three directives at the ends of `U1` pins 2, 4 and 8 |
+| H-A-SCH-NC-VIEWER | INFERRED | No passing verdict in this run; still requires its stated proof: three crosses at the marked pins |
+| H-A-SCH-RELINK | INFERRED | No passing verdict in this run; still requires its stated proof: one modification listed, and no component added or removed |
+| H-A-SCH-UPDATE | INFERRED | No passing verdict in this run; still requires its stated proof: the parts are found; the count of unconnected pins after full replacement is recorded; every net is kept after the selected-attributes update |
+| H-A-SCHLIB-KICAD9 | ORACLE-VERIFIED(kicad-cli) (9.0.9, pinned image, local run; 2026-10-02) | No passing verdict in this run; still requires its stated proof: the same comparisons pass, or the failure message is recorded and the test is expected to fail on major 9 |
+| H-A-SCHLIB-MULTIPART | INFERRED | No passing verdict in this run; still requires its stated proof: `U1` compiles as one component with parts A and B and no duplicate-designator or unique-id message |
+| H-A-SCHLIB-PRJ | ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-03; no artefact) | No passing verdict in this run; still requires its stated proof: the library is listed under the project's source documents and found by the update |
+| H-A-SCHLIB-SCHDOC | INFERRED | No passing verdict in this run; still requires its stated proof: the Navigator nets equal the page's tables; no message of level error or fatal |
+| H-A-SCHX-PINMAP | INFERRED | No passing verdict in this run; still requires its stated proof: the relation read back equals the model's in both schematic forms and in the library, for both values of `altsym.MAP_RECORDS_FOR_EVERY_PIN`; Altium shows the written pads on the pins |
+| H-A-SCHX-PINMAP-FORM | CORPUS-VERIFIED | No passing verdict in this run; still requires its stated proof: over the public project sets `altium-set:02` to `altium-set:05`: no record names the pin's own pad alone, a model with fewer records than pins exists, and every record starts at `DESIMP0` |
 
 No write kind graduates from this reconciliation alone. Task 4.1 applies the
 complete rule, including own readback, model RT-A3 and every cell hypothesis.

@@ -7,7 +7,8 @@ summary: build --target altium, what it writes, the status of each written file 
 # Building for Altium Designer
 
 `fenolite build --target altium` builds a script into an Altium project without Altium installed.
-A person with Altium Designer must check that it opens.
+
+`altium.experimental` lists written experimental kinds; `capabilities` lists their `missing` proofs.
 
 ## A script and its build
 
@@ -105,7 +106,6 @@ fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ## The verification kit is a person's run
 
 The Altium verification kit is a run that a person performs in Altium Designer.
-Fenolite builds its samples and judges the returned files; it cannot perform that run.
 
 ```fenolite-cmd
 fenolite kit build --out kit --dry-run --json

@@ -12,7 +12,7 @@ import shutil
 import subprocess
 from collections.abc import Mapping, Sequence
 from functools import cache
-from typing import Any
+from typing import Any, cast
 
 from fenolite import __version__
 from fenolite.agent import guide
@@ -20,7 +20,7 @@ from fenolite.backends import registry
 from fenolite.cli import describe
 from fenolite.cli.api import Command, Context, Result, discover
 from fenolite.cli.errors import CliError
-from fenolite.core.evidence import Evidence
+from fenolite.core.evidence import Evidence, Level
 from fenolite.routing.protocol import router_features
 from fenolite.routing.registry import routers as routing_routers
 
@@ -103,16 +103,26 @@ def _register(parser: argparse.ArgumentParser) -> None:
 def _experimental(features: Sequence[tuple[Mapping[str, object], Evidence]]) -> list[dict[str, Any]]:
     """One entry per experimental feature, sorted by name, its evidence written as a backend's
     (``docs/cli-contract.md``, "Discovery")."""
+    from fenolite.backends.altium import claims
+
+    pending = {row.kind for row in claims.MATRIX if row.write is not None and "write" in row.experimental}
     entries: list[dict[str, Any]] = [
         {
             **entry,
+            "write_kinds": [kind for kind in cast(Sequence[str], entry["write_kinds"]) if kind in pending],
+            "missing": {
+                kind: list(claims.GRADUATION_MISSING[kind])
+                for kind in cast(Sequence[str], entry["write_kinds"])
+                if kind in pending
+            },
             "evidence": {
-                "level": evidence.level.value,
+                "level": Evidence.combine(evidence, Evidence(Level.INFERRED)).level.value,
                 "oracle": evidence.oracle,
                 "hypotheses": list(evidence.hypotheses),
             },
         }
         for entry, evidence in features
+        if any(kind in pending for kind in cast(Sequence[str], entry["write_kinds"]))
     ]
     return sorted(entries, key=lambda e: str(e["name"]))
 
@@ -190,8 +200,21 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         return Result(result=_command_view(discover(), str(args.described)))
 
     from fenolite.backends import matrix  # its rows import the claims of every backend package
+    from fenolite.backends.altium import claims
     from fenolite.convert import DIRECTIONS
     from fenolite.lens.altium import ALTIUM_BUILD_EVIDENCE, EXPERIMENTAL, PCB_BUILD_EVIDENCE, PCB_EXPERIMENTAL
+
+    primary = {
+        *cast(Sequence[str], EXPERIMENTAL["write_kinds"]),
+        *cast(Sequence[str], PCB_EXPERIMENTAL["write_kinds"]),
+    }
+    support = [row for row in claims.MATRIX if row.write is not None and row.kind not in primary]
+    support_entry = {
+        "name": "altium-support-writer",
+        "command": "build",
+        "option": "--target altium",
+        "write_kinds": [row.kind for row in support],
+    }
 
     commands = [_entry(c) for c in sorted(discover().values(), key=lambda c: c.name)]
     from fenolite.cli.main import MUTATION_FLAGS, global_flags
@@ -203,7 +226,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "mutation_flags": list(MUTATION_FLAGS),
         "backends": [backend.capabilities().to_json() for backend in registry.all_backends()],
         "experimental": _experimental(
-            [(EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE), (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE)]
+            [
+                (EXPERIMENTAL, ALTIUM_BUILD_EVIDENCE),
+                (PCB_EXPERIMENTAL, PCB_BUILD_EVIDENCE),
+                (support_entry, Evidence.combine(*(row.write for row in support if row.write is not None))),
+            ]
         ),
         "matrix": [row.to_json() for row in matrix.rows()],
         # the registered directions of fenolite convert (capability cli-contract, "Conversions in
