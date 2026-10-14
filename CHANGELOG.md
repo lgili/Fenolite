@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Audit the historical v0.3 Altium release table against declarations extracted
+  from its exact tag, preserving its recorded counts as current claims evolve.
+
 - Apply generator-checked Altium graduation decisions per format in capabilities
   and build notices; include missing conditions for all experimental kinds and
   combine evidence only for emitted documents and inputs. Current kinds remain
