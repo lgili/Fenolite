@@ -34,6 +34,7 @@ jobs:
         env:
           FENOLITE_REQUIRE: kicad,corpus
         run: |
+          mkdir -p build/royalblue-diagnostic
           result_code=0
           for case_index in 1 2; do
             uv run pytest tests/kicad/board/test_written_own_target.py -q -s -n 0 --basetemp "build/royalblue-diagnostic/run-$case_index" || result_code=1

@@ -88,6 +88,8 @@ CI completion for task 3.3 (2026-10-14): run [38534846859](https://github.com/lg
 
 Diagnostic preflight (2026-10-14): `make check-fast PYTEST_WORKERS=4` passed on the frozen diagnostic tree: 13,193 passed, 151 skipped, exit 0. The native KiCad case is not included in that local gate; task 6.1b remains open until the focused CI reports and source-copy control are inspected.
 
+The first diagnostic CI (38570753742) stopped in pytest setup before any native DRC: the custom basetemp parent was absent. The workflow now creates that parent before either run; no native verdict is inferred from this setup failure.
+
 - [ ] 6.1 Run the residue and full test suites. Proof: `uv run pytest tests/residue tests/corpus/test_manifest.py` and `uv run python tools/residue/scan.py` exit 0; `make check` passes; `openspec validate c0092-altium-write-graduation --strict --no-interactive` passes; `gh pr checks` shows `unit`, `kicad-9` and `kicad-10` passing.
 - [ ] 6.2 Update the evidence: every row of this change holds its measured level and result in `docs/hypotheses.md`, the cells of `backends/altium/claims.py` say what is written and at which level, and `uv run python tools/gen_evidence_matrix.py` regenerates `docs/evidence/matrix.md`. Proof: `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py tests/unit/backends/test_evidence_declared.py`.
 - [ ] 6.3 Add to `CHANGELOG.md` under Unreleased: "v0.3: Altium write kinds leave `experimental` by a tested rule (own readback, RT-A3 over the corpus, a recorded kit run); the acceptance run and its result are in `docs/evidence/altium-acceptance.md`". Update `docs/roadmap.md`. Proof: `git diff --stat CHANGELOG.md docs/roadmap.md` lists both files.
