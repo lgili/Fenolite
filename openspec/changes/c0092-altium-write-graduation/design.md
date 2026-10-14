@@ -83,3 +83,7 @@ Total: 3.25. This is a size, not a calendar estimate.
 ## Entry reconciliation on 2026-10-14
 
 The former all-backend matrix scenario would newly reclassify existing KiCad and Specctra writes, outside this Altium milestone. The entry inventory found eight KiCad write kinds and one Specctra write kind with established policies. This change enforces graduation for Altium rows and preserves those policies. Claims declare own-readback test nodes; the generated matrix checks suite membership by parsing authored test source and computes kit freshness from the same generated kit bytes as `kit status`, using committed validated records. No tool is launched and no kit file is written.
+
+## Acceptance preparation on 2026-10-14
+
+The DSL declares the common circuit, placement, six-layer stack, copper, rule kinds and drawing sheet. The authored model hook supplies the arbitrary ranged bus, free mechanical hole and explicit body geometry, as the existing kit samples supply model-only items. KiCad represents the free hole as an anonymous non-plated footprint, Altium as a free pad; both drill counts and sizes are verified before the established triangle exclusions apply. Preparation launches no external tool and never counts as complete acceptance. Full comparison uses the existing committed importer profile, with no added tolerance or exclusion. The acceptance check stages are model and readback checks; full DRC cleanliness is not claimed for the sparse exercise board. Probe registration waits for the measured full CI result.

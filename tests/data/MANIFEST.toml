@@ -2169,3 +2169,15 @@ path = "tests/data/kicad/downgrade/via-tertiary-drill.kicad_pcb"
 origin = "authored"
 corpus_id = ""
 notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "examples/acceptance_v03/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "CC0 v0.3 acceptance tree; all dimensions are Fenolite choices"
+
+[[file]]
+path = "examples/acceptance_v03/acceptance.sheet.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Byte-identical copy of the Fenolite CC0 generic sheet template; public provenance S-0077 and S-0078 retained"

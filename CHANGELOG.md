@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Add the authored v0.3 acceptance tree and a preparation mode that builds both
+  targets, checks written scope and records JSON results; external import validation
+  runs separately in the KiCad CI job.
+
 - Declare own-readback proofs for all nine Altium write kinds and list missing
   graduation conditions in the evidence matrix using current committed kit records.
 
