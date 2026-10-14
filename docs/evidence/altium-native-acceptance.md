@@ -656,3 +656,27 @@ separate notice about macOS ARM capacity constraints. Its test log is unavailabl
 (HTTP 404); no specific test failure or resource-exhaustion cause can be established.
 A fresh run on the corrected commit is required. This batch is not a passing
 complete gate, and no archive or evidence promotion follows from it.
+
+## Remaining active changes, reviewed 2026-10-14
+
+This inventory separates work that can share the next CI batch from proofs
+that CI cannot supply. It does not mark outstanding tasks complete or authorize
+an archive based only on a prior passing run.
+
+| change | outstanding work | preparation and closing condition |
+|---|---|---|
+| c0159 | tasks 6.1/6.2: triangle, retarget and aggregate native probe proof | Tests and recorded outcomes already exist. Reconcile both pinned-major CI reports, including skip reasons, then archive if the complete proof holds. No new conversion implementation is required for these tasks. |
+| c0162 | tasks 4.1/4.2: resolver benches, demos and aggregate probe proof | Tests, authored saves and outcomes already exist. Reconcile both pinned majors; the fixture-writing test is intentionally skipped unless its explicit write flag is set. Preserve existing saves and measured probe outcomes. |
+| c0160 | tasks 4.3, 5.3, 7.3: public project RT-A3, Part T and closing gates | Prepare the RT-A3 table and focused tests for the batch. Native PADSTACK, DIFAT and SCHEMATIC observations must still be completed under c0166 before the Part T task closes. |
+| c0146 | task 2.4: repeated-sheet R1-R4 report | R1 has an earlier report; remaining native outcomes must be recorded and checked. CI does not perform these Altium observations. |
+| c0105 | task 1.4: KiCad 10 GUI-authored tuning profile save | Still requires the authored single/differential-profile save, manifest entry and comparison. Earlier maintainer deferral is retained; CI cannot manufacture GUI evidence. |
+| c0081 | tasks 4.2/4.3: first real agent benchmark and cost decision | The specification explicitly requires the maintainer to initiate the first run and decide the remaining batch from its cost. No automated substitute or inferred approval. |
+| c0161 | all implementation tasks still unchecked | Implement Altium-to-KiCad conversion, layers/slots/symbols, corpus census and independent native probes in task order. This is new implementation work rather than an archive-only reconciliation. |
+| c0092 | tasks 5.2/6.1: maintainer review and exact-commit full CI | Evidence and closing documentation are prepared; all nine write kinds remain experimental. Review is pending, not approved. |
+| c0166 | native Part T and schematic/PCB/Repeat/OutJob/Viewer requests, remaining diagnosis and closing | Reconcile recorded results without duplicating completed kit checks. Finish the remaining native observations and preserve unavailable-app or implementation blockers; the campaign cannot close merely because its prerequisite CI passes. |
+
+The next combined batch can include proof reconciliations for c0159/c0162,
+the c0160 RT-A3 table and the c0092 closing documentation. Native observations
+may join that batch when actually completed. Archive each eligible change in
+its own commit, after required CI on the reviewed implementation and after its
+individual non-CI conditions hold. Keep incomplete changes open.

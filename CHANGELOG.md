@@ -6,6 +6,10 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Inventory the nine remaining active changes, separating conversion/oracle
+  proof reconciliation from native GUI, benchmark and implementation blockers
+  so eligible work can share a reviewed CI batch without premature archives.
+
 - Reconcile c0092's closing evidence matrix and acceptance review: the tested
   graduation rule retains all nine Altium write kinds as experimental. Measured
   results and remaining conditions are in `docs/evidence/altium-acceptance.md`;
