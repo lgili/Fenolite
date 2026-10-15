@@ -306,9 +306,12 @@ def test_layer_table_changed_under_a_stackup() -> None:
     for design in cases:
         with pytest.raises(LossyWriteError) as caught:
             write_board(design, target=10, allow_lossy=True)
-        (issue,) = caught.value.issues
+        # the read board keeps items on its inner layers, which the smaller table no longer declares
+        # (``kicad.board.layer-undeclared``, change c0161): the stack-up is refused first
+        issue = caught.value.issues[0]
         assert issue.code == "kicad.board.stackup-invalid" and issue.severity == "error"
         assert "model.stackup-copper" in issue.message
+        assert {i.code for i in caught.value.issues[1:]} <= {"kicad.board.layer-undeclared"}
     written = parse(write_board(with_stackup(cases[0], None), target=10).text)
     assert child(written, "setup").find("stackup") is None
     assert dumps(child(written, "general"), style="compact").startswith("(general (thickness 1.6)")

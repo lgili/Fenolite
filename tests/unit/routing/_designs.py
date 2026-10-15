@@ -7,6 +7,7 @@ from __future__ import annotations
 import dataclasses
 import random
 
+from fenolite.backends.kicad.layers import created_layers
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import new_id
 from fenolite.model.base import ExtBag
@@ -106,6 +107,8 @@ def routing_design(*, stub: bool = False) -> Design:
                 ordinal=31,
                 ext={"kicad": ExtBag(payload=(("number", "31"), ("type", "signal")))},
             ),
+            # the rows of the footprint properties' layers (change c0161: no item on an undeclared layer)
+            *created_layers(2)[2:],
         ),
         footprints=(footprint,),
         tracks=tuple(tracks),
@@ -151,15 +154,18 @@ def named_design(*names: str) -> Design:
         position=Point(0, 0),
         pads=tuple(pads),
     )
-    layers = tuple(
-        Layer(
-            id=new_id("lay", rng),
-            name=name,
-            kind="copper",
-            ordinal=ordinal,
-            ext={"kicad": ExtBag(payload=(("number", str(ordinal)), ("type", "signal")))},
+    layers = (
+        tuple(
+            Layer(
+                id=new_id("lay", rng),
+                name=name,
+                kind="copper",
+                ordinal=ordinal,
+                ext={"kicad": ExtBag(payload=(("number", str(ordinal)), ("type", "signal")))},
+            )
+            for name, ordinal in (("F.Cu", 0), ("B.Cu", 31))
         )
-        for name, ordinal in (("F.Cu", 0), ("B.Cu", 31))
+        + created_layers(2)[2:]
     )
     board = dataclasses.replace(design.board, layers=layers, footprints=(footprint,))
     return dataclasses.replace(

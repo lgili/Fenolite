@@ -1583,6 +1583,11 @@ meaning = "A part of the board that Fenolite models could not be read into the m
 fix = "Nothing to do; that part cannot be edited through Fenolite."
 see = "inspect"
 
+["kicad.board.layer-undeclared"]
+meaning = "An item of the board lies on a layer that no row of its layer table declares; KiCad does not load such a board, so nothing is written."
+fix = "Give the board a row for the layer, or move the items to a declared layer or remove them; fenolite convert maps the layers of an Altium board itself."
+see = "KiCad output"
+
 ["kicad.board.net-name-collision"]
 meaning = "A net is stored with {slash} in its name, and another net of the board already has the name with a plain slash. The net keeps its stored spelling as its name."
 fix = "Nothing to do; rename one of the two nets in KiCad if they are meant to be one."

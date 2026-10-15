@@ -36,6 +36,7 @@ from fenolite.backends.kicad._fpmap import (
     projected_zone_connect,
     read_graphic,
     read_pad,
+    slot_turn,
     text_of,
     unrepresentable,
 )
@@ -443,7 +444,7 @@ class _Projections:
     def pad(self, pad: Pad, slots: list[Slot]) -> None:
         base = _locator(pad, "/footprint/pad")
         if pad.padstack is not None and pad.padstack.hole_shape == "slot":
-            relative = pad.padstack.hole_rotation % 180_000_000
+            relative = (pad.padstack.hole_rotation - slot_turn(pad)) % 180_000_000
             if pad.padstack.hole_length is None or relative not in (0, 90_000_000):
                 self.read_only(
                     "drill",

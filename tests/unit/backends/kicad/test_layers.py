@@ -124,3 +124,36 @@ def test_plane_layers_in_stack_order_and_without_a_type() -> None:
     bare = tuple(dataclasses.replace(layer, ext={}) for layer in layers)
     assert plane_layers(dataclasses.replace(made, board=dataclasses.replace(design.board, layers=bare))) == ()
     assert plane_layers(dataclasses.replace(made, board=None)) == ()
+
+
+@pytest.mark.parametrize("copper", [2, 4, 6, 8])
+def test_board_rows_are_the_created_rows(copper: int) -> None:
+    """``board_rows`` gives the created table for the counts a script may ask for (change c0161)."""
+    from fenolite.backends.kicad.layers import board_rows, created_layers, layers_of_rows
+
+    assert layers_of_rows(board_rows(copper)) == created_layers(copper)
+
+
+def test_board_rows_up_to_32() -> None:
+    from fenolite.backends.kicad.layers import MAX_COPPER, board_rows
+
+    rows = board_rows(MAX_COPPER)
+    copper = [row for row in rows if row[1].endswith(".Cu")]
+    assert len(copper) == 32 and copper[0][:2] == (0, "F.Cu") and copper[-1][:2] == (2, "B.Cu")
+    assert next(row for row in rows if row[1] == "In30.Cu")[0] == 62
+    for bad in (0, 1, 3, 33, 34, True):
+        with pytest.raises(ValueError, match="even count of 2 to 32"):
+            board_rows(bad)
+
+
+def test_user_rows_per_target() -> None:
+    from fenolite.backends.kicad.layers import USER_LAYERS, user_rows
+
+    assert user_rows(0, target=10) == ()
+    assert user_rows(2, target=9, names=["Board", None]) == (
+        (39, "User.1", "user", "Board"),
+        (41, "User.2", "user", None),
+    )
+    assert len(user_rows(USER_LAYERS[10], target=10)) == 45
+    with pytest.raises(ValueError, match="no user layer count"):
+        user_rows(1, target=8)

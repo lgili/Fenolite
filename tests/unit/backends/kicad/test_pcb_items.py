@@ -145,6 +145,15 @@ AREA = (
     f" (keepout (tracks not_allowed) (vias allowed) (pads allowed) (copperpour allowed) (footprints allowed))"
     f" {SQUARE})"
 )
+
+
+def drawn(*items: str) -> str:
+    """``board`` whose table also declares ``F.SilkS`` and ``Dwgs.User``, the layers of the drawings below:
+    the writer refuses an item on an undeclared layer (change c0161)."""
+    rows = '(5 "F.SilkS" user "F.Silkscreen") (17 "Dwgs.User" user "User.Drawings") (25 "Edge.Cuts" user))'
+    return board(*items).replace('(25 "Edge.Cuts" user))', rows, 1)
+
+
 DIMENSION = (
     f'(dimension (type aligned) (layer "Dwgs.User") (uuid "{uid(80)}") (pts (xy 10 3) (xy 30 3)) (height -2)'
     ' (format (prefix "") (suffix "") (units 3) (units_format 1) (precision 4))'
@@ -197,16 +206,16 @@ def test_justified_text() -> None:
         f'(gr_text "L" (at 5 40 0) (layer "F.SilkS") (uuid "{uid(71)}")'
         " (effects (font (size 1 1) (thickness 0.15)) (justify left bottom)))"
     )
-    design = read_board(board(item))
+    design = read_board(drawn(item))
     assert design.board is not None
     (text,) = design.board.texts
     assert (text.h_justify, text.v_justify) == ("left", "bottom")
-    assert same_items(design, board(item))
+    assert same_items(design, drawn(item))
     moved = dataclasses.replace(design.board, texts=(dataclasses.replace(text, h_justify="right"),))
     with pytest.raises(LossyWriteError) as refused:
         write_board(dataclasses.replace(design, board=moved), target=9)
     assert "h_justify" in str(refused.value.issues)
-    plain = read_board(board(item.replace(" (justify left bottom)", "")))
+    plain = read_board(drawn(item.replace(" (justify left bottom)", "")))
     assert plain.board is not None
     assert (plain.board.texts[0].h_justify, plain.board.texts[0].v_justify) == ("center", "center")
 
@@ -214,7 +223,7 @@ def test_justified_text() -> None:
 def test_dimension_saved_by_kicad() -> None:
     """Scenario "Dimension saved by KiCad": the text of a dimension carries the dimension's uuid."""
     issues: list[Issue] = []
-    text = board(DIMENSION)
+    text = drawn(DIMENSION)
     design = read_board(text, issues=issues)
     assert design.board is not None
     (dimension,) = design.board.dimensions
@@ -232,7 +241,7 @@ def test_dimension_saved_by_kicad() -> None:
 
 
 def test_dimension_projections_are_read_only() -> None:
-    design = read_board(board(DIMENSION))
+    design = read_board(drawn(DIMENSION))
     assert design.board is not None
     (dimension,) = design.board.dimensions
     changed = dataclasses.replace(design.board, dimensions=(dataclasses.replace(dimension, precision=2),))

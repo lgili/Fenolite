@@ -41,6 +41,7 @@ HYPOTHESES = (
     "H-A-IMP-BODY-Z",
     "H-A-IMP-SYMFRAME",
     "H-A-IMP-FPGFX",
+    "H-A-IMP-KEEPOUT-LAYER",
 )
 """Every ``H-A-IMP-*`` row of ``docs/hypotheses.md``."""
 LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {

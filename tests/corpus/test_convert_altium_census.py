@@ -7,7 +7,13 @@ The measurement of the design (task 1.1): each document is read with the Altium 
 no KiCad layer row, so ``write_board`` cannot write it. Given the rows of the layers whose names the
 two-copper table of KiCad holds (with the inner rows of a four-layer table), the import still holds items
 on names that no row declares: the test counts them per name, footprint fields and pads included. Two
-documents hold slots turned against the X and Y axes of their footprint, all in oval pads.
+documents hold slots turned against the X and Y axes of their footprint, all in oval pads. Since task
+2.2 the board writer refuses that probe's board.
+
+The conversion (task 3.2): each document converted to KiCad 10 and 9 with ``fenolite.api.convert(...,
+to="kicad", allow_lossy=True)`` is written, read back equal at level 5, gives no ``convert.unexplained``,
+and its report holds the counts per kind and reason of ``CONVERTED`` (``docs/evidence/conversion.md``,
+"Altium to KiCad").
 """
 
 from __future__ import annotations
@@ -19,9 +25,12 @@ from functools import cache
 import pytest
 from _corpus import manifest_items, require
 
+from fenolite.api.conversion import ConversionResult, convert
 from fenolite.backends.altium.backend import AltiumBackend
 from fenolite.backends.kicad.layers import created_layers
-from fenolite.backends.kicad.pcb import write_board
+from fenolite.backends.kicad.pcb import LAYER_UNDECLARED, undeclared_layers, write_board
+from fenolite.backends.kicad.versions import LossyWriteError
+from fenolite.convert import from_altium, kicad_project, to_kicad
 from fenolite.model.board import Board
 from fenolite.model.design import Design
 
@@ -127,3 +136,106 @@ def test_turned_slots(number: str) -> None:
     design = imported(number)
     assert design.board is not None
     assert turned_slots(design.board) == TURNED_SLOTS.get(number, {})
+
+
+@pytest.mark.parametrize("number", DOCUMENTS)
+def test_probe_board_refused(number: str) -> None:
+    """Since task 2.2 the board writer refuses the probe's board: one ``kicad.board.layer-undeclared`` per
+    layer name, with the count of items, never droppable."""
+    design = imported(number)
+    assert design.board is not None
+    probe = dataclasses.replace(design, board=probe_rows(design.board))
+    with pytest.raises(LossyWriteError) as refused:
+        write_board(probe, target=10, allow_lossy=True)
+    assert refused.value.droppable is False
+    found = {i.where: i.message for i in refused.value.issues if i.code == LAYER_UNDECLARED}
+    assert sorted(found) == sorted(UNDECLARED[number])
+    for name, count in UNDECLARED[number].items():
+        assert found[name].startswith(f"{count} item")
+
+
+R_EDITED = kicad_project.REASON_EDITED
+R_SCHEMATIC = kicad_project.REASON_SCHEMATIC
+R_SCHEMATIC_REFUSED = kicad_project.REASON_SCHEMATIC_REFUSED
+R_RULE_OPT = to_kicad.REASON_RULE_OPT
+CONVERTED: dict[str, dict[tuple[str, str, str], int]] = {
+    "01": {
+        ("footprint", "changed", R_EDITED): 1,
+        ("keep-out", "changed", from_altium.REASON_KEEPOUT_ARC): 1,
+        ("rule", "changed", R_RULE_OPT): 1,
+        ("graphic", "changed", from_altium.REASON_KEEPOUT_AREA): 20,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "02": {
+        ("rule", "changed", R_RULE_OPT): 1,
+        ("text", "lost", from_altium.REASON_DRILL): 1,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "03": {
+        ("rule", "changed", R_RULE_OPT): 2,
+        ("graphic", "changed", from_altium.REASON_KEEPOUT_AREA): 1,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "04": {
+        ("footprint-graphic", "changed", from_altium.REASON_KEEPOUT_FOOTPRINT): 1,
+        ("rule", "changed", R_RULE_OPT): 1,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "05": {
+        ("rule", "changed", R_RULE_OPT): 1,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "06": {
+        ("footprint-graphic", "changed", from_altium.REASON_KEEPOUT_FOOTPRINT): 2,
+        ("rule", "changed", R_RULE_OPT): 1,
+        ("graphic", "changed", from_altium.REASON_KEEPOUT_AREA): 4,
+        ("graphic", "lost", from_altium.REASON_OUTSIDE): 3,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "07": {
+        ("footprint", "changed", R_EDITED): 2,
+        ("schematic", "changed", R_SCHEMATIC): 1,
+    },
+    "08": {
+        ("footprint", "changed", R_EDITED): 260,
+        ("footprint", "changed", from_altium.REASON_NAME): 1,
+        ("pad", "changed", from_altium.REASON_PADSTACK): 5,
+        ("text", "lost", from_altium.REASON_DRILL): 298,
+        ("graphic", "lost", from_altium.REASON_DRILL): 1000,
+        ("graphic", "changed", from_altium.REASON_KEEPOUT_AREA): 1,
+        ("schematic", "lost", R_SCHEMATIC_REFUSED): 1,
+    },
+}
+"""Per document converted to KiCad 10, the items changed and lost per kind and reason (measured on
+2026-10-09; the table of ``docs/evidence/conversion.md``, "Altium to KiCad"). Target 9 gives the same."""
+
+
+@cache
+def converted(number: str, target: int) -> ConversionResult:
+    return convert(require(_row(number)), to="kicad", kicad_version=target, allow_lossy=True)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("target", [10, 9])
+@pytest.mark.parametrize("number", DOCUMENTS)
+def test_public_documents_converted(number: str, target: int) -> None:
+    """Scenario "Public documents converted": each document is written, read back equal at level 5
+    (every difference explained), and its report holds the counts of ``CONVERTED``."""
+    result = converted(number, target)
+    assert result.unexplained == ()
+    assert not [i for i in result.issues if i.code == "convert.unexplained"]
+    report = result.equivalence.report if result.equivalence is not None else None
+    assert report is not None and report.levels[-1].level == 5
+    assert {found.difference.kind for found in result.explained} <= {"ref-ambiguous"}
+    rows = {
+        (row.kind, reason.outcome, reason.reason): reason.count
+        for row in result.conversion.report.rows
+        for reason in row.reasons
+    }
+    print(f"{PREFIX}{number} t{target}: {rows}")
+    assert rows == CONVERTED[number]
+    board = result.conversion.design.board
+    assert board is not None and undeclared_layers(board) == {}
+    name = result.conversion.source.name
+    assert {f"{name}.kicad_pcb", f"{name}.kicad_pro", f"{name}.kicad_dru", "fp-lib-table"} <= set(
+        result.conversion.files
+    )

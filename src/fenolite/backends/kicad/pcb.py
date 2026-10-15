@@ -33,6 +33,7 @@ from fenolite.backends.kicad import via_protection as vialib
 from fenolite.backends.kicad import zones as zonelib
 from fenolite.backends.kicad._edgesign import edge_text, edge_uuid, outline_digest, outline_edges
 from fenolite.backends.kicad._fpmap import (
+    FP_GRAPHIC_HEADS,
     GR_GRAPHIC_HEADS,
     GRAPHIC_FIELDS,
     NET_TIES,
@@ -1981,6 +1982,7 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "kicad.board.projection-read-only": "error",
         "kicad.board.outline-conflict": "error",
         "kicad.board.flip-unsupported": "error",
+        "kicad.board.layer-undeclared": "error",
         **stacklib.WRITE_ISSUE_CODES,
         **vialib.WRITE_ISSUE_CODES,
     }
@@ -2014,7 +2016,8 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         ),
         "title_block": ("title", "date", "rev", "company", "comment"),
         "footprint": (
-            *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr", "pad",
+            *FOOTPRINT_POSITIONAL, "locked", "layer", "uuid", "at", "property", "path", "attr",
+            *FP_GRAPHIC_HEADS, "fp_text", "pad",
         ),
         "property": ("name", "value", "at", "layer", "hide", "uuid", "effects"),
         "effects": ("font", "justify"),
@@ -2047,6 +2050,11 @@ CANONICAL_ORDER: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "gr_circle": ("center", "end", "stroke", "fill", "layer", "uuid"),
         "gr_rect": ("start", "end", "stroke", "fill", "layer", "uuid"),
         "gr_poly": ("pts", "stroke", "fill", "layer", "uuid"),
+        "fp_line": ("start", "end", "stroke", "layer", "uuid"),
+        "fp_arc": ("start", "mid", "end", "stroke", "layer", "uuid"),
+        "fp_circle": ("center", "end", "stroke", "fill", "layer", "uuid"),
+        "fp_rect": ("start", "end", "stroke", "fill", "layer", "uuid"),
+        "fp_poly": ("pts", "stroke", "fill", "layer", "uuid"),
         "stroke": ("width", "type"),
         "gr_text": (*TEXT_POSITIONAL, "at", "layer", "uuid", "effects"),
         "dimension": (
@@ -2088,13 +2096,21 @@ OUTLINE_WIDTH = 100_000
 TEXT_SIZE = Size(1_000_000, 1_000_000)
 TEXT_THICKNESS = 150_000
 _GRAPHIC_WRITE_FIELDS: Mapping[str, str] = MappingProxyType({**GRAPHIC_FIELDS, "stroke": "width"})
+CREATED_GRAPHICS = "created_graphics"
+CREATED_TEXTS = "created_texts"
+"""The fields of a created footprint that hold its drawings and its free texts (change c0161): a footprint
+read from a board keeps them as opaque slots; one created from another backend's model writes
+``FootprintInstance.graphics`` and ``.texts``."""
 _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyType(
     {
         "kicad_pcb": {
             **ROOT_FIELDS, "general": "general", "paper": "paper", "title_block": "title_block",
             "setup": "setup", "zone": ("zones", "keepouts"),
         },
-        "footprint": {**FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties")},
+        "footprint": {
+            **FOOTPRINT_FIELDS, "locked": "locked", "property": ("fields", "properties"),
+            **dict.fromkeys(FP_GRAPHIC_HEADS, CREATED_GRAPHICS), "fp_text": CREATED_TEXTS,
+        },
         "property": {**FIELD_FIELDS},
         "pad": BOARD_PAD_FIELDS,
         "segment": TRACK_FIELDS,
@@ -2103,6 +2119,7 @@ _WRITE_FIELDS: Mapping[str, Mapping[str, str | tuple[str, ...]]] = MappingProxyT
         "zone": ZONE_FIELDS,
         "filled_polygon": FILL_FIELDS,
         **dict.fromkeys(GR_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
+        **dict.fromkeys(FP_GRAPHIC_HEADS, _GRAPHIC_WRITE_FIELDS),
         "gr_text": {**TEXT_FIELDS, "effects": "effects"},
         "dimension": DIMENSION_FIELDS,
     }
@@ -2143,6 +2160,7 @@ COLLECTION_FIELDS: frozenset[str] = frozenset(
 )
 """Fields that hold whole items; an opaque item never stands for a model value."""
 _KIND_HEADS: Mapping[str, str] = MappingProxyType({kind: head for head, kind in GR_GRAPHIC_HEADS.items()})
+_FP_KIND_HEADS: Mapping[str, str] = MappingProxyType({kind: head for head, kind in FP_GRAPHIC_HEADS.items()})
 _FILLED_KINDS = frozenset({"circle", "rect", "polygon"})
 READ_ONLY_CODE = "kicad.board.projection-read-only"
 PROJECTED_PAIR: tuple[str, str] = ("fenolite.projected", "footprint-items")
@@ -2655,7 +2673,33 @@ class _Writer:
             items["fields"] = [self.entity(f, "property") for f in _write_order(fp.fields)]
             items["properties"] = [] if fp.fields else self.properties(fp, component)
         items["pads"] = [self.entity(pad, "pad") for pad in _write_order(fp.pads)]
+        if created:
+            items[CREATED_GRAPHICS] = [
+                self.entity(g, _FP_KIND_HEADS[g.kind]) for g in _write_order(fp.graphics)
+            ]
+            items[CREATED_TEXTS] = [self.fp_text(text, fp) for text in _write_order(fp.texts)]
         return items
+
+    def fp_text(self, text: Text, fp: FootprintInstance) -> Node:
+        """A free text of a created footprint: ``(fp_text user "TEXT" (at X Y A) (layer L) (uuid U)
+        (effects …))``, its angle the board's (``board.md``, the row of ``H-K-PCB-FPGFX``)."""
+        angle = (text.rotation + fp.rotation) % FULL_TURN
+        effects = _effects(
+            text.size,
+            text.thickness,
+            mirror=text.layer.startswith("B."),
+            h_justify=text.h_justify,
+            v_justify=text.v_justify,
+        )
+        return node(
+            "fp_text",
+            Atom.symbol("user"),
+            Atom.string(text.text),
+            at_node(text.position, angle, always=True),
+            node("layer", Atom.string(text.layer)),
+            _uuid_node(kicad_uuid(text)),
+            effects,
+        )
 
     def properties(self, fp: FootprintInstance, component: Component | None) -> list[Node | Atom]:
         """The properties of a created footprint: Reference, Value, then the others by name. A property
@@ -3320,6 +3364,18 @@ def undeclared_layers(board: Board) -> dict[str, int]:
     return dict(sorted(found.items()))
 
 
+def _undeclared_issue(name: str, count: int) -> Issue:
+    items = "item lies" if count == 1 else "items lie"
+    return Issue(
+        LAYER_UNDECLARED,
+        WRITE_ISSUE_CODES[LAYER_UNDECLARED],
+        f"{count} {items} on the layer {name!r}, which no row of the board's layer table declares: KiCad "
+        "does not load such a board",
+        where=name,
+        hint="give the board a row for the layer, or move or remove its items",
+    )
+
+
 def write_board(
     design: Design,
     *,
@@ -3353,6 +3409,8 @@ def write_board(
         raise ValueError("a KiCad board holds holes only inside footprints; Board.holes cannot be written")
     writer = _Writer(design, target)
     root = writer.root()
+    # an item on a layer the table does not declare: KiCad refuses the board (c0161), never droppable
+    writer.errors += [_undeclared_issue(name, count) for name, count in undeclared_layers(board).items()]
     opaque = _pcbwrite.opaque_locators(root, writer.opaque_ids)
     stored = [stored_net_name(n) for n in design.circuit.nets]
     forms = _pcbwrite.NetForms.of(target, writer.source_table(), stored)
@@ -3458,6 +3516,8 @@ __all__ = [
     "read_board",
     "rebuild_board",
     "source_info",
+    "LAYER_UNDECLARED",
+    "undeclared_layers",
     "field_value",
     "field_value_slot",
     "write_board",

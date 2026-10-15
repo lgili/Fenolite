@@ -41,3 +41,16 @@ tool_version = "0"
 frame = "absolute"
 tolerance_nm = 0
 tolerance_udeg = 0
+
+[[profile]]
+name = "altium-to-kicad"
+tool = "fenolite"
+tool_version = "0"
+# An Altium board lowered for KiCad (change c0161) is compared with the design that was written, read back
+# from the KiCad board, at level 5 in the absolute frame: KiCad holds nanometres and the import rounds to
+# whole nanometres already, so 1 nm covers a number written with fewer digits. The pads without a
+# component share the empty reference on both sides (`ref-ambiguous`), which the report explains as the
+# source's own (`convert.report.SOURCE`), so no rule is needed for them.
+frame = "absolute"
+tolerance_nm = 1
+tolerance_udeg = 0

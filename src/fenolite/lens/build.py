@@ -66,7 +66,7 @@ from fenolite.backends.kicad.outline import (
     outline_case,
 )
 from fenolite.backends.kicad.pcb import WRITE_EVIDENCE, read_board, write_board
-from fenolite.backends.kicad.schgen import GeneratedSchematic
+from fenolite.backends.kicad.schgen import GeneratedSchematic, lower_for_schematic
 from fenolite.backends.kicad.schlayout import SymbolPlacement
 from fenolite.backends.kicad.sexpr import parse_bytes
 from fenolite.backends.kicad.triad import write_triad
@@ -1774,55 +1774,6 @@ def schematic_netlist_issue(design: Design, generated: GeneratedSchematic, name:
         f"{text}{more}; nothing is written",
         element,
         GUARD_HINT,
-    )
-
-
-def lower_for_schematic(design: Design, generated: GeneratedSchematic) -> Design:
-    """The design that is written beside a generated schematic, so that KiCad's parity test and its
-    "Update PCB from Schematic" find the board in agreement with the sheet (``docs/schematic.md``).
-
-    Each pad of an unconnected pin gets a net of the name KiCad derives for that pin, and each component
-    gets the path of its symbol: ``/<symbol uuid>`` on the root sheet, and the uuids of the sheet
-    references from the top down before it on a child sheet (``H-K-SCH-HIER-PATH``). Nothing else
-    changes; the stored layout and the model never hold these
-    nets. Applying the function twice gives the result of applying it once.
-    """
-    board = design.board
-    if board is None:
-        return design
-    paths = {c.id: _path(c) for c in design.circuit.components}
-    nets = list(design.circuit.nets)
-    known = {net.id for net in nets}
-    footprints: list[FootprintInstance] = []
-    for fp in board.footprints:
-        pads: list[Pad] = []
-        # the pads of one open pin share one name (a pin bonded to several pads, c0123): the net is keyed
-        # by the lowest of their numbers, which for a pin of one pad is the pad's own
-        keyed: dict[str, str] = {}
-        for pad in fp.pads:
-            name = generated.pad_nets.get((fp.component_id, pad.number)) if pad.number else None
-            if name is not None and pad.net_id is None:
-                keyed[name] = min(keyed.get(name, pad.number), pad.number)
-        for pad in fp.pads:
-            wanted = generated.pad_nets.get((fp.component_id, pad.number)) if pad.number else None
-            if wanted is not None and pad.net_id is None:
-                net_id = derived_id(
-                    "net", schgen.ID_BACKEND, f"unconnected:{paths.get(fp.component_id, '')}:{keyed[wanted]}"
-                )
-                if net_id not in known:
-                    known.add(net_id)
-                    nets.append(Net(id=net_id, name=wanted))
-                pad = dataclasses.replace(pad, net_id=net_id)
-            pads.append(pad)
-        footprints.append(dataclasses.replace(fp, pads=tuple(pads)))
-    components = tuple(
-        dataclasses.replace(c, path=generated.paths[c.id]) if c.id in generated.paths else c
-        for c in design.circuit.components
-    )
-    return dataclasses.replace(
-        design,
-        circuit=dataclasses.replace(design.circuit, components=components, nets=tuple(nets)),
-        board=dataclasses.replace(board, footprints=tuple(footprints)),
     )
 
 

@@ -157,3 +157,37 @@ def test_bad_name_and_missing_source(tmp_path: Path, monkeypatch: pytest.MonkeyP
         monkeypatch, tmp_path, "convert", "nope.kicad_pcb", "--to", "altium", "--out", "o"
     )
     assert code == 3 and error["code"] == "FEN-3001"
+
+
+ALTIUM_BLINK = Path(__file__).resolve().parents[3] / "tests" / "data" / "altium" / "blink" / "blink.PrjPcb"
+
+
+@pytest.mark.parametrize("major", [9, 10])
+def test_altium_to_kicad_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, major: int) -> None:
+    """Scenario "Plan of an Altium sample" (change c0161), for targets 9 and 10."""
+    code, envelope, error, _ = run(
+        monkeypatch, tmp_path, "convert", str(ALTIUM_BLINK), "--to", "kicad", "--kicad-version", str(major),
+        "--out", "out", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, error
+    result = envelope["result"]
+    planned = [row["path"] for row in result["plan"]]
+    expected = {"out/blink.kicad_pcb", "out/blink.kicad_pro", "out/blink.kicad_dru", "out/blink.kicad_sch"}
+    assert expected <= set(planned)
+    assert any(path.startswith("out/blink.pretty/") for path in planned)
+    assert result["equivalence"]["equivalent"] is True and result["equivalence"]["unexplained"] == 0
+    assert result["source"]["backend"] == "altium" and result["target"] == {
+        "backend": "kicad",
+        "major": major,
+    }
+    assert result["experimental"] is True
+    assert _schema.validate(result, _schema.load("fenolite.convert.v0.json")) == []
+    assert not (tmp_path / "out").exists()
+
+
+def test_altium_to_kicad_in_capabilities() -> None:
+    """``capabilities.conversions`` gains Altium to KiCad with targets 9 and 10."""
+    found = [d.to_json() for d in convert_package.DIRECTIONS.values()]
+    (entry,) = [entry for entry in found if entry["from"] == "altium"]
+    wanted = {"from": "altium", "to": "kicad", "targets": [9, 10], "downgrade": False, "experimental": True}
+    assert {key: entry[key] for key in wanted} == wanted

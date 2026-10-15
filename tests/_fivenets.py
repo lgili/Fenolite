@@ -11,11 +11,11 @@ import dataclasses
 import random
 from pathlib import Path
 
+from fenolite.backends.kicad.layers import created_layers
 from fenolite.backends.kicad.pcb import write_board
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import new_id
-from fenolite.model.base import ExtBag
-from fenolite.model.board import FootprintInstance, Layer, Pad
+from fenolite.model.board import FootprintInstance, Pad
 from fenolite.model.circuit import Circuit, Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.routing.protocol import JobNet, JobPad
@@ -60,16 +60,8 @@ def five_nets() -> Design:
         pads=tuple(pads),
     )
     assert design.board is not None
-    layers = tuple(
-        Layer(
-            id=new_id("lay", rng),
-            name=name,
-            kind="copper",
-            ordinal=ordinal,
-            ext={"kicad": ExtBag(payload=(("number", str(ordinal)), ("type", "signal")))},
-        )
-        for name, ordinal in (("F.Cu", 0), ("B.Cu", 31))
-    )
+    # the table declares the layers of the footprint's properties too (change c0161)
+    layers = created_layers(2)
     board = dataclasses.replace(design.board, layers=layers, footprints=(footprint,))
     return dataclasses.replace(
         design, circuit=Circuit(components=(component,), nets=tuple(nets.values())), board=board

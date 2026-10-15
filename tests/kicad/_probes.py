@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+import _a2kcases
 import _acceptance
 import _anchorbench
 import _arccases
@@ -378,6 +379,8 @@ def _probes() -> dict[str, Probe]:
     }.items():  # c0162
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _userlayers.user_layer_probes(runner, major).items():  # change c0161
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _a2kcases.a2k_probes(major).items():  # change c0161
         probes[pid] = Probe(function, majors)
     # change c0105: `pro-tuning-gap-clearance-rule` is pinned since its outcome was read on 10.0.6 (task 1.3)
     for pid, (function, majors) in {**_zbench.tuning_probes(), **_zbench.width_probes()}.items():

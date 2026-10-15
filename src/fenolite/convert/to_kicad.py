@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The direction from KiCad to KiCad (capability design-conversion, "KiCad to KiCad direction", "KiCad
-downgrade direction" and "KiCad downgrade report"; changes c0159 and c0162).
+"""The directions to KiCad: from KiCad (capability design-conversion, "KiCad to KiCad direction", "KiCad
+downgrade direction" and "KiCad downgrade report"; changes c0159 and c0162) and from Altium ("Altium to
+KiCad direction", change c0161, ``write_altium`` below).
 
 The board read from the source keeps its opaque content and is written with ``write_board`` for the target
 (``write_triad``, with the source's project file updated by ``pro.update_project``); the rules file is the
@@ -25,14 +26,19 @@ from collections import defaultdict
 from pathlib import Path, PurePosixPath
 
 from fenolite.backends.kicad import dru, resolver, sch, sym
+from fenolite.backends.kicad.dru import DROPPED_CODE as RULE_DROPPED
+from fenolite.backends.kicad.lowering import lower_rules
 from fenolite.backends.kicad.mod import read_footprint, write_footprint
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
-from fenolite.convert.direction import Direction, Options, Written
+from fenolite.convert import from_altium, kicad_project
+from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.report import DOWNGRADE_KINDS, DOWNGRADE_PREFIX, ConversionReport, census
-from fenolite.convert.sources import KICAD, SourceProject
-from fenolite.core.errors import Issue
+from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
+from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.model.design import Design
+from fenolite.model.rules import Rule
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
 """The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
@@ -221,6 +227,145 @@ def _footprints(
     return found
 
 
+# --- Altium to KiCad (change c0161) -------------------------------------------------------------------
+
+ALTIUM_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=("H-K-CONV-A2K-LOAD", "H-K-CONV-A2K-IMPORT", "H-K-CONV-A2K-SCH", "H-K-PCB-WRITE"),
+)
+"""The direction from Altium: the read keeps its labels (``INFERRED``); the written boards are checked by
+the three oracles of ``tests/kicad/convert/`` (``docs/evidence/conversion.md``)."""
+ALTIUM_PROFILE = "altium-to-kicad"
+ALTIUM_KINDS: tuple[str, ...] = (SCHEMATIC,)
+REASON_RULE_TARGET = "a rule the target's rules file cannot hold"
+REASON_RULE_OPT = "the preferred value of the rule is not written: the rules file takes none for its kind"
+
+
+def _merge(into: dict[str, dict[str, list[str]]], items: dict[str, dict[str, tuple[str, ...]]]) -> None:
+    for kind, reasons in items.items():
+        for reason, ids in reasons.items():
+            into.setdefault(kind, {}).setdefault(reason, []).extend(ids)
+
+
+def _writable_rules(
+    design: Design, target: int
+) -> tuple[Design, dict[str, tuple[str, ...]], dict[str, tuple[str, ...]]]:
+    """``design`` without the rules that the rules file of ``target`` cannot hold, each lowered alone
+    (``lowering.lower_rules``); the ids of those left out per reason, and of those written without their
+    preferred value (``opt``), which the rules file refused."""
+    rules = design.rules
+    if rules is None or not rules.rules:
+        return design, {}, {}
+    kept: list[Rule] = []
+    refused: dict[str, list[str]] = {}
+    changed: dict[str, list[str]] = {}
+    for rule in rules.rules:
+        try:
+            try:
+                lower_rules(dataclasses.replace(rules, rules=(rule,)), target=target, allow_lossy=True)
+            except (FenoliteError, ValueError):
+                if rule.opt is None:
+                    raise
+                plain = dataclasses.replace(rule, opt=None)
+                lower_rules(dataclasses.replace(rules, rules=(plain,)), target=target, allow_lossy=True)
+                rule = plain
+                changed.setdefault(REASON_RULE_OPT, []).append(rule.id)
+        except (FenoliteError, ValueError) as error:
+            first = getattr(error, "issues", ())
+            detail = first[0].message if first else str(error)
+            detail = detail.split(": ", 1)[1] if detail.startswith("rule '") and ": " in detail else detail
+            refused.setdefault(f"{REASON_RULE_TARGET}: {detail}", []).append(rule.id)
+            continue
+        kept.append(rule)
+    made = dataclasses.replace(design, rules=dataclasses.replace(rules, rules=tuple(kept)))
+    return made, {r: tuple(ids) for r, ids in refused.items()}, {r: tuple(ids) for r, ids in changed.items()}
+
+
+def write_altium(source: SourceProject, options: Options) -> Written:
+    """The KiCad project of an Altium source for ``options.kicad_version``, with its report: the board
+    lowered by ``from_altium.lower_board``, the footprint library derived from its instances, the generated
+    schematic with generic symbols, and the project and rules files of ``write_triad``."""
+    target = options.kicad_version
+    if target not in TARGET_MAJORS:
+        raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
+    name = options.name or source.name
+    design = source.design
+    try:
+        lowered = from_altium.lower_board(design, project=name, target=target)
+    except ValueError as error:
+        raise TargetLimitError(f"{source.path.name} cannot be written as a KiCad board: {error}") from None
+    changed: dict[str, dict[str, list[str]]] = {}
+    lost: dict[str, dict[str, list[str]]] = {}
+    _merge(changed, lowered.items(lowered.changed))
+    _merge(lost, lowered.items(lowered.lost))
+    issues: list[Issue] = []
+    written = lowered.design
+    library = kicad_project.derived_library(written, name)
+    if library.edited:
+        _merge(changed, {"footprint": {kicad_project.REASON_EDITED: library.edited}})
+    files: dict[str, bytes] = {}
+    library_texts, refused = kicad_project.library_files(library, name, target=target, issues=issues)
+    files.update(library_texts)
+    for footprint_name, message in refused.items():
+        ids = tuple(
+            fp.id
+            for fp in (written.board.footprints if written.board else ())
+            if fp.lib_ref == f"{name}:{footprint_name}"
+        )
+        _merge(lost, {"footprint-graphic": {f"the library footprint is not written: {message}": ids}})
+    counts = census(design)
+    if design.circuit.components:
+        counts[SCHEMATIC] = 1
+        generated = kicad_project.schematic(written, name, target=target)
+        issues += [found for found in generated.issues if found.severity != "error"]
+        if generated.files:
+            files.update(generated.files)
+            written = generated.design
+            _merge(changed, {SCHEMATIC: {kicad_project.REASON_SCHEMATIC: (design.header.id,)}})
+        else:
+            _merge(lost, {SCHEMATIC: {kicad_project.REASON_SCHEMATIC_REFUSED: (design.header.id,)}})
+    written, refused_rules, plain_rules = _writable_rules(written, target)
+    _merge(lost, {"rule": refused_rules})
+    _merge(changed, {"rule": plain_rules})
+    texts = write_triad(
+        written,
+        name=name,
+        target=target,
+        schematic=bool(design.circuit.components),
+        allow_lossy=True,
+        issues=issues,
+    )
+    files.update({key: text.encode("utf-8") for key, text in texts.items()})
+    rules = {rule.name: rule.id for rule in (design.rules.rules if design.rules is not None else ())}
+    dropped = tuple(rules.get(found.where, found.where) for found in issues if found.code == RULE_DROPPED)
+    if dropped:
+        _merge(lost, {"rule": {REASON_RULE_TARGET: dropped}})
+    report = ConversionReport.of(
+        source=counts,
+        changed={k: {r: tuple(v) for r, v in rs.items()} for k, rs in changed.items()},
+        lost={k: {r: tuple(v) for r, v in rs.items()} for k, rs in lost.items()},
+    )
+    return Written(
+        dict(sorted(files.items())),
+        report,
+        written,
+        f"{name}.kicad_pcb",
+        tuple(issues),
+        profile=ALTIUM_PROFILE,
+    )
+
+
+ALTIUM_DIRECTION = Direction(
+    source=ALTIUM,
+    target=KICAD,
+    write=write_altium,
+    evidence=ALTIUM_EVIDENCE,
+    experimental=True,
+    profile=ALTIUM_PROFILE,
+    targets=TARGET_MAJORS,
+    kinds=ALTIUM_KINDS,
+)
+
 DIRECTION = Direction(
     source=KICAD,
     target=KICAD,
@@ -233,4 +378,15 @@ DIRECTION = Direction(
     downgrade=True,
 )
 
-__all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KINDS", "write"]
+__all__ = [
+    "ALTIUM_DIRECTION",
+    "ALTIUM_EVIDENCE",
+    "ALTIUM_PROFILE",
+    "DIRECTION",
+    "DOWNGRADE_PROFILE",
+    "EVIDENCE",
+    "PROFILE",
+    "WRITER_KINDS",
+    "write",
+    "write_altium",
+]

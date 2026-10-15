@@ -457,16 +457,39 @@ def layers_node(head: str, layers: tuple[str, ...]) -> Node:
     return node(head, *(Atom.string(name) for name in layers))
 
 
+def round_copper(pad: Pad) -> bool:
+    """Whether the copper of ``pad`` is round on every layer: a circle, or an oval of equal sides, without
+    per-layer shapes. Turning such a pad changes nothing of its copper."""
+    stack = pad.padstack
+    if stack is not None and stack.layers:
+        return False
+    return pad.shape == "circle" or (pad.shape == "oval" and pad.size.w == pad.size.h)
+
+
+def slot_turn(pad: Pad) -> int:
+    """The angle by which a pad with a slot is written turned (change c0161): the slot's axis modulo a
+    half turn when it lies along neither X nor Y of a pad with round copper, else 0. KiCad's oval drill
+    lies along the X or the Y of its pad (``libraries.md``), so a turned slot turns its round pad."""
+    stack = pad.padstack
+    if pad.drill is None or stack is None or stack.hole_shape != "slot" or stack.hole_length is None:
+        return 0
+    turn = stack.hole_rotation % 180_000_000
+    return turn if turn not in (0, 90_000_000) and round_copper(pad) else 0
+
+
 def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
-    """The modelled fields of a pad; ``angle`` replaces ``pad.rotation`` (a board stores it absolute)."""
+    """The modelled fields of a pad; ``angle`` replaces ``pad.rotation`` (a board stores it absolute). A
+    slot turned against the X and Y of a pad with round copper is written along X with the pad turned to
+    the slot's axis (``slot_turn``)."""
     drill_node: list[Node | Atom] = []
+    extra = slot_turn(pad)
     if pad.drill is not None:
         stack = pad.padstack
         if stack is not None and stack.hole_shape == "slot":
             if stack.hole_length is None:
                 raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
             # The slot's axis is in the pad's own frame, as KiCad stores it: along X or along Y.
-            turn = stack.hole_rotation % 180_000_000
+            turn = (stack.hole_rotation - extra) % 180_000_000
             if turn == 0:
                 w, h = stack.hole_length, pad.drill
             elif turn == 90_000_000:
@@ -476,6 +499,8 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
             drill_node.append(node("drill", Atom.symbol("oval"), Atom.from_nm(w), Atom.from_nm(h)))
         else:
             drill_node.append(node("drill", Atom.from_nm(pad.drill)))
+    if extra:
+        angle = ((pad.rotation if angle is None else angle) + extra) % 360_000_000
     items: Items = {
         "number": [Atom.string(pad.number)],
         "kind": [Atom.symbol(pad.kind)],
@@ -706,7 +731,9 @@ __all__ = [
     "read_graphic",
     "read_pad",
     "read_padstack",
+    "round_copper",
     "size_of",
+    "slot_turn",
     "symbols",
     "text_of",
     "unrepresentable",
