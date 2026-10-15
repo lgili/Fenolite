@@ -2138,7 +2138,7 @@
     },
     {
       "id": "H-K-BOARD-USERLAYERS",
-      "level": "INFERRED",
+      "level": "KICAD-VERIFIED",
       "refuted": false,
       "run_id": ""
     },
@@ -2246,19 +2246,19 @@
     },
     {
       "id": "H-K-CONV-A2K-IMPORT",
-      "level": "INFERRED",
+      "level": "KICAD-VERIFIED",
       "refuted": false,
       "run_id": ""
     },
     {
       "id": "H-K-CONV-A2K-LOAD",
-      "level": "INFERRED",
+      "level": "KICAD-VERIFIED",
       "refuted": false,
       "run_id": ""
     },
     {
       "id": "H-K-CONV-A2K-SCH",
-      "level": "INFERRED",
+      "level": "KICAD-VERIFIED",
       "refuted": false,
       "run_id": ""
     },

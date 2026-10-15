@@ -534,3 +534,39 @@ individual rules.
 Project set 02 holds multiply assigned schematic pins. The generated schematic retains
 the last imported assignment and reports each affected pin as a `pin-net` loss requiring
 consent. This is not a claim of preservation of every source net alias.
+
+## Altium to KiCad — c0161, public oracles on 2026-10-15
+
+Local runs in the pinned Linux images `kicad/kicad:9.0.9` and `kicad/kicad:10.0.6` through Docker
+(`FENOLITE_KICAD_CLI=docker:<image>`), with the corpus rows fetched by `tools/corpus_fetch.py` and
+`FENOLITE_HEAVY=1`.
+
+| Public PCB document | Load + DRC 9.0.9 | Load + DRC 10.0.6 | Importer 10.0.6, level 5 | Zones flattened | Explicit losses |
+| --- | --- | --- | --- | --- | --- |
+| 01 | pass | pass | no unexplained difference | 0 | 247 bodies, 1 rule, 20 open keep-out graphics |
+| 02 | pass | pass | not judged: KiCad's importer dies (`KNOWN_IMPORT_FAILURES`) | 2 | 42 bodies, 1 rule, 1 text |
+| 03 | pass | pass | no unexplained difference | 0 | 50 bodies, 2 rules, 1 schematic |
+| 04 | pass | pass | no unexplained difference | 0 | 33 bodies, 1 rule |
+| 05 | pass | pass | no unexplained difference | 0 | 23 bodies, 1 rule |
+| 06 | pass | pass | no unexplained difference | 0 | 27 bodies, 1 rule, 3 graphics |
+| 07 | pass | pass | no unexplained difference | 4 | 24 bodies, 8 turned-slot pads |
+| 08 (heavy) | pass | pass | no unexplained difference | 6 | 1298 bodies, 4 pads, 298 texts, 1000 graphics, 1 schematic |
+
+Every conversion has zero unexplained read-back differences. Before the zone repair, 9.0.9 ended DRC
+on 02 and 07 with an unhandled `std::out_of_range` while writing its report: those boards held copper
+pours written without an outline (an Altium outline with an arc vertex, empty in the imported model).
+Removing those zones from the written file let the same DRC write its report; the conversion now
+writes the flattened outline of the source record.
+
+The generated schematics of the authored sample and of the public project sets 01 to 05 export, in
+both versions, a netlist equal at level 2 to the converted circuit, with no connection error in ERC.
+Both versions export an empty `Value` as `~`; the comparison reads it as empty.
+
+KiCad refuses a board with items on undeclared layers: the six public negative probe boards fail to
+load in both versions (9.0.9 prints `Failed to load board`; 10.0.6 adds `One or more items were found
+on undefined layers (...)` with the layer names). `User.1` to `User.45` load in both.
+
+The probes `pcb-user-layers`, `convert-a2k-load`, `convert-a2k-sch` (both) and `convert-a2k-import`
+(10.0.6) give their recorded outcome `equal`. The complete probe-results gate drifts locally on
+environment probes (library variables and host paths) and is owed to the kicad CI jobs.
+
