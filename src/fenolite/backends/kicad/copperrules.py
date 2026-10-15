@@ -128,7 +128,7 @@ def design_rules_from_texts(
         unread=tuple(sorted(unread)),
         evidence=Evidence.combine(*evidence) if evidence else Evidence(),
         min_edge_clearance=edge,
-        edge_floor_over_rules=major in lowering.FLOOR_OVER_RULES[EDGE_KEY],
+        edge_floor_over_rules=major in lowering.FLOOR_OVER_RULES.get(EDGE_KEY, frozenset()),
     )
 
 

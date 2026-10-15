@@ -179,7 +179,8 @@ def test_every_kind_against_every_ring() -> None:
     # the via spans both layers and is reported once, on the first
     assert found[("via", "board")].layer == "F.Cu"
     assert report.summary["edge_clearance"] == 5
-    assert all(group.relation == "edge" for group in group_findings(report) if group.findings[0].code == EDGE_CODE)
+    groups = [group for group in group_findings(report) if group.findings[0].code == EDGE_CODE]
+    assert groups and all(group.relation == "edge" for group in groups)
 
 
 def test_copper_outside_or_inside_a_cutout_far_from_its_edge() -> None:

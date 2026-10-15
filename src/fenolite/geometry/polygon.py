@@ -641,7 +641,6 @@ def assemble_rings(pieces: Iterable[Piece]) -> tuple[Path, ...]:
     return tuple(sorted(rings, key=lambda r: r.start))
 
 
-
 def join_ends(pieces: Sequence[Segment | Arc], gap: int) -> tuple[list[Segment | Arc], int]:
     """``pieces`` with every group of endpoints closer than ``gap`` (strictly) joined into the group's
     smallest point, and the number of groups joined. Distances are compared squared, with integers. A
