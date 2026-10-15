@@ -11,7 +11,7 @@ A script can already draw a slot as a cut-out ring (`design.cutout(shape.slot(â€
 
 ## What Changes
 
-- **Model.** `OutlineSlot(id, center, length, width, rotation)` in `Outline.slots`: a non-plated, milled stadium; `length` is the overall length, both round ends included; rotation in microdegrees in the model frame. Additive key.
+- **Model.** `OutlineSlot(id, name, center, length, width, rotation)` in `Outline.slots`: a non-plated, milled stadium; `length` is the overall length, both round ends included; rotation in microdegrees in the model frame. Additive key.
 - **Shared stadium.** `fenolite.core.stadium` gives the ring of a slot (four vertices, two arc mids), used by the DSL, the backends and the checks; the fixed-point cosine table moves to `fenolite.core.trig`.
 - **Script.** `design.slot(x, y, *, length, width, rot=0, name=None)` with the stable id `slot:<name>`; `shape.stadium(x, y, length, width, rot=0)` gives the same ring as a path for `cutout()`.
 - **Union.** A `clipper` boolean backend (pyclipper, `geo` extra) with `union`; `geometry.rings.merge_rings` merges overlapping curved rings and puts the arcs back on their circles.

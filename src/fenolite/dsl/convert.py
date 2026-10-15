@@ -31,6 +31,7 @@ from fenolite.model.board import (
     Keepout,
     Outline,
     OutlineArc,
+    OutlineSlot,
     StackLayer,
     Stackup,
     Text,
@@ -62,6 +63,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "design": ("dsn", "design"),
         "board": ("brd", "board"),
         "outline": ("out", "outline"),
+        "slot": ("slt", "slot:<slot name>"),
         "rules": ("rst", "rules"),
         "manifest": ("mfn", "manifest"),
         "module": ("mod", "module:<path>"),
@@ -328,6 +330,17 @@ def to_model(design: Design) -> ModelDesign:
             cutouts=tuple(ring.points for ring in rings[1:]),
             arcs=tuple(
                 OutlineArc(index, edge, mid) for index, ring in enumerate(rings) for edge, mid in ring.arcs
+            ),
+            slots=tuple(
+                OutlineSlot(
+                    id=key_id("slot", spec.name),
+                    center=spec.center,
+                    length=spec.length,
+                    width=spec.width,
+                    rotation=spec.rotation,
+                    name=spec.name,
+                )
+                for spec in design.slot_specs.values()
             ),
         )
         # a zone without an outline takes the box of the board ring's vertices and arc mid points

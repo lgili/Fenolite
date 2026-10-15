@@ -789,6 +789,16 @@ The facts below were measured with `kicad-cli` 10.0.6 on 2026-10-08 by the probe
 | A footprint with a courtyard on `F.CrtYd` and on `B.CrtYd` gets `courtyards_overlap` with a top part and with a bottom part whose courtyard it overlaps, and none with a part clear of it | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-HOLE-COURTYARD |
 | A symbol library that holds a symbol without pins and one with one passive pin, both with `(in_bom no)`, is exported by `sym export svg` with both symbols | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-HOLE-SYMBOL |
 | On a four-layer board, the rows `(8 "In3.Cu" signal)` and `(10 "In4.Cu" signal)` added to the layer table give no kind of DRC finding that the board lacked, and the Gerber job file lists six copper layers with KiCad's default thicknesses; items left on removed rows give `item_on_disabled_layer`; a four-copper `stackup` under six rows leaves the job file without thicknesses | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-LAYER-CHANGE |
+| Two cut-out rings of `gr_line` and `gr_arc` on `Edge.Cuts` whose areas overlap (two stadiums 2 mm wide forming an L that shares one round end) give `invalid_outline` on 9.0.9 and 10.0.6, and the drill files hold no hit | S-0020, S-0029 | INFERRED | H-K-SLOT-OVERLAP |
+| The same L written as one cut-out of seven vertices, its shared round end one quarter arc and its concave corner a plain vertex, loads with no violation on 9.0.9 and 10.0.6; so does the union polygonised into 324 straight edges | S-0020, S-0029 | INFERRED | H-K-SLOT-UNION |
+| A stadium cut-out of two lines and two half-circle arcs loads with no `invalid_outline` and reaches no drill file on 9.0.9 and 10.0.6 | S-0020, S-0029 | INFERRED | H-K-SLOT-RING |
+| Two oval `np_thru_hole` pads of hole footprints whose holes overlap in an L give two `G85` slots in the NPTH file and no DRC finding about the holes: `courtyards_overlap` and `lib_footprint_issues` on 9.0.9 and 10.0.6, and `npth_inside_courtyard` on 10.0.6 | S-0020, S-0029 | INFERRED | H-K-HOLE-OVERLAP |
+| A plated pad of 2 mm 0.2 mm from a milled slot gives `copper_edge_clearance` on 9.0.9 and 10.0.6; the same 0.2 mm from an oval `np_thru_hole` pad gives `hole_clearance` on 10.0.6 and nothing on 9.0.9 | S-0020, S-0029 | INFERRED | H-K-HOLE-OVERLAP |
+
+The five rows of slots (change c0167) were first measured on 2026-10-15 in the pinned images
+`kicad/kicad:9.0.9` and `kicad/kicad:10.0.6` with `pcb drc --format json --severity-all` and
+`pcb export drill` on boards written by `write_board` (a scratch script); the probes of
+`tests/kicad/board/test_slots.py` record them, and each row keeps `INFERRED` until those probes hold.
 
 ### Moved footprints (c0022)
 

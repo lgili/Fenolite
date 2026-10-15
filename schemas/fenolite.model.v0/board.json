@@ -987,7 +987,7 @@
       ]
     },
     "Outline": {
-      "description": "Board outline polygon and cut-outs (points in order).",
+      "description": "Board outline polygon and cut-outs (points in order), and the board's milled slots.",
       "type": "object",
       "properties": {
         "id": {
@@ -1036,6 +1036,12 @@
           "items": {
             "$ref": "#/$defs/OutlineArc"
           }
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OutlineSlot"
+          }
         }
       },
       "additionalProperties": false,
@@ -1062,6 +1068,60 @@
         "ring",
         "edge",
         "mid"
+      ]
+    },
+    "OutlineSlot": {
+      "description": "A milled slot of the board (change c0167): a non-plated stadium cut out of the board, ``length``",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "native_ids": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ext": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/ExtBag"
+          }
+        },
+        "center": {
+          "$ref": "#/$defs/Point"
+        },
+        "length": {
+          "type": "integer"
+        },
+        "width": {
+          "type": "integer"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "center",
+        "length",
+        "width"
       ]
     },
     "Pad": {

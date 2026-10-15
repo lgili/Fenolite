@@ -352,6 +352,7 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | design header | `dsn` | `design` |
 | board | `brd` | `board` |
 | outline | `out` | `outline` |
+| milled slot | `slt` | `slot:<slot name>` (change c0167) |
 | rule set | `rst` | `rules` |
 | manifest | `mfn` | `manifest` |
 | module | `mod` | `module:<path>` |

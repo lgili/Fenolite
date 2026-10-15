@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Board slots
-`Outline` SHALL hold `slots: tuple[OutlineSlot, ...]`, empty by default. `OutlineSlot` SHALL be a frozen entity with `center`, `length` (overall, both round ends included), `width` and `rotation`: a non-plated milled stadium whose ring is `core.stadium.stadium(...)`. `width` MUST be positive and even and `length` MUST exceed it. Overlapping slots and cut-outs mean their union. The canonical writer MUST omit empty `slots`; release 0.4.x cannot read a document that carries it.
+`Outline` SHALL hold `slots: tuple[OutlineSlot, ...]`, empty by default. `OutlineSlot` SHALL be a frozen entity with `name`, `center`, `length` (overall), `width` and `rotation`: a non-plated milled stadium whose ring is `core.stadium.stadium(...)`. `width` MUST be positive and even and `length` MUST exceed it. Overlapping slots and cut-outs mean their union. The canonical writer MUST omit empty `slots`; release 0.4.x cannot read a document that carries it.
 
 #### Scenario: A slot round-trips
 - **GIVEN** an outline of a 40 × 30 mm rectangle with one `OutlineSlot` at (115 mm, 110 mm), length 12 mm, width 2 mm, rotation 30°

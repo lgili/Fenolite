@@ -21,7 +21,7 @@
 - **THEN** it returns no issue
 
 #### Scenario: Rings that cross, touch or nest
-- **GIVEN** five models with `board(mm(40), mm(30))` and, in turn, a round cut-out of 4 mm centred at (39 mm, 15 mm), the same at (38 mm, 15 mm), two round cut-outs of 4 mm at (18 mm, 15 mm) and (21 mm, 15 mm), a round cut-out of 2 mm inside one of 6 mm both centred at (20 mm, 15 mm), and a round cut-out of 4 mm at (20 mm, 15 mm)
+- **GIVEN** five models with `board(mm(40), mm(30))` and, in turn, a round cut-out of 4 mm centred at (39 mm, 15 mm), the same at (38 mm, 15 mm), two round cut-outs of 4 mm at (18 mm, 15 mm) and (22 mm, 15 mm), which touch at one point, a round cut-out of 2 mm inside one of 6 mm both centred at (20 mm, 15 mm), and a round cut-out of 4 mm at (20 mm, 15 mm)
 - **WHEN** `check_outline` runs on each
 - **THEN** the first four give one `kicad.outline.invalid` each, the first two naming `board` and `cut-out 1`, and the fifth gives none
 
@@ -33,7 +33,7 @@
 #### Scenario: Overlapping slots merged or refused
 - **GIVEN** `board(mm(40), mm(30))`, `d.slot(mm(15), mm(10), length=mm(12), width=mm(2), name="A")` and `d.slot(mm(20), mm(15), length=mm(12), width=mm(2), rot=90, name="B")`
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_slots_outline.py -k overlap` calls `check_outline` with the `geo` extra and with `pyclipper` hidden
-- **THEN** the first gives one `kicad.outline.merged` naming `slot A` and `slot B`, and the second one `kicad.outline.overlap` naming both with the hint `pip install 'fenolite[geo]'`
+- **THEN** the first gives one `kicad.outline.merged` naming `slot A` and `slot B`, and the second one `kicad.outline.overlap` naming both with the hint `pip install 'fenolite[geo]'`; two round cut-outs of 4 mm at (18 mm, 15 mm) and (21 mm, 15 mm), which overlap, give one `kicad.outline.merged` naming `cut-out 1` and `cut-out 2`
 
 ## ADDED Requirements
 

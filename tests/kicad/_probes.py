@@ -87,6 +87,7 @@ import _rta3oracle
 import _rulecases
 import _schcases
 import _sheetcases
+import _slotbench
 import _stackbench
 import _tiebench
 import _triad
@@ -300,6 +301,7 @@ def _probes() -> dict[str, Probe]:
         **_itemcases.item_probes(),
         **_outlinebench.outline_probes(),  # change c0102
         **_holebench.hole_probes(),  # change c0102
+        **_slotbench.slot_probes(),  # change c0167
         **_layerbench.layer_change_probes(),  # change c0102
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
