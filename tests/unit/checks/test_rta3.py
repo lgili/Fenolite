@@ -166,5 +166,9 @@ def test_rta3_module_touches_no_file() -> None:
         "fenolite.backends.altium.roundtrip",
         "fenolite.backends.base",
         "fenolite.core.evidence",
+        "fenolite.core.coords",
+        "fenolite.geometry.transform",
+        "fenolite.model.board",
+        "fenolite.model.circuit",
         "fenolite.model.design",
     }

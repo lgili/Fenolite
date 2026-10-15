@@ -510,3 +510,8 @@ __all__ = [
     "placement_uuid",
     "with_property",
 ]
+
+
+def flip_footprint_tree(tree: Node, issues: list[Issue]) -> Node:
+    """Mirror a local footprint tree and swap paired layers (c0161 derived libraries)."""
+    return _flip(tree, issues)

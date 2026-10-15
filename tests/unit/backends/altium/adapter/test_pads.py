@@ -133,9 +133,24 @@ def test_full_stack_takes_the_mid_layer_the_chain_names() -> None:
     assert pad.padstack is not None
     assert [(layer.layer, layer.size.w) for layer in pad.padstack.layers] == [
         ("F.Cu", 1_524_000),
-        ("In1.Cu", 1_143_000),  # 45 mil: the entry of Mid-Layer 2
+        ("In1.Cu", 1_016_000),  # 40 mil: the first extended entry is Mid-Layer 2
         ("In2.Cu", 1_397_000),  # 55 mil: a plane takes the middle values
         ("B.Cu", 1_778_000),
+    ]
+
+
+def test_full_stack_first_and_last_mid_layers_use_different_records() -> None:
+    record = rec.pad(
+        "1", hole=30 * MIL, layer=74, stack_mode=2,
+        mid=(55 * MIL, 55 * MIL), inner={0: (40 * MIL, 40 * MIL), 28: (45 * MIL, 45 * MIL)},
+        component=0,
+    )  # fmt: skip
+    (pad,) = pads_of([record], (1, 2, 3, 31, 32))
+    assert pad.padstack is not None
+    assert [layer.size.w for layer in pad.padstack.layers[1:-1]] == [
+        1_397_000,  # Mid-Layer 1: main geometry
+        1_016_000,  # Mid-Layer 2: extended entry 0
+        1_143_000,  # Mid-Layer 30: extended entry 28
     ]
 
 

@@ -56,6 +56,33 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 | Shapes: 1 round, 2 rectangle, 3 octagonal. A round pad with unequal sizes is an oval. A rounded rectangle is main shape 1 with alternate shape 9 in subrecord 6 and a corner percentage; KiCad reads the percentage `p` as the corner ratio `p / 200`. The alternate shape and percentage of index 0 belong to the top layer | S-0160, S-0161, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
 | A pad with a hole size above 0 is a through-hole pad: plated 1 is plated, 0 not plated. A through-hole pad must lie on layer 74 (Multi-Layer); a surface pad lies on its copper layer | S-0161 | INFERRED | H-A-PCB-PAD |
 
+### Full Stack layer association (c0160 follow-up)
+
+Copper offsets describe the landing's displacement from the hole centre
+(S-0302, public Altium pad documentation). Fenolite projects KiCad's opaque drill
+offset into padstack layer offsets before conversion, rotates it into the model
+frame and writes subrecord 6 even for a simple rectangular or circular pad.
+Bottom-side library definitions mirror the displacement with the other geometry.
+Authored read-back tests cover four rotations and both board faces. Native DRC
+on the public hierarchical conversion eliminated its 23 clearance violations:
+**ALTIUM-VERIFIED(author-report)** for that case, with repour still unproved.
+See [the acceptance report](../../evidence/altium-native-acceptance.md).
+
+S-0002 documents 30 legacy mid layers, the main middle geometry and 29 extended
+size/shape entries. S-0161 at tag 10.0.6 assigns the main middle geometry to the
+first inner layer and the extended geometry to the remaining layers. The
+association is **INFERRED**: in mode 2, Mid-Layer 1 uses subrecord 5's middle
+geometry; extended entry `n - 2` supplies Mid-Layer n for n = 2 through 30.
+Alternate-shape, corner and offset arrays still use slot n for Mid-Layer n.
+
+Native inspection on 2026-10-13 confirmed In1 round 1.2 x 1.2 mm and In2 rectangle
+1.4 x 1.1 mm in the regenerated PCB and in a footprint placed from its library:
+**ALTIUM-VERIFIED(author-report)** for that authored four-layer case. Other layer
+counts remain inferred; connector masks remain unmeasured. KiCad 10.0.6 imports
+In2 with zero Y size both before and after this correction, an unresolved
+compatibility finding, so neither import is a passing Full Stack oracle. See
+`docs/evidence/altium-padstack-part-t.md` for the operations and local artifacts.
+
 ## Text
 
 | fact | source | label | hypothesis |

@@ -2,9 +2,7 @@
 
 ## Purpose
 Read KiCad board files into the neutral model without losing anything: typed reading of `.kicad_pcb` from KiCad 8.0 on with slots (modelled, projected and opaque children kept in place), the version policy, layers, nets in both forms, the pad frame, zones and rule areas, exact numbers, stable ids, a closed set of issue codes, a synthesised circuit, and the same-version rebuild (RT1). Facts and sources: `docs/formats/kicad/board.md`.
-
 ## Requirements
-
 ### Requirement: Board file reading
 `fenolite.backends.kicad.pcb.read_board(source, *, file="", issues=None)` SHALL accept an `os.PathLike` (a `.kicad_pcb` file), a `str` (file text) or a parsed `Node`, and SHALL return a `Design`.
 - `header.name` MUST be the file stem for a path and `""` otherwise.
@@ -520,7 +518,7 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **Target 10.** The root holds no net table, and the source's opaque `(net 0 "")` slot MUST be removed. Every reference is `(net "<name>")`, and zones write no `net_name`.
 - Net 0 and the empty name mean no net. For target 9, a zone or rule area whose net is `None` MUST write `(net 0)` and `(net_name "")`, and every other item whose `net_id` is `None` MUST carry no `net` child. For target 10, an item whose net is `None` MUST NOT carry a `net` child.
 - Inside opaque fragments, `(net 0)`, `(net 0 "")` and `(net "")` MUST be written `(net 0)` for target 9 and removed for target 10, and MUST NOT give `kicad.board.opaque-net-ref`.
-- Inside opaque fragments, a numbered reference MUST be resolved through the source net table kept by `read_board`, and a named reference by its name; both MUST be re-emitted in the target's form.
+- Inside opaque fragments, a numbered reference MUST be resolved through the source net table kept by `read_board` to the stored name of that net (`pcb.stored_net_name`, "Net names in KiCad's stored form"), never to its model name, and a named reference by its name; both MUST be re-emitted in the target's form (c0163).
 - A `net` node in opaque content that matches none of `(net N)`, `(net N "name")` and `(net "name")`, or whose number N ≥ 1 is absent from the source table, MUST give `kicad.board.opaque-net-ref` (error). `allow_lossy` MUST NOT drop it.
 
 #### Scenario: Numbered table for target 9
@@ -537,6 +535,11 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **GIVEN** a copy of `tests/data/kicad/tokens/skeleton.kicad_pcb`, built in the test, with an added teardrop zone (an `attr` child holding `teardrop`) that holds `(net 2)` and `(net_name "B")`, where net 2 is `B` in the source table, read with `read_board`, so the teardrop zone is an opaque root slot
 - **WHEN** it is written for target 10
 - **THEN** the teardrop zone holds `(net "B")` and no `net_name`, and every other child of it is tree-equal to the source
+
+#### Scenario: Opaque reference to a net stored with a slash
+- **GIVEN** a copy of `skeleton.kicad_pcb`, built in the test, whose net 2 is stored `Net-(U1-P1{slash}XL1)`, with an added teardrop zone that holds `(net 2)` and `(net_name "Net-(U1-P1{slash}XL1)")`, read with `read_board` (the net's model name is `Net-(U1-P1/XL1)`)
+- **WHEN** it is written for target 9 and for target 10
+- **THEN** both writes succeed with no `kicad.board.opaque-net-ref`; the target-9 teardrop holds `(net i)` and `(net_name "Net-(U1-P1{slash}XL1)")`, where i is the number of the table row `Net-(U1-P1{slash}XL1)`; the target-10 teardrop holds `(net "Net-(U1-P1{slash}XL1)")`; neither text holds `Net-(U1-P1/XL1)`
 
 #### Scenario: Unknown opaque net reference
 - **GIVEN** a copy of `skeleton.kicad_pcb` whose segment holds `(net 7)` while the source table ends at 2, read with `read_board`, which keeps that reference opaque (c0009 "Nets in both forms")
@@ -2321,3 +2324,128 @@ Beside the fields of "Modelled board content", the board reader SHALL map the `l
 - **GIVEN** a created design with `Board.via_protection = ViaProtection(filling=True)`
 - **WHEN** it is written for target 9
 - **THEN** `LossyWriteError` is raised with `droppable == False` and one `kicad.board.via-protection-too-new` whose locator is `setup` and which names `filling`
+
+### Requirement: Footprint items projected on request
+`backends.kicad.fpitems.with_footprint_items(design) -> Projection` SHALL return a copy of a design that was read from a KiCad board in which every footprint holds, as read-only projections of its opaque children, the graphics, the texts and the corner ratios of `design-model`, "Graphics and texts of a footprint instance" and "Corner ratio of a rounded-rectangle pad". No reader and no writer calls it by itself.
+- One `Graphic` per opaque `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` child, with the mapping that `mod.read_footprint` uses for a library footprint (`_fpmap.read_graphic`), in child order. The points are the file's own: a board footprint stores its children in the pad frame, mirrored on the bottom side.
+- One `Text` per opaque `fp_text` child that holds a font size and a thickness: the string as written, the layer, and the angle taken from the board angle of the file to the footprint (`pad_angle_from_board`).
+- `Pad.corner_ratio` from the pad's opaque `roundrect_rratio`, in ppm.
+- A child that `Graphic` or `Text` cannot hold (a stroke that is not solid, a polygon with an arc, `fp_text_box`, `dimension`, a curve, an inexact number) MUST be left out and counted by head in `Projection.skipped`; `Projection.projected` counts what was projected per kind.
+- A footprint that holds no `kicad` bag was not read from a KiCad board (the stored board of an Altium build holds its own graphics): it MUST be returned as it is, neither projected nor marked.
+- Every slot MUST stay as it was, so `write_board` of the projected design gives the text of `write_board` of the design. Each projected footprint MUST carry the pair `("fenolite.projected", "footprint-items")` in its `kicad` bag.
+- On a write, a footprint that carries the pair is checked as "Projected fields on write" says: the writer projects again and compares `graphics`, `texts` and the pads' `corner_ratio`; a difference MUST give `kicad.board.projection-read-only` naming the field and the footprint's locator. A footprint without the pair is written without a look at the three fields.
+- Ids follow "Placed copies of library definitions" and the scoped ids of a board footprint's pads: with a uuid `derived_id(prefix, "kicad", "<footprint uuid>:<uuid>")`, without one a content id scoped to the footprint.
+- The module MUST declare its evidence (`H-K-PCB-FPGFX`, `INFERRED`), and no module of `backends.kicad` on the read or write path of a board may import it.
+
+#### Scenario: Projection equals the library reading
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_fpitems.py -k library` places each footprint of the mini library with `embed.place_footprint` on the top side at angle 0 and projects the result
+- **THEN** the projected graphics have the kinds, layers, points, widths and fill flags of `FootprintDef.graphics` of the same definition, in order, and every rounded pad has the ppm of its `roundrect_rratio`
+
+#### Scenario: The projection changes no byte
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_fpitems.py -k no_byte` writes every board under `tests/data/kicad/board/` with and without the projection
+- **THEN** the two texts are equal for each board, on targets 9 and 10
+
+#### Scenario: An edited projection is refused
+- **GIVEN** a projected design in which one footprint graphic is moved by 1 mm
+- **WHEN** `write_board` runs
+- **THEN** `LossyWriteError` is raised with one `kicad.board.projection-read-only` issue that names `graphics`
+
+#### Scenario: Builds are pinned
+- **WHEN** `uv run pytest tests/unit/lens/test_build_bytes_pinned.py tests/unit/lens/test_build_determinism.py` runs after this change
+- **THEN** every entry of the `KICAD` table of change c0123 holds without an edit
+
+### Requirement: Mandatory fields of a placed footprint
+Every `FootprintInstance` that `fenolite.backends.kicad.embed.place_footprint` returns SHALL hold one `Reference` field whose value is `component.ref` and one `Value` field whose value is `component.value`, whatever the origin of the definition.
+- `embed.default_fields(defn) -> tuple[FieldDefault, FieldDefault]` MUST return the placement of a field that a definition lacks, `Reference` first. With `box = embed.footprint_extent(defn)` and `cx` the centre of its X range: `Reference` has the text `REF**`, the layer `F.SilkS` and the position `(cx, box.y1 − FIELD_GAP)`; `Value` has the text `defn.name`, the layer `F.Fab` and the position `(cx, box.y2 + FIELD_GAP)`. `FIELD_GAP` MUST be 1 mm, `FIELD_SIZE` 1 mm by 1 mm and `FIELD_THICKNESS` 0.15 mm; both fields are visible, centred and at angle 0.
+- A definition that has a `property` child of a name MUST keep that child: only its value atom is set, as before this requirement.
+- A definition that lacks one MUST get it from `default_fields`, placed before the footprint's first `property` child, `Reference` before `Value`. Its uuid MUST be `embed.placement_uuid(key, "/footprint/property:<name>")`.
+- An added field MUST be flipped with the footprint's other children on the bottom side: its layer becomes `B.SilkS` or `B.Fab` and its text is mirrored.
+- `read_board` of the written board MUST map both properties to `FootprintField`s ("Footprint fields on boards"), and the component's `ref` MUST be `component.ref`.
+- `lens.build` MUST report one `build.field-added` issue of severity `info` for each definition read from a library file that lacks `Reference` or `Value`, naming the lib id and the fields added. A definition prepared by `mod.prepare_authored_definition` MUST NOT give it. `docs/cli-contract.md` MUST document the code, and `src/fenolite/cli/data/explain.toml` MUST hold its table (`cli-contract`, "Explain command").
+
+#### Scenario: Catalog footprint placed on top
+- **GIVEN** `catalog.get_footprint("Fenolite:Chip_0603")` prepared with `mod.prepare_authored_definition`, and a component `R1` with value `330`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_embed_fields.py -k top` places it with `place_footprint(..., key="R1")` and writes the instance
+- **THEN** the footprint holds `(property "Reference" "R1"` on `F.SilkS` above the courtyard box and `(property "Value" "330"` on `F.Fab` below it, each with a font of 1 mm by 1 mm, and reading the board back gives a component whose `ref` is `R1`
+
+#### Scenario: Bottom side
+- **WHEN** the same definition is placed with `side="bottom"`
+- **THEN** the `Reference` field is on `B.SilkS`, the `Value` field on `B.Fab`, and both are mirrored
+
+#### Scenario: Library footprint keeps its own fields
+- **GIVEN** `Mini_R_0603` read from `tests/data/libs/Mini.pretty`
+- **WHEN** it is placed
+- **THEN** the instance equals the one placed before this requirement, and the build reports no `build.field-added`
+
+#### Scenario: Library footprint without a reference
+- **GIVEN** a copy of `Mini_R_0603`, made in the test, without its `Reference` property
+- **WHEN** a design that uses it is built
+- **THEN** the board footprint holds a `Reference` field with the part's reference at the default placement, and the build reports one `build.field-added` info naming the lib id and `Reference`
+
+#### Scenario: Deterministic uuids
+- **WHEN** the catalog footprint is placed twice with the key `R1`, and once with the key `R2`
+- **THEN** the two `R1` instances have equal field uuids, and the `R2` instance shares none of them
+
+### Requirement: Net-tie groups on boards and footprints
+`read_board` SHALL project the `net_tie_pad_groups` child of each footprint into `FootprintInstance.net_ties`, and `read_footprint` into `FootprintDef.net_ties` (`design-model`, "Net-tie groups in the model"):
+- each string atom is one group; it is split at commas, the spaces around a number are dropped, and empty parts are dropped, so `"1, 2"` and `"1,2"` give `("1", "2")` (both spellings occur in KiCad's demo boards, S-0058);
+- the child MUST stay a projected slot ("Projected fields on write"), written back byte for byte, so a read board keeps its token as KiCad wrote it;
+- a read footprint whose `net_ties` differs from the projection of its child, or that gains groups without having the child, MUST give `kicad.board.projection-read-only` on write, naming `net_ties` and the footprint's locator;
+- `embed.place_footprint` MUST carry the child of a library definition into the placed footprint, so a library net tie placed by `build` keeps its groups on the board;
+- an authored definition is written from its field (`dsl-footprint-authoring`, "Net-tie groups in authored footprints").
+`docs/formats/kicad/libraries.md` and `board.md` MUST state the form, the two spellings and the position after `attr`, with S-0018, S-0042 and S-0058.
+
+#### Scenario: Official form read
+- **GIVEN** a board holding KiCad's `NetTie-2_SMD_Pad0.5mm` placed with pads on nets `A` and `B`, its child written `(net_tie_pad_groups "1, 2")`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_net_ties.py -k read` reads it
+- **THEN** the footprint has `net_ties == (("1", "2"),)`, and `write_board` of the unchanged design gives the input bytes
+
+#### Scenario: Spelling and several groups
+- **WHEN** footprints holding `(net_tie_pad_groups "1,2")` and `(net_tie_pad_groups "1, 2" "3, 4")` are read
+- **THEN** their groups are `(("1", "2"),)` and `(("1", "2"), ("3", "4"))`
+
+#### Scenario: Edited groups refused
+- **GIVEN** the board of "Official form read" with the footprint's `net_ties` changed to `(("1",),)`
+- **WHEN** it is written for target 10
+- **THEN** `LossyWriteError` is raised with `kicad.board.projection-read-only` naming `net_ties`
+
+#### Scenario: Placed library net tie keeps its groups
+- **GIVEN** a design whose part uses `NetTie:NetTie-2_SMD_Pad0.5mm` from the fetched library
+- **WHEN** `fenolite build` plans the board and the copper guard reads it back
+- **THEN** the placed footprint holds the child and `net_ties == (("1", "2"),)`
+
+### Requirement: Project files carry the check severities
+A written project file SHALL carry the severities of `RuleSet.severities` (`design-model`, "Check severities in the rules layer"): this requirement takes the keys `/board/design_settings/rule_severities/<key>` that they name out of the template-value rule and the keep rule of "Project files are synthesised and preserved".
+- **Key.** The key of a code `kicad.drc.<suffix>` is the suffix with `-` replaced by `_`. `pro.SEVERITY_KEYS[target]` MUST be the set of `rule_severities` keys of the target's packaged template: exactly the keys 10.0.6 applies for target 10 (`H-K-PRO-SEV-KEYS`), and, for target 9, the keys of a template derived from 10's, `INFERRED`.
+- **Write.** `synthesize_project` and `update_project` MUST set each such key to its level when the key is in `SEVERITY_KEYS[target]`. A key the design does not name keeps its template value on synthesis and its file value on update, its spelling and its position included.
+- **Unknown key.** A code whose key is outside `SEVERITY_KEYS[target]` MUST raise `LossyWriteError` (`FEN-7001`, `droppable=True`) with the error `kicad.project.unknown-check` naming the code and the target; with `allow_lossy=True` the key MUST NOT be written, and `issues` MUST hold the warning `kicad.project.dropped-check` instead.
+- **Codes.** This requirement adds two rows to "Project issue codes": `kicad.project.unknown-check` (error) and `kicad.project.dropped-check` (warning).
+- `docs/formats/kicad/project.md` MUST state the key rule, both key sets, and the six template keys that no 9.0.9.1 demo project holds (S-0058).
+
+#### Scenario: Synthesis writes a named key
+- **GIVEN** a design with `RuleSet.severities == {"kicad.drc.silk-overlap": "ignore"}`
+- **WHEN** `synthesize_project(design, target=10, board_name="b")` is called
+- **THEN** `/board/design_settings/rule_severities/silk_overlap` is `"ignore"` and every other `rule_severities` value equals the template's
+
+#### Scenario: Update changes only the named key
+- **GIVEN** a target-10 project text whose `rule_severities` sets `silk_overlap` to `warning` and `track_dangling` to `ignore`
+- **WHEN** `update_project` runs with `severities == {"kicad.drc.silk-overlap": "error"}`
+- **THEN** `silk_overlap` is `"error"`, `track_dangling` is still `"ignore"`, and every other `rule_severities` member keeps its value and position
+
+#### Scenario: Unknown key refused
+- **GIVEN** `severities == {"kicad.drc.silk-overlaps": "ignore"}`
+- **WHEN** the project is synthesised for target 10
+- **THEN** `LossyWriteError` is raised with `droppable == True` and the error `kicad.project.unknown-check`; with `allow_lossy=True` no `silk_overlaps` key is written and `issues` holds `kicad.project.dropped-check`
+
+### Requirement: Stored exclusions are read
+`read_project` SHALL also return `ProjectInfo.exclusions: tuple[StoredExclusion, ...]` (`backend-protocol`, "Stored exclusions source"), read from `/board/design_settings/drc_exclusions` in file order. An entry MUST be either a string `key` (the plain form, comment `""`) or a list `[key, comment]` of two strings (the pair form), the key being `<type>|<x>|<y>|<uuid>|<uuid>` with `x` and `y` integers in nm (S-0058, `H-K-DRC-EXCL`). An entry of any other shape MUST give the info `kicad.project.unread-entry` and be skipped. `KicadBackend.stored_exclusions(project)` MUST return the exclusions of the project file of the copy set, and `()` when the set has none or it fails to read. Neither writes the project file; `update_project` keeps `drc_exclusions` verbatim, as before.
+
+#### Scenario: Both forms read
+- **GIVEN** a project text whose `drc_exclusions` holds `["via_dangling|30123456|20654321|<uuid>|00000000-0000-0000-0000-000000000000", "test point"]` and the plain string `"courtyards_overlap|1000000|2000000|<uuid a>|<uuid b>"`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_pro_read.py -k exclusion` reads it
+- **THEN** `exclusions` holds two entries, the first with position `Point(30_123_456, 20_654_321)` and comment `test point`, the second with comment `""`
+
+#### Scenario: A malformed entry is skipped
+- **GIVEN** a `drc_exclusions` entry `["via_dangling|1.5|2|<uuid>", 3]`
+- **WHEN** the project is read with an `issues` list
+- **THEN** `exclusions` is empty and `issues` holds one `kicad.project.unread-entry`

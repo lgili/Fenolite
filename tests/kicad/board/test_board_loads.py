@@ -7,9 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from _boardcorpus import READABLE_ITEMS, read
+from _boardcorpus import READABLE_ITEMS, read, require_cli_board_version
 from _corpus import CorpusItem, require
-from _kicad import supported_version
+from _kicad import major, supported_version
 from _resources import kicad_cli
 
 from fenolite.backends.kicad.cli import KicadCli
@@ -40,7 +40,9 @@ def test_fixture_loads(fixture: Path) -> None:
 @pytest.mark.needs_corpus
 @pytest.mark.parametrize("item", [i for i in READABLE_ITEMS if not i.heavy], ids=lambda i: i.id)
 def test_rebuilt_corpus_board_loads(item: CorpusItem, tmp_path: Path) -> None:
-    design, _ = read(require(item))
+    path = require(item)
+    require_cli_board_version(path, major())
+    design, _ = read(path)
     rebuilt = tmp_path / item.path.name
     rebuilt.write_text(dumps(rebuild_board(design)), encoding="utf-8")
     run = runner().load_board_svg(rebuilt)

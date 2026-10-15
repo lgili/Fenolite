@@ -38,6 +38,19 @@ IMPORTER: dict[str, set[tuple[str, str]]] = {
 }
 """Per demo board, the differences ``(kind, where)`` that KiCad's importer makes and no loss explains."""
 
+FREE_PAD_COUNTS = {"01": 14, "04": 1, "07": 2, "12": 9, "13": 9, "16": 3, "17": 24}
+"""c0166 measured importer wrappers: one blank-reference footprint per free pad.
+
+These counts match the separately recorded conversion ledger, not a general
+exemption for blank references. The original numbered-component checks remain.
+"""
+SLOT_IMPORT_PINS = ("1", "2", "3", "4", "6", "7", "8", "9")
+"""ecc83's rotated slots read by 10.0.6 as one-number ``(drill oval 0.762)``.
+
+Native Altium retains all nine 1.02 by 2.03 mm slots. Pin 5, at zero hole angle,
+does not produce this importer discrepancy. See c0166's native evidence.
+"""
+
 
 @pytest.mark.parametrize("name", sorted(_convcases.SAMPLES))
 def test_samples(name: str) -> None:
@@ -61,4 +74,16 @@ def test_demo_boards(key: str) -> None:
     found = _convcases.triangle(require(BOARDS[key]))
     explained = dict(Counter((d.kind, kind) for d, kind in found.explained))
     print(f"{BOARDS[key].path.stem}: {explained}, {len(found.report.excluded)} excluded")
-    assert {(d.kind, d.where) for d in found.unexplained} == IMPORTER.get(key, set())
+    expected = set(IMPORTER.get(key, set()))
+    if key in FREE_PAD_COUNTS:
+        wrappers = [d for d in found.unexplained if d.kind == "ref-ambiguous" and not d.where]
+        assert len(wrappers) == 1
+        assert (wrappers[0].a, wrappers[0].b) == ("0", str(FREE_PAD_COUNTS[key]))
+        expected.add(("ref-ambiguous", ""))
+    if key == "04":
+        slots = [d for d in found.unexplained if d.kind == "pad-drill"]
+        assert {(d.where, d.a, d.b) for d in slots} == {
+            (f"U1-{pin}", "1020000", "") for pin in SLOT_IMPORT_PINS
+        }
+        expected.update(("pad-drill", f"U1-{pin}") for pin in SLOT_IMPORT_PINS)
+    assert {(d.kind, d.where) for d in found.unexplained} == expected

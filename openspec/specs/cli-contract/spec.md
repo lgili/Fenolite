@@ -2,9 +2,7 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
-
 ## Requirements
-
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -2169,3 +2167,26 @@ Each entry of `result.routers` of `fenolite capabilities` SHALL also hold `featu
 #### Scenario: Features listed
 - **WHEN** `uv run pytest tests/unit/cli/test_capabilities.py -k features` runs `fenolite capabilities --json --no-tools`
 - **THEN** `direct` and `freerouting` list no feature, and `kicadroutingtools` lists the features that its gate outcomes allowed
+
+### Requirement: Levels and sides of equivalent in capabilities
+The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hold, besides the keys of every entry, `levels` (the list `LEVELS` of `fenolite.checks.equivalence`) and `sides` (the side kinds the command reads, sorted: `altium_pcbdoc`, `altium_prjpcb`, `altium_schdoc`, `fenolite_model`, `kicad_pcb`, `kicad_pro`, `kicad_sch`). No other entry gains these keys.
+
+#### Scenario: Levels and sides listed
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
+- **THEN** the entry named `equivalent` has `levels` `[1, 2, 3, 4, 5]` and `sides` holding `kicad_sch`
+
+### Requirement: Kit command
+`fenolite kit` SHALL be registered by `src/fenolite/cli/cmd_kit.py` with four subcommands.
+- `kit build --out DIR [--seed N] [--timestamp T]` MUST write the kit under the rules of "Writing files" (dry run, confirm, receipt). It runs no external tool.
+- `kit verify DIR` MUST be read-only, MUST print the verdict per step and per hypothesis and the privacy list in `result`, MUST exit 5 when a step fails and 0 otherwise, and MUST exit 3 with `FEN-3001` for a folder without `kit.json`.
+- `kit record DIR --out REPO` MUST be a mutating command: it writes `results.zip` beside `DIR` and the run record under `REPO/docs/evidence/altium-kit/`, refuses a verdict with a failed machine check on the kit's own files, refuses a synthetic run, and prints in `result.rows` the register rows whose label may change, with the label text.
+- `kit status` MUST be read-only and MUST list the committed runs and the stale rows.
+- The envelope evidence of `kit verify` MUST be `ALTIUM-VERIFIED(kit)` only when every step passed and the run is not synthetic; otherwise the lowest level of what was checked.
+
+#### Scenario: Help and example
+- **WHEN** `fenolite kit status --json` runs in a tree without a run record
+- **THEN** the exit code is 0 and `result.runs` is empty
+
+#### Scenario: Verify refuses a folder that is no kit
+- **WHEN** `fenolite kit verify <empty folder>` runs
+- **THEN** the exit code is 3 and stderr holds `FEN-3001`

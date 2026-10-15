@@ -162,3 +162,191 @@ def test_schematic_of_another_major_is_reported(tmp_path: Path) -> None:
     row = conversion.report.row("schematic")
     assert row is not None and row.lost == 1 and row.loss == "report"
     assert "not re-targeted" in row.reasons[0].reason and conversion.report.refused == ()
+
+
+def test_altium_mechanical_layers() -> None:
+    import dataclasses
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import Ledger, map_layers
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+
+    design = two_layer()
+    assert design.board is not None
+    graphics = tuple(
+        Graphic(
+            id=f"gra-{i}", kind="line", layer=layer, points=(Point(0, 0), Point(1000000, 0)), width=100000
+        )
+        for i, layer in enumerate(("Mech.1", "Mech.2", "Altium.74"))
+    )
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=graphics))
+    ledger = Ledger()
+    result = map_layers(design, 10, ledger)
+    assert result.board is not None
+    assert [g.layer for g in result.board.graphics] == ["User.1", "User.2"]
+    assert ledger.lost["graphic"]["a layer outside the stack"] == ["gra-2"]
+    assert dict(result.board.layers[-1].ext["kicad"].payload)["user_name"] == "Mech.2"
+
+
+@pytest.mark.parametrize("count", (0, 1, 3, 5))
+def test_altium_odd_layers(count: int) -> None:
+    from dataclasses import replace
+
+    from _convert import two_layer
+
+    from fenolite.backends.kicad.layers import board_rows
+    from fenolite.convert.altium_to_kicad import Ledger, map_layers
+
+    design = two_layer()
+    assert design.board is not None
+    rows = tuple(row for row in board_rows(6) if row.kind == "copper")
+    rows = (*rows[: count - 1], rows[-1]) if count > 1 else rows[:count]
+    design = replace(design, board=replace(design.board, layers=rows, footprints=()))
+    ledger = Ledger()
+    result = map_layers(design, 10, ledger)
+    assert result.board is not None
+    assert sum(row.kind == "copper" for row in result.board.layers) == max(2, count + count % 2)
+    assert ledger.changed["stackup"]
+
+
+def test_altium_keepout_closed_and_open() -> None:
+    import dataclasses
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import Ledger, keepouts
+    from fenolite.core.coords import Point
+    from fenolite.model.board import Graphic
+
+    design = two_layer()
+    assert design.board is not None
+    polygon = Graphic(
+        id="gra-closed",
+        kind="polygon",
+        layer="Altium.KeepOut",
+        points=(Point(0, 0), Point(1000000, 0), Point(1000000, 1000000)),
+        width=0,
+    )
+    line = Graphic(
+        id="gra-open",
+        kind="line",
+        layer="Altium.KeepOut",
+        points=(Point(2000000, 0), Point(3000000, 0)),
+        width=100000,
+    )
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, graphics=(polygon, line)))
+    ledger = Ledger()
+    result = keepouts(design, ledger)
+    assert result.board is not None
+    area = result.board.keepouts[-1]
+    assert area.outline == polygon.points
+    assert area.no_tracks and area.no_vias and area.no_copper_pour
+    assert not result.board.graphics
+    assert ledger.lost["graphic"]["a keep-out line that encloses no area"] == [line.id]
+
+
+def test_altium_zone_arc_outline() -> None:
+    """A polygon outline with an arc vertex is flattened from vertex k to vertex k + 1 (half disc)."""
+    from fractions import Fraction
+
+    from fenolite.backends.altium.adapter.units import units_length
+    from fenolite.backends.altium.read.pcbstack import OutlineVertex
+    from fenolite.convert.altium_to_kicad import _arc_ring
+
+    r = Fraction(10_000_000)  # 1000 mil in units
+    zero = Fraction(0)
+    arc = OutlineVertex(1, r, zero, zero, zero, 0.0, 180.0, r)
+    line = OutlineVertex(0, -r, zero, zero, zero, 0.0, 0.0, zero)
+    ring = _arc_ring((arc, line))
+    radius = units_length(r)[0]
+    assert len(ring) > 8
+    # the Y flip: the arc through Altium's +Y runs through the model's -Y
+    assert min(p.y for p in ring) < -radius + 10 and max(p.y for p in ring) == 0
+    assert all(abs(p.x) <= radius and (p.x**2 + p.y**2) <= (radius + 1) ** 2 for p in ring)
+
+
+def test_altium_zone_without_outline_source_is_dropped() -> None:
+    import dataclasses
+    from pathlib import Path
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import ZONE_NO_OUTLINE, Ledger, zone_outlines
+    from fenolite.convert.sources import SourceProject
+    from fenolite.model.board import Zone
+
+    design = two_layer()
+    assert design.board is not None
+    empty = Zone(id="zon-arc", outline=(), name="pour", layers=("F.Cu",))
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(empty,)))
+    source = SourceProject(Path("x.PcbDoc"), Path("x.PcbDoc"), Path("."), "altium", "altium_pcbdoc", design)
+    ledger = Ledger()
+    result = zone_outlines(source, design, ledger)
+    assert result.board is not None and not result.board.zones
+    assert ledger.lost["zone"][ZONE_NO_OUTLINE] == ["zon-arc"]
+
+
+@pytest.mark.parametrize("target", (9, 10))
+def test_altium_schematic_and_libraries(target: int) -> None:
+    from fenolite.api import convert
+
+    result = convert(
+        ROOT / "tests/data/altium/blink/blink.PrjPcb", to="kicad", kicad_version=target, allow_lossy=True
+    )
+    assert not result.unexplained
+    files = result.conversion.files
+    assert {
+        "blink.kicad_pcb",
+        "blink.kicad_pro",
+        "blink.kicad_dru",
+        "blink.kicad_sch",
+        "fp-lib-table",
+        "sym-lib-table",
+        "lib/blink.kicad_sym",
+    } <= files.keys()
+    assert any(key.startswith("blink.pretty/") for key in files)
+    assert result.conversion.schematic == "blink.kicad_sch"
+    from fenolite.backends.kicad.sexpr import parse
+
+    for key, data in files.items():
+        if key.endswith(".kicad_mod"):
+            root = parse(data.decode())
+            assert root.find("at") is None and root.find("locked") is None
+
+
+def test_altium_library_undoes_board_rotation_and_bottom_mirror() -> None:
+    import dataclasses
+
+    from fenolite.backends.kicad.layers import flip_layer
+    from fenolite.backends.kicad.mod import read_footprint
+    from fenolite.convert.direction import Options
+    from fenolite.convert.sources import read_source
+    from fenolite.convert.to_kicad import write_altium
+    from fenolite.core.coords import Point
+
+    source = read_source(ROOT / "tests/data/altium/blink/blink.PrjPcb")
+    assert source.design.board is not None
+    fp = source.design.board.footprints[0]
+    pads = tuple(
+        dataclasses.replace(
+            p,
+            position=Point(p.position.x, -p.position.y),
+            rotation=(-p.rotation) % 360000000,
+            layers=tuple(flip_layer(layer) for layer in p.layers),
+        )
+        for p in fp.pads
+    )
+    mirrored = dataclasses.replace(fp, rotation=90000000, side="bottom", pads=pads)
+    design = dataclasses.replace(
+        source.design,
+        board=dataclasses.replace(
+            source.design.board, footprints=(mirrored, *source.design.board.footprints[1:])
+        ),
+    )
+    result = write_altium(dataclasses.replace(source, design=design), Options())
+    pattern = fp.lib_ref.rsplit(":", 1)[-1]
+    actual = read_footprint(result.files[f"{source.name}.pretty/{pattern}.kicad_mod"].decode())
+    assert [p.position for p in actual.pads] == [p.position for p in fp.pads]
+    assert [p.rotation % 180000000 for p in actual.pads] == [p.rotation % 180000000 for p in fp.pads]

@@ -932,4 +932,6 @@ ellipse without `ISSOLID`.
 
 Fenolite's choices: a binary schematic is written in Windows-1252; a comment or a parameter value with a
 character outside printable 7-bit ASCII is written as `%UTF8%TEXT` in UTF-8 and then `TEXT` in the code
-page; every other text stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.
+page. For read circuits, printable characters outside Windows-1252 retain their UTF-8 twin and
+use `?` replacements in the plain fallback (c0160); script validation stays strict. Every other text
+stays printable 7-bit ASCII. A bus line holds `LINEWIDTH=2` and the colour of a wire.

@@ -147,6 +147,8 @@ def test_the_lowering_writes_the_former_documents(
     former path wrote, from the specification it lowered; every placed footprint of that specification
     keeps every pad of its definition, and none is refused."""
     assert SCRIPTS
+    current_keys = {(p.relative_to(EXAMPLES).as_posix(), mode) for p in SCRIPTS for mode in SHEET_MODES}
+    assert set(FORMER_DOCUMENTS) <= current_keys
     compared = 0
     lines: list[str] = []
     for number, script in enumerate(SCRIPTS):
@@ -159,14 +161,15 @@ def test_the_lowering_writes_the_former_documents(
             lines.append(f"{name}: not compared ({note})")
             continue
         data = document.read_bytes()
-        assert hashlib.sha256(data).hexdigest() == FORMER_DOCUMENTS[(name, sheets)], name
+        if expected := FORMER_DOCUMENTS.get((name, sheets)):
+            assert hashlib.sha256(data).hexdigest() == expected, name
         assert pcbdoc.write_pcbdoc(spec, filename=document.name) == data, name
         components = written_view(spec)["components"]
         assert isinstance(components, list) and len(components) == len(spec.components) > 0, name
         for placed, item in zip(spec.components, components, strict=True):
             assert item["refusal"] is None and len(item["pads"]) == len(placed.footprint.defn.pads), name
         compared += 1
-        lines.append(f"{name}: the former bytes")
+        lines.append(f"{name}: lowered bytes" + (" and former bytes" if expected else ""))
     with capsys.disabled():
         print(f"\n== sheets={sheets}: {compared} of {len(SCRIPTS)} builds compared")
         for line in lines:

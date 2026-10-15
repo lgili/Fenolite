@@ -6,10 +6,12 @@ capability altium-schematic-writer, "Compound file container") and of its librar
 
 Written from ``docs/formats/altium/compound-file.md`` (facts of [MS-CFB], S-0145) with the standard library
 only. ``write_compound`` lays the streams out in one fixed layout: the header, then the FAT sectors, the
-directory, the mini FAT, the mini stream and each large stream, every chain over consecutive sectors. Every
-directory entry is black, with zero CLSIDs, state bits and times, so the bytes depend only on the streams.
-No DIFAT sector is written: output whose FAT needs more sectors than the header can list is refused with
-``CompoundTooLarge``.
+DIFAT sectors a large file needs, the directory, the mini FAT, the mini stream and each large stream, every
+chain over consecutive sectors. Every directory entry is black, with zero CLSIDs, state bits and times, so
+the bytes depend only on the streams. A file whose FAT needs more sectors than the header's 109 entries is
+written with DIFAT sectors (change c0160, ``H-A-CONV-DIFAT``): each holds 127 FAT sector numbers then the
+number of the next DIFAT sector, and the FAT marks it ``DIFSECT``. ``CompoundTooLarge`` is raised only for
+a file a version 3 compound file cannot hold.
 
 Storages (change c0034): ``write_compound`` takes streams ``(name, data)`` and ``Storage`` values at any
 depth. Entries are numbered in pre-order; each storage gets its own sibling tree. ``Storage`` and
@@ -34,10 +36,9 @@ MINI_SECTOR_SIZE = 64
 """Mini sector shift 6."""
 MINI_STREAM_CUTOFF = 4096
 """A stream smaller than this lies in the mini stream; a reader decides by the size alone."""
-MAX_FAT_SECTORS = 109
-"""The FAT sectors the header can list; past this a file needs DIFAT sectors, which are not written."""
 ENDOFCHAIN = 0xFFFFFFFE
 FREESECT = 0xFFFFFFFF
+DIFSECT = 0xFFFFFFFC
 FATSECT = 0xFFFFFFFD
 NOSTREAM = 0xFFFFFFFF
 
@@ -50,6 +51,14 @@ HEADER_DIFAT_ENTRIES = 109
 ENTRY_SIZE = 128
 ENTRIES_PER_SECTOR = SECTOR_SIZE // ENTRY_SIZE
 FAT_ENTRIES_PER_SECTOR = SECTOR_SIZE // 4
+DIFAT_ENTRIES_PER_SECTOR = FAT_ENTRIES_PER_SECTOR - 1
+"""A DIFAT sector holds this many FAT sector numbers and then the number of the next DIFAT sector."""
+MAX_FILE_SECTORS = 0xFFFFFFFA + 1
+"""A version 3 file holds at most this many sectors: a sector number is 32 bits and `0xFFFFFFFA` is the
+largest regular one, the higher values being reserved (``compound-file.md``, the special sector numbers)."""
+MAX_FAT_SECTORS = (MAX_FILE_SECTORS + FAT_ENTRIES_PER_SECTOR - 1) // FAT_ENTRIES_PER_SECTOR
+"""The most FAT sectors such a file can hold: one entry per sector, `FAT_ENTRIES_PER_SECTOR` per sector.
+Past this a file is not representable in version 3 and ``CompoundTooLarge`` is raised."""
 MAX_NAME = 31
 FORBIDDEN = "/\\:!"
 ROOT_NAME = "Root Entry"
@@ -63,7 +72,7 @@ _ENTRY = struct.Struct("<64sHBBIII16sIQQIQ")
 
 
 class CompoundTooLarge(ValueError):
-    """The FAT would need more than ``MAX_FAT_SECTORS`` sectors, which needs DIFAT sectors."""
+    """The file needs more than ``MAX_FAT_SECTORS`` FAT sectors: a version 3 file cannot hold it."""
 
 
 @dataclass(frozen=True)
@@ -204,13 +213,36 @@ def _pad(data: bytes, unit: int) -> bytes:
     return data + bytes(-len(data) % unit)
 
 
+def _difat_sectors(fat_sectors: int) -> int:
+    """The DIFAT sectors a file of ``fat_sectors`` FAT sectors needs: the header lists the first
+    ``HEADER_DIFAT_ENTRIES`` and each DIFAT sector lists ``DIFAT_ENTRIES_PER_SECTOR`` more."""
+    extra = fat_sectors - HEADER_DIFAT_ENTRIES
+    return 0 if extra <= 0 else _ceil(extra, DIFAT_ENTRIES_PER_SECTOR)
+
+
+def _difat_bytes(fat_sectors: int, difat_sectors: int) -> list[bytes]:
+    """The bytes of the DIFAT sectors, in their order: each holds the FAT sector numbers past the header's
+    ``HEADER_DIFAT_ENTRIES``, ``DIFAT_ENTRIES_PER_SECTOR`` of them and the rest `FREESECT`, and then the
+    number of the next DIFAT sector (ENDOFCHAIN in the last)."""
+    out: list[bytes] = []
+    for number in range(difat_sectors):
+        start = HEADER_DIFAT_ENTRIES + number * DIFAT_ENTRIES_PER_SECTOR
+        block = list(range(start, min(start + DIFAT_ENTRIES_PER_SECTOR, fat_sectors)))
+        following = fat_sectors + number + 1 if number + 1 < difat_sectors else ENDOFCHAIN
+        entries = block + [FREESECT] * (DIFAT_ENTRIES_PER_SECTOR - len(block)) + [following]
+        out.append(struct.pack(f"<{len(entries)}I", *entries))
+    return out
+
+
 def write_compound(entries: Sequence[Entry]) -> bytes:
     """The bytes of a version 3 compound file whose root storage holds exactly ``entries``.
 
     ``entries`` are streams ``(name, data)`` and ``Storage`` values, numbered in pre-order from 1: each
     storage is followed at once by its own entries. ``ValueError`` for an invalid, repeated or empty
-    or empty storage; ``CompoundTooLarge`` past the FAT limit. Streams only give c0033's bytes. An empty
-    stream (change c0035) takes no sector: its entry has size 0 and starting sector ENDOFCHAIN.
+    or empty storage; ``CompoundTooLarge`` past the size a version 3 file can hold. Streams only give
+    c0033's bytes. An empty stream (change c0035) takes no sector: its entry has size 0 and starting
+    sector ENDOFCHAIN. A file whose FAT needs more sectors than the header lists (change c0160) is written
+    with DIFAT sectors after the FAT sectors.
     """
     nodes = _flatten(entries)
     mini_used = 0
@@ -231,18 +263,26 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
     large = [_ceil(len(s.data), SECTOR_SIZE) for s in placed if not s.small]
     rest = directory_sectors + minifat_sectors + mini_sectors + sum(large)
     fat_sectors = 1
-    while fat_sectors * FAT_ENTRIES_PER_SECTOR < fat_sectors + rest:
+    while True:
+        # A file whose FAT needs more sectors than the header can list needs DIFAT sectors, which take
+        # sectors of their own: the two counts settle together, each step of the loop adding one FAT
+        # sector's worth of capacity and at most one DIFAT sector's worth of need.
+        difat_sectors = _difat_sectors(fat_sectors)
+        if fat_sectors * FAT_ENTRIES_PER_SECTOR >= fat_sectors + difat_sectors + rest:
+            break
         fat_sectors += 1
     if fat_sectors > MAX_FAT_SECTORS:
         raise CompoundTooLarge(
             f"the compound file needs {fat_sectors} FAT sectors, more than the {MAX_FAT_SECTORS} that "
-            "a file without DIFAT sectors can hold"
+            "a version 3 compound file can hold"
         )
 
     fat = [FREESECT] * (fat_sectors * FAT_ENTRIES_PER_SECTOR)
     for number in range(fat_sectors):
         fat[number] = FATSECT
-    cursor = fat_sectors
+    for number in range(fat_sectors, fat_sectors + difat_sectors):
+        fat[number] = DIFSECT
+    cursor = fat_sectors + difat_sectors
 
     def chain(length: int) -> int:
         nonlocal cursor
@@ -294,7 +334,8 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
             records.append(_entry(node.name, TYPE_STREAM, left, right, NOSTREAM, start, size))
     records += [_UNUSED] * (directory_sectors * ENTRIES_PER_SECTOR - len(records))
 
-    difat = list(range(fat_sectors)) + [FREESECT] * (HEADER_DIFAT_ENTRIES - fat_sectors)
+    listed = min(fat_sectors, HEADER_DIFAT_ENTRIES)
+    difat = list(range(listed)) + [FREESECT] * (HEADER_DIFAT_ENTRIES - listed)
     header = _HEADER.pack(
         SIGNATURE,
         bytes(16),
@@ -311,13 +352,14 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
         MINI_STREAM_CUTOFF,
         first_minifat,
         minifat_sectors,
-        ENDOFCHAIN,
-        0,
+        fat_sectors if difat_sectors else ENDOFCHAIN,
+        difat_sectors,
         *difat,
     )
     parts = [
         header,
         struct.pack(f"<{len(fat)}I", *fat),
+        *_difat_bytes(fat_sectors, difat_sectors),
         b"".join(records),
         struct.pack(f"<{len(minifat)}I", *minifat),
         _pad(mini_stream, SECTOR_SIZE),
@@ -327,10 +369,12 @@ def write_compound(entries: Sequence[Entry]) -> bytes:
 
 
 __all__ = [
+    "DIFSECT",
     "ENDOFCHAIN",
     "FATSECT",
     "FREESECT",
     "MAX_FAT_SECTORS",
+    "MAX_FILE_SECTORS",
     "MINI_SECTOR_SIZE",
     "MINI_STREAM_CUTOFF",
     "NOSTREAM",

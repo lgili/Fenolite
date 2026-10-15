@@ -10,7 +10,7 @@ another backend.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -18,7 +18,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
-from fenolite.core.evidence import Evidence
+from fenolite.core.evidence import Evidence, GraduationHypothesis, GraduationRun, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import PadKind, Side, ZoneFill
 from fenolite.model.design import Design
@@ -279,6 +279,104 @@ class MatrixRow:
         row["verified_by"] = list(self.verified_by())
         row["experimental"] = [o for o in MATRIX_OPERATIONS if o in self.experimental]
         return row
+
+
+def graduated(
+    row: MatrixRow,
+    register: Mapping[str, GraduationHypothesis],
+    runs: Collection[GraduationRun],
+    *,
+    own_readback: str | None = None,
+    suite_tests: Collection[str] = (),
+) -> tuple[bool, tuple[str, ...]]:
+    """Decide write graduation without I/O or treating author reports as release evidence.
+
+    Readback metadata comes from claims; suite membership is supplied by the checker.
+    Missing metadata fails closed. Passing tests remain a separate CI release gate.
+    """
+    if row.write is None:
+        return False, ("no write cell",)
+    missing: list[str] = []
+    if not own_readback or own_readback not in suite_tests:
+        missing.append("own-readback test is not declared in the suite")
+    verified = {
+        Level.ALTIUM_VERIFIED_KIT,
+        Level.KICAD_VERIFIED,
+        Level.ORACLE_VERIFIED,
+        Level.CORPUS_VERIFIED,
+    }
+    required = set(row.write.hypotheses)
+    if row.backend == "altium":
+        if row.kind == "altium_pcbdoc":
+            required.add("H-A-VER-RTA3")
+        elif row.kind in {"altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"}:
+            required.add("H-A-VER-RTA3-PRJ")
+    for ident in sorted(required):
+        hypothesis = register.get(ident)
+        if hypothesis is None:
+            missing.append(f"{ident} is not registered")
+        elif hypothesis.refuted or hypothesis.level not in verified:
+            missing.append(f"{ident} is not release-verified")
+    if not row.write.hypotheses:
+        missing.append("write cell names no hypotheses")
+    if row.backend == "altium":
+        current_kit = False
+        by_run = {run.run_id: run for run in runs}
+        for ident in sorted(row.write.hypotheses):
+            hypothesis = register.get(ident)
+            if hypothesis is None or hypothesis.refuted or hypothesis.level is not Level.ALTIUM_VERIFIED_KIT:
+                continue
+            # Canonical kit labels end with the committed run id; no author label qualifies.
+            run_id = hypothesis.level_text.rsplit("; ", 1)[-1].removesuffix(")")
+            run = by_run.get(run_id)
+            if run is None or not run.committed or ident not in run.passed_hypotheses:
+                missing.append(f"{ident} has no supporting committed kit run {run_id}")
+            elif run.stale_hypotheses is None:
+                missing.append(f"kit run {run_id} freshness is unknown for {ident}")
+            elif ident in run.stale_hypotheses:
+                missing.append(f"kit run {run_id} is stale for {ident}")
+            else:
+                current_kit = True
+        if not current_kit:
+            missing.append("write cell has no current committed kit hypothesis")
+    elif row.backend == "kicad":
+        if not any(
+            (hypothesis := register.get(ident)) is not None
+            and not hypothesis.refuted
+            and hypothesis.level is Level.KICAD_VERIFIED
+            for ident in row.write.hypotheses
+        ):
+            missing.append("write cell has no KICAD-VERIFIED hypothesis")
+    else:
+        missing.append(f"no graduation policy for backend {row.backend}")
+    return not missing, tuple(missing)
+
+
+def graduation_matrix_problems(
+    rows: Sequence[MatrixRow],
+    register: Mapping[str, GraduationHypothesis],
+    runs: Collection[GraduationRun],
+    *,
+    own_readbacks: Mapping[str, str],
+    suite_tests: Collection[str],
+) -> tuple[str, ...]:
+    """Altium write cells are experimental exactly when their proofs are insufficient."""
+    problems: list[str] = []
+    for row in rows:
+        if row.backend != "altium" or row.write is None:
+            continue
+        passed, reasons = graduated(
+            row,
+            register,
+            runs,
+            own_readback=own_readbacks.get(row.kind),
+            suite_tests=suite_tests,
+        )
+        if passed and "write" in row.experimental:
+            problems.append(f"{row.kind} graduated but is listed as experimental")
+        elif not passed and "write" not in row.experimental:
+            problems.append(f"{row.kind} is not graduated: " + "; ".join(reasons))
+    return tuple(problems)
 
 
 SkipReason = Literal[
@@ -1215,6 +1313,10 @@ __all__ = [
     "LimitedOracle",
     "MATRIX_OPERATIONS",
     "MatrixRow",
+    "GraduationHypothesis",
+    "GraduationRun",
+    "graduated",
+    "graduation_matrix_problems",
     "ModelCompare",
     "ModelRoundTrip",
     "ModelWriter",

@@ -160,7 +160,29 @@ def test_records_of_res() -> None:
     assert records[4]["TEXT"] == "R?" and records[4]["LOCATION.Y"] == "10"
     assert records[5]["NAME"] == "Comment" and records[5]["LOCATION.Y"] == "-40"
     assert records[7]["MODELNAME"] == "R0603" and records[7]["MODELDATAFILE0"] == "FenoliteSample.PcbLib"
-    assert all("OWNERINDEX" not in r for r in records)
+    assert all("OWNERINDEX" not in r for r in records[:6])
+    assert [r["OWNERINDEX"] for r in records[6:]] == ["0", "6", "7", "7"]
+
+
+def test_library_model_tree_preserves_the_pin_map() -> None:
+    from dataclasses import replace
+
+    from fenolite.backends.altium.read.sch import Implementation, ImplementationList, MapDefinerList
+    from fenolite.backends.altium.read.schlib import read_schlib as read_native_library
+
+    symbol = replace(sample_symbols()["FenoliteSample.SchLib:RES"], pin_pads=(("1", ("2",)),))
+    library = read_native_library(write_schlib([symbol], library=LIBRARY))
+    part = library.components[0]
+    listings = [r for r in part.children() if isinstance(r, ImplementationList)]
+    assert len(listings) == 1
+    models = [part.get(ref) for ref in listings[0].children]
+    assert len(models) == 1 and isinstance(models[0], Implementation)
+    maps = [part.get(ref) for ref in models[0].children]
+    mapping = next(r for r in maps if isinstance(r, MapDefinerList))
+    records = [part.get(ref) for ref in mapping.children]
+    assert len(records) == 1
+    assert records[0].props.raw("DESINTF") == b"1"
+    assert records[0].props.raw("DESIMP0") == b"2"
 
 
 def test_pins_decode_field_by_field() -> None:

@@ -1,5 +1,14 @@
 # docs/evidence/altium-kit
 
+The publication edition `2026-10-13-87c930fa` was prepared on 2026-10-14 and
+passes 32 steps. It preserves the historical form observations while repeating
+native saves in a neutral namespace; it is not a complete fresh replay.
+See [its provenance and privacy review](2026-10-13-87c930fa-publication.md).
+It is published as [supplemental evidence for v0.4.0](https://github.com/lgili/Fenolite/releases/download/v0.4.0/altium-kit-2026-10-13-87c930fa.zip),
+with its downloaded digest and size verified. Its 27 passing candidates are now
+labelled with the committed run, archive digest and typed-form qualifiers.
+See [the remaining hypothesis inventory](2026-10-14-graduation-inventory.md).
+
 The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON file per run, named
 `<run id>.json` (`<date>-<first 8 hex digits of the archive digest>`), with the schema
 `fenolite.altium-kit-run.v0`.
@@ -16,7 +25,27 @@ The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON 
   here holds a passing verdict for it and the kit of that run is the kit the tree builds
   (`fenolite kit status` lists the runs and the stale rows).
 
-No run is recorded yet.
+Three partial native runs are recorded for 2026-10-13, in Altium Designer 26.5
+on Windows: `2026-10-13-61513e18` (8 passed steps) and
+`2026-10-13-e8794749` (26 passed steps, no failures, 6 pending), and
+`2026-10-13-fccaa526` (3 passed steps, no failures, 29 pending) on the newly
+generated kit after the full-library-update repair. The older two runs precede
+the library change; their digests and verdicts remain historical.
+A fourth run, `2026-10-13-462b38ba`, completes the corrected current kit:
+32 passed steps, zero failures and zero pending. The archive digest is
+`462b38ba3cc4812ddeea626865c8c097e50f0ed9f2473dc0f79a7455f80a4b93`
+(1236513 bytes). The broader legacy/Part T/Viewer campaign remains incomplete.
+The original native archives remain in ignored local storage and unpublished;
+the reviewed publication derivative is linked above.
+See [the acceptance campaign](../altium-native-acceptance.md)
+for measured scopes, the original failed save and the remaining work.
+
+Closure reconciliation, 2026-10-13 (c0091): the completed current run is
+committed and a fresh `kit verify` passes. `kit status` lists four records,
+no stale rows and no problems. This satisfies c0091's first-run proof.
+Archive publication remains c0092 task 3.1; no write kind graduates merely
+because this kit implementation is archived. The original native result
+folder still reports privacy findings separately from its passing step verdict.
 
 ## Author report of 2026-10-07 (opening only)
 

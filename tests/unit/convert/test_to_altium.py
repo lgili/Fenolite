@@ -88,4 +88,4 @@ def test_document_too_large(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(lower, "write_design", too_large)
     with pytest.raises(TargetLimitError, match="119 FAT sectors") as refused:
         convert_project(TWO_LAYER, to="altium", allow_lossy=True)
-    assert "DIFAT" in refused.value.hint
+    assert "version 3 compound-file limit" in refused.value.hint

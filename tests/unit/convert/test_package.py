@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from _convert import TWO_LAYER
 
-from fenolite.convert import DIRECTIONS, SourceError, convert_project, direction_for
+from fenolite.convert import DIRECTIONS, convert_project
 
 ROOT = Path(__file__).resolve().parents[3]
 ALTIUM_BLINK = ROOT / "tests" / "data" / "altium" / "blink"
@@ -37,23 +37,23 @@ def test_hermetic_conversion(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     monkeypatch.setattr(subprocess, "run", refuse)
     monkeypatch.setattr(subprocess, "Popen", refuse)
     conversion = convert_project(folder / TWO_LAYER.name, to="altium")
-    assert sorted(conversion.files) == [f"two_layer.{s}" for s in ("PcbDoc", "PrjPcb", "SchDoc", "SchLib")]
+    assert sorted(conversion.files) == [
+        f"two_layer.{s}" for s in ("PcbDoc", "PcbLib", "PrjPcb", "SchDoc", "SchLib")
+    ]
     assert conversion.read_back == "two_layer.PcbDoc" and conversion.target == "altium"
     assert _snapshot(folder) == before
 
 
 def test_directions_registered() -> None:
-    assert sorted(DIRECTIONS) == [("kicad", "altium"), ("kicad", "kicad")]
+    assert sorted(DIRECTIONS) == [("altium", "kicad"), ("kicad", "altium"), ("kicad", "kicad")]
     assert DIRECTIONS[("kicad", "altium")].experimental and not DIRECTIONS[("kicad", "kicad")].experimental
     assert DIRECTIONS[("kicad", "kicad")].targets == (9, 10)
 
 
-def test_direction_unsupported() -> None:
-    """Altium to KiCad is change c0161's: until it registers, the pair is refused as a usage fault."""
-    with pytest.raises(ValueError, match="no conversion from altium to kicad"):
-        convert_project(ALTIUM_BLINK / "blink.PrjPcb", to="kicad")
-    with pytest.raises(SourceError, match="--to is one of"):
-        direction_for("kicad", "eagle")
+def test_altium_direction_registered() -> None:
+    result = convert_project(ROOT / "tests/data/altium/blink/blink.PrjPcb", to="kicad", allow_lossy=True)
+    assert result.source.backend == "altium" and result.target == "kicad"
+    assert result.direction.experimental
 
 
 def test_options_checked() -> None:

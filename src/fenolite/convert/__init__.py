@@ -32,7 +32,8 @@ EVIDENCE = Evidence(Level.CORPUS_VERIFIED, hypotheses=("H-G-CONV-LEDGER",))
 """The report and its verification: mechanical, and every difference of the KiCad 10.0.6 demo boards that
 the Altium direction writes is explained (``H-G-CONV-LEDGER``, confirmed on 2026-10-09)."""
 DIRECTIONS: dict[tuple[str, str], Direction] = {
-    (direction.source, direction.target): direction for direction in (to_altium.DIRECTION, to_kicad.DIRECTION)
+    (direction.source, direction.target): direction
+    for direction in (to_altium.DIRECTION, to_kicad.DIRECTION, to_kicad.ALTIUM_DIRECTION)
 }
 """The registered directions by ``(source backend, target backend)``. Changes c0161 and c0162 add theirs."""
 PROFILES_FILE = "profiles.toml"
@@ -111,7 +112,7 @@ def direction_for(backend: str, to: str) -> Direction:
 
 
 def convert_project(
-    source: Path | str,
+    source: Path | str | SourceProject,
     *,
     to: Target,
     kicad_version: int = 10,
@@ -127,7 +128,7 @@ def convert_project(
     of backends without a direction; ``TargetLimitError`` when the target writer cannot hold the design."""
     if bodies not in BODIES:
         raise ValueError(f"bodies is one of {', '.join(BODIES)}, got {bodies!r}")
-    read = read_source(Path(source))
+    read = source if isinstance(source, SourceProject) else read_source(Path(source))
     direction = direction_for(read.backend, to)
     written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name))
     report = written.report

@@ -14,18 +14,21 @@ gives one ``convert.unexplained`` error. Nothing outside the temporary folder is
 from __future__ import annotations
 
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import cache
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import fenolite.convert as convert_package
 from fenolite.api.equivalence import EquivalenceResult, equivalent
+from fenolite.api.sides import read_schematic
 from fenolite.checks.equivalence import Profile, load_profiles
 from fenolite.checks.equivalence.model import Difference
 from fenolite.convert import PROFILES_FILE, Conversion, convert_project, profiles_text
 from fenolite.convert.codes import issue
 from fenolite.convert.direction import Target
 from fenolite.convert.report import Explainer
+from fenolite.convert.schematic import root_schematic
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
 
@@ -98,9 +101,33 @@ def _schematic(
     """The differences between the source's root schematic and the written one at level 2, or the
     ``convert.schematic-unverified`` warning when they cannot be compared (change c0162)."""
     assert conversion.schematic is not None
-    source = conversion.source.root / f"{conversion.source.name}{PurePosixPath(conversion.schematic).suffix}"
+    if conversion.source.backend == "altium":
+        found = equivalent(
+            replace(conversion.design, board=None),
+            folder / conversion.schematic,
+            level=SCHEMATIC_LEVEL,
+            profile=profile,
+            ignore_refs=("",),
+        )
+        return found.report.differences if found.report is not None else ()
+    suffix = ".kicad_sch" if conversion.target == "altium" else PurePosixPath(conversion.schematic).suffix
+    source = conversion.source.root / f"{conversion.source.name}{suffix}"
+    target = folder / conversion.schematic
+    if conversion.target == "altium":
+        from fenolite.backends.altium.project import write_prjpcb
+
+        stem = PurePosixPath(conversion.read_back).stem
+        # Physical pads can include unused pins absent from the schematic circuit.
+        target = folder / "schematic-verification.PrjPcb"
+        target.write_bytes(
+            write_prjpcb(
+                schematic=f"{stem}.SchDoc",
+                sheets=tuple(f for f in conversion.files if f.endswith(".SchDoc") and f != f"{stem}.SchDoc"),
+                libraries=tuple(f for f in conversion.files if f.endswith(".SchLib")),
+            )
+        )
     try:
-        found = equivalent(source, folder / conversion.schematic, level=SCHEMATIC_LEVEL, profile=profile)
+        found = equivalent(source, target, level=SCHEMATIC_LEVEL, profile=profile)
     except FenoliteError as error:
         return issue(
             "convert.schematic-unverified",
@@ -125,10 +152,20 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             target = folder.joinpath(*PurePosixPath(key).parts)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-        compared = equivalent(conversion.design, folder / conversion.read_back, profile=chosen)
+        compared = equivalent(
+            conversion.design,
+            folder / conversion.read_back,
+            profile=chosen,
+            # A free pad reads back as a component with no designator (a board-only footprint): it is a
+            # pad, not a component, so level 1 ignores the empty reference (change c0160).
+            ignore_refs=("",),
+        )
         if conversion.schematic is not None:
             schematic = _schematic(conversion, folder, chosen)
-    explainer = Explainer(conversion.design, conversion.report)
+    explanation_model = (
+        conversion.source.design if conversion.source.backend == "altium" else conversion.design
+    )
+    explainer = Explainer(explanation_model, conversion.report)
     explained: list[Explained] = []
     unexplained: list[Difference] = []
     report = compared.report
@@ -138,7 +175,12 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             unexplained.append(difference)
         else:
             explained.append(Explained(difference, kind))
-    unexplained += schematic if not isinstance(schematic, Issue) else ()
+    for difference in schematic if not isinstance(schematic, Issue) else ():
+        kind = explainer.explain(difference.kind, difference.where, difference.a, difference.b)
+        if kind is None:
+            unexplained.append(difference)
+        else:
+            explained.append(Explained(difference, kind))
     notes = (schematic,) if isinstance(schematic, Issue) else ()
     # the comparison's own errors are its differences: each is explained, or one convert.unexplained; its
     # notices are kept, and the read-back's own reader notes are not the conversion's
@@ -164,8 +206,11 @@ def convert(
     (capability design-conversion, "Conversion verified by equivalence"). The arguments are those of
     ``fenolite.convert.convert_project``; its errors are raised unchanged. Without ``verify`` the result
     holds no comparison, one ``convert.no-verify`` warning, and the evidence ``UNVERIFIED``."""
+    prepared = convert_package.read_source(Path(source))
+    if to == "altium" and prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
+        prepared = replace(prepared, schematic=read_schematic(root).design)
     conversion = convert_project(
-        source, to=to, kicad_version=kicad_version, allow_lossy=allow_lossy, bodies=bodies, name=name
+        prepared, to=to, kicad_version=kicad_version, allow_lossy=allow_lossy, bodies=bodies, name=name
     )
     if verify:
         return verify_conversion(conversion)

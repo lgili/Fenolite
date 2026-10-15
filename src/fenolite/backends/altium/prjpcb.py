@@ -15,6 +15,9 @@ section of every schematic document of a project with module sheets or a PCB doc
 derives a component class per sheet and no room, and the section ``[PrjClassGen]`` for a design with a net
 class, so that
 Altium takes the net classes from the directives of the schematic (``H-A-ECO-PRJ-KEYS``, ``H-A-ECO-ROOMS``).
+
+Change c0166 gives projects with harness definitions explicit net-label naming priority, avoiding
+additional names synthesized from harness sheet entries; projects without harnesses keep their bytes.
 """
 
 # evidence: see project
@@ -84,9 +87,12 @@ def write_prjpcb(
     with ``DocumentPath`` alone; without one the bytes do not change."""
     with_keys = bool(sheets) or pcb is not None
     sheet_keys = [f"{key}={value}" for key, value in SHEET_CLASS_KEYS] if with_keys else []
-    lines = [
-        "[Design]",
-        f"Version={VERSION}",
+    lines = ["[Design]", f"Version={VERSION}"]
+    if harnesses:
+        # c0166: use the explicit net labels rather than extra SPI.CS-style
+        # names synthesized from harness ports and sheet entries.
+        lines += ["AllowPortNetNames=0", "AllowSheetEntryNetNames=0"]
+    lines += [
         "",
         "[Document1]",
         f"DocumentPath={_file_name(schematic, 'schematic')}",

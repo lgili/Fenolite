@@ -108,16 +108,18 @@ def test_rt_a0_changed_bytes_and_lost_storage(monkeypatch: pytest.MonkeyPatch) -
     assert verdict.streams == 2 and not verdict.passed
 
 
-def test_rt_a0_file_past_the_writers_limit() -> None:
-    """A file whose FAT needs 240 sectors: the writer writes no DIFAT sector."""
+def test_rt_a0_file_with_difat_sectors() -> None:
+    """A file whose FAT needs 240 sectors, and so holds DIFAT sectors, is copied and read back equal
+    (change c0160: the writer writes DIFAT sectors, where before it refused such a file as `too-large`;
+    the writer's own bytes are covered by ``test_cfb_difat.py``)."""
     built = build(
         [{"path": "Data", "data": bytes(range(256)) * 2 * 30_460}, {"path": "S/Small", "data": b"x"}]
     )
     header = cfb.open_compound(bytes(built.data)).header
     assert header.fat_sectors == 240 and header.difat_sectors >= 1
     verdict = rt_a0(bytes(built.data), kind="altium_pcbdoc")
-    assert (verdict.judged, verdict.passed, verdict.reason) == (False, False, "too-large")
-    assert verdict.streams == 2
+    assert (verdict.judged, verdict.passed, verdict.reason) == (True, True, "")
+    assert verdict.streams == 2 and verdict.different == ()
 
 
 def test_rt_a0_writer_refused() -> None:

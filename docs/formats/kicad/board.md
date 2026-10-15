@@ -885,3 +885,14 @@ probes are recorded on 9.0.9 and 10.0.6 and passed in CI run 37772583226 (2026-1
 | Two lines of a text are 1.61 × the text size apart; a line of n glyphs of advance a is n × a + 0.25 × the size long, and no advance of printable ASCII and `±µ°×ΩÄÖÜßéèçñ–—…` exceeds 1.45 × the size | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-TEXT |
 | A `gr_text` with `(justify mirror)` on `B.Fab` reads right in a `--mirror` plot | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ASSEMBLY |
 | A layer table that lacks `Dwgs.User`, `F.Fab` or `B.Fab` loads with the rows `(17 "Dwgs.User" user "User.Drawings")`, `(35 "F.Fab" user)` and `(33 "B.Fab" user)` added at its end, and items on those layers are drawn | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-LAYER |
+
+## User layers for conversion (c0161)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Authored boards declaring `User.1` through `User.45` at odd numbers `39` through `127` load in 9.0.9 and 10.0.6, and SVG export selects the first and last user layer. A modelled drawing on an unknown layer makes loading fail | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-USERLAYERS |
+| A board whose modelled items name layers that no row of its layer table declares does not load: on six public Altium boards written with a two-copper table and their mechanical, keep-out and out-of-stack names left undeclared, `kicad-cli pcb export svg` fails in 9.0.9 with `Failed to load board` and in 10.0.6 with `Failed to load board: One or more items were found on undefined layers (<names>)` (measured 2026-10-15) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-USERLAYERS |
+| A zone written with an empty outline (`(polygon (pts))`) and filled polygons loads in 9.0.9 and 10.0.6, but 9.0.9's `pcb drc` ends with an unhandled `std::out_of_range` ("aCornerIndex-th vertex does not exist") while writing its report, which stays empty; 10.0.6 writes it (measured 2026-10-15 on two converted public boards) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CONV-A2K-LOAD |
+
+Fenolite assigns mechanical layers to successive user rows and preserves their Altium name as the
+row's user name. It reports overflow rather than merging unrelated drawings.

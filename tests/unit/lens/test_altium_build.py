@@ -67,6 +67,7 @@ def test_files_of_the_sample() -> None:
         "altium.schlib-generic",
         "altium.pcbdoc-not-written",
         "altium.generic-symbols",
+        "altium.experimental",
     ]
     assert "no board outline" in output.issues[1].message
 
@@ -244,6 +245,7 @@ def test_evidence() -> None:
         "H-A-PCBX-",
         "H-A-ECO-",
         "H-A-RULE-",
+        "H-A-CONV-",
     )
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted
@@ -254,10 +256,15 @@ def test_evidence() -> None:
     board_rows = {i for i in rows if i.startswith(("H-A-PCB-", "H-A-PCBX-", "H-A-RULE-"))} | {
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-LIBRARY",
+        "H-A-CONV-PADSTACK",
     }
     # the component classes and the rules of the design (c0084) are in the document
     assert set(PCB_BUILD_EVIDENCE.hypotheses) == board_rows
-    assert PCB_BUILD_EVIDENCE.level is Level.INFERRED and "H-A-PCB-ECO" in output.evidence.hypotheses
+    assert PCB_BUILD_EVIDENCE.level is Level.INFERRED
+    # A schematic-only build does not claim the evidence of an unwritten PCB.
+    assert "H-A-PCB-ECO" not in output.evidence.hypotheses
 
 
 def test_experimental_entry() -> None:

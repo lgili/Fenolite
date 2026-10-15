@@ -2,9 +2,9 @@
 # Copyright (c) 2026 Fenolite contributors
 """The annotation file (capability altium-project-reader, "Annotation file read"; change c0083, task 2.1).
 
-The form of a real annotation file is ``UNKNOWN`` (``docs/formats/altium/project.md``, "The annotation
-file"): these cases hold the reader to the form it assumes, ``<unique-id path>=<designator>``, and to the
-bytes it keeps. Part R, step R4, settles ``H-A-IMP-RPT-ANNOT``."""
+Legacy authored flat maps and the native indexed form measured in S-0737 are
+read without changing their bytes. Incomplete rows and unknown metadata remain
+located information findings."""
 
 from __future__ import annotations
 
@@ -79,3 +79,71 @@ def test_project_without_annotation_file(tmp_path: Path) -> None:
     (tmp_path / "p.PrjPcb").write_bytes(b"[Design]\r\nVersion=1.0\r\n")
     project = load_project(tmp_path / "p.PrjPcb")
     assert project.annotations == () and project.annotation_designators() == {}
+
+
+def test_native_indexed_annotation_retains_bytes_and_metadata() -> None:
+    """Native field facts S-0737, authored independently of native saved bytes."""
+    data = (
+        b"\xef\xbb\xbf[DesignatorManager]\r\nLogicalDesignator0=R4\r\nLogicalPartID0=1\r\n"
+        b"DocumentName0=unit_child.SchDoc\r\nChannelName0=UNIT2\r\n"
+        b"UniqueID0=\\2PARENT01\\RES00001\r\nPhysicalDesignator0=R42\r\n"
+        b"PhysicalDesignatorLocked0=1\r\n\r\n[SheetNumberManager]\r\n"
+        b"SheetNumberOrder=Display Order\r\nSheetNumberMethod=Increasing\r\n"
+    )
+    read = read_annotation(data, file="unit.Annotation")
+    assert read.to_bytes() == data and read.issues == ()
+    assert [(entry.path, entry.designator, entry.section, entry.line) for entry in read.entries] == [
+        ("\\2PARENT01\\RES00001", "R42", "DesignatorManager", 6)
+    ]
+
+
+def test_native_sparse_indexes_and_reversed_keys() -> None:
+    data = (
+        b"[DesignatorManager]\nPhysicalDesignator7=C87\nUniqueID7=\\PARTC008\n"
+        b"UniqueID0=\\PARTR009\nPhysicalDesignator0=R90\n"
+    )
+    read = read_annotation(data)
+    assert read.designators() == {"\\PARTC008": "C87", "\\PARTR009": "R90"}
+    assert [entry.line for entry in read.entries] == [3, 4]
+    assert read.to_bytes() == data and read.issues == ()
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        b"UniqueID0=\\PARTA001\n",
+        b"PhysicalDesignator0=R7\n",
+        b"UniqueID0=\\PARTA001\nPhysicalDesignator0=\n",
+        b"UniqueID0=not-a-uid-path\nPhysicalDesignator0=R7\n",
+        b"UniqueID0=\\PARTA001\nPhysicalDesignator1=R7\n",
+    ],
+)
+def test_native_incomplete_or_invalid_records_do_not_invent_mappings(record: bytes) -> None:
+    data = b"[DesignatorManager]\n" + record
+    read = read_annotation(data, file="unit.Annotation")
+    assert read.entries == () and read.to_bytes() == data
+    assert len(read.issues) == len(record.splitlines())
+    assert all(issue.code == "altium.text.unknown-key" for issue in read.issues)
+    assert all(issue.where.startswith("unit.Annotation:") for issue in read.issues)
+
+
+def test_native_keys_in_another_section_are_unknown() -> None:
+    data = b"[Other]\nUniqueID0=\\PARTA001\nPhysicalDesignator0=R7\n"
+    read = read_annotation(data)
+    assert read.entries == () and read.to_bytes() == data
+    assert [issue.code for issue in read.issues] == ["altium.text.unknown-key"] * 2
+
+
+def test_native_duplicate_paths_and_unknown_metadata_preserve_first_mapping() -> None:
+    data = (
+        b"[DesignatorManager]\nUniqueID2=\\PARTA001\nPhysicalDesignator2=R8\n"
+        b"UniqueID6=\\PARTA001\nPhysicalDesignator6=R9\nFutureField2=kept\n"
+        b"[Legacy]\n\\PARTA001=R10\n"
+    )
+    read = read_annotation(data, file="unit.Annotation")
+    assert read.designators() == {"\\PARTA001": "R8"}
+    assert [entry.designator for entry in read.entries] == ["R8", "R9", "R10"]
+    assert read.to_bytes() == data
+    assert [(issue.code, issue.where) for issue in read.issues] == [
+        ("altium.text.unknown-key", "unit.Annotation:6")
+    ]

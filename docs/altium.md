@@ -312,10 +312,9 @@ never by file name.
   differ. Facts: `docs/formats/altium/compound-file.md` and `schematic-binary.md`.
 - **ASCII (`--altium-format ascii`).** One record per CR LF line (change c0032). Its bytes are exactly
   what c0032 writes; the ASCII golden files under `tests/data/altium/sample/` are this form.
-- **Size limit.** Fenolite's compound-file writer writes no DIFAT sector, so the header can list at most
-  109 FAT sectors, about 7 MB of file. A larger binary schematic is refused with the error
-  `altium.schematic-too-large` (exit 5, nothing written); `--altium-format ascii` has no such limit. A
-  schematic that size has thousands of parts.
+- **Size limit.** The compound-file writer uses DIFAT sectors beyond the header's 109 FAT entries
+  (c0160). Binary schematics are subject to the compound format's version 3 size limits, rather than
+  the former approximately 7 MB cap; `--altium-format ascii` has no compound-container limit.
 - **Switching forms.** A rebuild that only changes `--altium-format` replaces an unchanged schematic
   without `--discard-layout`: the edited-output check compares the file on disk with the last build
   record, not with the new form.
@@ -1365,8 +1364,8 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
 **A level that is not judged** is neither a pass nor a failure. The reasons:
 
 - `not-a-container` (RT-A0): the file is text (an ASCII schematic or a project file).
-- `too-large` (RT-A0): the file needs DIFAT sectors, which the compound writer does not write. RT-A1
-  still judges its records.
+- `too-large` (RT-A0): the file exceeds the compound writer's version 3 limits. DIFAT sectors are
+  supported since c0160. RT-A1 still judges its records.
 - `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
   not write).
 - `native-input` (RT-A2): the files were not written by a Fenolite build. RT-A2 compares a stored model
@@ -1649,14 +1648,35 @@ a layer the board does not have gives `build.impedance-layer`, which refuses the
 
 ## Limits
 
-One flat sheet by default, or one sheet per module at any depth with `--altium-sheets modules` (no
-repeated sheets, no routed wires between sheet symbols, no harness in the ASCII form, no harness below
-the first level, no nested harnesses); a sheet that passes a bus through draws it twice; no bus in the
-DSL, no variants; an output job whose Gerber output holds its settings and plots no board outline, no drill drawing and no pad master, and whose other outputs (NC drill, pick and place, bill of materials, prints) hold no settings; a drawing sheet without a logo; the PCB document has unpoured polygons, no
-split planes, no micro vias, extruded component bodies only (experimental, written by default by a build since change c0155, opened in Altium by the maintainer alone) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
-alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Change c0086 was opened in Altium by the maintainer alone (Part Y, an author report of 2026-10-09). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
-schematic and other Altium records are interpreted by later changes.
+As of 2026-10-14 all nine Altium write kinds remain experimental. The tested
+graduation rule requires own readback, release support for every write hypothesis,
+RT-A3 for model kinds and a current committed native kit verdict. `capabilities
+--json --no-tools` lists the missing conditions per kind; a build's
+`altium.experimental` info names only the experimental kinds actually emitted.
+Its envelope combines emitted write cells with input evidence.
+
+The supported model rewrite is bounded by the "Written scope" table above:
+items outside that scope are reported in `unwritten` and losses require the
+documented confirmation policy. RT-A3 compares that scope, rather than promising
+byte-identical native files or every possible Altium object. Import/conversion
+has its own scope in `docs/conversion.md`; a DSL build's generic Altium library
+links do not imply that it copied those libraries.
+
+| area | current boundary |
+|---|---|
+| Schematic composition | flat sheet or sheets by module; supported symbol, pin, bus and harness cases are listed in "The schematic" and "Sheets and harnesses"; ASCII has no harness records |
+| PCB/model rewrite | pads, copper, graphics, texts, holes and bodies follow the written-scope table; unsupported shape/layer/body cases are accounted individually |
+| Polygons and planes | polygons are emitted unpoured and native Altium performs repour; split planes and micro vias remain outside the documented write scope |
+| Rules/checks | exact rule kinds and supported scopes are listed under "Rules"; selected native editor checks and the planted Width/Clearance report do not establish general DRC parity |
+| Output job and drawing sheet | settings, special strings and graphical elements follow their documented sections; native-template preservation is a separate input path |
+| Native evidence | AD 26.5 kit observations cover 32 steps and 27 passing hypothesis candidates; the published derivative retains 13/10 observations and refreshes selected native saves/DRC on 14/10, without a complete fresh replay |
+| Acceptance | the complete acceptance project and probe passed on pinned KiCad 10.0.6 within the existing triangle profile; this does not claim a native replay of that particular acceptance project |
+
+Measured results and remaining requests are in
+`docs/evidence/altium-acceptance.md`, `docs/evidence/altium-native-acceptance.md`
+and `docs/evidence/altium-kit/2026-10-14-graduation-inventory.md`. The reviewed kit
+ZIP is supplemental evidence on v0.4.0, generated by `0.5.0.dev0`; it does not
+change the validation claims of the released package binaries.
 
 ## Stack-ups with masks, sheets and kinds (c0101)
 
@@ -1753,3 +1773,13 @@ source locators remain present. Source bytes stay with the native reader record 
 unbounded hex extension. The inferred 0=top/1=bottom mapping is not native-verified. Signed bounds
 and projection_unknown are analysis metadata; the body writer of change c0121 writes a body from its
 `height` and `standoff` and reads neither the signed bounds nor `projection_unknown`.
+
+## Converted project libraries and schematics
+
+Change c0160 writes a derived PCB library and a schematic from the KiCad source's embedded symbols
+and sheet instances. Pads and drawings on supported layers are retained; presentation is regenerated
+and every remaining loss is reported. Mechanical-layer mapping, edited instances, Unicode comments
+and conflicting pin memberships are described in `docs/conversion.md`, "KiCad to Altium with c0160".
+The writers use DIFAT sectors for large compound documents. Altium opening, compile, repour, DRC,
+ECO and library placement checks are Part T in `docs/evidence/altium-pcb.md`; they remain unverified
+until the maintainer reports the actual outcomes.

@@ -25,6 +25,7 @@ check-fast: lint format types residue test-fast
 lint:
 	uv run ruff check .
 	uv run python tools/gen_agent_guide.py --check
+	uv run python tools/gen_altium_graduation.py --check
 
 format:
 	uv run ruff format --check .

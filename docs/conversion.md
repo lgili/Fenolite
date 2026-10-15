@@ -35,6 +35,7 @@ experimental, and its evidence.
 | from | to | writer | experimental | evidence |
 |---|---|---|---|---|
 | kicad | altium | the footprint items projected (`fpitems.with_footprint_items`), then `lower.write_design`: the PCB document, and the schematic, its libraries and the project file when the schematic writer takes the circuit | yes | `INFERRED` (the Altium writers), with the triangle `H-K-CONV-TRIANGLE` |
+| altium | kicad | 9, 10 | `altium-to-kicad`; derived libraries, generated schematic, reported losses |
 | kicad | kicad | `write_triad` for the target major with the source's project file updated, the source's rules file written again for the target, and the schematic files copied when the majors are equal; for an older target, every file written through the downgrade resolver (below) | no | `KICAD-VERIFIED (9.0.x, 10.0.x)` (`H-K-CONV-RETARGET`; a downgrade: `H-K-DOWN-ROWS`, `H-K-DOWN-DEMOS`) |
 
 - A schematic of an older major than the target is not converted (a schematic is not upgraded): the
@@ -63,8 +64,8 @@ way to write a design of 10 for 9: `build`, `place`, `route` and `fill` keep ref
 - The verification compares the board at level 5 and the root schematic at level 2 under the profile
   `kicad-downgrade`. A schematic whose netlist needs `kicad-cli` and finds none is not compared: one
   `convert.schematic-unverified` warning says so.
-- An Altium document larger than a compound file without DIFAT sectors is not written (`FEN-7001`, with
-  or without consent); two KiCad demo boards are (`docs/evidence/conversion.md`).
+- Altium compound files use DIFAT sectors when more than 109 FAT sectors are needed. The version 3
+  sector-address limit remains a refusal (`FEN-7001`), with or without consent.
 
 ## The report
 
@@ -88,6 +89,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `net` | circuit | refuse |
 | `netclass` | circuit | refuse |
 | `dnp` | circuit | refuse |
+| `pin-net` | circuit | refuse |
 | `module` | circuit | report |
 | `channel` | circuit | report |
 | `pin-pad-map` | circuit | report |
@@ -119,6 +121,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `text` | presentation | report |
 | `graphic` | presentation | report |
 | `dimension` | presentation | report |
+| `schematic-text` | presentation | report |
 | `schematic` | project | report |
 <!-- kinds:end -->
 
@@ -158,7 +161,8 @@ these places. "Level 5" is `route-missing`, `route-connectivity`, `route-vias`, 
 |---|---|---|
 | `footprint` | its reference, or a pin of it | levels 1 to 4 |
 | `footprint` | a net of its pads | level 5 |
-| `pad` | its `REF-PIN` | `pad-missing`, `pin-missing` |
+| `pad` | its `REF-PIN` | `pad-missing`, `pin-missing`, `pad-kind` |
+| `pin-net` | its `REF-PIN` | `net` |
 | `pad` | its net | level 5 |
 | `track`, `arc`, `via`, `zone` | its net | level 5 |
 | `net` | a pin on it | `net` |
@@ -199,3 +203,77 @@ Altium direction stays experimental until change c0092's rule lets its write kin
 
 A conversion's report is Fenolite's view: what Altium Designer does with the documents is the question of
 the verification kit and the author reports (`docs/altium-kit.md`).
+
+## KiCad to Altium with c0160
+
+The conversion writes a derived `<name>.PcbLib`: one footprint per name after the last `:` of its
+reference, chosen from the first instance in reference order in its local frame. Every board component
+links this library. Edited pads or graphics remain on the PCB and are counted `changed` under
+`footprint`. Long names that share a compound storage key use distinct storage keys in `SectionKeys`;
+the full footprint names are preserved. Bodies follow `--altium-bodies extruded|off`.
+
+Plain per-layer pads use Top-Middle-Bottom or Full Stack records. Connector pads use a surface record
+with no paste or solder-mask expansion; final appearance needs Part T in Altium. Unnumbered footprint
+pads become free pads at their board position and are reported `changed`. Custom pad shapes stay losses.
+
+The drawing-layer map is fixed: `User.1` through `User.8` → Mechanical 1 through 8; `Dwgs.User`,
+`Cmts.User`, `Eco1.User`, `Eco2.User` → Mechanical 9 through 12; `F.Fab`, `B.Fab`, `F.CrtYd`,
+`B.CrtYd` → Mechanical 13 through 16. The PCB names these layers after the source. Copper texts stay
+on their copper layer. Unsupported layers remain losses; there is no user layer-map option.
+
+A source schematic supplies its own circuit and embedded symbol graphics. Each sheet instance gets an
+Altium sheet, including each use of a repeated child. The writer lays out symbols and wires anew;
+`schematic` is `changed` with reason "positions and wires are not converted". Without a source
+schematic, the generic generated sheet remains. The API may use its existing KiCad netlist exporter
+for schematics outside Fenolite's own grammar. Pure `fenolite.convert.convert_project` runs no tool:
+it accepts a prepared `SourceProject` whose optional `schematic` is the independently read design.
+
+Imported Altium comments beginning with `=` are retained; KiCad literal comments beginning with `=`
+receive a leading space and are counted as `schematic-text` changes. Binary properties preserve
+printable Unicode in `%UTF8%` twins with `?` fallback outside Windows-1252; ASCII stays restricted.
+A pin on conflicting nets uses the largest membership set, then the smallest net name on a tie.
+Each discarded membership is a `pin-net` loss requiring consent. A membership naming an absent pin
+is also reported, never silently removed. Colliding generated symbol names or differing pin sets
+receive distinct library entries. These read-circuit allowances do not relax script validation.
+
+Local proof covers 16 light demo boards with no unexplained differences and four light Altium project
+sets. Heavy corpus cases and the full suite remain CI work. Part T is required before c0160 archives;
+Fenolite read-back alone does not prove that Altium opens or compiles the generated files.
+
+## Altium to KiCad (c0161)
+
+Verification profile: `altium-to-kicad`, absolute frame, 1 nm tolerance.
+
+`fenolite convert input.PrjPcb --to kicad --kicad-version 10 --out out --dry-run --json`
+prepares a reviewed project; commit it with `--confirm --plan <plan_id>`. Targets 9 and 10 are supported.
+The result includes PCB/project/rules, a derived `.pretty` library and table, and (when the imported
+circuit has unique designators) generated schematic sheets and a symbol library/table.
+
+Mechanical layers map in numerical order to User.1..45, preserving their name as the layer alias.
+Unknown/out-of-stack layers and excess mechanical layers are reported as losses. Closed Keep-Out
+outlines become all-copper rule areas forbidding tracks, vias and pours; open/branching lines are lost.
+Curved boundaries are polygonized with at most 5000 nm chord error, reported as changed.
+An odd copper count gains an empty inner layer; its original stack-up is reported changed.
+A copper pour whose Altium outline holds an arc vertex has no outline in the imported model
+(`altium.import.zone-arc`); the conversion takes its outline from the source document's polygon record,
+flattened at 5000 nm chord error, and reports the zone changed. A zone without a usable record is
+reported lost. KiCad 9.0.9 cannot write a DRC report for a zone without an outline.
+`kicad.board.layer-undeclared` refuses any caller's modelled item on an undeclared layer, even with consent.
+
+Arbitrary slots rotate circular pads without changing copper; incompatible non-circular pads are
+reported lost. Derived footprints use the first instance in reference order in its top-side local frame;
+instances that differ are reported without replacing board geometry. Filename collisions are disambiguated.
+Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and
+wires are regenerated. Duplicate designators refuse the schematic alone, with an explicit report.
+Unsupported imported rules and nonportable component bodies are reported. Libraries and projects use
+relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and
+the generated schematics' netlist and ERC are KICAD-VERIFIED on the public corpus (2026-10-15); the
+direction stays INFERRED because the Keep-Out mapping rests on Altium's documentation only.
+
+Unmapped source rule diagnostics are included as lost rule groups with the original message;
+group counts are not counts of individual rules. A multiply assigned schematic pin retains
+the last imported net assignment and produces a consent-requiring `pin-net` loss.
+
+Generated schematics mark unused symbol pins as no-connects. ERC connection errors are
+checked independently; inherited power-drive findings may remain, so a conversion is not
+a claim that the source circuit is electrically ERC-clean.

@@ -1,0 +1,554 @@
+{
+  "altium_version": "AD 26.5",
+  "archive": {
+    "name": "altium-kit-2026-10-13-87c930fa.zip",
+    "sha256": "87c930fa06446319df87edd49a010f80a9448cf350effb452c500b293eda232a",
+    "size": 1199847
+  },
+  "date": "2026-10-13",
+  "fenolite_version": "0.5.0.dev0",
+  "hypotheses": [
+    {
+      "form": true,
+      "id": "H-A-KIT-COMPILE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-KIT-DRC",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-REPOUR",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-RESAVE",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-SCRIPT",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-OUTJOB-OPEN",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN-2",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-KEEPOUT",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-PCBX-REPOUR",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-STACK",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-TEXT",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-VIASPAN",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-CHECKSUM",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-LAYOUT",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-PH-NO-CACHE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-ZERO-FIELDS",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-KINDS",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-SCOPE",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHDOT-OPEN",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHDOT-STRINGS",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHLIB-UPDATE",
+      "outcome": "pass"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHX-TREE",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBDOC",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBLIB",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHDOC",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHLIB",
+      "outcome": "pass"
+    }
+  ],
+  "kit_fenolite_version": "0.5.0.dev0",
+  "kit_resaved": [],
+  "kit_sha256": "af3c911e0fc76db4bac6dabeb48c401f1ca12ac216b3951f9c99cace2ae15483",
+  "kit_version": 1,
+  "os_family": "Windows",
+  "privacy_findings": 7,
+  "results": [
+    {
+      "path": "results/board6/board6.PcbDoc",
+      "sha256": "2ece05df916fbf13717ca4809f498a252c79ae5c50679120747c540affb63241",
+      "size": 206336
+    },
+    {
+      "path": "results/board6/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/flat/eco.PcbDoc",
+      "sha256": "f1927670c29df2eb42964933f3e4eab7d835119a50c076ef6c171a775097f72a",
+      "size": 184320
+    },
+    {
+      "path": "results/flat/flat.PcbDoc",
+      "sha256": "ffaf9bf8923efa12ec020bd1645fe8c76e35836216e84dc6bbaec776fc53be71",
+      "size": 183296
+    },
+    {
+      "path": "results/flat/flat.PrjPcb",
+      "sha256": "67d6711ef6ee26cc64fe63fb06698f83bf08ba72bef8650d04181a2d0b485156",
+      "size": 32759
+    },
+    {
+      "path": "results/flat/flat.PrjPcbStructure",
+      "sha256": "db158553da9a08658c3885e544f2fbe51c946874a38ea3f3f5fb660ae7605f3e",
+      "size": 60
+    },
+    {
+      "path": "results/flat/flat.SchDoc",
+      "sha256": "0646281a28820b200bdd0d5cb93e0419cab65239f2c29f818130e3be0b2f9b84",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/flat_ascii.SchDoc",
+      "sha256": "3f8da825c7a184197a82795c91dfa3f04aec0ee8f67057e0b5a92e0ed33fc87b",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/form.json",
+      "sha256": "3d89b77aa7f79b7d5d0b92bbec17eb49f6364654c51d2659417e8cea95e03e5f",
+      "size": 388
+    },
+    {
+      "path": "results/libs/libs.PcbLib",
+      "sha256": "5c8654eb7b425d670c131c052aae07de063033e21961a2146e2f4d26db20afda",
+      "size": 133120
+    },
+    {
+      "path": "results/libs/libs.SchDoc",
+      "sha256": "f4aacf0a99e1fb6c75049ffc05a845b452e238655cb67a2da46ce4442af7fe6e",
+      "size": 34816
+    },
+    {
+      "path": "results/libs/libs.SchLib",
+      "sha256": "ba61e7af6e171a2bf34aae8368531be54edcc6df59578043f12434e72654a7f6",
+      "size": 18432
+    },
+    {
+      "path": "results/libs/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/routed/Design Rule Check - routed.drc",
+      "sha256": "54cb9b5a26cf2031d744b3d8dcf707c287e0414aac09c9355a6c13e299a63bec",
+      "size": 2864
+    },
+    {
+      "path": "results/routed/drc.html",
+      "sha256": "54cb9b5a26cf2031d744b3d8dcf707c287e0414aac09c9355a6c13e299a63bec",
+      "size": 2864
+    },
+    {
+      "path": "results/routed/messages.txt",
+      "sha256": "247524ccb989676559965953d826b3cc63fc96938ac0d1b0e914c2a4b6dabe15",
+      "size": 75
+    },
+    {
+      "path": "results/routed/outputs.txt",
+      "sha256": "f84832ae064a03e20771ec3fcbf174b6ff3883f72bbe48ee20983989150b25b1",
+      "size": 327
+    },
+    {
+      "path": "results/routed/routed.PcbDoc",
+      "sha256": "dd2817bd80c65426fcd8e1722220f0513700c89b8d27d60c82227c4b9578441d",
+      "size": 200704
+    },
+    {
+      "path": "results/script.log",
+      "sha256": "9a65083d4eccaf9cc18a4bc1402fd677d852c2d44d31ee978407e6f1ad3391bd",
+      "size": 55
+    },
+    {
+      "path": "results/templates/iso5457_generic.SchDot",
+      "sha256": "5e60afa77a5baf029e8715f997b524d3d7b02beb322dfa75f6795c7ac20ded62",
+      "size": 18944
+    },
+    {
+      "path": "results/tree/messages.txt",
+      "sha256": "6e73033b96d4c7be44b7807df40d3a391fa49695fca6d85e84d2a529ed720935",
+      "size": 230
+    },
+    {
+      "path": "results/tree/tree.SchDoc",
+      "sha256": "34fe7d11f47418cc7bf68497cce97497cc89517e08f960744383c3760deb3570",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_io.SchDoc",
+      "sha256": "4c053ccca19c3120d2b2bd57e58860b3dfbf467e75d616aca030fa3063351aaa",
+      "size": 22528
+    },
+    {
+      "path": "results/tree/tree_io.leds.SchDoc",
+      "sha256": "17a72f3f2050a2dedd27f6500c240a4823d1e4a4f38897e005edb62b46e9dba4",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_power.SchDoc",
+      "sha256": "ed9b30edc942c15e31373e8f38a3f188993a83969a1586283b2de2df5d404f67",
+      "size": 31232
+    }
+  ],
+  "run_id": "2026-10-13-87c930fa",
+  "samples": {
+    "board6": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48",
+    "flat": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497",
+    "libs": "bae0a8b2ec0063f03ecf3b05247c0205fde5a498f165abc618d4bb6a65822b35",
+    "routed": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2",
+    "tree": "db1da44ffe604addb23ac3f9249faa6e88605ce669d043711caebfa5237e77b5"
+  },
+  "schema": "fenolite.altium-kit-run.v0",
+  "script_sha256": "685ab54f38e643789f2f3abb87d9a590854957d685c42a5067eec8375e26d197",
+  "steps": [
+    {
+      "id": "K1.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K1.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K1.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "bae0a8b2ec0063f03ecf3b05247c0205fde5a498f165abc618d4bb6a65822b35"
+    },
+    {
+      "id": "K1.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "bae0a8b2ec0063f03ecf3b05247c0205fde5a498f165abc618d4bb6a65822b35"
+    },
+    {
+      "id": "K1.5",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K1.6",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K1.7",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "db1da44ffe604addb23ac3f9249faa6e88605ce669d043711caebfa5237e77b5"
+    },
+    {
+      "id": "K1.8",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K2.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K2.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "db1da44ffe604addb23ac3f9249faa6e88605ce669d043711caebfa5237e77b5"
+    },
+    {
+      "id": "K2.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K2.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48"
+    },
+    {
+      "id": "K2.5",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": true,
+      "source": "bae0a8b2ec0063f03ecf3b05247c0205fde5a498f165abc618d4bb6a65822b35"
+    },
+    {
+      "id": "K3.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K3.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K4.1",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K4.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K4.3",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K4.4",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K5.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48"
+    },
+    {
+      "id": "K5.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48"
+    },
+    {
+      "id": "K5.3",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48"
+    },
+    {
+      "id": "K5.4",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48"
+    },
+    {
+      "id": "K5.5",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "0f47bd8ee894b6ab4c798c246fdbf2e09fac05036e66f4a02e23dcb740f79a48"
+    },
+    {
+      "id": "K6.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K7.1",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K7.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2757e00817eade6c6ac0c73ece7dbfef8d374b14b4051801d3cc87ca80f124e2"
+    },
+    {
+      "id": "K8.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb"
+    },
+    {
+      "id": "K8.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K8.3",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "62add2e25bb01454f6432560088b88a651192bf9582a2ba27530801e1d7c8497"
+    },
+    {
+      "id": "K9.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "bae0a8b2ec0063f03ecf3b05247c0205fde5a498f165abc618d4bb6a65822b35"
+    },
+    {
+      "id": "K9.2",
+      "kind": "form",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "bae0a8b2ec0063f03ecf3b05247c0205fde5a498f165abc618d4bb6a65822b35"
+    }
+  ],
+  "synthetic": false
+}

@@ -1,5 +1,10 @@
 # Altium PCB writers: the maintainer's check
 
+2026-10-13 (c0166): schematic-library fixtures and their current protocol hashes
+were regenerated for the model/owner repair. PCB and PcbLib bytes are unchanged.
+Previous native reports retain their historical scope; the new measured outcomes
+are recorded in [the native campaign](altium-native-acceptance.md).
+
 This page is the protocol by which the maintainer checks the PCB files that `fenolite build --target
 altium` writes for `examples/blink_2layer/design.py` (change c0035, capability altium-build, "PCB author
 reports"). The files are committed under `tests/data/altium/blink/`; they are built from the authored CC0
@@ -30,7 +35,7 @@ names them.
 | `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `tests/data/altium/blink/blink.PrjPcb` | `91a938db221c185bd611c2d6f0698677e8a16c616ffec75ab53b20aca1a2931c` |
 | `tests/data/altium/blink/blink.SchDoc` | `c34bde2f95810e5f41647b6fe393b596c998c217074092fb121087a5dfdd6284` |
-| `tests/data/altium/blink/blink.SchLib` | `1c97388753b0826ae3029506aad502cc0c63b65a6a72f0d0ac3cb374a347c48d` |
+| `tests/data/altium/blink/blink.SchLib` | `4f427227183102b479836e66d54a7a3cc0bae5794befc4d8a5a7e15362609517` |
 
 Since change c0086 (2026-10-06) `blink.SchDoc` and `blink.SchLib`, here and in the routed sample of Part C,
 are the default build with the symbols' own graphics. The reports of this page were made on the rectangle
@@ -158,7 +163,7 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 | `tests/data/altium/routed/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
 | `tests/data/altium/routed/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
 | `tests/data/altium/routed/routed.SchDoc` | `01ab1936ab50c1d506c0891f471b4a01177489f14ae76d943538ca91022fabf5` |
-| `tests/data/altium/routed/routed.SchLib` | `2c4b57784793fa177849de22ebb00ff760cf60a57174102405260ff47d4480c5` |
+| `tests/data/altium/routed/routed.SchLib` | `792908e69ccf5d932b6b5ce93fb65e835bad3c82c21b7c228415ae53e8d79d25` |
 | `p0/routed.PcbDoc` | `8e0978ec8ee6c22e3a8a3a76b4e14f17be811b9604f463207f3d6eae2f84dbb1` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
@@ -303,7 +308,7 @@ Altium Designer. No file that Altium wrote is committed.
 | `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
 | `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
 | `tests/data/altium/board6/board6.SchDoc` | `36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118` |
-| `tests/data/altium/board6/board6.SchLib` | `6111fd9db8fda9f778cd3dcfc61d89d2bd37a8bfc91edd5f072c38e7d3da03ac` |
+| `tests/data/altium/board6/board6.SchLib` | `66b31ae040cb6f0de2584efe732182a9a230e040c4459a1d3aa58f3e34698ae7` |
 
 `board6.SchDoc` and `board6.SchLib` are the default build of change c0086, with the symbols' own graphics
 (they were committed by c0085 with rectangle bodies, `7b5a19f0…` and `c88e8978…`, and never reported on);
@@ -380,12 +385,12 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    | `tests/data/altium/body2/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
    | `tests/data/altium/body2/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
    | `tests/data/altium/body2/body2.SchDoc` | `f5598952ca794defc855b6e3cf6d75f0a6813d2b277016b305da595832996e48` |
-   | `tests/data/altium/body2/body2.SchLib` | `a8c584c2a9997ec642b5fd5a1e2cc0fff62ddbe9c5334804b69dce5c5758363e` |
+   | `tests/data/altium/body2/body2.SchLib` | `cc57098f268663005a1074c0c6fc2da1a3095c10d36cfbce087a68ba6e98274d` |
    | `short/body2.PcbDoc` | `6becb1923051aa3b312cc97eaf8230fab0a50b30d7187253c55411ebe3e8175f` |
    | `short/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
    | `short/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
    | `short/body2.SchDoc` | `f5598952ca794defc855b6e3cf6d75f0a6813d2b277016b305da595832996e48` |
-   | `short/body2.SchLib` | `a8c584c2a9997ec642b5fd5a1e2cc0fff62ddbe9c5334804b69dce5c5758363e` |
+   | `short/body2.SchLib` | `cc57098f268663005a1074c0c6fc2da1a3095c10d36cfbce087a68ba6e98274d` |
 
    Values to compare. The model holds a fourth body, which names a 3D model: it is reported by the build
    and not written, so the document holds three.
@@ -980,3 +985,55 @@ steps X1 to X7 and X9 to X12 of Part X, all as expected (under "Reports" too). S
 counts of step X8.6, and steps D1 to D3 of Part D (optional; not done, so `H-A-DRC-ALTIUM` stays pending). The kit run (`fenolite kit
 verify` and `fenolite kit record`, change c0091) is not part of this report. The schematic side of the same
 report is in `docs/evidence/altium-schematic.md`, "Report of 2026-10-09".
+
+## Part T — converted projects (c0160)
+
+
+Pending maintainer report; no Altium verification is claimed. The runtime bundle contains three
+KiCad cases: two registered public projects (large DIFAT document and a source schematic with repeated
+child sheets) and an authored four-layer Full Stack case with different inner-layer shapes/sizes.
+It includes conversion reports, a README and SHA-256 hashes. Work on scratch copies.
+
+| step | action | report |
+|---|---|---|
+| T1 | Open all three project, PCB, schematic and library documents | load outcome and any errors |
+| T2 | Compile each project; inspect sheet instances and connectivity | compile outcome |
+| T3 | Repour polygons in each PCB | repour outcome |
+| T4 | Run DRC on each converted board | counts by rule category; losses are listed in the conversion report |
+| T5 | Update PCB from schematic and inspect the ECO | unexpected footprint changes, without executing them on the only copy |
+| T6 | Place a PcbLib footprint in a scratch board; inspect its padstack and connector masks | placement and pad/mask outcome |
+
+Send the Altium Designer major/minor version, date and one generic result for each step. No source
+project, screenshots or employer details are needed. T1/T3 settle `H-A-CONV-DIFAT`, T4/T6 settle
+`H-A-CONV-PADSTACK`, T5/T6 settle `H-A-CONV-LIBRARY`, and T1/T2 settle `H-A-CONV-SCHEMATIC`.
+These four hypotheses remain open until the corresponding actual report is recorded.
+
+## Clearance checks of 2026-10-14
+
+At the maintainer's request, both optional checks of c0125/c0130 ran through guarded
+scripts and owned dialog messages in native Altium Designer Professional 26.5.0.
+The two scratch boards are authored for Fenolite; no private or vendor board is used.
+S-0744 and `altium-clearance-2026-10-14.json` retain fingerprints and constraint lines.
+Raw reports and native saved boards remain ignored because they contain local paths.
+
+| case | authored constraints and planted copper | actual native result |
+|---|---|---|
+| M1-M3, layer scopes | Two copper layers; inner `OnMid` 7 mil, outer `ExistsOnLayer` 5 mil, parent matrix 10 mil. Separate track-track on top, via-track on bottom and via-via pairs, each with a 4-mil edge gap | Three violations, each explicitly `4mil < 5mil`; none uses 7 or 10 mil. Native save keeps all three tracks and three vias and both scope expressions |
+| C1-C2, matrix cell | Generic 4 mil with `ClearanceObj_Via-ClearanceObj_Via:35000` (3.5 mil). Separate via-via and via-track pairs, both at 3.7 mil | One violation, via-track, explicitly `3.7mil < 4mil`. The via-via pair passes. Native save keeps all three vias, the track and the cell text |
+
+The original M report executed no Clearance check and is retained as an invalid attempt,
+not as a zero-violation pass. The retry selects rule kind 0 and proves that Clearance ran.
+The C dialog's first launch timed out while open and was cancelled; its retry completed.
+Native report headings group the M violations under the 10-mil parent matrix, while each
+constraint line gives the actual 5-mil limit. On save, Altium renames its child rules to
+`Fallback_1` (inner) and `Fallback_2` (outer). A parent heading alone cannot identify the
+governing child; this differs from the original protocol's expectation of a named child
+in the summary and changes no imported scope or clearance.
+
+Native saved readback agrees with Fenolite's copper check: three findings in M, one in C.
+Input hashes remain unchanged. The verifier asserts report counts, pair kinds, exact
+thresholds, native saved scopes/cell values and matching Fenolite counts.
+These outcomes complete the two requested experiments. The wider hypothesis rows
+`H-A-RULE-CLEARANCE-FORMS` and `H-A-RULE-CLEARANCE-CELLS` remain `INFERRED`: no human
+author report or published kit archive is claimed, and this experiment does not test
+four-layer scoping, all matrix object kinds or cross-rule priority.

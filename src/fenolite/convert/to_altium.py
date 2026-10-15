@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from fenolite.backends.altium import lower
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
+from fenolite.convert import pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.report import ConversionReport, census
 from fenolite.convert.sources import ALTIUM, KICAD, SourceProject
@@ -79,13 +80,22 @@ def _extra_losses(design: Design, write: lower.ProjectWrite) -> dict[str, dict[s
 
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report."""
-    design = fpitems.with_footprint_items(_named(source.design, options.name)).design
+    design = pads.project(fpitems.with_footprint_items(_named(source.design, options.name)).design)
+    sch, symbols, changed_comments = schematic.inputs(source, design)
     try:
-        written = lower.write_design(design, allow_lossy=True, bodies=options.bodies)
+        written = lower.write_design(
+            design,
+            allow_lossy=True,
+            bodies=options.bodies,
+            derive_library=True,
+            schematic=sch,
+            symbols=symbols,
+            sheets="modules" if sch is not None else "flat",
+        )
     except CompoundTooLarge as error:
         raise TargetLimitError(
             f"the PCB document of {source.name} cannot be written: {error}",
-            hint="the Altium writer does not write DIFAT sectors yet; nothing was converted",
+            hint="the version 3 compound-file limit was exceeded; nothing was converted",
         ) from None
     inputs = written.inputs
     lost: dict[str, dict[str, tuple[str, ...]]] = {
@@ -96,18 +106,35 @@ def write(source: SourceProject, options: Options) -> Written:
         for kind, reasons in inputs.lost.items()
         if kind in CHANGE_KINDS
     }
+    for kind, reasons in inputs.changed.items():
+        changed[kind] = {**changed.get(kind, {}), **reasons}
+    if changed_comments:
+        changed["schematic-text"] = {
+            "a literal comment starting with = is written with a leading space": changed_comments
+        }
     lost.update(_extra_losses(design, written))
     counts = census(design)
     if design.circuit.components:
         counts[SCHEMATIC] = 1
     name = inputs.name
     if f"{name}.SchDoc" in written.files:
-        changed[SCHEMATIC] = {CHANGES[SCHEMATIC]: (design.header.id,)}
+        changed[SCHEMATIC] = {
+            "positions and wires are not converted" if sch is not None else CHANGES[SCHEMATIC]: (
+                design.header.id,
+            )
+        }
     report = ConversionReport.of(source=counts, written=dict(inputs.written), changed=changed, lost=lost)
     issues = tuple(
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
     )
-    return Written(written.files, report, design, f"{name}.PcbDoc", issues)
+    return Written(
+        written.files,
+        report,
+        design,
+        f"{name}.PcbDoc",
+        issues,
+        schematic=f"{name}.PrjPcb" if sch is not None else None,
+    )
 
 
 DIRECTION = Direction(

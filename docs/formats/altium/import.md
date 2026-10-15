@@ -42,7 +42,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 |---|---|---|---|
 | Pad shape 1 is round (a circle with equal sizes, an oval otherwise), 2 rectangular, 3 octagonal; shape 1 with the alternate shape 9 is a rounded rectangle whose corner radius is a percentage | S-0160, S-0161, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | A hole size above 0 makes a through-hole pad, plated or not by the plated flag; a pad on Multi-Layer lies on every copper layer | S-0161, S-0302 | INFERRED | H-A-IMP-PADSTACK |
-| Stack mode 0 is Simple (one shape on all layers), 1 Top-Middle-Bottom (three sizes and shapes), 2 Full Stack (a size and a shape per signal layer: the top, the mid layers in order, the bottom). In the full stack the tables of the sixth subrecord are read by index: sizes and shapes of Mid-Layer n at n − 1; alternate shapes, corner percentages and hole offsets at 0 for the top, at the layer id − 1 for a mid layer and at 31 for the bottom | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
+| Stack mode 0 is Simple (one shape on all layers), 1 Top-Middle-Bottom (three sizes and shapes), 2 Full Stack (a size and a shape per signal layer: the top, the mid layers in order, the bottom). In Full Stack, Mid-Layer 1 uses the main middle geometry; the 29 extended sizes and shapes supply Mid-Layer n at n − 2 for n = 2 … 30. Alternate shapes, corner percentages and hole offsets use 0 for the top, the layer id − 1 for a mid layer and 31 for the bottom. The association is inferred from the public fields and thirty mid-layer ids; see `pcb-records.md`, "Full Stack layer association" | S-0002, S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | Hole shape 0 is round, 1 square (rectangular), 2 a slot with round ends; a slot has a length along its axis, and the hole has a rotation, which the import reads as relative to the pad | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | The copper of a pad may be offset from its hole centre, per layer | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | Paste and solder mask expansions follow a rule or a manual value; the model lists no mask or paste layer for a pad, the modes and values go to the bag | S-0302 | INFERRED | H-A-IMP-PADSTACK |
@@ -202,3 +202,19 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 | zone vertices | KiCad drops an outline vertex that repeats its neighbour | the import's outline is compared without such a vertex (2 vertices of two rows) |
 | zones with an arc | the model keeps no arc vertex, so the import's outline is empty | not compared (6 zones of two rows) |
 | board edge | KiCad draws the edge from the board record and adds graphics of other layers to `Edge.Cuts` | not compared: the requirement lists no edge comparison |
+
+## Measured importer limitations after c0160
+
+| Fact | Source | Evidence | Hypothesis |
+|---|---|---|---|
+| KiCad 10.0.6 imports free PCB pads from seven measured demo conversions into separate blank-reference footprints: cases 01/04/07/12/13/16/17 add 14/1/2/9/9/3/24 such wrappers. The counts equal their separately recorded free-pad conversion counts; numbered components remain compared | S-0733 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-13; Windows) | H-K-CONV-TRIANGLE |
+| Eight rotated ecc83 U1 slots import with one-number oval drills, observed as `(drill oval 0.762)`, which Fenolite retains opaque. The zero-angle U1-5 does not produce that drill discrepancy. Native Altium still exposes all nine holes with HoleSize=401575, HoleWidth=799213 and HoleType=2: approximately 1.02 by 2.03 mm | S-0732, S-0733 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-13; Windows) and ALTIUM-VERIFIED(author-report) (AD 26.5.0; 2026-10-13) | H-K-CONV-TRIANGLE |
+
+## Keep-Out Layer conversion (c0161)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Objects placed on the Keep-Out Layer apply across signal layers; object-specific restrictions can select tracks, vias, copper and pads | S-0746 | INFERRED | H-A-IMP-KEEPOUT-LAYER |
+
+Fenolite's choice: a closed imported outline becomes an all-copper rule area forbidding tracks, vias
+and pours. An open line is a reported loss; unknown object-specific restrictions are not inferred.

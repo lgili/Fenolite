@@ -444,7 +444,23 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
     and regenerated the five files of ``kicad_example`` and ``no_connect`` again; the library those two
     samples had at the base is kept beside the copies and compared with the base as well. Change c0148
     added bit 0x20 to the ``PINCONGLOMERATE`` of every written pin: the schematic files and the copies are
-    compared with the base record by record and may differ in that bit alone (``_pin_bits``)."""
+    compared with the base record by record and may differ in that bit alone (``_pin_bits``).
+    C0166 regenerates SchLib model records, so their historical pin-bit comparison uses the c0148
+    snapshot; the current libraries are checked byte for byte by the fresh-build golden tests."""
+
+    def pin_visibility_snapshot(path: str) -> bytes:
+        if not path.lower().endswith(".schlib"):
+            return (ROOT / path).read_bytes()
+        saved = subprocess.run(
+            ["git", "show", f"c3e15ac31c6f9b2c1f4ac91b8194255b05cc30eb:{path}"],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+        )
+        if saved.returncode != 0:
+            pytest.skip("the historical c0148 pin-visibility snapshot is unavailable")
+        return saved.stdout
+
     paths = [f"tests/data/altium/{name}/" for name in SAMPLES]
     exclude = [f":(exclude)tests/data/altium/{name}" for name in REGENERATED]
     pins = [":(exclude,glob)tests/data/altium/**/*.SchDoc", ":(exclude,glob)tests/data/altium/**/*.SchLib"]
@@ -459,14 +475,14 @@ def test_altium_samples_of_earlier_changes_keep_their_bytes() -> None:
             continue
         base = subprocess.run(["git", "show", f"6cdf0aea:{path}"], cwd=ROOT, capture_output=True, check=False)
         if base.returncode == 0:
-            assert not pin_bits_only(base.stdout, (ROOT / path).read_bytes(), path), path
+            assert not pin_bits_only(base.stdout, pin_visibility_snapshot(path), path), path
     for name in REGENERATED:
         base = subprocess.run(
             ["git", "show", f"6cdf0aea:tests/data/altium/{name}"], cwd=ROOT, capture_output=True, check=False
         )
         if base.returncode == 0:
-            kept = ROOT / "tests" / "data" / "altium" / "generic" / name
-            assert not pin_bits_only(base.stdout, kept.read_bytes(), name), (
+            kept = f"tests/data/altium/generic/{name}"
+            assert not pin_bits_only(base.stdout, pin_visibility_snapshot(kept), name), (
                 f"generic/{name} differs from the base"
             )
     library = subprocess.run(

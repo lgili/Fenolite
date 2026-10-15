@@ -61,9 +61,18 @@ def board(*items: str, version: int = 20241229, nets: Sequence[str] | None = (""
     """A board with the given root items; ``nets`` is the numbered table (``None`` for the name form)."""
     major = "10.0" if version > 20241229 else "9.0"
     table = "" if nets is None else " ".join(f'(net {i} "{name}")' for i, name in enumerate(nets))
+    from fenolite.backends.kicad.layers import CREATED_ROWS
+
+    text = " ".join(items)
+    technical = " ".join(
+        f'({number} "{name}" {kind})'
+        for number, name, kind, _ in CREATED_ROWS
+        if f'"{name}"' in text and f'"{name}"' not in LAYERS
+    )
+    declared = LAYERS[:-1] + " " + technical + ")"
     return (
         f'(kicad_pcb (version {version}) (generator "fenolite-tests") (generator_version "{major}")'
-        f' (general (thickness 1.6)) (paper "A4") {LAYERS} (setup (pad_to_mask_clearance 0))'
+        f' (general (thickness 1.6)) (paper "A4") {declared} (setup (pad_to_mask_clearance 0))'
         f" {table} {' '.join(items)})"
     )
 

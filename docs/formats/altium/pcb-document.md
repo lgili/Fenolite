@@ -1,5 +1,15 @@
 # Altium PCB document (`.PcbDoc`)
 
+## Native DRC report creation
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A batch DRC writes a report only with Create Report File enabled. TXT and HTML reports use the project's Output Path; their names are `Design Rule Check - <PCBDocumentName>.drc` and `.html` | S-0745 | INFERRED | H-A-DRC-REPORT |
+
+The owned 2026-10-14 AD 26.5.0 retry supports this observation. Its native TXT
+is retained unchanged for the publication edition; the HTML includes a personal
+logo-image reference and remains outside the publication result set.
+
 This page states, in Fenolite's own words, what the experimental writer `fenolite.backends.altium.pcbdoc`
 (change c0035) relies on to write an Altium PCB document in the binary form, and what the test decoder
 `tests/_altium_pcb_read.py` checks. Records are in `pcb-records.md`, the container in `compound-file.md`.
@@ -50,6 +60,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | The outline is the vertex list `VX<k>`, `VY<k>`, `KIND<k>` (0 a line; another value an arc with `CX<k>`, `CY<k>`, `R<k>`, `SA<k>`, `EA<k>`); KiCad turns it into `Edge.Cuts` segments. The MIT project closes the polygon by repeating the first vertex and writes `KIND=Protel_Advanced_PCB` and `VERSION=5.00`; KiCad reads the record of `VERSION=5.01` with the eight keys per vertex as well | S-0002, S-0160, S-0143 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | `Nets6/Data` holds one property record per net with `NAME`; a net's index is its position | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | `Components6/Data` holds one property record per component: `LAYER` (`TOP` or `BOTTOM`), `X`, `Y` (mil text), `ROTATION` (degrees), `LOCKED`, `NAMEON`, `COMMENTON`, `PATTERN` (the footprint name), `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY` and `SOURCELIBREFERENCE` | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
+| In the measured c0166 two-unit writer case, native compiled component identity uses the last written schematic unit ID; PCB source links must use that unit ID within the existing hierarchy path. Opposite lexical UID ordering did not change this result. Arbitrary imported unit order remains unverified | S-0730, S-0731 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-13; local ignored calibration) | H-A-SCH-HIER-ECO |
 | KiCad takes the reference from `SOURCEDESIGNATOR`, the footprint id from `SOURCEFOOTPRINTLIBRARY` without path and extension plus `PATTERN`, and the footprint path from `SOURCEHIERARCHICALPATH` and `SOURCEUNIQUEID` with one leading backslash removed | S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | A PCB component made from a part on a child sheet holds `SOURCEUNIQUEID=\<sheet symbol unique id>\<component unique id>`, one id per level of the hierarchy (a repeated sheet adds one more), and `SOURCEHIERARCHICALPATH=<top sheet stem>\<sheet symbol designator>`. The link of a part placed on the top sheet of a hierarchical project was not observed: the saved top sheets hold no part | S-0164, S-0188 | INFERRED | H-A-SCH-HIER-ECO |
 | For a part two levels down, the link holds the unique ids of both sheet symbols, the upper one first (`connectivity.md`, "Component link": observed through two levels). What `SOURCEHIERARCHICALPATH` holds there was not read from a saved file: the writer of change c0086 extends the one-level form by one `\<sheet symbol designator>` per level, and the component class of such a sheet is named after its own sheet symbol | S-0164, S-0188 | INFERRED | H-A-SCHX-ECO |

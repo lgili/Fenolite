@@ -85,6 +85,8 @@ def test_imports_only_core_and_model() -> None:
                 continue
             for name in names:
                 if name.startswith("fenolite."):
+                    if path.name == "graduation.py" and name == "fenolite.backends.base":
+                        continue  # packaged matrix policy, not a format writer
                     assert name.startswith(
                         (
                             "fenolite.core.",
@@ -95,7 +97,10 @@ def test_imports_only_core_and_model() -> None:
                         )
                     ), f"{path.name} imports {name}"
                 else:
-                    assert name.split(".")[0] in STDLIB_ALLOWED, f"{path.name} imports {name}"
+                    allowed = STDLIB_ALLOWED | (
+                        {"json", "pathlib"} if path.name == "graduation.py" else set()
+                    )
+                    assert name.split(".")[0] in allowed, f"{path.name} imports {name}"
 
 
 def test_evidence_and_kinds() -> None:
@@ -107,6 +112,7 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-NETS",
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
+        "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",

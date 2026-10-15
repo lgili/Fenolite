@@ -207,7 +207,7 @@ def map_pins(component: Component, designators: Sequence[str]) -> PinPads:
 def map_records(pin_pads: PinPads, owner: int | None = None) -> list[list[tuple[str, str]]]:
     """One ``MapDefiner`` record (record 47) per item of ``pin_pads``: ``DESINTF`` the pin,
     ``DESIMPCOUNT`` the number of its pads and ``DESIMP0`` … the pads (``H-A-SCHX-PINMAP``). ``owner`` is
-    the index of the ``MapDefinerList`` (record 46) in a document; a library record holds no owner key."""
+    the index of the ``MapDefinerList`` (record 46) in the document or library Data stream."""
     records: list[list[tuple[str, str]]] = []
     for pin, pads in pin_pads:
         fields = [("RECORD", "47")]

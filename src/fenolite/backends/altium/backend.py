@@ -154,7 +154,24 @@ class AltiumBackend:
         return path.suffix.lower() in SUFFIXES
 
     def capabilities(self) -> CapabilityReport:
-        return CAPABILITIES
+        from fenolite.backends.altium import claims
+
+        kinds = tuple(
+            sorted(
+                row.kind for row in claims.MATRIX if row.write is not None and "write" not in row.experimental
+            )
+        )
+        if kinds == CAPABILITIES.write_kinds:
+            return CAPABILITIES
+        return dataclasses.replace(
+            CAPABILITIES,
+            write_kinds=kinds,
+            operations=(*CAPABILITIES.operations, "write") if kinds else CAPABILITIES.operations,
+            evidence=Evidence.combine(
+                CAPABILITIES.evidence,
+                *(row.write for row in claims.MATRIX if row.kind in kinds and row.write is not None),
+            ),
+        )
 
     def read(self, path: Path, *, issues: list[Issue] | None = None) -> ReadResult:
         """Read a PCB document, a schematic document or a project into a ``Design``, or a library into a

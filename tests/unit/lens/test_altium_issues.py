@@ -667,6 +667,7 @@ def test_the_table() -> None:
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
         "altium.outjob-not-listed": "info",
+        "altium.experimental": "info",
         "altium.copper-stack": "error",
         "altium.copper-layer": "error",
         "altium.via-unsupported": "warning",
@@ -822,6 +823,18 @@ HIER_CASES: dict[str, tuple[dict[str, str], dict[str, object], set[str]]] = {
     ),
 }
 """Variants of the hierarchy sample (change c0037): script edits, build arguments, and the codes."""
+
+
+# Successful fixtures now also report the per-kind graduation notice. Keep exact
+# issue-set checks, including absence of that notice in refused builds.
+for _name in ("kicad-clean", "lossy"):
+    KICAD_CASES[_name][2].add("altium.experimental")
+for _name in ("blink", "blink-collision", "blink-kept", "blink-unplaced", "blink-unsupported"):
+    PCB_CASES[_name][1].add("altium.experimental")
+for _name in ("clean", "custom-sheet", "no-footprint", "not-lowered", "project-kept", "section-key"):
+    CASES[_name][2].add("altium.experimental")
+for _name in ("hier-ascii", "hier-flat", "hier-kept", "hier-modules"):
+    HIER_CASES[_name][2].add("altium.experimental")
 
 
 def run_hier_case(name: str) -> tuple[Issue, ...]:

@@ -2,9 +2,7 @@
 
 ## Purpose
 Verify Altium files without external tools: the document set that an input names, the round-trip levels RT-A0 (container), RT-A1 (records per stream) and RT-A2 (built model), `fenolite check` and `fenolite inspect` on Altium inputs, the records view of `fenolite diff`, and the evidence that each stage carries over the public corpus and the committed samples.
-
 ## Requirements
-
 ### Requirement: Altium document sets
 `fenolite.backends.altium.docset.document_set(path: Path) -> DocumentSet` SHALL name the documents that an Altium input holds (`backend-protocol`, "Document sets and container round trips"), reading only the project file and the first eight bytes of each document.
 - **Kinds and roles**, by suffix in any letter case: `.PrjPcb` is `altium_prjpcb` with role `project`; `.SchDoc` is `altium_schdoc_binary` when the file starts with the compound file signature and `altium_schdoc_ascii` otherwise, with role `schematic`; `.PcbDoc` is `altium_pcbdoc` with role `pcb`; `.SchLib` is `altium_schlib` with role `symbol-library`; `.PcbLib` is `altium_pcblib` with role `footprint-library`. `ROLES` MUST map each of the six read kinds of c0043's `AltiumBackend` to its role.
@@ -308,8 +306,8 @@ The three levels SHALL be measured on every public file of the corpus and on eve
 ### Requirement: Copper check on Altium boards
 On document input that holds a PCB document, the stage `copper.clearance` SHALL run `checks.copper.copper_stage` on the PCB reading with the rules that the backend gives for that document (`DesignRulesSource`) and its pads (`BoardFrame`), built and native input alike, through `checks.documents.document_copper`. The copper check judges shorts, clearance and zone-outline overlaps; it judges no board-edge clearance on any backend.
 - The stage MUST be skipped with `single-source` when the documents hold no PCB document, and with `read-refused` when it could not be read.
-- The findings MUST use the codes and severities of "Copper stage issue codes" of `verification-loop`, unchanged, and `summary` MUST hold the keys of that stage and two more counts, `unpoured` and `zones_unjudged`.
-- **Rules.** Enabled `Clearance` records of the document that the rule table does not map MUST be counted in `summary.rules.opaque_clearance_rules` and MUST give `copper.rules-incomplete` (warning). Rule kinds that the copper check does not read (every kind but `Clearance`) MUST NOT give an issue of this stage: the import reports them.
+- The findings MUST use the codes and severities of "Copper stage issue codes" of `verification-loop`, unchanged, and `summary` MUST hold the keys of that stage, two more counts, `unpoured` and `zones_unjudged`, and `clearance_cells`, `{judged, unjudged}`: the cells of the document's clearance matrices that a rule of the check holds and that none holds (`DesignRules.clearance_cells`). A cell that no rule holds lowers nothing by itself: when it belongs to a record that stays unmapped, that record is counted in `summary.rules.opaque_clearance_rules` and gives `copper.rules-incomplete` for the whole stage; when its object kind is one the check holds no item of, it governs no pair that the check judges.
+- **Rules.** `Clearance` records of the document that the rule table does not map and that apply to something (a reason outside `read.rules.NOT_APPLYING`: not disabled, and not scoped to a kind of layer the board lacks) MUST be counted in `summary.rules.opaque_clearance_rules` and MUST give `copper.rules-incomplete` (warning). Rule kinds that the copper check does not read (every kind but `Clearance`) MUST NOT give an issue of this stage: the import reports them.
 - **Polygons.** A polygon with poured regions MUST be checked as a filled zone. A zone without a fill MUST be counted in `summary.unpoured`; when the count is not zero the stage MUST add one `copper.item-unsupported` (warning) with the count.
 - **No invented clearance.** A polygon holds no clearance of its own, so the model's default zone clearance MUST NOT be judged. A filled zone for which no clearance is in force whatever the other item is (no rule, class or board minimum applies to copper of its net on a layer of its fills) MUST be counted in `summary.zones_unjudged`; when the count is not zero the stage MUST add one `copper.rules-incomplete` (warning, `where` = `zone`) with the count. Such a zone is still judged for shorts.
 - **Planes.** What the rules source left out (`DesignRules.left_out`) MUST give one `copper.item-unsupported` (warning) per kind, `where` = the kind.
@@ -350,19 +348,62 @@ On document input that holds a PCB document, the stage `copper.clearance` SHALL 
 
 ### Requirement: Clearance rules of a PCB document
 `AltiumBackend` SHALL satisfy `DesignRulesSource` (`backend-protocol`): `design_rules(design, project)` gives the clearance in force for the import `design` of the PCB document `project.board`.
-- `DesignRules.design` MUST be `design` with the clearance of every zone at 0, with every `clearance` rule lowered by `UNIT_SLACK_NM` = 5 nm (`docs/formats/altium/import.md`, "Clearance of the copper check"). It MUST hold every track and every arc of `design`: the import makes no copper of an object on an internal plane (`altium-import`, "Objects on an internal plane"), so the rules source takes nothing out.
-- `opaque_clearance_rules` MUST count the enabled `Clearance` records of `Rules6/Data` that `read.rules.map_rules` does not map; a disabled record MUST NOT count. `min_clearance` MUST be `None`, `rules_over_classes` true and `floor_over_rules` false.
+- `DesignRules.design` MUST be `design` with the clearance of every zone at 0, with every `clearance` rule lowered by `CLEARANCE_SLACK_NM` (`docs/formats/altium/import.md`, "Clearance of the copper check"). It MUST hold every track and every arc of `design`: the import makes no copper of an object on an internal plane (`altium-import`, "Objects on an internal plane"), so the rules source takes nothing out.
+- **The slack is one file unit per item of the pair.** `FILE_UNIT_NM` MUST be 127/50 nm (1/10 000 mil), `SLACK_UNITS_PER_ITEM` 1, `PAIR_SLACK_NM` = `2 * SLACK_UNITS_PER_ITEM * FILE_UNIT_NM` (5.08 nm), and `UNIT_SLACK_NM` MUST be `PAIR_SLACK_NM` in whole nanometres rounded DOWN (5): a rule holds whole nanometres, the check compares strictly, and a slack rounded up would pass a gap that the stated rule reports. Every pair has two items, so each rule is lowered once. The slack MUST NOT depend on the kind of the items, and no finding MUST be allowed for by another means.
+- **The rules are lowered by the larger of the unit's slack and Altium's observed tolerance (change c0152).** `ALTIUM_PASSED_UNITS` MUST be 7/2: the shortfall, in file units, of the closest pair that Altium's own clearance check was seen not to report (S-0616, `ALTIUM-VERIFIED(author-report)`; a pad-to-track pair on `altium-third-party-pcbdoc-03` whose edges the document's integers put 49 996.5 units apart under a rule of 50 000). `ALTIUM_PASSED_NM` MUST be `ALTIUM_PASSED_UNITS * FILE_UNIT_NM` (8.89 nm), and `CLEARANCE_SLACK_NM` MUST be `max(UNIT_SLACK_NM, ceil(ALTIUM_PASSED_NM))` (9): rounded UP, because the check compares the model's whole-nanometre gap and a rule lowered by 8 still reports a gap 8.89 nm short that the model reads as 126 991 nm. The slack MUST NOT be the sum of the two, and MUST NOT be widened beyond what Altium was seen to pass. A rule at or below `CLEARANCE_SLACK_NM` MUST be kept as it is.
+- **A via is judged with the copper it has on each layer (change c0132).** A via of `design` whose `altium` bag holds the pair `pad_removed` MUST be given in `DesignRules.design` as one via per run of consecutive copper layers of its span that are alike: a run of layers with a pad has the via's diameter, and a run of layers that the pair names has the via's DRILL as its diameter, the hole through which the via passes that layer. Every part MUST keep the via's id, provenance, net, position and drill, and MUST span exactly its run. A layer id of the pair that is no copper layer of the via's span MUST be ignored, and a pair that does not parse MUST leave the via as it is. A via without the pair MUST be the same object as in `design`. Nothing is taken out of the check: copper of another net inside the hole of such a via is a `copper.short`, and copper nearer to the hole than the clearance is a `copper.clearance`. `summary.items.via` of the stage therefore counts the parts.
+- `opaque_clearance_rules` MUST count the `Clearance` records of `Rules6/Data` that `read.rules.map_rules`, called with the copper layers of `design` (`adapter.layers.copper_layers_of`), does not map; a record whose reason is in `read.rules.NOT_APPLYING` (`disabled`, `no-layer`) MUST NOT count. The count and the rules of `design` therefore come from one mapping of the same records. `min_clearance` MUST be `None`, `rules_over_classes` true and `floor_over_rules` false.
+- `clearance_cells` MUST be the sums of `judged` and of `unjudged` over `RuleMapping.matrix_cells` of that mapping.
 - `left_out` MUST hold one entry of kind `plane` with the number of internal plane layers when the board has any, and be empty otherwise. An internal plane layer is a copper layer whose `altium` bag holds a `layer_id` from 39 to 54. The entry's reason MUST hold the number of objects that the import left out on those layers, the sum of their `plane_cuts`.
 - A document that cannot be read MUST be named in `unread` and MUST NOT raise.
 
 #### Scenario: Rules of a built sample
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_frame.py -k rules_source` asks for the rules of `routed.PcbDoc`
-- **THEN** both zones have the clearance 0, the two clearance rules are 199 995 nm, no rule is opaque, and a missing document is named in `unread`
+- **THEN** both zones have the clearance 0, the two clearance rules are 199 991 nm, no rule is opaque, and a missing document is named in `unread`
 
 #### Scenario: Planes of an imported board
 - **GIVEN** an authored document whose chain is 1 → 39 → 32, with two free tracks without a net on layer 39 and one track on layer 1
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_frame.py -k plane` imports it and asks for its rules
 - **THEN** `DesignRules.design` holds the one track of the import, `left_out` is one entry `plane` with the count 1 whose reason names 2 objects, and a board without a plane layer has an empty `left_out`
+
+#### Scenario: A record that applies to nothing is no unread rule
+- **GIVEN** the import of a document whose `Rules6` holds the three records of "A clearance matrix on a two-layer board" (`altium-project-reader`)
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k counts_what_stays_unread` asks for the rules of the document
+- **THEN** on two copper layers `opaque_clearance_rules` is 0 and the design holds both clearance rules; on four copper layers it is 2
+
+#### Scenario: Cells are counted
+- **GIVEN** the import of a document with one record that maps with a via-to-via cell and an entry for a hole, and one record whose matrix tells a through-hole pad from a surface pad
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py tests/unit/checks/test_document_copper.py -k "counts_the_cells or cells_of_the_clearance"` asks for the rules and runs the stage
+- **THEN** `clearance_cells == (1, 2)`, one rule is opaque, and the stage's summary holds `clearance_cells` as `{judged, unjudged}`
+
+#### Scenario: At the bound, on records
+- **GIVEN** a document of authored records with a `Clearance` of 10 mil and two parallel tracks of two nets whose edges are 10 mil apart, or 10 mil less 2, 3 or 4 file units
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k "slack_on_records or slack_is_derived"` imports each and runs the copper check with the rules of the document
+- **THEN** the gaps are 254 000, 253 995, 253 992 and 253 990 nm, only the fourth is a `copper.clearance`, against 253 991 nm, and `CLEARANCE_SLACK_NM` is 9
+
+#### Scenario: At Altium's observed tolerance
+- **GIVEN** a document of authored records with a `Clearance` of 5 mil, a rectangular pad of 637 795 × 637 795 file units on one net and a track 50 000 units wide on another, along the pad's edge, 3.5 or 4.5 units inside the clearance
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k observed_tolerance` runs the copper check with the rules of the document
+- **THEN** the first has no finding, and the second has one pad-to-track `copper.clearance` of 126 988 nm against 126 991 nm
+
+#### Scenario: One nanometre inside the bound
+- **GIVEN** the import of the document 3 units inside with one track moved by 1 or 2 nm towards the other in the model
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k one_nanometre` runs the copper check
+- **THEN** the gap of 253 991 nm (9 nm inside) has no finding and the gap of 253 990 nm (10 nm inside) is one `copper.clearance`
+
+#### Scenario: The pairs that Altium passes on a public document
+- **GIVEN** the corpus row `altium-third-party-pcbdoc-03` in the local cache
+- **WHEN** `uv run pytest tests/corpus/test_altium_copper.py -k pairs_that_altium_passes` reads it and runs the copper check with the rules of the document
+- **THEN** there is no `copper.clearance`; with the rules lowered by `UNIT_SLACK_NM` alone there are seven, all between pad `J2-1` and a track on `B.Cu`, 8 and 9 nm short; and the records put the straight segment along the pad's edge exactly `ALTIUM_PASSED_UNITS` inside 50 000 units
+
+#### Scenario: KiCad boards are judged strictly
+- **WHEN** `uv run pytest tests/unit/checks/test_copper.py -k strict_comparison` judges a KiCad-side board at exactly its clearance and 1 nm inside
+- **THEN** the first has no finding and the second has one, with the gap 199 999 nm against 200 000 nm: no slack applies outside the Altium rules source
+
+#### Scenario: A via without a pad on an inner layer
+- **GIVEN** the import of a six-layer document with a through via of 16 mil with an 8 mil hole whose record names the layers 2, 4 and 5, and on the layer 2 a track of another net whose edge is 5 mil from the via's centre, with a `Clearance` of 0.5 mil
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_frame.py -k pad_removed` asks for the rules and runs the copper check
+- **THEN** the design of the rules holds five vias with the id of the one: 16 mil on `F.Cu`, on `In2.Cu` and on `B.Cu`, 8 mil on `In1.Cu` and on `In3.Cu` to `In4.Cu`; the check has no finding; the same document without the bytes gives one `copper.short`; and with the track's edge 3 mil from the centre the document with the bytes gives one `copper.short` too
 
 ### Requirement: Parity on Altium projects
 On document input that holds a PCB document and schematic documents, the stage `parity` SHALL compare the two readings with `checks.parity.compare`, with the schematic side that the backend builds from them (`DocumentParity` of `backend-protocol`; for Altium `adapter.parity.side_of(schematic, board)`): components by designator, the value from the comment, the footprint from the current footprint model, the pads that the pins name (the pad of a pin's own designator, or those of `Component.pin_pad_map` when the component holds one), the nodes from the imported nets.
@@ -416,7 +457,7 @@ For a project that Fenolite built, the level RT-A2 SHALL compare every kind of `
 The level RT-A3 SHALL hold for an Altium document when the model that its import gives equals the model that the import gives after Fenolite wrote that model as new documents, inside `RT_A3_SCOPE` within 2 nm, once the items that the write reports as not written are taken out of the first model.
 - `AltiumBackend.model_roundtrip(path, *, compare)` MUST make the trip for a PCB document, a schematic document or a project file: read `path` with `read`, write the model with `lower.write_design(..., allow_lossy=True, rewrite=True)` (change c0128: the trip is the rewrite of a document that was read, so a via whose drill equals its diameter is written) into a temporary folder of its own, read the written document of the same kind, and return the verdict of `rta3.rt_a3(first, written, second, compare=…, census=…, from_board=…)`. It MUST write nothing beside the input and MUST remove the folder. `backends.altium.rta3` MUST touch no file, and `backends.altium.roundtrip` stays free of paths.
 - `RT_A3_SCOPE` MUST be the written scope of the writers, as `AltiumBackend.written_scope()` returns it, and `docs/altium.md` MUST hold it as a table ("Written scope").
-- The verdict (`backends.base.ModelRoundTrip`) MUST hold `judged`, `equal`, the located `differences`, `written` (the model items written, per kind) and `unwritten`: per kind, the model items that the write left out (`lower.AltiumInputs.counts()`) and, under keys that start with `record:`, the records of the first reading that the import maps to no model entity, by the category of the import's census. `unwritten` MUST NOT change `equal`.
+- The verdict (`backends.base.ModelRoundTrip`) MUST hold `judged`, `equal`, the located `differences`, `written` (the model items written, per kind) and `unwritten`: per kind, the model items that the write left out (`lower.AltiumInputs.counts()`) and, under keys that start with `record:`, the records of the first reading that the import maps to no model entity, by the category of the import's census. Since change c0126 the lines, arcs, fills, regions and texts of a footprint are model items: what a write leaves out of them is counted under `footprint-graphic`, `footprint-copper` and `footprint-text`, and `record:footprint-graphics` counts only the primitives of a component without a readable position. `unwritten` MUST NOT change `equal`.
 - `rta3.without_unwritten` MUST take out of the first model exactly the entities that `AltiumInputs.not_lowered` names; for a PCB document read alone, whose circuit is synthesised from the pads, a component whose footprint was not written and a net member whose pads were not written go too. Nothing else is taken out: a difference of an item that was written is a defect of a writer or of the import.
 - A trip is not judged, with the reason `no-document`, when the write gives no document of the kind that was read (the schematic writer refuses the circuit of a project); the PCB document is then still written and counted.
 - The schematic of a rewrite is generated from the circuit: the stage's summary MUST say `presentation: regenerated`. Keeping the drawing of an Altium schematic is not part of this level.
@@ -426,7 +467,7 @@ The level RT-A3 SHALL hold for an Altium document when the model that its import
 
 #### Scenario: Own sample
 - **WHEN** `fenolite roundtrip tests/data/altium/board6 --level rta3 --json` runs
-- **THEN** the exit code is 0, `result.level` is `rta3`, `result.rta3.differences` is 0, `result.unwritten` counts 2 texts and 6 graphics (on a mechanical layer that no record of the writer carries) and 33 `record:footprint-graphics`, and no file is written under the sample folder
+- **THEN** the exit code is 0, `result.level` is `rta3`, `result.rta3.differences` is 0, `result.unwritten` holds no key `record:footprint-graphics`, no `text`, no `footprint-graphic` and counts 1 graphic (on the keep-out layer), `result.written` counts 27 under `footprint-graphic`, and no file is written under the sample folder
 
 #### Scenario: Corpus documents
 - **WHEN** `uv run pytest tests/corpus/test_altium_rta3.py -rA` runs with the corpus cached
@@ -480,3 +521,186 @@ The level RT-A3 SHALL hold for an Altium document when the model that its import
 #### Scenario: Corpus documents with bodies
 - **WHEN** `FENOLITE_REQUIRE=corpus uv run pytest tests/corpus/test_altium_rta3.py -k bodies -rA` runs
 - **THEN** every document that is equal inside the scope without bodies is equal with them, the written bodies are exactly the extruded bodies with a component, and every other body is counted under the reason of "Component bodies are reported"
+
+### Requirement: Verification kit contents
+`fenolite.verify.kit.build_kit(out, *, seed, timestamp)` SHALL write the verification kit: `kit.json` with the schema `fenolite.altium-kit.v0`, `STEPS.md`, `results/form.json`, and one folder per sample with the Altium project that Fenolite builds from the sample's script under `examples/kit/`.
+- `kit.json` MUST hold the kit version, the Fenolite version, every sample with the SHA-256 of each of its files, and every step. `kit_digest` MUST be the SHA-256 of the canonical bytes of `kit.json`.
+- Two builds with the same seed and timestamp, on any supported operating system, MUST give equal bytes for every file.
+- The kit MUST hold no file that Fenolite did not write, no absolute path and no file from outside this repository's scripts.
+- `STEPS.md` MUST be generated from the steps of `kit.json`, so the two cannot differ. It MUST print the expected value of a `form` step by the step's value type (change c0139): `true` or `false` for a truth value, the digits for a number, the text for a text; the numbers 0 and 1 MUST NOT be printed as truth values. It MUST say that a document which the tool saves names its own file with its folder, and that a sample's project file which the tool saves again with the same documents is accepted.
+
+#### Scenario: Deterministic kit
+- **WHEN** `fenolite kit build --out a --seed 1 --timestamp 2026-10-06T00:00:00Z --confirm` runs twice into two folders
+- **THEN** the two folders hold equal files, and `kit.json` lists five samples
+
+#### Scenario: Nothing foreign
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_manifest.py -k contents` walks a built kit
+- **THEN** every file is listed in `kit.json` with its digest, and no file holds an absolute path
+
+#### Scenario: Expected values by their type
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_steps.py -k expected_values` reads `steps_markdown()`
+- **THEN** the steps K3.2 and K9.2 show the expected value `0`, the steps K4.3 and K4.4 show `1`, and step K1.8 shows `false`
+
+### Requirement: Kit steps settle hypotheses
+`fenolite.verify.kit.steps.STEPS` SHALL be the closed list of the kit's steps. Each step MUST hold an id of the form `K<group>.<n>`, a sample, an instruction of at most two sentences that names Altium's menu path, a result that is either `file` (a path under `results/`) or `form` (a field of `form.json` with its type), the expected value, and the register ids it settles.
+- Every step that can end in a file that Altium writes MUST be a `file` step.
+- Every hypothesis row whose settling test is a kit step MUST be named by at least one step, and every id a step names MUST be a register row; among them `H-A-WRITE-SCHLIB`, `H-A-WRITE-PCBLIB`, `H-A-WRITE-SCHDOC`, `H-A-WRITE-PCBDOC` and the four `H-A-PH-*` rows.
+- The instruction texts MUST NOT quote Altium's documentation beyond menu names.
+- A step that saves one of several documents of a project MUST say which kind of document it wants; step K5.1 MUST name **the PCB document** in bold (change c0139).
+- A hypothesis MUST NOT be able to pass from a file that cannot show what the hypothesis states (change c0139). The file of step K9.1, the sheet saved after "Update From Libraries", shows that the nets are kept and cannot show that the update ran: K9.1 MUST NOT name `H-A-SCH-UPDATE`, which no step of the kit settles, and `H-A-SCHLIB-UPDATE` MUST also be named by the typed step K9.2, so that it passes only with a typed value and is marked `form`.
+- The expected value of a `form` step MUST be of the step's value type: `steps.problems` MUST report a number where a truth value is declared, and the reverse.
+
+#### Scenario: Steps and register agree
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_steps.py -k register` compares `STEPS` with `docs/hypotheses.md`
+- **THEN** every id a step names is registered, and every row that names a kit step as its test is covered
+
+#### Scenario: The update step
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_steps.py -k update_step` reads `STEPS`
+- **THEN** no step names `H-A-SCH-UPDATE`, step K9.1 names `H-A-SCHLIB-UPDATE` only, and the `form` step K9.2 names it too
+
+### Requirement: Kit script
+The kit SHALL hold one script, generated by `fenolite.verify.kit.script.script_text(steps)`, that a user starts from inside Altium and that performs the steps marked `scripted`: opening each sample project, compiling it, saving each document under its result name, exporting the messages and reports, repouring polygons and generating the output job's containers.
+- The script MUST be listed in `kit.json` with its SHA-256, MUST write only under `results/`, and MUST write `results/script.log` with one line per scripted step: the step id and `done`, or the error text.
+- Every scripted step MUST also be a complete manual step of `STEPS.md`: a run without the script MUST be able to pass `kit verify`.
+- `SCRIPT_CALLS` MUST list every call the script makes with the id of the public source that documents it, and the script text MUST use no other call; `docs/altium-kit.md` MUST show the list. A step whose call is not publicly documented MUST NOT be scripted.
+- A step that needs a person's judgement (a typed `form` value) MUST NOT be scripted.
+- The script MUST be authored for Fenolite: no text of it may come from an example, a forum or a vendor sample.
+- Nothing in Fenolite MAY start Altium or the script.
+- The script's header and `STEPS.md` MUST say how the names and signatures of its calls were read (`script.READ_AS`, with the page of each source in `script.SOURCE_PAGES`) and MUST tell the user to compile the script in Altium's script editor before its first use. The header and `script.READ_AS` MUST also say which version of the tool the pages describe and on which version the script runs first (change c0139): `script.PAGE_VERSIONS` holds, per source of `script.SOURCE_PAGES`, the documentation the page belongs to and what it says of its version, and `script.FIRST_RUN_ON` is `Altium Designer 26`. No registered page states the version of Altium Designer it describes, and the script MUST say so and MUST NOT claim a version for a page.
+
+#### Scenario: Script and steps agree
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_script.py -k steps` compares the generated script with `STEPS`
+- **THEN** the script holds one block per scripted step, in step order, and no block for a `form` step
+
+#### Scenario: Only documented calls
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_script.py -k calls` scans the script text
+- **THEN** every call it makes is in `SCRIPT_CALLS` with a registered source id
+
+#### Scenario: The version of the pages and of the first run
+- **WHEN** `uv run pytest tests/unit/verify/kit/test_script.py -k documentation_version` reads the script's header
+- **THEN** it says that no page that was read states the version of Altium Designer it describes, and that the first run is on Altium Designer 26
+
+#### Scenario: Manual run still passes
+- **GIVEN** a simulated run without `script.log`
+- **WHEN** `verify_results` runs
+- **THEN** every step passes and no step is marked `scripted`
+
+### Requirement: Kit result verification
+`fenolite.verify.kit.results.verify_results(folder)` SHALL check a kit folder after a run and SHALL return a verdict per step and per hypothesis, without writing anything.
+- The kit's own files MUST match `kit.json`; a changed sample MUST fail every step of that sample. One change is accepted (change c0139): the project file `<sample>/<name>.PrjPcb` of a sample whose bytes are not the manifest's and which still lists exactly the documents of that sample, each by its name in the sample's folder (`results.saved_again`). Altium Designer writes a project file again when the project is saved. Such a file MUST fail no step, MUST be listed in `KitVerdict.resaved` and MUST be reported as `kit.project-resaved` (info). A project file with another list of documents, a project file that cannot be read as one, a missing file and every other changed file of the kit MUST fail as before. A file that the tool adds beside the kit's files is not in the manifest and MUST NOT be read.
+- `form.json` MUST validate against its schema and MUST name the Altium version as `AD <major>.<minor>`.
+- A re-saved document MUST pass RT-A0 and RT-A1, and its import MUST equal the model that the sample was built from at levels 1 to 5 of `equivalent`, within the kit profile, whose every exclusion names its cause. The stages `parity` and `copper.clearance` MUST report on it what they report on Fenolite's own file, except where a step expects otherwise (polygons poured after a repour).
+- A `form` value MUST equal its expected value.
+- `privacy_scan` MUST list the strings of the result files that look like a home folder path (`home-folder`), like any other absolute path of the machine (`absolute-path`, change c0139) or like a login name (`login-name`), with the file and the byte offset, and the verdict MUST carry the list. An absolute path is a path from a drive letter (with `\`, a doubled `\` or `/` between its parts), a path on a share, or a POSIX path from the root with at least two parts. Each file MUST be read as 8-bit text, which finds a string in ASCII, in the code page of a record and in UTF-8, and as UTF-16 from its first and from its second byte. A relative path, a stream name of a compound file, a web address, a date and a fraction MUST NOT be reported, and the documents that Fenolite writes MUST give no finding. A path under a home folder MUST be reported once, as `home-folder`.
+- A result file of another kind of document than its step wants (change c0139) MUST fail the step with one reason that names what the file is and what the step wants, not with a read error; the kind is told from the content of the file. When the result file is absent and its folder holds a file of the same name with another ending that no step asks for, the step MUST fail and name that file, and MUST NOT be `skipped`.
+- A hypothesis passes when every step that names it passes; it is marked `form` when any of those steps is a `form` step.
+
+#### Scenario: A simulated run passes
+- **GIVEN** a kit whose `results/` were filled by `tests/unit/verify/kit/_simulate.py` (Fenolite's writers standing in for Altium, the record marked synthetic)
+- **WHEN** `verify_results` runs
+- **THEN** every step passes, and the verdict is marked synthetic
+
+#### Scenario: A lost net is caught
+- **GIVEN** the same run with one net removed from the re-saved PCB document
+- **WHEN** `verify_results` runs
+- **THEN** the step that re-saves that document fails, naming the net, and the hypotheses of that step fail
+
+#### Scenario: A touched sample
+- **GIVEN** a kit whose sample file was edited
+- **WHEN** `verify_results` runs
+- **THEN** every step of that sample fails with the reason that the kit file differs from its manifest
+
+#### Scenario: A project file that the tool saved again
+- **GIVEN** a simulated run in which `flat/flat.PrjPcb` was written again with a byte-order mark, more keys and the same five documents
+- **WHEN** `verify_results` runs
+- **THEN** `kit_problems` is empty, `resaved` holds `flat/flat.PrjPcb`, and the ten steps of `flat` pass
+
+#### Scenario: A project file with another list of documents
+- **GIVEN** the same run with one document left out of that project file, or one listed more, or one listed outside the sample's folder
+- **WHEN** `verify_results` runs
+- **THEN** `kit_problems` names `flat/flat.PrjPcb`, `resaved` is empty, and every step of `flat` fails
+
+#### Scenario: A path on another drive
+- **GIVEN** a PCB document that Fenolite wrote with the file name `D:\work\project\flat.PcbDoc` in its board record, as a result file
+- **WHEN** `privacy_scan` runs
+- **THEN** it lists one `absolute-path` finding with that text at the byte offset of the path, and no finding for the same document written with the file name `flat.PcbDoc`
+
+#### Scenario: A document of another kind
+- **GIVEN** a simulated run in which the schematic of `board6` stands where step K5.1 wants `results/board6/board6.PcbDoc`
+- **WHEN** `verify_results` runs
+- **THEN** step K5.1 fails with the one reason "the file is a schematic document, and the step wants a PCB document", and no reason says that the file cannot be read
+
+### Requirement: Kit run record
+`fenolite.verify.kit.record.run_record` SHALL turn a verdict into a run record with the schema `fenolite.altium-kit-run.v0`: the run id, the kit digest, the Fenolite version, the Altium version, the operating system family, the outcome of each step with its kind (`file` or `form`) and whether the script did it (`scripted`, with the script's SHA-256), the verdict of each hypothesis, and the SHA-256 and size of every result file and of the archive.
+- The record MUST hold no path outside the kit, no user name and no machine name. `record_problems` MUST refuse a record that holds a string which looks like a home folder or like any other absolute path of a machine (change c0139).
+- The record MUST hold `kit_resaved`, the project files of `KitVerdict.resaved` (change c0139); such a file MUST NOT refuse the record.
+- A synthetic verdict MUST NOT give a record.
+- Committed records live in `docs/evidence/altium-kit/`, one file per run, and are never edited after they are committed.
+- `stale_rows(register, records, kit)` MUST return the register rows whose label names a run whose kit digest, for the samples that the row's steps use, differs from the kit that the tree builds.
+
+#### Scenario: Record of a run
+- **GIVEN** a verdict with every step passed
+- **WHEN** `run_record` runs
+- **THEN** the record validates against its schema, names the archive by digest, holds no absolute path, and holds `kit_resaved`
+
+#### Scenario: A stale run
+- **GIVEN** a register row labelled with a run, and a writer change that alters the bytes of that row's sample
+- **WHEN** `stale_rows` runs
+- **THEN** it returns that row
+
+### Requirement: Repeated-sheet projects in the corpus run
+The corpus run of `fenolite check` on Altium project sets SHALL be measured again with channels instantiated, and `docs/evidence/altium-roundtrip.md` SHALL hold the new counts of every set with, for each remaining difference of `altium-set:02`, its cause.
+- The page MUST NOT name the pin-to-pad map as the only cause of that set's counts.
+- A set whose counts change other than `altium-set:02` MUST be explained on the page.
+
+#### Scenario: Page states the causes
+- **WHEN** `uv run pytest tests/unit/test_provenance.py -k roundtrip` reads the page
+- **THEN** a note under the table lists the remaining differences of `altium-set:02` by cause, and says that its remaining `model.duplicate-ref` comes from components without a designator, not from channels
+
+### Requirement: Pin maps in the Altium round trips
+The scope of RT-A2 (`backends/altium/roundtrip.RT_A2_SCOPE`, judged by `checks.rta2.rta2_stage`) SHALL compare the pin map of a component: the field `pin_pad_map` of both sides in the form of `model.circuit.normal_pin_pad_map` (the pairs sorted by pin, the pads of one pin in map order, without a pin whose one pad is the pad of its own number). Two maps that give every pin the same pads are equal, whatever the order of their pairs across pins and whether a pin of one pad of its own number is listed or not. RT-A3 compares under the same scope and the same form.
+- The table of fields that the scope leaves out (`docs/altium.md`, "Round trips") MUST lose its row for `component.pin_pad_map`, and the written scope MUST list the map as written.
+- What the model cannot hold of a map is not written: `roundtrip.unwritten_pin_maps(design) -> int` MUST give the number of `pin_pads` records in the `altium` bags of the components of `design`, and the written scope of `docs/altium.md` MUST name the bag key as not written.
+- The write of a model (`lower.from_design`, change c0090) MUST account for a component whose bag holds such a record under the kind `pin-pads`, and under the kind `pin-pad-map` only for a component with a map that has no footprint model in the generated schematic; neither is a kind that refuses a write. RT-A3 reports both among what its write left out, and compares no map of a component counted under `pin-pad-map`.
+- `docs/evidence/altium-roundtrip.md` MUST give the row of `altium-set:02` of its table "Project sets" as measured after this change, with the date and the row before it, and MUST NOT list the further pads of a pin as a cause of what remains unless the measure still shows them.
+
+#### Scenario: Map inside RT-A2
+- **GIVEN** the built Altium project of the blink whose `R1` has `pad_map={"1": ("1", "5"), "2": ("7", "6")}`
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pin_map.py -k rta2` runs `fenolite check --stages roundtrip.rta2` on it, and again after `DESIMP1` of one record of the written sheet is removed and its count lowered
+- **THEN** the first run reports no difference, and the second reports one `check.rta2-failed` whose `where` ends in `pin_pad_map`
+
+#### Scenario: Records the model cannot hold are counted
+- **GIVEN** an imported design one of whose components holds a map, a footprint link and the bag record `pin_pads` `3=`, and another a map and no footprint link
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k counted` lowers it
+- **THEN** `unwritten_pin_maps` returns 1, the first component is counted under `pin-pads` and not under `pin-pad-map`, and the second under `pin-pad-map`
+
+#### Scenario: Page follows the measure
+- **WHEN** `uv run pytest tests/unit/test_altium_roundtrip_page.py tests/unit/test_altium_verification_docs.py` runs after the page is updated
+- **THEN** it passes, and the row of `altium-set:02` holds the counts that `tests/corpus/test_altium_channels.py -k pin_map` asserts for that set (698 common, 7, 27 and 2)
+
+### Requirement: Footprint graphics in the Altium round trips
+`roundtrip.RT_A2_SCOPE`, which is `RT_A3_SCOPE` and what `AltiumBackend.written_scope()` returns, SHALL compare the graphics of footprints and the corner ratio of pads: the kind `footprint_graphic` with `kind`, `layer`, `points`, `width` and `filled`, and the field `corner_ratio` of the kind `pad` (`verification-loop`, "Footprint items in the model difference").
+- Lengths are compared within the scope's 2 nm. The points of an `arc` graphic are compared under the rule that holds for the points of a copper arc.
+- **RT-A2.** The stored board of a build holds the graphics in the written form (`altium-build`, "Stored board of an Altium build"). `ModelWriter.in_model_frame` of the Altium backend MUST name the layers `Mech.13`, `Mech.14`, `Mech.15` and `Mech.16` of the reading `F.Fab`, `B.Fab`, `F.CrtYd` and `B.CrtYd` when the model was not read from an Altium document, the inverse of `pcbrecords.LAYER_MAP`.
+- A built project whose stored board holds footprints without graphics while the PCB reading holds some (`checks.rta2.predates_graphics`) MUST skip `roundtrip.rta2` with the reason `model-predates-graphics` and report no issue.
+- **RT-A3.** `rta3.without_unwritten` takes out of the first model the footprint graphics that `AltiumInputs.not_lowered` names, as it does for every other kind.
+- The fields and the texts of a footprint are written and MUST NOT be part of the scope in this change; `docs/altium.md`, "Round trips" and "Written scope", MUST say so with the reason (the stored board of a build holds no field for the texts that the writer places itself), and MUST list the three new keys of `unwritten`.
+- Evidence: `H-A-VER-RTA2-GFX` and `H-A-VER-RTA3-GFX`, `INFERRED`. The level of a stage does not change.
+- The measured numbers of `docs/evidence/altium-roundtrip.md`, section "RT-A3", MUST be measured again in the same commit: the column of the records without a model entity, the new keys per document, and the size of `board.json` of each import before and after.
+
+#### Scenario: Every example compares its footprint graphics
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_rta2.py` builds every script under `examples/` in both schematic forms
+- **THEN** each build with a PCB document compares `footprint_graphic` with 0 differences, and its stored board holds at least one graphic per footprint that the document draws
+
+#### Scenario: A moved silkscreen line is caught
+- **GIVEN** the built blink with one overlay track of `R1` moved by record edit
+- **WHEN** `fenolite check <dir> --stages roundtrip.rta2 --json` runs
+- **THEN** the exit code is 5 and every `check.rta2-failed` has a `where` that starts with `pcb:/footprint_graphic/`
+
+#### Scenario: Corpus documents keep their verdicts
+- **WHEN** `uv run pytest tests/corpus/test_altium_rta3.py -rA` runs with the corpus cached
+- **THEN** every document that was equal inside the scope before this change is equal, no document counts a `record:footprint-graphics`, and the test prints the three new keys per document
+
+#### Scenario: KiCad reads the footprint lines of a rewrite
+- **WHEN** `uv run pytest tests/kicad/altium/test_fpitems_oracle.py -rA` runs on KiCad 10.0.6 with the corpus cached
+- **THEN** for each own document and each listed public document, the board that `kicad-cli pcb import` gives for the rewrite holds, per footprint and layer class, as many lines and arcs as Fenolite's reading of the rewrite, and the probe `altium-fpitems-kicad` is `equal`

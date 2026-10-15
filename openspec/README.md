@@ -159,10 +159,14 @@ The four changes of the maintainer's capability request "board slots and cut-out
 | c0162 | `kicad-downgrade` | v0.5a: the controlled KiCad downgrade (capability resolver) through `fenolite convert` | c0159, c0007 |
 | c0163 | `opaque-net-stored-name` | correction (found while c0162 was written; the maintainer's decision of 2026-10-09): a numbered net reference inside opaque content resolves to the stored name of its net, so a board whose teardrops are on a net stored with `{slash}` (`RoyalBlue54L-Feather`) is written for its own target 9 instead of refused, and named rightly for 10 | c0017, c0061 |
 | c0164 | `altium-schematic-layout` | native schematic layout capture through Altium sync, byte-exact replay and conservative source conflicts | c0032, c0040, c0043, c0069 |
+| c0164 | `native-altium-template` | duplicate id (found at the 2026-10-15 merge of `dev` into `codex/c0161-c0092-integration`): both branches archived a c0164 on 2026-10-12; this one, archived as `archive/2026-10-12-c0164-native-altium-template`, applies a native binary `.SchDot` sheet template to every generated Altium schematic (`build --altium-template`); dev's c0164 is `altium-schematic-layout` above. Both archived folders are kept unchanged; the maintainer decides the renumbering | c0046 |
 | c0165 | `schematic-block-composition` | archived implementation: functional blocks, automatic flow/alignment, bounded wiring and generated-baseline reports/previews; repository gate and native GUI review pending (see archived tasks) | c0164, c0032, c0037, c0086 |
+| c0166 | `altium-native-acceptance` | the maintainer's authorization: consolidate the pending native Altium checks (0.2 line through c0160), run them on the licensed Windows PC, record the results and fix the defects found | c0091, c0092, c0160 |
 | c0167 | `board-slots` | board slots and cut-outs (milestone to be placed): `OutlineSlot` in the model and `design.slot`, the shared stadium, the union of overlapping cut-outs and slots (`clipper` backend of the `geo` extra), KiCad lowering and read-back | c0102, c0074 |
 | c0168 | `altium-slots-cutouts` | board slots and cut-outs: slotted board holes as free slot pads, milled cut-outs and slots as board cut-out regions behind the maintainer's kit, their import and round trips | c0167, c0085 |
 | c0169 | `edge-clearance-check` | board slots and cut-outs: copper-to-edge clearance in the copper check, drilled holes in cut-outs and overlapping holes, the creepage of slots | c0167, c0029 |
 | c0170 | `convert-slots-obstacles` | board slots and cut-outs: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints from Altium, slots as placement and routing obstacles | c0167, c0168, c0169, c0159–c0161 |
+
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0167.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

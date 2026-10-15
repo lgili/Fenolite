@@ -8,8 +8,8 @@ streams ``FileHeader`` (one header record listing the components), ``Storage`` (
 ``SectionKeys`` only when a lib ref needs a section key, then one storage per symbol, in the MS-CFB order
 of the storage names, holding one stream ``Data``: the component, its binary pins, the symbol's own
 graphics or else one rectangle per part (change c0086), the designator, the comment and the footprint
-chain. No record carries ``OWNERINDEX``: every record
-after the component belongs to it. The bytes depend only on the symbols and the library name.
+chain. Model records carry ``OWNERINDEX`` to attach the footprint and its pin map to their
+parent records. The bytes depend only on the symbols and the library name.
 """
 
 from __future__ import annotations
@@ -146,13 +146,15 @@ def pin_record(pin: AltiumPin) -> bytes:
     return struct.pack("<I", BINARY << 24 | len(payload)) + payload
 
 
-def footprint_chain(library: str, footprint: str, pin_pads: PinPads = ()) -> list[list[Field]]:
-    """The records 44, 45, 46 and 48 of a footprint model, without owner keys (0-based data file keys),
-    with one record 47 per item of ``pin_pads`` after record 46 (change c0123)."""
+def footprint_chain(
+    library: str, footprint: str, pin_pads: PinPads = (), *, start_index: int = 1
+) -> list[list[Field]]:
+    """Footprint records with owners relative to their index in the symbol's Data stream."""
     return [
-        [("RECORD", "44")],
+        [("RECORD", "44"), ("OWNERINDEX", "0")],
         [
             ("RECORD", "45"),
+            ("OWNERINDEX", str(start_index)),
             ("MODELNAME", footprint),
             ("MODELTYPE", "PCBLIB"),
             ("DATAFILECOUNT", "1"),
@@ -161,9 +163,9 @@ def footprint_chain(library: str, footprint: str, pin_pads: PinPads = ()) -> lis
             ("MODELDATAFILE0", library),
             ("ISCURRENT", "T"),
         ],
-        [("RECORD", "46")],
-        *map_records(pin_pads),
-        [("RECORD", "48")],
+        [("RECORD", "46"), ("OWNERINDEX", str(start_index + 1))],
+        *map_records(pin_pads, start_index + 2),
+        [("RECORD", "48"), ("OWNERINDEX", str(start_index + 1))],
     ]
 
 
@@ -225,7 +227,10 @@ def data_records(symbol: AltiumSymbol, *, library: str) -> list[bytes]:
         ]
         records.append(frame_record(fields))
     if symbol.footprint is not None:
-        records += [frame_record(r) for r in footprint_chain(*symbol.footprint, symbol.pin_pads)]
+        records += [
+            frame_record(r)
+            for r in footprint_chain(*symbol.footprint, symbol.pin_pads, start_index=len(records))
+        ]
     return records
 
 
@@ -289,7 +294,20 @@ def write_schlib(symbols: Sequence[AltiumSymbol], *, library: str) -> bytes:
     return write_compound(entries)
 
 
+BUILD_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-SCHLIB-KICAD9",
+        "H-A-SCHLIB-MULTIPART",
+        "H-A-SCHLIB-PRJ",
+        "H-A-SCHLIB-SCHDOC",
+        "H-A-SCHLIB-UPDATE",
+    ),
+)
+"""Evidence of the DSL build's schematic/library presentation and update choices."""
+
 __all__ = [
+    "BUILD_EVIDENCE",
     "EVIDENCE",
     "FORMALTYPE",
     "HEADER_TEXT",

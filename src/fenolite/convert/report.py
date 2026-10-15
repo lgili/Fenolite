@@ -51,7 +51,9 @@ def _rows(group: Group, refuse: Iterable[str], report: Iterable[str]) -> tuple[K
 
 
 KINDS: tuple[KindRow, ...] = (
-    *_rows("circuit", ("net", "netclass", "dnp"), ("module", "channel", "pin-pad-map", "pin-pads")),
+    *_rows(
+        "circuit", ("net", "netclass", "dnp", "pin-net"), ("module", "channel", "pin-pad-map", "pin-pads")
+    ),
     *_rows(
         "footprint",
         ("footprint", "pad", "footprint-copper"),
@@ -76,7 +78,7 @@ KINDS: tuple[KindRow, ...] = (
             "keepout-footprints",
         ),
     ),
-    *_rows("presentation", (), ("text", "graphic", "dimension")),
+    *_rows("presentation", (), ("text", "graphic", "dimension", "schematic-text")),
     *_rows("project", (), ("schematic",)),
 )
 """The closed vocabulary of kinds, in report order. Every kind that ``lower.LOSS_KINDS`` names and ``dnp``
@@ -334,7 +336,7 @@ class Explains:
 EXPLAINS: tuple[Explains, ...] = (
     Explains("footprint", AT_REF, "ref"),
     Explains("footprint", LEVEL5, "footprint-nets"),
-    Explains("pad", ("pad-missing", "pin-missing"), "pin"),
+    Explains("pad", ("pad-missing", "pin-missing", "pad-kind"), "pin"),
     Explains("pad", LEVEL5, "net"),
     Explains("track", LEVEL5, "net"),
     Explains("arc", LEVEL5, "net"),
@@ -343,12 +345,14 @@ EXPLAINS: tuple[Explains, ...] = (
     Explains("net", ("net",), "net-pins"),
     Explains("net", LEVEL5, "net"),
     Explains("dnp", ("dnp",), "ref"),
+    Explains("pin-net", ("net",), "pin"),
     Explains("footprint-copper", LEVEL5, "footprint-nets"),
     Explains("net-tie", LEVEL5, "footprint-nets"),
     Explains(SOURCE, ("ref-ambiguous",), "same"),
 )
-"""The closed table of which differences a lost item explains. A lost pad explains only its own
-``pad-missing`` and ``pin-missing`` and the level-5 kinds of its net, not every difference at its pin."""
+"""The closed table of which differences a lost or changed item explains. A lost or changed pad explains
+only its own ``pad-missing``, ``pin-missing`` and ``pad-kind`` and the level-5 kinds of its net, not every
+difference at its pin."""
 
 
 def _prefixes(where: str, separator: str) -> Iterable[str]:
@@ -391,7 +395,9 @@ class Explainer:
 
         self._places: dict[tuple[str, Scope], set[str]] = {}
         for row in report.rows:
-            ids = row.ids("lost")
+            # A changed item explains the same difference a lost one does: it was written, but in another
+            # form, so the difference it causes is the one its own rows describe (change c0160).
+            ids = (*row.ids("lost"), *row.ids("changed"))
             if not ids:
                 continue
             kind = row.kind
@@ -417,6 +423,16 @@ class Explainer:
                 )
             elif kind == "dnp":
                 self._add(kind, "ref", {refs[i] for i in ids if i in refs})
+            elif kind == "pin-net":
+                self._add(
+                    kind,
+                    "pin",
+                    {
+                        f"{refs[component]}-{pin}"
+                        for i in ids
+                        if (component := i.rpartition(":")[0]) in refs and (pin := i.rpartition(":")[2])
+                    },
+                )
             elif kind == "footprint-copper":
                 holders = {footprint_of_graphic.get(i) for i in ids}
                 self._add(kind, "footprint-nets", {net for fp_id in holders for net in fp_nets(fp_id)})

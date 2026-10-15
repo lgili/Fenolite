@@ -126,9 +126,11 @@ from fenolite.lens.altium import (
     kicad_footprint_ids,
     kicad_lib_ids,
     refused_altium,
+    sheet_parameters,
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    RECORD_FILE,
     SCHEMATIC_MODES,
     SHEET_SUFFIX,
     VENDOR_MODES,
@@ -202,6 +204,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("design", metavar="DESIGN.py", help="the design script (executed in-process)")
     parser.add_argument("--out", required=True, metavar="DIR", help="the project folder to write")
+    parser.add_argument(
+        "--altium-template",
+        metavar="FILE.SchDot",
+        default=None,
+        help="apply a native binary sheet template to every Altium schematic, preserving page settings, "
+        "fonts and embedded images; requires binary Altium output and no drawing_sheet in the script",
+    )
     parser.add_argument(
         "--discard-layout",
         action="store_true",
@@ -324,6 +333,8 @@ def _kind(rel: str, form: SchematicForm | None = None) -> str:
         return rel
     if form is not None and Path(rel).suffix == ".SchDoc":
         return SCHDOC_KINDS[form]
+    if Path(rel).suffix.lower() == ".schdot":
+        return "altium_schdot"
     return _KINDS.get(Path(rel).suffix, "file")
 
 
@@ -657,7 +668,9 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     # the inputs a review can see: the design script and, when the build reads one, the copper source
-    read = depends_on(ctx.cwd, args.design, getattr(args, "copper_from", None))
+    read = depends_on(
+        ctx.cwd, args.design, getattr(args, "copper_from", None), getattr(args, "altium_template", None)
+    )
     built = _built(args, ctx)
     return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
 
@@ -669,6 +682,13 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     out_dir = out if out.is_absolute() else ctx.cwd / out
     if out_dir.resolve() == script_path.resolve().parent:
         raise CliError("FEN-2001", "--out must not be the folder of the design script", where="--out")
+    native_path = getattr(args, "altium_template", None)
+    if native_path is not None and (args.target != ALTIUM_TARGET or args.altium_format == "ascii"):
+        raise CliError(
+            "FEN-2001",
+            "--altium-template requires --target altium and binary schematic output",
+            where="--altium-template",
+        )
     if args.altium_format is not None and args.target != ALTIUM_TARGET:
         raise CliError(
             "FEN-2001",
@@ -783,6 +803,10 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
     default_issues = pad_map_issues(defaulted)
+    if native_path is not None and drawing_sheet_source(design) is not None:
+        raise CliError(
+            "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
+        )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
@@ -1179,6 +1203,46 @@ def _run_altium(
             ),
         )
     files = dict(built.files)
+    native_info: dict[str, object] | None = None
+    native_path = getattr(args, "altium_template", None)
+    if native_path is not None:
+        from fenolite.backends.altium.native_template import TEMPLATE_PATH, NativeTemplate
+
+        path = Path(native_path)
+        if not path.is_absolute():
+            path = ctx.cwd / path
+        if path.suffix.lower() != ".schdot":
+            raise CliError("FEN-3001", "--altium-template must name a .SchDot file", where=str(path))
+        try:
+            template_data = path.read_bytes()
+            native = NativeTemplate.read(template_data)
+            applied = sorted(rel for rel in files if rel.endswith(".SchDoc"))
+            block = run.design.block or (model.board.title_block if model.board is not None else None)
+            for number, rel in enumerate(applied, 1):
+                parameters = sheet_parameters(block, number, len(applied), script_issues)
+                if any(found.severity == "error" for found in script_issues):
+                    files = {}
+                    break
+                files[rel] = native.apply(files[rel], parameters=parameters)
+        except (OSError, ValueError, FormatError) as error:
+            raise CliError(
+                "FEN-3001", f"cannot apply native Altium template: {error}", where=str(path)
+            ) from None
+        if files:
+            files[TEMPLATE_PATH] = template_data
+            record = json.loads(files[RECORD_FILE])
+            for rel in (*applied, TEMPLATE_PATH):
+                record["files"][rel] = hashlib.sha256(files[rel]).hexdigest()
+            files[RECORD_FILE] = (
+                json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+            ).encode("utf-8")
+            native_info = {
+                "source": str(native_path),
+                "file": str(out / TEMPLATE_PATH),
+                "sha256": hashlib.sha256(template_data).hexdigest(),
+                "pages": [str(out / rel) for rel in applied],
+                "evidence": "INFERRED",
+            }
     from fenolite.cli.altium_schematic_layout import prepare_files
     from fenolite.lens.altium_schematic import FILE_NAME as ALTIUM_LAYOUT_FILE
     from fenolite.lens.altium_schematic import LayoutConflict
@@ -1248,6 +1312,8 @@ def _run_altium(
     }
     if copper_input is not None:
         result["copper_input"] = copper_input
+    if native_info is not None:
+        result["native_template"] = native_info
     if native_forms:
         result["schematic_layout"] = {"file": str(layout_path), "formats": dict(sorted(native_forms.items()))}
     from fenolite.schematic.report import REPORT_FILE
@@ -1260,6 +1326,10 @@ def _run_altium(
         evidence = Evidence.combine(evidence, kicad_pcb.EVIDENCE)
     elif intents:
         evidence = Evidence.combine(evidence, kicad_copper.EVIDENCE, kicad_frame.EVIDENCE)
+    if native_info is not None:
+        from fenolite.backends.altium.native_template import EVIDENCE as native_evidence
+
+        evidence = Evidence.combine(evidence, native_evidence)
     return Result(
         result=result,
         issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),

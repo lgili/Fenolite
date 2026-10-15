@@ -1,5 +1,6 @@
 {
   "probes": {
+    "acceptance-v03": "equal",
     "altium-fpitems-kicad": "equal",
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
@@ -107,6 +108,11 @@
     "check-help-sch-export-pdf": "present",
     "check-help-sym-upgrade": "present",
     "check-unparsed-drc": "present",
+    "convert-a2k-import": "equal",
+    "convert-a2k-load": "equal",
+    "convert-a2k-sch": "equal",
+    "convert-difat": "equal",
+    "convert-padstack": "equal",
     "convert-retarget": "equal",
     "convert-triangle": "equal",
     "copper-anchor-frame": "equal",
@@ -739,6 +745,7 @@
     "pcb-stackup-order": "present",
     "pcb-stackup-resave": "equal",
     "pcb-stackup-resave-defaults": "equal",
+    "pcb-user-layers": "equal",
     "pcb-write-dimension-10": "load",
     "pcb-write-dimension-9": "load",
     "pcb-write-heads-10": "load",

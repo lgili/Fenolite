@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+import _a2kcases
 import _acceptance
 import _anchorbench
 import _arccases
@@ -91,6 +92,8 @@ import _slotbench
 import _stackbench
 import _tiebench
 import _triad
+import _userlayers
+import _v03acceptance
 import _vendorcases
 import _viabench
 import _zbench
@@ -246,6 +249,9 @@ def ignored_checks() -> str:
 def _probes() -> dict[str, Probe]:
     both = (9, 10)
     probes: dict[str, Probe] = {
+        "convert-a2k-load": Probe(_a2kcases.load_probe, (9, 10)),
+        "convert-a2k-import": Probe(_a2kcases.import_probe, (10,)),
+        "convert-a2k-sch": Probe(_a2kcases.schematic_probe, (9, 10)),
         "pcb-write-triad-9": Probe(lambda: load(triad_text(9)), both),
         "pcb-write-triad-10": Probe(lambda: load(triad_text(10)), both),
         "pcb-write-heads-9": Probe(lambda: load(write_board(created_board(4), target=9).text), both),
@@ -264,6 +270,7 @@ def _probes() -> dict[str, Probe]:
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
     probes.update(fp_write_probes())
     # the level-5 triangle on the routed sample (c0089); `pcb import` exists from 10.0 only
+    probes["acceptance-v03"] = Probe(_v03acceptance.outcome, (10,))
     probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))
     # KiCad's importer on the rewrite of an own PCB document (c0090, RT-A3)
     probes["altium-rta3-kicad"] = Probe(_rta3oracle.outcome, (10,))
@@ -338,6 +345,7 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {  # change c0100
         **_layertables.table_probes(),
+        "pcb-user-layers": (_userlayers.probe, (9, 10)),
         **_layercases.layer_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]

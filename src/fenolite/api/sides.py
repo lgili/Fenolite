@@ -14,14 +14,14 @@ reports, the place it names and its hint.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from fenolite import __version__
 from fenolite.backends import registry
 from fenolite.backends.kicad import altium_import, oracle, parity_inputs
 from fenolite.backends.kicad.cli import KicadCli, KicadCliError, KicadCliVersionError, cli_for, find_kicad_cli
-from fenolite.backends.kicad.netlist import KicadNetlist
+from fenolite.backends.kicad.netlist import NO_CONNECT_SUFFIX, KicadNetlist
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.equivalence import codes as equivalence_codes
 from fenolite.core.errors import FenoliteError, Issue
@@ -179,7 +179,9 @@ def read_path(path: Path) -> ReadSide:
 def netlist_design(netlist: KicadNetlist, name: str, *, dnp: frozenset[str] = frozenset()) -> Design:
     """A design that holds the circuit of ``netlist`` and no board: one component per reference with its
     value and the pins its nodes name, one net per net with its ``REF-PIN`` members. A reference that
-    starts with ``#`` (a power symbol) is left out; a reference in ``dnp`` is not fitted."""
+    starts with ``#`` (a power symbol) is left out; a reference in ``dnp`` is not fitted.
+    Explicit no-connect pins become marks; their isolated pseudo-nets are omitted.
+    A marked pin on a multi-pin net remains connected so validation reports the conflict."""
     kept = [c for c in netlist.components if not c.ref.startswith(POWER_PREFIX)]
     pins: dict[str, dict[str, None]] = {c.ref: {} for c in kept}
     for net in netlist.nets:
@@ -208,12 +210,21 @@ def netlist_design(netlist: KicadNetlist, name: str, *, dnp: frozenset[str] = fr
             members=tuple(PinRef(ids[node.ref], node.pin) for node in net.nodes if node.ref in ids),
         )
         for net in netlist.nets
+        if len(net.nodes) != 1 or not net.nodes[0].pintype.endswith(NO_CONNECT_SUFFIX)
+    )
+    marks = tuple(
+        dict.fromkeys(
+            PinRef(ids[node.ref], node.pin)
+            for net in netlist.nets
+            for node in net.nodes
+            if node.ref in ids and node.pintype.endswith(NO_CONNECT_SUFFIX)
+        )
     )
     header = DesignHeader(
         id=derived_id("dsn", NETLIST_ORIGIN, name), name=name, schema_version=SCHEMA_VERSION,
         fenolite_version=__version__,
     )  # fmt: skip
-    return Design(header=header, circuit=Circuit(components=components, nets=nets))
+    return Design(header=header, circuit=Circuit(components=components, nets=nets, no_connects=marks))
 
 
 def _power_symbols(sheets: dict[str, SchematicSheet], project: str) -> int:
@@ -258,6 +269,22 @@ def read_schematic(path: Path, *, kicad_cli: str | None = None, timeout: float =
         dnp = frozenset(c.ref for c in netlist.components if DNP in c.flags)
         evidence = EXPORT_EVIDENCE
     design = netlist_design(netlist, project, dnp=dnp)
+    schematic = parity_inputs.side_of(path, sheets, parity_inputs.netlist_nodes(netlist))
+    components = tuple(
+        replace(
+            component,
+            pins=tuple(
+                Pin(
+                    id=derived_id("pin", NETLIST_ORIGIN, f"{project}:{component.ref}:{number}"), number=number
+                )
+                for number in sorted(schematic.components[component.ref].pins)
+            ),
+        )
+        if component.ref in schematic.components
+        else component
+        for component in design.circuit.components
+    )
+    design = replace(design, circuit=replace(design.circuit, components=components))
     return ReadSide(
         path.name, _digest(path), SCHEMATIC_BACKEND, design, (), evidence, SCHEMATIC_KIND,
         netlist_source=SCHEMATIC_SOURCE, power_symbols=_power_symbols(sheets, project),

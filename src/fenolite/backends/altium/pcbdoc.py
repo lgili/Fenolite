@@ -204,6 +204,8 @@ COMMENT_DROP = 1_500_000
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-PADSTACK",
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
         "H-A-PCB-CU-CLASS",
@@ -338,6 +340,9 @@ class PlacedComponent:
     ones. Written after the definition's graphics."""
     texts: tuple[ComponentText, ...] = ()
     """The free texts of the component (change c0126), written after its designator and comment."""
+    source_unit_unique_id: str | None = None
+    """The emitted schematic unit used for SOURCEUNIQUEID (c0166). None uses unique_id;
+    an override changes neither the physical component identity nor the document GUID."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -609,6 +614,7 @@ def board_record(
     stack: StackSpec | None = None,
     frame: Frame | None = None,
     origin: Point | None = None,
+    layer_names: Mapping[int, str] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
@@ -630,6 +636,7 @@ def board_record(
         unique_id=unique_id(f"pcbdoc:{filename}:board"),
         used_layers=used_layers,
         stack=stack,
+        layer_names=layer_names,
     )
     return rec.text_block(text)
 
@@ -669,7 +676,7 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     at = frame(component.at)
-    link, path = "\\" + component.unique_id, ""
+    link, path = "\\" + (component.source_unit_unique_id or component.unique_id), ""
     if component.sheet is not None:
         symbol, module = component.sheet
         link = f"\\{symbol}{link}"
@@ -788,11 +795,20 @@ def _extend(box: list[int], x: int, y: int, reach: int = 0) -> None:
     box[2], box[3] = max(box[2], x + reach), max(box[3], y + reach)
 
 
-def place_component(component: PlacedComponent, index: int, frame: Frame, nets: Mapping[str, int]) -> _Placed:
+def place_component(
+    component: PlacedComponent,
+    index: int,
+    frame: Frame,
+    nets: Mapping[str, int],
+    copper_layers: Sequence[str] = (),
+) -> _Placed:
     """The pads, tracks and arcs of one component at absolute Altium coordinates, and the box of its pads
-    and graphics (nanometres, Altium frame)."""
+    and graphics (nanometres, Altium frame). ``copper_layers`` (change c0160) is the board's copper layers
+    in stack order, which a pad's per-layer stack needs."""
     footprint = component.footprint
-    check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts)
+    check = check_footprint(
+        footprint.defn, footprint.extras, texts=footprint.texts, copper_layers=copper_layers
+    )
     if check.refusal is not None:
         raise ValueError(f"{component.ref}: {check.refusal}")
     bottom = component.side == "bottom"
@@ -818,6 +834,7 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
                 flip=bottom,
                 net=net,
                 component=index,
+                copper_layers=copper_layers,
             )
         )
         _extend(box, at.x, at.y, max(pad.size.w, pad.size.h) // 2)
@@ -1236,7 +1253,16 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
     for free in spec.free_pads:
         net = rec.NO_INDEX if free.net is None else copper.net(free.pad.id, free.net)
         at = frame(free.pad.position)
-        out.pads.append(pad_bytes(free.pad, free.extras, at=at, rotation_udeg=free.pad.rotation, net=net))
+        out.pads.append(
+            pad_bytes(
+                free.pad,
+                free.extras,
+                at=at,
+                rotation_udeg=free.pad.rotation,
+                net=net,
+                copper_layers=spec.copper_layers,
+            )
+        )
     return out
 
 
@@ -1659,7 +1685,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
-        placed = place_component(component, index, frame, nets)
+        placed = place_component(component, index, frame, nets, spec.copper_layers)
         pads += placed.pads
         tracks += placed.tracks
         arcs += placed.arcs
@@ -1781,6 +1807,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
                     stack=stack,
                     frame=spec.frame,
                     origin=spec.origin,
+                    layer_names={
+                        ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")
+                    },
                 )
             ],
         ),

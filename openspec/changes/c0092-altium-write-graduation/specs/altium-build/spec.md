@@ -22,3 +22,14 @@ The repository SHALL hold an acceptance project for the second backend's write s
 #### Scenario: Acceptance run
 - **WHEN** `uv run pytest tests/kicad/acceptance/test_v03_acceptance.py -rA` runs with KiCad 10.0.6
 - **THEN** every step of the script passes, and the probe `acceptance-v03` records `equal`
+
+## MODIFIED Requirements
+
+### Requirement: Altium build evidence
+The Altium `build` envelope SHALL combine the write evidence of the kinds actually written with input evidence, lowest wins.
+- A kind remains experimental until "Graduation of a write kind" holds; an author report never promotes an operation.
+- `fenolite capabilities` MUST compute graduated and experimental kinds from the matrix.
+
+#### Scenario: Sample envelope
+- **WHEN** the sample is built with `--target altium --dry-run --json`
+- **THEN** the evidence is the lowest of the inputs and written kinds, and ungraduated kinds are named in `altium.experimental`

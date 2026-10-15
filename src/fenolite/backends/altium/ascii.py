@@ -94,9 +94,10 @@ def in_code_page(ch: str) -> bool:
 def record_bytes(fields: Sequence[Field]) -> bytes:
     """One record of the binary form as bytes, without its NUL (change c0086, "Text outside ASCII"): a
     field whose value is printable 7-bit ASCII is the text of ``format_record``; a field whose value holds
-    another character of ``CODE_PAGE`` is written twice, first as ``|%UTF8%<KEY>=`` and the value in
+    another printable character is written twice, first as ``|%UTF8%<KEY>=`` and the value in
     UTF-8, then as ``|<KEY>=`` and the value in the code page (``schematic-records.md``, "Text": the twin
-    holds the text, and saved files put it first). ``ValueError`` for any other value."""
+    holds the text, and saved files put it first). Outside the code page the plain value uses ``?``.
+    Controls and the unescaped separator ``|`` are refused."""
     if not fields:
         raise ValueError("a record needs at least one field")
     parts: list[bytes] = []
@@ -106,28 +107,34 @@ def record_bytes(fields: Sequence[Field]) -> bytes:
             continue
         if not key or not _printable(key) or any(ch in key for ch in "|= "):
             raise ValueError(f"invalid record key {key!r}")
-        if not all(in_code_page(ch) for ch in value):
-            raise ValueError(f"the value {value!r} of {key} holds a character outside {CODE_PAGE_NAME}")
+        if "|" in value or not all(ch.isprintable() for ch in value):
+            raise ValueError(f"the value {value!r} of {key} holds an unrepresentable character")
         head = key.encode("ascii")
         parts.append(b"|" + UTF8_PREFIX.encode("ascii") + head + b"=" + value.encode("utf-8"))
-        parts.append(b"|" + head + b"=" + value.encode(CODE_PAGE))
+        parts.append(b"|" + head + b"=" + value.encode(CODE_PAGE, errors="replace"))
     line = b"".join(parts)
     if line.endswith(b"|>"):
         raise ValueError(f"a line must not end with '|>': {line!r}")
     return line
 
 
-def text_problem(text: str, *, form: TextForm = "ascii", parameter: bool = False) -> str | None:
+def text_problem(
+    text: str, *, form: TextForm = "ascii", parameter: bool = False, read: bool = False
+) -> str | None:
     """Why ``text`` cannot be written as a value, or ``None`` when it can.
 
     ``form`` is the schematic form that carries the value (change c0086): ``"ascii"`` accepts printable
     7-bit ASCII; ``"binary"`` also accepts every printable character of ``CODE_PAGE``, which
-    ``record_bytes`` writes with its ``%UTF8%`` twin. The reason names the first character refused and
+    ``record_bytes`` writes with its ``%UTF8%`` twin. ``read=True`` also accepts printable Unicode
+    in binary properties, empty parameters and leading spaces or parameter references.
+    The reason names the first character refused and
     says whether the binary form would carry it. ``parameter`` marks a parameter text (the comment, a
     parameter value), which must not start with ``=``.
     """
     if form not in ("ascii", "binary"):
         raise ValueError(f"unknown schematic form {form!r}")
+    if not text and read and parameter:
+        return None
     if not text:
         return "is empty"
     for ch in text:
@@ -136,7 +143,7 @@ def text_problem(text: str, *, form: TextForm = "ascii", parameter: bool = False
         if FIRST_PRINTABLE <= ord(ch) <= LAST_PRINTABLE:
             continue
         wide = in_code_page(ch)
-        if form == "binary" and wide:
+        if form == "binary" and (wide or read and ch.isprintable()):
             continue
         where = f"holds the character {ch!r} (U+{ord(ch):04X})"
         if form == "binary":
@@ -147,9 +154,9 @@ def text_problem(text: str, *, form: TextForm = "ascii", parameter: bool = False
                 "parameter value"
             )
         return f"{where}, outside printable 7-bit ASCII, which no form carries"
-    if text != text.strip(" "):
+    if not read and text != text.strip(" "):
         return "starts or ends with a space, which readers trim"
-    if parameter and text.startswith("="):
+    if not read and parameter and text.startswith("="):
         return "starts with '=', which Altium reads as a reference to another parameter"
     return None
 

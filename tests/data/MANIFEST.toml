@@ -353,6 +353,12 @@ corpus_id = ""
 notes = "authored board with one dimension between two segments, for the writer's unknown-child test (c0017)"
 
 [[file]]
+path = "tests/data/kicad/convert/padstack.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "authored four-layer board holding one pad with a per-layer padstack (mode 1), for the full-stack pad triangle of change c0160"
+
+[[file]]
 path = "tests/data/kicad/drc/report_mils.json"
 origin = "authored"
 corpus_id = ""
@@ -722,7 +728,7 @@ notes = "binary (MS-CFB) schematic written from examples/altium_sample with form
 path = "tests/data/altium/sample/FenoliteSample.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_sample, written by fenolite build --target altium (c0034 golden file)"
+notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_sample, written by fenolite build --target altium (c0034 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/kicad_example/altium_kicad.PrjPcb"
@@ -740,7 +746,7 @@ notes = "binary schematic of examples/altium_kicad drawn from its library symbol
 path = "tests/data/altium/kicad_example/altium_kicad.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of examples/altium_kicad with the symbols of FenoliteDemo.kicad_sym (c0034 golden file)"
+notes = "schematic library of examples/altium_kicad with the symbols of FenoliteDemo.kicad_sym (c0034 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/blink/blink.PcbLib"
@@ -764,7 +770,7 @@ notes = "binary schematic of examples/blink_2layer linking its footprints to bli
 path = "tests/data/altium/blink/blink.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of examples/blink_2layer with the mini symbols (c0035 golden file)"
+notes = "schematic library of examples/blink_2layer with the mini symbols (c0035 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/blink/blink.PcbDoc"
@@ -794,7 +800,7 @@ notes = "binary schematic of examples/altium_kicad/no_connect.py with three No E
 path = "tests/data/altium/no_connect/altium_no_connect.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of examples/altium_kicad/no_connect.py with the symbols of FenoliteDemo.kicad_sym (c0036 golden file)"
+notes = "schematic library of examples/altium_kicad/no_connect.py with the symbols of FenoliteDemo.kicad_sym (c0036 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/no_connect/ascii/altium_no_connect.SchDoc"
@@ -806,13 +812,13 @@ notes = "ASCII schematic of examples/altium_kicad/no_connect.py with three No ER
 path = "tests/data/altium/hier/FenoliteHier.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_hier (c0037 golden file)"
+notes = "schematic library (MS-CFB) with the generic symbols of examples/altium_hier (c0037 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/hier/altium_hier.PrjPcb"
 origin = "authored"
 corpus_id = ""
-notes = "project file of examples/altium_hier listing its three sheets first, then its library and its two harness definition files (c0037 golden file)"
+notes = "project file of examples/altium_hier listing its three sheets first, then its library and its two harness definition files (c0037 golden file); c0166 adds explicit wire-label net naming, native H3/H4 preserves nine nets without alias warnings"
 
 [[file]]
 path = "tests/data/altium/hier/altium_hier.SchDoc"
@@ -872,7 +878,7 @@ notes = "binary schematic of the routed sample (c0038 golden file)"
 path = "tests/data/altium/routed/routed.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the routed sample with the mini symbols (c0038 golden file)"
+notes = "schematic library of the routed sample with the mini symbols (c0038 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/libs/Frame.pretty/Frame_NoCourtyard.kicad_mod"
@@ -1436,7 +1442,7 @@ notes = "binary schematic of the six-layer sample, the blink design named board6
 path = "tests/data/altium/board6/board6.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file)"
+notes = "schematic library of the six-layer sample with the mini symbols (c0085 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/outjob/blink.OutJob"
@@ -1466,7 +1472,7 @@ notes = "binary top sheet of the tree sample: symbols drawn from their graphics,
 path = "tests/data/altium/tree/tree.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the tree sample: eight catalog symbols written with their own graphics (c0086 golden file)"
+notes = "schematic library of the tree sample: eight catalog symbols written with their own graphics (c0086 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/tree/tree_io.SchDoc"
@@ -1502,7 +1508,7 @@ notes = "blink.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the 
 path = "tests/data/altium/generic/blink/blink.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "blink.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "blink.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/kicad_example/altium_kicad.SchDoc"
@@ -1514,7 +1520,7 @@ notes = "altium_kicad.SchDoc as committed before c0086 (bytes of commit 6cdf0aea
 path = "tests/data/altium/generic/kicad_example/altium_kicad.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "altium_kicad.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "altium_kicad.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/no_connect/altium_no_connect.SchDoc"
@@ -1526,7 +1532,7 @@ notes = "altium_no_connect.SchDoc as committed before c0086 (bytes of commit 6cd
 path = "tests/data/altium/generic/no_connect/altium_no_connect.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "altium_no_connect.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "altium_no_connect.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/no_connect/ascii/altium_no_connect.SchDoc"
@@ -1544,7 +1550,7 @@ notes = "routed.SchDoc as committed before c0086 (bytes of commit 6cdf0aea): the
 path = "tests/data/altium/generic/routed/routed.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic)"
+notes = "routed.SchLib as committed before c0086 (bytes of commit 6cdf0aea): symbols as synthesised rectangles (--altium-symbols generic) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/altium/generic/library/FenoliteDemo.kicad_sym"
@@ -1574,7 +1580,7 @@ notes = "project file of the two-channel sample: the three channel keys of [Desi
 path = "tests/data/altium/channels/two/two.SchDoc"
 origin = "authored"
 corpus_id = ""
-notes = "top sheet of the two-channel sample: a sheet symbol Repeat(CH,1,2) with the entries VCC and Repeat(OUT), the bus OUT[1..2], U1 and J1 (c0083). Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil, after the first file (SHA-256 53c540c9..., without an area colour or any colour) showed as a black page in Altium Designer 26"
+notes = "top sheet of the two-channel sample: a sheet symbol Repeat(CH,1,2) with the entries VCC and Repeat(OUT), the bus OUT[1..2], U1 and J1 (c0083). Rebuilt on 2026-10-14 with the native-verified named OUT wire bridge, keeping child/project/annotation unchanged. Written again by c0146 through the schematic writer, with its sheet record, colours, bodies and pins of 200 mil, after the first file (SHA-256 53c540c9..., without an area colour or any colour) showed as a black page in Altium Designer 26"
 
 [[file]]
 path = "tests/data/altium/channels/two/two_ch.SchDoc"
@@ -1634,7 +1640,7 @@ notes = "binary schematic of the sample with component bodies, the blink design 
 path = "tests/data/altium/body2/body2.SchLib"
 origin = "authored"
 corpus_id = ""
-notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file)"
+notes = "schematic library of the sample with component bodies with the mini symbols (c0121 golden file) Regenerated from Fenolite authoring recipes in c0166 for SchLib model owners/common component models; no native/vendor data imported."
 
 [[file]]
 path = "tests/data/model/v0.2.0/blink_2layer.board.json"
@@ -1749,3 +1755,459 @@ path = "tests/data/slots/slots_t10.kicad_pcb"
 origin = "authored"
 corpus_id = ""
 notes = "the board of tests/data/slots/design.py built for KiCad 10 (c0167), read by the oracle probes of tests/kicad/board/_slotbench.py; tests/unit/backends/kicad/test_slots_outline.py keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/kicad/downgrade/barcode.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/capping-yes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/capping.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/covering-yes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/covering.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/fill-cross-hatch.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/fill-hatch.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/fill-reverse-hatch.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/filling-yes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/filling.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/footprint-duplicate-pad-numbers-are-jumpers-yes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/footprint-duplicate-pad-numbers-are-jumpers.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/footprint-jumper-pad-groups.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/footprint-units.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/footprint-variant.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/gr-rect-radius.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/group-lib-id.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/hatch-position.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/island-no.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/island-yes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/net-by-name.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/npth-front-back.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/pad-die-delay.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/pad-property-pressfit.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/plugging-yes.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/plugging.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/point.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-fill-cross-hatch.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-fill-hatch.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-fill-reverse-hatch.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-group.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-instance-variant.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-lib-body-styles.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-lib-in-pos-files-no.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-lib-in-pos-files.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-lib-power-global.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-lib-power-local.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-rectangle-radius.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-rule-area-dnp-yes.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-rule-area-dnp.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-rule-area-exclude-from-sim.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-rule-area-in-bom.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-rule-area-on-board.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-symbol-body-style.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-symbol-in-pos-files-no.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-symbol-in-pos-files.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sch-table-uuid.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/setup-zone-defaults.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/source_types.json"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 bench DRC/ERC types measured by tests/kicad/downgrade/_downbench.py; SHA-256 7bb526917175658835ddbf97bbdff80a66a69a3621e023f5f8c48fdc75ebcd4d"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-body-styles.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-fill-hatch.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-in-pos-files-no.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-in-pos-files.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-jumper-pin-groups.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-jumpers-duplicate-yes.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-jumpers-duplicate.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-power-global.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-power-local.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/sym-rectangle-radius.kicad_sym"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/table-uuid.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/tenting-back.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/tenting-front.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/tenting-pad-no.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/tenting-pad-none.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/tenting-via.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/textbox-knockout.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/variants.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/via-back-post-machining.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/via-backdrill.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/via-buried.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/via-front-post-machining.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "tests/data/kicad/downgrade/via-tertiary-drill.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "Fenolite-authored c0162 token bench from tests/kicad/downgrade/_downbench.py and the authored fuzz skeleton; saved by KiCad 10.0.6"
+
+[[file]]
+path = "examples/acceptance_v03/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "CC0 v0.3 acceptance tree; all dimensions are Fenolite choices"
+
+[[file]]
+path = "examples/acceptance_v03/acceptance.sheet.toml"
+origin = "authored"
+corpus_id = ""
+notes = "Byte-identical copy of the Fenolite CC0 generic sheet template; public provenance S-0077 and S-0078 retained"
+
+[[file]]
+path = "examples/schematic_blocks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "CC0 schematic block composition example over grid.py; presentation intent only, all values Fenolite choices"
+
+[[file]]
+path = "examples/schematic_blocks/grid.py"
+origin = "authored"
+corpus_id = ""
+notes = "CC0 authored signal chain without external libraries; all values Fenolite choices"

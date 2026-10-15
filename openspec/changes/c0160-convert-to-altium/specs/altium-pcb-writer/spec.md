@@ -8,6 +8,12 @@ A pad whose per-layer stack gives every copper layer a circle, an oval, a rectan
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_pcblib_stacks.py` writes it and reads the document back
 - **THEN** the pad has stack mode 1, and its shape and size per copper layer equal the model's
 
+#### Scenario: Distinct first and second inner layers in Full Stack
+- **GIVEN** an authored four-layer pad with In1 round 1.2 x 1.2 mm and In2 rectangular 1.4 x 1.1 mm
+- **WHEN** its PCB document and derived library are written with Full Stack mode and inspected in Altium, including placement from the library into a disposable four-layer PCB
+- **THEN** In1 retains the main middle geometry and In2 retains the first extended geometry, and both native views show the requested shapes and sizes
+- **AND** the reader maps the twenty-nine extended entries to Mid-Layer 2 through 30, including when the board chain skips Mid-Layer 1
+
 ### Requirement: Connector and free pads
 A pad of kind `connect` SHALL be written as a surface pad whose paste and solder-mask expansions remove both openings. A pad without a number inside a footprint SHALL be written as a pad of that footprint with an empty designator when `pcb-library.md` holds a row with a public source that allows it, and otherwise as a free pad at its board position, counted `changed` under `pad` with that reason.
 

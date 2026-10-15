@@ -60,7 +60,7 @@
 
 | file | content |
 |---|---|
-| `src/fenolite/convert/to_kicad.py` | the direction Altium to KiCad: layers, keep-outs, slots, names, libraries, schematic, project |
+| `src/fenolite/convert/to_kicad.py`, `altium_to_kicad.py` | the direction and private lowering helpers for Altium to KiCad: layers, keep-outs, slots, names, libraries, schematic, project |
 | `src/fenolite/backends/kicad/layers.py` | `board_rows(copper)`, `user_rows(count, *, target)` |
 | `src/fenolite/backends/kicad/pcb.py`, `_fpmap.py` | `kicad.board.layer-undeclared`; slots turned with a round or aligned pad |
 | `docs/formats/kicad/board.md`, `docs/formats/altium/import.md` | the user layer rows; the keep-out layer row |
@@ -72,7 +72,7 @@
 
 ## Sources registered by this change
 
-From the block S-0740 to S-0759: S-0742 for the public Altium page that states what the Keep-Out layer restricts (task 1.3). The KiCad user-layer facts are read from KiCad's own files (S-0030, S-0058) and confirmed by the pinned `kicad-cli` (S-0020, S-0029); if a public page is needed, S-0743.
+From the block S-0740 to S-0759: S-0746 (first registered as S-0742; renumbered on 2026-10-15 because the c0166 Part R2 record took S-0742 on a parallel branch) for the public Altium page that states what the Keep-Out layer restricts (task 1.3). The KiCad user-layer facts are read from KiCad's own files (S-0030, S-0058) and confirmed by the pinned `kicad-cli` (S-0020, S-0029); if a public page is needed, S-0743.
 
 ## Hypotheses registered by this change
 
@@ -82,7 +82,7 @@ From the block S-0740 to S-0759: S-0742 for the public Altium page that states w
 | H-K-CONV-A2K-IMPORT | That board equals `kicad-cli pcb import` (10.0.6) of the same document at level 5 under the profile `kicad-import`, apart from what the report names lost (S-0029, S-0160) | `tests/kicad/convert/test_a2k_import.py` | probe `convert-a2k-import` `equal` on every written document |
 | H-K-CONV-A2K-SCH | The schematic written for a public project set passes KiCad's ERC without a connection error and its netlist (`kicad-cli sch export netlist`) equals the import's circuit at level 2 (S-0020, S-0029) | `tests/kicad/convert/test_a2k_schematic.py` | probe `convert-a2k-sch` `equal` on both majors for the sets the writer takes |
 | H-K-BOARD-USERLAYERS | KiCad 9.0.9 and 10.0.6 load a board whose layer table holds user layers `User.1` … `User.n` with the numbers that task 1.2 records, and keep items on them (S-0030, S-0020, S-0029) | `tests/kicad/board/test_user_layers.py` | probe `pcb-user-layers` `equal` on both majors; `n` recorded per major |
-| H-A-IMP-KEEPOUT-LAYER | A closed outline on Altium's Keep-Out layer restricts tracks, vias and copper on every signal layer (S-0742) | `tests/unit/convert/test_to_kicad.py -k keepout` (the mapping); no Altium run | the fact row cites S-0742; mapping tested |
+| H-A-IMP-KEEPOUT-LAYER | A closed outline on Altium's Keep-Out layer restricts tracks, vias and copper on every signal layer (S-0746) | `tests/unit/convert/test_to_kicad.py -k keepout` (the mapping); no Altium run | the fact row cites S-0742; mapping tested |
 
 All start `INFERRED`. Ids used without changing their level: `H-A-IMP-LAYERS`, `H-A-IMP-PADSTACK`, `H-K-PCB-WRITE`, `H-G-CONV-LEDGER` (its census gains the Altium documents).
 

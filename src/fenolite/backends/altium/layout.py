@@ -17,6 +17,7 @@ one per part. The sheet sizes and the connection rules are facts of
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
@@ -308,7 +309,8 @@ class BusBlock:
 class PlacedEntry:
     """A sheet entry on the ``side`` of its symbol: ``slot`` is its ``DISTANCEFROMTOP`` and ``point`` its
     connection point; a net entry has a labelled ``stub``, a harness entry a ``block``, a bus entry a
-    ``bus`` block, and a harness entry joined to another sheet symbol by a signal harness line has none of
+    ``bus`` block; a repeated bus entry has both a labelled ``stub`` and a ``bus``.
+    A harness entry joined to another sheet symbol by a signal harness line has none of
     them. An entry on the left side is the end of such a line."""
 
     crossing: Crossing
@@ -643,6 +645,13 @@ def place_symbol(spec: SymbolSpec, x: int, y: int, slots: Mapping[str, int] | No
         k = slot + (count + 1) // 2 if crossing.harness and not direct else slot
         point = (x + width, y + ENTRY_PITCH * k)
         stub, block, bus = (None, None, None) if direct else _attach(crossing, point)
+        repeated = re.fullmatch(r"\s*repeat\(\s*([^(),]+?)\s*\)\s*", crossing.name, re.IGNORECASE)
+        if bus is not None and repeated is not None:
+            name = repeated.group(1).strip()
+            stub = _link(point, name, name)
+            bus = bus_block(bus.label, bus.members, stub.end)
+            # Keep the ranged label off the scalar wire and its shared endpoint.
+            bus = dataclasses.replace(bus, point=(stub.end[0] + LABEL_OFFSET, stub.end[1]))
         entries.append(PlacedEntry(crossing, k, point, stub, block, bus=bus))
         right, top, bottom = _reach(stub, block, point, bus)
         x1, y0, y1 = max(x1, right), min(y0, top), max(y1, bottom)

@@ -124,3 +124,33 @@ def test_plane_layers_in_stack_order_and_without_a_type() -> None:
     bare = tuple(dataclasses.replace(layer, ext={}) for layer in layers)
     assert plane_layers(dataclasses.replace(made, board=dataclasses.replace(design.board, layers=bare))) == ()
     assert plane_layers(dataclasses.replace(made, board=None)) == ()
+
+
+@pytest.mark.parametrize("count", range(2, 33, 2))
+def test_converted_board_rows(count: int) -> None:
+    from fenolite.backends.kicad.layers import board_rows, created_layers
+
+    rows = board_rows(count)
+    assert len([r for r in rows if r.kind == "copper"]) == count
+    assert len({dict(r.ext["kicad"].payload)["number"] for r in rows}) == len(rows)
+    if count in (2, 4, 6, 8):
+        assert rows == created_layers(count)
+
+
+@pytest.mark.parametrize("count", (True, 0, 1, 3, 31, 34))
+def test_converted_board_rows_refuse_invalid(count: int) -> None:
+    from fenolite.backends.kicad.layers import board_rows
+
+    with pytest.raises(ValueError):
+        board_rows(count)
+
+
+@pytest.mark.parametrize("target", (9, 10))
+def test_converted_user_rows(target: int) -> None:
+    from fenolite.backends.kicad.layers import user_rows
+
+    rows = user_rows(45, target=target)
+    assert [r.name for r in rows] == [f"User.{i}" for i in range(1, 46)]
+    assert [dict(r.ext["kicad"].payload)["number"] for r in rows] == [str(i) for i in range(39, 128, 2)]
+    with pytest.raises(ValueError):
+        user_rows(46, target=target)

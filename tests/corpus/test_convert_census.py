@@ -33,11 +33,10 @@ from _corpus import manifest_items, require
 
 from fenolite.api import convert
 from fenolite.backends import registry
-from fenolite.backends.altium.cfb import CompoundTooLarge
+from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.checks.equivalence import EquivalenceReport, Tolerances, compare_designs, max_level
 from fenolite.cli.main import main
-from fenolite.convert import TargetLimitError
 from fenolite.lens.altium import write_model
 from fenolite.model.design import Design
 
@@ -50,56 +49,84 @@ CONVERT_TOO_LARGE = {"06": 119, "18": 181}
 needs one sector more."""
 NOT_WRITTEN: dict[str, dict[str, int]] = {
     "01": {
-        "dnp": 2, "footprint-graphic": 33, "graphic": 31, "outline": 1, "pad": 30, "stackup": 1,
-        "text": 149, "zone-fill": 13,
+        "dnp": 2,
+        "footprint-graphic": 3,
+        "outline": 1,
+        "pad": 2,
+        "pin-net": 2,
+        "stackup": 1,
+        "text": 149,
+        "zone-fill": 13,
     },
     "02": {"stackup": 1, "text": 2, "zone-fill": 1},
-    "03": {"footprint-graphic": 4, "stackup": 1, "zone-fill": 1},
-    "04": {"footprint-graphic": 4, "pad": 10, "stackup": 1, "zone-fill": 1},
-    "05": {"dimension": 2, "pad": 62, "stackup": 1, "text": 6, "zone-fill": 1},
-    "07": {"pad": 5, "stackup": 1, "text": 5, "zone-fill": 3},
-    "08": {"footprint-copper": 4, "graphic": 3},
-    "09": {"footprint-graphic": 32, "keep-out": 4, "pad": 35, "text": 2, "zone-fill": 1},
-    "10": {"footprint-graphic": 32, "keep-out": 4, "pad": 35, "text": 2, "zone-fill": 2},
+    "03": {"stackup": 1, "zone-fill": 1},
+    "04": {"stackup": 1, "zone-fill": 1},
+    "05": {"dimension": 2, "stackup": 1, "zone-fill": 1},
+    "07": {"stackup": 1, "text": 1, "zone-fill": 3},
+    "08": {"footprint-copper": 4},
+    "09": {"keep-out": 4, "text": 2, "zone-fill": 1},
+    "10": {"keep-out": 4, "text": 2, "zone-fill": 2},
     "11": {
-        "dnp": 11, "copper-shape": 2, "footprint-copper": 3, "footprint-graphic": 29, "graphic": 2,
-        "net-tie": 2, "outline": 20, "pad": 23, "stackup": 1, "text": 25, "zone-fill": 34,
+        "copper-shape": 2,
+        "dnp": 11,
+        "footprint-copper": 3,
+        "footprint-graphic": 1,
+        "net-tie": 2,
+        "outline": 20,
+        "pad": 12,
+        "stackup": 1,
+        "text": 25,
+        "zone-fill": 34,
     },
-    "12": {"footprint-graphic": 6, "pad": 11, "stackup": 1, "text": 19, "zone-fill": 1},
+    "12": {"pad": 2, "stackup": 1, "zone-fill": 1},
     "13": {
-        "dnp": 22, "footprint-copper": 1, "footprint-graphic": 4, "footprint-text": 2, "net-tie": 1,
-        "outline": 4, "pad": 67, "stackup": 1, "text": 1, "zone": 2, "zone-fill": 2,
+        "dnp": 22,
+        "footprint-copper": 1,
+        "net-tie": 1,
+        "outline": 4,
+        "pad": 48,
+        "stackup": 1,
+        "text": 1,
+        "zone": 2,
+        "zone-fill": 2,
     },
-    "14": {"copper-shape": 4, "footprint-graphic": 11, "outline": 1},
-    "15": {
-        "dimension": 1, "footprint-graphic": 2, "footprint-text": 2, "stackup": 1, "text": 8, "zone-fill": 1,
-    },
+    "14": {"copper-shape": 4, "footprint-graphic": 5, "outline": 1},
+    "15": {"dimension": 1, "stackup": 1, "zone-fill": 1},
     "16": {
-        "dnp": 11, "dimension": 6, "footprint-copper": 25, "footprint-graphic": 19, "footprint-text": 1,
-        "graphic": 2, "net-tie": 9, "outline": 1, "pad": 27, "stackup": 1, "text": 224, "zone-fill": 2,
+        "dimension": 6,
+        "dnp": 11,
+        "footprint-copper": 25,
+        "footprint-graphic": 15,
+        "graphic": 2,
+        "net-tie": 9,
+        "outline": 1,
+        "pad": 20,
+        "stackup": 1,
+        "text": 224,
+        "zone-fill": 2,
     },
-    "17": {"dimension": 2, "graphic": 14, "pad": 144, "stackup": 1, "text": 1, "zone-fill": 2},
-}  # fmt: skip
-"""Per board, the model items ``write_model`` leaves out, per kind (measured on 2026-10-09)."""
+    "17": {"dimension": 2, "stackup": 1, "zone-fill": 2},
+}
+"""Per-board refused items, measured after c0160 on 2026-10-12 (16 light boards)."""
 DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
-    "01": (5, {"dnp": 2, "pad-missing": 15, "pin-missing": 6}),
+    "01": (5, {"dnp": 2, "pad-kind": 2, "pad-missing": 8}),
     "02": (5, {}),
     "03": (5, {}),
-    "04": (5, {"pad-missing": 10, "pin-missing": 9}),
-    "05": (5, {"pad-missing": 62, "pin-missing": 62}),
-    "07": (5, {"pad-missing": 5, "pin-missing": 3}),
+    "04": (5, {"pad-missing": 1}),
+    "05": (5, {"pad-kind": 62}),
+    "07": (5, {"pad-missing": 2}),
     "08": (4, {"ref-ambiguous": 1}),
-    "09": (5, {"pad-missing": 19, "pin-missing": 19}),
-    "10": (5, {"pad-missing": 19, "pin-missing": 19}),
-    "11": (5, {"dnp": 11, "pad-missing": 20, "pin-missing": 17, "ref-ambiguous": 1}),
+    "09": (5, {}),
+    "10": (5, {}),
+    "11": (5, {"dnp": 11, "pad-missing": 15, "pin-missing": 12}),
     "12": (5, {"pad-missing": 10, "pin-missing": 2}),
-    "13": (5, {"dnp": 22, "pad-missing": 35, "pin-missing": 25, "route-connectivity": 2}),
+    "13": (5, {"dnp": 22, "pad-kind": 6, "pad-missing": 28, "pin-missing": 18, "route-connectivity": 2}),
     "14": (5, {}),
     "15": (5, {}),
-    "16": (5, {"dnp": 11, "pad-missing": 24, "pin-missing": 4, "ref-ambiguous": 4, "route-connectivity": 1}),
-    "17": (5, {"pad-missing": 128, "pin-missing": 120}),
+    "16": (5, {"dnp": 11, "pad-missing": 20, "ref-ambiguous": 4, "route-connectivity": 1}),
+    "17": (5, {"pad-kind": 120, "pad-missing": 8}),
 }
-"""Per board, the level compared and the differences per kind, within 10 nm and 20 ppm (2026-10-09)."""
+"""Per-board comparison after c0160, within 10 nm and 20 ppm (2026-10-12)."""
 LARGEST_NM = 2
 """The largest per-coordinate difference without tolerance over every written board (2026-10-09): the
 written unit is 2.54 nm and the reader rounds it to the nanometre."""
@@ -148,11 +175,12 @@ def _largest(report: EquivalenceReport) -> int:
 
 
 @pytest.mark.parametrize("key", sorted(TOO_LARGE))
-def test_too_large_boards(key: str) -> None:
+def test_difat_boards(key: str) -> None:
     path = require(ITEMS[key])
     design = read_board(path.read_text(encoding="utf-8"), file=path.name)
-    with pytest.raises(CompoundTooLarge, match=f"needs {TOO_LARGE[key]} FAT sectors"):
-        write_model(design, allow_lossy=True)
+    written = write_model(design, allow_lossy=True)
+    document = next(data for name, data in written.files.items() if name.endswith(".PcbDoc"))
+    assert open_compound(document).header.difat_sectors > 0
 
 
 @pytest.mark.parametrize("key", sorted(NOT_WRITTEN))
@@ -166,9 +194,13 @@ def test_not_written_per_kind(key: str) -> None:
 def test_differences_per_kind(key: str) -> None:
     a, b = _sides(key)
     level = max_level(a, b)
-    report = compare_designs(a, b, level=level, tolerances=Tolerances(10, 0, 20), frame="relative")
+    # A free pad reads back as a component with no designator (a board-only footprint), not a component:
+    # level 1 ignores the empty reference (change c0160).
+    report = compare_designs(
+        a, b, level=level, tolerances=Tolerances(10, 0, 20), frame="relative", ignore_refs=("",)
+    )
     found = dict(sorted(Counter(d.kind for d in report.differences).items()))
-    exact = compare_designs(a, b, level=min(level, 4), frame="relative")
+    exact = compare_designs(a, b, level=min(level, 4), frame="relative", ignore_refs=("",))
     print(f"{ITEMS[key].path.stem}: level {level}, {found}, largest {_largest(exact)} nm")
     assert (level, found) == DIFFERENCES[key]
     assert _largest(exact) <= LARGEST_NM
@@ -207,9 +239,10 @@ def test_conversion_is_explained(key: str) -> None:
 
 
 @pytest.mark.parametrize("key", sorted(CONVERT_TOO_LARGE))
-def test_too_large_boards_are_refused(key: str) -> None:
-    with pytest.raises(TargetLimitError, match=f"needs {CONVERT_TOO_LARGE[key]} FAT sectors"):
-        convert(require(ITEMS[key]), to="altium", allow_lossy=True)
+def test_difat_boards_are_converted(key: str) -> None:
+    result = convert(require(ITEMS[key]), to="altium", allow_lossy=True)
+    assert result.unexplained == ()
+    assert any(name.endswith(".PcbLib") for name in result.conversion.files)
 
 
 def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -232,3 +265,23 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     envelope = json.loads(out.getvalue())
     lossy = {i["where"] for i in envelope["issues"] if i["code"] == "convert.lossy"}
     assert lossy == refused and envelope["result"]["plan"]
+
+
+def test_complex_hierarchy_schematic(tmp_path: Path) -> None:
+    """c0160 task 4.1: the public KiCad project keeps its schematic netlist and every sheet."""
+    from _schprojects import project_folder, roots
+
+    from fenolite.backends.kicad.sch import sheet_files
+
+    row = next(r for r in roots(10) if Path(r.path).stem == "complex_hierarchy")
+    if not row.file.is_file():
+        pytest.skip("public project is absent from corpus cache")
+    folder = project_folder(tmp_path, row, 10)
+    assert folder is not None
+    result = convert(folder / "complex_hierarchy.kicad_pro", to="altium", allow_lossy=True)
+    assert result.unexplained == (), result.unexplained
+    assert not [i for i in result.issues if i.code == "convert.schematic-unverified"], result.issues
+    tree = sheet_files(folder / "complex_hierarchy.kicad_sch")
+    assert len([f for f in result.conversion.files if f.endswith(".SchDoc")]) == 1 + sum(
+        tree.references.values()
+    )

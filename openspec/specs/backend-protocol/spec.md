@@ -2,9 +2,7 @@
 
 ## Purpose
 Define what every file-format backend offers, independent of any one backend: the `Backend` protocol (detect, read, capabilities), read results that hold a `Design` or a `Library`, capability reports that list only implemented operations, and the registry through which the CLI, checks and placement reach backends. Module: `fenolite.backends.base` and `fenolite.backends.registry`.
-
 ## Requirements
-
 ### Requirement: Backend protocol
 `fenolite.backends.base` SHALL define `Backend` as a `typing.Protocol` with the attribute `name: str` and the methods `detect(path) -> bool`, `read(path, *, issues=None) -> ReadResult` and `capabilities() -> CapabilityReport`.
 - `backends.base` MUST import only `core` and `model`.
@@ -308,7 +306,8 @@ The records MUST be frozen dataclasses with slots whose field types are builtins
 - **THEN** it equals `back`
 
 ### Requirement: Design rules source
-`fenolite.backends.base` SHALL define the frozen dataclass `DesignRules(design: Design, min_clearance: Nm | None = None, rules_over_classes: bool = True, floor_over_rules: bool = False, opaque_clearance_rules: int = 0, unread: tuple[tuple[str, str], ...] = (), evidence: Evidence = Evidence(), left_out: tuple[tuple[str, int, str], ...] = ())` and the `@runtime_checkable` protocol `DesignRulesSource` with the method `design_rules(design: Design, project: ProjectSet, *, issues: list[Issue] | None = None) -> DesignRules`. Through it, `checks` reaches the clearance rules that a project's own files hold, without importing a backend.
+`fenolite.backends.base` SHALL define the frozen dataclass `DesignRules(design: Design, min_clearance: Nm | None = None, rules_over_classes: bool = True, floor_over_rules: bool = False, opaque_clearance_rules: int = 0, unread: tuple[tuple[str, str], ...] = (), evidence: Evidence = Evidence(), left_out: tuple[tuple[str, int, str], ...] = (), clearance_cells: tuple[int, int] = (0, 0))` and the `@runtime_checkable` protocol `DesignRulesSource` with the method `design_rules(design: Design, project: ProjectSet, *, issues: list[Issue] | None = None) -> DesignRules`. Through it, `checks` reaches the clearance rules that a project's own files hold, without importing a backend.
+- `clearance_cells` MUST count the cells of the clearance matrices of the project's files (clearances per pair of object kinds): those that a rule of `DesignRules.design` holds, and those that none holds; `(0, 0)` for a source without such matrices.
 - `DesignRules.design` MUST be `design` with the net classes, the class of each net and the design rules that the project's files give; what a missing or unread file would give MUST keep `design`'s own value.
 - `min_clearance` MUST be the project's board minimum clearance in nm, or `None`. `rules_over_classes` and `floor_over_rules` MUST say, for the tool version the board is judged against, whether a governing custom clearance rule replaces the class clearances and whether the board minimum also raises rule values (`copper-check`, "Clearance in force"). `opaque_clearance_rules` MUST count the project's clearance rules that could not be lifted into the model. `unread` MUST name each project file that failed to read, with the error's message, in file-name order.
 - `left_out` MUST name the copper that the project's files hold in a form the model does not carry as copper, as (kind, count, reason) in kind order; `DesignRules.design` is then without the items that stand for it, and `checks.copper.rules_issues` MUST give one `copper.item-unsupported` per entry, `where` = the kind. It is empty for a KiCad project.
@@ -587,10 +586,10 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 - `target` MUST be `None`: the Altium writers have one form, and any other value raises `ValueError`.
 - The write MUST be deterministic: two calls on equal designs give equal bytes.
 - When the schematic writer refuses the circuit (a text that no record holds, one pin on two nets), the PCB document MUST still be written, and one `altium.not-lowered` info with `where` `schematic` says why the schematic and the project file are not.
-- The model holds no corner ratio of a rounded-rectangle pad. A pad read from an Altium document carries its corner percentage in its `altium` bag, which `from_design` reads; a pad read from a KiCad board keeps the ratio in KiCad's own bag, which a backend does not read. `lens.altium.write_model(design, allow_lossy=…)` is the write of such a design: it reads the ratios (`lens.altium.corner_ratios`) and passes them to `lower.write_design(…, corner_ratios=…)`. Without a ratio a rounded-rectangle pad is not written and counts as a lost pad; no ratio is guessed.
+- The corner ratio of a rounded-rectangle pad is `Pad.corner_ratio` (`design-model`, "Corner ratio of a rounded-rectangle pad"), which the Altium import fills. A design read from a KiCad board holds neither the ratio nor a footprint's graphics until it is projected: `lens.altium.write_model(design, allow_lossy=…)` is the write of such a design, and it MUST project the design with `backends.kicad.fpitems.with_footprint_items` before it calls `lower.write_design`. A backend still reads no bag of another backend. A model stored before change c0126 is written from the pair `corner_percent` of its pads; `corner_ratios=` of `lower.write_design` stays for a caller that knows a ratio the model does not hold. Without a ratio a rounded-rectangle pad is not written and counts as a lost pad; no ratio is guessed.
 - The write is experimental: `capabilities()` of the backend names no write kind and lists no `write` operation (`altium-import`, "Altium backend").
 - The write runs no check of the board: the copper guard of `fenolite build --target altium` (change c0088, "Copper guard of an Altium build") belongs to the build command, so a model with a short is written as it is. `fenolite check` on the written documents judges it.
-- `fenolite build --target altium` does not go through this write (`altium-build`, "Stored board of an Altium build"): it stores the board it wrote, and writing that stored model gives a PCB document that reads to the same model.
+- `fenolite build --target altium` goes through the same lowering (`altium-build`, "Altium build through the lowering"): it places the footprints into the model and calls `lower.from_design` with its options. It stores the board it wrote, and writing that stored model gives a PCB document that reads to the same model.
 
 #### Scenario: A KiCad board written as Altium documents
 - **GIVEN** the routed two-layer KiCad sample `tests/data/kicad/board/two_layer.kicad_pcb`, read with the KiCad backend
@@ -599,7 +598,7 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 
 #### Scenario: Build and write agree
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k build_agrees` builds the routed blink and writes its stored model with `write_model`
-- **THEN** the PCB document of the build and the one of the write read to equal models inside the written scope, the stored model equals the reading of the write in its own frame, and the two files are not equal byte for byte (the build writes the graphics of the library footprints)
+- **THEN** the PCB document of the build and the one of the write read to equal models inside the written scope, footprint graphics included, and the stored model equals the reading of the write in its own frame. The two files are not promised equal byte for byte: the canonical form does not keep the order of a footprint's pads, so the records of a component may come in another order
 
 #### Scenario: Rewrite is the caller's word
 - **GIVEN** the reading of `tests/data/altium/routed/routed.PcbDoc` with the drill of one via set to the via's diameter
@@ -621,3 +620,21 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 #### Scenario: Reading in the model's frame
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k build_agrees` moves the reading of a written document with `AltiumBackend().in_model_frame(stored, reading)`
 - **THEN** footprints, pads, tracks, arcs, vias and zones of the stored model and of the moved reading are equal within 2 nm
+
+### Requirement: Stored exclusions source
+`fenolite.backends.base` SHALL define the frozen dataclass `StoredExclusion(type: str, position: Point, uuids: tuple[str, str], comment: str = "")` and the `@runtime_checkable` protocol `ExclusionSource` with the method `stored_exclusions(project: ProjectSet) -> tuple[StoredExclusion, ...]`. Through it `checks` reaches the DRC exclusions that a project's own files store, without importing a backend (`verification-loop`, "Exclusions in the DRC stage").
+- `type` is the tool's check type, `position` the stored marker position in integer nm, and `uuids` the two stored item uuids in order, the second being the nil uuid `00000000-0000-0000-0000-000000000000` for an entry of one item.
+- `stored_exclusions` MUST NOT raise for a project file that fails to read, and MUST return `()` then.
+- `stored_exclusions` is not an operation: `CapabilityReport.operations` stays the closed list of "Capability reports".
+- `KicadBackend` MUST satisfy `ExclusionSource` (`kicad-file-backend`, "Stored exclusions are read"), and `backends/kicad/backend.py` MUST hold the statement `_EXCLUSION_SOURCE: ExclusionSource = KicadBackend()`, which pyright checks.
+- `backends.base` MUST still import only `core` and `model`.
+
+#### Scenario: KiCad backend is an exclusion source
+- **GIVEN** a copy set of the native `two_layer` project, whose project file stores no exclusion
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k exclusion` runs
+- **THEN** `isinstance(KicadBackend(), ExclusionSource)` is true and `stored_exclusions(project)` returns `()`
+
+#### Scenario: An unreadable project gives no exclusion
+- **GIVEN** a copy set whose `.kicad_pro` is not JSON
+- **WHEN** `stored_exclusions(project)` is called
+- **THEN** it returns `()` and raises nothing

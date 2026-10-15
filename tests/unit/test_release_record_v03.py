@@ -9,7 +9,11 @@ the release."""
 from __future__ import annotations
 
 import ast
+import hashlib
+import json
 import re
+import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -46,11 +50,17 @@ NOT_IN_RELEASE = (
 defects with their proposed follow-ups, and the owed Altium parts."""
 EXCEPTION_WORDS = ("exception", "condition (d)", "fenolite kit verify", "fenolite kit record", "c0148")
 """What "Graduation of the Altium write" must say about the maintainer's decision on the kit."""
-ADDED_AFTER_RELEASE: dict[str, tuple[str, ...]] = {
-    "altium_pcbdoc": ("H-A-PCB-CU-LOCK", "H-A-PCB-CU-VIATENT"),
-}
-"""Ids that v0.4 changes added to a write cell after ``0.3.0`` (c0108: locked copper; c0112: via
-tenting). The record counts the cell of the released tree, so the guard leaves these out of the count."""
+RELEASE_MATRIX = ROOT / "docs/release/v0.3-altium-write-matrix.json"
+"""Write declarations extracted from v0.3.0, not a copy of today's evidence."""
+
+
+def test_released_write_declarations_are_immutable() -> None:
+    snapshot = json.loads(RELEASE_MATRIX.read_text(encoding="utf-8"))
+    canonical = json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+    assert (
+        hashlib.sha256(canonical).hexdigest()
+        == "dfcdf92d12b40c80673f43d74f9002fef0c87278d6cd7e97dae2849331279716"
+    )
 
 
 def section(text: str, title: str) -> str:
@@ -146,7 +156,17 @@ def graduation_problems(text: str) -> list[str]:
     body = section(text, "Graduation of the Altium write")
     problems: list[str] = []
     found = {row[0].strip("`"): row for row in table(body, GRADUATION_HEADER)}
-    kinds = {row.kind: row for row in MATRIX if row.write is not None}
+    if fenolite.__version__ == RELEASED:
+        kinds = {
+            row.kind: {"hypotheses": row.write.hypotheses, "experimental": "write" in row.experimental}
+            for row in MATRIX
+            if row.write is not None
+        }
+    else:
+        snapshot = json.loads(RELEASE_MATRIX.read_text(encoding="utf-8"))
+        assert snapshot["release"] == "v0.3.0"
+        assert snapshot["source_commit"] == "95de85ade2eaaf2f4a3d77902943e2515c4aabab"
+        kinds = snapshot["kinds"]
     problems.extend(f"graduation: no row for {kind}" for kind in sorted(set(kinds) - set(found)))
     problems.extend(
         f"graduation: {kind} is not an Altium write kind" for kind in sorted(set(found) - set(kinds))
@@ -157,16 +177,10 @@ def graduation_problems(text: str) -> list[str]:
             problems.append(f"graduation: {kind} has the verdict {verdict!r}")
             continue
         if kind in kinds:
-            experimental = "write" in kinds[kind].experimental
+            experimental = kinds[kind]["experimental"]
             if experimental != (verdict == "experimental"):
                 problems.append(f"graduation: {kind} says {verdict!r}, the matrix disagrees")
-            later = ADDED_AFTER_RELEASE.get(kind, ())
-            problems.extend(
-                f"graduation: {kind} no longer names {name}, listed as added after {RELEASED}"
-                for name in later
-                if name not in kinds[kind].write.hypotheses
-            )
-            counted = [name for name in kinds[kind].write.hypotheses if name not in later]
+            counted = kinds[kind]["hypotheses"]
             if len(row) > 2 and row[2].isdigit() and int(row[2]) != len(counted):
                 problems.append(
                     f"graduation: {kind} counts {row[2]} ids, the write cell names another number"
@@ -354,6 +368,21 @@ def test_graduation_agrees_with_the_matrix() -> None:
     assert "graduation: no row for altium_pcbdoc" in graduation_problems(text.replace(line + "\n", "", 1))
     unexplained = text.replace("fenolite kit record", "the record", 1)
     assert "graduation: the words 'fenolite kit record' are missing" in graduation_problems(unexplained)
+
+
+def test_later_matrix_cannot_change_historical_release(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fenolite, "__version__", "0.5.0.dev0")
+    monkeypatch.setattr(
+        sys.modules[__name__],
+        "MATRIX",
+        tuple(replace(row, experimental=()) for row in MATRIX),
+    )
+    assert graduation_problems(record()) == []
+
+
+def test_release_version_still_checks_its_live_matrix(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(fenolite, "__version__", RELEASED)
+    assert any("counts" in problem for problem in graduation_problems(record()))
 
 
 @pytest.mark.parametrize("words", NOT_IN_RELEASE)

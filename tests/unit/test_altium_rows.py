@@ -24,6 +24,7 @@ import pytest
 
 from fenolite.core.evidence import Level
 from fenolite.verify import HypothesisRow, load_register, parse_level
+from fenolite.verify.kit.record import candidate_rows, label_problems, load_records
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = ROOT / "docs" / "hypotheses.md"
@@ -250,6 +251,9 @@ def row_problems(rows: Sequence[HypothesisRow]) -> list[str]:
             ):
                 problems.append(f"{row.id}: a refuted row needs a registered successor; expected {FORM}")
             continue
+        if row.level is Level.ALTIUM_VERIFIED_KIT:
+            problems.extend(label_problems([row], load_records(ROOT), None))
+            continue
         pending = row.level_text == "INFERRED" and row.result.startswith("pending (author report)")
         if row.id in ORACLE_THEN_REPORT:
             pending = pending or (row.level_text == "INFERRED" and row.result.startswith("pending (oracle)"))
@@ -337,6 +341,25 @@ def test_bare_author_report_cell_is_reported() -> None:
     assert len(problems) == 1
     assert problems[0].startswith("H-A-SCH-OPEN: ")
     assert "ALTIUM-VERIFIED(author-report; AD <major>.<minor or x>; <YYYY-MM-DD>; no artefact)" in problems[0]
+
+
+def test_report_rows_accept_only_recorded_kit_candidates() -> None:
+    record = next(r for r in load_records(ROOT) if r["run_id"] == "2026-10-13-87c930fa")
+    candidates = [r for r in candidate_rows(record) if str(r["id"]).startswith(STEMS)]
+    assert candidates
+    for candidate in candidates:
+        row = _row(str(candidate["id"]), str(candidate["label"]), str(candidate["result"]))
+        assert row_problems([row]) == []
+        assert row_problems([_row(row.id, row.level_text, "no digest")])
+
+
+def test_report_rows_refuse_kit_without_record() -> None:
+    row = _row(
+        "H-A-SCHLIB-UPDATE",
+        "ALTIUM-VERIFIED(kit; AD 26.5; 2026-11-01; 2026-11-01-abcdef12)",
+        "no record",
+    )
+    assert any("no run record" in problem for problem in row_problems([row]))
 
 
 @pytest.mark.parametrize(
