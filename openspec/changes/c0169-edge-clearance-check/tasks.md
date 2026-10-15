@@ -30,7 +30,8 @@
 
 ## 4. Creepage
 
-- [ ] 4.1 Write the creepage equality tests (scenario "Slot and ring are equal") and the L against its hand-drawn merged ring; document slots in `docs/analyses.md` ("Creepage", "Grooves"). Proof: `uv run pytest tests/unit/analysis/test_creepage_slots.py -q`.
+- [x] 4.1 Write the creepage equality tests (scenario "Slot and ring are equal") and the L against its hand-drawn merged ring; document slots in `docs/analyses.md` ("Creepage", "Grooves"). Proof: `uv run pytest tests/unit/analysis/test_creepage_slots.py -q`.
+  - 2026-10-15: copies of the shared fixture with two round conductors either side of `S1`: the slot and `cutout(shape.stadium(…))` give equal creepages to the nanometre, with no groove width, with one 1 µm below 2 mm (neither bridged: the sides of the slot turned 30° are rounded to the nanometre) and with one above 2 mm (both bridged, straight across); the whole fixture and the L of `S2` and `S3` against its merged ring drawn by hand (seven vertices, three arcs) need the union and skip without pyclipper. `docs/analyses.md` says so under "Creepage" and "Grooves". The proof passes (3 tests; the first also without pyclipper).
 
 ## 5. Closing
 
