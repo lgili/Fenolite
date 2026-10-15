@@ -6,6 +6,15 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- v0.3: Altium write kinds leave `experimental` only by a tested rule (own readback, RT-A3 over the
+  corpus, every write hypothesis release-verified, a recorded kit run that is not stale); none of the
+  nine kinds meets it yet, and `capabilities` lists what each one misses. The acceptance run and its
+  result are in `docs/evidence/altium-acceptance.md` (c0092).
+
+- Merge the c0164 branch into the c0161/c0092 integration branch: keep its c0092 rule and drop the
+  parallel wip rule that made KiCad and Specctra writes experimental and dropped input evidence
+  from the Altium build envelope; renumber the c0161 keep-out source to S-0746.
+
 - Declare the authored `examples/schematic_blocks/` scripts in the fixture manifest; the
   committed-data test of `tests/corpus/test_manifest.py` failed on them since the dev merge.
 
