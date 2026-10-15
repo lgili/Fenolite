@@ -641,6 +641,55 @@ def assemble_rings(pieces: Iterable[Piece]) -> tuple[Path, ...]:
     return tuple(sorted(rings, key=lambda r: r.start))
 
 
+
+def join_ends(pieces: Sequence[Segment | Arc], gap: int) -> tuple[list[Segment | Arc], int]:
+    """``pieces`` with every group of endpoints closer than ``gap`` (strictly) joined into the group's
+    smallest point, and the number of groups joined. Distances are compared squared, with integers. A
+    piece whose two ends join into one point is left out. Moved here from the KiCad backend's outline by
+    change c0169, so that every backend chains edge graphics alike."""
+    points = sorted({end for piece in pieces for end in (piece.start, piece.end)})
+    if len(points) < 2:
+        return list(pieces), 0
+    parent = {point: point for point in points}
+
+    def root(point: Point) -> Point:
+        while parent[point] != point:
+            parent[point] = parent[parent[point]]
+            point = parent[point]
+        return point
+
+    cells: dict[tuple[int, int], list[Point]] = {}
+    for point in points:
+        cell = (point.x // gap, point.y // gap)
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for other in cells.get((cell[0] + dx, cell[1] + dy), ()):
+                    gap2 = (point.x - other.x) ** 2 + (point.y - other.y) ** 2
+                    if gap2 < gap * gap:
+                        a, b = root(point), root(other)
+                        if a != b:
+                            parent[max(a, b)] = min(a, b)
+        cells.setdefault(cell, []).append(point)
+    moved = {point: root(point) for point in points if root(point) != point}
+    if not moved:
+        return list(pieces), 0
+    joined: list[Segment | Arc] = []
+    for piece in pieces:
+        start, end = moved.get(piece.start, piece.start), moved.get(piece.end, piece.end)
+        if start == end:
+            continue
+        if (start, end) == (piece.start, piece.end):
+            joined.append(piece)
+        elif isinstance(piece, Arc):
+            try:
+                joined.append(Arc(start, piece.mid, end))
+            except (GeometryError, ValueError):
+                joined.append(Segment(start, end))
+        else:
+            joined.append(Segment(start, end))
+    return joined, len(set(moved.values()))
+
+
 __all__ = [
     "Keyhole",
     "Path",
@@ -651,6 +700,7 @@ __all__ = [
     "assemble_rings",
     "clip_convex",
     "convex_hull",
+    "join_ends",
     "keyhole_ring",
     "normalize_polygons",
     "polygons_intersect",

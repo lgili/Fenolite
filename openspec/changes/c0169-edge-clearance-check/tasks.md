@@ -12,7 +12,8 @@
 
 ## 2. Frame and resolver
 
-- [ ] 2.1 Add `EdgeRing`, `BoardFrame.board_edges`, `DesignRules.min_edge_clearance` and `edge_floor_over_rules`, and implement them for KiCad (from `outline_items` and `merge_rings`, else `edge_outline`) and Altium (scenario "Edges of a read KiCad board"). Proof: `uv run pytest tests/unit/backends/kicad/test_frame_edges.py tests/unit/backends/altium -q`.
+- [x] 2.1 Add `EdgeRing`, `BoardFrame.board_edges`, `DesignRules.min_edge_clearance` and `edge_floor_over_rules`, and implement them for KiCad (from `outline_items` and `merge_rings`, else `edge_outline`) and Altium (scenario "Edges of a read KiCad board"). Proof: `uv run pytest tests/unit/backends/kicad/test_frame_edges.py tests/unit/backends/altium -q`.
+  - 2026-10-15: `backends.base.EdgeRing` and `BoardFrame.board_edges`; `DesignRules` gains `min_edge_clearance` and `edge_floor_over_rules` (last, with defaults). KiCad: `outline.board_edges` (the rings of `lower_outline` with their names, else of `edge_outline` as `board` and `edge ring <k>`); `copperrules` takes `min_copper_edge_clearance` of the project, else `EDGE_CLEARANCE_DEFAULT` (0.5 mm, `H-K-EDGE-CENTRE`), and the switch from `lowering.FLOOR_OVER_RULES` (false on both majors, task 1.2). Altium: `frame.board_edges` chains the `Edge.Cuts` graphics of the import (ends closer than 1 µm joined; `join_ends` moved from the KiCad outline to `geometry.polygon`), and the board minimum is the governing board-wide `edge_clearance` rule (`BoardOutlineClearance`). The four test frames gain `board_edges` (giving `()`). The proof passes (2478 tests).
 - [ ] 2.2 Write `ClearanceResolver.edge` with the switch of task 1.2 and route `edge_clearance_in_force` through it; stitching keeps its results. Proof: `uv run pytest tests/unit/checks/test_clearance.py tests/unit/backends/kicad/test_copper_stitch.py -q`.
 
 ## 3. Findings

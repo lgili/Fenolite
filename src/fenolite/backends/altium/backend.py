@@ -37,6 +37,7 @@ from fenolite.backends.base import (
     DocumentParity,
     DocumentSet,
     DocumentValidator,
+    EdgeRing,
     ModelCompare,
     ModelRoundTrip,
     ModelScope,
@@ -49,6 +50,7 @@ from fenolite.backends.base import (
 )
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.units import Nm
 from fenolite.model.circuit import with_normal_pin_maps
 from fenolite.model.design import Design
 
@@ -445,6 +447,15 @@ class AltiumBackend:
 
         return frame.placed_extents(design, issues=issues)
 
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
+        """The rings of an imported board's edge (``frame.board_edges``; ``BoardFrame``): the board outline
+        the import gives as ``Edge.Cuts`` graphics."""
+        from fenolite.backends.altium import frame
+
+        return frame.board_edges(design, issues=issues)
+
     def design_rules(
         self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
     ) -> DesignRules:
@@ -513,6 +524,8 @@ class AltiumBackend:
             evidence=Evidence.combine(EVIDENCE, frame.EVIDENCE),
             left_out=_planes_left_out(design),
             clearance_cells=cells,
+            min_edge_clearance=_board_outline_clearance(checked),
+            edge_floor_over_rules=False,
         )
 
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome:
@@ -723,6 +736,18 @@ def _planes_left_out(design: Design) -> tuple[tuple[str, int, str], ...]:
         f"the {cuts} object(s) drawn on such a layer out of the board: they cut the plane and are no copper"
     )
     return (("plane", planes, reason),)
+
+
+def _board_outline_clearance(design: Design) -> Nm | None:
+    """The ``min`` of the governing board-wide ``edge_clearance`` rule of an import (its
+    ``BoardOutlineClearance`` whose scope is the whole board), the last in the order of the copper check,
+    or ``None``: the board minimum of the copper-to-edge clearance (change c0169)."""
+    rules = design.rules.rules if design.rules is not None else ()
+    wide = sorted(
+        (r for r in rules if r.kind == "edge_clearance" and r.selector_a.op == "all" and r.min is not None),
+        key=lambda r: (r.priority != 0, -r.priority, r.name, r.id),
+    )
+    return wide[-1].min if wide else None
 
 
 def _with_unit_slack(design: Design) -> Design:

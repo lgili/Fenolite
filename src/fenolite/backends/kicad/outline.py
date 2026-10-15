@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, Protocol, TypeVar
 
+from fenolite.backends.base import EdgeRing
 from fenolite.backends.kicad._edgesign import (
     edge_text,
     edge_texts,
@@ -60,6 +61,7 @@ from fenolite.geometry import (
     thick_touch,
 )
 from fenolite.geometry.errors import BRANCHING_CONTOUR
+from fenolite.geometry.polygon import join_ends
 from fenolite.geometry.rings import CurvedRing
 from fenolite.model.board import Arc as ModelArc
 from fenolite.model.board import Board, Graphic, Outline, OutlineArc, OutlineSlot, Track, Via, Zone
@@ -115,50 +117,8 @@ class _EdgeLike(Protocol):
 
 
 def _join(pieces: list[Segment | Arc]) -> tuple[list[Segment | Arc], int]:
-    """``pieces`` with every group of endpoints closer than ``CHAIN_GAP`` joined into the group's smallest
-    point, and the number of groups joined. Distances are compared squared, with integers. A piece whose
-    two ends join into one point is left out."""
-    points = sorted({end for piece in pieces for end in (piece.start, piece.end)})
-    if len(points) < 2:
-        return pieces, 0
-    parent = {point: point for point in points}
-
-    def root(point: Point) -> Point:
-        while parent[point] != point:
-            parent[point] = parent[parent[point]]
-            point = parent[point]
-        return point
-
-    cells: dict[tuple[int, int], list[Point]] = {}
-    for point in points:
-        cell = (point.x // CHAIN_GAP, point.y // CHAIN_GAP)
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                for other in cells.get((cell[0] + dx, cell[1] + dy), ()):
-                    gap2 = (point.x - other.x) ** 2 + (point.y - other.y) ** 2
-                    if gap2 < CHAIN_GAP * CHAIN_GAP:
-                        a, b = root(point), root(other)
-                        if a != b:
-                            parent[max(a, b)] = min(a, b)
-        cells.setdefault(cell, []).append(point)
-    moved = {point: root(point) for point in points if root(point) != point}
-    if not moved:
-        return pieces, 0
-    joined: list[Segment | Arc] = []
-    for piece in pieces:
-        start, end = moved.get(piece.start, piece.start), moved.get(piece.end, piece.end)
-        if start == end:
-            continue
-        if (start, end) == (piece.start, piece.end):
-            joined.append(piece)
-        elif isinstance(piece, Arc):
-            try:
-                joined.append(Arc(start, piece.mid, end))
-            except (GeometryError, ValueError):
-                joined.append(Segment(start, end))
-        else:
-            joined.append(Segment(start, end))
-    return joined, len(set(moved.values()))
+    """``pieces`` with every group of endpoints closer than ``CHAIN_GAP`` joined (``join_ends``)."""
+    return join_ends(pieces, CHAIN_GAP)
 
 
 def _pieces(graphic: _EdgeLike) -> tuple[list[Segment | Arc], bool]:
@@ -402,6 +362,51 @@ def slots_of(outline: Outline) -> tuple[OutlineSlot, ...]:
 
 
 Box = tuple[int, int, int, int]
+
+
+# --- the edge rings of the copper check (change c0169) ----------------------------------------------------
+
+EDGE_RING = "edge ring"
+"""The name of ring k of a board read from its edge graphics is ``edge ring <k>``; ring 0 is ``board``."""
+
+
+def _edge_rings(outline: Outline, names: Sequence[str]) -> tuple[EdgeRing, ...] | None:
+    """The rings of ``outline`` named by ``names``, in ring order; ``None`` when the board ring does not
+    close (fewer than three vertices, or two without an arc). An inner ring that does not close is left
+    out."""
+    mids = {(arc.ring, arc.edge): arc.mid for arc in outline.arcs}
+    found: list[EdgeRing] = []
+    for r, ring in enumerate((tuple(outline.points), *(tuple(c) for c in outline.cutouts))):
+        arcs = tuple(mids.get((r, k)) for k in range(len(ring)))
+        closes = len(ring) >= 3 or (len(ring) == 2 and any(mid is not None for mid in arcs))
+        if not closes:
+            if r == 0:
+                return None
+            continue
+        found.append(EdgeRing(names[r] if r < len(names) else f"{EDGE_RING} {r}", ring, arcs))
+    return tuple(found)
+
+
+def board_edges(design: Design) -> tuple[EdgeRing, ...] | None:
+    """The rings of the edge of ``design``'s board as the copper check judges copper against them
+    (``BoardFrame.board_edges``): with ``Board.outline``, the rings of ``lower_outline`` (the board ring,
+    the cut-outs and the slots' stadiums, each group of overlapping ones merged) named ``board``,
+    ``cut-out <k>``, ``slot <name>`` or the names of a merged group joined by ``MERGED_JOIN``; otherwise
+    the rings of ``edge_outline`` (the edge graphics with their exact lines and arcs) named ``board`` and
+    ``edge ring <k>``. ``None`` when no board ring closes. A pure query."""
+    board = design.board
+    if board is None:
+        return None
+    if board.outline is not None:
+        lowering = lower_outline(board.outline)
+        found = _edge_rings(lowering.outline, lowering.names)
+        if found is not None:
+            return found
+    outline = edge_outline(design)
+    if outline is None:
+        return None
+    names = ("board", *(f"{EDGE_RING} {k}" for k in range(1, len(outline.cutouts) + 1)))
+    return _edge_rings(outline, names)
 
 
 def _box(points: Sequence[Point]) -> Box:
@@ -931,6 +936,7 @@ def merge_outline(built: Design, board: Design, *, locked: bool = False) -> Outl
 
 __all__ = [
     "CHAIN_GAP",
+    "EDGE_RING",
     "CHECK_ISSUE_CODES",
     "EVIDENCE",
     "MERGED_JOIN",
@@ -939,6 +945,7 @@ __all__ = [
     "BoardOutline",
     "Lowering",
     "OutlineMerge",
+    "board_edges",
     "board_outline",
     "box_points",
     "check_outline",

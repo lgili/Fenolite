@@ -886,16 +886,43 @@ class PlacedExtent:
         return self.front if self.side == "top" else self.back
 
 
+@dataclass(frozen=True, slots=True)
+class EdgeRing:
+    """One closed ring of a board's edge in the board frame (change c0169): its name (``board``, ``cut-out
+    <k>``, ``slot <name>``, the names of a merged group joined by `` + ``, or ``edge ring <k>`` for a ring
+    read from edge graphics), its vertices, and per edge the mid of the arc it is or ``None`` for a line
+    (edge i joins vertex i to vertex i + 1 mod n)."""
+
+    name: str
+    points: tuple[Point, ...]
+    mids: tuple[Point | None, ...] = ()
+
+    def __post_init__(self) -> None:
+        points = tuple(self.points)
+        mids = tuple(self.mids) or (None,) * len(points)
+        if len(mids) != len(points):
+            raise ValueError(f"the edge ring {self.name!r} of {len(points)} vertices needs as many mids")
+        object.__setattr__(self, "points", points)
+        object.__setattr__(self, "mids", mids)
+
+
 @runtime_checkable
 class BoardFrame(Protocol):
-    """A backend that gives the board-frame geometry of a design: every pad, and every footprint's
-    courtyard. Both are pure queries."""
+    """A backend that gives the board-frame geometry of a design: every pad, every footprint's courtyard,
+    and the rings of the board's edge. All are pure queries.
+
+    ``board_edges`` (change c0169) gives the board ring first, then each cut-out or slot ring, overlapping
+    inner rings merged as the backend writes them, arcs exact; ``None`` when no ring closes."""
 
     def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]: ...
 
     def placed_extents(
         self, design: Design, *, issues: list[Issue] | None = None
     ) -> tuple[PlacedExtent, ...]: ...
+
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -912,7 +939,9 @@ class DesignRules:
     form the model does not carry as copper, as (kind, count, reason) in kind order: ``design`` is then
     without the items that stand for it, and the copper check reports each entry. ``clearance_cells`` counts
     the cells of the clearance matrices of those files (clearances per pair of object kinds): those that a
-    rule of ``design`` holds, and those that none holds.
+    rule of ``design`` holds, and those that none holds. ``min_edge_clearance`` is the board minimum of the
+    copper-to-edge clearance, or ``None``, and ``edge_floor_over_rules`` says whether it also raises the
+    value of a governing ``edge_clearance`` rule (change c0169).
     """
 
     design: Design
@@ -924,6 +953,8 @@ class DesignRules:
     evidence: Evidence = Evidence()
     left_out: tuple[tuple[str, int, str], ...] = ()
     clearance_cells: tuple[int, int] = (0, 0)
+    min_edge_clearance: Nm | None = None
+    edge_floor_over_rules: bool = False
 
 
 @runtime_checkable
@@ -1300,6 +1331,7 @@ __all__ = [
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "EdgeRing",
     "ErcItem",
     "ErcOracle",
     "ErcOutcome",

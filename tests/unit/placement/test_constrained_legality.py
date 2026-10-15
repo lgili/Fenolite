@@ -99,6 +99,9 @@ def test_geometry_accepts_an_authored_neutral_frame_protocol() -> None:
             ring = (Point(8, 8), Point(12, 8), Point(12, 12), Point(8, 12))
             return (PlacedExtent("A", "top", front=(ring,), source="courtyard"),)
 
+        def board_edges(self, design, *, issues=None):
+            return ()
+
     supplied_frame = AuthoredFrame()
     assert isinstance(supplied_frame, BoardFrame)
     report = check_constraints(board(part("A", 10, 10)), supplied_frame, PlacementConstraints())

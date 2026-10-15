@@ -11,7 +11,15 @@ from dataclasses import dataclass, field
 
 from fakes import PCB, SCH, FakeDocumentValidator, document_set, reading
 
-from fenolite.backends.base import BoardPad, DesignRules, Document, PadCopper, PlacedExtent, ProjectSet
+from fenolite.backends.base import (
+    BoardPad,
+    DesignRules,
+    Document,
+    EdgeRing,
+    PadCopper,
+    PlacedExtent,
+    ProjectSet,
+)
 from fenolite.checks.documents import (
     DOCUMENT_STAGES,
     project_of,
@@ -104,6 +112,11 @@ class RulesFake(FakeDocumentValidator):
     def placed_extents(
         self, design: Design, *, issues: list[Issue] | None = None
     ) -> tuple[PlacedExtent, ...]:
+        return ()
+
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
         return ()
 
 

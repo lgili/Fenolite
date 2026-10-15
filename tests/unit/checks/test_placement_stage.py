@@ -26,7 +26,7 @@ from fakes import (
     validation,
 )
 
-from fenolite.backends.base import BoardPad, PlacedExtent, ProjectSet
+from fenolite.backends.base import BoardPad, EdgeRing, PlacedExtent, ProjectSet
 from fenolite.checks import DEFAULT_STAGES, ORACLE_STAGES, STAGE_ORDER, run_checks
 from fenolite.checks.documents import DOCUMENT_STAGES, run_document_checks
 from fenolite.checks.placement import EVIDENCE, STAGE, default_pitch, placement_stage
@@ -209,6 +209,11 @@ class FrameDocuments(FakeDocumentValidator):
     def placed_extents(
         self, design: Design, *, issues: list[Issue] | None = None
     ) -> tuple[PlacedExtent, ...]:
+        return ()
+
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
         return ()
 
 
