@@ -20,4 +20,4 @@ def test_sample_import() -> None:
 @pytest.mark.slow
 @pytest.mark.parametrize("item", [i for i in manifest_items("rta") if "-pcbdoc-" in i.id], ids=lambda i: i.id)
 def test_public_import(item) -> None:
-    assert not _a2kcases.imported(require(item), runner())
+    assert not _a2kcases.imported(require(item), runner(), item.id)

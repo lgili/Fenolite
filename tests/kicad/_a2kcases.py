@@ -36,11 +36,22 @@ def load(source: Path, cli: KicadCli) -> bool:
         return loaded.ok and cli.drc(board, files=files).report is not None
 
 
-def imported(source: Path, cli: KicadCli):
+def imported(source: Path, cli: KicadCli, row: str = ""):
+    """The unexplained level-5 differences between the conversion and KiCad's own importer. A ``row`` of
+    ``KNOWN_IMPORT_FAILURES`` on which ``kicad-cli`` fails as recorded is skipped, as in the read oracle."""
     with tempfile.TemporaryDirectory(prefix="fenolite-a2k-import-") as temp:
         folder = Path(temp)
         conversion = write(source, folder, 10)
         imported = cli.import_board(source)
+        if imported.board is None and row:
+            import pytest
+            from _altium_kicad import KNOWN_IMPORT_FAILURES
+
+            output = imported.run.stdout + imported.run.stderr
+            known = KNOWN_IMPORT_FAILURES.get(row)
+            assert known is not None, output
+            assert imported.run.returncode == known[0] and known[1] in output, output
+            pytest.skip(f"kicad-cli fails in its own importer on {row} on this platform (recorded)")
         assert imported.board is not None, imported.run.stderr
         target = folder / "oracle.kicad_pcb"
         target.write_bytes(imported.board)
@@ -96,6 +107,15 @@ def schematic(source: Path, cli: KicadCli):
                     and net.name not in source_names
                     and len(net.nodes) == 1
                 )
+            ),
+        )
+        # An empty Value is exported as ``~`` by 9.0.9 and 10.0.6 (``schematic.md``, H-K-SCH-COMPONENTS-2);
+        # the sheet holds the empty text, which the second comparison below reads.
+        empty = {c.ref for c in conversion.design.circuit.components if not c.value}
+        exported = replace(
+            exported,
+            components=tuple(
+                replace(c, value="") if c.ref in empty and c.value == "~" else c for c in exported.components
             ),
         )
         actual = netlist_design(
