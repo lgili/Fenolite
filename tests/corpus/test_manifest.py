@@ -4,11 +4,13 @@
 
 from __future__ import annotations
 
+import email.message
 import hashlib
 import importlib.util
 import re
 import sys
 import tomllib
+import urllib.error
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -880,3 +882,42 @@ def test_fetch_by_the_rta_use(tmp_path: Path, capsys: pytest.CaptureFixture[str]
     assert tool.main(["--manifest", str(manifest), "--cache", str(cache), "--uses", RTA]) == 0
     assert "1 item(s)" in capsys.readouterr().out
     assert (cache / "doc" / "b.PcbDoc").is_file() and not (cache / "board").exists()
+
+
+def _http_error(code: int, retry_after: str | None = None) -> Exception:
+    headers = email.message.Message()
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
+    return urllib.error.HTTPError("https://example.invalid/x", code, "status", headers, None)
+
+
+def test_fetch_asks_again_after_a_rate_limit() -> None:
+    """A 429 or 5xx answer is asked again after a pause (the server's Retry-After first); any other
+    error, or the last attempt's, is raised (c0171: the kicad-10 job lost rows to 429)."""
+    tool = _load_tool()
+    answers: list[Exception | bytes] = [_http_error(429, "7"), _http_error(503), b"data"]
+    pauses: list[float] = []
+
+    def download(url: str) -> bytes:
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    assert tool.download_with_retry("u", download=download, sleep=pauses.append) == b"data"
+    assert pauses == [7.0, tool.RETRY_FIRST_PAUSE_S * 2]
+
+    def not_found(url: str) -> bytes:
+        raise _http_error(404)
+
+    pauses.clear()
+    with pytest.raises(Exception, match="404"):
+        tool.download_with_retry("u", download=not_found, sleep=pauses.append)
+    assert pauses == []
+
+    def always_limited(url: str) -> bytes:
+        raise _http_error(429, "999")
+
+    with pytest.raises(Exception, match="429"):
+        tool.download_with_retry("u", download=always_limited, sleep=pauses.append, attempts=3)
+    assert pauses == [tool.RETRY_MAX_PAUSE_S, tool.RETRY_MAX_PAUSE_S]
