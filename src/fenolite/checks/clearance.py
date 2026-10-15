@@ -27,10 +27,10 @@ from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
 from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
 
-CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge"]
+CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
-the area of a ``copper.keepout`` finding and ``edge`` the edge ring of a ``copper.edge-clearance`` finding
-(change c0169); no rule subject takes them."""
+the area of a ``copper.keepout`` finding, ``edge`` the edge ring of a ``copper.edge-clearance`` or
+``copper.hole-in-cutout`` finding and ``hole`` a board hole (change c0169); no rule subject takes them."""
 ITEM_KINDS: dict[str, str] = {
     "track": "track",
     "arc": "track",

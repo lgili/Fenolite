@@ -1243,6 +1243,16 @@ meaning = "Copper (a track, arc, via, pad or zone fill) lies closer to the board
 fix = "Move the copper or the part inward, away from the ring the finding names; never waive it. A rule for some nets (design.rules.rule(kind='edge_clearance')) sets their own value. Build with --copper-check warn to write anyway."
 see = "check"
 
+["copper.hole-in-cutout"]
+meaning = "A drilled hole (a pad's drill, a via's drill or a board hole) breaks into a milled cut-out or slot, or crosses the board edge: a hole wall that the milling cuts open cannot be made."
+fix = "Move the hole or the slot so that the drill lies wholly on the board, clear of every cut-out."
+see = "check"
+
+["copper.hole-overlap"]
+meaning = "Two drilled holes overlap. KiCad's DRC says nothing about two overlapping oval holes; Altium's Hole To Hole Clearance flags them."
+fix = "Move one hole; keep the overlap only when the two holes form one slot on purpose, or draw the slot as a milled design.slot()."
+see = "check"
+
 ["copper.rules-incomplete"]
 meaning = "The clearance rules are incomplete: a rule stayed opaque, a project file was not read, or no rules source was given."
 fix = "Rely on KiCad's DRC for the rules Fenolite could not read."

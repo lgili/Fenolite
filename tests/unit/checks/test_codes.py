@@ -45,6 +45,8 @@ TABLE = {
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
     "copper.edge-clearance": ("error", "warning"),
+    "copper.hole-in-cutout": ("error",),
+    "copper.hole-overlap": ("warning",),
     "zone.unfilled": ("warning",),
     "zone.fill-stale": ("warning",),
     "zone.fill-unchecked": ("info",),

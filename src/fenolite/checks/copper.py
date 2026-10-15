@@ -43,9 +43,11 @@ from fenolite.core.units import Nm, format_length
 from fenolite.geometry import Arc as GeoArc
 from fenolite.geometry import (
     GeometryError,
+    Location,
     Polygon,
     SpatialIndex,
     Thick,
+    point_in_ring,
     polygons_intersect,
     thick_bbox,
     thick_closer_than,
@@ -275,6 +277,10 @@ class _Items:
 
     def _ref(self, kind: CopperKind, entity: Entity, net_id: str | None) -> CopperRef:
         return CopperRef(kind, _where(entity), entity.id, self.net_name(net_id), net_id=net_id)
+
+    def ref_of(self, kind: CopperKind, entity: Entity, net_id: str | None) -> CopperRef:
+        """The reference of ``entity`` in a finding, as the copper items are named."""
+        return self._ref(kind, entity, net_id)
 
     def _tracks(self, board: Board) -> None:
         for track in board.tracks:
@@ -570,7 +576,7 @@ class _Edges:
                         self.pieces.append(_EdgePiece(r, Thick((start, end), 0), False))
                 except (GeometryError, ValueError):
                     unsupported["edge"] += 1
-        self._index = SpatialIndex[int].build((thick_bbox(p.shape), n) for n, p in enumerate(self.pieces))
+        self.index = SpatialIndex[int].build((thick_bbox(p.shape), n) for n, p in enumerate(self.pieces))
         self.judged = 0
         self.unset = 0
 
@@ -595,7 +601,7 @@ class _Edges:
                     continue
                 closest: dict[int, tuple[int, Thick, Thick]] = {}
                 for shape in shapes:
-                    for n in self._index.query(thick_bbox(shape.wide).inflate(limit.value)):
+                    for n in self.index.query(thick_bbox(shape.wide).inflate(limit.value)):
                         piece = self.pieces[n]
                         if piece.ring in done:
                             continue
@@ -649,6 +655,108 @@ class _Edges:
             message,
             resolver.explain_edge(subject, ring.name),
         )
+
+
+# --- drilled holes (change c0169) -------------------------------------------------------------------------
+
+HOLE_IN_CUTOUT = "copper.hole-in-cutout"
+HOLE_OVERLAP = "copper.hole-overlap"
+
+
+@dataclass(frozen=True, slots=True)
+class _Hole:
+    """A drilled hole: its item (a pad's, a via's or a board hole's reference) and its area, the points
+    within ``drill / 2`` of its centre or of the segment between the ends of a slot."""
+
+    ref: CopperRef
+    shape: Thick
+
+
+def _holes(board: Board, pads: Sequence[BoardPad] | None, items: _Items) -> list[_Hole]:
+    """Every drilled hole of the board: the drill of each pad of ``pads`` (unplated ones included), of each
+    via, and each board hole. A hole that cannot be shaped is counted in ``items.unsupported``."""
+    found: list[_Hole] = []
+
+    def add(ref: CopperRef, core: Sequence[Point], drill: Nm | None) -> None:
+        if not core or drill is None or drill <= 0:
+            return
+        try:
+            found.append(_Hole(ref, Thick(tuple(core), drill)))
+        except (GeometryError, ValueError):
+            items.unsupported["hole"] += 1
+
+    for record in pads or ():
+        holder = record.ref or record.footprint_id
+        where = f"{holder}-{record.number}" if record.number else holder
+        ref = CopperRef("pad", where, record.pad_id, items.net_name(record.net_id), record.footprint_id)
+        add(ref, record.hole, record.drill)
+    for via in board.vias:
+        add(items.ref_of("via", via, via.net_id), (via.position,), via.drill)
+    for hole in board.holes:
+        add(CopperRef("hole", _where(hole), hole.id, NO_NET), (hole.position,), hole.drill)
+    return found
+
+
+def _ring_polygon(ring: EdgeRing, arc_tol: int) -> tuple[Point, ...]:
+    """The ring with its arcs polygonised at ``arc_tol``, for a containment test."""
+    points: list[Point] = []
+    for k, start in enumerate(ring.points):
+        points.append(start)
+        mid = ring.mids[k] if k < len(ring.mids) else None
+        if mid is None:
+            continue
+        try:
+            arc = GeoArc(start, mid, ring.points[(k + 1) % len(ring.points)])
+        except (GeometryError, ValueError):
+            continue
+        if not arc.is_straight:
+            points += arc.polygonize(arc_tol)[1:-1]
+    return tuple(points)
+
+
+def _hole_findings(holes: Sequence[_Hole], edges: _Edges | None, arc_tol: int) -> list[CopperFinding]:
+    """``copper.hole-in-cutout`` for each hole whose area overlaps a cut-out or slot (or lies inside one)
+    or crosses the board ring, once per hole and ring; ``copper.hole-overlap`` for each pair of holes whose
+    areas overlap, two copies of one hole left out. Touching is no overlap; no clearance applies."""
+    found: list[CopperFinding] = []
+    if edges is not None and edges.pieces:
+        polygons = [_ring_polygon(ring, arc_tol) for ring in edges.rings]
+        for hole in holes:
+            hit: dict[int, Point] = {}
+            for n in edges.index.query(thick_bbox(hole.shape)):
+                piece = edges.pieces[n]
+                if piece.ring not in hit and thick_closer_than(hole.shape, piece.shape, 0):
+                    hit[piece.ring] = thick_witness(hole.shape, piece.shape)
+            for r, polygon in enumerate(polygons[1:], start=1):
+                if r not in hit and len(polygon) >= 3:
+                    if point_in_ring(hole.shape.core[0], polygon) is Location.INSIDE:
+                        hit[r] = hole.shape.core[0]
+            for r, at in sorted(hit.items()):
+                ring = edges.rings[r]
+                into = "crosses the board edge" if r == 0 else f"breaks into {ring.name}"
+                message = (
+                    f"the drill of {hole.ref.kind} {hole.ref.where} {into} at {_point(at)}: a hole wall that "
+                    "the milling cuts open cannot be made"
+                )
+                edge = CopperRef("edge", ring.name, ring.name, NO_NET)
+                found.append(
+                    CopperFinding(HOLE_IN_CUTOUT, "error", "", at, (hole.ref, edge), 0, None, "", message)
+                )
+    index = SpatialIndex[int].build((thick_bbox(hole.shape), n) for n, hole in enumerate(holes))
+    for a, b in index.pairs():
+        first, second = holes[a], holes[b]
+        if first.shape.core == second.shape.core and first.shape.width == second.shape.width:
+            continue  # two copies of one hole
+        if not thick_closer_than(first.shape, second.shape, 0):
+            continue
+        at = thick_witness(first.shape, second.shape)
+        refs = tuple(sorted((first.ref, second.ref), key=lambda ref: (ref.kind, ref.where)))
+        message = (
+            f"the drills of {refs[0].kind} {refs[0].where} and {refs[1].kind} {refs[1].where} overlap at "
+            f"{_point(at)}"
+        )
+        found.append(CopperFinding(HOLE_OVERLAP, "warning", "", at, (refs[0], refs[1]), 0, None, "", message))
+    return found
 
 
 # --- pairs ----------------------------------------------------------------------------------------
@@ -883,6 +991,7 @@ def _run(
     kinds: Counter[str] = Counter()
     unsupported: Counter[str] = Counter()
     rule_areas = 0
+    hole_count = 0
     if board is not None:
         items = _Items(design, pads, arc_tol)
         used = {layer for item in items.items for layer in item.shapes}
@@ -901,14 +1010,17 @@ def _run(
                 findings.append(found)
         findings += areas.findings(layers)
         findings += _zone_overlaps(board, items)
-        if edges is not None:
-            board_edges = _Edges(edges, arc_tol, items.unsupported)
+        board_edges = _Edges(edges, arc_tol, items.unsupported) if edges is not None else None
+        if board_edges is not None:
             findings += board_edges.findings(items, layers, resolver, judge.subject)
             edge_counts.update(
                 rings=[ring.name for ring in board_edges.rings],
                 judged=board_edges.judged,
                 unset_items=board_edges.unset,
             )
+        holes = _holes(board, pads, items)
+        findings += _hole_findings(holes, board_edges, arc_tol)
+        hole_count = len(holes)
         counts.update(
             judged=judge.judged,
             unset_pairs=judge.unset,
@@ -946,6 +1058,9 @@ def _run(
         keepouts=by_code["copper.keepout"],
         edge_clearance=by_code[EDGE_CODE],
         edges=edge_counts,
+        holes=hole_count,
+        hole_in_cutout=by_code[HOLE_IN_CUTOUT],
+        hole_overlap=by_code[HOLE_OVERLAP],
         rule_areas=rule_areas,
         unsupported=dict(sorted(unsupported.items())),
         **counts,
@@ -1148,6 +1263,8 @@ __all__ = [
     "AREA_EVIDENCE",
     "EDGE_CODE",
     "EVIDENCE",
+    "HOLE_IN_CUTOUT",
+    "HOLE_OVERLAP",
     "LOWERING_CODES",
     "STAGE",
     "CopperFinding",
