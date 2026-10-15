@@ -42,20 +42,16 @@ d1.place(mm(15), mm(6), rot=180)
 fenolite build blink/design.py --out blink/altium --target altium --dry-run --json
 fenolite build blink/design.py --out blink/altium --target altium --altium-layout blocks --dry-run --json
 fenolite build blink/design.py --out blink/altium --target altium --confirm --json
-fenolite build blink/design.py --out blink/altium --target altium --altium-format ascii --confirm --json
-fenolite build blink/design.py --out blink/altium --target altium --altium-template A3.SchDot --dry-run --json
 fenolite build blink/design.py --out blink/altium --target altium --copper-from blink/build/blink.kicad_pcb --confirm --json
 ```
 
 ## What it writes
 
-Under `--out`: `lamp.PrjPcb` (project), `lamp.SchDoc` (schematic), `lamp.SchLib` (symbols),
-`lamp.PcbDoc` (board), `lamp.PcbLib` (footprints), `lamp.OutJob` (unless `--altium-outjob off`)
-and `.fenolite/` (model/state). Board files need board content.
+Under `--out`: `lamp.PrjPcb`, `.SchDoc`, `.SchLib`, `.PcbDoc`, `.PcbLib` (board files need board
+content), `lamp.OutJob` (unless `--altium-outjob off`) and `.fenolite/`.
 
-`--altium-template FILE.SchDot` applies native fonts, page settings and images to every sheet
-(not with ASCII or `sheet(drawing_sheet=...)`); `result.native_template` lists digest and pages;
-the unchanged copy is `templates/sheet.SchDot`. Evidence `INFERRED`.
+`--altium-template FILE.SchDot` applies a native sheet template (binary only, no `drawing_sheet`);
+see `result.native_template`.
 
 `--altium-format ascii` selects text; binary is default. `--altium-sheets modules` splits sheets
 and draws `Harness` interfaces. `--copper-from BOARD.kicad_pcb` copies routed copper.
@@ -64,7 +60,7 @@ Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page
 
 ## The status of each file kind
 
-This table matches `capabilities`: `write_kinds` in `result.backends`; status/evidence in `result.matrix`.
+It matches `capabilities` (`write_kinds` of `result.backends`, `result.matrix`).
 
 | kind | file | status | evidence |
 |---|---|---|---|
@@ -78,7 +74,7 @@ This table matches `capabilities`: `write_kinds` in `result.backends`; status/ev
 | `altium_schdot` | `.SchDot`, from `fenolite template` | `experimental` | `INFERRED` |
 | `altium_schlib` | `.SchLib` | `experimental` | `INFERRED` |
 
-`INFERRED` means no tool judged the file. Report status/evidence; recheck after upgrades.
+Report status/evidence; recheck after upgrades.
 
 ## Checking an Altium project without Altium
 
@@ -94,13 +90,11 @@ fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 
 ## Keep native schematic presentation
 
-Review `result.schematic_composition` and its SVGs (`INFERRED`; estimated text). Groups follow explicit
-blocks, modules, signals. Recovery by code: `composition.invalid-intent`: fix members/order;
-`composition.overflow`: larger paper/smaller blocks; `composition.budget-exhausted`: less congestion;
-`composition.overlap`: separate named units; `composition.template-unverified`: bounded template;
-`composition.transform-unsupported`: supported geometry; `composition.label-fallback`: inspect labelled
-endpoints; `composition.connectivity-changed`: preserve files/report failure. SVGs show the baseline;
-report lists replayed sheets. Changed block intent conflicts after sync.
+Review `result.schematic_composition` and its SVGs (`INFERRED`). Groups follow blocks, modules,
+signals. `composition.<code>`: `invalid-intent` fix members/order; `overflow` larger paper/smaller
+blocks; `budget-exhausted` less congestion; `overlap` separate units; `template-unverified` bounded
+template; `transform-unsupported` supported geometry; `label-fallback` inspect labelled endpoints;
+`connectivity-changed` keep files, report. SVGs show the baseline; changed block intent conflicts after sync.
 
 Capture saved Altium edits beside the script:
 
@@ -112,7 +106,7 @@ fenolite sync blink/design.py --out blink/altium --target altium --to-source --c
 Keep `altium-schematic-layout.json`: build replays native bytes; changed sheets give
 `build.altium-layout-conflict`. Sync refuses electrical or symbol differences
 (`sync.altium-connectivity-changed`) and unresolved inputs (`sync.altium-unverified`). Evidence: `INFERRED`.
-`--discard-layout` cannot bypass the snapshot. Archive it and build elsewhere to deliberately start again.
+`--discard-layout` cannot bypass the snapshot; archive it and build elsewhere to start again.
 
 ## The verification kit is a person's run
 
@@ -127,8 +121,6 @@ fenolite kit status --json
 
 `kit build` writes samples/instructions; `kit verify DIR` checks results (exit 3: invalid kit).
 `kit status` lists runs; `kit record` records one. Claim native opening only after a reported run.
-
-Conversion details: `docs/conversion.md`.
 
 ```fenolite-cmd
 fenolite convert blink/altium/lamp.PrjPcb --to kicad --out converted --dry-run --json
