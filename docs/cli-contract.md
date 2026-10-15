@@ -504,7 +504,8 @@ the merge with an existing board (0 without one): script items are written again
 selects a rule area by a name that the board about to be written does not hold stops the build:
 `build.area-unknown` (error, exit 5, nothing written), with the hint to declare the area with
 `design.rule_area()` or to remove the selector. The copper guard reports copper in a keep-out as
-`copper.keepout`.
+`copper.keepout`, copper too close to the board edge, a cut-out or a slot as `copper.edge-clearance`, and
+the two findings of drilled holes, `copper.hole-in-cutout` and `copper.hole-overlap` (change c0169).
 
 A script may also declare meanders (`Design.meander`; `docs/dsl.md`, "Meanders"; change c0106). The
 build resolves them right after the copper, for the major of `--kicad-version`, and `result.copper`
@@ -523,7 +524,7 @@ is judged with the rest. `--copper-check refuse` (the default) adds the `copper.
 so a `copper.short` or a `copper.clearance` error exits 5 and writes nothing. `--copper-check warn`
 reports those errors as warnings, with ` (copper guard in warn mode)` at the end of the message, and
 writes. There is no way to switch the guard off. `result.copper_check` holds `mode`, `ran` (false when
-the build was already refused), `shorts`, `clearance`, `rules` (`min_clearance`,
+the build was already refused), `shorts`, `clearance`, `edge_clearance`, `rules` (`min_clearance`,
 `opaque_clearance_rules`, `unread`), `evidence` and `waivers`. The design's `copper.*` waivers
 (`design.waive()`) are applied before the mode: a waived finding is `info` in `refuse` and in `warn`
 mode, so it neither refuses the build nor gains the warn note. `result.copper_check.waivers` holds
@@ -1054,6 +1055,30 @@ KiCad's DRC: `docs/formats/kicad/copper.md` lists what it supports and where it 
 exists (KiCad loads a via that touches a track of another net on that track's net and reports no
 short).
 
+**Board edge** (change c0169). Every copper item is also judged against each ring of the board's edge
+that the backend's frame gives (`BoardFrame.board_edges`): the board ring, each cut-out and each slot,
+overlapping ones merged as the board file holds them. A ring is named `board`, `cut-out <k>`,
+`slot <name>` or the names of a merged group joined by ` + ` for a built model, and `board` and
+`edge ring <k>` for a board read from its edge graphics. The edge is a line of width 0: the gap is
+measured to the line, and the stroke of the edge graphic does not count (`H-K-EDGE-CENTRE`). The limit
+is the last `edge_clearance` rule that selects the item (as for `clearance`), else the board minimum:
+on KiCad the project's `min_copper_edge_clearance`, 0.5 mm when the project does not set it; on Altium
+the board-wide `BoardOutlineClearance`. A board-wide rule governs below and above the minimum on 9.0.x
+and 10.0.x (`H-K-EDGE-RESOLVE`). A gap strictly below the limit gives one `copper.edge-clearance` per
+item and ring, on the first layer where it applies, with the rule's severity (`error` for the board
+minimum); `where` names the item and the ring, and the message gives the gap, the limit and its source
+(`rule:<name>` or `floor`). Copper wholly outside the board or inside a cut-out, far from the edge, is
+not reported. An arc of the edge is polygonised at 1 µm and widened by its band, so copper within 1 µm
+of the limit near a curved edge may be reported where KiCad does not. A frame without `board_edges`
+gives `copper.rules-incomplete`, and a board whose edge does not close `copper.item-unsupported` with
+`where` `edge`. Every drilled hole (a pad's drill, round or slot, unplated ones included; a via's drill;
+a board hole) is judged too: `copper.hole-in-cutout` when its area overlaps a cut-out or slot or crosses
+the board ring, `copper.hole-overlap` when two holes overlap (two copies of one hole are not). No value
+applies to holes: hole-to-hole and hole clearance stay KiCad's DRC's. The summary adds
+`edge_clearance`, `edges` (`rings`, `judged`, `unset_items`, `max`), `holes`, `hole_in_cutout` and
+`hole_overlap`. A board whose copper lies too close to its edge, which `check` never reported before,
+now gains these findings, as KiCad's DRC always gave them.
+
 **Findings.** The code is `kicad.drc.` followed by KiCad's type in lower case with `_` as `-`
 (`shorting_items` gives `kicad.drc.shorting-items`). The severity is the report's, which follows the
 project's `rule_severities`; an excluded entry is `info`, and an unknown severity is `error`. `where`
@@ -1217,6 +1242,9 @@ repeat.
 | `copper.clearance` | error, warning, info | a gap below the clearance in force; the governing rule sets the severity, and a class or board-minimum value gives an error; `info` when a waiver accepts it |
 | `copper.zone-overlap` | warning, info | zones of different nets and equal priority overlap on a shared layer; `info` when a waiver accepts it |
 | `copper.keepout` | error | a track, arc, via or pad lies in a keep-out whose settings forbid its kind, on a layer of the keep-out; `where` names the item and the area. Fills are never reported |
+| `copper.edge-clearance` | error, warning | copper closer to the board edge, a cut-out or a slot than the edge clearance in force; the governing rule sets the severity, the board minimum gives an error; `where` names the item and the ring. No waiver applies |
+| `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge; `where` names the hole's item and the ring |
+| `copper.hole-overlap` | warning | two drilled holes overlap; `where` names both items |
 | `check.waiver-unmatched` | warning | a waiver of the design script that was judged matched no finding; `where` is the waiver's name |
 | `check.exclusion-stale` | warning | a DRC exclusion stored in the KiCad project no longer applies: `moved` or `gone` |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
@@ -1340,8 +1368,9 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   (`regenerated`: the schematic is generated from the circuit).
 - **`copper.clearance` on a PCB document.** The codes and severities are those of the KiCad stage
   (`copper.short`, `copper.clearance`, `copper.zone-overlap`, `copper.clearance-unset`,
-  `copper.rules-incomplete`, `copper.item-unsupported`); board-edge clearance is not part of the copper
-  check on any backend. The summary is that of the KiCad stage plus `unpoured`, `zones_unjudged` and `clearance_cells`
+  `copper.rules-incomplete`, `copper.item-unsupported`, `copper.edge-clearance`, `copper.hole-in-cutout`,
+  `copper.hole-overlap`); the edge rings are the board outline of the document (cut-out regions with
+  change c0168), and the board minimum is its board-wide `BoardOutlineClearance`. The summary is that of the KiCad stage plus `unpoured`, `zones_unjudged` and `clearance_cells`
   (`{judged, unjudged}`: the cells of the document's clearance matrices that a rule holds and that none
   holds).
   What the stage does not judge is said, and any of these lowers it to `UNVERIFIED`:
@@ -1380,7 +1409,7 @@ warning whose message ends with ` (reported, not refused: the Altium copper guar
 and the files are written. `--copper-check warn` reports the short as a warning too, with
 ` (copper guard in warn mode)`, and writes; there is no way to switch the guard off.
 `result.copper_check` holds `mode`, `ran` (false without a PCB document), `shorts`, `clearance`,
-`unpoured`, `rules`, `evidence` and `waivers` (as on KiCad: the design's `copper.*` waivers are applied
+`edge_clearance`, `unpoured`, `rules`, `evidence` and `waivers` (as on KiCad: the design's `copper.*` waivers are applied
 before the mode, so a waived short is `info` and does not refuse the build); the evidence is `UNVERIFIED`
 when the document holds unpoured polygons, which the guard cannot judge. No file is read from disk and no tool runs.
 

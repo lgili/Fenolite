@@ -35,7 +35,8 @@
 
 ## 5. Closing
 
-- [ ] 5.1 Document the edge pair, its limit and explanation and the two hole findings in `docs/copper-rule-explanations.md` and `docs/cli-contract.md`. Proof: `uv run pytest tests/consistency -q`.
+- [x] 5.1 Document the edge pair, its limit and explanation and the two hole findings in `docs/copper-rule-explanations.md` and `docs/cli-contract.md`. Proof: `uv run pytest tests/consistency -q`.
+  - 2026-10-15: `docs/cli-contract.md` gains the paragraph "Board edge" under the copper check (rings and their names, the edge line, the limit and the minimum, the arc band, the frame issues, the two hole findings, the summary keys, the new findings on existing boards), the three rows of the codes table, the codes of the guard and of the Altium document, and `edge_clearance` in both `result.copper_check`; `docs/copper-rule-explanations.md` gains "Edge clearance". The proof passes (375 passed, 22 skipped).
 - [ ] 5.2 Run the residue scan and the fast checks. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes.
 - [ ] 5.3 Update the evidence labels: the three rows hold their measured levels; `checks.copper.EVIDENCE` names `H-K-EDGE-AGREE`; `uv run python tools/gen_evidence_matrix.py`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_matrix_page.py -q`.
 - [ ] 5.4 Add to `CHANGELOG.md` under `## [Unreleased]`: copper-to-edge clearance in `check` and the build guard, the two hole findings, the creepage of slots, and that existing boards may gain findings. Proof: `grep -n "copper.edge-clearance" CHANGELOG.md`; `openspec validate c0169-edge-clearance-check --strict --no-interactive` passes.

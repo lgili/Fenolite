@@ -33,6 +33,22 @@ different footprints and routed_or_free otherwise. `group_findings(report)` sort
 and source, retaining each original object exactly once and preserving order within its group.
 It changes no severity, limit, source, message or exemption, and prescribes no design decision.
 
+**Edge clearance (change c0169).** `ClearanceResolver.edge(subject)` gives the copper-to-edge clearance
+of one item: the governing `edge_clearance` rule that selects it (the last of `rule_precedence` whose
+selector and layers select the item; a rule is unary, so it sees the copper item alone), else the board
+minimum (`min_edge_clearance`, source `floor`). An `ignore` rule silences the item. The switch
+`edge_floor_over_rules` says whether the board minimum also raises a lower rule; it is false on 9.0.x and
+10.0.x, where a board-wide rule governs below and above the minimum (`H-K-EDGE-RESOLVE`), and false on
+Altium. `explain_edge(subject, ring)` returns an immutable `EdgeClearanceExplanation`: the item's
+subject, the ring's name, the candidate rows (each matching rule with id, priority, selectors, layers,
+value and severity, in precedence order with the governing one last, then the board minimum), the
+switch and the governing limit, from the resolver's own candidates; resolving its inputs again gives the
+finding's limit. Each `copper.edge-clearance` finding carries it, and its `relation` is `edge`, so
+`group_findings` keeps edge findings apart from pair findings. The two hole findings carry no
+explanation: no value applies to them. The stitching of `backends.kicad.copper` keeps its own
+`edge_clearance_in_force` (a backend imports no check); for board-wide rules it equals `edge`, which
+`tests/unit/checks/test_clearance.py` holds.
+
 These diagnostic APIs are INFERRED on independently authored tests. Existing copper parity and
 public corpus checks support unchanged numeric verdicts. No electrical profiles (c0098), areas,
 pairs, waivers, impedance or power analysis are implemented here. Public rule references remain
