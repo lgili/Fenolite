@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import _edgebench as eb
 import pytest
-from _probes import run
+from _probes import major, run
 
 pytestmark = pytest.mark.needs_kicad
 
@@ -32,3 +32,18 @@ def test_resolve_rule_governs_over_the_board_minimum(rule: str) -> None:
     for gap, value in eb.RESOLVE_GAPS.items():
         wanted = "present" if value < minimum else "absent"
         assert run(f"edge-resolve-{rule}-{gap}") == wanted, (rule, gap)
+
+
+def test_agree_items_equal() -> None:
+    assert run("edge-agree") == "equal", eb.agree_sides()
+    sides = eb.agree_sides()
+    assert sides is not None
+    # every item 0.45 mm from a ring is reported, none at 0.55 mm
+    wanted = {"T_IN", "A_IN", "V_IN", "P1", "C_IN", "S_IN", "L_IN", "L_TRACK"}
+    assert {x for x in sides[1] if not x.startswith("f_")} == wanted
+
+
+def test_agree_fills() -> None:
+    # 10.0.x judges the stored fill as Fenolite does; 9.0.x reports nothing for it (H-K-COPPER-ZONES)
+    wanted = "equal" if major() >= 10 else "different"
+    assert run("edge-agree-fill") == wanted, eb.agree_sides()
