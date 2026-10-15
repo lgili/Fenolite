@@ -11,14 +11,19 @@
 
 ## 2. The record and its guard
 
-- [ ] 2.1 Write `docs/release/v0.5.md`: `## Verdict per change` with one row per change of the release (design, decisions 2 and 3); `## Deferred to the next release`, `## Pending on the release branch` and `## Open changes of earlier releases` with one entry per such row or change; the Altium write, what is not in `0.5.0`, the runs with `TODO(coordinator)` placeholders, the limits, the build, the archive order, the deferred list, the steps and a verdict left `pending`. Proof: `uv run pytest tests/unit/test_release_record_v05.py -k consistent`.
-- [ ] 2.2 Write `tests/unit/test_release_record_v05.py` (requirements "Release record of v0.5", "Open tasks in the record of v0.5", "Sections of the record of v0.5", "Version 0.5.0" and "History row and roadmap of 0.5.0"). Proof: `uv run pytest tests/unit/test_release_record_v05.py tests/unit/test_release_record_v04.py tests/unit/test_release_record_v03.py tests/unit/test_release_record_v02.py tests/unit/test_release_record.py`.
-- [ ] 2.3 Run the residue scan over the history with the public gate and add the row `v0.5.0` to `docs/evidence/residue-history.md`. Proof: `uv run python tools/residue/scan.py --history` exits 0 with `0 hit(s)`; `grep -c '| v0.5.0 |' docs/evidence/residue-history.md` prints `1`.
+- [x] 2.1 Write `docs/release/v0.5.md`: `## Verdict per change` with one row per change of the release (design, decisions 2 and 3); `## Deferred to the next release`, `## Pending on the release branch` and `## Open changes of earlier releases` with one entry per such row or change; the Altium write, what is not in `0.5.0`, the runs with `TODO(coordinator)` placeholders, the limits, the build, the archive order, the deferred list, the steps and a verdict left `pending`. Proof: `uv run pytest tests/unit/test_release_record_v05.py -k consistent`.
+  - 2026-10-15: written; 16 rows (6 ship, 1 ships with deferred tasks, 9 pending on the CI of the release branch), with the entries of each, the open changes of earlier releases, and placeholders for the run of the release branch and the full `make check`. `uv run pytest tests/unit/test_release_record_v05.py -k consistent` passes.
+- [x] 2.2 Write `tests/unit/test_release_record_v05.py` (requirements "Release record of v0.5", "Open tasks in the record of v0.5", "Sections of the record of v0.5", "Version 0.5.0" and "History row and roadmap of 0.5.0"). Proof: `uv run pytest tests/unit/test_release_record_v05.py tests/unit/test_release_record_v04.py tests/unit/test_release_record_v03.py tests/unit/test_release_record_v02.py tests/unit/test_release_record.py`.
+  - 2026-10-15: the guard of v0.4 adapted: rows named by folder (the two c0164), the entries of c0081, c0105 and c0146 with every open task, `Deferred after v0.5`, one `Added`, `Changed` and `Fixed` in `[0.5.0]`, the roadmap row of v0.5a. The five guards with the README and ADR checks: 146 passed.
+- [x] 2.3 Run the residue scan over the history with the public gate and add the row `v0.5.0` to `docs/evidence/residue-history.md`. Proof: `uv run python tools/residue/scan.py --history` exits 0 with `0 hit(s)`; `grep -c '| v0.5.0 |' docs/evidence/residue-history.md` prints `1`.
+  - 2026-10-15, at `9946628`: 0 hits in 9814 blobs, waivers 11, private gate skipped; the row `v0.5.0` is the only one of its tag.
 
 ## 3. README, roadmap and the id
 
-- [ ] 3.1 Rewrite the status paragraph of `README.md` for version 0.5, name the v0.5 work under `## What version 0.5 does`, and move the README checks of `tests/unit/test_agent_skill.py` to 0.5. Proof: `uv run pytest tests/unit/test_agent_skill.py`.
-- [ ] 3.2 Name the release change in the status lines, the row of v0.5a and its section of `docs/roadmap.md` (released as `0.5.0`, pending publication); add the row `c0171` to `openspec/README.md`. Proof: `uv run pytest tests/unit/test_release_record_v05.py -k roadmap tests/unit/test_adrs.py`; `grep -c '| c0171 |' openspec/README.md` prints `1`.
+- [x] 3.1 Rewrite the status paragraph of `README.md` for version 0.5, name the v0.5 work under `## What version 0.5 does`, and move the README checks of `tests/unit/test_agent_skill.py` to 0.5. Proof: `uv run pytest tests/unit/test_agent_skill.py`.
+  - 2026-10-15: `uv run pytest tests/unit/test_agent_skill.py` passes (16 passed).
+- [x] 3.2 Name the release change in the status lines, the row of v0.5a and its section of `docs/roadmap.md` (released as `0.5.0`, pending publication); add the row `c0171` to `openspec/README.md`. Proof: `uv run pytest tests/unit/test_release_record_v05.py -k roadmap tests/unit/test_adrs.py`; `grep -c '| c0171 |' openspec/README.md` prints `1`.
+  - 2026-10-15: the status lines, the milestone row of v0.5a, the section of v0.5a and Open decisions row 43 (the approval of 2026-10-15); the row `c0171` in `openspec/README.md`, whose closing line now says that new changes start at c0172. The proofs pass.
 
 ## 4. Version and changelog
 

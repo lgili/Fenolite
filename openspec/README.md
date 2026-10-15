@@ -166,7 +166,8 @@ The four changes of the maintainer's capability request "board slots and cut-out
 | c0168 | `altium-slots-cutouts` | board slots and cut-outs: slotted board holes as free slot pads, milled cut-outs and slots as board cut-out regions behind the maintainer's kit, their import and round trips | c0167, c0085 |
 | c0169 | `edge-clearance-check` | board slots and cut-outs: copper-to-edge clearance in the copper check, drilled holes in cut-outs and overlapping holes, the creepage of slots | c0167, c0029 |
 | c0170 | `convert-slots-obstacles` | board slots and cut-outs: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints from Altium, slots as placement and routing obstacles | c0167, c0168, c0169, c0159–c0161 |
+| c0171 | `release-0-5-0` | release of v0.5a as `0.5.0` with the slot changes c0167 and c0169 (the maintainer's approval of 2026-10-15): the release record with the verdict per change, what is pending on the CI of the release branch and what waits for the maintainer's own tests, its guard, the version, the changelog cut, and the retry of the corpus fetch that the `kicad-10` job needs | c0092, c0155–c0167, c0169 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0167.
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0172.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
