@@ -64,10 +64,12 @@ from fenolite.model.rules import RuleSubject
 ARC_TOL_NM = 1_000
 """The chord error of a polygonised arc; its band is ``ARC_TOL_NM + 1`` nm."""
 EVIDENCE = Evidence(
-    Level.INFERRED, hypotheses=("H-K-COPPER-SHAPES", "H-K-COPPER-RESOLVE", "H-K-COPPER-ZONES")
+    Level.INFERRED,
+    hypotheses=("H-K-COPPER-SHAPES", "H-K-COPPER-RESOLVE", "H-K-COPPER-ZONES", "H-K-EDGE-AGREE"),
 )
-"""``INFERRED`` also once the three rows are settled: the canaries cover pair kinds and clearance sources
-on benches, and fills on 10.0 only, not every board."""
+"""``INFERRED`` also once the rows are settled: the canaries cover pair kinds and clearance sources on
+benches, and fills on 10.0 only, not every board; ``H-K-EDGE-AGREE`` (change c0169) covers the edge pair
+on its bench the same way."""
 AREA_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-COPPER-AREA", "H-K-AREA-KEEPOUT"))
 """Joins the report of a board that holds a rule area or a keep-out (change c0103): the two rows cover
 benches, recorded for 10.0.6 so far."""

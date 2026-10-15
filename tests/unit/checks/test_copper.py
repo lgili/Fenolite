@@ -649,7 +649,12 @@ def test_renet_bench_variants_are_flagged(name: str) -> None:
 
 def test_evidence_constant() -> None:
     assert EVIDENCE.level is Level.INFERRED
-    assert EVIDENCE.hypotheses == ("H-K-COPPER-SHAPES", "H-K-COPPER-RESOLVE", "H-K-COPPER-ZONES")
+    assert EVIDENCE.hypotheses == (
+        "H-K-COPPER-SHAPES",
+        "H-K-COPPER-RESOLVE",
+        "H-K-COPPER-ZONES",
+        "H-K-EDGE-AGREE",
+    )
 
 
 def test_evidence_combines_the_inputs() -> None:

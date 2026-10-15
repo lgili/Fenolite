@@ -31,8 +31,8 @@ names were recorded, and the files are never vendored or read at runtime. Source
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| `copper_edge_clearance` measures from the copper to the line of an `Edge.Cuts` graphic (the board ring, a cut-out or a milled slot); the stroke width of the edge graphic does not count: a plated pad whose copper lies 0.47 mm from a slot's edge drawn 0.1 mm wide is reported against 0.5 mm, one at 0.52 mm is not | S-0020, S-0029 | INFERRED | H-K-EDGE-CENTRE |
-| The board setup's edge clearance of a project that does not set `min_copper_edge_clearance` is 0.5 mm, and the description of the violation names it: "board setup constraints edge clearance 0.5000 mm; actual 0.4700 mm" | S-0020, S-0029 | INFERRED | H-K-EDGE-CENTRE |
+| `copper_edge_clearance` measures from the copper to the line of an `Edge.Cuts` graphic (the board ring, a cut-out or a milled slot); the stroke width of the edge graphic does not count: a plated pad whose copper lies 0.47 mm from a slot's edge drawn 0.1 mm wide is reported against 0.5 mm, one at 0.52 mm is not | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EDGE-CENTRE |
+| The board setup's edge clearance of a project that does not set `min_copper_edge_clearance` is 0.5 mm, and the description of the violation names it: "board setup constraints edge clearance 0.5000 mm; actual 0.4700 mm" | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EDGE-CENTRE |
 
 ## How Fenolite reads it
 
