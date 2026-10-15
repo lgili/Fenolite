@@ -617,6 +617,30 @@ c0158 to c0162 were taken together; c0157 is the yardstick change written on ano
 - The open questions of each change, each with a recommended answer, are in its design; on 2026-10-09
   the maintainer accepted every recommended answer (Open decisions row 40).
 
+
+### Board slots and cut-outs (proposed 2026-10-15; placement to be decided)
+
+The maintainer's capability request "board slots and cut-outs, end to end" of 2026-10-15: non-plated milled
+slots inside the outline that lengthen creepage, carried through the KiCad board, the Altium document, the
+checks and analyses, conversion and read-back, overlapping slots meaning their union. Proposed on the branch
+`dev-slots-proposals` from `dev` at `a87723c`; ids c0167 to c0170 were taken together. It is no item of the
+milestones above, so its place needs the maintainer's decision (Open decisions, row 42).
+
+| id | slug | scope | state | depends on | days |
+|---|---|---|---|---|---|
+| c0167 | `board-slots` | `OutlineSlot` and `design.slot`, the shared stadium, the `clipper` union and the merge of curved rings, KiCad lowering, named refusals, read-back, analyses | proposed | c0102 | 6.5 |
+| c0168 | `altium-slots-cutouts` | slotted board holes as free slot pads; cut-outs and slots as board cut-out regions behind the maintainer's kit (Part S); import and RT-A0 to RT-A2 | proposed | c0167 | 6 |
+| c0169 | `edge-clearance-check` | copper-to-edge clearance in the copper check with KiCad's agreement, drilled holes in cut-outs and overlapping, creepage of slots | proposed | c0167 | 5 |
+| c0170 | `convert-slots-obstacles` | slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints from Altium, placement and routing obstacles | proposed | c0167–c0169, c0159–c0161 | 4.5 |
+
+- Total: 22 design-days (sizes, not time).
+- Order: c0167 first; c0168 and c0169 in either order; c0170 last, after v0.5a's c0159 to c0161.
+- What only the maintainer can do: Part S of c0168 in Altium Designer (cases S1 to S8), which decides whether
+  cut-out regions are written by default.
+- Proposed placement: its own line after v0.5a, with c0167 and c0169 free to ship in `0.5.0` if they are
+  done before it, since they need no conversion; c0168 and c0170 follow c0160 and c0161. The alternative,
+  all four as an addition to v0.5a, would delay `0.5.0` by the kit run of c0168.
+
 ## Proposed cuts for a leaner 1.0
 
 > **Decided by the maintainer on 2026-10-09: accepted** (Open decisions, row 3). Every item under "Move
@@ -792,9 +816,10 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 39 | Yardstick: the order of the two route steps. In nightly run 37836196244 `route-pairs` ran first and KiCadRoutingTools routed `USB_DP` and `USB_DN` as two separate nets; their 127 meandered segments blocked Freerouting (2 of 171 nets closed, against about 120 without them; `docs/evidence/yardstick.md`, "The routing gap of run 37836196244") | that section; change c0157 | decided by the maintainer on 2026-10-09: `route-pairs` runs after `route` until the pair is routed as a coupled pair, when the order is measured again |
 | 40 | v0.5a: the open questions of c0158, c0159, c0160, c0161 and c0162, and the order of implementation | "Open questions" of the five designs; [v0.5a](#v05a-conversion-downgrade-and-the-public-equivalent) | decided by the maintainer on 2026-10-09: every recommended answer is accepted (each marked in its design); v0.5a is implemented in the order c0158, c0159, c0162, then c0160 and c0161; the defect that c0162 found (`RoyalBlue54L-Feather` refused at its own KiCad 9 target, `kicad.board.opaque-net-ref`) gets a correction change of its own, c0163 |
 | 41 | c0162: in a KiCad downgrade, the project sections every KiCad 10 project holds (`component_class_settings`, `tuning_profiles`, the class key `tuning_profile`) are `same` (no loss, no `--allow-lossy`) when they hold what a fresh KiCad 10 project writes there, and stay `design` losses when they hold content | `docs/formats/kicad/project.md`, "Default sections of KiCad 10"; c0162 task 6.1 | decided by the maintainer on 2026-10-09 |
+| 42 | Board slots and cut-outs (c0167–c0170): their milestone, and the open questions of the four designs | [Board slots and cut-outs](#board-slots-and-cut-outs-proposed-2026-10-15-placement-to-be-decided); the four designs | proposed: its own line after v0.5a, c0167 and c0169 may ship in `0.5.0`; every recommended answer of the designs; to be decided by the maintainer |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
-c0060–c0074, c0083–c0092 and, for v0.5a, c0158 onwards).
+c0060–c0074, c0083–c0092 and, for v0.5a, c0158 onwards; for board slots and cut-outs, c0167–c0170).
 
 Later questions, asked when their change is proposed:
 

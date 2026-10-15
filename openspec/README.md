@@ -37,6 +37,7 @@ to X7 and X9 to X12 of Part X) c0085. Later still, after the maintainer waived t
 and c0104 were archived, in that order, and then c0108, c0109, c0112 and c0110, whose deferred tasks
 were closed on 2026-10-09.
 The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and proposed on the branch `dev-v05a-proposals`; c0157 is the yardstick change of another branch.
+The four changes of the maintainer's capability request "board slots and cut-outs, end to end" were allocated together as c0167–c0170 on 2026-10-15 and proposed on the branch `dev-slots-proposals`; c0164–c0166 were taken on `dev` and on the maintainer's `codex/` branches. Their milestone awaits the maintainer's placement (`docs/roadmap.md`, "Board slots and cut-outs").
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -159,5 +160,6 @@ The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and 
 | c0163 | `opaque-net-stored-name` | correction (found while c0162 was written; the maintainer's decision of 2026-10-09): a numbered net reference inside opaque content resolves to the stored name of its net, so a board whose teardrops are on a net stored with `{slash}` (`RoyalBlue54L-Feather`) is written for its own target 9 instead of refused, and named rightly for 10 | c0017, c0061 |
 | c0164 | `altium-schematic-layout` | native schematic layout capture through Altium sync, byte-exact replay and conservative source conflicts | c0032, c0040, c0043, c0069 |
 | c0165 | `schematic-block-composition` | archived implementation: functional blocks, automatic flow/alignment, bounded wiring and generated-baseline reports/previews; repository gate and native GUI review pending (see archived tasks) | c0164, c0032, c0037, c0086 |
+| c0167 | `board-slots` | board slots and cut-outs (milestone to be placed): `OutlineSlot` in the model and `design.slot`, the shared stadium, the union of overlapping cut-outs and slots (`clipper` backend of the `geo` extra), KiCad lowering and read-back | c0102, c0074 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
