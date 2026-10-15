@@ -44,6 +44,7 @@ TABLE = {
     "copper.rules-incomplete": ("warning",),
     "copper.item-unsupported": ("warning",),
     "copper.clearance-unset": ("info",),
+    "copper.edge-clearance": ("error", "warning"),
     "zone.unfilled": ("warning",),
     "zone.fill-stale": ("warning",),
     "zone.fill-unchecked": ("info",),

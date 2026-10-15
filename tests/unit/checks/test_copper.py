@@ -576,6 +576,8 @@ def test_findings_and_issues_are_sorted() -> None:
         "approximated",
         "arc_tol",
         "clearance",
+        "edge_clearance",
+        "edges",
         "items",
         "judged",
         "keepouts",

@@ -1238,6 +1238,11 @@ meaning = "A track, arc, via or pad lies in a keep-out (a rule area) whose setti
 fix = "Move the item out of the area, change what the area forbids, or build with --copper-check warn to write anyway."
 see = "check"
 
+["copper.edge-clearance"]
+meaning = "Copper (a track, arc, via, pad or zone fill) lies closer to the board edge, a cut-out or a slot than the edge clearance in force: the governing edge_clearance rule, else the board minimum (KiCad: min_copper_edge_clearance, 0.5 mm by default). The distance is to the edge line; the edge's stroke does not count. KiCad's DRC reports the same item as copper_edge_clearance."
+fix = "Move the copper or the part inward, away from the ring the finding names; never waive it. A rule for some nets (design.rules.rule(kind='edge_clearance')) sets their own value. Build with --copper-check warn to write anyway."
+see = "check"
+
 ["copper.rules-incomplete"]
 meaning = "The clearance rules are incomplete: a rule stayed opaque, a project file was not read, or no rules source was given."
 fix = "Rely on KiCad's DRC for the rules Fenolite could not read."

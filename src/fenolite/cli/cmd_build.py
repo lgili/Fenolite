@@ -84,6 +84,7 @@ from fenolite.checks.copper import (
     LOWERING_CODES,
     CopperReport,
     check_copper,
+    frame_edges,
     rules_issues,
     rules_summary,
     waived_issues,
@@ -392,16 +393,21 @@ def copper_guard(
         major=target,
         file_stem=name,
     )
+    frame = KicadBackend()
+    edges, edge_issues = frame_edges(frame, rules.design)
     report = check_copper(
         rules.design,
-        pads=KicadBackend().board_pads(rules.design),
+        pads=frame.board_pads(rules.design),
         min_clearance=rules.min_clearance,
         rules_over_classes=rules.rules_over_classes,
         floor_over_rules=rules.floor_over_rules,
         inputs=(kicad_pcb.EVIDENCE, rules.evidence),
+        edges=edges,
+        min_edge_clearance=rules.min_edge_clearance,
+        edge_floor_over_rules=rules.edge_floor_over_rules,
     )
     judged, waived = guard_waivers(report, waivers)
-    found = [*judged, *rules_issues(rules)]
+    found = [*judged, *rules_issues(rules), *edge_issues]
     evidence = Evidence.combine(report.evidence, kicad_pcb.EVIDENCE, rules.evidence)
     if any(issue.code in LOWERING_CODES for issue in found):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
@@ -417,6 +423,7 @@ def copper_guard(
         "ran": True,
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
+        "edge_clearance": report.summary["edge_clearance"],
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
         "waivers": waived,
@@ -451,6 +458,7 @@ def altium_copper_guard(
     read = backend.board_from_bytes(data, file=document)
     design = read.design
     rules = backend.rules_from_bytes(design, data, file=document)
+    edges, edge_issues = frame_edges(backend, rules.design)
     report = check_copper(
         rules.design,
         pads=backend.board_pads(rules.design),
@@ -458,11 +466,14 @@ def altium_copper_guard(
         rules_over_classes=rules.rules_over_classes,
         floor_over_rules=rules.floor_over_rules,
         inputs=(read.evidence, rules.evidence),
+        edges=edges,
+        min_edge_clearance=rules.min_edge_clearance,
+        edge_floor_over_rules=rules.edge_floor_over_rules,
     )
     unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
     judged, waived = guard_waivers(report, waivers)
     found: list[Issue] = []
-    for issue in (*judged, *rules_issues(rules)):
+    for issue in (*judged, *rules_issues(rules), *edge_issues):
         if issue.severity != "error":
             found.append(issue)
         elif issue.code != "copper.short":
@@ -481,6 +492,7 @@ def altium_copper_guard(
         "ran": True,
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
+        "edge_clearance": report.summary["edge_clearance"],
         "unpoured": unpoured,
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),

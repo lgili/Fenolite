@@ -84,10 +84,11 @@ fenolite check blink/build --stages model.validate,copper.clearance --json  # ex
 
 ## Exit 5 in general
 
-Exit 5 means the command worked and found problems: read `issues`. The same order holds for every
-finding: read the code, ask `explain`, change one thing, check again. `copper.clearance` is repaired as
-`copper.short` is. A finding between two tracks that a router drew is repaired by `route --rip` for
-those nets, or by more room between the parts; one that names script copper is repaired in the script.
+Exit 5 means the command ran and found problems: read `issues`. For a finding: read the code,
+ask `explain`, change one thing, check again. `copper.clearance` is repaired as `copper.short` is: a
+finding between two tracks that a router drew by `route --rip` of those nets or by room between the
+parts, one that names script copper in the script. Move copper of `copper.edge-clearance` away
+from the ring in `where`, a drill of `copper.hole-in-cutout` off the cut-out.
 
 ## Exit 6, `FEN-6001`: a tool is not installed
 
@@ -141,7 +142,7 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 | code | exit | what happened | what to do |
 |---|---|---|---|
 | `FEN-1001` | 1 | a bug in Fenolite | stop and report the error object with the command line; do not retry |
-| `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause the message names (a full disk, a read-only folder) and run the same command again |
+| `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause the message names and run the same command again |
 | `FEN-1003` | 1 | the command was stopped by a signal; nothing was written | run the same command again: `route` goes on with the router runs that finished |
 | `FEN-2001` | 2 | an invalid command line | recipe above |
 | `FEN-2002` | 2 | `--fields` names a key the result does not have | run with `--json` alone and read the keys |
@@ -154,7 +155,7 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 | `FEN-3005` | 3 | geometry of the input cannot be represented | the message names the geometry and the points |
 | `FEN-3006` | 3 | a fetched file does not match its pinned size or SHA-256 | fetch again, or name a good copy with `--from` |
 | `FEN-4001` | 4 | a write without `--dry-run` or `--confirm` | recipe above |
-| `FEN-4002` | 4 | the plan named by `--plan` cannot be written as reviewed: a target, an input or the command line changed, or no plan has that id | nothing was written; run the command with `--dry-run` again, read the new plan and confirm it with its `plan_id` |
+| `FEN-4002` | 4 | the plan named by `--plan` cannot be written as reviewed: a target, an input or the command line changed, or no plan has that id | run the command with `--dry-run` again, read the new plan and confirm it with its `plan_id` |
 | `FEN-5001` | 5 | findings of severity `error` | read `issues`; recipe above |
 | `FEN-6001` | 6 | an external tool is not found | recipe above |
 | `FEN-6002` | 6 | the tool's version is not supported | `fenolite doctor --json` names the versions that are |
