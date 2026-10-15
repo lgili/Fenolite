@@ -1,13 +1,13 @@
 ## MODIFIED Requirements
 
 ### Requirement: Copper stage issue codes
-`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. The build guard (`design-dsl`, "Copper guard before writing") emits the same codes into the `build` envelope, where they pass through unchanged as `design-dsl` "Build issue codes" allows for codes that later requirements add.
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. The build guard (`design-dsl`, "Copper guard before writing"; for the Altium target `altium-build`, "Copper guard in an Altium build") emits the same codes into the `build` envelope, where they pass through unchanged as `design-dsl` "Build issue codes" allows for codes that later requirements add. The severity `info` of the first three codes is that of a finding a waiver accepted ("Waivers in the check"); the copper check itself never gives it.
 
 | code | severity | when |
 |---|---|---|
-| `copper.short` | error | copper of two nets touches or overlaps on a shared copper layer |
-| `copper.clearance` | error, warning | a gap below the clearance in force; the governing rule sets the severity |
-| `copper.zone-overlap` | warning | zones of different nets and equal priority overlap on a shared layer |
+| `copper.short` | error, info | copper of two nets touches or overlaps on a shared copper layer; `info` when waived |
+| `copper.clearance` | error, warning, info | a gap below the clearance in force; the governing rule sets the severity; `info` when waived |
+| `copper.zone-overlap` | warning, info | zones of different nets and equal priority overlap on a shared layer; `info` when waived |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, per kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force |
