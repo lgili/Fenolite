@@ -5,7 +5,8 @@
 
 ## 1. Register and probes
 
-- [ ] 1.1 Add `H-K-EDGE-CENTRE`, `H-K-EDGE-RESOLVE` and `H-K-EDGE-AGREE` to `docs/hypotheses.md` (level `INFERRED`, the measurement of 2026-10-15 as the first record of the first) and the fact of the edge line to `docs/formats/kicad/drc.md` with S-0020 and S-0029. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py tests/unit/test_format_facts.py -q`.
+- [x] 1.1 Add `H-K-EDGE-CENTRE`, `H-K-EDGE-RESOLVE` and `H-K-EDGE-AGREE` to `docs/hypotheses.md` (level `INFERRED`, the measurement of 2026-10-15 as the first record of the first) and the fact of the edge line to `docs/formats/kicad/drc.md` with S-0020 and S-0029. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py tests/unit/test_format_facts.py -q`.
+  - 2026-10-15: three rows added after `H-G-RING-UNION`, each `INFERRED`; `H-K-EDGE-CENTRE` carries the measurement of 2026-10-15 as its first record. `docs/formats/kicad/drc.md` gains the section "Copper to edge clearance (c0169)" with the edge line and the 0.5 mm default (S-0020, S-0029, `INFERRED` until the probes hold). The proof passes (66 tests).
 - [ ] 1.2 Write the probes `edge-centre-*` and `edge-resolve-*` (an `edge_clearance` rule of 0.3 mm and of 0.8 mm, each with the project minimum of 0.5 mm, on a pad at 0.4 mm and at 0.7 mm) in `tests/kicad/checks/_edgebench.py`; record them on both majors. An outcome that differs from `design.md` stops this task. Proof: `uv run pytest tests/kicad/checks/test_edge_clearance.py -k "centre or resolve" -rA` in the pinned 9.0.9 and 10.0.6 images; `uv run pytest tests/kicad/test_probe_results.py -q`.
 
 ## 2. Frame and resolver

@@ -27,6 +27,13 @@ names were recorded, and the files are never vendored or read at runtime. Source
 | The custom-rule kinds of change c0071 are reported under the types `hole_to_hole`, `hole_clearance`, `annular_width`, `courtyards_overlap` (courtyard clearance), `silk_overlap` and `silk_over_copper` (silkscreen clearance) and `creepage` (10.0.6 only), each with the rule name and the limit and actual values in its `description` | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-KIND-2 |
 | A rule area reports `items_not_allowed` per setting: `tracks` for a track inside it and for one that only crosses its edge, `vias` for a via (not for a track beside it), `pads` once per pad of a footprint, `footprints` for the footprint and not for its pads; nothing for an item outside the area or on a layer the area is not on. A stored fill over an area that forbids `copperpour` is not reported, and the refill of 10.0.6 leaves the area out of the fill (probes `area-keepout-*`, recorded for 9.0.9 and 10.0.6; the refill is 10.0.6 only). The description of the violation differs per major, so only the type and the item uuids are read | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-AREA-KEEPOUT |
 
+## Copper to edge clearance (c0169)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `copper_edge_clearance` measures from the copper to the line of an `Edge.Cuts` graphic (the board ring, a cut-out or a milled slot); the stroke width of the edge graphic does not count: a plated pad whose copper lies 0.47 mm from a slot's edge drawn 0.1 mm wide is reported against 0.5 mm, one at 0.52 mm is not | S-0020, S-0029 | INFERRED | H-K-EDGE-CENTRE |
+| The board setup's edge clearance of a project that does not set `min_copper_edge_clearance` is 0.5 mm, and the description of the violation names it: "board setup constraints edge clearance 0.5000 mm; actual 0.4700 mm" | S-0020, S-0029 | INFERRED | H-K-EDGE-CENTRE |
+
 ## How Fenolite reads it
 
 These are decisions of the reader, not facts about KiCad.
