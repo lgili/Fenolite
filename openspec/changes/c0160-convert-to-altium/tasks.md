@@ -44,7 +44,8 @@
 
 - [x] 4.1 Take the circuit and the symbol graphics of a KiCad source's schematic and write one Altium sheet per KiCad sheet (scenario "Netlist kept"). First item of the cut order. Proof: `uv run pytest tests/unit/convert/test_to_altium_schematic.py -q`; `uv run pytest tests/corpus/test_convert_census.py -k complex_hierarchy -rA`.
 - [x] 4.2 Write the tolerant texts and nets (scenario "Text outside the code page"). Proof: `uv run pytest tests/unit/backends/altium/test_schematic_tolerant.py -q`.
-- [ ] 4.3 Run RT-A3 over the public project sets (scenario "Public project sets judged") and write the table again in `docs/evidence/altium-roundtrip.md`, "Project sets", with `H-A-VER-RTA3-PRJ` measured again. Proof: `uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA` with the corpus cached.
+- [x] 4.3 Run RT-A3 over the public project sets (scenario "Public project sets judged") and write the table again in `docs/evidence/altium-roundtrip.md`, "Project sets", with `H-A-VER-RTA3-PRJ` measured again. Proof: `uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA` with the corpus cached.
+  - 2026-10-15 (c0171, release branch at `9946628`): `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA` with the `rta` rows cached, heavy row of set 01 included: 5 passed. Sets 01 (now judged, with 544 footprints, 2130 pads, 8355 tracks and 1770 vias written), 03, 04 and 05 equal; set 02 judged with the reported differences of 2026-10-12. The table of "Project sets" and `H-A-VER-RTA3-PRJ` are written again; the row stays `INFERRED` (four equal sets, not five).
 
 ## 5. Census and Part T
 

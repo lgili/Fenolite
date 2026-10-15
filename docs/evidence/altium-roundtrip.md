@@ -449,11 +449,13 @@ schematics; `H-A-VER-RTA3-PRJ`). A set is judged when the schematic writer takes
 schematic of a rewrite is generated from the circuit, with generic symbols on one sheet.
 
 Measured again on 2026-10-12 with c0160 and the light corpus: **4 passed, 1 skipped**.
-Every light set is judged and produces both PCB and schematic documents.
+Every light set is judged and produces both PCB and schematic documents. Measured again on 2026-10-15
+(c0160 task 4.3, release branch of c0171) with the heavy row of set 01 cached and `FENOLITE_HEAVY=1`:
+`uv run pytest tests/corpus/test_altium_rta3.py -k sets -rA`, **5 passed**; set 01 is judged and equal.
 
 | set | inside the scope | what was compared, or why not | `netlist.assignment_compare` |
 |---|---|---|---|
-| `altium-set:01` | not rerun (heavy) | previous no-document result is historical; tolerant comments implemented, CI proof pending | not rerun |
+| `altium-set:01` | equal (2026-10-15, heavy row) | circuit and board; 544 footprints, 2130 pads, 8355 tracks and 1770 vias written | original and rewrite: no new finding apart from uncovered pads |
 | `altium-set:02` | judged, reported differences | circuit and board; 8 refused anonymous footprints and 21 net-member differences explained by the exact conflicting memberships and label alias renumbering | original and rewrite: 2 assignment-differs errors |
 | `altium-set:03` | equal | circuit and board | original: none; rewrite: uncovered info for refused pads |
 | `altium-set:04` | equal | circuit and board; generated symbols with different pin sets use distinct entries | original: none; rewrite: uncovered info for refused pads |
@@ -463,9 +465,11 @@ The test checks each residual difference against the refused source entity or me
 connection is accepted unless it is the intact membership of the original renumbered label alias.
 It still compares assignment finding counts before and after. Set 02 cannot be called lossless: the
 writer chooses one net for each conflicting pin and records each discarded membership under `pin-net`.
-`H-A-VER-RTA3-PRJ` stays **INFERRED** and pending: its original criterion asks for five equal sets.
+`H-A-VER-RTA3-PRJ` stays **INFERRED** and pending: its original criterion asks for five equal sets, and
+four are equal (01, 03, 04, 05) with set 02 judged with reported differences.
 Before c0160, sets 01, 02 and 04 produced no schematic/project (leading `=`, conflicting nets,
-Unicode outside Windows-1252). Those writer blockers are closed; set 01 needs its heavy CI rerun.
+Unicode outside Windows-1252). Those writer blockers are closed; set 01 was rerun with its heavy row on
+2026-10-15 and is equal.
 
 **KiCad's importer on the rewrites** (`H-A-VER-RTA3-KICAD`; `tests/kicad/altium/test_rta3_oracle.py` on
 `kicad-cli` 10.0.6, probe `altium-rta3-kicad` `equal`). `kicad-cli pcb import` reads each rewrite, and its
