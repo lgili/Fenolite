@@ -374,10 +374,11 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 
 Footprints and pads are keyed by the component path through the KiCad embedder.
 
-## Board: outline, cut-outs and holes
+## Board: outline, cut-outs, slots and holes
 
 `board(width, height)` declares a rectangle. `board(outline=path)` declares any closed ring instead, and
-`cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given.
+`cutout(path)` adds a cut-out to either form; exactly one form of `board()` is given. `slot()` adds a
+milled slot (change c0167).
 
 ```python
 from fenolite.dsl import arc_to, mm, shape
@@ -386,6 +387,7 @@ design.board(outline=shape.rect(mm(0), mm(0), mm(60), mm(40), radius=mm(3)), cop
 design.cutout(shape.circle(mm(10), mm(10), mm(3.2)))  # a round cut-out, milled
 design.cutout(shape.slot((mm(19), mm(30)), (mm(31), mm(30)), mm(2)))  # 12 mm × 2 mm overall
 design.cutout(((mm(40), mm(5)), (mm(50), mm(5)), arc_to((mm(52), mm(8)), (mm(50), mm(11))), (mm(40), mm(11))))
+design.slot(mm(30), mm(20), length=mm(12), width=mm(2), rot=30)  # a milled slot named S1
 ```
 
 - **Paths.** A path is a sequence whose first element is an `(x, y)` pair of lengths in the frame of
@@ -400,14 +402,34 @@ design.cutout(((mm(40), mm(5)), (mm(50), mm(5)), arc_to((mm(52), mm(8)), (mm(50)
   centred on `start` and `end`. A diameter and a slot width are an even number of nanometres. A point
   that is not a whole number of nanometres (the mid of a rounded corner, a point of a slot at an angle)
   is rounded half to even once, with integers; a circle and a horizontal or vertical slot are exact.
+- **`shape.stadium(x, y, length, width, rot=0)`** gives the ring of a milled slot as a path: the stadium
+  of `fenolite.core.stadium`, overall `length` (both round ends included) about `(x, y)`, its length
+  along the X axis turned by `rot` degrees. `shape.slot()` keeps its own rounding and its bytes; for a
+  slot at an angle the two may differ by 1 nm per coordinate.
 - **Cut-outs** keep their call order. `to_model` writes the board ring to `Outline.points`, the cut-outs
   to `Outline.cutouts` and every arc to `Outline.arcs` (`docs/design-model.md`).
+- **Milled slots.** `slot(x, y, *, length, width, rot=0, name=None)` adds one `OutlineSlot` to
+  `Outline.slots` and returns its name: `S<n>` in call order by default, unique, with the id
+  `slot:<name>`. The width is a positive, even number of nanometres and the length exceeds it (a round
+  opening is `cutout(shape.circle(…))`); `rot` is taken modulo 180°. A slot is a cut-out with a name,
+  a centre, a length and an angle: KiCad gets its stadium on `Edge.Cuts`, and findings name it
+  `slot <name>`.
+- **Overlapping cut-outs and slots** mean their union: the build writes one ring for each overlapping
+  group, every round end kept as an arc (`docs/geometry.md`, "Union of curved rings"), and reports
+  `kicad.outline.merged` (info) naming the items. The union needs the `geo` extra; without it the build
+  stops with `kicad.outline.overlap` (error) and the hint `pip install 'fenolite[geo]'`. Rings that only
+  touch are not merged.
 - **What the build refuses.** `kicad.outline.invalid` (error, exit 5, nothing written) for a ring that
-  crosses or touches itself, two rings that cross or touch, a cut-out outside the board and a cut-out
-  inside another. This is KiCad 10's `invalid_outline`, a cut-out that only touches the edge included;
-  KiCad 9 accepts that case, and one verdict serves both targets.
-- **What is written.** One `gr_line` or `gr_arc` on `Edge.Cuts` per edge. A cut-out is milled, not
-  drilled: no drill file holds it. For a drilled hole use `design.hole()`.
+  crosses or touches itself, two rings that cross or touch without a common area, a cut-out or slot
+  outside the board, a cut-out inside another, and a slot of a size that is no slot's. This is KiCad 10's
+  `invalid_outline`, a cut-out that only touches the edge included; KiCad 9 accepts that case, and one
+  verdict serves both targets.
+- **What is written.** One `gr_line` or `gr_arc` on `Edge.Cuts` per edge. A cut-out or a slot is
+  milled, not drilled: no drill file holds it. For a drilled hole use `design.hole()`.
+- **Milled or drilled.** A slot for creepage or for the board's shape is milled: `slot()` or `cutout()`.
+  KiCad judges copper near it with `copper_edge_clearance`, and slots that overlap become one opening. A
+  slot for a fastener or a press-fit is drilled: `hole(…, length=…)`, an oval `np_thru_hole` pad, judged
+  by the hole rules (`hole_clearance` on KiCad 10 only) and written to the drill file as a `G85` slot.
 - **`locked=True`** makes the script's outline replace an outline edited in KiCad when the board is
   rebuilt (`docs/lens.md`, "Outline changes"). `outline_locked(design)` returns it.
 

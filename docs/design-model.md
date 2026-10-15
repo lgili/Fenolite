@@ -208,6 +208,19 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   is two arcs. The canonical writer omits `arcs` when it is empty, so a `board.json` written before
   loads unchanged and an outline without arcs keeps its bytes.
   Release 0.2.x cannot read a model document that carries `arcs`: its reader refuses an unknown key.
+- **Board slots** (change c0167). `Outline.slots` holds the board's milled slots, in order:
+  `OutlineSlot(id, name, center, length, width, rotation)` (prefix `slt`), a non-plated stadium of
+  overall `length` (both round ends included) and `width` (positive and even; `length` exceeds it), its
+  length's axis turned by `rotation` microdegrees in the sense of `Transform.placement`. Its ring is
+  `core.stadium.stadium(center, length, width, rotation)`, four vertices joined by a line, a half arc, a
+  line and a half arc; for every reader of rings it is one more cut-out after `Outline.cutouts`
+  (`model.outline.outline_items`), and `Outline.arcs` does not name it. `name` is the script's name,
+  empty for a slot recognised in a read board. Overlapping cut-outs and slots mean their union. The
+  canonical writer omits `slots` when it is empty, so an outline without slots keeps its bytes.
+  Release 0.4.x cannot read a model document that carries `slots`: its reader refuses an unknown key.
+  The word has two meanings: `OutlineSlot` is a milled slot of the board, while `model.base.Slot` (and
+  `backends/kicad/slots.py`, capability `kicad-slots`) is the opaque round-trip unit of a backend node.
+  A drilled slot is a footprint pad with `Padstack.hole_shape` `slot` (`design.hole(…, length=…)`).
 - **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name
   are in `Layer.ext[<backend>]`.
 - **Synthesised circuit.** A board read without a schematic gets one `Component` per footprint, one

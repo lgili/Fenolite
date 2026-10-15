@@ -88,7 +88,11 @@ The creepage of two nets is the shortest path **along the board surface** betwee
 two outer faces.
 
 - **The surface.** The two outer faces inside the outline, less every cut-out, joined by a wall of the
-  board thickness along every boundary edge.
+  board thickness along every boundary edge. A milled slot of the model (`Outline.slots`, change c0167)
+  is a cut-out here, its round ends polygonised like any arc, and overlapping cut-outs and slots count
+  as their union (`docs/geometry.md`, "Union of curved rings"). That union needs the `geo` extra: without
+  it the boundary's `problem` is `overlap-needs-geo` and `fenolite analyze` exits 6
+  (`geometry.backend-unavailable`) for the distance kinds.
 - **The path.** A chain of straight legs on a face that stay on the board, wall drops at boundary
   vertices, and wall crossings through the interior of one boundary edge, straight in the plane that
   unfolds the two faces and the wall. Paths bend only at boundary vertices and meet a conductor at the

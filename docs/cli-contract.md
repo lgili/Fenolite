@@ -465,9 +465,15 @@ are `kicad.pad.zone-overridden` (info), `kicad.pad.zone-forced` (warning) and
 `kicad.pad.zone-unknown-pad` (error: exit 5, nothing written).
 
 The outline of the script is judged before anything is placed (`docs/dsl.md`, "Board"):
-`kicad.outline.invalid` (error: exit 5, nothing written) for rings that cross or touch, a cut-out outside
-the board and a cut-out inside another, and `kicad.outline.zone-short` (warning) for a zone without an
-outline that an arc of the board ring bulges beyond. Over an existing board, a new outline or a new
+`kicad.outline.invalid` (error: exit 5, nothing written) for rings that cross or touch, a cut-out or slot
+outside the board, a cut-out inside another and a slot of a size that is no slot's, and
+`kicad.outline.zone-short` (warning) for a zone without an outline that an arc of the board ring bulges
+beyond. Cut-outs and milled slots that overlap are written as one ring, their union, with
+`kicad.outline.merged` (info) naming the items; the union needs the `geo` extra, and without it the build
+stops with `kicad.outline.overlap` (error: exit 5, nothing written; hint `pip install 'fenolite[geo]'`;
+change c0167). Writing a model through the API, `write_board` refuses the same overlap with
+`kicad.board.outline-overlap` and a model with holes outside every footprint (`Board.holes`) with
+`kicad.board.free-hole`, both `FEN-7001` (exit 7). Over an existing board, a new outline or a new
 copper count of the script is applied (`docs/lens.md`, "Outline changes" and "Copper count changes"):
 `kicad.outline.replaced` (info), `kicad.outline.forced` (warning) and `kicad.outline.copper-dropped`
 (warning) for the outline, and `kicad.layers.added` (info), `kicad.layers.removed` (warning) and

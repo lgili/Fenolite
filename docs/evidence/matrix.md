@@ -365,6 +365,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `_fpmap` | see `mod`, `pcb` |
 | `_json` | see `pro` |
 | `_libread` | see `mod`, `sym` |
+| `_lowering` | see `pcb`, `outline` |
 | `_pcbwrite` | see `pcb` |
 | `altium_import` | `IMPORT_EVIDENCE` INFERRED: `H-K-00`, `H-K-PCB-READ` |
 | `backend` | none: the facade of the registered backend: a read or a write returns its module's evidence |
