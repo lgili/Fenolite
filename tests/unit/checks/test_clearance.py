@@ -490,3 +490,80 @@ def test_letter_case_of_the_pair_leaf() -> None:
     other = usb_pair()
     other.rule("net_name", mm(0.4), Selector("net", "usb_p"))  # the other leaves compare without case
     assert inside(other.build()).source == "rule:net_name"
+
+
+# --- edge clearance (change c0169) -------------------------------------------------------------------
+
+
+def edge_design(*rules: tuple[str, int, Selector, str]) -> Design:
+    """Nets ``HV`` and ``GND`` and the ``edge_clearance`` rules given as (name, min, selector, severity)."""
+    made = Copper()
+    made.net("HV")
+    made.net("GND")
+    for priority, (name, minimum, selector, severity) in enumerate(rules):
+        made.rule(name, minimum, selector, kind="edge_clearance", severity=severity, priority=priority)  # type: ignore[arg-type]
+    return made.build()
+
+
+def edge_subject(resolver: ClearanceResolver, design: Design, name: str, kind: str = "track") -> RuleSubject:
+    ids = {n.name: n.id for n in design.circuit.nets}
+    return resolver.subject(kind, ids[name], ref=None, layer="F.Cu")  # type: ignore[arg-type]
+
+
+def test_edge_floor_without_a_rule() -> None:
+    design = edge_design()
+    assert ClearanceResolver(design).edge(edge_subject(ClearanceResolver(design), design, "HV")) == UNSET
+    resolver = ClearanceResolver(design, min_edge_clearance=mm(0.5))
+    assert resolver.edge(edge_subject(resolver, design, "HV")) == Clearance(mm(0.5), "error", "floor")
+    assert resolver.max_edge == mm(0.5)
+
+
+def test_edge_rule_for_one_net_governs_over_the_floor() -> None:
+    design = edge_design(("hv_edge", mm(1), net("HV"), "warning"))
+    resolver = ClearanceResolver(design, min_edge_clearance=mm(0.5))
+    assert resolver.edge(edge_subject(resolver, design, "HV")) == Clearance(mm(1), "warning", "rule:hv_edge")
+    assert resolver.edge(edge_subject(resolver, design, "GND")) == Clearance(mm(0.5), "error", "floor")
+    explained = resolver.explain_edge(edge_subject(resolver, design, "HV"), "board")
+    assert [row.source for row in explained.candidates] == ["rule:hv_edge", "floor"]
+    assert explained.governing.value == mm(1) and explained.ring == "board"
+    assert explained.candidates[0].rule_id == design.rules.rules[0].id  # type: ignore[union-attr]
+
+
+def test_edge_rule_below_the_floor_and_the_switch() -> None:
+    design = edge_design(("low", mm(0.3), Selector("all"), "error"))
+    resolver = ClearanceResolver(design, min_edge_clearance=mm(0.5))
+    assert resolver.edge(edge_subject(resolver, design, "GND")).value == mm(0.3)  # H-K-EDGE-RESOLVE
+    raised = ClearanceResolver(design, min_edge_clearance=mm(0.5), edge_floor_over_rules=True)
+    assert raised.edge(edge_subject(raised, design, "GND")) == Clearance(mm(0.5), "error", "floor")
+
+
+def test_edge_ignore_rule_silences_and_layers_scope() -> None:
+    made = Copper()
+    made.net("HV")
+    made.rule("quiet", mm(1), net("HV"), kind="edge_clearance", severity="ignore", priority=1)
+    made.rule("inner", mm(2), Selector("all"), kind="edge_clearance", layers=("B.Cu",))
+    design = made.build()
+    resolver = ClearanceResolver(design, min_edge_clearance=mm(0.5))
+    (hv,) = (n.id for n in design.circuit.nets)
+    front = resolver.subject("track", hv, ref=None, layer="F.Cu")
+    back = resolver.subject("via", None, ref=None, layer="B.Cu")
+    assert resolver.edge(front) == Clearance(None, None, "rule:quiet")
+    assert resolver.edge(back) == Clearance(mm(2), "error", "rule:inner")
+    assert resolver.max_edge == mm(2)
+
+
+def test_edge_board_wide_equals_the_stitching_value() -> None:
+    from fenolite.backends.kicad.copper import edge_clearance_in_force
+
+    rng = random.Random(20261015)
+    for _ in range(40):
+        rules = [
+            (f"r{k}", mm(rng.choice((0.2, 0.3, 0.5, 0.8))), Selector("all"), "error")
+            for k in range(rng.randint(0, 3))
+        ]
+        floor = mm(rng.choice((0.3, 0.5)))
+        design = edge_design(*rules)
+        for switch in (False, True):
+            resolver = ClearanceResolver(design, min_edge_clearance=floor, edge_floor_over_rules=switch)
+            found = resolver.edge(edge_subject(resolver, design, "GND", "via"))
+            assert found.value == edge_clearance_in_force(design, floor, floor_over_rules=switch)

@@ -883,10 +883,13 @@ class _Barriers:
         return any(point_in_ring(point, hole) is Location.INSIDE for hole in self.rings[1:])
 
 
-def edge_clearance_in_force(design: Design, floor: Nm = 0) -> Nm:
+def edge_clearance_in_force(design: Design, floor: Nm = 0, *, floor_over_rules: bool = False) -> Nm:
     """The copper-to-edge clearance a stitch via keeps: the ``min`` of the governing board-wide
     ``edge_clearance`` rule, the last of them in ``rulemap.rule_order``, else ``floor``, the project's
-    ``min_copper_edge_clearance``."""
+    ``min_copper_edge_clearance``; with ``floor_over_rules`` (``DesignRules.edge_floor_over_rules``, false
+    on 9.0.x and 10.0.x, ``H-K-EDGE-RESOLVE``) the floor also raises a lower rule. For board-wide rules
+    this is the value of ``checks.clearance.ClearanceResolver.edge`` (change c0169), which a backend may
+    not import: ``tests/unit/checks/test_clearance.py`` holds the two equal."""
     rules = design.rules.rules if design.rules is not None else ()
     wide = [
         rule
@@ -894,6 +897,8 @@ def edge_clearance_in_force(design: Design, floor: Nm = 0) -> Nm:
         if rule.kind == "edge_clearance" and rule.selector_a.op == "all" and rule.min is not None
     ]
     limit = wide[-1].min if wide else floor
+    if wide and floor_over_rules and limit is not None and floor > limit:
+        limit = floor
     return max(0, limit if limit is not None else 0)
 
 
