@@ -6,276 +6,11 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
-- v0.3: Altium write kinds leave `experimental` only by a tested rule (own readback, RT-A3 over the
-  corpus, every write hypothesis release-verified, a recorded kit run that is not stale); none of the
-  nine kinds meets it yet, and `capabilities` lists what each one misses. The acceptance run and its
-  result are in `docs/evidence/altium-acceptance.md` (c0092).
-
-- Merge the c0164 branch into the c0161/c0092 integration branch: keep its c0092 rule and drop the
-  parallel wip rule that made KiCad and Specctra writes experimental and dropped input evidence
-  from the Altium build envelope; renumber the c0161 keep-out source to S-0746.
-
-- Declare the authored `examples/schematic_blocks/` scripts in the fixture manifest; the
-  committed-data test of `tests/corpus/test_manifest.py` failed on them since the dev merge.
-
-- Reconcile Altium limits, milestone status and the five acceptance criteria with
-  measured kit/corpus results; preserve the unmet write-promotion criterion and
-  prepare the maintainer review without claiming acceptance or archive.
-
-- Audit the historical v0.3 Altium release table against declarations extracted
-  from its exact tag, preserving its recorded counts as current claims evolve.
-
-- Apply generator-checked Altium graduation decisions per format in capabilities
-  and build notices; include missing conditions for all experimental kinds and
-  combine evidence only for emitted documents and inputs. Current kinds remain
-  experimental; installed packages do not require checkout evidence files.
-
-- Link 27 native Altium hypotheses to the published kit record and archive,
-  retaining typed-form qualifications and historical observations. Inventory
-  the remaining proofs and require real recorded kit verdicts in legacy guards.
-
-- Classify the native DRC-report observation under the DRC hypothesis family,
-  preserving its scoped INFERRED result and the PCB export evidence guards.
-  Confirm the completed CI reported only the two corrected unit failures;
-  both pinned KiCad oracle jobs and both routing jobs passed.
-
-- Publish the reviewed native Altium kit as supplemental v0.4.0 evidence;
-  verify the downloaded archive's recorded SHA-256 and size and close c0092's
-  publication task without changing historical release validation claims.
-
-- Record the passing Windows check-fast checkpoint (13176 passed, 151 skipped)
-  and close the native campaign validation-policy prerequisite.
-
-- Prepare a verified publication edition of the native Altium kit, preserving
-  its original evidence and historical form scope while removing personal paths
-  from selected native documents and using an unaltered native text DRC report.
-
-- Reconcile completed CI proofs for the Altium acceptance and five native-campaign
-  prerequisite repairs; confirm the v0.3 acceptance probe on pinned KiCad 10.0.6.
-
-- Reconcile the native acceptance campaign with the completed optional Clearance
-  checks and the five dependency-ordered archives, retaining remaining requests.
-
-- Archive `c0152-clearance-rounding` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0132-altium-via-inner-pads` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0131-altium-unit-slack-rule` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0130-altium-clearance-matrix-cells` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0125-altium-clearance-scopes` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Record both optional native Clearance experiments for c0125/c0130 on authored
-  two-layer boards, including native saved readback and matching copper verdicts.
-  Retain parent-matrix reporting differences and existing hypothesis levels.
-
-- Archive `c0139-altium-kit-corrections` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0137-schematic-pin-frame-order` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0114-net-ties-waivers` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0077-catalog-footprint-fields` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0126-footprint-instance-graphics` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0123-multi-pad-pin-map` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Archive `c0083-altium-repeated-sheets` after completed tasks and CI run 38511480776;
-  synchronize its requirements while retaining measured evidence levels.
-
-- Review the native kit archive for publication, confirming its recorded digest
-  and documenting privacy findings without exposing personal paths or modifying
-  the original evidence.
-
-- Register the v0.3 acceptance as a KiCad-10 probe after its complete CI test
-  passed, sharing the cached run with the acceptance test and retaining every
-  existing versioned probe outcome.
-
-- Classify the new acceptance example in both RT-A2 build forms and keep
-  graduation adapters within the verification package's stdlib/core import boundary.
-
-- Select direct corpus-board oracle tests by the actual board format version,
-  retaining KiCad-10 downgrade inputs without sending them unconverted to KiCad 9.
-
-- Add the authored v0.3 acceptance tree and a preparation mode that builds both
-  targets, checks written scope and records JSON results; external import validation
-  runs separately in the KiCad CI job.
-
-- Declare own-readback proofs for all nine Altium write kinds and list missing
-  graduation conditions in the evidence matrix using current committed kit records.
-
-- Add the pure c0092 write-graduation rule, rejecting missing readback proofs,
-  weak or refuted hypotheses, missing RT-A3 and stale or uncommitted kit runs.
-  Integration and acceptance remain pending; dependency CI still gates archive.
-
-- Check the exact KiCad-major-specific footprint namespace in the authored
-  Altium SchLib oracle while retaining every model and source-pin comparison.
-
-- Keep local Windows validation to the fast gate and focused proofs; send batches
-  to GitHub CI for complete validation in parallel. Restore its narrowly selected
-  downgrade demo inputs and enable the three declared heavy oracle inputs.
-
-- Record fake-router subprocess launches before loading the board model, keeping
-  sleeping/failing test modes independent of model import time and preserving
-  the production routing deadline checks. Test plugin scheduling with a controlled
-  clock while retaining the separate real-process deadline integration tests.
-
-- Connect repeated Altium sheet entries through a named scalar wire to their
-  ranged bus, so the native compiler joins each channel to its intended signal.
-  Import those bridges using their actual bus stem without creating empty nets;
-  preserve ambiguous inputs and genuine scalar nets. Native PCB transfer and
-  annotation reload confirm all eleven intended memberships.
-
-- Record native Repeat reload and compiled port/bus diagnostics, keeping the
-  disconnected output nets and unresolved cause explicit.
-
-- Retain refuted Altium import hypotheses in the complete inventory while
-  excluding them from live evidence; verify complete, retired and active sets
-  against the register, with the fast quality gate passing.
-
-- Record the native Repeat PCB transfer's passing component counts, internal
-  nets and one-level UID paths, retaining the failing output bus as an open test.
-
-- Keep historical and successor annotation hypotheses in the aggregate Altium
-  import evidence inventory, preserving its complete coverage and lowest level.
-
-- Read native indexed Altium annotation records without changing their bytes and
-  apply measured one-level Repeat channel mappings; preserve legacy authored
-  flat maps and leave unmeasured nested paths unresolved.
-
-- Record native Repeat naming checks for eight designator formats and five room
-  styles; preserve the unresolved bus connectivity and mixed-style scope.
-
-- Archive completed `c0091-altium-verification-kit` and apply its validated requirements to the living specifications.
-
-- Reconcile c0091's first-run task with the committed 32-step native Altium kit
-  result; retain archive publication and write-kind graduation under c0092.
-
-- Record separate native acceptance repair commits and four validated OpenSpec
-  archives, retaining the remaining native, probe and dependency blockers.
-
-- Archive completed `c0158-equivalent-public` and apply its validated requirements to the living specifications.
-
-- Archive completed `c0157-yardstick-route-order` and apply its validated requirements to the living specifications.
-
-- Archive completed `c0156-kicad-cli-docker-user` and apply its validated requirements to the living specifications.
-
-- Archive completed `c0163-opaque-net-stored-name` and apply its validated requirements to the living specifications.
-
-- Give generated harness projects explicit wire-label naming priority, removing
-  native multiple-name warnings while preserving all net memberships.
-- Keep physical PCB component/document identities fixed while correcting
-  multipart source-unit links. Refresh the two affected exact build pins.
-- Record native ASCII CRLF/no-UID preservation and the LF-only import failure;
-  normalizing the authored LF control to CRLF preserves its eight components.
-
-- Restore corpus parity lookup with POSIX manifest keys on Windows. Pin measured
-  KiCad importer free-pad wrapper counts and rotated-slot discrepancies after
-  confirming that native Altium retains the original slotted-hole dimensions.
-
-- Keep acceptance rebuild metadata filtering portable on Windows and expand the
-  guide oracle to cover both additional rules examples. SchLib oracle assertions
-  now check the inherited common footprint models while retaining source pins.
-
-- Match multipart Altium PCB components to the last emitted schematic unit ID,
-  preserving single-part output. Native comparison recognizes all 68 components
-  in the public hierarchical case without manual linking or footprint replacement.
-
-- Record a complete current-kit native Altium 26.5 run: all 32 K1-K9 steps pass,
-  including ECO, full library update, repour, OutJob output and title rendering.
-  The broader native acceptance campaign and final quality gate remain open.
-
-- Refresh the authored SchLib goldens and their exact byte pins after footprint
-  model/owner repairs; preserve the scope of earlier native evidence.
-- Give the subprocess budget regression enough Windows startup time while still
-  proving deadline exhaustion and persistence of only the completed router run.
-
-- Set the via solder-mask cache to manual when a written side is tented, so
-  Altium's rule cache does not clear the requested tenting during opening/saving.
-  Untented via bytes remain unchanged; native Gerbers confirm all four mask cases.
-
-- Attach SchLib footprint models and pin maps to their parent records so native
-  full-symbol updates retain footprint associations and mapped connectivity.
-- Include the common component footprint in generated resolved SchLib symbols
-  without a default model. Native full replacement preserves the seven authored
-  kit components' footprint parity and LED pin mapping.
-- Correct the conversion census ledger for the public microwave board's two
-  modified POLY footprints; retain the exact report assertion and PCB geometry.
-
-- Reject error and fatal-error compile messages whose native class is bracketed
-  again by the Altium kit script; warning-only logs continue to pass.
-- Isolate the kit status no-record test from actual native run records committed
-  in the checkout; validate checked-in native records instead of requiring none.
-
-- Record background native Altium acceptance collection and Save As proofs:
-  21 boards inspected and 11 documents saved through authored runtime scripts,
-  with serialized jobs and unchanged inputs. A guarded retry resolves the initial
-  flat PCB parity finding; complete native campaign acceptance remains pending.
-
-- Preserve KiCad pad copper offsets in Altium PCB conversion and derived PcbLibs,
-  including rotated pads and bottom-side instances, without editing source slots.
-  Native DRC on the public hierarchical case now reports zero clearance violations
-  instead of 23. Native repour/save now retains polygon fill; the other DRC
-  categories and remaining acceptance checks remain under investigation.
-
-- Preserve explicit KiCad no-connect pins when reading and converting schematics
-  to Altium, including the prepared netlist path. Isolated marked pins no longer
-  become named wired nets; a marked pin on an actual net remains a validation
-  conflict. The public hierarchical Part T case compiles in Altium 26.5.0 with
-  zero errors after this repair (18 warnings retained).
-
-- Declare the 72 existing authored KiCad downgrade fixtures in the data manifest,
-  including the recorded checksum of their measured DRC/ERC types. This repairs
-  the corpus-policy gate without changing fixture bytes.
-
-- Fix Altium Full Stack pad layer association: the first inner layer uses the main
-  middle geometry, while the 29 extended entries represent inner layers 2 through
-  30. The writer and reader now agree with that association; regression tests check
-  distinct first/second inner layers and the final inner layer independently of
-  round trips. Native Altium 26.5.0 inspection confirms the authored four-layer
-  PCB and placement from its PcbLib retain distinct first/second inner geometries.
-
-### Altium to KiCad
-
-- Altium projects can be converted with `fenolite convert --to kicad` for KiCad 9/10
-  (c0161, experimental). Outputs include the board, rules, project, derived footprint
-  and symbol libraries and regenerated schematics. Mechanical layers map to named
-  user layers; closed Keep-Out outlines become rule areas. Changed presentation and
-  unsupported items are reported. Seven light public PCB documents have no unexplained
-  read-back differences; full independent corpus checks remain for CI.
-- Altium to KiCad conversion writes copper pours whose Altium outline holds an arc vertex with the
-  flattened outline of the source record (5000 nm chord error, reported changed) instead of an empty
-  outline, on which KiCad 9.0.9 could not write a DRC report. All eight public PCB documents now load
-  with DRC in KiCad 9.0.9 and 10.0.6 and agree with KiCad 10.0.6's importer where it runs; the
-  conversion's KiCad hypotheses are KICAD-VERIFIED, the full probe-results gate remains for CI.
-- `write_board` refuses items on undeclared layers with `kicad.board.layer-undeclared`,
-  including when `allow_lossy=True`. Authored fixtures now declare their used layers.
-
-
-### Native Altium templates
-
-- `fenolite build --target altium --altium-template FILE.SchDot` applies a native binary sheet template
-  to every generated schematic without neutral drawing conversion (c0164). It retains native page
-  settings, fonts, special strings, graphic ownership and embedded storage, and copies the supplied
-  template unchanged to `templates/sheet.SchDot`. The reviewed plan tracks the template input. ASCII
-  output and a script's neutral drawing sheet conflict with this option. Application remains INFERRED
-  until checked in Altium Designer.
+## [0.5.0] - 2026-10-15
 
 ### Added
 
+- **Release 0.5.0: v0.5a, board slots and the copper-to-edge check** (c0171): `fenolite convert` converts a project between KiCad and Altium, or writes a KiCad 10 project for KiCad 9, with a report of what is kept, changed or lost and a read-back compared through the public `equivalent` (c0158 to c0162, c0163); `design.slot()` and the edge clearance of the copper check (c0167, c0169); and the native Altium work of c0164 to c0166 and c0092's graduation rule. Every Altium write and both Altium directions of `convert` stay experimental. What each change ships and what waits for the next release is in `docs/release/v0.5.md`.
 - **Copper to board edge clearance** (c0169): `fenolite check` (stage `copper.clearance`) and the build's copper guard judge every track, arc, via, pad and zone fill against each ring of the board's edge (the board ring, the cut-outs and the slots, merged as the board file holds them) and report `copper.edge-clearance` (error, or the governing rule's severity) per item and ring when the gap to the edge line is below the edge clearance in force: the last `edge_clearance` rule that selects the item, else the board minimum (KiCad: the project's `min_copper_edge_clearance`, 0.5 mm by default; Altium: the board-wide `BoardOutlineClearance`). The stroke of the edge does not count and a board-wide rule governs below and above the minimum, as KiCad 9.0.9 and 10.0.6 do (`H-K-EDGE-CENTRE`, `H-K-EDGE-RESOLVE`); on a bench of every item kind by the board ring, a round cut-out, a slot and a merged L, the items equal those of KiCad's `copper_edge_clearance` on both majors (`H-K-EDGE-AGREE`; stored fills on 10.0.x). Each finding carries an `EdgeClearanceExplanation` (`ClearanceResolver.edge`, `explain_edge`) and the relation `edge`. Backends give the rings through `BoardFrame.board_edges` (`EdgeRing`), and `DesignRules` gains `min_edge_clearance` and `edge_floor_over_rules`; `result.copper_check` gains `edge_clearance`.
 - **Drilled holes in the copper check** (c0169): `copper.hole-in-cutout` (error) for a pad drill, a via drill or a board hole that breaks into a cut-out or a slot or crosses the board edge, and `copper.hole-overlap` (warning) for two drilled holes that overlap, two drilled slots of an L among them. No hole-to-hole value is judged: KiCad's DRC keeps those.
 - **Creepage of slots** (c0169): a slot gives exactly the creepage of the same stadium drawn as a cut-out, and two overlapping slots that of their merged ring; a groove width above a slot's width bridges it (`tests/unit/analysis/test_creepage_slots.py`, `docs/analyses.md`).
@@ -287,7 +22,6 @@ All notable changes to Fenolite are documented here. The format follows
 - Tolerant imported schematic writes (c0160): Unicode binary properties, preserved Altium parameter references, reported KiCad literal-comment prefixes, and deterministic conflicting-net selection with explicit pin-net losses. Generated libraries disambiguate storage and pin-set collisions.
 - **Altium schematic block composition** (c0165): `--altium-layout blocks` or `design.schematic_layout(mode="blocks")` enables functional grouping, automatic flow and pin alignment, quarter-turn passive branches, bounded local wiring and labelled fallback. `design.schematic_block(...)` declares members, titles, anchors and predecessor order. Fixed paper and bounded template occupancy are checked before writes; project-wide native electrical readback refuses changed connectivity or component identities. Builds include `result.schematic_composition`, `.fenolite/schematic-composition.json` and generated-baseline SVG previews in their reviewed transaction. Legacy grid bytes remain unchanged; synced native layouts replay exactly, and changed block intent conflicts even with `--discard-layout`. Evidence is `INFERRED`; native GUI acceptance and font metrics remain unmeasured. See `docs/schematic-composition.md` and the authored before/after example in `examples/schematic_blocks/`.
 - **Native Altium schematic layout sync** (c0164): `fenolite sync DESIGN.py --out DIR --to-source --target altium` captures complete edited `.SchDoc` files in `altium-schematic-layout.json` beside the script after checking component IDs, symbol assignments, parameters and connectivity against generated baselines. Altium builds keep those baselines in `.fenolite/altium-generated/` and replay saved sheets byte for byte, retaining placements, rotations, mirrors, wires, text styling and native assets. Changed or removed saved sheets refuse all writes with `build.altium-layout-conflict`, including with `--discard-layout`; changes to an existing sheet need deliberate conflict resolution. New sheets without saved layout use the normal writer. Captures fail closed on changed circuitry or unverified input, and reviewed plans bind the layout inputs. Evidence is `INFERRED`; native Altium GUI acceptance remains unmeasured. See `docs/altium-schematic-layout.md`.
-
 - **A controlled KiCad downgrade through `fenolite convert --to kicad --kicad-version 9`** (c0162): a project saved by KiCad 10 is written for KiCad 9 (board, schematic sheets, the footprint and symbol libraries of the project's own tables, project and rules files), each construct of 10 resolved where it is by the capability resolver `src/fenolite/backends/kicad/data/downgrade.toml`: written in 9's form (`rewrite`), dropped because 9 behaves the same (`same`), or dropped with a reported loss of a drawing or metadata (`presentation`) or of the design (`design`, which needs `--allow-lossy`). The report holds one row per resolver id (kind `downgrade:<id>`, group `downgrade`), and the verification compares the board at level 5 and the root schematic at level 2 under the profile `kicad-downgrade` (`convert.schematic-unverified` when the schematic's netlist needs a `kicad-cli` that is not there). Every resolver row is benched on 9.0.9 and 10.0.6 (`H-K-DOWN-ROWS`, 71 probes `down-row-<bench>`), and the demo projects `CM5_MINIMA_3` and `pic_programmer` load in 9.0.9 with the DRC and ERC types of the source (`H-K-DOWN-DEMOS`, probe `down-demos`); `docs/formats/kicad/versions.md`, "Downgrade", and the column `downgrade` of `docs/formats/kicad/tokens.md`.
 - `downgrade=` on `check_target`, `write_board`, `write_footprint`, `write_pretty`, `update_project` and `write_rules`, and the new `sch.retarget_schematic` and `sym.retarget_symbol_library` (c0162); without it every output is unchanged. A board written for 9 by a downgrade gives every zone `(filled_areas_thickness no)`, which 9.0 needs to read a fill as an area (`H-K-ZONE-FAT9`).
 - **`fenolite convert SRC --to {kicad,altium} --out DIR`** (c0159): converts a project to another backend or KiCad major, with a report of what is kept, changed or lost, per kind and per reason (`result.report`; `--report-ids` lists the items). Every conversion is read back with the target backend and compared with the source through `fenolite.api.equivalent` under the direction's profile; a difference that no lost item explains is `convert.unexplained` (exit 5, nothing written), and `--no-verify` skips the step with the evidence `UNVERIFIED`. A loss of a `refuse` kind (a footprint, a pad, copper, a net, a net class or a do-not-populate flag) exits 7 (`FEN-7001`) without `--allow-lossy`. `--out` may be an existing folder (`.bak` copies) but never the source's. Two directions: KiCad to Altium (experimental, `INFERRED`) and KiCad to KiCad for the same or a newer major (`KICAD-VERIFIED`, `H-K-CONV-RETARGET`). The library is `fenolite.convert.convert_project` (in memory, no tool) and `fenolite.api.convert`; `docs/conversion.md` describes the kinds, the report and the verification, and `docs/evidence/conversion.md` the 16 KiCad 10.0.6 demo boards converted to Altium with every difference explained (`H-G-CONV-LEDGER`).
@@ -299,6 +33,37 @@ All notable changes to Fenolite are documented here. The format follows
 - `fenolite capabilities`: the entry `equivalent` lists its `levels` and the `sides` it reads (c0158); the agent guide's page `checks` gains "Two designs compared".
 - The Altium import reads a project's annotation file (`read.annotation`, returned by `load_project` as `annotations`) and takes the designator of a channel component from it before the designator format, after the board (c0083). No public source states the form of that file, so the reader assumes one `<unique-id path>=<designator>` line per entry, reports every other line with `altium.text.unknown-key` (info) and keeps the bytes; the maintainer's Part R, step R4, settles `H-A-IMP-RPT-ANNOT`.
 - Agent guide: a `fenolite-design` block whose fence carries `kicad10` is built for KiCad 10 alone (`fenolite.agent.guide.DESIGN_TARGETS`); the page `fabrication` uses it for a stitch whose vias are filled and capped with `protect(filling=True, capping=True)`, which a KiCad 9 board cannot hold (c0112).
+- Altium projects can be converted with `fenolite convert --to kicad` for KiCad 9/10
+  (c0161, experimental). Outputs include the board, rules, project, derived footprint
+  and symbol libraries and regenerated schematics. Mechanical layers map to named
+  user layers; closed Keep-Out outlines become rule areas. Changed presentation and
+  unsupported items are reported. Seven light public PCB documents have no unexplained
+  read-back differences; full independent corpus checks remain for CI.
+- `fenolite build --target altium --altium-template FILE.SchDot` applies a native binary sheet template
+  to every generated schematic without neutral drawing conversion (c0164). It retains native page
+  settings, fonts, special strings, graphic ownership and embedded storage, and copies the supplied
+  template unchanged to `templates/sheet.SchDot`. The reviewed plan tracks the template input. ASCII
+  output and a script's neutral drawing sheet conflict with this option. Application remains INFERRED
+  until checked in Altium Designer.
+- v0.3: Altium write kinds leave `experimental` only by a tested rule (own readback, RT-A3 over the
+  corpus, every write hypothesis release-verified, a recorded kit run that is not stale); none of the
+  nine kinds meets it yet, and `capabilities` lists what each one misses. The acceptance run and its
+  result are in `docs/evidence/altium-acceptance.md` (c0092).
+- Apply generator-checked Altium graduation decisions per format in capabilities
+  and build notices; include missing conditions for all experimental kinds and
+  combine evidence only for emitted documents and inputs. Current kinds remain
+  experimental; installed packages do not require checkout evidence files.
+- Add the authored v0.3 acceptance tree and a preparation mode that builds both
+  targets, checks written scope and records JSON results; external import validation
+  runs separately in the KiCad CI job.
+- Declare own-readback proofs for all nine Altium write kinds and list missing
+  graduation conditions in the evidence matrix using current committed kit records.
+- Add the pure c0092 write-graduation rule, rejecting missing readback proofs,
+  weak or refuted hypotheses, missing RT-A3 and stale or uncommitted kit runs.
+  Integration and acceptance remain pending; dependency CI still gates archive.
+- Read native indexed Altium annotation records without changing their bytes and
+  apply measured one-level Repeat channel mappings; preserve legacy authored
+  flat maps and leave unmeasured nested paths unresolved.
 
 ### Changed
 
@@ -306,7 +71,6 @@ All notable changes to Fenolite are documented here. The format follows
 - **Named refusals for slots and holes in a KiCad board** (c0167): without the `geo` extra, overlapping cut-outs and slots stop a build with `kicad.outline.overlap` (error, hint `pip install 'fenolite[geo]'`), `write_board` refuses them with `kicad.board.outline-overlap`, and a model with `Board.holes` gives the writer error `kicad.board.free-hole` with a hint (`LossyWriteError`, exit 7) **instead of a bare `ValueError`**. `fenolite analyze` exits 6 (`geometry.backend-unavailable`) for a model outline whose cut-outs overlap without the extra. An Altium build of an outline with slots plans no PCB document, as one with cut-outs (c0168 writes both).
 - Development: the maintainer's decisions of 2026-10-15 on board slots and cut-outs (c0167 to c0170) recorded in the four designs and `docs/roadmap.md` (Open decisions, row 42): every recommended answer accepted; in Altium a milled slot becomes a board cut-out region and a drilled slot a slot pad (kit case S5 confirms it); c0167 and c0169 go in `0.5.0`, c0168 and c0170 after it.
 - KiCad-to-Altium model writes map the 16 supported drawing layers to named mechanical layers and keep copper texts on their copper layer (c0160). Layers outside the closed map remain reported losses.
-
 - **The KiCad backend reports `downgrade: "supported"`** (c0162), and each entry of `capabilities.conversions` says whether it writes a KiCad target older than the source (`downgrade`, true for KiCad to KiCad).
 - **`FEN-7002` means "target format version older than the input; no downgrade was asked"** (c0162): its hint names `fenolite convert <project> --to kicad --kicad-version <target>`. `build`, `place`, `route` and `fill` keep refusing a project saved by a newer major, the maintainer's decision of 2026-10-09; `convert` no longer refuses an older KiCad target.
 - **A KiCad downgrade keeps default project sections without consent** (c0162, the maintainer's decision of 2026-10-09): `component_class_settings`, `tuning_profiles` and the class key `tuning_profile`, which every KiCad 10 project holds, are dropped as `same` when they hold what a fresh KiCad 10 project writes there (`pro.holds_default`), and stay `design` losses that need `--allow-lossy` when they hold content. `fenolite --kicad-version 9 convert` of the demo project `pic_programmer` now exits 0 without `--allow-lossy`.
@@ -336,6 +100,96 @@ All notable changes to Fenolite are documented here. The format follows
 - Development: c0158 tasks 0.1, 1.1 and 1.2: the hypotheses `H-K-EQ-SCHSIDE` and `H-K-EQ-OVAL` are registered; `kicad-cli sch export netlist` of 9.0.9 and 10.0.6 marks a do-not-populate component with `(property (name "dnp"))` and lists no power symbol, so a schematic side takes the flag from that property and counts its power symbols from the sheets; `tests/corpus/test_equal_oval.py` measures the equal-sized ovals that an Altium write reads back as circles (40, 180 and 85 on three demo boards).
 - Development: c0158 is implemented on its branch except the probe-results gate of tasks 3.3 and 4.2: `test_schematic_side.py` and `test_oval_disc.py` pass in the pinned 9.0.9 and 10.0.6 images and the probes `equiv-schside` and `equiv-oval-disc` are recorded `equal` on both, but the full `tests/kicad/test_probe_results.py` is owed to the `kicad-9` and `kicad-10` CI jobs (a host shim of the images moved only environment-dependent probes this change does not touch).
 - Development: c0160 task 4.3: RT-A3 over the five public Altium project sets measured again with the heavy row of set 01 (`FENOLITE_HEAVY=1`): 5 passed, sets 01, 03, 04 and 05 equal, set 02 judged with its reported differences; `H-A-VER-RTA3-PRJ` stays `INFERRED` (four equal sets, not five).
+- `write_board` refuses items on undeclared layers with `kicad.board.layer-undeclared`,
+  including when `allow_lossy=True`. Authored fixtures now declare their used layers.
+- Merge the c0164 branch into the c0161/c0092 integration branch: keep its c0092 rule and drop the
+  parallel wip rule that made KiCad and Specctra writes experimental and dropped input evidence
+  from the Altium build envelope; renumber the c0161 keep-out source to S-0746.
+- Reconcile Altium limits, milestone status and the five acceptance criteria with
+  measured kit/corpus results; preserve the unmet write-promotion criterion and
+  prepare the maintainer review without claiming acceptance or archive.
+- Link 27 native Altium hypotheses to the published kit record and archive,
+  retaining typed-form qualifications and historical observations. Inventory
+  the remaining proofs and require real recorded kit verdicts in legacy guards.
+- Publish the reviewed native Altium kit as supplemental v0.4.0 evidence;
+  verify the downloaded archive's recorded SHA-256 and size and close c0092's
+  publication task without changing historical release validation claims.
+- Record the passing Windows check-fast checkpoint (13176 passed, 151 skipped)
+  and close the native campaign validation-policy prerequisite.
+- Prepare a verified publication edition of the native Altium kit, preserving
+  its original evidence and historical form scope while removing personal paths
+  from selected native documents and using an unaltered native text DRC report.
+- Reconcile completed CI proofs for the Altium acceptance and five native-campaign
+  prerequisite repairs; confirm the v0.3 acceptance probe on pinned KiCad 10.0.6.
+- Reconcile the native acceptance campaign with the completed optional Clearance
+  checks and the five dependency-ordered archives, retaining remaining requests.
+- Archive `c0152-clearance-rounding` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0132-altium-via-inner-pads` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0131-altium-unit-slack-rule` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0130-altium-clearance-matrix-cells` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0125-altium-clearance-scopes` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Record both optional native Clearance experiments for c0125/c0130 on authored
+  two-layer boards, including native saved readback and matching copper verdicts.
+  Retain parent-matrix reporting differences and existing hypothesis levels.
+- Archive `c0139-altium-kit-corrections` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0137-schematic-pin-frame-order` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0114-net-ties-waivers` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0077-catalog-footprint-fields` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0126-footprint-instance-graphics` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0123-multi-pad-pin-map` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Archive `c0083-altium-repeated-sheets` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+- Review the native kit archive for publication, confirming its recorded digest
+  and documenting privacy findings without exposing personal paths or modifying
+  the original evidence.
+- Register the v0.3 acceptance as a KiCad-10 probe after its complete CI test
+  passed, sharing the cached run with the acceptance test and retaining every
+  existing versioned probe outcome.
+- Classify the new acceptance example in both RT-A2 build forms and keep
+  graduation adapters within the verification package's stdlib/core import boundary.
+- Check the exact KiCad-major-specific footprint namespace in the authored
+  Altium SchLib oracle while retaining every model and source-pin comparison.
+- Keep local Windows validation to the fast gate and focused proofs; send batches
+  to GitHub CI for complete validation in parallel. Restore its narrowly selected
+  downgrade demo inputs and enable the three declared heavy oracle inputs.
+- Record native Repeat reload and compiled port/bus diagnostics, keeping the
+  disconnected output nets and unresolved cause explicit.
+- Record the native Repeat PCB transfer's passing component counts, internal
+  nets and one-level UID paths, retaining the failing output bus as an open test.
+- Record native Repeat naming checks for eight designator formats and five room
+  styles; preserve the unresolved bus connectivity and mixed-style scope.
+- Archive completed `c0091-altium-verification-kit` and apply its validated requirements to the living specifications.
+- Reconcile c0091's first-run task with the committed 32-step native Altium kit
+  result; retain archive publication and write-kind graduation under c0092.
+- Record separate native acceptance repair commits and four validated OpenSpec
+  archives, retaining the remaining native, probe and dependency blockers.
+- Archive completed `c0158-equivalent-public` and apply its validated requirements to the living specifications.
+- Archive completed `c0157-yardstick-route-order` and apply its validated requirements to the living specifications.
+- Archive completed `c0156-kicad-cli-docker-user` and apply its validated requirements to the living specifications.
+- Archive completed `c0163-opaque-net-stored-name` and apply its validated requirements to the living specifications.
+- Record native ASCII CRLF/no-UID preservation and the LF-only import failure;
+  normalizing the authored LF control to CRLF preserves its eight components.
+- Record a complete current-kit native Altium 26.5 run: all 32 K1-K9 steps pass,
+  including ECO, full library update, repour, OutJob output and title rendering.
+  The broader native acceptance campaign and final quality gate remain open.
+- Refresh the authored SchLib goldens and their exact byte pins after footprint
+  model/owner repairs; preserve the scope of earlier native evidence.
+- Record background native Altium acceptance collection and Save As proofs:
+  21 boards inspected and 11 documents saved through authored runtime scripts,
+  with serialized jobs and unchanged inputs. A guarded retry resolves the initial
+  flat PCB parity finding; complete native campaign acceptance remains pending.
+- Development: the release record of `0.5.0` (`docs/release/v0.5.md`) and its guard (`tests/unit/test_release_record_v05.py`), the version `0.5.0` in the package, its alias and the alias pin, the README's "What version 0.5 does", the roadmap and the history row `v0.5.0` of the residue scan (c0171).
 
 ### Fixed
 
@@ -343,6 +197,83 @@ All notable changes to Fenolite are documented here. The format follows
 - `FENOLITE_KICAD_CLI=docker:<image>` works for any host user, root included (c0156): the container runs as the user that owns the run folder (`--user <uid>:<gid>`, or `0:0` under a rootless daemon) with `HOME` in the run's state folder. Before, the image's own user could not write the run folder of mode 0700, and `kicad-cli` printed "Permission denied" and wrote no report.
 - `tools/agent_eval`: on Windows a real runner started through a batch launcher (`claude.cmd`) got its prompt cut at the first line break by `cmd.exe`. A row can now give the prompt on standard input (`prompt_stdin = true`) or in a file (`{prompt_file}`); a `{prompt}` row whose program is a batch launcher is refused before anything is built, and the program is started as the file `PATH` names. POSIX runs are unchanged (c0081).
 - `tools/corpus_fetch.py` asks a host again after HTTP 429 (Too Many Requests) or a 500, 502, 503 or 504, waiting the server's `Retry-After` or a doubling pause from 5 s (at most 120 s, six attempts) (c0171). The `kicad-10` CI job lost up to 19 of its 400 rows to 429 when the cache key of the corpus changed (runs 38758153887 and 38767993162) and ran no test.
+- Altium to KiCad conversion writes copper pours whose Altium outline holds an arc vertex with the
+  flattened outline of the source record (5000 nm chord error, reported changed) instead of an empty
+  outline, on which KiCad 9.0.9 could not write a DRC report. All eight public PCB documents now load
+  with DRC in KiCad 9.0.9 and 10.0.6 and agree with KiCad 10.0.6's importer where it runs; the
+  conversion's KiCad hypotheses are KICAD-VERIFIED, the full probe-results gate remains for CI.
+- Declare the authored `examples/schematic_blocks/` scripts in the fixture manifest; the
+  committed-data test of `tests/corpus/test_manifest.py` failed on them since the dev merge.
+- Audit the historical v0.3 Altium release table against declarations extracted
+  from its exact tag, preserving its recorded counts as current claims evolve.
+- Classify the native DRC-report observation under the DRC hypothesis family,
+  preserving its scoped INFERRED result and the PCB export evidence guards.
+  Confirm the completed CI reported only the two corrected unit failures;
+  both pinned KiCad oracle jobs and both routing jobs passed.
+- Select direct corpus-board oracle tests by the actual board format version,
+  retaining KiCad-10 downgrade inputs without sending them unconverted to KiCad 9.
+- Record fake-router subprocess launches before loading the board model, keeping
+  sleeping/failing test modes independent of model import time and preserving
+  the production routing deadline checks. Test plugin scheduling with a controlled
+  clock while retaining the separate real-process deadline integration tests.
+- Connect repeated Altium sheet entries through a named scalar wire to their
+  ranged bus, so the native compiler joins each channel to its intended signal.
+  Import those bridges using their actual bus stem without creating empty nets;
+  preserve ambiguous inputs and genuine scalar nets. Native PCB transfer and
+  annotation reload confirm all eleven intended memberships.
+- Retain refuted Altium import hypotheses in the complete inventory while
+  excluding them from live evidence; verify complete, retired and active sets
+  against the register, with the fast quality gate passing.
+- Keep historical and successor annotation hypotheses in the aggregate Altium
+  import evidence inventory, preserving its complete coverage and lowest level.
+- Give generated harness projects explicit wire-label naming priority, removing
+  native multiple-name warnings while preserving all net memberships.
+- Keep physical PCB component/document identities fixed while correcting
+  multipart source-unit links. Refresh the two affected exact build pins.
+- Restore corpus parity lookup with POSIX manifest keys on Windows. Pin measured
+  KiCad importer free-pad wrapper counts and rotated-slot discrepancies after
+  confirming that native Altium retains the original slotted-hole dimensions.
+- Keep acceptance rebuild metadata filtering portable on Windows and expand the
+  guide oracle to cover both additional rules examples. SchLib oracle assertions
+  now check the inherited common footprint models while retaining source pins.
+- Match multipart Altium PCB components to the last emitted schematic unit ID,
+  preserving single-part output. Native comparison recognizes all 68 components
+  in the public hierarchical case without manual linking or footprint replacement.
+- Give the subprocess budget regression enough Windows startup time while still
+  proving deadline exhaustion and persistence of only the completed router run.
+- Set the via solder-mask cache to manual when a written side is tented, so
+  Altium's rule cache does not clear the requested tenting during opening/saving.
+  Untented via bytes remain unchanged; native Gerbers confirm all four mask cases.
+- Attach SchLib footprint models and pin maps to their parent records so native
+  full-symbol updates retain footprint associations and mapped connectivity.
+- Include the common component footprint in generated resolved SchLib symbols
+  without a default model. Native full replacement preserves the seven authored
+  kit components' footprint parity and LED pin mapping.
+- Correct the conversion census ledger for the public microwave board's two
+  modified POLY footprints; retain the exact report assertion and PCB geometry.
+- Reject error and fatal-error compile messages whose native class is bracketed
+  again by the Altium kit script; warning-only logs continue to pass.
+- Isolate the kit status no-record test from actual native run records committed
+  in the checkout; validate checked-in native records instead of requiring none.
+- Preserve KiCad pad copper offsets in Altium PCB conversion and derived PcbLibs,
+  including rotated pads and bottom-side instances, without editing source slots.
+  Native DRC on the public hierarchical case now reports zero clearance violations
+  instead of 23. Native repour/save now retains polygon fill; the other DRC
+  categories and remaining acceptance checks remain under investigation.
+- Preserve explicit KiCad no-connect pins when reading and converting schematics
+  to Altium, including the prepared netlist path. Isolated marked pins no longer
+  become named wired nets; a marked pin on an actual net remains a validation
+  conflict. The public hierarchical Part T case compiles in Altium 26.5.0 with
+  zero errors after this repair (18 warnings retained).
+- Declare the 72 existing authored KiCad downgrade fixtures in the data manifest,
+  including the recorded checksum of their measured DRC/ERC types. This repairs
+  the corpus-policy gate without changing fixture bytes.
+- Fix Altium Full Stack pad layer association: the first inner layer uses the main
+  middle geometry, while the 29 extended entries represent inner layers 2 through
+  30. The writer and reader now agree with that association; regression tests check
+  distinct first/second inner layers and the final inner layer independently of
+  round trips. Native Altium 26.5.0 inspection confirms the authored four-layer
+  PCB and placement from its PcbLib retain distinct first/second inner geometries.
 
 ## [0.4.0] - 2026-10-08
 
