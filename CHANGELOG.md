@@ -6,6 +6,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Declare the authored `examples/schematic_blocks/` scripts in the fixture manifest; the
+  committed-data test of `tests/corpus/test_manifest.py` failed on them since the dev merge.
+
 - Reconcile Altium limits, milestone status and the five acceptance criteria with
   measured kit/corpus results; preserve the unmet write-promotion criterion and
   prepare the maintainer review without claiming acceptance or archive.

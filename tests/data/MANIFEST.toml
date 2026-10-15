@@ -2181,3 +2181,15 @@ path = "examples/acceptance_v03/acceptance.sheet.toml"
 origin = "authored"
 corpus_id = ""
 notes = "Byte-identical copy of the Fenolite CC0 generic sheet template; public provenance S-0077 and S-0078 retained"
+
+[[file]]
+path = "examples/schematic_blocks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "CC0 schematic block composition example over grid.py; presentation intent only, all values Fenolite choices"
+
+[[file]]
+path = "examples/schematic_blocks/grid.py"
+origin = "authored"
+corpus_id = ""
+notes = "CC0 authored signal chain without external libraries; all values Fenolite choices"
