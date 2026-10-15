@@ -1,5 +1,8 @@
 # Building for Altium (experimental)
 
+For saving presentation edits made in Altium Designer and replaying them on rebuilds, see
+[Native Altium schematic layout](altium-schematic-layout.md).
+
 `fenolite build design.py --out DIR --target altium` builds a DSL design into an Altium Designer project
 instead of a KiCad project: a project file `<name>.PrjPcb`, a schematic `<name>.SchDoc`, in Altium's
 binary form by default or in its ASCII form with `--altium-format ascii` (see "Schematic forms"), and one

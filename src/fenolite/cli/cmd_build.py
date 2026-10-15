@@ -112,6 +112,7 @@ from fenolite.dsl import (
     pad_zones,
     placements,
     planes,
+    schematic_composition,
     stackup_locked,
     to_model,
     via_protection_locked,
@@ -316,6 +317,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="readable (default): one sheet per module under DIR/sheets/, and 2-pin parts beside the IC "
         "pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form "
         f"of v0.2a; a usage error with --target {ALTIUM_TARGET}",
+    )
+    parser.add_argument(
+        "--altium-layout",
+        choices=("grid", "blocks"),
+        default=None,
+        help="Altium arrangement: grid preserves legacy layout; blocks composes functional blocks",
     )
 
 
@@ -664,7 +671,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     read = depends_on(
         ctx.cwd, args.design, getattr(args, "copper_from", None), getattr(args, "altium_template", None)
     )
-    return dataclasses.replace(_built(args, ctx), depends=read)
+    built = _built(args, ctx)
+    return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
 
 
 def _built(args: argparse.Namespace, ctx: Context) -> Result:
@@ -695,6 +703,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
+    if args.altium_layout is not None and args.target != ALTIUM_TARGET:
+        raise CliError("FEN-2001", "--altium-layout requires --target altium", where="--altium-layout")
     for option, value in (
         ("--altium-outjob", args.altium_outjob),
         ("--altium-outjob-preset", args.altium_outjob_preset),
@@ -768,7 +778,15 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             )
     run = run_design_script(script_path)
     design = run.design
+    if args.altium_layout == "grid" and (design.schematic_flow is not None or design.schematic_blocks):
+        raise CliError(
+            "FEN-2001",
+            "--altium-layout grid contradicts the script's block composition",
+            where="--altium-layout",
+            hint="select blocks or remove the script's layout declarations",
+        )
     try:
+        schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
         model = to_model(design)
         requested = placements(design)
         aliases = moves(design)
@@ -1180,6 +1198,9 @@ def _run_altium(
             bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
             authored_symbols=authored_symbols,
             heights=heights(run.design),
+            composition=schematic_composition(
+                run.design, target="altium", enabled=args.altium_layout == "blocks"
+            ),
         )
     files = dict(built.files)
     native_info: dict[str, object] | None = None
@@ -1222,6 +1243,30 @@ def _run_altium(
                 "pages": [str(out / rel) for rel in applied],
                 "evidence": "INFERRED",
             }
+    from fenolite.cli.altium_schematic_layout import prepare_files
+    from fenolite.lens.altium_schematic import FILE_NAME as ALTIUM_LAYOUT_FILE
+    from fenolite.lens.altium_schematic import LayoutConflict
+
+    layout_path = script_path.resolve().parent / ALTIUM_LAYOUT_FILE
+    layout_issues: tuple[Issue, ...] = ()
+    native_forms: dict[str, SchematicForm] = {}
+    if files:
+        snapshot = layout_path.read_text(encoding="utf-8") if layout_path.is_file() else None
+        try:
+            files = prepare_files(files, snapshot)
+            if snapshot is not None:
+                from fenolite.backends.altium.read import sch as native_sch
+
+                for relative, data in files.items():
+                    if relative.startswith(".fenolite/") or not relative.lower().endswith(".schdoc"):
+                        continue
+                    actual = native_sch.detect(data)
+                    if actual not in ("ascii", "binary"):
+                        raise FormatError("saved layout is not a schematic document", file=relative)
+                    native_forms[relative] = actual
+        except LayoutConflict as error:
+            layout_issues = error.issues
+            files = {}
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
@@ -1234,7 +1279,7 @@ def _run_altium(
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
-        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, form))
+        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, native_forms.get(rel, form)))
         for rel, data in sorted(files.items())
     )
     summary = built.summary
@@ -1269,6 +1314,12 @@ def _run_altium(
         result["copper_input"] = copper_input
     if native_info is not None:
         result["native_template"] = native_info
+    if native_forms:
+        result["schematic_layout"] = {"file": str(layout_path), "formats": dict(sorted(native_forms.items()))}
+    from fenolite.schematic.report import REPORT_FILE
+
+    if REPORT_FILE in files:
+        result["schematic_composition"] = json.loads(files[REPORT_FILE])
     data = script_path.read_bytes()
     evidence = built.evidence
     if board_path is not None:
@@ -1281,7 +1332,7 @@ def _run_altium(
         evidence = Evidence.combine(evidence, native_evidence)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues),
+        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),
@@ -1290,6 +1341,7 @@ def _run_altium(
             format_version=None,
         ),
         writes=writes,
+        depends=depends_on(ctx.cwd, layout_path),
     )
 
 

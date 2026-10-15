@@ -157,7 +157,7 @@ command lines, which the tests run.
 `recovery` when a command exits with a code that is not 0.
 
 <!-- pages:begin -->
-- `altium`: build --target altium, what it writes, the status of each written file kind as capabilities reports it, and the kit that a person runs.
+- `altium`: Altium builds, blocks, native sync, evidence and the verification kit.
 - `checks`: The stages of check, how to read an issue and explain it, evidence levels, keeping replies small, the netlist, parity and doctor.
 - `commands`: The complete list: each public command, whether it writes, and every argument with its help.
 - `design-script`: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.

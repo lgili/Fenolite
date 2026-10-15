@@ -331,6 +331,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `binary` | `EVIDENCE` INFERRED: `H-A-SCHBIN-AD`, `H-A-SCHBIN-CFB`, `H-A-SCHBIN-FRAME`, `H-A-SCHBIN-STORAGE`, `H-A-SCHBIN-VIEWER` |
 | `bodydiff` | see `roundtrip` |
 | `cfb` | see `binary`, `pcbdoc`, `pcblib`, `schlib` |
+| `composition` | see `project` |
 | `docboard` | see `pcbdoc` |
 | `docset` | see `import_evidence` |
 | `frame` | `EVIDENCE` INFERRED: `H-A-IMP-FRAME`, `H-A-IMP-PADSTACK` |
@@ -383,6 +384,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `schdot` | `EVIDENCE` INFERRED: `H-A-SCHDOT-OPEN`, `H-A-SCHDOT-READBACK`, `H-A-SCHDOT-STRINGS` |
 | `schlib` | `EVIDENCE` INFERRED: `H-A-SCHLIB-IMPLIDX`, `H-A-SCHLIB-KICAD`, `H-A-SCHLIB-OPEN`, `H-A-SCHLIB-PARTS`, `H-A-SCHLIB-PIN`, `H-A-SCHLIB-PINBITS`, `H-A-SCHLIB-SECTIONKEY`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-READBACK` |
 | `symbols` | see `project` |
+| `verification` | see `project` |
 
 ### `fenolite.backends.kicad`
 

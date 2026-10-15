@@ -1,5 +1,10 @@
 # Roadmap to 1.0
 
+Additional work implemented and archived on 2026-10-12: c0164 adds native Altium schematic layout
+capture and replay with conservative source-conflict refusal
+(`openspec/changes/archive/2026-10-12-c0164-altium-schematic-layout/`). Its synthetic checks establish
+the workflow; independent full-suite failures remain recorded, and native Altium GUI acceptance is unmeasured.
+
 Status on 2026-10-09. Released: `0.0.1.dev0` (2026-09-30, pre-alpha), `v0.1.0` (2026-10-05) and
 `v0.2.0` (2026-10-06), one release for v0.2a (c0060–c0068) and v0.2b (c0069–c0074), with the
 maintainer's verdict in `docs/release/v0.2.md` (change c0093), and `v0.2.1` (2026-10-07), the first

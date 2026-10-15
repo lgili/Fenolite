@@ -24,6 +24,7 @@ from typing import Literal
 from fenolite.backends.altium.altsym import DOWN, LEFT, RIGHT, UP, AltiumPin, AltiumSymbol
 from fenolite.backends.altium.symbols import CHAR_WIDTH, GRID, PIN_PITCH
 from fenolite.geometry.shelf import shelf_pack
+from fenolite.schematic.composition import CompositionPlan, rotate
 
 MARGIN = 500
 """Free border inside the drawing area, on each side."""
@@ -139,10 +140,13 @@ class PlacedPart:
     y: int
     cell: tuple[int, int, int, int]
     part: int = 1
+    rotation: int = 0
+    fields: tuple[tuple[int, int], tuple[int, int]] | None = None
 
     def at(self, sx: int, sy: int) -> tuple[int, int]:
         """A symbol point (Y upwards) in the layout frame."""
-        return self.x + sx, self.y - sy
+        dx, dy = rotate((sx, -sy), self.rotation)
+        return self.x + dx, self.y + dy
 
 
 @dataclass(frozen=True)
@@ -371,6 +375,7 @@ class SheetPlan:
     buses: tuple[BusBlock, ...] = ()
     """The bus blocks in cells of their own (change c0086): the buses with a pin on this sheet that no
     port and no sheet entry of the sheet carries. The blocks of ports and sheet entries are theirs."""
+    composition: CompositionPlan | None = None
 
     @property
     def bus_blocks(self) -> tuple[BusBlock, ...]:

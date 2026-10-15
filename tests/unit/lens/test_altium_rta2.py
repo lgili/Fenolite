@@ -46,6 +46,8 @@ SCHEMATIC_ONLY = {
     "altium_kicad/design.py",
     "altium_kicad/no_connect.py",
     "altium_sample/design.py",
+    "schematic_blocks/design.py",
+    "schematic_blocks/grid.py",
 }
 REFUSED = {
     "yardstick/design.py": (

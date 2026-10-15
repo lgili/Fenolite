@@ -2963,3 +2963,58 @@ see = "place"
 meaning = "A supplied pad-distance objective is unmet or unknown."
 fix = "Review the named pad identities and distance target; routing remains a separate stage."
 see = "place"
+
+["build.altium-layout-conflict"]
+meaning = "A saved native schematic sheet no longer matches the fresh generated baseline, or was removed. No output is written."
+fix = "Keep the native layout snapshot and resolve the source change. To deliberately regenerate, archive altium-schematic-layout.json and build into a new folder; --discard-layout does not bypass a source snapshot."
+see = "build"
+
+["sync.altium-connectivity-changed"]
+meaning = "Native schematic edits changed component identities, symbol assignments, parameters or electrical connectivity."
+fix = "Resolve the difference between the saved sheets and the Python circuit before synchronising."
+see = "sync"
+
+["sync.altium-unverified"]
+meaning = "The generated baselines or edited sheets are incomplete, altered or unresolved, or the project sheet list or netlist options changed."
+fix = "Restore the complete generated project, retain component IDs and resolve reader findings before synchronising."
+see = "sync"
+
+["composition.invalid-intent"]
+meaning = "Block declarations or sheet membership conflict."
+fix = "Resolve the named members, anchors or ordering."
+see = "build"
+
+["composition.overflow"]
+meaning = "A block cannot fit the selected paper."
+fix = "Choose a larger sheet or split the functional blocks."
+see = "build"
+
+["composition.overlap"]
+meaning = "Computed presentation geometry intersects occupied content."
+fix = "Separate the named blocks or simplify their contents."
+see = "build"
+
+["composition.template-unverified"]
+meaning = "Template occupancy cannot be verified."
+fix = "Use a template with bounded graphics and text."
+see = "build"
+
+["composition.transform-unsupported"]
+meaning = "A symbol transformation cannot preserve its geometry."
+fix = "Use a supported symbol or retain its original orientation."
+see = "build"
+
+["composition.connectivity-changed"]
+meaning = "The composed native schematic changes electrical meaning."
+fix = "Report the named net or pin as a generator defect."
+see = "build"
+
+["composition.budget-exhausted"]
+meaning = "Deterministic placement search exhausted its candidate budget."
+fix = "Reduce sheet congestion or split blocks."
+see = "build"
+
+["composition.label-fallback"]
+meaning = "A local wire could not be drawn safely; labels retain the net."
+fix = "Inspect the named endpoints in the generated preview."
+see = "build"

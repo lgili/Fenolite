@@ -13,6 +13,7 @@ from _preserve_help import board_text
 
 from fenolite.dsl import BOARD_ORIGIN, Design, module_moves, moves, net_moves, placements, to_model
 from fenolite.lens import preserve
+from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.moved import Aliases
 from fenolite.lens.placements import read_placements
 from fenolite.lens.preserve import ExistingProject
@@ -144,7 +145,7 @@ def test_closed_set() -> None:
     assert produced == set(SYNC_ISSUE_CODES)
     source = (ROOT / "src" / "fenolite").rglob("*.py")
     used = {code for path in source for code in CODE.findall(path.read_text(encoding="utf-8"))}
-    assert used == set(SYNC_ISSUE_CODES)
+    assert used == set(SYNC_ISSUE_CODES) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("sync.")}
 
 
 def test_symbol_placements_are_planned_with_the_sheets() -> None:

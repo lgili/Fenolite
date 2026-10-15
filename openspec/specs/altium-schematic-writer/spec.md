@@ -2,9 +2,7 @@
 
 ## Purpose
 Write Altium schematic files from a model `Design` as pure functions that return bytes: the records and keys of a sheet, the component bodies, designators and library links, the connectivity drawn on the sheet, the deterministic layout, the stable unique ids and the project file. Every fact comes from public sources recorded in `docs/formats/altium/`; the writer opens no file and starts no process.
-
 ## Requirements
-
 ### Requirement: Altium writer package
 `fenolite.backends.altium` SHALL provide `project.write_project(design, *, name, project=True, issues=None, form=DEFAULT_FORM, symbols=None) -> dict[str, bytes]`, which returns `<name>.SchDoc`, one `<library>.SchLib` per library that the components' lib ids name ("Schematic library file") and, when `project` is true, `<name>.PrjPcb`, for a model `Design` whose components hold their pins, and writes no file. `symbols` maps each lib id of the design to its `altsym.AltiumSymbol`; a lib id missing from it, or `symbols=None`, gets its generic symbol ("Generic library symbols").
 - The package MUST import only `fenolite.core` and `fenolite.model`, and MUST NOT open a file, start a process or read the environment. It MUST NOT resolve a library: `lens.altium` passes the resolved symbols in.
@@ -1031,3 +1029,26 @@ Each property of a part that the writer does not already write as a record of it
 - **GIVEN** a part with the property `MPN` = `X-1`
 - **WHEN** the design is built in each form and read back
 - **THEN** the component holds a hidden parameter `MPN` with the value `X-1`, and the read component holds the property
+
+### Requirement: Opt-in composed native schematic output
+`project.write_project` and `lens.altium.build_altium` SHALL accept optional composition intent.
+`project.plan_sheet` and `hierarchy.plan_sheets` SHALL integrate it after existing sheet assignment.
+Both native forms MUST preserve IDs, symbols, pins, footprint maps, parameters, no-connects, class
+directives, buses and harnesses while applying verified presentation transforms and local wires.
+Absent intent MUST retain the existing deterministic cell-layout requirements.
+
+#### Scenario: ASCII and binary electrical agreement
+- **GIVEN** an authored composed project with rotated passives, text, no-connects and net classes
+- **WHEN** it is written in ASCII and binary and read back
+- **THEN** both forms have the source circuit's electrical signature and equivalent emitted geometry
+
+#### Scenario: Module hierarchy with composition
+- **GIVEN** an authored module tree with ports and harness entries
+- **WHEN** its sheets are composed
+- **THEN** each unit retains its original sheet and hierarchy connectivity, and interface geometry
+  is included in placement collision checks
+
+#### Scenario: Unsupported transform
+- **GIVEN** a symbol primitive whose requested transformation cannot be preserved by the writer
+- **WHEN** the composed plan is lowered
+- **THEN** it reports the unsupported transform without dropping or substituting symbol geometry

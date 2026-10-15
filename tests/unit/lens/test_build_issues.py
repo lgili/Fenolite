@@ -14,6 +14,7 @@ from _buildhelp import blink, build, codes
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
+from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone
@@ -69,7 +70,7 @@ def test_closed_set() -> None:
         literals |= set(
             re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
-    assert literals == set(table)
+    assert literals == set(table) | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"

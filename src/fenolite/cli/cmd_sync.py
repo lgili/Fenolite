@@ -42,11 +42,18 @@ KIND = "placements-toml"
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = (
-        HELP + ". Writes placements.toml beside DESIGN.py; build reads it. --check writes nothing and "
+        HELP + ". KiCad writes placements.toml; Altium captures native schematic layout beside DESIGN.py. "
+        "Build reads these files. --check writes nothing and "
         "exits 5 when the file would change."
     )
     parser.add_argument("design", metavar="DESIGN.py", help="the design script (executed in-process)")
     parser.add_argument("--out", required=True, metavar="DIR", help="the built project folder to read")
+    parser.add_argument(
+        "--target",
+        choices=("kicad", "altium"),
+        default="kicad",
+        help="the backend to synchronise (default kicad)",
+    )
     parser.add_argument(
         "--to-source",
         action="store_true",
@@ -104,6 +111,17 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     out_dir = out if out.is_absolute() else ctx.cwd / out
     run = run_design_script(script_path)
     design = run.design
+    if args.target == "altium":
+        from fenolite.cli.altium_schematic_layout import sync_native
+
+        return sync_native(
+            name=design.name,
+            script=script_path,
+            out=out_dir,
+            ctx=ctx,
+            check=bool(args.check),
+            script_output=run.output,
+        )
     try:
         model, _defaulted = apply_default_pad_maps(
             to_model(design), authored_symbols=design.symbols, authored_footprints=design.footprints

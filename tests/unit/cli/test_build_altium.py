@@ -23,7 +23,13 @@ GOLDEN = ROOT / "tests" / "data" / "altium" / "sample"
 BLINK = ROOT / "examples" / "blink_2layer" / "design.py"
 CACHE = (".fenolite/board.json", ".fenolite/build.json", ".fenolite/circuit.json", ".fenolite/findings.json",
          ".fenolite/manufacturing.json", ".fenolite/meta.json", ".fenolite/rules.json")  # fmt: skip
-PLANNED = ("altium_sample.PrjPcb", "altium_sample.SchDoc", "FenoliteSample.SchLib", *CACHE)
+PLANNED = (
+    "altium_sample.PrjPcb",
+    "altium_sample.SchDoc",
+    "FenoliteSample.SchLib",
+    *CACHE,
+    ".fenolite/altium-generated/altium_sample.SchDoc",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -333,11 +339,24 @@ def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert {kinds[name] for name in HIER_HARNESSES} == {"altium_harness"}
     assert {kinds[name] for name in HIER_SHEETS} == {"altium_schdoc_binary"}
     assert all((out / name).read_bytes() == b"SPI=CS,MISO,MOSI,SCK\r\n" for name in HIER_HARNESSES)
-    expected = [*HIER_SHEETS, *HIER_HARNESSES, "altium_hier.PrjPcb", "FenoliteHier.SchLib", *CACHE]
+    expected = [
+        *HIER_SHEETS,
+        *HIER_HARNESSES,
+        "altium_hier.PrjPcb",
+        "FenoliteHier.SchLib",
+        *CACHE,
+        *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+    ]
     assert files_under(out) == sorted(expected)
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
     assert sorted(record["files"]) == sorted(
-        [*HIER_SHEETS, *HIER_HARNESSES, "altium_hier.PrjPcb", "FenoliteHier.SchLib"]
+        [
+            *HIER_SHEETS,
+            *HIER_HARNESSES,
+            "altium_hier.PrjPcb",
+            "FenoliteHier.SchLib",
+            *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+        ]
     )
     ascii_args = ("--out", str(tmp_path / "A"), *MODULES, "--altium-format", "ascii", "--dry-run")
     code, env, _ = run(monkeypatch, str(HIER), *ascii_args)
@@ -397,7 +416,12 @@ def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_
     assert (out / "altium_hier_flash.SchDoc").read_bytes() == module_sheet, "left in place"
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
     # the kept project file is still as the first build wrote it and stays in the record (change c0138)
-    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.PrjPcb", "altium_hier.SchDoc"]
+    assert sorted(record["files"]) == [
+        ".fenolite/altium-generated/altium_hier.SchDoc",
+        "FenoliteHier.SchLib",
+        "altium_hier.PrjPcb",
+        "altium_hier.SchDoc",
+    ]
 
 
 @pytest.mark.parametrize("name", ["altium_hier_mcu.SchDoc", "altium_hier_flash.Harness"])

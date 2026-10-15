@@ -157,5 +157,11 @@ The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and 
 | c0161 | `convert-to-kicad` | v0.5a: Altium to KiCad, with the refusal of items on layers a KiCad board does not declare | c0159, c0043 |
 | c0162 | `kicad-downgrade` | v0.5a: the controlled KiCad downgrade (capability resolver) through `fenolite convert` | c0159, c0007 |
 | c0163 | `opaque-net-stored-name` | correction (found while c0162 was written; the maintainer's decision of 2026-10-09): a numbered net reference inside opaque content resolves to the stored name of its net, so a board whose teardrops are on a net stored with `{slash}` (`RoyalBlue54L-Feather`) is written for its own target 9 instead of refused, and named rightly for 10 | c0017, c0061 |
+| c0164 | `altium-schematic-layout` | native schematic layout capture through Altium sync, byte-exact replay and conservative source conflicts | c0032, c0040, c0043, c0069 |
+| c0164 | `native-altium-template` | duplicate id (found at the 2026-10-15 merge of `dev` into `codex/c0161-c0092-integration`): both branches archived a c0164 on 2026-10-12; this one, archived as `archive/2026-10-12-c0164-native-altium-template`, applies a native binary `.SchDot` sheet template to every generated Altium schematic (`build --altium-template`); dev's c0164 is `altium-schematic-layout` above. Both archived folders are kept unchanged; the maintainer decides the renumbering | c0046 |
+| c0165 | `schematic-block-composition` | archived implementation: functional blocks, automatic flow/alignment, bounded wiring and generated-baseline reports/previews; repository gate and native GUI review pending (see archived tasks) | c0164, c0032, c0037, c0086 |
+| c0166 | `altium-native-acceptance` | the maintainer's authorization: consolidate the pending native Altium checks (0.2 line through c0160), run them on the licensed Windows PC, record the results and fix the defects found | c0091, c0092, c0160 |
+
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0167.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

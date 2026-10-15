@@ -11,7 +11,9 @@ of every file of their Altium builds with a fixed seed and timestamp, recorded o
 table again and says so in its own notes. Recorded again when c0140 was stacked on v0.4 after its rebase
 onto 0.3.0, on the commit before c0140 there (the c0118 commit): 0.3.0 changed the Altium build (c0146's
 font table and c0148's pin bits move the ``.SchDoc`` and ``.SchLib``; c0126 stores footprint items in
-``.fenolite/board.json``, and ``build.json`` follows), and the build with c0140 gives the same table."""
+``.fenolite/board.json``, and ``build.json`` follows), and the build with c0140 gives the same table.
+Change c0164 adds generated schematic baselines and updates only their build receipts; the native
+document hashes remain unchanged. Those extra files and receipt hashes were recorded on 2026-10-12."""
 
 from __future__ import annotations
 
@@ -31,11 +33,15 @@ from fenolite.model import canonical
 ROOT = Path(__file__).resolve().parents[3]
 EXAMPLES = ROOT / "examples"
 SCRIPTS = ("blink_2layer", "blink_routed")
-# c0166: SchLib model owners/common footprint models; build.json follows the file digest.
+# c0166: SchLib model owners/common footprint models; c0164: generated baselines; build.json
+# follows both file digests.
 RECORDED: dict[str, dict[str, str]] = {
     "blink_2layer": {
+        ".fenolite/altium-generated/blink.SchDoc": (
+            "9707faf2c4ccf508e1c57256de9dfcdda838a42c2165e99c23c489133d19aca4"
+        ),
         ".fenolite/board.json": "c5eda4a1cdb0bf5a03f747d3e17c6609e64a7a63f6d8a1c6a0b4762c001af202",
-        ".fenolite/build.json": "3d697f8ece15eb2cb2e0f229ebbc73ce81a52cb040576af99586bd0b8239a3f6",
+        ".fenolite/build.json": "b642440c04ab705dd8e02697b1409a03a583ef27b30dc49e3b9bfb4d9cb50887",
         ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
@@ -49,8 +55,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "blink.SchLib": "4f427227183102b479836e66d54a7a3cc0bae5794befc4d8a5a7e15362609517",
     },
     "blink_routed": {
+        ".fenolite/altium-generated/blink_routed.SchDoc": (
+            "c1c352438adcc9e0ff6ae003fb9123f5a83bf3e06f42de6f7f448da0b56b29a6"
+        ),
         ".fenolite/board.json": "e461b091e03652df7adee52a7e8070ab479270efb12fcf9b47ab0cf7866f2ceb",
-        ".fenolite/build.json": "a1fa2b90ba09888f8b17adae2e55df6adaf6ad4c432b45ab17bb0480d92210a5",
+        ".fenolite/build.json": "5e6a60c6aef0eddf822092367af734a0deb24a77bd93de0bdd39b117673ff79b",
         ".fenolite/circuit.json": "b65a512b111fb99b619e4622bd5cb7f4fb5d9107ced2d6a9425a6e178e01ee7f",
         ".fenolite/findings.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
         ".fenolite/manufacturing.json": "2a4f17be347dc9e374fe86cb3576b7faf3d4d15113620b0578b6dfd8019fc358",
