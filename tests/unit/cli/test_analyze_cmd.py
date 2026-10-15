@@ -179,6 +179,23 @@ def test_missing_board(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert code == 3 and err["code"] == "FEN-3001"
 
 
+def test_overlapping_cutouts_without_the_geo_extra(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A model outline whose cut-outs or slots overlap needs the geo extra for its boundary (change c0167):
+    ``geometry.backend-unavailable`` with exit 6; the kind ``current`` needs no boundary and runs."""
+    from fenolite.analysis.boundary import BoardBoundary
+    from fenolite.cli import cmd_analyze
+
+    def overlapping(*args: object, **kwargs: object) -> BoardBoundary:
+        return BoardBoundary(problem="overlap-needs-geo")
+
+    monkeypatch.setattr(cmd_analyze, "board_boundary", overlapping)
+    code, _, err = analyze(monkeypatch, tmp_path, str(FIXTURE), "--kinds", "creepage")
+    assert code == 6 and err["code"] == "FEN-6001"
+    assert err["where"] == "geometry.backend-unavailable" and "fenolite[geo]" in err["hint"]
+    code, _, _ = analyze(monkeypatch, tmp_path, str(FIXTURE), "--kinds", "current", "--temp-rise", "10")
+    assert code == 0
+
+
 # -- thicknesses from the stack-up (capability board-analyses, "Stack-up thicknesses in analyze"; c0101)
 
 

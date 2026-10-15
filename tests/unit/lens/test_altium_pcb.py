@@ -1099,6 +1099,28 @@ def test_an_outline_with_arcs_no_document(tmp_path: Path) -> None:
     assert "arcs" in found.message and output.summary["pcb_document"] is None
 
 
+def test_a_milled_slot_plans_no_document(tmp_path: Path) -> None:
+    """Change c0167, Decision 9: an outline with slots plans no PCB document, as one with cut-outs, until
+    c0168 writes both as board cut-out regions; the lowering of a model reports the slots it skips."""
+    from fenolite.backends.altium import lower
+    from fenolite.dsl import to_model
+
+    slotted = (
+        "design.board(mm(50), mm(30))\ndesign.slot(mm(40), mm(15), length=mm(8), width=mm(2), name='V')\n"
+    )
+    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", slotted)
+    assert not [i for i in output.issues if i.severity == "error"]
+    assert "blink.PcbLib" in output.files and "blink.PcbDoc" not in output.files
+    (found,) = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    assert "milled slots" in found.message and "slot V" in found.message
+    board = to_model(blink("design.board(mm(50), mm(30))\n", slotted)).board
+    assert board is not None
+    account = lower._Account()  # pyright: ignore[reportPrivateUsage]
+    lower._outline(board, account)  # pyright: ignore[reportPrivateUsage]
+    reasons = account.lost["outline"]
+    assert reasons == {"the milled slots of the outline are not written: slot V": [board.outline.id]}  # type: ignore[union-attr]
+
+
 def test_a_round_board_names_its_arcs_not_a_missing_outline(tmp_path: Path) -> None:
     round_board = (
         "from fenolite.dsl import shape\ndesign.board(outline=shape.circle(mm(25), mm(15), mm(60)))\n"

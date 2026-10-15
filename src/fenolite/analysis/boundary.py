@@ -3,11 +3,13 @@
 """The boundary of a board for the distance analyses: the outer ring, the cut-outs and the thickness
 (capability board-analyses, "Board boundary").
 
-From ``Board.outline`` when the model has one, its arcs (``Outline.arcs``) polygonised; otherwise from the
-graphics on the layer of kind ``edge``, chained by exact endpoint equality with
-``geometry.assemble_rings``. Curved edges are polygonised, and ``band`` bounds that approximation. A board
-without a closed outline gives ``source == "none"``: this function never raises on what it finds. No
-thickness is assumed.
+From ``Board.outline`` when the model has one, its arcs (``Outline.arcs``) polygonised, its slots taken as
+cut-outs and overlapping cut-outs and slots merged (``model.outline.outline_items`` and
+``geometry.rings.merge_groups``, change c0167); otherwise from the graphics on the layer of kind ``edge``,
+chained by exact endpoint equality with ``geometry.assemble_rings``. Curved edges are polygonised, and
+``band`` bounds that approximation. A board without a closed outline, or whose cut-outs and slots overlap
+without a backend to unite them, gives ``source == "none"``: this function never raises on what it finds.
+No thickness is assumed.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from fenolite.core.units import Nm
 from fenolite.geometry import (
     DEFAULT_TOL,
     Arc,
+    BackendUnavailable,
     Circle,
     GeometryError,
     Location,
@@ -28,22 +31,29 @@ from fenolite.geometry import (
     assemble_rings,
     point_in_ring,
 )
+from fenolite.geometry.rings import CurvedRing, merge_groups
 from fenolite.model.board import Board, Graphic, Outline
+from fenolite.model.outline import outline_items
 
 Ring = tuple[Point, ...]
 Source = Literal["model", "edge", "none"]
+OVERLAP_NEEDS_GEO = "overlap-needs-geo"
+"""``BoardBoundary.problem`` when cut-outs or slots of the model overlap and no installed backend unites
+them (the ``geo`` extra is missing)."""
 
 
 @dataclass(frozen=True, slots=True)
 class BoardBoundary:
     """``outer`` and ``cutouts`` are rings without a closing copy of their first point. ``band`` is the
-    bound in nanometres of the approximation of curved edges, 0 for a polygonal boundary."""
+    bound in nanometres of the approximation of curved edges, 0 for a polygonal boundary. ``problem`` is
+    ``None`` or a short reason why ``source`` is ``none`` (``overlap-needs-geo``)."""
 
     outer: Ring = ()
     cutouts: tuple[Ring, ...] = ()
     thickness: Nm | None = None
     band: int = 0
     source: Source = "none"
+    problem: str | None = None
 
     def rings(self) -> tuple[Ring, ...]:
         return (self.outer, *self.cutouts) if self.outer else ()
@@ -135,13 +145,32 @@ def _model_ring(outline: Outline, index: int, arc_tol: int) -> tuple[Ring, bool]
     return _clean(tuple(points)), curved
 
 
+def _model_cutouts(outline: Outline, arc_tol: int) -> tuple[list[tuple[Ring, bool]], bool]:
+    """The cut-outs and the slots' stadiums of ``outline``, overlapping ones merged, each polygonised at
+    ``arc_tol`` with whether it holds an arc, and whether a union was needed and no backend gave it."""
+    if not outline.slots and len(outline.cutouts) < 2:
+        return [_model_ring(outline, k + 1, arc_tol) for k in range(len(outline.cutouts))], False
+    rings = [CurvedRing(item.points, item.mids) for item in outline_items(outline)[1:]]
+    try:
+        groups = merge_groups(rings)
+    except BackendUnavailable:
+        return [], True
+    except GeometryError:  # a union that encloses board: the rings are taken as they are
+        merged = rings
+    else:
+        merged = [group.ring for group in groups]
+    return [(_clean(ring.polygonize(arc_tol)), bool(ring.arcs())) for ring in merged], False
+
+
 def board_boundary(board: Board, *, arc_tol: int = DEFAULT_TOL, thickness: Nm | None = None) -> BoardBoundary:
     """The boundary of ``board``: from its outline, else from its edge graphics, else ``source`` ``none``."""
     thick = _thickness(board, thickness)
     if board.outline is not None:
         outer, bent = _model_ring(board.outline, 0, arc_tol)
         if len(outer) >= 3:
-            found = [_model_ring(board.outline, k + 1, arc_tol) for k in range(len(board.outline.cutouts))]
+            found, needs_geo = _model_cutouts(board.outline, arc_tol)
+            if needs_geo:
+                return BoardBoundary(thickness=thick, problem=OVERLAP_NEEDS_GEO)
             cutouts = tuple(ring for ring, _ in found if len(ring) >= 3)
             curved = bent or any(flag for ring, flag in found if len(ring) >= 3)
             return BoardBoundary(outer, cutouts, thick, arc_tol + 1 if curved else 0, "model")
@@ -161,4 +190,4 @@ def board_boundary(board: Board, *, arc_tol: int = DEFAULT_TOL, thickness: Nm | 
     return BoardBoundary(outer, tuple(sorted(inside, key=min)), thick, arc_tol + 1 if curved else 0, "edge")
 
 
-__all__ = ["BoardBoundary", "board_boundary"]
+__all__ = ["OVERLAP_NEEDS_GEO", "BoardBoundary", "board_boundary"]

@@ -58,6 +58,7 @@ from fenolite.model.board import (
 from fenolite.model.circuit import Component, Net, Pin
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
+from fenolite.model.outline import slot_name
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3", "H-A-VER-RTA3"))
 """The lowering is checked by Fenolite's own readers only: the documents it gives are read back and
@@ -614,6 +615,11 @@ def _outline(board: Board, account: _Account) -> tuple[Point, ...]:
     if board.outline is not None and len(_open(board.outline.points)) >= 3:
         if board.outline.cutouts:
             account.skip("outline", board.outline.id, "the cut-outs of the outline are not written")
+        if board.outline.slots:  # change c0167; c0168 writes them as board cut-out regions
+            names = ", ".join(slot_name(slot) for slot in board.outline.slots)
+            account.skip(
+                "outline", board.outline.id, f"the milled slots of the outline are not written: {names}"
+            )
         return _open(board.outline.points)
     ring = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
     if ring:

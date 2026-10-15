@@ -74,6 +74,7 @@ from fenolite.model.board import PPM_PER_PERCENT, ComponentBody, FootprintInstan
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.outline import slot_name
 from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
 from fenolite.schematic.composition import CompositionError, fail
 from fenolite.schematic.intent import CompositionIntent
@@ -1064,6 +1065,10 @@ def lowered_pcb(
         reason = "the design has no board outline"
     elif board.outline.cutouts:
         reason = "the board outline has cutouts, which the document does not write"
+    elif board.outline.slots:
+        # change c0167: a milled slot is a cut-out of the outline; c0168 writes both as board cut-out regions
+        reason = "the board outline has milled slots, which the document does not write"
+        concerned = [slot_name(slot) for slot in board.outline.slots]
     else:
         altium = [c.ref for c in with_links if footprint_source(c.lib_footprint_ref) == "altium"]
         missing = [
