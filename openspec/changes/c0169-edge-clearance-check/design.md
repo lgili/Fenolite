@@ -94,7 +94,7 @@ Cut order: (1) `copper.hole-overlap`; (2) `EdgeClearanceExplanation` grouping be
 
 ## Open questions
 
-1. **Should edge findings stop a build through the copper guard?** Recommended: yes, with the rule's severity, as clearance findings do; the examples are fixed first.
-2. **Should copper wholly outside the board be a finding of its own?** Recommended: no; c0102 drops it on outline changes and KiCad reports nothing for it.
-3. **Should Fenolite judge `hole_to_hole` and `hole_clearance` values?** Recommended: not in this change; a follow-up when an Altium-only flow needs them without KiCad.
-4. **Is `copper.hole-overlap` a warning or an error?** Recommended: warning; two overlapping drilled holes can be intended (a drilled slot made of two holes), and Altium's rule decides on its side.
+1. **Should edge findings stop a build through the copper guard?** Recommended: yes, with the rule's severity, as clearance findings do; the examples are fixed first. Decided by the maintainer on 2026-10-15: yes, with the rule's severity, as clearance findings do; the examples are fixed first.
+2. **Should copper wholly outside the board be a finding of its own?** Recommended: no; c0102 drops it on outline changes and KiCad reports nothing for it. Decided by the maintainer on 2026-10-15: no.
+3. **Should Fenolite judge `hole_to_hole` and `hole_clearance` values?** Recommended: not in this change; a follow-up when an Altium-only flow needs them without KiCad. Decided by the maintainer on 2026-10-15: not in this change; a follow-up when an Altium-only flow needs them.
+4. **Is `copper.hole-overlap` a warning or an error?** Recommended: warning; two overlapping drilled holes can be intended (a drilled slot made of two holes), and Altium's rule decides on its side. Decided by the maintainer on 2026-10-15: warning.

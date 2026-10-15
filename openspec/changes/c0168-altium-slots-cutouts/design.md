@@ -28,7 +28,7 @@
 1. **Milled is a board cut-out region; drilled is a slot pad.**
    - `Outline.cutouts` and `Outline.slots` are lowered through c0167's `lowered_outline`: every inner ring, merged where items overlap, becomes one Board Cutout region. Its edge is a cut-out edge of Board Outline Clearance (S-0460), so the edge-clearance rule of c0169 has a counterpart; overlapping slots are one region, so no hole rule fires.
    - A `Hole` with a length becomes a free slot pad. It is drilled (NC drill, drill drawing), as KiCad's oval NPTH pad is (c0167, measurement 4).
-   - Rejected: every milled slot as a slot pad (the request's form). An L of two slot pads is two overlapping pad holes, which Hole To Hole Clearance flags (S-0460), and a pad near a slot pad is not a board-outline case. Kit case S5 runs both forms side by side, so the maintainer can overrule this with evidence; the recommended answer is open question 1.
+   - Rejected: every milled slot as a slot pad (the request's form). An L of two slot pads is two overlapping pad holes, which Hole To Hole Clearance flags (S-0460), and a pad near a slot pad is not a board-outline case. Kit case S5 runs both forms side by side and confirms the choice in Altium Designer; the maintainer decided it on 2026-10-15 (open question 1).
    - Rejected: one region per cut-out without merging: Altium's behaviour for overlapping cut-out regions is not documented, and c0167 already merges.
 
 2. **`Hole` gains `length` and `rotation`.** `Hole.length: Nm | None = None` (overall; `None` is round; above `drill` when set) and `Hole.rotation: Udeg = 0`, the axis of the length in the model frame. The canonical writer omits defaults. `lens/altium.py` fills them from a hole part's slot (`Padstack.hole_length`, `hole_rotation` turned by the part's rotation), and the import fills them for a free slot pad (Decision 6). KiCad still refuses `Board.holes` (c0167, Decision 8).
@@ -120,8 +120,8 @@ Cut order: (1) cut-out regions (stop after task 1.2 when no imported form is fou
 
 ## Open questions
 
-1. **Milled slots as board cut-out regions rather than slot pads?** Recommended: yes (Decision 1); S5 gives the maintainer the evidence either way.
-2. **Should a free slot pad's solder mask be tented or opened?** Recommended: opened by the rule, as c0085's round hole; S1 records what Altium does.
-3. **Should the import turn free unnamed non-plated pads into `Hole`s?** Recommended: yes, only those without a copper ring (Decision 6); any other free pad stays a footprint.
-4. **Should the gate be a build option instead of a constant?** Recommended: no; an option would let a user write an unconfirmed form. The kit run flips it once.
-5. **Arcs of the outer board ring in `Board6`?** Recommended: a follow-up change; the reader already knows the arc vertex, the writer needs its own rows and a kit case.
+1. **Milled slots as board cut-out regions rather than slot pads?** Recommended: yes (Decision 1); S5 runs both forms side by side. Decided by the maintainer on 2026-10-15: yes; in Altium a milled slot becomes a board cut-out region (the L of overlapping slots one contour) and a drilled slot (a `Hole` with a length) a slot pad. Kit case S5 confirms it in his Altium.
+2. **Should a free slot pad's solder mask be tented or opened?** Recommended: opened by the rule, as c0085's round hole; S1 records what Altium does. Decided by the maintainer on 2026-10-15: opened by the rule, as c0085's round hole; S1 records what Altium does.
+3. **Should the import turn free unnamed non-plated pads into `Hole`s?** Recommended: yes, only those without a copper ring (Decision 6); any other free pad stays a footprint. Decided by the maintainer on 2026-10-15: yes, only those without a copper ring; any other free pad stays a footprint.
+4. **Should the gate be a build option instead of a constant?** Recommended: no; an option would let a user write an unconfirmed form. The kit run flips it once. Decided by the maintainer on 2026-10-15: no; the gate stays a constant, flipped once by the kit run.
+5. **Arcs of the outer board ring in `Board6`?** Recommended: a follow-up change; the reader already knows the arc vertex, the writer needs its own rows and a kit case. Decided by the maintainer on 2026-10-15: a follow-up change.

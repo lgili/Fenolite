@@ -140,9 +140,9 @@ Cut order: (1) `slots_of` recognition (read-back compares rings); (2) arcs put b
 
 ## Open questions
 
-1. **Slot as `Outline.slots` (milled), not `Hole` with a shape?** Recommended: yes (Decision 1); c0168 extends `Hole` for drilled slots, so both forms exist with one meaning each.
-2. **Is a slot as long as it is wide (`length == width`) allowed?** Recommended: no; it is a circle, `shape.circle` draws it, and the request's "length ≥ width" becomes "length > width".
-3. **Should `merge_rings` need the `geo` extra, or should Fenolite ship a stdlib union of stadiums?** Recommended: the extra (pyclipper, Boost/MIT); the core stays small, and the refusal names the install.
-4. **Should cut-outs drawn with `cutout()` get names and ids too?** Recommended: no; they keep `cut-out <k>`. A ring that needs a name is a slot or will get its own change.
-5. **Should a read KiCad board fill `Board.outline` with `edge_outline`?** Recommended: no; the lens owns the edges, and `edge_outline` is called where a model outline is needed (c0170).
-6. **Should `Board.holes` be written to KiCad as generated footprints?** Recommended: no (decision of 2026-10-07); the named refusal and its hint.
+1. **Slot as `Outline.slots` (milled), not `Hole` with a shape?** Recommended: yes (Decision 1); c0168 extends `Hole` for drilled slots, so both forms exist with one meaning each. Decided by the maintainer on 2026-10-15: yes; a milled slot is `Outline.slots`, and c0168 extends `Hole` for the drilled slot, so both forms exist with one meaning each.
+2. **Is a slot as long as it is wide (`length == width`) allowed?** Recommended: no; it is a circle, `shape.circle` draws it, and the request's "length ≥ width" becomes "length > width". Decided by the maintainer on 2026-10-15: no; `length` must exceed `width`, and a round hole is drawn with `shape.circle`.
+3. **Should `merge_rings` need the `geo` extra, or should Fenolite ship a stdlib union of stadiums?** Recommended: the extra (pyclipper, Boost/MIT); the core stays small, and the refusal names the install. Decided by the maintainer on 2026-10-15: the `geo` extra (pyclipper); the core stays small, and the refusal names the install.
+4. **Should cut-outs drawn with `cutout()` get names and ids too?** Recommended: no; they keep `cut-out <k>`. A ring that needs a name is a slot or will get its own change. Decided by the maintainer on 2026-10-15: no; drawn cut-outs keep `cut-out <k>`.
+5. **Should a read KiCad board fill `Board.outline` with `edge_outline`?** Recommended: no; the lens owns the edges, and `edge_outline` is called where a model outline is needed (c0170). Decided by the maintainer on 2026-10-15: no; a read board keeps `Board.outline = None`, and `edge_outline` is called where a model outline is needed (c0170).
+6. **Should `Board.holes` be written to KiCad as generated footprints?** Recommended: no (decision of 2026-10-07); the named refusal and its hint. Decided by the maintainer on 2026-10-15: no; the refusal of 2026-10-07 stands, with the name `kicad.board.free-hole` and its hint.

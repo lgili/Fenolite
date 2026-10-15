@@ -24,6 +24,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Development: the maintainer's decisions of 2026-10-15 on board slots and cut-outs (c0167 to c0170) recorded in the four designs and `docs/roadmap.md` (Open decisions, row 42): every recommended answer accepted; in Altium a milled slot becomes a board cut-out region and a drilled slot a slot pad (kit case S5 confirms it); c0167 and c0169 go in `0.5.0`, c0168 and c0170 after it.
 - **The KiCad backend reports `downgrade: "supported"`** (c0162), and each entry of `capabilities.conversions` says whether it writes a KiCad target older than the source (`downgrade`, true for KiCad to KiCad).
 - **`FEN-7002` means "target format version older than the input; no downgrade was asked"** (c0162): its hint names `fenolite convert <project> --to kicad --kicad-version <target>`. `build`, `place`, `route` and `fill` keep refusing a project saved by a newer major, the maintainer's decision of 2026-10-09; `convert` no longer refuses an older KiCad target.
 - **A KiCad downgrade keeps default project sections without consent** (c0162, the maintainer's decision of 2026-10-09): `component_class_settings`, `tuning_profiles` and the class key `tuning_profile`, which every KiCad 10 project holds, are dropped as `same` when they hold what a fresh KiCad 10 project writes there (`pro.holds_default`), and stay `design` losses that need `--allow-lossy` when they hold content. `fenolite --kicad-version 9 convert` of the demo project `pic_programmer` now exits 0 without `--allow-lossy`.

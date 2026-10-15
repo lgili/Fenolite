@@ -88,6 +88,6 @@ Cut order: (1) ring verification (the report stands without it); (2) the routing
 
 ## Open questions
 
-1. **Should a converted KiCad stadium cut-out become an Altium slot pad instead of a region?** Recommended: no; milled stays milled (c0168, Decision 1).
-2. **Should `fenolite equivalent` compare board edge rings?** Recommended: yes, in a follow-up change of `design-equivalence`; this change verifies rings inside `convert` only.
-3. **Should the merge of overlapping Altium cut-outs need `--allow-lossy`?** Recommended: no; a merge keeps the milled area, so it is `changed`, not `lost`.
+1. **Should a converted KiCad stadium cut-out become an Altium slot pad instead of a region?** Recommended: no; milled stays milled (c0168, Decision 1). Decided by the maintainer on 2026-10-15: no; milled stays milled.
+2. **Should `fenolite equivalent` compare board edge rings?** Recommended: yes, in a follow-up change of `design-equivalence`; this change verifies rings inside `convert` only. Decided by the maintainer on 2026-10-15: yes, in a follow-up change of `design-equivalence`; this change verifies rings inside `convert` only.
+3. **Should the merge of overlapping Altium cut-outs need `--allow-lossy`?** Recommended: no; a merge keeps the milled area, so it is `changed`, not `lost`. Decided by the maintainer on 2026-10-15: no; a merge is `changed`, not `lost`.
