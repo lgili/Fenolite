@@ -60,7 +60,7 @@ Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page
 
 ## The status of each file kind
 
-It matches `capabilities` (`write_kinds` of `result.backends`, `result.matrix`).
+It matches `capabilities` (`result.backends`, `result.matrix`).
 
 | kind | file | status | evidence |
 |---|---|---|---|
@@ -89,10 +89,10 @@ fenolite equivalent blink/build blink/altium/lamp.PrjPcb --level 2 --json
 ## Keep native schematic presentation
 
 Review `result.schematic_composition` and its SVGs (`INFERRED`). Groups follow blocks, modules,
-signals. `composition.<code>`: `invalid-intent` fix members/order; `overflow` larger paper/smaller
+signals. `composition.<code>`: `invalid-intent` fix members/order; `overflow` larger paper or smaller
 blocks; `budget-exhausted` less congestion; `overlap` separate units; `template-unverified` bounded
 template; `transform-unsupported` supported geometry; `label-fallback` inspect labelled endpoints;
-`connectivity-changed` keep files, report. SVGs show the baseline; changed block intent conflicts after sync.
+`connectivity-changed` keep files, report. SVGs show the base.
 
 Capture saved Altium edits beside the script:
 
@@ -104,7 +104,7 @@ fenolite sync blink/design.py --out blink/altium --target altium --to-source --c
 Keep `altium-schematic-layout.json`: build replays native bytes; changed sheets give
 `build.altium-layout-conflict`. Sync refuses electrical or symbol differences
 (`sync.altium-connectivity-changed`) and unresolved inputs (`sync.altium-unverified`). Evidence: `INFERRED`.
-`--discard-layout` cannot bypass the snapshot; archive it and build elsewhere to start again.
+`--discard-layout` cannot bypass the snapshot; archive it to start again.
 
 ## The verification kit is a person's run
 

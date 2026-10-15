@@ -23,3 +23,7 @@
 - **WHEN** `uv run pytest tests/consistency` runs
 - **THEN** the nine `copper.*` codes of this table appear in `docs/cli-contract.md`
 
+#### Scenario: The check never gives info for a finding
+- **GIVEN** the boards of `tests/unit/checks/test_copper.py`
+- **WHEN** `check_copper` runs on each without any waiver
+- **THEN** no `copper.short`, `copper.clearance` or `copper.zone-overlap` issue has severity `info`
