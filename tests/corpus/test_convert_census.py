@@ -104,11 +104,12 @@ DIFFERENCES: dict[str, tuple[int, dict[str, int]]] = {
     "17": (5, {"pad-kind": 120}),
     "18": (5, {"dnp": 3, "pad-missing": 2, "pin-missing": 2}),
 }
-"""Per board, the level compared and the differences per kind, within 10 nm and 20 ppm (2026-10-09, with change
-c0160)."""
+"""Per board, the level compared and the differences per kind, within 10 nm and 20 ppm (2026-10-09, with
+change c0160)."""
 LARGEST_NM = 3
-"""The largest per-coordinate difference without tolerance over every written board (2026-10-09): the
-written unit is 2.54 nm and the reader rounds it to the nanometre."""
+"""The largest per-coordinate difference without tolerance over every written board (2026-10-09; 3 nm since
+change c0160 writes the two large boards): the written unit is 2.54 nm and the reader rounds it to the
+nanometre, within the 3 nm of the profile ``kicad-to-altium``."""
 LEDGER = Path(__file__).resolve().parents[2] / "docs" / "evidence" / "conversion.md"
 ITEMS = {item.id.removeprefix(PREFIX): item for item in manifest_items("rt0") if item.id.startswith(PREFIX)}
 _NUMBER = re.compile(r"-?\d+")

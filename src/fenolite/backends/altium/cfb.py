@@ -11,7 +11,7 @@ directory entry is black, with zero CLSIDs, state bits and times, so the bytes d
 A FAT of more than the 109 sectors that the header lists continues in DIFAT sectors, written right after
 the FAT sectors (change c0160, ``compound-file.md``, "DIFAT sectors"); a file of 109 FAT sectors or fewer
 has none and keeps the bytes it had before. ``CompoundTooLarge`` refuses only what a version 3 file cannot
-hold.
+hold. The DIFAT sectors rest on ``H-A-CONV-DIFAT``, which the conversion's evidence names.
 
 Storages (change c0034): ``write_compound`` takes streams ``(name, data)`` and ``Storage`` values at any
 depth. Entries are numbered in pre-order; each storage gets its own sibling tree. ``Storage`` and
@@ -19,7 +19,7 @@ depth. Entries are numbered in pre-order; each storage gets its own sibling tree
 no sector or mini sector; their entry has size 0 and starts at ENDOFCHAIN.
 """
 
-# evidence: see binary, pcbdoc, pcblib, schlib; the DIFAT sectors rest on H-A-CONV-DIFAT (change c0160)
+# evidence: see binary, pcbdoc, pcblib, schlib
 
 from __future__ import annotations
 

@@ -14,8 +14,8 @@ name = "kicad-to-altium"
 tool = "fenolite"
 tool_version = "0"
 # The writer moves the board's corner to the document's origin, so the comparison is relative. A length is
-# written in 1/10 000 mil (2.54 nm), and the read-back of the 16 KiCad 10.0.6 demo boards that the writer
-# writes differs by at most 2 nm per coordinate (tests/corpus/test_convert_census.py, 2026-10-09).
+# written in 1/10 000 mil (2.54 nm), and the read-back of the 18 KiCad 10.0.6 demo boards that the writer
+# writes differs by at most 3 nm per coordinate (tests/corpus/test_convert_census.py, 2026-10-09, change c0160).
 frame = "relative"
 tolerance_nm = 3
 tolerance_udeg = 0

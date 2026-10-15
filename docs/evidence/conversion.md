@@ -51,9 +51,9 @@ No board gives `convert.unexplained`. The seconds include the read-back and the 
   `dnp` differences of four boards (2, 11, 22 and 11 components) had no declared cause, and `pad-shape`
   differences of equal-sized ovals were reported on eight boards; c0158 made those ovals circles, and the
   write now counts each do-not-populate component under `dnp`.
-- **Largest per-coordinate difference** without tolerance: 2 nm (a placement after the frame's
-  translation, a pad position, a pad size or a drill), which sets `tolerance_nm` 3 of the profile
-  (`tests/corpus/test_convert_census.py::test_differences_per_kind`).
+- **Largest per-coordinate difference** without tolerance: 3 nm since the two large boards are written (2 nm
+  on the 16 boards before; a placement after the frame's translation, a pad position, a pad size or a
+  drill), within `tolerance_nm` 3 of the profile (`tests/corpus/test_convert_census.py::test_differences_per_kind`).
 - **A reference that several components share** in the board (`microwave` 1, `One-Air-Max` 1,
   `tinytapeout-demo` 4, `jetson-agx-thor-baseboard` 1) gives a `ref-ambiguous` difference that the board
   compared with itself gives too; it is explained as the source's own (`source`).
