@@ -229,6 +229,86 @@ def keepouts(design: Design, ledger: Ledger) -> Design:
     )
 
 
+ZONE_ARC_REASON = "an outline with arc vertices is written as a polygon (arc chord error at most 5000 nm)"
+ZONE_NO_OUTLINE = "a zone outline with arc vertices that the source document does not give"
+
+
+def _arc_ring(vertices: Any) -> tuple[Any, ...]:
+    """The closed outline of Altium polygon ``vertices`` (``KIND<k>``, ``VX<k>`` …), each arc vertex
+    flattened at KiCad's default chord error. As for the board outline (``pcb-document.md``), vertex ``k``
+    runs to vertex ``k + 1``; an arc vertex is the arc of centre ``CX``, ``CY``, radius ``R`` and angles
+    ``SA`` to ``EA`` between them. ``GeometryError`` or ``ValueError`` when it encloses no area."""
+    from fenolite.backends.altium.adapter import units
+    from fenolite.core.coords import Point
+    from fenolite.geometry.polygon import Polygon
+    from fenolite.geometry.shapes import Arc
+
+    corners = [Point(units.units_length(v.x)[0], -units.units_length(v.y)[0]) for v in vertices]
+    points: list[Point] = []
+    for k, vertex in enumerate(vertices):
+        a, b = corners[k], corners[(k + 1) % len(corners)]
+        if a == b:
+            continue
+        if vertex.kind == 0 or vertex.radius <= 0:
+            points.append(a)
+            continue
+        start, _ = units.angle(vertex.start_angle)
+        end, _ = units.angle(vertex.end_angle)
+        _, mid, _ = units.arc_points(vertex.cx, vertex.cy, vertex.radius, start, end)
+        points.extend(Arc(a, mid, b).polygonize()[:-1])
+    return Polygon(tuple(points)).outer
+
+
+def zone_outlines(source: SourceProject, design: Design, ledger: Ledger) -> Design:
+    """Zones whose imported outline is empty (an Altium polygon with an arc vertex,
+    ``altium.import.zone-arc``) get the flattened outline of the source document's polygon record; KiCad
+    9.0.9 cannot report DRC on a zone without an outline. A zone whose record cannot be found or encloses
+    no area is dropped."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.core.errors import FenoliteError
+    from fenolite.core.io import sha256_bytes
+    from fenolite.geometry.errors import GeometryError
+
+    board = design.board
+    assert board is not None
+    if all(zone.outline for zone in board.zones):
+        return design
+    from fenolite.model.board import Zone
+
+    documents: dict[str, Any] = {}
+    zones: list[Zone] = []
+    for zone in board.zones:
+        if zone.outline:
+            zones.append(zone)
+            continue
+        where = zone.provenance
+        match = re.fullmatch(r"Polygons6/Data#(\d+)", where.locator if where else "")
+        ring: tuple[Any, ...] = ()
+        if where is not None and match:
+            path = source.path if source.path.suffix.lower() == ".pcbdoc" else source.root / where.file
+            if where.file not in documents:
+                documents[where.file] = None
+                try:
+                    data = path.read_bytes()
+                    if not where.file_sha256 or sha256_bytes(data) == where.file_sha256:
+                        documents[where.file] = read_pcbdoc(data, file=where.file)
+                except (OSError, FenoliteError):
+                    pass
+            document = documents[where.file]
+            index = int(match.group(1))
+            if document is not None and index < len(document.polygons):
+                try:
+                    ring = _arc_ring(document.polygons[index].vertices)
+                except (GeometryError, ValueError, IndexError, ZeroDivisionError):
+                    ring = ()
+        if len(ring) < 3:
+            ledger.drop("zone", zone.id, ZONE_NO_OUTLINE)
+            continue
+        zones.append(dataclasses.replace(zone, outline=ring))
+        ledger.change("zone", zone.id, ZONE_ARC_REASON)
+    return dataclasses.replace(design, board=dataclasses.replace(board, zones=tuple(zones)))
+
+
 def _clean(value: Any) -> Any:
     """A created target has no source-format slots or native ids."""
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
@@ -264,7 +344,9 @@ def _name(value: str) -> str:
 def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> Design:
     from fenolite.backends.kicad._fpmap import aligned_slot_pad
 
-    design = map_layers(keepouts(_clean(source.design), ledger), target, ledger)
+    design = map_layers(
+        keepouts(_clean(zone_outlines(source, source.design, ledger)), ledger), target, ledger
+    )
     board = design.board
     assert board is not None
     refs = {component.id: component.ref for component in design.circuit.components}

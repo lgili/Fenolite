@@ -123,6 +123,11 @@ All notable changes to Fenolite are documented here. The format follows
   user layers; closed Keep-Out outlines become rule areas. Changed presentation and
   unsupported items are reported. Seven light public PCB documents have no unexplained
   read-back differences; full independent corpus checks remain for CI.
+- Altium to KiCad conversion writes copper pours whose Altium outline holds an arc vertex with the
+  flattened outline of the source record (5000 nm chord error, reported changed) instead of an empty
+  outline, on which KiCad 9.0.9 could not write a DRC report. All eight public PCB documents now load
+  with DRC in KiCad 9.0.9 and 10.0.6 and agree with KiCad 10.0.6's importer where it runs; the
+  conversion's KiCad hypotheses are KICAD-VERIFIED, the full probe-results gate remains for CI.
 - `write_board` refuses items on undeclared layers with `kicad.board.layer-undeclared`,
   including when `allow_lossy=True`. Authored fixtures now declare their used layers.
 

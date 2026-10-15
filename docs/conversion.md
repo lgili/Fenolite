@@ -254,6 +254,10 @@ Unknown/out-of-stack layers and excess mechanical layers are reported as losses.
 outlines become all-copper rule areas forbidding tracks, vias and pours; open/branching lines are lost.
 Curved boundaries are polygonized with at most 5000 nm chord error, reported as changed.
 An odd copper count gains an empty inner layer; its original stack-up is reported changed.
+A copper pour whose Altium outline holds an arc vertex has no outline in the imported model
+(`altium.import.zone-arc`); the conversion takes its outline from the source document's polygon record,
+flattened at 5000 nm chord error, and reports the zone changed. A zone without a usable record is
+reported lost. KiCad 9.0.9 cannot write a DRC report for a zone without an outline.
 `kicad.board.layer-undeclared` refuses any caller's modelled item on an undeclared layer, even with consent.
 
 Arbitrary slots rotate circular pads without changing copper; incompatible non-circular pads are
@@ -262,7 +266,9 @@ instances that differ are reported without replacing board geometry. Filename co
 Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and
 wires are regenerated. Duplicate designators refuse the schematic alone, with an explicit report.
 Unsupported imported rules and nonportable component bodies are reported. Libraries and projects use
-relative paths. Evidence stays INFERRED until the full KiCad oracle gates run; no Altium run is needed.
+relative paths. Loading with DRC (9.0.9 and 10.0.6), agreement with KiCad 10.0.6's own importer and
+the generated schematics' netlist and ERC are KICAD-VERIFIED on the public corpus (2026-10-15); the
+direction stays INFERRED because the Keep-Out mapping rests on Altium's documentation only.
 
 Unmapped source rule diagnostics are included as lost rule groups with the original message;
 group counts are not counts of individual rules. A multiply assigned schematic pin retains

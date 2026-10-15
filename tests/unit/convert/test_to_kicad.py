@@ -247,6 +247,47 @@ def test_altium_keepout_closed_and_open() -> None:
     assert ledger.lost["graphic"]["a keep-out line that encloses no area"] == [line.id]
 
 
+def test_altium_zone_arc_outline() -> None:
+    """A polygon outline with an arc vertex is flattened from vertex k to vertex k + 1 (half disc)."""
+    from fractions import Fraction
+
+    from fenolite.backends.altium.adapter.units import units_length
+    from fenolite.backends.altium.read.pcbstack import OutlineVertex
+    from fenolite.convert.altium_to_kicad import _arc_ring
+
+    r = Fraction(10_000_000)  # 1000 mil in units
+    zero = Fraction(0)
+    arc = OutlineVertex(1, r, zero, zero, zero, 0.0, 180.0, r)
+    line = OutlineVertex(0, -r, zero, zero, zero, 0.0, 0.0, zero)
+    ring = _arc_ring((arc, line))
+    radius = units_length(r)[0]
+    assert len(ring) > 8
+    # the Y flip: the arc through Altium's +Y runs through the model's -Y
+    assert min(p.y for p in ring) < -radius + 10 and max(p.y for p in ring) == 0
+    assert all(abs(p.x) <= radius and (p.x**2 + p.y**2) <= (radius + 1) ** 2 for p in ring)
+
+
+def test_altium_zone_without_outline_source_is_dropped() -> None:
+    import dataclasses
+    from pathlib import Path
+
+    from _convert import two_layer
+
+    from fenolite.convert.altium_to_kicad import ZONE_NO_OUTLINE, Ledger, zone_outlines
+    from fenolite.convert.sources import SourceProject
+    from fenolite.model.board import Zone
+
+    design = two_layer()
+    assert design.board is not None
+    empty = Zone(id="zon-arc", outline=(), name="pour", layers=("F.Cu",))
+    design = dataclasses.replace(design, board=dataclasses.replace(design.board, zones=(empty,)))
+    source = SourceProject(Path("x.PcbDoc"), Path("x.PcbDoc"), Path("."), "altium", "altium_pcbdoc", design)
+    ledger = Ledger()
+    result = zone_outlines(source, design, ledger)
+    assert result.board is not None and not result.board.zones
+    assert ledger.lost["zone"][ZONE_NO_OUTLINE] == ["zon-arc"]
+
+
 @pytest.mark.parametrize("target", (9, 10))
 def test_altium_schematic_and_libraries(target: int) -> None:
     from fenolite.api import convert

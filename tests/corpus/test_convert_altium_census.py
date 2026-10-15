@@ -117,7 +117,15 @@ CONVERTED_LOSSES = {
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
     "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3},
     "altium-third-party-pcbdoc-07": {"pad": 8, "body": 24},
+    "altium-third-party-pcbdoc-08": {"pad": 4, "body": 1298, "text": 298, "graphic": 1000, "schematic": 1},
 }
+ZONE_ARC_OUTLINES = {
+    "altium-third-party-pcbdoc-02": 2,
+    "altium-third-party-pcbdoc-07": 4,
+    "altium-third-party-pcbdoc-08": 6,
+}
+"""Zones whose Altium outline holds an arc vertex: the import leaves them without an outline, and the
+conversion writes the flattened outline of the source record (measured on 2026-10-15)."""
 
 
 @pytest.mark.parametrize("item", ROWS, ids=lambda i: i.id)
@@ -138,6 +146,14 @@ def test_converted_reports(item) -> None:
             if row.lost
         }
         assert {kind: count for kind, count in losses.items() if count} == CONVERTED_LOSSES[item.id]
+    flattened = sum(
+        reason.count
+        for row in result.conversion.report.rows
+        if row.kind == "zone"
+        for reason in row.reasons
+        if reason.outcome != "lost" and "arc vertices" in reason.reason
+    )
+    assert flattened == ZONE_ARC_OUTLINES.get(item.id, 0)
 
 
 @pytest.mark.parametrize("name", ("altium-set:02", "altium-set:03", "altium-set:04", "altium-set:05"))
