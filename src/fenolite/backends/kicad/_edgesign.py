@@ -8,7 +8,8 @@ increasing ``(x, y)`` order, so it does not depend on the direction of the edge:
 ends of a negatively oriented arc (``H-G-ARC-DIR``). The digest of an outline is taken over its sorted edge
 texts, and the uuid of an edge holds that digest and its own text. The edge graphics of a board therefore
 tell whether they are an outline Fenolite wrote and nobody changed: a move in KiCad keeps the uuid and
-changes the text. The board writer and ``outline`` both import this module, which imports neither.
+changes the text. The board writer and ``outline`` both import this module, which imports neither. The
+edges are those of the lowered outline (``_lowering``, change c0167): slots and merged rings included.
 """
 
 # evidence: see pcb, outline
@@ -20,6 +21,7 @@ import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from fenolite.backends.kicad._lowering import lowered_outline
 from fenolite.core.coords import Point
 from fenolite.core.ids import FENOLITE_NS
 from fenolite.model.board import Outline
@@ -39,15 +41,18 @@ class OutlineEdge:
 
 
 def outline_rings(outline: Outline) -> tuple[tuple[Point, ...], ...]:
-    """The rings of ``outline``: its points, then each cut-out."""
-    return (tuple(outline.points), *(tuple(ring) for ring in outline.cutouts))
+    """The rings of the KiCad board of ``outline`` (``_lowering.lowered_outline``): its points, then each
+    cut-out and each slot's stadium, overlapping ones merged."""
+    lowered = lowered_outline(outline)
+    return (tuple(lowered.points), *(tuple(ring) for ring in lowered.cutouts))
 
 
 def outline_edges(outline: Outline) -> tuple[OutlineEdge, ...]:
-    """Every edge of every ring of ``outline``, in ring and edge order. A ring of one vertex has no edge,
-    and a ring of two vertices has two (a straight edge closes back onto the first). An entry of ``arcs``
-    that names no edge is ignored here; ``outline.check_outline`` reports it."""
-    mids = {(arc.ring, arc.edge): arc.mid for arc in outline.arcs}
+    """Every edge of every ring of the KiCad board of ``outline`` (``outline_rings``), in ring and edge
+    order. A ring of one vertex has no edge, and a ring of two vertices has two (a straight edge closes
+    back onto the first). An entry of ``arcs`` that names no edge is ignored here;
+    ``outline.check_outline`` reports it."""
+    mids = {(arc.ring, arc.edge): arc.mid for arc in lowered_outline(outline).arcs}
     edges: list[OutlineEdge] = []
     for r, ring in enumerate(outline_rings(outline)):
         if len(ring) < 2:

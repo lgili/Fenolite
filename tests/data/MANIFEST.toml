@@ -1737,3 +1737,15 @@ path = "tests/data/slots/design.py"
 origin = "authored"
 corpus_id = ""
 notes = "the shared fixture of board slots (c0167): a 60 x 40 mm board with a lone milled slot, two milled slots overlapping in an L, a round free hole and a cut-out with rounded corners"
+
+[[file]]
+path = "tests/data/slots/slots_t9.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the board of tests/data/slots/design.py built for KiCad 9 (c0167), read by the oracle probes of tests/kicad/board/_slotbench.py; tests/unit/backends/kicad/test_slots_outline.py keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/slots/slots_t10.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the board of tests/data/slots/design.py built for KiCad 10 (c0167), read by the oracle probes of tests/kicad/board/_slotbench.py; tests/unit/backends/kicad/test_slots_outline.py keeps it equal to a fresh build"

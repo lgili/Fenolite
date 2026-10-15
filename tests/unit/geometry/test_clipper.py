@@ -5,6 +5,7 @@ geometry-boolean-backends, "Clipper union backend", "Backend selection"; change 
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 
 import pytest
@@ -15,7 +16,8 @@ from fenolite.geometry import Arc, GeometryError, Polygon
 from fenolite.geometry.boolean import ClipperBackend, FallbackBackend, available_backends, select_backend
 from fenolite.geometry.errors import BackendUnavailable
 
-pytest.importorskip("pyclipper")
+GEO = importlib.util.find_spec("pyclipper") is not None
+needs_geo = pytest.mark.skipif(not GEO, reason="the union needs pyclipper of the geo extra")
 MM = 1_000_000
 
 
@@ -39,11 +41,15 @@ def ell() -> tuple[tuple[Point, ...], tuple[Point, ...]]:
     )
 
 
-def test_selection_by_operation(monkeypatch: pytest.MonkeyPatch) -> None:
+@needs_geo
+def test_selection_by_operation() -> None:
     assert isinstance(select_backend(), FallbackBackend)
     assert isinstance(select_backend(operation="union"), ClipperBackend)
     assert isinstance(select_backend(operation="intersection"), FallbackBackend)
     assert available_backends() == ("fallback", "clipper")
+
+
+def test_selection_without_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "pyclipper", None)  # an import of it now fails
     assert isinstance(select_backend(), FallbackBackend)
     with pytest.raises(BackendUnavailable) as info:
@@ -53,6 +59,7 @@ def test_selection_by_operation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert available_backends() == ("fallback",)
 
 
+@needs_geo
 def test_two_slots_in_an_ell() -> None:
     a, b = ell()
     (union,) = ClipperBackend().union([Polygon(a), Polygon(b)])
@@ -61,6 +68,7 @@ def test_two_slots_in_an_ell() -> None:
     assert new == {Point(119 * MM, 111 * MM)}
 
 
+@needs_geo
 def test_union_is_deterministic_and_normal() -> None:
     a, b = ell()
     first = ClipperBackend().union([Polygon(a), Polygon(b)])
@@ -69,6 +77,7 @@ def test_union_is_deterministic_and_normal() -> None:
     assert first[0].outer[0] == min(first[0].outer)
 
 
+@needs_geo
 def test_separate_rings_stay_two() -> None:
     a = Polygon((Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)))
     b = Polygon((Point(20, 0), Point(30, 0), Point(30, 10), Point(20, 10)))
@@ -76,6 +85,7 @@ def test_separate_rings_stay_two() -> None:
     assert ClipperBackend().union([]) == ()
 
 
+@needs_geo
 def test_a_ring_of_four_bars_has_a_hole() -> None:
     bars = [
         Polygon((Point(0, 0), Point(40, 0), Point(40, 10), Point(0, 10))),
@@ -88,6 +98,7 @@ def test_a_ring_of_four_bars_has_a_hole() -> None:
     assert set(union.holes[0]) == {Point(10, 10), Point(30, 10), Point(30, 30), Point(10, 30)}
 
 
+@needs_geo
 def test_other_operations_and_domain() -> None:
     square = Polygon((Point(0, 0), Point(10, 0), Point(10, 10), Point(0, 10)))
     for call in (

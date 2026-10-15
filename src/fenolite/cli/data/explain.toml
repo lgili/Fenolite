@@ -1603,6 +1603,16 @@ meaning = "The design has an outline and the board also holds edge graphics, so 
 fix = "Keep one: remove the outline from the script, or the edge graphics from the board."
 see = "KiCad output"
 
+["kicad.board.outline-overlap"]
+meaning = "The model's cut-outs or slots overlap and the geo extra that writes their union is not installed; KiCad would call the outline invalid, so the board is not written."
+fix = "Install the extra (pip install 'fenolite[geo]'), or move the cut-outs and slots the message names apart."
+see = "KiCad output"
+
+["kicad.board.free-hole"]
+meaning = "The model holds holes outside every footprint (Board.holes); a KiCad board holds a hole only inside a footprint, so the board is not written."
+fix = "Declare a hole with design.hole(), or place a board-only footprint with an unnumbered np_thru_hole pad."
+see = "KiCad output"
+
 ["kicad.board.paper-unmodelled"]
 meaning = "The board's paper setting has a form that the model does not hold, so the sheet is left unset and the text is kept."
 fix = "Nothing to do."
@@ -1901,6 +1911,16 @@ see = "build"
 ["kicad.outline.invalid"]
 meaning = "The script's outline cannot be written: a ring crosses or touches itself, two rings cross or touch, a cut-out lies outside the board or inside another cut-out, or an arc or a ring breaks the model's form. KiCad 10 reports such a board as invalid_outline. Nothing is written."
 fix = "Keep every cut-out inside the board ring and clear of the edge and of the other cut-outs; the message names the rings."
+see = "build"
+
+["kicad.outline.merged"]
+meaning = "Cut-outs or milled slots of the script overlap: they are written as one ring, their union, with the arcs of every round end kept (the geo extra unites them). The message names the items."
+fix = "Nothing to do when the union is meant; move the items apart to keep them separate."
+see = "build"
+
+["kicad.outline.overlap"]
+meaning = "Cut-outs or milled slots of the script overlap, and their union cannot be computed because the geo extra is not installed. KiCad calls two overlapping cut-outs an invalid outline, so nothing is written."
+fix = "Install the extra (pip install 'fenolite[geo]') and build again, or move the items the message names apart."
 see = "build"
 
 ["kicad.outline.replaced"]

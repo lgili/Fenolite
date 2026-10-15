@@ -775,6 +775,8 @@
     "slot-drilled-near": "absent",
     "slot-drilled-overlap": "absent",
     "slot-overlap": "present",
+    "slot-ring-drc": "absent",
+    "slot-ring-drill": "absent",
     "slot-union": "absent",
     "stitch-avoid": "equal",
     "text-board-load": "absent",

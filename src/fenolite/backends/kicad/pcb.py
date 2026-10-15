@@ -68,6 +68,7 @@ from fenolite.backends.kicad._libread import (
     leading_atoms,
     load_source,
 )
+from fenolite.backends.kicad._lowering import lower_outline
 from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind
 from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, walk
 from fenolite.backends.kicad.versions import (
@@ -1980,11 +1981,17 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         _pcbwrite.NET_REF_CODE: "error",
         "kicad.board.projection-read-only": "error",
         "kicad.board.outline-conflict": "error",
+        "kicad.board.outline-overlap": "error",
+        "kicad.board.free-hole": "error",
         "kicad.board.flip-unsupported": "error",
         **stacklib.WRITE_ISSUE_CODES,
         **vialib.WRITE_ISSUE_CODES,
     }
 )
+FREE_HOLE_HINT = (
+    "declare a hole with design.hole(), or place a board-only footprint with an unnumbered np_thru_hole pad"
+)
+"""The hint of ``kicad.board.free-hole`` (change c0167)."""
 CREATED_ROOT_HEADS: tuple[str, ...] = (
     "version", "generator", "generator_version", "general", "paper", "layers", "setup", "net",
 )  # fmt: skip
@@ -2452,8 +2459,8 @@ class _Writer:
         self.source_major = form_major(int(pairs["version"])) if "version" in pairs else target
         """The major whose forms the read board uses; the target for a created board."""
 
-    def error(self, code: str, message: str, where: str) -> None:
-        self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where))
+    def error(self, code: str, message: str, where: str, hint: str = "") -> None:
+        self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where, hint=hint))
 
     def stack_writable(self) -> bool:
         """True when ``Board.stackup`` can be written as a complete node; one
@@ -2765,10 +2772,12 @@ class _Writer:
         return self.node(board, "kicad_pcb", items, slots)
 
     def outline(self) -> tuple[list[Node | Atom], list[Node | Atom]]:
-        """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring, on
-        ``Edge.Cuts``. An arc is written with a positive ``orient2d(start, mid, end)``, the form KiCad's
+        """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring of its
+        lowering (``_lowering``: the cut-outs, the slots' stadiums, overlapping ones merged; change c0167),
+        on ``Edge.Cuts``. An arc is written with a positive ``orient2d(start, mid, end)``, the form KiCad's
         re-save keeps (``H-G-ARC-DIR``), and every uuid is signed with the outline's digest
-        (``_edgesign``; ``board.md``, "Outline")."""
+        (``_edgesign``; ``board.md``, "Outline"). Overlapping cut-outs or slots that cannot be merged (no
+        ``geo`` extra) give ``kicad.board.outline-overlap``: KiCad calls them ``invalid_outline``."""
         board = self.board
         outline = board.outline
         if outline is None or not outline.points:
@@ -2781,6 +2790,17 @@ class _Writer:
                 f"the board has an outline and {len(edges)} graphic(s) on an edge layer; remove one of them",
                 _locator(edges[0]),
             )
+            return [], []
+        unmerged = lower_outline(outline).unmerged
+        if unmerged:
+            for names in unmerged:
+                self.error(
+                    "kicad.board.outline-overlap",
+                    f"{', '.join(names)} overlap, and their union needs the geo extra; KiCad would call "
+                    "the outline invalid",
+                    names[0],
+                    "pip install 'fenolite[geo]'",
+                )
             return [], []
         found = outline_edges(outline)
         texts = [edge_text(e.start, e.end, e.mid) for e in found]
@@ -3319,7 +3339,21 @@ def write_board(
         if major_for(FileKind.BOARD, info.version) == 8:
             raise LegacyEditRefusedError(FileKind.BOARD, info.version)
     if board.holes:
-        raise ValueError("a KiCad board holds holes only inside footprints; Board.holes cannot be written")
+        # the maintainer's decision of 2026-10-07 (c0102): a KiCad board holds a hole only in a footprint
+        raise LossyWriteError(
+            [
+                Issue(
+                    "kicad.board.free-hole",
+                    WRITE_ISSUE_CODES["kicad.board.free-hole"],
+                    f"a KiCad board holds holes only inside footprints; Board.holes {hole.id} cannot be "
+                    "written",
+                    where=hole.id,
+                    hint=FREE_HOLE_HINT,
+                )
+                for hole in board.holes
+            ],
+            droppable=False,
+        )
     writer = _Writer(design, target)
     root = writer.root()
     opaque = _pcbwrite.opaque_locators(root, writer.opaque_ids)

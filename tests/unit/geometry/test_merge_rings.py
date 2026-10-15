@@ -5,6 +5,7 @@ H-G-RING-UNION; change c0167)."""
 
 from __future__ import annotations
 
+import importlib.util
 import random
 import sys
 from fractions import Fraction
@@ -19,7 +20,8 @@ from fenolite.geometry.errors import BackendUnavailable
 from fenolite.geometry.polygon import area2
 from fenolite.geometry.rings import MERGE_TOL, CurvedRing, merge_groups, merge_rings, overlap_groups
 
-pytest.importorskip("pyclipper")
+GEO = importlib.util.find_spec("pyclipper") is not None
+needs_geo = pytest.mark.skipif(not GEO, reason="the union needs pyclipper of the geo extra")
 MM = 1_000_000
 
 
@@ -42,6 +44,7 @@ def _on_circle(point: Point, cx: Fraction, cy: Fraction, r2: Fraction, within: i
     return abs(distance - r2) <= 2 * within * (root + within)
 
 
+@needs_geo
 def test_ell_of_two_slots_keeps_its_arcs() -> None:
     (merged,) = merge_rings(ell())
     assert len(merged.points) == 7
@@ -61,11 +64,13 @@ def test_ell_of_two_slots_keeps_its_arcs() -> None:
     assert merged.points[0] == min(merged.points) and area2(merged.polygonize()) > 0
 
 
+@needs_geo
 def test_the_order_of_the_inputs_does_not_change_the_ring() -> None:
     first, second = ell()
     assert merge_rings([first, second]) == merge_rings([second, first])
 
 
+@needs_geo
 def test_a_union_with_a_hole_is_refused() -> None:
     # four slots whose round ends overlap at the corners of a square of 10 mm: they enclose board
     frame = [
@@ -94,6 +99,7 @@ def test_rings_that_only_touch_or_nest_stay_apart() -> None:
     assert overlap_groups([a, inner]) == ((0,), (1,))
 
 
+@needs_geo
 def test_groups_name_their_members() -> None:
     first, second = ell()
     lone = slot(150 * MM, 150 * MM)
@@ -119,6 +125,7 @@ def _perimeter(points: tuple[Point, ...]) -> int:
     return total
 
 
+@needs_geo
 @pytest.mark.parametrize("seed", range(12))
 def test_merged_area_is_the_union_area(seed: int) -> None:
     rng = random.Random(seed)

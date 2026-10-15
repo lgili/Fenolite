@@ -8,6 +8,8 @@ The boards are those of ``_outlinebench``: each probe records the board written 
 
 from __future__ import annotations
 
+import importlib.util
+
 import _outlinebench as ob
 import pytest
 from _probes import major, run
@@ -50,9 +52,12 @@ def test_arcs_keep() -> None:
 def test_invalid_outlines(case: str) -> None:
     wanted = INVALID_ON_10 if major() >= 10 else INVALID_ON_9
     assert run(f"outline-invalid-{case}") == ("present" if case in wanted else "absent")
-    # the build's check takes KiCad's strictest verdict, and refuses the nested cut-out too
+    # the build's check takes KiCad's strictest verdict, and refuses the nested cut-out too; two cut-outs
+    # that overlap are merged into one ring since c0167 (with the geo extra), so they are not refused
     codes = [issue.code for issue in check_outline(to_model(ob.invalid_script(case)))]
-    assert codes == ([] if case == "inside" else ["kicad.outline.invalid"])
+    merged = "kicad.outline.merged" if importlib.util.find_spec("pyclipper") else "kicad.outline.overlap"
+    wanted = {"inside": [], "overlap": [merged]}.get(case, ["kicad.outline.invalid"])
+    assert codes == wanted
 
 
 def test_copper_outside_the_outline() -> None:

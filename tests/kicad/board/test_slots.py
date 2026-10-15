@@ -29,3 +29,21 @@ def test_drilled_slots_overlap_without_a_hole_finding() -> None:
 def test_drilled_slot_near_a_plated_hole() -> None:
     wanted = "present" if major() >= 10 else "absent"
     assert run("slot-drilled-near") == wanted, sb.drilled_types(True)
+
+
+def test_fixture_ring_loads_without_invalid_outline() -> None:
+    assert run("slot-ring-drc") == "absent", sb.fixture_types()
+
+
+def test_fixture_ring_reaches_no_drill_file() -> None:
+    assert run("slot-ring-drill") == "absent", "a slot or a cut-out reached a drill file"
+
+
+def test_fixture_ring_reads_back_as_written() -> None:
+    text = dict(sb.fixture_files())[sb.FIXTURE_BOARD]
+    assert sb.read_back(text.decode("utf-8") if isinstance(text, bytes) else text) == "equal"
+
+
+@pytest.mark.kicad_min_major(10)
+def test_fixture_ring_reads_back_after_a_resave() -> None:
+    assert run("slot-ring-read") == "equal", "the re-saved board does not read back to the slots"
