@@ -162,5 +162,6 @@ The four changes of the maintainer's capability request "board slots and cut-out
 | c0165 | `schematic-block-composition` | archived implementation: functional blocks, automatic flow/alignment, bounded wiring and generated-baseline reports/previews; repository gate and native GUI review pending (see archived tasks) | c0164, c0032, c0037, c0086 |
 | c0167 | `board-slots` | board slots and cut-outs (milestone to be placed): `OutlineSlot` in the model and `design.slot`, the shared stadium, the union of overlapping cut-outs and slots (`clipper` backend of the `geo` extra), KiCad lowering and read-back | c0102, c0074 |
 | c0168 | `altium-slots-cutouts` | board slots and cut-outs: slotted board holes as free slot pads, milled cut-outs and slots as board cut-out regions behind the maintainer's kit, their import and round trips | c0167, c0085 |
+| c0169 | `edge-clearance-check` | board slots and cut-outs: copper-to-edge clearance in the copper check, drilled holes in cut-outs and overlapping holes, the creepage of slots | c0167, c0029 |
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
