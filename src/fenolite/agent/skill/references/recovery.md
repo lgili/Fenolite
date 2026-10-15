@@ -85,10 +85,10 @@ fenolite check blink/build --stages model.validate,copper.clearance --json  # ex
 ## Exit 5 in general
 
 Exit 5 means the command ran and found problems: read `issues`. For a finding: read the code,
-ask `explain`, change one thing, check again. `copper.clearance` is repaired as `copper.short` is: a
+ask `explain`, change one thing, check again. `copper.clearance` is repaired as `copper.short`: a
 finding between two tracks that a router drew by `route --rip` of those nets or by room between the
-parts, one that names script copper in the script. Move copper of `copper.edge-clearance` away
-from the ring in `where`, a drill of `copper.hole-in-cutout` off the cut-out.
+parts, one that names script copper in the script. Move copper of `copper.edge-clearance` off
+the ring in `where`, a drill of `copper.hole-in-cutout` off the cut-out.
 
 ## Exit 6, `FEN-6001`: a tool is not installed
 
