@@ -21,8 +21,10 @@
 
 ## 3. Union
 
-- [ ] 3.1 Write `ClipperBackend`, `BACKEND_ORDER = ("fallback", "clipper")` and `select_backend(…, operation=)` (scenarios "Selection by operation", "Two slots in an L"); `body_volumes` results unchanged. Proof: `uv run pytest tests/unit/geometry/test_clipper.py tests/unit/geometry/test_boolean_fallback.py tests/unit/analysis/test_body_volumes.py tests/unit/test_import_graph.py -q`.
-- [ ] 3.2 Write `merge_rings` with the arcs put back (scenarios "L of two slots keeps its arcs", "Separate rings untouched"), with a seeded property test: the merged area equals the polygon union's within `MERGE_TOL` times the perimeter. First item of the cut order for the arcs. Proof: `uv run pytest tests/unit/geometry/test_merge_rings.py -q`.
+- [x] 3.1 Write `ClipperBackend`, `BACKEND_ORDER = ("fallback", "clipper")` and `select_backend(…, operation=)` (scenarios "Selection by operation", "Two slots in an L"); `body_volumes` results unchanged. Proof: `uv run pytest tests/unit/geometry/test_clipper.py tests/unit/geometry/test_boolean_fallback.py tests/unit/analysis/test_body_volumes.py tests/unit/test_import_graph.py -q`.
+  - 2026-10-15: `geometry/boolean/clipper.py` (`ClipperBackend`, `union` through `Pyclipper.Execute2` with `CT_UNION` and `PFT_NONZERO`, holes from the poly tree, `normalize_polygons`), `BACKEND_ORDER = ("fallback", "clipper")` and `select_backend(…, operation=)`; `select_backend()` stays `fallback`, so `body_volumes` is unchanged. The fallback test now names the new order. Proof: 66 passed.
+- [x] 3.2 Write `merge_rings` with the arcs put back (scenarios "L of two slots keeps its arcs", "Separate rings untouched"), with a seeded property test: the merged area equals the polygon union's within `MERGE_TOL` times the perimeter. First item of the cut order for the arcs. Proof: `uv run pytest tests/unit/geometry/test_merge_rings.py -q`.
+  - 2026-10-15: `geometry.rings` gains `CurvedRing`, `overlap_groups` (interiors meet and neither ring holds the other), `merge_groups` (which also says which inputs each result holds, for the names of the findings), `merge_rings` and `MERGE_TOL`. A vertex of an input ring always ends a run of arc points, so the round end of the L stops at the vertex of the other slot; the L gives seven vertices and three arcs, the quarter arc's mid (120.707107, 109.292893) mm, its centre within 1 nm of (120, 110) mm. The property test runs 12 seeds of three random stadiums. Proof: 19 passed.
 
 ## 4. KiCad lowering
 

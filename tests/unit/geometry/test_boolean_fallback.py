@@ -122,7 +122,7 @@ def test_out_of_range_coordinate() -> None:
 
 
 def test_default_without_extras(no_extras: None) -> None:
-    assert BACKEND_ORDER == ("fallback",)
+    assert BACKEND_ORDER == ("fallback", "clipper")
     assert isinstance(select_backend(), FallbackBackend)
     assert available_backends() == ("fallback",)
     assert isinstance(select_backend("fallback"), FallbackBackend)
