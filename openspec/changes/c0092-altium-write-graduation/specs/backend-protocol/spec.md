@@ -7,7 +7,7 @@
 - every hypothesis id of the write cell is release-verified (`verification-evidence`, "Release-verified levels");
 - at least one hypothesis id of the cell is `ALTIUM-VERIFIED(kit)` from a committed run that is not stale.
 
-A write cell that graduates MUST NOT be listed in the row's `experimental`, and a write cell that does not MUST be listed. This holds for every backend; for the KiCad rows the fourth condition is replaced by a `KICAD-VERIFIED` hypothesis.
+A write cell that graduates MUST NOT be listed in the row's `experimental`, and a write cell that does not MUST be listed. This graduation policy applies to the Altium write kinds; other backends retain their existing release policy. The pure helper also supports KiCad-specific verification without reclassifying its rows in this change.
 - The evidence matrix page MUST show, for each write cell that is experimental, the conditions that are missing.
 
 #### Scenario: Evidence short by one row
@@ -16,7 +16,7 @@ A write cell that graduates MUST NOT be listed in the row's `experimental`, and 
 - **THEN** it returns false and names that hypothesis
 
 #### Scenario: Both directions are enforced
-- **WHEN** `uv run pytest tests/unit/backends/test_graduation.py -k matrix` checks every row of every backend
+- **WHEN** `uv run pytest tests/unit/backends/test_graduation.py -k matrix` checks every Altium write row
 - **THEN** each write cell is experimental exactly when `graduated` is false
 
 #### Scenario: A stale run undoes graduation
@@ -42,7 +42,7 @@ A write cell that graduates MUST NOT be listed in the row's `experimental`, and 
 - For every backend of `registry.all_backends()`, every kind of its report's `read_kinds` MUST have a row with `detect` and `read` set, and the kinds whose `write` is set and not experimental MUST be exactly the report's `write_kinds` ("Capability reports"). A kind MAY have `read` set without being in `read_kinds`: the package then has a reader that `Backend.read` does not dispatch.
 - The `kicad_pcb` row MUST have `read` equal to `pcb.EVIDENCE`, `write` equal to `pcb.WRITE_EVIDENCE`, `roundtrip_exact` equal to `pcb.EVIDENCE` (RT1; `kicad-file-backend`, "Round-trip verdict") and `roundtrip_modified` equal to `Evidence.combine(pcb.EVIDENCE, pcb.WRITE_EVIDENCE)`, which is the evidence of the KiCad capability report.
 - The `kicad` rows MUST include `kicad_lib_table` (the files `fp-lib-table` and `sym-lib-table`) with `read` equal to `libs.EVIDENCE` and `write` equal to `libs.WRITE_EVIDENCE`, and the KiCad report's `write_kinds` MUST contain `kicad_lib_table` ("Write capability fields": later writers add their kinds). The `kicad_sym` row MUST have `write` equal to `sym.WRITE_EVIDENCE` and listed in `experimental` while no register row covers `sym.write_symbol_library`.
-- The `altium` rows MUST include one row for every write kind of the experimental features (`cli-contract`, "Experimental features in capabilities"), each with `write` set and listed in `experimental` exactly when the graduation rule refuses it. Since change c0043 `altium` is a registered backend, so every kind of its `read_kinds` also has `detect` and `read` set: `read` combines the reader's constant with `import_evidence.EVIDENCE`, and `detect` is `import_evidence.EVIDENCE`, the evidence of the backend's report. The `specctra` rows MUST include `specctra_dsn` with `write` set and `specctra_ses` with `read` set.
+- The `altium` rows MUST include one row for every write kind of the experimental features (`cli-contract`, "Experimental features in capabilities"), each with `write` set; its membership in `experimental` follows "Graduation of a write kind". Since change c0043 `altium` is a registered backend, so every kind of its `read_kinds` also has `detect` and `read` set: `read` combines the reader's constant with `import_evidence.EVIDENCE`, and `detect` is `import_evidence.EVIDENCE`, the evidence of the backend's report. The `specctra` rows MUST include `specctra_dsn` with `write` set and `specctra_ses` with `read` set.
 - A cell whose level is `INFERRED` MUST name at least one hypothesis, and a cell whose level is `UNVERIFIED` MUST be listed in its row's `experimental`.
 
 #### Scenario: Row as JSON

@@ -8,9 +8,11 @@ import dataclasses
 import re
 from pathlib import Path
 
+from fenolite.core.evidence import Level
 from fenolite.verify import load_register
 from fenolite.verify.kit import steps
 from fenolite.verify.kit.manifest import read_kit
+from fenolite.verify.kit.record import label_problems, load_records
 from fenolite.verify.kit.steps import GROUPS, SAMPLES, STEPS, Step, steps_markdown
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -70,7 +72,8 @@ def test_register_and_steps_agree() -> None:
         named = [step.id for step in STEPS if ident in step.hypotheses]
         assert rows[ident].test.startswith("kit request") and all(i in rows[ident].test for i in named), ident
     for ident in ("H-A-KIT-RESAVE", "H-A-KIT-COMPILE", "H-A-KIT-REPOUR", "H-A-KIT-DRC", "H-A-KIT-SCRIPT"):
-        assert ident in by_test and rows[ident].level_text == "INFERRED"
+        assert ident in by_test and rows[ident].level in (Level.INFERRED, Level.ALTIUM_VERIFIED_KIT)
+    assert not label_problems(REGISTER, load_records(ROOT), None)
 
 
 def test_a_step_that_can_end_in_a_file_does() -> None:

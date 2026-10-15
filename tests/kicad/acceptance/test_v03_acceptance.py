@@ -1,20 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The independent acceptance run of c0092, kept outside the quick suite."""
+"""H-A-ACC-V03: full acceptance on the CI KiCad 10 importer; never a prepared-only pass."""
 
-from __future__ import annotations
-
-import runpy
-from pathlib import Path
+import json
 
 import pytest
-from _probes import runner
+from _v03acceptance import result
 
-pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10), pytest.mark.slow]
-ROOT = Path(__file__).resolve().parents[3]
+pytestmark = [pytest.mark.needs_kicad, pytest.mark.kicad_min_major(10)]
 
 
-def test_v03_acceptance(tmp_path: Path) -> None:
-    tool = runpy.run_path(str(ROOT / "tools/acceptance_v03.py"))
-    report = tool["run"](tmp_path, kicad_cli=str(runner().path))
-    assert report["passed"], report["steps"]
+def test_v03_acceptance() -> None:
+    measured = result()
+    assert measured["acceptance_complete"], json.dumps(measured, indent=2)
+    assert all(step["passed"] for step in measured["steps"])

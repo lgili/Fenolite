@@ -14,11 +14,11 @@ import dataclasses
 from pathlib import Path
 
 import pytest
-from _boardcorpus import READABLE_ITEMS, read
+from _boardcorpus import READABLE_ITEMS, read, require_cli_board_version
 from _boards import FIXTURE, census
 from _corpus import require
 from _frame import bottom_rotations, pad_report, pos_problems, read_pos
-from _kicad import supported_version
+from _kicad import major, supported_version
 from _upgrade import runner
 
 from fenolite.backends.kicad.ipcd356 import read_ipcd356
@@ -39,6 +39,7 @@ def _board(name: str) -> tuple[Path, Design]:
         return FIXTURE, read_board(FIXTURE)
     item = next(i for i in DEMOS if i.id == name)
     path = require(item)
+    require_cli_board_version(path, major())
     return path, read(path)[0]
 
 

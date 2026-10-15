@@ -26,8 +26,10 @@ The repository SHALL hold an acceptance project for the second backend's write s
 ## MODIFIED Requirements
 
 ### Requirement: Altium build evidence
-The Altium build envelope SHALL combine the evidence of its inputs with the write cells of the kinds actually written. An author report never promotes a kind; graduation follows "Graduation of a write kind".
+The Altium `build` envelope SHALL combine the write evidence of the kinds actually written with input evidence, lowest wins.
+- A kind remains experimental until "Graduation of a write kind" holds; an author report never promotes an operation.
+- `fenolite capabilities` MUST compute graduated and experimental kinds from the matrix.
 
-#### Scenario: Evidence follows written kinds
-- **WHEN** an Altium project is built
-- **THEN** the envelope uses the lowest evidence of its input and written kinds.
+#### Scenario: Sample envelope
+- **WHEN** the sample is built with `--target altium --dry-run --json`
+- **THEN** the evidence is the lowest of the inputs and written kinds, and ungraduated kinds are named in `altium.experimental`

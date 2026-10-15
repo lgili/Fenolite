@@ -13,24 +13,21 @@ from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
 from fenolite.backends import matrix  # noqa: E402
-from fenolite.backends.base import MATRIX_OPERATIONS, MatrixRow, graduated, graduation_context  # noqa: E402
+from fenolite.backends.base import MATRIX_OPERATIONS, GraduationRun, MatrixRow, graduated  # noqa: E402
 from fenolite.core.evidence import Evidence  # noqa: E402
 from fenolite.verify import HypothesisRow, load_register  # noqa: E402
-from tools._graduation import snapshot  # noqa: E402
+from fenolite.verify.graduation import readback_tests, run_snapshots  # noqa: E402
 
 PAGE = ROOT / "docs" / "evidence" / "matrix.md"
 REGISTER = ROOT / "docs" / "hypotheses.md"
-SNAPSHOT = ROOT / "src/fenolite/backends/graduation.json"
 PAGE_NAME = "docs/evidence/matrix.md"
 TOOL_NAME = "tools/gen_evidence_matrix.py"
 COMMAND = f"uv run python {TOOL_NAME}"
@@ -78,6 +75,10 @@ def render(
     rows: Sequence[MatrixRow] | None = None,
     claims: Sequence[matrix.ModuleClaim] | None = None,
     register: Sequence[HypothesisRow] | None = None,
+    *,
+    runs: Sequence[GraduationRun] | None = None,
+    own_readbacks: Mapping[str, str] | None = None,
+    suite_tests: Collection[str] | None = None,
 ) -> str:
     """The page text. With no argument it is rendered from the working tree: ``matrix.rows()``, the
     ``module_claims`` of every backend package and ``docs/hypotheses.md``."""
@@ -119,12 +120,42 @@ def render(
     for row in rows:
         cells = [_operation(row, operation) for operation in MATRIX_OPERATIONS]
         lines.append(_line([row.backend, f"`{row.kind}`", *cells, _ids(row.verified_by())]))
-    support, runs = graduation_context()
-    lines += ["", "## Write graduation", "", "| backend | kind | missing conditions |", "|---|---|---|"]
-    for row in rows:
-        if row.write is not None:
-            ok, missing = graduated(row, support, runs)
-            lines.append(_line([row.backend, f"`{row.kind}`", "graduated" if ok else "<br>".join(missing)]))
+    altium_writes = [row for row in rows if row.backend == "altium" and row.write is not None]
+    if altium_writes:
+        if own_readbacks is None:
+            from fenolite.backends.altium.claims import OWN_READBACK
+
+            own_readbacks = OWN_READBACK
+        if suite_tests is None:
+            suite_tests = readback_tests(ROOT, own_readbacks)
+        if runs is None:
+            from fenolite.cli._kit import kit_sources
+            from fenolite.verify.kit.manifest import KIT_FILE, kit_files, read_kit
+            from fenolite.verify.kit.record import load_records
+
+            current_kit = read_kit(kit_files(kit_sources())[KIT_FILE])
+            runs = run_snapshots(register, load_records(ROOT), current_kit, committed=True)
+        lines += [
+            "",
+            "## Write graduation",
+            "",
+            "Altium write graduation requires a declared own-readback test in the suite, release-verified",
+            "hypotheses, RT-A3 for model kinds, and a passing committed kit hypothesis whose files match",
+            "the current kit. These diagnostics use the committed run records; they do not promote a kind",
+            "or substitute for passing CI. Other backends retain their existing release policy.",
+            "",
+            "| kind | missing graduation conditions |",
+            "|---|---|",
+        ]
+        for row in altium_writes:
+            passed, reasons = graduated(
+                row,
+                by_id,
+                runs,
+                own_readback=own_readbacks.get(row.kind),
+                suite_tests=suite_tests,
+            )
+            lines.append(_line([f"`{row.kind}`", "none" if passed else "<br>".join(reasons)]))
     named = sorted({ident for row in rows for ident in row.verified_by()})
     lines += [
         "",
@@ -172,13 +203,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="exit 1 when the committed page is out of date")
     parser.add_argument("--page", type=Path, default=PAGE)
     args = parser.parse_args(argv)
-    resource = snapshot(ROOT, load_register(REGISTER))
-    if args.check:
-        if not SNAPSHOT.is_file() or SNAPSHOT.read_text() != resource:
-            print(f"graduation resource is out of date: run '{COMMAND}'", file=sys.stderr)
-            return 1
-    else:
-        SNAPSHOT.write_text(resource)
     text = render()
     if args.check:
         current = args.page.read_bytes().decode("utf-8") if args.page.is_file() else ""

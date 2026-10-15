@@ -154,18 +154,23 @@ class AltiumBackend:
         return path.suffix.lower() in SUFFIXES
 
     def capabilities(self) -> CapabilityReport:
-        from dataclasses import replace
-
-        from fenolite.backends.altium.claims import MATRIX
-        from fenolite.backends.base import graduation_rows
+        from fenolite.backends.altium import claims
 
         kinds = tuple(
-            row.kind for row in graduation_rows(MATRIX) if row.write and "write" not in row.experimental
+            sorted(
+                row.kind for row in claims.MATRIX if row.write is not None and "write" not in row.experimental
+            )
         )
-        return (
-            CAPABILITIES
-            if kinds == CAPABILITIES.write_kinds
-            else replace(CAPABILITIES, write_kinds=kinds, operations=(*CAPABILITIES.operations, "write"))
+        if kinds == CAPABILITIES.write_kinds:
+            return CAPABILITIES
+        return dataclasses.replace(
+            CAPABILITIES,
+            write_kinds=kinds,
+            operations=(*CAPABILITIES.operations, "write") if kinds else CAPABILITIES.operations,
+            evidence=Evidence.combine(
+                CAPABILITIES.evidence,
+                *(row.write for row in claims.MATRIX if row.kind in kinds and row.write is not None),
+            ),
         )
 
     def read(self, path: Path, *, issues: list[Issue] | None = None) -> ReadResult:

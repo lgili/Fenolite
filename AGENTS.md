@@ -11,9 +11,13 @@ Read this file before changing anything. Humans: this is also the short version 
 3. **While iterating:** `make check-fast` (ruff check, ruff format --check, pyright src, residue scan,
    and the tests that need no `kicad-cli`, corpus or KiCad libraries) plus the tests of the files you
    touched, for example `uv run pytest tests/kicad/board/test_x.py -q`.
-4. **Before finishing:** `make check` (the same checks and every test, on parallel workers) must pass.
-   Run it once, on the rebased branch, right before the merge. Never start several full suites at
-   the same time on one machine: agents in parallel worktrees use `make check-fast`.
+4. **Complete validation (`make check`) runs in GitHub CI.** On the maintainer's Windows PC, run only
+   `make check-fast` and focused tests; do not run the full suite here (maintainer's decision,
+   2026-10-14). Batch accumulated changes and publish the batch to its working branch for CI's
+   parallel unit and KiCad jobs. Confirm the required jobs on the exact commit before merging
+   or closing changes that require full validation. Never report an interrupted local run as
+   passed. Other local worktrees also use `make check-fast`. Never start several full suites
+   on one machine; parallel CI jobs use separate runners.
 5. Update `CHANGELOG.md` under `## [Unreleased]` for every change.
 6. **Teach what you add.** A change that adds a public command, a public DSL name or a `FEN-` code
    adds a tested line to a page of the agent guide (`src/fenolite/agent/skill/references/`):

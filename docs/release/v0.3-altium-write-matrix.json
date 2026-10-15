@@ -1,0 +1,206 @@
+{
+  "release": "v0.3.0",
+  "source_commit": "95de85ade2eaaf2f4a3d77902943e2515c4aabab",
+  "kinds": {
+    "altium_harness": {
+      "hypotheses": [
+        "H-A-SCH-HARN-FILE",
+        "H-A-SCH-HARN-NETS",
+        "H-A-SCH-HARN-OPEN",
+        "H-A-SCH-HARN-UNUSED",
+        "H-A-SCH-HIER-COMPILE",
+        "H-A-SCH-HIER-ECO",
+        "H-A-SCH-HIER-NAMES",
+        "H-A-SCH-HIER-OPEN",
+        "H-A-SCH-HIER-ORDER",
+        "H-A-SCH-HIER-PRJ"
+      ],
+      "experimental": true
+    },
+    "altium_outjob": {
+      "hypotheses": [
+        "H-A-OUTJOB-GERBER-ACCEPT",
+        "H-A-OUTJOB-GERBER-LAYERS",
+        "H-A-OUTJOB-GERBER-RECORD",
+        "H-A-OUTJOB-OPEN",
+        "H-A-OUTJOB-READBACK",
+        "H-A-OUTJOB-RUN-2"
+      ],
+      "experimental": true
+    },
+    "altium_pcbdoc": {
+      "hypotheses": [
+        "H-A-ECO-COMPCLASS",
+        "H-A-ECO-SHEETCLASS",
+        "H-A-PCB-CU-CLASS",
+        "H-A-PCB-CU-KICAD",
+        "H-A-PCB-CU-PLANE",
+        "H-A-PCB-CU-REPOUR",
+        "H-A-PCB-CU-ROUNDTRIP",
+        "H-A-PCB-CU-RULES",
+        "H-A-PCB-CU-STACK",
+        "H-A-PCB-CU-TRACK",
+        "H-A-PCB-CU-VIA",
+        "H-A-PCB-CU-VIEWER",
+        "H-A-PCB-DOC-BOTTOM",
+        "H-A-PCB-DOC-LINK",
+        "H-A-PCB-DOC-NETS",
+        "H-A-PCB-DOC-OPEN",
+        "H-A-PCB-DOC-VIEWER",
+        "H-A-PCB-ECO",
+        "H-A-PCB-GRAPHICS",
+        "H-A-PCB-KICAD-DOC",
+        "H-A-PCB-KICAD-LIB",
+        "H-A-PCB-LIB-NAME",
+        "H-A-PCB-LIB-OPEN",
+        "H-A-PCB-PAD",
+        "H-A-PCB-PRJ",
+        "H-A-PCBX-BODY-2D",
+        "H-A-PCBX-BODY-FORM",
+        "H-A-PCBX-BODY-ID",
+        "H-A-PCBX-BODY-KICAD",
+        "H-A-PCBX-BODY-OPEN",
+        "H-A-PCBX-BODY-READBACK",
+        "H-A-PCBX-BODY-SHORT",
+        "H-A-PCBX-BUILD-LOWER",
+        "H-A-PCBX-FPGFX",
+        "H-A-PCBX-FPGFX-AD",
+        "H-A-PCBX-FPGFX-KICAD",
+        "H-A-PCBX-FPTEXT",
+        "H-A-PCBX-HOLE",
+        "H-A-PCBX-KEEPOUT",
+        "H-A-PCBX-KICAD",
+        "H-A-PCBX-MECH",
+        "H-A-PCBX-READBACK",
+        "H-A-PCBX-REPOUR",
+        "H-A-PCBX-STACK",
+        "H-A-PCBX-TEXT",
+        "H-A-PCBX-VIA-FULL",
+        "H-A-PCBX-VIASPAN",
+        "H-A-RULE-CLEARANCE-CELLS",
+        "H-A-RULE-CLEARANCE-FORMS",
+        "H-A-RULE-FILE",
+        "H-A-RULE-KINDS",
+        "H-A-RULE-PRIORITY",
+        "H-A-RULE-READBACK",
+        "H-A-RULE-SCOPE",
+        "H-A-VER-RTA2-3",
+        "H-A-VER-RTA3"
+      ],
+      "experimental": true
+    },
+    "altium_pcblib": {
+      "hypotheses": [
+        "H-A-PCB-DOC-BOTTOM",
+        "H-A-PCB-DOC-LINK",
+        "H-A-PCB-DOC-NETS",
+        "H-A-PCB-DOC-OPEN",
+        "H-A-PCB-DOC-VIEWER",
+        "H-A-PCB-ECO",
+        "H-A-PCB-GRAPHICS",
+        "H-A-PCB-KICAD-DOC",
+        "H-A-PCB-KICAD-LIB",
+        "H-A-PCB-LIB-NAME",
+        "H-A-PCB-LIB-OPEN",
+        "H-A-PCB-PAD",
+        "H-A-PCB-PRJ",
+        "H-A-PCBX-BODY-FORM",
+        "H-A-PCBX-BODY-LIB"
+      ],
+      "experimental": true
+    },
+    "altium_prjpcb": {
+      "hypotheses": [
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+        "H-A-PRJ-OPEN",
+        "H-A-SCH-LINEEND",
+        "H-A-SCH-LINK",
+        "H-A-SCH-NETS",
+        "H-A-SCH-OPEN",
+        "H-A-SCH-UID",
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE"
+      ],
+      "experimental": true
+    },
+    "altium_schdot": {
+      "hypotheses": [
+        "H-A-SCHDOT-OPEN",
+        "H-A-SCHDOT-READBACK",
+        "H-A-SCHDOT-STRINGS"
+      ],
+      "experimental": true
+    },
+    "altium_schdoc_ascii": {
+      "hypotheses": [
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+        "H-A-PRJ-OPEN",
+        "H-A-SCH-LINEEND",
+        "H-A-SCH-LINK",
+        "H-A-SCH-NETS",
+        "H-A-SCH-OPEN",
+        "H-A-SCH-UID",
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE"
+      ],
+      "experimental": true
+    },
+    "altium_schdoc_binary": {
+      "hypotheses": [
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+        "H-A-PRJ-OPEN",
+        "H-A-SCH-LINEEND",
+        "H-A-SCH-LINK",
+        "H-A-SCH-NETS",
+        "H-A-SCH-OPEN",
+        "H-A-SCH-UID",
+        "H-A-SCHBIN-AD",
+        "H-A-SCHBIN-CFB",
+        "H-A-SCHBIN-FRAME",
+        "H-A-SCHBIN-STORAGE",
+        "H-A-SCHBIN-VIEWER",
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE"
+      ],
+      "experimental": true
+    },
+    "altium_schlib": {
+      "hypotheses": [
+        "H-A-SCHLIB-IMPLIDX",
+        "H-A-SCHLIB-KICAD",
+        "H-A-SCHLIB-OPEN",
+        "H-A-SCHLIB-PARTS",
+        "H-A-SCHLIB-PIN",
+        "H-A-SCHLIB-PINBITS",
+        "H-A-SCHLIB-SECTIONKEY",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-READBACK"
+      ],
+      "experimental": true
+    }
+  }
+}

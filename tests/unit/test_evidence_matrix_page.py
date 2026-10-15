@@ -144,3 +144,58 @@ def test_readme_names_the_page_and_its_generator() -> None:
     text = (ROOT / "docs" / "evidence" / "README.md").read_text(encoding="utf-8")
     assert "matrix.md" in text and "tools/gen_evidence_matrix.py" in text
     assert "gen_evidence_matrix.py" in (ROOT / "tools" / "README.md").read_text(encoding="utf-8")
+
+
+def test_graduation_section_names_actual_missing_hypotheses() -> None:
+    from fenolite.backends.altium.claims import MATRIX
+    from fenolite.verify.evidence import is_release_evidence
+
+    register = {row.id: row for row in load_register(REGISTER)}
+    text = _section(PAGE.read_text(encoding="utf-8"), "Write graduation")
+    for row in MATRIX:
+        if row.write is None:
+            continue
+        (line,) = [line for line in text.splitlines() if line.startswith(f"| `{row.kind}` |")]
+        for ident in row.write.hypotheses:
+            if not is_release_evidence(register[ident]):
+                assert ident + " is not release-verified" in line
+        assert "own-readback test is not declared" not in line
+    assert "no supporting committed kit run" not in text, "known recorded runs must be used"
+
+
+def test_graduation_rendering_uses_injected_proof_context() -> None:
+    from fenolite.backends.base import GraduationRun
+    from fenolite.verify.hypotheses import HypothesisRow
+
+    ident = "H-A-ACC-KIT"
+    run_id = "2026-10-13-12345678"
+    register = [
+        HypothesisRow(
+            ident,
+            "altium",
+            "test",
+            Level.ALTIUM_VERIFIED_KIT,
+            f"ALTIUM-VERIFIED(kit; AD 26.5; 2026-10-13; {run_id})",
+            "test",
+            "pass",
+            "pass",
+            "2026-10-13",
+        )
+    ]
+    row = MatrixRow(
+        "altium",
+        "altium_schlib",
+        write=Evidence(Level.INFERRED, hypotheses=(ident,)),
+        experimental=("write",),
+    )
+    run = GraduationRun(run_id, frozenset({ident}), frozenset(), True)
+    context = {"own_readbacks": {row.kind: "proof"}, "suite_tests": {"proof"}}
+    assert "| `altium_schlib` | none |" in _tool().render([row], [], register, runs=[run], **context)
+    text = _tool().render([row], [], register, runs=[], **context)
+    assert f"no supporting committed kit run {run_id}" in text
+    from dataclasses import replace
+
+    text = _tool().render(
+        [row], [], register, runs=[replace(run, stale_hypotheses=frozenset({ident}))], **context
+    )
+    assert f"kit run {run_id} is stale" in text

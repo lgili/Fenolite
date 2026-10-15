@@ -25,14 +25,14 @@
 
 ## Files and public API
 
-- `src/fenolite/backends/base.py`: `graduated(row, register, runs) -> tuple[bool, tuple[str, ...]]` (the verdict and what is missing).
+- `src/fenolite/backends/base.py`: `graduated(row, register, runs, *, own_readback=None, suite_tests=()) -> tuple[bool, tuple[str, ...]]` (the verdict and what is missing). The rule is pure: register rows satisfy a structural protocol, and `GraduationRun` snapshots contain validated committed run ids, passing hypotheses and freshness computed by the kit verifier. Missing readback metadata or unknown freshness fails closed. Claims and matrix integration supplies suite membership; passing CI is a separate closing gate. No dependency on `verify` is introduced into `backends.base`.
 - `tools/acceptance_v03.py`: the acceptance script (runs `fenolite` commands; writes a JSON summary).
 - `docs/evidence/altium-acceptance.md`.
 - Tests: `tests/unit/backends/test_graduation.py`, `tests/unit/cli/test_capabilities_altium.py`, `tests/kicad/acceptance/test_v03_acceptance.py`.
 
 ## Sources registered by this change
 
-- None.
+- Initially none. Publication preparation on 2026-10-14 registers S-0745, Altium's public DRC report documentation, read for the report-creation switch, native TXT/HTML names and project output folder. No vendor template, logo, example or parser code is copied.
 
 Each new source gets the next free `S-` number in `docs/evidence/sources.md` when its task runs (numbers are not reserved here, because changes that run in parallel would collide), with its licence and what was read. Sources under a copyleft or an all-rights-reserved licence are read for facts only; nothing is transcribed.
 
@@ -42,6 +42,7 @@ Each new source gets the next free `S-` number in `docs/evidence/sources.md` whe
 |---|---|---|---|
 | H-A-ACC-V03 | The acceptance project built for both targets is equal between them at level 5, passes `check` on both, holds RT-A3 on its Altium documents, and its Altium documents imported by KiCad equal the KiCad board at level 5 | `tests/kicad/acceptance/test_v03_acceptance.py` | probe `acceptance-v03` `equal` on KiCad 10.0.6; the exclusions are those of the triangle profile |
 | H-A-ACC-KIT | A kit run on the acceptance tree passes every step of the groups K1 to K8 | the recorded kit run | the run record holds no failed step in those groups |
+| H-A-DRC-REPORT | Native batch DRC creates TXT/HTML reports only when Create Report File is enabled, in the project's Output Path | owned native report retry described in docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md | newly created report files use the configured output folder and retain the measured rule counts |
 
 All start `INFERRED`. No id above is in `docs/hypotheses.md` or in another active change (checked 2026-10-06).
 
@@ -62,7 +63,7 @@ Total: 3.25. This is a size, not a calendar estimate.
 ## Spec deltas and archive order
 
 - `backend-protocol`, "Evidence matrix rows"; `cli-contract`, "Experimental features in capabilities"; `altium-build`, "Altium build evidence": superseded in the sentences that fix every Altium write as experimental and the envelope as `INFERRED`. Task 0.1 writes them as MODIFIED from the living text.
-- Archive order: last of the write part of v0.3.
+- Archive order: last of the write part of v0.3. On 2026-10-14 the maintainer authorized implementation before dependency CI completes; archive still waits for actual CI success and dependency archive.
 
 ## Risks / Trade-offs
 
@@ -92,3 +93,19 @@ freshness is measured against the kit built by this tree when generating the res
 An own-code INFERRED hypothesis remains insufficient for promotion even if its test passes.
 The implementation does not weaken that rule to make graduation possible prematurely.
 Acceptance tooling reports failed steps rather than declaring success without oracle checks.
+
+## Entry reconciliation on 2026-10-14
+
+The former all-backend matrix scenario would newly reclassify existing KiCad and Specctra writes, outside this Altium milestone. The entry inventory found eight KiCad write kinds and one Specctra write kind with established policies. This change enforces graduation for Altium rows and preserves those policies. Claims declare own-readback test nodes; the generated matrix checks suite membership by parsing authored test source and computes kit freshness from the same generated kit bytes as `kit status`, using committed validated records. No tool is launched and no kit file is written.
+
+## Acceptance preparation on 2026-10-14
+
+The DSL declares the common circuit, placement, six-layer stack, copper, rule kinds and drawing sheet. The authored model hook supplies the arbitrary ranged bus, free mechanical hole and explicit body geometry, as the existing kit samples supply model-only items. KiCad represents the free hole as an anonymous non-plated footprint, Altium as a free pad; both drill counts and sizes are verified before the established triangle exclusions apply. Preparation launches no external tool and never counts as complete acceptance. Full comparison uses the existing committed importer profile, with no added tolerance or exclusion. The acceptance check stages are model and readback checks; full DRC cleanliness is not claimed for the sparse exercise board. Probe registration waits for the measured full CI result.
+
+## Verification import boundary reconciliation
+
+CI exposed the stricter stdlib/core-only verification import rule. GraduationHypothesis and GraduationRun are data contracts in core.evidence, re-exported by backends.base for existing callers. Graduation evaluation and the matrix consistency check remain in backends.base; verify.graduation only adapts register/kit data through core types. The import guard remains unchanged.
+
+## Installed runtime graduation decisions
+
+Task 4.1 generates a packaged JSON snapshot from the pure graduation rule, the register, declared readback tests and validated committed kit records against current generated kit bytes. Runtime loads only this package resource, never checkout documentation or external tools. The snapshot records each kind's write hypothesis ids, readback node and missing conditions; changed declarations fail closed. A generator check and focused tests compare every packaged decision with the rule. Claims derive experimental flags from these decisions; capabilities derives write kinds from the resulting matrix, while the build combines only actually written kinds with input evidence. This does not promote any of the current nine kinds.

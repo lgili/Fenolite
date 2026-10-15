@@ -6,7 +6,7 @@ summary: Altium builds, blocks, native sync, evidence and the verification kit.
 
 # Building for Altium Designer
 
-Use `fenolite build --target altium`; verify the result in Altium Designer.
+`build --target altium` flags the experimental kinds (`altium.experimental`); `capabilities` lists `missing` proofs.
 
 ## A script and its build
 
@@ -53,7 +53,7 @@ content), `lamp.OutJob` (unless `--altium-outjob off`) and `.fenolite/`.
 `--altium-template FILE.SchDot` applies a native sheet template (binary only, no `drawing_sheet`);
 see `result.native_template`.
 
-`--altium-format ascii` selects text; binary is default. `--altium-sheets modules` splits sheets
+`--altium-format ascii` writes text, not binary. `--altium-sheets modules` splits sheets
 and draws `Harness` interfaces. `--copper-from BOARD.kicad_pcb` copies routed copper.
 
 Read `altium.not-lowered` locators. A `track_width` rule needs both limits (page `rules`).
@@ -73,8 +73,6 @@ It matches `capabilities` (`write_kinds` of `result.backends`, `result.matrix`).
 | `altium_schdoc_binary` | `.SchDoc`, binary form | `experimental` | `INFERRED` |
 | `altium_schdot` | `.SchDot`, from `fenolite template` | `experimental` | `INFERRED` |
 | `altium_schlib` | `.SchLib` | `experimental` | `INFERRED` |
-
-Report status/evidence; recheck after upgrades.
 
 ## Checking an Altium project without Altium
 

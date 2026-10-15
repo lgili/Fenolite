@@ -214,7 +214,7 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 
 | fact | source | label | hypothesis |
 |---|---|---|---|
-| Objects placed on the Keep-Out Layer apply across signal layers; object-specific restrictions can select tracks, vias, copper and pads | S-0742 | INFERRED | H-A-IMP-KEEPOUT-LAYER |
+| Objects placed on the Keep-Out Layer apply across signal layers; object-specific restrictions can select tracks, vias, copper and pads | S-0746 | INFERRED | H-A-IMP-KEEPOUT-LAYER |
 
 Fenolite's choice: a closed imported outline becomes an all-copper rule area forbidding tracks, vias
 and pours. An open line is a reported loss; unknown object-specific restrictions are not inferred.

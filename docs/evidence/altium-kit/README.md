@@ -1,5 +1,14 @@
 # docs/evidence/altium-kit
 
+The publication edition `2026-10-13-87c930fa` was prepared on 2026-10-14 and
+passes 32 steps. It preserves the historical form observations while repeating
+native saves in a neutral namespace; it is not a complete fresh replay.
+See [its provenance and privacy review](2026-10-13-87c930fa-publication.md).
+It is published as [supplemental evidence for v0.4.0](https://github.com/lgili/Fenolite/releases/download/v0.4.0/altium-kit-2026-10-13-87c930fa.zip),
+with its downloaded digest and size verified. Its 27 passing candidates are now
+labelled with the committed run, archive digest and typed-form qualifiers.
+See [the remaining hypothesis inventory](2026-10-14-graduation-inventory.md).
+
 The run records of the Altium verification kit (`docs/altium-kit.md`), one JSON file per run, named
 `<run id>.json` (`<date>-<first 8 hex digits of the archive digest>`), with the schema
 `fenolite.altium-kit-run.v0`.
@@ -26,8 +35,9 @@ A fourth run, `2026-10-13-462b38ba`, completes the corrected current kit:
 32 passed steps, zero failures and zero pending. The archive digest is
 `462b38ba3cc4812ddeea626865c8c097e50f0ed9f2473dc0f79a7455f80a4b93`
 (1236513 bytes). The broader legacy/Part T/Viewer campaign remains incomplete.
-Native archives remain in ignored local storage
-and have not been published. See [the acceptance campaign](../altium-native-acceptance.md)
+The original native archives remain in ignored local storage and unpublished;
+the reviewed publication derivative is linked above.
+See [the acceptance campaign](../altium-native-acceptance.md)
 for measured scopes, the original failed save and the remaining work.
 
 Closure reconciliation, 2026-10-13 (c0091): the completed current run is

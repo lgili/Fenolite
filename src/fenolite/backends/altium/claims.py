@@ -28,7 +28,6 @@ This module states no level: every cell is an evidence constant of a module of t
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from types import MappingProxyType
 
 from fenolite.backends.altium import (
@@ -45,6 +44,7 @@ from fenolite.backends.altium import (
     schdot,
     schlib,
 )
+from fenolite.backends.altium.graduation import decisions
 from fenolite.backends.altium.read import pcb as read_pcb
 from fenolite.backends.altium.read import pcblib as read_pcblib
 from fenolite.backends.altium.read import project as read_project
@@ -57,7 +57,7 @@ IMPORT = import_evidence.EVIDENCE
 SCHEMATIC_READ = Evidence.combine(read_sch.EVIDENCE, IMPORT)
 WRITE = ("write",)
 
-_ROWS: tuple[MatrixRow, ...] = (
+RAW_MATRIX: tuple[MatrixRow, ...] = (
     MatrixRow(NAME, project.HARNESS_KIND, write=hierarchy.EVIDENCE, experimental=WRITE),
     MatrixRow(NAME, outjob.OUTJOB_KIND, write=outjob.EVIDENCE, experimental=WRITE),
     MatrixRow(
@@ -83,7 +83,7 @@ _ROWS: tuple[MatrixRow, ...] = (
         "altium_prjpcb",
         detect=IMPORT,
         read=Evidence.combine(read_project.EVIDENCE, IMPORT),
-        write=project.EVIDENCE,
+        write=Evidence.combine(project.EVIDENCE, project.BUILD_EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(NAME, schdot.SCHDOT_KIND, write=schdot.EVIDENCE, experimental=WRITE),
@@ -92,7 +92,7 @@ _ROWS: tuple[MatrixRow, ...] = (
         "altium_schdoc_ascii",
         detect=IMPORT,
         read=SCHEMATIC_READ,
-        write=project.EVIDENCE,
+        write=Evidence.combine(project.EVIDENCE, project.BUILD_EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(
@@ -100,7 +100,7 @@ _ROWS: tuple[MatrixRow, ...] = (
         "altium_schdoc_binary",
         detect=IMPORT,
         read=SCHEMATIC_READ,
-        write=Evidence.combine(project.EVIDENCE, binary.EVIDENCE),
+        write=Evidence.combine(project.EVIDENCE, project.BUILD_EVIDENCE, binary.EVIDENCE),
         experimental=WRITE,
     ),
     MatrixRow(
@@ -108,10 +108,33 @@ _ROWS: tuple[MatrixRow, ...] = (
         project.SCHLIB_KIND,
         detect=IMPORT,
         read=SCHEMATIC_READ,
-        write=schlib.EVIDENCE,
+        write=Evidence.combine(schlib.EVIDENCE, schlib.BUILD_EVIDENCE),
         experimental=WRITE,
     ),
 )
+
+_HIERARCHY_READBACK = (
+    "tests/unit/backends/altium/test_readback.py::test_hierarchy_sample_reads_back_in_both_forms"
+)
+OWN_READBACK: dict[str, str] = {
+    project.HARNESS_KIND: _HIERARCHY_READBACK,
+    outjob.OUTJOB_KIND: "tests/unit/backends/altium/test_outjob_write.py::test_readback",
+    project.PCBDOC_KIND: (
+        "tests/unit/backends/altium/test_lower.py::test_own_document_is_written_from_its_model"
+    ),
+    project.PCBLIB_KIND: "tests/unit/backends/altium/test_pcblib.py::test_library_of_the_mini_footprints",
+    "altium_prjpcb": _HIERARCHY_READBACK,
+    "altium_schdoc_ascii": _HIERARCHY_READBACK,
+    "altium_schdoc_binary": _HIERARCHY_READBACK,
+    schdot.SCHDOT_KIND: "tests/unit/backends/altium/test_schdot_write.py::test_readback",
+    project.SCHLIB_KIND: "tests/unit/backends/altium/test_schlib.py::test_round_trip_of_a_mapped_symbol",
+}
+"""Write kind to authored own-readback proof; membership is checked against the test suite.
+
+These tests use Fenolite's readers and do not replace a native kit or corpus oracle.
+"""
+
+MATRIX, GRADUATION_MISSING = decisions(RAW_MATRIX, OWN_READBACK)
 
 RT_A1_NOTE = "RT-A1 (H-A-VER-RTA1): every typed stream gives equal records after an encode and a read"
 ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
@@ -135,26 +158,4 @@ ROUND_TRIP_NOTES: Mapping[str, str] = MappingProxyType(
 (capability altium-verification, "Round-trip claims of the Altium kinds"; change c0090). The matrix has
 no column for a note: its round-trip cells say ``exact`` or nothing, and these kinds have nothing."""
 
-READBACKS = {
-    "altium_harness": "tests/unit/backends/altium/test_hierarchy.py",
-    "altium_outjob": "tests/unit/backends/altium/test_outjob_write.py",
-    "altium_pcbdoc": "tests/unit/backends/altium/test_pcbdoc_copper.py",
-    "altium_pcblib": "tests/unit/backends/altium/test_pcblib.py",
-    "altium_prjpcb": "tests/unit/backends/altium/test_project.py",
-    "altium_schdoc_ascii": "tests/unit/backends/altium/test_schdoc.py",
-    "altium_schdoc_binary": "tests/unit/backends/altium/test_binary.py",
-    "altium_schdot": "tests/unit/backends/altium/test_schdot_write.py",
-    "altium_schlib": "tests/unit/backends/altium/test_schlib.py",
-}
-MODEL_ROUNDTRIPS: dict[str, str] = {
-    "altium_pcbdoc": "H-A-VER-RTA3",
-    "altium_prjpcb": "H-A-VER-RTA3-PRJ",
-    "altium_schdoc_ascii": "H-A-VER-RTA3-PRJ",
-    "altium_schdoc_binary": "H-A-VER-RTA3-PRJ",
-}
-MATRIX = tuple(
-    replace(row, readback=READBACKS.get(row.kind, ""), model_roundtrip=MODEL_ROUNDTRIPS.get(row.kind, ""))
-    for row in _ROWS
-)
-
-__all__ = ["MATRIX", "NAME", "ROUND_TRIP_NOTES"]
+__all__ = ["GRADUATION_MISSING", "MATRIX", "NAME", "OWN_READBACK", "RAW_MATRIX", "ROUND_TRIP_NOTES"]

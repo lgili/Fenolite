@@ -25,6 +25,7 @@ from fenolite.verify import (
     load_register,
     proposed_ids,
 )
+from fenolite.verify.kit.record import candidate_rows, label_problems, load_records
 
 ROOT = Path(__file__).resolve().parents[2]
 REGISTER = "docs/hypotheses.md"
@@ -75,7 +76,9 @@ def register_problems(rows: Sequence[HypothesisRow]) -> list[str]:
             elif row.successor not in ids:
                 problems.append(f"{row.id}: superseded by {row.successor}, which is not registered")
         if row.id.startswith(AUTHOR_FAMILIES):
-            if not _author_level_ok(row):
+            if row.level is Level.ALTIUM_VERIFIED_KIT:
+                problems.extend(label_problems([row], load_records(ROOT), None))
+            elif not _author_level_ok(row):
                 problems.append(f"{row.id}: an author-report row needs level {AUTHOR_FORM}")
             if not row.test.startswith("kit request"):
                 problems.append(f"{row.id}: an author-report row needs a test column starting 'kit request'")
@@ -194,6 +197,31 @@ def test_malformed_author_report_rows_are_refused(level: str) -> None:
 def test_well_formed_author_report_row_is_accepted() -> None:
     level = "ALTIUM-VERIFIED(author-report; AD 24.x; 2026-09; no artefact)"
     assert register_problems([_row("H-A-WRITE-SCHLIB", level=level, test="kit request (v0.3): open")]) == []
+
+
+def test_author_family_accepts_only_recorded_kit_candidates() -> None:
+    record = next(r for r in load_records(ROOT) if r["run_id"] == "2026-10-13-87c930fa")
+    candidates = [r for r in candidate_rows(record) if str(r["id"]).startswith(AUTHOR_FAMILIES)]
+    assert len(candidates) == 8
+    for candidate in candidates:
+        row = _row(
+            str(candidate["id"]),
+            level=str(candidate["label"]),
+            result=str(candidate["result"]),
+            test="kit request (v0.3): recorded run",
+        )
+        assert register_problems([row]) == []
+        assert register_problems([_row(row.id, level=row.level_text, result="no digest", test=row.test)])
+
+
+def test_author_family_refuses_kit_without_record() -> None:
+    row = _row(
+        "H-A-WRITE-SCHLIB",
+        level="ALTIUM-VERIFIED(kit; AD 26.5; 2026-11-01; 2026-11-01-abcdef12)",
+        result="no record",
+        test="kit request (v0.3): open",
+    )
+    assert any("no run record" in problem for problem in register_problems([row]))
 
 
 def test_pending_author_rows_are_accepted() -> None:

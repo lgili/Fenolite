@@ -2703,3 +2703,119 @@ How KiCad's DRC counts coupled length SHALL be pinned by probes run with `kicad-
 #### Scenario: Four rules files
 - **WHEN** `uv run pytest tests/kicad/rules/test_pair_coupling.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
 - **THEN** the gap rule alone reports only `diff_pair_gap_out_of_range`, on the wide pair; the uncoupled rule alone reports at most the wide pair, with an uncoupled length below its routed length; both rules report the wide pair with an uncoupled length equal to its routed length; no rule reports nothing; and the outcomes are equal on both majors
+
+### Requirement: Stacked pins pass ERC, the netlist export and parity
+`tests/kicad/schematic/test_generated_oracle.py` and `tests/kicad/schematic/test_own_netlist.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that a project `build` writes for a design with pins of several pads is read by KiCad as the circuit says. The design is the stacked design of `tests/_schbuild.py`, authored from the `Mini` library: passive pins with two pads on nets, an `output` pin with two pads on a net, two `power_in` pins with two pads on nets, a marked pin with three pads whose numbers sort before and after the pin's, a named pin with two pads on no net without a mark whose first pad is not the lowest, and a part with a map of one pad per pin.
+- **Netlist** (`H-K-SCH-STACKED`, `H-K-SCH-STACKED-OPEN`). The nets of `kicad-cli sch export netlist` MUST equal those of `sch_netlist.own_netlist` of the same sheets: the same nodes on nets of the same names, the nets of open pins included.
+- **ERC.** `sch erc --format json --severity-all` MUST report, for this design, exactly the violations it reports for the same design built with the first pad of each pin only: stacking adds none.
+- **Parity.** `pcb drc --schematic-parity` on the built board MUST report no parity entry, and `fenolite check` on the project MUST report no `parity.*` finding and no `parity.oracle-differs`.
+- **Re-save.** `sch upgrade --force` of the generated sheet MUST keep the stacked pins and the nets.
+- The outcomes MUST be recorded as the other outcomes of the generated schematic are (`docs/evidence/kicad/probes/<version>.json`), and `docs/formats/kicad/schematic.md` MUST hold one row for each of the two hypotheses with its measured versions.
+
+#### Scenario: Both majors
+- **WHEN** `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/schematic/test_generated_oracle.py tests/kicad/schematic/test_own_netlist.py -k stacked` runs on `kicad-cli` 10.0.6 and, in the pinned image, on 9.0.9
+- **THEN** every test passes on both, and the two rows of `docs/hypotheses.md` name both versions
+
+#### Scenario: Name of an open stack
+- **GIVEN** the marked, unnamed pin of `U1` with the pads `5`, `15` and `9`, and the pin `K` of `D2` with the pads `21` and `17`, on no net and without a mark
+- **WHEN** the netlist is exported
+- **THEN** it holds one net `unconnected-(U1-Pad15)` with three nodes and one net `Net-(D2-K-Pad17)` with two
+
+### Requirement: Stacked pins of corpus sheets
+`tests/kicad/schematic/test_stacked_corpus.py` (markers `needs_kicad` and `needs_corpus`, major-aware) SHALL ask of sheets Fenolite did not write what "Stacked pins pass ERC, the netlist export and parity" proves on generated sheets: in every demo project of the corpus that the running `kicad-cli` loads, each group of pins of one symbol instance that have one name and connect at one point which nothing else touches (no label, no wire, no pin of another instance) MUST be one net of `kicad-cli sch export netlist` that holds those pins alone, with the name that `netnames.open_name` gives (`H-K-SCH-STACKED-OPEN`).
+- **What this covers.** The rule for a stack of same-named pins without a label, and nothing more. No demo sheet is inside the grammar of `sch_netlist.own_netlist` (each holds wires, local labels or sub-sheets), so the whole own netlist of a third-party sheet is NOT compared with KiCad's, and no text MAY say it is.
+- **How much.** The demo projects hold few such stacks: on 10.0.6 one project holds 10, all judged with their names, and the other projects are skipped with a reason. The test MUST pin that project and its count (`PINNED`), so that it cannot pass on nothing, and MUST fail when the pinned project gives no stack.
+- **Left out.** Hidden power inputs (KiCad joins them by name), instances of derived symbols and of power symbols (their pins are not read here), and a sheet used more than once. The test MUST name each of these in its text. An instance that is mirrored and turned by 90 or 270 degrees takes part like any other: `schlayout.pin_point` turns first and mirrors the turned symbol ("Pin connection points" of `kicad-schematic`).
+- The row of `H-K-SCH-STACKED-OPEN` in `docs/hypotheses.md` MUST name the test with the versions it ran on, and MUST NOT name a version it did not run on.
+
+#### Scenario: Stacks of the demo projects
+- **WHEN** `FENOLITE_REQUIRE=kicad,corpus uv run pytest tests/kicad/schematic/test_stacked_corpus.py -rs` runs on `kicad-cli` 10.0.6
+- **THEN** the project `kicad-demo-10-0-6-sch-017` gives 10 stacks, each one net of KiCad's export with the name `netnames.open_name` gives, and every other project is skipped as holding no such stack or as having no project at the tag
+
+### Requirement: Net-tie facts are probed
+`tests/kicad/check/test_net_ties.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-NETTIE-DRC` on the running `kicad-cli` with the bench of `tests/kicad/check/_tiebench.py`, and DRC MUST be judged only from the JSON report.
+- **Bench.** One board written by `write_board` for the running major, with one footprint per case on nets of its own, each an authored definition (`dsl-footprint-authoring`, "Net-tie groups in authored footprints"), a `{}` project (KiCad's Default class, 0.2 mm), and a control pair: two 0.25 mm tracks of their own nets 0.1 mm apart. A run whose report lacks the control pair's `clearance` violation MUST fail.
+- **Cases.** The types expected between two items of each case, counting only `shorting_items`, `clearance`, `solder_mask_bridge` and `unconnected_items`, with its groups and, for the first four, in a copy without them:
+
+| case | footprint | with the groups | without |
+|---|---|---|---|
+| `official` | two 0.5 mm round pads 0.5 mm apart, joined by a filled polygon on `F.Cu` | none | `shorting_items`, `solder_mask_bridge` |
+| `touching` | two 1 mm square pads overlapping by 0.2 mm | none | `shorting_items`, `solder_mask_bridge` |
+| `close` | the same pads 0.1 mm apart | none | `clearance` |
+| `track-near` | `official`, and a track of pad 1's net ending 0.1 mm from pad 2 | `clearance` (the track and pad 2), `unconnected_items` (pad 1 and the track) | the same, `shorting_items`, `solder_mask_bridge` |
+| `two-groups` | four pads in a row, each overlapping the next, groups `1, 2` and `3, 4` | `solder_mask_bridge` (pads 2 and 3) | — |
+| `ungrouped-touching` | three pads in a row, each overlapping the next, group `1, 2` | `solder_mask_bridge` (pads 2 and 3) | — |
+| `ungrouped-close` | group `1, 2`, pad 3 0.15 mm from pad 2 | none | — |
+| `groups-close` | groups `1, 2` and `3, 4`, pads 2 and 3 0.15 mm apart | none | — |
+| `spelling` | `touching`, its child edited to `"1,2"` | none | — |
+| `three` | three pads in a row, each overlapping the next, group `1, 2, 3` | none | — |
+
+- **Probes.** Each case MUST be recorded as `nettie-<case>`, and each copy without groups as `nettie-<case>-plain`, for majors 9 and 10: `equal` when the set of types reported between the case's items is the expected one, `different` otherwise.
+- **Fallback.** A probe that records `different` on a major MUST stop the net-tie part of this change: "Pairs that are judged" is corrected to what the report shows before the part merges.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and the facts written to `docs/formats/kicad/drc.md` with S-0020 and S-0029.
+
+#### Scenario: Net-tie facts on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_net_ties.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `nettie-*` probe records `equal`, and the control pair's violation is present
+
+#### Scenario: The written token loads
+- **GIVEN** the bench as written by Fenolite for the running major
+- **WHEN** the test reads it back with `read_board`
+- **THEN** every footprint of a case with groups holds `net_ties` equal to its declared groups, and `pcb drc` loads the board without an error
+
+### Requirement: Net-tie parity canaries
+`tests/kicad/copper/test_copper_parity.py` SHALL also compare `check_copper` with `kicad-cli pcb drc` on the bench of "Net-tie facts are probed", on 9.0.9 and 10.0.6, counting only `shorting_items` and `clearance` between two pads of one case (`H-K-NETTIE-DRC`).
+- **Compared.** `touching`, `close`, `spelling` and `three` with their groups, and `touching` and `close` without: KiCad and `check_copper` MUST give the same verdict. The probe `copper-nettie-group` records `equal` when every one does, `different` otherwise.
+- **Recorded.** `two-groups`, `ungrouped-touching`, `ungrouped-close` and `groups-close`: `check_copper` reports one finding naming the two pads that share no group, and KiCad none. The probe `copper-nettie-ungrouped` records that outcome as `different`; it is documented (`copper-check`, "Supported cases are documented against KiCad's DRC") and MUST NOT fail the test.
+- **Hermetic half.** `tests/kicad/copper/test_parity_bench.py` MUST check without `kicad-cli`, for targets 9 and 10, that `check_copper` gives exactly these findings on the bench.
+- The outcomes MUST be recorded in both probe files and copied into the supported-cases table of `docs/formats/kicad/copper.md`.
+
+#### Scenario: Parity of grouped pads
+- **WHEN** `uv run pytest tests/kicad/copper/test_copper_parity.py -k net_tie -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** `copper-nettie-group` records `equal` and `copper-nettie-ungrouped` records `different`
+
+#### Scenario: Hermetic net-tie rows
+- **WHEN** `uv run pytest tests/kicad/copper/test_parity_bench.py -k net_tie` runs without `kicad-cli`
+- **THEN** on targets 9 and 10 the grouped cases give no finding, the copies without groups give a `copper.short` for `touching` and a `copper.clearance` for `close`, and each ungrouped case gives one finding naming its two ungrouped pads
+
+### Requirement: Exclusion facts are probed
+`tests/kicad/check/test_drc_exclusions.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-DRC-EXCL` on the running `kicad-cli` with a bench of `tests/kicad/rules/_rulebench.py`: two tracks 0.1 mm apart under the Default class, a lone via, and project files that differ only in `drc_exclusions`. Each key MUST be built from a first run's report: the type, the first item's `pos` in nm, and the item uuids in report order, the nil uuid for the via's second.
+- `drc-excl-pair`: `[key, "test point"]` for the via; its entry has `excluded` true, its severity unchanged and `comment` `test point`.
+- `drc-excl-plain`: the via's key as a string; excluded, with an empty comment.
+- `drc-excl-moved`: the via's key with `x` + 1 nm; not excluded.
+- `drc-excl-stale`: the via's key with another uuid; not excluded, and the report holds no entry about it.
+- `drc-excl-first-position`: the clearance key; excluded. `drc-excl-reversed`: the same key with its uuids swapped; not excluded.
+- `drc-excl-project-unchanged`: the project file's bytes are equal before and after each run.
+
+Each probe MUST record `equal` when the outcome is the listed one, for majors 9 and 10, in both probe files, and the facts MUST be written to `docs/formats/kicad/drc.md` with S-0020, S-0029, S-0055 and S-0056.
+
+#### Scenario: Exclusion facts on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_drc_exclusions.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `drc-excl-*` probe records `equal`
+
+### Requirement: Severity keys are probed
+`tests/kicad/check/test_severity_keys.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PRO-SEV-KEYS` and SHALL prove that a script's severity reaches KiCad's report.
+- `pro-sev-keys-10` (major 10 only): a bench project that sets every key of `SEVERITY_KEYS[10]`, `overlapping_pads` and `fenolite_not_a_check` to `ignore`; `ignored_checks` MUST equal `SEVERITY_KEYS[10]` and no entry may remain.
+- `pro-sev-keys-9-bench` (major 9 only): a bench that gives `clearance`, `shorting_items`, `solder_mask_bridge`, `track_dangling`, `via_dangling` and `lib_footprint_issues` entries under a `{}` project, its control, gives none when every key of `SEVERITY_KEYS[9]` is `ignore`.
+- `pro-sev-script` (majors 9 and 10): a project built from a design with `design.rules.severity("kicad.drc.via-dangling", "error")` gives its `via_dangling` entries severity `error`, where the template gives `warning`.
+
+#### Scenario: Keys on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_severity_keys.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** `pro-sev-keys-10` records `equal` on 10.0.6, `pro-sev-keys-9-bench` records `absent` on 9.0.9, and `pro-sev-script` records `equal` on both
+
+### Requirement: Order of mirror and rotation is asked of the netlist export
+`tests/kicad/schematic/test_pin_frame_oracle.py` (marker `needs_kicad`) SHALL settle `H-K-SCH-PINFRAME-ORDER` on 9.0.9 and 10.0.6: on the authored sheet of `tests/_pinframe.py` every pin MUST be on the net of the global label set at its `schlayout.pin_point`, and the control MUST tell the two orders apart. The test is no probe of `PROBES`, and a failure MUST take the four mirrored quarter turns out of `schlayout.PROVED_FRAMES`.
+
+#### Scenario: Twelve frames on the netlist export
+- **GIVEN** the sheet of `tests/_pinframe.py` for the running major: the authored symbol `Probe:Frame` with three pins that no rotation or mirror maps onto each other, instances `U1` to `U12` in the frames (0, 90, 180, 270 degrees) × (no mirror, `x`, `y`), one global label per pin at its `pin_point`
+- **WHEN** `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/schematic/test_pin_frame_oracle.py -rA` runs on `kicad-cli` 9.0.9 and on 10.0.6
+- **THEN** `kicad-cli sch export netlist` puts each of the 36 pins on the net of its label
+
+#### Scenario: The control
+- **GIVEN** the same sheet with each label where the other order (mirror first) puts the pin
+- **WHEN** its netlist is exported
+- **THEN** the pins of `U6`, `U8`, `U10` and `U12` (90 and 270 degrees with a mirror) are off the nets of their labels and the pins of the other eight instances are on them
+
+#### Scenario: The register follows the runs
+- **WHEN** the test has passed on both majors
+- **THEN** the row of `H-K-SCH-PINFRAME-ORDER` in `docs/hypotheses.md` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` and names the versions it ran on, and the committed probe files are unchanged

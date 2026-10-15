@@ -315,3 +315,12 @@ below.
 Each part gets one rectangle: the bounding box of the body ends of its pins and of the Part Zero pins,
 grown to at least 200 mil per side around its centre and rounded outwards to 10 mil; a part without
 pins gets the square from (-100, -100) to (100, 100) mil.
+
+### KiCad import namespace measurement
+
+The authored common CONN2 model imports on KiCad 9.0.9 as
+`altium_kicad.PcbLib:PinHeader_1x02`; the 10.0.6 importer uses
+`altium_kicad:PinHeader_1x02`. This is the external importer's namespace,
+not a changed Altium model reference. Source S-0743 records the pinned CI
+run and unchanged source-pin/unit/reference comparisons.
+Evidence: `ORACLE-VERIFIED(kicad-cli)` for these measured namespaces only.

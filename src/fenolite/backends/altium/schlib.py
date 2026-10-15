@@ -294,7 +294,20 @@ def write_schlib(symbols: Sequence[AltiumSymbol], *, library: str) -> bytes:
     return write_compound(entries)
 
 
+BUILD_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-SCHLIB-KICAD9",
+        "H-A-SCHLIB-MULTIPART",
+        "H-A-SCHLIB-PRJ",
+        "H-A-SCHLIB-SCHDOC",
+        "H-A-SCHLIB-UPDATE",
+    ),
+)
+"""Evidence of the DSL build's schematic/library presentation and update choices."""
+
 __all__ = [
+    "BUILD_EVIDENCE",
     "EVIDENCE",
     "FORMALTYPE",
     "HEADER_TEXT",

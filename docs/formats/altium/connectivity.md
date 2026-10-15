@@ -129,6 +129,21 @@ exactly the import's physical R1/C12 designators in AD 26.5 (S-0736,
 mapping remains `UNKNOWN`. This naming measurement does not verify the sample's
 bus connectivity or PCB links.
 
+The authored one-level connection control on 2026-10-14 (S-0740,
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-14; no artefact)`) connects
+`Repeat(OUT)` through a wire labelled `OUT` to the bus labelled `OUT[1..2]`.
+It compiles without errors and joins C12_CH1 pin 2 to OUT1 and C12_CH2 pin 2
+to OUT2, with six components and eleven intended memberships. Directly placing
+the entry on the bus gives a wire-on-bus error; an unlabelled bridge removes
+that drafting error but leaves the outputs disconnected. Thus the wire's
+scalar name is part of the connection convention, not merely drawing text.
+The public example documents different bus/wire and child-port stems too;
+the authored MB-labelled wire control also joins MB1/MB2 with no errors,
+retaining two explicit alias warnings. Moving the ranged bus and its entries
+away from the OUT-labelled bridge still joins all intended pins by name. These
+two additional controls are measured in the same version/date under S-0740;
+graphical contact alone must not decide whether the named bridge resolves.
+
 Native PCB transfer of the authored one-level sample on 2026-10-13 (S-0738,
 `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)`) saves
 SOURCEUNIQUEID as `\1SYMBOL01\RUID0001` for R1_CH1 and
@@ -155,11 +170,21 @@ does not change that association algorithm or graduate the whole count/net row.
   designator of the format and its `SOURCEDESIGNATOR` the designator of the sheet
   (`altium.import.linked-by-designator`); the components left without a board component are counted by
   `altium.import.channel-naming`.
-- **Nets of a `Repeat` channel.** A sheet entry `Repeat(NAME)` joins the port `NAME` of channel `k`
-  (counted from 0) to member `k`, in identifier order, of the bus identifier `NAME[a..b]` of the parent
-  sheet: the one on the bus line the entry lies on, else another net label of that bus name. A missing bus
-  and a bus with fewer members than channels give `altium.import.channel-naming`. The statement never
-  names a net.
+- **Nets of a `Repeat` channel.** A sheet entry `Repeat(NAME)` joins child port `NAME`
+  to the parent bus selected by its wire label, which may have a different stem.
+  Channel `k` (counted from 0) takes member `k` in identifier order. A uniquely
+  named bridge resolves without physical bus contact; contradictory wire labels
+  or ranged identifiers, a missing bus and insufficient members give
+  `altium.import.channel-naming`. Only a resolved bridge containing labels and
+  repeated entries alone is omitted as scalar plumbing; pin-bearing or genuine
+  dangling scalar nets remain. Legacy direct-on-bus input still follows its
+  original entry-name selection. The writer uses the measured named-wire form.
+
+The corrected-writer native PCB transfer and saved annotation reload on
+2026-10-14 match all eleven intended memberships and five real nets
+(S-0741, `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-14; no artefact)`).
+Nested UID paths and the general mixed room style remain unmeasured.
+
 - **Order of sources.** The board first (`project.link`), then the project's annotation file, then the
   format. The annotation file is read by `read.annotation` in its measured indexed
   form or the legacy authored flat form (`project.md`, "The annotation file",

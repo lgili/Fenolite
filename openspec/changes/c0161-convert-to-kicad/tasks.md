@@ -41,6 +41,8 @@
 - 2026-10-13, task 1.2 partial proof: authored user-layer and unknown-layer tests: 2 passed on 9.0.9 and 2 passed on 10.0.6. Both pinned local images were identified by their version output; no image was downloaded. User.1..45 rows load at numbers 39..127. Full probe-results gate and public negative probe boards remain for CI.
 - 2026-10-13, task 1.3: registered S-0742 from Altium's public keep-out documentation and five hypotheses; facts/provenance/register proof 66 passed. No third-party parser or proprietary project data was read.
 
+- 2026-10-15, task 1.3: the keep-out source is now S-0746. The merge of `codex/c0164-native-altium-template` brought a different S-0742 (the c0166 Part R2 record), registered on a parallel branch; the keep-out row, its fact row and `H-A-IMP-KEEPOUT-LAYER` were renumbered together. No fact changed.
+
 - 2026-10-13, task 1.4: 2 census tests passed over readable committed boards and executable example/test scripts, with the same table installed by build. The single invalid authored routing fixture now declares its already-used technical layers; geometry and copper rows are unchanged. Full build tests exercise resolved footprint contents under the new guard.
 
 - 2026-10-13, board/project proof: 3195 focused backend/conversion/CLI/guide tests passed, 2 skipped, 13 external-resource tests deselected by the quick-only instruction. Slot, names, library frame, layers, keep-out and schematic focused proof: 27 passed. Public census: 18 passed, 2 heavy skips. Task 2.2 also required declaring the writer-generated reference/value technical layers in the shared authored five-net and routing fixtures; their 57 routing regression tests passed.

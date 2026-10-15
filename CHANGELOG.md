@@ -6,6 +6,127 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+- Reconcile Altium limits, milestone status and the five acceptance criteria with
+  measured kit/corpus results; preserve the unmet write-promotion criterion and
+  prepare the maintainer review without claiming acceptance or archive.
+
+- Audit the historical v0.3 Altium release table against declarations extracted
+  from its exact tag, preserving its recorded counts as current claims evolve.
+
+- Apply generator-checked Altium graduation decisions per format in capabilities
+  and build notices; include missing conditions for all experimental kinds and
+  combine evidence only for emitted documents and inputs. Current kinds remain
+  experimental; installed packages do not require checkout evidence files.
+
+- Link 27 native Altium hypotheses to the published kit record and archive,
+  retaining typed-form qualifications and historical observations. Inventory
+  the remaining proofs and require real recorded kit verdicts in legacy guards.
+
+- Classify the native DRC-report observation under the DRC hypothesis family,
+  preserving its scoped INFERRED result and the PCB export evidence guards.
+  Confirm the completed CI reported only the two corrected unit failures;
+  both pinned KiCad oracle jobs and both routing jobs passed.
+
+- Publish the reviewed native Altium kit as supplemental v0.4.0 evidence;
+  verify the downloaded archive's recorded SHA-256 and size and close c0092's
+  publication task without changing historical release validation claims.
+
+- Record the passing Windows check-fast checkpoint (13176 passed, 151 skipped)
+  and close the native campaign validation-policy prerequisite.
+
+- Prepare a verified publication edition of the native Altium kit, preserving
+  its original evidence and historical form scope while removing personal paths
+  from selected native documents and using an unaltered native text DRC report.
+
+- Reconcile completed CI proofs for the Altium acceptance and five native-campaign
+  prerequisite repairs; confirm the v0.3 acceptance probe on pinned KiCad 10.0.6.
+
+- Reconcile the native acceptance campaign with the completed optional Clearance
+  checks and the five dependency-ordered archives, retaining remaining requests.
+
+- Archive `c0152-clearance-rounding` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0132-altium-via-inner-pads` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0131-altium-unit-slack-rule` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0130-altium-clearance-matrix-cells` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0125-altium-clearance-scopes` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Record both optional native Clearance experiments for c0125/c0130 on authored
+  two-layer boards, including native saved readback and matching copper verdicts.
+  Retain parent-matrix reporting differences and existing hypothesis levels.
+
+- Archive `c0139-altium-kit-corrections` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0137-schematic-pin-frame-order` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0114-net-ties-waivers` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0077-catalog-footprint-fields` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0126-footprint-instance-graphics` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0123-multi-pad-pin-map` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Archive `c0083-altium-repeated-sheets` after completed tasks and CI run 38511480776;
+  synchronize its requirements while retaining measured evidence levels.
+
+- Review the native kit archive for publication, confirming its recorded digest
+  and documenting privacy findings without exposing personal paths or modifying
+  the original evidence.
+
+- Register the v0.3 acceptance as a KiCad-10 probe after its complete CI test
+  passed, sharing the cached run with the acceptance test and retaining every
+  existing versioned probe outcome.
+
+- Classify the new acceptance example in both RT-A2 build forms and keep
+  graduation adapters within the verification package's stdlib/core import boundary.
+
+- Select direct corpus-board oracle tests by the actual board format version,
+  retaining KiCad-10 downgrade inputs without sending them unconverted to KiCad 9.
+
+- Add the authored v0.3 acceptance tree and a preparation mode that builds both
+  targets, checks written scope and records JSON results; external import validation
+  runs separately in the KiCad CI job.
+
+- Declare own-readback proofs for all nine Altium write kinds and list missing
+  graduation conditions in the evidence matrix using current committed kit records.
+
+- Add the pure c0092 write-graduation rule, rejecting missing readback proofs,
+  weak or refuted hypotheses, missing RT-A3 and stale or uncommitted kit runs.
+  Integration and acceptance remain pending; dependency CI still gates archive.
+
+- Check the exact KiCad-major-specific footprint namespace in the authored
+  Altium SchLib oracle while retaining every model and source-pin comparison.
+
+- Keep local Windows validation to the fast gate and focused proofs; send batches
+  to GitHub CI for complete validation in parallel. Restore its narrowly selected
+  downgrade demo inputs and enable the three declared heavy oracle inputs.
+
+- Record fake-router subprocess launches before loading the board model, keeping
+  sleeping/failing test modes independent of model import time and preserving
+  the production routing deadline checks. Test plugin scheduling with a controlled
+  clock while retaining the separate real-process deadline integration tests.
+
+- Connect repeated Altium sheet entries through a named scalar wire to their
+  ranged bus, so the native compiler joins each channel to its intended signal.
+  Import those bridges using their actual bus stem without creating empty nets;
+  preserve ambiguous inputs and genuine scalar nets. Native PCB transfer and
+  annotation reload confirm all eleven intended memberships.
+
 - Record native Repeat reload and compiled port/bus diagnostics, keeping the
   disconnected output nets and unresolved cause explicit.
 

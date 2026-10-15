@@ -1,5 +1,15 @@
 # Altium PCB document (`.PcbDoc`)
 
+## Native DRC report creation
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A batch DRC writes a report only with Create Report File enabled. TXT and HTML reports use the project's Output Path; their names are `Design Rule Check - <PCBDocumentName>.drc` and `.html` | S-0745 | INFERRED | H-A-DRC-REPORT |
+
+The owned 2026-10-14 AD 26.5.0 retry supports this observation. Its native TXT
+is retained unchanged for the publication edition; the HTML includes a personal
+logo-image reference and remains outside the publication result set.
+
 This page states, in Fenolite's own words, what the experimental writer `fenolite.backends.altium.pcbdoc`
 (change c0035) relies on to write an Altium PCB document in the binary form, and what the test decoder
 `tests/_altium_pcb_read.py` checks. Records are in `pcb-records.md`, the container in `compound-file.md`.

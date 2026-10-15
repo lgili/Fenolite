@@ -19,7 +19,6 @@ import json
 from collections import Counter
 from collections.abc import Collection, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
-from pathlib import PurePosixPath
 from types import MappingProxyType
 from typing import Literal
 
@@ -119,7 +118,6 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.sheet-paper": "warning",
         "altium.primitive-dropped": "warning",
         "altium.generic-symbols": "info",
-        "altium.experimental": "info",
         "altium.bus-flattened": "info",
         "altium.symbol-simplified": "info",
         "altium.section-key": "info",
@@ -133,55 +131,17 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
         "altium.outjob-not-listed": "info",
+        "altium.experimental": "info",
         **altium_copper.COPPER_ISSUE_CODES,
     }
 )
 """The closed table of the Altium build's own issue codes (``model.*`` and ``build.layout-exists`` pass
 through)."""
 ALTIUM_BUILD_EVIDENCE = Evidence.combine(
-    Evidence(
-        Level.INFERRED,
-        hypotheses=(
-            "H-A-ECO-NETCLASS",
-            "H-A-ECO-PRJ-KEYS",
-            "H-A-ECO-ROOMS",
-            "H-A-ECO-SUPPLY",
-            "H-A-PRJ-KEEP",
-            "H-A-PRJ-OPEN",
-            "H-A-SCH-ECO",
-            "H-A-SCH-LINEEND",
-            "H-A-SCH-LINK",
-            "H-A-SCH-NC-ERC",
-            "H-A-SCH-NC-RECORD",
-            "H-A-SCH-NC-VIEWER",
-            "H-A-SCH-NETS",
-            "H-A-SCH-OPEN",
-            "H-A-SCH-RELINK",
-            "H-A-SCH-UID",
-            "H-A-SCH-UPDATE",
-            "H-A-SCHX-BUS",
-            "H-A-SCHX-DIR",
-            "H-A-SCHX-ECO",
-            "H-A-SCHX-GRAPHICS",
-            "H-A-SCHX-PINMAP",
-            "H-A-SCHX-PINMAP-FORM",
-            "H-A-SCHX-READBACK",
-            "H-A-SCHX-TEXT",
-            "H-A-SCHX-TREE",
-        ),
-    ),
+    project.BUILD_EVIDENCE,
     binary.EVIDENCE,
     project.EVIDENCE,
-    Evidence(
-        Level.INFERRED,
-        hypotheses=(
-            "H-A-SCHLIB-KICAD9",
-            "H-A-SCHLIB-MULTIPART",
-            "H-A-SCHLIB-PRJ",
-            "H-A-SCHLIB-SCHDOC",
-            "H-A-SCHLIB-UPDATE",
-        ),
-    ),
+    schlib.BUILD_EVIDENCE,
     schlib.EVIDENCE,
     pcbrecords.EVIDENCE,
     hierarchy.EVIDENCE,
@@ -1917,6 +1877,38 @@ def _summary(
     }
 
 
+def _written_claims(
+    files: Mapping[str, bytes],
+    form: project.SchematicForm,
+    inputs: Sequence[Evidence] = (),
+) -> tuple[Evidence, tuple[str, ...]]:
+    """Evidence and experimental kinds of emitted documents, excluding cache/kept files."""
+    from pathlib import PurePosixPath
+
+    from fenolite.backends.altium import claims
+
+    suffixes = {
+        ".prjpcb": "altium_prjpcb",
+        ".schdoc": f"altium_schdoc_{form}",
+        ".schlib": project.SCHLIB_KIND,
+        ".pcblib": project.PCBLIB_KIND,
+        ".pcbdoc": project.PCBDOC_KIND,
+        ".harness": project.HARNESS_KIND,
+        ".outjob": job_writer.OUTJOB_KIND,
+        ".schdot": schdot.SCHDOT_KIND,
+    }
+    kinds = {suffixes[suffix] for name in files if (suffix := PurePosixPath(name).suffix.lower()) in suffixes}
+    rows = {row.kind: row for row in claims.MATRIX}
+    cells = [rows[kind].write for kind in sorted(kinds)]
+    evidence = (
+        Evidence.combine(*inputs, *(cell for cell in cells if cell is not None))
+        if cells or inputs
+        else Evidence(Level.INFERRED)
+    )
+    pending = tuple(sorted(kind for kind in kinds if "write" in rows[kind].experimental))
+    return evidence, pending
+
+
 def refused_altium(
     design: Design,
     *,
@@ -2024,8 +2016,10 @@ def build_altium(
             f"of origin {copper_source.origin} is given; a build takes one"
         )
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
+    input_evidence: list[Evidence] = []
     if authored_footprints:
         evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
+        input_evidence.append(AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     unread_hint = UNREAD_PROJECT_HINT if project_exists and project_unreadable else ""
     # the parts of design.fiducial() are left out before the footprint check (change c0118)
@@ -2175,6 +2169,7 @@ def build_altium(
         )
     if spec is not None and any(any(pcbdoc.via_tenting(via, spec.via_protection)) for via in spec.vias):
         evidence = Evidence.combine(evidence, pcbrecords.VIA_TENTING_EVIDENCE)  # a tenting flag is set
+        input_evidence.append(pcbrecords.VIA_TENTING_EVIDENCE)
     job: tuple[OutputGroup, ...] | None = None
     job_info: dict[str, object] | None = None
     relist = False
@@ -2201,6 +2196,7 @@ def build_altium(
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
         evidence = Evidence.combine(evidence, schdot.EVIDENCE)
+        input_evidence.append(schdot.EVIDENCE)
         frames, sheet_info = sheet_frames(
             model,
             planned,
@@ -2362,34 +2358,11 @@ def build_altium(
         directions=directions,
         symbol_bodies=symbol_bodies,
     )
-    # c0092: a successful build claims only the write cells of the files it produced.
-    from fenolite.backends.altium.claims import MATRIX
-    from fenolite.backends.base import graduation_rows
-
-    kinds = {
-        ".prjpcb": "altium_prjpcb",
-        ".pcblib": "altium_pcblib",
-        ".pcbdoc": "altium_pcbdoc",
-        ".schlib": "altium_schlib",
-        ".schdot": "altium_schdot",
-        ".outjob": "altium_outjob",
-        ".harness": "altium_harness",
-        ".schdoc": f"altium_schdoc_{form}",
-    }
-    written_kinds = {
-        kinds[PurePosixPath(file).suffix.lower()]
-        for file in files
-        if PurePosixPath(file).suffix.lower() in kinds
-    }
-    rows = [row for row in graduation_rows(MATRIX) if row.kind in written_kinds]
-    evidence = Evidence.combine(*(row.write for row in rows if row.write is not None))
-    if authored_footprints:
-        evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
-    experimental = sorted(row.kind for row in rows if "write" in row.experimental)
+    evidence, experimental = _written_claims(files, form, input_evidence)
     summary["experimental"] = bool(experimental)
     if experimental:
         issues.append(
-            issue("altium.experimental", "Experimental write kinds: " + ", ".join(experimental), name)
+            issue("altium.experimental", "Experimental Altium write kinds: " + ", ".join(experimental))
         )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
 
