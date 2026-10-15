@@ -1,0 +1,22 @@
+## Context
+
+- The release process is that of `0.4.0` (c0154): a record under `docs/release/`, a guard under `tests/unit/`, the version in three strings, the changelog cut, the history row of the residue scan, the README, the roadmap, and the maintainer's verdict before the tag.
+- v0.5a has no acceptance block in the roadmap beyond its milestone row. The unit of the record is the change, as in v0.4.
+- The maintainer approved on 2026-10-15 preparing `0.5.0` = v0.5a, with c0167 and c0169 in it and c0168 and c0170 after it; the publication waits for his explicit yes. The rule of 2026-10-08 still holds for what depends on his own tests (Altium Designer checks, KiCad GUI saves made by him, a run of a real AI agent): those tasks are deferred, their code ships, and no evidence label is raised for them.
+- c0092's verdict of 2026-10-15: none of the nine Altium write kinds meets the graduation rule, so every Altium write stays experimental.
+
+## Decisions
+
+1. **The id.** c0171: c0170 is the last id on `dev` and on every `origin/codex/*` branch (checked on 2026-10-15); no branch holds c0171.
+2. **Rows by folder.** Two archived changes hold the id c0164 (`altium-schematic-layout`, `native-altium-template`; `openspec/README.md`). The column `change` names the folder `cNNNN-<slug>`, and the guard reads the task list of that exact folder, open or archived.
+3. **What is a change of the release.** v0.5a (c0158 to c0162), the changes written on `dev` after `0.4.0` that are not corrections of an earlier release's change only (c0155, c0156, c0157, c0163, both c0164, c0165, c0166), the graduation rule of c0092 that landed after `0.4.0`, and the slot changes c0167 and c0169. The changes of 0.3.0 that were archived after `0.4.0` (c0077, c0083, c0091, c0114, c0123, c0125, c0126, c0130, c0131, c0132, c0137, c0139, c0152) shipped in earlier packages; the record names them in the archive section, not as rows.
+4. **Three results.** As in v0.4: `ships`, `ships with deferred tasks` or `pending`. A task that waits for the CI of the release branch is `pending`; a task that waits for the maintainer's own test is deferred.
+5. **Open changes of earlier releases.** c0081 (the real agent), c0105 (the KiCad 10 GUI save) and c0146 (Part R) stay open with tasks the maintainer owes; they get an entry each, and the guard asks for every open task number in it.
+6. **The CI evidence first.** Before the record is written, the CI runs of `dev` at `5b86b6e` and before are read. `kicad-9` passed the full probe gate on 9.0.9 at `5b86b6e` (run 38767993162); `kicad-10` stopped at the corpus fetch on HTTP 429 there and on the integration branch (run 38758153887), and failed in tests at `e6c42a8` (run 38750894326, before the integration). The retry of the fetch is part of this change, so the run of the release branch can give the 10.0.6 gate. Tasks that need both majors stay `pending` until that run.
+7. **The changelog is regrouped, not shortened.** The subsections "Altium to KiCad" and "Native Altium templates" and the untitled entries of Unreleased go under `Added`, `Changed` or `Fixed` by what they describe, keeping their text; one entry that sums up the release opens `Added`.
+8. **Archive.** As c0154 did after its verdict, and since earlier releases archived what they could: a change whose tasks are all ticked and whose archive order allows it is archived in this change, with `openspec validate --all --strict` at 0 errors after each archive; the record gives the order for the rest.
+
+## Risks / Trade-offs
+
+- [The `kicad-10` job of the release branch fails again on a rate limit] → the retry waits at most about 5 min per row; a run that still fails is re-run by the coordinator and the rows stay `pending`.
+- [A task closed later makes a row stale] → the guard accepts a named task that is ticked; the row's result is updated with the verdict.
