@@ -40,6 +40,7 @@ import _doccases
 import _downbench
 import _drawbench
 import _drccases
+import _edgebench
 import _eqsides
 import _erccases
 import _exclcases
@@ -309,6 +310,7 @@ def _probes() -> dict[str, Probe]:
         **_outlinebench.outline_probes(),  # change c0102
         **_holebench.hole_probes(),  # change c0102
         **_slotbench.slot_probes(),  # change c0167
+        **_edgebench.edge_probes(),  # change c0169
         **_layerbench.layer_change_probes(),  # change c0102
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]

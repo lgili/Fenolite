@@ -6,7 +6,7 @@ and ``_sheet_bench`` of ``sheets/``, ``_checkcases`` of ``check/``, ``_exportcas
 ``_zonebench`` and ``_gerber`` of ``zones/``, ``_benches`` of ``copper/``, ``_placecases`` of
 ``place/``, ``_asmcases`` of ``assembly/``, ``_schcases`` of ``schematic/``, ``_viabench`` of
 ``vias/``, ``_drawbench`` of ``drawings/``, ``_lengthcases`` of ``length/``, ``_zbench`` of
-``impedance/``, and ``_downbench`` of ``downgrade/``)."""
+``impedance/``, and ``_downbench`` of ``downgrade/``, and ``_edgebench`` of ``checks/``)."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ for folder in (
     HERE / "build",
     HERE / "sheets",
     HERE / "check",
+    HERE / "checks",
     HERE / "lens",
     HERE / "export",
     HERE / "frame",
