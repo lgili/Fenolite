@@ -543,12 +543,23 @@ class Dimension(Entity):
 
 @dataclass(frozen=True, slots=True)
 class Hole(Entity):
-    """A mechanical hole that is not part of a footprint."""
+    """A mechanical hole that is not part of a footprint.
+
+    With ``length`` (change c0168) the hole is a drilled slot: ``drill`` wide and ``length`` long overall
+    (both round ends included), its length's axis turned by ``rotation`` about ``position`` in the sense of
+    ``Transform.placement``. ``None`` is a round hole, whose ``rotation`` is 0. ``length`` must exceed
+    ``drill``. A milled slot of the board is ``OutlineSlot``, not a ``Hole``."""
 
     position: Point
     drill: Nm
     plated: bool = False
     intent: MechanicalIntent | None = None
+    length: Nm | None = None
+    rotation: Udeg = 0
+
+    def __post_init__(self) -> None:
+        if self.length is not None and self.length <= self.drill:
+            raise ValueError(f"a slotted hole is longer than its drill: length {self.length} <= {self.drill}")
 
 
 @dataclass(frozen=True, slots=True)

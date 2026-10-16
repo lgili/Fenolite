@@ -12,7 +12,8 @@
 
 ## 2. Slotted holes
 
-- [ ] 2.1 Add `Hole.length` and `Hole.rotation` with the schema (scenario "A slotted hole round-trips"). Proof: `uv run pytest tests/unit/model/test_hole_slots.py tests/unit/model -q`; `uv run python tools/gen_schemas.py --check`.
+- [x] 2.1 Add `Hole.length` and `Hole.rotation` with the schema (scenario "A slotted hole round-trips"). Proof: `uv run pytest tests/unit/model/test_hole_slots.py tests/unit/model -q`; `uv run python tools/gen_schemas.py --check`.
+  - 2026-10-16: `Hole.length: Nm | None = None` and `Hole.rotation: Udeg = 0` after the existing fields; `Hole.__post_init__` refuses a length that does not exceed the drill (`ValueError`). The canonical writer omits both at their defaults (it omits every default), so a round hole's document keeps its bytes; the schema `schemas/fenolite.model.v0/board.json` is regenerated. Proof: `tests/unit/model` 328 passed (with the four of `test_hole_slots.py`); `gen_schemas.py --check` clean.
 - [ ] 2.2 Write the slot fields of `pad_record` and `hole_record` (scenario "A turned slot"); every committed Altium sample keeps its bytes. Proof: `uv run pytest tests/unit/backends/altium/test_slot_records.py tests/unit/backends/altium -q`.
 - [ ] 2.3 Hand slotted hole parts to the document as `Hole`s (scenario "A plated hole and a slot are reported"); record `altium-slot-pad` by importing the written fixture with KiCad. Proof: `uv run pytest tests/unit/lens/test_altium_slots.py -q`; `uv run pytest tests/kicad/altium/test_slots_import.py -k pad -rA` in the pinned 10.0.6 image.
 
