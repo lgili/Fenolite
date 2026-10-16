@@ -2839,6 +2839,19 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   `pcbdoc.EMBEDDED_ARRAYS` is true and the source is a `.PcbDoc`, otherwise the flattened panel with one
   `altium.panel-flattened` info naming the reason. `embedded` while the gate is off, or with a `.kicad_pcb`
   source, is exit 7 (`FEN-7001`); so is `mirror=True` for any flattened form.
+- **Writes.** `--dry-run` plans every file under `DIR`; `--confirm` writes them all or none, with
+  `.fenolite/<name>.panel-written.json`, the SHA-256 of each file written. A later run refuses a file
+  changed since (`panel.output-changed`, exit 5) unless `--discard-layout` replaces it (a `.bak` is kept).
+- **Result.** `result.panel` holds `target`, `form` (`kicad`, `flat` or `embedded`), `rows`, `cols`,
+  `copies`, `rotation` (µdeg), `size` and `unused` (`w`, `h` in nm; `unused` is what an asked `fit()`
+  size leaves), `separations` (edge set → method), `items` (counts of tabs, mouse-bite rows and holes,
+  score lines, fiducials and tooling holes) and `score_layer` (the KiCad layer of the score lines);
+  `result.files` lists the planned files with their sizes. `evidence.level` is that of the form:
+  `KICAD-VERIFIED` (`H-K-PANEL-LOAD`, `-DRILL`, `-NETS`) for a KiCad panel board.
+- **Exit codes.** 0; 2 (`FEN-2001`) for `--altium-panel` with a KiCad target, a `.PcbDoc` board for a
+  KiCad target, or a board written for another KiCad major than `--target`; 3 (`FEN-3001`) when the script
+  or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
+  `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.
 
 ## manifest
 

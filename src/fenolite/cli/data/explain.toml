@@ -3138,3 +3138,8 @@ see = "panel"
 meaning = "The Altium panel is written flattened (copies of every item of the board), not as Altium's Embedded Board Array, which waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS). 'message' gives the reason."
 fix = "Nothing to do; Altium can still place an array by hand on the flattened panel."
 see = "panel"
+
+["panel.output-changed"]
+meaning = "A file that the last fenolite panel wrote was changed since; the panel is not written over it."
+fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
+see = "panel"

@@ -29,6 +29,7 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "panel.net-collision": "error",
         "panel.source-unreachable": "error",
         "panel.altium-cutout": "error",
+        "panel.output-changed": "error",
         "altium.panel-flattened": "info",
     }
 )

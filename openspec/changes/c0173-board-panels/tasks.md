@@ -36,7 +36,8 @@
 
 ## 5. Command and exports
 
-- [ ] 5.1 Add `fenolite panel` with its result schema, dry run, confirm, edited-output refusal and exit codes (scenarios of "Panel command"). Proof: `uv run pytest tests/unit/cli/test_panel_cmd.py tests/consistency -q`.
+- [x] 5.1 Add `fenolite panel` with its result schema, dry run, confirm, edited-output refusal and exit codes (scenarios of "Panel command"). Proof: `uv run pytest tests/unit/cli/test_panel_cmd.py tests/consistency -q`.
+  - 2026-10-16: `fenolite panel` (`cli/cmd_panel.py`), the panel script run by `_script.run_panel_script` (the runner of design scripts, shared). The reply's schema is `fenolite.panel.v0` like every command's envelope; no separate result-schema file was added (`build` has none either), the fields are in `docs/cli-contract.md`, "panel". Edited outputs are refused through `.fenolite/<name>.panel-written.json` (`panel.output-changed`, exit 5; `--discard-layout` replaces, as `build`'s flag). A board written for another major than `--target` is a usage error (exit 2). `--target altium` exits 7 until task 6.1 writes the flattened panel. Proof passed (8 command tests; `tests/consistency` 385 passed, 23 skipped).
 - [ ] 5.2 Give `gerber_layers` the panel's score layer (scenario "Gerber layers of a panel board"). Proof: `uv run pytest tests/unit/exports/test_plan.py -q`.
 - [ ] 5.3 Teach the command, `Panel` and the `panel.*` codes on the agent guide page `fabrication`, then regenerate the guide. Proof: `uv run python tools/gen_agent_guide.py`; `uv run pytest tests/unit/agent/test_pages.py -q`.
 
