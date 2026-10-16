@@ -57,6 +57,10 @@ def _front(path: str) -> str:
     return f"---\ntopic: {topic}\ntitle: {title}\nsummary: {summary}\n---\n\n# {title}\n\n{NOTE}\n"
 
 
+PROTOCOL_FLAGS = frozenset({"--dry-run", "--confirm", "--plan"})
+"""The flags of every writing command, which the head of the page explains once."""
+
+
 def _cell(text: str) -> str:
     """``text`` as one table cell or list item: one line, no pipe that would end the cell."""
     return " ".join(text.split()).replace("|", "\\|")
@@ -85,7 +89,8 @@ def commands_page(registry: Mapping[str, Command]) -> str:
     described = [describe(command) for command in public]
     lines = [
         _front(COMMANDS),
-        "A command that writes does nothing without `--dry-run` (show the plan) or `--confirm` (write).",
+        "A command that writes does nothing without `--dry-run` (show the plan) or `--confirm` (write);",
+        "`--confirm --plan ID` writes the plan that a dry run gave. Its sections list these three no more.",
         "`fenolite capabilities --command NAME --json` gives the same facts as data.",
         "",
         "| command | writes | summary |",
@@ -97,7 +102,8 @@ def commands_page(registry: Mapping[str, Command]) -> str:
     ]
     for entry in described:
         lines += ["", f"## {entry.name}", "", f"`{_cell(entry.usage)}`", ""]
-        lines += [_argument(argument) for argument in entry.arguments] or ["It takes no argument of its own."]
+        own = [argument for argument in entry.arguments if not set(argument.flags) & PROTOCOL_FLAGS]
+        lines += [_argument(argument) for argument in own] or ["It takes no argument of its own."]
     return "\n".join(lines) + "\n"
 
 

@@ -30,7 +30,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.panel.build import PanelOutput
 
-HELP = "write a panel of copies of one built board (KiCad board or Altium document)"
+HELP = "write a panel of copies of one built board"
 TARGETS = ("9", "10", "altium")
 ALTIUM_FORMS = ("auto", "embedded", "flat")
 RECORD = ".fenolite/{name}.panel-written.json"
@@ -53,19 +53,15 @@ KINDS = {
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/cli-contract.md, 'panel'."
-    parser.add_argument("panel", metavar="PANEL.py", help="the panel script (executed in-process)")
-    parser.add_argument("--out", required=True, metavar="DIR", help="the folder of the panel")
-    parser.add_argument(
-        "--target", required=True, choices=TARGETS, help="KiCad 9 or 10 (a panel board), or altium"
-    )
+    parser.add_argument("panel", metavar="PANEL.py", help="the panel script (run in-process)")
+    parser.add_argument("--out", required=True, metavar="DIR", help="the output folder")
+    parser.add_argument("--target", required=True, choices=TARGETS, help="KiCad major or altium")
     parser.add_argument(
         "--altium-panel",
         choices=ALTIUM_FORMS,
-        help="with --target altium: auto (default), embedded (Altium's array) or flat (copies of every item)",
+        help="the Altium form (default auto)",
     )
-    parser.add_argument(
-        "--discard-layout", action="store_true", help="replace panel files edited since the last run"
-    )
+    parser.add_argument("--discard-layout", action="store_true", help="replace files edited since")
 
 
 def _absolute(given: str, ctx: Context) -> Path:

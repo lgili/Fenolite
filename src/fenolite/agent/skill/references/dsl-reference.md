@@ -60,12 +60,6 @@ Class: `Net(name: 'str') -> 'None'`
 
 A net, named globally and literally; a module-local net is named by the script.
 
-## Panel
-
-Class: `Panel(name: 'str', *, board: 'str', limits: 'dict[str, object] \| None' = None) -> 'None'`
-
-A panel of copies of the built board `board` (a path relative to the script).
-
 ## Part
 
 Class: `Part(ref: 'str', lib_id: 'str', footprint: 'str \| None' = None, value: 'str \| Quantity' = '', *, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`

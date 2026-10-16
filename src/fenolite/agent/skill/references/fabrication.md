@@ -154,9 +154,37 @@ design.stitch(
 )
 ```
 
+## Panels
+
+A panel repeats one built board in rows and columns, with rails, V-score or tabs with mouse bites,
+fiducials and tooling holes. Write a script of its own beside the built board:
+
+```text
+from fenolite.dsl import Panel, mm
+
+panel = Panel("blink_panel", board="build/blink.kicad_pcb")
+panel.grid(2, 4)                          # or panel.fit(mm(100), mm(100), rot="auto")
+panel.rails(top=mm(5), bottom=mm(5))
+panel.separate("vscore", between="rows")  # columns, rows or rails: "vscore" or "tabs"
+panel.fiducials()
+panel.tooling_holes()
+```
+
+```fenolite-cmd
+fenolite panel blink_panel.py --out panel --target 10 --dry-run --json
+fenolite panel blink_panel.py --out panel --target 10 --confirm --json
+```
+
+- `--target` is the major the board was built for, or `altium` (a flattened panel document).
+- The checks run first: `panel.vscore-copper`, `panel.tab-copper`, `panel.gap` and the other `panel.*`
+  errors plan no write (exit 5). Their limits cite public fabricator figures; `Panel(limits={...})` takes
+  your fabricator's. `fenolite explain <code>` gives each fix.
+- Nets become `B<k>/<name>`; designators stay. Export the panel board as any board: the score lines
+  plot as their own Gerber file (`V-Score`, file function `Other,User`); tell your fabricator.
+
 ## What is not produced
 
-- No panel: the files hold one board.
+- No panel from `export`: a panel is a board of its own (`fenolite panel`, above).
 - No order: no command talks to a fabricator or an assembler.
 - No judgement that a board can be made. `check` holds the board against the rules of the script, and
   those are as good as the limits you were given.
