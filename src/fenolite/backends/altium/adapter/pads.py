@@ -102,7 +102,9 @@ def padstack(
     if hole_shape == "slot" and record.slot_length is not None:
         hole_length = exact.length("hole_length", record.slot_length)
     if hole_shape != "round" and record.slot_rotation is not None:
-        hole_rotation = (rotation + exact.angle("hole_rotation", record.slot_rotation)) % FULL_TURN
+        # in the pad's own frame, as the model holds it (``docs/design-model.md``; change c0170): the
+        # record's slot rotation is relative to the pad (``pcb-records.md``, H-A-SLOT-PAD)
+        hole_rotation = exact.angle("hole_rotation", record.slot_rotation) % FULL_TURN
     entries: list[PadstackLayer] = []
     layers = ctx.layers
     chain = layers.chain

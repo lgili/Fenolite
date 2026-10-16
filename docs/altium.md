@@ -386,10 +386,11 @@ script, then the global table). A link that does not resolve gives `altium.footp
 **`<name>.PcbLib`.** Every resolved KiCad footprint goes into one PCB library named after the design,
 beside `<name>.SchLib`; the schematic links each KiCad footprint to it (`MODELDATAFILE0=<name>.PcbLib`),
 whether or not that footprint could be written. Written: surface and through-hole pads (round, oval,
-rectangular and rounded-rectangle shapes, round holes, plated or not), lines, rectangles, arcs and circles
-on the mapped layers. Refused, with `altium.footprint-unsupported` (warning; the footprint is not
-written): trapezoid and custom pads, connector pads, padstacks, slots and oval or offset drills, chamfered
-corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
+rectangular and rounded-rectangle shapes, round holes, plated or not), the slotted (oval) drill of a pad
+of one shape (change c0170: hole shape Slot, hole size the drill, the slot length, and the slot rotation
+relative to the pad), lines, rectangles, arcs and circles on the mapped layers. Refused, with
+`altium.footprint-unsupported` (warning; the footprint is not written): trapezoid and custom pads,
+connector pads, padstacks, a slot of a pad with a shape per layer, offset drills, chamfered corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
 `altium.primitive-dropped` (warning): polygons, filled rectangles and circles, graphics on unmapped layers,
 and pad settings the Altium record has no field for (mask and paste margins, zone and thermal settings).
 Texts, properties and 3D model links are not written (`altium.footprint-extras-dropped`, info); Altium adds

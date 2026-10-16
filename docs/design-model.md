@@ -272,7 +272,8 @@ Change c0043 completes the padstack and adds the body of a part. Every field has
 written before them still load.
 
 - `Padstack.hole_shape` (`round`, `square`, `slot`), `hole_length` (the length of a slot along its axis,
-  ends included) and `hole_rotation` (the angle of the hole's axis relative to the footprint) describe a
+  ends included) and `hole_rotation` (the angle of the hole's axis in the pad's own frame, as the section
+  "Footprint assignment" says; the Altium import holds it so since change c0170) describe a
   hole that is not round. `Pad.drill` stays the hole's size: the diameter of a round hole, the side of a
   square hole, the width of a slot.
 - `PadstackLayer.offset: Point` is where the copper's centre lies on that layer relative to `Pad.position`,

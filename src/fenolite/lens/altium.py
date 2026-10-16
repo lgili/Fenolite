@@ -456,21 +456,23 @@ def _decimal_atom(node: Node) -> Decimal | None:
 
 def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
     """Pad id → the KiCad-only facts the model keeps opaque: the corner ratio of a rounded rectangle, a reason
-    to refuse (an oval or offset drill, chamfers, custom primitives) and the settings Altium has no field for
+    to refuse (an offset or unusual drill, a slot of a pad with a shape per layer, chamfers, custom
+    primitives) and the settings Altium has no field for
     (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
     out: dict[str, pcblib.PadExtras] = {}
     for pad in defn.pads:
         ratio: Decimal | None = None
         refusal: str | None = None
         dropped: list[str] = []
-        if pad.padstack is not None and pad.padstack.hole_shape == "slot":
-            refusal = "the drill is oval or has an offset"
+        if pad.padstack is not None and pad.padstack.hole_shape == "slot" and pad.padstack.layers:
+            # a slot of a pad of one shape is written with the record's slot fields (change c0170)
+            refusal = "the drill is oval and the pad has a shape per layer"
         for node in _opaque_nodes(pad):
             head = node.name
             if head == "roundrect_rratio":
                 ratio = _decimal_atom(node)
             elif head == "drill":
-                refusal = refusal or "the drill is oval or has an offset"
+                refusal = refusal or "the drill has an offset or a form other than round or oval"
             elif head in PAD_REFUSED:
                 if head == "chamfer_ratio" and _decimal_atom(node) == 0:
                     continue
@@ -654,14 +656,17 @@ class HoleParts:
 
 def _slot_of(pad: Pad | None, request: PlacementRequest | None) -> tuple[Nm | None, int]:
     """The overall length of a hole part's slot and its axis on the board (change c0168): the padstack's
-    ``hole_length``, and its ``hole_rotation`` (in the footprint frame) as the part's placement turns it,
-    mirrored on the bottom side. ``(None, 0)`` for a round hole."""
+    ``hole_length``, and its axis in the footprint frame (the pad's rotation plus its ``hole_rotation``,
+    which is in the pad's own frame) as the part's placement turns it, mirrored on the bottom side.
+    ``(None, 0)`` for a round hole."""
     stack = pad.padstack if pad is not None else None
     if stack is None or stack.hole_shape != "slot" or not stack.hole_length:
         return None, 0
+    assert pad is not None
+    axis = pad.rotation + stack.hole_rotation
     if request is None:
-        return stack.hole_length, stack.hole_rotation % FULL_TURN
-    local = -stack.hole_rotation if request.side == "bottom" else stack.hole_rotation
+        return stack.hole_length, axis % FULL_TURN
+    local = -axis if request.side == "bottom" else axis
     return stack.hole_length, (local + request.rotation) % FULL_TURN
 
 

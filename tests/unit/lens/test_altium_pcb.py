@@ -98,8 +98,13 @@ def test_pad_extras_refusals_and_drops(tmp_path: Path) -> None:
     path.write_text(text, encoding="utf-8")
     defn = read_footprint(path, library="X")
     first, second = (pad_extras(defn)[p.id] for p in defn.pads)
-    assert first.refusal == "the drill is oval or has an offset"
+    assert first.refusal is None  # an oval drill is written as a slot (change c0170)
     assert first.dropped == ("solder mask margin",) and second == type(second)()
+    path.write_text(source.replace("(drill 0.9)", "(drill 0.9 (offset 0.1 0))", 1), encoding="utf-8")
+    offset = read_footprint(path, library="X")
+    assert pad_extras(offset)[offset.pads[0].id].refusal == (
+        "the drill has an offset or a form other than round or oval"
+    )
 
 
 def test_sample_reads_no_footprint_library() -> None:
