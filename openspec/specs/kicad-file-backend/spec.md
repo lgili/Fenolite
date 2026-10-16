@@ -2,7 +2,9 @@
 
 ## Purpose
 Read KiCad board files into the neutral model without losing anything: typed reading of `.kicad_pcb` from KiCad 8.0 on with slots (modelled, projected and opaque children kept in place), the version policy, layers, nets in both forms, the pad frame, zones and rule areas, exact numbers, stable ids, a closed set of issue codes, a synthesised circuit, and the same-version rebuild (RT1). Facts and sources: `docs/formats/kicad/board.md`.
+
 ## Requirements
+
 ### Requirement: Board file reading
 `fenolite.backends.kicad.pcb.read_board(source, *, file="", issues=None)` SHALL accept an `os.PathLike` (a `.kicad_pcb` file), a `str` (file text) or a parsed `Node`, and SHALL return a `Design`.
 - `header.name` MUST be the file stem for a path and `""` otherwise.
@@ -2449,3 +2451,15 @@ A written project file SHALL carry the severities of `RuleSet.severities` (`desi
 - **GIVEN** a `drc_exclusions` entry `["via_dangling|1.5|2|<uuid>", 3]`
 - **WHEN** the project is read with an `issues` list
 - **THEN** `exclusions` is empty and `issues` holds one `kicad.project.unread-entry`
+
+### Requirement: Items on undeclared layers are refused
+`write_board` SHALL raise `LossyWriteError` with one `kicad.board.layer-undeclared` error per layer name when a modelled item of the board (a footprint's item, a track, an arc, a via, a zone, a graphic, a text, a dimension) names a layer that no row of the board's layer table declares; the message MUST name the layer and the count of items, and `droppable` MUST be false. A board without such an item MUST be written as before, byte for byte.
+
+#### Scenario: Line on an unknown layer
+- **GIVEN** the two-layer design with one graphic line on the layer `Mech.1`, which its layer table does not hold
+- **WHEN** `write_board(design, target=10)` runs
+- **THEN** it raises `LossyWriteError` with one `kicad.board.layer-undeclared` error naming `Mech.1` and 1 item
+
+#### Scenario: Committed boards unchanged
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_layer_undeclared.py -k census` writes every committed KiCad board, built example and test script board
+- **THEN** none raises the error, and every written text equals the text before the change
