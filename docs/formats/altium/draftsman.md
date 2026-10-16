@@ -64,3 +64,22 @@ when one does.
 |---|---|---|---|
 | A document is output by printing, through an Output Job, by File » Export to PDF (one or several pages) and by File » Export to Dxf | S-0773 | INFERRED | H-A-DWF-OUTJOB |
 | In the public output jobs, a drawing document is bound to an output of the type `PCBDrawing` and the category `Documentation` whose document path is the bare file name of the document | S-0786, S-0187 | INFERRED | H-A-DWF-OUTJOB |
+
+## Container
+
+Measured on 2026-10-16 by `tools/draftsman_census.py` on the four public documents of S-0785 (two files)
+and S-0786 (two files); the counts per file are in `docs/evidence/altium-draftsman.md`, "Census". A row
+that both repositories show is `CORPUS-VERIFIED`; a row that one file shows is `INFERRED`.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A document is a run of chunks: the first chunk starts at offset 0 and the file ends where the last chunk ends. There is no file header, no trailer and no checksum of the whole | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| A chunk with the flag byte 1 holds the decoded length and then the stored length, each in the 7-bit form of S-0810 (least significant group first, high bit set while more bytes follow), then one LZ4 block (S-0803) of the stored length | S-0785, S-0786, S-0803, S-0810 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| A chunk with the flag byte 0 holds the decoded length in the 7-bit form and then that many bytes as they are. Two such chunks occur, both in one file, in a run of base64 text that the LZ4 blocks around them hardly shrink | S-0785, S-0810 | INFERRED | H-A-DWF-CONTAINER |
+| No flag byte other than 0 and 1 occurs | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| Every chunk but the last decodes to exactly 1048576 bytes (1 MiB); the last decodes to fewer | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| Every LZ4 block decodes on its own: no offset reaches before the start of its own chunk's decoded bytes, and the largest offset is at most 65535 | S-0785, S-0786, S-0803 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| The decoded chunks, joined in order, are one well-formed XML document in UTF-8 with no declaration and no byte-order mark: it starts with `<Document xmlns="http://schemas.datacontract.org/2004/07/Altium.Designer.PcbDrawing.DataSerialization.V1"` (S-0782) | S-0782, S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| The first four bytes `01 80 80 40` are the flag 1 and the decoded length 1048576 of the first chunk. The next four bytes, first read as a field of their own, are the first chunk's stored length (two or three bytes) followed by the first bytes of its LZ4 block, so they are explained by the chunk form | S-0785, S-0786, S-0810 | CORPUS-VERIFIED | H-A-DWF-FIELD |
+| None of the other candidates of the design decodes the stream: raw deflate, zlib, gzip (S-0805 to S-0807), `.xz` and legacy LZMA (S-0809) and bzip2 decode no text at the offsets 0 to 8 and at any chunk start, and the leading bytes of an LZ4 frame, a Zstandard frame, an `.xz` stream, a gzip member and a framed Snappy stream (S-0804, S-0807 to S-0809, S-0811) occur at none of them | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-CONTAINER |
+| Whether Altium Designer reads a document whose chunks hold less than 1 MiB, only stored chunks, or LZ4 blocks of literals only, is not shown by any public file; probe FP1 of Part F settles the container Fenolite writes | S-0803 | UNKNOWN | H-A-DWF-CONTAINER |

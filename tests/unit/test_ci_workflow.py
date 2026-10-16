@@ -42,6 +42,7 @@ ALTIUM_READER_USES = (
     ("altium-schlib", "the Altium schematic library rows of the schematic reader"),
     ("altium-text", "the Altium text rows of the project reader"),
     ("altium-sheet", "the Altium sheet-template rows of the sheet import"),
+    ("altium-draftsman", "the Altium Draftsman rows of the container census"),
     ("rta", "the Altium rows of the round-trip levels"),
 )
 """Corpus uses of the Altium readers whose rows carry neither ``rt0`` nor ``cfb``: the ``kicad-10`` job
