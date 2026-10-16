@@ -597,3 +597,16 @@ The three boards without a closed outline do close through `edge_outline`, which
 Altium to KiCad. Of the eight public PCB documents, `-03` holds one board cut-out region and `-06` four
 (c0168 imports them as `Edge.Cuts` rings); no two of them overlap. `-05` holds four free holes, all round.
 None has a free slot pad.
+
+## Slots of turned pads — c0170, 2026-10-16
+
+Change c0170 (task 2.2) found that the Altium import held a slot's axis in the footprint's frame (the
+pad's angle plus the record's slot rotation) while the model, the KiCad backend and c0161's direction
+hold it in the pad's own frame. The 8 slots of `-07` (on pads turned 45° and 135°) and the 4 of `-08`
+were therefore seen as turned against their pads and lost ("a slot turned against a pad of this shape").
+With the import in the pad's frame they are kept: the explicit losses of `-07` are 24 bodies, those of
+`-08` 1298 bodies, 298 texts, 1000 graphics and 1 schematic. In the pinned image `kicad/kicad:10.0.6`
+(local run through Docker) `tests/kicad/convert/test_a2k_import.py` finds no unexplained difference
+against KiCad's own importer on `-01`, `-03` to `-08` (`-02` is the recorded importer failure), and the
+axis of every slotted hole of the written boards equals that of KiCad's import: `-03` 4, `-06` 4, `-07` 12
+(45°, 90°, 135°), `-08` 10 (0°, 45°, 135°).

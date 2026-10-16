@@ -118,9 +118,12 @@ CONVERTED_LOSSES = {
     "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1},
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
     "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3},
-    "altium-third-party-pcbdoc-07": {"pad": 8, "body": 24},
-    "altium-third-party-pcbdoc-08": {"pad": 4, "body": 1298, "text": 298, "graphic": 1000, "schematic": 1},
+    "altium-third-party-pcbdoc-07": {"body": 24},
+    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "schematic": 1},
 }
+"""The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
+``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
+turned against its pad."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,
