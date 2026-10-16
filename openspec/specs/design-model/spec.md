@@ -2,7 +2,9 @@
 
 ## Purpose
 Specify the neutral in-memory design model every backend, check and export reads and writes: entity header, integer units, identifiers, provenance, extension bags, layers, slots and layout authority.
+
 ## Requirements
+
 ### Requirement: Common entity header
 Every model entity MUST be an immutable dataclass carrying `id: str`, `native_ids: dict[str, str]`, `provenance: Provenance | None` and `ext: dict[str, ExtBag]`, where `ExtBag` holds `min_version: str | None` and an ordered tuple of opaque text fragments.
 
@@ -1224,3 +1226,15 @@ The rules layer SHALL hold the severities that a design gives the checks of a de
 #### Scenario: Unused keys change no byte
 - **WHEN** `uv run pytest tests/unit/lens -k unused_keys` builds `examples/blink_2layer/design.py` and `examples/blink_routed/design.py` for targets 9 and 10 with a fixed seed and timestamp
 - **THEN** the SHA-256 of every planned file, the documents under `.fenolite/` included, equals the one the test records from the commit before this change, and no document holds `net_ties`, `waivers` or `severities`
+
+### Requirement: Board slots
+`Outline` SHALL hold `slots: tuple[OutlineSlot, ...]`, empty by default. `OutlineSlot` SHALL be a frozen entity with `name`, `center`, `length` (overall), `width` and `rotation`: a non-plated milled stadium whose ring is `core.stadium.stadium(...)`. `width` MUST be positive and even and `length` MUST exceed it. Overlapping slots and cut-outs mean their union. The canonical writer MUST omit empty `slots`; release 0.4.x cannot read a document that carries it.
+
+#### Scenario: A slot round-trips
+- **GIVEN** an outline of a 40 × 30 mm rectangle with one `OutlineSlot` at (115 mm, 110 mm), length 12 mm, width 2 mm, rotation 30°
+- **WHEN** `uv run pytest tests/unit/model/test_outline_slots.py` dumps it with `canonical.dump_dir` and loads it again
+- **THEN** the loaded outline equals the original, and a document without slots keeps its bytes
+
+#### Scenario: The stadium of a turned slot
+- **WHEN** `stadium(Point(0, 0), 12_000_000, 2_000_000, 90_000_000)` is called
+- **THEN** its vertices are exact, its mids are (0, 6 mm) and (0, −6 mm) in some order, and every vertex lies 1 mm from the axis
