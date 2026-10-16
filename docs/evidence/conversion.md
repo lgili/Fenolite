@@ -570,3 +570,30 @@ The probes `pcb-user-layers`, `convert-a2k-load`, `convert-a2k-sch` (both) and `
 (10.0.6) give their recorded outcome `equal`. The complete probe-results gate drifts locally on
 environment probes (library variables and host paths) and is owed to the kicad CI jobs.
 
+
+## Slots and cut-outs — c0170, before the change
+
+Measured on 2026-10-16 on `c0168-altium-slots-cutouts` at `b954291` (local run, Linux), before any code of
+change c0170: `uv run pytest tests/corpus/test_convert_census.py -rA` passes (49 passed, the two heavy
+boards and the KiCad-only schematic test skipped), so the ledger above is the state the change starts
+from.
+
+KiCad to Altium. The kind `outline` of the ledger holds every loss of a board's edge; no board of the 16
+light demo boards loses an edge "outside the first ring", because none holds an inner edge ring
+(`backends.kicad.outline.edge_outline` of each board gives no cut-out). The `outline` losses are:
+
+| board | outline lost | reason |
+|---|---|---|
+| CM5_MINIMA_3 | 1 | the board holds no closed outline; the box of its items is written |
+| One-Air-Max | 20 | an arc of the outline is written as two straight edges |
+| RoyalBlue54L-Feather | 4 | an arc of the outline is written as two straight edges |
+| RoyalBlue54L-NFC-Antenna | 1 | the board holds no closed outline; the box of its items is written |
+| tinytapeout-demo | 1 | the board holds no closed outline; the box of its items is written |
+
+The three boards without a closed outline do close through `edge_outline`, which joins ends closer than
+`CHAIN_GAP` and takes the edges of footprints as KiCad does: a board ring of 30 vertices and 14 arcs
+(CM5_MINIMA_3), 22 and 12 (RoyalBlue54L-NFC-Antenna), 20 and 12 (tinytapeout-demo).
+
+Altium to KiCad. Of the eight public PCB documents, `-03` holds one board cut-out region and `-06` four
+(c0168 imports them as `Edge.Cuts` rings); no two of them overlap. `-05` holds four free holes, all round.
+None has a free slot pad.

@@ -5,7 +5,8 @@
 
 ## 1. Register
 
-- [ ] 1.1 Add `H-K-CONV-SLOTS` and `H-G-DSN-SLOT` to `docs/hypotheses.md` (level `INFERRED`, the tests and criteria of `design.md`), and run c0159's census to record the `outline` losses before this change in `docs/evidence/conversion.md`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run pytest tests/corpus/test_convert_census.py -rA` with the corpus cached.
+- [x] 1.1 Add `H-K-CONV-SLOTS` and `H-G-DSN-SLOT` to `docs/hypotheses.md` (level `INFERRED`, the tests and criteria of `design.md`), and run c0159's census to record the `outline` losses before this change in `docs/evidence/conversion.md`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py -q`; `uv run pytest tests/corpus/test_convert_census.py -rA` with the corpus cached.
+  - 2026-10-16: `H-K-CONV-SLOTS` (kicad) and `H-G-DSN-SLOT` (specctra) are registered `INFERRED`, pending, with the tests and criteria of `design.md` and a closing paragraph. `docs/evidence/conversion.md` gains "Slots and cut-outs — c0170, before the change": the `outline` losses of the five demo boards that have them (1 box, 20 arcs, 4 arcs, 1 box, 1 box), none "outside the first ring" since no light demo board holds an inner edge ring; the three boards without a closed outline do close through `edge_outline` (a measurement for task 5.1); and, for the other direction, the cut-out regions of the public documents `-03` (1) and `-06` (4), none overlapping, and the four round free holes of `-05`. Proof: `test_hypotheses_register.py` 38 passed; `test_convert_census.py -rA` 49 passed, 5 skipped (the heavy boards and the test that needs `kicad-cli`).
 
 ## 2. KiCad to Altium
 
