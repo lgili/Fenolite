@@ -47,6 +47,8 @@
 ## 3. Writer and probes (gates G2, G3)
 
 - [ ] 3.1 Write `backends/altium/draftsman.py`: `DraftsmanSpec`, `write_draftsman` for sheets, Texts, parameter texts and Notes, `written_scope`, `NATIVE_WRITE = False` (scenarios "Written document reads back", "Gate follows the report"). Proof: `uv run pytest tests/unit/backends/altium/test_draftsman_write.py tests/unit/backends/test_evidence_declared.py -q`.
+
+  Waiting on 2026-10-16: the writer writes only members that fact rows name, and the minimal forms it follows (the empty document of F0.1, the Text of F0.3 and F0.4, the second sheet of F0.11, and what Altium Designer 26.5 writes for `FormatVersion`) come from the maintainer's F0 files (tasks 1.4 and 2.2). The container half is ready: a chunk of flag 0, or an LZ4 block of literals only, is valid by the measured form and S-0803, so the writer needs no compressor.
 - [ ] 3.2 Build the probes FP1 to FP5 (Decision 8) into the maintainer's session folder of the round (`…/FP-draftsman/`) with `README.md` and `SHA256SUMS`, and write round FP into Part F. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_f_fp -q`.
 - [ ] 3.3 **Maintainer, in Altium Designer 26.5.** Open FP1 to FP5 and report, per probe, whether it opens without a message and what it shows. Record the report and set `H-A-DWF-MINIMAL`, `-IMPORT` and `-TEMPLATE`. Decide G2 and G3 (Decision 9), write the route here, and tell the maintainer. One round of corrections is allowed before G2 fails. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_verification_docs.py -k part_f -q`.
 
