@@ -40,6 +40,7 @@ for folder in (
     HERE / "length",
     HERE / "impedance",
     HERE / "downgrade",
+    HERE / "panel",
 ):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))

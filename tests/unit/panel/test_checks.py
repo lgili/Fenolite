@@ -75,9 +75,7 @@ def test_tab_copper_with_an_inset() -> None:
 
 
 def test_fiducials_off_the_rails() -> None:
-    panel = dataclasses.replace(
-        script("mixed"), fiducials=(PanelFiducial("F1", Point(20 * MM, 20 * MM)),)
-    )
+    panel = dataclasses.replace(script("mixed"), fiducials=(PanelFiducial("F1", Point(20 * MM, 20 * MM)),))
     found = [f for f in findings(panel) if f[0] == "panel.fiducial-place"]
     assert any("not on a rail" in f[2] for f in found)
     assert any("1 fiducial(s) on the top side" in f[2] for f in found)

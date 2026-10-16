@@ -107,4 +107,8 @@ def test_key_rows() -> None:
 
 def test_method_of_an_unnamed_edge_set() -> None:
     panel = _panel()
-    assert (panel.method("columns"), panel.method("rows"), panel.method("rails")) == ("tabs", "vscore", "tabs")
+    assert (panel.method("columns"), panel.method("rows"), panel.method("rails")) == (
+        "tabs",
+        "vscore",
+        "tabs",
+    )
