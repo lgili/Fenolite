@@ -2,7 +2,9 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
+
 ## Requirements
+
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -2190,3 +2192,10 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 #### Scenario: Verify refuses a folder that is no kit
 - **WHEN** `fenolite kit verify <empty folder>` runs
 - **THEN** the exit code is 3 and stderr holds `FEN-3001`
+
+### Requirement: Conversions in capabilities
+`fenolite capabilities` SHALL list under `result.conversions` one object per registered direction of `fenolite.convert.DIRECTIONS`, sorted by `from` and then `to`, with `from` and `to` (backend names), `targets` (the KiCad majors a KiCad target is written for, else an empty list), `experimental` and `evidence` (`{level, oracle, hypotheses}`). The brief view of `capabilities` MUST name the command `convert` and no direction.
+
+#### Scenario: Directions listed
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs after this change
+- **THEN** `result.conversions` holds `{"from": "kicad", "to": "altium", "experimental": true, ...}` and `{"from": "kicad", "to": "kicad", "targets": [9, 10], "experimental": false, ...}`
