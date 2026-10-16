@@ -87,6 +87,24 @@ Change c0168 makes the import give a free pad on Multi-Layer without name, net o
   census (`tests/corpus/test_convert_altium_census.py`) counts one and four fewer `Altium.KeepOut` items
   on `pcbdoc-03` and `pcbdoc-06`.
 
+## Embedded board arrays (2026-10-16)
+
+`uv run pytest tests/corpus/test_altium_pcb_census.py -k embedded -rA` on Linux, local corpus cache (change
+c0173, task 1.2): of the 7 public documents, **0** hold an Embedded Board Array. Every row has the storage
+`EmbeddedBoards6` with a `Header` of 0 and an empty `Data`, as the documents Fenolite writes. So the corpus
+gives no array to read, and the records are measured only from the documents of Part Q (`altium-pcb.md`),
+which the maintainer saves from inputs authored for Fenolite.
+
+| row id | `Header` | `Data` bytes |
+|---|---|---|
+| `altium-third-party-pcbdoc-01` | 0 | 0 |
+| `altium-third-party-pcbdoc-02` | 0 | 0 |
+| `altium-third-party-pcbdoc-03` | 0 | 0 |
+| `altium-third-party-pcbdoc-04` | 0 | 0 |
+| `altium-third-party-pcbdoc-05` | 0 | 0 |
+| `altium-third-party-pcbdoc-06` | 0 | 0 |
+| `altium-third-party-pcbdoc-07` | 0 | 0 |
+
 ## Document oracle
 
 `FENOLITE_REQUIRE=corpus uv run pytest tests/kicad/altium/test_pcbdoc_read_oracle.py` with `kicad-cli`
