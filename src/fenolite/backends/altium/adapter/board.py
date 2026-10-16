@@ -360,12 +360,13 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     for index, record in free_pads:
         locator = f"Pads6/Data#{index}"
         position = units.pcb_point(record.x, record.y)
-        hole = free_hole(record, ctx, index, locator)
+        fp_native = f"fp:pad#{index}"
+        unique = doc.pad_unique_ids.get(index)
+        hole = free_hole(record, ctx, index, locator, f"pad:{unique}" if unique else f"{fp_native}:pad::0")
         if hole is not None:  # a board hole of its own (change c0168), not a footprint
             holes.append(hole)
             ctx.census.map("pads")
             continue
-        fp_native = f"fp:pad#{index}"
         fp_id, fp_native_ids = ctx.ids.native("fp", fp_native)
         cmp_id, cmp_native_ids = ctx.ids.native("cmp", f"cmp:{fp_native}")
         frame = Transform.placement(position, 0).inverse()
@@ -473,12 +474,18 @@ SLOT_SHAPE = 2
 """Hole shape 2, a slot (``pcb-records.md``, "Pad")."""
 
 
-def free_hole(record: PadRecord, ctx: Context, index: int, locator: str) -> Hole | None:
+HOLE_PAD = "pad"
+"""The pair of a hole's ``altium`` bag that holds the native id its pad had as a board-only footprint
+(``convert.to_kicad.hole_footprints`` gives that footprint back; change c0168)."""
+
+
+def free_hole(record: PadRecord, ctx: Context, index: int, locator: str, pad_native: str = "") -> Hole | None:
     """The board ``Hole`` of a free pad that is one (change c0168; capability altium-import, "Board
     cut-outs and free holes of a document"), or ``None``: a pad on Multi-Layer without name and net whose
     copper is its hole, every size of a round hole the hole size, every size of a slot (slot length, hole
     size) with the slot along the pad (slot rotation 0), the main shapes round. ``Hole.rotation`` is the
-    pad's rotation for a slot, 0 for a round hole. Every other free pad stays a board-only footprint."""
+    pad's rotation for a slot, 0 for a round hole. Every other free pad stays a board-only footprint.
+    ``pad_native`` is kept in the pair ``pad`` of the hole's bag."""
     if record.prefix.layer != MULTI or record.name or record.prefix.net is not None or record.hole <= 0:
         return None
     if {record.shape_top, record.shape_mid, record.shape_bottom} != {ROUND_SHAPE}:
@@ -505,6 +512,7 @@ def free_hole(record: PadRecord, ctx: Context, index: int, locator: str) -> Hole
         id=ident,
         native_ids=native,
         provenance=ctx.provenance(locator),
+        ext=bag([(HOLE_PAD, pad_native)] if pad_native else []),
         position=units.pcb_point(record.x, record.y),
         drill=exact.length("drill", record.hole),
         plated=record.plated,

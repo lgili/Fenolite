@@ -122,6 +122,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `paste` | pad | `<mode>,<expansion in units>` |
 | `mask` | pad | `<mode>,<expansion in units>` |
 | `plated` | pad | `0` for a hole that is not plated |
+| `pad` | hole | the native id of the free pad a board hole was read from (change c0168), so that a conversion to KiCad gives the hole back as the board-only footprint of that pad (`convert.to_kicad.hole_footprints`); it enters no id |
 | `via_layers` | via | `<start id>,<end id>` when they are not the outer layers of the chain |
 | `pad_removed` | via | `<layer id>,…`: the Altium layer ids, in ascending order, for which the table at 209 of the via record holds a non-zero byte: the layers on which the via has no pad shape (change c0132; `pcb-copper.md`, "Via"). The model's via holds one diameter, so the pair is the only place that says it; it enters no id. The copper check on Altium input reads it ("Clearance of the copper check"); a write counts it and writes a pad on every layer |
 | `arc` | arc, graphic of kind `arc` | `<centre x>,<centre y>,<radius>,<start angle>,<end angle>` of the arc record it was read from: three integers in units of 1/10 000 mil in the document's frame, and the two angles as `float.hex()` of the stored doubles (change c0127). The three points of the model do not give the record back in every case; a write of the model uses the pair when it still says the points |

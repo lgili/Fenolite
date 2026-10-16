@@ -31,8 +31,13 @@ from fenolite.backends.kicad.versions import TARGET_MAJORS
 from fenolite.convert.direction import Direction, Options, Written
 from fenolite.convert.report import DOWNGRADE_KINDS, DOWNGRADE_PREFIX, ConversionReport, census
 from fenolite.convert.sources import KICAD, SourceProject
+from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.ids import derived_id
+from fenolite.model.board import FootprintInstance, Hole, Pad, Padstack
+from fenolite.model.circuit import Component
+from fenolite.model.design import Design
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
 """The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
@@ -41,6 +46,7 @@ DOWNGRADE_EVIDENCE = resolver.EVIDENCE
 """A downgrade: the evidence of the resolver's table (``H-K-DOWN-ROWS``, ``H-K-DOWN-DEMOS``)."""
 PROFILE = "kicad-to-kicad"
 DOWNGRADE_PROFILE = "kicad-downgrade"
+ALTIUM = "altium"
 SCHEMATIC = "schematic"
 SCHEMATIC_SUFFIX = ".kicad_sch"
 FOOTPRINT_SUFFIX = ".kicad_mod"
@@ -236,10 +242,117 @@ DIRECTION = Direction(
 __all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KINDS", "write"]
 
 
+HOLE_NATIVE = "hole:"
+"""The prefix of the native id of a board hole read from an Altium document (``adapter.board.free_hole``)."""
+
+
+def _free_index(native: str) -> int | None:
+    """``i`` of ``fp:pad#i`` or ``hole:pad#i``; ``None`` for another native id."""
+    head, _, tail = native.partition("pad#")
+    if head not in ("fp:", HOLE_NATIVE) or not tail.split("#")[0].isdigit():
+        return None
+    return int(tail.split("#")[0])
+
+
+def _hole_footprint(hole: Hole, native: str, copper: tuple[str, ...]) -> tuple[FootprintInstance, Component]:
+    fp_native = "fp:" + native.removeprefix(HOLE_NATIVE)
+    pairs = dict(hole.ext[ALTIUM].payload) if ALTIUM in hole.ext else {}
+    pad_native = pairs.get("pad") or f"{fp_native}:pad::0"
+    slot = hole.length is not None
+    stack = None
+    if slot:
+        stack = Padstack(
+            id=derived_id("pst", ALTIUM, f"{pad_native}:stack"),
+            native_ids={ALTIUM: f"{pad_native}:stack"},
+            provenance=hole.provenance,
+            hole_shape="slot",
+            hole_length=hole.length,
+            hole_rotation=hole.rotation,
+        )
+    pad = Pad(
+        id=derived_id("pad", ALTIUM, pad_native),
+        native_ids={ALTIUM: pad_native},
+        provenance=hole.provenance,
+        number="",
+        shape="oval" if slot else "circle",
+        size=Size(hole.length if hole.length is not None else hole.drill, hole.drill),
+        position=Point(0, 0),
+        kind="thru_hole" if hole.plated else "np_thru_hole",
+        rotation=hole.rotation if slot else 0,
+        drill=hole.drill,
+        layers=copper,
+        padstack=stack,
+    )
+    component = Component(
+        id=derived_id("cmp", ALTIUM, f"cmp:{fp_native}"),
+        native_ids={ALTIUM: f"cmp:{fp_native}"},
+        provenance=hole.provenance,
+        ref="",
+    )
+    footprint = FootprintInstance(
+        id=derived_id("fp", ALTIUM, fp_native),
+        native_ids={ALTIUM: fp_native},
+        provenance=hole.provenance,
+        component_id=component.id,
+        lib_ref="",
+        position=hole.position,
+        attributes=("board_only",),
+        pads=(pad,),
+    )
+    return footprint, component
+
+
+def hole_footprints(design: Design) -> Design:
+    """``design`` with each board ``Hole`` that the Altium import made of a free pad (change c0168; its
+    native id ``hole:pad#<i>``) given back as the board-only footprint of one unnumbered pad that the import
+    made of that pad before, with its component, in the order of the pads (capability design-conversion;
+    c0168 Decision 6). KiCad refuses ``Board.holes`` (c0167), so a conversion to KiCad writes what it wrote
+    before; c0170 replaces this by a generated footprint. Other holes are kept."""
+    board = design.board
+    if board is None or not board.holes:
+        return design
+    # the import gave a pad on Multi-Layer every copper layer of the chain, top to bottom
+    copper = tuple(
+        layer.name for layer in sorted(board.layers, key=lambda item: item.ordinal) if layer.kind == "copper"
+    )
+    made: list[tuple[int, FootprintInstance, Component]] = []
+    kept: list[Hole] = []
+    for hole in board.holes:
+        native = hole.native_ids.get(ALTIUM, "")
+        index = _free_index(native) if native.startswith(HOLE_NATIVE) else None
+        if index is None:
+            kept.append(hole)
+            continue
+        footprint, component = _hole_footprint(hole, native, copper)
+        made.append((index, footprint, component))
+    if not made:
+        return design
+
+    # the import put the free pads' footprints and components last, in the order of the pads
+    free = [(_free_index(fp.native_ids.get(ALTIUM, "")), fp) for fp in board.footprints]
+    rest = [fp for index, fp in free if index is None]
+    tail = sorted(
+        [(index, fp) for index, fp in free if index is not None] + [(i, fp) for i, fp, _ in made],
+        key=lambda pair: pair[0],
+    )
+    owners = {fp.component_id: index for index, fp in tail}
+    components = [*design.circuit.components, *(component for _, _, component in made)]
+    placed = [c for c in components if c.id not in owners]
+    last = sorted((c for c in components if c.id in owners), key=lambda c: owners[c.id])
+    footprints = [*rest, *(fp for _, fp in tail)]
+    return dataclasses.replace(
+        design,
+        circuit=dataclasses.replace(design.circuit, components=(*placed, *last)),
+        board=dataclasses.replace(board, footprints=tuple(footprints), holes=tuple(kept)),
+    )
+
+
 def write_altium(source: SourceProject, options: Options) -> Written:
-    """Altium to a coherent KiCad project and derived libraries (c0161)."""
+    """Altium to a coherent KiCad project and derived libraries (c0161). The board holes of the import are
+    the board-only footprints they were before change c0168 (``hole_footprints``)."""
     from fenolite.convert.altium_to_kicad import Ledger, footprint_files, prepare, schematic_files
 
+    source = dataclasses.replace(source, design=hole_footprints(source.design))
     ledger = Ledger()
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)

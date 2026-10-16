@@ -33,7 +33,9 @@ BASELINE = {
         "Mech.14": 28,
         "Mech.15": 118,
     },
-    "altium-third-party-pcbdoc-03": {"Altium.KeepOut": 1, "Mech.1": 12, "Mech.13": 216, "Mech.15": 225},
+    # change c0168: the regions with ISBOARDCUTOUT=TRUE on the Keep-Out layer (one in -03, four in -06) are
+    # board cut-outs of the import, Edge.Cuts rings, no longer graphics of that layer
+    "altium-third-party-pcbdoc-03": {"Mech.1": 12, "Mech.13": 216, "Mech.15": 225},
     "altium-third-party-pcbdoc-04": {
         "Altium.KeepOut": 1,
         "Mech.1": 12,
@@ -45,7 +47,7 @@ BASELINE = {
     "altium-third-party-pcbdoc-05": {"Mech.1": 4, "Mech.2": 92, "Mech.4": 92},
     "altium-third-party-pcbdoc-06": {
         "Altium.74": 3,
-        "Altium.KeepOut": 6,
+        "Altium.KeepOut": 2,
         "Mech.1": 18,
         "Mech.11": 105,
         "Mech.13": 217,
