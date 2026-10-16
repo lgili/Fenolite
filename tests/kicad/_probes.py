@@ -91,6 +91,7 @@ import _rulecases
 import _schcases
 import _sheetcases
 import _slotbench
+import _slotsconv
 import _stackbench
 import _tiebench
 import _triad
@@ -385,6 +386,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in {**_eqsides.eq_side_probes(), **_ovalcases.oval_probes()}.items():  # c0158
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _convcases.conv_probes().items():  # change c0159
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _slotsconv.conv_slot_probes().items():  # change c0170
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {
         **_downbench.down_probes(runner),

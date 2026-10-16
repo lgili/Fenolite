@@ -22,12 +22,15 @@ from typing import Any
 import fenolite.convert as convert_package
 from fenolite.api.equivalence import EquivalenceResult, equivalent
 from fenolite.api.sides import read_schematic
+from fenolite.backends import registry
+from fenolite.backends.base import BoardFrame
 from fenolite.checks.equivalence import Profile, load_profiles
 from fenolite.checks.equivalence.model import Difference
 from fenolite.convert import PROFILES_FILE, Conversion, convert_project, profiles_text
 from fenolite.convert.codes import issue
 from fenolite.convert.direction import Target
 from fenolite.convert.report import Explainer
+from fenolite.convert.rings import RING_KIND, RingDifference, compare_rings
 from fenolite.convert.schematic import root_schematic
 from fenolite.core.errors import FenoliteError, Issue
 from fenolite.core.evidence import Evidence, Level
@@ -138,10 +141,26 @@ def _schematic(
     return found.report.differences if found.report is not None else ()
 
 
+def _rings(conversion: Conversion, written: Path) -> tuple[RingDifference, ...]:
+    """The edge rings of the source against those of the written board read back (change c0170;
+    ``convert.rings``): each backend's ``BoardFrame.board_edges``. Nothing when a backend gives none."""
+    source_backend = registry.get(conversion.source.backend)
+    target_backend = registry.for_path(written)
+    if not isinstance(source_backend, BoardFrame) or not isinstance(target_backend, BoardFrame):
+        return ()
+    source = source_backend.board_edges(conversion.source.design)
+    if not source:
+        return ()
+    read = target_backend.read(written).design
+    return compare_rings(source, target_backend.board_edges(read), conversion.report)
+
+
 def verify_conversion(conversion: Conversion, *, profile: Profile | None = None) -> ConversionResult:
     """The verification of ``conversion``: its files read back from a private temporary folder and
-    compared with the design that was written, and a downgrade's root schematic with the source's at level
-    2. ``profile`` overrides the conversion's."""
+    compared with the design that was written, a downgrade's root schematic with the source's at level
+    2, and the edge rings of the written board with the source's (change c0170, ``convert.rings``: a ring
+    is a difference of the kind ``edge-ring`` at level 0, explained by the ``cutout`` or ``outline`` rows of
+    the report). ``profile`` overrides the conversion's."""
     chosen = (
         profile if profile is not None else profiles().get(conversion.profile or conversion.direction.profile)
     )
@@ -162,6 +181,7 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
         )
         if conversion.schematic is not None:
             schematic = _schematic(conversion, folder, chosen)
+        rings = _rings(conversion, folder / conversion.read_back)
     explanation_model = (
         conversion.source.design if conversion.source.backend == "altium" else conversion.design
     )
@@ -181,6 +201,19 @@ def verify_conversion(conversion: Conversion, *, profile: Profile | None = None)
             unexplained.append(difference)
         else:
             explained.append(Explained(difference, kind))
+    for found in rings:
+        difference = Difference(
+            0,
+            RING_KIND,
+            found.name,
+            "ring",
+            found.text if found.side == "source" else "",
+            found.text if found.side == "written" else "",
+        )
+        if found.explained_by is None:
+            unexplained.append(difference)
+        else:
+            explained.append(Explained(difference, found.explained_by))
     notes = (schematic,) if isinstance(schematic, Issue) else ()
     # the comparison's own errors are its differences: each is explained, or one convert.unexplained; its
     # notices are kept, and the read-back's own reader notes are not the conversion's

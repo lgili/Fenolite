@@ -18,7 +18,6 @@ from fenolite.model.base import ExtBag
 from fenolite.model.board import FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
-from fenolite.model.holes import HOLE_LAYERS
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.rules import Rule
 
@@ -50,8 +49,6 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     table = layers.board_rows(count)
     copper_names = [layer.name for layer in table if layer.kind == "copper"]
     mapping = {layer.name: layer.name for layer in table if layer.kind != "copper"}
-    # the wildcards of a generated hole footprint's pad (c0170), which KiCad expands itself
-    mapping.update({wildcard: wildcard for wildcard in HOLE_LAYERS})
     mapped_copper = (
         copper_names
         if len(copper) == count
@@ -359,10 +356,6 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     footprints: list[FootprintInstance] = []
     links: dict[str, str] = {}
     for fp in sorted(board.footprints, key=lambda f: (refs.get(f.component_id, ""), f.id)):
-        if fp.lib_ref.startswith(HOLE_PREFIX):
-            # a generated hole footprint keeps its link: its library is written beside the board (c0170)
-            footprints.append(fp)
-            continue
         raw = fp.lib_ref or f"FREE_{fp.id}"
         if raw not in allocated:
             candidate = _name(raw.rsplit(":", 1)[-1])

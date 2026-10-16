@@ -116,6 +116,8 @@
     "convert-difat": "equal",
     "convert-padstack": "equal",
     "convert-retarget": "equal",
+    "convert-slots-drc": "absent",
+    "convert-slots-drill": "equal",
     "convert-triangle": "equal",
     "copper-anchor-frame": "equal",
     "copper-anchor-frame-control": "different",

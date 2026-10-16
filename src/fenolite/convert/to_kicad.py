@@ -27,7 +27,8 @@ from typing import TYPE_CHECKING
 
 from fenolite.backends.altium.pcbrecords import to_units
 from fenolite.backends.kicad import dru, resolver, sch, sym
-from fenolite.backends.kicad.mod import read_footprint, write_footprint
+from fenolite.backends.kicad.embed import place_footprint
+from fenolite.backends.kicad.mod import prepare_authored_definition, read_footprint, write_footprint
 from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
@@ -288,18 +289,13 @@ def metric(value: int) -> int:
     return whole if whole > 0 and to_units(whole) == to_units(value) else value
 
 
-def _instance(hole: Hole, definition: FootprintDef) -> tuple[FootprintInstance, Component]:
-    """The board-only instance of ``definition`` at ``hole``, turned by its rotation, with its component.
-    Its ids follow from the hole's."""
+def _instance(
+    hole: Hole, definition: FootprintDef, copper: tuple[str, ...]
+) -> tuple[FootprintInstance, Component]:
+    """The board-only instance of ``definition`` at ``hole``, turned by its rotation, with its component,
+    placed as a build places the footprint of ``design.hole`` (``embed.place_footprint``: its fields, its
+    courtyards and its pad as the library holds them). Its ids and uuids follow from the hole's id."""
     key = f"generated:{hole.id}"
-    pads = tuple(
-        dataclasses.replace(pad, id=derived_id("pad", ALTIUM, f"{key}:pad:{index}"))
-        for index, pad in enumerate(definition.pads)
-    )
-    graphics = tuple(
-        dataclasses.replace(graphic, id=derived_id("gfx", ALTIUM, f"{key}:gfx:{index}"))
-        for index, graphic in enumerate(definition.graphics)
-    )
     lib_ref = f"{definition.library}:{definition.name}"
     component = Component(
         id=derived_id("cmp", ALTIUM, key),
@@ -308,18 +304,18 @@ def _instance(hole: Hole, definition: FootprintDef) -> tuple[FootprintInstance, 
         value=definition.name,
         lib_footprint_ref=lib_ref,
     )
-    footprint = FootprintInstance(
-        id=derived_id("fp", ALTIUM, key),
-        provenance=hole.provenance,
-        component_id=component.id,
-        lib_ref=lib_ref,
-        position=hole.position,
+    placed = place_footprint(
+        prepare_authored_definition(definition),
+        component=component,
+        at=hole.position,
         rotation=hole.rotation % FULL_TURN,
         locked=True,
-        attributes=HOLE_ATTRIBUTES,
-        pads=pads,
-        graphics=graphics,
+        key=key,
+        copper=copper,
     )
+    # no provenance: the writer keeps the design's order of footprints without one (c0161's created
+    # content), which ``footprint_files`` pairs with the written board's
+    footprint = dataclasses.replace(placed, id=derived_id("fp", ALTIUM, key), attributes=HOLE_ATTRIBUTES)
     return footprint, component
 
 
@@ -337,11 +333,14 @@ def generated_holes(design: Design) -> tuple[Design, dict[str, FootprintDef], tu
     footprints: list[FootprintInstance] = []
     components: list[Component] = []
     plated: list[str] = []
+    copper = tuple(
+        layer.name for layer in sorted(board.layers, key=lambda item: item.ordinal) if layer.kind == "copper"
+    )
     for hole in board.holes:
         length = metric(hole.length) if hole.length is not None else None
         definition = model_holes.hole_footprint(metric(hole.drill), length=length, plated=hole.plated)
         definitions.setdefault(definition.name, definition)
-        footprint, component = _instance(hole, definition)
+        footprint, component = _instance(hole, definition, copper)
         footprints.append(footprint)
         components.append(component)
         if hole.plated:
@@ -421,15 +420,23 @@ def write_altium(source: SourceProject, options: Options) -> Written:
 
     ledger = Ledger()
     counts = census(source.design)
-    cutouts_design, cutouts = merged_cutouts(source.design, ledger)
-    holes_design, holes, plated = generated_holes(cutouts_design)
-    for ident in plated:
-        ledger.change(HOLE_KIND, ident, PLATED_REASON)
+    merged, cutouts = merged_cutouts(source.design, ledger)
     if cutouts:
         counts[CUTOUT_KIND] = cutouts
-    source = dataclasses.replace(source, design=holes_design)
+    board = merged.board
+    holes = board.holes if board is not None else ()
+    if board is not None:
+        merged = dataclasses.replace(merged, board=dataclasses.replace(board, holes=()))
+    source = dataclasses.replace(source, design=merged)
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
+    # the holes join the prepared board as placed footprints, which ``prepare`` would derive and clean
+    assert design.board is not None
+    design, holes, plated = generated_holes(
+        dataclasses.replace(design, board=dataclasses.replace(design.board, holes=holes))
+    )
+    for ident in plated:
+        ledger.change(HOLE_KIND, ident, PLATED_REASON)
     issues: list[Issue] = []
     texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
     texts.update(

@@ -360,3 +360,97 @@ def test_holes_metric_takes_a_length_to_the_micrometre_the_document_holds() -> N
     assert metric(1_000_001) == 1_000_000 and metric(3_200_001) == 3_200_000
     assert metric(1_000_003) == 1_000_003  # 1.27 nm per half unit: 3 nm is another unit
     assert to_units(metric(2_000_001)) == to_units(2_000_001)
+
+
+# --- the committed boards of the round trip (task 3.3) ---------------------------------------------------
+
+CONVERT_FIXTURE = ROOT / "tests" / "data" / "slots" / "convert.py"
+WRITE_VARIABLE = "FENOLITE_SLOTS_WRITE"
+
+
+@pytest.mark.parametrize("target", [9, 10])
+def test_the_committed_round_trip_boards_are_current(target: int) -> None:
+    """The oracle jobs install no ``geo`` extra, so ``tests/kicad/_slotsconv.py`` reads the boards of
+    ``tests/data/slots/convert.py`` committed beside it; ``FENOLITE_SLOTS_WRITE=1`` writes them again."""
+    pytest.importorskip("pyclipper")
+    import os
+    import runpy
+
+    from _outlinehelp import build_script
+
+    script = runpy.run_path(str(CONVERT_FIXTURE))["design"]
+    output = build_script(script, target)
+    assert output.files, [i.message for i in output.issues if i.severity == "error"]
+    text = output.files["slots.kicad_pcb"].decode("utf-8")
+    path = CONVERT_FIXTURE.parent / f"slots_convert_t{target}.kicad_pcb"
+    if os.environ.get(WRITE_VARIABLE) == "1":
+        path.write_text(text, encoding="utf-8")
+    assert path.read_text(encoding="utf-8") == text, f"run with {WRITE_VARIABLE}=1 to write {path.name} again"
+
+
+# --- the edge rings verified (task 4.1) ------------------------------------------------------------------
+
+
+def test_verify_a_dropped_ring_is_a_difference(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A dropped ring is a difference": the Altium writer, patched to drop the first cut-out
+    without counting it, gives one unexplained ring named after it; ``fenolite convert`` exits 5."""
+    import io
+    import json
+
+    from fenolite.api import convert
+    from fenolite.cli.main import main
+
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", True)
+    original = lower._cutouts  # pyright: ignore[reportPrivateUsage]
+
+    def dropping(outline: object, account: object) -> tuple[tuple[Point, ...], ...]:
+        return original(outline, account)[1:]  # type: ignore[arg-type]
+
+    monkeypatch.setattr(lower, "_cutouts", dropping)
+    read_as(monkeypatch, _fixture())
+    result = convert("slots.kicad_pcb", to="altium")
+    assert [(d.kind, d.where, d.level) for d in result.unexplained] == [("edge-ring", "edge ring 1", 0)]
+    (found,) = [i for i in result.issues if i.code == "convert.unexplained"]
+    assert found.where == "edge ring 1" and found.severity == "error"
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "slots.kicad_pcb").write_text(SLOTS_T10.read_text(encoding="utf-8"), encoding="utf-8")
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    assert main(["convert", "slots.kicad_pcb", "--to", "altium", "--out", "out", "--dry-run", "--json"]) == 5
+    issues = json.loads(out.getvalue())["issues"]
+    assert [i["where"] for i in issues if i["code"] == "convert.unexplained"] == ["edge ring 1"]
+
+
+def test_verify_rings_that_the_report_explains(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the gate off the three rings are lost and counted so: each is an explained ring difference,
+    and nothing is unexplained. With the gate on every ring comes back within 1 µm plus the chord."""
+    from fenolite.api import convert
+
+    read_as(monkeypatch, _fixture())
+    result = convert("slots.kicad_pcb", to="altium")
+    rings = [(e.difference.where, e.kind) for e in result.explained if e.difference.kind == "edge-ring"]
+    assert rings == [("edge ring 1", "cutout"), ("edge ring 2", "cutout"), ("edge ring 3", "cutout")]
+    assert not result.unexplained
+    monkeypatch.setattr(pcbdoc, "CUTOUT_REGIONS", True)
+    result = convert("slots.kicad_pcb", to="altium")
+    assert not [e for e in result.explained if e.difference.kind == "edge-ring"] and not result.unexplained
+
+
+def test_verify_a_merged_ring_against_the_union(tmp_path: Path) -> None:
+    """The merged ring of two overlapping Altium cut-outs is matched against their union."""
+    pytest.importorskip("pyclipper")
+    from fenolite.api import convert
+
+    result = convert(_overlapping(tmp_path), to="kicad")
+    rings = [(e.difference.where, e.kind) for e in result.explained if e.difference.kind == "edge-ring"]
+    assert rings == [("edge ring 1", "cutout"), ("edge ring 2", "cutout")] and not result.unexplained
+
+
+def test_verify_same_ring_within_the_tolerance() -> None:
+    from fenolite.convert.rings import CHORD, RING_TOL, same_ring
+
+    square = (Point(0, 0), Point(MM, 0), Point(MM, MM), Point(0, MM))
+    near = tuple(Point(p.x + RING_TOL, p.y) for p in square)
+    far = tuple(Point(p.x + RING_TOL + CHORD + 1, p.y) for p in square)
+    assert same_ring(square, near) and not same_ring(square, far)
