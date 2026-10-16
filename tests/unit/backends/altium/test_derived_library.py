@@ -171,3 +171,51 @@ def test_detached_pad_roundtrip_checks_its_geometry(tmp_path) -> None:
         ),
     )
     assert not rta3.rt_a3(design, written, second, compare=compare, from_board=True).equal
+
+
+def test_detached_hole_pads_read_back_as_holes(tmp_path) -> None:
+    """A detached pad whose copper is its hole is a free pad that the import reads as a board ``Hole``
+    (change c0168): RT-A3 expects it there, round or slotted, and judges its geometry (capability
+    altium-verification, "Detached hole pads in RT-A3"; c0171 task 1.8)."""
+    from fenolite.backends.altium import lower, rta3
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.checks.rta3 import compare
+    from fenolite.model.board import Padstack
+
+    design = two_layer()
+    path = tmp_path / "holes.PcbDoc"
+    path.write_bytes(lower.write_design(design, allow_lossy=True).files[f"{design.header.name}.PcbDoc"])
+    design = AltiumBackend().read(path).design
+    assert design.board is not None
+    owner = next(fp for fp in design.board.footprints if fp.pads[0].kind == "thru_hole")
+    base = owner.pads[0]
+    drill = base.drill
+    assert drill is not None
+    round_hole = dataclasses.replace(
+        base, id="pad-hole", number="", net_id=None, kind="np_thru_hole", size=Size(drill, drill),
+        position=Point(base.position.x + 3_000_000, base.position.y),
+    )  # fmt: skip
+    slot = dataclasses.replace(
+        base, id="pad-slot", number="", net_id=None, kind="np_thru_hole", shape="oval",
+        size=Size(2 * drill, drill), position=Point(base.position.x - 3_000_000, base.position.y),
+        padstack=Padstack(id="ps-slot", hole_shape="slot", hole_length=2 * drill),
+    )  # fmt: skip
+    fp = dataclasses.replace(owner, pads=(*owner.pads, round_hole, slot))
+    design = dataclasses.replace(
+        design,
+        board=dataclasses.replace(
+            design.board, footprints=tuple(fp if f.id == owner.id else f for f in design.board.footprints)
+        ),
+    )
+    written = lower.write_design(design, allow_lossy=True)
+    path.write_bytes(written.files[f"{design.header.name}.PcbDoc"])
+    second = AltiumBackend().read(path).design
+    assert second.board is not None
+    assert sorted((h.drill, h.length or 0) for h in second.board.holes) == [(drill, 0), (drill, 2 * drill)]
+    assert not [f for f in second.board.footprints if "board_only" in f.attributes]
+    assert rta3.rt_a3(design, written, second, compare=compare, from_board=True).equal
+    first, *rest = second.board.holes
+    moved = dataclasses.replace(first, position=Point(first.position.x + 100_000, first.position.y))
+    second = dataclasses.replace(second, board=dataclasses.replace(second.board, holes=(moved, *rest)))
+    trip = rta3.rt_a3(design, written, second, compare=compare, from_board=True)
+    assert not trip.equal and {change.path.split("/")[1] for change in trip.differences} == {"hole"}
