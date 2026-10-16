@@ -1,0 +1,50 @@
+## 0. Entry check
+
+- [ ] 0.1 Read `openspec list` and the living `design-model`, `design-dsl`, `kicad-file-backend`, `altium-pcb-writer`, `altium-build`, `altium-verification`, `manufacturing-exports` and `cli-contract` specs. Write under this task, with the date: that c0167 and c0118 are archived and `merge_rings`, `edge_outline` and the generated fiducial and tooling-hole footprints are on the branch (else stop); the state of c0168 and c0171 (this change needs no cut-out region; c0171 owns the release record); whether another open change holds a delta of "Export kinds and their arguments" (regenerate the MODIFIED block from the living text if one was archived); that S-0790 to S-0802 are still free of another branch's rows; the maintainer's answers to the open questions. Proof: `openspec validate c0173-board-panels --strict --no-interactive` passes.
+
+## 1. Facts and register
+
+- [ ] 1.1 Re-read the thirteen pages registered with the proposal (S-0790 to S-0802) and S-0002, S-0125; correct any row of `docs/formats/kicad/panel.md`, `gerber.md` ("Panels") and `docs/formats/altium/pcb-document.md` ("Embedded board arrays") that a page no longer supports; keep the nine hypotheses of `design.md` in `docs/hypotheses.md`. No panel code before this task is ticked. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py tests/unit/test_provenance.py -q`.
+- [ ] 1.2 Count, over the public Altium documents of the corpus, the documents whose `EmbeddedBoards6` holds data, and write the count into `docs/evidence/altium-pcb-read.md`; a document with an array is read for its stream's size only (no field is inferred from a document Fenolite did not author). Proof: `uv run pytest tests/corpus/test_altium_pcb_census.py -k embedded -rA` with the corpus cached.
+
+## 2. Model, DSL and the kit's first half
+
+- [ ] 2.1 Add `model.panel` (`Panel`, `PanelSource`, `PanelArray`, `PanelFrame`, `Separation`, `TabSpec`, `VScoreSpec`, `PanelFiducial`, `PanelHole`, `PanelLimits`), the schema and the key rows `pnl`, `pcy`, `ptb`, `pvs`, `pfd`, `ptl` (scenarios "A panel round-trips", "Copy ids are stable"). Proof: `uv run pytest tests/unit/model/test_panel.py -q`; `uv run python tools/gen_schemas.py --check`.
+- [ ] 2.2 Add `fenolite.dsl.panel` with `grid`, `fit`, `rails`, `separate`, `tabs`, `vscore`, `fiducial(s)`, `tooling_hole(s)`, and `panel.layout` (scenarios "A 2 × 2 grid", "Fit to a panel size", "Refused panel calls"). Proof: `uv run pytest tests/unit/dsl/test_panel.py tests/unit/panel/test_layout.py -q`.
+- [ ] 2.3 Author the fixture `tests/data/panels/board.py` (a 40 × 30 mm two-layer rectangular board with a track 0.3 mm from its right edge, the planted finding) and the panel scripts `vscore.py` (2 × 2, scored both ways: findings), `tabs.py` (2 × 4, tabs, rails with fiducials and tooling holes: clean) and `mixed.py` (2 × 2, scored between rows, tabbed between columns: clean); build Part Q phase A into `~/fenolite-altium-checks/session-5/Q-panels/` (`board/` built with `--target altium`, `README.md` with steps Q1 to Q6 of `design.md`, `SHA256SUMS`), and write Part Q into `docs/evidence/altium-pcb.md` with the twelve cases and their expected outcomes. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_q -q`; `FENOLITE_ALTIUM_PART_Q=~/fenolite-altium-checks/session-5/Q-panels uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a`.
+- [ ] 2.4 **Maintainer, in Altium Designer 26.5.** Run Q1 to Q6 and send the folder, the version, the date and the SHA-256 of each file; record the report under "Reports" of `docs/evidence/altium-pcb.md` in the form of the native acceptance inventory (date, version, case, file hash, step, expected and observed outcome) and register its source. OPEN until Altium was run; nothing is marked `ALTIUM-VERIFIED` by it. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_q tests/unit/test_hypotheses_register.py -q`.
+
+## 3. Checks
+
+- [ ] 3.1 Add `panel.limits.DEFAULTS`, each default naming its row of `panel.md`, and `limits=` (scenario "Every default cites its row"); record `H-G-PANEL-LIMITS`. Proof: `uv run pytest tests/unit/panel/test_limits.py -q`.
+- [ ] 3.2 Add `panel.checks.check_panel` with the codes of Decision 6 (scenarios "Copper near a score line", "A gap too narrow", "Fiducials off the rails"). Proof: `uv run pytest tests/unit/panel/test_checks.py -q`.
+
+## 4. KiCad panel board
+
+- [ ] 4.1 Write the copies, renamed nets, the frame and gap rings, score lines, the mouse-bite footprints, the fiducials and the tooling holes (scenarios "Panel board of the fixture", "Panel rebuilds to the same bytes"). Proof: `uv run pytest tests/unit/panel/test_kicad.py -q`.
+- [ ] 4.2 Record `H-K-PANEL-LOAD`, `H-K-PANEL-DRILL`, `H-K-PANEL-NETS` and `H-K-PANEL-GERBER` with the probes `panel-load`, `panel-drill`, `panel-nets` and `panel-gerber` on the three fixture panels, and write the measured file function into `panel.md`. Proof: `FENOLITE_KICAD_CLI=docker:kicad/kicad:10.0.6 uv run pytest tests/kicad/panel/test_panel_board.py -rA` and the same with `kicad/kicad:9.0.9`; `uv run pytest tests/kicad/test_probe_results.py -q`.
+
+## 5. Command and exports
+
+- [ ] 5.1 Add `fenolite panel` with its result schema, dry run, confirm, edited-output refusal and exit codes (scenarios of "Panel command"). Proof: `uv run pytest tests/unit/cli/test_panel_cmd.py tests/consistency -q`.
+- [ ] 5.2 Give `gerber_layers` the panel's score layer (scenario "Gerber layers of a panel board"). Proof: `uv run pytest tests/unit/exports/test_plan.py -q`.
+- [ ] 5.3 Teach the command, `Panel` and the `panel.*` codes on the agent guide page `fabrication`, then regenerate the guide. Proof: `uv run python tools/gen_agent_guide.py`; `uv run pytest tests/unit/agent/test_pages.py -q`.
+
+## 6. Flattened Altium panel
+
+- [ ] 6.1 Lower the flattened panel to `<name>.PcbDoc` (board shape the frame, the `Route Tool Path` and `V-Cut` mechanical layers, free hole and fiducial pads) and `<name>.PrjPcb` (scenario "Flattened panel document"); `--altium-panel auto` gives `altium.panel-flattened`. Proof: `uv run pytest tests/unit/panel/test_altium_flat.py tests/unit/backends/altium -q`.
+- [ ] 6.2 Record `H-A-PANEL-FLAT` with the probe `altium-panel-flat`. Proof: `FENOLITE_KICAD_CLI=docker:kicad/kicad:10.0.6 uv run pytest tests/kicad/altium/test_panel_import.py -rA`.
+
+## 7. Embedded Board Array
+
+- [ ] 7.1 From the files of task 2.4, write the rows of the array's records and of the layer types into `docs/formats/altium/pcb-document.md` (`INFERRED`, `H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND`) with the variant that ties each property. Apply the stop rules of Decision 8 and write the verdict here; on a stop, skip 7.2 to 7.4 and say so in `docs/altium.md`. Proof: `uv run pytest tests/unit/test_format_facts.py tests/unit/backends/altium/test_part_q.py -k measured -q`.
+- [ ] 7.2 Write `pcbrecords.embedded_board_array` and the layer types behind `pcbdoc.EMBEDDED_ARRAYS = False`, and read them back (scenarios "Array record read back", "Gate off"). Proof: `uv run pytest tests/unit/backends/altium/test_embedded_array.py -q`.
+- [ ] 7.3 Build Part Q phase B (`written/` with the gate forced on for the kit only, `flat/`, `expected.md`) into the kit folder with its SHA-256. Proof: `FENOLITE_ALTIUM_PART_Q=~/fenolite-altium-checks/session-5/Q-panels uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_b`.
+- [ ] 7.4 **Maintainer, in Altium Designer 26.5.** Run Q7 to Q12 and give the report; record it as task 2.4 does and set `H-A-PANEL-RECORD`, `H-A-PANEL-LAYERKIND` and `H-A-PANEL-KIT`. Only when Q7, Q8 and Q9 pass, set `EMBEDDED_ARRAYS = True`. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -k part_q tests/unit/test_hypotheses_register.py -q`.
+
+## 8. Closing
+
+- [ ] 8.1 Write `docs/panels.md` (the script, the three separations, the defaults and their sources, the two Altium forms, the gate) and the panel lines of `docs/dsl.md`, `docs/cli-contract.md`, `docs/altium.md` and `docs/exports.md`; record the panel rows in `src/fenolite/backends/altium/PROVENANCE.md`. Proof: `uv run pytest tests/consistency tests/unit/test_provenance.py -q`.
+- [ ] 8.2 Run the residue scan and the fast checks. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes.
+- [ ] 8.3 Update the evidence labels to the measured levels, name the rows in the panel's `EVIDENCE`, and regenerate the matrix. Proof: `uv run python tools/gen_evidence_matrix.py`; `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_matrix_page.py -q`.
+- [ ] 8.4 Add to `CHANGELOG.md` under `## [Unreleased]`: the panel script and model, `fenolite panel`, the KiCad panel board, the flattened Altium panel, the array behind its gate, the score layer in Gerber exports (c0171 moves the lines into `[0.5.0]`, open question 7). Proof: `grep -n "fenolite panel" CHANGELOG.md`; `openspec validate c0173-board-panels --strict --no-interactive` passes.

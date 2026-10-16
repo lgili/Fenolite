@@ -122,6 +122,27 @@ starting with `\|RECORD=Board`.
 | A `Components6` record holds, in this order, `SELECTION=FALSE`, `LAYER`, `LOCKED`, `POLYGONOUTLINE=FALSE`, `USERROUTED=TRUE`, `KEEPOUT=FALSE`, `PRIMITIVELOCK=TRUE`, `X`, `Y`, `PATTERN`, `NAMEON`, `COMMENTON`, `GROUPNUM=0`, `COUNT=0`, `ROTATION` (in the angle form above), `UNIONINDEX=0`, `CHANNELOFFSET`, `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY`, `SOURCELIBREFERENCE`, `UNIQUEID` and `JUMPERSVISIBLE=TRUE`; optional keys (a height, text positions, descriptions, library identifiers) stand between them | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 | The primitives are longer than those Fenolite writes: a track of 49 bytes, an arc of 60, pad subrecord 5 of 185 or 194 and subrecord 6 of 651, a text of 252. The first 119 bytes of a text follow the long form of `pcb-records.md` (the comment and designator flags at 40 and 41, the font name at 46, the wide-string index at 115), and the wide-string index of a text is its position in `Texts6`. Altium Designer 26.5 accepts the short pad, track and arc records in a library and in a document, and the 137-byte text in a document (maintainer's reports, 2026-10-03) | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 
+## Embedded board arrays (change c0173)
+
+What public pages say about Altium's panel object, the Embedded Board Array, read on 2026-10-16. No public
+page gives its records: those are measured by observation of documents the maintainer saves in Altium
+Designer from inputs authored for Fenolite (Part Q of `docs/evidence/altium-pcb.md`, change c0173).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The measured documents without a panel hold the storage `EmbeddedBoards6` with `Header` 0 and an empty `Data`, and Fenolite writes it so ("Storages" above); KiCad's importer lists it as "Embedded board panels (not imported)" and describes no record of it | S-0002, S-0172 | INFERRED | H-A-PANEL-RECORD |
+| The records of an array (their storage, keys or binary fields, how the referenced document is named, absolute or relative) are not stated by any registered page | S-0002, S-0790 | UNKNOWN | H-A-PANEL-RECORD |
+| An array has a reference point (Location X and Y from the design space origin), a Rotation in degrees counter-clockwise, the PCB Document it repeats, Column Count and Row Count, Mirrored (a horizontal mirror), Column and Row Spacing, Column and Row Margin, and Link Location to Embedded Board Origin | S-0790 | INFERRED | H-A-PANEL-RECORD |
+| Spacing is the pitch: the space between two boards is the spacing less the board's width (columns) or height (rows); the margin is stated as the margin between the boards' edges | S-0790 | INFERRED | H-A-PANEL-RECORD |
+| With Link Location to Embedded Board Origin off (the default) an array starts from the bottom-left point of the referenced board's objects; with it on, from the board's origin | S-0790 | INFERRED | H-A-PANEL-RECORD |
+| The array references the file and holds no copy: a saved change of the source board shows in the panel after a refresh; boards cannot be edited in the array | S-0790, S-0791 | INFERRED | H-A-PANEL-KIT |
+| The panel is a PCB document of its own, the manufacturing hub, holding no physical design object but the arrays, except tooling holes as free pads | S-0791 | INFERRED | H-A-PANEL-KIT |
+| Breakaway tabs are a route tool path of tracks and arcs on a mechanical layer set as the Route Tool Path layer, and mouse bites are rows of small unplated pads; V-groove is for rectangular boards | S-0791 | INFERRED | H-A-PANEL-KIT |
+| A mechanical layer has a Layer Type, unassigned by default; the types include Route Tool Path, which takes no user name because older versions find routing data by the layer's name, and V Cut, for v-cut details | S-0792 | INFERRED | H-A-PANEL-LAYERKIND |
+| Where a document stores a mechanical layer's type (the `Board6` keys, `LayerKindMapping` or another storage) is not stated by any registered page | S-0792, S-0172 | UNKNOWN | H-A-PANEL-LAYERKIND |
+| Placing an array whose board has another layer stack offers to synchronise the panel's stack, which adds or retypes layers of the panel only, never of the board | S-0791 | INFERRED | H-A-PANEL-KIT |
+| Gerber, NC Drill, ODB++ and printed outputs can be made from a panel of arrays; counter-holes are not supported in arrays | S-0791 | INFERRED | H-A-PANEL-KIT |
+
 ## Fenolite's choices
 
 - `docboard.py` writes the `Board6` record from the rules above and reuses the library's stack, layer and
