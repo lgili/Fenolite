@@ -11,6 +11,7 @@ from fenolite.backends.base import BoardFrame
 from fenolite.core.coords import Point
 from fenolite.geometry import BBox
 from fenolite.model.design import Design
+from fenolite.placement.legality import outline_rings
 
 
 def _points(points: tuple[Point, ...]) -> str:
@@ -64,7 +65,7 @@ def placement_preview(
     rows.append(f'<g data-face="{face}" transform="{transform}">')
     path = " ".join(
         "M " + " L ".join(f"{p.x} {p.y}" for p in ring) + " Z"
-        for ring in (board.outline.points, *board.outline.cutouts)
+        for ring in outline_rings(board.outline)  # with the slots (change c0170)
     )
     rows.append(
         f'<path d="{path}" fill="#dce8dd" fill-rule="evenodd" stroke="#45574a" stroke-width="{stroke}"/>'

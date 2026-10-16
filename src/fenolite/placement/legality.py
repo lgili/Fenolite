@@ -26,13 +26,14 @@ from fenolite.geometry import (
     polygons_intersect,
     segments_closer_than,
 )
-from fenolite.geometry.rings import interiors_intersect
+from fenolite.geometry.rings import CurvedRing, interiors_intersect
 from fenolite.geometry.rings import open_boxes_overlap as _boxes_overlap
 from fenolite.geometry.rings import ring_edges as _edges
 from fenolite.geometry.rings import ring_locations as _locations
 from fenolite.geometry.rings import rings_cross as _cross
-from fenolite.model.board import Keepout
+from fenolite.model.board import Keepout, Outline
 from fenolite.model.design import Design
+from fenolite.model.outline import outline_items
 from fenolite.placement.codes import issue
 
 TOUCHING_OVERLAPS = False
@@ -46,6 +47,19 @@ KEEPOUT_FACES: tuple[tuple[str, str], ...] = (("front", "F.Cu"), ("back", "B.Cu"
 judges no footprint."""
 APPROXIMATE = " (approximate extent)"
 Ring = Sequence[Point]
+SLOT_TOL = 1_000
+"""The polygonisation of a slot's round ends in ``outline_rings``, 1 µm: its vertices lie on the arcs,
+so the polygon lies within 1 µm inside the stadium."""
+
+
+def outline_rings(outline: Outline) -> tuple[Ring, ...]:
+    """The rings of ``model.outline.outline_items`` as placement judges them (change c0170): the board ring
+    and each cut-out by its vertices, as before, and each slot as its stadium polygonised within
+    ``SLOT_TOL``, so a slot is an obstacle as a cut-out is."""
+    return tuple(
+        CurvedRing(item.points, item.mids).polygonize(SLOT_TOL) if item.is_slot else item.points
+        for item in outline_items(outline)
+    )
 
 
 def rings_overlap(a: Ring, b: Ring, *, touching_overlaps: bool = TOUCHING_OVERLAPS) -> bool:
@@ -239,6 +253,7 @@ __all__ = [
     "edge_clearance",
     "forbids_footprints",
     "interiors_intersect",
+    "outline_rings",
     "ring_enters",
     "ring_inside",
     "rings_overlap",

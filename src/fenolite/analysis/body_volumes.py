@@ -13,10 +13,12 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.boolean import select_backend
 from fenolite.geometry.errors import BackendUnavailable, GeometryError
 from fenolite.geometry.polygon import Polygon
+from fenolite.geometry.rings import CurvedRing
 from fenolite.geometry.shapes import BBox
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import ComponentBody, FootprintInstance
+from fenolite.model.board import ComponentBody, FootprintInstance, Outline
 from fenolite.model.design import Design
+from fenolite.model.outline import outline_items
 
 Status = Literal["exact", "conservative", "unknown"]
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-BODY-VOLUME", "H-A-IMP-BODY-Z"))
@@ -82,6 +84,19 @@ class VolumeReport:
             and not self.missing_inputs
             and all(p.status == "exact" for p in self.projections)
         )
+
+
+SLOT_TOL = 1_000
+"""The polygonisation of a slot's round ends (change c0170), 1 µm, as ``placement.legality``'s."""
+
+
+def _inner_rings(outline: Outline) -> tuple[tuple[Point, ...], ...]:
+    """The cut-outs by their vertices and each slot as its stadium polygonised within ``SLOT_TOL``: the
+    inner rings of ``model.outline.outline_items`` (change c0170)."""
+    return tuple(
+        CurvedRing(item.points, item.mids).polygonize(SLOT_TOL) if item.is_slot else item.points
+        for item in outline_items(outline)[1:]
+    )
 
 
 def body_volume(
@@ -191,11 +206,12 @@ def check_body_volumes(design: Design, constraints: VolumeConstraints | None = N
         if board.outline is None:
             missing.append("board_outline")
             continue
-        # Entire projection inside a cutout or physical drill contains no board material.
+        # Entire projection inside a cutout, a slot or a physical drill contains no board material.
         shape = Polygon(p.volume.outline)
+        inner = _inner_rings(board.outline)
         free = any(
             Polygon(c).is_convex() and all(Polygon(c).locate(v).value != "outside" for v in shape.outer)
-            for c in board.outline.cutouts
+            for c in inner
         )
         circles = [(h.position, h.drill) for h in board.holes]
         for fp in board.footprints:
@@ -217,7 +233,7 @@ def check_body_volumes(design: Design, constraints: VolumeConstraints | None = N
                     board.outline.points,
                     -thickness,
                     0,
-                    "conservative" if board.outline.cutouts or circles else "exact",
+                    "conservative" if inner or circles else "exact",
                 ),
                 code="body.board-penetration",
             )
