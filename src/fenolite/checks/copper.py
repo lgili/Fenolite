@@ -548,11 +548,13 @@ _Subjects = Callable[[int, str], RuleSubject]
 @dataclass(frozen=True, slots=True)
 class _EdgePiece:
     """One edge of an edge ring as a thick shape: a line of width 0, or an arc's polygonisation widened by
-    twice its band, so that no copper closer than the limit to the true arc is missed."""
+    twice its band, so that no copper closer than the limit to the true arc is missed. ``core`` is the
+    polygonisation itself, of width 0, which a fill is judged against (``_Edges.findings``)."""
 
     ring: int
     shape: Thick
     banded: bool
+    core: Thick
 
 
 class _Edges:
@@ -560,7 +562,7 @@ class _Edges:
 
     def __init__(self, rings: Sequence[EdgeRing], arc_tol: int, unsupported: Counter[str]) -> None:
         self.rings = tuple(rings)
-        band = arc_tol + 1
+        band = self.band = arc_tol + 1
         self.pieces: list[_EdgePiece] = []
         for r, ring in enumerate(self.rings):
             count = len(ring.points)
@@ -572,10 +574,11 @@ class _Edges:
                         arc = GeoArc(start, mid, end)
                         if not arc.is_straight:
                             core = arc.polygonize(arc_tol)
-                            self.pieces.append(_EdgePiece(r, Thick(core, 2 * band), True))
+                            self.pieces.append(_EdgePiece(r, Thick(core, 2 * band), True, Thick(core, 0)))
                             continue
                     if start != end:
-                        self.pieces.append(_EdgePiece(r, Thick((start, end), 0), False))
+                        line = Thick((start, end), 0)
+                        self.pieces.append(_EdgePiece(r, line, False, line))
                 except (GeometryError, ValueError):
                     unsupported["edge"] += 1
         self.index = SpatialIndex[int].build((thick_bbox(p.shape), n) for n, p in enumerate(self.pieces))
@@ -586,13 +589,19 @@ class _Edges:
         self, items: _Items, layers: Sequence[str], resolver: ClearanceResolver, subject: _Subjects
     ) -> list[CopperFinding]:
         """One ``copper.edge-clearance`` per item and ring whose gap is below the item's edge clearance: on
-        the first layer, in ``layers`` order, where it is, at the closest place on that layer."""
+        the first layer, in ``layers`` order, where it is, at the closest place on that layer.
+
+        KiCad's filler cuts a fill to the edge clearance around the true arc of a curved edge, so a fill is
+        judged against the arc's polygonisation with the limit lowered by the band, the arc narrowed by its
+        band as for a fill that follows a copper arc (``_Judge._too_close``); the widened arc would report
+        fills that KiCad just made. Every other item is judged against the widened arc."""
         found: list[CopperFinding] = []
         if not self.pieces:
             return found
         for index, item in enumerate(items.items):
             done: set[int] = set()
             unset = False
+            fill = item.ref.kind == "fill"
             for layer in layers:
                 shapes = item.shapes.get(layer)
                 if not shapes:
@@ -608,12 +617,15 @@ class _Edges:
                         if piece.ring in done:
                             continue
                         self.judged += 1
-                        if not thick_closer_than(shape.wide, piece.shape, limit.value):
+                        edge, value = piece.shape, limit.value
+                        if fill and piece.banded:
+                            edge, value = piece.core, limit.value - self.band
+                        if value <= 0 or not thick_closer_than(shape.wide, edge, value):
                             continue
-                        gap = thick_gap_floor(shape.wide, piece.shape)
+                        gap = thick_gap_floor(shape.wide, edge)
                         best = closest.get(piece.ring)
                         if best is None or gap < best[0]:
-                            closest[piece.ring] = (gap, shape.wide, piece.shape)
+                            closest[piece.ring] = (gap, shape.wide, edge)
                 for r, (gap, copper, edge) in sorted(closest.items()):
                     done.add(r)
                     found.append(

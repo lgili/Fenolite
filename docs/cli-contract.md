@@ -1069,7 +1069,9 @@ item and ring, on the first layer where it applies, with the rule's severity (`e
 minimum); `where` names the item and the ring, and the message gives the gap, the limit and its source
 (`rule:<name>` or `floor`). Copper wholly outside the board or inside a cut-out, far from the edge, is
 not reported. An arc of the edge is polygonised at 1 µm and widened by its band, so copper within 1 µm
-of the limit near a curved edge may be reported where KiCad does not. A frame without `board_edges`
+of the limit near a curved edge may be reported where KiCad does not; a zone fill, which KiCad's filler
+cuts to the limit around the true arc, is judged against the arc narrowed by its band instead, so a fill
+within 1 µm of the limit near a curved edge may go unreported. A frame without `board_edges`
 gives `copper.rules-incomplete`, and a board whose edge does not close `copper.item-unsupported` with
 `where` `edge`. Every drilled hole (a pad's drill, round or slot, unplated ones included; a via's drill;
 a board hole) is judged too: `copper.hole-in-cutout` when its area overlaps a cut-out or slot or crosses

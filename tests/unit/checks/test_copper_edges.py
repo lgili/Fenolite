@@ -183,6 +183,30 @@ def test_every_kind_against_every_ring() -> None:
     assert groups and all(group.relation == "edge" for group in groups)
 
 
+CURVED = EdgeRing(
+    "board",
+    (Point(0, 0), Point(mm(50), 0), Point(mm(50), mm(30)), Point(0, mm(30))),
+    (Point(mm(25), mm(-5)), None, None, None),
+)
+"""The board ring whose upper side is an arc through ``(25, −5)`` mm: radius 65 mm, centre ``(25, 60)`` mm."""
+
+
+@pytest.mark.parametrize(("offset_um", "fill_found"), [(0.5, False), (-2, True)])
+def test_fill_along_a_curved_edge(offset_um: float, fill_found: bool) -> None:
+    """A fill 0.5 µm outside a 0.3 mm edge clearance from the top of the arc, as KiCad's filler cuts it, is
+    no finding (the arc narrowed by its band, c0171), and 2 µm inside it is one; a track as close stays a
+    finding (the arc widened by its band)."""
+    top = mm(-5) + mm(0.3) + round(offset_um * 1000)
+    fill = (Point(mm(24.9), top), Point(mm(25.1), top), Point(mm(25), mm(5)))
+    made = Copper()
+    made.zone("F", fill, fills=(fill,))
+    centre = top + mm(0.1)
+    made.track("T", Point(mm(24.9), centre), Point(mm(25.1), centre), width=mm(0.2), layer="B.Cu")
+    report = check_copper(made.build(), pads=made.pads, edges=(CURVED,), min_edge_clearance=mm(0.3))
+    nets = sorted(f.items[0].net for f in edge_findings(report))
+    assert nets == (["F", "T"] if fill_found else ["T"])
+
+
 def test_copper_outside_or_inside_a_cutout_far_from_its_edge() -> None:
     made = Copper()
     made.track("A", Point(mm(60), mm(10)), Point(mm(70), mm(10)))  # wholly outside, 10 mm away
