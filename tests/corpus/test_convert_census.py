@@ -267,6 +267,7 @@ def test_exit_7_without_consent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert lossy == refused and envelope["result"]["plan"]
 
 
+@pytest.mark.needs_kicad  # the netlist of this schematic is outside Fenolite's own grammar
 def test_complex_hierarchy_schematic(tmp_path: Path) -> None:
     """c0160 task 4.1: the public KiCad project keeps its schematic netlist and every sheet."""
     from _schprojects import project_folder, roots
