@@ -143,6 +143,7 @@ Designer from inputs authored for Fenolite (Part Q of `docs/evidence/altium-pcb.
 | Where a document stores a mechanical layer's type (the `Board6` keys, `LayerKindMapping` or another storage) is not stated by any registered page | S-0792, S-0172 | UNKNOWN | H-A-PANEL-LAYERKIND |
 | Placing an array whose board has another layer stack offers to synchronise the panel's stack, which adds or retypes layers of the panel only, never of the board | S-0791 | INFERRED | H-A-PANEL-KIT |
 | Gerber, NC Drill, ODB++ and printed outputs can be made from a panel of arrays; counter-holes are not supported in arrays | S-0791 | INFERRED | H-A-PANEL-KIT |
+| A flattened panel that Fenolite writes (the copies of every item, the board shape the panel's rectangle, the routed gaps on Mechanical 1 named `Route Tool Path`, the score lines on Mechanical 2 named `V-Cut`, mouse-bite and tooling holes as free non-plated pads, fiducials as free copper pads) is imported by KiCad 10.0.6 with every pad, track, via and line at the KiCad panel's places within 10 nm | S-0020, S-0791 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-A-PANEL-FLAT |
 
 ## Fenolite's choices
 

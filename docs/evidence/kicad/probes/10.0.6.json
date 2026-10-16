@@ -3,6 +3,7 @@
     "acceptance-v03": "equal",
     "altium-cutout-region": "equal",
     "altium-fpitems-kicad": "equal",
+    "altium-panel-flat": "equal",
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
     "altium-pcbx-holes": "equal",
