@@ -665,7 +665,7 @@ asserts what the stage promises, not that a board is clean.
 |---|---|---|---|---|---|---|---|
 | `altium-set:01` | 540, 544 | 0, 0 | 27 | 8 | 6, 22 | 171 | 10 |
 | `altium-set:02` | 248, 260 | 2, 2 | 10 | 17 | 0, 3 | 241 | 129 |
-| `altium-set:03` | 23, 27 | 0, 0 | 0 | 0 | 0, 0 | 23 | 0 |
+| `altium-set:03` | 23, 23 | 0, 0 | 0 | 0 | 0, 0 | 23 | 0 |
 | `altium-set:04` | 41, 41 | 0, 0 | 0 | 2 | 0, 2 | 41 | 0 |
 | `altium-set:05` | 27, 27 | 0, 0 | 0 | 0 | 0, 0 | 27 | 0 |
 
@@ -678,6 +678,7 @@ asserts what the stage promises, not that a board is clean.
   no net). The import holds a pin-to-pad map for one component of the five sets (on `altium-set:02`);
   the component of the two conflicts of `altium-set:04` holds none in its sheet, so the map does not
   explain them.
+- The row of `altium-set:03` was measured again on 2026-10-16 (change c0171, task 1.10): its PCB document (`altium-third-party-pcbdoc-05`) holds four free pads, non-plated and round, whose copper is the hole; since change c0168 the import reads them as board holes, not as footprints without a component, so the board side counts 23 footprints where it counted 27. The other cells are unchanged: the four were never paired with a schematic component.
 - The row of `altium-set:02` was measured again on 2026-10-07 (change c0123): 17 net conflicts, where the
   map of one pad per pin gave 21; the other cells of the row are unchanged. The two lists were compared
   finding by finding, on the base of the change without it and with it. Four findings are gone, each a pad
