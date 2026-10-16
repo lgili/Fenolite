@@ -7,6 +7,7 @@ from __future__ import annotations
 import dataclasses
 import re
 from collections import defaultdict
+from collections.abc import Mapping
 from typing import Any, cast
 
 from fenolite.backends.kicad import layers
@@ -17,6 +18,7 @@ from fenolite.model.base import ExtBag
 from fenolite.model.board import FootprintInstance, Layer, Pad
 from fenolite.model.circuit import Component, Net, PinRef
 from fenolite.model.design import Design
+from fenolite.model.holes import HOLE_LAYERS
 from fenolite.model.library import FootprintDef, SymbolDef
 from fenolite.model.rules import Rule
 
@@ -48,6 +50,8 @@ def map_layers(design: Design, target: int, ledger: Ledger) -> Design:
     table = layers.board_rows(count)
     copper_names = [layer.name for layer in table if layer.kind == "copper"]
     mapping = {layer.name: layer.name for layer in table if layer.kind != "copper"}
+    # the wildcards of a generated hole footprint's pad (c0170), which KiCad expands itself
+    mapping.update({wildcard: wildcard for wildcard in HOLE_LAYERS})
     mapped_copper = (
         copper_names
         if len(copper) == count
@@ -355,6 +359,10 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     footprints: list[FootprintInstance] = []
     links: dict[str, str] = {}
     for fp in sorted(board.footprints, key=lambda f: (refs.get(f.component_id, ""), f.id)):
+        if fp.lib_ref.startswith(HOLE_PREFIX):
+            # a generated hole footprint keeps its link: its library is written beside the board (c0170)
+            footprints.append(fp)
+            continue
         raw = fp.lib_ref or f"FREE_{fp.id}"
         if raw not in allocated:
             candidate = _name(raw.rsplit(":", 1)[-1])
@@ -416,7 +424,23 @@ def prepare(source: SourceProject, name: str, target: int, ledger: Ledger) -> De
     )
 
 
-def footprint_files(design: Design, text: str, name: str, target: int, ledger: Ledger) -> dict[str, str]:
+HOLE_PREFIX = "Fenolite_Holes:"
+"""The link of a generated hole footprint (``model.holes``; change c0170): it is not derived into the
+project's library."""
+
+
+def footprint_files(
+    design: Design,
+    text: str,
+    name: str,
+    target: int,
+    ledger: Ledger,
+    *,
+    holes: Mapping[str, FootprintDef] | None = None,
+) -> dict[str, str]:
+    """The derived footprint library ``<name>.pretty`` of the board's footprints and the ``fp-lib-table``
+    that names it; with ``holes`` (change c0170) the table also names the library of the generated hole
+    footprints, ``lib/Fenolite_Holes.pretty``, whose instances are not derived."""
     from fenolite.backends.kicad._fpmap import angle_atom, node
     from fenolite.backends.kicad.embed import flip_footprint_tree
     from fenolite.backends.kicad.libs import LibRow, LibTable, write_lib_table
@@ -431,6 +455,8 @@ def footprint_files(design: Design, text: str, name: str, target: int, ledger: L
     chosen: dict[str, str] = {}
     files: dict[str, str] = {}
     for fp, root in zip(board.footprints, definitions, strict=True):
+        if fp.lib_ref.startswith(HOLE_PREFIX):
+            continue
         children: list[Node | Atom] = []
         for child in root.children[1:]:
             if isinstance(child, Node) and child.name in {
@@ -486,9 +512,11 @@ def footprint_files(design: Design, text: str, name: str, target: int, ledger: L
             continue
         chosen[pattern] = signature
         files[f"{name}.pretty/{pattern}.kicad_mod"] = written
-    files["fp-lib-table"] = write_lib_table(
-        LibTable("footprint", (LibRow(name, "KiCad", f"${{KIPRJMOD}}/{name}.pretty"),)), target=target
-    )
+    rows = [LibRow(name, "KiCad", f"${{KIPRJMOD}}/{name}.pretty")]
+    if holes:
+        library = HOLE_PREFIX.removesuffix(":")
+        rows.append(LibRow(library, "KiCad", f"${{KIPRJMOD}}/lib/{library}.pretty"))
+    files["fp-lib-table"] = write_lib_table(LibTable("footprint", tuple(rows)), target=target)
     return files
 
 

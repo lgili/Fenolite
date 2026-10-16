@@ -455,9 +455,9 @@ a hole part is not written: a free pad has none.
   pad on Multi-Layer without name, net or copper ring becomes a board `Hole` (with its slot) instead of a
   board-only footprint; every other free pad stays a footprint. This changes what an import gives for
   such pads and regions: on the seven public documents four pads become holes and five regions cut-outs
-  (`docs/evidence/altium-pcb-read.md`). `fenolite convert --to kicad` gives each such hole back as the
-  board-only footprint the import made before (`convert.to_kicad.hole_footprints`), since KiCad takes no
-  board hole.
+  (`docs/evidence/altium-pcb-read.md`). `fenolite convert --to kicad` gives each such hole the footprint
+  that `design.hole` generates (`Fenolite_Holes:NPTH_…`, change c0170; `docs/conversion.md`), since KiCad
+  takes no board hole.
 - **Round trips.** RT-A2 compares a board hole by position, drill, plating, length and rotation, and each
   written cut-out ring with the read one within 1 µm ("The scope of RT-A2" below).
 

@@ -67,12 +67,21 @@ def hole_name(hole: Nm, slot: Nm | None, copper: Nm | None, yard: Nm | None) -> 
 
 
 def hole_footprint(
-    drill: Nm, *, length: Nm | None = None, pad: Nm | None = None, courtyard: Nm | None = None
+    drill: Nm,
+    *,
+    length: Nm | None = None,
+    pad: Nm | None = None,
+    courtyard: Nm | None = None,
+    plated: bool = False,
 ) -> FootprintDef:
     """The footprint of a hole of ``drill``: round, or a slot of overall length ``length`` along the
     footprint's X axis; not plated, or with copper ``pad`` wide; its courtyard ``courtyard`` wide, by
-    default as wide as the copper, or as the hole. ``ValueError`` as ``check_sizes``."""
+    default as wide as the copper, or as the hole. ``plated`` without ``pad`` is a plated hole whose copper
+    is the hole itself (an imported free hole; change c0170), named ``PTH_…_Pad_<d>mm``, which a script
+    cannot declare. ``ValueError`` as ``check_sizes``."""
     check_sizes(drill, length, pad, courtyard)
+    if plated and pad is None:
+        pad = drill
     name = hole_name(drill, length, pad, courtyard)
     lib_id = f"{HOLE_LIBRARY}:{name}"
     width = pad if pad is not None else drill
@@ -126,6 +135,7 @@ __all__ = [
     "COURTYARD_LAYERS",
     "COURTYARD_STROKE",
     "HOLE_FLAGS",
+    "HOLE_LAYERS",
     "HOLE_LIBRARY",
     "check_sizes",
     "hole_footprint",

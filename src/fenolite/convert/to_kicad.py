@@ -23,21 +23,35 @@ from __future__ import annotations
 import dataclasses
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
+from fenolite.backends.altium.pcbrecords import to_units
 from fenolite.backends.kicad import dru, resolver, sch, sym
 from fenolite.backends.kicad.mod import read_footprint, write_footprint
+from fenolite.backends.kicad.outline import edge_outline
 from fenolite.backends.kicad.triad import write_triad
 from fenolite.backends.kicad.versions import TARGET_MAJORS
 from fenolite.convert.direction import Direction, Options, Written
-from fenolite.convert.report import DOWNGRADE_KINDS, DOWNGRADE_PREFIX, ConversionReport, census
+from fenolite.convert.report import (
+    DOWNGRADE_KINDS,
+    DOWNGRADE_PREFIX,
+    OVERLAP_NO_UNION,
+    OVERLAP_NOT_ONE_RING,
+    ConversionReport,
+    census,
+)
 from fenolite.convert.sources import KICAD, SourceProject
-from fenolite.core.coords import Point, Size
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
-from fenolite.model.board import FootprintInstance, Hole, Pad, Padstack
+from fenolite.core.trig import FULL_TURN
+from fenolite.geometry.errors import BackendUnavailable, GeometryError
+from fenolite.geometry.rings import MERGE_TOL, CurvedRing, merge_groups, overlap_groups
+from fenolite.model import holes as model_holes
+from fenolite.model.board import FootprintAttribute, FootprintInstance, Hole, OutlineArc
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
+from fenolite.model.library import FootprintDef
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONV-RETARGET", "H-K-PCB-WRITE"))
 """The board writer's re-target: a KiCad 9 project converted to 10 loads in 10.0.6 and gives the DRC of the
@@ -242,127 +256,192 @@ DIRECTION = Direction(
 __all__ = ["DIRECTION", "DOWNGRADE_PROFILE", "EVIDENCE", "PROFILE", "WRITER_KINDS", "write"]
 
 
-HOLE_NATIVE = "hole:"
-"""The prefix of the native id of a board hole read from an Altium document (``adapter.board.free_hole``)."""
+if TYPE_CHECKING:
+    from fenolite.convert.altium_to_kicad import Ledger
+
+EDGE_LAYER = "Edge.Cuts"
+HOLE_KIND = "hole"
+CUTOUT_KIND = "cutout"
+PLATED_REASON = "a plated hole is written as a pad of its footprint without a net"
+"""The reason a plated board hole is counted changed under ``hole`` (change c0170): KiCad holds it as the
+numbered pad of a generated footprint, which no net reaches."""
+MERGED_REASON = "merged"
+"""The reason a group of overlapping cut-outs is counted changed under ``cutout`` (change c0170): it is
+written as one ring, the union of its members, which is the area that is milled."""
+HOLE_FOLDER = f"lib/{model_holes.HOLE_LIBRARY}.pretty"
+"""Where the generated hole footprints are written beside the board, as a build writes those of
+``design.hole`` (its ``fp-lib-table`` row ``${KIPRJMOD}/lib/Fenolite_Holes.pretty``)."""
+HOLE_ATTRIBUTES: tuple[FootprintAttribute, ...] = ("board_only", "exclude_from_pos_files", "exclude_from_bom")
+"""The attributes of a generated hole footprint of a conversion: its definition's flags, and
+``board_only``, because the generated schematic holds no symbol for a hole."""
 
 
-def _free_index(native: str) -> int | None:
-    """``i`` of ``fp:pad#i`` or ``hole:pad#i``; ``None`` for another native id."""
-    head, _, tail = native.partition("pad#")
-    if head not in ("fp:", HOLE_NATIVE) or not tail.split("#")[0].isdigit():
-        return None
-    return int(tail.split("#")[0])
+MICRON = 1_000
 
 
-def _hole_footprint(hole: Hole, native: str, copper: tuple[str, ...]) -> tuple[FootprintInstance, Component]:
-    fp_native = "fp:" + native.removeprefix(HOLE_NATIVE)
-    pairs = dict(hole.ext[ALTIUM].payload) if ALTIUM in hole.ext else {}
-    pad_native = pairs.get("pad") or f"{fp_native}:pad::0"
-    slot = hole.length is not None
-    stack = None
-    if slot:
-        stack = Padstack(
-            id=derived_id("pst", ALTIUM, f"{pad_native}:stack"),
-            native_ids={ALTIUM: f"{pad_native}:stack"},
-            provenance=hole.provenance,
-            hole_shape="slot",
-            hole_length=hole.length,
-            hole_rotation=hole.rotation,
-        )
-    pad = Pad(
-        id=derived_id("pad", ALTIUM, pad_native),
-        native_ids={ALTIUM: pad_native},
-        provenance=hole.provenance,
-        number="",
-        shape="oval" if slot else "circle",
-        size=Size(hole.length if hole.length is not None else hole.drill, hole.drill),
-        position=Point(0, 0),
-        kind="thru_hole" if hole.plated else "np_thru_hole",
-        rotation=hole.rotation if slot else 0,
-        drill=hole.drill,
-        layers=copper,
-        padstack=stack,
+def metric(value: int) -> int:
+    """``value``, an imported Altium length, as the whole micrometre that the document's binary unit
+    (2.54 nm) cannot tell from it, else unchanged (change c0170): a hole of 1 mm is read as 1 000 001 nm,
+    and its footprint is then ``NPTH_1mm``, the name a script gives it. The written length maps to the
+    same binary units as the read one (``pcbrecords.to_units``), so nothing the document holds changes."""
+    whole = (value + MICRON // 2) // MICRON * MICRON
+    return whole if whole > 0 and to_units(whole) == to_units(value) else value
+
+
+def _instance(hole: Hole, definition: FootprintDef) -> tuple[FootprintInstance, Component]:
+    """The board-only instance of ``definition`` at ``hole``, turned by its rotation, with its component.
+    Its ids follow from the hole's."""
+    key = f"generated:{hole.id}"
+    pads = tuple(
+        dataclasses.replace(pad, id=derived_id("pad", ALTIUM, f"{key}:pad:{index}"))
+        for index, pad in enumerate(definition.pads)
     )
+    graphics = tuple(
+        dataclasses.replace(graphic, id=derived_id("gfx", ALTIUM, f"{key}:gfx:{index}"))
+        for index, graphic in enumerate(definition.graphics)
+    )
+    lib_ref = f"{definition.library}:{definition.name}"
     component = Component(
-        id=derived_id("cmp", ALTIUM, f"cmp:{fp_native}"),
-        native_ids={ALTIUM: f"cmp:{fp_native}"},
+        id=derived_id("cmp", ALTIUM, key),
         provenance=hole.provenance,
         ref="",
+        value=definition.name,
+        lib_footprint_ref=lib_ref,
     )
     footprint = FootprintInstance(
-        id=derived_id("fp", ALTIUM, fp_native),
-        native_ids={ALTIUM: fp_native},
+        id=derived_id("fp", ALTIUM, key),
         provenance=hole.provenance,
         component_id=component.id,
-        lib_ref="",
+        lib_ref=lib_ref,
         position=hole.position,
-        attributes=("board_only",),
-        pads=(pad,),
+        rotation=hole.rotation % FULL_TURN,
+        locked=True,
+        attributes=HOLE_ATTRIBUTES,
+        pads=pads,
+        graphics=graphics,
     )
     return footprint, component
 
 
-def hole_footprints(design: Design) -> Design:
-    """``design`` with each board ``Hole`` that the Altium import made of a free pad (change c0168; its
-    native id ``hole:pad#<i>``) given back as the board-only footprint of one unnumbered pad that the import
-    made of that pad before, with its component, in the order of the pads (capability design-conversion;
-    c0168 Decision 6). KiCad refuses ``Board.holes`` (c0167), so a conversion to KiCad writes what it wrote
-    before; c0170 replaces this by a generated footprint. Other holes are kept."""
+def generated_holes(design: Design) -> tuple[Design, dict[str, FootprintDef], tuple[str, ...]]:
+    """``design`` with each board ``Hole`` as a board-only footprint of the definition that
+    ``design.hole`` generates (``model.holes.hole_footprint``; capability kicad-file-backend, "Board holes
+    as generated footprints in a conversion"; change c0170), placed at the hole and turned by its rotation;
+    each length taken to the whole micrometre the document cannot tell from it (``metric``);
+    the definitions by name, for the library written beside the board; and the ids of the plated holes,
+    whose copper is the hole itself (a pad without a net). KiCad refuses ``Board.holes`` (c0167)."""
     board = design.board
     if board is None or not board.holes:
-        return design
-    # the import gave a pad on Multi-Layer every copper layer of the chain, top to bottom
-    copper = tuple(
-        layer.name for layer in sorted(board.layers, key=lambda item: item.ordinal) if layer.kind == "copper"
-    )
-    made: list[tuple[int, FootprintInstance, Component]] = []
-    kept: list[Hole] = []
+        return design, {}, ()
+    definitions: dict[str, FootprintDef] = {}
+    footprints: list[FootprintInstance] = []
+    components: list[Component] = []
+    plated: list[str] = []
     for hole in board.holes:
-        native = hole.native_ids.get(ALTIUM, "")
-        index = _free_index(native) if native.startswith(HOLE_NATIVE) else None
-        if index is None:
-            kept.append(hole)
-            continue
-        footprint, component = _hole_footprint(hole, native, copper)
-        made.append((index, footprint, component))
-    if not made:
-        return design
+        length = metric(hole.length) if hole.length is not None else None
+        definition = model_holes.hole_footprint(metric(hole.drill), length=length, plated=hole.plated)
+        definitions.setdefault(definition.name, definition)
+        footprint, component = _instance(hole, definition)
+        footprints.append(footprint)
+        components.append(component)
+        if hole.plated:
+            plated.append(hole.id)
+    return (
+        dataclasses.replace(
+            design,
+            circuit=dataclasses.replace(design.circuit, components=(*design.circuit.components, *components)),
+            board=dataclasses.replace(board, footprints=(*board.footprints, *footprints), holes=()),
+        ),
+        dict(sorted(definitions.items())),
+        tuple(plated),
+    )
 
-    # the import put the free pads' footprints and components last, in the order of the pads
-    free = [(_free_index(fp.native_ids.get(ALTIUM, "")), fp) for fp in board.footprints]
-    rest = [fp for index, fp in free if index is None]
-    tail = sorted(
-        [(index, fp) for index, fp in free if index is not None] + [(i, fp) for i, fp, _ in made],
-        key=lambda pair: pair[0],
+
+def _where(names: tuple[int, ...]) -> str:
+    """``cutout/<k>`` of each cut-out of a group, joined by ``+`` (the ``where`` of the Altium direction)."""
+    return "+".join(f"cutout/{k + 1}" for k in names)
+
+
+def merged_cutouts(design: Design, ledger: Ledger) -> tuple[Design, int]:
+    """``design`` whose overlapping edge rings are merged (change c0170), with the number of cut-out items
+    (a group of overlapping rings counts once). The edges are taken with ``edge_outline``; when two inner
+    rings overlap, each group is united (``merge_groups``) and the board gets the model outline of the
+    board ring and every inner ring, its edge graphics replaced, each group counted ``changed`` with
+    ``MERGED_REASON``. A group that cannot be united is not written and is a ``refuse`` loss
+    (``report.OVERLAP_NO_UNION``, ``OVERLAP_NOT_ONE_RING``): KiCad calls overlapping rings a malformed
+    outline. Without an overlap the edges are written as read."""
+    board = design.board
+    if board is None or board.outline is not None:
+        return design, 0
+    edges = edge_outline(design)
+    if edges is None or not edges.cutouts:
+        return design, 0
+    mids = {(arc.ring, arc.edge): arc.mid for arc in edges.arcs}
+    rings = [
+        CurvedRing(tuple(ring), tuple(mids.get((r, k)) for k in range(len(ring))))
+        for r, ring in enumerate(edges.cutouts, start=1)
+    ]
+    groups = overlap_groups(rings, tol=MERGE_TOL)
+    if all(len(group) == 1 for group in groups):
+        return design, len(groups)
+    kept: list[CurvedRing] = []
+    for group in groups:
+        if len(group) == 1:
+            kept.append(rings[group[0]])
+            continue
+        where = _where(group)
+        try:
+            (merged,) = merge_groups([rings[i] for i in group], tol=MERGE_TOL, names=where.split("+"))
+        except BackendUnavailable:
+            ledger.drop(CUTOUT_KIND, where, OVERLAP_NO_UNION)
+            continue
+        except GeometryError:
+            ledger.drop(CUTOUT_KIND, where, OVERLAP_NOT_ONE_RING)
+            continue
+        ledger.change(CUTOUT_KIND, where, MERGED_REASON)
+        kept.append(merged.ring)
+    outer = tuple(edges.points)
+    arcs = [OutlineArc(0, k, mid) for k in range(len(outer)) if (mid := mids.get((0, k))) is not None]
+    for r, ring in enumerate(kept, start=1):
+        arcs += [OutlineArc(r, k, mid) for k, mid in enumerate(ring.mids) if mid is not None]
+    outline = dataclasses.replace(
+        edges, cutouts=tuple(ring.points for ring in kept), arcs=tuple(arcs), slots=()
     )
-    owners = {fp.component_id: index for index, fp in tail}
-    components = [*design.circuit.components, *(component for _, _, component in made)]
-    placed = [c for c in components if c.id not in owners]
-    last = sorted((c for c in components if c.id in owners), key=lambda c: owners[c.id])
-    footprints = [*rest, *(fp for _, fp in tail)]
-    return dataclasses.replace(
-        design,
-        circuit=dataclasses.replace(design.circuit, components=(*placed, *last)),
-        board=dataclasses.replace(board, footprints=tuple(footprints), holes=tuple(kept)),
-    )
+    layers = {layer.name for layer in board.layers if layer.kind == "edge"} or {EDGE_LAYER}
+    graphics = tuple(graphic for graphic in board.graphics if graphic.layer not in layers)
+    board = dataclasses.replace(board, outline=outline, graphics=graphics)
+    return dataclasses.replace(design, board=board), len(groups)
 
 
 def write_altium(source: SourceProject, options: Options) -> Written:
-    """Altium to a coherent KiCad project and derived libraries (c0161). The board holes of the import are
-    the board-only footprints they were before change c0168 (``hole_footprints``)."""
+    """Altium to a coherent KiCad project and derived libraries (c0161). Overlapping cut-outs are merged
+    (``merged_cutouts``), and each board hole is the generated footprint of ``design.hole``
+    (``generated_holes``), its library written beside the board (change c0170)."""
     from fenolite.convert.altium_to_kicad import Ledger, footprint_files, prepare, schematic_files
 
-    source = dataclasses.replace(source, design=hole_footprints(source.design))
     ledger = Ledger()
+    counts = census(source.design)
+    cutouts_design, cutouts = merged_cutouts(source.design, ledger)
+    holes_design, holes, plated = generated_holes(cutouts_design)
+    for ident in plated:
+        ledger.change(HOLE_KIND, ident, PLATED_REASON)
+    if cutouts:
+        counts[CUTOUT_KIND] = cutouts
+    source = dataclasses.replace(source, design=holes_design)
     name = options.name or source.name
     design = prepare(source, name, options.kicad_version, ledger)
     issues: list[Issue] = []
     texts = write_triad(design, name=name, target=options.kicad_version, allow_lossy=True, issues=issues)
-    texts.update(footprint_files(design, texts[f"{name}.kicad_pcb"], name, options.kicad_version, ledger))
+    texts.update(
+        footprint_files(design, texts[f"{name}.kicad_pcb"], name, options.kicad_version, ledger, holes=holes)
+    )
+    for key, definition in holes.items():
+        texts[f"{HOLE_FOLDER}/{key}{FOOTPRINT_SUFFIX}"] = write_footprint(
+            definition, target=options.kicad_version
+        )
     schematic, notes = schematic_files(source, design, name, options.kicad_version, ledger)
     texts.update(schematic)
     issues.extend(notes)
-    counts = census(source.design)
     counts["schematic"] = 1
     unmapped = [issue for issue in source.issues if issue.code == "altium.import.rule-unmapped"]
     counts["rule"] = counts.get("rule", 0) + len(unmapped)
@@ -403,5 +482,5 @@ ALTIUM_DIRECTION = Direction(
     experimental=True,
     profile="altium-to-kicad",
     targets=TARGET_MAJORS,
-    kinds=("schematic",),
+    kinds=("schematic", HOLE_KIND, CUTOUT_KIND),
 )

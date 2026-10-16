@@ -476,7 +476,8 @@ SLOT_SHAPE = 2
 
 HOLE_PAD = "pad"
 """The pair of a hole's ``altium`` bag that holds the native id its pad had as a board-only footprint
-(``convert.to_kicad.hole_footprints`` gives that footprint back; change c0168)."""
+(change c0168; since change c0170 a conversion to KiCad gives a hole the generated footprint of
+``model.holes`` and does not read it)."""
 
 
 def free_hole(record: PadRecord, ctx: Context, index: int, locator: str, pad_native: str = "") -> Hole | None:
