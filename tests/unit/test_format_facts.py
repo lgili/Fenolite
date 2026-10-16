@@ -34,7 +34,8 @@ HYPOTHESIS_IDS: dict[str, str] = {
 }
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
 ALTIUM_HYPOTHESES = (
-    r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|PCBX|ECO|RD|IMP|OUTJOB|SCHDOT|RULE|DRC|CONV|SLOT|CUTOUT)-[A-Z0-9-]+\b"
+    r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|PCBX|ECO|RD|IMP|OUTJOB|SCHDOT|RULE|DRC|CONV"
+    r"|SLOT|CUTOUT)-[A-Z0-9-]+\b"
 )
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),

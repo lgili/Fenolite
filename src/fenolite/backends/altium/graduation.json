@@ -54,6 +54,7 @@
         "H-A-CONV-LIBRARY",
         "H-A-CONV-PADSTACK",
         "H-A-CONV-SCHEMATIC",
+        "H-A-CUTOUT-REGION",
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
         "H-A-PCB-CU-CLASS",
@@ -110,6 +111,8 @@
         "H-A-RULE-PRIORITY",
         "H-A-RULE-READBACK",
         "H-A-RULE-SCOPE",
+        "H-A-SLOT-KIT",
+        "H-A-SLOT-PAD",
         "H-A-VER-RTA2-3",
         "H-A-VER-RTA3"
       ],
@@ -159,6 +162,7 @@
         "H-A-RULE-FILE is not release-verified",
         "H-A-RULE-PRIORITY is not release-verified",
         "H-A-RULE-READBACK is not release-verified",
+        "H-A-SLOT-KIT is not release-verified",
         "H-A-VER-RTA2-3 is not release-verified"
       ]
     },

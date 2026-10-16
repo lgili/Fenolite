@@ -254,6 +254,9 @@ EVIDENCE = Evidence(
         "H-A-PCBX-TEXT",
         "H-A-PCBX-VIA-FULL",
         "H-A-PCBX-VIASPAN",
+        "H-A-SLOT-PAD",
+        "H-A-CUTOUT-REGION",
+        "H-A-SLOT-KIT",
     ),
 )
 """The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads. The
@@ -264,7 +267,9 @@ measured on public documents, thinly, and Altium took the two stand-in values of
 report (step X8, 2026-10-09), so a build writes bodies by default since change c0155.
 ``H-A-PCBX-FPGFX``, ``-FPTEXT``, ``-MECH`` and ``-BUILD-LOWER`` are those of the items of a footprint
 instance and of the build through the lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait
-for KiCad's importer and for the author."""
+for KiCad's importer and for the author. ``H-A-SLOT-PAD`` and ``H-A-CUTOUT-REGION`` are the slot pad and
+the board cut-out region of change c0168, measured with KiCad's importer; ``H-A-SLOT-KIT`` is the
+maintainer's Part S, which decides ``CUTOUT_REGIONS``."""
 
 
 @dataclass(frozen=True, slots=True)

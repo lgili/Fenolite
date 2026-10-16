@@ -153,8 +153,10 @@ def inventory(folder: Path) -> dict[str, bool]:
     board = model.board
     exact = {row.neutral for row in rulemap.TABLE if row.exact}
     kicad = pcb.read_board(folder / "kicad" / f"{NAME}.kicad_pcb")
+    # since change c0168 the Altium import gives a free pad whose copper is its hole as a board hole
     native_holes = sorted(
-        pad.drill for fp in board.footprints for pad in fp.pads if pad.kind == "np_thru_hole"
+        [pad.drill for fp in board.footprints for pad in fp.pads if pad.kind == "np_thru_hole"]
+        + [hole.drill for hole in board.holes if not hole.plated]
     )
     kicad_holes = sorted(
         pad.drill for fp in kicad.board.footprints for pad in fp.pads if pad.kind == "np_thru_hole"

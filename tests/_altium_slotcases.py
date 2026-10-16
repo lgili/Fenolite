@@ -36,8 +36,8 @@ from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
 from fenolite.backends.kicad.cli import KicadCli, cli_for
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
-from fenolite.model.board import Graphic
 from fenolite.lens.build import BuildOutput
+from fenolite.model.board import Graphic
 from fenolite.model.design import Design
 
 MM = 1_000_000

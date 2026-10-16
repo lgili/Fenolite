@@ -64,9 +64,10 @@ class CutoutItem:
 def not_written(item: CutoutItem, *, gate: bool) -> str | None:
     """Why ``item`` is not written, naming it, or ``None`` when it is (``gate`` is
     ``pcbdoc.CUTOUT_REGIONS``)."""
-    reason = item.problem if item.problem is not None else (None if gate else GATED)
-    if reason is None:
+    if gate and item.problem is None:
         return None
+    reasons = ([] if gate else [GATED]) + ([item.problem] if item.problem is not None else [])
+    reason = "; ".join(reasons)
     return f"{' + '.join(item.names)} of the board outline is not written: {reason}"
 
 

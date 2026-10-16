@@ -246,6 +246,8 @@ def test_evidence() -> None:
         "H-A-ECO-",
         "H-A-RULE-",
         "H-A-CONV-",
+        "H-A-SLOT-",  # change c0168
+        "H-A-CUTOUT-",
     )
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted
@@ -253,7 +255,9 @@ def test_evidence() -> None:
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows
     assert set(binary.EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-SCHBIN-")}
-    board_rows = {i for i in rows if i.startswith(("H-A-PCB-", "H-A-PCBX-", "H-A-RULE-"))} | {
+    board_rows = {
+        i for i in rows if i.startswith(("H-A-PCB-", "H-A-PCBX-", "H-A-RULE-", "H-A-SLOT-", "H-A-CUTOUT-"))
+    } | {
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
         "H-A-CONV-DIFAT",
