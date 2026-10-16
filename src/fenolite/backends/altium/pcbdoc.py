@@ -1249,7 +1249,12 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
         if hole.drill <= 0:
             raise ValueError(f"{hole.id}: a hole needs a positive drill, not {hole.drill} nm")
         x, y = _units(frame(hole.position))
-        out.pads.append(rec.hole_record(x, y, rec.to_units(hole.drill), plated=hole.plated))
+        length = None if hole.length is None else rec.to_units(hole.length)
+        out.pads.append(
+            rec.hole_record(
+                x, y, rec.to_units(hole.drill), length=length, rotation=hole.rotation, plated=hole.plated
+            )
+        )
     for free in spec.free_pads:
         net = rec.NO_INDEX if free.net is None else copper.net(free.pad.id, free.net)
         at = frame(free.pad.position)

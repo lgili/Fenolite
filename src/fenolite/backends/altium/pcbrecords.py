@@ -656,15 +656,34 @@ def pad_record(
     return bytes((PAD,)) + b"".join(subrecord(part) for part in parts)
 
 
-def hole_record(x: int, y: int, drill: int, *, plated: bool = False) -> bytes:
+FULL_CIRCLE_UDEG = 360_000_000
+"""One turn in microdegrees."""
+
+
+def hole_record(
+    x: int, y: int, drill: int, *, length: int | None = None, rotation: int = 0, plated: bool = False
+) -> bytes:
     """A hole of the board that belongs to no footprint (``pcb-records.md``, "Free pads as holes"): a free
     round pad on Multi-Layer without a name, a net or a component, whose size is its hole size, so it has
-    no copper ring; ``plated`` sets the plated byte. Lengths in binary units."""
+    no copper ring; ``plated`` sets the plated byte. Lengths in binary units.
+
+    With ``length`` (change c0168; ``pcb-records.md``, "Slot pads") the hole is a slot: the pad's size is
+    (``length``, ``drill``), its shape round and its rotation ``rotation`` (microdegrees), and subrecord 6
+    holds hole shape 2, the slot length ``length`` and the slot rotation 0, relative to the pad (S-0770),
+    so the copper equals the hole for any angle. A round hole keeps the bytes of change c0085."""
     if drill <= 0:
         raise ValueError(f"a hole needs a positive drill, not {drill} units")
+    if length is None:
+        return pad_record(
+            name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
+            plated=plated,
+        )  # fmt: skip
+    if length <= drill:
+        raise ValueError(f"a slot is longer than its drill: length {length} <= drill {drill} units")
     return pad_record(
-        name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
-        plated=plated,
+        name="", layer=MULTI_LAYER, x=x, y=y, size=(length, drill), shape=1,
+        rotation=degrees_of(rotation % FULL_CIRCLE_UDEG), hole=drill, plated=plated,
+        hole_shape=HOLE_SHAPE_SLOT, slot_length=length, slot_rotation=0.0,
     )  # fmt: skip
 
 
