@@ -22,7 +22,6 @@ from typing import Any
 
 import fenolite.backends.altium.import_evidence as import_evidence
 import fenolite.backends.altium.pcbrecords as rec
-from fenolite.backends.altium.adapter.board import ROUND_SHAPE
 from fenolite.backends.altium.lower import FREE_PAD_REASON, ProjectWrite
 from fenolite.backends.altium.roundtrip import (
     EVIDENCE_BODIES,
@@ -33,8 +32,7 @@ from fenolite.backends.altium.roundtrip import (
 from fenolite.backends.base import Change, ModelCompare, ModelRoundTrip
 from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
-from fenolite.core.trig import FULL_TURN, HALF_TURN
-from fenolite.geometry.transform import Transform
+from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import FootprintInstance, Hole, Pad
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
@@ -104,6 +102,10 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
     return dataclasses.replace(design, circuit=circuit, board=board)
 
 
+ROUND_SHAPE = rec.PAD_SHAPES["circle"]
+"""The record's round main shape, which ``adapter.board.free_hole`` asks of a free hole."""
+
+
 def _units(length: int) -> int:
     return rec.to_units(length)
 
@@ -130,7 +132,7 @@ def _read_as_hole(pad: Pad, position: Point, rotation: int) -> Hole | None:
     if stack is None or stack.hole_shape == "round":
         want = (drill, drill)
     elif stack.hole_shape == "slot" and stack.hole_length and _units(stack.hole_length) > drill:
-        if stack.hole_rotation % HALF_TURN:
+        if stack.hole_rotation % (FULL_TURN // 2):
             return None
         want = (_units(stack.hole_length), drill)
         length, turned = stack.hole_length, rotation % FULL_TURN
