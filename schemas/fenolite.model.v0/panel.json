@@ -1,0 +1,624 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.panel_model.v0",
+  "title": "Panel",
+  "description": "A panel of copies of one built board (``panel.json``).",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "native_ids": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ext": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/ExtBag"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/PanelSource"
+    },
+    "array": {
+      "$ref": "#/$defs/PanelArray"
+    },
+    "fit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PanelFit"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "frame": {
+      "$ref": "#/$defs/PanelFrame"
+    },
+    "separations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Separation"
+      }
+    },
+    "tabs": {
+      "$ref": "#/$defs/TabSpec"
+    },
+    "vscore": {
+      "$ref": "#/$defs/VScoreSpec"
+    },
+    "fiducials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PanelFiducial"
+      }
+    },
+    "tooling_holes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PanelHole"
+      }
+    },
+    "fiducial_set": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FiducialSet"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tooling_set": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolingSet"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "$ref": "#/$defs/PanelLimits"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "source"
+  ],
+  "$defs": {
+    "Evidence": {
+      "description": "A level plus the oracle that produced it and the hypotheses it depends on.",
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "ALTIUM-VERIFIED(kit)",
+            "KICAD-VERIFIED",
+            "ORACLE-VERIFIED",
+            "CORPUS-VERIFIED",
+            "ALTIUM-VERIFIED(author-report)",
+            "INFERRED",
+            "UNKNOWN",
+            "UNVERIFIED"
+          ]
+        },
+        "oracle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ExtBag": {
+      "description": "What a backend knows about an object and the model does not: verbatim fragments.",
+      "type": "object",
+      "properties": {
+        "min_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "items": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "FiducialSet": {
+      "description": "Fiducials placed by the layout (``Panel.fiducials()`` of a script): three in an L on the rails per",
+      "type": "object",
+      "properties": {
+        "copper": {
+          "type": "integer"
+        },
+        "mask": {
+          "type": "integer"
+        },
+        "sides": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "top",
+              "bottom"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "PanelArray": {
+      "description": "``rows`` × ``cols`` copies, ``gap_x`` between columns and ``gap_y`` between rows where the edge set",
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "integer"
+        },
+        "cols": {
+          "type": "integer"
+        },
+        "gap_x": {
+          "type": "integer"
+        },
+        "gap_y": {
+          "type": "integer"
+        },
+        "rotation": {
+          "type": "integer"
+        },
+        "mirrored": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PanelFiducial": {
+      "description": "A fiducial of the panel at ``at`` (panel-relative), on ``side``: a copper disc ``copper`` wide in a",
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "side": {
+          "enum": [
+            "top",
+            "bottom"
+          ]
+        },
+        "copper": {
+          "type": "integer"
+        },
+        "mask": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "at"
+      ]
+    },
+    "PanelFit": {
+      "description": "Fit as many copies as ``width`` × ``height`` holds (``Panel.fit``); ``auto_rotate`` tries the",
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer"
+        },
+        "height": {
+          "type": "integer"
+        },
+        "auto_rotate": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height"
+      ]
+    },
+    "PanelFrame": {
+      "description": "The widths of the four rails; 0 is no rail on that side.",
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "integer"
+        },
+        "bottom": {
+          "type": "integer"
+        },
+        "left": {
+          "type": "integer"
+        },
+        "right": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "PanelHole": {
+      "description": "A non-plated tooling hole of the panel at ``at`` (panel-relative).",
+      "type": "object",
+      "properties": {
+        "ref": {
+          "type": "string"
+        },
+        "at": {
+          "$ref": "#/$defs/Point"
+        },
+        "drill": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "at"
+      ]
+    },
+    "PanelLimits": {
+      "description": "The limits of the panel checks; ``None`` takes the default of ``panel.limits.DEFAULTS``, which names",
+      "type": "object",
+      "properties": {
+        "vscore_copper": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vscore_spacing": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vscore_spacing_warn": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vscore_thickness": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vscore_thickness_warn": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tab_copper_outer": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tab_copper_inner": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gap_warn": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tab_holes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tab_spacing": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fiducial_edge": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fiducial_count": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "size_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "size_max": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "vscore_size_min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "PanelSource": {
+      "description": "The built board the panel repeats: its path as the script names it (relative to the script), the",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "kicad",
+            "altium"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "path"
+      ]
+    },
+    "Point": {
+      "description": "A position in nanometres.",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer"
+        },
+        "y": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "Provenance": {
+      "description": "Origin of an imported object. ``locator`` is opaque outside the originating backend.",
+      "type": "object",
+      "properties": {
+        "backend": {
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backend",
+        "file",
+        "file_sha256",
+        "locator"
+      ]
+    },
+    "Separation": {
+      "description": "How the boundaries of one edge set are separated: between ``columns``, between ``rows``, or between",
+      "type": "object",
+      "properties": {
+        "between": {
+          "enum": [
+            "columns",
+            "rows",
+            "rails"
+          ]
+        },
+        "method": {
+          "enum": [
+            "vscore",
+            "tabs"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "between",
+        "method"
+      ]
+    },
+    "TabSpec": {
+      "description": "The tabs of a routed edge: ``width`` wide, one per ``pitch`` of edge length (at least one), each",
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer"
+        },
+        "pitch": {
+          "type": "integer"
+        },
+        "drill": {
+          "type": "integer"
+        },
+        "hole_gap": {
+          "type": "integer"
+        },
+        "holes": {
+          "type": "integer"
+        },
+        "inset": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ToolingSet": {
+      "description": "Tooling holes placed by the layout (``Panel.tooling_holes()``): four of ``drill`` at the corners",
+      "type": "object",
+      "properties": {
+        "drill": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "VScoreSpec": {
+      "description": "The score lines: drawn ``line_width`` wide on the layer named ``layer_name``; copper is kept",
+      "type": "object",
+      "properties": {
+        "layer_name": {
+          "type": "string"
+        },
+        "line_width": {
+          "type": "integer"
+        },
+        "clearance": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
