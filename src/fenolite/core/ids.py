@@ -32,6 +32,7 @@ PREFIXES: frozenset[str] = frozenset(
         "fpd", "sym",  # library definitions
         "wks",  # drawing-sheet definitions
         "sch", "sci", "lbl", "ncf", "shr", "wir",  # schematic sheets
+        "pnl", "pcy", "ptb", "pvs", "pfd", "ptl",  # panels (change c0173)
     }
 )  # fmt: skip
 

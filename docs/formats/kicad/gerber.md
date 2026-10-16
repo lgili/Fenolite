@@ -23,6 +23,19 @@ Layer Format Specification, read for facts only.
 | `pcb export gerbers -l F.Mask,B.Mask` of `kicad-cli` 9.0.9 and 10.0.6 plots the mask opening of a via as one flash at the via's centre (X as on the board, Y negated), and nothing for a side on which the via is tented | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIAPROT-MASK |
 | The drill side files of `pcb export drill --format gerber --generate-tenting` of `kicad-cli` 10.0.6 are Gerber files in the same coordinate format, with the file function `Other,<Feature>-<Side>` (`Other,Tenting-Front` for example), and hold one flash per via that carries the feature | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-OUTPUTS |
 
+## Panels (change c0173)
+
+What the Gerber specification says about panels, read for the exports of a panel board (`panel.md`).
+Fenolite writes no Gerber attribute: whether `kicad-cli` plots these is what `H-K-PANEL-GERBER` measures.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The file function `Vcut` holds the lines that must be v-cut (scored), the same on both sides when no side `Top` or `Bot` is given; `Vcutmap` is a drawing of them | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The file function `Profile` is the board's outline, a separate file of every fabrication data set, and may hold openings (cut-outs) | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The file attribute `.Part` is `Single` for one board, `Array` for a customer, assembly or shipping panel and `FabricationPanel` for the fabricator's working panel | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The aperture function `MechanicalDrill` takes the specifier `Tooling` (registration and hold-down holes of a board or panel) or `BreakOut` (the non-plated holes of a break-out tab) | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The aperture function `FiducialPad` takes `Local`, `Global` (locates a board on the assembly panel) or `Panel` (locates the panel on the fabrication panel) | S-0125 | INFERRED | H-K-PANEL-GERBER |
+
 ## What the helper reads
 
 `region_extents(text)` requires `%FSLAX46Y46*%` and `%MOMM*%`, follows `G36`/`G37` and the `D02` and `D01`

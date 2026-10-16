@@ -40,6 +40,7 @@ def _targets() -> list[Target]:
     from fenolite.model.schema import (
         LAYER_SCHEMAS,
         LIBRARY_SCHEMA,
+        PANEL_SCHEMA,
         SCHEMA_DIR,
         SCHEMATIC_SCHEMA,
         SHEET_SCHEMA,
@@ -72,7 +73,7 @@ def _targets() -> list[Target]:
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
     definitions = [
         Target(sid, ref, f"{SCHEMA_DIR}/{name}", False)
-        for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA, SCHEMATIC_SCHEMA)
+        for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA, SCHEMATIC_SCHEMA, PANEL_SCHEMA)
     ]
     return [
         *wire,

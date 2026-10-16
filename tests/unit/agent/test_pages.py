@@ -68,7 +68,7 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
     "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore"),
-    "fabrication": ("export", "render", "bom", "pnp", "manifest", "models"),
+    "fabrication": ("export", "render", "bom", "pnp", "manifest", "models", "panel"),
     "altium": ("kit",),
     "recovery": ("guide", "skill"),
 }
@@ -101,7 +101,10 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "INFERRED",
     ),
     "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write"),
-    "fabrication": ("fenolite export", "bill of materials", "position", "manifest", "fenolite render"),
+    "fabrication": (
+        "fenolite export", "bill of materials", "position", "manifest", "fenolite render", "fenolite panel",
+        "Panel(",
+    ),
     "altium": (
         "build --target altium", "What it writes",
         "The Altium verification kit is a run that a person performs in Altium Designer",

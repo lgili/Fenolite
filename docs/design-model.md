@@ -158,6 +158,17 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 - `SheetRef` (prefix `shr`): `name`, `file` (the text as written), `position`, `size` and `uses`, one
   `SheetUse(project, path, page)` each. `SheetPage(path, page)` lists the pages the root sheet names.
 - `lib_symbols` holds the `SymbolDef` copies embedded in the file.
+
+`fenolite.model.panel` (change c0173) holds a panel, several copies of one built board:
+
+- `Panel(name, source, array, fit, frame, separations, tabs, vscore, fiducials, tooling_holes, fiducial_set,
+  tooling_set, limits)`, prefix `pnl`: a definition outside `Design`, with its own schema `panel.json` (id
+  `fenolite.panel_model.v0`), written beside a panel board as `<name>.panel.json`. Lengths in nm; `array`'s
+  rotation is a quarter turn in µdeg. Coordinates are panel-relative: origin at the top-left corner, Y down.
+- `fenolite.panel.layout(panel, board)` lays it out; the laid-out items take the ids
+  `derived_id(prefix, "panel", key)` of `fenolite.panel.ids.KEYS` (`pcy` `copy:<row>.<col>`, `ptb`
+  `tab:<edge>:<k>`, `pvs` `vscore:<x|y>:<k>`, `pfd` `fiducial:<ref>`, `ptl` `tooling:<ref>`), never from the
+  seed. `docs/panels.md` explains the panel.
 - Collections keep file order; `properties` is sorted by key. Uses and pages carry no ids.
 - `Wire` (prefix `wir`, change c0070): `start` and `end`, horizontal or vertical and never a point. Only a
   sheet that Fenolite creates holds wires: the straight segments its generator draws from pin end to pin

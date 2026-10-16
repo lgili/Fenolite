@@ -2818,6 +2818,41 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | 5 | `FEN-5001` | a `convert.unexplained` error; nothing is planned |
 | 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), or a document too large for the Altium writer |
 
+## panel
+
+`fenolite panel PANEL.py --out DIR --target {9,10,altium} [--altium-panel {auto,embedded,flat}]` writes a
+panel: several copies of one built board in rows and columns, with rails, V-score or tabs with mouse bites,
+fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a panel script that binds
+`panel = Panel(name, board=…)` (`fenolite.dsl.panel`), run in-process as `build` runs a design script.
+
+- **Checks first.** `panel.checks` judge the layout against cited fabricator figures before anything is
+  planned: `panel.vscore-copper`, `panel.vscore-shape`, `panel.vscore-spacing`, `panel.vscore-thickness`,
+  `panel.tab-copper`, `panel.gap`, `panel.tab-count`, `panel.tab-spacing`, `panel.fiducial-place`,
+  `panel.tooling-place`, `panel.size`, and the structural errors `panel.board-outline`, `panel.no-fit`,
+  `panel.net-collision`, `panel.source-unreachable` and `panel.altium-cutout`. An error finding plans no
+  write: exit 5 (`FEN-5001`) with `result.plan` empty. `fenolite explain <code>` gives each one's fix.
+- **Forms.** `--target 9` or `10`: a KiCad panel board `<name>.kicad_pcb` with its `<name>.kicad_pro`, the
+  generated footprints under `lib/` and `fp-lib-table`; the source must be a `.kicad_pcb` written for that
+  major. `--target altium`: `<name>.PcbDoc` and `<name>.PrjPcb` holding the panel document alone. Both write
+  `<name>.panel.json`, the model panel (schema `schemas/fenolite.model.v0/panel.json`).
+- **The Altium form.** `--altium-panel auto` (default) writes Altium's Embedded Board Array when
+  `pcbdoc.EMBEDDED_ARRAYS` is true and the source is a `.PcbDoc`, otherwise the flattened panel with one
+  `altium.panel-flattened` info naming the reason. `embedded` while the gate is off, or with a `.kicad_pcb`
+  source, is exit 7 (`FEN-7001`); so is `mirror=True` for any flattened form.
+- **Writes.** `--dry-run` plans every file under `DIR`; `--confirm` writes them all or none, with
+  `.fenolite/<name>.panel-written.json`, the SHA-256 of each file written. A later run refuses a file
+  changed since (`panel.output-changed`, exit 5) unless `--discard-layout` replaces it (a `.bak` is kept).
+- **Result.** `result.panel` holds `target`, `form` (`kicad`, `flat` or `embedded`), `rows`, `cols`,
+  `copies`, `rotation` (µdeg), `size` and `unused` (`w`, `h` in nm; `unused` is what an asked `fit()`
+  size leaves), `separations` (edge set → method), `items` (counts of tabs, mouse-bite rows and holes,
+  score lines, fiducials and tooling holes) and `score_layer` (the KiCad layer of the score lines);
+  `result.files` lists the planned files with their sizes. `evidence.level` is that of the form:
+  `KICAD-VERIFIED` (`H-K-PANEL-LOAD`, `-DRILL`, `-NETS`) for a KiCad panel board.
+- **Exit codes.** 0; 2 (`FEN-2001`) for `--altium-panel` with a KiCad target, a `.PcbDoc` board for a
+  KiCad target, or a board written for another KiCad major than `--target`; 3 (`FEN-3001`) when the script
+  or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
+  `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.
+
 ## manifest
 
 `fenolite manifest PATH [--artifacts DIR]... [--stages a,b] [--no-check] [--verify] [--out FILE]

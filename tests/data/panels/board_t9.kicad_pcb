@@ -1,0 +1,596 @@
+(kicad_pcb
+	(version 20241229)
+	(generator "fenolite")
+	(generator_version "9.0")
+	(general
+		(thickness 1.6)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(2 "B.Cu" signal)
+		(9 "F.Adhes" user "F.Adhesive")
+		(11 "B.Adhes" user "B.Adhesive")
+		(13 "F.Paste" user)
+		(15 "B.Paste" user)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(17 "Dwgs.User" user "User.Drawings")
+		(19 "Cmts.User" user "User.Comments")
+		(21 "Eco1.User" user "User.Eco1")
+		(23 "Eco2.User" user "User.Eco2")
+		(25 "Edge.Cuts" user)
+		(27 "Margin" user)
+		(31 "F.CrtYd" user "F.Courtyard")
+		(29 "B.CrtYd" user "B.Courtyard")
+		(35 "F.Fab" user)
+		(33 "B.Fab" user)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(net 0 "")
+	(net 1 "GND")
+	(net 2 "MID")
+	(net 3 "VIN")
+	(footprint "Mini:Mini_LED_THT_3mm"
+		(layer "F.Cu")
+		(uuid "92fd148a-e560-5fc4-925a-c3f61160d02b")
+		(at 125 115)
+		(descr "Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern")
+		(tags "led tht mini")
+		(property "Reference" "D1"
+			(at 1.27 -2.5 0)
+			(layer "F.SilkS")
+			(uuid "4401082e-b9ef-56a4-9db4-ae34fe28d742")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "LED"
+			(at 1.27 2.5 0)
+			(layer "F.Fab")
+			(uuid "a54ef148-8190-5f49-b4ae-96ff520e24a6")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "7c38f0c8-d09a-5798-9307-9795984bb54e")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Description" "Mini 3 mm through-hole LED. Synthetic geometry for Fenolite tests, not a validated land pattern"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "493dd855-216c-593a-a99a-c68ab6e6ba4d")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "fenolite.path" "D1"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "2fbe39de-96fb-5e13-8142-9caeaf738f5f")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(path "/b915ef88-24b8-5218-bb4c-281eb8118f21")
+		(attr through_hole)
+		(fp_arc
+			(start -0.29 -1.08)
+			(mid 1.27 -1.65)
+			(end 2.83 -1.08)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "bdb1d02f-e90f-5747-8419-8d854c2a6e45")
+		)
+		(fp_arc
+			(start 2.83 1.08)
+			(mid 1.27 1.65)
+			(end -0.29 1.08)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "e3ae54f9-b653-5fa8-8ad1-189b197c472b")
+		)
+		(fp_rect
+			(start -1.2 -2)
+			(end 3.75 2)
+			(stroke
+				(width 0.05)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.CrtYd")
+			(uuid "473afd0e-25d9-5420-ad4f-1adb24add4ca")
+		)
+		(fp_circle
+			(center 1.27 0)
+			(end 2.77 0)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.Fab")
+			(uuid "d1a0ba65-39e6-5501-a840-dac262d0b4e8")
+		)
+		(pad "1" thru_hole rect
+			(at 0 0)
+			(size 1.8 1.8)
+			(drill 0.9)
+			(net 1 "GND")
+			(layers "*.Cu" "*.Mask")
+			(remove_unused_layers no)
+			(uuid "2ca83bf5-b29b-5581-a101-b697122f87cd")
+		)
+		(pad "2" thru_hole circle
+			(at 2.54 0)
+			(size 1.8 1.8)
+			(drill 0.9)
+			(net 2 "MID")
+			(layers "*.Cu" "*.Mask")
+			(remove_unused_layers no)
+			(uuid "604741eb-0a96-5275-9b10-24c01c862030")
+		)
+		(embedded_fonts no)
+		(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_LED_THT_3mm.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "Mini:Mini_R_0603"
+		(layer "F.Cu")
+		(uuid "ac238246-aafd-5ac2-a567-03e58a8cb8b2")
+		(at 110 110)
+		(descr "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern")
+		(tags "resistor mini")
+		(property "Reference" "R1"
+			(at 0 -1.45 0)
+			(layer "F.SilkS")
+			(uuid "86235245-4f37-5ac5-8254-99176467a1bd")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 0 1.45 0)
+			(layer "F.Fab")
+			(uuid "a05a673d-39c0-514e-894e-d5075bf282e2")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "a67d4359-a52b-524a-a549-c1eace4f7464")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "6678ff37-c122-5d18-b2cb-5a98febda65b")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "fenolite.path" "R1"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "9283bff7-bdcf-5181-92a2-70014c2d6a43")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(path "/d2975b43-804c-5288-969f-d2aba5c092d0")
+		(attr smd)
+		(fp_line
+			(start -0.25 -0.55)
+			(end 0.25 -0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "6099e3f6-89ed-5151-b9b6-34d1250b4557")
+		)
+		(fp_line
+			(start -0.25 0.55)
+			(end 0.25 0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "90e8ac5b-d8c8-552f-8cc0-40628e1bddf9")
+		)
+		(fp_rect
+			(start -1.5 -0.75)
+			(end 1.5 0.75)
+			(stroke
+				(width 0.05)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.CrtYd")
+			(uuid "9d6e27c0-42a3-58c3-96b2-6f31f568ca75")
+		)
+		(fp_rect
+			(start -0.8 -0.4)
+			(end 0.8 0.4)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.Fab")
+			(uuid "32fa6039-b79a-5444-991c-1037630d2590")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "814ac2ef-8bf4-57bb-8547-199273b9de91")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
+		)
+		(pad "1" smd roundrect
+			(at -0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net 3 "VIN")
+			(roundrect_rratio 0.25)
+			(uuid "ebbc35d3-efc4-5035-a5d6-b3ca0935579b")
+		)
+		(pad "2" smd roundrect
+			(at 0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net 2 "MID")
+			(roundrect_rratio 0.25)
+			(uuid "d65601c7-d77b-5d2a-b7a9-1e7b1dc58844")
+		)
+		(embedded_fonts no)
+		(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_R_0603.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(footprint "Mini:Mini_R_0603"
+		(layer "F.Cu")
+		(uuid "db3ece46-13f0-5223-918d-03c14bf8c13d")
+		(at 110 120)
+		(descr "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern")
+		(tags "resistor mini")
+		(property "Reference" "R2"
+			(at 0 -1.45 0)
+			(layer "F.SilkS")
+			(uuid "e177eff4-a211-5f96-9c06-ed45edf23632")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "1k"
+			(at 0 1.45 0)
+			(layer "F.Fab")
+			(uuid "d2664572-68f9-537d-a48a-63a9065396e2")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "5b101de8-f66b-560f-a49e-8c65e08319c8")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Description" "Mini 0603 resistor. Synthetic geometry for Fenolite tests, not a validated land pattern"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "4325473e-fbde-5486-817b-cd77b4ba7378")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "fenolite.path" "R2"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(hide yes)
+			(uuid "ab3052dd-5143-590e-bd23-e2132504b11c")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(path "/193f242f-3090-5671-8d8d-ad738b11a40e")
+		(attr smd)
+		(fp_line
+			(start -0.25 -0.55)
+			(end 0.25 -0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "af14c5d3-187d-5661-b0e9-75128be92c65")
+		)
+		(fp_line
+			(start -0.25 0.55)
+			(end 0.25 0.55)
+			(stroke
+				(width 0.12)
+				(type solid)
+			)
+			(layer "F.SilkS")
+			(uuid "7dcf0697-53b7-59a9-a545-d70bf24af4ad")
+		)
+		(fp_rect
+			(start -1.5 -0.75)
+			(end 1.5 0.75)
+			(stroke
+				(width 0.05)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.CrtYd")
+			(uuid "045f3093-5de7-50e5-b060-5490daed5ff8")
+		)
+		(fp_rect
+			(start -0.8 -0.4)
+			(end 0.8 0.4)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(fill no)
+			(layer "F.Fab")
+			(uuid "c642d81f-ae7e-58bc-bc18-fd5cd815761b")
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 0 0)
+			(layer "F.Fab")
+			(uuid "ef982729-6e36-5122-9fd9-64750421086f")
+			(effects
+				(font
+					(size 0.4 0.4)
+					(thickness 0.06)
+				)
+			)
+		)
+		(pad "1" smd roundrect
+			(at -0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net 3 "VIN")
+			(roundrect_rratio 0.25)
+			(uuid "4233ed24-55f9-5af1-b9ed-0662ec8da6db")
+		)
+		(pad "2" smd roundrect
+			(at 0.8 0)
+			(size 0.9 0.95)
+			(layers "F.Cu" "F.Mask" "F.Paste")
+			(net 1 "GND")
+			(roundrect_rratio 0.25)
+			(uuid "55fbdaf7-4799-5ecf-b190-c6d82c5ce461")
+		)
+		(embedded_fonts no)
+		(model "${KICAD10_3DMODEL_DIR}/Mini.3dshapes/Mini_R_0603.step"
+			(offset
+				(xyz 0 0 0)
+			)
+			(scale
+				(xyz 1 1 1)
+			)
+			(rotate
+				(xyz 0 0 0)
+			)
+		)
+	)
+	(gr_line
+		(start 100 100)
+		(end 140 100)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+		(uuid "5b74896d-8fa3-5dab-ad7b-262ef11fecd4")
+	)
+	(gr_line
+		(start 140 100)
+		(end 140 130)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+		(uuid "ee3c0bfb-626c-5cff-9559-913835ca85ac")
+	)
+	(gr_line
+		(start 140 130)
+		(end 100 130)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+		(uuid "a035a1cf-da5b-5377-8092-8141355de1ad")
+	)
+	(gr_line
+		(start 100 130)
+		(end 100 100)
+		(stroke
+			(width 0.1)
+			(type solid)
+		)
+		(layer "Edge.Cuts")
+		(uuid "826da458-35cb-516c-970c-61f598911348")
+	)
+	(segment
+		(start 122 124)
+		(end 139.6 124)
+		(width 0.2)
+		(layer "B.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-855c-a6a8-1fd053d8b23b")
+	)
+	(segment
+		(start 139.6 124)
+		(end 139.6 106)
+		(width 0.2)
+		(layer "B.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-8505-b785-5e019d1410ae")
+	)
+	(segment
+		(start 110.8 120)
+		(end 118 120)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-8385-911d-1250b435d661")
+	)
+	(segment
+		(start 118 120)
+		(end 118 124)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-880b-9872-ccbd793e6fdd")
+	)
+	(segment
+		(start 118 124)
+		(end 122 124)
+		(width 0.25)
+		(layer "B.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-8cbc-8894-f7dd5a0e5aaa")
+	)
+	(segment
+		(start 122 124)
+		(end 125 115)
+		(width 0.25)
+		(layer "B.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-8d42-bbf5-3b870657d2a9")
+	)
+	(segment
+		(start 110.8 110)
+		(end 127.54 110)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 2)
+		(uuid "66656e6f-6c69-8062-b0e3-0b969b159609")
+	)
+	(segment
+		(start 127.54 110)
+		(end 127.54 115)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 2)
+		(uuid "66656e6f-6c69-8449-ac4d-bd96a016dc1b")
+	)
+	(segment
+		(start 109.2 110)
+		(end 109.2 120)
+		(width 0.25)
+		(layer "F.Cu")
+		(net 3)
+		(uuid "66656e6f-6c69-8cf1-bf48-347846e56bee")
+	)
+	(via
+		(at 118 124)
+		(size 0.6)
+		(drill 0.3)
+		(layers "F.Cu" "B.Cu")
+		(net 1)
+		(uuid "66656e6f-6c69-84af-b165-b2e84725f1ed")
+	)
+)

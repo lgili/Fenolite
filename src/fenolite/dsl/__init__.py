@@ -52,6 +52,7 @@ from fenolite.dsl.intents import (
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
 from fenolite.dsl.items import RuleArea
 from fenolite.dsl.module import Module
+from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, Net, PadZoneRequest, Part, Placement, connect, no_connect
 from fenolite.dsl.quantity import Quantity, amp, farad, henry, hertz, ohm, second, volt, watt
 from fenolite.dsl.symbol import Symbol
@@ -81,6 +82,7 @@ __all__ = [
     "PadEnd",
     "PadRef",
     "PadZoneRequest",
+    "Panel",
     "Part",
     "Placement",
     "Power",

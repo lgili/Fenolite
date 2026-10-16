@@ -78,6 +78,7 @@ import _ovalcases
 import _pairbench
 import _paircases
 import _pairclasses
+import _panelbench
 import _paritycases
 import _pcbxcases
 import _placecases
@@ -388,6 +389,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _convcases.conv_probes().items():  # change c0159
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _slotsconv.conv_slot_probes().items():  # change c0170
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _panelbench.panel_probes().items():  # change c0173
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {
         **_downbench.down_probes(runner),

@@ -325,3 +325,28 @@ def test_holes_and_cut_outs_of_the_import(item: CorpusItem) -> None:
     assert counts == HOLES_AND_CUTOUTS[item.id]
     # every free pad that is no hole is still a board-only footprint
     assert sum(1 for fp in board.footprints if "board_only" in fp.attributes) == len(free) - len(board.holes)
+
+
+EMBEDDED_ARRAYS_FOUND = 0
+"""Documents of the corpus whose ``EmbeddedBoards6`` holds an array (change c0173, task 1.2;
+``docs/evidence/altium-pcb-read.md``, "Embedded board arrays"). A document with one is read for the size
+of its stream only: no field is inferred from a document that Fenolite did not author."""
+
+
+def test_embedded_board_arrays_of_the_corpus() -> None:
+    """How many public documents hold an Embedded Board Array: a ``Header`` above 0 or a ``Data`` with
+    bytes. Only the count and the sizes reach the output."""
+    from fenolite.backends.altium.read.cfb import open_compound
+
+    sizes: dict[str, tuple[int, int]] = {}
+    for item in DOCUMENTS:
+        compound = open_compound(require(item).read_bytes())
+        header = compound.read("EmbeddedBoards6/Header") if "EmbeddedBoards6/Header" in compound else b""
+        data = compound.read("EmbeddedBoards6/Data") if "EmbeddedBoards6/Data" in compound else b""
+        count = int.from_bytes(header[:4], "little") if len(header) >= 4 else 0
+        sizes[item.id] = (count, len(data))
+    found = sum(1 for count, size in sizes.values() if count or size)
+    census("altium_pcb_read_embedded", "documents", {k: list(v) for k, v in sorted(sizes.items())})
+    print("embedded", json.dumps({"documents": len(sizes), "with_array": found}, sort_keys=True))
+    assert len(sizes) == 7
+    assert found == EMBEDDED_ARRAYS_FOUND

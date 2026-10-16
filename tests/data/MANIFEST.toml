@@ -2241,3 +2241,57 @@ path = "examples/schematic_blocks/grid.py"
 origin = "authored"
 corpus_id = ""
 notes = "CC0 authored signal chain without external libraries; all values Fenolite choices"
+
+[[file]]
+path = "tests/data/panels/board.py"
+origin = "authored"
+corpus_id = ""
+notes = "the board of the panel fixtures (c0173): a 40 x 30 mm two-layer rectangle, two resistors and an LED, a track 0.3 mm from the right edge; all values Fenolite choices"
+
+[[file]]
+path = "tests/data/panels/board_t9.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "tests/data/panels/board.py built for KiCad 9 (c0173); tests/unit/panel/test_fixture.py keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/panels/board_t10.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "tests/data/panels/board.py built for KiCad 10 (c0173), named by the panel scripts; tests/unit/panel/test_fixture.py keeps it equal to a fresh build"
+
+[[file]]
+path = "tests/data/panels/tabs.py"
+origin = "authored"
+corpus_id = ""
+notes = "panel fixture (c0173): 2 x 4 copies, tabs with mouse bites, rails on four sides with fiducials and tooling holes"
+
+[[file]]
+path = "tests/data/panels/vscore.py"
+origin = "authored"
+corpus_id = ""
+notes = "panel fixture (c0173): 2 x 2 copies scored both ways, the planted finding panel.vscore-copper"
+
+[[file]]
+path = "tests/data/panels/mixed.py"
+origin = "authored"
+corpus_id = ""
+notes = "panel fixture (c0173): 2 x 2 copies scored between rows and to the rails, tabbed between columns"
+
+[[file]]
+path = "tests/data/panels/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "library table of the panel fixture board, naming the authored Mini library"
+
+[[file]]
+path = "tests/data/panels/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "library table of the panel fixture board, naming the authored Mini library"
+
+[[file]]
+path = "tests/data/panels/kit/README-phase-a.md"
+origin = "authored"
+corpus_id = ""
+notes = "the steps Q1 to Q6 of Part Q in Portuguese for the maintainer's kit (c0173)"

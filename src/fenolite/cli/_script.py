@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fenolite.core.errors import FormatError
-from fenolite.dsl import Design
+from fenolite.dsl import Design, Panel
 
 SCRIPT_OUTPUT_LIMIT = 4000
 TRUNCATED = "…[truncated]"
@@ -59,11 +59,12 @@ def _capped(text: str) -> str:
     return text[: SCRIPT_OUTPUT_LIMIT - len(TRUNCATED)] + TRUNCATED
 
 
-def run_design_script(path: Path) -> ScriptRun:
-    """The module-level ``design`` of the script at ``path`` and its captured stdout and stderr."""
+def _run_script(path: Path, what: str) -> tuple[dict[str, object], str]:
+    """The namespace of the script at ``path`` and its captured stdout and stderr; ``what`` names the
+    script in errors."""
     script = Path(path).resolve()
     if not script.is_file():
-        raise DesignScriptError(f"design script {path} does not exist", file=os.fspath(path))
+        raise DesignScriptError(f"{what} script {path} does not exist", file=os.fspath(path))
     folder = script.parent
     saved_path, saved_argv, saved_bytecode = list(sys.path), list(sys.argv), sys.dont_write_bytecode
     before = set(sys.modules)
@@ -78,7 +79,7 @@ def run_design_script(path: Path) -> ScriptRun:
         raise
     except BaseException as error:  # SystemExit and DslError included: the script failed
         raise DesignScriptError(
-            f"design script failed: {type(error).__name__}: {error}",
+            f"{what} script failed: {type(error).__name__}: {error}",
             file=os.fspath(path),
             locator=_locator(error, script),
         ) from error
@@ -90,6 +91,12 @@ def run_design_script(path: Path) -> ScriptRun:
             module = sys.modules.get(name)
             if module is not None and _inside(getattr(module, "__file__", None), folder):
                 del sys.modules[name]
+    return namespace, _capped(output.getvalue())
+
+
+def run_design_script(path: Path) -> ScriptRun:
+    """The module-level ``design`` of the script at ``path`` and its captured stdout and stderr."""
+    namespace, output = _run_script(path, "design")
     design = namespace.get("design")
     if not isinstance(design, Design):
         found = "nothing" if design is None else type(design).__name__
@@ -97,7 +104,33 @@ def run_design_script(path: Path) -> ScriptRun:
             f"design script binds no module-level 'design' of type fenolite.dsl.Design (found {found})",
             file=os.fspath(path),
         )
-    return ScriptRun(design, _capped(output.getvalue()))
+    return ScriptRun(design, output)
 
 
-__all__ = ["SCRIPT_OUTPUT_LIMIT", "DesignScriptError", "ScriptRun", "run_design_script"]
+@dataclass(frozen=True)
+class PanelRun:
+    panel: Panel
+    output: str
+
+
+def run_panel_script(path: Path) -> PanelRun:
+    """The module-level ``panel`` of the panel script at ``path`` and its captured output (change c0173)."""
+    namespace, output = _run_script(path, "panel")
+    panel = namespace.get("panel")
+    if not isinstance(panel, Panel):
+        found = "nothing" if panel is None else type(panel).__name__
+        raise DesignScriptError(
+            f"panel script binds no module-level 'panel' of type fenolite.dsl.Panel (found {found})",
+            file=os.fspath(path),
+        )
+    return PanelRun(panel, output)
+
+
+__all__ = [
+    "SCRIPT_OUTPUT_LIMIT",
+    "DesignScriptError",
+    "PanelRun",
+    "ScriptRun",
+    "run_design_script",
+    "run_panel_script",
+]
