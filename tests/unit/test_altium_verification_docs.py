@@ -92,3 +92,38 @@ def test_altium_page_has_the_round_trips_section() -> None:
 def test_roadmap_says_what_this_change_adds_to_diff() -> None:
     roadmap = _page("roadmap.md")
     assert "Done as c0044" in roadmap and "--view records" in roadmap and "c0066" in roadmap
+
+
+def _part_s() -> str:
+    return _section(_page("evidence/altium-pcb.md"), "## Part S: slots and cut-outs")
+
+
+def test_part_s_names_the_eight_cases_with_their_expected_outcomes() -> None:
+    """Requirement "Kit cases for slots and cut-outs" (change c0168): cases S1 to S8, each with an expected
+    outcome, the kit's files and the hypothesis it settles."""
+    part = _part_s()
+    for case in range(1, 9):
+        found = re.search(rf"\*\*S{case}\*\*(.+?)(?=\n\d+\. \*\*S|\n\nSend)", part, re.S)
+        assert found is not None, case
+        assert "Expected" in found.group(1), case
+    for name in ("regions/", "clearance/", "gate-off/", "SHA256SUMS", "H-A-SLOT-KIT", "CUTOUT_REGIONS"):
+        assert name in part, name
+
+
+def _part_s_reports() -> str:
+    reports = _section(_page("evidence/altium-pcb.md"), "## Reports")
+    return "\n".join(
+        block for block in reports.split("\n### ") if block.split("\n", 1)[0].rstrip().endswith("Part S")
+    )
+
+
+def test_part_s_gate_follows_the_report() -> None:
+    """Scenario "Gate follows the report": ``pcbdoc.CUTOUT_REGIONS`` is true only when a report of Part S
+    records S3, S4 and S5 as passed."""
+    from fenolite.backends.altium.pcbdoc import CUTOUT_REGIONS
+
+    if not CUTOUT_REGIONS:
+        return
+    reports = _part_s_reports()
+    for case in ("S3", "S4", "S5"):
+        assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case

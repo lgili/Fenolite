@@ -154,9 +154,28 @@ def fixture_document(*, gate: bool = True) -> bytes:
     return fixture_build(gate=gate).files["slots.PcbDoc"]
 
 
-def fixture_build(*, gate: bool = True, source: Path | None = None) -> BuildOutput:
-    """The build of ``source`` (``SOURCE`` by default) for Altium with ``pcbdoc.CUTOUT_REGIONS`` set to
-    ``gate``; no issue of it is an error."""
+def clearance_variant(design: object) -> None:
+    """Part S's second document (kit case S5, and S2 and S6 with its rules and pour): the fixture with a
+    1 mm round test point ``TP1`` 0.2 mm below the milled slot ``S2`` and one ``TP2`` 0.2 mm above the
+    drilled slot ``D2``, both on ``GND``, a ``GND`` pour on ``F.Cu`` over the board, and the rules Board
+    Outline Clearance 0.5 mm (``edge_clearance``) and Hole To Hole Clearance 0.25 mm (``hole_to_hole``)."""
+    from fenolite.dsl import Design as Script
+    from fenolite.dsl import Net, mm
+
+    assert isinstance(design, Script)
+    gnd = Net("GND")
+    design.test_point("TP1", gnd, mm("38"), mm("11.7"), size=mm(1))
+    design.test_point("TP2", gnd, mm("36"), mm("25.3"), size=mm(1))
+    design.zone(gnd, layers=("F.Cu",))
+    design.rules.rule("edge", "edge_clearance", min=mm("0.5"))
+    design.rules.rule("holes", "hole_to_hole", min=mm("0.25"))
+
+
+def fixture_build(
+    *, gate: bool = True, source: Path | None = None, edit: Callable[[object], None] | None = None
+) -> BuildOutput:
+    """The build of ``source`` (``SOURCE`` by default), changed by ``edit`` when given, for Altium with
+    ``pcbdoc.CUTOUT_REGIONS`` set to ``gate``; no issue of it is an error."""
     import runpy
 
     from _altium import blink_resolver, blink_tree
@@ -168,6 +187,8 @@ def fixture_build(*, gate: bool = True, source: Path | None = None) -> BuildOutp
 
     design = runpy.run_path(str(source or SOURCE))["design"]
     assert isinstance(design, Script)
+    if edit is not None:
+        edit(design)
     kept = pcbdoc.CUTOUT_REGIONS
     pcbdoc.CUTOUT_REGIONS = gate  # type: ignore[misc]  # pyright: ignore[reportConstantRedefinition]
     try:
@@ -381,6 +402,7 @@ __all__ = [
     "FIXTURE",
     "WrittenSlot",
     "board_frame",
+    "clearance_variant",
     "cutout_region",
     "fixture_build",
     "fixture_document",
