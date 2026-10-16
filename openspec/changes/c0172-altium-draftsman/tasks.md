@@ -1,11 +1,16 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list`, the living `altium-build`, `altium-project-reader`, `cli-contract`, `manufacturing-exports` and `altium-verification` specs, and the design. Write under this task, with the date:
+- [x] 0.1 Read `openspec list`, the living `altium-build`, `altium-project-reader`, `cli-contract`, `manufacturing-exports` and `altium-verification` specs, and the design. Write under this task, with the date:
   - whether another open change holds a delta of "Altium build outputs", "Output job in an Altium build" or "Drawing specification files" (this change adds requirements and modifies none; if one now must be modified, regenerate it from the living text);
   - that S-0772 to S-0786 and the family `H-A-DWF-*` are still free on `dev` and on the open branches;
   - the maintainer's answers to the open questions.
 
   Proof: `openspec validate c0172-altium-draftsman --strict --no-interactive` passes.
+
+  Done on 2026-10-16:
+  - `openspec list` shows ten active changes (c0081, c0092, c0105, c0146, c0160, c0166, c0168, c0170, c0171, c0172). No change under `openspec/changes/` other than this one holds a delta of "Altium build outputs", "Output job in an Altium build" or "Drawing specification files"; this change adds requirements and modifies none.
+  - S-0772 to S-0786 and the family `H-A-DWF-*` are used by no other branch: checked on `origin/dev`, `origin/release-0.5.0` (`980bc6d`) and the open branches `c0151-repeat-bus-split`, `c0168-altium-slots-cutouts`, `c0170-convert-slots-obstacles`, `c0173-board-panels` (which holds S-0790 to S-0802), `codex/c0164-native-altium-template` and `dev-c0161`. New sources of this change start at S-0803.
+  - The maintainer's answers of 2026-10-16 (design, "Open questions"): every recommended answer is accepted. Views are empty shells that Altium fills by Import Changes, with no board copy (1); `--altium-draftsman` is `off` by default (2); the write gate is a constant flipped by his kit run (3); the drawing specification gets no new key (4); do-not-populate parts are reported and drawn as fitted (6); the four public samples are fetched-only corpus rows, never committed (7). On question 5 he chose to hold release 0.5.0 until the native document passes his kit, so the fallback "ship route P in 0.5.0, the document in 0.5.x" does not apply; the stop rules (routes T and P) still apply when a gate fails. He builds his first kit (F0) now, and what does not depend on his files is implemented in parallel.
 
 ## 1. Facts and the container (gate G1)
 
