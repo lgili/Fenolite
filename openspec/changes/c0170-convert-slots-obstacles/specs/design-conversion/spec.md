@@ -6,7 +6,7 @@ A conversion SHALL count every inner edge ring of the source under the kind `cut
 #### Scenario: Fixture to Altium
 - **GIVEN** the shared fixture built for KiCad 10
 - **WHEN** `uv run pytest tests/unit/convert/test_convert_slots.py -k altium` converts it with `--to altium`
-- **THEN** the report's `cutout` row counts three rings (kept with the gate on, lost with its reason with the gate off), and no ring is reported under `outline`
+- **THEN** the report's `cutout` row counts three rings (written as regions and changed with "arcs polygonised" with the gate on, lost with its reason with the gate off), and no ring is reported under `outline`
 
 #### Scenario: Overlapping Altium cut-outs to KiCad
 - **GIVEN** an Altium document with two overlapping board cut-out regions and a free slot pad

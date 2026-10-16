@@ -24,6 +24,7 @@ from _altium import (
 from _altium_pcb_read import read_pcblib
 from _cfb_read import deframe, read_compound
 
+from fenolite.backends.altium.cutouts import GATED
 from fenolite.backends.altium.project import pcblib_name
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.dsl import placements, to_model
@@ -1117,8 +1118,9 @@ def test_a_milled_slot_plans_the_document(tmp_path: Path) -> None:
     board = to_model(blink("design.board(mm(50), mm(30))\n", slotted)).board
     assert board is not None
     account = lower._Account()  # pyright: ignore[reportPrivateUsage]
-    assert lower._cutouts(board, account) == ()  # pyright: ignore[reportPrivateUsage]
-    assert account.kept["cutout"] == ["slot/V"] and "slot V" in account.reasons["cutout"]
+    assert lower._cutouts(board.outline, account) == ()  # pyright: ignore[reportPrivateUsage]
+    # the account counts the item by its reason (change c0170); the info above names it
+    assert account.kept["cutout"] == ["slot/V"] and account.reasons["cutout"] == GATED
 
 
 def test_a_round_board_names_its_arcs_not_a_missing_outline(tmp_path: Path) -> None:

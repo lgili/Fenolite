@@ -61,13 +61,20 @@ class CutoutItem:
         return self.ring.polygonize(tol)
 
 
+def unwritten_reason(item: CutoutItem, *, gate: bool) -> str | None:
+    """Why ``item`` is not written, without its name, or ``None`` when it is (``gate`` is
+    ``pcbdoc.CUTOUT_REGIONS``): the reason a report counts it under (change c0170)."""
+    if gate and item.problem is None:
+        return None
+    return "; ".join(([] if gate else [GATED]) + ([item.problem] if item.problem is not None else []))
+
+
 def not_written(item: CutoutItem, *, gate: bool) -> str | None:
     """Why ``item`` is not written, naming it, or ``None`` when it is (``gate`` is
     ``pcbdoc.CUTOUT_REGIONS``)."""
-    if gate and item.problem is None:
+    reason = unwritten_reason(item, gate=gate)
+    if reason is None:
         return None
-    reasons = ([] if gate else [GATED]) + ([item.problem] if item.problem is not None else [])
-    reason = "; ".join(reasons)
     return f"{' + '.join(item.names)} of the board outline is not written: {reason}"
 
 
@@ -191,4 +198,5 @@ __all__ = [
     "written_rings",
     "item_where",
     "not_written",
+    "unwritten_reason",
 ]

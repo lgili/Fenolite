@@ -7,7 +7,9 @@ The design read from KiCad keeps the drawings of its footprints and the corner r
 KiCad's own slots, so it is projected first (``fpitems.with_footprint_items``, as ``lens.altium.write_model``
 does), then written with ``lower.write_design(..., allow_lossy=True)``: the consent to a loss is the
 conversion's, which judges the report. What the write leaves out is mapped per kind and reason into the
-report; a polygon written unpoured and the generated schematic are changes, not losses.
+report; a polygon written unpoured and the generated schematic are changes, not losses. The edges of the
+board are given to the write as an outline (``edge_outline``, change c0170): its board ring is the
+document's outline and every inner ring a cut-out region, counted under ``cutout``.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from collections.abc import Mapping
 from fenolite.backends.altium import lower
 from fenolite.backends.altium.cfb import CompoundTooLarge
 from fenolite.backends.kicad import fpitems
+from fenolite.backends.kicad.outline import edge_outline
 from fenolite.convert import pads, schematic
 from fenolite.convert.direction import Direction, Options, TargetLimitError, Written
 from fenolite.convert.report import ConversionReport, census
@@ -82,6 +85,9 @@ def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report."""
     design = pads.project(fpitems.with_footprint_items(_named(source.design, options.name)).design)
     sch, symbols, changed_comments = schematic.inputs(source, design)
+    board = design.board
+    # the edges as an outline (change c0170): the board ring as before, each inner ring a cut-out region
+    edges = edge_outline(design) if board is not None and board.outline is None else None
     try:
         written = lower.write_design(
             design,
@@ -91,6 +97,7 @@ def write(source: SourceProject, options: Options) -> Written:
             schematic=sch,
             symbols=symbols,
             sheets="modules" if sch is not None else "flat",
+            edges=edges,
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
