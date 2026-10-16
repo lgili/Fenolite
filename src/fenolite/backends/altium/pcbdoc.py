@@ -91,6 +91,12 @@ cut-out regions (change c0168, Decision 5). False until the maintainer's kit cas
 (``docs/evidence/altium-pcb.md``) are reported as passed: until then each cut-out is reported with
 ``altium.not-lowered`` and counted under ``cutout``. A constant, not an option: no user writes an
 unconfirmed form (open question 4)."""
+EMBEDDED_ARRAYS: Final = False
+"""Whether ``fenolite panel --target altium`` writes Altium's Embedded Board Array (change c0173, Decision 8).
+False until the maintainer's kit cases Q7, Q8 and Q9 of Part Q (``docs/evidence/altium-pcb.md``) are
+reported as passed: until then every Altium panel is the flattened one, and ``--altium-panel embedded`` is
+refused (exit 7). A constant, not an option: no user writes an unconfirmed form. Release 0.5.0 waits on it
+(the maintainer's decision of 2026-10-16)."""
 COPPER_STORAGES: tuple[str, ...] = ("Vias6", "Polygons6", "Classes6", "Rules6")
 """Storages of the copper (change c0038): ``Header`` is the record count, and ``Data`` is empty when the
 spec holds no such object."""

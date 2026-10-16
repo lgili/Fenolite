@@ -127,3 +127,41 @@ def test_part_s_gate_follows_the_report() -> None:
     reports = _part_s_reports()
     for case in ("S3", "S4", "S5"):
         assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case
+
+
+def _part_q() -> str:
+    return _section(_page("evidence/altium-pcb.md"), "## Part Q: panels and the Embedded Board Array")
+
+
+def test_part_q_names_the_twelve_cases_with_their_expected_outcomes() -> None:
+    """Requirement "Kit cases for panels" (change c0173): cases Q1 to Q12, each with an expected outcome,
+    the kit's files, the hypotheses they settle and the gate."""
+    part = _part_q()
+    for case in range(1, 13):
+        found = re.search(rf"\*\*Q{case}\*\*(.+?)(?=\n\d+\. \*\*Q|\n\nSend)", part, re.S)
+        assert found is not None, case
+        assert "Expected" in found.group(1), case
+    for name in (
+        "board/", "written/", "flat/", "expected.md", "SHA256SUMS", "session-6/Q-panels",
+        "H-A-PANEL-RECORD", "H-A-PANEL-LAYERKIND", "H-A-PANEL-KIT", "EMBEDDED_ARRAYS",
+    ):  # fmt: skip
+        assert name in part, name
+
+
+def _part_q_reports() -> str:
+    reports = _section(_page("evidence/altium-pcb.md"), "## Reports")
+    return "\n".join(
+        block for block in reports.split("\n### ") if block.split("\n", 1)[0].rstrip().endswith("Part Q")
+    )
+
+
+def test_part_q_gate_follows_the_report() -> None:
+    """Scenario "Gate follows the report": ``pcbdoc.EMBEDDED_ARRAYS`` is true only when a report of Part Q
+    records Q7, Q8 and Q9 as passed."""
+    from fenolite.backends.altium.pcbdoc import EMBEDDED_ARRAYS
+
+    if not EMBEDDED_ARRAYS:
+        return
+    reports = _part_q_reports()
+    for case in ("Q7", "Q8", "Q9"):
+        assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case

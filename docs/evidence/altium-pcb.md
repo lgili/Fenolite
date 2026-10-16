@@ -656,6 +656,75 @@ from `SHA256SUMS`, and one outcome per case, in the form of the native acceptanc
 case, file hash, step, expected and observed outcome). S1 to S8 settle `H-A-SLOT-KIT`; S3, S4 and S5 decide
 the gate.
 
+## Part Q: panels and the Embedded Board Array
+
+Change c0173; pending, no Altium verification is claimed. Fenolite makes panels of several copies of one
+board (`fenolite panel`). No public page gives the records of Altium's Embedded Board Array, so phase A
+measures them by observation: the maintainer makes panels of a board built by Fenolite in his licensed
+Altium Designer 26.5 and saves one document per variant, each differing from the baseline by one
+property; Fenolite reads the saved files with its own reader (`fenolite diff A B --view records`, and a
+dump of the opaque `EmbeddedBoards6` stream). Phase B (after task 7.2) asks Altium to open what Fenolite
+writes. Releases write no array until Q7, Q8 and Q9 pass (`pcbdoc.EMBEDDED_ARRAYS`), and release 0.5.0
+waits on them (the maintainer's decision of 2026-10-16); if the stop rules of the design end the array
+work, the flattened panel is what ships.
+
+**Files of phase A.** Built outside the repository by `FENOLITE_ALTIUM_PART_Q=~/fenolite-altium-checks/session-6/Q-panels
+uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a`: `board/`, the fixture
+`tests/data/panels/board.py` built with `--target altium` (`board.PrjPcb`, `board.PcbDoc` and their
+library, schematic and output job), a two-layer 40 × 30 mm rectangle authored for Fenolite; `README.md`,
+these steps in Portuguese; `PART-Q.md`, this text; and `SHA256SUMS`. Coordinates are millimetres from the
+document origin. **Files of phase B** (task 7.3): `written/`, `flat/` and `expected.md`.
+
+Work on a copy of the folder. For each case report `as expected` or what differed, in one sentence.
+
+*Phase A, observation:*
+
+1. **Q1** Add a new PCB `panel-a.PcbDoc` to `board/board.PrjPcb` (same folder). **Place » Embedded Board
+   Array/Panelize**, pick `board.PcbDoc`, place it; in Properties set X 5, Y 5, Rotation 0, Column Count 2,
+   Row Count 2, Column Spacing 42, Row Spacing 32, Mirrored off, Link Location off; choose "Synchronize
+   Manually Later" if asked and note the dialog. Save. Expected: four boards with 2 mm gaps.
+2. **Q2** From `panel-a`, **File » Save As** once per change, each made alone on a fresh copy of `panel-a`:
+   `panel-cols4` (Column Count 4), `panel-rows3` (Row Count 3), `panel-spacing` (Column Spacing 45, Row
+   Spacing 35), `panel-margin` (Column Margin 3, Row Margin 3; note whether the spacing fields change),
+   `panel-rot90` (Rotation 90), `panel-mirror` (Mirrored on), `panel-link` (Link Location on),
+   `panel-move` (X 12, Y 7). Expected: each saves; note any field that changed besides the one set.
+3. **Q3** On `panel-a`, add two mechanical layers in the View Configuration or the Layer Stack Manager, set
+   one's Layer Type to V Cut and the other's to Route Tool Path, draw one track on each, save as
+   `panel-layers`. Expected: it saves; note the layer numbers and names Altium gives.
+4. **Q4** On `panel-a`, place a second array of the same board at X 100, Y 5 (1 × 1), save as `panel-two`.
+   Expected: two arrays.
+5. **Q5** On `panel-a`, **File » Fabrication Outputs » Gerber Files** and **NC Drill Files** with their
+   defaults. Expected: four copies in the copper and drill outputs; send the list of files written (names
+   only).
+6. **Q6** Close Altium, zip the folder without the `History` and `Project Outputs` folders, and send it.
+   Expected: Fenolite runs `fenolite kit verify`'s path scan before anything is read.
+
+*Phase B, confirmation (files written by Fenolite after task 7.2; the gate forced on for the kit only):*
+
+7. **Q7** Open `written/panel.PrjPcb` and `panel.PcbDoc`. Expected: no repair message; one array of
+   `board.PcbDoc`, 2 × 2, with the properties of `expected.md`.
+8. **Q8** Move one track of `board.PcbDoc`, save, return to `panel.PcbDoc` and refresh (or reopen).
+   Expected: all four copies show the move. Then select the two mechanical layers. Expected: types V Cut
+   and Route Tool Path when task 7.2 writes them, otherwise unassigned with the names `V-Cut` and
+   `Route Tool Path`.
+9. **Q9** Gerber Files and NC Drill Files of `written/panel.PcbDoc` with their defaults. Expected: four
+   copies; the mouse-bite and tooling holes in the non-plated drill file; the `V-Cut` layer in its own
+   Gerber file.
+10. **Q10** **Tools » Design Rule Check** on `written/panel.PcbDoc`. Expected: report every message; none
+    is expected to block the outputs.
+11. **Q11** Open `flat/panel.PcbDoc` (the flattened panel), run Q9 and Q10 on it. Expected: it opens
+    without repair; the same holes and layers; note any message about repeated designators.
+12. **Q12** Save `written/panel.PcbDoc` as `panel-saved.PcbDoc` and run
+    `FENOLITE_ALTIUM_Q12=<that file> uv run pytest tests/unit/backends/altium/test_part_q.py -k q12`.
+    Expected: it passes (the same array read back).
+
+Send the Altium Designer version (`AD <major>.<minor>`), the date, the SHA-256 of each file sent, and one
+outcome per case, in the form of the native acceptance inventory (date, version, case, file hash, step,
+expected and observed outcome). Q1 to Q4 settle the measurement of `H-A-PANEL-RECORD`, Q3 that of
+`H-A-PANEL-LAYERKIND`; Q7 to Q12 settle `H-A-PANEL-KIT`, and Q7, Q8 and Q9 decide the gate
+`EMBEDDED_ARRAYS`. Saved native files stay outside the repository; only measured facts, digests and sizes
+are committed.
+
 ## Reports
 
 ### 2026-10-03, `AD 26.5`, Part D
