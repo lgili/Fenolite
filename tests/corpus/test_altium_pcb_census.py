@@ -269,3 +269,59 @@ def test_a_new_length() -> None:
     doc = read_pcbdoc(document({"Tracks6": [long_track(53)]}))
     assert isinstance(doc.tracks[0], TrackRecord) and doc.issues == ()
     assert length_problems(lengths_of(doc.tracks)) == ["track 53"]
+
+
+HOLES_AND_CUTOUTS: dict[str, tuple[int, int, int, int, int]] = {
+    "altium-third-party-pcbdoc-01": (12, 0, 0, 0, 0),
+    "altium-third-party-pcbdoc-02": (0, 0, 0, 0, 0),
+    "altium-third-party-pcbdoc-03": (0, 0, 0, 1, 1),
+    "altium-third-party-pcbdoc-04": (2, 0, 0, 0, 0),
+    "altium-third-party-pcbdoc-05": (4, 4, 0, 0, 0),
+    "altium-third-party-pcbdoc-06": (0, 0, 0, 6, 4),
+    "altium-third-party-pcbdoc-07": (2, 0, 0, 0, 0),
+}
+"""Row id → free pads, the board holes the import makes of them, slotted ones among them, regions with
+``ISBOARDCUTOUT=TRUE``, and the cut-outs (``Edge.Cuts`` polygons) the import makes of the free ones (change
+c0168, task 4.4; ``docs/evidence/altium-pcb-read.md``, "Holes and cut-outs")."""
+
+
+@pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
+def test_holes_and_cut_outs_of_the_import(item: CorpusItem) -> None:
+    """How many free pads the import gives as ``Hole``s and how many regions as cut-outs, per row."""
+    import hashlib
+
+    from fenolite.backends.altium.adapter import import_board
+
+    data = require(item).read_bytes()
+    doc = read_pcbdoc(data)
+    free = [
+        pad
+        for pad in doc.pads
+        if isinstance(pad, PadRecord)
+        and (pad.prefix.component is None or pad.prefix.component >= len(doc.components))
+    ]
+    keyed = [
+        region
+        for region in doc.regions
+        if isinstance(region, RegionRecord)
+        and {k.upper(): v.upper() for k, v in region.properties.fields}.get("ISBOARDCUTOUT") == "TRUE"
+    ]
+    design = import_board(doc, file="x.PcbDoc", sha256=hashlib.sha256(data).hexdigest())
+    board = design.board
+    assert board is not None
+    cutouts = [g for g in board.graphics if g.layer == "Edge.Cuts" and g.kind == "polygon"]
+    counts = (
+        len(free),
+        len(board.holes),
+        sum(1 for hole in board.holes if hole.length is not None),
+        len(keyed),
+        len(cutouts),
+    )
+    census(
+        "altium_pcb_holes",
+        item.id,
+        dict(zip(("free", "holes", "slots", "keyed", "cutouts"), counts, strict=True)),
+    )
+    assert counts == HOLES_AND_CUTOUTS[item.id]
+    # every free pad that is no hole is still a board-only footprint
+    assert sum(1 for fp in board.footprints if "board_only" in fp.attributes) == len(free) - len(board.holes)
