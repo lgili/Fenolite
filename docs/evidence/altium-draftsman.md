@@ -62,3 +62,68 @@ the other candidates are in Python's standard library or were recognised by thei
 Phase 1 has a budget of 2 design-days (design Decision 1). The container of the public documents was
 established on 2026-10-16 in under half a design-day. Gate G1 also needs every F0 file of the maintainer
 (tasks 1.4 and 1.5) and is decided there.
+
+## Part F: Draftsman documents
+
+Change c0172; pending, no Altium verification is claimed. Part F has three rounds: F0, observation files
+that the maintainer saves in Altium Designer 26.5 from a project Fenolite built (task 1.3); FP, probe
+documents written by Fenolite that decide gates G2 and G3 (task 3.2); F1 to F8, the acceptance of a
+build's document (task 6.1). Every file Altium saves stays in the maintainer's folder; only counts and
+element names derived from it enter the repository, after `fenolite kit verify`'s path scan.
+
+### Round F0: observation (task 1.3)
+
+**Files.** Built outside the repository by `FENOLITE_ALTIUM_PART_F0=~/fenolite-altium-checks/session-6/F0-draftsman
+uv run pytest tests/unit/backends/altium/test_part_f.py -k f0_kit`: `blink_routed/`, the Altium project
+that `fenolite build examples/blink_routed/design.py --target altium --seed 1 --timestamp
+2026-10-16T00:00:00Z` writes (the routed blink: a 50 × 30 mm two-layer board, `U1` and `R1` on the top,
+`D1` on the bottom, four tracks, two layer-change vias and a row of stitching vias, an output job);
+`README.md`, these steps in Brazilian Portuguese; and `SHA256SUMS`. The files settle the F0 half of
+`H-A-DWF-CONTAINER` and `H-A-DWF-FIELD` and give the forms of the empty document, a Text, the views and the
+tables that the writer of task 3.1 follows.
+
+Work on a copy of the folder. Every new document is created with **File » New » Draftsman Document**:
+template `[Default]`, project `blink_routed.PrjPcb`, source document `blink_routed.PcbDoc`. Every file is
+saved with **File » Save As** into `blink_routed/` under the name given. Do F0.12 last, because it moves a
+part on the board. For each step report `as expected` or the message Altium showed.
+
+1. **F0.1** Open `blink_routed/blink_routed.PrjPcb`. Create a new document and add nothing. Save as
+   `F0-01.PCBDwf`. Expected: one A4 sheet with no object; saved without a message.
+2. **F0.2** Close `F0-01.PCBDwf`, open it again and save it unchanged as `F0-02.PCBDwf`. Expected: saved
+   without a message.
+3. **F0.3** Open `F0-01.PCBDwf`, place one Text (**Place » Text**) reading `FENOLITE-1` anywhere on the
+   sheet. Save as `F0-03.PCBDwf`. Expected: the text shows on the sheet.
+4. **F0.4** Open `F0-03.PCBDwf`, change the text to `FENOLITE-22`. Save as `F0-04.PCBDwf`. Expected: the
+   new text shows.
+5. **F0.5** Open `F0-01.PCBDwf`, place one **Board Assembly View** with View Side Top. Save as
+   `F0-05.PCBDwf`. Expected: the view shows the outline, `U1` and `R1`.
+6. **F0.6** Open `F0-05.PCBDwf`, place a second Board Assembly View with View Side Bottom. Save as
+   `F0-06.PCBDwf`. Expected: the second view shows `D1`, seen from the bottom.
+7. **F0.7** Open `F0-01.PCBDwf`, place one **Drill Drawing View** (layer pair Top – Bottom) and one
+   **Drill Table**. Save as `F0-07.PCBDwf`. Expected: the view shows the holes with symbols and the table
+   lists their sizes.
+8. **F0.8** Open `F0-01.PCBDwf`, place one **Layer Stack Legend**. Save as `F0-08.PCBDwf`. Expected: the
+   legend shows the board's layers, two of them copper.
+9. **F0.9** Open `F0-05.PCBDwf`, place one **Bill of Materials** table. Save as `F0-09.PCBDwf`. Expected:
+   the table lists `D1`, `R1` and `U1`.
+10. **F0.10** Open `F0-07.PCBDwf`, place one **Note** with two entries, `FENOLITE NOTE ONE` and
+    `FENOLITE NOTE TWO`, and one **Linear Dimension** between the left and the right edge of the board
+    outline in the drill drawing view. Save as `F0-10.PCBDwf`. Expected: the note is numbered 1 and 2 and
+    the dimension reads the board's width, 50 mm (1968.5 mil).
+11. **F0.11** Open `F0-01.PCBDwf`, add a second sheet. Save as `F0-11.PCBDwf`. Expected: two empty sheets.
+12. **F0.12** (last) Open `blink_routed.PcbDoc`, move `R1` 5 mm to the right and save the PCB. Open
+    `F0-05.PCBDwf`, run **Tools » Import Changes From blink_routed.PcbDoc**. Save as `F0-12.PCBDwf`.
+    Expected: the view shows `R1` at its new place.
+13. **F0.13** Open `F0-10.PCBDwf` and save it with **File » Save As**, type Draftsman document template, as
+    `F0-13.DwfDot`. Expected: saved without a message.
+14. **F0.14** Open `F0-10.PCBDwf`, **File » Export to PDF** (one file, all sheets) as `F0-14.pdf`.
+    Expected: a PDF of one page with the views, the table, the note and the dimension.
+
+Send the whole folder (with the files Altium saved and the project as Altium left it), the Altium Designer
+version (`AD <major>.<minor>`, from **Help » About**), the date, and one outcome per step. The files are
+read only after `fenolite kit verify`'s path scan has run on the folder (task 1.4).
+
+## Reports
+
+No report of Part F has been received. Nothing on this page or in `docs/formats/altium/draftsman.md` is
+`ALTIUM-VERIFIED`.

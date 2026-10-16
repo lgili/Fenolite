@@ -83,8 +83,8 @@
    - The corpus census (Decision 2) runs under `FENOLITE_HEAVY=1` with the corpus cached.
    - KiCad has no importer for Draftsman, so no `kicad-cli` oracle exists. The levels above `INFERRED` come from the samples (`CORPUS-VERIFIED`) and the kit only.
 
-8. **The maintainer's kit, Part F** (Altium Designer 26.5, in the form of the native acceptance inventory: date, version, case, file hash, step, expected and observed outcome, level). Files are built outside the repository into `~/fenolite-altium-checks/session-5/F-draftsman/`, and every file Altium saves stays there.
-   - **F0, observation (before any writer code).** On `f0/blink.PrjPcb`, a routed two-layer project that Fenolite builds for this round from `examples/blink_2layer/design.py`, the maintainer creates and saves, each as its own file:
+8. **The maintainer's kit, Part F** (Altium Designer 26.5, in the form of the native acceptance inventory: date, version, case, file hash, step, expected and observed outcome, level). Files are built outside the repository into the maintainer's session folder of the round (`~/fenolite-altium-checks/session-6/F0-draftsman/` for F0; FP and F1 to F8 go to the session folder of their round), and every file Altium saves stays there.
+   - **F0, observation (before any writer code).** On `blink_routed/blink_routed.PrjPcb`, the routed two-layer project that Fenolite builds for this round from `examples/blink_routed/design.py` (the blink of `examples/blink_2layer` with its tracks and vias), the maintainer creates and saves, each as its own file:
      - F0.1 a new Draftsman document `[Default]` with no object;
      - F0.2 F0.1 saved again unchanged;
      - F0.3 F0.1 with one Text `FENOLITE-1`;
@@ -206,6 +206,11 @@ Cut order (first cut first):
 7. Route T, replaced by route P.
 
 Never cut: facts before writer code, the stop rules, the gate, the read-back, the maintainer's report before any `ALTIUM-VERIFIED`, and the project parameters.
+
+## Found on 2026-10-16
+
+- **The container (task 1.2).** The first look's "8-byte header with a four-byte field" is not a header. A document is a run of chunks: a flag byte (1 for an LZ4 block, 0 for stored bytes), the decoded length and, after flag 1, the stored length, both in .NET's 7-bit form, then the payload. Every chunk but the last decodes to 1 MiB, and every block decodes on its own. The "four-byte field" is the first chunk's stored length followed by the first bytes of its LZ4 block (`docs/formats/altium/draftsman.md`, "Container"). The statements of `H-A-DWF-CONTAINER` and `H-A-DWF-FIELD` in the table below keep their first wording; the register holds the measured one. LZ4 has a public block description (S-0803), so the reader and the writer need no codec package: the decoder and a literal-only or stored-chunk encoder are Fenolite's own code.
+- **The routed blink (task 1.3).** The routed blink is `examples/blink_routed/design.py`, the blink of `examples/blink_2layer` with its copper, and its `D1` is on the bottom. Its document therefore has three sheets (F2, F4), and the scenario "No part on the bottom" of `altium-draftsman` uses the routed blink with `D1` placed on the top. The kit folders follow the maintainer's sessions: round F0 is `~/fenolite-altium-checks/session-6/F0-draftsman/`.
 
 ## Open questions
 

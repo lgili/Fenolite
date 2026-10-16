@@ -127,3 +127,46 @@ def test_part_s_gate_follows_the_report() -> None:
     reports = _part_s_reports()
     for case in ("S3", "S4", "S5"):
         assert re.search(rf"\|\s*{case}\s*\|[^\n]*\|\s*as expected\s*\|", reports), case
+
+
+def _part_f() -> str:
+    return _section(_page("evidence/altium-draftsman.md"), "## Part F: Draftsman documents")
+
+
+def test_part_f_f0_names_the_fourteen_steps_with_their_expected_outcomes() -> None:
+    """Requirement "Kit cases for Draftsman documents" (change c0172, task 1.3): round F0 names the
+    observation files F0.1 to F0.14 in order, each with an expected outcome, the kit's files, the hypotheses
+    it settles and the path scan that comes before any file is read."""
+    part = _part_f()
+    start = part.index("### Round F0")
+    end = part.find("\n### ", start + 1)
+    f0 = part[start : end if end > 0 else len(part)]
+    found = [int(n) for n in re.findall(r"\*\*F0\.(\d+)\*\*", f0)]
+    assert found == list(range(1, 15))
+    for step in range(1, 15):
+        body = re.search(rf"\*\*F0\.{step}\*\*(.+?)(?=\n\d+\. \*\*F0|\n\nSend)", f0, re.S)
+        assert body is not None and "Expected" in body.group(1), step
+    for name in (
+        "session-6/F0-draftsman",
+        "blink_routed/",
+        "README.md",
+        "SHA256SUMS",
+        "H-A-DWF-CONTAINER",
+        "H-A-DWF-FIELD",
+        "fenolite kit verify",
+        "Altium Designer 26.5",
+    ):
+        assert name in f0 or name in part, name
+
+
+def test_part_f_reports_hold_no_altium_verified_row_without_a_report() -> None:
+    """No ``H-A-DWF-*`` row and no row of ``draftsman.md`` is ``ALTIUM-VERIFIED`` while Part F has no
+    recorded report."""
+    reports = _section(_page("evidence/altium-draftsman.md"), "## Reports")
+    if "No report of Part F has been received" not in reports:
+        return
+    facts = _page("formats/altium/draftsman.md")
+    assert "ALTIUM-VERIFIED" not in facts
+    register = _page("hypotheses.md")
+    rows = [line for line in register.splitlines() if line.startswith("| H-A-DWF-")]
+    assert rows and not [line for line in rows if "| ALTIUM-VERIFIED" in line]

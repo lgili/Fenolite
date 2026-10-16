@@ -44,6 +44,6 @@ The first sheet SHALL hold a Drill Drawing View (top, Top–Bottom pair), a Dril
 The document SHALL hold one assembly sheet per side of `[assembly].sides` that has parts, each with a Board Assembly View of that side with designator captions, a Bill Of Materials table filtered to that view, the title-block Texts, and on the top sheet a Note of `[assembly].notes`. A do-not-populate part MUST give one `altium.not-lowered` info naming it.
 
 #### Scenario: No part on the bottom
-- **GIVEN** the routed blink, whose parts are all on the top
+- **GIVEN** the routed blink with `D1` placed on the top, so that every part is on the top
 - **WHEN** its Draftsman spec is built with the default drawing specification
 - **THEN** the document has two sheets, the second holds a top assembly view and a BOM table, and no bottom sheet exists
