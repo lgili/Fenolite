@@ -38,6 +38,7 @@ from fenolite.backends.altium import outjob as job_writer
 from fenolite.backends.altium.altsym import DEFAULT_BODIES, AltiumSymbol, SymbolBodies, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
+from fenolite.backends.altium.cutouts import CUTOUT_HINT, cutout_items, not_written
 from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
@@ -70,11 +71,18 @@ from fenolite.lens.build import (
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
 from fenolite.model.base import Opaque
-from fenolite.model.board import PPM_PER_PERCENT, ComponentBody, FootprintInstance, Graphic, Hole, Pad
+from fenolite.model.board import (
+    PPM_PER_PERCENT,
+    Board,
+    ComponentBody,
+    FootprintInstance,
+    Graphic,
+    Hole,
+    Pad,
+)
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
-from fenolite.model.outline import slot_name
 from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
 from fenolite.schematic.composition import CompositionError, fail
 from fenolite.schematic.intent import CompositionIntent
@@ -448,21 +456,23 @@ def _decimal_atom(node: Node) -> Decimal | None:
 
 def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
     """Pad id → the KiCad-only facts the model keeps opaque: the corner ratio of a rounded rectangle, a reason
-    to refuse (an oval or offset drill, chamfers, custom primitives) and the settings Altium has no field for
+    to refuse (an offset or unusual drill, a slot of a pad with a shape per layer, chamfers, custom
+    primitives) and the settings Altium has no field for
     (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
     out: dict[str, pcblib.PadExtras] = {}
     for pad in defn.pads:
         ratio: Decimal | None = None
         refusal: str | None = None
         dropped: list[str] = []
-        if pad.padstack is not None and pad.padstack.hole_shape == "slot":
-            refusal = "the drill is oval or has an offset"
+        if pad.padstack is not None and pad.padstack.hole_shape == "slot" and pad.padstack.layers:
+            # a slot of a pad of one shape is written with the record's slot fields (change c0170)
+            refusal = "the drill is oval and the pad has a shape per layer"
         for node in _opaque_nodes(pad):
             head = node.name
             if head == "roundrect_rratio":
                 ratio = _decimal_atom(node)
             elif head == "drill":
-                refusal = refusal or "the drill is oval or has an offset"
+                refusal = refusal or "the drill has an offset or a form other than round or oval"
             elif head in PAD_REFUSED:
                 if head == "chamfer_ratio" and _decimal_atom(node) == 0:
                     continue
@@ -636,12 +646,28 @@ the two equal: the lens does not import the DSL)."""
 @dataclasses.dataclass(frozen=True)
 class HoleParts:
     """What ``split_hole_parts`` found: the design without its hole parts, whose board holds one ``Hole``
-    per hole part; the ids of the holes that the document cannot hold (a slot, a plated hole, a hole
-    without a placement), and one ``altium.not-lowered`` info for each of them."""
+    per hole part; the ids of the holes that the document cannot hold (a plated hole, a hole without a
+    placement), and one ``altium.not-lowered`` info for each of them."""
 
     design: Design
     reported: frozenset[str] = frozenset()
     issues: tuple[Issue, ...] = ()
+
+
+def _slot_of(pad: Pad | None, request: PlacementRequest | None) -> tuple[Nm | None, int]:
+    """The overall length of a hole part's slot and its axis on the board (change c0168): the padstack's
+    ``hole_length``, and its axis in the footprint frame (the pad's rotation plus its ``hole_rotation``,
+    which is in the pad's own frame) as the part's placement turns it, mirrored on the bottom side.
+    ``(None, 0)`` for a round hole."""
+    stack = pad.padstack if pad is not None else None
+    if stack is None or stack.hole_shape != "slot" or not stack.hole_length:
+        return None, 0
+    assert pad is not None
+    axis = pad.rotation + stack.hole_rotation
+    if request is None:
+        return stack.hole_length, axis % FULL_TURN
+    local = -axis if request.side == "bottom" else axis
+    return stack.hole_length, (local + request.rotation) % FULL_TURN
 
 
 def split_hole_parts(
@@ -653,10 +679,11 @@ def split_hole_parts(
     (capability altium-build, "PCB document output"; change c0102).
 
     A hole part is no component of an Altium build: it gets no schematic symbol, no library footprint and
-    no component record. A round hole that is not plated becomes the model ``Hole`` that the document
-    writes as a free pad without copper. A slot and a plated hole have no such record: each is listed in
-    ``reported`` with one ``altium.not-lowered`` whose ``where`` is ``hole/<component id>``, and the pin
-    of a plated hole leaves its net. The courtyard of a hole part is not written: a free pad has none."""
+    no component record. A hole that is not plated becomes the model ``Hole`` that the document writes as
+    a free pad without copper, a slot (change c0168) with its ``length`` and its axis turned by the part's
+    placement (``_slot_of``). A plated hole has no such record: it is listed in ``reported`` with one
+    ``altium.not-lowered`` whose ``where`` is ``hole/<component id>``, and its pin leaves its net. The
+    courtyard of a hole part is not written: a free pad has none."""
     parts = [
         c for c in design.circuit.components if (split_link(c.lib_symbol_ref) or ("", ""))[0] == HOLE_LIBRARY
     ]
@@ -677,12 +704,14 @@ def split_hole_parts(
         request = placements.get(component_path(component))
         drill = pad.drill if pad is not None and pad.drill is not None else 0
         plated = pad is not None and pad.kind != "np_thru_hole"
-        slot = pad is not None and pad.padstack is not None and pad.padstack.hole_shape == "slot"
+        length, rotation = _slot_of(pad, request)
         hole = Hole(
             id=derived_id("hol", DSL_BACKEND, f"hole:{component_path(component)}"),
             position=request.at if request is not None else Point(0, 0),
             drill=drill,
             plated=plated,
+            length=length if length is not None and length > drill else None,
+            rotation=rotation if length is not None and length > drill else 0,
         )
         holes.append(hole)
         lacks: list[str] = []
@@ -690,8 +719,6 @@ def split_hole_parts(
             lacks.append("its footprint definition is not known to the build")
         if request is None:
             lacks.append("it has no placement")
-        if slot:
-            lacks.append("it is a slot, and the board hole of the document is round")
         if plated:
             nets = ", ".join(sorted(net_of.get(component.id, []))) or "no net"
             lacks.append(
@@ -984,6 +1011,19 @@ def _plan_planes(plan: altium_copper.CopperPlan) -> dict[str, str]:
     return dict(zip(layers, plan.stack.plane_nets, strict=True))
 
 
+def cutout_issues(board: Board | None) -> list[Issue]:
+    """One ``altium.not-lowered`` info per cut-out or slot of the outline that the document does not
+    write (change c0168; capability altium-build, "PCB document output"): every one while
+    ``pcbdoc.CUTOUT_REGIONS`` is false, else those that cannot be united. ``where`` is ``cutout/<k>``,
+    ``slot/<name>`` or the items of a merged group joined by ``+``."""
+    found: list[Issue] = []
+    for item in cutout_items(board.outline if board is not None else None):
+        reason = not_written(item, gate=pcbdoc.CUTOUT_REGIONS)
+        if reason is not None:
+            found.append(issue("altium.not-lowered", reason, item.where, CUTOUT_HINT))
+    return found
+
+
 def lowered_pcb(
     design: Design,
     *,
@@ -1021,17 +1061,12 @@ def lowered_pcb(
     with_links = [c for c in components if c.lib_footprint_ref]
     if board is None or board.outline is None or not board.outline.points:
         reason = "the design has no board outline"
-    elif board.outline.arcs:
-        # no fact row gives the form of an arc in the board outline of the document (change c0102)
+    elif any(arc.ring == 0 for arc in board.outline.arcs):
+        # no fact row gives the form of an arc in the board ring of the document (change c0102); the arcs of
+        # a cut-out are polygonised in its region (change c0168)
         reason = "the board outline has arcs, which the document does not write"
     elif len(board.outline.points) < 3:
         reason = "the design has no board outline"
-    elif board.outline.cutouts:
-        reason = "the board outline has cutouts, which the document does not write"
-    elif board.outline.slots:
-        # change c0167: a milled slot is a cut-out of the outline; c0168 writes both as board cut-out regions
-        reason = "the board outline has milled slots, which the document does not write"
-        concerned = [slot_name(slot) for slot in board.outline.slots]
     else:
         altium = [c.ref for c in with_links if footprint_source(c.lib_footprint_ref) == "altium"]
         missing = [
@@ -1046,7 +1081,8 @@ def lowered_pcb(
             )
         elif missing:
             reason, concerned = "the footprints of some components are not written", missing
-        elif not with_links:
+        elif not with_links and not board.holes and not cutout_items(board.outline):
+            # a board of holes and cut-outs alone is a document of its own (change c0168)
             reason = "no component has a footprint"
     if reason:
         names = f" ({', '.join(concerned)})" if concerned else ""
@@ -1092,6 +1128,7 @@ def lowered_pcb(
     inputs = lower.from_design(_with_plan_copper(placed, plan), issues=[], options=options, bodies=bodies)
     spec = inputs.pcb
     assert spec is not None
+    issues += cutout_issues(board)
     _placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues, script_bodies)
     plan = dataclasses.replace(plan, counts=MappingProxyType({**plan.counts, "body": body_counts}))
     if account is not None:

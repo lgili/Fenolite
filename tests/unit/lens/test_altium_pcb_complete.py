@@ -156,16 +156,17 @@ def test_readback(name: str) -> None:
             and t.rotation == text.rotation
         ]
         _one(found_texts, text.id)  # type: ignore[arg-type]
-    holes = [fp for fp in read.footprints if fp.attributes == ("board_only",)]
-    assert len(holes) == len(board.holes)
+    # a free pad whose copper is its hole is a board hole of the import since change c0168
+    assert not [fp for fp in read.footprints if fp.attributes == ("board_only",)]
+    assert len(read.holes) == len(board.holes)
     for hole in board.holes:
         found_holes = [
-            fp
-            for fp in holes
-            if near(fp.position, moved(hole.position))
-            and fp.pads[0].drill is not None
-            and abs(fp.pads[0].drill - hole.drill) <= 2
-            and (fp.pads[0].kind == "thru_hole") == hole.plated
+            h
+            for h in read.holes
+            if near(h.position, moved(hole.position))
+            and abs(h.drill - hole.drill) <= 2
+            and h.plated == hole.plated
+            and h.length == hole.length
         ]
         _one(found_holes, hole.id)  # type: ignore[arg-type]
     drawn = [g for g in read.graphics if g.layer not in ("Edge.Cuts", "Altium.KeepOut")]
@@ -206,7 +207,7 @@ def test_board6_golden_files() -> None:
     assert output.summary["pcb"] == {  # type: ignore[comparison-overlap]
         "written": {
             "footprint": 3, "pad": 36, "track": 7, "arc": 1, "via": 3, "zone": 2, "text": 4, "graphic": 5,
-            "dimension": 0, "keep-out": 1, "hole": 1, "body": 0, "rule": 0,
+            "dimension": 0, "keep-out": 1, "hole": 1, "cutout": 0, "body": 0, "rule": 0,
         },
         "not_lowered": {},
         "bodies": "extruded",  # the default since change c0155; board6 holds no body

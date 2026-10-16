@@ -69,6 +69,7 @@ KINDS: tuple[KindRow, ...] = (
         (),
         (
             "outline",
+            "cutout",
             "stackup",
             "keep-out",
             "hole",
@@ -100,6 +101,20 @@ DOWNGRADE_KINDS: tuple[KindRow, ...] = _downgrade_rows()
 ``backends/kicad/data/downgrade.toml``, documented in ``docs/formats/kicad/tokens.md``."""
 BY_NAME: Mapping[str, KindRow] = MappingProxyType({row.name: row for row in (*KINDS, *DOWNGRADE_KINDS)})
 REFUSE: frozenset[str] = frozenset(row.name for row in KINDS if row.loss == "refuse")
+OVERLAP_NO_UNION = (
+    "these cut-outs overlap, no installed geometry backend unites them (pip install 'fenolite[geo]'), and "
+    "KiCad calls overlapping edge rings a malformed outline"
+)
+OVERLAP_NOT_ONE_RING = (
+    "the union of these overlapping cut-outs is not one ring without holes, and KiCad calls overlapping "
+    "edge rings a malformed outline"
+)
+REFUSE_REASONS: Mapping[str, frozenset[str]] = MappingProxyType(
+    {"cutout": frozenset({OVERLAP_NO_UNION, OVERLAP_NOT_ONE_RING})}
+)
+"""The reasons whose losses need consent in a kind of class ``report`` (change c0170): overlapping cut-outs
+that a conversion to KiCad cannot merge are not written, because KiCad would refuse the board's outline
+(``invalid_outline``), and the board that is made then lacks them. Their row is ``refuse``."""
 SOURCE = "source"
 """Not a kind: the explanation of a difference that the source holds against itself (a reference that
 several components share, on both sides alike)."""
@@ -142,6 +157,10 @@ class ReportRow:
 
     @property
     def loss(self) -> LossClass:
+        """The class of the kind, or ``refuse`` when a reason of ``REFUSE_REASONS`` lost an item."""
+        refusing = REFUSE_REASONS.get(self.kind, frozenset())
+        if any(r.outcome == "lost" and r.reason in refusing for r in self.reasons):
+            return "refuse"
         return BY_NAME[self.kind].loss if self.kind in BY_NAME else "report"
 
     def ids(self, outcome: Outcome = "lost") -> tuple[str, ...]:
@@ -473,7 +492,10 @@ __all__ = [
     "GROUPS",
     "KINDS",
     "LEVEL5",
+    "OVERLAP_NOT_ONE_RING",
+    "OVERLAP_NO_UNION",
     "REFUSE",
+    "REFUSE_REASONS",
     "SOURCE",
     "ConversionReport",
     "Explainer",

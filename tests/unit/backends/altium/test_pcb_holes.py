@@ -28,11 +28,11 @@ def test_mounting_hole() -> None:
     assert pad.size_top == pad.size_mid == pad.size_bottom == (pad.hole, pad.hole)  # no copper ring
     assert pad.hole_shape is None  # no slot fields: the sixth subrecord is empty
     assert design.board is not None
-    (footprint,) = design.board.footprints
-    assert footprint.attributes == ("board_only",)
-    (read,) = footprint.pads
-    assert read.kind == "np_thru_hole" and read.drill is not None and abs(read.drill - MOUNT.drill) <= 2
-    assert near(footprint.position, imported_point(MOUNT.position))
+    # since change c0168 the import gives such a pad back as a board hole, not a board-only footprint
+    assert not design.board.footprints
+    (read,) = design.board.holes
+    assert not read.plated and read.length is None and abs(read.drill - MOUNT.drill) <= 2
+    assert near(read.position, imported_point(MOUNT.position))
     assert dict(document.pad_unique_ids) and len(document.pad_unique_ids) == 1
 
 
@@ -44,10 +44,8 @@ def test_a_plated_hole_sets_the_plated_byte() -> None:
         (True, pcbrecords.to_units(1_000_000)),
     ]
     assert design.board is not None
-    assert sorted(pad.kind for fp in design.board.footprints for pad in fp.pads) == [
-        "np_thru_hole",
-        "thru_hole",
-    ]
+    assert not design.board.footprints  # both are board holes of the import since change c0168
+    assert sorted(hole.plated for hole in design.board.holes) == [False, True]
 
 
 def test_holes_follow_the_component_pads() -> None:

@@ -1,6 +1,7 @@
 {
   "probes": {
     "acceptance-v03": "equal",
+    "altium-cutout-region": "equal",
     "altium-fpitems-kicad": "equal",
     "altium-pcbx-bodies": "equal",
     "altium-pcbx-graphics": "equal",
@@ -11,6 +12,7 @@
     "altium-pcbx-vias": "equal",
     "altium-pcbx-zones": "equal",
     "altium-rta3-kicad": "equal",
+    "altium-slot-pad": "equal",
     "analysis-creepage-edge": "different",
     "analysis-creepage-slot": "equal",
     "analysis-creepage-split": "equal",
@@ -114,6 +116,8 @@
     "convert-difat": "equal",
     "convert-padstack": "equal",
     "convert-retarget": "equal",
+    "convert-slots-drc": "absent",
+    "convert-slots-drill": "equal",
     "convert-triangle": "equal",
     "copper-anchor-frame": "equal",
     "copper-anchor-frame-control": "different",

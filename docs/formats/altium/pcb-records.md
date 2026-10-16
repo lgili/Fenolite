@@ -126,6 +126,36 @@ Change c0085 writes regions for filled graphics and for keep-outs. The framing o
 | KiCad imports a free pad as a footprint of its own; a free pad on Multi-Layer with the plated byte 0 becomes one non-plated through hole of the pad's hole size at its place | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
 | A slotted hole is hole shape 2 with a slot length and rotation in the sixth subrecord (see "Pad"); every slotted hole of the saved documents is plated and belongs to a component | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0160 | INFERRED | H-A-PCBX-HOLE |
 
+## Slot pads (change c0168)
+
+A drilled slot of a board (a model `Hole` with a `length`) is written as a free pad with a slotted hole.
+The rows below join the public pad page (S-0770) to the pad record rows of "Pad"; the writer's choices are
+under "Fenolite's choices".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad's hole is Round, Rectangular or Slot, a slot having round ends; Hole Size is the diameter of a round hole and the width of a slot, and Length, offered for a rectangular hole or a slot only, cannot be smaller than the size. In the record the hole size is offset 45 of subrecord 5, and hole shape 2 (offset 262 of subrecord 6) with the slot length at 263 is the slot, so a slot of width w and overall length l has hole size w and slot length l | S-0770, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SLOT-PAD |
+| The rotation of a hole is counter-clockwise relative to the pad, in degrees with a resolution of 0.001°, and is offered for a rectangular hole or a slot only; the slot rotation at offset 267 of subrecord 6 is that angle, and the axis of the slot on the board is the pad's rotation plus it | S-0770, S-0160 | INFERRED | H-A-SLOT-PAD |
+| A free pad is one that is not part of a parent component, and its designator may be left empty; Multi-Layer defines a through-hole pad, and the hole options (shape, plating) exist for a through-hole pad only; Plated decides whether the hole is plated, and non-plated holes get their own tools in the NC drill files | S-0770 | INFERRED | H-A-SLOT-PAD |
+| The solder mask and paste openings of a pad are taken from the rules (Rule Expansion) or set per pad (Manual Expansion); what Altium makes of the openings of a free pad whose copper equals its slotted hole is not stated (kit case S1) | S-0770 | INFERRED | H-A-SLOT-KIT |
+| A region's Kind is Copper, Polygon Cutout, Board Cutout or Cavity (Cavity in the library editor only). A Board Cutout defines a negative area or hole within the board shape and is offered no Layer field; the page does not say whether it has a net. Arc Approximation is the largest deviation of a drawn arc from a true arc | S-0771 | INFERRED | H-A-CUTOUT-REGION |
+
+## Board cut-outs (change c0168)
+
+Measured on 2026-10-16 (task 1.2 of c0168) by writing eight candidate regions, each the one free region of
+an authored 60 × 40 mm board in `Regions6` and `ShapeBasedRegions6` alike, importing each with
+`kicad-cli pcb import` 10.0.6 (`tests/kicad/altium/test_slots_import.py -k candidates`) and reading it with
+Fenolite's reader. The candidates are the keys of the saved regions above (`KIND` 0 or 1, `ISBOARDCUTOUT=TRUE`
+of the older keep-out regions) on the Keep-Out layer (56), Multi-Layer (74) and the Top Layer (1).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A free region with `KIND=0` and the key `ISBOARDCUTOUT=TRUE` after the keys of a saved region is imported by KiCad as `Edge.Cuts` lines along its ring, a cut-out of the board, with no graphic and no rule area beside it, on each of the layers 56, 74 and 1, and also with the older keys `LAYER=KEEPOUT` and `KEEPOUT=TRUE` before it | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-16) | H-A-CUTOUT-REGION |
+| A free region with `KIND=1` is imported by KiCad as one rule area and no edge, with or without `ISBOARDCUTOUT=TRUE`, on each of the layers 56, 74 and 1: `KIND=1` is the polygon cut-out of the region page, not the board cut-out | S-0771, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-16) | H-A-CUTOUT-REGION |
+| KiCad takes a board cut-out's ring from `ShapeBasedRegions6`: a shape-based vertex with the round flag 1, a centre and a radius gives one arc from that vertex to the next, while the plain record of `Regions6` holds the straight edge | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-16) | H-A-CUTOUT-REGION |
+| Fenolite's reader takes a free region from `Regions6` and keeps the shape-based record as it is, so an arc vertex of a cut-out does not reach the model; the writer therefore polygonises the arcs of a cut-out (the first item of c0168's cut order for arcs) | S-0160 | INFERRED | H-A-CUTOUT-REGION |
+| What Altium Designer makes of a region with `KIND=0` and `ISBOARDCUTOUT=TRUE` on the Keep-Out layer without the keep-out flag (a Board Cutout of the region page, with no layer field) is not known from any source read: the saved regions with the key also hold `KEEPOUT=TRUE`. Kit cases S3 to S5 of Part S settle it | S-0771, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-SLOT-KIT |
+
 ## Layers
 
 | fact | source | label | hypothesis |

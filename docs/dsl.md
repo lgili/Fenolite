@@ -430,6 +430,10 @@ design.slot(mm(30), mm(20), length=mm(12), width=mm(2), rot=30)  # a milled slot
   KiCad judges copper near it with `copper_edge_clearance`, and slots that overlap become one opening. A
   slot for a fastener or a press-fit is drilled: `hole(…, length=…)`, an oval `np_thru_hole` pad, judged
   by the hole rules (`hole_clearance` on KiCad 10 only) and written to the drill file as a `G85` slot.
+  For Altium (change c0168) the same rule holds: a milled slot or cut-out becomes a board cut-out region,
+  which Board Outline Clearance measures, and a drilled slot a free pad with a slotted hole, which Hole
+  To Hole Clearance judges. Until the maintainer's kit has confirmed the region form, the Altium build
+  reports each milled slot and cut-out instead of writing it (`docs/altium.md`, "Slots and cut-outs").
 - **`locked=True`** makes the script's outline replace an outline edited in KiCad when the board is
   rebuilt (`docs/lens.md`, "Outline changes"). `outline_locked(design)` returns it.
 

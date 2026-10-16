@@ -117,6 +117,10 @@
     "dsn-use-layer": {
       "detail": "class SIG with (use_layer F.Cu): SIG tracks per layer {'F.Cu': 18}, HV tracks per layer {'F.Cu': 2}; open nets {'SIG5': 1}; jar 00ba5b873e33, openjdk version \"26.0.2\" 2026-07-21",
       "value": "equal"
+    },
+    "route-slot": {
+      "detail": "the shared slot fixture with R1-2 and R2-1 of net A 3 mm on either side of S1, 3 keep-out(s): 7 track(s), 0 touching S1, open nets []; control with the board ring alone: 2 track(s), 2 touching S1; jar 251101c3eeac, openjdk version \"25.0.4.1\" 2026-08-18",
+      "value": "absent"
     }
   },
   "pinned_version": "2.4.1",

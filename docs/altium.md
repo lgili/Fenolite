@@ -386,10 +386,11 @@ script, then the global table). A link that does not resolve gives `altium.footp
 **`<name>.PcbLib`.** Every resolved KiCad footprint goes into one PCB library named after the design,
 beside `<name>.SchLib`; the schematic links each KiCad footprint to it (`MODELDATAFILE0=<name>.PcbLib`),
 whether or not that footprint could be written. Written: surface and through-hole pads (round, oval,
-rectangular and rounded-rectangle shapes, round holes, plated or not), lines, rectangles, arcs and circles
-on the mapped layers. Refused, with `altium.footprint-unsupported` (warning; the footprint is not
-written): trapezoid and custom pads, connector pads, padstacks, slots and oval or offset drills, chamfered
-corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
+rectangular and rounded-rectangle shapes, round holes, plated or not), the slotted (oval) drill of a pad
+of one shape (change c0170: hole shape Slot, hole size the drill, the slot length, and the slot rotation
+relative to the pad), lines, rectangles, arcs and circles on the mapped layers. Refused, with
+`altium.footprint-unsupported` (warning; the footprint is not written): trapezoid and custom pads,
+connector pads, padstacks, a slot of a pad with a shape per layer, offset drills, chamfered corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
 `altium.primitive-dropped` (warning): polygons, filled rectangles and circles, graphics on unmapped layers,
 and pad settings the Altium record has no field for (mask and paste margins, zone and thermal settings).
 Texts, properties and 3D model links are not written (`altium.footprint-extras-dropped`, info); Altium adds
@@ -421,16 +422,52 @@ the placements and the net classes are no longer reported by `altium.not-lowered
 texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
-**Outlines with arcs, and holes.** An outline with arcs plans no PCB document, as an outline with
-cut-outs: `altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in
-the board outline of the document. The parts of `design.hole()` are not components of an Altium
-build: they get no schematic symbol, no library footprint and no component record. A round hole that
-is not plated is written as a board hole, the free pad without copper, and counted under `hole` of
-`result.pcb.written`. A slot and a plated hole have no such record: each gives one
-`altium.not-lowered` whose `where` is `hole/<component id>` and is counted under `hole` of
-`result.pcb.not_lowered`; the pin of a plated hole is then absent from its net in the Altium project.
-A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of a
-hole part is not written: a free pad has none.
+**Outlines with arcs, and holes.** An outline whose board ring has arcs plans no PCB document:
+`altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in the board
+outline of the document. The parts of `design.hole()` are not components of an Altium build: they get no
+schematic symbol, no library footprint and no component record. A hole that is not plated is written as
+a board hole, the free pad without copper, and counted under `hole` of `result.pcb.written`. A plated
+hole has no such record: it gives one `altium.not-lowered` whose `where` is `hole/<component id>` and is
+counted under `hole` of `result.pcb.not_lowered`; its pin is then absent from its net in the Altium
+project. A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of
+a hole part is not written: a free pad has none.
+
+**Slots and cut-outs** (change c0168). Altium has two forms, one meaning each (S-0460):
+
+- A **drilled** slot, `design.hole(…, length=…)` (a model `Hole` with `length` and `rotation`), is a
+  free pad with a slotted hole: Multi-Layer, no designator and no net, size (length, width), hole shape
+  Slot with the slot length, the pad turned by the slot's angle and the slot at 0° to the pad, so the
+  copper equals the hole. It is drilled (NC drill file, drill drawing), and Hole To Hole Clearance
+  judges it: two drilled slots that overlap are flagged.
+- A **milled** slot or a cut-out, `design.slot()` or `design.cutout()`, is a board cut-out region:
+  `KIND=0` with `ISBOARDCUTOUT=TRUE` on the Keep-Out layer, each group of overlapping cut-outs and slots
+  one region (the union of `lowered_outline`), its arcs polygonised within 1 µm. Board Outline Clearance
+  measures copper to its edge; no drill file holds it.
+- **The gate.** The region form is measured with KiCad's importer only. Until the maintainer's kit
+  (Part S of `docs/evidence/altium-pcb.md`, cases S3 to S5) has shown it in Altium Designer,
+  `pcbdoc.CUTOUT_REGIONS` is false: the document is planned, no region is written, and each cut-out
+  gives one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>` or the items of a
+  merged group joined by `+` (`slot/S2+slot/S3`), counted under `cutout` of `result.pcb.not_lowered`. The
+  gate is a constant, not an option. An arc of a cut-out no longer refuses the document; an arc of the
+  board ring still does.
+- **Import.** Reading a PCB document, a region with `ISBOARDCUTOUT=TRUE` (and `KIND=0`) becomes one
+  `Edge.Cuts` polygon of width 0, so `board_outline` and `edge_outline` take it as a cut-out, and a free
+  pad on Multi-Layer without name, net or copper ring becomes a board `Hole` (with its slot) instead of a
+  board-only footprint; every other free pad stays a footprint. This changes what an import gives for
+  such pads and regions: on the seven public documents four pads become holes and five regions cut-outs
+  (`docs/evidence/altium-pcb-read.md`). `fenolite convert --to kicad` gives each such hole the footprint
+  that `design.hole` generates (`Fenolite_Holes:NPTH_…`, change c0170; `docs/conversion.md`), since KiCad
+  takes no board hole.
+- **Round trips.** RT-A2 compares a board hole by position, drill, plating, length and rotation, and each
+  written cut-out ring with the read one within 1 µm ("The scope of RT-A2" below).
+- **A KiCad board converted** (change c0170). `fenolite convert --to altium` takes the edges of a read
+  KiCad board with `edge_outline` and gives them to the write (`lower.write_design(…, edges=…)`): the board
+  ring is the document's outline as before (an arc as two straight edges, counted under `outline`), and
+  every inner ring is a cut-out region through the same lowering, or a loss with the gate's reason, counted
+  under `cutout` (`docs/conversion.md`). A footprint pad with a slotted (oval) drill is written with the
+  slot fields in the library and the document: hole size the drill, slot length the padstack's
+  `hole_length`, slot rotation its `hole_rotation`, which the model holds in the pad's own frame as the
+  record holds it relative to the pad; the import reads it back in that frame.
 
 **Assembly and test features** (change c0118). The parts of `design.test_point()` are written as any
 authored part. The parts of `design.fiducial()` are left out of the schematic and of the PCB library and
@@ -472,8 +509,9 @@ maintainer reports Part C of `docs/evidence/altium-pcb.md`.
 **Complete board (change c0085).** A model can hold more than a script declares: a design that was
 imported, or one built in Python from the model's classes, as the sample `tests/_altium_board6.py` is.
 The build writes these items too, and `result.pcb` counts them: `written` maps each kind (`footprint`,
-`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`) to the number
-of model items the document holds, and `not_lowered` the kinds with items it does not hold. Every item is
+`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `dimension`, `keep-out`, `hole`, `cutout`,
+`body`, `rule`) to the number of model items the document holds, and `not_lowered` the kinds with items it
+does not hold. Every item is
 in one of the two; an item that is not written has an issue whose `where` is `<kind>/<id>`.
 `result.pcb.bodies` (change c0121) is the value of `--altium-bodies` that was used.
 
@@ -1406,6 +1444,8 @@ reading of the schematic documents, and every other kind with the reading of the
 | `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
 | `via` | `position`, `diameter`, `drill`, `net_id`, `locked` | PCB document |
 | `zone` | `outline`, `layers`, `net_id` | PCB document |
+| `hole` | `position`, `drill`, `plated`, `length`, `rotation` | PCB document |
+| `cutout` | each written cut-out ring of the outline | PCB document |
 
 **The built model holds the board that was written** (change c0090). A build that writes a PCB document
 stores, in `.fenolite/board.json`, one footprint per placed component with the pads that the document
@@ -1462,6 +1502,16 @@ Fields of these kinds that the scope leaves out, and why:
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
 | `zone` | `settings` | the writer does not write it |
 | `zone` | `locked` | the writer does not write it |
+| `hole` | `intent` | the writer does not write it: the mechanical intent of a hole stays in the neutral model |
+
+**Holes and cut-outs** (change c0168). A board hole is compared by its position, drill, plating, slot
+length and rotation, because the import reads a free pad whose copper is its hole as a `Hole`. The
+cut-outs of the outline are no entity: when `pcbdoc.CUTOUT_REGIONS` is true, each written cut-out ring
+(`cutouts.cutout_items`, polygonised within 1 µm) is compared with the `Edge.Cuts` polygons that the
+import makes of the board cut-out regions, vertex by vertex within 1 µm (`cutouts.cutout_differences`);
+a ring that differs is one difference whose `where` is `pcb:/cutout/<where>`, `<where>` being the name
+the build's report gives it (`cutout/1`, `slot/S1`, `slot/S2+slot/S3`). While the gate is off, no ring
+is written and none is compared.
 
 A component whose value is empty in the script is written with its symbol's name as the comment, and
 the built model stores that value, so that the model is what the documents read back to.

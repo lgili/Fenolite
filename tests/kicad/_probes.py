@@ -23,6 +23,7 @@ from pathlib import Path
 
 import _a2kcases
 import _acceptance
+import _altium_slotcases
 import _anchorbench
 import _arccases
 import _areacases
@@ -90,6 +91,7 @@ import _rulecases
 import _schcases
 import _sheetcases
 import _slotbench
+import _slotsconv
 import _stackbench
 import _tiebench
 import _triad
@@ -341,6 +343,8 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
         probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _altium_slotcases.slot_probes().items():  # change c0168
+        probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _limitsbench.limit_probes().items():  # change c0141
@@ -382,6 +386,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in {**_eqsides.eq_side_probes(), **_ovalcases.oval_probes()}.items():  # c0158
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _convcases.conv_probes().items():  # change c0159
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _slotsconv.conv_slot_probes().items():  # change c0170
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {
         **_downbench.down_probes(runner),

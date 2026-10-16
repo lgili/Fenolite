@@ -60,6 +60,33 @@ polygon name decodes to printable text, and every subrecord length is one of the
 | `altium-third-party-pcblib-03` | 1 | 24 | 2 | 21 | 0 | 0 | 0 | 1 | pad 185: 2, pad-layers 0: 2, track 49: 21 | 0 | 0 |
 | `altium-third-party-pcblib-04` | 1 | 6 | 1 | 5 | 0 | 0 | 0 | 0 | pad 185: 1, pad-layers 0: 1, track 49: 5 | 1 | 0 |
 
+## Holes and cut-outs of the import (2026-10-16)
+
+Change c0168 makes the import give a free pad on Multi-Layer without name, net or copper ring as a board
+`Hole`, and a free region with `ISBOARDCUTOUT=TRUE` (and `KIND=0`) as an `Edge.Cuts` cut-out
+(`docs/altium.md`, "Outlines with arcs, and holes"). `uv run pytest tests/corpus/test_altium_pcb_census.py
+-rA` (Linux, local corpus cache): 21 passed, among them `test_holes_and_cut_outs_of_the_import` per row.
+
+| row id | free pads | became `Hole`s | slotted | regions with `ISBOARDCUTOUT=TRUE` | became cut-outs |
+|---|---|---|---|---|---|
+| `altium-third-party-pcbdoc-01` | 12 | 0 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-02` | 0 | 0 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-03` | 0 | 0 | 0 | 1 | 1 |
+| `altium-third-party-pcbdoc-04` | 2 | 0 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-05` | 4 | 4 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-06` | 0 | 0 | 0 | 6 | 4 |
+| `altium-third-party-pcbdoc-07` | 2 | 0 | 0 | 0 | 0 |
+
+- Four free pads move from board-only footprints to holes, all on one row: the four non-plated holes
+  without name, net and copper ring that change c0085 counted (`pcb-records.md`, "Free pads as holes").
+  The other sixteen free pads have copper, a name or a net and stay board-only footprints. No row holds
+  a free slot pad.
+- Five regions become cut-outs: every region with the key lies on the Keep-Out layer (56) with `KIND=0`;
+  two more of `pcbdoc-06` belong to a component and stay items of its footprint. Before this change the
+  five were graphics of the Keep-Out layer, which a conversion to KiCad wrote as rule areas; the c0161
+  census (`tests/corpus/test_convert_altium_census.py`) counts one and four fewer `Altium.KeepOut` items
+  on `pcbdoc-03` and `pcbdoc-06`.
+
 ## Document oracle
 
 `FENOLITE_REQUIRE=corpus uv run pytest tests/kicad/altium/test_pcbdoc_read_oracle.py` with `kicad-cli`

@@ -166,7 +166,8 @@ def _copper(
 
 def _hole(pad: Pad, position: Point, footprint: FootprintInstance) -> tuple[tuple[Point, ...], Nm | None]:
     """The drilled hole in the board frame: a point, or the two ends of a slot, and the drill size. The
-    axis of a slot is the stack's ``hole_rotation``, which the import gives relative to the footprint."""
+    axis of a slot is the stack's ``hole_rotation`` in the pad's own frame (change c0170), turned by the
+    pad's and the footprint's rotation."""
     if pad.drill is None:
         return (), None
     stack = pad.padstack
@@ -175,7 +176,7 @@ def _hole(pad: Pad, position: Point, footprint: FootprintInstance) -> tuple[tupl
     half = Fraction(stack.hole_length - pad.drill, 2)
     if half <= 0:
         return (position,), pad.drill
-    placement = _Placement(position, (footprint.rotation + stack.hole_rotation) % FULL_TURN)
+    placement = _Placement(position, (footprint.rotation + pad.rotation + stack.hole_rotation) % FULL_TURN)
     zero = Fraction(0)
     ends = (placement.apply((-half, zero)), placement.apply((half, zero)))
     return tuple(sorted(ends)), pad.drill

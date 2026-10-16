@@ -153,3 +153,48 @@ def test_the_holder_gives_the_definition_and_the_lib_id() -> None:
     holder = holes.HoleSymbol(holes.hole_symbol(plated=False))
     assert holder.lib_id == "Fenolite_Holes:Hole" and holder.definition.name == "Hole"
     assert holes.hole_symbol(plated=True).name == "Hole_Pad"
+
+
+GENERATED = {
+    "NPTH_3.2mm": ({"drill": 3_200_000}, "ac693a6a5d67aa6bcdccafe437c329aef146872dfb56dd59528945e70c9e9cf8"),
+    "NPTH_Slot_1x3mm": (
+        {"drill": MM, "length": 3 * MM},
+        "fbd03d588bfada959238e76238cd4daed16d5720b7a87eab07f6bb4f5fd351bf",
+    ),
+    "PTH_3.2mm_Pad_6mm": (
+        {"drill": 3_200_000, "pad": 6 * MM},
+        "5f98ce5711b58a260c852880b0d9295652795543b2b46df782a43f7d04189466",
+    ),
+    "PTH_Slot_2x12mm_Pad_3mm_Courtyard_5mm": (
+        {"drill": 2 * MM, "length": 12 * MM, "pad": 3 * MM, "courtyard": 5 * MM},
+        "74574f5c687f42c8928a6a7f6b74deb247af6f71e63fbbccf3a989221ed59b08",
+    ),
+}
+"""The written ``.kicad_mod`` (KiCad 10) of four generated footprints, measured before change c0170 moved
+the builder to ``fenolite.model.holes``."""
+
+
+@pytest.mark.parametrize("name", sorted(GENERATED))
+def test_the_moved_builder_keeps_the_bytes(name: str) -> None:
+    """``fenolite.model.holes.hole_footprint`` gives what the DSL gave, and the DSL re-exports it: equal
+    definitions, and the written footprint keeps the bytes it had before the move (change c0170)."""
+    import hashlib
+
+    from fenolite.backends.kicad.mod import write_footprint
+    from fenolite.model import holes as model_holes
+
+    sizes, digest = GENERATED[name]
+    made = model_holes.hole_footprint(sizes["drill"], **{k: v for k, v in sizes.items() if k != "drill"})
+    script = holes.hole_footprint(**{key: f"{value}nm" for key, value in sizes.items()})
+    assert made.name == name and script.definition == made
+    assert hashlib.sha256(write_footprint(made, target=10).encode()).hexdigest() == digest
+    assert holes.hole_name is model_holes.hole_name and holes.HOLE_LIBRARY == model_holes.HOLE_LIBRARY
+
+
+def test_the_model_builder_refuses_what_the_dsl_refuses() -> None:
+    from fenolite.model import holes as model_holes
+
+    with pytest.raises(ValueError, match="length is the overall length of a slot"):
+        model_holes.hole_footprint(MM, length=MM)
+    with pytest.raises(ValueError, match="drill must be a positive length"):
+        model_holes.hole_footprint(0)

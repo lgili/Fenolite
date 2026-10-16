@@ -34,6 +34,7 @@ import fenolite.backends.altium.rulemap as rulemap
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
+from fenolite.backends.altium.cutouts import cutout_items, unwritten_reason
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
@@ -51,6 +52,7 @@ from fenolite.model.board import (
     Hole,
     Keepout,
     Layer,
+    Outline,
     Pad,
     Stackup,
     Text,
@@ -61,7 +63,6 @@ from fenolite.model.board import (
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
-from fenolite.model.outline import slot_name
 
 EVIDENCE = Evidence(
     Level.INFERRED, hypotheses=("H-A-CONV-LIBRARY", "H-A-CONV-SCHEMATIC", "H-A-VER-RTA2-3", "H-A-VER-RTA3")
@@ -82,6 +83,7 @@ KINDS: tuple[str, ...] = (
     "dimension",
     "keep-out",
     "hole",
+    "cutout",
     "body",
     "rule",
 )
@@ -589,6 +591,8 @@ def _built_stack(board: Board, options: LowerOptions) -> tuple[tuple[str, ...], 
 
 # --- outline --------------------------------------------------------------------------------------------
 
+OUTLINE_ARC = "an arc of the outline is written as two straight edges"
+
 
 def _ring_of(graphics: Sequence[Graphic], account: _Account) -> tuple[Point, ...]:
     """One closed ring from the graphics of the outline: a rectangle or a polygon alone, else lines and
@@ -625,7 +629,7 @@ def _ring_of(graphics: Sequence[Graphic], account: _Account) -> tuple[Point, ...
         else:
             return ()
     for graphic in arcs:
-        account.skip("outline", graphic.id, "an arc of the outline is written as two straight edges")
+        account.skip("outline", graphic.id, OUTLINE_ARC)
     for index, segment in enumerate(segments):
         if index not in used:
             account.skip("outline", segment[3].id, "an edge outside the first ring of the outline")
@@ -647,18 +651,70 @@ def _extent(board: Board) -> tuple[Point, ...]:
     return (Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
 
 
-def _outline(board: Board, account: _Account) -> tuple[Point, ...]:
-    """The outline of the document: ``Board.outline``, else the ring of the ``Edge.Cuts`` graphics, else
-    the box of the board's items (reported)."""
+CUTOUT_MERGED = "merged"
+"""The reason a written cut-out region is counted changed under ``cutout`` when it is the union of
+overlapping inner rings (change c0170): one region stands for the group."""
+CUTOUT_POLYGONISED = "arcs polygonised"
+"""The reason a written cut-out region is counted changed under ``cutout`` when its ring holds an arc
+(change c0170): a region holds straight edges only, so the arcs are written as points within
+``cutouts.CUTOUT_TOL`` of them."""
+
+
+def _cutouts(outline: Outline | None, account: _Account) -> tuple[tuple[Point, ...], ...]:
+    """The board cut-out regions of the document (change c0168): every item of ``cutouts.cutout_items``
+    when ``pcbdoc.CUTOUT_REGIONS`` is true and it can be written, polygonised; every other item is
+    counted under ``cutout`` by its reason (``cutouts.unwritten_reason``), its id the ``where`` of the
+    build's report. A
+    written item is counted changed with ``CUTOUT_MERGED`` when it unites a group, with
+    ``CUTOUT_POLYGONISED`` when its ring holds an arc, and written otherwise (change c0170)."""
+    rings: list[tuple[Point, ...]] = []
+    for item in cutout_items(outline):
+        reason = unwritten_reason(item, gate=pcbdoc.CUTOUT_REGIONS)
+        if reason is not None:
+            account.skip("cutout", item.where, reason)
+            continue
+        rings.append(item.points())
+        if len(item.names) > 1:
+            account.change("cutout", item.where, CUTOUT_MERGED)
+        elif any(mid is not None for mid in item.ring.mids):
+            account.change("cutout", item.where, CUTOUT_POLYGONISED)
+        else:
+            account.wrote("cutout")
+    return tuple(rings)
+
+
+def _edge_ring(board: Board, edges: Outline, account: _Account) -> tuple[Point, ...]:
+    """The board ring of ``edges`` (change c0170): its vertices with the mid of each arc between its ends,
+    so an arc is written as two straight edges, as ``_ring_of`` writes it, and counted so under ``outline``
+    by the id of the edge graphic whose mid it is (else ``<board id>:edge:<k>``). Empty when the ring does
+    not close."""
+    ring = tuple(edges.points)
+    mids = {arc.edge: arc.mid for arc in edges.arcs if arc.ring == 0}
+    by_mid = {
+        g.points[1]: g.id
+        for g in board.graphics
+        if g.layer == EDGE_LAYER and g.kind == "arc" and len(g.points) == 3
+    }
+    points: list[Point] = []
+    for k, point in enumerate(ring):
+        points.append(point)
+        mid = mids.get(k)
+        if mid is not None:
+            points.append(mid)
+            account.skip("outline", by_mid.get(mid, f"{board.id}:edge:{k}"), OUTLINE_ARC)
+    return tuple(points) if len(points) >= 3 else ()
+
+
+def _outline(board: Board, account: _Account, edges: Outline | None = None) -> tuple[Point, ...]:
+    """The outline of the document: ``Board.outline``, else the board ring of ``edges`` (the edges of a
+    read board as an outline, change c0170), else the ring of the ``Edge.Cuts`` graphics, else the box of
+    the board's items (reported)."""
     if board.outline is not None and len(_open(board.outline.points)) >= 3:
-        if board.outline.cutouts:
-            account.skip("outline", board.outline.id, "the cut-outs of the outline are not written")
-        if board.outline.slots:  # change c0167; c0168 writes them as board cut-out regions
-            names = ", ".join(slot_name(slot) for slot in board.outline.slots)
-            account.skip(
-                "outline", board.outline.id, f"the milled slots of the outline are not written: {names}"
-            )
-        return _open(board.outline.points)
+        return _open(board.outline.points)  # its cut-outs and slots are ``_cutouts`` (change c0168)
+    if board.outline is None and edges is not None:
+        ring = _edge_ring(board, edges, account)
+        if ring:
+            return ring  # its inner rings are ``_cutouts`` (change c0170)
     ring = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
     if ring:
         return ring
@@ -1381,6 +1437,7 @@ def from_design(
     corner_ratios: Mapping[str, Decimal] | None = None,
     rewrite: bool = False,
     bodies: str = "off",
+    edges: Outline | None = None,
 ) -> AltiumInputs:
     """The inputs of the PCB and schematic writers from ``design`` alone, or with ``options`` those of a
     build (change c0126, ``LowerOptions``). ``corner_ratios`` maps a pad id
@@ -1404,7 +1461,12 @@ def from_design(
     ``Board.outline`` as given, the nets are every net of the circuit in its order, the copper layers and
     planes are ``options.copper`` and ``options.planes``, the document is in the frame of the outline
     (``PcbDocSpec.frame`` ``None``), and a component takes its pattern, library names, link, comment and
-    sheet from ``options`` (``_built_component``). ``rewrite`` is refused with options."""
+    sheet from ``options`` (``_built_component``). ``rewrite`` is refused with options.
+
+    ``edges`` (change c0170) is the edge of a read board as an ``Outline`` (the KiCad backend's
+    ``edge_outline``, which this package may not import, given by the conversion): for a board without
+    ``Board.outline`` its board ring is the document's outline and its inner rings are the cut-out regions
+    (``_cutouts``), each counted under ``cutout``."""
     body_mode = pcbdoc.body_mode(bodies)
     account = _Account()
     name = options.name if options is not None else design_name(design)
@@ -1420,7 +1482,9 @@ def from_design(
         if options is not None and board.outline is not None:
             outline = tuple(board.outline.points)
         else:
-            outline = _outline(board, account)
+            if edges is not None and (board.outline is not None or not _edge_ring(board, edges, _Account())):
+                edges = None  # a model outline, or edges whose board ring does not close: as before c0170
+            outline = _outline(board, account, edges)
         if len(outline) >= 3:
             spec = _document(
                 design,
@@ -1431,6 +1495,7 @@ def from_design(
                 rewrite=rewrite,
                 bodies=body_mode,
                 options=options,
+                edges=edges,
             )
     schematic = schematic_design(design, name, account)
     modelled = {component.id: component.lib_footprint_ref for component in schematic.circuit.components}
@@ -1493,6 +1558,7 @@ def _document(
     rewrite: bool = False,
     bodies: pcbdoc.BodyMode = "off",
     options: LowerOptions | None = None,
+    edges: Outline | None = None,
 ) -> pcbdoc.PcbDocSpec:
     net_names: dict[str, str] = {}
     for net in design.circuit.nets:
@@ -1546,6 +1612,7 @@ def _document(
         board, layers, planes, net_names, frame, account, full_drill=rewrite
     )
     texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
+    cutouts = _cutouts(board.outline if board.outline is not None else edges, account)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     for footprint in board.footprints:
         if footprint.net_ties:
@@ -1576,6 +1643,7 @@ def _document(
         graphics=tuple(graphics),
         keepouts=tuple(keepouts),
         holes=tuple(holes),
+        cutouts=cutouts,
         design_rules=lowered.records,
         frame=None if options is not None else frame,
         origin=origin,
@@ -1599,6 +1667,7 @@ def write_design(
     schematic: Design | None = None,
     symbols: Mapping[str, AltiumSymbol] | None = None,
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
+    edges: Outline | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
     holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
@@ -1606,9 +1675,12 @@ def write_design(
     with ``where`` ``schematic`` says why). Without ``allow_lossy``, ``LossyWriteError`` when an item of
     ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
     ``from_design``: the write of the reading of an Altium document. ``bodies`` is that of ``from_design``
-    too: ``extruded`` writes the extruded component bodies (change c0121)."""
+    too: ``extruded`` writes the extruded component bodies (change c0121), and so is ``edges`` (change
+    c0170): the edge of a read board as an outline."""
     issues: list[Issue] = []
-    inputs = from_design(design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies)
+    inputs = from_design(
+        design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies, edges=edges
+    )
     if schematic is not None:
         inputs = dataclasses.replace(inputs, schematic=schematic_design(schematic, inputs.name))
         if inputs.pcb is not None and sheets == "modules":

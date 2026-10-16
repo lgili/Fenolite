@@ -365,6 +365,17 @@ class AltiumBackend:
 
         return body_changes(body_differences(model, reading)), EVIDENCE_BODIES
 
+    def cutout_differences(self, model: Design, reading: Design) -> tuple[Change, ...]:
+        """The differences of the kind ``cutout`` between ``model``, the model a build stored, and
+        ``reading``, the model of the PCB document it wrote, in the frame of ``model``
+        (``cutouts.cutout_differences`` with ``pcbdoc.CUTOUT_REGIONS``; change c0168)."""
+        from fenolite.backends.altium import pcbdoc
+        from fenolite.backends.altium.cutouts import cutout_differences
+
+        return tuple(
+            Change(*found) for found in cutout_differences(model, reading, gate=pcbdoc.CUTOUT_REGIONS)
+        )
+
     def model_roundtrip(self, path: Path, *, compare: Compare, bodies: str = "off") -> ModelRoundTrip:
         """RT-A3 of the document at ``path`` (a PCB document, a schematic document or a project file):
         read it, write its model with ``lower.write_design(..., allow_lossy=True, rewrite=True)`` into a

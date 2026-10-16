@@ -82,6 +82,7 @@ RT_A2_SCOPE = ModelScope(
             "arc": ("start", "mid", "end", "width", "layer", "net_id", "locked"),
             "via": ("position", "diameter", "drill", "net_id", "locked"),
             "zone": ("outline", "layers", "net_id"),
+            "hole": ("position", "drill", "plated", "length", "rotation"),
         }
     ),
     length_tolerance=2,
@@ -91,7 +92,9 @@ RT_A2_SCOPE = ModelScope(
 the written value is at most 1.27 nm from the model's and its reading is rounded to a whole nanometre: two
 lengths within 2 nm are equal. Angles are written with six decimals of a degree and are compared exactly.
 Since change c0126 the graphics of a footprint (``footprint_graphic``) and the corner ratio of a pad are in
-the scope; the fields and the free texts of a footprint are written and not compared."""
+the scope; the fields and the free texts of a footprint are written and not compared. Since change c0168 a
+board hole is compared by position, drill, plating, length and rotation (the import reads a free hole pad
+as a ``Hole``); the cut-outs of the outline are compared ring by ring by ``cutouts.cutout_differences``."""
 EVIDENCE_RT_A2 = Evidence(Level.INFERRED, hypotheses=("H-A-VER-RTA2-3",))
 """RT-A2 never rises above ``INFERRED``: Fenolite's writers are read by Fenolite's readers, so the level
 proves consistency, not that Altium reads the files."""

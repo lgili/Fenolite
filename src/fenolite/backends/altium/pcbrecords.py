@@ -656,15 +656,34 @@ def pad_record(
     return bytes((PAD,)) + b"".join(subrecord(part) for part in parts)
 
 
-def hole_record(x: int, y: int, drill: int, *, plated: bool = False) -> bytes:
+FULL_CIRCLE_UDEG = 360_000_000
+"""One turn in microdegrees."""
+
+
+def hole_record(
+    x: int, y: int, drill: int, *, length: int | None = None, rotation: int = 0, plated: bool = False
+) -> bytes:
     """A hole of the board that belongs to no footprint (``pcb-records.md``, "Free pads as holes"): a free
     round pad on Multi-Layer without a name, a net or a component, whose size is its hole size, so it has
-    no copper ring; ``plated`` sets the plated byte. Lengths in binary units."""
+    no copper ring; ``plated`` sets the plated byte. Lengths in binary units.
+
+    With ``length`` (change c0168; ``pcb-records.md``, "Slot pads") the hole is a slot: the pad's size is
+    (``length``, ``drill``), its shape round and its rotation ``rotation`` (microdegrees), and subrecord 6
+    holds hole shape 2, the slot length ``length`` and the slot rotation 0, relative to the pad (S-0770),
+    so the copper equals the hole for any angle. A round hole keeps the bytes of change c0085."""
     if drill <= 0:
         raise ValueError(f"a hole needs a positive drill, not {drill} units")
+    if length is None:
+        return pad_record(
+            name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
+            plated=plated,
+        )  # fmt: skip
+    if length <= drill:
+        raise ValueError(f"a slot is longer than its drill: length {length} <= drill {drill} units")
     return pad_record(
-        name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
-        plated=plated,
+        name="", layer=MULTI_LAYER, x=x, y=y, size=(length, drill), shape=1,
+        rotation=degrees_of(rotation % FULL_CIRCLE_UDEG), hole=drill, plated=plated,
+        hole_shape=HOLE_SHAPE_SLOT, slot_length=length, slot_rotation=0.0,
     )  # fmt: skip
 
 
@@ -707,6 +726,7 @@ def region_record(
     shape_based: bool = False,
     keepout: int | None = None,
     component: int = NO_INDEX,
+    board_cutout: bool = False,
 ) -> bytes:
     """A region (type 11) without a net or a polygon (``pcb-records.md``, "Regions and keep-outs"): the
     prefix, five zero bytes, the property text and the outline. ``component`` (change c0126) is the index
@@ -715,7 +735,8 @@ def region_record(
     vertex as two doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none
     round, and repeats the first vertex after the last. ``keepout`` makes the region a keep-out with that
     restriction value (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS``
-    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value."""
+    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168)
+    ends the text with ``ISBOARDCUTOUT=TRUE`` (``cutout_region``)."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
@@ -732,6 +753,8 @@ def region_record(
     ]
     if keepout is not None:
         fields += [(KEEPOUT_KEY, str(keepout)), (KEEPOUT_KEY_KICAD, str(keepout))]
+    if board_cutout:
+        fields.append((BOARD_CUTOUT_KEY, "TRUE"))
     text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
     head = bytearray(prefix(layer, component=component))
     if keepout is not None:
@@ -744,6 +767,20 @@ def region_record(
         for x, y in vertices:
             body += struct.pack("<2d", float(x), float(y))
     return bytes((REGION,)) + subrecord(body)
+
+
+BOARD_CUTOUT_KEY = "ISBOARDCUTOUT"
+"""The key that makes a region with ``KIND=0`` a board cut-out (``pcb-records.md``, "Board cut-outs")."""
+BOARD_CUTOUT_LAYER = KEEPOUT_LAYER
+"""The layer of a written board cut-out: the Keep-Out layer, which the saved regions with the key hold."""
+
+
+def cutout_region(vertices: Sequence[tuple[int, int]], *, shape_based: bool = False) -> bytes:
+    """A board cut-out region (change c0168; ``pcb-records.md``, "Board cut-outs"): the region of
+    ``region_record`` on the Keep-Out layer, without net, polygon, component and keep-out flag, whose keys
+    are those of a saved free region with ``KIND=0`` followed by ``ISBOARDCUTOUT=TRUE``. ``vertices`` are a
+    polygonised ring in binary units, without a closing vertex."""
+    return region_record(BOARD_CUTOUT_LAYER, vertices, shape_based=shape_based, board_cutout=True)
 
 
 # --- component bodies (change c0121) -------------------------------------------------------------------
@@ -922,6 +959,10 @@ __all__ = [
     "REGION",
     "TOP_LAYER",
     "V7_LAYERS",
+    "BOARD_CUTOUT_KEY",
+    "BOARD_CUTOUT_LAYER",
+    "FULL_CIRCLE_UDEG",
+    "cutout_region",
     "hole_record",
     "layer_text",
     "region_record",

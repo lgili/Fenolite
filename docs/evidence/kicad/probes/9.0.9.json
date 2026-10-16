@@ -78,6 +78,8 @@
     "convert-a2k-load": "equal",
     "convert-a2k-sch": "equal",
     "convert-retarget": "equal",
+    "convert-slots-drc": "absent",
+    "convert-slots-drill": "equal",
     "copper-anchor-frame": "equal",
     "copper-anchor-frame-control": "different",
     "copper-anchor-moved": "absent",

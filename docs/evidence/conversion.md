@@ -241,7 +241,7 @@ this board). The ledger assertion remains exact.
 | CM5_MINIMA_3 | pad | lost | 2 | the pad is a surface pad without a copper layer |
 | CM5_MINIMA_3 | footprint-graphic | lost | 3 | a filled circle has no record: a region holds straight edges only |
 | CM5_MINIMA_3 | zone-fill | changed | 13 | a polygon is written unpoured; Altium fills it on a repour |
-| CM5_MINIMA_3 | outline | lost | 1 | the board holds no closed outline; the box of its items is written |
+| CM5_MINIMA_3 | outline | lost | 14 | an arc of the outline is written as two straight edges |
 | CM5_MINIMA_3 | stackup | lost | 1 | the document has no key for the solder mask thickness, the colours, the finish, the impedance-control flag; the copper and dielectric values are written |
 | CM5_MINIMA_3 | text | lost | 131 | the text record has no key for a justification other than centred |
 | CM5_MINIMA_3 | text | lost | 18 | the text is empty |
@@ -322,7 +322,7 @@ this board). The ledger assertion remains exact.
 | RoyalBlue54L-Feather | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | RoyalBlue54L-NFC-Antenna | footprint-graphic | lost | 5 | the layer Edge.Cuts has no layer in the document for a graphic |
 | RoyalBlue54L-NFC-Antenna | copper-shape | lost | 4 | a shape on a copper layer has no record written |
-| RoyalBlue54L-NFC-Antenna | outline | lost | 1 | the board holds no closed outline; the box of its items is written |
+| RoyalBlue54L-NFC-Antenna | outline | lost | 12 | an arc of the outline is written as two straight edges |
 | RoyalBlue54L-NFC-Antenna | schematic | changed | 1 | the schematic is generated from the circuit on one sheet with generic symbols |
 | sonde xilinx | footprint | changed | 3 | differs from the library footprint |
 | sonde xilinx | zone-fill | changed | 1 | a polygon is written unpoured; Altium fills it on a repour |
@@ -339,7 +339,7 @@ this board). The ledger assertion remains exact.
 | tinytapeout-demo | footprint-graphic | lost | 6 | a filled circle has no record: a region holds straight edges only |
 | tinytapeout-demo | net-tie | lost | 9 | the pads are written, without a mark that ties them: a net-tie group is KiCad data |
 | tinytapeout-demo | zone-fill | changed | 2 | a polygon is written unpoured; Altium fills it on a repour |
-| tinytapeout-demo | outline | lost | 1 | the board holds no closed outline; the box of its items is written |
+| tinytapeout-demo | outline | lost | 12 | an arc of the outline is written as two straight edges |
 | tinytapeout-demo | stackup | lost | 1 | the stack-up holds several dielectric sheets between F.Cu and In1.Cu (2 dielectric entries) and the document holds one dielectric per gap; the default stack values are written |
 | tinytapeout-demo | text | lost | 215 | the text record has no key for a justification other than centred |
 | tinytapeout-demo | text | lost | 9 | the text holds a control character or a line break |
@@ -364,6 +364,7 @@ Each difference of the read-back, per board, with the kind of the lost item that
 |---|---|---|---|
 | CM5_MINIMA_3 | dnp | dnp | 1 |
 | CM5_MINIMA_3 | dnp | footprint | 1 |
+| CM5_MINIMA_3 | edge-ring | outline | 2 |
 | CM5_MINIMA_3 | pad-kind | pad | 2 |
 | CM5_MINIMA_3 | pad-missing | pad | 8 |
 | ecc83-pp_v2 | pad-missing | pad | 1 |
@@ -372,19 +373,23 @@ Each difference of the read-back, per board, with the kind of the lost item that
 | microwave | ref-ambiguous | source | 1 |
 | One-Air-Max | dnp | dnp | 1 |
 | One-Air-Max | dnp | footprint | 10 |
+| One-Air-Max | edge-ring | outline | 2 |
 | One-Air-Max | pad-missing | pad | 15 |
 | One-Air-Max | pin-missing | pad | 12 |
 | pic_programmer | pad-missing | pad | 10 |
 | pic_programmer | pin-missing | pad | 2 |
 | RoyalBlue54L-Feather | dnp | dnp | 20 |
 | RoyalBlue54L-Feather | dnp | footprint | 2 |
+| RoyalBlue54L-Feather | edge-ring | outline | 2 |
 | RoyalBlue54L-Feather | pad-kind | pad | 6 |
 | RoyalBlue54L-Feather | pad-missing | pad | 28 |
 | RoyalBlue54L-Feather | pin-missing | pad | 18 |
 | RoyalBlue54L-Feather | route-connectivity | footprint | 1 |
 | RoyalBlue54L-Feather | route-connectivity | zone | 1 |
+| RoyalBlue54L-NFC-Antenna | edge-ring | outline | 2 |
 | tinytapeout-demo | dnp | dnp | 9 |
 | tinytapeout-demo | dnp | footprint | 2 |
+| tinytapeout-demo | edge-ring | outline | 2 |
 | tinytapeout-demo | pad-missing | pad | 20 |
 | tinytapeout-demo | ref-ambiguous | source | 4 |
 | tinytapeout-demo | route-connectivity | footprint | 1 |
@@ -570,3 +575,61 @@ The probes `pcb-user-layers`, `convert-a2k-load`, `convert-a2k-sch` (both) and `
 (10.0.6) give their recorded outcome `equal`. The complete probe-results gate drifts locally on
 environment probes (library variables and host paths) and is owed to the kicad CI jobs.
 
+
+## Slots and cut-outs — c0170, before the change
+
+Measured on 2026-10-16 on `c0168-altium-slots-cutouts` at `b954291` (local run, Linux), before any code of
+change c0170: `uv run pytest tests/corpus/test_convert_census.py -rA` passes (49 passed, the two heavy
+boards and the KiCad-only schematic test skipped), so the ledger above is the state the change starts
+from.
+
+KiCad to Altium. The kind `outline` of the ledger holds every loss of a board's edge; no board of the 16
+light demo boards loses an edge "outside the first ring", because none holds an inner edge ring
+(`backends.kicad.outline.edge_outline` of each board gives no cut-out). The `outline` losses are:
+
+| board | outline lost | reason |
+|---|---|---|
+| CM5_MINIMA_3 | 1 | the board holds no closed outline; the box of its items is written |
+| One-Air-Max | 20 | an arc of the outline is written as two straight edges |
+| RoyalBlue54L-Feather | 4 | an arc of the outline is written as two straight edges |
+| RoyalBlue54L-NFC-Antenna | 1 | the board holds no closed outline; the box of its items is written |
+| tinytapeout-demo | 1 | the board holds no closed outline; the box of its items is written |
+
+The three boards without a closed outline do close through `edge_outline`, which joins ends closer than
+`CHAIN_GAP` and takes the edges of footprints as KiCad does: a board ring of 30 vertices and 14 arcs
+(CM5_MINIMA_3), 22 and 12 (RoyalBlue54L-NFC-Antenna), 20 and 12 (tinytapeout-demo).
+
+Altium to KiCad. Of the eight public PCB documents, `-03` holds one board cut-out region and `-06` four
+(c0168 imports them as `Edge.Cuts` rings); no two of them overlap. `-05` holds four free holes, all round.
+None has a free slot pad.
+
+## Slots of turned pads — c0170, 2026-10-16
+
+Change c0170 (task 2.2) found that the Altium import held a slot's axis in the footprint's frame (the
+pad's angle plus the record's slot rotation) while the model, the KiCad backend and c0161's direction
+hold it in the pad's own frame. The 8 slots of `-07` (on pads turned 45° and 135°) and the 4 of `-08`
+were therefore seen as turned against their pads and lost ("a slot turned against a pad of this shape").
+With the import in the pad's frame they are kept: the explicit losses of `-07` are 24 bodies, those of
+`-08` 1298 bodies, 298 texts, 1000 graphics and 1 schematic. In the pinned image `kicad/kicad:10.0.6`
+(local run through Docker) `tests/kicad/convert/test_a2k_import.py` finds no unexplained difference
+against KiCad's own importer on `-01`, `-03` to `-08` (`-02` is the recorded importer failure), and the
+axis of every slotted hole of the written boards equals that of KiCad's import: `-03` 4, `-06` 4, `-07` 12
+(45°, 90°, 135°), `-08` 10 (0°, 45°, 135°).
+
+## Slots and cut-outs — c0170, after the change
+
+Measured on 2026-10-16 on the branch of change c0170 (local run, Linux), with the edge rings verified
+(`fenolite.convert.rings`).
+
+KiCad to Altium (`tests/corpus/test_convert_census.py`, the two tables above regenerated from the census).
+No light demo board holds an inner edge ring, so no board has a `cutout` row. The board ring is now taken
+with `edge_outline`: the three boards that had no closed outline for the old chaining (`CM5_MINIMA_3`,
+`RoyalBlue54L-NFC-Antenna`, `tinytapeout-demo`) are written with their own board ring, its arcs as two
+straight edges (14, 12 and 12 `outline` losses for the arcs instead of one loss for the box). The ring
+verification finds the board ring of the five boards whose ring has arcs different on both sides and
+explains each by `outline` (`edge-ring` explained by `outline`, 2 per board); nothing is unexplained.
+
+Altium to KiCad (the eight public PCB documents, `FENOLITE_HEAVY=1`): `-03` 1 cut-out written, `-06` 4,
+`-08` 1, none merged (no two overlap); the four round free holes of `-05` are written as the footprint
+`Fenolite_Holes:NPTH_…` that `design.hole` generates (`hole` 4 written); no ring difference, nothing
+unexplained.

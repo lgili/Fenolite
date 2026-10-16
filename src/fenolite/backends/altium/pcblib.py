@@ -244,14 +244,15 @@ def _pad_offsets(pad: Pad, copper_layers: Sequence[str], flip: bool) -> tuple[tu
 def pad_hole(pad: Pad) -> tuple[int, int, float]:
     """The hole shape of ``pad``, the slot length in record units and the slot rotation in degrees: the
     three fields of a hole that is not round (change c0160; ``pcb-records.md``, "Pad"). The rotation is
-    relative to the pad, which is what the reader adds the pad's own angle to."""
+    relative to the pad, as the record holds it and as the model's ``hole_rotation`` is (the slot's axis in
+    the pad's own frame; change c0170)."""
     stack = pad.padstack
     if stack is None or stack.hole_shape == "round":
         return rec.HOLE_SHAPE_ROUND, 0, 0.0
     if stack.hole_shape == "square":
         return rec.HOLE_SHAPE_SQUARE, 0, 0.0
     length = rec.to_units(stack.hole_length) if stack.hole_length else rec.to_units(pad.drill or 0)
-    rotation = rec.degrees_of((stack.hole_rotation - pad.rotation) % FULL_TURN)
+    rotation = rec.degrees_of(stack.hole_rotation % FULL_TURN)
     return rec.HOLE_SHAPE_SLOT, length, rotation
 
 
