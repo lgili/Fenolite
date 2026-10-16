@@ -7,9 +7,11 @@ form per target"; change c0163).
 with ``{slash}``; ``write_board`` refused it for target 9 before c0163. Its target-9 text must load and give
 the DRC report of the source, judged as RT2 judges a re-dump (``fenolite.checks.rt2.compare_runs``):
 KiCad does not repeat its own report on this board (22 to 52 of about 1 100 entries differed between two
-runs of one file in 9.0.9, all of them clearances), so each side runs three times and a key whose count
-differs between the runs of one side is left out. Both sides use the same ``{}`` project. The proof runs
-on 9.0.9; 10.0.6 reads the text too. Copies are made in ``tmp_path`` only.
+runs of one file in 9.0.9, all of them clearances), so each side runs six times and a key whose count
+differs between the runs of one side is left out. Six, not three: with three runs per side, two unchanged
+copies of the source gave a stable difference in 43 of 300 draws on 9.0.9 and 48 of 300 on 10.0.6; with six,
+in none (c0171 task 1.3). Both sides use the same ``{}`` project. The proof runs on 9.0.9; 10.0.6 reads the
+text too. Copies are made in ``tmp_path`` only.
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from fenolite.checks.rt2 import compare_runs
 
 pytestmark = [pytest.mark.needs_kicad, pytest.mark.needs_corpus, pytest.mark.slow]
 ROYALBLUE = "kicad-demo-10-0-6-pcb-13"
-RUNS = 3
+RUNS = 6
 
 
 def _reports(root: Path) -> tuple[DrcReport, ...]:
