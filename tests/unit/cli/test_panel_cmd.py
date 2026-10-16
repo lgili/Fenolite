@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import os
+import shutil
 from pathlib import Path
 
 import pytest
@@ -110,10 +110,12 @@ def test_a_script_that_binds_no_panel(tmp_path: Path) -> None:
 def test_mirror_is_refused_by_a_kicad_target(tmp_path: Path) -> None:
     script = tmp_path / "m.py"
     script.write_text(
-        "from fenolite.dsl import Panel\npanel = Panel('m', board='board_t10.kicad_pcb')\npanel.grid(1, 2, mirror=True)\n",
+        "from fenolite.dsl import Panel\n"
+        "panel = Panel('m', board='board_t10.kicad_pcb')\n"
+        "panel.grid(1, 2, mirror=True)\n",
         encoding="utf-8",
     )
-    os.link(committed_board(10), tmp_path / "board_t10.kicad_pcb")
+    shutil.copyfile(committed_board(10), tmp_path / "board_t10.kicad_pcb")
     code, _, err = run("panel", str(script), "--out", str(tmp_path / "P"), "--target", "10", "--dry-run")
     assert code == 7 and "FEN-7001" in err
 

@@ -88,4 +88,33 @@ def kicad_panel(panel: Panel, source: Path, *, target: int) -> PanelOutput:
     return PanelOutput(dict(sorted(files.items())), laid, issues, "kicad", score_layer, board)
 
 
-__all__ = ["PanelOutput", "kicad_panel", "panel_json", "read_source"]
+def altium_panel(panel: Panel, source: Path) -> PanelOutput:
+    """The flattened Altium panel of ``panel`` over the board file ``source`` (a ``.kicad_pcb`` or a
+    ``.PcbDoc``), with one ``altium.panel-flattened`` info that says why it is not the array."""
+    from fenolite.backends.altium.pcbdoc import EMBEDDED_ARRAYS
+    from fenolite.panel.altium import FLATTENED, flat_files
+
+    board, data = read_source(source)
+    laid = layout(panel, board)
+    issues = list(check_panel(panel, laid, board))
+    reason = (
+        "the Embedded Board Array waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS is off)"
+        if not EMBEDDED_ARRAYS
+        else "an Embedded Board Array references a .PcbDoc, and the board is a .kicad_pcb"
+    )
+    note = Issue(FLATTENED, "info", f"the panel is written flattened: {reason}", where=panel.name)
+    if any(i.severity == "error" for i in issues):
+        return PanelOutput({}, laid, tuple(issues), "flat", board=board, notes=(note,))
+    if source.suffix.lower() == ".kicad_pcb":
+        from fenolite.backends.kicad import fpitems
+        from fenolite.convert import pads
+
+        board = pads.project(fpitems.with_footprint_items(board).design)
+    files, found = flat_files(panel, laid, board)
+    issues += found
+    if files:
+        files[f"{panel.name}.panel.json"] = panel_json(panel, data)
+    return PanelOutput(dict(sorted(files.items())), laid, tuple(issues), "flat", board=board, notes=(note,))
+
+
+__all__ = ["PanelOutput", "altium_panel", "kicad_panel", "panel_json", "read_source"]

@@ -181,7 +181,7 @@ class KindResult:
 
 
 SCORE_LAYER_NAME = "V-Score"
-"""The user name of the layer of a panel board's score lines (``panel.VScoreSpec``'s default; change c0173)."""
+"""The user name of the layer of a panel board's score lines (the default of ``VScoreSpec``; c0173)."""
 
 
 def _user_name(layer: Layer) -> str | None:

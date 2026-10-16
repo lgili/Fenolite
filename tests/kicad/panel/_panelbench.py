@@ -18,7 +18,14 @@ judges the board, not the fabricator). Each is checked with an empty project, as
 - ``panel-nets``: no ``unconnected_items`` and no ``shorting_items`` on ``tabs.py`` and ``mixed.py``:
   ``absent``;
 - ``panel-gerber``: the plot of the score layer of ``mixed.py`` holds one draw per score line: ``equal``;
-  ``gerber_function()`` gives its ``.FileFunction``, recorded in ``docs/formats/kicad/panel.md``.
+  ``gerber_function()`` gives its ``.FileFunction``, recorded in ``docs/formats/kicad/panel.md``;
+- ``altium-panel-flat`` (10.0 only, ``H-A-PANEL-FLAT``): the flattened Altium panels of ``tabs.py`` and
+  ``mixed.py``, imported by ``pcb import``, hold every pad with copper or a hole, every track and via, and
+  every line of the user layers (the routed gaps, the score lines) of the KiCad panel board of the same
+  script, at its places within 10 nm, relative to the board's corner (KiCad moves the board): ``equal``.
+  The KiCad panel's gap rings are on ``Edge.Cuts`` and the Altium panel's on Mechanical 1, so the lines
+  compared are those of the Altium model (``panel_design``) for the routes and the KiCad board's for the
+  score lines.
 """
 
 from __future__ import annotations
@@ -36,7 +43,9 @@ from _outlinebench import target
 from _panels import PANELS, committed_board
 
 from fenolite.backends.base import DrcReport
+from fenolite.core.coords import Point
 from fenolite.dsl import Panel, to_model
+from fenolite.model.design import Design
 from fenolite.model.panel import Panel as ModelPanel
 from fenolite.panel.build import kicad_panel, read_source
 from fenolite.panel.kicad import ORIGIN, footprint_files, panel_board_text
@@ -236,6 +245,104 @@ def gerber() -> str:
     return "equal" if found[1] == len(panel_layout("mixed").score_lines) else "different"
 
 
+TOLERANCE = 10
+"""Nanometres: Altium holds lengths in units of 2.54 nm, and KiCad rounds the import to the nanometre."""
+
+
+def _close(a: Point, b: Point) -> bool:
+    return abs(a.x - b.x) <= TOLERANCE and abs(a.y - b.y) <= TOLERANCE
+
+
+def _matched(found: list[tuple[str, Point]], wanted: list[tuple[str, Point]]) -> bool:
+    """Whether every ``(kind, point)`` of ``wanted`` has its own match in ``found`` and none is left."""
+    if len(found) != len(wanted):
+        return False
+    rest = sorted(found, key=lambda f: (f[0], f[1].x, f[1].y))
+    for kind, point in sorted(wanted, key=lambda w: (w[0], w[1].x, w[1].y)):
+        index = next((i for i, (k, p) in enumerate(rest) if k == kind and _close(p, point)), None)
+        if index is None:
+            return False
+        rest.pop(index)
+    return not rest
+
+
+def _corner(design: Design) -> Point:
+    assert design.board is not None
+    points = [p for g in design.board.graphics if g.layer == "Edge.Cuts" for p in g.points]
+    return Point(min(p.x for p in points), min(p.y for p in points))
+
+
+def _relative(design: Design, corner: Point) -> dict[str, list[tuple[str, Point]]]:
+    """The pads (by number, kind and drill), tracks and vias, and the lines of the user and mechanical
+    layers of ``design``, relative to ``corner``."""
+    from fenolite.backends.kicad.frame import board_pads
+
+    def rel(p: Point) -> Point:
+        return Point(p.x - corner.x, p.y - corner.y)
+
+    assert design.board is not None
+    found: dict[str, list[tuple[str, Point]]] = {"pads": [], "copper": [], "lines": []}
+    for pad in board_pads(design):
+        if not pad.drill and not any(layer.endswith(".Cu") for layer in pad.layers):
+            continue  # a fiducial's mask aperture: the Altium panel leaves the opening to the mask rule
+        found["pads"].append((f"{pad.kind}:{pad.drill or 0}", rel(pad.position)))
+    for track in design.board.tracks:
+        found["copper"] += [
+            (f"track:{track.layer}", rel(track.start)),
+            (f"track:{track.layer}", rel(track.end)),
+        ]
+    for via in design.board.vias:
+        found["copper"].append(("via", rel(via.position)))
+    for graphic in design.board.graphics:
+        if graphic.layer.startswith("User.") and graphic.kind == "line":
+            found["lines"] += [("line", rel(graphic.points[0])), ("line", rel(graphic.points[-1]))]
+    return found
+
+
+@cache
+def flat_import(
+    name: str,
+) -> tuple[dict[str, list[tuple[str, Point]]], dict[str, list[tuple[str, Point]]]] | None:
+    """What the import of the flattened Altium panel ``name`` holds, and what the panel's model says it
+    should, both relative to the board's corner."""
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.panel.build import altium_panel
+
+    model = model_of(name)
+    output = altium_panel(model, committed_board(10))
+    if not output.files:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        source = Path(tmp) / f"{name}.PcbDoc"
+        source.write_bytes(output.files[f"{name}.PcbDoc"])
+        run = runner().import_board(source)
+    if run.board is None:
+        return None
+    imported = read_board(run.board.decode("utf-8"))
+    panel = kicad_panel(model, committed_board(10), target=10)
+    board = read_board(panel.files[f"{name}.kicad_pcb"].decode("utf-8"))
+    expected = _relative(board, Point(ORIGIN.x, ORIGIN.y))
+    for ring in panel.layout.routes:  # Edge.Cuts in KiCad, the route tool path's lines in Altium
+        for e, start in enumerate(ring):
+            expected["lines"] += [("line", start), ("line", ring[(e + 1) % len(ring)])]
+    return _relative(imported, _corner(imported)), expected
+
+
+@cache
+def altium_flat() -> str:
+    """``equal`` when the imports of the flattened panels of ``tabs.py`` and ``mixed.py`` hold what their
+    models hold, at their places."""
+    for name in ("tabs", "mixed"):
+        found = flat_import(name)
+        if found is None:
+            return "inconclusive"
+        got, wanted = found
+        for key in ("pads", "copper", "lines"):
+            if not _matched(got[key], wanted[key]):
+                return "different"
+    return "equal"
+
+
 def panel_probes() -> Probes:
     """``probe id → (function, majors)`` for ``_probes.PROBES``."""
     both = (9, 10)
@@ -244,6 +351,7 @@ def panel_probes() -> Probes:
         "panel-drill": (drill, both),
         "panel-nets": (nets, both),
         "panel-gerber": (gerber, both),
+        "altium-panel-flat": (altium_flat, (10,)),
     }
 
 

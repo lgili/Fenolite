@@ -38,6 +38,8 @@ EVIDENCE_KICAD = Evidence(
     Level.KICAD_VERIFIED, hypotheses=("H-K-PANEL-DRILL", "H-K-PANEL-LOAD", "H-K-PANEL-NETS")
 )
 """A KiCad panel board: loaded, drilled and net-checked by kicad-cli 9.0.9 and 10.0.6 (task 4.2)."""
+EVIDENCE_FLAT = Evidence(Level.ORACLE_VERIFIED, oracle="kicad-cli", hypotheses=("H-A-PANEL-FLAT",))
+"""A flattened Altium panel: imported by kicad-cli 10.0.6 at the KiCad panel's places (task 6.2)."""
 EXAMPLE_PANEL = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/panels/tabs.py")
 EXAMPLE_OUT = "fenolite-panel"
 KINDS = {
@@ -184,7 +186,6 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             PlannedWrite(path=joined(args.out, key), data=data, kind=_kind(key))
             for key, data in sorted(files.items())
         )
-    data = source.read_bytes()
     result: dict[str, Any] = {
         "name": model.name,
         "board": dsl.board,
@@ -209,7 +210,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
 def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
     from fenolite.backends.altium.pcbdoc import EMBEDDED_ARRAYS
-    from fenolite.panel.build import kicad_panel
+    from fenolite.panel.build import altium_panel, kicad_panel
 
     if args.target == "altium":
         if args.altium_panel == "embedded" and (not EMBEDDED_ARRAYS or source.suffix.lower() != ".pcbdoc"):
@@ -219,12 +220,7 @@ def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
                 else "an Embedded Board Array references a .PcbDoc, and the board is a .kicad_pcb"
             )
             raise CliError("FEN-7001", reason, where="--altium-panel", hint="use --altium-panel flat")
-        raise CliError(
-            "FEN-7001",
-            "the Altium panel is not written yet",
-            where="--target",
-            hint="use --target 9 or 10",
-        )
+        return altium_panel(model, source)
     try:
         return kicad_panel(model, source, target=int(args.target))
     except ValueError as error:
@@ -238,7 +234,7 @@ def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
 
 
 def _evidence(output: PanelOutput) -> Evidence:
-    return EVIDENCE_KICAD
+    return EVIDENCE_KICAD if output.form == "kicad" else EVIDENCE_FLAT
 
 
 COMMAND = Command(
