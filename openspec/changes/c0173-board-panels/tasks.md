@@ -22,7 +22,8 @@
 
 ## 3. Checks
 
-- [ ] 3.1 Add `panel.limits.DEFAULTS`, each default naming its row of `panel.md`, and `limits=` (scenario "Every default cites its row"); record `H-G-PANEL-LIMITS`. Proof: `uv run pytest tests/unit/panel/test_limits.py -q`.
+- [x] 3.1 Add `panel.limits.DEFAULTS`, each default naming its row of `panel.md`, and `limits=` (scenario "Every default cites its row"); record `H-G-PANEL-LIMITS`. Proof: `uv run pytest tests/unit/panel/test_limits.py -q`.
+  - 2026-10-16: 16 defaults, one per field of `PanelLimits`; `Panel(limits={...})` takes lengths and the two counts (`tab_holes`, `fiducial_count`) and refuses any other name or value with `DslError`. `H-G-PANEL-LIMITS` recorded as confirmed (its label stays `INFERRED`: the figures are the fabricators' pages). Tab width 5 mm and pitch 55 mm are Fenolite choices (a 5-hole row of 4.6 mm fits; the middle of S-0795's 50 to 60 mm), not limits. Proof passed (22 tests).
 - [ ] 3.2 Add `panel.checks.check_panel` with the codes of Decision 6 (scenarios "Copper near a score line", "A gap too narrow", "Fiducials off the rails"). Proof: `uv run pytest tests/unit/panel/test_checks.py -q`.
 
 ## 4. KiCad panel board
