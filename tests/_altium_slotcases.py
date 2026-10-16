@@ -37,6 +37,7 @@ from fenolite.backends.kicad.cli import KicadCli, cli_for
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.core.coords import Point
 from fenolite.model.board import Graphic
+from fenolite.lens.build import BuildOutput
 from fenolite.model.design import Design
 
 MM = 1_000_000
@@ -150,6 +151,12 @@ OFFSET = 25_400_000
 def fixture_document(*, gate: bool = True) -> bytes:
     """``tests/data/slots/altium.py`` built for Altium with ``pcbdoc.CUTOUT_REGIONS`` set to ``gate``: the
     bytes of ``slots.PcbDoc``. The merged L needs the ``geo`` extra when ``gate`` is true."""
+    return fixture_build(gate=gate).files["slots.PcbDoc"]
+
+
+def fixture_build(*, gate: bool = True, source: Path | None = None) -> BuildOutput:
+    """The build of ``source`` (``SOURCE`` by default) for Altium with ``pcbdoc.CUTOUT_REGIONS`` set to
+    ``gate``; no issue of it is an error."""
     import runpy
 
     from _altium import blink_resolver, blink_tree
@@ -159,7 +166,7 @@ def fixture_document(*, gate: bool = True) -> bytes:
     from fenolite.dsl import placements, to_model
     from fenolite.lens.altium import build_altium
 
-    design = runpy.run_path(str(SOURCE))["design"]
+    design = runpy.run_path(str(source or SOURCE))["design"]
     assert isinstance(design, Script)
     kept = pcbdoc.CUTOUT_REGIONS
     pcbdoc.CUTOUT_REGIONS = gate  # type: ignore[misc]  # pyright: ignore[reportConstantRedefinition]
@@ -178,7 +185,7 @@ def fixture_document(*, gate: bool = True) -> bytes:
     finally:
         pcbdoc.CUTOUT_REGIONS = kept  # type: ignore[misc]  # pyright: ignore[reportConstantRedefinition]
     assert not [found for found in output.issues if found.severity == "error"]
-    return output.files["slots.PcbDoc"]
+    return output
 
 
 def _nm(units: float | int) -> int:
@@ -375,6 +382,7 @@ __all__ = [
     "WrittenSlot",
     "board_frame",
     "cutout_region",
+    "fixture_build",
     "fixture_document",
     "imported_fixture",
     "slot_pad",

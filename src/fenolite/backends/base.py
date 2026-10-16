@@ -1285,6 +1285,17 @@ class BodyComparer(Protocol):
     def body_differences(self, model: Design, reading: Design) -> tuple[tuple[Change, ...], Evidence]: ...
 
 
+@runtime_checkable
+class CutoutComparer(Protocol):
+    """A model writer that writes the cut-outs of a board outline as regions of their own (change c0168).
+    ``cutout_differences`` gives the differences of the kind ``cutout`` between ``model``, the model a
+    build stored, and ``reading``, the model of the documents it wrote (in the model's frame): each written
+    cut-out ring against the read ones, a ``Change`` whose path is ``/cutout/<where>``. The kind is no part
+    of ``written_scope()``: a cut-out is one ring of the model's outline, not an entity."""
+
+    def cutout_differences(self, model: Design, reading: Design) -> tuple[Change, ...]: ...
+
+
 class Backend(Protocol):
     """A file-format backend.
 
@@ -1309,6 +1320,7 @@ __all__ = [
     "BoardFrame",
     "BoardPad",
     "BodyComparer",
+    "CutoutComparer",
     "CanaryState",
     "CapabilityReport",
     "Change",

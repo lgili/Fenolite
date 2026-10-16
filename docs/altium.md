@@ -1407,6 +1407,8 @@ reading of the schematic documents, and every other kind with the reading of the
 | `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
 | `via` | `position`, `diameter`, `drill`, `net_id`, `locked` | PCB document |
 | `zone` | `outline`, `layers`, `net_id` | PCB document |
+| `hole` | `position`, `drill`, `plated`, `length`, `rotation` | PCB document |
+| `cutout` | each written cut-out ring of the outline | PCB document |
 
 **The built model holds the board that was written** (change c0090). A build that writes a PCB document
 stores, in `.fenolite/board.json`, one footprint per placed component with the pads that the document
@@ -1463,6 +1465,16 @@ Fields of these kinds that the scope leaves out, and why:
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
 | `zone` | `settings` | the writer does not write it |
 | `zone` | `locked` | the writer does not write it |
+| `hole` | `intent` | the writer does not write it: the mechanical intent of a hole stays in the neutral model |
+
+**Holes and cut-outs** (change c0168). A board hole is compared by its position, drill, plating, slot
+length and rotation, because the import reads a free pad whose copper is its hole as a `Hole`. The
+cut-outs of the outline are no entity: when `pcbdoc.CUTOUT_REGIONS` is true, each written cut-out ring
+(`cutouts.cutout_items`, polygonised within 1 µm) is compared with the `Edge.Cuts` polygons that the
+import makes of the board cut-out regions, vertex by vertex within 1 µm (`cutouts.cutout_differences`);
+a ring that differs is one difference whose `where` is `pcb:/cutout/<where>`, `<where>` being the name
+the build's report gives it (`cutout/1`, `slot/S1`, `slot/S2+slot/S3`). While the gate is off, no ring
+is written and none is compared.
 
 A component whose value is empty in the script is written with its symbol's name as the comment, and
 the built model stores that value, so that the model is what the documents read back to.
