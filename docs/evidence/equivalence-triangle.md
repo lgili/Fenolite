@@ -158,7 +158,7 @@ command line). Without that option each gives one `ref-ambiguous` difference.
 | altium-third-party-pcbdoc-01 | empty | 12 | 4 | pads that belong to no component; 8 of them lie on a paste layer, which KiCad does not import |
 | altium-third-party-pcbdoc-03 | `*` | 3 | 3 | three components with the designator `*` |
 | altium-third-party-pcbdoc-04 | empty | 2 | 2 | pads that belong to no component |
-| altium-third-party-pcbdoc-05 | empty | 4 | 4 | pads that belong to no component |
+| altium-third-party-pcbdoc-05 | empty | 0 | 4 | pads that belong to no component; all four are non-plated pads whose copper is the hole, which Fenolite's import reads as board holes since change c0168 (measured 2026-10-16 on 10.0.6: each hole pairs with one of KiCad's footprints by position after the translation and by drill, exactly) |
 | altium-third-party-pcbdoc-07 | empty | 2 | 2 | pads that belong to no component |
 
 ### Labels per level
