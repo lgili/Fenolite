@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Panels in the model
-`model.panel.Panel` SHALL be a frozen entity with `name`, `source` (path, SHA-256, backend), `array` (rows, cols, gaps, rotation a multiple of 90° in µdeg, `mirrored`), `fit` (an asked size, or none), `frame` (four rail widths), `separations`, `tabs`, `vscore`, `fiducials`, `tooling_holes`, `fiducial_set` and `tooling_set` (placed by the layout, or none) and `limits`, lengths in `Nm`. It SHALL be written as canonical JSON `panel.json` (schema id `fenolite.panel_model.v0`); the writer MUST omit defaults.
+`model.panel.Panel` SHALL be a frozen entity with `name`, `source`, `array` (rows, cols, gaps, a quarter-turn rotation in µdeg, `mirrored`), `fit`, `frame` (four rail widths), `separations`, `tabs`, `vscore`, `fiducials`, `tooling_holes`, `fiducial_set`, `tooling_set` and `limits`, lengths in `Nm`. It SHALL be written as canonical JSON `panel.json` (schema `fenolite.panel_model.v0`); the writer MUST omit defaults.
 
 #### Scenario: A panel round-trips
 - **GIVEN** a `Panel` of a 2 × 4 grid with rails, tabs between columns and V-score between rows
