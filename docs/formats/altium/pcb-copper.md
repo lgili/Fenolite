@@ -182,6 +182,16 @@ Part U of `docs/evidence/altium-pcb.md`.
 | Scopes seen in the records of the lowered kinds: `All`, `InNet('<net>')` and `InNetClass('<class>')` as the first scope with `All` as the second; a Clearance record also holds a query as its second scope (layer and polygon queries in the records read, never a net). The rule that applies is the first one, by priority, whose scopes match | S-0286, S-0296, S-0172, S-0174, S-0175, S-0176, S-0187, S-0200 | INFERRED | H-A-RULE-SCOPE |
 | Priorities count from 1 within one rule kind: in the eight documents and the rule file every kind has its own run 1, 2, … without a gap | S-0286, S-0297, S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 | INFERRED | H-A-RULE-PRIORITY |
 
+### Slots and cut-outs against the rules (change c0168)
+
+Read on 2026-10-15 and again on 2026-10-16 (S-0460). Which of the two forms of a slot each rule sees is
+what kit cases S2 and S5 of Part S (`docs/evidence/altium-pcb.md`) show in Altium Designer.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Board Outline Clearance checks object-to-edge clearances on the electrical and overlay layers against five edge kinds: the outline edge, a cavity edge, a cut-out edge (the edge of a user-defined cut-out), a split barrier and a split continuation. It names no hole, so the edge of a board cut-out region is one of its edges and a slotted pad hole is not | S-0460 | INFERRED | H-A-SLOT-KIT |
+| Hole To Hole Clearance flags multiple vias or pads at the same location and overlapping pad or via holes, so two slot pads whose holes overlap (an L of two drilled slots) are flagged, and two overlapping cut-outs merged into one region are not holes | S-0460 | INFERRED | H-A-SLOT-KIT |
+
 ### The lowering table
 
 `rulemap.TABLE`, one row per neutral rule kind. An `exact` row is written and read back; every other row

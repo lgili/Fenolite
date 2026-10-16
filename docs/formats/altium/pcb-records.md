@@ -126,6 +126,20 @@ Change c0085 writes regions for filled graphics and for keep-outs. The framing o
 | KiCad imports a free pad as a footprint of its own; a free pad on Multi-Layer with the plated byte 0 becomes one non-plated through hole of the pad's hole size at its place | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
 | A slotted hole is hole shape 2 with a slot length and rotation in the sixth subrecord (see "Pad"); every slotted hole of the saved documents is plated and belongs to a component | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0160 | INFERRED | H-A-PCBX-HOLE |
 
+## Slot pads (change c0168)
+
+A drilled slot of a board (a model `Hole` with a `length`) is written as a free pad with a slotted hole.
+The rows below join the public pad page (S-0770) to the pad record rows of "Pad"; the writer's choices are
+under "Fenolite's choices".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad's hole is Round, Rectangular or Slot, a slot having round ends; Hole Size is the diameter of a round hole and the width of a slot, and Length, offered for a rectangular hole or a slot only, cannot be smaller than the size. In the record the hole size is offset 45 of subrecord 5, and hole shape 2 (offset 262 of subrecord 6) with the slot length at 263 is the slot, so a slot of width w and overall length l has hole size w and slot length l | S-0770, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SLOT-PAD |
+| The rotation of a hole is counter-clockwise relative to the pad, in degrees with a resolution of 0.001°, and is offered for a rectangular hole or a slot only; the slot rotation at offset 267 of subrecord 6 is that angle, and the axis of the slot on the board is the pad's rotation plus it | S-0770, S-0160 | INFERRED | H-A-SLOT-PAD |
+| A free pad is one that is not part of a parent component, and its designator may be left empty; Multi-Layer defines a through-hole pad, and the hole options (shape, plating) exist for a through-hole pad only; Plated decides whether the hole is plated, and non-plated holes get their own tools in the NC drill files | S-0770 | INFERRED | H-A-SLOT-PAD |
+| The solder mask and paste openings of a pad are taken from the rules (Rule Expansion) or set per pad (Manual Expansion); what Altium makes of the openings of a free pad whose copper equals its slotted hole is not stated (kit case S1) | S-0770 | INFERRED | H-A-SLOT-KIT |
+| A region's Kind is Copper, Polygon Cutout, Board Cutout or Cavity (Cavity in the library editor only). A Board Cutout defines a negative area or hole within the board shape and is offered no Layer field; the page does not say whether it has a net. Arc Approximation is the largest deviation of a drawn arc from a true arc | S-0771 | INFERRED | H-A-CUTOUT-REGION |
+
 ## Layers
 
 | fact | source | label | hypothesis |
