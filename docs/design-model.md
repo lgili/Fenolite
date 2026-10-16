@@ -221,6 +221,11 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   The word has two meanings: `OutlineSlot` is a milled slot of the board, while `model.base.Slot` (and
   `backends/kicad/slots.py`, capability `kicad-slots`) is the opaque round-trip unit of a backend node.
   A drilled slot is a footprint pad with `Padstack.hole_shape` `slot` (`design.hole(…, length=…)`).
+- **Slotted board holes** (change c0168). `Hole.length` (`None`, a round hole) is the overall length of
+  a drilled slot of width `drill`, and `Hole.rotation` (0) the axis of that length in the sense of
+  `Transform.placement`; `length` must exceed `drill`. The Altium build fills them from a slotted hole
+  part, and the Altium import from a free slot pad. The canonical writer omits both at their defaults,
+  so a document without slotted holes keeps its bytes; release 0.4.x cannot read one that carries them.
 - **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name
   are in `Layer.ext[<backend>]`.
 - **Synthesised circuit.** A board read without a schematic gets one `Component` per footprint, one

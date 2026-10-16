@@ -421,16 +421,44 @@ the placements and the net classes are no longer reported by `altium.not-lowered
 texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
-**Outlines with arcs, and holes.** An outline with arcs plans no PCB document, as an outline with
-cut-outs: `altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in
-the board outline of the document. The parts of `design.hole()` are not components of an Altium
-build: they get no schematic symbol, no library footprint and no component record. A round hole that
-is not plated is written as a board hole, the free pad without copper, and counted under `hole` of
-`result.pcb.written`. A slot and a plated hole have no such record: each gives one
-`altium.not-lowered` whose `where` is `hole/<component id>` and is counted under `hole` of
-`result.pcb.not_lowered`; the pin of a plated hole is then absent from its net in the Altium project.
-A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of a
-hole part is not written: a free pad has none.
+**Outlines with arcs, and holes.** An outline whose board ring has arcs plans no PCB document:
+`altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in the board
+outline of the document. The parts of `design.hole()` are not components of an Altium build: they get no
+schematic symbol, no library footprint and no component record. A hole that is not plated is written as
+a board hole, the free pad without copper, and counted under `hole` of `result.pcb.written`. A plated
+hole has no such record: it gives one `altium.not-lowered` whose `where` is `hole/<component id>` and is
+counted under `hole` of `result.pcb.not_lowered`; its pin is then absent from its net in the Altium
+project. A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of
+a hole part is not written: a free pad has none.
+
+**Slots and cut-outs** (change c0168). Altium has two forms, one meaning each (S-0460):
+
+- A **drilled** slot, `design.hole(…, length=…)` (a model `Hole` with `length` and `rotation`), is a
+  free pad with a slotted hole: Multi-Layer, no designator and no net, size (length, width), hole shape
+  Slot with the slot length, the pad turned by the slot's angle and the slot at 0° to the pad, so the
+  copper equals the hole. It is drilled (NC drill file, drill drawing), and Hole To Hole Clearance
+  judges it: two drilled slots that overlap are flagged.
+- A **milled** slot or a cut-out, `design.slot()` or `design.cutout()`, is a board cut-out region:
+  `KIND=0` with `ISBOARDCUTOUT=TRUE` on the Keep-Out layer, each group of overlapping cut-outs and slots
+  one region (the union of `lowered_outline`), its arcs polygonised within 1 µm. Board Outline Clearance
+  measures copper to its edge; no drill file holds it.
+- **The gate.** The region form is measured with KiCad's importer only. Until the maintainer's kit
+  (Part S of `docs/evidence/altium-pcb.md`, cases S3 to S5) has shown it in Altium Designer,
+  `pcbdoc.CUTOUT_REGIONS` is false: the document is planned, no region is written, and each cut-out
+  gives one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>` or the items of a
+  merged group joined by `+` (`slot/S2+slot/S3`), counted under `cutout` of `result.pcb.not_lowered`. The
+  gate is a constant, not an option. An arc of a cut-out no longer refuses the document; an arc of the
+  board ring still does.
+- **Import.** Reading a PCB document, a region with `ISBOARDCUTOUT=TRUE` (and `KIND=0`) becomes one
+  `Edge.Cuts` polygon of width 0, so `board_outline` and `edge_outline` take it as a cut-out, and a free
+  pad on Multi-Layer without name, net or copper ring becomes a board `Hole` (with its slot) instead of a
+  board-only footprint; every other free pad stays a footprint. This changes what an import gives for
+  such pads and regions: on the seven public documents four pads become holes and five regions cut-outs
+  (`docs/evidence/altium-pcb-read.md`). `fenolite convert --to kicad` gives each such hole back as the
+  board-only footprint the import made before (`convert.to_kicad.hole_footprints`), since KiCad takes no
+  board hole.
+- **Round trips.** RT-A2 compares a board hole by position, drill, plating, length and rotation, and each
+  written cut-out ring with the read one within 1 µm ("The scope of RT-A2" below).
 
 **Assembly and test features** (change c0118). The parts of `design.test_point()` are written as any
 authored part. The parts of `design.fiducial()` are left out of the schematic and of the PCB library and

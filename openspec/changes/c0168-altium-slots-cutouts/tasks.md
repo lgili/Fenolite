@@ -47,7 +47,8 @@
 
 ## 6. Closing
 
-- [ ] 6.1 Document the two forms, the gate, the import change and the RT-A2 rows in `docs/altium.md` and the slot rule in `docs/dsl.md`. Proof: `uv run pytest tests/consistency -q`.
+- [x] 6.1 Document the two forms, the gate, the import change and the RT-A2 rows in `docs/altium.md` and the slot rule in `docs/dsl.md`. Proof: `uv run pytest tests/consistency -q`.
+  - 2026-10-16: `docs/altium.md`: "Outlines with arcs, and holes" now refuses only arcs of the board ring and reports only plated holes; a new paragraph "Slots and cut-outs (change c0168)" gives the two forms (drilled slot pad, milled cut-out region), the gate and its per-item report, the import change with the census figures and `hole_footprints`, and the round trips; "The scope of RT-A2" gains the rows `hole` and `cutout` (and `hole` `intent` among the fields left out), with a paragraph on how cut-out rings are compared; the `result.pcb` kind list gains `dimension` and `cutout`. `docs/dsl.md` ("Milled or drilled") says the rule for Altium; `docs/design-model.md` gains "Slotted board holes" with the 0.4.x sentence. Proof: `tests/consistency` 375 passed, 22 skipped.
 - [ ] 6.2 Run the residue scan and the fast checks. Proof: `uv run python tools/residue/scan.py` exits 0; `make check-fast` passes.
 - [ ] 6.3 Update the evidence labels: the three rows hold their measured levels; `pcbdoc.EVIDENCE` names them; `uv run python tools/gen_evidence_matrix.py`. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_evidence_matrix_page.py -q`.
 - [ ] 6.4 Add to `CHANGELOG.md` under `## [Unreleased]`: slotted board holes, slot pads, cut-out regions behind the kit's gate, the import change, the 0.4.x sentence. Proof: `grep -n "cut-out region" CHANGELOG.md`; `openspec validate c0168-altium-slots-cutouts --strict --no-interactive` passes.
