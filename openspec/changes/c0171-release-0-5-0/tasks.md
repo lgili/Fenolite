@@ -35,7 +35,8 @@
 
 ## 5. Archive
 
-- [ ] 5.1 Archive each change of the release whose tasks are all ticked and whose archive order allows it, one commit each; write the order of the rest into the record. Proof: `openspec validate --all --strict --no-interactive` reports 0 errors after each archive.
+- [x] 5.1 Archive each change of the release whose tasks are all ticked and whose archive order allows it, one commit each; write the order of the rest into the record. Proof: `openspec validate --all --strict --no-interactive` reports 0 errors after each archive.
+  - 2026-10-16: archived, one commit each and in this order: c0159 (`377d475`; the new living `design-conversion` gets its purpose), c0162 (`dfc178a`), c0161 (`43a7836`), c0167 (`e405a56`), c0169 (`36c66a1`). `openspec validate --all --strict --no-interactive`: 0 errors after each (the strict warnings on long requirements are those of `dev`). No open change modifies a requirement these touched. The order of the rest is in `docs/release/v0.5.md`, "Archive order"; c0166 task 4.3 is closed by this task.
 
 ## 6. Closing checks
 
