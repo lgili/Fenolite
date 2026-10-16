@@ -8,7 +8,7 @@ Every element, member and value that the Draftsman reader or writer relies on SH
 - **THEN** every row of `docs/formats/altium/draftsman.md` names a registered source and a label, and the family `H-A-DWF-*` is accepted on that page
 
 ### Requirement: Draftsman document read
-`read_draftsman(data) -> DraftsmanFile` SHALL split a `.PCBDwf` into its header and its decoded XML tree, and `summary(file)` SHALL list its sheets, views, tables, notes and parameters. Data that is not such a document MUST raise `DraftsmanError` naming the offset where reading stopped.
+`read_draftsman(data) -> DraftsmanFile` SHALL split a `.PCBDwf` into its chunks and its decoded XML tree, and `summary(file)` SHALL list its sheets, views, tables, notes and parameters. Data that is not such a document MUST raise `DraftsmanError` naming the offset where reading stopped.
 
 #### Scenario: Public samples decode
 - **WHEN** `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_draftsman_census.py` runs with the corpus cached

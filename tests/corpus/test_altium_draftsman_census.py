@@ -20,6 +20,8 @@ from typing import Any
 import pytest
 from _corpus import CorpusItem, manifest_items, require
 
+from fenolite.backends.altium.read.draftsman import NAMESPACE, read_draftsman, summary
+
 pytestmark = pytest.mark.needs_corpus
 ROOT = Path(__file__).resolve().parents[2]
 ROWS = manifest_items("altium-draftsman")
@@ -97,6 +99,26 @@ def test_container(item: CorpusItem) -> None:
     candidates = row["candidates"]
     assert candidates.pop("lz4-block-chunks") == wanted["flags"].get("1", 0)
     assert set(candidates.values()) == {0}, candidates
+
+
+SHEETS = {
+    "altium-third-party-pcbdwf-01": 2,
+    "altium-third-party-pcbdwf-02": 3,
+    "altium-third-party-pcbdwf-03": 1,
+    "altium-third-party-pcbdwf-04": 1,
+}
+"""Sheets per row (``docs/evidence/altium-draftsman.md``, "Census")."""
+
+
+@pytest.mark.parametrize("item", ROWS, ids=lambda item: item.id)
+def test_samples_decode(item: CorpusItem) -> None:
+    """Scenario "Public samples decode": the product reader decodes each row into a Draftsman document of
+    the namespace, with as many chunks as the measuring tool counts and at least one sheet."""
+    file = read_draftsman(require(item).read_bytes())
+    assert file.root.tag == f"{{{NAMESPACE}}}Document"
+    assert len(file.chunks) == CONTAINER[item.id]["chunks"]
+    sheets = summary(file).sheets
+    assert len(sheets) == SHEETS[item.id] and all(sheet.items for sheet in sheets)
 
 
 def test_container_output_holds_no_content() -> None:

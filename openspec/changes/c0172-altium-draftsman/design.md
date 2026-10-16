@@ -46,7 +46,7 @@
    - **G1 passes** when `read_draftsman` decodes the four samples and every F0 file into XML that `xml.etree.ElementTree` parses, and the second header field is explained: a length, a known checksum or a field that Altium ignores (`H-A-DWF-FIELD`).
    - **G1 fails** after 2 design-days of Phase 1. Then the writer phases stop and the fallback ships (Decision 9). G1 cannot be passed by copying bytes the format was not understood from.
 
-2. **Reader and census (Phase 2).** `read_draftsman(data) -> DraftsmanFile(header, root)` and `summary(file) -> DraftsmanSummary` (sheets with paper; views with kind, side, scale and place; tables with kind; notes with texts; parameters). Census of the four samples into `docs/evidence/altium-draftsman.md`: element counts, the sheet, view and table forms, counts only. The fact rows of `docs/formats/altium/draftsman.md` follow it, labelled `CORPUS-VERIFIED` on 2 repositories or `INFERRED` on one. The project loader keeps the kind `draftsman`. Reading a document into the model is a non-goal.
+2. **Reader and census (Phase 2).** `read_draftsman(data) -> DraftsmanFile(chunks, root)` (first written with a `header`; see "Found on 2026-10-16") and `summary(file) -> DraftsmanSummary` (sheets with paper; views with kind, side, scale and place; tables with kind; notes with texts; parameters). Census of the four samples into `docs/evidence/altium-draftsman.md`: element counts, the sheet, view and table forms, counts only. The fact rows of `docs/formats/altium/draftsman.md` follow it, labelled `CORPUS-VERIFIED` on 2 repositories or `INFERRED` on one. The project loader keeps the kind `draftsman`. Reading a document into the model is a non-goal.
 
 3. **What a first document holds.** The minimal useful set, from c0117's pages:
 
