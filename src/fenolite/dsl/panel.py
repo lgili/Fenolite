@@ -28,6 +28,7 @@ from dataclasses import replace
 from pathlib import PurePosixPath, PureWindowsPath
 
 from fenolite.core.coords import Point
+from fenolite.core.ids import derived_id
 from fenolite.core.trig import QUARTER_TURN
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.units import as_nm, as_udeg, mm
@@ -49,7 +50,6 @@ from fenolite.model.panel import (
     VScoreSpec,
 )
 from fenolite.model.panel import Panel as ModelPanel
-from fenolite.panel.ids import panel_id
 
 BOARD_SUFFIXES = {".kicad_pcb": "kicad", ".pcbdoc": "altium"}
 """The board files a panel names, by suffix (case-insensitive for ``.PcbDoc``)."""
@@ -308,7 +308,9 @@ class Panel:
         """The model panel of this script; ``sha256`` is the digest of the board file when it was read."""
         separations = tuple(Separation(b, self.separations[b]) for b in BETWEEN if b in self.separations)  # pyright: ignore[reportArgumentType]
         return ModelPanel(
-            id=panel_id(),
+            id=derived_id(
+                "pnl", "panel", "panel"
+            ),  # fenolite.panel.ids.panel_id(); dsl does not import panel
             name=self.name,
             source=PanelSource(self.board, sha256, self.backend),  # pyright: ignore[reportArgumentType]
             array=self.array,

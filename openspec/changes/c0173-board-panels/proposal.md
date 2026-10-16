@@ -30,6 +30,7 @@ Size: 13 design-days, cut order in the design. Release 0.5.0 by the maintainer's
 - `altium-verification`: ADDED "Kit cases for panels".
 - `manufacturing-exports`: MODIFIED "Export kinds and their arguments".
 - `cli-contract`: ADDED "Panel command".
+- `package-layering`: MODIFIED "Allowed import edges" (the new package `panel`; added 2026-10-16 with task 6.1, when the import-graph test named it).
 
 ## Non-goals
 

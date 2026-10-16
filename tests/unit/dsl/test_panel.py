@@ -77,3 +77,9 @@ def test_rails_default_top_and_bottom() -> None:
     panel.rails()
     frame = to_model(panel).frame
     assert (frame.top, frame.bottom, frame.left, frame.right) == (5_000_000, 5_000_000, 0, 0)
+
+
+def test_the_panel_id_is_the_key_row() -> None:
+    from fenolite.panel.ids import panel_id
+
+    assert to_model(Panel("p", board="b.kicad_pcb")).id == panel_id()
