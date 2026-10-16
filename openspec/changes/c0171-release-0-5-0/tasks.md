@@ -40,7 +40,8 @@
 
 ## 6. Closing checks
 
-- [ ] 6.1 Run the closing checks. Proof: `make check-fast PYTEST_WORKERS=3`; every `tools/gen_*.py --check`; `uv run pytest tests/residue tests/corpus/test_manifest.py`; `openspec validate --all --strict --no-interactive` reports no error; `python3 tools/dco_check.py 5b86b6e..HEAD`.
+- [x] 6.1 Run the closing checks. Proof: `make check-fast PYTEST_WORKERS=3`; every `tools/gen_*.py --check`; `uv run pytest tests/residue tests/corpus/test_manifest.py`; `openspec validate --all --strict --no-interactive` reports no error; `python3 tools/dco_check.py 5b86b6e..HEAD`.
+  - 2026-10-16, on `7b25f97` of `release-0.5.0` (base `dev` at `5b86b6e`, no `kicad-cli` here): `make check-fast PYTEST_WORKERS=3` exit 0 (ruff check all passed, format clean, pyright 0 errors, residue 0 hits with 11 waivers and the private gate skipped, `13594 passed, 30 skipped in 556.04s`); the five `tools/gen_*.py --check` exit 0; `uv run pytest tests/residue tests/corpus/test_manifest.py`: 85 passed, 1 skipped; `openspec validate --all --strict --no-interactive`: 0 errors (the strict warnings on long requirements are those of `dev`); `python3 tools/dco_check.py 5b86b6e..HEAD` prints nothing.
 - [ ] 6.2 The CI runs of the release branch replace the placeholders `TODO(coordinator)` of the record; the pending tasks of other changes whose proofs passed there are ticked and their rows changed. Proof: `grep -c 'TODO(coordinator)' docs/release/v0.5.md` prints `0`; `uv run pytest tests/unit/test_release_record_v05.py`.
 - [ ] 6.3 The full `make check` once, on the rebased branch, before the merge (the coordinator). Proof: `make check` exits 0.
 
