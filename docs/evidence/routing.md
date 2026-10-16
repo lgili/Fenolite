@@ -439,3 +439,18 @@ the steps of `test_krt` ran to their end on the QFN bench (`qfn_fanout.py` escap
 balls, then `route.py` in 225 s; `route.py` alone was stopped at a limit of 300 s); their verdict is
 KiCad's, in the `routing` job.
 
+
+## Slots as keep-outs (c0170)
+
+Run locally on 2026-10-16 with Freerouting 2.4.1 (jar `251101c3eeac`) and OpenJDK 25.0.4.1
+(`tests/routing/test_slots_route.py`, `FENOLITE_ROUTING_EVIDENCE=1`; the `routing` CI job has not run it
+yet). The board is the shared slot fixture `tests/data/slots/design.py` with two 0603 resistors whose pads
+of the net `A` lie 3 mm on either side of the slot `S1`, across its axis.
+
+| outcome | value | hypothesis | what was seen |
+|---|---|---|---|
+| `route-slot` | `absent` | `H-G-DSN-SLOT` | with the cut-out, `S1` and the merged L written as three `keepout` polygons: 7 tracks, none touching `S1`, no open net; the control, the board ring alone: 2 tracks, both across `S1` |
+
+Without the `geo` extra (the `routing` job installs none) the test writes the L as two overlapping
+stadiums, which bound the router the same way; the design file's three keep-outs with the merged L are
+checked where the extra is installed (`-k keepouts`).
