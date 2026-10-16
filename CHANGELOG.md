@@ -6,6 +6,18 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Slotted board holes** (c0168): `Hole.length` (the overall length of a drilled slot of width `drill`, `None` for a round hole) and `Hole.rotation` (the axis of that length). The canonical writer omits both at their defaults, so a document without slotted holes keeps its bytes. **Release 0.4.x cannot read a model document whose hole carries `length` or `rotation`.**
+- **Slot pads in an Altium build** (c0168): a drilled slot, `design.hole(…, length=…)` that is not plated, is written to the PCB document as a free pad with a slotted hole (Multi-Layer, no designator or net, size (length, width), hole shape Slot, the pad turned by the slot's angle), so the copper equals the hole; before, it was reported as not lowered. KiCad 10.0.6's importer reads it as the same oval non-plated hole (`H-A-SLOT-PAD`, probe `altium-slot-pad`).
+- **Board cut-out regions behind the kit's gate** (c0168): the cut-outs and milled slots of the outline, each group of overlapping ones merged, can be written as board cut-out regions (`KIND=0` with `ISBOARDCUTOUT=TRUE` on the Keep-Out layer, arcs polygonised within 1 µm; `pcbrecords.cutout_region`). KiCad 10.0.6 imports each as an `Edge.Cuts` cut-out (`H-A-CUTOUT-REGION`, probe `altium-cutout-region`). The form is written only once the maintainer's kit (Part S of `docs/evidence/altium-pcb.md`, cases S3 to S5) has confirmed it in Altium Designer: until then `pcbdoc.CUTOUT_REGIONS` is false and the build reports each cut-out.
+- RT-A2 of an Altium build compares board holes (position, drill, plating, length, rotation) and each written cut-out ring (`backends.base.CutoutComparer`).
+
+### Changed
+
+- **An Altium build with cut-outs or slots plans its PCB document** (c0168): the document is no longer refused for cut-outs, milled slots or arcs of a cut-out (an arc of the board ring still refuses it), and a board of holes and cut-outs without parts gets one; each cut-out not written gives one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>` or a merged group joined by `+`, counted under the new kind `cutout` of `result.pcb`. The lowering of a model reports the same per item instead of one `outline` skip.
+- **The Altium import gives free hole pads and board cut-outs as what they are** (c0168): a free pad on Multi-Layer without name, net or copper ring becomes a board `Hole` (with its slot) instead of a board-only footprint, and a free region with `ISBOARDCUTOUT=TRUE` becomes an `Edge.Cuts` cut-out instead of a graphic of the Keep-Out layer. On the seven public documents four pads become holes and five regions cut-outs (`docs/evidence/altium-pcb-read.md`). `convert --to kicad` gives each such hole back as the board-only footprint it was (`convert.to_kicad.hole_footprints`), so its files are unchanged but where a cut-out region is now a cut-out.
+
 ## [0.5.0] - 2026-10-15
 
 ### Added
