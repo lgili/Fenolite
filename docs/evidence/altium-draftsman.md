@@ -57,6 +57,42 @@ leading bytes occur there.
 No codec package was installed: the LZ4 block decoder is about forty lines of Fenolite's own code, and
 the other candidates are in Python's standard library or were recognised by their leading bytes only.
 
+### Tree (task 2.2, public half, 2026-10-16)
+
+Measured by `uv run python tools/draftsman_census.py --tree` with Fenolite's reader and pinned by
+`FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_draftsman_census.py -k tree`. Element names and
+counts only.
+
+| row | format version | root members | elements | under the `*Information` members | under `Pages` | sheets (size, items) |
+|---|---|---|---|---|---|---|
+| `altium-third-party-pcbdwf-01` | 22 | 37 | 2662429 | 2571867 (96.6 %) | 89037 | 2 A4, 26 and 25 items |
+| `altium-third-party-pcbdwf-02` | 22 | 37 | 1089079 | 1083877 (99.5 %) | 3934 | 3 A4, 31, 26 and 29 items |
+| `altium-third-party-pcbdwf-03` | 21 | 33 | 243822 | 232308 (95.3 %) | 9509 | 1 of 1056 × 816 from its template, 44 items |
+| `altium-third-party-pcbdwf-04` | 21 | 33 | 172161 | 168351 (97.8 %) | 1845 | 1 of 1056 × 816 from its template, 44 items |
+
+| row | items by kind | views (side, scale denominator and `Numenator`) | tables | notes (entries) | texts (`=` parameter texts) | document parameters |
+|---|---|---|---|---|---|---|
+| 01 | `BoardAssemblyViewData` 2, `Line` 16, `Picture` 2, `Text` 31 | assembly Top 2, 5; assembly Bottom 1, 2 | none | none | 31 (14) | 31 |
+| 02 | `BoardFabricationViewData` 6, `DrillTableBoardView` 1, `LayerStackLegendView` 1, `Line` 24, `Picture` 5, `Text` 48, `TransmissionLineTableData` 1 | six fabrication views Top (five 1, 1; one 1, 2); one layer stack legend | drill table, transmission line table | none | 48 (21) | 31 |
+| 03 | `BillOfMaterialsView` 1, `BoardAssemblyViewData` 4, `Line` 14, `LinearDimension` 3, `Picture` 2, `Rectangle` 1, `Text` 19 | assembly Top, Right, Front and Bottom, each 1, 2 | bill of materials (side `All`) | none | 19 (10) | 42 |
+| 04 | `BoardFabricationViewData` 1, `Callout` 1, `DrillTableBoardView` 1, `DrillViewView` 1, `LayerStackLegendView` 1, `Line` 14, `LinearDimension` 2, `Note` 1, `Picture` 2, `Rectangle` 1, `Text` 19 | layer stack legend; drill drawing Top 1, 2; fabrication Top 1, 2 | drill table | one note of 12 entries | 19 (10) | 42 |
+
+What the rows show:
+
+- The board data members (`BillOfMaterialsInformation`, `BoardAssemblyInformation`,
+  `BoardFabricationInformation`, `BoardLayersGeometryInformation`, `DrillTableInformation`,
+  `LayerStackInformation` and the nil `BoardProjectionInformation`) hold 95.3 % to 99.5 % of a document's
+  elements, and the sheets 0.4 % to 3.9 %. The copy of the board is most of a document, as design
+  Decision 4 assumed when it chose shells.
+- Some of these members are `i:nil` in a document: `DrillTableInformation` in 01 and 03, which have no drill
+  table; `LayerStackInformation` in 01, which has no legend; `BoardAssemblyInformation` in 02, which has
+  no assembly view; `BillOfMaterialsInformation` in 04, which has no BOM table. Two documents without such
+  an item still fill the member (`BillOfMaterialsInformation` in 02, `LayerStackInformation` in 03).
+- The documents of format version 22 have four root members more than those of version 21:
+  `DocumentId`, `LayoutDrawingData`, `WiringDiagramData` and `WiringListInformationData` (the last three
+  nil).
+- Round F0 adds what each step of Altium Designer 26.5 adds (task 2.2, the F0 half).
+
 ### Phase 1 budget
 
 Phase 1 has a budget of 2 design-days (design Decision 1). The container of the public documents was

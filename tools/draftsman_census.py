@@ -2,13 +2,14 @@
 # Copyright (c) 2026 Fenolite contributors
 """Container measurement of the cached Altium Draftsman documents (change c0172, task 1.2).
 
-    uv run python tools/draftsman_census.py [--json] [FILE ...]
+    uv run python tools/draftsman_census.py [--json] [--tree] [FILE ...]
 
 Without files, reads every cached row of ``tests/corpus/manifest.toml`` that carries ``altium-draftsman``.
 For each document it measures the container (``docs/evidence/altium-draftsman.md``, "Census"): the first
 eight bytes and what they are, the chunks with their flags and lengths, the LZ4 sequences of each chunk (the
 block format of S-0803), whether every block decodes on its own, whether the decoded text is well-formed XML,
 and the result of each candidate decoder of design Decision 1 at the start of the file and of each chunk.
+With ``--tree`` it adds the tree census of task 2.2, read with ``fenolite.backends.altium.read.draftsman``.
 
 The output holds row ids, counts, lengths, flags, byte values of the container and the names of the
 candidates only, never a value or a name of the document's content. The measuring code is Fenolite's own,
@@ -288,12 +289,59 @@ def measure(data: bytes) -> dict[str, Any]:
     }
 
 
-def census(paths: list[tuple[str, Path]]) -> dict[str, Any]:
+def tree(data: bytes) -> dict[str, Any]:
+    """The tree census of one document (task 2.2) with Fenolite's reader: element counts, the root's
+    members and which are nil, the share of the board data members, and per sheet its paper and the kinds
+    of its items; views with side and scale, tables with side, notes with their entry count."""
+    from fenolite.backends.altium.read.draftsman import INSTANCE, read_draftsman, summary
+
+    file = read_draftsman(data)
+    root = file.root
+    counts = {child.tag.split("}")[-1]: sum(1 for _ in child.iter()) for child in root}
+    nil = sorted(
+        child.tag.split("}")[-1]
+        for child in root
+        if child.get(f"{{{INSTANCE}}}nil") == "true" and not len(child)
+    )
+    total = sum(1 for _ in root.iter())
+    board = sum(count for name, count in counts.items() if name.endswith("Information"))
+    result = summary(file)
+    return {
+        "elements": total,
+        "root_members": sorted(counts),
+        "nil_members": nil,
+        "board_data_elements": board,
+        "board_data_percent": round(100 * board / total, 1),
+        "page_elements": counts.get("Pages", 0),
+        "format_version": result.format_version,
+        "sheets": [
+            {
+                "paper": sheet.paper,
+                "sizing": sheet.sizing,
+                "size": list(sheet.size),
+                "items": len(sheet.items),
+            }
+            for sheet in result.sheets
+        ],
+        "kinds": dict(sorted(Counter(item.kind for sheet in result.sheets for item in sheet.items).items())),
+        "views": [[item.name, item.side, list(item.scale or ())] for item in result.items("view")],
+        "tables": [[item.name, item.side] for item in result.items("table")],
+        "note_entries": [len(item.texts) for item in result.items("note")],
+        "texts": len(result.items("text")),
+        "parameter_texts": sum(1 for item in result.items("text") if item.texts[0].startswith("=")),
+        "document_parameters": len(result.parameters),
+    }
+
+
+def census(paths: list[tuple[str, Path]], *, with_tree: bool = False) -> dict[str, Any]:
     rows: dict[str, Any] = {}
     for ident, path in paths:
+        data = path.read_bytes()
         try:
-            rows[ident] = measure(path.read_bytes())
-        except ContainerError as error:
+            rows[ident] = measure(data)
+            if with_tree:
+                rows[ident]["tree"] = tree(data)
+        except (ContainerError, ValueError) as error:
             rows[ident] = {"error": str(error)}
     return rows
 
@@ -302,18 +350,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("files", nargs="*", type=Path)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--tree", action="store_true", help="add the tree census of each document")
     args = parser.parse_args(argv)
     if args.files:
         rows, missing = [(f"file-{n}", p) for n, p in enumerate(args.files, 1)], []
     else:
         rows, missing = cached_rows(default_cache())
-    result = {"rows": census(rows), "missing": missing}
+    result = {"rows": census(rows, with_tree=args.tree), "missing": missing}
     if args.json:
         json.dump(result, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     else:
         for ident, row in result["rows"].items():
-            print(ident, {k: v for k, v in row.items() if k != "candidates"})
+            print(ident, {k: v for k, v in row.items() if k not in ("candidates", "tree")})
+            if "tree" in row:
+                print("  tree", row["tree"])
             print("  candidates", row.get("candidates"))
         if missing:
             print("missing", missing)

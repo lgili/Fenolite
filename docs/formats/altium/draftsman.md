@@ -105,3 +105,16 @@ The reader `fenolite.backends.altium.read.draftsman` relies on these rows and on
 | A `Text` item holds its string in `Text`; 55 of the 117 texts of the four documents start with `=`, as the title-block texts of a template that show a parameter (S-0772) do | S-0772, S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-PARAMS |
 | A `Note` holds a `Title` and `Elements` of `NoteElement`, each with `BorderStyle`, `BorderStyleV2`, `FirstLineIndent`, `Id`, `Postfix` and `Text` | S-0779, S-0786 | INFERRED | H-A-DWF-KIT |
 | `Parameters` holds the document's parameters as `DrawingDocumentParameterData` (`Name`, `Value`, `Version`); `ParametersData` holds `LastUpdate`, `PCBParameters`, `PCBParametersV2` and `ProjectParameters` of the same form | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-PARAMS |
+
+## Board data and sheets (census)
+
+Measured on 2026-10-16 on the four public documents (task 2.2, public half); the counts are in
+`docs/evidence/altium-draftsman.md`, "Census", "Tree".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The root members `BillOfMaterialsInformation`, `BoardAssemblyInformation`, `BoardFabricationInformation`, `BoardLayersGeometryInformation`, `DrillTableInformation` and `LayerStackInformation` hold 95.3 % to 99.5 % of a document's elements, the sheets 0.4 % to 3.9 %: the document keeps its own copy of the board data that its views and tables draw (S-0773) | S-0773, S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-IMPORT |
+| Such a member is `i:nil` in some documents that have no item of its kind, and filled in others; whether Altium fills a nil member on Import Changes is not shown by any public file (probe FP4) | S-0785, S-0786 | INFERRED | H-A-DWF-IMPORT |
+| The documents of format version 22 hold the root members `DocumentId`, `LayoutDrawingData`, `WiringDiagramData` and `WiringListInformationData`, which those of version 21 lack | S-0785, S-0786 | CORPUS-VERIFIED | H-A-DWF-MINIMAL |
+| A view's `Scale` holds two small integers: Denominator 1 and Numenator 1 or 2 in most views, Denominator 2 and Numenator 5 in one; read as numerator over denominator, the views are drawn at 1:1, 2:1 and 2.5:1. Which member is which is confirmed by round F0 | S-0785, S-0786 | INFERRED | H-A-DWF-KIT |
+| A Bill Of Materials table holds `ViewSide` (`All` in the one public table) beside its `DataSource` members | S-0778, S-0786 | INFERRED | H-A-DWF-KIT |

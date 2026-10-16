@@ -130,3 +130,100 @@ def test_container_output_holds_no_content() -> None:
     for path in (path for _, path in rows):
         assert str(path) not in text and path.name not in text
     assert "Document" not in text and "Altium" not in text
+
+
+TREE: dict[str, dict[str, Any]] = {
+    "altium-third-party-pcbdwf-01": {
+        "elements": 2662429,
+        "board_data_percent": 96.6,
+        "kinds": {"BoardAssemblyViewData": 2, "Line": 16, "Picture": 2, "Text": 31},
+        "views": [["board-assembly", "Top", ["2", "5"]], ["board-assembly", "Bottom", ["1", "2"]]],
+        "tables": [],
+        "note_entries": [],
+        "parameter_texts": 14,
+        "document_parameters": 31,
+    },
+    "altium-third-party-pcbdwf-02": {
+        "elements": 1089079,
+        "board_data_percent": 99.5,
+        "kinds": {
+            "BoardFabricationViewData": 6,
+            "DrillTableBoardView": 1,
+            "LayerStackLegendView": 1,
+            "Line": 24,
+            "Picture": 5,
+            "Text": 48,
+            "TransmissionLineTableData": 1,
+        },
+        "views": [
+            *[["board-fabrication", "Top", ["1", "1"]]] * 3,
+            ["board-fabrication", "Top", ["1", "2"]],
+            *[["board-fabrication", "Top", ["1", "1"]]] * 2,
+            ["layer-stack-legend", None, []],
+        ],
+        "tables": [["drill-table", None], ["transmission-line", None]],
+        "note_entries": [],
+        "parameter_texts": 21,
+        "document_parameters": 31,
+    },
+    "altium-third-party-pcbdwf-03": {
+        "elements": 243822,
+        "board_data_percent": 95.3,
+        "kinds": {
+            "BillOfMaterialsView": 1,
+            "BoardAssemblyViewData": 4,
+            "Line": 14,
+            "LinearDimension": 3,
+            "Picture": 2,
+            "Rectangle": 1,
+            "Text": 19,
+        },
+        "views": [["board-assembly", side, ["1", "2"]] for side in ("Top", "Right", "Front", "Bottom")],
+        "tables": [["bill-of-materials", "All"]],
+        "note_entries": [],
+        "parameter_texts": 10,
+        "document_parameters": 42,
+    },
+    "altium-third-party-pcbdwf-04": {
+        "elements": 172161,
+        "board_data_percent": 97.8,
+        "kinds": {
+            "BoardFabricationViewData": 1,
+            "Callout": 1,
+            "DrillTableBoardView": 1,
+            "DrillViewView": 1,
+            "LayerStackLegendView": 1,
+            "Line": 14,
+            "LinearDimension": 2,
+            "Note": 1,
+            "Picture": 2,
+            "Rectangle": 1,
+            "Text": 19,
+        },
+        "views": [
+            ["layer-stack-legend", None, []],
+            ["drill-drawing", "Top", ["1", "2"]],
+            ["board-fabrication", "Top", ["1", "2"]],
+        ],
+        "tables": [["drill-table", None]],
+        "note_entries": [12],
+        "parameter_texts": 10,
+        "document_parameters": 42,
+    },
+}
+"""Per row, the tree census (``docs/evidence/altium-draftsman.md``, "Census", "Tree")."""
+VERSION_MEMBERS = {"DocumentId", "LayoutDrawingData", "WiringDiagramData", "WiringListInformationData"}
+"""The root members that only the two documents of format version 22 hold."""
+
+
+@pytest.mark.parametrize("item", ROWS, ids=lambda item: item.id)
+def test_tree(item: CorpusItem) -> None:
+    """Task 2.2, the public half: the forms of the sheets, views, tables, notes and parameters, and the
+    share of the board data members (design Decision 4)."""
+    row = _tool().tree(require(item).read_bytes())
+    wanted = TREE[item.id]
+    for key, value in wanted.items():
+        assert row[key] == value, key
+    assert len(row["sheets"]) == SHEETS[item.id]
+    assert ({"22": 37, "21": 33}[row["format_version"]]) == len(row["root_members"])
+    assert (VERSION_MEMBERS <= set(row["root_members"])) == (row["format_version"] == "22")
