@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
-from _resources import kicad_cli
+from _resources import NotFetched, kicad_cli
 
 from fenolite.backends.kicad import altium_import
 from fenolite.backends.kicad.cli import KicadCli, cli_for
@@ -139,10 +139,10 @@ def _large_source(row: str) -> Path | None:
 
 def difat_outcome() -> str:
     """``equal`` when ``kicad-cli pcb import`` reads the DIFAT document of ``vme-wren`` and it equals the
-    source at level 4; ``inconclusive`` when the heavy board is not cached (change c0160)."""
+    source at level 4; ``NotFetched`` when the heavy board is not cached (change c0160)."""
     source = _large_source(DIFAT_ROW)
     if source is None:
-        return "inconclusive"
+        raise NotFetched(DIFAT_ROW)
     found = triangle(source, level=4, ignore_refs=("",))
     return "equal" if not found.unexplained else "different"
 

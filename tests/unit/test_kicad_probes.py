@@ -90,6 +90,50 @@ def test_drift_detected(pytester: pytest.Pytester, fake: Path, monkeypatch: pyte
     result.stdout.fnmatch_lines(["*fake-probe: recorded 'reject', now 'load'*"])
 
 
+UNFETCHED = """
+import sys
+sys.path[:0] = {paths!r}
+from pathlib import Path
+import _probes
+from _resources import NotFetched
+
+FOLDER = Path({folder!r})
+
+
+def absent():
+    raise NotFetched("row")
+
+
+def test_fake(monkeypatch):
+    monkeypatch.setattr(_probes, "PROBES", {{"corpus-probe": _probes.Probe(absent, (10,))}})
+    _probes.run.cache_clear()
+    found = _probes.outcomes(10)
+    _probes.run.cache_clear()
+    assert found == {{"corpus-probe": "inconclusive"}} and _probes.NOT_FETCHED == {{"corpus-probe"}}
+    _probes.verify("1.2.3", found, FOLDER, not_fetched=_probes.NOT_FETCHED)
+"""
+
+
+@pytest.mark.parametrize("required", [False, True])
+def test_unfetched_input_is_no_drift(
+    pytester: pytest.Pytester, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, required: bool
+) -> None:
+    """A probe whose corpus input is not cached (c0171): left out of the comparison, unless the corpus is
+    required, where it fails naming the probe."""
+    monkeypatch.delenv("FENOLITE_PROBES_WRITE", raising=False)
+    monkeypatch.setenv("FENOLITE_REQUIRE", "corpus" if required else "")
+    folder = tmp_path / "probes"
+    folder.mkdir()
+    (folder / "1.2.3.json").write_text(json.dumps({"version": "1.2.3", "probes": {"corpus-probe": "equal"}}))
+    pytester.makepyfile(test_fake=UNFETCHED.format(paths=helper_folders(), folder=str(folder)))
+    result = pytester.runpytest("-p", "no:cacheprovider")
+    if required:
+        result.assert_outcomes(failed=1)
+        result.stdout.fnmatch_lines(["*corpus input not cached for probe(s) corpus-probe*"])
+    else:
+        result.assert_outcomes(passed=1)
+
+
 # -- the library table probes (c0021): the outcome rule and the registered ids, without kicad-cli
 
 

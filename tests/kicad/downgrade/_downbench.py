@@ -27,6 +27,7 @@ from functools import cache
 from pathlib import Path
 
 import _fuzzmod
+from _resources import NotFetched
 
 from fenolite.api.conversion import ConversionResult, convert
 from fenolite.backends.kicad.cli import CliRun, KicadCli
@@ -556,7 +557,7 @@ def demo_outcome(runner: KicadCli, name: str, expected: Mapping[str, tuple[str, 
 
 def demo_probes(runner: Callable[[], KicadCli]) -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
     """The probes ``down-demo-<name>`` and ``down-demos`` (``equal`` when both are) on both majors; an
-    uncached demo project is ``inconclusive``."""
+    uncached demo project raises ``NotFetched``."""
 
     done: dict[str, str] = {}
 
@@ -564,7 +565,9 @@ def demo_probes(runner: Callable[[], KicadCli]) -> dict[str, tuple[Callable[[], 
         if name not in done:
             with tempfile.TemporaryDirectory(prefix="fenolite-down-probe-") as tmp:
                 cached = demo_folder(Path(tmp), name) is not None
-            done[name] = demo_outcome(runner(), name, DEMO_TYPES[name]) if cached else "inconclusive"
+            if not cached:
+                raise NotFetched(name)
+            done[name] = demo_outcome(runner(), name, DEMO_TYPES[name])
         return done[name]
 
     found: dict[str, tuple[Callable[[], str], tuple[int, ...]]] = {

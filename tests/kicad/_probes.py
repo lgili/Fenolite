@@ -16,7 +16,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -102,7 +102,7 @@ import _zonebench
 import _zonelayers
 import pytest
 from _boards import FIXTURE, created_board
-from _resources import kicad_cli
+from _resources import CORPUS_HINT, NotFetched, kicad_cli, required_resources
 
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli, cli_for
@@ -433,10 +433,19 @@ def fp_write_probes() -> dict[str, Probe]:
 PROBES: dict[str, Probe] = _probes()
 
 
+NOT_FETCHED: set[str] = set()
+"""The probes whose corpus input was not on this machine; ``run`` gives them ``inconclusive``."""
+
+
 @cache
 def run(probe_id: str) -> str:
-    """The outcome of ``probe_id`` on the running ``kicad-cli`` (memoised per session)."""
-    outcome = PROBES[probe_id].function()
+    """The outcome of ``probe_id`` on the running ``kicad-cli`` (memoised per session); ``inconclusive``,
+    with the id added to ``NOT_FETCHED``, when its corpus input is not cached."""
+    try:
+        outcome = PROBES[probe_id].function()
+    except NotFetched:
+        NOT_FETCHED.add(probe_id)
+        return "inconclusive"
     if outcome not in OUTCOMES:
         raise ValueError(f"probe {probe_id} returned {outcome!r}, not one of {sorted(OUTCOMES)}")
     return outcome
@@ -451,10 +460,18 @@ def results_path(name: str, folder: Path = RESULTS) -> Path:
     return folder / f"{name}.json"
 
 
-def verify(name: str, found: Mapping[str, str], folder: Path = RESULTS) -> None:
+def verify(
+    name: str, found: Mapping[str, str], folder: Path = RESULTS, *, not_fetched: Collection[str] = ()
+) -> None:
     """Compare ``found`` with the results file of version ``name``, or write it with
-    ``FENOLITE_PROBES_WRITE=1``; fail on drift or on a missing file."""
+    ``FENOLITE_PROBES_WRITE=1``; fail on drift or on a missing file. The probes ``not_fetched`` have no
+    outcome on this machine and are left out of the comparison, unless the corpus is required
+    (``FENOLITE_REQUIRE``) or the file is being written: then they fail the test."""
     path = results_path(name, folder)
+    if not_fetched and ("corpus" in required_resources() or os.environ.get(WRITE_VARIABLE) == "1"):
+        missing = ", ".join(sorted(not_fetched))
+        pytest.fail(f"corpus input not cached for probe(s) {missing}: {CORPUS_HINT}", pytrace=False)
+    found = {pid: outcome for pid, outcome in found.items() if pid not in not_fetched}
     if os.environ.get(WRITE_VARIABLE) == "1":
         folder.mkdir(parents=True, exist_ok=True)
         data = {"version": name, "probes": dict(sorted(found.items()))}
@@ -467,6 +484,7 @@ def verify(name: str, found: Mapping[str, str], folder: Path = RESULTS) -> None:
             pytrace=False,
         )
     recorded: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))["probes"]
+    recorded = {pid: outcome for pid, outcome in recorded.items() if pid not in not_fetched}
     drift = [
         f"{pid}: recorded {recorded.get(pid)!r}, now {found.get(pid)!r}"
         for pid in sorted(set(recorded) | set(found))
@@ -476,4 +494,4 @@ def verify(name: str, found: Mapping[str, str], folder: Path = RESULTS) -> None:
         pytest.fail(f"probe outcomes drifted for kicad-cli {name}:\n" + "\n".join(drift), pytrace=False)
 
 
-__all__ = ["OUTCOMES", "PROBES", "Probe", "outcomes", "run", "verify", "version"]
+__all__ = ["NOT_FETCHED", "OUTCOMES", "PROBES", "Probe", "outcomes", "run", "verify", "version"]

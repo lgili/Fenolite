@@ -43,9 +43,12 @@ def test_padstack() -> None:
     assert found.report.levels[-1].level >= 4
 
 
-def test_probe() -> None:
-    """The two probes of the hypothesis rows: each is ``equal`` on the pinned 10.0.6 image."""
-    for probe in ("convert-difat", "convert-padstack"):
-        outcome = _probes.run(probe)
-        print(f"{probe}: {outcome} on kicad-cli {_probes.version()}")
-        assert outcome == "equal"
+@pytest.mark.parametrize("probe", ["convert-difat", "convert-padstack"])
+def test_probe(probe: str) -> None:
+    """The two probes of the hypothesis rows: each is ``equal`` on the pinned 10.0.6 image. The DIFAT probe
+    needs the heavy board: without it the test skips, or fails when the corpus is required."""
+    if probe == "convert-difat":
+        _difat_board()
+    outcome = _probes.run(probe)
+    print(f"{probe}: {outcome} on kicad-cli {_probes.version()}")
+    assert outcome == "equal"
