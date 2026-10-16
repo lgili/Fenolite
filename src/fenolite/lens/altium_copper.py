@@ -34,6 +34,7 @@ from typing import Literal
 
 from fenolite.backends.altium import pcbdoc, pcblib, pcbrecords, rulemap
 from fenolite.backends.altium.ascii import text_problem
+from fenolite.backends.altium.cutouts import cutout_items
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.lower import (
     keepout_footprints_info,
@@ -102,6 +103,7 @@ KINDS: tuple[str, ...] = (
     "dimension",
     "keep-out",
     "hole",
+    "cutout",
     "body",
     "rule",
 )
@@ -743,6 +745,8 @@ def account(
         "rule": (lowered, rules - lowered),
         **plan.counts,
     }
+    cutout_total = len(cutout_items(board.outline)) if board is not None else 0
+    counts["cutout"] = (len(spec.cutouts), cutout_total - len(spec.cutouts))  # change c0168
     totals = {
         "track": len(copper.tracks) if copper is not None else 0,
         "arc": len(copper.arcs) if copper is not None else 0,
@@ -752,6 +756,7 @@ def account(
         "graphic": len(board.graphics) if board is not None else 0,
         "keep-out": len(board.keepouts) if board is not None else 0,
         "hole": len(board.holes) if board is not None else 0,
+        "cutout": cutout_total,
         "body": script_bodies + (sum(len(fp.bodies) for fp in board.footprints) if board is not None else 0),
     }
     for kind, total in totals.items():

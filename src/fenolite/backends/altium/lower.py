@@ -34,6 +34,7 @@ import fenolite.backends.altium.rulemap as rulemap
 from fenolite.backends.altium.altsym import AltiumSymbol
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
+from fenolite.backends.altium.cutouts import cutout_items, not_written
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
@@ -61,7 +62,6 @@ from fenolite.model.board import (
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
-from fenolite.model.outline import slot_name
 
 EVIDENCE = Evidence(
     Level.INFERRED, hypotheses=("H-A-CONV-LIBRARY", "H-A-CONV-SCHEMATIC", "H-A-VER-RTA2-3", "H-A-VER-RTA3")
@@ -82,6 +82,7 @@ KINDS: tuple[str, ...] = (
     "dimension",
     "keep-out",
     "hole",
+    "cutout",
     "body",
     "rule",
 )
@@ -647,18 +648,26 @@ def _extent(board: Board) -> tuple[Point, ...]:
     return (Point(x0, y0), Point(x1, y0), Point(x1, y1), Point(x0, y1))
 
 
+def _cutouts(board: Board, account: _Account) -> tuple[tuple[Point, ...], ...]:
+    """The board cut-out regions of the document (change c0168): every item of ``cutouts.cutout_items``
+    when ``pcbdoc.CUTOUT_REGIONS`` is true and it can be written, polygonised; every other item is
+    counted under ``cutout``, its reason naming it and its id the ``where`` of the build's report."""
+    rings: list[tuple[Point, ...]] = []
+    for item in cutout_items(board.outline):
+        reason = not_written(item, gate=pcbdoc.CUTOUT_REGIONS)
+        if reason is None:
+            rings.append(item.points())
+            account.wrote("cutout")
+        else:
+            account.skip("cutout", item.where, reason)
+    return tuple(rings)
+
+
 def _outline(board: Board, account: _Account) -> tuple[Point, ...]:
     """The outline of the document: ``Board.outline``, else the ring of the ``Edge.Cuts`` graphics, else
     the box of the board's items (reported)."""
     if board.outline is not None and len(_open(board.outline.points)) >= 3:
-        if board.outline.cutouts:
-            account.skip("outline", board.outline.id, "the cut-outs of the outline are not written")
-        if board.outline.slots:  # change c0167; c0168 writes them as board cut-out regions
-            names = ", ".join(slot_name(slot) for slot in board.outline.slots)
-            account.skip(
-                "outline", board.outline.id, f"the milled slots of the outline are not written: {names}"
-            )
-        return _open(board.outline.points)
+        return _open(board.outline.points)  # its cut-outs and slots are ``_cutouts`` (change c0168)
     ring = _ring_of([g for g in board.graphics if g.layer == EDGE_LAYER], account)
     if ring:
         return ring
@@ -1546,6 +1555,7 @@ def _document(
         board, layers, planes, net_names, frame, account, full_drill=rewrite
     )
     texts_, graphics, keepouts, holes = _items(board, layers, frame, arc_records, account, layer_ids)
+    cutouts = _cutouts(board, account)
     lowered = rulemap.lower(design.rules.rules if design.rules is not None else ())
     for footprint in board.footprints:
         if footprint.net_ties:
@@ -1576,6 +1586,7 @@ def _document(
         graphics=tuple(graphics),
         keepouts=tuple(keepouts),
         holes=tuple(holes),
+        cutouts=cutouts,
         design_rules=lowered.records,
         frame=None if options is not None else frame,
         origin=origin,

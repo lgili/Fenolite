@@ -34,7 +34,7 @@ import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Literal
+from typing import Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
@@ -85,6 +85,12 @@ BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
 DEFAULT_FILENAME = "Fenolite.PcbDoc"
+CUTOUT_REGIONS: Final = False
+"""Whether a build or a write of a model writes the cut-outs and milled slots of the board outline as board
+cut-out regions (change c0168, Decision 5). False until the maintainer's kit cases S3 to S5 of Part S
+(``docs/evidence/altium-pcb.md``) are reported as passed: until then each cut-out is reported with
+``altium.not-lowered`` and counted under ``cutout``. A constant, not an option: no user writes an
+unconfirmed form (open question 4)."""
 COPPER_STORAGES: tuple[str, ...] = ("Vias6", "Polygons6", "Classes6", "Rules6")
 """Storages of the copper (change c0038): ``Header`` is the record count, and ``Data`` is empty when the
 spec holds no such object."""
@@ -520,6 +526,10 @@ class PcbDocSpec:
     of a build, at 1000 mil)."""
     free_pads: tuple[FreePad, ...] = ()
     """The pads without a component (change c0090), written after the holes."""
+    cutouts: tuple[tuple[Point, ...], ...] = ()
+    """The board cut-out regions to write (change c0168): polygonised rings in the frame of the
+    placements (``cutouts.cutout_items``), each one region of ``pcbrecords.cutout_region`` after the
+    keep-outs. Empty unless ``CUTOUT_REGIONS`` is true or a caller writes them for the kit."""
     layer_ids: Mapping[str, int] = field(default_factory=lambda: {})
     """Layer name → Altium layer id for the free texts and graphics on layers beside
     ``pcbrecords.BOARD_LAYER_MAP`` (change c0126): ``Mech.1`` … ``Mech.16`` of a board that was read from an
@@ -1180,6 +1190,11 @@ class _Free:
     shapes: list[bytes] = field(default_factory=lambda: [])
     pads: list[bytes] = field(default_factory=lambda: [])
 
+    def cutout(self, ring: Sequence[Point], frame: Frame) -> None:
+        vertices = [_units(frame(point)) for point in ring]
+        self.regions.append(rec.cutout_region(vertices))
+        self.shapes.append(rec.cutout_region(vertices, shape_based=True))
+
     def region(self, layer: int, ring: Sequence[Point], frame: Frame, keepout: int | None = None) -> None:
         vertices = [_units(frame(point)) for point in ring]
         self.regions.append(rec.region_record(layer, vertices, keepout=keepout))
@@ -1245,6 +1260,10 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
         else:
             for name in sorted(set(keepout.layers), key=names.index):
                 out.region(copper.layers[name], ring, frame, value)
+    for ring in spec.cutouts:
+        if len(ring) < 3:
+            raise ValueError("a board cut-out needs at least three vertices")
+        out.cutout(ring, frame)
     for hole in sorted(spec.holes, key=lambda h: (_xy(h.position), h.drill, h.id)):
         if hole.drill <= 0:
             raise ValueError(f"{hole.id}: a hole needs a positive drill, not {hole.drill} nm")
@@ -1840,6 +1859,7 @@ __all__ = [
     "BODY_NO_OUTLINE",
     "BODY_STORAGES",
     "BOARD_OFFSET_MIL",
+    "CUTOUT_REGIONS",
     "BodyMode",
     "PlacedBody",
     "body_mode",

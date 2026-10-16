@@ -69,6 +69,7 @@ KINDS: tuple[KindRow, ...] = (
         (),
         (
             "outline",
+            "cutout",
             "stackup",
             "keep-out",
             "hole",

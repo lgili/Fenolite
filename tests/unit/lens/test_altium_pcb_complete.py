@@ -206,7 +206,7 @@ def test_board6_golden_files() -> None:
     assert output.summary["pcb"] == {  # type: ignore[comparison-overlap]
         "written": {
             "footprint": 3, "pad": 36, "track": 7, "arc": 1, "via": 3, "zone": 2, "text": 4, "graphic": 5,
-            "dimension": 0, "keep-out": 1, "hole": 1, "body": 0, "rule": 0,
+            "dimension": 0, "keep-out": 1, "hole": 1, "cutout": 0, "body": 0, "rule": 0,
         },
         "not_lowered": {},
         "bodies": "extruded",  # the default since change c0155; board6 holds no body

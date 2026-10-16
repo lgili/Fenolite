@@ -111,6 +111,7 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 | `via-pad-shape` | copper | report |
 | `via-protection` | copper | report |
 | `outline` | board | report |
+| `cutout` | board | report |
 | `stackup` | board | report |
 | `keep-out` | board | report |
 | `hole` | board | report |

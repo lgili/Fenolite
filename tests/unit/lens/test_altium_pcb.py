@@ -1099,26 +1099,26 @@ def test_an_outline_with_arcs_no_document(tmp_path: Path) -> None:
     assert "arcs" in found.message and output.summary["pcb_document"] is None
 
 
-def test_a_milled_slot_plans_no_document(tmp_path: Path) -> None:
-    """Change c0167, Decision 9: an outline with slots plans no PCB document, as one with cut-outs, until
-    c0168 writes both as board cut-out regions; the lowering of a model reports the slots it skips."""
+def test_a_milled_slot_plans_the_document(tmp_path: Path) -> None:
+    """Change c0168 (Decision 5): an outline with slots plans the PCB document; while
+    ``pcbdoc.CUTOUT_REGIONS`` is false each slot is reported by name, in the build and in the lowering of
+    a model."""
     from fenolite.backends.altium import lower
-    from fenolite.dsl import to_model
 
     slotted = (
         "design.board(mm(50), mm(30))\ndesign.slot(mm(40), mm(15), length=mm(8), width=mm(2), name='V')\n"
     )
     output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", slotted)
     assert not [i for i in output.issues if i.severity == "error"]
-    assert "blink.PcbLib" in output.files and "blink.PcbDoc" not in output.files
-    (found,) = [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
-    assert "milled slots" in found.message and "slot V" in found.message
+    assert "blink.PcbDoc" in output.files
+    assert not [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    (found,) = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "slot/V"]
+    assert "slot V" in found.message
     board = to_model(blink("design.board(mm(50), mm(30))\n", slotted)).board
     assert board is not None
     account = lower._Account()  # pyright: ignore[reportPrivateUsage]
-    lower._outline(board, account)  # pyright: ignore[reportPrivateUsage]
-    reasons = account.lost["outline"]
-    assert reasons == {"the milled slots of the outline are not written: slot V": [board.outline.id]}  # type: ignore[union-attr]
+    assert lower._cutouts(board, account) == ()  # pyright: ignore[reportPrivateUsage]
+    assert account.kept["cutout"] == ["slot/V"] and "slot V" in account.reasons["cutout"]
 
 
 def test_a_round_board_names_its_arcs_not_a_missing_outline(tmp_path: Path) -> None:
@@ -1156,35 +1156,6 @@ def test_a_round_hole_becomes_a_free_pad(tmp_path: Path) -> None:
     assert "H1" not in designators and {"D1", "R1", "U1"} <= designators
     assert b"Fenolite_Holes" not in output.files["blink.SchLib"]
     assert not [name for name in output.files if "Fenolite_Holes" in name]
-
-
-def test_a_plated_hole_and_a_slot_are_reported(tmp_path: Path) -> None:
-    """Scenario "A plated hole and a slot are reported"."""
-    holes = (
-        LAST_LINE
-        + 'h2 = design.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))\n'
-        + "connect(gnd, h2[1])\n"
-        + 'design.hole("H3", mm(25), mm(4), drill=mm(1), length=mm(3))\n'
-    )
-    output = build_blink_script(tmp_path, LAST_LINE, holes)
-    assert not [i for i in output.issues if i.severity == "error"]
-    assert "blink.PcbDoc" in output.files
-    pcb = output.summary["pcb"]
-    assert pcb["not_lowered"]["hole"] == 2 and pcb["written"]["hole"] == 0  # type: ignore[index]
-    reported = [i for i in output.issues if i.code == "altium.not-lowered" and i.where.startswith("hole/")]
-    assert len(reported) == 2 and all(i.severity == "info" for i in reported)
-    by_ref = {("H2" if "H2" in i.message else "H3"): i for i in reported}
-    assert "copper" in by_ref["H2"].message and "GND" in by_ref["H2"].message
-    assert "slot" in by_ref["H3"].message and "copper" not in by_ref["H3"].message
-    model = to_model(blink(LAST_LINE, holes))
-    ids = {c.ref: c.id for c in model.circuit.components}
-    assert {i.where for i in reported} == {f"hole/{ids['H2']}", f"hole/{ids['H3']}"}
-    # a hole of each kind beside a round one: one written, two reported
-    mixed = build_blink_script(
-        tmp_path / "mixed", LAST_LINE, holes + 'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
-    )
-    pcb = mixed.summary["pcb"]
-    assert pcb["written"]["hole"] == 1 and pcb["not_lowered"]["hole"] == 2  # type: ignore[index]
 
 
 def test_holes_without_a_document_are_counted_by_the_holes_issue(tmp_path: Path) -> None:

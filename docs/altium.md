@@ -472,8 +472,9 @@ maintainer reports Part C of `docs/evidence/altium-pcb.md`.
 **Complete board (change c0085).** A model can hold more than a script declares: a design that was
 imported, or one built in Python from the model's classes, as the sample `tests/_altium_board6.py` is.
 The build writes these items too, and `result.pcb` counts them: `written` maps each kind (`footprint`,
-`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`) to the number
-of model items the document holds, and `not_lowered` the kinds with items it does not hold. Every item is
+`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `dimension`, `keep-out`, `hole`, `cutout`,
+`body`, `rule`) to the number of model items the document holds, and `not_lowered` the kinds with items it
+does not hold. Every item is
 in one of the two; an item that is not written has an issue whose `where` is `<kind>/<id>`.
 `result.pcb.bodies` (change c0121) is the value of `--altium-bodies` that was used.
 

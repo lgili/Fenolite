@@ -726,6 +726,7 @@ def region_record(
     shape_based: bool = False,
     keepout: int | None = None,
     component: int = NO_INDEX,
+    board_cutout: bool = False,
 ) -> bytes:
     """A region (type 11) without a net or a polygon (``pcb-records.md``, "Regions and keep-outs"): the
     prefix, five zero bytes, the property text and the outline. ``component`` (change c0126) is the index
@@ -734,7 +735,8 @@ def region_record(
     vertex as two doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none
     round, and repeats the first vertex after the last. ``keepout`` makes the region a keep-out with that
     restriction value (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS``
-    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value."""
+    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168)
+    ends the text with ``ISBOARDCUTOUT=TRUE`` (``cutout_region``)."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
@@ -751,6 +753,8 @@ def region_record(
     ]
     if keepout is not None:
         fields += [(KEEPOUT_KEY, str(keepout)), (KEEPOUT_KEY_KICAD, str(keepout))]
+    if board_cutout:
+        fields.append((BOARD_CUTOUT_KEY, "TRUE"))
     text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
     head = bytearray(prefix(layer, component=component))
     if keepout is not None:
@@ -763,6 +767,20 @@ def region_record(
         for x, y in vertices:
             body += struct.pack("<2d", float(x), float(y))
     return bytes((REGION,)) + subrecord(body)
+
+
+BOARD_CUTOUT_KEY = "ISBOARDCUTOUT"
+"""The key that makes a region with ``KIND=0`` a board cut-out (``pcb-records.md``, "Board cut-outs")."""
+BOARD_CUTOUT_LAYER = KEEPOUT_LAYER
+"""The layer of a written board cut-out: the Keep-Out layer, which the saved regions with the key hold."""
+
+
+def cutout_region(vertices: Sequence[tuple[int, int]], *, shape_based: bool = False) -> bytes:
+    """A board cut-out region (change c0168; ``pcb-records.md``, "Board cut-outs"): the region of
+    ``region_record`` on the Keep-Out layer, without net, polygon, component and keep-out flag, whose keys
+    are those of a saved free region with ``KIND=0`` followed by ``ISBOARDCUTOUT=TRUE``. ``vertices`` are a
+    polygonised ring in binary units, without a closing vertex."""
+    return region_record(BOARD_CUTOUT_LAYER, vertices, shape_based=shape_based, board_cutout=True)
 
 
 # --- component bodies (change c0121) -------------------------------------------------------------------
@@ -941,6 +959,10 @@ __all__ = [
     "REGION",
     "TOP_LAYER",
     "V7_LAYERS",
+    "BOARD_CUTOUT_KEY",
+    "BOARD_CUTOUT_LAYER",
+    "FULL_CIRCLE_UDEG",
+    "cutout_region",
     "hole_record",
     "layer_text",
     "region_record",
