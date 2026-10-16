@@ -9,25 +9,24 @@ numbered ``1`` with copper; the flags that keep it out of the position file and 
 a courtyard on both sides, so the placement guard judges parts on either side (``H-K-HOLE-COURTYARD``).
 The symbol has no pin, or one passive pin for a plated hole, and is not in the bill of materials, as the
 mounting holes of KiCad's own library. No size is shipped: every length is the script's.
+
+The footprint is built by ``fenolite.model.holes`` (change c0170), which a conversion to KiCad uses for a
+model ``Hole``; this module checks the script's lengths, wraps the definition for ``Design.footprints`` and
+re-exports the model's names, so a script's footprints keep their bytes.
 """
 
 from __future__ import annotations
 
 import dataclasses
 
-from fenolite.core.units import format_length
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.symbol import Symbol
 from fenolite.dsl.units import Length, as_nm
+from fenolite.model import holes as model_holes
+from fenolite.model.holes import COURTYARD_LAYERS, COURTYARD_STROKE, HOLE_FLAGS, HOLE_LIBRARY, hole_name
 from fenolite.model.library import FootprintDef, SymbolDef
 
-HOLE_LIBRARY = "Fenolite_Holes"
-"""The library of the generated hole footprints and symbols."""
-HOLE_FLAGS: tuple[str, ...] = ("exclude_from_pos_files", "exclude_from_bom")
-COURTYARD_LAYERS: tuple[str, ...] = ("F.CrtYd", "B.CrtYd")
-COURTYARD_STROKE = 50_000
-"""The pen of the courtyard, 0.05 mm, as KiCad's library draws courtyards."""
 HOLE_SYMBOL = "Hole"
 PAD_SYMBOL = "Hole_Pad"
 REFERENCE_PREFIX = "H"
@@ -55,15 +54,6 @@ class HoleSymbol:
         return self.definition.lib_id
 
 
-def _mm(value: int) -> str:
-    return format_length(value, "mm").removesuffix("mm")
-
-
-def _half(value: int) -> int:
-    """Half of ``value``, rounded up: a courtyard is never smaller than asked."""
-    return (value + 1) // 2
-
-
 def hole_sizes(
     drill: object, *, length: object = None, pad: object = None, courtyard: object = None
 ) -> tuple[int, int | None, int | None, int | None]:
@@ -85,12 +75,19 @@ def hole_sizes(
     return hole, slot, copper, yard
 
 
-def hole_name(hole: int, slot: int | None, copper: int | None, yard: int | None) -> str:
-    """``NPTH_<d>mm`` or ``NPTH_Slot_<d>x<l>mm``, ``PTH_…_Pad_<p>mm`` with copper, and ``_Courtyard_<c>mm``
-    when the courtyard is given: every size of the definition is in its name."""
-    size = f"{_mm(hole)}mm" if slot is None else f"Slot_{_mm(hole)}x{_mm(slot)}mm"
-    name = f"NPTH_{size}" if copper is None else f"PTH_{size}_Pad_{_mm(copper)}mm"
-    return name if yard is None else f"{name}_Courtyard_{_mm(yard)}mm"
+class GeneratedHoleFootprint(HoleFootprint):
+    """A hole footprint built by ``fenolite.model.holes.hole_footprint``, held as ``Design.footprints``
+    holds an authored one: its ``definition`` is the model's, unchanged."""
+
+    def __init__(self, definition: FootprintDef) -> None:
+        super().__init__(definition.library, definition.name)
+        self._pads = list(definition.pads)
+        self._graphics = list(definition.graphics)
+        self._generated = definition
+
+    @property
+    def definition(self) -> FootprintDef:
+        return self._generated
 
 
 def hole_footprint(
@@ -98,34 +95,10 @@ def hole_footprint(
 ) -> Footprint:
     """The footprint of a hole of ``drill``: round, or a slot of overall length ``length`` along the
     footprint's X axis; not plated, or with copper ``pad`` wide; its courtyard ``courtyard`` wide, by
-    default as wide as the copper, or as the hole."""
+    default as wide as the copper, or as the hole (``fenolite.model.holes.hole_footprint`` of the checked
+    lengths)."""
     hole, slot, copper, yard = hole_sizes(drill, length=length, pad=pad, courtyard=courtyard)
-    footprint = HoleFootprint(HOLE_LIBRARY, hole_name(hole, slot, copper, yard))
-    width = copper if copper is not None else hole
-    long = width if slot is None else slot + width - hole
-    zero = Length(0)
-    footprint.pad(
-        "" if copper is None else "1",
-        at=(zero, zero),
-        size=(Length(long), Length(width)),
-        shape="circle" if slot is None else "oval",
-        kind="np_thru_hole" if copper is None else "thru_hole",
-        drill=Length(hole),
-        drill_shape="round" if slot is None else "slot",
-        drill_length=None if slot is None else Length(slot),
-    )
-    wide = yard if yard is not None else width
-    for layer in COURTYARD_LAYERS:
-        if slot is None:
-            footprint.circle(
-                (zero, zero), (Length(_half(wide)), zero), layer=layer, width=Length(COURTYARD_STROKE)
-            )
-        else:
-            x, y = _half(long + wide - width), _half(wide)
-            footprint.rect(
-                (Length(-x), Length(-y)), (Length(x), Length(y)), layer=layer, width=Length(COURTYARD_STROKE)
-            )
-    return footprint
+    return GeneratedHoleFootprint(model_holes.hole_footprint(hole, length=slot, pad=copper, courtyard=yard))
 
 
 def hole_symbol(*, plated: bool) -> SymbolDef:
@@ -149,6 +122,7 @@ __all__ = [
     "COURTYARD_STROKE",
     "HOLE_FLAGS",
     "HOLE_LIBRARY",
+    "GeneratedHoleFootprint",
     "HoleFootprint",
     "HoleSymbol",
     "hole_footprint",
