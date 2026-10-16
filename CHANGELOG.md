@@ -189,7 +189,7 @@ All notable changes to Fenolite are documented here. The format follows
   21 boards inspected and 11 documents saved through authored runtime scripts,
   with serialized jobs and unchanged inputs. A guarded retry resolves the initial
   flat PCB parity finding; complete native campaign acceptance remains pending.
-- Development: the release record of `0.5.0` (`docs/release/v0.5.md`) and its guard (`tests/unit/test_release_record_v05.py`), the version `0.5.0` in the package, its alias and the alias pin, the README's "What version 0.5 does", the roadmap and the history row `v0.5.0` of the residue scan (c0171).
+- Development: the release record of `0.5.0` (`docs/release/v0.5.md`) and its guard (`tests/unit/test_release_record_v05.py`), the version `0.5.0` in the package, its alias and the alias pin, the README's "What version 0.5 does", the roadmap and the history row `v0.5.0` of the residue scan (c0171). The CI run 38825957126 of the release branch, the first with a `kicad-10` gate on the current tree, closed the tasks of c0159, c0161, c0162, c0164, c0165, c0166, c0167 and c0169 that waited for the full probe gate or the full suite; c0160 task 4.3 measured RT-A3 again with the heavy set 01.
 
 ### Fixed
 
