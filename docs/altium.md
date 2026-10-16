@@ -460,6 +460,14 @@ a hole part is not written: a free pad has none.
   takes no board hole.
 - **Round trips.** RT-A2 compares a board hole by position, drill, plating, length and rotation, and each
   written cut-out ring with the read one within 1 µm ("The scope of RT-A2" below).
+- **A KiCad board converted** (change c0170). `fenolite convert --to altium` takes the edges of a read
+  KiCad board with `edge_outline` and gives them to the write (`lower.write_design(…, edges=…)`): the board
+  ring is the document's outline as before (an arc as two straight edges, counted under `outline`), and
+  every inner ring is a cut-out region through the same lowering, or a loss with the gate's reason, counted
+  under `cutout` (`docs/conversion.md`). A footprint pad with a slotted (oval) drill is written with the
+  slot fields in the library and the document: hole size the drill, slot length the padstack's
+  `hole_length`, slot rotation its `hole_rotation`, which the model holds in the pad's own frame as the
+  record holds it relative to the pad; the import reads it back in that frame.
 
 **Assembly and test features** (change c0118). The parts of `design.test_point()` are written as any
 authored part. The parts of `design.fiducial()` are left out of the schematic and of the PCB library and

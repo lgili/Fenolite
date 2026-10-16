@@ -131,6 +131,14 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
 - **`dnp`.** The Altium documents hold no fitted flag outside variants, which are after 1.0: a component
   marked do-not-populate is written as fitted, so a bill of materials of the converted project would
   list it. The maintainer decided on 2026-10-09 that this loss is a refusal.
+- **`cutout`** (change c0170). Every inner ring of the source's board edge, cut-out or slot, is counted
+  once under `cutout` (a group of overlapping rings once, its id the members' `cutout/<k>` joined by `+`):
+  `written` as it is, `changed` with the reason `merged` (a group united into one ring) or `arcs
+  polygonised` (an Altium region holds straight edges only, so the arcs are written within 1 µm), or
+  `lost` with its reason. The kind is `report`, but an overlap that a conversion to KiCad cannot merge (no
+  `geo` extra, or a union that is not one ring) is a `refuse` loss (`report.REFUSE_REASONS`): KiCad would
+  call the outline malformed, so the rings are not written and the conversion exits 7 without
+  `--allow-lossy`. The kind `outline` keeps only the losses of the board ring.
 - **Changes of KiCad to Altium.** `zone-fill`: a polygon is written unpoured, and Altium fills it on a
   repour (decision of 2026-10-06). `schematic`: the schematic is generated from the circuit on one sheet
   with generic symbols. A schematic that the writer refuses is a loss, and the writer's message stays an
@@ -146,6 +154,15 @@ both hold, under the direction's profile. Each difference is then matched with t
 - a difference that a lost item explains is listed under `result.equivalence.explained`, with `by`, the
   lost kind;
 - any other is one `convert.unexplained` error: the command plans nothing and exits 5.
+
+The edge rings are verified too (change c0170; `fenolite.convert.rings`): the rings of the source's board
+edge and those of the written board read back (`BoardFrame.board_edges` of each backend) are compared after
+one translation, each ring within 1 µm plus the 1 µm chord of a polygonised arc, a merged ring against the
+union of its sources. A ring that matches none is a difference of kind `edge-ring` at level 0, located at
+the ring's name (`board`, `edge ring <k>`): explained by `cutout` when the report counts that ring lost or
+merged, by `outline` for the board ring when the report counts a loss or change of the outline, and
+otherwise a `convert.unexplained` error (exit 5). `fenolite equivalent` does not compare outlines (a
+follow-up of `design-equivalence`).
 
 `--no-verify` skips the read-back: `result.equivalence` is `null`, one `convert.no-verify` warning says
 so, and the evidence is `UNVERIFIED` (the maintainer's decision of 2026-10-09). The read-back costs at most
@@ -262,7 +279,22 @@ reported lost. KiCad 9.0.9 cannot write a DRC report for a zone without an outli
 `kicad.board.layer-undeclared` refuses any caller's modelled item on an undeclared layer, even with consent.
 
 Arbitrary slots rotate circular pads without changing copper; incompatible non-circular pads are
-reported lost. Derived footprints use the first instance in reference order in its top-side local frame;
+reported lost. The import holds a slot's axis in the pad's own frame (change c0170), so a slot along a
+turned oval pad is kept as it is.
+
+**Slots, cut-outs and holes** (change c0170). The edges are taken with `edge_outline`. Inner rings that do
+not overlap are written as read, each counted `written` under `cutout`. Overlapping ones are united
+(`merge_groups`, the `geo` extra) and the board gets the model outline of its rings, its edge graphics
+replaced: each group is one ring, counted `changed` with `merged`; a group that cannot be united is a
+`refuse` loss (see `cutout` above). Each board `Hole` of the import (a free pad without copper, c0168)
+becomes the footprint that `design.hole` generates (`fenolite.model.holes.hole_footprint`,
+`Fenolite_Holes:NPTH_<d>mm` or `NPTH_Slot_<d>x<l>mm`), placed at the hole, turned by its rotation, locked,
+`board_only` (no schematic symbol) and outside the position file and the bill of materials, its library
+written as `lib/Fenolite_Holes.pretty` with its row in `fp-lib-table`, as a build writes it. A length the
+document cannot tell from a whole micrometre (one unit is 2.54 nm) is taken to it, so a 2 mm slot is
+`NPTH_Slot_2x12mm`, the script's name. A plated hole, whose copper is the hole, is the pad `1` of
+`PTH_…_Pad_<d>mm` and is counted `changed` under `hole`. The shared slot fixture converted to Altium and
+back loads with no `invalid_outline` and drills what the source drills (`H-K-CONV-SLOTS`). Derived footprints use the first instance in reference order in its top-side local frame;
 instances that differ are reported without replacing board geometry. Filename collisions are disambiguated.
 Symbols are taken from available SchLib definitions or generated from the circuit pins. Positions and
 wires are regenerated. Duplicate designators refuse the schematic alone, with an explicit report.
