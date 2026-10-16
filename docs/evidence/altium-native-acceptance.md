@@ -380,6 +380,13 @@ in Altium. The initial logs and imported native files remain ignored. The
 triangle tests now require these exact wrapper counts and exact eight drill
 locations/values, retaining all numbered-component and other geometry checks.
 
+Superseded on 2026-10-16 (c0171 task 1.11): the slot rotations above were the
+model's hole rotation minus the pad's angle, a frame error of the writer that
+c0170 fixed (the record's slot rotation is relative to the pad). The written
+document now holds 90 degrees for all nine U1 slots, KiCad 10.0.6 imports every
+drill of the source, and the triangle test requires that no `pad-drill`
+difference remains on ecc83.
+
 Additional gate repairs: the SchLib oracle's nine tests pass after expecting the
 authored common component footprint on default-free symbols; source pins remain
 compared exactly. Four rebuild identity tests pass after excluding internal

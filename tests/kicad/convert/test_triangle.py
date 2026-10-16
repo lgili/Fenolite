@@ -44,12 +44,12 @@ FREE_PAD_COUNTS = {"01": 14, "04": 1, "07": 2, "12": 9, "13": 9, "16": 3, "17": 
 These counts match the separately recorded conversion ledger, not a general
 exemption for blank references. The original numbered-component checks remain.
 """
-SLOT_IMPORT_PINS = ("1", "2", "3", "4", "6", "7", "8", "9")
-"""ecc83's rotated slots read by 10.0.6 as one-number ``(drill oval 0.762)``.
-
-Native Altium retains all nine 1.02 by 2.03 mm slots. Pin 5, at zero hole angle,
-does not produce this importer discrepancy. See c0166's native evidence.
-"""
+SLOT_BOARD = "04"
+"""ecc83, whose nine U1 pads hold a 1.02 by 2.03 mm slot along the pad, the pads turned by 306° to 90°.
+Until change c0170 the writer gave each slot the rotation ``hole_rotation`` minus the pad's angle (144°, 108°,
+72°, 36° and 0°), across the pad for eight of them, and KiCad 10.0.6 read those eight as one-number oval
+drills (c0166). Since c0170 the slot rotation is relative to the pad (90° for all nine), and KiCad's import
+gives every drill of the source (c0171 task 1.11, measured on 10.0.6): no ``pad-drill`` difference remains."""
 
 
 @pytest.mark.parametrize("name", sorted(_convcases.SAMPLES))
@@ -80,10 +80,7 @@ def test_demo_boards(key: str) -> None:
         assert len(wrappers) == 1
         assert (wrappers[0].a, wrappers[0].b) == ("0", str(FREE_PAD_COUNTS[key]))
         expected.add(("ref-ambiguous", ""))
-    if key == "04":
-        slots = [d for d in found.unexplained if d.kind == "pad-drill"]
-        assert {(d.where, d.a, d.b) for d in slots} == {
-            (f"U1-{pin}", "1020000", "") for pin in SLOT_IMPORT_PINS
-        }
-        expected.update(("pad-drill", f"U1-{pin}") for pin in SLOT_IMPORT_PINS)
+    if key == SLOT_BOARD:
+        assert not [d for d in found.report.differences if d.kind == "pad-drill"]
+        assert not [e for e in found.report.excluded if e.difference.kind == "pad-drill"]
     assert {(d.kind, d.where) for d in found.unexplained} == expected
