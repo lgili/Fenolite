@@ -13,6 +13,7 @@ Fenolite's reader (``docs/formats/altium/pcb-records.md``, "Board cut-outs"). ``
 from __future__ import annotations
 
 import _altium_slotcases as cases
+import _probes
 import pytest
 from _resources import kicad_cli_major
 
@@ -92,3 +93,21 @@ def test_candidates_read_by_fenolite() -> None:
     assert properties["KIND"] == "0" and properties["ISBOARDCUTOUT"] == "TRUE"
     assert len(region.outline) == 4
     assert len(doc.shape_regions) == 1
+
+
+def test_pad_slot_pads_imported_as_oval_holes() -> None:
+    """``H-A-SLOT-PAD``: the three free slot pads of the fixture are three non-plated oval holes of the
+    same centre, width, length and angle in KiCad's import (probe ``altium-slot-pad``)."""
+    _needs_import()
+    assert _probes.run("altium-slot-pad") == "equal"
+
+
+def test_region_cut_outs_imported_as_edges() -> None:
+    """``H-A-CUTOUT-REGION``, scenario "KiCad imports the region": the three cut-out regions of the
+    fixture (the lone milled slot, the merged L and the rounded cut-out) are ``Edge.Cuts`` rings of the
+    written vertices within 10 nm (probe ``altium-cutout-region``)."""
+    _needs_import()
+    assert _probes.run("altium-cutout-region") == "equal"
+    found = cases.imported_fixture()
+    assert found.code == 0
+    assert found.design.board is not None and not found.design.board.keepouts

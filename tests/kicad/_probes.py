@@ -23,6 +23,7 @@ from pathlib import Path
 
 import _a2kcases
 import _acceptance
+import _altium_slotcases
 import _anchorbench
 import _arccases
 import _areacases
@@ -340,6 +341,8 @@ def _probes() -> dict[str, Probe]:
     for pid, (function, majors) in _hiercases.hier_probes().items():
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _altium_slotcases.slot_probes().items():  # change c0168
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
         probes[pid] = Probe(function, majors)

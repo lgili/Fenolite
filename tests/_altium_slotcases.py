@@ -9,14 +9,23 @@ layer) on the layers a board cut-out could take (Keep-Out 56, Multi-Layer 74, To
 as the one free region of a 60 × 40 mm board, in ``Regions6`` and ``ShapeBasedRegions6`` alike, by
 ``candidate_document``; ``import_document`` runs ``kicad-cli pcb import`` (10.0 only) through the oracle's
 runner, so a ``docker:<image>`` marker works. All files are authored here for Fenolite.
+
+``FIXTURE`` is the document of ``tests/data/slots/altium.py`` written with ``pcbdoc.CUTOUT_REGIONS`` true
+(the kit's form), committed because the merged L needs the ``geo`` extra, which the oracle jobs do not
+install; ``tests/unit/backends/altium/test_cutout_regions.py`` keeps it equal to a fresh build
+(``FENOLITE_SLOTS_WRITE=1`` writes it). The probes ``altium-slot-pad`` and ``altium-cutout-region`` import it
+and compare KiCad's board with what Fenolite's reader finds in the document, relative to the board's
+corner (KiCad moves the board on its sheet).
 """
 
 from __future__ import annotations
 
+import os
 import struct
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from fractions import Fraction
 from functools import cache
 from pathlib import Path
 
@@ -128,6 +137,92 @@ def candidate_document(name: str, *, arc: bool = False) -> bytes:
         pcbdoc._Free.region = original  # type: ignore[method-assign]  # pyright: ignore[reportPrivateUsage]
 
 
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "tests" / "data" / "slots" / "altium.py"
+FIXTURE = ROOT / "tests" / "data" / "slots" / "slots_altium.PcbDoc"
+WRITE_VARIABLE = "FENOLITE_SLOTS_WRITE"
+NM_PER_UNIT = Fraction(254, 100)
+"""Nanometres per Altium binary unit (``pcb-records.md``)."""
+OFFSET = 25_400_000
+"""The board's lower-left corner lies at (1000 mil, 1000 mil) of a built document (``pcbdoc.Frame``)."""
+
+
+def fixture_document(*, gate: bool = True) -> bytes:
+    """``tests/data/slots/altium.py`` built for Altium with ``pcbdoc.CUTOUT_REGIONS`` set to ``gate``: the
+    bytes of ``slots.PcbDoc``. The merged L needs the ``geo`` extra when ``gate`` is true."""
+    import runpy
+
+    from _altium import blink_resolver, blink_tree
+
+    from fenolite.backends.altium import pcbdoc
+    from fenolite.dsl import Design as Script
+    from fenolite.dsl import placements, to_model
+    from fenolite.lens.altium import build_altium
+
+    design = runpy.run_path(str(SOURCE))["design"]
+    assert isinstance(design, Script)
+    kept = pcbdoc.CUTOUT_REGIONS
+    pcbdoc.CUTOUT_REGIONS = gate  # type: ignore[misc]  # pyright: ignore[reportConstantRedefinition]
+    try:
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            output = build_altium(
+                to_model(design),
+                name=design.name,
+                placed=tuple(placements(design)),
+                placements=placements(design),
+                resolver=blink_resolver(root, blink_tree(root)),
+                authored_footprints={key: fp.definition for key, fp in design.footprints.items()},
+                authored_symbols={key: s.definition for key, s in design.symbols.items()},  # type: ignore[attr-defined]
+            )
+    finally:
+        pcbdoc.CUTOUT_REGIONS = kept  # type: ignore[misc]  # pyright: ignore[reportConstantRedefinition]
+    assert not [found for found in output.issues if found.severity == "error"]
+    return output.files["slots.PcbDoc"]
+
+
+def _nm(units: float | int) -> int:
+    return round(Fraction(units) * NM_PER_UNIT)
+
+
+@dataclass(frozen=True)
+class WrittenSlot:
+    """A free slot pad of a document: its centre (Altium frame, nm), hole width, overall length and the
+    pad's rotation in microdegrees."""
+
+    at: Point
+    width: int
+    length: int
+    rotation: int
+
+
+def written_slots(data: bytes) -> list[WrittenSlot]:
+    """The pads with hole shape 2 of the document, as Fenolite's reader finds them."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.altium.read.pcbprims import PadRecord
+
+    found: list[WrittenSlot] = []
+    for pad in read_pcbdoc(data).pads:
+        if isinstance(pad, PadRecord) and pad.hole_shape == rec.HOLE_SHAPE_SLOT and pad.slot_length:
+            rotation = round(Fraction(pad.rotation) * 1_000_000)
+            found.append(
+                WrittenSlot(Point(_nm(pad.x), _nm(pad.y)), _nm(pad.hole), _nm(pad.slot_length), rotation)
+            )
+    return found
+
+
+def written_cutouts(data: bytes) -> list[tuple[Point, ...]]:
+    """The rings of the regions with ``ISBOARDCUTOUT=TRUE`` (Altium frame, nm), from ``Regions6``."""
+    from fenolite.backends.altium.read.pcb import read_pcbdoc
+    from fenolite.backends.altium.read.pcbprims import RegionRecord
+
+    rings: list[tuple[Point, ...]] = []
+    for region in read_pcbdoc(data).regions:
+        if isinstance(region, RegionRecord) and dict(region.properties.fields).get("ISBOARDCUTOUT") == "TRUE":
+            rings.append(tuple(Point(_nm(v.x), _nm(v.y)) for v in region.outline))
+    return rings
+
+
 @cache
 def runner() -> KicadCli:
     path = kicad_cli()
@@ -192,8 +287,102 @@ def cut_edges(design: Design) -> list[tuple[str, tuple[Point, ...]]]:
     return [(kind, points) for kind, points in relative(design) if any(inside(p) for p in points)]
 
 
+def board_frame(design: Design) -> tuple[Point, int]:
+    """The lower-left corner of the imported board's edges in KiCad's frame and the board's height."""
+    points = [p for g in edge_items(design) for p in g.points]
+    x0, y0 = min(p.x for p in points), min(p.y for p in points)
+    return Point(x0, y0), max(p.y for p in points) - y0
+
+
+def to_kicad(point: Point, corner: Point, height: int) -> Point:
+    """A point of a built document (Altium frame, nm) in the frame of KiCad's import of it."""
+    return Point(corner.x + point.x - OFFSET, corner.y + height - (point.y - OFFSET))
+
+
+@cache
+def imported_fixture() -> Imported:
+    return import_document(FIXTURE.read_bytes(), "slots.PcbDoc")
+
+
+def _same_axis(a: int, b: int) -> bool:
+    """Two slot axes within 0.001° (a slot is the same turned by 180°)."""
+    d = (a - b) % 180_000_000
+    return min(d, 180_000_000 - d) <= 1_000
+
+
+def slot_pad() -> str:
+    """``H-A-SLOT-PAD``: every free slot pad of the fixture is one non-plated oval hole of KiCad's import,
+    of the same centre (10 nm), width, length and angle."""
+    found = imported_fixture().design
+    assert found.board is not None
+    corner, height = board_frame(found)
+    slots = written_slots(FIXTURE.read_bytes())
+    holes = [
+        (fp.position, pad)
+        for fp in found.board.footprints
+        for pad in fp.pads
+        if pad.kind == "np_thru_hole" and pad.padstack is not None and pad.padstack.hole_shape == "slot"
+    ]
+    if len(slots) != 3 or len(holes) != len(slots):
+        return "different"
+    for slot in slots:
+        at = to_kicad(slot.at, corner, height)
+        if not any(
+            abs(position.x - at.x) <= TOLERANCE
+            and abs(position.y - at.y) <= TOLERANCE
+            and pad.drill is not None
+            and abs(pad.drill - slot.width) <= TOLERANCE
+            and pad.padstack is not None
+            and pad.padstack.hole_length is not None
+            and abs(pad.padstack.hole_length - slot.length) <= TOLERANCE
+            and _same_axis(pad.rotation, slot.rotation)
+            for position, pad in holes
+        ):
+            return "different"
+    return "equal"
+
+
+def cutout_region() -> str:
+    """``H-A-CUTOUT-REGION``: every vertex of every written cut-out lies within 10 nm of an end of an
+    ``Edge.Cuts`` line of KiCad's import, each ring imported as exactly its edges, three rings in all."""
+    found = imported_fixture().design
+    corner, height = board_frame(found)
+    rings = written_cutouts(FIXTURE.read_bytes())
+    ends = [p for g in edge_items(found) for p in g.points]
+    cut_lines = len(edge_items(found)) - 4  # the board's own rectangle is four lines
+    if len(rings) != 3 or cut_lines != sum(len(ring) for ring in rings):
+        return "different"
+    for ring in rings:
+        for vertex in ring:
+            at = to_kicad(vertex, corner, height)
+            if not any(abs(p.x - at.x) <= TOLERANCE and abs(p.y - at.y) <= TOLERANCE for p in ends):
+                return "different"
+    return "equal"
+
+
+def slot_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
+    """The probes of change c0168, on 10.0 only (``pcb import``)."""
+    return {"altium-slot-pad": (slot_pad, (10,)), "altium-cutout-region": (cutout_region, (10,))}
+
+
+def write_wanted() -> bool:
+    return os.environ.get(WRITE_VARIABLE) == "1"
+
+
 __all__ = [
     "BOARD",
+    "FIXTURE",
+    "WrittenSlot",
+    "board_frame",
+    "cutout_region",
+    "fixture_document",
+    "imported_fixture",
+    "slot_pad",
+    "slot_probes",
+    "to_kicad",
+    "write_wanted",
+    "written_cutouts",
+    "written_slots",
     "CANDIDATES",
     "CUT",
     "CUT_OUT",

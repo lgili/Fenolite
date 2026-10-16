@@ -1757,6 +1757,18 @@ corpus_id = ""
 notes = "the board of tests/data/slots/design.py built for KiCad 10 (c0167), read by the oracle probes of tests/kicad/board/_slotbench.py; tests/unit/backends/kicad/test_slots_outline.py keeps it equal to a fresh build"
 
 [[file]]
+path = "tests/data/slots/altium.py"
+origin = "authored"
+corpus_id = ""
+notes = "the shared fixture of board slots with three drilled slots for the Altium document (c0168): a lone slot and two slots overlapping in an L, parts of design.hole with a length"
+
+[[file]]
+path = "tests/data/slots/slots_altium.PcbDoc"
+origin = "authored"
+corpus_id = ""
+notes = "the PCB document of tests/data/slots/altium.py written with pcbdoc.CUTOUT_REGIONS true (c0168), read by the oracle probes altium-slot-pad and altium-cutout-region of tests/_altium_slotcases.py; tests/unit/backends/altium/test_cutout_regions.py keeps it equal to a fresh build"
+
+[[file]]
 path = "tests/data/kicad/downgrade/barcode.kicad_pcb"
 origin = "authored"
 corpus_id = ""
