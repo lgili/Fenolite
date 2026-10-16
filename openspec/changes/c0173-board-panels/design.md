@@ -103,7 +103,7 @@ Registered with the proposal in `docs/hypotheses.md`, because the fact rows cite
 
 ## Part Q: the maintainer's kit (Altium Designer 26.5)
 
-Built by task 2.3 into `~/fenolite-altium-checks/session-5/Q-panels/` (a `README.md` with these steps, `SHA256SUMS`); phase B files added by task 7.3. Coordinates in millimetres from the document origin. For each case send `as expected` or what differed in one sentence, the version (`AD <major>.<minor>`), the date and the SHA-256 of each file sent.
+Built by task 2.3 into `~/fenolite-altium-checks/session-6/Q-panels/` (a `README.md` with these steps, `SHA256SUMS`); phase B files added by task 7.3. Coordinates in millimetres from the document origin. For each case send `as expected` or what differed in one sentence, the version (`AD <major>.<minor>`), the date and the SHA-256 of each file sent.
 
 *Phase A, observation (`board/board.PrjPcb` with `board.PcbDoc`, built by Fenolite):*
 1. **Q1** Add a new PCB `panel-a.PcbDoc` to `board.PrjPcb` (same folder). **Place » Embedded Board Array/Panelize**, pick `board.PcbDoc`, place it; in Properties set X 5, Y 5, Rotation 0, Column Count 2, Row Count 2, Column Spacing 42, Row Spacing 32, Mirrored off, Link Location off; choose "Synchronize Manually Later" if asked and note the dialog. Save. Expected: four boards with 2 mm gaps.
@@ -162,11 +162,13 @@ Cut order: (1) the array writer (P7 after its measurement; the stop rules of Dec
 
 ## Open questions
 
-1. **Does KiCad get a panel too?** Recommended: yes. A flattened KiCad panel board is cheap (it stands on c0167's rings and c0118's footprints), `kicad-cli` verifies it on both majors, and it gives the flattened Altium panel its model and its oracle. Without it, nothing of the panel is verified before the maintainer's Altium run.
-2. **One panel script per board, or panels inside the design script?** Recommended: a script of its own that names a built board (Decision 1).
-3. **Should copies keep their designators?** Recommended: yes; nets are renamed `B<k>/…`, designators stay, so each copy reads like the board it is. If Q11 or the KiCad DRC objects, a suffix `_<k>` becomes an option.
-4. **Does `fit()` make the panel the asked size or the size of what fits?** Recommended: the size of what fits; `result.panel.unused` reports the rest, and `rails()` can take it up explicitly.
-5. **Mouse-bite holes tangent to the edge or reaching into the board?** Recommended: tangent (`inset=0`, the least intrusive, S-0793), with `inset` up to a third of the drill for fabricators that ask for it (S-0795).
-6. **Panel fiducials in Altium as free pads?** Recommended: yes, free round pads with the mask from the rule, as c0118's footprint cannot be written to a `.PcbLib`; Q9 shows whether they reach the outputs. The page S-0791 names only tooling holes as acceptable free pads, so the docs say so.
-7. **How does this change enter 0.5.0?** Recommended: the code and its `KICAD-VERIFIED` and oracle levels ship in 0.5.0; the array waits on the gate as the maintainer's rule of 2026-10-08 says (deferred, nothing claimed); the release change c0171 adds the row and moves the changelog lines into `[0.5.0]`, since its guard keeps `[Unreleased]` empty.
-8. **Vendor-named limit presets** (`limits="jlcpcb"`)? Recommended: no; the defaults cite their sources, `limits=` takes the user's fabricator's figures, and a preset would age silently.
+All decided by the maintainer on 2026-10-16: every recommended answer is accepted.
+
+1. **Does KiCad get a panel too?** Decided 2026-10-16: yes. A flattened KiCad panel board is cheap (it stands on c0167's rings and c0118's footprints), `kicad-cli` verifies it on both majors, and it gives the flattened Altium panel its model and its oracle.
+2. **One panel script per board, or panels inside the design script?** Decided 2026-10-16: a script of its own that names a built board (Decision 1).
+3. **Should copies keep their designators?** Decided 2026-10-16: yes; nets are renamed `B<k>/…`, designators stay, so each copy reads like the board it is. If Q11 or the KiCad DRC objects, a suffix `_<k>` becomes an option.
+4. **Does `fit()` make the panel the asked size or the size of what fits?** Decided 2026-10-16: the size of what fits; `result.panel.unused` reports the rest, and `rails()` can take it up explicitly.
+5. **Mouse-bite holes tangent to the edge or reaching into the board?** Decided 2026-10-16: tangent by default (`inset=0`, the least intrusive, S-0793), with `inset` up to a third of the drill for fabricators that ask for it (S-0795).
+6. **Panel fiducials in Altium as free pads?** Decided 2026-10-16: yes, free round pads with the mask from the rule, as c0118's footprint cannot be written to a `.PcbLib`; Q9 shows whether they reach the outputs. The page S-0791 names only tooling holes as acceptable free pads, so the docs say so.
+7. **How does this change enter 0.5.0?** Decided 2026-10-16: release 0.5.0 is **held** until the native Embedded Board Array passes the maintainer's kit ("hold 0.5.0 until it closes"): Q7, Q8 and Q9 of Part Q decide `EMBEDDED_ARRAYS`, and the release waits on them. The stop rules of Decision 8 still apply: if the array cannot be established, the flattened Altium panel is what ships, and the hold ends with that verdict. The release change c0171 adds the row and moves the changelog lines into `[0.5.0]`, since its guard keeps `[Unreleased]` empty.
+8. **Vendor-named limit presets** (`limits="jlcpcb"`)? Decided 2026-10-16: no; the defaults cite their sources, `limits=` takes the user's fabricator's figures, and a preset would age silently.
