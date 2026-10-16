@@ -35,7 +35,7 @@ HYPOTHESIS_IDS: dict[str, str] = {
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
 ALTIUM_HYPOTHESES = (
     r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|PCBX|ECO|RD|IMP|OUTJOB|SCHDOT|RULE|DRC|CONV"
-    r"|SLOT|CUTOUT)-[A-Z0-9-]+\b"
+    r"|SLOT|CUTOUT|DWF)-[A-Z0-9-]+\b"
 )
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),
@@ -44,7 +44,7 @@ of the output-job and template writers (c0087), a rule-lowering row ``H-A-RULE-*
 the complete schematic ``H-A-SCHX-*`` (c0086; the fix c0135 of the 0.2.x line added the family there for
 its two rows of the pin map), or a row of the light DRC ``H-A-DRC-*`` (c0088), or a row of the KiCad to
 Altium conversion ``H-A-CONV-*`` (c0160), or a row of the slot pads and board cut-outs ``H-A-SLOT-*`` and
-``H-A-CUTOUT-*`` (c0168)."""
+``H-A-CUTOUT-*`` (c0168), or a row of the Draftsman documents ``H-A-DWF-*`` (c0172)."""
 
 
 def _cells(line: str) -> list[str]:
@@ -146,6 +146,7 @@ def test_altium_fact_tables() -> None:
     assert [p.name for p in pages] == [
         "compound-file.md",
         "connectivity.md",
+        "draftsman.md",
         "import.md",
         "output-job.md",
         "pcb-bodies.md",
