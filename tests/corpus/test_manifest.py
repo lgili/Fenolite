@@ -27,10 +27,10 @@ RT0_ID = re.compile(r"^(kicad-demo-\d+(-\d+){2,3}|third-party)-(pcb|sch|sym|mod|
 ORIGINS = {"origin:kicad-demos", "origin:third-party"}
 PROJECT_ID = re.compile(r"^kicad-demo-\d+(-\d+){2,3}-(pro|dru)-\d{2}$")
 ALTIUM_ID = re.compile(
-    r"^altium-third-party-(schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot)-\d{2}$"
+    r"^altium-third-party-(schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot|pcbdwf)-\d{2}$"
 )
 ALTIUM_NOTE = re.compile(
-    r"^S-\d{4}; (schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot); \d+ bytes; \d{4}\."
+    r"^S-\d{4}; (schdoc|schlib|pcbdoc|pcblib|prjpcb|outjob|harness|rules|stackup|schdot|pcbdwf); \d+ bytes; \d{4}\."
     r"( Known difference: [a-z0-9 ,;-]+\.)?$"
 )
 """The note of an Altium row; the project-file row of a set with ``altium-import:known-diff`` adds the

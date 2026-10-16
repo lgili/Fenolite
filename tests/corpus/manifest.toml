@@ -4439,3 +4439,50 @@ license_variant = ""
 embeddable = false
 uses = ["altium", "origin:third-party", "altium-set:05", "altium-import", "rta"]
 notes = "S-0175; schdoc; 62976 bytes; 2024."
+
+# --- change c0172: the four public Altium Draftsman documents (S-0785, S-0786). Fetched for the
+# container measurement and the census only, never committed; read for counts and element names.
+
+[[file]]
+id = "altium-third-party-pcbdwf-01"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/Assembly_Drawing.PCBDwf"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "b153738a958b38a16458ed99f4587604d32544f007d7faa8669e4850d0543abf"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-draftsman", "origin:third-party"]
+notes = "S-0785; pcbdwf; 4455680 bytes; 2023."
+
+[[file]]
+id = "altium-third-party-pcbdwf-02"
+url = "https://raw.githubusercontent.com/luxonis/oak-hardware/7d569e3ccdff30014a498dc6c64a2e0dcad6964c/DM3370_RAE/PCB/Fabrication_Drawing.PCBDwf"
+ref = "7d569e3ccdff30014a498dc6c64a2e0dcad6964c"
+sha256 = "8715e6d72b9d8a123f923d89b43a4165d7a2437f663b8f41d6eefeced589c7c9"
+license = "MIT"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-draftsman", "origin:third-party"]
+notes = "S-0785; pcbdwf; 4903885 bytes; 2023."
+
+[[file]]
+id = "altium-third-party-pcbdwf-03"
+url = "https://media.githubusercontent.com/media/sstallion/PCB-PiDP11IOExpander/d97b81645091da8404661b37f75e4872c1788f79/PiDP11IOExpander_Assembly.PCBDwf"
+ref = "d97b81645091da8404661b37f75e4872c1788f79"
+sha256 = "4def7c99163b06d43f66af0395adab2e2220245b9b7959b206eca032d9bab1de"
+license = "BSD-2-Clause"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-draftsman", "origin:third-party"]
+notes = "S-0786; pcbdwf; 458794 bytes; 2021."
+
+[[file]]
+id = "altium-third-party-pcbdwf-04"
+url = "https://media.githubusercontent.com/media/sstallion/PCB-PiDP11IOExpander/d97b81645091da8404661b37f75e4872c1788f79/PiDP11IOExpander_Fabrication.PCBDwf"
+ref = "d97b81645091da8404661b37f75e4872c1788f79"
+sha256 = "973fe49867cb7fa4ade210609e5533910c2db6732a5009ba868031b6a53e3b04"
+license = "BSD-2-Clause"
+license_variant = ""
+embeddable = false
+uses = ["altium", "altium-draftsman", "origin:third-party"]
+notes = "S-0786; pcbdwf; 328671 bytes; 2021."
