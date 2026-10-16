@@ -21,6 +21,7 @@ A family leaves this table once its rows are registered and name their settling 
 | family | backend | rows for | owner |
 |---|---|---|---|
 | `H-A-RD-PCB-*` | altium | the Altium PCB reader: framing, identity, lengths, records and the two `kicad-cli` oracles | c0041 |
+| `H-A-DWF-*` | altium | Draftsman documents (`.PCBDwf`): container, reader, writer, the build's document and the kit's Part F | c0172 |
 
 | id | backend | statement | level | test or kit request | criterion | result | date |
 |---|---|---|---|---|---|---|---|
