@@ -24,7 +24,8 @@
 
 - [x] 3.1 Add `panel.limits.DEFAULTS`, each default naming its row of `panel.md`, and `limits=` (scenario "Every default cites its row"); record `H-G-PANEL-LIMITS`. Proof: `uv run pytest tests/unit/panel/test_limits.py -q`.
   - 2026-10-16: 16 defaults, one per field of `PanelLimits`; `Panel(limits={...})` takes lengths and the two counts (`tab_holes`, `fiducial_count`) and refuses any other name or value with `DslError`. `H-G-PANEL-LIMITS` recorded as confirmed (its label stays `INFERRED`: the figures are the fabricators' pages). Tab width 5 mm and pitch 55 mm are Fenolite choices (a 5-hole row of 4.6 mm fits; the middle of S-0795's 50 to 60 mm), not limits. Proof passed (22 tests).
-- [ ] 3.2 Add `panel.checks.check_panel` with the codes of Decision 6 (scenarios "Copper near a score line", "A gap too narrow", "Fiducials off the rails"). Proof: `uv run pytest tests/unit/panel/test_checks.py -q`.
+- [x] 3.2 Add `panel.checks.check_panel` with the codes of Decision 6 (scenarios "Copper near a score line", "A gap too narrow", "Fiducials off the rails"). Proof: `uv run pytest tests/unit/panel/test_checks.py -q`.
+  - 2026-10-16: `panel.checks.check_panel` with the codes of Decision 6 in `fenolite.panel.codes` (each explained by `fenolite explain`). Copper is judged in each copy's own frame with the shapes of `checks.copper` and the exact `thick_gap_floor`; the fixture `vscore.py` gives two `panel.vscore-copper` errors of 0.3 mm (copies 1 and 3, the left column), `tabs.py` no finding, `mixed.py` no error. Beyond the table: `panel.tab-count` is an error for a copy held by no tab and no score line; `panel.altium-cutout` (error) for a copy with cut-outs in a flattened Altium panel; a board without a stack-up takes the file's `(general (thickness …))`. Proof passed (9 tests; 48 with the other panel tests).
 
 ## 4. KiCad panel board
 

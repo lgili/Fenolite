@@ -77,6 +77,7 @@ TABLES: tuple[tuple[str, str], ...] = (
     ("fenolite.lens.preserve", "PRESERVE_ISSUE_CODES"),
     ("fenolite.lens.sync", "SYNC_ISSUE_CODES"),
     ("fenolite.model.design", "MODEL_ISSUE_CODES"),
+    ("fenolite.panel.codes", "ISSUE_CODES"),
     ("fenolite.placement.codes", "ISSUE_CODES"),
     ("fenolite.routing.codes", "ISSUE_CODES"),
     ("fenolite.schematic.composition", "ISSUE_CODES"),

@@ -2818,6 +2818,28 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | 5 | `FEN-5001` | a `convert.unexplained` error; nothing is planned |
 | 7 | `FEN-7001` | a loss of a `refuse` kind without `--allow-lossy` (the issues name each kind), or a document too large for the Altium writer |
 
+## panel
+
+`fenolite panel PANEL.py --out DIR --target {9,10,altium} [--altium-panel {auto,embedded,flat}]` writes a
+panel: several copies of one built board in rows and columns, with rails, V-score or tabs with mouse bites,
+fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a panel script that binds
+`panel = Panel(name, board=…)` (`fenolite.dsl.panel`), run in-process as `build` runs a design script.
+
+- **Checks first.** `panel.checks` judge the layout against cited fabricator figures before anything is
+  planned: `panel.vscore-copper`, `panel.vscore-shape`, `panel.vscore-spacing`, `panel.vscore-thickness`,
+  `panel.tab-copper`, `panel.gap`, `panel.tab-count`, `panel.tab-spacing`, `panel.fiducial-place`,
+  `panel.tooling-place`, `panel.size`, and the structural errors `panel.board-outline`, `panel.no-fit`,
+  `panel.net-collision`, `panel.source-unreachable` and `panel.altium-cutout`. An error finding plans no
+  write: exit 5 (`FEN-5001`) with `result.plan` empty. `fenolite explain <code>` gives each one's fix.
+- **Forms.** `--target 9` or `10`: a KiCad panel board `<name>.kicad_pcb` with its `<name>.kicad_pro`, the
+  generated footprints under `lib/` and `fp-lib-table`; the source must be a `.kicad_pcb` written for that
+  major. `--target altium`: `<name>.PcbDoc` and `<name>.PrjPcb` holding the panel document alone. Both write
+  `<name>.panel.json`, the model panel (schema `schemas/fenolite.model.v0/panel.json`).
+- **The Altium form.** `--altium-panel auto` (default) writes Altium's Embedded Board Array when
+  `pcbdoc.EMBEDDED_ARRAYS` is true and the source is a `.PcbDoc`, otherwise the flattened panel with one
+  `altium.panel-flattened` info naming the reason. `embedded` while the gate is off, or with a `.kicad_pcb`
+  source, is exit 7 (`FEN-7001`); so is `mirror=True` for any flattened form.
+
 ## manifest
 
 `fenolite manifest PATH [--artifacts DIR]... [--stages a,b] [--no-check] [--verify] [--out FILE]

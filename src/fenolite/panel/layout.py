@@ -58,7 +58,8 @@ TOOLING_ALONG = 5 * MM
 
 
 def _mm(value: int) -> str:
-    return format_length(value)
+    """``value`` as millimetres with a space before the unit: ``0.3 mm``."""
+    return f"{format_length(value)[:-2]} mm"
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +118,10 @@ def board_shape(design: Design) -> BoardShape | None:
     corners = set(box.corners())
     rectangular = not ring0_arcs and len(outline.points) == 4 and set(outline.points) == corners
     thickness = board.stackup.thickness() if board.stackup is not None and board.stackup.layers else None
+    if thickness is None and "kicad" in board.ext:
+        from fenolite.backends.kicad.lengths import board_thickness
+
+        thickness = board_thickness(board)  # the file's own (general (thickness …))
     inner = len(outline.cutouts) + len(outline.slots)
     return BoardShape(box, rectangular, inner, thickness or None)
 

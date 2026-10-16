@@ -3053,3 +3053,88 @@ see = "build"
 meaning = "A local wire could not be drawn safely; labels retain the net."
 fix = "Inspect the named endpoints in the generated preview."
 see = "build"
+
+["panel.vscore-copper"]
+meaning = "Copper of a copy lies nearer to a V-score line than the clearance (0.45 mm by default, S-0799): the scoring blade may cut or expose it. 'where' names the copy and the score line."
+fix = "Move the copper away from that board edge, separate that edge set with tabs (separate('tabs', between=…)), or give your fabricator's figure with vscore(clearance=…) or limits={'vscore_copper': …}."
+see = "panel"
+
+["panel.vscore-shape"]
+meaning = "A V-scored edge set was given a gap: scored boards touch, the score line runs on their common edge."
+fix = "Drop the gap of that axis from grid(), or separate that edge set with tabs."
+see = "panel"
+
+["panel.vscore-spacing"]
+meaning = "Two parallel score lines are nearer than a fabricator allows: an error under 2 mm (S-0796), a warning under 5 mm (S-0801)."
+fix = "Use larger boards, tab one of the edge sets, or give your fabricator's figure with limits={'vscore_spacing': …}."
+see = "panel"
+
+["panel.vscore-thickness"]
+meaning = "The board is too thin for V-score (an error under 0.6 mm, S-0794; a warning under 0.8 mm, S-0801), or states no thickness (info)."
+fix = "Tab the edge sets instead, or confirm with your fabricator and set limits={'vscore_thickness': …}."
+see = "panel"
+
+["panel.tab-copper"]
+meaning = "Copper of a copy lies nearer to a mouse-bite hole than 0.25 mm (outer layers) or 0.40 mm (inner layers) (S-0799): breaking the tab may damage it."
+fix = "Move the copper away from the edge, move the tabs with tabs(pitch=…), or keep the holes tangent (tabs(inset=0))."
+see = "panel"
+
+["panel.gap"]
+meaning = "A routed gap is narrower than the routing tool: an error under 1.2 mm (S-0795), a warning under 2 mm (S-0798)."
+fix = "Widen the gap with grid(gap=…), or give your fabricator's figure with limits={'gap': …}."
+see = "panel"
+
+["panel.tab-count"]
+meaning = "A mouse bite has fewer holes than advised (5, S-0795), a copy is held by one tab (warning), or a copy is held by nothing (error)."
+fix = "Use tabs(holes=5) or more, or a smaller tabs(pitch=…), so that every copy is held by two tabs or a score line."
+see = "panel"
+
+["panel.tab-spacing"]
+meaning = "Tabs along one edge lie farther apart than advised (60 mm, S-0795)."
+fix = "Give a smaller tabs(pitch=…)."
+see = "panel"
+
+["panel.fiducial-place"]
+meaning = "A fiducial is off the rails, its centre is nearer than 3.85 mm to the panel's edge (S-0794), or a side has fewer than three (S-0797)."
+fix = "Place fiducials on the rails with fiducials(), or move them with fiducial(ref, x, y)."
+see = "panel"
+
+["panel.tooling-place"]
+meaning = "A tooling hole is not wholly on a rail (S-0800), or tooling_holes() found no pair of rails to hold them."
+fix = "Add rails with rails(…), or place the hole with tooling_hole(ref, x, y)."
+see = "panel"
+
+["panel.size"]
+meaning = "The panel is smaller than 50 mm or larger than 250 mm a side (S-0800, S-0795), or a scored panel is under 70 × 70 mm (S-0794)."
+fix = "Change the grid or the rails; confirm the sizes your fabricator takes."
+see = "panel"
+
+["panel.board-outline"]
+meaning = "The board named by the panel has no closed outline, or its outline is not one rectangle: this release panels rectangular boards."
+fix = "Give the board a closed rectangular outline on Edge.Cuts and build it again."
+see = "panel"
+
+["panel.no-fit"]
+meaning = "fit() found no copy of the board that fits the asked size with these rails and gaps."
+fix = "Ask for a larger size, or narrower rails or gaps."
+see = "panel"
+
+["panel.net-collision"]
+meaning = "Two copies' nets would take the same name B<k>/<name>."
+fix = "Rename the board's nets so that none starts with B<k>/."
+see = "panel"
+
+["panel.source-unreachable"]
+meaning = "The panel's Altium document cannot name the board's document by a path relative to it."
+fix = "Write the panel in a folder on the same drive as the board's document."
+see = "panel"
+
+["panel.altium-cutout"]
+meaning = "A copy has cut-outs or slots, which a flattened Altium panel cannot hold yet (board cut-out regions wait on Part S)."
+fix = "Panel the board for KiCad, or remove its cut-outs and slots."
+see = "panel"
+
+["altium.panel-flattened"]
+meaning = "The Altium panel is written flattened (copies of every item of the board), not as Altium's Embedded Board Array, which waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS). 'message' gives the reason."
+fix = "Nothing to do; Altium can still place an array by hand on the flattened panel."
+see = "panel"
