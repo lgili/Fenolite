@@ -892,6 +892,13 @@ def _fill_points(item: FillRecord, exact: Exact) -> tuple[GraphicKind, tuple[Poi
     return "polygon", tuple(turned)
 
 
+def is_board_cutout(item: RegionRecord) -> bool:
+    """Whether a free region is a board cut-out: ``KIND=0`` (or no ``KIND``) with ``ISBOARDCUTOUT=TRUE``
+    (``pcb-records.md``, "Board cut-outs"; change c0168). ``KIND=1``, a polygon cut-out, is not one."""
+    keys = {key.upper(): value for key, value in item.properties.fields}
+    return keys.get("ISBOARDCUTOUT", "").upper() == "TRUE" and keys.get("KIND", "0") == "0"
+
+
 def shapes(
     doc: PcbDocument, ctx: Context, fill_regions: set[int], owned: Collection[int] = ()
 ) -> list[Graphic]:
@@ -947,6 +954,13 @@ def shapes(
         points = region_points(item.outline)
         if len(points) < 3:
             _bad(ctx, "regions", "a region needs at least three vertices", locator)
+            continue
+        if is_board_cutout(item):
+            # a board cut-out is an edge of the board (change c0168): a ring of Edge.Cuts, width 0
+            found.append(
+                _graphic(ctx, "polygon", EDGE, points, width=0, filled=False, locator=locator, pairs=[])
+            )
+            ctx.census.map("regions")
             continue
         layer = ctx.layers.name(item.prefix.layer)
         pairs: list[tuple[str, str]] = []
