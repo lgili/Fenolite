@@ -4,17 +4,16 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 import pytest
 from _boards import census
 from _cfb_read import read_compound as independent_read
 from _corpus import CorpusItem, manifest_items, require
-from _kicad import oracle_env
 from _resources import kicad_cli, kicad_cli_major
 
 from fenolite.backends.altium.read.cfb import CompoundFile, read_compound
+from fenolite.backends.kicad.cli import cli_for
 
 pytestmark = pytest.mark.needs_corpus
 ITEMS = manifest_items("cfb")
@@ -74,15 +73,7 @@ def test_difat_container_imports_in_kicad_10(tmp_path: Path) -> None:
     source = require(item)
     cli = kicad_cli()
     assert cli is not None and kicad_cli_major() == 10
-    target = tmp_path / "imported.kicad_pcb"
-    env = oracle_env(tmp_path / "config")
-    result = subprocess.run(
-        [cli, "pcb", "import", "--format", "altium", "-o", str(target), str(source)],
-        capture_output=True,
-        text=True,
-        timeout=300,
-        env=env,
-        check=False,
-    )
+    # through the oracle's runner, so FENOLITE_KICAD_CLI may be a binary or docker:<image> (cli_for)
+    result = cli_for(Path(cli), timeout=300).import_board(source).run
     census("altium_cfb_support", item.id, {"kicad_cli_exit": result.returncode})
     assert result.returncode == 0
