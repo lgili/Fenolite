@@ -2,7 +2,9 @@
 
 ## Purpose
 Give Fenolite its own check of the copper of a board for shorts and clearance, without `kicad-cli`: tracks, arcs, vias, pads and zone fills become exact integer thick shapes, pairs of different nets on a shared layer are judged against the clearance in force (classes, custom rules and board minimums), and the findings are deterministic, located, documented case by case against KiCad's DRC and labelled with their evidence.
+
 ## Requirements
+
 ### Requirement: Copper check function
 `fenolite.checks.copper.check_copper(design, *, pads, min_clearance=None, rules_over_classes=True, floor_over_rules=False, arc_tol=ARC_TOL_NM, inputs=()) -> CopperReport` SHALL judge the copper of `design.board` for shorts and clearance, and SHALL be a pure function: it MUST read no file, run no subprocess and write nothing.
 - `pads` MUST be the board-frame pad records of c0028's `BoardFrame.board_pads(design)` (`backend-protocol`, "Board-frame protocol"), or `None` when no frame is available.
@@ -356,3 +358,29 @@ Each copper finding SHALL locate both items and a point, and the report SHALL be
 - **GIVEN** the nets of "Pair below its class clearance" and a finding between a `USB_P` track and a `USB_N` track 0.08 mm apart
 - **WHEN** `uv run pytest tests/unit/checks/test_copper_rule_review.py -k pair_gap` reads the finding's explanation
 - **THEN** its candidate rows hold `pair-gap:USB` with 0.1 mm and `class:USB` with 0.2 mm, the governing source is `pair-gap:USB`, and resolving the explained subjects gives the finding's limit; the explanation of a `USB_P` track against a `CLK` track holds no `pair-gap` row
+
+### Requirement: Copper to board edge clearance
+`check_copper` SHALL judge every copper shape against every ring of `BoardFrame.board_edges`, each a closed line of width 0 whose arcs are polygonised at `ARC_TOL_NM`. A gap from the copper to the edge line below the edge clearance in force (`ClearanceResolver.edge`: the governing `edge_clearance` rule, else `DesignRules.min_edge_clearance`) MUST give one `copper.edge-clearance` per item and ring, with the rule's severity, naming the item, the ring, the gap and the limit.
+
+#### Scenario: A pad near a slot
+- **GIVEN** the shared fixture with a plated hole part of 2 mm copper whose copper lies 0.47 mm from slot `S1`, and a board minimum of 0.5 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_copper_edges.py -k slot` runs `check_copper`
+- **THEN** it gives one `copper.edge-clearance` error naming the part's pad, `slot S1`, 0.47 mm and 0.5 mm, and none at 0.52 mm
+
+#### Scenario: A rule for one net
+- **GIVEN** an `edge_clearance` rule of 1 mm for the net `HV` and a board minimum of 0.5 mm
+- **WHEN** a track of `HV` lies 0.8 mm from the board ring and a track of `GND` 0.8 mm from it
+- **THEN** only the `HV` track gives `copper.edge-clearance`, whose explanation names the rule as governing
+
+### Requirement: Drilled holes against cut-outs and holes
+`check_copper` SHALL give `copper.hole-in-cutout` (error) for a pad drill, via drill or board hole whose area overlaps the area of a cut-out or slot or crosses the board ring, and `copper.hole-overlap` (warning) for two drilled holes whose areas overlap. No clearance value is applied to holes.
+
+#### Scenario: A via drilled into a slot
+- **GIVEN** the shared fixture with a via whose drill overlaps slot `S1`
+- **WHEN** `uv run pytest tests/unit/checks/test_copper_holes.py` runs `check_copper`
+- **THEN** it gives one `copper.hole-in-cutout` naming the via and `slot S1`
+
+#### Scenario: Two drilled slots in an L
+- **GIVEN** two hole parts with oval NPTH pads that overlap
+- **WHEN** `check_copper` runs
+- **THEN** it gives one `copper.hole-overlap` warning naming both pads

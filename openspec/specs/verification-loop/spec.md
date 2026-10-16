@@ -2,7 +2,9 @@
 
 ## Purpose
 Check a KiCad project without writing to it: `fenolite check` runs model validation, ERC lite, KiCad's DRC on a closed copy of the project with a rules canary, and the RT1 round trip, in a fixed order, each stage with its own status and evidence. `fenolite inspect` summarises a file's header and counts, and `fenolite doctor` reports the `kicad-cli` binaries and their command matrices. Contract: `docs/cli-contract.md`; facts: `docs/formats/kicad/cli.md` and `docs/formats/kicad/drc.md`.
+
 ## Requirements
+
 ### Requirement: Check command input
 `fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
@@ -728,6 +730,9 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, per kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force |
+| `copper.edge-clearance` | error, warning | copper closer to the board edge, a cut-out or a slot than the edge clearance in force; the governing rule sets the severity |
+| `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge |
+| `copper.hole-overlap` | warning | two drilled holes overlap |
 
 #### Scenario: Copper literals are keys
 - **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
@@ -735,7 +740,7 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 
 #### Scenario: Copper codes documented
 - **WHEN** `uv run pytest tests/consistency` runs
-- **THEN** the six `copper.*` codes appear in `docs/cli-contract.md`
+- **THEN** the nine `copper.*` codes of this table appear in `docs/cli-contract.md`
 
 #### Scenario: The check never gives info for a finding
 - **GIVEN** the boards of `tests/unit/checks/test_copper.py`
