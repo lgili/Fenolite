@@ -129,8 +129,14 @@ def part_f0(folder: Path, monkeypatch: pytest.MonkeyPatch, scratch: Path) -> dic
         (project / name).write_bytes(data)
     (folder / "README.md").write_text(F0_README, encoding="utf-8")
     sums: dict[str, str] = {}
-    for path in sorted(p for p in folder.rglob("*") if p.is_file() and p.name != "SHA256SUMS"):
-        sums[path.relative_to(folder).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+    # sorted by the posix name, not by Path: a Windows path compares without case (blink_routed < README)
+    files = {
+        p.relative_to(folder).as_posix(): p
+        for p in folder.rglob("*")
+        if p.is_file() and p.name != "SHA256SUMS"
+    }
+    for name in sorted(files):
+        sums[name] = hashlib.sha256(files[name].read_bytes()).hexdigest()
     (folder / "SHA256SUMS").write_text(
         "".join(f"{digest}  {name}\n" for name, digest in sums.items()), encoding="utf-8"
     )
