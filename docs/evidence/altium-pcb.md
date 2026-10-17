@@ -727,6 +727,16 @@ are committed.
 
 ## Reports
 
+### 2026-10-17, `AD 26.5`, Part S
+
+Native run on Windows of the kit built from `670f02d`, recorded in full in
+`docs/evidence/altium-part-s-slots-2026-10-17.md` (S-0812). S1, S2, S4, S5, S6, S7 and S8 as expected. S1:
+the slot pad is a free Multi-Layer pad with no ring and a 2 × 12 mm non-plated slot, and its solder mask
+and paste expansions come from the rules, as Fenolite writes them. S3 is incomplete: Board Planning Mode
+shows the three openings and the NC output holds no hit for a milled form, but the 3D Layout Mode viewport
+stayed blank (a black view with no board), so the board shape in 3D was not observed. `H-A-SLOT-KIT` stays
+`INFERRED` and `pcbdoc.CUTOUT_REGIONS` stays false until S3 is repeated. No native file is committed.
+
 ### 2026-10-03, `AD 26.5`, Part D
 
 - Tool: Altium Designer 26.5.0 under a trial licence on the maintainer's own PC, a licence the maintainer
