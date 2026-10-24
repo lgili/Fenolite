@@ -27,18 +27,17 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
-from fenolite.core.evidence import Evidence, Level
+from fenolite.core.evidence import Evidence
+from fenolite.panel import build as panel_build
 from fenolite.panel.build import PanelOutput
 
 HELP = "write a panel of copies of one built board"
 TARGETS = ("9", "10", "altium")
 ALTIUM_FORMS = ("auto", "embedded", "flat")
 RECORD = ".fenolite/{name}.panel-written.json"
-EVIDENCE_KICAD = Evidence(
-    Level.KICAD_VERIFIED, hypotheses=("H-K-PANEL-DRILL", "H-K-PANEL-LOAD", "H-K-PANEL-NETS")
-)
+EVIDENCE_KICAD = panel_build.EVIDENCE
 """A KiCad panel board: loaded, drilled and net-checked by kicad-cli 9.0.9 and 10.0.6 (task 4.2)."""
-EVIDENCE_FLAT = Evidence(Level.ORACLE_VERIFIED, oracle="kicad-cli", hypotheses=("H-A-PANEL-FLAT",))
+EVIDENCE_FLAT = panel_build.EVIDENCE_FLAT
 """A flattened Altium panel: imported by kicad-cli 10.0.6 at the KiCad panel's places (task 6.2)."""
 EXAMPLE_PANEL = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/panels/tabs.py")
 EXAMPLE_OUT = "fenolite-panel"

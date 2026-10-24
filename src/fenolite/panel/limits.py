@@ -15,9 +15,12 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model.panel import PanelLimits
 
 MM = 1_000_000
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-PANEL-LIMITS",))
+"""The defaults equal the figures of public fabricator pages, read and cited, not measured."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,4 +101,4 @@ def user_values(limits: PanelLimits) -> dict[str, int]:
     }
 
 
-__all__ = ["DEFAULTS", "Default", "Limits", "resolved", "user_values"]
+__all__ = ["DEFAULTS", "EVIDENCE", "Default", "Limits", "resolved", "user_values"]

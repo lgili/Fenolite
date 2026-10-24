@@ -263,6 +263,8 @@ EVIDENCE = Evidence(
         "H-A-SLOT-PAD",
         "H-A-CUTOUT-REGION",
         "H-A-SLOT-KIT",
+        "H-A-PANEL-FLAT",
+        "H-A-PANEL-KIT",
     ),
 )
 """The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads. The
@@ -275,7 +277,10 @@ report (step X8, 2026-10-09), so a build writes bodies by default since change c
 instance and of the build through the lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait
 for KiCad's importer and for the author. ``H-A-SLOT-PAD`` and ``H-A-CUTOUT-REGION`` are the slot pad and
 the board cut-out region of change c0168, measured with KiCad's importer; ``H-A-SLOT-KIT`` is the
-maintainer's Part S, which decides ``CUTOUT_REGIONS``."""
+maintainer's Part S, which decides ``CUTOUT_REGIONS``. ``H-A-PANEL-FLAT`` is the flattened panel document of
+change c0173, measured with KiCad's importer; ``H-A-PANEL-KIT`` is the maintainer's Part Q, which decides
+``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` are ``UNKNOWN`` until Part Q measures
+the array's records, and nothing of them is written, so they are not named here."""
 
 
 @dataclass(frozen=True, slots=True)
