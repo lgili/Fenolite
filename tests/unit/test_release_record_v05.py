@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """The v0.5 release record says only what exists (capability release-gate, "Release record of v0.5",
-"Open tasks in the record of v0.5", "Sections of the record of v0.5", "Version 0.5.0" and "History row and
-roadmap of 0.5.0"; change c0171). As for v0.4, the record has one row per change, named by its folder
-(two archived changes hold the id c0164), and this guard holds each row to that folder's task list, so that
-no open task goes unnamed and no row ships with a task left open."""
+"Open tasks in the record of v0.5", "Sections of the record of v0.5", "Scope of 0.5.0 of 2026-10-16",
+"Version 0.5.0" and "History row and roadmap of 0.5.0"; change c0171). As for v0.4, the record has one row
+per change, named by its folder (two archived changes hold the id c0164), and this guard holds each row to
+that folder's task list, so that no open task goes unnamed and no row ships with a task left open."""
 
 from __future__ import annotations
 
@@ -47,11 +47,21 @@ V05_CHANGES = (
     "c0165-schematic-block-composition",
     "c0166-altium-native-acceptance",
     "c0167-board-slots",
+    "c0168-altium-slots-cutouts",
     "c0169-edge-clearance-check",
+    "c0170-convert-slots-obstacles",
+    "c0172-altium-draftsman",
+    "c0173-board-panels",
 )
-"""The changes of 0.5.0: v0.5a, the changes on ``dev`` after 0.4.0, c0092's rule, c0167 and c0169."""
+"""The changes of 0.5.0: v0.5a, the changes on ``dev`` after 0.4.0, c0092's rule, the slot changes c0167 to
+c0170 (c0167 and c0169 placed on 2026-10-15, c0168 and c0170 on 2026-10-16), and c0172 and c0173, which the
+maintainer added on 2026-10-16."""
+HELD = ("c0172-altium-draftsman", "c0173-board-panels")
+"""The changes the maintainer holds 0.5.0 for (2026-10-16, no 0.5.x fallback): while one has an open task its
+row is ``pending``, never ``ships with deferred tasks``, so the guard refuses a verdict until they close."""
 EARLIER = ("c0081", "c0105", "c0146")
-"""Open changes of earlier releases whose open tasks "Open changes of earlier releases" must name."""
+"""Open changes of earlier releases whose open tasks "Open changes of earlier releases" must name (c0146 has
+none since 2026-10-16; its entry stays until its folder is archived)."""
 DEFERRED_AFTER = (
     "Part T",
     "c0166",
@@ -63,12 +73,12 @@ DEFERRED_AFTER = (
     "kit run",
     "c0081",
     "c0105",
-    "c0146",
     "c0168",
-    "c0170",
+    "Part S",
 )
 """What "Deferred after v0.5" must name."""
-NOT_IN_RELEASE = ("c0168", "c0170")
+NOT_IN_RELEASE = ("c0151", "v0.5b")
+"""What "Not in 0.5.0" must name; it must name no change of the release."""
 RUN = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+")
 TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+|[A-Z]\d+)\b", re.MULTILINE)
 
@@ -175,6 +185,8 @@ def row_problems(text: str, row: dict[str, str], known_jobs: set[str]) -> list[s
         problems.append(f"{change}: no entry under '## Deferred to the next release'")
     if result == PENDING and not entry(text, "Pending on the release branch", change):
         problems.append(f"{change}: no entry under '## Pending on the release branch'")
+    if change in HELD and given and result != PENDING:
+        problems.append(f"{change}: 0.5.0 is held for it, so a row with open tasks is {PENDING}")
     return problems
 
 
@@ -221,6 +233,11 @@ def record_problems(text: str, *, workflow: str) -> list[str]:
     absent = section(text, f"Not in {RELEASED}")
     problems.extend(
         f"not in {RELEASED}: {words!r} is missing" for words in NOT_IN_RELEASE if words not in absent
+    )
+    problems.extend(
+        f"not in {RELEASED}: {change} is a change of the release"
+        for change in sorted({folder.split("-", 1)[0] for folder in V05_CHANGES})
+        if re.search(rf"\b{change}\b", absent)
     )
     if "experimental" not in section(text, "Altium write"):
         problems.append("altium write: the section does not say that the write stays experimental")
@@ -386,9 +403,16 @@ def test_missing_change_proof_and_job_are_named() -> None:
     assert any("has no function test_gone" in p for p in check(named_gone))
     assert f"{SHIPPED}: no job 'kicad-11' in ci.yml" in check(with_cell(text, SHIPPED, "job", "kicad-11"))
     stray = text.replace(
-        row_line(text, SHIPPED), row_line(text, SHIPPED).replace(SHIPPED, "c0168-altium-slots-cutouts")
+        row_line(text, SHIPPED), row_line(text, SHIPPED).replace(SHIPPED, "c0151-repeat-bus-split")
     )
-    assert "c0168-altium-slots-cutouts: not a change of 0.5.0" in check(stray)
+    assert "c0151-repeat-bus-split: not a change of 0.5.0" in check(stray)
+
+
+@pytest.mark.parametrize("change", ("c0168-altium-slots-cutouts", "c0170-convert-slots-obstacles", *HELD))
+def test_changes_placed_on_2026_10_16_need_their_rows(change: str) -> None:
+    """c0168 and c0170 are in 0.5.0 since 2026-10-16, and so are c0172 and c0173."""
+    text = record()
+    assert f"{change}: no row" in check(text.replace(row_line(text, change) + "\n", "", 1))
 
 
 def test_open_task_must_be_named() -> None:
@@ -426,6 +450,15 @@ def test_results_need_their_entries() -> None:
     assert f"{graduation}: no entry under '## Pending on the release branch'" in check(pending)
 
 
+@pytest.mark.parametrize("change", HELD)
+def test_held_changes_stay_pending(change: str) -> None:
+    """0.5.0 is held for c0172 and c0173 (2026-10-16): no row of theirs may defer an open task."""
+    text = record()
+    if any(not ticked for ticked in tasks(change).values()):
+        deferred = with_cell(text, change, "result", DEFERRED)
+        assert f"{change}: 0.5.0 is held for it, so a row with open tasks is {PENDING}" in check(deferred)
+
+
 @pytest.mark.parametrize("change", EARLIER)
 def test_earlier_changes_name_their_open_tasks(change: str) -> None:
     text = record()
@@ -452,9 +485,12 @@ def test_deferred_items_are_named(words: str) -> None:
 def test_not_in_release_and_altium_write() -> None:
     text = record()
     body = section(text, f"Not in {RELEASED}")
-    assert f"not in {RELEASED}: 'c0170' is missing" in check(
-        text.replace(body, body.replace("c0170", "x"), 1)
+    assert f"not in {RELEASED}: 'c0151' is missing" in check(
+        text.replace(body, body.replace("c0151", "x"), 1)
     )
+    for change in ("c0168", "c0170", "c0172", "c0173"):
+        late = text.replace(body, body + f"- **{change}**: after `{RELEASED}`.\n", 1)
+        assert f"not in {RELEASED}: {change} is a change of the release" in check(late)
     altium = section(text, "Altium write")
     assert any(
         p.startswith("altium write")
@@ -470,6 +506,9 @@ def test_verdict_over_pending_rows_and_placeholders() -> None:
     problems = check(decided)
     if PLACEHOLDER in text:
         assert f"verdict: written while a {PLACEHOLDER} placeholder stands" in problems
+    held = [row["change"] for row in rows(text) if row["change"] in HELD and row["result"] == PENDING]
+    if held:
+        assert f"verdict: written while {', '.join(held)} is pending" in problems
     pending = with_verdict(with_cell(text, SLOTS, "result", "pending"), f"Released as v{RELEASED}.")
     if tasks(SLOTS) and not all(tasks(SLOTS).values()):
         assert any(p.startswith("verdict: written while") and SLOTS in p for p in check(pending))

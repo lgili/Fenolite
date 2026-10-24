@@ -22,7 +22,10 @@ milestone rows below and in `docs/release/v0.4.md`, "Archive order". The maintai
 placed in it that day, is released as `0.5.0`, pending publication: the maintainer approved preparing the
 release on 2026-10-15 and its publication waits for his explicit yes (Open decisions, row 43). Its release
 change is c0171 and its record `docs/release/v0.5.md`, with what each change ships, what is pending on the
-CI of the release branch and what waits for his own tests.
+CI of the release branch and what waits for his own tests. Status on 2026-10-24: by his decisions of
+2026-10-16, c0168 and c0170 are in `0.5.0` too, and so are c0172 (native Altium Draftsman documents) and
+c0173 (board panels); `0.5.0` is held until the native parts of c0172 and c0173 pass his Altium kits, with
+no `0.5.x` fallback (Open decisions, row 44).
 
 Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
 pin-to-pad map in the Altium build (c0135); `0.2.2` (change c0149), cut from the tag `v0.2.1`, with the
@@ -84,7 +87,7 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | Released as 0.3.0 with experimental writes (historical record: docs/release/v0.3.md). Reconciled 2026-10-14: c0083-c0091 and the c0125/c0130/c0131/c0132/c0152 chain are archived; c0092's rule, acceptance project, kit publication and per-kind runtime integration are implemented. Native AD 26.5 kit: 32 passed steps, 27 recorded candidate labels, supplemental v0.4.0 archive. KiCad 10.0.6 acceptance/probe passed. No write kind graduates yet; maintainer acceptance review and closing exact-commit CI remain pending. |
 | — | v0.4 | the agent track c0077–c0081; board authoring c0096–c0099 (c0098 since 2026-10-08); the complex board c0100–c0120; written on `v04` after `0.3.0`: c0137, c0140, c0141, c0145, c0152, c0153 | an agent's first project, guide and measure; placement, copper findings, electrical readiness and bodies; the gaps to a complex board | on `v04`; released as `0.4.0`, pending publication (release change c0154, archived on 2026-10-09; record `docs/release/v0.4.md`, with the verdict): every change ships, 23 with every task closed; the tasks that depend on the maintainer's own tests are deferred to the next release by his decision of 2026-10-08, and the tasks that wait for the CI of the release branch or the first `yardstick` run are listed there ([v0.4](#v04-the-agent-track-board-authoring-and-the-complex-board)). Archived on 2026-10-09: c0078, c0079, c0080, c0096, c0097, c0098, c0099, c0100, c0102, c0106, c0111, c0115, c0119, c0120, c0140, c0145, c0153 and c0154; later that day c0116, c0117, c0118, c0101, c0103, c0113 and c0141, and then c0107 and c0104. Open with every task closed, in the archive order: c0077 (after c0123 and c0126), c0114 (after c0126), c0137 (after c0123) and c0152 (after c0125, c0130, c0131 and c0132); c0108, c0109, c0110 and c0112, whose deferred tasks were closed on 2026-10-09, are not archived yet (c0110 after c0108 and c0109). Open with deferred tasks: c0081 and c0105 |
-| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | v0.5a: c0158–c0162 (proposed and approved on 2026-10-09); v0.5b, v0.6, v1.0: not allocated | v0.5a: conversion between KiCad and the second backend with a report of what is kept or lost, controlled KiCad downgrade, public `equivalent`; v0.5b: the MCP server; v0.6: nothing remains; v1.0: freeze | v0.5a: released as `0.5.0`, pending publication (release change c0171, record `docs/release/v0.5.md`, verdict pending), with c0163 to c0166 written on `dev` after `0.4.0` and the slot changes c0167 and c0169 (Open decisions, rows 38, 42 and 43); c0168 and c0170 after `0.5.0`. v0.5b, v0.6, v1.0: estimate |
+| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | v0.5a: c0158–c0162 (proposed and approved on 2026-10-09); v0.5b, v0.6, v1.0: not allocated | v0.5a: conversion between KiCad and the second backend with a report of what is kept or lost, controlled KiCad downgrade, public `equivalent`; v0.5b: the MCP server; v0.6: nothing remains; v1.0: freeze | v0.5a: released as `0.5.0`, pending publication (release change c0171, record `docs/release/v0.5.md`, verdict pending), with c0163 to c0166 written on `dev` after `0.4.0` and the slot changes c0167 and c0169 (Open decisions, rows 38, 42 and 43), c0168 and c0170 placed in it on 2026-10-16, and c0172 and c0173 added that day; `0.5.0` is held for the native parts of c0172 and c0173 (row 44). v0.5b, v0.6, v1.0: estimate |
 
 About 70 changes to 1.0 on this map before the cuts, and about 61 with the cuts the maintainer accepted
 on 2026-10-09 (see [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
@@ -630,8 +633,10 @@ change at that point.
 to c0157, c0163, the two c0164, c0165, c0166, c0092's rule) and of the slot changes c0167 and c0169, with
 what it ships, its open tasks and why each is open. The maintainer approved preparing the release on
 2026-10-15; its publication waits for his explicit yes. What depends on his own tests (Part T of c0160 and
-the other Altium Designer checks of c0166, the kit run, Part R) is deferred, as in `0.4.0`. The text below
-was written when v0.5a was proposed.
+the other Altium Designer checks of c0166, the kit run, Part S of c0168) is deferred, as in `0.4.0`. On
+2026-10-16 he placed c0168 and c0170 in `0.5.0`, added c0172 and c0173 ([Draftsman documents and board
+panels](#draftsman-documents-and-board-panels-placed-on-2026-10-16)), and held `0.5.0` until their native
+parts pass his Altium kits (Open decisions, row 44). The text below was written when v0.5a was proposed.
 
 Proposed on 2026-10-09 on the branch `dev-v05a-proposals`, from `dev` at `f802b60`, after the maintainer's
 decision that `0.5.0` is v0.5a alone (Open decisions, row 38). Each design measures what exists first:
@@ -666,7 +671,8 @@ slots inside the outline that lengthen creepage, carried through the KiCad board
 checks and analyses, conversion and read-back, overlapping slots meaning their union. Proposed on the branch
 `dev-slots-proposals` from `dev` at `a87723c`; ids c0167 to c0170 were taken together. It is no item of the
 milestones above; the maintainer placed it on 2026-10-15 (Open decisions, row 42): c0167 and c0169 go in
-`0.5.0` (v0.5a), c0168 and c0170 come after `0.5.0`.
+`0.5.0` (v0.5a), c0168 and c0170 come after `0.5.0`. On 2026-10-16 he placed c0168 and c0170 in `0.5.0`
+too (row 44).
 
 | id | slug | scope | state | depends on | days |
 |---|---|---|---|---|---|
@@ -685,6 +691,27 @@ milestones above; the maintainer placed it on 2026-10-15 (Open decisions, row 42
   (each marked in its design).
 - Placement, decided by the maintainer on 2026-10-15: c0167 and c0169 go in `0.5.0` (v0.5a), since they
   need no conversion; c0168 (Altium, gated by his kit run of S1 to S8) and c0170 come after `0.5.0`.
+- Placement changed by the maintainer on 2026-10-16 ("finish all tasks and tests before releasing"):
+  c0168 and c0170 are in `0.5.0`. c0170 has every task ticked; c0168 waits on Part S, whose native run of
+  2026-10-17 left S3 incomplete (the 3D view stayed blank), so its cut-out regions stay behind their gate.
+
+### Draftsman documents and board panels (placed on 2026-10-16)
+
+Two requests of the maintainer of 2026-10-16, both for `0.5.0`: native Altium Draftsman documents from an
+Altium build ("a real .PCBDwf document", not PDF drawings), and several copies of one board in one panel,
+for KiCad and for Altium as the native Embedded Board Array. He chose to hold `0.5.0` until their native
+parts pass his Altium kits, with no `0.5.x` fallback (Open decisions, row 44).
+
+| id | slug | scope | state | depends on | days |
+|---|---|---|---|---|---|
+| c0172 | `altium-draftsman` | the Draftsman reader and census; a native `.PCBDwf` writer behind `draftsman.NATIVE_WRITE`, driven by c0117's drawing specification; `build --altium-draftsman` and `--drawing-spec`; kit Part F (F0, FP1 to FP5, F1 to F8) | merged into `release-0.5.0`; the reader ships, the rest waits on his round F0 | c0087, c0101, c0117, c0138 | 10 |
+| c0173 | `board-panels` | the panel script and model, `fenolite panel` and its checks, the KiCad panel board, the flattened Altium panel, the Embedded Board Array behind `pcbdoc.EMBEDDED_ARRAYS`, kit Part Q (Q1 to Q12) | merged into `release-0.5.0`; the array waits on his run of Part Q | c0167, c0118 | 13 |
+
+- Total: 23 design-days (sizes, not time).
+- What only the maintainer can do: round F0, the probes FP1 to FP5 and F1 to F8 of c0172 in Altium
+  Designer 26.5; Q1 to Q12 of c0173. Each change has stop rules and a documented fallback (a written
+  template or project parameters for c0172, the flattened panel for c0173), which ship only when a gate
+  fails.
 
 ## Proposed cuts for a leaner 1.0
 
@@ -861,11 +888,12 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 39 | Yardstick: the order of the two route steps. In nightly run 37836196244 `route-pairs` ran first and KiCadRoutingTools routed `USB_DP` and `USB_DN` as two separate nets; their 127 meandered segments blocked Freerouting (2 of 171 nets closed, against about 120 without them; `docs/evidence/yardstick.md`, "The routing gap of run 37836196244") | that section; change c0157 | decided by the maintainer on 2026-10-09: `route-pairs` runs after `route` until the pair is routed as a coupled pair, when the order is measured again |
 | 40 | v0.5a: the open questions of c0158, c0159, c0160, c0161 and c0162, and the order of implementation | "Open questions" of the five designs; [v0.5a](#v05a-conversion-downgrade-and-the-public-equivalent) | decided by the maintainer on 2026-10-09: every recommended answer is accepted (each marked in its design); v0.5a is implemented in the order c0158, c0159, c0162, then c0160 and c0161; the defect that c0162 found (`RoyalBlue54L-Feather` refused at its own KiCad 9 target, `kicad.board.opaque-net-ref`) gets a correction change of its own, c0163 |
 | 41 | c0162: in a KiCad downgrade, the project sections every KiCad 10 project holds (`component_class_settings`, `tuning_profiles`, the class key `tuning_profile`) are `same` (no loss, no `--allow-lossy`) when they hold what a fresh KiCad 10 project writes there, and stay `design` losses when they hold content | `docs/formats/kicad/project.md`, "Default sections of KiCad 10"; c0162 task 6.1 | decided by the maintainer on 2026-10-09 |
-| 42 | Board slots and cut-outs (c0167–c0170): their milestone, and the open questions of the four designs | [Board slots and cut-outs](#board-slots-and-cut-outs-proposed-and-placed-on-2026-10-15); the four designs | decided by the maintainer on 2026-10-15: c0167 and c0169 go in `0.5.0` (v0.5a); c0168 (Altium, gated by his kit run of S1 to S8) and c0170 come after `0.5.0`; every recommended answer of the four designs is accepted (each marked in its design); in Altium a milled slot is a board cut-out region and a drilled slot a slot pad, which kit case S5 confirms |
+| 42 | Board slots and cut-outs (c0167–c0170): their milestone, and the open questions of the four designs | [Board slots and cut-outs](#board-slots-and-cut-outs-proposed-and-placed-on-2026-10-15); the four designs | decided by the maintainer on 2026-10-15: c0167 and c0169 go in `0.5.0` (v0.5a); c0168 (Altium, gated by his kit run of S1 to S8) and c0170 come after `0.5.0`; every recommended answer of the four designs is accepted (each marked in its design); in Altium a milled slot is a board cut-out region and a drilled slot a slot pad, which kit case S5 confirms; the placement of c0168 and c0170 was changed on 2026-10-16 (row 44) |
 | 43 | `0.5.0`: release v0.5a with c0167 and c0169; the tasks that depend on the maintainer's own tests (Altium Designer checks, KiCad GUI saves made by him, a run of a real agent) are deferred, as in `0.4.0`; publication only on his explicit yes | `docs/release/v0.5.md`; change c0171 | approved by the maintainer on 2026-10-15 (preparing the release); the publication is pending |
+| 44 | `0.5.0`: "finish all tasks and tests before releasing": c0168 and c0170 go in `0.5.0`; c0172 (native Altium Draftsman documents) and c0173 (board panels) enter it; `0.5.0` is held until their native parts pass his Altium kits, with no `0.5.x` fallback | `docs/release/v0.5.md`; changes c0171, c0172 and c0173 | decided by the maintainer on 2026-10-16; recorded on 2026-10-24 (c0171 task 1.14) |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
-c0060–c0074, c0083–c0092 and, for v0.5a, c0158 onwards; for board slots and cut-outs, c0167–c0170).
+c0060–c0074, c0083–c0092 and, for v0.5a, c0158 onwards; for board slots and cut-outs, c0167–c0170; for Draftsman documents and panels, c0172 and c0173).
 
 Later questions, asked when their change is proposed:
 

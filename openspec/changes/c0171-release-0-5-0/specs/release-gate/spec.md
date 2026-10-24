@@ -29,13 +29,29 @@ The column `open tasks` of `docs/release/v0.5.md` SHALL follow the change's own 
 ### Requirement: Sections of the record of v0.5
 `docs/release/v0.5.md` SHALL hold the sections of the record of v0.4 for the tag `v0.5.0`, with `## Deferred after v0.5` in place of `## Deferred after v0.4`.
 - `## Altium write` MUST say that every Altium write kind stays experimental.
-- `## Not in 0.5.0` MUST name c0168 and c0170.
-- `## Deferred after v0.5` MUST name Part T, the Altium executions of c0166, R1 to R5, c0092's tasks 5.2 and 6.2, the kit run, the agent run of c0081, c0105's GUI save and c0146's task 2.4.
+- `## Not in 0.5.0` MUST name c0151 and v0.5b.
+- `## Deferred after v0.5` MUST name Part T, the Altium executions of c0166, R1 to R5, c0092's tasks 5.2 and 6.2, the kit run, the agent run of c0081, c0105's GUI save and Part S of c0168.
 
 #### Scenario: A deferred item missing
 - **GIVEN** a copy of the record whose `## Deferred after v0.5` does not name Part T
 - **WHEN** the guard runs on it
 - **THEN** it fails and names `Part T`
+
+### Requirement: Scope of 0.5.0 of 2026-10-16
+The record SHALL hold the scope that the maintainer decided on 2026-10-16, which holds the release until c0172 and c0173 close.
+- The changes of the release MUST include c0168, c0170, c0172 and c0173, each with its row.
+- While c0172 or c0173 has an open task, its row MUST be `pending`.
+- `## Not in 0.5.0` MUST NOT name a change of the release.
+
+#### Scenario: A held change deferred
+- **GIVEN** a copy of the record whose row of c0172 says `ships with deferred tasks` while it has open tasks
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `c0172-altium-draftsman` and `pending`
+
+#### Scenario: A change of the release named as not in it
+- **GIVEN** a copy of the record whose `## Not in 0.5.0` names c0170
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `c0170`
 
 ### Requirement: Version 0.5.0
 The version SHALL become `0.5.0` in the commit of change c0171, in `src/fenolite/__init__.py`, in `packaging/phenolite/pyproject.toml` and in its pin `fenolite==0.5.0`; later commits keep the three equal.

@@ -37,7 +37,8 @@ to X7 and X9 to X12 of Part X) c0085. Later still, after the maintainer waived t
 and c0104 were archived, in that order, and then c0108, c0109, c0112 and c0110, whose deferred tasks
 were closed on 2026-10-09.
 The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and proposed on the branch `dev-v05a-proposals`; c0157 is the yardstick change of another branch.
-The four changes of the maintainer's capability request "board slots and cut-outs, end to end" were allocated together as c0167–c0170 on 2026-10-15 and proposed on the branch `dev-slots-proposals`; c0164–c0166 were taken on `dev` and on the maintainer's `codex/` branches. Their milestone awaits the maintainer's placement (`docs/roadmap.md`, "Board slots and cut-outs").
+The four changes of the maintainer's capability request "board slots and cut-outs, end to end" were allocated together as c0167–c0170 on 2026-10-15 and proposed on the branch `dev-slots-proposals`; c0164–c0166 were taken on `dev` and on the maintainer's `codex/` branches. The maintainer placed c0167 and c0169 in `0.5.0` on 2026-10-15 and c0168 and c0170 on 2026-10-16 (`docs/roadmap.md`, "Board slots and cut-outs").
+On 2026-10-16 the maintainer's requests for native Altium Draftsman documents and for board panels took c0172 and c0173, both placed in `0.5.0`, which he holds until their native parts pass his Altium kits.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -166,8 +167,10 @@ The four changes of the maintainer's capability request "board slots and cut-out
 | c0168 | `altium-slots-cutouts` | board slots and cut-outs: slotted board holes as free slot pads, milled cut-outs and slots as board cut-out regions behind the maintainer's kit, their import and round trips | c0167, c0085 |
 | c0169 | `edge-clearance-check` | board slots and cut-outs: copper-to-edge clearance in the copper check, drilled holes in cut-outs and overlapping holes, the creepage of slots | c0167, c0029 |
 | c0170 | `convert-slots-obstacles` | board slots and cut-outs: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints from Altium, slots as placement and routing obstacles | c0167, c0168, c0169, c0159–c0161 |
-| c0171 | `release-0-5-0` | release of v0.5a as `0.5.0` with the slot changes c0167 and c0169 (the maintainer's approval of 2026-10-15): the release record with the verdict per change, what is pending on the CI of the release branch and what waits for the maintainer's own tests, its guard, the version, the changelog cut, and the retry of the corpus fetch that the `kicad-10` job needs | c0092, c0155–c0167, c0169 |
+| c0171 | `release-0-5-0` | release of v0.5a as `0.5.0` with the slot changes c0167 and c0169 (the maintainer's approval of 2026-10-15): the release record with the verdict per change, what is pending on the CI of the release branch and what waits for the maintainer's own tests, its guard, the version, the changelog cut, and the retry of the corpus fetch that the `kicad-10` job needs; since the maintainer's decisions of 2026-10-16 also c0168, c0170, c0172 and c0173, with the release held for the native parts of c0172 and c0173 | c0092, c0155–c0170, c0172, c0173 |
+| c0172 | `altium-draftsman` | native Altium Draftsman documents for `0.5.0` (the maintainer's request of 2026-10-16): the reader of `.PCBDwf` (an LZ4-chunked XML document) and its census, a writer behind `draftsman.NATIVE_WRITE` driven by c0117's drawing specification, `build --altium-draftsman` and `--drawing-spec`, the `PCBDrawing` output, kit Part F (F0, FP1 to FP5, F1 to F8); the release waits for its native document | c0087, c0101, c0117, c0138 |
+| c0173 | `board-panels` | board panels for `0.5.0` (the maintainer's request of 2026-10-16): the panel script and model, `fenolite panel` with its checks, the KiCad panel board, the flattened Altium panel, the Embedded Board Array behind `pcbdoc.EMBEDDED_ARRAYS` and kit Part Q (Q1 to Q12), the score layer in Gerber exports; the release waits for its native array | c0167, c0118 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0172.
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0174.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
