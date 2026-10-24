@@ -151,6 +151,11 @@ command lines, which the tests run.
   and is not this guide: `fenolite kit build` writes its files and `fenolite kit verify` judges what the
   run left, but nothing starts Altium, so you cannot perform it.
 
+## Designing a good board
+
+A board on which `fenolite check` exits 0 is not therefore a good board. Before you place a part of a
+real board, read `board-practice`: the order of work and the practice pages (`board-…`) of each step.
+
 ## The pages
 
 `fenolite guide <topic> --text` prints one of these. Read `design-script` before you write a script and
@@ -158,6 +163,17 @@ command lines, which the tests run.
 
 <!-- pages:begin -->
 - `altium`: Altium builds, blocks, native sync, evidence and the verification kit.
+- `board-assembly`: Designators and silkscreen, polarity and pin 1, test points and fiducials, footprints by IPC-7351, 3D bodies, and the board as the master of its library.
+- `board-emc`: An immunity basis first, the mains entry in order, filter sides kept apart, the earth bond in copper, staged pin protection, gate buses and analog lines.
+- `board-floorplan`: Mechanical constraints first, regions by domain and function, a power flow in one direction, the loop parts first, decoupling at the pin, and reference blocks.
+- `board-grounds`: Ground domains, one tie between two domains and where it goes, Kelvin sensing, return paths, proving a single tie, and the commands that show a net.
+- `board-insulation`: Insulation domains, the inputs that set a distance, slots and grooves, copper under parts and on both faces, measuring with analyze, and what not to claim.
+- `board-power`: Current loops and loop area, copper sized by a public method, pours as wide straight bands, necks, parallel vias, gate drive, and connectivity after cut-outs.
+- `board-practice`: The order of work for a real board, what a check cannot see, whose numbers apply, and the practice pages that go with each step.
+- `board-review`: The self-review checklist, what reviewers reject, how to answer review findings, and how decisions and open items are recorded.
+- `board-routing`: Count the crossings of each barrier first, critical nets first, a clean octilinear style, sensitive nets, vias, and an external router's input.
+- `board-schematic`: One master for every change, net classes on the wire, connectivity by pin sets, a clean drawing, ratings with their conditions, parts from references.
+- `board-workflow`: Copies and versions, a SHA-256 before every write, files a person has open, references between files, parallel editors, and honest reports.
 - `checks`: The stages of check, how to read an issue and explain it, evidence levels, keeping replies small, the netlist, parity and doctor.
 - `commands`: The complete list: each public command, whether it writes, and every argument with its help.
 - `design-script`: The shape of a script: design, modules, nets, parts, lengths with units, the board frame, and the edit and build cycle.
