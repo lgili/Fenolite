@@ -1523,6 +1523,31 @@ the PCB. This build reads no library, so lib ids and footprints name Altium libr
 (`"MyParts.SchLib:LDO"`, `"MyParts.PcbLib:SOT23"`), and designators must be pin numbers. The board,
 placements, net classes and diff pairs stay in `.fenolite/` only. See `docs/altium.md`.
 
+## Panels (c0173)
+
+A panel of several copies of a built board is a script of its own, not part of the design script: it binds
+`panel = Panel(name, board=…)` (`fenolite.dsl.Panel`, from `fenolite.dsl.panel`) and is written by
+`fenolite panel`, not by `build`.
+
+```python
+from fenolite.dsl import Panel, mm
+
+panel = Panel("blink_panel", board="../blink/out/blink.kicad_pcb")
+panel.grid(2, 4)                           # or panel.fit(mm(100), mm(80), rot="auto")
+panel.rails(top=mm(5), bottom=mm(5))
+panel.separate("vscore", between="rows")   # "columns", "rows" or "rails": "vscore" or "tabs"
+panel.separate("tabs", between="columns")
+panel.fiducials()
+panel.tooling_holes()
+```
+
+The calls are `grid()`, `fit()`, `rails()`, `separate()`, `tabs()`, `vscore()`, `fiducial()`,
+`fiducials()`, `tooling_hole()` and `tooling_holes()`; `Panel(..., limits={...})` replaces the default
+limits of the panel checks. Coordinates are panel-relative (origin top-left, Y down), every bad value raises
+`DslError` at the call, and a script that binds no `panel` is `FEN-3004`. `to_model()` gives the model
+panel (`fenolite.model.panel.Panel`, canonical JSON `panel.json`). Only boards whose outline is one
+rectangle are panelled in this release. See `docs/panels.md`.
+
 ## Net ties
 
 A net tie joins pads of different nets on purpose: a star ground, a Kelvin lead. In an authored footprint
