@@ -251,6 +251,9 @@ def test_evidence() -> None:
     )
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted
+    # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
+    # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet
+    rows |= {"H-A-PANEL-FLAT", "H-A-PANEL-KIT"}
     assert refuted == {"H-A-SCHBIN-MINI"}, "a refuted row is not a claim of the build"
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows
@@ -263,6 +266,8 @@ def test_evidence() -> None:
         "H-A-CONV-DIFAT",
         "H-A-CONV-LIBRARY",
         "H-A-CONV-PADSTACK",
+        "H-A-PANEL-FLAT",
+        "H-A-PANEL-KIT",
     }
     # the component classes and the rules of the design (c0084) are in the document
     assert set(PCB_BUILD_EVIDENCE.hypotheses) == board_rows
