@@ -1533,9 +1533,9 @@ A panel of several copies of a built board is a script of its own, not part of t
 from fenolite.dsl import Panel, mm
 
 panel = Panel("blink_panel", board="../blink/out/blink.kicad_pcb")
-panel.grid(2, 4)                           # or panel.fit(mm(100), mm(80), rot="auto")
+panel.grid(2, 4)  # or panel.fit(mm(100), mm(80), rot="auto")
 panel.rails(top=mm(5), bottom=mm(5))
-panel.separate("vscore", between="rows")   # "columns", "rows" or "rails": "vscore" or "tabs"
+panel.separate("vscore", between="rows")  # "columns", "rows" or "rails": "vscore" or "tabs"
 panel.separate("tabs", between="columns")
 panel.fiducials()
 panel.tooling_holes()
