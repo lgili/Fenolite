@@ -1045,6 +1045,7 @@ An author report never raises the build's evidence level.
 | `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
 | `altium.outjob-not-listed` | info | the project file is kept and does not list the output job |
 | `altium.sheet-paper` | warning | the layout of a schematic document does not fit the paper of `sheet()`, so the drawing sheet is drawn on a larger page |
+| `altium.panel-flattened` | info | `fenolite panel --target altium` wrote the flattened panel, not the Embedded Board Array; the message says why ("Panels (change c0173)") |
 
 Model findings (`model.*`) pass through, and so do the `altium.sheet.*` codes of a drawing sheet ("Drawing sheet"). A build with an error exits 5 and writes nothing. A KiCad lib id
 that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.lib.*` issues.
@@ -1833,3 +1834,28 @@ and conflicting pin memberships are described in `docs/conversion.md`, "KiCad to
 The writers use DIFAT sectors for large compound documents. Altium opening, compile, repour, DRC,
 ECO and library placement checks are Part T in `docs/evidence/altium-pcb.md`; they remain unverified
 until the maintainer reports the actual outcomes.
+
+## Panels (change c0173)
+
+`fenolite panel PANEL.py --out DIR --target altium` writes a panel of copies of one board for Altium
+(`docs/panels.md`; `docs/cli-contract.md`, "panel"). The board the panel script names is a `.kicad_pcb` or a
+`.PcbDoc` built with `fenolite build --target altium`.
+
+- **The flattened panel ships.** `--altium-panel auto` (the default) or `flat` writes `<name>.PcbDoc`, a
+  `<name>.PrjPcb` that lists the panel document alone, and `<name>.panel.json`, with one
+  `altium.panel-flattened` info naming why it is not the array. The document holds every item of each copy
+  (nets `B<k>/<name>`, designators kept); its board shape is the panel's rectangle; the routed gaps are lines
+  on Mechanical 1 named `Route Tool Path`, the score lines lines on Mechanical 2 named `V-Cut`, both without
+  a layer type (S-0792); mouse-bite and tooling holes are free round non-plated pads, fiducials free round
+  copper pads on the Top or Bottom Layer with the mask from the rule. A copy with cut-outs or slots is
+  `panel.altium-cutout` (error) while board cut-out regions stay behind `pcbdoc.CUTOUT_REGIONS`. Level:
+  `ORACLE-VERIFIED(kicad-cli)` (10.0.6, `H-A-PANEL-FLAT`); Altium's view of it is kit case Q11.
+- **The Embedded Board Array is behind a gate.** `pcbdoc.EMBEDDED_ARRAYS = False`: `--altium-panel embedded`
+  exits 7 (`FEN-7001`, hint `--altium-panel flat`), and so does it with a `.kicad_pcb` board. No public page
+  gives the array's records and no public document of the corpus holds one, so they are measured from the
+  documents the maintainer saves in Altium Designer 26.5 (Part Q of `docs/evidence/altium-pcb.md`, phase A),
+  and the gate opens only when he reports Q7, Q8 and Q9 as passed. Until then nothing about the array is
+  `ALTIUM-VERIFIED`: `H-A-PANEL-RECORD` and `H-A-PANEL-LAYERKIND` are `UNKNOWN`, `H-A-PANEL-KIT` is
+  `INFERRED`. If the stop rules of the change fire, the flattened panel stays what ships.
+- `mirror=True` of `grid()` is the array's Mirrored property; no form written today holds it (exit 7).
+- The panel's Gerber and NC drill files are Altium's outputs; `fenolite export` does not run Altium.

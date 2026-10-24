@@ -12,11 +12,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from fenolite.core.errors import Issue
+from fenolite.core.evidence import Evidence, Level
 from fenolite.model import canonical
 from fenolite.model.design import Design
 from fenolite.model.panel import Panel
 from fenolite.panel.checks import check_panel
 from fenolite.panel.layout import PanelLayout, layout
+
+EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PANEL-DRILL", "H-K-PANEL-LOAD", "H-K-PANEL-NETS"))
+"""The KiCad panel board: loaded, drilled and net-checked by kicad-cli 9.0.9 and 10.0.6 (task 4.2). The score
+layer's Gerber file function is recorded by ``H-K-PANEL-GERBER`` and belongs to ``fenolite export``."""
+EVIDENCE_FLAT = Evidence(Level.ORACLE_VERIFIED, oracle="kicad-cli", hypotheses=("H-A-PANEL-FLAT",))
+"""The flattened Altium panel: imported by kicad-cli 10.0.6 at the KiCad panel's places (task 6.2)."""
+EVIDENCE_EMBEDDED = Evidence(
+    Level.UNKNOWN, hypotheses=("H-A-PANEL-KIT", "H-A-PANEL-LAYERKIND", "H-A-PANEL-RECORD")
+)
+"""The Embedded Board Array, as measured: no record is known before Part Q, so nothing is claimed and nothing
+is written while ``pcbdoc.EMBEDDED_ARRAYS`` is false."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,4 +129,13 @@ def altium_panel(panel: Panel, source: Path) -> PanelOutput:
     return PanelOutput(dict(sorted(files.items())), laid, tuple(issues), "flat", board=board, notes=(note,))
 
 
-__all__ = ["PanelOutput", "altium_panel", "kicad_panel", "panel_json", "read_source"]
+__all__ = [
+    "EVIDENCE",
+    "EVIDENCE_EMBEDDED",
+    "EVIDENCE_FLAT",
+    "PanelOutput",
+    "altium_panel",
+    "kicad_panel",
+    "panel_json",
+    "read_source",
+]
