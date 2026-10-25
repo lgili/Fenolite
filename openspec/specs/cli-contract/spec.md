@@ -2213,3 +2213,10 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 #### Scenario: Compare counts
 - **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k compare` compares an authored board with its edited copy
 - **THEN** the exit code is 0 and `result.compare.moved` is 1
+
+### Requirement: View command draws check findings
+`fenolite view` SHALL accept `--check FILE` (a `check` reply) or `--check run`, reply with `result.check` counting findings by severity, and refuse a file that is not a `check` reply with `FEN-3004`.
+
+#### Scenario: Not a check reply
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k check_reply` passes an `analyze` reply to `--check`
+- **THEN** the exit code is 3 and the error code is `FEN-3004`
