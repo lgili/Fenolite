@@ -54,9 +54,9 @@ The agent guide SHALL hold twenty-two written pages under `src/fenolite/agent/sk
 - Every page MUST end with a line `Read next:` naming at most three topics that exist.
 - The start page MUST hold an index of the pages, one line per topic with its summary, between the lines `<!-- pages:begin -->` and `<!-- pages:end -->`.
 
-#### Scenario: The twenty-two pages load
+#### Scenario: The eleven pages load
 - **WHEN** `uv run pytest tests/unit/agent/test_pages.py -k topics` calls `guide.pages()`
-- **THEN** it finds `start`, the twenty-two written topics and the two generated ones, each with a title and a one-line summary, and every `Read next:` names existing topics
+- **THEN** it finds `start`, the eleven tool topics, the eleven practice topics beside them and the two generated ones, each with a title and a one-line summary, and every `Read next:` names existing topics
 
 #### Scenario: A page through the command line
 - **WHEN** `uv run fenolite guide routing --text` runs
