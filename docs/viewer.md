@@ -68,6 +68,19 @@ copied (`docs/formats/kicad/color-theme.md`).
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Speed and size
+
+Large boards open fast the second time (change c0182):
+- **Cache.** Each scene is cached by the SHA-256 of its file, the theme and Fenolite's own code, in your user
+  cache folder (`--cache user`, the default; `FENOLITE_CACHE_DIR` moves it), under `.fenolite/view-cache/` of
+  the project with `--cache project`, or not at all with `--cache off`. A changed file, theme or Fenolite
+  rebuilds the scene; the cache is safe to delete.
+- **Compact scenes.** Board scenes leave Fenolite in a compact form (`fenolite.view_scene.v1`), and an
+  exported page holds each scene gzipped and decodes it only when its document is opened. On the largest public
+  board of the corpus (544 parts, 8 355 tracks) the page went from 5.9 MB to 0.5 MB.
+- **`--docs ID,...`** with `--export` embeds only those documents, for a page to send; a page above 20 MB gets a
+  warning in `result.export`.
+
 ## Altium boards
 
 An Altium board is shown as Altium shows it (change c0181):

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 from pathlib import Path
 
@@ -161,3 +162,56 @@ def test_drawing_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     summary = envelope["result"]["summary"]
     assert summary["kind"] == "drawing" and summary["counts"]["sheets"] == 1
     assert summary["counts"]["BoardAssemblyViewData"] == 1 and not summary["panel"]
+
+
+CACHE_BOARD = ROOT / "tests" / "data" / "altium" / "blink" / "blink.PcbDoc"
+
+
+def test_second_open_reads_the_cache(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = tmp_path / "blink.PcbDoc"
+    shutil.copy(CACHE_BOARD, board)
+    folder = tmp_path / "cache"
+    monkeypatch.setenv("FENOLITE_CACHE_DIR", str(folder))
+    code, first, _, _ = run(monkeypatch, tmp_path, "view", str(board), "--json")
+    assert code == 0 and first["result"]["cache"] == {"where": "user", "hits": 0, "misses": 1}
+    code, second, _, _ = run(monkeypatch, tmp_path, "view", str(board), "--json")
+    assert (
+        second["result"]["cache"]["hits"] == 1 and second["result"]["summary"] == first["result"]["summary"]
+    )
+    data = bytearray(board.read_bytes())
+    data[-1] ^= 0xFF  # one byte of the file changes, so its digest does
+    board.write_bytes(bytes(data))
+    code, third, _, _ = run(monkeypatch, tmp_path, "view", str(board), "--json")
+    assert third["result"]["cache"]["misses"] == 1
+    assert len(list((folder / "view").glob("*.json.gz"))) == 2
+
+
+def test_off_and_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    board = tmp_path / "blink.PcbDoc"
+    shutil.copy(CACHE_BOARD, board)
+    code, reply, _, _ = run(monkeypatch, tmp_path, "view", str(board), "--cache", "off", "--json")
+    assert code == 0 and reply["result"]["cache"] == {"where": "off", "hits": 0, "misses": 0}
+    run(monkeypatch, tmp_path, "view", str(board), "--cache", "project", "--json")
+    assert list((tmp_path / ".fenolite" / "view-cache").glob("*.json.gz"))
+
+
+def test_export_docs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Export of one document" (c0182)."""
+    code, envelope, _, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(ALTIUM),
+        "--export",
+        str(tmp_path / "p.html"),
+        "--docs",
+        "blink.PcbDoc",
+        "--json",
+    )
+    assert code in (0, 4)
+    documents = envelope["result"]["export"]["documents"]
+    assert len(documents) == 1
+    code, envelope, _, _ = run(
+        monkeypatch, tmp_path, "view", str(ALTIUM), "--export", "x.html", "--docs", "nope", "--json"
+    )
+    assert code == 2

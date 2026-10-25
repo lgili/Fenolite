@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
+from fenolite.view.compact import compact
 from fenolite.view.export import page
 from fenolite.view.project import Document, ProjectTree
 
@@ -79,7 +80,7 @@ class Live:
             assert doc.file is not None
             scene = self.build(doc.file)
             scene["overlays"] = list(scene.get("overlays", [])) + self.overlays
-            data = json.dumps(scene, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            data = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
             with self.lock:
                 state.scene = data
                 state.version = f"{scene['meta'].get('sha256', '')[:12]}-{time.time_ns()}"

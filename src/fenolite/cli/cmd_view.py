@@ -35,6 +35,7 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.view import export, server, themes
 from fenolite.view.altium_layers import native_view
+from fenolite.view.cache import WHERE, SceneCache
 from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
 from fenolite.view.drawing import summary as drawing_summary
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
@@ -46,9 +47,11 @@ from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
 from fenolite.view.themes import Palette
 
-HELP = "show the boards and sheets of a project in a web page, without their tool (writes FILE with --export)"
+HELP = "show a project's boards, sheets and drawings in a web page (writes FILE with --export)"
 KIND = "view"
 DEFAULT_PORT = 8765
+LARGE_PAGE = 20_000_000
+"""An exported page above this many bytes gets a warning in ``result.export``."""
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -56,31 +59,36 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "path",
         metavar="PATH",
-        help="a .PrjPcb or .kicad_pro, a project folder, a board, sheet, library or drawing",
+        help="a project file or folder, a board, sheet, library or drawing",
     )
-    parser.add_argument(
-        "--doc", metavar="ID", help="the document to show: its id, path or name (default: the first board)"
-    )
+    parser.add_argument("--doc", metavar="ID", help="the document to show: id, path or name")
     parser.add_argument(
         "--overlay",
         metavar="FILE",
         action="append",
         default=[],
-        help="draw the distances of a fenolite analyze reply (JSON) on the board (repeatable)",
+        help="draw a fenolite analyze reply on the board (repeatable)",
     )
-    parser.add_argument("--serve", action="store_true", help="serve the page on 127.0.0.1 until interrupted")
+    parser.add_argument("--serve", action="store_true", help="serve on 127.0.0.1 until stopped")
     parser.add_argument(
         "--port",
         metavar="N",
         default=str(DEFAULT_PORT),
-        help=f"with --serve: the port (default {DEFAULT_PORT}; 0 = any free port)",
+        help=f"with --serve: port (default {DEFAULT_PORT}; 0 = any free)",
     )
-    parser.add_argument("--no-browser", action="store_true", help="with --serve: do not open a browser")
-    parser.add_argument("--export", metavar="FILE", help="also write one standalone HTML page")
+    parser.add_argument("--no-browser", action="store_true", help="with --serve: no browser")
+    parser.add_argument("--export", metavar="FILE", help="write one standalone page")
+    parser.add_argument(
+        "--cache",
+        choices=WHERE,
+        default="user",
+        help="scene cache",
+    )
+    parser.add_argument("--docs", metavar="ID,...", help="--export only these")
     parser.add_argument(
         "--theme",
         metavar="THEME",
-        help="a KiCad colour theme: a .json file, or a name in KiCad's colors folder",
+        help="a KiCad colour theme: a .json file or a theme name",
     )
 
 
@@ -226,6 +234,19 @@ def _row_overlays(row: Any, flagged: set[str]) -> list[dict[str, Any]]:
     return out
 
 
+def _docs(argument: str | None, tree: ProjectTree) -> set[str] | None:
+    """The ids that ``--docs`` names (ids, paths or names, comma-separated), or ``None`` without it."""
+    if argument is None:
+        return None
+    chosen: set[str] = set()
+    for name in (part.strip() for part in argument.split(",")):
+        found = tree.document(name) if name else None
+        if found is None:
+            raise CliError("FEN-2001", f"--docs: the project holds no document {name!r}", where="--docs")
+        chosen.add(found.id)
+    return chosen
+
+
 def _log(message: str) -> None:
     sys.stderr.write(message + "\n")
 
@@ -281,6 +302,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     tree = _tree(args.path, ctx)
     overlays = overlays_of(args.overlay, ctx)
     kicad = theme_of(args.theme, ctx)
+    store = SceneCache.at(args.cache, tree.root)
+    theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
+
+    def cached(path: Path) -> dict[str, Any]:
+        return store.scene(path, theme_key, lambda: scene_of(path, kicad))
+
     doc = tree.document(args.doc) if args.doc else tree.first_viewable()
     if args.doc and doc is None:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
@@ -295,7 +322,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
-        scene = scene_of(doc.file, kicad)
+        scene = cached(doc.file)
         scene["overlays"] = overlays
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
@@ -312,9 +339,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
     writes: tuple[PlannedWrite, ...] = ()
     if args.export:
+        chosen = _docs(args.docs, tree)
+        if chosen is not None:
+            scenes = {doc_id: scene for doc_id, scene in scenes.items() if doc_id in chosen}
         for other in tree.documents:
+            if chosen is not None and other.id not in chosen:
+                continue
             if other.viewable and other.present and other.file is not None and other.id not in scenes:
-                scenes[other.id] = scene_of(other.file, kicad) | {"overlays": []}
+                scenes[other.id] = cached(other.file) | {"overlays": []}
         html = export.page(tree.to_json(), scenes, open_id=doc.id if doc else None).encode("utf-8")
         writes = (PlannedWrite(path=str(args.export), data=html, kind=KIND),)
         result["export"] = {
@@ -322,11 +354,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "bytes": len(html),
             "sha256": hashlib.sha256(html).hexdigest(),
         }
+        if len(html) > LARGE_PAGE:
+            result["export"]["warning"] = (
+                f"the page holds {len(html) // 1_000_000} MB; --docs embeds fewer documents"
+            )
 
+    result["cache"] = {"where": args.cache, "hits": store.hits, "misses": store.misses}
     if args.serve:
 
         def build(path: Path) -> dict[str, Any]:
-            return scene_of(path, kicad)
+            return cached(path)
 
         live = server.Live(
             tree,

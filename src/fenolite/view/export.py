@@ -9,6 +9,8 @@ import json
 from importlib import resources
 from typing import Any, cast
 
+from fenolite.view.compact import pack, unpack
+
 DATA_MARK = "/*__DATA__*/null"
 LIVE_MARK = "/*__LIVE__*/false"
 
@@ -31,10 +33,12 @@ def page(
     live: bool = False,
 ) -> str:
     """The page: with ``tree`` and ``scenes`` (document id → scene) embedded, a standalone file; with
-    ``live``, the page of the server, which fetches both."""
+    ``live``, the page of the server, which fetches both. Each scene is embedded packed (``compact.pack``,
+    change c0182) and decoded by the page when its document is opened."""
     html = template()
     if tree is not None:
-        html = html.replace(DATA_MARK, _json({"project": tree, "scenes": scenes or {}, "open": open_id}), 1)
+        packed = {doc_id: pack(scene) for doc_id, scene in (scenes or {}).items()}
+        html = html.replace(DATA_MARK, _json({"project": tree, "scenes": packed, "open": open_id}), 1)
     return html.replace(LIVE_MARK, "true" if live else "false", 1)
 
 
@@ -49,7 +53,11 @@ def embedded(html: str) -> dict[str, Any] | None:
     if text == DATA_MARK:
         return None
     value: Any = json.loads(text)
-    return cast("dict[str, Any]", value) if isinstance(value, dict) else None
+    if not isinstance(value, dict):
+        return None
+    data = cast("dict[str, Any]", value)
+    scenes = cast("dict[str, Any]", data.get("scenes") or {})
+    return data | {"scenes": {doc_id: unpack(scene) for doc_id, scene in scenes.items()}}
 
 
 __all__ = ["embedded", "page", "template"]

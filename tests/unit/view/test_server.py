@@ -17,6 +17,7 @@ from typing import Any
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame
 from fenolite.view import server
+from fenolite.view.compact import expand
 from fenolite.view.project import load_tree
 from fenolite.view.scene import build_scene
 
@@ -39,7 +40,7 @@ def _get(port: int, route: str) -> tuple[int, bytes]:
 
 
 def _segments(scene: dict[str, Any]) -> int:
-    return sum(1 for p in scene["prims"] if str(p[5]).startswith("track "))
+    return sum(1 for p in expand(scene)["prims"] if str(p[5]).startswith("track "))
 
 
 def test_saved_board_is_reloaded(tmp_path: Path) -> None:

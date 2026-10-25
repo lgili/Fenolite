@@ -123,6 +123,20 @@ def _tools_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterat
         os.environ[name] = before
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _cache_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads or fills the user's cache folder: ``FENOLITE_CACHE_DIR`` names a folder of the run
+    (the viewer's scene cache, capability viewer-performance; c0182)."""
+    name = "FENOLITE_CACHE_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-cache")
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before
+
+
 _STATE_FOLDERS = itertools.count()
 
 

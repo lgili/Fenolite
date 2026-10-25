@@ -14,13 +14,18 @@
 
 ## Decisions
 
-1. **Cache key.** The SHA-256 of each input file (the document, and for an Altium sheet its project), the
-   Fenolite version and the theme. The cache never holds a file's bytes, only scenes; it is written under the
-   mutation protocol's rules for derived files (atomic replace) and is safe to delete.
+1. **Cache key.** The SHA-256 of the input (the document, or every file of a library folder), the theme, and a
+   digest of Fenolite's modules and page (so a development build never serves a scene of another build). The
+   cache never holds a file's bytes, only scenes, gzipped; entries are replaced atomically and are safe to
+   delete. The default folder is the user's cache, because the command contract says `view` writes nothing
+   into the project without `--serve` or `--export`; `FENOLITE_CACHE_DIR` moves it (the tests use it).
 2. **Where the time goes.** Task 0.1 profiles S-0187 and records the split (read, pads, scene). The change
    optimises the two largest parts first.
-3. **v1 encoding.** Per layer: `kinds` (bytes as a string), `data` (one integer array), `nets` and `comps`
-   (integer arrays), `labels` (indices into `strings`). The page builds the same caches as for v0.
+3. **v1 encoding** (`view/compact.py`). Columns in primitive order: `L` layer index, `K` kinds, `N`, `C`, `S`
+   (label template) and `SN` (label number, as the difference from the last number of its template), and `D`,
+   the geometry as offsets. Python's `expand` and the page's `decodeV1` give back the v0 primitives exactly; a
+   scene that v1 cannot hold stays v0. The board scene stays v0 inside Python; v1 is written where a scene
+   leaves the process (the server and the exported page).
 4. **Export.** `--docs` selects documents; the default stays "every viewable document", with a warning in
    `result.export` when the page passes 20 MB.
 

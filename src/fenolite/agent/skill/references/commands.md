@@ -54,7 +54,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 | `sync` | yes | copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
-| `view` | yes | show the boards and sheets of a project in a web page, without their tool (writes FILE with --export) |
+| `view` | yes | show a project's boards, sheets and drawings in a web page (writes FILE with --export) |
 
 ## analyze
 
@@ -497,13 +497,15 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## view
 
-`fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] [--theme THEME] PATH`
+`fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] [--cache {off,project,user}] [--docs ID,...] [--theme THEME] PATH`
 
-- `PATH` (string, required): a .PrjPcb or .kicad_pro, a project folder, a board, sheet, library or drawing
-- `--doc` (string): the document to show: its id, path or name (default: the first board)
-- `--overlay` (string, repeatable): draw the distances of a fenolite analyze reply (JSON) on the board (repeatable)
-- `--serve` (boolean): serve the page on 127.0.0.1 until interrupted
-- `--port` (string, default `8765`): with --serve: the port (default 8765; 0 = any free port)
-- `--no-browser` (boolean): with --serve: do not open a browser
-- `--export` (string): also write one standalone HTML page
-- `--theme` (string): a KiCad colour theme: a .json file, or a name in KiCad's colors folder
+- `PATH` (string, required): a project file or folder, a board, sheet, library or drawing
+- `--doc` (string): the document to show: id, path or name
+- `--overlay` (string, repeatable): draw a fenolite analyze reply on the board (repeatable)
+- `--serve` (boolean): serve on 127.0.0.1 until stopped
+- `--port` (string, default `8765`): with --serve: port (default 8765; 0 = any free)
+- `--no-browser` (boolean): with --serve: no browser
+- `--export` (string): write one standalone page
+- `--cache` (string, one of `off`, `project`, `user`, default `user`): scene cache
+- `--docs` (string): --export only these
+- `--theme` (string): a KiCad colour theme: a .json file or a theme name

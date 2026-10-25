@@ -9,15 +9,19 @@ and gives a page too large to send.
 
 ## What Changes
 
-- **Scene cache.** Scenes are cached by the SHA-256 of their input files and Fenolite's version, under
-  `.fenolite/view-cache/` of the project (or the user cache folder with `--cache user`). A cached scene is
-  reused when every input hash matches.
-- **Lazy documents.** `--serve` sends the tree first and each scene when its document is opened. `--export`
-  gains `--docs ID,...` to embed a subset, and embeds scenes gzip-compressed and base64-encoded, decoded in the
-  page with `DecompressionStream`.
-- **Compact scene.** Board primitives are written as flat integer arrays per layer, with a string table for
-  labels; the page decodes them into its caches. The scene schema becomes `fenolite.view_scene.v1`; `v0` is
-  still read.
+- **Scene cache.** Scenes are cached by the SHA-256 of their input files, the theme and a digest of
+  Fenolite's own code, in the user's cache folder (`--cache user`, the default, so that `view` still writes
+  nothing into the project), under `.fenolite/view-cache/` of the project with `--cache project`, or not at all
+  with `--cache off`. A cached scene is reused when every part of the key matches.
+- **Lazy documents.** `--serve` sends the tree first and each scene when its document is opened (as it did),
+  now in v1 and from the cache. `--export` gains `--docs ID,...` to embed a subset, and embeds scenes
+  gzip-compressed and base64-encoded; the page decodes a scene with `DecompressionStream` when its document is
+  first opened.
+- **Compact scene.** Board primitives are written as columns: one integer list of offsets (each point from
+  the one before it), and labels as templates with numbers. The page decodes them into the v0 primitives. The
+  served and exported scenes are `fenolite.view_scene.v1`; `v0` is still read.
+- **Faster reads.** The two largest parts of the profile are made faster without changing their results: the
+  lookup of keys in Altium property records, and the walk over a design's entities.
 - **Measured budget.** A test fixes the build time and the scene size of an authored large board, and the
   corpus test records S-0187's numbers.
 

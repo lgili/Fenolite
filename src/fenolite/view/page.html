@@ -182,7 +182,7 @@ function textPolylines(t) {
 // ================================================================== state
 const MM = 0.001;   // scene units are micrometres
 let PROJECT = null, DOC = null, S = null, cache = null, netCache = new Map(), compCache = new Map(), textCache = new Map(), byLayer = new Map();
-const SCENES = new Map();
+const SCENES = new Map(), RAW = new Map();
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let W = 0, H = 0, dpr = 1;
 const view = { cx: 0, cy: 0, s: 5, mirror: false };
@@ -197,7 +197,32 @@ function fmtLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)} mil` 
 function fmtNm(nm) { return fmtLen(nm / 1e6); }
 function fmtPair(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)} × ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)} × ${b.toFixed(3)} mm`; }
 
+// <decodeV1> c0182: a compact board scene (fenolite.view_scene.v1, view/compact.py) back to its v0 primitives
+function decodeV1(sc) {
+  const p = sc.p1; if (!p) return sc;
+  const D = p.D, FIXED = { c: 1, s: 2, a: 3 }, last = new Map(), prims = new Array(p.K.length);
+  let at = 0, cx = 0, cy = 0;
+  const pts = (n, x, y) => { const out = new Array(2 * n); for (let i = 0; i < n; i++) { x += D[at++]; y += D[at++]; out[2 * i] = x; out[2 * i + 1] = y; } return out; };
+  for (let k = 0; k < p.K.length; k++) {
+    const kind = p.K[k]; let v;
+    if (kind === "p" || kind === "o") { const count = D[at++]; v = []; let rx = cx, ry = cy;
+      for (let r = 0; r < count; r++) { const ring = pts(D[at++], rx, ry); if (ring.length) { rx = ring[0]; ry = ring[1]; if (r === 0) { cx = rx; cy = ry; } } v.push(ring); } }
+    else if (kind === "l") { const n = D[at++], w = D[at++]; const f = pts(n, cx, cy); cx = f[0]; cy = f[1]; v = [w, ...f]; }
+    else { const f = pts(FIXED[kind], cx, cy); cx = f[0]; cy = f[1]; f.push(D[at++]); v = f; }
+    const s = p.S[k], n = (last.get(s) || 0) + p.SN[k]; last.set(s, n); const t = p.strings[s];
+    prims[k] = [p.layers[p.L[k]], kind, v, p.N[k], p.C[k], t.includes("\u0001") ? t.replace("\u0001", String(n)) : t];
+  }
+  delete sc.p1; sc.prims = prims; sc.schema = "fenolite.view_scene.v0"; return sc;
+}
+// </decodeV1>
+async function unpackScene(v) {   // c0182: a scene of a standalone page, "gz:" + base64 of its gzipped JSON
+  if (typeof v !== "string") return v;
+  const bin = Uint8Array.from(atob(v.slice(3)), c => c.charCodeAt(0));
+  const text = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return JSON.parse(text);
+}
 function toMM(scene) {
+  decodeV1(scene);
   if (scene.mm) return scene; scene.mm = true;
   for (const p of scene.pads || []) { p.x *= MM; p.y *= MM; }
   const f = v => v * MM;
@@ -608,6 +633,7 @@ function docCard(d) {
 }
 async function sceneOf(d) {
   if (SCENES.has(d.id)) return SCENES.get(d.id);
+  if (RAW.has(d.id)) { const sc = toUnits(await unpackScene(RAW.get(d.id))); RAW.delete(d.id); SCENES.set(d.id, sc); return sc; }
   if (!LIVE) return null;
   const r = await fetch(`scene/${encodeURIComponent(d.id)}.json`, { cache: "no-store" }); if (!r.ok) throw new Error(await r.text());
   const sc = toUnits(await r.json()); SCENES.set(d.id, sc); return sc;
@@ -1027,7 +1053,7 @@ $("bUnit").textContent = UNIT;
 
 // ================================================================== start: embedded data or the live server
 async function start() {
-  if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) SCENES.set(id, toUnits(sc)); }
+  if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
   else if (LIVE) { PROJECT = await (await fetch("project.json", { cache: "no-store" })).json(); }
   buildTree();
   const docs = PROJECT ? PROJECT.groups.flatMap(g => g.documents) : [];

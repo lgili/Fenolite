@@ -2855,8 +2855,8 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 
 ## view
 
-`fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--serve [--port N] [--no-browser]]
-[--export FILE]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+`fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
+[--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
@@ -2881,11 +2881,18 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   `IsPanel`). The sheets are drawn from the document's own copy of the board; `evidence.level` is
   `INFERRED`. A board or a drawing that holds an Embedded Board Array gets a note that Fenolite does not draw
   the array.
+- **Cache** (change c0182). Scenes are cached by the SHA-256 of their input, the theme and a digest of
+  Fenolite's code: in the user's cache folder by default (`FENOLITE_CACHE_DIR`, else the platform's cache
+  folder), under `.fenolite/view-cache/` of the project with `--cache project`, or not at all with
+  `--cache off`. The cache is not a planned write and holds no file bytes. `result.cache` gives `where`,
+  `hits` and `misses`.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.
-- **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable document,
-  under the mutation protocol; `result.export` gives its documents, size and SHA-256.
+- **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable document
+  (only those `--docs` names, by id, path or name; an unknown one is `FEN-2001`), each scene compact and
+  gzipped (`fenolite.view_scene.v1`), under the mutation protocol; `result.export` gives its documents, size
+  and SHA-256, and a `warning` above 20 MB.
 - **`--serve`** writes one progress record with the URL to stderr, serves the page on `127.0.0.1` (port
   8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
   saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
