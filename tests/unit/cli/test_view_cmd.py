@@ -255,3 +255,42 @@ def test_variant(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     assert code == 0 and envelope["result"]["variant"] == {"name": "Lite", "fitted": 2, "not_fitted": 1}
     code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(project), "--variant", "Nope", "--json")
     assert code == 2
+
+
+def test_check_reply(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Not a check reply" (c0188), and the counts of a check reply drawn on the board."""
+    code, envelope, _, _ = run(
+        monkeypatch, tmp_path, "check", str(BOARD), "--stages", "model.validate,copper.clearance", "--json"
+    )
+    reply = tmp_path / "check.json"
+    reply.write_text(json.dumps(envelope), encoding="utf-8")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--check", str(reply), "--json")
+    assert code == 0
+    found = envelope["result"]["check"]
+    assert found["total"] == len(json.loads(reply.read_text(encoding="utf-8"))["issues"]) > 0
+    analyze = tmp_path / "analyze.json"
+    analyze.write_text(json.dumps({"command": "analyze", "result": {"distances": []}, "issues": []}))
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--check", str(analyze), "--json")
+    assert code == 3 and err["code"] == "FEN-3004"
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--check", "missing.json", "--json")
+    assert code == 3 and err["code"] == "FEN-3001"
+
+
+def test_check_run_on_altium(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`--check run` checks the project in the same process and writes nothing (c0188)."""
+    folder = tmp_path / "blink"
+    shutil.copytree(ALTIUM.parent, folder)
+    before = sorted(p.name for p in folder.iterdir())
+    code, envelope, _, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(folder / "blink.PrjPcb"),
+        "--doc",
+        "blink.PcbDoc",
+        "--check",
+        "run",
+        "--json",
+    )
+    assert code == 0 and set(envelope["result"]["check"]) == {"error", "warning", "info", "total", "placed"}
+    assert sorted(p.name for p in folder.iterdir()) == before

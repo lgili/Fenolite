@@ -550,8 +550,10 @@ def build_scene(
 
     # zones: the fills of the file, or the outline when there is none
     unfilled: list[str] = []
+    zone_labels: list[str] = []
     for k, z in enumerate(board.zones):
         label = z.name or f"zone {k + 1}"
+        zone_labels.append(label)
         if z.fills:
             for fill in z.fills:
                 if len(fill.polygon) >= 3:
@@ -837,6 +839,7 @@ def build_scene(
     return {
         "schema": SCHEMA,
         "netinfo": _net_info(board, nets, net_index, pad_list),
+        "zones": zone_labels,
         "meta": {
             "name": name,
             "sha256": hashlib.sha256(data).hexdigest() if data else "",

@@ -117,6 +117,24 @@ The side bar of a board holds, as Altium's PCB panel does (change c0187):
   `Components6` record). On a board of an Altium project the parameters of the schematic part are added,
   matched by unique id. A parameter that is a web address is a link.
 
+## Check findings
+
+`fenolite view PATH --check FILE` draws the findings of a `fenolite check --json` reply over the document
+shown; `--check run` runs `check` first, in the same process and read-only (change c0188):
+- **Markers.** A finding with a position gets a ring in the colour of its severity (red error, orange warning,
+  blue info); errors are drawn on top. `E` shows or hides them. A marker on a hidden layer is hidden too.
+- **Messages.** The panel lists every finding grouped by code, errors first; a click zooms to the finding,
+  makes its layer current, frames what it names, and shows its message, its `where`, its stage and that
+  stage's evidence (`KICAD-VERIFIED(kicad-cli 10.0.7)` for KiCad's DRC and ERC). Findings without a position on
+  the document are listed with "(no position)".
+- **Positions.** A finding is placed by the position KiCad reports (`@x,y` in `where`), by the point of
+  Fenolite's copper check (`on F.Cu at (x, y) mm` in its message), or by what it names: a pad (`R1-2`), a part, a
+  track, arc, via or zone by its KiCad locator (`/kicad_pcb/zone[0]`), or a net. When it names a zone and a pad
+  inside it, the marker goes on the pad. ERC findings are placed on sheets (on the root sheet for the path `/`,
+  else on the sheet whose file stem is the last segment of the path), and findings of the board stages on
+  boards.
+- A DRC that `summary.limits` capped is a lower bound; the panel says so.
+
 ## Comparing two revisions
 
 `fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change

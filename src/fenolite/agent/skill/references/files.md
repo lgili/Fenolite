@@ -32,7 +32,7 @@ fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-
 ```
 
 `view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
-`--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
+`--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--check FILE|run` draws `check` findings and counts them in `result.check`; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
 (for a person, not an agent) serves it live.
 
 ## Is it safe to edit this file?

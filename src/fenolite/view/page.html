@@ -62,6 +62,8 @@
   .navi small { color:var(--muted); }
   .tab.doc-tab .sw { border-radius:2px; }
   .sheetlink { color:#8cc4ff; }
+  #msgList .navg { cursor:pointer; text-transform:none; letter-spacing:0; color:#cfd3da; }
+  #msgList .navi { white-space:normal; padding:2px 4px 2px 14px; }
   body.sch .board-only { display:none !important; }
   body:not(.sch) .sch-only { display:none !important; }
   body:not(.lib) .lib-only { display:none !important; }
@@ -111,13 +113,15 @@
         <input id="netFilter" placeholder="Filter nets…"><div id="netList" class="vlist"></div></div>
       <h3 id="diffTitle" style="display:none" title="X: show or hide the changes">Changes</h3>
       <div id="diffList"></div>
+      <h3 id="msgTitle" style="display:none" title="E: show or hide the markers">Messages</h3>
+      <div id="msgList"></div>
       <h3 id="ovTitle" style="display:none">Findings</h3>
       <div id="overlays"></div>
       <h3>Notes</h3>
       <div class="notes" id="notes"></div>
       <h3>Shortcuts</h3>
-      <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>Esc</kbd> clear</div>
-      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Shift+C</kbd> clear the filter · <kbd>Esc</kbd> clear</div>
+      <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
+      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Shift+C</kbd> clear the filter · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
     </div>
   </div>
   <div id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
@@ -204,7 +208,7 @@ const SCENES = new Map(), RAW = new Map();
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let W = 0, H = 0, dpr = 1;
 const view = { cx: 0, cy: 0, s: 5, mirror: false };
-const st = { query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
+const st = { checks: true, selFinding: -1, query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
 const vis = new Map();
 const $ = id => document.getElementById(id);
 
@@ -250,7 +254,7 @@ function diffToMM(sc) {   // c0184: the changes of --compare, in micrometres lik
 }
 function toMM(scene) {
   decodeV1(scene);
-  if (scene.mm) return scene; scene.mm = true; diffToMM(scene);
+  if (scene.mm) return scene; scene.mm = true; diffToMM(scene); checkToMM(scene);
   for (const p of scene.pads || []) { p.x *= MM; p.y *= MM; }
   const f = v => v * MM;
   for (const pr of scene.prims) primToMM(pr, f);
@@ -390,7 +394,7 @@ function draw() {
   if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";
     for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
     drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
-  drawDiff(); drawOverlays(); drawMeasure();
+  drawDiff(); drawOverlays(); drawCheck(); drawMeasure();
   $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
 }
 // ================================================================== changes since an older revision (c0184)
@@ -416,6 +420,47 @@ function buildDiffList() {
   D.changes.forEach(c => { const d = document.createElement("div"); d.className = "navi"; d.innerHTML = `<span class="sw" style="background:${DIFF_COLOR[c.kind] || "#888"}"></span> ${esc(c.text)}`;
     if (c.box) d.onclick = () => { const b = c.box, m = Math.max(b[2] - b[0], b[3] - b[1], 1) * 0.6; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); };
     box.appendChild(d); });
+}
+// ================================================================== check findings (c0188)
+const SEV_COLOR = { error: "#ff4040", warning: "#ffb020", info: "#4da3ff" };
+function checkToMM(sc) { const C = sc.check; if (!C || C.mm) return; C.mm = true; const f = v => v * MM;
+  for (const x of C.findings) { if (x.at) x.at = x.at.map(f); if (x.box) x.box = x.box.map(f); } }
+function drawCheck() {   // a ring with four ticks at each placed finding, the colour of its severity; the box of the one chosen
+  const C = S.check; if (!C || !st.checks) return; if (!isSch()) worldTf(); ctx.globalAlpha = 1;
+  for (let i = C.findings.length - 1; i >= 0; i--) { const x = C.findings[i];   // errors last, on top
+    if (!x.at || (x.layer && vis.has(x.layer) && !vis.get(x.layer))) continue;
+    const sel = i === st.selFinding, r = (sel ? 9 : 6) / view.s, [cx, cy] = x.at;
+    ctx.strokeStyle = SEV_COLOR[x.severity] || "#cccccc"; ctx.lineWidth = (sel ? 2.5 : 1.6) / view.s; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.moveTo(cx + dx * r * 0.6, cy + dy * r * 0.6); ctx.lineTo(cx + dx * r * 1.6, cy + dy * r * 1.6); }
+    ctx.stroke();
+    if (sel && x.box && (x.box[2] > x.box[0] || x.box[3] > x.box[1])) { const b = x.box, e = 2 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]);
+      ctx.strokeRect(b[0] - e, b[1] - e, b[2] - b[0] + 2 * e, b[3] - b[1] + 2 * e); ctx.setLineDash([]); } }
+}
+function selectFinding(i) {
+  const x = S.check.findings[i]; st.selFinding = i; if (st.mode3d) set3D(false);
+  if (x.layer && !isSch() && S.layers.some(l => l.id === x.layer)) { st.cur = x.layer; vis.set(x.layer, true); buildTabs(); }   // its layer, current
+  if (x.at) { const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], isSch() ? 10 : 6) * 0.8; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); }
+  showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}` + (x.where ? `<br>Where: ${esc(x.where)}` : "") +
+    (x.layer && !isSch() ? `<br>Layer: ${esc(layerName(x.layer))}` : "") + (x.at ? "" : "<br><i>No position on this document.</i>") +
+    `<br>Stage: ${esc(x.stage || "?")} · evidence ${esc(x.evidence || "?")}`);
+  buildMessages(); draw();
+}
+const MSG_ROWS = 300;
+function buildMessages() {   // the Messages panel: findings grouped by rule, errors first
+  const box = $("msgList"), C = S && S.check; box.innerHTML = ""; $("msgTitle").style.display = C ? "" : "none"; if (!C) return;
+  const n = C.counts; $("msgTitle").textContent = `Messages: ${n.error} errors · ${n.warning} warnings · ${n.info} info`;
+  for (const note of C.notes) { const d = document.createElement("div"); d.className = "notes"; d.textContent = note; box.appendChild(d); }
+  const groups = new Map(); C.findings.forEach((x, i) => { if (!groups.has(x.code)) groups.set(x.code, []); groups.get(x.code).push(i); });
+  st.msgOpen = st.msgOpen || new Set();
+  for (const [code, list] of groups) {
+    const first = C.findings[list[0]], open = st.msgOpen.has(code) || groups.size === 1, h = document.createElement("div"); h.className = "navg";
+    h.innerHTML = `<span class="sw" style="display:inline-block;background:${SEV_COLOR[first.severity] || "#888"}"></span> ${open ? "▾" : "▸"} ${esc(code)} (${list.length})`;
+    h.onclick = () => { if (open) st.msgOpen.delete(code); else st.msgOpen.add(code); buildMessages(); }; box.appendChild(h);
+    if (!open) continue;
+    for (const i of list.slice(0, MSG_ROWS)) { const x = C.findings[i], d = document.createElement("div"); d.className = "navi" + (i === st.selFinding ? " sel" : "");
+      d.innerHTML = `${esc(x.message)}${x.at ? "" : " <small>(no position)</small>"}`; d.title = x.where; d.onclick = () => selectFinding(i); box.appendChild(d); }
+    if (list.length > MSG_ROWS) { const d = document.createElement("div"); d.className = "notes"; d.textContent = `… ${list.length - MSG_ROWS} more`; box.appendChild(d); }
+  }
 }
 function drawOverlays() {
   if (!S.overlays || !S.overlays.length) return;
@@ -575,7 +620,7 @@ function padInfo(p) {
   return r.join("<br>");
 }
 function select(h, at) {
-  st.selNet = -1; st.selComp = -1; st.lastHit = h; st.lastAt = at;
+  st.selFinding = -1; st.selNet = -1; st.selComp = -1; st.lastHit = h; st.lastAt = at;
   if (!h) { showInfo(null); draw(); return; }
   const pr = h.pr, net = pr[3], ci = pr[4];
   let html = `<b>${esc(pr[5] || h.layer.name)}</b><br>Layer: ${esc(h.layer.name)}`;
@@ -798,7 +843,7 @@ function buildPanels() {
     `<br>${c.footprints || 0} parts · ${c.pads || 0} pads · ${c.tracks || 0} tracks · ${c.vias || 0} vias · ${c.zones || 0} zones`;
 }
 function loadScene(scene, keepView) {
-  st.mpts = []; st.mhover = null; st.lastHit = null;
+  st.mpts = []; st.mhover = null; st.lastHit = null; st.selFinding = -1;
   if (scene.kind === "library") { loadLibrary(scene, keepView); return; }
   if (scene.kind === "schematic") { loadSch(scene, keepView); return; }
   loadBoard(scene, keepView);
@@ -809,7 +854,7 @@ function loadBoard(scene, keepView) {
   for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
   if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
   if (st.query) st.query = st.query.text && S.prims ? { text: st.query.text, ...queryRun(S, queryParse(st.query.text)) } : null;
-  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildVariants(); buildReview(); applyProjNet();
+  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildMessages(); buildVariants(); buildReview(); applyProjNet();
   cv.style.display = st.mode3d ? "none" : "block";
   $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
   $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
@@ -915,6 +960,7 @@ window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S
   if (k === "q" || k === "Q") { setUnit(UNIT === "mm" ? "mil" : "mm"); return; }
   if ((k === "m" || k === "M") && !st.mode3d) { toggle("measure", "bMeasure"); return; }
   if ((k === "x" || k === "X") && S.diff) { st.diff = !st.diff; draw(); return; }
+  if ((k === "e" || k === "E") && S.check) { st.checks = !st.checks; draw(); return; }
   if (k === "Escape" && (st.measure || st.mpts.length)) { st.mpts = []; st.mhover = null; if (st.measure) toggle("measure", "bMeasure"); return; }
   if (isSch()) { if (k === "f" || k === "F") fit(); else if (k === "Escape") { schSelect(-1); shareNet(null); }
     else if (k === "PageUp" || k === "PageDown") { e.preventDefault(); zoomBy(k === "PageUp" ? 1.25 : 0.8); } return; }
@@ -935,7 +981,7 @@ const WORKSPACE = "#4a4d52", SEL = "#00b050";
 const isSch = () => !!(S && S.kind === "schematic");
 const MIL = 0.0254;
 function toMMsch(sc) {
-  if (sc.mm) return sc; diffToMM(sc);
+  if (sc.mm) return sc; diffToMM(sc); checkToMM(sc);
   const f = v => v * MM, fb = b => b ? b.map(f) : b;
   for (const p of sc.prims) { if (p.p) p.p = p.p.map(f); if (p.b) p.b = p.b.map(f);
     for (const k of ["x", "y", "rx", "ry", "w", "m", "sz", "gw", "th"]) if (typeof p[k] === "number") p[k] = p[k] * MM;
@@ -1081,7 +1127,7 @@ function drawSch() {
   ctx.globalAlpha = 1;
   const sb = SCH.selComp >= 0 ? S.comps[SCH.selComp].b : SCH.sel >= 0 && SCH.selNet < 0 ? S.objects[SCH.sel].b : null;
   if (sb) { const e = 4 / view.s; ctx.strokeStyle = SEL; ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(sb[0] - e, sb[1] - e, sb[2] - sb[0] + 2 * e, sb[3] - sb[1] + 2 * e); ctx.setLineDash([]); }
-  drawSchDiff(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
+  drawSchDiff(); drawCheck(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
   $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
 }
 // --- hit test
@@ -1209,7 +1255,7 @@ function loadSch(scene, keepView) {
   $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +
     (c.kinds ? `<br>${c.items || 0} items: ${Object.entries(c.kinds).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}`   // a Draftsman sheet (c0180)
       : `<br>${c.components || 0} parts · ${c.pins || 0} pins · ${c.wires || 0} wires · ${c.nets || 0} nets · ${c.power_ports || 0} power ports · ${c.ports || 0} ports`);
-  sheetTabs(); buildNav(); buildDiffList(); buildVariants(); applyProjNet();
+  sheetTabs(); buildNav(); buildDiffList(); buildMessages(); buildVariants(); applyProjNet();
   if (first) { fitted = false; fit(); } else draw();
 }
 

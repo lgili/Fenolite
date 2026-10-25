@@ -498,7 +498,7 @@ An argument takes a string unless its line names another type.
 
 ## view
 
-`fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] [--cache {off,project,user}] [--docs ID,...] [--variant NAME] [--compare OLD] [--theme THEME] PATH`
+`fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] [--cache {off,project,user}] [--docs ID,...] [--variant NAME] [--compare OLD] [--check FILE\|run] [--theme THEME] PATH`
 
 - `PATH` (required): a project file or folder, a board, sheet, library or drawing
 - `--doc`: the document to show: id, path or name
@@ -511,4 +511,5 @@ An argument takes a string unless its line names another type.
 - `--docs`: --export only these
 - `--variant`: show an Altium project's variant
 - `--compare`: draw what changed since the board or sheet OLD
+- `--check`: draw a check reply's findings; run: check first
 - `--theme`: a KiCad colour theme: a .json file or a theme name

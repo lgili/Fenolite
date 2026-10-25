@@ -2856,7 +2856,7 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+[--compare OLD] [--variant NAME] [--check FILE|run] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
@@ -2894,6 +2894,14 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   `result.variant`: `name`, `fitted` and `not_fitted`, counted over the parts of the document shown. A name
   the project does not hold is `FEN-2001`, with the names it holds. The scenes of the project's sheets and
   board carry every variant, so the page can switch between them.
+- **`--check FILE|run`** (change c0188) draws the findings of a `fenolite check --json` reply (`FILE`), or
+  with `run` of `check` run first in the same process, read-only, on the project file (else on the document
+  shown), with its default stages and options. Each finding with a position gets a marker in the colour of its
+  severity, on its layer when it states one, and a Messages panel lists every finding grouped by code, errors
+  first, with its stage and that stage's evidence. `result.check` gives `error`, `warning`, `info`, `total`
+  and `placed` (the findings with a position on the document shown). A file that is not a `check` reply is
+  `FEN-3004`; a missing one is `FEN-3001`. ERC findings are placed on sheets only, and the findings of the board
+  stages on boards only.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.

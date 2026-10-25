@@ -14,6 +14,7 @@ theme for the KiCad documents.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import sys
@@ -39,6 +40,9 @@ from fenolite.placement import legality
 from fenolite.view import export, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.cache import WHERE, SceneCache
+from fenolite.view.check_overlay import overlay as check_overlay
+from fenolite.view.check_overlay import read_reply
+from fenolite.view.check_overlay import summary as check_summary
 from fenolite.view.compare import compare
 from fenolite.view.compare import summary as compare_summary
 from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
@@ -100,6 +104,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--docs", metavar="ID,...", help="--export only these")
     parser.add_argument("--variant", metavar="NAME", help="show an Altium project's variant")
     parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
+    parser.add_argument("--check", metavar="FILE|run", help="draw a check reply's findings; run: check first")
     parser.add_argument(
         "--theme",
         metavar="THEME",
@@ -395,6 +400,53 @@ def _docs(argument: str | None, tree: ProjectTree) -> set[str] | None:
     return chosen
 
 
+def check_reply(
+    argument: str | None, ctx: Context, tree: ProjectTree, doc_file: Path | None
+) -> dict[str, Any] | None:
+    """The ``check`` reply that ``--check`` names (change c0188): a reply file, or with ``run`` the reply of
+    ``check`` run here, read-only, on the project file, else on the document shown."""
+    if argument is None:
+        return None
+    if argument == "run":
+        from fenolite.cli import cmd_check  # noqa: PLC0415  (only --check run needs the stages)
+
+        target = tree.root / tree.project_file if tree.project_file else doc_file
+        if target is None:
+            raise CliError("FEN-2001", "--check run: no document to check", where="--check")
+        parser = argparse.ArgumentParser(add_help=False)
+        cmd_check.COMMAND.register(parser)
+        found = cmd_check.COMMAND.run(parser.parse_args([str(target)]), ctx)
+        return {
+            "command": "check",
+            "result": found.result,
+            "issues": [dataclasses.asdict(issue) for issue in found.issues],
+            "evidence": {"level": found.evidence.level.value, "oracle": found.evidence.oracle},
+        }
+    path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+    if not path.is_file():
+        raise CliError("FEN-3001", f"--check: {argument} does not exist", where="--check")
+    try:
+        return read_reply(json.loads(path.read_text(encoding="utf-8")), name=path.name)
+    except (ValueError, FormatError) as exc:
+        raise CliError(
+            "FEN-3004",
+            f"--check: {exc}",
+            where=argument,
+            hint="pass the JSON reply of `fenolite check ... --json`, or `--check run`",
+        ) from exc
+
+
+def _with_check(
+    reply: dict[str, Any] | None, tree: ProjectTree, path: Path, scene: dict[str, Any]
+) -> dict[str, Any]:
+    """``scene`` with the findings of ``reply`` placed on it, when there is a reply and the scene is a board
+    or a sheet."""
+    if reply is None or scene.get("kind") not in (None, "schematic"):
+        return scene
+    root = not tree.project_file or path.stem.casefold() == Path(tree.project_file).stem.casefold()
+    return scene | {"check": check_overlay(reply, scene, root_sheet=root)}
+
+
 def _log(message: str) -> None:
     sys.stderr.write(message + "\n")
 
@@ -458,12 +510,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
 
     nets_of = _ProjectNets(tree, plain)
 
-    def cached(path: Path) -> dict[str, Any]:
-        return nets_of.annotate(path, plain(path))
-
     doc = tree.document(args.doc) if args.doc else tree.first_viewable()
     if args.doc and doc is None:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
+    reply = check_reply(args.check, ctx, tree, doc.file if doc is not None else None)
+
+    def cached(path: Path) -> dict[str, Any]:
+        return _with_check(reply, tree, path, nets_of.annotate(path, plain(path)))
+
     result: dict[str, Any] = {
         "project": tree.to_json(),
         "document": doc.id if doc else None,
@@ -483,6 +537,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             diff = _compare(scene, args.compare, ctx, cached)
             scene = scene | {"diff": diff}
             result["compare"] = compare_summary(diff)
+        if "check" in scene:
+            result["check"] = check_summary(scene["check"])
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
         result["notes"] = list(scene["meta"]["notes"])

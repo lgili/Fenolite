@@ -131,3 +131,16 @@ def test_review_panels_in_the_page() -> None:
     ):
         assert name in html, name
     assert "HL_ALPHA[st.hl]" in html and 'rel="noopener noreferrer"' in html
+
+
+def test_check_findings_in_the_page() -> None:
+    """Change c0188: markers and the Messages panel of `--check`."""
+    html = template()
+    for name in (
+        'id="msgList"',
+        "function drawCheck",
+        "function buildMessages",
+        "function checkToMM",
+        "SEV_COLOR",
+    ):
+        assert name in html, name
