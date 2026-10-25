@@ -388,6 +388,7 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 - A missing file for the running version MUST fail the test with a message naming `FENOLITE_PROBES_WRITE`.
 - The file MUST hold only the version, the probe ids and their outcomes, and MUST pass the residue scan.
 - The `kicad-9` and `kicad-10` jobs MUST run the comparison in required mode.
+- A probe whose corpus input is not cached on the machine SHALL raise `NotFetched` (`tests/_resources.py`); `run` MUST then give `inconclusive` and add the id to `_probes.NOT_FETCHED`, and the comparison MUST leave those ids out of both sides. When `FENOLITE_REQUIRE` names `corpus`, or with `FENOLITE_PROBES_WRITE=1`, such a probe MUST fail the test, naming it.
 
 #### Scenario: Drift detected
 - **GIVEN** a committed `docs/evidence/kicad/probes/10.0.6.json` that records `absent` for `pcb-libdrc-missing-table`
@@ -402,6 +403,11 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 #### Scenario: Results regenerated
 - **WHEN** `FENOLITE_PROBES_WRITE=1 uv run pytest tests/kicad/test_probe_results.py` runs on the local KiCad 10.0.6
 - **THEN** `docs/evidence/kicad/probes/10.0.6.json` holds one outcome per probe of major 10, and `uv run python tools/residue/scan.py` exits 0
+
+#### Scenario: Corpus input not cached
+- **GIVEN** a results file that records `equal` for a probe whose corpus input is not in the cache
+- **WHEN** `tests/kicad/test_probe_results.py` runs without `FENOLITE_REQUIRE=corpus`
+- **THEN** that probe is left out of the comparison and no drift is reported for it; with `FENOLITE_REQUIRE=corpus` the test fails naming the probe
 
 ### Requirement: Rules proofs carry a canary
 Every oracle test that judges custom rules SHALL run `kicad-cli pcb drc` on a bench that carries the canary, and SHALL pass only when the canary violation is in the DRC JSON report. This covers `tests/kicad/rules/` and every later rules proof that reuses its bench.
