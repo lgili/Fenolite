@@ -113,6 +113,11 @@ class Part:
     pads: tuple[Pt, ...]
     box: tuple[float, float, float, float] | None
     widths: tuple[float, ...] = ()
+    height: float = 0.0
+    """The part type's ``Height``: the extent of its bodies along Z, in document units (change c0190)."""
+    min_z: float = 0.0
+    """The part type's ``MinZ``: where that extent starts, from the surface of the part's side (below it when
+    negative, as for leads through the board)."""
 
 
 @dataclass(frozen=True)
@@ -134,6 +139,9 @@ class BoardCopy:
     holes: tuple[Hole, ...] = ()
     parts: tuple[Part, ...] = ()
     stack: tuple[StackLayer, ...] = ()
+    side_frames: dict[str, tuple[float, float, float, float]] = field(default_factory=lambda: {})
+    """``BoardBoundsBack`` and ``BoardBoundsRight`` of the assembly information, by ``Back`` and ``Right``
+    (X, Y, width, height): the frames of the side views (change c0190)."""
 
 
 @dataclass(frozen=True)
@@ -351,6 +359,26 @@ def _item(element: ET.Element) -> Item:
             "color": colour,
             "spacing": _num(element, "VerticalSpacing"),
             "elements": [(_text(e, "Text"), _text(e, "Postfix")) for e in _children(element, "Elements")],
+            "element_ids": [
+                (_text(e, "Id"), _text(e, "BorderStyle", "None")) for e in _children(element, "Elements")
+            ],
+        }
+    elif kind == "Callout":  # change c0190
+        colour, _alpha = _colour(_find(element, "ForegroundTextColor"))
+        source = next(iter(_children(element, "Sources")), None)
+        f |= {
+            "target": _pt(element, "TargetAnchor/PointOnPage"),
+            "leader": _pt(element, "Leader"),
+            "elbow": _num(element, "ElbowLength"),
+            "elbow_side": _text(element, "ElbowPosition", "Left"),
+            "font": _text(element, "FontStyleId"),
+            "color": colour,
+            "line": _text(element, "LineStyleId"),
+            "border": _text(element, "BorderLineStyleId"),
+            "source": _text(source, "SourceType"),
+            "note_element": _text(source, "NoteElementId"),
+            "custom": _text(source, "CustomText"),
+            "prefix": _text(element, "Prefix"),
         }
     elif kind == "LinearDimension":
         colour, _alpha = _colour(_find(element, "TextColor"))
@@ -460,6 +488,7 @@ def place(local: Pt, location: Pt, rotation: float, bottom: bool) -> Pt:
 def _parts(root: ET.Element) -> tuple[Part, ...]:
     out: list[Part] = []
     for part_type in _children(root, "BoardAssemblyInformation/ComponentTypes"):
+        height, min_z = _num(part_type, "Height"), _num(part_type, "MinZ")
         local = _strokes(part_type, "AssemblyDrawing") or _strokes(part_type, "Silkscreen")
         pads = [
             _pt(p, "CenterPoint")
@@ -486,6 +515,8 @@ def _parts(root: ET.Element) -> tuple[Part, ...]:
                     placed,
                     box,
                     tuple(w for _ring, w in local),
+                    height,
+                    min_z,
                 )
             )
     return tuple(out)
@@ -522,6 +553,11 @@ def _board(root: ET.Element) -> BoardCopy:
     source = fabrication if _find(fabrication, "BoardOutline") is not None else assembly
     outline = contour(_children(source, "BoardOutline/Segments"))
     cutouts = tuple(contour(_children(c, "Segments")) for c in _children(source, "Cutouts"))
+    frames: dict[str, tuple[float, float, float, float]] = {}
+    for name in ("Back", "Right"):
+        frame = _find(assembly, f"BoardBounds{name}")
+        if frame is not None:
+            frames[name] = (_num(frame, "X"), _num(frame, "Y"), _num(frame, "Width"), _num(frame, "Height"))
     bounds_el = _find(source, "BoardOutlineBounds")
     bounds = (_num(bounds_el, "X"), _num(bounds_el, "Y"), _num(bounds_el, "Width"), _num(bounds_el, "Height"))
     if bounds[2] <= 0 and outline:
@@ -536,6 +572,7 @@ def _board(root: ET.Element) -> BoardCopy:
         _holes(root),
         _parts(root),
         _stack(root),
+        frames,
     )
 
 
@@ -557,6 +594,7 @@ def read_drawing(file: DraftsmanFile) -> Drawing:
         "DrillTableBoardView",
         "LayerStackLegendView",
         "BillOfMaterialsView",
+        "Callout",
     }
     for page in _children(root, "Pages"):
         items: list[Item] = []

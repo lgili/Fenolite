@@ -62,6 +62,15 @@
   .navi small { color:var(--muted); }
   .tab.doc-tab .sw { border-radius:2px; }
   .sheetlink { color:#8cc4ff; }
+  #tablewrap { position:absolute; inset:0; overflow:auto; background:var(--bg); display:none; padding:12px 16px; }
+  .tblhead { display:flex; gap:10px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .tblhead b { color:#fff; font-size:15px; }
+  table.tbl { border-collapse:collapse; font-size:12px; width:100%; }
+  table.tbl th { position:sticky; top:0; background:var(--panel2); text-align:left; padding:4px 8px; cursor:pointer; white-space:nowrap; border-bottom:1px solid var(--line); }
+  table.tbl td { padding:3px 8px; border-bottom:1px solid #ffffff10; vertical-align:top; }
+  table.tbl tr.link { cursor:pointer; } table.tbl tr.link:hover { background:#1f4e7a55; }
+  table.tbl a { color:#8cc4ff; }
+  body.table .board-only, body.table #tabs > * { display:none !important; }
   #msgList .navg { cursor:pointer; text-transform:none; letter-spacing:0; color:#cfd3da; }
   #msgList .navi { white-space:normal; padding:2px 4px 2px 14px; }
   body.sch .board-only { display:none !important; }
@@ -136,7 +145,7 @@
   <div id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
     <div id="bar3d"><button id="v3top">Top</button><button id="v3bot">Bottom</button><button id="v3iso">Iso</button>
       <label><input type="checkbox" id="c3body" checked> Bodies</label></div>
-    <div id="info"></div><div id="doccard"><div id="doctext"></div></div>
+    <div id="info"></div><div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
     <div id="lsmenu"></div></div>
   <div id="tabs"><button id="ls" class="board-only" title="Layer sets">LS</button><div id="tablist" style="display:flex"></div></div>
   <div id="status"><span id="coord">x — y —</span><span id="zoomv"></span><span id="cur"></span><span id="gen"></span><span id="live"></span></div>
@@ -381,6 +390,7 @@ function paintTexts(g, lid, color, alpha, unit) {
   for (const [w, p] of tc.strokes) { g.lineWidth = Math.max(w, 0.6 / unit); g.stroke(p); }
 }
 function draw() {
+  if (S && S.kind === "table") return;
   if (S && S.kind === "schematic") return drawSch();
   if (!S || st.mode3d) return;
   const th = S.theme || {};
@@ -920,6 +930,8 @@ function buildPanels() {
 }
 function loadScene(scene, keepView) {
   st.mpts = []; st.mhover = null; st.lastHit = null; st.selFinding = -1;
+  $("tablewrap").style.display = "none"; document.body.classList.remove("table"); cv.style.display = "block";
+  if (scene.kind === "table") { loadTable(scene); return; }
   if (scene.kind === "library") { loadLibrary(scene, keepView); return; }
   if (scene.kind === "schematic") { loadSch(scene, keepView); return; }
   loadBoard(scene, keepView);
@@ -1158,6 +1170,41 @@ function printView() {   // the SVG at the chosen scale, printed from a hidden f
 }
 $("bPrint").onclick = printView;
 
+// ================================================================== tables (c0190): a BOM document, an output job
+const TBL = { sort: -1, up: true, q: "" };
+function loadTable(scene) {
+  S = scene; st.mode3d = false; document.body.classList.remove("sch", "lib"); document.body.classList.add("table");
+  cv.style.display = "none"; glc.style.display = "none"; $("bar3d").style.display = "none";
+  $("fname").textContent = scene.meta.name; document.title = scene.meta.name + " · Fenolite viewer";
+  $("gen").textContent = scene.meta.sha256 ? `SHA-256 ${scene.meta.sha256.slice(0, 12)}` : "";
+  $("notes").innerHTML = (scene.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(scene.meta.backend || "?")} backend, evidence ${esc(scene.meta.evidence || "?")}.`;
+  TBL.sort = -1; TBL.up = true; TBL.q = "";
+  const box = $("tablewrap"); box.style.display = "block";
+  box.innerHTML = `<div class="tblhead"><b>${esc(scene.title || scene.meta.name)}</b><input id="tblFilter" placeholder="Filter the rows…"><small id="tblCount"></small></div>` +
+    `<table class="tbl"><thead><tr>${scene.columns.map((c, k) => `<th data-k="${k}" title="Sort">${esc(c)}</th>`).join("")}</tr></thead><tbody id="tblBody"></tbody></table>`;
+  box.querySelectorAll("th").forEach(th => th.onclick = () => { const k = +th.dataset.k; TBL.up = TBL.sort === k ? !TBL.up : true; TBL.sort = k; renderRows(); });
+  $("tblFilter").oninput = e => { TBL.q = e.target.value; renderRows(); };
+  renderRows(); showInfo(null);
+}
+function renderRows() {
+  const sc = S, q = TBL.q.trim().toLowerCase();
+  const idx = sc.rows.map((r, i) => i).filter(i => !q || sc.rows[i].some(v => String(v).toLowerCase().includes(q)));
+  if (TBL.sort >= 0) idx.sort((a, b) => natural(String(sc.rows[a][TBL.sort]), String(sc.rows[b][TBL.sort])) * (TBL.up ? 1 : -1));
+  $("tablewrap").querySelectorAll("th").forEach(th => { const k = +th.dataset.k; th.textContent = sc.columns[k] + (k === TBL.sort ? (TBL.up ? " ▲" : " ▼") : ""); });
+  $("tblBody").innerHTML = idx.map(i => { const go = ((sc.docs || [])[i] || []).length || ((sc.refs || [])[i] || []).length;
+    const why = ((sc.docs || [])[i] || []).length ? "Open the document it binds" : "Select these parts on the board";
+    return `<tr data-i="${i}"${go ? ` class="link" title="${why}"` : ""}>${sc.rows[i].map(v => `<td>${linkify(v)}</td>`).join("")}</tr>`; }).join("");
+  $("tblBody").querySelectorAll("tr.link").forEach(tr => tr.onclick = ev => { if (ev.target.tagName !== "A") tableRow(+tr.dataset.i); });
+  $("tblCount").textContent = `${idx.length} of ${sc.rows.length} rows`;
+}
+async function tableRow(i) {   // a bound document opens; a BOM line's parts are selected on the board with the filter (c0187)
+  const docs = (S.docs || [])[i] || [], refs = (S.refs || [])[i] || [];
+  if (docs.length) { const d = docs[0] === "[bom]" ? allDocs().find(x => x.kind === "bom") : docByFile(docs[0]); if (d) await openDoc(d); else showInfo(`${esc(docs[0])} is not a document of this project.`); return; }
+  if (!refs.length) return;
+  const d = allDocs().find(x => x.kind === "pcb" && x.viewable && x.present); if (!d) { showInfo("The project holds no board to show these parts on."); return; }
+  await openDoc(d); const text = refs.map(r => `ref:${r}`).join(" | "); $("query").value = text; applyQuery(text, true);
+}
+
 function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
 function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure) st.mpts = []; draw(); }
 function find(q) {
@@ -1202,7 +1249,7 @@ cv.addEventListener("mousemove", e => { if (!S) return; const [x, y] = s2w(e.off
   else if (st.measure) { st.mhover = snap(x, y); draw(); } });
 cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = s2w(e.offsetX, e.offsetY); const f = Math.exp(-e.deltaY * 0.0015);
   view.s = Math.min(Math.max(view.s * f, 0.2), 400); const [x2, y2] = s2w(e.offsetX, e.offsetY); view.cx += x - x2; view.cy += y - y2; draw(); }, { passive: false });
-window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S) return;
+window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S || S.kind === "table") return;
   const k = e.key;
   if (k === "q" || k === "Q") { setUnit(UNIT === "mm" ? "mil" : "mm"); return; }
   if ((k === "m" || k === "M") && e.shiftKey && !st.mode3d && !isSch()) { toggleEdge(); return; }
@@ -1513,6 +1560,7 @@ function loadSch(scene, keepView) {
 // ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
 let LIB = null, LIBSEL = -1, LIBQ = "";
 function toUnits(sc) {
+  if (sc.kind === "table") return sc;   // c0190: a BOM document or an output job
   if (sc.kind === "library") { for (const it of sc.items) if (it.scene) toUnits(it.scene); return sc; }
   return sc.kind === "schematic" ? toMMsch(sc) : toMM(sc);
 }

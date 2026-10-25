@@ -40,7 +40,7 @@ def test_authored_document() -> None:
         and view.fields["scale"] == 0.5
         and view.fields["side"] == "Bottom"
     )
-    assert drawing.skipped == {"Callout": 1}
+    assert drawing.skipped == {"TransmissionLineTableData": 1}  # a kind the reader does not draw
 
 
 def test_board_copy() -> None:

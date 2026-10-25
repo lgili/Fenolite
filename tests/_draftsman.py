@@ -41,7 +41,7 @@ DOCUMENT = f"""<Document xmlns="{NAMESPACE}" xmlns:i="http://www.w3.org/2001/XML
 <Item i:type="BoardAssemblyViewData"><Id>3</Id>{pt("Location", 100, 200)}\
 <Scale><Denominator>2</Denominator><Numenator>1</Numenator></Scale><UseCustomScale>false</UseCustomScale>\
 <Title>TOP</Title><ViewSide>Bottom</ViewSide></Item>\
-<Item i:type="Callout"><Id>4</Id></Item>\
+<Item i:type="TransmissionLineTableData"><Id>4</Id></Item>\
 </Items><Margin><Bottom>4</Bottom><Left>1</Left><Right>3</Right><Top>2</Top></Margin>\
 <ShowZones>true</ShowZones><HorizontalZoneCount>6</HorizontalZoneCount><VerticalZoneCount>4</VerticalZoneCount>\
 <Size><Height>793.7</Height><Width>1122.5</Width></Size></Page></Pages>\

@@ -2881,6 +2881,12 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   `IsPanel`). The sheets are drawn from the document's own copy of the board; `evidence.level` is
   `INFERRED`. A board or a drawing that holds an Embedded Board Array gets a note that Fenolite does not draw
   the array.
+- **BOM documents and output jobs** (change c0190). A `.BomDoc` and an `.OutJob` of an Altium project are
+  viewable: `result.summary` is `kind` `"table"`, `table` (`"bom"` or `"outjob"`), `counts` and `columns`. A
+  BOM document is built from the parts of the project's sheets with the document's grouping, catalog,
+  columns, aliases and sort (`counts`: `lines`, `parts`, `manual`); opened alone it lists its catalog. An output
+  job lists its outputs (`counts`: `outputs`, `groups`) with the folder each container writes to, as the job
+  spells it. `evidence.level` is `INFERRED`.
 - **Cache** (change c0182). Scenes are cached by the SHA-256 of their input, the theme and a digest of
   Fenolite's code: in the user's cache folder by default (`FENOLITE_CACHE_DIR`, else the platform's cache
   folder), under `.fenolite/view-cache/` of the project with `--cache project`, or not at all with

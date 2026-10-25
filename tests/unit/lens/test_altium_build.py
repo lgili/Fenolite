@@ -250,7 +250,10 @@ def test_evidence() -> None:
         "H-A-CUTOUT-",
     )
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
-    viewer = {"H-A-PRJ-VARIANT"}  # read by `fenolite view` (c0186), never by the build
+    viewer = {
+        "H-A-PRJ-VARIANT",
+        "H-A-PRJ-BOMDOC",
+    }  # read by `fenolite view` (c0186, c0190), never by the build
     rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
     assert refuted == {"H-A-SCHBIN-MINI"}, "a refuted row is not a claim of the build"
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows

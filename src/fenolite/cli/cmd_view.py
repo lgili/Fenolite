@@ -39,6 +39,8 @@ from fenolite.model.design import Design
 from fenolite.placement import legality
 from fenolite.view import export, review, server, themes
 from fenolite.view.altium_layers import native_view
+from fenolite.view.bom import bom_scene
+from fenolite.view.bom import with_parts as bom_with_parts
 from fenolite.view.cache import WHERE, SceneCache
 from fenolite.view.check_overlay import overlay as check_overlay
 from fenolite.view.check_overlay import read_reply
@@ -50,6 +52,7 @@ from fenolite.view.drawing import summary as drawing_summary
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 from fenolite.view.library import library_scene
 from fenolite.view.library import summary as library_summary
+from fenolite.view.outjob import outjob_scene
 from fenolite.view.project import VIEWABLE_LIBRARIES, ProjectTree, load_tree
 from fenolite.view.project_nets import annotate as annotate_nets
 from fenolite.view.project_nets import project_index, sheet_params
@@ -124,6 +127,10 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
         return library_scene(path, kicad=kicad)
     if suffix == ".pcbdwf":
         return drawing_scene(path)  # a DraftsmanError is a FormatError: FEN-3004
+    if suffix == ".outjob":
+        return outjob_scene(path)  # change c0190
+    if suffix == ".bomdoc":
+        return bom_scene(path)
     if suffix == ".schdoc":
         return _sheet_scene(path)
     if suffix == ".kicad_sch":
@@ -220,6 +227,8 @@ def _theme_name(scene: dict[str, Any]) -> str:
     if scene.get("kind") == "library":
         drawn = [item["scene"] for item in scene["items"] if item.get("scene")]
         return _theme_name(drawn[0]) if drawn else ""
+    if scene.get("kind") == "table":
+        return ""
     board: Any = scene.get("theme")
     if isinstance(board, dict):
         return str(cast("dict[str, Any]", board).get("name", ""))
@@ -227,6 +236,13 @@ def _theme_name(scene: dict[str, Any]) -> str:
 
 
 def _summary(scene: dict[str, Any]) -> dict[str, Any]:
+    if scene.get("kind") == "table":  # change c0190: a BOM document or an output job
+        return {
+            "kind": "table",
+            "table": scene["table"],
+            "counts": dict(scene["meta"]["counts"]),
+            "columns": list(scene["columns"]),
+        }
     if scene.get("lib") == "drawing":
         return drawing_summary(scene)
     if scene.get("kind") == "library":
@@ -365,6 +381,8 @@ class _ProjectNets:
             scene = scene | {"variants": self.variants()}
         if path.suffix.lower() == ".pcbdoc" and self.tree.source == "altium":
             scene = sheet_params(scene, self.sheets())
+        if path.suffix.lower() == ".bomdoc":  # change c0190: the BOM of the project's parts
+            scene = bom_with_parts(scene, self.sheets())
         if path.suffix.lower() != ".schdoc" or self.tree.source != "altium" or not self.tree.project_file:
             return scene
         found = self._compile()

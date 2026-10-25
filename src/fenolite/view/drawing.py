@@ -24,6 +24,7 @@ import hashlib
 import math
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -403,10 +404,138 @@ def _drill(sheet: _Sheet, item: Item, view: _View, board: BoardCopy) -> None:
         )
 
 
+MM = 96 / 25.4
+"""One millimetre in document units."""
+SIDE_FILL = "#d8dcd2"
+"""The board's section in a side view (Fenolite's choice)."""
+
+
+def _side_axis(
+    side: str, board: BoardCopy
+) -> Callable[[tuple[float, float, float, float]], tuple[float, float]]:
+    """The horizontal extent, in the view, of a box of the board copy (x, y, width, height), seen from
+    ``side``: the board's X from the front, its Y from the right, mirrored from the back and the left."""
+    bx, by, bw, bh = board.bounds
+    if side == "Front":
+        return lambda b: (b[0] - bx, b[0] + b[2] - bx)
+    if side == "Back":
+        return lambda b: (bx + bw - b[0] - b[2], bx + bw - b[0])
+    if side == "Right":
+        return lambda b: (b[1] - by, b[1] + b[3] - by)
+    return lambda b: (by + bh - b[1] - b[3], by + bh - b[1])
+
+
+class _SideView:
+    """The map from a side view's own frame (``u`` along the view, ``z`` up from the board's upper face, the
+    frame of its dimensions' snaps) to the sheet (``_side_view``)."""
+
+    def __init__(self, item: Item, board: BoardCopy) -> None:
+        f = item.fields
+        frame = board.side_frames.get("Back" if f["side"] in ("Front", "Back") else "Right")
+        self.ok = frame is not None and bool(board.outline)
+        _fx, self.below, self.width, _height = frame or (0.0, 0.0, 0.0, 0.0)
+        self.scale: float = f["scale"] or 1.0
+        self.location: Pt = f["location"]
+        self.thickness = board.thickness
+
+    def __call__(self, p: Pt) -> Pt:
+        u, z = p
+        return (
+            self.location[0] + u * self.scale,
+            self.location[1] + (self.below + self.thickness + z) * self.scale,
+        )
+
+
+def _side_view(sheet: _Sheet, item: Item, board: BoardCopy) -> None:
+    """A side view (change c0190, ``INFERRED``): the board's section and each part's box from the side, in the
+    frame the document stores (``BoardBoundsBack`` for front and back, ``BoardBoundsRight`` for the sides).
+    The frame's lower-left corner is the view's location; the board's lower face lies the frame's ``Y`` above
+    it; a part spans ``MinZ`` to ``MinZ + Height`` from the face of its side."""
+    f = item.fields
+    side = f["side"]
+    view = _SideView(item, board)
+    if not view.ok:
+        sheet.notes.append(f"A {side} side view: the document holds no frame for it, so it is not drawn.")
+        return
+    s, width, t = view.scale, view.width, board.thickness
+    lowest = -t
+
+    def box(u0: float, u1: float, z0: float, z1: float) -> list[Pt]:
+        return [view((u0, z0)), view((u1, z0)), view((u1, z1)), view((u0, z1))]
+
+    color, line = sheet.line_style(f["line"])
+    part_color, part_line = sheet.line_style(f["component_line"] or f["line"])
+    own = sheet.obj("view", [["View", "side view"], ["Side", side], ["Scale", _scale_text(s)]])
+    sheet.polygon(box(0, width, -t, 0), color, line, SIDE_FILL)
+    across = _side_axis(side, board)
+    drawn, flat = 0, 0
+    for part in board.parts:
+        if part.box is None:
+            continue
+        u0, u1 = across(part.box)
+        tall = part.height if part.height > 0 else MM
+        flat += part.height <= 0
+        z0, z1 = part.min_z, part.min_z + tall
+        if part.side == "Bottom":
+            z0, z1 = -t - z1, -t - z0
+        lowest = min(lowest, z0)
+        sheet.obj("comp", [["Designator", part.ref], ["Comment", part.comment], ["Side", part.side],
+                           ["Height", f"{part.height / MM:.2f} mm"]])  # fmt: skip
+        sheet.polygon(box(u0, u1, z0, z1), part_color, part_line, None)
+        drawn += 1
+    sheet.objects[own]["info"].append(["Parts", str(drawn)])
+    sheet.current = own  # the title belongs to the view
+    if flat:
+        sheet.notes.append(f"{flat} part(s) without a height are drawn 1 mm high in the side views.")
+    if f["show_title"] and f["title"]:
+        values = dict(sheet.drawing.parameters) | {"viewside": side, "viewscale": _scale_text(s)}
+        font = sheet.style_font(f["title_font"])
+        x, y = view((width / 2, lowest))  # under what the view draws, as the top views' titles
+        sheet.text(
+            (x, y - 6), fill_parameters(f["title"], values), font, f["title_color"], h="center", v="top"
+        )
+    sheet.current = -1
+
+
+def _callout(sheet: _Sheet, item: Item, numbers: dict[str, tuple[int, str]]) -> None:
+    """A callout (change c0190, ``INFERRED``): a leader from its tag to the point it targets, with an arrow
+    there, a short elbow at the tag, and the tag: the number of the note element it names (in the border that
+    element has in its note), else its own text."""
+    f = item.fields
+    target = f["target"]
+    elbow_at = (target[0] + f["leader"][0], target[1] + f["leader"][1])
+    toward = -1.0 if f["elbow_side"] == "Left" else 1.0
+    tag_at = (elbow_at[0] + toward * f["elbow"], elbow_at[1])
+    color, width = sheet.line_style(f["line"], f["color"])
+    found = numbers.get(f["note_element"]) if f["source"] == "NoteItem" else None
+    text = f"{f['prefix']}{found[0]}" if found else f["custom"] or "?"
+    sheet.obj("callout", [["Callout", text], ["Source", f["source"] or "custom text"]])
+    sheet.line([tag_at, elbow_at, target], color, width)
+    dx, dy = elbow_at[0] - target[0], elbow_at[1] - target[1]
+    size = math.hypot(dx, dy) or 1.0
+    ux, uy, head = dx / size, dy / size, 6.0
+    sheet.polygon(
+        [target, (target[0] + head * ux - head * 0.35 * uy, target[1] + head * uy + head * 0.35 * ux),
+         (target[0] + head * ux + head * 0.35 * uy, target[1] + head * uy - head * 0.35 * ux)],
+        color, width, color,
+    )  # fmt: skip
+    font = sheet.style_font(f["font"])
+    em = sheet.fonts[font]["em"] / UM
+    half = em * 0.8
+    centre = (tag_at[0] + toward * half, tag_at[1])
+    border = found[1] if found else "None"
+    if border == "Circle":
+        sheet.circle(centre, half, color, width)
+    elif border != "None":
+        sheet.rect(centre[0] - half, centre[1] - half, 2 * half, 2 * half, color, width, None)
+    sheet.text(centre, text, font, f["color"], h="center", v="center")
+    sheet.current = -1
+
+
 def _view(sheet: _Sheet, item: Item, board: BoardCopy) -> None:
     f = item.fields
     if f["side"] in SIDE_VIEWS:
-        sheet.notes.append(f"A {f['side']} side view is not drawn (non-goal of c0180).")
+        _side_view(sheet, item, board)
         return
     if not board.outline:
         sheet.notes.append(f"{item.kind}: the document holds no board copy.")
@@ -618,7 +747,7 @@ def _note(sheet: _Sheet, item: Item) -> None:
     sheet.current = -1
 
 
-def _dimension(sheet: _Sheet, item: Item, views: dict[str, tuple[Item, _View]]) -> None:
+def _dimension(sheet: _Sheet, item: Item, views: dict[str, tuple[Item, _View | _SideView]]) -> None:
     """A linear dimension measured on the board copy: its anchors are the board points its snaps name, its
     dimension line passes through the reference point (relative to the first anchor), all in the frame of the
     view it snaps to (``draftsman.md``, "Drawing geometry", INFERRED)."""
@@ -731,10 +860,22 @@ def sheet_scene(drawing: Drawing, page: Page, *, name: str, evidence: str = "INF
     sheet = _Sheet(drawing, page.height)
     sheet.font("Arial", 13)
     _zones(sheet, page)
-    views = {
+    views: dict[str, tuple[Item, _View | _SideView]] = {
         item.fields["id"]: (item, _View(item, drawing.board))
         for item in page.items
         if item.kind in VIEWS and item.fields["side"] not in SIDE_VIEWS and drawing.board.outline
+    }
+    for item in page.items:  # change c0190: a dimension on a side view snaps in the view's own frame
+        if item.kind in VIEWS and item.fields["side"] in SIDE_VIEWS:
+            side = _SideView(item, drawing.board)
+            if side.ok:
+                views[item.fields["id"]] = (item, side)
+    numbers = {  # the note elements a callout can name: their number in their note and their border
+        element: (n, border)
+        for item in page.items
+        if item.kind == "Note"
+        for n, (element, border) in enumerate(item.fields.get("element_ids", []), start=1)
+        if element
     }
     for item in page.items:
         sheet.kinds[item.kind] += 1
@@ -748,6 +889,8 @@ def sheet_scene(drawing: Drawing, page: Page, *, name: str, evidence: str = "INF
             _note(sheet, item)
         elif item.kind == "LinearDimension":
             _dimension(sheet, item, views)
+        elif item.kind == "Callout":
+            _callout(sheet, item, numbers)
         else:
             _plain(sheet, item)
     w, h = um(page.width), um(page.height)

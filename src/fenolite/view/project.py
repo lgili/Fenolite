@@ -5,8 +5,9 @@
 An Altium project file lists its documents; a KiCad project is the folder of its project file; a folder
 gives the tree of its one project file, or of its boards; a board is a tree of one document. Documents are
 grouped as the native tools group them: "Source Documents", "Libraries", "Settings", "Documentation" and
-"Other". Boards, Altium sheets (change c0177), KiCad sheets (change c0178) and symbol and footprint
-libraries (change c0179) can be viewed; every other document is listed with its kind and size.
+"Other". Boards, Altium sheets (change c0177), KiCad sheets (change c0178), symbol and footprint libraries
+(change c0179), Draftsman drawings (change c0180), ActiveBOM documents and output jobs (change c0190) can be
+viewed; every other document is listed with its kind and size.
 Nothing is written, and a path that leaves the project folder is listed and never opened.
 """
 
@@ -36,7 +37,9 @@ GROUP_OF: dict[str, str] = {
     "annotation": "Documentation",
     "bom": "Documentation",
 }
-VIEWABLE = frozenset({"pcb", "schematic", "pcb-library", "schematic-library", "draftsman"})
+VIEWABLE = frozenset(
+    {"pcb", "schematic", "pcb-library", "schematic-library", "draftsman", "bom", "output-job"}
+)
 VIEWABLE_LIBRARIES = (".pcblib", ".schlib", ".kicad_sym", ".kicad_mod", ".pretty")
 """The library files that have a scene (change c0179); integrated libraries are listed, not viewed."""
 VIEWABLE_SCHEMATICS = (".schdoc", ".kicad_sch")

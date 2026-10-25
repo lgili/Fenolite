@@ -155,6 +155,26 @@ Change c0189 adds what a review in Altium relies on:
   fitted to the page or at 1:1, 2:1, 5:1 or 10:1 on paper; the print dialog's Save as PDF gives a PDF. Both
   need the 2D view.
 
+## Documentation: BOM, output jobs, drawings
+
+Change c0190 opens what an Altium project keeps beside its boards and sheets:
+- **BOM.** A `.BomDoc` opens as a table. Altium's ActiveBOM document holds the BOM's settings and catalog, not
+  its lines, so the viewer builds the lines from the project's parts: grouped by the document's grouping
+  parameters (`Comment` and `Footprint` by default), with each group's designators and quantity, the catalog's
+  description, manufacturer and part number, the document's manual lines (a bare board, labels, bags), its
+  columns, aliases and sort. Supplier columns (prices, stock) are left out. A click on a line selects its parts
+  on the board, with the filter of the review panels. Opened without its project, the document lists its
+  catalog.
+- **Output jobs.** An `.OutJob` opens as the list of its outputs: group, name, type, category, the document it
+  binds, variant, whether it is enabled, and each container with its output folder as the job writes it
+  (`Outputs\[Media Name]\board.PDF`); the viewer does not run the job. A click on an output opens the
+  document it binds (the project's BOM document for `[ActiveBOM Document]`).
+- **Draftsman side views and callouts.** Front, back, left and right views are drawn from the document's copy of
+  the board: the board's section and each part's box, as high as the part type's `Height` from its `MinZ`, in the
+  frame the document stores, with the dimensions placed on them. A part without a height is drawn 1 mm high.
+  A callout is drawn with its leader, its arrow and its tag, the number of the note element it names. Both are
+  `INFERRED` (`docs/formats/altium/draftsman.md`, "Side views and callouts").
+
 ## Comparing two revisions
 
 `fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change
