@@ -3,7 +3,8 @@
 """Scene budgets of the viewer on the largest public board (capability viewer-performance, change c0182).
 
 The board of S-0187 (``altium-third-party-pcbdoc-08``, a heavy row) is read from the corpus cache. The
-measured numbers of 2026-10-25 are in ``openspec/changes/c0182-viewer-performance/tasks.md``.
+measured numbers of 2026-10-25 are in
+``openspec/changes/archive/2026-10-25-c0182-viewer-performance/tasks.md``.
 """
 
 from __future__ import annotations
