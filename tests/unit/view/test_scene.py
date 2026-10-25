@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,8 @@ import pytest
 
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame
+from fenolite.cli.cmd_view import scene_of
+from fenolite.geometry import arc_length
 from fenolite.model.design import Design
 from fenolite.view.scene import COLORS, DRILL, SCHEMA, ZONE_OUTLINE, build_scene, summary
 
@@ -104,3 +107,29 @@ def test_no_board() -> None:
     design, _ = _scene(KICAD)
     with pytest.raises(ValueError, match="no board"):
         build_scene(dataclasses.replace(design, board=None), None, name="empty")
+
+
+def test_net_lengths_and_part_parameters() -> None:
+    """Change c0187: each net's pad count and routed length (centre lines of its tracks and arcs), and the
+    parameters of each part (KiCad fields; Altium component records)."""
+    design, scene = _scene(KICAD)
+    names = {net.id: net.name for net in design.circuit.nets}
+    board = design.board
+    assert board is not None
+    expected: Counter[str] = Counter()
+    for track in board.tracks:
+        name = names.get(track.net_id or "")
+        if name:
+            expected[name] += round(math.hypot(track.end.x - track.start.x, track.end.y - track.start.y))
+    for arc in board.arcs:  # geometry's own tested arc length
+        expected[names[arc.net_id or ""]] += arc_length(arc.start, arc.mid, arc.end)
+    assert board.arcs and len(scene["netinfo"]) == len(scene["nets"])
+    for name, info in zip(scene["nets"], scene["netinfo"], strict=True):
+        assert info["length"] == round(expected[name] / 1000)
+        assert info["pads"] == sum(1 for pad in scene["pads"] if pad["net"] == name)
+    _design, fields = _scene(ROOT / "tests" / "data" / "kicad" / "routing" / "pair_two_headers.kicad_pcb")
+    assert "Description" in fields["comps"][0]["params"]
+    assert "Reference" not in fields["comps"][0]["params"]  # shown by its own row
+    blink = scene_of(ROOT / "tests" / "data" / "altium" / "blink" / "blink.PcbDoc")
+    u1 = next(c for c in blink["comps"] if c["ref"] == "U1")
+    assert u1["params"]["Library reference"] == "Mini_QFP32_IC" and u1["uid"].endswith("IOEYSXFL")

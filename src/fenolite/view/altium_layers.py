@@ -28,7 +28,7 @@ from fractions import Fraction
 
 from fenolite.backends.altium.adapter.layers import LAYERS
 from fenolite.backends.altium.read.cfb import is_compound, open_compound
-from fenolite.backends.altium.read.pcb import read_rule_fields
+from fenolite.backends.altium.read.pcb import read_component_fields, read_rule_fields
 from fenolite.backends.altium.read.pcbprops import parse_blocks, parse_mil
 from fenolite.backends.altium.read.pcbstack import LAYER_NAMES, read_board
 from fenolite.backends.altium.read.scope import parse_scope
@@ -88,6 +88,39 @@ class NativeView:
     tabs: dict[str, int] = field(default_factory=lambda: {})
     openings: dict[str, Opening] = field(default_factory=lambda: {})
     notes: list[str] = field(default_factory=lambda: [])
+    parts: dict[str, dict[str, str]] = field(default_factory=lambda: {})
+    """Per designator, the parameters of its component record (``PART_FIELDS``, change c0187), and its
+    ``SOURCEUNIQUEID`` under ``uid``."""
+
+
+PART_FIELDS = {
+    "SOURCEDESCRIPTION": "Description",
+    "SOURCELIBREFERENCE": "Library reference",
+    "SOURCECOMPONENTLIBRARY": "Component library",
+    "FOOTPRINTDESCRIPTION": "Footprint description",
+    "SOURCEFOOTPRINTLIBRARY": "Footprint library",
+    "SOURCEHIERARCHICALPATH": "Hierarchical path",
+    "HEIGHT": "Height",
+    "LOCKED": "Locked",
+}
+"""The keys of a ``Components6`` record the Properties of a part show, and their labels
+(``docs/formats/altium/pcb-document.md``)."""
+
+
+def _parts(data: bytes, file: str) -> dict[str, dict[str, str]]:
+    out: dict[str, dict[str, str]] = {}
+    if not is_compound(data):
+        return out
+    for pairs in read_component_fields(data, file=file):
+        values = dict(pairs)
+        ref = values.get("SOURCEDESIGNATOR", "")
+        if not ref:
+            continue
+        found = {label: values[key] for key, label in PART_FIELDS.items() if values.get(key)}
+        if values.get("SOURCEUNIQUEID"):
+            found["uid"] = values["SOURCEUNIQUEID"]
+        out.setdefault(ref, found)
+    return out
 
 
 def _ext(pairs: object, key: str) -> str | None:
@@ -171,6 +204,7 @@ def native_view(design: Design, data: bytes, *, file: str = "") -> NativeView:
     view.labels["Edge.Cuts"] = EDGE_LABEL
     view.tabs.setdefault("Edge.Cuts", _tab(56, 0) - 1)
     view.labels = {key: value for key, value in view.labels.items() if value}
+    view.parts = _parts(data, file)
 
     mask_rules, paste_rules = _rules(data, MASK_RULE, file), _rules(data, PASTE_RULE, file)
     refs = {c.id: c.ref for c in design.circuit.components}
@@ -213,4 +247,4 @@ def native_view(design: Design, data: bytes, *, file: str = "") -> NativeView:
     return view
 
 
-__all__ = ["NM_PER_UNIT", "NativeView", "Opening", "native_view"]
+__all__ = ["NM_PER_UNIT", "PART_FIELDS", "NativeView", "Opening", "native_view"]

@@ -116,3 +116,18 @@ def test_libraries_in_the_page() -> None:
 def test_live_page_has_no_data() -> None:
     html = page(live=True)
     assert "const LIVE = true;" in html and embedded(html) is None
+
+
+def test_review_panels_in_the_page() -> None:
+    """Change c0187: the Components and Nets panels, the filter, Find similar, highlight modes and links."""
+    html = template()
+    for name in (
+        'id="compList"',
+        'id="netList"',
+        'id="hlMode"',
+        'id="bSimilar"',
+        "function vlist",
+        "function clearQuery",
+    ):
+        assert name in html, name
+    assert "HL_ALPHA[st.hl]" in html and 'rel="noopener noreferrer"' in html

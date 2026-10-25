@@ -12,7 +12,9 @@ two never disagree:
   of the project's sheets (document name to scene);
 * ``annotate(scene, ...)``: a copy of a sheet scene whose nets carry ``project`` (the project net's name),
   ``project_pins`` and ``sheets``. A local net without a pin takes the project net of its own name, when there
-  is one; a local net that maps to none keeps its own name.
+  is one; a local net that maps to none keeps its own name;
+* ``sheet_params(scene, sheets)`` (change c0187): a copy of a board scene whose parts carry the parameters of
+  their schematic part, matched by the last segment of the board part's ``SOURCEUNIQUEID``.
 
 Standard library only.
 """
@@ -82,4 +84,27 @@ def annotate(scene: dict[str, Any], design: Design, index: dict[str, dict[str, A
     return scene | {"nets": nets, "meta": meta}
 
 
-__all__ = ["annotate", "pin_nets", "project_index"]
+def sheet_params(scene: dict[str, Any], sheets: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    """A copy of the board ``scene`` whose parts take the parameters of their schematic part (module
+    docstring); a board parameter of the same name stays. ``scene`` itself when no part matches."""
+    by_uid: dict[str, dict[str, Any]] = {}
+    for sheet in sheets.values():
+        for comp in cast("list[dict[str, Any]]", sheet.get("comps", [])):
+            if comp.get("uid"):
+                by_uid.setdefault(str(comp["uid"]), comp)
+    comps: list[dict[str, Any]] = []
+    matched = 0
+    for comp in cast("list[dict[str, Any]]", scene.get("comps", [])):
+        segments = [s for s in str(comp.get("uid", "")).split("\\") if s]
+        found = by_uid.get(segments[-1]) if segments else None
+        if found is None:
+            comps.append(comp)
+            continue
+        matched += 1
+        extra = {"Comment": found.get("comment", ""), "Description": found.get("description", "")}
+        params = {k: str(v) for k, v in (extra | dict(found.get("params", {}))).items() if v}
+        comps.append(comp | {"params": params | dict(comp.get("params", {}))})
+    return scene | {"comps": comps} if matched else scene
+
+
+__all__ = ["annotate", "pin_nets", "project_index", "sheet_params"]

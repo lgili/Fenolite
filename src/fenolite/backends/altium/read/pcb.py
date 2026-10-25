@@ -660,6 +660,20 @@ def read_rule_fields(
     return tuple(record.fields for record in records)
 
 
+def read_component_fields(
+    source: bytes | CompoundFile, *, file: str = ""
+) -> tuple[tuple[tuple[str, str], ...], ...]:
+    """The pair list of every component record of a PCB document, in stream order, read from
+    ``Components6/Data`` alone (the viewer's part parameters, change c0187). ``()`` for a document without
+    that stream; the errors are those of ``read_pcbdoc``."""
+    compound = _open(source, file=file)
+    path = "Components6/Data"
+    if path not in compound:
+        return ()
+    records, _trailing, _problems = parse_blocks(compound.read(path), lead=0, where=path)
+    return tuple(record.fields for record in records)
+
+
 T = TypeVar("T")
 
 
@@ -707,6 +721,7 @@ __all__ = [
     "detect_pcb",
     "file_header",
     "open_container",
+    "read_component_fields",
     "read_pcbdoc",
     "read_rule_fields",
     "resolve_texts",

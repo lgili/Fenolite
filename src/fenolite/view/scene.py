@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 
 from fenolite.backends.base import BoardFrame, BoardPad, EdgeRing, PlacedExtent
 from fenolite.core.coords import Point
+from fenolite.geometry.lengths import arc_length, segment_length
 from fenolite.geometry.transform import rotate_point
 from fenolite.model.board import Board, FootprintInstance, Graphic, Pad
 from fenolite.model.design import Design
@@ -328,6 +329,33 @@ def _dimension(b: _Builder, dim: Any, label: str, text: Callable[..., None]) -> 
     text(dim.layer, middle, size, size, dim.thickness, 0, "center", "center", False, shown, -1)
 
 
+_SHOWN_FIELDS = frozenset({"Reference", "Value", "Footprint"})
+"""Fields a part's Properties already show by their own rows."""
+
+
+def _net_info(
+    board: Board, nets: list[str], net_index: dict[str, int], pads: list[dict[str, Any]]
+) -> list[dict[str, int]]:
+    """Per net of ``nets``: its pad count and its routed length in µm, the centre lines of its tracks and
+    arcs (change c0187; Fenolite's computation, vias not counted)."""
+    lengths = [0] * len(nets)
+    count = [0] * len(nets)
+    for track in board.tracks:
+        k = net_index.get(track.net_id or "")
+        if k is not None:
+            lengths[k] += segment_length(track.start, track.end)
+    for arc in board.arcs:
+        k = net_index.get(arc.net_id or "")
+        if k is not None:
+            lengths[k] += arc_length(arc.start, arc.mid, arc.end)
+    by_name = {name: k for k, name in enumerate(nets)}
+    for pad in pads:
+        k = by_name.get(pad["net"])
+        if k is not None:
+            count[k] += 1
+    return [{"pads": n, "length": _um(length)} for n, length in zip(count, lengths, strict=True)]
+
+
 def _pad_list(board: Board, pads: Sequence[BoardPad], comp_of: dict[str, int]) -> list[dict[str, Any]]:
     """Every pad with its exact size (change c0179): centre in µm, sizes, drill and slot in nm from the
     model pad, shape, board rotation in degrees, corner ratio, kind, layers, net and part."""
@@ -457,6 +485,10 @@ def build_scene(
         component = components.get(fp.component_id)
         ref = component.ref if component is not None else fp.lib_ref.split(":")[-1]
         comp_of[fp.id] = len(comps)
+        params = dict(native.parts.get(ref, {})) if native is not None else {}
+        uid = params.pop("uid", "")
+        if component is not None:
+            params |= {k: v for k, v in component.properties.items() if v and k not in _SHOWN_FIELDS}
         comps.append(
             {
                 "ref": ref,
@@ -467,7 +499,9 @@ def build_scene(
                 "y": _um(fp.position.y),
                 "rotation": _deg(fp.rotation),
                 "bbox": None,
+                "params": params,
             }
+            | ({"uid": uid} if uid else {})
         )
 
     # pads, through the backend's board frame
@@ -802,6 +836,7 @@ def build_scene(
     }
     return {
         "schema": SCHEMA,
+        "netinfo": _net_info(board, nets, net_index, pad_list),
         "meta": {
             "name": name,
             "sha256": hashlib.sha256(data).hexdigest() if data else "",

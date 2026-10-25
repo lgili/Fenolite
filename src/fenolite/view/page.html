@@ -67,6 +67,11 @@
   body:not(.lib) .lib-only { display:none !important; }
   body.lib .nav-panel { display:none !important; }
   #libFilter { width:100%; margin-bottom:4px; }
+  #query, #compFilter, #netFilter { width:100%; margin-bottom:4px; }
+  .vlist { max-height:240px; overflow:auto; position:relative; }
+  .qbar { display:flex; gap:6px; margin:2px 0 4px; }
+  body.lib .rev-panel { display:none !important; }
+  #info a { color:#8cc4ff; }
   #info table { border-collapse:collapse; }
   #info td { padding:1px 8px 1px 0; vertical-align:top; }
   #info td:first-child { color:var(--muted); white-space:nowrap; }
@@ -95,6 +100,15 @@
         <input id="libFilter" placeholder="Filter the library…"><div id="libList"></div></div>
       <div class="sch-only nav-panel"><div class="navh"><h3>Navigator</h3></div>
         <input id="navFilter" placeholder="Filter parts and nets…"><div id="navList"></div></div>
+      <div class="board-only rev-panel"><div class="navh"><h3>Filter</h3>
+          <select id="hlMode" title="Highlight: how the rest of the board shows while something is selected"><option value="dim">Dim</option><option value="mask">Mask</option><option value="normal">Normal</option></select></div>
+        <input id="query" placeholder="net:GND ref:R* side:bottom" title="key:value terms (and), | (or), -term (not), * and ? wildcards, &quot;quoted values&quot;; keys: net, ref, footprint, value, layer, side, or a parameter name. Enter: apply and zoom">
+        <div class="qbar"><button id="bSimilar" title="Fill the filter from the selection">Find similar</button><button id="bQClear" title="Clear the filter and the selection (Shift+C)">Clear</button></div>
+        <div class="notes" id="queryInfo"></div>
+        <div class="navh"><h3 id="compsTitle">Components</h3></div>
+        <input id="compFilter" placeholder="Filter components…"><div id="compList" class="vlist"></div>
+        <div class="navh"><h3 id="netsTitle">Nets</h3></div>
+        <input id="netFilter" placeholder="Filter nets…"><div id="netList" class="vlist"></div></div>
       <h3 id="diffTitle" style="display:none" title="X: show or hide the changes">Changes</h3>
       <div id="diffList"></div>
       <h3 id="ovTitle" style="display:none">Findings</h3>
@@ -103,7 +117,7 @@
       <div class="notes" id="notes"></div>
       <h3>Shortcuts</h3>
       <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>Esc</kbd> clear</div>
-      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Esc</kbd> clear</div>
+      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Shift+C</kbd> clear the filter · <kbd>Esc</kbd> clear</div>
     </div>
   </div>
   <div id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
@@ -185,12 +199,12 @@ function textPolylines(t) {
 
 // ================================================================== state
 const MM = 0.001;   // scene units are micrometres
-let PROJECT = null, DOC = null, S = null, cache = null, netCache = new Map(), compCache = new Map(), textCache = new Map(), byLayer = new Map();
+let qCache = new Map(), PROJECT = null, DOC = null, S = null, cache = null, netCache = new Map(), compCache = new Map(), textCache = new Map(), byLayer = new Map();
 const SCENES = new Map(), RAW = new Map();
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
 let W = 0, H = 0, dpr = 1;
 const view = { cx: 0, cy: 0, s: 5, mirror: false };
-const st = { diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
+const st = { query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
 const vis = new Map();
 const $ = id => document.getElementById(id);
 
@@ -294,7 +308,7 @@ function bboxOf(pr) { const d = pr[2]; switch (pr[1]) {
   default: { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const ring of d) for (let i = 0; i < ring.length; i += 2) {
     x0 = Math.min(x0, ring[i]); x1 = Math.max(x1, ring[i]); y0 = Math.min(y0, ring[i + 1]); y1 = Math.max(y1, ring[i + 1]); } return [x0, y0, x1, y1]; } } }
 function buildCaches() {
-  cache = new Map(); netCache = new Map(); compCache = new Map(); textCache = new Map(); byLayer = new Map();
+  qCache = new Map(); cache = new Map(); netCache = new Map(); compCache = new Map(); textCache = new Map(); byLayer = new Map();
   for (const l of S.layers) { cache.set(l.id, newCache()); byLayer.set(l.id, []); textCache.set(l.id, { strokes: new Map(), n: 0 }); }
   for (const pr of S.prims) { const c = cache.get(pr[0]); if (c) { addPrim(c, pr); byLayer.get(pr[0]).push([pr, bboxOf(pr)]); } }
   for (const t of S.texts) { const tc = textCache.get(t[0]); if (!tc) continue; tc.n++;
@@ -359,11 +373,15 @@ function draw() {
   const th = S.theme || {};
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.background || "#15171b"; ctx.fillRect(0, 0, cv.width, cv.height);
   worldTf(); ctx.globalAlpha = 1; ctx.fillStyle = th.board || "#050505"; ctx.fill(boardPath(), "evenodd");
-  const ord = order(), sel = st.selNet >= 0 || st.selComp >= 0;
+  const qy = st.query && st.query.prims.size ? st.query : null, picked = st.selNet >= 0 || st.selComp >= 0;
+  const ord = order(), sel = picked || !!qy, other = HL_ALPHA[st.hl] ?? HL_ALPHA.dim;
   const dim = S.diff && st.diff && S.diff.kind === "board" ? 0.35 : 1;   // c0184: the board steps back while the changes are shown
-  for (const [l, a00] of ord) { const a0 = a00 * dim, a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * 0.28 : a, view.s);
-    if (view.s * 0.4 > 1) paintTexts(ctx, l.id, l.color, sel ? a * 0.28 : a, view.s); }
-  if (sel) {
+  for (const [l, a00] of ord) { const a0 = a00 * dim, a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * other : a, view.s);
+    if (view.s * 0.4 > 1) paintTexts(ctx, l.id, l.color, sel ? a * other : a, view.s); }
+  if (qy) { const mq = selCache(qCache, qy.text, pr => qy.prims.has(pr)); for (const [l] of ord) paintCache(ctx, mq.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+    ctx.globalAlpha = 1; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1 / view.s;
+    for (const ci of qy.comps.slice(0, 2000)) { const b = S.comps[ci].bbox; if (b) ctx.strokeRect(b[0] - 0.2, b[1] - 0.2, b[2] - b[0] + 0.4, b[3] - b[1] + 0.4); } }
+  if (picked) {
     const mm = st.selNet >= 0 ? selCache(netCache, st.selNet, pr => pr[3] === st.selNet) : selCache(compCache, st.selComp, pr => pr[4] === st.selComp);
     for (const [l] of ord) paintCache(ctx, mm.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
     if (st.selComp >= 0 && S.comps[st.selComp].bbox) { const b = S.comps[st.selComp].bbox; ctx.globalAlpha = 1; ctx.strokeStyle = "#fff";
@@ -466,6 +484,59 @@ function pick(X, Y) {
 }
 function showInfo(html) { const el = $("info"); if (!html) { el.style.display = "none"; return; } el.innerHTML = html; el.style.display = "block"; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
+function linkify(v) { const t = String(v); return /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>` : esc(t); }
+
+// ---- query (c0187): the board filter. key:value terms joined by spaces (and), "|" (or), a leading "-" (not),
+// * and ? wildcards, quoted values. Keys: net, ref, footprint, value, layer, side; any other key is the name of a
+// part parameter; a bare value matches a reference or a net. Pure functions of a scene, run in Node by the tests.
+function wildRe(v) { return new RegExp("^" + String(v).replace(/[.+^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i"); }
+function queryParse(text) {
+  const s = String(text), groups = [[]]; let i = 0;
+  while (i < s.length) {
+    if (/\s/.test(s[i])) { i++; continue; }
+    if (s[i] === "|") { groups.push([]); i++; continue; }
+    let neg = false, key = "", val; if (s[i] === "-") { neg = true; i++; }
+    let j = i; while (j < s.length && /[\w.]/.test(s[j])) j++;
+    if (j > i && s[j] === ":") { key = s.slice(i, j).toLowerCase(); i = j + 1; }
+    if (s[i] === "\"") { const e = s.indexOf("\"", i + 1); val = s.slice(i + 1, e < 0 ? s.length : e); i = e < 0 ? s.length : e + 1; }
+    else { j = i; while (j < s.length && !/[\s|]/.test(s[j])) j++; val = s.slice(i, j); i = j; }
+    groups[groups.length - 1].push({ key, neg, val, re: wildRe(val) });
+  }
+  return groups.filter(g => g.length);
+}
+function termTest(t, c) {
+  const any = vs => vs.some(v => v != null && v !== "" && t.re.test(String(v)));
+  let hit;
+  if (t.key === "") hit = any([c.ref, ...c.nets]);
+  else if (t.key === "net") hit = any(c.nets);
+  else if (t.key === "layer") hit = any(c.layers);
+  else if (t.key === "ref" || t.key === "footprint" || t.key === "value" || t.key === "side") hit = any([c[t.key]]);
+  else { const p = c.params || {}, k = Object.keys(p).find(n => n.toLowerCase() === t.key); hit = k !== undefined && any([p[k]]); }
+  return hit !== t.neg;
+}
+function queryTest(q, c) { return q.some(g => g.every(t => termTest(t, c))); }
+function queryRun(sc, q) {   // the primitives and the parts of the board scene `sc` that the parsed query `q` matches
+  const lt = new Map(sc.layers.map(l => [l.id, { tags: [l.id, l.name], side: l.side }]));
+  const cn = sc.comps.map(() => new Set()), cl = sc.comps.map(() => new Set()), prims = new Set();
+  for (const pr of sc.prims) {
+    const L = lt.get(pr[0]) || { tags: [pr[0]], side: "" }, c = pr[4] >= 0 ? sc.comps[pr[4]] : null, net = pr[3] >= 0 ? sc.nets[pr[3]] : "";
+    if (c) { if (net) cn[pr[4]].add(net); for (const t of L.tags) cl[pr[4]].add(t); }
+    const ctx = { nets: net ? [net] : [], layers: L.tags, ref: c ? c.ref : "", footprint: c ? c.footprint : "", value: c ? c.value : "",
+      side: c ? c.side : L.side || "", params: c ? c.params : null };
+    if (queryTest(q, ctx)) prims.add(pr);
+  }
+  const comps = [];
+  sc.comps.forEach((c, i) => { if (queryTest(q, { nets: [...cn[i]], layers: [...cl[i]], ref: c.ref, footprint: c.footprint, value: c.value, side: c.side, params: c.params })) comps.push(i); });
+  return { prims, comps };
+}
+function similarQuery(sc, pr, ci) {   // Find similar: a query for the parts of the same footprint and value, or the same net on the same layer
+  const qv = v => `"${String(v).replace(/"/g, "")}"`;
+  if (ci >= 0) { const c = sc.comps[ci]; return `footprint:${qv(c.footprint)}` + (c.value ? ` value:${qv(c.value)}` : ""); }
+  if (!pr) return "";
+  const l = sc.layers.find(x => x.id === pr[0]), layer = `layer:${qv(l ? l.name : pr[0])}`;
+  return pr[3] >= 0 ? `net:${qv(sc.nets[pr[3]])} ${layer}` : layer;
+}
+// ---- end query
 // ================================================================== assembly variants of an Altium project (c0186)
 let VARIANT = null;
 function variantOf(ref) { const v = VARIANT && S && S.variants && S.variants[VARIANT]; return v ? v[ref] || null : null; }
@@ -482,8 +553,12 @@ function drawVariantMarks(boxes) {   // a cross over every part the variant does
   for (const [ref, b] of boxes) { if (!b || !notFitted(ref)) continue;
     ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(b[2], b[3]); ctx.moveTo(b[2], b[1]); ctx.lineTo(b[0], b[3]); ctx.stroke(); }
 }
-function compInfo(ci) { const c = S.comps[ci], b = c.bbox; return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +
-  (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : "") + (variantOf(c.ref) ? `<br>Variant ${esc(VARIANT)}: <b>${esc(variantOf(c.ref).kind)}</b>` : ""); }
+function compInfo(ci) { const c = S.comps[ci], b = c.bbox, vs = variantOf(c.ref);
+  const params = { ...(c.params || {}), ...((vs && vs.params) || {}) };   // c0187: every parameter the file holds
+  return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +
+  (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : "") + (vs ? `<br>Variant ${esc(VARIANT)}: <b>${esc(vs.kind)}</b>` : "") +
+  Object.entries(params).map(([k, v]) => { const mil = /^(-?\d+(?:\.\d+)?)mil$/.exec(String(v));   // an Altium length, in the page's unit
+    return `<br>${esc(k)}: ${mil ? fmtLen(+mil[1] * MIL_MM) : linkify(v)}`; }).join(""); }
 function padOf(label, x, y) {   // the pad entry of a primitive's label nearest the point
   let best = null, bd = Infinity; for (const p of S.pads || []) { if (p.label !== label.replace(/ (hole|slot)$/, "")) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } } return best; }
 function layerName(id) { const l = S.layers.find(x => x.id === id); return l ? l.name : id; }
@@ -733,13 +808,66 @@ function loadBoard(scene, keepView) {
   const first = S === null || S !== scene && !keepView; S = scene;
   for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
   if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
-  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildVariants(); applyProjNet();
+  if (st.query) st.query = st.query.text && S.prims ? { text: st.query.text, ...queryRun(S, queryParse(st.query.text)) } : null;
+  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildVariants(); buildReview(); applyProjNet();
   cv.style.display = st.mode3d ? "none" : "block";
   $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
   $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
   if (V3.built) { V3.built = false; if (st.mode3d) { build3D(); draw3D(); } }
   if (first) { fitted = false; fit(); } else draw();
 }
+// ================================================================== review panels (c0187): filter, highlight, components, nets
+const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
+const ROW = 20;
+function vlist(box, items, row, click, selected) {   // a list that draws only the rows in view
+  const inner = document.createElement("div"); inner.style.cssText = `position:relative;height:${items.length * ROW}px`;
+  box.innerHTML = ""; box.appendChild(inner);
+  const paint = () => { const top = box.scrollTop, h = box.clientHeight || 240;
+    const a = Math.max(0, Math.floor(top / ROW) - 4), z = Math.min(items.length, Math.ceil((top + h) / ROW) + 4); inner.innerHTML = "";
+    for (let i = a; i < z; i++) { const d = document.createElement("div"); d.className = "navi" + (selected(items[i]) ? " sel" : "");
+      d.style.cssText = `position:absolute;left:0;right:0;top:${i * ROW}px;height:${ROW}px;line-height:${ROW}px`; d.innerHTML = row(items[i]); d.onclick = () => click(items[i]); inner.appendChild(d); } };
+  box.onscroll = paint; paint();
+}
+function netBounds(ni) { let b = null;
+  for (const list of byLayer.values()) for (const [pr, q] of list) if (pr[3] === ni) b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : [...q];
+  return b; }
+function primBounds(set) { let b = null;
+  for (const list of byLayer.values()) for (const [pr, q] of list) if (set.has(pr)) b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : [...q];
+  return b; }
+function selectCompAt(ci) { if (st.mode3d) set3D(false); st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); buildReview(); draw(); }
+function selectNetAt(ni) { if (st.mode3d) set3D(false); st.selNet = ni; st.selComp = -1; shareNet(S.nets[ni]); const b = netBounds(ni); if (b) fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]);
+  const info = (S.netinfo || [])[ni]; showInfo(`Net: <b>${esc(S.nets[ni])}</b>` + (info ? `<br>${info.pads} pads · routed ${fmtLen(info.length * MM)}` : "")); buildReview(); draw(); }
+function buildReview() {
+  if (!S || S.kind || !S.prims) return; const qy = st.query, inQ = qy ? new Set(qy.comps) : null;
+  const cf = $("compFilter").value.trim().toLowerCase(), nf = $("netFilter").value.trim().toLowerCase();
+  const comps = S.comps.map((c, i) => i).filter(i => !inQ || inQ.has(i)).filter(i => { const c = S.comps[i]; return !cf || [c.ref, c.value, c.footprint].some(v => String(v || "").toLowerCase().includes(cf)); })
+    .sort((a, b) => natural(S.comps[a].ref, S.comps[b].ref));
+  let netSet = null; if (qy) { netSet = new Set(); for (const pr of qy.prims) if (pr[3] >= 0) netSet.add(pr[3]); }
+  const nets = S.nets.map((n, i) => i).filter(i => S.nets[i] && (!netSet || netSet.has(i)) && (!nf || S.nets[i].toLowerCase().includes(nf))).sort((a, b) => natural(S.nets[a], S.nets[b]));
+  $("compsTitle").textContent = `Components (${comps.length})`; $("netsTitle").textContent = `Nets (${nets.length})`;
+  vlist($("compList"), comps, i => { const c = S.comps[i]; return `${esc(c.ref)} <small>${esc(c.value || "")} · ${esc(c.footprint)}${c.side === "bottom" ? " · bottom" : ""}</small>`; }, selectCompAt, i => i === st.selComp);
+  vlist($("netList"), nets, i => { const info = (S.netinfo || [])[i]; return `${esc(S.nets[i])}` + (info ? ` <small>${info.pads} pads · ${fmtLen(info.length * MM)}</small>` : ""); }, selectNetAt, i => i === st.selNet);
+  $("queryInfo").textContent = qy ? (qy.prims.size || qy.comps.length ? `${qy.comps.length} part(s) · ${qy.prims.size} primitive(s)` : "Nothing matches the filter.") : "";
+}
+function applyQuery(text, zoom) {
+  if (!S || S.kind || !S.prims) return; text = text.trim();
+  if (!text) { clearQuery(); return; }
+  st.query = { text, ...queryRun(S, queryParse(text)) }; qCache.delete(text); buildReview();
+  if (zoom && st.query.prims.size) { const b = primBounds(st.query.prims); if (b) fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]); }
+  draw();
+}
+function clearQuery() { st.query = null; $("query").value = ""; st.selNet = -1; st.selComp = -1; showInfo(null); buildReview(); draw(); }
+let qTimer = null;
+$("query").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => applyQuery(e.target.value, false), 250); });
+$("query").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(qTimer); applyQuery(e.target.value, true); } else if (e.key === "Escape") e.target.blur(); });
+$("compFilter").addEventListener("input", buildReview); $("netFilter").addEventListener("input", buildReview);
+$("bSimilar").onclick = () => { if (!S || S.kind) return; const h = st.lastHit, ci = st.selComp >= 0 ? st.selComp : -1;
+  const text = similarQuery(S, h ? h.pr : null, ci >= 0 ? ci : h && h.pr[4] >= 0 && h.pr[3] < 0 ? h.pr[4] : -1);
+  if (!text) { $("queryInfo").textContent = "Select a part or a primitive first."; return; }
+  $("query").value = text; applyQuery(text, false); };
+$("bQClear").onclick = clearQuery;
+$("hlMode").value = HL_ALPHA[st.hl] !== undefined ? st.hl : "dim";
+$("hlMode").onchange = e => { st.hl = e.target.value; try { localStorage.setItem("fenolite.view.highlight", st.hl); } catch (err) { /* private window */ } draw(); };
 function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
 function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure) st.mpts = []; draw(); }
 function find(q) {
@@ -796,6 +924,7 @@ window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S
   else if ((k === "S" || k === "s") && e.shiftKey) { st.single = !st.single; buildTabs(); draw(); }
   else if (k === "+" || k === "=") stepCurrent(1); else if (k === "-" || k === "_") stepCurrent(-1);
   else if (k === "b" || k === "B") flip(); else if (k === "m" || k === "M") toggle("measure", "bMeasure");
+  else if ((k === "C" || k === "c") && e.shiftKey) clearQuery();
   else if (k === "Escape") { st.mpts = []; st.selOv = -1; select(null); shareNet(null); } });
 
 // ================================================================== schematic view (scene kind "schematic")
@@ -979,7 +1108,7 @@ function schPick(X, Y) {
   if (best < 0) for (let i = 0; i < S.comps.length; i++) { const b = S.comps[i].b; if (b && x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]) { best = S.objects.findIndex(o => o.k === "comp" && o.comp === i); break; } }
   return best;
 }
-function rows(list) { return `<table>${list.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table>`; }
+function rows(list) { return `<table>${list.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${linkify(v)}</td></tr>`).join("")}</table>`; }
 function compRows(ci) { const c = S.comps[ci]; const r = [["Designator", c.ref], ["Comment", c.comment], ["Design Item ID", c.lib]];
   if (c.b) r.push(["Extent", fmtPair(c.b[2] - c.b[0], c.b[3] - c.b[1])]);
   if (c.description) r.push(["Description", c.description]); if (c.footprint) r.push(["Footprint", c.footprint]);

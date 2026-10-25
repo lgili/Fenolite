@@ -96,6 +96,27 @@ A variation names its part by the part's unique id, so a part annotated after th
 found. The kinds (not fitted, alternate part, fitted with other values) are read as `INFERRED`
 (`H-A-PRJ-VARIANT`).
 
+## Reviewing a board: filter, panels and parameters
+
+The side bar of a board holds, as Altium's PCB panel does (change c0187):
+- **Filter.** A query selects primitives and parts and highlights them: `key:value` terms joined by spaces
+  (and), `|` (or), a leading `-` (not), `*` and `?` wildcards and quoted values. The keys are `net`, `ref`,
+  `footprint`, `value`, `layer` (its id or the board's own name, such as `"Top Layer"`) and `side`; any other key
+  names a part parameter (`tolerance:1%`), and a bare word matches a reference or a net. For example
+  `footprint:*0402* side:bottom`, `net:GND layer:"Bottom Layer"`, `ref:R* -value:10k`, `ref:U1 | ref:J?`.
+  Enter applies it and zooms to what it found. The grammar is Fenolite's, not Altium's query language.
+- **Find similar** fills the filter from the selection: the same footprint and value for a part, the same net
+  and layer for a primitive of a net, the same layer otherwise.
+- **Highlight.** `Dim` (the default) dims the rest of the board, `Mask` nearly hides it and `Normal` leaves it;
+  the choice is remembered. `Shift+C` clears the filter and the selection.
+- **Components** and **Nets** list every part (reference, value, footprint, side) and every net with its pad
+  count and its routed length, the centre lines of its tracks and arcs (Fenolite's computation, vias not
+  counted). With a filter they list what it found; each has its own text filter, and a click selects and zooms.
+- **Parameters.** The Properties of a part show every parameter the file holds: a KiCad footprint's fields, and an
+  Altium part's description, footprint description, library keys, hierarchical path, height and lock (its
+  `Components6` record). On a board of an Altium project the parameters of the schematic part are added,
+  matched by unique id. A parameter that is a web address is a link.
+
 ## Comparing two revisions
 
 `fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change

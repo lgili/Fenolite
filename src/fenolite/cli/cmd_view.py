@@ -48,7 +48,7 @@ from fenolite.view.library import library_scene
 from fenolite.view.library import summary as library_summary
 from fenolite.view.project import VIEWABLE_LIBRARIES, ProjectTree, load_tree
 from fenolite.view.project_nets import annotate as annotate_nets
-from fenolite.view.project_nets import project_index
+from fenolite.view.project_nets import project_index, sheet_params
 from fenolite.view.scene import build_scene, summary
 from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
@@ -354,6 +354,8 @@ class _ProjectNets:
         sheet of an Altium project)."""
         if path.suffix.lower() in (".schdoc", ".pcbdoc") and self.variants():
             scene = scene | {"variants": self.variants()}
+        if path.suffix.lower() == ".pcbdoc" and self.tree.source == "altium":
+            scene = sheet_params(scene, self.sheets())
         if path.suffix.lower() != ".schdoc" or self.tree.source != "altium" or not self.tree.project_file:
             return scene
         found = self._compile()

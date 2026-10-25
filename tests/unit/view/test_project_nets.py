@@ -10,7 +10,7 @@ from typing import Any
 from fenolite.backends import registry
 from fenolite.cli.cmd_view import scene_of
 from fenolite.model.design import Design
-from fenolite.view.project_nets import annotate, pin_nets, project_index
+from fenolite.view.project_nets import annotate, pin_nets, project_index, sheet_params
 
 HIER = Path(__file__).resolve().parents[3] / "tests" / "data" / "altium" / "hier"
 SHEETS = ("altium_hier.SchDoc", "altium_hier_mcu.SchDoc", "altium_hier_flash.SchDoc")
@@ -46,3 +46,14 @@ def test_local_name_differs() -> None:
     nets = annotate(scene, design, index)["nets"]
     assert nets[0]["project"] == "RESET_N" and "project" not in nets[1]
     assert pin_nets(design)["J1-3"] == "RESET_N"
+
+
+def test_board_parts_take_their_sheet_parameters() -> None:
+    """Change c0187: a board part takes the parameters of its schematic part, matched by unique id."""
+    blink = HIER.parent / "blink"
+    board = scene_of(blink / "blink.PcbDoc")
+    sheet = scene_of(blink / "blink.SchDoc")
+    out = sheet_params(board, {"blink.SchDoc": sheet})
+    r1 = next(c for c in out["comps"] if c["ref"] == "R1")
+    assert r1["params"]["Comment"] == "330" and r1["params"]["Library reference"] == "Mini_R"
+    assert sheet_params(board, {}) is board
