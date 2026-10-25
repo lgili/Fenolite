@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 ALTIUM = ROOT / "tests" / "data" / "altium" / "blink" / "blink.PrjPcb"
 KICAD = ROOT / "tests" / "data" / "acceptance" / "blink_2layer_t9" / "blink.kicad_pro"
 BOARD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+HIER = ROOT / "tests" / "data" / "altium" / "hier" / "altium_hier.PrjPcb"
 
 
 def _groups(tree_json: dict[str, object]) -> dict[str, list[tuple[str, str, bool]]]:
@@ -30,11 +31,25 @@ def test_altium_project() -> None:
     groups = _groups(tree.to_json())
     assert tree.source == "altium" and tree.project_file == "blink.PrjPcb"
     assert ("blink.PcbDoc", "pcb", True) in groups["Source Documents"]
-    assert ("blink.SchDoc", "schematic", False) in groups["Source Documents"]
+    assert ("blink.SchDoc", "schematic", True) in groups["Source Documents"]
     assert {name for name, _, _ in groups["Libraries"]} == {"blink.PcbLib", "blink.SchLib"}
     assert list(groups) == [g for g in GROUPS if g in groups]
     first = tree.first_viewable()
     assert first is not None and first.name == "blink.PcbDoc"
+
+
+def test_schematic_documents() -> None:
+    """Scenario "An Altium project with sheets" (c0177)."""
+    tree = load_tree(HIER)
+    sheets = [doc for doc in tree.documents if doc.kind == "schematic"]
+    assert len(sheets) == 3 and all(doc.viewable for doc in sheets)
+    first = tree.first_viewable()
+    assert first is not None and first.kind == "schematic"
+    blink = load_tree(ALTIUM)
+    first = blink.first_viewable()
+    assert first is not None and first.kind == "pcb"
+    lone = load_tree(HIER.parent / "altium_hier.SchDoc")
+    assert lone.source == "sheet" and [d.viewable for d in lone.documents] == [True]
 
 
 def test_kicad_project() -> None:
@@ -69,6 +84,9 @@ def test_outside_paths_are_never_opened(tmp_path: Path) -> None:
 def test_refusals(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_tree(tmp_path / "missing.PrjPcb")
-    (tmp_path / "x.SchDoc").write_bytes(b"")
-    with pytest.raises(ValueError, match="schematic document"):
-        load_tree(tmp_path / "x.SchDoc")
+    (tmp_path / "x.SchLib").write_bytes(b"")
+    with pytest.raises(ValueError, match="schematic-library document"):
+        load_tree(tmp_path / "x.SchLib")
+    (tmp_path / "x.txt").write_bytes(b"")
+    with pytest.raises(ValueError, match="neither"):
+        load_tree(tmp_path / "x.txt")

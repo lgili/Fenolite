@@ -2856,26 +2856,32 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--serve [--port N] [--no-browser]] [--export FILE]`
-shows the boards of a project without the tool that made them (change c0176; `docs/viewer.md`). `PATH` is an
-Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder or a board.
+shows the boards and the Altium sheets of a project without the tool that made them (changes c0176 and c0177;
+`docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a board or an Altium
+`.SchDoc`.
 
 - **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
   (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
-  `viewable`, `size`), `result.document` the id of the board shown (`--doc`, else the board named as the
-  project, else the first board), `result.summary` its layers and the count of each item kind, and
-  `result.notes` what the scene states (derived mask openings, zones without fill, an assumed thickness).
-  `evidence.level` is that of the backend's read.
-- **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable board,
+  `viewable`, `size`), `result.document` the id of the document shown (`--doc`, else the board named as the
+  project, else the first board, else the first sheet), `result.summary` its layers and the count of each
+  item kind, and `result.notes` what the scene states (derived mask openings, zones without fill, an assumed
+  thickness; for a sheet, which drawings are Fenolite's). For an Altium sheet `result.summary` is `kind`
+  `"schematic"`, `counts` (components, pins, wires, buses, bus entries, labels, power ports, ports, junctions,
+  No ERC marks, sheet symbols, sheet entries, harness connectors, nets, primitives) and `bounds_um`, and
+  `evidence.level` is `INFERRED`. A KiCad schematic is listed, not viewable. `evidence.level` of a board is
+  that of the backend's read.
+- **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable document,
   under the mutation protocol; `result.export` gives its documents, size and SHA-256.
 - **`--serve`** writes one progress record with the URL to stderr, serves the page on `127.0.0.1` (port
-  8765, or any free port with `--port 0`) until it is interrupted, reloading a board when its file is
+  8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
   saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
   `--no-browser`.
 - **`--overlay FILE`** reads the JSON reply of `fenolite analyze`: every distance row's clearance and
   creepage paths are drawn, and a row that an error or warning names is marked as a finding.
 - **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, an unknown `--doc`, or a
-  path that is neither a project file nor a board; 3 (`FEN-3001`) for a missing path, (`FEN-3004`) for an
-  overlay that is not an `analyze` reply; 4 (`FEN-4001`, `FEN-4002`).
+  path that is neither a project file, a board nor an Altium sheet; 3 (`FEN-3001`) for a missing path,
+  (`FEN-3004`) for an overlay that is not an `analyze` reply or a sheet the reader refuses; 4 (`FEN-4001`,
+  `FEN-4002`).
 
 ## manifest
 

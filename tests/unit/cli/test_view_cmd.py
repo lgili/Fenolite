@@ -17,6 +17,7 @@ from fenolite.view.export import embedded
 ROOT = Path(__file__).resolve().parents[3]
 BOARD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
 ALTIUM = ROOT / "tests" / "data" / "altium" / "blink" / "blink.PrjPcb"
+HIER = ROOT / "tests" / "data" / "altium" / "hier" / "altium_hier.PrjPcb"
 
 
 def test_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -33,9 +34,24 @@ def test_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 def test_altium_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM))
     assert code == 0 and envelope["result"]["summary"]["counts"]["pads"] > 0
-    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM), "--doc", "blink.SchDoc")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM), "--doc", "blink.PcbLib")
     assert code == 0 and envelope["result"]["summary"] is None
     assert "no viewer" in envelope["result"]["notes"][0]
+
+
+def test_schematic_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Summary of a sheet" (c0177)."""
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(HIER), "--doc", "altium_hier.SchDoc")
+    assert code == 0
+    summary = envelope["result"]["summary"]
+    assert summary["kind"] == "schematic" and summary["counts"]["components"] == 1
+    assert summary["counts"]["sheet_symbols"] == 2 and envelope["evidence"]["level"] == "INFERRED"
+    assert list(tmp_path.iterdir()) == []
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(HIER), "--export", "view.html", "--confirm")
+    assert code == 0
+    data = embedded((tmp_path / "view.html").read_text(encoding="utf-8"))
+    assert data is not None and len(data["scenes"]) == 3
+    assert all(scene["kind"] == "schematic" for scene in data["scenes"].values())
 
 
 def test_export_follows_the_protocol(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

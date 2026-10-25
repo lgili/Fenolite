@@ -1,14 +1,16 @@
-# Board viewer
+# Board and schematic viewer
 
-`fenolite view` shows the boards of a project in a web browser, without the tool that made them: an Altium
-project on a machine without Altium, a KiCad board in a review, a board an agent just wrote. It reads every
-board through the neutral model (change c0176), so Altium `.PcbDoc` and KiCad `.kicad_pcb` files look the
-same. It writes no design file and opens no connection beyond the loopback address.
+`fenolite view` shows the boards and the Altium sheets of a project in a web browser, without the tool that
+made them: an Altium project on a machine without Altium, a KiCad board in a review, a board or a sheet an
+agent just wrote. It reads every board through the neutral model (change c0176), so Altium `.PcbDoc` and KiCad
+`.kicad_pcb` files look the same, and it draws every Altium `.SchDoc` in the manner of Altium Designer (change
+c0177). It writes no design file and opens no connection beyond the loopback address.
 
 ```bash
 fenolite view MyProject.PrjPcb --serve              # live: http://127.0.0.1:8765/, reloads when a board is saved
 fenolite view board.kicad_pcb --export board.html --confirm    # one standalone page to open or send
 fenolite view MyProject.PrjPcb --json               # for an agent: the documents and a scene summary
+fenolite view MyProject.PrjPcb --doc Power.SchDoc --json        # the parts, pins, wires and nets of one sheet
 ```
 
 ## The page
@@ -47,8 +49,54 @@ fenolite view MyProject.PrjPcb --json               # for an agent: the document
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Schematics
+
+An Altium sheet opens like a board: from the project tree, from the sheet tabs along the bottom, or with
+`--doc`. The page then turns into a schematic view.
+
+- **The sheet as Altium draws it.** The paper of the sheet's style or custom size, in its own colour, on a grey
+  workspace, with the visible grid as lines, the border and its zones, and the title block. Every record keeps
+  the colour, line width and font that the file gives it: pale yellow part bodies, navy wires and labels, red
+  directive flags when the file says so. Texts use the font the sheet names (Times New Roman by default; the
+  browser falls back to a serif font when the machine does not have it).
+- **What is drawn.**
+  - Parts in their own part and display mode, with their designator (and part letter), comment and visible
+    parameters; a parameter `=Value` shows the value it names.
+  - Pins with their names (overbars included), numbers, dots, clock wedges and active-low flags.
+  - Wires, buses, bus entries, junctions, net labels, power ports in their style (bar, arrow, circle, wave,
+    power ground, signal ground, earth), off-sheet connectors, ports, No ERC marks.
+  - Sheet symbols with their entries and file names, harness connectors and signal harnesses.
+  - Lines, polylines with their line styles and end shapes, polygons, rectangles, round rectangles, ellipses,
+    arcs, pies, Bezier curves, notes, text frames, embedded images, and the template's own graphics.
+  - Hidden pins and parameters are left out. IEEE symbols are counted in the notes, not drawn.
+- **Navigation.** Wheel or `PgUp`/`PgDn` to zoom, drag (left or right button) to pan, `F` to fit.
+- **Selection.**
+  - A click on a part selects it: a green dashed box, and its properties (designator, comment, design item,
+    footprint, parameters) in the Properties panel.
+  - A click on a wire, a pin, a label, a port or a power port highlights its net: the rest of the sheet dims,
+    and the panel lists the net's pins.
+  - `Esc` clears.
+- **Navigator** (left). The parts and the named nets of the sheet, with a filter; a click zooms to a part or
+  highlights a net. **Search** finds a designator (`U1` or `U1A`) or a net name.
+- **Double click.** On a sheet symbol, it opens the child sheet. On a part, it cross-probes: it opens the
+  project's board and selects the part of that designator. On a board, a double click on a part opens the
+  sheet that holds it.
+
+What the schematic view states:
+
+| item | drawn from | stated when |
+|---|---|---|
+| sheet, records, colours, widths | the file's records | a sheet without an area colour is drawn off-white, as saved sheets are |
+| text size | the font table, at 9 mil per point | always: a Fenolite choice that keeps the pin texts of a 100-mil pitch apart |
+| power ports, ports, sheet entries, pin marks, pin text offsets | the documented styles | always: these drawings are Fenolite's and may differ from Altium's by a few mil |
+| title block of a sheet without a template | the sheet's parameters | always: the block is Fenolite's drawing |
+| nets | the connectivity of one sheet (`altium-import`) | a net that crosses sheets is highlighted on each sheet under its own name |
+
+KiCad schematics are listed in the tree but not drawn yet.
+
 ## For agents
 
 Use `fenolite view PATH --json` to list a project's documents and to check what a board holds (the counts of
-pads, tracks, zones, fills, texts and bodies, and the notes). Use `--export` to hand a person one page to
+pads, tracks, zones, fills, texts and bodies, and the notes), or `--doc SHEET` for what an Altium sheet holds
+(parts, pins, wires, labels, ports, sheet symbols and nets). Use `--export` to hand a person one page to
 review. `--serve` keeps running until it is interrupted; it is for a person at a browser.

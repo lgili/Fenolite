@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite view PATH``: show the boards of a project without the tool that made them (capability
-cli-contract, "View command"; user guide ``docs/viewer.md``).
+"""``fenolite view PATH``: show the boards and sheets of a project without the tool that made them
+(capability cli-contract, "View command"; user guide ``docs/viewer.md``).
 
-``PATH`` is an Altium or KiCad project file, a folder or a board. Without ``--serve`` and ``--export`` the
-reply holds the project tree and a summary of one board's scene, and nothing is written. ``--export FILE``
-plans one standalone HTML page with every viewable board embedded; ``--serve`` serves the page on the
-loopback address until it is interrupted, reloading a board when its file is saved.
+``PATH`` is an Altium or KiCad project file, a folder, a board or an Altium sheet (change c0177). Without
+``--serve`` and ``--export`` the reply holds the project tree and a summary of one document's scene, and
+nothing is written. ``--export FILE`` plans one standalone HTML page with every viewable document embedded;
+``--serve`` serves the page on the loopback address until it is interrupted, reloading a document when its
+file is saved.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fenolite.backends import registry
+from fenolite.backends.altium.read.sch import read_schematic
 from fenolite.backends.base import BoardFrame
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -32,8 +34,10 @@ from fenolite.model.design import Design
 from fenolite.view import export, server
 from fenolite.view.project import ProjectTree, load_tree
 from fenolite.view.scene import build_scene, summary
+from fenolite.view.schematic import build_schematic_scene
+from fenolite.view.schematic import summary as schematic_summary
 
-HELP = "show the boards of a project in a web page, without their tool (writes FILE with --export)"
+HELP = "show the boards and sheets of a project in a web page, without their tool (writes FILE with --export)"
 KIND = "view"
 DEFAULT_PORT = 8765
 
@@ -41,7 +45,9 @@ DEFAULT_PORT = 8765
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.description = HELP + "; see docs/viewer.md."
     parser.add_argument(
-        "path", metavar="PATH", help="an Altium .PrjPcb or KiCad .kicad_pro, a project folder, or a board"
+        "path",
+        metavar="PATH",
+        help="an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or an Altium .SchDoc",
     )
     parser.add_argument(
         "--doc", metavar="ID", help="the document to show: its id, path or name (default: the first board)"
@@ -65,7 +71,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
 
 
 def scene_of(path: Path) -> dict[str, Any]:
-    """The scene of the board at ``path``, read by the backend that reads it."""
+    """The scene of the board or the Altium sheet at ``path``, read by the backend that reads it."""
+    if path.suffix.lower() == ".schdoc":
+        return _sheet_scene(path)
     backend = registry.for_path(path)
     if backend is None:
         raise CliError("FEN-2001", f"no backend reads {path.name}", where=path.name)
@@ -78,6 +86,16 @@ def scene_of(path: Path) -> dict[str, Any]:
     return build_scene(
         design, frame, name=path.name, data=data, backend=backend.name, evidence=read.evidence.level.value
     )
+
+
+def _sheet_scene(path: Path) -> dict[str, Any]:
+    data = path.read_bytes()
+    document = read_schematic(data, file=path.name)  # a FormatError is FEN-3004
+    return build_schematic_scene(document, name=path.name, data=data, evidence=Level.INFERRED.value)
+
+
+def _summary(scene: dict[str, Any]) -> dict[str, Any]:
+    return schematic_summary(scene) if scene.get("kind") == "schematic" else summary(scene)
 
 
 def overlays_of(files: list[str], ctx: Context) -> list[dict[str, Any]]:
@@ -204,7 +222,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         scene = scene_of(doc.file)
         scene["overlays"] = overlays
         scenes[doc.id] = scene
-        result["summary"] = summary(scene)
+        result["summary"] = _summary(scene)
         result["notes"] = list(scene["meta"]["notes"])
         evidence = (
             Evidence(Level(scene["meta"]["evidence"]))

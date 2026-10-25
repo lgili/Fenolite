@@ -5,7 +5,8 @@
 An Altium project file lists its documents; a KiCad project is the folder of its project file; a folder
 gives the tree of its one project file, or of its boards; a board is a tree of one document. Documents are
 grouped as the native tools group them: "Source Documents", "Libraries", "Settings", "Documentation" and
-"Other". Only boards can be viewed in this version; every other document is listed with its kind and size.
+"Other". Boards and Altium schematic sheets (change c0177) can be viewed; every other document is listed with
+its kind and size.
 Nothing is written, and a path that leaves the project folder is listed and never opened.
 """
 
@@ -35,7 +36,9 @@ GROUP_OF: dict[str, str] = {
     "annotation": "Documentation",
     "bom": "Documentation",
 }
-VIEWABLE = frozenset({"pcb"})
+VIEWABLE = frozenset({"pcb", "schematic"})
+VIEWABLE_SCHEMATICS = (".schdoc",)
+"""The schematic files that have a scene (Altium sheets); KiCad schematics are listed, not viewed."""
 BOARD_SUFFIXES = (".pcbdoc", ".kicad_pcb")
 PROJECT_SUFFIXES = (".prjpcb", ".kicad_pro")
 KICAD_KINDS: dict[str, str] = {
@@ -96,8 +99,9 @@ class ProjectTree:
         return None
 
     def first_viewable(self) -> Document | None:
-        """The board named as the project, else the first viewable document."""
+        """The board named as the project, else the first board, else the first viewable document."""
         shown = [doc for doc in self.documents if doc.viewable and doc.present]
+        shown = [doc for doc in shown if doc.kind == "pcb"] + [doc for doc in shown if doc.kind != "pcb"]
         same = [doc for doc in shown if doc.name.rsplit(".", 1)[0].lower() == self.name.lower()]
         return (same or shown or [None])[0]
 
@@ -123,6 +127,12 @@ def _size(path: Path | None) -> int | None:
         return None
 
 
+def _viewable(kind: str, rel: str) -> bool:
+    if kind == "schematic":
+        return rel.lower().endswith(VIEWABLE_SCHEMATICS)
+    return kind in VIEWABLE
+
+
 def _documents(entries: list[tuple[str, str, Path | None]]) -> tuple[Document, ...]:
     """(relative path, kind, file) entries as documents, sorted by group then path, with stable ids."""
     rows = sorted(entries, key=lambda e: (GROUPS.index(GROUP_OF.get(e[1], "Other")), e[0].lower()))
@@ -137,7 +147,7 @@ def _documents(entries: list[tuple[str, str, Path | None]]) -> tuple[Document, .
                 kind=kind,
                 group=GROUP_OF.get(kind, "Other"),
                 present=present,
-                viewable=kind in VIEWABLE,
+                viewable=_viewable(kind, rel),
                 size=_size(file),
                 file=file,
             )
@@ -199,9 +209,13 @@ def load_tree(path: Path) -> ProjectTree:
     if suffix in BOARD_SUFFIXES:
         kind = "pcb"
         return ProjectTree(path.stem, "board", path.parent, "", _documents([(path.name, kind, path)]))
+    if suffix in VIEWABLE_SCHEMATICS:
+        return ProjectTree(path.stem, "sheet", path.parent, "", _documents([(path.name, "schematic", path)]))
     if document_kind(path.name) != "other":
-        raise ValueError(f"{path.name} is a {document_kind(path.name)} document; open its project or a board")
-    raise ValueError(f"{path.name} is neither a project file nor a board")
+        raise ValueError(
+            f"{path.name} is a {document_kind(path.name)} document; open its project, a board or a sheet"
+        )
+    raise ValueError(f"{path.name} is neither a project file, a board nor an Altium sheet")
 
 
 __all__ = ["GROUPS", "Document", "ProjectTree", "load_tree"]

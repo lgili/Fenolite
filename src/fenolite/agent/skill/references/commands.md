@@ -54,7 +54,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 | `sync` | yes | copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
-| `view` | yes | show the boards of a project in a web page, without their tool (writes FILE with --export) |
+| `view` | yes | show the boards and sheets of a project in a web page, without their tool (writes FILE with --export) |
 
 ## analyze
 
@@ -499,7 +499,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 `fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] PATH`
 
-- `PATH` (string, required): an Altium .PrjPcb or KiCad .kicad_pro, a project folder, or a board
+- `PATH` (string, required): an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or an Altium .SchDoc
 - `--doc` (string): the document to show: its id, path or name (default: the first board)
 - `--overlay` (string, repeatable): draw the distances of a fenolite analyze reply (JSON) on the board (repeatable)
 - `--serve` (boolean): serve the page on 127.0.0.1 until interrupted
