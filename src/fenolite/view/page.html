@@ -400,13 +400,17 @@ function compInfo(ci) { const c = S.comps[ci], b = c.bbox; return `<b>${esc(c.re
   (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : ""); }
 function padOf(label, x, y) {   // the pad entry of a primitive's label nearest the point
   let best = null, bd = Infinity; for (const p of S.pads || []) { if (p.label !== label.replace(/ (hole|slot)$/, "")) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } } return best; }
+function layerName(id) { const l = S.layers.find(x => x.id === id); return l ? l.name : id; }
 function padInfo(p) {
   const r = [`<br><b>Pad ${esc(p.number)}</b> · ${esc(p.shape || "?")} · ${esc(p.kind)}`];
   if (p.w != null) r.push(`Size: ${fmtPair(p.w / 1e6, p.h / 1e6)}`);
   if (p.ratio != null && p.w != null) r.push(`Corner radius: ${fmtNm(p.ratio / 1e6 * Math.min(p.w, p.h))}`);
   if (p.drill != null) r.push(`Hole Ø ${fmtNm(p.drill)}` + (p.slot ? ` · slot ${fmtNm(p.slot + p.drill)} long` : ""));
   r.push(`Centre: (${fmtLen(p.x)}, ${fmtLen(p.y)}) · rot ${(+p.rot).toFixed(1)}°`);
-  if (p.layers && p.layers.length) r.push(`Layers: ${esc(p.layers.join(", "))}`);
+  if (p.layers && p.layers.length) r.push(`Layers: ${esc(p.layers.map(layerName).join(", "))}`);
+  if (p.mask != null) r.push(`Solder mask expansion: ${fmtNm(p.mask)} · ${esc(p.mask_src)}`);   // c0181: an Altium pad
+  if (p.paste != null) r.push(`Paste expansion: ${fmtNm(p.paste)} · ${esc(p.paste_src)}`);
+  if (p.mask != null && p.w != null) r.push(`Mask opening: ${fmtPair(Math.max(p.w + 2 * p.mask, 0) / 1e6, Math.max(p.h + 2 * p.mask, 0) / 1e6)}`);
   return r.join("<br>");
 }
 function select(h, at) {
@@ -557,7 +561,7 @@ $("c3body").onchange = e => { V3.bodies = e.target.checked; draw3D(); };
 // ================================================================== layer tabs (bottom bar)
 const TAB_ORDER = id => { const k = id.endsWith(".Cu") ? (id === "F.Cu" ? 0 : id === "B.Cu" ? 2 : 1) : id.startsWith("Mech") ? 3 : id.endsWith("SilkS") ? 4 : id.endsWith("Paste") ? 5 : id.endsWith("Mask") ? 6
   : id.endsWith("CrtYd") ? 7 : id.endsWith("Fab") ? 8 : id === "Edge.Cuts" ? 9 : id.startsWith("View.") ? 11 : 10; return k; };
-function tabLayers() { return [...S.layers].sort((a, b) => TAB_ORDER(a.id) - TAB_ORDER(b.id) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
+function tabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
 function buildTabs() {
   const box = $("tablist"); box.innerHTML = "";
   for (const l of tabLayers()) {

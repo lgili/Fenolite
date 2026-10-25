@@ -27,13 +27,16 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fenolite.backends.base import BoardFrame, BoardPad, EdgeRing
 from fenolite.core.coords import Point
 from fenolite.geometry.transform import rotate_point
 from fenolite.model.board import Board, FootprintInstance, Graphic, Pad
 from fenolite.model.design import Design
+
+if TYPE_CHECKING:
+    from fenolite.view.altium_layers import NativeView, Opening
 
 SCHEMA = "fenolite.view_scene.v0"
 DRILL, OUTLINE, ZONE_OUTLINE = "View.Drill", "View.Outline", "View.ZoneOutline"
@@ -164,9 +167,65 @@ def _circle_ring(cx: int, cy: int, r: int, n: int = 48) -> list[int]:
     return out
 
 
-def _pad_prims(b: _Builder, pad: BoardPad, comp: int, derive_mask: bool) -> None:
+def _grow(shape: tuple[str, Any], by: int) -> list[tuple[str, Any]]:
+    """``shape`` grown by ``by`` µm (shrunk when negative) as primitives, none when nothing is left: a
+    circle's radius, a stroke's width, and a filled ring as itself with an edge stroke of twice ``by``, or
+    moved inwards edge by edge (a convex ring)."""
+    kind, data = shape
+    if by == 0:
+        return [shape]
+    if kind == "c":
+        return [("c", [data[0], data[1], data[2] + by])] if data[2] + by > 0 else []
+    if kind == "l":
+        return [("l", [data[0] + 2 * by, *data[1:]])] if data[0] + 2 * by > 0 else []
+    ring = data[0]
+    if by > 0:
+        return [("p", [ring]), ("l", [2 * by, *ring, ring[0], ring[1]])]
+    inner = _inset(ring, -by)
+    return [("p", [inner])] if inner else []
+
+
+def _inset(ring: list[int], by: int) -> list[int]:
+    """A convex ring moved inwards by ``by`` µm, edge by edge; ``[]`` when it vanishes."""
+    from math import hypot
+
+    pts = list(zip(ring[0::2], ring[1::2], strict=True))
+    n = len(pts)
+    if n < 3:
+        return []
+    area = sum(pts[k][0] * pts[(k + 1) % n][1] - pts[(k + 1) % n][0] * pts[k][1] for k in range(n))
+    sign = 1 if area > 0 else -1
+    lines: list[tuple[float, float, float, float]] = []
+    for k in range(n):
+        (x0, y0), (x1, y1) = pts[k], pts[(k + 1) % n]
+        dx, dy = x1 - x0, y1 - y0
+        length = hypot(dx, dy)
+        if length == 0:
+            continue
+        nx, ny = -dy / length * sign, dx / length * sign  # the inward normal
+        lines.append((x0 + nx * by, y0 + ny * by, dx, dy))
+    out: list[int] = []
+    for k in range(len(lines)):
+        ax, ay, adx, ady = lines[k - 1]
+        bx, by_, bdx, bdy = lines[k]
+        cross = adx * bdy - ady * bdx
+        if abs(cross) < 1e-9:
+            out += [round(bx), round(by_)]
+            continue
+        t = ((bx - ax) * bdy - (by_ - ay) * bdx) / cross
+        out += [round(ax + adx * t), round(ay + ady * t)]
+    q = list(zip(out[0::2], out[1::2], strict=True))
+    shrunk = sum(q[k][0] * q[(k + 1) % len(q)][1] - q[(k + 1) % len(q)][0] * q[k][1] for k in range(len(q)))
+    return out if shrunk * area > 0 and abs(shrunk) < abs(area) else []
+
+
+def _pad_prims(
+    b: _Builder, pad: BoardPad, comp: int, derive_mask: bool, opening: Opening | None = None
+) -> None:
     label = f"{pad.ref}-{pad.number}" if pad.ref else pad.number
     shapes: dict[str, tuple[str, Any]] = {}
+    edge: dict[str, int] = {}
+    """Per layer, the half width of the edge stroke a filled ring is grown by."""
     for copper in pad.copper:
         core, w = copper.core, _um(copper.width)
         if len(core) == 1:
@@ -178,11 +237,11 @@ def _pad_prims(b: _Builder, pad: BoardPad, comp: int, derive_mask: bool) -> None
         b.add(copper.layer, shape[0], shape[1], pad.net, comp, label)
         if copper.filled and len(core) > 1 and w > 0:  # a filled ring grown by its width: stroke the edge too
             b.add(copper.layer, "l", [w, *_flat(core), _um(core[0].x), _um(core[0].y)], pad.net, comp, label)
-        shapes.setdefault(copper.layer, shape)
-    front = shapes.get("F.Cu") or next(iter(shapes.values()), None)
-    back = shapes.get("B.Cu") or front
+        if copper.layer not in shapes:
+            shapes[copper.layer] = shape
+            edge[copper.layer] = w // 2 if copper.filled and len(core) > 1 else 0
     sides: list[tuple[str, str]] = []
-    if derive_mask:
+    if derive_mask or opening is not None:
         if pad.kind in ("thru_hole", "np_thru_hole"):
             sides = [("F.Mask", "F.Cu"), ("B.Mask", "B.Cu")]
         elif pad.side == "bottom" or "B.Cu" in shapes and "F.Cu" not in shapes:
@@ -196,9 +255,16 @@ def _pad_prims(b: _Builder, pad: BoardPad, comp: int, derive_mask: bool) -> None
         if "*.Mask" in pad.layers:
             sides += [("F.Mask", "F.Cu"), ("B.Mask", "B.Cu")]
     for layer, cu in sides:
-        opening = shapes.get(cu) or (back if cu == "B.Cu" else front)
-        if opening is not None and not layer.startswith("*"):
-            b.add(layer, opening[0], opening[1], None, comp, label)
+        source = cu if cu in shapes else ("F.Cu" if "F.Cu" in shapes else next(iter(shapes), ""))
+        hole = shapes.get(source)
+        if hole is None or layer.startswith("*"):
+            continue
+        by = edge.get(source, 0)  # the copper's own edge first, then the expansion
+        if opening is not None:
+            by += _um(opening.mask if layer.endswith("Mask") else opening.paste)
+        grown = _grow(hole, by)
+        for kind, data in grown:
+            b.add(layer, kind, data, None, comp, label)
     if pad.drill is not None and pad.hole:
         r = max(_um(pad.drill) // 2, 1)
         if len(pad.hole) == 1:
@@ -311,9 +377,12 @@ def build_scene(
     data: bytes = b"",
     backend: str = "",
     evidence: str = "INFERRED",
+    native: NativeView | None = None,
 ) -> dict[str, Any]:
     """The scene of ``design``'s board (module docstring). ``frame`` gives the pads, the courtyards and the
-    edge in the board frame; ``data`` are the file's bytes, for its SHA-256 only."""
+    edge in the board frame; ``data`` are the file's bytes, for its SHA-256 only. ``native`` (an Altium
+    board, change c0181) names the layers as the board does, orders their tabs, and grows each pad's mask and
+    paste opening by its expansion."""
     board = design.board
     if board is None:
         raise ValueError(f"{name}: the design holds no board")
@@ -348,14 +417,26 @@ def build_scene(
     if frame is not None:
         pads = frame.board_pads(design)
     has_mask = any(layer.kind == "soldermask" for layer in board.layers)
-    if not has_mask and pads:
+    openings = native.openings if native is not None else {}
+    if not has_mask and pads and native is None:
         notes.append(
             "The board holds no solder-mask layer: mask and paste openings are derived from the pads "
             "(SMD on its side, through-hole on both), with no expansion."
         )
     for pad in pads:
-        _pad_prims(b, pad, comp_of.get(pad.footprint_id, -1), derive_mask=not has_mask)
+        _pad_prims(b, pad, comp_of.get(pad.footprint_id, -1), not has_mask, openings.get(pad.pad_id))
     pad_list = _pad_list(board, pads, comp_of)
+    for entry, pad in zip(pad_list, pads, strict=True):
+        found = openings.get(pad.pad_id)
+        if found is not None:
+            entry |= {
+                "mask": found.mask,
+                "paste": found.paste,
+                "mask_src": found.mask_source,
+                "paste_src": found.paste_source,
+            }
+    if native is not None:
+        notes.extend(native.notes)
 
     # tracks, arcs, vias
     for k, t in enumerate(board.tracks):
@@ -573,13 +654,15 @@ def build_scene(
         layers.append(
             {
                 "id": layer_name,
-                "name": layer_name,
+                "name": native.labels.get(layer_name, layer_name) if native is not None else layer_name,
                 "kind": kind,
                 "side": _side(layer_name),
                 "color": color,
                 "visible": kind in SHOWN,
             }
         )
+        if native is not None and layer_name in native.tabs:
+            layers[-1]["tab"] = native.tabs[layer_name]
     for view_layer in (ZONE_OUTLINE, DRILL, OUTLINE):
         if view_layer in b.used:
             layers.append(

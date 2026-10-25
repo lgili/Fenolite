@@ -34,6 +34,7 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.view import export, server, themes
+from fenolite.view.altium_layers import native_view
 from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
 from fenolite.view.drawing import summary as drawing_summary
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
@@ -111,8 +112,15 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
     if not isinstance(design, Design) or design.board is None:
         raise CliError("FEN-2001", f"{path.name} is not a board", where=path.name)
     frame = backend if isinstance(backend, BoardFrame) else None
+    native = native_view(design, data, file=path.name) if path.suffix.lower() == ".pcbdoc" else None
     scene = build_scene(
-        design, frame, name=path.name, data=data, backend=backend.name, evidence=read.evidence.level.value
+        design,
+        frame,
+        name=path.name,
+        data=data,
+        backend=backend.name,
+        evidence=read.evidence.level.value,
+        native=native,
     )
     if holds_panel(path):
         scene["meta"]["notes"] = [PANEL_NOTE, *scene["meta"].get("notes", [])]

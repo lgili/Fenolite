@@ -15,7 +15,7 @@
 ## Decisions
 
 1. Keep-outs use a 45° hatch in the layer's colour at half opacity; their outline stays solid.
-2. Rooms are drawn only when their region is in the rule record (`H-A-ROOM` to record in task 0.1).
+2. Rooms are drawn only when their region is in the rule record; task 0.1 registers a hypothesis for the room records.
 3. Courtyard overlaps are computed with the same polygon test the `check` stage uses, so the viewer and
    `check` agree.
 

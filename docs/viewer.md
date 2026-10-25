@@ -68,6 +68,19 @@ copied (`docs/formats/kicad/color-theme.md`).
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Altium boards
+
+An Altium board is shown as Altium shows it (change c0181):
+- **Layer names.** Each layer has the name the board's layer stack gives it (`Top Layer`, `GND 1`, `Top Mask`,
+  `Mechanical 1`, or the designer's own names); the outline is `Board Outline`. The tabs follow Altium's order:
+  signal layers, planes, overlays, pastes, solders, mechanical layers, then the drill and keep-out layers.
+- **Mask and paste openings.** Each pad's solder-mask and paste opening is its copper grown by its expansion:
+  the pad's manual value, else the `SolderMaskExpansion` or `PasteMaskExpansion` rule that governs it (by
+  priority; scopes that Fenolite does not evaluate are skipped and counted in the notes), else 4 mil of mask and
+  no paste expansion. A negative expansion shrinks the opening.
+- **Properties.** A click on a pad shows its expansions, where each comes from (manual, the rule's name, or
+  default) and the size of its mask opening.
+
 ## Units and measurement
 
 Every length the page shows can be read in millimetres or in mil (change c0179). The **mm / mil** button in
