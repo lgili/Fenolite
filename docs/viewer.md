@@ -82,6 +82,20 @@ In an Altium project a net crosses sheets through ports, sheet entries, power po
   clears it.
 - A project that does not compile keeps each sheet's own nets, with a note.
 
+## Assembly variants
+
+An Altium project's variants (`[ProjectVariant<n>]` of the `.PrjPcb`, change c0186) get a selector in the
+toolbar, `[No Variations]` first; the choice applies to every sheet and to the board:
+- a part the variant does not fit is crossed out in red on its sheet and on the board, where it is also dimmed,
+  and its body is left out of the 3D view;
+- a part's Properties show its state in the variant and the variant's values of varied parameters;
+- `fenolite view PROJECT --variant NAME --json` opens with that variant and counts the fitted and not-fitted
+  parts of the document shown; an unknown name is `FEN-2001`.
+
+A variation names its part by the part's unique id, so a part annotated after the variant was made is still
+found. The kinds (not fitted, alternate part, fitted with other values) are read as `INFERRED`
+(`H-A-PRJ-VARIANT`).
+
 ## Comparing two revisions
 
 `fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change

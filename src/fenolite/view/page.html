@@ -82,6 +82,7 @@
     <button id="bFlip" class="board-only" title="View from below / above (B)">View: Top</button>
     <button id="bMeasure" title="Measure a distance; snaps to pad centres and vertices (M)">Measure</button>
     <button id="bUnit" title="Units: millimetres or mil (Q)">mm</button>
+    <select id="variantSel" title="The project's assembly variant" style="display:none"></select>
     <input id="search" placeholder="Part or net…" title="Enter: find">
     <button id="bClear" title="Clear the selection (Esc)">Clear</button>
     <label class="board-only" title="Opacity of the other side"><small>Other side</small> <input id="opac" type="range" min="0" max="100" value="60" style="width:80px;vertical-align:middle"></label>
@@ -368,6 +369,9 @@ function draw() {
     if (st.selComp >= 0 && S.comps[st.selComp].bbox) { const b = S.comps[st.selComp].bbox; ctx.globalAlpha = 1; ctx.strokeStyle = "#fff";
       ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(b[0] - 0.3, b[1] - 0.3, b[2] - b[0] + 0.6, b[3] - b[1] + 0.6); ctx.setLineDash([]); }
   }
+  if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";
+    for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
+    drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
   drawDiff(); drawOverlays(); drawMeasure();
   $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
 }
@@ -462,8 +466,24 @@ function pick(X, Y) {
 }
 function showInfo(html) { const el = $("info"); if (!html) { el.style.display = "none"; return; } el.innerHTML = html; el.style.display = "block"; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
+// ================================================================== assembly variants of an Altium project (c0186)
+let VARIANT = null;
+function variantOf(ref) { const v = VARIANT && S && S.variants && S.variants[VARIANT]; return v ? v[ref] || null : null; }
+function notFitted(ref) { const v = variantOf(ref); return !!(v && v.kind === "not fitted"); }
+function buildVariants() {
+  const sel = $("variantSel"), names = S && S.variants ? Object.keys(S.variants) : [];
+  if (S && S.variant && VARIANT === null) VARIANT = S.variant;
+  sel.style.display = names.length ? "" : "none"; if (!names.length) return;
+  sel.innerHTML = [`<option value="">[No Variations]</option>`, ...names.map(n => `<option${n === VARIANT ? " selected" : ""}>${esc(n)}</option>`)].join("");
+}
+$("variantSel").addEventListener("change", e => { VARIANT = e.target.value || null; if (V3.built) { rebuildBodies(); } draw(); if (st.mode3d) draw3D(); });
+function drawVariantMarks(boxes) {   // a cross over every part the variant does not fit, as Altium marks them
+  if (!VARIANT) return; ctx.globalAlpha = 1; ctx.strokeStyle = "#ff3030"; ctx.lineWidth = 2 / view.s;
+  for (const [ref, b] of boxes) { if (!b || !notFitted(ref)) continue;
+    ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(b[2], b[3]); ctx.moveTo(b[2], b[1]); ctx.lineTo(b[0], b[3]); ctx.stroke(); }
+}
 function compInfo(ci) { const c = S.comps[ci], b = c.bbox; return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +
-  (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : ""); }
+  (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : "") + (variantOf(c.ref) ? `<br>Variant ${esc(VARIANT)}: <b>${esc(variantOf(c.ref).kind)}</b>` : ""); }
 function padOf(label, x, y) {   // the pad entry of a primitive's label nearest the point
   let best = null, bd = Infinity; for (const p of S.pads || []) { if (p.label !== label.replace(/ (hole|slot)$/, "")) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } } return best; }
 function layerName(id) { const l = S.layers.find(x => x.id === id); return l ? l.name : id; }
@@ -572,7 +592,7 @@ function build3D() {
 const BODY = "#3c4048", BODY_SEL = "#ffd84d";
 function rebuildBodies() {
   const gl = V3.gl; if (!gl) return; if (V3.bodyPart) gl.deleteBuffer(V3.bodyPart.buf);
-  const arr = []; (S.bodies || []).forEach((bd, i) => { const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
+  const arr = []; (S.bodies || []).forEach((bd, i) => { if (notFitted(bd.ref)) return; const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
     bodyGeometry(arr, bd, hexRGB(sel ? BODY_SEL : BODY)); });
   V3.bodyPart = arr.length ? makePart(arr, null) : null;
 }
@@ -713,7 +733,7 @@ function loadBoard(scene, keepView) {
   const first = S === null || S !== scene && !keepView; S = scene;
   for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
   if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
-  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); applyProjNet();
+  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildVariants(); applyProjNet();
   cv.style.display = st.mode3d ? "none" : "block";
   $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
   $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
@@ -932,7 +952,7 @@ function drawSch() {
   ctx.globalAlpha = 1;
   const sb = SCH.selComp >= 0 ? S.comps[SCH.selComp].b : SCH.sel >= 0 && SCH.selNet < 0 ? S.objects[SCH.sel].b : null;
   if (sb) { const e = 4 / view.s; ctx.strokeStyle = SEL; ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(sb[0] - e, sb[1] - e, sb[2] - sb[0] + 2 * e, sb[3] - sb[1] + 2 * e); ctx.setLineDash([]); }
-  drawSchDiff(); drawMeasure();
+  drawSchDiff(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
   $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
 }
 // --- hit test
@@ -963,7 +983,10 @@ function rows(list) { return `<table>${list.map(([k, v]) => `<tr><td>${esc(k)}</
 function compRows(ci) { const c = S.comps[ci]; const r = [["Designator", c.ref], ["Comment", c.comment], ["Design Item ID", c.lib]];
   if (c.b) r.push(["Extent", fmtPair(c.b[2] - c.b[0], c.b[3] - c.b[1])]);
   if (c.description) r.push(["Description", c.description]); if (c.footprint) r.push(["Footprint", c.footprint]);
-  for (const [k, v] of Object.entries(c.params || {})) r.push([k, v]); return r; }
+  const vs = variantOf(c.group || c.ref);
+  const params = { ...(c.params || {}), ...((vs && vs.params) || {}) };
+  for (const [k, v] of Object.entries(params)) r.push([k, v]);
+  if (vs) r.push([`Variant ${VARIANT}`, vs.kind]); return r; }
 function schSelect(oi) {
   SCH.sel = oi; SCH.selNet = -1; SCH.selComp = -1;
   if (oi < 0) { showInfo(null); buildNav(); draw(); return; }
@@ -1057,7 +1080,7 @@ function loadSch(scene, keepView) {
   $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +
     (c.kinds ? `<br>${c.items || 0} items: ${Object.entries(c.kinds).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}`   // a Draftsman sheet (c0180)
       : `<br>${c.components || 0} parts · ${c.pins || 0} pins · ${c.wires || 0} wires · ${c.nets || 0} nets · ${c.power_ports || 0} power ports · ${c.ports || 0} ports`);
-  sheetTabs(); buildNav(); buildDiffList(); applyProjNet();
+  sheetTabs(); buildNav(); buildDiffList(); buildVariants(); applyProjNet();
   if (first) { fitted = false; fit(); } else draw();
 }
 

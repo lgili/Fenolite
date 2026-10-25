@@ -237,3 +237,21 @@ def test_compare(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 ALTIUM_SHEET = ROOT / "tests" / "data" / "altium" / "blink" / "blink.SchDoc"
+
+
+def test_variant(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Unknown variant" (c0186), and the counts of a known one."""
+    from _variants import variant_text
+
+    folder = tmp_path / "blink"
+    shutil.copytree(ALTIUM.parent, folder)
+    sheet = cmd_view.scene_of(folder / "blink.SchDoc")
+    uid = next(c["uid"] for c in sheet["comps"] if c["ref"] == "R1")
+    project = folder / "blink.PrjPcb"
+    project.write_bytes(project.read_bytes() + b"\r\n" + variant_text(uid).encode())
+    code, envelope, _, _ = run(
+        monkeypatch, tmp_path, "view", str(project), "--doc", "blink.SchDoc", "--variant", "Lite", "--json"
+    )
+    assert code == 0 and envelope["result"]["variant"] == {"name": "Lite", "fitted": 2, "not_fitted": 1}
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(project), "--variant", "Nope", "--json")
+    assert code == 2

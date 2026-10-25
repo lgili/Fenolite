@@ -2856,7 +2856,7 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+[--compare OLD] [--variant NAME] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
@@ -2890,6 +2890,10 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   `OLD`, and replies with `result.compare`: `kind`, `old` (name, SHA-256), the counts `added`, `removed`,
   `moved`, `changed` and `zone` (a board) or `net` (a sheet), and `changes`, one line each. `OLD` must be of the
   same kind and tool (`FEN-2001`); a missing `OLD` is `FEN-3001`.
+- **`--variant NAME`** (change c0186) opens an Altium project with its variant `NAME` chosen, and replies with
+  `result.variant`: `name`, `fitted` and `not_fitted`, counted over the parts of the document shown. A name
+  the project does not hold is `FEN-2001`, with the names it holds. The scenes of the project's sheets and
+  board carry every variant, so the page can switch between them.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.

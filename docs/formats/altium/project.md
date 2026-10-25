@@ -115,6 +115,18 @@ scopes get a row when the maintainer's author report names their numbers
   index, not the path. A missing companion is a warning, and a companion that is not readable is a
   warning too: the project still loads.
 
+## Variants (change c0186)
+
+Read on 2026-10-25 from the six public project files of the corpus (S-0174, S-0175, S-0176, S-0187, S-0188,
+S-0297), never committed; key forms and counts only. `read.variants` relies on these rows.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A variant is a section `[ProjectVariant<n>]` with `UniqueID`, `Description` (its name), `AllowFabrication`, `ParameterCount`, `VariationCount`, the lines `Variation<k>` and `ParamVariationCount`; four of the six projects hold one variant (`Production` with 56 variations, `48V` with 45, `Default` with 6, `No Crystal` with 1), two hold none | S-0174, S-0175, S-0176, S-0187, S-0188, S-0297 | CORPUS-VERIFIED | H-A-PRJ-VARIANT |
+| A `Variation<k>` value is `Designator=…\|UniqueId=…\|Kind=…\|AlternatePart=…`, fields joined by a vertical bar; `UniqueId` is a path of unique ids, one segment for a part of a sheet (`\VIWQJVML`) and two for a part of a repeated channel; `Designator` is the part's designator when the variation was made, which may be an unannotated `X?` while the part's `UNIQUEID` matches the last segment | S-0174, S-0175, S-0187, S-0297 | CORPUS-VERIFIED | H-A-PRJ-VARIANT |
+| `Kind` 1 is a part the variant does not fit (the one variation of the variant `No Crystal` names the crystal), 2 a part replaced by an alternate part (its line goes on with `AltLibLink_…` fields of the alternate symbol), 0 a part fitted with other values; the three kinds are Altium's "Not Fitted", "Alternate" and "Fitted" | S-0175, S-0187, S-0297 | INFERRED | H-A-PRJ-VARIANT |
+| A parameter variation is a pair of lines `ParamVariation<k>=ParameterName=…\|VariantValue=…` and `ParamDesignator<k>=<designator>`; one project holds 1 763 such lines for its 45 alternate parts | S-0297 | CORPUS-VERIFIED | H-A-PRJ-VARIANT |
+
 ## The annotation file (change c0083)
 
 Native observation, 2026-10-13 (S-0737): an authored AD 26.5 board-level

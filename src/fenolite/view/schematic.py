@@ -634,6 +634,7 @@ def _component(b: _Builder, component: Component, group_ref: str) -> int:
         "group": group_ref or ref,
         "comment": comment,
         "lib": component.lib_reference,
+        "uid": (component.props.get("UNIQUEID") or "") if component.props is not None else "",
         "description": component.description,
         "footprint": _footprint(doc, component),
         "params": {

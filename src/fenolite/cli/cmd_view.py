@@ -26,6 +26,7 @@ from typing import Any, cast
 
 from fenolite.backends import registry
 from fenolite.backends.altium.read.sch import read_schematic
+from fenolite.backends.altium.read.variants import read_variants
 from fenolite.backends.base import BoardFrame, PlacedExtent
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
@@ -52,6 +53,8 @@ from fenolite.view.scene import build_scene, summary
 from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
 from fenolite.view.themes import Palette
+from fenolite.view.variants import counts as variant_counts
+from fenolite.view.variants import variant_states
 
 HELP = "show a project's boards, sheets and drawings in a web page (writes FILE with --export)"
 KIND = "view"
@@ -95,6 +98,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="scene cache",
     )
     parser.add_argument("--docs", metavar="ID,...", help="--export only these")
+    parser.add_argument("--variant", metavar="NAME", help="show an Altium project's variant")
     parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
     parser.add_argument(
         "--theme",
@@ -302,6 +306,35 @@ class _ProjectNets:
         self.scene = scene
         self.found: tuple[Design, dict[str, dict[str, Any]]] | None = None
         self.failed = ""
+        self._sheets: dict[str, dict[str, Any]] | None = None
+        self._variants: dict[str, dict[str, dict[str, Any]]] | None = None
+
+    def sheets(self) -> dict[str, dict[str, Any]]:
+        """The scenes of the project's Altium sheets, by document name."""
+        if self._sheets is None:
+            self._sheets = {
+                doc.name: self.scene(doc.file)
+                for doc in self.tree.documents
+                if doc.kind == "schematic"
+                and doc.present
+                and doc.file is not None
+                and doc.file.suffix.lower() == ".schdoc"
+            }
+        return self._sheets
+
+    def variants(self) -> dict[str, dict[str, dict[str, Any]]]:
+        """The project's variants resolved on its sheets (change c0186); empty without any."""
+        if self._variants is None:
+            self._variants = {}
+            if self.tree.source == "altium" and self.tree.project_file:
+                project = self.tree.root / self.tree.project_file
+                try:
+                    found = read_variants(project.read_bytes(), file=project.name)
+                except (OSError, FormatError):
+                    found = ()
+                if found:
+                    self._variants = variant_states(found, self.sheets())
+        return self._variants
 
     def _compile(self) -> tuple[Design, dict[str, dict[str, Any]]] | None:
         if self.found is None and not self.failed:
@@ -311,21 +344,16 @@ class _ProjectNets:
                 design = backend.read(project).content if backend is not None else None
                 if not isinstance(design, Design):
                     raise FormatError(f"{project.name} gives no design", file=project.name)
-                sheets = {
-                    doc.name: self.scene(doc.file)
-                    for doc in self.tree.documents
-                    if doc.kind == "schematic"
-                    and doc.present
-                    and doc.file is not None
-                    and doc.file.suffix.lower() == ".schdoc"
-                }
-                self.found = (design, project_index(design, sheets))
+                self.found = (design, project_index(design, self.sheets()))
             except (FormatError, CliError, OSError, ValueError) as exc:
                 self.failed = f"{type(exc).__name__}: {exc}"
         return self.found
 
     def annotate(self, path: Path, scene: dict[str, Any]) -> dict[str, Any]:
-        """``scene`` with its nets named as the project's, for a sheet of an Altium project."""
+        """``scene`` with its project's variants (a sheet or a board), and its nets named as the project's (a
+        sheet of an Altium project)."""
+        if path.suffix.lower() in (".schdoc", ".pcbdoc") and self.variants():
+            scene = scene | {"variants": self.variants()}
         if path.suffix.lower() != ".schdoc" or self.tree.source != "altium" or not self.tree.project_file:
             return scene
         found = self._compile()
@@ -335,6 +363,21 @@ class _ProjectNets:
             }
             return scene | {"meta": meta}
         return annotate_nets(scene, *found)
+
+
+def _variant(name: str, project: _ProjectNets, scene: dict[str, Any], result: dict[str, Any]) -> str:
+    """The variant ``--variant`` names, checked, with its counts on the document shown in ``result``."""
+    known = project.variants()
+    if name not in known:
+        listed = ", ".join(sorted(known)) or "none"
+        raise CliError(
+            "FEN-2001", f"--variant: no variant {name!r} (the project has: {listed})", where="--variant"
+        )
+    refs = [
+        str(c["ref"]) for c in cast("list[dict[str, Any]]", scene.get("comps", [])) if not c.get("hidden")
+    ]
+    result["variant"] = {"name": name, **variant_counts(known[name], refs)}
+    return name
 
 
 def _docs(argument: str | None, tree: ProjectTree) -> set[str] | None:
@@ -430,8 +473,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
-        scene = cached(doc.file)
+        scene: dict[str, Any] = cached(doc.file)
         scene["overlays"] = overlays
+        if args.variant is not None:
+            scene = scene | {"variant": _variant(args.variant, nets_of, scene, result)}
         if args.compare:
             diff = _compare(scene, args.compare, ctx, cached)
             scene = scene | {"diff": diff}

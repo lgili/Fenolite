@@ -14,9 +14,14 @@
 
 ## Decisions
 
-1. Variants are read from the `.PrjPcb` sections (`ProjectVariant<n>`, `Variation<k>`, `ParamVariation<k>`)
-   and, when present, the `.PrjPcbVariants` file; the design records which keys appear in which.
-2. A part is matched by its unique id, then its designator.
+1. Variants are read from the `.PrjPcb` sections (`ProjectVariant<n>`, `Variation<k>`, `ParamVariation<k>` with
+   `ParamDesignator<k>`). The six public project files hold their variants there; the `.PrjPcbVariants` file
+   that one project lists is not in the corpus and is not read.
+2. A part is matched by the last segment of its `UniqueId` path against the sheets' `UNIQUEID` (now in the
+   sheet scenes as `uid`), then by its designator: a variation keeps the designator of when it was made (`X?`
+   in the public variant `No Crystal`).
+3. The scenes of the project's sheets and board carry every variant resolved (`variants`), so the page switches
+   without a reload; `--variant` sets the first choice and counts the parts of the document shown.
 
 ## Risks / Trade-offs
 

@@ -394,6 +394,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.sheet` | `EVIDENCE` INFERRED: `H-A-RD-SHT-AREA`, `H-A-RD-SHT-BORDER`, `H-A-RD-SHT-IMAGE`, `H-A-RD-SHT-OWNER`, `H-A-RD-SHT-SAME`, `H-A-RD-SHT-STRINGS`, `H-A-RD-SHT-TEXT`, `H-A-RD-SHT-WIDTH` |
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |
+| `read.variants` | `EVIDENCE` INFERRED: `H-A-PRJ-VARIANT` |
 | `roundtrip` | `EVIDENCE_BODIES` INFERRED: `H-A-PCBX-BODY-READBACK`<br>`EVIDENCE_RT_A0` INFERRED: `H-A-VER-RTA0`<br>`EVIDENCE_RT_A2` INFERRED: `H-A-VER-RTA2-3`<br>`EVIDENCE_RT_A3` CORPUS-VERIFIED: `H-A-VER-RTA3`<br>`PROJECT_READ_EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PRJ-INI`<br>`_RT_A1` INFERRED: `H-A-VER-RTA1` |
 | `rta3` | see `roundtrip`, `import_evidence` |
 | `rulemap` | `EVIDENCE` INFERRED: `H-A-RULE-CLEARANCE-CELLS`, `H-A-RULE-CLEARANCE-FORMS`, `H-A-RULE-FILE`, `H-A-RULE-KINDS`, `H-A-RULE-PRIORITY`, `H-A-RULE-READBACK`, `H-A-RULE-SCOPE` |
