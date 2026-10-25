@@ -5,8 +5,13 @@ carries its tree and scenes unchanged."""
 
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from fenolite.backends import registry
 from fenolite.backends.altium.read.sch import read_schematic
@@ -60,13 +65,51 @@ def test_schematic_interaction_is_in_the_page() -> None:
     html = template()
     for name in ("drawSch", "navList", "sheetTabs", "selNet", "crossProbe", "schDouble", "toMMsch"):
         assert name in html, name
-    assert 'class="sch-only"' in html and "board-only" in html
+    assert 'class="sch-only' in html and "board-only" in html
 
 
 def test_the_page_reads_the_theme() -> None:
     """Scenario "The page reads the theme" (c0178)."""
     html = template()
     for name in ("S.theme", "sheet.workspace", 'sheet.text === "stroke"', "drawStrokeText", "l.alpha"):
+        assert name in html, name
+
+
+def test_units() -> None:
+    """Scenario "Unit conversions" (c0179): the page's own conversion functions, run in Node when it is
+    installed."""
+    html = template()
+    for name in (
+        "function fmtLen",
+        "function fmtNm",
+        'id="bUnit"',
+        "function snap(",
+        "function measureClick",
+    ):
+        assert name in html, name
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed: the definitions are checked, not run")
+    start = html.index("const MIL_MM")
+    end = html.index("function fmtPair")
+    code = html[start:end].replace("let UNIT = (() =>", "let UNIT = 'mm'; const _u = (() =>")
+    script = code + (
+        "const out = []; UNIT = 'mm'; out.push(fmtLen(1.2), fmtNm(254000));"
+        "UNIT = 'mil'; out.push(fmtLen(1.2), fmtNm(254000)); console.log(JSON.stringify(out));"
+    )
+    done = subprocess.run(
+        [node, "-e", "const localStorage = { getItem: () => null };" + script],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    assert json.loads(done.stdout) == ["1.200 mm", "0.254 mm", "47.24 mil", "10.00 mil"]
+
+
+def test_libraries_in_the_page() -> None:
+    html = template()
+    for name in ("function loadLibrary", "function openItem", 'id="libList"', "function toUnits", "padInfo"):
         assert name in html, name
 
 

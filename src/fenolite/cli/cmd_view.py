@@ -35,7 +35,9 @@ from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.view import export, server, themes
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
-from fenolite.view.project import ProjectTree, load_tree
+from fenolite.view.library import library_scene
+from fenolite.view.library import summary as library_summary
+from fenolite.view.project import VIEWABLE_LIBRARIES, ProjectTree, load_tree
 from fenolite.view.scene import build_scene, summary
 from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
@@ -51,7 +53,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "path",
         metavar="PATH",
-        help="an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or a .SchDoc or .kicad_sch",
+        help="a .PrjPcb or .kicad_pro, a project folder, a board, a sheet or a library",
     )
     parser.add_argument(
         "--doc", metavar="ID", help="the document to show: its id, path or name (default: the first board)"
@@ -83,6 +85,8 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
     """The scene of the board or the sheet at ``path``, read by the backend that reads it, in the colours of
     its tool; ``kicad`` replaces the ``kicad`` palette (a user's theme)."""
     suffix = path.suffix.lower()
+    if suffix in VIEWABLE_LIBRARIES:
+        return library_scene(path, kicad=kicad)
     if suffix == ".schdoc":
         return _sheet_scene(path)
     if suffix == ".kicad_sch":
@@ -137,6 +141,9 @@ def _sheet_scene(path: Path) -> dict[str, Any]:
 
 def _theme_name(scene: dict[str, Any]) -> str:
     """The palette a scene is drawn in: a board's theme, a KiCad sheet's palette, or ``altium``."""
+    if scene.get("kind") == "library":
+        drawn = [item["scene"] for item in scene["items"] if item.get("scene")]
+        return _theme_name(drawn[0]) if drawn else ""
     board: Any = scene.get("theme")
     if isinstance(board, dict):
         return str(cast("dict[str, Any]", board).get("name", ""))
@@ -144,6 +151,8 @@ def _theme_name(scene: dict[str, Any]) -> str:
 
 
 def _summary(scene: dict[str, Any]) -> dict[str, Any]:
+    if scene.get("kind") == "library":
+        return library_summary(scene)
     return schematic_summary(scene) if scene.get("kind") == "schematic" else summary(scene)
 
 

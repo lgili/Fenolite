@@ -32,7 +32,7 @@ from typing import Any
 from fenolite.backends.base import BoardFrame, BoardPad, EdgeRing
 from fenolite.core.coords import Point
 from fenolite.geometry.transform import rotate_point
-from fenolite.model.board import Board, FootprintInstance, Graphic
+from fenolite.model.board import Board, FootprintInstance, Graphic, Pad
 from fenolite.model.design import Design
 
 SCHEMA = "fenolite.view_scene.v0"
@@ -207,6 +207,39 @@ def _pad_prims(b: _Builder, pad: BoardPad, comp: int, derive_mask: bool) -> None
             b.add(DRILL, "l", [2 * r, *_flat(pad.hole)], pad.net, comp, label + " slot")
 
 
+def _pad_list(board: Board, pads: Sequence[BoardPad], comp_of: dict[str, int]) -> list[dict[str, Any]]:
+    """Every pad with its exact size (change c0179): centre in µm, sizes, drill and slot in nm from the
+    model pad, shape, board rotation in degrees, corner ratio, kind, layers, net and part."""
+    model: dict[tuple[str, str], Pad] = {(fp.id, pad.id): pad for fp in board.footprints for pad in fp.pads}
+    out: list[dict[str, Any]] = []
+    for pad in pads:
+        source = model.get((pad.footprint_id, pad.pad_id))
+        slot = None
+        if len(pad.hole) == 2:
+            a, z = pad.hole
+            slot = round(((z.x - a.x) ** 2 + (z.y - a.y) ** 2) ** 0.5)
+        out.append(
+            {
+                "label": f"{pad.ref}-{pad.number}" if pad.ref else pad.number,
+                "number": pad.number,
+                "x": _um(pad.position.x),
+                "y": _um(pad.position.y),
+                "w": source.size.w if source is not None else None,
+                "h": source.size.h if source is not None else None,
+                "shape": source.shape if source is not None else "",
+                "ratio": source.corner_ratio if source is not None else None,
+                "rot": _deg(pad.rotation),
+                "drill": pad.drill,
+                "slot": slot,
+                "kind": pad.kind,
+                "layers": list(pad.layers),
+                "net": pad.net or "",
+                "comp": comp_of.get(pad.footprint_id, -1),
+            }
+        )
+    return out
+
+
 def _copper_span(board: Board, ends: Sequence[str]) -> list[str]:
     copper = [layer.name for layer in board.layers if layer.kind == "copper"]
     found = [copper.index(name) for name in ends if name in copper]
@@ -322,6 +355,7 @@ def build_scene(
         )
     for pad in pads:
         _pad_prims(b, pad, comp_of.get(pad.footprint_id, -1), derive_mask=not has_mask)
+    pad_list = _pad_list(board, pads, comp_of)
 
     # tracks, arcs, vias
     for k, t in enumerate(board.tracks):
@@ -606,6 +640,7 @@ def build_scene(
         "nets": nets,
         "board3d": {"thickness": _um(thickness)},
         "bodies": bodies,
+        "pads": pad_list,
         "overlays": [],
     }
 

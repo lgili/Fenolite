@@ -34,7 +34,7 @@ def test_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 def test_altium_project(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM))
     assert code == 0 and envelope["result"]["summary"]["counts"]["pads"] > 0
-    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM), "--doc", "blink.PcbLib")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(HIER), "--doc", "altium_hier_flash.Harness")
     assert code == 0 and envelope["result"]["summary"] is None
     assert "no viewer" in envelope["result"]["notes"][0]
 
@@ -50,8 +50,9 @@ def test_schematic_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
     code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(HIER), "--export", "view.html", "--confirm")
     assert code == 0
     data = embedded((tmp_path / "view.html").read_text(encoding="utf-8"))
-    assert data is not None and len(data["scenes"]) == 3
-    assert all(scene["kind"] == "schematic" for scene in data["scenes"].values())
+    assert data is not None
+    kinds = sorted(scene["kind"] for scene in data["scenes"].values())
+    assert kinds == ["library", "schematic", "schematic", "schematic"]
 
 
 def test_export_follows_the_protocol(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -132,4 +133,18 @@ def test_kicad_sheet_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     assert code == 0
     summary = envelope["result"]["summary"]
     assert summary["kind"] == "schematic" and summary["counts"]["components"] == 5
+    assert envelope["result"]["theme"] == "kicad"
+
+
+def test_library_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Summary of a footprint library" (c0179)."""
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM), "--doc", "blink.PcbLib")
+    assert code == 0
+    summary = envelope["result"]["summary"]
+    assert summary["kind"] == "library" and summary["lib"] == "pcb" and summary["counts"]["items"] == 3
+    assert envelope["result"]["theme"] == "altium"
+    code, envelope, _, _ = run(
+        monkeypatch, tmp_path, "view", str(ROOT / "tests" / "data" / "libs" / "Mini_v9.kicad_sym")
+    )
+    assert code == 0 and envelope["result"]["summary"]["lib"] == "schematic"
     assert envelope["result"]["theme"] == "kicad"

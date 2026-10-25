@@ -63,6 +63,9 @@
   .tab.doc-tab .sw { border-radius:2px; }
   body.sch .board-only { display:none !important; }
   body:not(.sch) .sch-only { display:none !important; }
+  body:not(.lib) .lib-only { display:none !important; }
+  body.lib .nav-panel { display:none !important; }
+  #libFilter { width:100%; margin-bottom:4px; }
   #info table { border-collapse:collapse; }
   #info td { padding:1px 8px 1px 0; vertical-align:top; }
   #info td:first-child { color:var(--muted); white-space:nowrap; }
@@ -76,7 +79,8 @@
     <button id="b3d" class="board-only" title="2D / 3D (D)">3D</button>
     <button id="bFit" title="Fit to the window (F)">Fit</button>
     <button id="bFlip" class="board-only" title="View from below / above (B)">View: Top</button>
-    <button id="bMeasure" class="board-only" title="Measure a distance (M)">Measure</button>
+    <button id="bMeasure" title="Measure a distance; snaps to pad centres and vertices (M)">Measure</button>
+    <button id="bUnit" title="Units: millimetres or mil (Q)">mm</button>
     <input id="search" placeholder="Part or net…" title="Enter: find">
     <button id="bClear" title="Clear the selection (Esc)">Clear</button>
     <label class="board-only" title="Opacity of the other side"><small>Other side</small> <input id="opac" type="range" min="0" max="100" value="60" style="width:80px;vertical-align:middle"></label>
@@ -85,15 +89,17 @@
     <div class="ph">Projects</div>
     <div id="tree"></div>
     <div id="panels">
-      <div class="sch-only"><div class="navh"><h3>Navigator</h3></div>
+      <div class="lib-only"><div class="navh"><h3 id="libTitle">Library</h3></div>
+        <input id="libFilter" placeholder="Filter the library…"><div id="libList"></div></div>
+      <div class="sch-only nav-panel"><div class="navh"><h3>Navigator</h3></div>
         <input id="navFilter" placeholder="Filter parts and nets…"><div id="navList"></div></div>
       <h3 id="ovTitle" style="display:none">Findings</h3>
       <div id="overlays"></div>
       <h3>Notes</h3>
       <div class="notes" id="notes"></div>
       <h3>Shortcuts</h3>
-      <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>Esc</kbd> clear</div>
-      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Esc</kbd> clear</div>
+      <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>Esc</kbd> clear</div>
+      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Esc</kbd> clear</div>
     </div>
   </div>
   <div id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
@@ -184,7 +190,16 @@ const st = { single: false, measure: false, mpts: [], selNet: -1, selComp: -1, s
 const vis = new Map();
 const $ = id => document.getElementById(id);
 
+// ================================================================== units: millimetres or mil (Q), as in Altium
+const MIL_MM = 0.0254;
+let UNIT = (() => { try { return localStorage.getItem("fenolite.view.unit") === "mil" ? "mil" : "mm"; } catch (e) { return "mm"; } })();
+function fmtLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)} mil` : `${mm.toFixed(3)} mm`; }
+function fmtNm(nm) { return fmtLen(nm / 1e6); }
+function fmtPair(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)} × ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)} × ${b.toFixed(3)} mm`; }
+
 function toMM(scene) {
+  if (scene.mm) return scene; scene.mm = true;
+  for (const p of scene.pads || []) { p.x *= MM; p.y *= MM; }
   const f = v => v * MM;
   for (const pr of scene.prims) { const d = pr[2];
     if (pr[1] === "p" || pr[1] === "o") pr[2] = d.map(r => r.map(f)); else pr[2] = d.map(f);
@@ -323,14 +338,38 @@ function drawOverlays() {
     const p = o.pts[0]; ctx.beginPath(); ctx.arc(p[0], p[1], (i === st.selOv ? 9 : 6) / view.s, 0, 2 * Math.PI); ctx.stroke();
   });
 }
-function drawMeasure() {
-  if (!st.mpts.length) return; worldTf(); ctx.globalAlpha = 1; ctx.strokeStyle = "#00ff9c"; ctx.lineWidth = 1.5 / view.s;
-  const a = st.mpts[0], b = st.mpts[1] || st.mcur; if (!b) return;
-  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-  const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(b[0], b[1]); ctx.fillStyle = "#00ff9c"; ctx.font = "13px system-ui";
-  ctx.fillText(`${d.toFixed(3)} mm  (dx ${(b[0] - a[0]).toFixed(3)}, dy ${(b[1] - a[1]).toFixed(3)})`, P[0] + 10, P[1] - 10); worldTf();
+function snapPoints() {   // pad centres, line ends and vertices, circle centres, text anchors: where a measurement snaps
+  if (S.__snaps) return S.__snaps; const out = [];
+  if (S.kind === "schematic") {
+    for (const p of S.prims) { if (p.p && p.k !== "t") for (let i = 0; i < p.p.length; i += 2) out.push(p.p[i], p.p[i + 1]);
+      else if (p.k === "e" || p.k === "a" || p.k === "t") out.push(p.x, p.y);
+      else if (p.b) out.push(p.b[0], p.b[1], p.b[2], p.b[3]); } }
+  else {
+    for (const p of S.pads || []) out.push(p.x, p.y);
+    for (const pr of S.prims) { const d = pr[2];
+      if (pr[1] === "s") out.push(d[0], d[1], d[2], d[3]); else if (pr[1] === "a") out.push(d[0], d[1], d[4], d[5]);
+      else if (pr[1] === "c") out.push(d[0], d[1]); else if (pr[1] === "l") for (let i = 1; i + 1 < d.length; i += 2) out.push(d[i], d[i + 1]);
+      else if ((pr[1] === "p" || pr[1] === "o") && d.length === 1 && d[0].length <= 128) for (let i = 0; i < d[0].length; i += 2) out.push(d[0][i], d[0][i + 1]); } }
+  S.__snaps = out; return out;
 }
+function snap(x, y) {
+  const pts = snapPoints(), tol = 8 / view.s; let best = null, bd = tol;
+  for (let i = 0; i < pts.length; i += 2) { const d = Math.hypot(pts[i] - x, pts[i + 1] - y); if (d < bd) { bd = d; best = [pts[i], pts[i + 1]]; } }
+  return best ? { p: best, snapped: true } : { p: [x, y], snapped: false };
+}
+function drawMeasure() {
+  if (!st.measure && !st.mpts.length) return; worldTf(); ctx.globalAlpha = 1; const C = "#00e08a"; ctx.strokeStyle = C; ctx.lineWidth = 1.5 / view.s;
+  const mark = (q, on) => { const r = 4 / view.s; ctx.strokeRect(q[0] - r, q[1] - r, 2 * r, 2 * r); if (on) { ctx.beginPath(); ctx.moveTo(q[0] - 2 * r, q[1]); ctx.lineTo(q[0] + 2 * r, q[1]); ctx.moveTo(q[0], q[1] - 2 * r); ctx.lineTo(q[0], q[1] + 2 * r); ctx.stroke(); } };
+  if (st.mhover) mark(st.mhover.p, st.mhover.snapped);
+  if (!st.mpts.length) return;
+  const a = st.mpts[0], b = st.mpts[1] || (st.mhover && st.mhover.p); mark(a, true); if (!b) return;
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); if (st.mpts[1]) mark(b, true);
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]), txt = `${fmtLen(d)}   Δx ${fmtLen(Math.abs(b[0] - a[0]))}   Δy ${fmtLen(Math.abs(b[1] - a[1]))}`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(b[0], b[1]); ctx.font = "600 13px system-ui"; const w = ctx.measureText(txt).width;
+  ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] - 28, w + 12, 20); ctx.fillStyle = C; ctx.fillText(txt, P[0] + 14, P[1] - 13); worldTf();
+  $("coord").textContent = `measure: ${txt}`;
+}
+function measureClick(X, Y) { const [x, y] = s2w(X, Y), q = snap(x, y).p; if (st.mpts.length >= 2) st.mpts = []; st.mpts.push(q); draw(); }
 
 // ================================================================== hit test (2D)
 function segDist(px, py, x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0;
@@ -357,17 +396,32 @@ function pick(X, Y) {
 }
 function showInfo(html) { const el = $("info"); if (!html) { el.style.display = "none"; return; } el.innerHTML = html; el.style.display = "block"; }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
-function compInfo(ci) { const c = S.comps[ci]; return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${c.x.toFixed(3)}, ${c.y.toFixed(3)}) mm`; }
-function select(h) {
-  st.selNet = -1; st.selComp = -1;
+function compInfo(ci) { const c = S.comps[ci], b = c.bbox; return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +
+  (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : ""); }
+function padOf(label, x, y) {   // the pad entry of a primitive's label nearest the point
+  let best = null, bd = Infinity; for (const p of S.pads || []) { if (p.label !== label.replace(/ (hole|slot)$/, "")) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } } return best; }
+function padInfo(p) {
+  const r = [`<br><b>Pad ${esc(p.number)}</b> · ${esc(p.shape || "?")} · ${esc(p.kind)}`];
+  if (p.w != null) r.push(`Size: ${fmtPair(p.w / 1e6, p.h / 1e6)}`);
+  if (p.ratio != null && p.w != null) r.push(`Corner radius: ${fmtNm(p.ratio / 1e6 * Math.min(p.w, p.h))}`);
+  if (p.drill != null) r.push(`Hole Ø ${fmtNm(p.drill)}` + (p.slot ? ` · slot ${fmtNm(p.slot + p.drill)} long` : ""));
+  r.push(`Centre: (${fmtLen(p.x)}, ${fmtLen(p.y)}) · rot ${(+p.rot).toFixed(1)}°`);
+  if (p.layers && p.layers.length) r.push(`Layers: ${esc(p.layers.join(", "))}`);
+  return r.join("<br>");
+}
+function select(h, at) {
+  st.selNet = -1; st.selComp = -1; st.lastHit = h; st.lastAt = at;
   if (!h) { showInfo(null); draw(); return; }
   const pr = h.pr, net = pr[3], ci = pr[4];
   let html = `<b>${esc(pr[5] || h.layer.name)}</b><br>Layer: ${esc(h.layer.name)}`;
   if (net >= 0) { html += `<br>Net: <b>${esc(S.nets[net])}</b>`; st.selNet = net; }
   if (ci >= 0) { html += `<br>${compInfo(ci)}`; if (net < 0) st.selComp = ci; }
-  if (pr[1] === "s") html += `<br>Width: ${pr[2][4].toFixed(3)} mm`;
-  if (pr[1] === "a") html += `<br>Width: ${pr[2][6].toFixed(3)} mm` + (pr[6] ? ` · radius ${pr[6].r.toFixed(3)} mm` : "");
-  if (pr[1] === "c" && h.layer.id === "View.Drill") html += `<br>Hole Ø ${(2 * pr[2][2]).toFixed(3)} mm`;
+  if (pr[1] === "s") html += `<br>Width: ${fmtLen(pr[2][4])} · length ${fmtLen(Math.hypot(pr[2][2] - pr[2][0], pr[2][3] - pr[2][1]))}`;
+  if (pr[1] === "a") html += `<br>Width: ${fmtLen(pr[2][6])}` + (pr[6] ? ` · radius ${fmtLen(pr[6].r)}` : "");
+  const pad = pr[5] && at ? padOf(pr[5], at[0], at[1]) : null;
+  if (pad) html += padInfo(pad);
+  else if (pr[1] === "c" && h.layer.id === "View.Drill") html += `<br>Hole Ø ${fmtLen(2 * pr[2][2])}`;
+  else if (pr[1] === "c") html += `<br>Diameter: ${fmtLen(2 * pr[2][2])}`;
   showInfo(html); draw();
 }
 
@@ -552,10 +606,10 @@ async function sceneOf(d) {
   if (SCENES.has(d.id)) return SCENES.get(d.id);
   if (!LIVE) return null;
   const r = await fetch(`scene/${encodeURIComponent(d.id)}.json`, { cache: "no-store" }); if (!r.ok) throw new Error(await r.text());
-  const raw = await r.json(), sc = raw.kind === "schematic" ? toMMsch(raw) : toMM(raw); SCENES.set(d.id, sc); return sc;
+  const sc = toUnits(await r.json()); SCENES.set(d.id, sc); return sc;
 }
 async function openDoc(d, keepView) {
-  if (!DOC || DOC.id !== d.id) st.version = null;
+  if (!DOC || DOC.id !== d.id) { st.version = null; if (LIB) { LIB = null; document.body.classList.remove("lib"); } }
   DOC = d; buildTree(); showInfo(null);
   if (!d.viewable || !d.present) { docCard(d); return; }
   $("doccard").style.display = "none";
@@ -578,8 +632,13 @@ function buildPanels() {
     `<br>${c.footprints || 0} parts · ${c.pads || 0} pads · ${c.tracks || 0} tracks · ${c.vias || 0} vias · ${c.zones || 0} zones`;
 }
 function loadScene(scene, keepView) {
+  st.mpts = []; st.mhover = null; st.lastHit = null;
+  if (scene.kind === "library") { loadLibrary(scene, keepView); return; }
   if (scene.kind === "schematic") { loadSch(scene, keepView); return; }
-  document.body.classList.remove("sch");
+  loadBoard(scene, keepView);
+}
+function loadBoard(scene, keepView) {
+  document.body.classList.remove("sch"); st.itemInfo = false;
   const first = S === null || S !== scene && !keepView; S = scene;
   for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
   if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
@@ -614,21 +673,29 @@ cv.addEventListener("mousedown", e => { if (document.activeElement && document.a
   drag = { x: e.offsetX, y: e.offsetY, cx: view.cx, cy: view.cy, moved: false }; });
 window.addEventListener("mouseup", e => { if (!drag) return; const d = drag; drag = null;
   if (d.moved || e.target !== cv) return; const [x, y] = s2w(e.offsetX, e.offsetY);
-  if (st.measure) { if (st.mpts.length >= 2) st.mpts = []; st.mpts.push([x, y]); draw(); return; }
-  if (isSch()) schSelect(schPick(e.offsetX, e.offsetY)); else select(pick(e.offsetX, e.offsetY)); });
+  if (st.measure) { measureClick(e.offsetX, e.offsetY); return; }
+  if (isSch()) schSelect(schPick(e.offsetX, e.offsetY)); else select(pick(e.offsetX, e.offsetY), [x, y]); });
 cv.addEventListener("dblclick", e => { if (!S) return;
   if (isSch()) { schDouble(e.offsetX, e.offsetY); return; }
   const h = pick(e.offsetX, e.offsetY), ci = h ? h.pr[4] : -1; if (ci >= 0) crossProbe(S.comps[ci].ref, "schematic"); });
 cv.addEventListener("contextmenu", e => { if (isSch()) e.preventDefault(); });
+function showCoord(x, y) {
+  st.mouse = [x, y];
+  if (!(st.measure && st.mpts.length)) $("coord").textContent = isSch()
+    ? `X ${fmtLen(x - S.sheet.origin[0])}  Y ${fmtLen(S.sheet.origin[1] - y)} · grid ${fmtLen(S.sheet.grid)}` : `x ${fmtLen(x)}  y ${fmtLen(y)}`;
+}
 cv.addEventListener("mousemove", e => { if (!S) return; const [x, y] = s2w(e.offsetX, e.offsetY);
-  $("coord").textContent = isSch() ? `X:${Math.round(x / MIL)} Y:${Math.round((S.sheet.h - y) / MIL)} mil · grid ${Math.round(S.sheet.grid / MIL)} mil` : `x ${x.toFixed(3)}  y ${y.toFixed(3)} mm`;
+  showCoord(x, y);
   if (drag) { const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
     view.cx = drag.cx - m() * dx / view.s; view.cy = drag.cy - dy / view.s; draw(); }
-  else if (st.measure && st.mpts.length === 1) { st.mcur = [x, y]; draw(); } });
+  else if (st.measure) { st.mhover = snap(x, y); draw(); } });
 cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = s2w(e.offsetX, e.offsetY); const f = Math.exp(-e.deltaY * 0.0015);
   view.s = Math.min(Math.max(view.s * f, 0.2), 400); const [x2, y2] = s2w(e.offsetX, e.offsetY); view.cx += x - x2; view.cy += y - y2; draw(); }, { passive: false });
 window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S) return;
   const k = e.key;
+  if (k === "q" || k === "Q") { setUnit(UNIT === "mm" ? "mil" : "mm"); return; }
+  if ((k === "m" || k === "M") && !st.mode3d) { toggle("measure", "bMeasure"); return; }
+  if (k === "Escape" && (st.measure || st.mpts.length)) { st.mpts = []; st.mhover = null; if (st.measure) toggle("measure", "bMeasure"); return; }
   if (isSch()) { if (k === "f" || k === "F") fit(); else if (k === "Escape") schSelect(-1);
     else if (k === "PageUp" || k === "PageDown") { e.preventDefault(); zoomBy(k === "PageUp" ? 1.25 : 0.8); } return; }
   if (k === "d" || k === "D") set3D(!st.mode3d);
@@ -647,6 +714,7 @@ const WORKSPACE = "#4a4d52", SEL = "#00b050";
 const isSch = () => !!(S && S.kind === "schematic");
 const MIL = 0.0254;
 function toMMsch(sc) {
+  if (sc.mm) return sc;
   const f = v => v * MM, fb = b => b ? b.map(f) : b;
   for (const p of sc.prims) { if (p.p) p.p = p.p.map(f); if (p.b) p.b = p.b.map(f);
     for (const k of ["x", "y", "rx", "ry", "w", "m", "sz", "gw", "th"]) if (typeof p[k] === "number") p[k] = p[k] * MM;
@@ -654,7 +722,8 @@ function toMMsch(sc) {
   for (const o of sc.objects) o.b = fb(o.b);
   for (const c of sc.comps) c.b = fb(c.b);
   for (const fo of sc.fonts) fo.emm = fo.em * MM;
-  const sh = sc.sheet; for (const k of ["w", "h", "grid", "margin"]) sh[k] *= MM;
+  const sh = sc.sheet; for (const k of ["w", "h", "grid", "margin", "x0", "y0"]) if (typeof sh[k] === "number") sh[k] *= MM;
+  sh.x0 = sh.x0 || 0; sh.y0 = sh.y0 || 0; sh.origin = sh.origin ? sh.origin.map(f) : [0, sh.h];
   if (sh.text === "stroke") sc.comps.forEach(c => { c.hidden = c.ref.startsWith("#"); });
   sc.bounds = sc.bounds.map(f); sc.mm = true; return sc;
 }
@@ -770,26 +839,28 @@ function drawPrim(p, alpha) {
 function visibleBox() { const [ax, ay] = s2w(0, 0), [bx, by] = s2w(W, H); return [Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)]; }
 function drawGrid(sh) {
   if (!sh.grid || sh.grid * view.s < 8) return;
-  const vb = visibleBox(), g = sh.grid, x0 = Math.max(0, Math.floor(vb[0] / g) * g), x1 = Math.min(sh.w, vb[2]), y0 = Math.max(0, Math.floor(vb[1] / g) * g), y1 = Math.min(sh.h, vb[3]);
+  const vb = visibleBox(), g = sh.grid, ox = sh.origin ? sh.origin[0] : 0, oy = sh.origin ? sh.origin[1] : 0, X0 = sh.x0 || 0, Y0 = sh.y0 || 0, X1 = X0 + sh.w, Y1 = Y0 + sh.h;
+  const x0 = ox + Math.ceil((Math.max(X0, vb[0]) - ox) / g) * g, x1 = Math.min(X1, vb[2]), y0 = oy + Math.ceil((Math.max(Y0, vb[1]) - oy) / g) * g, y1 = Math.min(Y1, vb[3]);
   if (sh.text === "stroke") {   // KiCad draws its grid as dots
     ctx.globalAlpha = 1; ctx.fillStyle = sh.grid_color || shade(sh.color, 0.3); const d = 1.4 / view.s;
     for (let x = x0; x <= x1; x += g) for (let y = y0; y <= y1; y += g) ctx.fillRect(x - d / 2, y - d / 2, d, d); return; }
   ctx.globalAlpha = 1; ctx.strokeStyle = shade(sh.color, 0.08); ctx.lineWidth = 1 / view.s; ctx.beginPath();
-  for (let x = x0; x <= x1; x += g) { ctx.moveTo(x, Math.max(0, vb[1])); ctx.lineTo(x, Math.min(sh.h, vb[3])); }
-  for (let y = y0; y <= y1; y += g) { ctx.moveTo(Math.max(0, vb[0]), y); ctx.lineTo(Math.min(sh.w, vb[2]), y); }
+  for (let x = x0; x <= x1; x += g) { ctx.moveTo(x, Math.max(Y0, vb[1])); ctx.lineTo(x, Math.min(Y1, vb[3])); }
+  for (let y = y0; y <= y1; y += g) { ctx.moveTo(Math.max(X0, vb[0]), y); ctx.lineTo(Math.min(X1, vb[2]), y); }
   ctx.stroke();
 }
 function shade(hex, f) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * (1 - f))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
 function drawSch() {
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = S.sheet.workspace || WORKSPACE; ctx.fillRect(0, 0, cv.width, cv.height);
   worldTf(); const sh = S.sheet;
-  ctx.save(); ctx.shadowColor = "#0008"; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; ctx.fillStyle = sh.color; ctx.fillRect(0, 0, sh.w, sh.h); ctx.restore();
+  ctx.save(); ctx.shadowColor = "#0008"; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; ctx.fillStyle = sh.color; ctx.fillRect(sh.x0 || 0, sh.y0 || 0, sh.w, sh.h); ctx.restore();
   drawGrid(sh);
   const vb = visibleBox(), pad = 2;
   for (const p of S.prims) { const b = p.bb; if (b && (b[2] < vb[0] - pad || b[0] > vb[2] + pad || b[3] < vb[1] - pad || b[1] > vb[3] + pad)) continue; drawPrim(p, schAlpha(p)); }
   ctx.globalAlpha = 1;
   const sb = SCH.selComp >= 0 ? S.comps[SCH.selComp].b : SCH.sel >= 0 && SCH.selNet < 0 ? S.objects[SCH.sel].b : null;
   if (sb) { const e = 4 / view.s; ctx.strokeStyle = SEL; ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(sb[0] - e, sb[1] - e, sb[2] - sb[0] + 2 * e, sb[3] - sb[1] + 2 * e); ctx.setLineDash([]); }
+  drawMeasure();
   $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
 }
 // --- hit test
@@ -818,6 +889,7 @@ function schPick(X, Y) {
 }
 function rows(list) { return `<table>${list.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table>`; }
 function compRows(ci) { const c = S.comps[ci]; const r = [["Designator", c.ref], ["Comment", c.comment], ["Design Item ID", c.lib]];
+  if (c.b) r.push(["Extent", fmtPair(c.b[2] - c.b[0], c.b[3] - c.b[1])]);
   if (c.description) r.push(["Description", c.description]); if (c.footprint) r.push(["Footprint", c.footprint]);
   for (const [k, v] of Object.entries(c.params || {})) r.push([k, v]); return r; }
 function schSelect(oi) {
@@ -882,6 +954,7 @@ function schFind(q) {
   showInfo(`Nothing named <b>${esc(q)}</b> on this sheet.`);
 }
 function loadSch(scene, keepView) {
+  st.itemInfo = false;
   const first = S === null || S !== scene && !keepView; if (!scene.mm) toMMsch(scene); S = scene;
   document.body.classList.add("sch"); if (st.mode3d) set3D(false);
   SCH.sel = -1; SCH.selNet = -1; SCH.selComp = -1; showInfo(null);
@@ -896,9 +969,60 @@ function loadSch(scene, keepView) {
   if (first) { fitted = false; fit(); } else draw();
 }
 
+// ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
+let LIB = null, LIBSEL = -1, LIBQ = "";
+function toUnits(sc) {
+  if (sc.kind === "library") { for (const it of sc.items) if (it.scene) toUnits(it.scene); return sc; }
+  return sc.kind === "schematic" ? toMMsch(sc) : toMM(sc);
+}
+function itemNote(it) {
+  if (it.copper_nm) { const b = it.copper_nm; return `${it.pads} pads · ${fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)}`; }
+  return it.pins != null ? `${it.pins} pins` : "";
+}
+function buildLibList() {
+  const box = $("libList"); box.innerHTML = ""; if (!LIB) return; const q = LIBQ.trim().toLowerCase();
+  $("libTitle").textContent = `${LIB.lib === "pcb" ? "Footprints" : "Symbols"} (${LIB.items.length})`;
+  LIB.items.forEach((it, i) => { if (q && !it.name.toLowerCase().includes(q) && !(it.description || "").toLowerCase().includes(q)) return;
+    const d = document.createElement("div"); d.className = "navi" + (i === LIBSEL ? " sel" : ""); d.title = it.description || it.name;
+    d.innerHTML = `${esc(it.name)} <small>${esc(itemNote(it))}</small>`; d.onclick = () => openItem(i); box.appendChild(d); });
+}
+function itemInfo(it) {
+  const rows = [...it.info];
+  if (it.copper_nm) { const b = it.copper_nm; rows.push(["Copper extent", fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)]); }
+  if (it.courtyard_nm) { const b = it.courtyard_nm; rows.push(["Courtyard", fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)]); }
+  return `<b>Properties</b> · ${LIB.lib === "pcb" ? "Footprint" : "Symbol"}${rows.length ? `<table>${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table>` : ""}`;
+}
+function openItem(i, keepView) {
+  LIBSEL = i; const it = LIB.items[i]; buildLibList();
+  if (!it.scene) { showInfo(`<b>${esc(it.name)}</b> could not be drawn; see the notes.`); return; }
+  if (it.scene.kind === "schematic") loadSch(it.scene, keepView); else loadBoard(it.scene, keepView);
+  document.body.classList.add("lib"); $("fname").textContent = `${LIB.meta.name} › ${it.name}`;
+  showInfo(itemInfo(it)); st.itemInfo = true;
+}
+function loadLibrary(scene, keepView) {
+  const prev = LIB && LIBSEL >= 0 ? LIB.items[LIBSEL].name : null; LIB = scene;
+  document.body.classList.add("lib");
+  let i = prev ? scene.items.findIndex(it => it.name === prev) : -1; if (i < 0) i = scene.items.findIndex(it => it.scene); if (i < 0) i = 0;
+  if (!scene.items.length) { LIBSEL = -1; buildLibList(); showInfo("This library holds no item."); return; }
+  openItem(i, keepView && prev !== null);
+  if (scene.meta.notes && scene.meta.notes.length) $("notes").innerHTML += "<br>" + scene.meta.notes.map(esc).join("<br>");
+}
+$("libFilter").addEventListener("input", e => { LIBQ = e.target.value; buildLibList(); });
+function setUnit(u) {
+  UNIT = u; $("bUnit").textContent = u; try { localStorage.setItem("fenolite.view.unit", u); } catch (e) { /* the choice is kept for this page only */ }
+  if (!S) return;
+  if (LIB && st.itemInfo && LIBSEL >= 0 && !st.lastHit && SCH.sel < 0) showInfo(itemInfo(LIB.items[LIBSEL]));
+  if (isSch()) { if (SCH.sel >= 0) schSelect(SCH.sel); else if (SCH.selNet >= 0) selectNet(SCH.selNet, false); }
+  else if (st.lastHit) select(st.lastHit, st.lastAt);
+  if (st.mouse) showCoord(st.mouse[0], st.mouse[1]);
+  buildLibList(); draw();
+}
+$("bUnit").onclick = () => setUnit(UNIT === "mm" ? "mil" : "mm");
+$("bUnit").textContent = UNIT;
+
 // ================================================================== start: embedded data or the live server
 async function start() {
-  if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) SCENES.set(id, sc.kind === "schematic" ? toMMsch(sc) : toMM(sc)); }
+  if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) SCENES.set(id, toUnits(sc)); }
   else if (LIVE) { PROJECT = await (await fetch("project.json", { cache: "no-store" })).json(); }
   buildTree();
   const docs = PROJECT ? PROJECT.groups.flatMap(g => g.documents) : [];

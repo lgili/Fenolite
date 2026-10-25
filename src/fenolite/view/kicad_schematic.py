@@ -1134,4 +1134,132 @@ def _sheet(
     del y1
 
 
-__all__ = ["SCHEMA", "build_kicad_schematic_scene"]
+__all__ = ["SCHEMA", "build_kicad_schematic_scene", "symbol_scene", "symbol_units"]
+
+
+def symbol_units(node: Node, library: dict[str, Node]) -> int:
+    """The number of units of a library symbol, its parent's for a derived symbol (``extends``)."""
+    return _unit_count(_base(node, library))
+
+
+def _base(node: Node, library: dict[str, Node]) -> Node:
+    extends = node.find("extends")
+    parent = library.get(_text(extends)) if extends is not None else None
+    return parent if parent is not None else node
+
+
+def symbol_scene(
+    node: Node,
+    library: dict[str, Node],
+    *,
+    unit: int = 1,
+    style: int = 1,
+    name: str,
+    palette: dict[str, Any],
+    evidence: str = "INFERRED",
+) -> dict[str, Any]:
+    """The scene of one unit of a library symbol (change c0179), at the origin, on a sheet the size of the
+    symbol grown by 2.54 mm; ``sheet.origin`` is the symbol's origin."""
+    b = _Builder(palette)
+    big = 10**12
+    b.box = [big, big, -big, -big]
+    base = _base(node, library)
+    props = _properties(node)
+    ref = _text(props["Reference"], 1) if "Reference" in props else ""
+    value = _text(props["Value"], 1) if "Value" in props else _text(node)
+    b.comps.append(
+        {
+            "ref": ref,
+            "group": ref,
+            "comment": value,
+            "lib": _text(node),
+            "description": _text(props["Description"], 1) if "Description" in props else "",
+            "footprint": _text(props["Footprint"], 1) if "Footprint" in props else "",
+            "params": {k: _text(p, 1) for k, p in props.items() if _text(p, 1)},
+            "b": None,
+        }
+    )
+    oid = b.obj("comp", comp=0, info=[["Symbol", _text(node)], ["Unit", str(unit)]])
+    names_shown, offset, numbers_shown = True, 508, True
+    pin_names = base.find("pin_names") or node.find("pin_names")
+    if pin_names is not None:
+        names_shown = not _flag(pin_names, "hide")
+        offsets = _nums(pin_names.find("offset"))
+        offset = offsets[0] if offsets else 508
+    pin_numbers = base.find("pin_numbers") or node.find("pin_numbers")
+    numbers_shown = pin_numbers is None or not _flag(pin_numbers, "hide")
+    pins: list[Node] = []
+    for sub in _units(base, unit, style):
+        for graphic in sub.nodes():
+            if graphic.name == "pin":
+                pins.append(graphic)
+            else:
+                b.current = oid
+                _graphic(b, graphic, IDENT, "component_outline", lib=True)
+    for key, prop in props.items():
+        size, h, v, hidden = _effects(prop)
+        text = _text(prop, 1)
+        values = _nums(prop.find("at"))
+        if hidden or not text or text == "~" or len(values) < 2:
+            continue
+        role = {"Reference": "reference", "Value": "value"}.get(key, "fields")
+        b.current = oid
+        rot = round(_float(prop.find("at"), 2) / 90) % 2
+        b.text((values[0], -values[1]), text, size, b.color(role), rot=rot, h=h, v=v, role=role)
+    entry = b.comps[0]
+    entry["b"] = b.objects[oid]["b"]
+    for pin in pins:
+        index = b.obj("pin", comp=0)
+        _conn, number, pin_name, etype = _pin(b, pin, IDENT, (names_shown, offset), numbers_shown)
+        if _flag(pin, "hide"):
+            b.objects.pop()
+            continue
+        b.objects[index]["info"] = [["Pin", number], ["Name", pin_name], ["Type", etype]]
+    b.done()
+    if b.box[0] > b.box[2]:
+        b.box = [-2_540, -2_540, 2_540, 2_540]
+    pad = 2_540
+    x0, y0, x1, y1 = b.box[0] - pad, b.box[1] - pad, b.box[2] + pad, b.box[3] + pad
+    kinds = [obj["k"] for obj in b.objects]
+    roles = b.roles
+    b.notes.append(colour_note(palette))
+    return {
+        "schema": SCHEMA,
+        "kind": "schematic",
+        "meta": {
+            "name": name,
+            "sha256": "",
+            "bytes": 0,
+            "backend": "kicad",
+            "evidence": evidence,
+            "counts": {"components": 1, "pins": kinds.count("pin"), "prims": len(b.prims)},
+            "notes": b.notes,
+            "theme": palette["name"],
+        },
+        "bounds": [x0, y0, x1, y1],
+        "sheet": {
+            "w": x1 - x0,
+            "h": y1 - y0,
+            "x0": x0,
+            "y0": y0,
+            "origin": [0, 0],
+            "color": roles.get("background", "#f4f2ea"),
+            "grid": 1_270,
+            "grid_color": roles.get("grid"),
+            "border": False,
+            "margin": 0,
+            "zones": [1, 1],
+            "title_block": False,
+            "style": "Library",
+            "text": "stroke",
+            "workspace": roles.get("background"),
+        },
+        "fonts": [
+            {"name": "stroke", "size": 0, "em": TEXT, "bold": False, "italic": False, "underline": False}
+        ],
+        "prims": b.prims,
+        "objects": b.objects,
+        "comps": b.comps,
+        "nets": [],
+        "overlays": [],
+    }

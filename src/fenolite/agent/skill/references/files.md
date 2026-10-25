@@ -31,7 +31,7 @@ fenolite view blink/altium/blink.PrjPcb --doc blink.SchDoc --json
 fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
 ```
 
-`view` replies with the project's documents and a summary of one board, or of one sheet with `--doc`;
+`view` replies with the project's documents and a summary of one board, or of a sheet or library with `--doc`;
 `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
 (for a person, not an agent) serves it live.
 

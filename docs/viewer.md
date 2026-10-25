@@ -1,6 +1,6 @@
 # Board and schematic viewer
 
-`fenolite view` shows the boards and the sheets of a project in a web browser, without the tool that made
+`fenolite view` shows the boards, the sheets and the libraries of a project in a web browser, without the tool that made
 them: an Altium project on a machine without Altium, a KiCad board in a review, a board or a sheet an agent
 just wrote. It reads every board through the neutral model (change c0176), draws every Altium `.SchDoc` in
 the manner of Altium Designer (change c0177) and every KiCad `.kicad_sch` in the manner of KiCad (change
@@ -67,6 +67,43 @@ copied (`docs/formats/kicad/color-theme.md`).
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Units and measurement
+
+Every length the page shows can be read in millimetres or in mil (change c0179). The **mm / mil** button in
+the top bar and the key `Q` switch it, as in Altium. The choice is kept for the next visit of the page. It
+applies to:
+- the cursor position and the grid;
+- measurements;
+- the Properties panel: track width and length, arc radius, via and hole diameter, pad size, corner radius,
+  drill and slot, part position and extent, a footprint's copper and courtyard extent.
+
+**Measure** (`M`) works on boards, sheets and library items. Each click snaps to the nearest pad centre, line
+end, vertex, circle centre or text anchor within 8 px. A pitch therefore reads centre to centre, and the
+readout gives the distance with Δx and Δy. A third click starts a new measurement, and `Esc` ends it.
+
+A click on a pad shows its exact size from the model:
+- width × height, shape and corner radius;
+- drill, and slot length;
+- centre, rotation and layers.
+
+This is the place to check that an agent gave a pad, a pitch or a part the size that was asked for.
+
+## Libraries
+
+Schematic and footprint libraries open from the tree like any document (change c0179):
+- Altium `.SchLib` and `.PcbLib`;
+- KiCad `.kicad_sym`, a `.pretty` folder or one `.kicad_mod`.
+
+The left panel lists the library's symbols or footprints, with a filter and a short summary of each: pins, or
+pads and copper extent. A click opens the item:
+- **A footprint** is drawn alone at its origin, as on a board: layer tabs, pads with their exact sizes,
+  silkscreen, courtyard, fabrication and mechanical layers, and the 3D view of its bodies. Its colours are
+  those of its tool.
+- **A symbol** is drawn as on a sheet, one item per part or unit, with its pins, names, numbers and fields.
+  The status line reads library coordinates from the symbol's origin.
+
+Integrated libraries (`.IntLib`) are listed, not drawn.
+
 ## Schematics
 
 An Altium sheet opens like a board: from the project tree, from the sheet tabs along the bottom, or with
@@ -127,5 +164,6 @@ boxes, tables and rule areas are counted in the notes, not drawn.
 
 Use `fenolite view PATH --json` to list a project's documents and to check what a board holds (the counts of
 pads, tracks, zones, fills, texts and bodies, and the notes), or `--doc SHEET` for what an Altium sheet holds
-(parts, pins, wires, labels, ports, sheet symbols and nets). Use `--export` to hand a person one page to
+(parts, pins, wires, labels, ports, sheet symbols and nets), or `--doc LIBRARY` for the names of a library's
+symbols or footprints. Use `--export` to hand a person one page to
 review. `--serve` keeps running until it is interrupted; it is for a person at a browser.

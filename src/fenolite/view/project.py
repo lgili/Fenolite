@@ -5,8 +5,8 @@
 An Altium project file lists its documents; a KiCad project is the folder of its project file; a folder
 gives the tree of its one project file, or of its boards; a board is a tree of one document. Documents are
 grouped as the native tools group them: "Source Documents", "Libraries", "Settings", "Documentation" and
-"Other". Boards, Altium sheets (change c0177) and KiCad sheets (change c0178) can be viewed; every other
-document is listed with its kind and size.
+"Other". Boards, Altium sheets (change c0177), KiCad sheets (change c0178) and symbol and footprint
+libraries (change c0179) can be viewed; every other document is listed with its kind and size.
 Nothing is written, and a path that leaves the project folder is listed and never opened.
 """
 
@@ -36,7 +36,9 @@ GROUP_OF: dict[str, str] = {
     "annotation": "Documentation",
     "bom": "Documentation",
 }
-VIEWABLE = frozenset({"pcb", "schematic"})
+VIEWABLE = frozenset({"pcb", "schematic", "pcb-library", "schematic-library"})
+VIEWABLE_LIBRARIES = (".pcblib", ".schlib", ".kicad_sym", ".kicad_mod", ".pretty")
+"""The library files that have a scene (change c0179); integrated libraries are listed, not viewed."""
 VIEWABLE_SCHEMATICS = (".schdoc", ".kicad_sch")
 """The schematic files that have a scene: Altium sheets (c0177) and KiCad sheets (c0178)."""
 BOARD_SUFFIXES = (".pcbdoc", ".kicad_pcb")
@@ -130,6 +132,8 @@ def _size(path: Path | None) -> int | None:
 def _viewable(kind: str, rel: str) -> bool:
     if kind == "schematic":
         return rel.lower().endswith(VIEWABLE_SCHEMATICS)
+    if kind in ("pcb-library", "schematic-library"):
+        return rel.lower().endswith(VIEWABLE_LIBRARIES)
     return kind in VIEWABLE
 
 
@@ -196,6 +200,10 @@ def load_tree(path: Path) -> ProjectTree:
     a board."""
     if not path.exists():
         raise FileNotFoundError(f"no file or folder at {path.name!r}")
+    if path.is_dir() and path.suffix.lower() == ".pretty":
+        return ProjectTree(
+            path.stem, "library", path.parent, "", _documents([(path.name, "pcb-library", path)])
+        )
     if path.is_dir():
         projects = [f for f in sorted(path.iterdir()) if f.is_file() and f.suffix.lower() in PROJECT_SUFFIXES]
         if len(projects) == 1:
@@ -209,6 +217,9 @@ def load_tree(path: Path) -> ProjectTree:
     if suffix in BOARD_SUFFIXES:
         kind = "pcb"
         return ProjectTree(path.stem, "board", path.parent, "", _documents([(path.name, kind, path)]))
+    if suffix in VIEWABLE_LIBRARIES:
+        kind = "schematic-library" if suffix in (".schlib", ".kicad_sym") else "pcb-library"
+        return ProjectTree(path.stem, "library", path.parent, "", _documents([(path.name, kind, path)]))
     if suffix in VIEWABLE_SCHEMATICS:
         return ProjectTree(path.stem, "sheet", path.parent, "", _documents([(path.name, "schematic", path)]))
     if document_kind(path.name) != "other":

@@ -83,8 +83,9 @@ from fenolite.backends.altium.read.sch import (
     WarningSign,
     Wire,
 )
-from fenolite.backends.altium.read.sch.records import DIRECTIONS, RecordRef
+from fenolite.backends.altium.read.sch.records import DIRECTIONS, Font, RecordRef, read_fonts
 from fenolite.backends.altium.read.sch.units import Color
+from fenolite.backends.altium.read.schlib import SchLibComponent, SchLibrary
 from fenolite.backends.altium.read.sheet import LINE_WIDTHS, SHEET_STYLES
 
 SCHEMA = "fenolite.view_schematic.v0"
@@ -164,8 +165,10 @@ def _overline(text: str) -> tuple[str, list[int]]:
 class _Builder:
     """The scene being built: the sheet frame, the font table, primitives, objects and bounds."""
 
-    def __init__(self, document: SchDocument, name: str) -> None:
+    def __init__(self, document: SchDocument, name: str, fonts: tuple[Font, ...] | None = None) -> None:
         self.doc = document
+        self.part: int | None = None
+        """A part to draw instead of each component's current part (library symbols, change c0179)."""
         self.name = name
         self.notes: list[str] = []
         self.prims: list[dict[str, Any]] = []
@@ -175,7 +178,7 @@ class _Builder:
         self.skipped_ieee = 0
         sheet = document.sheet
         self.sheet = sheet
-        self.fonts, self.font_of = self._fonts(sheet)
+        self.fonts, self.font_of = self._fonts(sheet.fonts if sheet else (fonts or ()))
         self.system_font = self.font_of.get(sheet.system_font if sheet else 1, 0)
         self.params = self._sheet_params()
         self.w, self.h, self.style = self._size(sheet)
@@ -183,10 +186,10 @@ class _Builder:
 
     # --- frame -------------------------------------------------------------------------------------------
 
-    def _fonts(self, sheet: Sheet | None) -> tuple[list[dict[str, Any]], dict[int, int]]:
+    def _fonts(self, table: tuple[Font, ...]) -> tuple[list[dict[str, Any]], dict[int, int]]:
         fonts: list[dict[str, Any]] = []
         index: dict[int, int] = {}
-        for font in sheet.fonts if sheet else ():
+        for font in table:
             index[font.index] = len(fonts)
             size = font.size if font.size > 0 else 10
             fonts.append(
@@ -614,12 +617,16 @@ PIN_TYPES = {
 def _component(b: _Builder, component: Component, group_ref: str) -> int:
     doc = b.doc
     params = _component_params(doc, component)
-    children = doc.shown_children(component)
+    children = (
+        doc.children_of(component, part=b.part, mode=component.display_mode)
+        if b.part
+        else doc.shown_children(component)
+    )
     designator = next((r for r in doc.children_of(component) if isinstance(r, Designator)), None)
     ref = designator.text if designator is not None else ""
     shown_ref = ref
     if component.part_count > 1 and ref:
-        shown_ref = ref + chr(ord("A") + max(component.current_part, 1) - 1)
+        shown_ref = ref + chr(ord("A") + max(b.part or component.current_part, 1) - 1)
     comment = b.special(params.get("comment", ""), params)
     comp = len(b.comps)
     entry: dict[str, Any] = {
@@ -1266,9 +1273,85 @@ def build_schematic_scene(
     }
 
 
+class _LibraryDocument(SchDocument):
+    """The records of one library symbol seen as a document: their owners name the stream ``data``."""
+
+    def get(self, ref: RecordRef) -> SchRecord:
+        if ref.stream == "data":
+            return self.records[ref.index]
+        return super().get(ref)
+
+
+def build_symbol_scene(
+    library: SchLibrary,
+    component: SchLibComponent,
+    *,
+    name: str,
+    part: int = 1,
+    data: bytes = b"",
+    evidence: str = "INFERRED",
+) -> dict[str, Any]:
+    """The scene of one part of an Altium library symbol (change c0179), on a sheet the size of the symbol,
+    grown by 10 units; ``sheet.origin`` is the symbol's origin, so the status line reads library
+    coordinates."""
+    document = _LibraryDocument(
+        file=name, form="binary", codepage=library.codepage, header=library.header, records=component.records
+    )
+    header = library.header.props
+    b = _Builder(document, name, fonts=read_fonts(header) if header is not None else None)
+    b.part = part
+    big = 10**12
+    b.box = [big, big, -big, -big]
+    record = next((r for r in component.records if isinstance(r, Component)), None)
+    if record is not None:
+        _component(b, record, "")
+    if b.box[0] > b.box[2]:
+        b.box = [-UNIT, b.h - UNIT, UNIT, b.h + UNIT]
+    pad = 10 * UNIT
+    x0, y0, x1, y1 = b.box[0] - pad, b.box[1] - pad, b.box[2] + pad, b.box[3] + pad
+    kinds = [obj["k"] for obj in b.objects]
+    counts = {"components": len(b.comps), "pins": kinds.count("pin"), "prims": len(b.prims)}
+    if b.skipped_ieee:
+        b.notes.append(f"{b.skipped_ieee} IEEE symbols are not drawn.")
+    return {
+        "schema": SCHEMA,
+        "kind": "schematic",
+        "meta": {
+            "name": name,
+            "sha256": hashlib.sha256(data).hexdigest() if data else "",
+            "bytes": len(data),
+            "backend": "altium",
+            "evidence": evidence,
+            "counts": counts,
+            "notes": b.notes,
+        },
+        "bounds": [x0, y0, x1, y1],
+        "sheet": {
+            "w": x1 - x0,
+            "h": y1 - y0,
+            "x0": x0,
+            "y0": y0,
+            "origin": [0, b.h],
+            "color": SHEET_COLOR,
+            "grid": 10 * UNIT,
+            "border": False,
+            "margin": 0,
+            "zones": [1, 1],
+            "title_block": False,
+            "style": "Library",
+        },
+        "fonts": b.fonts,
+        "prims": b.prims,
+        "objects": [{k: v for k, v in obj.items() if k != "rec"} for obj in b.objects],
+        "comps": b.comps,
+        "nets": [],
+        "overlays": [],
+    }
+
+
 def summary(scene: dict[str, Any]) -> dict[str, Any]:
     """The part of a schematic scene that a reply carries."""
     return {"kind": "schematic", "counts": dict(scene["meta"]["counts"]), "bounds_um": list(scene["bounds"])}
 
 
-__all__ = ["SCHEMA", "build_schematic_scene", "summary"]
+__all__ = ["SCHEMA", "build_schematic_scene", "build_symbol_scene", "summary"]

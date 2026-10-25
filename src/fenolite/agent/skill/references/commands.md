@@ -499,7 +499,7 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 `fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] [--theme THEME] PATH`
 
-- `PATH` (string, required): an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or a .SchDoc or .kicad_sch
+- `PATH` (string, required): a .PrjPcb or .kicad_pro, a project folder, a board, a sheet or a library
 - `--doc` (string): the document to show: its id, path or name (default: the first board)
 - `--overlay` (string, repeatable): draw the distances of a fenolite analyze reply (JSON) on the board (repeatable)
 - `--serve` (boolean): serve the page on 127.0.0.1 until interrupted

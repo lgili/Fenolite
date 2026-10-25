@@ -52,6 +52,19 @@ def test_schematic_documents() -> None:
     assert lone.source == "sheet" and [d.viewable for d in lone.documents] == [True]
 
 
+def test_libraries() -> None:
+    """Scenario "An Altium project with libraries" (c0179)."""
+    groups = _groups(load_tree(ALTIUM).to_json())
+    assert ("blink.PcbLib", "pcb-library", True) in groups["Libraries"]
+    assert ("blink.SchLib", "schematic-library", True) in groups["Libraries"]
+    pretty = load_tree(ROOT / "tests" / "data" / "acceptance" / "board_40parts_t9" / "lib" / "Mini.pretty")
+    assert pretty.source == "library" and [(d.kind, d.viewable) for d in pretty.documents] == [
+        ("pcb-library", True)
+    ]
+    lone = load_tree(ROOT / "tests" / "data" / "libs" / "Mini_v9.kicad_sym")
+    assert [(d.kind, d.viewable) for d in lone.documents] == [("schematic-library", True)]
+
+
 def test_kicad_sheet() -> None:
     """Scenario "A lone KiCad sheet" (c0178)."""
     tree = load_tree(ROOT / "tests" / "data" / "kicad" / "schematic" / "flat.kicad_sch")
@@ -91,9 +104,9 @@ def test_outside_paths_are_never_opened(tmp_path: Path) -> None:
 def test_refusals(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         load_tree(tmp_path / "missing.PrjPcb")
-    (tmp_path / "x.SchLib").write_bytes(b"")
-    with pytest.raises(ValueError, match="schematic-library document"):
-        load_tree(tmp_path / "x.SchLib")
+    (tmp_path / "x.IntLib").write_bytes(b"")
+    with pytest.raises(ValueError, match="integrated-library document"):
+        load_tree(tmp_path / "x.IntLib")
     (tmp_path / "x.txt").write_bytes(b"")
     with pytest.raises(ValueError, match="neither"):
         load_tree(tmp_path / "x.txt")

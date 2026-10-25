@@ -2858,7 +2858,8 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--serve [--port N] [--no-browser]]
 [--export FILE]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
-board, an Altium `.SchDoc` or a KiCad `.kicad_sch`.
+board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, or a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
+`.kicad_mod` or a `.pretty` folder (change c0179).
 
 - **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
   (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
@@ -2872,6 +2873,9 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`.
   whose reference does not start with `#` and `symbols` counting all. `evidence.level` of a board is that of
   the backend's read. `result.theme` names the colours of the document shown: `kicad`, `altium`, or
   `kicad:<file>` for a theme given with `--theme`.
+- **Libraries.** For a library, `result.summary` is `kind` `"library"`, `lib` (`"pcb"` or `"schematic"`),
+  `counts.items` (one per footprint, or per symbol part or unit) and `items`, the first 50 names. A board
+  scene, a footprint's included, lists every pad with its exact size in nanometres.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.
