@@ -99,6 +99,25 @@ Phase 1 has a budget of 2 design-days (design Decision 1). The container of the 
 established on 2026-10-16 in under half a design-day. Gate G1 also needs every F0 file of the maintainer
 (tasks 1.4 and 1.5) and is decided there.
 
+## Drawing geometry (c0180)
+
+Measured on 2026-10-25 with Fenolite's readers on the corpus cache (S-0785, S-0786, and the boards S-0187 and
+S-0174); nothing of the files is committed. Comparisons of positions only. A first reading took the sheet as Y
+down from its top-left corner; the title blocks and the note below show that it is Y up from its lower-left
+corner, and the view counts are the same in both readings (corrected 2026-10-25).
+
+| measurement | S-0785 with S-0187 | S-0786 with S-0174 |
+|---|---|---|
+| parts whose pads land on the board's pads within 0.05 unit (top: turn; bottom: mirror in Y, then turn) | `Assembly_Drawing`: 540 of 540, 239 of them bottom parts; `Fabrication_Drawing`: no part | `_Assembly`: 23 of 23; `_Fabrication`: 23 of 23; no bottom part |
+| layer `Pad` primitives on a board pad centre within 0.05 unit | `Fabrication_Drawing`: 2 371 of 2 371; `Assembly_Drawing`: none in the document | `_Assembly`: 64 of 64; `_Fabrication`: none in the document |
+| outline segments | 32 lines, 28 arcs (11 with the `Point` at `Angle1`, 17 at `Angle2`) | 4 lines |
+| board shape tracks as stadiums (`Width` = length + width) | — | 3 of 3 checked |
+| top or bottom views on their sheet (sheet Y up, `Location` the lower-left corner, custom or ratio scale) | 8 of 8 | 4 of 4; the two side views (`Right`, `Front`) not measured |
+| tables with a `Size` on their sheet (`Location` the lower-left corner) | 2 of 2 | none has a `Size` |
+| sheet frame: title block rows read from the top only with Y up | the `Title` row above `Number`, `Date`, `Drawn by` | the 14-unit project title above the `File` row; the one `Note` (12 elements) on its sheet only with Y up |
+| part strokes (`Contour`s of `AssemblyDrawing` or `Silkscreen`) | 1 150 in `Assembly_Drawing`, open strokes | 77 in each document |
+| linear dimensions | none | 5: 2 on a top view measure 225.6 and 81.6 units (the board's width and height) from their snaps; 3 on side views |
+
 ## Part F: Draftsman documents
 
 Change c0172; pending, no Altium verification is claimed. Part F has three rounds: F0, observation files

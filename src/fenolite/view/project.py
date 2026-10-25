@@ -36,7 +36,7 @@ GROUP_OF: dict[str, str] = {
     "annotation": "Documentation",
     "bom": "Documentation",
 }
-VIEWABLE = frozenset({"pcb", "schematic", "pcb-library", "schematic-library"})
+VIEWABLE = frozenset({"pcb", "schematic", "pcb-library", "schematic-library", "draftsman"})
 VIEWABLE_LIBRARIES = (".pcblib", ".schlib", ".kicad_sym", ".kicad_mod", ".pretty")
 """The library files that have a scene (change c0179); integrated libraries are listed, not viewed."""
 VIEWABLE_SCHEMATICS = (".schdoc", ".kicad_sch")
@@ -222,11 +222,14 @@ def load_tree(path: Path) -> ProjectTree:
         return ProjectTree(path.stem, "library", path.parent, "", _documents([(path.name, kind, path)]))
     if suffix in VIEWABLE_SCHEMATICS:
         return ProjectTree(path.stem, "sheet", path.parent, "", _documents([(path.name, "schematic", path)]))
+    if suffix == ".pcbdwf":
+        documents = _documents([(path.name, "draftsman", path)])
+        return ProjectTree(path.stem, "drawing", path.parent, "", documents)
     if document_kind(path.name) != "other":
         raise ValueError(
             f"{path.name} is a {document_kind(path.name)} document; open its project, a board or a sheet"
         )
-    raise ValueError(f"{path.name} is neither a project file, a board nor an Altium sheet")
+    raise ValueError(f"{path.name} is neither a project file, a board, a sheet, a library nor a drawing")
 
 
 __all__ = ["GROUPS", "Document", "ProjectTree", "load_tree"]

@@ -34,6 +34,8 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.view import export, server, themes
+from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
+from fenolite.view.drawing import summary as drawing_summary
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 from fenolite.view.library import library_scene
 from fenolite.view.library import summary as library_summary
@@ -53,7 +55,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "path",
         metavar="PATH",
-        help="a .PrjPcb or .kicad_pro, a project folder, a board, a sheet or a library",
+        help="a .PrjPcb or .kicad_pro, a project folder, a board, sheet, library or drawing",
     )
     parser.add_argument(
         "--doc", metavar="ID", help="the document to show: its id, path or name (default: the first board)"
@@ -87,6 +89,8 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
     suffix = path.suffix.lower()
     if suffix in VIEWABLE_LIBRARIES:
         return library_scene(path, kicad=kicad)
+    if suffix == ".pcbdwf":
+        return drawing_scene(path)  # a DraftsmanError is a FormatError: FEN-3004
     if suffix == ".schdoc":
         return _sheet_scene(path)
     if suffix == ".kicad_sch":
@@ -110,6 +114,8 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
     scene = build_scene(
         design, frame, name=path.name, data=data, backend=backend.name, evidence=read.evidence.level.value
     )
+    if holds_panel(path):
+        scene["meta"]["notes"] = [PANEL_NOTE, *scene["meta"].get("notes", [])]
     name = themes.theme_for(backend.name)
     chosen = kicad if name == "kicad" and kicad is not None else themes.palette(name)
     return themes.apply_board_theme(scene, chosen)
@@ -151,6 +157,8 @@ def _theme_name(scene: dict[str, Any]) -> str:
 
 
 def _summary(scene: dict[str, Any]) -> dict[str, Any]:
+    if scene.get("lib") == "drawing":
+        return drawing_summary(scene)
     if scene.get("kind") == "library":
         return library_summary(scene)
     return schematic_summary(scene) if scene.get("kind") == "schematic" else summary(scene)

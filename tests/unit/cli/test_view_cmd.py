@@ -148,3 +148,16 @@ def test_library_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     )
     assert code == 0 and envelope["result"]["summary"]["lib"] == "schematic"
     assert envelope["result"]["theme"] == "kicad"
+
+
+def test_drawing_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Summary of a drawing" (c0180)."""
+    from _draftsman import DOCUMENT, stored
+
+    path = tmp_path / "authored.PCBDwf"
+    path.write_bytes(stored(DOCUMENT))
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(path), "--json")
+    assert code == 0
+    summary = envelope["result"]["summary"]
+    assert summary["kind"] == "drawing" and summary["counts"]["sheets"] == 1
+    assert summary["counts"]["BoardAssemblyViewData"] == 1 and not summary["panel"]

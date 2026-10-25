@@ -2858,8 +2858,8 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--serve [--port N] [--no-browser]]
 [--export FILE]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
-board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, or a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
-`.kicad_mod` or a `.pretty` folder (change c0179).
+board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
+`.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
 
 - **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
   (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
@@ -2876,6 +2876,11 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, or a library: `.SchLib`, `.P
 - **Libraries.** For a library, `result.summary` is `kind` `"library"`, `lib` (`"pcb"` or `"schematic"`),
   `counts.items` (one per footprint, or per symbol part or unit) and `items`, the first 50 names. A board
   scene, a footprint's included, lists every pad with its exact size in nanometres.
+- **Drawings.** For a `.PCBDwf`, `result.summary` is `kind` `"drawing"`, `counts` (`sheets` and the count of
+  each item kind: views, tables, texts, lines and so on), `sheets` (their names) and `panel` (the document's
+  `IsPanel`). The sheets are drawn from the document's own copy of the board; `evidence.level` is
+  `INFERRED`. A board or a drawing that holds an Embedded Board Array gets a note that Fenolite does not draw
+  the array.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.
@@ -2888,8 +2893,8 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, or a library: `.SchLib`, `.P
 - **`--overlay FILE`** reads the JSON reply of `fenolite analyze`: every distance row's clearance and
   creepage paths are drawn, and a row that an error or warning names is marked as a finding.
 - **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, an unknown `--doc`, or a
-  path that is neither a project file, a board nor an Altium sheet; 3 (`FEN-3001`) for a missing path,
-  (`FEN-3004`) for an overlay that is not an `analyze` reply or a sheet the reader refuses; 4 (`FEN-4001`,
+  path that is neither a project file, a board, a sheet, a library nor a drawing; 3 (`FEN-3001`) for a missing
+  path, (`FEN-3004`) for an overlay that is not an `analyze` reply or a sheet or drawing the reader refuses; 4 (`FEN-4001`,
   `FEN-4002`).
 
 ## manifest

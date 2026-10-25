@@ -1,6 +1,6 @@
 # Board and schematic viewer
 
-`fenolite view` shows the boards, the sheets and the libraries of a project in a web browser, without the tool that made
+`fenolite view` shows the boards, the sheets, the libraries and the Altium Draftsman drawings of a project in a web browser, without the tool that made
 them: an Altium project on a machine without Altium, a KiCad board in a review, a board or a sheet an agent
 just wrote. It reads every board through the neutral model (change c0176), draws every Altium `.SchDoc` in
 the manner of Altium Designer (change c0177) and every KiCad `.kicad_sch` in the manner of KiCad (change
@@ -12,6 +12,7 @@ fenolite view MyProject.PrjPcb --serve              # live: http://127.0.0.1:876
 fenolite view board.kicad_pcb --export board.html --confirm    # one standalone page to open or send
 fenolite view MyProject.PrjPcb --json               # for an agent: the documents and a scene summary
 fenolite view MyProject.PrjPcb --doc Power.SchDoc --json        # the parts, pins, wires and nets of one sheet
+fenolite view Assembly.PCBDwf --export assembly.html --confirm  # an Altium Draftsman drawing, sheet by sheet
 fenolite view board.kicad_pro --serve --theme my-theme          # a KiCad project in your own KiCad colours
 ```
 
@@ -104,6 +105,30 @@ pads and copper extent. A click opens the item:
 
 Integrated libraries (`.IntLib`) are listed, not drawn.
 
+## Draftsman drawings
+
+Altium Draftsman documents (`.PCBDwf`) open from the tree like a library whose items are the sheets (change
+c0180). A Draftsman document holds its own copy of the board, so a sheet is drawn from the document alone, as
+Altium shows it before a refresh; Altium is not needed:
+- **Views.** An assembly view draws the board outline and the parts of its side, each with its assembly
+  strokes (else its silkscreen) and its designator; a fabrication view draws the outline and the copper of
+  its layer; a drill view draws one symbol per hole size. Bottom views are mirrored.
+- **Tables.** The drill table (symbol, count, size, plating), the layer stack legend (layer, material,
+  thickness) and the bill of materials (comment, designators, quantity) are drawn from the document's data.
+- **Sheet items.** Lines, rectangles, texts with their `=Parameter` values, pictures, notes and linear
+  dimensions; the dimensions are measured on the board copy.
+- A click on a part shows its designator, comment, side and size on the board; `M` measures on the sheet,
+  in millimetres or mil. The status line reads sheet coordinates from the lower-left corner.
+
+Side views (`Front`, `Right`), callouts and transmission line tables are left out and named in the notes.
+Drill symbols, table cells, zone marks, dimension texts and the place of view titles are Fenolite's drawings;
+texts use the font family the document names, in the browser's font, and break only at their own line breaks.
+The view placement is `INFERRED` (`docs/formats/altium/draftsman.md`, "Drawing geometry").
+
+**Panels.** An Altium board whose `EmbeddedBoards6` holds an Embedded Board Array, and a drawing whose
+`IsPanel` is true, get a note: the array is not drawn until its records are measured (`H-A-PANEL-RECORD`,
+Part Q of `docs/evidence/altium-pcb.md`). The board itself is drawn once.
+
 ## Schematics
 
 An Altium sheet opens like a board: from the project tree, from the sheet tabs along the bottom, or with
@@ -165,5 +190,5 @@ boxes, tables and rule areas are counted in the notes, not drawn.
 Use `fenolite view PATH --json` to list a project's documents and to check what a board holds (the counts of
 pads, tracks, zones, fills, texts and bodies, and the notes), or `--doc SHEET` for what an Altium sheet holds
 (parts, pins, wires, labels, ports, sheet symbols and nets), or `--doc LIBRARY` for the names of a library's
-symbols or footprints. Use `--export` to hand a person one page to
+symbols or footprints, or `--doc DRAWING` for the sheets and item counts of a Draftsman document. Use `--export` to hand a person one page to
 review. `--serve` keeps running until it is interrupted; it is for a person at a browser.

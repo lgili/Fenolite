@@ -366,6 +366,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.bodies` | see `import_evidence` |
 | `read.cfb` | `EVIDENCE_V3` CORPUS-VERIFIED: `H-A-RD-CFB-CORPUS`, `H-A-RD-CFB-DIFAT`<br>`EVIDENCE_V4` INFERRED: `H-A-RD-CFB-CORPUS`, `H-A-RD-CFB-DIFAT`, `H-A-RD-CFB-V4` |
 | `read.draftsman` | `EVIDENCE` INFERRED: `H-A-DWF-CONTAINER`, `H-A-DWF-FIELD` |
+| `read.dwfdraw` | `EVIDENCE` INFERRED: `H-A-DWF-GEOM` |
 | `read.ini` | see `read.project` |
 | `read.outjob` | see `read.project` |
 | `read.pcb` | `EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PCB-FRAME`, `H-A-RD-PCB-IDENTITY`, `H-A-RD-PCB-LENGTHS`, `H-A-RD-PCB-REGION`, `H-A-RD-PCB-TEXT-2`, `H-A-RD-PCB-RULE`, `H-A-RD-PCB-POLYNAME`, `H-A-RD-PCB-CODEC` |
