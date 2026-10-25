@@ -23,7 +23,7 @@
   - 2026-10-25: the `viewer` job of `.github/workflows/ci.yml` runs `pytest tests/visual` with `FENOLITE_REQUIRE=browser` and keeps the screenshots and difference images as the artefact `viewer-differences` on a failure.
   - `tools/update_view_refs.py [NAME…]` rewrote the references.
   - `make visual` runs the tests. `make check-fast` does not collect `tests/visual`; the `unit` job does, and skips them where Playwright is absent.
-  - The record of the job's run on the branch follows the push.
+  - 2026-10-25: proof passed. The CI run 40192579411 on commit `b556df4` ran the `viewer` job to success: Playwright 1.63.0 and its Chromium on `ubuntu-24.04`, with `FENOLITE_REQUIRE=browser`, so no test could skip. The references made in the container hold on the runner.
 
 ## 2. Closing
 
