@@ -53,5 +53,6 @@
   - 2026-10-25, Linux container: lint, format, pyright and residue clean; tests 13 853 passed, 34 skipped. The full gate is left to CI.
 - [x] 4.2 Evidence labels: the schematic scene is `INFERRED`, and no other label changes. Proof: `uv run python tools/gen_evidence_matrix.py --check`.
   - 2026-10-25: proof passed.
-- [ ] 4.3 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+- [x] 4.3 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+  - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
   - 2026-10-25: WAITS on the maintainer: the release guard keeps `[Unreleased]` empty while the version is `0.5.0`. The text is ready: `- **Schematic viewer** (c0177): `fenolite view` draws the Altium sheets of a project as Altium Designer does — the file's colours and fonts on its paper, grid, border and title block, parts, pins, power ports, ports, sheet symbols and harnesses — with net highlight, a Properties and a Navigator panel, search, sheet tabs, a double click into a child sheet, and cross-probing between the sheet and the board; `--doc` replies with a sheet's counts of parts, pins, wires and nets.`

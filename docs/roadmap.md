@@ -25,7 +25,10 @@ change is c0171 and its record `docs/release/v0.5.md`, with what each change shi
 CI of the release branch and what waits for his own tests. Status on 2026-10-24: by his decisions of
 2026-10-16, c0168 and c0170 are in `0.5.0` too, and so are c0172 (native Altium Draftsman documents) and
 c0173 (board panels); `0.5.0` is held until the native parts of c0172 and c0173 pass his Altium kits, with
-no `0.5.x` fallback (Open decisions, row 44).
+no `0.5.x` fallback (Open decisions, row 44). Status on 2026-10-25: by his decision of that day `0.5.0` is
+released with everything done since (the agent guide's practice pages, c0174, and the viewer `fenolite view`,
+c0176 to c0191), no longer held for the native parts of c0172 and c0173; every test of his that is still open
+is noted for v0.6 ([v0.6](#v06-the-maintainers-tests-of-v05)).
 
 Patch releases of the series: `0.2.1` (change c0133), cut from the tag `v0.2.0`, with the fix of the
 pin-to-pad map in the Altium build (c0135); `0.2.2` (change c0149), cut from the tag `v0.2.1`, with the
@@ -622,7 +625,7 @@ change at that point.
 |---|---|
 | v0.5a | conversion between KiCad and the second backend, with a report of what is kept or lost; controlled KiCad downgrade (capability resolver); public `equivalent`. The next release, `0.5.0`, is v0.5a alone (Open decisions, row 38); the annealing placer moved after 1.0 (row 3) |
 | v0.5b | the MCP server. The rest of the former v0.5b (multi-instance hierarchy, variants, layout reuse per module, schematic editing that keeps presentation) moved after 1.0 (row 3) |
-| v0.6 | nothing remains: matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3). The milestone is empty unless a later decision fills it |
+| v0.6 | the maintainer's tests deferred from `0.5.0` and what they open (decision of 2026-10-25; [below](#v06-the-maintainers-tests-of-v05)), and the board engineering tools of c0175. Matched-length and skew analysis moved to v0.4 (c0106), and equivalence levels 6–7, the emulated-evidence category, KiCad 11 IPC, SPICE and the ASCII inspection format moved after 1.0 (row 3) |
 | v1.0 | freeze: CLI, envelope and schemas `v1`; model schema version 1.0 with migrators; published conformance matrix (format × version × operation × evidence); no `INFERRED` without a hypothesis, no `UNVERIFIED` outside `experimental`; `LEGAL.md` reviewed; residue scan green over the whole history |
 | after 1.0 | the annealing placer; multi-instance hierarchy; variants; layout reuse per module (KiCad groups); schematic editing that keeps presentation; equivalence levels 6–7; the emulated-evidence category; KiCad 11 IPC; SPICE; the ASCII inspection format (Open decisions, row 3) |
 
@@ -712,6 +715,25 @@ parts pass his Altium kits, with no `0.5.x` fallback (Open decisions, row 44).
   Designer 26.5; Q1 to Q12 of c0173. Each change has stop rules and a documented fallback (a written
   template or project parameters for c0172, the flattened panel for c0173), which ship only when a gate
   fails.
+
+### The viewer (placed in `0.5.0` on 2026-10-25)
+
+`fenolite view` draws a project's boards, sheets, libraries, Draftsman drawings, BOM documents and output
+jobs in a web page, with the review tools of an Altium user (c0176 to c0191). Each change was reviewed in a
+browser on public files; the maintainer's reviews on files of his own are v0.6's.
+
+### v0.6: the maintainer's tests of v0.5
+
+By the maintainer's decision of 2026-10-25, what `0.5.0` ships without his own tests is tested in v0.6. The
+list with each change's tasks is "Deferred after v0.5" of `docs/release/v0.5.md`:
+
+- in Altium Designer: Part T of c0160, the executions of c0166, S3 of c0168 (and the gate
+  `pcbdoc.CUTOUT_REGIONS`), round F0 and Part F of c0172 with the Draftsman writer (`draftsman.NATIVE_WRITE`),
+  Part Q of c0173 with the Embedded Board Array (`pcbdoc.EMBEDDED_ARRAYS`), and the kit run of c0092;
+- the viewer against Altium and KiCad on his own projects: c0177, c0178, c0179, c0180, c0181, c0186 and the
+  BOM of c0190;
+- in KiCad's GUI: the tuning profile of c0105; with a real agent: the runs of c0081;
+- c0175, the board engineering tools (a proposal).
 
 ## Proposed cuts for a leaner 1.0
 
@@ -891,6 +913,7 @@ calendar time for one person at about 60 %. They are kept for reference and are 
 | 42 | Board slots and cut-outs (c0167–c0170): their milestone, and the open questions of the four designs | [Board slots and cut-outs](#board-slots-and-cut-outs-proposed-and-placed-on-2026-10-15); the four designs | decided by the maintainer on 2026-10-15: c0167 and c0169 go in `0.5.0` (v0.5a); c0168 (Altium, gated by his kit run of S1 to S8) and c0170 come after `0.5.0`; every recommended answer of the four designs is accepted (each marked in its design); in Altium a milled slot is a board cut-out region and a drilled slot a slot pad, which kit case S5 confirms; the placement of c0168 and c0170 was changed on 2026-10-16 (row 44) |
 | 43 | `0.5.0`: release v0.5a with c0167 and c0169; the tasks that depend on the maintainer's own tests (Altium Designer checks, KiCad GUI saves made by him, a run of a real agent) are deferred, as in `0.4.0`; publication only on his explicit yes | `docs/release/v0.5.md`; change c0171 | approved by the maintainer on 2026-10-15 (preparing the release); the publication is pending |
 | 44 | `0.5.0`: "finish all tasks and tests before releasing": c0168 and c0170 go in `0.5.0`; c0172 (native Altium Draftsman documents) and c0173 (board panels) enter it; `0.5.0` is held until their native parts pass his Altium kits, with no `0.5.x` fallback | `docs/release/v0.5.md`; changes c0171, c0172 and c0173 | decided by the maintainer on 2026-10-16; recorded on 2026-10-24 (c0171 task 1.14) |
+| 45 | `0.5.0`: "prepare everything to release v0.5; what is open in tests we note and test for v0.6": the release takes everything done since 2026-10-16 (c0174 and the viewer c0176 to c0191) and is no longer held for c0172 and c0173; every open test of the maintainer moves to v0.6; c0175 is not in it | `docs/release/v0.5.md`; change c0171; this page, [v0.6](#v06-the-maintainers-tests-of-v05) | decided by the maintainer on 2026-10-25; recorded the same day (c0171 task 1.15) |
 
 Change-level questions: see Open Questions in the designs of the proposed changes (c0025, c0039–c0046,
 c0060–c0074, c0083–c0092 and, for v0.5a, c0158 onwards; for board slots and cut-outs, c0167–c0170; for Draftsman documents and panels, c0172 and c0173).

@@ -49,5 +49,6 @@
   - 2026-10-25, Linux container: lint, format, pyright and residue clean; 13 871 passed, 34 skipped. The full gate is left to CI.
 - [x] 4.3 Evidence labels. Proof: `uv run python tools/gen_evidence_matrix.py --check`.
   - 2026-10-25: proof passed. The theme file and the KiCad sheet scene are `INFERRED`, and no other label changes.
-- [ ] 4.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+- [x] 4.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+  - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
   - 2026-10-25: WAITS on the maintainer (the release guard of 0.5.0). The text is ready: `- **Native looks** (c0178): `fenolite view` draws each document in the look of its tool: KiCad boards and sheets in a palette in KiCad's manner (or the user's KiCad colour theme with `--theme`), Altium boards in a palette in Altium's manner, and Altium sheets in their own colours; KiCad schematics are now drawn — symbols, pins, wires, labels, power symbols, sheets, frame and title block, stroke texts — with net highlight, Navigator and cross-probing.`

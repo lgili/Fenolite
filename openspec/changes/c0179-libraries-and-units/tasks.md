@@ -42,5 +42,6 @@
   - 2026-10-25, Linux container, after the session row of week 43 was added to `LEGAL-ANNEX.md` on c0178: lint, format, pyright and residue clean; 13 880 passed, 34 skipped. The full gate is left to CI.
 - [x] 3.3 Evidence labels. Proof: `uv run python tools/gen_evidence_matrix.py --check`.
   - 2026-10-25: proof passed. The library scenes are `INFERRED`, and no label changes.
-- [ ] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+- [x] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+  - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
   - 2026-10-25: WAITS on the maintainer (the release guard of 0.5.0). The text is ready: `- **Libraries, units and measurement in the viewer** (c0179): `fenolite view` opens symbol and footprint libraries (`.SchLib`, `.PcbLib`, `.kicad_sym`, `.kicad_mod`, `.pretty`) with a list of their items, each footprint drawn alone with its pads' exact sizes and each symbol per part; every length reads in millimetres or mil (button or `Q`); Measure (`M`) works on boards, sheets and libraries and snaps to pad centres and vertices.`

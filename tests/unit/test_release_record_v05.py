@@ -52,13 +52,38 @@ V05_CHANGES = (
     "c0170-convert-slots-obstacles",
     "c0172-altium-draftsman",
     "c0173-board-panels",
+    "c0174-board-design-guide",
+    "c0176-board-viewer",
+    "c0177-schematic-viewer",
+    "c0178-native-themes",
+    "c0179-libraries-and-units",
+    "c0180-draftsman-viewer",
+    "c0181-altium-native-layers",
+    "c0182-viewer-performance",
+    "c0183-board-rule-areas",
+    "c0184-visual-diff",
+    "c0185-project-nets",
+    "c0186-variants-view",
+    "c0187-review-panels",
+    "c0188-check-overlay",
+    "c0189-review-tools",
+    "c0190-documentation-views",
+    "c0191-viewer-visual-tests",
 )
 """The changes of 0.5.0: v0.5a, the changes on ``dev`` after 0.4.0, c0092's rule, the slot changes c0167 to
-c0170 (c0167 and c0169 placed on 2026-10-15, c0168 and c0170 on 2026-10-16), and c0172 and c0173, which the
-maintainer added on 2026-10-16."""
-HELD = ("c0172-altium-draftsman", "c0173-board-panels")
-"""The changes the maintainer holds 0.5.0 for (2026-10-16, no 0.5.x fallback): while one has an open task its
-row is ``pending``, never ``ships with deferred tasks``, so the guard refuses a verdict until they close."""
+c0170 (c0167 and c0169 placed on 2026-10-15, c0168 and c0170 on 2026-10-16), c0172 and c0173, which the
+maintainer added on 2026-10-16, and by his decision of 2026-10-25 everything done since: the agent guide's
+practice pages (c0174) and the viewer (c0176 to c0191)."""
+PLACED_2026_10_16 = (
+    "c0168-altium-slots-cutouts",
+    "c0170-convert-slots-obstacles",
+    "c0172-altium-draftsman",
+    "c0173-board-panels",
+)
+HELD: tuple[str, ...] = ()
+"""The changes 0.5.0 is held for. From 2026-10-16 it held c0172 and c0173 until their native parts passed the
+maintainer's Altium kits; his decision of 2026-10-25 releases 0.5.0 without them, so their open tasks are
+deferred to v0.6 like every other test of his, and nothing is held."""
 EARLIER = ("c0081", "c0105", "c0146")
 """Open changes of earlier releases whose open tasks "Open changes of earlier releases" must name (c0146 has
 none since 2026-10-16; its entry stays until its folder is archived)."""
@@ -75,9 +100,12 @@ DEFERRED_AFTER = (
     "c0105",
     "c0168",
     "Part S",
+    "c0172",
+    "c0173",
+    "v0.6",
 )
 """What "Deferred after v0.5" must name."""
-NOT_IN_RELEASE = ("c0151", "v0.5b")
+NOT_IN_RELEASE = ("c0151", "c0175", "v0.5b")
 """What "Not in 0.5.0" must name; it must name no change of the release."""
 RUN = re.compile(r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+")
 TASK = re.compile(r"^- \[( |x)\] (\d+\.\d+|[A-Z]\d+)\b", re.MULTILINE)
@@ -408,7 +436,7 @@ def test_missing_change_proof_and_job_are_named() -> None:
     assert "c0151-repeat-bus-split: not a change of 0.5.0" in check(stray)
 
 
-@pytest.mark.parametrize("change", ("c0168-altium-slots-cutouts", "c0170-convert-slots-obstacles", *HELD))
+@pytest.mark.parametrize("change", PLACED_2026_10_16)
 def test_changes_placed_on_2026_10_16_need_their_rows(change: str) -> None:
     """c0168 and c0170 are in 0.5.0 since 2026-10-16, and so are c0172 and c0173."""
     text = record()
@@ -450,13 +478,13 @@ def test_results_need_their_entries() -> None:
     assert f"{graduation}: no entry under '## Pending on the release branch'" in check(pending)
 
 
-@pytest.mark.parametrize("change", HELD)
-def test_held_changes_stay_pending(change: str) -> None:
-    """0.5.0 is held for c0172 and c0173 (2026-10-16): no row of theirs may defer an open task."""
+def test_nothing_is_held_since_2026_10_25() -> None:
+    """The maintainer's decision of 2026-10-25 lifts the hold of 2026-10-16: c0172 and c0173 ship with their
+    open tasks deferred to v0.6, and a held change would still have to stay pending."""
+    assert HELD == ()
     text = record()
-    if any(not ticked for ticked in tasks(change).values()):
-        deferred = with_cell(text, change, "result", DEFERRED)
-        assert f"{change}: 0.5.0 is held for it, so a row with open tasks is {PENDING}" in check(deferred)
+    for change in ("c0172-altium-draftsman", "c0173-board-panels"):
+        assert row_line(text, change).rstrip(" |").endswith(DEFERRED)
 
 
 @pytest.mark.parametrize("change", EARLIER)

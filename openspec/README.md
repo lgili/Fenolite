@@ -170,7 +170,25 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0171 | `release-0-5-0` | release of v0.5a as `0.5.0` with the slot changes c0167 and c0169 (the maintainer's approval of 2026-10-15): the release record with the verdict per change, what is pending on the CI of the release branch and what waits for the maintainer's own tests, its guard, the version, the changelog cut, and the retry of the corpus fetch that the `kicad-10` job needs; since the maintainer's decisions of 2026-10-16 also c0168, c0170, c0172 and c0173, with the release held for the native parts of c0172 and c0173 | c0092, c0155–c0170, c0172, c0173 |
 | c0172 | `altium-draftsman` | native Altium Draftsman documents for `0.5.0` (the maintainer's request of 2026-10-16): the reader of `.PCBDwf` (an LZ4-chunked XML document) and its census, a writer behind `draftsman.NATIVE_WRITE` driven by c0117's drawing specification, `build --altium-draftsman` and `--drawing-spec`, the `PCBDrawing` output, kit Part F (F0, FP1 to FP5, F1 to F8); the release waits for its native document | c0087, c0101, c0117, c0138 |
 | c0173 | `board-panels` | board panels for `0.5.0` (the maintainer's request of 2026-10-16): the panel script and model, `fenolite panel` with its checks, the KiCad panel board, the flattened Altium panel, the Embedded Board Array behind `pcbdoc.EMBEDDED_ARRAYS` and kit Part Q (Q1 to Q12), the score layer in Gerber exports; the release waits for its native array | c0167, c0118 |
+| c0174 | `board-design-guide` | practice pages of the agent guide (board-practice to board-workflow), in `0.5.0` by the decision of 2026-10-25 | c0077 |
+| c0175 | `board-engineering-tools` | proposal of the board engineering tools; not implemented, v0.6 | c0174 |
+| c0176 | `board-viewer` | `fenolite view`: boards of every backend in 2D and 3D, the project tree, `--serve`, `--export` | c0007, c0043 |
+| c0177 | `schematic-viewer` | Altium sheets in the viewer, the Navigator and cross-probing | c0176 |
+| c0178 | `native-themes` | KiCad and Altium colours, a user's KiCad theme, KiCad sheets in the viewer | c0176, c0177 |
+| c0179 | `libraries-and-units` | libraries, mm and mil, measurement in the viewer | c0176 |
+| c0180 | `draftsman-viewer` | Draftsman drawings in the viewer | c0172, c0176 |
+| c0181 | `altium-native-layers` | Altium layer names and mask openings in the viewer | c0176 |
+| c0182 | `viewer-performance` | scene cache and compact scenes | c0176 |
+| c0183 | `board-rule-areas` | keep-outs, dimensions and placement marks in the board view | c0176 |
+| c0184 | `visual-diff` | `fenolite view --compare` | c0176 |
+| c0185 | `project-nets` | project nets across sheets in the viewer | c0177 |
+| c0186 | `variants-view` | assembly variants in the viewer | c0177 |
+| c0187 | `review-panels` | filter, Find similar, Components and Nets panels | c0176 |
+| c0188 | `check-overlay` | `fenolite view --check` | c0176 |
+| c0189 | `review-tools` | edge measure, links, review marks, SVG and print | c0176 |
+| c0190 | `documentation-views` | BOM documents, output jobs, Draftsman side views | c0180 |
+| c0191 | `viewer-visual-tests` | visual and interaction tests of the viewer page | c0176 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0174.
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0192.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

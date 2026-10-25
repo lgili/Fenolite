@@ -38,20 +38,25 @@ The column `open tasks` of `docs/release/v0.5.md` SHALL follow the change's own 
 - **THEN** it fails and names `Part T`
 
 ### Requirement: Scope of 0.5.0 of 2026-10-16
-The record SHALL hold the scope that the maintainer decided on 2026-10-16, which holds the release until c0172 and c0173 close.
+The record SHALL hold the scope that the maintainer decided on 2026-10-16. The hold it set on c0172 and c0173 was lifted on 2026-10-25 (the next requirement).
 - The changes of the release MUST include c0168, c0170, c0172 and c0173, each with its row.
-- While c0172 or c0173 has an open task, its row MUST be `pending`.
 - `## Not in 0.5.0` MUST NOT name a change of the release.
-
-#### Scenario: A held change deferred
-- **GIVEN** a copy of the record whose row of c0172 says `ships with deferred tasks` while it has open tasks
-- **WHEN** the guard runs on it
-- **THEN** it fails and names `c0172-altium-draftsman` and `pending`
 
 #### Scenario: A change of the release named as not in it
 - **GIVEN** a copy of the record whose `## Not in 0.5.0` names c0170
 - **WHEN** the guard runs on it
 - **THEN** it fails and names `c0170`
+
+### Requirement: Scope of 0.5.0 of 2026-10-25
+The record SHALL hold the scope that the maintainer decided on 2026-10-25: everything done since 2026-10-16, no change held, and every open test of his noted for v0.6.
+- The changes MUST include c0174 and c0176 to c0191.
+- `## Deferred after v0.5` MUST name c0172, c0173 and v0.6.
+- `## Not in 0.5.0` MUST name c0175.
+
+#### Scenario: The hold lifted
+- **GIVEN** the record of 2026-10-25
+- **WHEN** the guard runs on it
+- **THEN** the rows of c0172 and c0173 are `ships with deferred tasks` and the guard reports no problem
 
 ### Requirement: Version 0.5.0
 The version SHALL become `0.5.0` in the commit of change c0171, in `src/fenolite/__init__.py`, in `packaging/phenolite/pyproject.toml` and in its pin `fenolite==0.5.0`; later commits keep the three equal.

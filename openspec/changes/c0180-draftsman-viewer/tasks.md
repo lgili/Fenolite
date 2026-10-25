@@ -44,4 +44,5 @@
   - 2026-10-25: proof passed (13 895 passed, 34 skipped). The first run found the reader without an `EVIDENCE` declaration; it now declares `INFERRED` (`H-A-DWF-GEOM`).
 - [x] 3.3 Evidence labels. Proof: `uv run python tools/gen_evidence_matrix.py --check`.
   - 2026-10-25: the page was regenerated with the new module; the check passed.
-- [ ] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+- [x] 3.4 Add an entry under `## [Unreleased]` in `CHANGELOG.md` once the version after 0.5.0 is open. Proof: `uv run pytest tests/unit/test_release_record_v05.py -q`.
+  - 2026-10-25: the entry is under `## [0.5.0]` of `CHANGELOG.md`, not `[Unreleased]`: by the maintainer's decision of 2026-10-25 the change ships in 0.5.0 (c0171 task 1.15). Proof passed (`tests/unit/test_release_record_v05.py`).
