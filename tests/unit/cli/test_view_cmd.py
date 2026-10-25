@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import socket
 import threading
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from _checkcli import run
 
 from fenolite.cli import cmd_view
 from fenolite.view.export import embedded
+from fenolite.view.findings import GROUPS
 
 ROOT = Path(__file__).resolve().parents[3]
 BOARD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -366,3 +368,53 @@ def test_select(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     )
     data = embedded(out.read_text(encoding="utf-8"))
     assert code == 0 and data is not None and data["select"] == "R1" and data["marks"] == []
+
+
+def test_review_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Findings in the summary" (change c0193)."""
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD))
+    assert code == 0
+    summary = envelope["result"]["summary"]
+    assert set(summary["findings"]) == {*GROUPS, "open_ground", "open_net"} and summary["models"] is None
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--no-review")
+    assert code == 0 and envelope["result"]["summary"]["findings"] == {}
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--silk-gap", "-1")
+    assert code == 2 and error["code"] == "FEN-2001"
+
+
+def test_port_in_use(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Port in use" (change c0193)."""
+    holder = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    holder.bind(("127.0.0.1", 0))
+    holder.listen(1)
+    try:
+        port = str(holder.getsockname()[1])
+        code, _, error, _ = run(
+            monkeypatch, tmp_path, "view", str(BOARD), "--serve", "--no-browser", "--port", port
+        )
+    finally:
+        holder.close()
+    assert code == 2 and error["code"] == "FEN-2001" and "--port 0" in error["hint"]
+
+
+def test_findings_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A findings file is drawn" (change c0193)."""
+    findings = {
+        "schema": "fenolite.view_overlay.v0",
+        "groups": [{"id": "insulation", "title": "Insulation report", "note": "pairs below their minimum"}],
+        "items": [
+            {
+                "group": "insulation",
+                "kind": "line",
+                "points_nm": [[1_000_000, 2_000_000], [3_000_000, 2_000_000]],
+                "label": "A × B",
+            }
+        ],
+    }
+    (tmp_path / "f.json").write_text(json.dumps(findings), encoding="utf-8")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--overlay", "f.json")
+    assert code == 0 and envelope["result"]["summary"]["findings"]["insulation"] == 1
+    findings["items"][0]["kind"] = "circle"
+    (tmp_path / "f.json").write_text(json.dumps(findings), encoding="utf-8")
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--overlay", "f.json")
+    assert code == 3 and error["code"] == "FEN-3004"

@@ -84,7 +84,7 @@ def test_missing_tools_are_null_not_fatal(
     monkeypatch.setattr(kicad_cli, "MACOS_KICAD_CLI", Path("/nonexistent/kicad-cli"))
     monkeypatch.delenv("FENOLITE_KICAD_CLI", raising=False)
     tools = _capabilities(capsys)["tools"]
-    assert tools == {"kicad-cli": None, "java": None, "docker": None}
+    assert tools == {"kicad-cli": None, "java": None, "docker": None, "gmsh": None}
 
 
 def test_features(capsys: pytest.CaptureFixture[str]) -> None:

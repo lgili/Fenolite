@@ -105,7 +105,7 @@ def test_brief_routers_availability(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     found = {r["name"]: r for r in result["routers"]}
     assert found["direct"] == {"name": "direct", "available": True, "reason": None}
     assert found["freerouting"]["available"] is False and found["freerouting"]["reason"]
-    assert result["tools"] == {"kicad-cli": None, "java": None, "docker": None}
+    assert result["tools"] == {"kicad-cli": None, "java": None, "docker": None, "gmsh": None}
 
 
 def test_brief_tools_equal_the_default_view(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

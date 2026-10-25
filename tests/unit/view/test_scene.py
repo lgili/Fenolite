@@ -19,7 +19,7 @@ from fenolite.backends.base import BoardFrame
 from fenolite.cli.cmd_view import scene_of
 from fenolite.geometry import arc_length
 from fenolite.model.design import Design
-from fenolite.view.scene import COLORS, DRILL, SCHEMA, ZONE_OUTLINE, build_scene, summary
+from fenolite.view.scene import COLORS, DRILL, SCHEMA, ZONE_EDGE, ZONE_OUTLINE, build_scene, summary
 
 ROOT = Path(__file__).resolve().parents[3]
 KICAD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -133,3 +133,14 @@ def test_net_lengths_and_part_parameters() -> None:
     blink = scene_of(ROOT / "tests" / "data" / "altium" / "blink" / "blink.PcbDoc")
     u1 = next(c for c in blink["comps"] if c["ref"] == "U1")
     assert u1["params"]["Library reference"] == "Mini_QFP32_IC" and u1["uid"].endswith("IOEYSXFL")
+
+
+def test_every_zone_outline_is_on_its_view_layer() -> None:
+    """Change c0193: every zone's outline, filled or not, on ``View.ZoneEdge``, which starts hidden."""
+    design, scene = _scene(ALTIUM)
+    board = design.board
+    assert board is not None
+    outlined = [z for z in board.zones if len(z.outline) >= 3]
+    assert sum(1 for p in scene["prims"] if p[0] == ZONE_EDGE) == len(outlined)
+    layer = next(layer for layer in scene["layers"] if layer["id"] == ZONE_EDGE)
+    assert layer["visible"] is False and layer["kind"] == "view"

@@ -289,6 +289,11 @@ meaning = "Count of PCB components linked to a schematic component by designator
 fix = "Nothing to do; update the board from the schematic in Altium to restore the unique-id links."
 see = "Altium import"
 
+["altium.import.model-unread"]
+meaning = "An embedded 3D model of a component body is missing from the Models storage or does not inflate."
+fix = "Nothing to do for the board; the viewer draws that body extruded. Re-embed the model in Altium to see it in 3D."
+see = "Altium import"
+
 ["altium.import.multi-class"]
 meaning = "Count of nets in more than one net class; the first class by name is kept."
 fix = "Nothing to do; put each net in one class in Altium if the choice matters."

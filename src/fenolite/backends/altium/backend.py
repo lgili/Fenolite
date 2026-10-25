@@ -27,6 +27,8 @@ from fenolite.backends.base import (
     Backend,
     BoardFrame,
     BoardPad,
+    BodyModel,
+    BodyModelSource,
     CapabilityReport,
     Change,
     ContainerLevel,
@@ -467,6 +469,15 @@ class AltiumBackend:
 
         return frame.board_edges(design, issues=issues)
 
+    def body_models(self, path: Path, *, issues: list[Issue] | None = None) -> tuple[BodyModel, ...]:
+        """The 3D models a PCB document embeds for its bodies (``models3d.body_models``; ``BodyModelSource``,
+        change c0193); a file of any other kind holds none."""
+        if path.suffix.lower() != ".pcbdoc":
+            return ()
+        from fenolite.backends.altium import models3d
+
+        return models3d.body_models(path, issues=issues)
+
     def design_rules(
         self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
     ) -> DesignRules:
@@ -781,6 +792,8 @@ _BACKEND: Backend = AltiumBackend()
 """The Altium backend satisfies ``Backend`` (checked by pyright)."""
 _FRAME: BoardFrame = AltiumBackend()
 """The Altium backend satisfies ``BoardFrame`` (checked by pyright)."""
+_MODELS: BodyModelSource = AltiumBackend()
+"""The Altium backend satisfies ``BodyModelSource`` (checked by pyright)."""
 _RULES_SOURCE: DesignRulesSource = AltiumBackend()
 """The Altium backend satisfies ``DesignRulesSource`` (checked by pyright)."""
 _PARITY: DocumentParity = AltiumBackend()

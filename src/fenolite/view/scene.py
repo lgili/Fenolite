@@ -6,18 +6,22 @@ the neutral model and the backend's board frame, so every backend's boards are d
 Units are integer micrometres in the model's board frame (origin at the outline's top-left corner, Y down).
 
 * ``layers``: ``{id, name, kind, side, color, visible}`` in drawing order, back side first; ``id`` is the
-  model's layer name. Three view layers are added: ``View.Drill``, ``View.Outline``, ``View.ZoneOutline``.
+  model's layer name. View layers are added: ``View.Drill``, ``View.Outline``, ``View.ZoneOutline`` (zones
+  without a fill) and ``View.ZoneEdge`` (every zone's outline, hidden at first; change c0193).
 * ``prims``: ``[layer, kind, data, net, comp, label]``, ``net`` and ``comp`` indices into ``nets`` and
   ``comps`` (-1 for none). Kinds: ``s`` segment ``[x1, y1, x2, y2, w]``; ``a`` arc ``[x1, y1, xm, ym, x2,
   y2, w]`` through three points; ``c`` disc ``[cx, cy, r]``; ``l`` polyline ``[w, x0, y0, x1, y1, ...]``;
   ``p`` polygon ``[[ring], ...]`` filled even-odd, rings flat ``[x0, y0, x1, y1, ...]``; ``o`` outline
   ``[[ring], ...]``, stroked only.
 * ``texts``: ``[layer, x, y, height, width, stroke, rotation, h_justify, v_justify, mirrored, text, comp]``
-  with the rotation in degrees, counter-clockwise on the board as seen from the front.
+  with the rotation in degrees, counter-clockwise on the board as seen from the front. A text of an Altium
+  board is anchored at its lower-left corner with a glyph two thirds of its height (``ALTIUM_TEXT_NOTE``).
 * ``comps``: ``{ref, value, footprint, side, x, y, rotation, bbox}``; ``nets``: names; ``board``: the rings
   of the edge, each ``{points, mids}`` with ``mids[i]`` the mid of the arc from vertex ``i`` or ``None``.
-* ``board3d``: ``thickness``; ``bodies``: ``{comp, ref, side, ring, z0, z1}``, a body's outline on the
-  board extruded from its standoff to its height above the face its footprint is on.
+* ``board3d``: ``thickness``; ``bodies``: ``{comp, ref, side, ring, z0, z1, zs, model, locator}``, a body's
+  outline on the board extruded from its standoff to its height above the face its footprint is on (``z0`` at
+  least 0); ``zs`` holds the signed standoff and height, which a model is compared with (change c0193), and
+  ``locator`` the body's provenance locator, which a model names.
 * ``meta``: file, SHA-256, backend, evidence level, counts, ``unfilled`` zones and ``notes``.
 
 The page and the colours are Fenolite's own; nothing here runs a tool or opens a connection.
@@ -47,6 +51,9 @@ ALTIUM_KEEPOUT = "Altium.KeepOut"
 """The Altium Keep-Out Layer: its filled regions are drawn hatched (change c0183)."""
 DIMENSION_WIDTH, DIMENSION_TEXT = 100_000, 1_000_000
 """The line width and text height of a dimension whose file gives none, in nm (Fenolite's choice)."""
+ZONE_EDGE = "View.ZoneEdge"
+"""Every zone's outline, filled or not, hidden when a scene opens (change c0193): a saved fill that no longer
+follows its outline shows against it."""
 DEFAULT_THICKNESS = 1_600_000
 """The board thickness of the 3D view when the design has no stack-up, in nanometres (an assumption the
 notes state)."""
@@ -72,12 +79,21 @@ COLORS: dict[str, str] = {
     ZONE_OUTLINE: "#40d0d0",
     KEEPOUTS: "#ff5fa8",
     CHECKS: "#ff3030",
+    ZONE_EDGE: "#00e0e0",
 }
 INNER = ("#c2c200", "#33a9a9", "#c27a2b", "#7f5fbf", "#5fa35f", "#bf5f9f")
 OTHER = ("#d97fd9", "#7fd9d9", "#d9a97f", "#a9d97f", "#7f9fd9", "#d97f9f", "#bfbf7f", "#7fbfbf")
 USER = "#e05080"
 SHOWN = frozenset({"copper", "silkscreen", "edge"})
 """The layer kinds shown when a scene opens; every other kind starts hidden."""
+ALTIUM_TEXT_NOTE = (
+    "Texts of an Altium board are drawn at the stroke text's anchor, its lower-left corner, with a glyph two "
+    "thirds of the height: the advance of Altium's stroke font is about the height (the stored text boxes of "
+    "1095 stroke texts of eight public documents: median 0.979 of the height, at most 1.0). The import gives "
+    "these texts as centred, with a width equal to the height."
+)
+"""What the scene states for an Altium board (change c0193; ``docs/formats/altium/pcb-records.md``,
+``H-A-PCBX-KICAD`` for the anchor)."""
 FRONT_ORDER = ("F.Cu", "F.Mask", "F.Paste", "F.SilkS", "F.CrtYd", "F.Fab")
 BACK_ORDER = ("B.Fab", "B.CrtYd", "B.SilkS", "B.Paste", "B.Mask", "B.Cu")
 
@@ -326,7 +342,7 @@ def _dimension(b: _Builder, dim: Any, label: str, text: Callable[..., None]) -> 
     shown = f"{value / 1e6:.{places}f} mm" if dim.units == "mm" else f"{value / 25_400_000:.{places}f} in"
     size = dim.size.h if dim.size is not None else DIMENSION_TEXT
     middle = Point((a[0] + z[0]) // 2, (a[1] + z[1]) // 2 - size)
-    text(dim.layer, middle, size, size, dim.thickness, 0, "center", "center", False, shown, -1)
+    text(dim.layer, middle, size, size, dim.thickness, 0, "center", "center", False, shown, -1, native=False)
 
 
 _SHOWN_FIELDS = frozenset({"Reference", "Value", "Footprint"})
@@ -561,6 +577,8 @@ def build_scene(
         elif len(z.outline) >= 3:
             unfilled.append(label)
             b.add(ZONE_OUTLINE, "o", [_flat(z.outline)], z.net_id, label=label + " (no fill)")
+        if len(z.outline) >= 3:
+            b.add(ZONE_EDGE, "o", [_flat(z.outline)], z.net_id, label=label + " (outline)")
     if unfilled:
         notes.append(
             f"{len(unfilled)} zone(s) hold no fill in the file and are drawn as outlines; refill them in "
@@ -568,6 +586,9 @@ def build_scene(
         )
 
     # graphics and texts: board, then footprints in the pad frame
+    altium_text = backend == "altium"
+    if altium_text:
+        notes.append(ALTIUM_TEXT_NOTE)
     for k, g in enumerate(board.graphics):
         b.graphic(g, _same, -1, f"graphic {k + 1}")
     texts: list[list[Any]] = []
@@ -584,9 +605,12 @@ def build_scene(
         mirrored: bool,
         value: str,
         comp: int,
+        native: bool = True,
     ) -> None:
         if not value:
             return
+        if altium_text and native:  # a text of the file, not one the scene writes (a dimension's)
+            hj, vj, size_w = "left", "bottom", round(2 * size_h / 3)
         sw = _um(stroke) if stroke is not None else max(_um(size_h) // 8, 1)
         texts.append(
             [
@@ -755,7 +779,9 @@ def build_scene(
                     "ring": _flat(_place(fp, p) for p in body.outline),
                     "z0": _um(max(min(z0, z1), 0)),
                     "z1": _um(max(z0, z1, 50_000)),
+                    "zs": [_um(min(z0, z1)), _um(max(z0, z1))],
                     "model": body.model,
+                    "locator": body.provenance.locator if body.provenance is not None else body.id,
                 }
             )
 
@@ -797,7 +823,7 @@ def build_scene(
         )
         if native is not None and layer_name in native.tabs:
             layers[-1]["tab"] = native.tabs[layer_name]
-    for view_layer in (ZONE_OUTLINE, KEEPOUTS, CHECKS, DRILL, OUTLINE):
+    for view_layer in (ZONE_EDGE, ZONE_OUTLINE, KEEPOUTS, CHECKS, DRILL, OUTLINE):
         if view_layer in b.used:
             layers.append(
                 {
@@ -806,7 +832,7 @@ def build_scene(
                     "kind": "view",
                     "side": "both",
                     "color": COLORS[view_layer],
-                    "visible": True,
+                    "visible": view_layer != ZONE_EDGE,
                 }
             )
     known = {layer["id"] for layer in layers}
@@ -874,4 +900,4 @@ def summary(scene: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-__all__ = ["COLORS", "DRILL", "OUTLINE", "SCHEMA", "ZONE_OUTLINE", "build_scene", "summary"]
+__all__ = ["COLORS", "DRILL", "OUTLINE", "SCHEMA", "ZONE_EDGE", "ZONE_OUTLINE", "build_scene", "summary"]

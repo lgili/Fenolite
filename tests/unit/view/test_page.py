@@ -144,3 +144,18 @@ def test_check_findings_in_the_page() -> None:
         "SEV_COLOR",
     ):
         assert name in html, name
+
+
+def test_snap() -> None:
+    """Scenario "Snap targets in the page" (change c0193): the measurement snaps to points, then edges, unless
+    Alt is held, and the findings are listed by group with the body models drawn in 3D."""
+    html = template()
+    for name in (
+        "function snapEdge(",
+        "function buildEdges(",
+        "function buildFindings(",
+        "function buildMeshes(",
+        "function pick3D(",
+    ):
+        assert name in html, name
+    assert "snap(x, y, e.altKey)" in html and "measureClick(e.offsetX, e.offsetY, e.altKey)" in html

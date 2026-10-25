@@ -96,6 +96,7 @@ All notable changes to Fenolite are documented here. The format follows
 - **Review tools in the viewer** (c0189): edge-to-edge measurement (`Shift+M`, equal to the gap `analyze` reports within 1 µm), links that reopen a view, `--select REF`, review marks with notes (`N`) saved through the server with `--serve --marks FILE` and listed with `--marks FILE --json` (schema `fenolite.review.v0`), and SVG and print of the view.
 - **BOM documents, output jobs and Draftsman side views** (c0190): an ActiveBOM `.BomDoc` opens as the BOM of the project's parts with the document's grouping, catalog, columns and sort (`H-A-PRJ-BOMDOC`, INFERRED); an `.OutJob` as the list of its outputs with their folders; Draftsman side views and callouts are drawn.
 - **Visual tests of the viewer page** (c0191): one authored fixture per scene kind drawn in a pinned Chromium and compared with committed references, interaction tests of selection, measurement, units and cross-probing, `make visual`, `tools/update_view_refs.py`, and the CI job `viewer`.
+- **Viewer review aids** (c0193): `fenolite view` draws review findings by group (45° corners, silkscreen, copper outside the board, open connections) and findings files of other tools (`fenolite.view_overlay.v0`), measures with snap, and shows an Altium board's embedded 3D models (meshed by gmsh as a separate process, placed as the native tool places them); `BodyModelSource` is a new backend protocol, and `fenolite capabilities` lists `gmsh`.
 
 ### Changed
 

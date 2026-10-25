@@ -7,7 +7,9 @@ first request and cached), ``/version/<id>`` its state, and ``/marks`` the revie
 ``POST`` of one mark is written to the ``--marks`` file, and only when ``view`` was given one. A watcher
 checks the documents whose scene was built: when a file's size and time change and then stay the same for
 one more check (a tool or a sync client may still be writing), the scene is built again and the page reloads
-it, keeping its view. Only the loopback address is bound; nothing leaves the machine.
+it, keeping its view. A scene may be refined in the background after it is first served (the body models,
+change c0193): the refined scene is a new version, which the page reloads. Only the loopback address is
+bound; nothing leaves the machine.
 """
 
 from __future__ import annotations
@@ -39,6 +41,9 @@ this server never answers, so it cannot write marks."""
 
 SceneBuilder = Callable[[Path], dict[str, Any]]
 """Builds the scene of a board file (``cmd_view`` passes the backend read; tests pass their own)."""
+SceneRefiner = Callable[[Path, dict[str, Any]], "dict[str, Any] | None"]
+"""Refines a built scene in the background (``cmd_view`` places the body models, change c0193); ``None``
+keeps the scene as it was."""
 
 
 @dataclass
@@ -65,6 +70,7 @@ class Live:
         log: Callable[[str], None] = lambda _m: None,
         marks_file: Path | None = None,
         select: str | None = None,
+        refine: SceneRefiner | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -73,6 +79,7 @@ class Live:
             open_id,
             log,
         )
+        self.refine = refine
         self.states: dict[str, _State] = {}
         self.lock = threading.Lock()
         self.marks_file, self.select = marks_file, select
@@ -109,23 +116,40 @@ class Live:
             return None
         return (s.st_size, s.st_mtime_ns)
 
+    def _store(self, state: _State, scene: dict[str, Any]) -> None:
+        data = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+        with self.lock:
+            state.scene = data
+            state.version = f"{scene['meta'].get('sha256', '')[:12]}-{time.time_ns()}"
+            state.error = None
+            state.updated = datetime.now().strftime("%H:%M:%S")
+
     def _rebuild(self, doc: Document, state: _State) -> None:
         state.building = True
         try:
             assert doc.file is not None
             scene = self.build(doc.file)
             scene["overlays"] = list(scene.get("overlays", [])) + self.overlays
-            data = json.dumps(compact(scene), separators=(",", ":"), ensure_ascii=False).encode("utf-8")
-            with self.lock:
-                state.scene = data
-                state.version = f"{scene['meta'].get('sha256', '')[:12]}-{time.time_ns()}"
-                state.error = None
-                state.updated = datetime.now().strftime("%H:%M:%S")
+            self._store(state, scene)
+            if self.refine is not None:
+                threading.Thread(target=self._refine, args=(doc, state, scene), daemon=True).start()
         except Exception as exc:  # keep serving the last good scene, and say why the new one failed
             state.error = f"{type(exc).__name__}: {exc}"
             self.log(f"view: {doc.name} could not be read: {state.error}")
         finally:
             state.building = False
+
+    def _refine(self, doc: Document, state: _State, scene: dict[str, Any]) -> None:
+        """Refine ``scene`` and store the result unless a newer scene of the document was stored meanwhile."""
+        assert doc.file is not None and self.refine is not None
+        version = state.version
+        try:
+            refined = self.refine(doc.file, scene)
+        except Exception as exc:  # the scene already served stays; the reason is logged
+            self.log(f"view: {doc.name}: models not placed: {type(exc).__name__}: {exc}")
+            return
+        if refined is not None and state.version == version:
+            self._store(state, refined)
 
     def scene(self, doc_id: str) -> bytes | None:
         """The scene of a viewable document, built when first asked for; ``None`` for any other id."""

@@ -926,6 +926,34 @@ class BoardFrame(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class BodyModel:
+    """The 3D model that a board file holds for one component body, which the model does not carry
+    (change c0193; capability backend-protocol, "Body models source").
+
+    ``locator`` is the provenance locator of the body it belongs to; ``format`` names the data (``step``);
+    ``data`` are the model file's bytes. ``position`` is in the board frame of the model and ``z`` the height
+    from the face the footprint is on. ``rotation`` holds the angles about x, then y, then z, in a frame of
+    the top face: x right, y the board frame's −y, z out of the top face. A model point ``p`` lies at
+    ``T(position, face ± z) · F(side) · Rz · Ry · Rx · p``, ``F`` the identity on the top and a half turn
+    about x on the bottom, below the bottom face."""
+
+    locator: str
+    name: str
+    format: str
+    data: bytes = field(repr=False)
+    position: Point
+    z: Nm = 0
+    rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+
+
+@runtime_checkable
+class BodyModelSource(Protocol):
+    """A backend that gives the 3D models a board file holds for its bodies, read from the file."""
+
+    def body_models(self, path: Path) -> tuple[BodyModel, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
 class DesignRules:
     """The clearance rules that a project's own files hold, applied to a board design.
 
@@ -1320,6 +1348,8 @@ __all__ = [
     "BoardFrame",
     "BoardPad",
     "BodyComparer",
+    "BodyModel",
+    "BodyModelSource",
     "CutoutComparer",
     "CanaryState",
     "CapabilityReport",

@@ -29,8 +29,14 @@
   .doc .ic { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:middle; }
   #panels { padding:4px 10px 10px; }
   #panels h3 { margin:12px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
-  .ov { padding:3px 0; cursor:pointer; border-bottom:1px solid #ffffff10; }
-  .ov:hover { color:#fff; }
+  .ov { padding:3px 0 3px 18px; cursor:pointer; border-bottom:1px solid #ffffff10; font-size:12px; }
+  .ov:hover, .ov.sel { color:#fff; background:#ffffff0d; }
+  .fg { display:flex; align-items:center; gap:6px; padding:3px 0; white-space:nowrap; }
+  .fg .ft { cursor:pointer; flex:1; overflow:hidden; text-overflow:ellipsis; }
+  .fg .ft:hover { color:#fff; }
+  .fg .fn { color:var(--muted); font-variant-numeric:tabular-nums; }
+  .fg.zero { opacity:.5; }
+  .fnote { color:var(--muted); font-size:11px; line-height:1.35; padding:2px 0 4px 18px; }
   .notes { color:var(--muted); font-size:11px; line-height:1.45; }
   kbd { background:#333842; border-radius:3px; padding:0 4px; font-size:11px; }
   #wrap { position:relative; overflow:hidden; grid-row:2/3; }
@@ -96,7 +102,7 @@
     <button id="b3d" class="board-only" title="2D / 3D (D)">3D</button>
     <button id="bFit" title="Fit to the window (F)">Fit</button>
     <button id="bFlip" class="board-only" title="View from below / above (B)">View: Top</button>
-    <button id="bMeasure" title="Measure a distance; snaps to pad centres and vertices (M)">Measure</button>
+    <button id="bMeasure" title="Measure a distance; snaps to pad centres, vertices, then edges (M; hold Alt: no snap)">Measure</button>
     <button id="bUnit" title="Units: millimetres or mil (Q)">mm</button>
     <button id="bEdge" class="board-only" title="Edge measure: the gap between the edges of two objects (Shift+M)">Edge</button>
     <button id="bMark" title="Drop a review mark with a note (N)">Mark</button>
@@ -226,7 +232,8 @@ const SCENES = new Map(), RAW = new Map();
 const cv = document.getElementById("cv"); let ctx = cv.getContext("2d"), P2D = Path2D;   // c0189: both swapped while an SVG is recorded
 let W = 0, H = 0, dpr = 1;
 const view = { cx: 0, cy: 0, s: 5, mirror: false };
-const st = { edge: false, epick: [], eres: null, marking: false, checks: true, selFinding: -1, query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
+const st = { edge: false, epick: [], eres: null, marking: false, checks: true, selFinding: -1, query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null,
+  ovOff: new Set(), ovOpen: new Set() };
 const vis = new Map();
 const $ = id => document.getElementById(id);
 
@@ -280,8 +287,8 @@ function toMM(scene) {
   for (const c of scene.comps) { c.x *= MM; c.y *= MM; if (c.bbox) c.bbox = c.bbox.map(f); }
   for (const r of scene.board) { r.points = r.points.map(f); r.mids = r.mids.map(m => m ? m.map(f) : null); }
   scene.bounds = scene.bounds.map(f); scene.board3d.thickness *= MM;
-  for (const b of scene.bodies) { b.ring = b.ring.map(f); b.z0 *= MM; b.z1 *= MM; }
-  for (const o of scene.overlays || []) o.pts = o.pts.map(p => p.map(f));
+  for (const b of scene.bodies) { b.ring = b.ring.map(f); b.z0 *= MM; b.z1 *= MM; if (b.zs) b.zs = b.zs.map(f); }
+  for (const o of scene.overlays || []) { o.pts = o.pts.map(p => p.map(f)); if (o.bbox) o.bbox = o.bbox.map(f); }
   return scene;
 }
 // an arc through three points: centre, radius, start and end angles, and the direction (canvas angles, Y down)
@@ -378,7 +385,7 @@ function paintCache(g, c, lid, color, alpha, unit) {
   g.fillStyle = color; g.fill(c.fill, "evenodd");
   g.strokeStyle = color; g.lineCap = "round"; g.lineJoin = "round";
   for (const [w, p] of c.strokes) { g.lineWidth = Math.max(w, 1 / unit); g.stroke(p); }
-  if (lid === "View.ZoneOutline") g.setLineDash([6 / unit, 4 / unit]);
+  if (lid === "View.ZoneOutline" || lid === "View.ZoneEdge") g.setLineDash([6 / unit, 4 / unit]);
   g.lineWidth = 1 / unit; g.stroke(c.outline); g.setLineDash([]);
   if (c.hb[2] >= c.hb[0]) { const [x0, y0, x1, y1] = c.hb, step = 8 / unit;   // hatched rings: 45° lines inside, a solid edge
     g.save(); g.clip(c.hatch, "evenodd"); g.lineWidth = 1 / unit; g.beginPath();
@@ -482,13 +489,21 @@ function buildMessages() {   // the Messages panel: findings grouped by rule, er
     if (list.length > MSG_ROWS) { const d = document.createElement("div"); d.className = "notes"; d.textContent = `… ${list.length - MSG_ROWS} more`; box.appendChild(d); }
   }
 }
+// findings: an item of a group drawn as a line, a path (a dashed creepage path too) or a marker; the group's box hides it
+const ovGroup = o => o.group || (o.kind === "creepage" ? "analyze_creepage" : "analyze_clearance");
 function drawOverlays() {
   if (!S.overlays || !S.overlays.length) return;
   worldTf(); ctx.globalAlpha = 1;
   S.overlays.forEach((o, i) => {
-    ctx.strokeStyle = o.color; ctx.lineWidth = (i === st.selOv ? 4 : 2.5) / view.s; ctx.setLineDash(o.kind === "creepage" ? [5 / view.s, 3 / view.s] : []);
-    ctx.beginPath(); o.pts.forEach((p, k) => k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]);
-    const p = o.pts[0]; ctx.beginPath(); ctx.arc(p[0], p[1], (i === st.selOv ? 9 : 6) / view.s, 0, 2 * Math.PI); ctx.stroke();
+    if (st.ovOff.has(ovGroup(o))) return;
+    const sel = i === st.selOv, u = 1 / view.s;
+    ctx.strokeStyle = o.color; ctx.lineWidth = (sel ? 4 : 2.5) * u; ctx.setLineDash(o.kind === "creepage" ? [5 * u, 3 * u] : []);
+    if (o.pts.length > 1) { ctx.beginPath(); o.pts.forEach((p, k) => k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); }
+    ctx.setLineDash([]);
+    const p = o.kind === "path" && o.pts.length === 3 ? o.pts[1] : o.pts[0], r = (sel ? 9 : 6) * u;
+    ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 2 * Math.PI); ctx.stroke();
+    if (o.kind === "point") { ctx.beginPath(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.moveTo(p[0] + dx * 0.5 * r, p[1] + dy * 0.5 * r); ctx.lineTo(p[0] + dx * 1.8 * r, p[1] + dy * 1.8 * r); } ctx.stroke(); }
+    if (sel && o.bbox) { const b = o.bbox; ctx.lineWidth = 1.5 * u; ctx.setLineDash([6 * u, 4 * u]); ctx.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); ctx.setLineDash([]); }
   });
 }
 function snapPoints() {   // pad centres, line ends and vertices, circle centres, text anchors: where a measurement snaps
@@ -505,15 +520,58 @@ function snapPoints() {   // pad centres, line ends and vertices, circle centres
       else if ((pr[1] === "p" || pr[1] === "o") && d.length === 1 && d[0].length <= 128) for (let i = 0; i < d[0].length; i += 2) out.push(d[0][i], d[0][i + 1]); } }
   S.__snaps = out; return out;
 }
-function snap(x, y) {
+function snap(x, y, free) {
+  if (free) return { p: [x, y], snapped: false };   // Alt held: no snap (change c0193)
   const pts = snapPoints(), tol = 8 / view.s; let best = null, bd = tol;
   for (let i = 0; i < pts.length; i += 2) { const d = Math.hypot(pts[i] - x, pts[i + 1] - y); if (d < bd) { bd = d; best = [pts[i], pts[i + 1]]; } }
-  return best ? { p: best, snapped: true } : { p: [x, y], snapped: false };
+  if (best) return { p: best, snapped: true };
+  const e = S.kind ? null : snapEdge(x, y, 10);
+  return e ? { p: [e.x, e.y], snapped: true, edge: e.label } : { p: [x, y], snapped: false };
+}
+// ================================================================== edge snap (change c0193)
+// Without a point within reach, a board measurement snaps to the nearest point of an edge of a visible layer: pad
+// and fill borders, track borders and axis, circles, outlines and the board edge.
+const SNAP_CELL = 2;
+function buildEdges() {
+  const E = [], C = [], grid = new Map();
+  const put = (x0, y0, x1, y1, ref) => { for (let i = Math.floor(x0 / SNAP_CELL); i <= Math.floor(x1 / SNAP_CELL); i++) for (let j = Math.floor(y0 / SNAP_CELL); j <= Math.floor(y1 / SNAP_CELL); j++) {
+    const k = i + "," + j; let c = grid.get(k); if (!c) { c = []; grid.set(k, c); } c.push(ref); } };
+  const seg = (x1, y1, x2, y2, label) => { E.push([x1, y1, x2, y2, label]); put(Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2), ["e", E.length - 1]); };
+  const circ = (cx, cy, r, label) => { C.push([cx, cy, r, label]); put(cx - r, cy - r, cx + r, cy + r, ["c", C.length - 1]); };
+  const poly = (flat, label) => { for (let i = 0; i + 3 < flat.length; i += 2) seg(flat[i], flat[i + 1], flat[i + 2], flat[i + 3], `edge · ${label}`); };
+  for (const [l] of order()) {
+    for (const [pr] of byLayer.get(l.id) || []) { const d = pr[2], name = pr[5] || l.name;
+      if (pr[1] === "c") circ(d[0], d[1], d[2], `edge · ${name}`);
+      else if (pr[1] === "s") { const w = d[4] / 2, dx = d[2] - d[0], dy = d[3] - d[1], n = Math.hypot(dx, dy) || 1, ox = -dy / n * w, oy = dx / n * w;
+        seg(d[0], d[1], d[2], d[3], `axis · ${name}`);
+        if (w > 0.05) { seg(d[0] + ox, d[1] + oy, d[2] + ox, d[3] + oy, `edge · ${name}`); seg(d[0] - ox, d[1] - oy, d[2] - ox, d[3] - oy, `edge · ${name}`);
+          circ(d[0], d[1], w, `edge · ${name}`); circ(d[2], d[3], w, `edge · ${name}`); } }
+      else if (pr[1] === "a") { const a = pr[6]; if (!a) continue; const T = 2 * Math.PI; let span = ((a.a3 - a.a1) % T + T) % T; if (a.ccw) span -= T;
+        const n = Math.max(6, Math.ceil(Math.abs(span) / 0.15));
+        for (const [r, lab] of [[a.r, "axis"], [a.r + d[6] / 2, "edge"], [a.r - d[6] / 2, "edge"]]) { if (r <= 0) continue;
+          for (let k = 0; k < n; k++) { const t0 = a.a1 + span * k / n, t1 = a.a1 + span * (k + 1) / n;
+            seg(a.cx + r * Math.cos(t0), a.cy + r * Math.sin(t0), a.cx + r * Math.cos(t1), a.cy + r * Math.sin(t1), `${lab} · ${name}`); } } }
+      else if (pr[1] === "l") poly(d.slice(1), name);
+      else if (pr[1] === "p" || pr[1] === "o") for (const r of d) poly([...r, r[0], r[1]], name); } }
+  for (const r of S.board) { const pts = ringSamples(r).flat(); poly([...pts, pts[0], pts[1]], "board edge"); }
+  return { E, C, grid };
+}
+function snapEdge(x, y, tolPx) {
+  const key = order().map(e => e[0].id).join("|"); if (!S.__edges || S.__edgeKey !== key) { S.__edgeKey = key; S.__edges = buildEdges(); }
+  const tol = tolPx / view.s, sn = S.__edges, seen = new Set(); let be = null, bed = tol;
+  for (let i = Math.floor((x - tol) / SNAP_CELL); i <= Math.floor((x + tol) / SNAP_CELL); i++) for (let j = Math.floor((y - tol) / SNAP_CELL); j <= Math.floor((y + tol) / SNAP_CELL); j++) {
+    for (const ref of sn.grid.get(i + "," + j) || []) { const k = ref[0] + ref[1]; if (seen.has(k)) continue; seen.add(k);
+      if (ref[0] === "e") { const e = sn.E[ref[1]], dx = e[2] - e[0], dy = e[3] - e[1], L = dx * dx + dy * dy;
+        let t = L ? ((x - e[0]) * dx + (y - e[1]) * dy) / L : 0; t = Math.max(0, Math.min(1, t)); const qx = e[0] + t * dx, qy = e[1] + t * dy, dd = Math.hypot(qx - x, qy - y);
+        if (dd < bed) { bed = dd; be = { x: qx, y: qy, label: e[4] }; } }
+      else { const c = sn.C[ref[1]], r0 = Math.hypot(x - c[0], y - c[1]) || 1e-9, dd = Math.abs(r0 - c[2]);
+        if (dd < bed) { bed = dd; be = { x: c[0] + (x - c[0]) * c[2] / r0, y: c[1] + (y - c[1]) * c[2] / r0, label: c[3] }; } } } }
+  return be;
 }
 function drawMeasure() {
   if (!st.measure && !st.mpts.length) return; worldTf(); ctx.globalAlpha = 1; const C = "#00e08a"; ctx.strokeStyle = C; ctx.lineWidth = 1.5 / view.s;
   const mark = (q, on) => { const r = 4 / view.s; ctx.strokeRect(q[0] - r, q[1] - r, 2 * r, 2 * r); if (on) { ctx.beginPath(); ctx.moveTo(q[0] - 2 * r, q[1]); ctx.lineTo(q[0] + 2 * r, q[1]); ctx.moveTo(q[0], q[1] - 2 * r); ctx.lineTo(q[0], q[1] + 2 * r); ctx.stroke(); } };
-  if (st.mhover) mark(st.mhover.p, st.mhover.snapped);
+  if (st.mhover) { mark(st.mhover.p, st.mhover.snapped); if (st.mhover.edge && !st.mpts.length) $("coord").textContent = `snap: ${st.mhover.edge}`; }
   if (!st.mpts.length) return;
   const a = st.mpts[0], b = st.mpts[1] || (st.mhover && st.mhover.p); mark(a, true); if (!b) return;
   ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); if (st.mpts[1]) mark(b, true);
@@ -522,7 +580,7 @@ function drawMeasure() {
   ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] - 28, w + 12, 20); ctx.fillStyle = C; ctx.fillText(txt, P[0] + 14, P[1] - 13); worldTf();
   $("coord").textContent = `measure: ${txt}`;
 }
-function measureClick(X, Y) { const [x, y] = s2w(X, Y), q = snap(x, y).p; if (st.mpts.length >= 2) st.mpts = []; st.mpts.push(q); draw(); }
+function measureClick(X, Y, free) { const [x, y] = s2w(X, Y), q = snap(x, y, free).p; if (st.mpts.length >= 2) st.mpts = []; st.mpts.push(q); draw(); }
 
 // ================================================================== hit test (2D)
 function segDist(px, py, x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0;
@@ -541,7 +599,8 @@ function hitPrim(pr, x, y, tol) { const d = pr[2]; switch (pr[1]) {
 function pick(X, Y) {
   const [x, y] = s2w(X, Y), tol = 3 / view.s;
   const layers = order().map(e => e[0]).reverse().filter(l => l.id !== "View.Drill" && l.id !== "View.Outline");
-  layers.sort((a, b) => (a.id === "View.ZoneOutline") - (b.id === "View.ZoneOutline"));   // copper before zone outlines
+  const outl = l => l.id === "View.ZoneOutline" || l.id === "View.ZoneEdge";
+  layers.sort((a, b) => outl(a) - outl(b));   // copper before zone outlines
   for (const l of layers) {
     for (const [pr, b] of byLayer.get(l.id) || []) { if (x < b[0] - tol || x > b[2] + tol || y < b[1] - tol || y > b[3] + tol) continue;
       if (hitPrim(pr, x, y, tol)) return { layer: l, pr }; } }
@@ -738,8 +797,36 @@ function init3D() {
   const p = gl.createProgram(); gl.attachShader(p, shader(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl, gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
   V3.gl = gl; V3.prog = p; for (const k of ["aP", "aN", "aC", "aT"]) V3.loc[k] = gl.getAttribLocation(p, k);
   for (const k of ["uM", "uS", "uTex", "uL"]) V3.loc[k] = gl.getUniformLocation(p, k);
+  // body models (change c0193): per-vertex colour, alpha 0 where the model gives none (the body colour then)
+  V3.u32 = !!gl.getExtension("OES_element_index_uint");
+  const mvs = `attribute vec3 aP; attribute vec3 aN; attribute vec4 aC; uniform mat4 uVP; uniform mat4 uW; varying vec3 vN; varying vec4 vC;
+    void main(){ gl_Position = uVP * uW * vec4(aP, 1.0); vN = (uW * vec4(aN, 0.0)).xyz; vC = aC; }`;
+  const mfs = `precision mediump float; varying vec3 vN; varying vec4 vC; uniform vec3 uBody; uniform float uSel; uniform vec3 uL;
+    void main(){ vec3 base = vC.a > 0.5 ? vC.rgb : uBody; if (uSel > 0.5) base = mix(base, vec3(1.0, 0.85, 0.3), 0.55);
+      float d = abs(dot(normalize(vN), uL)); gl_FragColor = vec4(base * (0.42 + 0.58 * d), 1.0); }`;
+  const q = gl.createProgram(); gl.attachShader(q, shader(gl, gl.VERTEX_SHADER, mvs)); gl.attachShader(q, shader(gl, gl.FRAGMENT_SHADER, mfs)); gl.linkProgram(q);
+  V3.mprog = q; V3.mloc = {}; for (const k of ["aP", "aN", "aC"]) V3.mloc[k] = gl.getAttribLocation(q, k);
+  for (const k of ["uVP", "uW", "uBody", "uSel", "uL"]) V3.mloc[k] = gl.getUniformLocation(q, k);
   return true;
 }
+function b64(text, Type) { const bin = atob(text), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); return new Type(u8.buffer); }
+function buildMeshes() {
+  const gl = V3.gl; for (const m of Object.values(V3.meshBufs || {})) for (const k of ["pos", "nrm", "col", "idx"]) gl.deleteBuffer(m[k]);
+  V3.meshBufs = {};
+  for (const [key, ms] of Object.entries(S.meshes || {})) {
+    if (!ms) continue;
+    const P = b64(ms.v, Float32Array), I = b64(ms.i, Uint32Array), C = b64(ms.c, Uint8Array), N = new Float32Array(P.length);
+    for (let t = 0; t < I.length; t += 3) { const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+      const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; for (const o of [a, b, c]) { N[o] += nx; N[o + 1] += ny; N[o + 2] += nz; } }
+    for (let o = 0; o < N.length; o += 3) { const l = Math.hypot(N[o], N[o + 1], N[o + 2]) || 1; N[o] /= l; N[o + 1] /= l; N[o + 2] /= l; }
+    const buf = (data, target) => { const b = gl.createBuffer(); gl.bindBuffer(target, b); gl.bufferData(target, data, gl.STATIC_DRAW); return b; };
+    let idx = I, type = gl.UNSIGNED_INT;
+    if (!V3.u32) { if (P.length / 3 > 65535) continue; idx = new Uint16Array(I); type = gl.UNSIGNED_SHORT; }
+    V3.meshBufs[key] = { pos: buf(P, gl.ARRAY_BUFFER), nrm: buf(N, gl.ARRAY_BUFFER), col: buf(C, gl.ARRAY_BUFFER), idx: buf(idx, gl.ELEMENT_ARRAY_BUFFER), n: I.length, type };
+  }
+}
+
 function hexRGB(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
 function makePart(data, tex) { const gl = V3.gl, b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
   return { buf: b, n: data.length / 11, tex }; }
@@ -792,14 +879,15 @@ function build3D() {
   for (const r of S.board) { const pts = ringSamples(r); for (let i = 0; i < pts.length; i++) { const a = pts[i], c2 = pts[(i + 1) % pts.length];
     quad(edge, P3(a[0], a[1], 0), P3(c2[0], c2[1], 0), P3(c2[0], c2[1], T), P3(a[0], a[1], T), ec); } }
   V3.parts.push(makePart(top, "top"), makePart(bot, "bottom"), makePart(edge, null));
-  V3.bodyPart = null; rebuildBodies();
+  V3.bodyPart = null; buildMeshes(); rebuildBodies();
   if (!V3.built) { V3.cam.tx = (b[0] + b[2]) / 2; V3.cam.ty = -(b[1] + b[3]) / 2; V3.cam.tz = 0; V3.cam.dist = Math.max(w, h) * 1.7; }
   V3.built = true; return true;
 }
-const BODY = "#3c4048", BODY_SEL = "#ffd84d";
+const BODY = "#3c4048", BODY_SEL = "#ffd84d", MESH_BODY = "#9aa0a8";
 function rebuildBodies() {
   const gl = V3.gl; if (!gl) return; if (V3.bodyPart) gl.deleteBuffer(V3.bodyPart.buf);
-  const arr = []; (S.bodies || []).forEach((bd, i) => { if (notFitted(bd.ref)) return; const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
+  const arr = []; (S.bodies || []).forEach((bd, i) => { if (notFitted(bd.ref)) return; if (bd.mesh && V3.meshBufs && V3.meshBufs[bd.mesh]) return;
+    const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
     bodyGeometry(arr, bd, hexRGB(sel ? BODY_SEL : BODY)); });
   V3.bodyPart = arr.length ? makePart(arr, null) : null;
 }
@@ -828,6 +916,17 @@ function draw3D() {
     gl.uniform1f(L.uTex, p.tex ? 1 : 0); if (p.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, V3.tex[p.tex]); gl.uniform1i(L.uS, 0); }
     gl.drawArrays(gl.TRIANGLES, 0, p.n);
   }
+  for (const k of ["aP", "aN", "aC", "aT"]) gl.disableVertexAttribArray(L[k]);
+  if (!V3.bodies || !V3.meshBufs) return;
+  const ML = V3.mloc; gl.useProgram(V3.mprog); gl.uniformMatrix4fv(ML.uVP, false, new Float32Array(mvp())); gl.uniform3fv(ML.uL, lv.map(v => v / ll));
+  (S.bodies || []).forEach((bd, i) => { const mb = bd.mesh && V3.meshBufs[bd.mesh]; if (!mb || notFitted(bd.ref)) return;
+    gl.uniformMatrix4fv(ML.uW, false, new Float32Array(bd.m)); gl.uniform3fv(ML.uBody, hexRGB(MESH_BODY));
+    gl.uniform1f(ML.uSel, (i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp)) ? 1 : 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mb.pos); gl.vertexAttribPointer(ML.aP, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(ML.aP);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mb.nrm); gl.vertexAttribPointer(ML.aN, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(ML.aN);
+    gl.bindBuffer(gl.ARRAY_BUFFER, mb.col); gl.vertexAttribPointer(ML.aC, 4, gl.UNSIGNED_BYTE, true, 0, 0); gl.enableVertexAttribArray(ML.aC);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mb.idx); gl.drawElements(gl.TRIANGLES, mb.n, mb.type, 0); });
+  for (const k of ["aP", "aN", "aC"]) gl.disableVertexAttribArray(ML[k]);
 }
 function set3D(on) {
   st.mode3d = on; $("b3d").classList.toggle("on", on);
@@ -844,7 +943,37 @@ glc.addEventListener("mousemove", e => { if (!drag3) return; const dx = e.offset
     c.tx = c0.tx - (-dx * Math.sin(c.yaw) - dy * f * Math.cos(c.yaw)) * k; c.ty = c0.ty - (dx * Math.cos(c.yaw) - dy * f * Math.sin(c.yaw)) * k; c.tz = c0.tz + dy * Math.cos(c.pitch) * k; }
   else { c.yaw = c0.yaw - dx * 0.008; c.pitch = Math.max(-1.5699, Math.min(1.5699, c0.pitch + dy * 0.008)); }
   draw3D(); });
-window.addEventListener("mouseup", () => { if (drag3) { drag3 = null; glc.style.cursor = "grab"; } });
+window.addEventListener("mouseup", e => { if (!drag3) return; const d = drag3; drag3 = null; glc.style.cursor = "grab";
+  if (e.target !== glc || Math.abs(e.offsetX - d.x) + Math.abs(e.offsetY - d.y) > 3) return;
+  const i = pick3D(e.offsetX, e.offsetY); V3.selBody = i; st.selComp = i >= 0 ? S.bodies[i].comp : -1; rebuildBodies(); draw3D();
+  if (i < 0) { showInfo(null); return; }
+  const bd = S.bodies[i], how = bd.render === "model" ? "model placed as the file places it" : bd.render === "fitted" ? `model fitted to the body's outline (${esc(bd.fit)})` : `extruded outline${bd.fit ? ` (${esc(bd.fit)})` : ""}`;
+  showInfo(compInfo(bd.comp) + `<br>Body: ${esc(bd.model || "extruded")} · ${how}<br>Height: ${(bd.zs ? bd.zs[0] : bd.z0).toFixed(2)} to ${(bd.zs ? bd.zs[1] : bd.z1).toFixed(2)} mm from the ${bd.side} face`); });
+// the body whose box (outline and height) the ray of a pixel meets first
+function pick3D(X, Y) {
+  const M = inv(mvp()), nx = 2 * X / W - 1, ny = 1 - 2 * Y / H;
+  const un = v => { const r = [0, 1, 2, 3].map(i => M[i] * v[0] + M[4 + i] * v[1] + M[8 + i] * v[2] + M[12 + i] * v[3]); return [r[0] / r[3], r[1] / r[3], r[2] / r[3]]; };
+  const p0 = un([nx, ny, -1, 1]), p1 = un([nx, ny, 1, 1]), d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]], T = S.board3d.thickness;
+  let best = -1, bt = Infinity;
+  (S.bodies || []).forEach((bd, i) => { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (let k = 0; k < bd.ring.length; k += 2) { const q = P3(bd.ring[k], bd.ring[k + 1], 0); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+    const za = bd.side === "bottom" ? -bd.z1 : T + bd.z0, zb = bd.side === "bottom" ? -bd.z0 : T + bd.z1;
+    let t0 = -Infinity, t1 = Infinity;
+    for (const [lo, hi, o, dd] of [[x0, x1, p0[0], d[0]], [y0, y1, p0[1], d[1]], [za, zb, p0[2], d[2]]]) {
+      if (Math.abs(dd) < 1e-12) { if (o < lo || o > hi) { t0 = Infinity; break; } continue; }
+      let a = (lo - o) / dd, b2 = (hi - o) / dd; if (a > b2) [a, b2] = [b2, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, b2); }
+    if (t0 <= t1 && t1 > 0 && t0 < bt) { bt = t0; best = i; } });
+  return best;
+}
+function inv(a) { const o = new Array(16);
+  const b00 = a[0] * a[5] - a[1] * a[4], b01 = a[0] * a[6] - a[2] * a[4], b02 = a[0] * a[7] - a[3] * a[4], b03 = a[1] * a[6] - a[2] * a[5], b04 = a[1] * a[7] - a[3] * a[5], b05 = a[2] * a[7] - a[3] * a[6];
+  const b06 = a[8] * a[13] - a[9] * a[12], b07 = a[8] * a[14] - a[10] * a[12], b08 = a[8] * a[15] - a[11] * a[12], b09 = a[9] * a[14] - a[10] * a[13], b10 = a[9] * a[15] - a[11] * a[13], b11 = a[10] * a[15] - a[11] * a[14];
+  const det = 1 / (b00 * b11 - b01 * b10 + b02 * b09 + b03 * b08 - b04 * b07 + b05 * b06);
+  o[0] = (a[5] * b11 - a[6] * b10 + a[7] * b09) * det; o[1] = (a[2] * b10 - a[1] * b11 - a[3] * b09) * det; o[2] = (a[13] * b05 - a[14] * b04 + a[15] * b03) * det; o[3] = (a[10] * b04 - a[9] * b05 - a[11] * b03) * det;
+  o[4] = (a[6] * b08 - a[4] * b11 - a[7] * b07) * det; o[5] = (a[0] * b11 - a[2] * b08 + a[3] * b07) * det; o[6] = (a[14] * b02 - a[12] * b05 - a[15] * b01) * det; o[7] = (a[8] * b05 - a[10] * b02 + a[11] * b01) * det;
+  o[8] = (a[4] * b10 - a[5] * b08 + a[7] * b06) * det; o[9] = (a[1] * b08 - a[0] * b10 - a[3] * b06) * det; o[10] = (a[12] * b04 - a[13] * b02 + a[15] * b00) * det; o[11] = (a[9] * b02 - a[8] * b04 - a[11] * b00) * det;
+  o[12] = (a[5] * b07 - a[4] * b09 - a[6] * b06) * det; o[13] = (a[0] * b09 - a[1] * b07 + a[2] * b06) * det; o[14] = (a[13] * b01 - a[12] * b03 - a[14] * b00) * det; o[15] = (a[8] * b03 - a[9] * b01 + a[10] * b00) * det;
+  return o; }
 glc.addEventListener("wheel", e => { e.preventDefault(); V3.cam.dist = Math.min(Math.max(V3.cam.dist * Math.exp(e.deltaY * 0.0012), 5), 3000); draw3D(); }, { passive: false });
 $("v3top").onclick = () => camPreset("top");
 $("v3bot").onclick = () => camPreset("bottom");
@@ -917,14 +1046,35 @@ async function openDoc(d, keepView) {
 }
 
 // ================================================================== scene, overlays and notes
+// findings by group (change c0193): the box draws or hides a group, the title opens its items, the tooltip says the rule
+function buildFindings() {
+  const box = $("overlays"); box.innerHTML = "";
+  const groups = [...(S.meta.findings || [])], byG = new Map();
+  (S.overlays || []).forEach((o, i) => { const g = ovGroup(o); if (!byG.has(g)) byG.set(g, []); byG.get(g).push(i); });
+  for (const g of byG.keys()) if (!groups.some(x => x.id === g)) groups.push({ id: g, title: g, color: S.overlays[byG.get(g)[0]].color, n: byG.get(g).length, note: "" });
+  $("ovTitle").style.display = groups.length ? "block" : "none";
+  for (const g of groups) {
+    const idx = byG.get(g.id) || [], row = document.createElement("div"); row.className = "fg" + (idx.length ? "" : " zero"); row.title = g.note || "";
+    row.innerHTML = `<input type="checkbox" ${st.ovOff.has(g.id) ? "" : "checked"}><span class="sw" style="background:${esc(g.color)}"></span><span class="ft">${st.ovOpen.has(g.id) ? "\u25BE" : "\u25B8"} ${esc(g.title)}</span><span class="fn">${idx.length}</span>`;
+    row.querySelector("input").onchange = e => { if (e.target.checked) st.ovOff.delete(g.id); else st.ovOff.add(g.id); draw(); };
+    row.querySelector(".ft").onclick = () => { if (st.ovOpen.has(g.id)) st.ovOpen.delete(g.id); else st.ovOpen.add(g.id); buildFindings(); };
+    box.appendChild(row);
+    if (!st.ovOpen.has(g.id)) continue;
+    if (g.note) { const n = document.createElement("div"); n.className = "fnote"; n.textContent = g.note; box.appendChild(n); }
+    for (const i of idx) { const d = document.createElement("div"); d.className = "ov" + (i === st.selOv ? " sel" : ""); d.textContent = S.overlays[i].label; d.onclick = () => gotoFinding(i); box.appendChild(d); }
+  }
+}
+function gotoFinding(i) {
+  const o = S.overlays[i]; if (st.mode3d) set3D(false); st.selOv = i; st.selNet = -1; st.selComp = -1; st.ovOff.delete(ovGroup(o));
+  const xs = o.pts.map(p => p[0]), ys = o.pts.map(p => p[1]);
+  const b = o.bbox ? [Math.min(o.bbox[0], ...xs), Math.min(o.bbox[1], ...ys), Math.max(o.bbox[2], ...xs), Math.max(o.bbox[3], ...ys)] : [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  if (o.layer && (o.layer.startsWith("B.") !== view.mirror)) flip();
+  const g = (S.meta.findings || []).find(x => x.id === ovGroup(o));
+  fit([b[0] - 4, b[1] - 4, b[2] + 4, b[3] + 4]); buildFindings();
+  showInfo(`<b>${esc(g ? g.title : ovGroup(o))}</b><br>${esc(o.label)}${g && g.note ? `<br><small>${esc(g.note)}</small>` : ""}`);
+}
 function buildPanels() {
-  const ov = $("overlays"); ov.innerHTML = "";
-  $("ovTitle").style.display = (S.overlays || []).length ? "block" : "none";
-  (S.overlays || []).forEach((o, i) => { const d = document.createElement("div"); d.className = "ov";
-    d.innerHTML = `<span class="sw" style="display:inline-block;background:${o.color}"></span> ${esc(o.label)}`;
-    d.onclick = () => { if (st.mode3d) set3D(false); st.selOv = i; st.selNet = -1; st.selComp = -1; const xs = o.pts.map(p => p[0]), ys = o.pts.map(p => p[1]);
-      fit([Math.min(...xs) - 4, Math.min(...ys) - 4, Math.max(...xs) + 4, Math.max(...ys) + 4]); showInfo(esc(o.label)); };
-    ov.appendChild(d); });
+  buildFindings();
   const c = S.meta.counts || {};
   $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `${(S.meta.notes || []).length ? "<br>" : ""}Read by the ${esc(S.meta.backend || "?")} backend, evidence ${esc(S.meta.evidence || "?")}.` +
     `<br>${c.footprints || 0} parts · ${c.pads || 0} pads · ${c.tracks || 0} tracks · ${c.vias || 0} vias · ${c.zones || 0} zones`;
@@ -1230,7 +1380,7 @@ cv.addEventListener("mousedown", e => { if (document.activeElement && document.a
   drag = { x: e.offsetX, y: e.offsetY, cx: view.cx, cy: view.cy, moved: false }; });
 window.addEventListener("mouseup", e => { if (!drag) return; const d = drag; drag = null;
   if (d.moved || e.target !== cv) return; const [x, y] = s2w(e.offsetX, e.offsetY);
-  if (st.measure) { measureClick(e.offsetX, e.offsetY); return; }
+  if (st.measure) { measureClick(e.offsetX, e.offsetY, e.altKey); return; }
   if (st.marking) { markClick(x, y); return; }
   if (st.edge && !isSch()) { edgeClick(e.offsetX, e.offsetY); return; }
   if (isSch()) schSelect(schPick(e.offsetX, e.offsetY)); else select(pick(e.offsetX, e.offsetY), [x, y]); });
@@ -1247,7 +1397,7 @@ cv.addEventListener("mousemove", e => { if (!S) return; const [x, y] = s2w(e.off
   showCoord(x, y);
   if (drag) { const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
     view.cx = drag.cx - m() * dx / view.s; view.cy = drag.cy - dy / view.s; draw(); }
-  else if (st.measure) { st.mhover = snap(x, y); draw(); } });
+  else if (st.measure) { st.mhover = snap(x, y, e.altKey); draw(); } });
 cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = s2w(e.offsetX, e.offsetY); const f = Math.exp(-e.deltaY * 0.0015);
   view.s = Math.min(Math.max(view.s * f, 0.2), 400); const [x2, y2] = s2w(e.offsetX, e.offsetY); view.cx += x - x2; view.cy += y - y2; draw(); }, { passive: false });
 window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S || S.kind === "table") return;

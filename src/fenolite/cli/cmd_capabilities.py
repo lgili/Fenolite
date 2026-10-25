@@ -23,6 +23,7 @@ from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.routing.protocol import router_features
 from fenolite.routing.registry import routers as routing_routers
+from fenolite.view.meshes import find_gmsh
 
 _EXTRA_MARKER = re.compile(r"extra\s*==\s*['\"]([^'\"]+)['\"]")
 _DIST_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
@@ -82,6 +83,9 @@ def detect_tools() -> dict[str, dict[str, str] | None]:
     for name, (path, version_args) in probes.items():
         version = _run_version([path, *version_args]) if path else None
         tools[name] = {"path": path, "version": version} if path and version else None
+    gmsh = find_gmsh()  # the mesher of the viewer's body models (change c0193), a launcher or a binary
+    version = _run_version([*gmsh, "-version"]) if gmsh else None
+    tools["gmsh"] = {"path": gmsh[-1], "version": version} if gmsh and version else None
     return tools
 
 

@@ -189,7 +189,8 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0190 | `documentation-views` | BOM documents, output jobs, Draftsman side views | c0180 |
 | c0191 | `viewer-visual-tests` | visual and interaction tests of the viewer page | c0176 |
 | c0192 | `guide-room` | a compact generated command page in the agent guide | c0079 |
+| c0193 | `viewer-review` | review findings, measurement with snap and embedded 3D models in the viewer | c0176 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0193.
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0194.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

@@ -504,7 +504,7 @@ another type; a flag without a value is a switch.
 
 - `PATH`: a project file or folder, a board, sheet, library or drawing
 - `--doc ID`: the document to show: id, path or name
-- `--overlay FILE` (repeatable): draw a fenolite analyze reply on the board (repeatable)
+- `--overlay FILE` (repeatable): draw an analyze reply or a findings file (JSON)
 - `--serve`: serve on 127.0.0.1 until stopped
 - `--port N` (default `8765`): with --serve: port (default 8765; 0 = any free)
 - `--no-browser`: with --serve: no browser
@@ -517,3 +517,7 @@ another type; a flag without a value is a switch.
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there
 - `--theme THEME`: a KiCad colour theme: a .json file or a theme name
+- `--no-review`: no review findings
+- `--no-models`: no 3D models (gmsh)
+- `--silk-gap MM`: silkscreen gap (default: the rule)
+- `--mask-expansion MM` (default `0`): mask opening growth

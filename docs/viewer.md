@@ -14,6 +14,7 @@ fenolite view MyProject.PrjPcb --json               # for an agent: the document
 fenolite view MyProject.PrjPcb --doc Power.SchDoc --json        # the parts, pins, wires and nets of one sheet
 fenolite view Assembly.PCBDwf --export assembly.html --confirm  # an Altium Draftsman drawing, sheet by sheet
 fenolite view board.kicad_pro --serve --theme my-theme          # a KiCad project in your own KiCad colours
+fenolite view MyProject.PrjPcb --serve --silk-gap 0.15 --mask-expansion 0.1   # with the board's silk rules
 ```
 
 ## Colours
@@ -45,14 +46,34 @@ copied (`docs/formats/kicad/color-theme.md`).
   - **LS** offers layer sets: all layers, signal layers, the top side, the bottom side, the defaults.
 - **Board view.** Wheel to zoom, drag to pan, click a pad or track to highlight its net (or a part's own
   drawing to highlight the part). **View: Top / Bottom** (`B`) turns the board over: the other side is drawn
-  under the visible one at the opacity of the **Other side** slider. **Measure** (`M`) gives the distance
-  between two clicks. **Search** finds a part by reference or a net by name.
-- **3D** (`D`). The board as a slab of its stack-up's thickness (1.6 mm, stated, when the file has none),
-  its faces textured with the copper, mask, silkscreen and drills of each side, and every part body that the
-  model holds, extruded from its outline between its standoff and its height. No 3D model file is read.
-- **Findings and notes** (left). With `--overlay REPLY.json`, the clearance (red) and creepage (blue) paths of
-  a `fenolite analyze` reply are drawn; a pair that an error or a warning names is marked as a finding.
-  The notes say what the scene had to assume.
+  under the visible one at the opacity of the **Other side** slider. **Search** finds a part by reference or
+  a net by name.
+- **Measure** (`M`): see "Units and measurement" below. Change c0193 adds the edges: without a point target
+  within reach, a click snaps to the nearest point of an edge (a pad or fill border, a track border or axis, a
+  circle, an outline), and the readout names what each end snapped to. Hold `Alt` to measure without snapping.
+- **3D** (`D`). The board is a slab of its stack-up's thickness (1.6 mm, stated, when the file has none). Its
+  faces are textured with the copper, mask, silkscreen and drills of each side.
+  - **Models.** A board that embeds 3D models (an Altium `PcbDoc`) shows them, in their colours, placed as
+    the native tool places them (change c0193). A model whose stored placement does not match its body's
+    outline is fitted to it, and the info says how.
+  - **Extruded bodies.** Any other body is extruded from its outline between its standoff and its height.
+  - **gmsh.** Models are meshed by `gmsh` (`FENOLITE_GMSH`, or `gmsh` on `PATH`), run as a separate
+    program. Meshes are kept in the state folder. Without gmsh every body is extruded, and the notes say so.
+- **Findings** (left), by group. The box beside a group shows or hides it on the board, a click on its title
+  lists its items, a click on an item fits the view to it, and the tooltip says the group's rule and model.
+  - **Review groups** (`--no-review` leaves them out): 45° corners (acute, 90° and in-between turns of two
+    tracks, tracks off 0/45/90°, zone outline corners); silkscreen near a mask opening, near other silkscreen
+    or outside the board; copper outside the board; the open connections of `fenolite analyze`'s
+    connectivity, ground nets apart.
+  - **Silkscreen gap.** It is `--silk-gap`, else the board's `silk_clearance` rule, else 0. The pads' mask
+    openings grow by `--mask-expansion`: the model holds no mask expansion.
+  - **Files.** With `--overlay REPLY.json`, the clearance (red) and creepage (blue) paths of a `fenolite
+    analyze` reply are drawn. A pair that an error or a warning names is marked as a finding.
+  - **Findings files.** `--overlay` also reads a findings file of another tool, `fenolite.view_overlay.v0`:
+    `{"schema", "groups": [{"id", "title", "color", "note"}], "items": [{"group", "kind": "line" | "path" |
+    "point", "points_nm": [[x, y], ...], "label", "layer"}]}`, in the board frame of the model (nanometres,
+    Y down).
+- **Notes** (left): what the scene had to assume.
 
 ## What the scene shows, and what it states
 
@@ -63,7 +84,8 @@ copied (`docs/formats/kicad/color-theme.md`).
 | tracks, arcs, vias, holes | the model | — |
 | zones | the fills saved in the file | a zone without a fill is drawn as a dashed outline and counted; refill it in its tool |
 | graphics and texts | the model, footprint items placed by the footprint's position and angle | texts use Fenolite's own single-stroke font; a text on a back layer is drawn mirrored |
-| bodies | the model's body outlines and heights | — |
+| bodies | the model's body outlines and heights, or the board's embedded 3D models (gmsh) | a fitted model, a body left extruded, gmsh missing |
+| texts of an Altium board | anchored at their lower-left corner, a glyph two thirds of the height | always: the import gives them as centred |
 
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.

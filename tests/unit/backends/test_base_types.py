@@ -519,3 +519,18 @@ def test_length_records_are_plain_data() -> None:
     facts = base.LengthFacts({"N": length}, {"F.Cu": 0}, {}, 10, "default", True, base.Evidence())
     with pytest.raises(TypeError):
         facts.nets["M"] = length  # type: ignore[index]
+
+
+def test_body_models() -> None:
+    """Scenario "Altium backend is a body model source" (change c0193)."""
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.backends.base import BodyModel, BodyModelSource
+
+    assert isinstance(AltiumBackend(), BodyModelSource)
+    assert dataclasses.is_dataclass(BodyModel) and BodyModel.__dataclass_params__.frozen  # type: ignore[attr-defined]
+    for annotation in typing.get_type_hints(BodyModel).values():
+        modules = _names(annotation)
+        assert all(
+            m in ("builtins", "typing", "types") or m.startswith(("fenolite.core", "fenolite.model"))
+            for m in modules
+        ), modules

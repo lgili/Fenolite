@@ -9,26 +9,37 @@ nothing is written. ``--export FILE`` plans one standalone HTML page with every 
 ``--serve`` serves the page on the loopback address until it is interrupted, reloading a document when its
 file is saved. Each document takes the colours of its tool (change c0178): ``--theme`` names a KiCad colour
 theme for the KiCad documents.
+
+Change c0193 adds to a board, unless ``--no-review``, the review findings of ``fenolite.view.findings`` and
+the open connections of ``analysis.connectivity`` (a line between the two anchors of each), and, unless
+``--no-models``, the body models a backend gives (``BodyModelSource``), meshed by gmsh in a separate process
+and placed by ``fenolite.view.models``: before the page is planned with ``--export``, in the background after
+the first scene with ``--serve``. ``--overlay`` also reads a findings file (``fenolite.view_overlay.v0``).
 """
 
 from __future__ import annotations
 
 import argparse
 import dataclasses
+import errno
 import hashlib
 import json
+import re
 import sys
 import threading
 import time
 import webbrowser
 from collections.abc import Callable
+from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import Any, cast
 
+from fenolite.analysis.connectivity import connectivity
 from fenolite.backends import registry
 from fenolite.backends.altium.read.sch import read_schematic
 from fenolite.backends.altium.read.variants import read_variants
-from fenolite.backends.base import BoardFrame, PlacedExtent
+from fenolite.backends.base import BoardFrame, BodyModel, BodyModelSource, PlacedExtent
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
@@ -37,7 +48,7 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
-from fenolite.view import export, review, server, themes
+from fenolite.view import export, meshes, models, review, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.bom import bom_scene
 from fenolite.view.bom import with_parts as bom_with_parts
@@ -49,6 +60,7 @@ from fenolite.view.compare import compare
 from fenolite.view.compare import summary as compare_summary
 from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
 from fenolite.view.drawing import summary as drawing_summary
+from fenolite.view.findings import review as findings_of
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 from fenolite.view.library import library_scene
 from fenolite.view.library import summary as library_summary
@@ -72,6 +84,17 @@ APPROXIMATE_NOTE = (
 )
 LARGE_PAGE = 20_000_000
 """An exported page above this many bytes gets a warning in ``result.export``."""
+OVERLAY_SCHEMA = "fenolite.view_overlay.v0"
+GROUND = re.compile(r"GND|GROUND|VSS|EARTH", re.IGNORECASE)
+GROUND_NAMES = frozenset({"PE", "FE", "COM"})
+OPEN_GROUPS: dict[str, tuple[str, str]] = {
+    "open_ground": ("Open connections: ground nets", "#3dff7a"),
+    "open_net": ("Open connections: other nets", "#a6ff4d"),
+}
+ANALYZE_GROUPS: dict[str, tuple[str, str]] = {
+    "analyze_clearance": ("analyze: clearance paths", "#ff3030"),
+    "analyze_creepage": ("analyze: creepage paths", "#30a0ff"),
+}
 
 
 def _register(parser: argparse.ArgumentParser) -> None:
@@ -87,7 +110,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         metavar="FILE",
         action="append",
         default=[],
-        help="draw a fenolite analyze reply on the board (repeatable)",
+        help="draw an analyze reply or a findings file (JSON)",
     )
     parser.add_argument("--serve", action="store_true", help="serve on 127.0.0.1 until stopped")
     parser.add_argument(
@@ -117,6 +140,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
         metavar="THEME",
         help="a KiCad colour theme: a .json file or a theme name",
     )
+    parser.add_argument("--no-review", action="store_true", help="no review findings")
+    parser.add_argument("--no-models", action="store_true", help="no 3D models (gmsh)")
+    parser.add_argument("--silk-gap", metavar="MM", help="silkscreen gap (default: the rule)")
+    parser.add_argument("--mask-expansion", metavar="MM", default="0", help="mask opening growth")
 
 
 def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
@@ -235,6 +262,125 @@ def _theme_name(scene: dict[str, Any]) -> str:
     return str(scene["meta"].get("theme") or "altium")
 
 
+@dataclass(frozen=True)
+class Board:
+    """A board file as read: its design, its backend (a board frame when it is one), bytes and evidence."""
+
+    path: Path
+    design: Design
+    backend: Any
+    data: bytes
+    evidence: str
+
+    @property
+    def frame(self) -> BoardFrame | None:
+        return self.backend if isinstance(self.backend, BoardFrame) else None
+
+
+def read_board(path: Path) -> Board:
+    """The board at ``path``, read by the backend that reads it."""
+    backend = registry.for_path(path)
+    if backend is None:
+        raise CliError("FEN-2001", f"no backend reads {path.name}", where=path.name)
+    data = path.read_bytes()
+    read = backend.read(path)
+    design = read.content
+    if not isinstance(design, Design) or design.board is None:
+        raise CliError("FEN-2001", f"{path.name} is not a board", where=path.name)
+    return Board(path, design, backend, data, read.evidence.level.value)
+
+
+def _group(gid: str, title: str, color: str, items: list[dict[str, Any]], note: str = "") -> dict[str, Any]:
+    return {
+        "id": gid,
+        "title": title,
+        "color": color,
+        "n": sum(1 for o in items if o.get("group") == gid),
+        "note": note,
+    }
+
+
+def open_connection_overlays(board: Board) -> list[dict[str, Any]]:
+    """The open connections of ``analysis.connectivity``: a line between the two anchors of each."""
+    pads = board.frame.board_pads(board.design) if board.frame is not None else None
+    out: list[dict[str, Any]] = []
+    for net in connectivity(board.design, pads=pads).nets:
+        group = "open_ground" if GROUND.search(net.name) or net.name.upper() in GROUND_NAMES else "open_net"
+        for link in net.open:
+            a, b = link.a, link.b
+            out.append(
+                {
+                    "group": group,
+                    "kind": "line",
+                    "pts": [
+                        [round(a.position.x / 1000), round(a.position.y / 1000)],
+                        [round(b.position.x / 1000), round(b.position.y / 1000)],
+                    ],
+                    "label": f"{net.name}: open connection {a.where} → {b.where}, {link.length / 1e6:.3f} mm "
+                    f"({net.islands} islands)",
+                    "layer": None,
+                    "color": OPEN_GROUPS[group][1],
+                }
+            )
+    return out
+
+
+def add_findings(board: Board, scene: dict[str, Any], *, silk_gap: int | None, mask_expansion: int) -> None:
+    """Add the review findings and the open connections to ``scene`` (overlays and ``meta.findings``)."""
+    found = findings_of(
+        board.design,
+        board.frame,
+        silk_gap=silk_gap,
+        mask_expansion=mask_expansion,
+        backend=board.backend.name,
+    )
+    links = open_connection_overlays(board)
+    scene["overlays"] = list(scene.get("overlays", [])) + found.items + links
+    groups = list(scene["meta"].get("findings", [])) + found.groups
+    notes = {
+        "open_ground": "Nets named as grounds (GND, GROUND, VSS, EARTH, or PE, FE, COM) whose copper is in "
+        "more than one island: a line joins the nearest anchors of two islands (analysis.connectivity, the "
+        "minimum spanning tree).",
+        "open_net": "Other nets whose copper is in more than one island (analysis.connectivity).",
+    }
+    for gid, (title, color) in OPEN_GROUPS.items():
+        groups.append(_group(gid, title, color, links, notes[gid]))
+    scene["meta"]["findings"] = groups
+
+
+def add_models(board: Board, scene: dict[str, Any], *, log: Any = None) -> dict[str, int] | None:
+    """Mesh and place the body models of ``board`` in ``scene``; ``None`` when its backend gives none."""
+    if not isinstance(board.backend, BodyModelSource):
+        scene["meta"]["notes"].append(
+            "This backend gives no body model: bodies are extruded from their outline."
+        )
+        return None
+    found: tuple[BodyModel, ...] = board.backend.body_models(board.path)
+    if not found:
+        return models.attach_models(scene, (), {})
+    command = meshes.find_gmsh()
+    if command is None:
+        scene["meta"]["notes"].append(
+            f"{len(found)} body model(s) are embedded, but gmsh is not installed "
+            f"(or {meshes.GMSH_ENV} names none): bodies are extruded."
+        )
+        return models.attach_models(scene, (), {})
+    unique = {meshes.mesh_key(m.data): m for m in found}
+    started = time.monotonic()
+    made = meshes.mesh_models(
+        [(m.data, m.format) for m in unique.values()], gmsh=command, cache=meshes.cache_folder()
+    )
+    counts = models.attach_models(scene, found, dict(zip(unique, made, strict=True)))
+    scene["meta"]["notes"].append(
+        f"3D: {counts['model']} body model(s) placed as the file places them, {counts['fitted']} fitted to "
+        f"the body's stored outline, {counts['outline']} bodies extruded ({counts['unmeshed']} model(s) gmsh "
+        "could not mesh)."
+    )
+    if log is not None:
+        log(f"view: {board.path.name}: {len(unique)} models meshed in {time.monotonic() - started:.1f} s")
+    return counts
+
+
 def _summary(scene: dict[str, Any]) -> dict[str, Any]:
     if scene.get("kind") == "table":  # change c0190: a BOM document or an output job
         return {
@@ -251,26 +397,94 @@ def _summary(scene: dict[str, Any]) -> dict[str, Any]:
 
 
 def overlays_of(files: list[str], ctx: Context) -> list[dict[str, Any]]:
-    """The overlay items of ``fenolite analyze`` replies: per distance row, its clearance path (red) and its
-    creepage path (blue), in micrometres, marked as a finding when an error or a warning names its nets."""
+    """The overlay items of ``fenolite analyze`` replies (per distance row, its clearance path in red and its
+    creepage path in blue, in micrometres, marked as a finding when an error or a warning names its nets) and
+    of findings files (``fenolite.view_overlay.v0``)."""
+    return overlay_files(files, ctx)[0]
+
+
+def overlay_files(files: list[str], ctx: Context) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """``(items, groups)`` of the overlay files (``overlays_of``)."""
     out: list[dict[str, Any]] = []
+    groups: dict[str, dict[str, Any]] = {}
     for name in files:
         path = Path(name) if Path(name).is_absolute() else ctx.cwd / name
         try:
             envelope: Any = json.loads(path.read_text(encoding="utf-8"))
-            rows: list[Any] = list(envelope["result"]["distances"])
-            issues: list[Any] = list(envelope.get("issues", []))
-        except (OSError, ValueError, KeyError, TypeError) as exc:
+        except (OSError, ValueError) as exc:
+            raise CliError("FEN-3004", f"{name} is not JSON: {type(exc).__name__}", where=name) from exc
+        if isinstance(envelope, dict) and cast("dict[str, Any]", envelope).get("schema") == OVERLAY_SCHEMA:
+            items, more = _findings_file(cast("dict[str, Any]", envelope), name)
+            out += items
+            for g in more:
+                groups.setdefault(g["id"], g)
+            continue
+        try:
+            reply = cast("dict[str, Any]", envelope)
+            rows: list[Any] = list(reply["result"]["distances"])
+            issues: list[Any] = list(reply.get("issues", []))
+        except (KeyError, TypeError, AttributeError) as exc:
             raise CliError(
                 "FEN-3004",
-                f"{name} is not a fenolite analyze reply: {type(exc).__name__}",
+                f"{name} is not a fenolite analyze reply nor a findings file: {type(exc).__name__}",
                 where=name,
-                hint="pass the JSON reply of `fenolite analyze ... --json`",
+                hint=f"pass the JSON reply of `fenolite analyze ... --json`, or a file of the schema "
+                f"{OVERLAY_SCHEMA}",
             ) from exc
         flagged = {str(i.get("where", "")) for i in issues if i.get("severity") in ("error", "warning")}
         for row in rows:
             out += _row_overlays(row, flagged)
-    return out
+        for gid, (title, color) in ANALYZE_GROUPS.items():
+            groups.setdefault(
+                gid, {"id": gid, "title": title, "color": color, "n": 0, "note": f"Paths of {name}."}
+            )
+    for g in groups.values():
+        g["n"] = sum(1 for o in out if o.get("group") == g["id"])
+    return out, list(groups.values())
+
+
+def _findings_file(data: dict[str, Any], name: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """The items and groups of a findings file: points in nanometres of the board frame become micrometres."""
+    try:
+        groups = [
+            {
+                "id": str(g["id"]),
+                "title": str(g.get("title", g["id"])),
+                "color": str(g.get("color", "#ffd84d")),
+                "n": 0,
+                "note": str(g.get("note", "")),
+            }
+            for g in data.get("groups", [])
+        ]
+        colors = {g["id"]: g["color"] for g in groups}
+        items: list[dict[str, Any]] = []
+        for item in data.get("items", []):
+            kind = str(item.get("kind", "line"))
+            if kind not in ("line", "path", "point"):
+                raise ValueError(f"item kind {kind!r}")
+            pts = [
+                [round(Fraction(int(p[0]), 1000)), round(Fraction(int(p[1]), 1000))]
+                for p in item["points_nm"]
+            ]
+            if not pts:
+                raise ValueError("an item without points")
+            group = str(item["group"])
+            if group not in colors:
+                groups.append({"id": group, "title": group, "color": "#ffd84d", "n": 0, "note": ""})
+                colors[group] = "#ffd84d"
+            items.append(
+                {
+                    "group": group,
+                    "kind": kind,
+                    "pts": pts,
+                    "label": str(item.get("label", "")),
+                    "layer": item.get("layer"),
+                    "color": colors[group],
+                }
+            )
+    except (KeyError, TypeError, ValueError, IndexError) as exc:
+        raise CliError("FEN-3004", f"{name} is not a valid {OVERLAY_SCHEMA} file: {exc}", where=name) from exc
+    return items, groups
 
 
 def _row_overlays(row: Any, flagged: set[str]) -> list[dict[str, Any]]:
@@ -293,6 +507,7 @@ def _row_overlays(row: Any, flagged: set[str]) -> list[dict[str, Any]]:
         text = f"{name}: {kind} {int(low) / 1e6:.3f} mm" if low is not None else name
         out.append(
             {
+                "group": f"analyze_{kind}",
                 "kind": kind,
                 "pts": pts,
                 "color": color,
@@ -537,6 +752,19 @@ def _progress(ctx: Context, url: str) -> None:
     sys.stderr.flush()
 
 
+def _mm_option(text: str | None, name: str) -> int | None:
+    """A length option in millimetres as nanometres; ``None`` when not given."""
+    if text is None:
+        return None
+    try:
+        value = Fraction(text)
+    except (ValueError, ZeroDivisionError):
+        value = Fraction(-1)
+    if value < 0:
+        raise CliError("FEN-2001", f"{name}: expected millimetres of at least 0, got {text!r}", where=name)
+    return round(value * 1_000_000)
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.serve and args.export:
         raise CliError(
@@ -551,8 +779,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         port = -1
     if not 0 <= port <= 65535:
         raise CliError("FEN-2001", f"--port: expected a port number, got {args.port!r}", where="--port")
+    silk_gap = _mm_option(args.silk_gap, "--silk-gap")
+    mask_expansion = _mm_option(args.mask_expansion, "--mask-expansion") or 0
     tree = _tree(args.path, ctx)
-    overlays = overlays_of(args.overlay, ctx)
+    file_items, file_groups = overlay_files(args.overlay, ctx)
     kicad = theme_of(args.theme, ctx)
     store = SceneCache.at(args.cache, tree.root)
     theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
@@ -561,6 +791,20 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         return store.scene(path, theme_key, lambda: scene_of(path, kicad))
 
     nets_of = _ProjectNets(tree, plain)
+
+    def make(path: Path, *, with_files: bool) -> dict[str, Any]:
+        """The cached scene of ``path`` with the overlay files (the document shown) and, for a board, the
+        review findings (change c0193); the cached scene itself is not changed."""
+        scene = cached(path)
+        items = list(file_items) if with_files else []
+        if scene.get("kind") is not None:  # a sheet, a library or a drawing
+            return scene | {"overlays": items}
+        groups = [dict(g) for g in file_groups] if with_files else []
+        meta = scene["meta"] | {"notes": list(scene["meta"].get("notes", [])), "findings": groups}
+        scene = scene | {"overlays": items, "meta": meta}
+        if not args.no_review:
+            add_findings(read_board(path), scene, silk_gap=silk_gap, mask_expansion=mask_expansion)
+        return scene
 
     doc = tree.document(args.doc) if args.doc else tree.first_viewable()
     if args.doc and doc is None:
@@ -582,8 +826,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
-        scene: dict[str, Any] = cached(doc.file)
-        scene["overlays"] = overlays
+        scene: dict[str, Any] = make(doc.file, with_files=True)
         if args.variant is not None:
             scene = scene | {"variant": _variant(args.variant, nets_of, scene, result)}
         if args.compare:
@@ -594,6 +837,11 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             result["check"] = check_summary(scene["check"])
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
+        if scene.get("kind") is None:  # a board: its findings by group, and no model meshed in this form
+            result["summary"] |= {
+                "findings": {g["id"]: g["n"] for g in scene["meta"]["findings"]},
+                "models": None,
+            }
         result["notes"] = list(scene["meta"]["notes"])
         if args.select:
             result["select"] = {"name": args.select, "found": _selected(args.select, scene)}
@@ -620,7 +868,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             if chosen is not None and other.id not in chosen:
                 continue
             if other.viewable and other.present and other.file is not None and other.id not in scenes:
-                scenes[other.id] = cached(other.file) | {"overlays": []}
+                scenes[other.id] = make(other.file, with_files=False)
+        if not args.no_models:
+            for other in tree.documents:
+                if other.id in scenes and other.file is not None and scenes[other.id].get("kind") is None:
+                    counts = add_models(read_board(other.file), scenes[other.id])
+                    if doc is not None and other.id == doc.id and result["summary"] is not None:
+                        result["summary"]["models"] = counts
         html = export.page(
             tree.to_json(), scenes, open_id=doc.id if doc else None, select=args.select, marks=marks
         ).encode("utf-8")
@@ -639,21 +893,38 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.serve:
 
         def build(path: Path) -> dict[str, Any]:
-            built = cached(path)
+            built = make(path, with_files=doc is not None and path == doc.file)
             if args.compare and doc is not None and path == doc.file:  # rebuilt on save: compared again
                 built = built | {"diff": _compare(built, args.compare, ctx, cached)}
             return built
 
+        def refine(path: Path, scene: dict[str, Any]) -> dict[str, Any] | None:
+            """The body models of a board, placed after its first scene was served (change c0193)."""
+            if scene.get("kind") is not None:
+                return None
+            refined = json.loads(json.dumps(scene))
+            return refined if add_models(read_board(path), refined, log=_log) is not None else None
+
         live = server.Live(
             tree,
             build,
-            overlays=overlays,
             open_id=doc.id if doc else None,
             log=_log,
             marks_file=marks_file,
             select=args.select,
+            refine=None if args.no_models else refine,
         )
-        httpd = server.serve(live, port)
+        try:
+            httpd = server.serve(live, port)
+        except OSError as exc:
+            if exc.errno in (errno.EADDRINUSE, errno.EACCES):
+                raise CliError(
+                    "FEN-2001",
+                    f"--port: port {port} of {server.HOST} is in use",
+                    where="--port",
+                    hint="pass --port 0 to take a free port, or stop the program that holds it",
+                ) from exc
+            raise
         url = f"http://{server.HOST}:{httpd.server_address[1]}/"
         _progress(ctx, url)
         if not args.no_browser:
@@ -680,4 +951,13 @@ COMMAND = Command(
     mutation_example_args=(EXAMPLE_BOARD, "--export", "view.html"),
 )
 
-__all__ = ["COMMAND", "overlays_of", "scene_of"]
+__all__ = [
+    "COMMAND",
+    "Board",
+    "add_findings",
+    "add_models",
+    "overlay_files",
+    "overlays_of",
+    "read_board",
+    "scene_of",
+]

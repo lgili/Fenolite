@@ -47,7 +47,7 @@ Keys that are not typed stay in `properties`: `V7_LAYER`, `NAME`, `KIND`, `SUBPO
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A body with a component index becomes a `ComponentBody` of that component's footprint: `kind` `model` when `MODEL.NAME` is not empty and `extruded` otherwise; `height` the overall height; `standoff` the standoff height; `outline` the vertices in the footprint frame; `layer` the neutral name of the layer byte; `name` the identifier | S-0303, S-0161 | INFERRED | H-A-IMP-BODY |
-| Cylinder and sphere bodies are not told apart: they import as `extruded` with their heights. Model data of the `Models` storage is not imported | S-0303 | INFERRED | H-A-IMP-BODY |
+| Cylinder and sphere bodies are not told apart: they import as `extruded` with their heights. Model data of the `Models` storage is not imported; `models3d.body_models` reads it for the viewer ("Embedded models and their placement") | S-0303, S-0816 | INFERRED | H-A-IMP-BODY |
 
 ## Written form of an extruded body
 
@@ -160,6 +160,18 @@ test of change c0121 holds that for the written sample and that every other kind
 (`H-A-PCBX-BODY-KICAD`). The proposal also counted, on the seven smaller public documents, that the
 footprints with a model in KiCad's board are exactly the components with a body that names a model; that
 count was not repeated for this page and no row rests on it.
+## Embedded models and their placement (c0193)
+
+`backends.altium.models3d.body_models` reads the models for the viewer's 3D view (`fenolite view`); the import
+still carries no model data.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| `Models/Data` is a run of records, each a 32-bit length and a property text ending in a NUL, with the keys `EMBED`, `MODELSOURCE`, `ID`, `ROTX`, `ROTY`, `ROTZ`, `DZ`, `CHECKSUM` and `NAME`; record `n` names the stream `Models/<n>`, whose bytes inflate with `zlib` to the model file. Every model named by a body of the eight documents inflates to a STEP text starting with `ISO-10303-21` (472 bodies) | S-0816 | CORPUS-VERIFIED (472 bodies of eight documents; 2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
+| A body with `MODEL.MODELTYPE=1` names its record by `MODELID`, the record's `ID` | S-0816, S-0160 | CORPUS-VERIFIED (472 of 472; 2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
+| Placement: a model point `p` (mm) lies at `T(MODEL.2D.X, MODEL.2D.Y, face ± MODEL.3D.DZ) · F · Rz(ROTZ) · Ry(ROTY) · Rx(ROTX) · p`, with the body's `MODEL.3D.*` angles in degrees, counter-clockwise; `F` is the identity for a component on the top and a half turn about x for one on the bottom, whose model hangs below the bottom face. The `ROTX`, `ROTY`, `ROTZ` and `DZ` of the `Models/Data` record are not applied. Measured: the placed model's box matches the body's stored outline box within 0.5 mm and its stored standoff and overall heights within 1 mm for 465 of the 472 bodies; for the bottom bodies 181 of 181 with a half turn about x, 151 about y; with the record's rotations applied as well, 193 of 472. The other 7 are top bodies centred on their stored outline, whose stored outline (3) or overall height (4) differs from the model's | S-0816 | CORPUS-VERIFIED (465 of 472, the 7 others explained; 2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
+| A through-hole part's model reaches below its face: its body then holds a negative `STANDOFFHEIGHT`, which the comparison takes signed | S-0816 | CORPUS-VERIFIED (2026-10-25, c0193) | H-A-BODY-MODEL-PLACE |
+
 ## Signed and unknown projections (c0099)
 
 | fact | source | label | hypothesis |

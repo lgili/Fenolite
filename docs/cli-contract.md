@@ -667,8 +667,8 @@ already has that name it keeps its stored spelling (`kicad.board.net-name-collis
 `fenolite capabilities` lists commands (`name`, `mutates`, `schema`, `hidden`), the flags every
 command accepts (`global_flags`, `--progress` among them) and those of the mutation protocol
 (`mutation_flags`: `--dry-run`, `--confirm`, `--plan`), backends,
-experimental features, the evidence matrix, installed extras, detected external tools (`kicad-cli`, `java`, `docker`) with
-versions, and whether any enabled feature sends data off the machine. Agents should call it first.
+experimental features, the evidence matrix, installed extras, detected external tools (`kicad-cli`, `java`, `docker`,
+`gmsh`) with versions, and whether any enabled feature sends data off the machine. Agents should call it first.
 A command whose examples need an external tool also lists `example_tools` (`export` and `render`:
 `kicad-cli`); the test suites run such examples against a fake of the tool, and every other command's
 examples run with no subprocess.
@@ -842,6 +842,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `altium.import.sheet-loop` | error | a sheet symbol names one of its own ancestors; the import does not descend |
 | `altium.import.bad-length` | warning | a length text is not a decimal number in `mil` or `mm`; the entity that needs it is not mapped; exception: component bodies are retained with unknown projection |
 | `altium.import.body-unknown` | warning | a body has unproved projection, model type or extent; retained with projection_unknown |
+| `altium.import.model-unread` | warning | an embedded 3D model's stream is missing or does not inflate (`fenolite view`, change c0193); its body keeps no model |
 | `altium.import.bad-geometry` | warning | a width, a diameter, a hole or a radius of 0 or less, or a region of fewer than three vertices; the record is not mapped |
 | `altium.import.layer-outside-stack` | warning | a primitive lies on a layer id outside the copper chain and the layer table; it goes to `Altium.<id>` (one issue per id) |
 | `altium.import.duplicate-net` | warning | two net records hold one name; they are one net |
@@ -2856,8 +2857,9 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
-c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
+[--compare OLD] [--variant NAME] [--check FILE|run] [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
 
@@ -2872,7 +2874,8 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   `evidence.level` is `INFERRED`; a KiCad sheet replies the same way, with `components` counting the symbols
   whose reference does not start with `#` and `symbols` counting all. `evidence.level` of a board is that of
   the backend's read. `result.theme` names the colours of the document shown: `kicad`, `altium`, or
-  `kicad:<file>` for a theme given with `--theme`.
+  `kicad:<file>` for a theme given with `--theme`. For a board, `result.summary` also holds `findings`, the count
+  per group of the review and of the overlay files, and `models`, `null` in this form (change c0193).
 - **Libraries.** For a library, `result.summary` is `kind` `"library"`, `lib` (`"pcb"` or `"schematic"`),
   `counts.items` (one per footprint, or per symbol part or unit) and `items`, the first 50 names. A board
   scene, a footprint's included, lists every pad with its exact size in nanometres.
@@ -2931,11 +2934,22 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
   saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
   `--no-browser`.
+- **Review** (change c0193). Unless `--no-review`, a board's review findings are drawn by group (45° corners,
+  silkscreen near a mask opening, near other silkscreen or the edge, copper outside the board) with the open
+  connections of `analysis.connectivity`, ground nets apart. `--silk-gap MM` is the silkscreen gap (default: the
+  design's `silk_clearance` rule, else 0); `--mask-expansion MM` grows the pads' mask openings.
+- **Body models** (change c0193). Unless `--no-models`, the 3D models a backend gives (`BodyModelSource`: an
+  Altium board's embedded STEP models) are meshed by `gmsh`, run as a separate process, and placed: before the
+  page is planned with `--export` (`result.summary.models` counts the bodies per render, `model`, `fitted`,
+  `outline`, and the models gmsh could not mesh), after the first scene with `--serve` (the page reloads).
+  Without gmsh the bodies are extruded and a note says so.
 - **`--overlay FILE`** reads the JSON reply of `fenolite analyze`: every distance row's clearance and
-  creepage paths are drawn, and a row that an error or warning names is marked as a finding.
-- **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, an unknown `--doc`, or a
+  creepage paths are drawn, and a row that an error or warning names is marked as a finding. It also reads a
+  findings file of the schema `fenolite.view_overlay.v0` (change c0193; `docs/viewer.md`).
+- **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, a port in use (hint: `--port 0`),
+  a negative length, an unknown `--doc`, or a
   path that is neither a project file, a board, a sheet, a library nor a drawing; 3 (`FEN-3001`) for a missing
-  path, (`FEN-3004`) for an overlay that is not an `analyze` reply or a sheet or drawing the reader refuses; 4 (`FEN-4001`,
+  path, (`FEN-3004`) for an overlay that is neither an `analyze` reply nor a findings file, or a sheet or drawing the reader refuses; 4 (`FEN-4001`,
   `FEN-4002`).
 
 ## manifest
