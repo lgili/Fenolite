@@ -152,6 +152,14 @@ fenolite export blink/build -o blink/fab --all --manifest --confirm --json
 fenolite render blink/build -o blink/views --svg --png --confirm --json
 ```
 
+A board that passes `fenolite check` is not therefore a good board. The guide also holds eleven practice
+pages, which start at `fenolite guide board-practice --text`. They cover the schematic and part ratings,
+the floorplan, power paths, grounds and current sensing, high-voltage spacing, EMC and protection,
+routing, assembly and test access, the review before handing a board over, and working on files that a
+person also edits. They give rules, the failures the
+rules prevent, and how to check each one. They give no limit values: those come from your standard,
+your fabricator and your datasheets.
+
 ## Install for development
 
 ```bash
