@@ -1,7 +1,11 @@
 name: ci
 
 on:
+  # Every branch but a backup; a tag push runs nothing, as only branches are filtered (change c0194).
   push:
+    branches:
+      - "**"
+      - "!backup/**"
   pull_request:
 
 permissions:

@@ -71,12 +71,13 @@ V05_CHANGES = (
     "c0191-viewer-visual-tests",
     "c0192-guide-room",
     "c0193-viewer-review",
+    "c0194-ci-push-scope",
 )
 """The changes of 0.5.0: v0.5a, the changes on ``dev`` after 0.4.0, c0092's rule, the slot changes c0167 to
 c0170 (c0167 and c0169 placed on 2026-10-15, c0168 and c0170 on 2026-10-16), c0172 and c0173, which the
 maintainer added on 2026-10-16, and by his decision of 2026-10-25 everything done since: the agent guide's
 practice pages (c0174), the viewer (c0176 to c0191), the compact command page (c0192) and the viewer's
-review aids (c0193)."""
+review aids (c0193), and CI on branch pushes only (c0194)."""
 PLACED_2026_10_16 = (
     "c0168-altium-slots-cutouts",
     "c0170-convert-slots-obstacles",

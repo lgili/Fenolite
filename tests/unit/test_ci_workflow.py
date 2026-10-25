@@ -489,6 +489,40 @@ def triggers(workflow: str) -> str:
     return match.group(1) if match else ""
 
 
+PUSH_TRIGGER = """  push:
+    branches:
+      - "**"
+      - "!backup/**"
+  pull_request:
+"""
+"""The ``on`` block of ``ci.yml`` without its comment lines (capability ci-baseline, "Pushes that run CI")."""
+
+
+def push_trigger_problems(workflow: str) -> list[str]:
+    """Why the ``on`` block of ``workflow`` runs CI on a tag or a backup branch, or names other triggers."""
+    lines = triggers(workflow).splitlines()
+    on = "".join(line + "\n" for line in lines if line.strip() and not line.strip().startswith("#"))
+    if on == PUSH_TRIGGER:
+        return []
+    if not re.search(r"^    branches:", on, re.MULTILINE):
+        return ["ci: the push trigger has no branch filter, so a tag push would run CI"]
+    return [f"ci: the on block must be exactly the branch filter and pull_request, not {on!r}"]
+
+
+def test_push_trigger() -> None:
+    """Scenario "Trigger checked" (c0194): every branch but ``backup/**``, no tag, every pull request."""
+    assert push_trigger_problems(WORKFLOW.read_text(encoding="utf-8")) == []
+
+
+def test_push_trigger_without_filter_rejected() -> None:
+    """Scenario "Tags run nothing": an unfiltered push trigger is refused."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    bare = re.sub(r"^  push:\n(?:    .*\n|      .*\n)+", "  push:\n", text, count=1, flags=re.MULTILINE)
+    assert bare != text
+    (problem,) = push_trigger_problems(bare)
+    assert "a tag push would run CI" in problem
+
+
 def macos_app_problems(workflow: str) -> list[str]:
     job = job_text(workflow, "macos-app")
     if not job:
