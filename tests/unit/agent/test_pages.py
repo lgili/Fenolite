@@ -661,7 +661,7 @@ def test_generated_pages_are_current() -> None:
     commands = guide.page("commands").text
     assert re.findall(r"^## (\S+)$", commands, re.MULTILINE) == public
     assert "| `build` | yes |" in commands and "| `check` | no |" in commands
-    assert "- `--router` (string, required)" in commands and "one of `footprint`, `symbol`" in commands
+    assert "- `--router` (required)" in commands and "one of `footprint`, `symbol`" in commands
     names = re.findall(r"^## (\S+)$", guide.page("dsl-reference").text, re.MULTILINE)
     assert names == sorted(set(fenolite.dsl.__all__) - set(guide.DSL_NOT_TAUGHT))
     reference = guide.page("dsl-reference").text

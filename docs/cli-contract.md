@@ -2856,7 +2856,7 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+[--compare OLD] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
@@ -2886,6 +2886,10 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   folder), under `.fenolite/view-cache/` of the project with `--cache project`, or not at all with
   `--cache off`. The cache is not a planned write and holds no file bytes. `result.cache` gives `where`,
   `hits` and `misses`.
+- **`--compare OLD`** (change c0184) draws, over the document shown, what changed since the board or sheet
+  `OLD`, and replies with `result.compare`: `kind`, `old` (name, SHA-256), the counts `added`, `removed`,
+  `moved`, `changed` and `zone` (a board) or `net` (a sheet), and `changes`, one line each. `OLD` must be of the
+  same kind and tool (`FEN-2001`); a missing `OLD` is `FEN-3001`.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.

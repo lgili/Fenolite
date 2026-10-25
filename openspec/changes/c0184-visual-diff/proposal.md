@@ -12,7 +12,7 @@ or reject the change, and the one Altium users miss most when reviewing someone 
   - boards: primitives added (green), removed (red), and parts moved, turned or flipped (an arrow from the old
     place, with the distance and the angle);
   - sheets: parts, wires and labels added or removed, and parts whose parameters changed;
-  - a list of the changes in a panel, each one a click away.
+  - a list of the changes in a panel, each one a click away; `X` shows or hides them over a dimmed board.
 - **Matching.** Parts by reference (then by footprint and position), primitives by layer, kind, geometry and
   net, so a renumbered file still matches.
 - **Reply.** `result.compare` counts each kind of change; `--json` gives the list.

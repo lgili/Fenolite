@@ -20,6 +20,7 @@ import sys
 import threading
 import time
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
@@ -37,6 +38,8 @@ from fenolite.placement import legality
 from fenolite.view import export, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.cache import WHERE, SceneCache
+from fenolite.view.compare import compare
+from fenolite.view.compare import summary as compare_summary
 from fenolite.view.drawing import PANEL_NOTE, drawing_scene, holds_panel
 from fenolite.view.drawing import summary as drawing_summary
 from fenolite.view.kicad_schematic import build_kicad_schematic_scene
@@ -90,6 +93,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="scene cache",
     )
     parser.add_argument("--docs", metavar="ID,...", help="--export only these")
+    parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
     parser.add_argument(
         "--theme",
         metavar="THEME",
@@ -269,6 +273,25 @@ def _row_overlays(row: Any, flagged: set[str]) -> list[dict[str, Any]]:
     return out
 
 
+def _compare(
+    scene: dict[str, Any], argument: str, ctx: Context, cached: Callable[[Path], dict[str, Any]]
+) -> dict[str, Any]:
+    """The overlay of the document shown against the revision ``--compare`` names (change c0184)."""
+    given = Path(argument)
+    path = given if given.is_absolute() else ctx.cwd / given
+    if not path.exists():
+        raise CliError("FEN-3001", f"--compare: {argument} does not exist", where="--compare")
+    try:
+        return compare(scene, cached(path))
+    except ValueError as exc:
+        raise CliError(
+            "FEN-2001",
+            f"--compare: {exc}",
+            where="--compare",
+            hint="compare two boards, or two sheets, of one tool",
+        ) from exc
+
+
 def _docs(argument: str | None, tree: ProjectTree) -> set[str] | None:
     """The ids that ``--docs`` names (ids, paths or names, comma-separated), or ``None`` without it."""
     if argument is None:
@@ -359,6 +382,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
         scene = cached(doc.file)
         scene["overlays"] = overlays
+        if args.compare:
+            diff = _compare(scene, args.compare, ctx, cached)
+            scene = scene | {"diff": diff}
+            result["compare"] = compare_summary(diff)
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
         result["notes"] = list(scene["meta"]["notes"])
@@ -398,7 +425,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.serve:
 
         def build(path: Path) -> dict[str, Any]:
-            return cached(path)
+            built = cached(path)
+            if args.compare and doc is not None and path == doc.file:  # rebuilt on save: compared again
+                built = built | {"diff": _compare(built, args.compare, ctx, cached)}
+            return built
 
         live = server.Live(
             tree,

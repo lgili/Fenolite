@@ -215,3 +215,25 @@ def test_export_docs(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         monkeypatch, tmp_path, "view", str(ALTIUM), "--export", "x.html", "--docs", "nope", "--json"
     )
     assert code == 2
+
+
+def test_compare(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Compare counts" (c0184): a board against its copy with one part moved."""
+    old = tmp_path / "old.kicad_pcb"
+    shutil.copy(BOARD, old)
+    text = BOARD.read_text(encoding="utf-8")
+    start = text.index("(footprint ")
+    at = text.index("(at ", start)
+    end = text.index(")", at)
+    x, y, *rest = text[at + 4 : end].split()
+    new = tmp_path / "new.kicad_pcb"
+    new.write_text(text[: at + 4] + " ".join([str(float(x) + 1), y, *rest]) + text[end:], encoding="utf-8")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(new), "--compare", str(old), "--json")
+    assert code == 0 and envelope["result"]["compare"]["moved"] == 1
+    code, envelope, _, _ = run(
+        monkeypatch, tmp_path, "view", str(new), "--compare", str(ALTIUM_SHEET), "--json"
+    )
+    assert code == 2
+
+
+ALTIUM_SHEET = ROOT / "tests" / "data" / "altium" / "blink" / "blink.SchDoc"

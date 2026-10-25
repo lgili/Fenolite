@@ -68,6 +68,21 @@ copied (`docs/formats/kicad/color-theme.md`).
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Comparing two revisions
+
+`fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change
+c0184), the fastest way to check a change an agent made:
+- **On the board** the primitives NEW adds are green and those it removes magenta, over a dimmed board; a moved,
+  turned or flipped part gets an arrow from its old place. `X` shows or hides the changes.
+- **The Changes panel** lists one line per change: a part added, removed, moved (with the distance and the
+  angle) or with a new value or footprint; a part whose own pads or graphics changed; a track, via or graphic
+  added or removed; a zone whose filled area changed (with both areas). A click zooms to it.
+- **On a sheet** the parts added, removed, moved or with changed parameters are framed, and the nets whose pins
+  changed are listed.
+- Parts match by reference and the rest by geometry, net and part, not by numbered labels, so a renumbered file
+  still matches; a refilled zone is one change. Two documents of different tools, or a board and a sheet, are
+  refused (`FEN-2001`).
+
 ## Keep-outs, dimensions and placement marks
 
 The board view also draws what a reviewer checks first (change c0183):
