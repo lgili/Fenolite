@@ -1,0 +1,1640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fenolite board viewer</title>
+<style>
+  :root { --bg:#1b1d22; --panel:#24272e; --panel2:#2b2f37; --line:#3a3f49; --text:#e6e6e6; --muted:#9aa0aa; --accent:#4da3ff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font:13px system-ui, -apple-system, "Segoe UI", Arial, sans-serif; }
+  #app { display:grid; grid-template-columns: 260px 1fr; grid-template-rows: 40px 1fr 30px 24px; height:100%; }
+  #top { grid-column:1/3; display:flex; align-items:center; gap:8px; padding:0 10px; background:var(--panel); border-bottom:1px solid var(--line); overflow-x:auto; }
+  #top .title { font-weight:600; white-space:nowrap; margin-right:6px; }
+  button, select, input { background:#2e323b; color:var(--text); border:1px solid var(--line); border-radius:5px; padding:3px 8px; font:inherit; }
+  button:hover { border-color:var(--accent); }
+  button.on { background:#1f4e7a; border-color:var(--accent); }
+  #search { width:180px; }
+  #side { grid-row:2/3; background:var(--panel); border-right:1px solid var(--line); overflow:auto; display:flex; flex-direction:column; }
+  .ph { padding:6px 10px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); background:var(--panel2); border-bottom:1px solid var(--line); }
+  #tree { padding:4px 0 8px; }
+  .proj { padding:4px 10px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .grp { padding:3px 10px 3px 18px; cursor:pointer; color:#cfd3da; white-space:nowrap; user-select:none; }
+  .grp::before { content:"\25BE  "; color:var(--muted); }
+  .grp.closed::before { content:"\25B8  "; }
+  .doc { padding:2px 10px 2px 34px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; color:#b9bec7; }
+  .doc:hover { background:#ffffff0d; }
+  .doc.sel { background:#1f4e7a; color:#fff; }
+  .doc.missing { color:#777; font-style:italic; }
+  .doc .ic { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:6px; vertical-align:middle; }
+  #panels { padding:4px 10px 10px; }
+  #panels h3 { margin:12px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .ov { padding:3px 0; cursor:pointer; border-bottom:1px solid #ffffff10; }
+  .ov:hover { color:#fff; }
+  .notes { color:var(--muted); font-size:11px; line-height:1.45; }
+  kbd { background:#333842; border-radius:3px; padding:0 4px; font-size:11px; }
+  #wrap { position:relative; overflow:hidden; grid-row:2/3; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; }
+  #gl { display:none; cursor:grab; }
+  #info { position:absolute; right:10px; top:10px; max-width:380px; background:#24272ee8; border:1px solid var(--line); border-radius:6px; padding:8px 10px; display:none; line-height:1.45; }
+  #info b { color:#fff; }
+  #doccard { position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:var(--muted); }
+  #doccard div { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 22px; line-height:1.6; max-width:520px; }
+  #bar3d { position:absolute; left:10px; top:10px; display:none; gap:6px; background:#24272ed0; border:1px solid var(--line); border-radius:6px; padding:6px; }
+  #tabs { grid-column:1/3; display:flex; align-items:stretch; background:var(--panel2); border-top:1px solid var(--line); overflow-x:auto; overflow-y:hidden; }
+  #ls { flex:none; margin:3px 6px; padding:0 8px; font-weight:600; }
+  .tab { flex:none; display:flex; align-items:center; gap:6px; padding:0 10px; border-right:1px solid var(--line); cursor:pointer; white-space:nowrap; color:#cfd3da; user-select:none; border-bottom:3px solid transparent; }
+  .tab:hover { background:#ffffff0a; }
+  .tab.cur { background:#ffffff14; color:#fff; font-weight:600; }
+  .tab.off { color:#6b7079; }
+  .tab.off .sw { opacity:.25; }
+  .sw { width:12px; height:12px; border-radius:2px; flex:none; border:1px solid #0008; }
+  #lsmenu { position:absolute; left:6px; bottom:56px; background:var(--panel); border:1px solid var(--line); border-radius:6px; display:none; z-index:5; }
+  #lsmenu div { padding:5px 14px; cursor:pointer; white-space:nowrap; }
+  #lsmenu div:hover { background:#1f4e7a; }
+  .navh { display:flex; gap:6px; align-items:center; margin:12px 0 6px; }
+  .navh h3 { margin:0 !important; flex:1; }
+  #navFilter { width:100%; margin-bottom:4px; }
+  .navg { margin-top:6px; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .navi { padding:1px 4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#cfd3da; border-radius:3px; }
+  .navi:hover { background:#ffffff12; }
+  .navi.sel { background:#1f4e7a; color:#fff; }
+  .navi small { color:var(--muted); }
+  .tab.doc-tab .sw { border-radius:2px; }
+  .sheetlink { color:#8cc4ff; }
+  #tablewrap { position:absolute; inset:0; overflow:auto; background:var(--bg); display:none; padding:12px 16px; }
+  .tblhead { display:flex; gap:10px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  .tblhead b { color:#fff; font-size:15px; }
+  table.tbl { border-collapse:collapse; font-size:12px; width:100%; }
+  table.tbl th { position:sticky; top:0; background:var(--panel2); text-align:left; padding:4px 8px; cursor:pointer; white-space:nowrap; border-bottom:1px solid var(--line); }
+  table.tbl td { padding:3px 8px; border-bottom:1px solid #ffffff10; vertical-align:top; }
+  table.tbl tr.link { cursor:pointer; } table.tbl tr.link:hover { background:#1f4e7a55; }
+  table.tbl a { color:#8cc4ff; }
+  body.table .board-only, body.table #tabs > * { display:none !important; }
+  #msgList .navg { cursor:pointer; text-transform:none; letter-spacing:0; color:#cfd3da; }
+  #msgList .navi { white-space:normal; padding:2px 4px 2px 14px; }
+  body.sch .board-only { display:none !important; }
+  body:not(.sch) .sch-only { display:none !important; }
+  body:not(.lib) .lib-only { display:none !important; }
+  body.lib .nav-panel { display:none !important; }
+  #libFilter { width:100%; margin-bottom:4px; }
+  #query, #compFilter, #netFilter { width:100%; margin-bottom:4px; }
+  .vlist { max-height:240px; overflow:auto; position:relative; }
+  .qbar { display:flex; gap:6px; margin:2px 0 4px; }
+  body.lib .rev-panel { display:none !important; }
+  #info a { color:#8cc4ff; }
+  #info table { border-collapse:collapse; }
+  #info td { padding:1px 8px 1px 0; vertical-align:top; }
+  #info td:first-child { color:var(--muted); white-space:nowrap; }
+  #status { grid-column:1/3; display:flex; gap:16px; align-items:center; padding:0 10px; background:var(--panel); border-top:1px solid var(--line); color:var(--muted); white-space:nowrap; overflow:hidden; font-size:12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <span class="title" id="fname">Board</span>
+    <button id="b3d" class="board-only" title="2D / 3D (D)">3D</button>
+    <button id="bFit" title="Fit to the window (F)">Fit</button>
+    <button id="bFlip" class="board-only" title="View from below / above (B)">View: Top</button>
+    <button id="bMeasure" title="Measure a distance; snaps to pad centres and vertices (M)">Measure</button>
+    <button id="bUnit" title="Units: millimetres or mil (Q)">mm</button>
+    <button id="bEdge" class="board-only" title="Edge measure: the gap between the edges of two objects (Shift+M)">Edge</button>
+    <button id="bMark" title="Drop a review mark with a note (N)">Mark</button>
+    <button id="bLink" title="Copy a link to this view: document, selection, zoom and unit">Link</button>
+    <select id="printScale" title="Scale of Print: fit the page, or millimetres on paper per millimetre of the design"><option value="fit">Fit</option><option value="1">1:1</option><option value="2">2:1</option><option value="5">5:1</option><option value="10">10:1</option></select>
+    <button id="bPrint" title="Print the view, or save it as PDF from the print dialog">Print</button>
+    <button id="bSvg" title="Save the view as an SVG file">SVG</button>
+    <select id="variantSel" title="The project's assembly variant" style="display:none"></select>
+    <input id="search" placeholder="Part or net…" title="Enter: find">
+    <button id="bClear" title="Clear the selection (Esc)">Clear</button>
+    <label class="board-only" title="Opacity of the other side"><small>Other side</small> <input id="opac" type="range" min="0" max="100" value="60" style="width:80px;vertical-align:middle"></label>
+  </div>
+  <div id="side">
+    <div class="ph">Projects</div>
+    <div id="tree"></div>
+    <div id="panels">
+      <div class="lib-only"><div class="navh"><h3 id="libTitle">Library</h3></div>
+        <input id="libFilter" placeholder="Filter the library…"><div id="libList"></div></div>
+      <div class="sch-only nav-panel"><div class="navh"><h3>Navigator</h3></div>
+        <input id="navFilter" placeholder="Filter parts and nets…"><div id="navList"></div></div>
+      <div class="board-only rev-panel"><div class="navh"><h3>Filter</h3>
+          <select id="hlMode" title="Highlight: how the rest of the board shows while something is selected"><option value="dim">Dim</option><option value="mask">Mask</option><option value="normal">Normal</option></select></div>
+        <input id="query" placeholder="net:GND ref:R* side:bottom" title="key:value terms (and), | (or), -term (not), * and ? wildcards, &quot;quoted values&quot;; keys: net, ref, footprint, value, layer, side, or a parameter name. Enter: apply and zoom">
+        <div class="qbar"><button id="bSimilar" title="Fill the filter from the selection">Find similar</button><button id="bQClear" title="Clear the filter and the selection (Shift+C)">Clear</button></div>
+        <div class="notes" id="queryInfo"></div>
+        <div class="navh"><h3 id="compsTitle">Components</h3></div>
+        <input id="compFilter" placeholder="Filter components…"><div id="compList" class="vlist"></div>
+        <div class="navh"><h3 id="netsTitle">Nets</h3></div>
+        <input id="netFilter" placeholder="Filter nets…"><div id="netList" class="vlist"></div></div>
+      <h3 id="diffTitle" style="display:none" title="X: show or hide the changes">Changes</h3>
+      <div id="diffList"></div>
+      <h3 id="msgTitle" style="display:none" title="E: show or hide the markers">Messages</h3>
+      <div id="msgList"></div>
+      <h3 id="marksTitle" style="display:none">Marks</h3>
+      <div id="marksList"></div>
+      <h3 id="ovTitle" style="display:none">Findings</h3>
+      <div id="overlays"></div>
+      <h3>Notes</h3>
+      <div class="notes" id="notes"></div>
+      <h3>Shortcuts</h3>
+      <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
+      <div class="notes"><kbd>Shift+M</kbd> edge measure (board) · <kbd>N</kbd> review mark · Link copies a link to this view</div>
+      <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Shift+C</kbd> clear the filter · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
+    </div>
+  </div>
+  <div id="wrap"><canvas id="cv"></canvas><canvas id="gl"></canvas>
+    <div id="bar3d"><button id="v3top">Top</button><button id="v3bot">Bottom</button><button id="v3iso">Iso</button>
+      <label><input type="checkbox" id="c3body" checked> Bodies</label></div>
+    <div id="info"></div><div id="tablewrap"></div><div id="doccard"><div id="doctext"></div></div>
+    <div id="lsmenu"></div></div>
+  <div id="tabs"><button id="ls" class="board-only" title="Layer sets">LS</button><div id="tablist" style="display:flex"></div></div>
+  <div id="status"><span id="coord">x — y —</span><span id="zoomv"></span><span id="cur"></span><span id="gen"></span><span id="live"></span></div>
+</div>
+<script>
+"use strict";
+const EMBED = /*__DATA__*/null;
+const LIVE = /*__LIVE__*/false;
+
+// ================================================================== stroke font
+// Fenolite's own single-stroke font: cap height 6 units, glyph 4 units wide, advance 6 units, x-height 4,
+// descender -2. A stroke is "x,y x,y ..." or an elliptic arc "@cx,cy,rx,ry,a1,a2" (degrees; a2 < a1 runs clockwise).
+const FONT = {
+  " ": [], "A": ["0,0 2,6 4,0", "0.67,2 3.33,2"], "B": ["0,0 0,6 2.6,6", "@2.6,4.5,1.4,1.5,90,-90", "0,3 2.8,3", "@2.8,1.5,1.2,1.5,90,-90", "2.8,0 0,0"],
+  "C": ["@2,3,2,3,40,320"], "D": ["0,0 0,6 2,6", "@2,3,2,3,90,-90", "2,0 0,0"], "E": ["4,6 0,6 0,0 4,0", "0,3 2.8,3"], "F": ["4,6 0,6 0,0", "0,3 2.8,3"],
+  "G": ["@2,3,2,3,45,355", "4,2.6 2.4,2.6"], "H": ["0,0 0,6", "4,0 4,6", "0,3 4,3"], "I": ["2,0 2,6", "1,6 3,6", "1,0 3,0"],
+  "J": ["4,6 4,1.5", "@2,1.5,2,1.5,0,-180"], "K": ["0,0 0,6", "4,6 0,2", "1.4,3.3 4,0"], "L": ["0,6 0,0 4,0"], "M": ["0,0 0,6 2,2.5 4,6 4,0"],
+  "N": ["0,0 0,6 4,0 4,6"], "O": ["@2,3,2,3,0,360"], "P": ["0,0 0,6 2.6,6", "@2.6,4.5,1.4,1.5,90,-90", "2.6,3 0,3"],
+  "Q": ["@2,3,2,3,0,360", "2.5,1.5 4,0"], "R": ["0,0 0,6 2.6,6", "@2.6,4.5,1.4,1.5,90,-90", "2.6,3 0,3", "2.2,3 4,0"],
+  "S": ["@2,4.5,2,1.5,20,270", "@2,1.5,2,1.5,90,-160"], "T": ["0,6 4,6", "2,6 2,0"], "U": ["0,6 0,1.5", "@2,1.5,2,1.5,180,360", "4,1.5 4,6"],
+  "V": ["0,6 2,0 4,6"], "W": ["0,6 1,0 2,4 3,0 4,6"], "X": ["0,6 4,0", "0,0 4,6"], "Y": ["0,6 2,3 4,6", "2,3 2,0"], "Z": ["0,6 4,6 0,0 4,0"],
+  "0": ["@2,3,2,3,0,360"], "1": ["0.8,4.8 2,6 2,0", "1,0 3,0"], "2": ["@2,4.3,2,1.7,165,-25", "3.81,3.58 0,0 4,0"],
+  "3": ["@2,4.5,1.9,1.5,150,-90", "@2,1.5,2,1.5,90,-150"], "4": ["3,0 3,6 0,1.8 4,1.8"], "5": ["4,6 0.4,6 0.47,3.12", "@2,1.9,2,1.9,140,-150"],
+  "6": ["3.6,5.5 3.2,5.85 2,6 1,5.7 0.3,4.6 0,3 0,1.8", "@2,1.8,2,1.8,180,540"], "7": ["0,6 4,6 1.4,0"],
+  "8": ["@2,4.5,1.7,1.5,0,360", "@2,1.5,2,1.5,0,360"], "9": ["@2,4.2,2,1.8,0,360", "4,4.2 4,2 3.3,0.6 2,0 0.6,0.4"],
+  "a": ["@2,2,2,2,0,360", "4,4 4,0"], "b": ["0,6 0,0", "@2,2,2,2,180,540"], "c": ["@2,2,2,2,40,320"], "d": ["4,6 4,0", "@2,2,2,2,0,360"],
+  "e": ["0.05,2 4,2 3.9,2.7 3.5,3.5 2.8,3.9 2,4 1,3.75 0.3,3 0,2 0.3,0.9 1,0.25 2,0 3,0.15 3.7,0.6"],
+  "f": ["3.8,5.8 3.2,6 2.4,6 1.8,5.6 1.6,4.8 1.6,0", "0.4,4 3.2,4"], "g": ["@2,2,2,2,0,360", "4,4 4,-0.8", "@2,-0.8,2,1.2,0,-180"],
+  "h": ["0,6 0,0", "0,2.4 0.4,3.4 1.2,3.9 2,4 2.8,3.9 3.6,3.4 4,2.4 4,0"], "i": ["2,4 2,0", "2,5.3 2,5.5"],
+  "j": ["2.5,4 2.5,-1", "@1.25,-1,1.25,1,0,-180", "2.5,5.3 2.5,5.5"], "k": ["0,6 0,0", "3.6,4 0,1.4", "1.3,2.3 3.8,0"], "l": ["2,6 2,0"],
+  "m": ["0,4 0,0", "0,3 0.5,3.8 1,4 1.5,3.8 2,3 2,0", "2,3 2.5,3.8 3,4 3.5,3.8 4,3 4,0"],
+  "n": ["0,4 0,0", "0,2.4 0.4,3.4 1.2,3.9 2,4 2.8,3.9 3.6,3.4 4,2.4 4,0"], "o": ["@2,2,2,2,0,360"], "p": ["0,4 0,-2", "@2,2,2,2,180,540"],
+  "q": ["4,4 4,-2", "@2,2,2,2,0,360"], "r": ["0,4 0,0", "0,2.2 0.6,3.4 1.6,4 2.6,4 3.4,3.6"],
+  "s": ["3.8,3.4 3,3.9 2,4 1,3.9 0.3,3.4 0.3,2.6 1,2.2 3,1.8 3.7,1.4 3.7,0.6 3,0.1 2,0 1,0.1 0.2,0.6"],
+  "t": ["1.6,5.5 1.6,0.8 2,0.1 2.6,0 3.4,0.2", "0.4,4 3.2,4"], "u": ["0,4 0,1.6 0.4,0.6 1.2,0.1 2,0 2.8,0.1 3.6,0.6 4,1.6", "4,4 4,0"],
+  "v": ["0,4 2,0 4,4"], "w": ["0,4 1,0 2,3 3,0 4,4"], "x": ["0,4 4,0", "0,0 4,4"], "y": ["0,4 2,0", "4,4 1.2,-2"], "z": ["0,4 4,4 0,0 4,0"],
+  ".": ["1.9,0.1 2.1,0.1"], ",": ["2.1,0.3 2.1,0 1.5,-1"], ":": ["2,0.2 2,0.4", "2,3.6 2,3.8"], ";": ["2,3.6 2,3.8", "2.1,0.3 2.1,0 1.5,-1"],
+  "-": ["0.8,3 3.2,3"], "_": ["0,-0.6 4,-0.6"], "+": ["0.6,3 3.4,3", "2,1.6 2,4.4"], "/": ["0,0 4,6"], "\\": ["0,6 4,0"],
+  "(": ["3,6.5 2,5.2 1.6,3 2,0.8 3,-0.5"], ")": ["1,6.5 2,5.2 2.4,3 2,0.8 1,-0.5"], "[": ["3,6.5 1.5,6.5 1.5,-0.5 3,-0.5"],
+  "]": ["1,6.5 2.5,6.5 2.5,-0.5 1,-0.5"], "=": ["0.6,4 3.4,4", "0.6,2 3.4,2"], "%": ["0,0 4,6", "@0.9,5,0.9,1,0,360", "@3.1,1,0.9,1,0,360"],
+  "#": ["1.2,0 1.8,6", "2.6,0 3.2,6", "0.4,4.2 4,4.2", "0.1,1.8 3.6,1.8"],
+  "&": ["4,0 0.8,4.2 0.8,5.2 1.5,6 2.5,6 3.1,5.3 3,4.4 0.4,2.3 0.2,1.2 0.9,0.2 2,0 3.2,0.6 4,2"],
+  "*": ["2,1.5 2,4.5", "0.7,2.25 3.3,3.75", "0.7,3.75 3.3,2.25"], "!": ["2,6 2,1.8", "2,0.1 2,0.3"],
+  "?": ["0.3,4.7 0.8,5.6 2,6 3.2,5.6 3.7,4.6 3.3,3.6 2,2.8 2,1.8", "2,0.1 2,0.3"], "'": ["2,6 2,4.5"], "\"": ["1.4,6 1.4,4.5", "2.6,6 2.6,4.5"],
+  "<": ["4,5 0,3 4,1"], ">": ["0,5 4,3 0,1"], "@": ["@2,3,2,3,0,330", "@2.2,3,0.9,1.2,0,360"], "°": ["@2,5,0.7,0.7,0,360"],
+  "~": ["0,3 0.7,3.7 1.5,3.8 2.5,3.2 3.3,3.3 4,4"], "|": ["2,6.5 2,-1"], "^": ["0.5,4 2,6 3.5,4"],
+  "$": ["@2,4.5,2,1.3,20,270", "@2,1.7,2,1.3,90,-160", "2,6.6 2,-0.6"], "µ": ["0,4 0,-2", "0,1.6 0.4,0.6 1.2,0.1 2,0 2.8,0.1 3.6,0.6 4,1.6", "4,4 4,0"],
+  "Ω": ["0,0 1.4,0 1.4,0.8 0.4,2 0,3.2 0.4,4.6 1.2,5.6 2,6 2.8,5.6 3.6,4.6 4,3.2 3.6,2 2.6,0.8 2.6,0 4,0"],
+};
+const glyphCache = new Map();
+function glyph(ch) {
+  if (glyphCache.has(ch)) return glyphCache.get(ch);
+  const spec = FONT[ch] || FONT[ch.toUpperCase()] || ["0,0 4,0 4,6 0,6 0,0"];
+  const out = [];
+  for (const s of spec) {
+    if (s[0] === "@") { const [cx, cy, rx, ry, a1, a2] = s.slice(1).split(",").map(Number); const n = Math.max(8, Math.ceil(Math.abs(a2 - a1) / 10)), pts = [];
+      for (let k = 0; k <= n; k++) { const a = (a1 + (a2 - a1) * k / n) * Math.PI / 180; pts.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]); } out.push(pts); }
+    else out.push(s.trim().split(/\s+/).map(p => p.split(",").map(Number)));
+  }
+  glyphCache.set(ch, out); return out;
+}
+// A text in board millimetres (Y down): [layer, x, y, h, w, stroke, rot, hj, vj, mirrored, text, comp].
+function textPolylines(t) {
+  const H = t[3], u = H / 6, ux = (t[4] > 0 ? t[4] : H * 2 / 3) / 4, th = t[6] * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+  const n = [...t[10]].length, TW = (n - 1) * 6 * ux + 4 * ux;
+  const ox = t[7] === "left" ? 0 : t[7] === "right" ? -TW : -TW / 2, oy = t[8] === "bottom" ? 0 : t[8] === "top" ? -6 * u : -3 * u;
+  const mir = t[9] ? -1 : 1, out = [];
+  [...t[10]].forEach((ch, i) => { for (const pl of glyph(ch)) out.push(pl.map(([gx, gy]) => {
+    const lx = (ox + (gx + 6 * i) * ux) * mir, ly = -(oy + gy * u);
+    return [t[1] + lx * c + ly * s, t[2] - lx * s + ly * c]; })); });
+  return out;
+}
+
+// ================================================================== state
+const MM = 0.001;   // scene units are micrometres
+let qCache = new Map(), PROJECT = null, DOC = null, S = null, cache = null, netCache = new Map(), compCache = new Map(), textCache = new Map(), byLayer = new Map();
+const SCENES = new Map(), RAW = new Map();
+const cv = document.getElementById("cv"); let ctx = cv.getContext("2d"), P2D = Path2D;   // c0189: both swapped while an SVG is recorded
+let W = 0, H = 0, dpr = 1;
+const view = { cx: 0, cy: 0, s: 5, mirror: false };
+const st = { edge: false, epick: [], eres: null, marking: false, checks: true, selFinding: -1, query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
+const vis = new Map();
+const $ = id => document.getElementById(id);
+
+// ================================================================== units: millimetres or mil (Q), as in Altium
+const MIL_MM = 0.0254;
+let UNIT = (() => { try { return localStorage.getItem("fenolite.view.unit") === "mil" ? "mil" : "mm"; } catch (e) { return "mm"; } })();
+function fmtLen(mm) { return UNIT === "mil" ? `${(mm / MIL_MM).toFixed(2)} mil` : `${mm.toFixed(3)} mm`; }
+function fmtNm(nm) { return fmtLen(nm / 1e6); }
+function fmtPair(a, b) { return UNIT === "mil" ? `${(a / MIL_MM).toFixed(2)} × ${(b / MIL_MM).toFixed(2)} mil` : `${a.toFixed(3)} × ${b.toFixed(3)} mm`; }
+
+// <decodeV1> c0182: a compact board scene (fenolite.view_scene.v1, view/compact.py) back to its v0 primitives
+function decodeV1(sc) {
+  const p = sc.p1; if (!p) return sc;
+  const D = p.D, FIXED = { c: 1, s: 2, a: 3 }, last = new Map(), prims = new Array(p.K.length);
+  let at = 0, cx = 0, cy = 0;
+  const pts = (n, x, y) => { const out = new Array(2 * n); for (let i = 0; i < n; i++) { x += D[at++]; y += D[at++]; out[2 * i] = x; out[2 * i + 1] = y; } return out; };
+  for (let k = 0; k < p.K.length; k++) {
+    const kind = p.K[k]; let v;
+    if (kind === "p" || kind === "o" || kind === "h") { const count = D[at++]; v = []; let rx = cx, ry = cy;
+      for (let r = 0; r < count; r++) { const ring = pts(D[at++], rx, ry); if (ring.length) { rx = ring[0]; ry = ring[1]; if (r === 0) { cx = rx; cy = ry; } } v.push(ring); } }
+    else if (kind === "l") { const n = D[at++], w = D[at++]; const f = pts(n, cx, cy); cx = f[0]; cy = f[1]; v = [w, ...f]; }
+    else { const f = pts(FIXED[kind], cx, cy); cx = f[0]; cy = f[1]; f.push(D[at++]); v = f; }
+    const s = p.S[k], n = (last.get(s) || 0) + p.SN[k]; last.set(s, n); const t = p.strings[s];
+    prims[k] = [p.layers[p.L[k]], kind, v, p.N[k], p.C[k], t.includes("\u0001") ? t.replace("\u0001", String(n)) : t];
+  }
+  delete sc.p1; sc.prims = prims; sc.schema = "fenolite.view_scene.v0"; return sc;
+}
+// </decodeV1>
+async function unpackScene(v) {   // c0182: a scene of a standalone page, "gz:" + base64 of its gzipped JSON
+  if (typeof v !== "string") return v;
+  const bin = Uint8Array.from(atob(v.slice(3)), c => c.charCodeAt(0));
+  const text = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return JSON.parse(text);
+}
+function primToMM(pr, f) { const d = pr[2];
+  if (pr[1] === "p" || pr[1] === "o" || pr[1] === "h") pr[2] = d.map(r => r.map(f)); else pr[2] = d.map(f);
+  if (pr[1] === "a") pr.push(arcOf(pr[2])); }
+function diffToMM(sc) {   // c0184: the changes of --compare, in micrometres like the scene
+  const D = sc.diff; if (!D) return; const f = v => v * MM;
+  for (const pr of [...(D.added || []), ...(D.removed || [])]) primToMM(pr, f);
+  for (const m of D.moved || []) { m.from = m.from.map(f); m.to = m.to.map(f); }
+  for (const c of D.changes) if (c.box) c.box = c.box.map(f);
+}
+function toMM(scene) {
+  decodeV1(scene);
+  if (scene.mm) return scene; scene.mm = true; diffToMM(scene); checkToMM(scene);
+  for (const p of scene.pads || []) { p.x *= MM; p.y *= MM; }
+  const f = v => v * MM;
+  for (const pr of scene.prims) primToMM(pr, f);
+  for (const t of scene.texts) for (const k of [1, 2, 3, 4, 5]) t[k] = t[k] * MM;
+  for (const c of scene.comps) { c.x *= MM; c.y *= MM; if (c.bbox) c.bbox = c.bbox.map(f); }
+  for (const r of scene.board) { r.points = r.points.map(f); r.mids = r.mids.map(m => m ? m.map(f) : null); }
+  scene.bounds = scene.bounds.map(f); scene.board3d.thickness *= MM;
+  for (const b of scene.bodies) { b.ring = b.ring.map(f); b.z0 *= MM; b.z1 *= MM; }
+  for (const o of scene.overlays || []) o.pts = o.pts.map(p => p.map(f));
+  return scene;
+}
+// an arc through three points: centre, radius, start and end angles, and the direction (canvas angles, Y down)
+function arcOf(d) {
+  const [x1, y1, x2, y2, x3, y3] = d, D = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+  if (Math.abs(D) < 1e-12) return null;
+  const q1 = x1 * x1 + y1 * y1, q2 = x2 * x2 + y2 * y2, q3 = x3 * x3 + y3 * y3;
+  const cx = (q1 * (y2 - y3) + q2 * (y3 - y1) + q3 * (y1 - y2)) / D, cy = (q1 * (x3 - x2) + q2 * (x1 - x3) + q3 * (x2 - x1)) / D;
+  const a1 = Math.atan2(y1 - cy, x1 - cx), am = Math.atan2(y2 - cy, x2 - cx), a3 = Math.atan2(y3 - cy, x3 - cx), T = 2 * Math.PI;
+  const d13 = ((a3 - a1) % T + T) % T, d1m = ((am - a1) % T + T) % T;
+  return { cx, cy, r: Math.hypot(x1 - cx, y1 - cy), a1, a3, ccw: d1m > d13 };
+}
+function ringSamples(ring) {   // a board ring with its arcs, as points
+  const p = ring.points, out = [];
+  for (let i = 0; i < p.length; i += 2) { const j = (i + 2) % p.length, m = ring.mids[i / 2]; out.push([p[i], p[i + 1]]);
+    if (m) { const a = arcOf([p[i], p[i + 1], m[0], m[1], p[j], p[j + 1]]); if (a) { let span = ((a.a3 - a.a1) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI); if (a.ccw) span -= 2 * Math.PI;
+      for (let k = 1; k < 16; k++) { const t = a.a1 + span * k / 16; out.push([a.cx + a.r * Math.cos(t), a.cy + a.r * Math.sin(t)]); } } } }
+  return out;
+}
+function boardPath() { const bp = new P2D(); for (const r of S.board) { const pts = ringSamples(r); pts.forEach((q, k) => k ? bp.lineTo(q[0], q[1]) : bp.moveTo(q[0], q[1])); bp.closePath(); } return bp; }
+
+function lighten(hex, f) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(r + (255 - r) * f); g = Math.round(g + (255 - g) * f); b = Math.round(b + (255 - b) * f); return `rgb(${r},${g},${b})`; }
+function ringPath(p, flat) { p.moveTo(flat[0], flat[1]); for (let i = 2; i < flat.length; i += 2) p.lineTo(flat[i], flat[i + 1]); p.closePath(); }
+function strokePath(c, w) { let p = c.strokes.get(w); if (!p) { p = new P2D(); c.strokes.set(w, p); } return p; }
+function addPrim(c, pr) {
+  const k = pr[1], d = pr[2];
+  if (k === "s") { const p = strokePath(c, d[4]); p.moveTo(d[0], d[1]); p.lineTo(d[2], d[3]); if (d[0] === d[2] && d[1] === d[3]) p.lineTo(d[2] + 1e-4, d[3]); }
+  else if (k === "a") { const a = pr[6], p = strokePath(c, d[6]); if (!a) { p.moveTo(d[0], d[1]); p.lineTo(d[4], d[5]); } else { p.moveTo(d[0], d[1]); p.arc(a.cx, a.cy, a.r, a.a1, a.a3, a.ccw); } }
+  else if (k === "l") { const p = strokePath(c, d[0]); p.moveTo(d[1], d[2]); for (let i = 3; i < d.length; i += 2) p.lineTo(d[i], d[i + 1]); if (d.length === 3) p.lineTo(d[1] + 1e-4, d[2]); }
+  else if (k === "c") { c.fill.moveTo(d[0] + d[2], d[1]); c.fill.arc(d[0], d[1], d[2], 0, 2 * Math.PI); c.fill.closePath(); }
+  else if (k === "p") { for (const r of d) ringPath(c.fill, r); }
+  else if (k === "o") { for (const r of d) ringPath(c.outline, r); }
+  else if (k === "h") { for (const r of d) { ringPath(c.hatch, r); for (let i = 0; i < r.length; i += 2) {   // c0183: a keep-out or a finding, hatched
+    c.hb[0] = Math.min(c.hb[0], r[i]); c.hb[1] = Math.min(c.hb[1], r[i + 1]); c.hb[2] = Math.max(c.hb[2], r[i]); c.hb[3] = Math.max(c.hb[3], r[i + 1]); } } }
+  c.n++;
+}
+function newCache() { return { fill: new P2D(), strokes: new Map(), outline: new P2D(), hatch: new P2D(), hb: [1e9, 1e9, -1e9, -1e9], n: 0 }; }
+function bboxOf(pr) { const d = pr[2]; switch (pr[1]) {
+  case "s": return [Math.min(d[0], d[2]) - d[4] / 2, Math.min(d[1], d[3]) - d[4] / 2, Math.max(d[0], d[2]) + d[4] / 2, Math.max(d[1], d[3]) + d[4] / 2];
+  case "a": { const a = pr[6], w = d[6] / 2; if (!a) return [Math.min(d[0], d[4]) - w, Math.min(d[1], d[5]) - w, Math.max(d[0], d[4]) + w, Math.max(d[1], d[5]) + w];
+    return [a.cx - a.r - w, a.cy - a.r - w, a.cx + a.r + w, a.cy + a.r + w]; }
+  case "c": return [d[0] - d[2], d[1] - d[2], d[0] + d[2], d[1] + d[2]];
+  case "l": { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (let i = 1; i < d.length; i += 2) { x0 = Math.min(x0, d[i]); x1 = Math.max(x1, d[i]); y0 = Math.min(y0, d[i + 1]); y1 = Math.max(y1, d[i + 1]); }
+    return [x0 - d[0] / 2, y0 - d[0] / 2, x1 + d[0] / 2, y1 + d[0] / 2]; }
+  default: { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; for (const ring of d) for (let i = 0; i < ring.length; i += 2) {
+    x0 = Math.min(x0, ring[i]); x1 = Math.max(x1, ring[i]); y0 = Math.min(y0, ring[i + 1]); y1 = Math.max(y1, ring[i + 1]); } return [x0, y0, x1, y1]; } } }
+function buildCaches() {
+  qCache = new Map(); cache = new Map(); netCache = new Map(); compCache = new Map(); textCache = new Map(); byLayer = new Map();
+  for (const l of S.layers) { cache.set(l.id, newCache()); byLayer.set(l.id, []); textCache.set(l.id, { strokes: new Map(), n: 0 }); }
+  for (const pr of S.prims) { const c = cache.get(pr[0]); if (c) { addPrim(c, pr); byLayer.get(pr[0]).push([pr, bboxOf(pr)]); } }
+  for (const t of S.texts) { const tc = textCache.get(t[0]); if (!tc) continue; tc.n++;
+    const p = strokePath(tc, Math.max(t[5], 0.05)); for (const pl of textPolylines(t)) { p.moveTo(pl[0][0], pl[0][1]); for (let k = 1; k < pl.length; k++) p.lineTo(pl[k][0], pl[k][1]);
+      if (pl.length === 1) p.lineTo(pl[0][0] + 1e-4, pl[0][1]); } }
+}
+function selCache(map, key, test) {
+  if (map.has(key)) return map.get(key);
+  const m = new Map(); for (const l of S.layers) m.set(l.id, newCache());
+  for (const pr of S.prims) if (test(pr)) { const c = m.get(pr[0]); if (c) addPrim(c, pr); }
+  map.set(key, m); return m;
+}
+
+// ================================================================== 2D view
+function measure() { const r = cv.getBoundingClientRect(); dpr = window.devicePixelRatio || 1; W = r.width || W; H = r.height || H;
+  cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr)); }
+let fitted = false;
+function resize() { measure(); if (st.mode3d) resize3D(); if (S && !fitted) fit(); else draw(); }
+new ResizeObserver(resize).observe($("wrap"));
+function m() { return view.mirror ? -1 : 1; }
+function w2s(x, y) { return [W / 2 + m() * (x - view.cx) * view.s, H / 2 + (y - view.cy) * view.s]; }
+function s2w(X, Y) { return [view.cx + m() * (X - W / 2) / view.s, view.cy + (Y - H / 2) / view.s]; }
+function worldTf(g) { (g || ctx).setTransform(dpr * m() * view.s, 0, 0, dpr * view.s, dpr * (W / 2 - m() * view.cx * view.s), dpr * (H / 2 - view.cy * view.s)); }
+function fit(b) { if (!S || S.kind === "table") return; measure();   // a table (c0190) has no bounds
+  b = b || S.bounds; const w = b[2] - b[0], h = b[3] - b[1];
+  view.cx = (b[0] + b[2]) / 2; view.cy = (b[1] + b[3]) / 2;
+  view.s = Math.max(0.2, Math.min(Math.max(W - 40, 60) / Math.max(w, 1), Math.max(H - 40, 60) / Math.max(h, 1)));
+  fitted = W > 100 && H > 100; draw(); }
+const VIEWL = id => id.startsWith("View.");
+function activeSide() { return view.mirror ? "bottom" : "top"; }
+function order() {
+  const L = S.layers.filter(l => vis.get(l.id));
+  if (st.single) return L.filter(l => l.id === st.cur || l.id === "View.Drill" || l.id === "View.Outline").map(l => [l, 1]);
+  const act = activeSide(), other = act === "top" ? "bottom" : "top";
+  const both = L.filter(l => l.side === "both" && !VIEWL(l.id)), oth = L.filter(l => l.side === other), actL = L.filter(l => l.side === act), post = L.filter(l => VIEWL(l.id));
+  if (act === "bottom") actL.reverse();
+  let out = [...oth.map(l => [l, st.opac]), ...both.map(l => [l, 1]), ...actL.map(l => [l, 1]), ...post.map(l => [l, 1])];
+  const ci = out.findIndex(e => e[0].id === st.cur); if (ci >= 0) { const [e] = out.splice(ci, 1); e[1] = 1; out.splice(out.length - post.length, 0, e); }
+  return out;
+}
+function paintCache(g, c, lid, color, alpha, unit) {
+  if (!c || !c.n) return;
+  g.globalAlpha = alpha;
+  if (lid === "View.Drill") { g.fillStyle = color; g.fill(c.fill, "nonzero"); g.strokeStyle = color; g.lineCap = "round"; for (const [w, p] of c.strokes) { g.lineWidth = Math.max(w, 1 / unit); g.stroke(p); } return; }
+  g.fillStyle = color; g.fill(c.fill, "evenodd");
+  g.strokeStyle = color; g.lineCap = "round"; g.lineJoin = "round";
+  for (const [w, p] of c.strokes) { g.lineWidth = Math.max(w, 1 / unit); g.stroke(p); }
+  if (lid === "View.ZoneOutline") g.setLineDash([6 / unit, 4 / unit]);
+  g.lineWidth = 1 / unit; g.stroke(c.outline); g.setLineDash([]);
+  if (c.hb[2] >= c.hb[0]) { const [x0, y0, x1, y1] = c.hb, step = 8 / unit;   // hatched rings: 45° lines inside, a solid edge
+    g.save(); g.clip(c.hatch, "evenodd"); g.lineWidth = 1 / unit; g.beginPath();
+    for (let t = x0 - (y1 - y0); t <= x1; t += step) { g.moveTo(t, y0); g.lineTo(t + (y1 - y0), y1); } g.stroke(); g.restore();
+    g.lineWidth = 1.5 / unit; g.stroke(c.hatch); }
+}
+function paintTexts(g, lid, color, alpha, unit) {
+  const tc = textCache.get(lid); if (!tc || !tc.n) return;
+  g.globalAlpha = alpha; g.strokeStyle = color; g.lineCap = "round"; g.lineJoin = "round";
+  for (const [w, p] of tc.strokes) { g.lineWidth = Math.max(w, 0.6 / unit); g.stroke(p); }
+}
+function draw() {
+  if (S && S.kind === "table") return;
+  if (S && S.kind === "schematic") return drawSch();
+  if (!S || st.mode3d) return;
+  const th = S.theme || {};
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.background || "#15171b"; ctx.fillRect(0, 0, cv.width, cv.height);
+  worldTf(); ctx.globalAlpha = 1; ctx.fillStyle = th.board || "#050505"; ctx.fill(boardPath(), "evenodd");
+  const qy = st.query && st.query.prims.size ? st.query : null, picked = st.selNet >= 0 || st.selComp >= 0;
+  const ord = order(), sel = picked || !!qy, other = HL_ALPHA[st.hl] ?? HL_ALPHA.dim;
+  const dim = S.diff && st.diff && S.diff.kind === "board" ? 0.35 : 1;   // c0184: the board steps back while the changes are shown
+  for (const [l, a00] of ord) { const a0 = a00 * dim, a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * other : a, view.s);
+    if (view.s * 0.4 > 1) paintTexts(ctx, l.id, l.color, sel ? a * other : a, view.s); }
+  if (qy) { const mq = selCache(qCache, qy.text, pr => qy.prims.has(pr)); for (const [l] of ord) paintCache(ctx, mq.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+    ctx.globalAlpha = 1; ctx.strokeStyle = "#fff"; ctx.lineWidth = 1 / view.s;
+    for (const ci of qy.comps.slice(0, 2000)) { const b = S.comps[ci].bbox; if (b) ctx.strokeRect(b[0] - 0.2, b[1] - 0.2, b[2] - b[0] + 0.4, b[3] - b[1] + 0.4); } }
+  if (picked) {
+    const mm = st.selNet >= 0 ? selCache(netCache, st.selNet, pr => pr[3] === st.selNet) : selCache(compCache, st.selComp, pr => pr[4] === st.selComp);
+    for (const [l] of ord) paintCache(ctx, mm.get(l.id), l.id, lighten(l.color, 0.45), 1, view.s);
+    if (st.selComp >= 0 && S.comps[st.selComp].bbox) { const b = S.comps[st.selComp].bbox; ctx.globalAlpha = 1; ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(b[0] - 0.3, b[1] - 0.3, b[2] - b[0] + 0.6, b[3] - b[1] + 0.6); ctx.setLineDash([]); }
+  }
+  if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";
+    for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
+    drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
+  drawDiff(); drawOverlays(); drawCheck(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
+  $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
+}
+// ================================================================== changes since an older revision (c0184)
+const DIFF_COLOR = { added: "#35e06b", removed: "#ff3cf0", moved: "#ffb020", changed: "#ffb020", zone: "#40c0ff", net: "#ffb020" };
+function drawDiff() {
+  const D = S.diff; if (!D || !st.diff || D.kind !== "board") return;
+  if (!D.cache) { D.cache = { added: newCache(), removed: newCache() }; for (const pr of D.added) addPrim(D.cache.added, pr); for (const pr of D.removed) addPrim(D.cache.removed, pr); }
+  worldTf(); paintCache(ctx, D.cache.removed, "diff", DIFF_COLOR.removed, 0.85, view.s); paintCache(ctx, D.cache.added, "diff", DIFF_COLOR.added, 0.85, view.s);
+  ctx.globalAlpha = 1; ctx.strokeStyle = ctx.fillStyle = DIFF_COLOR.moved; ctx.lineWidth = 2 / view.s;
+  for (const m of D.moved) { const [x0, y0] = m.from, [x1, y1] = m.to, a = Math.atan2(y1 - y0, x1 - x0), h = 10 / view.s;
+    ctx.beginPath(); ctx.arc(x0, y0, 3 / view.s, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    if (Math.hypot(x1 - x0, y1 - y0) > 0) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - h * Math.cos(a - 0.4), y1 - h * Math.sin(a - 0.4)); ctx.lineTo(x1 - h * Math.cos(a + 0.4), y1 - h * Math.sin(a + 0.4)); ctx.closePath(); ctx.fill(); } }
+}
+function drawSchDiff() {
+  const D = S.diff; if (!D || !st.diff) return; ctx.globalAlpha = 1; ctx.lineWidth = 2 / view.s; ctx.setLineDash([6 / view.s, 3 / view.s]);
+  for (const c of D.changes) if (c.box) { const b = c.box, e = 1.5; ctx.strokeStyle = DIFF_COLOR[c.kind] || "#ffb020"; ctx.strokeRect(b[0] - e, b[1] - e, b[2] - b[0] + 2 * e, b[3] - b[1] + 2 * e); }
+  ctx.setLineDash([]);
+}
+function buildDiffList() {
+  const box = $("diffList"), D = S && S.diff; box.innerHTML = ""; $("diffTitle").style.display = D ? "" : "none"; if (!D) return;
+  $("diffTitle").textContent = `Changes since ${D.old.name} (${D.changes.length})`;
+  D.changes.forEach(c => { const d = document.createElement("div"); d.className = "navi"; d.innerHTML = `<span class="sw" style="background:${DIFF_COLOR[c.kind] || "#888"}"></span> ${esc(c.text)}`;
+    if (c.box) d.onclick = () => { const b = c.box, m = Math.max(b[2] - b[0], b[3] - b[1], 1) * 0.6; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); };
+    box.appendChild(d); });
+}
+// ================================================================== check findings (c0188)
+const SEV_COLOR = { error: "#ff4040", warning: "#ffb020", info: "#4da3ff" };
+function checkToMM(sc) { const C = sc.check; if (!C || C.mm) return; C.mm = true; const f = v => v * MM;
+  for (const x of C.findings) { if (x.at) x.at = x.at.map(f); if (x.box) x.box = x.box.map(f); } }
+function drawCheck() {   // a ring with four ticks at each placed finding, the colour of its severity; the box of the one chosen
+  const C = S.check; if (!C || !st.checks) return; if (!isSch()) worldTf(); ctx.globalAlpha = 1;
+  for (let i = C.findings.length - 1; i >= 0; i--) { const x = C.findings[i];   // errors last, on top
+    if (!x.at || (x.layer && vis.has(x.layer) && !vis.get(x.layer))) continue;
+    const sel = i === st.selFinding, r = (sel ? 9 : 6) / view.s, [cx, cy] = x.at;
+    ctx.strokeStyle = SEV_COLOR[x.severity] || "#cccccc"; ctx.lineWidth = (sel ? 2.5 : 1.6) / view.s; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { ctx.moveTo(cx + dx * r * 0.6, cy + dy * r * 0.6); ctx.lineTo(cx + dx * r * 1.6, cy + dy * r * 1.6); }
+    ctx.stroke();
+    if (sel && x.box && (x.box[2] > x.box[0] || x.box[3] > x.box[1])) { const b = x.box, e = 2 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]);
+      ctx.strokeRect(b[0] - e, b[1] - e, b[2] - b[0] + 2 * e, b[3] - b[1] + 2 * e); ctx.setLineDash([]); } }
+}
+function selectFinding(i) {
+  const x = S.check.findings[i]; st.selFinding = i; if (st.mode3d) set3D(false);
+  if (x.layer && !isSch() && S.layers.some(l => l.id === x.layer)) { st.cur = x.layer; vis.set(x.layer, true); buildTabs(); }   // its layer, current
+  if (x.at) { const b = x.box || [x.at[0], x.at[1], x.at[0], x.at[1]], m = Math.max(b[2] - b[0], b[3] - b[1], isSch() ? 10 : 6) * 0.8; fit([b[0] - m, b[1] - m, b[2] + m, b[3] + m]); }
+  showInfo(`<b>${esc(x.code)}</b> · ${esc(x.severity)}<br>${esc(x.message)}` + (x.where ? `<br>Where: ${esc(x.where)}` : "") +
+    (x.layer && !isSch() ? `<br>Layer: ${esc(layerName(x.layer))}` : "") + (x.at ? "" : "<br><i>No position on this document.</i>") +
+    `<br>Stage: ${esc(x.stage || "?")} · evidence ${esc(x.evidence || "?")}`);
+  buildMessages(); draw();
+}
+const MSG_ROWS = 300;
+function buildMessages() {   // the Messages panel: findings grouped by rule, errors first
+  const box = $("msgList"), C = S && S.check; box.innerHTML = ""; $("msgTitle").style.display = C ? "" : "none"; if (!C) return;
+  const n = C.counts; $("msgTitle").textContent = `Messages: ${n.error} errors · ${n.warning} warnings · ${n.info} info`;
+  for (const note of C.notes) { const d = document.createElement("div"); d.className = "notes"; d.textContent = note; box.appendChild(d); }
+  const groups = new Map(); C.findings.forEach((x, i) => { if (!groups.has(x.code)) groups.set(x.code, []); groups.get(x.code).push(i); });
+  st.msgOpen = st.msgOpen || new Set();
+  for (const [code, list] of groups) {
+    const first = C.findings[list[0]], open = st.msgOpen.has(code) || groups.size === 1, h = document.createElement("div"); h.className = "navg";
+    h.innerHTML = `<span class="sw" style="display:inline-block;background:${SEV_COLOR[first.severity] || "#888"}"></span> ${open ? "▾" : "▸"} ${esc(code)} (${list.length})`;
+    h.onclick = () => { if (open) st.msgOpen.delete(code); else st.msgOpen.add(code); buildMessages(); }; box.appendChild(h);
+    if (!open) continue;
+    for (const i of list.slice(0, MSG_ROWS)) { const x = C.findings[i], d = document.createElement("div"); d.className = "navi" + (i === st.selFinding ? " sel" : "");
+      d.innerHTML = `${esc(x.message)}${x.at ? "" : " <small>(no position)</small>"}`; d.title = x.where; d.onclick = () => selectFinding(i); box.appendChild(d); }
+    if (list.length > MSG_ROWS) { const d = document.createElement("div"); d.className = "notes"; d.textContent = `… ${list.length - MSG_ROWS} more`; box.appendChild(d); }
+  }
+}
+function drawOverlays() {
+  if (!S.overlays || !S.overlays.length) return;
+  worldTf(); ctx.globalAlpha = 1;
+  S.overlays.forEach((o, i) => {
+    ctx.strokeStyle = o.color; ctx.lineWidth = (i === st.selOv ? 4 : 2.5) / view.s; ctx.setLineDash(o.kind === "creepage" ? [5 / view.s, 3 / view.s] : []);
+    ctx.beginPath(); o.pts.forEach((p, k) => k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke(); ctx.setLineDash([]);
+    const p = o.pts[0]; ctx.beginPath(); ctx.arc(p[0], p[1], (i === st.selOv ? 9 : 6) / view.s, 0, 2 * Math.PI); ctx.stroke();
+  });
+}
+function snapPoints() {   // pad centres, line ends and vertices, circle centres, text anchors: where a measurement snaps
+  if (S.__snaps) return S.__snaps; const out = [];
+  if (S.kind === "schematic") {
+    for (const p of S.prims) { if (p.p && p.k !== "t") for (let i = 0; i < p.p.length; i += 2) out.push(p.p[i], p.p[i + 1]);
+      else if (p.k === "e" || p.k === "a" || p.k === "t") out.push(p.x, p.y);
+      else if (p.b) out.push(p.b[0], p.b[1], p.b[2], p.b[3]); } }
+  else {
+    for (const p of S.pads || []) out.push(p.x, p.y);
+    for (const pr of S.prims) { const d = pr[2];
+      if (pr[1] === "s") out.push(d[0], d[1], d[2], d[3]); else if (pr[1] === "a") out.push(d[0], d[1], d[4], d[5]);
+      else if (pr[1] === "c") out.push(d[0], d[1]); else if (pr[1] === "l") for (let i = 1; i + 1 < d.length; i += 2) out.push(d[i], d[i + 1]);
+      else if ((pr[1] === "p" || pr[1] === "o") && d.length === 1 && d[0].length <= 128) for (let i = 0; i < d[0].length; i += 2) out.push(d[0][i], d[0][i + 1]); } }
+  S.__snaps = out; return out;
+}
+function snap(x, y) {
+  const pts = snapPoints(), tol = 8 / view.s; let best = null, bd = tol;
+  for (let i = 0; i < pts.length; i += 2) { const d = Math.hypot(pts[i] - x, pts[i + 1] - y); if (d < bd) { bd = d; best = [pts[i], pts[i + 1]]; } }
+  return best ? { p: best, snapped: true } : { p: [x, y], snapped: false };
+}
+function drawMeasure() {
+  if (!st.measure && !st.mpts.length) return; worldTf(); ctx.globalAlpha = 1; const C = "#00e08a"; ctx.strokeStyle = C; ctx.lineWidth = 1.5 / view.s;
+  const mark = (q, on) => { const r = 4 / view.s; ctx.strokeRect(q[0] - r, q[1] - r, 2 * r, 2 * r); if (on) { ctx.beginPath(); ctx.moveTo(q[0] - 2 * r, q[1]); ctx.lineTo(q[0] + 2 * r, q[1]); ctx.moveTo(q[0], q[1] - 2 * r); ctx.lineTo(q[0], q[1] + 2 * r); ctx.stroke(); } };
+  if (st.mhover) mark(st.mhover.p, st.mhover.snapped);
+  if (!st.mpts.length) return;
+  const a = st.mpts[0], b = st.mpts[1] || (st.mhover && st.mhover.p); mark(a, true); if (!b) return;
+  ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); if (st.mpts[1]) mark(b, true);
+  const d = Math.hypot(b[0] - a[0], b[1] - a[1]), txt = `${fmtLen(d)}   Δx ${fmtLen(Math.abs(b[0] - a[0]))}   Δy ${fmtLen(Math.abs(b[1] - a[1]))}`;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(b[0], b[1]); ctx.font = "600 13px system-ui"; const w = ctx.measureText(txt).width;
+  ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] - 28, w + 12, 20); ctx.fillStyle = C; ctx.fillText(txt, P[0] + 14, P[1] - 13); worldTf();
+  $("coord").textContent = `measure: ${txt}`;
+}
+function measureClick(X, Y) { const [x, y] = s2w(X, Y), q = snap(x, y).p; if (st.mpts.length >= 2) st.mpts = []; st.mpts.push(q); draw(); }
+
+// ================================================================== hit test (2D)
+function segDist(px, py, x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0;
+  t = Math.max(0, Math.min(1, t)); return Math.hypot(px - x1 - t * dx, py - y1 - t * dy); }
+function inRing(px, py, r) { let c = false; for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) {
+  const xi = r[i], yi = r[i + 1], xj = r[j], yj = r[j + 1]; if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) c = !c; } return c; }
+function hitPrim(pr, x, y, tol) { const d = pr[2]; switch (pr[1]) {
+  case "s": return segDist(x, y, d[0], d[1], d[2], d[3]) <= d[4] / 2 + tol;
+  case "c": return Math.hypot(x - d[0], y - d[1]) <= d[2] + tol;
+  case "l": for (let i = 1; i + 3 < d.length; i += 2) if (segDist(x, y, d[i], d[i + 1], d[i + 2], d[i + 3]) <= d[0] / 2 + tol) return true; return d.length === 3 && Math.hypot(x - d[1], y - d[2]) <= d[0] / 2 + tol;
+  case "a": { const a = pr[6]; if (!a) return segDist(x, y, d[0], d[1], d[4], d[5]) <= d[6] / 2 + tol; if (Math.abs(Math.hypot(x - a.cx, y - a.cy) - a.r) > d[6] / 2 + tol) return false;
+    const T = 2 * Math.PI, t = Math.atan2(y - a.cy, x - a.cx); let span = ((a.a3 - a.a1) % T + T) % T, at = ((t - a.a1) % T + T) % T; if (a.ccw) { span = T - span; at = ((a.a1 - t) % T + T) % T; } return at <= span; }
+  case "p": case "h": { let n = 0; for (const r of d) if (inRing(x, y, r)) n++; return n % 2 === 1; }
+  case "o": for (const r of d) for (let i = 0; i < r.length; i += 2) { const j = (i + 2) % r.length; if (segDist(x, y, r[i], r[i + 1], r[j], r[j + 1]) <= tol) return true; } return false; }
+  return false; }
+function pick(X, Y) {
+  const [x, y] = s2w(X, Y), tol = 3 / view.s;
+  const layers = order().map(e => e[0]).reverse().filter(l => l.id !== "View.Drill" && l.id !== "View.Outline");
+  layers.sort((a, b) => (a.id === "View.ZoneOutline") - (b.id === "View.ZoneOutline"));   // copper before zone outlines
+  for (const l of layers) {
+    for (const [pr, b] of byLayer.get(l.id) || []) { if (x < b[0] - tol || x > b[2] + tol || y < b[1] - tol || y > b[3] + tol) continue;
+      if (hitPrim(pr, x, y, tol)) return { layer: l, pr }; } }
+  return null;
+}
+function showInfo(html) { const el = $("info"); if (!html) { el.style.display = "none"; return; } el.innerHTML = html; el.style.display = "block"; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]); }
+function linkify(v) { const t = String(v); return /^https?:\/\/\S+$/i.test(t) ? `<a href="${esc(t)}" target="_blank" rel="noopener noreferrer">${esc(t)}</a>` : esc(t); }
+
+// ---- query (c0187): the board filter. key:value terms joined by spaces (and), "|" (or), a leading "-" (not),
+// * and ? wildcards, quoted values. Keys: net, ref, footprint, value, layer, side; any other key is the name of a
+// part parameter; a bare value matches a reference or a net. Pure functions of a scene, run in Node by the tests.
+function wildRe(v) { return new RegExp("^" + String(v).replace(/[.+^${}()[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$", "i"); }
+function queryParse(text) {
+  const s = String(text), groups = [[]]; let i = 0;
+  while (i < s.length) {
+    if (/\s/.test(s[i])) { i++; continue; }
+    if (s[i] === "|") { groups.push([]); i++; continue; }
+    let neg = false, key = "", val; if (s[i] === "-") { neg = true; i++; }
+    let j = i; while (j < s.length && /[\w.]/.test(s[j])) j++;
+    if (j > i && s[j] === ":") { key = s.slice(i, j).toLowerCase(); i = j + 1; }
+    if (s[i] === "\"") { const e = s.indexOf("\"", i + 1); val = s.slice(i + 1, e < 0 ? s.length : e); i = e < 0 ? s.length : e + 1; }
+    else { j = i; while (j < s.length && !/[\s|]/.test(s[j])) j++; val = s.slice(i, j); i = j; }
+    groups[groups.length - 1].push({ key, neg, val, re: wildRe(val) });
+  }
+  return groups.filter(g => g.length);
+}
+function termTest(t, c) {
+  const any = vs => vs.some(v => v != null && v !== "" && t.re.test(String(v)));
+  let hit;
+  if (t.key === "") hit = any([c.ref, ...c.nets]);
+  else if (t.key === "net") hit = any(c.nets);
+  else if (t.key === "layer") hit = any(c.layers);
+  else if (t.key === "ref" || t.key === "footprint" || t.key === "value" || t.key === "side") hit = any([c[t.key]]);
+  else { const p = c.params || {}, k = Object.keys(p).find(n => n.toLowerCase() === t.key); hit = k !== undefined && any([p[k]]); }
+  return hit !== t.neg;
+}
+function queryTest(q, c) { return q.some(g => g.every(t => termTest(t, c))); }
+function queryRun(sc, q) {   // the primitives and the parts of the board scene `sc` that the parsed query `q` matches
+  const lt = new Map(sc.layers.map(l => [l.id, { tags: [l.id, l.name], side: l.side }]));
+  const cn = sc.comps.map(() => new Set()), cl = sc.comps.map(() => new Set()), prims = new Set();
+  for (const pr of sc.prims) {
+    const L = lt.get(pr[0]) || { tags: [pr[0]], side: "" }, c = pr[4] >= 0 ? sc.comps[pr[4]] : null, net = pr[3] >= 0 ? sc.nets[pr[3]] : "";
+    if (c) { if (net) cn[pr[4]].add(net); for (const t of L.tags) cl[pr[4]].add(t); }
+    const ctx = { nets: net ? [net] : [], layers: L.tags, ref: c ? c.ref : "", footprint: c ? c.footprint : "", value: c ? c.value : "",
+      side: c ? c.side : L.side || "", params: c ? c.params : null };
+    if (queryTest(q, ctx)) prims.add(pr);
+  }
+  const comps = [];
+  sc.comps.forEach((c, i) => { if (queryTest(q, { nets: [...cn[i]], layers: [...cl[i]], ref: c.ref, footprint: c.footprint, value: c.value, side: c.side, params: c.params })) comps.push(i); });
+  return { prims, comps };
+}
+function similarQuery(sc, pr, ci) {   // Find similar: a query for the parts of the same footprint and value, or the same net on the same layer
+  const qv = v => `"${String(v).replace(/"/g, "")}"`;
+  if (ci >= 0) { const c = sc.comps[ci]; return `footprint:${qv(c.footprint)}` + (c.value ? ` value:${qv(c.value)}` : ""); }
+  if (!pr) return "";
+  const l = sc.layers.find(x => x.id === pr[0]), layer = `layer:${qv(l ? l.name : pr[0])}`;
+  return pr[3] >= 0 ? `net:${qv(sc.nets[pr[3]])} ${layer}` : layer;
+}
+// ---- end query
+
+// ---- edge (c0189): the shortest distance between the edges of two board primitives, as Altium's clearance
+// measure gives it. A primitive is segments and points grown by a radius (a track: its centre line and half its
+// width; a via or a round pad: its centre and radius; an arc: its centre line sampled every 2°) or filled rings
+// (pads, fills, regions). The distance is exact for segments and points; overlapping shapes read 0.
+function arcSample(d) {   // three points (start, mid, end) to a polyline through them
+  const [x1, y1, x2, y2, x3, y3] = d, D = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+  if (Math.abs(D) < 1e-12) return [x1, y1, x3, y3];
+  const s1 = x1 * x1 + y1 * y1, s2 = x2 * x2 + y2 * y2, s3 = x3 * x3 + y3 * y3;
+  const cx = (s1 * (y2 - y3) + s2 * (y3 - y1) + s3 * (y1 - y2)) / D, cy = (s1 * (x3 - x2) + s2 * (x1 - x3) + s3 * (x2 - x1)) / D, r = Math.hypot(x1 - cx, y1 - cy);
+  const T = 2 * Math.PI, a1 = Math.atan2(y1 - cy, x1 - cx), a2 = Math.atan2(y2 - cy, x2 - cx), a3 = Math.atan2(y3 - cy, x3 - cx);
+  const ccwSpan = ((a3 - a1) % T + T) % T, midIn = ((a2 - a1) % T + T) % T <= ccwSpan, span = midIn ? ccwSpan : ccwSpan - T;
+  const n = Math.max(2, Math.ceil(Math.abs(span) / (Math.PI / 90))), out = [];
+  for (let i = 0; i <= n; i++) { const t = a1 + span * i / n; out.push(cx + r * Math.cos(t), cy + r * Math.sin(t)); }
+  return out;
+}
+function edgeShape(pr) {   // { lines: polylines, rings: filled rings, r: growth }
+  const d = pr[2];
+  switch (pr[1]) {
+    case "s": return { lines: [[d[0], d[1], d[2], d[3]]], rings: [], r: d[4] / 2 };
+    case "c": return { lines: [[d[0], d[1]]], rings: [], r: d[2] };
+    case "a": return { lines: [arcSample(d)], rings: [], r: d[6] / 2 };
+    case "l": return { lines: [d.slice(1)], rings: [], r: d[0] / 2 };
+    case "p": case "h": return { lines: d, rings: d, r: 0, closed: true };
+    case "o": return { lines: d, rings: [], r: 0, closed: true };
+  }
+  return null;
+}
+function ptSeg(px, py, x1, y1, x2, y2) {   // the closest point of a segment to a point, and the distance
+  const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0; t = Math.max(0, Math.min(1, t));
+  const qx = x1 + t * dx, qy = y1 + t * dy; return [Math.hypot(px - qx, py - qy), qx, qy];
+}
+function segSeg(a, b) {   // [distance, point on a, point on b] of two segments [x1, y1, x2, y2]
+  const [ax, ay, bx, by] = a, [cx, cy, dx, dy] = b, cross = (px, py, qx, qy, rx, ry) => (qx - px) * (ry - py) - (qy - py) * (rx - px);
+  const d1 = cross(cx, cy, dx, dy, ax, ay), d2 = cross(cx, cy, dx, dy, bx, by), d3 = cross(ax, ay, bx, by, cx, cy), d4 = cross(ax, ay, bx, by, dx, dy);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) { const t = d1 / (d1 - d2), x = ax + t * (bx - ax), y = ay + t * (by - ay); return [0, [x, y], [x, y]]; }
+  let best = null;
+  for (const [p, q, flip] of [[[ax, ay], b, false], [[bx, by], b, false], [[cx, cy], a, true], [[dx, dy], a, true]]) {
+    const [dd, qx, qy] = ptSeg(p[0], p[1], q[0], q[1], q[2], q[3]);
+    if (!best || dd < best[0]) best = flip ? [dd, [qx, qy], p] : [dd, p, [qx, qy]]; }
+  return best;
+}
+function edgeSegs(sh) {   // the segments of a shape (a lone point is a segment of length 0)
+  const out = [];
+  for (const l of sh.lines) { const n = l.length / 2;
+    if (n === 1) out.push([l[0], l[1], l[0], l[1]]);
+    for (let i = 0; i + 1 < n; i++) out.push([l[2 * i], l[2 * i + 1], l[2 * i + 2], l[2 * i + 3]]);
+    if (sh.closed && n > 2) out.push([l[2 * n - 2], l[2 * n - 1], l[0], l[1]]); }
+  return out;
+}
+function ringHas(rings, x, y) { let n = 0; for (const r of rings) { let c = false;
+  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) if ((r[i + 1] > y) !== (r[j + 1] > y) && x < (r[j] - r[i]) * (y - r[i + 1]) / (r[j + 1] - r[i + 1]) + r[i]) c = !c; if (c) n++; } return n % 2 === 1; }
+function edgeDistance(pa, pb) {   // { d, a, b }: the gap between the edges of two primitives and its two end points
+  const A = edgeShape(pa), B = edgeShape(pb); if (!A || !B) return null;
+  let best = null;
+  for (const s of edgeSegs(A)) for (const t of edgeSegs(B)) { const r = segSeg(s, t); if (!best || r[0] < best[0]) best = r; }
+  if (!best) return null;
+  const [d, p, q] = best, gap = d - A.r - B.r;
+  if (gap <= 0) return { d: 0, a: p, b: q };
+  for (const [S, T] of [[A, B], [B, A]]) if (S.rings.length) { const l = T.lines[0]; if (l && ringHas(S.rings, l[0], l[1])) return { d: 0, a: [l[0], l[1]], b: [l[0], l[1]] }; }
+  const ux = (q[0] - p[0]) / d, uy = (q[1] - p[1]) / d;   // the centre-line points moved out to each edge
+  return { d: gap, a: [p[0] + ux * A.r, p[1] + uy * A.r], b: [q[0] - ux * B.r, q[1] - uy * B.r] };
+}
+function edgeBetween(ga, gb) {   // the shortest of edgeDistance over two groups of primitives (all of a pad's copper on a layer)
+  let best = null; for (const a of ga) for (const b of gb) { const r = edgeDistance(a, b); if (r && (!best || r.d < best.d)) best = r; } return best;
+}
+// ---- end edge
+// ================================================================== assembly variants of an Altium project (c0186)
+let VARIANT = null;
+function variantOf(ref) { const v = VARIANT && S && S.variants && S.variants[VARIANT]; return v ? v[ref] || null : null; }
+function notFitted(ref) { const v = variantOf(ref); return !!(v && v.kind === "not fitted"); }
+function buildVariants() {
+  const sel = $("variantSel"), names = S && S.variants ? Object.keys(S.variants) : [];
+  if (S && S.variant && VARIANT === null) VARIANT = S.variant;
+  sel.style.display = names.length ? "" : "none"; if (!names.length) return;
+  sel.innerHTML = [`<option value="">[No Variations]</option>`, ...names.map(n => `<option${n === VARIANT ? " selected" : ""}>${esc(n)}</option>`)].join("");
+}
+$("variantSel").addEventListener("change", e => { VARIANT = e.target.value || null; if (V3.built) { rebuildBodies(); } draw(); if (st.mode3d) draw3D(); });
+function drawVariantMarks(boxes) {   // a cross over every part the variant does not fit, as Altium marks them
+  if (!VARIANT) return; ctx.globalAlpha = 1; ctx.strokeStyle = "#ff3030"; ctx.lineWidth = 2 / view.s;
+  for (const [ref, b] of boxes) { if (!b || !notFitted(ref)) continue;
+    ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(b[2], b[3]); ctx.moveTo(b[2], b[1]); ctx.lineTo(b[0], b[3]); ctx.stroke(); }
+}
+function compInfo(ci) { const c = S.comps[ci], b = c.bbox, vs = variantOf(c.ref);
+  const params = { ...(c.params || {}), ...((vs && vs.params) || {}) };   // c0187: every parameter the file holds
+  return `<b>${esc(c.ref)}</b> · ${esc(c.side)} · rot ${c.rotation}°<br>Footprint: ${esc(c.footprint)}${c.value ? `<br>Value: ${esc(c.value)}` : ""}<br>Position: (${fmtLen(c.x)}, ${fmtLen(c.y)})` +
+  (b ? `<br>Extent: ${fmtPair(b[2] - b[0], b[3] - b[1])}` : "") + (vs ? `<br>Variant ${esc(VARIANT)}: <b>${esc(vs.kind)}</b>` : "") +
+  Object.entries(params).map(([k, v]) => { const mil = /^(-?\d+(?:\.\d+)?)mil$/.exec(String(v));   // an Altium length, in the page's unit
+    return `<br>${esc(k)}: ${mil ? fmtLen(+mil[1] * MIL_MM) : linkify(v)}`; }).join(""); }
+function padOf(label, x, y) {   // the pad entry of a primitive's label nearest the point
+  let best = null, bd = Infinity; for (const p of S.pads || []) { if (p.label !== label.replace(/ (hole|slot)$/, "")) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = p; } } return best; }
+function layerName(id) { const l = S.layers.find(x => x.id === id); return l ? l.name : id; }
+function padInfo(p) {
+  const r = [`<br><b>Pad ${esc(p.number)}</b> · ${esc(p.shape || "?")} · ${esc(p.kind)}`];
+  if (p.w != null) r.push(`Size: ${fmtPair(p.w / 1e6, p.h / 1e6)}`);
+  if (p.ratio != null && p.w != null) r.push(`Corner radius: ${fmtNm(p.ratio / 1e6 * Math.min(p.w, p.h))}`);
+  if (p.drill != null) r.push(`Hole Ø ${fmtNm(p.drill)}` + (p.slot ? ` · slot ${fmtNm(p.slot + p.drill)} long` : ""));
+  r.push(`Centre: (${fmtLen(p.x)}, ${fmtLen(p.y)}) · rot ${(+p.rot).toFixed(1)}°`);
+  if (p.layers && p.layers.length) r.push(`Layers: ${esc(p.layers.map(layerName).join(", "))}`);
+  if (p.mask != null) r.push(`Solder mask expansion: ${fmtNm(p.mask)} · ${esc(p.mask_src)}`);   // c0181: an Altium pad
+  if (p.paste != null) r.push(`Paste expansion: ${fmtNm(p.paste)} · ${esc(p.paste_src)}`);
+  if (p.mask != null && p.w != null) r.push(`Mask opening: ${fmtPair(Math.max(p.w + 2 * p.mask, 0) / 1e6, Math.max(p.h + 2 * p.mask, 0) / 1e6)}`);
+  return r.join("<br>");
+}
+function select(h, at) {
+  st.selFinding = -1; st.selNet = -1; st.selComp = -1; st.lastHit = h; st.lastAt = at;
+  if (!h) { showInfo(null); draw(); return; }
+  const pr = h.pr, net = pr[3], ci = pr[4];
+  let html = `<b>${esc(pr[5] || h.layer.name)}</b><br>Layer: ${esc(h.layer.name)}`;
+  if (net >= 0) { html += `<br>Net: <b>${esc(S.nets[net])}</b>`; st.selNet = net; shareNet(S.nets[net]); }
+  if (ci >= 0) { html += `<br>${compInfo(ci)}`; if (net < 0) st.selComp = ci; }
+  if (pr[1] === "s") html += `<br>Width: ${fmtLen(pr[2][4])} · length ${fmtLen(Math.hypot(pr[2][2] - pr[2][0], pr[2][3] - pr[2][1]))}`;
+  if (pr[1] === "a") html += `<br>Width: ${fmtLen(pr[2][6])}` + (pr[6] ? ` · radius ${fmtLen(pr[6].r)}` : "");
+  const pad = pr[5] && at ? padOf(pr[5], at[0], at[1]) : null;
+  if (pad) html += padInfo(pad);
+  else if (pr[1] === "c" && h.layer.id === "View.Drill") html += `<br>Hole Ø ${fmtLen(2 * pr[2][2])}`;
+  else if (pr[1] === "c") html += `<br>Diameter: ${fmtLen(2 * pr[2][2])}`;
+  showInfo(html); draw();
+}
+
+// ================================================================== 3D view (WebGL, no library)
+const glc = $("gl");
+const V3 = { gl: null, prog: null, loc: {}, parts: [], tex: {}, built: false, cam: { yaw: -2.2, pitch: 0.75, dist: 260, tx: 0, ty: 0, tz: 0 }, selBody: -1, bodies: true, bodyPart: null };
+function shader(gl, type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+function init3D() {
+  if (V3.gl) return true;
+  const gl = glc.getContext("webgl", { antialias: true }); if (!gl) { showInfo("This browser has no WebGL: the 3D view is not available."); return false; }
+  const vs = `attribute vec3 aP; attribute vec3 aN; attribute vec3 aC; attribute vec2 aT; uniform mat4 uM; varying vec3 vN; varying vec3 vC; varying vec2 vT;
+    void main(){ gl_Position = uM * vec4(aP, 1.0); vN = aN; vC = aC; vT = aT; }`;
+  const fs = `precision mediump float; varying vec3 vN; varying vec3 vC; varying vec2 vT; uniform sampler2D uS; uniform float uTex; uniform vec3 uL;
+    void main(){ vec4 t = texture2D(uS, vT); if (uTex > 0.5 && t.a < 0.5) discard; vec3 base = uTex > 0.5 ? t.rgb : vC;
+      float d = abs(dot(normalize(vN), uL)); gl_FragColor = vec4(base * (0.42 + 0.58 * d), 1.0); }`;
+  const p = gl.createProgram(); gl.attachShader(p, shader(gl, gl.VERTEX_SHADER, vs)); gl.attachShader(p, shader(gl, gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  V3.gl = gl; V3.prog = p; for (const k of ["aP", "aN", "aC", "aT"]) V3.loc[k] = gl.getAttribLocation(p, k);
+  for (const k of ["uM", "uS", "uTex", "uL"]) V3.loc[k] = gl.getUniformLocation(p, k);
+  return true;
+}
+function hexRGB(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
+function makePart(data, tex) { const gl = V3.gl, b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
+  return { buf: b, n: data.length / 11, tex }; }
+function push(arr, p, n, c, t) { arr.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0], c[1], c[2], t ? t[0] : 0, t ? t[1] : 0); }
+function quad(arr, a, b, c2, d, col) { const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = d[0] - a[0], vy = d[1] - a[1], vz = d[2] - a[2];
+  const n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx]; for (const p of [a, b, c2, a, c2, d]) push(arr, p, n, col); }
+// 3D coordinates: x along the board, y = -board y (so the front face is seen from +z with the board upright), z up
+function P3(x, y, z) { return [x, -y, z]; }
+function sideTexture(side) {
+  const b = S.bounds, w = b[2] - b[0], h = b[3] - b[1], maxT = V3.gl.getParameter(V3.gl.MAX_TEXTURE_SIZE);
+  const ppm = Math.min(16, (Math.min(maxT, 8192) - 2) / Math.max(w, h)), cw = Math.ceil(w * ppm), ch = Math.ceil(h * ppm);
+  const c = document.createElement("canvas"); c.width = cw; c.height = ch; const g = c.getContext("2d");
+  g.setTransform(ppm, 0, 0, ppm, -b[0] * ppm, -b[1] * ppm);
+  g.fillStyle = "#1d5f33"; g.fill(boardPath(), "evenodd");
+  g.save(); g.clip(boardPath(), "evenodd");
+  const pre = side === "top" ? "F." : "B.";
+  const lay = id => S.layers.find(l => l.id === id);
+  if (lay(pre + "Cu")) paintCache(g, cache.get(pre + "Cu"), pre + "Cu", "#2b8a45", 1, ppm);
+  if (lay(pre + "Mask")) paintCache(g, cache.get(pre + "Mask"), pre + "Mask", "#d4b05c", 1, ppm);
+  if (lay(pre + "SilkS")) { paintCache(g, cache.get(pre + "SilkS"), pre + "SilkS", "#f1f1ea", 1, ppm); paintTexts(g, pre + "SilkS", "#f1f1ea", 1, ppm); }
+  if (lay("View.Drill")) paintCache(g, cache.get("View.Drill"), "View.Drill", "#0b0b0b", 1, ppm);
+  g.restore();
+  const gl = V3.gl, t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  return t;
+}
+function bodyGeometry(arr, bd, col) {
+  const T = S.board3d.thickness, dn = bd.side === "bottom";
+  const zA = dn ? -bd.z0 : T + bd.z0, zB = dn ? -bd.z1 : T + bd.z1, ring = [];
+  for (let i = 0; i < bd.ring.length; i += 2) ring.push([bd.ring[i], bd.ring[i + 1]]);
+  const n = ring.length; if (n < 3) return;
+  for (let i = 0; i < n; i++) { const a = ring[i], b = ring[(i + 1) % n]; quad(arr, P3(a[0], a[1], zA), P3(b[0], b[1], zA), P3(b[0], b[1], zB), P3(a[0], a[1], zB), col); }
+  let cx = 0, cy = 0; for (const p of ring) { cx += p[0]; cy += p[1]; } cx /= n; cy /= n;
+  const cap = col.map(v => v + (1 - v) * 0.18);
+  for (let i = 0; i < n; i++) { const a = ring[i], b = ring[(i + 1) % n]; for (const p of [[cx, cy], a, b]) push(arr, P3(p[0], p[1], zB), [0, 0, dn ? -1 : 1], cap); }
+}
+function build3D() {
+  if (!init3D()) return false;
+  const gl = V3.gl; for (const p of V3.parts) gl.deleteBuffer(p.buf); V3.parts = [];
+  for (const k of Object.keys(V3.tex)) gl.deleteTexture(V3.tex[k]);
+  V3.tex.top = sideTexture("top"); V3.tex.bottom = sideTexture("bottom");
+  const b = S.bounds, w = b[2] - b[0], h = b[3] - b[1], T = S.board3d.thickness;
+  const top = [], bot = [], edge = [], corners = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]];
+  const uv = p => [(p[0] - b[0]) / w, (p[1] - b[1]) / h];
+  for (const tri of [[0, 1, 2], [0, 2, 3]]) { for (const k of tri) push(top, P3(corners[k][0], corners[k][1], T), [0, 0, 1], [1, 1, 1], uv(corners[k]));
+    for (const k of [tri[0], tri[2], tri[1]]) push(bot, P3(corners[k][0], corners[k][1], 0), [0, 0, -1], [1, 1, 1], uv(corners[k])); }
+  const ec = hexRGB("#a99c62");
+  for (const r of S.board) { const pts = ringSamples(r); for (let i = 0; i < pts.length; i++) { const a = pts[i], c2 = pts[(i + 1) % pts.length];
+    quad(edge, P3(a[0], a[1], 0), P3(c2[0], c2[1], 0), P3(c2[0], c2[1], T), P3(a[0], a[1], T), ec); } }
+  V3.parts.push(makePart(top, "top"), makePart(bot, "bottom"), makePart(edge, null));
+  V3.bodyPart = null; rebuildBodies();
+  if (!V3.built) { V3.cam.tx = (b[0] + b[2]) / 2; V3.cam.ty = -(b[1] + b[3]) / 2; V3.cam.tz = 0; V3.cam.dist = Math.max(w, h) * 1.7; }
+  V3.built = true; return true;
+}
+const BODY = "#3c4048", BODY_SEL = "#ffd84d";
+function rebuildBodies() {
+  const gl = V3.gl; if (!gl) return; if (V3.bodyPart) gl.deleteBuffer(V3.bodyPart.buf);
+  const arr = []; (S.bodies || []).forEach((bd, i) => { if (notFitted(bd.ref)) return; const sel = i === V3.selBody || (st.selComp >= 0 && bd.comp === st.selComp);
+    bodyGeometry(arr, bd, hexRGB(sel ? BODY_SEL : BODY)); });
+  V3.bodyPart = arr.length ? makePart(arr, null) : null;
+}
+function mul(a, b) { const o = new Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let s = 0; for (let k = 0; k < 4; k++) s += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = s; } return o; }
+function persp(f, a, n, fa) { const t = 1 / Math.tan(f / 2); return [t / a, 0, 0, 0, 0, t, 0, 0, 0, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0]; }
+function lookAt(e, c, u) { let z = [e[0] - c[0], e[1] - c[1], e[2] - c[2]]; let l = Math.hypot(...z); z = z.map(v => v / l);
+  let x = [u[1] * z[2] - u[2] * z[1], u[2] * z[0] - u[0] * z[2], u[0] * z[1] - u[1] * z[0]]; l = Math.hypot(...x) || 1; x = x.map(v => v / l);
+  const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+  return [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -(x[0] * e[0] + x[1] * e[1] + x[2] * e[2]), -(y[0] * e[0] + y[1] * e[1] + y[2] * e[2]), -(z[0] * e[0] + z[1] * e[1] + z[2] * e[2]), 1]; }
+function camEye() { const c = V3.cam; return [c.tx + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw), c.ty + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), c.tz + c.dist * Math.sin(c.pitch)]; }
+function mvp() { const c = V3.cam, e = camEye(), up = Math.abs(Math.cos(c.pitch)) < 1e-3 ? [Math.cos(c.yaw + Math.PI), Math.sin(c.yaw + Math.PI), 0] : [0, 0, 1];
+  return mul(persp(0.75, Math.max(W, 1) / Math.max(H, 1), c.dist * 0.01, c.dist * 10), lookAt(e, [c.tx, c.ty, c.tz], up)); }
+function resize3D() { glc.width = Math.max(1, Math.round(W * dpr)); glc.height = Math.max(1, Math.round(H * dpr)); draw3D(); }
+function draw3D() {
+  if (!V3.built || !st.mode3d) return;
+  const gl = V3.gl, L = V3.loc; gl.viewport(0, 0, glc.width, glc.height); gl.clearColor(0.08, 0.09, 0.11, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.useProgram(V3.prog); gl.uniformMatrix4fv(L.uM, false, new Float32Array(mvp()));
+  const e = camEye(), c = V3.cam, lv = [e[0] - c.tx, e[1] - c.ty, e[2] - c.tz + c.dist * 0.6], ll = Math.hypot(...lv); gl.uniform3fv(L.uL, lv.map(v => v / ll));
+  const parts = [...V3.parts]; if (V3.bodies && V3.bodyPart) parts.push(V3.bodyPart);
+  for (const p of parts) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, p.buf); const F = 44;
+    gl.vertexAttribPointer(L.aP, 3, gl.FLOAT, false, F, 0); gl.enableVertexAttribArray(L.aP);
+    gl.vertexAttribPointer(L.aN, 3, gl.FLOAT, false, F, 12); gl.enableVertexAttribArray(L.aN);
+    gl.vertexAttribPointer(L.aC, 3, gl.FLOAT, false, F, 24); gl.enableVertexAttribArray(L.aC);
+    gl.vertexAttribPointer(L.aT, 2, gl.FLOAT, false, F, 36); gl.enableVertexAttribArray(L.aT);
+    gl.uniform1f(L.uTex, p.tex ? 1 : 0); if (p.tex) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, V3.tex[p.tex]); gl.uniform1i(L.uS, 0); }
+    gl.drawArrays(gl.TRIANGLES, 0, p.n);
+  }
+}
+function set3D(on) {
+  st.mode3d = on; $("b3d").classList.toggle("on", on);
+  glc.style.display = on ? "block" : "none"; cv.style.display = on ? "none" : "block"; $("bar3d").style.display = on ? "flex" : "none";
+  if (on) { measure(); if (!V3.built && !build3D()) { set3D(false); return; } resize3D(); } else { fitted = false; resize(); }
+}
+function camPreset(kind) { const c = V3.cam; if (kind === "top") { c.yaw = -Math.PI / 2; c.pitch = 1.5699; } else if (kind === "bottom") { c.yaw = -Math.PI / 2; c.pitch = -1.5699; }
+  else { c.yaw = -2.2; c.pitch = 0.75; } const b = S.bounds; c.tx = (b[0] + b[2]) / 2; c.ty = -(b[1] + b[3]) / 2; c.tz = 0; c.dist = Math.max(b[2] - b[0], b[3] - b[1]) * 1.7; draw3D(); }
+let drag3 = null;
+glc.addEventListener("mousedown", e => { drag3 = { x: e.offsetX, y: e.offsetY, pan: e.shiftKey || e.button === 2, cam: { ...V3.cam } }; glc.style.cursor = "grabbing"; });
+glc.addEventListener("contextmenu", e => e.preventDefault());
+glc.addEventListener("mousemove", e => { if (!drag3) return; const dx = e.offsetX - drag3.x, dy = e.offsetY - drag3.y, c = V3.cam, c0 = drag3.cam;
+  if (drag3.pan) { const k = c.dist / H, f = Math.sin(c.pitch);
+    c.tx = c0.tx - (-dx * Math.sin(c.yaw) - dy * f * Math.cos(c.yaw)) * k; c.ty = c0.ty - (dx * Math.cos(c.yaw) - dy * f * Math.sin(c.yaw)) * k; c.tz = c0.tz + dy * Math.cos(c.pitch) * k; }
+  else { c.yaw = c0.yaw - dx * 0.008; c.pitch = Math.max(-1.5699, Math.min(1.5699, c0.pitch + dy * 0.008)); }
+  draw3D(); });
+window.addEventListener("mouseup", () => { if (drag3) { drag3 = null; glc.style.cursor = "grab"; } });
+glc.addEventListener("wheel", e => { e.preventDefault(); V3.cam.dist = Math.min(Math.max(V3.cam.dist * Math.exp(e.deltaY * 0.0012), 5), 3000); draw3D(); }, { passive: false });
+$("v3top").onclick = () => camPreset("top");
+$("v3bot").onclick = () => camPreset("bottom");
+$("v3iso").onclick = () => camPreset("iso");
+$("c3body").onchange = e => { V3.bodies = e.target.checked; draw3D(); };
+
+// ================================================================== layer tabs (bottom bar)
+const TAB_ORDER = id => { const k = id.endsWith(".Cu") ? (id === "F.Cu" ? 0 : id === "B.Cu" ? 2 : 1) : id.startsWith("Mech") ? 3 : id.endsWith("SilkS") ? 4 : id.endsWith("Paste") ? 5 : id.endsWith("Mask") ? 6
+  : id.endsWith("CrtYd") ? 7 : id.endsWith("Fab") ? 8 : id === "Edge.Cuts" ? 9 : id.startsWith("View.") ? 11 : 10; return k; };
+function tabLayers() { return [...S.layers].sort((a, b) => (a.tab ?? TAB_ORDER(a.id) * 100) - (b.tab ?? TAB_ORDER(b.id) * 100) || (a.id.startsWith("B.") - b.id.startsWith("B.")) || a.id.localeCompare(b.id, undefined, { numeric: true })); }
+function buildTabs() {
+  const box = $("tablist"); box.innerHTML = "";
+  for (const l of tabLayers()) {
+    const t = document.createElement("div"); t.className = "tab" + (l.id === st.cur ? " cur" : "") + (vis.get(l.id) ? "" : " off");
+    t.style.borderBottomColor = l.id === st.cur ? l.color : "transparent"; t.title = `${l.name} (${l.kind}) · click: current layer · click the swatch or right-click: show / hide`;
+    t.innerHTML = `<span class="sw" style="background:${l.color}"></span><span>${esc(l.name)}</span>`;
+    t.querySelector(".sw").onclick = e => { e.stopPropagation(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };
+    t.onclick = () => setCurrent(l.id);
+    t.oncontextmenu = e => { e.preventDefault(); vis.set(l.id, !vis.get(l.id)); buildTabs(); draw(); };
+    box.appendChild(t);
+  }
+  const cur = S.layers.find(l => l.id === st.cur); $("cur").textContent = cur ? `current: ${cur.name}${st.single ? " (single layer)" : ""}` : "";
+}
+function setCurrent(id) { st.cur = id; vis.set(id, true); buildTabs(); draw(); }
+function stepCurrent(dir) { const L = tabLayers().filter(l => vis.get(l.id)); if (!L.length) return; let i = L.findIndex(l => l.id === st.cur); i = (i + dir + L.length) % L.length; setCurrent(L[i].id); }
+const SETS = { "All layers": () => true, "Signal layers": l => l.kind === "copper" || VIEWL(l.id), "Top side": l => l.side !== "bottom", "Bottom side": l => l.side !== "top", "Default": l => l.visible };
+$("ls").onclick = e => { e.stopPropagation(); const mnu = $("lsmenu"); mnu.innerHTML = ""; for (const name of Object.keys(SETS)) { const d = document.createElement("div"); d.textContent = name;
+  d.onclick = () => { for (const l of S.layers) vis.set(l.id, SETS[name](l)); mnu.style.display = "none"; buildTabs(); draw(); }; mnu.appendChild(d); } mnu.style.display = mnu.style.display === "block" ? "none" : "block"; };
+window.addEventListener("click", () => { $("lsmenu").style.display = "none"; });
+
+// ================================================================== project tree (left panel)
+const KIND_COLOR = { pcb: "#3fb950", schematic: "#d29922", "schematic-library": "#a371f7", "pcb-library": "#58a6ff", "integrated-library": "#58a6ff", "output-job": "#8b949e", rules: "#8b949e",
+  stackup: "#8b949e", project: "#8b949e", "library-table": "#8b949e", draftsman: "#db61a2", other: "#6e7681" };
+function buildTree() {
+  const box = $("tree"); box.innerHTML = "";
+  if (!PROJECT) return;
+  const head = document.createElement("div"); head.className = "proj"; head.textContent = PROJECT.project_file || PROJECT.name; head.title = `${PROJECT.source} project`; box.appendChild(head);
+  for (const g of PROJECT.groups) {
+    const gh = document.createElement("div"); gh.className = "grp"; gh.textContent = g.name; box.appendChild(gh);
+    const list = document.createElement("div"); box.appendChild(list);
+    gh.onclick = () => { gh.classList.toggle("closed"); list.style.display = gh.classList.contains("closed") ? "none" : "block"; };
+    for (const d of g.documents) {
+      const row = document.createElement("div"); row.className = "doc" + (DOC && DOC.id === d.id ? " sel" : "") + (d.present ? "" : " missing");
+      row.title = `${d.path} · ${d.kind}${d.viewable ? "" : " (no viewer yet)"}`;
+      row.innerHTML = `<span class="ic" style="background:${KIND_COLOR[d.kind] || KIND_COLOR.other}"></span>${esc(d.name)}`;
+      row.onclick = () => openDoc(d); list.appendChild(row);
+    }
+  }
+}
+function docCard(d) {
+  $("doccard").style.display = "flex"; cv.style.display = "none"; glc.style.display = "none";
+  $("doctext").innerHTML = `<b style="color:#fff">${esc(d.name)}</b><br>Kind: ${esc(d.kind)}<br>Path: ${esc(d.path)}<br>Size: ${d.size == null ? "—" : d.size + " bytes"}<br>` +
+    (d.present ? "" : "<br>The file is not in the project folder.<br>") + (d.viewable ? "" : "<br>Fenolite has no viewer for this kind of document yet.");
+}
+async function sceneOf(d) {
+  if (SCENES.has(d.id)) return SCENES.get(d.id);
+  if (RAW.has(d.id)) { const sc = toUnits(await unpackScene(RAW.get(d.id))); RAW.delete(d.id); SCENES.set(d.id, sc); return sc; }
+  if (!LIVE) return null;
+  const r = await fetch(`scene/${encodeURIComponent(d.id)}.json`, { cache: "no-store" }); if (!r.ok) throw new Error(await r.text());
+  const sc = toUnits(await r.json()); SCENES.set(d.id, sc); return sc;
+}
+async function openDoc(d, keepView) {
+  if (!DOC || DOC.id !== d.id) { st.version = null; if (LIB) { LIB = null; document.body.classList.remove("lib"); } }
+  DOC = d; buildTree(); showInfo(null);
+  if (!d.viewable || !d.present) { docCard(d); return; }
+  $("doccard").style.display = "none";
+  let sc; try { sc = await sceneOf(d); } catch (e) { docCard(d); $("doctext").innerHTML += `<br><br>Could not read it: ${esc(e.message)}`; return; }
+  if (!sc) { docCard(d); return; }
+  loadScene(sc, keepView);
+}
+
+// ================================================================== scene, overlays and notes
+function buildPanels() {
+  const ov = $("overlays"); ov.innerHTML = "";
+  $("ovTitle").style.display = (S.overlays || []).length ? "block" : "none";
+  (S.overlays || []).forEach((o, i) => { const d = document.createElement("div"); d.className = "ov";
+    d.innerHTML = `<span class="sw" style="display:inline-block;background:${o.color}"></span> ${esc(o.label)}`;
+    d.onclick = () => { if (st.mode3d) set3D(false); st.selOv = i; st.selNet = -1; st.selComp = -1; const xs = o.pts.map(p => p[0]), ys = o.pts.map(p => p[1]);
+      fit([Math.min(...xs) - 4, Math.min(...ys) - 4, Math.max(...xs) + 4, Math.max(...ys) + 4]); showInfo(esc(o.label)); };
+    ov.appendChild(d); });
+  const c = S.meta.counts || {};
+  $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `${(S.meta.notes || []).length ? "<br>" : ""}Read by the ${esc(S.meta.backend || "?")} backend, evidence ${esc(S.meta.evidence || "?")}.` +
+    `<br>${c.footprints || 0} parts · ${c.pads || 0} pads · ${c.tracks || 0} tracks · ${c.vias || 0} vias · ${c.zones || 0} zones`;
+}
+function loadScene(scene, keepView) {
+  st.mpts = []; st.mhover = null; st.lastHit = null; st.selFinding = -1;
+  $("tablewrap").style.display = "none"; document.body.classList.remove("table"); cv.style.display = "block";
+  if (scene.kind === "table") { loadTable(scene); return; }
+  if (scene.kind === "library") { loadLibrary(scene, keepView); return; }
+  if (scene.kind === "schematic") { loadSch(scene, keepView); return; }
+  loadBoard(scene, keepView);
+}
+function loadBoard(scene, keepView) {
+  document.body.classList.remove("sch"); st.itemInfo = false;
+  const first = S === null || S !== scene && !keepView; S = scene;
+  for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
+  if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
+  if (st.query) st.query = st.query.text && S.prims ? { text: st.query.text, ...queryRun(S, queryParse(st.query.text)) } : null;
+  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); buildMessages(); buildVariants(); buildReview(); applyProjNet();
+  cv.style.display = st.mode3d ? "none" : "block";
+  $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
+  $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
+  if (V3.built) { V3.built = false; if (st.mode3d) { build3D(); draw3D(); } }
+  if (first) { fitted = false; fit(); } else draw();
+}
+// ================================================================== review panels (c0187): filter, highlight, components, nets
+const HL_ALPHA = { dim: 0.28, mask: 0.06, normal: 1 };
+const ROW = 20;
+function vlist(box, items, row, click, selected) {   // a list that draws only the rows in view
+  const inner = document.createElement("div"); inner.style.cssText = `position:relative;height:${items.length * ROW}px`;
+  box.innerHTML = ""; box.appendChild(inner);
+  const paint = () => { const top = box.scrollTop, h = box.clientHeight || 240;
+    const a = Math.max(0, Math.floor(top / ROW) - 4), z = Math.min(items.length, Math.ceil((top + h) / ROW) + 4); inner.innerHTML = "";
+    for (let i = a; i < z; i++) { const d = document.createElement("div"); d.className = "navi" + (selected(items[i]) ? " sel" : "");
+      d.style.cssText = `position:absolute;left:0;right:0;top:${i * ROW}px;height:${ROW}px;line-height:${ROW}px`; d.innerHTML = row(items[i]); d.onclick = () => click(items[i]); inner.appendChild(d); } };
+  box.onscroll = paint; paint();
+}
+function netBounds(ni) { let b = null;
+  for (const list of byLayer.values()) for (const [pr, q] of list) if (pr[3] === ni) b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : [...q];
+  return b; }
+function primBounds(set) { let b = null;
+  for (const list of byLayer.values()) for (const [pr, q] of list) if (set.has(pr)) b = b ? [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[2]), Math.max(b[3], q[3])] : [...q];
+  return b; }
+function selectCompAt(ci) { if (st.mode3d) set3D(false); st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); buildReview(); draw(); }
+function selectNetAt(ni) { if (st.mode3d) set3D(false); st.selNet = ni; st.selComp = -1; shareNet(S.nets[ni]); const b = netBounds(ni); if (b) fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]);
+  const info = (S.netinfo || [])[ni]; showInfo(`Net: <b>${esc(S.nets[ni])}</b>` + (info ? `<br>${info.pads} pads · routed ${fmtLen(info.length * MM)}` : "")); buildReview(); draw(); }
+function buildReview() {
+  if (!S || S.kind || !S.prims) return; const qy = st.query, inQ = qy ? new Set(qy.comps) : null;
+  const cf = $("compFilter").value.trim().toLowerCase(), nf = $("netFilter").value.trim().toLowerCase();
+  const comps = S.comps.map((c, i) => i).filter(i => !inQ || inQ.has(i)).filter(i => { const c = S.comps[i]; return !cf || [c.ref, c.value, c.footprint].some(v => String(v || "").toLowerCase().includes(cf)); })
+    .sort((a, b) => natural(S.comps[a].ref, S.comps[b].ref));
+  let netSet = null; if (qy) { netSet = new Set(); for (const pr of qy.prims) if (pr[3] >= 0) netSet.add(pr[3]); }
+  const nets = S.nets.map((n, i) => i).filter(i => S.nets[i] && (!netSet || netSet.has(i)) && (!nf || S.nets[i].toLowerCase().includes(nf))).sort((a, b) => natural(S.nets[a], S.nets[b]));
+  $("compsTitle").textContent = `Components (${comps.length})`; $("netsTitle").textContent = `Nets (${nets.length})`;
+  vlist($("compList"), comps, i => { const c = S.comps[i]; return `${esc(c.ref)} <small>${esc(c.value || "")} · ${esc(c.footprint)}${c.side === "bottom" ? " · bottom" : ""}</small>`; }, selectCompAt, i => i === st.selComp);
+  vlist($("netList"), nets, i => { const info = (S.netinfo || [])[i]; return `${esc(S.nets[i])}` + (info ? ` <small>${info.pads} pads · ${fmtLen(info.length * MM)}</small>` : ""); }, selectNetAt, i => i === st.selNet);
+  $("queryInfo").textContent = qy ? (qy.prims.size || qy.comps.length ? `${qy.comps.length} part(s) · ${qy.prims.size} primitive(s)` : "Nothing matches the filter.") : "";
+}
+function applyQuery(text, zoom) {
+  if (!S || S.kind || !S.prims) return; text = text.trim();
+  if (!text) { clearQuery(); return; }
+  st.query = { text, ...queryRun(S, queryParse(text)) }; qCache.delete(text); buildReview();
+  if (zoom && st.query.prims.size) { const b = primBounds(st.query.prims); if (b) fit([b[0] - 3, b[1] - 3, b[2] + 3, b[3] + 3]); }
+  draw();
+}
+function clearQuery() { st.query = null; $("query").value = ""; st.selNet = -1; st.selComp = -1; showInfo(null); buildReview(); draw(); }
+let qTimer = null;
+$("query").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => applyQuery(e.target.value, false), 250); });
+$("query").addEventListener("keydown", e => { if (e.key === "Enter") { clearTimeout(qTimer); applyQuery(e.target.value, true); } else if (e.key === "Escape") e.target.blur(); });
+$("compFilter").addEventListener("input", buildReview); $("netFilter").addEventListener("input", buildReview);
+$("bSimilar").onclick = () => { if (!S || S.kind) return; const h = st.lastHit, ci = st.selComp >= 0 ? st.selComp : -1;
+  const text = similarQuery(S, h ? h.pr : null, ci >= 0 ? ci : h && h.pr[4] >= 0 && h.pr[3] < 0 ? h.pr[4] : -1);
+  if (!text) { $("queryInfo").textContent = "Select a part or a primitive first."; return; }
+  $("query").value = text; applyQuery(text, false); };
+$("bQClear").onclick = clearQuery;
+$("hlMode").value = HL_ALPHA[st.hl] !== undefined ? st.hl : "dim";
+$("hlMode").onchange = e => { st.hl = e.target.value; try { localStorage.setItem("fenolite.view.highlight", st.hl); } catch (err) { /* private window */ } draw(); };
+// ================================================================== review tools (c0189): edge measure, links, marks, SVG, print
+const EDGE_C = "#00d0ff";
+function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; $("bEdge").classList.toggle("on", st.edge); draw(); }
+function edgeGroup(h) {   // every primitive of the clicked item on its layer: a pad's core and its edge stroke together
+  const pr = h.pr; if (!pr[5]) return [pr];
+  return (byLayer.get(h.layer.id) || []).map(e => e[0]).filter(q => q[5] === pr[5] && q[4] === pr[4] && q[1] !== "t");
+}
+function edgeClick(X, Y) {
+  const h = pick(X, Y); if (!h) return;
+  if (st.epick.length >= 2) { st.epick = []; st.eres = null; }
+  st.epick.push({ name: h.pr[5] || h.layer.name, layer: h.layer, prims: edgeGroup(h) });
+  if (st.epick.length === 2) { const [a, b] = st.epick; st.eres = edgeBetween(a.prims, b.prims);
+    if (st.eres) showInfo(`<b>Edge to edge: ${fmtLen(st.eres.d)}</b><br>${esc(a.name)} (${esc(a.layer.name)}) ↔ ${esc(b.name)} (${esc(b.layer.name)})` +
+      (a.layer.id !== b.layer.id ? "<br><i>Two layers: the distance is measured in the plane.</i>" : "")); }
+  draw();
+}
+function drawEdge() {
+  if (!st.edge && !st.eres) return; worldTf(); ctx.globalAlpha = 0.9;
+  for (const g of st.epick) { const c = newCache(); for (const pr of g.prims) addPrim(c, pr); paintCache(ctx, c, g.layer.id, EDGE_C, 0.55, view.s); }
+  const r = st.eres; if (!r) return; ctx.globalAlpha = 1; ctx.strokeStyle = ctx.fillStyle = EDGE_C; ctx.lineWidth = 1.5 / view.s;
+  ctx.beginPath(); ctx.moveTo(r.a[0], r.a[1]); ctx.lineTo(r.b[0], r.b[1]); ctx.stroke();
+  for (const q of [r.a, r.b]) { ctx.beginPath(); ctx.arc(q[0], q[1], 3 / view.s, 0, 2 * Math.PI); ctx.fill(); }
+  const txt = `edge ${fmtLen(r.d)}`; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(r.b[0], r.b[1]); ctx.font = "600 13px system-ui"; const w = ctx.measureText(txt).width;
+  ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] + 6, w + 12, 20); ctx.fillStyle = EDGE_C; ctx.fillText(txt, P[0] + 14, P[1] + 21); worldTf();
+  $("coord").textContent = `measure: ${txt}`;
+}
+$("bEdge").onclick = toggleEdge;
+
+// ---- deep links: the URL's hash keeps the document, the selection, the view, the unit and the layer
+function selName() {
+  if (!S) return "";
+  if (isSch()) return SCH.selComp >= 0 ? S.comps[SCH.selComp].ref : SCH.selNet >= 0 ? "net:" + S.nets[SCH.selNet].name : "";
+  return st.selComp >= 0 ? S.comps[st.selComp].ref : st.selNet >= 0 ? "net:" + S.nets[st.selNet] : "";
+}
+function linkHash() { if (!DOC) return "";
+  const q = new URLSearchParams({ doc: DOC.id }); const sel = selName(); if (sel) q.set("sel", sel);
+  q.set("z", view.s.toFixed(3)); q.set("c", `${view.cx.toFixed(4)},${view.cy.toFixed(4)}`); q.set("u", UNIT);
+  if (!isSch() && st.cur) q.set("l", st.cur); return q.toString(); }
+let linkTimer = null, linkReady = false;
+function linkLater() { if (!linkReady) return; clearTimeout(linkTimer); linkTimer = setTimeout(() => { const h = linkHash(); if (h && location.hash.slice(1) !== h) try { history.replaceState(null, "", "#" + h); } catch (e) { /* a sandboxed frame */ } }, 400); }
+function applySelect(name) { if (!name || !S) return; const n = name.startsWith("net:") ? name.slice(4) : name; find(n); }
+function applyLink(q) {   // after the document of the link is open
+  if (q.get("u") === "mil" || q.get("u") === "mm") setUnit(q.get("u"));
+  if (q.get("l") && S && S.layers && S.layers.some(l => l.id === q.get("l"))) { st.cur = q.get("l"); vis.set(st.cur, true); buildTabs(); }
+  if (q.get("sel")) applySelect(q.get("sel"));
+  const z = parseFloat(q.get("z")), c = (q.get("c") || "").split(",").map(Number);
+  if (z > 0 && c.length === 2 && c.every(Number.isFinite)) { view.s = z; view.cx = c[0]; view.cy = c[1]; fitted = true; }
+  draw();
+}
+$("bLink").onclick = async () => { const h = linkHash(); try { history.replaceState(null, "", "#" + h); } catch (e) { /* ignore */ }
+  try { await navigator.clipboard.writeText(location.href); $("live").textContent = "link copied"; } catch (e) { window.prompt("Link to this view", location.href); } };
+
+// ---- review marks: kept by the server in the --marks file, else in this browser until downloaded
+let MARKS = [];
+const marksKey = () => "fenolite.view.marks:" + (PROJECT ? PROJECT.name : "");
+const serverMarks = () => LIVE && PROJECT && PROJECT.marks_file;
+function loadMarks(given) {
+  MARKS = Array.isArray(given) ? given : [];
+  if (!serverMarks()) try { const kept = JSON.parse(localStorage.getItem(marksKey()) || "null"); if (Array.isArray(kept)) { const ids = new Set(MARKS.map(m => m.id)); MARKS = MARKS.concat(kept.filter(m => !ids.has(m.id))); } } catch (e) { /* no storage */ }
+}
+async function sendMark(body) {   // the server writes the file; an exported page keeps the marks here
+  if (serverMarks()) {
+    const r = await fetch("marks", { method: "POST", headers: { "Content-Type": "application/json", "X-Fenolite-Review": "1" }, body: JSON.stringify(body) });
+    const reply = await r.json(); if (!r.ok) { showInfo(`Mark not saved: ${esc(reply.error || r.status)}`); return; } MARKS = reply.marks;
+  } else {
+    MARKS = MARKS.filter(m => m.id !== body.id); if (body.note !== null) MARKS.push(body);
+    try { localStorage.setItem(marksKey(), JSON.stringify(MARKS)); } catch (e) { /* no storage */ }
+  }
+  buildMarks(); draw();
+}
+function markClick(x, y) {
+  const note = window.prompt("Note for this mark", ""); if (note === null) return;
+  sendMark({ id: "m" + Date.now().toString(36), doc: DOC.name, x_nm: Math.round(x * 1e6), y_nm: Math.round(y * 1e6), note, select: selName(), created: new Date().toISOString() });
+}
+function drawMarks() {
+  if (!DOC || !MARKS.length) return; if (!isSch()) worldTf(); ctx.globalAlpha = 1;
+  MARKS.forEach((m, i) => { if (m.doc !== DOC.name) return; const x = m.x_nm / 1e6, y = m.y_nm / 1e6, r = 7 / view.s;
+    ctx.fillStyle = "#ffd400"; ctx.strokeStyle = "#000"; ctx.lineWidth = 1 / view.s;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - r * 0.8, y - r * 1.6); ctx.arc(x, y - r * 2, r, Math.PI * 0.8, Math.PI * 0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#000"; ctx.font = `600 ${(10 / view.s).toFixed(4)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(i + 1), x, y - r * 2);
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic"; });
+}
+function buildMarks() {
+  const box = $("marksList"); box.innerHTML = ""; $("marksTitle").style.display = MARKS.length || !LIVE ? "" : "none";
+  $("marksTitle").textContent = `Marks (${MARKS.length})` + (serverMarks() ? "" : " · in this browser");
+  MARKS.forEach((m, i) => { const d = document.createElement("div"); d.className = "navi";
+    d.innerHTML = `${i + 1}. ${esc(m.note || "(no note)")} <small>${esc(m.doc)}${m.select ? " · " + esc(m.select) : ""}</small> <a href="#" title="Delete this mark">×</a>`;
+    d.querySelector("a").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); if (window.confirm(`Delete mark ${i + 1}?`)) sendMark({ id: m.id, note: null }); };
+    d.onclick = async () => { const doc = allDocs().find(x => x.name === m.doc); if (doc && doc !== DOC) await openDoc(doc); if (st.mode3d) set3D(false);
+      const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5; fit([x - e, y - e, x + e, y + e]); showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`); };
+    box.appendChild(d); });
+  if (!serverMarks()) { const b = document.createElement("button"); b.textContent = "Download marks"; b.title = "Save them as a fenolite.review.v0 file for fenolite view --marks";
+    b.onclick = () => download(JSON.stringify({ schema: "fenolite.review.v0", marks: MARKS }, null, 2) + "\n", "review.json", "application/json"); box.appendChild(b); }
+}
+$("bMark").onclick = () => toggle("marking", "bMark");
+function download(text, name, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+
+// ---- SVG: the view drawn again into a recorder of the canvas calls the page makes, as vector paths
+class RecPath {   // what a Path2D records, replayed under the transform of the fill or stroke
+  constructor() { this.c = []; }
+  moveTo(x, y) { this.c.push(["M", x, y]); } lineTo(x, y) { this.c.push(["L", x, y]); } closePath() { this.c.push(["Z"]); }
+  rect(x, y, w, h) { this.c.push(["M", x, y], ["L", x + w, y], ["L", x + w, y + h], ["L", x, y + h], ["Z"]); }
+  arc(cx, cy, r, a0, a1, ccw) { this.ellipse(cx, cy, r, r, 0, a0, a1, ccw); }
+  ellipse(cx, cy, rx, ry, rot, a0, a1, ccw) { const T = 2 * Math.PI; let span = ccw ? a0 - a1 : a1 - a0; if (Math.abs(span) >= T) span = T; else span = ((span % T) + T) % T;
+    const n = Math.max(8, Math.ceil(span / (Math.PI / 32))), cr = Math.cos(rot), sr = Math.sin(rot);
+    for (let i = 0; i <= n; i++) { const t = a0 + (ccw ? -1 : 1) * span * i / n, ex = rx * Math.cos(t), ey = ry * Math.sin(t);
+      this.c.push([i === 0 && !this.c.length ? "M" : "L", cx + ex * cr - ey * sr, cy + ex * sr + ey * cr]); } }
+  bezierCurveTo(a, b, c, d, x, y) { this.c.push(["C", a, b, c, d, x, y]); }
+}
+const SVG_NS = ["http:", "", "www.w3.org", "2000", "svg"].join("/");   // the SVG namespace: a name, never fetched (the page loads nothing)
+class SvgCtx {
+  constructor(w, h) { this.out = []; this.defs = []; this.k = 0; this.st = { m: [1, 0, 0, 1, 0, 0], fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, lineCap: "butt", lineJoin: "miter", globalAlpha: 1, dash: [], font: "10px sans-serif", textAlign: "start", textBaseline: "alphabetic", clip: null };
+    this.stack = []; this.path = new RecPath(); this.canvas = { width: w, height: h }; this.meas = document.createElement("canvas").getContext("2d"); }
+  get fillStyle() { return this.st.fillStyle; } set fillStyle(v) { this.st.fillStyle = v; }
+  get strokeStyle() { return this.st.strokeStyle; } set strokeStyle(v) { this.st.strokeStyle = v; }
+  get lineWidth() { return this.st.lineWidth; } set lineWidth(v) { this.st.lineWidth = v; }
+  get lineCap() { return this.st.lineCap; } set lineCap(v) { this.st.lineCap = v; }
+  get lineJoin() { return this.st.lineJoin; } set lineJoin(v) { this.st.lineJoin = v; }
+  get globalAlpha() { return this.st.globalAlpha; } set globalAlpha(v) { this.st.globalAlpha = v; }
+  get font() { return this.st.font; } set font(v) { this.st.font = v; }
+  get textAlign() { return this.st.textAlign; } set textAlign(v) { this.st.textAlign = v; }
+  get textBaseline() { return this.st.textBaseline; } set textBaseline(v) { this.st.textBaseline = v; }
+  set shadowColor(v) { } set shadowBlur(v) { } set shadowOffsetX(v) { } set shadowOffsetY(v) { }
+  save() { this.stack.push({ ...this.st, m: [...this.st.m], dash: [...this.st.dash] }); } restore() { if (this.stack.length) this.st = this.stack.pop(); }
+  setTransform(a, b, c, d, e, f) { this.st.m = [a, b, c, d, e, f]; }
+  transform(a, b, c, d, e, f) { const [A, B, C, D, E, F] = this.st.m; this.st.m = [A * a + C * b, B * a + D * b, A * c + C * d, B * c + D * d, A * e + C * f + E, B * e + D * f + F]; }
+  translate(x, y) { this.transform(1, 0, 0, 1, x, y); } scale(x, y) { this.transform(x, 0, 0, y, 0, 0); } rotate(t) { const c = Math.cos(t), s = Math.sin(t); this.transform(c, s, -s, c, 0, 0); }
+  setLineDash(d) { this.st.dash = [...d]; } getLineDash() { return [...this.st.dash]; }
+  beginPath() { this.path = new RecPath(); }
+  moveTo(x, y) { this.path.moveTo(x, y); } lineTo(x, y) { this.path.lineTo(x, y); } closePath() { this.path.closePath(); }
+  rect(x, y, w, h) { this.path.rect(x, y, w, h); } arc(...a) { this.path.arc(...a); } ellipse(...a) { this.path.ellipse(...a); } bezierCurveTo(...a) { this.path.bezierCurveTo(...a); }
+  measureText(t) { this.meas.font = this.st.font; return this.meas.measureText(t); }
+  _scale() { const [a, b, c, d] = this.st.m; return Math.sqrt(Math.abs(a * d - b * c)) || 1; }
+  _d(p) { const [a, b, c, d, e, f] = this.st.m, X = (x, y) => (a * x + c * y + e).toFixed(2), Y = (x, y) => (b * x + d * y + f).toFixed(2);
+    return p.c.map(o => o[0] === "Z" ? "Z" : o[0] === "C" ? `C${X(o[1], o[2])} ${Y(o[1], o[2])} ${X(o[3], o[4])} ${Y(o[3], o[4])} ${X(o[5], o[6])} ${Y(o[5], o[6])}` : `${o[0]}${X(o[1], o[2])} ${Y(o[1], o[2])}`).join(""); }
+  _clip() { return this.st.clip ? ` clip-path="url(#${this.st.clip})"` : ""; }
+  _alpha() { return this.st.globalAlpha < 1 ? ` opacity="${this.st.globalAlpha.toFixed(3)}"` : ""; }
+  fill(p, rule) { if (typeof p === "string") { rule = p; p = null; } const d = this._d(p || this.path); if (!d) return;
+    this.out.push(`<path d="${d}" fill="${this.st.fillStyle}"${rule === "evenodd" ? ' fill-rule="evenodd"' : ""}${this._alpha()}${this._clip()}/>`); }
+  stroke(p) { const d = this._d(p || this.path); if (!d) return; const k = this._scale(), dash = this.st.dash.length ? ` stroke-dasharray="${this.st.dash.map(v => (v * k).toFixed(2)).join(" ")}"` : "";
+    this.out.push(`<path d="${d}" fill="none" stroke="${this.st.strokeStyle}" stroke-width="${(this.st.lineWidth * k).toFixed(3)}" stroke-linecap="${this.st.lineCap}" stroke-linejoin="${this.st.lineJoin}"${dash}${this._alpha()}${this._clip()}/>`); }
+  fillRect(x, y, w, h) { const p = new RecPath(); p.rect(x, y, w, h); this.fill(p); } strokeRect(x, y, w, h) { const p = new RecPath(); p.rect(x, y, w, h); this.stroke(p); }
+  clearRect() { }
+  clip(p, rule) { if (typeof p === "string") { rule = p; p = null; } const id = `c${this.k++}`; this.defs.push(`<clipPath id="${id}"><path d="${this._d(p || this.path)}"${rule === "evenodd" ? ' clip-rule="evenodd"' : ""}/></clipPath>`); this.st.clip = id; }
+  fillText(t, x, y) { const [a, b, c, d, e, f] = this.st.m, anchor = { center: "middle", right: "end", end: "end" }[this.st.textAlign] || "start";
+    const base = { middle: "central", top: "hanging", hanging: "hanging", bottom: "text-after-edge" }[this.st.textBaseline] || "alphabetic";
+    this.out.push(`<text transform="matrix(${[a, b, c, d, e, f].map(v => +v.toFixed(5)).join(" ")})" x="${x}" y="${y}" style="font:${esc(this.st.font)}" fill="${this.st.fillStyle}" text-anchor="${anchor}" dominant-baseline="${base}"${this._alpha()}${this._clip()}>${esc(t)}</text>`); }
+  drawImage(img, x, y, w, h) { const [a, b, c, d, e, f] = this.st.m; if (!img || !img.src) return;
+    this.out.push(`<image href="${esc(img.src)}" x="${x}" y="${y}" width="${w ?? img.width}" height="${h ?? img.height}" transform="matrix(${[a, b, c, d, e, f].join(" ")})" preserveAspectRatio="none"${this._alpha()}${this._clip()}/>`); }
+  svg(w, h, size) { return `<svg xmlns="${SVG_NS}" viewBox="0 0 ${w} ${h}" ${size || `width="${w}" height="${h}"`}><title>${esc(DOC ? DOC.name : "view")}</title><defs>${this.defs.join("")}</defs>${this.out.join("\n")}</svg>`; }
+}
+function viewSvg(size) {   // the view as an SVG text; null in 3D
+  if (!S || st.mode3d) return null;
+  const real = ctx, realDpr = dpr, rec = new SvgCtx(W, H); const board = !isSch();
+  ctx = rec; dpr = 1; if (board) { P2D = RecPath; buildCaches(); if (S.diff) S.diff.cache = null; }
+  try { draw(); } finally { ctx = real; dpr = realDpr; if (board) { P2D = Path2D; buildCaches(); if (S.diff) S.diff.cache = null; } draw(); }
+  return rec.svg(W, H, size);
+}
+$("bSvg").onclick = () => { const svg = viewSvg(); if (!svg) { showInfo("SVG: leave the 3D view first (D)."); return; } download(svg, (DOC ? DOC.name : "view") + ".svg", "image/svg+xml"); };
+function printView() {   // the SVG at the chosen scale, printed from a hidden frame: the print dialog also saves a PDF
+  const k = $("printScale").value, size = k === "fit" ? 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"' : `width="${(W / view.s * +k).toFixed(3)}mm" height="${(H / view.s * +k).toFixed(3)}mm"`;
+  const svg = viewSvg(size); if (!svg) { showInfo("Print: leave the 3D view first (D)."); return; }
+  const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+  const scale = k === "fit" ? "fit to page" : `scale ${k}:1`;
+  f.contentDocument.open(); f.contentDocument.write(`<!doctype html><html><head><title>${esc(DOC ? DOC.name : "view")}</title><style>@page { margin: 10mm } html, body { margin: 0; height: 100% } svg { display: block; ${k === "fit" ? "width: 100%; height: 95vh" : ""} } p { font: 9pt system-ui; margin: 2mm 0 0 }</style></head><body>${svg}<p>${esc(DOC ? DOC.name : "")} · ${scale} · Fenolite viewer</p></body></html>`); f.contentDocument.close();
+  setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 200);
+}
+$("bPrint").onclick = printView;
+
+// ================================================================== tables (c0190): a BOM document, an output job
+const TBL = { sort: -1, up: true, q: "" };
+function loadTable(scene) {
+  S = scene; st.mode3d = false; document.body.classList.remove("sch", "lib"); document.body.classList.add("table");
+  cv.style.display = "none"; glc.style.display = "none"; $("bar3d").style.display = "none";
+  $("fname").textContent = scene.meta.name; document.title = scene.meta.name + " · Fenolite viewer";
+  $("gen").textContent = scene.meta.sha256 ? `SHA-256 ${scene.meta.sha256.slice(0, 12)}` : "";
+  $("notes").innerHTML = (scene.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(scene.meta.backend || "?")} backend, evidence ${esc(scene.meta.evidence || "?")}.`;
+  TBL.sort = -1; TBL.up = true; TBL.q = "";
+  const box = $("tablewrap"); box.style.display = "block";
+  box.innerHTML = `<div class="tblhead"><b>${esc(scene.title || scene.meta.name)}</b><input id="tblFilter" placeholder="Filter the rows…"><small id="tblCount"></small></div>` +
+    `<table class="tbl"><thead><tr>${scene.columns.map((c, k) => `<th data-k="${k}" title="Sort">${esc(c)}</th>`).join("")}</tr></thead><tbody id="tblBody"></tbody></table>`;
+  box.querySelectorAll("th").forEach(th => th.onclick = () => { const k = +th.dataset.k; TBL.up = TBL.sort === k ? !TBL.up : true; TBL.sort = k; renderRows(); });
+  $("tblFilter").oninput = e => { TBL.q = e.target.value; renderRows(); };
+  renderRows(); showInfo(null);
+}
+function renderRows() {
+  const sc = S, q = TBL.q.trim().toLowerCase();
+  const idx = sc.rows.map((r, i) => i).filter(i => !q || sc.rows[i].some(v => String(v).toLowerCase().includes(q)));
+  if (TBL.sort >= 0) idx.sort((a, b) => natural(String(sc.rows[a][TBL.sort]), String(sc.rows[b][TBL.sort])) * (TBL.up ? 1 : -1));
+  $("tablewrap").querySelectorAll("th").forEach(th => { const k = +th.dataset.k; th.textContent = sc.columns[k] + (k === TBL.sort ? (TBL.up ? " ▲" : " ▼") : ""); });
+  $("tblBody").innerHTML = idx.map(i => { const go = ((sc.docs || [])[i] || []).length || ((sc.refs || [])[i] || []).length;
+    const why = ((sc.docs || [])[i] || []).length ? "Open the document it binds" : "Select these parts on the board";
+    return `<tr data-i="${i}"${go ? ` class="link" title="${why}"` : ""}>${sc.rows[i].map(v => `<td>${linkify(v)}</td>`).join("")}</tr>`; }).join("");
+  $("tblBody").querySelectorAll("tr.link").forEach(tr => tr.onclick = ev => { if (ev.target.tagName !== "A") tableRow(+tr.dataset.i); });
+  $("tblCount").textContent = `${idx.length} of ${sc.rows.length} rows`;
+}
+async function tableRow(i) {   // a bound document opens; a BOM line's parts are selected on the board with the filter (c0187)
+  const docs = (S.docs || [])[i] || [], refs = (S.refs || [])[i] || [];
+  if (docs.length) { const d = docs[0] === "[bom]" ? allDocs().find(x => x.kind === "bom") : docByFile(docs[0]); if (d) await openDoc(d); else showInfo(`${esc(docs[0])} is not a document of this project.`); return; }
+  if (!refs.length) return;
+  const d = allDocs().find(x => x.kind === "pcb" && x.viewable && x.present); if (!d) { showInfo("The project holds no board to show these parts on."); return; }
+  await openDoc(d); const text = refs.map(r => `ref:${r}`).join(" | "); $("query").value = text; applyQuery(text, true);
+}
+
+function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
+function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure) st.mpts = []; draw(); }
+function find(q) {
+  q = q.trim().toLowerCase(); if (!q || !S) return;
+  if (isSch()) { schFind(q); return; }
+  const ci = S.comps.findIndex(c => c.ref.toLowerCase() === q);
+  if (ci >= 0) { st.selComp = ci; st.selNet = -1; const b = S.comps[ci].bbox; if (b) fit([b[0] - 5, b[1] - 5, b[2] + 5, b[3] + 5]); showInfo(compInfo(ci)); draw(); return; }
+  const ni = S.nets.findIndex(n => n.toLowerCase() === q);
+  if (ni >= 0) { st.selNet = ni; st.selComp = -1; showInfo(`Net: <b>${esc(S.nets[ni])}</b>`); draw(); return; }
+  showInfo(`Nothing named <b>${esc(q)}</b> on this board.`);
+}
+$("b3d").onclick = () => set3D(!st.mode3d);
+$("bFit").onclick = () => st.mode3d ? camPreset("iso") : fit();
+$("bFlip").onclick = flip;
+$("bMeasure").onclick = () => toggle("measure", "bMeasure");
+$("bClear").onclick = () => { st.mpts = []; st.selOv = -1; if (isSch()) schSelect(-1); else select(null); };
+function zoomBy(f) { view.s = Math.min(Math.max(view.s * f, 0.2), 400); draw(); }
+$("opac").oninput = e => { st.opac = e.target.value / 100; draw(); };
+$("search").addEventListener("keydown", e => { if (e.key === "Enter") { find(e.target.value); e.target.blur(); } else if (e.key === "Escape") e.target.blur(); });
+let drag = null;
+cv.addEventListener("mousedown", e => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur();   // shortcuts follow the board
+  drag = { x: e.offsetX, y: e.offsetY, cx: view.cx, cy: view.cy, moved: false }; });
+window.addEventListener("mouseup", e => { if (!drag) return; const d = drag; drag = null;
+  if (d.moved || e.target !== cv) return; const [x, y] = s2w(e.offsetX, e.offsetY);
+  if (st.measure) { measureClick(e.offsetX, e.offsetY); return; }
+  if (st.marking) { markClick(x, y); return; }
+  if (st.edge && !isSch()) { edgeClick(e.offsetX, e.offsetY); return; }
+  if (isSch()) schSelect(schPick(e.offsetX, e.offsetY)); else select(pick(e.offsetX, e.offsetY), [x, y]); });
+cv.addEventListener("dblclick", e => { if (!S) return;
+  if (isSch()) { schDouble(e.offsetX, e.offsetY); return; }
+  const h = pick(e.offsetX, e.offsetY), ci = h ? h.pr[4] : -1; if (ci >= 0) crossProbe(S.comps[ci].ref, "schematic"); });
+cv.addEventListener("contextmenu", e => { if (isSch()) e.preventDefault(); });
+function showCoord(x, y) {
+  st.mouse = [x, y];
+  if (!(st.measure && st.mpts.length)) $("coord").textContent = isSch()
+    ? `X ${fmtLen(x - S.sheet.origin[0])}  Y ${fmtLen(S.sheet.origin[1] - y)} · grid ${fmtLen(S.sheet.grid)}` : `x ${fmtLen(x)}  y ${fmtLen(y)}`;
+}
+cv.addEventListener("mousemove", e => { if (!S) return; const [x, y] = s2w(e.offsetX, e.offsetY);
+  showCoord(x, y);
+  if (drag) { const dx = e.offsetX - drag.x, dy = e.offsetY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    view.cx = drag.cx - m() * dx / view.s; view.cy = drag.cy - dy / view.s; draw(); }
+  else if (st.measure) { st.mhover = snap(x, y); draw(); } });
+cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = s2w(e.offsetX, e.offsetY); const f = Math.exp(-e.deltaY * 0.0015);
+  view.s = Math.min(Math.max(view.s * f, 0.2), 400); const [x2, y2] = s2w(e.offsetX, e.offsetY); view.cx += x - x2; view.cy += y - y2; draw(); }, { passive: false });
+window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S || S.kind === "table") return;
+  const k = e.key;
+  if (k === "q" || k === "Q") { setUnit(UNIT === "mm" ? "mil" : "mm"); return; }
+  if ((k === "m" || k === "M") && e.shiftKey && !st.mode3d && !isSch()) { toggleEdge(); return; }
+  if ((k === "m" || k === "M") && !st.mode3d) { toggle("measure", "bMeasure"); return; }
+  if ((k === "n" || k === "N") && !st.mode3d) { toggle("marking", "bMark"); return; }
+  if ((k === "x" || k === "X") && S.diff) { st.diff = !st.diff; draw(); return; }
+  if ((k === "e" || k === "E") && S.check) { st.checks = !st.checks; draw(); return; }
+  if (k === "Escape" && st.edge) { toggleEdge(); return; }
+  if (k === "Escape" && st.marking) { toggle("marking", "bMark"); return; }
+  if (k === "Escape" && (st.measure || st.mpts.length)) { st.mpts = []; st.mhover = null; if (st.measure) toggle("measure", "bMeasure"); return; }
+  if (isSch()) { if (k === "f" || k === "F") fit(); else if (k === "Escape") { schSelect(-1); shareNet(null); }
+    else if (k === "PageUp" || k === "PageDown") { e.preventDefault(); zoomBy(k === "PageUp" ? 1.25 : 0.8); } return; }
+  if (k === "d" || k === "D") set3D(!st.mode3d);
+  else if (k === "f" || k === "F") { if (st.mode3d) camPreset("iso"); else fit(); }
+  else if (st.mode3d) return;
+  else if ((k === "S" || k === "s") && e.shiftKey) { st.single = !st.single; buildTabs(); draw(); }
+  else if (k === "+" || k === "=") stepCurrent(1); else if (k === "-" || k === "_") stepCurrent(-1);
+  else if (k === "b" || k === "B") flip(); else if (k === "m" || k === "M") toggle("measure", "bMeasure");
+  else if ((k === "C" || k === "c") && e.shiftKey) clearQuery();
+  else if (k === "Escape") { st.mpts = []; st.selOv = -1; select(null); shareNet(null); } });
+
+// ================================================================== schematic view (scene kind "schematic")
+// A sheet drawn as Altium Designer draws it: the file's own colours and fonts on its paper, a line grid, a grey
+// workspace around it. Units on the page are millimetres, Y downwards from the sheet's top-left corner.
+const SCH = { sel: -1, selNet: -1, selComp: -1, images: new Map(), byObj: null, filter: "" };
+const WORKSPACE = "#4a4d52", SEL = "#00b050";
+const isSch = () => !!(S && S.kind === "schematic");
+const MIL = 0.0254;
+function toMMsch(sc) {
+  if (sc.mm) return sc; diffToMM(sc); checkToMM(sc);
+  const f = v => v * MM, fb = b => b ? b.map(f) : b;
+  for (const p of sc.prims) { if (p.p) p.p = p.p.map(f); if (p.b) p.b = p.b.map(f);
+    for (const k of ["x", "y", "rx", "ry", "w", "m", "sz", "gw", "th"]) if (typeof p[k] === "number") p[k] = p[k] * MM;
+    if (p.rr) p.rr = p.rr.map(f); p.bb = primBox(p); }
+  for (const o of sc.objects) o.b = fb(o.b);
+  for (const c of sc.comps) c.b = fb(c.b);
+  for (const fo of sc.fonts) fo.emm = fo.em * MM;
+  const sh = sc.sheet; for (const k of ["w", "h", "grid", "margin", "x0", "y0"]) if (typeof sh[k] === "number") sh[k] *= MM;
+  sh.x0 = sh.x0 || 0; sh.y0 = sh.y0 || 0; sh.origin = sh.origin ? sh.origin.map(f) : [0, sh.h];
+  if (sh.text === "stroke") sc.comps.forEach(c => { c.hidden = c.ref.startsWith("#"); });
+  sc.bounds = sc.bounds.map(f); sc.mm = true; return sc;
+}
+function primBox(p) {
+  const w = (p.w || 0) / 2;
+  if (p.k === "l" || p.k === "g" || p.k === "b") { let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (let i = 0; i < p.p.length; i += 2) { x0 = Math.min(x0, p.p[i]); x1 = Math.max(x1, p.p[i]); y0 = Math.min(y0, p.p[i + 1]); y1 = Math.max(y1, p.p[i + 1]); }
+    return [x0 - w, y0 - w, x1 + w, y1 + w]; }
+  if (p.k === "r" || p.k === "x" || p.k === "i") return [p.b[0] - w, p.b[1] - w, p.b[2] + w, p.b[3] + w];
+  if (p.k === "e" || p.k === "a") return [p.x - p.rx - w, p.y - p.ry - w, p.x + p.rx + w, p.y + p.ry + w];
+  return null;   // texts: measured when drawn
+}
+function fontCss(fo, px) { return `${fo.italic ? "italic " : ""}${fo.bold ? "bold " : ""}${px.toFixed(2)}px "${fo.name}", "Times New Roman", Times, serif`; }
+function schAlpha(p) {
+  if (SCH.selNet < 0) return 1;
+  const o = p.o >= 0 ? S.objects[p.o] : null;
+  return o && o.net === SCH.selNet ? 1 : 0.22;
+}
+function dashOf(d, w) { const u = Math.max(w, 0.1); return d === 1 ? [u * 4, u * 3] : d === 2 ? [u, u * 2] : d === 3 ? [u * 4, u * 2, u, u * 2] : []; }
+function lineShape(g, x, y, fx, fy, shape, size, color, w) {   // a line end: arrow, solid arrow, tail, solid tail, circle, square
+  const L = [0.5, 1, 1.6, 2.4][size || 0] || 1, a = Math.atan2(y - fy, x - fx), c = Math.cos(a), s = Math.sin(a);
+  const P = (u, v) => [x + u * c - v * s, y + u * s + v * c];
+  g.beginPath();
+  if (shape === 1 || shape === 2) { const [ax, ay] = P(-L, -L / 2), [bx, by] = P(-L, L / 2); g.moveTo(ax, ay); g.lineTo(x, y); g.lineTo(bx, by); if (shape === 2) { g.closePath(); g.fillStyle = color; g.fill(); } g.stroke(); }
+  else if (shape === 3 || shape === 4) { const [ax, ay] = P(L, -L / 2), [bx, by] = P(L, L / 2); g.moveTo(ax, ay); g.lineTo(x, y); g.lineTo(bx, by); if (shape === 4) { g.closePath(); g.fillStyle = color; g.fill(); } g.stroke(); }
+  else if (shape === 5) { g.arc(x, y, L / 2, 0, 2 * Math.PI); g.fillStyle = color; g.fill(); }
+  else if (shape === 6) { g.fillStyle = color; g.fillRect(x - L / 2, y - L / 2, L, L); }
+}
+function roundRectPath(g, b, rx, ry) {
+  const [x0, y0, x1, y1] = b; rx = Math.min(rx, (x1 - x0) / 2); ry = Math.min(ry, (y1 - y0) / 2);
+  g.beginPath(); g.moveTo(x0 + rx, y0); g.lineTo(x1 - rx, y0); g.ellipse(x1 - rx, y0 + ry, rx, ry, 0, -Math.PI / 2, 0); g.lineTo(x1, y1 - ry);
+  g.ellipse(x1 - rx, y1 - ry, rx, ry, 0, 0, Math.PI / 2); g.lineTo(x0 + rx, y1); g.ellipse(x0 + rx, y1 - ry, rx, ry, 0, Math.PI / 2, Math.PI);
+  g.lineTo(x0, y0 + ry); g.ellipse(x0 + rx, y0 + ry, rx, ry, 0, Math.PI, 1.5 * Math.PI); g.closePath();
+}
+function strokeW(w) { return Math.max(w, 1 / view.s); }
+function drawStrokeText(p, alpha) {   // KiCad's way: texts as strokes, in Fenolite's own stroke font
+  if (p.sz * view.s < 1.5) return;
+  const lines = p.s.split("\n"), adv = 1.5 * p.gw, step = p.sz * 1.4, deg = (p.rot || 0) * 90, a = deg * Math.PI / 180;
+  ctx.globalAlpha = alpha; ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(p.th, 1 / view.s); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const n = lines.length, first = p.v === "top" ? 0 : p.v === "bottom" ? -(n - 1) : -(n - 1) / 2;
+  let wMax = 0; ctx.beginPath();
+  lines.forEach((ln, i) => { const off = (first + i) * step, x = p.x + Math.sin(a) * off, y = p.y + Math.cos(a) * off;
+    const t = ["", x, y, p.sz, p.gw, p.th, deg, p.h, p.v, false, ln, -1];
+    for (const pl of textPolylines(t)) { ctx.moveTo(pl[0][0], pl[0][1]); for (let k = 1; k < pl.length; k++) ctx.lineTo(pl[k][0], pl[k][1]); if (pl.length === 1) ctx.lineTo(pl[0][0] + 1e-4, pl[0][1]); }
+    const wl = [...ln].length * adv - 2 * p.gw / 4; wMax = Math.max(wMax, wl);
+    if (p.ol && p.ol.length && n === 1) { const x0 = p.h === "left" ? 0 : p.h === "right" ? -wl : -wl / 2, top = p.v === "top" ? 0 : p.v === "bottom" ? -p.sz : -p.sz / 2;
+      const ly = top - p.sz * 0.2, c = Math.cos(a), s2 = Math.sin(a), P = lx => [x + lx * c + ly * s2, y - lx * s2 + ly * c];
+      for (const k of p.ol) { const [ax, ay] = P(x0 + k * adv), [bx, by] = P(x0 + k * adv + p.gw); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); } } });
+  ctx.stroke(); p.sb = [wMax, n * step];
+}
+function drawText(p, alpha) {
+  if (S.sheet.text === "stroke") return drawStrokeText(p, alpha);
+  const fo = S.fonts[p.font] || S.fonts[0], px = fo.emm * view.s; if (px < 1.2) return;
+  const [X, Y] = w2s(p.x, p.y);
+  ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = alpha; ctx.translate(X, Y); if (p.rot) ctx.rotate(-p.rot * Math.PI / 2);
+  ctx.font = fontCss(fo, px); ctx.fillStyle = p.c; ctx.textAlign = p.h; ctx.textBaseline = p.v === "center" ? "middle" : p.v === "top" ? "top" : "bottom";
+  ctx.fillText(p.s, 0, 0);
+  const wAll = ctx.measureText(p.s).width, x0 = p.h === "left" ? 0 : p.h === "right" ? -wAll : -wAll / 2;
+  const top = p.v === "top" ? 0 : p.v === "center" ? -px / 2 : -px, lw = Math.max(1, px / 14);
+  p.sb = [wAll / view.s, px / view.s];   // measured size, for the hit test
+  if (p.ol && p.ol.length) { ctx.strokeStyle = p.c; ctx.lineWidth = lw; ctx.beginPath();
+    for (const i of p.ol) { const a = ctx.measureText(p.s.slice(0, i)).width, b = ctx.measureText(p.s.slice(0, i + 1)).width; ctx.moveTo(x0 + a, top + lw); ctx.lineTo(x0 + b, top + lw); } ctx.stroke(); }
+  if (fo.underline) { ctx.strokeStyle = p.c; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(x0, top + px); ctx.lineTo(x0 + wAll, top + px); ctx.stroke(); }
+  ctx.restore();
+}
+function wrapLines(g, text, width, wrap) {
+  const out = []; for (const para of text.split("\n")) { if (!wrap) { out.push(para); continue; } let line = "";
+    for (const word of para.split(/(\s+)/)) { const t = line + word; if (line && g.measureText(t).width > width) { out.push(line.trimEnd()); line = word.trimStart(); } else line = t; } out.push(line); }
+  return out;
+}
+function drawFrame(p, alpha) {
+  const [x0, y0, x1, y1] = p.b; ctx.globalAlpha = alpha;
+  if (p.f) { ctx.fillStyle = p.f; ctx.fillRect(x0, y0, x1 - x0, y1 - y0); }
+  if (p.bc) { ctx.strokeStyle = p.bc; ctx.lineWidth = strokeW(0.1); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); }
+  const fo = S.fonts[p.font] || S.fonts[0], px = fo.emm * view.s; if (px < 1.2) return;
+  const [X0, Y0] = w2s(x0, y0), [X1, Y1] = w2s(x1, y1), m = (p.m || 0) * view.s;
+  ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = alpha; ctx.beginPath(); ctx.rect(X0, Y0, X1 - X0, Y1 - Y0); ctx.clip();
+  ctx.font = fontCss(fo, px); ctx.fillStyle = p.tc; ctx.textBaseline = "top";
+  const lines = wrapLines(ctx, p.s, X1 - X0 - 2 * m, p.wrap), al = p.al === 1 ? "left" : p.al === 2 ? "right" : p.al === 0 ? "center" : "left";
+  ctx.textAlign = al; const x = al === "left" ? X0 + m : al === "right" ? X1 - m : (X0 + X1) / 2;
+  lines.forEach((ln, i) => ctx.fillText(ln, x, Y0 + m + i * px * 1.15)); ctx.restore();
+}
+function drawImage(p, alpha) {
+  const [x0, y0, x1, y1] = p.b; ctx.globalAlpha = alpha;
+  if (p.src) { let im = SCH.images.get(p.src); if (!im) { im = new Image(); im.onload = () => draw(); im.src = p.src; SCH.images.set(p.src, im); }
+    if (im.complete && im.naturalWidth) { ctx.drawImage(im, x0, y0, x1 - x0, y1 - y0); return; } }
+  ctx.strokeStyle = "#888"; ctx.lineWidth = strokeW(0.1); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.moveTo(x1, y0); ctx.lineTo(x0, y1); ctx.stroke();
+}
+function drawPrim(p, alpha) {
+  const g = ctx; g.globalAlpha = alpha; g.strokeStyle = p.c; g.lineWidth = strokeW(p.w || 0); g.lineCap = "round"; g.lineJoin = "round";
+  switch (p.k) {
+    case "l": { const q = p.p; g.setLineDash(p.d ? dashOf(p.d, p.w) : []); g.lineCap = p.d ? "butt" : "round"; g.beginPath(); g.moveTo(q[0], q[1]);
+      for (let i = 2; i < q.length; i += 2) g.lineTo(q[i], q[i + 1]); if (q.length === 2) g.lineTo(q[0] + 1e-4, q[1]); g.stroke(); g.setLineDash([]);
+      if (p.s0 && q.length >= 4) lineShape(g, q[0], q[1], q[2], q[3], p.s0, p.ss, p.c, p.w);
+      if (p.s1 && q.length >= 4) { const n = q.length; lineShape(g, q[n - 2], q[n - 1], q[n - 4], q[n - 3], p.s1, p.ss, p.c, p.w); } break; }
+    case "g": { const q = p.p; g.beginPath(); g.moveTo(q[0], q[1]); for (let i = 2; i < q.length; i += 2) g.lineTo(q[i], q[i + 1]); g.closePath();
+      if (p.f) { g.fillStyle = p.f; g.fill(); } g.stroke(); break; }
+    case "r": { const [x0, y0, x1, y1] = p.b; if (p.rr) roundRectPath(g, p.b, p.rr[0], p.rr[1]); else { g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); }
+      if (p.f) { g.globalAlpha = alpha * (p.ta ? 0.5 : 1); g.fillStyle = p.f; g.fill(); g.globalAlpha = alpha; } g.stroke(); break; }
+    case "e": g.beginPath(); g.ellipse(p.x, p.y, Math.max(p.rx, 1e-4), Math.max(p.ry, 1e-4), 0, 0, 2 * Math.PI); if (p.f) { g.fillStyle = p.f; g.fill(); } if (p.w || !p.f) g.stroke(); break;
+    case "a": { let a0 = p.a0, a1 = p.a1; const full = Math.abs(a1 - a0) >= 360 || a0 === a1; g.beginPath();
+      if (p.pie && !full) g.moveTo(p.x, p.y);
+      g.ellipse(p.x, p.y, Math.max(p.rx, 1e-4), Math.max(p.ry, 1e-4), 0, full ? 0 : -a0 * Math.PI / 180, full ? 2 * Math.PI : -a1 * Math.PI / 180, !full);
+      if (p.pie) { g.closePath(); if (p.f) { g.fillStyle = p.f; g.fill(); } } g.stroke(); break; }
+    case "b": { const q = p.p; g.beginPath(); g.moveTo(q[0], q[1]); let i = 2;
+      for (; i + 5 < q.length; i += 6) g.bezierCurveTo(q[i], q[i + 1], q[i + 2], q[i + 3], q[i + 4], q[i + 5]); for (; i < q.length; i += 2) g.lineTo(q[i], q[i + 1]); g.stroke(); break; }
+    case "t": drawText(p, alpha); break;
+    case "x": drawFrame(p, alpha); break;
+    case "i": drawImage(p, alpha); break;
+  }
+}
+function visibleBox() { const [ax, ay] = s2w(0, 0), [bx, by] = s2w(W, H); return [Math.min(ax, bx), Math.min(ay, by), Math.max(ax, bx), Math.max(ay, by)]; }
+function drawGrid(sh) {
+  if (!sh.grid || sh.grid * view.s < 8) return;
+  const vb = visibleBox(), g = sh.grid, ox = sh.origin ? sh.origin[0] : 0, oy = sh.origin ? sh.origin[1] : 0, X0 = sh.x0 || 0, Y0 = sh.y0 || 0, X1 = X0 + sh.w, Y1 = Y0 + sh.h;
+  const x0 = ox + Math.ceil((Math.max(X0, vb[0]) - ox) / g) * g, x1 = Math.min(X1, vb[2]), y0 = oy + Math.ceil((Math.max(Y0, vb[1]) - oy) / g) * g, y1 = Math.min(Y1, vb[3]);
+  if (sh.text === "stroke") {   // KiCad draws its grid as dots
+    ctx.globalAlpha = 1; ctx.fillStyle = sh.grid_color || shade(sh.color, 0.3); const d = 1.4 / view.s;
+    for (let x = x0; x <= x1; x += g) for (let y = y0; y <= y1; y += g) ctx.fillRect(x - d / 2, y - d / 2, d, d); return; }
+  ctx.globalAlpha = 1; ctx.strokeStyle = shade(sh.color, 0.08); ctx.lineWidth = 1 / view.s; ctx.beginPath();
+  for (let x = x0; x <= x1; x += g) { ctx.moveTo(x, Math.max(Y0, vb[1])); ctx.lineTo(x, Math.min(Y1, vb[3])); }
+  for (let y = y0; y <= y1; y += g) { ctx.moveTo(Math.max(X0, vb[0]), y); ctx.lineTo(Math.min(X1, vb[2]), y); }
+  ctx.stroke();
+}
+function shade(hex, f) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * (1 - f))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
+function drawSch() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = S.sheet.workspace || WORKSPACE; ctx.fillRect(0, 0, cv.width, cv.height);
+  worldTf(); const sh = S.sheet;
+  ctx.save(); ctx.shadowColor = "#0008"; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; ctx.fillStyle = sh.color; ctx.fillRect(sh.x0 || 0, sh.y0 || 0, sh.w, sh.h); ctx.restore();
+  drawGrid(sh);
+  const vb = visibleBox(), pad = 2;
+  for (const p of S.prims) { const b = p.bb; if (b && (b[2] < vb[0] - pad || b[0] > vb[2] + pad || b[3] < vb[1] - pad || b[1] > vb[3] + pad)) continue; drawPrim(p, schAlpha(p)); }
+  ctx.globalAlpha = 1;
+  const sb = SCH.selComp >= 0 ? S.comps[SCH.selComp].b : SCH.sel >= 0 && SCH.selNet < 0 ? S.objects[SCH.sel].b : null;
+  if (sb) { const e = 4 / view.s; ctx.strokeStyle = SEL; ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(sb[0] - e, sb[1] - e, sb[2] - sb[0] + 2 * e, sb[3] - sb[1] + 2 * e); ctx.setLineDash([]); }
+  drawSchDiff(); drawCheck(); drawMarks(); linkLater(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
+  $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
+}
+// --- hit test
+function schHitPrim(p, x, y, tol) {
+  switch (p.k) {
+    case "l": { const q = p.p; if (q.length === 2) return Math.hypot(x - q[0], y - q[1]) <= tol + p.w / 2; for (let i = 0; i + 3 < q.length; i += 2) if (segDist(x, y, q[i], q[i + 1], q[i + 2], q[i + 3]) <= p.w / 2 + tol) return true; return false; }
+    case "g": return inRing(x, y, p.p) || p.p.some((_, i) => i % 2 === 0 && i + 3 < p.p.length && segDist(x, y, p.p[i], p.p[i + 1], p.p[i + 2], p.p[i + 3]) <= tol);
+    case "r": case "x": case "i": { const b = p.b; return x >= b[0] - tol && x <= b[2] + tol && y >= b[1] - tol && y <= b[3] + tol; }
+    case "e": case "a": return ((x - p.x) / (p.rx + tol)) ** 2 + ((y - p.y) / (p.ry + tol)) ** 2 <= 1;
+    case "b": { const q = p.p; for (let i = 0; i + 3 < q.length; i += 2) if (segDist(x, y, q[i], q[i + 1], q[i + 2], q[i + 3]) <= p.w / 2 + tol) return true; return false; }
+    case "t": { if (!p.sb) return false; const [w, h] = p.sb, c = [1, 0, -1, 0][p.rot || 0], s = [0, 1, 0, -1][p.rot || 0];
+      const dx = x - p.x, dy = y - p.y, u = dx * c - dy * s, v = dx * s + dy * c;   // into the text's own frame
+      const u0 = p.h === "left" ? 0 : p.h === "right" ? -w : -w / 2, v0 = p.v === "top" ? 0 : p.v === "center" ? -h / 2 : -h;
+      return u >= u0 - tol && u <= u0 + w + tol && v >= v0 - tol && v <= v0 + h + tol; }
+  }
+  return false;
+}
+const PRIORITY = { pin: 0, wire: 1, bus: 1, entryline: 1, junction: 1, label: 1, power: 1, port: 1, entry: 1, noerc: 1, harnessline: 1, comp: 2, sheet: 2, harness: 2, directive: 2, graphic: 3 };
+function schPick(X, Y) {
+  const [x, y] = s2w(X, Y), tol = 3 / view.s; let best = -1, bp = 9;
+  for (let i = S.prims.length - 1; i >= 0; i--) { const p = S.prims[i]; if (p.o < 0) continue; const b = p.bb;
+    if (b && (x < b[0] - tol || x > b[2] + tol || y < b[1] - tol || y > b[3] + tol)) continue;
+    if (!schHitPrim(p, x, y, tol)) continue; const pr = PRIORITY[S.objects[p.o].k] ?? 4; if (pr < bp) { bp = pr; best = p.o; if (pr === 0) break; } }
+  if (best < 0) for (let i = 0; i < S.comps.length; i++) { const b = S.comps[i].b; if (b && x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]) { best = S.objects.findIndex(o => o.k === "comp" && o.comp === i); break; } }
+  return best;
+}
+function rows(list) { return `<table>${list.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${linkify(v)}</td></tr>`).join("")}</table>`; }
+function compRows(ci) { const c = S.comps[ci]; const r = [["Designator", c.ref], ["Comment", c.comment], ["Design Item ID", c.lib]];
+  if (c.b) r.push(["Extent", fmtPair(c.b[2] - c.b[0], c.b[3] - c.b[1])]);
+  if (c.description) r.push(["Description", c.description]); if (c.footprint) r.push(["Footprint", c.footprint]);
+  const vs = variantOf(c.group || c.ref);
+  const params = { ...(c.params || {}), ...((vs && vs.params) || {}) };
+  for (const [k, v] of Object.entries(params)) r.push([k, v]);
+  if (vs) r.push([`Variant ${VARIANT}`, vs.kind]); return r; }
+function schSelect(oi) {
+  SCH.sel = oi; SCH.selNet = -1; SCH.selComp = -1;
+  if (oi < 0) { showInfo(null); buildNav(); draw(); return; }
+  const o = S.objects[oi];
+  if (o.k === "comp") { SCH.selComp = o.comp; showInfo(`<b>Properties</b> · Component${rows(compRows(o.comp))}`); }
+  else { if (o.net >= 0) SCH.selNet = o.net;
+    let html = `<b>Properties</b> · ${esc(o.k)}${rows(o.info)}`;
+    if (o.net >= 0) { const n = S.nets[o.net]; html += `<br><b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins` + (n.pins.length ? `<br><small>${esc(n.pins.slice(0, 40).join(", "))}${n.pins.length > 40 ? " …" : ""}</small>` : "") + projectNetInfo(n); shareNet(n.project || n.name); }
+    if (o.comp >= 0) html += `<br><br><b>Part</b>${rows(compRows(o.comp))}`;
+    showInfo(html); }
+  buildNav(); draw();
+}
+function netBox(ni) { let b = null; for (const o of S.objects) if (o.net === ni && o.b) b = b ? [Math.min(b[0], o.b[0]), Math.min(b[1], o.b[1]), Math.max(b[2], o.b[2]), Math.max(b[3], o.b[3])] : [...o.b]; return b; }
+// ================================================================== project nets across sheets and the board (c0185)
+let PROJ_NET = null; const BC = "BroadcastChannel" in window ? new BroadcastChannel("fenolite-view") : null;
+function shareNet(name) { PROJ_NET = name || null; if (BC) BC.postMessage({ net: PROJ_NET }); }
+if (BC) BC.onmessage = e => { PROJ_NET = e.data && e.data.net || null; applyProjNet(); };
+function projectNetInfo(n) {
+  if (!n.project) return "";
+  const others = (n.sheets || []).filter(x => !S.meta || x !== S.meta.name);
+  const links = others.map(x => `<a href="#" class="sheetlink" data-sheet="${esc(x)}">${esc(x)}</a>`).join(", ");
+  return `<br><br><b>Project net ${esc(n.project)}</b>: ${(n.project_pins || []).length} pins` + (links ? `<br>Also on: ${links}` : "<br>On this sheet only") +
+    `<br><small>${esc((n.project_pins || []).slice(0, 60).join(", "))}</small>`;
+}
+document.addEventListener("click", e => { const a = e.target.closest && e.target.closest(".sheetlink"); if (!a) return; e.preventDefault();
+  const d = docByFile(a.dataset.sheet); if (d) openDoc(d); });
+function applyProjNet() {   // the shared net, selected on the sheet or board shown
+  if (!PROJ_NET || !S) return;
+  if (isSch()) { const i = S.nets.findIndex(n => (n.project || n.name) === PROJ_NET); if (i >= 0) selectNet(i, false, true); }
+  else if (S.nets && !S.kind) { const i = S.nets.indexOf(PROJ_NET); if (i >= 0) { st.selNet = i; st.selComp = -1; showInfo(`Net: <b>${esc(PROJ_NET)}</b>`); draw(); } }
+}
+function selectNet(ni, zoom, quiet) { SCH.sel = -1; SCH.selComp = -1; SCH.selNet = ni; const n = S.nets[ni];
+  showInfo(`<b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins<br><small>${esc(n.pins.join(", "))}</small>` + projectNetInfo(n));
+  if (!quiet) shareNet(n.project || n.name);
+  const b = netBox(ni); if (zoom && b) fit([b[0] - 8, b[1] - 8, b[2] + 8, b[3] + 8]); else draw(); buildNav(); }
+function selectComp(ci, zoom) { const oi = S.objects.findIndex(o => o.k === "comp" && o.comp === ci); schSelect(oi);
+  const b = S.comps[ci].b; if (zoom && b) fit([b[0] - 12, b[1] - 12, b[2] + 12, b[3] + 12]); }
+function natural(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); }
+function buildNav() {
+  const box = $("navList"); if (!box || !isSch()) return; const q = SCH.filter.trim().toLowerCase(); box.innerHTML = "";
+  const comps = S.comps.map((c, i) => [c, i]).filter(([c]) => !c.hidden).filter(([c]) => !q || c.ref.toLowerCase().includes(q) || (c.comment || "").toLowerCase().includes(q)).sort((a, b) => natural(a[0].ref, b[0].ref));
+  const nets = S.nets.map((n, i) => [n, i]).filter(([n]) => n.name && (n.pins.length > 1 || !n.name.startsWith("Net")) && (!q || n.name.toLowerCase().includes(q))).sort((a, b) => natural(a[0].name, b[0].name));
+  const head = t => { const d = document.createElement("div"); d.className = "navg"; d.textContent = t; box.appendChild(d); };
+  head(`Components (${comps.length})`);
+  for (const [c, i] of comps) { const d = document.createElement("div"); d.className = "navi" + (SCH.selComp === i ? " sel" : ""); d.innerHTML = `${esc(c.ref)} <small>${esc(c.comment || c.lib || "")}</small>`; d.title = c.description || c.lib || ""; d.onclick = () => selectComp(i, true); box.appendChild(d); }
+  head(`Nets (${nets.length})`);
+  for (const [n, i] of nets) { const d = document.createElement("div"); d.className = "navi" + (SCH.selNet === i ? " sel" : ""); d.innerHTML = `${esc(n.name)}${n.project && n.project !== n.name ? ` <small>→ ${esc(n.project)}</small>` : ""} <small>${n.pins.length}${n.sheets && n.sheets.length > 1 ? ` · ${n.sheets.length} sheets` : ""}</small>`; d.onclick = () => selectNet(i, true); box.appendChild(d); }
+}
+$("navFilter").addEventListener("input", e => { SCH.filter = e.target.value; buildNav(); });
+function allDocs() { return PROJECT ? PROJECT.groups.flatMap(g => g.documents) : []; }
+function sheetTabs() {   // the bottom bar of a schematic: the project's viewable documents, as the native tool's document tabs
+  const box = $("tablist"); box.innerHTML = "";
+  const docs = allDocs().filter(d => d.viewable && d.present).sort((a, b) => (a.kind !== "schematic") - (b.kind !== "schematic") || natural(a.name, b.name));
+  for (const d of docs) { const t = document.createElement("div"); t.className = "tab doc-tab" + (DOC && DOC.id === d.id ? " cur" : "");
+    t.style.borderBottomColor = DOC && DOC.id === d.id ? (KIND_COLOR[d.kind] || "#888") : "transparent";
+    t.innerHTML = `<span class="sw" style="background:${KIND_COLOR[d.kind] || "#888"}"></span><span>${esc(d.name)}</span>`; t.title = d.path; t.onclick = () => openDoc(d); box.appendChild(t); }
+  $("cur").textContent = S ? `${S.sheet.style} sheet · ${S.comps.length} parts · ${S.nets.filter(n => n.name).length} nets` : "";
+}
+function docByFile(name) { const want = String(name).replace(/\\/g, "/").split("/").pop().toLowerCase(); return allDocs().find(d => d.name.toLowerCase() === want && d.viewable && d.present); }
+async function crossProbe(ref, kind) {   // open the first document of `kind` that holds the part `ref`, and select it there
+  const want = ref.toLowerCase();
+  for (const d of allDocs().filter(x => x.kind === kind && x.viewable && x.present)) {
+    let sc = null; try { sc = await sceneOf(d); } catch (e) { continue; } if (!sc) continue;
+    const ok = sc.comps.some(c => c.ref.toLowerCase() === want || (c.group || "").toLowerCase() === want);
+    if (ok) { await openDoc(d); find(ref); return true; } }
+  showInfo(`No ${kind === "pcb" ? "board" : "schematic"} of this project holds <b>${esc(ref)}</b>.`); return false;
+}
+function schDouble(X, Y) {
+  const oi = schPick(X, Y); if (oi < 0) return; const o = S.objects[oi];
+  if (o.k === "sheet" && o.file) { const d = docByFile(o.file); if (d) openDoc(d); else showInfo(`The sheet <b>${esc(o.file)}</b> is not a viewable document of this project.`); return; }
+  const ci = o.comp; if (ci >= 0) { const c = S.comps[ci]; crossProbe(c.group || c.ref, "pcb"); }
+}
+function schFind(q) {
+  const ql = q.toLowerCase(); let ci = S.comps.findIndex(c => c.ref.toLowerCase() === ql);
+  if (ci < 0) ci = S.comps.findIndex(c => (c.group || "").toLowerCase() === ql);
+  if (ci >= 0) { selectComp(ci, true); return; }
+  const ni = S.nets.findIndex(n => n.name && n.name.toLowerCase() === ql);
+  if (ni >= 0) { selectNet(ni, true); return; }
+  showInfo(`Nothing named <b>${esc(q)}</b> on this sheet.`);
+}
+function loadSch(scene, keepView) {
+  st.itemInfo = false;
+  const first = S === null || S !== scene && !keepView; if (!scene.mm) toMMsch(scene); S = scene;
+  document.body.classList.add("sch"); if (st.mode3d) set3D(false);
+  SCH.sel = -1; SCH.selNet = -1; SCH.selComp = -1; showInfo(null);
+  cv.style.display = "block"; view.mirror = false;
+  $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
+  $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
+  const c = S.meta.counts || {};
+  $("ovTitle").style.display = "none"; $("overlays").innerHTML = "";
+  $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +
+    (c.kinds ? `<br>${c.items || 0} items: ${Object.entries(c.kinds).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}`   // a Draftsman sheet (c0180)
+      : `<br>${c.components || 0} parts · ${c.pins || 0} pins · ${c.wires || 0} wires · ${c.nets || 0} nets · ${c.power_ports || 0} power ports · ${c.ports || 0} ports`);
+  sheetTabs(); buildNav(); buildDiffList(); buildMessages(); buildVariants(); applyProjNet();
+  if (first) { fitted = false; fit(); } else draw();
+}
+
+// ================================================================== libraries (c0179): the item list, each item drawn as a board or a sheet
+let LIB = null, LIBSEL = -1, LIBQ = "";
+function toUnits(sc) {
+  if (sc.kind === "table") return sc;   // c0190: a BOM document or an output job
+  if (sc.kind === "library") { for (const it of sc.items) if (it.scene) toUnits(it.scene); return sc; }
+  return sc.kind === "schematic" ? toMMsch(sc) : toMM(sc);
+}
+function itemNote(it) {
+  if (it.copper_nm) { const b = it.copper_nm; return `${it.pads} pads · ${fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)}`; }
+  return it.pins != null ? `${it.pins} pins` : "";
+}
+function buildLibList() {
+  const box = $("libList"); box.innerHTML = ""; if (!LIB) return; const q = LIBQ.trim().toLowerCase();
+  $("libTitle").textContent = `${LIB.lib === "pcb" ? "Footprints" : LIB.lib === "drawing" ? "Sheets" : "Symbols"} (${LIB.items.length})`;
+  LIB.items.forEach((it, i) => { if (q && !it.name.toLowerCase().includes(q) && !(it.description || "").toLowerCase().includes(q)) return;
+    const d = document.createElement("div"); d.className = "navi" + (i === LIBSEL ? " sel" : ""); d.title = it.description || it.name;
+    d.innerHTML = `${esc(it.name)} <small>${esc(itemNote(it))}</small>`; d.onclick = () => openItem(i); box.appendChild(d); });
+}
+function itemInfo(it) {
+  const rows = [...it.info];
+  if (it.copper_nm) { const b = it.copper_nm; rows.push(["Copper extent", fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)]); }
+  if (it.courtyard_nm) { const b = it.courtyard_nm; rows.push(["Courtyard", fmtPair((b[2] - b[0]) / 1e6, (b[3] - b[1]) / 1e6)]); }
+  return `<b>Properties</b> · ${LIB.lib === "pcb" ? "Footprint" : LIB.lib === "drawing" ? "Sheet" : "Symbol"}${rows.length ? `<table>${rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`).join("")}</table>` : ""}`;
+}
+function openItem(i, keepView) {
+  LIBSEL = i; const it = LIB.items[i]; buildLibList();
+  if (!it.scene) { showInfo(`<b>${esc(it.name)}</b> could not be drawn; see the notes.`); return; }
+  if (it.scene.kind === "schematic") loadSch(it.scene, keepView); else loadBoard(it.scene, keepView);
+  document.body.classList.add("lib"); $("fname").textContent = `${LIB.meta.name} › ${it.name}`;
+  showInfo(itemInfo(it)); st.itemInfo = true;
+}
+function loadLibrary(scene, keepView) {
+  const prev = LIB && LIBSEL >= 0 ? LIB.items[LIBSEL].name : null; LIB = scene;
+  document.body.classList.add("lib");
+  let i = prev ? scene.items.findIndex(it => it.name === prev) : -1; if (i < 0) i = scene.items.findIndex(it => it.scene); if (i < 0) i = 0;
+  if (!scene.items.length) { LIBSEL = -1; buildLibList(); showInfo("This library holds no item."); return; }
+  openItem(i, keepView && prev !== null);
+  if (scene.meta.notes && scene.meta.notes.length) $("notes").innerHTML += "<br>" + scene.meta.notes.map(esc).join("<br>");
+}
+$("libFilter").addEventListener("input", e => { LIBQ = e.target.value; buildLibList(); });
+function setUnit(u) {
+  UNIT = u; $("bUnit").textContent = u; try { localStorage.setItem("fenolite.view.unit", u); } catch (e) { /* the choice is kept for this page only */ }
+  if (!S) return;
+  if (LIB && st.itemInfo && LIBSEL >= 0 && !st.lastHit && SCH.sel < 0) showInfo(itemInfo(LIB.items[LIBSEL]));
+  if (isSch()) { if (SCH.sel >= 0) schSelect(SCH.sel); else if (SCH.selNet >= 0) selectNet(SCH.selNet, false); }
+  else if (st.lastHit) select(st.lastHit, st.lastAt);
+  if (st.mouse) showCoord(st.mouse[0], st.mouse[1]);
+  buildLibList(); draw();
+}
+$("bUnit").onclick = () => setUnit(UNIT === "mm" ? "mil" : "mm");
+$("bUnit").textContent = UNIT;
+
+// ================================================================== start: embedded data or the live server
+async function start() {
+  if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
+  else if (LIVE) { PROJECT = await (await fetch("project.json", { cache: "no-store" })).json(); }
+  buildTree();
+  loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks)); buildMarks();
+  const docs = PROJECT ? PROJECT.groups.flatMap(g => g.documents) : [];
+  const link = new URLSearchParams(location.hash.slice(1));   // c0189: a link opens where it was made
+  const want = link.get("doc") || (EMBED && EMBED.open) || (PROJECT && PROJECT.open);
+  const d = docs.find(x => x.id === want) || docs.find(x => x.viewable && x.present) || docs[0];
+  if (d) await openDoc(d);
+  if (link.get("doc") && DOC && DOC.id === link.get("doc")) applyLink(link);
+  else applySelect((EMBED && EMBED.select) || (PROJECT && PROJECT.select));
+  linkReady = true;
+  if (LIVE) setInterval(poll, 2000);
+}
+async function poll() {
+  if (!DOC || !DOC.viewable) return;
+  try { const v = await (await fetch(`version/${encodeURIComponent(DOC.id)}`, { cache: "no-store" })).json();
+    $("live").textContent = v.error ? `error: ${v.error}` : v.building ? "reading…" : v.updated ? `live · updated ${v.updated}` : "live";
+    if (v.version && st.version && v.version !== st.version && !v.building) { SCENES.delete(DOC.id); await openDoc(DOC, true); }
+    st.version = v.version || st.version;
+  } catch (e) { $("live").textContent = "server not reachable"; }
+}
+start();
+</script>
+</body>
+</html>

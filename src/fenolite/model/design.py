@@ -10,13 +10,17 @@ import re
 from collections import Counter
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
+from fractions import Fraction
 from functools import cached_property
 from types import MappingProxyType
 from typing import Any
 
 from fenolite import __version__
+from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
+from fenolite.core.evidence import Evidence
 from fenolite.core.ids import new_id
+from fenolite.core.provenance import Provenance
 from fenolite.model.base import Entity
 from fenolite.model.board import MAX_CORNER_RATIO, Board, Pad, Stackup
 from fenolite.model.circuit import Circuit, Component, Net, PinRef, pin_pad_map_problems
@@ -40,16 +44,32 @@ class DesignHeader(Entity):
     fenolite_version: str
 
 
+_LEAVES = (str, int, float, bool, bytes, type(None), Fraction, Point, Evidence, Provenance)
+"""Values that hold no entity: ``iter_entities`` does not look inside them (a board holds millions)."""
+_FIELD_NAMES: dict[type, tuple[str, ...]] = {}
+
+
+def _field_names(kind: type) -> tuple[str, ...]:
+    names = _FIELD_NAMES.get(kind)
+    if names is None:
+        names = _FIELD_NAMES[kind] = tuple(f.name for f in dataclasses.fields(kind))
+    return names
+
+
 def iter_entities(value: Any) -> Iterator[Entity]:
     """Every entity reachable from ``value`` (depth first, in field order)."""
+    if isinstance(value, _LEAVES):
+        return
     if isinstance(value, Entity):
         yield value
-    if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        for f in dataclasses.fields(value):
-            yield from iter_entities(getattr(value, f.name))
+    kind: type[Any] = type(value)  # pyright: ignore[reportUnknownVariableType]
+    if dataclasses.is_dataclass(kind) and not isinstance(value, type):
+        for name in _field_names(kind):
+            yield from iter_entities(getattr(value, name))
     elif isinstance(value, (tuple, list)):
         for item in value:  # pyright: ignore[reportUnknownVariableType]
-            yield from iter_entities(item)
+            if not isinstance(item, _LEAVES):
+                yield from iter_entities(item)
 
 
 def _replace_in(value: Any, new: Entity) -> tuple[Any, bool]:

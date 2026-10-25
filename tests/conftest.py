@@ -98,6 +98,12 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
     if item.get_closest_marker("needs_freerouting") and freerouting_jar() is None:
         _missing("freerouting", FREEROUTING_HINT)
+    if item.get_closest_marker("needs_browser"):
+        from _visual import browser_missing  # change c0191
+
+        missing = browser_missing()
+        if missing:
+            _missing("browser", missing)
     minimum = item.get_closest_marker("kicad_min_major")
     if minimum is not None:
         version = kicad_cli_version()
@@ -116,6 +122,20 @@ def _tools_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterat
     name = "FENOLITE_TOOLS_DIR"
     before = os.environ.get(name)
     os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-tools")
+    yield
+    if before is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = before
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _cache_folder_of_the_run(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """No test reads or fills the user's cache folder: ``FENOLITE_CACHE_DIR`` names a folder of the run
+    (the viewer's scene cache, capability viewer-performance; c0182)."""
+    name = "FENOLITE_CACHE_DIR"
+    before = os.environ.get(name)
+    os.environ[name] = str(tmp_path_factory.getbasetemp() / "fenolite-cache")
     yield
     if before is None:
         os.environ.pop(name, None)

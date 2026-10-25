@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import Literal
 
@@ -53,14 +53,22 @@ class PropertyRecord:
     raw: bytes
     fields: tuple[tuple[str, str], ...]
     lead: bytes = b""
+    _index: dict[str, tuple[str, ...]] = field(default_factory=lambda: {}, compare=False, repr=False)
+    """The values of each upper-case key, built on the first lookup (change c0182: a record is asked for
+    many keys, and comparing every field each time dominated the read of a large board)."""
 
     def keys(self) -> tuple[str, ...]:
         return tuple(key for key, _ in self.fields)
 
     def get_all(self, key: str) -> tuple[str, ...]:
         """Every value of ``key``, compared without case, in order."""
-        wanted = key.upper()
-        return tuple(value for name, value in self.fields if name.upper() == wanted)
+        index = self._index
+        if not index and self.fields:
+            grouped: dict[str, list[str]] = {}
+            for name, value in self.fields:
+                grouped.setdefault(name.upper(), []).append(value)
+            index.update((name, tuple(values)) for name, values in grouped.items())
+        return index.get(key.upper(), ())
 
     def get(self, key: str) -> str | None:
         """The first value of ``key`` (without case), the decoded ``%UTF8%<key>`` value when it exists."""

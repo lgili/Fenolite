@@ -145,6 +145,7 @@ def test_supported_case_without_basis_refused() -> None:
 def test_altium_fact_tables() -> None:
     pages = sorted(ALTIUM_PAGES.glob("*.md"))
     assert [p.name for p in pages] == [
+        "bom-document.md",
         "compound-file.md",
         "connectivity.md",
         "draftsman.md",

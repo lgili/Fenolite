@@ -366,8 +366,10 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `project` | `BUILD_EVIDENCE` INFERRED: `H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`, `H-A-PRJ-KEEP`, `H-A-PRJ-OPEN`, `H-A-SCH-ECO`, `H-A-SCH-LINEEND`, `H-A-SCH-LINK`, `H-A-SCH-NC-ERC`, `H-A-SCH-NC-RECORD`, `H-A-SCH-NC-VIEWER`, `H-A-SCH-NETS`, `H-A-SCH-OPEN`, `H-A-SCH-RELINK`, `H-A-SCH-UID`, `H-A-SCH-UPDATE`, `H-A-SCHX-BUS`, `H-A-SCHX-DIR`, `H-A-SCHX-ECO`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-PINMAP`, `H-A-SCHX-PINMAP-FORM`, `H-A-SCHX-READBACK`, `H-A-SCHX-TEXT`, `H-A-SCHX-TREE`<br>`EVIDENCE` INFERRED: `H-A-CONV-SCHEMATIC`, `H-A-ECO-NETCLASS`, `H-A-ECO-PRJ-KEYS`, `H-A-ECO-ROOMS`, `H-A-ECO-SUPPLY`, `H-A-PRJ-OPEN`, `H-A-SCH-LINEEND`, `H-A-SCH-LINK`, `H-A-SCH-NETS`, `H-A-SCH-OPEN`, `H-A-SCH-UID`, `H-A-SCHX-BUS`, `H-A-SCHX-DIR`, `H-A-SCHX-ECO`, `H-A-SCHX-GRAPHICS`, `H-A-SCHX-READBACK`, `H-A-SCHX-TEXT`, `H-A-SCHX-TREE` |
 | `read.annotation` | `EVIDENCE` INFERRED: `H-A-IMP-RPT-ANNOT-2` |
 | `read.bodies` | see `import_evidence` |
+| `read.bomdoc` | `EVIDENCE` INFERRED: `H-A-PRJ-BOMDOC` |
 | `read.cfb` | `EVIDENCE_V3` CORPUS-VERIFIED: `H-A-RD-CFB-CORPUS`, `H-A-RD-CFB-DIFAT`<br>`EVIDENCE_V4` INFERRED: `H-A-RD-CFB-CORPUS`, `H-A-RD-CFB-DIFAT`, `H-A-RD-CFB-V4` |
 | `read.draftsman` | `EVIDENCE` INFERRED: `H-A-DWF-CONTAINER`, `H-A-DWF-FIELD` |
+| `read.dwfdraw` | `EVIDENCE` INFERRED: `H-A-DWF-GEOM` |
 | `read.ini` | see `read.project` |
 | `read.outjob` | see `read.project` |
 | `read.pcb` | `EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PCB-FRAME`, `H-A-RD-PCB-IDENTITY`, `H-A-RD-PCB-LENGTHS`, `H-A-RD-PCB-REGION`, `H-A-RD-PCB-TEXT-2`, `H-A-RD-PCB-RULE`, `H-A-RD-PCB-POLYNAME`, `H-A-RD-PCB-CODEC` |
@@ -395,6 +397,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.sheet` | `EVIDENCE` INFERRED: `H-A-RD-SHT-AREA`, `H-A-RD-SHT-BORDER`, `H-A-RD-SHT-IMAGE`, `H-A-RD-SHT-OWNER`, `H-A-RD-SHT-SAME`, `H-A-RD-SHT-STRINGS`, `H-A-RD-SHT-TEXT`, `H-A-RD-SHT-WIDTH` |
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |
+| `read.variants` | `EVIDENCE` INFERRED: `H-A-PRJ-VARIANT` |
 | `roundtrip` | `EVIDENCE_BODIES` INFERRED: `H-A-PCBX-BODY-READBACK`<br>`EVIDENCE_RT_A0` INFERRED: `H-A-VER-RTA0`<br>`EVIDENCE_RT_A2` INFERRED: `H-A-VER-RTA2-3`<br>`EVIDENCE_RT_A3` CORPUS-VERIFIED: `H-A-VER-RTA3`<br>`PROJECT_READ_EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PRJ-INI`<br>`_RT_A1` INFERRED: `H-A-VER-RTA1` |
 | `rta3` | see `roundtrip`, `import_evidence` |
 | `rulemap` | `EVIDENCE` INFERRED: `H-A-RULE-CLEARANCE-CELLS`, `H-A-RULE-CLEARANCE-FORMS`, `H-A-RULE-FILE`, `H-A-RULE-KINDS`, `H-A-RULE-PRIORITY`, `H-A-RULE-READBACK`, `H-A-RULE-SCOPE` |

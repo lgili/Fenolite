@@ -48,6 +48,43 @@ jobs:
       - name: Tests
         run: uv run pytest -q -n auto --dist loadfile
 
+  viewer:
+    # change c0191: screenshot and interaction tests of the viewer page, in the Chromium of Playwright 1.63.0
+    # (153.0.8010.12) with the fonts of fonts-dejavu-core 2.37-8, the versions the references were made with
+    name: viewer (visual tests)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Sync (locked)
+        run: uv sync --locked --extra dev
+      - name: Playwright and its Chromium
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw" && cd "$RUNNER_TEMP/pw"
+          npm init -y > /dev/null && npm install --no-audit --no-fund playwright@1.63.0
+          npx playwright install --with-deps chromium
+          echo "FENOLITE_PLAYWRIGHT=$RUNNER_TEMP/pw/node_modules/playwright" >> "$GITHUB_ENV"
+      - name: Fonts
+        run: |
+          sudo apt-get install -y --no-install-recommends fonts-dejavu-core
+          dpkg-query -W fonts-dejavu-core
+      - name: Visual tests
+        env:
+          FENOLITE_REQUIRE: browser
+        run: uv run pytest tests/visual -q --basetemp "$RUNNER_TEMP/visual"
+      - name: Keep the screenshots and difference images
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: viewer-differences
+          path: ${{ runner.temp }}/visual/**/*.png
+
   wheel:
     name: wheel (the built package installs alone)
     runs-on: ubuntu-latest

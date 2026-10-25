@@ -68,7 +68,7 @@ def _cell(text: str) -> str:
 
 def _argument(argument: Argument) -> str:
     name = ", ".join(f"`{flag}`" for flag in argument.flags) or f"`{argument.name.upper()}`"
-    facts = [argument.type]
+    facts = [] if argument.type == "string" else [argument.type]  # the head says: a string unless stated
     if argument.choices:
         facts.append("one of " + ", ".join(f"`{choice}`" for choice in argument.choices))
     if argument.kind == "positional":
@@ -79,7 +79,7 @@ def _argument(argument: Argument) -> str:
         facts.append("repeatable")
     if argument.default not in (None, False, [], ()):
         facts.append(f"default `{argument.default}`")
-    line = f"- {name} ({', '.join(facts)})"
+    line = f"- {name} ({', '.join(facts)})" if facts else f"- {name}"
     return f"{line}: {_cell(argument.help)}" if argument.help else line
 
 
@@ -92,6 +92,7 @@ def commands_page(registry: Mapping[str, Command]) -> str:
         "A command that writes does nothing without `--dry-run` (show the plan) or `--confirm` (write);",
         "`--confirm --plan ID` writes the plan that a dry run gave. Its sections list these three no more.",
         "`fenolite capabilities --command NAME --json` gives the same facts as data.",
+        "An argument takes a string unless its line names another type.",
         "",
         "| command | writes | summary |",
         "|---|---|---|",

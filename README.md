@@ -98,6 +98,13 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
   slot, and drilled holes that break into them (`docs/dsl.md`, `docs/cli-contract.md`). What each change of
   0.5 ships, and what waits for the next release, is in `docs/release/v0.5.md`.
 
+After 0.5, on the branch of change c0176:
+
+- **A board viewer.** `fenolite view PATH` shows the boards of an Altium or KiCad project in a browser,
+  without either tool: the project's documents in a side panel, the layers as tabs along the bottom, Top and
+  Bottom views, net highlight, measurement, a 3D view with part bodies, and the paths of an `analyze` reply
+  on top. `--serve` serves it live on `127.0.0.1`; `--export` writes one standalone page (`docs/viewer.md`).
+
 ## Evidence labels
 
 | Label | Meaning |

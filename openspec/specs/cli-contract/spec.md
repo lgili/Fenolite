@@ -2199,3 +2199,31 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 #### Scenario: Directions listed
 - **WHEN** `uv run fenolite capabilities --json --no-tools` runs after this change
 - **THEN** `result.conversions` holds `{"from": "kicad", "to": "altium", "experimental": true, ...}` and `{"from": "kicad", "to": "kicad", "targets": [9, 10], "experimental": false, ...}`
+
+### Requirement: View command caches scenes
+`fenolite view` SHALL cache scenes in the user's cache folder by default (`--cache user`), under `.fenolite/view-cache/` of the project with `--cache project`, and not at all with `--cache off`, and SHALL reply with `result.cache`. `--export` SHALL accept `--docs ID,...` to embed only those documents.
+
+#### Scenario: Export of one document
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k docs` exports an Altium project with `--docs` naming its board
+- **THEN** `result.export.documents` lists only that board
+
+### Requirement: View command compares two revisions
+`fenolite view NEW --compare OLD` SHALL reply with `result.compare`, the count of each kind of change, and SHALL refuse two documents of different families with `FEN-2001`.
+
+#### Scenario: Compare counts
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k compare` compares an authored board with its edited copy
+- **THEN** the exit code is 0 and `result.compare.moved` is 1
+
+### Requirement: View command draws check findings
+`fenolite view` SHALL accept `--check FILE` (a `check` reply) or `--check run`, reply with `result.check` counting findings by severity, and refuse a file that is not a `check` reply with `FEN-3004`.
+
+#### Scenario: Not a check reply
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k check_reply` passes an `analyze` reply to `--check`
+- **THEN** the exit code is 3 and the error code is `FEN-3004`
+
+### Requirement: View command opens at a selection and reads review marks
+`fenolite view` SHALL accept `--select REF` to open at a part or net, and `--marks FILE` to reply with the review marks of that file in `result.marks`.
+
+#### Scenario: Marks for an agent
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k marks` passes an authored review file
+- **THEN** `result.marks` lists its marks with their document, position and note

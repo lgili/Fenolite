@@ -2853,6 +2853,91 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
   `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.
 
+## view
+
+`fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
+board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
+`.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
+
+- **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
+  (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
+  `viewable`, `size`), `result.document` the id of the document shown (`--doc`, else the board named as the
+  project, else the first board, else the first sheet), `result.summary` its layers and the count of each
+  item kind, and `result.notes` what the scene states (derived mask openings, zones without fill, an assumed
+  thickness; for a sheet, which drawings are Fenolite's). For an Altium sheet `result.summary` is `kind`
+  `"schematic"`, `counts` (components, pins, wires, buses, bus entries, labels, power ports, ports, junctions,
+  No ERC marks, sheet symbols, sheet entries, harness connectors, nets, primitives) and `bounds_um`, and
+  `evidence.level` is `INFERRED`; a KiCad sheet replies the same way, with `components` counting the symbols
+  whose reference does not start with `#` and `symbols` counting all. `evidence.level` of a board is that of
+  the backend's read. `result.theme` names the colours of the document shown: `kicad`, `altium`, or
+  `kicad:<file>` for a theme given with `--theme`.
+- **Libraries.** For a library, `result.summary` is `kind` `"library"`, `lib` (`"pcb"` or `"schematic"`),
+  `counts.items` (one per footprint, or per symbol part or unit) and `items`, the first 50 names. A board
+  scene, a footprint's included, lists every pad with its exact size in nanometres.
+- **Drawings.** For a `.PCBDwf`, `result.summary` is `kind` `"drawing"`, `counts` (`sheets` and the count of
+  each item kind: views, tables, texts, lines and so on), `sheets` (their names) and `panel` (the document's
+  `IsPanel`). The sheets are drawn from the document's own copy of the board; `evidence.level` is
+  `INFERRED`. A board or a drawing that holds an Embedded Board Array gets a note that Fenolite does not draw
+  the array.
+- **BOM documents and output jobs** (change c0190). A `.BomDoc` and an `.OutJob` of an Altium project are
+  viewable: `result.summary` is `kind` `"table"`, `table` (`"bom"` or `"outjob"`), `counts` and `columns`. A
+  BOM document is built from the parts of the project's sheets with the document's grouping, catalog,
+  columns, aliases and sort (`counts`: `lines`, `parts`, `manual`); opened alone it lists its catalog. An output
+  job lists its outputs (`counts`: `outputs`, `groups`) with the folder each container writes to, as the job
+  spells it. `evidence.level` is `INFERRED`.
+- **Cache** (change c0182). Scenes are cached by the SHA-256 of their input, the theme and a digest of
+  Fenolite's code: in the user's cache folder by default (`FENOLITE_CACHE_DIR`, else the platform's cache
+  folder), under `.fenolite/view-cache/` of the project with `--cache project`, or not at all with
+  `--cache off`. The cache is not a planned write and holds no file bytes. `result.cache` gives `where`,
+  `hits` and `misses`.
+- **`--compare OLD`** (change c0184) draws, over the document shown, what changed since the board or sheet
+  `OLD`, and replies with `result.compare`: `kind`, `old` (name, SHA-256), the counts `added`, `removed`,
+  `moved`, `changed` and `zone` (a board) or `net` (a sheet), and `changes`, one line each. `OLD` must be of the
+  same kind and tool (`FEN-2001`); a missing `OLD` is `FEN-3001`.
+- **`--variant NAME`** (change c0186) opens an Altium project with its variant `NAME` chosen, and replies with
+  `result.variant`: `name`, `fitted` and `not_fitted`, counted over the parts of the document shown. A name
+  the project does not hold is `FEN-2001`, with the names it holds. The scenes of the project's sheets and
+  board carry every variant, so the page can switch between them.
+- **`--check FILE|run`** (change c0188) draws the findings of a `fenolite check --json` reply (`FILE`), or
+  with `run` of `check` run first in the same process, read-only, on the project file (else on the document
+  shown), with its default stages and options. Each finding with a position gets a marker in the colour of its
+  severity, on its layer when it states one, and a Messages panel lists every finding grouped by code, errors
+  first, with its stage and that stage's evidence. `result.check` gives `error`, `warning`, `info`, `total`
+  and `placed` (the findings with a position on the document shown). A file that is not a `check` reply is
+  `FEN-3004`; a missing one is `FEN-3001`. ERC findings are placed on sheets only, and the findings of the board
+  stages on boards only.
+- **`--select REF`** (change c0189) opens the page at the part or net `REF` (`net:NAME` for a net whose name
+  is also a reference), and replies with `result.select`: `name` and `found` (whether the document shown holds
+  it; when it does not, a note says so). An exported page carries it.
+- **`--marks FILE`** (change c0189) names a review file, `fenolite.review.v0` (`schemas/`): marks with `id`,
+  `doc` (the document's file name), `x_nm` and `y_nm` (Y down, the document's frame), `note`, `select` and
+  `created`. The reply lists them in `result.marks`, each also with `x_mm` and `y_mm`. With `--serve` the page
+  saves new and deleted marks to `FILE`, through the server alone, in one atomic replace; the file may be
+  missing then, and `result.serve.marks_written` counts the saves. The server takes a mark only from its own
+  page on the loopback address (`Host` and `Origin` checked, the header `X-Fenolite-Review: 1` required) and
+  only to `FILE`. Without `--serve`, a missing `FILE` is `FEN-3001`; a malformed one is `FEN-3004`. An exported
+  page carries the marks and keeps new ones in the browser, to download as a review file. Serving with
+  `--marks` is the consent to these writes; without it the server writes nothing.
+- **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
+  in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
+  not found is `FEN-3001`, a malformed one `FEN-3004`.
+- **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable document
+  (only those `--docs` names, by id, path or name; an unknown one is `FEN-2001`), each scene compact and
+  gzipped (`fenolite.view_scene.v1`), under the mutation protocol; `result.export` gives its documents, size
+  and SHA-256, and a `warning` above 20 MB.
+- **`--serve`** writes one progress record with the URL to stderr, serves the page on `127.0.0.1` (port
+  8765, or any free port with `--port 0`) until it is interrupted, reloading a document when its file is
+  saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
+  `--no-browser`.
+- **`--overlay FILE`** reads the JSON reply of `fenolite analyze`: every distance row's clearance and
+  creepage paths are drawn, and a row that an error or warning names is marked as a finding.
+- **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, an unknown `--doc`, or a
+  path that is neither a project file, a board, a sheet, a library nor a drawing; 3 (`FEN-3001`) for a missing
+  path, (`FEN-3004`) for an overlay that is not an `analyze` reply or a sheet or drawing the reader refuses; 4 (`FEN-4001`,
+  `FEN-4002`).
+
 ## manifest
 
 `fenolite manifest PATH [--artifacts DIR]... [--stages a,b] [--no-check] [--verify] [--out FILE]
