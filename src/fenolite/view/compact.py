@@ -15,8 +15,8 @@ columns under ``p1``:
 * ``D``: one integer list. Every point is written as its offset from the point before it: the first point of a
   primitive from the first point of the primitive before it, the next points from the previous point of the
   same primitive (each ring of a polygon from the first point of the ring before it). Per kind: ``s`` x1 y1
-  x2 y2 w; ``c`` x y r; ``a`` three points and w; ``l`` the point count, w and the points; ``p`` and ``o``
-  the ring count, then per ring its point count and points.
+  x2 y2 w; ``c`` x y r; ``a`` three points and w; ``l`` the point count, w and the points; ``p``, ``o``
+  and ``h`` (hatched) the ring count, then per ring its point count and points.
 
 ``expand`` gives the v0 primitives back exactly; the page's ``decodeV1`` does the same in the browser. A scene
 whose primitives hold another kind or a value that is not an integer stays v0. ``pack`` gzips a scene's JSON
@@ -33,7 +33,7 @@ from typing import Any, cast
 
 SCHEMA_V0 = "fenolite.view_scene.v0"
 SCHEMA_V1 = "fenolite.view_scene.v1"
-KINDS = frozenset("scalpo")
+KINDS = frozenset("scalpoh")
 FIXED = {"c": 1, "s": 2, "a": 3}
 """The points of the kinds of fixed size; each is followed by one value (radius or width)."""
 PACKED = "gz:"
@@ -109,7 +109,7 @@ def _columns(prims: list[Any]) -> dict[str, Any]:
             raise _Unfit
         if not isinstance(label, str):
             raise _Unfit
-        if kind in "po":
+        if kind in "poh":
             if not isinstance(value, list):
                 raise _Unfit
             rings = [_ints(ring) for ring in cast("list[Any]", value)]
@@ -174,7 +174,7 @@ def expand(scene: dict[str, Any]) -> dict[str, Any]:
     prims: list[list[Any]] = []
     for k, kind in enumerate(cast("str", cols["K"])):
         value: Any
-        if kind in "po":
+        if kind in "poh":
             count = data[at]
             at += 1
             rings: list[list[int]] = []

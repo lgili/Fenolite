@@ -25,7 +25,7 @@ from typing import Any, cast
 
 from fenolite.backends import registry
 from fenolite.backends.altium.read.sch import read_schematic
-from fenolite.backends.base import BoardFrame
+from fenolite.backends.base import BoardFrame, PlacedExtent
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
@@ -33,6 +33,7 @@ from fenolite.cli.output import InputRef
 from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
+from fenolite.placement import legality
 from fenolite.view import export, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.cache import WHERE, SceneCache
@@ -50,6 +51,10 @@ from fenolite.view.themes import Palette
 HELP = "show a project's boards, sheets and drawings in a web page (writes FILE with --export)"
 KIND = "view"
 DEFAULT_PORT = 8765
+APPROXIMATE_NOTE = (
+    "{} overlap(s) of parts without a courtyard (their extent is taken from their pads) are not marked; "
+    "fenolite place judges them"
+)
 LARGE_PAGE = 20_000_000
 """An exported page above this many bytes gets a warning in ``result.export``."""
 
@@ -121,6 +126,7 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
         raise CliError("FEN-2001", f"{path.name} is not a board", where=path.name)
     frame = backend if isinstance(backend, BoardFrame) else None
     native = native_view(design, data, file=path.name) if path.suffix.lower() == ".pcbdoc" else None
+    extents, checks = _placement(design, frame)
     scene = build_scene(
         design,
         frame,
@@ -129,12 +135,41 @@ def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
         backend=backend.name,
         evidence=read.evidence.level.value,
         native=native,
+        checks=checks,
+        extents=extents,
     )
     if holds_panel(path):
         scene["meta"]["notes"] = [PANEL_NOTE, *scene["meta"].get("notes", [])]
     name = themes.theme_for(backend.name)
     chosen = kicad if name == "kicad" and kicad is not None else themes.palette(name)
     return themes.apply_board_theme(scene, chosen)
+
+
+def _placement(
+    design: Design, frame: BoardFrame | None
+) -> tuple[tuple[PlacedExtent, ...] | None, list[tuple[str, tuple[str, ...]]]]:
+    """The courtyards of the board and its placement findings that name parts (change c0183): overlapping
+    courtyards and parts in keep-outs that forbid footprints, judged by ``placement.legality`` as
+    ``fenolite place`` judges them."""
+    if frame is None or design.board is None:
+        return None, []
+    try:
+        extents = frame.placed_extents(design)
+    except (ValueError, TypeError, KeyError):
+        return None, []
+    refs = {c.id: c.ref for c in design.circuit.components}
+    names = {fp.id: refs.get(fp.component_id) or f"({fp.lib_ref})" for fp in design.board.footprints}
+    found = legality.check(extents, (), names=names, keepouts=design.board.keepouts)
+    marks: list[tuple[str, tuple[str, ...]]] = []
+    approximate = 0
+    for issue in found:
+        if issue.code == "place.courtyard-overlap" and issue.message.endswith(legality.APPROXIMATE):
+            approximate += 1  # courtyards made from pad copper: an overlap there is often no conflict
+        elif issue.code == "place.courtyard-overlap" or issue.code.startswith("place.keepout"):
+            marks.append((issue.message, tuple(issue.where.split(","))))
+    if approximate:
+        marks.append((APPROXIMATE_NOTE.format(approximate), ()))
+    return extents, marks
 
 
 def theme_of(argument: str | None, ctx: Context) -> Palette | None:

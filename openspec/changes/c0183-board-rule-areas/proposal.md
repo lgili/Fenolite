@@ -11,12 +11,15 @@ keep-outs (`Board.keepouts`), and the Altium and KiCad readers fill them; the sc
 - **Keep-outs and rule areas.** Each keep-out of the model is drawn on its layers (or a "Keep-Out" layer for
   an Altium keep-out of every layer) as a hatched outline, with what it forbids (tracks, vias, pads, pours,
   footprints) in Properties.
+- **Altium's Keep-Out Layer.** Its regions are drawn hatched and the layer is shown by default.
 - **Rooms (Altium).** The room definitions of `Rules6` (`RoomDefinition` rules) with a rectangular or polygonal
   region are drawn on a "Rooms" view layer with their name, and the parts their scope names are listed.
 - **Board dimensions.** Altium `Dimensions6` records and KiCad `dimension` items are drawn: the lines, arrows
   and text the file holds, on their layer.
-- **Courtyard overlap.** Overlapping courtyards (the `placed_extents` of the board frame) are drawn red on a
-  "Checks" view layer, with the two parts in Properties.
+- **Courtyard overlap.** Overlapping courtyards and parts in footprint keep-outs, judged by
+  `placement.legality` as `fenolite place` judges them (computed in `cmd_view`, as the `view` package may not
+  import `placement`), are drawn hatched red on a "Checks" view layer, naming the parts. Overlaps of extents
+  made from pad copper are counted in the notes, not drawn.
 
 ## Capabilities
 

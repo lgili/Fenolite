@@ -29,7 +29,7 @@ import hashlib
 from collections.abc import Callable, Iterable, Sequence
 from typing import TYPE_CHECKING, Any
 
-from fenolite.backends.base import BoardFrame, BoardPad, EdgeRing
+from fenolite.backends.base import BoardFrame, BoardPad, EdgeRing, PlacedExtent
 from fenolite.core.coords import Point
 from fenolite.geometry.transform import rotate_point
 from fenolite.model.board import Board, FootprintInstance, Graphic, Pad
@@ -40,6 +40,12 @@ if TYPE_CHECKING:
 
 SCHEMA = "fenolite.view_scene.v0"
 DRILL, OUTLINE, ZONE_OUTLINE = "View.Drill", "View.Outline", "View.ZoneOutline"
+KEEPOUTS, CHECKS = "View.Keepouts", "View.Checks"
+"""Keep-outs that name no layer of the scene, and the marks of placement findings (change c0183)."""
+ALTIUM_KEEPOUT = "Altium.KeepOut"
+"""The Altium Keep-Out Layer: its filled regions are drawn hatched (change c0183)."""
+DIMENSION_WIDTH, DIMENSION_TEXT = 100_000, 1_000_000
+"""The line width and text height of a dimension whose file gives none, in nm (Fenolite's choice)."""
 DEFAULT_THICKNESS = 1_600_000
 """The board thickness of the 3D view when the design has no stack-up, in nanometres (an assumption the
 notes state)."""
@@ -63,6 +69,8 @@ COLORS: dict[str, str] = {
     DRILL: "#2a2a2a",
     OUTLINE: "#ffffff",
     ZONE_OUTLINE: "#40d0d0",
+    KEEPOUTS: "#ff5fa8",
+    CHECKS: "#ff3030",
 }
 INNER = ("#c2c200", "#33a9a9", "#c27a2b", "#7f5fbf", "#5fa35f", "#bf5f9f")
 OTHER = ("#d97fd9", "#7fd9d9", "#d9a97f", "#a9d97f", "#7f9fd9", "#d97f9f", "#bfbf7f", "#7fbfbf")
@@ -273,6 +281,53 @@ def _pad_prims(
             b.add(DRILL, "l", [2 * r, *_flat(pad.hole)], pad.net, comp, label + " slot")
 
 
+def kinds_of(board: Board) -> set[str]:
+    return {layer.name for layer in board.layers}
+
+
+def _forbids(keepout: Any) -> str:
+    """What a keep-out forbids, as words."""
+    names = (
+        ("no_tracks", "tracks"),
+        ("no_vias", "vias"),
+        ("no_pads", "pads"),
+        ("no_copper_pour", "copper pours"),
+        ("no_footprints", "footprints"),
+    )
+    found = [word for attr, word in names if getattr(keepout, attr, False)]
+    return "no " + ", ".join(found) if found else ""
+
+
+def _dimension(b: _Builder, dim: Any, label: str, text: Callable[..., None]) -> None:
+    """A linear dimension: the extension lines, the dimension line and its value. An orthogonal one measures
+    along x or y and puts its line ``offset`` below (right of) the first point, above (left) when negative
+    (``docs/formats/kicad/board.md``); an aligned one measures the distance and puts its line ``offset`` along
+    the normal (dy, −dx) turned to the left of the direction, as an orthogonal one would (INFERRED)."""
+    from math import hypot
+
+    (sx, sy), (ex, ey) = (dim.start.x, dim.start.y), (dim.end.x, dim.end.y)
+    if dim.kind == "orthogonal" and dim.direction == "vertical":
+        a, z = (sx + dim.offset, sy), (sx + dim.offset, ey)
+        value = abs(ey - sy)
+    elif dim.kind == "orthogonal":
+        a, z = (sx, sy + dim.offset), (ex, sy + dim.offset)
+        value = abs(ex - sx)
+    else:
+        length = hypot(ex - sx, ey - sy) or 1.0
+        nx, ny = -(ey - sy) / length, (ex - sx) / length
+        a = (round(sx + nx * dim.offset), round(sy + ny * dim.offset))
+        z = (round(ex + nx * dim.offset), round(ey + ny * dim.offset))
+        value = round(length)
+    w = _um(dim.width or DIMENSION_WIDTH)
+    for p, q in (((sx, sy), a), ((ex, ey), z), (a, z)):
+        b.add(dim.layer, "s", [_um(p[0]), _um(p[1]), _um(q[0]), _um(q[1]), w], label=label)
+    places = max(0, min(dim.precision, 4))
+    shown = f"{value / 1e6:.{places}f} mm" if dim.units == "mm" else f"{value / 25_400_000:.{places}f} in"
+    size = dim.size.h if dim.size is not None else DIMENSION_TEXT
+    middle = Point((a[0] + z[0]) // 2, (a[1] + z[1]) // 2 - size)
+    text(dim.layer, middle, size, size, dim.thickness, 0, "center", "center", False, shown, -1)
+
+
 def _pad_list(board: Board, pads: Sequence[BoardPad], comp_of: dict[str, int]) -> list[dict[str, Any]]:
     """Every pad with its exact size (change c0179): centre in µm, sizes, drill and slot in nm from the
     model pad, shape, board rotation in degrees, corner ratio, kind, layers, net and part."""
@@ -378,11 +433,14 @@ def build_scene(
     backend: str = "",
     evidence: str = "INFERRED",
     native: NativeView | None = None,
+    checks: Sequence[tuple[str, tuple[str, ...]]] = (),
+    extents: Sequence[PlacedExtent] | None = None,
 ) -> dict[str, Any]:
     """The scene of ``design``'s board (module docstring). ``frame`` gives the pads, the courtyards and the
     edge in the board frame; ``data`` are the file's bytes, for its SHA-256 only. ``native`` (an Altium
     board, change c0181) names the layers as the board does, orders their tabs, and grows each pad's mask and
-    paste opening by its expansion."""
+    paste opening by its expansion. ``checks`` (change c0183) are placement findings, each a message and the
+    references of the parts it names, whose courtyards are marked on the ``View.Checks`` layer."""
     board = design.board
     if board is None:
         raise ValueError(f"{name}: the design holds no board")
@@ -572,20 +630,43 @@ def build_scene(
                 ci,
             )
 
+    # keep-outs, the Altium Keep-Out Layer, dimensions (change c0183)
+    copper_names = [layer.name for layer in board.layers if layer.kind == "copper"]
+    for k, keepout in enumerate(board.keepouts):
+        if len(keepout.outline) < 3:
+            continue
+        what = _forbids(keepout)
+        label = f"keep-out {keepout.name or k + 1}: {what}" if what else f"rule area {keepout.name or k + 1}"
+        named = [
+            n for layer in keepout.layers for n in (copper_names if layer in ("*.Cu", "F&B.Cu") else [layer])
+        ]
+        targets = [n for n in dict.fromkeys(named) if n in kinds_of(board)] or [KEEPOUTS]
+        for layer in targets:
+            b.add(layer, "h", [_flat(keepout.outline)], label=label)
+    for prim in b.prims:
+        if prim[0] == ALTIUM_KEEPOUT and prim[1] == "p":
+            prim[1] = "h"
+            prim[5] = f"{prim[5]} (Keep-Out Layer)" if prim[5] else "Keep-Out Layer"
+    shown_too = {ALTIUM_KEEPOUT}  # layers shown although their kind is hidden by default
+    for k, dim in enumerate(board.dimensions):
+        _dimension(b, dim, f"dimension {k + 1}", text)
+        shown_too.add(dim.layer)
+
     # component boxes: the courtyard where the backend gives one, else the pads
-    if frame is not None:
+    if extents is None and frame is not None:
         try:
             extents = frame.placed_extents(design)
         except (ValueError, TypeError, KeyError):
             extents = ()
-        for extent in extents:
-            ci = comp_of.get(extent.footprint_id)
-            rings = [r for r in (extent.front + extent.back) if r]
-            if ci is None or not rings:
-                continue
-            xs = [p.x for r in rings for p in r]
-            ys = [p.y for r in rings for p in r]
-            comps[ci]["bbox"] = [_um(min(xs)), _um(min(ys)), _um(max(xs)), _um(max(ys))]
+    extents = extents or ()
+    for extent in extents:
+        ci = comp_of.get(extent.footprint_id)
+        rings = [r for r in (extent.front + extent.back) if r]
+        if ci is None or not rings:
+            continue
+        xs = [p.x for r in rings for p in r]
+        ys = [p.y for r in rings for p in r]
+        comps[ci]["bbox"] = [_um(min(xs)), _um(min(ys)), _um(max(xs)), _um(max(ys))]
     boxes: dict[int, list[int]] = {}
     for pad in pads:
         ci = comp_of.get(pad.footprint_id)
@@ -598,6 +679,23 @@ def build_scene(
             box[2], box[3] = max(box[2], _um(p.x)), max(box[3], _um(p.y))
     for ci, box in boxes.items():
         comps[ci]["bbox"] = box
+    if checks:
+        rings_of: dict[str, list[tuple[Point, ...]]] = {}
+        for extent in extents:
+            ci = comp_of.get(extent.footprint_id)
+            if ci is not None:
+                rings_of.setdefault(comps[ci]["ref"], []).extend(r for r in extent.own if len(r) >= 3)
+        for message, refs in checks:
+            if not refs:  # a finding the scene only states
+                notes.append(message + ".")
+                continue
+            for ref in refs:
+                for ring in rings_of.get(ref, []):
+                    ci = next((i for i, c in enumerate(comps) if c["ref"] == ref), -1)
+                    b.add(CHECKS, "h", [_flat(ring)], comp=ci, label=message)
+        marked = sum(1 for _message, refs in checks if refs)
+        if marked:
+            notes.append(f"{marked} placement finding(s) are marked on the Checks layer.")
 
     # 3D: the slab and the bodies
     thickness = DEFAULT_THICKNESS
@@ -658,12 +756,12 @@ def build_scene(
                 "kind": kind,
                 "side": _side(layer_name),
                 "color": color,
-                "visible": kind in SHOWN,
+                "visible": kind in SHOWN or layer_name in shown_too,
             }
         )
         if native is not None and layer_name in native.tabs:
             layers[-1]["tab"] = native.tabs[layer_name]
-    for view_layer in (ZONE_OUTLINE, DRILL, OUTLINE):
+    for view_layer in (ZONE_OUTLINE, KEEPOUTS, CHECKS, DRILL, OUTLINE):
         if view_layer in b.used:
             layers.append(
                 {

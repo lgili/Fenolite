@@ -68,6 +68,22 @@ copied (`docs/formats/kicad/color-theme.md`).
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Keep-outs, dimensions and placement marks
+
+The board view also draws what a reviewer checks first (change c0183):
+- **Keep-outs.** A rule area is drawn hatched on its layers (on every copper layer for one of all copper),
+  and a click names what it forbids (tracks, vias, pads, copper pours, footprints). The regions of Altium's
+  Keep-Out Layer are drawn hatched too, and that layer is shown by default; its free board cut-outs are drawn
+  as the board's outline.
+- **Dimensions.** A linear dimension of the board is drawn with its extension lines, its line and its value,
+  on its own layer, which is then shown by default. An orthogonal dimension follows KiCad's side for its
+  offset; an aligned one puts its line on the same side (INFERRED).
+- **Placement marks.** Parts whose courtyards overlap, and parts inside a keep-out that forbids footprints, are
+  marked hatched on the `Checks` layer, judged as `fenolite place` judges them. Overlaps of parts without a
+  courtyard (their extent taken from their pads, as for every Altium board read today) are counted in the
+  notes, not marked, as they are often no conflict.
+- Altium rooms and Altium dimensions are not drawn: no public board shows their records (`H-A-ROOM`).
+
 ## Speed and size
 
 Large boards open fast the second time (change c0182):

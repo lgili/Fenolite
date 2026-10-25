@@ -205,7 +205,7 @@ function decodeV1(sc) {
   const pts = (n, x, y) => { const out = new Array(2 * n); for (let i = 0; i < n; i++) { x += D[at++]; y += D[at++]; out[2 * i] = x; out[2 * i + 1] = y; } return out; };
   for (let k = 0; k < p.K.length; k++) {
     const kind = p.K[k]; let v;
-    if (kind === "p" || kind === "o") { const count = D[at++]; v = []; let rx = cx, ry = cy;
+    if (kind === "p" || kind === "o" || kind === "h") { const count = D[at++]; v = []; let rx = cx, ry = cy;
       for (let r = 0; r < count; r++) { const ring = pts(D[at++], rx, ry); if (ring.length) { rx = ring[0]; ry = ring[1]; if (r === 0) { cx = rx; cy = ry; } } v.push(ring); } }
     else if (kind === "l") { const n = D[at++], w = D[at++]; const f = pts(n, cx, cy); cx = f[0]; cy = f[1]; v = [w, ...f]; }
     else { const f = pts(FIXED[kind], cx, cy); cx = f[0]; cy = f[1]; f.push(D[at++]); v = f; }
@@ -227,7 +227,7 @@ function toMM(scene) {
   for (const p of scene.pads || []) { p.x *= MM; p.y *= MM; }
   const f = v => v * MM;
   for (const pr of scene.prims) { const d = pr[2];
-    if (pr[1] === "p" || pr[1] === "o") pr[2] = d.map(r => r.map(f)); else pr[2] = d.map(f);
+    if (pr[1] === "p" || pr[1] === "o" || pr[1] === "h") pr[2] = d.map(r => r.map(f)); else pr[2] = d.map(f);
     if (pr[1] === "a") pr.push(arcOf(pr[2])); }
   for (const t of scene.texts) for (const k of [1, 2, 3, 4, 5]) t[k] = t[k] * MM;
   for (const c of scene.comps) { c.x *= MM; c.y *= MM; if (c.bbox) c.bbox = c.bbox.map(f); }
@@ -268,9 +268,11 @@ function addPrim(c, pr) {
   else if (k === "c") { c.fill.moveTo(d[0] + d[2], d[1]); c.fill.arc(d[0], d[1], d[2], 0, 2 * Math.PI); c.fill.closePath(); }
   else if (k === "p") { for (const r of d) ringPath(c.fill, r); }
   else if (k === "o") { for (const r of d) ringPath(c.outline, r); }
+  else if (k === "h") { for (const r of d) { ringPath(c.hatch, r); for (let i = 0; i < r.length; i += 2) {   // c0183: a keep-out or a finding, hatched
+    c.hb[0] = Math.min(c.hb[0], r[i]); c.hb[1] = Math.min(c.hb[1], r[i + 1]); c.hb[2] = Math.max(c.hb[2], r[i]); c.hb[3] = Math.max(c.hb[3], r[i + 1]); } } }
   c.n++;
 }
-function newCache() { return { fill: new Path2D(), strokes: new Map(), outline: new Path2D(), n: 0 }; }
+function newCache() { return { fill: new Path2D(), strokes: new Map(), outline: new Path2D(), hatch: new Path2D(), hb: [1e9, 1e9, -1e9, -1e9], n: 0 }; }
 function bboxOf(pr) { const d = pr[2]; switch (pr[1]) {
   case "s": return [Math.min(d[0], d[2]) - d[4] / 2, Math.min(d[1], d[3]) - d[4] / 2, Math.max(d[0], d[2]) + d[4] / 2, Math.max(d[1], d[3]) + d[4] / 2];
   case "a": { const a = pr[6], w = d[6] / 2; if (!a) return [Math.min(d[0], d[4]) - w, Math.min(d[1], d[5]) - w, Math.max(d[0], d[4]) + w, Math.max(d[1], d[5]) + w];
@@ -330,6 +332,10 @@ function paintCache(g, c, lid, color, alpha, unit) {
   for (const [w, p] of c.strokes) { g.lineWidth = Math.max(w, 1 / unit); g.stroke(p); }
   if (lid === "View.ZoneOutline") g.setLineDash([6 / unit, 4 / unit]);
   g.lineWidth = 1 / unit; g.stroke(c.outline); g.setLineDash([]);
+  if (c.hb[2] >= c.hb[0]) { const [x0, y0, x1, y1] = c.hb, step = 8 / unit;   // hatched rings: 45° lines inside, a solid edge
+    g.save(); g.clip(c.hatch, "evenodd"); g.lineWidth = 1 / unit; g.beginPath();
+    for (let t = x0 - (y1 - y0); t <= x1; t += step) { g.moveTo(t, y0); g.lineTo(t + (y1 - y0), y1); } g.stroke(); g.restore();
+    g.lineWidth = 1.5 / unit; g.stroke(c.hatch); }
 }
 function paintTexts(g, lid, color, alpha, unit) {
   const tc = textCache.get(lid); if (!tc || !tc.n) return;
@@ -407,7 +413,7 @@ function hitPrim(pr, x, y, tol) { const d = pr[2]; switch (pr[1]) {
   case "l": for (let i = 1; i + 3 < d.length; i += 2) if (segDist(x, y, d[i], d[i + 1], d[i + 2], d[i + 3]) <= d[0] / 2 + tol) return true; return d.length === 3 && Math.hypot(x - d[1], y - d[2]) <= d[0] / 2 + tol;
   case "a": { const a = pr[6]; if (!a) return segDist(x, y, d[0], d[1], d[4], d[5]) <= d[6] / 2 + tol; if (Math.abs(Math.hypot(x - a.cx, y - a.cy) - a.r) > d[6] / 2 + tol) return false;
     const T = 2 * Math.PI, t = Math.atan2(y - a.cy, x - a.cx); let span = ((a.a3 - a.a1) % T + T) % T, at = ((t - a.a1) % T + T) % T; if (a.ccw) { span = T - span; at = ((a.a1 - t) % T + T) % T; } return at <= span; }
-  case "p": { let n = 0; for (const r of d) if (inRing(x, y, r)) n++; return n % 2 === 1; }
+  case "p": case "h": { let n = 0; for (const r of d) if (inRing(x, y, r)) n++; return n % 2 === 1; }
   case "o": for (const r of d) for (let i = 0; i < r.length; i += 2) { const j = (i + 2) % r.length; if (segDist(x, y, r[i], r[i + 1], r[j], r[j + 1]) <= tol) return true; } return false; }
   return false; }
 function pick(X, Y) {
