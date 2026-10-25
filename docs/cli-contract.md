@@ -2853,6 +2853,30 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
   `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.
 
+## view
+
+`fenolite view PATH [--doc ID] [--overlay FILE]... [--serve [--port N] [--no-browser]] [--export FILE]`
+shows the boards of a project without the tool that made them (change c0176; `docs/viewer.md`). `PATH` is an
+Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder or a board.
+
+- **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
+  (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
+  `viewable`, `size`), `result.document` the id of the board shown (`--doc`, else the board named as the
+  project, else the first board), `result.summary` its layers and the count of each item kind, and
+  `result.notes` what the scene states (derived mask openings, zones without fill, an assumed thickness).
+  `evidence.level` is that of the backend's read.
+- **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable board,
+  under the mutation protocol; `result.export` gives its documents, size and SHA-256.
+- **`--serve`** writes one progress record with the URL to stderr, serves the page on `127.0.0.1` (port
+  8765, or any free port with `--port 0`) until it is interrupted, reloading a board when its file is
+  saved, and then replies with `result.serve` (`url`, `seconds`). It opens a browser unless
+  `--no-browser`.
+- **`--overlay FILE`** reads the JSON reply of `fenolite analyze`: every distance row's clearance and
+  creepage paths are drawn, and a row that an error or warning names is marked as a finding.
+- **Exit codes.** 0; 2 (`FEN-2001`) for `--serve` with `--export`, a bad `--port`, an unknown `--doc`, or a
+  path that is neither a project file nor a board; 3 (`FEN-3001`) for a missing path, (`FEN-3004`) for an
+  overlay that is not an `analyze` reply; 4 (`FEN-4001`, `FEN-4002`).
+
 ## manifest
 
 `fenolite manifest PATH [--artifacts DIR]... [--stages a,b] [--no-check] [--verify] [--out FILE]

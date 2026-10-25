@@ -7,7 +7,7 @@ summary: Read a file Fenolite did not write, tell whether editing it is safe, co
 # Reading, comparing and undoing
 
 The commands of this page read files and answer. None runs a tool unless the page says so, and only
-`fmt`, `convert` and `restore` write.
+`fmt`, `convert`, `restore` and `view --export` write.
 
 ## What is in a file
 
@@ -23,7 +23,15 @@ document, and reports its `kind`, its `format_version`, the KiCad `major` that w
 with any file you are handed. `--streams` lists the streams of an Altium compound file.
 
 For more than counts, `net`, `pads`, `region` and `neighbors` (pages `routing`, `placement`) read any
-KiCad board.
+KiCad board. To look at a board, or at every board of a project, without its tool:
+
+```fenolite-cmd
+fenolite view blink/altium/blink.PrjPcb --json
+fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
+```
+
+`view` replies with the project's documents and a summary of one board; `--export` plans one HTML page
+that a person opens in a browser, and `--serve` (for a person, not an agent) serves it live.
 
 ## Is it safe to edit this file?
 
