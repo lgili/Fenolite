@@ -70,3 +70,13 @@ def test_cross_probe(pages: dict[str, Path], tmp_path: Path) -> None:
     return { doc: DOC.name, kind: S.kind, ref: SCH.selComp >= 0 ? S.comps[SCH.selComp].ref : null };
     """
     assert _act(pages, tmp_path, script) == {"doc": "blink.SchDoc", "kind": "schematic", "ref": "U1"}
+
+
+def test_a_table_survives_a_resize(pages: dict[str, Path], tmp_path: Path) -> None:
+    """A resize of the view's area fits the view, and a table scene (c0190) has nothing to fit: the page must
+    not fail (seen once in CI, where the resize observer fired after the output job's page opened)."""
+    script = (
+        "fitted = false; resize(); await settle(); return S.kind;"  # what the ResizeObserver of #wrap calls
+    )
+    (reply,) = run([job("table", pages["output_job"], tmp_path, script=EVENTS + script, shot="")], tmp_path)
+    assert reply["errors"] == [] and reply["result"] == "table"

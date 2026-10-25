@@ -354,7 +354,8 @@ function m() { return view.mirror ? -1 : 1; }
 function w2s(x, y) { return [W / 2 + m() * (x - view.cx) * view.s, H / 2 + (y - view.cy) * view.s]; }
 function s2w(X, Y) { return [view.cx + m() * (X - W / 2) / view.s, view.cy + (Y - H / 2) / view.s]; }
 function worldTf(g) { (g || ctx).setTransform(dpr * m() * view.s, 0, 0, dpr * view.s, dpr * (W / 2 - m() * view.cx * view.s), dpr * (H / 2 - view.cy * view.s)); }
-function fit(b) { if (!S) return; measure(); b = b || S.bounds; const w = b[2] - b[0], h = b[3] - b[1];
+function fit(b) { if (!S || S.kind === "table") return; measure();   // a table (c0190) has no bounds
+  b = b || S.bounds; const w = b[2] - b[0], h = b[3] - b[1];
   view.cx = (b[0] + b[2]) / 2; view.cy = (b[1] + b[3]) / 2;
   view.s = Math.max(0.2, Math.min(Math.max(W - 40, 60) / Math.max(w, 1), Math.max(H - 40, 60) / Math.max(h, 1)));
   fitted = W > 100 && H > 100; draw(); }
