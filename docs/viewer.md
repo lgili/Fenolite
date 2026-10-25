@@ -135,6 +135,26 @@ shown; `--check run` runs `check` first, in the same process and read-only (chan
   boards.
 - A DRC that `summary.limits` capped is a lower bound; the panel says so.
 
+## Review tools
+
+Change c0189 adds what a review in Altium relies on:
+- **Edge measure.** `Shift+M` (or Edge) measures the shortest distance between the edges of two clicked
+  objects: pads (all of a pad's copper on the layer clicked), tracks, arcs, vias, zone fills, board edges. A
+  line joins the two closest points and the gap reads in the page's unit; overlapping objects read 0. Arcs are
+  sampled every 2°, the rest is exact; on the authored test pair and against the gap `fenolite analyze` reports
+  for a pad and a track the two agree within 1 µm. Objects on two layers are measured in the plane.
+- **Links.** The address of the page keeps the document, the selection, the zoom, the centre, the unit and the
+  current layer (`#doc=doc1&sel=U5&z=23.438&c=106.045,68.575&u=mm&l=F.Cu`); Link copies it, and opening it
+  restores the view. `fenolite view PATH --select U12` opens at a part or a net.
+- **Review marks.** `N` (or Mark) drops a mark with a note where you click; the Marks panel lists them, a click
+  zooms, `×` deletes. With `fenolite view PATH --serve --marks review.json` the server saves them to that
+  file (`fenolite.review.v0`, positions in nanometres); an exported page keeps them in the browser and
+  Download marks saves the file. `fenolite view PATH --marks review.json --json` lists them for an agent.
+- **SVG and print.** SVG saves the view as a vector file: the page draws it again into a recorder of its own
+  drawing calls, so the file shows what the screen shows (layers, selection, markers). Print prints that SVG,
+  fitted to the page or at 1:1, 2:1, 5:1 or 10:1 on paper; the print dialog's Save as PDF gives a PDF. Both
+  need the 2D view.
+
 ## Comparing two revisions
 
 `fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change

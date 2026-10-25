@@ -37,7 +37,7 @@ from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
 from fenolite.placement import legality
-from fenolite.view import export, server, themes
+from fenolite.view import export, review, server, themes
 from fenolite.view.altium_layers import native_view
 from fenolite.view.cache import WHERE, SceneCache
 from fenolite.view.check_overlay import overlay as check_overlay
@@ -105,6 +105,10 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--variant", metavar="NAME", help="show an Altium project's variant")
     parser.add_argument("--compare", metavar="OLD", help="draw what changed since the board or sheet OLD")
     parser.add_argument("--check", metavar="FILE|run", help="draw a check reply's findings; run: check first")
+    parser.add_argument("--select", metavar="REF", help="open at this part or net")
+    parser.add_argument(
+        "--marks", metavar="FILE", help="review marks: list them; --serve saves new ones there"
+    )
     parser.add_argument(
         "--theme",
         metavar="THEME",
@@ -436,6 +440,36 @@ def check_reply(
         ) from exc
 
 
+def marks_of(
+    argument: str | None, ctx: Context, *, serving: bool
+) -> tuple[Path | None, list[dict[str, Any]]]:
+    """The review file ``--marks`` names and its marks (change c0189). A missing file is an empty list when
+    the page is served (the server creates it with the first mark), else ``FEN-3001``; a malformed one is
+    ``FEN-3004``."""
+    if argument is None:
+        return None, []
+    path = Path(argument) if Path(argument).is_absolute() else ctx.cwd / argument
+    if not path.is_file() and not serving:
+        raise CliError("FEN-3001", f"--marks: {argument} does not exist", where="--marks")
+    try:
+        return path, review.to_json(review.load(path))
+    except FormatError as exc:
+        raise CliError(
+            "FEN-3004", f"--marks: {exc}", where=argument, hint="pass a fenolite.review.v0 file"
+        ) from exc
+
+
+def _selected(name: str, scene: dict[str, Any]) -> bool:
+    """Whether the scene holds the part or net ``name`` (``--select``), ignoring case."""
+    want = name.removeprefix("net:").casefold()
+    refs = [str(c.get("ref", "")) for c in cast("list[dict[str, Any]]", scene.get("comps", []))]
+    nets = [
+        str(cast("dict[str, Any]", n).get("name", "")) if isinstance(n, dict) else str(n)
+        for n in cast("list[Any]", scene.get("nets", []))
+    ]
+    return any(item.casefold() == want for item in (*refs, *nets))
+
+
 def _with_check(
     reply: dict[str, Any] | None, tree: ProjectTree, path: Path, scene: dict[str, Any]
 ) -> dict[str, Any]:
@@ -514,6 +548,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.doc and doc is None:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
     reply = check_reply(args.check, ctx, tree, doc.file if doc is not None else None)
+    marks_file, marks = marks_of(args.marks, ctx, serving=bool(args.serve))
 
     def cached(path: Path) -> dict[str, Any]:
         return _with_check(reply, tree, path, nets_of.annotate(path, plain(path)))
@@ -542,6 +577,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
         result["notes"] = list(scene["meta"]["notes"])
+        if args.select:
+            result["select"] = {"name": args.select, "found": _selected(args.select, scene)}
+            if not result["select"]["found"]:
+                result["notes"].append(f"--select: {doc.name} holds no part or net {args.select!r}")
         result["theme"] = _theme_name(scene)
         evidence = (
             Evidence(Level(scene["meta"]["evidence"]))
@@ -551,6 +590,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ref = InputRef(path=doc.file.name, sha256=scene["meta"]["sha256"], kind=doc.kind, format_version=None)
     elif doc is not None:
         result["notes"] = [f"{doc.name} ({doc.kind}) has no viewer in this version"]
+    if marks_file is not None:
+        result["marks"] = marks
 
     writes: tuple[PlannedWrite, ...] = ()
     if args.export:
@@ -562,7 +603,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 continue
             if other.viewable and other.present and other.file is not None and other.id not in scenes:
                 scenes[other.id] = cached(other.file) | {"overlays": []}
-        html = export.page(tree.to_json(), scenes, open_id=doc.id if doc else None).encode("utf-8")
+        html = export.page(
+            tree.to_json(), scenes, open_id=doc.id if doc else None, select=args.select, marks=marks
+        ).encode("utf-8")
         writes = (PlannedWrite(path=str(args.export), data=html, kind=KIND),)
         result["export"] = {
             "documents": sorted(scenes),
@@ -589,6 +632,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             overlays=overlays,
             open_id=doc.id if doc else None,
             log=_log,
+            marks_file=marks_file,
+            select=args.select,
         )
         httpd = server.serve(live, port)
         url = f"http://{server.HOST}:{httpd.server_address[1]}/"
@@ -598,6 +643,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         started = time.monotonic()
         server.run(live, httpd, until=SERVE_STOP)
         result["serve"] = {"url": url, "seconds": round(time.monotonic() - started, 1)}
+        if marks_file is not None:
+            result["serve"]["marks_written"] = live.written
     return Result(result=result, evidence=evidence, input=ref, writes=writes)
 
 

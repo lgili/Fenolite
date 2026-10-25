@@ -2856,7 +2856,7 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+[--compare OLD] [--variant NAME] [--check FILE|run] [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
 `.kicad_mod` or a `.pretty` folder (change c0179), or an Altium Draftsman drawing, `.PCBDwf` (change c0180).
@@ -2902,6 +2902,18 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
   and `placed` (the findings with a position on the document shown). A file that is not a `check` reply is
   `FEN-3004`; a missing one is `FEN-3001`. ERC findings are placed on sheets only, and the findings of the board
   stages on boards only.
+- **`--select REF`** (change c0189) opens the page at the part or net `REF` (`net:NAME` for a net whose name
+  is also a reference), and replies with `result.select`: `name` and `found` (whether the document shown holds
+  it; when it does not, a note says so). An exported page carries it.
+- **`--marks FILE`** (change c0189) names a review file, `fenolite.review.v0` (`schemas/`): marks with `id`,
+  `doc` (the document's file name), `x_nm` and `y_nm` (Y down, the document's frame), `note`, `select` and
+  `created`. The reply lists them in `result.marks`, each also with `x_mm` and `y_mm`. With `--serve` the page
+  saves new and deleted marks to `FILE`, through the server alone, in one atomic replace; the file may be
+  missing then, and `result.serve.marks_written` counts the saves. The server takes a mark only from its own
+  page on the loopback address (`Host` and `Origin` checked, the header `X-Fenolite-Review: 1` required) and
+  only to `FILE`. Without `--serve`, a missing `FILE` is `FEN-3001`; a malformed one is `FEN-3004`. An exported
+  page carries the marks and keeps new ones in the browser, to download as a review file. Serving with
+  `--marks` is the consent to these writes; without it the server writes nothing.
 - **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
   in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
   not found is `FEN-3001`, a malformed one `FEN-3004`.

@@ -80,3 +80,48 @@ def test_saved_board_is_reloaded(tmp_path: Path) -> None:
     finally:
         stop.set()
         thread.join(timeout=10)
+
+
+def _post(port: int, body: bytes, headers: dict[str, str]) -> tuple[int, dict[str, Any]]:
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/marks", data=body, headers=headers, method="POST"
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10) as reply:
+            return reply.status, json.loads(reply.read())
+    except urllib.error.HTTPError as error:
+        return error.code, json.loads(error.read() or b"{}")
+
+
+def test_marks_are_written_by_the_server_only(tmp_path: Path) -> None:
+    """Change c0189: a mark the page posts goes to the --marks file, in one atomic replace; a post without the
+    review header, from another origin or to a server without a file is refused and writes nothing."""
+    marks = tmp_path / "review.json"
+    live = server.Live(load_tree(BOARD), _build, marks_file=marks)
+    bare = server.Live(load_tree(BOARD), _build)
+    servers = [server.serve(live, 0), server.serve(bare, 0)]
+    stop = threading.Event()
+    for httpd, state in zip(servers, (live, bare), strict=True):
+        threading.Thread(target=server.run, args=(state, httpd), kwargs={"until": stop}, daemon=True).start()
+    port, bare_port = (int(h.server_address[1]) for h in servers)
+    ok = {"Content-Type": "application/json", server.REVIEW_HEADER: "1"}
+    mark = {"id": "m1", "doc": BOARD.name, "x_nm": 1_000_000, "y_nm": -2_500_000, "note": "check this gap"}
+    try:
+        assert json.loads(_get(port, "/project.json")[1])["marks_file"] is True
+        assert _post(port, json.dumps(mark).encode(), {"Content-Type": "application/json"})[0] == 403
+        assert _post(port, json.dumps(mark).encode(), ok | {"Origin": "http://evil.example"})[0] == 403
+        assert _post(port, b"{", ok)[0] == 400 and not marks.exists()
+        assert _post(bare_port, json.dumps(mark).encode(), ok)[0] == 403
+        code, reply = _post(port, json.dumps(mark).encode(), ok)
+        assert (
+            code == 200
+            and reply["marks"][0]["note"] == "check this gap"
+            and reply["marks"][0]["y_mm"] == -2.5
+        )
+        stored = json.loads(marks.read_text(encoding="utf-8"))
+        assert stored["schema"] == "fenolite.review.v0" and stored["marks"][0]["x_nm"] == 1_000_000
+        code, reply = _post(port, json.dumps({"id": "m1", "note": None}).encode(), ok)
+        assert code == 200 and reply["marks"] == [] and live.written == 2
+        assert [p.name for p in tmp_path.iterdir()] == ["review.json"]  # no temporary file left
+    finally:
+        stop.set()

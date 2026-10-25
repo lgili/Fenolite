@@ -3,10 +3,11 @@
 """The local live server of the viewer (capability board-viewer, "Live server").
 
 Routes: ``/`` the page, ``/project.json`` the tree, ``/scene/<id>.json`` the scene of one document (built on
-first request and cached), ``/version/<id>`` its state. A watcher checks the documents whose scene was built:
-when a file's size and time change and then stay the same for one more check (a tool or a sync client may
-still be writing), the scene is built again and the page reloads it, keeping its view. Only the loopback
-address is bound; nothing leaves the machine.
+first request and cached), ``/version/<id>`` its state, and ``/marks`` the review marks (change c0189): a
+``POST`` of one mark is written to the ``--marks`` file, and only when ``view`` was given one. A watcher
+checks the documents whose scene was built: when a file's size and time change and then stay the same for
+one more check (a tool or a sync client may still be writing), the scene is built again and the page reloads
+it, keeping its view. Only the loopback address is bound; nothing leaves the machine.
 """
 
 from __future__ import annotations
@@ -19,15 +20,22 @@ from dataclasses import dataclass
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import unquote
 
+from fenolite.core.errors import FormatError
+from fenolite.view import review
 from fenolite.view.compact import compact
 from fenolite.view.export import page
 from fenolite.view.project import Document, ProjectTree
 
 HOST = "127.0.0.1"
 PERIOD = 2.0
+MARK_BYTES = 64 * 1024
+"""The largest body of a ``POST /marks``."""
+REVIEW_HEADER = "X-Fenolite-Review"
+"""The header a ``POST /marks`` must carry: a page of another site cannot send it without a preflight that
+this server never answers, so it cannot write marks."""
 
 SceneBuilder = Callable[[Path], dict[str, Any]]
 """Builds the scene of a board file (``cmd_view`` passes the backend read; tests pass their own)."""
@@ -55,6 +63,8 @@ class Live:
         overlays: list[dict[str, Any]] | None = None,
         open_id: str | None = None,
         log: Callable[[str], None] = lambda _m: None,
+        marks_file: Path | None = None,
+        select: str | None = None,
     ) -> None:
         self.tree, self.build, self.overlays, self.open_id, self.log = (
             tree,
@@ -65,6 +75,31 @@ class Live:
         )
         self.states: dict[str, _State] = {}
         self.lock = threading.Lock()
+        self.marks_file, self.select = marks_file, select
+        self.written = 0
+        """How many marks the server wrote (``result.serve.marks_written``)."""
+
+    def marks(self) -> list[dict[str, Any]]:
+        """The marks of the ``--marks`` file; empty without one."""
+        if self.marks_file is None:
+            return []
+        return [dict(m) for m in review.to_json(review.load(self.marks_file))]
+
+    def post_mark(self, body: bytes) -> list[dict[str, Any]]:
+        """Add, replace or remove one mark in the ``--marks`` file, in one atomic replace; ``FormatError`` for
+        a malformed mark, ``PermissionError`` when ``view`` was given no file."""
+        if self.marks_file is None:
+            raise PermissionError("this page was served without --marks: marks are kept in the browser")
+        try:
+            raw: Any = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise FormatError(f"the mark is not JSON: {exc}") from exc
+        with self.lock:
+            found = review.with_mark(review.load(self.marks_file), raw)
+            review.write_atomic(self.marks_file, review.dumps(found))
+            self.written += 1
+        self.log(f"view: review marks saved to {self.marks_file.name}")
+        return [dict(m) for m in review.to_json(found)]
 
     @staticmethod
     def _signature(path: Path) -> tuple[int, int] | None:
@@ -141,7 +176,8 @@ class Live:
 
 def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
     """A server for ``live`` on the loopback address, not yet serving; ``port`` 0 takes a free port."""
-    tree_json = live.tree.to_json() | {"open": live.open_id}
+    tree_json = live.tree.to_json() | {"open": live.open_id, "select": live.select}
+    hosts = {f"{HOST}:{{port}}", "localhost:{port}"}
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - the silent request log
@@ -160,7 +196,10 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
             if path in ("/", "/index.html"):
                 self._send(200, page(live=True).encode("utf-8"), "text/html; charset=utf-8")
             elif path == "/project.json":
-                self._send(200, json.dumps(tree_json).encode("utf-8"), "application/json")
+                body = tree_json | {"marks_file": live.marks_file is not None, "marks": live.marks()}
+                self._send(200, json.dumps(body).encode("utf-8"), "application/json")
+            elif path == "/marks":
+                self._send(200, json.dumps({"marks": live.marks()}).encode("utf-8"), "application/json")
             elif path.startswith("/scene/") and path.endswith(".json"):
                 body = live.scene(path[len("/scene/") : -len(".json")])
                 if body is None:
@@ -172,6 +211,39 @@ def serve(live: Live, port: int = 8765) -> ThreadingHTTPServer:
                 self._send(200, json.dumps(state).encode("utf-8"), "application/json")
             else:
                 self._send(404, b"not found", "text/plain")
+
+        def _refuse(self, code: int, message: str) -> None:
+            self._send(code, json.dumps({"error": message}).encode("utf-8"), "application/json")
+
+        def do_POST(self) -> None:  # noqa: N802 - the name http.server calls
+            port = int(cast("tuple[str, int]", self.server.server_address)[1])
+            allowed = {h.format(port=port) for h in hosts}
+            origin = self.headers.get("Origin")
+            if unquote(self.path.split("?", 1)[0]) != "/marks":
+                self._refuse(404, "not found")
+            elif self.headers.get("Host") not in allowed or (
+                origin and origin.split("//", 1)[-1] not in allowed
+            ):
+                self._refuse(403, "marks are accepted from this server's own page only")
+            elif self.headers.get(REVIEW_HEADER) != "1" or not str(
+                self.headers.get("Content-Type", "")
+            ).startswith("application/json"):
+                self._refuse(403, f"a mark is JSON sent with {REVIEW_HEADER}: 1")
+            else:
+                length = int(self.headers.get("Content-Length") or 0)
+                if not 0 < length <= MARK_BYTES:
+                    self._refuse(413, f"a mark is at most {MARK_BYTES} bytes")
+                    return
+                try:
+                    marks = live.post_mark(self.rfile.read(length))
+                except PermissionError as exc:
+                    self._refuse(403, str(exc))
+                except FormatError as exc:
+                    self._refuse(400, str(exc))
+                except OSError as exc:
+                    self._refuse(500, f"the review file was not written: {type(exc).__name__}")
+                else:
+                    self._send(200, json.dumps({"marks": marks}).encode("utf-8"), "application/json")
 
     return ThreadingHTTPServer((HOST, port), Handler)
 

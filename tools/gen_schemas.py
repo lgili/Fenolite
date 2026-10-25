@@ -85,6 +85,9 @@ def _targets() -> list[Target]:
             "schemas/fenolite.placement-request.v0.json",
             False,
         ),
+        Target(
+            "fenolite.review.v0", "fenolite.view.review:ReviewFile", "schemas/fenolite.review.v0.json", False
+        ),
     ]
 
 

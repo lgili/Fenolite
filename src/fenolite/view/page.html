@@ -89,6 +89,12 @@
     <button id="bFlip" class="board-only" title="View from below / above (B)">View: Top</button>
     <button id="bMeasure" title="Measure a distance; snaps to pad centres and vertices (M)">Measure</button>
     <button id="bUnit" title="Units: millimetres or mil (Q)">mm</button>
+    <button id="bEdge" class="board-only" title="Edge measure: the gap between the edges of two objects (Shift+M)">Edge</button>
+    <button id="bMark" title="Drop a review mark with a note (N)">Mark</button>
+    <button id="bLink" title="Copy a link to this view: document, selection, zoom and unit">Link</button>
+    <select id="printScale" title="Scale of Print: fit the page, or millimetres on paper per millimetre of the design"><option value="fit">Fit</option><option value="1">1:1</option><option value="2">2:1</option><option value="5">5:1</option><option value="10">10:1</option></select>
+    <button id="bPrint" title="Print the view, or save it as PDF from the print dialog">Print</button>
+    <button id="bSvg" title="Save the view as an SVG file">SVG</button>
     <select id="variantSel" title="The project's assembly variant" style="display:none"></select>
     <input id="search" placeholder="Part or net…" title="Enter: find">
     <button id="bClear" title="Clear the selection (Esc)">Clear</button>
@@ -115,12 +121,15 @@
       <div id="diffList"></div>
       <h3 id="msgTitle" style="display:none" title="E: show or hide the markers">Messages</h3>
       <div id="msgList"></div>
+      <h3 id="marksTitle" style="display:none">Marks</h3>
+      <div id="marksList"></div>
       <h3 id="ovTitle" style="display:none">Findings</h3>
       <div id="overlays"></div>
       <h3>Notes</h3>
       <div class="notes" id="notes"></div>
       <h3>Shortcuts</h3>
       <div class="notes sch-only"><kbd>wheel</kbd>/<kbd>PgUp</kbd>/<kbd>PgDn</kbd> zoom · <kbd>drag</kbd> pan · <kbd>click</kbd> part / net · <kbd>double-click</kbd> open a sheet symbol, cross-probe a part · <kbd>F</kbd> fit · <kbd>M</kbd> measure · <kbd>Q</kbd> mm / mil · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
+      <div class="notes"><kbd>Shift+M</kbd> edge measure (board) · <kbd>N</kbd> review mark · Link copies a link to this view</div>
       <div class="notes board-only"><kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan (2D) / orbit (3D) · <kbd>Shift+drag</kbd> pan (3D) · <kbd>click</kbd> net / part · <kbd>D</kbd> 2D/3D · <kbd>F</kbd> fit · <kbd>B</kbd> flip · <kbd>M</kbd> measure (snaps to pad centres) · <kbd>Q</kbd> mm / mil · <kbd>Shift+S</kbd> single layer · <kbd>+</kbd>/<kbd>-</kbd> next / previous layer · <kbd>Shift+C</kbd> clear the filter · <kbd>E</kbd> check markers · <kbd>Esc</kbd> clear</div>
     </div>
   </div>
@@ -205,10 +214,10 @@ function textPolylines(t) {
 const MM = 0.001;   // scene units are micrometres
 let qCache = new Map(), PROJECT = null, DOC = null, S = null, cache = null, netCache = new Map(), compCache = new Map(), textCache = new Map(), byLayer = new Map();
 const SCENES = new Map(), RAW = new Map();
-const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+const cv = document.getElementById("cv"); let ctx = cv.getContext("2d"), P2D = Path2D;   // c0189: both swapped while an SVG is recorded
 let W = 0, H = 0, dpr = 1;
 const view = { cx: 0, cy: 0, s: 5, mirror: false };
-const st = { checks: true, selFinding: -1, query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
+const st = { edge: false, epick: [], eres: null, marking: false, checks: true, selFinding: -1, query: null, hl: (() => { try { return localStorage.getItem("fenolite.view.highlight") || "dim"; } catch (e) { return "dim"; } })(), diff: true, single: false, measure: false, mpts: [], selNet: -1, selComp: -1, selOv: -1, opac: 0.6, version: null, mode3d: false, cur: null };
 const vis = new Map();
 const $ = id => document.getElementById(id);
 
@@ -283,12 +292,12 @@ function ringSamples(ring) {   // a board ring with its arcs, as points
       for (let k = 1; k < 16; k++) { const t = a.a1 + span * k / 16; out.push([a.cx + a.r * Math.cos(t), a.cy + a.r * Math.sin(t)]); } } } }
   return out;
 }
-function boardPath() { const bp = new Path2D(); for (const r of S.board) { const pts = ringSamples(r); pts.forEach((q, k) => k ? bp.lineTo(q[0], q[1]) : bp.moveTo(q[0], q[1])); bp.closePath(); } return bp; }
+function boardPath() { const bp = new P2D(); for (const r of S.board) { const pts = ringSamples(r); pts.forEach((q, k) => k ? bp.lineTo(q[0], q[1]) : bp.moveTo(q[0], q[1])); bp.closePath(); } return bp; }
 
 function lighten(hex, f) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
   r = Math.round(r + (255 - r) * f); g = Math.round(g + (255 - g) * f); b = Math.round(b + (255 - b) * f); return `rgb(${r},${g},${b})`; }
 function ringPath(p, flat) { p.moveTo(flat[0], flat[1]); for (let i = 2; i < flat.length; i += 2) p.lineTo(flat[i], flat[i + 1]); p.closePath(); }
-function strokePath(c, w) { let p = c.strokes.get(w); if (!p) { p = new Path2D(); c.strokes.set(w, p); } return p; }
+function strokePath(c, w) { let p = c.strokes.get(w); if (!p) { p = new P2D(); c.strokes.set(w, p); } return p; }
 function addPrim(c, pr) {
   const k = pr[1], d = pr[2];
   if (k === "s") { const p = strokePath(c, d[4]); p.moveTo(d[0], d[1]); p.lineTo(d[2], d[3]); if (d[0] === d[2] && d[1] === d[3]) p.lineTo(d[2] + 1e-4, d[3]); }
@@ -301,7 +310,7 @@ function addPrim(c, pr) {
     c.hb[0] = Math.min(c.hb[0], r[i]); c.hb[1] = Math.min(c.hb[1], r[i + 1]); c.hb[2] = Math.max(c.hb[2], r[i]); c.hb[3] = Math.max(c.hb[3], r[i + 1]); } } }
   c.n++;
 }
-function newCache() { return { fill: new Path2D(), strokes: new Map(), outline: new Path2D(), hatch: new Path2D(), hb: [1e9, 1e9, -1e9, -1e9], n: 0 }; }
+function newCache() { return { fill: new P2D(), strokes: new Map(), outline: new P2D(), hatch: new P2D(), hb: [1e9, 1e9, -1e9, -1e9], n: 0 }; }
 function bboxOf(pr) { const d = pr[2]; switch (pr[1]) {
   case "s": return [Math.min(d[0], d[2]) - d[4] / 2, Math.min(d[1], d[3]) - d[4] / 2, Math.max(d[0], d[2]) + d[4] / 2, Math.max(d[1], d[3]) + d[4] / 2];
   case "a": { const a = pr[6], w = d[6] / 2; if (!a) return [Math.min(d[0], d[4]) - w, Math.min(d[1], d[5]) - w, Math.max(d[0], d[4]) + w, Math.max(d[1], d[5]) + w];
@@ -394,7 +403,7 @@ function draw() {
   if (VARIANT && S.variants) { worldTf(); ctx.globalAlpha = 0.6; ctx.fillStyle = (S.theme || {}).board || "#050505";
     for (const c of S.comps) if (c.bbox && notFitted(c.ref)) { const b = c.bbox; ctx.fillRect(b[0], b[1], b[2] - b[0], b[3] - b[1]); }
     drawVariantMarks(S.comps.map(c => [c.ref, c.bbox])); }
-  drawDiff(); drawOverlays(); drawCheck(); drawMeasure();
+  drawDiff(); drawOverlays(); drawCheck(); drawEdge(); drawMarks(); drawMeasure(); linkLater();
   $("zoomv").textContent = `zoom ${view.s.toFixed(1)} px/mm`;
 }
 // ================================================================== changes since an older revision (c0184)
@@ -582,6 +591,73 @@ function similarQuery(sc, pr, ci) {   // Find similar: a query for the parts of 
   return pr[3] >= 0 ? `net:${qv(sc.nets[pr[3]])} ${layer}` : layer;
 }
 // ---- end query
+
+// ---- edge (c0189): the shortest distance between the edges of two board primitives, as Altium's clearance
+// measure gives it. A primitive is segments and points grown by a radius (a track: its centre line and half its
+// width; a via or a round pad: its centre and radius; an arc: its centre line sampled every 2°) or filled rings
+// (pads, fills, regions). The distance is exact for segments and points; overlapping shapes read 0.
+function arcSample(d) {   // three points (start, mid, end) to a polyline through them
+  const [x1, y1, x2, y2, x3, y3] = d, D = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+  if (Math.abs(D) < 1e-12) return [x1, y1, x3, y3];
+  const s1 = x1 * x1 + y1 * y1, s2 = x2 * x2 + y2 * y2, s3 = x3 * x3 + y3 * y3;
+  const cx = (s1 * (y2 - y3) + s2 * (y3 - y1) + s3 * (y1 - y2)) / D, cy = (s1 * (x3 - x2) + s2 * (x1 - x3) + s3 * (x2 - x1)) / D, r = Math.hypot(x1 - cx, y1 - cy);
+  const T = 2 * Math.PI, a1 = Math.atan2(y1 - cy, x1 - cx), a2 = Math.atan2(y2 - cy, x2 - cx), a3 = Math.atan2(y3 - cy, x3 - cx);
+  const ccwSpan = ((a3 - a1) % T + T) % T, midIn = ((a2 - a1) % T + T) % T <= ccwSpan, span = midIn ? ccwSpan : ccwSpan - T;
+  const n = Math.max(2, Math.ceil(Math.abs(span) / (Math.PI / 90))), out = [];
+  for (let i = 0; i <= n; i++) { const t = a1 + span * i / n; out.push(cx + r * Math.cos(t), cy + r * Math.sin(t)); }
+  return out;
+}
+function edgeShape(pr) {   // { lines: polylines, rings: filled rings, r: growth }
+  const d = pr[2];
+  switch (pr[1]) {
+    case "s": return { lines: [[d[0], d[1], d[2], d[3]]], rings: [], r: d[4] / 2 };
+    case "c": return { lines: [[d[0], d[1]]], rings: [], r: d[2] };
+    case "a": return { lines: [arcSample(d)], rings: [], r: d[6] / 2 };
+    case "l": return { lines: [d.slice(1)], rings: [], r: d[0] / 2 };
+    case "p": case "h": return { lines: d, rings: d, r: 0, closed: true };
+    case "o": return { lines: d, rings: [], r: 0, closed: true };
+  }
+  return null;
+}
+function ptSeg(px, py, x1, y1, x2, y2) {   // the closest point of a segment to a point, and the distance
+  const dx = x2 - x1, dy = y2 - y1, L = dx * dx + dy * dy; let t = L ? ((px - x1) * dx + (py - y1) * dy) / L : 0; t = Math.max(0, Math.min(1, t));
+  const qx = x1 + t * dx, qy = y1 + t * dy; return [Math.hypot(px - qx, py - qy), qx, qy];
+}
+function segSeg(a, b) {   // [distance, point on a, point on b] of two segments [x1, y1, x2, y2]
+  const [ax, ay, bx, by] = a, [cx, cy, dx, dy] = b, cross = (px, py, qx, qy, rx, ry) => (qx - px) * (ry - py) - (qy - py) * (rx - px);
+  const d1 = cross(cx, cy, dx, dy, ax, ay), d2 = cross(cx, cy, dx, dy, bx, by), d3 = cross(ax, ay, bx, by, cx, cy), d4 = cross(ax, ay, bx, by, dx, dy);
+  if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) { const t = d1 / (d1 - d2), x = ax + t * (bx - ax), y = ay + t * (by - ay); return [0, [x, y], [x, y]]; }
+  let best = null;
+  for (const [p, q, flip] of [[[ax, ay], b, false], [[bx, by], b, false], [[cx, cy], a, true], [[dx, dy], a, true]]) {
+    const [dd, qx, qy] = ptSeg(p[0], p[1], q[0], q[1], q[2], q[3]);
+    if (!best || dd < best[0]) best = flip ? [dd, [qx, qy], p] : [dd, p, [qx, qy]]; }
+  return best;
+}
+function edgeSegs(sh) {   // the segments of a shape (a lone point is a segment of length 0)
+  const out = [];
+  for (const l of sh.lines) { const n = l.length / 2;
+    if (n === 1) out.push([l[0], l[1], l[0], l[1]]);
+    for (let i = 0; i + 1 < n; i++) out.push([l[2 * i], l[2 * i + 1], l[2 * i + 2], l[2 * i + 3]]);
+    if (sh.closed && n > 2) out.push([l[2 * n - 2], l[2 * n - 1], l[0], l[1]]); }
+  return out;
+}
+function ringHas(rings, x, y) { let n = 0; for (const r of rings) { let c = false;
+  for (let i = 0, j = r.length - 2; i < r.length; j = i, i += 2) if ((r[i + 1] > y) !== (r[j + 1] > y) && x < (r[j] - r[i]) * (y - r[i + 1]) / (r[j + 1] - r[i + 1]) + r[i]) c = !c; if (c) n++; } return n % 2 === 1; }
+function edgeDistance(pa, pb) {   // { d, a, b }: the gap between the edges of two primitives and its two end points
+  const A = edgeShape(pa), B = edgeShape(pb); if (!A || !B) return null;
+  let best = null;
+  for (const s of edgeSegs(A)) for (const t of edgeSegs(B)) { const r = segSeg(s, t); if (!best || r[0] < best[0]) best = r; }
+  if (!best) return null;
+  const [d, p, q] = best, gap = d - A.r - B.r;
+  if (gap <= 0) return { d: 0, a: p, b: q };
+  for (const [S, T] of [[A, B], [B, A]]) if (S.rings.length) { const l = T.lines[0]; if (l && ringHas(S.rings, l[0], l[1])) return { d: 0, a: [l[0], l[1]], b: [l[0], l[1]] }; }
+  const ux = (q[0] - p[0]) / d, uy = (q[1] - p[1]) / d;   // the centre-line points moved out to each edge
+  return { d: gap, a: [p[0] + ux * A.r, p[1] + uy * A.r], b: [q[0] - ux * B.r, q[1] - uy * B.r] };
+}
+function edgeBetween(ga, gb) {   // the shortest of edgeDistance over two groups of primitives (all of a pad's copper on a layer)
+  let best = null; for (const a of ga) for (const b of gb) { const r = edgeDistance(a, b); if (r && (!best || r.d < best.d)) best = r; } return best;
+}
+// ---- end edge
 // ================================================================== assembly variants of an Altium project (c0186)
 let VARIANT = null;
 function variantOf(ref) { const v = VARIANT && S && S.variants && S.variants[VARIANT]; return v ? v[ref] || null : null; }
@@ -913,6 +989,175 @@ $("bSimilar").onclick = () => { if (!S || S.kind) return; const h = st.lastHit, 
 $("bQClear").onclick = clearQuery;
 $("hlMode").value = HL_ALPHA[st.hl] !== undefined ? st.hl : "dim";
 $("hlMode").onchange = e => { st.hl = e.target.value; try { localStorage.setItem("fenolite.view.highlight", st.hl); } catch (err) { /* private window */ } draw(); };
+// ================================================================== review tools (c0189): edge measure, links, marks, SVG, print
+const EDGE_C = "#00d0ff";
+function toggleEdge() { st.edge = !st.edge; st.epick = []; st.eres = null; $("bEdge").classList.toggle("on", st.edge); draw(); }
+function edgeGroup(h) {   // every primitive of the clicked item on its layer: a pad's core and its edge stroke together
+  const pr = h.pr; if (!pr[5]) return [pr];
+  return (byLayer.get(h.layer.id) || []).map(e => e[0]).filter(q => q[5] === pr[5] && q[4] === pr[4] && q[1] !== "t");
+}
+function edgeClick(X, Y) {
+  const h = pick(X, Y); if (!h) return;
+  if (st.epick.length >= 2) { st.epick = []; st.eres = null; }
+  st.epick.push({ name: h.pr[5] || h.layer.name, layer: h.layer, prims: edgeGroup(h) });
+  if (st.epick.length === 2) { const [a, b] = st.epick; st.eres = edgeBetween(a.prims, b.prims);
+    if (st.eres) showInfo(`<b>Edge to edge: ${fmtLen(st.eres.d)}</b><br>${esc(a.name)} (${esc(a.layer.name)}) ↔ ${esc(b.name)} (${esc(b.layer.name)})` +
+      (a.layer.id !== b.layer.id ? "<br><i>Two layers: the distance is measured in the plane.</i>" : "")); }
+  draw();
+}
+function drawEdge() {
+  if (!st.edge && !st.eres) return; worldTf(); ctx.globalAlpha = 0.9;
+  for (const g of st.epick) { const c = newCache(); for (const pr of g.prims) addPrim(c, pr); paintCache(ctx, c, g.layer.id, EDGE_C, 0.55, view.s); }
+  const r = st.eres; if (!r) return; ctx.globalAlpha = 1; ctx.strokeStyle = ctx.fillStyle = EDGE_C; ctx.lineWidth = 1.5 / view.s;
+  ctx.beginPath(); ctx.moveTo(r.a[0], r.a[1]); ctx.lineTo(r.b[0], r.b[1]); ctx.stroke();
+  for (const q of [r.a, r.b]) { ctx.beginPath(); ctx.arc(q[0], q[1], 3 / view.s, 0, 2 * Math.PI); ctx.fill(); }
+  const txt = `edge ${fmtLen(r.d)}`; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const P = w2s(r.b[0], r.b[1]); ctx.font = "600 13px system-ui"; const w = ctx.measureText(txt).width;
+  ctx.fillStyle = "#000c"; ctx.fillRect(P[0] + 8, P[1] + 6, w + 12, 20); ctx.fillStyle = EDGE_C; ctx.fillText(txt, P[0] + 14, P[1] + 21); worldTf();
+  $("coord").textContent = `measure: ${txt}`;
+}
+$("bEdge").onclick = toggleEdge;
+
+// ---- deep links: the URL's hash keeps the document, the selection, the view, the unit and the layer
+function selName() {
+  if (!S) return "";
+  if (isSch()) return SCH.selComp >= 0 ? S.comps[SCH.selComp].ref : SCH.selNet >= 0 ? "net:" + S.nets[SCH.selNet].name : "";
+  return st.selComp >= 0 ? S.comps[st.selComp].ref : st.selNet >= 0 ? "net:" + S.nets[st.selNet] : "";
+}
+function linkHash() { if (!DOC) return "";
+  const q = new URLSearchParams({ doc: DOC.id }); const sel = selName(); if (sel) q.set("sel", sel);
+  q.set("z", view.s.toFixed(3)); q.set("c", `${view.cx.toFixed(4)},${view.cy.toFixed(4)}`); q.set("u", UNIT);
+  if (!isSch() && st.cur) q.set("l", st.cur); return q.toString(); }
+let linkTimer = null, linkReady = false;
+function linkLater() { if (!linkReady) return; clearTimeout(linkTimer); linkTimer = setTimeout(() => { const h = linkHash(); if (h && location.hash.slice(1) !== h) try { history.replaceState(null, "", "#" + h); } catch (e) { /* a sandboxed frame */ } }, 400); }
+function applySelect(name) { if (!name || !S) return; const n = name.startsWith("net:") ? name.slice(4) : name; find(n); }
+function applyLink(q) {   // after the document of the link is open
+  if (q.get("u") === "mil" || q.get("u") === "mm") setUnit(q.get("u"));
+  if (q.get("l") && S && S.layers && S.layers.some(l => l.id === q.get("l"))) { st.cur = q.get("l"); vis.set(st.cur, true); buildTabs(); }
+  if (q.get("sel")) applySelect(q.get("sel"));
+  const z = parseFloat(q.get("z")), c = (q.get("c") || "").split(",").map(Number);
+  if (z > 0 && c.length === 2 && c.every(Number.isFinite)) { view.s = z; view.cx = c[0]; view.cy = c[1]; fitted = true; }
+  draw();
+}
+$("bLink").onclick = async () => { const h = linkHash(); try { history.replaceState(null, "", "#" + h); } catch (e) { /* ignore */ }
+  try { await navigator.clipboard.writeText(location.href); $("live").textContent = "link copied"; } catch (e) { window.prompt("Link to this view", location.href); } };
+
+// ---- review marks: kept by the server in the --marks file, else in this browser until downloaded
+let MARKS = [];
+const marksKey = () => "fenolite.view.marks:" + (PROJECT ? PROJECT.name : "");
+const serverMarks = () => LIVE && PROJECT && PROJECT.marks_file;
+function loadMarks(given) {
+  MARKS = Array.isArray(given) ? given : [];
+  if (!serverMarks()) try { const kept = JSON.parse(localStorage.getItem(marksKey()) || "null"); if (Array.isArray(kept)) { const ids = new Set(MARKS.map(m => m.id)); MARKS = MARKS.concat(kept.filter(m => !ids.has(m.id))); } } catch (e) { /* no storage */ }
+}
+async function sendMark(body) {   // the server writes the file; an exported page keeps the marks here
+  if (serverMarks()) {
+    const r = await fetch("marks", { method: "POST", headers: { "Content-Type": "application/json", "X-Fenolite-Review": "1" }, body: JSON.stringify(body) });
+    const reply = await r.json(); if (!r.ok) { showInfo(`Mark not saved: ${esc(reply.error || r.status)}`); return; } MARKS = reply.marks;
+  } else {
+    MARKS = MARKS.filter(m => m.id !== body.id); if (body.note !== null) MARKS.push(body);
+    try { localStorage.setItem(marksKey(), JSON.stringify(MARKS)); } catch (e) { /* no storage */ }
+  }
+  buildMarks(); draw();
+}
+function markClick(x, y) {
+  const note = window.prompt("Note for this mark", ""); if (note === null) return;
+  sendMark({ id: "m" + Date.now().toString(36), doc: DOC.name, x_nm: Math.round(x * 1e6), y_nm: Math.round(y * 1e6), note, select: selName(), created: new Date().toISOString() });
+}
+function drawMarks() {
+  if (!DOC || !MARKS.length) return; if (!isSch()) worldTf(); ctx.globalAlpha = 1;
+  MARKS.forEach((m, i) => { if (m.doc !== DOC.name) return; const x = m.x_nm / 1e6, y = m.y_nm / 1e6, r = 7 / view.s;
+    ctx.fillStyle = "#ffd400"; ctx.strokeStyle = "#000"; ctx.lineWidth = 1 / view.s;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - r * 0.8, y - r * 1.6); ctx.arc(x, y - r * 2, r, Math.PI * 0.8, Math.PI * 0.2); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#000"; ctx.font = `600 ${(10 / view.s).toFixed(4)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(i + 1), x, y - r * 2);
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic"; });
+}
+function buildMarks() {
+  const box = $("marksList"); box.innerHTML = ""; $("marksTitle").style.display = MARKS.length || !LIVE ? "" : "none";
+  $("marksTitle").textContent = `Marks (${MARKS.length})` + (serverMarks() ? "" : " · in this browser");
+  MARKS.forEach((m, i) => { const d = document.createElement("div"); d.className = "navi";
+    d.innerHTML = `${i + 1}. ${esc(m.note || "(no note)")} <small>${esc(m.doc)}${m.select ? " · " + esc(m.select) : ""}</small> <a href="#" title="Delete this mark">×</a>`;
+    d.querySelector("a").onclick = ev => { ev.preventDefault(); ev.stopPropagation(); if (window.confirm(`Delete mark ${i + 1}?`)) sendMark({ id: m.id, note: null }); };
+    d.onclick = async () => { const doc = allDocs().find(x => x.name === m.doc); if (doc && doc !== DOC) await openDoc(doc); if (st.mode3d) set3D(false);
+      const x = m.x_nm / 1e6, y = m.y_nm / 1e6, e = isSch() ? 25 : 5; fit([x - e, y - e, x + e, y + e]); showInfo(`<b>Mark ${i + 1}</b><br>${esc(m.note)}${m.select ? `<br>On: ${esc(m.select)}` : ""}<br><small>${esc(m.created)}</small>`); };
+    box.appendChild(d); });
+  if (!serverMarks()) { const b = document.createElement("button"); b.textContent = "Download marks"; b.title = "Save them as a fenolite.review.v0 file for fenolite view --marks";
+    b.onclick = () => download(JSON.stringify({ schema: "fenolite.review.v0", marks: MARKS }, null, 2) + "\n", "review.json", "application/json"); box.appendChild(b); }
+}
+$("bMark").onclick = () => toggle("marking", "bMark");
+function download(text, name, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+
+// ---- SVG: the view drawn again into a recorder of the canvas calls the page makes, as vector paths
+class RecPath {   // what a Path2D records, replayed under the transform of the fill or stroke
+  constructor() { this.c = []; }
+  moveTo(x, y) { this.c.push(["M", x, y]); } lineTo(x, y) { this.c.push(["L", x, y]); } closePath() { this.c.push(["Z"]); }
+  rect(x, y, w, h) { this.c.push(["M", x, y], ["L", x + w, y], ["L", x + w, y + h], ["L", x, y + h], ["Z"]); }
+  arc(cx, cy, r, a0, a1, ccw) { this.ellipse(cx, cy, r, r, 0, a0, a1, ccw); }
+  ellipse(cx, cy, rx, ry, rot, a0, a1, ccw) { const T = 2 * Math.PI; let span = ccw ? a0 - a1 : a1 - a0; if (Math.abs(span) >= T) span = T; else span = ((span % T) + T) % T;
+    const n = Math.max(8, Math.ceil(span / (Math.PI / 32))), cr = Math.cos(rot), sr = Math.sin(rot);
+    for (let i = 0; i <= n; i++) { const t = a0 + (ccw ? -1 : 1) * span * i / n, ex = rx * Math.cos(t), ey = ry * Math.sin(t);
+      this.c.push([i === 0 && !this.c.length ? "M" : "L", cx + ex * cr - ey * sr, cy + ex * sr + ey * cr]); } }
+  bezierCurveTo(a, b, c, d, x, y) { this.c.push(["C", a, b, c, d, x, y]); }
+}
+const SVG_NS = ["http:", "", "www.w3.org", "2000", "svg"].join("/");   // the SVG namespace: a name, never fetched (the page loads nothing)
+class SvgCtx {
+  constructor(w, h) { this.out = []; this.defs = []; this.k = 0; this.st = { m: [1, 0, 0, 1, 0, 0], fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, lineCap: "butt", lineJoin: "miter", globalAlpha: 1, dash: [], font: "10px sans-serif", textAlign: "start", textBaseline: "alphabetic", clip: null };
+    this.stack = []; this.path = new RecPath(); this.canvas = { width: w, height: h }; this.meas = document.createElement("canvas").getContext("2d"); }
+  get fillStyle() { return this.st.fillStyle; } set fillStyle(v) { this.st.fillStyle = v; }
+  get strokeStyle() { return this.st.strokeStyle; } set strokeStyle(v) { this.st.strokeStyle = v; }
+  get lineWidth() { return this.st.lineWidth; } set lineWidth(v) { this.st.lineWidth = v; }
+  get lineCap() { return this.st.lineCap; } set lineCap(v) { this.st.lineCap = v; }
+  get lineJoin() { return this.st.lineJoin; } set lineJoin(v) { this.st.lineJoin = v; }
+  get globalAlpha() { return this.st.globalAlpha; } set globalAlpha(v) { this.st.globalAlpha = v; }
+  get font() { return this.st.font; } set font(v) { this.st.font = v; }
+  get textAlign() { return this.st.textAlign; } set textAlign(v) { this.st.textAlign = v; }
+  get textBaseline() { return this.st.textBaseline; } set textBaseline(v) { this.st.textBaseline = v; }
+  set shadowColor(v) { } set shadowBlur(v) { } set shadowOffsetX(v) { } set shadowOffsetY(v) { }
+  save() { this.stack.push({ ...this.st, m: [...this.st.m], dash: [...this.st.dash] }); } restore() { if (this.stack.length) this.st = this.stack.pop(); }
+  setTransform(a, b, c, d, e, f) { this.st.m = [a, b, c, d, e, f]; }
+  transform(a, b, c, d, e, f) { const [A, B, C, D, E, F] = this.st.m; this.st.m = [A * a + C * b, B * a + D * b, A * c + C * d, B * c + D * d, A * e + C * f + E, B * e + D * f + F]; }
+  translate(x, y) { this.transform(1, 0, 0, 1, x, y); } scale(x, y) { this.transform(x, 0, 0, y, 0, 0); } rotate(t) { const c = Math.cos(t), s = Math.sin(t); this.transform(c, s, -s, c, 0, 0); }
+  setLineDash(d) { this.st.dash = [...d]; } getLineDash() { return [...this.st.dash]; }
+  beginPath() { this.path = new RecPath(); }
+  moveTo(x, y) { this.path.moveTo(x, y); } lineTo(x, y) { this.path.lineTo(x, y); } closePath() { this.path.closePath(); }
+  rect(x, y, w, h) { this.path.rect(x, y, w, h); } arc(...a) { this.path.arc(...a); } ellipse(...a) { this.path.ellipse(...a); } bezierCurveTo(...a) { this.path.bezierCurveTo(...a); }
+  measureText(t) { this.meas.font = this.st.font; return this.meas.measureText(t); }
+  _scale() { const [a, b, c, d] = this.st.m; return Math.sqrt(Math.abs(a * d - b * c)) || 1; }
+  _d(p) { const [a, b, c, d, e, f] = this.st.m, X = (x, y) => (a * x + c * y + e).toFixed(2), Y = (x, y) => (b * x + d * y + f).toFixed(2);
+    return p.c.map(o => o[0] === "Z" ? "Z" : o[0] === "C" ? `C${X(o[1], o[2])} ${Y(o[1], o[2])} ${X(o[3], o[4])} ${Y(o[3], o[4])} ${X(o[5], o[6])} ${Y(o[5], o[6])}` : `${o[0]}${X(o[1], o[2])} ${Y(o[1], o[2])}`).join(""); }
+  _clip() { return this.st.clip ? ` clip-path="url(#${this.st.clip})"` : ""; }
+  _alpha() { return this.st.globalAlpha < 1 ? ` opacity="${this.st.globalAlpha.toFixed(3)}"` : ""; }
+  fill(p, rule) { if (typeof p === "string") { rule = p; p = null; } const d = this._d(p || this.path); if (!d) return;
+    this.out.push(`<path d="${d}" fill="${this.st.fillStyle}"${rule === "evenodd" ? ' fill-rule="evenodd"' : ""}${this._alpha()}${this._clip()}/>`); }
+  stroke(p) { const d = this._d(p || this.path); if (!d) return; const k = this._scale(), dash = this.st.dash.length ? ` stroke-dasharray="${this.st.dash.map(v => (v * k).toFixed(2)).join(" ")}"` : "";
+    this.out.push(`<path d="${d}" fill="none" stroke="${this.st.strokeStyle}" stroke-width="${(this.st.lineWidth * k).toFixed(3)}" stroke-linecap="${this.st.lineCap}" stroke-linejoin="${this.st.lineJoin}"${dash}${this._alpha()}${this._clip()}/>`); }
+  fillRect(x, y, w, h) { const p = new RecPath(); p.rect(x, y, w, h); this.fill(p); } strokeRect(x, y, w, h) { const p = new RecPath(); p.rect(x, y, w, h); this.stroke(p); }
+  clearRect() { }
+  clip(p, rule) { if (typeof p === "string") { rule = p; p = null; } const id = `c${this.k++}`; this.defs.push(`<clipPath id="${id}"><path d="${this._d(p || this.path)}"${rule === "evenodd" ? ' clip-rule="evenodd"' : ""}/></clipPath>`); this.st.clip = id; }
+  fillText(t, x, y) { const [a, b, c, d, e, f] = this.st.m, anchor = { center: "middle", right: "end", end: "end" }[this.st.textAlign] || "start";
+    const base = { middle: "central", top: "hanging", hanging: "hanging", bottom: "text-after-edge" }[this.st.textBaseline] || "alphabetic";
+    this.out.push(`<text transform="matrix(${[a, b, c, d, e, f].map(v => +v.toFixed(5)).join(" ")})" x="${x}" y="${y}" style="font:${esc(this.st.font)}" fill="${this.st.fillStyle}" text-anchor="${anchor}" dominant-baseline="${base}"${this._alpha()}${this._clip()}>${esc(t)}</text>`); }
+  drawImage(img, x, y, w, h) { const [a, b, c, d, e, f] = this.st.m; if (!img || !img.src) return;
+    this.out.push(`<image href="${esc(img.src)}" x="${x}" y="${y}" width="${w ?? img.width}" height="${h ?? img.height}" transform="matrix(${[a, b, c, d, e, f].join(" ")})" preserveAspectRatio="none"${this._alpha()}${this._clip()}/>`); }
+  svg(w, h, size) { return `<svg xmlns="${SVG_NS}" viewBox="0 0 ${w} ${h}" ${size || `width="${w}" height="${h}"`}><title>${esc(DOC ? DOC.name : "view")}</title><defs>${this.defs.join("")}</defs>${this.out.join("\n")}</svg>`; }
+}
+function viewSvg(size) {   // the view as an SVG text; null in 3D
+  if (!S || st.mode3d) return null;
+  const real = ctx, realDpr = dpr, rec = new SvgCtx(W, H); const board = !isSch();
+  ctx = rec; dpr = 1; if (board) { P2D = RecPath; buildCaches(); if (S.diff) S.diff.cache = null; }
+  try { draw(); } finally { ctx = real; dpr = realDpr; if (board) { P2D = Path2D; buildCaches(); if (S.diff) S.diff.cache = null; } draw(); }
+  return rec.svg(W, H, size);
+}
+$("bSvg").onclick = () => { const svg = viewSvg(); if (!svg) { showInfo("SVG: leave the 3D view first (D)."); return; } download(svg, (DOC ? DOC.name : "view") + ".svg", "image/svg+xml"); };
+function printView() {   // the SVG at the chosen scale, printed from a hidden frame: the print dialog also saves a PDF
+  const k = $("printScale").value, size = k === "fit" ? 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"' : `width="${(W / view.s * +k).toFixed(3)}mm" height="${(H / view.s * +k).toFixed(3)}mm"`;
+  const svg = viewSvg(size); if (!svg) { showInfo("Print: leave the 3D view first (D)."); return; }
+  const f = document.createElement("iframe"); f.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0"; document.body.appendChild(f);
+  const scale = k === "fit" ? "fit to page" : `scale ${k}:1`;
+  f.contentDocument.open(); f.contentDocument.write(`<!doctype html><html><head><title>${esc(DOC ? DOC.name : "view")}</title><style>@page { margin: 10mm } html, body { margin: 0; height: 100% } svg { display: block; ${k === "fit" ? "width: 100%; height: 95vh" : ""} } p { font: 9pt system-ui; margin: 2mm 0 0 }</style></head><body>${svg}<p>${esc(DOC ? DOC.name : "")} · ${scale} · Fenolite viewer</p></body></html>`); f.contentDocument.close();
+  setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 2000); }, 200);
+}
+$("bPrint").onclick = printView;
+
 function flip() { view.mirror = !view.mirror; $("bFlip").textContent = "View: " + (view.mirror ? "Bottom" : "Top"); draw(); }
 function toggle(key, btn) { st[key] = !st[key]; $(btn).classList.toggle("on", st[key]); if (key === "measure" && !st.measure) st.mpts = []; draw(); }
 function find(q) {
@@ -938,6 +1183,8 @@ cv.addEventListener("mousedown", e => { if (document.activeElement && document.a
 window.addEventListener("mouseup", e => { if (!drag) return; const d = drag; drag = null;
   if (d.moved || e.target !== cv) return; const [x, y] = s2w(e.offsetX, e.offsetY);
   if (st.measure) { measureClick(e.offsetX, e.offsetY); return; }
+  if (st.marking) { markClick(x, y); return; }
+  if (st.edge && !isSch()) { edgeClick(e.offsetX, e.offsetY); return; }
   if (isSch()) schSelect(schPick(e.offsetX, e.offsetY)); else select(pick(e.offsetX, e.offsetY), [x, y]); });
 cv.addEventListener("dblclick", e => { if (!S) return;
   if (isSch()) { schDouble(e.offsetX, e.offsetY); return; }
@@ -958,9 +1205,13 @@ cv.addEventListener("wheel", e => { e.preventDefault(); const [x, y] = s2w(e.off
 window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S) return;
   const k = e.key;
   if (k === "q" || k === "Q") { setUnit(UNIT === "mm" ? "mil" : "mm"); return; }
+  if ((k === "m" || k === "M") && e.shiftKey && !st.mode3d && !isSch()) { toggleEdge(); return; }
   if ((k === "m" || k === "M") && !st.mode3d) { toggle("measure", "bMeasure"); return; }
+  if ((k === "n" || k === "N") && !st.mode3d) { toggle("marking", "bMark"); return; }
   if ((k === "x" || k === "X") && S.diff) { st.diff = !st.diff; draw(); return; }
   if ((k === "e" || k === "E") && S.check) { st.checks = !st.checks; draw(); return; }
+  if (k === "Escape" && st.edge) { toggleEdge(); return; }
+  if (k === "Escape" && st.marking) { toggle("marking", "bMark"); return; }
   if (k === "Escape" && (st.measure || st.mpts.length)) { st.mpts = []; st.mhover = null; if (st.measure) toggle("measure", "bMeasure"); return; }
   if (isSch()) { if (k === "f" || k === "F") fit(); else if (k === "Escape") { schSelect(-1); shareNet(null); }
     else if (k === "PageUp" || k === "PageDown") { e.preventDefault(); zoomBy(k === "PageUp" ? 1.25 : 0.8); } return; }
@@ -1127,7 +1378,7 @@ function drawSch() {
   ctx.globalAlpha = 1;
   const sb = SCH.selComp >= 0 ? S.comps[SCH.selComp].b : SCH.sel >= 0 && SCH.selNet < 0 ? S.objects[SCH.sel].b : null;
   if (sb) { const e = 4 / view.s; ctx.strokeStyle = SEL; ctx.lineWidth = 1.5 / view.s; ctx.setLineDash([5 / view.s, 3 / view.s]); ctx.strokeRect(sb[0] - e, sb[1] - e, sb[2] - sb[0] + 2 * e, sb[3] - sb[1] + 2 * e); ctx.setLineDash([]); }
-  drawSchDiff(); drawCheck(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
+  drawSchDiff(); drawCheck(); drawMarks(); linkLater(); if (S.variants) drawVariantMarks(S.comps.map(c => [c.group || c.ref, c.b])); drawMeasure();
   $("zoomv").textContent = `zoom ${(view.s * MIL * 100).toFixed(0)} %`;
 }
 // --- hit test
@@ -1315,10 +1566,15 @@ async function start() {
   if (EMBED) { PROJECT = EMBED.project; for (const [id, sc] of Object.entries(EMBED.scenes)) RAW.set(id, sc); }   // decoded when opened
   else if (LIVE) { PROJECT = await (await fetch("project.json", { cache: "no-store" })).json(); }
   buildTree();
+  loadMarks((EMBED && EMBED.marks) || (PROJECT && PROJECT.marks)); buildMarks();
   const docs = PROJECT ? PROJECT.groups.flatMap(g => g.documents) : [];
-  const want = (EMBED && EMBED.open) || (PROJECT && PROJECT.open);
+  const link = new URLSearchParams(location.hash.slice(1));   // c0189: a link opens where it was made
+  const want = link.get("doc") || (EMBED && EMBED.open) || (PROJECT && PROJECT.open);
   const d = docs.find(x => x.id === want) || docs.find(x => x.viewable && x.present) || docs[0];
   if (d) await openDoc(d);
+  if (link.get("doc") && DOC && DOC.id === link.get("doc")) applyLink(link);
+  else applySelect((EMBED && EMBED.select) || (PROJECT && PROJECT.select));
+  linkReady = true;
   if (LIVE) setInterval(poll, 2000);
 }
 async function poll() {

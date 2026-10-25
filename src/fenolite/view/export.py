@@ -31,14 +31,18 @@ def page(
     *,
     open_id: str | None = None,
     live: bool = False,
+    select: str | None = None,
+    marks: list[dict[str, Any]] | None = None,
 ) -> str:
     """The page: with ``tree`` and ``scenes`` (document id → scene) embedded, a standalone file; with
     ``live``, the page of the server, which fetches both. Each scene is embedded packed (``compact.pack``,
-    change c0182) and decoded by the page when its document is opened."""
+    change c0182) and decoded by the page when its document is opened. ``select`` (a part or net) and
+    ``marks`` (``review.to_json``) are what ``--select`` and ``--marks`` give the page (change c0189)."""
     html = template()
     if tree is not None:
         packed = {doc_id: pack(scene) for doc_id, scene in (scenes or {}).items()}
-        html = html.replace(DATA_MARK, _json({"project": tree, "scenes": packed, "open": open_id}), 1)
+        data = {"project": tree, "scenes": packed, "open": open_id, "select": select, "marks": marks or []}
+        html = html.replace(DATA_MARK, _json(data), 1)
     return html.replace(LIVE_MARK, "true" if live else "false", 1)
 
 

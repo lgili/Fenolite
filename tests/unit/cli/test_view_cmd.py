@@ -294,3 +294,75 @@ def test_check_run_on_altium(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     )
     assert code == 0 and set(envelope["result"]["check"]) == {"error", "warning", "info", "total", "placed"}
     assert sorted(p.name for p in folder.iterdir()) == before
+
+
+def test_marks(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Marks for an agent" (c0189): `result.marks` lists the marks of an authored review file."""
+    review = tmp_path / "review.json"
+    marks = [
+        {
+            "id": "m1",
+            "doc": BOARD.name,
+            "x_nm": 12_500_000,
+            "y_nm": 3_250_000,
+            "note": "gap too small",
+            "select": "R1",
+        },
+        {"id": "m2", "doc": "other.kicad_sch", "x_nm": 0, "y_nm": 0, "note": "label?"},
+    ]
+    review.write_text(json.dumps({"schema": "fenolite.review.v0", "marks": marks}), encoding="utf-8")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--marks", str(review), "--json")
+    assert code == 0
+    first, second = envelope["result"]["marks"]
+    assert (first["doc"], first["x_mm"], first["y_mm"], first["note"]) == (
+        BOARD.name,
+        12.5,
+        3.25,
+        "gap too small",
+    )
+    assert second["note"] == "label?"
+    review.write_text(json.dumps({"schema": "fenolite.review.v0", "marks": [{"id": "m1"}]}), encoding="utf-8")
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--marks", str(review), "--json")
+    assert code == 3 and err["code"] == "FEN-3004"
+    code, _, err, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--marks", "none.json", "--json")
+    assert code == 3 and err["code"] == "FEN-3001"
+
+
+def test_select(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """`--select` opens the page at a part or net (c0189): the reply says whether the document holds it, and
+    an exported page carries it."""
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--select", "R1", "--json")
+    assert code == 0 and envelope["result"]["select"] == {"name": "R1", "found": True}
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--select", "net:GND", "--json")
+    assert envelope["result"]["select"]["found"] is True
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--select", "U99", "--json")
+    assert envelope["result"]["select"]["found"] is False and "U99" in envelope["result"]["notes"][-1]
+    out = tmp_path / "view.html"
+    code, envelope, _, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(BOARD),
+        "--select",
+        "R1",
+        "--export",
+        str(out),
+        "--dry-run",
+        "--json",
+    )
+    plan = envelope["result"]["plan_id"]
+    code, _, _, _ = run(
+        monkeypatch,
+        tmp_path,
+        "view",
+        str(BOARD),
+        "--select",
+        "R1",
+        "--export",
+        str(out),
+        "--confirm",
+        "--plan",
+        plan,
+    )
+    data = embedded(out.read_text(encoding="utf-8"))
+    assert code == 0 and data is not None and data["select"] == "R1" and data["marks"] == []
