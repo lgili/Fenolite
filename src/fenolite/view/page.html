@@ -299,10 +299,11 @@ function paintTexts(g, lid, color, alpha, unit) {
 function draw() {
   if (S && S.kind === "schematic") return drawSch();
   if (!S || st.mode3d) return;
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#15171b"; ctx.fillRect(0, 0, cv.width, cv.height);
-  worldTf(); ctx.globalAlpha = 1; ctx.fillStyle = "#050505"; ctx.fill(boardPath(), "evenodd");
+  const th = S.theme || {};
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = th.background || "#15171b"; ctx.fillRect(0, 0, cv.width, cv.height);
+  worldTf(); ctx.globalAlpha = 1; ctx.fillStyle = th.board || "#050505"; ctx.fill(boardPath(), "evenodd");
   const ord = order(), sel = st.selNet >= 0 || st.selComp >= 0;
-  for (const [l, a] of ord) { paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * 0.28 : a, view.s);
+  for (const [l, a0] of ord) { const a = a0 * (l.alpha ?? 1); paintCache(ctx, cache.get(l.id), l.id, l.color, sel ? a * 0.28 : a, view.s);
     if (view.s * 0.4 > 1) paintTexts(ctx, l.id, l.color, sel ? a * 0.28 : a, view.s); }
   if (sel) {
     const mm = st.selNet >= 0 ? selCache(netCache, st.selNet, pr => pr[3] === st.selNet) : selCache(compCache, st.selComp, pr => pr[4] === st.selComp);
@@ -648,12 +649,13 @@ const MIL = 0.0254;
 function toMMsch(sc) {
   const f = v => v * MM, fb = b => b ? b.map(f) : b;
   for (const p of sc.prims) { if (p.p) p.p = p.p.map(f); if (p.b) p.b = p.b.map(f);
-    for (const k of ["x", "y", "rx", "ry", "w", "m"]) if (typeof p[k] === "number") p[k] = p[k] * MM;
+    for (const k of ["x", "y", "rx", "ry", "w", "m", "sz", "gw", "th"]) if (typeof p[k] === "number") p[k] = p[k] * MM;
     if (p.rr) p.rr = p.rr.map(f); p.bb = primBox(p); }
   for (const o of sc.objects) o.b = fb(o.b);
   for (const c of sc.comps) c.b = fb(c.b);
   for (const fo of sc.fonts) fo.emm = fo.em * MM;
   const sh = sc.sheet; for (const k of ["w", "h", "grid", "margin"]) sh[k] *= MM;
+  if (sh.text === "stroke") sc.comps.forEach(c => { c.hidden = c.ref.startsWith("#"); });
   sc.bounds = sc.bounds.map(f); sc.mm = true; return sc;
 }
 function primBox(p) {
@@ -688,7 +690,23 @@ function roundRectPath(g, b, rx, ry) {
   g.lineTo(x0, y0 + ry); g.ellipse(x0 + rx, y0 + ry, rx, ry, 0, Math.PI, 1.5 * Math.PI); g.closePath();
 }
 function strokeW(w) { return Math.max(w, 1 / view.s); }
+function drawStrokeText(p, alpha) {   // KiCad's way: texts as strokes, in Fenolite's own stroke font
+  if (p.sz * view.s < 1.5) return;
+  const lines = p.s.split("\n"), adv = 1.5 * p.gw, step = p.sz * 1.4, deg = (p.rot || 0) * 90, a = deg * Math.PI / 180;
+  ctx.globalAlpha = alpha; ctx.strokeStyle = p.c; ctx.lineWidth = Math.max(p.th, 1 / view.s); ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const n = lines.length, first = p.v === "top" ? 0 : p.v === "bottom" ? -(n - 1) : -(n - 1) / 2;
+  let wMax = 0; ctx.beginPath();
+  lines.forEach((ln, i) => { const off = (first + i) * step, x = p.x + Math.sin(a) * off, y = p.y + Math.cos(a) * off;
+    const t = ["", x, y, p.sz, p.gw, p.th, deg, p.h, p.v, false, ln, -1];
+    for (const pl of textPolylines(t)) { ctx.moveTo(pl[0][0], pl[0][1]); for (let k = 1; k < pl.length; k++) ctx.lineTo(pl[k][0], pl[k][1]); if (pl.length === 1) ctx.lineTo(pl[0][0] + 1e-4, pl[0][1]); }
+    const wl = [...ln].length * adv - 2 * p.gw / 4; wMax = Math.max(wMax, wl);
+    if (p.ol && p.ol.length && n === 1) { const x0 = p.h === "left" ? 0 : p.h === "right" ? -wl : -wl / 2, top = p.v === "top" ? 0 : p.v === "bottom" ? -p.sz : -p.sz / 2;
+      const ly = top - p.sz * 0.2, c = Math.cos(a), s2 = Math.sin(a), P = lx => [x + lx * c + ly * s2, y - lx * s2 + ly * c];
+      for (const k of p.ol) { const [ax, ay] = P(x0 + k * adv), [bx, by] = P(x0 + k * adv + p.gw); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); } } });
+  ctx.stroke(); p.sb = [wMax, n * step];
+}
 function drawText(p, alpha) {
+  if (S.sheet.text === "stroke") return drawStrokeText(p, alpha);
   const fo = S.fonts[p.font] || S.fonts[0], px = fo.emm * view.s; if (px < 1.2) return;
   const [X, Y] = w2s(p.x, p.y);
   ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = alpha; ctx.translate(X, Y); if (p.rot) ctx.rotate(-p.rot * Math.PI / 2);
@@ -753,6 +771,9 @@ function visibleBox() { const [ax, ay] = s2w(0, 0), [bx, by] = s2w(W, H); return
 function drawGrid(sh) {
   if (!sh.grid || sh.grid * view.s < 8) return;
   const vb = visibleBox(), g = sh.grid, x0 = Math.max(0, Math.floor(vb[0] / g) * g), x1 = Math.min(sh.w, vb[2]), y0 = Math.max(0, Math.floor(vb[1] / g) * g), y1 = Math.min(sh.h, vb[3]);
+  if (sh.text === "stroke") {   // KiCad draws its grid as dots
+    ctx.globalAlpha = 1; ctx.fillStyle = sh.grid_color || shade(sh.color, 0.3); const d = 1.4 / view.s;
+    for (let x = x0; x <= x1; x += g) for (let y = y0; y <= y1; y += g) ctx.fillRect(x - d / 2, y - d / 2, d, d); return; }
   ctx.globalAlpha = 1; ctx.strokeStyle = shade(sh.color, 0.08); ctx.lineWidth = 1 / view.s; ctx.beginPath();
   for (let x = x0; x <= x1; x += g) { ctx.moveTo(x, Math.max(0, vb[1])); ctx.lineTo(x, Math.min(sh.h, vb[3])); }
   for (let y = y0; y <= y1; y += g) { ctx.moveTo(Math.max(0, vb[0]), y); ctx.lineTo(Math.min(sh.w, vb[2]), y); }
@@ -760,7 +781,7 @@ function drawGrid(sh) {
 }
 function shade(hex, f) { const n = parseInt(hex.slice(1), 16); const c = [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.round(v * (1 - f))); return `rgb(${c[0]},${c[1]},${c[2]})`; }
 function drawSch() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = WORKSPACE; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.fillStyle = S.sheet.workspace || WORKSPACE; ctx.fillRect(0, 0, cv.width, cv.height);
   worldTf(); const sh = S.sheet;
   ctx.save(); ctx.shadowColor = "#0008"; ctx.shadowBlur = 12; ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3; ctx.fillStyle = sh.color; ctx.fillRect(0, 0, sh.w, sh.h); ctx.restore();
   drawGrid(sh);
@@ -820,7 +841,7 @@ function selectComp(ci, zoom) { const oi = S.objects.findIndex(o => o.k === "com
 function natural(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); }
 function buildNav() {
   const box = $("navList"); if (!box || !isSch()) return; const q = SCH.filter.trim().toLowerCase(); box.innerHTML = "";
-  const comps = S.comps.map((c, i) => [c, i]).filter(([c]) => !q || c.ref.toLowerCase().includes(q) || (c.comment || "").toLowerCase().includes(q)).sort((a, b) => natural(a[0].ref, b[0].ref));
+  const comps = S.comps.map((c, i) => [c, i]).filter(([c]) => !c.hidden).filter(([c]) => !q || c.ref.toLowerCase().includes(q) || (c.comment || "").toLowerCase().includes(q)).sort((a, b) => natural(a[0].ref, b[0].ref));
   const nets = S.nets.map((n, i) => [n, i]).filter(([n]) => n.name && (n.pins.length > 1 || !n.name.startsWith("Net")) && (!q || n.name.toLowerCase().includes(q))).sort((a, b) => natural(a[0].name, b[0].name));
   const head = t => { const d = document.createElement("div"); d.className = "navg"; d.textContent = t; box.appendChild(d); };
   head(`Components (${comps.length})`);

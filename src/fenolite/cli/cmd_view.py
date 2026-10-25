@@ -3,11 +3,12 @@
 """``fenolite view PATH``: show the boards and sheets of a project without the tool that made them
 (capability cli-contract, "View command"; user guide ``docs/viewer.md``).
 
-``PATH`` is an Altium or KiCad project file, a folder, a board or an Altium sheet (change c0177). Without
+``PATH`` is an Altium or KiCad project file, a folder, a board or a sheet (changes c0177 and c0178). Without
 ``--serve`` and ``--export`` the reply holds the project tree and a summary of one document's scene, and
 nothing is written. ``--export FILE`` plans one standalone HTML page with every viewable document embedded;
 ``--serve`` serves the page on the loopback address until it is interrupted, reloading a document when its
-file is saved.
+file is saved. Each document takes the colours of its tool (change c0178): ``--theme`` names a KiCad colour
+theme for the KiCad documents.
 """
 
 from __future__ import annotations
@@ -29,13 +30,16 @@ from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli.api import Command, Context, PlannedWrite, Result
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.core.errors import FormatError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.design import Design
-from fenolite.view import export, server
+from fenolite.view import export, server, themes
+from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 from fenolite.view.project import ProjectTree, load_tree
 from fenolite.view.scene import build_scene, summary
 from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
+from fenolite.view.themes import Palette
 
 HELP = "show the boards and sheets of a project in a web page, without their tool (writes FILE with --export)"
 KIND = "view"
@@ -47,7 +51,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "path",
         metavar="PATH",
-        help="an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or an Altium .SchDoc",
+        help="an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or a .SchDoc or .kicad_sch",
     )
     parser.add_argument(
         "--doc", metavar="ID", help="the document to show: its id, path or name (default: the first board)"
@@ -68,12 +72,28 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("--no-browser", action="store_true", help="with --serve: do not open a browser")
     parser.add_argument("--export", metavar="FILE", help="also write one standalone HTML page")
+    parser.add_argument(
+        "--theme",
+        metavar="THEME",
+        help="a KiCad colour theme: a .json file, or a name in KiCad's colors folder",
+    )
 
 
-def scene_of(path: Path) -> dict[str, Any]:
-    """The scene of the board or the Altium sheet at ``path``, read by the backend that reads it."""
-    if path.suffix.lower() == ".schdoc":
+def scene_of(path: Path, kicad: Palette | None = None) -> dict[str, Any]:
+    """The scene of the board or the sheet at ``path``, read by the backend that reads it, in the colours of
+    its tool; ``kicad`` replaces the ``kicad`` palette (a user's theme)."""
+    suffix = path.suffix.lower()
+    if suffix == ".schdoc":
         return _sheet_scene(path)
+    if suffix == ".kicad_sch":
+        data = path.read_bytes()
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise CliError("FEN-3004", f"{path.name} is not UTF-8 text", where=path.name) from exc
+        return build_kicad_schematic_scene(
+            text, name=path.name, data=data, palette=kicad or themes.palette("kicad")
+        )
     backend = registry.for_path(path)
     if backend is None:
         raise CliError("FEN-2001", f"no backend reads {path.name}", where=path.name)
@@ -83,15 +103,44 @@ def scene_of(path: Path) -> dict[str, Any]:
     if not isinstance(design, Design) or design.board is None:
         raise CliError("FEN-2001", f"{path.name} is not a board", where=path.name)
     frame = backend if isinstance(backend, BoardFrame) else None
-    return build_scene(
+    scene = build_scene(
         design, frame, name=path.name, data=data, backend=backend.name, evidence=read.evidence.level.value
     )
+    name = themes.theme_for(backend.name)
+    chosen = kicad if name == "kicad" and kicad is not None else themes.palette(name)
+    return themes.apply_board_theme(scene, chosen)
+
+
+def theme_of(argument: str | None, ctx: Context) -> Palette | None:
+    """The user's KiCad theme named by ``--theme``, or ``None``."""
+    if not argument:
+        return None
+    found = themes.find_kicad_theme(argument, ctx.cwd)
+    if found is None:
+        raise CliError(
+            "FEN-3001",
+            f"--theme: no theme file or KiCad theme named {argument!r}",
+            where="--theme",
+            hint="pass a .json theme file, or a theme name of the colors folder of your KiCad settings",
+        )
+    try:
+        return themes.read_kicad_theme(found)
+    except FormatError as exc:
+        raise CliError("FEN-3004", f"--theme: {exc}", where="--theme") from exc
 
 
 def _sheet_scene(path: Path) -> dict[str, Any]:
     data = path.read_bytes()
     document = read_schematic(data, file=path.name)  # a FormatError is FEN-3004
     return build_schematic_scene(document, name=path.name, data=data, evidence=Level.INFERRED.value)
+
+
+def _theme_name(scene: dict[str, Any]) -> str:
+    """The palette a scene is drawn in: a board's theme, a KiCad sheet's palette, or ``altium``."""
+    board: Any = scene.get("theme")
+    if isinstance(board, dict):
+        return str(cast("dict[str, Any]", board).get("name", ""))
+    return str(scene["meta"].get("theme") or "altium")
 
 
 def _summary(scene: dict[str, Any]) -> dict[str, Any]:
@@ -206,6 +255,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError("FEN-2001", f"--port: expected a port number, got {args.port!r}", where="--port")
     tree = _tree(args.path, ctx)
     overlays = overlays_of(args.overlay, ctx)
+    kicad = theme_of(args.theme, ctx)
     doc = tree.document(args.doc) if args.doc else tree.first_viewable()
     if args.doc and doc is None:
         raise CliError("FEN-2001", f"--doc: the project holds no document {args.doc!r}", where="--doc")
@@ -214,16 +264,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "document": doc.id if doc else None,
         "summary": None,
         "notes": [],
+        "theme": None,
     }
     evidence = Evidence(Level.INFERRED)
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:
-        scene = scene_of(doc.file)
+        scene = scene_of(doc.file, kicad)
         scene["overlays"] = overlays
         scenes[doc.id] = scene
         result["summary"] = _summary(scene)
         result["notes"] = list(scene["meta"]["notes"])
+        result["theme"] = _theme_name(scene)
         evidence = (
             Evidence(Level(scene["meta"]["evidence"]))
             if scene["meta"]["evidence"] in Level._value2member_map_
@@ -237,7 +289,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.export:
         for other in tree.documents:
             if other.viewable and other.present and other.file is not None and other.id not in scenes:
-                scenes[other.id] = scene_of(other.file) | {"overlays": []}
+                scenes[other.id] = scene_of(other.file, kicad) | {"overlays": []}
         html = export.page(tree.to_json(), scenes, open_id=doc.id if doc else None).encode("utf-8")
         writes = (PlannedWrite(path=str(args.export), data=html, kind=KIND),)
         result["export"] = {
@@ -249,7 +301,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     if args.serve:
 
         def build(path: Path) -> dict[str, Any]:
-            return scene_of(path)
+            return scene_of(path, kicad)
 
         live = server.Live(
             tree,

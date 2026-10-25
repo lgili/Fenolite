@@ -2855,10 +2855,10 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 
 ## view
 
-`fenolite view PATH [--doc ID] [--overlay FILE]... [--serve [--port N] [--no-browser]] [--export FILE]`
-shows the boards and the Altium sheets of a project without the tool that made them (changes c0176 and c0177;
-`docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a board or an Altium
-`.SchDoc`.
+`fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--serve [--port N] [--no-browser]]
+[--export FILE]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
+c0177 and c0178; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
+board, an Altium `.SchDoc` or a KiCad `.kicad_sch`.
 
 - **Reply.** Without `--serve` and `--export` nothing is written. `result.project` is the project tree
   (`name`, `source`, `project_file`, `groups` of documents with `id`, `name`, `path`, `kind`, `present`,
@@ -2868,8 +2868,13 @@ shows the boards and the Altium sheets of a project without the tool that made t
   thickness; for a sheet, which drawings are Fenolite's). For an Altium sheet `result.summary` is `kind`
   `"schematic"`, `counts` (components, pins, wires, buses, bus entries, labels, power ports, ports, junctions,
   No ERC marks, sheet symbols, sheet entries, harness connectors, nets, primitives) and `bounds_um`, and
-  `evidence.level` is `INFERRED`. A KiCad schematic is listed, not viewable. `evidence.level` of a board is
-  that of the backend's read.
+  `evidence.level` is `INFERRED`; a KiCad sheet replies the same way, with `components` counting the symbols
+  whose reference does not start with `#` and `symbols` counting all. `evidence.level` of a board is that of
+  the backend's read. `result.theme` names the colours of the document shown: `kicad`, `altium`, or
+  `kicad:<file>` for a theme given with `--theme`.
+- **`--theme THEME`** draws the KiCad documents in a KiCad colour theme: a `.json` file, or the name of a theme
+  in the `colors` folder of the user's KiCad settings (`docs/formats/kicad/color-theme.md`). A theme that is
+  not found is `FEN-3001`, a malformed one `FEN-3004`.
 - **`--export FILE`** plans one standalone HTML page holding the tree and the scene of every viewable document,
   under the mutation protocol; `result.export` gives its documents, size and SHA-256.
 - **`--serve`** writes one progress record with the URL to stderr, serves the page on `127.0.0.1` (port

@@ -1,17 +1,35 @@
 # Board and schematic viewer
 
-`fenolite view` shows the boards and the Altium sheets of a project in a web browser, without the tool that
-made them: an Altium project on a machine without Altium, a KiCad board in a review, a board or a sheet an
-agent just wrote. It reads every board through the neutral model (change c0176), so Altium `.PcbDoc` and KiCad
-`.kicad_pcb` files look the same, and it draws every Altium `.SchDoc` in the manner of Altium Designer (change
-c0177). It writes no design file and opens no connection beyond the loopback address.
+`fenolite view` shows the boards and the sheets of a project in a web browser, without the tool that made
+them: an Altium project on a machine without Altium, a KiCad board in a review, a board or a sheet an agent
+just wrote. It reads every board through the neutral model (change c0176), draws every Altium `.SchDoc` in
+the manner of Altium Designer (change c0177) and every KiCad `.kicad_sch` in the manner of KiCad (change
+c0178). Each document keeps the look of its own tool (see "Colours"). It writes no design file and opens no
+connection beyond the loopback address.
 
 ```bash
 fenolite view MyProject.PrjPcb --serve              # live: http://127.0.0.1:8765/, reloads when a board is saved
 fenolite view board.kicad_pcb --export board.html --confirm    # one standalone page to open or send
 fenolite view MyProject.PrjPcb --json               # for an agent: the documents and a scene summary
 fenolite view MyProject.PrjPcb --doc Power.SchDoc --json        # the parts, pins, wires and nets of one sheet
+fenolite view board.kicad_pro --serve --theme my-theme          # a KiCad project in your own KiCad colours
 ```
+
+## Colours
+
+Each document is drawn in the colours of the tool that made it (change c0178):
+
+| document | colours |
+|---|---|
+| KiCad board, KiCad sheet | Fenolite's palette in the manner of KiCad: a dark navy board with red front and blue back copper, a cream sheet with a dotted grid, green wires, dark red symbols on a pale yellow body, stroke text. With `--theme`, your own KiCad colour theme |
+| Altium board | Fenolite's palette in the manner of Altium Designer: black background, red top and blue bottom layers, yellow overlay |
+| Altium sheet | the colours its records hold, as Altium draws them (c0177) |
+
+`--theme NAME` takes a KiCad colour theme: a `.json` file, or the name of a theme in the `colors` folder of
+your KiCad settings (`~/.config/kicad/<version>/colors` on Linux, `%APPDATA%\kicad\<version>\colors` on
+Windows, `~/Library/Preferences/kicad/<version>/colors` on macOS). With it, a KiCad project looks colour for
+colour as in your KiCad. The palettes are Fenolite's own: no value of KiCad's or Altium's built-in themes is
+copied (`docs/formats/kicad/color-theme.md`).
 
 ## The page
 
@@ -92,7 +110,18 @@ What the schematic view states:
 | title block of a sheet without a template | the sheet's parameters | always: the block is Fenolite's drawing |
 | nets | the connectivity of one sheet (`altium-import`) | a net that crosses sheets is highlighted on each sheet under its own name |
 
-KiCad schematics are listed in the tree but not drawn yet.
+### KiCad sheets
+
+A KiCad sheet is drawn the same way, with KiCad's habits:
+- the paper of its `paper` size with a frame and a title block from its `title_block`;
+- the embedded symbols turned and mirrored as KiCad places them, with their pins (names, numbers, overbars,
+  dots, clock wedges) and visible fields;
+- wires, buses, bus entries, junctions, local, global and hierarchical labels, no-connect flags, power symbols,
+  sheets with their pins, and free texts and graphics.
+
+Every text is a stroke text in Fenolite's own stroke font, so a long field may end a little earlier or later
+than in KiCad. The nets come from wires, junctions, labels, power symbols and hidden power pins. Images, text
+boxes, tables and rule areas are counted in the notes, not drawn.
 
 ## For agents
 

@@ -497,12 +497,13 @@ A command that writes does nothing without `--dry-run` (show the plan) or `--con
 
 ## view
 
-`fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] PATH`
+`fenolite view [--dry-run] [--confirm] [--plan ID] [--doc ID] [--overlay FILE] [--serve] [--port N] [--no-browser] [--export FILE] [--theme THEME] PATH`
 
-- `PATH` (string, required): an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or an Altium .SchDoc
+- `PATH` (string, required): an Altium .PrjPcb or KiCad .kicad_pro, a project folder, a board, or a .SchDoc or .kicad_sch
 - `--doc` (string): the document to show: its id, path or name (default: the first board)
 - `--overlay` (string, repeatable): draw the distances of a fenolite analyze reply (JSON) on the board (repeatable)
 - `--serve` (boolean): serve the page on 127.0.0.1 until interrupted
 - `--port` (string, default `8765`): with --serve: the port (default 8765; 0 = any free port)
 - `--no-browser` (boolean): with --serve: do not open a browser
 - `--export` (string): also write one standalone HTML page
+- `--theme` (string): a KiCad colour theme: a .json file, or a name in KiCad's colors folder

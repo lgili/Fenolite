@@ -107,3 +107,29 @@ def test_serve_until_stopped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
     )
     assert code == 0
     assert envelope["result"]["serve"]["url"].startswith("http://127.0.0.1:")
+
+
+def test_theme(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "A theme file on a KiCad board" (c0178)."""
+    theme = tmp_path / "mine.json"
+    theme.write_text(json.dumps({"board": {"copper": {"f": "rgb(1, 2, 3)"}}}), encoding="utf-8")
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--theme", "mine.json")
+    assert code == 0 and envelope["result"]["theme"] == "kicad:mine.json"
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(BOARD))
+    assert code == 0 and envelope["result"]["theme"] == "kicad"
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(ALTIUM))
+    assert code == 0 and envelope["result"]["theme"] == "altium"
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--theme", "no-such-theme-anywhere")
+    assert code == 3 and error["code"] == "FEN-3001"
+    (tmp_path / "bad.json").write_text("[1]", encoding="utf-8")
+    code, _, error, _ = run(monkeypatch, tmp_path, "view", str(BOARD), "--theme", "bad.json")
+    assert code == 3 and error["code"] == "FEN-3004"
+
+
+def test_kicad_sheet_summary(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sheet = ROOT / "tests" / "data" / "kicad" / "schematic" / "flat.kicad_sch"
+    code, envelope, _, _ = run(monkeypatch, tmp_path, "view", str(sheet))
+    assert code == 0
+    summary = envelope["result"]["summary"]
+    assert summary["kind"] == "schematic" and summary["counts"]["components"] == 5
+    assert envelope["result"]["theme"] == "kicad"

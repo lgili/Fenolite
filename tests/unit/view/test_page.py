@@ -63,6 +63,13 @@ def test_schematic_interaction_is_in_the_page() -> None:
     assert 'class="sch-only"' in html and "board-only" in html
 
 
+def test_the_page_reads_the_theme() -> None:
+    """Scenario "The page reads the theme" (c0178)."""
+    html = template()
+    for name in ("S.theme", "sheet.workspace", 'sheet.text === "stroke"', "drawStrokeText", "l.alpha"):
+        assert name in html, name
+
+
 def test_live_page_has_no_data() -> None:
     html = page(live=True)
     assert "const LIVE = true;" in html and embedded(html) is None

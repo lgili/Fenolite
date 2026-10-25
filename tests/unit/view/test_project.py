@@ -52,6 +52,13 @@ def test_schematic_documents() -> None:
     assert lone.source == "sheet" and [d.viewable for d in lone.documents] == [True]
 
 
+def test_kicad_sheet() -> None:
+    """Scenario "A lone KiCad sheet" (c0178)."""
+    tree = load_tree(ROOT / "tests" / "data" / "kicad" / "schematic" / "flat.kicad_sch")
+    assert tree.source == "sheet"
+    assert [(d.kind, d.viewable) for d in tree.documents] == [("schematic", True)]
+
+
 def test_kicad_project() -> None:
     tree = load_tree(KICAD)
     groups = _groups(tree.to_json())
