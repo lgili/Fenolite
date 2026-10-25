@@ -98,6 +98,12 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         _missing("kicad", "kicad-cli not found (install KiCad or set FENOLITE_KICAD_CLI)")
     if item.get_closest_marker("needs_freerouting") and freerouting_jar() is None:
         _missing("freerouting", FREEROUTING_HINT)
+    if item.get_closest_marker("needs_browser"):
+        from _visual import browser_missing  # change c0191
+
+        missing = browser_missing()
+        if missing:
+            _missing("browser", missing)
     minimum = item.get_closest_marker("kicad_min_major")
     if minimum is not None:
         version = kicad_cli_version()

@@ -228,6 +228,9 @@ def load_tree(path: Path) -> ProjectTree:
     if suffix == ".pcbdwf":
         documents = _documents([(path.name, "draftsman", path)])
         return ProjectTree(path.stem, "drawing", path.parent, "", documents)
+    if suffix in (".outjob", ".bomdoc"):  # change c0190: a BOM document alone lists its catalog
+        kind = document_kind(path.name)
+        return ProjectTree(path.stem, "document", path.parent, "", _documents([(path.name, kind, path)]))
     if document_kind(path.name) != "other":
         raise ValueError(
             f"{path.name} is a {document_kind(path.name)} document; open its project, a board or a sheet"
