@@ -46,6 +46,8 @@ from fenolite.view.kicad_schematic import build_kicad_schematic_scene
 from fenolite.view.library import library_scene
 from fenolite.view.library import summary as library_summary
 from fenolite.view.project import VIEWABLE_LIBRARIES, ProjectTree, load_tree
+from fenolite.view.project_nets import annotate as annotate_nets
+from fenolite.view.project_nets import project_index
 from fenolite.view.scene import build_scene, summary
 from fenolite.view.schematic import build_schematic_scene
 from fenolite.view.schematic import summary as schematic_summary
@@ -292,6 +294,49 @@ def _compare(
         ) from exc
 
 
+class _ProjectNets:
+    """The project nets of an Altium project's sheets (change c0185), compiled once, when a sheet asks."""
+
+    def __init__(self, tree: ProjectTree, scene: Callable[[Path], dict[str, Any]]) -> None:
+        self.tree = tree
+        self.scene = scene
+        self.found: tuple[Design, dict[str, dict[str, Any]]] | None = None
+        self.failed = ""
+
+    def _compile(self) -> tuple[Design, dict[str, dict[str, Any]]] | None:
+        if self.found is None and not self.failed:
+            project = self.tree.root / self.tree.project_file
+            try:
+                backend = registry.for_path(project)
+                design = backend.read(project).content if backend is not None else None
+                if not isinstance(design, Design):
+                    raise FormatError(f"{project.name} gives no design", file=project.name)
+                sheets = {
+                    doc.name: self.scene(doc.file)
+                    for doc in self.tree.documents
+                    if doc.kind == "schematic"
+                    and doc.present
+                    and doc.file is not None
+                    and doc.file.suffix.lower() == ".schdoc"
+                }
+                self.found = (design, project_index(design, sheets))
+            except (FormatError, CliError, OSError, ValueError) as exc:
+                self.failed = f"{type(exc).__name__}: {exc}"
+        return self.found
+
+    def annotate(self, path: Path, scene: dict[str, Any]) -> dict[str, Any]:
+        """``scene`` with its nets named as the project's, for a sheet of an Altium project."""
+        if path.suffix.lower() != ".schdoc" or self.tree.source != "altium" or not self.tree.project_file:
+            return scene
+        found = self._compile()
+        if found is None:
+            meta = scene["meta"] | {
+                "notes": [*scene["meta"]["notes"], f"Project nets not compiled ({self.failed})."]
+            }
+            return scene | {"meta": meta}
+        return annotate_nets(scene, *found)
+
+
 def _docs(argument: str | None, tree: ProjectTree) -> set[str] | None:
     """The ids that ``--docs`` names (ids, paths or names, comma-separated), or ``None`` without it."""
     if argument is None:
@@ -363,8 +408,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     store = SceneCache.at(args.cache, tree.root)
     theme_key = json.dumps(kicad, sort_keys=True) if kicad is not None else ""
 
-    def cached(path: Path) -> dict[str, Any]:
+    def plain(path: Path) -> dict[str, Any]:
         return store.scene(path, theme_key, lambda: scene_of(path, kicad))
+
+    nets_of = _ProjectNets(tree, plain)
+
+    def cached(path: Path) -> dict[str, Any]:
+        return nets_of.annotate(path, plain(path))
 
     doc = tree.document(args.doc) if args.doc else tree.first_viewable()
     if args.doc and doc is None:

@@ -68,6 +68,20 @@ copied (`docs/formats/kicad/color-theme.md`).
 The palette is Fenolite's own. Coordinates are in the board frame of the model: millimetres from the
 outline's top-left corner, with Y growing downward.
 
+## Nets across sheets and the board
+
+In an Altium project a net crosses sheets through ports, sheet entries, power ports, net labels and harnesses
+(change c0185). The viewer names every net of a sheet by its project net, as the project compiles (`build` and
+`check` see the same nets):
+- **The Navigator** lists each net with its pin count on the sheet and the number of sheets it reaches; a
+  local net whose label differs shows its project net (`N1 → RESET_N`).
+- **A click on a net** shows its pins on the sheet and in the whole project, and links to the other sheets it
+  reaches.
+- **The selection follows you**: a net chosen on a sheet is selected on the next sheet or board you open, and a
+  net clicked on the board is selected on the sheets. With `--serve`, the pages of other tabs follow too. `Esc`
+  clears it.
+- A project that does not compile keeps each sheet's own nets, with a note.
+
 ## Comparing two revisions
 
 `fenolite view NEW --compare OLD` shows what changed between two revisions of a board or a sheet (change

@@ -18,6 +18,10 @@
    it by pin membership, so the two never disagree.
 2. Selection is shared through the page state; in `--serve` it also passes between tabs with
    `BroadcastChannel`.
+3. The sheets a project net reaches come from the scenes of the project's sheets (cached), as a component's
+   path names its module, not its sheet file. `cmd_view` compiles the project once per run, when a sheet of an
+   Altium project is first shown; the scene cache keeps the sheet's own scene, and the annotation is added
+   after it.
 
 ## Risks / Trade-offs
 

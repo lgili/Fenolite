@@ -61,6 +61,7 @@
   .navi.sel { background:#1f4e7a; color:#fff; }
   .navi small { color:var(--muted); }
   .tab.doc-tab .sw { border-radius:2px; }
+  .sheetlink { color:#8cc4ff; }
   body.sch .board-only { display:none !important; }
   body:not(.sch) .sch-only { display:none !important; }
   body:not(.lib) .lib-only { display:none !important; }
@@ -483,7 +484,7 @@ function select(h, at) {
   if (!h) { showInfo(null); draw(); return; }
   const pr = h.pr, net = pr[3], ci = pr[4];
   let html = `<b>${esc(pr[5] || h.layer.name)}</b><br>Layer: ${esc(h.layer.name)}`;
-  if (net >= 0) { html += `<br>Net: <b>${esc(S.nets[net])}</b>`; st.selNet = net; }
+  if (net >= 0) { html += `<br>Net: <b>${esc(S.nets[net])}</b>`; st.selNet = net; shareNet(S.nets[net]); }
   if (ci >= 0) { html += `<br>${compInfo(ci)}`; if (net < 0) st.selComp = ci; }
   if (pr[1] === "s") html += `<br>Width: ${fmtLen(pr[2][4])} · length ${fmtLen(Math.hypot(pr[2][2] - pr[2][0], pr[2][3] - pr[2][1]))}`;
   if (pr[1] === "a") html += `<br>Width: ${fmtLen(pr[2][6])}` + (pr[6] ? ` · radius ${fmtLen(pr[6].r)}` : "");
@@ -712,7 +713,7 @@ function loadBoard(scene, keepView) {
   const first = S === null || S !== scene && !keepView; S = scene;
   for (const l of S.layers) if (!vis.has(l.id)) vis.set(l.id, l.visible);
   if (!st.cur || !S.layers.some(l => l.id === st.cur)) st.cur = (S.layers.find(l => l.id === "F.Cu") || S.layers[0] || {}).id;
-  buildCaches(); buildTabs(); buildPanels(); buildDiffList();
+  buildCaches(); buildTabs(); buildPanels(); buildDiffList(); applyProjNet();
   cv.style.display = st.mode3d ? "none" : "block";
   $("fname").textContent = S.meta.name; document.title = S.meta.name + " · Fenolite viewer";
   $("gen").textContent = S.meta.sha256 ? `SHA-256 ${S.meta.sha256.slice(0, 12)}` : "";
@@ -767,7 +768,7 @@ window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S
   if ((k === "m" || k === "M") && !st.mode3d) { toggle("measure", "bMeasure"); return; }
   if ((k === "x" || k === "X") && S.diff) { st.diff = !st.diff; draw(); return; }
   if (k === "Escape" && (st.measure || st.mpts.length)) { st.mpts = []; st.mhover = null; if (st.measure) toggle("measure", "bMeasure"); return; }
-  if (isSch()) { if (k === "f" || k === "F") fit(); else if (k === "Escape") schSelect(-1);
+  if (isSch()) { if (k === "f" || k === "F") fit(); else if (k === "Escape") { schSelect(-1); shareNet(null); }
     else if (k === "PageUp" || k === "PageDown") { e.preventDefault(); zoomBy(k === "PageUp" ? 1.25 : 0.8); } return; }
   if (k === "d" || k === "D") set3D(!st.mode3d);
   else if (k === "f" || k === "F") { if (st.mode3d) camPreset("iso"); else fit(); }
@@ -775,7 +776,7 @@ window.addEventListener("keydown", e => { if (e.target.tagName === "INPUT" || !S
   else if ((k === "S" || k === "s") && e.shiftKey) { st.single = !st.single; buildTabs(); draw(); }
   else if (k === "+" || k === "=") stepCurrent(1); else if (k === "-" || k === "_") stepCurrent(-1);
   else if (k === "b" || k === "B") flip(); else if (k === "m" || k === "M") toggle("measure", "bMeasure");
-  else if (k === "Escape") { st.mpts = []; st.selOv = -1; select(null); } });
+  else if (k === "Escape") { st.mpts = []; st.selOv = -1; select(null); shareNet(null); } });
 
 // ================================================================== schematic view (scene kind "schematic")
 // A sheet drawn as Altium Designer draws it: the file's own colours and fonts on its paper, a line grid, a grey
@@ -970,14 +971,33 @@ function schSelect(oi) {
   if (o.k === "comp") { SCH.selComp = o.comp; showInfo(`<b>Properties</b> · Component${rows(compRows(o.comp))}`); }
   else { if (o.net >= 0) SCH.selNet = o.net;
     let html = `<b>Properties</b> · ${esc(o.k)}${rows(o.info)}`;
-    if (o.net >= 0) { const n = S.nets[o.net]; html += `<br><b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins` + (n.pins.length ? `<br><small>${esc(n.pins.slice(0, 40).join(", "))}${n.pins.length > 40 ? " …" : ""}</small>` : ""); }
+    if (o.net >= 0) { const n = S.nets[o.net]; html += `<br><b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins` + (n.pins.length ? `<br><small>${esc(n.pins.slice(0, 40).join(", "))}${n.pins.length > 40 ? " …" : ""}</small>` : "") + projectNetInfo(n); shareNet(n.project || n.name); }
     if (o.comp >= 0) html += `<br><br><b>Part</b>${rows(compRows(o.comp))}`;
     showInfo(html); }
   buildNav(); draw();
 }
 function netBox(ni) { let b = null; for (const o of S.objects) if (o.net === ni && o.b) b = b ? [Math.min(b[0], o.b[0]), Math.min(b[1], o.b[1]), Math.max(b[2], o.b[2]), Math.max(b[3], o.b[3])] : [...o.b]; return b; }
-function selectNet(ni, zoom) { SCH.sel = -1; SCH.selComp = -1; SCH.selNet = ni; const n = S.nets[ni];
-  showInfo(`<b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins<br><small>${esc(n.pins.join(", "))}</small>`);
+// ================================================================== project nets across sheets and the board (c0185)
+let PROJ_NET = null; const BC = "BroadcastChannel" in window ? new BroadcastChannel("fenolite-view") : null;
+function shareNet(name) { PROJ_NET = name || null; if (BC) BC.postMessage({ net: PROJ_NET }); }
+if (BC) BC.onmessage = e => { PROJ_NET = e.data && e.data.net || null; applyProjNet(); };
+function projectNetInfo(n) {
+  if (!n.project) return "";
+  const others = (n.sheets || []).filter(x => !S.meta || x !== S.meta.name);
+  const links = others.map(x => `<a href="#" class="sheetlink" data-sheet="${esc(x)}">${esc(x)}</a>`).join(", ");
+  return `<br><br><b>Project net ${esc(n.project)}</b>: ${(n.project_pins || []).length} pins` + (links ? `<br>Also on: ${links}` : "<br>On this sheet only") +
+    `<br><small>${esc((n.project_pins || []).slice(0, 60).join(", "))}</small>`;
+}
+document.addEventListener("click", e => { const a = e.target.closest && e.target.closest(".sheetlink"); if (!a) return; e.preventDefault();
+  const d = docByFile(a.dataset.sheet); if (d) openDoc(d); });
+function applyProjNet() {   // the shared net, selected on the sheet or board shown
+  if (!PROJ_NET || !S) return;
+  if (isSch()) { const i = S.nets.findIndex(n => (n.project || n.name) === PROJ_NET); if (i >= 0) selectNet(i, false, true); }
+  else if (S.nets && !S.kind) { const i = S.nets.indexOf(PROJ_NET); if (i >= 0) { st.selNet = i; st.selComp = -1; showInfo(`Net: <b>${esc(PROJ_NET)}</b>`); draw(); } }
+}
+function selectNet(ni, zoom, quiet) { SCH.sel = -1; SCH.selComp = -1; SCH.selNet = ni; const n = S.nets[ni];
+  showInfo(`<b>Net ${esc(n.name || "(no name)")}</b>: ${n.pins.length} pins<br><small>${esc(n.pins.join(", "))}</small>` + projectNetInfo(n));
+  if (!quiet) shareNet(n.project || n.name);
   const b = netBox(ni); if (zoom && b) fit([b[0] - 8, b[1] - 8, b[2] + 8, b[3] + 8]); else draw(); buildNav(); }
 function selectComp(ci, zoom) { const oi = S.objects.findIndex(o => o.k === "comp" && o.comp === ci); schSelect(oi);
   const b = S.comps[ci].b; if (zoom && b) fit([b[0] - 12, b[1] - 12, b[2] + 12, b[3] + 12]); }
@@ -990,7 +1010,7 @@ function buildNav() {
   head(`Components (${comps.length})`);
   for (const [c, i] of comps) { const d = document.createElement("div"); d.className = "navi" + (SCH.selComp === i ? " sel" : ""); d.innerHTML = `${esc(c.ref)} <small>${esc(c.comment || c.lib || "")}</small>`; d.title = c.description || c.lib || ""; d.onclick = () => selectComp(i, true); box.appendChild(d); }
   head(`Nets (${nets.length})`);
-  for (const [n, i] of nets) { const d = document.createElement("div"); d.className = "navi" + (SCH.selNet === i ? " sel" : ""); d.innerHTML = `${esc(n.name)} <small>${n.pins.length}</small>`; d.onclick = () => selectNet(i, true); box.appendChild(d); }
+  for (const [n, i] of nets) { const d = document.createElement("div"); d.className = "navi" + (SCH.selNet === i ? " sel" : ""); d.innerHTML = `${esc(n.name)}${n.project && n.project !== n.name ? ` <small>→ ${esc(n.project)}</small>` : ""} <small>${n.pins.length}${n.sheets && n.sheets.length > 1 ? ` · ${n.sheets.length} sheets` : ""}</small>`; d.onclick = () => selectNet(i, true); box.appendChild(d); }
 }
 $("navFilter").addEventListener("input", e => { SCH.filter = e.target.value; buildNav(); });
 function allDocs() { return PROJECT ? PROJECT.groups.flatMap(g => g.documents) : []; }
@@ -1037,7 +1057,7 @@ function loadSch(scene, keepView) {
   $("notes").innerHTML = (S.meta.notes || []).map(esc).join("<br>") + `<br>Read by the ${esc(S.meta.backend)} backend, evidence ${esc(S.meta.evidence)}.` +
     (c.kinds ? `<br>${c.items || 0} items: ${Object.entries(c.kinds).map(([k, n]) => `${n} ${esc(k)}`).join(" · ")}`   // a Draftsman sheet (c0180)
       : `<br>${c.components || 0} parts · ${c.pins || 0} pins · ${c.wires || 0} wires · ${c.nets || 0} nets · ${c.power_ports || 0} power ports · ${c.ports || 0} ports`);
-  sheetTabs(); buildNav(); buildDiffList();
+  sheetTabs(); buildNav(); buildDiffList(); applyProjNet();
   if (first) { fitted = false; fit(); } else draw();
 }
 
