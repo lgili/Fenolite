@@ -14,7 +14,7 @@ When a tool's reply plans or writes PNG files, the result SHALL hold each one as
 
 #### Scenario: A dry run of a render is seen
 - **GIVEN** `kicad-cli` and a committed board
-- **WHEN** `uv run pytest tests/unit/mcp/test_images.py` calls `fenolite_render` with `png`, `width` 400 and `height` 300 and no `confirm`
+- **WHEN** `uv run pytest tests/kicad/mcp/test_render_images.py` calls `fenolite_render` with `png`, `width` 400 and `height` 300 and no `confirm`
 - **THEN** the content holds the envelope's text and two PNG images whose bytes have the sha256 of the plan's rows, and nothing is written
 
 ## MODIFIED Requirements

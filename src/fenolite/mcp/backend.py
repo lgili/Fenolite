@@ -16,6 +16,7 @@ first and refused unless it is a plan of the same command whose every write lies
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -24,7 +25,8 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from functools import partial
 from pathlib import Path
 from typing import IO, Any, cast
 
@@ -39,6 +41,9 @@ from fenolite.mcp.tools import Catalog, InputRefused, Tool
 
 EXIT_KEY = "fenolite/exit"
 """The ``_meta`` key of a tool result that holds the command's exit code."""
+IMAGES = 4
+IMAGE_BYTES = 6_000_000
+"""The images of one reply: at most this many, and this many bytes before base64 (change c0196)."""
 GRACE = 5.0
 """Seconds between the terminate and the kill of a stopped call."""
 Json = dict[str, Any]
@@ -172,7 +177,75 @@ class FenoliteBackend:
                 return refused
             at = words.index("--") if "--" in words else len(words)
             words = [*words[:at], "--confirm", f"--plan={plan}", *words[at:]]
-        return self._run(name, words, call)
+        return self._with_images(self._run(name, words, call))
+
+    # ------------------------------------------------------------------ images
+
+    def _with_images(self, reply: Json) -> Json:
+        """``reply`` with the PNG files its envelope plans or wrote as image content, after the envelope's
+        text: a dry run's from the staged plan, a confirmed run's from the files under the root (capability
+        mcp-server, "Images in replies"). At most :data:`IMAGES` images and :data:`IMAGE_BYTES` bytes."""
+        envelope = cast("Json", reply.get("structuredContent") or {})
+        if reply.get("isError") or "result" not in envelope:
+            return reply
+        found = self._pngs(envelope)
+        if not found:
+            return reply
+        items: list[Json] = []
+        left: list[str] = []
+        total = 0
+        for path, read in found:
+            data = read()
+            if data is None or len(items) == IMAGES or total + len(data) > IMAGE_BYTES:
+                left.append(path)
+                continue
+            total += len(data)
+            items.append(
+                {"type": "image", "data": base64.b64encode(data).decode("ascii"), "mimeType": "image/png"}
+            )
+        if left:
+            note = f"images not sent (at most {IMAGES} and {IMAGE_BYTES} bytes per reply): {', '.join(left)}"
+            items.append({"type": "text", "text": note})
+        return reply | {"content": [*cast("list[Json]", reply["content"]), *items]}
+
+    def _pngs(self, envelope: Json) -> list[tuple[str, Callable[[], bytes | None]]]:
+        """The PNG rows of a reply, each with what reads its bytes (``None`` when they cannot be read)."""
+        result = cast("Json", envelope.get("result") or {})
+        receipt = cast("Json | None", envelope.get("receipt"))
+        if receipt:
+            rows = [cast("Json", r) for r in cast("list[Any]", receipt.get("written") or [])]
+            return [
+                (str(row["path"]), partial(self._read_written, str(row["path"])))
+                for row in rows
+                if str(row.get("path", "")).lower().endswith(".png")
+            ]
+        plan_id = result.get("plan_id")
+        if not isinstance(plan_id, str):
+            return []
+        try:
+            staged = plans.load(state_dir(), plan_id)
+        except plans.DamagedPlan:
+            return []
+        if staged is None:
+            return []
+        return [
+            (str(row["path"]), partial(self._read_staged, staged, row))
+            for row in staged.writes
+            if str(row.get("path", "")).lower().endswith(".png")
+        ]
+
+    @staticmethod
+    def _read_staged(staged: plans.StagedPlan, row: Json) -> bytes | None:
+        try:
+            return staged.data(row)
+        except plans.DamagedPlan:
+            return None
+
+    def _read_written(self, path: str) -> bytes | None:
+        target = self.root / path
+        if not _under(target, self.root) or not target.is_file():
+            return None
+        return target.read_bytes()
 
     def capabilities(self) -> str:
         """The JSON text of ``fenolite capabilities --json --no-tools``, run as any call is."""

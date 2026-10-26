@@ -27,9 +27,14 @@
     input file is `<state>/mcp-inputs/<sha256>.txt|.json` and is removed after each call; a confirmation with
     another content is refused by the command line (`FEN-4002`); `--allow-edit` lists the tool and
     `--read-only` wins over it.
-- [ ] 2.2 Images: the PNG rows of a plan or a receipt as image content, the caps, the note of what was left out
+- [x] 2.2 Images: the PNG rows of a plan or a receipt as image content, the caps, the note of what was left out
   (scenario "A dry run of a render is seen"; skipped without `kicad-cli`, and run in the job `mcp` with it if the
   job installs it, else in `kicad-10`). Proof: `uv run pytest tests/unit/mcp/test_images.py -q`.
+  - 2026-10-26: proof passed (2 tests, a fake writer of five PNGs: four sent and the fifth named; an error reply
+    carries none), and `tests/kicad/mcp/test_render_images.py` passed with `kicad-cli` 10.0.6 here: the dry
+    run of `render --png` at 400 by 300 sends two PNGs whose SHA-256 are the plan's rows, and writes nothing.
+    The render test lives under `tests/kicad`, which the job `kicad-10` runs (the jobs that run `tests/unit` have
+    no `kicad-cli`).
 - [ ] 2.3 The official client reads a render's image in `test_sdk_oracle.py`. Proof: the job `mcp` passes in CI.
 
 ## 3. Documents and closing
