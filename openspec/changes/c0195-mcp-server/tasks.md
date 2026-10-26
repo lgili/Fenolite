@@ -1,11 +1,15 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read the public MCP specification pages the server rests on (versioning, stdio transport, lifecycle of
+- [x] 0.1 Read the public MCP specification pages the server rests on (versioning, stdio transport, lifecycle of
   `2025-11-25`, `server/discover`, tools, resources, cancellation, progress, the schema of `2026-07-28`) and the
   changes between `2025-03-26`, `2025-06-18`, `2025-11-25` and `2026-07-28` that touch these messages; register
   each page in `docs/evidence/sources.md` with its licence, and write `docs/mcp.md` (the facts, each with its
   source and an evidence label, and the version table). Proof: `uv run pytest tests/unit/test_provenance.py
   tests/unit/test_legal_docs.py -q`; `openspec validate c0195-mcp-server --strict --no-interactive`.
+  - 2026-10-26: the current revision is `2026-07-28` (no handshake, `server/discover`, `resultType`, cache fields,
+    `ping` removed); the legacy revisions are `2025-11-25`, `2025-06-18` and `2025-03-26` (batches). Sources
+    S-0817 to S-0826 (the specification's pages and its four `schema.ts`, Apache-2.0); `docs/mcp.md` written;
+    the design's decision 2 corrected with these facts; a clean-room row in `LEGAL-ANNEX.md`. Proof passed.
 
 ## 1. Protocol
 

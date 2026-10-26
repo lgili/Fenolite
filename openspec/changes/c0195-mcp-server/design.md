@@ -45,8 +45,8 @@
 ## Decisions
 
 1. **Standard library, not the SDK.** The subset needed (JSON-RPC over stdio, `server/discover`, `initialize`,
-   `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, cancellation and progress
-   notifications) is small, and the core takes no runtime dependency (`AGENTS.md`). The SDK becomes the oracle
+   `ping` for legacy clients, `tools/list`, `tools/call`, `resources/list`, `resources/read`, cancellation and
+   progress notifications) is small, and the core takes no runtime dependency (`AGENTS.md`). The SDK becomes the oracle
    of a test instead (decision 9). Alternative: build on the `mcp` extra; rejected because `pip install fenolite`
    would not be enough, and the SDK's support of `2026-07-28` would set the server's pace.
 2. **Dual-era.** Supported versions, newest first: `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`.
@@ -54,9 +54,15 @@
    - `initialize`: the server answers with the client's `protocolVersion` if it supports it, else with
      `2025-11-25`; the process then serves legacy requests by that version. A legacy request before
      `initialize` is an error (`-32600`).
-   - The differences between the legacy versions that touch this server's messages (for example
-     `structuredContent` and `title`, absent before `2025-06-18`) are a table in `docs/mcp.md`, each row
-     sourced; the server leaves out a field a version does not define.
+   - The differences between the versions that touch this server's messages are the table of `docs/mcp.md`
+     (task 0.1), each row sourced; the server leaves out a field a version does not define:
+     `structuredContent` and a tool's `title` before `2025-06-18`; `resultType`, `ttlMs` and `cacheScope` before
+     `2026-07-28`. `ping` is answered for a legacy client only (`2026-07-28` removed it); a JSON array of
+     messages (a batch) is answered with an array for a `2025-03-26` client only.
+   - Resource not found: `-32602` for `2026-07-28`, `-32002` for the legacy versions.
+   - The cache fields of `2026-07-28`: `ttlMs` 0 and `cacheScope` `private` for `tools/list`, `resources/list`
+     and `resources/read` (the list follows the installed version and `--tools`; a page of the guide may name a
+     local path).
 3. **Tool names and order.** `fenolite_` plus the command name with `-` as `_`; listed in name order; one page
    (the list is short). `title` is the command name; `description` is its help text and, for a writing
    command, one sentence on the two-step write.
@@ -75,8 +81,8 @@
      `FEN-1003` as a tool error, retryable.
    - When the call carries a `progressToken`, the server adds `--progress` and turns each record into
      `notifications/progress`.
-   - Calls run one at a time, in order of arrival, so that two writes never race; `ping` and cancellation are
-     answered while a call runs.
+   - Calls run one at a time, in order of arrival, so that two writes never race; `ping` (legacy) and
+     cancellation are answered while a call runs.
    - Alternative: run `main()` in the server's process; rejected for the reasons above, at the cost of about
      0.3 s of interpreter start per call.
 6. **Writes.** For a command with `mutates`:
@@ -120,6 +126,8 @@
 New command; nothing to migrate. The `mcp` extra had no user: its removal is noted in the changelog.
 
 ## Open Questions
+
+Decided by the maintainer on 2026-10-26: every recommended answer below is accepted.
 
 1. **Standard library or the SDK?** Recommended: standard library (decision 1).
 2. **One tool per command, or one tool `fenolite` with a `command` argument?** Recommended: one per command
