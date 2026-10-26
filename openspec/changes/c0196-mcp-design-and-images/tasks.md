@@ -35,11 +35,19 @@
     run of `render --png` at 400 by 300 sends two PNGs whose SHA-256 are the plan's rows, and writes nothing.
     The render test lives under `tests/kicad`, which the job `kicad-10` runs (the jobs that run `tests/unit` have
     no `kicad-cli`).
-- [ ] 2.3 The official client reads a render's image in `test_sdk_oracle.py`. Proof: the job `mcp` passes in CI.
+- [ ] 2.3 The official client reads the image content the server sends, in `test_sdk_oracle.py` (a server whose
+  backend returns a PNG: the job `mcp` has no `kicad-cli`, and the real render is checked by `kicad-10` in 2.2).
+  Proof: the job `mcp` passes in CI.
+  - 2026-10-26, OPEN until CI: the local proof passed (3 tests of `test_sdk_oracle.py`, the official client 2.3.0
+    reads `type` `image`, `mimeType` `image/png` and the base64 data).
 
 ## 3. Documents and closing
 
-- [ ] 3.1 `docs/mcp.md` (the edit option and its risk, the images and their caps), the guide page `recovery`,
+- [x] 3.1 `docs/mcp.md` (the edit option and its risk, the images and their caps), the guide page `recovery`,
   `README.md`, `openspec/README.md`. Proof: `uv run pytest tests/unit/agent tests/unit/test_agent_skill.py -q`.
-- [ ] 3.2 `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
-- [ ] 3.3 `make check-fast`. Proof: `make check-fast`.
+  - 2026-10-26: proof passed (111 tests; the guide generator re-run for `--allow-edit`). `docs/mcp.md` gives the
+    option's risk in bold before its use, the edit tool and the images; residue scan clean.
+- [x] 3.2 `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
+  - 2026-10-26: two entries under Added of `[Unreleased]`.
+- [x] 3.3 `make check-fast`. Proof: `make check-fast`.
+  - 2026-10-26: exit 0, 14 079 passed, 35 skipped; lint, format, types and the residue scan clean.

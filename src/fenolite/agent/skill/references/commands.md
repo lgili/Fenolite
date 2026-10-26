@@ -318,6 +318,7 @@ another type; a flag without a value is a switch.
 - `--tools NAME,...`: list only these commands
 - `--timeout SECONDS` (number, default `600.0`): stop a longer call
 - `--list`: return the tools and resources; serve nothing
+- `--allow-edit`: also serve fenolite_edit: a client that edits a design script and builds it runs code as you
 
 ## models
 

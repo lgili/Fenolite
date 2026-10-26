@@ -57,3 +57,40 @@ def test_official_client_agrees(era: str, tmp_path: Path) -> None:
     assert envelope["command"] == "capabilities" and envelope["ok"] is True
     assert (called.structured_content or {}).get("command") == "capabilities"
     assert found["page"].contents[0].text.startswith("# ")
+
+
+IMAGE_SERVER = """\
+import base64, sys
+from fenolite.mcp.backend import FenoliteBackend
+from fenolite.mcp.protocol import Server
+from fenolite.cli.api import discover
+
+PNG = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000")
+
+
+class Backend(FenoliteBackend):
+    def call(self, name, arguments, call):
+        reply = {"content": [{"type": "text", "text": "{}"}], "structuredContent": {}, "isError": False}
+        image = {"type": "image", "data": base64.b64encode(PNG).decode(), "mimeType": "image/png"}
+        return reply | {"content": [*reply["content"], image]}
+
+
+backend = Backend(discover(), root=__import__("pathlib").Path("."), timeout=60)
+Server(backend, name="fenolite", version="test", out=sys.stdout.buffer).serve(sys.stdin.buffer)
+"""
+
+
+async def _image(script: Path) -> Any:
+    params = StdioServerParameters(command=sys.executable, args=[str(script)])
+    async with stdio_client(params) as (read, write), ClientSession(read, write) as session:
+        await session.initialize()
+        return await session.call_tool("fenolite_check", {"path": "b"})
+
+
+def test_official_client_reads_an_image(tmp_path: Path) -> None:
+    """Change c0196, task 2.3: the image content the server sends is what the official client reads."""
+    script = tmp_path / "image_server.py"
+    script.write_text(IMAGE_SERVER, encoding="utf-8")
+    called = anyio.run(_image, script)
+    image = called.content[1]
+    assert image.type == "image" and image.mime_type == "image/png" and image.data.startswith("iVBORw0KGgo")

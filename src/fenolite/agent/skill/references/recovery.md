@@ -191,5 +191,7 @@ fenolite mcp --read-only --tools check,inspect --list --json
 names the tools it would serve. A tool's reply is the command's envelope, with the exit code in `_meta`
 `fenolite/exit`; a writing tool is a dry run until it gets `confirm: true` and the `plan` that run returned,
 and never writes outside `--root`. The pages of this guide are its resources `fenolite://guide/<topic>`.
+With `--allow-edit` it also serves `fenolite_edit` (the design script), and a reply that plans PNG views
+carries them as images.
 
 Read next: `checks`, `routing`, `design-script`.

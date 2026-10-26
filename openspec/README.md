@@ -192,7 +192,8 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0193 | `viewer-review` | review findings, measurement with snap and embedded 3D models in the viewer | c0176 |
 | c0194 | `ci-push-scope` | CI on branch pushes but backups, never on a tag | — |
 | c0195 | `mcp-server` | `fenolite mcp`: the commands as tools of an MCP server on stdio | c0079 |
+| c0196 | `mcp-design-and-images` | `fenolite edit`, the opt-in `fenolite_edit` and PNG views as images in MCP replies | c0195 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0196.
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0197.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

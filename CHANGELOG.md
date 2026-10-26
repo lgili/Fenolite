@@ -10,6 +10,9 @@ All notable changes to Fenolite are documented here. The format follows
 
 - **The MCP server** (c0195): `fenolite mcp` serves every public command as a tool of the Model Context Protocol on standard input and output, with the standard library only. It speaks the current revision `2026-07-28` and the `initialize` handshake of `2025-11-25`, `2025-06-18` and `2025-03-26`. Each call runs the command line and returns its envelope (the exit code in `_meta` `fenolite/exit`); a writing tool is a dry run until it confirms the plan it returned, and never writes outside `--root`; the guide's pages are resources. `--read-only`, `--tools` and `--timeout` narrow it, `--list` shows what it would serve, and `docs/mcp.md` says how to add it to a client.
 
+- **`fenolite edit`** (c0196): writes a design script, a TOML file or a library table through the write protocol, from a whole new text (`--content-file`) or exact old/new pairs (`--edits-file`, each old text found once). The new text must parse (`ast.parse`, `tomllib`) and is never run; the plan carries a unified diff; the file keeps its line ends.
+- **The design and the views of a board in MCP replies** (c0196): `fenolite mcp --allow-edit` serves `fenolite_edit`, which takes the text itself (`content` or `edits`) and writes only through a reviewed plan under `--root`; it is off by default, because editing a design script and building it runs that code as the user. A reply that plans or writes PNG files (`render --png`) carries them as images, from the staged plan of a dry run, at most 4 and 6 MB per reply.
+
 ### Changed
 
 - **The `mcp` extra is removed** (c0195): the server needs no package, and the official MCP SDK is in the `oracles` extra, where a test runs its client against the server.

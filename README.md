@@ -163,7 +163,8 @@ your fabricator and your datasheets.
 An agent without a shell reaches the same commands through `fenolite mcp`, a server of the Model Context
 Protocol on standard input and output that needs no other package: every command is a tool whose reply is
 its envelope, a writing tool is a dry run until it confirms the plan it returned, and the guide's pages are
-its resources (`docs/mcp.md`).
+its resources (`docs/mcp.md`). With `--allow-edit` it also writes the design script through a plan, and a
+render's views come back as images that an agent can look at.
 
 ## Install for development
 

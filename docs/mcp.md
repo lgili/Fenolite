@@ -26,6 +26,10 @@ Most clients take a command line; `PROJECT` stands for the absolute path of the 
 - `--tools NAME,...`: list only these commands (their command names, such as `check,route,fill`).
 - `--timeout SECONDS`: stop a call that runs longer (default 600). A stopped call is `FEN-1003`, which can be
   run again.
+- `--allow-edit`: also serve `fenolite_edit`, which writes the design itself (change c0196). **Read this
+  first:** `build` runs a design script as your own code, without a sandbox, so a client that may edit the
+  script and build it may run any Python in your account. Give the option only to a client you would let run
+  commands in that folder. `--read-only` wins over it.
 
 Each command is a tool `fenolite_<command>` (hyphens as underscores) whose arguments are the command's own,
 by the names of `fenolite capabilities --command <name> --json`. A tool's reply is the command's JSON envelope
@@ -35,6 +39,19 @@ guide says. A writing command writes in two calls: the first, without `confirm`,
 
 The pages of the agent guide are resources `fenolite://guide/<topic>`, and the reply of `capabilities` is
 `fenolite://capabilities`.
+
+**Writing the design** (`--allow-edit`). `fenolite_edit` takes `path` (a `*.py`, a `*.toml`, an
+`fp-lib-table` or a `sym-lib-table` under the root) and either `content`, the whole new text, or `edits`, a list
+of `{"old": ..., "new": ...}` whose every old text is found exactly once. It is `fenolite edit` with the value in
+a file of the server's state folder: the dry run returns `result.diff`, the confirmation repeats the same
+`content` or `edits` with `confirm: true` and the `plan`. The script is parsed, never run; `fenolite_build`
+with no `confirm` is the check that runs it.
+
+**Images.** When a reply plans or writes PNG files, such as the views of `fenolite_render` with `png: true`,
+they follow the envelope's text as image content: from the staged plan of a dry run, so an agent sees a view
+before anything is written, or from the files a confirmation wrote. At most 4 images and 6 MB per reply; a
+text item names what was left out. Choose the size with `width` and `height` (800 by 600 is enough for a
+look). SVG views are not sent as images; their paths are in the envelope.
 
 ## The protocol facts
 
@@ -87,5 +104,8 @@ Sources: S-0825 and S-0826. The server leaves out a field that the version it se
   what the command line can read.
 - **No outputSchema**: every structured result is the envelope or the error object, whose schemas are in
   `schemas/`.
+- **Editing the design is opt-in** (`--allow-edit`) and goes through `fenolite edit`, so it has the plan,
+  the receipt and the backups of any write.
+- **Images are PNG only**, at most 4 and 6 MB per reply, not resized.
 - **Not implemented:** HTTP, authorization, prompts, sampling, elicitation, roots, logging, subscriptions, the
   Tasks extension, multi round-trip requests.
