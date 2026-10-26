@@ -1,0 +1,249 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 Fenolite contributors
+"""What the MCP server serves: the tools of :mod:`fenolite.mcp.tools` run as the command line, and the guide
+resources (capability mcp-server, "Calls run the command line" and "Writes through a reviewed plan"; change
+c0195).
+
+Each call runs ``python -m fenolite <command> ... --json`` as a child process in the server's root, in its
+own process group, with standard input closed. Its envelope (exit 0 or 5) or its error object (any other
+exit) is the result. A call that passes the timeout, or that the client cancels, stops the group (a
+terminate, then a kill) and gives ``FEN-1003``, which can be run again; the command line's own signal handling
+leaves no partial write. With a progress token the server adds ``--progress`` and reports each record.
+
+A writing tool without ``confirm`` is the dry run. With ``confirm`` it needs ``plan``; the staged plan is read
+first and refused unless it is a plan of the same command whose every write lies under the root.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import threading
+import time
+from collections.abc import Callable, Mapping
+from pathlib import Path
+from typing import IO, Any, cast
+
+from fenolite.cli import plans
+from fenolite.cli.api import Command
+from fenolite.cli.errors import CliError, ErrorInfo
+from fenolite.cli.output import canonical_json, to_jsonable
+from fenolite.core.state import state_dir
+from fenolite.mcp.protocol import Call, UnknownTool
+from fenolite.mcp.tools import Catalog, InputRefused
+
+EXIT_KEY = "fenolite/exit"
+"""The ``_meta`` key of a tool result that holds the command's exit code."""
+GRACE = 5.0
+"""Seconds between the terminate and the kill of a stopped call."""
+Json = dict[str, Any]
+Resources = Callable[[], list[Json]]
+Reader = Callable[[str], list[Json] | None]
+
+
+def _result(value: Json, exit_code: int) -> Json:
+    """A tool result: ``value`` as structured content and as its canonical JSON text."""
+    return {
+        "content": [{"type": "text", "text": canonical_json(value)}],
+        "structuredContent": value,
+        "isError": exit_code not in (0, 5),
+        "_meta": {EXIT_KEY: exit_code},
+    }
+
+
+def _error(info: ErrorInfo, exit_code: int) -> Json:
+    return _result(cast("Json", to_jsonable(info)), exit_code)
+
+
+def _refusal(code: str, message: str, *, where: str, hint: str = "") -> Json:
+    error = CliError(code, message, where=where, hint=hint or None)
+    return _error(error.info(), int(error.exit_code))
+
+
+def _under(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+class FenoliteBackend:
+    """The tools and resources of ``fenolite mcp`` for a root folder."""
+
+    def __init__(
+        self,
+        commands: Mapping[str, Command],
+        *,
+        root: Path,
+        timeout: float,
+        read_only: bool = False,
+        only: list[str] | None = None,
+        resources: Resources | None = None,
+        reader: Reader | None = None,
+        executable: list[str] | None = None,
+    ) -> None:
+        self.catalog = Catalog(commands, read_only=read_only, only=only)
+        self.root, self.timeout = root.resolve(), timeout
+        self._resources, self._reader = resources, reader
+        self.executable = executable if executable is not None else [sys.executable, "-m", "fenolite"]
+
+    # ------------------------------------------------------------------ Backend
+
+    def tools(self) -> list[Json]:
+        return self.catalog.definitions()
+
+    def resources(self) -> list[Json]:
+        return self._resources() if self._resources is not None else []
+
+    def read(self, uri: str) -> list[Json] | None:
+        return self._reader(uri) if self._reader is not None else None
+
+    def call(self, name: str, arguments: Json, call: Call) -> Json:
+        tool = self.catalog.tools.get(name)
+        if tool is None:
+            raise UnknownTool(name)
+        confirm = arguments.get("confirm")
+        plan = arguments.get("plan")
+        try:
+            words = self.catalog.command_line(name, arguments, dry_run=tool.mutates and not confirm)
+        except InputRefused as refused:
+            return _error(refused.error, 2)
+        if tool.mutates and confirm:
+            if not isinstance(plan, str) or not plan:
+                return _refusal(
+                    "FEN-2001", "confirm needs the plan a dry run returned", where="plan",
+                    hint="call the tool without 'confirm' first, review result.plan, then pass its plan_id",
+                )  # fmt: skip
+            refused = self._plan_refused(tool.command, plan)
+            if refused is not None:
+                return refused
+            at = words.index("--") if "--" in words else len(words)
+            words = [*words[:at], "--confirm", f"--plan={plan}", *words[at:]]
+        return self._run(name, words, call)
+
+    # ------------------------------------------------------------------ writes
+
+    def _plan_refused(self, command: str, plan: str) -> Json | None:
+        """Why the staged plan ``plan`` may not be confirmed by this server, or ``None``. A plan the store
+        does not hold is left to the command line, which refuses it with its own code."""
+        try:
+            staged = plans.load(state_dir(), plan)
+        except plans.DamagedPlan:
+            return None
+        if staged is None:
+            return None
+        if staged.command != command:
+            return _refusal(
+                "FEN-2001", f"plan {plan} is a plan of {staged.command}, not {command}", where="plan"
+            )
+        base = Path(staged.cwd)
+        for row in staged.writes:
+            target = base / str(row.get("path", ""))
+            if not _under(target, self.root):
+                return _refusal(
+                    "FEN-2001", f"plan {plan} writes {target}, outside the server's root {self.root}",
+                    where="plan", hint="run the write from a server whose --root holds the target",
+                )  # fmt: skip
+        return None
+
+    # ------------------------------------------------------------------ the child
+
+    def _run(self, name: str, words: list[str], call: Call) -> Json:
+        argv = [
+            *self.executable,
+            *words[:1],
+            "--json",
+            *(["--progress"] if call.progress else []),
+            *words[1:],
+        ]
+        env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
+        group = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+        child = subprocess.Popen(
+            argv, cwd=self.root, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, creationflags=group, start_new_session=os.name != "nt",
+        )  # fmt: skip
+        out: list[bytes] = []
+        errors: list[str] = []
+        readers = [
+            threading.Thread(target=lambda: out.append(cast("IO[bytes]", child.stdout).read()), daemon=True),
+            threading.Thread(target=self._stderr, args=(child, errors, call), daemon=True),
+        ]
+        for reader in readers:
+            reader.start()
+        stopped = self._wait(child, call)
+        for reader in readers:
+            reader.join(GRACE)
+        if stopped is not None:
+            return _refusal("FEN-1003", stopped, where=name, hint="the call can be run again")
+        code = int(child.returncode)
+        if code in (0, 5):
+            try:
+                return _result(cast("Json", json.loads(b"".join(out).decode("utf-8"))), code)
+            except ValueError as exc:
+                return _refusal("FEN-1001", f"the command's output is not its envelope: {exc}", where=name)
+        for line in reversed(errors):
+            try:
+                value = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(value, dict) and "code" in value:
+                return _result(cast("Json", value), code)
+        return _refusal("FEN-1001", f"the command exited {code} without its error object", where=name)
+
+    def _wait(self, child: subprocess.Popen[bytes], call: Call) -> str | None:
+        """Wait for ``child``; stop it on cancellation or after the timeout and say why, else ``None``."""
+        deadline = time.monotonic() + self.timeout
+        while child.poll() is None:
+            if call.cancelled.wait(0.05):
+                self._stop(child)
+                return "the client cancelled the call"
+            if time.monotonic() > deadline:
+                self._stop(child)
+                return f"the call ran longer than {self.timeout:g} s and was stopped"
+        return None
+
+    @staticmethod
+    def _stop(child: subprocess.Popen[bytes]) -> None:
+        if os.name == "nt":
+            child.terminate()
+        else:
+            os.killpg(child.pid, signal.SIGTERM)
+        try:
+            child.wait(GRACE)
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                child.kill()
+            else:
+                os.killpg(child.pid, signal.SIGKILL)
+            child.wait()
+
+    @staticmethod
+    def _stderr(child: subprocess.Popen[bytes], errors: list[str], call: Call) -> None:
+        """Read the child's stderr: progress records become notifications, other lines are kept."""
+        count = 0
+        for raw in cast("IO[bytes]", child.stderr):
+            line = raw.decode("utf-8", "replace").strip()
+            try:
+                value = json.loads(line)
+            except ValueError:
+                errors.append(line)
+                continue
+            record = cast("Json", value).get("progress") if isinstance(value, dict) else None
+            if isinstance(record, dict):
+                fields = cast("Json", record)
+                count += 1
+                report = call.progress
+                if report is not None:
+                    step = fields.get("step") or ""
+                    report(
+                        count, None, f"{fields.get('command', '')}: {fields.get('event', '')} {step}".strip()
+                    )
+            else:
+                errors.append(line)
+
+
+__all__ = ["EXIT_KEY", "FenoliteBackend"]

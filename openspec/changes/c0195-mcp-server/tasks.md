@@ -32,9 +32,13 @@
     `global_arguments()`; a command line uses `--flag=value` and `--` before the positionals, so a value that
     starts with `-` stays a value; a refusal is the command line's `FEN-2001` object naming the argument. The
     shared text moved to the server's `instructions` (design, decision 3): 93 KB to 65 KB of definitions.
-- [ ] 2.2 The child runner: `python -m fenolite ... --json` in the root, the envelope or the error object, the
+- [x] 2.2 The child runner: `python -m fenolite ... --json` in the root, the envelope or the error object, the
   exit code in `_meta`, the timeout, the cancellation, the progress notifications (scenarios "Same reply as the
   command line" and "Error object"). Proof: `uv run pytest tests/unit/mcp/test_tools.py -q`.
+  - 2026-10-26: proof passed (20 tests). `fenolite.mcp.backend.FenoliteBackend`: the child in its own process
+    group with stdin closed; the envelope equals the command line's but `elapsed_ms`; the error object of a
+    non-zero exit; a timeout or a cancellation stops the group (terminate, then kill after 5 s) and gives
+    `FEN-1003` (retryable); progress records become increasing reports.
 - [ ] 2.3 Writes: `--dry-run` without `confirm`, `confirm` without `plan` refused, the staged plan's paths under
   the root, `--read-only` (scenarios "Dry run, then confirm" and "A write outside the root"). Proof:
   `uv run pytest tests/unit/mcp/test_writes.py -q`.

@@ -5,10 +5,20 @@ change c0195): names, schemas from the commands' parsers, annotations and comman
 
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 from fenolite.cli.api import discover
 from fenolite.cli.describe import describe
+from fenolite.mcp.backend import FenoliteBackend
+from fenolite.mcp.protocol import Call, UnknownTool
 from fenolite.mcp.tools import NOT_TOOLS, Catalog, InputRefused, tool_name
 
 COMMANDS = discover()
@@ -92,3 +102,86 @@ def test_tool_unknown_or_wrong_argument(arguments: dict[str, object], where: str
     with pytest.raises(InputRefused) as refused:
         CATALOG.command_line("fenolite_check", arguments, dry_run=False)
     assert refused.value.error.code == "FEN-2001" and refused.value.error.where == where
+
+
+# ---------------------------------------------------------------------- calls (task 2.2)
+
+ROOT = Path(__file__).resolve().parents[3]
+BOARD = ROOT / "tests" / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+FAKE = """\
+import json, sys, time
+words = sys.argv[1:]
+for index in range(3):
+    record = {"command": words[0], "event": "step", "step": f"s{index}", "index": index, "total": 3}
+    print(json.dumps({"progress": record}), file=sys.stderr, flush=True)
+if "slow" in words:
+    time.sleep(30)
+print(json.dumps({"ok": True, "command": words[0], "words": words}))
+"""
+
+
+def backend(tmp_path: Path, **options: Any) -> FenoliteBackend:
+    return FenoliteBackend(COMMANDS, root=tmp_path, timeout=options.pop("timeout", 120), **options)
+
+
+def fake(tmp_path: Path, **options: Any) -> FenoliteBackend:
+    script = tmp_path / "fake_fenolite.py"
+    script.write_text(FAKE, encoding="utf-8")
+    return backend(tmp_path, executable=[sys.executable, str(script)], **options)
+
+
+def test_same_reply(tmp_path: Path) -> None:
+    """Scenario "Same reply as the command line"."""
+    reply = backend(tmp_path).call("fenolite_inspect", {"file": str(BOARD)}, Call())
+    cli = subprocess.run(
+        [sys.executable, "-m", "fenolite", "inspect", "--json", str(BOARD)], capture_output=True, check=True
+    )
+    expected = json.loads(cli.stdout)
+    got = reply["structuredContent"]
+    assert {k: v for k, v in got.items() if k != "elapsed_ms"} == {
+        k: v for k, v in expected.items() if k != "elapsed_ms"
+    }
+    assert reply["isError"] is False and reply["_meta"] == {"fenolite/exit": 0}
+    assert json.loads(reply["content"][0]["text"]) == got
+
+
+def test_error_object(tmp_path: Path) -> None:
+    """Scenario "Error object"."""
+    reply = backend(tmp_path).call("fenolite_inspect", {"file": "missing.kicad_pcb"}, Call())
+    assert reply["isError"] is True and reply["structuredContent"]["code"] == "FEN-3001"
+    assert reply["_meta"]["fenolite/exit"] == 3
+
+
+def test_refused_input_is_a_tool_error(tmp_path: Path) -> None:
+    reply = backend(tmp_path).call("fenolite_inspect", {"file": 3}, Call())
+    assert reply["isError"] is True and reply["structuredContent"]["code"] == "FEN-2001"
+
+
+def test_unknown_tool(tmp_path: Path) -> None:
+    with pytest.raises(UnknownTool):
+        backend(tmp_path).call("fenolite_nope", {}, Call())
+
+
+def test_progress_records_become_reports(tmp_path: Path) -> None:
+    seen: list[tuple[float, float | None, str | None]] = []
+    reply = fake(tmp_path).call("fenolite_check", {"path": "b"}, Call(progress=lambda *a: seen.append(a)))
+    assert [p for p, _, _ in seen] == [1, 2, 3] and seen[0][2] == "check: step s0"
+    assert reply["structuredContent"]["words"] == ["check", "--json", "--progress", "--", "b"]
+
+
+def test_timeout_stops_the_child(tmp_path: Path) -> None:
+    started = time.monotonic()
+    reply = fake(tmp_path, timeout=0.5).call("fenolite_check", {"path": "slow"}, Call())
+    assert time.monotonic() - started < 10
+    assert reply["isError"] is True and reply["structuredContent"]["code"] == "FEN-1003"
+    assert reply["structuredContent"]["retryable"] is True
+
+
+def test_cancellation_stops_the_child(tmp_path: Path) -> None:
+    call = Call()
+    threading.Timer(0.5, call.cancelled.set).start()
+    reply = fake(tmp_path).call("fenolite_check", {"path": "slow"}, call)
+    assert (
+        reply["structuredContent"]["code"] == "FEN-1003"
+        and "cancelled" in reply["structuredContent"]["message"]
+    )

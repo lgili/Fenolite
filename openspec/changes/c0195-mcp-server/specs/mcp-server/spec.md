@@ -47,7 +47,7 @@ A tool call SHALL run `python -m fenolite <command> ... --json` as a child proce
 - With a `progressToken`, each `--progress` record MUST become a progress notification.
 
 #### Scenario: Same reply as the command line
-- **WHEN** `uv run pytest tests/unit/mcp/test_tools.py -k same_reply` calls `fenolite_inspect` on a committed board
+- **WHEN** `uv run pytest tests/unit/mcp/test_tools.py -k same_reply` calls `fenolite_inspect` (argument `file`) on a committed board
 - **THEN** `structuredContent` equals the envelope that `fenolite inspect --json` prints for it
 
 #### Scenario: Error object
