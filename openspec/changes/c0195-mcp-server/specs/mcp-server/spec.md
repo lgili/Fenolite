@@ -62,7 +62,7 @@ A tool of a writing command SHALL write only through a plan that a call without 
 - `--read-only` MUST list no writing tool.
 
 #### Scenario: Dry run, then confirm
-- **WHEN** `uv run pytest tests/unit/mcp/test_writes.py -k reviewed` calls `fenolite_fmt` on a copied board, then again with `confirm` and the returned `plan_id`
+- **WHEN** `uv run pytest tests/unit/mcp/test_writes.py -k reviewed` calls `fenolite_init` for a new folder, then again with `confirm` and the returned `plan_id`
 - **THEN** the first call writes nothing and returns a plan, and the second writes the planned bytes with a receipt
 
 #### Scenario: A write outside the root

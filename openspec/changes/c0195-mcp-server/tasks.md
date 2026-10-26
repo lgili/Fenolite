@@ -39,9 +39,13 @@
     group with stdin closed; the envelope equals the command line's but `elapsed_ms`; the error object of a
     non-zero exit; a timeout or a cancellation stops the group (terminate, then kill after 5 s) and gives
     `FEN-1003` (retryable); progress records become increasing reports.
-- [ ] 2.3 Writes: `--dry-run` without `confirm`, `confirm` without `plan` refused, the staged plan's paths under
+- [x] 2.3 Writes: `--dry-run` without `confirm`, `confirm` without `plan` refused, the staged plan's paths under
   the root, `--read-only` (scenarios "Dry run, then confirm" and "A write outside the root"). Proof:
   `uv run pytest tests/unit/mcp/test_writes.py -q`.
+  - 2026-10-26: proof passed (5 tests, in a state folder of the test's own): `init`'s dry run writes nothing
+    and returns its plan; the confirmation writes it with a receipt; `confirm` without `plan`, a plan of
+    another command and a plan that writes outside the root are refused with `FEN-2001` before the command
+    runs; `--read-only` lists no writing tool.
 
 ## 3. Resources
 
