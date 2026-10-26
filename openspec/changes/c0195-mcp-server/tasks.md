@@ -67,8 +67,11 @@
     `SystemExit`, so no envelope follows the last message (a real stdio session checks it). `capabilities`
     lists `protocol_versions`. The contract section `## mcp` and the tested lines of the guide page `recovery`
     (part of task 5.1) came here, because the consistency and coverage tests require them for a new command.
-- [ ] 4.2 Remove the `mcp` extra, add the pinned SDK to `oracles`, update `uv.lock` and the invariants test
+- [x] 4.2 Remove the `mcp` extra, add the pinned SDK to `oracles`, update `uv.lock` and the invariants test
   (the MODIFIED "Zero runtime dependencies in the core"). Proof: `uv run pytest tests/unit/test_pyproject_invariants.py -q`.
+  - 2026-10-26: proof passed (with test_capabilities, test_agent_skill and test_import_graph: 72 passed). `oracles`
+    holds `mcp==2.3.0` (MIT, published 2026-10-02; `uv.lock` moved it from the old `mcp` extra at 2.2.0); the
+    README names no `mcp` extra and says the server needs none; `capabilities` lists the four extras.
 - [ ] 4.3 `test_sdk_oracle.py` and the CI job `mcp` (scenario "The official client agrees"), with its check in
   `tests/unit/test_ci_workflow.py`. Proof: `uv run --extra dev --extra oracles pytest tests/unit/mcp/test_sdk_oracle.py -q`
   passes locally, and the job `mcp` passes in CI.
