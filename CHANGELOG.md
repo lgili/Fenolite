@@ -6,6 +6,14 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **The MCP server** (c0195): `fenolite mcp` serves every public command as a tool of the Model Context Protocol on standard input and output, with the standard library only. It speaks the current revision `2026-07-28` and the `initialize` handshake of `2025-11-25`, `2025-06-18` and `2025-03-26`. Each call runs the command line and returns its envelope (the exit code in `_meta` `fenolite/exit`); a writing tool is a dry run until it confirms the plan it returned, and never writes outside `--root`; the guide's pages are resources. `--read-only`, `--tools` and `--timeout` narrow it, `--list` shows what it would serve, and `docs/mcp.md` says how to add it to a client.
+
+### Changed
+
+- **The `mcp` extra is removed** (c0195): the server needs no package, and the official MCP SDK is in the `oracles` extra, where a test runs its client against the server.
+
 ## [0.5.0] - 2026-10-15
 
 ### Added

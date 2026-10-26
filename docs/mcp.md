@@ -7,14 +7,14 @@ the public specification.
 
 ## Using it
 
-Most clients take a command line. For a project in `~/boards/blink`:
+Most clients take a command line; `PROJECT` stands for the absolute path of the project's folder:
 
 ```json
 {
   "mcpServers": {
     "fenolite": {
       "command": "fenolite",
-      "args": ["mcp", "--root", "/home/me/boards/blink"]
+      "args": ["mcp", "--root", "PROJECT"]
     }
   }
 }

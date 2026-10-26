@@ -83,11 +83,21 @@
 
 ## 5. Documents and closing
 
-- [ ] 5.1 `docs/mcp.md` (how to add the server to a client), `docs/cli-contract.md` ("MCP command"), the agent
+- [x] 5.1 `docs/mcp.md` (how to add the server to a client), `docs/cli-contract.md` ("MCP command"), the agent
   guide's tested line of `mcp` and `tools/gen_agent_guide.py`, `README.md`, `docs/roadmap.md` (v0.5b), `openspec/README.md`.
   Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
-- [ ] 5.2 `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
-- [ ] 5.3 `make check-fast`. Proof: `make check-fast`.
+  - 2026-10-26: proof passed (with test_agent_skill, test_release_record_v05 and test_adrs: 166 passed; the
+    generator's check exits 0). `docs/mcp.md` says how to add the server to a client; the README's loop section
+    names it; the roadmap's v0.5b row and Open decisions row 46 record the maintainer's answers; c0195 is in
+    `openspec/README.md` (new changes start at c0196). The contract section and the guide's tested lines came
+    with task 4.1.
+- [x] 5.2 `CHANGELOG.md` under `## [Unreleased]`. Proof: `uv run pytest tests/unit -k changelog -q`.
+  - 2026-10-26: proof passed (6 tests). An entry under Added and one under Changed of `[Unreleased]`, after the
+    commit that opened `0.6.0.dev0` (the v0.5 guard keeps `[Unreleased]` empty only at `0.5.0`, as `dev` opened
+    `0.5.0.dev0` after `0.4.0`).
+- [x] 5.3 `make check-fast`. Proof: `make check-fast`.
+  - 2026-10-26: exit 0, 14 042 passed, 34 skipped; lint, format, types clean. The first run found an absolute user
+    path in the client example of `docs/mcp.md` (residue `abs-user-path`); it is a placeholder `PROJECT` now.
 - [ ] 5.4 **Maintainer, optional.** Add `fenolite mcp` to an MCP client of his (Claude Code, an IDE) and run a
   dry run and a confirmed write; record the client, its version and the outcome under this task. Nothing waits
   on it.

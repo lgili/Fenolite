@@ -160,6 +160,11 @@ person also edits. They give rules, the failures the
 rules prevent, and how to check each one. They give no limit values: those come from your standard,
 your fabricator and your datasheets.
 
+An agent without a shell reaches the same commands through `fenolite mcp`, a server of the Model Context
+Protocol on standard input and output that needs no other package: every command is a tool whose reply is
+its envelope, a writing tool is a dry run until it confirms the plan it returned, and the guide's pages are
+its resources (`docs/mcp.md`).
+
 ## Install for development
 
 ```bash
