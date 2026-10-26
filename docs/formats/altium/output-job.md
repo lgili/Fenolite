@@ -21,6 +21,7 @@ No parser code of another project was read. The reader lists the outputs of a jo
 | `OutputEnabled<i>_OutputMedium<j>` is written for every output `i` and every container `j` of the group; it is `0` for most pairs and `1`, `2` or `3` for the others | S-0187, S-0297, S-0299 | CORPUS-VERIFIED (2026-10-05; 3 rows, 3 repositories) | H-A-RD-PRJ-OUTJOB |
 | That a value of `OutputEnabled<i>_OutputMedium<j>` other than `0` means the output is sent to that container is inferred from the documentation's enabled state per container | S-0293 | INFERRED | H-A-RD-PRJ-OUTJOB |
 | `[PublishSettings]` and `[GeneratedFilesSettings]` hold one numbered set of keys per container (paths, file names, open and reload options) | S-0187, S-0297, S-0299 | INFERRED | H-A-RD-PRJ-OUTJOB |
+| `[PublishSettings]` holds `OutputBasePath<j>`, `OutputPathMedia<j>`, `OutputPathMediaValue<j>`, `OutputPathOutputer<j>`, `OutputPathOutputerPrefix<j>` and `OutputFileName<j>` for every container `j` of the group, whatever its type: the output folder as the job writes it, with tokens such as `[Media Name]` and `[Output Type]`. `[GeneratedFilesSettings]` holds `RelativeOutputPath<j>`, an absolute folder of the machine the job last ran on, and `OpenOutputs<j>` (change c0190) | S-0187, S-0297, S-0299 | INFERRED | H-A-RD-PRJ-OUTJOB |
 
 ## Fenolite's choices
 

@@ -60,6 +60,51 @@ polygon name decodes to printable text, and every subrecord length is one of the
 | `altium-third-party-pcblib-03` | 1 | 24 | 2 | 21 | 0 | 0 | 0 | 1 | pad 185: 2, pad-layers 0: 2, track 49: 21 | 0 | 0 |
 | `altium-third-party-pcblib-04` | 1 | 6 | 1 | 5 | 0 | 0 | 0 | 0 | pad 185: 1, pad-layers 0: 1, track 49: 5 | 1 | 0 |
 
+## Holes and cut-outs of the import (2026-10-16)
+
+Change c0168 makes the import give a free pad on Multi-Layer without name, net or copper ring as a board
+`Hole`, and a free region with `ISBOARDCUTOUT=TRUE` (and `KIND=0`) as an `Edge.Cuts` cut-out
+(`docs/altium.md`, "Outlines with arcs, and holes"). `uv run pytest tests/corpus/test_altium_pcb_census.py
+-rA` (Linux, local corpus cache): 21 passed, among them `test_holes_and_cut_outs_of_the_import` per row.
+
+| row id | free pads | became `Hole`s | slotted | regions with `ISBOARDCUTOUT=TRUE` | became cut-outs |
+|---|---|---|---|---|---|
+| `altium-third-party-pcbdoc-01` | 12 | 0 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-02` | 0 | 0 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-03` | 0 | 0 | 0 | 1 | 1 |
+| `altium-third-party-pcbdoc-04` | 2 | 0 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-05` | 4 | 4 | 0 | 0 | 0 |
+| `altium-third-party-pcbdoc-06` | 0 | 0 | 0 | 6 | 4 |
+| `altium-third-party-pcbdoc-07` | 2 | 0 | 0 | 0 | 0 |
+
+- Four free pads move from board-only footprints to holes, all on one row: the four non-plated holes
+  without name, net and copper ring that change c0085 counted (`pcb-records.md`, "Free pads as holes").
+  The other sixteen free pads have copper, a name or a net and stay board-only footprints. No row holds
+  a free slot pad.
+- Five regions become cut-outs: every region with the key lies on the Keep-Out layer (56) with `KIND=0`;
+  two more of `pcbdoc-06` belong to a component and stay items of its footprint. Before this change the
+  five were graphics of the Keep-Out layer, which a conversion to KiCad wrote as rule areas; the c0161
+  census (`tests/corpus/test_convert_altium_census.py`) counts one and four fewer `Altium.KeepOut` items
+  on `pcbdoc-03` and `pcbdoc-06`.
+
+## Embedded board arrays (2026-10-16)
+
+`uv run pytest tests/corpus/test_altium_pcb_census.py -k embedded -rA` on Linux, local corpus cache (change
+c0173, task 1.2): of the 7 public documents, **0** hold an Embedded Board Array. Every row has the storage
+`EmbeddedBoards6` with a `Header` of 0 and an empty `Data`, as the documents Fenolite writes. So the corpus
+gives no array to read, and the records are measured only from the documents of Part Q (`altium-pcb.md`),
+which the maintainer saves from inputs authored for Fenolite.
+
+| row id | `Header` | `Data` bytes |
+|---|---|---|
+| `altium-third-party-pcbdoc-01` | 0 | 0 |
+| `altium-third-party-pcbdoc-02` | 0 | 0 |
+| `altium-third-party-pcbdoc-03` | 0 | 0 |
+| `altium-third-party-pcbdoc-04` | 0 | 0 |
+| `altium-third-party-pcbdoc-05` | 0 | 0 |
+| `altium-third-party-pcbdoc-06` | 0 | 0 |
+| `altium-third-party-pcbdoc-07` | 0 | 0 |
+
 ## Document oracle
 
 `FENOLITE_REQUIRE=corpus uv run pytest tests/kicad/altium/test_pcbdoc_read_oracle.py` with `kicad-cli`

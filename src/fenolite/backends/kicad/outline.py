@@ -18,11 +18,13 @@ changes"). The edge texts and the uuids that sign an outline are in ``_edgesign`
 from __future__ import annotations
 
 import dataclasses
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Literal, Protocol, TypeVar
 
+from fenolite.backends.base import EdgeRing
 from fenolite.backends.kicad._edgesign import (
     edge_text,
     edge_texts,
@@ -32,11 +34,16 @@ from fenolite.backends.kicad._edgesign import (
     outline_rings,
     position_uuid,
 )
+from fenolite.backends.kicad._lowering import MERGED_JOIN, Lowering, lower_outline, lowered_outline
 from fenolite.backends.kicad.frame import footprint_edges
 from fenolite.backends.kicad.pcb import kicad_uuid
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue, Severity
 from fenolite.core.evidence import Evidence, Level
+from fenolite.core.ids import derived_id
+from fenolite.core.stadium import check_size, stadium
+from fenolite.core.trig import angle_of
+from fenolite.core.units import round_half_even_div
 from fenolite.geometry import (
     DEFAULT_TOL,
     Arc,
@@ -54,9 +61,12 @@ from fenolite.geometry import (
     thick_touch,
 )
 from fenolite.geometry.errors import BRANCHING_CONTOUR
+from fenolite.geometry.polygon import join_ends
+from fenolite.geometry.rings import CurvedRing
 from fenolite.model.board import Arc as ModelArc
-from fenolite.model.board import Board, Graphic, Outline, Track, Via, Zone
+from fenolite.model.board import Board, Graphic, Outline, OutlineArc, OutlineSlot, Track, Via, Zone
 from fenolite.model.design import Design
+from fenolite.model.outline import slot_name
 
 EVIDENCE = Evidence(
     Level.INFERRED, hypotheses=("H-G-PLACE-OUTLINE", "H-K-OUTLINE-CHAIN", "H-K-OUTLINE-FPEDGE")
@@ -107,50 +117,8 @@ class _EdgeLike(Protocol):
 
 
 def _join(pieces: list[Segment | Arc]) -> tuple[list[Segment | Arc], int]:
-    """``pieces`` with every group of endpoints closer than ``CHAIN_GAP`` joined into the group's smallest
-    point, and the number of groups joined. Distances are compared squared, with integers. A piece whose
-    two ends join into one point is left out."""
-    points = sorted({end for piece in pieces for end in (piece.start, piece.end)})
-    if len(points) < 2:
-        return pieces, 0
-    parent = {point: point for point in points}
-
-    def root(point: Point) -> Point:
-        while parent[point] != point:
-            parent[point] = parent[parent[point]]
-            point = parent[point]
-        return point
-
-    cells: dict[tuple[int, int], list[Point]] = {}
-    for point in points:
-        cell = (point.x // CHAIN_GAP, point.y // CHAIN_GAP)
-        for dx in (-1, 0, 1):
-            for dy in (-1, 0, 1):
-                for other in cells.get((cell[0] + dx, cell[1] + dy), ()):
-                    gap2 = (point.x - other.x) ** 2 + (point.y - other.y) ** 2
-                    if gap2 < CHAIN_GAP * CHAIN_GAP:
-                        a, b = root(point), root(other)
-                        if a != b:
-                            parent[max(a, b)] = min(a, b)
-        cells.setdefault(cell, []).append(point)
-    moved = {point: root(point) for point in points if root(point) != point}
-    if not moved:
-        return pieces, 0
-    joined: list[Segment | Arc] = []
-    for piece in pieces:
-        start, end = moved.get(piece.start, piece.start), moved.get(piece.end, piece.end)
-        if start == end:
-            continue
-        if (start, end) == (piece.start, piece.end):
-            joined.append(piece)
-        elif isinstance(piece, Arc):
-            try:
-                joined.append(Arc(start, piece.mid, end))
-            except (GeometryError, ValueError):
-                joined.append(Segment(start, end))
-        else:
-            joined.append(Segment(start, end))
-    return joined, len(set(moved.values()))
+    """``pieces`` with every group of endpoints closer than ``CHAIN_GAP`` joined (``join_ends``)."""
+    return join_ends(pieces, CHAIN_GAP)
 
 
 def _pieces(graphic: _EdgeLike) -> tuple[list[Segment | Arc], bool]:
@@ -199,12 +167,14 @@ def _ring_points(ring: Sequence[Point], mids: Mapping[int, Point], tol: int) -> 
 
 
 def _model_rings(outline: Outline, tol: int) -> tuple[tuple[Ring, ...], bool]:
-    """The rings of a model outline, the board ring first, and whether an arc was polygonised. Empty when
-    the board ring does not close: fewer than three vertices, or two without an arc."""
+    """The rings of a model outline as a KiCad board holds them (``lowered_outline``: slots and merged
+    rings included), the board ring first, and whether an arc was polygonised. Empty when the board ring
+    does not close: fewer than three vertices, or two without an arc."""
     rings: list[Ring] = []
     curved = False
+    lowered = lowered_outline(outline)
     for r, ring in enumerate(outline_rings(outline)):
-        mids = {arc.edge: arc.mid for arc in outline.arcs if arc.ring == r}
+        mids = {arc.edge: arc.mid for arc in lowered.arcs if arc.ring == r}
         found, bent = (tuple(ring), False) if not mids else _ring_points(ring, mids, tol)
         if len(found) < 3:
             if r == 0:
@@ -218,8 +188,9 @@ def _model_rings(outline: Outline, tol: int) -> tuple[tuple[Ring, ...], bool]:
 def board_outline(design: Design, *, tol: int = DEFAULT_TOL) -> BoardOutline:
     """The outline of ``design``'s board as rings in the board frame.
 
-    From ``Board.outline`` when the model has one (``source`` ``model``: its points, then its cut-outs,
-    the arcs of ``Outline.arcs`` polygonised at ``tol``, which makes ``exact`` false),
+    From ``Board.outline`` when the model has one (``source`` ``model``: its points, then its cut-outs and
+    the stadiums of its slots, overlapping ones merged (``lowered_outline``), the arcs polygonised at
+    ``tol``, which makes ``exact`` false),
     otherwise from the root graphics on the edge layer and the edge items of the footprints (``source``
     ``edge``), with endpoints closer than ``CHAIN_GAP`` joined. Never raises on what it finds: a board
     without a closed outline gets a ``problem``.
@@ -266,7 +237,176 @@ def board_outline(design: Design, *, tol: int = DEFAULT_TOL) -> BoardOutline:
     return BoardOutline(_sorted(rings), "edge", exact=exact, joined=joined)
 
 
+# --- the outline of a read board (change c0167) -----------------------------------------------------
+
+SLOT_TOL = 1
+"""How far, per coordinate in nanometres, a vertex or an arc mid of a cut-out may lie from the stadium of
+the slot recognised in it (``slots_of``)."""
+
+
+def _edge_pieces(board: Board, tol: int) -> tuple[list[Segment | Arc], list[tuple[Point, ...]], bool]:
+    """The pieces of the edge graphics (root and footprint) that are not circles, the rings of the circles
+    as two vertices joined by two arcs (every second entry a mid), and whether a piece was found."""
+    layers = _edge_layers(board)
+    edge_items: list[_EdgeLike] = [graphic for graphic in board.graphics if graphic.layer in layers]
+    edge_items += footprint_edges(board, layers)
+    pieces: list[Segment | Arc] = []
+    circles: list[tuple[Point, ...]] = []
+    for graphic in edge_items:
+        if graphic.kind == "circle" and len(graphic.points) == 2:
+            centre, end = graphic.points
+            dx, dy = end.x - centre.x, end.y - centre.y
+            if dx or dy:
+                opposite = Point(centre.x - dx, centre.y - dy)
+                circles.append(
+                    (end, Point(centre.x - dy, centre.y + dx), opposite, Point(centre.x + dy, centre.y - dx))
+                )
+            continue
+        found, _ = _pieces(graphic)
+        pieces += [piece for piece in found if piece.start != piece.end]
+    return pieces, circles, bool(pieces or circles)
+
+
+def edge_outline(design: Design) -> Outline | None:
+    """The edges of ``design``'s board as an ``Outline`` with their exact lines and arcs: the root graphics
+    on the edge layer and the edge items of the footprints, endpoints closer than ``CHAIN_GAP`` joined and
+    chained as ``board_outline`` chains them, before any polygonisation. Ring 0 is the board (the ring of
+    largest area), the others are cut-outs in the order of their least vertex; a circle is a ring of two
+    vertices and two arcs. No slot is made (``slots_of`` finds them). ``None`` when ``board_outline`` of the
+    edges gives a problem. A read board's ``Board.outline`` stays ``None`` (the lens owns the edges)."""
+    board = design.board
+    if board is None:
+        return None
+    pieces, circles, found = _edge_pieces(board, DEFAULT_TOL)
+    if not found:
+        return None
+    pieces, _ = _join(pieces)
+    rings: list[tuple[tuple[Point, ...], tuple[Point | None, ...]]] = []
+    if pieces:
+        try:
+            paths = assemble_rings(pieces)
+        except GeometryError:
+            return None
+        for path in paths:
+            points = tuple(piece.start for piece in path.pieces)
+            mids = tuple(piece.mid if isinstance(piece, Arc) else None for piece in path.pieces)
+            if len(points) >= 3 or any(mid is not None for mid in mids):
+                rings.append((points, mids))
+    rings += [((ring[0], ring[2]), (ring[1], ring[3])) for ring in circles]
+    if not rings:
+        return None
+    areas = [abs(area2(CurvedRing(points, mids).polygonize(DEFAULT_TOL))) for points, mids in rings]
+    largest = max(range(len(rings)), key=lambda i: (areas[i], -i))
+    rest = sorted((ring for i, ring in enumerate(rings) if i != largest), key=lambda ring: min(ring[0]))
+    ordered = [rings[largest], *rest]
+    return Outline(
+        id=derived_id("out", "kicad", f"edges:{board.id}"),
+        points=ordered[0][0],
+        cutouts=tuple(points for points, _ in ordered[1:]),
+        arcs=tuple(
+            OutlineArc(r, k, mid)
+            for r, (_, mids) in enumerate(ordered)
+            for k, mid in enumerate(mids)
+            if mid is not None
+        ),
+    )
+
+
+def _slot_of(points: Sequence[Point], mids: Sequence[Point | None]) -> OutlineSlot | None:
+    """The slot whose stadium is the ring ``points`` with ``mids``, within ``SLOT_TOL``, or ``None``."""
+    if len(points) != 4 or len(mids) != 4:
+        return None
+    turn = next((k for k in range(4) if mids[k] is None and mids[(k + 2) % 4] is None), None)
+    if turn is None or mids[(turn + 1) % 4] is None or mids[(turn + 3) % 4] is None:
+        return None
+    v = [points[(turn + i) % 4] for i in range(4)]
+    tip, tail = mids[(turn + 1) % 4], mids[(turn + 3) % 4]
+    assert tip is not None and tail is not None
+    dx, dy = tip.x - tail.x, tip.y - tail.y
+    if dx == 0 and dy == 0:
+        return None
+    length = (math.isqrt(4 * (dx * dx + dy * dy)) + 1) // 2  # rounded to the nanometre
+    gx, gy = v[2].x - v[1].x, v[2].y - v[1].y
+    width = 2 * ((math.isqrt(gx * gx + gy * gy) + 1) // 2)  # rounded to an even number
+    centre = Point(round_half_even_div(sum(p.x for p in v), 4), round_half_even_div(sum(p.y for p in v), 4))
+    if check_size(length, width) is not None:
+        return None
+    rotation = angle_of(dx, dy) % 180_000_000
+    ring = stadium(centre, length, width, rotation)
+
+    def near(a: Point, b: Point) -> bool:
+        return abs(a.x - b.x) <= SLOT_TOL and abs(a.y - b.y) <= SLOT_TOL
+
+    if not all(any(near(p, q) for q in ring.points) for p in v):
+        return None
+    if not all(any(near(m, q) for q in ring.mids) for m in (tip, tail)):
+        return None
+    key = f"slot:{centre.x},{centre.y},{length},{width},{rotation}"
+    return OutlineSlot(
+        id=derived_id("slt", "kicad", key), center=centre, length=length, width=width, rotation=rotation
+    )
+
+
+def slots_of(outline: Outline) -> tuple[OutlineSlot, ...]:
+    """The cut-outs of ``outline`` that are stadiums, as ``OutlineSlot``s with content ids, in cut-out
+    order: four vertices joined by two parallel lines of equal length and two half circles, each vertex and
+    mid within ``SLOT_TOL`` of the stadium of the recognised centre, length, width (even) and rotation
+    (modulo 180°). ``convert`` (c0170) and the round-trip tests call it on ``edge_outline``."""
+    mids = {(arc.ring, arc.edge): arc.mid for arc in outline.arcs}
+    found: list[OutlineSlot] = []
+    for r, ring in enumerate(outline.cutouts, start=1):
+        slot = _slot_of(ring, [mids.get((r, k)) for k in range(len(ring))])
+        if slot is not None:
+            found.append(slot)
+    return tuple(found)
+
+
 Box = tuple[int, int, int, int]
+
+
+# --- the edge rings of the copper check (change c0169) ----------------------------------------------------
+
+EDGE_RING = "edge ring"
+"""The name of ring k of a board read from its edge graphics is ``edge ring <k>``; ring 0 is ``board``."""
+
+
+def _edge_rings(outline: Outline, names: Sequence[str]) -> tuple[EdgeRing, ...] | None:
+    """The rings of ``outline`` named by ``names``, in ring order; ``None`` when the board ring does not
+    close (fewer than three vertices, or two without an arc). An inner ring that does not close is left
+    out."""
+    mids = {(arc.ring, arc.edge): arc.mid for arc in outline.arcs}
+    found: list[EdgeRing] = []
+    for r, ring in enumerate((tuple(outline.points), *(tuple(c) for c in outline.cutouts))):
+        arcs = tuple(mids.get((r, k)) for k in range(len(ring)))
+        closes = len(ring) >= 3 or (len(ring) == 2 and any(mid is not None for mid in arcs))
+        if not closes:
+            if r == 0:
+                return None
+            continue
+        found.append(EdgeRing(names[r] if r < len(names) else f"{EDGE_RING} {r}", ring, arcs))
+    return tuple(found)
+
+
+def board_edges(design: Design) -> tuple[EdgeRing, ...] | None:
+    """The rings of the edge of ``design``'s board as the copper check judges copper against them
+    (``BoardFrame.board_edges``): with ``Board.outline``, the rings of ``lower_outline`` (the board ring,
+    the cut-outs and the slots' stadiums, each group of overlapping ones merged) named ``board``,
+    ``cut-out <k>``, ``slot <name>`` or the names of a merged group joined by ``MERGED_JOIN``; otherwise
+    the rings of ``edge_outline`` (the edge graphics with their exact lines and arcs) named ``board`` and
+    ``edge ring <k>``. ``None`` when no board ring closes. A pure query."""
+    board = design.board
+    if board is None:
+        return None
+    if board.outline is not None:
+        lowering = lower_outline(board.outline)
+        found = _edge_rings(lowering.outline, lowering.names)
+        if found is not None:
+            return found
+    outline = edge_outline(design)
+    if outline is None:
+        return None
+    names = ("board", *(f"{EDGE_RING} {k}" for k in range(1, len(outline.cutouts) + 1)))
+    return _edge_rings(outline, names)
 
 
 def _box(points: Sequence[Point]) -> Box:
@@ -328,14 +468,17 @@ CHECK_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "kicad.outline.invalid": "error",
         "kicad.outline.zone-short": "warning",
+        "kicad.outline.merged": "info",
+        "kicad.outline.overlap": "error",
     }
 )
 """The closed table of ``check_outline``."""
 INVALID_HINT = "keep every cut-out inside the board ring and clear of the other rings"
+GEO_HINT = "pip install 'fenolite[geo]'"
 
 
 def ring_name(index: int) -> str:
-    """``board`` for ring 0 and ``cut-out <k>`` for ring k."""
+    """``board`` for ring 0 and ``cut-out <k>`` for ring k of the model's ``Outline.cutouts``."""
     return "board" if index == 0 else f"cut-out {index}"
 
 
@@ -345,10 +488,21 @@ def _invalid(message: str, where: str) -> Issue:
     )
 
 
-def _form_issues(outline: Outline) -> list[Issue]:
-    """What breaks the model's form (capability design-model, "Board outline arcs")."""
-    rings = outline_rings(outline)
+def _slot_issues(outline: Outline) -> list[Issue]:
+    """The slots whose size is not a slot's (capability design-model, "Board slots")."""
     issues: list[Issue] = []
+    for slot in outline.slots:
+        problem = check_size(slot.length, slot.width)
+        if problem is not None:
+            name = slot_name(slot)
+            issues.append(_invalid(f"{name}: {problem}", name))
+    return issues
+
+
+def _form_issues(outline: Outline) -> list[Issue]:
+    """What breaks the model's form (capability design-model, "Board outline arcs" and "Board slots")."""
+    rings = (tuple(outline.points), *(tuple(ring) for ring in outline.cutouts))
+    issues: list[Issue] = _slot_issues(outline)
     keys = [(arc.ring, arc.edge) for arc in outline.arcs]
     if keys != sorted(set(keys)):
         issues.append(
@@ -439,12 +593,44 @@ def _zone_short(design: Design, outline: Outline) -> list[Issue]:
     ]
 
 
+def _and(names: Sequence[str]) -> str:
+    return ", ".join(names[:-1]) + f" and {names[-1]}" if len(names) > 1 else "".join(names)
+
+
+def _group_issues(lowering: Lowering) -> list[Issue]:
+    """One ``kicad.outline.merged`` per merged group and one ``kicad.outline.overlap`` per group left
+    unmerged for want of the ``geo`` extra."""
+    issues = [
+        Issue(
+            "kicad.outline.merged",
+            CHECK_ISSUE_CODES["kicad.outline.merged"],
+            f"{_and(names)} overlap and are written as one ring, their union",
+            names[0],
+        )
+        for names in lowering.merged
+    ]
+    issues += [
+        Issue(
+            "kicad.outline.overlap",
+            CHECK_ISSUE_CODES["kicad.outline.overlap"],
+            f"{_and(names)} overlap; their union is written as one ring, which needs the geo extra",
+            names[0],
+            GEO_HINT,
+        )
+        for names in lowering.unmerged
+    ]
+    return issues
+
+
 def check_outline(design: Design) -> tuple[Issue, ...]:
     """The issues of the model outline of ``design``, with the codes of ``CHECK_ISSUE_CODES`` (capability
     kicad-file-backend, "Outline shape checks"). ``kicad.outline.invalid`` for an outline that breaks the
-    model's form, a ring that crosses or touches itself, two rings that cross or touch, a cut-out outside
-    the board ring and a cut-out inside another: the first two are what KiCad 10 reports as
-    ``invalid_outline`` (``H-K-OUTLINE-INVALID``), and one verdict serves both targets.
+    model's form (a slot of a size that is no slot's among them), a ring that crosses or touches itself,
+    two rings that cross or touch without a merged area, a cut-out or slot outside the board ring and a
+    cut-out inside another: the first two are what KiCad 10 reports as ``invalid_outline``
+    (``H-K-OUTLINE-INVALID``), and one verdict serves both targets. The rings are those of
+    ``lowered_outline``: cut-outs and slots whose areas overlap are merged first, each group named by one
+    ``kicad.outline.merged``, or by one ``kicad.outline.overlap`` without the ``geo`` extra.
     ``kicad.outline.zone-short`` names the zones without an outline that an arc of the board ring bulges
     beyond. A design without a model outline gives no issue."""
     board = design.board
@@ -454,34 +640,36 @@ def check_outline(design: Design) -> tuple[Issue, ...]:
     issues = _form_issues(outline)
     if issues:
         return tuple(issues)
+    lowering = lower_outline(outline)
+    issues += _group_issues(lowering)
+    names = lowering.names
     rings, _ = _model_rings(outline, DEFAULT_TOL)
-    if len(rings) != 1 + len(outline.cutouts):
-        return (_invalid("a ring of the outline encloses no area", "board"),)
+    if len(rings) != len(names):
+        return (*issues, _invalid("a ring of the outline encloses no area", "board"))
+    together = {name: k for k, group in enumerate(lowering.unmerged) for name in group}
     bad: set[int] = set()
     for index, ring in enumerate(rings):
         if _crosses_itself(ring):
             bad.add(index)
-            issues.append(
-                _invalid(f"the ring {ring_name(index)} crosses or touches itself", ring_name(index))
-            )
+            issues.append(_invalid(f"the ring {names[index]} crosses or touches itself", names[index]))
     cores = {index: _closed(ring) for index, ring in enumerate(rings) if index not in bad}
     for i in sorted(cores):
         for j in sorted(cores):
             if j <= i:
                 continue
-            pair = f"{ring_name(i)} and {ring_name(j)}"
+            if names[i] in together and together[names[i]] == together.get(names[j]):
+                continue  # one kicad.outline.overlap names the group
+            pair = f"{names[i]} and {names[j]}"
             if thick_touch(cores[i], cores[j]):
-                issues.append(_invalid(f"the rings {pair} cross or touch", ring_name(j)))
+                issues.append(_invalid(f"the rings {pair} cross or touch", names[j]))
             elif i == 0:
                 if point_in_ring(rings[j][0], rings[0]) is not Location.INSIDE:
-                    issues.append(
-                        _invalid(f"{ring_name(j)} lies outside the {ring_name(0)} ring", ring_name(j))
-                    )
+                    issues.append(_invalid(f"{names[j]} lies outside the {names[0]} ring", names[j]))
             elif (
                 point_in_ring(rings[j][0], rings[i]) is Location.INSIDE
                 or point_in_ring(rings[i][0], rings[j]) is Location.INSIDE
             ):
-                issues.append(_invalid(f"one of {pair} lies inside the other", ring_name(j)))
+                issues.append(_invalid(f"one of {pair} lies inside the other", names[j]))
     return (*issues, *_zone_short(design, outline))
 
 
@@ -748,22 +936,29 @@ def merge_outline(built: Design, board: Design, *, locked: bool = False) -> Outl
 
 __all__ = [
     "CHAIN_GAP",
+    "EDGE_RING",
     "CHECK_ISSUE_CODES",
     "EVIDENCE",
+    "MERGED_JOIN",
     "MERGE_ISSUE_CODES",
     "PROBLEMS",
     "BoardOutline",
+    "Lowering",
     "OutlineMerge",
+    "board_edges",
     "board_outline",
     "box_points",
     "check_outline",
     "edge_graphics",
+    "edge_outline",
     "edge_text",
     "edge_texts",
     "edge_uuid",
     "edges_equal",
     "graphic_text",
     "is_signed",
+    "lower_outline",
+    "lowered_outline",
     "merge_outline",
     "outline_box",
     "outline_case",
@@ -771,4 +966,5 @@ __all__ = [
     "position_uuid",
     "ring_box",
     "ring_name",
+    "slots_of",
 ]

@@ -1,0 +1,115 @@
+# SPDX-License-Identifier: CC0-1.0
+# A generic drawing sheet for A4 and A3 landscape: a zoned frame and a 180 mm title block whose labels
+# are ISO 7200 data field names. Figures come from public previews of ISO 5457:1999 (S-0077) and
+# ISO 7200:2004 (S-0078), read for facts only, or are Fenolite choices; every number is listed under
+# [provenance.values]. No conformance with any standard is claimed: the reference fields are counted
+# from the frame corners, not from the centring axes, and centring marks are not drawn.
+
+[provenance]
+sources = ["S-0077", "S-0078"]
+licence = "CC0-1.0"
+
+[provenance.values]
+"sheet.text_size" = "fenolite-choice"
+"sheet.line_width" = "fenolite-choice"
+"sheet.text_line_width" = "fenolite-choice"
+"margins.left" = "S-0077"
+"margins.right" = "S-0077"
+"margins.top" = "S-0077"
+"margins.bottom" = "S-0077"
+"frame.line_width" = "S-0077"
+"frame.zone_pitch" = "S-0077"
+"frame.zone_band" = "fenolite-choice"
+"frame.zone_line_width" = "S-0077"
+"frame.zone_text_size" = "S-0077"
+"title_block.columns" = "fenolite-choice"
+"title_block.rows" = "fenolite-choice"
+"title_block.line_width" = "fenolite-choice"
+"title_block.label_size" = "fenolite-choice"
+"title_block.cell[4].font_size" = "fenolite-choice"
+
+[sheet]
+name = "iso5457_generic"
+sizes = ["A4", "A3"]
+orientation = "landscape"
+text_size = 2.5
+line_width = 0.25
+text_line_width = 0.25
+
+[margins]
+left = 20
+right = 10
+top = 10
+bottom = 10
+
+[frame]
+line_width = 0.7
+zones = true
+zone_pitch = 50
+zone_band = 5
+zone_line_width = 0.35
+zone_text_size = 3.5
+
+[title_block]
+corner = "rb"
+columns = [40, 60, 35, 45]
+rows = [9, 12, 9]
+line_width = 0.35
+label_size = 1.8
+
+[[title_block.cell]]
+row = 0
+col = 0
+label = "Legal owner"
+token = "organization"
+
+[[title_block.cell]]
+row = 0
+col = 1
+label = "Identification number"
+token = "doc_id"
+
+[[title_block.cell]]
+row = 0
+col = 2
+label = "Revision index"
+token = "revision"
+
+[[title_block.cell]]
+row = 0
+col = 3
+label = "Segment/sheet number"
+token = "sheet"
+
+[[title_block.cell]]
+row = 1
+col = 0
+span = 3
+label = "Title"
+token = "title"
+font_size = 3.5
+
+[[title_block.cell]]
+row = 1
+col = 3
+label = "Paper size"
+token = "paper"
+
+[[title_block.cell]]
+row = 2
+col = 0
+label = "Responsible department"
+token = "responsible"
+
+[[title_block.cell]]
+row = 2
+col = 1
+label = "Approval person"
+token = "approver"
+
+[[title_block.cell]]
+row = 2
+col = 2
+span = 2
+label = "Date of issue"
+token = "date"

@@ -700,7 +700,12 @@ def _shadows(rule: Rule, classes: Sequence[str], bases: Sequence[str], layer: st
     ``layer``. Any other selector, an area leaf among them, does not count."""
     if rule.layers and layer not in rule.layers:
         return False
-    selector = rule.selector_a
+    return _target_leaves(rule.selector_a, classes, bases)
+
+
+def _target_leaves(selector: Selector, classes: Sequence[str], bases: Sequence[str]) -> bool:
+    """Whether ``selector`` is one leaf, or an ``or`` of leaves, each ``all``, a ``netclass`` leaf naming
+    one of ``classes``, or a ``diff_pair`` leaf naming one of ``bases`` or ``*`` (``_shadows``)."""
     leaves = selector.items if selector.op == "or" else (selector,)
     for leaf in leaves:
         if leaf.op == "all":
@@ -713,6 +718,21 @@ def _shadows(rule: Rule, classes: Sequence[str], bases: Sequence[str], layer: st
             continue
         return False
     return True
+
+
+def _governing_clearance(
+    ordered: Sequence[Rule], classes: Sequence[str], bases: Sequence[str], layer: str
+) -> Rule | None:
+    """The custom clearance rule that governs the pairs of ``classes`` on ``layer``: the last ``clearance``
+    rule whose selectors both select them as ``_shadows`` counts it (a rule without a second selector
+    selects the second object as its first). ``None`` when no such rule is written."""
+    found: Rule | None = None
+    for rule in ordered:
+        if rule.kind != "clearance" or not _shadows(rule, classes, bases, layer):
+            continue
+        if rule.selector_b is None or _target_leaves(rule.selector_b, classes, bases):
+            found = rule
+    return found
 
 
 def _mm(nm: int) -> str:
@@ -768,8 +788,10 @@ def impedance_checks(design: Design, *, target: int) -> list[Issue]:
     ``build.impedance-layer`` for a layer or a reference that is not a copper layer of the board,
     ``build.impedance-shadowed`` for a rule emitted after a derived rule that selects a target class on its
     layer, ``build.impedance-class-width`` for a class value that differs from a trace, and, for target 9,
-    ``build.impedance-gap-clearance`` and ``build.impedance-rules-only``; ``build.impedance-stackup`` when
-    the board's stack-up is missing or not marked impedance-controlled. Nothing is changed."""
+    ``build.impedance-gap-clearance`` and ``build.impedance-rules-only``; for target 10,
+    ``build.impedance-gap-clearance`` when a custom clearance rule above a pair's gap governs the pair;
+    ``build.impedance-stackup`` when the board's stack-up is missing or not marked impedance-controlled.
+    Nothing is changed."""
     ruleset = design.rules
     targets = ruleset.impedance if ruleset is not None else ()
     if not targets:
@@ -828,6 +850,22 @@ def impedance_checks(design: Design, *, target: int) -> list[Issue]:
                 cls = classes.get(class_id)
                 if cls is not None:
                     found += _class_issues(imp, row, cls, target=target)
+            if target >= 10 and imp.kind == "differential" and row.gap is not None:
+                # probe pro-tuning-gap-clearance-rule = present on 10.0.6: under a custom clearance rule
+                # the profile's gap no longer relaxes the pair's own clearance (c0105 task 1.3)
+                governing = _governing_clearance(ordered, names, bases, row.layer)
+                if governing is not None and governing.min is not None and row.gap < governing.min:
+                    found.append(
+                        issue(
+                            "build.impedance-gap-clearance",
+                            f"the target {imp.name} gives the gap {_mm(row.gap)} mm on {row.layer}, below "
+                            f"the clearance {_mm(governing.min)} mm of the rule {governing.name!r}: under a "
+                            "custom clearance rule KiCad 10 reports the pair's own clearance",
+                            governing.name,
+                            "narrow the rule so that it does not select the pair, or give the pair its own "
+                            "clearance after it with design.rules.pair(…, clearance=…)",
+                        )
+                    )
     stackup = board.stackup if board is not None else None
     if stackup is None or not stackup.impedance_controlled:
         state = "has no stack-up" if stackup is None else "has a stack-up whose impedance_controlled is false"

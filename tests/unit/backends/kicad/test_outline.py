@@ -377,7 +377,7 @@ def test_check_rings_that_cross_touch_or_nest() -> None:
     cases = (
         (circle(39, 15, 4),),  # across the right edge
         (circle(38, 15, 4),),  # touching it at one point
-        (circle(18, 15, 4), circle(21, 15, 4)),  # two that overlap
+        (circle(18, 15, 4), circle(22, 15, 4)),  # two that touch at one point (c0167 merges an overlap)
         (circle(20, 15, 6), circle(20, 15, 2)),  # one inside the other
     )
     for index, cutouts in enumerate(cases):
@@ -391,6 +391,8 @@ def test_check_rings_that_cross_touch_or_nest() -> None:
     assert dict(CHECK_ISSUE_CODES) == {
         "kicad.outline.invalid": "error",
         "kicad.outline.zone-short": "warning",
+        "kicad.outline.merged": "info",
+        "kicad.outline.overlap": "error",
     }
 
 

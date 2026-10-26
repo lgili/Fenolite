@@ -45,8 +45,9 @@ class CircuitImport:
     repeated: set[str] = field(default_factory=lambda: set())
     """The ids of the components that lie on a sheet instantiated more than once."""
     channel_sources: dict[str, int] = field(default_factory=lambda: {})
-    """How many channel components took their designator from each source: ``format`` (the project's
-    designator format) or ``unresolved`` (``<designator>@<channel>``); ``project.link`` adds ``board``."""
+    """How many channel components took their designator from each source: ``annotation`` (the project's
+    annotation file, change c0083), ``format`` (the project's designator format) or ``unresolved``
+    (``<designator>@<channel>``); ``project.link`` adds ``board``."""
     unlinkable: dict[str, str] = field(default_factory=lambda: {})
     """Per component of a ``Repeat`` channel, its id and the designator of its sheet: no unique-id path
     is recorded for such a component, so a board links to it by designator only."""

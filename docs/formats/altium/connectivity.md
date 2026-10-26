@@ -121,6 +121,38 @@ is a `Repeat` statement is one channel per index (change c0083).
 | The designator format also names the nets inside a channel. That a net label local to a channel is renamed by the format as a designator is (`MID_CH1`) is the reading of this page: no file of the corpus holds such a label | S-0520 | INFERRED | H-A-IMP-RPT-NETS |
 | The documentation writes the unique-id path of a board component as `\SheetSymbolUID\SchComponentUID` for several sheet symbols and as `\ChannelIndex+SheetSymbolUID\SchComponentUID` for a `Repeat` statement, without an example. How the index and the unique id are joined is `UNKNOWN`: no public file shows such a path | S-0520 | UNKNOWN | H-A-IMP-RPT-COUNT |
 
+Native check of the one-level authored Repeat sample on 2026-10-13: eight
+documented formats at style 0 and styles 0-3 with `$Component_$RoomName` produce
+exactly the import's physical R1/C12 designators in AD 26.5 (S-0736,
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)`). Mixed style
+4 yields the alpha room suffix in this one-level case only; its general/nested
+mapping remains `UNKNOWN`. This naming measurement does not verify the sample's
+bus connectivity or PCB links.
+
+The authored one-level connection control on 2026-10-14 (S-0740,
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-14; no artefact)`) connects
+`Repeat(OUT)` through a wire labelled `OUT` to the bus labelled `OUT[1..2]`.
+It compiles without errors and joins C12_CH1 pin 2 to OUT1 and C12_CH2 pin 2
+to OUT2, with six components and eleven intended memberships. Directly placing
+the entry on the bus gives a wire-on-bus error; an unlabelled bridge removes
+that drafting error but leaves the outputs disconnected. Thus the wire's
+scalar name is part of the connection convention, not merely drawing text.
+The public example documents different bus/wire and child-port stems too;
+the authored MB-labelled wire control also joins MB1/MB2 with no errors,
+retaining two explicit alias warnings. Moving the ranged bus and its entries
+away from the OUT-labelled bridge still joins all intended pins by name. These
+two additional controls are measured in the same version/date under S-0740;
+graphical contact alone must not decide whether the named bridge resolves.
+
+Native PCB transfer of the authored one-level sample on 2026-10-13 (S-0738,
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)`) saves
+SOURCEUNIQUEID as `\1SYMBOL01\RUID0001` for R1_CH1 and
+`\2SYMBOL01\RUID0001` for R1_CH2: the decimal channel index immediately
+precedes the sheet-symbol UID, without a separator between them. All four
+repeated components have this form. Nested paths remain unmeasured. The import
+still uses the designator fallback described below; this observation alone
+does not change that association algorithm or graduate the whole count/net row.
+
 - **What the import resolves.** `$Component`, `$ComponentPrefix`, `$ComponentIndex`, `$ChannelPrefix` (the
   designator of the channel's sheet symbol, the channel identifier of a `Repeat` statement) and
   `$RoomName`; for a channel of a `Repeat` statement also `$ChannelIndex` and `$ChannelAlpha` (indexes 1
@@ -138,15 +170,33 @@ is a `Repeat` statement is one channel per index (change c0083).
   designator of the format and its `SOURCEDESIGNATOR` the designator of the sheet
   (`altium.import.linked-by-designator`); the components left without a board component are counted by
   `altium.import.channel-naming`.
-- **Nets of a `Repeat` channel.** A sheet entry `Repeat(NAME)` joins the port `NAME` of channel `k`
-  (counted from 0) to member `k`, in identifier order, of the bus identifier `NAME[a..b]` of the parent
-  sheet: the one on the bus line the entry lies on, else another net label of that bus name. A missing bus
-  and a bus with fewer members than channels give `altium.import.channel-naming`. The statement never
-  names a net.
-- **Order of sources.** The board first (`project.link`), then the format. The annotation file of a
-  project is not read: the one annotation file that a corpus project lists (set of S-0188) is empty at
-  the registered commit (0 bytes, measured on 2026-10-06), so the form of such a file is `UNKNOWN`. An
-  absent or empty one changes nothing.
+- **Nets of a `Repeat` channel.** A sheet entry `Repeat(NAME)` joins child port `NAME`
+  to the parent bus selected by its wire label, which may have a different stem.
+  Channel `k` (counted from 0) takes member `k` in identifier order. A uniquely
+  named bridge resolves without physical bus contact; contradictory wire labels
+  or ranged identifiers, a missing bus and insufficient members give
+  `altium.import.channel-naming`. Only a resolved bridge containing labels and
+  repeated entries alone is omitted as scalar plumbing; pin-bearing or genuine
+  dangling scalar nets remain. Legacy direct-on-bus input still follows its
+  original entry-name selection. The writer uses the measured named-wire form.
+
+The corrected-writer native PCB transfer and saved annotation reload on
+2026-10-14 match all eleven intended memberships and five real nets
+(S-0741, `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-14; no artefact)`).
+Nested UID paths and the general mixed room style remain unmeasured.
+
+- **Order of sources.** The board first (`project.link`), then the project's annotation file, then the
+  format. The annotation file is read by `read.annotation` in its measured indexed
+  form or the legacy authored flat form (`project.md`, "The annotation file",
+  S-0737): an entry whose
+  unique-id path is the native path of a channel component (`cmp:` and that path) gives its designator
+  (source `annotation`). It applies to the channels of a sheet that several sheet symbols name; a channel
+  of a one-level `Repeat` statement uses the observed annotation index-before-UID
+  path. Nested Repeat annotation paths remain unresolved, and PCB linking still
+  uses its existing designator fallback. The one
+  annotation file that a public project lists (set of S-0188) is empty at the registered commit (0 bytes,
+  measured on 2026-10-06); an absent or empty one, or one whose lines are in another form, changes
+  nothing.
 - **Not instantiated.** A `Repeat(…)` statement that has not the form above, whose first index is above
   its last, or whose channels would bring the project above 256 sheet instances (`MAX_CHANNELS`, a bound of
   this import) gives one instance (`altium.import.repeated-sheet`).

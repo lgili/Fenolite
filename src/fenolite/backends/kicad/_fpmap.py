@@ -15,6 +15,7 @@ return the items of each modelled field; ``pcb.ModelSource`` wraps them, so this
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
 from typing import Protocol
@@ -457,8 +458,31 @@ def layers_node(head: str, layers: tuple[str, ...]) -> Node:
     return node(head, *(Atom.string(name) for name in layers))
 
 
+def aligned_slot_pad(pad: Pad) -> Pad:
+    """Rotate a circular pad to an arbitrary slot axis without changing its copper (c0161)."""
+    stack = pad.padstack
+    if stack is None or stack.hole_shape != "slot" or stack.hole_rotation % 90000000 == 0:
+        return pad
+    if pad.shape not in ("circle", "oval") or pad.size.w != pad.size.h:
+        raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
+    if any(row.shape not in ("circle", "oval") or row.size.w != row.size.h for row in stack.layers):
+        raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
+    if any(row.offset != Point(0, 0) for row in stack.layers):
+        raise ValueError(f"pad {pad.number}: KiCad writer cannot represent this slot rotation")
+    turn = stack.hole_rotation
+    return dataclasses.replace(
+        pad,
+        rotation=(pad.rotation + turn) % 360000000,
+        padstack=dataclasses.replace(stack, hole_rotation=0),
+    )
+
+
 def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
     """The modelled fields of a pad; ``angle`` replaces ``pad.rotation`` (a board stores it absolute)."""
+    original_rotation = pad.rotation
+    pad = aligned_slot_pad(pad)
+    if angle is not None:
+        angle = (angle + pad.rotation - original_rotation) % 360000000
     drill_node: list[Node | Atom] = []
     if pad.drill is not None:
         stack = pad.padstack

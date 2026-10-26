@@ -1,5 +1,10 @@
 # Altium PCB writers: the maintainer's check
 
+2026-10-13 (c0166): schematic-library fixtures and their current protocol hashes
+were regenerated for the model/owner repair. PCB and PcbLib bytes are unchanged.
+Previous native reports retain their historical scope; the new measured outcomes
+are recorded in [the native campaign](altium-native-acceptance.md).
+
 This page is the protocol by which the maintainer checks the PCB files that `fenolite build --target
 altium` writes for `examples/blink_2layer/design.py` (change c0035, capability altium-build, "PCB author
 reports"). The files are committed under `tests/data/altium/blink/`; they are built from the authored CC0
@@ -30,7 +35,7 @@ names them.
 | `tests/data/altium/blink/blink.PcbLib` | `8fca33bda63bc3846e99478aa76f20e248026aefa0addd6e6e4ce9e9314c0082` |
 | `tests/data/altium/blink/blink.PrjPcb` | `91a938db221c185bd611c2d6f0698677e8a16c616ffec75ab53b20aca1a2931c` |
 | `tests/data/altium/blink/blink.SchDoc` | `c34bde2f95810e5f41647b6fe393b596c998c217074092fb121087a5dfdd6284` |
-| `tests/data/altium/blink/blink.SchLib` | `1c97388753b0826ae3029506aad502cc0c63b65a6a72f0d0ac3cb374a347c48d` |
+| `tests/data/altium/blink/blink.SchLib` | `4f427227183102b479836e66d54a7a3cc0bae5794befc4d8a5a7e15362609517` |
 
 Since change c0086 (2026-10-06) `blink.SchDoc` and `blink.SchLib`, here and in the routed sample of Part C,
 are the default build with the symbols' own graphics. The reports of this page were made on the rectangle
@@ -158,7 +163,7 @@ The plane variant `p0` is not committed; the test rebuilds it and checks its dig
 | `tests/data/altium/routed/routed.PcbLib` | `693d03ad18bc987664a681933fab96e3a01aa2477a8e9181cb1f6fd0e2355738` |
 | `tests/data/altium/routed/routed.PrjPcb` | `9c35d817e1d0ab294f8ad72674d2e2c4f470d449b71b998eba0886b78b7b62f0` |
 | `tests/data/altium/routed/routed.SchDoc` | `01ab1936ab50c1d506c0891f471b4a01177489f14ae76d943538ca91022fabf5` |
-| `tests/data/altium/routed/routed.SchLib` | `2c4b57784793fa177849de22ebb00ff760cf60a57174102405260ff47d4480c5` |
+| `tests/data/altium/routed/routed.SchLib` | `792908e69ccf5d932b6b5ce93fb65e835bad3c82c21b7c228415ae53e8d79d25` |
 | `p0/routed.PcbDoc` | `8e0978ec8ee6c22e3a8a3a76b4e14f17be811b9604f463207f3d6eae2f84dbb1` |
 
 Expected copper, in millimetres from the outline's top-left corner (Y down); the last column is the width
@@ -290,7 +295,8 @@ Fenolite writes no room and no "Supply Nets" rule: no permitted source holds the
 
 ## Part X: complete board (change c0085)
 
-Not yet reported. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
+Every step is reported (2026-10-09, "Reports" below): step X8 in the first report of that day, steps X1 to X7
+and X9 to X12 in the second. The sample is the project `board6` (`tests/_altium_board6.py`): the blink design on six
 copper layers with one item of every kind that change c0085 writes. The five files are the committed
 golden files; `FENOLITE_ALTIUM_BOARD6=<folder outside the repository> uv run pytest
 tests/unit/lens/test_altium_pcb_complete.py -k golden` writes the same bytes into a folder to open in
@@ -302,7 +308,7 @@ Altium Designer. No file that Altium wrote is committed.
 | `tests/data/altium/board6/board6.PcbLib` | `9d09f5126ba6aad6026f4c85fa2899c908eaa363aeaec1b58b59e64a11666e22` |
 | `tests/data/altium/board6/board6.PrjPcb` | `75e7078fdb8fc79b606ad0c0a3acf30103faada43dc440a7fb01e5daad2f7219` |
 | `tests/data/altium/board6/board6.SchDoc` | `36e9850be729dd5e91e14c9b0adab1fb9ac7ef036154839f94d279a12ffc2118` |
-| `tests/data/altium/board6/board6.SchLib` | `6111fd9db8fda9f778cd3dcfc61d89d2bd37a8bfc91edd5f072c38e7d3da03ac` |
+| `tests/data/altium/board6/board6.SchLib` | `66b31ae040cb6f0de2584efe732182a9a230e040c4459a1d3aa58f3e34698ae7` |
 
 `board6.SchDoc` and `board6.SchLib` are the default build of change c0086, with the symbols' own graphics
 (they were committed by c0085 with rectangle bodies, `7b5a19f0…` and `c88e8978…`, and never reported on);
@@ -347,10 +353,11 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    (`H-A-PCBX-KEEPOUT`).
 7. **X7** Select the hole; read plated and the hole size. Expected: not plated, 3.2 mm (`H-A-PCBX-HOLE`).
    The sample holds no slot: the model's board hole is round.
-8. **X8** Component bodies (change c0121; added on 2026-10-07; not run). This step belongs to **session 2**
+8. **X8** Component bodies (change c0121; added on 2026-10-07; reported on 2026-10-09). This step belongs to **session 2**
    of the maintainer's Altium work, with Altium Designer 26: session 1 is the folder he already has, and
    nothing is added to it. Change c0085 cut bodies; change c0121 writes the extruded ones on request
-   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported**. The step runs on
+   (`--altium-bodies extruded`), and **the option stays `off` until step X8 is reported** (it was reported on 2026-10-09, and the
+   maintainer made `extruded` the default the same day: change c0155; `off` gives the earlier files). The step runs on
    a sample of its own, `body2` (`tests/_altium_body2.py`), so that a body that Altium refused cannot hide
    the answers of the other steps on `board6`.
 
@@ -378,12 +385,12 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    | `tests/data/altium/body2/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
    | `tests/data/altium/body2/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
    | `tests/data/altium/body2/body2.SchDoc` | `f5598952ca794defc855b6e3cf6d75f0a6813d2b277016b305da595832996e48` |
-   | `tests/data/altium/body2/body2.SchLib` | `a8c584c2a9997ec642b5fd5a1e2cc0fff62ddbe9c5334804b69dce5c5758363e` |
+   | `tests/data/altium/body2/body2.SchLib` | `cc57098f268663005a1074c0c6fc2da1a3095c10d36cfbce087a68ba6e98274d` |
    | `short/body2.PcbDoc` | `6becb1923051aa3b312cc97eaf8230fab0a50b30d7187253c55411ebe3e8175f` |
    | `short/body2.PcbLib` | `9432b8ab5f7801c7c9399a9e943dd272d4b02d2fbfa0586cc34c53e3666b991d` |
    | `short/body2.PrjPcb` | `e0b2cca3f3635c5ec50edca85d6dbae0d527a03d3e94447945e874a607769591` |
    | `short/body2.SchDoc` | `f5598952ca794defc855b6e3cf6d75f0a6813d2b277016b305da595832996e48` |
-   | `short/body2.SchLib` | `a8c584c2a9997ec642b5fd5a1e2cc0fff62ddbe9c5334804b69dce5c5758363e` |
+   | `short/body2.SchLib` | `cc57098f268663005a1074c0c6fc2da1a3095c10d36cfbce087a68ba6e98274d` |
 
    Values to compare. The model holds a fourth body, which names a 3D model: it is reported by the build
    and not written, so the document holds three.
@@ -428,15 +435,15 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
     although the record holds the second key; then save the document, reopen it and read the restrictions
     again. Expected: no message, the same two restrictions before and after the save
     (`H-A-PCBX-KEEPOUT`).
-12. **X12** Copper locks (change c0108; added on 2026-10-07; not run). Build a document whose model holds
+12. **X12** Copper locks (change c0108; added on 2026-10-07; reported on 2026-10-09). Build a document whose model holds
     one locked track, one locked arc and one locked via beside unlocked ones: the routed sample with those
     three items set `locked=True` (`tests/unit/backends/altium/test_pcbdoc_copper.py -k locked` builds it
     in memory; write it to a folder outside the repository). Open it in Altium Designer 26, select each of
     the three items and read the property "Locked"; select one unlocked track, arc and via too. Expected:
     the three items locked, the others not, and no message on load (`H-A-PCB-CU-LOCK`). Then try to drag
     the locked track: Altium should ask before it moves a locked primitive. Report one generic outcome per
-    item kind. Until this step is reported, the lock bit rests on a public reader's statement and on
-    Fenolite's own reader, and the row stays `INFERRED`.
+    item kind. Before this step was reported, the lock bit rested on a public reader's statement and on
+    Fenolite's own reader, and the row was `INFERRED`.
 
 A step that fails refutes the row it names: the row keeps its id and gets a registered successor. An
 author report never moves an operation out of `experimental`.
@@ -444,8 +451,8 @@ author report never moves an operation out of `experimental`.
 ## Part U: rules (change c0084)
 
 Change c0084 writes the rules of the design by kind and scope (`docs/altium.md`, "Rules";
-`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"). No step of this part has been run: every row
-it names is `INFERRED`, and nothing here is `ALTIUM-VERIFIED`.
+`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"). Steps U1 to U6 were reported on 2026-10-09
+("Reports" below): the four rows they settle are author reports.
 
 **Files.** The routed sample of Part C with one rule of every `exact` kind, the class `PWR` (`GND`,
 `VIN`) and two planted violations, plus the same rules as a rule file. They are built outside the
@@ -530,12 +537,11 @@ A pass shows that KiCad's importer accepts the records; it settles no Altium row
 
 ## Part G: footprint items of a rewrite (change c0126)
 
-Not yet reported. Change c0126 puts the graphics and free texts of a footprint and the corner ratio of a pad
+Reported on 2026-10-09 ("Reports" below). Change c0126 puts the graphics and free texts of a footprint and the corner ratio of a pad
 into the model; a PCB document that Fenolite reads and writes again keeps the lines, arcs, fills, regions,
 designator and comment of its components on the overlays and on Mechanical 1 to 16. This part asks whether
-Altium Designer shows the written primitives as parts of their component. No step has been run: the row it
-settles, `H-A-PCBX-FPGFX-AD`, is `INFERRED`, and nothing here is `ALTIUM-VERIFIED` before the report is
-recorded. The steps are written for Altium Designer 26 from Altium's public documentation; a menu path or a
+Altium Designer shows the written primitives as parts of their component. The row it settles,
+`H-A-PCBX-FPGFX-AD`, is an author report since the report of 2026-10-09. The steps are written for Altium Designer 26 from Altium's public documentation; a menu path or a
 panel name may read differently in the version that is run.
 
 **Files.** Built outside the repository and never committed:
@@ -591,7 +597,145 @@ Steps; report one generic outcome per step (`as expected`, or what differed in o
    layers. Expected: Mechanical 1 and Mechanical 5 are listed and shown, and the two lines of `R1` lie on
    them.
 
+## Part S: slots and cut-outs
+
+Change c0168; pending, no Altium verification is claimed. Fenolite writes a **drilled** slot (a hole with
+a length, `design.hole(..., length=...)`) as a free pad with a slotted hole, and a **milled** slot or a
+cut-out (`design.slot`, `design.cutout`) as a board cut-out region. KiCad's importer reads both
+(`H-A-SLOT-PAD`, `H-A-CUTOUT-REGION`); this part asks what Altium Designer does with them
+(`H-A-SLOT-KIT`). Releases write no cut-out region until S3, S4 and S5 pass (`pcbdoc.CUTOUT_REGIONS`).
+
+**Files.** Built outside the repository by `FENOLITE_ALTIUM_PART_S=~/fenolite-altium-checks/session-4/S-slots
+uv run pytest tests/unit/backends/altium/test_part_s.py` (needs `fenolite[geo]`): `regions/`, `clearance/`
+and `gate-off/`, each an Altium project `slots.PrjPcb` with its `slots.PcbDoc`; `expected.md` (the place
+and size of every slot, hole and cut-out, read back from the files); this text as `README.md`; and
+`SHA256SUMS`. The board is 60 × 40 mm. Coordinates below are millimetres from its lower-left corner, which
+is the document's origin.
+
+| item | where | what it is |
+|---|---|---|
+| `D1` | (27, 7), turned 30° | drilled slot 12 × 2 mm, alone |
+| `D2`, `D3` | (38, 13) and (43, 8), turned 90° | drilled slots 10 × 2 mm whose holes overlap in an L |
+| `H1` | (52, 8) | round hole 3.2 mm |
+| `S1` | (15, 30), turned 30° | milled slot 12 × 2 mm, alone |
+| `S2` + `S3` | (40, 30) and (45, 25) | two milled slots 12 × 2 mm merged into one L-shaped cut-out |
+| `cut-out 1` | 8 … 20 × 8 … 16 | rectangular cut-out with 1 mm round corners |
+| `TP1`, `TP2` (only `clearance/`) | (38, 28.3) and (36, 14.7) | 1 mm round pads on net `GND`, 0.2 mm from `S2` and from `D2` |
+
+`clearance/` also holds a `GND` polygon on the Top Layer over the whole board and two rules: Board Outline
+Clearance 0.5 mm and Hole To Hole Clearance 0.25 mm.
+
+Work on a copy of the folder. For each case report `as expected` or what differed, in one sentence.
+
+1. **S1** Open `regions/slots.PrjPcb` and its PCB. Double-click `D1`. Expected: the document opens with no
+   repair message; `D1` is a pad on Multi-Layer with no designator, Hole shape Slot, Hole Size 2 mm,
+   Length 12 mm, not plated, and no copper ring around the hole. Note the solder mask and paste openings
+   shown at `D1` (Fenolite leaves both "from the rules"). Then **File » Fabrication Outputs » NC Drill
+   Files** (defaults) and **Drill Drawings**. Expected: `D1` is a slot in the non-plated drill file and in
+   the drill drawing.
+2. **S2** Open `clearance/slots.PcbDoc`, run **Tools » Design Rule Check** (Run Design Rule Check).
+   Expected: Hole To Hole Clearance reports the pair `D2` – `D3` (their holes overlap).
+3. **S3** In `regions/slots.PcbDoc` press `1` (Board Planning Mode) and `3` (3D Layout Mode), then `2` to
+   return. Expected: the board shape has the openings of `S1` and of `cut-out 1` in 2D and in 3D. The NC
+   drill files of S1 hold no hit for `S1`, `S2`, `S3` or `cut-out 1`.
+4. **S4** In `regions/slots.PcbDoc` click the L-shaped opening of `S2` + `S3`. Expected: one Region whose
+   Kind is Board Cutout (not two), with a round end at each of the three free ends.
+5. **S5** In the DRC report of S2. Expected: Board Outline Clearance flags `TP1` (0.2 mm from the cut-out
+   edge) and does not flag `TP2` (0.2 mm from the drilled slot `D2`, which is a hole, not an edge).
+6. **S6** In `clearance/slots.PcbDoc` run **Tools » Polygon Pours » Repour All**. Expected: the polygon
+   pours without a message and leaves no copper inside `S1`, the L of `S2` + `S3` or `cut-out 1`.
+7. **S7** Save `regions/slots.PcbDoc` with **File » Save As** to `regions/slots-saved.PcbDoc`, then run
+   `FENOLITE_ALTIUM_S7=<that file> uv run pytest tests/unit/backends/altium/test_part_s.py -k s7` in the
+   repository. Expected: the test passes (the same four holes and three cut-outs within 1 µm).
+8. **S8** Open `gate-off/slots.PcbDoc` and `gate-off/build-report.json`. Expected: the board has no
+   cut-out region (only the four holes), and the report names each cut-out: `slot/S1`, `slot/S2+slot/S3`
+   and `cutout/1`.
+
+Send the Altium Designer version (`AD <major>.<minor>`), the date, the SHA-256 of `regions/slots.PcbDoc`
+from `SHA256SUMS`, and one outcome per case, in the form of the native acceptance inventory (date, version,
+case, file hash, step, expected and observed outcome). S1 to S8 settle `H-A-SLOT-KIT`; S3, S4 and S5 decide
+the gate.
+
+## Part Q: panels and the Embedded Board Array
+
+Change c0173; pending, no Altium verification is claimed. Fenolite makes panels of several copies of one
+board (`fenolite panel`). No public page gives the records of Altium's Embedded Board Array, so phase A
+measures them by observation: the maintainer makes panels of a board built by Fenolite in his licensed
+Altium Designer 26.5 and saves one document per variant, each differing from the baseline by one
+property; Fenolite reads the saved files with its own reader (`fenolite diff A B --view records`, and a
+dump of the opaque `EmbeddedBoards6` stream). Phase B (after task 7.2) asks Altium to open what Fenolite
+writes. Releases write no array until Q7, Q8 and Q9 pass (`pcbdoc.EMBEDDED_ARRAYS`), and release 0.5.0
+waits on them (the maintainer's decision of 2026-10-16); if the stop rules of the design end the array
+work, the flattened panel is what ships.
+
+**Files of phase A.** Built outside the repository by `FENOLITE_ALTIUM_PART_Q=~/fenolite-altium-checks/session-6/Q-panels
+uv run pytest tests/unit/backends/altium/test_part_q.py -k phase_a`: `board/`, the fixture
+`tests/data/panels/board.py` built with `--target altium` (`board.PrjPcb`, `board.PcbDoc` and their
+library, schematic and output job), a two-layer 40 × 30 mm rectangle authored for Fenolite; `README.md`,
+these steps in Portuguese; `PART-Q.md`, this text; and `SHA256SUMS`. Coordinates are millimetres from the
+document origin. **Files of phase B** (task 7.3): `written/`, `flat/` and `expected.md`.
+
+Work on a copy of the folder. For each case report `as expected` or what differed, in one sentence.
+
+*Phase A, observation:*
+
+1. **Q1** Add a new PCB `panel-a.PcbDoc` to `board/board.PrjPcb` (same folder). **Place » Embedded Board
+   Array/Panelize**, pick `board.PcbDoc`, place it; in Properties set X 5, Y 5, Rotation 0, Column Count 2,
+   Row Count 2, Column Spacing 42, Row Spacing 32, Mirrored off, Link Location off; choose "Synchronize
+   Manually Later" if asked and note the dialog. Save. Expected: four boards with 2 mm gaps.
+2. **Q2** From `panel-a`, **File » Save As** once per change, each made alone on a fresh copy of `panel-a`:
+   `panel-cols4` (Column Count 4), `panel-rows3` (Row Count 3), `panel-spacing` (Column Spacing 45, Row
+   Spacing 35), `panel-margin` (Column Margin 3, Row Margin 3; note whether the spacing fields change),
+   `panel-rot90` (Rotation 90), `panel-mirror` (Mirrored on), `panel-link` (Link Location on),
+   `panel-move` (X 12, Y 7). Expected: each saves; note any field that changed besides the one set.
+3. **Q3** On `panel-a`, add two mechanical layers in the View Configuration or the Layer Stack Manager, set
+   one's Layer Type to V Cut and the other's to Route Tool Path, draw one track on each, save as
+   `panel-layers`. Expected: it saves; note the layer numbers and names Altium gives.
+4. **Q4** On `panel-a`, place a second array of the same board at X 100, Y 5 (1 × 1), save as `panel-two`.
+   Expected: two arrays.
+5. **Q5** On `panel-a`, **File » Fabrication Outputs » Gerber Files** and **NC Drill Files** with their
+   defaults. Expected: four copies in the copper and drill outputs; send the list of files written (names
+   only).
+6. **Q6** Close Altium, zip the folder without the `History` and `Project Outputs` folders, and send it.
+   Expected: Fenolite runs `fenolite kit verify`'s path scan before anything is read.
+
+*Phase B, confirmation (files written by Fenolite after task 7.2; the gate forced on for the kit only):*
+
+7. **Q7** Open `written/panel.PrjPcb` and `panel.PcbDoc`. Expected: no repair message; one array of
+   `board.PcbDoc`, 2 × 2, with the properties of `expected.md`.
+8. **Q8** Move one track of `board.PcbDoc`, save, return to `panel.PcbDoc` and refresh (or reopen).
+   Expected: all four copies show the move. Then select the two mechanical layers. Expected: types V Cut
+   and Route Tool Path when task 7.2 writes them, otherwise unassigned with the names `V-Cut` and
+   `Route Tool Path`.
+9. **Q9** Gerber Files and NC Drill Files of `written/panel.PcbDoc` with their defaults. Expected: four
+   copies; the mouse-bite and tooling holes in the non-plated drill file; the `V-Cut` layer in its own
+   Gerber file.
+10. **Q10** **Tools » Design Rule Check** on `written/panel.PcbDoc`. Expected: report every message; none
+    is expected to block the outputs.
+11. **Q11** Open `flat/panel.PcbDoc` (the flattened panel), run Q9 and Q10 on it. Expected: it opens
+    without repair; the same holes and layers; note any message about repeated designators.
+12. **Q12** Save `written/panel.PcbDoc` as `panel-saved.PcbDoc` and run
+    `FENOLITE_ALTIUM_Q12=<that file> uv run pytest tests/unit/backends/altium/test_part_q.py -k q12`.
+    Expected: it passes (the same array read back).
+
+Send the Altium Designer version (`AD <major>.<minor>`), the date, the SHA-256 of each file sent, and one
+outcome per case, in the form of the native acceptance inventory (date, version, case, file hash, step,
+expected and observed outcome). Q1 to Q4 settle the measurement of `H-A-PANEL-RECORD`, Q3 that of
+`H-A-PANEL-LAYERKIND`; Q7 to Q12 settle `H-A-PANEL-KIT`, and Q7, Q8 and Q9 decide the gate
+`EMBEDDED_ARRAYS`. Saved native files stay outside the repository; only measured facts, digests and sizes
+are committed.
+
 ## Reports
+
+### 2026-10-17, `AD 26.5`, Part S
+
+Native run on Windows of the kit built from `670f02d`, recorded in full in
+`docs/evidence/altium-part-s-slots-2026-10-17.md` (S-0812). S1, S2, S4, S5, S6, S7 and S8 as expected. S1:
+the slot pad is a free Multi-Layer pad with no ring and a 2 × 12 mm non-plated slot, and its solder mask
+and paste expansions come from the rules, as Fenolite writes them. S3 is incomplete: Board Planning Mode
+shows the three openings and the NC output holds no hit for a milled form, but the 3D Layout Mode viewport
+stayed blank (a black view with no board), so the board shape in 3D was not observed. `H-A-SLOT-KIT` stays
+`INFERRED` and `pcbdoc.CUTOUT_REGIONS` stays false until S3 is repeated. No native file is committed.
 
 ### 2026-10-03, `AD 26.5`, Part D
 
@@ -747,6 +891,84 @@ Reading of the repeat:
 - No step named a fault, so no fact and no golden file changed. The SHA-256 values that this page names
   for committed files were compared with the golden files on the day of this record and are equal.
 
+### 2026-10-09, `AD 26.5`, Parts U, X (step X8), G and V
+
+- Tool: Altium Designer 26.5, the installation of session 2 on the maintainer's own PC, a licence he may use
+  for Fenolite (`LEGAL.md`, block A). Reported by the maintainer on 2026-10-09 for his sessions of
+  2026-10-07 and 2026-10-08 (S-0724). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no
+  artefact)`.
+- Files: Fenolite's own files of the tables of Parts U, X (step X8) and G, from his session folders, and for
+  Part V a board of his own drawing. No file opened or saved in the sessions enters the repository; the
+  digests of the opened copies were not reported.
+
+Outcome per step:
+
+- **U1 to U6, rules (change c0084).** Each as expected: the rules editor lists the written rules under
+  their kinds with the values of the table, no kind holds only Altium's default rule, the scopes read as
+  written and the rule check names only `Width_PWR` and `Clearance_net_LED_DRV_to_net_LED_A` among the
+  written kinds, the planted `VIN` track is judged by `Width_PWR`, and the rule file imports without a
+  message. Confirms `H-A-RULE-KINDS`, `H-A-RULE-SCOPE`, `H-A-RULE-PRIORITY` and `H-A-RULE-FILE`. The number
+  of violations per rule was not given.
+- **X8.1 to X8.4, bodies, set `saved` (change c0121).** As expected. Confirms `H-A-PCBX-BODY-OPEN`.
+- **X8.5, set `short`.** As expected. Confirms `H-A-PCBX-BODY-SHORT`.
+- **X8.6, the saved file.** Done; the counts that `-k saved_report` prints were not given, so
+  `H-A-PCBX-BODY-ID`, a measurement, stays pending with this observation.
+- **X8.7, the library body.** As expected. Confirms `H-A-PCBX-BODY-LIB`.
+- **G1 to G7, footprint items of a rewrite (change c0126).** Each as expected. Confirms `H-A-PCBX-FPGFX-AD`.
+- **Part V, vias without inner pads (change c0132, task 4.3).** A four-layer board of the maintainer's own
+  drawing whose inner layers have the ids 3 and 5, one via used on the outer layers only, "Remove Unused
+  Pad Shapes" run for vias, saved; its via record read with `fenolite`. As expected: the table at 209 holds
+  1 at 211 and at 213 and 0 elsewhere, an index by layer id. Confirms `H-A-IMP-VIA-PADLESS`. The second
+  question of the task, the nine further bytes of the long record, was not reported.
+
+Reading of the report:
+
+- No step named a fault, so no fact of the format pages and no golden file changed, and no row is refuted.
+- Step X8 decides, by its own rule (Part X above): with X8.1 to X8.4 as expected, the file set `saved`
+  stays the written form. The default of `--altium-bodies` may become `extruded` by a one-line change with
+  its changelog line, outside change c0121; it is not made here and the option stays `off`.
+- An author report moves no write kind out of `experimental`: every Altium write stays experimental.
+
+### 2026-10-09, `AD 26.5`, Part D, steps D4 to D6 (confirmation)
+
+The maintainer confirmed on 2026-10-09 (S-0724) his answer of 2026-10-08 to steps D4 to D6 of
+`openspec/changes/c0088-altium-light-drc/design.md` ("Session 2 of 2026-10-08" below, S-0616) as his
+report of those steps: done as expected for what they ask, the count N reported (N = 0 on `-03`) and the
+pad size read. The follow-up that the answer called for is change c0152, opened and closed since (Altium's
+own comparison passes the pairs; `docs/evidence/altium-roundtrip.md`). Steps D1 to D3 (optional) were not
+run, so `H-A-DRC-ALTIUM` stays open.
+
+### 2026-10-09, `AD 26.5`, Part X, steps X1 to X7 and X9 to X12
+
+- Tool: Altium Designer 26.5. Reported by the maintainer on 2026-10-09 in his own chat, a second report of
+  that day (S-0726). Label: `ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-09; no artefact)`.
+- Files: Fenolite's own files of Part X (`board6`) and, for step X12, the document with locked copper built
+  from the routed sample. No file opened or saved in the session enters the repository; the digests of the
+  opened copies were not reported.
+
+Outcome per step, each as expected:
+
+- **X1, opening.** No repair prompt and no message in the Messages panel. Adds the Messages panel to
+  `H-A-PCB-DOC-OPEN`, which is an author report since 2026-10-03.
+- **X2 and X3, the layer stack.** Confirms `H-A-PCBX-STACK`.
+- **X4, via spans and drill pairs.** Confirms `H-A-PCBX-VIASPAN`.
+- **X5, the four texts.** Confirms `H-A-PCBX-TEXT`. Which corner of each text lies at the record's position
+  was not named.
+- **X6 and X11, the keep-out.** Confirms `H-A-PCBX-KEEPOUT`: no message on load, the same two restrictions
+  before and after a save, with both keys in the record.
+- **X7, the hole.** Confirms `H-A-PCBX-HOLE`.
+- **X9, repour.** Confirms `H-A-PCBX-REPOUR`.
+- **X10, save.** Done; the size of the saved file was not given. It settles no row.
+- **X12, copper locks (change c0108).** As expected for each item kind. Confirms `H-A-PCB-CU-LOCK`.
+
+Reading of the report:
+
+- No step named a fault, so no fact of the format pages and no golden file changed, and no row is refuted.
+- Not given, and still owed: the counts of step X8.6 (`H-A-PCBX-BODY-ID` stays pending) and the list of
+  Gerber extensions of step O3 (`H-A-OUTJOB-GERBER-LAYERS` stays pending); the maintainer will send both
+  later. Steps D1 to D3 of Part D were not run: `H-A-DRC-ALTIUM` stays pending.
+- An author report moves no write kind out of `experimental`: every Altium write stays experimental.
+
 ## Author report of 2026-10-07 (opening only)
 
 On 2026-10-07 the author reported, for the files he was given: every project opened in Altium Designer 26
@@ -889,3 +1111,67 @@ one public document opened read-only (S-0616). Nothing that Altium wrote is in t
     or 9 nm short go and the 9 that are 10 to 20 nm short stay errors (1 on `-01`, 8 on `-08`). D5 above stays the evidence of what Altium shows.
 - **Parts X8 (c0121), V (c0132) and G (c0126).** Not done: owed. `--altium-bodies extruded` stays off by
   default, and the rows of the three parts are where they were.
+  The report of 2026-10-09 below covers them.
+
+## Report of 2026-10-09
+
+On 2026-10-09 the maintainer reported, for his sessions of 2026-10-07 and 2026-10-08 in Altium Designer
+26.5, the parts that were owed (S-0724), one generic outcome per step: Part U (c0084), step X8 of Part X
+(c0121), Part G (c0126), Part V (c0132), all as expected, and his answer to D4 to D6 confirmed. The outcomes
+and the rows they move are under "Reports", "2026-10-09". A second report of the same day (S-0726) covers
+steps X1 to X7 and X9 to X12 of Part X, all as expected (under "Reports" too). Still owed on this page: the
+counts of step X8.6, and steps D1 to D3 of Part D (optional; not done, so `H-A-DRC-ALTIUM` stays pending). The kit run (`fenolite kit
+verify` and `fenolite kit record`, change c0091) is not part of this report. The schematic side of the same
+report is in `docs/evidence/altium-schematic.md`, "Report of 2026-10-09".
+
+## Part T — converted projects (c0160)
+
+
+Pending maintainer report; no Altium verification is claimed. The runtime bundle contains three
+KiCad cases: two registered public projects (large DIFAT document and a source schematic with repeated
+child sheets) and an authored four-layer Full Stack case with different inner-layer shapes/sizes.
+It includes conversion reports, a README and SHA-256 hashes. Work on scratch copies.
+
+| step | action | report |
+|---|---|---|
+| T1 | Open all three project, PCB, schematic and library documents | load outcome and any errors |
+| T2 | Compile each project; inspect sheet instances and connectivity | compile outcome |
+| T3 | Repour polygons in each PCB | repour outcome |
+| T4 | Run DRC on each converted board | counts by rule category; losses are listed in the conversion report |
+| T5 | Update PCB from schematic and inspect the ECO | unexpected footprint changes, without executing them on the only copy |
+| T6 | Place a PcbLib footprint in a scratch board; inspect its padstack and connector masks | placement and pad/mask outcome |
+
+Send the Altium Designer major/minor version, date and one generic result for each step. No source
+project, screenshots or employer details are needed. T1/T3 settle `H-A-CONV-DIFAT`, T4/T6 settle
+`H-A-CONV-PADSTACK`, T5/T6 settle `H-A-CONV-LIBRARY`, and T1/T2 settle `H-A-CONV-SCHEMATIC`.
+These four hypotheses remain open until the corresponding actual report is recorded.
+
+## Clearance checks of 2026-10-14
+
+At the maintainer's request, both optional checks of c0125/c0130 ran through guarded
+scripts and owned dialog messages in native Altium Designer Professional 26.5.0.
+The two scratch boards are authored for Fenolite; no private or vendor board is used.
+S-0744 and `altium-clearance-2026-10-14.json` retain fingerprints and constraint lines.
+Raw reports and native saved boards remain ignored because they contain local paths.
+
+| case | authored constraints and planted copper | actual native result |
+|---|---|---|
+| M1-M3, layer scopes | Two copper layers; inner `OnMid` 7 mil, outer `ExistsOnLayer` 5 mil, parent matrix 10 mil. Separate track-track on top, via-track on bottom and via-via pairs, each with a 4-mil edge gap | Three violations, each explicitly `4mil < 5mil`; none uses 7 or 10 mil. Native save keeps all three tracks and three vias and both scope expressions |
+| C1-C2, matrix cell | Generic 4 mil with `ClearanceObj_Via-ClearanceObj_Via:35000` (3.5 mil). Separate via-via and via-track pairs, both at 3.7 mil | One violation, via-track, explicitly `3.7mil < 4mil`. The via-via pair passes. Native save keeps all three vias, the track and the cell text |
+
+The original M report executed no Clearance check and is retained as an invalid attempt,
+not as a zero-violation pass. The retry selects rule kind 0 and proves that Clearance ran.
+The C dialog's first launch timed out while open and was cancelled; its retry completed.
+Native report headings group the M violations under the 10-mil parent matrix, while each
+constraint line gives the actual 5-mil limit. On save, Altium renames its child rules to
+`Fallback_1` (inner) and `Fallback_2` (outer). A parent heading alone cannot identify the
+governing child; this differs from the original protocol's expectation of a named child
+in the summary and changes no imported scope or clearance.
+
+Native saved readback agrees with Fenolite's copper check: three findings in M, one in C.
+Input hashes remain unchanged. The verifier asserts report counts, pair kinds, exact
+thresholds, native saved scopes/cell values and matching Fenolite counts.
+These outcomes complete the two requested experiments. The wider hypothesis rows
+`H-A-RULE-CLEARANCE-FORMS` and `H-A-RULE-CLEARANCE-CELLS` remain `INFERRED`: no human
+author report or published kit archive is claimed, and this experiment does not test
+four-layer scoping, all matrix object kinds or cross-rule priority.

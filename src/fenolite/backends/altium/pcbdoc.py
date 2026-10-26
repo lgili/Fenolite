@@ -34,7 +34,7 @@ import struct
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Literal
+from typing import Final, Literal
 
 import fenolite.backends.altium.pcbrecords as rec
 import fenolite.backends.altium.rulemap as rulemap
@@ -85,6 +85,18 @@ BOARD_OFFSET_MIL = 1000
 """The board's lower-left corner and ``ORIGINX``/``ORIGINY`` lie at (1000 mil, 1000 mil)."""
 _OFFSET_NM = BOARD_OFFSET_MIL * 25_400
 DEFAULT_FILENAME = "Fenolite.PcbDoc"
+CUTOUT_REGIONS: Final = False
+"""Whether a build or a write of a model writes the cut-outs and milled slots of the board outline as board
+cut-out regions (change c0168, Decision 5). False until the maintainer's kit cases S3 to S5 of Part S
+(``docs/evidence/altium-pcb.md``) are reported as passed: until then each cut-out is reported with
+``altium.not-lowered`` and counted under ``cutout``. A constant, not an option: no user writes an
+unconfirmed form (open question 4)."""
+EMBEDDED_ARRAYS: Final = False
+"""Whether ``fenolite panel --target altium`` writes Altium's Embedded Board Array (change c0173, Decision 8).
+False until the maintainer's kit cases Q7, Q8 and Q9 of Part Q (``docs/evidence/altium-pcb.md``) are
+reported as passed: until then every Altium panel is the flattened one, and ``--altium-panel embedded`` is
+refused (exit 7). A constant, not an option: no user writes an unconfirmed form. Release 0.5.0 waits on it
+(the maintainer's decision of 2026-10-16)."""
 COPPER_STORAGES: tuple[str, ...] = ("Vias6", "Polygons6", "Classes6", "Rules6")
 """Storages of the copper (change c0038): ``Header`` is the record count, and ``Data`` is empty when the
 spec holds no such object."""
@@ -204,6 +216,8 @@ COMMENT_DROP = 1_500_000
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-PADSTACK",
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
         "H-A-PCB-CU-CLASS",
@@ -246,16 +260,27 @@ EVIDENCE = Evidence(
         "H-A-PCBX-TEXT",
         "H-A-PCBX-VIA-FULL",
         "H-A-PCBX-VIASPAN",
+        "H-A-SLOT-PAD",
+        "H-A-CUTOUT-REGION",
+        "H-A-SLOT-KIT",
+        "H-A-PANEL-FLAT",
+        "H-A-PANEL-KIT",
     ),
 )
 """The PCB document is inferred from public sources; ``pcb import`` checks only what KiCad reads. The
 ``H-A-PCB-CU-*`` rows are those of the copper (change c0038), and ``H-A-ECO-COMPCLASS`` and
 ``H-A-ECO-SHEETCLASS`` those of the component classes of the sheets (change c0048). The
 ``H-A-PCBX-BODY-*`` rows are those a written component body rests on (change c0121): the saved form is
-measured on public documents, thinly, and whether Altium takes the two stand-in values of a body is an
-author report that is pending, so bodies are written only on request. ``H-A-PCBX-FPGFX``, ``-FPTEXT``,
-``-MECH`` and ``-BUILD-LOWER`` are those of the items of a footprint instance and of the build through the
-lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait for KiCad's importer and for the author."""
+measured on public documents, thinly, and Altium took the two stand-in values of a body in an author
+report (step X8, 2026-10-09), so a build writes bodies by default since change c0155.
+``H-A-PCBX-FPGFX``, ``-FPTEXT``, ``-MECH`` and ``-BUILD-LOWER`` are those of the items of a footprint
+instance and of the build through the lowering (change c0126); ``-FPGFX-KICAD`` and ``-FPGFX-AD`` wait
+for KiCad's importer and for the author. ``H-A-SLOT-PAD`` and ``H-A-CUTOUT-REGION`` are the slot pad and
+the board cut-out region of change c0168, measured with KiCad's importer; ``H-A-SLOT-KIT`` is the
+maintainer's Part S, which decides ``CUTOUT_REGIONS``. ``H-A-PANEL-FLAT`` is the flattened panel document of
+change c0173, measured with KiCad's importer; ``H-A-PANEL-KIT`` is the maintainer's Part Q, which decides
+``EMBEDDED_ARRAYS``. ``H-A-PANEL-RECORD`` and ``H-A-PANEL-LAYERKIND`` are ``UNKNOWN`` until Part Q measures
+the array's records, and nothing of them is written, so they are not named here."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -337,6 +362,9 @@ class PlacedComponent:
     ones. Written after the definition's graphics."""
     texts: tuple[ComponentText, ...] = ()
     """The free texts of the component (change c0126), written after its designator and comment."""
+    source_unit_unique_id: str | None = None
+    """The emitted schematic unit used for SOURCEUNIQUEID (c0166). None uses unique_id;
+    an override changes neither the physical component identity nor the document GUID."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -366,8 +394,9 @@ class FreePad:
 BodyMode = Literal["off", "extruded"]
 BODY_MODES: tuple[BodyMode, ...] = ("off", "extruded")
 """What a write does with component bodies (change c0121, ``--altium-bodies``): ``off`` writes none, and
-``extruded`` writes the extruded bodies that ``body_problem`` passes. The default is ``off`` until step X8
-of the author report is in (``H-A-PCBX-BODY-OPEN``)."""
+``extruded`` writes the extruded bodies that ``body_problem`` passes. The writers default to ``off``; the
+build (``fenolite build``, ``lens.altium.build_altium``) defaults to ``extruded`` since change c0155, after
+step X8 of the author report (``H-A-PCBX-BODY-OPEN``)."""
 BODIES_OFF = "component bodies are not written without --altium-bodies extruded"
 BODY_NO_FOOTPRINT = "its footprint is not written"
 
@@ -513,6 +542,10 @@ class PcbDocSpec:
     of a build, at 1000 mil)."""
     free_pads: tuple[FreePad, ...] = ()
     """The pads without a component (change c0090), written after the holes."""
+    cutouts: tuple[tuple[Point, ...], ...] = ()
+    """The board cut-out regions to write (change c0168): polygonised rings in the frame of the
+    placements (``cutouts.cutout_items``), each one region of ``pcbrecords.cutout_region`` after the
+    keep-outs. Empty unless ``CUTOUT_REGIONS`` is true or a caller writes them for the kit."""
     layer_ids: Mapping[str, int] = field(default_factory=lambda: {})
     """Layer name → Altium layer id for the free texts and graphics on layers beside
     ``pcbrecords.BOARD_LAYER_MAP`` (change c0126): ``Mech.1`` … ``Mech.16`` of a board that was read from an
@@ -607,6 +640,7 @@ def board_record(
     stack: StackSpec | None = None,
     frame: Frame | None = None,
     origin: Point | None = None,
+    layer_names: Mapping[int, str] | None = None,
 ) -> bytes:
     """The one ``Board6`` record (``docboard``): the outline in the Altium frame, the origin at the board's
     lower-left corner, the layers that primitives lie on. ``frame`` and ``origin`` (change c0090) replace
@@ -628,6 +662,7 @@ def board_record(
         unique_id=unique_id(f"pcbdoc:{filename}:board"),
         used_layers=used_layers,
         stack=stack,
+        layer_names=layer_names,
     )
     return rec.text_block(text)
 
@@ -667,7 +702,7 @@ def _component_record(component: PlacedComponent, offset: int, frame: Frame, fil
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     at = frame(component.at)
-    link, path = "\\" + component.unique_id, ""
+    link, path = "\\" + (component.source_unit_unique_id or component.unique_id), ""
     if component.sheet is not None:
         symbol, module = component.sheet
         link = f"\\{symbol}{link}"
@@ -786,11 +821,20 @@ def _extend(box: list[int], x: int, y: int, reach: int = 0) -> None:
     box[2], box[3] = max(box[2], x + reach), max(box[3], y + reach)
 
 
-def place_component(component: PlacedComponent, index: int, frame: Frame, nets: Mapping[str, int]) -> _Placed:
+def place_component(
+    component: PlacedComponent,
+    index: int,
+    frame: Frame,
+    nets: Mapping[str, int],
+    copper_layers: Sequence[str] = (),
+) -> _Placed:
     """The pads, tracks and arcs of one component at absolute Altium coordinates, and the box of its pads
-    and graphics (nanometres, Altium frame)."""
+    and graphics (nanometres, Altium frame). ``copper_layers`` (change c0160) is the board's copper layers
+    in stack order, which a pad's per-layer stack needs."""
     footprint = component.footprint
-    check = check_footprint(footprint.defn, footprint.extras, texts=footprint.texts)
+    check = check_footprint(
+        footprint.defn, footprint.extras, texts=footprint.texts, copper_layers=copper_layers
+    )
     if check.refusal is not None:
         raise ValueError(f"{component.ref}: {check.refusal}")
     bottom = component.side == "bottom"
@@ -816,6 +860,7 @@ def place_component(component: PlacedComponent, index: int, frame: Frame, nets: 
                 flip=bottom,
                 net=net,
                 component=index,
+                copper_layers=copper_layers,
             )
         )
         _extend(box, at.x, at.y, max(pad.size.w, pad.size.h) // 2)
@@ -1161,6 +1206,11 @@ class _Free:
     shapes: list[bytes] = field(default_factory=lambda: [])
     pads: list[bytes] = field(default_factory=lambda: [])
 
+    def cutout(self, ring: Sequence[Point], frame: Frame) -> None:
+        vertices = [_units(frame(point)) for point in ring]
+        self.regions.append(rec.cutout_region(vertices))
+        self.shapes.append(rec.cutout_region(vertices, shape_based=True))
+
     def region(self, layer: int, ring: Sequence[Point], frame: Frame, keepout: int | None = None) -> None:
         vertices = [_units(frame(point)) for point in ring]
         self.regions.append(rec.region_record(layer, vertices, keepout=keepout))
@@ -1226,15 +1276,33 @@ def free_records(spec: PcbDocSpec, copper: _Copper) -> _Free:
         else:
             for name in sorted(set(keepout.layers), key=names.index):
                 out.region(copper.layers[name], ring, frame, value)
+    for ring in spec.cutouts:
+        if len(ring) < 3:
+            raise ValueError("a board cut-out needs at least three vertices")
+        out.cutout(ring, frame)
     for hole in sorted(spec.holes, key=lambda h: (_xy(h.position), h.drill, h.id)):
         if hole.drill <= 0:
             raise ValueError(f"{hole.id}: a hole needs a positive drill, not {hole.drill} nm")
         x, y = _units(frame(hole.position))
-        out.pads.append(rec.hole_record(x, y, rec.to_units(hole.drill), plated=hole.plated))
+        length = None if hole.length is None else rec.to_units(hole.length)
+        out.pads.append(
+            rec.hole_record(
+                x, y, rec.to_units(hole.drill), length=length, rotation=hole.rotation, plated=hole.plated
+            )
+        )
     for free in spec.free_pads:
         net = rec.NO_INDEX if free.net is None else copper.net(free.pad.id, free.net)
         at = frame(free.pad.position)
-        out.pads.append(pad_bytes(free.pad, free.extras, at=at, rotation_udeg=free.pad.rotation, net=net))
+        out.pads.append(
+            pad_bytes(
+                free.pad,
+                free.extras,
+                at=at,
+                rotation_udeg=free.pad.rotation,
+                net=net,
+                copper_layers=spec.copper_layers,
+            )
+        )
     return out
 
 
@@ -1657,7 +1725,7 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     offsets = channel_offsets(spec.components)
     for index, component in enumerate(spec.components):
         components.append(_component_record(component, offsets[index], frame, filename))
-        placed = place_component(component, index, frame, nets)
+        placed = place_component(component, index, frame, nets, spec.copper_layers)
         pads += placed.pads
         tracks += placed.tracks
         arcs += placed.arcs
@@ -1779,6 +1847,9 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
                     stack=stack,
                     frame=spec.frame,
                     origin=spec.origin,
+                    layer_names={
+                        ident: name for name, ident in spec.layer_ids.items() if not name.startswith("Mech.")
+                    },
                 )
             ],
         ),
@@ -1804,6 +1875,7 @@ __all__ = [
     "BODY_NO_OUTLINE",
     "BODY_STORAGES",
     "BOARD_OFFSET_MIL",
+    "CUTOUT_REGIONS",
     "BodyMode",
     "PlacedBody",
     "body_mode",

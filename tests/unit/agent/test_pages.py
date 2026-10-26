@@ -36,7 +36,7 @@ from fenolite.cli.main import build_parser
 
 ROOT = Path(__file__).resolve().parents[3]
 SKILL = ROOT / "src" / "fenolite" / "agent" / "skill"
-WRITTEN = (
+TOOLS = (
     "altium",
     "checks",
     "design-script",
@@ -49,11 +49,27 @@ WRITTEN = (
     "routing",
     "rules",
 )
-"""The eleven pages written by hand."""
+"""The eleven tool pages written by hand."""
+PRACTICE = (
+    "board-assembly",
+    "board-emc",
+    "board-floorplan",
+    "board-grounds",
+    "board-insulation",
+    "board-power",
+    "board-practice",
+    "board-review",
+    "board-routing",
+    "board-schematic",
+    "board-workflow",
+)
+"""The eleven practice pages written by hand: design practice, not features."""
+WRITTEN = (*TOOLS, *PRACTICE)
+"""The twenty-two pages written by hand."""
 GENERATED = guide.GENERATED_TOPICS
 RUN_TAGS = ("fenolite-loop", "fenolite-cmd", "fenolite-recipe")
 """The tags whose lines are commands: a public command needs a line in one of them."""
-WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 600, 200, 150_000
+WRITTEN_LINES, WRITTEN_BYTES, GENERATED_LINES, START_LINES, FOLDER_BYTES = 250, 12_000, 600, 200, 260_000
 KICAD_TARGETS = ("9", "10")
 LABELS = ("KICAD-VERIFIED", "ORACLE-VERIFIED", "CORPUS-VERIFIED", "ALTIUM-VERIFIED", "INFERRED", "UNVERIFIED")
 RULE = "adds a tested line to a page of the agent guide"
@@ -67,10 +83,11 @@ HOME: Mapping[str, tuple[str, ...]] = {
     "routing": ("route", "fill", "net", "fetch"),
     "rules": ("analyze",),
     "checks": ("check", "ready", "explain", "netlist", "parity", "doctor", "capabilities"),
-    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore"),
-    "fabrication": ("export", "render", "bom", "pnp", "manifest", "models"),
+    "files": ("inspect", "diff", "equivalent", "roundtrip", "fmt", "restore", "view"),
+    "fabrication": ("export", "render", "bom", "pnp", "manifest", "models", "panel"),
     "altium": ("kit",),
     "recovery": ("guide", "skill"),
+    **{topic: () for topic in PRACTICE},
 }
 """Topic → the commands whose tested line is on that page. A command that is not registered (``fetch``
 before the change that adds it) is not asked for."""
@@ -101,13 +118,56 @@ TEACHES: Mapping[str, tuple[str, ...]] = {
         "INFERRED",
     ),
     "files": ("roundtrip", "fenolite diff", "fenolite equivalent", "fenolite restore", "did not write"),
-    "fabrication": ("fenolite export", "bill of materials", "position", "manifest", "fenolite render"),
+    "fabrication": (
+        "fenolite export", "bill of materials", "position", "manifest", "fenolite render", "fenolite panel",
+        "Panel(",
+    ),
     "altium": (
         "build --target altium", "What it writes",
         "The Altium verification kit is a run that a person performs in Altium Designer",
     ),
     "recovery": (
         "kicad.drc.", "kicad.erc.", "fenolite check blink/build --json", "fenolite explain copper.short",
+    ),
+    "board-practice": (
+        "The order of work", "What a check cannot see", "The user's standard", "fabricator", "datasheets",
+        "Copy a reference design by pads",
+    ),
+    "board-floorplan": (
+        "domain", "lock them", "power flow in one direction", "The loop parts first", "decoupling capacitor",
+        "fenolite neighbors", "fenolite region", "Copy by the pads",
+    ),
+    "board-power": (
+        "switching loop", "IPC-2152", "--kinds power", "Find the necks", "vias in parallel",
+        "Thermal reliefs", "fenolite net",
+    ),
+    "board-grounds": (
+        "One tie", "single tie", "exact geometry", "Kelvin", "Return paths", "fenolite net", "net_tie",
+    ),
+    "board-insulation": (
+        "Clearance", "Creepage", "pollution degree", "material group", "IEC 60664-1", "--groove-width",
+        "--kinds clearance,creepage", "the product complies",
+    ),
+    "board-routing": (
+        "Count the crossings", "45°", "acute", "--nets", "--order", "External routers", "fenolite check",
+    ),
+    "board-assembly": (
+        "designator", "polarity", "pin 1", "fenolite testpoints", "Fiducials", "IPC-7351", "courtyard", "3D",
+        "The board is the master",
+    ),
+    "board-schematic": (
+        "One master", "pin sets", "net class", "single-pin nets", "DC rating", "test condition",
+        "fenolite parity",
+    ),
+    "board-emc": (
+        "immunity", "surge", "raw side", "earth bond", "in stages", "Compare loop versions by inductance",
+        "Only the test closes",
+    ),
+    "board-review": (
+        "checklist", "fenolite ready", "decision", "open item", "What reviewers reject",
+    ),
+    "board-workflow": (
+        "Work on a copy", "SHA-256", "a person has open", "--plan", "fenolite restore", "synthetic",
     ),
 }  # fmt: skip
 """Topic → words the page must hold, from the requirement "Guide pages"."""
@@ -159,10 +219,9 @@ def tag_problems(page: guide.Page) -> list[str]:
             problems.append(f"{where}: a block without a tag; the tags are {', '.join(guide.BLOCK_TAGS)}")
         elif block.tag not in guide.BLOCK_TAGS:
             problems.append(f"{where}: unknown tag {block.tag!r}; the tags are {', '.join(guide.BLOCK_TAGS)}")
-        elif block.tag == "fenolite-design" and block.argument not in ("", "altium"):
-            problems.append(
-                f"{where}: fenolite-design takes no argument but 'altium', not {block.argument!r}"
-            )
+        elif block.tag == "fenolite-design" and block.argument not in guide.DESIGN_TARGETS:
+            known = ", ".join(repr(name) for name in guide.DESIGN_TARGETS if name)
+            problems.append(f"{where}: fenolite-design takes no argument but {known}, not {block.argument!r}")
     return problems
 
 
@@ -388,16 +447,16 @@ DESIGNS = [
     for page in PAGES
     for block in guide.blocks(page)
     if block.tag == "fenolite-design"
-    for target in (("altium",) if block.argument == "altium" else KICAD_TARGETS)
+    for target in guide.DESIGN_TARGETS.get(block.argument, KICAD_TARGETS)
 ]
 
 
 def test_topics_load() -> None:
-    """Scenario "The eleven pages load"."""
+    """Scenario "The twenty-two pages load"."""
     pages = guide.pages()
     topics = [page.topic for page in pages]
     assert topics == [guide.START, *sorted((*WRITTEN, *GENERATED))]
-    assert len(WRITTEN) == 11 and len(GENERATED) == 2
+    assert len(TOOLS) == 11 and len(PRACTICE) == 11 and len(GENERATED) == 2
     for page in pages:
         assert page.title and page.summary and "\n" not in page.summary, page.topic
         assert page.text.startswith(f"# {page.title}\n"), page.topic
@@ -450,6 +509,22 @@ def test_topics_through_the_command_line(no_tools: None) -> None:
     ]
 
 
+def test_practice_from_the_start_page() -> None:
+    """Scenario "The start page sends the agent to the practice pages"."""
+    _, found, rest = guide.pages()[0].text.partition("\n## Designing a good board\n")
+    assert found, "the start page has no section 'Designing a good board'"
+    assert "`board-practice`" in rest.split("\n## ", 1)[0]
+
+
+def test_practice_page_through_the_command_line(no_tools: None) -> None:
+    """Scenario "A practice page through the command line"."""
+    outcome = run("fenolite guide board-grounds --json")
+    assert outcome.code == 0 and outcome.envelope is not None
+    text = str(outcome.envelope["result"])
+    for words in ("single tie", "Kelvin", "fenolite net"):
+        assert words in text, words
+
+
 def test_cmd_lines_parse() -> None:
     """Scenario "Every command line parses"."""
     for page in guide.pages():
@@ -494,6 +569,23 @@ def test_design_blocks_exist_where_names_are_taught() -> None:
         block.argument for block in guide.blocks(guide.page("altium")) if block.tag == "fenolite-design"
     ]
     assert altium == ["altium"]
+
+
+def test_target_ten_block_is_built_for_ten_alone(tmp_path: Path, no_tools: None) -> None:
+    """Scenario "A block for target 10 alone": the block of the page ``fabrication`` that fills and caps the
+    vias of a stitch is built for target 10 only, and the build for target 9 refuses it with exit 7."""
+    (block,) = [b for b in guide.blocks(guide.page("fabrication")) if b.tag == "fenolite-design"]
+    assert block.argument == "kicad10" and guide.DESIGN_TARGETS["kicad10"] == ("10",)
+    assert [target for _topic, b, target in (p.values for p in DESIGNS) if b == block] == ["10"]
+    assert "protect(filling=True, capping=True)" in "\n".join(block.lines)
+    problems = build_problems(block, tmp_path / "nine", "9")
+    assert problems and "exit code 7" in problems[-1]
+    assert tag_problems(_with(guide.page("fabrication"), "x")) == []
+    fence = guide.FENCE
+    wrong = tag_problems(
+        _with(guide.page("fabrication"), f"{fence}fenolite-design kicad9\ndesign = 1\n{fence}\n")
+    )
+    assert len(wrong) == 1 and "'altium', 'kicad10'" in wrong[0]
 
 
 def test_design_block_that_does_not_build_is_reported(tmp_path: Path, no_tools: None) -> None:
@@ -586,7 +678,7 @@ def test_budget_holds() -> None:
     ]
     assert budget_problems([guide.SkillFile("SKILL.md", b"line\n" * START_LINES)])
     assert any(
-        "stays under 150000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
+        "stays under 260000" in p for p in budget_problems([guide.SkillFile("x.bin", b"x" * FOLDER_BYTES)])
     )
 
 
@@ -642,7 +734,8 @@ def test_generated_pages_are_current() -> None:
     commands = guide.page("commands").text
     assert re.findall(r"^## (\S+)$", commands, re.MULTILINE) == public
     assert "| `build` | yes |" in commands and "| `check` | no |" in commands
-    assert "- `--router` (string, required)" in commands and "one of `footprint`, `symbol`" in commands
+    assert "`fenolite route [OPTIONS] --router NAME PATH`" in commands and "- `--router NAME`: " in commands
+    assert "- `--kind {footprint,symbol}`" in commands and "[--" not in commands
     names = re.findall(r"^## (\S+)$", guide.page("dsl-reference").text, re.MULTILINE)
     assert names == sorted(set(fenolite.dsl.__all__) - set(guide.DSL_NOT_TAUGHT))
     reference = guide.page("dsl-reference").text

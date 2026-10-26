@@ -64,8 +64,9 @@ jobs:
     # no test suite runs here and nothing is written to the repository; the record is an artefact of the
     # run, and docs/evidence/yardstick.md gets a row per stage reached and per release. The official
     # libraries and the two heavy demo boards are fetched into caches, run through and never committed.
-    # From stage 4 the job also routes: KiCadRoutingTools for the pair (route-pairs) and Freerouting for the
-    # rest (route, a budget of 3600 s), so it takes about one and a half hours and is given three.
+    # From stage 4 the job also routes: Freerouting for the board (route, a budget of 3600 s), then
+    # KiCadRoutingTools for the pair (route-pairs, after route since c0157), so it takes about one and a
+    # half hours and is given three.
     name: yardstick (the 390-part example through the loop, kicad-cli 10.0.6)
     runs-on: ubuntu-latest
     timeout-minutes: 180

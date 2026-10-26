@@ -64,7 +64,10 @@ def test_bytes_of_a_value_with_its_twin() -> None:
     assert record_bytes(plain) == format_record(plain).encode("ascii")
     props = parse(frame_record(fields)[4:-1])
     assert props.text("TEXT") == "10µF" and props.raw("TEXT") == b"10\xb5F"
-    for bad in ((("TEXT", "1 kΩ"),), (("TEXT", "a|b"),), (("TE XT", "é"),), ()):
+    unicode_fields = (("TEXT", "1 kΩ"),)
+    assert record_bytes(unicode_fields) == b"|%UTF8%TEXT=1 k\xce\xa9|TEXT=1 k?"
+    assert parse(frame_record(unicode_fields)[4:-1]).text("TEXT") == "1 kΩ"
+    for bad in ((("TEXT", "a|b"),), (("TE XT", "é"),), ()):
         with pytest.raises(ValueError):
             record_bytes(bad)
     with pytest.raises(ValueError):

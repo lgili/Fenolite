@@ -168,16 +168,35 @@ class OutlineArc:
 
 
 @dataclass(frozen=True, slots=True)
+class OutlineSlot(Entity):
+    """A milled slot of the board (change c0167): a non-plated stadium cut out of the board, ``length``
+    long overall (both round ends included) and ``width`` wide, its length's axis turned by ``rotation``
+    about ``center`` in the sense of ``Transform.placement``. Its ring is ``core.stadium.stadium(center,
+    length, width, rotation)``; for every reader of rings it is one more cut-out after
+    ``Outline.cutouts``. ``width`` is positive and even and ``length`` exceeds it. ``name`` is the script's
+    name of the slot, empty when none is known (a slot recognised in a read board). Not the opaque
+    round-trip ``model.base.Slot``."""
+
+    center: Point
+    length: Nm
+    width: Nm
+    rotation: Udeg = 0
+    name: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class Outline(Entity):
-    """Board outline polygon and cut-outs (points in order).
+    """Board outline polygon and cut-outs (points in order), and the board's milled slots.
 
     An edge is straight unless ``arcs`` holds an entry for it; ``arcs`` is sorted by ``(ring, edge)`` and
     holds at most one entry per edge. A ring has three vertices or more, or two when one of its two edges
-    is an arc (a circle is two arcs)."""
+    is an arc (a circle is two arcs). ``arcs`` names the rings of ``points`` and ``cutouts`` only; the
+    rings of ``slots`` follow from their parameters. Overlapping cut-outs and slots mean their union."""
 
     points: tuple[Point, ...] = field(default=(), metadata=ORDERED)
     cutouts: tuple[tuple[Point, ...], ...] = field(default=(), metadata=ORDERED)
     arcs: tuple[OutlineArc, ...] = field(default=(), metadata=ORDERED)
+    slots: tuple[OutlineSlot, ...] = field(default=(), metadata=ORDERED)
 
 
 @dataclass(frozen=True, slots=True)
@@ -524,12 +543,23 @@ class Dimension(Entity):
 
 @dataclass(frozen=True, slots=True)
 class Hole(Entity):
-    """A mechanical hole that is not part of a footprint."""
+    """A mechanical hole that is not part of a footprint.
+
+    With ``length`` (change c0168) the hole is a drilled slot: ``drill`` wide and ``length`` long overall
+    (both round ends included), its length's axis turned by ``rotation`` about ``position`` in the sense of
+    ``Transform.placement``. ``None`` is a round hole, whose ``rotation`` is 0. ``length`` must exceed
+    ``drill``. A milled slot of the board is ``OutlineSlot``, not a ``Hole``."""
 
     position: Point
     drill: Nm
     plated: bool = False
     intent: MechanicalIntent | None = None
+    length: Nm | None = None
+    rotation: Udeg = 0
+
+    def __post_init__(self) -> None:
+        if self.length is not None and self.length <= self.drill:
+            raise ValueError(f"a slotted hole is longer than its drill: length {self.length} <= {self.drill}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -584,6 +614,7 @@ __all__ = [
     "MechanicalIntent",
     "Outline",
     "OutlineArc",
+    "OutlineSlot",
     "Pad",
     "PadFabProperty",
     "PadKind",

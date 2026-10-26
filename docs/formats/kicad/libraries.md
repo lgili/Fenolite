@@ -611,3 +611,11 @@ for the fact on 2026-10-05); this change did not fetch them again, so the row re
   on a definition without the child, give `kicad.footprint.projection-read-only`. An authored definition
   (`fenolite.dsl.Footprint.net_tie`) is written from the field, the child right after `attr`; without
   groups no child is written, so its text is the one written before the field existed.
+
+### Turned slots (c0161 writer choice)
+
+The circular copper of a pad is rotation-invariant. Fenolite writes an arbitrary slot angle by rotating
+the circular pad and expressing the slot along its local X axis. Nonzero per-layer copper offsets
+are refused for this transformation.
+Every per-layer copper shape must also be circular. A non-circular pad whose slot is not aligned with
+its X or Y axis is refused, rather than changing its copper shape.

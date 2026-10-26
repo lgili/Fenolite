@@ -16,4 +16,5 @@ pytestmark = pytest.mark.needs_kicad
 
 
 def test_probe_results() -> None:
-    _probes.verify(_probes.version(), _probes.outcomes(_probes.major()))
+    found = _probes.outcomes(_probes.major())
+    _probes.verify(_probes.version(), found, not_fetched=_probes.NOT_FETCHED)

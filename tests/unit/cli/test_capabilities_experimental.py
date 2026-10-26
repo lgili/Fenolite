@@ -17,7 +17,7 @@ from fenolite.cli import cmd_capabilities
 from fenolite.cli.main import main
 from fenolite.verify import parse_level, release_verified
 
-KEYS = ["name", "command", "option", "write_kinds", "evidence"]
+KEYS = ["name", "command", "option", "write_kinds", "missing", "evidence"]
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +38,11 @@ def test_altium_writer_listed_as_experimental(capsys: pytest.CaptureFixture[str]
     result = envelope["result"]
     assert isinstance(result, dict)
     entries = {e["name"]: e for e in result["experimental"]}
-    assert [e["name"] for e in result["experimental"]] == ["altium-pcb-writer", "altium-schematic-writer"]
+    assert [e["name"] for e in result["experimental"]] == [
+        "altium-pcb-writer",
+        "altium-schematic-writer",
+        "altium-support-writer",
+    ]
     entry = entries["altium-schematic-writer"]
     assert list(entry) == KEYS
     assert entry["name"] == "altium-schematic-writer" and entry["command"] == "build"

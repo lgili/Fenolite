@@ -23,7 +23,7 @@ from fenolite.backends.altium.adapter.codes import Census, issue
 from fenolite.backends.altium.adapter.context import Context
 from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import Exact, Ids, bag
-from fenolite.backends.altium.adapter.layers import LayerMap, stackup
+from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup
 from fenolite.backends.altium.adapter.pads import pad
 from fenolite.backends.altium.adapter.rules import import_rules
 from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
@@ -32,7 +32,7 @@ from fenolite.backends.altium.read.pcbprims import PadRecord, RawPrimitive, Text
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.geometry.transform import Transform
-from fenolite.model.board import Board, ComponentBody, FootprintAttribute, FootprintInstance, Pad
+from fenolite.model.board import Board, ComponentBody, FootprintAttribute, FootprintInstance, Hole, Pad
 from fenolite.model.circuit import Circuit, Component, Net, NetClass, Pin, PinRef
 from fenolite.model.design import SCHEMA_VERSION, Design, DesignHeader
 from fenolite.model.rules import RuleSet
@@ -356,10 +356,17 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         )
         ctx.census.map("components")
 
+    holes: list[Hole] = []
     for index, record in free_pads:
         locator = f"Pads6/Data#{index}"
         position = units.pcb_point(record.x, record.y)
         fp_native = f"fp:pad#{index}"
+        unique = doc.pad_unique_ids.get(index)
+        hole = free_hole(record, ctx, index, locator, f"pad:{unique}" if unique else f"{fp_native}:pad::0")
+        if hole is not None:  # a board hole of its own (change c0168), not a footprint
+            holes.append(hole)
+            ctx.census.map("pads")
+            continue
         fp_id, fp_native_ids = ctx.ids.native("fp", fp_native)
         cmp_id, cmp_native_ids = ctx.ids.native("cmp", f"cmp:{fp_native}")
         frame = Transform.placement(position, 0).inverse()
@@ -456,8 +463,63 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
         zones=tuple(found_zones),
         texts=tuple(found_texts),
         graphics=(*edge, *line_graphics, *arc_graphics, *shape_graphics),
+        holes=tuple(holes),
     )
     return BoardImport(board, model_nets, classes, components, rules, links, ctx.issues, ctx.census)
+
+
+ROUND_SHAPE = 1
+"""The main shape of a round pad (``pcb-records.md``, "Pad")."""
+SLOT_SHAPE = 2
+"""Hole shape 2, a slot (``pcb-records.md``, "Pad")."""
+
+
+HOLE_PAD = "pad"
+"""The pair of a hole's ``altium`` bag that holds the native id its pad had as a board-only footprint
+(change c0168; since change c0170 a conversion to KiCad gives a hole the generated footprint of
+``model.holes`` and does not read it)."""
+
+
+def free_hole(record: PadRecord, ctx: Context, index: int, locator: str, pad_native: str = "") -> Hole | None:
+    """The board ``Hole`` of a free pad that is one (change c0168; capability altium-import, "Board
+    cut-outs and free holes of a document"), or ``None``: a pad on Multi-Layer without name and net whose
+    copper is its hole, every size of a round hole the hole size, every size of a slot (slot length, hole
+    size) with the slot along the pad (slot rotation 0), the main shapes round. ``Hole.rotation`` is the
+    pad's rotation for a slot, 0 for a round hole. Every other free pad stays a board-only footprint.
+    ``pad_native`` is kept in the pair ``pad`` of the hole's bag."""
+    if record.prefix.layer != MULTI or record.name or record.prefix.net is not None or record.hole <= 0:
+        return None
+    if {record.shape_top, record.shape_mid, record.shape_bottom} != {ROUND_SHAPE}:
+        return None
+    if any(pair != (0, 0) for pair in record.hole_offsets or ()):
+        return None
+    sizes = {record.size_top, record.size_mid, record.size_bottom, *(record.inner_sizes or ())}
+    length: int | None = None
+    rotation = 0
+    if record.hole_shape in (None, 0):
+        if sizes != {(record.hole, record.hole)}:
+            return None
+    elif record.hole_shape == SLOT_SHAPE and record.slot_length and record.slot_length > record.hole:
+        if sizes != {(record.slot_length, record.hole)} or (record.slot_rotation or 0.0) % 180.0 != 0.0:
+            return None
+        exact = Exact(ctx.census)
+        length = exact.length("hole_length", record.slot_length)
+        rotation = exact.angle("rotation", record.rotation)
+    else:
+        return None
+    exact = Exact(ctx.census)
+    ident, native = ctx.ids.native("hol", f"hole:pad#{index}")
+    return Hole(
+        id=ident,
+        native_ids=native,
+        provenance=ctx.provenance(locator),
+        ext=bag([(HOLE_PAD, pad_native)] if pad_native else []),
+        position=units.pcb_point(record.x, record.y),
+        drill=exact.length("drill", record.hole),
+        plated=record.plated,
+        length=length,
+        rotation=rotation,
+    )
 
 
 def header(ids: Ids, name: str, *, file: str, sha256: str, locator: str = "") -> DesignHeader:

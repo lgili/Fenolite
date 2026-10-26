@@ -135,7 +135,29 @@ with a script that is not committed, and gave the same counts.
   `net` as an opaque child. The query therefore reports 2 open connections that KiCad does not. Copper
   drawings with a net are not modelled (`docs/analyses.md`, "Open connections").
 - `kicad-demo-10-0-6-pcb-14` holds four such drawings and gives equal counts.
-- The census under 9.0.9 was not run here: it needs the pinned image.
+- The census under 9.0.9 was run on 2026-10-09, below.
+
+The census on 9.0.9: local run in the pinned image `kicad/kicad:9.0.9@sha256:e638b79b0321f29395a5b783e94bb9f3c73303e8da15da27b8f5cb4b67a37729`,
+2026-10-09, on the corpus manifest of `dev` at `e811f5e` (`FENOLITE_CENSUS_OUT=<file> uv run pytest
+tests/corpus/test_open_census.py -rA`, with `FENOLITE_KICAD_CLI=docker:kicad/kicad:9.0.9`: 38 passed,
+8 skipped; then the two heavy boards with `FENOLITE_HEAVY=1`, pytest run inside the same image: 6 passed).
+Of the 23 readable boards, 21 load on 9.0.9; `kicad-demo-10-0-6-pcb-01` (format 20250513) and
+`kicad-demo-10-0-6-pcb-12` (format 20260206) are newer than 9.0 reads, and `kicad-cli` writes no report for
+them:
+
+| boards | open connections (query) | unconnected items (KiCad 9.0.9) | nets that differ |
+|---|---|---|---|
+| `kicad-demo-10-0-6-pcb-09` | 148 | 148 | 0 |
+| `kicad-demo-10-0-6-pcb-16` | 1 | 1 | 0 |
+| `kicad-demo-10-0-6-pcb-11` | 2 | 0 | 1 |
+| the 18 others, the two heavy boards (`pcb-06`, `pcb-18`) among them | 0 | 0 | 0 |
+
+- No board reached the cap of 499; the counts are those of 10.0.6 board by board, and the one board that
+  differs is again `kicad-demo-10-0-6-pcb-11`, whose two copper drawings hold a net; `kicad-demo-10-0-6-pcb-14`
+  holds four such drawings and gives equal counts.
+- The two heavy boards on 10.0.6, local run in the pinned image `kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec`,
+  2026-10-09 (`FENOLITE_HEAVY=1`, `-k` on their ids, 4 passed): 0 open connections by the query and 0
+  unconnected items by KiCad on each, so the census of 10.0.6 is complete for the 23 readable boards too.
 
 ### Routers on nets that hold copper
 
@@ -195,9 +217,9 @@ they are copied here from the change's design ("Context"). **They were not measu
 was built (2026-10-08), and the bench is not in the repository.** The design states that the bench is a
 generated board made by a script written for Fenolite, whose net names (`ch01_*` and so on) and sizes are
 what the generator gives for 100 parts and come from no existing board. That statement could not be
-checked against the script when the change was built, because the script is not committed; task 1.2 of
-the change stays open until the numbers are measured again on a bench authored for that purpose (the
-yardstick board of c0119 is one).
+checked against the script when the change was built, because the script is not committed. So the
+numbers were measured again on 2026-10-09 on a bench authored for that purpose, below ("Measured again on
+2026-10-09"); the record of 2026-10-05 stays here as it was copied, with that statement unchecked.
 
 - **Tools.** Freerouting 2.4.1 (the jar of the digest above, OpenJDK 26.0.2), the KiCadRoutingTools
   `v0.22.1` checkout, `kicad-cli` 10.0.6, macOS arm64.
@@ -237,6 +259,55 @@ What the change took from it: one budget for the whole step and kept runs (run 1
 limit), the optimizer off (run 2), only the job's nets in the design file (run 3), one KiCadRoutingTools
 process per group of equal sizes with `--escalation off` and `--no-fix-drc-settings` (run 5). `-inc` and
 `-mt 0` were rejected (run 4).
+
+### Measured again on 2026-10-09
+
+Task 1.2 of c0109, on an authored bench: `tests/routing/scalebench/design.py`, written for Fenolite under
+that task. Its circuit, net names, sizes and layout are round values chosen there and come from no existing
+board; every part is from the built-in catalog. It is not the bench of 2026-10-05, which is not in the
+repository, so the two records are not compared run for run.
+
+- **Bench.** 4 copper layers, 76 × 92 mm, 100 parts: six controllers (`SOIC_8`) in cells of 38 × 28 mm,
+  each with two decoupling capacitors, a pull-up and six channels (series resistor and filter capacitor),
+  and four headers (`Header_1x4_P2.5`); 74 nets. `GND` is the plane of `In1.Cu` and `VCC` that of `In2.Cu`
+  (`board(planes=…)`, a zone on each), class PWR (0.4 mm track, 0.2 mm clearance, 0.6/0.3 mm via); the 72
+  signal nets are class SIG (0.2 mm, 0.15 mm). Built with `fenolite build`: no issue. Filled and checked
+  before routing: 168 unconnected items, no other DRC finding.
+- **Tools.** Freerouting 2.4.1 (the jar of the digest above, fetched by `fenolite fetch freerouting
+  --confirm`) on OpenJDK 25.0.4.1 (Temurin, `api.adoptium.net`); KiCadRoutingTools `v0.22.1` (a clone of
+  the tag, and its release asset `grid_router-linux-x86_64.so` of SHA-256 `652b67e2…3f989b`, as the CI
+  `routing` job takes them); `kicad-cli` 10.0.6. Every command ran inside the pinned image
+  `kicad/kicad:10.0.6@sha256:18693567392b80da435f9fa952ce3a3e534c66eb5a6033f5b9c80aa3b19dd3ec`, linux/amd64.
+- **Load.** 4 cores shared with another agent's runs: load average 2.3 to 4.9 over the runs. Wall times are
+  upper bounds; the CPU seconds are those of the command and its children.
+- **Each run** routes a fresh copy of the built board with
+  `fenolite route <board> <arguments> --seed 1 --timestamp 2026-10-09T00:00:00Z --confirm`, then
+  `fenolite fill --confirm` and `fenolite check` on KiCad 10.0.6.
+
+| run | arguments | route: wall, CPU | nets selected / routed | copper added | on plane layers | KiCad after `fill` |
+|---|---|---|---|---|---|---|
+| A | `--router freerouting --timeout 900` | 66.9 s, 94.2 s | 72 / 72, one tier; budget spent 64.5 of 900 s | 375 tracks and 56 vias by the router; plane fan-out of `GND` and `VCC`: 78 pads, 78 tracks and 78 vias | none | 0 unconnected items, 0 violations; copper check clean |
+| B | A with `--router-option optimize=on` | 118.3 s, 184.6 s | 72 / 72; two runs (59.6 s, then the optimizer run 55.9 s) | the same counts as A | none | 0 unconnected items, 0 violations |
+| C | `--router freerouting --timeout 900 --include-zone-nets --no-plane-fanout` | 66.9 s, 106.4 s | 72 / 72 | 349 tracks and 39 vias; one track of 0.15 mm on `CH3_2` (`route.width-below-job`) | none | 78 unconnected items (the plane pads, with no fan-out), `track_width` 1 |
+| D | `--router kicadroutingtools --timeout 900` | 22.7 s, 22.4 s | 72 / 72, one group | 355 tracks and 34 vias; the same plane fan-out as A | 23 tracks (18 on `In1.Cu`, 5 on `In2.Cu`; `route.constraint-not-sent` says so) | 0 unconnected items, 0 violations |
+
+What the runs show, for this bench:
+
+- Freerouting's log of run A: fan-out stage 12.6 s (102 of 228 SMD pins escaped), then the autorouter on
+  77 items, 0 unrouted after 4 passes in 58.8 s (47.5 CPU s of its own); the session was written when the
+  autorouter ended, since the optimizer is off (`H-G-DSN-NOOPT`). In run B the optimizer stopped after
+  0.6 s ("the current board score (999.99) is already close to the maximum score"), so the second run cost
+  56 s and changed nothing.
+- The two plane nets stayed declared in the design file (`route.net-declared`, their class clearance is
+  above the default rule: `H-G-DSN-NETLESS-2`) and were not routed (`route.plane-net`): no Freerouting wire
+  lies on `In1.Cu` or `In2.Cu` in runs A to C. `--include-zone-nets` does not route a net whose zone is on
+  a plane layer (run C): its pads stay open without the plane fan-out.
+- KiCadRoutingTools routed every net in one process for the one group of equal sizes, with no finding, but
+  put 23 tracks on the plane layers, which it is not told about.
+- The board edge clearance is not in the design file (`specctra.rule-not-sent`); KiCad found no edge
+  finding.
+- Not repeated: the plugin before c0109 (runs 1 and 5 of the first record), which no longer exists, and the
+  KiCadRoutingTools runs with the tool's default escalation.
 
 ### Probes on 2026-10-08
 
@@ -368,3 +439,18 @@ the steps of `test_krt` ran to their end on the QFN bench (`qfn_fanout.py` escap
 balls, then `route.py` in 225 s; `route.py` alone was stopped at a limit of 300 s); their verdict is
 KiCad's, in the `routing` job.
 
+
+## Slots as keep-outs (c0170)
+
+Run locally on 2026-10-16 with Freerouting 2.4.1 (jar `251101c3eeac`) and OpenJDK 25.0.4.1
+(`tests/routing/test_slots_route.py`, `FENOLITE_ROUTING_EVIDENCE=1`; the `routing` CI job has not run it
+yet). The board is the shared slot fixture `tests/data/slots/design.py` with two 0603 resistors whose pads
+of the net `A` lie 3 mm on either side of the slot `S1`, across its axis.
+
+| outcome | value | hypothesis | what was seen |
+|---|---|---|---|
+| `route-slot` | `absent` | `H-G-DSN-SLOT` | with the cut-out, `S1` and the merged L written as three `keepout` polygons: 7 tracks, none touching `S1`, no open net; the control, the board ring alone: 2 tracks, both across `S1` |
+
+Without the `geo` extra (the `routing` job installs none) the test writes the L as two overlapping
+stadiums, which bound the router the same way; the design file's three keep-outs with the merged L are
+checked where the extra is installed (`-k keepouts`).

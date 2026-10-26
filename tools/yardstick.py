@@ -95,11 +95,14 @@ STAGES: dict[int, tuple[tuple[str, ...], tuple[str, ...]]] = {
     3: (("c0102", "c0103", "c0104", "c0105", "c0111", "c0112", "c0113", "c0114"), ("impedance",)),
     4: (
         ("c0106", "c0107", "c0108", "c0109", "c0110", "c0115"),
-        ("route-pairs", "route", "fill-routed", "check-routed", "net", "analyze"),
+        ("route", "route-pairs", "fill-routed", "check-routed", "net", "analyze"),
     ),
     5: (("c0116", "c0117", "c0118"), ("export-package", "testpoints")),
 }  # fmt: skip
-"""Per stage: the changes it needs archived, and the steps it adds to the stage before."""
+"""Per stage: the changes it needs archived, and the steps it adds to the stage before. ``route`` comes
+before ``route-pairs`` (c0157, the maintainer's decision of 2026-10-09): in run 37836196244, where the pair
+was routed first as two separate nets, its meandered copper blocked Freerouting (2 of 171 nets closed). The
+order is measured again once the pair is routed as a coupled pair."""
 
 _BUILD = ("build", "{script}", "--out", ".", "--kicad-version", TARGET)
 _COMMANDS: dict[str, tuple[str, ...]] = {
@@ -129,16 +132,17 @@ _COMMANDS: dict[str, tuple[str, ...]] = {
     "heavy-rt1": ("roundtrip", "{heavy}", "--level", "rt1"),
     # stage 3: the impedance table of the pair's target (c0105)
     "impedance": ("impedance", "."),
-    # stage 4: the pair and the controller's escape by KiCadRoutingTools (c0110), the rest by Freerouting
-    # with a budget and tiers (c0109), plane fan-out first (c0107); refill, judge, open nets (c0108) and
-    # the analyses of the gap (c0047, c0115)
-    "route-pairs": (
-        "route", ".", "--router", "kicadroutingtools", "--nets", PAIR_NETS, "--escape", ESCAPE,
-        "--timeout", str(PAIR_TIMEOUT), *WRITING,
-    ),
+    # stage 4: the board by Freerouting with a budget and tiers (c0109), plane fan-out first (c0107), which
+    # leaves the pair open (route.pair-skipped); then the pair and the controller's escape by
+    # KiCadRoutingTools (c0110; this order is c0157's); refill, judge, open nets (c0108) and the analyses
+    # of the gap (c0047, c0115)
     "route": (
         "route", ".", "--router", "freerouting", "--timeout", str(ROUTE_TIMEOUT),
         *(arg for glob in ROUTE_ORDER for arg in ("--order", glob)), *WRITING,
+    ),
+    "route-pairs": (
+        "route", ".", "--router", "kicadroutingtools", "--nets", PAIR_NETS, "--escape", ESCAPE,
+        "--timeout", str(PAIR_TIMEOUT), *WRITING,
     ),
     "fill-routed": ("fill", "{board}", *WRITING),
     "check-routed": ("check", ".", "--format", "concise"),
@@ -854,7 +858,7 @@ class Run:
         """Stage 4 on: what each route step reports (c0108, c0109), the open connections that ``net``
         counts, and KiCad's findings on the routed board."""
         found: dict[str, Any] = {}
-        for step in ("route-pairs", "route"):
+        for step in ("route", "route-pairs"):
             result = _result(self.replies.get(step, {}))
             if result:
                 found[step] = {
@@ -984,7 +988,7 @@ def run(
         raise Usage(f"stage {stage} has steps without a command line on this base: {', '.join(pending)}")
     if stage >= 4 and {"open_connections", "drc_errors"} - set(budgets.ratchets):
         raise Usage(f"the budgets file has no [stage{stage}.ratchets] with open_connections and drc_errors")
-    routers = {"route-pairs": (KRT_CHECKOUT, "KiCadRoutingTools"), "route": (FREEROUTING_JAR, "Freerouting")}
+    routers = {"route": (FREEROUTING_JAR, "Freerouting"), "route-pairs": (KRT_CHECKOUT, "KiCadRoutingTools")}
     for step in steps:
         if step.name in routers:
             variable, router = routers[step.name]

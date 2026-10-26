@@ -26,7 +26,7 @@ from typing import Literal, TypeVar, get_args
 
 from fenolite import __version__
 from fenolite.backends.base import WriteResult
-from fenolite.backends.kicad import _pcbwrite, netnames
+from fenolite.backends.kicad import _pcbwrite, netnames, resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad import stackup as stacklib
 from fenolite.backends.kicad import via_protection as vialib
@@ -68,8 +68,9 @@ from fenolite.backends.kicad._libread import (
     leading_atoms,
     load_source,
 )
-from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind
-from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps
+from fenolite.backends.kicad._lowering import lower_outline
+from fenolite.backends.kicad.layers import expand_layers, has_wildcard, layer_kind, undeclared_layers
+from fenolite.backends.kicad.sexpr import Atom, AtomKind, Node, dumps, walk
 from fenolite.backends.kicad.versions import (
     DEFAULT_TARGET,
     FORMAT_VERSIONS,
@@ -81,6 +82,8 @@ from fenolite.backends.kicad.versions import (
     LossyWriteError,
     check_target,
     classify,
+    is_downgrade,
+    load_inventory,
     major_for,
     require_editable,
 )
@@ -1978,11 +1981,18 @@ WRITE_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         _pcbwrite.NET_REF_CODE: "error",
         "kicad.board.projection-read-only": "error",
         "kicad.board.outline-conflict": "error",
+        "kicad.board.outline-overlap": "error",
+        "kicad.board.free-hole": "error",
         "kicad.board.flip-unsupported": "error",
+        "kicad.board.layer-undeclared": "error",
         **stacklib.WRITE_ISSUE_CODES,
         **vialib.WRITE_ISSUE_CODES,
     }
 )
+FREE_HOLE_HINT = (
+    "declare a hole with design.hole(), or place a board-only footprint with an unnumbered np_thru_hole pad"
+)
+"""The hint of ``kicad.board.free-hole`` (change c0167)."""
 CREATED_ROOT_HEADS: tuple[str, ...] = (
     "version", "generator", "generator_version", "general", "paper", "layers", "setup", "net",
 )  # fmt: skip
@@ -2450,8 +2460,8 @@ class _Writer:
         self.source_major = form_major(int(pairs["version"])) if "version" in pairs else target
         """The major whose forms the read board uses; the target for a created board."""
 
-    def error(self, code: str, message: str, where: str) -> None:
-        self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where))
+    def error(self, code: str, message: str, where: str, hint: str = "") -> None:
+        self.errors.append(Issue(code, WRITE_ISSUE_CODES[code], message, where=where, hint=hint))
 
     def stack_writable(self) -> bool:
         """True when ``Board.stackup`` can be written as a complete node; one
@@ -2499,8 +2509,10 @@ class _Writer:
         return child
 
     def source_table(self) -> dict[int, str]:
+        """Each number of the source net table and the stored name of its net (c0163): the spelling the
+        target-9 table numbers and every reference writes, ``{slash}`` included."""
         return {
-            int(_ext_pairs(n)["number"]): n.name
+            int(_ext_pairs(n)["number"]): stored_net_name(n)
             for n in self.design.circuit.nets
             if "number" in _ext_pairs(n)
         }
@@ -2761,10 +2773,12 @@ class _Writer:
         return self.node(board, "kicad_pcb", items, slots)
 
     def outline(self) -> tuple[list[Node | Atom], list[Node | Atom]]:
-        """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring, on
-        ``Edge.Cuts``. An arc is written with a positive ``orient2d(start, mid, end)``, the form KiCad's
+        """The ``gr_line`` and the ``gr_arc`` nodes of ``Board.outline``, one per edge of each ring of its
+        lowering (``_lowering``: the cut-outs, the slots' stadiums, overlapping ones merged; change c0167),
+        on ``Edge.Cuts``. An arc is written with a positive ``orient2d(start, mid, end)``, the form KiCad's
         re-save keeps (``H-G-ARC-DIR``), and every uuid is signed with the outline's digest
-        (``_edgesign``; ``board.md``, "Outline")."""
+        (``_edgesign``; ``board.md``, "Outline"). Overlapping cut-outs or slots that cannot be merged (no
+        ``geo`` extra) give ``kicad.board.outline-overlap``: KiCad calls them ``invalid_outline``."""
         board = self.board
         outline = board.outline
         if outline is None or not outline.points:
@@ -2777,6 +2791,17 @@ class _Writer:
                 f"the board has an outline and {len(edges)} graphic(s) on an edge layer; remove one of them",
                 _locator(edges[0]),
             )
+            return [], []
+        unmerged = lower_outline(outline).unmerged
+        if unmerged:
+            for names in unmerged:
+                self.error(
+                    "kicad.board.outline-overlap",
+                    f"{', '.join(names)} overlap, and their union needs the geo extra; KiCad would call "
+                    "the outline invalid",
+                    names[0],
+                    "pip install 'fenolite[geo]'",
+                )
             return [], []
         found = outline_edges(outline)
         texts = [edge_text(e.start, e.end, e.mid) for e in found]
@@ -3186,26 +3211,169 @@ def _fragment_head(slot: Slot) -> str | None:
     return child.name if isinstance(child, Node) else None
 
 
-def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bool = False) -> WriteResult:
+def _protection_edits(board: Board, target: int) -> list[resolver.Edit]:
+    """The resolver's edits of the protection of the read vias in a downgrade (change c0162): the writer
+    emits a via's children in the target's form (``vialib.emit_via``), so the resolver never sees them.
+    Tenting is written in 9's form (``rewrite``); covering, plugging, capping and filling, which 9.0 cannot
+    hold, are decided by their rows on the via's values (``none`` for a value the board gives)."""
+    table = resolver.load()
+    found: list[resolver.Edit] = []
+    for via in board.vias:
+        where = _locator(via)
+        for feature in vialib.FEATURES:
+            values = vialib.values_of(via.protection, feature)
+            if all(v is None for v in values):
+                continue
+            if feature == "tenting":
+                found += [resolver.Edit(row, "rewrite", where) for row in ("tenting-front", "tenting-back")]
+                continue
+            words = ["none" if v is None else "yes" if v else "no" for v in values]
+            found.append(resolver.Edit(feature, table.row(feature).decide(words), where))
+    return found
+
+
+def _island_edits(board: Board) -> list[resolver.Edit]:
+    """The resolver's edits of the island flags of the read zone fills in a downgrade (change c0162): the
+    writer emits a fill in the target's form (``_emit_fill``: the bare ``(island)`` for 9), so the
+    resolver never sees ``(island yes)`` or ``(island no)``. A fill whose source held no flag has none."""
+    found: list[resolver.Edit] = []
+    for zone in board.zones:
+        bag = zone.ext.get("kicad")
+        for k, fill in enumerate(zone.fills):
+            slots = slotlib.from_ext(bag, f"fill[{k}]") if bag is not None else ()
+            if any(isinstance(slot, Modeled) and slot.field == "island" for slot in slots):
+                where = f"{_locator(zone)}/filled_polygon[{k}]"
+                row, action = ("island-yes", "rewrite") if fill.island else ("island-no", "same")
+                found.append(resolver.Edit(row, action, where))
+    return found
+
+
+def _npth_edits(board: Board) -> list[resolver.Edit]:
+    """The ``design`` edits of row ``npth-front-back`` in a downgrade (change c0162): an ``np_thru_hole``
+    pad with copper on some copper layers of the board but not all, which 9.0 reads with every copper
+    layer (``resolver.NPTH_ROW``). The pad is written as it is."""
+    copper = {layer.name for layer in board.layers if layer.kind == "copper"}
+    found: list[resolver.Edit] = []
+    for fp in board.footprints:
+        for pad in fp.pads:
+            held = set(pad.layers) & copper
+            if pad.kind == "np_thru_hole" and held and held != copper:
+                found.append(resolver.Edit(resolver.NPTH_ROW, "design", _locator(pad)))
+    return found
+
+
+def _thin_fills(root: Node) -> Node:
+    """Every zone of the tree (of the board and of its footprints) with ``(filled_areas_thickness no)``
+    after its ``min_thickness`` when it holds none: a zone of format 10 omits the flag, and 9.0.9 reads a
+    zone of format 9 without it with its fill grown by ``min_thickness / 2`` (``H-K-ZONE-FAT9``; the demo
+    project ``pic_programmer`` converted for 9 reported clearance violations without it, change c0162)."""
+
+    def zone(node: Node) -> Node:
+        if node.find("filled_areas_thickness") is not None:
+            return node
+        children = list(node.children)
+        at = next(
+            (i + 1 for i, c in enumerate(children) if isinstance(c, Node) and c.name == "min_thickness"),
+            next(
+                (i for i, c in enumerate(children) if isinstance(c, Node) and c.name in ("fill", "polygon")),
+                len(children),
+            ),
+        )
+        return node.with_children([*children[:at], FILLED_AREAS_THIN, *children[at:]])
+
+    def holder(node: Node) -> Node:
+        changed = False
+        children: list[Node | Atom] = []
+        for child in node.children:
+            new = child
+            if isinstance(child, Node) and child.name == "zone":
+                new = zone(child)
+            elif isinstance(child, Node) and child.name == "footprint":
+                new = holder(child)
+            changed = changed or new is not child
+            children.append(new)
+        return node.with_children(children) if changed else node
+
+    return holder(root)
+
+
+def _net_form_edits(root: Node, info: FormatInfo) -> list[resolver.Edit]:
+    """One ``rewrite`` of the form row ``net-by-name`` per net reference written by number, for a source
+    whose format references nets by name."""
+    form = load_inventory().form(resolver.NET_FORM_ROW)
+    if form.since_version is None or info.version < form.since_version:
+        return []
+    return [
+        resolver.Edit(resolver.NET_FORM_ROW, "rewrite", loc)
+        for loc, found in walk(root)
+        if found.name == "net" and loc.count("/") > 1
+    ]
+
+
+def write_board(
+    design: Design,
+    *,
+    target: int = DEFAULT_TARGET,
+    allow_lossy: bool = False,
+    downgrade: bool = False,
+    edits: list[resolver.Edit] | None = None,
+) -> WriteResult:
     """The text of a ``.kicad_pcb`` for KiCad ``target``.0 (see ``board.md``, "The writer").
 
     ``WriteResult.issues`` holds warnings and infos; errors raise ``LossyWriteError``,
     ``FutureFormatError``, ``DowngradeRefusedError`` or ``LegacyEditRefusedError``. Nothing is written
-    to disk.
+    to disk. A board read from a file of a newer major than ``target`` is refused unless ``downgrade``:
+    its tree is then resolved by ``resolver.resolve`` at each construct (change c0162), a ``design`` loss
+    needs ``allow_lossy``, and the resolver's edits are appended to ``edits`` when a list is given.
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
     board = design.board
     if board is None:
         raise ValueError("the design has no board")
+    unknown = undeclared_layers(board)
+    if unknown:
+        # Preserve the existing structural stack-up diagnostic before layer-use diagnostics.
+        if board.stackup is not None and (reason := stacklib.invalid(board.stackup, board.layers)):
+            raise LossyWriteError(
+                (Issue(stacklib.INVALID, "error", reason, where=board.stackup.id),), droppable=False
+            )
+        raise LossyWriteError(
+            tuple(
+                Issue(
+                    "kicad.board.layer-undeclared",
+                    "error",
+                    f"layer {name!r} is not declared by the board ({count} item(s))",
+                    where=name,
+                )
+                for name, count in unknown.items()
+            ),
+            droppable=False,
+        )
     info = source_info(design)
+    down = False
     if info is not None:
         require_editable(info)
-        check_target(info, target)
+        check_target(info, target, downgrade=downgrade)
+        down = downgrade and is_downgrade(info, target)
         if major_for(FileKind.BOARD, info.version) == 8:
             raise LegacyEditRefusedError(FileKind.BOARD, info.version)
     if board.holes:
-        raise ValueError("a KiCad board holds holes only inside footprints; Board.holes cannot be written")
+        # the maintainer's decision of 2026-10-07 (c0102): a KiCad board holds a hole only in a footprint
+        raise LossyWriteError(
+            [
+                Issue(
+                    "kicad.board.free-hole",
+                    WRITE_ISSUE_CODES["kicad.board.free-hole"],
+                    f"a KiCad board holds holes only inside footprints; Board.holes {hole.id} cannot be "
+                    "written",
+                    where=hole.id,
+                    hint=FREE_HOLE_HINT,
+                )
+                for hole in board.holes
+            ],
+            droppable=False,
+        )
     writer = _Writer(design, target)
     root = writer.root()
     opaque = _pcbwrite.opaque_locators(root, writer.opaque_ids)
@@ -3218,10 +3386,43 @@ def write_board(design: Design, *, target: int = DEFAULT_TARGET, allow_lossy: bo
     else:
         root, obsolete = _pcbwrite.drop_obsolete(root, target)
         issues += obsolete
+    if down:
+        assert info is not None
+        # the vias' protection values are the resolver's to decide (``_protection_edits``), not refusals
+        writer.errors = [e for e in writer.errors if e.code != vialib.TOO_NEW]
+        found = [*_protection_edits(board, target), *_island_edits(board), *_npth_edits(board)]
+        refused = [
+            Issue(
+                resolver.DESIGN_CODE,
+                "error",
+                f"{edit.where}: KiCad 9.0 cannot hold the {edit.row} of KiCad 10.0, which changes the "
+                f"design (row {edit.row})",
+                where=edit.where,
+                hint=f"row {edit.row}",
+            )
+            for edit in found
+            if edit.action == "design" and not allow_lossy
+        ]
+        try:
+            resolution = resolver.resolve(root, FileKind.BOARD, target, allow_lossy=allow_lossy)
+        except LossyWriteError as error:
+            if not error.droppable:
+                raise
+            refused += error.issues
+            resolution = None
+        if refused or (writer.errors and resolution is None):
+            raise LossyWriteError([*writer.errors, *refused], droppable=not writer.errors)
+        assert resolution is not None
+        root = _thin_fills(resolution.root) if target < 10 else resolution.root
+        found += [*resolution.edits, *_net_form_edits(root, info)]
+        issues += resolver.edit_issues(found, target)
+        if edits is not None:
+            edits.extend(found)
+        opaque = set[str]()
     droppable, kept, others = _pcbwrite.gate(root, target, opaque)
     errors = [*writer.errors, *kept]
     if errors or droppable:
-        lossy = [issue for found in droppable.values() for issue in found]
+        lossy = [issue for found_issues in droppable.values() for issue in found_issues]
         if errors or not allow_lossy:
             raise LossyWriteError([*errors, *lossy], droppable=not errors)
         root = _pcbwrite.remove(root, droppable)

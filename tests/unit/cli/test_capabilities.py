@@ -40,6 +40,43 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
     assert set(result["extras"]) == {"dev", "geo", "kicad-ipc", "mcp", "oracles"}  # type: ignore[arg-type]
 
 
+def test_levels_and_sides_of_equivalent(capsys: pytest.CaptureFixture[str]) -> None:
+    """Capability cli-contract, "Levels and sides of equivalent in capabilities", scenario "Levels and sides
+    listed" (change c0158)."""
+    commands = {c["name"]: c for c in _capabilities(capsys, "--no-tools")["commands"]}  # type: ignore[union-attr]
+    entry = commands["equivalent"]
+    assert entry["levels"] == [1, 2, 3, 4, 5]
+    assert entry["sides"] == [
+        "altium_pcbdoc", "altium_prjpcb", "altium_schdoc", "fenolite_model", "kicad_pcb", "kicad_pro",
+        "kicad_sch",
+    ]  # fmt: skip
+    assert entry["sides"] == sorted(entry["sides"])
+    assert [name for name, c in commands.items() if "levels" in c or "sides" in c] == ["equivalent"]
+
+
+def test_directions_listed(capsys: pytest.CaptureFixture[str]) -> None:
+    """Capability cli-contract, "Conversions in capabilities", scenario "Directions listed" (change c0159);
+    the brief view names the command and no direction."""
+    result = _capabilities(capsys, "--no-tools")
+    conversions = result["conversions"]
+    assert [(c["from"], c["to"]) for c in conversions] == [
+        ("altium", "kicad"),
+        ("kicad", "altium"),
+        ("kicad", "kicad"),
+    ]  # type: ignore[index, union-attr]
+    converted, altium, kicad = conversions  # type: ignore[misc]
+    assert altium["experimental"] is True and altium["targets"] == [] and altium["downgrade"] is False
+    assert kicad["experimental"] is False and kicad["targets"] == [9, 10]
+    assert kicad["downgrade"] is True  # change c0162
+    assert converted["experimental"] is True and converted["targets"] == [9, 10]
+    for entry in (converted, altium, kicad):
+        assert set(entry) == {"from", "to", "targets", "downgrade", "experimental", "evidence"}
+        assert set(entry["evidence"]) == {"level", "oracle", "hypotheses"}
+    brief = _capabilities(capsys, "--brief", "--no-tools")
+    assert "convert" in {c["name"] for c in brief["commands"]}  # type: ignore[union-attr]
+    assert "conversions" not in brief
+
+
 def test_missing_tools_are_null_not_fatal(
     capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -47,7 +84,7 @@ def test_missing_tools_are_null_not_fatal(
     monkeypatch.setattr(kicad_cli, "MACOS_KICAD_CLI", Path("/nonexistent/kicad-cli"))
     monkeypatch.delenv("FENOLITE_KICAD_CLI", raising=False)
     tools = _capabilities(capsys)["tools"]
-    assert tools == {"kicad-cli": None, "java": None, "docker": None}
+    assert tools == {"kicad-cli": None, "java": None, "docker": None, "gmsh": None}
 
 
 def test_features(capsys: pytest.CaptureFixture[str]) -> None:

@@ -2,7 +2,9 @@
 
 ## Purpose
 Use `kicad-cli` 9.0 and 10.0 as external oracles: pinned Docker images, an isolated environment per run, per-kind load checks, and the token fuzz harness whose committed results prove each inventory row on each major. Facts and sources: `docs/formats/kicad/versions.md`.
+
 ## Requirements
+
 ### Requirement: Load check per file kind
 `tools/kicad_token_fuzz.py` SHALL decide whether `kicad-cli` loads a case file with one command per kind, and SHALL record the outcome `load`, `reject`, `timeout` or `inconclusive`:
 
@@ -386,6 +388,7 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 - A missing file for the running version MUST fail the test with a message naming `FENOLITE_PROBES_WRITE`.
 - The file MUST hold only the version, the probe ids and their outcomes, and MUST pass the residue scan.
 - The `kicad-9` and `kicad-10` jobs MUST run the comparison in required mode.
+- A probe whose corpus input is not cached on the machine SHALL raise `NotFetched` (`tests/_resources.py`); `run` MUST then give `inconclusive` and add the id to `_probes.NOT_FETCHED`, and the comparison MUST leave those ids out of both sides. When `FENOLITE_REQUIRE` names `corpus`, or with `FENOLITE_PROBES_WRITE=1`, such a probe MUST fail the test, naming it.
 
 #### Scenario: Drift detected
 - **GIVEN** a committed `docs/evidence/kicad/probes/10.0.6.json` that records `absent` for `pcb-libdrc-missing-table`
@@ -400,6 +403,11 @@ Every oracle test and every command that judges a DRC outcome SHALL read it from
 #### Scenario: Results regenerated
 - **WHEN** `FENOLITE_PROBES_WRITE=1 uv run pytest tests/kicad/test_probe_results.py` runs on the local KiCad 10.0.6
 - **THEN** `docs/evidence/kicad/probes/10.0.6.json` holds one outcome per probe of major 10, and `uv run python tools/residue/scan.py` exits 0
+
+#### Scenario: Corpus input not cached
+- **GIVEN** a results file that records `equal` for a probe whose corpus input is not in the cache
+- **WHEN** `tests/kicad/test_probe_results.py` runs without `FENOLITE_REQUIRE=corpus`
+- **THEN** that probe is left out of the comparison and no drift is reported for it; with `FENOLITE_REQUIRE=corpus` the test fails naming the probe
 
 ### Requirement: Rules proofs carry a canary
 Every oracle test that judges custom rules SHALL run `kicad-cli pcb drc` on a bench that carries the canary, and SHALL pass only when the canary violation is in the DRC JSON report. This covers `tests/kicad/rules/` and every later rules proof that reuses its bench.
@@ -897,7 +905,7 @@ Each run MUST be the source of probes of `tests/kicad/_probes.py`: `pro-min-<run
 ### Requirement: Subcommand matrix from help text
 `fenolite.backends.kicad.helpmatrix` SHALL tell which `kicad-cli` subcommands and options exist by reading `kicad-cli <words> --help` pages, run through c0009's `KicadCli`, because even `--help` writes a configuration folder (observed on 10.0.6).
 - `parse_help(text) -> HelpPage | None` MUST read the `Usage:` line: its `{a,b,…}` group gives a group's subcommands, and its `[--name …]` groups give a leaf's long options. It MUST return `None` when no `Usage:` line is found. The grammar MUST be recorded in `docs/formats/kicad/cli.md` from observed runs (`H-K-CLI-HELP`); no KiCad or argument-parser source is read, and unit tests use authored synthetic pages.
-- `MATRIX` MUST be a closed tuple of `MatrixEntry(command, options)`: `pcb drc` (`--format`, `--severity-all`, `--schematic-parity`, `--refill-zones`, `--save-board`), `pcb upgrade`, `pcb import`, `pcb render`, `pcb export ipcd356`, `pos`, `svg`, `gerbers`, `drill`, `stats`, `ipc2581` and `odb`, `fp upgrade`, `sym upgrade`, `sch erc`, `sch export netlist` and `jobset run`.
+- `MATRIX` MUST be a closed tuple of `MatrixEntry(command, options)`: `pcb drc` (`--format`, `--severity-all`, `--schematic-parity`, `--refill-zones`, `--save-board`), `pcb upgrade`, `pcb import`, `pcb render`, `pcb export ipcd356`, `pos`, `svg`, `gerbers`, `drill`, `stats`, `ipc2581`, `odb`, `step`, `pdf` and `dxf`, `fp upgrade`, `sym upgrade`, `sch erc`, `sch export netlist`, `sch export pdf` and `jobset run`.
 - `command_matrix(cli) -> CommandMatrix(version, rows, unparsed)` MUST give one boolean row per command and per option of `MATRIX`. A command exists when its last word is a subcommand of its parent's page; an option exists when it is an option of the command's page. A page that does not parse MUST be listed in `unparsed`, and its rows MUST be left out of `rows`.
 - Each row MUST be recorded as the probe `check-help-<words>[-<option>]`, such as `check-help-pcb-drc-refill-zones`, with outcome `present` or `absent`.
 
@@ -918,7 +926,7 @@ Each run MUST be the source of probes of `tests/kicad/_probes.py`: `pro-min-<run
 #### Scenario: Matrix matches the documented command sets
 - **GIVEN** kicad-cli 9.0.9 in the pinned image and 10.0.6 locally
 - **WHEN** `uv run pytest tests/kicad/check/test_help_matrix.py::test_matrix_matches_facts` runs on each
-- **THEN** every `MATRIX` page parses; `pcb import`, `pcb upgrade` and `pcb drc --refill-zones` and `--save-board` are present exactly on 10.0.6 (agreeing with `H-K-00` and `H-K-01`); `pcb drc --format`, `--severity-all`, `pcb export ipcd356`, `pos` and `svg` are present on both; and every row is recorded as a `check-help-*` probe
+- **THEN** every `MATRIX` page parses; `pcb import`, `pcb upgrade` and `pcb drc --refill-zones` and `--save-board` are present exactly on 10.0.6 (agreeing with `H-K-00` and `H-K-01`); `pcb drc --format`, `--severity-all`, `pcb export ipcd356`, `pos`, `svg`, `ipc2581`, `odb`, `step`, `pdf`, `dxf` and `sch export pdf` are present on both; and every row is recorded as a `check-help-*` probe
 
 ### Requirement: Preserved layouts pass the oracle
 `tests/kicad/lens/` (marker `needs_kicad`, major-aware) SHALL prove on the running `kicad-cli` that a rebuild keeps a layout edited outside Fenolite. Every case MUST build `examples/blink_2layer/design.py` into a temporary folder, edit its board with `tests/_layout_edit.py::edit_blink` (`D1` moved 4 mm to the right; one segment on `F.Cu` from `R1` pad 2 to a via, and one segment on `B.Cu` from that via to `D1` pad 2, all on `LED_A`, with fixed uuids), run `kicad-cli` through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, and judge DRC only from the JSON report read with c0017's `read_drc_report`, never from the exit code.
@@ -2107,3 +2115,734 @@ The outcomes MUST be recorded in `docs/evidence/routing.md` and `docs/evidence/r
 - **WHEN** `uv run pytest tests/kicad/schematic/test_hierarchy_oracle.py -k generated -rA` runs on each major
 - **THEN** all 25 designs build, with at least ten child sheets and five satellites among them, and every check holds
 
+### Requirement: Net length parity canaries
+`tests/kicad/length/test_length_parity.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-NETLEN-TOTAL`, `H-K-NETLEN-STACKUP`, `H-K-NETLEN-RULES`, and `H-K-NETLEN-VIA10` on 10.0.x or `H-K-NETLEN-VIA9` on 9.0.x, on the benches of `tests/_lengthbench.py` written for the running major: two layers without a stack-up, with a stack-up and with `use_height_for_length_calcs` set to `false`; four layers without a stack-up and with the explicit stack-up of the design's Context; six and eight layers without a stack-up; pads at vias; and the rules benches. DRC MUST be judged only from the JSON report, and every rules file MUST hold the scoped canary of c0071.
+- **Totals.** For each net of a case, the test MUST run `pcb drc` once with the rule `length (max T − 1 µm)` and once with `length (max T + 1 µm)`, `T` being the net's total in `length_facts` for the running major. Probe `length-total-<case>`, or `length-via-<case>` for a via case, MUST record `equal` when the first run reports the net and the second does not, and `different` otherwise. The `actual` that the first run prints MUST be written to `docs/evidence/length.md`.
+- **Rules.** On the rules benches the stage `length.rules` MUST name the same nets, with `length.out-of-range` and `length.skew-out-of-range`, as KiCad's `length_out_of_range` and `skew_out_of_range` violations; probe `length-rules-<case>` records `equal` or `different`. Until the stage exists (it needs the rule kinds of change c0104), the test MUST compare KiCad's violations with the nets that `H-K-NETLEN-RULES` predicts, and no `length-rules-*` probe is registered.
+- **A node that is not read.** For the four-layer bench whose stack-up node lost its silkscreen and paste rows, probe `length-via-four-unprojected` MUST record `equal` when KiCad counts the thicknesses of that node (the bracket built from the totals of the explicit stack-up) and `different` otherwise; `length_facts` MUST say `none` for that board.
+- A run whose canary does not fire MUST fail. The outcomes MUST be recorded in both probe files, and the facts MUST be written to `docs/formats/kicad/length.md` with S-0020, S-0029 and their labels. A `different` outcome MUST stop the part it settles and be written into the register row.
+
+#### Scenario: Both majors
+- **WHEN** `uv run pytest tests/kicad/length/test_length_parity.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `length-total-*`, `length-via-*` and `length-rules-*` probe records `equal`, and the canary fires in every run
+
+#### Scenario: The two majors count a via apart
+- **GIVEN** the four-layer bench with the explicit stack-up and its net of a through via between `F.Cu` and `In1.Cu`
+- **WHEN** the test runs on each major
+- **THEN** the total that passes the bracket is 20 153 750 nm on 10.0.6 and 20 000 000 nm on 9.0.9
+
+### Requirement: Meanders pass the oracle
+`tests/kicad/length/test_meander_oracle.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-NETLEN-MEANDER` on three designs built with `build_design` for the running major: a segment along an axis meandered to a target, a pair on four layers with a via step matched with `match`, and a segment at 30° meandered to a target. Each board MUST be written with the scoped canary and, for each meandered net, the two length rules of "Net length parity canaries" around its target.
+- Probe `length-meander-<case>` MUST record `equal` when KiCad reports the net with the rule 1 µm below the target, does not report it with the rule 1 µm above, and reports no violation that the same design built without the meander lacks, apart from the length rules; `different` otherwise.
+- For the pair, a skew rule judged within the pair with `max 0.001mm` MUST give no violation.
+
+#### Scenario: Meanders on both majors
+- **WHEN** `uv run pytest tests/kicad/length/test_meander_oracle.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the three `length-meander-*` probes record `equal`, and the canary fires in every run
+
+### Requirement: Anchored copper passes the oracle
+`tests/kicad/frame/test_anchor_oracle.py` (markers `needs_kicad`, major-aware) SHALL prove on the running `kicad-cli`, with the probe rules of "Script copper passes the oracle", where anchored points land, that a thermal array in a pad passes KiCad's DRC, and that anchored copper follows a part moved by `fenolite place`. Its bench, `tests/kicad/frame/_anchorbench.py`, MUST be design scripts built by `fenolite build` for the running major from the authored footprint `Frame:Frame_Anchor` and a project-authored symbol of four pins, and the DRC MUST be judged only from the JSON report read with `read_drc_report`.
+- **Frame** (`H-G-FRAME-ANCHOR`). `Frame_Anchor` placed at 0° and at 90° on the top and at 30° on the bottom, each with vias of a marker net: anchored by `part.at` at the library positions of pads `1` and `3`, by `pad.at` at an offset inside pad `4`, and by `pad.at` on a 3 × 3 grid of 1 mm in pad `4`. The bench is built with `--copper-check warn`, because each marker shorts its pad on purpose.
+  - `copper-anchor-frame` (majors 9 and 10): `equal` when the report names every marker via with the net of the pad its anchor names, since KiCad gives a via the net of the pad it touches (`H-K-VIA-RENET`), and no `shorting_items` names a marker; `different` otherwise.
+  - `copper-anchor-frame-control` (majors 9 and 10): the offsets of the bottom part given as board points computed without the mirror; `different` when the vias of pads `1` and `3` are named with each other's nets.
+- **Thermal array** (`H-K-VIA-IN-PAD`). `Frame_Anchor` with pad `4` on its own net and a stitch whose `region` is that pad, pitch 1 mm, vias of 0.6 mm and 0.3 mm, margin 0.1 mm.
+  - `copper-anchor-thermal` (majors 9 and 10): with a track of the net through the via centres on the other outer layer, its points anchored with `pad.at`; `absent` when no violation and no unconnected item names a via or the track.
+  - `copper-anchor-thermal-alone` (majors 9 and 10): without the track; `present` when each via gives exactly one `via_dangling` warning and nothing else names it.
+  - The copper guard of both builds MUST report nothing.
+- **Moved part** (`H-G-FRAME-ANCHOR`). The joined thermal bench with the part unlocked, built, then moved and turned with `fenolite place <board> --move U1=<x>,<y>,90 --confirm`, then built again.
+  - `copper-anchor-moved` (majors 9 and 10): `absent` when the array lies in pad `4` at its new place: no `via_dangling` and no unconnected item; the rebuild MUST report `kicad.copper.regenerated` for each via and track of the array.
+  - `copper-anchor-moved-control` (majors 9 and 10): the same array and track given to `design.via` and `Design.track` as board points; `present` when, after the same move and rebuild, its vias give `via_dangling`.
+- An outcome other than the expected one MUST stop that part of the change, and the register row MUST record what KiCad showed. The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and built files MUST NOT be committed.
+
+#### Scenario: Anchors land in their pads
+- **WHEN** `uv run pytest tests/kicad/frame/test_anchor_oracle.py -k frame` runs on the local KiCad 10.0.6 and in the `kicad-9` job
+- **THEN** `copper-anchor-frame` is `equal` and `copper-anchor-frame-control` is `different` on both majors
+
+#### Scenario: A thermal array passes DRC
+- **WHEN** `uv run pytest tests/kicad/frame/test_anchor_oracle.py -k thermal` runs on both majors
+- **THEN** `copper-anchor-thermal` is `absent` and `copper-anchor-thermal-alone` is `present` on both
+
+#### Scenario: Anchored copper follows a moved part
+- **WHEN** `uv run pytest tests/kicad/frame/test_anchor_oracle.py -k moved` runs on both majors
+- **THEN** `copper-anchor-moved` is `absent` and `copper-anchor-moved-control` is `present` on both
+
+### Requirement: Private state per kicad-cli run
+Every `KicadCli.run` SHALL run `kicad-cli` with the variables of `private_state(<run folder>/.fenolite-state)` (`cli.STATE_VARIABLES`: owner-only temporary, runtime, cache and state folders; S-0703, S-0704, S-0705), applied before `KICAD_CONFIG_HOME`, `LANG`, `LC_ALL` and `env`, so that parallel runs share no instance lock (`H-K-CLI-STATE`).
+
+#### Scenario: A run sees its own folders
+- **GIVEN** a fake `kicad-cli` that records six variables and the mode of each folder, and a caller environment where all six name `/shared`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_cli_runner.py -k private_state` runs a command
+- **THEN** each variable names its folder under `<tmp>/.fenolite-state/` with mode 0700, and a file the fake writes there is not in `outputs`
+
+#### Scenario: Parallel runs
+- **GIVEN** the same fake `kicad-cli`
+- **WHEN** eight runs start at once
+- **THEN** their `TMPDIR` values are eight different folders, none of which exists afterwards
+
+### Requirement: Reserved state folder
+`.fenolite-state` SHALL be a reserved name like `config` (`cli.RESERVED_DIRS`): `KicadCli.run` MUST refuse it as a run file name and never report a file under it as an output, and the copy set of a check MUST skip it as `reserved-name`. The runner MUST NOT change `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME` or `XDG_DATA_DIRS` of a `kicad-cli` it starts on the host; the container of `DockerCli` gets its own `HOME` in this folder ("Docker runs keep the caller's state").
+
+#### Scenario: A library row in the state folder
+- **GIVEN** a project whose `fp-lib-table` names `${KIPRJMOD}/.fenolite-state/Z.pretty`
+- **WHEN** `project_set` plans the copy set
+- **THEN** the row is skipped as `reserved-name` and the folder is not copied
+
+### Requirement: Docker runs keep the caller's state
+`DockerCli` SHALL pass no private state to the `docker` client: each container (`--rm`) has its own `/tmp`, and the `docker` client MUST keep the caller's environment, `XDG_RUNTIME_DIR` included. The container MUST run as the user that owns the run folder, so that `kicad-cli` can write a folder of mode 0700 whoever the caller is (c0156): `--user <uid>:<gid>` of the caller under a daemon run by root, `--user 0:0` under a rootless daemon (whose container root is the caller, S-0727), and no `--user` on a host without POSIX ids. Its `-e` entries MUST be `HOME=/w/.fenolite-state/home` (a folder the runner creates in the run folder before the container starts), `KICAD_CONFIG_HOME=/w/config`, `LANG=C` and `LC_ALL=C`, then the run's `env`.
+
+#### Scenario: Docker keeps the caller's runtime folder
+- **GIVEN** a fake `docker` and a caller with `XDG_RUNTIME_DIR=/run/user/1000`
+- **WHEN** `DockerCli(image).version()` runs
+- **THEN** the `docker` client sees `XDG_RUNTIME_DIR=/run/user/1000`, and the command's `-e` entries are `HOME=/w/.fenolite-state/home`, `KICAD_CONFIG_HOME=/w/config`, `LANG=C` and `LC_ALL=C` only
+
+#### Scenario: The container runs as the owner of the run folder
+- **GIVEN** a fake `docker` whose `info` lists the security options of a daemon run by root, then of a rootless daemon
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_docker_cli.py -k "owner or rootless or home_folder or docker_user"` runs
+- **THEN** the command holds `--user <uid>:<gid>` of the test process before the image, then `--user 0:0` for the rootless daemon, none where `os.getuid` is missing, and `<run folder>/.fenolite-state/home` exists before the container starts
+
+#### Scenario: A root host runs the pinned image
+- **GIVEN** a host user root, a daemon run by root and the pinned image `kicad/kicad:10.0.6`
+- **WHEN** `DockerCli(image).drc(board)` runs on `tests/data/kicad/board/two_layer.kicad_pcb`
+- **THEN** the run exits 0, its stderr holds no "Permission denied", and its `drc.json` report is read
+
+### Requirement: Oracle tests run kicad-cli with private state
+The tests' own `kicad-cli` launchers (`tests/_kicad.py`, `tests/_libs.py`, and every oracle that builds its environment with `_kicad.oracle_env`) SHALL give each call private folders made by `private_state`, removed afterwards, and `tests/kicad/check/test_parallel_runs_oracle.py` SHALL run `kicad-cli` in parallel in the `kicad-9` and `kicad-10` jobs.
+
+#### Scenario: Parallel runs of the real tool
+- **GIVEN** `kicad-cli` 9.0.9 or 10.0.6
+- **WHEN** `uv run pytest tests/kicad/check/test_parallel_runs_oracle.py` runs eight `version` runs, eight `sch erc` runs of an unloadable schematic, and eight raw helper runs at once
+- **THEN** every run gives its usual result (each ERC run "Failed to load schematic", exit 3, no report) and none prints a lock message, and a run given `TMPDIR` creates `org.kicad.kicad/instances` in that folder
+
+### Requirement: Created layer tables are probed on both majors
+`tests/kicad/board/test_layer_tables.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PCB-LAYERS` on the running `kicad-cli` with the created test board `tests/_boards.py::created_board`, whose layer table is replaced by the table of n copper layers and whose stack-up, when the created test board carries one (`board-stackup`), is removed, so that the probes judge the table alone and KiCad derives its default stack-up: for n = 2, 4, 6 and 8 the table of `layers.created_layers(n)`, and for n = 3 the table that the row rule of `kicad-file-backend`, "Created board header", gives for three layers, written by `tests/kicad/board/_layertables.py` because Fenolite refuses to create it. Each table MUST be written for targets 9 and 10 and run through c0009's package runner on a copy in `tmp_path`, with a `{}` project file and an empty `KICAD_CONFIG_HOME`.
+- **Load.** On 9.0.9 the target-9 text, and on 10.0.6 both texts, of n = 2, 4, 6 and 8 MUST load: `pcb drc --format json --severity-all` writes a report that `read_drc_report` parses (probe `pcb-layers-<n>-t<M>` = `load`). The table of 3 MUST be refused on the same majors (probe `pcb-layers-odd-t<M>` = `reject`).
+- **Gerbers.** `pcb export gerbers` MUST write exactly one Gerber per copper layer of the table, named after that layer (probe `pcb-layers-gerbers-<n>-t<M>` = `equal`).
+- **Re-save.** On 10.0.6, after `pcb upgrade --force` on the copy, the copper rows of the table (number, name, type and user name, in order) MUST equal the written rows, for both texts (probe `pcb-layers-resave-<n>-t<M>` = `equal`). `kicad-cli` 9.0.9 has no `pcb upgrade` (S-0037), so this probe MUST NOT run there.
+- **Same table.** A hermetic test MUST assert that `_layertables.py` gives the rows of `created_layers(n)` for every count of `CREATED_COPPER_COUNTS`, so the probes judge the table that the writer creates.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and the facts written to `docs/formats/kicad/board.md` with S-0020, S-0022, S-0029, S-0037 and S-0058 and their evidence labels.
+
+#### Scenario: Tables on KiCad 10
+- **GIVEN** `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/board/test_layer_tables.py -rA` runs
+- **THEN** both texts of n = 2, 4, 6 and 8 record `load` and `equal` for their Gerber and re-save probes, the eight-layer texts give the Gerbers `F.Cu`, `In1.Cu` to `In6.Cu` and `B.Cu`, and both texts of the table of 3 record `reject`
+
+#### Scenario: Tables on KiCad 9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image
+- **WHEN** `uv run pytest tests/kicad/board/test_layer_tables.py -rA` runs
+- **THEN** the target-9 texts of n = 2, 4, 6 and 8 record `load` and `equal` for their Gerber probes, the target-9 table of 3 records `reject`, and no re-save probe runs
+
+#### Scenario: Probe tables follow the writer
+- **WHEN** the hermetic `uv run pytest tests/kicad/board/test_layer_tables.py -k same_table` runs without `kicad-cli`
+- **THEN** for n = 2, 4, 6 and 8 the rows of `_layertables.py` equal those of `created_layers(n)`
+
+### Requirement: Builds of four, six and eight copper layers pass the oracle
+`tests/kicad/build/test_layer_builds.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-BUILD-LAYERS` with the blink variant of `tests/kicad/build/_layercases.py` for n = 4, 6 and 8 copper layers: a zone on every inner layer, on `GND` for `In1.Cu`, `In3.Cu` and `In5.Cu` and on `VIN` for the others; the `LED_A` track stepping through a via to the deepest inner layer and back to `B.Cu`; and one via drop each for `GND` and `VIN`. Every run MUST use a temporary folder, an empty `KICAD_CONFIG_HOME` and `--seed`, `--timestamp` and `--no-backup`, and judge DRC only from the JSON report.
+- **10.0.6.** For targets 9 and 10: `fenolite build --confirm`, `fill --confirm`, `check`, `export --all --confirm`, then `build --confirm` again. `fill` MUST fill every zone. `check` MUST report the stage `drc.kicad` with no violation, no unconnected item and the canary fired, `zone.fill` with every zone current, and `copper.clearance` with no short and no clearance finding. `export` MUST write one Gerber per copper layer, whose X2 file function is `Copper,L<i>,Top`, `Copper,L<i>,Inr` or `Copper,L<i>,Bot` for its place i in the table, and a job file whose `LayerNumber` is n. The second build MUST leave every project file outside `.fenolite/` with the bytes it had before that build; the views under `.fenolite/` describe the board with its fills and are not compared. Probes: `build-layers-<n>-t<M>` = `absent` (no violation, no unconnected item, the canary fired) and `build-layers-gerbers-<n>-t<M>` = `equal`.
+- **Fixtures.** With `FENOLITE_PROBES_WRITE=1`, the 10.0.6 run MUST write the filled target-9 boards of n = 6 and 8 to `tests/data/kicad/layers/l6_t9_filled.kicad_pcb` and `l8_t9_filled.kicad_pcb`, each declared as authored in `tests/data/MANIFEST.toml`. The hermetic `tests/unit/test_layer_fixtures.py` MUST assert that each fixture, read with `read_board`, equals the target-9 build of its count except for the fills and the `filled` flag of its zones. No other built file MUST be committed.
+- **9.0.9.** For n = 6 and 8, the fixture MUST replace the board of a target-9 build of the same variant written in the test, and the copy MUST give a DRC report with no violation and no unconnected item and one Gerber per copper layer (probes `build-layers-<n>-t9` and `build-layers-gerbers-<n>-t9` on 9.0.9). 9.0.9 cannot refill zones (S-0037), so it judges the boards that 10.0.6 filled.
+- The outcomes MUST be recorded in both probe files.
+
+#### Scenario: Builds on KiCad 10
+- **GIVEN** `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/kicad/build/test_layer_builds.py -rA` runs
+- **THEN** for n = 4, 6 and 8 and both targets every zone is filled, `drc.kicad` has 0 violations and 0 unconnected items with the canary fired, the eight-layer export holds the Gerbers `Copper,L1,Top` to `Copper,L8,Bot`, and each rebuild writes the same bytes
+
+#### Scenario: Filled fixtures on KiCad 9
+- **GIVEN** `kicad-cli` 9.0.9 in the pinned image
+- **WHEN** `uv run pytest tests/kicad/build/test_layer_builds.py -rA` runs
+- **THEN** the six- and eight-layer fixtures give 0 violations and 0 unconnected items and six and eight copper Gerbers, and the 10.0-only steps are skipped by `kicad_min_major(10)`
+
+#### Scenario: Fixtures follow the build
+- **WHEN** `uv run pytest tests/unit/test_layer_fixtures.py` runs without `kicad-cli`
+- **THEN** each fixture equals the target-9 build of its count except for zone fills and `filled`, and the test fails, naming the fixture, after a change of the build that the fixture does not have
+
+### Requirement: Outline shapes and holes pass the oracle
+`tests/kicad/board/test_outline_shapes.py`, `tests/kicad/board/test_holes.py` and `tests/kicad/zones/test_zone_box.py` (markers `needs_kicad`, major-aware) SHALL prove on the running `kicad-cli` what this change writes for outlines and holes. Each probe is registered in `tests/kicad/_probes.py` with its majors, and its outcome is recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`; built files MUST NOT be committed. Drill files are written with the options of `exports.plan`.
+- **Arcs** (`H-K-OUTLINE-ARCS`), on a board of the running major's target with corners of radius 3 mm, a round cut-out, a horizontal slot and a slot turned 30°, first written through the model API with its edges as `Edge.Cuts` graphics, then built from a script with `board(outline=…)` and `cutout()`; the outcomes MUST be the same:
+  - `outline-arcs-drc` (majors 9 and 10): `absent` when `pcb drc` reports no `invalid_outline`;
+  - `outline-arcs-drill` (majors 9 and 10): `absent` when the drill files hold no hole that is not a pad's or a via's;
+  - `outline-arcs-keep` (major 10): after `pcb upgrade --force`, `merge_outline` finds the edges signed and equal to the script's outline: `equal`.
+- **Malformed outlines** (`H-K-OUTLINE-INVALID`), on six boards written by `write_board` with edge graphics: a round cut-out across the edge (`cross`), one touching it (`touch`), two overlapping (`overlap`), a self-crossing board ring (`selfx`), a cut-out inside a cut-out (`nested`) and a control (`inside`). `outline-invalid-<case>` records `present` when `invalid_outline` is reported: `cross` and `touch` `present` on 10 and `absent` on 9; `overlap` `present` on both; `selfx` `present` on 10 and `absent` on 9; `nested` and `inside` `absent` on both.
+- **Copper outside** (`H-K-OUTLINE-OUTSIDE`), on a 50 mm × 30 mm board: `outline-outside-free` (majors 9 and 10) `absent` when a track and a via wholly outside get no `copper_edge_clearance`; `outline-outside-across` (majors 9 and 10) `present` when a track and a via across the edge each get one.
+- **Zone box** (`H-K-ZONE-BOX`), on the board of the arcs with a zone whose outline is the box of the board ring, which a zone declared without an outline takes once the board is built from a script: `zone-box-fill` (major 10) `absent` when, after `pcb drc --refill-zones --save-board`, no fill vertex lies outside the board ring or inside a cut-out of `board_outline` and none lies closer to a ring than the board-setup edge clearance less 5 µm.
+- **Holes** (`H-K-HOLE-FOOTPRINT`, `H-K-HOLE-COURTYARD`, `H-K-HOLE-SYMBOL`), on a board with a round hole and a slot that are not plated, a slot turned 30°, a plated hole on `GND`, a top part and a bottom part overlapping a hole's courtyard, and a part clear of it, first written through the model API and with authored footprints, then built from a script with `design.hole()`; the outcomes MUST be the same:
+  - `hole-root-pad` (majors 9 and 10): a board with a root `(pad "" np_thru_hole …)` written by token edit, `reject` when `kicad-cli` cannot load it;
+  - `hole-drill` (majors 9 and 10): `equal` when the NPTH file holds the round hole at its position with its diameter and each slot as one `G85` slot between its centres, and the PTH file holds the plated hole;
+  - `hole-pos` (majors 9 and 10): `absent` when `pcb export pos` lists no hole;
+  - `hole-courtyard-top` and `hole-courtyard-bottom` (majors 9 and 10): `present` when `courtyards_overlap` names the hole and the top part, and the hole and the bottom part; `hole-courtyard-clear`: `absent` for the part clear of it;
+  - `hole-symbol-load` (majors 9 and 10): `equal` when `kicad-cli sym export svg` exports both symbols of a library written by `sym.write_symbol_library` that holds a symbol without pins and one with one passive pin, both with `in_bom` false, as `holes.hole_symbol` makes them; on a build, the library is `lib/Fenolite_Holes.kicad_sym`.
+- An outcome other than the one stated MUST stop the part of this change that rests on it, and the register row MUST record what KiCad showed.
+
+#### Scenario: Arcs load and are not drilled
+- **WHEN** `uv run pytest tests/kicad/board/test_outline_shapes.py -k arcs -rA` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `outline-arcs-drc` and `outline-arcs-drill` are `absent` on both majors, and `outline-arcs-keep` is `equal` on 10.0.6
+
+#### Scenario: KiCad's verdict on malformed outlines
+- **WHEN** `uv run pytest tests/kicad/board/test_outline_shapes.py -k invalid -rA` runs on both majors
+- **THEN** each `outline-invalid-<case>` records the outcome stated above, and `check_outline` gives `kicad.outline.invalid` for every case but `inside`
+
+#### Scenario: Holes are drilled as declared
+- **WHEN** `uv run pytest tests/kicad/board/test_holes.py -rA` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `hole-root-pad` is `reject`, `hole-drill` and `hole-symbol-load` are `equal`, `hole-pos` and `hole-courtyard-clear` are `absent`, and `hole-courtyard-top` and `hole-courtyard-bottom` are `present`, on both majors
+
+#### Scenario: The zone box fills the board only
+- **WHEN** `uv run pytest tests/kicad/zones/test_zone_box.py -rA` runs on 10.0.6
+- **THEN** `zone-box-fill` is `absent`
+
+### Requirement: Outline and layer changes pass the oracle
+`tests/kicad/lens/test_outline_rebuild.py` and `tests/kicad/lens/test_layer_change.py` (markers `needs_kicad`, major-aware) SHALL prove that a board adapted by "Outline changes across rebuilds" and "Copper layer changes across rebuilds" (`layout-lens`) is one that KiCad accepts, with the probe rules of "Outline shapes and holes pass the oracle".
+- **Layer facts** (`H-K-LAYER-CHANGE`), on a four-layer build of the running major's target, edited by token: `layers-added` (majors 9 and 10) `absent` when the rows `In3.Cu` (8) and `In4.Cu` (10) give no DRC finding that the unedited board lacks and the Gerber job file lists six copper layers; `layers-left-items` (majors 9 and 10) `present` when items left on removed rows give `item_on_disabled_layer`; `layers-stale-stackup` (majors 9 and 10) `present` when a four-copper stack-up under six or two rows leaves the job file without thicknesses.
+- **Rebuilds** (major 10, where `fenolite build` and `fill` run end to end):
+  - `rebuild-outline` `absent` when a routed blink rebuilt on a smaller outline, its copper that no longer fits dropped, gives no `invalid_outline` and no `copper_edge_clearance`, and its unconnected items are those of the dropped tracks;
+  - `rebuild-layers` `absent` when a routed four-layer build rebuilt with six copper layers and then with two gives no `item_on_disabled_layer` and a job file with thicknesses each time.
+
+#### Scenario: Layer facts on both majors
+- **WHEN** `uv run pytest tests/kicad/lens/test_layer_change.py -k facts -rA` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `layers-added` is `absent`, and `layers-left-items` and `layers-stale-stackup` are `present`, on both majors
+
+#### Scenario: Adapted boards pass DRC
+- **WHEN** `uv run pytest tests/kicad/lens/test_outline_rebuild.py tests/kicad/lens/test_layer_change.py -k rebuild -rA` runs on 10.0.6
+- **THEN** `rebuild-outline` and `rebuild-layers` are `absent`
+
+### Requirement: DRC report limits are probed
+`tests/kicad/check/test_drc_limits.py` SHALL settle `H-K-DRC-LIMITS` on `kicad-cli` 9.0.9 and 10.0.6 with an authored bench, and `backends.kicad.drc.REPORT_LIMITS` SHALL hold only values that its probes record.
+- The bench `tests/kicad/check/_limitsbench.py` MUST be authored for Fenolite and written by code: a board of 400 mm × 400 mm with a `{}` project and a rules file, holding N copies of one small construct that gives exactly one violation of one type, laid out on a grid so that no copy touches another. It MUST cover these thirteen types: `clearance`, `unconnected_items`, `track_dangling`, `via_dangling`, `copper_edge_clearance`, `track_width`, `hole_to_hole`, `hole_clearance`, `annular_width`, `silk_overlap`, `courtyards_overlap`, `lib_footprint_issues` and `shorting_items`. It is a second bench beside `_limitbench.py` (c0051), which keeps proving the canary's verdict at the `clearance` limit and is not changed.
+- The probes, registered in `tests/kicad/_probes.py` and recorded in `docs/evidence/kicad/probes/<version>.json`, MUST be: `drc-limit-<type>` for each of the thirteen types at 700 copies, whose outcome is the number of entries `kicad-cli pcb drc --format json --severity-all` writes for the type; `drc-limit-below`, the same for `track_dangling`, `silk_overlap` and `unconnected_items` at 150 copies; `drc-limit-all-track-errors`, the count of `track_dangling` at 700 copies with `--all-track-errors`; and `drc-limit-keys`, the sorted top-level keys of the report.
+- The test MUST compare each recorded count with `REPORT_LIMITS[major]`: equal for every type of `MEASURED_TYPES[major]`, except that `clearance` on 9.0.9 MUST be at least 499 and below 700 (`H-K-DRC-LIMIT`: that major passes the limit by a few). The counts at 150 copies MUST be 150.
+- What holds on which major (corrected on 2026-10-08 from the run on 9.0.9; design, "Found on 2026-10-08"): 10.0.6 writes entries of all thirteen types. 9.0.9 writes none of `hole_clearance` for the bench's construct (a pad beside an unplated hole), so on 9.0.9 `drc-limit-hole_clearance` MUST be recorded `different`, the test MUST expect that outcome and a count of 0, and `backends.kicad.drc.MEASURED_TYPES[9]` MUST lack the type; its limit there is the assumed `others`. `MEASURED_TYPES[major]` MUST hold exactly the types whose probe `drc-limit-<type>` is `equal` in the probe file of that major, which a test without `kicad-cli` checks. `drc-limit-keys` MUST compare the report's keys with the list of the running major: ten on 10.0.6, and nine on 9.0.9, the same without `ignored_checks`.
+- A probe that records another count than the hypothesis states MUST stop the change: the table and the hypothesis row are corrected first, and a type whose count differs between two runs MUST be taken out of `per_type` and named in the register.
+- `docs/formats/kicad/drc.md` MUST hold one fact row per measured type and major, with the sources S-0020 and S-0029, the hypothesis and its label.
+
+#### Scenario: Limits on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_drc_limits.py -rA` runs on the local `kicad-cli` 10.0.6 and in the pinned 9.0.9 image
+- **THEN** on 10.0.6 the thirteen `drc-limit-<type>` probes equal `REPORT_LIMITS[10]`; on 9.0.9 twelve equal `REPORT_LIMITS[9]` (`clearance` between 499 and 699) and `drc-limit-hole_clearance` is `different` with no entry; on both, `drc-limit-below` records 150 for its three types, and `drc-limit-all-track-errors` records the same count as `drc-limit-track_dangling`
+
+#### Scenario: The report has no key for a cut
+- **WHEN** the same test reads `drc-limit-keys` in both probe files
+- **THEN** it is `equal` in both: the keys of 10.0.6 are `$schema`, `coordinate_units`, `date`, `ignored_checks`, `included_severities`, `kicad_version`, `schematic_parity`, `source`, `unconnected_items` and `violations`, those of 9.0.9 are the same without `ignored_checks`, and none of them marks a type as cut
+
+#### Scenario: Check marks the bench
+- **GIVEN** the bench with 700 copies of the `track_dangling` construct
+- **WHEN** `uv run pytest tests/kicad/check/test_drc_limits.py -k check` runs `fenolite check <bench> --stages drc.kicad --json` on both majors
+- **THEN** `summary.limits` holds `{"type": "track_dangling", "reported": 199, "limit": 199}`, and the issues hold one `check.report-limit` warning whose `where` is `kicad.drc.track-dangling`
+
+### Requirement: Document exports are probed on both majors
+`tests/kicad/export/test_document_probes.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-EXPORT-DOCS`, `H-K-EXPORT-DOCS-REPEAT`, `H-K-EXPORT-MODELS`, `H-K-EXPORT-SHEETS` and `H-K-EXPORT-PDF-PAGE` on the running `kicad-cli` through c0009's `KicadCli`, on copies with an empty `KICAD_CONFIG_HOME`, before `exports.plan` relies on them. The subjects are the authored project of the running major, a four-copper board written by the test, the authored hierarchy `tests/data/kicad/schematic/hier/` (`hier_v9/` for target 9), and the authored model `tests/data/models/Fenolite.3dshapes/Box_2x1.step`; no test downloads anything.
+- **Files** (`test_files`): `export-files-<kind>` for the six document kinds MUST record `equal` when the files under the kind's folder are exactly the expected set of `H-K-EXPORT-DOCS`, the per-layer names of `pdf` and `dxf` included.
+- **Repeat** (`test_repeat`): three runs per kind; `export-repeat-<kind>` MUST record `equal` when every file has one `content_sha256` over the runs and `different` otherwise. The byte equality of each kind MUST be recorded in `docs/evidence/kicad-export.md`, and `Kind.repeat` MUST be the weakest class over the two probe files.
+- **Models** (`test_models`): `export-models-var` MUST record `equal` when a STEP with the model named through `KICAD<N>_3DMODEL_DIR=3dmodels` holds one `NEXT_ASSEMBLY_USAGE_OCCURRENCE` per footprint that names it; `export-models-missing` `equal` when, with the variable naming an empty folder, the run exits 0 and prints `Could not add 3D model for <ref>.` and `File not found: <path>` for each such footprint; `export-models-subst` `equal` when a `.wrl` path whose file is present gives the bodies of its `.step` sibling with `--subst-models`; `export-models-install` (10.0.6 only, recorded, skipped without an install) when, with no variable, the bodies of an official model come from the install.
+- **Sheets** (`test_sheets`): `export-sheets-missing` MUST record `present` when the hierarchy without its child sheet still gives one page per sheet instance, exit 0 and no line other than `Plotted to '…'` and `Done.`.
+- **Page** (`test_page`): `export-pdf-page` MUST record `equal` when the `/MediaBox` of `pcb export pdf --mode-separate --layers Edge.Cuts` on a board whose outline leaves its A4 paper is the A4 page.
+- **Loop** (`test_document_loop`): `fenolite export --ipc2581 --odb --step --pdf --dxf --sch-pdf --manifest --confirm` on the authored project given the hierarchy and the model MUST exit 0, write the files of the probes, leave the project folder unchanged, and give a manifest whose entries match the files. When c0061 is archived, the same MUST hold for the built blink with its schematic.
+- The outcomes MUST be recorded in both probe files and the facts written to `docs/formats/kicad/cli.md` with their sources and labels.
+
+#### Scenario: Probes on both majors
+- **WHEN** `uv run pytest tests/kicad/export/test_document_probes.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the six `export-files-*` probes record `equal`; `export-repeat-dxf`, `-pdf` and `-sch-pdf` record `equal` and `export-repeat-step` and `-odb` `different`; `export-models-var`, `-missing` and `-subst` record `equal`; `export-sheets-missing` records `present`; and `export-pdf-page` records `equal` on 10.0.6
+
+#### Scenario: The loop leaves the project as it was
+- **WHEN** `uv run pytest tests/kicad/export/test_document_probes.py::test_document_loop` runs on both majors
+- **THEN** the manifest lists every written file with its hash and kind, `result.models` names the authored model with source `env` or `project`, and the SHA-256 of every file of the project folder is unchanged
+
+### Requirement: Drawing facts are probed
+`tests/kicad/drawings/` SHALL settle `H-K-DRAW-ITEMS`, `H-K-DRAW-TEXT`, `H-K-DRAW-PAGE`, `H-K-DRAW-SHEET`, `H-K-DRAW-DRILL`, `H-K-DRAW-ASSEMBLY`, `H-K-DRAW-REPEAT` and `H-K-DRAW-LAYER` with probes registered in `tests/kicad/_probes.py` and recorded in `docs/evidence/kicad/probes/<version>.json` for 9.0.9 and 10.0.6.
+- The bench `tests/kicad/drawings/_drawbench.py` MUST be authored for Fenolite: a four-layer board, written by `write_board` for each target, with through, blind and micro vias, plated, unplated and slotted holes, parts on both sides, one do-not-populate part, one catalog footprint and one footprint that shows `${REFERENCE}`, and a stack-up.
+- The probes MUST be: `draw-table`, `draw-textbox`, `draw-dimension`, `draw-vars`, `draw-defvar-board`, `draw-defvar-sheet` (items); `draw-wrap-overflow`, `draw-pitch`, `draw-glyph-bound` (text); `draw-page-position`, `draw-mirror`, `draw-no-holes` and the help rows of `--scale` (page); `draw-default-sheet-<paper>` for A4, A3, A2, A1 and A0 (sheet); `draw-drill-files`, `draw-drill-counts` (drill); `draw-dnp-crossout`, `draw-dnp-hide`, `draw-values`, `draw-pads`, `draw-bottom-designator` (assembly); `draw-repeat-pdf`, `draw-repeat-report` (repeat); `draw-layer-added` (layer).
+- Each probe MUST read the searchable SVG texts or the PDF of its run through the runner, and MUST have a control that gives the other outcome: the same plot without the item, the option or the variable.
+- `tests/kicad/drawings/test_drawing_oracle.py` MUST export both drawing kinds of the bench on each major and check that the drill check passes, that an SVG plot of each page's copy shows every block's texts inside its block and no block text inside the board box or an obstacle, and that two exports give equal `content_sha256` for every drawing artefact.
+- A probe that records another outcome than its hypothesis states MUST stop the part it settles, and the register row MUST record what KiCad showed.
+
+#### Scenario: Items are drawn on both majors
+- **WHEN** `uv run pytest tests/kicad/drawings/test_drawing_probes.py -k items -rA` runs on the local `kicad-cli` 10.0.6 and in the pinned 9.0.9 image
+- **THEN** `draw-table`, `draw-textbox`, `draw-dimension`, `draw-vars`, `draw-defvar-board` and `draw-defvar-sheet` are `present` in both probe files, and each control is `absent`
+
+#### Scenario: Drill counts agree
+- **WHEN** `uv run pytest tests/kicad/drawings/test_drawing_probes.py -k drill -rA` runs on both majors
+- **THEN** `draw-drill-counts` is `equal`: per drill file and diameter, the report's count equals that of `drill_rows` for the bench's plated, unplated, slotted and blind holes
+
+#### Scenario: Default sheet boxes
+- **WHEN** `uv run pytest tests/kicad/drawings/test_drawing_probes.py -k default_sheet -rA` plots an empty copy of the bench on A4 to A0 with no project sheet
+- **THEN** each `draw-default-sheet-<paper>` is `equal`: the plotted borders and title block lie where `default_sheet_obstacles` puts them, within 0.01 mm
+
+#### Scenario: Drawings are repeatable
+- **WHEN** `uv run pytest tests/kicad/drawings/test_drawing_oracle.py -k repeat` exports the bench's drawings twice on one major
+- **THEN** every drawing artefact has equal `content_sha256` in both exports
+
+### Requirement: Assembly and test pad properties are probed
+`tests/kicad/assembly/test_pad_properties.py` SHALL build a bench of marked pads, on authored footprints and on copies of library footprints, for each target the running major loads, and SHALL record the probes of `H-K-PAD-FABPROP` and `H-K-PAD-FABPROP-LIB` in `tests/kicad/_probes.py`:
+- `pad-fabprop-<value>`, one per value of `PadFabProperty`: the board loads, and its copper Gerber flashes the pad with the aperture function that `docs/formats/kicad/board.md` gives for the value. For `press_fit` the 9.0.9 outcome records that the mark is dropped on load.
+- `pad-fabprop-outputs`: `pcb export pos --format csv` and `pcb export ipcd356` of the bench are equal with and without the marks.
+- `pad-fabprop-padstack`: DRC reports `padstack` for `castellated` and for `mechanical` on an SMD pad, and not on a through-hole pad.
+- `pad-fabprop-lib-mismatch`: DRC reports `lib_footprint_mismatch` for a library copy marked where its library pad is not; `pad-fabprop-lib-same`: no such violation for an authored footprint whose written `.kicad_mod` holds the same mark.
+- On 10.0.6, the bench re-saved by `pcb upgrade --force` MUST keep every mark.
+
+#### Scenario: Marks on both majors
+- **WHEN** `uv run pytest tests/kicad/assembly/test_pad_properties.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every probe matches the outcome recorded in the probe file of that version
+
+### Requirement: Assembly and test features pass the oracle
+`tests/kicad/assembly/test_features_oracle.py` SHALL build the variant of "Features in a build" (`design-dsl`, "Assembly and test features in a build") for each target the running major loads, and SHALL record:
+- `asm-fiducial-drc`: no DRC violation names a fiducial, a test point or a tooling hole;
+- `asm-fiducial-mask`: the mask Gerber of each fiducial's side flashes a circle of its mask diameter at its centre;
+- `asm-fiducial-d356`: each fiducial's copper pad is one `327` record on no net, with `covered` `bottom` on the top side and `top` on the bottom side;
+- `asm-tooling-drill`: the non-plated drill file holds the tooling hole's diameter at its centre;
+- `asm-features-pos`: `pcb export pos --format csv` lists the fiducials at their positions and no test point or tooling hole;
+- `asm-keepout-track`: with a track drawn by token edit through `clear_FID1`, DRC reports `items_not_allowed` naming it, and nothing naming the fiducial's pads;
+- `asm-keepout-fill` (10.0.6): with a zone over the board refilled by `fenolite fill`, no fill lies closer to a fiducial's centre than the apothem of its keep-out, less 1 µm.
+
+#### Scenario: Built features on both majors
+- **WHEN** `uv run pytest tests/kicad/assembly/test_features_oracle.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every probe of the running major matches its recorded outcome: `asm-fiducial-drc` `absent`, `asm-keepout-track` `present`, the other five `equal`
+
+### Requirement: Test-point report agrees with IPC-D-356
+`tests/kicad/assembly/test_testpoints_d356.py` SHALL compare the test-point rows of `exports.testpoints.report` with the records of `pcb export ipcd356`, read with `read_ipcd356`, on a bench that holds a top SMD, a bottom SMD and a through-hole test point of `design.test_point()` and an authored SMD pad marked `test_point` on `F.Cu` only, for each target the running major loads:
+- each row MUST have exactly one `317` or `327` record within ±2 export units of its position (Y up), on its net;
+- the record's `side` MUST be `top`, `bottom` or `both` as the pad's copper is on `F.Cu`, on `B.Cu` or on both, and that side less the sides of its `covered` MUST equal the row's `access`, `none` when nothing is left;
+- the probe `asm-testpoint-d356` records the outcome, and `H-K-TESTPOINT-D356` cites it.
+
+#### Scenario: Four kinds of test pad
+- **WHEN** `uv run pytest tests/kicad/assembly/test_testpoints_d356.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the four rows have the access `top`, `bottom`, `both` and `none`, their records hold `S2`, `S1`, `S0` and `S3`, and `asm-testpoint-d356` is `equal`
+
+### Requirement: Stack-up job file parity
+`tests/kicad/board/test_stackup_oracle.py` SHALL prove, through the Gerber job file that `kicad-cli pcb export gerbers` writes beside the Gerbers, that KiCad reads the stack-up node Fenolite writes and ignores the nodes that `project_stackup` calls incomplete, on 9.0.9 and 10.0.6, and SHALL record each probe in both probe files (`H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE`).
+- **Benches.** `tests/_stackbench.py` (beside the other benches that have a hermetic half) MUST build created boards with `write_board` for the running major: 50 × 30 mm, one track per copper layer, 2, 4, 6 or 8 copper layers (inner rows numbered `2k + 2`), with the stack-up of each case written by "Stack-up written to boards" or, for a node Fenolite does not write, inserted into `setup` by token edit. Each run exports only `F.Cu` and reads the job file `<stem>-job.gbrjob`.
+- `pcb-stackup-job-<n>`, for n = 2, 4, 6 and 8: `equal` when `MaterialStackup` holds, in order, one entry per row and sheet of the completed stack-up with its thickness, material and colour, its dielectric constant and loss tangent exactly when `impedance_controlled` is set, and `GeneralSpecs` holds `BoardThickness` equal to `Stackup.thickness()`, `Finish` equal to the finish (`None` when empty) and `ImpedanceControlled` when set; `different` otherwise. Together the cases MUST hold a dielectric of two sheets, a colour, a mask of thickness 0, an empty finish and a named one.
+- `pcb-stackup-incomplete-<case>`, for `physical` (copper and dielectric rows only), `nosilk` (masks without silkscreen and paste rows), `fewer` and `more` (copper rows for 2 and 6 layers on a 4-layer table), `names` (copper rows not named after layers), `twodiel` (two dielectric rows in one gap) and `nopaste` (paste rows on a table without paste layers): `absent` when no `MaterialStackup` entry holds a thickness. `pcb-stackup-order` (silkscreen after mask on the top side) and `pcb-stackup-nopaste-table` (a table and a node without paste): `present` when every copper and dielectric entry holds one. Each case MUST also assert the verdict of `project_stackup`, so the reader's rule and KiCad are compared on the same files.
+- `pcb-stackup-default-<n>`, for n = 2, 4, 6 and 8, a board without a node: `equal` when the job file states copper 0.035 mm, masks 0.01 mm and n − 1 FR4 dielectrics of (T − 0.02 − 0.035 n)/(n − 1) mm within 0.0001 mm for `general` thickness T, and `Finish` `None`.
+- On 10.0.6 only, because 9.0.9 has no `pcb upgrade`: `pcb-stackup-resave`, `equal` when `pcb upgrade --force` keeps every node the benches write, and `general`, tree-equal, a dielectric sheet without a material, a dielectric constant or a loss tangent taking KiCad's `FR4`, 4.5 and 0.02 (measured on 2026-10-07); `pcb-stackup-resave-defaults`, `equal` when a copper row and a mask row without a thickness and a dielectric row that holds a thickness alone come back with 0.035 mm, 0.01 mm, and `FR4`, 4.5, 0.02 and type `core`, and the node gets its tail; `pcb-stackup-ipc-thickness`, `equal` when `pcb export ipc2581` states an `overallThickness` equal to the sum of the rows of a board whose `general` thickness differs from it.
+- `build-stackup-job`: the stack-up variant of the blink ("Stack-up in a build") built for the running major and exported with `fenolite export --gerbers`; `equal` when its job file states the declared stack-up as `pcb-stackup-job-<n>` does.
+- A probe that records another outcome MUST stop the part of the change that relies on it, and the register row MUST record what KiCad showed.
+
+#### Scenario: Written stack-ups parity on both majors
+- **WHEN** `uv run pytest tests/kicad/board/test_stackup_oracle.py -k job -rA` runs on the local 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the four `pcb-stackup-job-<n>` probes and `build-stackup-job` are `equal` in both probe files
+
+#### Scenario: Incomplete nodes are ignored
+- **WHEN** the same file runs with `-k complete`
+- **THEN** the seven `pcb-stackup-incomplete-<case>` probes are `absent`, `pcb-stackup-order` and `pcb-stackup-nopaste-table` are `present`, and `project_stackup` gives `None` with `kicad.board.stackup-unused` for exactly the seven
+
+#### Scenario: Default stack-up of a board without a node
+- **WHEN** the same file runs with `-k default`
+- **THEN** the four `pcb-stackup-default-<n>` probes are `equal`, the dielectrics being 1.51, 0.48, 0.274 and 0.1857 mm thick for a `general` thickness of 1.6 mm
+
+#### Scenario: Re-save and IPC-2581 on 10.0.6
+- **WHEN** the same file runs with `-k resave` on the local 10.0.6
+- **THEN** `pcb-stackup-resave`, `pcb-stackup-resave-defaults` and `pcb-stackup-ipc-thickness` are `equal` in the 10.0.6 probe file
+
+### Requirement: Rule areas and area conditions are probed
+`tests/kicad/board/test_keepout_settings.py` and `tests/kicad/rules/test_area_rules.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-AREA-KEEPOUT`, `H-K-AREA-NAME` and `H-K-AREA-COND` on the running `kicad-cli`, with benches of `tests/kicad/rules/_areacases.py` built on `tests/kicad/rules/_rulebench.py` and written with `write_board` for the running major, through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, judging DRC only from the JSON report by violation type and item uuid, never by description.
+- **Canary.** Every bench MUST carry the canary scoped to its own net (c0071), and a run whose canary does not fire MUST fail.
+- **Keep-out settings.** One bench per setting, with an item inside a rule area on `F.Cu` that forbids it and a control item outside: `area-keepout-tracks`, `-vias`, `-pads` and `-footprints` record `present` when `items_not_allowed` names the item inside (each pad, for pads; the footprint, for footprints) and nothing names the control item; `area-keepout-cross` records `present` for a track that crosses the area's edge; `area-keepout-layer` records `absent` for a track on `B.Cu` under the area; `area-keepout-pour` records `absent` when no `items_not_allowed` names a zone whose stored fill covers a `copperpour` keep-out. On 10.0.6, `area-keepout-refill` records `equal` when `pcb drc --refill-zones --save-board` leaves no fill polygon of that zone overlapping the area.
+- **Names.** `area-name-keep` (major 10) records `equal` when `pcb upgrade --force` keeps a created area's `(name …)`; on 9.0.9 the named benches MUST load and fire the canary.
+- **Conditions.** A rule of 2 mm scoped to an area named `HV` and two pairs 1 mm apart, inside and outside: `dru-cond-area` records `present` for `A.intersectsArea('HV')` when the pair inside is reported and the pair outside is not; `area-cond-two-sided` (`A.intersectsArea('P') && B.intersectsArea('Q')`), `area-cond-width` (a 0.1 mm `track_width` rule inside a 0.3 mm board-wide one), `area-cond-hole` (`hole_to_hole`), `area-cond-glob` (`'H*'`), `area-cond-touch` (an area 50 µm into the copper) and `area-cond-twin` (two areas named `HV`, the pair in the second) record `present`; `area-cond-unknown` (no area of that name, the canary still firing), `area-cond-case` (`'hv'`), `area-cond-layer` (an area on `F.Cu`, a pair on `B.Cu`) and `area-cond-edge` (copper 50 µm outside) record `absent`.
+- `rulemap.SELECTOR_SUPPORT["area"]` MUST equal the majors on which `dru-cond-area` recorded `present`.
+- **Stop rules.** `dru-cond-area` other than `present` on a major leaves `area` out of `SELECTOR_SUPPORT` for that major. An `area-keepout-*` outcome other than the stated one is written into the register row, and `copper.keepout` is not reported for that setting. `build.area-unknown` stays an error whatever `area-cond-unknown` records: KiCad then either ignores the rule or drops the whole file.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and the facts written to `docs/formats/kicad/rules.md`, `drc.md` and `board.md` with sources and labels. Built files MUST NOT be committed.
+
+#### Scenario: Keep-out settings on both majors
+- **WHEN** `uv run pytest tests/kicad/board/test_keepout_settings.py -rA` runs on the local KiCad 10.0.6 and in the `kicad-9` job
+- **THEN** on both majors the four setting probes and `area-keepout-cross` are `present` and `area-keepout-layer` and `area-keepout-pour` are `absent`, and on 10.0.6 `area-keepout-refill` and `area-name-keep` are `equal`
+
+#### Scenario: Area conditions on both majors
+- **WHEN** `uv run pytest tests/kicad/rules/test_area_rules.py -rA` runs on the local KiCad 10.0.6 and in the `kicad-9` job
+- **THEN** each `area-cond-*` probe and `dru-cond-area` records the outcome this requirement states, and the canary fires in every run
+
+### Requirement: Board texts and dimensions are probed
+`tests/kicad/board/test_board_items_oracle.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-BOARD-TEXT` and `H-K-DIM` on the running `kicad-cli`, with created boards written by `write_board`, under the rules of "Rule areas and area conditions are probed".
+- **Texts.** `text-board-load` records `absent` when a board with texts on `F.SilkS`, `B.SilkS`, `F.Fab`, `Cmts.User` and `Dwgs.User`, each justification of `FIELD_JUSTIFY` and none, loads and no violation names a text; `text-height` records `present` when a silkscreen text 0.5 mm high and 0.06 mm thick gives `text_height` and `text_thickness`; `text-copper-short` records `present` when a copper text over a track gives `shorting_items`; `graphic-copper-silent` records `absent` when a copper `gr_line` across a track gives no violation naming the line and no `shorting_items` or `clearance` naming the track. The last two are the measured reasons why drawings are refused on copper; a change in either is recorded and reopens that refusal.
+- **Dimensions.** `dim-load` records `present` when a board with an aligned and an orthogonal dimension of each unit, as "Board items of a script are written" writes them, loads; `dim-recompute` records `equal` when the `pcb export svg` plots of `Dwgs.User` of two boards that differ only in the cache text and its position are equal (title and description elements left out); on 10.0.6, `dim-resave-text` records `equal` when `pcb upgrade --force` writes the texts "20.0000 mm" and "25.50 mm" for the benches of that requirement.
+- The outcomes MUST be recorded in both probe files.
+
+#### Scenario: Texts on both majors
+- **WHEN** `uv run pytest tests/kicad/board/test_board_items_oracle.py -k "text or graphic" -rA` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `text-board-load` and `graphic-copper-silent` are `absent`, and `text-height` and `text-copper-short` are `present`, on both majors
+
+#### Scenario: Dimensions on both majors
+- **WHEN** `uv run pytest tests/kicad/board/test_board_items_oracle.py -k dimension -rA` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `dim-load` is `present` and `dim-recompute` `equal` on both majors, and `dim-resave-text` is `equal` on 10.0.6
+
+### Requirement: Keep-outs and area rules agree with the copper check
+`tests/kicad/copper/test_copper_parity.py` SHALL compare `check_copper` with KiCad's DRC on a bench of `tests/kicad/copper/_copperparity.py` that holds, on two copper layers, tracks, vias and pads inside, across and outside keep-outs of each copper setting, and track pairs inside, across and outside a rule area named `HV` under a clearance rule of 2 mm scoped to it, settling `H-K-COPPER-AREA`.
+- `copper-keepout-parity` MUST record `equal` when the items of the `copper.keepout` findings are exactly the items that `items_not_allowed` names, the footprint of a pads bench left out.
+- `copper-area-parity` MUST record `equal` when the pairs of the `copper.clearance` findings whose source is the area rule are exactly the pairs that KiCad reports under that rule.
+- The hermetic half (the findings of `check_copper` on the bench, without `kicad-cli`) MUST run in `tests/kicad/copper/test_parity_bench.py`.
+
+#### Scenario: Parity on both majors
+- **WHEN** `uv run pytest tests/kicad/copper/test_copper_parity.py -k "keepout or area" -rA` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `copper-keepout-parity` and `copper-area-parity` are `equal` on both majors
+
+#### Scenario: Hermetic half
+- **WHEN** `uv run pytest tests/kicad/copper/test_parity_bench.py -k "keepout or area"` runs without `kicad-cli`
+- **THEN** it passes, with the expected findings of the bench
+
+### Requirement: Placement keep-outs are probed
+`tests/kicad/place/test_place_keepout.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PLACE-KEEPOUT` on the running `kicad-cli`, with the benches of `tests/kicad/place/_keepoutcases.py`: one per case, each built on `tests/kicad/rules/_rulebench.py`, written with `write_board` for the running major, holding the case's probed part, a control part outside every area and one rule area with `no_footprints`. DRC MUST run through c0009's `KicadCli` on copies with an empty `KICAD_CONFIG_HOME`, and MUST be judged only from the JSON report, by violation type and item uuid.
+- **Canary.** Every bench MUST carry the canary scoped to its own net (c0071), and a run whose canary does not fire MUST fail.
+- **Cases.** The 18 cases of the design's measurement 1. `place-keepout-<case>` MUST record `present` when an `items_not_allowed` violation names the probed footprint and `absent` otherwise; no violation may name the control part. The expected outcomes: `present` for `in`, `crt-only`, `over-10um`, `bot-back`, `bot-both` and `tht-front`; `absent` for `touch`, `gap-10um`, `gap-30um`, `text-only`, `rot-crt`, `bot-front`, `top-back`, `inner-only`, `tht-back`, `nocrt-in`, `nocrt-pad` and `nocrt-mid`.
+- **Agreement.** `place-keepout-agree` MUST record `equal` when `placement.legality.check`, given each bench's extents (`KicadBackend().placed_extents` of the read board) and keep-outs, gives `place.keepout` for exactly the cases recorded `present`, and `different` otherwise.
+- **Stop rule.** An outcome other than the expected one on a major is written into the register row, and the predicate of "Placement legality" (capability `placement`) follows the recorded outcomes before this change is archived.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and the facts written to `docs/formats/kicad/board.md` with their sources and labels. Built files MUST NOT be committed.
+
+#### Scenario: Keep-outs on both majors
+- **WHEN** `uv run pytest tests/kicad/place/test_place_keepout.py -rA` runs on the local KiCad 10.0.6 and in the `kicad-9` job
+- **THEN** every `place-keepout-<case>` probe records the expected outcome, `place-keepout-agree` records `equal`, and the canary fires in every run
+
+#### Scenario: Agreement without KiCad
+- **WHEN** `uv run pytest tests/kicad/place/test_place_keepout.py -k hermetic` runs without `kicad-cli`
+- **THEN** `placement.legality.check` gives `place.keepout` for exactly the six cases whose expected outcome is `present`
+
+### Requirement: Plane routing passes the oracle
+The plane layers, the track layer rules, the plane fan-out and the Specctra lists of this change SHALL be proved with Freerouting `PINNED_VERSION` and `kicad-cli` 9.0.9 and 10.0.6, on the authored four-layer bench of `tests/routing/_planebench.py` (two plane layers, an SOIC-8, three 0603 parts and through-hole headers from the offline catalog, classes `PWR`, `SIG` and `HV`, a 1 mm `HV`–`SIG` rule).
+- **Row type** (`H-K-LAYER-POWER`): the routed bench with its inner layers of type `power` loads on both majors, its DRC report holds no violation type that the same board with `signal` rows lacks, its inner Gerbers carry `%TF.FileFunction,Copper,L2,Inr*%` and `L3`, and `pcb upgrade --force` keeps the type on 10.0.6. Probes `pcb-layer-power-t9`, `pcb-layer-power-t10` and `pcb-layer-power-resave`.
+- **Track layer rule** (`H-K-DRU-NOTRACKS`): a `no_tracks` rule written by `lower_rules` on a board with tracks of the class on and off its layer gives one `items_not_allowed` per track on it and none for the others, with the scoped canary firing, on both majors. Probe `dru-kind-no_tracks`.
+- **Fan-out** (`H-K-FANOUT`): `fenolite route --router direct --nets GND --nets VCC --confirm` on the bench built with `planes=` gives fan-out copper (the plane nets alone are selected: the direct router avoids nothing, so its tracks of the other nets would cross); `check` then reports no finding of its copper stage, and after `fenolite fill --confirm` on 10.0.6, `pcb drc` of the board's major reports no unconnected item of a plane net and no violation of severity error that the unrouted board lacks. Probes `route-fanout-t9` and `route-fanout-t10`; the target-9 board is filled by `fenolite fill` with `kicad-cli` 10.0.6, which writes it back for target 9, and judged by 9.0.9; where 9.0.9 runs with no `kicad-cli` 10 beside it (the pinned image), it judges the two filled target-9 boards committed under `tests/data/kicad/routing/`, which the run on 10.0.6 writes and compares with its own fill, and which `tests/unit/test_fanout_fixtures.py` holds to the build and the route.
+- **Freerouting** (`H-G-DSN-LAYERS`, `H-G-DSN-PLANE`, `H-G-DSN-CLEARANCE`, `H-G-DSN-EDGE`), in tests marked `needs_freerouting`: `dsn-power-layers` (no wire on a `power` layer), `dsn-plane-alone` (recorded: plane nets left open without fan-out), `dsn-plane-fanout` (with fan-out, no copper added to the plane nets and no open plane connection), `dsn-use-layer`, `dsn-class-class` (no `HV`–`SIG` clearance finding under KiCad's DRC, on the bench variant whose `HV` nets pass the pads of `SIG`, with the same file without the list as control), `dsn-layer-rule` (recorded: `different` on 2026-10-08, the wire is narrowed at pins), `dsn-keepout`, and `dsn-edge-band` (a bench whose shortest route runs along the edge, with the bands added to the file by the test: recorded `different` on 2026-10-08, the route of a 2 mm passage is lost, so the writer writes no band).
+- The `dsn-*` outcomes MUST be recorded in `docs/evidence/routing.md` and `docs/evidence/routing/freerouting-2.4.1.json`, never in `docs/evidence/kicad/probes/`; the other probes in the probe files of their majors.
+
+#### Scenario: Plane bench on 10.0
+- **GIVEN** the pinned jar, Java 25 and the local `kicad-cli` 10.0.6
+- **WHEN** `uv run pytest tests/routing/test_freerouting_planes.py tests/kicad/routing/test_fanout_oracle.py tests/kicad/board/test_layer_power.py -rA` runs
+- **THEN** every probe above records its outcome, and the register row of an outcome that differs from its criterion records what Freerouting or KiCad showed
+
+#### Scenario: Plane bench on 9.0
+- **WHEN** `tests/kicad/board/test_layer_power.py`, `tests/kicad/rules/test_rule_kinds_new.py -k no_tracks` and `tests/kicad/routing/test_fanout_oracle.py` run inside the pinned 9.0.9 image
+- **THEN** `pcb-layer-power-t9`, `dru-kind-no_tracks` and `route-fanout-t9` record their expected outcomes in `9.0.9.json`
+
+#### Scenario: Skipped without the tools
+- **GIVEN** no `FENOLITE_FREEROUTING_JAR`
+- **WHEN** `uv run pytest tests/routing/test_freerouting_planes.py -rs` runs
+- **THEN** every test is skipped with a reason naming the variable
+
+### Requirement: Differential pair rules are enforced by kicad-cli
+`tests/kicad/rules/test_pair_rules.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-DRU-PAIR` and `H-K-DRU-PAIRSEL` on the running `kicad-cli`, on benches of `tests/kicad/rules/_rulebench.py` with pairs of 0.2 mm tracks on `F.Cu` 0.3 mm apart edge to edge, a `{}` project, rules written by `rulemap`, and the canary scoped to its own net, because the pairs are closer than the canary's 3 mm ("Rules proofs carry a canary"). DRC MUST be judged only from the JSON report.
+- **Kinds.** Probe `dru-kind-<kind>` MUST record `present` when the probed row has its DRC type and the control row none: `diff_pair_gap` with `min 0.35mm` on a pair 0.3 mm apart (control 0.4 mm), and with `max 0.25mm`; `diff_pair_uncoupled` with `max 2mm` on a pair whose positive track is 3 mm longer (control 1 mm); `diff_pair_skew` with `max 0.5mm` on pairs of 20 and 21 mm (control 20 and 20.2 mm); `skew` with `max 0.5mm` on two pairs of 20 and 23 mm, whose shorter nets are reported; `length` with `min 25mm`, with `max 15mm`, and with both limits, on 20 mm tracks (control `min 15mm` with `max 25mm`).
+- **Cases.** Probes `dru-pair-<case>` MUST record: `opt` alone on `diff_pair_gap`, `skew` and `length` (`absent`); `opt` beside `min` and `max` on `diff_pair_gap` and `length`, on a row inside the two limits (`absent`) and on a row below `min` (`present`); a layer clause on `diff_pair_gap` naming the pair's layer (`present`) and another layer (`absent`); a gap rule on two nets that do not pair by name (`absent`); a gap rule on the positive net's name only (`present`); equal tracks 3 mm apart under an uncoupled maximum of 2 mm (`absent`); `diff_pair_skew` on two pairs of 20/20 and 23/23 mm (`absent`); two `diff_pair_gap` rules and two `length` rules that match one row, the later one passing it (`present` when the row is not reported, and reported with the two swapped).
+- **Selector.** `dru-cond-diff_pair`, recorded by the op benches of `tests/kicad/rules/test_rule_conditions.py` (`rules-model`, "Closed selector grammar"), MUST record `present` when a clearance rule on `A.inDiffPair('<base>')` gives the probe pair's violation and not the control pair's. Probes `dru-pair-sel-<case>` MUST record the base with its `_` (`present`), the base without it (`present`), `*` (`present`), the base in lower case (`absent`), and a clearance rule with `inDiffPair` on both sides after a board-wide clearance rule (`present` when the pair is not reported).
+- **Names.** `tests/kicad/rules/test_diffpair_names.py` MUST also record, under `dru-diffpair-<case>`, the cases of `H-K-DIFFPAIR-NAMES-2`: `X_P1`/`X_N1`, `X_P_2`/`X_N_2` and `XP1`/`XN1` (`present`), `X_P1`/`X_N2` and `X_PA`/`X_NA` (`absent`), and the base before the polarity against the name without its last character for `X_P1`/`X_N1` (`present` and `absent`), each case with its own `X`.
+- The outcomes MUST be recorded in both probe files. `rulemap.KIND_SUPPORT` for the five kinds and `SELECTOR_SUPPORT["diff_pair"]` MUST equal the `present` outcomes, and the facts MUST be written to `docs/formats/kicad/rules.md` with sources S-0020 and S-0029 and their labels.
+
+#### Scenario: Pair kinds on both majors
+- **WHEN** `uv run pytest tests/kicad/rules/test_pair_rules.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the five `dru-kind-*` probes of the pair kinds and `dru-cond-diff_pair` record `present`, the cases of `opt` alone record `absent`, the layer clause selects only its layer, and the canary fires in every run
+
+#### Scenario: Names with a tail on both majors
+- **WHEN** `uv run pytest tests/kicad/rules/test_diffpair_names.py -rA` runs on both majors
+- **THEN** the new cases record the outcomes above, and the eight cases of `H-K-DIFFPAIR-NAMES` keep theirs
+
+#### Scenario: Built pair rules load
+- **GIVEN** the rules design of `tests/_rulesdesign.py` with a `USB2` pair and a `d.rules.pair(…)` call that gives every group
+- **WHEN** `uv run pytest tests/kicad/rules/test_rule_design.py -rA` builds it for the running major
+- **THEN** the written `.kicad_dru` holds the five pair rules and loads, as the scoped canary proves
+
+### Requirement: Net class pair values are probed
+`tests/kicad/project/test_pair_classes.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PRO-PAIR` on the running `kicad-cli`, with benches written through the triad path with net classes, exact-name patterns and the canary scoped to `CANARY_A`, as "Net-class rules are enforced by kicad-cli" writes its benches, and pairs of 0.2 mm tracks on `F.Cu`. DRC MUST be judged only from the JSON report, and every custom rule MUST come after the canary rule unless a row says otherwise.
+- **Class rows**, each recorded under `pro-pair-<case>`: a pair 0.15 mm apart in a class of clearance 0.2 mm and `diff_pair_gap` 0.1 mm (`gap-lowers`, `absent` when no `clearance` violation names it); the same with `diff_pair_gap` 0.25 mm (`gap-above`, `present`); two nets that do not pair, in the first class (`not-a-pair`, `present`); a pair 0.15 mm apart in a class of clearance 0.1 mm, `diff_pair_gap` 0.4 mm and `diff_pair_width` 0.3 mm (`no-limits`, `absent` when no violation names it); two 0.6 mm vias of a pair 0.3 mm apart under a `diff_pair_via_gap` of 0.5 mm (`via-gap`, `absent`).
+- **Custom rule rows**: a board-wide clearance rule of 0.2 mm written before the canary (`rule-shadows`, `present` when the first pair is reported); then a clearance rule of 0.1 mm with `inDiffPair` on both sides (`rule-restores`, `absent`); a `diff_pair_gap` rule of 0.1 mm on the second pair without a board rule (`gap-rule-clearance`, `present`: its clearance violation stays); a project `min_clearance` of 0.12 mm with pairs 0.11 and 0.13 mm apart in the first class (`floor`, `present` when only the first is reported, with `clearance` and `diff_pair_gap_out_of_range`); a project `min_clearance` of 0.2 mm, a pair 0.15 mm apart and the pair clearance rule, without and with a `diff_pair_gap` rule of 0.1 mm (`floor-gap`, `present`, and `floor-gap-rule`, `absent`).
+- The outcomes MUST be recorded in both probe files, and the facts written to `docs/formats/kicad/project.md` with sources S-0020 and S-0029 and their labels.
+
+#### Scenario: Class values on both majors
+- **WHEN** `uv run pytest tests/kicad/project/test_pair_classes.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `pro-pair-*` probe records the outcome stated above, and the canary fires in every run
+
+### Requirement: Differential pair clearance parity
+`tests/kicad/copper/test_copper_parity.py` SHALL compare, under `-k pair`, the verdicts of `check_copper` with those of `kicad-cli pcb drc` on pair rows, as "Copper verdict parity canaries" compares its rows, on 9.0.9 and 10.0.6 (`H-K-COPPER-PAIR`).
+- **Rows.** Two nets that pair by name, both in a class of clearance 0.3 mm and `diff_pair_gap` 0.15 mm, as tracks at `g − 10 µm`, `g` and `g + 10 µm` of the value `g` in force, in four cases: the class alone (`g` 0.15 mm, source `pair-gap`); a board-wide clearance rule of 0.3 mm (`g` 0.3 mm, source the rule); that rule followed by a clearance rule of 0.15 mm with the pair on both sides (`g` 0.15 mm); and a board minimum of 0.2 mm without a rule (`g` 0.2 mm, source `floor`). A control row of two nets of the class that do not pair, 0.2 mm apart, MUST be reported by both.
+- **Probes.** Each case MUST be recorded as `copper-resolve-pair-<case>`: `equal` when every row agrees, and `different` otherwise. KiCad's verdict is the `clearance` violation alone; a `diff_pair_gap_out_of_range` violation is not compared.
+
+#### Scenario: Pair parity on both majors
+- **WHEN** `uv run pytest tests/kicad/copper/test_copper_parity.py -k pair -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** the four `copper-resolve-pair-*` probes record `equal`, and every bench's canary violation is present
+
+### Requirement: Open connections agree with unconnected items
+`tests/kicad/copper/test_open_parity.py` (markers `needs_kicad`, major-aware) SHALL compare, on 9.0.9 and 10.0.6, the open connections of `analysis.connectivity` (`board-analyses`, "Open connections of a net") with the `unconnected_items` of `kicad-cli pcb drc` (`H-K-CONN-PARITY`).
+- **Bench.** `tests/kicad/copper/_openbench.py` builds, with `_rulebench.Builder` and a board outline around every row, one net per case: two `Mini_R_0603` copies 10 mm apart, the first turned 180°, whose pads `1` are on the net, and the copper of the case. The cases are the 19 of the design's measurement 3: no copper; pad to pad; a stub; crossing tracks; a track across the far pad; tracks side by side; an end on a centre line, 0.1 mm off it and 0.2 mm off it; a floating track; two vias; one via missing; an arc; a fill over both pads; a fill between them; three pads; a fill island holding a track; a lone via; a fill touching one pad.
+- **Counts.** KiCad's count for a net MUST be the number of unconnected items whose items all belong to that net, found by their uuids. The probe `copper-open-kicad` MUST record, per major, the counts of KiCad per case; `copper-open-parity` MUST record `equal` when every case's count equals that of the query, and `different` otherwise.
+- **Fallback.** A `different` outcome MUST stop the selection part of this change until the rule of "Open connections of a net" is corrected from the rows.
+- **Census.** `tests/corpus/test_open_census.py` (markers `needs_corpus`, `needs_kicad`) MUST run the query and `kicad-cli pcb drc` 10.0.6 on every readable corpus board and write, per board, the two totals and the nets whose counts differ through `tests/_boards.py::census` into `docs/evidence/routing.md`. A board whose KiCad total reaches the report's cap of 499 MUST be compared as "at least". The test MUST NOT fail on a count; it MUST name a board whose difference comes from a copper drawing that holds a net.
+- **Hermetic half.** Without `kicad-cli`, the bench's expected counts per case MUST equal those of the query.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`; built files MUST NOT be committed.
+
+#### Scenario: Parity on both majors
+- **WHEN** `uv run pytest tests/kicad/copper/test_open_parity.py -rA` runs on 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** `copper-open-parity` records `equal` on both majors, KiCad giving 1 for the stub and 0 for the crossing tracks
+
+#### Scenario: The census is recorded
+- **GIVEN** the corpus cached
+- **WHEN** `uv run pytest tests/corpus/test_open_census.py -rA` runs with `FENOLITE_CENSUS_OUT` set
+- **THEN** the census file holds one row per readable board with both totals, and the board with the copper drawings that hold a net is named with its 2 open connections
+
+#### Scenario: Hermetic counts
+- **WHEN** `uv run pytest tests/kicad/copper/test_open_parity.py -k hermetic` runs without `kicad-cli`
+- **THEN** the query gives the expected count of every case for targets 9 and 10
+
+### Requirement: Copper locks pass the oracle
+`tests/kicad/board/test_copper_locks.py` (markers `needs_kicad`, major-aware) SHALL prove `H-K-LOCK-FORM` on a bench with a locked segment, a locked arc, a locked via and an unlocked segment, all on one net between two pads.
+- `pcb-lock-form` (major 10): the bench written by `write_board` for target 10 and re-saved by `pcb upgrade --force` MUST give, for the four items, the children Fenolite wrote and the same uuids: `equal`, else `different`.
+- `pcb-lock-load` (majors 9 and 10): the bench written for the running major MUST load, and its report MUST equal, by `DrcReport.entries`, that of the same bench without locks: `equal`, else `different`.
+- A `different` outcome MUST stop the lock part of this change; the register row records what KiCad wrote.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`.
+
+#### Scenario: KiCad 10 keeps the place of a lock
+- **WHEN** `uv run pytest tests/kicad/board/test_copper_locks.py -k form` runs on 10.0.6
+- **THEN** `pcb-lock-form` records `equal`
+
+#### Scenario: Both majors load locked copper
+- **WHEN** `uv run pytest tests/kicad/board/test_copper_locks.py -k load` runs on 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** `pcb-lock-load` records `equal` on both majors
+
+### Requirement: Routing of open nets passes the oracle
+`tests/routing/test_open_nets.py` (markers `needs_router`, `needs_kicad`) SHALL prove that one `fenolite route` run completes nets that already hold copper, on a bench of the design's measurement 6: a stub; three pads, two of them joined; a fan-out of a track, a via and a `B.Cu` stub; a via beside the pad; a floating via of the net.
+- **Freerouting** (`H-G-DSN-PARTIAL`): `fenolite route <bench> --router freerouting --confirm` MUST give an empty `result.unrouted` and `result.connections.after` 0, and `kicad-cli` 10.0.6 MUST report no unconnected item for the bench's nets. Outcome `dsn-partial`: `equal`, else `different`.
+- **KiCadRoutingTools** (`H-K-KRT-PARTIAL`), when a checkout is given: the same run, outcome `krt-partial` recorded `equal` or `different`; the test passes on either.
+- The outcomes MUST be recorded in `docs/evidence/routing.md`, never in the `kicad-cli` probe files.
+
+#### Scenario: Freerouting completes nets that hold copper
+- **GIVEN** `FENOLITE_FREEROUTING_JAR` naming the 2.4.1 jar and Java 25 or newer
+- **WHEN** `uv run pytest tests/routing/test_open_nets.py -m needs_router -k freerouting -rA` runs on 10.0.6
+- **THEN** `dsn-partial` records `equal`, and every copper item of the bench from before the run is still on the board with its uuid
+
+#### Scenario: KiCadRoutingTools is recorded either way
+- **GIVEN** `FENOLITE_KRT` naming a checkout at the pinned tag
+- **WHEN** `uv run pytest tests/routing/test_open_nets.py -m needs_router -k krt -rA` runs
+- **THEN** `krt-partial` records `equal` or `different`, and the test passes
+
+### Requirement: Grouped and budgeted routes pass the oracle
+The routing scale controls SHALL be proved with the pinned tools and `kicad-cli` 9.0.9 and 10.0.6, in tests marked `needs_router` or `needs_freerouting`, probes first:
+- **Group** (`H-K-KRT-GROUP`): `tests/routing/test_krt_gate.py::test_group` routes an authored blink with two net classes that share sizes, in one KiCadRoutingTools run without `--clearance`; `pcb drc` of the board's major then reports no unconnected item and no violation type of severity error that the unrouted board lacks. Outcomes `krt-group-t9`, `krt-group-t10`.
+- **No optimizer** (`H-G-DSN-NOOPT`): `tests/routing/test_freerouting_gate.py::test_no_optimizer` runs the blink's design file with `--router.optimizer.enabled=false` and with `-mt 0`; outcomes `dsn-noopt` (whether an optimization stage is logged with the switch) and `dsn-mt0` (the same with `-mt 0` alone).
+- **Netless** (`H-G-DSN-NETLESS`): `::test_netless` routes a bench where a net outside the job has a class clearance wider than the board's default rule: once left out of the network section, once as `others="netless"` writes it (declared, because its class is wider), and a control where that class is named with `-inc`; outcomes `dsn-netless` (a session wire on the left-out net, or a KiCad clearance violation against it), `dsn-netless-declared` (a KiCad clearance violation against it in the file as written) and `dsn-inc` (a session wire on the class named with `-inc`). The test MUST fail on a session wire on the left-out net, on a clearance violation when the left-out net is judged in the default class, and on `dsn-netless-declared` = `present`; `dsn-netless` is recorded either way.
+- **Gates kept**: the existing `test_route` of both gates MUST still record `equal` with the command lines of this change.
+
+The outcomes MUST be recorded in `docs/evidence/routing.md`, the Freerouting ones also in `docs/evidence/routing/freerouting-2.4.1.json`, and never in `docs/evidence/kicad/probes/`. `docs/evidence/routing.md` MUST also hold the measured record of 2026-10-05 on the generated 100-part board: per run the command, the selected and declared nets, the router's stage times and CPU seconds, the copper added, the tracks on plane layers, KiCad's unconnected items and DRC findings by type, and the machine load.
+
+#### Scenario: Group on 10.0
+- **GIVEN** `FENOLITE_KRT` and `FENOLITE_KRT_PYTHON` naming the pinned checkout
+- **WHEN** `uv run pytest tests/routing/test_krt_gate.py -k group -rA` runs on the local KiCad 10.0.6
+- **THEN** `krt-group-t10` is `equal`
+
+#### Scenario: Group on 9.0
+- **WHEN** `test_group` runs for the target-9 blink with the board judged inside the pinned 9.0.9 image
+- **THEN** `krt-group-t9` is `equal`, and the outcome is recorded
+
+#### Scenario: Optimizer switch and netless nets
+- **GIVEN** `FENOLITE_FREEROUTING_JAR` naming the pinned jar and Java 25
+- **WHEN** `uv run pytest tests/routing/test_freerouting_gate.py -k "no_optimizer or netless" -rA` runs on the local KiCad 10.0.6
+- **THEN** `dsn-noopt` is `absent`, `dsn-mt0` is `present`, `dsn-netless-declared` is `absent` and `dsn-inc` is `present`, and `dsn-netless` is recorded as measured (`present` on 2026-10-08: no wire on the left-out net, and two clearance violations by KiCad at 0.3 mm from a class of 0.4 mm), each with the jar's SHA-256 and the Java version
+
+### Requirement: Via protection passes the oracle
+`tests/kicad/vias/test_via_protection_oracle.py` (markers `needs_kicad`, major-aware) SHALL prove on the running `kicad-cli` how KiCad reads, plots and exports via protection (`H-K-VIAPROT-FORMS`, `H-K-VIAPROT-MASK`, `H-K-VIAPROT-NINE`, `H-K-VIAPROT-UPGRADE`, `H-K-VIAPROT-OUTPUTS`).
+- **Bench.** `tests/kicad/vias/_viabench.py` writes a created two-layer board with `write_board`: one row of vias of 0.8 mm with a 0.4 mm drill on one net, joined by an `F.Cu` track, one via per row case, and its project `{}`. The facts benches set each via's protection and the `setup` default by token edit, so they do not depend on the writer under test: the 10.0 forms of design measurement 3 on target-10 boards under the defaults tented, open and front only; the 9.0 forms (none, `front back`, `front`, `back`, `none`, no atom) on target-9 boards under the defaults none, `front back`, `none` and `front`. The written bench sets the same cases through the model and writes them for each target.
+- **Reading the plots.** A side of a via is open when `pcb export gerbers -l F.Mask,B.Mask` gives a flash within 0.45 mm of the via's centre on that side's plot, read with `tests/kicad/zones/_gerber.py::flashes`; tented otherwise.
+- **Probes**, recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`:
+
+| probe | majors | outcome |
+|---|---|---|
+| `via-prot-resave` | 10 | `equal` when `pcb upgrade --force` of the written target-10 bench under each stated default (tented, open, front only) gives every via, matched by its position, and `setup`, the protection children Fenolite wrote; `different` otherwise. The bench without a default is left out: a re-save gives its `setup` the five children of KiCad's default |
+| `via-prot-order` | 10 | `equal` when `pcb upgrade --force` keeps the order of the children of every via of the order bench: a target-10 board whose vias hold `(free yes)`, `(locked yes) (free yes)`, `(locked yes)` or neither, read, each via given a tenting, a capping and a filling through the model, and written; `different` otherwise |
+| `via-prot-mask` | 9, 10 | `equal` when every via of the facts bench of the running major (9.0 forms on 9.0.9, 10.0 forms on 10.0.6) is open exactly where `via_protection.effective` of its read protection and the board's default is `False`; `different` otherwise |
+| `via-prot-load-nine` | 9 | `reject` when `pcb drc` gives exit 3 on a target-9 bench holding `(plugging (front yes) (back yes))` on one via; `load` otherwise |
+| `via-prot-upgrade` | 10 | `different` when 10.0.6 plots the target-9 facts bench under the default `front back` as tented on the unnamed sides of `front`, `back`, `none` and the empty child and agrees with 9.0.9 on the others; `equal` when it agrees everywhere; `inconclusive` otherwise |
+| `via-prot-outputs` | 10 | `equal` when each drill side file of `pcb export drill --format gerber --generate-tenting` and each coating or hole-fill layer of `pcb export ipc2581` holds exactly the vias whose own value for its feature and side is `True`; `different` otherwise |
+| `via-prot-default-outputs` | 10 | `absent` when the same bench under a default of `True` for all eight fields adds no via to any of those files and layers; `present` otherwise |
+
+- **Written bench.** On both majors, the written bench for the running major MUST load (`pcb drc` exit 0) and plot as `via_protection.effective` says, for every case the target can hold; without `kicad-cli`, writing the cases with a `True` covering, plugging, capping or filling for target 9 MUST raise `LossyWriteError` (`kicad-file-backend`, "Via protection on boards").
+- **Fallback.** A `different` outcome of `via-prot-resave` or `via-prot-mask` MUST stop the part that writes or reads that form: the form or the meaning is corrected from the bench before it merges, and the register row records what KiCad showed. A change of `via-prot-default-outputs` to `present` MUST remove `kicad.via.protection-not-exported` for that version before the probe file is updated.
+- Built files MUST NOT be committed.
+
+#### Scenario: Masks agree on both majors
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_protection_oracle.py -k mask` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** `via-prot-mask` records `equal` on both majors, and on 9.0.9 the via with `(tenting front)` under the default `front back` is open on `B.Mask`
+
+#### Scenario: Re-save and outputs on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_protection_oracle.py -k "resave or outputs"` runs on 10.0.6
+- **THEN** `via-prot-resave` and `via-prot-outputs` record `equal`, and `via-prot-default-outputs` records `absent`
+
+#### Scenario: KiCad 9 refuses the 10.0 forms
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_protection_oracle.py -k nine` runs in the `kicad-9` job
+- **THEN** `via-prot-load-nine` records `reject`
+
+#### Scenario: KiCad 10 reads 9.0 children its own way
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_protection_oracle.py -k upgrade` runs on 10.0.6
+- **THEN** `via-prot-upgrade` records `different`, the test passing on the recorded outcome only
+
+#### Scenario: The written bench
+- **WHEN** `uv run pytest tests/kicad/vias/test_via_protection_oracle.py -k written` runs on 10.0.6 and in the `kicad-9` job
+- **THEN** the written bench of the running major loads and every via's openings equal `via_protection.effective`
+
+### Requirement: Pair and escape routes pass the oracle
+Pair routing and the escape of fine-pitch parts SHALL be proved with KiCadRoutingTools at `PINNED_TAG`, Freerouting `PINNED_VERSION` and `kicad-cli` 9.0.9 and 10.0.6, gate first, on benches authored for Fenolite (`tests/routing/_pairbench.py`, `tests/routing/_escapebench.py`) and built by Fenolite for targets 9 and 10, in tests marked `needs_router`, `needs_freerouting` and `needs_kicad`.
+- **Pairs** (`H-K-KRT-PAIR`): on the pair bench (two pairs and four single nets between two headers of 1.27 mm pitch; class pair width 0.2 mm and gap 0.15 mm; a board minimum width of 0.15 mm; rules `diff_pair_gap` 0.13 mm to 0.17 mm, `diff_pair_uncoupled` 6 mm and `diff_pair_skew` 0.1 mm), after the pair steps of "KiCadRoutingTools routes pairs" and `route.py` for the single nets, `pcb drc` of the board's major MUST report no unconnected item, no `diff_pair_gap_out_of_range`, no `diff_pair_uncoupled_length_too_long`, and no type of severity error that the unrouted bench lacks other than `skew_out_of_range`, whose items and values are recorded. Outcomes `krt-pair-t9` and `krt-pair-t10`.
+- **Names** (`H-K-KRT-PAIRNAMES`): on the name bench (five pairs named `A_P`/`A_N`, `B+`/`B-`, `C_P0`/`C_N0`, `DP1`/`DN1`, `E_DP`/`E_DN`), the forms that `route_diff.py` routes coupled at the gap are recorded as `krt-pair-names`, and `routingtools.PAIR_NAME_FORMS` MUST equal them.
+- **Escape** (`H-K-KRT-ESCAPE`, `H-G-DSN-FANOUT`): on the QFN bench (a QFN-48 of 0.5 mm pitch, 40 signal nets) and the BGA bench (a BGA-121 of 0.8 mm pitch, 96 signal nets, a board-wide `hole_clearance` rule of 0.15 mm), both with plane layers (c0107), each router runs with and without its escape (KiCadRoutingTools: `qfn_fanout.py` on the QFN, `bga_fanout.py --escape-method dogbone` on the BGA, then `route.py`; Freerouting with and without its fanout stage, neck-down off), at most 900 s per run. Each outcome `krt-escape-<bench>-t<M>` and `dsn-escape-<bench>-t<M>` MUST record the open connections of signal nets, the error types the unrouted bench lacks, the vias whose centre lies inside a pad and the wall time. It is `equal` when no signal connection is open, `improved` when the escape leaves fewer open signal connections than the run without it, each only with no new error type and no via inside a pad, and `different` otherwise.
+- **Freerouting facts**: `dsn-pair-ignored` (`H-G-DSN-PAIR`): the session's routes are equal with and without `pair` lists; `dsn-narrow-fanout` and `dsn-narrow-off` (`H-G-DSN-NARROW`): on the QFN bench with four signal layers, a wire narrower than its class with the fanout stage on, and none with the stage and neck-down off.
+- **Verdict.** The feature `pairs` of KiCadRoutingTools MUST be declared only when `krt-pair-t9` and `krt-pair-t10` are `equal`, and the feature `escape` only when its escape outcomes are `equal` or `improved` on both benches and both majors. Otherwise the register row MUST be refuted with a successor naming the open connections or the violations, and the requirement of the step that is not built MUST be removed from this change before it is archived.
+- The outcomes MUST be recorded in `docs/evidence/routing.md`, `docs/evidence/routing/freerouting-2.4.1.json` and `docs/evidence/routing/krt-v0.22.1.json`, and MUST NOT be written to `docs/evidence/kicad/probes/`.
+- **Loop**: `build`, `route` with pairs, `fill` (10.0.6) and `build` again MUST keep every routed item, and a further `build` MUST change no byte.
+
+#### Scenario: Pair gate on 10.0
+- **GIVEN** `FENOLITE_KRT` naming a checkout at `PINNED_TAG`
+- **WHEN** `uv run pytest tests/routing/test_pair_gate.py -rA` runs on the local KiCad 10.0.6
+- **THEN** `krt-pair-t10` and `krt-pair-names` are recorded, and `krt-pair-t10` is `equal`
+
+#### Scenario: Pair gate on 9.0
+- **WHEN** the same command runs inside the pinned 9.0.9 image with the tool mounted
+- **THEN** `krt-pair-t9` is recorded for the target-9 bench, judged without a refill
+
+#### Scenario: Escape benches
+- **WHEN** `uv run pytest tests/routing/test_escape_gate.py -rA` runs on 10.0.6 with both tools
+- **THEN** the eight outcomes of 10.0.6 are recorded with their open connections, error types and wall times
+
+#### Scenario: Freerouting facts
+- **GIVEN** `FENOLITE_FREEROUTING_JAR` naming the pinned jar
+- **WHEN** `uv run pytest tests/routing/test_pair_gate.py -k dsn_pair -rA` and `uv run pytest tests/routing/test_escape_gate.py -k narrow -rA` run
+- **THEN** `dsn-pair-ignored`, `dsn-narrow-fanout` and `dsn-narrow-off` are recorded
+
+#### Scenario: Skipped without the tools
+- **GIVEN** neither `FENOLITE_KRT` nor `FENOLITE_FREEROUTING_JAR`
+- **WHEN** `uv run pytest tests/routing -m "needs_router or needs_freerouting" -rs` runs
+- **THEN** every test of this requirement is skipped with a reason naming the variable
+
+### Requirement: Pair coupling in KiCad's DRC is probed
+How KiCad's DRC counts coupled length SHALL be pinned by probes run with `kicad-cli` alone (`H-K-DRU-PAIRCOUPLE`), on an authored bench whose script copper holds one pair routed 0.15 mm apart and one routed 1.07 mm apart, judged with four rules files: a `diff_pair_gap` rule of 0.13 mm to 0.17 mm alone, a `diff_pair_uncoupled` rule of 3 mm alone, both, and none.
+- With the gap rule present, every segment outside its range MUST count as uncoupled: the wide pair is reported with an uncoupled length equal to its routed length. Without a gap rule, parallel segments 1.07 mm apart MUST count as coupled.
+- The probes `dru-pair-couple-<case>` MUST be recorded in the probe files of both majors.
+
+#### Scenario: Four rules files
+- **WHEN** `uv run pytest tests/kicad/rules/test_pair_coupling.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** the gap rule alone reports only `diff_pair_gap_out_of_range`, on the wide pair; the uncoupled rule alone reports at most the wide pair, with an uncoupled length below its routed length; both rules report the wide pair with an uncoupled length equal to its routed length; no rule reports nothing; and the outcomes are equal on both majors
+
+### Requirement: Stacked pins pass ERC, the netlist export and parity
+`tests/kicad/schematic/test_generated_oracle.py` and `tests/kicad/schematic/test_own_netlist.py` (marker `needs_kicad`, major-aware) SHALL prove on 9.0.9 and 10.0.6 that a project `build` writes for a design with pins of several pads is read by KiCad as the circuit says. The design is the stacked design of `tests/_schbuild.py`, authored from the `Mini` library: passive pins with two pads on nets, an `output` pin with two pads on a net, two `power_in` pins with two pads on nets, a marked pin with three pads whose numbers sort before and after the pin's, a named pin with two pads on no net without a mark whose first pad is not the lowest, and a part with a map of one pad per pin.
+- **Netlist** (`H-K-SCH-STACKED`, `H-K-SCH-STACKED-OPEN`). The nets of `kicad-cli sch export netlist` MUST equal those of `sch_netlist.own_netlist` of the same sheets: the same nodes on nets of the same names, the nets of open pins included.
+- **ERC.** `sch erc --format json --severity-all` MUST report, for this design, exactly the violations it reports for the same design built with the first pad of each pin only: stacking adds none.
+- **Parity.** `pcb drc --schematic-parity` on the built board MUST report no parity entry, and `fenolite check` on the project MUST report no `parity.*` finding and no `parity.oracle-differs`.
+- **Re-save.** `sch upgrade --force` of the generated sheet MUST keep the stacked pins and the nets.
+- The outcomes MUST be recorded as the other outcomes of the generated schematic are (`docs/evidence/kicad/probes/<version>.json`), and `docs/formats/kicad/schematic.md` MUST hold one row for each of the two hypotheses with its measured versions.
+
+#### Scenario: Both majors
+- **WHEN** `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/schematic/test_generated_oracle.py tests/kicad/schematic/test_own_netlist.py -k stacked` runs on `kicad-cli` 10.0.6 and, in the pinned image, on 9.0.9
+- **THEN** every test passes on both, and the two rows of `docs/hypotheses.md` name both versions
+
+#### Scenario: Name of an open stack
+- **GIVEN** the marked, unnamed pin of `U1` with the pads `5`, `15` and `9`, and the pin `K` of `D2` with the pads `21` and `17`, on no net and without a mark
+- **WHEN** the netlist is exported
+- **THEN** it holds one net `unconnected-(U1-Pad15)` with three nodes and one net `Net-(D2-K-Pad17)` with two
+
+### Requirement: Stacked pins of corpus sheets
+`tests/kicad/schematic/test_stacked_corpus.py` (markers `needs_kicad` and `needs_corpus`, major-aware) SHALL ask of sheets Fenolite did not write what "Stacked pins pass ERC, the netlist export and parity" proves on generated sheets: in every demo project of the corpus that the running `kicad-cli` loads, each group of pins of one symbol instance that have one name and connect at one point which nothing else touches (no label, no wire, no pin of another instance) MUST be one net of `kicad-cli sch export netlist` that holds those pins alone, with the name that `netnames.open_name` gives (`H-K-SCH-STACKED-OPEN`).
+- **What this covers.** The rule for a stack of same-named pins without a label, and nothing more. No demo sheet is inside the grammar of `sch_netlist.own_netlist` (each holds wires, local labels or sub-sheets), so the whole own netlist of a third-party sheet is NOT compared with KiCad's, and no text MAY say it is.
+- **How much.** The demo projects hold few such stacks: on 10.0.6 one project holds 10, all judged with their names, and the other projects are skipped with a reason. The test MUST pin that project and its count (`PINNED`), so that it cannot pass on nothing, and MUST fail when the pinned project gives no stack.
+- **Left out.** Hidden power inputs (KiCad joins them by name), instances of derived symbols and of power symbols (their pins are not read here), and a sheet used more than once. The test MUST name each of these in its text. An instance that is mirrored and turned by 90 or 270 degrees takes part like any other: `schlayout.pin_point` turns first and mirrors the turned symbol ("Pin connection points" of `kicad-schematic`).
+- The row of `H-K-SCH-STACKED-OPEN` in `docs/hypotheses.md` MUST name the test with the versions it ran on, and MUST NOT name a version it did not run on.
+
+#### Scenario: Stacks of the demo projects
+- **WHEN** `FENOLITE_REQUIRE=kicad,corpus uv run pytest tests/kicad/schematic/test_stacked_corpus.py -rs` runs on `kicad-cli` 10.0.6
+- **THEN** the project `kicad-demo-10-0-6-sch-017` gives 10 stacks, each one net of KiCad's export with the name `netnames.open_name` gives, and every other project is skipped as holding no such stack or as having no project at the tag
+
+### Requirement: Net-tie facts are probed
+`tests/kicad/check/test_net_ties.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-NETTIE-DRC` on the running `kicad-cli` with the bench of `tests/kicad/check/_tiebench.py`, and DRC MUST be judged only from the JSON report.
+- **Bench.** One board written by `write_board` for the running major, with one footprint per case on nets of its own, each an authored definition (`dsl-footprint-authoring`, "Net-tie groups in authored footprints"), a `{}` project (KiCad's Default class, 0.2 mm), and a control pair: two 0.25 mm tracks of their own nets 0.1 mm apart. A run whose report lacks the control pair's `clearance` violation MUST fail.
+- **Cases.** The types expected between two items of each case, counting only `shorting_items`, `clearance`, `solder_mask_bridge` and `unconnected_items`, with its groups and, for the first four, in a copy without them:
+
+| case | footprint | with the groups | without |
+|---|---|---|---|
+| `official` | two 0.5 mm round pads 0.5 mm apart, joined by a filled polygon on `F.Cu` | none | `shorting_items`, `solder_mask_bridge` |
+| `touching` | two 1 mm square pads overlapping by 0.2 mm | none | `shorting_items`, `solder_mask_bridge` |
+| `close` | the same pads 0.1 mm apart | none | `clearance` |
+| `track-near` | `official`, and a track of pad 1's net ending 0.1 mm from pad 2 | `clearance` (the track and pad 2), `unconnected_items` (pad 1 and the track) | the same, `shorting_items`, `solder_mask_bridge` |
+| `two-groups` | four pads in a row, each overlapping the next, groups `1, 2` and `3, 4` | `solder_mask_bridge` (pads 2 and 3) | — |
+| `ungrouped-touching` | three pads in a row, each overlapping the next, group `1, 2` | `solder_mask_bridge` (pads 2 and 3) | — |
+| `ungrouped-close` | group `1, 2`, pad 3 0.15 mm from pad 2 | none | — |
+| `groups-close` | groups `1, 2` and `3, 4`, pads 2 and 3 0.15 mm apart | none | — |
+| `spelling` | `touching`, its child edited to `"1,2"` | none | — |
+| `three` | three pads in a row, each overlapping the next, group `1, 2, 3` | none | — |
+
+- **Probes.** Each case MUST be recorded as `nettie-<case>`, and each copy without groups as `nettie-<case>-plain`, for majors 9 and 10: `equal` when the set of types reported between the case's items is the expected one, `different` otherwise.
+- **Fallback.** A probe that records `different` on a major MUST stop the net-tie part of this change: "Pairs that are judged" is corrected to what the report shows before the part merges.
+- The outcomes MUST be recorded in `docs/evidence/kicad/probes/9.0.9.json` and `10.0.6.json`, and the facts written to `docs/formats/kicad/drc.md` with S-0020 and S-0029.
+
+#### Scenario: Net-tie facts on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_net_ties.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `nettie-*` probe records `equal`, and the control pair's violation is present
+
+#### Scenario: The written token loads
+- **GIVEN** the bench as written by Fenolite for the running major
+- **WHEN** the test reads it back with `read_board`
+- **THEN** every footprint of a case with groups holds `net_ties` equal to its declared groups, and `pcb drc` loads the board without an error
+
+### Requirement: Net-tie parity canaries
+`tests/kicad/copper/test_copper_parity.py` SHALL also compare `check_copper` with `kicad-cli pcb drc` on the bench of "Net-tie facts are probed", on 9.0.9 and 10.0.6, counting only `shorting_items` and `clearance` between two pads of one case (`H-K-NETTIE-DRC`).
+- **Compared.** `touching`, `close`, `spelling` and `three` with their groups, and `touching` and `close` without: KiCad and `check_copper` MUST give the same verdict. The probe `copper-nettie-group` records `equal` when every one does, `different` otherwise.
+- **Recorded.** `two-groups`, `ungrouped-touching`, `ungrouped-close` and `groups-close`: `check_copper` reports one finding naming the two pads that share no group, and KiCad none. The probe `copper-nettie-ungrouped` records that outcome as `different`; it is documented (`copper-check`, "Supported cases are documented against KiCad's DRC") and MUST NOT fail the test.
+- **Hermetic half.** `tests/kicad/copper/test_parity_bench.py` MUST check without `kicad-cli`, for targets 9 and 10, that `check_copper` gives exactly these findings on the bench.
+- The outcomes MUST be recorded in both probe files and copied into the supported-cases table of `docs/formats/kicad/copper.md`.
+
+#### Scenario: Parity of grouped pads
+- **WHEN** `uv run pytest tests/kicad/copper/test_copper_parity.py -k net_tie -rA` runs on 9.0.9 and on 10.0.6
+- **THEN** `copper-nettie-group` records `equal` and `copper-nettie-ungrouped` records `different`
+
+#### Scenario: Hermetic net-tie rows
+- **WHEN** `uv run pytest tests/kicad/copper/test_parity_bench.py -k net_tie` runs without `kicad-cli`
+- **THEN** on targets 9 and 10 the grouped cases give no finding, the copies without groups give a `copper.short` for `touching` and a `copper.clearance` for `close`, and each ungrouped case gives one finding naming its two ungrouped pads
+
+### Requirement: Exclusion facts are probed
+`tests/kicad/check/test_drc_exclusions.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-DRC-EXCL` on the running `kicad-cli` with a bench of `tests/kicad/rules/_rulebench.py`: two tracks 0.1 mm apart under the Default class, a lone via, and project files that differ only in `drc_exclusions`. Each key MUST be built from a first run's report: the type, the first item's `pos` in nm, and the item uuids in report order, the nil uuid for the via's second.
+- `drc-excl-pair`: `[key, "test point"]` for the via; its entry has `excluded` true, its severity unchanged and `comment` `test point`.
+- `drc-excl-plain`: the via's key as a string; excluded, with an empty comment.
+- `drc-excl-moved`: the via's key with `x` + 1 nm; not excluded.
+- `drc-excl-stale`: the via's key with another uuid; not excluded, and the report holds no entry about it.
+- `drc-excl-first-position`: the clearance key; excluded. `drc-excl-reversed`: the same key with its uuids swapped; not excluded.
+- `drc-excl-project-unchanged`: the project file's bytes are equal before and after each run.
+
+Each probe MUST record `equal` when the outcome is the listed one, for majors 9 and 10, in both probe files, and the facts MUST be written to `docs/formats/kicad/drc.md` with S-0020, S-0029, S-0055 and S-0056.
+
+#### Scenario: Exclusion facts on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_drc_exclusions.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** every `drc-excl-*` probe records `equal`
+
+### Requirement: Severity keys are probed
+`tests/kicad/check/test_severity_keys.py` (marker `needs_kicad`, major-aware) SHALL settle `H-K-PRO-SEV-KEYS` and SHALL prove that a script's severity reaches KiCad's report.
+- `pro-sev-keys-10` (major 10 only): a bench project that sets every key of `SEVERITY_KEYS[10]`, `overlapping_pads` and `fenolite_not_a_check` to `ignore`; `ignored_checks` MUST equal `SEVERITY_KEYS[10]` and no entry may remain.
+- `pro-sev-keys-9-bench` (major 9 only): a bench that gives `clearance`, `shorting_items`, `solder_mask_bridge`, `track_dangling`, `via_dangling` and `lib_footprint_issues` entries under a `{}` project, its control, gives none when every key of `SEVERITY_KEYS[9]` is `ignore`.
+- `pro-sev-script` (majors 9 and 10): a project built from a design with `design.rules.severity("kicad.drc.via-dangling", "error")` gives its `via_dangling` entries severity `error`, where the template gives `warning`.
+
+#### Scenario: Keys on both majors
+- **WHEN** `uv run pytest tests/kicad/check/test_severity_keys.py -rA` runs on the local KiCad 10.0.6 and inside the pinned 9.0.9 image
+- **THEN** `pro-sev-keys-10` records `equal` on 10.0.6, `pro-sev-keys-9-bench` records `absent` on 9.0.9, and `pro-sev-script` records `equal` on both
+
+### Requirement: Order of mirror and rotation is asked of the netlist export
+`tests/kicad/schematic/test_pin_frame_oracle.py` (marker `needs_kicad`) SHALL settle `H-K-SCH-PINFRAME-ORDER` on 9.0.9 and 10.0.6: on the authored sheet of `tests/_pinframe.py` every pin MUST be on the net of the global label set at its `schlayout.pin_point`, and the control MUST tell the two orders apart. The test is no probe of `PROBES`, and a failure MUST take the four mirrored quarter turns out of `schlayout.PROVED_FRAMES`.
+
+#### Scenario: Twelve frames on the netlist export
+- **GIVEN** the sheet of `tests/_pinframe.py` for the running major: the authored symbol `Probe:Frame` with three pins that no rotation or mirror maps onto each other, instances `U1` to `U12` in the frames (0, 90, 180, 270 degrees) × (no mirror, `x`, `y`), one global label per pin at its `pin_point`
+- **WHEN** `FENOLITE_REQUIRE=kicad uv run pytest tests/kicad/schematic/test_pin_frame_oracle.py -rA` runs on `kicad-cli` 9.0.9 and on 10.0.6
+- **THEN** `kicad-cli sch export netlist` puts each of the 36 pins on the net of its label
+
+#### Scenario: The control
+- **GIVEN** the same sheet with each label where the other order (mirror first) puts the pin
+- **WHEN** its netlist is exported
+- **THEN** the pins of `U6`, `U8`, `U10` and `U12` (90 and 270 degrees with a mirror) are off the nets of their labels and the pins of the other eight instances are on them
+
+#### Scenario: The register follows the runs
+- **WHEN** the test has passed on both majors
+- **THEN** the row of `H-K-SCH-PINFRAME-ORDER` in `docs/hypotheses.md` becomes `KICAD-VERIFIED (9.0.x, 10.0.x)` and names the versions it ran on, and the committed probe files are unchanged
+
+### Requirement: Slots pass the oracle
+The shared fixture `tests/data/slots/design.py`, built for targets 9 and 10, SHALL load in `kicad-cli` 9.0.x and 10.0.x with no `invalid_outline`; its slots MUST reach no drill file and its round hole the NPTH file. `tests/kicad/board/_slotbench.py` SHALL record the probes of `H-K-SLOT-RING`, `H-K-SLOT-OVERLAP`, `H-K-SLOT-UNION` and `H-K-HOLE-OVERLAP` on both majors.
+
+#### Scenario: Fixture on both majors
+- **WHEN** `uv run pytest tests/kicad/board/test_slots.py -rA` runs in the pinned 9.0.9 and 10.0.6 images
+- **THEN** no `invalid_outline` is reported, and the probes hold the outcomes of the design's register
+
+#### Scenario: Re-saved board reads back
+- **GIVEN** the fixture's board re-saved by `pcb upgrade --force` (10.0.x)
+- **WHEN** `edge_outline` and `slots_of` read it
+- **THEN** they give the model's slots within 1 µm, every arc still an arc
+
+### Requirement: Edge clearance agrees with KiCad
+The bench `tests/kicad/checks/_edgebench.py` (tracks, arcs, vias, pads and a fill at stated gaps from the board ring, a round cut-out, a slot and a merged L) SHALL give the same items in Fenolite's `copper.edge-clearance` findings as in `kicad-cli pcb drc`'s `copper_edge_clearance` entries, on 9.0.x and 10.0.x, and SHALL record the probes of `H-K-EDGE-CENTRE`, `H-K-EDGE-RESOLVE` and `H-K-EDGE-AGREE`.
+
+#### Scenario: Same items on both majors
+- **WHEN** `uv run pytest tests/kicad/checks/test_edge_clearance.py -rA` runs in the pinned 9.0.9 and 10.0.6 images
+- **THEN** the item sets are equal, and the probes hold their recorded outcomes

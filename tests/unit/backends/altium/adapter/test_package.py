@@ -93,7 +93,12 @@ def test_evidence_is_the_lowest_level_of_the_registered_rows() -> None:
     rows = {row.id: row for row in load_register(ROOT / "docs" / "hypotheses.md")}
     registered = tuple(sorted(i for i in rows if i.startswith("H-A-IMP-")))
     named = adapter.EVIDENCE.hypotheses
-    assert tuple(sorted(i for i in named if i.startswith("H-A-IMP-"))) == registered
+    assert tuple(sorted(evidence.HYPOTHESES)) == registered
+    retired = tuple(sorted(i for i in registered if rows[i].refuted))
+    assert tuple(sorted(evidence.RETIRED_HYPOTHESES)) == retired
+    assert tuple(sorted(i for i in named if i.startswith("H-A-IMP-"))) == tuple(
+        i for i in registered if i not in retired
+    )
     # the one row of the writer that the import rests on too: the tenting flags of a via (c0112)
     assert tuple(i for i in named if not i.startswith("H-A-IMP-")) == ("H-A-PCB-CU-VIATENT",)
     assert evidence.MAPPING_HYPOTHESES == ("H-A-PCB-CU-VIATENT",) and "H-A-PCB-CU-VIATENT" in rows

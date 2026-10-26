@@ -1,0 +1,484 @@
+{
+  "altium_version": "AD 26.5",
+  "archive": {
+    "name": "altium-kit-2026-10-13-61513e18.zip",
+    "sha256": "61513e185ce3ccb4a0948ba5e81076a3e38ed6b75c07eefe401fff1c8bec4fa2",
+    "size": 737749
+  },
+  "date": "2026-10-13",
+  "fenolite_version": "0.5.0.dev0",
+  "hypotheses": [
+    {
+      "form": true,
+      "id": "H-A-KIT-COMPILE",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-KIT-DRC",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-REPOUR",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-RESAVE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-KIT-SCRIPT",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-OUTJOB-OPEN",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-OUTJOB-RUN-2",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-KEEPOUT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-PCBX-REPOUR",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-STACK",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-TEXT",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PCBX-VIASPAN",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-CHECKSUM",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-LAYOUT",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-PH-NO-CACHE",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-PH-ZERO-FIELDS",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-KINDS",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-RULE-SCOPE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHDOT-OPEN",
+      "outcome": "pass"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHDOT-STRINGS",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-SCHLIB-UPDATE",
+      "outcome": "skipped"
+    },
+    {
+      "form": false,
+      "id": "H-A-SCHX-TREE",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBDOC",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-PCBLIB",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHDOC",
+      "outcome": "skipped"
+    },
+    {
+      "form": true,
+      "id": "H-A-WRITE-SCHLIB",
+      "outcome": "skipped"
+    }
+  ],
+  "kit_fenolite_version": "0.5.0.dev0",
+  "kit_resaved": [],
+  "kit_sha256": "8bc111041b13f90e0fb2b350da63a43c1b27801729decf6baaee4695025993c7",
+  "kit_version": 1,
+  "os_family": "Windows",
+  "privacy_findings": 3,
+  "results": [
+    {
+      "path": "results/board6/board6.PcbDoc",
+      "sha256": "f2eeec54bbc735dcae86cf2ccb7a6b917aa35b624f8f218385f1ad93adb9522a",
+      "size": 206336
+    },
+    {
+      "path": "results/flat/flat.PcbDoc",
+      "sha256": "5d8fe39b9c203a83be9ec555cc1ec017d9c8a78a89c09cd5c08f61682bc3fe5d",
+      "size": 183808
+    },
+    {
+      "path": "results/flat/flat.SchDoc",
+      "sha256": "4f993f4906cb92d938871b6d163babaa23817f01714fb2b2e996411fe1f7b8eb",
+      "size": 35328
+    },
+    {
+      "path": "results/flat/flat_ascii.SchDoc",
+      "sha256": "ca867d52c942c833abe3ee3f75c94a68322291098ce90c952ccf1b5b47287a74",
+      "size": 35328
+    },
+    {
+      "path": "results/form.json",
+      "sha256": "f08912565d30cca0e41dc083bf98228ce1665b78207ff4d2cbea2685fbac211a",
+      "size": 423
+    },
+    {
+      "path": "results/libs/libs.PcbLib",
+      "sha256": "cf0a8f9efc97fad7c937c94fd76c9994725164b3b478406c7d22667aeed9ec16",
+      "size": 133632
+    },
+    {
+      "path": "results/libs/libs.SchLib",
+      "sha256": "fa8b0d979c5b4c4acc686597f5e45c1418fc34f09519a542712a1278f7fc8fe2",
+      "size": 16384
+    },
+    {
+      "path": "results/templates/iso5457_generic.SchDot",
+      "sha256": "0274872b292483d3acf22529fd9ed8c25936ebebe1d7730b19d5204fc536d797",
+      "size": 18944
+    },
+    {
+      "path": "results/tree/tree.SchDoc",
+      "sha256": "efc64e3e44d69cd468fec6fc6e00dff5730e73bc810c232153a382ed74342150",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_io.SchDoc",
+      "sha256": "4ced49e8a5dad05beb255abf272c4eee151898e89c3bc78cd1d8292b7c519e96",
+      "size": 22528
+    },
+    {
+      "path": "results/tree/tree_io.leds.SchDoc",
+      "sha256": "228d64a0f3a2ab3b26fa3d174596cfb6c3b41dd2fa9510c07d05443bc404b5a5",
+      "size": 26112
+    },
+    {
+      "path": "results/tree/tree_power.SchDoc",
+      "sha256": "31de05fbab91becde11f7302f37300accf1ad6c4627231ba1c41fac9bc1e0cdd",
+      "size": 31232
+    }
+  ],
+  "run_id": "2026-10-13-61513e18",
+  "samples": {
+    "board6": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075",
+    "flat": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5",
+    "libs": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd",
+    "routed": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2",
+    "tree": "2a6c7ba2b46d790143db272008d2ecbae0af93421c94389b8ec360df0d09bff5"
+  },
+  "schema": "fenolite.altium-kit-run.v0",
+  "script_sha256": "685ab54f38e643789f2f3abb87d9a590854957d685c42a5067eec8375e26d197",
+  "steps": [
+    {
+      "id": "K1.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.2",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.3",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K1.4",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K1.5",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.6",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K1.7",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2a6c7ba2b46d790143db272008d2ecbae0af93421c94389b8ec360df0d09bff5"
+    },
+    {
+      "id": "K1.8",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K2.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K2.2",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "2a6c7ba2b46d790143db272008d2ecbae0af93421c94389b8ec360df0d09bff5"
+    },
+    {
+      "id": "K2.3",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K2.4",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K2.5",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K3.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K3.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K4.1",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K4.2",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K4.3",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K4.4",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K5.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.3",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.4",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K5.5",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "c2f9b34d1093938230254017c3d20ff8a83993b61a3ea760490b242db7340075"
+    },
+    {
+      "id": "K6.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K7.1",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K7.2",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "4ed988b4a3823b9fccc939a1eb1663f09d087936576ab505be6a6919d1c375c2"
+    },
+    {
+      "id": "K8.1",
+      "kind": "file",
+      "outcome": "pass",
+      "pending": [],
+      "scripted": false,
+      "source": "2e91c3a6a142146a32c898f14e7cd3a05dc56c2b8782a6095bfad455138b94fb"
+    },
+    {
+      "id": "K8.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K8.3",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "3d95d4a4d792c7ac68706463fe3a0a4960af4cc863d07e7635516c7b90bcbef5"
+    },
+    {
+      "id": "K9.1",
+      "kind": "file",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    },
+    {
+      "id": "K9.2",
+      "kind": "form",
+      "outcome": "skipped",
+      "pending": [],
+      "scripted": false,
+      "source": "532b4284eb23976f4f3e2e28f52679fe16c75824ce119517e7c0eb063af173dd"
+    }
+  ],
+  "synthetic": false
+}

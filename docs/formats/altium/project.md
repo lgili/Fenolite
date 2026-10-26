@@ -115,6 +115,64 @@ scopes get a row when the maintainer's author report names their numbers
   index, not the path. A missing companion is a warning, and a companion that is not readable is a
   warning too: the project still loads.
 
+## Variants (change c0186)
+
+Read on 2026-10-25 from the six public project files of the corpus (S-0174, S-0175, S-0176, S-0187, S-0188,
+S-0297), never committed; key forms and counts only. `read.variants` relies on these rows.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A variant is a section `[ProjectVariant<n>]` with `UniqueID`, `Description` (its name), `AllowFabrication`, `ParameterCount`, `VariationCount`, the lines `Variation<k>` and `ParamVariationCount`; four of the six projects hold one variant (`Production` with 56 variations, `48V` with 45, `Default` with 6, `No Crystal` with 1), two hold none | S-0174, S-0175, S-0176, S-0187, S-0188, S-0297 | CORPUS-VERIFIED | H-A-PRJ-VARIANT |
+| A `Variation<k>` value is `Designator=…\|UniqueId=…\|Kind=…\|AlternatePart=…`, fields joined by a vertical bar; `UniqueId` is a path of unique ids, one segment for a part of a sheet (`\VIWQJVML`) and two for a part of a repeated channel; `Designator` is the part's designator when the variation was made, which may be an unannotated `X?` while the part's `UNIQUEID` matches the last segment | S-0174, S-0175, S-0187, S-0297 | CORPUS-VERIFIED | H-A-PRJ-VARIANT |
+| `Kind` 1 is a part the variant does not fit (the one variation of the variant `No Crystal` names the crystal), 2 a part replaced by an alternate part (its line goes on with `AltLibLink_…` fields of the alternate symbol), 0 a part fitted with other values; the three kinds are Altium's "Not Fitted", "Alternate" and "Fitted" | S-0175, S-0187, S-0297 | INFERRED | H-A-PRJ-VARIANT |
+| A parameter variation is a pair of lines `ParamVariation<k>=ParameterName=…\|VariantValue=…` and `ParamDesignator<k>=<designator>`; one project holds 1 763 such lines for its 45 alternate parts | S-0297 | CORPUS-VERIFIED | H-A-PRJ-VARIANT |
+
+## The annotation file (change c0083)
+
+Native observation, 2026-10-13 (S-0737): an authored AD 26.5 board-level
+annotation saves an INI `DesignatorManager` section. A record's numbered keys
+are `LogicalDesignator<n>`, `LogicalPartID<n>`, `DocumentName<n>`,
+`ChannelName<n>`, `UniqueID<n>`, `PhysicalDesignator<n>` and
+`PhysicalDesignatorLocked<n>`. The UID and physical-designator values are the
+mapping. `SheetNumberManager` separately carries `SheetNumberOrder` and
+`SheetNumberMethod`. These key names are
+`ALTIUM-VERIFIED(author-report; AD 26.5; 2026-10-13; no artefact)` for the
+authored saved/reloaded case; no native file is committed. A one-level Repeat
+mapping prefixes the index to its parent sheet-symbol UID in the path before
+the component UID. Native reload renames the CH2 resistor only. Nested Repeat
+paths and the corresponding PCB UID remain unverified. The older unknown/flat
+form statements below describe the pre-report assumption, retained historically.
+
+A project that uses board-level annotation lists an annotation file (`.Annotation`, kind `annotation`).
+`fenolite.backends.altium.read.annotation` reads it and `load_project` returns it (`AltiumProject.annotations`);
+the import takes the designators of channel components from it (`docs/formats/altium/connectivity.md`,
+"Channels", source 2). **Its form is not known from any public source**: the rows below say what is known
+and which part of the reader is this reader's own assumption.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Board-level annotation stores its changes in a text file named after the project with the extension `.Annotation`, in the project folder, shown under "Settings\Annotation Documents" in the Projects panel; Altium creates and manages it | S-0725 | INFERRED | H-A-IMP-RPT-ANNOT |
+| While the file is part of the project, the designators it assigns override those of the schematic in the compiled designators, and those are the ones transferred to the PCB document | S-0725 | INFERRED | H-A-IMP-RPT-ANNOT |
+| The one annotation file that a public project lists (the project of S-0188) is empty at the registered commit: 0 bytes, SHA-256 `e3b0c442…b855`, fetched on 2026-10-06 and not a corpus row | S-0188 | INFERRED | H-A-IMP-RPT-ANNOT |
+| The form of a non-empty annotation file (its sections, its keys, how an entry names a component and its designator) is stated by no public source and shown by no public file. Part R, step R4 (`docs/evidence/altium-schematic.md`), asks the maintainer for the names of its keys | S-0725, S-0188 | UNKNOWN | H-A-IMP-RPT-ANNOT |
+
+### Fenolite's choices (annotation reader)
+
+- **The bytes are the source of truth.** The file is read with the text layer of the project file
+  (`read.textfile`, `read.ini`): `AnnotationFile.to_bytes()` gives the input back, and a compound file or a
+  NUL byte raises the located `FormatError` of the text readers. An empty file has no entry.
+- **Native indexed mappings.** The measured `DesignatorManager` pairs are read
+  by equal index, without requiring consecutive indexes or a particular key
+  order. Complete records' measured metadata is retained, as are the two measured
+  sheet-number keys. Incomplete/invalid pairs and unknown keys are retained with
+  located `altium.text.unknown-key` information.
+- **Legacy authored flat mappings.** A `<unique-id path>=<designator>` line in
+  any section remains supported for compatibility. This was the pre-report
+  assumption, not the observed native form. The first entry of each path wins.
+- **The authored sample** `tests/data/altium/channels/two/two.Annotation` is written in that assumed form
+  by `tests/data/altium/channels/two/author.py`. It is not listed by `two.PrjPcb` (the sample's import
+  stays the naming format's), it is not a file Altium wrote, and it is not handed over in Part R.
+
 ## Class generation
 
 Change c0048 writes the options that decide which classes and rooms "Design » Update PCB Document" derives
@@ -187,3 +245,13 @@ from the schematic.
   document and before the libraries, with `DocumentPath` alone. A project without a job keeps its bytes.
 - A project file that exists is kept (the rule above): when it does not list the job, the build reports
   `altium.outjob-not-listed` and the user adds the job in Altium.
+
+### Harness label naming control (c0166)
+
+Setting AllowPortNetNames=0 and AllowSheetEntryNetNames=0 in [Design] prevents
+the measured generated harness project's implicit SPI.CS-style entry names from
+competing with explicit SPI_CS-style wire labels. The native paired control and
+generated retry retain the same nine names/25 memberships, with zero warnings
+instead of four. The writer emits these options only when harness definition
+files are present. Source S-0734, ALTIUM-VERIFIED(author-report), AD 26.5.0,
+2026-10-13; the other naming options remain separately inferred.

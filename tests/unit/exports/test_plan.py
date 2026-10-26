@@ -208,3 +208,21 @@ def test_issue_codes() -> None:
     with pytest.raises(ValueError, match="never warning"):
         issue("export.failed", "m", severity="warning")
     assert isinstance(KINDS["gerbers"], Kind)
+
+
+def test_gerber_layers_of_a_panel_board(design: Design) -> None:
+    """Scenario "Gerber layers of a panel board" (change c0173): the score layer before ``Edge.Cuts``."""
+    import runpy
+
+    from _panels import PANELS, committed_board
+
+    from fenolite.backends.kicad.pcb import read_board
+    from fenolite.dsl import to_model
+    from fenolite.panel.build import kicad_panel
+
+    model = to_model(runpy.run_path(str(PANELS / "mixed.py"))["panel"])
+    output = kicad_panel(model, committed_board(10), target=10)
+    panel = read_board(output.files["mixed.kicad_pcb"].decode("utf-8"))
+    layers = gerber_layers(panel)
+    assert layers[-2:] == ("User.1", "Edge.Cuts")
+    assert gerber_layers(design)[-2] == "B.SilkS", "a board without a score layer keeps its list"

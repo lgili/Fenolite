@@ -146,9 +146,13 @@ def test_fat_count_covers_itself() -> None:
         assert (found.header.fat_sectors - 1) * 128 < used
 
 
-def test_too_large() -> None:
-    with pytest.raises(CompoundTooLarge):
-        write_compound([("Big", bytes(8_000_000))])
+def test_too_large(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``MAX_FAT_SECTORS`` is the most FAT sectors a version 3 file holds, so a file past it is refused and
+    the limit is read at call time; a file whose FAT only needs DIFAT sectors is written instead (change
+    c0160, ``test_cfb_difat.py``)."""
+    monkeypatch.setattr(cfb, "MAX_FAT_SECTORS", 2)
+    with pytest.raises(CompoundTooLarge, match="needs 4 FAT sectors"):
+        write_compound([("Big", _data(200_000))])
     assert issubclass(CompoundTooLarge, ValueError)
 
 

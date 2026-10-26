@@ -289,6 +289,11 @@ meaning = "Count of PCB components linked to a schematic component by designator
 fix = "Nothing to do; update the board from the schematic in Altium to restore the unique-id links."
 see = "Altium import"
 
+["altium.import.model-unread"]
+meaning = "An embedded 3D model of a component body is missing from the Models storage or does not inflate."
+fix = "Nothing to do for the board; the viewer draws that body extruded. Re-embed the model in Altium to see it in 3D."
+see = "Altium import"
+
 ["altium.import.multi-class"]
 meaning = "Count of nets in more than one net class; the first class by name is kept."
 fix = "Nothing to do; put each net in one class in Altium if the choice matters."
@@ -478,6 +483,11 @@ see = "Build target"
 meaning = "The PCB library or document would need more than 109 FAT sectors."
 fix = "Reduce the board content, for example the number of distinct footprints."
 see = "Build target"
+
+["altium.experimental"]
+meaning = "The emitted Altium formats still lack some graduation proofs."
+fix = "Read capabilities --json --no-tools: experimental.missing lists the remaining conditions for each format. Validate generated documents in Altium."
+see = "Discovery"
 
 ["altium.pcbdoc-not-written"]
 meaning = "The conditions for writing the PCB document do not hold, so only the other files are written; the message says which condition."
@@ -910,8 +920,8 @@ fix = "Set the class value of design.rules.netclass() to the target's width or g
 see = "build"
 
 ["build.impedance-gap-clearance"]
-meaning = "On KiCad 9 a pair target's gap is below the clearance of its class and the class has no pair gap at or below it, so KiCad 9 reports the clearance between the two tracks of the pair."
-fix = "Set diff_pair_gap= of design.rules.netclass() at or below the gap, or give the pair its own clearance with design.rules.pair(…, clearance=…)."
+meaning = "On KiCad 9 a pair target's gap is below the clearance of its class and the class has no pair gap at or below it, so KiCad 9 reports the clearance between the two tracks of the pair. On KiCad 10 the tuning profile relaxes that clearance, except where a custom clearance rule governs the pair: a rule above the gap is reported there as well."
+fix = "Set diff_pair_gap= of design.rules.netclass() at or below the gap, narrow a custom clearance rule so that it does not select the pair, or give the pair its own clearance with design.rules.pair(…, clearance=…)."
 see = "build"
 
 ["build.impedance-layer"]
@@ -1188,6 +1198,31 @@ meaning = "A waiver of the design script (design.waive) matched no finding of th
 fix = "Remove the waiver from the script, or name its items as the 'where' of the finding prints them, then build again."
 see = "check"
 
+["convert.changed"]
+meaning = "Items of the kind that 'where' names are written in another form that compares equal, such as a polygon written unpoured or a schematic generated from the circuit. The message counts them per reason."
+fix = "Nothing to do; repour the polygons in the target tool. result.report lists every reason."
+see = "convert"
+
+["convert.lossy"]
+meaning = "The converted project does not hold items of a kind that changes the board made or its bill of materials ('where' names the kind); --allow-lossy accepted the loss. The message counts them per reason."
+fix = "Read result.report; change the source so the target holds the items, or keep the loss."
+see = "convert"
+
+["convert.schematic-unverified"]
+meaning = "The schematic of a KiCad downgrade could not be compared with the source's at level 2: its netlist needs kicad-cli, which was not found, or the tool exported none. The board was compared."
+fix = "Install kicad-cli (or pass --kicad-cli) and convert again to check the schematic too."
+see = "convert"
+
+["convert.no-verify"]
+meaning = "The converted project was not read back and compared with the source (--no-verify), so nothing checks that it differs only where the report says; the evidence is UNVERIFIED."
+fix = "Run the conversion without --no-verify."
+see = "convert"
+
+["convert.unexplained"]
+meaning = "The converted project, read back, differs from the source at 'where', and no item that the report names as lost explains it: a writer changed the design without saying so. Nothing was written."
+fix = "Report it with the source; the message names the level, the kind and the two values."
+see = "convert"
+
 ["copper.clearance"]
 meaning = "Copper of two nets is closer than the clearance in force for the pair; 'where' names both items."
 fix = "Move the items apart, or correct the clearance of the net class or the rule."
@@ -1206,6 +1241,21 @@ see = "check"
 ["copper.keepout"]
 meaning = "A track, arc, via or pad lies in a keep-out (a rule area) whose settings forbid its kind, on a layer of the keep-out. KiCad's DRC reports the same item as items_not_allowed."
 fix = "Move the item out of the area, change what the area forbids, or build with --copper-check warn to write anyway."
+see = "check"
+
+["copper.edge-clearance"]
+meaning = "Copper (a track, arc, via, pad or zone fill) lies closer to the board edge, a cut-out or a slot than the edge clearance in force: the governing edge_clearance rule, else the board minimum (KiCad: min_copper_edge_clearance, 0.5 mm by default). The distance is to the edge line; the edge's stroke does not count. KiCad's DRC reports the same item as copper_edge_clearance."
+fix = "Move the copper or the part inward, away from the ring the finding names; never waive it. A rule for some nets (design.rules.rule(kind='edge_clearance')) sets their own value. Build with --copper-check warn to write anyway."
+see = "check"
+
+["copper.hole-in-cutout"]
+meaning = "A drilled hole (a pad's drill, a via's drill or a board hole) breaks into a milled cut-out or slot, or crosses the board edge: a hole wall that the milling cuts open cannot be made."
+fix = "Move the hole or the slot so that the drill lies wholly on the board, clear of every cut-out."
+see = "check"
+
+["copper.hole-overlap"]
+meaning = "Two drilled holes overlap. KiCad's DRC says nothing about two overlapping oval holes; Altium's Hole To Hole Clearance flags them."
+fix = "Move one hole; keep the overlap only when the two holes form one slot on purpose, or draw the slot as a milled design.slot()."
 see = "check"
 
 ["copper.rules-incomplete"]
@@ -1344,7 +1394,7 @@ fix = "Correct the footprint, or pass --tolerance-udeg when the difference is ro
 see = "equivalent"
 
 ["equiv.pad-shape"]
-meaning = "The shape of a pad differs between the two sides."
+meaning = "The shape of a pad differs between the two sides. An oval whose two sizes are equal within the length tolerance counts as a circle."
 fix = "Make the two designs agree, or name the known difference in an exclusion profile (--exclusions with --profile)."
 see = "equivalent"
 
@@ -1508,6 +1558,26 @@ meaning = "A rule area, text, drawing or dimension that an earlier build wrote h
 fix = "Nothing to do; put the call back to keep the item."
 see = "build"
 
+["kicad.downgrade.changed"]
+meaning = "A downgrade (fenolite convert to an older KiCad major) wrote constructs of the newer major in the target's form, or dropped them because the target behaves the same without them; the hint names the resolver row."
+fix = "Nothing to do: the target reads the design as the source holds it."
+see = "convert"
+
+["kicad.downgrade.design-loss"]
+meaning = "A downgrade would drop a construct of the newer major that changes what is made or checked (a design row of the capability resolver), and --allow-lossy was not given."
+fix = "Pass --allow-lossy to accept the loss that the report names, or keep the project at its own KiCad major."
+see = "convert"
+
+["kicad.downgrade.lost"]
+meaning = "With --allow-lossy, a downgrade dropped constructs that the target cannot hold: a drawing, a text or metadata (presentation) or a part of the design (design); the hint names the resolver row."
+fix = "Nothing to do if the loss is accepted; else keep the project at its own KiCad major."
+see = "convert"
+
+["kicad.downgrade.unresolved"]
+meaning = "A construct newer than the target has no row in the downgrade resolver's table, or is still there after its edit: a defect of the table, nothing is written."
+fix = "Report it with the file; keep the project at its own KiCad major meanwhile."
+see = "convert"
+
 ["kicad.board.dropped-too-new"]
 meaning = "With --allow-lossy, content that the target KiCad version cannot read was removed from the written board."
 fix = "Nothing to do if the loss is accepted; else target the newer KiCad with --kicad-version."
@@ -1548,6 +1618,11 @@ meaning = "Writing for KiCad 10 removed or converted content that only KiCad 9 w
 fix = "Nothing to do; KiCad 10 does the same when it saves the board."
 see = "KiCad output"
 
+["kicad.board.layer-undeclared"]
+meaning = "An item uses a layer absent from the board's declared layer table."
+fix = "Declare the intended layer or move the item to a declared layer; consent cannot waive this refusal."
+see = "KiCad output"
+
 ["kicad.board.opaque-net-ref"]
 meaning = "Kept content refers to a net in a form Fenolite does not know, or by a number absent from the file's net table, so the board cannot be written safely."
 fix = "Re-save the board in KiCad; if it stays, report the item that 'where' names."
@@ -1556,6 +1631,16 @@ see = "KiCad output"
 ["kicad.board.outline-conflict"]
 meaning = "The design has an outline and the board also holds edge graphics, so two outlines would be written."
 fix = "Keep one: remove the outline from the script, or the edge graphics from the board."
+see = "KiCad output"
+
+["kicad.board.outline-overlap"]
+meaning = "The model's cut-outs or slots overlap and the geo extra that writes their union is not installed; KiCad would call the outline invalid, so the board is not written."
+fix = "Install the extra (pip install 'fenolite[geo]'), or move the cut-outs and slots the message names apart."
+see = "KiCad output"
+
+["kicad.board.free-hole"]
+meaning = "The model holds holes outside every footprint (Board.holes); a KiCad board holds a hole only inside a footprint, so the board is not written."
+fix = "Declare a hole with design.hole(), or place a board-only footprint with an unnumbered np_thru_hole pad."
 see = "KiCad output"
 
 ["kicad.board.paper-unmodelled"]
@@ -1856,6 +1941,16 @@ see = "build"
 ["kicad.outline.invalid"]
 meaning = "The script's outline cannot be written: a ring crosses or touches itself, two rings cross or touch, a cut-out lies outside the board or inside another cut-out, or an arc or a ring breaks the model's form. KiCad 10 reports such a board as invalid_outline. Nothing is written."
 fix = "Keep every cut-out inside the board ring and clear of the edge and of the other cut-outs; the message names the rings."
+see = "build"
+
+["kicad.outline.merged"]
+meaning = "Cut-outs or milled slots of the script overlap: they are written as one ring, their union, with the arcs of every round end kept (the geo extra unites them). The message names the items."
+fix = "Nothing to do when the union is meant; move the items apart to keep them separate."
+see = "build"
+
+["kicad.outline.overlap"]
+meaning = "Cut-outs or milled slots of the script overlap, and their union cannot be computed because the geo extra is not installed. KiCad calls two overlapping cut-outs an invalid outline, so nothing is written."
+fix = "Install the extra (pip install 'fenolite[geo]') and build again, or move the items the message names apart."
 see = "build"
 
 ["kicad.outline.replaced"]
@@ -2908,3 +3003,148 @@ see = "place"
 meaning = "A supplied pad-distance objective is unmet or unknown."
 fix = "Review the named pad identities and distance target; routing remains a separate stage."
 see = "place"
+
+["build.altium-layout-conflict"]
+meaning = "A saved native schematic sheet no longer matches the fresh generated baseline, or was removed. No output is written."
+fix = "Keep the native layout snapshot and resolve the source change. To deliberately regenerate, archive altium-schematic-layout.json and build into a new folder; --discard-layout does not bypass a source snapshot."
+see = "build"
+
+["sync.altium-connectivity-changed"]
+meaning = "Native schematic edits changed component identities, symbol assignments, parameters or electrical connectivity."
+fix = "Resolve the difference between the saved sheets and the Python circuit before synchronising."
+see = "sync"
+
+["sync.altium-unverified"]
+meaning = "The generated baselines or edited sheets are incomplete, altered or unresolved, or the project sheet list or netlist options changed."
+fix = "Restore the complete generated project, retain component IDs and resolve reader findings before synchronising."
+see = "sync"
+
+["composition.invalid-intent"]
+meaning = "Block declarations or sheet membership conflict."
+fix = "Resolve the named members, anchors or ordering."
+see = "build"
+
+["composition.overflow"]
+meaning = "A block cannot fit the selected paper."
+fix = "Choose a larger sheet or split the functional blocks."
+see = "build"
+
+["composition.overlap"]
+meaning = "Computed presentation geometry intersects occupied content."
+fix = "Separate the named blocks or simplify their contents."
+see = "build"
+
+["composition.template-unverified"]
+meaning = "Template occupancy cannot be verified."
+fix = "Use a template with bounded graphics and text."
+see = "build"
+
+["composition.transform-unsupported"]
+meaning = "A symbol transformation cannot preserve its geometry."
+fix = "Use a supported symbol or retain its original orientation."
+see = "build"
+
+["composition.connectivity-changed"]
+meaning = "The composed native schematic changes electrical meaning."
+fix = "Report the named net or pin as a generator defect."
+see = "build"
+
+["composition.budget-exhausted"]
+meaning = "Deterministic placement search exhausted its candidate budget."
+fix = "Reduce sheet congestion or split blocks."
+see = "build"
+
+["composition.label-fallback"]
+meaning = "A local wire could not be drawn safely; labels retain the net."
+fix = "Inspect the named endpoints in the generated preview."
+see = "build"
+
+["panel.vscore-copper"]
+meaning = "Copper of a copy lies nearer to a V-score line than the clearance (0.45 mm by default, S-0799): the scoring blade may cut or expose it. 'where' names the copy and the score line."
+fix = "Move the copper away from that board edge, separate that edge set with tabs (separate('tabs', between=…)), or give your fabricator's figure with vscore(clearance=…) or limits={'vscore_copper': …}."
+see = "panel"
+
+["panel.vscore-shape"]
+meaning = "A V-scored edge set was given a gap: scored boards touch, the score line runs on their common edge."
+fix = "Drop the gap of that axis from grid(), or separate that edge set with tabs."
+see = "panel"
+
+["panel.vscore-spacing"]
+meaning = "Two parallel score lines are nearer than a fabricator allows: an error under 2 mm (S-0796), a warning under 5 mm (S-0801)."
+fix = "Use larger boards, tab one of the edge sets, or give your fabricator's figure with limits={'vscore_spacing': …}."
+see = "panel"
+
+["panel.vscore-thickness"]
+meaning = "The board is too thin for V-score (an error under 0.6 mm, S-0794; a warning under 0.8 mm, S-0801), or states no thickness (info)."
+fix = "Tab the edge sets instead, or confirm with your fabricator and set limits={'vscore_thickness': …}."
+see = "panel"
+
+["panel.tab-copper"]
+meaning = "Copper of a copy lies nearer to a mouse-bite hole than 0.25 mm (outer layers) or 0.40 mm (inner layers) (S-0799): breaking the tab may damage it."
+fix = "Move the copper away from the edge, move the tabs with tabs(pitch=…), or keep the holes tangent (tabs(inset=0))."
+see = "panel"
+
+["panel.gap"]
+meaning = "A routed gap is narrower than the routing tool: an error under 1.2 mm (S-0795), a warning under 2 mm (S-0798)."
+fix = "Widen the gap with grid(gap=…), or give your fabricator's figure with limits={'gap': …}."
+see = "panel"
+
+["panel.tab-count"]
+meaning = "A mouse bite has fewer holes than advised (5, S-0795), a copy is held by one tab (warning), or a copy is held by nothing (error)."
+fix = "Use tabs(holes=5) or more, or a smaller tabs(pitch=…), so that every copy is held by two tabs or a score line."
+see = "panel"
+
+["panel.tab-spacing"]
+meaning = "Tabs along one edge lie farther apart than advised (60 mm, S-0795)."
+fix = "Give a smaller tabs(pitch=…)."
+see = "panel"
+
+["panel.fiducial-place"]
+meaning = "A fiducial is off the rails, its centre is nearer than 3.85 mm to the panel's edge (S-0794), or a side has fewer than three (S-0797)."
+fix = "Place fiducials on the rails with fiducials(), or move them with fiducial(ref, x, y)."
+see = "panel"
+
+["panel.tooling-place"]
+meaning = "A tooling hole is not wholly on a rail (S-0800), or tooling_holes() found no pair of rails to hold them."
+fix = "Add rails with rails(…), or place the hole with tooling_hole(ref, x, y)."
+see = "panel"
+
+["panel.size"]
+meaning = "The panel is smaller than 50 mm or larger than 250 mm a side (S-0800, S-0795), or a scored panel is under 70 × 70 mm (S-0794)."
+fix = "Change the grid or the rails; confirm the sizes your fabricator takes."
+see = "panel"
+
+["panel.board-outline"]
+meaning = "The board named by the panel has no closed outline, or its outline is not one rectangle: this release panels rectangular boards."
+fix = "Give the board a closed rectangular outline on Edge.Cuts and build it again."
+see = "panel"
+
+["panel.no-fit"]
+meaning = "fit() found no copy of the board that fits the asked size with these rails and gaps."
+fix = "Ask for a larger size, or narrower rails or gaps."
+see = "panel"
+
+["panel.net-collision"]
+meaning = "Two copies' nets would take the same name B<k>/<name>."
+fix = "Rename the board's nets so that none starts with B<k>/."
+see = "panel"
+
+["panel.source-unreachable"]
+meaning = "The panel's Altium document cannot name the board's document by a path relative to it."
+fix = "Write the panel in a folder on the same drive as the board's document."
+see = "panel"
+
+["panel.altium-cutout"]
+meaning = "A copy has cut-outs or slots, which a flattened Altium panel cannot hold yet (board cut-out regions wait on Part S)."
+fix = "Panel the board for KiCad, or remove its cut-outs and slots."
+see = "panel"
+
+["altium.panel-flattened"]
+meaning = "The Altium panel is written flattened (copies of every item of the board), not as Altium's Embedded Board Array, which waits on the maintainer's kit (pcbdoc.EMBEDDED_ARRAYS). 'message' gives the reason."
+fix = "Nothing to do; Altium can still place an array by hand on the flattened panel."
+see = "panel"
+
+["panel.output-changed"]
+meaning = "A file that the last fenolite panel wrote was changed since; the panel is not written over it."
+fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
+see = "panel"

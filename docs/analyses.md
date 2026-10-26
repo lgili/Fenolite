@@ -88,7 +88,14 @@ The creepage of two nets is the shortest path **along the board surface** betwee
 two outer faces.
 
 - **The surface.** The two outer faces inside the outline, less every cut-out, joined by a wall of the
-  board thickness along every boundary edge.
+  board thickness along every boundary edge. A milled slot of the model (`Outline.slots`, change c0167)
+  is a cut-out here, its round ends polygonised like any arc, and overlapping cut-outs and slots count
+  as their union (`docs/geometry.md`, "Union of curved rings"). That union needs the `geo` extra: without
+  it the boundary's `problem` is `overlap-needs-geo` and `fenolite analyze` exits 6
+  (`geometry.backend-unavailable`) for the distance kinds. A slot gives exactly the creepage of the same
+  stadium drawn with `cutout(shape.stadium(…))`, and two overlapping slots that of their merged ring
+  drawn by hand as one cut-out: the rings are the same, so the paths are (change c0169,
+  `tests/unit/analysis/test_creepage_slots.py`).
 - **The path.** A chain of straight legs on a face that stay on the board, wall drops at boundary
   vertices, and wall crossings through the interior of one boundary edge, straight in the plane that
   unfolds the two faces and the wall. Paths bend only at boundary vertices and meet a conductor at the
@@ -232,7 +239,9 @@ width (`--groove-width`, or `groove_nm` of a distance row) a creepage path cross
 that width as if it were not there (`H-G-AN-GROOVE`):
 
 - a **cut-out** is bridged whole when it has a double normal shorter than the width: a chord inside it
-  that meets its boundary at right angles at both ends. For a slot that is its width;
+  that meets its boundary at right angles at both ends. For a slot, milled (`design.slot()`) or drawn as
+  a cut-out, that is its width: a groove width above it bridges the slot, one at it or below does not.
+  The sides of a slot turned at an angle are rounded to the nanometre, so its width holds within 1 nm;
 - a **pocket** of the outline, the region between an edge of the outline's convex hull and the outline,
   is filled when its mouth is shorter than the width.
 

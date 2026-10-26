@@ -2,7 +2,9 @@
 
 ## Purpose
 Map what the Altium readers return onto the design model: units and frame, identifiers and provenance, layers, nets, footprints, padstacks, copper, zones, outline, the circuit of a schematic with its hierarchy, buses and harnesses, rules and libraries. It defines the registered Altium backend, the import issue codes, the count of unmapped records and the oracles that judge the result.
+
 ## Requirements
+
 ### Requirement: Adapter package
 Fenolite SHALL provide the adapter from the Altium readers' records into the neutral model as the package `fenolite.backends.altium.adapter`.
 - It MUST export `import_board(doc, *, file, sha256, issues=None) -> Design`, `import_circuit(sheets, *, options=NetOptions(), issues=None) -> Circuit`, `import_project(project: ProjectInput, *, issues=None) -> Design`, `import_footprints(library, *, name, file, sha256, issues=None) -> Library`, `import_symbols(library, *, name, file, sha256, issues=None) -> Library`, `netlist(sheets, *, options=NetOptions(), issues=None) -> Netlist`, the dataclasses `SheetInput`, `BoardInput`, `RulesInput`, `ProjectInput`, `NetOptions`, `Netlist`, `NetGroup`, `BusGroup`, `HarnessGroup` and `PinKey`, the tables `LAYERS`, `PIN_TYPES`, `EXT_KEYS` and `IMPORT_ISSUE_CODES`, and `EVIDENCE`.
@@ -92,7 +94,9 @@ Every entity the adapter creates SHALL have an id by "Identifier derivation" of 
 ### Requirement: Extension bags
 The adapter SHALL keep in `ext["altium"]` what a record states about an entity and the model has no field for, as `ExtBag(min_version=None, payload=…)` with pairs in the order of the closed table `adapter.EXT_KEYS`.
 - The pair `("u", "<field>=<integer>,…")` MUST list, in model field order, the original integer of every converted length of the entity whose conversion was inexact; `("deg", "<field>=<float.hex()>,…")` likewise for inexact angles.
-- `EXT_KEYS` MUST be closed, and each key MUST be a row of `docs/formats/altium/import.md`. It MUST hold at least: `u`, `deg`, `layer_id` and `altium_name` (layers), `plane_net` (a plane layer), `origin` (the board), `stack_mode`, `corner_percent`, `paste`, `mask`, `plated` (pads), `via_layers` (a via whose start and end are not the outer layers), `net` (a copper graphic with a net), `pour_index`, `hatch_style` (zones), `component_kind`, `part_ids`, `source_designator`, `source_lib_reference` (components and footprints), `electrical` (a pin type outside the table), `pin_symbols` (symbol definitions), `alias` (nets, one pair per further name), `classes` (a net in more than one class), `label` (buses), `harness_type` (interfaces), `scope1`, `scope2`, `rule_kind` (rules).
+- An `Arc`, and a `Graphic` of kind `arc`, that is read from an arc record of `Arcs6` MUST hold the pair `("arc", "<centre x>,<centre y>,<radius>,<start angle>,<end angle>")` (change c0127): the centre and the radius as the record's integers of 1/10 000 mil in the document's frame (Y up), and the two angles as `float.hex()` of the stored doubles. The model holds three points, each rounded to a nanometre, and the record's centre and radius cannot be recovered from them in every case; the pair holds them, so that a write can give the record back (`altium-pcb-writer`, "Imported boards are written from the model"). A full circle, which becomes a `circle` graphic, and an arc of the board outline, which is a vertex of the board record and no arc record, hold no such pair. The pair enters no id: the content id of an arc is that of its model fields.
+- A `Via` whose record names layers without a pad shape ("Tracks, arcs and vias") MUST hold the pair `("pad_removed", "<layer id>,…")` (change c0132): the Altium layer ids of the record, in ascending order, as decimal integers. The model's `Via` holds one diameter, so the pair is the only place where the import says on which layers the via has none. The pair enters no id.
+- `EXT_KEYS` MUST be closed, and each key MUST be a row of `docs/formats/altium/import.md`. It MUST hold at least: `u`, `deg`, `layer_id` and `altium_name` (layers), `plane_net` (a plane layer), `origin` (the board), `stack_mode`, `corner_percent`, `paste`, `mask`, `plated` (pads), `via_layers` (a via whose start and end are not the outer layers), `pad_removed` (a via without a pad shape on some layers), `arc` (an arc that an arc record gave), `net` (a copper graphic with a net), `pour_index`, `hatch_style` (zones), `component_kind`, `part_ids`, `source_designator`, `source_lib_reference` (components and footprints), `electrical` (a pin type outside the table), `pin_symbols` (symbol definitions), `alias` (nets, one pair per further name), `classes` (a net in more than one class), `label` (buses), `harness_type` (interfaces), `scope1`, `scope2`, `rule_kind` (rules).
 - A value MUST be text taken from the record or a decimal integer; no bag MUST hold bytes, and no bag MUST hold a key outside `EXT_KEYS`.
 - The model is a projection of the records, not their container: a record or a key the adapter does not map stays in the reader's document and is counted by "Unmapped records are counted".
 
@@ -100,6 +104,16 @@ The adapter SHALL keep in `ext["altium"]` what a record states about an entity a
 - **GIVEN** a free track from (25, 0) to (125, 0) units, 75 units wide
 - **WHEN** the board is imported
 - **THEN** the track's `altium` bag holds the pair `("u", "start.x=25,end.x=125,width=75")`, and `nm_to_u` of the model values is not needed to recover them
+
+#### Scenario: Arc record kept
+- **GIVEN** a free arc on the top copper layer with the centre (1 000 000, 2 000 000) units, the radius 100 units and the angles 30 and 35 degrees, and the same arc on a mechanical layer
+- **WHEN** the board is imported
+- **THEN** the `Arc` and the `arc` graphic both hold the pair `("arc", "1000000,2000000,100,0x1.e000000000000p+4,0x1.1800000000000p+5")`, and a full circle of the same centre and radius holds no pair `arc`
+
+#### Scenario: Layers without a pad shape kept
+- **GIVEN** a six-layer document with a through via whose record holds a non-zero byte for the layers 2, 4 and 5, and the same via with a table of zeros
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_copper.py -k pad_removed` imports it
+- **THEN** the first via holds the pair `("pad_removed", "2,4,5")`, the second holds no such pair, and both have the id, the diameter and the layers they have without the bytes
 
 #### Scenario: Closed key table
 - **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_ext.py -k closed` imports every authored Altium file under `tests/data/altium/`
@@ -109,10 +123,10 @@ The adapter SHALL keep in `ext["altium"]` what a record states about an entity a
 `import_board` SHALL give the board its layers and stack-up from `BoardRecord`, with neutral names from the closed table `adapter.LAYERS`.
 - **Copper by position.** The copper layers are `BoardRecord.copper_chain`. The first MUST be `F.Cu`, the last `B.Cu`, and the j-th layer between them `In<j>.Cu`, whatever its Altium id: a mid layer and an internal plane are named alike. A chain of one layer, or an empty chain, MUST give `altium.import.bad-stack` (error) and the layers `F.Cu` and `B.Cu`.
 - **Other layers.** 33 and 34 are `F.SilkS` and `B.SilkS`, 35 and 36 `F.Paste` and `B.Paste`, 37 and 38 `F.Mask` and `B.Mask`, 56 `Altium.KeepOut` (kind `user`), 57 to 72 `Mech.<n>` for Mechanical n (kind `mechanical`), 55 `Altium.DrillGuide` and 73 `Altium.DrillDrawing` (kind `user`). Layer 74 (Multi-Layer) is no model layer: an object on it lies on every copper layer.
-- A `Layer` MUST be created for every copper layer of the chain, for `Edge.Cuts` (kind `edge`), and for every other layer that at least one imported object lies on. `Layer.ordinal` MUST be the chain position for copper (0 for `F.Cu`), and for the others the Altium id plus 100, so the order is stable. `Layer.ext["altium"]` MUST hold `layer_id`, `altium_name` (the name the record gives the layer, which a user may have changed) and, for a plane with a net, `plane_net`.
+- A `Layer` MUST be created for every copper layer of the chain, for `Edge.Cuts` (kind `edge`), and for every other layer that at least one imported object lies on. `Layer.ordinal` MUST be the chain position for copper (0 for `F.Cu`), and for the others the Altium id plus 100, so the order is stable. `Layer.ext["altium"]` MUST hold `layer_id`, `altium_name` (the name the record gives the layer, which a user may have changed) and, for a plane with a net, `plane_net`. The layer of an internal plane on which the import left objects out ("Objects on an internal plane") MUST also hold `plane_cuts`, their number as a decimal integer; a layer without such an object MUST NOT hold the key.
 - A primitive on a copper id outside the chain, or on an id outside the table, MUST go to the layer `Altium.<id>` (kind `user`) with one `altium.import.layer-outside-stack` warning per id.
 - **Stack-up.** When `BoardRecord.stack` holds copper or dielectric entries, `Board.stackup` MUST hold one `StackLayer` per such entry, top to bottom: copper entries with the neutral copper name, kind `copper` and the copper thickness; dielectric entries with kind `dielectric`, the height as thickness, and `material`, `epsilon_r` and `loss_tangent` as the record's decimal texts. Otherwise the stack-up MUST be built from the numbered layers of the chain (`COPTHICK`, `DIELHEIGHT`, `DIELCONST`, `DIELMATERIAL`), one dielectric between each pair of neighbours. Entries of the physical list of any other kind (overlays, paste, solder mask and their coverlay dielectrics) MUST be kept out of the stack-up: saved documents list them around the copper, and the scenario below counts copper and dielectric only.
-- A plane layer MUST stay a `Layer` of kind `copper` (c0038, Decision 5). No zone MUST be synthesised for a plane.
+- A plane layer MUST stay a `Layer` of kind `copper` (c0038, Decision 5). No zone MUST be synthesised for a plane. An internal plane is a layer of the chain whose Altium id is 39 to 54, whatever `PLANE<n>NETNAME` holds. The model holds nothing of a plane's own copper: the document stores a plane in negative, as the objects that cut it.
 
 #### Scenario: Two-layer board
 - **GIVEN** `tests/data/altium/blink/blink.PcbDoc`
@@ -151,11 +165,11 @@ The adapter SHALL keep in `ext["altium"]` what a record states about an entity a
 - `position` MUST be the converted `x`, `y`; `side` `bottom` when `layer` is `BOTTOM`, else `top`; `locked` from the record; `lib_ref` `<stem of source_footprint_library>:<pattern>`, or the pattern alone when the library text is empty.
 - `rotation` MUST be the model angle `θ` for which `Transform.placement(position, θ, mirror=(side == "bottom"))`, followed by the Y flip, is the placement the writer of c0035 writes as `ROTATION` (its inverse): reading a document that Fenolite wrote gives the rotation it was written from.
 - **Pad frame.** `Pad.position` MUST be the point `p` for which `Transform.placement(position, rotation).apply(p)`, without a mirror, is the pad's absolute position, and `Pad.rotation` the pad's angle minus the instance's, as "Board entities read from file backends" requires. A bottom footprint therefore holds mirrored pad coordinates, as a bottom footprint read from a KiCad board does.
-- `Pad.number` is the pad name. `Pad.kind` MUST be `thru_hole` for a hole above 0 that is plated, `np_thru_hole` for one that is not, and `smd` otherwise. `Pad.drill` is the hole size, `None` without a hole. `Pad.shape` MUST be `circle` for shape 1 with equal sizes, `oval` for shape 1 with unequal sizes, `rect` for 2, `roundrect` for shape 1 with alternate shape 9 (the percentage in the pair `corner_percent`), and `custom` for 3 (octagonal) and any other value, with the value in the bag.
+- `Pad.number` is the pad name. `Pad.kind` MUST be `thru_hole` for a hole above 0 that is plated, `np_thru_hole` for one that is not, and `smd` otherwise. `Pad.drill` is the hole size, `None` without a hole. `Pad.shape` MUST be `circle` for shape 1 with equal sizes, `oval` for shape 1 with unequal sizes, `rect` for 2, `roundrect` for shape 1 with alternate shape 9 (the percentage in the pair `corner_percent`, and `Pad.corner_ratio` 5 000 ppm per percent), and `custom` for 3 (octagonal) and any other value, with the value in the bag.
 - `Pad.layers` MUST be real layers: every copper layer of the chain for a pad on Multi-Layer, else the one copper layer of the pad. Mask and paste layers are not listed; an expansion and its mode go to `paste` and `mask` as `<mode>,<expansion in units>` when the mode is not 1 (the expansion follows a rule), so a pad with rule expansions has no such pair.
 - `Pad.net_id` MUST be the net of the pad's net index, `None` without one.
 - `attributes` MUST be `("through_hole",)` when a pad has a hole, `("smd",)` when the footprint has pads and none has a hole, and `()` without pads.
-- Tracks, arcs, texts, fills and regions that carry a component index MUST NOT become board objects: they are counted as `footprint-graphics` in `altium.import.unmapped`. A pad without a component index MUST become a footprint of its own with `attributes == ("board_only",)`, the reference `""` and `lib_ref == ""`.
+- Tracks, arcs, texts, fills and regions that carry a component index MUST NOT become board objects: they become the graphics, the fields and the texts of their footprint ("Graphics, fields and texts of a component"). Only the primitives of a component whose record gives no readable position, and the primitives of a component on an internal plane (a line there is a cut in the plane: `altium-import`, "Objects on an internal plane"), are still counted as `footprint-graphics` in `altium.import.unmapped`. A pad without a component index MUST become a footprint of its own with `attributes == ("board_only",)`, the reference `""` and `lib_ref == ""`.
 - A component index that names no record is reported by the reader; the adapter MUST treat such a primitive as free.
 
 #### Scenario: Placements of the blink sample
@@ -171,6 +185,14 @@ The adapter SHALL keep in `ext["altium"]` what a record states about an entity a
 - **GIVEN** a document with one pad whose component index is `0xFFFF`
 - **WHEN** it is imported
 - **THEN** the board holds a footprint with `attributes == ("board_only",)` and that one pad at local position (0, 0)
+
+#### Scenario: Silkscreen of the blink sample
+- **WHEN** `tests/data/altium/blink/blink.PcbDoc` is imported
+- **THEN** its three footprints hold 27 graphics in all (24 lines and 3 arcs), each footprint holds the fields `Reference` and `Value`, and `altium.import.unmapped` names no `footprint-graphics`
+
+#### Scenario: Corner ratio of the blink sample
+- **WHEN** the same document is imported
+- **THEN** each of its 34 pads of shape `roundrect` has `corner_ratio` equal to 5 000 times the value of its pair `corner_percent`
 
 ### Requirement: Padstacks of imported pads
 A pad whose geometry differs per layer, whose hole is not round or whose copper is offset from its hole SHALL get a `Padstack` in the form of "Padstack holes and offsets" of `design-model`.
@@ -199,15 +221,22 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 ### Requirement: Tracks, arcs and vias
 `import_board` SHALL map free copper primitives to `Track`, `Arc` and `Via`.
-- A track or an arc on a copper layer of the chain, without a component index and without a polygon index, MUST become a `Track` (`start`, `end`, `width`, `layer`, `net_id`) or an `Arc` (`start`, `mid`, `end`, `width`, `layer`, `net_id`). A full circle (0 to 360 degrees) on copper has no `Arc` form and MUST become a `Graphic` of kind `circle` with the pair `net`.
+- A track or an arc on a copper layer of the chain that is no internal plane, without a component index and without a polygon index, MUST become a `Track` (`start`, `end`, `width`, `layer`, `net_id`) or an `Arc` (`start`, `mid`, `end`, `width`, `layer`, `net_id`). A full circle (0 to 360 degrees) on copper has no `Arc` form and MUST become a `Graphic` of kind `circle` with the pair `net`.
+- A track or an arc on the layer of an internal plane, without a component index and without a polygon index, MUST NOT become a `Track`, an `Arc` or a `Graphic`, with or without a net ("Objects on an internal plane"). No view of the imported board has to take such an item out again.
 - A track or an arc with a polygon index is poured copper of a zone ("Zones from polygons") and MUST NOT become a board track.
 - A via MUST become `Via(position, diameter, drill, layers, net_id, via_type)`. `layers` MUST be the two neutral copper names of its start and end layers. `via_type` MUST be `through` when they are the outer layers, `blind` when exactly one is, and `buried` otherwise; `micro` is never inferred. A start or end layer outside the chain MUST give `altium.import.via-span` (warning), the outer layers and the pair `via_layers`.
+- A via whose record names layers without a pad shape (`read.pcbprims.via_pad_removed`; `altium-pcb-reader`, "Removed pad shapes of a via record") MUST hold the pair `pad_removed` with those layer ids (change c0132). Its `diameter`, `layers`, `via_type` and id MUST be those of the same record without the bytes: the model holds one diameter for a via, and what stands on a layer without a pad is said by the pair alone (`altium-verification`, "Clearance rules of a PCB document").
 - A width, a diameter or a hole of 0 or less MUST give `altium.import.bad-geometry` (warning) and leave the record unmapped.
 
 #### Scenario: Routed sample
 - **GIVEN** the PCB document of `tests/data/altium/routed/` of c0038
 - **WHEN** it is imported and compared with the model the build wrote it from
 - **THEN** the tracks, arcs and vias are equal in number, and each has the model's layer, net name, width or diameter and drill within 2 nm, and end points within 2 nm after the common translation
+
+#### Scenario: Line on a plane is no track
+- **GIVEN** a document whose chain is 1 → 39 → 3 → 32 with one free track without a net on layer 39, one free track without a net on layer 3 and one free track on the net `GND` on layer 1
+- **WHEN** it is imported
+- **THEN** the board holds two tracks, on `In2.Cu` and on `F.Cu`, with the ids and the locators they have in the import of the same document without the track on layer 39, and no track, arc or graphic on `In1.Cu`
 
 #### Scenario: Blind via
 - **GIVEN** a four-layer document with a via from layer 1 to layer 2
@@ -248,8 +277,9 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 `import_board` SHALL map the board outline and the free primitives that are not copper connections.
 - **Outline.** `Board.outline` MUST be `None`, as for every imported board. Each segment of `BoardRecord.outline` MUST become one `Graphic` on `Edge.Cuts` with width 0: kind `line` for a line vertex, kind `arc` (three points) for an arc vertex. A segment of zero length is dropped.
 - A free track on a layer that is not copper MUST become a `Graphic` of kind `line`; a free arc one of kind `arc`, or `circle` for a full turn (centre and one point on the circle); a free fill one of kind `rect` when its rotation is a multiple of 90 degrees and of kind `polygon` (four corners) otherwise, `filled`; a free region one of kind `polygon`, `filled`.
-- A free fill or region on a copper layer MUST also become such a `Graphic`, with its net name in the pair `net`, and MUST be counted by one `altium.import.copper-shape` info per import. The model has no copper shape with a net.
-- A free text MUST become `Text(text, position, layer, size, thickness, rotation)`, `size` being the height on both axes. The text comes from the wide string when the record names one.
+- A free fill or region on a copper layer that is no internal plane MUST also become such a `Graphic`, with its net name in the pair `net`, and MUST be counted by one `altium.import.copper-shape` info per import. The model has no copper shape with a net.
+- A free text on a layer that is no internal plane MUST become `Text(text, position, layer, size, thickness, rotation)`, `size` being the height on both axes. The text comes from the wide string when the record names one.
+- A free fill, region or text on the layer of an internal plane MUST give no entity and MUST NOT be counted by `altium.import.copper-shape` ("Objects on an internal plane").
 - Primitives on `Altium.KeepOut` are graphics; no `Keepout` is synthesised.
 
 #### Scenario: Outline of the blink sample
@@ -263,11 +293,11 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **THEN** the board holds one filled `polygon` graphic on `F.Cu` whose bag holds `("net", "GND")`, no zone, and `altium.import.copper-shape` reports one shape
 
 ### Requirement: Component body records
-`fenolite.backends.altium.read.bodies` SHALL decode the component-body storages that c0041 keeps as bytes (the `Data` streams of `ComponentBodies6` and `ShapeBasedComponentBodies6` in `PcbDocument.storages`, and the `raw` of the type 12 `RawPrimitive` values of a library footprint; c0041 types no body field), and the adapter SHALL map each body to a `ComponentBody` ("Component bodies" of `design-model`).
+`fenolite.backends.altium.read.bodies` SHALL decode the component-body storages that c0041 keeps as bytes (the `Data` streams of `ComponentBodies6` and `ShapeBasedComponentBodies6` in `PcbDocument.storages`, and the `raw` of the type 12 `RawPrimitive` values of a library footprint; c0041 types no body field), and the adapter SHALL map each component-associated body to a `ComponentBody` ("Component bodies" of `design-model`).
 - `read_bodies(data: bytes, *, shape_based: bool = False, storage: str = "", issues=None) -> tuple[BodyRecord, ...]` MUST read the `Data` stream of `ComponentBodies6` or `ShapeBasedComponentBodies6`, and the body primitives (type 12) of a library footprint. `BodyRecord` MUST be a frozen dataclass with `index`, `raw`, `layer`, `component` (`None` for `0xFFFF`), `properties` (the record's property text as the reader's `PropertyRecord`), `outline` (as a region's) and typed views of the keys that `docs/formats/altium/pcb-bodies.md` lists: the standoff height, the overall height, the body projection, the identifier, the model name, the model id and the embed flag.
 - `encode(records) == data` MUST hold: the decoder keeps every byte. A record it cannot frame MUST be returned raw with one `altium.pcb-read.short-record` warning, as c0041's primitives are.
 - The module MUST obey the import rules of c0041's reader modules. A key MUST be typed only when its row of the fact page has a source; the page MUST say which rows are `INFERRED` (`H-A-IMP-BODY`).
-- The adapter MUST give each body with a component index to that component's `FootprintInstance.bodies`, in stream order, and each body of a library footprint to `FootprintDef.bodies`. `kind` MUST be `model` when the record names a model and `extruded` otherwise; `outline` the converted vertices in the footprint frame, without the repeated last vertex; `height` the overall height; `standoff` the standoff height; `layer` the neutral name of the body's layer; `model` the model name; `name` the identifier.
+- The adapter MUST give each body with a component index to that component's `FootprintInstance.bodies`, in stream order, and each body of a library footprint to `FootprintDef.bodies`. `kind` MUST be `model` when the record names a model and `extruded` otherwise; `outline` the converted vertices in the footprint frame, without the repeated last vertex; `height` the overall height; `standoff` the standoff height; `layer` the neutral name of the body's layer; `model` the model name; `name` the identifier. The adapter MUST derive authoritative signed z bounds and mounted-face orientation only from publicly evidenced body/projection semantics. Original native properties/raw bytes and model references MUST remain available independently of the projection. An unknown transform or model extent MUST retain those records and report unknown geometry with locators; it MUST NOT emit an invalid legacy body, discard native content or silently clamp its height.
 - A body without a component index, and model data of the `Models` storage, are unmapped.
 
 #### Scenario: Bytes kept
@@ -278,6 +308,11 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **GIVEN** an authored body record with four vertices, an overall height of 40 mil and a standoff of 0, with component index 0
 - **WHEN** the document is imported
 - **THEN** footprint 0 holds one `ComponentBody` with `kind == "extruded"`, `height == 1_016_000`, `standoff == 0` and four outline points in the footprint frame
+
+#### Scenario: Unproved signed projection
+- **GIVEN** an authored body record has a projection whose signed-height meaning is not registered
+- **WHEN** the adapter imports it
+- **THEN** raw native content and resources remain preserved and its neutral volume is explicitly unknown rather than dropped or clamped
 
 ### Requirement: Circuit synthesised from a board
 `import_board` SHALL synthesise the circuit of a PCB document read without its schematic, as "Components synthesised from a board" of `design-model` requires.
@@ -356,7 +391,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **Off-sheet connectors** (a power port record flagged as a cross-sheet connector) with one text join across the sheets that share a parent, in every scope (`H-A-IMP-OFFSHEET`).
 - Identifiers of different kinds never join by name. Names are compared without letter case.
 - A sheet symbol's file name MUST be matched to a sheet by file name without folder and without letter case; a name with `;` lists several sheets. A sheet that is not among the inputs MUST give `altium.import.sheet-missing` (warning), and its entries stay named points.
-- A sheet named by more than one sheet symbol MUST be instantiated once per symbol, each instance with its own unique-id path, and MUST give `altium.import.repeated-sheet` (warning): designators of repeated sheets are not annotated by this change. A designator with a `Repeat(` statement gives the same warning and one instance.
+- A sheet named by more than one sheet symbol MUST be instantiated once per symbol, each instance with its own unique-id path, and MUST give `altium.import.channels` (info); a sheet symbol whose designator is a `Repeat` statement is instantiated as "Repeated sheets as channels" says. The components of such instances are named as "Channel designators" says.
 - A sheet symbol that names one of its own ancestors MUST give `altium.import.sheet-loop` (error) and no descent.
 - `NetOptions` MUST be built from the project's `[Design]` options by `NetOptions.from_project(project)`; a hierarchy mode whose meaning c0042 marks unknown MUST give `altium.import.scope-unknown` (warning) and `automatic`.
 
@@ -483,8 +518,9 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 ### Requirement: Rules where they map
 `import_board` and `import_project` SHALL fill `Design.rules` from the rule records through the mapper of c0042, `read.rules.map_rules`, and SHALL never approximate a rule.
-- `adapter.rules.import_rules(records, ids, *, file, sha256, issues)` MUST call `map_rules(records, origin=<file name>)` with `records == [r.fields for r in doc.rules]`: `RuleRecord.fields` of c0041 is the record's whole pair list, which is the mapper's input. It MUST take from the returned `RuleMapping` the neutral rules and the unmapped list, and MUST NOT hold a rule table of its own. The kinds that map are those of c0042: Clearance, Width, Routing Via Style and Hole Size.
-- The adapter MUST keep each mapped rule's kind, name, limits, selectors, `priority` and `severity` as the mapper gives them, and MUST replace its header: the id and native id of "Identifiers and provenance" (also for the rule set), the provenance, and a bag with the pairs `rule_kind`, `scope1` and `scope2` in place of the mapper's.
+- `adapter.rules.import_rules(records, ids, *, file, sha256, issues, storage="Rules6", layers=None)` MUST call `map_rules(records, origin=<file name>, layers=layers)` with `records == [r.fields for r in doc.rules]`: `RuleRecord.fields` of c0041 is the record's whole pair list, which is the mapper's input. It MUST take from the returned `RuleMapping` the neutral rules and the unmapped list, and MUST NOT hold a rule table of its own. The kinds that map are those of c0042: Clearance, Width, Routing Via Style and Hole Size.
+- The adapter MUST keep each mapped rule's kind, name, limits, selectors, `priority` and `severity` as the mapper gives them, and MUST replace its header: the id and native id of "Identifiers and provenance" (also for the rule set), the provenance, and a bag with the pairs `rule_kind`, `scope1` and `scope2` in place of the mapper's record text, followed by the other pairs the mapper gave (`cell`, `cells_not_lifted`; `altium-project-reader`, "Cells of an object matrix"). The native id of a cell rule MUST end with `:<cell>`, so that the rules of one record have different ids.
+- `import_board` MUST pass the copper layers of the board as `layers` (`LayerMap.copper_layers()`: for each layer of the copper chain the name the board record gives it, its neutral name, and `inner_signal` for an id between the top layer's and the bottom layer's), so that a layer condition of a `Clearance` record maps where `altium-project-reader`, "More forms of a Clearance record", says it does. `adapter.layers.copper_layers_of(layers)` MUST give the same value from the `Layer` entities of an imported board, and `None` when a copper layer holds no `layer_id` and `altium_name` pair. The rules of a rule file are mapped without layers.
 - A layer name in a mapped rule MUST be the neutral name of "Layers and stack-up".
 - `priority` MUST be the record's, 1 the highest, as the model defines it. A disabled rule MUST NOT be mapped: the mapper lists it as unmapped with the reason `disabled`, because a rule of severity `ignore` would silence the rule that applies in its place.
 - Each unmapped rule MUST be counted by one `altium.import.rule-unmapped` info per rule kind, with the count and the mapper's reasons. The mapper's per-rule infos `altium.rule.unmapped` MUST NOT be forwarded; its other issues are.
@@ -504,6 +540,11 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - **GIVEN** a rule record whose first scope is `InPolygon`
 - **WHEN** it is imported
 - **THEN** `design.rules` does not hold it, and `altium.import.rule-unmapped` counts one rule of its kind with the mapper's reason
+
+#### Scenario: Layer conditions take the layers of the board
+- **GIVEN** a document of two copper layers named `Top Layer` and `Bottom Layer` whose `Rules6` holds the three records of "A clearance matrix on a two-layer board"
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_rules.py -k "take_the_layers or four_layers"` imports it
+- **THEN** `design.rules` holds the 5 mil rule with `layers == ("F.Cu", "B.Cu")` and the 10 mil rule, and one `altium.import.rule-unmapped` says `no-layer 1`; with a copper chain of four layers the two layer conditions are unmapped with `scope 2`
 
 ### Requirement: Footprint libraries
 `import_footprints` SHALL map a `PcbLibrary` to a `Library` of `FootprintDef`s.
@@ -538,7 +579,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 - For a design, `issues` MUST be the readers' issues, then the adapter's, then those of `design.validate()`; `evidence` MUST be `adapter.EVIDENCE`. In a project read, the project reader's `altium.project.document-outside` and `altium.project.document-missing` issues about a sheet or a PCB document are replaced by `altium.import.document-skipped`, so that one document gives one issue.
 - A project document outside the project folder, a missing document and a document that a reader refuses MUST NOT stop the import: each gives `altium.import.document-skipped` (warning) with the reason, and the design is built from the rest. A project file that names no readable sheet and no readable PCB document MUST raise `FormatError`.
 - Reader errors of the file that `read` was called on MUST be raised unchanged. The backend MUST call the readers in their lenient mode.
-- `capabilities()` MUST return `CAPABILITIES`: `read_kinds == ("altium_pcbdoc", "altium_pcblib", "altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")`, `write_kinds == ()`, `targets == ()`, `default_target is None`, `downgrade == "unsupported"`, `operations == ("detect", "read")` and `evidence == adapter.EVIDENCE`. The backend MUST NOT offer `write`, `lower` or `validate`; the writers stay experimental features of `build`.
+- `capabilities()` MUST return `CAPABILITIES`: `read_kinds == ("altium_pcbdoc", "altium_pcblib", "altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary", "altium_schlib")`, `write_kinds == ()`, `targets == ()`, `default_target is None`, `downgrade == "unsupported"`, `operations == ("detect", "read")` and `evidence == adapter.EVIDENCE`. The backend MUST NOT offer `lower` or `validate`. It offers `write(design, …)` for a model (`backend-protocol`, "Altium write of a model"; change c0090), which is experimental like the writers of `build`: the report names no write kind and lists no `write` operation until the writers leave that state.
 - Registering the backend MUST NOT change what `fenolite inspect` and `fenolite check` accept: `cli-contract` "Inspect command" and `verification-loop` "Check command input" decide that, and this change edits neither command.
 
 #### Scenario: Detection by suffix
@@ -556,7 +597,7 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 
 #### Scenario: Capability invariants
 - **WHEN** `uv run pytest tests/unit/backends/test_registry.py -k capability_invariants` checks every registered backend
-- **THEN** the Altium report lists only `detect` and `read`, both callable, with an empty `write_kinds`, empty `targets` and `default_target` `None`
+- **THEN** the Altium report lists only `detect` and `read`, both callable, with an empty `write_kinds`, empty `targets` and `default_target` `None`, and the backend has a callable `write` that the report does not list
 
 #### Scenario: Skipped document
 - **GIVEN** a copy of the blink project under `tmp_path` whose project file also lists `..\outside\x.SchDoc` and `missing.SchDoc`
@@ -566,8 +607,8 @@ A pad whose geometry differs per layer, whose hole is not round or whose copper 
 ### Requirement: Import issue codes
 Every issue of the adapter SHALL carry a code of the closed table `adapter.IMPORT_ISSUE_CODES`, which maps each code to its one severity, and `docs/cli-contract.md` SHALL list the table.
 - Errors: `altium.import.bad-stack`, `altium.import.sheet-loop`.
-- Warnings: `altium.import.bad-length`, `altium.import.bad-geometry`, `altium.import.layer-outside-stack`, `altium.import.duplicate-net`, `altium.import.unknown-member`, `altium.import.padstack-unknown`, `altium.import.via-span`, `altium.import.no-designator`, `altium.import.sheet-missing`, `altium.import.repeated-sheet`, `altium.import.scope-unknown`, `altium.import.duplicate-net-name`, `altium.import.duplicate-sheet-name`, `altium.import.bus-width`, `altium.import.harness-nested`, `altium.import.pcb-only-component`, `altium.import.document-skipped`, `altium.import.zone-hole-outside`.
-- Infos: `altium.import.inexact`, `altium.import.multi-class`, `altium.import.zone-arc`, `altium.import.copper-shape`, `altium.import.scope`, `altium.import.option-ignored`, `altium.import.bus-member`, `altium.import.harness-entry`, `altium.import.extra-board`, `altium.import.linked-by-designator`, `altium.import.pcb-only-net`, `altium.import.rule-unmapped`, `altium.import.unmapped`.
+- Warnings: `altium.import.bad-length`, `altium.import.body-unknown`, `altium.import.bad-geometry`, `altium.import.layer-outside-stack`, `altium.import.duplicate-net`, `altium.import.unknown-member`, `altium.import.padstack-unknown`, `altium.import.via-span`, `altium.import.no-designator`, `altium.import.sheet-missing`, `altium.import.repeated-sheet`, `altium.import.channel-naming`, `altium.import.scope-unknown`, `altium.import.duplicate-net-name`, `altium.import.duplicate-sheet-name`, `altium.import.bus-width`, `altium.import.harness-nested`, `altium.import.pcb-only-component`, `altium.import.document-skipped`, `altium.import.zone-hole-outside`.
+- Infos: `altium.import.inexact`, `altium.import.multi-class`, `altium.import.zone-arc`, `altium.import.copper-shape`, `altium.import.scope`, `altium.import.option-ignored`, `altium.import.pin-map`, `altium.import.channels`, `altium.import.bus-member`, `altium.import.harness-entry`, `altium.import.extra-board`, `altium.import.linked-by-designator`, `altium.import.pcb-only-net`, `altium.import.rule-unmapped`, `altium.import.unmapped`.
 - An issue's `where` MUST be a locator of "Identifiers and provenance", a reference, a `REF-PIN` or a net name; a counting issue's message MUST hold its counts.
 - An error issue never stops the import: the adapter raises only for a programming error and for a project with nothing to read.
 - No code of this table MUST equal a code of `fenolite.lens.altium.ALTIUM_ISSUE_CODES` or of the readers' tables.
@@ -578,7 +619,7 @@ Every issue of the adapter SHALL carry a code of the closed table `adapter.IMPOR
 
 ### Requirement: Unmapped records are counted
 The adapter SHALL report what it reads and does not map, so that nothing is dropped silently.
-- One `altium.import.unmapped` info per import MUST list, by kind and in sorted order, the count of every record that gave no model entity: `footprint-graphics`, `pour-primitives`, `region-holes`, `texts`, `classes`, `polygons`, `bodies`, `dimensions`, `schematic-graphics`, `symbol-graphics`, and the name of every storage that the readers keep as bytes and that is not empty.
+- One `altium.import.unmapped` info per import MUST list, by kind and in sorted order, the count of every record that gave no model entity: `footprint-graphics`, `pour-primitives`, `plane-cuts`, `region-holes`, `texts`, `classes`, `polygons`, `bodies`, `dimensions`, `schematic-graphics`, `symbol-graphics`, and the name of every storage that the readers keep as bytes and that is not empty.
 - The count of mapped entities plus the counts of this issue MUST equal the number of records the readers returned, per record kind.
 - Without anything unmapped, the issue is not given.
 
@@ -640,3 +681,212 @@ The facts and rules the adapter relies on SHALL be recorded with sources and evi
 - **WHEN** `uv run pytest tests/unit/test_format_facts.py tests/unit/test_hypotheses_register.py` runs
 - **THEN** both pass, every `H-A-IMP-*` id cited in the repository is a row of `docs/hypotheses.md`, and every source id of the three pages is a row of `docs/evidence/sources.md`
 
+### Requirement: Objects on an internal plane
+The import SHALL make no copper and no drawing of a free primitive that lies on the layer of an internal plane: such a layer is stored in negative, so an object on it is a place without copper (`docs/formats/altium/import.md`, "Layers"; `H-A-IMP-PLANE-CUT`).
+- A track, an arc (a full circle among them), a fill, a region or a text without a component index and without a polygon index, on a layer of the chain whose Altium id is 39 to 54, MUST give no `Track`, `Arc`, `Graphic` or `Text`, whatever its net index, its width and its radius are. It MUST NOT give `altium.import.bad-geometry`.
+- Each such record MUST be counted in the census under its record kind with the category `plane-cuts`, so that `altium.import.unmapped` names the count, and in the pair `plane_cuts` of its layer ("Layers and stack-up"). Its values stay in the reader's record at its index.
+- The other items of the import MUST keep their ids, their `native_ids` and their locators: a content id counts the earlier entities of equal content only, and no entity that is kept has the content of one that is left out.
+- A primitive with a component index or a polygon index on such a layer is not changed by this requirement: it is counted as `footprint-graphics`, `pour-primitives` or `polygons` as before. A pad and a via are not changed either.
+- The import MUST NOT synthesise a zone, a keep-out or any other entity for the plane or for what cuts it.
+
+#### Scenario: Every kind of object on a plane
+- **GIVEN** a document whose chain is 1 → 39 → 32 with, on layer 39 and free: a track without a net, a track on the net `GND`, an arc of 90 degrees, a full circle, a fill, a region and a text
+- **WHEN** it is imported
+- **THEN** the board holds no track, no arc, no text and no graphic outside `Edge.Cuts`, `altium.import.unmapped` lists `plane-cuts 7`, no `altium.import.copper-shape` and no `altium.import.bad-geometry` is given, the layer `In1.Cu` holds the pair `("plane_cuts", "7")`, and the census of each record kind adds up to the reader's count
+
+#### Scenario: Plane without a net name
+- **GIVEN** a document whose chain is 1 → 39 → 32 with `PLANE1NETNAME=(No Net)` and one free track on layer 39
+- **WHEN** it is imported
+- **THEN** the layer `In1.Cu` holds `plane_cuts` and no `plane_net`, and the board holds no track
+
+#### Scenario: Public documents with planes
+- **WHEN** `uv run pytest tests/kicad/equivalence/test_triangle_level5.py -k plane` compares Fenolite's read and KiCad's import of the public PCB documents that hold internal planes
+- **THEN** both reads hold the same number of tracks, and neither holds a track or an arc on the layer of a plane
+
+### Requirement: Copper locks from an Altium board
+`import_board` SHALL give each `Track`, `Arc` and `Via` that "Tracks, arcs and vias" maps the `locked` of its primitive: `True` when `Prefix.locked` is true (bit 2 of the first flag byte clear; `docs/formats/altium/pcb-read.md`, row `Prefix.locked`), `False` otherwise (`design-model`, "Copper locks in the board model"). This requirement adds one field beside "Tracks, arcs and vias" and changes none of its rules.
+- A document without a locked free primitive MUST import to the model it imported to before this change.
+- A document that Fenolite wrote from a model with locked copper MUST import with the same items locked ("Own files import to the model they were written from"), for the kinds of `pcbrecords.LOCK_WRITTEN`.
+- The level is that of the read row, `INFERRED`, until `H-A-PCB-CU-LOCK` is settled.
+
+#### Scenario: Locks survive the round trip
+- **GIVEN** the routed sample's model with one track, one arc and one via locked, built for Altium
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_own_files.py -k locked` imports the written project
+- **THEN** exactly the track, the arc and the via that were locked have `locked == True`
+
+#### Scenario: A document without locks
+- **WHEN** the PCB document of `tests/data/altium/routed/` is imported
+- **THEN** no track, arc or via has `locked == True`, and the imported model equals the one of before this change
+
+### Requirement: Via tenting of imported vias
+`import_board` SHALL map the two tenting flags of each via record to the via's protection: `Via.protection` MUST be `ViaProtection(tenting_front=<tented_top>, tenting_back=<tented_bottom>)`, both as booleans, and the six other fields MUST be `None`. This requirement adds one field to the `Via` that "Tracks, arcs and vias" maps; everything else there holds.
+- Both tenting fields MUST be explicit for every imported via, `False` for a clear flag: an Altium via carries its own flags and follows no board default, and a `None` would be read by the KiCad backend as "tented" (`kicad-file-backend`, "Via protection defaults on boards").
+- `Board.via_protection` of an imported board MUST be `None`: the PCB document holds no default that the reader reads.
+- Covering, plugging, capping and filling MUST stay `None`: no record read here states them.
+- The mapping has the label of the two fields it reads, `INFERRED` (`ViaRecord.tented_top`, `ViaRecord.tented_bottom`; `docs/formats/altium/pcb-read.md`), and `adapter` evidence MUST name `H-A-PCB-CU-VIATENT` beside the hypotheses of the via mapping. A clear flag is read as "not tented"; what the solder-mask expansion of the via does to its mask opening is not read.
+- The equivalence levels and RT-A2 do not compare `Via.protection`; `docs/altium.md` ("Round trips") MUST list the field among those left out, with the reason: a `None` has no Altium form, so a written and re-read model differs from the original where a side is stated nowhere.
+
+#### Scenario: Flags become tenting
+- **GIVEN** a PCB document with four vias whose flags are `0C`, `2C`, `4C` and `6C`
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_copper.py -k tenting` imports it
+- **THEN** the four vias have (`tenting_front`, `tenting_back`) = (`False`, `False`), (`True`, `False`), (`False`, `True`) and (`True`, `True`), every other field of their `protection` is `None`, and `board.via_protection` is `None`
+
+#### Scenario: Stated tenting survives the round trip
+- **GIVEN** a design whose two vias have `protect(tenting="front")` and `protect(tenting=False)`, built for the Altium target
+- **WHEN** the written PCB document is imported
+- **THEN** each imported via has the tenting of the via it was written from
+
+#### Scenario: An imported board written for KiCad
+- **GIVEN** the imported board of "Flags become tenting"
+- **WHEN** it is written with `write_board` for target 10
+- **THEN** the four vias hold `(tenting (front no) (back no))`, `(tenting (front yes) (back no))`, `(tenting (front no) (back yes))` and `(tenting (front yes) (back yes))`, and no via follows KiCad's board default
+
+### Requirement: Repeated sheets as channels
+The import SHALL instantiate the child sheet of a sheet symbol once per channel. `adapter.netlist.parse_repeat(text)` SHALL return `Repeat(name, first, last)` for a sheet symbol designator of the form `Repeat(NAME, a, b)` (case-insensitive keyword, unsigned integer bounds, a name that is not empty) and `None` for any other text.
+- A repeat MUST give `last - first + 1` instances, in index order. A sheet symbol without a repeat gives one instance, and two sheet symbols that name one file give one instance each.
+- Each instance of a repeat MUST be a `Module` whose name is the channel identifier followed by `[<index>]`, and whose extension bag holds the sheet symbol's unique id (`sheet_symbol`) and the index (`channel_index`).
+- The components, pins and local nets of the child sheet MUST exist once per instance, with ids derived from the instance path, so that two imports of one project give equal ids. A repeat has one unique id for all its channels: the native id of a component of channel `i` MUST name the sheet symbol as `<unique id>[<i>]`, a form of this import that is recorded in `docs/formats/altium/connectivity.md` as not Altium's.
+- A repeat that does not parse, whose first index is above its last, or that would bring the instances of the project above `MAX_CHANNELS` (256) MUST give one instance and `altium.import.repeated-sheet` (warning) naming the sheet symbol. An instantiated repeat MUST give `altium.import.channels` (info) with the sheet symbol and its count.
+- A project without a repeat and without a file named twice MUST import to the canonical model it imported to before this change, except for the `pin_pad_map` and the `pin_pads` bag pairs that "Pin-to-pad map of a footprint model" gives its components.
+- No public file of the corpus holds a `Repeat` statement: the facts of this requirement MUST be labelled `INFERRED` on the facts page, with `H-A-IMP-RPT-COUNT`, until an author report or a public file settles them.
+
+#### Scenario: Two channels
+- **GIVEN** the authored project `tests/data/altium/channels/two/` whose top sheet holds a sheet symbol `Repeat(CH,1,2)` on a child sheet with `R1` and `C12`
+- **WHEN** the folder is read and the import runs
+- **THEN** the circuit holds four channel components in the modules `CH[1]` and `CH[2]`, `altium.import.channels` names `CH` with the count 2, and no `altium.import.repeated-sheet` is reported
+
+#### Scenario: Unparsable repeat
+- **GIVEN** the same sheets with the designator `Repeat(CH,2,1)`
+- **WHEN** the import runs
+- **THEN** one instance is read and `altium.import.repeated-sheet` names `CH`
+
+#### Scenario: Single-channel projects unchanged
+- **WHEN** `uv run pytest tests/corpus/test_altium_channels.py -k unchanged` imports the corpus sets without a repeat
+- **THEN** none has a channel, a channel source or a channel issue
+
+### Requirement: Channel designators
+Each component of a channel SHALL get the designator its project gives it, from the first of these sources that knows it: (1) the component of the project's PCB document whose unique-id path names the channel's sheet symbol and the sheet component, whose own designator is taken (its source designator is the sheet's); (2) the entry of the project's annotation file for that unique-id path; (3) `adapter.channels.channel_designator(format, designator, names, style=…, separator=…, indexes=…)` with the designator format, the room naming style and the level separator of the project file, the designators of the sheet symbols from the top (for a repeat its channel identifier) and the channel index of each (`None` for a plain sheet symbol).
+- The keywords `KEYWORDS` and the styles `FLAT_STYLES`, `PATH_STYLES`, `NUMERIC_STYLES` and `ALPHA_STYLES` MUST be those recorded in `docs/formats/altium/connectivity.md`, each fact labelled. For a channel of a repeat, `$ChannelIndex` MUST be its index, `$ChannelAlpha` the letter of an index from 1 to 26, `$ChannelPrefix` the channel identifier, and the room name the identifier followed by the index or by its letter, as the style says.
+- A format with `$ChannelIndex` or `$ChannelAlpha` on a plain channel, a `$` that starts no keyword, a room name under a style outside the recorded ones, a letter for an index outside 1 to 26, the mixed style on a channel of a repeat, a flat style under a repeat higher up, and a format that would give the channels of one repeat one designator MUST NOT be guessed: the components get `<designator>@<channel path>`, where a channel of a repeat is written as its identifier followed by its index, and one `altium.import.channel-naming` (warning) gives their count. Sheets read without a project file MUST keep the designators of the sheet.
+- The import result MUST report, per source, how many components took their designator from it.
+- No two components of the imported circuit MAY share a reference because of a repeat; when sources 1 and 3 disagree for components, source 1 wins and one `altium.import.channel-naming` gives their count and both values of the first.
+- The unique-id path of a board component of a channel of a repeat has no recorded form (`UNKNOWN` on the facts page): the import MUST NOT try a path for it. A board component MAY link to such a channel component only when its own designator is the channel designator of source 3 and its source designator the designator of the sheet (`altium.import.linked-by-designator`); the channel components that no board component links to MUST be counted by one `altium.import.channel-naming`.
+- Source 2 MUST take the entry of `load_project(…).annotation_designators()` (carried by `NetOptions.annotations`) whose unique-id path is the channel component's. For one-level Repeat channels, it SHALL use the measured index-before-sheet-symbol-UID annotation path without changing canonical IDs or PCB linking. Unmeasured nested Repeat paths and components outside channels MUST NOT use this source. An absent or empty annotation file, or one without supported mappings, changes nothing.
+
+#### Scenario: Designators from the board
+- **GIVEN** the corpus project `altium-set:02`
+- **WHEN** it is imported and `fenolite check` runs on it
+- **THEN** no non-empty reference is held twice in the circuit, and every component of a repeated sheet has the designator of its board component
+
+#### Scenario: Designators from the naming format
+- **GIVEN** `tests/data/altium/channels/two/` without a PCB document and without an annotation file
+- **WHEN** the import runs
+- **THEN** the four references are those of `channel_designator` for the project's format (`R1_CH1`, `R1_CH2`, `C12_CH1`, `C12_CH2`), and the result counts four components for the source `format`
+
+#### Scenario: Designators from the annotation file
+- **GIVEN** a sheet named by the sheet symbols `CH1` and `CH2`, the format `$Component_$RoomName`, and annotation entries for `R1` of `CH1` (`R1A`) and `C12` of `CH2` (`C12B`)
+- **WHEN** the import runs without a PCB document
+- **THEN** the references are `R1A`, `R1_CH2`, `C12_CH1` and `C12B`, and the result counts two components for the source `annotation` and two for `format`
+
+#### Scenario: Indexed annotation distinguishes Repeat channels
+- **GIVEN** two one-level Repeat channels and distinct native annotation mappings for their resistor UID paths
+- **WHEN** the schematic is imported
+- **THEN** each mapping changes only its channel's resistor, preserving canonical component/module IDs and every net membership
+
+#### Scenario: Unmeasured nested annotation paths
+- **GIVEN** a Repeat channel nested inside another sheet level and an unmeasured native annotation path
+- **WHEN** the schematic is imported
+- **THEN** the format or fallback names remain, with no guessed native path association
+
+#### Scenario: Unknown format
+- **GIVEN** the same sheets with a designator format that holds a `$` word outside `KEYWORDS`
+- **WHEN** the import runs
+- **THEN** `altium.import.channel-naming` is reported once, and the references are `R1@CH1`, `R1@CH2`, `C12@CH1` and `C12@CH2`
+
+### Requirement: Channel nets
+The nets of a repeated sheet SHALL be resolved per channel.
+- A net that the child sheet does not export MUST be one net per channel. When a net label names it, its name MUST be the label as `channel_designator` renames a designator, with the label as an alias, and the label itself when the format cannot be applied; when no identifier names it, its system name MUST be built on the channel designator of its component (`Net<channel designator>_<pin>`).
+- A sheet entry `Repeat(NAME)` MUST connect the port `NAME` of channel `i` to member `i` of the parent's bus `NAME`, counted from the first channel in the order of the bus identifier; a parent that holds no such bus, or one with fewer members than channels, MUST give `altium.import.channel-naming` (warning) naming the entry and the count of channels left without a member. The statement MUST NOT name a net.
+- Any other sheet entry MUST connect every channel to the one parent net.
+- A global net label or power port MUST be one net for all channels, under the net identifier scope that "Net identifier scope" resolves.
+
+#### Scenario: Shared and per-channel nets
+- **GIVEN** `tests/data/altium/channels/two/`, whose child sheet has a port `VCC` under the entry `VCC`, a port `OUT` under the entry `Repeat(OUT)` and an internal net `MID`
+- **WHEN** the import runs
+- **THEN** `VCC` holds pins of both channels, `OUT1` and `OUT2` hold one channel each, and the circuit holds the two nets `MID_CH1` and `MID_CH2`
+
+#### Scenario: Corpus project agrees with its board
+- **WHEN** `uv run pytest tests/corpus/test_altium_channels.py -k nets` compares the imported schematic of `altium-set:02` with its PCB document
+- **THEN** no pin of a repeated sheet is on one side only, and none is on another net than its pad
+
+### Requirement: Pin-to-pad map of a footprint model
+When the current footprint model of a schematic component carries a pin map, the imported component SHALL carry it in `Component.pin_pad_map`, so that the elements of each mapped pin in the assignment comparison and in level 2 of `equivalent` are `REF-<pad>` for every pad the map gives the pin; without a map the pin number is the pad name. The members of the circuit's nets stay keyed by pin number.
+- A map record that lists several pads MUST give one pair per pad, in the order of the record ("Persist per-component pin-to-pad maps" of `design-model`): a pad listed twice gives one pair, and a record that lists the pin's own designator among several pads gives a pair of the pin with itself (`H-A-IMP-PINMAP-MULTI`).
+- `pin_pad_map` gives a pad one pin. The pins are taken in the order of the pin table; a pin without a record, a pin whose record lists its own designator, and a pin whose record lists no pad stand for the pad of their own designator before any other pin is taken. A pad that another pin already stands for MUST give no pair, and a pin none of whose pads gives a pair keeps its own designator. Each record of which a pad gave no pair, and each record that lists no pad, MUST be kept whole in the component's extension bag (`pin_pads`, `<pin>=<pad>,<pad>…`), and one `altium.import.pin-map` (info) per import MUST give their count. A record that the pairs say in full MUST NOT be in the bag and MUST NOT be counted, and an import without such a record MUST NOT report the code.
+- A record that names no pin of the component MUST be left out.
+- A net of the PCB document that the sheets lack MUST list the pin of each pad, through the map.
+
+#### Scenario: Mapped pins
+- **GIVEN** an authored sheet whose component `Q1` maps the pins `1, 2, 3` to the pads `G, D, S`
+- **WHEN** the schematic netlist of the import is built
+- **THEN** its elements for `Q1` are `Q1-G`, `Q1-D` and `Q1-S`
+
+#### Scenario: Several pads of one pin
+- **GIVEN** an authored sheet whose component maps pin `1` to the pads `1, 4`, pin `2` to `5, 6` and pin `3` to no pad
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_repeat.py -k pin_map` imports it
+- **THEN** `pin_pad_map` is `(("1", "1"), ("1", "4"), ("2", "5"), ("2", "6"))`, the bag holds the one record `3=`, `altium.import.pin-map` counts one, and the schematic netlist holds the elements `-1`, `-4`, `-5`, `-6` and `-3` of the component
+
+#### Scenario: Pad that another pin holds
+- **GIVEN** an authored sheet whose component has the pins `1` and `2` and maps pin `1` to the pads `2, 7`
+- **WHEN** the import runs
+- **THEN** `pin_pad_map` is `(("1", "7"),)`, the bag holds `1=2,7`, and `altium.import.pin-map` counts one
+
+#### Scenario: Board net through a pin of two pads
+- **GIVEN** an authored project whose sheet maps pin `3` of `U1` to the pads `3, EP`, and whose PCB document holds a net that the sheets lack on the pads `3` and `EP` of `U1`
+- **WHEN** `uv run pytest tests/unit/backends/altium/adapter/test_project.py -k several_pads` imports the project
+- **THEN** that net lists the pin `3` of `U1` once
+
+#### Scenario: The public set with such records
+- **WHEN** `uv run pytest tests/corpus/test_altium_channels.py -k pin_map` imports `altium-set:02` and compares its schematic with its PCB document
+- **THEN** no component holds a `pin_pads` record that lists several pads, and the comparison gives 698 common elements, 7 that only the schematic covers, 27 that only the PCB document covers and 2 differences (694, 7, 31 and 2 before this change); the other sets give the counts they gave
+
+### Requirement: Graphics, fields and texts of a component
+`import_board` SHALL give each `FootprintInstance` the primitives that carry its component's index and are no pad: tracks, arcs, fills and regions as `graphics`, the designator and the comment as the fields `Reference` and `Value`, and every other text as `texts` (`design-model`, "Graphics and texts of a footprint instance").
+- A track MUST become a `line`; an arc an `arc`, or a `circle` when its sweep is a full turn; a fill a filled `rect`, or a filled `polygon` when it is turned against the footprint by an angle that is no multiple of 90 degrees; a region a filled `polygon`, or the filled `rect` of a fill when it has four vertices that form a rectangle square to the footprint (the writer writes a filled rectangle as a region, and the two are one shape in the model). The mapping is that of a library footprint (`adapter.copper.definition_graphics`), in the order tracks, arcs, fills, regions and, within each, record order.
+- Points and angles MUST be taken into the footprint frame with the inverse of `Transform.placement(position, rotation)`, the transform of the pads of "Footprint instances and pads", so a bottom footprint holds mirrored coordinates and its layers are those the primitives lie on.
+- `layer` is the neutral name of the record's layer ("Layers and stack-up"). A graphic on a copper layer MUST keep its net name in the pair `net`.
+- The first text with `is_designator` MUST give the field `Reference` and the first with `is_comment` the field `Value`: `position`, `layer`, `size` (the height for both), `thickness`, `rotation` relative to the footprint, and `visible` from the component record's `name_on` and `comment_on` (true when the key is missing). The string stays in `Component.ref` and `Component.value`. A further designator or comment text of the same component, and any other text, MUST become a `Text` of `texts` with its string as stored.
+- An `arc` graphic MUST keep the record it was read from in the pair `arc`, as a free arc does ("Extension bags", change c0127). A primitive of a component on an internal plane MUST give no item and stay counted as `footprint-graphics`.
+- An arc with a radius that is not positive and a region with fewer than three vertices MUST be reported and counted as `bad-geometry`; the holes of a region are counted as `region-holes`, as for a free region.
+- A mapped record MUST count under `mapped` of its kind in the census, so "Unmapped records are counted" holds: the mapped and the unmapped counts of a kind add up to the reader's record count.
+- Ids are content ids in the section `fp:<native id of the footprint>`, over the fields in the footprint frame ("Identifiers and provenance"); each entity carries the provenance of its record. Inexact lengths and angles keep their pairs ("Extension bags").
+- The facts MUST be rows of `docs/formats/altium/import.md` with their sources and the hypothesis `H-A-IMP-FPGFX` before the code is written.
+
+#### Scenario: A track of a bottom component
+- **GIVEN** an authored document with one component on the bottom side, turned by 90 degrees, that owns one track on the bottom overlay
+- **WHEN** it is imported
+- **THEN** the footprint holds one `line` on `B.SilkS`, and `Transform.placement(position, rotation)` applied to its two points gives the converted ends of the record within 1 nm
+
+#### Scenario: Designator and comment
+- **GIVEN** an authored document whose component has `NAMEON` true, `COMMENTON` false, a designator text and a comment text
+- **WHEN** it is imported
+- **THEN** the footprint has the fields `Reference` (visible) and `Value` (not visible) at the texts' places, `texts` is empty, and `Component.ref` and `Component.value` hold the two strings
+
+#### Scenario: The census is conserved on the corpus
+- **WHEN** `uv run pytest tests/corpus/test_altium_import.py -k footprint_items` imports every PCB document with the use `rta`
+- **THEN** for each of `tracks`, `arcs`, `fills`, `regions` and `texts` the mapped and unmapped counts add up to the reader's count, every primitive that carries a component's index is a graphic, a field or a text of its footprint, the category `footprint-graphics` is 0, and the test prints the number of graphics, fields and texts per document for the evidence page
+
+### Requirement: Embedded body models
+`fenolite.backends.altium.models3d.body_models(path)` SHALL give the embedded model of each component body of a PCB document that names one (`MODEL.MODELTYPE=1` and a `MODELID` that is an entry of `Models`). `AltiumBackend.body_models` SHALL delegate to it.
+- `Models/Data` MUST be read as a run of records, each a 32-bit length and a property text. Record `n` names the stream `Models/<n>`, whose bytes MUST be inflated with `zlib`. A record whose stream is missing or does not inflate MUST be skipped with one issue.
+- `position` MUST be `MODEL.2D.X` and `MODEL.2D.Y` as the units module turns a point, `z` MUST be `MODEL.3D.DZ`, and `rotation` MUST be `MODEL.3D.ROTX`, `ROTY` and `ROTZ` in microdegrees. The rotation keys of the `Models/Data` record MUST NOT be applied.
+- `locator` MUST be the body's locator as the adapter gives it (`ComponentBodies6/Data#<index>`).
+- The facts MUST be rows of `docs/formats/altium/pcb-bodies.md` with the hypothesis `H-A-BODY-MODEL-PLACE`, measured on the corpus.
+
+#### Scenario: Models of a corpus document
+- **WHEN** `FENOLITE_HEAVY=1 uv run pytest tests/corpus/test_altium_bodies.py -k body_models` reads the fetched PCB documents
+- **THEN** every body with `MODEL.MODELTYPE=1` and a `MODELID` in `Models` yields one `BodyModel` whose data starts with the STEP header `ISO-10303-21`, and its locator names a body of the imported design
+
+#### Scenario: An authored document without models
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_models3d.py` reads `tests/data/altium/body2/body2.PcbDoc`
+- **THEN** `body_models` returns an empty tuple and raises nothing

@@ -42,7 +42,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 |---|---|---|---|
 | Pad shape 1 is round (a circle with equal sizes, an oval otherwise), 2 rectangular, 3 octagonal; shape 1 with the alternate shape 9 is a rounded rectangle whose corner radius is a percentage | S-0160, S-0161, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | A hole size above 0 makes a through-hole pad, plated or not by the plated flag; a pad on Multi-Layer lies on every copper layer | S-0161, S-0302 | INFERRED | H-A-IMP-PADSTACK |
-| Stack mode 0 is Simple (one shape on all layers), 1 Top-Middle-Bottom (three sizes and shapes), 2 Full Stack (a size and a shape per signal layer: the top, the mid layers in order, the bottom). In the full stack the tables of the sixth subrecord are read by index: sizes and shapes of Mid-Layer n at n − 1; alternate shapes, corner percentages and hole offsets at 0 for the top, at the layer id − 1 for a mid layer and at 31 for the bottom | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
+| Stack mode 0 is Simple (one shape on all layers), 1 Top-Middle-Bottom (three sizes and shapes), 2 Full Stack (a size and a shape per signal layer: the top, the mid layers in order, the bottom). In Full Stack, Mid-Layer 1 uses the main middle geometry; the 29 extended sizes and shapes supply Mid-Layer n at n − 2 for n = 2 … 30. Alternate shapes, corner percentages and hole offsets use 0 for the top, the layer id − 1 for a mid layer and 31 for the bottom. The association is inferred from the public fields and thirty mid-layer ids; see `pcb-records.md`, "Full Stack layer association" | S-0002, S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | Hole shape 0 is round, 1 square (rectangular), 2 a slot with round ends; a slot has a length along its axis, and the hole has a rotation, which the import reads as relative to the pad | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | The copper of a pad may be offset from its hole centre, per layer | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | Paste and solder mask expansions follow a rule or a manual value; the model lists no mask or paste layer for a pad, the modes and values go to the bag | S-0302 | INFERRED | H-A-IMP-PADSTACK |
@@ -122,6 +122,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `paste` | pad | `<mode>,<expansion in units>` |
 | `mask` | pad | `<mode>,<expansion in units>` |
 | `plated` | pad | `0` for a hole that is not plated |
+| `pad` | hole | the native id of the free pad a board hole was read from (change c0168), which a conversion to KiCad used to give the hole back as the board-only footprint of that pad; since change c0170 the conversion gives it the generated footprint of `model.holes` and does not read the pair; it enters no id |
 | `via_layers` | via | `<start id>,<end id>` when they are not the outer layers of the chain |
 | `pad_removed` | via | `<layer id>,…`: the Altium layer ids, in ascending order, for which the table at 209 of the via record holds a non-zero byte: the layers on which the via has no pad shape (change c0132; `pcb-copper.md`, "Via"). The model's via holds one diameter, so the pair is the only place that says it; it enters no id. The copper check on Altium input reads it ("Clearance of the copper check"); a write counts it and writes a pad on every layer |
 | `arc` | arc, graphic of kind `arc` | `<centre x>,<centre y>,<radius>,<start angle>,<end angle>` of the arc record it was read from: three integers in units of 1/10 000 mil in the document's frame, and the two angles as `float.hex()` of the stored doubles (change c0127). The three points of the model do not give the record back in every case; a write of the model uses the pair when it still says the points |
@@ -202,3 +203,19 @@ position in the footprint; size and round drill for 1 465 simple ones), 3 069 tr
 | zone vertices | KiCad drops an outline vertex that repeats its neighbour | the import's outline is compared without such a vertex (2 vertices of two rows) |
 | zones with an arc | the model keeps no arc vertex, so the import's outline is empty | not compared (6 zones of two rows) |
 | board edge | KiCad draws the edge from the board record and adds graphics of other layers to `Edge.Cuts` | not compared: the requirement lists no edge comparison |
+
+## Measured importer limitations after c0160
+
+| Fact | Source | Evidence | Hypothesis |
+|---|---|---|---|
+| KiCad 10.0.6 imports free PCB pads from seven measured demo conversions into separate blank-reference footprints: cases 01/04/07/12/13/16/17 add 14/1/2/9/9/3/24 such wrappers. The counts equal their separately recorded free-pad conversion counts; numbered components remain compared | S-0733 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-13; Windows) | H-K-CONV-TRIANGLE |
+| Eight rotated ecc83 U1 slots import with one-number oval drills, observed as `(drill oval 0.762)`, which Fenolite retains opaque. The zero-angle U1-5 does not produce that drill discrepancy. Native Altium still exposes all nine holes with HoleSize=401575, HoleWidth=799213 and HoleType=2: approximately 1.02 by 2.03 mm. Those documents held the slot rotations 144/108/72/36/0°, the model's `hole_rotation` minus the pad's angle, which c0170 found to be a frame error of the writer; since c0170 the nine slots are written at 90° relative to the pad, and KiCad 10.0.6 imports every one with the source's drill (2026-10-16, c0171 task 1.11) | S-0732, S-0733 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-13; Windows) and ALTIUM-VERIFIED(author-report) (AD 26.5.0; 2026-10-13) | H-K-CONV-TRIANGLE |
+
+## Keep-Out Layer conversion (c0161)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Objects placed on the Keep-Out Layer apply across signal layers; object-specific restrictions can select tracks, vias, copper and pads | S-0746 | INFERRED | H-A-IMP-KEEPOUT-LAYER |
+
+Fenolite's choice: a closed imported outline becomes an all-copper rule area forbidding tracks, vias
+and pours. An open line is a reported loss; unknown object-specific restrictions are not inferred.

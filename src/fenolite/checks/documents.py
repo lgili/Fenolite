@@ -24,6 +24,7 @@ from fenolite.backends.base import (
     BodyComparer,
     ContainerLevel,
     ContainerRoundTrip,
+    CutoutComparer,
     DesignRules,
     DesignRulesSource,
     DocumentParity,
@@ -79,6 +80,12 @@ _READING_STAGES = frozenset(
     }
 )
 _COUNTED_SKIPS = frozenset({"read-refused", "cache-unreadable"})
+
+
+def _has_cutouts(design: Design) -> bool:
+    """Whether the outline of ``design`` has cut-outs or slots (change c0168)."""
+    outline = design.board.outline if design.board is not None else None
+    return outline is not None and bool(outline.cutouts or outline.slots)
 
 
 def refused(name: str, error: FormatError) -> Issue:
@@ -411,7 +418,13 @@ def run_document_checks(
         body_evidence = Evidence()
         if board is not None and isinstance(validator, BodyComparer) and body_total(usable):
             bodies, body_evidence = validator.body_differences(usable, board.design)
-        stage = rta2_stage(usable, ProjectRead(schematic, board), validator.written_scope(), bodies=bodies)
+        # a writer of cut-out regions compares the cut-outs of the outline (change c0168)
+        cutouts = None
+        if board is not None and isinstance(validator, CutoutComparer) and _has_cutouts(usable):
+            cutouts = validator.cutout_differences(usable, board.design)
+        stage = rta2_stage(
+            usable, ProjectRead(schematic, board), validator.written_scope(), bodies=bodies, cutouts=cutouts
+        )
         readings = [reading.evidence for reading in (schematic, pcb) if reading is not None]
         parts = [BUILT_EVIDENCE, *readings]
         if bodies is not None:

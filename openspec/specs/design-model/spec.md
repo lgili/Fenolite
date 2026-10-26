@@ -2,7 +2,9 @@
 
 ## Purpose
 Specify the neutral in-memory design model every backend, check and export reads and writes: entity header, integer units, identifiers, provenance, extension bags, layers, slots and layout authority.
+
 ## Requirements
+
 ### Requirement: Common entity header
 Every model entity MUST be an immutable dataclass carrying `id: str`, `native_ids: dict[str, str]`, `provenance: Provenance | None` and `ext: dict[str, ExtBag]`, where `ExtBag` holds `min_version: str | None` and an ordered tuple of opaque text fragments.
 
@@ -50,12 +52,17 @@ Objects created from a design script are a fourth case. `fenolite.dsl.to_model` 
 | interface | `itf` | `interface:<kind>:<interface name>` |
 | layer | `lay` | `layer:<KiCad layer name>` |
 | zone | `zon` | `zone:<zone name>` |
-| rule | `rul` | `rule:<rule kind>` for a board minimum, `rule:<rule kind>:<class name>` for a class minimum |
+| rule | `rul` | `rule:<rule kind>` for a board minimum, `rule:<rule kind>:<class name>` for a class minimum, `rule:named:<rule name>` for a rule of `rule()` |
+| rule area | `kpo` | `area:<area name>` |
+| board text | `txt` | `text:<drawing key>` |
+| board graphic | `gfx` | `graphic:<drawing key>` |
+| dimension | `dim` | `dimension:<drawing key>` |
 
 - Footprints and pads placed by a build MUST follow the third case, with the component path as the key.
 - Tracks and vias created from copper intents, by a build or by any other caller, MUST follow the fifth case.
 - Every key names its object by a name or a path, never by a position in a list, so inserting, removing or reordering one object MUST NOT change the id of any other object, nor any KiCad uuid derived from those ids.
 - The values of `--seed` and `PYTHONHASHSEED` MUST NOT change any id of the fourth case.
+- The KiCad uuid of a rule area, text, graphic or dimension of the fourth case is derived from its id by the build (`kicad-file-backend`, "Board items of a script are written"); it is not an input of the id.
 
 Copper created from copper intents is a fifth case. Each track and via that `fenolite.backends.kicad.copper.resolve_copper` creates MUST take as its native id the KiCad uuid `copper_uuid(key, locator)` of `manual-copper` ("Copper uuids and ids"), derived from the caller's intent key and the item's locator in the intent, and MUST take the Fenolite id that imported objects with that native id get, so a design read back from the written file has the same ids. These ids MUST NOT use the seeded generator, and `--seed` and `PYTHONHASHSEED` MUST NOT change them. A locator numbers an item inside its own intent, so changing one intent MUST NOT change the id of an item of another intent, and adding, removing or reordering intents MUST NOT change any id.
 
@@ -107,6 +114,11 @@ Copper created from copper intents is a fifth case. Each track and via that `fen
 - **GIVEN** two DSL designs that declare a board `clearance` minimum and a `track_width` minimum for the class `PWR` with their `minimum()` calls in opposite orders
 - **WHEN** `uv run pytest tests/unit/dsl/test_minimums.py -k ids` runs `dsl.to_model` on both
 - **THEN** in both models the rules have the ids `derived_id("rul", "dsl", "rule:clearance")` and `derived_id("rul", "dsl", "rule:track_width:PWR")`
+
+#### Scenario: Area and drawing ids from names and keys
+- **GIVEN** two DSL designs that declare the rule areas `ANT` and `HV`, the text `rev` and the dimension `width` in opposite orders
+- **WHEN** `uv run pytest tests/unit/dsl/test_ids.py -k board_items` runs `dsl.to_model` on both
+- **THEN** in both models the keep-out `ANT` has the id `derived_id("kpo", "dsl", "area:ANT")`, the text `derived_id("txt", "dsl", "text:rev")` and the dimension `derived_id("dim", "dsl", "dimension:width")`
 
 ### Requirement: Provenance record
 `Provenance` MUST contain `backend`, `file`, `file_sha256`, `locator` and `evidence`, and `locator` MUST be treated as an opaque string by everything except the originating backend.
@@ -600,7 +612,12 @@ The board layer SHALL model the text fields of a placed footprint as `fenolite.m
 - **THEN** it exits 0, `board.json` lists `settings`, `filled`, `locked` and `zone_connection`, and `library.json` lists `zone_connection`
 
 ### Requirement: Persist per-component pin-to-pad maps
-`Component` SHALL carry a canonical `pin_pad_map` of ordered `(symbol pin number, physical pad number)` pairs. Each source and target SHALL be non-empty and unique within its side. An empty map SHALL mean identity assignment.
+`Component` SHALL carry a canonical `pin_pad_map` of ordered `(symbol pin number, physical pad number)` pairs. Each pin text and each pad text SHALL be non-empty, no pair SHALL occur twice, and a pad SHALL be named by one pin only. A pin MAY occur in several pairs: it is then bonded to several pads. An empty map SHALL mean identity assignment.
+- **Pads of a pin.** The pads of a pin that the map holds MUST be the pads of its pairs, in map order; the first is the pad that a schematic symbol shows as the number of the pin, and the order has no other meaning. A pin that the map does not hold MUST have one pad, of its own number. Net members and no-connect marks stay keyed by pin number.
+- **Readers.** `Component.pads_of(pin) -> tuple[str, ...]` MUST give the pads of a pin by these rules, and `Component.pin_pads() -> dict[str, tuple[str, ...]]` the pads of each pin that the map holds, the pins in the order of their first pair. No other module of `src/fenolite` may turn the pairs into a mapping of one pad per pin: the expression `dict(<…>.pin_pad_map)` MUST NOT occur outside `model/circuit.py`.
+- **Canonical form.** The field MUST keep its name, its type `tuple[tuple[str, str], ...]`, its place in `Component` and its `ordered` mark: the pairs are written in the order held, each as an array of two strings, and an empty map is left out. A design whose pins have one pad each therefore gives the `circuit.json` bytes it gave before this requirement allowed several. `SCHEMA_VERSION` MUST stay `"0"`. `schemas/fenolite.model.v0/circuit.json` MUST keep the item form of `pin_pad_map` and MUST gain a `description` of the field, generated by `tools/gen_schemas.py` from the field's metadata, that says a pin may occur in several pairs.
+- **Documents written before.** A `circuit.json` whose maps give each pin one pad MUST load to the component it loaded to before and MUST be dumped to the same bytes. Nothing is migrated.
+- **Validation.** `Design.validate()` MUST report `model.pin-pad-map` (error), with `where` set to `<ref>-<pin>`, once for each pair with an empty pin or pad, for each pair that occurs twice, and for each pad that two pins name; for a component that holds pins, a pin outside the map names the pad of its own number. A map in which no pair repeats and no pad is named twice MUST give no such finding.
 
 #### Scenario: Serialize an explicit map
 - **GIVEN** a component maps pin `1` to pad `2`
@@ -611,6 +628,29 @@ The board layer SHALL model the text fields of a placed footprint as `fenolite.m
 - **GIVEN** a component with no explicit map
 - **WHEN** it is serialized and read back
 - **THEN** `pin_pad_map` is empty and the build applies identity mapping
+
+#### Scenario: Several pads of one pin
+- **GIVEN** a component with the pins `1`, `2`, `3` and `pin_pad_map == (("3", "3"), ("3", "EP"))`
+- **WHEN** `uv run pytest tests/unit/model/test_pin_pad_map.py -k several` reads it
+- **THEN** `pads_of("3")` is `("3", "EP")`, `pads_of("1")` is `("1",)`, `pin_pads()` is `{"3": ("3", "EP")}`, the model is dumped with the two pairs in that order, read back to an equal component, and `validate()` reports no `model.pin-pad-map`
+
+#### Scenario: One pad per pin keeps its bytes
+- **GIVEN** a circuit whose components hold maps of one pad per pin, and its `circuit.json` as `canonical.dumps` wrote it before this change (a text authored in the test)
+- **WHEN** `uv run pytest tests/unit/model/test_pin_pad_map.py -k bytes` loads the text and dumps it
+- **THEN** the dumped text equals the text, and `meta.json` of a design holds `"schema_version": "0"`
+
+#### Scenario: Pad named by two pins
+- **GIVEN** a component `U1` with the pins `1` and `2` and `pin_pad_map == (("1", "2"),)`, and another with `(("1", "5"), ("1", "5"))`
+- **WHEN** `Design.validate()` runs
+- **THEN** it reports `model.pin-pad-map` as an error for each, with `where` `U1-1` for the first
+
+#### Scenario: No second reader
+- **WHEN** `uv run pytest tests/unit/model/test_pin_pad_map.py -k readers` scans every `.py` file under `src/fenolite`
+- **THEN** `dict(` applied to a `pin_pad_map` occurs in no file other than `model/circuit.py`
+
+#### Scenario: Schema regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, and `pin_pad_map` of `schemas/fenolite.model.v0/circuit.json` holds a `description` and the item form of two strings it held before
 
 ### Requirement: Buses in the circuit model
 The circuit layer SHALL record a bus, an indexed vector of nets, as the entity `fenolite.model.circuit.Bus` in `Circuit.buses: tuple[Bus, ...]`, empty by default.
@@ -675,16 +715,16 @@ The board layer SHALL describe a pad's hole and its copper offsets in `Padstack`
 
 ### Requirement: Component bodies
 The board layer SHALL describe the physical body of a part as the entity `fenolite.model.board.ComponentBody`, in `FootprintInstance.bodies: tuple[ComponentBody, ...]` and `FootprintDef.bodies: tuple[ComponentBody, ...]`, both ordered and empty by default.
-- `ComponentBody` MUST carry the common entity header and: `kind: BodyKind` (`extruded` or `model`); `height: Nm`, the distance from the board surface to the top of the body; `standoff: Nm = 0`, the distance from the board surface to its underside; `outline: tuple[Point, ...] = ()`, ordered, the body's footprint as a polygon in the footprint frame of "Board entities read from file backends" (empty when the source gives none); `layer: str = ""`, the layer the body is drawn on; `model: str = ""`, the name of a 3D model for the kind `model`; and `name: str = ""`.
-- A body states a volume above the side the footprint is placed on. It carries no model data: `FootprintDef.models` keeps its meaning (the model references of a definition), and no file is embedded.
-- The height of a part is the largest `height` of its bodies; a part without bodies has no known height.
+- `ComponentBody` MUST carry the common entity header and: `kind: BodyKind` (`extruded` or `model`); `height: Nm`, the distance from the board surface to the top of the body; `standoff: Nm = 0`, the distance from the board surface to its underside; `outline: tuple[Point, ...] = ()`, ordered, the body's footprint as a polygon in the footprint frame of "Board entities read from file backends" (empty when the source gives none); `layer: str = ""`, the layer the body is drawn on; `model: str = ""`, the name of a 3D model for the kind `model`; and `name: str = ""`. Optional `z_min: Nm | None = None` and `z_max: Nm | None = None` MUST form a signed authoritative interval in the mounted-face frame, positive outwards from that board surface. `projection_unknown: bool = False` SHALL mark retained source geometry with unproved projection; analysis MUST not project such a body. Both MUST be absent or both present with z_min <= z_max; no float enters the model.
+- A legacy body without signed bounds states a volume above the side the footprint is placed on. A body with signed bounds may cross that surface; its interval and documented footprint/side transform state that extent without zero-clamping native source values. It carries no model data: `FootprintDef.models` keeps its meaning (the model references of a definition), and no file is embedded.
+- The outward height of a part is the largest authoritative upper bound of its known bodies (`z_max` when present, legacy `height` otherwise). Below-surface extent MUST remain available to volume analysis. A part without known body extents has unknown height.
 - The closed prefix table SHALL include `bdy`.
-- `Design.validate()` MUST report `model.body-height` (error), with `where` set to the body's id, for a body whose `height` is below its `standoff` or whose `standoff` is negative.
+- `Design.validate()` MUST report `model.body-height` (error), with `where` set to the body's id, for a body without signed bounds and without projection_unknown whose `height` is below its `standoff` or whose `standoff` is negative. A half-specified or reversed signed interval MUST report `model.body-volume` (error) at the body's id. When the interval is present it is authoritative; legacy source height/standoff values may remain as provenance and MUST NOT override it.
 - No reader or writer of the KiCad backend changes: definitions read from KiCad files hold no body, so a placed copy has none, and a KiCad build MUST keep the bodies of a design in `.fenolite/` only.
-- `tools/gen_schemas.py` MUST regenerate `board.json` and `library.json` with `ComponentBody` and `bodies`. `docs/design-model.md` MUST describe the entity, and `docs/cli-contract.md` MUST list `model.body-height`.
+- `tools/gen_schemas.py` MUST regenerate `board.json` and `library.json` with `ComponentBody` and `bodies`. `docs/design-model.md` MUST describe the entity, and `docs/cli-contract.md` MUST list `model.body-height` and `model.body-volume` and document the mounted-face frame and authoritative-interval precedence.
 
 #### Scenario: Old documents still load
-- **GIVEN** a `board.json` and a `library.json` written before this change
+- **GIVEN** a `board.json` and a `library.json` written before component bodies were introduced, with no bodies keys
 - **WHEN** `canonical.loads` reads them
 - **THEN** every footprint and every definition has `bodies == ()`
 
@@ -706,6 +746,21 @@ The board layer SHALL describe the physical body of a part as the entity `fenoli
 #### Scenario: Body prefix
 - **WHEN** `derived_id("bdy", "altium", "x")` and `derived_id("bdyx", "altium", "x")` are called
 - **THEN** the first returns an id that starts with `bdy_` and the second raises `ValueError`
+
+#### Scenario: Signed interval validation
+- **GIVEN** an authored body has both signed bounds in order and crosses its mounting plane
+- **WHEN** canonical serialization and Design.validate run
+- **THEN** both bounds survive and the legacy negative-standoff rule does not invalidate the authoritative interval
+
+#### Scenario: Incomplete interval refused
+- **GIVEN** an authored body specifies only one signed bound or supplies them in reverse order
+- **WHEN** Design.validate runs
+- **THEN** it reports model.body-volume at that body instead of inferring or reordering the interval
+
+#### Scenario: Legacy body document compatibility
+- **GIVEN** a body document generated by the model at tag v0.2.0
+- **WHEN** canonical.loads and canonical.dumps run
+- **THEN** z_min and z_max default to None, projection_unknown defaults to False, and the bytes are unchanged; legacy height validation still applies until source reimport
 
 ### Requirement: Schematic sheet definitions
 `fenolite.model.schematic` SHALL provide the schematic-sheet definition `SchematicSheet`, an entity with the common header, and the entities and value objects it holds:
@@ -780,3 +835,406 @@ The closed prefix table SHALL include `sch` (schematic sheet), `sci` (symbol ins
 - **WHEN** `uv run python tools/gen_schemas.py --check` runs
 - **THEN** it exits 0
 
+### Requirement: Outward height of a part
+`fenolite.model.board.outward_height(footprint: FootprintInstance) -> Nm | None` SHALL return the height of a placed part above the board surface on its own side, as "Component bodies" defines it, and SHALL be the one place of the package that computes it.
+- A body is known when its `projection_unknown` is false. The upper bound of a known body is its `z_max` when the body has signed bounds, and its `height` otherwise.
+- The function MUST return the largest upper bound of the footprint's known bodies, and `None` when the footprint has no known body or that bound is not positive. It MUST NOT read the component, a footprint property, a 3D model reference or the footprint's definition, and it MUST NOT read `standoff` or `z_min`: what lies below the top of a body is the business of the volume analysis.
+- It is pure: no file, no clock, integers only.
+- A consumer that needs the height of a part (a placement rule, a checker, an exporter) MUST call this function. No other field of the model holds a part's height: `Component` has none, and a script states a height by giving the part a body (`design-dsl`, "Part heights and height limits in the DSL").
+- `docs/design-model.md` MUST say this under "Component bodies".
+
+#### Scenario: Largest known body
+- **GIVEN** a footprint with three bodies: one with `height == 2_000_000`, one with `z_min == -500_000` and `z_max == 9_000_000` (and a legacy `height` of 3 mm kept as provenance), and one with `height == 30_000_000` and `projection_unknown` true
+- **WHEN** `uv run pytest tests/unit/model/test_outward_height.py -k largest` calls `outward_height`
+- **THEN** it returns `9_000_000`: the signed bound wins over that body's legacy height, and the body of unknown projection makes no claim
+
+#### Scenario: No known height
+- **WHEN** `outward_height` is called for a footprint without bodies, for one whose only body has `projection_unknown` true, and for one whose only body has `z_min == -4_000_000` and `z_max == 0`
+- **THEN** each call returns `None`
+
+#### Scenario: One reader
+- **WHEN** `uv run pytest tests/unit/model/test_outward_height.py -k one_reader` searches `src/fenolite/checks/placement.py`, `src/fenolite/cli/cmd_place.py` and `src/fenolite/cli/cmd_build.py` for attribute reads of `.z_max` and for iteration over `.bodies`
+- **THEN** it finds none: the placement rules reach a part's height only through `outward_height`
+
+### Requirement: Height limits in the model
+`fenolite.model.rules` SHALL define the frozen value object `HeightLimit(area, max, severity="error")`, and `RuleSet` SHALL gain the field `heights: tuple[HeightLimit, ...]`, empty by default and stored in `rules.json`. This is an addition to the rules layer of "Model layers for v0.1", beside the proximity rules of "Proximity rules in the model".
+- `area` MUST be a non-empty name of a rule area; `max` a positive length in nm; `severity` a `PlacementSeverity`. `HeightLimit` MUST raise `ValueError` otherwise, and `RuleSet` MUST raise `ValueError` for two limits of one `area`.
+- It is a value object, not an entity: it carries no id, and its area is its key. `to_model` writes the limits in area order.
+- A height limit is not a rule of `RuleSet.rules` and has no `RuleKind`. No backend lowers it: the KiCad writer and `lower_rules` read only `RuleSet.rules`, the Altium rule table (`altium-pcb-writer`, "Rule lowering table") gains no row, and a board read from a file has none.
+- `schemas/fenolite.model.v0/rules.json` MUST be regenerated. A `rules.json` without the key `heights` MUST load with an empty tuple, and a rule set without limits MUST be written without the key, so a design that declares none writes the bytes it wrote before this change. `SCHEMA_VERSION` stays `"0"`.
+- `docs/design-model.md` MUST describe the value object and the field, and MUST say that 0.2.x and 0.3.0 cannot read a `rules.json` that carries `heights`.
+
+#### Scenario: Limits round trip
+- **GIVEN** a design whose `RuleSet.heights` holds `HeightLimit("LID", 5_000_000, "warning")` and `HeightLimit("FAN", 12_000_000)`
+- **WHEN** it is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
+- **THEN** the loaded limits equal the originals, and `rules.json` holds them under `heights` with `FAN` before `LID`
+
+#### Scenario: Files of an older build
+- **GIVEN** a `rules.json` written before this change
+- **WHEN** it is loaded and written again
+- **THEN** `RuleSet.heights == ()` and the written bytes equal the input
+
+#### Scenario: Refused values
+- **WHEN** `HeightLimit("LID", 0)`, `HeightLimit("", 1_000_000)` and a `RuleSet` holding two limits on `LID` are built
+- **THEN** each raises `ValueError`
+
+#### Scenario: Compatibility is documented
+- **WHEN** `uv run pytest tests/unit/model/test_rules.py -k documented` reads `docs/design-model.md`
+- **THEN** the section on `heights` holds the sentence that 0.2.x and 0.3.0 cannot read a document that carries the key
+
+### Requirement: Mechanical intent metadata
+The model SHALL expose MechanicalIntent with stable key, board frame, integer tolerance, source,
+input status (`measured`, `estimated` or `proposed`) and evidence. FootprintInstance.anchor, Hole.intent and Keepout.intent SHALL default
+to None, preserving legacy canonical output. Intent MUST NOT change pad nets or create geometry.
+
+#### Scenario: Legacy canonical output
+- **GIVEN** a board contains no declared mechanical intent
+- **WHEN** its canonical JSON is produced
+- **THEN** the new default fields are omitted and existing geometry is unchanged
+
+### Requirement: Board outline arcs
+`Outline` SHALL hold `arcs: tuple[OutlineArc, ...]`, empty by default, and `fenolite.model.board.OutlineArc` SHALL be a frozen value with `ring: int`, `edge: int` and `mid: Point`.
+- Ring 0 is `Outline.points` and ring k ≥ 1 is `Outline.cutouts[k − 1]`. Edge i of a ring of n vertices joins vertex i to vertex (i + 1) mod n. An `OutlineArc` makes that edge the circular arc from its first vertex through `mid` to its second vertex; every other edge is straight. `points` and `cutouts` keep their meaning: the vertices of each ring, in order.
+- `arcs` MUST be sorted by `(ring, edge)` and MUST hold at most one entry per edge; `ring` and `edge` MUST name an edge of the outline; `mid` MUST differ from the edge's two vertices and MUST NOT lie on the line through them. A ring MUST hold three vertices or more, or two when one of its two edges is an arc. An outline that breaks one of these rules is refused by the build (`kicad-file-backend`, "Outline shape checks").
+- The canonical writer omits `arcs` when it is empty, so a `board.json` written before this requirement loads unchanged and an outline without arcs keeps its bytes. `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json` with `arcs`.
+- The other direction does not hold, and MUST be said: release 0.2.x cannot read a model document that carries the key `arcs`, because its reader refuses an unknown key. `docs/design-model.md` and the changelog MUST hold that sentence. The `board.json` that release 0.2.0 wrote, `tests/data/model/v0.2.0/blink_2layer.board.json` ("Graphics and texts of a footprint instance"), MUST still load unchanged and serialise again to its own bytes.
+
+#### Scenario: An outline with an arc round-trips
+- **GIVEN** an `Outline` whose `points` are (0, 0), (10 mm, 0), (10 mm, 10 mm) and (0, 10 mm), whose one cut-out has the two vertices (6 mm, 5 mm) and (4 mm, 5 mm), and whose `arcs` are `OutlineArc(0, 1, Point(11_000_000, 5_000_000))`, `OutlineArc(1, 0, Point(5_000_000, 4_000_000))` and `OutlineArc(1, 1, Point(5_000_000, 6_000_000))`
+- **WHEN** the design is written with `canonical.dump_dir` and loaded again with `canonical.load_dir`
+- **THEN** the loaded outline equals the original, and `board.json` holds the three entries under `arcs` in that order
+
+#### Scenario: Documents without arcs keep their bytes
+- **GIVEN** the `.fenolite/board.json` of a blink build made before this change
+- **WHEN** it is loaded with `canonical.loads` and dumped again
+- **THEN** `board.outline.arcs == ()` and the dumped text equals the loaded one byte for byte
+
+#### Scenario: A document of 0.2.0 still loads
+- **GIVEN** `tests/data/model/v0.2.0/blink_2layer.board.json`, whose outline holds no `arcs`
+- **WHEN** `uv run pytest tests/unit/model/test_outline_arcs.py -k v020` loads it with `canonical.loads` and dumps it again
+- **THEN** the dumped text equals the file byte for byte, and `docs/design-model.md` and `CHANGELOG.md` each hold the sentence that release 0.2.x cannot read a model document that carries `arcs`
+
+#### Scenario: Schemas regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, and `board.json` defines `arcs` with the integer fields `ring` and `edge` and the point `mid`
+
+### Requirement: Assembly and test pad properties in the model
+`Pad` SHALL carry `fab_property: PadFabProperty | None = None`, where `PadFabProperty` (`fenolite.model.board`) is `Literal["bga", "fiducial_global", "fiducial_local", "test_point", "heatsink", "castellated", "mechanical", "press_fit"]`: the fabrication mark of the pad, `None` when it has none.
+- The field MUST be the last field of `Pad`, so that every existing construction keeps its meaning.
+- The canonical form MUST omit it when it is `None`, so a document without a mark keeps the bytes it has today and a document of an earlier release loads as it is. The other direction does not hold, and MUST be said in `docs/design-model.md` and in the changelog: releases 0.2.x and 0.3.0 cannot read a model document that carries the key `fab_property`, because their reader refuses an unknown key. `schemas/fenolite.model.v0/` MUST list it as an optional property of a pad, for board pads and library pads alike.
+- The model MUST NOT check the mark against the pad's kind or layers: the DSL refuses what it can tell at the call ("Assembly and test properties on authored pads"), and KiCad's DRC judges the rest.
+- `docs/design-model.md` MUST list the eight values and say that a mark is what KiCad calls the fabrication property of a pad.
+
+#### Scenario: No mark by default
+- **WHEN** `Pad(id=..., number="1", shape="rect", size=..., position=...)` is constructed
+- **THEN** `fab_property is None`, and the canonical texts of a design that holds the pad have no `fab_property` key
+
+#### Scenario: A test-point pad in board.json
+- **GIVEN** a design whose footprint instance holds a pad with `fab_property="test_point"`
+- **WHEN** its canonical texts are dumped and loaded again
+- **THEN** `board.json` holds `"fab_property": "test_point"` for that pad, and the loaded design equals the first
+
+### Requirement: Stack-up in the board model
+`Board.stackup` SHALL describe the board's build-up from its top face to its bottom face: `Stackup.layers` lists, in that order, every layer that its source keeps in a stack-up, and a board whose source states none has `stackup is None`.
+- **Entries.** An entry of kind `copper` MUST be named after its copper layer in `Board.layers`. Entries of kind `soldermask`, `silkscreen` and `solderpaste` describe the outer layers and lie above the first copper entry or below the last. Every entry between two copper entries is of kind `dielectric`; a dielectric made of several sheets is one entry per sheet, consecutive, the sheets sharing a name. Silkscreen and paste entries have `thickness` 0.
+- **New fields, with defaults.** `StackLayer.dielectric_kind: DielectricKind | None = None`, where `DielectricKind` is `core` or `prepreg` and `None` means not stated; `StackLayer.color: str = ""`, the colour as its source names it; `Stackup.impedance_controlled: bool = False`, true when the dielectric values are requirements for the fabricator. `material`, `epsilon_r` and `loss_tangent` keep their meaning, and `epsilon_r` and `loss_tangent` are plain decimal texts or empty; a `loss_tangent` may be `0`, which KiCad writes for a solder mask.
+- The change MUST be additive: `canonical` omits the defaults, a `board.json` written before it MUST load with them, `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/board.json` MUST be regenerated with `DielectricKind` as a closed vocabulary.
+- The other direction does not hold, and MUST be said: release 0.2.x cannot read a model document that carries `dielectric_kind`, `color` or `impedance_controlled`, because its reader refuses an unknown key. `docs/design-model.md` and the changelog MUST hold that sentence. The `board.json` that the code of release 0.2.1 wrote for `examples/blink_2layer`, committed by this change as `tests/data/model/v0.2.1/blink_2layer.board.json` (the 0.2.0 fixture of "Graphics and texts of a footprint instance" belongs to a change that is not on the branch), MUST still load unchanged and serialise again to its own bytes.
+- **Helpers.** `Stackup.thickness() -> Nm` MUST return the sum of `thickness` over `layers`; this sum is the board thickness of the model, and the model holds no other. `Stackup.depth(name) -> tuple[Nm, Nm]` MUST return the depths, below the top face of the first entry, of the top face and the bottom face of the first entry of that name; an unknown name MUST raise `KeyError`. `Stackup.between(upper, lower) -> tuple[StackLayer, ...]` MUST return the entries strictly between the first entries named `upper` and `lower`, top to bottom; an unknown name MUST raise `KeyError`, and an `upper` that does not lie above `lower` MUST raise `ValueError`.
+- **Findings.** When `Board.stackup` is not `None`, `Design.validate()` MUST report, with `where` set to the stack-up's id:
+  - `model.stackup-order` (error): an entry of kind `soldermask`, `silkscreen` or `solderpaste` between two copper entries, or two entries of one such kind on one side; a dielectric entry above the first copper entry or below the last; two neighbouring copper entries with no entry between them; dielectric entries between the same two copper entries with different `dielectric_kind`; a `dielectric_kind` on an entry that is not a dielectric;
+  - `model.stackup-copper` (error): no copper entry, or, when `Board.layers` holds copper layers, copper entries whose names, in order, are not the names of those layers in ordinal order;
+  - `model.stackup-value` (error): a negative thickness; a copper or dielectric entry of thickness 0; an `epsilon_r` that is neither empty nor a plain decimal above 0, or a `loss_tangent` that is neither empty nor a plain decimal (digits, an optional point and digits, no sign and no exponent; 0 is accepted for a loss tangent).
+- `docs/design-model.md` MUST describe the fields, the helpers and the three findings, and `docs/cli-contract.md` MUST list the findings with the other `model.*` codes.
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` written before this change whose board holds a stack-up of three entries
+- **WHEN** `canonical.loads` reads it into a `Board`
+- **THEN** every entry has `dielectric_kind is None` and `color == ""`, and `impedance_controlled is False`
+
+#### Scenario: A document of 0.2.1 still loads
+- **GIVEN** `tests/data/model/v0.2.1/blink_2layer.board.json`, which holds none of the three new keys
+- **WHEN** `uv run pytest tests/unit/model/test_stackup.py -k v021` loads it with `canonical.loads` and dumps it again
+- **THEN** the dumped text equals the file byte for byte, and `docs/design-model.md` and `CHANGELOG.md` each hold the sentence that release 0.2.x cannot read a model document that carries the new keys
+
+#### Scenario: Thickness, depth and the entries between two layers
+- **GIVEN** a stack-up of `F.Mask` 10 000 nm, `F.Cu` 35 000, `dielectric 1` (prepreg) 200 000, `In1.Cu` 17 500, `dielectric 2` (core) 1 200 000, `In2.Cu` 17 500, `dielectric 3` (prepreg) 200 000, `B.Cu` 35 000 and `B.Mask` 10 000
+- **WHEN** its helpers are called
+- **THEN** `thickness() == 1_725_000`, `depth("In1.Cu") == (245_000, 262_500)`, `between("F.Cu", "In1.Cu")` is the one prepreg entry, and `between("In1.Cu", "F.Cu")` raises `ValueError`
+
+#### Scenario: Copper entries out of table order
+- **GIVEN** a board whose layers hold `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu`, and whose stack-up lists its copper entries as `F.Cu`, `In2.Cu`, `In1.Cu`, `B.Cu`
+- **WHEN** `design.validate()` runs
+- **THEN** it reports one `model.stackup-copper` of severity `error` whose `where` is the stack-up's id
+
+#### Scenario: Mixed gap and a bad decimal
+- **GIVEN** a two-layer stack-up with a core and then a prepreg between `F.Cu` and `B.Cu`, the core's `epsilon_r` being `"4,5"`
+- **WHEN** `design.validate()` runs
+- **THEN** it reports one `model.stackup-order` and one `model.stackup-value`, both of severity `error`
+
+#### Scenario: Schema regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, and `board.json` lists `dielectric_kind` with the values `core` and `prepreg`, `color` and `impedance_controlled`
+
+### Requirement: Rule areas, board items and the area selector in the model
+The board and rules layers SHALL carry these additions, each with a default, so that documents written before them still load:
+- `Keepout.name: str = ""`, the name of a rule area, which rules use to select the items inside it.
+- `Text.h_justify: FieldJustifyH = "center"` and `Text.v_justify: FieldJustifyV = "center"`, with the values of `FootprintField` ("Footprint fields"), given in the reading frame of the text.
+- `fenolite.model.board.Dimension`, an entity with `kind: DimensionKind` (`aligned` or `orthogonal`), `layer: str`, `start: Point`, `end: Point`, `offset: Nm` (the signed distance of the dimension line from the measured points), `direction: DimensionDirection | None = None` (`horizontal` or `vertical`, for an `orthogonal` dimension), `units: DimensionUnits = "mm"` (`mm` or `in`), `precision: int = 4`, `size: Size | None = None`, `thickness: Nm | None = None` and `width: Nm | None = None`; `None` means the backend's default. The measured value is not a field: it follows from the points.
+- `Board.dimensions: tuple[Dimension, ...] = ()`.
+- `SelectorOp` and `LEAF_OPS` include `area`. `RuleSubject.areas: frozenset[str] = frozenset()` holds the names of the rule areas a subject lies in. `Selector("area", v).matches(subject)` MUST be true when a name of `subject.areas` matches `v` with `fnmatch.fnmatchcase`, so letter case counts and `*` is a glob.
+- The closed prefix table SHALL include `dim`.
+- `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json` and `rules.json` with these fields.
+- The other direction does not hold, and MUST be said: release 0.2.x cannot read a model document that carries one of the new keys (`name` of a keep-out, `h_justify` and `v_justify` of a board text, `dimensions` of a board) or a selector of the op `area`, because its reader refuses an unknown key and its schema an unknown op. `docs/design-model.md` and the changelog MUST hold that sentence. The `board.json` that release 0.2.0 wrote, `tests/data/model/v0.2.0/blink_2layer.board.json` ("Graphics and texts of a footprint instance"), MUST still load unchanged and serialise again to its own bytes.
+- `Text` is also the type of the texts of a footprint instance ("Graphics and texts of a footprint instance"): they gain the two fields with the default `center`, which the canonical writer omits, so no document that holds them changes.
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` and a `rules.json` written before this change
+- **WHEN** `canonical.loads` reads them
+- **THEN** every keep-out has `name == ""`, every text `h_justify == v_justify == "center"`, the board `dimensions == ()`, and every selector loads unchanged
+
+#### Scenario: A document of 0.2.0 still loads
+- **GIVEN** `tests/data/model/v0.2.0/blink_2layer.board.json`, which holds none of the new keys
+- **WHEN** `uv run pytest tests/unit/model -k v020_board_items` loads it with `canonical.loads` and dumps it again
+- **THEN** the dumped text equals the file byte for byte, and `docs/design-model.md` and `CHANGELOG.md` each hold the sentence that release 0.2.x cannot read a model document that carries the new keys
+
+#### Scenario: Area selector against a subject
+- **GIVEN** `Selector("area", "H*")` and the subjects `RuleSubject("track", areas=frozenset({"HV"}))`, `RuleSubject("track", areas=frozenset({"hv"}))` and `RuleSubject("track")`
+- **WHEN** `matches` is evaluated for each
+- **THEN** it gives true, false and false
+
+#### Scenario: Unknown dimension kind rejected by the schema
+- **GIVEN** a `board.json` document where `dimensions[0].kind` is `"radial"`
+- **WHEN** it is validated against `schemas/fenolite.model.v0/board.json`
+- **THEN** validation fails with the JSON pointer of that value
+
+#### Scenario: Dimension prefix
+- **WHEN** `derived_id("dim", "dsl", "dimension:width")` is called, and `new_id("dimx", rng)`
+- **THEN** the first returns an id that starts with `dim_`, and the second raises `ValueError`
+
+#### Scenario: Schemas regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, `board.json` lists `dimensions`, `Dimension`, `h_justify` on texts and `name` on keep-outs, and `rules.json` lists `area` among the selector ops
+
+### Requirement: Proximity rules in the model
+`fenolite.model.rules` SHALL define `PlacementSeverity = Literal["error", "warning"]` and the frozen value objects `PadSelection(path, number="", index=None)` and `ProximityRule(name, parts, anchor, within, severity="error")`, and `RuleSet` SHALL gain the field `proximity: tuple[ProximityRule, ...]`, empty by default and stored in `rules.json`. This is an addition to the rules layer of "Model layers for v0.1".
+- `PadSelection.path` MUST be a non-empty component path; `number` a pad number, empty for every pad of the part; `index` `None` or a non-negative `int`, given only with a `number`. `ProximityRule.parts` and `anchor` MUST be non-empty, and `within` MUST be a positive length in nm. Each value object MUST raise `ValueError` otherwise. `RuleSet` MUST raise `ValueError` for two `ProximityRule`s of one `name`.
+- They are value objects, not entities: they carry no id, and a rule's name is its key. `to_model` writes them in name order.
+- A proximity rule is not a rule of `RuleSet.rules` and has no `RuleKind`. No backend lowers it: the KiCad writer and `lower_rules` read only `RuleSet.rules`, the Altium rule table (`altium-pcb-writer`, "Rule lowering table") gains no row, and a board read from a file has none.
+- `schemas/fenolite.model.v0/rules.json` MUST be regenerated, and `uv run python tools/gen_schemas.py --check` MUST exit 0. A `rules.json` without the key `proximity` MUST load with an empty tuple, and a rule set without proximity rules MUST be written without the key, so a design that declares none writes the bytes it wrote before this change. `SCHEMA_VERSION` stays `"0"`.
+- `docs/design-model.md` MUST describe the two value objects and the field, and MUST say that 0.2.x and 0.3.0 cannot read a `rules.json` that carries `proximity`.
+
+#### Scenario: Rules round trip
+- **GIVEN** a design whose `RuleSet.proximity` holds `ProximityRule("dec7", (PadSelection("C5", "1"),), (PadSelection("U1", "7"),), 2_000_000)`
+- **WHEN** it is written with `canonical.dump_dir` and loaded with `canonical.load_dir`
+- **THEN** the loaded rule equals the original, and `rules.json` holds it under `proximity`
+
+#### Scenario: Files of an older build
+- **GIVEN** a `rules.json` written before this change
+- **WHEN** it is loaded, validated against the regenerated schema and written again
+- **THEN** loading succeeds, validation passes, `RuleSet.proximity == ()`, and the written bytes equal the input
+
+#### Scenario: Refused values
+- **WHEN** `ProximityRule("r", (), (PadSelection("U1"),), 1)`, `ProximityRule("r", (PadSelection("C1"),), (PadSelection("U1"),), 0)`, `PadSelection("U1", index=0)` and a `RuleSet` holding two rules named `dec7` are built
+- **THEN** each raises `ValueError`
+
+#### Scenario: Compatibility is documented
+- **WHEN** `uv run pytest tests/unit/model/test_rules.py -k documented` reads `docs/design-model.md`
+- **THEN** the section on `proximity` holds the sentence that 0.2.x and 0.3.0 cannot read a document that carries the key
+
+### Requirement: Differential pairs in the model
+The model SHALL hold a differential pair as an `Interface` whose kind is a key of `fenolite.model.pairs.PAIR_ROLES`, and `fenolite.model.pairs` SHALL define the name rule by which two nets form a pair (`H-K-DIFFPAIR-NAMES-2`). Rules, checks, the build and the backends MUST use this module, and no other pair entity MUST exist.
+- **Roles.** `PAIR_ROLES` MUST map `diff_pair` to `("p", "n")` and `usb2` to `("dp", "dn")`, the positive role first. `pair_nets(interface)` MUST return the ids of the positive and the negative net of an interface of one of those kinds, and `None` for another kind or a missing role.
+- **Name rule.** `split_pair_name(name)` MUST return `PairName(base, polarity, tail)` when the name, without its longest trailing run of digits and `_` (the tail, possibly empty), ends with `P`, `N`, `+` or `-` (the polarity), `base` being the text before the polarity; otherwise it MUST return `None`. `coupled_name(name)` MUST return the base, the other polarity (`P` for `N`, `+` for `-`, and back) and the tail, or `None`. `pair_base(positive, negative)` MUST return the base when the polarity of `positive` is `P` or `+` and `negative == coupled_name(positive)`, and `None` otherwise. Letter case counts throughout.
+- **Bases of a design.** `net_bases(names)` MUST map each name of `names` whose coupled name is also in `names` to its base.
+- **Class values.** `NetClass` MUST gain `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap`, each a length in nm or `None` (the default), stored in `circuit.json`. A `circuit.json` written before these fields existed MUST load with all three `None`.
+- **Rules.** `RuleKind` MUST gain `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length`. `SelectorOp` and `LEAF_OPS` MUST gain `diff_pair`, a leaf whose value is a pair base, which MAY hold `*`. `RuleSubject` MUST gain `diff_pair: str | None`, the base of the subject's net when the design holds the coupled net, `None` by default.
+- **Matching.** `Selector("diff_pair", v).matches(subject)` MUST be true exactly when `subject.diff_pair` is not `None` and matches `v` as a glob with its letter case, or ends with `_` and matches `v` without that `_`.
+- `schemas/fenolite.model.v0/circuit.json` and `rules.json` MUST be regenerated, and `uv run python tools/gen_schemas.py --check` MUST exit 0.
+
+#### Scenario: Names that pair
+- **WHEN** `pair_base` is called on (`USB_P`, `USB_N`), (`USB+`, `USB-`), (`USB_DP`, `USB_DN`), (`D_P0`, `D_N0`), (`D_P_2`, `D_N_2`) and (`DP1`, `DN1`)
+- **THEN** it returns `USB_`, `USB`, `USB_D`, `D_`, `D_` and `D`
+
+#### Scenario: Names that do not pair
+- **WHEN** `pair_base` is called on (`USB_DP`, `USB_DM`), (`USB_p`, `USB_n`), (`USB_P`, `USB-`), (`D_P1`, `D_N2`), (`D_PA`, `D_NA`) and (`USB_N`, `USB_P`)
+- **THEN** it returns `None` each time, and `coupled_name("USB_DP")` is `USB_DN`
+
+#### Scenario: Nets of a USB interface
+- **GIVEN** an `Interface` of kind `usb2` with the members `dp`, `dn`, `vbus` and `gnd`, and one of kind `i2c`
+- **WHEN** `pair_nets` is called on each
+- **THEN** the first gives the ids of the `dp` and `dn` nets in this order, and the second `None`
+
+#### Scenario: Pair leaf matches by base
+- **GIVEN** three subjects whose `diff_pair` is `USB_`, `usb_` and `None`
+- **WHEN** `Selector("diff_pair", "USB")`, `Selector("diff_pair", "USB_")` and `Selector("diff_pair", "*")` are matched against each
+- **THEN** the first two match only the subject `USB_`, and the third matches `USB_` and `usb_` and not the subject without a pair
+
+#### Scenario: Older circuit document loads
+- **GIVEN** a `circuit.json` written before this change, whose class `HV` has no pair key
+- **WHEN** it is loaded with `canonical.loads` and validated against the regenerated schema
+- **THEN** loading succeeds, validation passes, and the three pair values of `HV` are `None`
+
+### Requirement: Copper locks in the board model
+`fenolite.model.board` SHALL add `locked: bool = False` as the last field of `Track`, `Arc` and `Via`. A locked item is one that tools must not move or remove: `routing.select.rip` keeps it (`routing`, "Net selection"), and the KiCad backend reads and writes it (`kicad-file-backend`, "Copper locks on boards"). Documents written before this field MUST still load, with `locked == False`, and a design without a locked item MUST serialise to the bytes it had before (the key is written only when true, as every default of the model). The other direction does not hold and MUST be said in `docs/design-model.md` and in the changelog: releases 0.2.x and 0.3.x cannot read a model document that carries the key `locked` on a track, an arc or a via, because their reader refuses an unknown key. `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json` with the three fields.
+
+#### Scenario: Default is unlocked
+- **WHEN** `Track(id=…, start=…, end=…, width=250_000, layer="F.Cu")`, an `Arc` and a `Via` are constructed without `locked`
+- **THEN** each has `locked == False`, and an item built with `locked=True` compares unequal to the same item without it
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` written before this change, without the field
+- **WHEN** `uv run pytest tests/unit/model -k copper_lock` loads it with `canonical.loads`
+- **THEN** every track, arc and via has `locked == False`
+
+#### Scenario: A design without locks keeps its bytes
+- **GIVEN** `tests/data/model/v0.2.0/blink_2layer.board.json` (the fixture of c0126)
+- **WHEN** `uv run pytest tests/unit/model -k copper_lock` loads it and serialises it with `canonical.dumps`
+- **THEN** the bytes are those of the file, and `grep -n "cannot read a model document that carries the key" docs/design-model.md` prints the sentence
+
+#### Scenario: Schemas regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, and `board.json` lists `locked` for tracks, arcs and vias as a boolean
+
+### Requirement: Via protection in the board model
+`fenolite.model.board` SHALL describe how a via is protected with the value object `ViaProtection`, which has no entity header, and SHALL add these fields, each with a default, so that documents written before them still load:
+- `Via.protection: ViaProtection = ViaProtection()`, the via's own values, placed right before `locked`, which stays the last field of `Via` (c0108, "Copper locks in the board model");
+- `Board.via_protection: ViaProtection | None = None`, the board's default for every via.
+
+`ViaProtection` MUST be a frozen dataclass of eight fields, in this order, each of type `bool | None` with the default `None`: `tenting_front`, `tenting_back`, `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping`, `filling`. `True` means that the feature is applied on that side, or to the via for `capping` and `filling`; `False` that it is not.
+- On a via, `None` MUST mean that the field follows the board's default.
+- In `Board.via_protection`, `None`, whole or for one field, MUST mean the backend's own default; `kicad-file-backend` "Via protection defaults on boards" states KiCad's (tented on both sides, nothing else), and `altium-build` "Via protection in an Altium build" the Altium backend's (clear tenting flags).
+- The model MUST NOT compute effective values; backends do.
+- `tools/gen_schemas.py` MUST regenerate `schemas/fenolite.model.v0/board.json` with both fields, each value a boolean or `null`. The canonical JSON of a via whose `protection` equals `ViaProtection()` and of a board whose `via_protection` is `None` MUST be the text written before this change, because default values are omitted.
+- `docs/design-model.md` MUST describe the two fields and say that Fenolite 0.2.x and 0.3.0 cannot read a `board.json` that carries `protection` or `via_protection`: their reader of the canonical form is strict.
+
+#### Scenario: Defaults
+- **WHEN** `Via(id=..., position=..., diameter=600_000, drill=300_000)` and `Board(id=...)` are constructed
+- **THEN** the via has `protection == ViaProtection()`, every field of which is `None`, and the board has `via_protection is None`
+
+#### Scenario: Old documents still load
+- **GIVEN** a `board.json` written before this change, holding vias and no `protection` or `via_protection` key
+- **WHEN** `canonical.loads` reads it into a `Board` and `to_data` writes it again
+- **THEN** every via has `protection == ViaProtection()`, the board has `via_protection is None`, and the written text equals the read one
+
+#### Scenario: Not a boolean
+- **GIVEN** a `board.json` document where `vias[0].protection.filling` is `"yes"`
+- **WHEN** it is validated against `schemas/fenolite.model.v0/board.json`
+- **THEN** validation fails with the JSON pointer of that value
+
+#### Scenario: Schema regenerated
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs after this change
+- **THEN** it exits 0, and `board.json` lists `protection` on vias, `via_protection` on the board, and the eight fields of `ViaProtection`
+
+### Requirement: Graphics and texts of a footprint instance
+`FootprintInstance` SHALL hold `graphics: tuple[Graphic, ...]` and `texts: tuple[Text, ...]`, both ordered and `()` by default: the drawings and the free texts that belong to one placed footprint. They are the board's own `Graphic` and `Text` entities; no class, id prefix or literal is added.
+- **Frame.** A point of a footprint's graphic or text MUST be in the pad frame of "Board entities read from file backends": its place on the board is `instance.position + R(instance.rotation)·p`, with no further mirror, so a bottom footprint holds mirrored coordinates. `Text.rotation` is relative to the footprint.
+- **Layers.** `layer` MUST be the board layer the item lies on: an item of a bottom footprint names the bottom layer.
+- **Order.** Both tuples keep the order of their source (file order, record order, definition order), and a writer writes in that order.
+- **Reference and Value.** The places of the reference and of the value stay `FootprintInstance.fields` ("Footprint fields"); `texts` holds only texts that are no field, with the string as the source stores it.
+- A graphic MAY be of any `GraphicKind` and on any layer, a copper layer included. A consumer that cannot use one MUST count it and say so; it MUST NOT drop it silently.
+- **Ids.** An item with a native id has the id that an imported object with that native id gets; an item without one has a content id whose section names its footprint and whose content is in the footprint frame, so moving the footprint changes no id of its items.
+- `Design.entities()` and `Design.validate()` MUST cover the items (duplicate ids), and `Design.by_layer` MUST list them under their layer.
+- The change MUST be additive. `canonical` omits the defaults, so a design whose footprints hold no item gives the `board.json` bytes it gave before, and a `board.json` without the keys `graphics` and `texts` MUST load with `()`. `SCHEMA_VERSION` stays `"0"`, and `schemas/fenolite.model.v0/board.json` MUST be regenerated with `tools/gen_schemas.py`, with both keys as optional arrays.
+- The other direction does not hold, and MUST be said: release 0.2.0 cannot read a model document that carries one of the new keys (`graphics`, `texts`, `corner_ratio`), because its reader refuses an unknown key. `docs/design-model.md` and the changelog MUST hold that sentence.
+- A `board.json` that release 0.2.0 wrote MUST be committed as a fixture, `tests/data/model/v0.2.0/blink_2layer.board.json`: built by the code of the tag `v0.2.0` from `examples/blink_2layer/design.py` at that tag, with a fixed seed and timestamp, copied byte for byte, and declared in `tests/data/MANIFEST.toml` with its origin, its command and its SHA-256. It MUST load unchanged and serialise again to its own bytes.
+
+#### Scenario: A design without footprint items keeps its bytes
+- **WHEN** `uv run pytest tests/unit/model/test_footprint_items.py -k bytes` dumps the built blink and the board read from `tests/data/kicad/board/two_layer.kicad_pcb` with `canonical.dump_texts`
+- **THEN** every text equals the text that the commit before this change gave (digests pinned in the test), and `uv run python tools/gen_schemas.py --check` exits 0
+
+#### Scenario: A document of 0.2.0 loads unchanged
+- **GIVEN** `tests/data/model/v0.2.0/blink_2layer.board.json`, the `board.json` that the code of the tag `v0.2.0` wrote for `examples/blink_2layer/design.py`, which holds none of the new keys
+- **WHEN** `uv run pytest tests/unit/model/test_footprint_items.py -k v020` loads it with `canonical.loads(text, Board)` and serialises it with `canonical.dumps`
+- **THEN** it loads without an error, every footprint has `graphics == ()` and `texts == ()`, every pad has `corner_ratio is None`, and the serialised bytes equal the bytes of the file
+
+#### Scenario: The fixture is declared
+- **WHEN** `uv run pytest tests/corpus/test_manifest.py -q` runs
+- **THEN** `tests/data/MANIFEST.toml` holds one entry for the fixture, with the tag `v0.2.0`, the build command and the file's SHA-256
+
+#### Scenario: 0.2.0 and the new keys are documented
+- **WHEN** `docs/design-model.md` and the `[Unreleased]` section of `CHANGELOG.md` are read after the change is implemented
+- **THEN** each holds the sentence that release 0.2.0 cannot read a model document that carries the new keys
+
+#### Scenario: A line of a bottom footprint
+- **GIVEN** a footprint at (10 mm, 20 mm), rotated by 90 degrees, on the bottom side, with one `line` graphic from (0, 0) to (1 mm, 0) on `B.SilkS`
+- **WHEN** the line is placed with `Transform.placement(position, rotation)`, without a mirror
+- **THEN** its ends on the board are (10 mm, 20 mm) and (10 mm, 19 mm), the points at which a pad at the same local points would lie
+
+### Requirement: Corner ratio of a rounded-rectangle pad
+`Pad` SHALL hold `corner_ratio: int | None`, `None` by default: the corner radius of a pad of shape `roundrect` in parts per million of the shorter side of `Pad.size`. 250 000 is a quarter of the shorter side.
+- The value MUST be an integer from 0 to 500 000. `None` means that the ratio is not known to the model; a pad of another shape MUST have `None`.
+- One Altium corner percentage is 5 000 ppm, and a KiCad ratio `r` is `r · 1 000 000`, rounded half to even when `r` has more than six decimals. No float and no decimal string is stored.
+- `Design.validate()` MUST report `model.corner-ratio` (error), with `where` set to the pad's id, for a value outside the range and for a value on a pad whose shape is not `roundrect`. The code MUST have an entry in `src/fenolite/cli/data/explain.toml`.
+- A library pad (`FootprintDef.pads`) carries the field alike; `schemas/fenolite.model.v0/library.json` MUST be regenerated.
+- The field is additive as "Graphics and texts of a footprint instance" says: omitted at its default, and a document without the key loads with `None`.
+
+#### Scenario: Percentages are exact
+- **WHEN** `uv run pytest tests/unit/model/test_footprint_items.py -k corner` converts every percentage from 0 to 100 to ppm and back
+- **THEN** each comes back unchanged, and the KiCad ratios `0.25`, `0.1` and `0.208333` give 250 000, 100 000 and 208 333
+
+#### Scenario: A ratio on a rectangle
+- **GIVEN** a design with one pad of shape `rect` and `corner_ratio == 250_000`, and one `roundrect` pad with `corner_ratio == 600_000`
+- **WHEN** `Design.validate()` runs
+- **THEN** it reports two `model.corner-ratio` errors, each with the id of its pad
+
+### Requirement: Models without footprint items
+A consumer of a design whose footprints hold no graphic and no text, and whose rounded pads hold no ratio, SHALL do what it did before the fields existed. Such a design is every model document written before change c0126 and every design read from a KiCad file without the projection of `kicad-file-backend`, "Footprint items projected on request".
+- The library of a footprint needs no field of its own: `FootprintInstance.lib_ref` MUST stay the one reference, `<library>:<name>` or the bare name. A backend that needs a library definition (the Altium build, for the footprints of a PCB library) takes it from its caller.
+- The KiCad readers and writers MUST NOT fill or read the three fields except through that projection: `read_board`, `read_footprint`, `place_footprint` and `write_board` give the designs and the texts they gave in release 0.2.0.
+- The Altium build falls back to the library definition for what an instance does not hold (`altium-build`, "Altium build through the lowering").
+
+#### Scenario: A KiCad read is unchanged
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_fpitems.py -k unchanged` reads every board under `tests/data/kicad/board/` with `read_board`
+- **THEN** no footprint holds a graphic or a text, no pad holds a ratio, and `canonical.dumps` of each design is the text that the commit before this change gave (digests pinned in the test)
+
+### Requirement: Net-tie groups in the model
+The board and library layers SHALL model a footprint's net-tie groups as `FootprintInstance.net_ties` and `FootprintDef.net_ties`, both `tuple[tuple[str, ...], ...]`, ordered, with the default `()`, so documents written before them still load. Canonical JSON omits a field at its default, so a footprint without groups MUST be written with the bytes it had before these fields existed.
+- Each inner tuple is one group: the numbers of pads that the footprint joins on purpose, in the order the source lists them. A backend reads them from its own form (`kicad-file-backend`, "Net-tie groups on boards and footprints"), and the copper check skips the pad pairs of one group (`copper-check`, "Pairs that are judged").
+- `Design.validate()` MUST NOT check the numbers against the pads: a read board keeps what its file says.
+- `docs/design-model.md` MUST describe both fields and MUST say that 0.2.x and 0.3.0 cannot read a document that carries `net_ties`; `schemas/fenolite.model.v0/board.json` and `library.json` MUST be regenerated, and `SCHEMA_VERSION` stays `"0"`.
+- A backend that reads no groups leaves the field `()`: the Altium import does, so the copper check of an imported board judges every pad pair.
+
+#### Scenario: Old documents load
+- **GIVEN** a `board.json` written before this change
+- **WHEN** `uv run pytest tests/unit/model -k net_ties` loads it with `load_dir`
+- **THEN** every `FootprintInstance.net_ties` is `()`, and writing the design again gives the same bytes: no `net_ties` key is written
+
+#### Scenario: Schema in step
+- **WHEN** `uv run python tools/gen_schemas.py --check` runs
+- **THEN** it exits 0, and both schemas list `net_ties` as an array of arrays of strings
+
+### Requirement: Waivers in the findings layer
+The findings layer SHALL hold a design's waivers as `fenolite.model.findings.Waiver(name: str, code: str, items: tuple[str, ...], reason: str, min_gap: Nm | None = None)`, a frozen dataclass, in `Findings.waivers: tuple[Waiver, ...]`, sorted by name, with the default `()`, so `findings.json` files written before them still load.
+- `code` is a finding code (`copper.short`, `copper.clearance`, `copper.zone-overlap` or `<oracle>.drc.<suffix>`); `items` are names or glob patterns of the finding's items, as `where` prints them; `min_gap` is in integer nm.
+- What a waiver may say is checked where it is declared (`design-dsl`, "Waivers in the DSL"); how it matches is `verification-loop`, "Waivers in the check".
+- `docs/design-model.md` MUST describe `Waiver` and the field and MUST say that 0.2.x and 0.3.0 cannot read a `findings.json` that carries `waivers`; `schemas/fenolite.model.v0/findings.json` MUST be regenerated. A design without waivers MUST write the `findings.json` bytes it wrote before.
+
+#### Scenario: Waivers round-trip through the cache
+- **GIVEN** a design whose findings hold two waivers, one with `min_gap=150_000`
+- **WHEN** `uv run pytest tests/unit/model -k waivers` writes it with the canonical writer and loads it back
+- **THEN** the loaded `Findings.waivers` equals the original, in name order, and `findings.json` holds no float
+
+### Requirement: Check severities in the rules layer
+The rules layer SHALL hold the severities that a design gives the checks of a design-rule tool as `RuleSet.severities: dict[str, RuleSeverity]`, with the default `{}`, so `rules.json` files written before it still load. A key is the finding code of the check (`<oracle>.drc.<suffix>`, as `check` reports it), a value is `error`, `warning` or `ignore`, and canonical JSON writes the keys sorted. `docs/design-model.md` MUST describe the field and MUST say that 0.2.x and 0.3.0 cannot read a `rules.json` that carries `severities`; `schemas/fenolite.model.v0/rules.json` MUST be regenerated. A rule set without severities MUST write the bytes it wrote before. A severity is not a rule: it has no `RuleKind` and no row in a backend's rule table.
+
+#### Scenario: Severities round-trip
+- **GIVEN** a `RuleSet` with `severities == {"kicad.drc.via-dangling": "error", "kicad.drc.silk-overlap": "ignore"}`
+- **WHEN** it is written and loaded back
+- **THEN** the loaded value is equal, and `rules.json` lists `kicad.drc.silk-overlap` before `kicad.drc.via-dangling`
+
+#### Scenario: Unused keys change no byte
+- **WHEN** `uv run pytest tests/unit/lens -k unused_keys` builds `examples/blink_2layer/design.py` and `examples/blink_routed/design.py` for targets 9 and 10 with a fixed seed and timestamp
+- **THEN** the SHA-256 of every planned file, the documents under `.fenolite/` included, equals the one the test records from the commit before this change, and no document holds `net_ties`, `waivers` or `severities`
+
+### Requirement: Board slots
+`Outline` SHALL hold `slots: tuple[OutlineSlot, ...]`, empty by default. `OutlineSlot` SHALL be a frozen entity with `name`, `center`, `length` (overall), `width` and `rotation`: a non-plated milled stadium whose ring is `core.stadium.stadium(...)`. `width` MUST be positive and even and `length` MUST exceed it. Overlapping slots and cut-outs mean their union. The canonical writer MUST omit empty `slots`; release 0.4.x cannot read a document that carries it.
+
+#### Scenario: A slot round-trips
+- **GIVEN** an outline of a 40 × 30 mm rectangle with one `OutlineSlot` at (115 mm, 110 mm), length 12 mm, width 2 mm, rotation 30°
+- **WHEN** `uv run pytest tests/unit/model/test_outline_slots.py` dumps it with `canonical.dump_dir` and loads it again
+- **THEN** the loaded outline equals the original, and a document without slots keeps its bytes
+
+#### Scenario: The stadium of a turned slot
+- **WHEN** `stadium(Point(0, 0), 12_000_000, 2_000_000, 90_000_000)` is called
+- **THEN** its vertices are exact, its mids are (0, 6 mm) and (0, −6 mm) in some order, and every vertex lies 1 mm from the axis

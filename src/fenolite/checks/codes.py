@@ -7,7 +7,8 @@ are not in this table. Codes of an oracle start with its name, written ``<oracle
 ``<oracle>.drc.<type>`` stands for every DRC finding code, whose suffix comes from the tool's own type
 (``checks.drc_json.type_code``; "Findings stage issue codes").
 The ``copper.*`` codes are those of the copper check (``checks.copper``; "Copper stage issue codes"), which
-the build's copper guard emits too.
+the build's copper guard emits too; change c0169 adds the copper-to-edge clearance and the two findings of
+drilled holes.
 The last six codes are those of the document check (``checks.documents``; "Document check issue codes",
 change c0044): the input of a backend whose project is a set of documents.
 The row ``<oracle>.erc.<type>`` stands for every ERC finding code of an oracle (``checks.erc_json``), and
@@ -71,6 +72,9 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "copper.rules-incomplete": ("warning",),
         "copper.item-unsupported": ("warning",),
         "copper.clearance-unset": ("info",),
+        "copper.edge-clearance": ("error", "warning"),
+        "copper.hole-in-cutout": ("error",),
+        "copper.hole-overlap": ("warning",),
         "zone.unfilled": ("warning",),
         "zone.fill-stale": ("warning",),
         "zone.fill-unchecked": ("info",),

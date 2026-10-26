@@ -1,0 +1,78 @@
+(kicad_pcb
+	(version 20241229)
+	(generator "fenolite-tests")
+	(generator_version "10.0")
+	(general
+		(thickness 1.6)
+		(legacy_teardrops no)
+	)
+	(paper "A4")
+	(layers
+		(0 "F.Cu" signal)
+		(4 "In1.Cu" signal)
+		(6 "In2.Cu" signal)
+		(2 "B.Cu" signal)
+		(13 "F.Paste" user)
+		(15 "B.Paste" user)
+		(5 "F.SilkS" user "F.Silkscreen")
+		(7 "B.SilkS" user "B.Silkscreen")
+		(1 "F.Mask" user)
+		(3 "B.Mask" user)
+		(25 "Edge.Cuts" user)
+		(31 "F.CrtYd" user "F.Courtyard")
+		(29 "B.CrtYd" user "B.Courtyard")
+		(35 "F.Fab" user)
+		(33 "B.Fab" user)
+	)
+	(setup
+		(pad_to_mask_clearance 0)
+	)
+	(net 0 "")
+	(footprint "Fenolite_Test:Mini_Padstack"
+		(layer "F.Cu")
+		(uuid "d75df7ee-5c1f-4a9f-9213-5cb13ccc38b7")
+		(at 20 15 0)
+		(property "Reference" "R1"
+			(at 0 -1.43 0)
+			(layer "F.SilkS")
+			(uuid "a1cc719d-b705-4664-9417-07dc8770f0b6")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(property "Value" "padstack"
+			(at 0 1.43 0)
+			(layer "F.Fab")
+			(uuid "d2edd018-cbf9-452f-a408-726b64551fdf")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+			)
+		)
+		(attr through_hole)
+		(pad "1" thru_hole circle
+			(at 0 0)
+			(size 1.7 1.7)
+			(drill 1.0)
+			(layers "*.Cu" "*.Mask")
+			(remove_unused_layers no)
+			(uuid "a5000000-0000-4000-8000-000000000001")
+			(padstack
+				(mode front_inner_back)
+				(layer "Inner"
+					(shape circle)
+					(size 1.2 1.2)
+				)
+				(layer "B.Cu"
+					(shape rect)
+					(size 1.5 1.5)
+				)
+			)
+		)
+	)
+)

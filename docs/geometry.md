@@ -374,13 +374,19 @@ True
     touches along an edge or at a point is `()`.
 - The coordinate domain is |v| ≤ `COORD_LIMIT = 2**31 − 1` nm. Values outside it raise
   `geometry.out-of-range` before any backend code runs.
-- This version ships only the stdlib **fallback** (`BACKEND_ORDER = ("fallback",)`).
-  - It intersects two convex polygons without holes.
+- `BACKEND_ORDER = ("fallback", "clipper")` (change c0167).
+  - The stdlib **fallback** intersects two convex polygons without holes.
+  - The **clipper** backend (`ClipperBackend`) unites integer polygons with the non-zero rule through
+    `pyclipper` of the `geo` extra, loaded only when the backend is made. pyclipper is MIT and embeds
+    Clipper 6.4.2 under the Boost licence (S-0016). Integer in, integer out: a vertex of a union is an
+    input vertex or the intersection of two input edges, rounded to the nanometre. It gives `union` only.
   - Every other operation or operand raises `BackendUnavailable` with issue code
     `geometry.backend-unavailable` and hint `pip install 'fenolite[geo]'`.
-- The pyclipper and shapely backends come with the first change that needs general booleans or
-  offsets (zone fill), together with their cross-checks and a licence review. Shapely bundles
-  LGPL-licensed GEOS (S-0015).
+- `select_backend()` returns the first available backend, which stays `fallback`.
+  `select_backend(operation="union")` returns the first available backend whose `operations` holds the
+  operation, and raises `BackendUnavailable` naming the extra when none does.
+- Shapely is not used: it bundles LGPL-licensed GEOS (S-0015), which falls under "copyleft only across a
+  process boundary".
 - `fenolite.geometry.boolean._extra.load_extra` is the only code in the stdlib-only packages that may
   load the `geo` extra.
 
@@ -392,6 +398,30 @@ True
 (Point(x=5, y=5), Point(x=10, y=5), Point(x=10, y=10), Point(x=5, y=10))
 
 ```
+
+## Union of curved rings
+
+`geometry.rings.merge_rings(rings, *, tol=MERGE_TOL, names=None)` unites rings of lines and arcs: the
+overlapping cut-outs and milled slots of a board outline (change c0167; hypothesis `H-G-RING-UNION`).
+`MERGE_TOL` is 1 000 nm.
+
+- A `CurvedRing` is a ring of vertices with, per edge, the mid of its arc or `None`.
+- `overlap_groups` groups the rings whose polygonisations at `tol` share interior points, where neither
+  lies inside the other. Rings that only touch, and a ring inside another, stay apart: the outline check
+  refuses them.
+- A group of one is returned unchanged, with its exact arcs.
+- A group is polygonised at `tol`, every point that lies inside an arc tagged with that arc's circle,
+  and united by `select_backend(operation="union")`.
+- The arcs are put back: each maximal run of result vertices tagged with one circle becomes one arc of
+  that circle, from the vertex before the run to the vertex after it, through the run's middle point.
+  A vertex of an input ring always ends a run. The two round ends of an L share their circle, so the L
+  of two slots gives seven vertices and three arcs, the outer quarter arc among them.
+- The result starts at its least vertex with a positive orientation. It is deterministic and lies within
+  `tol` of the exact union; only the new vertices (the concave corner of the L) are rounded.
+- A union that is not one ring without holes (four slots that enclose board) raises `GeometryError`
+  naming the rings. Without the `geo` extra a group of two or more raises `BackendUnavailable`.
+- `merge_groups` gives the same with the indices of the inputs each result holds, which names the items
+  of a finding.
 
 ## Algorithm references
 

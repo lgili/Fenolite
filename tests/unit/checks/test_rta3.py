@@ -163,8 +163,13 @@ def test_rta3_module_touches_no_file() -> None:
     assert {name for name in imported if name.startswith("fenolite.")} == {
         "fenolite.backends.altium.import_evidence",
         "fenolite.backends.altium.lower",
+        "fenolite.backends.altium.pcbrecords",
         "fenolite.backends.altium.roundtrip",
         "fenolite.backends.base",
         "fenolite.core.evidence",
+        "fenolite.core.coords",
+        "fenolite.geometry.transform",
+        "fenolite.model.board",
+        "fenolite.model.circuit",
         "fenolite.model.design",
     }

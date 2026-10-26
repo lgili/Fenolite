@@ -140,14 +140,17 @@ def test_unchanged_rebuild_and_lost_record(monkeypatch: pytest.MonkeyPatch, buil
     after = {k: v for k, v in files_under(built).items() if not k.endswith(".bak")}
     record = ".fenolite/build.json"
     assert {k: v for k, v in after.items() if k != record} == {k: v for k, v in before.items() if k != record}
-    assert list(json.loads(before[record])["files"]) == ["FenoliteSample.SchLib", PRJPCB, SCHDOC]
+    baseline = f".fenolite/altium-generated/{SCHDOC}"
+    assert list(json.loads(before[record])["files"]) == [baseline, "FenoliteSample.SchLib", PRJPCB, SCHDOC]
     assert json.loads(after[record])["files"] == json.loads(before[record])["files"]
     shutil.rmtree(built / ".fenolite")
     code, env, _ = run(monkeypatch, built, "--confirm")
     assert code == 0, "identical bytes pass without a record"
     assert str(built / PRJPCB) not in env["result"]["files"]  # type: ignore[index]
     lost = json.loads((built / ".fenolite" / "build.json").read_text(encoding="utf-8"))["files"]
-    assert list(lost) == ["FenoliteSample.SchLib", SCHDOC], "a project file without a record is not recorded"
+    assert list(lost) == [baseline, "FenoliteSample.SchLib", SCHDOC], (
+        "a project file without a record is not recorded"
+    )
     shutil.rmtree(built / ".fenolite")
     _edit_one_byte(built / SCHDOC)
     assert run(monkeypatch, built, "--confirm")[0] == 7, "without a record only identical bytes pass"

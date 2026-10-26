@@ -99,6 +99,12 @@ def _attributes(sheets: Mapping[str, SchematicSheet], project: str) -> dict[str,
     return {ref: flags for ref, (_, flags) in best.items()}
 
 
+def symbol_flags(sheets: Mapping[str, SchematicSheet], project: str) -> dict[str, frozenset[str]]:
+    """Reference → the flags (``dnp``, ``exclude_from_bom``) of its symbol of the lowest unit, for the
+    sheets of ``project`` (``read_sheets``)."""
+    return _attributes(sheets, project)
+
+
 def side_of(
     root_file: Path, sheets: Mapping[str, SchematicSheet], nodes: Mapping[tuple[str, str], str]
 ) -> SchematicSide:
@@ -161,4 +167,5 @@ __all__ = [
     "read_sheets",
     "schematic_side",
     "side_of",
+    "symbol_flags",
 ]

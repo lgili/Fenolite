@@ -15,6 +15,7 @@ parallel ``kicad-cli`` processes share no instance lock or cache file (``docs/fo
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -540,15 +541,61 @@ class KicadCli:
         return cast(dict[str, object], data)
 
 
+DOCKER_HOME = "home"
+"""The container's home folder, under the run's ``STATE_DIR``: writable by the container's user, never an
+output (c0156)."""
+
+
+def docker_rootless(timeout: float = 30) -> bool:
+    """Whether the Docker daemon runs rootless: ``docker info`` lists ``rootless`` among its security options
+    (S-0727; a daemon run by root lists ``name=seccomp,profile=builtin`` here). ``False`` when the client
+    cannot answer."""
+    try:
+        done = subprocess.run(
+            ["docker", "info", "--format", "{{json .SecurityOptions}}"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0 and "rootless" in done.stdout
+
+
+def docker_user(rootless: bool) -> str | None:
+    """The ``--user`` of a container that must write the run folder, a folder of mode 0700 owned by this
+    process's user (c0156): this user's ``uid:gid`` under a daemon run by root, ``0:0`` under a rootless
+    daemon, whose container root is this user (S-0727), and ``None`` where the host has no POSIX ids
+    (Windows), which keeps the image's own user."""
+    getuid = getattr(os, "getuid", None)
+    getgid = getattr(os, "getgid", None)
+    if getuid is None or getgid is None:
+        return None
+    return "0:0" if rootless else f"{getuid()}:{getgid()}"
+
+
 class DockerCli(KicadCli):
-    """The same copy runner with ``kicad-cli`` invoked through a pinned Docker image."""
+    """The same copy runner with ``kicad-cli`` invoked through a pinned Docker image.
+
+    The container runs as the user that owns the run folder (``docker_user``), with ``HOME`` in the run's
+    state folder: the image's own user (``kicad``, uid 1000) cannot write a folder of mode 0700 owned by
+    another user, and a user the image does not know gets ``HOME=/``, which it cannot write (c0156)."""
 
     def __init__(self, image: str, *, timeout: float = 120) -> None:
         self.image = image
         super().__init__(Path(DOCKER_PREFIX + image), timeout=timeout)
 
+    @functools.cached_property
+    def user(self) -> str | None:
+        """The container's ``--user``, worked out once per runner (``docker_user``)."""
+        return docker_user(getattr(os, "getuid", None) is not None and docker_rootless())
+
     def _command(self, args: Sequence[str], tmp: Path, env: Mapping[str, str] | None = None) -> list[str]:
         extra = [part for name, value in sorted((env or {}).items()) for part in ("-e", f"{name}={value}")]
+        user = self.user
+        home = tmp / STATE_DIR / DOCKER_HOME
+        home.mkdir(parents=True, exist_ok=True)
         return [
             "docker",
             "run",
@@ -557,10 +604,13 @@ class DockerCli(KicadCli):
             "never",
             "--platform",
             "linux/amd64",
+            *(("--user", user) if user else ()),
             "-v",
             f"{tmp}:/w",
             "-w",
             "/w",
+            "-e",
+            f"HOME=/w/{STATE_DIR}/{DOCKER_HOME}",
             "-e",
             "KICAD_CONFIG_HOME=/w/config",
             "-e",
@@ -574,8 +624,9 @@ class DockerCli(KicadCli):
         ]
 
     def _state(self, root: Path) -> dict[str, str]:
-        """None: each container has its own temporary folder (``--rm``), and the ``docker`` client keeps
-        the caller's ``XDG_RUNTIME_DIR``, where a rootless daemon's socket lives (S-0704)."""
+        """None for the ``docker`` client: each container has its own temporary folder (``--rm``), and the
+        client keeps the caller's ``XDG_RUNTIME_DIR``, where a rootless daemon's socket lives (S-0704).
+        The container's home folder is made by ``_command``."""
         return {}
 
 
@@ -648,6 +699,7 @@ __all__ = [
     "windows_kicad_clis",
     "BOM",
     "DRC_REPORT",
+    "DOCKER_HOME",
     "DOCKER_PREFIX",
     "IMPORTED_BOARD",
     "IMPORT_REPORT",
@@ -665,6 +717,8 @@ __all__ = [
     "ERC_REPORT",
     "ErcRun",
     "DockerCli",
+    "docker_rootless",
+    "docker_user",
     "KicadCli",
     "KicadCliError",
     "KicadCliVersionError",

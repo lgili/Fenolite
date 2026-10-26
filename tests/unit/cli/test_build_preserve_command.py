@@ -60,7 +60,10 @@ def test_board_of_major_10_built_for_target_9(tmp_path: Path, monkeypatch: pytes
     before = p.files()
     p.target = 9
     code, _, err = p.build("--dry-run")
-    assert code == 7 and json.loads(err)["code"] == "FEN-7002" and p.files() == before
+    error = json.loads(err)
+    assert code == 7 and error["code"] == "FEN-7002" and p.files() == before
+    # scenario "Build keeps refusing" (change c0162): a downgrade is a conversion, never a build
+    assert "fenolite convert <project> --to kicad --kicad-version 9" in error["hint"]
 
 
 def test_broken_rules_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

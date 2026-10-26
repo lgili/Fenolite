@@ -35,3 +35,19 @@ def test_container_matches_local() -> None:
     local_fill = fill_board(original, local.board.decode("utf-8"))
     container_fill = fill_board(original, container.board.decode("utf-8"))
     assert local_fill.text == container_fill.text
+
+
+def test_container_writes_the_callers_run_folder() -> None:
+    """c0156: whoever runs Fenolite (root included), the pinned image writes the run folder of mode 0700
+    and the report is read, with no "Permission denied" from ``kicad-cli``. Needs Docker and the image,
+    not a local ``kicad-cli``."""
+    if shutil.which("docker") is None:
+        pytest.skip("Docker is unavailable")
+    image = subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True, check=False)
+    if image.returncode:
+        pytest.skip("pinned KiCad 10 image is not local")
+    board = Path(__file__).resolve().parents[2] / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
+    run = DockerCli(IMAGE, timeout=300).drc(board)
+    assert run.run.returncode == 0, run.run.stderr
+    assert "Permission denied" not in run.run.stderr
+    assert run.report is not None

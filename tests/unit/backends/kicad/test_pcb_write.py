@@ -416,8 +416,10 @@ def test_board_required() -> None:
     assert holes.board is not None
     board: Board = holes.board
     hole = Hole(id="hol_00000000-0000-4000-8000-000000000001", position=mm(1, 1), drill=1_000_000)
-    with pytest.raises(ValueError, match="holes"):
+    # a free hole is a named writer error since c0167, not a bare ValueError
+    with pytest.raises(LossyWriteError) as info:
         write_board(dataclasses.replace(holes, board=dataclasses.replace(board, holes=(hole,))))
+    assert [i.code for i in info.value.issues] == ["kicad.board.free-hole"]
 
 
 # -- unknown child (kicad-slots "Opaque child unchanged on a same-target write")

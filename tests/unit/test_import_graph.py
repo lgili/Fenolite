@@ -30,11 +30,12 @@ ALLOWED: dict[str, set[str]] = {
     "core": set(),
     "model": set(),
     "geometry": set(),
-    "dsl": {"model"},
+    "dsl": {"model", "schematic"},
+    "schematic": set(),
     "catalog": {"model"},
-    "lens": {"model", "backends*"},
+    "lens": {"model", "backends*", "schematic"},
     "backends": {"model", "geometry", "backends*"},
-    "backends.<x>": {"model", "geometry", "backends.base"},
+    "backends.<x>": {"model", "geometry", "backends.base", "schematic"},
     "libs": {"model", "geometry"},
     "checks": {"model", "geometry", "backends.base"},
     "analysis": {"model", "geometry", "backends.base"},
@@ -46,9 +47,12 @@ ALLOWED: dict[str, set[str]] = {
     "exports": {"model", "geometry", "backends*"},
     "convert": {"model", "geometry", "backends*"},
     "verify": {"model", "geometry", "backends*"},
+    "api": {"model", "geometry", "backends*", "checks", "analysis", "convert", "lens"},
     "agent": {"cli"},
+    "panel": {"model", "geometry", "backends*", "checks", "convert", "dsl"},
+    "view": {"model", "geometry", "backends*"},
 }
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog"}
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 
@@ -232,6 +236,13 @@ def test_layering() -> None:
         ("lens", "backends.kicad", True),
         ("checks", "backends.kicad", False),
         ("analysis", "backends.kicad", False),
+        ("api", "backends.kicad", True),
+        ("api", "checks", True),
+        ("api", "cli", False),
+        ("checks", "api", False),
+        ("backends.kicad", "api", False),
+        ("cli", "api", True),
+        ("agent", "api", False),
     ],
 )
 def test_rule_table(source: str, target: str, ok: bool) -> None:
@@ -260,11 +271,39 @@ def test_registry_may_import_a_backend(tmp_path: Path, monkeypatch: pytest.Monke
     assert _violations() == []
 
 
+def test_schematic_core_cannot_depend_on_dsl_backends_or_extras(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = _fake_tree(
+        tmp_path,
+        "schematic/layout.py",
+        "import fenolite.dsl.design\nimport fenolite.backends.altium.layout\nimport numpy\n",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any("schematic → dsl" in p for p in problems)
+    assert any("schematic → backends.altium" in p for p in problems)
+    assert any("must be stdlib-only (imports numpy)" in p for p in problems)
+
+
 def test_backend_may_not_import_another_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake = _fake_tree(tmp_path, "backends/kicad/pcb.py", "import fenolite.backends.other.x\n")
     monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
     problems = _violations()
     assert any("backends.kicad → backends.other" in p for p in problems), problems
+
+
+def test_public_api_stays_on_top(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "Public API stays on top" (c0158)."""
+    fake = _fake_tree(tmp_path, "checks/equivalence/levels.py", "import fenolite.api\n")
+    (fake / "api").mkdir()
+    (fake / "api" / "sides.py").write_text(
+        "import fenolite.backends.registry\nimport fenolite.checks.equivalence\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    problems = _violations()
+    assert any("checks → api" in p for p in problems), problems
+    assert not any("api →" in p for p in problems), problems
 
 
 def test_bare_import_without_extras() -> None:

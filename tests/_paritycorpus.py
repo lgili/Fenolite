@@ -68,7 +68,7 @@ def demo_projects(folder: Path, tag: str, *, newest: int) -> tuple[list[DemoProj
     left = {"no-schematic": 0, "not-cached": 0, "sch-old": 0, "newer-than-the-running-major": 0}
     found: list[DemoProject] = []
     for path, (row_id, cached) in sorted(board_rows(tag).items()):
-        root = str(Path(path).with_suffix(".kicad_sch"))
+        root = Path(path).with_suffix(".kicad_sch").as_posix()
         if root not in by_path:
             left["no-schematic"] += 1
             continue

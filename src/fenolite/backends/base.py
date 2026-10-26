@@ -10,7 +10,7 @@ another backend.
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
@@ -18,7 +18,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from fenolite.core.coords import Point
 from fenolite.core.errors import FormatError, Issue
-from fenolite.core.evidence import Evidence
+from fenolite.core.evidence import Evidence, GraduationHypothesis, GraduationRun, Level
 from fenolite.core.units import Nm, Udeg
 from fenolite.model.board import PadKind, Side, ZoneFill
 from fenolite.model.design import Design
@@ -279,6 +279,104 @@ class MatrixRow:
         row["verified_by"] = list(self.verified_by())
         row["experimental"] = [o for o in MATRIX_OPERATIONS if o in self.experimental]
         return row
+
+
+def graduated(
+    row: MatrixRow,
+    register: Mapping[str, GraduationHypothesis],
+    runs: Collection[GraduationRun],
+    *,
+    own_readback: str | None = None,
+    suite_tests: Collection[str] = (),
+) -> tuple[bool, tuple[str, ...]]:
+    """Decide write graduation without I/O or treating author reports as release evidence.
+
+    Readback metadata comes from claims; suite membership is supplied by the checker.
+    Missing metadata fails closed. Passing tests remain a separate CI release gate.
+    """
+    if row.write is None:
+        return False, ("no write cell",)
+    missing: list[str] = []
+    if not own_readback or own_readback not in suite_tests:
+        missing.append("own-readback test is not declared in the suite")
+    verified = {
+        Level.ALTIUM_VERIFIED_KIT,
+        Level.KICAD_VERIFIED,
+        Level.ORACLE_VERIFIED,
+        Level.CORPUS_VERIFIED,
+    }
+    required = set(row.write.hypotheses)
+    if row.backend == "altium":
+        if row.kind == "altium_pcbdoc":
+            required.add("H-A-VER-RTA3")
+        elif row.kind in {"altium_prjpcb", "altium_schdoc_ascii", "altium_schdoc_binary"}:
+            required.add("H-A-VER-RTA3-PRJ")
+    for ident in sorted(required):
+        hypothesis = register.get(ident)
+        if hypothesis is None:
+            missing.append(f"{ident} is not registered")
+        elif hypothesis.refuted or hypothesis.level not in verified:
+            missing.append(f"{ident} is not release-verified")
+    if not row.write.hypotheses:
+        missing.append("write cell names no hypotheses")
+    if row.backend == "altium":
+        current_kit = False
+        by_run = {run.run_id: run for run in runs}
+        for ident in sorted(row.write.hypotheses):
+            hypothesis = register.get(ident)
+            if hypothesis is None or hypothesis.refuted or hypothesis.level is not Level.ALTIUM_VERIFIED_KIT:
+                continue
+            # Canonical kit labels end with the committed run id; no author label qualifies.
+            run_id = hypothesis.level_text.rsplit("; ", 1)[-1].removesuffix(")")
+            run = by_run.get(run_id)
+            if run is None or not run.committed or ident not in run.passed_hypotheses:
+                missing.append(f"{ident} has no supporting committed kit run {run_id}")
+            elif run.stale_hypotheses is None:
+                missing.append(f"kit run {run_id} freshness is unknown for {ident}")
+            elif ident in run.stale_hypotheses:
+                missing.append(f"kit run {run_id} is stale for {ident}")
+            else:
+                current_kit = True
+        if not current_kit:
+            missing.append("write cell has no current committed kit hypothesis")
+    elif row.backend == "kicad":
+        if not any(
+            (hypothesis := register.get(ident)) is not None
+            and not hypothesis.refuted
+            and hypothesis.level is Level.KICAD_VERIFIED
+            for ident in row.write.hypotheses
+        ):
+            missing.append("write cell has no KICAD-VERIFIED hypothesis")
+    else:
+        missing.append(f"no graduation policy for backend {row.backend}")
+    return not missing, tuple(missing)
+
+
+def graduation_matrix_problems(
+    rows: Sequence[MatrixRow],
+    register: Mapping[str, GraduationHypothesis],
+    runs: Collection[GraduationRun],
+    *,
+    own_readbacks: Mapping[str, str],
+    suite_tests: Collection[str],
+) -> tuple[str, ...]:
+    """Altium write cells are experimental exactly when their proofs are insufficient."""
+    problems: list[str] = []
+    for row in rows:
+        if row.backend != "altium" or row.write is None:
+            continue
+        passed, reasons = graduated(
+            row,
+            register,
+            runs,
+            own_readback=own_readbacks.get(row.kind),
+            suite_tests=suite_tests,
+        )
+        if passed and "write" in row.experimental:
+            problems.append(f"{row.kind} graduated but is listed as experimental")
+        elif not passed and "write" not in row.experimental:
+            problems.append(f"{row.kind} is not graduated: " + "; ".join(reasons))
+    return tuple(problems)
 
 
 SkipReason = Literal[
@@ -788,16 +886,71 @@ class PlacedExtent:
         return self.front if self.side == "top" else self.back
 
 
+@dataclass(frozen=True, slots=True)
+class EdgeRing:
+    """One closed ring of a board's edge in the board frame (change c0169): its name (``board``, ``cut-out
+    <k>``, ``slot <name>``, the names of a merged group joined by `` + ``, or ``edge ring <k>`` for a ring
+    read from edge graphics), its vertices, and per edge the mid of the arc it is or ``None`` for a line
+    (edge i joins vertex i to vertex i + 1 mod n)."""
+
+    name: str
+    points: tuple[Point, ...]
+    mids: tuple[Point | None, ...] = ()
+
+    def __post_init__(self) -> None:
+        points = tuple(self.points)
+        mids = tuple(self.mids) or (None,) * len(points)
+        if len(mids) != len(points):
+            raise ValueError(f"the edge ring {self.name!r} of {len(points)} vertices needs as many mids")
+        object.__setattr__(self, "points", points)
+        object.__setattr__(self, "mids", mids)
+
+
 @runtime_checkable
 class BoardFrame(Protocol):
-    """A backend that gives the board-frame geometry of a design: every pad, and every footprint's
-    courtyard. Both are pure queries."""
+    """A backend that gives the board-frame geometry of a design: every pad, every footprint's courtyard,
+    and the rings of the board's edge. All are pure queries.
+
+    ``board_edges`` (change c0169) gives the board ring first, then each cut-out or slot ring, overlapping
+    inner rings merged as the backend writes them, arcs exact; ``None`` when no ring closes."""
 
     def board_pads(self, design: Design, *, issues: list[Issue] | None = None) -> tuple[BoardPad, ...]: ...
 
     def placed_extents(
         self, design: Design, *, issues: list[Issue] | None = None
     ) -> tuple[PlacedExtent, ...]: ...
+
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class BodyModel:
+    """The 3D model that a board file holds for one component body, which the model does not carry
+    (change c0193; capability backend-protocol, "Body models source").
+
+    ``locator`` is the provenance locator of the body it belongs to; ``format`` names the data (``step``);
+    ``data`` are the model file's bytes. ``position`` is in the board frame of the model and ``z`` the height
+    from the face the footprint is on. ``rotation`` holds the angles about x, then y, then z, in a frame of
+    the top face: x right, y the board frame's −y, z out of the top face. A model point ``p`` lies at
+    ``T(position, face ± z) · F(side) · Rz · Ry · Rx · p``, ``F`` the identity on the top and a half turn
+    about x on the bottom, below the bottom face."""
+
+    locator: str
+    name: str
+    format: str
+    data: bytes = field(repr=False)
+    position: Point
+    z: Nm = 0
+    rotation: tuple[Udeg, Udeg, Udeg] = (0, 0, 0)
+
+
+@runtime_checkable
+class BodyModelSource(Protocol):
+    """A backend that gives the 3D models a board file holds for its bodies, read from the file."""
+
+    def body_models(self, path: Path) -> tuple[BodyModel, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -814,7 +967,9 @@ class DesignRules:
     form the model does not carry as copper, as (kind, count, reason) in kind order: ``design`` is then
     without the items that stand for it, and the copper check reports each entry. ``clearance_cells`` counts
     the cells of the clearance matrices of those files (clearances per pair of object kinds): those that a
-    rule of ``design`` holds, and those that none holds.
+    rule of ``design`` holds, and those that none holds. ``min_edge_clearance`` is the board minimum of the
+    copper-to-edge clearance, or ``None``, and ``edge_floor_over_rules`` says whether it also raises the
+    value of a governing ``edge_clearance`` rule (change c0169).
     """
 
     design: Design
@@ -826,6 +981,8 @@ class DesignRules:
     evidence: Evidence = Evidence()
     left_out: tuple[tuple[str, int, str], ...] = ()
     clearance_cells: tuple[int, int] = (0, 0)
+    min_edge_clearance: Nm | None = None
+    edge_floor_over_rules: bool = False
 
 
 @runtime_checkable
@@ -1146,7 +1303,7 @@ class ModelWriter(Protocol):
 
 @runtime_checkable
 class BodyComparer(Protocol):
-    """A model writer that can write component bodies on request (change c0121). ``body_differences``
+    """A model writer that can write component bodies when asked (change c0121). ``body_differences``
     gives the differences of the kind ``body`` between ``model``, the model a build stored, and
     ``reading``, the model of the documents it wrote, each a ``Change`` whose path starts with ``/body/``,
     and the evidence of that comparison.
@@ -1154,6 +1311,17 @@ class BodyComparer(Protocol):
     when it holds one; the kind is no part of ``written_scope()``."""
 
     def body_differences(self, model: Design, reading: Design) -> tuple[tuple[Change, ...], Evidence]: ...
+
+
+@runtime_checkable
+class CutoutComparer(Protocol):
+    """A model writer that writes the cut-outs of a board outline as regions of their own (change c0168).
+    ``cutout_differences`` gives the differences of the kind ``cutout`` between ``model``, the model a
+    build stored, and ``reading``, the model of the documents it wrote (in the model's frame): each written
+    cut-out ring against the read ones, a ``Change`` whose path is ``/cutout/<where>``. The kind is no part
+    of ``written_scope()``: a cut-out is one ring of the model's outline, not an entity."""
+
+    def cutout_differences(self, model: Design, reading: Design) -> tuple[Change, ...]: ...
 
 
 class Backend(Protocol):
@@ -1180,6 +1348,9 @@ __all__ = [
     "BoardFrame",
     "BoardPad",
     "BodyComparer",
+    "BodyModel",
+    "BodyModelSource",
+    "CutoutComparer",
     "CanaryState",
     "CapabilityReport",
     "Change",
@@ -1202,6 +1373,7 @@ __all__ = [
     "DrcOutcome",
     "DrcReport",
     "DrcViolation",
+    "EdgeRing",
     "ErcItem",
     "ErcOracle",
     "ErcOutcome",
@@ -1215,6 +1387,10 @@ __all__ = [
     "LimitedOracle",
     "MATRIX_OPERATIONS",
     "MatrixRow",
+    "GraduationHypothesis",
+    "GraduationRun",
+    "graduated",
+    "graduation_matrix_problems",
     "ModelCompare",
     "ModelRoundTrip",
     "ModelWriter",

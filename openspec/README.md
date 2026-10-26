@@ -25,7 +25,20 @@ names the proposals that are written on other branches and are not in this table
 agent track), c0096, c0097 and c0099 (board authoring) and c0100–c0120 (the complex board). c0095 is
 reserved; c0098 is in v0.4 by the maintainer's decision of 2026-10-08 (roadmap, "Open decisions", row 35) and has its row below. `docs/roadmap.md`, “Milestone names”, has the decision; archived changes
 keep the names of their day. The changes of v0.4 were gathered on the branch `v04` and are released as
-`0.4.0` by c0154; their folders are not all rows of this table.
+`0.4.0` by c0154; their folders are not all rows of this table. On 2026-10-09 every change whose tasks were all
+closed and whose archive order allowed it was moved to `changes/archive/` (c0078–c0080, c0096–c0100,
+c0102, c0106, c0111, c0115, c0119, c0120, c0134, c0136, c0140, c0142, c0145, c0153 and c0154); a row of
+this table whose folder is still in `changes/` is open, and `docs/release/v0.4.md`, "Archive order", says
+what each open change with every task closed waits for. Later on 2026-10-09, after the maintainer's Altium
+report of that day closed their last tasks, c0084, c0087, c0088, c0101, c0103, c0113, c0116, c0117, c0118,
+c0138, c0141, c0144, c0147 and c0148 were archived too, and after his second report of that day (steps X1
+to X7 and X9 to X12 of Part X) c0085. Later still, after the maintainer waived the KiCad oracle of c0086
+(task 5.2: `kicad-cli` reads no schematic document), c0086, c0090, c0124, c0127, c0128, c0121, c0155, c0107
+and c0104 were archived, in that order, and then c0108, c0109, c0112 and c0110, whose deferred tasks
+were closed on 2026-10-09.
+The changes of v0.5a were allocated together as c0158–c0162 on 2026-10-09 and proposed on the branch `dev-v05a-proposals`; c0157 is the yardstick change of another branch.
+The four changes of the maintainer's capability request "board slots and cut-outs, end to end" were allocated together as c0167–c0170 on 2026-10-15 and proposed on the branch `dev-slots-proposals`; c0164–c0166 were taken on `dev` and on the maintainer's `codex/` branches. The maintainer placed c0167 and c0169 in `0.5.0` on 2026-10-15 and c0168 and c0170 on 2026-10-16 (`docs/roadmap.md`, "Board slots and cut-outs").
+On 2026-10-16 the maintainer's requests for native Altium Draftsman documents and for board panels took c0172 and c0173, both placed in `0.5.0`, which he holds until their native parts pass his Altium kits.
 
 | id | slug | roadmap item | parent |
 |---|---|---|---|
@@ -137,5 +150,48 @@ keep the names of their day. The changes of v0.4 were gathered on the branch `v0
 | c0152 | `clearance-rounding` | follow-up of c0131 (Altium's rule check of 2026-10-08, S-0616): the copper check on Altium input lowers its clearance rules by Altium's observed tolerance, 3.5 file units in whole nanometres (9 nm), where that is above the unit's slack | c0131, c0132 |
 | c0153 | `kicad-cli-per-worker` | correction (two transient failures of the kicad-9 job on 2026-10-08): every `kicad-cli` run gets private temporary, runtime, cache and state folders, so parallel runs share no instance lock file | c0009, c0082 |
 | c0154 | `release-0-4-0` | release of v0.4 as `0.4.0`: the release record with the verdict per change, what is deferred to the next release by the maintainer's decision of 2026-10-08 and the follow-ups found that day, its guard, the version and the changelog cut | c0077–c0081, c0096–c0120, c0137, c0140, c0141, c0145, c0152, c0153 |
+| c0155 | `altium-bodies-default` | the maintainer's decision of 2026-10-09: an Altium build writes the extruded component bodies by default (`--altium-bodies extruded`; `off` turns it off) | c0121 |
+| c0156 | `kicad-cli-docker-user` | correction of c0015 and c0153 (two agents running as root on 2026-10-09): a `docker:<image>` run of `kicad-cli` runs the container as the owner of the run folder, with `HOME` in its state folder, so it can write that folder for any host user | c0015, c0153 |
+| c0157 | `yardstick-route-order` | the maintainer's decision of 2026-10-09 (the routing gap of nightly run 37836196244): the yardstick runner runs `route` (Freerouting) before `route-pairs` (KiCadRoutingTools) until the pair is routed as a coupled pair; measured again then | c0119 |
+| c0158 | `equivalent-public` | v0.5a: the public `equivalent`: `fenolite.api.equivalent`, the result schema `fenolite.equivalent.v0`, a KiCad schematic as a side, an equal-sized oval equal to a circle | c0045, c0089 |
+| c0159 | `convert-command` | v0.5a: `fenolite convert`, the conversion report and its verification by `equivalent`; KiCad to Altium and KiCad to KiCad with today's writers | c0158, c0090 |
+| c0160 | `convert-to-altium` | v0.5a: KiCad to Altium without the measured losses; the derived PCB library and the tolerant schematic write that the decisions of 2026-10-06 put in v0.5a | c0159, c0126 |
+| c0161 | `convert-to-kicad` | v0.5a: Altium to KiCad, with the refusal of items on layers a KiCad board does not declare | c0159, c0043 |
+| c0162 | `kicad-downgrade` | v0.5a: the controlled KiCad downgrade (capability resolver) through `fenolite convert` | c0159, c0007 |
+| c0163 | `opaque-net-stored-name` | correction (found while c0162 was written; the maintainer's decision of 2026-10-09): a numbered net reference inside opaque content resolves to the stored name of its net, so a board whose teardrops are on a net stored with `{slash}` (`RoyalBlue54L-Feather`) is written for its own target 9 instead of refused, and named rightly for 10 | c0017, c0061 |
+| c0164 | `altium-schematic-layout` | native schematic layout capture through Altium sync, byte-exact replay and conservative source conflicts | c0032, c0040, c0043, c0069 |
+| c0164 | `native-altium-template` | duplicate id (found at the 2026-10-15 merge of `dev` into `codex/c0161-c0092-integration`): both branches archived a c0164 on 2026-10-12; this one, archived as `archive/2026-10-12-c0164-native-altium-template`, applies a native binary `.SchDot` sheet template to every generated Altium schematic (`build --altium-template`); dev's c0164 is `altium-schematic-layout` above. Both archived folders are kept unchanged; the maintainer decides the renumbering | c0046 |
+| c0165 | `schematic-block-composition` | archived implementation: functional blocks, automatic flow/alignment, bounded wiring and generated-baseline reports/previews; repository gate and native GUI review pending (see archived tasks) | c0164, c0032, c0037, c0086 |
+| c0166 | `altium-native-acceptance` | the maintainer's authorization: consolidate the pending native Altium checks (0.2 line through c0160), run them on the licensed Windows PC, record the results and fix the defects found | c0091, c0092, c0160 |
+| c0167 | `board-slots` | board slots and cut-outs (milestone to be placed): `OutlineSlot` in the model and `design.slot`, the shared stadium, the union of overlapping cut-outs and slots (`clipper` backend of the `geo` extra), KiCad lowering and read-back | c0102, c0074 |
+| c0168 | `altium-slots-cutouts` | board slots and cut-outs: slotted board holes as free slot pads, milled cut-outs and slots as board cut-out regions behind the maintainer's kit, their import and round trips | c0167, c0085 |
+| c0169 | `edge-clearance-check` | board slots and cut-outs: copper-to-edge clearance in the copper check, drilled holes in cut-outs and overlapping holes, the creepage of slots | c0167, c0029 |
+| c0170 | `convert-slots-obstacles` | board slots and cut-outs: slots and cut-outs in conversions, slotted drills to Altium, generated hole footprints from Altium, slots as placement and routing obstacles | c0167, c0168, c0169, c0159–c0161 |
+| c0171 | `release-0-5-0` | release of v0.5a as `0.5.0` with the slot changes c0167 and c0169 (the maintainer's approval of 2026-10-15): the release record with the verdict per change, what is pending on the CI of the release branch and what waits for the maintainer's own tests, its guard, the version, the changelog cut, and the retry of the corpus fetch that the `kicad-10` job needs; since the maintainer's decisions of 2026-10-16 also c0168, c0170, c0172 and c0173, with the release held for the native parts of c0172 and c0173 | c0092, c0155–c0170, c0172, c0173 |
+| c0172 | `altium-draftsman` | native Altium Draftsman documents for `0.5.0` (the maintainer's request of 2026-10-16): the reader of `.PCBDwf` (an LZ4-chunked XML document) and its census, a writer behind `draftsman.NATIVE_WRITE` driven by c0117's drawing specification, `build --altium-draftsman` and `--drawing-spec`, the `PCBDrawing` output, kit Part F (F0, FP1 to FP5, F1 to F8); the release waits for its native document | c0087, c0101, c0117, c0138 |
+| c0173 | `board-panels` | board panels for `0.5.0` (the maintainer's request of 2026-10-16): the panel script and model, `fenolite panel` with its checks, the KiCad panel board, the flattened Altium panel, the Embedded Board Array behind `pcbdoc.EMBEDDED_ARRAYS` and kit Part Q (Q1 to Q12), the score layer in Gerber exports; the release waits for its native array | c0167, c0118 |
+| c0174 | `board-design-guide` | practice pages of the agent guide (board-practice to board-workflow), in `0.5.0` by the decision of 2026-10-25 | c0077 |
+| c0175 | `board-engineering-tools` | proposal of the board engineering tools; not implemented, v0.6 | c0174 |
+| c0176 | `board-viewer` | `fenolite view`: boards of every backend in 2D and 3D, the project tree, `--serve`, `--export` | c0007, c0043 |
+| c0177 | `schematic-viewer` | Altium sheets in the viewer, the Navigator and cross-probing | c0176 |
+| c0178 | `native-themes` | KiCad and Altium colours, a user's KiCad theme, KiCad sheets in the viewer | c0176, c0177 |
+| c0179 | `libraries-and-units` | libraries, mm and mil, measurement in the viewer | c0176 |
+| c0180 | `draftsman-viewer` | Draftsman drawings in the viewer | c0172, c0176 |
+| c0181 | `altium-native-layers` | Altium layer names and mask openings in the viewer | c0176 |
+| c0182 | `viewer-performance` | scene cache and compact scenes | c0176 |
+| c0183 | `board-rule-areas` | keep-outs, dimensions and placement marks in the board view | c0176 |
+| c0184 | `visual-diff` | `fenolite view --compare` | c0176 |
+| c0185 | `project-nets` | project nets across sheets in the viewer | c0177 |
+| c0186 | `variants-view` | assembly variants in the viewer | c0177 |
+| c0187 | `review-panels` | filter, Find similar, Components and Nets panels | c0176 |
+| c0188 | `check-overlay` | `fenolite view --check` | c0176 |
+| c0189 | `review-tools` | edge measure, links, review marks, SVG and print | c0176 |
+| c0190 | `documentation-views` | BOM documents, output jobs, Draftsman side views | c0180 |
+| c0191 | `viewer-visual-tests` | visual and interaction tests of the viewer page | c0176 |
+| c0192 | `guide-room` | a compact generated command page in the agent guide | c0079 |
+| c0193 | `viewer-review` | review findings, measurement with snap and embedded 3D models in the viewer | c0176 |
+| c0194 | `ci-push-scope` | CI on branch pushes but backups, never on a tag | — |
+
+The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0195.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

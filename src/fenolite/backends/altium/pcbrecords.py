@@ -479,7 +479,7 @@ def via_record(
     and ``end`` are the ids of the two copper layers it spans (a through via: 1 and 32). ``locked`` writes
     the locked flag when ``via`` is in ``LOCK_WRITTEN``. ``tented_top`` and ``tented_bottom`` set bits 5
     and 6 of the first flags byte (``pcb-copper.md``, "Flags of a via"; ``H-A-PCB-CU-VIATENT``, change
-    c0112), beside the lock bit; no other byte follows them."""
+    c0112), beside the lock bit. A tented side selects manual mask cache state at byte 66."""
     for layer in (start, end):
         layer_text(layer)
     body = bytearray(VIA_SIZE)
@@ -489,6 +489,8 @@ def via_record(
     struct.pack_into("<ihi", body, 32, 10 * _MIL, 4, 10 * _MIL)  # air gap, conductors, conductor width
     struct.pack_into("<2i", body, 42, 20 * _MIL, 20 * _MIL)
     struct.pack_into("<i", body, 54, 4 * _MIL)  # solder-mask expansion
+    if tented_top or tented_bottom:
+        body[66] = 2  # manual solder-mask cache: rules otherwise override tenting
     struct.pack_into(f"<{_VIA_LAYERS}i", body, 75, *[diameter] * _VIA_LAYERS)
     struct.pack_into("<Hi", body, 203, 15, 259)
     struct.pack_into("<i", body, 242, 4 * _MIL)  # back solder-mask expansion
@@ -504,13 +506,22 @@ PAD_SHAPES: Mapping[str, int] = MappingProxyType({"circle": 1, "oval": 1, "rect"
 """Fenolite pad shape → Altium main shape: an oval is round with unequal sizes; a rounded rectangle is round
 with alternate shape 9 in subrecord 6."""
 ROUNDED_ALTERNATE = 9
+PAD_MODE_SIMPLE, PAD_MODE_TOP_MID_BOTTOM, PAD_MODE_FULL = 0, 1, 2
+"""The pad stack modes of the byte at offset 62 of subrecord 5 (``pcb-records.md``, "Pad")."""
+HOLE_SHAPE_ROUND, HOLE_SHAPE_SQUARE, HOLE_SHAPE_SLOT = 0, 1, 2
+"""The hole shapes of the byte at offset 262 of the sixth subrecord (``pcb-records.md``, "Pad")."""
 PAD_GEOMETRY_SIZE = 114
 PAD_LAYERS_SIZE = 596
 _INNER = 29
 _STACK = 32
 _V1_DEFAULTS = (0, 0, 100_000, 4, 100_000, 200_000, 200_000)
 """The values AltiumSharp version 1 writes at pad offsets 63 to 85 (``pcb-records.md``)."""
-SOLDER_FROM_RULES = 1
+PAD_EXPANSION_NONE, PAD_EXPANSION_FROM_RULES, PAD_EXPANSION_MANUAL = 0, 1, 2
+"""The modes of the paste-mask and the solder-mask expansion (``pcb-records.md``, "Pad")."""
+SOLDER_FROM_RULES = PAD_EXPANSION_FROM_RULES
+"""The solder-mask mode every pad but a connector pad is written with: the rule's expansion, version 1's
+value. A connector pad takes neither mask, so both its modes are `PAD_EXPANSION_NONE` and both its
+expansions are zero (change c0160)."""
 PAD_SUBRECORD_3 = b"\x04|&|0"
 """What version 1 writes in pad subrecord 3: one length byte and ``|&|0``."""
 
@@ -518,6 +529,62 @@ PAD_SUBRECORD_3 = b"\x04|&|0"
 def corner_percent(ratio: Fraction | Decimal) -> int:
     """KiCad's corner ratio as Altium's corner percentage ``round(200 · ratio)``, clamped to 0 … 100."""
     return max(0, min(100, _round_away(Fraction(ratio) * 200)))
+
+
+@dataclass(frozen=True, slots=True)
+class PadPart:
+    """One part of a pad's stack, in record units: the main shape number, the X and Y size, and the corner
+    percentage when the part is a rounded rectangle (``None`` for every other shape)."""
+
+    shape: int
+    size: tuple[int, int]
+    corner: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PadStack:
+    """The per-layer stack of a pad record (change c0160; ``pcb-records.md``, "Pad", and
+    ``pcb-library.md``, "Pad records of a written footprint"): the mode (1 Top-Middle-Bottom or 2 Full
+    Stack), the top, middle and bottom parts of subrecord 5, and, for mode 2, one part per Mid-Layer n at
+    ``inner[n - 1]``. Mid-Layer 1 uses ``mid`` in subrecord 5; the remaining 29 parts use subrecord 6.
+    ``offsets`` holds the copper offset of a layer slot in record units, index 0 the top,
+    n Mid-Layer n and 31 the bottom."""
+
+    mode: int
+    top: PadPart
+    mid: PadPart
+    bottom: PadPart
+    inner: tuple[PadPart, ...] = ()
+    offsets: tuple[tuple[int, int], ...] = ()
+
+
+def _pad_layers(stack: PadStack, hole_shape: int, slot_length: int, slot_rotation: float) -> bytes:
+    """The 596-byte sixth subrecord: sizes and shapes of Mid-Layer 2 through 30, the hole shape and slot,
+    then the alternate shapes, corner percentages and copper offsets by layer slot (0 the top, ``id − 1``
+    for a mid layer, 31 the bottom)."""
+    parts = [stack.top] + [stack.mid] * (_STACK - 2) + [stack.bottom]
+    if stack.mode == PAD_MODE_SIMPLE:
+        parts = [stack.top] * _STACK
+    elif stack.mode == PAD_MODE_FULL:
+        for number, part in enumerate(stack.inner[: _STACK - 2], start=1):
+            parts[number] = part
+    inner = list(stack.inner[1:]) if stack.mode == PAD_MODE_FULL else []
+    inner = (inner + [stack.mid] * _INNER)[:_INNER]
+    offsets = list(stack.offsets) + [(0, 0)] * (_STACK - len(stack.offsets))
+    out = struct.pack(f"<{_INNER}i", *(part.size[0] for part in inner))
+    out += struct.pack(f"<{_INNER}i", *(part.size[1] for part in inner))
+    out += bytes(part.shape for part in inner) + bytes(1) + bytes((hole_shape,))
+    out += struct.pack("<id", slot_length, slot_rotation)
+    out += struct.pack(
+        f"<{2 * _STACK}i",
+        *[x for x, _ in offsets[:_STACK]],
+        *[y for _, y in offsets[:_STACK]],
+    )
+    out += b"\x01" if any(part.corner is not None for part in parts) else b"\x00"
+    out += bytes(ROUNDED_ALTERNATE if part.corner is not None else 0 for part in parts)
+    out += bytes(part.corner or 0 for part in parts)
+    assert len(out) == PAD_LAYERS_SIZE
+    return out
 
 
 def pad_record(
@@ -534,39 +601,89 @@ def pad_record(
     corner: int | None = None,
     net: int = NO_INDEX,
     component: int = NO_INDEX,
+    stack: PadStack | None = None,
+    hole_shape: int = HOLE_SHAPE_ROUND,
+    slot_length: int = 0,
+    slot_rotation: float = 0.0,
+    paste_mode: int = PAD_EXPANSION_NONE,
+    solder_mode: int = SOLDER_FROM_RULES,
+    paste_expansion: int = 0,
+    solder_expansion: int = 0,
 ) -> bytes:
     """A pad (type 2): six subrecords. Lengths in binary units, ``rotation`` in degrees; ``corner`` is the
-    corner percentage of a rounded rectangle, which adds the 596-byte subrecord 6."""
-    w, h = size
+    corner percentage of a rounded rectangle; ``stack`` (change c0160) is a per-layer stack, whose parts
+    replace the one shape and size; ``hole_shape``, ``slot_length`` and ``slot_rotation`` describe a hole
+    that is not round. The sixth subrecord is written for a rounded rectangle, a stack that is not simple,
+    or a hole that is not round. ``paste_mode``, ``solder_mode`` and their expansions are the two masks of
+    the pad (change c0160)."""
+    if stack is None:
+        part = PadPart(shape, size, corner)
+        stack = PadStack(PAD_MODE_SIMPLE, part, part, part)
     geometry = prefix(layer, net=net, component=component)
-    geometry += struct.pack("<2i6ii3Bd3B", x, y, w, h, w, h, w, h, hole, shape, shape, shape, rotation,
-                            1 if plated else 0, 0, 0)  # fmt: skip
+    geometry += struct.pack(
+        "<2i6ii3Bd3B",
+        x,
+        y,
+        *stack.top.size,
+        *stack.mid.size,
+        *stack.bottom.size,
+        hole,
+        stack.top.shape,
+        stack.mid.shape,
+        stack.bottom.shape,
+        rotation,
+        1 if plated else 0,
+        0,
+        stack.mode,
+    )  # fmt: skip
     geometry += struct.pack("<Biihiii", *_V1_DEFAULTS)
-    geometry += struct.pack("<2i", 0, 0) + bytes(7) + struct.pack("<2B", 0, SOLDER_FROM_RULES) + bytes(3)
+    geometry += struct.pack("<2i", paste_expansion, solder_expansion) + bytes(7)
+    geometry += struct.pack("<2B", paste_mode, solder_mode) + bytes(3)
     geometry += struct.pack("<iHh", 0, 0, 0)
     assert len(geometry) == PAD_GEOMETRY_SIZE
     layers = b""
-    if corner is not None:
-        if not 0 <= corner <= 100:
+    if (
+        corner is not None
+        or stack.mode != PAD_MODE_SIMPLE
+        or hole_shape != HOLE_SHAPE_ROUND
+        or any(pair != (0, 0) for pair in stack.offsets)
+    ):
+        if corner is not None and not 0 <= corner <= 100:
             raise ValueError(f"corner percentage {corner} is outside 0 … 100")
-        layers = struct.pack(f"<{_INNER}i", *[w] * _INNER) + struct.pack(f"<{_INNER}i", *[h] * _INNER)
-        layers += bytes([shape] * _INNER) + bytes(2) + struct.pack("<id", 0, 0.0)
-        layers += bytes(8 * _STACK) + b"\x01" + bytes([ROUNDED_ALTERNATE] * _STACK) + bytes([corner] * _STACK)
-        assert len(layers) == PAD_LAYERS_SIZE
+        layers = _pad_layers(stack, hole_shape, slot_length, slot_rotation)
     named = short_string(name) if name else b"\0"  # a hole of the board has no name (change c0085)
     parts = (named, b"\0", PAD_SUBRECORD_3, b"\0", geometry, layers)
     return bytes((PAD,)) + b"".join(subrecord(part) for part in parts)
 
 
-def hole_record(x: int, y: int, drill: int, *, plated: bool = False) -> bytes:
+FULL_CIRCLE_UDEG = 360_000_000
+"""One turn in microdegrees."""
+
+
+def hole_record(
+    x: int, y: int, drill: int, *, length: int | None = None, rotation: int = 0, plated: bool = False
+) -> bytes:
     """A hole of the board that belongs to no footprint (``pcb-records.md``, "Free pads as holes"): a free
     round pad on Multi-Layer without a name, a net or a component, whose size is its hole size, so it has
-    no copper ring; ``plated`` sets the plated byte. Lengths in binary units."""
+    no copper ring; ``plated`` sets the plated byte. Lengths in binary units.
+
+    With ``length`` (change c0168; ``pcb-records.md``, "Slot pads") the hole is a slot: the pad's size is
+    (``length``, ``drill``), its shape round and its rotation ``rotation`` (microdegrees), and subrecord 6
+    holds hole shape 2, the slot length ``length`` and the slot rotation 0, relative to the pad (S-0770),
+    so the copper equals the hole for any angle. A round hole keeps the bytes of change c0085."""
     if drill <= 0:
         raise ValueError(f"a hole needs a positive drill, not {drill} units")
+    if length is None:
+        return pad_record(
+            name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
+            plated=plated,
+        )  # fmt: skip
+    if length <= drill:
+        raise ValueError(f"a slot is longer than its drill: length {length} <= drill {drill} units")
     return pad_record(
-        name="", layer=MULTI_LAYER, x=x, y=y, size=(drill, drill), shape=1, rotation=0.0, hole=drill,
-        plated=plated,
+        name="", layer=MULTI_LAYER, x=x, y=y, size=(length, drill), shape=1,
+        rotation=degrees_of(rotation % FULL_CIRCLE_UDEG), hole=drill, plated=plated,
+        hole_shape=HOLE_SHAPE_SLOT, slot_length=length, slot_rotation=0.0,
     )  # fmt: skip
 
 
@@ -609,6 +726,7 @@ def region_record(
     shape_based: bool = False,
     keepout: int | None = None,
     component: int = NO_INDEX,
+    board_cutout: bool = False,
 ) -> bytes:
     """A region (type 11) without a net or a polygon (``pcb-records.md``, "Regions and keep-outs"): the
     prefix, five zero bytes, the property text and the outline. ``component`` (change c0126) is the index
@@ -617,7 +735,8 @@ def region_record(
     vertex as two doubles; the shape-based form (``ShapeBasedRegions6``) holds each as 37 bytes, none
     round, and repeats the first vertex after the last. ``keepout`` makes the region a keep-out with that
     restriction value (0 … 31): the second flag byte is 2 and the text ends with ``KEEPOUTRESTRICTIONS``
-    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value."""
+    and, for KiCad's importer, ``KEEPOUTRESTRIC``, both holding the value. ``board_cutout`` (change c0168)
+    ends the text with ``ISBOARDCUTOUT=TRUE`` (``cutout_region``)."""
     if len(vertices) < 3:
         raise ValueError("a region needs at least three vertices")
     if keepout is not None and not 0 <= keepout <= 0x1F:
@@ -634,6 +753,8 @@ def region_record(
     ]
     if keepout is not None:
         fields += [(KEEPOUT_KEY, str(keepout)), (KEEPOUT_KEY_KICAD, str(keepout))]
+    if board_cutout:
+        fields.append((BOARD_CUTOUT_KEY, "TRUE"))
     text = "|".join(f"{key}={value}" for key, value in fields).encode("ascii") + b"\0"
     head = bytearray(prefix(layer, component=component))
     if keepout is not None:
@@ -646,6 +767,20 @@ def region_record(
         for x, y in vertices:
             body += struct.pack("<2d", float(x), float(y))
     return bytes((REGION,)) + subrecord(body)
+
+
+BOARD_CUTOUT_KEY = "ISBOARDCUTOUT"
+"""The key that makes a region with ``KIND=0`` a board cut-out (``pcb-records.md``, "Board cut-outs")."""
+BOARD_CUTOUT_LAYER = KEEPOUT_LAYER
+"""The layer of a written board cut-out: the Keep-Out layer, which the saved regions with the key hold."""
+
+
+def cutout_region(vertices: Sequence[tuple[int, int]], *, shape_based: bool = False) -> bytes:
+    """A board cut-out region (change c0168; ``pcb-records.md``, "Board cut-outs"): the region of
+    ``region_record`` on the Keep-Out layer, without net, polygon, component and keep-out flag, whose keys
+    are those of a saved free region with ``KIND=0`` followed by ``ISBOARDCUTOUT=TRUE``. ``vertices`` are a
+    polygonised ring in binary units, without a closing vertex."""
+    return region_record(BOARD_CUTOUT_LAYER, vertices, shape_based=shape_based, board_cutout=True)
 
 
 # --- component bodies (change c0121) -------------------------------------------------------------------
@@ -824,6 +959,10 @@ __all__ = [
     "REGION",
     "TOP_LAYER",
     "V7_LAYERS",
+    "BOARD_CUTOUT_KEY",
+    "BOARD_CUTOUT_LAYER",
+    "FULL_CIRCLE_UDEG",
+    "cutout_region",
     "hole_record",
     "layer_text",
     "region_record",

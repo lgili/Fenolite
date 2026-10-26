@@ -17,6 +17,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import get_args
 
+from fenolite.backends.kicad import resolver
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._libread import (
     Context,
@@ -27,8 +28,8 @@ from fenolite.backends.kicad._libread import (
     load_source,
 )
 from fenolite.backends.kicad.liberrors import lib_error
-from fenolite.backends.kicad.sexpr import AtomKind, Node
-from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind
+from fenolite.backends.kicad.sexpr import AtomKind, Node, dumps, parse
+from fenolite.backends.kicad.versions import FORMAT_VERSIONS, FileKind, check_target, inspect, is_downgrade
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -171,6 +172,33 @@ def write_symbol_library(symbols: Sequence[SymbolDef], *, target: int = 10) -> s
             ]
         out += ["\t\t)", "\t)"]
     return "\n".join(out + [")", ""])
+
+
+def retarget_symbol_library(
+    text: str,
+    *,
+    target: int,
+    downgrade: bool = False,
+    allow_lossy: bool = False,
+    file: str = "",
+    issues: list[Issue] | None = None,
+    edits: list[resolver.Edit] | None = None,
+) -> str:
+    """The text of a ``.kicad_sym`` library read from a file, written for KiCad ``target``.0 (change
+    c0162). ``write_symbol_library`` writes the authored subset of the model; a library read from a file
+    keeps every symbol as written, so its downgrade is made on its tree: the header of ``target``, and each
+    construct newer than ``target`` resolved by ``resolver.resolve`` (a ``design`` loss needs
+    ``allow_lossy``). A library of a newer major is refused (``DowngradeRefusedError``) unless
+    ``downgrade``; one not newer than ``target`` is returned unchanged. Nothing is written to disk."""
+    root = parse(text, file=file)
+    info = inspect(root, file=file)
+    version = check_target(info, target, downgrade=downgrade)
+    if not is_downgrade(info, target):
+        return text
+    found = resolver.downgraded(
+        root, FileKind.SYMBOL_LIB, version, target, allow_lossy=allow_lossy, edits=edits, issues=issues
+    )
+    return dumps(found)
 
 
 def _hidden(node: Node) -> bool:
@@ -487,6 +515,7 @@ __all__ = [
     "SYMBOL_FIELDS",
     "TILDE_UNTIL",
     "read_symbol_library",
+    "retarget_symbol_library",
     "resolve_extends",
     "split_unit_name",
     "symbol_from",

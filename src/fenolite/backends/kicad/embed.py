@@ -373,6 +373,35 @@ def _copper_rows(copper: Sequence[str]) -> Node:
     return node("layers", *rows)
 
 
+def placed_tree(
+    defn: FootprintDef,
+    *,
+    component: Component,
+    at: Point,
+    rotation: Udeg = 0,
+    side: Side = "top",
+    locked: bool = False,
+    key: str,
+) -> Node:
+    """The ``footprint`` node of ``defn`` placed as ``place_footprint`` places it: uuids from ``key``, the
+    mandatory fields, the flip of a bottom placement, absolute angles and the header. For a writer that
+    assembles a board tree itself (the panel board of change c0173)."""
+    info = _source_info(defn)
+    if info is not None:
+        versions.require_editable(info)
+    tree = emit_footprint(defn)
+    tree = tree.with_children([c for c in tree.children if not (isinstance(c, Node) and c.name in HEADER)])
+    tree = _uuids(tree, key)
+    tree = _with_mandatory(tree, defn, key)
+    if side == "bottom":
+        issues: list[Issue] = []
+        tree = _flip(tree, issues)
+        if issues:
+            raise versions.LossyWriteError(issues, droppable=False)
+    tree = _angles(tree, rotation % pcb.FULL_TURN, bottom=side == "bottom")
+    return _header(tree, defn, component, at, rotation % pcb.FULL_TURN, side, locked, key)
+
+
 def place_footprint(
     defn: FootprintDef,
     *,
@@ -390,19 +419,7 @@ def place_footprint(
     derives from it. ``copper`` lists the target board's copper layers, for wildcard pad layers.
     """
     info = _source_info(defn)
-    if info is not None:
-        versions.require_editable(info)
-    tree = emit_footprint(defn)
-    tree = tree.with_children([c for c in tree.children if not (isinstance(c, Node) and c.name in HEADER)])
-    tree = _uuids(tree, key)
-    tree = _with_mandatory(tree, defn, key)
-    if side == "bottom":
-        issues: list[Issue] = []
-        tree = _flip(tree, issues)
-        if issues:
-            raise versions.LossyWriteError(issues, droppable=False)
-    tree = _angles(tree, rotation % pcb.FULL_TURN, bottom=side == "bottom")
-    tree = _header(tree, defn, component, at, rotation % pcb.FULL_TURN, side, locked, key)
+    tree = placed_tree(defn, component=component, at=at, rotation=rotation, side=side, locked=locked, key=key)
     major = info.major if info is not None and info.major is not None else versions.DEFAULT_TARGET
     version = versions.FORMAT_VERSIONS[versions.FileKind.BOARD][max(major, min(versions.TARGET_MAJORS))]
     board = node(
@@ -507,6 +524,12 @@ __all__ = [
     "footprint_extent",
     "library_field_uuid",
     "place_footprint",
+    "placed_tree",
     "placement_uuid",
     "with_property",
 ]
+
+
+def flip_footprint_tree(tree: Node, issues: list[Issue]) -> Node:
+    """Mirror a local footprint tree and swap paired layers (c0161 derived libraries)."""
+    return _flip(tree, issues)

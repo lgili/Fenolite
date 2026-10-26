@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "fenolite.review.v0",
+  "title": "ReviewFile",
+  "description": "A project's review marks (``fenolite view --marks``).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "enum": [
+        "fenolite.review.v0"
+      ]
+    },
+    "marks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ReviewMark"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ReviewMark": {
+      "description": "One mark: where it is, what it says and what it points at.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "unique in the file; the page makes m<n>"
+        },
+        "doc": {
+          "type": "string",
+          "description": "the document's file name, as the project tree names it"
+        },
+        "x_nm": {
+          "type": "integer",
+          "description": "X in nanometres, in the document's frame"
+        },
+        "y_nm": {
+          "type": "integer",
+          "description": "Y in nanometres, Y down"
+        },
+        "note": {
+          "type": "string"
+        },
+        "select": {
+          "type": "string",
+          "description": "a part reference or net name it points at"
+        },
+        "created": {
+          "type": "string",
+          "description": "ISO 8601 time the page gave"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "doc",
+        "x_nm",
+        "y_nm"
+      ]
+    }
+  }
+}

@@ -632,7 +632,7 @@ def test_steps_of_stages_3_to_5() -> None:
     steps = {step.name: step for step in yard.steps_for(5, rows=())}
     names = list(steps)
     assert names[-9:] == [
-        "impedance", "route-pairs", "route", "fill-routed", "check-routed", "net", "analyze",
+        "impedance", "route", "route-pairs", "fill-routed", "check-routed", "net", "analyze",
         "export-package", "testpoints",
     ]  # fmt: skip
     route = list(steps["route"].args or ())
@@ -648,6 +648,15 @@ def test_steps_of_stages_3_to_5() -> None:
     assert "--manifest" in package and "--manifest" in (steps["testpoints"].args or ())
     assert steps["analyze"].args and "--groove-width" in steps["analyze"].args
     assert all(step.args is not None for step in steps.values())
+
+
+def test_route_runs_before_the_pair() -> None:
+    """Scenario "Route before the pair" (c0157): Freerouting gets the board before KiCadRoutingTools lays
+    the pair's copper, at stage 4 and at every later stage."""
+    for stage in (4, 5):
+        names = [step.name for step in yard.steps_for(stage, rows=())]
+        at = names.index("route")
+        assert names[at - 1 : at + 3] == ["impedance", "route", "route-pairs", "fill-routed"], stage
 
 
 def test_passing_run_at_stage_5(stage5: Path) -> None:
@@ -669,6 +678,9 @@ def test_passing_run_at_stage_5(stage5: Path) -> None:
     assert routed["drc"]["unconnected"] == 3 and routed["net_open"] == 1 and routed["nets_open"] == 1
     assert routed["route"]["routed"] == 2 and routed["route"]["budget"]["exhausted"] is False
     assert routed["route-pairs"]["selected"] == 0
+    names = [step["name"] for step in record["steps"]]
+    assert names.index("route") < names.index("route-pairs") < names.index("fill-routed")
+    assert [key for key in routed if key.startswith("route")] == ["route", "route-pairs"]
     cells = [cell.strip() for cell in yard.row(record).strip("|").split("|")]
     assert cells[2] == "5" and cells[6] == "3" and cells[7] == "0"
     assert "Routed: KiCad counts 3 open connections" in summary
@@ -751,6 +763,45 @@ def test_rebase_prints_the_ratchets(tmp_path: Path, capsys: pytest.CaptureFixtur
     assert yard.main(["rebase", *(str(path) for path in files)]) == 0
     table = tomllib.loads(capsys.readouterr().out)["stage4"]
     assert table["ratchets"] == {"open_connections": 9, "drc_errors": 2}
+
+
+def test_rebase_ignores_the_order_of_the_route_steps() -> None:
+    """Scenario "Budgets independent of the route order" (c0157): records whose route steps ran in either
+    order give the same budgets and ratchets; only the order of the TOML tables follows the steps."""
+
+    def records(order: tuple[str, str]) -> list[dict[str, Any]]:
+        found = []
+        for index, (seconds, peak, open_) in enumerate(
+            ((3000, 2000, 40), (3500, 2100, 60), (3200, 1900, 50))
+        ):
+            measured = {
+                "route": {"seconds": seconds, "peak_mib": peak},
+                "route-pairs": {"seconds": seconds / 100, "peak_mib": peak / 4},
+            }
+            steps = [{"name": "impedance", "status": "ok", "seconds": 1.0, "peak_mib": 90.0}]
+            steps += [{"name": name, "status": "ok", **measured[name]} for name in order]
+            steps.append({"name": "fill-routed", "status": "ok", "seconds": 17.0, "peak_mib": 300.0})
+            drc = {"unconnected": open_, "errors": {"unconnected_items": open_, "track_width": index}}
+            found.append(
+                {
+                    "schema": yard.SCHEMA,
+                    "stage": 5,
+                    "run": f"70{index}",
+                    "steps": steps,
+                    "board": {"routed": {"drc": drc}},
+                }
+            )
+        return found
+
+    new = yard.rebase(records(("route", "route-pairs")))
+    old = yard.rebase(records(("route-pairs", "route")))
+    assert tomllib.loads(new) == tomllib.loads(old)
+    table = tomllib.loads(new)["stage5"]
+    assert table["steps"]["route"] == {"seconds": 4800, "mib": 2650}
+    assert table["steps"]["route-pairs"] == {"seconds": 50, "mib": 700}
+    assert table["ratchets"] == {"open_connections": 60, "drc_errors": 2}
+    assert new.index("steps.route]") < new.index("steps.route-pairs]")
+    assert old.index("steps.route-pairs]") < old.index("steps.route]")
 
 
 def test_budgets_file() -> None:

@@ -15,11 +15,12 @@ frame of its footprint, in millimetres, as seen from the top:
 | 3 | ``R1`` | top | ``Mech.13`` (Mechanical 13) | 4 mm | 0.5 mm | six points, an L | ``STANDOFF`` |
 | 4 | ``U1`` | top | none | 1.6 mm | 0 | a rectangle | ``MODEL`` |
 
-Bodies 1 to 3 are extruded and are written with ``--altium-bodies extruded``. Body 4 is of kind ``model``:
+Bodies 1 to 3 are extruded and are written with ``--altium-bodies extruded``, the default since change
+c0155. Body 4 is of kind ``model``:
 it names a 3D model, which the design model holds by name only, so it is reported and not written. The
 footprint definition of ``U1`` holds one extruded body of its own (the rectangle of body 1), which is
 written into the PCB library. The committed files under ``tests/data/altium/body2/`` are the build with
-bodies; nothing in them was opened in Altium (``H-A-PCBX-BODY-OPEN`` is pending).
+bodies; they were opened in Altium Designer 26.5 in step X8 (``H-A-PCBX-BODY-OPEN``, an author report).
 """
 
 from __future__ import annotations
@@ -159,13 +160,13 @@ def body2_build(
     model: ModelDesign | None = None,
     *,
     rotation: int = 0,
-    bodies: str = "extruded",
+    bodies: str | None = "extruded",
     body_form: BodyForm = "saved",
     library: bool = True,
 ) -> BuildOutput:
     """The Altium build of ``model`` (the sample by default) in a blink tree under ``root``, with
-    ``--altium-bodies`` ``bodies``. ``library`` gives the footprint definition of ``BODY_OWNER`` its
-    body."""
+    ``--altium-bodies`` ``bodies`` (``None``: the default of ``build_altium``, ``extruded`` since change
+    c0155). ``library`` gives the footprint definition of ``BODY_OWNER`` its body."""
     project = root / "examples" / "blink_2layer"
     if not project.is_dir():
         project = blink_tree(root)
@@ -184,8 +185,8 @@ def body2_build(
         placed=tuple(requested),
         placements=requested,
         authored_footprints=authored,
-        bodies=bodies,
         body_form=body_form,
+        **({} if bodies is None else {"bodies": bodies}),
     )
 
 

@@ -57,25 +57,61 @@ def _front(path: str) -> str:
     return f"---\ntopic: {topic}\ntitle: {title}\nsummary: {summary}\n---\n\n# {title}\n\n{NOTE}\n"
 
 
+PROTOCOL_FLAGS = frozenset({"--dry-run", "--confirm", "--plan"})
+"""The flags of every writing command, which the head of the page explains once."""
+
+
 def _cell(text: str) -> str:
     """``text`` as one table cell or list item: one line, no pipe that would end the cell."""
     return " ".join(text.split()).replace("|", "\\|")
 
 
-def _argument(argument: Argument) -> str:
-    name = ", ".join(f"`{flag}`" for flag in argument.flags) or f"`{argument.name.upper()}`"
-    facts = [argument.type]
-    if argument.choices:
+def _words(usage: str) -> list[str]:
+    """The words of a usage line: split at the spaces outside brackets, so ``[--x [A=]B]`` stays one."""
+    words: list[str] = []
+    depth = start = 0
+    for at, char in enumerate(usage + " "):
+        depth += {"[": 1, "]": -1}.get(char, 0)
+        if char == " " and depth == 0:
+            words += [usage[start:at]] if at > start else []
+            start = at + 1
+    return words
+
+
+def _placeholders(words: list[str]) -> dict[str, str]:
+    """First flag of an option → the placeholder its usage word shows, such as ``K,K`` or ``{a,b}``."""
+    found: dict[str, str] = {}
+    for at, word in enumerate(words):
+        if word.startswith("[-") and " " in word:
+            flag, value = word[1:-1].split(" ", 1)
+            found[flag] = value
+        elif word.startswith("-") and at + 1 < len(words):  # a required option: its value is the next word
+            found[word] = words[at + 1]
+    return found
+
+
+def _short_usage(name: str, words: list[str]) -> str:
+    """The usage line with its required words only: each optional argument has a line of its own."""
+    kept = [word for word in words[2:] if not word.startswith("[-")]
+    return " ".join(["fenolite", name, *(["[OPTIONS]"] if len(kept) < len(words) - 2 else []), *kept])
+
+
+def _argument(argument: Argument, placeholders: Mapping[str, str]) -> str:
+    flags = [f"`{flag}`" for flag in argument.flags] or [f"`{argument.name.upper()}`"]
+    value = placeholders.get(argument.flags[0], "") if argument.kind == "option" else ""
+    if value:
+        flags[-1] = f"{flags[-1][:-1]} {value}`"
+    # the head says: required words are in the usage line, a value is a string unless stated, a flag
+    # without a value is a switch
+    facts = [] if argument.type in ("string", "boolean") else [argument.type]
+    if argument.choices and not value.startswith("{"):
         facts.append("one of " + ", ".join(f"`{choice}`" for choice in argument.choices))
-    if argument.kind == "positional":
-        facts.append("required" if argument.required else "optional")
-    elif argument.required:
-        facts.append("required")
     if argument.repeatable:
         facts.append("repeatable")
     if argument.default not in (None, False, [], ()):
         facts.append(f"default `{argument.default}`")
-    line = f"- {name} ({', '.join(facts)})"
+    name = ", ".join(flags)
+    line = f"- {name} ({', '.join(facts)})" if facts else f"- {name}"
     return f"{line}: {_cell(argument.help)}" if argument.help else line
 
 
@@ -85,8 +121,12 @@ def commands_page(registry: Mapping[str, Command]) -> str:
     described = [describe(command) for command in public]
     lines = [
         _front(COMMANDS),
-        "A command that writes does nothing without `--dry-run` (show the plan) or `--confirm` (write).",
+        "A command that writes does nothing without `--dry-run` (show the plan) or `--confirm` (write);",
+        "`--confirm --plan ID` writes the plan that a dry run gave. Its sections list these three no more.",
         "`fenolite capabilities --command NAME --json` gives the same facts as data.",
+        "A section's usage line shows the required arguments (`[X]`: optional); every argument has a line",
+        "below it with the value it takes (`{a,b}`: one of these). A value is a string unless the line names",
+        "another type; a flag without a value is a switch.",
         "",
         "| command | writes | summary |",
         "|---|---|---|",
@@ -96,8 +136,11 @@ def commands_page(registry: Mapping[str, Command]) -> str:
         for entry in described
     ]
     for entry in described:
-        lines += ["", f"## {entry.name}", "", f"`{_cell(entry.usage)}`", ""]
-        lines += [_argument(argument) for argument in entry.arguments] or ["It takes no argument of its own."]
+        words = _words(" ".join(entry.usage.split()))
+        lines += ["", f"## {entry.name}", "", f"`{_cell(_short_usage(entry.name, words))}`", ""]
+        own = [argument for argument in entry.arguments if not set(argument.flags) & PROTOCOL_FLAGS]
+        values = _placeholders(words)
+        lines += [_argument(argument, values) for argument in own] or ["It takes no argument of its own."]
     return "\n".join(lines) + "\n"
 
 

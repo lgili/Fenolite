@@ -51,10 +51,39 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 | Subrecord 5 holds the geometry and is at least 110 bytes: the prefix; 13 x, 17 y; 21 and 25 the top size x and y, 29 and 33 the middle size, 37 and 41 the bottom size; 45 the hole size (0 for a surface pad); 49, 50 and 51 the top, middle and bottom shape; 52 the rotation (double, degrees); 60 plated (one byte); 61 one byte; 62 the pad mode (0 simple) | S-0002, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
 | Offsets 63 to 85 are not read by KiCad. Version 1 writes there: one byte 0, a 32-bit 0, a 32-bit 10 mil (100 000 units), a 16-bit 4, a 32-bit 10 mil, a 32-bit 20 mil and a 32-bit 20 mil | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
 | Then 86 the paste-mask expansion and 90 the solder-mask expansion (32-bit), 94 to 100 seven zero bytes, 101 the paste-mask mode and 102 the solder-mask mode (0 none, 1 from the rules, 2 manual; version 1 writes 0 and 1), 103 to 105 three zero bytes | S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
+| The two public boards of the corpus use the modes 1 and 2 only: S-0174 has 100 pads, all with the solder-mask mode 1 and 32 with the paste mode 2 (−65.35 mil, a paste opening shrunk to nothing); S-0187 has 2 136 pads, 950 with the solder-mask mode 2 and 365 with the paste mode 2. An expansion is in units of 1/10 000 mil, as the other lengths (39 370 is 3.937 mil). The viewer reads the mode 0 as an expansion of 0 (change c0181) | S-0174, S-0187 | CORPUS-VERIFIED (counts); INFERRED (mode 0) | H-A-PCB-PAD |
+| A `SolderMaskExpansion` or `PasteMaskExpansion` rule of `Rules6` holds `RULEKIND`, `NAME`, `ENABLED`, `PRIORITY` (1 first), `SCOPE1EXPRESSION` and `EXPANSION` as mil text (`4mil`, `3.937mil`, `-1mil`); the solder-mask rule also holds `ISTENTINGTOP`. The public boards hold such rules of scope `All` and one of scope `IsVia` | S-0174, S-0187 | CORPUS-VERIFIED | H-A-PCB-PAD |
 | At 106: when subrecord 5 is exactly 110 bytes, a 32-bit value that KiCad requires to be 0; when it is longer, a double hole rotation over 106 to 113. Version 1 and an MIT writer both write 114 bytes; version 1 puts a 32-bit 0 at 106, a 16-bit jumper id 0 at 110 and a 16-bit 0 at 112, which a reader takes as the double 0.0 | S-0160, S-0143, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
 | Subrecord 6 may be empty. When present it is at least 596 bytes: 29 inner sizes x and 29 inner sizes y (32-bit, offsets 0 and 116), 29 inner shapes (one byte each, 232), one byte (261), the hole shape (262: 0 round, 1 square, 2 slot), the slot length (32-bit, 263), the slot rotation (double, 267), 32 hole offsets x and 32 y (32-bit, 275 and 403), one byte that version 1 sets when the pad has rounded corners (531), 32 alternate shapes (one byte each, 532) and 32 corner percentages (one byte each, 564; 0 to 100, 100 fully round) | S-0002, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
 | Shapes: 1 round, 2 rectangle, 3 octagonal. A round pad with unequal sizes is an oval. A rounded rectangle is main shape 1 with alternate shape 9 in subrecord 6 and a corner percentage; KiCad reads the percentage `p` as the corner ratio `p / 200`. The alternate shape and percentage of index 0 belong to the top layer | S-0160, S-0161, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-PCB-PAD |
 | A pad with a hole size above 0 is a through-hole pad: plated 1 is plated, 0 not plated. A through-hole pad must lie on layer 74 (Multi-Layer); a surface pad lies on its copper layer | S-0161 | INFERRED | H-A-PCB-PAD |
+
+### Full Stack layer association (c0160 follow-up)
+
+Copper offsets describe the landing's displacement from the hole centre
+(S-0302, public Altium pad documentation). Fenolite projects KiCad's opaque drill
+offset into padstack layer offsets before conversion, rotates it into the model
+frame and writes subrecord 6 even for a simple rectangular or circular pad.
+Bottom-side library definitions mirror the displacement with the other geometry.
+Authored read-back tests cover four rotations and both board faces. Native DRC
+on the public hierarchical conversion eliminated its 23 clearance violations:
+**ALTIUM-VERIFIED(author-report)** for that case, with repour still unproved.
+See [the acceptance report](../../evidence/altium-native-acceptance.md).
+
+S-0002 documents 30 legacy mid layers, the main middle geometry and 29 extended
+size/shape entries. S-0161 at tag 10.0.6 assigns the main middle geometry to the
+first inner layer and the extended geometry to the remaining layers. The
+association is **INFERRED**: in mode 2, Mid-Layer 1 uses subrecord 5's middle
+geometry; extended entry `n - 2` supplies Mid-Layer n for n = 2 through 30.
+Alternate-shape, corner and offset arrays still use slot n for Mid-Layer n.
+
+Native inspection on 2026-10-13 confirmed In1 round 1.2 x 1.2 mm and In2 rectangle
+1.4 x 1.1 mm in the regenerated PCB and in a footprint placed from its library:
+**ALTIUM-VERIFIED(author-report)** for that authored four-layer case. Other layer
+counts remain inferred; connector masks remain unmeasured. KiCad 10.0.6 imports
+In2 with zero Y size both before and after this correction, an unresolved
+compatibility finding, so neither import is a passing Full Stack oracle. See
+`docs/evidence/altium-padstack-part-t.md` for the operations and local artifacts.
 
 ## Text
 
@@ -67,6 +96,7 @@ PCB library (`pcb-library.md`) and the per-kind storages of a PCB document (`pcb
 | A free text of a board (change c0085) is the text record without a component (index `0xFFFF`) and with both the is-comment and the is-designator byte 0; its stroke font is 1 and its font type 0 (stroke). The seven saved documents hold free texts of the font types 0 and 1 on the overlay layers; a free text on a bottom layer is mirrored in every one read, and one on a top layer is not | S-0160, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-TEXT |
 | The 8-bit string of a text is in a code page of the machine that saved it: a saved text of CJK characters holds two bytes per character there, and its wide string holds the characters. KiCad decodes the 8-bit string as ISO-8859-1 and takes the wide string when the index names one, so a text survives through its wide string | S-0148, S-0160, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-PCBX-TEXT |
 | KiCad imports a free 137-byte stroke text with its wide string (accented characters included), layer, height, stroke width and rotation; it anchors the text at its lower-left corner and mirrors a text whose mirror byte is set | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
+| The long form of the first subrecord holds, five bytes into the tail after the wide-string index (offset 124), two 32-bit values: the width and the height of the text's box in units. Over 1095 stroke texts of the eight public documents (font type 0, two characters or more), (width − 2·stroke + height/3) / (characters · height) has a median of 0.979, a 5th percentile of 0.889 and a 95th of 1.0, and (box height − 2·stroke) / height a median of 1.0: the font's advance is about the height, glyph by glyph (a `1` is narrower). The viewer draws a stroke text with an advance of the height, a glyph two thirds of it (change c0193) | S-0816 | INFERRED | H-A-PCB-DOC-VIEWER |
 | In a PCB document a component's designator and comment are texts with the is-designator or is-comment flag and the component's index; KiCad places the reference at the designator text | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 
 ## Regions and keep-outs
@@ -98,6 +128,36 @@ Change c0085 writes regions for filled graphics and for keep-outs. The framing o
 | A pad without a name has a first subrecord of one byte, the length 0 | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0160 | INFERRED | H-A-PCBX-HOLE |
 | KiCad imports a free pad as a footprint of its own; a free pad on Multi-Layer with the plated byte 0 becomes one non-plated through hole of the pad's hole size at its place | S-0161, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-06) | H-A-PCBX-KICAD |
 | A slotted hole is hole shape 2 with a slot length and rotation in the sixth subrecord (see "Pad"); every slotted hole of the saved documents is plated and belongs to a component | census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository), S-0160 | INFERRED | H-A-PCBX-HOLE |
+
+## Slot pads (change c0168)
+
+A drilled slot of a board (a model `Hole` with a `length`) is written as a free pad with a slotted hole.
+The rows below join the public pad page (S-0770) to the pad record rows of "Pad"; the writer's choices are
+under "Fenolite's choices".
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A pad's hole is Round, Rectangular or Slot, a slot having round ends; Hole Size is the diameter of a round hole and the width of a slot, and Length, offered for a rectangular hole or a slot only, cannot be smaller than the size. In the record the hole size is offset 45 of subrecord 5, and hole shape 2 (offset 262 of subrecord 6) with the slot length at 263 is the slot, so a slot of width w and overall length l has hole size w and slot length l | S-0770, S-0160, S-0150 (version 1 at afe796434b6d2110c745c90abe44a6ddf64f5bca) | INFERRED | H-A-SLOT-PAD |
+| The rotation of a hole is counter-clockwise relative to the pad, in degrees with a resolution of 0.001°, and is offered for a rectangular hole or a slot only; the slot rotation at offset 267 of subrecord 6 is that angle, and the axis of the slot on the board is the pad's rotation plus it | S-0770, S-0160 | INFERRED | H-A-SLOT-PAD |
+| A free pad is one that is not part of a parent component, and its designator may be left empty; Multi-Layer defines a through-hole pad, and the hole options (shape, plating) exist for a through-hole pad only; Plated decides whether the hole is plated, and non-plated holes get their own tools in the NC drill files | S-0770 | INFERRED | H-A-SLOT-PAD |
+| The solder mask and paste openings of a pad are taken from the rules (Rule Expansion) or set per pad (Manual Expansion); what Altium makes of the openings of a free pad whose copper equals its slotted hole is not stated (kit case S1) | S-0770 | INFERRED | H-A-SLOT-KIT |
+| A region's Kind is Copper, Polygon Cutout, Board Cutout or Cavity (Cavity in the library editor only). A Board Cutout defines a negative area or hole within the board shape and is offered no Layer field; the page does not say whether it has a net. Arc Approximation is the largest deviation of a drawn arc from a true arc | S-0771 | INFERRED | H-A-CUTOUT-REGION |
+
+## Board cut-outs (change c0168)
+
+Measured on 2026-10-16 (task 1.2 of c0168) by writing eight candidate regions, each the one free region of
+an authored 60 × 40 mm board in `Regions6` and `ShapeBasedRegions6` alike, importing each with
+`kicad-cli pcb import` 10.0.6 (`tests/kicad/altium/test_slots_import.py -k candidates`) and reading it with
+Fenolite's reader. The candidates are the keys of the saved regions above (`KIND` 0 or 1, `ISBOARDCUTOUT=TRUE`
+of the older keep-out regions) on the Keep-Out layer (56), Multi-Layer (74) and the Top Layer (1).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A free region with `KIND=0` and the key `ISBOARDCUTOUT=TRUE` after the keys of a saved region is imported by KiCad as `Edge.Cuts` lines along its ring, a cut-out of the board, with no graphic and no rule area beside it, on each of the layers 56, 74 and 1, and also with the older keys `LAYER=KEEPOUT` and `KEEPOUT=TRUE` before it | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-16) | H-A-CUTOUT-REGION |
+| A free region with `KIND=1` is imported by KiCad as one rule area and no edge, with or without `ISBOARDCUTOUT=TRUE`, on each of the layers 56, 74 and 1: `KIND=1` is the polygon cut-out of the region page, not the board cut-out | S-0771, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-16) | H-A-CUTOUT-REGION |
+| KiCad takes a board cut-out's ring from `ShapeBasedRegions6`: a shape-based vertex with the round flag 1, a centre and a radius gives one arc from that vertex to the next, while the plain record of `Regions6` holds the straight edge | S-0160, S-0020 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-16) | H-A-CUTOUT-REGION |
+| Fenolite's reader takes a free region from `Regions6` and keeps the shape-based record as it is, so an arc vertex of a cut-out does not reach the model; the writer therefore polygonises the arcs of a cut-out (the first item of c0168's cut order for arcs) | S-0160 | INFERRED | H-A-CUTOUT-REGION |
+| What Altium Designer makes of a region with `KIND=0` and `ISBOARDCUTOUT=TRUE` on the Keep-Out layer without the keep-out flag (a Board Cutout of the region page, with no layer field) is not known from any source read: the saved regions with the key also hold `KEEPOUT=TRUE`. Kit cases S3 to S5 of Part S settle it | S-0771, census of S-0172, S-0174, S-0175, S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | INFERRED | H-A-SLOT-KIT |
 
 ## Layers
 

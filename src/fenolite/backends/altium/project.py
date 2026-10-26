@@ -42,6 +42,7 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.circuit import Component
 from fenolite.model.design import Design
+from fenolite.schematic.intent import CompositionIntent
 
 PATH_PROPERTY = "fenolite.path"
 """The component property that holds the component path (set by the DSL)."""
@@ -70,6 +71,7 @@ PCBDOC_KIND = "altium_pcbdoc"
 EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=(
+        "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",
@@ -211,8 +213,10 @@ def component_path(component: Component) -> str:
     return component.properties.get(PATH_PROPERTY) or component.path or component.ref
 
 
-def _text(text: str, what: str, *, parameter: bool = False, form: SchematicForm = "ascii") -> str:
-    problem = text_problem(text, form=form, parameter=parameter)
+def _text(
+    text: str, what: str, *, parameter: bool = False, form: SchematicForm = "ascii", read: bool = False
+) -> str:
+    problem = text_problem(text, form=form, parameter=parameter, read=read)
     if problem is not None:
         raise ValueError(f"{what} {text!r} {problem}")
     return text
@@ -226,7 +230,7 @@ INTERNAL_PROPERTY_PREFIX = "fenolite."
 
 
 def parameters_of(
-    component: Component, *, form: SchematicForm = "ascii"
+    component: Component, *, form: SchematicForm = "ascii", read: bool = False
 ) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
     """The properties of ``component`` that become hidden parameters, as (name, value) in code-point
     order of the names, and those that cannot be written, as (name, reason) (change c0086, "Component
@@ -242,7 +246,7 @@ def parameters_of(
         if not value or key.startswith(INTERNAL_PROPERTY_PREFIX) or key.lower() in RESERVED_PARAMETERS:
             continue
         name_problem = text_problem(key)
-        value_problem = text_problem(value, form=form, parameter=True)
+        value_problem = text_problem(value, form=form, parameter=True, read=read)
         if name_problem is not None:
             skipped.append((key, f"its name {name_problem}"))
         elif value_problem is not None:
@@ -335,6 +339,7 @@ def part_specs(
     name: str = "",
     symbols: Mapping[str, AltiumSymbol] | None = None,
     form: SchematicForm = "ascii",
+    read_circuit: bool = False,
 ) -> list[PartSpec]:
     """One ``PartSpec`` per component, in component-path order, its body the library symbol of its lib id
     (``symbols`` first, generic otherwise). ``name`` is the design name, which gives the library file of
@@ -347,7 +352,7 @@ def part_specs(
     components = {c.id: c for c in design.circuit.components}
     joins: dict[str, dict[str, PinNet]] = {cid: {} for cid in components}
     for net in sorted(design.circuit.nets, key=lambda n: n.name):
-        _text(net.name, "net name")
+        _text(net.name, "net name", form=form, read=read_circuit)
         style = styles.get(net.id)
         how = PinNet(net.name, "label") if style is None else PinNet(net.name, "port", style)
         for member in net.members:
@@ -400,7 +405,11 @@ def part_specs(
                 key=component_path(component),
                 ref=_text(component.ref, "ref"),
                 comment=_text(
-                    component.value or symbol, f"{component.ref} comment", parameter=True, form=form
+                    component.value if read_circuit else component.value or symbol,
+                    f"{component.ref} comment",
+                    parameter=True,
+                    form=form,
+                    read=read_circuit,
                 ),
                 library=library,
                 symbol=symbol,
@@ -412,7 +421,7 @@ def part_specs(
                 no_connects=frozenset(marks[component.id]),
                 parameters=tuple(
                     (key, value, unique_id(f"{component.id}:parameter:{key}"))
-                    for key, value in parameters_of(component, form=form)[0]
+                    for key, value in parameters_of(component, form=form, read=read_circuit)[0]
                 ),
                 pin_pads=pin_pads,
             )
@@ -496,15 +505,25 @@ def plan_sheet(
     name: str = "",
     symbols: Mapping[str, AltiumSymbol] | None = None,
     form: SchematicForm = "ascii",
+    read_circuit: bool = False,
+    composition: CompositionIntent | None = None,
 ) -> SheetPlan:
     """The sheet layout of ``design``: sheet size, placed components, stubs, the bus blocks of its lowered
     buses (change c0086) and the net class directives of the single sheet ``<name>.SchDoc`` (change
     c0048)."""
-    specs = part_specs(design, name=name, symbols=symbols, form=form)
+    specs = part_specs(design, name=name, symbols=symbols, form=form, read_circuit=read_circuit)
     here = {net.net for spec in specs for net in spec.nets.values()}
     buses = [(bus.label, bus.members) for bus in lowered_buses(design)[0] if here & set(bus.members)]
     plan = layout_sheet(specs, buses=buses)
-    return with_class_marks(plan, net_class_names(design), f"{name}.SchDoc")
+    plan = with_class_marks(plan, net_class_names(design), f"{name}.SchDoc")
+    if composition is not None:
+        from fenolite.backends.altium.composition import compose_project
+        from fenolite.backends.altium.hierarchy import ProjectSheets, SheetFile
+
+        plan = compose_project(
+            ProjectSheets("flat", (SheetFile(f"{name}.SchDoc", plan),)), design, composition
+        ).top.plan
+    return plan
 
 
 def library_symbols(
@@ -518,16 +537,25 @@ def library_symbols(
     for lib_id in sorted({c.lib_symbol_ref for c in design.circuit.components}):
         library = schlib_name(lib_id, design=name)
         symbol = given.get(lib_id) or generic[lib_id]
+        users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
+        if symbol.footprint is None:
+            common = {c.lib_footprint_ref for c in users}
+            if len(common) == 1 and (link := common.pop()):
+                symbol = dataclasses.replace(symbol, footprint=split_link(link))
         # the library holds the pin map that every component of the symbol holds on the footprint its
         # footprint model names (record 45), and none otherwise: a map is a map onto one footprint, and a
         # part may link another footprint than its symbol's own. The sheet holds the map of each component.
-        if symbol.footprint is not None:
-            users = [c for c in design.circuit.components if c.lib_symbol_ref == lib_id]
+        footprint = symbol.footprint
+        if footprint is not None:
             designators = [pin.designator for pin in symbol.pins]
             maps = {map_pins(c, designators) for c in users}
-            on_model = all(split_link(c.lib_footprint_ref) == symbol.footprint for c in users)
+            on_model = all(split_link(c.lib_footprint_ref) == footprint for c in users)
             if len(maps) == 1 and (only := maps.pop()) and on_model:
                 symbol = dataclasses.replace(symbol, pin_pads=only)
+            model_library, model_name = footprint
+            symbol = dataclasses.replace(
+                symbol, footprint=(pcblib_name(f"{model_library}:{model_name}", design=name), model_name)
+            )
         libraries.setdefault(library, []).append(symbol)
     return {key: libraries[key] for key in sorted(libraries, key=name_key)}
 
@@ -546,6 +574,10 @@ def write_project(
     outjob: bytes | None = None,
     frames: Mapping[str, Frame] | None = None,
     directions: bool = True,
+    extra_modules: Sequence[str] = (),
+    read_circuit: bool = False,
+    composition: CompositionIntent | None = None,
+    composition_margins: tuple[int, int, int, int] | None = None,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -564,10 +596,33 @@ def write_project(
     if form not in ("binary", "ascii"):
         raise ValueError(f"unknown schematic form {form!r}")
     _text(name, "design name")
-    planned = plan_sheets(design, name=name, sheets=sheets, form=form, symbols=symbols, directions=directions)
+    planned = plan_sheets(
+        design,
+        name=name,
+        sheets=sheets,
+        form=form,
+        symbols=symbols,
+        directions=directions,
+        extra_modules=extra_modules,
+        read_circuit=read_circuit,
+    )
+    baseline = planned
+    if composition is not None:
+        from fenolite.backends.altium.composition import compose_project
+        from fenolite.schematic.composition import fail
+
+        for block in composition.blocks:
+            if problem := text_problem(block.title, form=form):
+                raise fail(
+                    "invalid-intent",
+                    f"unwritable block title: {problem}",
+                    block.key,
+                    "use single-line representable title text",
+                )
+        planned = compose_project(planned, design, composition, frames, margins=composition_margins)
     for sheet in planned.sheets:
         size = sheet.plan.size
-        if size.style is None and issues is not None:
+        if size.style is None and issues is not None and composition is None:
             issues.append(
                 Issue(
                     "altium.sheet-custom",
@@ -599,6 +654,14 @@ def write_project(
             files[sheet.file] = write_schdoc_binary(sheet.plan, frame)
         else:
             files[sheet.file] = write_schdoc(sheet.plan, frame)
+    if composition is not None:
+        from fenolite.backends.altium.verification import verify
+
+        writer = write_schdoc_binary if form == "binary" else write_schdoc
+        verify(
+            {s.file: writer(s.plan, (frames or {}).get(s.file)) for s in baseline.sheets},
+            {s.file: files[s.file] for s in planned.sheets},
+        )
     for harness, types in harness_files.items():
         files[harness] = write_harness(types)
     for library, found in libraries.items():
@@ -610,10 +673,29 @@ def write_project(
             raise LibraryTooLarge(library, error) from error
     if footprints:
         try:
-            files[f"{name}.PcbLib"] = write_pcblib(footprints, filename=f"{name}.PcbLib")
+            files[f"{name}.PcbLib"] = write_pcblib(
+                footprints, filename=f"{name}.PcbLib", disambiguate_storages=read_circuit
+            )
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbLib", error) from error
     if pcb is not None:
+        # Native compilation links a multipart component through its last written part (c0166).
+        # Keep the PCB link in step with the actual sheet plans, including resolved symbol units.
+        part_links = {
+            part.spec.unique_id: part.spec.part_id(part.part)
+            for sheet in planned.sheets
+            for part in sheet.plan.parts
+        }
+        pcb = dataclasses.replace(
+            pcb,
+            components=tuple(
+                dataclasses.replace(
+                    part,
+                    source_unit_unique_id=part_links.get(part.unique_id, part.source_unit_unique_id),
+                )
+                for part in pcb.components
+            ),
+        )
         try:
             files[f"{name}.PcbDoc"] = write_pcbdoc(pcb, filename=f"{name}.PcbDoc")
         except CompoundTooLarge as error:
@@ -623,7 +705,41 @@ def write_project(
     return files
 
 
+BUILD_EVIDENCE = Evidence(
+    Level.INFERRED,
+    hypotheses=(
+        "H-A-ECO-NETCLASS",
+        "H-A-ECO-PRJ-KEYS",
+        "H-A-ECO-ROOMS",
+        "H-A-ECO-SUPPLY",
+        "H-A-PRJ-KEEP",
+        "H-A-PRJ-OPEN",
+        "H-A-SCH-ECO",
+        "H-A-SCH-LINEEND",
+        "H-A-SCH-LINK",
+        "H-A-SCH-NC-ERC",
+        "H-A-SCH-NC-RECORD",
+        "H-A-SCH-NC-VIEWER",
+        "H-A-SCH-NETS",
+        "H-A-SCH-OPEN",
+        "H-A-SCH-RELINK",
+        "H-A-SCH-UID",
+        "H-A-SCH-UPDATE",
+        "H-A-SCHX-BUS",
+        "H-A-SCHX-DIR",
+        "H-A-SCHX-ECO",
+        "H-A-SCHX-GRAPHICS",
+        "H-A-SCHX-PINMAP",
+        "H-A-SCHX-PINMAP-FORM",
+        "H-A-SCHX-READBACK",
+        "H-A-SCHX-TEXT",
+        "H-A-SCHX-TREE",
+    ),
+)
+"""Evidence of the DSL build's schematic/library presentation and update choices."""
+
 __all__ = [
+    "BUILD_EVIDENCE",
     "DEFAULT_FORM",
     "DEFAULT_SHEETS",
     "EVIDENCE",

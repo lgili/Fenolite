@@ -281,12 +281,19 @@ Pad centre distance is an airwire surrogate; it measures no routed electrical pr
 ### Frames and inputs
 
 All constraints and volumes use the written board frame, integer nm and integer microdegrees.
-A `GroupRegion` confines listed footprint extents. Edge/gap, outline/cutouts, per-face keepouts,
+A `GroupRegion` confines listed footprint extents. Edge/gap, outline/cutouts and slots, per-face keepouts,
 drills crossing both faces and duplicate drill intents are checked. `MechanicalReservation` links
 one existing drill pad to supplied physical volumes and measured/proposed source intent. Reservation
 geometry is independent of drill diameter and neither creates holes nor disconnects copper.
 `MechanicalConstraints` carries supplied board thickness, allowed penetrations, obstacles and named
 missing assembly inputs. No application geometry is assumed.
+
+The rings of the outline are those of `model.outline.outline_items` (change c0170;
+`placement.legality.outline_rings`): the board ring and each cut-out by their vertices, and each slot of
+`design.slot()` as its stadium polygonised within 1 µm. A courtyard over a slot is therefore reported
+`cutout:<footprint>` as it is over the same ring drawn with `design.cutout()`, the preview draws the slots,
+and the body-volume analysis counts a body that reaches through a slot as meeting no board material, as
+through a convex cut-out (`tests/unit/placement/test_slot_obstacles.py`).
 
 ### Checker interface and assessment
 

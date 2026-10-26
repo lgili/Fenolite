@@ -81,6 +81,8 @@ never taken from KiCad's writer code.
 | Texts on back layers carry `mirror` in their `justify`: all 236 board texts on `B.*` layers and 8 335 of the 8 338 footprint properties on `B.*` layers of the 10.0.6-written boards (the 10.0.6 demo `pic_programmer` and 10.0.6 re-saves of the 21 other demos) | S-0020, S-0058 | INFERRED | H-G-BOTTOM-STORE |
 | KiCad 9.0 and 10.0 releases write `(generator_version "9.0")` and `"10.0"`; nightly builds write `"8.99"` and `"9.99"` | S-0039, S-0058 | INFERRED | H-K-GENVER |
 | In `20241229` boards, unconnected zones and rule areas carry `(net 0)` and `(net_name "")` (9 in the demos `multichannel_mixer`, `One-Air-Max` and `RoyalBlue54L-Feather`); pads, tracks and vias without a net carry no `net` child, and the only `(net 0 "")` is the table's row 0 | S-0058 | INFERRED | H-K-PCB-WRITE |
+| In the demo `RoyalBlue54L-Feather` (`20241229`, tag 10.0.6) four teardrop zones (`$teardrop_padvia$`) are on the two nets stored `Net-(U1-P1.00{slash}XL1)` and `Net-(U1-P1.01{slash}XL2)` (the pins `P1.00/XL1` and `P1.01/XL2` of `U1`): each holds `(net N)` and a `net_name` in the stored spelling, as the table row does. No other cached corpus board of major 9 or 10 (22 more) references a net stored with `{slash}` from a teardrop or other content the reader keeps opaque: their `write_board` texts did not change with c0163 | S-0058 | CORPUS-VERIFIED | H-K-PCB-WRITE |
+| That board written by `write_board` for target 9 (c0163) loads on 9.0.9 and 10.0.6, and its DRC report equals the source's on every key that three runs of each side repeat (the tool does not repeat its own report there: 54 to 84 keys of about 1 100 differ between runs of one file, all clearances) | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-PCB-WRITE |
 | A 10.0.6 re-save of a `20241229` board writes no net table, no `net` child on unconnected zones and rule areas, and no `net_name`, `filled_areas_thickness`, `hpglpennumber`, `hpglpenspeed`, `hpglpendiameter` or `plotinvisibletext` | S-0020, S-0058 | INFERRED | H-K-TOK-OBSOLETE |
 | S-0030 names no format version for the 9.0 layer renumbering; the development board `multichannel_mixer-unrouted` (header `20241030`, tag 10.0.6) already numbers `B.Cu` 2 and `Edge.Cuts` 25, so the renumbering lies after `20240108` and no later than `20241030` | S-0030, S-0058 | INFERRED | H-K-PCB-WRITE |
 | Layer tables written by 10.0.6 for two copper layers: `(0 "F.Cu" signal)`, `(2 "B.Cu" signal)`, `(9 "F.Adhes" user "F.Adhesive")`, `(11 "B.Adhes" user "B.Adhesive")`, `(13 "F.Paste" user)`, `(15 "B.Paste" user)`, `(5 "F.SilkS" user "F.Silkscreen")`, `(7 "B.SilkS" user "B.Silkscreen")`, `(1 "F.Mask" user)`, `(3 "B.Mask" user)`, `(17 "Dwgs.User" user "User.Drawings")`, `(19 "Cmts.User" user "User.Comments")`, `(21 "Eco1.User" user "User.Eco1")`, `(23 "Eco2.User" user "User.Eco2")`, `(25 "Edge.Cuts" user)`, `(27 "Margin" user)`, `(31 "F.CrtYd" user "F.Courtyard")`, `(29 "B.CrtYd" user "B.Courtyard")`, `(35 "F.Fab" user)`, `(33 "B.Fab" user)` (6 boards, user copper names aside); four copper layers add `(4 "In1.Cu" signal)` and `(6 "In2.Cu" signal)` after `F.Cu` (3 boards) | S-0020, S-0058 | INFERRED | H-K-PCB-WRITE |
@@ -606,7 +608,8 @@ Everything below is a Fenolite choice built on the facts above; `pcb.WRITE_EVIDE
   zones also write `(net_name "NAME")`. For target 10 every reference is `(net "NAME")`, with no table
   and no `net_name`. An unconnected zone or rule area writes `(net 0)` and `(net_name "")` for target 9
   and no `net` for target 10; other unconnected items write no `net`. The same rules rewrite every
-  `net` node inside opaque content: a number is resolved through the source table and a name by itself;
+  `net` node inside opaque content: a number is resolved through the source table to the stored name of
+  its net (`pcb.stored_net_name`, `{slash}` kept; c0163) and a name by itself;
   `(net 0)`, `(net 0 "")` and `(net "")` become `(net 0)` for target 9 and are removed for target 10.
   A 9 → 9 write renumbers nets, so equality is judged on the model.
 - **Rows no longer written.** For target 10, nodes of every inventory row with `until_major = 9` are
@@ -786,6 +789,16 @@ The facts below were measured with `kicad-cli` 10.0.6 on 2026-10-08 by the probe
 | A footprint with a courtyard on `F.CrtYd` and on `B.CrtYd` gets `courtyards_overlap` with a top part and with a bottom part whose courtyard it overlaps, and none with a part clear of it | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-HOLE-COURTYARD |
 | A symbol library that holds a symbol without pins and one with one passive pin, both with `(in_bom no)`, is exported by `sym export svg` with both symbols | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-HOLE-SYMBOL |
 | On a four-layer board, the rows `(8 "In3.Cu" signal)` and `(10 "In4.Cu" signal)` added to the layer table give no kind of DRC finding that the board lacked, and the Gerber job file lists six copper layers with KiCad's default thicknesses; items left on removed rows give `item_on_disabled_layer`; a four-copper `stackup` under six rows leaves the job file without thicknesses | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-LAYER-CHANGE |
+| Two cut-out rings of `gr_line` and `gr_arc` on `Edge.Cuts` whose areas overlap (two stadiums 2 mm wide forming an L that shares one round end) give `invalid_outline` on 9.0.9 and 10.0.6, and the drill files hold no hit | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SLOT-OVERLAP |
+| The same L written as one cut-out of seven vertices, its shared round end one quarter arc and its concave corner a plain vertex, loads with no violation on 9.0.9 and 10.0.6; so does the union polygonised into 324 straight edges | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SLOT-UNION |
+| A stadium cut-out of two lines and two half-circle arcs loads with no `invalid_outline` and reaches no drill file on 9.0.9 and 10.0.6 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-SLOT-RING |
+| Two oval `np_thru_hole` pads of hole footprints whose holes overlap in an L give two `G85` slots in the NPTH file and no DRC finding about the holes: `courtyards_overlap` and `lib_footprint_issues` on 9.0.9 and 10.0.6, and `npth_inside_courtyard` on 10.0.6 | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-HOLE-OVERLAP |
+| A plated pad of 2 mm 0.2 mm from a milled slot gives `copper_edge_clearance` on 9.0.9 and 10.0.6; the same 0.2 mm from an oval `np_thru_hole` pad gives `hole_clearance` on 10.0.6 and nothing on 9.0.9 (the probe `slot-drilled-near` covers the oval pad; the milled half waits for the probes of c0169) | S-0020, S-0029 | INFERRED | H-K-HOLE-OVERLAP |
+
+The five rows of slots (change c0167) were first measured on 2026-10-15 in the pinned images
+`kicad/kicad:9.0.9` and `kicad/kicad:10.0.6` with `pcb drc --format json --severity-all` and
+`pcb export drill` on boards written by `write_board` (a scratch script), and again the same day by the
+probes of `tests/kicad/board/test_slots.py`, which hold on both majors.
 
 ### Moved footprints (c0022)
 
@@ -872,3 +885,14 @@ probes are recorded on 9.0.9 and 10.0.6 and passed in CI run 37772583226 (2026-1
 | Two lines of a text are 1.61 × the text size apart; a line of n glyphs of advance a is n × a + 0.25 × the size long, and no advance of printable ASCII and `±µ°×ΩÄÖÜßéèçñ–—…` exceeds 1.45 × the size | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-TEXT |
 | A `gr_text` with `(justify mirror)` on `B.Fab` reads right in a `--mirror` plot | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-ASSEMBLY |
 | A layer table that lacks `Dwgs.User`, `F.Fab` or `B.Fab` loads with the rows `(17 "Dwgs.User" user "User.Drawings")`, `(35 "F.Fab" user)` and `(33 "B.Fab" user)` added at its end, and items on those layers are drawn | S-0020 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRAW-LAYER |
+
+## User layers for conversion (c0161)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| Authored boards declaring `User.1` through `User.45` at odd numbers `39` through `127` load in 9.0.9 and 10.0.6, and SVG export selects the first and last user layer. A modelled drawing on an unknown layer makes loading fail | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-USERLAYERS |
+| A board whose modelled items name layers that no row of its layer table declares does not load: on six public Altium boards written with a two-copper table and their mechanical, keep-out and out-of-stack names left undeclared, `kicad-cli pcb export svg` fails in 9.0.9 with `Failed to load board` and in 10.0.6 with `Failed to load board: One or more items were found on undefined layers (<names>)` (measured 2026-10-15) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-BOARD-USERLAYERS |
+| A zone written with an empty outline (`(polygon (pts))`) and filled polygons loads in 9.0.9 and 10.0.6, but 9.0.9's `pcb drc` ends with an unhandled `std::out_of_range` ("aCornerIndex-th vertex does not exist") while writing its report, which stays empty; 10.0.6 writes it (measured 2026-10-15 on two converted public boards) | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-CONV-A2K-LOAD |
+
+Fenolite assigns mechanical layers to successive user rows and preserves their Altium name as the
+row's user name. It reports overflow rather than merging unrelated drawings.

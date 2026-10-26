@@ -14,6 +14,8 @@ from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from strategies import transforms
 
+import fenolite.core.stadium as stadium_module
+import fenolite.core.trig as trig_module
 import fenolite.geometry.transform as transform_module
 from fenolite.core.units import round_half_even_div
 from fenolite.geometry import (
@@ -76,8 +78,8 @@ def test_table_context_has_no_effect() -> None:
     try:
         decimal.getcontext().prec = 5
         decimal.getcontext().rounding = decimal.ROUND_FLOOR
-        transform_module._table.cache_clear()  # pyright: ignore[reportPrivateUsage]
-        transform_module._pi.cache_clear()  # pyright: ignore[reportPrivateUsage]
+        trig_module.table.cache_clear()
+        trig_module._pi.cache_clear()  # pyright: ignore[reportPrivateUsage]
         for udeg, expected in GOLDEN.items():
             assert cos_sin_fixed(udeg) == expected, udeg
         assert decimal.getcontext().prec == 5
@@ -90,9 +92,10 @@ def test_table_type_error() -> None:
         cos_sin_fixed(1.5)  # type: ignore[arg-type]
 
 
-def test_module_uses_no_float_trigonometry() -> None:
-    source = Path(transform_module.__file__).read_text(encoding="utf-8")
-    for name in ("math.sin", "math.cos", "math.tan", "math.radians", "from math import"):
+@pytest.mark.parametrize("module", [transform_module, trig_module, stadium_module])
+def test_module_uses_no_float_trigonometry(module: object) -> None:
+    source = Path(getattr(module, "__file__")).read_text(encoding="utf-8")  # noqa: B009
+    for name in ("math.sin", "math.cos", "math.tan", "math.atan", "math.radians", "from math import"):
         assert name not in source
 
 

@@ -2,7 +2,9 @@
 
 ## Purpose
 Write Altium schematic files from a model `Design` as pure functions that return bytes: the records and keys of a sheet, the component bodies, designators and library links, the connectivity drawn on the sheet, the deterministic layout, the stable unique ids and the project file. Every fact comes from public sources recorded in `docs/formats/altium/`; the writer opens no file and starts no process.
+
 ## Requirements
+
 ### Requirement: Altium writer package
 `fenolite.backends.altium` SHALL provide `project.write_project(design, *, name, project=True, issues=None, form=DEFAULT_FORM, symbols=None) -> dict[str, bytes]`, which returns `<name>.SchDoc`, one `<library>.SchLib` per library that the components' lib ids name ("Schematic library file") and, when `project` is true, `<name>.PrjPcb`, for a model `Design` whose components hold their pins, and writes no file. `symbols` maps each lib id of the design to its `altsym.AltiumSymbol`; a lib id missing from it, or `symbols=None`, gets its generic symbol ("Generic library symbols").
 - The package MUST import only `fenolite.core` and `fenolite.model`, and MUST NOT open a file, start a process or read the environment. It MUST NOT resolve a library: `lens.altium` passes the resolved symbols in.
@@ -47,10 +49,10 @@ Write Altium schematic files from a model `Design` as pure functions that return
 - **THEN** it returns the fields `LOCATION.X=100` and `LOCATION.Y=50`, `coord_fields("LOCATION", 1050, 500)` returns `LOCATION.X=105`, and a length that is not a multiple of 10 mil raises `ValueError`
 
 ### Requirement: Text the ASCII form cannot carry
-`backends.altium.ascii.text_problem(text, *, parameter=False)` SHALL return the reason why `text` cannot be written, or `None` when it can.
+`backends.altium.ascii.text_problem(text, *, form="ascii", parameter=False)` SHALL return the reason why `text` cannot be written, or `None` when it can. With the default `form="ascii"` it is the check of change c0032; "Text outside ASCII" (change c0086) gives the binary form.
 - Every character MUST be printable 7-bit ASCII (0x20 to 0x7E) other than `|`: no source documents an escape for `|` or a line end inside a value (S-0131), and other characters depend on the version's code page (S-0130, S-0133).
 - The text MUST NOT be empty and MUST NOT start or end with a space, because readers trim values (S-0131).
-- A parameter text (`parameter=True`, used for the comment) MUST NOT start with `=`, which Altium reads as a reference to another parameter (S-0130).
+- A parameter text (`parameter=True`, used for the comment and for parameter values) MUST NOT start with `=`, which Altium reads as a reference to another parameter (S-0130).
 - The texts checked are the design name, refs, comments, net names, library names, symbol and footprint names, and pin designators.
 
 #### Scenario: Pipe in a net name
@@ -90,7 +92,7 @@ Each component whose lib id is an Altium link (`altium-build`, "Altium symbol so
 - Component record: `RECORD=1`, `LIBREFERENCE`, `DESIGNITEMID`, `SOURCELIBRARYNAME`, `PARTCOUNT=2`, `DISPLAYMODECOUNT=1`, `CURRENTPARTID=1`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (the body's top-left corner), `UNIQUEID`, `COLOR=128`, `AREACOLOR=11599871`; no orientation and no mirror (S-0130, S-0131, S-0137).
 - Rectangle record: `RECORD=14`, `OWNERINDEX`, `OWNERPARTID=1`, `LOCATION.X`, `LOCATION.Y` (bottom-left), `CORNER.X`, `CORNER.Y` (top-right), `LINEWIDTH=1`, `COLOR=128`, `AREACOLOR=11599871`, `ISSOLID=T` (S-0130, S-0131).
 - Pin record: `RECORD=2`, `OWNERINDEX`, `OWNERPARTID=1`, `FORMALTYPE=1`, `ELECTRICAL=4` (passive), `PINCONGLOMERATE`, `PINLENGTH=20`, `LOCATION.X`, `LOCATION.Y`, `NAME`, `DESIGNATOR` (S-0130, S-0131).
-  - `LOCATION` MUST be the pin's body end on the body edge. `PINCONGLOMERATE` MUST be the direction (2 leftwards for left pins, 0 rightwards for right pins) plus 0x10 (number shown), plus 0x08 (name shown) only when the name differs from the designator.
+  - `LOCATION` MUST be the pin's body end on the body edge. `PINCONGLOMERATE` MUST be the direction (2 leftwards for left pins, 0 rightwards for right pins) plus 0x20, plus 0x10 (number shown), plus 0x08 (name shown) only when the name differs from the designator ("Binary pin record" for the meaning of the bits).
   - The electrical hot end is `LOCATION` plus `PINLENGTH` in the pin's direction, away from the body (S-0130, S-0131, S-0140).
 - Children carry absolute sheet coordinates (S-0131).
 
@@ -100,7 +102,7 @@ Each component whose lib id is an Altium link (`altium-build`, "Altium symbol so
 
 #### Scenario: Four-pin part of the sample
 - **WHEN** the records of the sample's `U2` are read
-- **THEN** its rectangle is 600 × 300 mil, pins `1` and `2` are on its left edge with `PINCONGLOMERATE=18`, pins `3` and `4` are on its right edge with `PINCONGLOMERATE=16`, every pin has `PINLENGTH=20`, `ELECTRICAL=4` and `OWNERINDEX` equal to the record number of `U2`
+- **THEN** its rectangle is 600 × 300 mil, pins `1` and `2` are on its left edge with `PINCONGLOMERATE=50`, pins `3` and `4` are on its right edge with `PINCONGLOMERATE=48`, every pin has `PINLENGTH=20`, `ELECTRICAL=4` and `OWNERINDEX` equal to the record number of `U2`
 
 #### Scenario: A part without connected pins
 - **GIVEN** a component that no net names, and whose lib id no other component uses
@@ -398,11 +400,11 @@ Every pin drawn on a placed part, which is each pin of that part and, on part 1 
 - **THEN** it holds one record, which starts with `|HEADER=Protel for Windows - Schematic Library Editor Binary File Version 5.0|WEIGHT=`, and whose `LIBREF<i>` values equal the storage names in order
 
 ### Requirement: Library component records
-The `Data` stream of a symbol SHALL be a sequence of framed records owned by its first record, the component, in this order: the component, the pins, one rectangle per part, the designator, the comment and, when the symbol has a footprint, the footprint chain (S-0131, S-0150).
-- Text records MUST be framed as in c0033's "Binary schematic form", and MUST carry no `OWNERINDEX`: every record after the first belongs to it (`H-A-SCHLIB-OPEN`). Coordinates MUST be symbol-relative, in units of 10 mil, with Y upwards, and MUST carry no `_FRAC` key.
+The `Data` stream of a symbol SHALL be a sequence of framed records owned by its first record, the component, in this order: the component, the pins, the symbol's own graphics or else one rectangle per part ("Symbol graphics in libraries and bodies"), the designator, the comment and, when the symbol has a footprint, the footprint chain (S-0131, S-0150).
+- Text records MUST be framed as in c0033's "Binary schematic form", and MUST carry no `OWNERINDEX`: every record after the first belongs to it (`H-A-SCHLIB-OPEN`). Coordinates MUST be symbol-relative, in units of 10 mil, with Y upwards. Pins, rectangles, the designator and the comment MUST carry no `_FRAC` key; a graphic of the symbol carries one where its coordinate is no whole unit.
 - Component: `RECORD=1`, `LIBREFERENCE`, `COMPONENTDESCRIPTION` (only when not empty), `PARTCOUNT=<parts + 1>`, `DISPLAYMODECOUNT=1`, `OWNERPARTID=-1`, `CURRENTPARTID=1`, `UNIQUEID=<project.unique_id("schlib:<library>:<lib ref>")>`, `DESIGNITEMID=<lib ref>`, `COLOR=128`, `AREACOLOR=11599871`.
-- Rectangle of part k: `RECORD=14`, `OWNERPARTID=<k>`, `LOCATION.X`, `LOCATION.Y` (bottom-left), `CORNER.X`, `CORNER.Y` (top-right), `LINEWIDTH=1`, `COLOR=128`, `AREACOLOR=11599871`, `ISSOLID=T`.
-- Designator: `RECORD=34`, `OWNERPARTID=-1`, `NAME=Designator`, `TEXT=<prefix>?`, the location 100 mil above part 1's top-left corner, `FONTID=1`, `COLOR=8388608`. Comment: `RECORD=41` with the same keys, `NAME=Comment`, `TEXT=<comment>`, 200 mil below part 1's bottom-left corner.
+- Rectangle of part k, for a symbol that is not drawn from its graphics: `RECORD=14`, `OWNERPARTID=<k>`, `LOCATION.X`, `LOCATION.Y` (bottom-left), `CORNER.X`, `CORNER.Y` (top-right), `LINEWIDTH=1`, `COLOR=128`, `AREACOLOR=11599871`, `ISSOLID=T`.
+- Designator: `RECORD=34`, `OWNERPARTID=-1`, `NAME=Designator`, `TEXT=<prefix>?`, the location 100 mil above part 1's top-left corner, `FONTID=1`, `COLOR=8388608`. Comment: `RECORD=41` with the same keys, `NAME=Comment`, `TEXT=<comment>`, 200 mil below part 1's bottom-left corner. For a drawn symbol the corners are those of the box of `AltiumSymbol.rectangles`.
 - Footprint chain: `RECORD=44`; `RECORD=45` with the keys and values of c0032's chain ("Designator, comment and links"); `RECORD=46`; `RECORD=48`; none with `OWNERINDEX`. The data file index stays 0-based as in c0032 (`H-A-SCHLIB-IMPLIDX`).
 - Pins MUST be binary records ("Binary pin record"), ordered by part, then by designator in natural order.
 
@@ -414,31 +416,40 @@ The `Data` stream of a symbol SHALL be a sequence of framed records owned by its
 `backends.altium.schlib.pin_record(pin)` SHALL return one framed binary record for an `altsym.AltiumPin`: a 32-bit little-endian word `(1 << 24) | <payload length>`, then the payload, without a NUL (S-0131, S-0148, S-0150).
 - The payload MUST be, little-endian: record id 2 (4 bytes); byte 0; `OWNERPARTID` (2 bytes, signed); display mode 0 (1 byte); the inner-edge, outer-edge, inside and outside symbol codes (1 byte each); the description as a short string; `FORMALTYPE` 1 (1 byte); the electrical type (1 byte); `PINCONGLOMERATE` (1 byte); the pin length, `LOCATION.X` and `LOCATION.Y` of the body end (2 bytes each, signed, 10-mil units); the colour 0 (4 bytes); then the short strings name, designator, swap group, part-and-sequence and default value.
 - A short string MUST be one length byte and that many ASCII bytes. Description, swap group, part-and-sequence and default value MUST be empty.
-- `PINCONGLOMERATE` MUST be the direction (0 right, 1 up, 2 left, 3 down, from the body end to the hot end), plus 0x04 when hidden, 0x08 when the name is shown, 0x10 when the number is shown.
+- `PINCONGLOMERATE` MUST be the direction (0 right, 1 up, 2 left, 3 down, from the body end to the hot end), plus 0x20 on every pin, plus 0x04 when hidden, 0x08 when the name is shown, 0x10 when the number is shown (`altsym.AltiumPin.conglomerate`, the one place of this choice).
+- With 0x20 set, 0x08 shows the name and 0x10 the number: every pin Altium saves holds 0x20 (the corpus, S-0614), and Altium Designer 26.5.0 drew the four combinations of the check project `tests/data/altium/pinbits/` as written (S-0613). Without 0x20 Altium Designer 26 reads the two bits as hide flags (S-0612), so a pin without it MUST NOT be written; `H-A-SCHLIB-PINBITS`.
 - A name or designator over 255 bytes, a value outside the signed 16-bit range, or a code outside 0 … 255 MUST raise `ValueError`.
 - That two public implementations agree on this layout is recorded in the fact page; that Altium shows such pins as written is `H-A-SCHLIB-PIN`. The `FORMALTYPE` byte is 1 here and 0 in S-0150; the page records the difference.
 
 #### Scenario: Worked pin
 - **WHEN** `pin_record` is called on pin `1` named `IN`, passive, leftwards, name and number shown, length 20 units, body end (-30, 10) units, part 1
-- **THEN** it returns the hex bytes `22000001` `02000000` `00` `0100` `00` `00000000` `00` `01` `04` `1a` `1400` `e2ff` `0a00` `00000000` `02494e` `0131` `00` `00` `00`
+- **THEN** it returns the hex bytes `22000001` `02000000` `00` `0100` `00` `00000000` `00` `01` `04` `3a` `1400` `e2ff` `0a00` `00000000` `02494e` `0131` `00` `00` `00`
 
 #### Scenario: Too long a name
 - **WHEN** `pin_record` is called on a pin whose name has 256 characters
 - **THEN** it raises `ValueError`
 
+#### Scenario: Name hidden, number shown
+- **WHEN** `pin_record` is called on a leftwards pin whose name is hidden and whose number is shown
+- **THEN** its `PINCONGLOMERATE` byte is 0x32: 0x20 and 0x10 set, 0x08 clear
+
+#### Scenario: Name shown, number hidden
+- **WHEN** `pin_record` is called on a leftwards pin whose name is shown and whose number is hidden
+- **THEN** its `PINCONGLOMERATE` byte is 0x2A: 0x20 and 0x08 set, 0x10 clear
+
 ### Requirement: Library symbols from KiCad symbols
-`backends.altium.altsym.from_symbol_def(symbol, *, lib_ref, footprint, issues)` SHALL map a resolved `SymbolDef` to an `AltiumSymbol` (S-0131 for the importer's reverse mapping, `docs/formats/altium/schematic-library.md`).
-- Body style 1 and common pins (body style 0) MUST be kept. Pins of other body styles and pin alternates MUST be dropped with one `altium.symbol-simplified` info per symbol. The symbol's own graphics are not in the model; each part gets a synthesised rectangle.
+`backends.altium.altsym.from_symbol_def(symbol, *, lib_ref, footprint, issues, unmodelled=(), bodies="graphics")` SHALL map a resolved `SymbolDef` to an `AltiumSymbol` (S-0131 for the importer's reverse mapping, `docs/formats/altium/schematic-library.md`).
+- Body style 1 and common pins (body style 0) MUST be kept. Pins of other body styles and pin alternates MUST be dropped with one `altium.symbol-simplified` info per symbol. The symbol's own graphics are in the model (`SymbolGraphic`, changes c0058 and c0060) and are drawn as "Symbol graphics in libraries and bodies" requires; a symbol that is not drawn from them gets a synthesised rectangle per part, as below.
 - Parts MUST be the units 1 … `unit_count`. A pin of unit 0 MUST get `OWNERPARTID=0` (Part Zero); others keep their unit.
 - A pin's hot end is `SymbolPin.position` and its rotation gives the direction: 0 → 2 (left), 90 → 3 (down), 180 → 0 (right), 270 → 1 (up). The body end MUST be the hot end moved by the length against the direction. Positions and lengths MUST be multiples of 254 000 nm (10 mil); otherwise `ValueError`, which the build reports as `altium.symbol-off-grid` first.
 - Electrical type MUST map: input 0, bidirectional 1, output 2, open_collector 3, passive 4, tri_state 5, open_emitter 6, power_in 7. `power_out` gives 7, and `free`, `unspecified` and `no_connect` give 4, each with an `altium.pin-lossy` warning.
 - Shape MUST map to edge codes: line none; inverted outer edge 1; clock inner edge 3; inverted_clock outer edge 1 and inner edge 3; input_low outer edge 4; output_low outer edge 17; clock_low inner edge 3 and outer edge 4. `edge_clock_high` and `non_logic` give none with an `altium.pin-lossy` warning.
 - The name MUST be shown unless `pin_names_hidden` or the name is empty or `~`, the number unless `pin_numbers_hidden`. A hidden pin MUST set 0x04. A KiCad overbar `~{…}` MUST be written as each character followed by `\`.
-- Part k's rectangle MUST be the bounding box of the body ends of its pins and the Part Zero pins; a side shorter than 200 mil MUST grow to 200 mil around its centre, rounded outwards to 10 mil. A part without pins gets the square from (-100, -100) to (100, 100) mil.
+- The synthesised rectangle of part k MUST be the bounding box of the body ends of its pins and the Part Zero pins; a side shorter than 200 mil MUST grow to 200 mil around its centre, rounded outwards to 10 mil. A part without pins gets the square from (-100, -100) to (100, 100) mil.
 - The designator prefix MUST be the symbol's `Reference` property, or `U` when it is empty. The comment MUST be the `Value` property, or the symbol name. The description MUST be the `Description` property.
 
 #### Scenario: Resistor turned upright
-- **GIVEN** a symbol with pins `1` at (0, 150) mil rotation 270 and `2` at (0, -150) mil rotation 90, both 50 mil long
+- **GIVEN** a symbol without graphics, with pins `1` at (0, 150) mil rotation 270 and `2` at (0, -150) mil rotation 90, both 50 mil long
 - **WHEN** it is mapped
 - **THEN** pin `1` has direction 1 and body end (0, 100) mil, pin `2` direction 3 and body end (0, -100) mil, and the rectangle is (-100, -100) to (100, 100) mil
 
@@ -567,25 +578,30 @@ Each pin drawn on a placed part that `Circuit.no_connects` lists SHALL get one N
 - **THEN** it fails and names the location
 
 ### Requirement: Sheets of a hierarchical project
-`backends.altium.hierarchy.plan_sheets(design, *, name, sheets, form, symbols=None)` SHALL split a design into one top sheet and one sheet per top-level module when `sheets` is `"modules"`, and SHALL return the single sheet of c0032 when `sheets` is `"flat"`. `project.SheetMode` is `Literal["flat", "modules"]` and `project.DEFAULT_SHEETS` is `"flat"`.
-- A component's sheet is the first segment of its component path (`fenolite.path`) when the path holds a `/`, and the top sheet otherwise. So a part outside any module is on the top sheet, and a part of a nested module (`power/ldo/U1`) is on the sheet of its top-level module (`power`): deeper modules are flattened.
-- The top sheet's file is `<name>.SchDoc`. A module's file is `<name>_<module>.SchDoc`. All files sit beside the project.
-- The hierarchy has one level: the top sheet holds one sheet symbol per module, in module-name order, and no module sheet holds a sheet symbol. No sheet is repeated.
-- A net **crosses** a module when it is not a member of a `power` interface, the module's sheet holds at least one of its pins, and another sheet holds at least one of its pins. A net of a `power` interface never crosses: its power ports are global (S-0185, `H-A-SCH-HIER-NAMES`).
-- A harness interface **crosses** a module when `form` is `"binary"` and at least one of its member nets crosses that module. Its member nets that cross the module then travel in the harness and get no port or sheet entry of their own there. In the ASCII form no harness crosses, and its member nets cross as plain nets (S-0131: the ASCII place of harness records is not documented).
-- The **crossings** of a module are its crossing harnesses and its other crossing nets, each named by the harness type name or the net name, in code-point order of those names. Each crossing gives one port on the module's sheet and one sheet entry on its sheet symbol, with that name (S-0185: a port joins the sheet entry of the same name).
+`backends.altium.hierarchy.plan_sheets(design, *, name, sheets, form, symbols=None, directions=True)` SHALL split a design into one top sheet and one sheet per module of `hierarchy.sheet_tree` when `sheets` is `"modules"` ("Sheets of a module tree"), and SHALL return the single sheet of c0032 when `sheets` is `"flat"`. `project.SheetMode` is `Literal["flat", "modules"]` and `project.DEFAULT_SHEETS` is `"flat"`.
+- A component's sheet is the sheet of its module: its component path (`fenolite.path`) without the last segment, and the top sheet for a path without a `/`. So a part outside any module is on the top sheet, and a part of a nested module (`power/ldo/U1`) is on the sheet of that module (`power/ldo`): a module at any depth has a sheet of its own.
+- The top sheet's file is `<name>.SchDoc`. A module's file is `<name>_<module path with "." for "/">.SchDoc`, which is `<name>_<module>.SchDoc` for a top-level module. All files sit beside the project.
+- The top sheet holds one sheet symbol per top-level module and a module's sheet one per module directly below it, in tree order. No sheet is repeated.
+- A net **crosses** a module when it is not a member of a `power` interface, the module's sheet or a sheet below it holds at least one of its pins, and another sheet holds at least one of its pins. A net of a `power` interface never crosses: its power ports are global (S-0185, `H-A-SCH-HIER-NAMES`).
+- A harness interface **crosses** a top-level module when `form` is `"binary"` and at least one of its member nets crosses that module. Its member nets that cross the module then travel in the harness and get no port or sheet entry of their own there. Below the first level, and in the ASCII form, no harness crosses, and its member nets cross as plain nets (S-0131: the ASCII place of harness records is not documented).
+- The **crossings** of a module are its crossing harnesses, its crossing buses ("Bus records") and its other crossing nets, each named by the harness type name, the bus identifier or the net name, in code-point order of those names. Each crossing gives one port on the module's sheet and one sheet entry on its sheet symbol, with that name (S-0185: a port joins the sheet entry of the same name).
 - Every pin keeps the stub, label or power port of "Connectivity on the sheet" on its own sheet, and every component keeps its `UNIQUEID`, so the component records of a `modules` build equal those of the `flat` build except for their positions and `OWNERINDEX` values.
-- The result MUST name, for every sheet, its file, its `layout.SheetPlan` and, for a module sheet, the module name and the sheet symbol's unique id. A design without a module MUST give the same top-sheet plan in both modes.
-- That Altium Designer opens these sheets, builds the hierarchy from them and picks the hierarchical net scope without a project key are `H-A-SCH-HIER-OPEN` and `H-A-SCH-HIER-COMPILE`.
+- The result MUST name, for every sheet, its file, its `layout.SheetPlan` and, for a module sheet, the module path and the sheet symbol's unique id. A design without a module MUST give the same top-sheet plan in both modes.
+- That Altium Designer opens these sheets, builds the hierarchy from them and picks the hierarchical net scope without a project key are `H-A-SCH-HIER-OPEN` and `H-A-SCH-HIER-COMPILE` for one level, and `H-A-SCHX-TREE` below it.
 
 #### Scenario: Sheets of the hierarchy sample
 - **WHEN** `plan_sheets` runs on the model of `examples/altium_hier/design.py` with `name="altium_hier"`, `sheets="modules"` and `form="binary"`
 - **THEN** the sheets are `altium_hier.SchDoc` (holding `J1`), `altium_hier_flash.SchDoc` (`C2`, `R1`, `U2`) and `altium_hier_mcu.SchDoc` (`C1`, `U1`); the crossings of `flash` are `FLASH_WP` and the harness `SPI`; the crossings of `mcu` are `FLASH_WP`, `RESET_N` and the harness `SPI`; and `VDD`, `GND` and `FLASH_HOLD_N` cross nothing
 
-#### Scenario: Nested module is flattened
+#### Scenario: Nested module has its own sheet
 - **GIVEN** a variant of the sample whose `C1` is in a module `decoupling` inside `mcu`
 - **WHEN** `plan_sheets` runs with `sheets="modules"`
-- **THEN** `C1` (path `mcu/decoupling/C1`) is on `altium_hier_mcu.SchDoc`, and no file is named after `decoupling`
+- **THEN** `C1` (path `mcu/decoupling/C1`) is on `altium_hier_mcu.decoupling.SchDoc`, the sheet of `mcu` holds `U1` and a sheet symbol named `decoupling`, and the sheet of `decoupling` holds no port, because `C1` is on power nets only
+
+#### Scenario: Nested module is flattened
+- **GIVEN** a variant of the sample whose `C1` is in a module `decoupling` inside `mcu`
+- **WHEN** `plan_sheets` runs with `sheets="flat"`
+- **THEN** `C1` (path `mcu/decoupling/C1`) is on the one sheet `altium_hier.SchDoc`, and no file is named after `mcu` or `decoupling`; only `sheets="modules"` gives a module its own sheet
 
 #### Scenario: Harness members cross as nets in the ASCII form
 - **WHEN** `plan_sheets` runs on the sample with `sheets="modules"` and `form="ascii"`
@@ -596,18 +612,18 @@ Each pin drawn on a placed part that `Circuit.no_connects` lists SHALL get one N
 - **THEN** it returns one sheet, `altium_hier.SchDoc`, whose plan equals `project.plan_sheet(design, name="altium_hier")`
 
 ### Requirement: Sheet symbols and sheet entries
-The top sheet of a `modules` build SHALL hold, right after the sheet record and before the first component, one block of records per module: the sheet symbol, its sheet entries in crossing order, the sheet name and the file name (S-0130, S-0131, S-0187, S-0188).
+A sheet of a `modules` build that has a module directly below it SHALL hold, right after the sheet record and before the first component, one block of records per such module: the sheet symbol, its sheet entries in crossing order, the sheet name and the file name (S-0130, S-0131, S-0187, S-0188).
 - Sheet symbol: `RECORD=15`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (the **top-left** corner), `XSIZE`, `YSIZE`, `COLOR=128`, `AREACOLOR=8454016`, `ISSOLID=T`, `UNIQUEID` ("Stable component unique ids"), `SYMBOLTYPE=Normal`.
-- Sheet entry: `RECORD=16`, `OWNERINDEX=<index of its sheet symbol>`, `OWNERPARTID=-1`, `SIDE=1` (the right side; no `SIDE` key for an entry on the left side, which only "Harness lines between sheet symbols" places), `DISTANCEFROMTOP=<k>`, `COLOR=128`, `AREACOLOR=8454143`, `TEXTCOLOR=128`, `TEXTFONTID=1`, `TEXTSTYLE=Full`, `NAME=<crossing name>`, then `HARNESSTYPE=<type name>` for a harness crossing only, then `ARROWKIND=Block & Triangle`. Its connection point is on the symbol's edge of that side, `k` × 100 mil below the top-left corner. No `IOTYPE` is written (unspecified).
-- Sheet name: `RECORD=32`, `OWNERINDEX`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR=8388608`, `FONTID=1`, `TEXT=<module name>`, 100 mil above the top-left corner. File name: `RECORD=33` with the same keys, `TEXT=<name>_<module>.SchDoc`, at the top-left corner.
-- A sheet entry of a net crossing MUST get a wire stub from its connection point rightwards and a net label with the net name, by the stub and label rules of "Connectivity on the sheet" for a right pin. Labels join it to the other entries and to the top sheet's parts on that net; no wire runs between two sheet symbols.
-- A sheet entry of a harness crossing MUST get a harness block ("Harness records") whose signal harness line starts at its connection point, unless a signal harness line joins it to the sheet entry of another sheet symbol ("Harness lines between sheet symbols"): it then gets no block, no wire and no label.
+- Sheet entry: `RECORD=16`, `OWNERINDEX=<index of its sheet symbol>`, `OWNERPARTID=-1`, then `IOTYPE=<1, 2 or 3>` only for a net crossing with a direction ("Port and sheet-entry directions"), `SIDE=1` (the right side; no `SIDE` key for an entry on the left side, which only "Harness lines between sheet symbols" places), `DISTANCEFROMTOP=<k>`, `COLOR=128`, `AREACOLOR=8454143`, `TEXTCOLOR=128`, `TEXTFONTID=1`, `TEXTSTYLE=Full`, `NAME=<crossing name>`, then `HARNESSTYPE=<type name>` for a harness crossing only, then `ARROWKIND=Block & Triangle`. Its connection point is on the symbol's edge of that side, `k` × 100 mil below the top-left corner.
+- Sheet name: `RECORD=32`, `OWNERINDEX`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y`, `COLOR=8388608`, `FONTID=1`, `TEXT=<last segment of the module path>`, 100 mil above the top-left corner. File name: `RECORD=33` with the same keys, `TEXT=<the module's file>`, at the top-left corner.
+- A sheet entry of a net crossing MUST get a wire stub from its connection point rightwards and a net label with the net name, by the stub and label rules of "Connectivity on the sheet" for a right pin. Labels join it to the other entries, to the ports and to the sheet's parts on that net; no wire runs between two sheet symbols.
+- A sheet entry of a harness crossing MUST get a harness block ("Harness records") whose signal harness line starts at its connection point, unless a signal harness line joins it to the sheet entry of another sheet symbol ("Harness lines between sheet symbols"): it then gets no block, no wire and no label. A sheet entry of a bus crossing MUST get a bus block ("Bus records") that starts at its connection point, and takes one slot per member below its own.
 - These stubs and labels MUST follow the last component record and precede the first pin stub, per sheet symbol and per entry in order.
 - No `INDEXINSHEET` is written, as on every Fenolite record.
 
 #### Scenario: Symbols of the hierarchy sample
 - **WHEN** the top sheet of the sample (`sheets="modules"`) is read
-- **THEN** it holds 2 records 15, 5 records 16 (3 without and 2 with `HARNESSTYPE=SPI`), 2 records 32 with `TEXT=flash` and `TEXT=mcu`, 2 records 33 with `TEXT=altium_hier_flash.SchDoc` and `TEXT=altium_hier_mcu.SchDoc`, 6 wire records, 4 net labels (none of them an `SPI_*` net) and 2 power ports; the entry `SPI` of `mcu` holds no `SIDE` key
+- **THEN** it holds 2 records 15, 5 records 16 (3 without and 2 with `HARNESSTYPE=SPI`), 2 records 32 with `TEXT=flash` and `TEXT=mcu`, 2 records 33 with `TEXT=altium_hier_flash.SchDoc` and `TEXT=altium_hier_mcu.SchDoc`, 6 wire records, 4 net labels (none of them an `SPI_*` net) and 2 power ports; the entry `SPI` of `mcu` holds no `SIDE` key; and no entry holds `IOTYPE`, because the sample's generic pins are passive
 
 #### Scenario: Entry on the edge
 - **WHEN** the entry `RESET_N` of the symbol `mcu` and its stub are read
@@ -623,10 +639,10 @@ The top sheet of a `modules` build SHALL hold, right after the sheet record and 
 
 ### Requirement: Ports on module sheets
 A module sheet SHALL hold one port per crossing, in crossing order, after the last component record and before the first pin stub (S-0130, S-0131, S-0187, S-0188).
-- Port: `RECORD=18`, `OWNERPARTID=-1`, `WIDTH`, `LOCATION.X`, `LOCATION.Y` (its left end), `COLOR=128`, `FONTID=1`, `AREACOLOR=8454143`, `TEXTCOLOR=128`, `NAME=<crossing name>`, then `HARNESSTYPE=<type name>` for a harness crossing only, then `UNIQUEID` ("Stable component unique ids") and `HEIGHT=10`. No `STYLE`, `IOTYPE` or `ALIGNMENT` is written.
+- Port: `RECORD=18`, `OWNERPARTID=-1`, then `IOTYPE=<1, 2 or 3>` only for a net crossing with a direction ("Port and sheet-entry directions"), `WIDTH`, `LOCATION.X`, `LOCATION.Y` (its left end), `COLOR=128`, `FONTID=1`, `AREACOLOR=8454143`, `TEXTCOLOR=128`, `NAME=<crossing name>`, then `HARNESSTYPE=<type name>` for a harness crossing only, then `UNIQUEID` ("Stable component unique ids") and `HEIGHT=10`. No `STYLE` or `ALIGNMENT` is written.
 - `WIDTH` MUST be `max(300, 100 · ⌈(70 · L + 150) / 100⌉)` mil for a name of `L` characters, written in units of 10 mil.
-- A port's name MUST equal the name of its sheet entry on the top sheet, in the same letter case.
-- A port of a net crossing MUST be followed by a wire stub from its right end (location plus width) rightwards and a net label with the net name, as for a right pin. A port of a harness crossing MUST get a harness block whose signal harness line starts at its right end.
+- A port's name MUST equal the name of its sheet entry on the sheet above, in the same letter case.
+- A port of a net crossing MUST be followed by a wire stub from its right end (location plus width) rightwards and a net label with the net name, as for a right pin. A port of a harness crossing MUST get a harness block whose signal harness line starts at its right end. A port of a bus crossing MUST get a bus block ("Bus records") that starts at its right end.
 - A module without a crossing MUST get no port; its sheet symbol then has no entry.
 
 #### Scenario: Ports of the hierarchy sample
@@ -851,12 +867,13 @@ The test reader `tests/_altium_read.py` SHALL rebuild the net classes of a writt
 - **THEN** `net_classes_from_sheet` raises `ReadError`
 
 ### Requirement: Pin map records of a footprint model
-The schematic document writer, in both forms, and the schematic library writer SHALL write the pin map of a component whose `pin_pad_map` renames a pad as `MapDefiner` records (record 47) of its footprint model, directly after the `MapDefinerList` (record 46) of that model (`H-A-SCHX-PINMAP`; `docs/formats/altium/schematic-records.md`, records 46 and 47). In a schematic document each record names record 46 as its owner (`OWNERINDEX`); in a library no record carries an owner key, and the record belongs to the component it follows.
-- One record MUST be written for each pin of the component whose pad differs from what a reader assumes without a record, the pad of the pin's own designator: `DESINTF` the pin's designator, `DESIMPCOUNT` `1`, and `DESIMP0` the pad that `pin_pad_map` gives the pin. A pin outside the map, and a pin that the map leaves on the pad of its own designator, gets no record. This is the form that Altium saves (`H-A-SCHX-PINMAP-FORM`: of 295 footprint models of four public project sets, 293 hold no record, one holds a record for each of its 6 pins and one holds 1 record for 8 pins, and no record names the pin's own pad alone); the count says what Altium writes, not that Altium applies a record Fenolite writes.
+The schematic document writer, in both forms, and the schematic library writer SHALL write the pin map of a component whose `pin_pad_map` gives a pin other pads than the pad of its own designator alone as `MapDefiner` records (record 47) of its footprint model, directly after the `MapDefinerList` (record 46) of that model (`H-A-SCHX-PINMAP`; `docs/formats/altium/schematic-records.md`, records 46 and 47). In a schematic document each record names record 46 as its owner (`OWNERINDEX`); in a library no record carries an owner key, and the record belongs to the component it follows.
+- One record MUST be written for each pin of the component whose pads differ from what a reader assumes without a record, the pad of the pin's own designator: `DESINTF` the pin's designator, `DESIMPCOUNT` the number of its pads, and `DESIMP0`, `DESIMP1`, … the pads of `Component.pads_of`, in map order (change c0123: a pin may be bonded to several pads). A pin outside the map, and a pin whose one pad is the pad of its own designator, gets no record. This is the form that Altium saves (`H-A-SCHX-PINMAP-FORM`: of 295 footprint models of four public project sets, 293 hold no record, one holds a record for each of its 6 pins and one holds 1 record for 8 pins, and no record names the pin's own pad alone); the count says what Altium writes, not that Altium applies a record Fenolite writes.
 - The records MUST be in the order of the pins of the symbol, whatever the order of the pairs of the map.
+- `altsym.MAP_RECORDS_FOR_EVERY_PIN` MUST be the one place of the choice of that form, false by default; set to true, every pin of a component with a map gets a record, a pin outside the map one that names its own designator. The import MUST read both forms to the same `pin_pad_map`.
 - A component without such a pin MUST get record 46 without a record 47, as before this requirement, so the files of a design without a renaming map have the bytes they had.
 - A component without a footprint model has no record 46 and writes no map.
-- The schematic library MUST write the map of a library component only when every component of the design that uses its symbol links the footprint that the library's footprint model names (record 45) and has the same pad for every pin; otherwise the library component holds no record 47. A map is a map onto one footprint: a part that links another footprint than its symbol's own gets its map on the sheet alone. The schematic document carries the map of each component in every case.
+- The schematic library MUST write the map of a library component only when every component of the design that uses its symbol links the footprint that the library's footprint model names (record 45) and has the same pads for every pin; otherwise the library component holds no record 47. A map is a map onto one footprint: a part that links another footprint than its symbol's own gets its map on the sheet alone. The schematic document carries the map of each component in every case.
 - A pad name of a map that `text_problem` refuses MUST give `altium.text-unwritable` (error, nothing written), as any written text does.
 - `docs/formats/altium/connectivity.md` ("Component link") MUST state the numbering of `DESIMP<i>` and which pins of a footprint model hold a record, with the counts of the public sets, under `H-A-SCHX-PINMAP-FORM`, and what Fenolite writes under `H-A-SCHX-PINMAP`.
 
@@ -864,6 +881,20 @@ The schematic document writer, in both forms, and the schematic library writer S
 - **GIVEN** the blink with `pad_map={"1": "2", "2": "1"}` on its `D1`, which links the footprint its symbol names
 - **WHEN** `uv run pytest tests/unit/lens/test_altium_pad_map.py -k hold_the_map` builds it for the Altium target in the ASCII and in the binary form and reads the written sheet and library with Fenolite's readers
 - **THEN** the footprint model of `D1` on the sheet, and the library component `Mini_LED`, each hold two records 47, of the pins `1` and `2` with the pads `2` and `1`
+
+#### Scenario: Several pads written and read back
+- **GIVEN** the blink with its `R1` on a 32-pad footprint and `pad_map={"1": ("1", "5"), "2": ("7", "6")}`
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pin_map.py -k "read_back or own_footprint"` builds it for the Altium target in the ASCII and in the binary form and reads the written sheet and library
+- **THEN** the footprint model of `R1` on the sheet holds a record 47 for each of its two pins, with the pads `1, 5` and `7, 6`; the library component `Mini_R`, whose footprint model names the symbol's own footprint, holds none; and the blink without a map holds no record 47
+
+#### Scenario: Records of a pin of several pads
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pin_map_records.py` asks `altsym.map_pins` and `altsym.map_records` for a component with the pins `1`, `2`, `3` and the map `(("3", "3"), ("3", "EP"))`
+- **THEN** there is one record 47, of pin `3`, with `DESIMPCOUNT=2`, `DESIMP0=3` and `DESIMP1=EP`; and with `altsym.MAP_RECORDS_FOR_EVERY_PIN` true there are three records in pin order, with `DESINTF` `1`, `2` and `3` and the pads `("1",)`, `("2",)` and `("3", "EP")`
+
+#### Scenario: Both forms are read alike
+- **GIVEN** the blink with its `D1` on a 32-pad footprint and `pad_map={"2": ("2", "5")}`, built for the Altium target with `MAP_RECORDS_FOR_EVERY_PIN` false and with it true
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pin_map.py -k both_forms` reads each written sheet, and `tests/unit/backends/altium/adapter/test_repeat.py -k partial` imports an authored sheet in each form
+- **THEN** the first sheet holds the record of pin `2` alone and the second one record per pin; both import to `pin_pad_map == (("2", "2"), ("2", "5"))`, and both builds hold RT-A2
 
 #### Scenario: Records of one map
 - **GIVEN** the blink with its `R1` on a 32-pad footprint, which is not the footprint its symbol names, and `pad_map={"1": "1", "2": "3"}`
@@ -898,3 +929,169 @@ The schematic document writer, in both forms, and the schematic library writer S
 - **WHEN** `FENOLITE_REQUIRE=corpus uv run pytest tests/corpus/test_altium_map_records.py` counts the map records of the footprint models of `altium-set:02` to `altium-set:05`
 - **THEN** 295 models hold 7 records: 293 hold none, one holds 6 for its 6 pins and one holds 1 for its 8 pins; no record names the pin's own pad alone, and every record numbers its pads from 0 without a gap
 
+### Requirement: Symbol graphics in libraries and bodies
+`backends.altium.altsym.from_symbol_def(symbol, *, lib_ref, footprint, issues, unmodelled=(), bodies="graphics")` SHALL, with `bodies="graphics"`, map the graphics of a `SymbolDef` to schematic records of their kind, in the symbol's frame, for the library and for the body on the sheet alike. `altsym.SymbolBodies` is `Literal["generic", "graphics"]` and `altsym.DEFAULT_BODIES` is `"graphics"` (decision of the maintainer, 2026-10-06).
+- `GRAPHIC_KINDS` MUST be the kinds of `model.library.SymbolGraphic`, which all have a record: `line` (record 13), `rect` (record 14), `polygon` (record 7, closed) and `circle` (record 8, an ellipse of two equal radii). The fill is kept as a flag (`ISSOLID=T` when filled), never as a colour; every graphic holds `LINEWIDTH=1`, `COLOR=128` and, when it can be filled, `AREACOLOR=11599871`, in the key order of `docs/formats/altium/schematic-records.md` ("Graphics the writer draws").
+- Graphic coordinates MUST keep the model's value: a coordinate that is no whole unit of 10 mil is written with its `_FRAC` key (1/100 000 unit, 2.54 nm), rounded half up to that step, the integer and the fraction with the same sign, and a `_FRAC` of zero left out. Only pins need the 10-mil grid.
+- The graphics MUST be drawn only when the symbol has one unit and one body style, holds at least one graphic, every graphic is of a kind of `GRAPHIC_KINDS`, and `unmodelled` is empty. `SymbolGraphic` names neither a unit nor a body style, so the graphics of a symbol of several cannot be given to a part. `unmodelled` names the graphic kinds of the library symbol that the model does not hold; `lens.altium.unmodelled_graphics(symbol)` gives them for a symbol read from a KiCad library (`arc`, `bezier`, `text`, `text_box`).
+- Any other symbol, and every symbol with `bodies="generic"`, MUST get the synthesised rectangle of "Library symbols from KiCad symbols" per part. One `altium.symbol-simplified` (info) per symbol MUST say why, and name dropped pins and alternates; a symbol drawn from its graphics with every pin kept gives none. With `bodies="generic"` the mapping, its info and the written bytes MUST be those of change c0034.
+- A drawn symbol MUST hold no rectangle record that its graphics do not hold. `AltiumSymbol.rectangles` then holds, per part, the box of its graphics and of the body ends of its pins, rounded outwards to 10 mil, which the layout and the designator and comment positions use.
+- Pins MUST stay as written before this change, so the pin ends touch the graphics as they do in the symbol.
+- On the sheet, each graphic MUST be the library record moved by the component's location, a child of the component record (`OWNERINDEX`) with its `OWNERPARTID`, written after the component record and before its pins.
+- That Altium draws these records as the source symbol draws them is `H-A-SCHX-GRAPHICS`; that they read back is `H-A-SCHX-READBACK`.
+
+#### Scenario: Resistor symbol
+- **GIVEN** the catalog resistor symbol `Fenolite:Resistor`, whose body is eight lines
+- **WHEN** it is mapped, written to a schematic library and read back with `read.schlib.read_schlib`
+- **THEN** the component holds eight line records with the symbol's coordinates and two pins, no rectangle, and no `altium.symbol-simplified` is reported
+
+#### Scenario: Symbol with a graphic the writer lacks
+- **GIVEN** a symbol with one graphic of the kind `bezier`, and a symbol whose `unmodelled` is `("arc",)`
+- **WHEN** each is mapped and written
+- **THEN** its part holds the synthesised rectangle and no other graphic, and one `altium.symbol-simplified` names the symbol and says that the kind has no record
+
+#### Scenario: Symbol of two units
+- **GIVEN** a symbol with graphics and two units
+- **WHEN** it is mapped
+- **THEN** it has one rectangle per part and no graphic, and `altium.symbol-simplified` says that the model does not name the unit of a graphic
+
+#### Scenario: Generic bodies on request
+- **WHEN** the catalog resistor is mapped with `bodies="generic"`
+- **THEN** it holds one rectangle and no graphic, and the info reads `Fenolite:Resistor: its graphics became one rectangle per part`
+
+### Requirement: Sheets of a module tree
+With `sheets="modules"`, the writer SHALL write one schematic document per module of the design at any depth: the top sheet holds one sheet symbol per top-level module, and a module's sheet holds its own components and one sheet symbol per module directly below it.
+- `hierarchy.sheet_tree(design)` MUST give every module that holds a component, directly or below it, depth first with siblings in natural order, the order of `kicad-schematic` ("Hierarchical sheets of a design"). The module of a component is its component path without the last segment (`hierarchy.module_of`).
+- A module's file MUST be `<name>_<module path with "." for "/">.SchDoc` beside the project (`hierarchy.sheet_file`), so a top-level module keeps the name of change c0037; the sheet symbol's name (record 32) MUST be the last segment of the module path, and its file name (record 33) the module's file. The project file MUST list the top sheet and then the module sheets in tree order.
+- A net that is not a member of a `power` interface **crosses** a module when it has a pin on the module's sheet or on a sheet below it, and a pin on any other sheet. Each crossing MUST give a port on the module's sheet and a sheet entry of the same name on its sheet symbol, so a net that crosses two levels is passed through the sheet between: that sheet holds a port and, on the symbol of the module below, a sheet entry.
+- A `harness` interface MUST cross only a top-level module, in the binary form, as in "Sheets of a hierarchical project"; below the first level its member nets cross as nets.
+- The unique ids of sheet symbols and ports MUST be `unique_id("sheet:<module path>")` and `unique_id("port:<module path>:<name>")`, stable across builds.
+- That Altium compiles such a project and shows the tree is `H-A-SCHX-TREE`.
+
+#### Scenario: Two levels
+- **GIVEN** the authored design `tree` (`tests/data/altium/tree/design.py`) with the modules `power`, `io` and `io/leds`
+- **WHEN** it is built with `sheets="modules"`, in each form, and read back
+- **THEN** four schematic documents exist (`tree.SchDoc`, `tree_io.SchDoc`, `tree_io.leds.SchDoc`, `tree_power.SchDoc`), the sheet of `io` holds a sheet symbol named `leds` whose file name is `tree_io.leds.SchDoc`, and the netlist of the read project equals the design's
+
+#### Scenario: Passed through the sheet between
+- **WHEN** the crossings of `tree` are read
+- **THEN** `io` crosses `ALARM`, `D[0..3]`, `SENSE` and `SENSE_IN`, `io/leds` crosses `D[0..3]` and `LED_K`, and `power` crosses nothing; the sheet of `io` holds the port `D[0..3]` and, on the symbol of `leds`, the sheet entry `D[0..3]`
+
+### Requirement: Port and sheet-entry directions
+Each port and sheet entry of a net crossing SHALL carry the I/O type that `hierarchy.direction(design, net, module)` gives, by the closed table `hierarchy.DIRECTIONS`: `output`, `input`, `bidirectional` or `unspecified`.
+- `hierarchy.pin_class(types)` MUST class a set of pin types as `bidirectional` when one is bidirectional, else `driver` when one is `output`, `tri_state`, `open_collector`, `open_emitter` or `power_out`, else `input` when one is `input` or `power_in`, else `passive`.
+- `DIRECTIONS` MUST map (the class of the net's pins on the module's sheet and below it, the class of its pins on every other sheet) to a direction, for the sixteen pairs of the four classes: `bidirectional` when either side is bidirectional or both are drivers; `output` for a driver inside and no driver outside; `input` for an input inside without a driver inside; `unspecified` for passive pins inside.
+- The port and the sheet entry of one crossing MUST carry the same type. `IOTYPE` MUST be 1 for output, 2 for input, 3 for bidirectional, and MUST be left out for unspecified (`schdoc.IO_TYPES`), written right after `OWNERPARTID`. A harness crossing and a bus crossing MUST stay unspecified.
+- With `directions=False` (`--altium-directions off`), every type MUST be unspecified.
+- That the compiler accepts these types is `H-A-SCHX-DIR`.
+
+#### Scenario: A driven net
+- **GIVEN** the module `io` of `tree`, whose net `SENSE` has an output pin inside and an input pin on the top sheet
+- **WHEN** it is built
+- **THEN** the port `SENSE` of the module's sheet and its sheet entry hold `IOTYPE=1`; `ALARM`, driven from the top sheet into an input, holds `IOTYPE=2` on both
+
+#### Scenario: Passive net
+- **GIVEN** the net `LED_K` of `tree`, which holds only passive pins
+- **WHEN** it is built
+- **THEN** its port and its sheet entry hold no `IOTYPE`
+
+#### Scenario: Directions off
+- **WHEN** `tree` is built with `directions=False`
+- **THEN** no port and no sheet entry holds `IOTYPE`
+
+### Requirement: Bus records
+A `Bus` of the model whose member nets are one stem followed by consecutive integers SHALL be drawn as a bus block: a bus line (record 26) with the net label `<stem>[<first>..<last>]` on it, and per member one bus entry (record 37) and one labelled wire; where it crosses a module, as one port and one sheet entry of that name, each with a bus block.
+- `project.bus_identifier(names)` MUST give `<stem>[<first>..<last>]` for names of one non-empty stem and integers that rise or fall by one, written without leading zeros, and `None` otherwise and for fewer than two names (`docs/formats/altium/connectivity.md`, "Buses and harnesses").
+- `project.lowered_buses(design)` MUST give the buses that are drawn and, for every other bus, its name and the reason: its nets have no bus identifier, one of them is a net of a `power` or a `harness` interface, or one is a member of a bus drawn before it. Such a bus MUST be drawn as its nets, with one `altium.bus-flattened` (info) naming it.
+- A bus block (`layout.bus_block`) MUST start at the right end of its port, at the connection point of its sheet entry, or in a cell of its own on a sheet that holds a pin of a member and neither a port nor an entry of the bus: the line runs 200 mil right and then 100 mil down per member; the label lies at its start; member `k` has a bus entry from the line to the point 100 mil right and 100 mil lower, where its wire and net label start.
+- A drawn bus MUST cross a module when one of its member nets does, as one crossing that replaces the crossings of its members there.
+- The nets of the members MUST keep the names of the model. A sheet that passes a bus through draws it twice, at its port and at the sheet entry below; Fenolite's importer reads those as two buses of the same nets.
+- No corpus sheet holds a bus, so the key order of records 26 and 37 is the writer's own; that Altium reads these buses is `H-A-SCHX-BUS`.
+
+#### Scenario: Four-bit bus
+- **GIVEN** the design `tree` with the bus `D` of the nets `D0` to `D3`, built as one sheet
+- **WHEN** it is built in each form and read back
+- **THEN** the sheet holds one bus line, one net label `D[0..3]` at its start and four bus entries, and the read netlist holds the nets `D0` to `D3` with their pins
+
+#### Scenario: Bus through two levels
+- **WHEN** `tree` is built with `sheets="modules"` and read back
+- **THEN** the sheets of `io` and `io/leds` each hold a port `D[0..3]` and no port `D0`, and the read buses hold the nets `D0` to `D3` in order
+
+### Requirement: Text outside ASCII
+`ascii.text_problem(text, *, form="ascii", parameter=False)` SHALL accept, for `form="binary"`, every printable character of Windows-1252 (`ascii.CODE_PAGE`), and for `form="ascii"` printable 7-bit ASCII only.
+- `|`, a line end or any control character, an empty text and a leading or trailing space MUST stay refused in both forms.
+- The reason of a refused character MUST name it and its code point, and say whether the binary form carries it (a Windows-1252 character refused by the ASCII form) or no form does.
+- `ascii.record_bytes(fields)` MUST write a field whose value holds a character outside 7-bit ASCII as `|%UTF8%<KEY>=<value in UTF-8>` followed by `|<KEY>=<value in Windows-1252>`, the order of saved files, and a 7-bit field as `ascii.format_record` writes it; `binary.frame_record` MUST frame its bytes. `ascii.format_record` and the ASCII form MUST refuse such a value.
+- The texts that may hold such characters are the comment of a component and the value of a parameter, in a build of the binary form. Every other text (design name, refs, net names, pin texts, library, symbol, footprint, module, harness, net class and parameter names) MUST stay printable 7-bit ASCII: they are also file names, storage names, binary pin strings or PCB net names.
+- The ASCII form stays 7-bit because the encoding of an ASCII schematic depends on the version that reads it (S-0133).
+- That Altium shows such a value unchanged is `H-A-SCHX-TEXT`.
+
+#### Scenario: Accented value in the binary form
+- **GIVEN** a part whose value is `Indutância 10 µH`
+- **WHEN** the design is built in the binary form and read back
+- **THEN** the comment of the component returns that string, and its record holds `%UTF8%TEXT` before `TEXT`
+
+#### Scenario: Refused in the ASCII form
+- **WHEN** `text_problem("Indutância 10 µH", form="ascii")` and `text_problem("1 kΩ", form="binary")` are called
+- **THEN** the first names `â` (U+00E2) and says that the binary form carries it, and the second names U+03A9 and says that no form carries it
+
+### Requirement: Component parameters
+Each property of a part that the writer does not already write as a record of its own SHALL be written as a hidden parameter record of its component, in code-point order of the names.
+- `project.parameters_of(component, *, form)` MUST give the parameters: every property with a value, except those whose name starts with `fenolite.` and the names `Comment`, `Designator`, `Footprint`, `Reference` and `Value` in any letter case.
+- A parameter MUST be `RECORD=41`, `OWNERINDEX=<its component>`, `OWNERPARTID=-1`, `LOCATION.X`, `LOCATION.Y` (the component's location), `COLOR=8388608`, `FONTID=1`, `ISHIDDEN=T`, `TEXT=<value>`, `NAME=<name>`, `UNIQUEID=<unique_id("<component id>:parameter:<name>")>`, written after the comment and before the footprint chain.
+- A property whose name is not 7-bit text, whose value the form cannot carry ("Text outside ASCII", a parameter text), or whose name differs only in letter case from a parameter before it MUST NOT be written: `parameters_of` gives it with the reason, and the build keeps it in the model and reports it (`altium-build`, "Readable schematic in an Altium build"). A property is no part of the circuit, so it never refuses a build.
+- A design without such a property MUST keep its bytes.
+
+#### Scenario: Manufacturer part number
+- **GIVEN** a part with the property `MPN` = `X-1`
+- **WHEN** the design is built in each form and read back
+- **THEN** the component holds a hidden parameter `MPN` with the value `X-1`, and the read component holds the property
+
+### Requirement: Opt-in composed native schematic output
+`project.write_project` and `lens.altium.build_altium` SHALL accept optional composition intent.
+`project.plan_sheet` and `hierarchy.plan_sheets` SHALL integrate it after existing sheet assignment.
+Both native forms MUST preserve IDs, symbols, pins, footprint maps, parameters, no-connects, class
+directives, buses and harnesses while applying verified presentation transforms and local wires.
+Absent intent MUST retain the existing deterministic cell-layout requirements.
+
+#### Scenario: ASCII and binary electrical agreement
+- **GIVEN** an authored composed project with rotated passives, text, no-connects and net classes
+- **WHEN** it is written in ASCII and binary and read back
+- **THEN** both forms have the source circuit's electrical signature and equivalent emitted geometry
+
+#### Scenario: Module hierarchy with composition
+- **GIVEN** an authored module tree with ports and harness entries
+- **WHEN** its sheets are composed
+- **THEN** each unit retains its original sheet and hierarchy connectivity, and interface geometry
+  is included in placement collision checks
+
+#### Scenario: Unsupported transform
+- **GIVEN** a symbol primitive whose requested transformation cannot be preserved by the writer
+- **WHEN** the composed plan is lowered
+- **THEN** it reports the unsupported transform without dropping or substituting symbol geometry
+
+### Requirement: Distinct fonts in the font table
+The font table of the sheet record of every schematic document and sheet template that Fenolite writes SHALL hold each distinct font once. A font is its name, its size, bold and italic.
+- Font 1 MUST stay the system font of "Sheet record" (`SIZE1=10`, `FONTNAME1=Times New Roman`, `SYSTEMFONT=1`), and every text record of the schematic writer MUST keep `FONTID=1` (`TEXTFONTID=1` on a sheet entry and a harness entry).
+- A text of a drawing sheet (`schdot.sheet_frame`) whose font equals font 1 MUST be written with `FONTID=1` and MUST NOT add an entry. Every other font of the drawing sheet MUST be appended once, in order of first use, numbered from 2, and each label MUST carry the number of its own font.
+- `FONTIDCOUNT` MUST be the number of entries, and no two entries may be equal in name, size, bold and italic. `SheetFrame.sheet_record(base)` MUST raise `ValueError` for a frame one of whose fonts is already in `base`.
+- The rule MUST hold in the binary and in the ASCII form, which share their records, and for a sheet template written by `schdot.write_template`.
+- A document without a drawing sheet MUST keep the bytes it had before this change: its table holds font 1 alone.
+- This is a property of what is written. That Altium Designer merges equal entries when it saves is an observation on one file (`docs/formats/altium/sheet-template.md`) and is not required of any reader.
+
+#### Scenario: One sheet with labels in the default font
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_sheet.py -k distinct_fonts` builds the blink design for Altium without a drawing sheet and reads the schematic back
+- **THEN** the font table holds one font, and every `FONTID` and `TEXTFONTID` of the document is 1
+
+#### Scenario: A drawing sheet whose title block uses another size
+- **GIVEN** a drawing sheet with a text of 10 points, a text of 5 points and a title text of 14 points, bold
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_schdot_write.py -k distinct_fonts` writes it as a template
+- **THEN** the table holds three fonts (10 regular, 5 regular, 14 bold), the label of 10 points names font 1, the other two name fonts 2 and 3, and the drawing sheet read back equals the one written inside the written scope
+
+#### Scenario: Binary and ASCII
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_sheet.py -k distinct_fonts` builds the blink design with the shipped sheet `iso5457_generic` in the binary and in the ASCII form
+- **THEN** both documents hold the same font table of three distinct fonts (10, 5 and 7 points), no two entries are equal, and every `FONTID` names an entry of the table
+
+#### Scenario: A frame that repeats a font of the sheet record
+- **WHEN** `SheetFrame(…, fonts=((10, False, False),)).sheet_record(base)` is called with the schematic writer's sheet record as `base`
+- **THEN** `ValueError` is raised and names the font

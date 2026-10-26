@@ -99,6 +99,7 @@ markers = [
     "needs_router: requires KiCadRoutingTools in a separate checkout and interpreter",
     "needs_freerouting: requires the Freerouting jar named by FENOLITE_FREEROUTING_JAR and a Java runtime",
     "slow: long-running test",
+    "needs_browser: requires Node's Playwright and its Chromium (the visual tests of the viewer page)",
 ]
 
 [tool.ruff]

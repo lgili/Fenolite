@@ -77,7 +77,6 @@ def _pad_variant(defn: FootprintDef, **changes: object) -> FootprintDef:
         ({"shape": "custom"}, None, "pad '1' has the shape custom"),
         ({"drill": None}, None, "pad '1' has no round drill"),
         ({"shape": "roundrect"}, PadExtras(), "pad '1' is a rounded rectangle without a corner ratio"),
-        ({"kind": "connect"}, None, "pad '1' is a connector pad"),
         ({"layers": ("F.Cu", "F.Mask")}, None, "pad '1' is a through-hole pad with copper on one side"),
         ({"number": "a|b"}, None, "the pad number 'a|b'"),
         ({}, PadExtras(refusal="the drill has an offset"), "pad '1': the drill has an offset"),

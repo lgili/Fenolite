@@ -1,5 +1,15 @@
 # Altium PCB document (`.PcbDoc`)
 
+## Native DRC report creation
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A batch DRC writes a report only with Create Report File enabled. TXT and HTML reports use the project's Output Path; their names are `Design Rule Check - <PCBDocumentName>.drc` and `.html` | S-0745 | INFERRED | H-A-DRC-REPORT |
+
+The owned 2026-10-14 AD 26.5.0 retry supports this observation. Its native TXT
+is retained unchanged for the publication edition; the HTML includes a personal
+logo-image reference and remains outside the publication result set.
+
 This page states, in Fenolite's own words, what the experimental writer `fenolite.backends.altium.pcbdoc`
 (change c0035) relies on to write an Altium PCB document in the binary form, and what the test decoder
 `tests/_altium_pcb_read.py` checks. Records are in `pcb-records.md`, the container in `compound-file.md`.
@@ -50,6 +60,7 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 | The outline is the vertex list `VX<k>`, `VY<k>`, `KIND<k>` (0 a line; another value an arc with `CX<k>`, `CY<k>`, `R<k>`, `SA<k>`, `EA<k>`); KiCad turns it into `Edge.Cuts` segments. The MIT project closes the polygon by repeating the first vertex and writes `KIND=Protel_Advanced_PCB` and `VERSION=5.00`; KiCad reads the record of `VERSION=5.01` with the eight keys per vertex as well | S-0002, S-0160, S-0143 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | `Nets6/Data` holds one property record per net with `NAME`; a net's index is its position | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | `Components6/Data` holds one property record per component: `LAYER` (`TOP` or `BOTTOM`), `X`, `Y` (mil text), `ROTATION` (degrees), `LOCKED`, `NAMEON`, `COMMENTON`, `PATTERN` (the footprint name), `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY` and `SOURCELIBREFERENCE` | S-0160, S-0143 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
+| In the measured c0166 two-unit writer case, native compiled component identity uses the last written schematic unit ID; PCB source links must use that unit ID within the existing hierarchy path. Opposite lexical UID ordering did not change this result. Arbitrary imported unit order remains unverified | S-0730, S-0731 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-13; local ignored calibration) | H-A-SCH-HIER-ECO |
 | KiCad takes the reference from `SOURCEDESIGNATOR`, the footprint id from `SOURCEFOOTPRINTLIBRARY` without path and extension plus `PATTERN`, and the footprint path from `SOURCEHIERARCHICALPATH` and `SOURCEUNIQUEID` with one leading backslash removed | S-0161 | ORACLE-VERIFIED(kicad-cli) (10.0.6; 2026-10-03) | H-A-PCB-KICAD-DOC |
 | A PCB component made from a part on a child sheet holds `SOURCEUNIQUEID=\<sheet symbol unique id>\<component unique id>`, one id per level of the hierarchy (a repeated sheet adds one more), and `SOURCEHIERARCHICALPATH=<top sheet stem>\<sheet symbol designator>`. The link of a part placed on the top sheet of a hierarchical project was not observed: the saved top sheets hold no part | S-0164, S-0188 | INFERRED | H-A-SCH-HIER-ECO |
 | For a part two levels down, the link holds the unique ids of both sheet symbols, the upper one first (`connectivity.md`, "Component link": observed through two levels). What `SOURCEHIERARCHICALPATH` holds there was not read from a saved file: the writer of change c0086 extends the one-level form by one `\<sheet symbol designator>` per level, and the component class of such a sheet is named after its own sheet symbol | S-0164, S-0188 | INFERRED | H-A-SCHX-ECO |
@@ -110,6 +121,31 @@ starting with `\|RECORD=Board`.
 | A `Nets6` record holds, in this order, the seven common keys with `LAYER=TOP`, `PRIMITIVELOCK=FALSE`, `NAME`, `VISIBLE`, `COLOR`, `LOOPREMOVAL=TRUE`, `OVERRIDECOLORFORDRAW=FALSE`, `UNIQUEID` and `JUMPERSVISIBLE=TRUE`; some records add routing widths per layer between the colour switch and the id | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-NETS |
 | A `Components6` record holds, in this order, `SELECTION=FALSE`, `LAYER`, `LOCKED`, `POLYGONOUTLINE=FALSE`, `USERROUTED=TRUE`, `KEEPOUT=FALSE`, `PRIMITIVELOCK=TRUE`, `X`, `Y`, `PATTERN`, `NAMEON`, `COMMENTON`, `GROUPNUM=0`, `COUNT=0`, `ROTATION` (in the angle form above), `UNIONINDEX=0`, `CHANNELOFFSET`, `SOURCEDESIGNATOR`, `SOURCEUNIQUEID`, `SOURCEHIERARCHICALPATH`, `SOURCEFOOTPRINTLIBRARY`, `SOURCECOMPONENTLIBRARY`, `SOURCELIBREFERENCE`, `UNIQUEID` and `JUMPERSVISIBLE=TRUE`; optional keys (a height, text positions, descriptions, library identifiers) stand between them | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
 | The primitives are longer than those Fenolite writes: a track of 49 bytes, an arc of 60, pad subrecord 5 of 185 or 194 and subrecord 6 of 651, a text of 252. The first 119 bytes of a text follow the long form of `pcb-records.md` (the comment and designator flags at 40 and 41, the font name at 46, the wide-string index at 115), and the wide-string index of a text is its position in `Texts6`. Altium Designer 26.5 accepts the short pad, track and arc records in a library and in a document, and the 137-byte text in a document (maintainer's reports, 2026-10-03) | S-0172, S-0174, S-0175, S-0176 | ALTIUM-VERIFIED(author-report) (AD 26.5; 2026-10-03; no artefact) | H-A-PCB-DOC-OPEN |
+
+## Embedded board arrays (change c0173)
+
+What public pages say about Altium's panel object, the Embedded Board Array, read on 2026-10-16. No public
+page gives its records: those are measured by observation of documents the maintainer saves in Altium
+Designer from inputs authored for Fenolite (Part Q of `docs/evidence/altium-pcb.md`, change c0173).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The measured documents without a panel hold the storage `EmbeddedBoards6` with `Header` 0 and an empty `Data`, and Fenolite writes it so ("Storages" above); KiCad's importer lists it as "Embedded board panels (not imported)" and describes no record of it | S-0002, S-0172 | INFERRED | H-A-PANEL-RECORD |
+| The records of an array (their storage, keys or binary fields, how the referenced document is named, absolute or relative) are not stated by any registered page | S-0002, S-0790 | UNKNOWN | H-A-PANEL-RECORD |
+| None of the 7 public documents of the corpus holds an array: each `EmbeddedBoards6` has `Header` 0 and an empty `Data` (census of 2026-10-16, `docs/evidence/altium-pcb-read.md`, "Embedded board arrays") | census of the `altium-pcbdoc` rows of S-0170 to S-0176, S-0188, S-0199, S-0200 (files kept outside the repository) | CORPUS-VERIFIED (7 rows; 2026-10-16) | H-A-PANEL-RECORD |
+| None of the 8 public boards of the corpus (`altium-third-party-pcbdoc-01` to `-08`) holds a `RoomDefinition` rule, and each `Dimensions6` has `Header` 4 bytes and an empty `Data`. Objects on the Keep-Out Layer (56) are found on 5 of them: free tracks and arcs (12 and 8 on one board), free regions with `KEEPOUT=TRUE` and `ISBOARDCUTOUT=TRUE` (board cut-outs, on 4 boards), and regions of a part (census of 2026-10-25, change c0183) | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 | CORPUS-VERIFIED (8 rows; 2026-10-25) | H-A-ROOM |
+| Over the 961 `Components6` records of the 8 public boards (`altium-third-party-pcbdoc-01` to `-08`), the optional keys of a part are `SOURCEDESCRIPTION` (822 records), `FOOTPRINTDESCRIPTION` (811), `HEIGHT` (777, a length in mil text such as `15.748mil`), `SOURCECOMPLIBIDENTIFIERKIND` and `SOURCECOMPLIBRARYIDENTIFIER` (712), `VAULTGUID` (424), `ITEMGUID` and `ITEMREVISIONGUID` (159); none holds a user parameter of the schematic part. The viewer shows the description, footprint description, library keys, hierarchical path, height and lock of a part as its parameters, and takes the schematic part's parameters through `SOURCEUNIQUEID` (census of 2026-10-25, change c0187) | S-0172, S-0174, S-0175, S-0176, S-0187, S-0188, S-0199, S-0200 | CORPUS-VERIFIED (8 rows; 2026-10-25) | H-A-PCB-DOC-OPEN |
+| An array has a reference point (Location X and Y from the design space origin), a Rotation in degrees counter-clockwise, the PCB Document it repeats, Column Count and Row Count, Mirrored (a horizontal mirror), Column and Row Spacing, Column and Row Margin, and Link Location to Embedded Board Origin | S-0790 | INFERRED | H-A-PANEL-RECORD |
+| Spacing is the pitch: the space between two boards is the spacing less the board's width (columns) or height (rows); the margin is stated as the margin between the boards' edges | S-0790 | INFERRED | H-A-PANEL-RECORD |
+| With Link Location to Embedded Board Origin off (the default) an array starts from the bottom-left point of the referenced board's objects; with it on, from the board's origin | S-0790 | INFERRED | H-A-PANEL-RECORD |
+| The array references the file and holds no copy: a saved change of the source board shows in the panel after a refresh; boards cannot be edited in the array | S-0790, S-0791 | INFERRED | H-A-PANEL-KIT |
+| The panel is a PCB document of its own, the manufacturing hub, holding no physical design object but the arrays, except tooling holes as free pads | S-0791 | INFERRED | H-A-PANEL-KIT |
+| Breakaway tabs are a route tool path of tracks and arcs on a mechanical layer set as the Route Tool Path layer, and mouse bites are rows of small unplated pads; V-groove is for rectangular boards | S-0791 | INFERRED | H-A-PANEL-KIT |
+| A mechanical layer has a Layer Type, unassigned by default; the types include Route Tool Path, which takes no user name because older versions find routing data by the layer's name, and V Cut, for v-cut details | S-0792 | INFERRED | H-A-PANEL-LAYERKIND |
+| Where a document stores a mechanical layer's type (the `Board6` keys, `LayerKindMapping` or another storage) is not stated by any registered page | S-0792, S-0172 | UNKNOWN | H-A-PANEL-LAYERKIND |
+| Placing an array whose board has another layer stack offers to synchronise the panel's stack, which adds or retypes layers of the panel only, never of the board | S-0791 | INFERRED | H-A-PANEL-KIT |
+| Gerber, NC Drill, ODB++ and printed outputs can be made from a panel of arrays; counter-holes are not supported in arrays | S-0791 | INFERRED | H-A-PANEL-KIT |
+| A flattened panel that Fenolite writes (the copies of every item, the board shape the panel's rectangle, the routed gaps on Mechanical 1 named `Route Tool Path`, the score lines on Mechanical 2 named `V-Cut`, mouse-bite and tooling holes as free non-plated pads, fiducials as free copper pads) is imported by KiCad 10.0.6 with every pad, track, via and line at the KiCad panel's places within 10 nm | S-0020, S-0791 | ORACLE-VERIFIED(kicad-cli) (10.0.6) | H-A-PANEL-FLAT |
 
 ## Fenolite's choices
 

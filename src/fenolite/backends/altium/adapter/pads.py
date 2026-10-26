@@ -27,8 +27,8 @@ ALTERNATE_ROUNDRECT = 9
 MODE_SIMPLE, MODE_TOP_MID_BOTTOM, MODE_FULL = 0, 1, 2
 HOLE_SHAPES: dict[int, HoleShape] = {0: "round", 1: "square", 2: "slot"}
 EXPANSION_FROM_RULE = 1
-MID_LAYERS = 29
-"""The number of mid-layer entries of a pad's full stack: Mid-Layer 1 to 29 (layer ids 2 to 30)."""
+MID_LAYERS = 30
+"""Mid-Layer 1 is the main middle geometry; the 29 extended entries are Mid-Layer 2 to 30."""
 WILDCARD_ALL, WILDCARD_INNER = "*.Cu", "In*.Cu"
 
 
@@ -102,7 +102,9 @@ def padstack(
     if hole_shape == "slot" and record.slot_length is not None:
         hole_length = exact.length("hole_length", record.slot_length)
     if hole_shape != "round" and record.slot_rotation is not None:
-        hole_rotation = (rotation + exact.angle("hole_rotation", record.slot_rotation)) % FULL_TURN
+        # in the pad's own frame, as the model holds it (``docs/design-model.md``; change c0170): the
+        # record's slot rotation is relative to the pad (``pcb-records.md``, H-A-SLOT-PAD)
+        hole_rotation = exact.angle("hole_rotation", record.slot_rotation) % FULL_TURN
     entries: list[PadstackLayer] = []
     layers = ctx.layers
     chain = layers.chain
@@ -124,9 +126,10 @@ def padstack(
         entries.append(entry("F.Cu", *top, 0))
         if definition:
             if mode == MODE_FULL and record.inner_sizes is not None and record.inner_shapes is not None:
-                for n in range(1, MID_LAYERS + 1):
+                entries.append(entry("In1.Cu", *mid, 1))
+                for n in range(2, MID_LAYERS + 1):
                     entries.append(
-                        entry(f"In{n}.Cu", record.inner_shapes[n - 1], record.inner_sizes[n - 1], n)
+                        entry(f"In{n}.Cu", record.inner_shapes[n - 2], record.inner_sizes[n - 2], n)
                     )
             else:
                 entries.append(entry(WILDCARD_INNER, *mid, 1))
@@ -140,13 +143,13 @@ def padstack(
                     and signal
                     and record.inner_sizes is not None
                     and record.inner_shapes is not None
-                    and mid_number <= len(record.inner_sizes)
+                    and 2 <= mid_number <= len(record.inner_sizes) + 1
                 ):
                     entries.append(
                         entry(
                             name,
-                            record.inner_shapes[mid_number - 1],
-                            record.inner_sizes[mid_number - 1],
+                            record.inner_shapes[mid_number - 2],
+                            record.inner_sizes[mid_number - 2],
                             _slot(layer_id),
                         )
                     )

@@ -5,19 +5,45 @@ buses that are drawn, the records of a bus block, and the bus port and bus sheet
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from _altium import sample
+from _altium_channels import sheets as channel_sheets
 from _altium_tree import documents, nets_of, read_back, tree_build, tree_model, with_bus
 
-from fenolite.backends.altium.layout import BUS_ENTRY, BUS_RUN, ENTRY_PITCH, bus_block
+from fenolite.backends.altium.adapter import connectivity as geo
+from fenolite.backends.altium.binary import write_schdoc_binary
+from fenolite.backends.altium.layout import BUS_ENTRY, BUS_RUN, ENTRY_PITCH, SheetPlan, bus_block
 from fenolite.backends.altium.project import bus_identifier, lowered_buses
-from fenolite.backends.altium.read.sch import BusEntry, SheetEntry
+from fenolite.backends.altium.read.sch import BusEntry, SheetEntry, read_schematic
+from fenolite.backends.altium.schdoc import write_schdoc
 from fenolite.dsl import to_model
 from fenolite.lens.altium import build_altium
 
 MEMBERS = ("D0", "D1", "D2", "D3")
+
+
+@pytest.mark.parametrize("writer", [write_schdoc, write_schdoc_binary])
+@pytest.mark.parametrize("entry_name", ["Repeat(OUT)", "REPEAT(OUT)", "rEpEaT( OUT )"])
+def test_repeated_entry_uses_a_named_wire_before_the_bus(
+    writer: Callable[[SheetPlan], bytes], entry_name: str
+) -> None:
+    top, _ = channel_sheets(entry=entry_name)
+    document = read_schematic(writer(top.plan))
+    entry = next(e for e in document.of_type(SheetEntry) if e.name == entry_name)
+    point = geo.entry_point(document, entry)
+    assert point is not None
+    wires = geo.wire_lines(document)
+    buses = geo.bus_lines(document)
+    assert wires.at(point) and not buses.at(point)
+    scalar = next(label for label in document.net_labels() if label.text == "OUT")
+    ranged = next(label for label in document.net_labels() if label.text == "OUT[1..2]")
+    assert set(wires.at(point)) & set(wires.at(geo.pt(scalar.location)))
+    assert buses.at(geo.pt(ranged.location)) and not wires.at(geo.pt(ranged.location))
+    (wire_index,) = wires.at(point)
+    assert any(buses.at(geo.pt(end)) for end in document.wires()[wire_index].points)
 
 
 @pytest.mark.parametrize(

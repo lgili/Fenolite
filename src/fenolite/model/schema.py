@@ -38,4 +38,18 @@ SCHEMATIC_SCHEMA: tuple[str, str, str] = (
     "fenolite.model.schematic:SchematicSheet",
 )
 
-__all__ = ["LAYER_SCHEMAS", "LIBRARY_SCHEMA", "SCHEMATIC_SCHEMA", "SCHEMA_DIR", "SHEET_SCHEMA"]
+# Panels are definitions outside a design too: copies of one built board (change c0173).
+PANEL_SCHEMA: tuple[str, str, str] = (
+    "panel.json",
+    "fenolite.panel_model.v0",
+    "fenolite.model.panel:Panel",
+)
+
+__all__ = [
+    "LAYER_SCHEMAS",
+    "LIBRARY_SCHEMA",
+    "PANEL_SCHEMA",
+    "SCHEMATIC_SCHEMA",
+    "SCHEMA_DIR",
+    "SHEET_SCHEMA",
+]

@@ -582,3 +582,71 @@ def test_form_of_the_library_body(capsys: pytest.CaptureFixture[str]) -> None:
     assert len(keys.keys()) == 34 and keys.keys()[-1] == "MODEL.MODELSOURCE"
     assert keys.keys()[:21] == SAVED_KEYS[:21] and keys.get("BODYPROJECTION") == "0"
     assert len(_points(record)) == 4
+
+
+@pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
+def test_body_models(item: CorpusItem) -> None:
+    """Scenario "Models of a corpus document" (change c0193; ``H-A-BODY-MODEL-PLACE``): every body that names
+    an embedded model gives one ``BodyModel`` of STEP data, whose locator names a body of the import."""
+    from fenolite.backends.altium.backend import AltiumBackend
+    from fenolite.backends.altium.models3d import body_models
+
+    path = require(item)
+    document = read_pcbdoc(path.read_bytes(), file=path.name)
+    storages = {name.lower(): streams for name, streams in document.storages.items()}
+    _, model_ids, _ = _model_ids(storages[MODELS.lower()]["Data"])
+    named = [
+        record
+        for record in read_bodies(storages[PLAIN.lower()]["Data"], storage=PLAIN)
+        if record.framed
+        and record.component is not None
+        and record.properties.text("MODEL.MODELTYPE") == "1"
+        and record.properties.text("MODELID") in model_ids
+    ]
+    issues: list[Any] = []
+    found = body_models(path, issues=issues)
+    assert len(found) == len(named) and issues == []
+    assert all(m.format == "step" and m.data.startswith(b"ISO-10303-21") for m in found)
+    design = AltiumBackend().read(path).design
+    assert design.board is not None
+    locators = {
+        body.provenance.locator
+        for fp in design.board.footprints
+        for body in fp.bodies
+        if body.provenance is not None
+    }
+    assert {m.locator for m in found} <= locators
+
+
+PLACED = {"model": 465, "fitted": 4, "outline": 3, "unmeshed": 0}
+"""The bodies that name a model, per render, over the eight documents: the numbers of ``H-A-BODY-MODEL-PLACE``
+on ``pcb-bodies.md`` ("Embedded models and their placement"). A number that moves fails on purpose."""
+
+
+def test_body_models_placement(tmp_path_factory: pytest.TempPathFactory) -> None:
+    """``H-A-BODY-MODEL-PLACE``: each placed model on its body's stored outline and heights, with gmsh run as
+    a separate process; skipped without gmsh. Prints counts only."""
+    from fenolite.cli.cmd_view import read_board
+    from fenolite.view import meshes, models
+    from fenolite.view.scene import build_scene
+
+    command = meshes.find_gmsh()
+    if command is None:
+        pytest.skip("gmsh is not installed (or FENOLITE_GMSH names none)")
+    cache = tmp_path_factory.mktemp("meshes")
+    total = dict.fromkeys(PLACED, 0)
+    for item in DOCUMENTS:
+        board = read_board(require(item))
+        scene = build_scene(
+            board.design, board.frame, name=board.path.name, data=board.data, backend="altium"
+        )
+        found = board.backend.body_models(board.path)
+        unique = {meshes.mesh_key(m.data): m for m in found}
+        made = meshes.mesh_models([(m.data, m.format) for m in unique.values()], gmsh=command, cache=cache)
+        models.attach_models(scene, found, dict(zip(unique, made, strict=True)))
+        named = {m.locator for m in found}
+        for body in scene["bodies"]:
+            if body["locator"] in named:
+                total[body["render"]] += 1
+                total["unmeshed"] += body["fit"] == "the model could not be meshed"
+    assert total == PLACED

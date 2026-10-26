@@ -6,7 +6,9 @@
 It is written from ``docs/formats/altium/compound-file.md`` alone, independently of the product's writer,
 which it never imports. ``read_compound`` returns every stream by its path and raises ``CfbError`` naming
 the first rule the bytes break; ``parse_compound`` returns the same reading with the header, FAT, mini FAT,
-directory and chains, for tests that look at the layout. Storages (change c0034, the schematic library)
+directory and chains, for tests that look at the layout. A file whose FAT needs more sectors than the
+header's 109 entries is read through its DIFAT chain (change c0160; ``compound-file.md``, "DIFAT sectors").
+Storages (change c0034, the schematic library)
 are walked to any depth: each holds its own sibling tree, its entry has starting sector 0 and size 0,
 and its streams are returned under ``<storage>/<stream>`` paths; ``Compound.storages`` lists the
 storage paths in directory order. ``deframe`` splits a ``FileHeader`` stream of a
@@ -29,6 +31,8 @@ MINI_SECTOR = 64
 CUTOFF = 4096
 ENTRY_SIZE = 128
 HEADER_DIFAT = 109
+DIFAT_ENTRIES = 127
+"""A DIFAT sector holds this many FAT sector numbers and then the number of the next DIFAT sector."""
 MAX_REGULAR = 0xFFFFFFFA
 DIFSECT = 0xFFFFFFFC
 FATSECT = 0xFFFFFFFD
@@ -133,8 +137,11 @@ def _header(data: bytes) -> Header:
         raise CfbError(f"transaction signature: {header.transaction}, not 0")
     if header.cutoff != CUTOFF:
         raise CfbError(f"cutoff: the mini stream cutoff is {header.cutoff}, not 4096")
-    if header.difat_sectors != 0 or header.first_difat != ENDOFCHAIN:
-        raise CfbError("DIFAT: this reader reads files without DIFAT sectors only")
+    if header.difat_sectors == 0:
+        if header.first_difat != ENDOFCHAIN:
+            raise CfbError(f"DIFAT: no DIFAT sector is counted, but the first is {header.first_difat:#x}")
+    elif header.first_difat > MAX_REGULAR:
+        raise CfbError(f"DIFAT: the header names the first DIFAT sector {header.first_difat:#x}")
     return header
 
 
@@ -143,16 +150,53 @@ def _sector(data: bytes, number: int) -> bytes:
     return data[start : start + SECTOR]
 
 
-def _fat(data: bytes, header: Header, count: int) -> list[int]:
-    listed = header.difat[: header.fat_sectors]
-    if header.fat_sectors > HEADER_DIFAT:
-        raise CfbError(f"DIFAT: {header.fat_sectors} FAT sectors need DIFAT sectors")
+def _difat_chain(data: bytes, header: Header, count: int) -> list[int]:
+    """The DIFAT sectors in chain order: the header's first DIFAT sector, then the sector number each
+    sector's final entry gives, ENDOFCHAIN ending the chain, up to the count the header states."""
+    if header.difat_sectors == 0:
+        return []
+    chain: list[int] = []
+    seen: set[int] = set()
+    current = header.first_difat
+    while current != ENDOFCHAIN:
+        if current > MAX_REGULAR or current >= count:
+            raise CfbError(f"DIFAT: the chain names sector {current:#x}, which is outside the file")
+        if current in seen:
+            raise CfbError(f"DIFAT: the chain repeats sector {current}")
+        if len(chain) == header.difat_sectors:
+            raise CfbError(f"DIFAT: the chain holds more than the {header.difat_sectors} sectors counted")
+        seen.add(current)
+        chain.append(current)
+        current = struct.unpack("<128I", _sector(data, current))[-1]
+    if len(chain) != header.difat_sectors:
+        raise CfbError(
+            f"DIFAT: the chain holds {len(chain)} sectors, the header counts {header.difat_sectors}"
+        )
+    return chain
+
+
+def _fat(data: bytes, header: Header, count: int) -> tuple[list[int], list[int], list[int]]:
+    """``(the FAT, the FAT sector numbers in order, the DIFAT sectors in chain order)``, every rule of
+    ``compound-file.md`` checked: the header lists the first ``HEADER_DIFAT`` numbers and the chain the
+    rest, 127 per sector, and the FAT marks each kind of sector."""
+    in_header = min(header.fat_sectors, HEADER_DIFAT)
+    listed = list(header.difat[:in_header])
+    if any(s != FREESECT for s in header.difat[in_header:]):
+        raise CfbError("DIFAT: the header entries after the FAT sectors are not FREESECT")
     if any(s > MAX_REGULAR or s >= count for s in listed):
         raise CfbError("DIFAT: the header lists a FAT sector outside the file")
-    if any(s != FREESECT for s in header.difat[header.fat_sectors :]):
-        raise CfbError("DIFAT: the header entries after the FAT sectors are not FREESECT")
+    chain = _difat_chain(data, header, count)
+    for number in chain:
+        listed.extend(struct.unpack("<128I", _sector(data, number))[:DIFAT_ENTRIES])
+    if len(listed) < header.fat_sectors:
+        raise CfbError(f"DIFAT: {len(listed)} FAT sector numbers for {header.fat_sectors} FAT sectors")
+    if any(s != FREESECT for s in listed[header.fat_sectors :]):
+        raise CfbError("DIFAT: a number past the last FAT sector is not FREESECT")
+    listed = listed[: header.fat_sectors]
+    if any(s > MAX_REGULAR or s >= count for s in listed):
+        raise CfbError("DIFAT: the chain lists a FAT sector outside the file")
     if len(set(listed)) != len(listed):
-        raise CfbError("DIFAT: the header lists a FAT sector twice")
+        raise CfbError("DIFAT: a FAT sector is listed twice")
     fat: list[int] = []
     for number in listed:
         fat.extend(struct.unpack("<128I", _sector(data, number)))
@@ -163,7 +207,10 @@ def _fat(data: bytes, header: Header, count: int) -> list[int]:
     marked = {i for i, entry in enumerate(fat) if entry == FATSECT}
     if marked != set(listed):
         raise CfbError("FAT sectors: the header DIFAT does not list exactly the sectors marked FATSECT")
-    return fat
+    difat_marked = {i for i, entry in enumerate(fat) if entry == DIFSECT}
+    if difat_marked != set(chain):
+        raise CfbError("FAT sectors: the FAT does not mark exactly the DIFAT sectors DIFSECT")
+    return fat, listed, chain
 
 
 def _chain(table: list[int], start: int, limit: int, owner: str) -> list[int]:
@@ -254,10 +301,12 @@ def parse_compound(data: bytes) -> Compound:
     if (len(data) - HEADER_SIZE) % SECTOR:
         raise CfbError(f"sectors: {len(data)} bytes are not the header and whole sectors")
     count = (len(data) - HEADER_SIZE) // SECTOR
-    fat = _fat(data, header, count)
+    fat, fat_sectors, difat_chain = _fat(data, header, count)
     owners: dict[int, str] = {}
-    for number in header.difat[: header.fat_sectors]:
+    for number in fat_sectors:
         owners[number] = "FAT"
+    for number in difat_chain:
+        owners[number] = "DIFAT"
     compound = Compound(header, count, fat, [], [])
 
     directory = _chain(fat, header.first_dir, count, "the directory")

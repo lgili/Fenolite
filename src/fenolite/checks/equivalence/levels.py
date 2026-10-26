@@ -246,7 +246,7 @@ def _pad_differences(
     found: list[Difference] = []
     if one.kind != other.kind:
         found.append(_difference(3, "pad-kind", where, one.kind, other.kind))
-    if one.shape != other.shape:
+    if norm.shape_class(one, tolerances) != norm.shape_class(other, tolerances):
         found.append(_difference(3, "pad-shape", where, one.shape, other.shape))
     turned = norm.pads_equal_turned(one, other, tolerances)
     if not turned and not norm.sizes_equal(one.size, other.size, tolerances):

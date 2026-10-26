@@ -30,9 +30,9 @@ verified library cache of tag 10.0.6 (`kicad_libs_fetch.py --tag 10.0.6`); from 
   come from the KiCad install), then `heavy-read` and `heavy-rt1` once for each of the two corpus boards
   tagged `heavy` (`corpus_fetch.py --uses heavy --only <id> <id>`; `--skip-heavy` leaves them out).
   `--only STEP,…` runs single steps on an existing project.
-- **Steps added by the later stages:** stage 3 `impedance`; stage 4 `route-pairs` (KiCadRoutingTools on the
-  pair, with the escape of the controller), `route` (Freerouting, `--timeout 3600`, two tiers),
-  `fill-routed`, `check-routed` (exit 0, or 5 with counts within the ratchets), `net` and `analyze`;
+- **Steps added by the later stages:** stage 3 `impedance`; stage 4 `route` (Freerouting, `--timeout 3600`,
+  two tiers; it leaves the pair open), `route-pairs` (KiCadRoutingTools on the pair, with the escape of
+  the controller; after `route` until the pair is routed as a coupled pair, c0157), `fill-routed`, `check-routed` (exit 0, or 5 with counts within the ratchets), `net` and `analyze`;
   stage 5 `export-package` (the document kinds and drawings, with `--manifest`) and `testpoints`.
 - **Per step** the record keeps the arguments, the exit code, the wall seconds, the peak resident memory
   of the step's largest process, the bytes of the reply and the issue counts by code. The replies are

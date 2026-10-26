@@ -13,7 +13,7 @@ PYTEST_WORKERS ?= auto
 PYTEST_MAX_WORKERS ?= 8
 PYTEST_PARALLEL ?= -n $(PYTEST_WORKERS) --maxprocesses $(PYTEST_MAX_WORKERS) --dist loadfile
 
-.PHONY: check check-fast lint format types test test-fast residue hooks agent-eval
+.PHONY: check check-fast lint format types test test-fast residue hooks agent-eval visual
 
 # The gate before a merge: every check and every test.
 check: lint format types residue test
@@ -25,6 +25,7 @@ check-fast: lint format types residue test-fast
 lint:
 	uv run ruff check .
 	uv run python tools/gen_agent_guide.py --check
+	uv run python tools/gen_altium_graduation.py --check
 
 format:
 	uv run ruff format --check .
@@ -62,3 +63,8 @@ TASK ?= led-indicator
 RUNNER ?= replay
 agent-eval:
 	uv run python tools/agent_eval/run.py --task $(TASK) --runner $(RUNNER) $(ARGS)
+
+# change c0191: the screenshot and interaction tests of the viewer page (Node's Playwright and its Chromium);
+# they skip without them. After an intended change of the drawing: uv run python tools/update_view_refs.py
+visual:
+	uv run pytest tests/visual -q

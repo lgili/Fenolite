@@ -9,6 +9,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast, get_args
 
+from fenolite.core.coords import Point
 from fenolite.core.units import Nm
 from fenolite.dsl import items as itemlib
 from fenolite.dsl.errors import DslError
@@ -18,11 +19,12 @@ from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.module import Container, Module
 from fenolite.dsl.part import NAME, Net, Part, connect
 from fenolite.dsl.quantity import Quantity, decimal_text
+from fenolite.dsl.schematic import BlockRequest, Flow, record_block, set_flow
 from fenolite.dsl.select import ALL, Select
 from fenolite.dsl.select import pair as select_pair
-from fenolite.dsl.shape import RingSpec, closed_ring
+from fenolite.dsl.shape import RingSpec, closed_ring, slot_size
 from fenolite.dsl.stack import DIELECTRICS, StackEntry
-from fenolite.dsl.units import Length, as_nm, as_nm2
+from fenolite.dsl.units import Length, as_nm, as_nm2, as_udeg
 from fenolite.model.board import IslandRemoval, ViaProtection, ZoneConnection, ZoneSettings
 from fenolite.model.design import presentation_issues
 from fenolite.model.findings import Waiver
@@ -578,6 +580,23 @@ class StackupSpec:
     locked: bool = False
 
 
+HALF_TURN_UDEG = 180_000_000
+"""A slot turned by half a turn is the same slot: ``Design.slot`` keeps its angle modulo this."""
+
+
+@dataclass(frozen=True, slots=True)
+class SlotSpec:
+    """One milled slot of ``Design.slot()``: its name, its centre in the written frame (``BOARD_ORIGIN``
+    added), its overall length, its width and the rotation of its length's axis in microdegrees, in
+    [0°, 180°)."""
+
+    name: str
+    center: Point
+    length: Nm
+    width: Nm
+    rotation: int = 0
+
+
 class Design(Container):
     """A design; its name becomes the KiCad file stem."""
 
@@ -586,6 +605,8 @@ class Design(Container):
         if not isinstance(name, str) or not DESIGN_NAME.fullmatch(name):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"design name {name!r} must match {DESIGN_NAME.pattern}")
         self.name = name
+        self.schematic_flow: Flow | None = None
+        self.schematic_blocks: dict[str, BlockRequest] = {}
         self.rules = Rules(self)
         self.copper = 2
         self.planes: dict[str, str] = {}
@@ -596,6 +617,8 @@ class Design(Container):
         """The board ring of ``board()``, of either form, in the written frame; ``None`` before the call."""
         self.cutout_paths: list[RingSpec] = []
         """The rings of ``cutout()``, in call order."""
+        self.slot_specs: dict[str, SlotSpec] = {}
+        """The milled slots of ``slot()`` by name, in call order."""
         self.outline_locked = False
         """``board(locked=True)``: the script's outline replaces one edited in KiCad on a rebuild."""
         self.parts: dict[str, Part] = {}
@@ -635,6 +658,22 @@ class Design(Container):
         """Proximity rules by key, as declared by ``near()``."""
         self.height_limits: dict[str, HeightLimit] = {}
         """Height limits by area name, as declared by ``height_limit()`` (change c0140)."""
+
+    def schematic_layout(self, *, mode: str = "blocks", flow: str = "left-to-right") -> None:
+        """Enable presentation-only functional block composition (Altium)."""
+        set_flow(self, mode=mode, flow=flow)
+
+    def schematic_block(
+        self,
+        key: str,
+        *,
+        members: Sequence[Part],
+        title: str | None = None,
+        anchor: Part | None = None,
+        after: str | None = None,
+    ) -> None:
+        """Declare functional membership and reading order without positioning individual parts."""
+        record_block(self, key, members=members, title=title, anchor=anchor, after=after)
 
     def waive(
         self,
@@ -1002,6 +1041,44 @@ class Design(Container):
         if self.outline_path is None:
             raise DslError("cutout(): call board() first")
         self.cutout_paths.append(closed_ring(path, "cutout()"))
+
+    def slot(
+        self,
+        x: object,
+        y: object,
+        *,
+        length: object,
+        width: object,
+        rot: int | str | float = 0,
+        name: str | None = None,
+    ) -> str:
+        """One milled slot of the board: a non-plated stadium of overall ``length`` (both round ends
+        included) and ``width`` centred on ``(x, y)`` in the frame of ``place()``, its length along the X
+        axis turned by ``rot`` degrees (taken modulo 180°). ``width`` is a positive, even number of
+        nanometres and ``length`` exceeds it; a round hole is ``cutout(shape.circle(…))`` or ``hole()``.
+        ``name`` defaults to ``S<n>`` in call order and must be unique; the model's id is
+        ``slot:<name>``. Returns the name. A slot is board edge: KiCad and the checks judge copper near it
+        by the edge clearance. Overlapping slots and cut-outs mean their union (``docs/dsl.md``, "Board").
+        A drilled slot (a fastener, a press-fit) is ``hole(…, length=…)`` instead."""
+        if self.outline_path is None:
+            raise DslError("slot(): call board() first")
+        cx, cy = as_nm(x, name="slot(): x"), as_nm(y, name="slot(): y")
+        long, wide = slot_size(length, width, "slot()")
+        rotation = as_udeg(rot, name="slot(): rot") % HALF_TURN_UDEG
+        if name is None:
+            n = len(self.slot_specs) + 1
+            while f"S{n}" in self.slot_specs:
+                n += 1
+            name = f"S{n}"
+        elif not isinstance(name, str) or not NAME.fullmatch(name):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise DslError(f"slot(): name {name!r} must match {NAME.pattern}")
+        if name in self.slot_specs:
+            raise DslError(f"slot(): two slots are named {name!r}")
+        from fenolite.dsl.convert import BOARD_ORIGIN
+
+        center = Point(BOARD_ORIGIN.x + cx, BOARD_ORIGIN.y + cy)
+        self.slot_specs[name] = SlotSpec(name, center, long, wide, rotation)
+        return name
 
     @property
     def copper_layers(self) -> tuple[str, ...]:
@@ -1733,6 +1810,7 @@ __all__ = [
     "NearSpec",
     "NetClassSpec",
     "Rules",
+    "SlotSpec",
     "StackupSpec",
     "ZoneSpec",
     "inner_layers",

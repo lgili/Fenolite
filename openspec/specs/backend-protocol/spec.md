@@ -2,7 +2,9 @@
 
 ## Purpose
 Define what every file-format backend offers, independent of any one backend: the `Backend` protocol (detect, read, capabilities), read results that hold a `Design` or a `Library`, capability reports that list only implemented operations, and the registry through which the CLI, checks and placement reach backends. Module: `fenolite.backends.base` and `fenolite.backends.registry`.
+
 ## Requirements
+
 ### Requirement: Backend protocol
 `fenolite.backends.base` SHALL define `Backend` as a `typing.Protocol` with the attribute `name: str` and the methods `detect(path) -> bool`, `read(path, *, issues=None) -> ReadResult` and `capabilities() -> CapabilityReport`.
 - `backends.base` MUST import only `core` and `model`.
@@ -131,11 +133,11 @@ Define what every file-format backend offers, independent of any one backend: th
 
 A backend that lists `"write"` in `operations` MUST have a non-empty `write_kinds` and MUST provide `write(design, *, target=None, allow_lossy=False) -> WriteResult`, which writes the design's board for `target` (`default_target` when `None`) and never writes a file. A backend with a non-empty `write_kinds` MUST list `"write"` in `operations`. A backend that lists `"lower"` in `operations` MUST provide `lower(design, *, name, target=None, allow_lossy=False, issues=None) -> dict[str, str]`, which returns the coherent set of files for `design` (file name → text) for `target` (`default_target` when `None`), appends its warnings and infos to `issues` when a list is given, and never writes a file; a backend MAY accept further keyword arguments.
 
-The KiCad backend MUST include `"kicad_pcb"` in `write_kinds`, MUST report `targets == (9, 10)`, `default_target == 10` and `downgrade == "unsupported"`, MUST list `"detect"`, `"read"`, `"write"` and `"lower"` in `operations`, MUST list `"validate"` exactly when it satisfies `Validator` ("Validation operation"), as "Capability reports" requires, and MUST list no other operation it does not implement. The order of the tuple is not pinned. `KicadBackend.write` MUST return what `fenolite.backends.kicad.pcb.write_board` returns for the same arguments. Later writers add their kinds to the same tuple. These values replace the pre-writer values of c0009 (`write_kinds == ()`, `targets == ()`, `default_target is None`, `operations == ("detect", "read")`) and the exact tuple `("detect", "read", "write")` of c0017. `KicadBackend.lower` MUST return what `fenolite.backends.kicad.triad.write_triad` returns for the same arguments (c0010, "Generated projects are coherent"). `fenolite capabilities` MUST show them for the `kicad` entry of `result.backends`.
+The KiCad backend MUST include `"kicad_pcb"` in `write_kinds`, MUST report `targets == (9, 10)`, `default_target == 10` and `downgrade == "supported"` (a write with `downgrade=True` writes a file of major 10 for target 9 through the resolver; `kicad-version-gating`, "Downgrade resolver"), MUST list `"detect"`, `"read"`, `"write"` and `"lower"` in `operations`, MUST list `"validate"` exactly when it satisfies `Validator` ("Validation operation"), as "Capability reports" requires, and MUST list no other operation it does not implement. The order of the tuple is not pinned. `KicadBackend.write` MUST return what `fenolite.backends.kicad.pcb.write_board` returns for the same arguments. Later writers add their kinds to the same tuple. These values replace the pre-writer values of c0009 (`write_kinds == ()`, `targets == ()`, `default_target is None`, `operations == ("detect", "read")`) and the exact tuple `("detect", "read", "write")` of c0017. `KicadBackend.lower` MUST return what `fenolite.backends.kicad.triad.write_triad` returns for the same arguments (c0010, "Generated projects are coherent"). `fenolite capabilities` MUST show them for the `kicad` entry of `result.backends`.
 
 #### Scenario: KiCad write fields in capabilities
 - **WHEN** `fenolite capabilities --json` runs
-- **THEN** the `kicad` entry of `result.backends` has `"kicad_pcb"` in `write_kinds`, `targets == [9, 10]`, `default_target == 10`, `downgrade == "unsupported"`, and its `operations` contain `"detect"`, `"read"`, `"write"`, `"lower"` and `"validate"`
+- **THEN** the `kicad` entry of `result.backends` has `"kicad_pcb"` in `write_kinds`, `targets == [9, 10]`, `default_target == 10`, `downgrade == "supported"`, and its `operations` contain `"detect"`, `"read"`, `"write"`, `"lower"` and `"validate"`
 
 #### Scenario: Write operation advertised and implemented
 - **GIVEN** `KicadBackend()` and the created test board `tests/_boards.py::created_board()`
@@ -306,9 +308,11 @@ The records MUST be frozen dataclasses with slots whose field types are builtins
 - **THEN** it equals `back`
 
 ### Requirement: Design rules source
-`fenolite.backends.base` SHALL define the frozen dataclass `DesignRules(design: Design, min_clearance: Nm | None = None, rules_over_classes: bool = True, floor_over_rules: bool = False, opaque_clearance_rules: int = 0, unread: tuple[tuple[str, str], ...] = (), evidence: Evidence = Evidence())` and the `@runtime_checkable` protocol `DesignRulesSource` with the method `design_rules(design: Design, project: ProjectSet, *, issues: list[Issue] | None = None) -> DesignRules`. Through it, `checks` reaches the clearance rules that a project's own files hold, without importing a backend.
+`fenolite.backends.base` SHALL define the frozen dataclass `DesignRules(design: Design, min_clearance: Nm | None = None, rules_over_classes: bool = True, floor_over_rules: bool = False, opaque_clearance_rules: int = 0, unread: tuple[tuple[str, str], ...] = (), evidence: Evidence = Evidence(), left_out: tuple[tuple[str, int, str], ...] = (), clearance_cells: tuple[int, int] = (0, 0))` and the `@runtime_checkable` protocol `DesignRulesSource` with the method `design_rules(design: Design, project: ProjectSet, *, issues: list[Issue] | None = None) -> DesignRules`. Through it, `checks` reaches the clearance rules that a project's own files hold, without importing a backend.
+- `clearance_cells` MUST count the cells of the clearance matrices of the project's files (clearances per pair of object kinds): those that a rule of `DesignRules.design` holds, and those that none holds; `(0, 0)` for a source without such matrices.
 - `DesignRules.design` MUST be `design` with the net classes, the class of each net and the design rules that the project's files give; what a missing or unread file would give MUST keep `design`'s own value.
 - `min_clearance` MUST be the project's board minimum clearance in nm, or `None`. `rules_over_classes` and `floor_over_rules` MUST say, for the tool version the board is judged against, whether a governing custom clearance rule replaces the class clearances and whether the board minimum also raises rule values (`copper-check`, "Clearance in force"). `opaque_clearance_rules` MUST count the project's clearance rules that could not be lifted into the model. `unread` MUST name each project file that failed to read, with the error's message, in file-name order.
+- `left_out` MUST name the copper that the project's files hold in a form the model does not carry as copper, as (kind, count, reason) in kind order; `DesignRules.design` is then without the items that stand for it, and `checks.copper.rules_issues` MUST give one `copper.item-unsupported` per entry, `where` = the kind. It is empty for a KiCad project.
 - `design_rules` MUST NOT raise for a file that fails to read, and MUST append the readers' warnings and infos to `issues` when a list is given.
 - `design_rules` is not an operation: `CapabilityReport.operations` stays the closed list of "Capability reports".
 - `KicadBackend` MUST satisfy `DesignRulesSource` (`kicad-file-backend`, "Design rules for the copper check"), and `backends/kicad/backend.py` MUST hold the statement `_RULES_SOURCE: DesignRulesSource = KicadBackend()`, which pyright checks.
@@ -524,3 +528,150 @@ The types MUST be frozen dataclasses. `erc` MUST NOT write under `project.root` 
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py tests/unit/checks` runs
 - **THEN** both pass, and `fenolite.backends.base` imports no `fenolite.backends.<x>` module
 
+### Requirement: Length facts source
+`fenolite.backends.base` SHALL define the frozen records `NetLength(net: str, routed: Nm, vias: Nm, die: Nm, total: Nm, via_count: int)` and `LengthFacts(nets: Mapping[str, NetLength], depths: Mapping[str, Nm], die: Mapping[str, Nm], major: int | None, stackup: Literal["board", "default", "none"], count_vias: bool, evidence: Evidence)`, and the `@runtime_checkable` protocol `LengthSource` with the method `length_facts(design: Design, *, project: ProjectSet | None = None, major: int | None = None, nets: Collection[str] | None = None, issues: list[Issue] | None = None) -> LengthFacts`. Through it, `analysis` and `checks` reach the length of a net as a tool counts it, without importing a backend.
+- `NetLength.total` MUST equal `routed + vias + die`: `routed` is the length of the centre lines of the net's tracks and arcs, `vias` the sum of the heights its vias add, `die` the sum of the die lengths of its pads, all in nm; `via_count` counts its vias.
+- `LengthFacts.nets` MUST hold one entry, keyed by net name, per net that has a pad, a track, an arc or a via on the board, or only those of them named in the argument `nets`. `depths` MUST map each copper layer to its depth as the tool counts it, and MUST be empty when the depths are unknown; `die` MUST map pad ids (`Pad.id`) to die lengths, a pad without one having no entry; `stackup` MUST say where the depths come from (`none` when they are unknown); `count_vias` MUST be false when the project counts no via height; `major` names the tool version whose counting the facts follow.
+- `length_facts` is a query, not an operation: it MUST NOT raise for a project file that fails to read, MUST append warnings and infos to `issues` when a list is given, and `CapabilityReport.operations` stays the closed list of "Capability reports".
+- The records MUST be frozen dataclasses with slots whose field types are builtins, `typing` constructs, `fenolite.core` types and `fenolite.model` types only, and `backends.base` MUST still import only `core` and `model`.
+- `KicadBackend` MUST satisfy `LengthSource` (`board-frame`, "KiCad net lengths"), and `backends/kicad/backend.py` MUST hold the statement `_LENGTHS: LengthSource = KicadBackend()`, which pyright checks.
+
+#### Scenario: KiCad backend is a length source
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k length_source` checks `isinstance(KicadBackend(), LengthSource)` and `KicadBackend().capabilities().operations`
+- **THEN** the first is true, and the operations do not name `length_facts`
+
+#### Scenario: Records are plain data
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k length_records` reads `typing.get_type_hints` of `NetLength` and `LengthFacts`
+- **THEN** every annotation names only builtins, `typing` constructs, `fenolite.core` or `fenolite.model` types, and `backends/base.py` imports only `core` and `model`
+
+#### Scenario: The total is the sum of its parts
+- **GIVEN** the two-layer and four-layer benches of `tests/_lengthbench.py`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_lengths.py -k parts` computes `KicadBackend().length_facts` for major 9 and for major 10
+- **THEN** every `NetLength` has `total == routed + vias + die`, and every net with a pad, track, arc or via has an entry
+
+### Requirement: Document parity protocol
+`fenolite.backends.base` SHALL define the `@runtime_checkable` protocol `DocumentParity` with the method `parity_side(schematic: Design, board: Design) -> SideOutcome`: a document backend builds the schematic side of the parity comparison (`checks.parity`) from the two readings that `DocumentValidator.read_documents` gave. It MUST read no file and run no tool; `side` is `None` when the schematic reading gives no side, with a `message`.
+- `ParityInputs` is unchanged: it serves a backend that reads the schematic of a `ProjectSet` itself and may take an oracle's netlist. A document backend has both readings already, so it is not asked to read them again.
+- `AltiumBackend` MUST satisfy `DocumentParity`, `BoardFrame` and `DesignRulesSource`, and `backends/altium/backend.py` MUST hold the three statements that pyright checks. None of the three is an operation: `CapabilityReport.operations` of the Altium backend stays `("detect", "read")`.
+
+#### Scenario: Altium backend satisfies the three protocols
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_frame.py -k backend_is` checks `isinstance(AltiumBackend(), …)` for `BoardFrame`, `DesignRulesSource` and `DocumentParity`
+- **THEN** each is true, and the operations are `("detect", "read")`
+
+### Requirement: DRC report limits of an oracle
+`fenolite.backends.base` SHALL define how a DRC oracle says where its report stops, so that `checks` can tell a complete count from a cut one without importing a backend.
+- `DrcLimits(per_type: Mapping[str, int], others: int)` MUST be a frozen dataclass: the largest number of entries the tool writes for each named type of its report, and for every other type. `DrcLimits.limit(type) -> int` MUST give `per_type[type]`, or `others`. Every value MUST be a positive `int`; construction MUST raise `ValueError` otherwise. The key `unconnected_items` stands for the list of unconnected items of a `DrcReport`; every other key is a violation `type`, in the tool's own spelling.
+- `LimitedOracle` MUST be a `@runtime_checkable` `typing.Protocol` with `report_limits() -> DrcLimits`. It stands beside `Oracle`, as the netlist and round-trip oracles do, and "Oracle protocol" is unchanged: an oracle MAY satisfy both, and an oracle that does not satisfy `LimitedOracle` says nothing about limits.
+- `fenolite.backends.kicad.oracle.KicadOracle` MUST satisfy `LimitedOracle`, returning `fenolite.backends.kicad.drc.REPORT_LIMITS[major]` for the major of its `kicad-cli`: `DrcLimits({"clearance": 499, "unconnected_items": 499}, others=199)` for 9 and for 10. The table MUST hold one row per major and measured values only, each pinned to a probe of `H-K-DRC-LIMITS` (`kicad-oracle`, "DRC report limits are probed"); `fenolite.backends.kicad.drc.MEASURED_TYPES[major]` MUST name the types whose limit a probe of that major measured (corrected on 2026-10-08: thirteen on 10, and twelve on 9, without `hole_clearance`), every other type being assumed to stop at `others`; a major without a row MUST raise the error that an unsupported major raises today.
+- `fenolite.backends.kicad.canary.CLEARANCE_REPORT_LIMIT` MUST be the `clearance` value of that table, so that the canary's verdict `clearance-limit` and the mark of `check` rest on one number.
+- No Altium module satisfies `LimitedOracle`: Fenolite runs no Altium tool that writes a report. The findings an Altium document gets come from Fenolite's own checks, which report every finding.
+
+#### Scenario: Limits by type
+- **WHEN** `uv run pytest tests/unit/backends/test_base_drc_limits.py -k limit` calls `DrcLimits({"clearance": 499}, others=199).limit` with `clearance` and with `silk_overlap`
+- **THEN** it returns 499 and 199, and `DrcLimits({}, others=0)` raises `ValueError`
+
+#### Scenario: The KiCad oracle states its limits
+- **GIVEN** `KicadOracle` over a fake `kicad-cli` of version 10.0.6, and over one of version 9.0.9
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_oracle_limits.py` calls `report_limits()` on each
+- **THEN** both return limits of 499 for `clearance` and `unconnected_items` and 199 for `track_dangling`, `isinstance(oracle, LimitedOracle)` is true, and `canary.CLEARANCE_REPORT_LIMIT` equals the `clearance` value
+
+#### Scenario: An oracle without limits
+- **GIVEN** the fake `Oracle` of `tests/unit/checks/fakes.py`, which has no `report_limits`
+- **WHEN** `isinstance(fake, LimitedOracle)` is evaluated
+- **THEN** it is false, and `uv run pytest tests/unit/test_import_graph.py` still finds no `fenolite.backends.<x>` import in `fenolite.backends.base`
+
+### Requirement: Altium write of a model
+`AltiumBackend.write(design, *, target=None, allow_lossy=False, rewrite=False)` SHALL accept a `Design` that holds a circuit and a board and SHALL return a `lower.ProjectWrite`: the files of an Altium project by name (the PCB document, and the schematic, its libraries and the project file), the issues of the write and the inputs they were written from. It is `backends.altium.lower.write_design(design, allow_lossy=…, rewrite=…)`, which goes through `lower.from_design`.
+- The placements, pads, copper, zones, rules, stack and classes MUST come from the model; no script, library path or other file is read.
+- What the model holds and the writers cannot carry MUST be reported once per kind with `altium.not-lowered`, whose `where` is the kind. A loss of an item of `lower.LOSS_KINDS` (a footprint, a pad, a track, an arc, a via, a zone, a net, a net class, a shape on copper, an internal plane) is a warning and MUST need `allow_lossy`: without it the write raises `lower.LossyWriteError` (`FEN-7001`) with those issues. Every other loss is an info. `lower.AltiumInputs.lost` MUST map each kind to its reasons and each reason to the ids of the items left out for it, every item under its own reason; `not_lowered` and `reasons` are views of it, `reasons` holding the first reason of a kind.
+- A component whose `dnp` is set MUST be counted under the kind `dnp` with one `altium.not-lowered` info: the documents hold no fitted flag outside variants. `dnp` is not in `LOSS_KINDS`.
+- `rewrite` (change c0128) is the caller's statement that `design` is the reading of an Altium document and that the write gives the document back; it is an argument, and the write does not infer it from the design. With it, a value that a document Altium saved holds and that a build refuses is written as it was read: today one, a via whose drill equals its diameter (`altium-pcb-writer`, "Imported boards are written from the model"). `AltiumBackend.model_roundtrip` passes `True`; `lens.altium.write_model` and `fenolite build --target altium` never do. `rewrite=True` for a design whose board was not read from an Altium document MUST raise `ValueError`.
+- `target` MUST be `None`: the Altium writers have one form, and any other value raises `ValueError`.
+- The write MUST be deterministic: two calls on equal designs give equal bytes.
+- When the schematic writer refuses the circuit (a text that no record holds, one pin on two nets), the PCB document MUST still be written, and one `altium.not-lowered` info with `where` `schematic` says why the schematic and the project file are not.
+- The model holds no corner ratio of a rounded-rectangle pad. A pad read from an Altium document carries its corner percentage in its `altium` bag, which `from_design` reads; a pad read from a KiCad board keeps the ratio in KiCad's own bag, which a backend does not read. `lens.altium.write_model(design, allow_lossy=…)` is the write of such a design: it reads the ratios (`lens.altium.corner_ratios`) and passes them to `lower.write_design(…, corner_ratios=…)`. Without a ratio a rounded-rectangle pad is not written and counts as a lost pad; no ratio is guessed.
+- The write is experimental: `capabilities()` of the backend names no write kind and lists no `write` operation (`altium-import`, "Altium backend").
+- The write runs no check of the board: the copper guard of `fenolite build --target altium` (change c0088, "Copper guard of an Altium build") belongs to the build command, so a model with a short is written as it is. `fenolite check` on the written documents judges it.
+- `fenolite build --target altium` does not go through this write (`altium-build`, "Stored board of an Altium build"): it stores the board it wrote, and writing that stored model gives a PCB document that reads to the same model.
+
+#### Scenario: A KiCad board written as Altium documents
+- **GIVEN** the routed two-layer KiCad sample `tests/data/kicad/board/two_layer.kicad_pcb`, read with the KiCad backend
+- **WHEN** `lens.altium.write_model(design)` runs and the written PCB document is imported
+- **THEN** the imported design is equal to the KiCad design at levels 1 to 5 of `equivalent`, in the relative frame and within 2 nm, the written unit
+
+#### Scenario: Build and write agree
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k build_agrees` builds the routed blink and writes its stored model with `write_model`
+- **THEN** the PCB document of the build and the one of the write read to equal models inside the written scope, the stored model equals the reading of the write in its own frame, and the two files are not equal byte for byte (the build writes the graphics of the library footprints)
+
+#### Scenario: Rewrite is the caller's word
+- **GIVEN** the reading of `tests/data/altium/routed/routed.PcbDoc` with the drill of one via set to the via's diameter
+- **WHEN** `AltiumBackend().write(design)` runs, then `write(design, allow_lossy=True)`, then `write(design, rewrite=True)`
+- **THEN** the first raises `LossyWriteError` with one `altium.not-lowered` warning whose `where` is `via`, the second counts one via as not written, and the third writes every via and reports no issue for `via`
+
+#### Scenario: A loss needs allow_lossy
+- **GIVEN** the design read from `tests/data/altium/blink/blink.PcbDoc` with one pad given the shape `custom`
+- **WHEN** `AltiumBackend().write(design)` runs, and again with `allow_lossy=True`
+- **THEN** the first raises `LossyWriteError` with one `altium.not-lowered` warning whose `where` is `pad`, and the second writes a PCB document with 35 pads and counts one pad as not written
+
+#### Scenario: Do-not-populate is reported
+- **GIVEN** the routed two-layer sample with one component marked do-not-populate
+- **WHEN** `AltiumBackend().write(design)` runs
+- **THEN** it does not raise, and its issues hold one `altium.not-lowered` info whose `where` is `dnp` and whose message counts 1
+
+#### Scenario: Every reason kept
+- **GIVEN** a design with one custom pad and one connector pad
+- **WHEN** `lower.from_design(design)` runs
+- **THEN** `inputs.lost["pad"]` holds two reasons with one id each, and `inputs.reasons["pad"]` is the first of them
+
+### Requirement: Model writers
+`fenolite.backends.base` SHALL define what a document backend offers when it writes a model: `ModelRoundTrip`, `ModelCompare` and the runtime-checkable protocol `ModelWriter`.
+- `ModelWriter.in_model_frame(model, reading) -> Design` MUST return a reading of documents that were written from `model` in the frame of `model`: a writer may place the board elsewhere in its document. The Altium backend moves the reading by the offset between the outline corners (lowest X, highest Y) of the two boards, which its writer puts on a whole number of units, so the move is exact; and it leaves out the footprints that are the reading of holes of the model, which its writer writes as free pads.
+- `ModelWriter.model_roundtrip(path, *, compare) -> ModelRoundTrip` MUST read the document at `path`, write its model as new documents outside the input folder, read them and judge the two models with `compare`, a `ModelCompare`: `compare(a, b, scope) -> DiffReport`. A backend imports no check, so the caller hands the comparison in (`checks.rta3.compare`).
+- `ModelRoundTrip` MUST hold `judged`, `equal`, `differences` (a tuple of `Change`), `unwritten` and `written` (kind → count), `files` (the names of the written files), `reason` (why the trip is not judged) and `evidence`.
+- `AltiumBackend` MUST satisfy `ModelWriter`. The `DocumentValidator` protocol is unchanged: a validator that writes no model is still one.
+
+#### Scenario: Reading in the model's frame
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k build_agrees` moves the reading of a written document with `AltiumBackend().in_model_frame(stored, reading)`
+- **THEN** footprints, pads, tracks, arcs, vias and zones of the stored model and of the moved reading are equal within 2 nm
+
+### Requirement: Stored exclusions source
+`fenolite.backends.base` SHALL define the frozen dataclass `StoredExclusion(type: str, position: Point, uuids: tuple[str, str], comment: str = "")` and the `@runtime_checkable` protocol `ExclusionSource` with the method `stored_exclusions(project: ProjectSet) -> tuple[StoredExclusion, ...]`. Through it `checks` reaches the DRC exclusions that a project's own files store, without importing a backend (`verification-loop`, "Exclusions in the DRC stage").
+- `type` is the tool's check type, `position` the stored marker position in integer nm, and `uuids` the two stored item uuids in order, the second being the nil uuid `00000000-0000-0000-0000-000000000000` for an entry of one item.
+- `stored_exclusions` MUST NOT raise for a project file that fails to read, and MUST return `()` then.
+- `stored_exclusions` is not an operation: `CapabilityReport.operations` stays the closed list of "Capability reports".
+- `KicadBackend` MUST satisfy `ExclusionSource` (`kicad-file-backend`, "Stored exclusions are read"), and `backends/kicad/backend.py` MUST hold the statement `_EXCLUSION_SOURCE: ExclusionSource = KicadBackend()`, which pyright checks.
+- `backends.base` MUST still import only `core` and `model`.
+
+#### Scenario: KiCad backend is an exclusion source
+- **GIVEN** a copy set of the native `two_layer` project, whose project file stores no exclusion
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k exclusion` runs
+- **THEN** `isinstance(KicadBackend(), ExclusionSource)` is true and `stored_exclusions(project)` returns `()`
+
+#### Scenario: An unreadable project gives no exclusion
+- **GIVEN** a copy set whose `.kicad_pro` is not JSON
+- **WHEN** `stored_exclusions(project)` is called
+- **THEN** it returns `()` and raises nothing
+
+### Requirement: Board edges of a frame
+`BoardFrame` SHALL give `board_edges(design, *, issues=None) -> tuple[EdgeRing, ...] | None`, a pure query: the board ring first, then each cut-out or slot ring, as `EdgeRing(name, points, mids)` with exact arcs, overlapping inner rings merged; `None` when no ring closes. `DesignRules` SHALL carry `min_edge_clearance: Nm | None` and `edge_floor_over_rules: bool`. The KiCad and Altium backends MUST implement both.
+
+#### Scenario: Edges of a read KiCad board
+- **GIVEN** the shared fixture built for target 10 and read back
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_frame_edges.py` calls `board_edges`
+- **THEN** it gives the board ring and three cut-out rings, the merged L among them, named `board` and `edge ring 1` to `edge ring 3`
+
+### Requirement: Body models source
+`fenolite.backends.base` SHALL define `BodyModel` and the `@runtime_checkable` protocol `BodyModelSource` with `body_models(path: Path) -> tuple[BodyModel, ...]`, through which a reader gives the 3D models that a board file holds for its bodies, which the model does not carry.
+- `BodyModel(locator: str, name: str, format: str, data: bytes, position: Point, z: Nm, rotation: tuple[Udeg, Udeg, Udeg])` MUST be a frozen dataclass with slots:
+  - `locator`: the provenance locator of the body it belongs to;
+  - `format`: `step`;
+  - `data`: the model file's bytes;
+  - `position`: the board frame of the model;
+  - `z`: the height from the face the footprint is on;
+  - `rotation`: the angles about x, then y, then z, in a frame of the top face (x right, y the board frame's −y, z out of the top face).
+- A model point `p` is placed at `T(position, face ± z) · F(side) · Rz · Ry · Rx · p`. `F` is the identity for a top footprint and a half turn about the x axis for a bottom one, whose model hangs below the bottom face.
+- `backends.base` MUST still import only `core` and `model`. `body_models` is not an operation of "Capability reports".
+
+#### Scenario: Altium backend is a body model source
+- **WHEN** `uv run pytest tests/unit/backends/test_base_types.py -k body_models` checks `isinstance(AltiumBackend(), BodyModelSource)` and reads the annotations of `BodyModel`
+- **THEN** the first is true and every annotation names only builtins, `typing` constructs, `fenolite.core` or `fenolite.model` types

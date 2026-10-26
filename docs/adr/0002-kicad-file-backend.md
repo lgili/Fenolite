@@ -23,6 +23,9 @@ files it opens (S-0020).
 3. **Versions.** Fenolite reads boards and footprints of KiCad 8.0 and newer, and writes for KiCad
    9.0 and 10.0. KiCad 8.0 files are read-only. A file newer than every known version is read but
    cannot be edited. Writing for an older major than the input's (downgrade) is refused (`FEN-7002`).
+   Amended on 2026-10-09 by change c0162: a downgrade is written on request through a capability resolver
+   (`docs/formats/kicad/versions.md`, "Downgrade"), and only `fenolite convert` asks for it; every other
+   write keeps the refusal, whose hint names `convert`.
 4. **`kicad-cli` is an oracle, run only as a subprocess through the package runner**
    (`fenolite.backends.kicad.cli.KicadCli`), which copies the inputs to a fresh temporary folder,
    runs with an isolated environment and returns the files it produced. The caller's files are only

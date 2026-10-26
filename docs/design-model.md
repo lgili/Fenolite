@@ -158,6 +158,17 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 - `SheetRef` (prefix `shr`): `name`, `file` (the text as written), `position`, `size` and `uses`, one
   `SheetUse(project, path, page)` each. `SheetPage(path, page)` lists the pages the root sheet names.
 - `lib_symbols` holds the `SymbolDef` copies embedded in the file.
+
+`fenolite.model.panel` (change c0173) holds a panel, several copies of one built board:
+
+- `Panel(name, source, array, fit, frame, separations, tabs, vscore, fiducials, tooling_holes, fiducial_set,
+  tooling_set, limits)`, prefix `pnl`: a definition outside `Design`, with its own schema `panel.json` (id
+  `fenolite.panel_model.v0`), written beside a panel board as `<name>.panel.json`. Lengths in nm; `array`'s
+  rotation is a quarter turn in µdeg. Coordinates are panel-relative: origin at the top-left corner, Y down.
+- `fenolite.panel.layout(panel, board)` lays it out; the laid-out items take the ids
+  `derived_id(prefix, "panel", key)` of `fenolite.panel.ids.KEYS` (`pcy` `copy:<row>.<col>`, `ptb`
+  `tab:<edge>:<k>`, `pvs` `vscore:<x|y>:<k>`, `pfd` `fiducial:<ref>`, `ptl` `tooling:<ref>`), never from the
+  seed. `docs/panels.md` explains the panel.
 - Collections keep file order; `properties` is sorted by key. Uses and pages carry no ids.
 - `Wire` (prefix `wir`, change c0070): `start` and `end`, horizontal or vertical and never a point. Only a
   sheet that Fenolite creates holds wires: the straight segments its generator draws from pin end to pin
@@ -208,6 +219,24 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
   is two arcs. The canonical writer omits `arcs` when it is empty, so a `board.json` written before
   loads unchanged and an outline without arcs keeps its bytes.
   Release 0.2.x cannot read a model document that carries `arcs`: its reader refuses an unknown key.
+- **Board slots** (change c0167). `Outline.slots` holds the board's milled slots, in order:
+  `OutlineSlot(id, name, center, length, width, rotation)` (prefix `slt`), a non-plated stadium of
+  overall `length` (both round ends included) and `width` (positive and even; `length` exceeds it), its
+  length's axis turned by `rotation` microdegrees in the sense of `Transform.placement`. Its ring is
+  `core.stadium.stadium(center, length, width, rotation)`, four vertices joined by a line, a half arc, a
+  line and a half arc; for every reader of rings it is one more cut-out after `Outline.cutouts`
+  (`model.outline.outline_items`), and `Outline.arcs` does not name it. `name` is the script's name,
+  empty for a slot recognised in a read board. Overlapping cut-outs and slots mean their union. The
+  canonical writer omits `slots` when it is empty, so an outline without slots keeps its bytes.
+  Release 0.4.x cannot read a model document that carries `slots`: its reader refuses an unknown key.
+  The word has two meanings: `OutlineSlot` is a milled slot of the board, while `model.base.Slot` (and
+  `backends/kicad/slots.py`, capability `kicad-slots`) is the opaque round-trip unit of a backend node.
+  A drilled slot is a footprint pad with `Padstack.hole_shape` `slot` (`design.hole(…, length=…)`).
+- **Slotted board holes** (change c0168). `Hole.length` (`None`, a round hole) is the overall length of
+  a drilled slot of width `drill`, and `Hole.rotation` (0) the axis of that length in the sense of
+  `Transform.placement`; `length` must exceed `drill`. The Altium build fills them from a slotted hole
+  part, and the Altium import from a free slot pad. The canonical writer omits both at their defaults,
+  so a document without slotted holes keeps its bytes; release 0.4.x cannot read one that carries them.
 - **Layers.** `Layer.ordinal` is the stack position; the backend's own number, type and user name
   are in `Layer.ext[<backend>]`.
 - **Synthesised circuit.** A board read without a schematic gets one `Component` per footprint, one
@@ -254,7 +283,8 @@ Change c0043 completes the padstack and adds the body of a part. Every field has
 written before them still load.
 
 - `Padstack.hole_shape` (`round`, `square`, `slot`), `hole_length` (the length of a slot along its axis,
-  ends included) and `hole_rotation` (the angle of the hole's axis relative to the footprint) describe a
+  ends included) and `hole_rotation` (the angle of the hole's axis in the pad's own frame, as the section
+  "Footprint assignment" says; the Altium import holds it so since change c0170) describe a
   hole that is not round. `Pad.drill` stays the hole's size: the diameter of a round hole, the side of a
   square hole, the width of a slot.
 - `PadstackLayer.offset: Point` is where the copper's centre lies on that layer relative to `Pad.position`,

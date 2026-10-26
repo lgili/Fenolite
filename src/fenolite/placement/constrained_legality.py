@@ -16,7 +16,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.geometry.thick import Thick, thick_closer_than, thick_touch
 from fenolite.model.design import Design
 from fenolite.placement.constraints import MechanicalReview, PlacementConstraints, review_mechanics
-from fenolite.placement.legality import check, ring_inside, rings_overlap
+from fenolite.placement.legality import check, outline_rings, ring_inside, rings_overlap
 
 
 @dataclass(frozen=True)
@@ -95,7 +95,8 @@ def check_geometry(
     pads = frame.board_pads(design, issues=frame_issues)
     extents = frame.placed_extents(design, issues=frame_issues)
     names = {fp.id: fp.id for fp in board.footprints} if board is not None else {}
-    rings = (board.outline.points, *board.outline.cutouts) if board is not None and board.outline else ()
+    # the board ring, the cut-outs and the slots (change c0170)
+    rings = outline_rings(board.outline) if board is not None and board.outline else ()
     hard = [
         f"{i.code}:{i.where}"
         for i in check(extents, rings, edge_clearance=constraints.edge_clearance, names=names)
@@ -117,9 +118,7 @@ def check_geometry(
     elif board is not None and board.outline is not None:
         for extent in extents:
             if any(
-                rings_overlap(ring, cutout)
-                for ring in (*extent.front, *extent.back)
-                for cutout in board.outline.cutouts
+                rings_overlap(ring, cutout) for ring in (*extent.front, *extent.back) for cutout in rings[1:]
             ):
                 hard.append(f"cutout:{extent.footprint_id}")
     for first, second in combinations(extents, 2):

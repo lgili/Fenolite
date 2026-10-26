@@ -72,3 +72,17 @@ def test_live_reports_agree_with_the_register() -> None:
         evidence = backend.capabilities().evidence
         assert evidence.hypotheses, f"{backend.name}: the report names no hypothesis"
         assert report_problems(evidence, rows) == [], backend.name
+
+
+def test_conversion_evidence_agrees_with_the_register() -> None:
+    """The evidence of ``fenolite.convert`` and of each registered direction names registered rows and is
+    not above any of them (change c0159); the KiCad re-target is ``KICAD-VERIFIED``, the Altium direction
+    ``INFERRED``."""
+    from fenolite.convert import DIRECTIONS, EVIDENCE
+
+    rows = load_register(REGISTER)
+    for evidence in (EVIDENCE, *(direction.evidence for direction in DIRECTIONS.values())):
+        assert report_problems(evidence, rows) == [], evidence
+    assert DIRECTIONS[("kicad", "kicad")].evidence.level is Level.KICAD_VERIFIED
+    assert DIRECTIONS[("kicad", "altium")].evidence.level is Level.INFERRED
+    assert "H-G-CONV-LEDGER" in EVIDENCE.hypotheses

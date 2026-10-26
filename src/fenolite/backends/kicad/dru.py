@@ -15,7 +15,7 @@ import hashlib
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from fenolite.backends.kicad import rulemap
+from fenolite.backends.kicad import resolver, rulemap
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad.sexpr import Atom, Node, dumps
 from fenolite.backends.kicad.versions import (
@@ -367,11 +367,17 @@ def write_rules(
     target: int = DEFAULT_TARGET,
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
+    downgrade: bool = False,
+    edits: list[resolver.Edit] | None = None,
 ) -> str:
     """The text of a rules file for KiCad ``target``.0 (rules.md, "Writing and target gating").
 
     Warnings and infos are appended to ``issues``; errors raise ``RulesLossError``,
-    ``FutureFormatError`` or ``RulesSelfCheckError``.
+    ``FutureFormatError`` or ``RulesSelfCheckError``. Every rules file is version 1, so a rules file of
+    KiCad 10 is written for 9 without ``downgrade`` too: a preserved rule that 9.0 cannot read is a loss
+    that needs ``allow_lossy``. With ``downgrade`` (change c0162) the resolver's row of each such token
+    decides (every rules row is ``design``) and the edits are appended to ``edits``, the rule's name as
+    their locator.
     """
     if target not in TARGET_MAJORS:
         raise ValueError(f"unsupported target KiCad {target}; supported targets: {TARGET_MAJORS}")
@@ -409,6 +415,7 @@ def write_rules(
         for node in nodes:
             written.append(_Written(rule_text(node), Modeled("rules"), rule))
 
+    found_edits: list[resolver.Edit] = []
     last = max((i for i, s in enumerate(slots) if isinstance(s, Modeled) and s.field == "rules"), default=-1)
     taken = 0
     for i, slot in enumerate(slots):
@@ -428,6 +435,10 @@ def write_rules(
         refused, other, warnings = _gate(slot.fragment, target)
         errors.extend(other)
         notes.extend(warnings)
+        if refused and downgrade:
+            changed = _resolved(refused, _rule_name(slot.fragment), found_edits)
+            if changed:
+                continue
         if refused and allow_lossy:
             name = _rule_name(slot.fragment)
             tokens = "; ".join(i.message for i in refused)
@@ -453,7 +464,24 @@ def write_rules(
     _self_check(text, written, target)
     if issues is not None:
         issues.extend(notes)
+    if edits is not None:
+        edits.extend(found_edits)
     return text
+
+
+def _resolved(refused: Sequence[Issue], name: str, edits: list[resolver.Edit]) -> bool:
+    """Record the resolver's edit of each too-new token of a preserved rule (``downgrade``); ``True`` when
+    every one is a change (the rule is then left out without consent), ``False`` when one is a loss or has
+    no row, which ``allow_lossy`` decides as before."""
+    table = resolver.load()
+    found: list[resolver.Edit] = []
+    for issue in refused:
+        row = table.rows.get(resolver.row_id(issue))
+        if row is None:
+            return False
+        found.append(resolver.Edit(row.id, row.decide(()), f"rule {name}"))
+    edits.extend(found)
+    return all(edit.action in resolver.CHANGED for edit in found)
 
 
 def _self_check(text: str, written: Sequence[_Written], target: int) -> None:

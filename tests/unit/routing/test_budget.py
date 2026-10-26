@@ -127,26 +127,24 @@ def fake(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[KicadRoutingT
     return KicadRoutingToolsRouter(create_fake_router(tmp_path), sys.executable), runs
 
 
-def test_budget_second_group_cut(fake, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_budget_second_group_cut(fake, monkeypatch: pytest.MonkeyPatch, controlled_router_clock) -> None:
     """Scenario "Second group cut"."""
     router, runs = fake
     monkeypatch.setenv("FAKE_ROUTER_SLEEP_NET", "B1")
     job: RoutingJob = grouped_job({"A1": 0.2, "B1": 0.4}, budget=2)
-    began = time.monotonic()
     result = router.route(job)
-    assert time.monotonic() - began < 4.5, "the sleeping run was killed at the end of the budget"
     a1 = job.design.nets_by_name["A1"].id
     assert [track.net_id for track in result.tracks] == [a1]
     assert result.routed == ("A1",) and result.unrouted == ("B1",) and result.not_attempted == ()
     assert [run.outcome for run in result.runs] == ["done", "cut"]
-    assert sum(run.seconds for run in result.runs) <= 2.5
+    assert sum(run.seconds for run in result.runs) == 2, "both groups share one controlled budget"
     (issue,) = result.issues
     assert (issue.code, issue.severity) == ("route.budget-exhausted", "warning")
     assert "2 s" in issue.message and "(1 net(s))" in issue.message and "0 net(s)" in issue.message
     assert len(recorded(runs)) == 2
 
 
-def test_budget_runs_not_attempted(fake, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_budget_runs_not_attempted(fake, monkeypatch: pytest.MonkeyPatch, controlled_router_clock) -> None:
     """Scenario "Runs not attempted"."""
     router, runs = fake
     monkeypatch.setenv("FAKE_ROUTER_SLEEP_NET", "B1")

@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fenolite.analysis import EVIDENCE
-from fenolite.analysis.boundary import board_boundary
+from fenolite.analysis.boundary import OVERLAP_NEEDS_GEO, board_boundary
 from fenolite.analysis.copper import ARC_TOL_NM
 from fenolite.analysis.current import analyze_current
 from fenolite.analysis.distance import analyze_distances
@@ -39,6 +39,7 @@ from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, FormatError, Issue
 from fenolite.core.evidence import Evidence
 from fenolite.core.units import Nm, parse_length
+from fenolite.geometry.errors import BACKEND_UNAVAILABLE
 from fenolite.model.design import Design
 
 HELP = "measure current capacity, clearance and creepage of a board (read-only)"
@@ -341,6 +342,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     result: dict[str, Any] = {}
     summary: dict[str, Any] = {}
     boundary = board_boundary(design.board, thickness=thickness)
+    if boundary.problem == OVERLAP_NEEDS_GEO and {"clearance", "creepage", "insulation"} & set(kinds):
+        # the union of overlapping cut-outs and slots needs the geo extra (change c0167)
+        raise CliError(
+            "FEN-6001",
+            f"{BACKEND_UNAVAILABLE}: the cut-outs and slots of the board outline overlap, and their union "
+            "needs the geo extra",
+            where=BACKEND_UNAVAILABLE,
+            hint="pip install 'fenolite[geo]'",
+        )
     if "current" in kinds:
         current = analyze_current(
             design,

@@ -24,6 +24,7 @@ from fenolite.backends.base import (
     DrcOutcome,
     DrcReport,
     DrcViolation,
+    EdgeRing,
     ErcItem,
     ErcOutcome,
     ErcReport,
@@ -99,6 +100,11 @@ class FakeRulesValidator(FakeValidator):
     def placed_extents(
         self, design: Design, *, issues: list[Issue] | None = None
     ) -> tuple[PlacedExtent, ...]:
+        return ()
+
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
         return ()
 
 

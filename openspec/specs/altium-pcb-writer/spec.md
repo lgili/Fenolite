@@ -10,7 +10,7 @@ Write the Altium PCB library (`.PcbLib`) and PCB document (`.PcbDoc`) from the m
 - `string_block(text)` MUST return a 32-bit little-endian length, then one length byte and the 7-bit ASCII text; texts that `ascii.text_problem` refuses or that exceed 255 bytes MUST raise `ValueError`.
 - `property_block(fields)` MUST return c0033's `binary.frame_record(fields)`.
 - Angles MUST be written as IEEE-754 doubles in degrees, counter-clockwise, computed from microdegrees or from exact coordinates with `decimal` and converted to a double once with `float(Decimal)`. No `math` trigonometric function may produce a written value.
-- The common prefix of a track, arc and pad geometry MUST be: layer byte, flags `0x0C 0x00` (unlocked), net index, polygon index `0xFFFF`, component index (all uint16, `NO_INDEX = 0xFFFF` for none), then `FF FF FF FF`.
+- The common prefix of a track, arc and pad geometry MUST be: layer byte, two flag bytes, net index, polygon index `0xFFFF`, component index (all uint16, `NO_INDEX = 0xFFFF` for none), then `FF FF FF FF`. The flag bytes MUST be `0x0C 0x00` (unlocked) for every item but a locked free track, arc or via of a record kind in `pcbrecords.LOCK_WRITTEN`, whose flag bytes MUST be `0x08 0x00`: bit 2 of the first byte clear, every other bit as in the unlocked form ("Locked copper records").
 - `pcbrecords.EVIDENCE` MUST be `INFERRED` and name every `H-A-PCB-*` row this change registers.
 
 #### Scenario: Units
@@ -24,6 +24,10 @@ Write the Altium PCB library (`.PcbLib`) and PCB document (`.PcbDoc`) from the m
 #### Scenario: Angles do not depend on the platform
 - **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k angle` runs the arc of start (−0.29, −1.08) mm, mid (1.27, −1.65) mm and end (2.83, −1.08) mm
 - **THEN** the start and end angles equal the doubles pinned in the test, computed once with `decimal` at 40 digits, and no module of `backends/altium` imports a trigonometric function of `math`
+
+#### Scenario: Flag bytes of a locked track
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k locked` builds the same track record with `locked=False` and with `locked=True`, `track` being in `LOCK_WRITTEN`
+- **THEN** the two records differ in one byte, the first flag byte, `0C` against `08`
 
 ### Requirement: PCB layer map
 `pcbrecords.LAYER_MAP` SHALL map Fenolite layer names to Altium layer ids, and `pcbrecords.FLIP_PAIRS` SHALL give each mapped id its other-side id (S-0002, S-0160, S-0161).
@@ -244,7 +248,7 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** the board has `U1`, `R1` and `D1` with their nets, `D1` on the bottom, and no error in the report or on stdout
 
 ### Requirement: Copper layer map
-`pcbrecords.LAYER_MAP` SHALL also map the inner copper layers as signal layers, `pcbrecords.COPPER_LAYER_TEXT` SHALL give the layer text of each signal copper layer in a property record, and `pcbrecords.copper_stack` SHALL give the Altium ids of a stack whose inner layers are signal layers or internal planes (S-0002, S-0160, S-0176, S-0199, S-0200). This requirement extends c0035's "PCB layer map", whose eight rows and pairs hold unchanged.
+`pcbrecords.LAYER_MAP` SHALL also map the inner copper layers of a four-layer board as signal layers, `pcbrecords.layer_text` SHALL give the layer text of a copper layer id in a property record (`TOP`, `MID<n>`, `BOTTOM`, `PLANE<n>`), and `pcbrecords.copper_stack` SHALL give the Altium ids of a stack whose inner layers are signal layers or internal planes, by position (change c0085) (S-0002, S-0160, S-0176, S-0199, S-0200). This requirement extends c0035's "PCB layer map", whose eight rows and pairs hold unchanged.
 
 | Fenolite layer | as | Altium id | Altium name | layer text |
 |---|---|---|---|---|
@@ -254,9 +258,11 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 | `B.Cu` | signal | 32 | Bottom Layer | `BOTTOM` |
 | first inner layer that is a plane | plane | 39 | Internal Plane 1 | (no primitive is written on it) |
 | second inner layer that is a plane | plane | 40 | Internal Plane 2 | (no primitive is written on it) |
+| k-th inner layer of any stack | signal | k + 1 | Mid-Layer k | `MID<k>` |
+| p-th inner layer that is a plane | plane | 38 + p | Internal Plane p | (no primitive is written on it) |
 
-- `pcbrecords.copper_stack(names, planes=())` MUST return the Altium ids of a board's copper layers from top to bottom. `names` MUST be exactly `("F.Cu", "B.Cu")` or `("F.Cu", "In1.Cu", "In2.Cu", "B.Cu")`; `planes` MUST name only inner layers of `names`, without repeats. Any other input MUST raise `ValueError` naming it.
-- A signal inner layer keeps its row of the table whatever the other inner layer is. Planes are numbered from the top: the first plane is Internal Plane 1, the second Internal Plane 2. So Mid-Layer 2 may be written without Mid-Layer 1, a state Altium saves (S-0200).
+- `pcbrecords.copper_stack(names, planes=())` MUST return the Altium ids of a board's copper layers from top to bottom. `names` are the model's copper layers in stack order, distinct, an even count that "Layer stacks of any even count" allows: the first is the top layer (1), the last the bottom layer (32); `planes` MUST name only inner layers of `names`, without repeats. Any other input MUST raise `ValueError` naming it.
+- A signal inner layer keeps its row of the table whatever the other inner layers are: the k-th inner layer is Mid-Layer k, whatever its name. Planes are numbered from the top: the first plane is Internal Plane 1, the second Internal Plane 2. So Mid-Layer 2 may be written without Mid-Layer 1, a state Altium saves (S-0200).
 - `LAYER_MAP` and `COPPER_LAYER_TEXT` MUST NOT hold a plane: a primitive on a plane layer has no id (`ValueError`).
 - No inner layer has a flip partner: `FLIP_PAIRS` MUST stay as c0035 wrote it.
 
@@ -269,23 +275,23 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** it returns `(1, 39, 3, 32)`, `(1, 2, 39, 32)` and `(1, 39, 40, 32)`
 
 #### Scenario: Other stacks refused
-- **WHEN** `copper_stack` gets `("F.Cu", "In1.Cu", "B.Cu")`, `("F.Cu", "In2.Cu", "In1.Cu", "B.Cu")`, `planes=("F.Cu",)` with four layers, or `planes=("In1.Cu",)` with two layers
+- **WHEN** `copper_stack` gets `("F.Cu", "In1.Cu", "B.Cu")`, `("F.Cu", "In1.Cu", "In1.Cu", "B.Cu")`, `planes=("F.Cu",)` with four layers, or `planes=("In1.Cu",)` with two layers
 - **THEN** each call raises `ValueError` that names the input
 
 ### Requirement: Four-layer stack
-`docboard.board_records(..., stack=…)` SHALL write the layer stack of a `docboard.StackSpec` with two or four copper layers, each inner layer a signal layer or an internal plane with a net (`docs/formats/altium/pcb-copper.md`, "Layer stack"; S-0160, S-0176, S-0199, S-0200; `H-A-PCB-CU-STACK`, `H-A-PCB-CU-PLANE`).
+`docboard.board_records(..., stack=…)` SHALL write the layer stack of a `docboard.StackSpec` with any even number of copper layers that "Layer stacks of any even count" allows (change c0085; two or four before it), each inner layer a signal layer or an internal plane with a net (`docs/formats/altium/pcb-copper.md`, "Layer stack"; S-0160, S-0176, S-0199, S-0200; `H-A-PCB-CU-STACK`, `H-A-PCB-CU-PLANE`).
 - `StackSpec` MUST hold `copper` (the Altium ids from top to bottom, as `copper_stack` gives them), one copper thickness per layer, one `Dielectric(kind, thickness, epsilon_r, material)` between each pair of neighbours (`kind` is `unspecified`, `core` or `prepreg`; lengths in nanometres), and `plane_nets`, one net name per plane of `copper`, in plane order. A `plane_nets` whose length differs from the number of planes, or a net name that fails `text_problem`, MUST raise `ValueError`.
-- `StackSpec.default(copper, plane_nets=())` MUST give 1.4 mil copper and, for two layers, the dielectric of c0035 (`unspecified`, 12.6 mil, `4.800`, `FR-4`); for four layers a prepreg of 0.2 mm, a core of 1.0 mm and a prepreg of 0.2 mm, each `4.800` and `FR-4`. These values are Fenolite's choices.
+- `StackSpec.default(copper, plane_nets=())` MUST give 1.4 mil copper and, for two layers, the dielectric of c0035 (`unspecified`, 12.6 mil, `4.800`, `FR-4`); for four layers a prepreg of 0.2 mm, a core of 1.0 mm and a prepreg of 0.2 mm, each `4.800` and `FR-4`; for more layers prepregs of 0.2 mm and cores in turn, the outermost a prepreg, the cores sharing 1.0 mm. These values are Fenolite's choices.
 - For two copper layers and the default stack, the record MUST equal the record of c0035 byte for byte.
-- For four copper layers the numbered keys MUST link the four ids of `copper` in order through `LAYER<id>PREV` and `LAYER<id>NEXT` (0 before the first and after the last); every other copper link stays 0. Each linked layer MUST carry its `COPTHICK`, and each but the bottom the dielectric below it (`DIELTYPE`, `DIELCONST`, `DIELHEIGHT`, `DIELMATERIAL`).
-- The physical stack of the `V9_STACK_LAYER<i>` list and the head of the `LAYER_V8_<i>` list MUST hold 13 layers: paste, overlay, solder, `Top Layer`, `Dielectric 1`, the first inner layer, `Dielectric 2`, the second inner layer, `Dielectric 3`, `Bottom Layer`, solder, overlay, paste. The dielectrics MUST have the long ids 17039361, 17039362 and 17039363 from the top (the numbering S-0199 saves).
+- For four or more copper layers the numbered keys MUST link the ids of `copper` in order through `LAYER<id>PREV` and `LAYER<id>NEXT` (0 before the first and after the last); every other copper link stays 0. Each linked layer MUST carry its `COPTHICK`, and each but the bottom the dielectric below it (`DIELTYPE`, `DIELCONST`, `DIELHEIGHT`, `DIELMATERIAL`).
+- The physical stack of the `V9_STACK_LAYER<i>` list and the head of the `LAYER_V8_<i>` list MUST hold 13 layers: paste, overlay, solder, `Top Layer`, `Dielectric 1`, the first inner layer, `Dielectric 2`, the second inner layer, `Dielectric 3`, `Bottom Layer`, solder, overlay, paste. The dielectrics MUST have the long ids 17039361, 17039362 and 17039363 from the top (the numbering S-0199 saves). A stack of more layers MUST grow by one dielectric and one copper entry per inner layer, `Dielectric n` with the long id 17039360 + n.
 - A **signal** inner layer MUST be written as S-0199 and S-0200 save it: `NAME` (`Mid-Layer <n>`), `LAYERID` (16777217 + n), `USEDBYPRIMS`, `COPTHICK` and `COMPONENTPLACEMENT=1`.
 - A **plane** MUST be written as S-0176 saves it: `NAME` (`Internal Plane <k>`), `LAYERID` (16842752 + k), `USEDBYPRIMS`, `COPTHICK` and `PULLBACKDISTANCE=20mil`; and line 1 of the record MUST hold `PLANE<k>NETNAME=<net name>`. Every other `PLANE<n>NETNAME` stays `(No Net)`.
 - No primitive is written for a plane: no `Split Plane` polygon record, no pull-back track and no region (`H-A-PCB-CU-PLANE`); its `USEDBYPRIMS` is `FALSE`. Split planes are not written.
-- The cache list MUST hold every layer once, in the form S-0176 saves (found when the written stack was compared with it, 2026-10-03): the 102 layers of a two-layer document in their order, then `Dielectric 2` and `Dielectric 3`. A mid layer or a plane of the stack keeps its place in its run and carries its stack keys.
+- The cache list MUST hold every layer once, in the form S-0176 saves (found when the written stack was compared with it, 2026-10-03): the 102 layers of a two-layer document in their order, then `Dielectric 2` and `Dielectric 3` (and the further dielectrics of a larger stack). A mid layer or a plane of the stack keeps its place in its run and carries its stack keys.
 - `pcbdoc.write_pcbdoc` MUST take the stack from `PcbDocSpec.stack` (`None` is `StackSpec.default` for `PcbDocSpec.copper_layers` without planes) and MUST raise `ValueError` when `stack.copper` does not hold one id per name of `copper_layers`, or when a plane's net is not in `PcbDocSpec.nets`.
 - `DIELTYPE` MUST be 0 for `unspecified`, 1 for `core` and 2 for `prepreg`; `DIELCONST` three decimals; `DIELHEIGHT` and `COPTHICK` mil text.
-- The layer set `&Signal Layers` MUST also list the signal inner layers (`MidLayer1`, `MidLayer2`), `&Plane Layers` the planes (`InternalPlane1`, `InternalPlane2`), and `&All Layers` both. The drill pair stays `LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`.
+- The layer set `&Signal Layers` MUST also list the signal inner layers (`MidLayer1`, `MidLayer2`), `&Plane Layers` the planes (`InternalPlane1`, `InternalPlane2`), and `&All Layers` both. The first drill pair stays `LAYERPAIR0LOW=TOP`, `LAYERPAIR0HIGH=BOTTOM`; "Blind and buried via records" adds one pair per span of a blind or buried via.
 - A stack with one signal inner layer and one plane is composed from the two entry forms; no saved document with such a stack was read, and the fact page MUST say so on its row.
 
 #### Scenario: Two layers keep their bytes
@@ -330,26 +336,39 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** `write_pcbdoc` raises `ValueError` naming the track's id and `In1.Cu`
 
 ### Requirement: Via records
-`pcbrecords.via_record(x, y, diameter, hole, *, net=NO_INDEX)` SHALL write one through via as record type 3 with one subrecord of 321 bytes, the form Altium saves (S-0150, S-0160, S-0173, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIA`).
-- The subrecord MUST start with the common prefix on layer 74 with flags `0C 00`, polygon and component `0xFFFF`; then x at 13, y at 17, the diameter at 21, the hole at 25, the start layer 1 at 29 and the end layer 32 at 30.
+`pcbrecords.via_record(x, y, diameter, hole, *, net=NO_INDEX, start=1, end=32, locked=False)` SHALL write one via as record type 3 with one subrecord of 321 bytes, the form Altium saves (S-0150, S-0160, S-0173, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIA`).
+- The subrecord MUST start with the common prefix on layer 74 with flags `0C 00`, or `08 00` for a locked via when `via` is in `LOCK_WRITTEN` ("PCB units and record framing", "Locked copper records"), polygon and component `0xFFFF`; then x at 13, y at 17, the diameter at 21, the hole at 25, the start layer at 29 and the end layer at 30: 1 and 32 for a through via, the ids of the two copper layers of its span for a blind or buried via (change c0085, "Blind and buried via records").
 - The later fields MUST follow the rows of `pcb-copper.md`, "Via": thermal-relief air gap 10 mil at 32, 4 conductors at 36, conductor width 10 mil at 38, 20 mil at 42 and at 46, solder-mask expansion 4 mil at 54 and at 242, stack mode 0 at 74, thirty-two diameters at 75, the 16-bit 15 and the 32-bit 259 at 203, `2A` at 254, `0x7FFFFFFF` at 291 and at 295, the entry size 30 at 304, 9 at 308 and 1 at 320; every other byte 0.
-- `pcbdoc.write_pcbdoc` MUST write each `model.board.Via` of `PcbDocSpec.vias` in `Vias6`, sorted by net name, position, diameter and then entity id, at its converted position, with its net's index. It MUST raise `ValueError` for a via whose `via_type` is not `through`, whose `layers` are not the top and the bottom copper layer, or whose drill is not below its diameter.
+- `pcbdoc.write_pcbdoc` MUST write each `model.board.Via` of `PcbDocSpec.vias` in `Vias6`, sorted by net name, position, diameter and then entity id, at its converted position, with its net's index and its `locked`. It MUST raise `ValueError` for a via whose `via_type` is `micro`, whose `layers` are not two different copper layers of the board, or whose drill is not below its diameter. With `PcbDocSpec.allow_full_drill` (change c0128; `False` by default, and no build sets it) a via whose drill equals its diameter MUST be written instead: the hole at 25 holds the value of the diameter at 21, and every other byte is that of any via. A drill above the diameter and a drill of 0 or less MUST be refused in both cases.
 - Vias MUST NOT be listed in `UniqueIDPrimitiveInformation`.
 
 #### Scenario: Via bytes
 - **WHEN** `via_record(393701, 393701, 236220, 118110, net=2)` runs
 - **THEN** the record is `03`, the length 321 and a subrecord whose bytes 0 to 4 are `4A 0C 00 02 00`, whose bytes 29 and 30 are `01 20`, and whose 32-bit values at 21, 25, 75 and 199 are 236220, 118110, 236220 and 236220
 
-#### Scenario: Blind via refused
-- **WHEN** a spec holds a via with `via_type="blind"` between `F.Cu` and `In1.Cu`
+#### Scenario: Micro via refused
+- **WHEN** a spec holds a via with `via_type="micro"` between `F.Cu` and `In1.Cu`
 - **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
+
+#### Scenario: Blind via refused
+- **WHEN** a spec holds a via with `via_type="blind"` whose two layers are both `F.Cu`, a span that is not two different copper layers of the board (a blind via with a span of two copper layers is written since change c0085, "Blind and buried via records")
+- **THEN** `write_pcbdoc` raises `ValueError` naming the via's id
+
+#### Scenario: Via with a full drill
+- **GIVEN** a spec with a through via of diameter 600 000 nm and drill 600 000 nm
+- **WHEN** `write_pcbdoc` runs, and again with `allow_full_drill=True`
+- **THEN** the first raises `ValueError` naming the via's id, as before change c0128; the second writes one via record whose 32-bit values at 21 and 25 are both 236220, and with a drill of 600 001 nm it raises `ValueError` too
+
+#### Scenario: Locked via bytes
+- **WHEN** `via_record(393701, 393701, 236220, 118110, net=2, locked=True)` runs with `via` in `LOCK_WRITTEN`
+- **THEN** bytes 0 to 4 of the subrecord are `4A 08 00 02 00`, and every other byte equals that of the unlocked record
 
 ### Requirement: Polygon pour records
 `pcbdoc.write_pcbdoc` SHALL write each `model.board.Zone` of `PcbDocSpec.zones` as one `Polygons6` property record per zone layer, without poured copper (S-0160, S-0172, S-0174, S-0175, S-0176, S-0195, S-0196; `H-A-PCB-CU-REPOUR`).
-- A record MUST hold, in this order: the seven common keys with `LAYER` = the layer text; `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Polygon`, `POUROVER=TRUE`, `REMOVEDEAD=TRUE`, `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`, `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`; per vertex `KIND<k>=0`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` as the board outline writes them, the first vertex repeated last; `SHELVED=FALSE`, `RESTORELAYER=UNKNOWN`, `RESTORENET` (empty), `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`, `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`, `POUROVERSTYLE=1`, `NAME`, `POURINDEX`, `IGNOREVIOLATIONS=FALSE`, `AUTONAME` (only when the name is generated), `OPTIMALVOIDROTATION=TRUE`, and `NET` (the net's index; left out without a net).
+- A record MUST hold, in this order: the seven common keys with `LAYER` = the layer text; `PRIMITIVELOCK=TRUE`, `POLYGONTYPE=Polygon`, `POUROVER=TRUE`, `REMOVEDEAD=TRUE` (`FALSE` for a zone whose islands are never removed, change c0085), `GRIDSIZE=20mil`, `TRACKWIDTH=8mil`, `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`; per vertex `KIND<k>=0`, `VX<k>`, `VY<k>`, `CX<k>`, `CY<k>`, `SA<k>`, `EA<k>`, `R<k>` as the board outline writes them, the first vertex repeated last; `SHELVED=FALSE`, `RESTORELAYER=UNKNOWN`, `RESTORENET` (empty), `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`, `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`, `POUROVERSTYLE=1`, `NAME`, `POURINDEX`, `IGNOREVIOLATIONS=FALSE`, `AUTONAME` (only when the name is generated), `OPTIMALVOIDROTATION=TRUE`, and `NET` (the net's index; left out without a net).
 - `NAME` MUST be the character codes of the name in decimal, joined by commas. The name is `Zone.name`, or `<net name>_L<layer position, two digits from 01>_P<pour index, three digits>` when it is empty (`NONET` stands for a missing net), in upper case, with `AUTONAME=TRUE`.
 - `POURINDEX` MUST number the records from 0 in the order of falling `Zone.priority`, then net name, first outline point, zone id and stack position, so a zone of higher priority is poured first.
-- `Regions6` and `ShapeBasedRegions6` MUST stay empty, and `Zone.fills` MUST NOT be written: the polygons are unpoured, and Altium fills them on a repour.
+- `Regions6` and `ShapeBasedRegions6` MUST hold no region of a polygon (they hold the filled graphics and keep-outs of change c0085 only, and stay empty without them), and `Zone.fills` MUST NOT be written: the polygons are unpoured, and Altium fills them on a repour.
 - A zone with fewer than three outline points, a zone layer outside the copper layers or on a plane, or a name that fails `text_problem` MUST raise `ValueError` naming the zone's id.
 
 #### Scenario: Ground zone on two layers
@@ -372,12 +391,13 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **THEN** it holds one record with `NAME=PWR`, `KIND=0`, `M0=GND`, `M1=VIN` and no `M2`
 
 ### Requirement: Design rule records
-`pcbdoc.write_pcbdoc` SHALL write `Rules6` with Clearance, Width and Routing Via Style rules from the net classes (S-0160, S-0161, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-RULES`). This requirement is the change's cut: when it is cut, `Rules6` stays empty. Rules MUST be written only when the spec holds a track, an arc, a via, a zone or a net class; otherwise `Rules6` MUST be empty.
-- Each rule MUST be a 16-bit rule-kind number (0 Clearance, 2 Width, 11 RoutingVias), then one property block with, in this order: the seven common keys with `LAYER=TOP`, `RULEKIND`, `NETSCOPE` (`DifferentNets` for Clearance, `AnyNet` otherwise), `LAYERKIND=SameLayer`, `SCOPE1EXPRESSION`, `SCOPE2EXPRESSION=All`, `NAME`, `ENABLED=TRUE`, `PRIORITY`, `COMMENT` (empty), `UNIQUEID` = `project.unique_id("pcbdoc:<filename>:rule:<name>")`, `DEFINEDBYLOGICALDOCUMENT=FALSE`, then the kind's keys.
-- Kind keys: Clearance `GAP`, `GENERICCLEARANCE`, `IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE`, `OBJECTCLEARANCES` (empty); Width `MAXLIMIT`, `MINLIMIT`, `PREFEREDWIDTH`; RoutingVias `HOLEWIDTH`, `WIDTH`, `VIASTYLE=Through Hole`, `MINHOLEWIDTH`, `MINWIDTH`, `MAXHOLEWIDTH`, `MAXWIDTH`; lengths as mil text.
-- Per kind, one rule `<Kind>_<class>` with `SCOPE1EXPRESSION=InNetClass('<class>')` MUST be written for each class that holds the kind's value (clearance; track width; via diameter and drill), in class-name order with `PRIORITY` from 1, then one rule named `Clearance`, `Width` or `RoutingVias` with `SCOPE1EXPRESSION=All` and the next priority. The rules of one kind are written together, in the order Clearance, Width, RoutingVias.
+`pcbdoc.write_pcbdoc` SHALL write `Rules6` with the lowered rules of the design (`PcbDocSpec.design_rules`, the records of `rulemap.lower`; "Rule lowering table", "Scoped rule records") and with Clearance, Width and Routing Via Style rules from the net classes (S-0160, S-0161, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-RULES`). The rules of the net classes and the `All` defaults MUST be written only when the spec holds a track, an arc, a via, a zone or a net class; the rules of the design are written whenever the spec holds them. With neither, and with `PcbDocSpec.rules` off, `Rules6` MUST be empty.
+- Each rule MUST be a 16-bit rule-kind number (0 Clearance, 2 Width, 11 RoutingVias, 42 HoleSize, 63 BoardOutlineClearance, 52 HoleToHoleClearance, 19 MinimumAnnularRing), then one property block with, in this order: the seven common keys with `LAYER=TOP`, `RULEKIND`, `NETSCOPE` (`DifferentNets` for Clearance and BoardOutlineClearance, `AnyNet` otherwise), `LAYERKIND=SameLayer`, `SCOPE1EXPRESSION`, `SCOPE2EXPRESSION` (`All`, or the second scope of a Clearance rule of the design), `NAME`, `ENABLED=TRUE`, `PRIORITY`, `COMMENT` (empty), `UNIQUEID` = `project.unique_id("pcbdoc:<filename>:rule:<name>")`, `DEFINEDBYLOGICALDOCUMENT=FALSE`, then the kind's keys.
+- Kind keys: Clearance `GAP`, `GENERICCLEARANCE`, `IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE`, `OBJECTCLEARANCES` (empty); Width `MAXLIMIT`, `MINLIMIT`, `PREFEREDWIDTH`; RoutingVias `HOLEWIDTH`, `WIDTH`, `VIASTYLE=Through Hole`, `MINHOLEWIDTH`, `MINWIDTH`, `MAXHOLEWIDTH`, `MAXWIDTH`; HoleSize `ABSOLUTEVALUES=TRUE`, `MAXLIMIT`, `MINLIMIT`, `MAXPERCENT=80.000`, `MINPERCENT=20.000`; BoardOutlineClearance the keys of Clearance; HoleToHoleClearance `GAP`, `ALLOWSTACKEDMICROVIAS=FALSE`; MinimumAnnularRing `MINIMUMRING`; lengths as mil text.
+- Per kind, one rule `<Kind>_<class>` with `SCOPE1EXPRESSION=InNetClass('<class>')` MUST be written for each class that holds the kind's value (clearance; track width; via diameter and drill), in class-name order with `PRIORITY` from 1, then one rule named `Clearance`, `Width` or `RoutingVias` with `SCOPE1EXPRESSION=All` and the next priority. The rules of one kind are written together, in the order of `rulemap.KIND_ORDER`: Clearance, Width, RoutingVias, HoleSize, BoardOutlineClearance, HoleToHoleClearance, MinimumAnnularRing.
+- Within a kind the rules of the design MUST come first, in the order of `rulemap.lower`, then the class rules and the `All` rule; `PRIORITY` counts from 1 over them all. A class rule or `All` rule whose two scopes are those of a rule of the design MUST be left out: the design's rule replaces it. A class rule whose name a rule of the design holds gets the suffix `_class`.
 - The `All` rules MUST use `pcbdoc.DEFAULT_CLEARANCE` (0.2 mm), `DEFAULT_TRACK_WIDTH` (0.25 mm), `DEFAULT_VIA_DIAMETER` (0.6 mm) and `DEFAULT_VIA_DRILL` (0.3 mm), Fenolite's choices.
-- A width rule's `MINLIMIT` and `MAXLIMIT` MUST be the smallest and the largest of the preferred width and the widths of the written tracks and arcs in its scope; a via rule's minimum and maximum likewise over the written vias. So the written copper never breaks its own width or via rule.
+- A class or `All` width rule's `MINLIMIT` and `MAXLIMIT` MUST be the smallest and the largest of the preferred width and the widths of the written tracks and arcs in its scope; a via rule's minimum and maximum likewise over the written vias. So the written copper never breaks the width or via rule of a net class or the default; a rule of the design holds the limits of the script exactly, and the copper may break it.
 
 #### Scenario: Rules of the blink sample
 - **WHEN** `Rules6` of the blink sample is read
@@ -387,6 +407,11 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **GIVEN** a class `PWR` with track width 0.5 mm and tracks of 0.4 mm and 1.0 mm on its nets
 - **WHEN** `Width_PWR` is read
 - **THEN** `MINLIMIT` is `15.748mil`, `PREFEREDWIDTH` is `19.685mil` and `MAXLIMIT` is `39.3701mil`
+
+#### Scenario: A rule of the design replaces the default of its scope
+- **GIVEN** the blink sample with a `clearance` rule of 0.15 mm for all objects and an `edge_clearance` rule of 0.5 mm
+- **WHEN** `Rules6` is read
+- **THEN** it holds, in this order, `Clearance` (`GAP=5.9055mil`, priority 1), `Clearance_PWR` (priority 2), `Width_PWR`, `Width`, `RoutingVias` and `BoardOutlineClearance` (kind 63, `GAP=19.685mil`, priority 1), and no second rule with the scope `All` of the kind Clearance
 
 ### Requirement: Copper records read back
 `tests/_altium_pcb_read.py` SHALL read the copper of a PCB document as test code written from `docs/formats/altium/pcb-copper.md`, without importing the writer. This requirement extends c0035's "PCB files read back".
@@ -444,3 +469,363 @@ Each component record SHALL link to the schematic, and each pad SHALL carry its 
 - **WHEN** the reader is given a `KIND=1` class whose member `R9` is not a component of the document
 - **THEN** it raises `PcbReadError` naming `R9`
 
+### Requirement: Rule lowering table
+`fenolite.backends.altium.rulemap.TABLE` SHALL be the closed table that maps each neutral rule kind to the Altium rule kind that carries it. Each row MUST hold the neutral kind, the Altium kind and its kind number, the limits a rule must give, the constraint fields in written order, the `NETSCOPE`, the scope forms it supports, and either `exact` or one reason of `NOT_LOWERED_REASONS` (`no-counterpart`, `scope-unsupported`, `value-unsupported`, `unit-loss`) with a note.
+- Every neutral rule kind of `model/rules.py` MUST have a row. A row MUST be `exact` only when `docs/formats/altium/pcb-copper.md` ("Rule kinds lowered") records, with a public source and a label, the Altium constraint and the keys of its record. The `exact` rows are: `clearance` → `Clearance` (0), `track_width` → `Width` (2), `via_diameter` and `via_drill` → `RoutingVias` (11), `hole_size` → `HoleSize` (42), `edge_clearance` → `BoardOutlineClearance` (63), `hole_to_hole` → `HoleToHoleClearance` (52), `annular_width` → `MinimumAnnularRing` (19). `hole_clearance`, `courtyard_clearance`, `silk_clearance` and `creepage` are `no-counterpart`.
+- The five pair and length kinds, `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length`, MUST each have a row with the reason `no-counterpart`, in the model's order after `no_tracks`. Each note MUST say that the record of the Altium rule that would carry the kind is in no public source that `pcb-copper.md` records, so its keys are not known; no note MAY name a kind number or a key. A row of these five becomes `exact` only through a later change that first records the fact rows.
+- `lower(rules)` MUST return the rule records of the rules it writes and, for every rule that is not written, its kind, selector and reason. A rule is written only when its row is `exact`, its severity is `error`, it gives exactly the limits of its row (`min` for a clearance kind, `hole_to_hole` and `annular_width`; `min` and `max` for `hole_size`; `min`, `opt` and `max` for `track_width`, `via_diameter` and `via_drill`), and each value is 0 or at least one PCB unit and inside the 32-bit range; otherwise the reason is `value-unsupported`. `lower` MUST never write a rule whose value or scope differs from the neutral rule's beyond the 2 nm of the PCB unit.
+- A `via_diameter` and a `via_drill` rule of the same selector MUST share one `RoutingVias` record; either one without the other MUST be `value-unsupported`.
+- Fixed constraint values: `IGNOREPADTOPADCLEARANCEINFOOTPRINT=FALSE` and an empty `OBJECTCLEARANCES` (Clearance, BoardOutlineClearance), `VIASTYLE=Through Hole`, `ABSOLUTEVALUES=TRUE` with `MAXPERCENT=80.000` and `MINPERCENT=20.000`, and `ALLOWSTACKEDMICROVIAS=FALSE`.
+- `lift(records)` MUST return the neutral rules of the records that `read.rules.map_rules` maps, in record order, and the count of the others by Altium kind. `lift` MUST never return a rule of the five pair and length kinds or a selector with a `diff_pair` leaf: `read.scope.parse_scope` keeps its closed grammar, and a scope outside it stays unmapped as before.
+- `lift(lower(rules).records)` MUST equal the lowered subset of `rules` (`Lowered.written`) in kind, selectors and limits within 2 nm (`rulemap.same_rules`); the priority of a lifted rule is the record's, which counts within its Altium kind.
+
+#### Scenario: Every kind has a row
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_rulemap.py -k complete` compares the kinds of `model/rules.py` with `TABLE` and with the table "The lowering table" of `docs/formats/altium/pcb-copper.md`
+- **THEN** every kind has exactly one row, the five pair and length kinds included, the page's table equals `TABLE`, and every `exact` row is cited on the page with a source and is a kind of `read.rules.RULE_KIND_MAP`
+
+#### Scenario: Round trip of the table
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_rulemap.py -k roundtrip` lowers and lifts one rule of every `exact` kind and generated rule sets
+- **THEN** the lifted rules equal the lowered subset, within 2 nm, and every rule is either written or named with one reason
+
+#### Scenario: A rule with no counterpart
+- **GIVEN** a rule of a kind whose row has the reason `no-counterpart`
+- **WHEN** `lower` runs
+- **THEN** no record is written for it, and the result names its kind, its selector and that reason
+
+#### Scenario: A minimum alone is not a Width rule
+- **GIVEN** a `track_width` rule with `min` only
+- **WHEN** `lower` runs
+- **THEN** no record is written and the reason is `value-unsupported`, because a Width record holds a minimum, a preferred and a maximum width
+
+#### Scenario: Pair and length rules are named, not written
+- **GIVEN** one rule of each of `diff_pair_gap`, `diff_pair_uncoupled`, `skew`, `diff_pair_skew` and `length`, each on `diff_pair USB_`
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_rulemap.py -k pair` calls `lower` on them
+- **THEN** no exception is raised, no record is written, and the result names each rule once with its kind, the selector `diff_pair USB_` and the reason `no-counterpart`
+
+### Requirement: Scoped rule records
+Rule records SHALL carry the scope of their rule as an expression of the closed scope grammar of `altium-project-reader` ("Closed scope grammar"): all objects (`All`), a net (`InNet('<net>')`), a net class (`InNetClass('<class>')`), and the conjunction of those with `And`; a `clearance` rule with a second selector uses both scope fields, and every other kind writes `All` as its second scope. Every written scope MUST be one that `read.scope.parse_scope` turns back into the rule's selector.
+- A layer is not a written scope: the closed grammar refuses layer functions, so a rule with `layers` or a `layer` selector MUST give `scope-unsupported`.
+- Rules of one Altium kind MUST be written from the most governing neutral rule to the least (priority 1, 2, … and then priority 0; ties by falling name, then id), with `PRIORITY` from 1 in that order within the kind. This is the reverse of the order of a KiCad rules file, where the last rule governs.
+- A selector outside the written forms (a glob, a value that holds `'` or cannot be written, `ref`, `item_kind`, `or`, `not`, a second selector for a kind other than `clearance`) MUST give the reason `scope-unsupported` for that rule only; the other rules of the kind are written.
+- Rule names MUST be unique in the document and derived from the kind and the scopes (`<Kind>`, `<Kind>_<class>`, `<Kind>_net_<net>`, `_and_` between the parts of a conjunction, `_to_` before the second scope; a repeated name gets `_2`, `_3`…), so that two builds give equal names.
+
+#### Scenario: Class rule above the general rule
+- **GIVEN** a design with a track width (minimum, preferred and maximum) for all nets and another, of priority 1, for the class `PWR`
+- **WHEN** the PCB document is written and read back
+- **THEN** two Width rules exist, `Width_PWR` with the scope `InNetClass('PWR')` and `PRIORITY=1`, and `Width` with the scope `All` and `PRIORITY=2`
+
+#### Scenario: A scope outside the grammar
+- **GIVEN** a `track_width` rule on the net glob `PWR_*`, a second on the layer `F.Cu` and a third on the class `PWR`
+- **WHEN** `lower` runs
+- **THEN** one record `Width_PWR` is written, and the two others are named with the reason `scope-unsupported`
+
+### Requirement: Layer stacks of any even count
+The PCB document writer SHALL write the copper layers of the model's stack-up, for any even count from 2 to 32 with at most 16 signal layers and 16 plane layers, in the model's order, each a signal layer or, when the build declares it a plane, an internal plane on its net, with the dielectrics between them (thickness, material name, permittivity).
+- The layer map MUST assign each copper layer of the model to one Altium layer, and two model layers MUST NOT share one. The map MUST be recorded in `docs/formats/altium/pcb-copper.md`.
+- A design without a stack-up MUST get the stack that the writer gave it before this change.
+- A stack the rules above exclude MUST give `altium.not-lowered` with `where` `stackup` and the default stack of the two outer layers; no partial stack is written.
+
+#### Scenario: Six layers read back
+- **GIVEN** the authored design `board6` with the copper layers `F.Cu, In1.Cu, In2.Cu, In3.Cu, In4.Cu, B.Cu`, built with `In2.Cu` as a plane on `GND`
+- **WHEN** it is written and the PCB document is read back
+- **THEN** the board has six copper layers in that order, `In2.Cu` is a plane, and the dielectric thicknesses equal the design's within 2 nm
+
+#### Scenario: Odd count refused
+- **GIVEN** a design whose board has five copper layers
+- **WHEN** it is built for Altium
+- **THEN** `altium.not-lowered` has `where` `stackup`, and the document holds the default stack
+
+### Requirement: Blind and buried via records
+A via whose span is two copper layers of the written stack SHALL be written with its start and end layer, and the board record SHALL hold one drill pair per distinct span.
+- A through via MUST be written as before this change.
+- A micro via MUST give `altium.via-unsupported` (warning) and MUST NOT be written.
+
+#### Scenario: Three spans
+- **GIVEN** `board6` with a through via, a via from `F.Cu` to `In1.Cu` and a via from `In1.Cu` to `In2.Cu`
+- **WHEN** the document is written and read back
+- **THEN** the three vias have those spans, and the board record holds three drill pairs
+
+### Requirement: Board text records
+Board texts SHALL be written as stroke text records with their string, layer, position, height, stroke width and rotation; a text on a bottom-side layer SHALL be mirrored. The model's text has no mirror, justification or font kind, so none is written.
+- The string MUST be written in every form that `altium-pcb-reader` ("Text records and wide strings") needs to return it unchanged, non-ASCII characters included.
+- A text that has no record (an empty string, a control character or a line break, a height or a stroke width that is not positive, a layer outside the board layer map of `docs/formats/altium/pcb-records.md`) MUST give `altium.not-lowered` with `where` `text/<id>` and the reason in its message.
+
+#### Scenario: Accented text
+- **GIVEN** a board text `Tensão 5 V` on `F.SilkS`
+- **WHEN** the document is written and read back
+- **THEN** the text record returns that string, on the top overlay, at the same place within 2 nm
+
+### Requirement: Board graphics and keep-out records
+Board graphics on the non-copper layers of the board layer map SHALL be written as track, arc and region records without a net; keep-outs SHALL be written as region records with the keep-out flag and the restriction set of the model, on the Keep-Out layer when they name every copper layer of the board, else one per copper layer.
+- A keep-out record MUST hold its restrictions value in two keys, `KEEPOUTRESTRICTIONS` (the key saved documents hold) and after it `KEEPOUTRESTRIC` (the key KiCad's importer reads; not a key Altium writes), both with the same value (the maintainer's decision of 2026-10-06), so that KiCad imports the keep-out with exactly the restrictions written. That Altium accepts the pair stays `INFERRED` until step X11 of Part X.
+- A restriction that the record cannot carry (`no_footprints`) MUST give `altium.not-lowered` with `where` `keepout/<id>` naming the restriction; the keep-out is written with the others, and not at all when it has no other.
+- A graphic that has no record (a layer outside the map, a drawn shape without a positive width, a filled circle, a shape without an extent) MUST give `altium.not-lowered` with `where` `graphic/<id>`. A graphic on `Edge.Cuts` is the outline and counts as written.
+- The board outline MUST stay as written before this change.
+
+#### Scenario: Keep-out with two restrictions
+- **GIVEN** a keep-out that forbids tracks and vias in a rectangle on all copper layers
+- **WHEN** the document is written and read back
+- **THEN** one keep-out region with those two restrictions is read, its value 3 in `KEEPOUTRESTRICTIONS` and in `KEEPOUTRESTRIC`
+
+### Requirement: Non-plated holes and slots
+A hole of the board SHALL be written as a free pad record with a hole and no copper, its plated byte the hole's `plated`. The model's board hole is round: it has no slot, so no slot is written by this change.
+- A hole without a positive drill MUST give `altium.not-lowered` with `where` `hole/<id>`.
+
+#### Scenario: Mounting hole
+- **GIVEN** a non-plated hole of 3.2 mm
+- **WHEN** the document is written and read back
+- **THEN** a free pad with a 3.2 mm hole, plating off and no copper is read
+
+### Requirement: Component bodies are reported
+The writer SHALL write a component body record for each `ComponentBody` of a footprint of the board that is extruded, has an outline and a height above its standoff, when bodies are asked for (`altium-build`, "Component bodies in an Altium build"), and each other `ComponentBody` SHALL give one `altium.not-lowered` with `where` `body/<id>` that names its height and its reason. No model file is embedded, and no body is written that the model does not hold.
+- `pcbdoc.body_problem(body)` MUST return why a body has no record, or `None`: the kind `model` ("a body that names a 3D model needs the model's data, which the model does not hold"); an outline of fewer than three distinct points ("the body has no outline"); a standoff below the board surface, which no saved extruded body holds; and a height that is not above the standoff in the units of the record. The function reads `kind`, `outline`, `height` and `standoff` of the body as the model holds them and no other field. A body whose footprint is no component of the written document has the reason "its footprint is not written", and a body whose placed outline keeps fewer than three vertices in whole units has no outline: `pcbdoc.place_body` and the lowering decide these two.
+- Without the request (`bodies="off"`, which `fenolite build` gives only with `--altium-bodies off` since change c0155) every body MUST be reported, with the reason "component bodies are not written without --altium-bodies extruded" and the body's height, and no record is written: the document is the document of change c0085.
+- A written body MUST be one record of "Extruded component body records": the component is the body's footprint; the outline is the body's outline placed by the position and rotation that the document gives the footprint's component, without a mirror (the outline of a footprint instance is held as seen from the top, as its pads are); `STANDOFFHEIGHT` and `OVERALLHEIGHT` are `standoff` and `height`; `bottom` is the footprint's side; the identifier is `name`; `MODELID` is `body_model_id(body.id)`.
+- The layer MUST be the Altium id of `ComponentBody.layer` when the layer map gives it a mechanical layer 1 to 16, and otherwise Mechanical 13 for a body of a top footprint and Mechanical 14 for a body of a bottom one.
+- A footprint without a body MUST get no record and no issue: no outline is derived from a courtyard or from any other graphic, and no height is assumed.
+- Each body MUST be counted once, as written or as not lowered ("Written items are accounted").
+
+#### Scenario: Body height
+- **GIVEN** a board footprint with a body of height 2.5 mm
+- **WHEN** the design is built for Altium with `--altium-bodies off` (without the option the body is written since change c0155)
+- **THEN** `result.pcb.not_lowered` holds `body` with the count 1, and one `altium.not-lowered` with `where` `body/<id>` names 2.5 mm and the option
+
+#### Scenario: Body written
+- **GIVEN** the same footprint, placed on the bottom side and turned by 90 degrees, with a rectangle outline
+- **WHEN** the design is built with `--altium-bodies extruded` and the document is imported
+- **THEN** `result.pcb.written` holds `body` with the count 1 and no issue names the body, both body storages hold one record with `BODYPROJECTION=1` on Mechanical 14 and the index of the footprint's component, and the imported footprint holds one extruded body with the height 2.5 mm and the outline of the model within 2 nm
+
+#### Scenario: Bodies that have no record
+- **GIVEN** a footprint with a body of kind `model`, a body without outline and a body whose height equals its standoff, and a second footprint without a body
+- **WHEN** the design is built with `--altium-bodies extruded`
+- **THEN** `result.pcb.not_lowered.body` is 3, each of the three has one `altium.not-lowered` with its own reason, the second footprint has no issue, and both body storages are empty
+
+### Requirement: Unpoured polygons are a contract
+Every zone SHALL be written as a polygon record in the unpoured state with its net, layer, outline, priority (as the pour index) and island removal, and the writer MUST NOT write poured copper for it. Clearance and thermal reliefs are not keys of the record: Altium takes them from its rules.
+- The build MUST report `altium.zones-unpoured` (info) once, with the count, and the documentation MUST say that the board is repoured in Altium.
+
+#### Scenario: Two polygons
+- **GIVEN** `board6` with a `GND` zone on `F.Cu` and one on `B.Cu`
+- **WHEN** it is built for Altium
+- **THEN** the document holds two unpoured polygons, no region of poured copper, and one `altium.zones-unpoured` with the count 2
+
+### Requirement: Written items are accounted
+The writer SHALL return, per kind of model item (footprint, pad, track, arc, via, zone, text, graphic, keep-out, hole, body, rule), the number of items written and the number not lowered, and every item of the board MUST be in exactly one of the two.
+
+#### Scenario: Nothing is lost silently
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_pcb_complete.py -k accounted` builds `board6`, the routed samples and a variant of `board6` with one item of every kind that has no record
+- **THEN** for each kind, written plus not lowered equals the number of items in the model, and each not-lowered item has an issue
+
+### Requirement: Imported boards are written from the model
+`backends.altium.lower.from_design(design, *, issues, options=None, corner_ratios=None, rewrite=False, bodies="off")` SHALL return the inputs of the PCB and schematic writers (`AltiumInputs`) from a `Design`: footprints with their pads, graphics, fields and texts taken from the board's footprint instances (no library is read), placements, copper, zones, free items, rules, the stack and the classes.
+- A footprint instance MUST be written as a component with its own pads: its footprint definition holds exactly the pads of the instance that the pad record can hold. Its graphics, its fields `Reference` and `Value` and its texts are written as "Footprint items of a written component" says. An instance that holds none (a model stored before change c0126, a design read from KiCad without the projection) is written with its pads alone, as before. The definition holds no body: the bodies of an instance are written into the document (change c0121), not into a library.
+- A footprint without a reference and a footprint link whose one pad stands alone (the import's reading of a free pad) MUST be written as a free pad, with its net.
+- Native ids of the model that are Altium unique ids MUST be reused: the record's `UNIQUEID` is the id of `fp:<id>`, and `SOURCEUNIQUEID` and the unique id of the schematic part are the last part of `cmp:<source unique id>` (`project.native_unique_id`) when one component alone holds it; the instances of a repeated sheet share that id and get derived ones.
+- A board read from an Altium document (`"altium" in board.native_ids`) MUST be written in the document's own frame (`pcbdoc.Frame.document()`: Y negated, nothing moved) with the origin that the import kept, so every coordinate keeps its units; any other board is written in the frame of a build.
+- An `Arc` of the board, and a graphic of kind `arc`, whose `altium` bag holds the pair `arc` (`altium-import`, "Extension bags"; change c0127) MUST be written with the centre, the radius and the two angles of that pair when the pair still says the entity's three points. `lower.kept_arc(entity, points, frame)` decides: it converts the pair as the import does (`adapter.units.arc_points`) and returns the record's geometry (`pcbrecords.ArcGeometry`) when each of the three points it gives lies within `lower.ARC_TOLERANCE` (2 nm per axis, the length tolerance of the written scope) of the entity's point in the frame of the written document; `from_design` puts it into `PcbDocSpec.arc_records` under the entity's id. It returns `None`, and the arc is written from its three points as an arc without the pair is, with no issue, when the pair is stale or unusable: a point lies further away (the arc was moved or reshaped in the model, or the board is written in another frame than the document's), the pair does not parse into three integers of 32 bits and two doubles, the radius is 0 or less, an angle is not finite, or the angles make a full turn. An arc that is written from its kept record MUST NOT be refused because its three points lie on one line: the record holds its circle.
+- `rewrite=True` (change c0128) says that `design` is the reading of an Altium document and that the write gives that document back. A via whose drill equals its diameter MUST then be written (`PcbDocSpec.allow_full_drill`): a document that Altium saved holds such vias (`pcb-copper.md`, "Via"; `H-A-PCBX-VIA-FULL`). Without `rewrite` such a via is left out and counted, as before: a design from a script, from a KiCad board or from any other source is written with the rule of a build. `rewrite=True` for a design whose board was not read from an Altium document (`"altium"` is no key of `board.native_ids`) MUST raise `ValueError`; a design without a board takes the argument without effect. The argument changes nothing else: the frame, the kept arc records and every other item are written the same with and without it; component bodies are written by `bodies` alone, in a rewrite as in any other write.
+- The outline MUST be `Board.outline`, else the first closed ring of the `Edge.Cuts` graphics (an arc gives its start, middle and end), else the box of the board's items; each approximation is counted under `outline`.
+- An item that the writers do not carry MUST be left out, counted per kind in `AltiumInputs.not_lowered` with its id, and reported once per kind with `altium.not-lowered`: a pad with a per-layer padstack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle without a known corner ratio; a track or arc on a layer that is no signal layer of the written stack; an arc whose three points lie on one line and that is not written from a kept record; a via that `pcbdoc.via_span` refuses or whose drill is not below its diameter (in a rewrite: is above its diameter), or is 0 or less; a zone without an outline in the model; a text, graphic or keep-out that `pcbdoc` refuses or whose layer has no layer in the document; a shape on a copper layer (`copper-shape`); the poured copper of a zone (`zone-fill`: a polygon is written unpoured); a component body that "Component bodies are reported" does not write, which is every body when `from_design` is called without `bodies="extruded"` (change c0121); a graphic or a text of a footprint that the records do not carry (`footprint-graphic`, `footprint-copper`, `footprint-text`); a rule that `rulemap.lower` does not write; a net or net class whose name no record holds; an internal plane without a net of the document (`plane`); stack-up values that do not fit (`stackup`); and of the circuit (change c0083), each as an info: the pin-to-pad map of a component (`pin-pad-map`: `Component.pin_pad_map` with the bag key `pin_pads`), a module (`module`: the generated schematic is one sheet) and the channel of a repeated sheet (`channel`: the bag keys `sheet_symbol` and `channel_index` of a module).
+- `AltiumInputs.written` MUST count the model items that the PCB document holds, per kind of `lower.KINDS`, which are the kinds of `lens.altium_copper.KINDS`.
+- The schematic's design (`lower.schematic_design`) MUST give every component with a reference a symbol link, a value and pins, so that the schematic writer can generate a sheet from the circuit; a part of a link that no record holds is replaced by a generic one.
+
+#### Scenario: Footprints without a library
+- **GIVEN** a design read from a KiCad board whose footprint libraries are not present
+- **WHEN** `lens.altium.write_model` runs
+- **THEN** the PCB document holds every footprint as a component with its pads, and no library file is read
+
+#### Scenario: Own documents
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k own_document` writes the models of `blink.PcbDoc`, `routed.PcbDoc` and `board6.PcbDoc`
+- **THEN** each written project holds a PCB document, a schematic, its library and the project file, the reading of each PCB document equals the first reading inside the written scope, and the unique ids of the components are those of the first document
+
+#### Scenario: Arc written from its record
+- **GIVEN** the reading of a document with a free copper arc of centre (1 000 000, 2 000 000) units, radius 100 units and angles 30 to 35 degrees, whose three points give another centre and a radius of 93 units when a record is derived from them, and a second arc of the same centre and radius from 0 to 1 degree, whose three points lie on one line
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k kept_arc` writes the model with `AltiumBackend().write` and reads the written document
+- **THEN** `PcbDocSpec.arc_records` names both arcs, both are counted as written, the two arc records of the written document hold the centre, the radius and the angles of the first document, and the second reading holds the same six points as the first
+
+#### Scenario: Stale record ignored
+- **GIVEN** the same reading with the first arc moved by 1 µm in the model, its bag unchanged
+- **WHEN** `from_design` runs
+- **THEN** `PcbDocSpec.arc_records` does not name that arc, no issue names it, and the written record's centre is the one derived from the moved points
+
+#### Scenario: Full drill in a rewrite only
+- **GIVEN** the reading of `tests/data/altium/routed/routed.PcbDoc` with the drill of its first via set to the via's diameter, and of a second via set above its diameter
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k full_drill` calls `from_design` without and with `rewrite=True`
+- **THEN** without it both vias are counted as not written with the reason `the drill is not below the diameter`; with it the first via is written with a hole equal to its diameter, reads back with that drill, and only the second is counted; and `rewrite=True` on the design read from `tests/data/kicad/board/two_layer.kicad_pcb` raises `ValueError`
+
+#### Scenario: Counted once per kind
+- **WHEN** `from_design` runs on the model of `tests/data/altium/board6/board6.PcbDoc`
+- **THEN** `counts()` is 1 graphic (the one on the keep-out layer), the one issue is an `altium.not-lowered` info for `graphic`, and `written` counts 27 under `footprint-graphic`
+
+### Requirement: Writer options for a model that was read
+`backends.altium.pcbdoc` SHALL take what a model that was read needs, each with a default that keeps the bytes of every build.
+- `PcbDocSpec.frame` (`None`: `Frame.of(outline)`) and `PcbDocSpec.origin` (`None`: 1000 mil, 1000 mil); `Frame.document()` is the frame of a document that was read, and `Frame.offset` defaults to 1000 mil.
+- `PcbDocSpec.free_pads`: `FreePad(pad, extras, net)` values, written as pads without a component after the holes; `pad.position` and `pad.rotation` are those on the board.
+- `PlacedComponent.record_unique_id` (`None`: derived from the file name and the link id) and `PlacedComponent.nets_by_pad` (pad id → net name; `None`: `pad_nets` by pad number), so two pads of one number may lie on different nets.
+- `PcbDocSpec.arc_records` (entity id → `pcbrecords.ArcGeometry`; empty by default; change c0127): an arc of `PcbDocSpec.arcs` and a graphic of kind `arc` whose id it names are written with that centre, radius and pair of angles instead of the ones derived from their three points, on the entity's layer, net and width, and in the order that their points give. `graphic_problem(graphic, arc_known=True)` does not refuse an arc for three points on one line. `pcbdoc` reads no bag: the caller decides which records still say their entities.
+- `PcbDocSpec.allow_full_drill` (`False` by default; change c0128): `True` lets `via_records` write a via whose drill equals its diameter ("Via records"). `lower.from_design` sets it for a rewrite only; the build (`lens/altium.py`, `lens/altium_copper.py`) never sets it and keeps refusing such a via with `altium.copper-invalid`.
+- A component whose designator or comment is empty gets no text record for it, and a component text outside 7-bit ASCII is written with the 8-bit string of a free text beside its wide string.
+- No format fact is added: every record is one of `docs/formats/altium/pcb-records.md` and `pcb-document.md`.
+
+#### Scenario: Builds keep their bytes
+- **WHEN** `uv run pytest tests/unit/lens -k "altium and (samples or golden)"` rebuilds the committed samples
+- **THEN** every file under `tests/data/altium/` keeps its bytes
+
+### Requirement: Body facts before body code
+`docs/formats/altium/pcb-bodies.md` SHALL hold a section "Written form of an extruded body" with one row for each binary field and each key that `pcbrecords.body_record` writes, and the writer MUST NOT write a key or a field that has no row there.
+- Each row MUST state the value rule (a constant, a value of the model, or a choice of Fenolite among values that saved records hold), a source of `docs/evidence/sources.md`, an evidence label and a hypothesis of `docs/hypotheses.md`.
+- A row whose value no source supports MUST be marked `stand-in` and MUST name the hypothesis that an author report settles; this change has two, `MODELID` and `MODEL.CHECKSUM` (`H-A-PCBX-BODY-OPEN`). While a stand-in row exists, component bodies MUST be written only on request ("Component bodies in an Altium build" of `altium-build`).
+- `pcbrecords.BODY_KEYS` MUST be the keys of the written record in order, and a unit test MUST compare it with the rows of the section in both directions.
+- `tests/corpus/test_altium_bodies.py` MUST hold the rows over the extruded bodies (`MODEL.MODELTYPE=0`) of the public PCB documents of the corpus manifest and MUST print, per document, the number of bodies of each kind; it reports counts and value forms only.
+
+#### Scenario: Keys and rows agree
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcb_bodies.py -k facts` reads the section and `BODY_KEYS`
+- **THEN** every key of `BODY_KEYS` has exactly one row, every row of a key is in `BODY_KEYS`, the rows of `MODELID` and `MODEL.CHECKSUM` are marked `stand-in` and name `H-A-PCBX-BODY-OPEN`, and no other row is
+
+#### Scenario: The rows hold over the public documents
+- **WHEN** `uv run pytest tests/corpus/test_altium_bodies.py -rA` runs with the corpus cached
+- **THEN** every extruded body holds the constants, the key order (apart from the two optional keys the section names), `MODEL.EXTRUDED.MINZ` equal to `STANDOFFHEIGHT`, `MODEL.EXTRUDED.MAXZ` equal to `OVERALLHEIGHT`, a `BODYPROJECTION` of 0 on a top component and 1 on a bottom one, whole units in every vertex and a twin with the same property text at the same index of `ShapeBasedComponentBodies6`; the documents with extruded bodies come from at least three repositories; and no `MODELID` of an extruded body is an entry of `Models`
+
+### Requirement: Extruded component body records
+`pcbrecords.body_record(layer, vertices, *, component, standoff, overall, bottom, identifier="", model_id="", shape_based=False, form="saved")` SHALL return one component body primitive (type 12) of an extruded body in the form that "Written form of an extruded body" states, and `pcbdoc.write_pcbdoc` SHALL write the bodies of `PcbDocSpec.bodies` into `ComponentBodies6` and `ShapeBasedComponentBodies6`.
+- The primitive MUST be the type byte 12 and one subrecord: the common prefix with `layer`, no net, no polygon and the component index (`0xFFFF` for none), five zero bytes, the 32-bit length of the property text with its NUL, the text, the 32-bit vertex count and the vertices. `vertices` are binary units, at least three, without a closing vertex; fewer MUST raise `ValueError`. The plain form holds each vertex as two doubles; the shape-based form holds each as 37 bytes, none round, and repeats the first vertex after the last.
+- `layer` MUST be a mechanical layer 1 to 16 (ids 57 to 72), else `ValueError`; `V7_LAYER` is its text.
+- `standoff` and `overall` are binary units, written as mil text in `STANDOFFHEIGHT` and `OVERALLHEIGHT` and again in `MODEL.EXTRUDED.MINZ` and `MODEL.EXTRUDED.MAXZ`; `overall` not above `standoff`, and a negative `standoff` (no saved extruded body holds one), MUST raise `ValueError`. `BODYPROJECTION` MUST be 1 when `bottom` and 0 otherwise. `IDENTIFIER` MUST be the decimal character codes of `identifier` joined by commas, empty for an empty identifier. `MODEL.2D.X` and `MODEL.2D.Y` MUST be the centre of the bounding box of `vertices` as mil text, a half unit rounded towards zero.
+- With `form="saved"` the text MUST hold the 35 keys of `BODY_KEYS` in order, `MODELID` being `model_id` and `MODEL.CHECKSUM` being `0`; an empty `model_id` MUST raise `ValueError`. With `form="short"` it MUST hold the first 21 keys, ending at `TEXTUREROTATION`.
+- `pcbrecords.body_model_id(body_id)` MUST return a GUID text in braces that depends on `body_id` alone, so that a build is repeatable.
+- `PcbDocSpec.bodies` holds one `PlacedBody` per body to write: the index of its component in `PcbDocSpec.components`, the Altium layer id, the outline placed in the frame of the placements, the heights in nanometres, the side, the identifier, the `MODELID` stand-in and the id of the model's body (for the caller's accounts; no record holds it). `PcbDocSpec.body_form` is `saved` (the default) or `short`; no command and no option of a build sets `short`. `write_pcbdoc` MUST convert each outline point with `to_units` after the document's frame, drop equal neighbours, and write record `i` of both storages from body `i`, in the order of `bodies`, with each `Header` the count. A body whose component index is outside `components`, or that keeps fewer than three vertices, MUST raise `ValueError`: the caller checks with `pcbdoc.body_problem` and places with `pcbdoc.place_body(body, *, component, at, rotation, bottom, frame)`, which returns the `PlacedBody` or the reason. The layers of the bodies MUST be among the layers in use of the board record.
+- A spec without bodies MUST give the document it gave before this change, byte for byte. No record of `Models`, `ModelsNoEmbed`, `Textures` or `UniqueIDPrimitiveInformation` is written for a body.
+
+#### Scenario: Rectangle on a top component
+- **GIVEN** a body with the vertices `(0, 0), (10000, 0), (10000, 5001), (0, 5001)` on layer 69, component 2, standoff 0 and overall 984252 units, not bottom, the identifier `U1`
+- **WHEN** `body_record` is called in the plain and in the shape-based form
+- **THEN** both records hold the same 35 keys in the order of `BODY_KEYS`, `V7_LAYER=MECHANICAL13`, `OVERALLHEIGHT=98.4252mil`, `MODEL.EXTRUDED.MAXZ=98.4252mil`, `STANDOFFHEIGHT=0mil`, `BODYPROJECTION=0`, `IDENTIFIER=85,49`, `MODEL.2D.X=0.5mil`, `MODEL.2D.Y=0.25mil`, `MODEL.CHECKSUM=0` and `MODEL.MODELTYPE=0`; the plain record ends with four vertices of 16 bytes and the other with five of 37; and `read_bodies` frames each with an empty tail, the component 2 and the heights given
+
+#### Scenario: Short form
+- **WHEN** `body_record(..., form="short")` is called
+- **THEN** the text holds 21 keys, the last is `TEXTUREROTATION`, and no key starts with `MODEL`
+
+#### Scenario: Document with three bodies
+- **GIVEN** a `PcbDocSpec` with three bodies on two components, one of them on the bottom side
+- **WHEN** it is written and read with `read_pcbdoc` and `read_bodies`
+- **THEN** each of the two storages holds three records and a `Header` of 3, record `i` of one has the text of record `i` of the other, and the same spec without bodies gives the bytes of the document before this change
+
+### Requirement: Component bodies of a library footprint
+`pcblib` SHALL write each body of `LibFootprint.bodies` as one component body primitive in the footprint's stream when bodies are asked for, and none otherwise.
+- The primitive MUST be `body_record` in the plain form with no component (`0xFFFF`), `bottom=False`, the outline in the library's frame and the layer rule of "Component bodies are reported"; it MUST be counted in the stream's header as every primitive is, and written after the footprint's other primitives. The footprint's list of unique ids MUST hold no entry for a body: the one saved library with a body lists its pads only (`tests/corpus/test_altium_bodies.py -k library`).
+- Only a body that "Component bodies are reported" writes is written; `check_footprint` MUST list each other body of the definition in its notes.
+- A library without a written body MUST be the bytes it was before this change.
+- The fact page MUST say that no extruded body of a saved library was read: the form is the document's, and the one library body of the corpus names a model (`H-A-PCBX-BODY-LIB`, `INFERRED`).
+
+#### Scenario: Footprint with a body
+- **GIVEN** a `FootprintDef` with two pads and one extruded body of 1.2 mm with a rectangle outline
+- **WHEN** the library is written with bodies and read with `read_pcblib`
+- **THEN** the footprint holds one primitive of type 12 after its pads, `read_bodies` frames it with no component, the overall height reads 1.2 mm within one unit, and the library written without bodies equals the library of today
+
+### Requirement: Track layer rules in the Altium rule table
+`fenolite.backends.altium.rulemap.TABLE` SHALL hold one row for the neutral kind `no_tracks` (`rules-model`, "Track layer rules"), thirteenth, after `creepage` and before the five pair and length kinds, as the kind stands in `RuleKind`, with the status `no-counterpart` and a note. This requirement extends "Rule lowering table": with it every kind of `model/rules.py`, eighteen of them with the five pair and length kinds, has exactly one row.
+- The note MUST say that Altium's rule of the routing layers of a scope is the nearest counterpart and that its record (kind number, constraint keys) is in no public file read under the sources register, so the row cannot be `exact`.
+- `lower` MUST write no record for a `no_tracks` rule and MUST name its kind, its selector and the reason `no-counterpart`; `fenolite build --target altium` then gives one `altium.not-lowered` (warning) with `where` `design-rules/no_tracks` and lists the rule in `result.rules.not_lowered` ("Rules in an Altium build"). The rule is never dropped without that issue.
+- The table "The lowering table" of `docs/formats/altium/pcb-copper.md` MUST gain the row, with the source of the statement about Altium's rule (`S-0660`) and the label `INFERRED`.
+- `lift` is unchanged: a record of that Altium kind in a document is counted among the records it does not map.
+- The row MAY become `exact` only through a later change that registers a public file holding the record.
+
+#### Scenario: Thirteen rows
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_rulemap.py -k complete` compares the kinds of `model/rules.py` with `TABLE` and with the page's table
+- **THEN** every kind has exactly one row, eighteen in all: the thirteen rows that change c0107 left keep their place, the thirteenth is `no_tracks` with the status `no-counterpart` and a note, the five pair and length kinds follow, and the page's table equals `TABLE`
+
+#### Scenario: A track layer rule in an Altium build
+- **GIVEN** the four-layer blink variant with `design.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))`
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_rules.py -k no_tracks` builds it with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `issues` hold one `altium.not-lowered` warning with `where` `design-rules/no_tracks` naming `sig-outer`, `result.rules.not_lowered` holds it with the reason `no-counterpart`, and the PCB document holds the rule records of the same script without the rule
+
+### Requirement: Locked copper records
+`pcbrecords.track_record`, `arc_record` and `via_record` SHALL take `locked: bool = False`, and `pcbdoc.write_pcbdoc` SHALL pass the `locked` of each free `Track`, `Arc` and `Via` of the spec (`design-model`, "Copper locks in the board model"), so a locked item of the model is a locked primitive of the document (`H-A-PCB-CU-LOCK`).
+- **Fact first.** `pcbrecords.LOCK_WRITTEN` MUST be the closed set of the record kinds, among `track`, `arc` and `via`, for which `docs/formats/altium/pcb-copper.md` holds a row saying that bit 2 of the first flag byte, clear, locks a free primitive of that kind, with a public source of `docs/evidence/sources.md` and a label. A kind MUST NOT enter the set before its row is on the page; a test MUST compare the set with the page.
+- A record of a kind in `LOCK_WRITTEN` built with `locked=True` MUST differ from the unlocked record in that one bit. A record of a kind outside it MUST be the unlocked record whatever `locked` is; the build reports those items (`altium-build`, "Copper locks in an Altium build"), so a lock is never dropped without an issue.
+- With `locked=False` every record MUST have the bytes it had before this change, and a document of a design without locked copper MUST keep its bytes.
+- Component primitives, pads, fills, regions and texts are not changed: their flag bytes stay `0x0C 0x00`.
+- The order of the records in `Tracks6`, `Arcs6` and `Vias6` MUST NOT depend on `locked`.
+
+#### Scenario: Three locked items in a document
+- **GIVEN** the routed sample's model with one track, one arc and one via set `locked=True`, and `LOCK_WRITTEN` holding the three kinds
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbdoc_copper.py -k locked` writes the document and reads it with `backends.altium.read`
+- **THEN** exactly those three primitives have `Prefix.locked` true, and the document differs from that of the unlocked model in three bytes
+
+#### Scenario: The set follows the page
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcbrecords.py -k lock_written` compares `LOCK_WRITTEN` with the rows of the locked flag in `pcb-copper.md`
+- **THEN** each kind of the set has its row with a source id and a label, and a kind without a row is not in the set
+
+#### Scenario: A design without locks keeps its bytes
+- **WHEN** `uv run pytest tests/unit/lens/test_altium_copper.py -k bytes` builds the routed sample
+- **THEN** `<name>.PcbDoc` has the SHA-256 it had before this change
+
+### Requirement: Via tenting flags
+`pcbrecords.via_record` SHALL take the keywords `tented_top=False` and `tented_bottom=False` and write them as bits 5 and 6 of the first flags byte of the via's subrecord, the bits that `read.pcbprims` reads as `ViaRecord.tented_top` and `ViaRecord.tented_bottom` (`docs/formats/altium/pcb-copper.md`, "Flags of a via"; S-0160, S-0172, S-0174, S-0175, S-0176; `H-A-PCB-CU-VIATENT`). This requirement refines the flags that "Via records" states; every other byte of the record is as that requirement states it.
+- The first flags byte MUST be the byte that "Locked copper records" (c0108) states for the via's lock (`0x0C` unlocked, `0x08` locked), plus `0x20` when `tented_top` is true, plus `0x40` when `tented_bottom` is true: `0C`, `2C`, `4C` or `6C` for an unlocked via, `08`, `28`, `48` or `68` for a locked one. The lock bit and the two tenting bits are independent. The second flags byte stays `00`. With both keywords false the record MUST equal, byte for byte, the record written before this change.
+- `pcbdoc.write_pcbdoc` MUST set the two keywords of each via of `PcbDocSpec.vias` with `pcbdoc.via_tenting(via, PcbDocSpec.via_protection)` (`altium-build`, "Via protection in an Altium build"): the via's own `tenting_front` and `tenting_back`, else the value of `PcbDocSpec.via_protection`, the board default that the lowering hands over (default `None`), else false. The vias of the spec keep the protection the model holds, so the model that a build stores does not change. It MUST write nothing for `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping` and `filling`, and MUST NOT raise for any value of them.
+- The solder-mask expansions of the record (at 54 and at 242) MUST stay the values of "Via records": no fact recorded here ties them to the tenting flags.
+- A via written with tenting flags MUST read back, through `read.pcbprims`, with `tented_top` and `tented_bottom` equal to the keywords.
+- `docs/formats/altium/pcb-copper.md` MUST hold a fact row for the written flags with its sources, the label `INFERRED` and `H-A-PCB-CU-VIATENT`, MUST take "tented vias" out of its list of what is not written, and MUST say in "Vias" that the flags are `0C 00` only for a via that is not tented.
+
+#### Scenario: Flags of the four cases
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_pcb_vias.py -k tenting` calls `via_record(393701, 393701, 236220, 118110, net=2)` with no tenting keyword, with `tented_top=True`, with `tented_bottom=True` and with both
+- **THEN** bytes 0 to 4 of the subrecord are `4A 0C 00 02 00`, `4A 2C 00 02 00`, `4A 4C 00 02 00` and `4A 6C 00 02 00`, the four records are equal in every other byte, and the first equals the record of "Via bytes"
+
+#### Scenario: Written flags read back
+- **GIVEN** a PCB document written with four through vias, one per case
+- **WHEN** it is read with the PCB reader
+- **THEN** the four via records hold (`tented_top`, `tented_bottom`) = (false, false), (true, false), (false, true) and (true, true)
+
+### Requirement: Footprint items of a written component
+`backends.altium.lower` SHALL write the graphics, the fields and the texts of a footprint instance as primitives of its component, and SHALL count what the records do not carry.
+- The definition that `lower` hands to `pcbdoc.place_component` MUST hold, in the top-side form, the instance's graphics that a definition can hold (a drawn `line`, `rect`, `circle` or `arc` on a layer of `pcbrecords.FLIP_PAIRS` that is no copper layer): for a bottom footprint each point is mirrored about the local X axis and each layer swapped for its other side, the inverse of what `place_component` applies, as the pads are (`lower._library_pad`). The order is the instance's. Every other written graphic of the instance (on a mechanical layer of a board that was read, on a paste or solder-mask layer, a filled shape, a polygon) MUST be handed over as the instance holds it, in `PlacedComponent.items` (`pcbdoc.ComponentGraphic`: the pad frame, the Altium id of its layer, no mirror and no layer flip), and is written after the definition's graphics.
+- A `line`, an unfilled `rect`, an unfilled `circle` and an `arc` MUST be written with `pcblib.graphic_records` ("Footprint line and arc records"), with the component's index. An `arc` whose `altium` bag holds the pair `arc` MUST be written with the centre, the radius and the angles of that pair while `lower.kept_arc` finds that the pair still says its three points placed on the board (change c0127), as a free arc is.
+- **Layers.** The layers are those of `pcbrecords.LAYER_MAP` that are no copper layer and, for a board that was read from an Altium document, `Mech.13` to `Mech.16` as the layers 69 to 72, which every written document enables. With the group of fills and regions, the paste and solder-mask layers of `pcbrecords.BOARD_LAYER_MAP` are layers of a footprint's graphics too. The same four names MUST be taken for the free texts and graphics of such a board. For such a board `Mech.<n>` for n from 1 to 12 MUST be the layer `56 + n`, for footprint and board items alike, and the board record MUST enable each mechanical layer that a primitive lies on; a document that uses none of them keeps its bytes. The meaning of the enable key MUST be a fact row with a public source before the code is written.
+- A graphic on a copper layer MUST NOT be written: it is counted under `footprint-copper`, a kind of `lower.LOSS_KINDS`, so its loss is a warning and needs `allow_lossy`. A graphic on a layer without a layer in the document, a degenerate arc and, until its group is implemented, a `polygon` or a filled shape are counted under `footprint-graphic` (info). With the group of fills and regions, a filled `rect`, a filled `circle` and a `polygon` without holes are region records with the component's index.
+- **Fields.** `pcbdoc.PlacedComponent.designator_place` and `.comment_place` (`TextPlace | None`, `None` by default; `.comment` is the comment's string) MUST carry the place of the fields `Reference` and `Value` of an instance that has them: position, layer, height, stroke, rotation, and whether the text is shown (`NAMEON`, `COMMENTON`). `None` MUST give the bytes the writer gave before.
+- **Texts.** Until its group is implemented, a text of `texts` is counted under `footprint-text` (info). With it, a text is a text record with the component's index and its string as stored; a text that the record cannot hold (a line break, a height that is not positive, a layer without a layer in the document) stays counted.
+- `footprint-graphic`, `footprint-copper` and `footprint-text` are kinds of `lower.MORE_KINDS`: `lower.KINDS`, and with it `result.pcb` of a build, do not change. `AltiumInputs.written` counts the written items under the same three keys.
+- **Corner ratio.** The corner percentage of a rounded pad MUST come from `Pad.corner_ratio`, else from the pair `corner_percent` of its `altium` bag, else from the caller's `corner_ratios`; without any, the pad is not written and counted as today.
+- `pcblib.check_footprint` is unchanged: a library footprint with a graphic on a copper layer is still refused, and its drops are those of "Footprint content checks".
+- Every record field written MUST be a row of `docs/formats/altium/pcb-records.md` or `pcb-document.md`; a field without a row is not written, and its item is counted.
+
+#### Scenario: Silkscreen survives a rewrite
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower_items.py -k own_document` writes the models of `blink.PcbDoc`, `routed.PcbDoc` and `board6.PcbDoc` and imports the written documents
+- **THEN** each footprint of each reading holds the graphics of the first reading within 2 nm, 27 per document, and no `footprint-graphic` is counted as not written
+
+#### Scenario: A bottom footprint
+- **GIVEN** the model of `blink.PcbDoc`, whose `D1` is on the bottom side
+- **WHEN** it is written and imported
+- **THEN** the graphics of `D1` are on the bottom layers they were on, at the points they were at, within 2 nm
+
+#### Scenario: Mechanical layers of a rewrite
+- **GIVEN** an authored document, built in the test, whose one component owns a track on Mechanical 1 and a track on Mechanical 5
+- **WHEN** it is imported, written with `AltiumBackend().write` and imported again
+- **THEN** the footprint holds one `line` on `Mech.1` and one on `Mech.5` at the points of the first reading within 2 nm, the board record of the written document enables Mechanical 1 and 5, and no `footprint-graphic` is counted as not written
+
+#### Scenario: Copper inside a footprint
+- **GIVEN** the model of `blink.PcbDoc` with one `line` on `F.Cu` added to the graphics of `R1`
+- **WHEN** `AltiumBackend().write(design)` runs, and again with `allow_lossy=True`
+- **THEN** the first raises `LossyWriteError` with one `altium.not-lowered` warning whose `where` is `footprint-copper`, and the second writes the document without that line and counts it
+
+#### Scenario: Designator at its place
+- **GIVEN** the model of `blink.PcbDoc` with the field `Reference` of `R1` moved by 2 mm and its field `Value` made visible
+- **WHEN** it is written and imported
+- **THEN** the two fields of `R1` come back at those places within 2 nm, both visible
+
+#### Scenario: Builds keep their bytes
+- **WHEN** `uv run pytest tests/unit/lens -k "altium and (samples or golden)"` rebuilds the committed samples
+- **THEN** every file under `tests/data/altium/` keeps its bytes
+
+### Requirement: Removed pad shapes are counted, not written
+`lower.write_design` SHALL write a via whose `altium` bag holds the pair `pad_removed` as the ordinary via record of 321 bytes, with a pad on every layer of its span, and SHALL count it (change c0132).
+- Every such via that is written MUST be listed in `AltiumInputs.not_lowered` under the kind `via-pad-shape`, with the reason that the layers without a pad shape are not written. The kind MUST be in `MORE_KINDS` and MUST NOT be in `LOSS_KINDS`: the via is written, and a write is not refused for it.
+- The via MUST stay in the comparison of RT-A3 (`altium-verification`, "Round-trip level RT-A3"): the kind names no model entity that the write left out.
+- No byte of the table at 209 and no further byte of the 330-byte form MUST be written: no fact says what the nine further bytes of that form are (`docs/formats/altium/pcb-copper.md`, "Via").
+- A via without the pair MUST be written and counted as before.
+
+#### Scenario: A via with removed pad shapes in a rewrite
+- **GIVEN** the reading of `tests/data/altium/routed/routed.PcbDoc` with the pair `("pad_removed", "2,4,5")` added to the bag of its first via
+- **WHEN** `uv run pytest tests/unit/backends/altium/test_lower.py -k pad_shape` writes it without `allow_lossy`
+- **THEN** the write is not refused, every via is written as a record of 321 bytes whose table at 209 is zero, the files are the bytes of the write without the pair, `not_lowered["via-pad-shape"]` holds the id of the first via alone, and the write has one `altium.not-lowered` information for the kind

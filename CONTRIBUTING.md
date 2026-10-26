@@ -28,6 +28,26 @@ Thank you for helping. Fenolite is spec-driven, agent-friendly and strict about 
    the page `recovery` for a code. `tests/unit/agent/test_pages.py` names what is missing. The pages
    `commands` and `dsl-reference` are generated: run `uv run python tools/gen_agent_guide.py` after a
    change of a command's arguments or of `fenolite.dsl`; `make check-fast` runs its `--check`.
+   A `fenolite-design` block is built for KiCad 9 and 10; the fence argument `altium` builds it for
+   Altium instead, and `kicad10` for KiCad 10 alone, for a feature that a KiCad 9 board cannot hold
+   (`fenolite.agent.guide.DESIGN_TARGETS`).
+
+## The viewer's visual tests
+
+`tests/visual` draws one authored fixture per scene kind of `fenolite view` (KiCad and Altium boards and
+sheets, footprint and symbol libraries, a Draftsman drawing, an output job) in Chromium and compares each
+screenshot with its reference in `tests/visual/refs/`. Within two levels per channel, at most 0.1 % of the
+pixels may differ. Interaction tests check selection, measurement, the unit switch and cross-probing.
+
+- They need Node with Playwright 1.63.0 and its Chromium (`npm install playwright@1.63.0`, then
+  `npx playwright install chromium`; `FENOLITE_PLAYWRIGHT` may name the package's folder) and skip without
+  them. `make check-fast` does not run them; `make visual` does, and so does CI's `viewer` job.
+- Chromium draws every text with DejaVu (`tests/visual/fonts.conf`, `fonts-dejavu-core` 2.37-8 of Ubuntu
+  24.04), so the references hold on other machines with that package.
+- After an intended change of what the page draws, run `uv run python tools/update_view_refs.py` (or name
+  the fixtures to rewrite), look at every image it wrote, and commit them with the change. A failing test
+  leaves its screenshot and a difference image (changed pixels in magenta) beside it; CI keeps them as the
+  `viewer-differences` artefact.
 
 ## Parallel worktrees
 

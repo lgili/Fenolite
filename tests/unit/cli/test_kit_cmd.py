@@ -83,7 +83,9 @@ def test_status_without_a_record(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     """Scenario "Help and example": exit 0 and no run."""
     code, env, err = run(monkeypatch, tmp_path, "status")
     assert code == 0 and err == {} and env["result"] == {"runs": [], "stale": [], "problems": []}
-    code, env, _ = run(monkeypatch, tmp_path, "status", "--repo", str(ROOT))
+    empty_repository = tmp_path / "empty-repository"
+    empty_repository.mkdir()
+    code, env, _ = run(monkeypatch, tmp_path, "status", "--repo", str(empty_repository))
     assert code == 0 and env["result"]["runs"] == []
 
 

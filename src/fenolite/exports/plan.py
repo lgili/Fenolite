@@ -180,6 +180,10 @@ class KindResult:
     models: tuple[ModelUse, ...] = ()
 
 
+SCORE_LAYER_NAME = "V-Score"
+"""The user name of the layer of a panel board's score lines (the default of ``VScoreSpec``; c0173)."""
+
+
 def _user_name(layer: Layer) -> str | None:
     ext = layer.ext.get("kicad")
     return None if ext is None else dict(ext.payload).get("user_name")
@@ -187,11 +191,13 @@ def _user_name(layer: Layer) -> str | None:
 
 def gerber_layers(design: Design) -> tuple[str, ...]:
     """The layers a Gerber export plots: the copper layers in stack order, then the mask, paste and
-    silkscreen pairs the board has, then ``Edge.Cuts``."""
+    silkscreen pairs the board has, then the user layer whose user name is ``SCORE_LAYER_NAME`` (the score
+    lines of a panel board, change c0173) where the board has one, then ``Edge.Cuts``."""
     layers = design.board.layers if design.board is not None else ()
     copper = [layer.name for layer in sorted(layers, key=lambda la: la.ordinal) if layer.kind == "copper"]
     names = {layer.name for layer in layers}
-    return (*copper, *(name for name in GERBER_EXTRA_LAYERS if name in names), OUTLINE_LAYER)
+    score = [layer.name for layer in layers if _user_name(layer) == SCORE_LAYER_NAME][:1]
+    return (*copper, *(name for name in GERBER_EXTRA_LAYERS if name in names), *score, OUTLINE_LAYER)
 
 
 def _present(design: Design, names: Sequence[str]) -> tuple[str, ...]:

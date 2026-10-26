@@ -10,6 +10,9 @@ item, the zone's own clearance. How they combine follows what KiCad is measured 
 rule also replaces the class clearances (and with them the zone's clearance, ``H-K-COPPER-ZONECLR``) and
 whether the board minimum also raises a rule's value. A backend fills the switches for the tool version a
 board is judged against (``backends.base.DesignRules``); this module imports no backend.
+
+``ClearanceResolver.edge`` gives the copper-to-edge clearance of one item the same way (change c0169): the
+governing ``edge_clearance`` rule, else the board's edge minimum.
 """
 
 from __future__ import annotations
@@ -24,9 +27,10 @@ from fenolite.model.design import Design
 from fenolite.model.pairs import coupled_name, net_bases
 from fenolite.model.rules import LEAF_OPS, Rule, RuleSeverity, RuleSubject, Selector
 
-CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout"]
+CopperKind = Literal["track", "arc", "via", "pad", "fill", "zone", "keepout", "edge", "hole"]
 """The kinds of copper items; a rule sees an arc as a ``track`` and a fill as a ``zone``. ``keepout`` names
-the area of a ``copper.keepout`` finding; no rule subject takes it."""
+the area of a ``copper.keepout`` finding, ``edge`` the edge ring of a ``copper.edge-clearance`` or
+``copper.hole-in-cutout`` finding and ``hole`` a board hole (change c0169); no rule subject takes them."""
 ITEM_KINDS: dict[str, str] = {
     "track": "track",
     "arc": "track",
@@ -90,6 +94,19 @@ class ClearanceExplanation:
     governing: Clearance
 
 
+@dataclass(frozen=True, slots=True)
+class EdgeClearanceExplanation:
+    """Why a copper item is held to its edge clearance (change c0169): the item's subject, the name of the
+    edge ring it was judged against, the candidate rows (each matching ``edge_clearance`` rule, in
+    precedence order, then the board minimum ``floor``), the backend switch and the governing limit."""
+
+    subject: RuleSubject
+    ring: str
+    candidates: tuple[ClearanceCandidate, ...]
+    edge_floor_over_rules: bool
+    governing: Clearance
+
+
 def rule_precedence(rules: Sequence[Rule]) -> tuple[Rule, ...]:
     """The rules in the order a backend writes them: priority 0 first, then descending priority (priority 1
     last); ties by name, then id. The later rule governs (``H-K-DRU-ORDER``)."""
@@ -148,6 +165,40 @@ class _Candidate:
             return first.matches(a) or first.matches(b)
         return (first.matches(a) and second.matches(b)) or (first.matches(b) and second.matches(a))
 
+    def matches_one(self, a: RuleSubject) -> bool:
+        """Whether a unary rule (``edge_clearance``) selects the one item ``a`` on its layer."""
+        if self.layers and a.layer not in self.layers:
+            return False
+        return self.selector_a.matches(a)
+
+
+def _candidates_of(rules: Sequence[Rule], kind: str) -> tuple[_Candidate, ...]:
+    """The rules of ``kind`` with a ``min``, folded, the governing one first."""
+    ordered = rule_precedence([r for r in rules if r.kind == kind and r.min is not None])
+    return tuple(
+        _Candidate(
+            rule,
+            _fold_selector(rule.selector_a),
+            None if rule.selector_b is None else _fold_selector(rule.selector_b),
+            frozenset(layer.casefold() for layer in rule.layers),
+        )
+        for rule in reversed(ordered)
+    )
+
+
+def _row(candidate: _Candidate) -> ClearanceCandidate:
+    rule = candidate.rule
+    return ClearanceCandidate(
+        source=f"rule:{rule.name}",
+        value=rule.min,
+        severity=rule.severity,
+        rule_id=rule.id,
+        priority=rule.priority,
+        layers=rule.layers,
+        selector_a=rule.selector_a,
+        selector_b=rule.selector_b,
+    )
+
 
 class ClearanceResolver:
     """The clearance in force for pairs of copper items of one design."""
@@ -159,6 +210,8 @@ class ClearanceResolver:
         min_clearance: Nm | None = None,
         rules_over_classes: bool = True,
         floor_over_rules: bool = False,
+        min_edge_clearance: Nm | None = None,
+        edge_floor_over_rules: bool = False,
     ) -> None:
         circuit = design.circuit
         classes = {netclass.id: netclass for netclass in circuit.netclasses}
@@ -180,17 +233,24 @@ class ClearanceResolver:
             netclass = classes.get(net.netclass_id) if net.netclass_id is not None else None
             self._nets[net.id] = (net.name, netclass.name if netclass is not None else DEFAULT_CLASS)
         rules = design.rules.rules if design.rules is not None else ()
-        ordered = rule_precedence([r for r in rules if r.kind == "clearance" and r.min is not None])
-        self._candidates = tuple(
-            _Candidate(
-                rule,
-                _fold_selector(rule.selector_a),
-                None if rule.selector_b is None else _fold_selector(rule.selector_b),
-                frozenset(layer.casefold() for layer in rule.layers),
-            )
-            for rule in reversed(ordered)
-        )
+        self._candidates = _candidates_of(rules, "clearance")
         """The clearance rules with a ``min``, the governing one first."""
+        self._edge_candidates = _candidates_of(rules, "edge_clearance")
+        """The ``edge_clearance`` rules with a ``min``, the governing one first (change c0169)."""
+        self._edge_floor: Nm | None = (
+            min_edge_clearance if min_edge_clearance is not None and min_edge_clearance > 0 else None
+        )
+        self._edge_floor_over_rules = edge_floor_over_rules
+        self._edge_memo: dict[RuleSubject, Clearance] = {}
+        edge_values = [
+            c.rule.min
+            for c in self._edge_candidates
+            if c.rule.min is not None and c.rule.severity != "ignore"
+        ]
+        if self._edge_floor is not None:
+            edge_values.append(self._edge_floor)
+        self.max_edge: Nm = max(edge_values, default=0)
+        """The largest value ``edge`` can return for the design, or 0."""
         self._floor: Nm | None = min_clearance if min_clearance is not None and min_clearance > 0 else None
         self._rules_over_classes = rules_over_classes
         self._floor_over_rules = floor_over_rules
@@ -314,25 +374,50 @@ class ClearanceResolver:
             found = Clearance(floor, "error", "floor")
         return found
 
+    def edge(self, subject: RuleSubject) -> Clearance:
+        """The copper-to-edge clearance in force for the copper item ``subject`` (change c0169): the
+        governing ``edge_clearance`` rule that selects it (the last in ``rule_precedence``, as for
+        ``resolve``), else the board minimum ``min_edge_clearance`` (source ``floor``). A governing rule of
+        severity ``ignore`` silences the item. With ``edge_floor_over_rules`` the board minimum also raises
+        a lower rule; on 9.0.x and 10.0.x a board-wide rule governs below and above it
+        (``H-K-EDGE-RESOLVE``)."""
+        cached = self._edge_memo.get(subject)
+        if cached is None:
+            cached = self._edge(subject)
+            self._edge_memo[subject] = cached
+        return cached
+
+    def _edge(self, subject: RuleSubject) -> Clearance:
+        folded = _fold_subject(subject)
+        governing = next((c.rule for c in self._edge_candidates if c.matches_one(folded)), None)
+        floor = self._edge_floor
+        if governing is None:
+            return UNSET if floor is None else Clearance(floor, "error", "floor")
+        if governing.severity == "ignore":
+            return Clearance(None, None, f"rule:{governing.name}")
+        assert governing.min is not None
+        found = Clearance(governing.min, governing.severity, f"rule:{governing.name}")
+        if self._edge_floor_over_rules and floor is not None and floor > governing.min:
+            found = Clearance(floor, "error", "floor")
+        return found
+
+    def explain_edge(self, subject: RuleSubject, ring: str) -> EdgeClearanceExplanation:
+        """Explain ``edge(subject)`` for the ring named ``ring``: every matching ``edge_clearance`` rule in
+        precedence order (the governing one last), then the board minimum, from the same candidates."""
+        folded = _fold_subject(subject)
+        rows = [_row(c) for c in reversed(self._edge_candidates) if c.matches_one(folded)]
+        if self._edge_floor is not None:
+            rows.append(ClearanceCandidate("floor", self._edge_floor, "error"))
+        return EdgeClearanceExplanation(
+            subject, ring, tuple(rows), self._edge_floor_over_rules, self.edge(subject)
+        )
+
     def explain(
         self, a: RuleSubject, b: RuleSubject, *, zone_clearance: Nm | None = None
     ) -> ClearanceExplanation:
         """Explain the same resolution, including overshadowed matching rules and class values."""
         folded_a, folded_b = _fold_subject(a), _fold_subject(b)
-        rows = [
-            ClearanceCandidate(
-                source=f"rule:{c.rule.name}",
-                value=c.rule.min,
-                severity=c.rule.severity,
-                rule_id=c.rule.id,
-                priority=c.rule.priority,
-                layers=c.rule.layers,
-                selector_a=c.rule.selector_a,
-                selector_b=c.rule.selector_b,
-            )
-            for c in reversed(self._candidates)
-            if c.matches(folded_a, folded_b)
-        ]
+        rows = [_row(c) for c in reversed(self._candidates) if c.matches(folded_a, folded_b)]
         pair = self._pair_gap(a, b)
         if pair is not None:
             # the resolver's own candidate: the pair gap that replaces the class value (c0104)
@@ -365,6 +450,7 @@ __all__ = [
     "ClearanceExplanation",
     "ClearanceResolver",
     "CopperKind",
+    "EdgeClearanceExplanation",
     "rule_precedence",
     "selector_matches",
 ]

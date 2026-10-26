@@ -96,7 +96,12 @@ def body_total(design: Design) -> int:
 
 
 def rta2_stage(
-    model: Design, read: ProjectRead, scope: ModelScope, *, bodies: Sequence[Change] | None = None
+    model: Design,
+    read: ProjectRead,
+    scope: ModelScope,
+    *,
+    bodies: Sequence[Change] | None = None,
+    cutouts: Sequence[Change] | None = None,
 ) -> StageResult:
     """RT-A2 of a built project: ``model`` is the model the build stored, ``read`` the two readings of the
     documents it wrote, ``scope`` what the writers write. Each difference is one ``check.rta2-failed`` error
@@ -105,7 +110,10 @@ def rta2_stage(
     compared: every kind of the scope). The caller sets the evidence and moves the PCB reading into the
     frame of the model. ``bodies`` (change c0121) are the differences of the kind ``body`` that the backend
     found for a build that wrote component bodies, or ``None`` for a build that wrote none: given, the kind
-    is listed as compared on the PCB side and each difference is one issue ``pcb:/body/<n>``."""
+    is listed as compared on the PCB side and each difference is one issue ``pcb:/body/<n>``. ``cutouts``
+    (change c0168) are the differences of the kind ``cutout`` (``backends.base.CutoutComparer``), or
+    ``None`` when the backend compares none: given, the kind is listed as compared and each difference is
+    one issue ``pcb:/cutout/<where>``."""
     issues: list[Issue] = []
     compared: dict[str, list[str]] = {}
     total = 0
@@ -135,6 +143,13 @@ def rta2_stage(
         issues += [
             issue("check.rta2-failed", _message(change), where=f"pcb:{change.path}")
             for change in list(bodies)[:MAX_ISSUES]
+        ]
+    if cutouts is not None and read.pcb is not None:
+        compared["pcb"] = sorted([*compared.get("pcb", []), "cutout"])
+        total += len(cutouts)
+        issues += [
+            issue("check.rta2-failed", _message(change), where=f"pcb:{change.path}")
+            for change in list(cutouts)[:MAX_ISSUES]
         ]
     summary: dict[str, object] = {
         "level": "RT-A2",

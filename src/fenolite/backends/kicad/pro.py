@@ -22,7 +22,7 @@ from types import MappingProxyType
 from typing import Any, cast
 
 from fenolite.backends.base import StoredExclusion
-from fenolite.backends.kicad import _json
+from fenolite.backends.kicad import _json, resolver
 from fenolite.backends.kicad._json import JsonNumber, JsonObject
 from fenolite.backends.kicad.lowering import (
     FLOOR_KEYS,
@@ -837,6 +837,36 @@ def synthesize_project(
     return _json.dumps(data)
 
 
+def values_at(data: JsonObject, path: str) -> list[Any]:
+    """The values at ``path`` (list items written ``*``), in file order."""
+    found: list[Any] = []
+
+    def walk(node: Any, rest: list[str]) -> None:
+        if not rest:
+            found.append(node)
+            return
+        head, tail = rest[0], rest[1:]
+        if head == "*":
+            for item in cast(list[Any], node) if isinstance(node, list) else []:
+                walk(item, tail)
+        elif isinstance(node, dict):
+            key = head.replace("~1", "/").replace("~0", "~")
+            obj = cast(JsonObject, node)
+            if key in obj:
+                walk(obj[key], tail)
+
+    walk(data, path.split("/")[1:])
+    return found
+
+
+def holds_default(data: JsonObject, path: str) -> bool:
+    """True when every value of ``data`` at ``path`` equals a value of the KiCad 10 template there: what a
+    fresh KiCad 10 project writes (project.md, "Default sections of KiCad 10"; key order aside, numbers
+    compared as written)."""
+    defaults = values_at(template(10), path)
+    return all(any(value == default for default in defaults) for value in values_at(data, path))
+
+
 def _remove(data: JsonObject, path: str) -> None:
     """Remove every key at ``path`` (list items written ``*``)."""
     parts = path.split("/")[1:]
@@ -859,8 +889,11 @@ def _remove(data: JsonObject, path: str) -> None:
 
 
 def _gate_nine(data: JsonObject, design: Design, pair: tuple[int | None, int | None], *, allow_lossy: bool,
-               issues: list[Issue]) -> None:  # fmt: skip
-    """Decision 10: 10.0-only keys and the pair (3, 5) in a project written for target 9."""
+               issues: list[Issue], downgrade: bool = False,
+               edits: list[resolver.Edit] | None = None) -> None:  # fmt: skip
+    """Decision 10: 10.0-only keys and the pair (3, 5) in a project written for target 9. A project whose
+    board was read at 10 is refused unless ``downgrade``: the resolver's rows of the project keys then
+    decide (change c0162)."""
     paths = sorted(_json.key_paths(data) & TEN_ONLY_PATHS)
     top = [p for p in paths if not any(p != q and p.startswith(q + "/") for q in paths)]
     too_new = [*top, *(["/net_settings/meta/version"] if pair == PROJECT_VERSIONS[10] else [])]
@@ -868,7 +901,10 @@ def _gate_nine(data: JsonObject, design: Design, pair: tuple[int | None, int | N
         return
     info = source_info(design)
     if info is not None and info.major == 10:
-        raise DowngradeRefusedError(FileKind.BOARD, 10, 9)
+        if not downgrade:
+            raise DowngradeRefusedError(FileKind.BOARD, 10, 9)
+        _resolve_nine(data, top, pair, allow_lossy=allow_lossy, issues=issues, edits=edits)
+        return
     errors = [
         project_issue(
             "kicad.project.too-new-key",
@@ -879,6 +915,14 @@ def _gate_nine(data: JsonObject, design: Design, pair: tuple[int | None, int | N
     ]
     if not allow_lossy:
         raise LossyWriteError(errors, droppable=True)
+    _drop_nine(data, top)
+    issues += [
+        project_issue("kicad.project.dropped-too-new", f"{e.message}; removed", where=e.where) for e in errors
+    ]
+
+
+def _drop_nine(data: JsonObject, top: Sequence[str]) -> None:
+    """``data`` without the key paths ``top`` and with the net settings version of 9."""
     for path in top:
         _remove(data, path)
     settings = data.get("net_settings")
@@ -886,9 +930,46 @@ def _gate_nine(data: JsonObject, design: Design, pair: tuple[int | None, int | N
         meta = cast(JsonObject, settings).get("meta")
         if isinstance(meta, dict):
             cast(JsonObject, meta)["version"] = JsonNumber(str(PROJECT_VERSIONS[9][1]))
-    issues += [
-        project_issue("kicad.project.dropped-too-new", f"{e.message}; removed", where=e.where) for e in errors
+
+
+def _resolve_nine(
+    data: JsonObject,
+    top: Sequence[str],
+    pair: tuple[int | None, int | None],
+    *,
+    allow_lossy: bool,
+    issues: list[Issue],
+    edits: list[resolver.Edit] | None,
+) -> None:
+    """The downgrade of a project of KiCad 10: each top key path by its ``project:`` row of the resolver,
+    and the net settings version by ``project:/net_settings/meta/version``. A row's value is
+    ``resolver.PROJECT_DEFAULT`` when the path holds what a fresh KiCad 10 project writes there
+    (``holds_default``), else ``resolver.PROJECT_CONTENT``."""
+    table = resolver.load()
+    found: list[resolver.Edit] = []
+    for path in top:
+        row = table.row(resolver.PROJECT_PREFIX + path)
+        value = resolver.PROJECT_DEFAULT if holds_default(data, path) else resolver.PROJECT_CONTENT
+        found.append(resolver.Edit(row.id, row.decide((value,)), path))
+    if pair == PROJECT_VERSIONS[10]:
+        found.append(resolver.Edit(resolver.PROJECT_VERSION_ROW, "rewrite", "/net_settings/meta/version"))
+    refused = [
+        Issue(
+            resolver.DESIGN_CODE,
+            "error",
+            f"{edit.where} is written only by KiCad 10.0: dropping it changes the design (row {edit.row})",
+            where=edit.where,
+            hint=f"row {edit.row}",
+        )
+        for edit in found
+        if edit.action == "design" and not allow_lossy
     ]
+    if refused:
+        raise LossyWriteError(refused, droppable=True)
+    _drop_nine(data, top)
+    issues += resolver.edit_issues(found, 9)
+    if edits is not None:
+        edits.extend(found)
 
 
 def update_project(
@@ -899,8 +980,12 @@ def update_project(
     allow_lossy: bool = False,
     issues: list[Issue] | None = None,
     renamed_nets: Collection[str] = (),
+    downgrade: bool = False,
+    edits: list[resolver.Edit] | None = None,
 ) -> str:
     """``existing_text`` with only its managed keys changed (project.md, "Updates").
+
+    ``downgrade`` and ``edits``: a project of KiCad 10 written for target 9 (``_gate_nine``, change c0162).
 
     ``renamed_nets`` are the old names of the nets that the design renamed (``moved_net()``): the
     exact-name pattern of such a net is Fenolite's own entry for a net that now has another name, so it is
@@ -921,7 +1006,9 @@ def update_project(
             hint=REWRITE_HINT,
         )
     if target == 9:
-        _gate_nine(data, design, pair, allow_lossy=allow_lossy, issues=found)
+        _gate_nine(
+            data, design, pair, allow_lossy=allow_lossy, issues=found, downgrade=downgrade, edits=edits
+        )
     _write_minimums(data, design, target=target, update=True, issues=found)
     _write_severities(data, design, target=target, allow_lossy=allow_lossy, issues=found)
     classes = _classes(data)
@@ -1012,6 +1099,7 @@ __all__ = [
     "apply_project",
     "apply_sheet_keys",
     "classify_project",
+    "holds_default",
     "pattern_matches",
     "project_floors",
     "project_minimums",
@@ -1021,5 +1109,6 @@ __all__ = [
     "synthesize_project",
     "template",
     "update_project",
+    "values_at",
     "write_project_text",
 ]

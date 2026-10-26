@@ -12,6 +12,7 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Mapping
 from types import MappingProxyType
+from typing import overload
 
 from fenolite import __version__
 from fenolite.core.coords import Point, Size
@@ -21,7 +22,9 @@ from fenolite.dsl.design import MINIMUM_KINDS, Design, ImpedanceSpec
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.items import DimensionSpec, GraphicSpec, TextSpec
 from fenolite.dsl.module import Module as DslModule
+from fenolite.dsl.panel import Panel
 from fenolite.dsl.part import FieldRequest, PadZoneRequest, Part, Placement, pad_pairs
+from fenolite.dsl.schematic import extract as schematic_composition
 from fenolite.dsl.shape import ring_box
 from fenolite.model.board import (
     Board,
@@ -30,6 +33,7 @@ from fenolite.model.board import (
     Keepout,
     Outline,
     OutlineArc,
+    OutlineSlot,
     StackLayer,
     Stackup,
     Text,
@@ -41,6 +45,7 @@ from fenolite.model.design import Design as ModelDesign
 from fenolite.model.findings import Findings
 from fenolite.model.manufacturing import Manifest
 from fenolite.model.pairs import PAIR_ROLES
+from fenolite.model.panel import Panel as ModelPanel
 from fenolite.model.presentation import SheetFrameRef
 from fenolite.model.rules import (
     ImpedanceTarget,
@@ -61,6 +66,7 @@ KEYS: Mapping[str, tuple[str, str]] = MappingProxyType(
         "design": ("dsn", "design"),
         "board": ("brd", "board"),
         "outline": ("out", "outline"),
+        "slot": ("slt", "slot:<slot name>"),
         "rules": ("rst", "rules"),
         "manifest": ("mfn", "manifest"),
         "module": ("mod", "module:<path>"),
@@ -272,8 +278,23 @@ def _proximity(design: Design) -> tuple[ProximityRule, ...]:
     )
 
 
-def to_model(design: Design) -> ModelDesign:
-    """The model design of ``design``: model types only, no validation, no library access."""
+@overload
+def to_model(design: Design) -> ModelDesign: ...
+
+
+@overload
+def to_model(design: Panel) -> ModelPanel: ...
+
+
+def to_model(design: Design | Panel) -> ModelDesign | ModelPanel:
+    """The model design of ``design``: model types only, no validation, no library access. A panel script's
+    ``Panel`` gives its model panel (change c0173)."""
+    if isinstance(design, Panel):
+        return design.to_model()
+    return _design_model(design)
+
+
+def _design_model(design: Design) -> ModelDesign:
     parts = sorted(design.parts.values(), key=lambda p: p.path)
     components = tuple(_component(p) for p in parts)
     classes = {
@@ -327,6 +348,17 @@ def to_model(design: Design) -> ModelDesign:
             cutouts=tuple(ring.points for ring in rings[1:]),
             arcs=tuple(
                 OutlineArc(index, edge, mid) for index, ring in enumerate(rings) for edge, mid in ring.arcs
+            ),
+            slots=tuple(
+                OutlineSlot(
+                    id=key_id("slot", spec.name),
+                    center=spec.center,
+                    length=spec.length,
+                    width=spec.width,
+                    rotation=spec.rotation,
+                    name=spec.name,
+                )
+                for spec in design.slot_specs.values()
             ),
         )
         # a zone without an outline takes the box of the board ring's vertices and arc mid points
@@ -675,6 +707,7 @@ __all__ = [
     "KEYS",
     "PATH_PROPERTY",
     "drawing_sheet_source",
+    "schematic_composition",
     "fields",
     "pad_zones",
     "key_id",

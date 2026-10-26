@@ -16,12 +16,14 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
+import _a2kcases
 import _acceptance
+import _altium_slotcases
 import _anchorbench
 import _arccases
 import _areacases
@@ -31,12 +33,16 @@ import _benches
 import _bodycases
 import _buildcases
 import _checkcases
+import _convcases
 import _copperparity
 import _couplebench
 import _creepbench
 import _doccases
+import _downbench
 import _drawbench
 import _drccases
+import _edgebench
+import _eqsides
 import _erccases
 import _exclcases
 import _exportcases
@@ -45,6 +51,7 @@ import _fieldbench
 import _fieldprobe
 import _fillcases
 import _followcases
+import _fpitemsoracle
 import _fpwrite
 import _framecases
 import _gencases
@@ -67,9 +74,11 @@ import _netlistcases
 import _offsetbench
 import _openbench
 import _outlinebench
+import _ovalcases
 import _pairbench
 import _paircases
 import _pairclasses
+import _panelbench
 import _paritycases
 import _pcbxcases
 import _placecases
@@ -82,9 +91,13 @@ import _rta3oracle
 import _rulecases
 import _schcases
 import _sheetcases
+import _slotbench
+import _slotsconv
 import _stackbench
 import _tiebench
 import _triad
+import _userlayers
+import _v03acceptance
 import _vendorcases
 import _viabench
 import _zbench
@@ -92,7 +105,7 @@ import _zonebench
 import _zonelayers
 import pytest
 from _boards import FIXTURE, created_board
-from _resources import kicad_cli
+from _resources import CORPUS_HINT, NotFetched, kicad_cli, required_resources
 
 from fenolite.backends.kicad import drc as drcmod
 from fenolite.backends.kicad.cli import DRC_REPORT, KicadCli, cli_for
@@ -240,6 +253,9 @@ def ignored_checks() -> str:
 def _probes() -> dict[str, Probe]:
     both = (9, 10)
     probes: dict[str, Probe] = {
+        "convert-a2k-load": Probe(_a2kcases.load_probe, (9, 10)),
+        "convert-a2k-import": Probe(_a2kcases.import_probe, (10,)),
+        "convert-a2k-sch": Probe(_a2kcases.schematic_probe, (9, 10)),
         "pcb-write-triad-9": Probe(lambda: load(triad_text(9)), both),
         "pcb-write-triad-10": Probe(lambda: load(triad_text(10)), both),
         "pcb-write-heads-9": Probe(lambda: load(write_board(created_board(4), target=9).text), both),
@@ -258,9 +274,11 @@ def _probes() -> dict[str, Probe]:
         probes[f"pcb-libdrc-{name}"] = Probe(lambda name=name: libdrc(name), both)
     probes.update(fp_write_probes())
     # the level-5 triangle on the routed sample (c0089); `pcb import` exists from 10.0 only
+    probes["acceptance-v03"] = Probe(_v03acceptance.outcome, (10,))
     probes["equiv-l5-triangle"] = Probe(_routetriangle.outcome, (10,))
     # KiCad's importer on the rewrite of an own PCB document (c0090, RT-A3)
     probes["altium-rta3-kicad"] = Probe(_rta3oracle.outcome, (10,))
+    probes["altium-fpitems-kicad"] = Probe(_fpitemsoracle.outcome, (10,))  # change c0126, task 7.3
     for pid, (function, majors) in {
         **_rulecases.dru_probes(),
         **_procases.pro_probes(),
@@ -294,6 +312,8 @@ def _probes() -> dict[str, Probe]:
         **_itemcases.item_probes(),
         **_outlinebench.outline_probes(),  # change c0102
         **_holebench.hole_probes(),  # change c0102
+        **_slotbench.slot_probes(),  # change c0167
+        **_edgebench.edge_probes(),  # change c0169
         **_layerbench.layer_change_probes(),  # change c0102
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
@@ -324,12 +344,15 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _pcbxcases.pcbx_probes().items():  # change c0085
         probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _altium_slotcases.slot_probes().items():  # change c0168
+        probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _bodycases.body_probes().items():  # change c0121
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _limitsbench.limit_probes().items():  # change c0141
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in {  # change c0100
         **_layertables.table_probes(),
+        "pcb-user-layers": (_userlayers.probe, (9, 10)),
         **_layercases.layer_probes(),
     }.items():
         probes[pid] = Probe(function, majors)  # type: ignore[arg-type]
@@ -361,12 +384,21 @@ def _probes() -> dict[str, Probe]:
         probes[pid] = Probe(function, majors)
     for pid, (function, majors) in _couplebench.couple_probes().items():  # change c0110
         probes[pid] = Probe(function, majors)
-    # change c0105: `pro-tuning-gap-clearance-rule` is printed by its test and not pinned, because its outcome
-    # (recorded either way) has not been read from a run yet
-    tuning = {
-        pid: entry for pid, entry in _zbench.tuning_probes().items() if pid != "pro-tuning-gap-clearance-rule"
-    }
-    for pid, (function, majors) in {**tuning, **_zbench.width_probes()}.items():
+    for pid, (function, majors) in {**_eqsides.eq_side_probes(), **_ovalcases.oval_probes()}.items():  # c0158
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _convcases.conv_probes().items():  # change c0159
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _slotsconv.conv_slot_probes().items():  # change c0170
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in _panelbench.panel_probes().items():  # change c0173
+        probes[pid] = Probe(function, majors)
+    for pid, (function, majors) in {
+        **_downbench.down_probes(runner),
+        **_downbench.demo_probes(runner),
+    }.items():  # c0162
+        probes[pid] = Probe(function, majors)
+    # change c0105: `pro-tuning-gap-clearance-rule` is pinned since its outcome was read on 10.0.6 (task 1.3)
+    for pid, (function, majors) in {**_zbench.tuning_probes(), **_zbench.width_probes()}.items():
         probes[pid] = Probe(function, majors)
     return probes
 
@@ -410,10 +442,19 @@ def fp_write_probes() -> dict[str, Probe]:
 PROBES: dict[str, Probe] = _probes()
 
 
+NOT_FETCHED: set[str] = set()
+"""The probes whose corpus input was not on this machine; ``run`` gives them ``inconclusive``."""
+
+
 @cache
 def run(probe_id: str) -> str:
-    """The outcome of ``probe_id`` on the running ``kicad-cli`` (memoised per session)."""
-    outcome = PROBES[probe_id].function()
+    """The outcome of ``probe_id`` on the running ``kicad-cli`` (memoised per session); ``inconclusive``,
+    with the id added to ``NOT_FETCHED``, when its corpus input is not cached."""
+    try:
+        outcome = PROBES[probe_id].function()
+    except NotFetched:
+        NOT_FETCHED.add(probe_id)
+        return "inconclusive"
     if outcome not in OUTCOMES:
         raise ValueError(f"probe {probe_id} returned {outcome!r}, not one of {sorted(OUTCOMES)}")
     return outcome
@@ -428,10 +469,18 @@ def results_path(name: str, folder: Path = RESULTS) -> Path:
     return folder / f"{name}.json"
 
 
-def verify(name: str, found: Mapping[str, str], folder: Path = RESULTS) -> None:
+def verify(
+    name: str, found: Mapping[str, str], folder: Path = RESULTS, *, not_fetched: Collection[str] = ()
+) -> None:
     """Compare ``found`` with the results file of version ``name``, or write it with
-    ``FENOLITE_PROBES_WRITE=1``; fail on drift or on a missing file."""
+    ``FENOLITE_PROBES_WRITE=1``; fail on drift or on a missing file. The probes ``not_fetched`` have no
+    outcome on this machine and are left out of the comparison, unless the corpus is required
+    (``FENOLITE_REQUIRE``) or the file is being written: then they fail the test."""
     path = results_path(name, folder)
+    if not_fetched and ("corpus" in required_resources() or os.environ.get(WRITE_VARIABLE) == "1"):
+        missing = ", ".join(sorted(not_fetched))
+        pytest.fail(f"corpus input not cached for probe(s) {missing}: {CORPUS_HINT}", pytrace=False)
+    found = {pid: outcome for pid, outcome in found.items() if pid not in not_fetched}
     if os.environ.get(WRITE_VARIABLE) == "1":
         folder.mkdir(parents=True, exist_ok=True)
         data = {"version": name, "probes": dict(sorted(found.items()))}
@@ -444,6 +493,7 @@ def verify(name: str, found: Mapping[str, str], folder: Path = RESULTS) -> None:
             pytrace=False,
         )
     recorded: dict[str, str] = json.loads(path.read_text(encoding="utf-8"))["probes"]
+    recorded = {pid: outcome for pid, outcome in recorded.items() if pid not in not_fetched}
     drift = [
         f"{pid}: recorded {recorded.get(pid)!r}, now {found.get(pid)!r}"
         for pid in sorted(set(recorded) | set(found))
@@ -453,4 +503,4 @@ def verify(name: str, found: Mapping[str, str], folder: Path = RESULTS) -> None:
         pytest.fail(f"probe outcomes drifted for kicad-cli {name}:\n" + "\n".join(drift), pytrace=False)
 
 
-__all__ = ["OUTCOMES", "PROBES", "Probe", "outcomes", "run", "verify", "version"]
+__all__ = ["NOT_FETCHED", "OUTCOMES", "PROBES", "Probe", "outcomes", "run", "verify", "version"]

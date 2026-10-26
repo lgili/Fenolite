@@ -108,6 +108,42 @@ def test_json_envelope(name: str, capsys: CapSys) -> None:
     assert data["ok"] is True and err == ""
 
 
+def result_schema(name: str) -> dict[str, Any] | None:
+    """The schema of the ``result`` of command ``name``, when ``schemas/fenolite.<name>.v0.json`` exists
+    (capability design-equivalence, "Equivalent result schema"; change c0158)."""
+    path = _schema.SCHEMAS / f"fenolite.{name}.v0.json"
+    return _schema.load(path.name) if path.is_file() else None
+
+
+RESULT_SCHEMAS = sorted(name for name in NAMES if result_schema(name) is not None)
+
+
+def test_equivalent_has_a_result_schema() -> None:
+    assert "equivalent" in RESULT_SCHEMAS
+
+
+@pytest.mark.parametrize("name", RESULT_SCHEMAS)
+def test_result_validates(name: str, capsys: CapSys) -> None:
+    """Scenario "Reply validates": the envelope against its schema, ``result`` against the command's."""
+    code, out, err = _invoke(capsys, [name, *COMMANDS[name].example_args, "--json"])
+    assert code == 0, err
+    data = _assert_envelope(name, out)
+    schema = result_schema(name)
+    assert schema is not None and schema["$id"] == f"fenolite.{name}.v0"
+    assert _schema.validate(data["result"], schema) == []
+
+
+@pytest.mark.parametrize("name", RESULT_SCHEMAS)
+def test_result_schema_refuses_an_unknown_key(name: str, capsys: CapSys) -> None:
+    """Scenario "Unknown key refused"."""
+    _, out, _ = _invoke(capsys, [name, *COMMANDS[name].example_args, "--json"])
+    result = json.loads(out)["result"]
+    schema = result_schema(name)
+    assert schema is not None
+    problems = _schema.validate({**result, "extra": 1}, schema)
+    assert problems and any("extra" in problem for problem in problems), problems
+
+
 @pytest.mark.parametrize("name", NAMES)
 def test_text_mode(name: str, capsys: CapSys) -> None:
     code, out, _ = _invoke(capsys, [name, *COMMANDS[name].example_args, "--text"])

@@ -21,7 +21,8 @@ from types import MappingProxyType
 from typing import Any
 
 import fenolite.backends.altium.import_evidence as import_evidence
-from fenolite.backends.altium.lower import ProjectWrite
+import fenolite.backends.altium.pcbrecords as rec
+from fenolite.backends.altium.lower import FREE_PAD_REASON, ProjectWrite
 from fenolite.backends.altium.roundtrip import (
     EVIDENCE_BODIES,
     EVIDENCE_RT_A3,
@@ -29,7 +30,11 @@ from fenolite.backends.altium.roundtrip import (
     RT_A3_SCOPE,
 )
 from fenolite.backends.base import Change, ModelCompare, ModelRoundTrip
+from fenolite.core.coords import Point
 from fenolite.core.evidence import Evidence, Level
+from fenolite.geometry.transform import FULL_TURN, Transform
+from fenolite.model.board import FootprintInstance, Hole, Pad
+from fenolite.model.circuit import Component
 from fenolite.model.design import Design
 
 _BOARD_FIELDS: Mapping[str, str] = MappingProxyType(
@@ -97,6 +102,118 @@ def without_unwritten(design: Design, kept: Mapping[str, Sequence[str]], *, from
     return dataclasses.replace(design, circuit=circuit, board=board)
 
 
+ROUND_SHAPE = rec.PAD_SHAPES["circle"]
+"""The record's round main shape, which ``adapter.board.free_hole`` asks of a free hole."""
+
+
+def _units(length: int) -> int:
+    return rec.to_units(length)
+
+
+def _read_as_hole(pad: Pad, position: Point, rotation: int) -> Hole | None:
+    """The board ``Hole`` that the import makes of the free pad that the writer gives the detached ``pad``
+    at ``position`` turned by ``rotation`` (board frame), or ``None`` when the import keeps it a board-only
+    footprint. The rule is the import's (``adapter.board.free_hole``, change c0168), read on the model pad
+    as the writer puts it in the record (``pcblib.pad_bytes``), in record units: a pad on Multi-Layer
+    without a net whose main shapes are round, without an offset, every size the hole for a round hole and
+    (slot length, hole) for a slot along the pad (capability altium-verification, "Detached hole pads in
+    RT-A3"; change c0171)."""
+    if pad.net_id is not None or pad.kind not in ("thru_hole", "np_thru_hole") or not pad.drill:
+        return None
+    stack = pad.padstack
+    layers = stack.layers if stack is not None else ()
+    parts = [(layer.shape, layer.size, layer.offset) for layer in layers]
+    parts = parts or [(pad.shape, pad.size, Point(0, 0))]
+    if any(rec.PAD_SHAPES.get(shape) != ROUND_SHAPE or offset != Point(0, 0) for shape, _, offset in parts):
+        return None
+    drill = _units(pad.drill)
+    length: int | None = None
+    turned = 0
+    if stack is None or stack.hole_shape == "round":
+        want = (drill, drill)
+    elif stack.hole_shape == "slot" and stack.hole_length and _units(stack.hole_length) > drill:
+        if stack.hole_rotation % (FULL_TURN // 2):
+            return None
+        want = (_units(stack.hole_length), drill)
+        length, turned = stack.hole_length, rotation % FULL_TURN
+    else:
+        return None
+    if any((_units(size.w), _units(size.h)) != want for _, size, _ in parts):
+        return None
+    return Hole(
+        id="rta3-hole-" + pad.id,
+        position=position,
+        drill=pad.drill,
+        plated=pad.kind == "thru_hole",
+        length=length,
+        rotation=turned,
+    )
+
+
+def _free_pad_view(design: Design, converted: Sequence[str] = ()) -> Design:
+    """Represent exactly the reported detached pads as the reader gives them: a board ``Hole`` for a pad
+    whose copper is its hole (change c0168, ``_read_as_hole``), else a free-pad footprint.
+
+    Anonymous footprints are ordered by geometry on both sides so inserting a detached pad cannot
+    renumber an existing anonymous owner. Every pad and its position remain in the comparison.
+    """
+    if design.board is None:
+        return design
+    refs = {c.id: c.ref for c in design.circuit.components}
+    footprints: list[FootprintInstance] = []
+    holes = list(design.board.holes)
+    components = list(design.circuit.components)
+    for fp in design.board.footprints:
+        detached = tuple(p for p in fp.pads if p.id in converted)
+        footprints.append(dataclasses.replace(fp, pads=tuple(p for p in fp.pads if p.id not in converted)))
+        frame = Transform.placement(fp.position, fp.rotation)
+        for pad in detached:
+            hole = _read_as_hole(pad, frame.apply(pad.position), frame.apply_angle(pad.rotation))
+            if hole is not None:
+                holes.append(hole)
+                continue
+            cid = "rta3-free-" + pad.id
+            refs[cid] = ""
+            components.append(Component(id=cid, ref=""))
+            footprints.append(
+                FootprintInstance(
+                    id=cid,
+                    component_id=cid,
+                    lib_ref="",
+                    position=frame.apply(pad.position),
+                    attributes=("board_only",),
+                    pads=(
+                        dataclasses.replace(
+                            pad, position=Point(0, 0), rotation=frame.apply_angle(pad.rotation)
+                        ),
+                    ),
+                )
+            )
+    named = [fp for fp in footprints if refs.get(fp.component_id, fp.component_id)]
+    anonymous = sorted(
+        (fp for fp in footprints if not refs.get(fp.component_id, fp.component_id)),
+        key=lambda fp: (
+            fp.position.x,
+            fp.position.y,
+            fp.rotation,
+            fp.side,
+            tuple((p.number, p.position.x, p.position.y, p.size.w, p.size.h) for p in fp.pads),
+        ),
+    )
+    order = {fp.component_id: i for i, fp in enumerate(anonymous)}
+    named_components = [c for c in components if c.ref]
+    anonymous_components = sorted(
+        (c for c in components if not c.ref), key=lambda c: order.get(c.id, len(order))
+    )
+    return dataclasses.replace(
+        design,
+        board=dataclasses.replace(design.board, footprints=tuple(named + anonymous), holes=tuple(holes)),
+        circuit=dataclasses.replace(
+            design.circuit, components=tuple(named_components + anonymous_components)
+        ),
+    )
+
+
 def unwritten_counts(written: ProjectWrite, census: Mapping[str, int]) -> dict[str, int]:
     """What the written documents do not hold, per kind: the model items that the write left out
     (``AltiumInputs.counts``), and under ``RECORD_PREFIX`` the records of the first reading that the import
@@ -135,6 +252,10 @@ def rt_a3(
             evidence=Evidence(Level.UNVERIFIED),
         )  # fmt: skip
     reference = without_unwritten(first, written.inputs.not_lowered, from_board=from_board)
+    detached = written.inputs.changed.get("pad", {}).get(FREE_PAD_REASON, ())
+    if detached:
+        reference = _free_pad_view(reference, detached)
+        second = _free_pad_view(second)
     report = compare(reference, second, RT_A3_SCOPE)
     evidence = Evidence.combine(EVIDENCE_RT_A3, import_evidence.EVIDENCE)
     changes = report.changes

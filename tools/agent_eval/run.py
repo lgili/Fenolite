@@ -32,7 +32,7 @@ import time
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, cast
 
 if not __package__:  # started as a file: make the package importable, then import through it
@@ -82,7 +82,17 @@ RESULT_KEYS = (
     "cost",
 )
 REPORT_KEYS = ("model", "turns", "tokens", "cost")
-_ROW_KEYS = {"argv", "version_argv", "skill", "source", "budget_flag", "report", "isolation", "unconfigured"}
+_ROW_KEYS = {
+    "argv", "version_argv", "skill", "source", "budget_flag", "report", "isolation", "unconfigured",
+    "prompt_stdin",
+}  # fmt: skip
+PROMPT, PROMPT_FILE = "{prompt}", "{prompt_file}"
+BATCH_SUFFIXES = (".cmd", ".bat")
+"""A program with one of these suffixes runs through ``cmd.exe`` on Windows."""
+CMD_UNSAFE = ("\n", "\r", "%", '"')
+"""What ``cmd.exe`` does not pass through in an argument: it ends the command line at a line break, expands
+``%`` and reads a quote as a switch of its own quoting. Every prompt holds a line break (``FIRST_LINE``,
+an empty line, the task), so a ``{prompt}`` argument never reaches a batch launcher whole."""
 EXIT_OK, EXIT_HARNESS, EXIT_USAGE, EXIT_VERDICT = 0, 1, 2, 5
 STOP_GRACE_S = 5
 LINE_TIMEOUT_S = 1800
@@ -108,6 +118,8 @@ class Runner:
     """The flags that keep the agent from loading the user's own settings, memory and skills."""
     unconfigured: str = ""
     """Why the row cannot start yet; a row with this text is refused."""
+    prompt_stdin: bool = False
+    """The prompt goes to the agent's standard input (UTF-8, then closed) instead of an argument."""
 
     @property
     def real(self) -> bool:
@@ -118,10 +130,78 @@ class Runner:
         """``replay`` starts no agent, so nothing can remember anything; a real row needs its flags."""
         return not self.real or bool(self.isolation)
 
-    def command(self, prompt: str, workdir: Path) -> list[str]:
-        """The agent's command line: its program, the isolation and budget flags, then its arguments."""
-        words = [word.replace("{prompt}", prompt).replace("{workdir}", str(workdir)) for word in self.argv]
+    def command(self, prompt: str, workdir: Path, prompt_file: Path | None = None) -> list[str]:
+        """The agent's command line: its program, the isolation and budget flags, then its arguments.
+        ``{prompt_file}`` becomes ``prompt_file``, the file that holds the prompt."""
+        file = "" if prompt_file is None else str(prompt_file)
+        words = [
+            word.replace(PROMPT_FILE, file).replace(PROMPT, prompt).replace("{workdir}", str(workdir))
+            for word in self.argv
+        ]
         return [words[0], *self.isolation, *self.budget_flag, *words[1:]]
+
+
+@dataclass(frozen=True)
+class Launch:
+    """How the agent is started: its command line and what its standard input receives (``None``: no
+    input)."""
+
+    argv: list[str]
+    stdin: bytes | None = None
+
+
+def _program(name: str, env: Mapping[str, str], system: str, which: Any) -> str:
+    """The program of a command line as it is started: on Windows the file that ``PATH`` and ``PATHEXT``
+    give (``claude`` may be ``claude.cmd``), elsewhere the name as written, which the system looks up."""
+    if system != "nt":
+        return name
+    found = which(name, path=env.get("PATH"))
+    return str(found) if found else name
+
+
+def batch_refusal(
+    runner: Runner, env: Mapping[str, str], *, system: str = os.name, which: Any = shutil.which
+) -> str:
+    """Why ``runner`` cannot be given its prompt, or ``""``: on Windows a program that is a batch launcher
+    (``.cmd``, ``.bat``) runs through ``cmd.exe``, which cuts a ``{prompt}`` argument at its first line
+    break, so such a row must give the prompt with ``prompt_stdin`` or ``{prompt_file}``."""
+    if not runner.real or not runner.argv or not any(PROMPT in word for word in runner.argv):
+        return ""
+    program = _program(runner.argv[0], env, system, which)
+    if PureWindowsPath(program).suffix.lower() not in BATCH_SUFFIXES:
+        return ""
+    return (
+        f"the runner {runner.name} starts {PureWindowsPath(program).name}, a batch launcher that cmd.exe "
+        "runs, and cmd.exe cuts the prompt at its first line break: give the row prompt_stdin = true or put "
+        "{prompt_file} in argv in place of {prompt}, or name the program's executable in argv"
+    )
+
+
+def launch(
+    runner: Runner,
+    prompt: str,
+    place: Place,
+    env: Mapping[str, str],
+    *,
+    system: str = os.name,
+    which: Any = shutil.which,
+) -> Launch:
+    """The agent's command line and input for ``prompt``. ``{prompt_file}`` writes the prompt (UTF-8) to
+    ``prompt.txt`` beside the work folder; ``prompt_stdin`` gives it on standard input. ``Refused`` when
+    a ``{prompt}`` argument would pass through ``cmd.exe`` (``batch_refusal``) and the prompt holds a
+    character of ``CMD_UNSAFE``."""
+    reason = batch_refusal(runner, env, system=system, which=which)
+    if reason and any(char in prompt for char in CMD_UNSAFE):
+        raise Refused(reason)
+    file: Path | None = None
+    if any(PROMPT_FILE in word for word in runner.argv):
+        file = place.root / "prompt.txt"
+        file.write_bytes(prompt.encode("utf-8"))
+    argv = (
+        runner.command(prompt, place.workdir) if file is None else runner.command(prompt, place.workdir, file)
+    )
+    argv[0] = _program(argv[0], env, system, which)
+    return Launch(argv, prompt.encode("utf-8") if runner.prompt_stdin else None)
 
 
 @dataclass(frozen=True)
@@ -200,8 +280,16 @@ def load_runners(path: Path | None = None) -> dict[str, Runner]:
             if key not in row:
                 raise ValueError(f"runner {name}: the key {key} is missing")
         argv = _words(row["argv"], name, "argv")
-        if not argv or not any("{prompt}" in word for word in argv):
-            raise ValueError(f"runner {name}: argv must hold the program and {{prompt}}")
+        stdin = row.get("prompt_stdin", False)
+        if not isinstance(stdin, bool):
+            raise ValueError(f"runner {name}: prompt_stdin must be true or false")
+        given = [word for word in argv if PROMPT in word or PROMPT_FILE in word]
+        if not argv or (not given and not stdin):
+            raise ValueError(f"runner {name}: argv must hold the program and {{prompt}} or {{prompt_file}}")
+        if given and stdin:
+            raise ValueError(
+                f"runner {name}: with prompt_stdin, argv holds neither {{prompt}} nor {{prompt_file}}"
+            )
         source_id = row["source"]
         if not isinstance(source_id, str) or not source_id.startswith("S-"):
             raise ValueError(f"runner {name}: source must be an id of docs/evidence/sources.md")
@@ -218,6 +306,7 @@ def load_runners(path: Path | None = None) -> dict[str, Runner]:
             {key: str(value) for key, value in cast("dict[str, object]", report).items()},
             _words(row.get("isolation", []), name, "isolation"),
             unconfigured,
+            stdin,
         )
     if REPLAY not in runners:
         raise ValueError("runners.toml holds no row replay")
@@ -350,18 +439,19 @@ def _stop(process: subprocess.Popen[bytes]) -> None:
 
 
 def start_agent(
-    argv: Sequence[str], place: Place, env: Mapping[str, str], seconds: float
+    argv: Sequence[str], place: Place, env: Mapping[str, str], seconds: float, stdin: bytes | None = None
 ) -> tuple[int | None, bool]:
     """Start the agent in the work folder and wait at most ``seconds``. Its output goes to files beside
-    the work folder, never into it. Returns its exit code (``None`` when it was stopped or could not
-    start) and whether the time ran out."""
+    the work folder, never into it; ``stdin`` is written to its standard input, which is then closed.
+    Returns its exit code (``None`` when it was stopped or could not start) and whether the time ran
+    out."""
     with open(place.root / "agent.stdout", "wb") as out, open(place.root / "agent.stderr", "wb") as err:
         try:
             process = subprocess.Popen(
                 list(argv),
                 cwd=place.workdir,
                 env=dict(env),
-                stdin=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL if stdin is None else subprocess.PIPE,
                 stdout=out,
                 stderr=err,
                 start_new_session=os.name != "nt",
@@ -370,6 +460,9 @@ def start_agent(
             err.write(f"the runner could not be started: {error.strerror}\n".encode())
             return None, False
         try:
+            if stdin is not None:
+                process.communicate(input=stdin, timeout=seconds)
+                return process.returncode, False
             return process.wait(timeout=seconds), False
         except subprocess.TimeoutExpired:
             _stop(process)
@@ -465,7 +558,8 @@ def execute(
     if runner.real:
         version = _first_line(runner.version_argv, place.root) if runner.version_argv else None
         prompt = f"{FIRST_LINE}\n\n{task.prompt}"
-        _, timed_out = start_agent(runner.command(prompt, place.workdir), place, env, limit)
+        started_with = launch(runner, prompt, place, env)
+        _, timed_out = start_agent(started_with.argv, place, env, limit, started_with.stdin)
     else:
         replay(task, place.workdir, launcher, env)
     minutes = round((time.monotonic() - started) / 60, 1)
@@ -654,6 +748,9 @@ def guard(
         raise Refused("--repeat takes a whole number of at least 1")
     if runner.real and runner.unconfigured:
         raise Refused(f"the runner {runner.name} is not configured: {runner.unconfigured}")
+    reason = batch_refusal(runner, env)
+    if reason:
+        raise Refused(reason)
     if runner.real and not args.yes:
         for name in task_names:
             for line in budget_lines(tasks.load(name), runner):

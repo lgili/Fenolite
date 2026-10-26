@@ -349,7 +349,7 @@ recorded either way."""
 
 
 def tuning_probes() -> dict[str, tuple[Callable[[], str], tuple[int, ...]]]:
-    """``probe id → (function, majors)``; ``_probes.PROBES`` takes all but the gap clearance under a rule."""
+    """``probe id → (function, majors)``; ``_probes.PROBES`` takes all of them."""
     ten = (10,)
     return {
         "pro-tuning-width": (width_profile_probe, ten),

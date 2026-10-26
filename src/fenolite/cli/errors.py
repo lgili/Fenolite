@@ -119,8 +119,8 @@ _SPECS = (
     ErrorSpec(
         "FEN-7002",
         ExitCode.LOSSY,
-        "target format version older than the input; downgrade is not supported",
-        "choose a target at least as new as the input",
+        "target format version older than the input; no downgrade was asked",
+        "convert the project with 'fenolite convert <project> --to kicad --kicad-version <target>'",
     ),
     ErrorSpec(
         "FEN-7003",

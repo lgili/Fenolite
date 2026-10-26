@@ -333,4 +333,4 @@ minimums `min_<kind>_<class>` and govern on their layers.
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A per-layer custom `track_width` rule with `(min 0.35mm) (opt 0.35mm) (max 0.35mm)` reports a track of its class 1 µm wider ("max width") and one narrower ("min width") on its layer, and nothing on a layer without a rule, on 9.0.9 and 10.0.6 (probe `dru-impedance-width`, CI run 37772583226) | S-0010, S-0038, S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-DRU-IMPEDANCE |
-| A custom `track_width` rule on a class replaces the width check of the class's tuning profile: one finding per item, named by the rule | S-0020 | INFERRED | H-K-PRO-TUNING-DRC |
+| A custom `track_width` rule on a class replaces the width check of the class's tuning profile: one finding per item, named by the rule | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-PRO-TUNING-DRC |

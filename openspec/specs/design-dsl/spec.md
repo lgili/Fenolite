@@ -65,7 +65,7 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - A design name MUST match `^[A-Za-z0-9][A-Za-z0-9_.-]*$`, because it becomes the stem of the KiCad files. Module names and refs MUST match `[A-Za-z0-9_.+-]+`.
 - `Design.add(*objs)` and `Module.add(*objs)` attach parts, modules, nets and interfaces. `Module.path` is the module name at the top and `<parent path>/<name>` below. A component path is `<module path>/<ref>` (`power/ldo/C1`), or `<ref>` at the top.
 - Net names are global and literal. A module-local net is named by the script, for example `Net(f"{m.path}/FB")`.
-- `DslError` MUST be raised for: a duplicate component or module path; a duplicate net, net-class or interface name; two distinct `Net` objects with one name; a net in two classes; a second `place()` or `board()`; a `copper` other than 2 or 4; one designator connected to two nets; a `side` other than `top` and `bottom`; an invalid name or ref.
+- `DslError` MUST be raised for: a duplicate component or module path; a duplicate net, net-class or interface name; two distinct `Net` objects with one name; a net in two classes; a second `place()` or `board()`; a `copper` that is not an `int` of `COPPER_COUNTS` (2, 4, 6 and 8, "Board and placements in the DSL"); one designator connected to two nets; a `side` other than `top` and `bottom`; an invalid name or ref.
 - Equal refs in different modules are not a DSL error. They are left to `Design.validate()` (`model.duplicate-ref`, exit 5 from `build`).
 
 #### Scenario: Paths from modules
@@ -111,14 +111,16 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **THEN** `DslError` is raised
 
 ### Requirement: Board and placements in the DSL
-`Design.board(width, height, copper=2, planes=None)` SHALL declare a rectangular board, its copper layer count and its internal planes, and `Part.place(x, y, rot=0, side="top", locked=False)` SHALL request a placement, both in a board-relative frame.
-- The frame has its origin at the top-left corner of the outline, with Y down. `BOARD_ORIGIN` MUST be `Point(100_000_000, 100_000_000)`, a Fenolite choice: the outline is written from `BOARD_ORIGIN` to `BOARD_ORIGIN + (width, height)`, and a part placed at `(x, y)` is written at `BOARD_ORIGIN + (x, y)`.
-- `width` and `height` MUST be positive lengths. `copper` MUST be 2 or 4.
-- An inner copper layer is a signal layer unless `planes` names it. `planes` MUST be `None` or a mapping from an inner layer name (`"In1.Cu"`, `"In2.Cu"`) to a `Net` or a net name: that layer is an internal plane on that net. `DslError` MUST be raised at the call for `planes` with `copper=2`, a key that is not an inner layer name, and a value that is neither a `Net` nor a valid net name. A plane holds one net; split planes cannot be declared.
+`Design.board(width=None, height=None, copper=2, planes=None, *, outline=None, locked=False)` SHALL declare the board's outline, its copper layer count and its internal planes, and `Part.place(x, y, rot=0, side="top", locked=False, anchor=None)` SHALL request a placement, both in a board-relative frame.
+- The frame has its origin at the top-left corner of the outline given by `width` and `height`, with Y down; an outline given by `outline` is a path in that frame ("Outline shapes in the DSL"), wherever it lies. `BOARD_ORIGIN` MUST be `Point(100_000_000, 100_000_000)`, a Fenolite choice: the frame's origin is written at `BOARD_ORIGIN`, the rectangle from `BOARD_ORIGIN` to `BOARD_ORIGIN + (width, height)`, and a part placed at `(x, y)` at `BOARD_ORIGIN + (x, y)`.
+- Exactly one form MUST be given: `width` and `height`, both positive lengths, or `outline`, a path. Both forms, or neither, MUST raise `DslError`. `copper` MUST be an `int` of `fenolite.dsl.design.COPPER_COUNTS`, which MUST be `(2, 4, 6, 8)` and equal `layers.CREATED_COPPER_COUNTS` of the KiCad backend; any other value, a `bool` or a `float` included, MUST raise `DslError` naming those counts.
+- `locked` MUST be a `bool`. With `True`, the script's outline replaces an outline edited in KiCad when the board is rebuilt (`layout-lens`, "Outline changes across rebuilds"). `outline_locked(design) -> bool` (`dsl/convert.py`, re-exported by `fenolite.dsl` as "DSL package" allows) MUST return it, and false before `board()` is called.
+- `inner_layers(copper)` (`dsl/design.py`) MUST return the inner copper layer names `In1.Cu` … `In<copper − 2>.Cu`, top to bottom, and an empty tuple for `copper=2`. `Design.copper_layers` MUST return `("F.Cu", *inner_layers(copper), "B.Cu")` for the declared count, and `("F.Cu", "B.Cu")` before `board()` is called.
+- An inner copper layer is a signal layer unless `planes` names it. `planes` MUST be `None` or a mapping from an inner layer name of the count (`inner_layers(copper)`) to a `Net` or a net name: that layer is an internal plane on that net. `DslError` MUST be raised at the call for `planes` with `copper=2`, a key that is not an inner layer name of the count (the message names those layers), and a value that is neither a `Net` nor a valid net name. A plane holds one net; split planes cannot be declared.
 - `Design.planes` MUST hold the mapping from layer name to net name, in layer order, empty by default. `planes(design) -> Mapping[str, str]` (`dsl/convert.py`, re-exported by `fenolite.dsl` as "DSL package" allows) MUST return it and MUST raise `DslError` naming a net that the design does not hold.
 - A plane is a build parameter, as `copper` is: `to_model` MUST NOT change, the model gets no plane entity, and a plane layer stays a layer of kind `copper`. What a target does with a plane is its build's rule ("Planes in a build").
 - `rot` is the model rotation, the stored footprint angle on both sides (c0017).
-- `placements(design) -> Mapping[str, Placement]` MUST map each placed component path, in path order, to `Placement(at, rotation, side, locked)`. Unplaced parts MUST be absent.
+- `placements(design) -> Mapping[str, Placement]` MUST map each placed component path, in path order, to `Placement(at, rotation, side, locked, anchor=None)`. Unplaced parts MUST be absent.
 
 #### Scenario: Placement in board coordinates
 - **GIVEN** `r1.place(mm(10), mm(5), rot=90, side="bottom", locked=True)`
@@ -126,8 +128,12 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **THEN** it equals `Placement(Point(110_000_000, 105_000_000), 90_000_000, "bottom", True)`
 
 #### Scenario: Unsupported copper count
-- **WHEN** `design.board(mm(50), mm(30), copper=3)` is called
-- **THEN** `DslError` is raised
+- **WHEN** `design.board(mm(50), mm(30), copper=c)` is called on fresh designs for `c` equal to 3, 10, `True` and `6.0`
+- **THEN** each call raises `DslError` naming the counts 2, 4, 6 and 8
+
+#### Scenario: Six and eight copper layers
+- **WHEN** `design.board(mm(50), mm(30), copper=6)` and, on another design, `copper=8` are called
+- **THEN** `Design.copper_layers` is `("F.Cu", "In1.Cu", "In2.Cu", "In3.Cu", "In4.Cu", "B.Cu")` for the first and adds `In5.Cu` and `In6.Cu` before `B.Cu` for the second, and `COPPER_COUNTS` equals `layers.CREATED_COPPER_COUNTS`
 
 #### Scenario: Unplaced parts are absent
 - **GIVEN** a design with `R1` placed and `R2` not placed
@@ -139,6 +145,10 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **WHEN** `planes(design)` is read
 - **THEN** it equals `{"In1.Cu": "GND"}`, and `to_model(design)` equals the model of the same script without `planes`
 
+#### Scenario: Plane on a deep inner layer
+- **WHEN** `design.board(mm(50), mm(30), copper=8, planes={"In6.Cu": gnd})` is called, and on a fresh design `design.board(mm(50), mm(30), copper=6, planes={"In5.Cu": gnd})`
+- **THEN** `planes(design)` of the first equals `{"In6.Cu": "GND"}`, and the second raises `DslError` naming `In5.Cu` and the inner layers `In1.Cu` to `In4.Cu`
+
 #### Scenario: Malformed planes fail at the call
 - **WHEN** `design.board(mm(50), mm(30), planes={"In1.Cu": gnd})`, `design.board(mm(50), mm(30), copper=4, planes={"F.Cu": gnd})` and `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": 3})` are called on fresh designs
 - **THEN** each raises `DslError`, the second naming `F.Cu`
@@ -148,11 +158,27 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **WHEN** `planes(design)` is called
 - **THEN** `DslError` is raised naming `NOPE`
 
+#### Scenario: A board given by a path
+- **GIVEN** `design.board(outline=((mm(0), mm(0)), (mm(40), mm(0)), (mm(40), mm(30)), (mm(10), mm(30))), copper=4, locked=True)`
+- **WHEN** `to_model(design)` and `outline_locked(design)` are called
+- **THEN** the outline points are (100 mm, 100 mm), (140 mm, 100 mm), (140 mm, 130 mm) and (110 mm, 130 mm), and `outline_locked(design)` is true
+
+#### Scenario: One form only
+- **WHEN** `design.board(mm(50), mm(30), outline=shape.circle(mm(20), mm(20), mm(40)))`, `design.board()` and `design.board(mm(50))` are called on fresh designs
+- **THEN** each raises `DslError`
+
+An `anchor` SHALL be a `MechanicalIntent` and SHALL require `locked=True`. It SHALL be retained in the DSL `placements` output only; build and rebuild do not persist it in native files or `.fenolite/`.
+
+#### Scenario: Anchor requires a lock
+- **WHEN** `Part.place` is called with an anchor and `locked=False`
+- **THEN** it raises `DslError` naming `locked=True`
+
 ### Requirement: Net classes in the DSL
-`design.rules.netclass(name, *, clearance=None, track_width=None, via_diameter=None, via_drill=None, nets=())` SHALL declare one net class whose values are lengths and whose members are the given `Net` objects.
+`design.rules.netclass(name, *, clearance=None, track_width=None, via_diameter=None, via_drill=None, diff_pair_width=None, diff_pair_gap=None, diff_pair_via_gap=None, nets=())` SHALL declare one net class whose values are lengths and whose members are the given `Net` objects.
 - Each given net joins the design and gets `Net.netclass_id` of that class in the model.
 - A class name used twice, or a net given to two classes, MUST raise `DslError`.
-- A net class adds no rule to the model `RuleSet`. The only rule constructor is `design.rules.minimum` ("Rule minimums in the DSL"); without a call to it the `RuleSet` of a DSL design is empty, and the build lowers it through c0018 to `(version 1)`.
+- Each value MUST be a length as "DSL lengths and angles" states. `dsl.to_model` MUST write the seven values into the model `NetClass`, the last three into `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` (`design-model`, "Differential pairs in the model").
+- A net class adds no rule to the model `RuleSet`. Rules come from `minimum()`, `rule()` and `pair()`; without them the `RuleSet` of a DSL design is empty, and the build lowers it to `(version 1)`.
 
 #### Scenario: Class with members
 - **GIVEN** `d.rules.netclass("PWR", clearance=mm(0.2), track_width=mm(0.5), nets=(vin, gnd))`
@@ -163,12 +189,17 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **WHEN** a net already in `PWR` is given to a second class `SIG`
 - **THEN** `DslError` is raised naming the net and both classes
 
+#### Scenario: Class with pair values
+- **GIVEN** `d.rules.netclass("USB", clearance=mm(0.2), diff_pair_width=mm(0.3), diff_pair_gap="0.15mm", nets=(usb_p, usb_n))`
+- **WHEN** `to_model(d)` runs
+- **THEN** the model class `USB` has `diff_pair_width == 300_000`, `diff_pair_gap == 150_000` and `diff_pair_via_gap is None`, and `rules.rules` is empty
+
 ### Requirement: Interfaces in the DSL
 `Interface(name, kind, members)`, `Power(hv, lv, *, name=None)` and `DiffPair(p, n, *, name=None)` SHALL record groups of nets as model `Interface` entities, without any model delta.
 - `Power(hv, lv)` MUST become `Interface(kind="power", members={"hv": <net id>, "lv": <net id>})`, and `DiffPair(p, n)` MUST become `Interface(kind="diff_pair", members={"p": <net id>, "n": <net id>})`.
 - The default name MUST be `"<first net name>/<second net name>"`.
 - Member nets join the design.
-- Interfaces are not lowered to KiCad. A build MUST give one `build.interface-not-lowered` info per `diff_pair` and per `usb2` interface ("Typed interfaces in the DSL"), and the nets of each such pair MUST pass the name check of "Interface checks in a build".
+- Interfaces are not written to KiCad files, which hold no pair object: a pair reaches KiCad through its net names and the rules that select it (`rules-model`, "Closed selector grammar"). A build MUST give one `build.interface-not-lowered` info per `diff_pair` and per `usb2` interface ("Typed interfaces in the DSL") that no rule of the design selects, a rule selecting it when one of its `diff_pair` leaves matches the pair's base (`design-model`, "Differential pairs in the model"). The nets of each such pair MUST pass the name check of "Interface checks in a build".
 
 #### Scenario: Power interface
 - **GIVEN** `Power(vin, gnd)` added to a design
@@ -185,10 +216,15 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **WHEN** it is built with `--dry-run --json`
 - **THEN** `issues` hold one info `build.interface-not-lowered` naming `CLK_P/CLKN` and one warning `build.diff-pair-name` naming both nets
 
+#### Scenario: Pair selected by a rule
+- **GIVEN** the variant of "Diff pair reported" with `d.rules.pair(pair, uncoupled_max=mm(5))`, or with a rule on `select.pair("*")`
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** `issues` hold no `build.interface-not-lowered`
+
 ### Requirement: DSL to model
 `dsl.to_model(design) -> fenolite.model.Design` SHALL convert a DSL design into model types only, with the ids of `design-model` "Identifier derivation" (fourth case).
 - **Circuit.** One `Component` per added part, with `ref`, `value`, `lib_symbol_ref`, `lib_footprint_ref` (empty when `Part.footprint` is `None`), empty `pins`, empty `path` and `properties` holding `"fenolite.path"` mapped to the component path and every entry of `Part.properties` ("User properties in the DSL"), keys in code-point order. Nets whose `PinRef.pin` holds the designator as written. Net classes with `Net.netclass_id`. Interfaces. One `Module` per DSL module, with `path`, `parent` and `component_ids`.
-- **Board.** A keyed `Board` without layers and footprints, whose `Outline` is the rectangle from `BOARD_ORIGIN` to `BOARD_ORIGIN + (width, height)` in the order of c0017's "Outline lowering", or no outline when `board()` was not called.
+- **Board.** A keyed `Board` without layers and footprints, or no outline when `board()` was not called. Its `Outline` holds the board ring in `points`, the cut-outs in call order in `cutouts`, and the arcs of both in `arcs` (`design-model`, "Board outline arcs"), each ring converted as "Outline shapes in the DSL" reads its path, with `BOARD_ORIGIN` added. A board given by `width` and `height` has the rectangle from `BOARD_ORIGIN` to `BOARD_ORIGIN + (width, height)` in the order of c0017's "Outline lowering", and no arc.
 - **Other layers.** A keyed `RuleSet` holding the rules of "Rule minimums in the DSL" (empty without a `minimum()` call), a keyed `Manifest` and a keyed header named after the design.
 - Every object MUST have `provenance = None`, so no absolute user path reaches `.fenolite/`.
 - `to_model` MUST NOT call `Design.validate()`, MUST NOT resolve libraries, and MUST NOT change the DSL design.
@@ -211,6 +247,11 @@ Every length argument of the DSL SHALL be a `Length` or a string with a unit, an
 - **GIVEN** `Part("R1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", value="330", properties={"Supplier code": "S-1", "Part number": "PN-330"})` added to a design
 - **WHEN** `to_model` runs
 - **THEN** the component `R1` has `properties == {"Part number": "PN-330", "Supplier code": "S-1", "fenolite.path": "R1"}`, with its keys in this order
+
+#### Scenario: Cut-outs in call order
+- **GIVEN** `board(mm(50), mm(30))`, then `d.cutout(((mm(5), mm(5)), (mm(10), mm(5)), (mm(10), mm(8))))` and `d.cutout(shape.circle(mm(40), mm(15), mm(4)))`
+- **WHEN** `to_model` runs
+- **THEN** `Outline.cutouts` holds the triangle and then the circle's two vertices, and `Outline.arcs` holds two entries, both of ring 2
 
 ### Requirement: Design scripts
 `fenolite.cli._script.run_design_script(path) -> ScriptRun(design, output)` SHALL run a `design.py` in-process and return its module-level `design` and its captured output.
@@ -934,17 +975,39 @@ The KiCad build (`lens.build.build_design`) SHALL resolve every mark of `Circuit
 `fenolite build` SHALL hand the script's planes to the build of its target. This requirement extends "Build command" (a step of `cmd_build`) and "Build issue codes" (one code).
 - `cmd_build` MUST call `planes(design)` with `to_model`, and a `DslError` it raises MUST become `DesignScriptError` (`FEN-3004`, exit 3) as "Build command" rules for `placements`.
 - With `--target altium`, `cmd_build` MUST pass the mapping to `lens.altium.build_altium(…, planes=…)` (`altium-build`, "Internal planes in an Altium build").
-- With the KiCad target the board is unchanged: the plane layer is written as the signal layer it was before this change, and the build MUST give one `build.plane-not-lowered` info per plane that names the layer and the net and hints at a zone on that layer. `lens.build.BUILD_ISSUE_CODES` MUST gain `build.plane-not-lowered` with severity `info`, and `lens.build.plane_issues(planes)` MUST return those issues.
-- A script without planes MUST build every file with the bytes it had before this change, for both targets.
+- With the KiCad target, `cmd_build` MUST pass the mapping to `lens.build.build_design(…, planes=…)`, and the board it writes MUST give each plane layer the row type `power` (`kicad-file-backend`, "Plane layers of a board"; `H-K-LAYER-POWER`). Over an existing board, the type MUST be set after the layout merge; every other copper layer keeps the type of the board it is written from, `signal` for a created board. A plane does not remove a `power` type that the board holds on another layer.
+- A plane whose net has no zone on its layer, in the script or on the existing board, MUST give one `build.plane-zone-missing` (warning) naming the layer and the net, whose hint names `design.zone(<net>, layers=("<layer>",))`. `lens.build.BUILD_ISSUE_CODES` MUST hold `build.plane-zone-missing` with severity `warning`, and `lens.build.plane_issues(planes, design)` MUST return those issues (the second argument is new: the function took the planes alone). No target gives `build.plane-not-lowered` after this change: the code MUST leave `BUILD_ISSUE_CODES` and its entry MUST leave `src/fenolite/cli/data/explain.toml`, where `build.plane-zone-missing` gets one.
+- The Altium target is not changed by this change: it writes each plane as an internal plane on its net whether a zone exists or not (`altium-build`, "Internal planes in an Altium build"), so it MUST NOT give `build.plane-zone-missing`.
+- A script without planes MUST build every file with the bytes it had before planes were added (change c0038), for both targets.
 
 #### Scenario: Plane in a KiCad build
-- **GIVEN** a blink variant with `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})`
+- **GIVEN** a blink variant with `design.board(mm(50), mm(30), copper=4, planes={"In1.Cu": gnd})` and `design.zone(gnd, layers=("In1.Cu",))`
 - **WHEN** it is built with `--dry-run --json`
-- **THEN** the exit code is 0, `issues` holds one `build.plane-not-lowered` info naming `In1.Cu` and `GND`, and the planned board equals the board of the variant without `planes`
+- **THEN** the exit code is 0, `issues` hold no `build.plane-zone-missing` and no `build.plane-not-lowered`, the planned board holds `(4 "In1.Cu" power)` and `(6 "In2.Cu" signal)`, and it differs from the board of the same script without `planes` in that row only
+
+#### Scenario: Plane without its zone
+- **GIVEN** the same variant without the `zone()` call
+- **WHEN** it is built with `--dry-run --json`
+- **THEN** the exit code is 0, `issues` hold one `build.plane-zone-missing` warning naming `In1.Cu` and `GND` whose hint names `design.zone` and `In1.Cu`, and the planned board holds `(4 "In1.Cu" power)`
+
+#### Scenario: Plane on a six-layer board
+- **GIVEN** a blink variant with `design.board(mm(50), mm(30), copper=6, planes={"In4.Cu": gnd})`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 0, `issues` hold one `build.plane-zone-missing` warning naming `In4.Cu` and `GND` whose hint names `design.zone`, `GND` and `In4.Cu` and not "KiCad", and the board equals the board of the variant without `planes` but for the row `(10 "In4.Cu" power)`
+
+#### Scenario: Plane declared after the first build
+- **GIVEN** a confirmed build of the variant without `planes`, and then the script with `planes={"In1.Cu": gnd}`
+- **WHEN** it is built again with `--confirm`
+- **THEN** the board keeps its layout and holds `(4 "In1.Cu" power)`
+
+#### Scenario: A type set in KiCad stays
+- **GIVEN** a confirmed build of the variant without `planes`, whose board was given `(6 "In2.Cu" power)` by token edit, as KiCad's board setup does
+- **WHEN** the script without `planes` is built again with `--confirm`
+- **THEN** the board still holds `(6 "In2.Cu" power)`
 
 #### Scenario: Plane in an Altium build
-- **WHEN** the same variant is built with `--target altium --dry-run --json`
-- **THEN** the exit code is 0, `result.copper.planes` is `{"In1.Cu": "GND"}`, and no `build.plane-not-lowered` is given
+- **WHEN** the variant of "Plane in a KiCad build" is built with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `result.copper.planes` is `{"In1.Cu": "GND"}`, and no `build.plane-zone-missing` is given
 
 #### Scenario: Unknown plane net stops the build
 - **GIVEN** a blink variant with `planes={"In1.Cu": "NOPE"}`
@@ -1092,9 +1155,9 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 
 ### Requirement: Zones in the DSL
 `Design.zone(net, *, layers, name=None, outline=None, priority=0, clearance=None, min_thickness=None, connection=None, thermal_gap=None, thermal_spoke_width=None, islands=None, min_island_area=None, locked=False)` SHALL declare one copper zone, and `dsl.to_model` SHALL put one model `Zone` per declared zone into `Board.zones`, in name order. This adds zones to the `Board` of "DSL to model".
-- `board()` MUST have been called first. `layers` MUST be a non-empty sequence of distinct copper layer names of the board: `F.Cu` and `B.Cu`, and also `In1.Cu` and `In2.Cu` for `copper=4`.
+- `board()` MUST have been called first. `layers` MUST be a non-empty sequence of distinct copper layer names of the board, those of `Design.copper_layers`: `F.Cu`, the inner layers `In1.Cu` … `In<copper − 2>.Cu` and `B.Cu` ("Board and placements in the DSL"). The message of a refused name MUST list the board's copper layers.
 - `net` MUST be a `Net`, which joins the design, or `None` for a zone without a net. `name` defaults to the net's name, and is required when `net` is `None`. Zone names MUST be unique, non-empty and without surrounding spaces.
-- `outline` is `None`, which means the board rectangle, or at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added.
+- `outline` is `None`, which means the box of the board ring, or at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added. The box of the board ring is the smallest axis-aligned rectangle that holds its vertices and the mid points of its arcs, written from its top-left corner in the order of the board rectangle; for `board(width, height)` it is the board rectangle. Cut-outs do not change it: KiCad clips a fill to the board.
 - A setting given as `None` MUST take the `ZoneSettings` default. Lengths follow "DSL lengths and angles". `clearance` MUST be at least 0, and `min_thickness`, `thermal_gap` and `thermal_spoke_width` above 0.
 - `connection` MUST be one of `solid`, `thermal`, `none` and `thru_hole_only`, and `islands` one of `always`, `never` and `below_area`.
 - `min_island_area` MUST be a string with the unit `mm2`, such as `"2.5mm2"`, converted exactly to square nanometres, and is accepted only together with `islands="below_area"`.
@@ -1116,6 +1179,11 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **WHEN** `d.zone(gnd, layers=("In1.Cu",))` is called
 - **THEN** `DslError` is raised naming `In1.Cu`
 
+#### Scenario: Zone on a deep inner layer
+- **GIVEN** a design with `board(mm(50), mm(30), copper=8)`
+- **WHEN** `d.zone(gnd, layers=("In6.Cu",))` is called, and then `d.zone(vin, layers=("In7.Cu",))`
+- **THEN** the first gives a zone on `("In6.Cu",)`, and the second raises `DslError` naming `In7.Cu` and listing `F.Cu`, `In1.Cu` to `In6.Cu` and `B.Cu`
+
 #### Scenario: Bare number refused
 - **WHEN** `d.zone(gnd, layers=("F.Cu",), clearance=0.3)` is called
 - **THEN** `DslError` is raised naming `clearance`
@@ -1128,6 +1196,11 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **GIVEN** `d.zone(gnd, layers=("F.Cu",))`
 - **WHEN** `d.zone(gnd, layers=("B.Cu",))` is called, and then `d.zone(gnd, layers=("B.Cu",), name="GND_BOTTOM")`
 - **THEN** the first raises `DslError` naming the name `GND`, and the second is accepted
+
+#### Scenario: Zone on a round board
+- **GIVEN** a design with `board(outline=shape.circle(mm(20), mm(20), mm(40)))` and `d.zone(gnd, layers=("B.Cu",))`
+- **WHEN** `to_model(d)` runs
+- **THEN** the zone's outline points are (100 mm, 100 mm), (140 mm, 100 mm), (140 mm, 140 mm) and (100 mm, 140 mm)
 
 ### Requirement: Zones in a build
 `fenolite build` SHALL write every zone that the script declares, with its settings, for targets 9 and 10, and the written board SHALL read back with those zones.
@@ -1157,9 +1230,9 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **THEN** the exit code is 0, `result.copper.source` is `script` and `result.copper.zones` is 1
 
 ### Requirement: Copper guard before writing
-`fenolite build` with the KiCad target (`--target kicad`, the default) SHALL judge the copper of the triad it is about to write with `fenolite.checks.copper.check_copper` (`copper-check`) after `lens.build.build_design` returns its files and before `cmd_build` calls `check_existing` and returns its plan, on `--dry-run` and `--confirm` alike. When `build_design` refused (no files), the guard MUST NOT run. With `--target altium` the guard MUST NOT run and `result` holds no `copper_check`: that branch writes no KiCad triad (`altium-build`).
+`fenolite build` with the KiCad target (`--target kicad`, the default) SHALL judge the copper of the triad it is about to write with `fenolite.checks.copper.check_copper` (`copper-check`) after `lens.build.build_design` returns its files and before `cmd_build` calls `check_existing` and returns its plan, on `--dry-run` and `--confirm` alike. When `build_design` refused (no files), the guard MUST NOT run. With `--target altium` this guard MUST NOT run: that branch writes no KiCad triad, and judges its PCB document with the guard of `altium-build`, "Copper guard in an Altium build".
 - **What is judged.** `cmd_build` MUST read the planned `<name>.kicad_pcb` text back with `read_board`, apply the planned `<name>.kicad_pro` and `<name>.kicad_dru` texts with `copperrules.design_rules_from_texts` and `major` = the build's target (`Context.kicad_target`), take the pads from c0028's `BoardFrame.board_pads` of `KicadBackend`, and call `check_copper` with the design, `min_clearance`, `rules_over_classes` and `floor_over_rules` it gets. The guard therefore judges the bytes that will be written, preserved copper (`layout-lens`) included. It MUST read and write no file.
-- **Modes.** The option `--copper-check refuse|warn` MUST default to `refuse`. With `refuse`, every copper issue MUST join the envelope's `issues` with its severity, so a `copper.short` or a `copper.clearance` error makes the build return no planned write and exit 5 ("Build command"). With `warn`, every copper issue of severity `error` MUST be reported with severity `warning` and ` (copper guard in warn mode)` appended to its message, and the build MUST plan its writes as usual. Any other value MUST exit 2 with `FEN-2001`. `--copper-check` given with `--target altium` MUST exit 2 with `FEN-2001`, as `--altium-format` does with the KiCad target.
+- **Modes.** The option `--copper-check refuse|warn` MUST default to `refuse`. With `refuse`, every copper issue MUST join the envelope's `issues` with its severity, so a `copper.short` or a `copper.clearance` error makes the build return no planned write and exit 5 ("Build command"). With `warn`, every copper issue of severity `error` MUST be reported with severity `warning` and ` (copper guard in warn mode)` appended to its message, and the build MUST plan its writes as usual. Any other value MUST exit 2 with `FEN-2001`. `--copper-check` given with `--target altium` selects the mode of that target's guard.
 - **Codes.** The guard's codes are those of `checks.codes.ISSUE_CODES` (`verification-loop`, "Copper stage issue codes"). They are not build findings: they join the envelope's `issues` unchanged, as "Build issue codes" allows for codes that later requirements add, and `lens.build.BUILD_ISSUE_CODES` and `build_design` stay unchanged.
 - **Result.** `result.copper_check` MUST hold `mode`, `ran`, `shorts`, `clearance` (counts of findings), `rules` (`{min_clearance, opaque_clearance_rules, unread}`) and `evidence` (`{level, oracle, hypotheses}` of `Evidence.combine(CopperReport.evidence, pcb.EVIDENCE, DesignRules.evidence)`). The `build` envelope's own evidence stays as "Build evidence" defines it.
 - The option, the guard step of `cmd_build` and the `result` key are additions that "Build command" allows.
@@ -1185,12 +1258,13 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **THEN** the exit code is 2 and stderr carries `FEN-2001`
 
 ### Requirement: Placement legality in a build
-`fenolite build` with the KiCad target (`--target kicad`, the default) SHALL judge the placement of the board it is about to write with `fenolite.placement.legality.check` (`placement`, "Placement legality"), in `cmd_build.placement_guard`, after `lens.build.build_design` returns its files and before `cmd_build` returns its plan, on `--dry-run` and `--confirm` alike. When `build_design` refused (no files), the check MUST NOT run and `result.placement.ran` MUST be false. With `--target altium` the check MUST NOT run and `result` holds no `placement`.
-- **What is judged.** `cmd_build` MUST read the planned `<name>.kicad_pcb` text back with `read_board`, take the extents from c0028's `BoardFrame.placed_extents` of `KicadBackend`, the rings from `backends.kicad.outline.board_outline` of that board, and `edge_clearance` from `placement.legality.edge_clearance` of the built model design (0 without a board-wide `edge_clearance` rule). The check therefore judges the bytes that will be written, preserved placements (`layout-lens`) included. It MUST read and write no file.
-- Each `place.*` issue MUST be reported with a severity no higher than `warning`, so a build never refuses and never exits 5 for placement.
-- Parts that the build stages (`result.staged`, reported as `layout.unplaced`) MUST NOT be judged.
-- **Codes.** The codes are those of `placement.ISSUE_CODES` (`placement`, "Placement issue codes"). They are not build findings: they join the envelope's `issues` as "Build issue codes" allows for codes that later requirements add, and `lens.build.BUILD_ISSUE_CODES` and `build_design` stay unchanged, because `lens` may not import `placement` (`package-layering`).
-- `result.placement` MUST hold `ran` and `counts`, the number of issues by code.
+`fenolite build` with the KiCad target (`--target kicad`, the default) SHALL judge the placement of the board it is about to write with `fenolite.placement.legality.check` (`placement`, "Placement legality") and its placement rules with `fenolite.checks.placement.judge` (`placement`, "Placement rules judged"), in `cmd_build.placement_guard`, after `lens.build.build_design` returns its files and before `cmd_build` returns its plan, on `--dry-run` and `--confirm` alike. When `build_design` refused (no files), the check MUST NOT run and `result.placement.ran` MUST be false. With `--target altium` the check MUST NOT run and `result` holds no `placement`.
+- **What is judged.** `cmd_build` MUST read the planned `<name>.kicad_pcb` text back with `read_board`, take the extents from c0028's `BoardFrame.placed_extents` of `KicadBackend`, the rings from `backends.kicad.outline.board_outline` of that board, the keep-outs from that board's `Keepout`s, and `edge_clearance` from `placement.legality.edge_clearance` of the built model design (0 without a board-wide `edge_clearance` rule). `judge` MUST take the pads of `BoardFrame.board_pads` of that board and `rules_of(<built model design>)`. The check therefore judges the bytes that will be written, preserved placements (`layout-lens`) included. It MUST read and write no file.
+- Each `place.*` and `placement.*` issue MUST be reported with a severity no higher than `warning`, so a build never refuses and never exits 5 for placement.
+- Parts that the build stages (`result.staged`, reported as `layout.unplaced`) MUST NOT be judged by the legality check; `judge` reports rules that name them as `placement.rule-skipped`.
+- **Codes.** The codes are those of `placement.ISSUE_CODES` (`placement`, "Placement issue codes") and the `placement.*` codes of `verification-loop`, "Placement stage issue codes". They are not build findings: they join the envelope's `issues` as "Build issue codes" allows for codes that later requirements add, and `lens.build.BUILD_ISSUE_CODES` and `build_design` stay unchanged, because `lens` may not import `placement` or `checks` (`package-layering`).
+- `result.placement` MUST hold `ran`, `counts`, the number of issues by code, and `rules`, the counts of `judge`.
+- **The Altium target.** With `--target altium` no placement rule is judged at the build. The proximity rules of the design are stored in `.fenolite/rules.json` as on the KiCad target, and the build MUST say that it did not judge them in one `altium.not-lowered` info whose `where` is the kind `placement-rule` (`backends.altium.lower`), naming their count and that `fenolite check` judges them (`verification-loop`, "Placement rules stage"); the kind MUST NOT be in `LOSS_KINDS`. A design without proximity rules gives no such info and the bytes it gave before.
 - The step of `cmd_build` and the `result` key are additions that "Build command" allows.
 
 #### Scenario: Overlap reported, build written
@@ -1210,7 +1284,17 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 
 #### Scenario: Clean blink stays clean
 - **WHEN** the blink is built for targets 9 and 10
-- **THEN** `issues` holds no `place.*` issue, `result.placement.counts` is empty, and every file has the bytes it had before this change
+- **THEN** `issues` holds no `place.*` or `placement.*` issue, `result.placement.counts` is empty, `result.placement.rules` counts nothing, and every file has the bytes it had before this change
+
+#### Scenario: Rules reported as warnings
+- **GIVEN** the blink with `design.near("led", d1, r1.pad(2), within=mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_placement_guard.py -k rules` builds it with `--dry-run --json`
+- **THEN** the exit code is 0, `issues` hold one `placement.too-far` warning naming `D1`, and `result.placement.rules` is `{"near": {"judged": 1, "failed": 1, "skipped": 0}}`
+
+#### Scenario: Rules of an Altium build are stored and announced
+- **GIVEN** the routed blink with `design.near("led", d1, r1.pad(2), within=mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k placement_rule` builds it with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `result` holds no `placement`, the planned `.fenolite/rules.json` holds the rule under `proximity`, `issues` hold one `altium.not-lowered` info whose `where` is `placement-rule`, and no `placement.*` issue
 
 ### Requirement: Rule minimums in the DSL
 `design.rules.minimum(*, clearance=None, track_width=None, via_diameter=None, via_drill=None, hole_size=None, edge_clearance=None, netclass=None)` SHALL declare one design-rule minimum per given length. The keywords are the first six rule kinds of the model (`fenolite.model.rules.RuleKind`), listed in this order by `dsl.design.MINIMUM_KINDS`; the other kinds are declared with `rule()` ("Rule constructor in the DSL").
@@ -1262,7 +1346,12 @@ The DSL SHALL record copper as intents, plain data that the build resolves after
 - **THEN** the rules file holds `fenolite_0_min_track_width` once, with `(min 0.3mm)`, followed by the rule `mine`
 
 ### Requirement: Per-component pin-to-pad mapping
-The DSL build SHALL assign each symbol pin's net to the physical footprint pad named by `Component.pin_pad_map`, using identity mapping for pins not listed. Circuit net members and no-connects SHALL remain keyed by symbol pin number. A mapping with a missing source pin, missing pad target, or duplicate physical target MUST report `build.pin-pad-map-invalid` as an error and write no output. This issue SHALL join the closed build issue set of `design-dsl`, "Build issue codes".
+`fenolite.dsl.Part(..., pad_map=...)` SHALL take, for each symbol pin it lists, one pad number (a non-empty string, the spelling before this requirement allowed several) or a tuple or list of pad numbers for a pin that is bonded to several pads. The DSL build SHALL assign each symbol pin's net to every physical footprint pad that `Component.pin_pad_map` names for it, using identity mapping for pins not listed. Circuit net members and no-connects SHALL remain keyed by symbol pin number. A mapping with a missing source pin, missing pad target, or duplicate physical target MUST report `build.pin-pad-map-invalid` as an error and write no output. This issue SHALL join the closed build issue set of `design-dsl`, "Build issue codes".
+- **Spelling.** `pad_map={"3": "5"}` MUST mean what it meant. `pad_map={"3": ("3", "EP")}` MUST give pin `3` the pads `3` and `EP`, in that order. A sequence of one pad MUST equal that pad written as a string. An empty sequence, an empty pad number, a pad listed twice for one pin and a pad listed for two pins MUST raise `DslError` naming the part.
+- **`Part.pad_map`** MUST hold the mapping sorted by pin, each value a string for one pad and a tuple for several, so a script of one pad per pin reads back what it wrote.
+- **Model.** `to_model` MUST give `pin_pad_map` the pairs of the pins in sorted pin order, the pads of one pin in the order written. For a part whose pins have one pad each these MUST be the pairs, in the order, that `to_model` gave before.
+- **Pads.** Every pad of a pin on a net MUST carry that net, and every pad of a pin on no net or under a no-connect mark MUST carry none. `build.pad-without-pin` MUST count a pad as mapped when a pin names it, and `build.pin-pad-map-invalid` MUST name each pad of a pin that the footprint lacks.
+- The build MUST read the map through `Component.pads_of` and `Component.pin_pads` only.
 
 #### Scenario: Remap a connected symbol pin
 - **GIVEN** component `U1` maps symbol pin `1` to physical pad `2` and pin `1` is connected to net `N`
@@ -1273,6 +1362,25 @@ The DSL build SHALL assign each symbol pin's net to the physical footprint pad n
 - **GIVEN** a map names a missing source pin or target pad
 - **WHEN** the component is built
 - **THEN** `build.pin-pad-map-invalid` is an error and the build writes no files
+
+#### Scenario: Two pads for one pin
+- **GIVEN** a part `U1` with `pad_map={"3": ("3", "EP")}` whose footprint holds the pads `1`, `2`, `3` and `EP`, and pin `3` on the net `GND`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_pins.py -k several` builds it
+- **THEN** the pads `3` and `EP` carry `GND`, `Net.members` holds pin `3` once, `component.pin_pad_map == (("3", "3"), ("3", "EP"))`, and the build reports no `build.pad-without-pin` for `EP`
+
+#### Scenario: Spelling refused
+- **WHEN** `uv run pytest tests/unit/dsl/test_footprint.py -k pad_map` creates parts with `pad_map={"3": ()}`, `{"3": ("4", "4")}`, `{"3": ("4", "")}` and `{"1": "4", "3": ("3", "4")}`
+- **THEN** each raises `DslError` naming the part, and `Part("R1", ..., pad_map={"2": "1", "1": ("2",)}).pad_map` equals `{"1": "2", "2": "1"}`
+
+#### Scenario: One pad per pin gives the pairs it gave
+- **GIVEN** the units design of `tests/_schbuild.py`, whose `D1` has `pad_map={"1": "2", "2": "1"}`
+- **WHEN** `to_model` runs
+- **THEN** `pin_pad_map` of `D1` is `(("1", "2"), ("2", "1"))`
+
+#### Scenario: Missing pad among several
+- **GIVEN** a part whose `pad_map` gives pin `3` the pads `3` and `TAB`, and whose footprint has no pad `TAB`
+- **WHEN** it is built
+- **THEN** `build.pin-pad-map-invalid` is an error that names `TAB`, and the build writes no files
 
 ### Requirement: Project-authored symbols
 
@@ -1292,7 +1400,8 @@ The DSL build SHALL assign each symbol pin's net to the physical footprint pad n
 
 ### Requirement: Rule constructor in the DSL
 `design.rules.rule(name, kind, *, where=select.ALL, between=None, layers=(), min=None, opt=None, max=None, severity="error", priority=0)` SHALL declare one design rule of any model kind (`fenolite.model.rules.RuleKind`), with selectors from `fenolite.dsl.select` ("Selectors in the DSL").
-- `DslError` MUST be raised at the call, and nothing recorded, for: a `name` that is not a non-empty string or is already used by `rule()`; a `kind` outside `RuleKind`; no limit; a limit that is not a `Length` or a string with a unit; a negative `min`, or an `opt` or `max` of 0 or less; `min` above `opt` or `max`, or `opt` above `max`; a `where` or `between` that is not a selector; a `between` for a kind other than `clearance` and `creepage`; a `layers` value that is not a tuple of strings; a `severity` outside `error`, `warning` and `ignore`; a `priority` that is not an integer of 0 or more.
+- `DslError` MUST be raised at the call, and nothing recorded, for: a `name` that is not a non-empty string or is already used by `rule()`; a `kind` outside `RuleKind`; no limit, for every kind but `no_tracks`; a limit that is not a `Length` or a string with a unit; a negative `min`, or an `opt` or `max` of 0 or less; `min` above `opt` or `max`, or `opt` above `max`; a `where` or `between` that is not a selector; a `between` for a kind other than `clearance` and `creepage`; a `layers` value that is not a tuple of strings; a `severity` outside `error`, `warning` and `ignore`; a `priority` that is not an integer of 0 or more.
+- The kind `no_tracks` (`rules-model`, "Track layer rules") takes no limit and needs layers: for it, `DslError` MUST be raised for a `min`, `opt` or `max`, naming the argument, and for an empty `layers`, naming `layers`.
 - What depends on the target is not checked here: limits per kind, kind support, globs, selector support and layer names are refused by the lowering with its codes, and `build` reports them (exit 7, `FEN-7001`).
 - `Rules.named` MUST hold one `dsl.design.RuleSpec` per call, in call order.
 - `dsl.to_model` MUST add one model `Rule` per call to `Design.rules.rules`, after the rules of `minimum()`, in call order: id `derived_id("rul", "dsl", "rule:named:<name>")`, the given name, kind, limits, severity and priority, `selector_a` from `where`, `selector_b` from `between` (`None` when not given) and `layers` as given.
@@ -1315,6 +1424,15 @@ The DSL build SHALL assign each symbol pin's net to the physical footprint pad n
 - **GIVEN** a design with a `creepage` rule
 - **WHEN** it is built with `--kicad-version 9 --dry-run --json`, and again with `--allow-lossy`
 - **THEN** the first exits 7 with `FEN-7001`, a message that names the rule and says that KiCad 9.0 does not check creepage rules, and a hint naming `--allow-lossy`; the second exits 0 with `rules.dropped-for-target` in `issues`
+
+#### Scenario: A class kept on the outer layers
+- **GIVEN** a four-layer blink variant with the class `SIG` and `design.rules.rule("sig-outer", "no_tracks", where=select.netclass("SIG"), layers=("In1.Cu", "In2.Cu"))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_rule_constructor.py -k no_tracks` runs `to_model`, and the variant is built with `--dry-run --json`
+- **THEN** the model holds one `no_tracks` rule with `selector_a` `netclass SIG` and those layers, and the planned rules file holds two `disallow track` rules, one per layer
+
+#### Scenario: Malformed track layer rules
+- **WHEN** `rule("a", "no_tracks", layers=("In1.Cu",), min=mm(0.1))`, `rule("b", "no_tracks")` and `rule("c", "no_tracks", layers=("In1.Cu",), between=select.netclass("HV"))` are called
+- **THEN** each raises `DslError`, the first naming `min`, the second `layers` and the third `between`
 
 ### Requirement: Selectors in the DSL
 `fenolite.dsl.select` SHALL build rule selectors: `ALL`, `net(name)`, `netclass(name)`, `ref(name)` and `item(kind)`, each a `select.Select`, combined with `&` (and), `|` (or) and `~` (not); `fenolite.dsl` SHALL re-export `select` (an addition under "DSL package").
@@ -1413,16 +1531,18 @@ Each typed interface SHALL provide `attach(part, **roles)`, which connects pins 
 - **THEN** `DslError` is raised naming `U2`, and nothing is connected
 
 ### Requirement: Interface checks in a build
-A build SHALL check the interfaces of the design after the parts are resolved, as "Built project files" allows for added steps of `build_design`, and SHALL report two warnings, which join the closed build set ("Build issue codes"):
+A build SHALL check the interfaces of the design after the parts are resolved, as "Built project files" allows for added steps of `build_design`, and SHALL report three warnings, which join the closed build set ("Build issue codes"):
 
 | code | severity | when |
 |---|---|---|
 | `build.diff-pair-name` | warning | the two nets of a `diff_pair` (`p`, `n`) or `usb2` (`dp`, `dn`) interface do not form a KiCad differential pair by name |
 | `build.i2c-pullup-missing` | warning | an I2C line has no two-pin part to the `hv` net of a `power` interface |
+| `build.diff-pair-gap-shadowed` | warning | KiCad would report two tracks of a pair interface laid at its class pair gap |
 
-- **Pair names** (`H-K-DIFFPAIR-NAMES`). The names, in KiCad's stored form, form a pair when they are equal except for the last character, which is `P` for the first net and `N` for the second, or `+` and `-`; letter case counts. The hint MUST propose a second name: the first name with its last character `P` or `+` replaced by `N` or `-`; when the first name ends in neither, it MUST propose `<first name>_P` and `<first name>_N`.
+- **Pair names** (`H-K-DIFFPAIR-NAMES-2`). The names, in KiCad's stored form, form a pair when `fenolite.model.pairs.pair_base(<positive name>, <negative name>)` is not `None` (`design-model`, "Differential pairs in the model"). The hint MUST propose a second name: `coupled_name(<positive name>)` when the positive name has the polarity `P` or `+`; otherwise `<positive name>_P` and `<positive name>_N`.
 - **Pull-ups.** For the `sda` and `scl` nets of each `i2c` interface, a pull-up is a component whose resolved symbol has exactly two pins, one on that net and the other on the `hv` net of a `power` interface of the design. The issue MUST name the interface and the line.
-- The checks MUST NOT change any file or the model, and a design without interfaces MUST give neither code.
+- **Shadowed pair gap** (`H-K-PRO-PAIR`). For each `diff_pair` or `usb2` interface whose nets form a pair by name and are in one model class whose `diff_pair_gap` `g` is set, the warning MUST be given when the clearance in force between a track of each net on one copper layer (`copper-check`, "Clearance in force" and "Clearance between the nets of a differential pair", with the switches of the target) is above `g`, or when the board minimum clearance that the build writes for the target is above `g` and no rule of kind `diff_pair_gap` selects the pair's tracks. The message MUST name both nets, `g` and what governs (a rule, a class or the board minimum); the hint MUST name `design.rules.pair(…, clearance=…, gap_min=…)`.
+- The checks MUST NOT change any file or the model, and a design without interfaces MUST give none of the three codes.
 
 #### Scenario: Pair names that KiCad does not pair
 - **GIVEN** a blink variant with `USB2(usb_dp, usb_dm)` on the nets `USB_DP` and `USB_DM`
@@ -1433,10 +1553,19 @@ A build SHALL check the interfaces of the design after the parts are resolved, a
 - **WHEN** the same variant uses the nets `USB_P` and `USB_N`
 - **THEN** `issues` hold no `build.diff-pair-name`
 
+#### Scenario: Pair names with a tail
+- **WHEN** the same variant uses the nets `D_P0` and `D_N0`, and then `D_P0` and `D_N1`
+- **THEN** the first build's `issues` hold no `build.diff-pair-name`, and the second's hold one whose hint names `D_N0`
+
 #### Scenario: Missing pull-up
 - **GIVEN** a design with `Power(vdd, gnd)`, `I2C(sda, scl)`, a resistor from `SDA` to `VDD` and none on `SCL`
 - **WHEN** it is built with `--dry-run --json`
 - **THEN** `issues` hold one `build.i2c-pullup-missing` naming the interface and `scl`
+
+#### Scenario: Pair gap under a board-wide clearance rule
+- **GIVEN** a blink variant with `usb = USB2(usb_p, usb_n)` on `USB_P` and `USB_N`, both in the class `USB` (clearance 0.2 mm, `diff_pair_gap` 0.15 mm), and `d.rules.minimum(clearance=mm(0.2))`
+- **WHEN** it is built for target 10 with `--dry-run --json`
+- **THEN** `issues` hold one `build.diff-pair-gap-shadowed` naming `USB_P`, `USB_N`, `0.15` and the rule `min_clearance`; after `d.rules.pair(usb, clearance=mm(0.15), gap_min=mm(0.13))` they hold none
 
 ### Requirement: Pad zone connections in the DSL
 `Part.zone_connection(number, connection, *, index=None, locked=False)` SHALL record one request for how copper zones connect to the pads of the part's footprint that carry `number`, and `dsl.pad_zones(design) -> Mapping[str, tuple[PadZoneRequest, ...]]` SHALL return the requests of every added part that has one, keyed by component path in path order, each tuple sorted by `number` and then `index`, `None` first. A part without a request has no key.
@@ -1794,3 +1923,820 @@ A build that writes a schematic SHALL prove, before it returns any file and with
 - **GIVEN** a confirmed v0.2a-form build of that design, made with `--schematic-layout grid`, whose board was then edited by moving two footprints by token edit
 - **WHEN** it is built again with the default layout
 - **THEN** the two footprints keep their edited positions, every footprint `path` of a part in a module takes the hierarchical form, and `issues` hold no `layout.orphan` and no `layout.net-removed`
+
+### Requirement: Meanders in the DSL
+`Design.meander(key, *, track, segment, amplitude, pitch, target=None, match=None, side="left", margin=None)` SHALL record a meander intent that the build resolves, and `dsl.meanders(design)` SHALL return the recorded intents as frozen `MeanderIntent(key, track, segment, amplitude, pitch, target, match, side, margin)` of `dsl/intents.py`, in key order, every length as `int` nanometres. The DSL MUST still import only `core` and `model`, and `to_model` MUST NOT change: meanders are not model objects.
+- `track` is the key of a track intent recorded before the call, and `segment` the index `i` of its segment `seg[i]`, from path element `i` to element `i + 1`. `amplitude` is the largest height of a bump from the segment's centre line, and `pitch` the distance between neighbouring legs, centre to centre. `target` is the length the track intent must reach, or `match` names another track intent whose length is the target. `side` is `"left"` or `"right"` of the segment's direction as KiCad displays the board. `margin` is the straight run kept at each end of the segment; `None` means one pitch.
+- `DslError` MUST be raised at the call for: a key that does not match the copper key pattern, or that a copper intent or another meander already uses; a `track` that is not the key of a recorded track intent; a `segment` that is not an `int` with `0 ≤ segment < len(path) − 1`, or whose element `segment + 1` is an arc step; an `amplitude` or a `pitch` that is not a positive length; a negative `margin`; both or neither of `target` and `match`; a `target` that is not positive; a `match` that equals `track` or is not the key of a recorded track intent; a `side` other than the two names; a second meander on the same segment of the same track.
+- `fenolite.dsl` MUST re-export `MeanderIntent` and `meanders`; "DSL package" lets later requirements add both.
+
+#### Scenario: A meander on a pair
+- **GIVEN** the track intents `usb_p` and `usb_n`, each from a pad of `U1` through two points to a pad of `J1`
+- **WHEN** `uv run pytest tests/unit/dsl/test_meander_dsl.py -k record` calls `design.meander("n_tune", track="usb_n", segment=1, match="usb_p", amplitude=mm(0.5), pitch=mm(0.4))` and `meanders(design)`
+- **THEN** it returns one `MeanderIntent` with key `n_tune`, track `usb_n`, segment 1, amplitude 500 000, pitch 400 000, target `None`, match `usb_p`, side `left` and margin `None`
+
+#### Scenario: Malformed meanders fail at the call
+- **WHEN** `design.meander("m1", track="nope", segment=0, target=mm(30), amplitude=mm(1), pitch=mm(1))`, `design.meander("m2", track="usb_n", segment=5, target=mm(30), amplitude=mm(1), pitch=mm(1))`, `design.meander("m3", track="usb_n", segment=1, amplitude=mm(1), pitch=mm(1))` and `design.meander("m4", track="usb_n", segment=1, target=mm(30), match="usb_p", amplitude=mm(1), pitch=mm(1))` are called
+- **THEN** each raises `DslError`, the first naming `nope` and the second the segment index
+
+### Requirement: Meanders in a build
+`lens.build.build_design` SHALL accept the keyword-only argument `meanders: Sequence[MeanderIntentLike] = ()` and SHALL resolve it with `meander.resolve_meanders` (`manual-copper`, "Meanders from intents") right after `resolve_copper` and before the build checks and `Design.validate()`, with `major` the build's target; `cli/cmd_build.py` SHALL pass `dsl.meanders(design)`.
+- An error of `resolve_meanders` MUST make `build_design` return no files, so `build` exits 5 and writes nothing. Its `kicad.meander.*` codes join the `build` envelope unchanged, as "Build issue codes" allows.
+- `result.copper.meanders` MUST count the meanders that changed copper; it is an addition that "Copper intents in a build" allows, and the key MUST be absent from the reply of a build without meanders. An Altium build passes the meanders to the KiCad build it runs in memory, and the `kicad.meander.*` warnings and infos of that build pass with its script copper codes.
+- The copper guard ("Copper guard before writing") judges the meander's copper with the rest of the board.
+- A call without `meanders` MUST behave as before. `--seed`, `--timestamp` and `PYTHONHASHSEED` MUST NOT change any file of a build with meanders, and a second confirmed build of the same script over the first MUST write the same bytes.
+
+#### Scenario: A pair matched in a build
+- **GIVEN** the design script that `tests/_meanderdesign.py::pair_script(tmp_path)` writes: `USB_P` and `USB_N` drawn by the script tracks `usb_p` and `usb_n` from `U1` to `J1`, `usb_n` 1.2 mm shorter, and the meander `n_tune` of "A meander on a pair"
+- **WHEN** `uv run pytest tests/unit/lens/test_build_meander.py -k pair` builds it with `--dry-run --json` for target 9 and for target 10
+- **THEN** the exit code is 0, `result.copper.meanders` is 1, and `length_facts` of the planned board for the target's major gives `USB_N` a total within 10 nm of the total of `USB_P`
+
+#### Scenario: No room stops the build
+- **GIVEN** the same design with `amplitude=mm(0.1)`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 5, `issues` hold `kicad.meander.no-room` naming `n_tune`, and nothing is written
+
+#### Scenario: Rebuild writes the same bytes
+- **GIVEN** a confirmed target-10 build of the design of "A pair matched in a build" in `B`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** every file keeps its bytes, and `issues` hold no `kicad.copper.stale`
+
+### Requirement: Copper anchors in the DSL
+`Part.at(dx=None, dy=None) -> AnchorRef` and `PadRef.at(dx=None, dy=None) -> AnchorRef` SHALL name a point in the frame of the part's footprint as its library draws it (X to the right, Y down), measured from the footprint's origin or from the position of the pads the `PadRef` names, and the copper calls of "Copper intents in the DSL" SHALL accept an `AnchorRef` wherever they take a point, in addition to the forms that requirement gives. The build resolves the point after placement (`manual-copper`, "Anchored points in script copper").
+- `dx` and `dy` MUST be lengths as "DSL lengths and angles" defines them; one left out is 0. `PadRef.at` keeps the number and the index of its reference.
+- An `AnchorRef` MUST be accepted as a path element of `Design.track`, as the `mid` or the `end` of `arc_to`, as a point of the `along` or the `region` of `Design.stitch`, and as its `origin`. `via_step(at, *, to, diameter=None, drill=None, kind="through")` and `Design.via(key, at, *, net, diameter=None, drill=None, kind="through", layers=None)` MUST also take the point as one argument, an `AnchorRef` or an `(x, y)` pair, in place of `x` and `y`; the forms with `x` and `y` keep working, and `diameter`, `drill`, `kind` and `layers` MUST mean in the one-argument forms what "Copper intents in the DSL" says.
+- `Design.stitch` MUST also take `region=part.pad(number, index=…)`: the copper of that pad (`manual-copper`, "Stitching vias"). Such a region is not a ring, so the three-point rule of "Copper intents in the DSL" does not apply to it, and its `origin` MUST be left out or be an `AnchorRef`.
+- In a track path an `AnchorRef` is a point: it joins no pad and gives the track no net.
+- `DslError` MUST be raised at the call for: a `dx` or `dy` that is not a length; an `AnchorRef` or a pair given to `via_step` or `Design.via` together with `y`, or a lone first argument that is neither; a `PadRef` where a point is expected (`at`, `mid`, `end`, an `along` or `region` point, `origin`), with a message naming `.at()`; a board-point `origin` given with a pad region; and two consecutive path elements that are equal `AnchorRef`s.
+- `dsl.copper(design)` MUST return `Anchor(component, number, index, offset)`, a frozen dataclass of `dsl/intents.py`, wherever an `AnchorRef` was given: the part's component path, the pad number as text or `None`, the index, and the offset as a `Point` of `int` nanometres, not shifted by `BOARD_ORIGIN`. A pad region MUST be returned as `PadEnd(component, number, index)` in `StitchIntent.region`. An `AnchorRef` or a pad region of a part that is not in the design MUST raise `DslError` naming it.
+- `fenolite.dsl` MUST re-export `AnchorRef` and `Anchor`, as "DSL package" allows. The package keeps importing only the standard library, `core` and `model`, and `to_model` MUST NOT change. A script without anchors MUST record the same intents as before.
+
+#### Scenario: Anchors recorded
+- **GIVEN** the blink with `design.via("fan9", u1.pad(9).at(mm(0), mm(1)), net=vin, diameter=mm(0.6), drill=mm(0.3))` and `design.track("stub", r1.pad(2), r1.pad(2).at(mm(1)), width=mm(0.3))`
+- **WHEN** `copper(design)` is called
+- **THEN** the via intent's `at` is `Anchor("U1", "9", None, Point(0, 1_000_000))`, and the track's path is `PadEnd("R1", "2", None)` then `Anchor("R1", "2", None, Point(1_000_000, 0))`
+
+#### Scenario: A thermal stitch recorded
+- **GIVEN** a design with a part `U1` and `design.stitch("ep", net=gnd, pitch=mm(1), region=u1.pad(33), diameter=mm(0.6), drill=mm(0.3), margin=mm(0.1))`
+- **WHEN** `copper(design)` is called
+- **THEN** the `StitchIntent` has `region == PadEnd("U1", "33", None)`, `along == ()` and the default `origin`, the board corner, which "Stitching vias" reads as the pad's position
+
+#### Scenario: One-argument points and earlier forms
+- **GIVEN** the blink with three track intents whose via step is `via_step(mm(36), mm(14), to="B.Cu")`, `via_step((mm(36), mm(14)), to="B.Cu")` and `via_step(u1.at(mm(2)), to="B.Cu")`
+- **WHEN** `copper(design)` is called
+- **THEN** the first two steps equal `ViaStep(Point(136_000_000, 114_000_000), "B.Cu", None, None)`, and the third has `at == Anchor("U1", None, None, Point(2_000_000, 0))`
+
+#### Scenario: A blind via at an anchor
+- **GIVEN** a four-layer design with `design.via("esc", u1.pad(9).at(mm(0), mm(1)), net=vin, kind="blind", layers=("F.Cu", "In1.Cu"))`
+- **WHEN** `copper(design)` is called
+- **THEN** the via intent has `at == Anchor("U1", "9", None, Point(0, 1_000_000))`, `kind == "blind"` and `layers == ("F.Cu", "In1.Cu")`
+
+#### Scenario: Refused anchor calls
+- **WHEN** `u1.at(1, 2)`, `design.via("v", u1.pad(1), net=gnd)`, `via_step(u1.at(), mm(1), to="B.Cu")`, `design.stitch("s", net=gnd, pitch=mm(1), region=u1.pad(33), origin=(mm(1), mm(1)))` and `design.track("t", u1.at(mm(1)), u1.at(mm(1)), net=gnd)` are called
+- **THEN** each raises `DslError`, the second naming `.at()`
+
+#### Scenario: Part not in the design
+- **GIVEN** a via intent at `r9.pad(1).at()` of a part `R9` that was never added
+- **WHEN** `copper(design)` is called
+- **THEN** `DslError` is raised naming `R9`
+
+### Requirement: Part heights and height limits in the DSL
+The keyword-only `height=None` of `Part(…)`, `dsl.heights(design)` and `Design.height_limit(area, *, max, severity="error")` SHALL let a script state how tall a part is and where parts may not be tall. They are additions that "DSL package" and "DSL to model" allow, and a design that uses none of them gives the model and the intents it gave before.
+- **Heights.** `Part(…, height=h)` MUST take `None` or a positive length ("DSL lengths and angles"), else raise `DslError`; `Part.height` holds the value in nm. It is the top of the part's body above the board surface on the part's own side.
+- **Hand-over.** `dsl.heights(design) -> Mapping[str, Nm]` MUST return the height of each part that states one, by component path, in path order; `fenolite.dsl` MUST re-export it. `to_model` MUST NOT put a height into the circuit: `Component` has no height field, and the build turns each entry into a body on the placed footprint ("Part heights in a build"). `outward_height` (`design-model`, "Outward height of a part") is then the only reader.
+- **`height_limit`.** `area` MUST match `^[A-Za-z0-9_.+-]+$` and MUST NOT carry a limit already; `max` MUST be a positive length and `severity` `"error"` or `"warning"`; `DslError` otherwise. The area is not looked up at the call: an area drawn in KiCad is known only on the board. `to_model` MUST write the limits into `RuleSet.heights` in area order (`design-model`, "Height limits in the model").
+- A rule area that forbids nothing and carries a name ("Rule areas in the DSL") serves as the area of a limit.
+
+#### Scenario: A height recorded
+- **GIVEN** the blink with `Part("J1", "Mini:Mini_R", footprint="Mini:Mini_R_0603", height=mm(9))` added and `design.height_limit("LID", max=mm(5))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_part_height.py -k recorded` calls `heights(design)` and `to_model(design)`
+- **THEN** `heights(design) == {"J1": 9_000_000}`, `RuleSet.heights` is `(HeightLimit("LID", 5_000_000),)`, and no component of the model has a height attribute
+
+#### Scenario: Refused calls
+- **WHEN** `Part("R9", "Mini:Mini_R", height=mm(-1))`, `Part("R9", "Mini:Mini_R", height=0)`, `design.height_limit("L I D", max=mm(5))`, `design.height_limit("LID", max=mm(0))`, `design.height_limit("LID", max=mm(5), severity="ignore")` and `design.height_limit("LID", max=mm(5))` twice are called
+- **THEN** each raises `DslError`, the last on its second call
+
+#### Scenario: Unchanged designs
+- **WHEN** `to_model` and `heights` run on the blink, which uses neither call
+- **THEN** `heights(design)` is empty and `canonical.dump_texts` of its model gives the texts it gave before this change
+
+### Requirement: Part heights in a build
+`fenolite build` SHALL turn each entry of `dsl.heights(design)` into a body of the part's placed footprint, and its placement guard SHALL judge the design's height limits.
+- **The body.** `lens.build.build_design(…, heights=None)` MUST give the placed footprint of each named component path one `ComponentBody` with the id `derived_id("bdy", "dsl", "height:<path>")`, `kind == "extruded"`, `height` the stated value, `standoff == 0`, an empty `outline`, no signed bounds and `name == "height"`, after the bodies its definition brings. A path that names no placed footprint MUST be ignored without an issue: the part is reported where it is missing. The lens receives plain data and MUST NOT import `fenolite.dsl`.
+- **Kept in `.fenolite/`.** As "Component bodies" says, no KiCad file changes. `.fenolite/board.json` MUST hold the body on its footprint, also after a rebuild over an existing board: the merge of `layout-lens` MUST carry the built footprint's `bodies` onto the footprint it keeps, because a KiCad file holds no body.
+- **The guard.** With the KiCad target, `cmd_build.placement_guard` ("Placement legality in a build") MUST also run `checks.placement.judge_heights` (`placement`, "Height limits judged") with the limits and the heights of the built model, on the planned board read back. Each `placement.too-tall` and `placement.height-unknown` MUST be reported with a severity no higher than `warning`, so a build never refuses for a height. `result.placement.rules` MUST gain the family `height`.
+- **The Altium target.** `build --target altium` MUST store `RuleSet.heights` in `.fenolite/rules.json` and judge none of them; the `altium.not-lowered` info of kind `placement-rule` that "Placement legality in a build" gives for placement rules MUST count the height limits too, and MUST be given when the design holds only height limits. A body from `Part(height=…)` has no outline: with `--altium-bodies extruded` it MUST be counted under the kind `body` of `altium.not-lowered` as any body without an outline is (`altium-pcb-writer`, "Component bodies are reported"), and without the option no body is written. The stored board of an Altium build keeps the rule of that requirement: it holds the bodies that were written, so it does not hold this one.
+- A design without `height=` and without a limit MUST build the bytes it built before this change, for both targets.
+
+#### Scenario: The body is stored and survives a rebuild
+- **GIVEN** the blink with `R1` created with `height=mm(9)`, built with `--confirm` into `B`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_bodies.py -k rebuild` loads `B/.fenolite/board.json`, then builds the same script again over `B` and loads it again
+- **THEN** both times the footprint of `R1` holds one body with `height == 9_000_000`, `kind == "extruded"` and an empty outline, `outward_height` of it is `9_000_000`, no other footprint holds a body, and `B/blink.kicad_pcb` has the bytes of a build without `height=`
+
+#### Scenario: Limits reported as warnings
+- **GIVEN** the blink with `R1` created with `height=mm(9)`, `design.rule_area("LID", <an outline that covers the top-side parts R1 and U1 and no other part>, layers=("F.Cu",))` and `design.height_limit("LID", max=mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_placement_guard.py -k height` builds it with `--dry-run --json`
+- **THEN** the exit code is 0, `issues` hold one `placement.too-tall` warning naming `R1` and one `placement.height-unknown` warning naming `U1`, and `result.placement.rules.height` is `{"judged": 2, "failed": 1, "unknown": 1}`
+
+#### Scenario: An Altium build stores and announces
+- **GIVEN** the routed blink with `R1` created with `height=mm(9)` and `design.height_limit("LID", max=mm(5))`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k height` builds it with `--target altium --altium-bodies extruded --dry-run --json`
+- **THEN** the exit code is 0, the planned `.fenolite/rules.json` holds the limit under `heights`, `issues` hold one `altium.not-lowered` info whose `where` is `placement-rule` and one `altium.not-lowered` whose `where` is `body/<the body id>`, no `placement.*` issue, and the planned documents equal those of the build without `height=` and without the limit
+
+### Requirement: Mechanical primitives and locked anchors
+As an extension of "DSL package", `fenolite.dsl` SHALL re-export `MechanicalIntent`.
+`Part.place` SHALL accept a `MechanicalIntent` as `anchor` only when `locked=True`; the board-origin translation MUST be applied once. Holes and keep-outs are `Design.hole` (c0102) and `Design.rule_area` (c0103) and carry no intent: `fenolite.dsl.KEYS` SHALL hold no row `hole` or `keepout`. The intent SHALL stay in the DSL `placements` output only.
+
+#### Scenario: Board origin and fixed interface
+- **GIVEN** a part placed with `place(mm(7), mm(4), locked=True, anchor=intent)` on a board declared by `Design.board`
+- **WHEN** `placements(design)` and `to_model(design)` are read
+- **THEN** the placement is at `BOARD_ORIGIN + (7 mm, 4 mm)`, translated once, it carries `intent` unchanged, and the model's board holds no hole
+
+#### Scenario: No neutral hole or keep-out call
+- **WHEN** `Design` and a `Design` instance are inspected
+- **THEN** neither offers `keepout` nor `keepouts`, and `fenolite.dsl.KEYS` has no row `hole` or `keepout`
+
+### Requirement: Copper layer counts in a build
+`fenolite build` SHALL write a board of every count of `COPPER_COUNTS` for targets 9 and 10, with the layer table of `layers.created_layers(copper)` (`kicad-file-backend`, "Created board header"), and SHALL treat each inner layer of that table as it treats `In1.Cu` and `In2.Cu` of a four-layer board.
+- `lens.build.build_design(…, copper: int, …)` MUST take the script's count and pass it to `layers.created_layers`, which raises `ValueError` for a count outside `layers.CREATED_COPPER_COUNTS`. `cli/cmd_build.py` MUST pass `Design.copper` to the KiCad build and to the in-memory build of the Altium branch without a type suppression.
+- Every `place_footprint` call MUST pass the copper names of that table ("Placement of built parts"), so a `*.Cu` pad covers every copper layer of a six- or eight-layer board.
+- A zone on any copper layer of the table MUST be written as "Zones in a build" states, and script copper MUST resolve on any copper layer of the table (`track(layer=…)`, `via_step(to=…)`, `via(layers=…)`). A layer outside the table MUST give `kicad.copper.bad-layer` (error), as for two and four layers.
+- The copper guard ("Copper guard before writing") MUST judge every copper layer of the table.
+- With `--target altium` the count follows `altium-build`, "Script layer counts in an Altium build": the Altium build writes the same count.
+
+#### Scenario: Six-layer build on both targets
+- **GIVEN** a blink variant declared with `copper=6` and `d.zone(gnd, layers=("In4.Cu",))`
+- **WHEN** it is built for targets 9 and 10 with `--confirm`, and each written board is read with `read_board`
+- **THEN** each exit code is 0, the copper layers are `F.Cu`, `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu` with the KiCad numbers 0, 4, 6, 8, 10 and 2 and no user name, pad `"1"` of `D1` (`Mini_LED_THT_3mm`) has those six copper layers in the built model and in the read-back board, and the zone `GND` is read back on `In4.Cu`
+
+#### Scenario: Script copper on the deepest layer of eight
+- **GIVEN** a blink variant declared with `copper=8` whose `LED_A` track holds `via_step(mm(36), mm(14), to="In6.Cu", …)` followed by a point and `via_step(mm(41.5), mm(17), to="B.Cu", …)`
+- **WHEN** it is built for target 10 with `--confirm` and the board is read with `read_board`
+- **THEN** the exit code is 0, the board holds a track of `LED_A` on `In6.Cu` and two vias of `LED_A`, and `issues` holds no `kicad.copper.*` error
+
+#### Scenario: Layer outside the table
+- **GIVEN** the same variant with one more track declared with `layer="In7.Cu"`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 5, `issues` holds one `kicad.copper.bad-layer` that names `In7.Cu` and the eight copper layers, and nothing is written
+
+### Requirement: Outline shapes in the DSL
+`Design.cutout(path)` SHALL add one cut-out to the board, a path SHALL describe one closed ring for `board(outline=…)` ("Board and placements in the DSL") and for `cutout()`, and the module `fenolite.dsl.shape` SHALL give `rect`, `circle` and `slot`, which return paths. `fenolite.dsl` MUST re-export `shape`, as "DSL package" allows, and the package keeps importing only the standard library, `core` and `model`.
+- `board()` MUST have been called before `cutout()`; cut-outs keep their call order.
+- A path is a sequence whose first element is an `(x, y)` pair of lengths in the frame of `place()`, and whose other elements are such pairs and `ArcStep`s from `arc_to(mid, end)` (`design-dsl`, "Copper intents in the DSL"). Its vertices are the first point and the end point of every other element. Each element after the first is the edge from the vertex before it to its end: straight for a pair, the arc through `mid` for an `ArcStep`. When the last element ends at the first point it closes the ring, and that point is not a second vertex; otherwise a straight edge from the last vertex to the first closes it.
+- `DslError` MUST be raised at the call, naming the call and the index of the element, for: a path that is not a sequence or is empty; a first element that is not a pair; an element of another type; two consecutive vertices at the same point, the closing edge included; an arc step whose `mid` equals one of its ends or lies on the line through them; a ring of one vertex, or of two vertices without an arc.
+- `shape.rect(x, y, width, height, *, radius=None)` is the rectangle with the corners `(x, y)` and `(x + width, y + height)`, starting at the left end of its top edge and running along the top edge first, as the rectangle of `board(width, height)` does. `width` and `height` MUST be positive. With `radius`, `0 < radius ≤ min(width, height) / 2`, each corner is a quarter arc of that radius whose mid is the corner's centre moved by `radius / √2` on both axes towards the corner, each coordinate rounded half to even; a straight edge of length 0 is left out.
+- `shape.circle(x, y, diameter)` is the ring of the two vertices `(x + r, y)` and `(x − r, y)`, joined by the arcs through `(x, y − r)` and `(x, y + r)`, with `r = diameter / 2`. `diameter` MUST be a positive, even number of nanometres; the circle is exact.
+- `shape.slot(start, end, width)` is the stadium whose round ends are centred on the two `(x, y)` pairs `start` and `end`, which MUST differ, with `width` a positive, even number of nanometres; its overall length is `|end − start| + width`. With `u` the unit vector from `start` to `end`, `n = (−u_y, u_x)` and `h = width / 2`, its vertices are `start − h·n`, `end − h·n`, `end + h·n` and `start + h·n`, joined by a line, the arc through `end + h·u`, a line and the arc through `start − h·u`. Each coordinate is rounded half to even once with integer arithmetic, so a horizontal or vertical slot is exact.
+- The helpers return tuples of pairs and `ArcStep`s, which a script may also write by hand. Rings that cross or touch, and cut-outs outside the board, are refused by the build ("Outline shapes in a build").
+
+#### Scenario: Rounded corners
+- **WHEN** `shape.rect(mm(0), mm(0), mm(60), mm(40), radius=mm(3))` is given to `board(outline=…)` and `to_model` runs
+- **THEN** the board ring has eight vertices, its second edge is the arc from (157 mm, 100 mm) through `Point(159_121_320, 100_878_680)` to (160 mm, 103 mm), and `Outline.arcs` holds four entries of ring 0
+
+#### Scenario: A round cut-out
+- **GIVEN** `board(mm(60), mm(40))` and `d.cutout(shape.circle(mm(10), mm(10), mm(3.2)))`
+- **WHEN** `to_model` runs
+- **THEN** `Outline.cutouts` holds the ring (111.6 mm, 110 mm), (108.4 mm, 110 mm), and `Outline.arcs` holds `OutlineArc(1, 0, Point(110_000_000, 108_400_000))` and `OutlineArc(1, 1, Point(110_000_000, 111_600_000))`
+
+#### Scenario: A horizontal slot
+- **WHEN** `shape.slot((mm(10), mm(20)), (mm(20), mm(20)), mm(2))` is given to `cutout()` and `to_model` runs
+- **THEN** the cut-out's vertices are (110 mm, 119 mm), (120 mm, 119 mm), (120 mm, 121 mm) and (110 mm, 121 mm), and its arcs pass through (121 mm, 120 mm) and (109 mm, 120 mm)
+
+#### Scenario: Refused paths
+- **WHEN** `d.cutout(())`, `d.cutout(((mm(1), mm(1)), (mm(1), mm(1)), (mm(2), mm(5))))`, `d.cutout(((mm(0), mm(0)), arc_to((mm(1), mm(0)), (mm(2), mm(0)))))`, `shape.circle(mm(5), mm(5), nm(3))` and `shape.slot((mm(1), mm(1)), (mm(1), mm(1)), mm(1))` are called after `board()`, and `d.cutout(shape.circle(mm(5), mm(5), mm(2)))` on a design without `board()`
+- **THEN** each raises `DslError`, the second naming element 1 and the third naming the arc step
+
+### Requirement: Outline shapes in a build
+`lens.build.build_design` SHALL run `fenolite.backends.kicad.outline.check_outline(design)` (`kicad-file-backend`, "Outline shape checks") on the model it is given, before placing, and SHALL take the keyword-only argument `lock_outline: bool = False`, which it passes to `lens.preserve.merge_layout` (`layout-lens`, "Outline changes across rebuilds"); `cmd_build` SHALL pass `dsl.outline_locked(design)`. This requirement adds a step and a keyword to "Built project files", and codes that pass "Build issue codes" unchanged.
+- An error of the check MUST stop the build: no file is returned, and `build` exits 5.
+- The written board MUST hold the outline as `kicad-file-backend` "Outline lowering" writes it, and `board_outline` of the board read back MUST give the script's rings, its arcs polygonised.
+- A design whose outline is the rectangle of `board(width, height)` without cut-outs MUST build every file as before, apart from the uuids of its edge lines ("Outline lowering").
+
+#### Scenario: A rounded board with cut-outs
+- **GIVEN** a blink variant with `board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(2)))`, `d.cutout(shape.circle(mm(45), mm(5), mm(3.2)))` and `d.cutout(shape.slot((mm(10), mm(25)), (mm(20), mm(25)), mm(1)))`
+- **WHEN** it is built with `--confirm` for targets 9 and 10
+- **THEN** the exit code is 0, `Edge.Cuts` holds 6 `gr_line` and 8 `gr_arc`, every arc with a positive `orient2d(start, mid, end)`, and `issues` holds no `kicad.outline.*` code
+
+#### Scenario: A cut-out across the edge stops the build
+- **GIVEN** the blink with `board(mm(50), mm(30))` and `d.cutout(shape.circle(mm(49), mm(15), mm(4)))`
+- **WHEN** it is built with `--confirm`
+- **THEN** the exit code is 5, `issues` holds one `kicad.outline.invalid` naming `cut-out 1` and `board`, and nothing is written
+
+#### Scenario: The lock reaches the merge
+- **GIVEN** the blink with `board(mm(50), mm(30), locked=True)`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_outline.py -k lock` builds it over an existing board
+- **THEN** `outline_locked(design)` is true and `merge_layout` receives `lock_outline=True`
+
+### Requirement: Board holes in the DSL
+`Design.hole(ref, x, y, *, drill, length=None, rot=0, pad=None, courtyard=None, locked=True) -> Part` SHALL add and place one part that stands for a hole, whose symbol and footprint `fenolite.dsl.holes` generates in the library `Fenolite_Holes` (`holes.HOLE_LIBRARY`).
+- `ref` follows "Design structure and names", and the part's path is `ref`, at the top of the design.
+- `drill` MUST be a positive length. `length` MUST be `None` or a length above `drill`: the hole is then a slot of that overall length along the footprint's X axis. `pad` MUST be `None`, for a hole that is not plated, or a length above `drill`, the width of its copper. `courtyard` MUST be `None` or a length at least the width of the hole and of its copper. `rot` is an angle as in `place()`, and `locked` a `bool`. Any other value MUST raise `DslError` at the call, naming the argument.
+- The footprint (`holes.hole_footprint`) MUST hold one pad at its origin. Without `pad`: an `np_thru_hole` pad numbered `""` ("Unnumbered hole pads in authored footprints") whose size is the hole's, `drill` × `drill`, or `length` × `drill`. With `pad`: a `thru_hole` pad numbered `1` whose size is `pad` × `pad`, or `(length + pad − drill)` × `pad`. The shape is `circle` for a round hole and `oval` for a slot, the layers are `*.Cu` and `*.Mask`, the drill is `drill` (a slot of length `length` along X), the kind is `unspecified` and the flags are `exclude_from_pos_files` and `exclude_from_bom`. A courtyard on `F.CrtYd` and on `B.CrtYd`, drawn 0.05 mm wide, is a circle of diameter `courtyard` for a round hole and, for a slot, a rectangle `courtyard` wide that exceeds the length of the hole, or of its copper, by as much as it exceeds its width. Without `courtyard`, the courtyard takes the width of the copper, or of the hole.
+- The footprint is named `NPTH_<d>mm` or `NPTH_Slot_<d>x<l>mm` without `pad`, and `PTH_<d>mm_Pad_<p>mm` or `PTH_Slot_<d>x<l>mm_Pad_<p>mm` with it, followed by `_Courtyard_<c>mm` when `courtyard` is given, each length in millimetres as `core.units.format_length` prints it.
+- The symbol (`holes.hole_symbol`) is `Fenolite_Holes:Hole`, a `SymbolDef` without pins, or, for a plated hole, `Fenolite_Holes:Hole_Pad` with one passive pin `1`; both with the reference prefix `H`, `in_bom` false and `on_board` true.
+- The part is `Part(ref, <symbol lib id>, footprint=<footprint lib id>, value=<footprint name>)`, placed at `(x, y)` with `rot`, on the top side, with `locked`. A plated hole joins a net with `connect(net, part[1])`.
+- Each definition MUST be registered once per lib id, the footprint in `Design.footprints` and the symbol among the design's symbols; registering another definition under one of these lib ids, the user's own included, MUST raise `DslError` naming it.
+- A script hole is this part and nothing else: `to_model` MUST NOT add a `Hole` to `Board.holes` for it. `Board.holes` stays the model field that a reader fills (an Altium board), and `pcb.write_board` keeps refusing it for KiCad. `Design.hole` is the one call of the DSL that declares a hole.
+
+#### Scenario: A round hole that is not plated
+- **WHEN** `d.hole("H1", mm(3), mm(3), drill=mm(3.2))` is called after `board()`
+- **THEN** the design holds the part `H1` with `lib_id == "Fenolite_Holes:Hole"` and `footprint == "Fenolite_Holes:NPTH_3.2mm"`, `placements(d)["H1"]` is `Placement(Point(103_000_000, 103_000_000), 0, "top", True)`, and the footprint's one pad is numbered `""`, of kind `np_thru_hole`, shape `circle`, size 3.2 mm × 3.2 mm and drill 3.2 mm, with a 3.2 mm courtyard circle on `F.CrtYd` and on `B.CrtYd`
+
+#### Scenario: A plated slot on a net
+- **WHEN** `h2 = d.hole("H2", mm(10), mm(3), drill=mm(1), length=mm(3), pad=mm(2), rot=90)` and `connect(gnd, h2[1])` are called
+- **THEN** `h2` uses `Fenolite_Holes:Hole_Pad` and `Fenolite_Holes:PTH_Slot_1x3mm_Pad_2mm`, whose pad `1` is a `thru_hole` `oval` of 4 mm × 2 mm with a 1 mm drill slotted to 3 mm along X, and the net `GND` holds `PinRef(<H2 id>, "1")`
+
+#### Scenario: Equal holes share a definition
+- **WHEN** `d.hole("H1", mm(3), mm(3), drill=mm(3.2))` and `d.hole("H2", mm(47), mm(3), drill=mm(3.2))` are called
+- **THEN** `Design.footprints` holds `Fenolite_Holes:NPTH_3.2mm` once
+
+#### Scenario: Refused holes
+- **GIVEN** `d.hole("H1", mm(3), mm(3), drill=mm(3.2))`
+- **WHEN** `d.hole("H3", mm(1), mm(1), drill=mm(0))`, `d.hole("H3", mm(1), mm(1), drill=mm(1), pad=mm(1))`, `d.hole("H3", mm(1), mm(1), drill=mm(1), length=mm(1))`, `d.hole("H3", mm(1), mm(1), drill=mm(2), courtyard=mm(1))` and `d.hole("H1", mm(9), mm(9), drill=mm(2))` are called
+- **THEN** each raises `DslError`, naming `drill`, `pad`, `length`, `courtyard` and the path `H1`
+
+### Requirement: Board holes in a build
+`fenolite build` SHALL build the parts of `Design.hole()` as parts with authored definitions (`dsl-footprint-authoring`, and the authored symbols of c0058), with no step of its own: the built project MUST hold `lib/Fenolite_Holes.pretty/<name>.kicad_mod` for each hole footprint used, `lib/Fenolite_Holes.kicad_sym` with the hole symbols used, their table rows, and one footprint per hole at its part's placement.
+- The written footprint MUST carry the flags, the pad and the two courtyards of its definition. KiCad drills, lists and judges it as `kicad-oracle` "Outline shapes and holes pass the oracle" proves.
+- The placement guard ("Placement legality in a build") MUST judge a hole by its courtyards, on both sides.
+- A rebuild over the build's own output MUST write the same bytes, holes included.
+- A hole part is a part for the layout lens, with no rule of its own: `layout-lens`, "Placement precedence" places it (it is locked by default, so the script's position wins over the board and over an entry of `placements.toml`, with `layout.place-forced` when they differ), and `fenolite sync --to-source` lists it in `placements.toml` with the other parts ("Placement extraction", "Placements file").
+- `--target altium` follows `altium-build`, "PCB document output": a round hole that is not plated is written as a board hole, and a slot or a plated hole is reported.
+
+#### Scenario: Holes in a build
+- **GIVEN** a blink variant with `d.hole("H1", mm(4), mm(4), drill=mm(3.2))`, `h2 = d.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))` and `connect(gnd, h2[1])`
+- **WHEN** it is built with `--confirm` for target 10 and the board is read with `read_board`
+- **THEN** the exit code is 0, `H1`'s pad is `""` of kind `np_thru_hole`, `H2`'s pad `1` is on `GND`, both footprints have the attributes `exclude_from_pos_files` and `exclude_from_bom`, and the written files include `lib/Fenolite_Holes.pretty/NPTH_3.2mm.kicad_mod`, `lib/Fenolite_Holes.pretty/PTH_3.2mm_Pad_6mm.kicad_mod` and `lib/Fenolite_Holes.kicad_sym`
+
+#### Scenario: A hole over a part
+- **GIVEN** the same variant with `d.hole("H3", mm(32), mm(9), drill=mm(1), courtyard=mm(3))`, whose courtyard overlaps that of `R1`
+- **WHEN** it is built with `--dry-run`
+- **THEN** `issues` holds one `place.courtyard-overlap` warning for the footprints of `H3` and `R1`
+
+#### Scenario: Holes rebuild to the same bytes
+- **GIVEN** a confirmed target-9 build of the variant of "Holes in a build"
+- **WHEN** it is built again
+- **THEN** every file keeps its bytes
+
+#### Scenario: A hole in the placements file
+- **GIVEN** a confirmed target-10 build of the variant of "Holes in a build"
+- **WHEN** `fenolite sync --to-source` runs on it
+- **THEN** `placements.toml` holds the tables `[part."H1"]` and `[part."H2"]`, each with `locked = true`, and a build that follows gives no `layout.place-forced` and no `layout.source-stale` for them
+
+### Requirement: Default pin-to-pad map is reported
+A build SHALL report each part that gets the catalog's default pin-to-pad map (`fenolite-component-catalog`, "Default pin-to-pad map of the cathode-first lands") with one warning, which joins the closed build set ("Build issue codes"), for the KiCad and the Altium target alike:
+
+| code | severity | when |
+|---|---|---|
+| `build.pad-map-default` | warning | a part of an anode-first catalog symbol on a cathode-first catalog land gives no `pad_map`, and the build applied `{"1": "2", "2": "1"}` |
+
+- The issue MUST have the part's path as `where`, and its message MUST name the reference, the symbol, the land and the map applied, as `pad_map={"1": "2", "2": "1"}`.
+- The hint MUST name the `pad_map` that keeps the map and silences the warning, and the identity map `pad_map={"1": "1", "2": "2"}` that keeps the pad order of builds before change c0147.
+- A part that gives a `pad_map`, and every other part, MUST give no such issue. The warning MUST NOT change the exit code of the build.
+- `fenolite explain build.pad-map-default` and `docs/cli-contract.md` MUST explain the code.
+
+#### Scenario: The default is reported
+- **GIVEN** the script of "Part without a map" (`fenolite-component-catalog`)
+- **WHEN** it is built with `--confirm --json` for either target
+- **THEN** the exit code is 0 and `issues` hold exactly two `build.pad-map-default` warnings, at `D1` and `D2`, the first with the message `D1 (Fenolite:LED on Fenolite:LED0603_Kingbright_APT1608SURCK) gives no pad_map; the build applies the catalog's map pad_map={"1": "2", "2": "1"} (pin 1 on pad 2, pin 2 on pad 1): pad 1 of this land is the cathode`
+
+#### Scenario: A map silences it
+- **WHEN** both parts of that script give a `pad_map`
+- **THEN** `issues` hold no `build.pad-map-default`
+
+### Requirement: Fiducials in the DSL
+`Design.fiducial(ref, x, y, *, copper, mask, clear=None, side="top", local=False) -> Part` SHALL add, place and lock one part that stands for a fiducial, whose footprint and symbol `fenolite.dsl.assembly` generates in the library `Fenolite_Assembly` (`assembly.ASSEMBLY_LIBRARY`), and SHALL declare its copper keep-out with `Design.rule_area` (c0103).
+- `board()` MUST have been called first. `ref` follows "Design structure and names", and the part's path is `ref`, at the top of the design.
+- `copper` MUST be a positive length and `mask` a length above `copper`; `clear` MUST be `None`, which means `mask`, or a length of at least `mask`. `side` MUST be `top` or `bottom` and `local` a `bool`. Any other value MUST raise `DslError` at the call, naming the argument, and MUST record nothing.
+- The footprint (`assembly.fiducial_footprint`) MUST hold two unnumbered `smd` pads of shape `circle` at its origin: the copper pad, `copper` × `copper` on `F.Cu` and `F.Mask`, with `fab_property` `fiducial_local` when `local` is true and `fiducial_global` otherwise; and the aperture pad, `mask` × `mask` on `F.Mask` only, without a mark. A courtyard circle of diameter `clear` is drawn 0.05 mm wide on `F.CrtYd`. The kind is `smd` and the flags are `exclude_from_bom`.
+- The footprint is named `Fiducial_<c>_Mask<m>`, or `Fiducial_Local_<c>_Mask<m>` when `local` is true, followed by `_Clear<k>` when `clear` differs from `mask`, each length in millimetres as `core.units.format_length` prints it (`Fiducial_1mm_Mask2mm`).
+- The symbol (`assembly.fiducial_symbol`) is `Fenolite_Assembly:Fiducial`, a `SymbolDef` without pins, with the reference prefix `FID`, `in_bom` false and `on_board` true.
+- The part is `Part(ref, "Fenolite_Assembly:Fiducial", footprint=<footprint lib id>, value=<footprint name>)`, placed at `(x, y)` with rotation 0 on `side`, locked. `fiducial()` takes no `locked`: its keep-out stays where the script draws it.
+- The keep-out MUST be `rule_area(f"clear_{ref}", assembly.clear_outline(x, y, clear), layers=("F.Cu",), forbid=("tracks", "vias", "pours"))`, with `("B.Cu",)` on the bottom side. `clear_outline(x, y, d)` MUST return, in this order, the points `(x + a, y − b)`, `(x + a, y + b)`, `(x + b, y + a)`, `(x − b, y + a)`, `(x − a, y + b)`, `(x − a, y − b)`, `(x − b, y − a)` and `(x + b, y − a)`, with `a = ⌈d / 2⌉` and `b = ⌈√(2a²)⌉ − a` computed in integer nanometres with `math.isqrt`: an octagon that contains the circle of diameter `d`.
+- Each definition MUST be registered once per lib id, the footprint in `Design.footprints` and the symbol among the design's symbols; registering another definition under one of these lib ids, the user's own included, MUST raise `DslError` naming it.
+
+#### Scenario: A global fiducial
+- **GIVEN** `d.board(mm(50), mm(30))`
+- **WHEN** `d.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))` is called
+- **THEN** the part `FID1` has `lib_id == "Fenolite_Assembly:Fiducial"` and `footprint == "Fenolite_Assembly:Fiducial_1mm_Mask2mm"`, `placements(d)["FID1"]` is `Placement(Point(103_000_000, 103_000_000), 0, "top", True)`, the footprint's copper pad is `""`, `smd`, `circle`, 1 mm × 1 mm on `("F.Cu", "F.Mask")` with `fab_property == "fiducial_global"`, its aperture pad is 2 mm × 2 mm on `("F.Mask",)`, and `d.rule_areas["clear_FID1"]` lies on `("F.Cu",)`, forbids `("tracks", "vias", "pours")` and has the outline (4 000 000, 2 585 786), (4 000 000, 3 414 214), (3 414 214, 4 000 000), (2 585 786, 4 000 000), (2 000 000, 3 414 214), (2 000 000, 2 585 786), (2 585 786, 2 000 000), (3 414 214, 2 000 000) in nanometres
+
+#### Scenario: A local fiducial on the bottom
+- **WHEN** `d.fiducial("FID4", mm(20), mm(10), copper=mm(0.5), mask=mm(1.5), clear=mm(3), side="bottom", local=True)` is called after `board()`
+- **THEN** the part uses `Fenolite_Assembly:Fiducial_Local_0.5mm_Mask1.5mm_Clear3mm`, whose copper pad has `fab_property == "fiducial_local"` and whose courtyard circle has a diameter of 3 mm, the placement is on the bottom side and locked, and `clear_FID4` lies on `("B.Cu",)`
+
+#### Scenario: Refused fiducials
+- **GIVEN** `d.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))`
+- **WHEN** `d.fiducial("FID2", mm(9), mm(9), copper=mm(0), mask=mm(1))`, `d.fiducial("FID2", mm(9), mm(9), copper=mm(1), mask=mm(1))`, `d.fiducial("FID2", mm(9), mm(9), copper=mm(1), mask=mm(2), clear=mm(1.5))`, `d.fiducial("FID2", mm(9), mm(9), copper=mm(1), mask=mm(2), side="left")` and `d.fiducial("FID1", mm(9), mm(9), copper=mm(1), mask=mm(2))` are called
+- **THEN** each raises `DslError`, naming `copper`, `mask`, `clear`, `side` and the path `FID1`, and the design holds one fiducial and one rule area
+
+### Requirement: Test points in the DSL
+`Design.test_point(ref, net, x, y, *, size, shape="circle", drill=None, courtyard=None, side="top", locked=False) -> Part` SHALL add and place one part that stands for a test point on `net`, whose footprint and symbol `fenolite.dsl.assembly` generates in `Fenolite_Assembly`.
+- `board()` MUST have been called first; `ref` and the path are as for `fiducial()`.
+- `net` MUST be a `Net`. `size` MUST be a positive length; `shape` `circle` or `rect`; `drill` `None` for an SMD pad, or a positive length below `size` for a plated through-hole pad; `courtyard` `None` or a length of at least `size`; `side` `top` or `bottom`; `locked` a `bool`. Any other value MUST raise `DslError` at the call, naming the argument, and MUST record nothing.
+- The footprint (`assembly.test_point_footprint`) MUST hold one pad `1` at its origin, `size` × `size`, of the given shape, with `fab_property` `test_point`: kind `smd` on `F.Cu` and `F.Mask` without `drill`, kind `thru_hole` on `*.Cu` and `*.Mask` with that drill otherwise. Its courtyard, `courtyard` wide or by default `size`, is a circle for `circle` and a square for `rect`, drawn 0.05 mm wide on `F.CrtYd`, and also on `B.CrtYd` for a through-hole pad. The kind is `unspecified` and the flags are `exclude_from_pos_files` and `exclude_from_bom`.
+- The footprint is named `TestPoint_Pad_D<s>` for a round SMD pad, `TestPoint_Pad_<s>x<s>` for a square one, `TestPoint_THTPad_D<s>_Drill<d>` and `TestPoint_THTPad_<s>x<s>_Drill<d>` for through-hole pads, followed by `_Courtyard_<c>` when `courtyard` is given, each length in millimetres as `core.units.format_length` prints it.
+- The symbol (`assembly.test_point_symbol`) is `Fenolite_Assembly:TestPoint`, with one passive pin `1`, the reference prefix `TP`, `in_bom` false and `on_board` true.
+- The part is `Part(ref, "Fenolite_Assembly:TestPoint", footprint=<footprint lib id>, value=<footprint name>)`. `test_point()` MUST connect it with `connect(net, part[1])` and place it at `(x, y)` with rotation 0 on `side`, with `locked`.
+- Definitions are registered as for `fiducial()`.
+
+#### Scenario: An SMD test point on a net
+- **GIVEN** `d.board(mm(50), mm(30))` and the net `led_a = Net("LED_A")` added to the design
+- **WHEN** `tp = d.test_point("TP1", led_a, mm(30), mm(12), size=mm(1.5))` is called
+- **THEN** `tp` uses `Fenolite_Assembly:TestPoint` and `Fenolite_Assembly:TestPoint_Pad_D1.5mm`, whose pad `1` is `smd`, `circle`, 1.5 mm × 1.5 mm on `("F.Cu", "F.Mask")` with `fab_property == "test_point"`, the net `LED_A` holds `PinRef(<TP1 id>, "1")`, and `placements(d)["TP1"]` is `Placement(Point(130_000_000, 112_000_000), 0, "top", False)`
+
+#### Scenario: A through-hole test point on the bottom
+- **WHEN** `d.test_point("TP2", gnd, mm(5), mm(25), size=mm(2), shape="rect", drill=mm(1), courtyard=mm(3), side="bottom")` is called
+- **THEN** the part uses `Fenolite_Assembly:TestPoint_THTPad_2x2mm_Drill1mm_Courtyard_3mm`, whose pad `1` is `thru_hole`, `rect`, with a 1 mm drill on `("*.Cu", "*.Mask")`, with 3 mm square courtyards on `F.CrtYd` and `B.CrtYd`, placed on the bottom side
+
+#### Scenario: Refused test points
+- **WHEN** `d.test_point("TP3", "GND", mm(1), mm(1), size=mm(1))`, `d.test_point("TP3", gnd, mm(1), mm(1), size=mm(0))`, `d.test_point("TP3", gnd, mm(1), mm(1), size=mm(1), shape="oval")`, `d.test_point("TP3", gnd, mm(1), mm(1), size=mm(1), drill=mm(1))` and `d.test_point("TP3", gnd, mm(1), mm(1), size=mm(1), courtyard=mm(0.5))` are called
+- **THEN** each raises `DslError`, naming `net`, `size`, `shape`, `drill` and `courtyard`, and nothing is recorded
+
+### Requirement: Tooling holes in the DSL
+`Design.tooling_hole(ref, x, y, *, drill, clear=None) -> Part` SHALL add, place and lock one part that stands for a non-plated tooling hole, whose footprint `fenolite.dsl.assembly` generates in `Fenolite_Assembly`.
+- `board()` MUST have been called first; `ref` and the path are as for `fiducial()`. `drill` MUST be a positive length and `clear` `None` or a length of at least `drill`. Any other value MUST raise `DslError` at the call, naming the argument, and MUST record nothing.
+- The footprint (`assembly.tooling_hole_footprint`) MUST hold one unnumbered `np_thru_hole` pad of shape `circle`, `drill` × `drill` with the drill `drill`, on `*.Cu` and `*.Mask`, without a mark; courtyard circles of diameter `clear`, by default `drill`, drawn 0.05 mm wide on `F.CrtYd` and `B.CrtYd`. The kind is `unspecified` and the flags are `exclude_from_pos_files` and `exclude_from_bom`. It is named `ToolingHole_<d>`, followed by `_Clear<c>` when `clear` is given, each length as for `fiducial()`. The lib id prefix `Fenolite_Assembly:ToolingHole_` is the tooling mark that the report reads ("Test-point report rows").
+- The symbol is c0102's `Fenolite_Holes:Hole` ("Board holes in the DSL"), registered once.
+- The part is `Part(ref, "Fenolite_Holes:Hole", footprint=<footprint lib id>, value=<footprint name>)`, placed at `(x, y)` with rotation 0 on the top side, locked; `tooling_hole()` takes no `locked`.
+- With `clear`, it MUST also call `rule_area(f"clear_{ref}", assembly.clear_outline(x, y, clear), layers=None, forbid=("tracks", "vias", "pours"))`: every copper layer of the board.
+
+#### Scenario: A tooling hole with a clear area
+- **GIVEN** `d.board(mm(50), mm(30))`
+- **WHEN** `d.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))` is called
+- **THEN** the part uses `Fenolite_Holes:Hole` and `Fenolite_Assembly:ToolingHole_3mm_Clear5mm`, whose pad is `""`, `np_thru_hole`, `circle`, 3 mm × 3 mm with a 3 mm drill, with 5 mm courtyard circles on `F.CrtYd` and `B.CrtYd`; `placements(d)["TH1"]` is `Placement(Point(146_000_000, 104_000_000), 0, "top", True)`; and `d.rule_areas["clear_TH1"]` lies on every copper layer of the board (`("F.Cu", "B.Cu")`: `rule_area` records the layers that `layers=None` names) and forbids `("tracks", "vias", "pours")`
+
+#### Scenario: A tooling hole without a clear area
+- **WHEN** `d.tooling_hole("TH2", mm(4), mm(26), drill=mm(3))` is called after `board()`
+- **THEN** the part uses `Fenolite_Assembly:ToolingHole_3mm` with 3 mm courtyard circles, and the design holds no rule area `clear_TH2`
+
+#### Scenario: Refused tooling holes
+- **WHEN** `d.tooling_hole("TH3", mm(1), mm(1), drill=mm(0))` and `d.tooling_hole("TH3", mm(1), mm(1), drill=mm(3), clear=mm(2))` are called
+- **THEN** each raises `DslError`, naming `drill` and `clear`, and nothing is recorded
+
+### Requirement: Assembly and test features in a build
+`fenolite build` SHALL build the parts of `fiducial()`, `test_point()` and `tooling_hole()` as parts with authored definitions, with no step of its own: the built project MUST hold `lib/Fenolite_Assembly.pretty/<name>.kicad_mod` for each such footprint used, `lib/Fenolite_Assembly.kicad_sym` with the symbols used, `lib/Fenolite_Holes.kicad_sym` when a tooling hole is used, their table rows, one footprint per part at its placement, and the rule areas of their keep-outs (c0103).
+- The written pads MUST carry their marks, in the footprint files and on the board ("Assembly and test pad properties on boards and footprints").
+- The placement guard ("Placement legality in a build") MUST judge these parts by their courtyards.
+- A rebuild over the build's own output MUST write the same bytes.
+- `--target altium` follows `altium-build`, "Assembly and test features in an Altium build".
+
+#### Scenario: Features in a build
+- **GIVEN** a variant of `examples/blink_2layer/design.py` with `d.fiducial("FID1", mm(3), mm(3), copper=mm(1), mask=mm(2))`, `d.fiducial("FID2", mm(47), mm(27), copper=mm(1), mask=mm(2), side="bottom")`, `d.test_point("TP1", led_a, mm(30), mm(12), size=mm(1.5))` and `d.tooling_hole("TH1", mm(46), mm(4), drill=mm(3), clear=mm(5))`
+- **WHEN** it is built with `--confirm` for target 10 and the board is read with `read_board`
+- **THEN** the exit code is 0; the copper pad of `FID1` has `fab_property == "fiducial_global"` on `F.Cu` and that of `FID2` on `B.Cu`; pad `1` of `TP1` is on `LED_A` with `fab_property == "test_point"`; the pad of `TH1` is `np_thru_hole`; `board.keepouts` holds `clear_FID1` on `F.Cu`, `clear_FID2` on `B.Cu` and `clear_TH1` on both copper layers; and the written files include `lib/Fenolite_Assembly.pretty/Fiducial_1mm_Mask2mm.kicad_mod`, `lib/Fenolite_Assembly.pretty/TestPoint_Pad_D1.5mm.kicad_mod`, `lib/Fenolite_Assembly.pretty/ToolingHole_3mm_Clear5mm.kicad_mod` and `lib/Fenolite_Assembly.kicad_sym`
+
+#### Scenario: Features rebuild to the same bytes
+- **GIVEN** a confirmed target-9 build of the variant of "Features in a build"
+- **WHEN** it is built again
+- **THEN** every file keeps its bytes
+
+### Requirement: Stack-up in the DSL
+`fenolite.dsl.stack` SHALL provide the entries of a stack-up, and `Design.stackup(*entries, finish=None, impedance_controlled=False, locked=False)` SHALL declare the board's stack-up from its top face to its bottom face. `fenolite.dsl` MUST re-export `stack` and `stackup_locked` (an addition under "DSL package"), and `dsl/stack.py` MUST import only the standard library, `fenolite.core`, `fenolite.model` and the DSL's own `fenolite.dsl.errors` (`DslError`) and `fenolite.dsl.units` (DSL lengths).
+- **Entries.** `stack.silkscreen(*, color="")`, `stack.mask(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")`, `stack.copper(thickness)`, `stack.core(thickness, *, material="", epsilon_r=None, loss_tangent=None, color="")` and `stack.prepreg(…)`, with the arguments of `core`, each MUST return a frozen `StackEntry`. A thickness is a DSL length ("DSL lengths and angles"); a copper, core or prepreg thickness MUST be above 0, and a mask's at least 0. `epsilon_r` and `loss_tangent` MUST be an `int`, a `fractions.Fraction` or a decimal text, `epsilon_r` above 0 and `loss_tangent` at least 0, and are stored as the shortest plain decimal (`"4.50"` gives `"4.5"`, `4` gives `"4"`); a `float`, a `bool`, a sign, an exponent or a value that is not a terminating decimal MUST raise `DslError` naming the value. `material` and `color` MUST be strings without surrounding blanks.
+- **The call.** `stackup()` MUST be called after `board()`, in either of its forms (`width` and `height`, or `outline=` of change c0102), and once. Its entries, top to bottom, MUST be: at most one silkscreen, then at most one mask; the copper entries, exactly as many as `board(copper=…)` declares, with at least one `core` or `prepreg` between neighbours and the dielectrics of one gap all of one kind; then at most one mask, then at most one silkscreen. Any other sequence, a `finish` that is neither `None` nor a non-empty string, and an `impedance_controlled` or `locked` that is not a `bool` MUST raise `DslError`, naming the position of the first entry out of place.
+- **Names.** The copper entries MUST take the names of the board's copper layers from the top, `F.Cu`, `In1.Cu` … `In<n − 2>.Cu` and `B.Cu` for `copper=n`; every dielectric of the gap between the j-th and the (j + 1)-th copper entries the name `dielectric <j>`; masks and silkscreens `F.Mask`, `B.Mask`, `F.SilkS` and `B.SilkS`. These are the names that `kicad-file-backend` "Stack-up on boards" gives the same rows.
+- **Model.** `to_model` MUST give the keyed `Board` of "DSL to model" a `Stackup` with the id `key_id("stackup")`, one `StackLayer` per entry with the id `key_id("stack_layer", "<k>")`, k from 0, `dielectric_kind` `core` or `prepreg` for those entries, `finish` (`""` for `None`) and `impedance_controlled`. `KEYS` MUST gain `stackup` (`stk`) and `stack_layer` (`sly`), and `docs/dsl.md` MUST list them in "Ids: the key table". A design without `stackup()` MUST give `Board.stackup = None`.
+- `stackup_locked(design) -> bool` (`dsl/convert.py`) MUST return the `locked` argument, and `False` without a call.
+- Fenolite MUST NOT supply a thickness, a material, a dielectric constant or a finish that the script does not give.
+
+#### Scenario: Four layers in the model
+- **GIVEN** `d.board(mm(50), mm(30), copper=4)` and `d.stackup(stack.mask("10um"), stack.copper("35um"), stack.prepreg("0.2mm", material="FR4", epsilon_r="4.50", loss_tangent="0.02"), stack.copper("17.5um"), stack.core("1.2mm", material="FR4", epsilon_r=4), stack.copper("17.5um"), stack.prepreg("0.2mm"), stack.copper("35um"), stack.mask("10um"), finish="ENIG")`
+- **WHEN** `to_model` runs
+- **THEN** `board.stackup` holds nine entries named `F.Mask`, `F.Cu`, `dielectric 1`, `In1.Cu`, `dielectric 2`, `In2.Cu`, `dielectric 3`, `B.Cu` and `B.Mask`; the first prepreg has `epsilon_r == "4.5"`; the core has `epsilon_r == "4"` and `dielectric_kind == "core"`; `finish == "ENIG"`; and `thickness() == 1_725_000`
+
+#### Scenario: Stack-ups refused at the call
+- **WHEN** these are called on fresh two-layer designs: `d.stackup(stack.copper("35um"), stack.copper("35um"))`; `d.stackup(stack.copper("35um"), stack.core("1.5mm"), stack.prepreg("0.1mm"), stack.copper("35um"))`; `stack.core("1.5mm", epsilon_r=4.5)`; and `d.stackup(stack.copper("35um"))` before `board()`
+- **THEN** each raises `DslError`, the first naming position 1 and the third naming `4.5`
+
+#### Scenario: A shaped board takes a stack-up
+- **GIVEN** `d.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(3)), copper=4)` and `d.cutout(shape.circle(mm(45), mm(5), mm(3.2)))`
+- **WHEN** `d.stackup(…)` is called with four copper entries and a dielectric between each pair, and `to_model` runs
+- **THEN** the call records the stack-up, `board.stackup` is not `None`, and the board built from the blink with `board(outline=…)` writes the stack-up node that the same blink with `board(mm(50), mm(30))` writes
+
+#### Scenario: No stack-up declared
+- **GIVEN** the DSL design of `examples/blink_2layer/design.py`
+- **WHEN** `to_model` runs and `stackup_locked` is called
+- **THEN** `board.stackup is None` and `stackup_locked(design) is False`
+
+### Requirement: Stack-up in a build
+`fenolite build` SHALL write the stack-up that the script declares, and SHALL decide it against an existing board as `layout-lens` "Stack-up across rebuilds" states. This requirement adds a step to "Built project files" and a key to the `result` of "Build command".
+- `lens.build.build_design` MUST keep `Board.stackup` of the model it is given and take `lock_stackup: bool = False`; `cmd_build` MUST pass `stackup_locked(design)`. On a created board the writer follows `kicad-file-backend` "Stack-up written to boards". `Design.validate()` of the design to write runs before writing, so a `model.stackup-*` error refuses the build and nothing is written.
+- `result.stackup` MUST be `null` when the written board holds no stack-up, and otherwise `{"source": "script" | "board", "thickness": <nm>, "copper": <number of copper entries>}`, `source` naming whose stack-up the written board holds.
+- A script without `stackup()` MUST build every file with the bytes it had before this change, for both targets.
+- `--target altium` MUST keep the rule of `lens.altium_copper.stack_values`: a stack-up with one dielectric between neighbouring copper entries gives the document its values; any other gives the defaults and one `altium.not-lowered` info.
+
+#### Scenario: Blink with a stack-up on both targets
+- **GIVEN** a blink variant with `d.stackup(stack.mask("10um"), stack.copper("35um"), stack.core("1.5mm", material="FR4"), stack.copper("35um"), stack.mask("10um"), finish="ENIG")`
+- **WHEN** it is built for targets 9 and 10 with `--confirm`, each board is read back, and each build runs again
+- **THEN** each board's stack-up equals `complete` of the declared one by `stackup.values`, `general` holds `(thickness 1.59)`, `result.stackup` is `{"source": "script", "thickness": 1590000, "copper": 2}`, and the second build writes every file with the bytes of the first
+
+#### Scenario: An invalid stack-up stops the build
+- **GIVEN** a model, built in the test because the DSL refuses it, whose stack-up names only `F.Cu` and `B.Cu`, given to `build_design` with `copper=4`
+- **WHEN** the build runs
+- **THEN** no file is written and the issues hold `model.stackup-copper`
+
+### Requirement: Stack-up presets
+`stack.preset(name) -> tuple[StackEntry, ...]` SHALL return the entries of the packaged preset `fenolite/dsl/stackups/<name>.toml`, and `stack.PRESETS` SHALL list the names in code-point order.
+- A preset file MUST hold `source` (an S-id of `docs/evidence/sources.md`), `url`, `retrieved` (an ISO date), `copper` (its copper count), an optional `finish`, and one `[[entry]]` table per entry with `kind` (`silkscreen`, `mask`, `copper`, `core` or `prepreg`), `thickness` (a length with a unit) and, where the page states them, `material`, `epsilon_r` and `loss_tangent`. Every value MUST be the page's, and no value the page does not state MUST appear.
+- An unknown name MUST raise `DslError` listing `PRESETS`. The entries pass the checks of "Stack-up in the DSL" when they are given to `stackup()`.
+- At most three presets ship with this change, and `docs/dsl.md` MUST list each with its source URL and date.
+
+#### Scenario: Every preset is sourced and valid
+- **WHEN** `uv run pytest tests/unit/dsl/test_stackup_presets.py` runs
+- **THEN** the `source` of each file is a row of `docs/evidence/sources.md` whose URL equals the file's `url`, and `design.stackup(*stack.preset(name))` on a board of the preset's copper count raises nothing
+
+#### Scenario: Unknown preset
+- **WHEN** `stack.preset("nope")` is called
+- **THEN** `DslError` is raised listing the names of `stack.PRESETS`
+
+### Requirement: Rule areas in the DSL
+`Design.rule_area(name, outline, *, layers=None, forbid=()) -> RuleArea` SHALL declare one rule area, and `dsl.to_model` SHALL put one model `Keepout` per declared area into `Board.keepouts`, in name order. This adds rule areas to the `Board` of "DSL to model". `Design.rule_area` is the one call of the DSL that declares a rule area or a keep-out: a keep-out is a rule area with a non-empty `forbid`, and the DSL has no `keepout()` call.
+- `board()` MUST have been called first, in either of its forms (`width` and `height`, or `outline=` of change c0102).
+- `name` MUST match `^[A-Za-z0-9_.+-]+$`. Two areas MUST NOT have names that are equal after `str.casefold()`, because KiCad compares area names with letter case (`H-K-AREA-COND`).
+- `outline` MUST hold at least three `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL". Points are written with `BOARD_ORIGIN` added.
+- `layers` is `None`, which means every copper layer of the board in table order, or a non-empty sequence of distinct copper layer names of the board.
+- `forbid` MUST be a tuple of distinct values among `tracks`, `vias`, `pads`, `pours` and `footprints` (`dsl.items.FORBID`). An area with an empty `forbid` is a named area for rules only. An area that forbids `footprints` is a placement keep-out: the KiCad build writes `(footprints not_allowed)`, and the legality checks of `place` and `build` judge it (`placement`, "Placement legality").
+- Each violation MUST raise `DslError` at the call, naming the argument, and MUST record nothing.
+- `RuleArea` is a frozen dataclass of `dsl/items.py` with `name`, `outline` (the given points as nanometre pairs, without `BOARD_ORIGIN`), `layers` and `forbid`. `Design.rule_areas` MUST map each name to its `RuleArea`, in call order. `fenolite.dsl` MUST re-export `RuleArea`, as "DSL package" allows, and the package keeps importing only the standard library, `core` and `model`.
+- The model keep-out MUST have the id `derived_id("kpo", "dsl", "area:<name>")` (`design-model`, "Identifier derivation"), the `name`, the outline, the layers, and `no_tracks`, `no_vias`, `no_pads`, `no_copper_pour` and `no_footprints` true exactly for `tracks`, `vias`, `pads`, `pours` and `footprints` in `forbid`.
+- **The Altium target.** `build --target altium` MUST handle an area that forbids footprints as it handles any rule area. The restriction on footprints MUST NOT be dropped silently: the build MUST give one `altium.not-lowered` info whose `where` is the kind `keepout-footprints` (`backends.altium.lower`), naming the areas, and the kind MUST NOT be in `LOSS_KINDS`. No Altium record is written for the restriction until `docs/formats/altium/` holds a fact row for it.
+
+#### Scenario: Antenna keep-out in the model
+- **GIVEN** a design with `board(mm(50), mm(30))` and `d.rule_area("ANT", [(mm(40), mm(0)), (mm(50), mm(0)), (mm(50), mm(10)), (mm(40), mm(10))], forbid=("tracks", "vias", "pours"))`
+- **WHEN** `to_model(d)` runs
+- **THEN** `board.keepouts` holds one `Keepout` named `ANT` with the id `derived_id("kpo", "dsl", "area:ANT")`, layers `("F.Cu", "B.Cu")`, the outline (140 mm, 100 mm), (150 mm, 100 mm), (150 mm, 110 mm) and (140 mm, 110 mm), `no_tracks`, `no_vias` and `no_copper_pour` true, and `no_pads` and `no_footprints` false
+
+#### Scenario: Area for rules only
+- **GIVEN** the same board and `hv = d.rule_area("HV", [(mm(0), mm(0)), (mm(20), mm(0)), (mm(20), mm(30))], layers=("F.Cu",))`
+- **WHEN** `to_model(d)` runs
+- **THEN** the keep-out `HV` has layers `("F.Cu",)` and its five settings false, and `hv.name == "HV"`
+
+#### Scenario: A shaped board takes rule areas
+- **GIVEN** `d.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(3)), copper=4)`
+- **WHEN** `d.rule_area("HV", [(mm(1), mm(1)), (mm(5), mm(1)), (mm(5), mm(5))], layers=("In1.Cu",))` is called and `to_model` runs
+- **THEN** `d.rule_areas` holds `HV` and `board.keepouts` holds one keep-out named `HV`
+
+#### Scenario: Refused calls
+- **WHEN** `d.rule_area("HV", …)` is called before `board()`, and after it `d.rule_area("H V", …)`, `d.rule_area("A", [(mm(0), mm(0)), (mm(1), mm(1))])`, `d.rule_area("B", …, layers=("In1.Cu",))` on a two-layer board, `d.rule_area("C", …, forbid=("silkscreen",))`, and `d.rule_area("hv", …)` after `d.rule_area("HV", …)`
+- **THEN** each raises `DslError` naming, in order, `board()`, `name`, `outline`, `In1.Cu`, `silkscreen` and `hv`, and `d.rule_areas` holds only `HV`
+
+#### Scenario: Call order does not matter
+- **GIVEN** two designs that declare the areas `ANT` and `HV` in opposite orders
+- **WHEN** `canonical.dump_texts(to_model(d))["board.json"]` is taken for both
+- **THEN** the two texts are byte-identical, `ANT` first
+
+#### Scenario: Antenna keep-out
+- **GIVEN** the blink with `design.rule_area("ANT", <a 6 mm × 6 mm square over R1>, layers=("F.Cu",), forbid=("footprints",))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_placement_rules.py -k keepout` builds it with `--dry-run --json`
+- **THEN** the model's `Keepout` named `ANT` has `no_footprints` true, the planned board text holds `(footprints not_allowed)` once, and `issues` hold one `place.keepout` warning naming `R1` and `ANT`
+
+#### Scenario: Antenna keep-out in an Altium build
+- **GIVEN** the same design
+- **WHEN** `uv run pytest tests/unit/cli/test_build_altium.py -k keepout_footprints` builds it with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, and `issues` hold one `altium.not-lowered` info whose `where` is `keepout-footprints` and whose message names `ANT`
+
+### Requirement: Board drawings in the DSL
+`Design.text(key, text, at, *, layer="F.SilkS", size=None, thickness=None, rot=0, justify=None)`, `Design.line(key, start, end, *, layer, width)`, `Design.rect(key, start, end, *, layer, width, fill=False)`, `Design.circle(key, center, edge, *, layer, width, fill=False)`, `Design.arc(key, start, mid, end, *, layer, width)`, `Design.polygon(key, points, *, layer, width, fill=False)` and `Design.dimension(key, start, end, *, offset, layer="Dwgs.User", direction=None, units="mm", precision=4, size=None, thickness=None, width=None)` SHALL each declare one board drawing. `dsl.to_model` SHALL put one `Text`, `Graphic` or `Dimension` per drawing into `Board.texts`, `Board.graphics` and `Board.dimensions`, each in key order.
+- `board()` MUST have been called first, in either of its forms. `key` MUST match `^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$` and MUST NOT be the key of another drawing of the design, whichever of the seven calls made it. `Design.drawings` MUST map each key to its record, in call order.
+- Points are `(x, y)` pairs of lengths in the board frame of "Board and placements in the DSL", written with `BOARD_ORIGIN` added; lengths and angles follow "DSL lengths and angles".
+- `layer` MUST be a layer of the board whose kind is `silkscreen`, `soldermask`, `fabrication` or `user` (`dsl.items.DRAWING_LAYER_KINDS`). A copper layer, `Edge.Cuts` or a layer of another kind MUST raise `DslError` naming the layer.
+- **Text.** `text` MUST be a non-empty `str` for which `str.isprintable()` is true. `size` and `thickness` MUST be positive and default to 1 mm and 0.15 mm, the values the KiCad writer gives created footprint fields. `justify` MUST be `None` or one of `dsl.part.FIELD_JUSTIFY`.
+- **Graphics.** `width` MUST be at least 0, and above 0 for a line, an arc and a shape that is not filled. A rectangle's corners MUST differ in x and in y; a circle's `edge` MUST differ from its `center`; an arc's three points MUST be distinct and not on one line (an exact integer test); a polygon MUST hold at least three points. `fill` MUST be a `bool`.
+- **Dimension.** `start` and `end` MUST differ. `offset` is a length, written as KiCad's `height`. `direction` is `None` for an aligned dimension, or `horizontal` or `vertical` for an orthogonal one, whose measured coordinate difference MUST NOT be 0. `units` MUST be `mm` or `in`, `precision` an `int` from 0 to 4, and `size`, `thickness` and `width` positive lengths or `None`.
+- Each violation MUST raise `DslError` at the call, naming the argument, and MUST record nothing.
+- The model entities MUST have the ids `derived_id("txt", "dsl", "text:<key>")`, `derived_id("gfx", "dsl", "graphic:<key>")` and `derived_id("dim", "dsl", "dimension:<key>")`. A text takes `Size(size, size)`, `thickness`, the rotation and the justification (`h_justify`, `v_justify`; `center` for what `justify` does not name). A graphic takes the kind `line`, `rect`, `circle`, `arc` or `polygon`, the points in the order of its call, `width` and `filled`. A dimension takes the kind `aligned` or `orthogonal`, `direction`, `units`, `precision`, and `size`, `thickness` and `width` as given (`None` meaning the backend's default).
+
+#### Scenario: Label and fabrication line in the model
+- **GIVEN** a design with `board(mm(50), mm(30))`, `d.text("rev", "REV A", (mm(2), mm(28)), justify="left bottom")` and `d.line("fab/edge", (mm(0), mm(15)), (mm(50), mm(15)), layer="F.Fab", width=mm(0.1))`
+- **WHEN** `to_model(d)` runs
+- **THEN** `board.texts` holds one `Text` with text `REV A`, position (102 mm, 128 mm), layer `F.SilkS`, `size == Size(1_000_000, 1_000_000)`, `thickness == 150_000`, `h_justify == "left"` and `v_justify == "bottom"`, and `board.graphics` holds one `line` on `F.Fab` from (100 mm, 115 mm) to (150 mm, 115 mm) of width 100 000 nm
+
+#### Scenario: Dimension in the model
+- **WHEN** `d.dimension("width", (mm(0), mm(0)), (mm(50), mm(0)), offset=mm(-5))` is declared on the same board and `to_model(d)` runs
+- **THEN** `board.dimensions` holds one `aligned` dimension with the id `derived_id("dim", "dsl", "dimension:width")`, layer `Dwgs.User`, start (100 mm, 100 mm), end (150 mm, 100 mm), `offset == -5_000_000`, `direction is None`, `units == "mm"` and `precision == 4`
+
+#### Scenario: Refused drawing calls
+- **WHEN** `d.text("t1", "CU", (mm(1), mm(1)), layer="F.Cu")`, `d.line("l1", (mm(0), mm(0)), (mm(1), mm(0)), layer="Edge.Cuts", width=mm(0.1))`, `d.line("rev", …)` after the text `rev`, `d.arc("a1", (mm(0), mm(0)), (mm(1), mm(1)), (mm(2), mm(2)), layer="F.Fab", width=mm(0.1))`, `d.dimension("d1", (mm(0), mm(0)), (mm(0), mm(9)), offset=mm(2), direction="horizontal")`, `d.dimension("d2", …, precision=5)` and `d.text("t2", "A\nB", (mm(1), mm(1)))` are called
+- **THEN** each raises `DslError`, naming `F.Cu`, `Edge.Cuts`, `rev`, the arc's points, `direction`, `precision` and `text`
+
+#### Scenario: A shaped board takes drawings
+- **GIVEN** `d.board(outline=shape.rect(mm(0), mm(0), mm(50), mm(30), radius=mm(3)))`
+- **WHEN** each of the seven calls `text`, `line`, `rect`, `circle`, `arc`, `polygon` and `dimension` is called once
+- **THEN** none raises, `d.drawings` holds the seven keys in call order, and the blink with `board(outline=…)` writes the rule areas, texts, drawings and dimensions, with their uuids, that the same blink with `board(mm(50), mm(30))` writes
+
+#### Scenario: Keys, not order
+- **GIVEN** two designs that make the same drawing calls in opposite orders
+- **WHEN** `to_model` runs on both
+- **THEN** every text, graphic and dimension has the same id in both models, and the tuples are in key order
+
+### Requirement: Area selectors in the DSL
+`fenolite.dsl.select.area(area)` SHALL return a `Select` whose model selector is `Selector("area", <name>)`, which combines with `&`, `|` and `~` as the other selectors of `fenolite.dsl.select` do (c0071).
+- `area` MUST be a `RuleArea`, stored by its name, or a name. An empty name, or one holding `'`, `"`, `?`, `[` or `]`, MUST raise `DslError`. A name MAY hold `*`, which the model keeps as a glob.
+- `design.rules.rule()` MUST accept area selectors in `where` and `between`. It MUST NOT check at the call that a rule area of that name exists: an area may be drawn in KiCad, and the build checks the name after the merge ("Board items in a build"). Whether a kind takes an area selector is decided by the lowering (`rules-model`, "Closed selector grammar").
+
+#### Scenario: Neck-down rule in the model
+- **GIVEN** `bga = d.rule_area("BGA", …)` and `d.rules.rule("neck", "track_width", where=select.area(bga), min=mm(0.1))`
+- **WHEN** `to_model(d)` runs
+- **THEN** the rule `neck` has `selector_a == Selector("area", "BGA")`
+
+#### Scenario: High-voltage pair
+- **WHEN** `(select.area("HV") & select.item("track"))` is turned into a model selector
+- **THEN** it is `Selector("and", items=(Selector("area", "HV"), Selector("item_kind", "track")))`
+
+#### Scenario: Refused names
+- **WHEN** `select.area("")` and `select.area("H'V")` are called
+- **THEN** each raises `DslError`
+
+#### Scenario: No check at the call
+- **WHEN** `d.rules.rule("far", "clearance", where=select.area("NOPE"), min=mm(1))` is called on a design without that area
+- **THEN** it is recorded, and `to_model(d)` holds the rule
+
+### Requirement: Board items in a build
+`fenolite build` SHALL write every rule area and drawing that the script declares, for targets 9 and 10, and the written board SHALL read back with them.
+- `lens.build.build_design` MUST keep the `keepouts`, `texts`, `graphics` and `dimensions` of the `Board` it is given and MUST give each of them the KiCad uuid of `boarditems.mark_items` (`kicad-file-backend`, "Board items of a script are written") before copper intents resolve. This is an addition to "Built project files" that needs no keyword.
+- After the merge with an existing board, `build_design` MUST check every `area` leaf of every rule of the design against the layout it is about to write. When no `Keepout` of that layout has a `name` that the leaf's value matches with `fnmatch.fnmatchcase`, `build.area-unknown` (error) MUST name the rule and the value, with the hint "declare the area with design.rule_area() or remove the selector"; the build then returns no files, so `build` exits 5 and writes nothing. The code joins the build envelope as "Build issue codes" allows.
+- Read back with `read_board`, each rule area MUST have its name, outline, layers and settings; each text its string, position, layer, size, thickness, rotation and justification; each graphic its kind, layer, points, width and fill; and each dimension its kind, layer, points, offset and direction.
+- `result.board_items` MUST report the counts `rule_areas`, `texts`, `graphics` and `dimensions` of the script, as "Build command" allows.
+- A build over an existing board MUST merge the items as `layout-lens` "Board items declared in the script" describes. The copper guard ("Copper guard before writing") reports `copper.keepout` (`copper-check`, "Keep-out findings") as it reports its other codes.
+- `--target altium` follows `altium-build`, "Rule areas, board items and area rules in an Altium build": rule areas with a restriction, centred texts and graphics are written to a planned PCB document, and what the document has no record for (an area's name, an area that forbids nothing, a justified text, a dimension, a rule with an `area` leaf) is reported, never dropped silently.
+- A design without the new calls MUST build the same bytes as before, and `--seed`, `--timestamp` and `PYTHONHASHSEED` MUST NOT change any file of a build with them.
+- `docs/dsl.md` MUST describe the calls under "Rule areas" and "Board drawings", with the layers each takes, the sign of a dimension's `offset` as `H-K-DIM` measures it, and the rebuild rule; and `select.area` under "Design rules".
+
+#### Scenario: Blink with a keep-out, a label and a dimension
+- **GIVEN** a blink variant with `d.rule_area("ANT", …, forbid=("tracks", "vias"))`, `d.text("rev", "REV A", (mm(2), mm(2)))` and `d.dimension("width", (mm(0), mm(0)), (mm(40), mm(0)), offset=mm(-3))`
+- **WHEN** it is built for targets 9 and 10 with `--confirm`, and each written board is read with `read_board`
+- **THEN** the exit code is 0, `result.board_items` is `{"rule_areas": 1, "texts": 1, "graphics": 0, "dimensions": 1}`, and each board holds the keep-out `ANT` with `no_tracks` and `no_vias`, the text `REV A` and one `aligned` dimension, each with the uuid that `boarditems.item_uuid` gives its id
+
+#### Scenario: Unknown area stops the build
+- **GIVEN** the blink with `d.rules.rule("far", "clearance", where=select.area("NOPE"), min=mm(1))`
+- **WHEN** it is built with `--confirm --json`
+- **THEN** the exit code is 5, `issues` hold one `build.area-unknown` naming `far` and `NOPE`, and nothing is written
+
+#### Scenario: An area drawn in KiCad is a valid target
+- **GIVEN** a confirmed target-10 blink build whose board gets, by token edit, a rule area named `HV` with a version-4 uuid, and a script that then adds `d.rules.rule("hv", "clearance", where=select.area("HV"), min=mm(2))`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, the area `HV` is kept, and the rules file holds the condition `"A.intersectsArea('HV')"`
+
+#### Scenario: Reproducible builds with board items
+- **WHEN** `uv run pytest tests/unit/lens/test_build_board_items.py -k reproducible` builds the variant twice for targets 9 and 10 with different seeds and `PYTHONHASHSEED` values
+- **THEN** both builds write every file with the same bytes
+
+### Requirement: Placement rules in the DSL
+`Design.near(key, parts, anchor, *, within, severity="error")` SHALL record a proximity rule, and `to_model` SHALL write it into the model of `design-model`, "Proximity rules in the model". It is an addition that "DSL package" and "DSL to model" allow: no new name is re-exported, and a design without the call gives the model it gave before.
+- `key` MUST match the pattern of copper keys (`^[A-Za-z0-9_.+-]+(/[A-Za-z0-9_.+-]+)*$`) and MUST NOT name another `near` rule of the design. `parts` and `anchor` each MUST be a `PadRef`, a `Part`, a `Module`, or a non-empty list or tuple of them. `within` MUST be a positive length ("DSL lengths and angles"), and `severity` `"error"` or `"warning"`. `DslError` MUST be raised at the call otherwise; for a `PinHandle` its message MUST give the hint `part.pad(<number>)`.
+- **Conversion.** `to_model` MUST turn a `Part` into `PadSelection(<path>)`, a `PadRef` into `PadSelection(<path>, <number>, <index>)` and a `Module` into one `PadSelection(<path>)` per part of it and of its sub-modules, in path order, and MUST raise `DslError` naming a part or module that is not in the design. It MUST write `RuleSet.proximity` in key order.
+- The argument `anchor` is the reference side of the rule. It is neither a point in a part's frame nor a placement: this requirement adds no attribute named `anchor` to `Part` or `Design`.
+
+#### Scenario: Decoupling rule recorded
+- **GIVEN** the blink with `design.near("dec", r1.pad(2), (u1.pad(1), u1.pad(9)), within=mm(3))`
+- **WHEN** `uv run pytest tests/unit/dsl/test_placement_rules.py -k recorded` runs `to_model`
+- **THEN** `RuleSet.proximity` is `(ProximityRule("dec", (PadSelection("R1", "2"),), (PadSelection("U1", "1"), PadSelection("U1", "9")), 3_000_000),)`
+
+#### Scenario: Module expanded
+- **GIVEN** a module `ch1` holding `U1` and `C1`, a sub-module `ch1/fb` holding `R1`, and `design.near("ch1", ch1, ch1_u1, within=mm(15))`
+- **WHEN** `to_model` runs
+- **THEN** the rule's `parts` are `PadSelection("ch1/C1")`, `PadSelection("ch1/U1")` and `PadSelection("ch1/fb/R1")`, in this order
+
+#### Scenario: Refused calls
+- **WHEN** `design.near("a b", r1, u1, within=mm(1))`, `design.near("k", (), u1, within=mm(1))`, `design.near("k", r1[1], u1, within=mm(1))`, `design.near("k", r1, u1, within=mm(0))`, `design.near("k", r1, u1, within=mm(1), severity="ignore")` and `design.near("dup", r1, u1, within=mm(1))` twice are called
+- **THEN** each raises `DslError`, the third with the hint `part.pad(<number>)` and the sixth on its second call
+
+#### Scenario: Unchanged designs
+- **WHEN** `to_model` runs on the blink, which does not call `near`
+- **THEN** `canonical.dump_texts` of its model gives the texts it gave before this change
+
+### Requirement: Pair selectors in the DSL
+`fenolite.dsl.select` SHALL also provide `pair(x)`, a `select.Select` of the leaf `diff_pair` (`rules-model`, "Closed selector grammar"), which combines with `&`, `|` and `~` as the selectors of "Selectors in the DSL" do.
+- `x` MUST be a `DiffPair`, a `USB2`, or another `Interface` of a kind of `fenolite.model.pairs.PAIR_ROLES`. `pair(x)` MUST then give `Selector("diff_pair", <base>)`, the base being `pair_base(<positive net name>, <negative net name>)` (`design-model`, "Differential pairs in the model"). When the names do not pair, `DslError` MUST be raised naming both nets and `coupled_name` of the positive one.
+- `x` MAY be a non-empty string without surrounding blanks, which is taken as a base; `"*"` selects every pair.
+- Any other `x` MUST raise `DslError`.
+
+#### Scenario: Base of a USB pair
+- **GIVEN** `usb = USB2(Net("USB_DP"), Net("USB_DN"))`
+- **WHEN** `select.pair(usb).to_model()` is evaluated
+- **THEN** it is `Selector("diff_pair", "USB_D")`
+
+#### Scenario: Names that do not pair
+- **WHEN** `select.pair(USB2(Net("USB_DP"), Net("USB_DM")))` is evaluated
+- **THEN** `DslError` is raised naming `USB_DP`, `USB_DM` and `USB_DN`
+
+#### Scenario: Every pair but one net
+- **WHEN** `(select.pair("*") & ~select.net("CLK_P")).to_model()` is evaluated
+- **THEN** it is `Selector("and", items=(Selector("diff_pair", "*"), Selector("not", items=(Selector("net", "CLK_P"),))))`
+
+### Requirement: Pair rules in the DSL
+`design.rules.pair(pair, *, gap_min=None, gap_max=None, clearance=None, uncoupled_max=None, skew_max=None, length_min=None, length_max=None, severity="error", priority=1)` SHALL declare the rules of one differential pair, each through "Rule constructor in the DSL" with `where=select.pair(pair)`:
+
+| given | kind | limits | name |
+|---|---|---|---|
+| `gap_min`, `gap_max` | `diff_pair_gap` | `min`, `max` | `pair:<pair name>:gap` |
+| `clearance` | `clearance`, with `between=select.pair(pair)` | `min` | `pair:<pair name>:clearance` |
+| `uncoupled_max` | `diff_pair_uncoupled` | `max` | `pair:<pair name>:uncoupled` |
+| `skew_max` | `diff_pair_skew` | `max` | `pair:<pair name>:skew` |
+| `length_min`, `length_max` | `length` | `min`, `max` | `pair:<pair name>:length` |
+
+- `pair` MUST be an interface that `select.pair` accepts, and the call MUST add it to the design. A call that gives no limit, or one of whose rules "Rule constructor in the DSL" refuses, MUST raise `DslError` naming `pair()` and record nothing.
+- `severity` and `priority` MUST be given to every rule of the call. With the default priority 1, the pair's rules come after the class minimums of `minimum(netclass=…)`, which also have priority 1, because ties are broken by name and `pair:` sorts after `min_` (`rules-model`, "Lowered rules follow priority"); so they govern the pair's items.
+- The rules MUST reach the model as the rules of `rule()` do, in the order of the table, and the build lowers them with the rest.
+
+#### Scenario: Rules of a USB pair
+- **GIVEN** `usb = USB2(usb_p, usb_n, name="USB")` on the nets `USB_P` and `USB_N`, and `d.rules.pair(usb, gap_min=mm(0.13), gap_max=mm(0.17), clearance=mm(0.13), skew_max=mm(0.15))`
+- **WHEN** `to_model(d)` runs and the design is built for target 10
+- **THEN** `rules.rules` holds `pair:USB:gap` (`diff_pair_gap`, `min == 130_000`, `max == 170_000`), `pair:USB:clearance` (`selector_a` and `selector_b` both `Selector("diff_pair", "USB_")`) and `pair:USB:skew` (`diff_pair_skew`, `max == 150_000`), each with priority 1; and `<name>.kicad_dru` holds `fenolite_1_pair_usb_gap` with `(constraint diff_pair_gap (min 0.13mm) (max 0.17mm))` and the condition `"A.inDiffPair('USB_')"`
+
+#### Scenario: Nothing given
+- **WHEN** `d.rules.pair(usb)` is called
+- **THEN** `DslError` is raised naming `pair()`, and nothing is recorded
+
+#### Scenario: Pair rule after a class minimum
+- **GIVEN** the class `USB` holding the pair's nets, `d.rules.minimum(clearance=mm(0.2), netclass="USB")` and `d.rules.pair(usb, clearance=mm(0.13))`
+- **WHEN** the design's rules are lowered for target 10
+- **THEN** `fenolite_1_pair_usb_clearance` is written after `fenolite_1_min_clearance_usb`
+
+### Requirement: Copper locks in the DSL
+`Design.track`, `Design.via` and `Design.stitch` SHALL take the keyword `locked: bool = False`, and the intents `TrackIntent`, `ViaIntent` and `StitchIntent` SHALL gain `locked: bool = False` as their last field, so that intents built without it compare equal to those of earlier scripts. A value that is not a `bool` MUST raise `DslError` naming the key. A locked intent asks that its copper be written locked (`manual-copper`, "Locked script copper"); script copper is never removed by `route --rip`, locked or not (`cli-contract`, "Route command"). `docs/dsl.md`, "Copper", MUST say both.
+
+#### Scenario: A locked via is recorded
+- **WHEN** a script calls `design.via("tie", 10, 5, net=gnd, locked=True)` and `uv run pytest tests/unit/dsl/test_copper_dsl.py -k locked` converts it
+- **THEN** the intent `tie` is a `ViaIntent` with `locked == True`, and an intent recorded without `locked` has `locked == False`
+
+#### Scenario: Not a bool
+- **WHEN** a script calls `design.track("t", r1.pad(1), (5, 0), locked="yes")`
+- **THEN** `DslError` is raised naming `t`
+
+### Requirement: Via protection in the DSL
+`fenolite.dsl.protect(*, tenting=None, covering=None, plugging=None, capping=None, filling=None) -> ViaProtection` SHALL build the model value of `design-model` "Via protection in the board model", and `Design.via`, `via_step` and `Design.stitch` SHALL take the keyword `protection=None` and record it on their intents.
+- `tenting`, `covering` and `plugging` MUST take `True` (both sides `True`), `False` (both `False`), `"front"` (front `True`, back `False`), `"back"` (front `False`, back `True`) or `None` (both `None`). `capping` and `filling` MUST take `True`, `False` or `None`. Any other value MUST raise `DslError` naming the argument and the value.
+- `protection` MUST be `None` or a `ViaProtection`; any other value MUST raise `DslError` at the call, naming the copper key, or `via_step` for a step. `None` records `ViaProtection()`.
+- `ViaStep`, `ViaIntent` and `StitchIntent` (`dsl/intents.py`) MUST gain the field `protection: ViaProtection = ViaProtection()`, the last field of `ViaStep` and, in `ViaIntent` and `StitchIntent`, the field right before `locked`, which stays their last field (c0108, "Copper locks in the DSL"); the keyword `protection=` of `Design.via` and `Design.stitch` follows `locked=`. `dsl.copper(design)` MUST return the field, and `dsl.copper(design)` MUST return it, so intents built without it compare equal to those of earlier scripts.
+- `fenolite.dsl` MUST re-export `protect`, as "DSL package" allows, and the package keeps importing only the standard library, `core` and `model`. `to_model` MUST NOT change for intents: they are not model objects.
+
+#### Scenario: Values of protect
+- **WHEN** `protect(tenting="front", plugging=True, filling=True)` and `protect()` are called
+- **THEN** the first equals `ViaProtection(tenting_front=True, tenting_back=False, plugging_front=True, plugging_back=True, filling=True)`, and the second equals `ViaProtection()`
+
+#### Scenario: Refused values
+- **WHEN** `protect(tenting="both")`, `protect(capping="front")`, `protect(covering=1)` and `design.via("v", mm(1), mm(1), net=gnd, protection="tented")` are called
+- **THEN** each raises `DslError`, the first naming `tenting` and `'both'`, the last naming `v`
+
+#### Scenario: Intents carry the protection
+- **GIVEN** `design.via("tp1", mm(5), mm(5), net=gnd, protection=protect(tenting="back"))`, a track whose path holds `via_step(mm(8), mm(8), to="B.Cu", protection=protect(filling=True, capping=True))`, and `design.stitch("ep", net=gnd, pitch=mm(1), region=…, protection=protect(plugging=True))`
+- **WHEN** `copper(design)` is called
+- **THEN** the via intent, the via step and the stitch intent carry those values, and the via step of `led_a` in "A track in board coordinates" still equals `ViaStep(Point(136_000_000, 114_000_000), "B.Cu", None, None)`
+
+#### Scenario: Import edges
+- **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
+- **THEN** it passes with no `ALLOWED` change
+
+### Requirement: Via protection defaults in the DSL
+`Design.via_protection(protection, *, locked=False)` SHALL declare the board's default protection, and `to_model` SHALL set `Board.via_protection` to it; `via_protection_locked(design) -> bool` (`dsl/convert.py`) SHALL return `locked`, and `False` without a call. This requirement adds a step to "Built project files", and its codes join the `build` envelope as "Build issue codes" allows.
+- `protection` MUST be a `ViaProtection` and `locked` a `bool`; a second call MUST raise `DslError`. A design without the call MUST give `Board.via_protection = None`, and its build MUST write every file with the bytes it had before this change, for both targets.
+- `lens.build.build_design` MUST take `lock_via_protection: bool = False`, and `cli/cmd_build.py` MUST pass `via_protection_locked(design)`. On a created board the writer follows `kicad-file-backend` "Via protection defaults on boards"; with an existing board, `layout-lens` "Via protection defaults across rebuilds" decides the default first.
+- After that decision, `via_protection.not_exported(design)` MUST give one `kicad.via.protection-not-exported` (info) when the board's effective default holds `True` for a covering, plugging, capping or filling field and at least one via of the written board takes that value from the default, its own being `None`. Its message MUST name those fields and the number of such vias, and say that `kicad-cli` 10.0.6 writes them to no fabrication file (`H-K-VIAPROT-OUTPUTS`); its hint MUST name `protection=`. The code belongs to the table of "Via protection defaults across rebuilds".
+- `docs/dsl.md` MUST describe `protect`, `protection=`, `Design.via_protection`, the rebuild rule, what each target holds, and the gap of the info.
+
+#### Scenario: Default in the model
+- **GIVEN** `design.via_protection(protect(tenting="front"), locked=True)` in a blink variant
+- **WHEN** `to_model` runs and `via_protection_locked` is called
+- **THEN** `board.via_protection == ViaProtection(tenting_front=True, tenting_back=False)` and `via_protection_locked(design) is True`
+
+#### Scenario: Refused calls
+- **WHEN** `design.via_protection("tented")`, `design.via_protection(protect(), locked=1)` and a second `design.via_protection(protect())` are called
+- **THEN** each raises `DslError`
+
+#### Scenario: Built for both targets
+- **GIVEN** a blink variant with `design.via_protection(protect(tenting=False))` and a via intent with `protection=protect(tenting=True)`
+- **WHEN** it is built with `--dry-run --json` for target 9 and for target 10 and each planned board is read with `read_board`
+- **THEN** both exit 0, each board's `via_protection` has both tenting fields `False`, and the script via has both tenting fields `True`
+
+#### Scenario: A 10.0 feature for target 9
+- **GIVEN** a blink variant whose via intent has `protection=protect(filling=True)`
+- **WHEN** it is built with `--confirm` for target 9
+- **THEN** the exit code is 7, stderr carries `FEN-7001` with `kicad.board.via-protection-too-new`, and nothing is written
+
+#### Scenario: A default that no file carries
+- **GIVEN** a blink variant with `design.via_protection(protect(plugging=True))` and two via intents without a protection
+- **WHEN** it is built with `--dry-run --json` for target 10
+- **THEN** the exit code is 0, and `issues` hold one `kicad.via.protection-not-exported` naming `plugging_front`, `plugging_back` and 2 vias
+
+### Requirement: Schematic composition declarations
+The DSL SHALL provide `Design.schematic_layout(*, mode="blocks", flow="left-to-right")`,
+`Design.schematic_block(key, *, members, title=None, anchor=None, after=None)` and
+`schematic_composition(design)` to record and extract presentation requests without file access,
+environment access or circuit mutation. Flow MUST be `left-to-right` or `top-to-bottom`.
+Members MUST be existing parts of the design; every member assigns all its symbol units.
+
+#### Scenario: Declare functional intent without coordinates
+- **GIVEN** existing parts in an authored design
+- **WHEN** the author declares three blocks and their `after` relationships
+- **THEN** extraction returns immutable presentation intent and leaves the electrical model unchanged
+
+#### Scenario: Invalid block declarations
+- **GIVEN** duplicate members, an unknown anchor or a cycle in `after` relationships
+- **WHEN** the declarations are resolved after script execution
+- **THEN** a diagnostic identifies the conflicting declaration and no build output is written
+
+#### Scenario: Unsupported target
+- **GIVEN** active block-composition intent and a KiCad build
+- **WHEN** the build resolves its presentation requests
+- **THEN** it reports unsupported composition rather than silently discarding the intent
+
+### Requirement: Composition selection and backwards compatibility
+The Altium build SHALL accept `--altium-layout grid|blocks`. Without that flag it MUST inherit an
+explicit DSL mode, or use the existing layout when there is no intent. A flag contradicting declared
+intent MUST be refused. Block declarations without an enabled composition mode MUST be reported as
+unused intent rather than ignored. Designs without composition MUST keep existing native output bytes.
+
+#### Scenario: Legacy design
+- **GIVEN** a design with no schematic composition declarations or selection flag
+- **WHEN** its Altium project is built
+- **THEN** it uses the existing cell layout and writes unchanged native documents
+
+#### Scenario: Conflicting selection
+- **GIVEN** a design declares block composition and the CLI selects `grid`
+- **WHEN** build validates its arguments
+- **THEN** it reports a usage error instead of silently ignoring the block declarations
+
+#### Scenario: Block declarations without mode selection
+- **GIVEN** blocks are declared but neither the DSL nor the build enables composition
+- **WHEN** build resolves the presentation requests
+- **THEN** it reports unused intent and writes nothing
+
+### Requirement: Waivers in the DSL
+`Design.waive(code, *items, reason, min_gap=None, name=None)` SHALL record one waiver: the acceptance of one finding of `check` or of the copper guard, with a reason (`verification-loop`, "Waivers in the check"). The call MUST raise `DslError`, before anything is built, when:
+- `code` is not `copper.short`, `copper.clearance`, `copper.zone-overlap`, or `kicad.drc.<suffix>` with a suffix that matches `[a-z0-9]+(-[a-z0-9]+)*` and is not a member of `checks.drc_json.RESERVED_SUFFIXES` (`rules-not-loaded`, `rules-unchecked`, `parity-unchecked`), which are verdicts and not findings; a `kicad.erc.*` or `parity.*` code is refused by the same rule, with a hint that only copper and DRC findings are waived;
+- `items` are not one or two, an item is neither a non-empty string without `", "` nor a `Part`, or a `copper.*` code has other than two items;
+- the code is `copper.short` or `kicad.drc.shorting-items` and an item holds `*`, `?` or `[`: a short is waived by exact names only;
+- `reason` is empty after stripping or holds a line break;
+- `min_gap` is given with a code other than `copper.clearance`, is not a positive length, or is missing from a `copper.clearance` waiver whose items hold a glob character;
+- `name` is empty or holds a line break, or a waiver of that name was already recorded. The default name is `<code>:<items joined by ",">`, so the same waiver declared twice also raises.
+
+`to_model` MUST put the waivers into `Design.findings.waivers` sorted by name, a `Part` replaced by its reference.
+
+#### Scenario: A waiver reaches the model
+- **GIVEN** a design with part `J1` and the call `design.waive("copper.clearance", "J1-3", "J1-4", reason="fixed by the mating connector", name="pitch")`
+- **WHEN** `uv run pytest tests/unit/dsl/test_waivers.py -k model` converts it with `to_model`
+- **THEN** `findings.waivers` holds one `Waiver(name="pitch", code="copper.clearance", items=("J1-3", "J1-4"), reason="fixed by the mating connector", min_gap=None)`
+
+#### Scenario: Refused waivers
+- **WHEN** `design.waive` is called with code `copper.short` and items `R1-1`, `R2-*`; with code `copper.clearance`, items `J1-3`, `*` and no `min_gap`; with code `kicad.drc.rules-not-loaded`; with code `kicad.drc.parity-unchecked`; with code `parity.net-conflict`; with `min_gap=mm(0.1)` and code `kicad.drc.silk-overlap`; with `reason=" "`; and twice with the same code and items
+- **THEN** each call raises `DslError` naming the rule it broke
+
+#### Scenario: Default name and parts
+- **GIVEN** part `TP1` and `design.waive("kicad.drc.via-dangling", "*", reason="test point")` and `design.waive("kicad.drc.courtyards-overlap", tp1, "U1", reason="stacked by design")`
+- **WHEN** the design is converted
+- **THEN** the waivers are named `kicad.drc.courtyards-overlap:TP1,U1` and `kicad.drc.via-dangling:*`, in that order
+
+### Requirement: Check severities in the DSL
+`design.rules.severity(code, level)` SHALL record the severity that the target's DRC gives one of its checks, as `RuleSet.severities[code] = level` (`design-model`, "Check severities in the rules layer"). The call MUST raise `DslError` when:
+- `code` is a `copper.*` code, with a hint naming `design.waive`, because a copper finding is accepted one by one and never by a severity;
+- `code` is not `kicad.drc.<suffix>` with a suffix as "Waivers in the DSL" allows;
+- `level` is not `error`, `warning` or `ignore`;
+- `code` is `kicad.drc.clearance` and `level` is `ignore`, because the check canary needs clearance entries to prove the rules were loaded (canary reason `clearance-ignored`);
+- the code was already given a severity.
+
+Whether the target applies the key is judged when the project is written (`kicad-file-backend`, "Project files carry the check severities"). A `--target altium` build MUST write no severity and MUST report the codes in one `altium.not-lowered` info whose `where` is the kind `severity` (`backends.altium.lower`); the kind MUST NOT be in `LOSS_KINDS`, and the Altium rule table (`altium-pcb-writer`, "Rule lowering table") gains no row, because a severity is not a rule kind.
+
+#### Scenario: A severity reaches the model
+- **WHEN** `uv run pytest tests/unit/dsl/test_severities.py` converts a design with `design.rules.severity("kicad.drc.silk-overlap", "ignore")`
+- **THEN** `rules.severities == {"kicad.drc.silk-overlap": "ignore"}`
+
+#### Scenario: Refused severities
+- **WHEN** `design.rules.severity` is called with (`copper.clearance`, `warning`), (`kicad.drc.silk-overlap`, `info`), (`kicad.drc.clearance`, `ignore`) and twice with (`kicad.drc.via-dangling`, `error`)
+- **THEN** each call raises `DslError`, the first with a hint naming `design.waive`
+
+#### Scenario: Severities in an Altium build
+- **GIVEN** the routed blink with `design.rules.severity("kicad.drc.silk-overlap", "ignore")`
+- **WHEN** `uv run pytest tests/unit/cli -k "altium and severit"` builds it with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, `issues` holds one `altium.not-lowered` info whose `where` is `severity` and whose message names `kicad.drc.silk-overlap`, and the planned documents equal those of the build without the call
+
+### Requirement: Waivers in the copper guard
+The copper guard of `build` (`design-dsl`, "Copper guard before writing") SHALL apply the design's `copper.*` waivers to its findings as `verification-loop`, "Waivers in the check", matches and marks them, before its mode: a matched finding is `info` in `refuse` and in `warn` mode, so it neither refuses the build nor gains the warn note. `result.copper_check.waivers` MUST hold `matched` (name → number of findings) and `unmatched` (the names of `copper.*` waivers that matched nothing), sorted by name. The guard MUST NOT judge `kicad.drc.*` waivers and MUST NOT emit `check.waiver-unmatched`: `check` reports stale waivers.
+- **The Altium target.** The copper guard of `build --target altium` (`altium-build`, "Copper guard in an Altium build") MUST apply the same waivers the same way, before its mode: a waived `copper.short` is `info`, so it does not refuse the build, and a waived finding of another code gains neither of that guard's notes. `result.copper_check.waivers` MUST hold the same two keys.
+
+#### Scenario: A waived short builds
+- **GIVEN** a design whose authored footprint `KS1` has overlapping pads `1` (net `ISENSE`) and `2` (net `PWR`) without a net-tie group, and `design.waive("copper.short", "KS1-1", "KS1-2", reason="Kelvin pad")`
+- **WHEN** `uv run pytest tests/unit/cli/test_build_copper_guard.py -k waiver` runs the build with the default `--copper-check refuse`
+- **THEN** the build plans its writes, the issues hold the `copper.short` with severity `info` ending with `(waived by copper.short:KS1-1,KS1-2: Kelvin pad)`, and `result.copper_check.waivers.matched` counts it
+
+#### Scenario: Unmatched waiver listed in the build
+- **GIVEN** the same design with the pads 0.5 mm apart
+- **WHEN** the build runs
+- **THEN** `result.copper_check.waivers.unmatched` names the waiver, and no `check.waiver-unmatched` issue is emitted
+
+#### Scenario: A waived short builds for Altium
+- **GIVEN** the design of "A waived short builds"
+- **WHEN** `uv run pytest tests/unit/cli -k "altium and waiver"` builds it with `--target altium --dry-run --json`
+- **THEN** the exit code is 0, the `.PcbDoc` is planned, the `copper.short` has severity `info` and ends with `(waived by copper.short:KS1-1,KS1-2: Kelvin pad)`, and without the waiver the same build exits 5
+
+### Requirement: Slots in the DSL
+`Design.slot(x, y, *, length, width, rot=0, name=None) -> str` SHALL add one slot (`design-model`, "Board slots") after `board()` and return its name, `S<n>` in call order by default; `shape.stadium(x, y, length, width, rot=0)` SHALL return the same ring as a path. A bad size or a repeated name MUST raise `DslError` at the call. `to_model` MUST give the id `key_id("slot", name)`, from the new key row `slot` (prefix `slt`).
+
+#### Scenario: A slot in the model
+- **GIVEN** `board(mm(40), mm(30))` and `d.slot(mm(15), mm(10), length=mm(12), width=mm(2), rot=30)`
+- **WHEN** `uv run pytest tests/unit/dsl/test_slots.py` runs `to_model`
+- **THEN** `Outline.slots` holds one slot `S1` at (115 mm, 110 mm) with rotation 30 000 000 µdeg and the id `key_id("slot", "S1")`, and `Outline.cutouts` is empty
+
+#### Scenario: Refused slots
+- **WHEN** `d.slot(mm(5), mm(5), length=mm(2), width=mm(2))`, `d.slot(mm(5), mm(5), length=mm(4), width=nm(3))` and a second `d.slot(…, name="S1")` are called after `board()`
+- **THEN** each raises `DslError`

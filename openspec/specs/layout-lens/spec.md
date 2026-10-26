@@ -80,7 +80,7 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - `placements` MUST be `dsl.placements(design)` (c0011): component path → an object with `at`, `rotation`, `side` and `locked`. "Locked" means `place(…, locked=True)` in the script.
 - `source` MUST map component paths to `SourcePlacement` entries. An entry that wins MUST be given as a `KeptPlacement` with the entry's position, rotation, side and lock, so the build writes the entry's lock; that lock gives the entry no precedence.
 - For a matched part: a locked `place()` MUST win. Otherwise, when its footprint is off the board, the part's `source` entry MUST win, then its `place()`, and without either the part MUST be left unplaced, so the build stages it again (`layout.unplaced`). Otherwise the footprint's own position, rotation, side and lock MUST be used, as a `KeptPlacement`.
-- A footprint is off the board when its position lies outside the closed bounding box of the points of `design.board.outline`, and only when the board's edge content is absent or is exactly that outline ("Board content outside the design is kept"). Otherwise no footprint counts as off the board.
+- A footprint is off the board when its position lies outside the closed box `outline.outline_box(design)` (`kicad-file-backend`, "Board outline as rings"), which holds the arcs of the outline as well as its points, and only when the board's edge content is absent or is exactly that outline ("Board content outside the design is kept"). Otherwise no footprint counts as off the board.
 - For an unmatched part: a locked `place()`, then its `source` entry, then its `place()`; otherwise it is left unplaced and staged by the build.
 - Without an existing board, `prepare` MUST return what `effective_placements` gives with an empty match and `board=None`, which is `placements` unchanged when `source` is empty, and no match. With `board=None` no footprint is off the board, and a design without an outline has none either.
 - An unlocked `place()` whose position, rotation or side differs from a kept board placement MUST give `layout.place-overridden` (info), naming the part and both placements, with the hint "lock the placement in the script, move the footprint in KiCad, or re-run with --discard-layout". When it differs from a `source` entry that wins, the same code MUST be given with the hint "lock the placement in the script, or edit placements.toml".
@@ -121,6 +121,11 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **GIVEN** no existing board and a `source` entry for `R1` with `locked = true`
 - **WHEN** the blink is built
 - **THEN** `R1` is written at the entry's position with `(locked yes)`, and a later edit of the board still wins over the entry
+
+#### Scenario: A part on a round board
+- **GIVEN** a confirmed build of a blink variant with `board(outline=shape.circle(mm(20), mm(20), mm(40)))` whose `R1` is placed at (20 mm, 5 mm), then rebuilt with `R1`'s `place()` removed
+- **WHEN** the build runs again with `--confirm`
+- **THEN** `R1` keeps its board position, which lies inside `outline_box` though outside the box of the outline's two vertices, and `issues` holds no `layout.unplaced`
 
 ### Requirement: Kept and re-placed footprints
 `lens.preserve.merge_layout(built, board, match, *, net_aliases={}, identities={}) -> Merged` SHALL keep the existing board's own footprint node for every matched part that stays where the board has it, and SHALL use the built copy otherwise. `identities` maps the component path of an alias match to its identity map, which `build_design` computes from the part's definition (`embed.uuid_locators`); an alias match without one MUST be re-placed.
@@ -229,11 +234,11 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 - **THEN** the board holds neither segment nor the via, and `issues` hold one `layout.net-removed` naming `LED_A`
 
 ### Requirement: Board content outside the design is kept
-`lens.preserve.merge_layout` SHALL keep the existing board's layers, graphics, texts, rule areas, title block, paper and every opaque root child (setup, stack-up, groups, dimensions and the rest) unchanged, except the group members that follow a renamed footprint, and SHALL keep its edge content in place of the design's outline.
-- The layout's `Board` MUST be the existing board with its root slots, so c0017's writer re-emits read content in place.
+`lens.preserve.merge_layout` SHALL keep the existing board's layers, graphics, texts, rule areas, title block, paper and every opaque root child (setup, stack-up, groups, dimensions and the rest) unchanged, except the group members that follow a renamed footprint and what "Copper layer changes across rebuilds" and "Outline changes across rebuilds" change, and SHALL keep its edge content in place of the design's outline unless "Outline changes across rebuilds" replaces it. `merge_layout` gains the keyword `lock_outline=False`. The two requirements adapt the existing board first, the layers and then the outline, and every other rule of `merge_layout` applies to the adapted board.
+- The layout's `Board` MUST be the adapted existing board with its root slots, so c0017's writer re-emits read content in place.
 - Each `members` atom of a root `group` node whose text is a key of the identity map of a footprint kept through an alias ("Kept and re-placed footprints") MUST take the mapped text. No other atom of a group MUST change, and Fenolite MUST NOT add or remove a group.
-- When the board holds a `Graphic` on a layer of kind `edge`, every such graphic MUST be kept and the layout's `Board.outline` MUST be `None`. When those graphics are not exactly the lines of the built outline (`line` graphics whose end points, as unordered pairs, equal the outline's edges), `layout.outline-kept` (warning) MUST name both. Without edge graphics, the built outline MUST be used.
-- The copper layer names of the board, in table order, MUST equal those of `layers.created_layers(copper)`. Otherwise `layout.copper-mismatch` (error) MUST be given, and nothing is written.
+- When the board holds a `Graphic` on a layer of kind `edge`, every such graphic MUST be kept and the layout's `Board.outline` MUST be `None`. When those graphics are not exactly the edges of the built outline, lines and arcs compared as the edge texts of `outline.edge_texts` (`kicad-file-backend`, "Outline lowering"), `layout.outline-kept` (warning) MUST name both, with the hint "lock the outline in the script with board(..., locked=True), edit it in KiCad, or re-run with --discard-layout". Without edge graphics, the built outline MUST be used.
+- The copper layer names of the adapted board, in table order, MUST equal those of `layers.created_layers(copper)`. Otherwise `layout.copper-mismatch` (error) MUST be given, and nothing is written.
 
 #### Scenario: Board setup kept
 - **GIVEN** a confirmed blink build whose board's `setup` child has `(pad_to_mask_clearance 0)` changed to `(pad_to_mask_clearance 0.05)` by token edit
@@ -243,17 +248,22 @@ The module `fenolite.lens.preserve` SHALL hold the layout preservation of `build
 #### Scenario: Outline edited in KiCad
 - **GIVEN** a confirmed blink build whose right `Edge.Cuts` line is moved 5 mm right, with the top and bottom lines lengthened to meet it, by token edit
 - **WHEN** the build runs again
-- **THEN** the written edge lines equal the edited ones, `issues` holds `layout.outline-kept`, and the exit code is 0
+- **THEN** the written edge lines equal the edited ones, `issues` holds `layout.outline-kept` whose hint names `locked=True`, and the exit code is 0
 
 #### Scenario: Copper count changed in the script
 - **GIVEN** a confirmed two-layer blink build and `design.py` changed to `copper=4`
 - **WHEN** the build runs again with `--confirm`
-- **THEN** the exit code is 5, `issues` holds `layout.copper-mismatch`, and nothing is written
+- **THEN** the exit code is 0, the written board has four copper layers, and `issues` holds `kicad.layers.added` and no `layout.copper-mismatch`
 
 #### Scenario: Group follows a renamed footprint
 - **GIVEN** a confirmed target-10 blink build whose board gets, by token edit, a root `group` with the uuid `00000000-0000-4000-8000-0000000000f1` holding the footprints of `R1` and `D1`, after which `design.py` renames `R1` to `R7` with `d.moved("R1", "R7")`
 - **WHEN** the build runs again
 - **THEN** the group holds `footprint_uuid("R7")` and `D1`'s uuid, in the order of the edited group, and keeps its own uuid
+
+#### Scenario: An outline with arcs is kept as written
+- **GIVEN** a confirmed build of the rounded board of `design-dsl` "Outline shapes in a build", `design.py` unchanged
+- **WHEN** the build runs again
+- **THEN** `issues` holds no `layout.outline-kept`, and every file keeps its bytes
 
 ### Requirement: Zone fills and the staleness digest
 A rebuild SHALL keep the fills of a kept zone only when `zone_digest` of that zone and `fill_inputs_digest` of the board are both equal for the existing board and for the layout to be written; otherwise `lens.preserve.drop_stale_fills` SHALL drop that zone's fills, set its `filled` to false, and report `zone.fill-stale` (warning).
@@ -747,3 +757,267 @@ A rebuild over a board that KiCad updated from the generated schematic SHALL kee
 - **WHEN** `uv run pytest tests/kicad/lens/test_update_stand_in.py -rA` runs on 9.0.9 and on 10.0.6
 - **THEN** `kicad-cli` loads the rebuilt board, and its parity test reports nothing
 
+### Requirement: Layer count across rebuilds
+`build` over an existing board SHALL keep the layout of a board of every count of `layers.CREATED_COPPER_COUNTS` whose copper layer names equal those of `layers.created_layers(copper)`, SHALL adapt a board whose copper layer names are those of `created_layers` for another count ("Copper layer changes across rebuilds"), and SHALL name the board's copper layers when neither holds.
+- The copper rule of "Board content outside the design is kept" MUST hold at 6 and 8 copper layers as at 2 and 4: with equal names the layout is kept, with the board's own layer rows (types and user names set in KiCad) unchanged.
+- When the names differ and `layers.created_count(<the board's copper names>)` gives a count, the board MUST be adapted to the script's count by "Copper layer changes across rebuilds", before every other rule, and its layout is kept.
+- Otherwise `layout.copper-mismatch` (error, nothing written) MUST name the board's copper layers, their count and the script's count, and its hint MUST name `--discard-layout`, which creates the board on the script's count without its layout, and no `copper=` value.
+- A change of the count MUST keep the layout only through "Copper layer changes across rebuilds".
+
+#### Scenario: Six layers rebuilt
+- **GIVEN** a confirmed target-10 build of the six-layer blink variant of `design-dsl`, "Copper layer counts in a build"
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, `result.preserved.board` is true, and every file outside `.bak` files has the bytes of the first build
+
+#### Scenario: Layers added in KiCad
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=4`, whose board gets the rows `(8 "In3.Cu" signal)` and `(10 "In4.Cu" signal)` right after the `In2.Cu` row by token edit, as KiCad's board setup adds two layers
+- **WHEN** `design.py` is changed to `copper=6` and the build runs with `--confirm`
+- **THEN** the exit code is 0, `result.preserved.kept` holds `D1`, `R1` and `U1`, and the written board has the six copper layers `F.Cu`, `In1.Cu` to `In4.Cu` and `B.Cu`
+
+#### Scenario: Mismatch names the board's count
+- **GIVEN** a confirmed four-layer build whose copper rows are changed by token edit to `F.Cu`, `In1.Cu`, `In3.Cu` and `B.Cu`, a table for which `layers.created_count` gives no count
+- **WHEN** `uv run pytest tests/unit/lens/test_preserve_layers.py -k table_that_is_not` builds the unchanged script over it
+- **THEN** nothing is written, and `issues` holds one `layout.copper-mismatch` error whose message names the board's copper layers, `In3.Cu` among them, and whose hint names `--discard-layout` and no `copper=` value
+
+#### Scenario: Table that Fenolite does not create
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=8`, whose board gets the rows `(16 "In7.Cu" signal)` and `(18 "In8.Cu" signal)` right after the `In6.Cu` row by token edit
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 5, `issues` holds one `layout.copper-mismatch` whose message names 10 and 8 and whose hint names `--discard-layout` and no `copper=` value, and nothing is written
+
+### Requirement: Outline changes across rebuilds
+`fenolite.backends.kicad.outline.merge_outline(built, board, *, locked=False) -> OutlineMerge` SHALL decide whether a rebuild keeps the existing board's edge content or replaces it with the built outline, and `lens.preserve.merge_layout(…, lock_outline=…)` SHALL adapt the existing board with its result, passing `lock_outline` as `locked`, before the other rules of "Board content outside the design is kept".
+- The edge content is the board's root `Graphic`s on layers of kind `edge`. It is *signed* when it holds at least one graphic, every graphic is a `line` or an `arc`, and the KiCad uuid of each equals `pcb.kicad_uuid(<built outline>, "outline:<digest>:<its edge text>")`, where the digest is `outline_digest` of the edge texts of all of them (`kicad-file-backend`, "Outline lowering"). A signed content is one that Fenolite wrote and that nobody changed since: a move in KiCad keeps the uuid and changes the text.
+- With the built outline compared as edge texts, the cases MUST be:
+
+| the board's edge content | compared with the built outline | result |
+|---|---|---|
+| none | — | unchanged: the built outline is used, as today |
+| any | equal | kept; when every uuid is the position uuid `pcb.kicad_uuid(<built outline>, "outline:<ring>:<edge>")` of an older Fenolite, re-signed |
+| signed | different | replaced, `kicad.outline.replaced` |
+| not signed | different, `locked` true | replaced, `kicad.outline.forced` |
+| not signed | different, `locked` false | kept: "Board content outside the design is kept" gives `layout.outline-kept` |
+
+- *Replaced* and *re-signed* mean that the adapted board has none of its edge graphics and has the built outline as its `Board.outline`, which the writer then emits signed.
+- When the content is replaced, each track, arc and via of the board that is not script copper (`manual-copper`, "Script copper is regenerated") and does not fit the new board MUST be dropped. An item fits when its copper, the core widened by half its width or a via's disc as `geometry.Thick`, touches no ring of `board_outline` of the built design and its first core point lies inside the board ring and outside every cut-out (`thick_touch`, `point_in_ring`). One `kicad.outline.copper-dropped` MUST give the counts of tracks, arcs and vias dropped and their nets.
+- When the content is replaced, a board zone whose KiCad uuid is that of a built zone MUST take the built zone's outline when its own outline is the box of the replaced board ring and the built zone's is the box of the built one; the box of a board ring is the rectangle of its vertices and arc mid points that a zone declared without an outline takes (`design-dsl`, "Zones in the DSL"). Such a zone was declared without an outline and follows the board; "Zones declared in the script" then finds the two equal.
+- Edge items inside footprints (`frame.footprint_edges`, `H-K-OUTLINE-FPEDGE`), which "Board outline as rings" chains into the outline, are not edge content of this requirement: they belong to their footprints, which the script does not draw. They MUST NOT be signed, compared, replaced or removed, and the table above reads the root graphics alone. A kept footprint keeps them ("Kept and re-placed footprints"). When the root content is replaced and a footprint of the board holds an edge item, the message of `kicad.outline.replaced` or `kicad.outline.forced` MUST name those footprints, because their edge items stay in the new outline. A board whose outline closes only with footprint edge items has no signed content: its root graphics follow the rows "not signed".
+- Footprints MUST NOT move: the placement guard names those that the new outline leaves out. Fills are judged by "Zone fills and the staleness digest", whose digest holds the edge content.
+- `OutlineMerge` is a frozen dataclass with `board` (the adapted board design), `replaced`, `dropped` (counts by kind) and `issues`. `merge_outline` reports only the codes of the closed table `outline.MERGE_ISSUE_CODES`; they are `kicad.*` codes, so they pass `PRESERVE_ISSUE_CODES` and `BUILD_ISSUE_CODES` unchanged.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.outline.forced` | warning | a locked `board()` replaced edge content that is not Fenolite's unchanged outline |
+| `kicad.outline.copper-dropped` | warning | tracks, arcs or vias that do not fit the new outline were dropped |
+| `kicad.outline.replaced` | info | the board's own unchanged outline was replaced by the script's new one |
+
+#### Scenario: An unchanged outline follows the script
+- **GIVEN** a confirmed target-10 blink build whose board was edited by `edit_blink`, after which `design.py` declares `board(mm(60), mm(30))`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, the written edges are the 60 mm × 30 mm rectangle with the uuids of "Outline lowering", the segments and the via of the edit are kept, and `issues` holds `kicad.outline.replaced` and no `layout.outline-kept`
+
+#### Scenario: Copper that no longer fits
+- **GIVEN** a confirmed target-10 blink build whose board gets, by token edit, a segment on `GND` from (110 mm, 128 mm) to (120 mm, 128 mm) and another from (145 mm, 105 mm) to (148 mm, 105 mm), after which `design.py` declares `board(mm(40), mm(30))`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the first segment is written and the second is not, and `issues` holds one `kicad.outline.copper-dropped` naming 1 track on `GND`
+
+#### Scenario: An edited outline wins unless locked
+- **GIVEN** a confirmed blink build whose right `Edge.Cuts` line is moved 5 mm right, with the top and bottom lines lengthened to meet it, by token edit, after which `design.py` declares `board(mm(60), mm(30))`
+- **WHEN** the build runs again with `--confirm`, and once more with `board(mm(60), mm(30), locked=True)`
+- **THEN** the first writes the edited lines with `layout.outline-kept`, and the second writes the 60 mm × 30 mm rectangle with `kicad.outline.forced`
+
+#### Scenario: A re-save keeps the signature
+- **GIVEN** a confirmed target-10 build of the rounded board of `design-dsl` "Outline shapes in a build", re-saved by `kicad-cli pcb upgrade --force`
+- **WHEN** `design.py` changes the radius to 3 mm and the build runs again
+- **THEN** the outline is replaced, with `kicad.outline.replaced`
+
+#### Scenario: A zone without an outline follows
+- **GIVEN** a confirmed build of the blink pour variant, whose zone `GND` has no outline, after which `design.py` declares `board(mm(60), mm(30))`
+- **WHEN** the build runs again
+- **THEN** the zone's outline is the 60 mm × 30 mm rectangle, and `issues` holds no `kicad.zone.overridden`
+
+#### Scenario: Edges of an older Fenolite
+- **GIVEN** a blink board whose four edge lines carry the uuids `pcb.kicad_uuid(outline, "outline:0:<k>")`
+- **WHEN** it is rebuilt with its own outline, and in a copy with `board(mm(60), mm(30))`
+- **THEN** the first writes the same lines with the uuids of "Outline lowering", and the second keeps the old lines with `layout.outline-kept`
+
+#### Scenario: Edge items of a footprint stay
+- **GIVEN** a confirmed target-10 blink build whose board gets, by token edit, an `fp_rect` of 2 mm × 1 mm on `Edge.Cuts` inside the footprint of `U1`, after which `design.py` declares `board(mm(60), mm(30))`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the root edges are the 60 mm × 30 mm rectangle, `issues` holds one `kicad.outline.replaced` that names `U1`, the `fp_rect` is still in the footprint of `U1`, and `board_outline` of the written board gives two rings
+
+### Requirement: Copper layer changes across rebuilds
+`fenolite.backends.kicad.layers.merge_layers(board, copper) -> LayerMerge` SHALL adapt an existing board whose copper layer names are those of `layers.created_layers` for another count, the count that c0100's `layers.created_count(<names>)` gives, to the copper layers of `created_layers(copper)`; `lens.preserve.merge_layout` SHALL adapt the board with it first, before "Outline changes across rebuilds" and every other rule.
+- The rows of the layers that stay MUST keep their `kicad` bags, with the type and user name set in KiCad. The rows of new inner layers MUST be those of `created_layers(copper)`; the rows of removed layers MUST go. A smaller count removes the deepest inner layers, `In<copper − 1>.Cu` and below.
+- On a removed layer: tracks and arcs MUST be dropped; a via whose `layers` name the layer MUST be dropped, and a through via kept; zones and rule areas MUST lose the layer, and be dropped when none is left, fills of that layer included; root graphics and texts on it MUST be dropped. One `kicad.layers.removed` per removed layer MUST give the counts. KiCad would load these items and report `item_on_disabled_layer` (`H-K-LAYER-CHANGE`).
+- Every pad of a kept footprint whose `layers` child holds a wildcard MUST take the layers that the wildcard gives on the new table, copper layers first in table order, so the writer's projection check accepts it.
+- A `stackup` child of the board's `setup` whose copper layers are not those of the new table MUST be removed, with `kicad.layers.stackup-reset`, so that KiCad derives its default stack-up for the new count; a stale one leaves the Gerber job file without thicknesses (`H-K-LAYER-CHANGE`). `Board.stackup` of the adapted board, the value the reader projected from that child (`kicad-file-backend`, "Stack-up on boards"), MUST then be `None` whenever its copper entries are not the copper layers of the new table: a model stack-up left over another table is refused by `model.stackup-copper`. The stack-up merge of "Stack-up across rebuilds" runs on the adapted board, so a stack-up of the script for the new count is written in its place.
+- `kicad.layers.added` MUST name the inner layers added.
+- `LayerMerge` is a frozen dataclass with `board` (the adapted board design), `added`, `removed` and `issues`. `merge_layers` reports only the codes of the closed table `layers.MERGE_ISSUE_CODES`; they are `kicad.*` codes and pass `PRESERVE_ISSUE_CODES` and `BUILD_ISSUE_CODES` unchanged.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.layers.removed` | warning | copper on a removed inner layer was dropped (counts per kind) |
+| `kicad.layers.stackup-reset` | warning | the board's stack-up did not match the new layers and was removed |
+| `kicad.layers.added` | info | inner layers were added for the new copper count |
+
+#### Scenario: Two layers become four
+- **GIVEN** a confirmed target-10 blink build whose board was edited by `edit_blink`, after which `design.py` declares `copper=4`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, the board has the copper layers `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu`, the segments and the via of the edit keep their uuids, the pads of `D1` are on the four copper layers, `result.preserved.kept` holds `D1`, `R1` and `U1`, and `issues` holds `kicad.layers.added` naming `In1.Cu` and `In2.Cu`
+
+#### Scenario: Four layers become six
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=4`, whose board gets by token edit a segment on `In1.Cu`, after which `design.py` declares `copper=6`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, the board has the copper layers `F.Cu`, `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu`, the segment on `In1.Cu` keeps its uuid and its layer, and `issues` holds one `kicad.layers.added` naming `In3.Cu` and `In4.Cu` and no `kicad.layers.removed`
+
+#### Scenario: Four layers become two
+- **GIVEN** a confirmed target-10 build of a blink variant declared with `copper=4`, whose board gets by token edit a segment on `In1.Cu` and a zone on `In2.Cu`, after which `design.py` declares `copper=2`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 0, the written board names neither `In1.Cu` nor `In2.Cu`, and `issues` holds one `kicad.layers.removed` naming 1 track on `In1.Cu` and one naming 1 zone on `In2.Cu`
+
+#### Scenario: A stale stack-up is removed
+- **GIVEN** a confirmed four-layer build whose `setup` gets, by token edit, a stack-up of four copper layers written by KiCad, after which `design.py` declares two copper layers
+- **WHEN** the build runs again
+- **THEN** the written `setup` holds no `stackup`, and `issues` holds `kicad.layers.stackup-reset`
+
+#### Scenario: A read stack-up goes with the layers it names
+- **GIVEN** a four-layer board whose `setup` holds a complete stack-up of four copper layers, which the reader projects into `Board.stackup`, and a `design.py` that declares two copper layers and no stack-up
+- **WHEN** the build runs again
+- **THEN** files are written, the written board holds no `stackup` and names neither `In1.Cu` nor `In2.Cu`, `Board.stackup` of the built layout is `None`, `summary["stackup"]` is `None`, and `issues` holds `kicad.layers.stackup-reset` and no `model.stackup-copper`
+
+#### Scenario: A table that is not KiCad's
+- **GIVEN** a confirmed four-layer build whose copper rows are changed by token edit to `F.Cu`, `In1.Cu`, `In3.Cu` and `B.Cu`
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the exit code is 5, `issues` holds `layout.copper-mismatch`, and nothing is written
+
+### Requirement: Stack-up across rebuilds
+`fenolite.backends.kicad.stackup.merge_stackup(built, board, *, layers, locked) -> StackupMerge` SHALL decide the stack-up of the layout when a build merges an existing board, and `build_design` SHALL apply it to the `Merged` result of `merge_layout` before the layout is validated and written. For the `stackup` child of `setup` and the `thickness` of `general` it replaces the rule of "Board content outside the design is kept"; every other child of `setup` stays under that rule.
+- The script's stack-up is `complete(built, layers)`, and the board's is its projection ("Stack-up on boards"); the two MUST be compared by `stackup.values`.
+- Without a script stack-up, or with equal ones, the board's MUST be kept with its fragments, and no code is given.
+- When the board has no projected stack-up (no node, or a node that "Stack-up on boards" calls incomplete or unmodelled), the script's MUST be written.
+- When they differ and the script's is not locked, the board's MUST be kept, and `kicad.stackup.overridden` (info) MUST name the first entry or value that differs, with the hint "lock the stack-up in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout".
+- When they differ and the script's is locked, the script's MUST replace the board's, and `kicad.stackup.forced` (warning) MUST name the first entry or value that differs.
+- `StackupMerge` MUST hold `stackup`, the decided value, and `source`: `script`, `board`, or `None` when neither holds one. `merge_stackup` MUST be pure, and run again on its own result with the same arguments it MUST return the same value.
+- `merge_stackup` SHALL report only the codes of the closed table `stackup.MERGE_ISSUE_CODES`. They are `kicad.*` codes, so they pass through `lens.preserve.PRESERVE_ISSUE_CODES` and `lens.build.BUILD_ISSUE_CODES` unchanged, as "Layout issue codes" and `design-dsl` "Build issue codes" allow.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.stackup.forced` | warning | a locked `stackup()` replaced a board stack-up that differed from it |
+| `kicad.stackup.overridden` | info | an unlocked `stackup()` differs from the kept board stack-up |
+
+- The normal-form pass of "Preservation is the build's normal form" MUST NOT call it: the written board already holds the decided stack-up, so a rebuild over the build's own output writes the same bytes.
+
+#### Scenario: An edit in KiCad wins
+- **GIVEN** a confirmed target-10 build of the stack-up blink of `design-dsl` "Stack-up in a build", whose core is changed to 1.4 mm by token edit, with `general` thickness changed to 1.49 to match
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the written `setup` and `general` nodes are tree-equal to the edited ones, `issues` holds `kicad.stackup.overridden` naming `dielectric 1`, and `result.stackup.source` is `board`
+
+#### Scenario: A locked stack-up wins
+- **GIVEN** the same edited build, and the script's stack-up declared with `locked=True`
+- **WHEN** the build runs again with `--confirm`, and then once more
+- **THEN** the first writes the core of 1.5 mm and `(thickness 1.59)` and its `issues` hold `kicad.stackup.forced`; the second writes every file with the same bytes and gives no `kicad.stackup.*` code
+
+#### Scenario: A stack-up added to a built board
+- **GIVEN** a confirmed blink build without a stack-up, after which `design.py` declares the stack-up of the stack-up blink
+- **WHEN** the build runs again
+- **THEN** the node is the first child of the written `setup`, every other child of `setup` is tree-equal to the board's, and `issues` hold no `kicad.stackup.*` code
+
+#### Scenario: A KiCad stack-up kept without a script one
+- **GIVEN** a confirmed blink build whose board gets a complete two-layer node by token edit, and a `design.py` without `stackup()`
+- **WHEN** the build runs again
+- **THEN** the node is written unchanged, and `result.stackup.source` is `board`
+
+### Requirement: Board items declared in the script
+`lens.preserve.merge_layout(built, board, match)` SHALL pass the existing board and the built design to `fenolite.backends.kicad.boarditems.merge_items(existing, built) -> ItemMerge`, SHALL keep only the existing rule areas, texts, graphics and dimensions that it keeps, and SHALL add after them, in the built order, the built design's items whose KiCad uuid is an item uuid (`kicad-file-backend`, "Board items of a script are written"). Script items are regenerated on every build, as script copper is.
+- This takes out of "Copper items follow their nets" (its rule that rule areas are kept unchanged) and out of "Board content outside the design is kept" exactly the existing items whose KiCad uuid is an item uuid. Every other rule area, text, graphic and dimension stays as those requirements say, so items drawn in KiCad are kept.
+- An existing item with an item uuid MUST be dropped. When `built` holds an item with that uuid, it is regenerated, with one `kicad.board-item.regenerated` info naming its kind, uuid and the fields that differ, when a modelled field differs (an edit in KiCad): for a rule area its name, outline, layers and settings; for a text its string, position, layer, size, thickness, rotation and justification; for a graphic its kind, layer, points, width and fill; for a dimension its kind, layer, points, offset, direction, units and precision. Otherwise it is stale, with one `kicad.board-item.stale` warning naming its kind, its uuid, and its name or layer.
+- `merge_items` SHALL report only the codes of the closed table `boarditems.MERGE_ISSUE_CODES`. They are `kicad.*` codes, so they pass through `PRESERVE_ISSUE_CODES` and `lens.build.BUILD_ISSUE_CODES` unchanged, as "Layout issue codes" and `design-dsl` "Build issue codes" allow.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.board-item.stale` | warning | an item the script wrote in an earlier build is no longer declared and is removed |
+| `kicad.board-item.regenerated` | info | an item the script declares was edited in KiCad and is written again from the script |
+
+- `result.preserved.board_items` MUST report `regenerated` and `stale` (counts), as "Layout preservation evidence" allows; both are 0 without an existing board.
+- `fill_inputs_digest` ("Zone fills and the staleness digest") MUST NOT change for a rebuild whose script items did not change, because a regenerated rule area has the same outline, layers and settings; a rule area added, moved or removed by the script changes it, and the fills it concerns are dropped.
+- `lens.preserve` still never imports `geometry`: `merge_items` compares points and fields as integers and texts.
+
+#### Scenario: Edited label is written again
+- **GIVEN** a confirmed target-10 build of a blink variant with `d.text("rev", "REV A", (mm(2), mm(2)))`, whose board then gets the text moved by 1 mm by token edit, keeping its uuid
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the text is back at its script position with the same uuid, and `issues` hold one `kicad.board-item.regenerated` naming the text and `position`
+
+#### Scenario: Removed rule area is removed
+- **GIVEN** a confirmed build of the variant with the rule areas `ANT` and `HV`, after which `HV` is removed from `design.py`
+- **WHEN** the build runs again
+- **THEN** the board holds only `ANT`, and `issues` hold one `kicad.board-item.stale` naming `HV`
+
+#### Scenario: Drawings made in KiCad are kept
+- **GIVEN** a confirmed build of the variant whose board gets, by token edit, a `gr_text` and a rule area with version-4 uuids
+- **WHEN** the build runs twice
+- **THEN** both are kept, `issues` hold no `kicad.board-item.*` code, and the second build writes every file with the bytes of the first
+
+#### Scenario: Board item merge codes are closed
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_boarditems.py -k closed_set` collects every issue code that `merge_items` produces in its tests
+- **THEN** each is a key of `MERGE_ISSUE_CODES` with the severity of this table, and every key is produced by at least one test
+
+### Requirement: Via protection defaults across rebuilds
+`fenolite.backends.kicad.via_protection.merge_default(script, board, *, locked) -> DefaultMerge` SHALL decide the board's via protection default when a build merges an existing board, and `build_design` SHALL apply it to the `Merged` result of `merge_layout` before the layout is validated and written. For the protection children of `setup` it replaces the rule of "Board content outside the design is kept"; every other child of `setup` stays under that rule.
+- `script` is `Board.via_protection` of the built design and `board` the projection of the existing board ("Via protection defaults on boards"); they MUST be compared by `effective_default`.
+- Without a script default, or with equal effective values, the board's MUST be kept with its fragment, and no code is given.
+- When the board has no default (`None`), the script's MUST be written.
+- When they differ and the script's is not locked, the board's MUST be kept, and `kicad.via.protection-overridden` (info) MUST name the first field that differs with both values, with the hint "lock the default in the script, edit it in KiCad's Board Setup, or re-run with --discard-layout".
+- When they differ and the script's is locked, the script's MUST replace the board's, and `kicad.via.protection-forced` (warning) MUST name the first field that differs.
+- `DefaultMerge` MUST hold `default`, the decided value, `source` (`script`, `board`, or `None` when neither holds one) and `issues`. `merge_default` MUST be pure, and run again on its own result with the same arguments it MUST return the same value; a locked default then reports nothing, and an unlocked one that still differs from the kept board default reports `kicad.via.protection-overridden` again, as an overridden zone does at every build.
+- The vias are not decided here: script vias follow `manual-copper` "Via protection of script copper", and every other via of the board keeps its protection with the rest of its fields ("Copper items follow their nets").
+- `via_protection` SHALL report only the codes of the closed table `via_protection.ISSUE_CODES`. They are `kicad.*` codes, so they pass through `lens.preserve.PRESERVE_ISSUE_CODES` and `lens.build.BUILD_ISSUE_CODES` unchanged, as "Layout issue codes" and `design-dsl` "Build issue codes" allow.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.via.protection-forced` | warning | a locked `via_protection()` replaced a board default that differed from it |
+| `kicad.via.protection-overridden` | info | an unlocked `via_protection()` differs from the kept board default |
+| `kicad.via.protection-not-exported` | info | vias take a covering, plugging, capping or filling of `True` from the board default only (`design-dsl`, "Via protection defaults in the DSL") |
+
+- The normal-form pass of "Preservation is the build's normal form" MUST NOT call `merge_default`: the written board already holds the decided default, so a rebuild over the build's own output writes the same bytes.
+
+#### Scenario: An edit in KiCad wins
+- **GIVEN** a confirmed target-10 build of a blink variant with `design.via_protection(protect(tenting=True))`, whose `setup` tenting is then changed to `(tenting (front no) (back no))` by token edit
+- **WHEN** the build runs again with `--confirm`
+- **THEN** the written `setup` holds `(tenting (front no) (back no))`, and `issues` hold one `kicad.via.protection-overridden` naming `tenting_front`
+
+#### Scenario: A locked default wins
+- **GIVEN** the same edited build, and the script's default declared with `locked=True`
+- **WHEN** the build runs again with `--confirm`, and then once more
+- **THEN** the first writes `(tenting (front yes) (back yes))` and its `issues` hold `kicad.via.protection-forced`; the second writes every file with the same bytes and gives no `kicad.via.*` code
+
+#### Scenario: A default added to a built board
+- **GIVEN** a confirmed blink build without a default, after which `design.py` declares `design.via_protection(protect(tenting="front"))`
+- **WHEN** the build runs again
+- **THEN** the written `setup` holds the five children with `(tenting (front yes) (back no))`, every other child of `setup` is tree-equal to the board's, and no `kicad.via.*` code is given
+
+#### Scenario: Equal in effect
+- **GIVEN** a confirmed target-10 blink build without a default, whose `setup` is then given, by token edit, the five children that a 10.0.6 re-save writes: `(tenting (front yes) (back yes))`, `(covering (front no) (back no))`, `(plugging (front no) (back no))`, `(capping no)` and `(filling no)`; and `design.py` then declares `design.via_protection(protect(tenting=True))`
+- **WHEN** `uv run pytest tests/unit/lens/test_build_via_protection.py -k effect` builds again
+- **THEN** no `kicad.via.*` code is given, and the `setup` fragment is written as the board holds it
+
+### Requirement: Kept footprints gain missing mandatory fields
+A rebuild SHALL give a kept footprint the `Reference` or `Value` field that its board node lacks, taken from the built copy of the footprint, so that a board written before the generated fields existed is repaired by its next build.
+- The field MUST be added before the node's first field, `Reference` before `Value`, with the id, the uuid and the placement of the built copy's field, and with the script's reference or value as its text.
+- A field that the board's node has MUST NOT be changed by this requirement: the precedence of `fenolite.lens.fields.merge_fields` stays, and a request of `Part.field` applies to an added field as an unlocked request applies to a library field.
+- Everything else of the kept node MUST stay: position, rotation, side, pads, the other properties and their order.
+- A re-placed footprint is the built copy and already holds both fields.
+- The build MUST report no issue for an added field. `docs/lens.md` MUST describe the rule under "Footprint fields".
+
+#### Scenario: Board written before the fields existed
+- **GIVEN** the catalog blink of `tests/_catalog_design.py` built into `tmp_path`, routed by its scripted tracks, and then every `Reference` and `Value` property removed from the board's footprints by a token edit in the test
+- **WHEN** `uv run pytest tests/unit/cli/test_catalog_only.py -k older_board` builds the design again over that folder
+- **THEN** each footprint holds both fields again with the script's reference and value, and each footprint's position, rotation and pad nets and every track equal the ones before the rebuild
+
+#### Scenario: A field edited in KiCad stays
+- **GIVEN** the same board with the `Reference` field of `R1` moved by 2 mm in the test
+- **WHEN** the design is built again
+- **THEN** that field keeps its moved position
+
+#### Scenario: A second rebuild changes nothing
+- **WHEN** the repaired project is built once more with `--dry-run`
+- **THEN** the plan holds no file with changed bytes

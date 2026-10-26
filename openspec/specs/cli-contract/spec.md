@@ -2,7 +2,9 @@
 
 ## Purpose
 Define the machine-readable contract every `fenolite` command follows (output modes, envelope, typed errors, exit codes, mutation protocol, determinism flags, capability discovery) so that AI agents and CI pipelines can drive the tool without parsing human text.
+
 ## Requirements
+
 ### Requirement: Output mode selection
 Every `fenolite` command SHALL emit JSON on stdout when stdout is not a TTY and human-readable text when it is. The flags `--json` and `--text` SHALL override the detection. JSON output MUST be exactly one JSON document followed by a newline.
 
@@ -45,6 +47,9 @@ The global flag `--fields a,b.c` SHALL restrict `result` to the listed dotted pa
 
 ### Requirement: Typed errors on stderr
 Whenever a command exits with a non-zero code, stderr MUST carry exactly one error object `{code, message, hint, retryable, where}` (JSON in JSON mode, one line `error <code>: <message> (<hint>)` in text mode). `code` MUST match `FEN-[1-7][0-9]{3}` and its first digit MUST equal the exit code.
+- Without `--progress`, the error object MUST be the only thing Fenolite writes on stderr. With `--progress`, stderr MAY hold progress records before it ("Progress on stderr"), each on a line of its own, and the error object MUST be the last line.
+- No exit MUST leave stderr without an error object or with a traceback: an exception that no handler maps, a failed write and a signal each end in one registered code (`FEN-1001`, `FEN-1002`, `FEN-1003`).
+- The registry MUST hold `FEN-1002` (exit 1, `retryable` true: a write failed and nothing was changed), `FEN-1003` (exit 1, `retryable` true: the command was stopped by a signal and nothing was written) and `FEN-4002` (exit 4, `retryable` false: the plan named by `--plan` cannot be written as reviewed). `src/fenolite/cli/data/explain.toml` MUST hold one table for each, and `docs/cli-contract.md` MUST say that exit 1 is a bug only when `retryable` is false.
 
 #### Scenario: Internal exception
 - **GIVEN** the hidden `_echo` command is invoked with `--raise`
@@ -54,6 +59,20 @@ Whenever a command exits with a non-zero code, stderr MUST carry exactly one err
 #### Scenario: Usage error
 - **WHEN** `fenolite capabilities --no-such-flag` runs
 - **THEN** the exit code is 2 and stderr carries `FEN-2xxx`
+
+#### Scenario: A blocked write ends in an error object
+- **GIVEN** a folder in which `blocker` is a file
+- **WHEN** `uv run pytest tests/unit/cli/test_write_failures.py -k blocked` runs `_echo --write blocker/x.txt --confirm --json`
+- **THEN** the exit code is 1, stderr is one JSON object with `code` `FEN-1002` and `retryable` true, and it holds no traceback and no absolute path
+
+#### Scenario: The error is the last line under progress
+- **GIVEN** `_echo --steps 3 --raise --progress --json`
+- **WHEN** it runs
+- **THEN** every line of stderr but the last parses as `{"progress": …}`, and the last is the error object `FEN-1001`
+
+#### Scenario: The three codes are registered and explained
+- **WHEN** `uv run pytest tests/unit/cli/test_exitcodes.py tests/unit/cli/test_explain_cmd.py` runs
+- **THEN** `FEN-1002`, `FEN-1003` and `FEN-4002` are in the registry with exit codes 1, 1 and 4, and each has a table in `explain.toml`
 
 ### Requirement: Exit-code vocabulary
 Commands MUST use only these exit codes: `0` success; `1` internal failure; `2` usage error; `3` input unreadable or from a future format version; `4` confirmation required; `5` verification produced findings of severity `error`; `6` external tool missing or incompatible; `7` requested operation not representable without loss.
@@ -70,6 +89,9 @@ Commands MUST use only these exit codes: `0` success; `1` internal failure; `2` 
 
 ### Requirement: Mutation protocol
 A command declared as mutating MUST accept `--dry-run` and `--confirm`. With `--dry-run` it MUST return the plan of intended writes in `result.plan` with exit 0 and write nothing. Without `--confirm` it MUST return the plan with exit 4 and error `FEN-4001` and write nothing. With `--confirm` it MUST write atomically (temporary file then rename), keep a `.bak` of any overwritten file unless `--no-backup` is given, and fill `receipt.written` with `{path, sha256}` for every file written.
+- Whenever a plan is returned and not written (`--dry-run`, and the refusal of exit 4), `result.plan_id` MUST name it ("Staged plans"), and the hint of `FEN-4001` MUST name `--confirm --plan <id>`.
+- `--confirm` without `--plan` MUST keep its meaning: one run that plans and writes. `--confirm --plan ID` MUST write the plan that a review saw, under the checks of "Staged plans". `--plan` without `--confirm`, and `--plan` with `--dry-run`, MUST exit 2 with `FEN-2001`.
+- The files of one command MUST be written all or none ("All-or-nothing writes"), and a command whose issues hold an error MUST write none ("Error findings plan no write").
 
 #### Scenario: Dry run writes nothing
 - **GIVEN** `_echo --write out.txt --dry-run`
@@ -90,6 +112,14 @@ A command declared as mutating MUST accept `--dry-run` and `--confirm`. With `--
 - **WHEN** `_echo --write out.txt --dry-run --confirm` runs
 - **THEN** the exit code is 2
 
+#### Scenario: The refusal names the plan
+- **WHEN** `uv run pytest tests/unit/cli/test_plans.py -k refusal` runs `_echo --write out.txt --json` in an empty folder
+- **THEN** the exit code is 4, `result.plan_id` is 16 hex digits, and the hint of `FEN-4001` on stderr holds `--confirm --plan` followed by that id
+
+#### Scenario: A plan needs a confirmation
+- **WHEN** `_echo --write out.txt --plan 0123456789abcdef` runs without `--confirm`, and again with `--dry-run`
+- **THEN** both exit 2 with `FEN-2001`, and nothing is written
+
 ### Requirement: Determinism flags
 The global flags `--seed INT` and `--timestamp ISO8601` SHALL be accepted by every command, and commands that generate identifiers or dates MUST take them from these flags.
 - Ids derived from keys (`design-model` "Identifier derivation", third and fourth cases) are not generated: they MUST NOT depend on `--seed`.
@@ -105,7 +135,7 @@ The global flags `--seed INT` and `--timestamp ISO8601` SHALL be accepted by eve
 - **THEN** every file under `B1` has the same bytes as the file with the same relative path under `B2`
 
 ### Requirement: Capabilities command
-`fenolite capabilities` SHALL list every registered command with `name`, `mutates` and `schema`; the backends registered; the optional extras detected; the external tools detected (`kicad-cli`, `java`, `docker`) with version strings when present; and the boolean `sends_data_offsite`.
+`fenolite capabilities` SHALL list every registered command with `name`, `mutates` and `schema`; the backends registered; the optional extras detected; the external tools detected (`kicad-cli`, `java`, `docker`, `gmsh`) with version strings when present; and the boolean `sends_data_offsite`.
 
 #### Scenario: Capabilities lists commands
 - **WHEN** `fenolite capabilities --json` runs
@@ -132,7 +162,7 @@ The command dispatcher SHALL convert an exception raised inside a command as fol
 
 The error's `message` SHALL be `exc.message` for a `FormatError` and `str(exc)` otherwise, so the location is never repeated inside the message. For a `FormatError`, `where` SHALL be built from its `file`, `locator` and offset, joined by `:` with the offset written `@N`. When the exception has a non-empty `hint` attribute, it SHALL replace the registry hint. The exit code SHALL be the first digit of the resulting code.
 
-The registry SHALL contain `FEN-3003` ("input format version older than the oldest supported"), `FEN-3004` ("malformed input file"; hint "the message and where locate the problem") and `FEN-7002` ("target format version older than the input; downgrade is not supported"), in addition to the existing `FEN-3002`. `docs/cli-contract.md` SHALL list all four.
+The registry SHALL contain `FEN-3003` ("input format version older than the oldest supported"), `FEN-3004` ("malformed input file"; hint "the message and where locate the problem") and `FEN-7002` ("target format version older than the input; no downgrade was asked"; hint "convert the project with 'fenolite convert <project> --to kicad --kicad-version <target>'"), in addition to the existing `FEN-3002`. `docs/cli-contract.md` SHALL list all four.
 
 Tests SHALL inject these exceptions through a command registered only for the test, by a fixture in `tests/unit/cli/test_library_errors.py` that adds it to the discovered command set; the shipped `_echo` command is not changed.
 
@@ -356,15 +386,16 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** it lists a 10.0.6 candidate with `selected: true`, and an entry or a `doctor.tool-missing` warning for each of `java` and `docker`
 
 ### Requirement: Export command
-`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--all] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_export.py` with `mutates=True`, and SHALL write the fabrication files that `kicad-cli` produces from a copy of the board that `PATH` names.
+`fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf] [--dxf] [--sch-pdf] [--all] [--altium-rul] [--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_export.py` with `mutates=True`, and SHALL write the fabrication files and documents that `kicad-cli` produces from a copy of the board that `PATH` names and, for `--sch-pdf`, of its schematic, and, with `--altium-rul`, the project's rules as an Altium rule file (`manufacturing-exports`, "Altium rule file export").
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`; the usage and input errors are `check`'s (`FEN-2001`, `FEN-3001`).
-- **Kinds.** `--all` MUST select the four kinds. A call that selects none MUST exit 2 with `FEN-2001`.
-- **Preset.** `--preset FILE` MUST be read with `exports.preset.read_preset` before any run, and each selected kind MUST run with `arguments(kind, preset, …)` (`manufacturing-exports`, "Export presets"); a preset error MUST exit 3 with `FEN-3004`. `result.preset` MUST hold `file` (the name as given) and `sha256`, or be `null` without a preset.
-- **Tool.** The command MUST exit 6 with `FEN-6001` when no `kicad-cli` is found and with `FEN-6002` for an unsupported major or a board newer than the tool reads. `--timeout` MUST default to 300 and apply to each run.
-- **Source.** The board, its project files and its folder MUST NOT change; every run happens on the copy set of `projectset.project_set`.
-- **Writes.** The command MUST return one `PlannedWrite` per artefact at `DIR/<artefact path>`, and with `--manifest` one for `DIR/fenolite-artifacts.json`; `DIR` is relative to the working directory. When any selected kind fails, the command MUST return no `PlannedWrite`, MUST report the kind's issue and MUST exit 5. The mutation protocol (`--dry-run`, `--confirm`, backup, receipt) applies unchanged.
-- **Result.** `result` MUST hold `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`, `content_sha256`; sorted by path), `tool_version` and `tool_writes`. No value MUST hold a temporary path, the home directory or a date.
-- **Exit codes.** 0 when the files are planned or written; 5 with `export.failed` or `export.kind-unavailable`; 3 for a board Fenolite cannot read.
+- **Kinds.** `--all` MUST select the four fabrication kinds (`FAB_KINDS`: `gerbers`, `drill`, `pos`, `ipcd356`) and MUST NOT select `altium-rul` or a document kind; each document kind (`DOCUMENT_KINDS`: `ipc2581`, `odb`, `step`, `pdf`, `dxf` and `sch-pdf`) MUST be selected by its own flag. A call that selects no kind and no `--altium-rul` MUST exit 2 with `FEN-2001`.
+- **Schematic.** With `--sch-pdf`, a board without `<stem>.kicad_sch` beside it MUST exit 3 with `FEN-3001` before any run, with a hint that names the other kinds.
+- **Preset.** `--preset FILE` MUST be read with `exports.preset.read_preset` before any run, and each selected kind MUST run with `arguments(kind, preset, …)` (`manufacturing-exports`, "Export presets"); a preset error MUST exit 3 with `FEN-3004`. `result.preset` MUST hold `file` (the name as given) and `sha256`, or be `null` without a preset. A document kind has no preset table: it MUST run with the fixed arguments of "Export kinds and their arguments" whatever the preset holds.
+- **Tool.** When a fabrication kind or a document kind is selected, the command MUST exit 6 with `FEN-6001` when no `kicad-cli` is found and with `FEN-6002` for an unsupported major or a board newer than the tool reads. `--timeout` MUST default to 300 and apply to each run. With `--altium-rul` alone no tool is looked for or run.
+- **Source.** The board, its project files and its folder MUST NOT change; every run happens on the copy set of `projectset.project_set`, with the model files of `manufacturing-exports`, "STEP export with 3D models", for the `step` kind.
+- **Writes.** The command MUST return one `PlannedWrite` per artefact at `DIR/<artefact path>`, and with `--manifest` one for `DIR/fenolite-artifacts.json`; `DIR` is relative to the working directory. When any selected kind fails, the command MUST return no `PlannedWrite`, MUST report the kind's issue and MUST exit 5. Only an issue of severity `error` stops the writes: an issue of severity `info` MUST NOT (`manufacturing-exports`, "Stack-up note in exports", gives the first one), and neither does a warning, as "Exit codes" states. The mutation protocol (`--dry-run`, `--confirm`, backup, receipt) applies unchanged.
+- **Result.** `result` MUST hold `board`, `out`, `kinds`, `artifacts` (`path`, `kind`, `layer`, `bytes`, `sha256`, `content_sha256`; sorted by path), `tool_version` (`null` when no tool ran), `tool_writes`, `repeat` (each selected fabrication or document kind mapped to its `Kind.repeat`) and `models` (the `ModelUse` objects of the `step` kind, `[]` without it), and with `--altium-rul` `rules` (`written`, `not_lowered`). No value MUST hold a temporary path, the home directory or a date.
+- **Exit codes.** 0 when the files are planned or written, whatever the warnings (`kicad.lib.missing-3d-model`, `export.model-unread`, `export.page-too-small`); 5 with `export.failed`, `export.kind-unavailable` or `export.sheet-missing`; 3 for a board Fenolite cannot read or a missing schematic.
 - `example_args` MUST be `(EXAMPLE_BOARD, "--out", "fab", "--all", "--manifest", "--dry-run")`, `mutation_example_args` the same without `--dry-run`, and `example_tools` MUST be `("kicad-cli",)`.
 
 #### Scenario: Plan, then write
@@ -403,6 +434,46 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 #### Scenario: Invalid preset
 - **WHEN** the same command runs with a preset whose schema is `other.v1`
 - **THEN** the exit code is 3, stderr carries `FEN-3004`, and the fake saw no run
+
+#### Scenario: The rule file needs no tool
+- **GIVEN** an authored project with one clearance rule on a net, and no `kicad-cli` on the machine
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k altium_rule_file_needs_no_tool` runs `fenolite export <dir> --out fab --altium-rul --dry-run` and then `--manifest --confirm`
+- **THEN** the first plans `fab/board.RUL` and writes nothing, the second writes it and the manifest, `result.kinds` is `["altium-rul"]`, `result.tool_version` is `null`, and the evidence is `INFERRED` with no oracle
+
+#### Scenario: Document kinds
+- **GIVEN** a fake `kicad-cli` 10.0.6 that writes one file for `ipc2581`, `odb` and `step`, two layer files for `pdf` and one for `dxf`
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k documents` runs `fenolite export <board> --out fab --ipc2581 --odb --step --pdf --dxf --dry-run`
+- **THEN** the exit code is 0, the plan holds the six files, `result.repeat` maps `ipc2581`, `odb` and `step` to `none`, `pdf` to `content` and `dxf` to `bytes`, and `result.models` is a list
+
+#### Scenario: All keeps the four kinds
+- **GIVEN** a recording fake `kicad-cli`
+- **WHEN** `fenolite export <board> --out fab --all --dry-run` runs
+- **THEN** the fake saw exactly the runs of `gerbers`, `drill`, `pos` and `ipcd356`, and `result.kinds` holds neither a document kind nor `altium-rul`
+
+#### Scenario: A preset leaves a document kind alone
+- **GIVEN** a recording fake `kicad-cli` and a preset with `[drill]` `units = "in"`
+- **WHEN** `fenolite export <board> --out fab --drill --dxf --preset fab.toml --dry-run` runs
+- **THEN** the drill run saw `--excellon-units in`, and the `dxf` run saw exactly the arguments of "Export kinds and their arguments"
+
+#### Scenario: Schematic PDF without a schematic
+- **GIVEN** `two_layer.kicad_pcb`, which has no `two_layer.kicad_sch` beside it
+- **WHEN** `fenolite export <board> --out fab --sch-pdf --dry-run` runs
+- **THEN** the exit code is 3, stderr carries `FEN-3001` naming `two_layer.kicad_sch`, and the fake saw no run
+
+#### Scenario: A missing sheet writes nothing
+- **GIVEN** a board with a schematic whose sub-sheet file is missing, and a fake `kicad-cli`
+- **WHEN** `fenolite export <board> --out fab --pdf --sch-pdf --confirm` runs
+- **THEN** the exit code is 5, the issues hold `export.sheet-missing`, and `fab` does not exist
+
+#### Scenario: An info does not stop the writes
+- **GIVEN** a fake `kicad-cli` 10.0.6 and a run of the drill kind that reports one issue of severity `info` that is not `export.stackup-default`
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k severity` runs `fenolite export <board> --out fab --drill --dry-run` and then `--confirm`
+- **THEN** the first exits 0 with the plan of the drill files and the info among its issues, and the second writes those files
+
+#### Scenario: An error stops the writes
+- **GIVEN** the same run reporting one issue of severity `error`
+- **WHEN** `fenolite export <board> --out fab --drill --confirm` runs
+- **THEN** the exit code is 5, `result` holds no plan, the receipt is `null` and `fab` does not exist
 
 ### Requirement: Render command
 `fenolite render PATH --out DIR [--svg] [--png] [--width PX] [--height PX] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_render.py` with `mutates=True`, and SHALL write the review views of the board that `PATH` names.
@@ -470,15 +541,19 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** `release_verified` of each level is `False`
 
 ### Requirement: Place command
-`fenolite place PATH [--strategy grid|manual] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_place.py` with `mutates=True`, and SHALL move footprints of the board that `PATH` names.
+`fenolite place PATH [--strategy grid|manual|constrained] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT] [--constraints FILE] [--max-candidates N] [--preview-dir DIR]` SHALL be registered by `src/fenolite/cli/cmd_place.py` with `mutates=True`, and SHALL move footprints of the board that `PATH` names.
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`.
-- **Grid.** With `--strategy grid` (the default without `--move`), the command MUST place every footprint that is off the board (`layout-lens`, "Placement precedence"), or those of `--only`, with `placement.grid.place`, in component-path order (reference order for footprints without `fenolite.path`). It only translates.
+- **Rules of a built project.** The command MUST load the board folder's `.fenolite/` with `canonical.load_dir` at most once, and take from it the locked placements of "Built projects" and `checks.placement.rules_of(<that model>)`. Without a readable `.fenolite/` it judges no rule.
+- **Grid.** With `--strategy grid` (the default without `--move`), the command MUST place every footprint that is off the board (`layout-lens`, "Placement precedence"), or those of `--only`, with `placement.grid.place`, in component-path order (reference order for footprints without `fenolite.path`). It only translates. The bounding box of every rule area of the board that forbids footprints (`Keepout.no_footprints`) MUST join the cut-outs that the grid avoids.
 - **Manual.** Each `--move` MUST name a reference and a position in the frame of the DSL's `place()` (relative to the top-left corner of the bounding box of the board ring, Y down; relative to the file origin when the board has no outline), with lengths in the DSL's syntax, an optional rotation in degrees and an optional side. An unknown reference MUST give `place.unknown-ref`. A rotation or side change MUST resolve definitions from the project's `fp-lib-table`.
-- **Legality.** After the moves, `placement.legality.check` MUST run on the whole layout. With any `place.*` error and without `--force`, the command MUST return no `PlannedWrite` and exit 5. With `--force` it MUST write and still report the issues.
-- **Write.** One `PlannedWrite` for the board, at `--out` when given and at the board's path otherwise; none when nothing moved. The mutation protocol applies unchanged.
-- **Result.** `result` MUST hold `board`, `strategy`, `moved` (`ref`, `path`, `from`, `to`, each placement as `x`, `y` in nm, `rotation` in µdeg and `side`; sorted by reference), `unplaced` and `legality` (counts by code).
+- **Legality.** For grid/manual, after the moves, `placement.legality.check` MUST run on the whole layout, with the board's keep-outs as `keepouts`. With any `place.*` error and without `--force`, the command MUST return no `PlannedWrite` and exit 5. With `--force` it MUST write and still report the issues.
+- **Rules.** After the moves, `checks.placement.judge` MUST run on the layout with the rules of the built project. Each `placement.*` issue MUST be reported with a severity no higher than `warning` and MUST NOT refuse the write.
+- **Measures.** `checks.placement.measure` MUST run on the layout after the moves, with the track width plus the clearance of the class `Default` of `KicadBackend().design_rules` on the board's copy set as `pitch` (`None` without that class).
+- **Write.** For grid/manual, one `PlannedWrite` for the board, at `--out` when given and at the board's path otherwise; none when nothing moved. The mutation protocol applies unchanged.
+- **Result.** `result` MUST hold `board`, `strategy`, `moved` (`ref`, `path`, `from`, `to`, each placement as `x`, `y` in nm, `rotation` in µdeg and `side`; sorted by reference), `unplaced`, `legality` (counts by code), `rules` (the counts of `judge` by rule family, all zero without rules) and `measures` (`Measures.to_json()` of the layout after the moves, with `change`: `hpwl` and `ratsnest` after minus before, in nm, both 0 when nothing moved).
 - **Built projects.** When `.fenolite/` holds a locked placement for a moved part, the command MUST report `place.script-locked` (warning), because the next build restores the script's placement.
-- No subprocess MUST run. Two runs on equal boards MUST write equal bytes.
+- **Evidence.** The envelope MUST carry `placement.EVIDENCE`, combined with `placement.legality.KEEPOUT_EVIDENCE` when the board holds a rule area that forbids footprints, and with `checks.placement.EVIDENCE` when a rule was judged.
+- No subprocess MUST run. Two runs on equal boards MUST write equal bytes and return equal results.
 - `example_args` MUST be `(EXAMPLE_BOARD, "--move", "R1=12mm,8mm", "--out", "fenolite-placed.kicad_pcb", "--dry-run")`, and `mutation_example_args` the same without `--dry-run`.
 
 #### Scenario: Grid places staged parts
@@ -498,27 +573,50 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 #### Scenario: Nothing to place
 - **GIVEN** a built blink with every part placed
 - **WHEN** `fenolite place <dir> --confirm` runs
-- **THEN** the exit code is 0, `result.moved` is empty, and no file changes
+- **THEN** the exit code is 0, `result.moved` is empty, `result.measures.change` is `{"hpwl": 0, "ratsnest": 0}`, and no file changes
 
 #### Scenario: Example is hermetic
 - **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
 - **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `place` with its `example_args`
 - **THEN** the exit code is 0 and the plan names `fenolite-placed.kicad_pcb`
 
+#### Scenario: Keep-out avoided by the grid and refused for a move
+- **GIVEN** a confirmed build of a blink variant with `R1` staged and a rule area on `F.Cu` that forbids footprints over the 8 mm square at the top-left corner of the board, where the grid would otherwise put `R1`
+- **WHEN** `uv run pytest tests/unit/cli/test_place_cmd.py -k keepout` runs `fenolite place <dir> --confirm`, and then `fenolite place <dir> --move R1=4mm,4mm --confirm`
+- **THEN** the first run places `R1` outside the area's box with exit code 0; the second exits 5 with `place.keepout` naming `R1`, and writes nothing
+
+#### Scenario: Rules and measures of a move
+- **GIVEN** the blink built with `design.near("led", d1, r1.pad(2), within=mm(5))`
+- **WHEN** `fenolite place <dir> --move R1=36mm,18mm --dry-run --json` runs, which brings `R1`'s pads within 5 mm of `D1`'s, and then the same command with `--move R1=2mm,2mm`
+- **THEN** the first reply holds no `placement.too-far` and a negative `result.measures.change.hpwl`; the second holds one `placement.too-far` warning naming `D1` and exits 0, since a rule never refuses `place`
+
+- **Constrained.** With `--strategy constrained`, the command SHALL use bounded neutral proposals from the integer `fenolite.placement-request.v0` request, preserve manual/grid defaults and refuse `--force`. `--constraints`, `--max-candidates` and `--preview-dir` SHALL apply to this strategy. `result.placement` SHALL contain positions, source/request hashes, unplaced reasons, objective metrics, intrinsic findings and placement assessment. `result.preview` SHALL identify the written/read-back geometry; dry-run previews MUST not write files. The constrained transaction MAY add planned preview writes alongside the board write and SHALL retain its hard-check findings instead of applying grid/manual force semantics.
+
+#### Scenario: Constrained dry-run then confirmed placement
+- **GIVEN** an authored request and preview directory
+- **WHEN** dry-run is followed by --confirm
+- **THEN** dry-run writes nothing and confirmed output has receipts and matching geometry hashes
+
 ### Requirement: Route command
-`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_route.py` with `mutates=True`, and SHALL add routed copper to the board that `PATH` names.
+`fenolite route PATH --router NAME [--nets GLOB]... [--rip] [--include-zone-nets] [--require-complete] [--router-path DIR] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [-o OUT]` SHALL be registered by `src/fenolite/cli/cmd_route.py` with `mutates=True` and `paged = "open"`, and SHALL add routed copper to the board that `PATH` names.
 - **Board.** `PATH` MUST resolve with `projectset.resolve_board`.
 - **Router.** `NAME` MUST be a key of `routing.registry.routers()`; otherwise the command MUST exit 2 with `FEN-2001` and a hint listing the registered names. A router whose `available()` is false MUST exit 6 with `FEN-6001` and its reason. A router with `sends_data_offsite` MUST be refused with exit 2 unless `--allow-offsite` is given.
-- **Job.** The command MUST select nets with `routing.select.unrouted` (after `select.rip` when `--rip` is given), build `JobPad`s from the backend's `BoardFrame.board_pads`, and take each net's width, clearance and via sizes from its net class, else from the project's default class.
-- **Write.** The command MUST merge the result with `routing.merge.apply` and return one `PlannedWrite` for the board, written by `write_board` for the board's own major, at `--out` when given and at the board's path otherwise. It MUST return none when no net was selected or the result holds no copper. The mutation protocol applies unchanged.
-- **Result.** `result` MUST hold `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `tracks`, `vias`, `ripped`, `fills_stale` and `log` (at most 20 lines, sanitised: no temporary path, no home directory).
-- **Issues and exit codes.** Each selected net left unrouted MUST give `route.unrouted` (warning). The exit code MUST be 5 for `route.bad-item` or `route.tool-failed`, and 0 otherwise.
+- **Rip.** With `--rip`, every net that matches the patterns, has two or more pads and is not carried by a zone (unless `--include-zone-nets`) MUST be ripped with `routing.select.rip`, whose `keep` holds the ids of the script copper of those nets (items whose KiCad uuid satisfies `backends.kicad.copper.is_copper_uuid`).
+- **Job.** The command MUST compute the open connections of the board (`board-analyses`, "Open connections of a net") from the backend's `BoardFrame.board_pads`, after the rip and after any copper the command adds before the router, and MUST select nets with `routing.select.unrouted` and those open nets. It MUST build `JobPad`s from `board_pads`, and take each net's width, clearance and via sizes from its net class, else from the project's default class.
+- **Verdict.** After the merge, the command MUST compute the open connections of the selected nets again. `routed` MUST hold the selected nets that have none, and `unrouted` the others, whatever the router listed.
+- **Write.** The command MUST merge the result with `routing.merge.apply`, the copper of nets that stay open included, and return one `PlannedWrite` for the board, written by `write_board` for the board's own major, at `--out` when given and at the board's path otherwise. It MUST return none when the command added no track, arc or via (merged from the router, or added by a step before the router), when an issue of severity `error` was reported, or when the text is unchanged and `--out` is not given. The mutation protocol applies unchanged.
+- **Result.** `result` MUST hold `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale` and `log` (at most 20 lines, sanitised: no temporary path, no home directory).
+  - `open` MUST hold one object per net of `unrouted`, sorted by name, with `net`, `islands` and `connections`: each connection with `a` and `b` (`kind`, `where`, `position`, `layers`) and `length` in nanometres.
+  - `connections` MUST hold `before` and `after`: the number of open connections of the selected nets before the router and after the merge.
+  - `rip_kept` MUST hold `locked` and `script`: the numbers of items of the ripped nets that the rip kept because they are locked or script copper, 0 without `--rip`.
+  - `fills_stale` MUST be true, with one `route.fill-stale` (info), when the board has fills and the command added copper, whether or not a net was completed.
+- **Issues and exit codes.** Each net of `unrouted` MUST give `route.unrouted` (warning) with its number of open connections and its shortest one; when the router listed that net as routed, the message MUST say so. Each net of `unrouted` that got copper from the router MUST give `route.partial` (info) with the number of items kept. With `--require-complete` and a non-empty `unrouted`, the command MUST add one `route.incomplete` (error) naming the number of open nets and the first five, and MUST plan no write. The exit code MUST be 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
 - **Evidence.** The envelope evidence MUST be `UNVERIFIED`, with the router's name and version as the oracle text.
 - `example_args` MUST be `(EXAMPLE_UNROUTED, "--router", "direct", "--out", "fenolite-routed.kicad_pcb", "--dry-run")`, and `mutation_example_args` the same without `--dry-run`; both MUST run no subprocess.
 
 #### Scenario: Direct route of the example
 - **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k example` runs the mutation example with `--confirm` in an empty folder
-- **THEN** the exit code is 0, `fenolite-routed.kicad_pcb` holds one more segment than the example board, `result.routed` names its net, and `evidence.level` is `UNVERIFIED`
+- **THEN** the exit code is 0, `fenolite-routed.kicad_pcb` holds one more segment than the example board, `result.routed` names its net, `result.connections` is `{"before": 1, "after": 0}`, and `evidence.level` is `UNVERIFIED`
 
 #### Scenario: Unknown router
 - **WHEN** `fenolite route <board> --router nope --dry-run` runs
@@ -530,9 +628,34 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** the exit code is 6, stderr carries `FEN-6001`, and the hint names the repository and the pinned tag
 
 #### Scenario: Nothing to route
-- **GIVEN** a board whose every net has copper
+- **GIVEN** a board whose every net is closed
 - **WHEN** `fenolite route <board> --router direct --confirm` runs
 - **THEN** the exit code is 0, `result.selected` is empty, and no file changes
+
+#### Scenario: A net with a stub is routed
+- **GIVEN** `two_pads.kicad_pcb` with a 3 mm track from `J1-1` on `ROUTE_ME`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k stub` runs `fenolite route <board> --router direct --confirm`
+- **THEN** `result.selected` and `result.routed` are `["ROUTE_ME"]`, `result.unrouted` is empty, and the written board holds the 3 mm track and the new one
+
+#### Scenario: The router's claim does not decide
+- **GIVEN** a test router that returns one 2 mm track from `J1-1` of `two_pads.kicad_pcb` and lists `ROUTE_ME` as routed
+- **WHEN** `fenolite route <board> --router <test router> --confirm` runs
+- **THEN** the exit code is 0, the board holds the track, `result.unrouted` is `["ROUTE_ME"]`, `result.open` holds one connection of `length` 8 000 000 from the free end of the track to `J2-1`, and the issues hold one `route.partial` and one `route.unrouted` whose message says that the router listed the net as routed
+
+#### Scenario: Required complete
+- **GIVEN** the same test router
+- **WHEN** `fenolite route <board> --router <test router> --require-complete --confirm` runs
+- **THEN** the exit code is 5, the issues hold one `route.incomplete` naming `ROUTE_ME`, there is no receipt, and the board's bytes are unchanged
+
+#### Scenario: A second pass completes a net
+- **GIVEN** a board with a net of three pads and no copper, and a test router that joins one open connection of each net per run
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k second_pass` runs `fenolite route --confirm` twice
+- **THEN** after the first run `result.unrouted` names the net and `result.connections` is `{"before": 2, "after": 1}`; after the second, `result.selected` and `result.routed` name it and `result.connections` is `{"before": 1, "after": 0}`
+
+#### Scenario: Rip keeps locked and script copper
+- **GIVEN** a board whose net `N` holds a track written with `(locked yes)`, a track whose uuid is a copper uuid, and an unlocked track with a version-4 uuid
+- **WHEN** `fenolite route <board> --router direct --rip --nets N --dry-run` runs
+- **THEN** `result.ripped` is 1 and `result.rip_kept` is `{"locked": 1, "script": 1}`
 
 #### Scenario: Routes survive a rebuild
 - **GIVEN** a confirmed blink build routed with the fake tool and `--confirm`
@@ -936,11 +1059,11 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 - **THEN** the exit code is 6, stderr carries `FEN-6001`, and the hint names `--no-check` and `--stages`
 
 ### Requirement: Manifest option of producing commands
-`export`, `render`, `bom` and `pnp` SHALL accept `--manifest`, and with it SHALL plan, beside their files, the manifest of their output folder merged with their entries (`manufacturing-exports`, "Manifest merging").
-- The output folder is `--out DIR` for `export` and `render`, and the folder of `--out FILE` for `bom` and `pnp`; `--manifest` without `--out` MUST exit 2 with `FEN-2001` for `bom` and `pnp`.
-- The entries MUST have the kinds of `KINDS` for `export`, `render` for each view, `bom` and `pnp`; `layer` is set only for Gerbers.
-- `from` MUST hold the SHA-256 of the board for `export`, `render` and `pnp`, and for `bom` that of the schematic (source `kicad`) or of the board (source `model`).
-- `tool` MUST be `kicad-cli <version>` for files that tool wrote and `fenolite <version>` for the tables Fenolite rendered. `evidence` MUST be the level of the command's envelope: `exports.EVIDENCE`'s for a file `kicad-cli` wrote with the fixed options, the lower level of an export with a preset (c0074), and the level of the rows for a table.
+`export`, `render`, `bom`, `pnp` and `testpoints` SHALL accept `--manifest`, and with it SHALL plan, beside their files, the manifest of their output folder merged with their entries (`manufacturing-exports`, "Manifest merging").
+- The output folder is `--out DIR` for `export` and `render`, and the folder of `--out FILE` for `bom`, `pnp` and `testpoints`; `--manifest` without `--out` MUST exit 2 with `FEN-2001` for `bom`, `pnp` and `testpoints`.
+- The entries MUST have the kinds of `KINDS` for `export`, `render` for each view, `bom`, `pnp` and `testpoints`; `layer` is `Artifact.layer`: set for a Gerber and for each layer file of `pdf` and `dxf`, `null` otherwise.
+- `from` MUST hold the SHA-256 of the board for `export` (for its `sch-pdf` entry that of the root schematic instead), `render`, `pnp` and `testpoints`, and for `bom` that of the schematic (source `kicad`) or of the board (source `model`).
+- `tool` MUST be `kicad-cli <version>` for files that tool wrote and `fenolite <version>` for the tables Fenolite rendered. `evidence` MUST be the level of the entry's own claim (`manufacturing-exports`, "Artefact manifest"): `exports.EVIDENCE`'s for a file of a fabrication kind or a view that `kicad-cli` wrote with the fixed options, `exports.DOCUMENTS_EVIDENCE`'s for a file of a document kind, the lower level of an export with a preset (c0074), and the level of the rows for a table.
 - A folder whose manifest cannot be read (`manifest.unreadable`) MUST make the command plan no file at all, its own files included.
 - `bom --source kicad` is not available yet (c0064 waits for the schematic writer); until it is, the `from` of a bill always holds the board's hash.
 - A view that failed (`render.failed`) MUST have no entry.
@@ -958,6 +1081,15 @@ When a command raises a `FenoliteError` whose `issues` attribute is a non-empty 
 #### Scenario: Manifest needs a folder
 - **WHEN** `fenolite pnp <dir> --manifest` runs without `--out`
 - **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+#### Scenario: Layer and source of document entries
+- **GIVEN** a fake `kicad-cli` and a board with a schematic beside it
+- **WHEN** `uv run pytest tests/unit/cli/test_export_cmd.py -k document_manifest` runs `fenolite export <board> --out out --pdf --sch-pdf --manifest --confirm`
+- **THEN** each `pdf` entry of `out/fenolite-artifacts.json` has its layer's canonical name in `layer` and the board's hash in `from`, and the `sch-pdf` entry has `layer` `null` and the root schematic's hash in `from`
+
+#### Scenario: The test-point table joins the manifest
+- **WHEN** `uv run pytest tests/unit/cli/test_testpoints_cmd.py -k manifest` runs `fenolite testpoints <dir> --out out/tp.csv --manifest --confirm` in a folder where `pnp --manifest` ran
+- **THEN** the manifest of `out` lists `pnp.csv` and `tp.csv`, the second with kind `testpoints`, `tool` naming `fenolite` and the board's hash in `from`
 
 ### Requirement: Paged results
 The dispatcher SHALL accept the global flags `--limit N` and `--cursor TOKEN` and SHALL cut the paged list of a command to one page, without keeping any state between calls.
@@ -1290,3 +1422,841 @@ The receipt of a confirmed mutating command SHALL carry, beside `written` and `b
 - **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py` runs `parity` with its `example_args`
 - **THEN** the exit code is 0
 
+### Requirement: Deferred writes
+`fenolite.cli.api.PlannedWrite` SHALL have the fields `source: Callable[[], bytes] | None = None`, `size: int | None = None` and `sha256: str | None = None`, so that a command can plan a file whose bytes are costly to obtain without obtaining them.
+- A write with a `source` MUST have empty `data` and both `size` and `sha256` set; a `PlannedWrite` that breaks this MUST raise `ValueError` when it is created.
+- The plan (`result.plan`, with `--dry-run` and with the refusal of exit 4) MUST list such a write with its declared `bytes` and `sha256`, as it lists any other.
+- Without `--confirm` the dispatcher MUST NOT call `source`.
+- With `--confirm` the dispatcher MUST call `source()` once per deferred write, before it writes any file of the command, and MUST compare the length and the SHA-256 of what it returns with the declared values. A difference MUST exit 3 with `FEN-3006` and write nothing, not even the command's other files.
+- An exception of `source` that is a `CliError` MUST keep its code; nothing is written.
+- A write without a `source` MUST behave as before this requirement.
+- The hidden command `_echo` MUST accept `--defer PATH`, which plans a deferred write of fixed bytes, and `--defer-bad PATH`, whose source returns bytes of another digest, so that the suites can exercise the dispatcher without a network.
+
+#### Scenario: Dry run does not call the source
+- **GIVEN** `_echo --defer out.txt`, whose planned write has a source that the test counts
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k deferred_dry_run` runs it with `--dry-run`, and then without any protocol flag
+- **THEN** the first exits 0 and the second exits 4, both plans list `out.txt` with its declared size and digest, the source was called zero times, and the folder is empty
+
+#### Scenario: Confirmed deferred write
+- **WHEN** the same command runs with `--confirm`
+- **THEN** the source was called once, `out.txt` holds its bytes, and `receipt.written[0].sha256` equals the declared digest
+
+#### Scenario: Wrong bytes write nothing
+- **GIVEN** `_echo --defer-bad out.txt --write other.txt`, whose source returns bytes that do not have the declared digest
+- **WHEN** it runs with `--confirm`
+- **THEN** the exit code is 3, stderr carries `FEN-3006`, and neither `out.txt` nor `other.txt` exists
+
+### Requirement: Fetch error codes
+The registry of `fenolite.cli.errors` SHALL hold `FEN-6003` (exit 6, `retryable: true`, "download failed") and `FEN-3006` (exit 3, "fetched file does not match the pinned size or SHA-256"), and `docs/cli-contract.md` MUST list both with the other codes.
+- The hint of `FEN-6003` MUST name `--from FILE`.
+- The message of `FEN-3006` MUST hold the digest that was expected and the one that was found.
+- `src/fenolite/cli/data/explain.toml` MUST hold a table for each of the two codes ("Explain command").
+
+#### Scenario: Codes are registered and documented
+- **WHEN** `uv run pytest tests/unit/cli/test_exitcodes.py tests/consistency` runs
+- **THEN** both codes are in the registry with exit codes 6 and 3, and the contract page names both
+
+#### Scenario: Codes are explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain FEN-6003 --json`
+- **THEN** the suite passes with a table for each of the two codes, and the command exits 0 with a `fix` that names `--from`
+
+### Requirement: Fetch command
+`fenolite fetch NAME [--from FILE] [--dir DIR]` SHALL be registered by `src/fenolite/cli/cmd_fetch.py` with `mutates=True`, and SHALL install one external tool of the table `src/fenolite/cli/data/fetch.toml` after checking its size and its SHA-256. It is the only code of Fenolite that downloads a tool.
+- **Table.** Each row MUST hold `name`, `version`, `file`, `bytes`, `sha256`, `url`, `licence`, `source`, `env` and `needs`. A row whose name starts with `_` is hidden: no hint and no documentation names it. The table MUST hold the row `freerouting` with version `2.4.1`, file `freerouting-2.4.1.jar`, the address `https://github.com/freerouting/freerouting/releases/download/v2.4.1/freerouting-2.4.1.jar`, the size in bytes and the SHA-256 that `docs/evidence/routing.md` records for the gate's jar, licence `GPL-3.0`, source `S-0223` and env `FENOLITE_FREEROUTING_JAR`; and the hidden row `_selftest`, whose address is `package:` and whose file is `fetch-selftest.txt` of the same folder. A test MUST fail when a public row's `source` is not an id of `docs/evidence/sources.md` or its `url` is not `https`, and when the `bytes` or the `sha256` of the row `freerouting` differs from the value on that evidence page.
+- **Destination.** `fenolite.core.tools.tool_path(name, file)` (`routing`, "Tools folder"), or `DIR/<file>` with `--dir`.
+- **Plan.** The command MUST return one deferred write (`Deferred writes`) for the destination, with the row's `bytes` and `sha256`, or no write when the destination already holds bytes of that size and digest.
+- **No request without confirmation.** With `--dry-run`, and without any protocol flag, the command MUST open no network connection and MUST read no file named by `--from`.
+- **Network.** Without `--from`, the source MUST request the row's address with `urllib.request`, with the header `User-Agent: fenolite/<version>` and no other added header, a timeout of 60 s, and no query parameter; it MUST follow a redirect only to an `https` address, and MUST read at most `bytes + 1` bytes. Any failure MUST exit 6 with `FEN-6003`.
+- **File.** With `--from FILE` the source MUST read that file; a missing file MUST exit 3 with `FEN-3001`.
+- **Result.** `result` MUST hold `name`, `version`, `file`, `path`, `bytes`, `sha256`, `url`, `licence`, `origin` (`network`, `file` or `package`), `installed`, `needs` and `env`. `env` MUST map the row's variable to the destination when `--dir` is given, and MUST be empty otherwise.
+- **Unknown name.** An unknown or missing `NAME` MUST exit 2 with `FEN-2001` and a hint that lists the public names.
+- **Data.** The command sends no design data, so `result.sends_data_offsite` of `capabilities` MUST stay `false`.
+- **Evidence.** The envelope evidence is `UNVERIFIED`: installing a tool proves nothing about a board.
+- `example_args` MUST be `("_selftest", "--dir", "tools", "--dry-run")` and `mutation_example_args` `("_selftest", "--dir", "tools")`; both MUST run no subprocess and open no connection. `docs/cli-contract.md` MUST have a section `fetch` with the plan, the result keys, the two error codes and the sentence that no other command downloads.
+
+#### Scenario: Dry run of the real row makes no request
+- **GIVEN** `urllib.request.urlopen` patched to raise, and `FENOLITE_TOOLS_DIR` set to an empty folder of the test
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k dry_run` runs `fenolite fetch freerouting --dry-run --json`
+- **THEN** the exit code is 0, `result.plan` lists `freerouting/freerouting-2.4.1.jar` under that folder with the row's size and digest, `result.licence` is `GPL-3.0`, `result.needs` names Java 25, and the folder is still empty
+
+#### Scenario: Table agrees with the evidence page
+- **WHEN** `uv run pytest tests/unit/cli/test_fetch_cmd.py -k table` reads `fetch.toml` and `docs/evidence/routing.md`
+- **THEN** the row `freerouting` holds the size and the digest of the page's rows `size` and `SHA-256`, an `https` address and the registered source `S-0223`
+
+#### Scenario: Confirmation required
+- **WHEN** `fenolite fetch freerouting --json` runs with the same patches
+- **THEN** the exit code is 4, stderr carries `FEN-4001`, and no connection was opened
+
+#### Scenario: Install from a file
+- **GIVEN** the row `freerouting` replaced in the test by one whose size and digest are those of a small file the test wrote
+- **WHEN** `fenolite fetch freerouting --from <that file> --confirm --json` runs
+- **THEN** the destination holds the file's bytes, `result.origin` is `file`, and a second run plans nothing and reports `installed: true`
+
+#### Scenario: Wrong file refused
+- **GIVEN** the same row and a file with other bytes
+- **WHEN** `fenolite fetch freerouting --from <it> --confirm` runs
+- **THEN** the exit code is 3, stderr carries `FEN-3006` with both digests, and the destination does not exist
+
+#### Scenario: Network failure
+- **GIVEN** `fetch.download` patched to raise `URLError`
+- **WHEN** `fenolite fetch freerouting --confirm` runs
+- **THEN** the exit code is 6, stderr carries `FEN-6003` with `retryable` true and a hint naming `--from`, and nothing is written
+
+#### Scenario: Self-test row through the consistency suite
+- **WHEN** `uv run pytest tests/consistency -k fetch tests/unit/cli/test_hermetic_examples.py` runs
+- **THEN** `fetch` passes the mutation protocol in an empty folder, writing `tools/fetch-selftest.txt`, with subprocess creation patched to raise
+
+#### Scenario: Unknown tool
+- **WHEN** `fenolite fetch kicad` runs
+- **THEN** the exit code is 2, and the hint names `freerouting` and not `_selftest`
+
+### Requirement: Command text
+`fenolite.cli.api.Result` SHALL have the field `text: str | None = None`, a text that a command wants printed as it is in text mode.
+- In text mode, when `text` is set and the command succeeded, stdout MUST start with the status line that every command prints (`fenolite <name>: ok`), one empty line, the text, and one newline; the `input`, `result` and `evidence` lines of the generic rendering MUST NOT be printed.
+- When the envelope holds issues or a receipt, their lines MUST follow the text after one empty line, in the form text mode gives them without `text`. An envelope with neither MUST end with the text's newline.
+- `--format concise` ("Concise output") MUST fold the issues before they are printed, as it does without `text`, and MUST NOT change the text.
+- In JSON mode `text` MUST have no effect: the envelope is unchanged and holds no key for it.
+- A command without `text` MUST print as before this requirement.
+
+#### Scenario: Text is printed after the status line
+- **GIVEN** `_echo --text-body "line one"`, a hidden option that sets `Result.text`
+- **WHEN** `uv run pytest tests/unit/cli/test_output.py -k command_text` runs it with `--text`, and with `--json`
+- **THEN** the first stdout is `fenolite _echo: ok`, an empty line and `line one`, and the second is an envelope without that text
+
+#### Scenario: Issues follow the text
+- **WHEN** `_echo --text-body "line one" --issue warning --text` runs
+- **THEN** stdout is the status line, an empty line, `line one`, an empty line and one line that starts with `warning:`
+
+### Requirement: Command description
+`fenolite.cli.describe` SHALL describe the arguments of every registered command as data taken from the command's own parser, so that documentation and other front ends never declare them a second time.
+- `describe(command) -> CommandDescription` MUST return `name`, `summary` (the command's help line), `mutates`, `usage` (one line starting with `fenolite <name>`) and `arguments`, a tuple of `Argument(name, flags, kind, type, choices, default, required, repeatable, help)` in the parser's order.
+- `kind` MUST be `positional`, `option` (takes a value) or `flag` (takes none). `type` MUST be `integer` or `number` for a parser type of `int` or `float`, `boolean` for a flag, and `string` otherwise. `flags` holds the option strings, empty for a positional. `choices` is a sorted list or `null`. `default` is a JSON value or `null`. `repeatable` is true for an argument that may be given more than once or takes several values.
+- The global flags (`--json`, `--text`, `--fields`, `--limit`, `--cursor`, `--format`, `--seed`, `--timestamp`, `--no-backup`, `--kicad-version`, `--allow-lossy`, and those a later change adds) MUST NOT be in `arguments`; `global_arguments()` MUST return them once, read from the same parser. `--dry-run` and `--confirm` MUST be in the `arguments` of a mutating command and of no other.
+- `describe` MUST build the description from the parser that `fenolite.cli.main.build_parser` gives the command, MUST run no command and MUST have no side effect.
+- `CommandDescription.to_json()` and `Argument.to_json()` MUST return plain JSON values with exactly the fields above.
+- A test MUST fail, for any registered command, when an option string that its `--help` prints is missing from its description or from `global_arguments()`, and when the description holds one that `--help` does not print.
+
+#### Scenario: Build is described
+- **WHEN** `uv run pytest tests/unit/cli/test_describe.py -k build` calls `describe` on the `build` command
+- **THEN** `arguments` holds a `positional` for the design script, the `option` `--out` with `required` true, the `option` `--target` with the choices `altium` and `kicad`, and the flags `--dry-run` and `--confirm`; and it holds no `--json`
+
+#### Scenario: Read-only command has no protocol flags
+- **WHEN** `describe` is called on `check`
+- **THEN** no argument has the flag `--confirm`, and `mutates` is `false`
+
+#### Scenario: Global flags are listed once
+- **WHEN** `uv run pytest tests/unit/cli/test_describe.py -k global_flags` calls `global_arguments()`
+- **THEN** it holds `--limit` with the type `integer`, `--cursor`, and `--format` with the choices `concise` and `detailed`, and no command's `arguments` holds any of the three
+
+#### Scenario: Descriptions agree with help
+- **WHEN** `uv run pytest tests/unit/cli/test_describe.py -k agrees_with_help` runs over the command registry
+- **THEN** for every command the option strings of its description and of `global_arguments()` equal the option strings found in its `--help` text, apart from `-h` and `--help`
+
+### Requirement: Brief capabilities
+`fenolite capabilities --brief` SHALL answer the first question of an agent in a reply whose size is bounded: what is installed here, what can it do, and where to read more. The default result of `capabilities` MUST stay as it is.
+- With `--brief`, `result` MUST hold exactly the keys `fenolite_version`, `commands`, `targets`, `tools`, `routers`, `guide`, `starters` and `sends_data_offsite`.
+- `commands` MUST list every command that is not hidden, sorted by name, each with exactly `name`, `summary` and `mutates`, `summary` being the command's help line.
+- `targets` MUST hold exactly `build`, `kicad` and `default`: `build` is the sorted list of choices of `build --target` (`altium` and `kicad`), read from the command's description; `kicad` and `default` are the target majors and the default target of the `kicad` backend's entry in the default view. The brief view MUST NOT state an evidence level or the word `experimental` for a target: the status of each Altium write kind stays in the default view ("Backends in capabilities", "Experimental features in capabilities", "Evidence matrix in capabilities").
+- `tools` and `sends_data_offsite` MUST equal the default view's.
+- `routers` MUST list the registered routers sorted by name, each with exactly `name`, `available` and `reason`, from `Router.available()`; with `--no-tools`, `available()` MUST NOT be called and both values MUST be `null`.
+- `guide` MUST list `guide.pages()` with exactly `topic`, `title` and `summary`, and `starters` MUST list `guide.starters()` with exactly `name` and `summary`.
+- The JSON of the brief `result` with `--no-tools` MUST be under 300 bytes per listed command plus 2 000 bytes, and MUST hold none of the keys `backends`, `experimental`, `extras` and `matrix`; a test MUST check both.
+- `--brief` and `--command` MUST exclude each other (exit 2, `FEN-2001`). `--fields` MUST work on the brief result. `--format concise` MUST be accepted with `--brief` and MUST NOT change `result`: it folds issues, and the view chooses the result.
+- `docs/cli-contract.md` MUST describe the brief view under "Discovery".
+
+#### Scenario: Brief view
+- **WHEN** `uv run fenolite capabilities --brief --no-tools --json` runs
+- **THEN** the exit code is 0, `result` has exactly the eight keys, `result.commands` names `build` with a non-empty `summary` and `mutates` true and holds no `_echo`, `result.targets.build` is `["altium", "kicad"]`, `result.routers` names `direct` with `available` `null`, `result.guide[0].topic` is `start`, and `result.starters` names `blink`
+
+#### Scenario: Router availability
+- **GIVEN** no Freerouting jar and no `FENOLITE_KRT`
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_brief.py -k routers` runs `capabilities --brief --json`
+- **THEN** `direct` has `available` true and a `null` reason, and `freerouting` has `available` false and a reason
+
+#### Scenario: Size bound
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities_brief.py -k size` measures the brief result
+- **THEN** it is under 300 bytes per listed command plus 2 000 bytes, and holds no `experimental` key
+
+#### Scenario: Default view unchanged
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
+- **THEN** `result` holds the keys it held before this requirement, with `backends`, `experimental` and `matrix` unchanged
+
+### Requirement: Command view of capabilities
+`fenolite capabilities --command NAME` SHALL return the description of one command.
+- `result` MUST hold exactly `command` and `global_arguments`. `result.command` MUST be that command's entry of the default view's `commands`, extended with `summary`, `usage` and `arguments` from `fenolite.cli.describe.describe`; `result.global_arguments` MUST be `describe.global_arguments()` as JSON.
+- A hidden command MUST be described when it is named exactly.
+- An unknown name MUST exit 2 with `FEN-2001` and a hint that names the three closest command names.
+- The view MUST run no tool, with or without `--no-tools`.
+- `docs/cli-contract.md` MUST describe the view and the fields of an argument under "Discovery".
+
+#### Scenario: One command
+- **WHEN** `uv run fenolite capabilities --command route --json` runs
+- **THEN** the exit code is 0, `result.command.name` is `route`, `result.command.mutates` is true, `result.command.arguments` holds the option `--router`, and `result.global_arguments` holds `--fields`
+
+#### Scenario: Unknown command
+- **WHEN** `fenolite capabilities --command rout` runs
+- **THEN** the exit code is 2 and the hint names `route`
+
+### Requirement: Guide command
+`fenolite guide [TOPIC]` SHALL be registered by `src/fenolite/cli/cmd_guide.py` with `mutates=False`, and SHALL print the pages of the packaged agent guide (`agent-guide`, "Packaged agent guide") for the installed version, running no tool.
+- **Without a topic.** `result` MUST hold exactly `version` and `topics`; `topics` lists `guide.pages()` in order, each with exactly `topic`, `title`, `summary` and `lines`. The command text MUST be one line per page, `<topic>: <summary>`.
+- **With a topic.** `result` MUST hold exactly `topic`, `title`, `summary`, `text` and `version`. The command text ("Command text") MUST be the page's `text`, unchanged.
+- An unknown topic MUST exit 2 with `FEN-2001` and a hint that names the closest topics, or all topics when none is close.
+- The output MUST be deterministic and MUST hold no absolute path. The envelope evidence is `UNVERIFIED`.
+- `example_args` MUST be `("start",)`. `docs/cli-contract.md` MUST have a section `guide`.
+
+#### Scenario: List of pages
+- **WHEN** `uv run fenolite guide --json` runs
+- **THEN** the exit code is 0, `result.topics[0].topic` is `start`, and every entry has a one-line `summary`
+
+#### Scenario: One page as text
+- **WHEN** `uv run fenolite guide start --text` runs
+- **THEN** stdout is the status line, an empty line and the body of `SKILL.md` without its front matter
+
+#### Scenario: Unknown topic
+- **WHEN** `fenolite guide strat` runs
+- **THEN** the exit code is 2 and the hint names `start`
+
+### Requirement: Skill command
+`fenolite skill show` and `fenolite skill install [--agent NAME | --dir DIR] [--agents-md]` SHALL be registered by `src/fenolite/cli/cmd_skill.py` with `mutates=True`, and SHALL copy the packaged skill folder to where an agent reads it, only through the mutation protocol.
+- **`show`.** It MUST plan no write, and `result` MUST hold exactly `name`, `description`, `version`, `files` (each `path`, `bytes` and `sha256`, of `guide.skill_files()`) and `agents` (each `agent` and `dir`, of `guide.AGENT_DIRS`).
+- **`install`, the folder.** The target is `DIR`, or the folder of `guide.AGENT_DIRS[NAME]`; `--agent` and `--dir` MUST exclude each other, and an unknown agent MUST exit 2 with a hint that names the agents and `--dir`. The command MUST plan one write per file of `guide.skill_files()`, at `<target>/fenolite/<path>`.
+- **`install`, the version line.** The planned `SKILL.md` MUST be the packaged file followed by the line `<!-- installed from fenolite <version> -->`; every other file MUST be planned byte for byte.
+- **`install`, the pointer.** With `--agents-md` the command MUST also plan `AGENTS.md` in the working directory. Its content MUST be: for a missing file, `guide.AGENTS_SECTION` between the lines `<!-- fenolite:begin -->` and `<!-- fenolite:end -->`; for a file that holds both marker lines, the same file with everything between them replaced by the section; for a file without them, the file followed by an empty line and the marked section. A file that holds one marker without the other MUST exit 3 with `FEN-3004`.
+- `guide.AGENTS_SECTION` MUST tell an agent to run `fenolite guide start --text` before a task about a circuit board, MUST name `fenolite capabilities --brief`, and MUST be at most 12 lines.
+- `install` with none of `--agent`, `--dir` and `--agents-md` MUST exit 2 with `FEN-2001`.
+- **Result.** `result` MUST hold `action`, `target` (or `null` with `--agents-md` alone), `files` (the paths planned) and `version`.
+- The command MUST run no tool and open no connection.
+- `example_args` MUST be `("show",)` and `mutation_example_args` `("install", "--dir", "skills")`. `docs/cli-contract.md` MUST have a section `skill`.
+
+#### Scenario: Install into a named folder
+- **WHEN** `uv run pytest tests/unit/cli/test_skill_cmd.py -k install_dir` runs `fenolite skill install --dir skills --confirm --json` in an empty folder
+- **THEN** `skills/fenolite/SKILL.md` exists, its last line names the Fenolite version, its text before that line equals the packaged file, and the receipt lists every written file with its SHA-256
+
+#### Scenario: Install for an agent
+- **WHEN** `fenolite skill install --agent claude-code --dry-run --json` runs
+- **THEN** the plan lists `.claude/skills/fenolite/SKILL.md` and nothing is written
+
+#### Scenario: Pointer section is idempotent
+- **GIVEN** an `AGENTS.md` with two lines of the user's own text
+- **WHEN** `fenolite skill install --agents-md --confirm` runs twice
+- **THEN** after the first run the file holds the user's two lines, an empty line and the marked section; the second run plans a file with the same bytes; and `AGENTS.md.bak` holds the user's original file after the first run
+
+#### Scenario: Nothing asked
+- **WHEN** `fenolite skill install --dry-run` runs
+- **THEN** the exit code is 2 and the hint names `--agent`, `--dir` and `--agents-md`
+
+### Requirement: Init command
+`fenolite init DIR [--starter NAME] [--name NAME] [--force]` SHALL be registered by `src/fenolite/cli/cmd_init.py` with `mutates=True`, and SHALL write a starter project (`agent-guide`, "Starter projects") into `DIR`.
+- `--starter` MUST default to `blink`; an unknown starter MUST exit 2 with `FEN-2001` and a hint that names the starters.
+- The design name MUST be `--name`, else the last component of `DIR`; a name that does not match `^[A-Za-z0-9][A-Za-z0-9_.-]*$` MUST exit 2 with a hint that names `--name`.
+- The command MUST plan one write per file of `guide.render_starter(starter, name)`, at `DIR/<file>`.
+- When `DIR/design.py` exists, the command MUST exit 2 with `FEN-2001` and a hint that names `--force`, unless `--force` is given; with it the mutation protocol's backup applies.
+- `result` MUST hold `starter`, `name`, `design` (the path of the script) and `next`: the two command lines `fenolite build <design> --out DIR/build --dry-run --json` and the same with `--confirm`. A test MUST parse both with the command line's own parser.
+- The command MUST run no tool. `example_args` MUST be `("proj", "--dry-run")` and `mutation_example_args` `("proj",)`. `docs/cli-contract.md` MUST have a section `init`.
+
+#### Scenario: New project
+- **WHEN** `uv run pytest tests/unit/cli/test_init_cmd.py -k new_project` runs `fenolite init board --confirm --json` in an empty folder, and then the first command of `result.next`
+- **THEN** `board/design.py` exists, starts with the `CC0-1.0` line and names the design `board`, and the build's dry run exits 0
+
+#### Scenario: Existing script is kept
+- **GIVEN** `board/design.py` written by the user
+- **WHEN** `fenolite init board --confirm` runs, and then `fenolite init board --force --confirm`
+- **THEN** the first exits 2 with a hint naming `--force` and leaves the file, and the second replaces it and keeps the user's text in `board/design.py.bak`
+
+#### Scenario: Name that is not a design name
+- **WHEN** `fenolite init "my board" --dry-run` runs
+- **THEN** the exit code is 2 and the hint names `--name`
+
+### Requirement: Ready command
+`fenolite ready PATH [--no-kicad] [--kicad-cli PATH] [--timeout SECONDS]` SHALL be registered by `src/fenolite/cli/cmd_ready.py` with `mutates=False` and `paged = "issues"`, and SHALL report whether the KiCad project that `PATH` names is electrically ready for fabrication, without writing a file.
+- `PATH` MUST resolve with `projectset.resolve_board`.
+- Document input (`cli._documents.find_documents`) MUST exit 2 with `FEN-2001` and a hint that names `fenolite check`.
+
+#### Scenario: A ready project
+- **GIVEN** the fixture `tests/data/kicad/ready/` and the fake `kicad-cli` of `tests/_fakecli.py`, whose ERC and DRC reports hold no violation
+- **WHEN** `uv run pytest tests/unit/cli/test_ready_cmd.py -k ready_project` runs `fenolite ready <fixture> --kicad-cli <fake> --json`
+- **THEN** the exit code is 0, `result.ready` and `result.complete` are true, every check is `ok`, and no file of the fixture changes
+
+#### Scenario: Altium input
+- **WHEN** `fenolite ready <an Altium .PcbDoc> --json` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`, whose hint names `fenolite check`
+
+### Requirement: Ready checks and their sources
+The command SHALL run the checks of `checks.readiness.READY_CHECKS` in order: `nets.open`, `erc.kicad`, `drc.kicad`, `pins.unconnected`, `power.nets`, `parts.fields`.
+- `nets.open` MUST come from `analysis.connectivity` on the board that `cli._boardview.load_board` reads; the issues of both MUST be passed on.
+- `erc.kicad` and `drc.kicad` MUST be the stages that `cli.cmd_check.run_stages` gives, unchanged.
+- The last three MUST be judged on the intent ("Ready intent").
+
+#### Scenario: Open nets make a project not ready
+- **WHEN** `fenolite ready tests/data/kicad/board/two_layer.kicad_pcb --no-kicad --json` runs
+- **THEN** the exit code is 5, `result.ready` is false, `result.checks` names the six checks in order, and the issues hold one `ready.net-open` with `where` `LED_A`
+
+### Requirement: Ready intent
+The intent SHALL be the `.fenolite/` model of a built project, else the board as read with the net classes and rules of the project files (`DesignRulesSource.design_rules`); zones always come from the board as read, matched by net name.
+- A `.fenolite/` that cannot be loaded MUST give one `check.cache-unreadable` warning, and the board's reading MUST stand in.
+
+#### Scenario: A built project is judged on its model
+- **GIVEN** a confirmed build of the starter of `fenolite init`, not routed
+- **WHEN** `uv run pytest tests/unit/cli/test_ready_cmd.py -k built` runs `fenolite ready <build> --no-kicad --json`
+- **THEN** `result.project.built` is true, the issues hold one `ready.net-open` per net of the starter, and no `ready.pin-unconnected`
+
+#### Scenario: An unreadable model
+- **GIVEN** that build whose `.fenolite/board.json` holds `{`
+- **WHEN** `fenolite ready <build> --no-kicad --json` runs
+- **THEN** the issues hold one `check.cache-unreadable` warning and the checks still run
+
+### Requirement: Ready without kicad-cli
+Without `--no-kicad`, a missing or unsupported `kicad-cli` SHALL exit 6 with the `FEN-6001` or `FEN-6002` of the pre-flight of `run_stages`, whose hint names `--no-kicad`.
+- With `--no-kicad`, no subprocess MUST run, and `erc.kicad` and `drc.kicad` MUST be `skipped` with reason `no-kicad`.
+- Each skipped check, for that option or for the stage's own reason, MUST give one `ready.check-skipped` warning.
+
+#### Scenario: No kicad-cli
+- **GIVEN** no `kicad-cli` on `PATH` and no `FENOLITE_KICAD_CLI`
+- **WHEN** `fenolite ready <fixture> --json` runs
+- **THEN** the exit code is 6, stderr carries `FEN-6001`, and its hint names `--no-kicad`
+
+#### Scenario: Skipped by option
+- **WHEN** `fenolite ready <fixture> --no-kicad --json` runs with `subprocess.run` and `subprocess.Popen` patched to raise
+- **THEN** the exit code is 0, `result.complete` is false, `erc.kicad` and `drc.kicad` are `skipped` with reason `no-kicad`, and the issues hold two `ready.check-skipped` warnings
+
+### Requirement: Ready result and exit codes
+`result` SHALL hold `project` (`board`, `built`), `ready`, `complete`, `checks` (one `StageResult.to_json()` per check, in order) and `counts` (issues per severity).
+- `ready` MUST be true exactly when no issue has severity `error`, and `complete` exactly when no check is skipped.
+- The exit code MUST be 0 when `ready` is true and 5 when it is false.
+- The envelope evidence MUST be `Evidence.combine` of the evidence of the checks that ran.
+
+#### Scenario: DRC findings are passed on
+- **GIVEN** the fixture and a fake `kicad-cli` whose DRC report holds one `clearance` violation of severity `error`
+- **WHEN** `fenolite ready <fixture> --kicad-cli <fake> --json` runs
+- **THEN** the exit code is 5, `drc.kicad` has status `errors`, `result.counts.error` is 1, and the issues hold one `kicad.drc.clearance`
+
+### Requirement: Ready example and documentation
+`example_args` SHALL be `(EXAMPLE_READY, "--no-kicad")`, with `EXAMPLE_READY` the board of `tests/data/kicad/ready/`, and SHALL run no subprocess.
+- `docs/cli-contract.md` MUST describe the command, its checks, its result and its exit codes.
+- The page `checks` of the agent guide MUST hold a tested line of the command, and the start page MUST name it in "The loop".
+
+#### Scenario: Hermetic example
+- **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py tests/consistency -k ready` runs
+- **THEN** every test passes
+
+### Requirement: Staged plans
+The dispatcher SHALL give every plan that is returned and not written an id, SHALL keep the planned bytes in a state folder outside the user's tree, and SHALL write them on `--confirm --plan ID` without running the command again, after checking that nothing a review relied on has changed.
+- **Id.** `cli.plans.plan_id(…)` MUST be the first 16 hex digits of the SHA-256 of the canonical JSON of: the command name; its arguments without the run flags; the working folder; the SHA-256 of every file the command names in `Result.depends`; and, for each planned write, its path, kind, size, SHA-256 and the SHA-256 of the file it would replace (`null` when there is none). No clock, seed or state folder takes part, so the same dry run on the same files gives the same id.
+- **Run flags.** `plans.RUN_FLAGS` MUST be `--dry-run`, `--confirm`, `--plan`, `--json`, `--text`, `--fields`, `--limit`, `--cursor`, `--format`, `--progress`, `--seed`, `--timestamp`, `--no-backup`, `--timeout` and `--kicad-cli`: they change how a run happens, not what it plans.
+- **Declared inputs.** `fenolite.cli.api.Result` MUST gain `depends: tuple[str, ...] = ()`, the inputs of the command that are not its targets, each as `fenolite.cli.api.depends_on` spells it: relative to the working folder in POSIX form when the file lies inside it, absolute otherwise; sorted and without repeats. Every registered mutating command MUST set it: `build` the design script and, when it reads one, the copper source; `place`, `route`, `fill`, `export`, `render`, `pnp` and `sync` the board and the other files of its copy set that it read; `bom` the board or the root schematic it read; `manifest` every design file and every artefact manifest it hashed; `kit` the documents it packs; `fmt` and `template` their input file; `restore` the receipt file (none for `-`), every file of `written` and every `.bak` it reads; `models` (c0116) the board and every model file it copies; `fetch` (c0078) the file of `--from`, and nothing without it; `_echo` nothing. A target is not declared: it is checked through its own digest.
+- **State folder.** `fenolite.core.state.state_dir()` MUST be `FENOLITE_STATE_DIR` when it is an absolute path, `None` when it is `off`, and `~/.cache/fenolite/state` otherwise. A plan MUST be staged under `plans/<id>/` in a temporary folder renamed into place, and MUST hold nothing the command did not plan. The store MUST keep at most `PLAN_KEEP` = 16 plans and `PLAN_BYTES` = 512 MiB, dropping the oldest first, MUST drop a plan older than `PLAN_DAYS` = 7 days, and MUST remove a plan once it is written. No file MUST be created in the working folder, the project or the output folder by a run that writes nothing.
+- **Not staged.** A plan that cannot be staged (the store is `off`, full beyond one plan, or not writable) MUST give one `plan.not-staged` warning with the reason, from the table `fenolite.cli.codes.ISSUE_CODES`, and the run MUST go on with its id. A plan that holds a deferred write ("Deferred writes") has no bytes before `--confirm`: it MUST NOT be staged, MUST give no warning, and is planned again.
+- **Replay.** `--confirm --plan ID` with a staged plan MUST NOT call the command. It MUST refuse with `FEN-4002` (exit 4), naming the first reason, when the working folder, the command or its arguments without the run flags differ from the plan's; when a file of `depends` or a target has another SHA-256 than at review (a target that did not exist must still not exist); or when a staged file does not have its planned SHA-256. Otherwise it MUST write the staged bytes through "All-or-nothing writes" and reply with the reviewed `result`, `issues`, `evidence` and `input`, the receipt, and `receipt.plan` set to ID; as after any confirmed write, `result` then holds neither `plan` nor `plan_id`, and the run flags of the call (`--fields`, `--limit`, `--format`) shape the reply. A refusal writes nothing and keeps the stage, except a damaged one, which it removes.
+- **Planned again.** When ID names no staged plan, `--confirm --plan ID` MUST run the command once and write only when the id of the new plan equals ID; otherwise `FEN-4002`. So the id always binds what is written, and the store only saves the second run.
+- **Receipt.** `Receipt` MUST gain `plan: str | None = None`, in `schemas/fenolite.envelope.v0.json` with a default; it takes no part in `receipt.id` ("Receipt identity"), so `fenolite restore` reads the receipt of a replayed plan as any other.
+- A command that planned no write MUST get no `plan_id`.
+- `docs/cli-contract.md` MUST describe the id, the checks, the state folder with its bounds and `FENOLITE_STATE_DIR`, and `AGENTS.md` MUST name `--confirm --plan` in its line about writing commands.
+
+#### Scenario: The reviewed bytes are written without a second run
+- **GIVEN** a fake `kicad-cli` that stamps each run with a counter, and `fenolite export <board> --out fab --all --manifest --dry-run --json`, whose `result.plan_id` is P
+- **WHEN** `uv run pytest tests/unit/cli/test_plans.py -k replay` runs `fenolite export <board> --out fab --all --manifest --confirm --plan P`
+- **THEN** the fake saw no further run, every written file has the SHA-256 of its plan row, `receipt.plan` is P, and `plans/P` is gone from the state folder
+
+#### Scenario: A target changed after the review
+- **GIVEN** `_echo --write out.txt --dry-run` over an existing `out.txt`, giving the id P, and `out.txt` then edited by hand
+- **WHEN** `_echo --write out.txt --confirm --plan P` runs
+- **THEN** the exit code is 4, stderr carries `FEN-4002` naming `out.txt`, the file keeps the hand edit, and the stage stays
+
+#### Scenario: An input changed after the review
+- **GIVEN** a dry-run `build` of an authored design, giving the id P, and the design script then edited
+- **WHEN** `fenolite build design.py --out proj --confirm --plan P` runs
+- **THEN** the exit code is 4 and stderr carries `FEN-4002` naming `design.py`
+
+#### Scenario: Another command line
+- **GIVEN** the id P of `_echo --write a.txt --dry-run`
+- **WHEN** `_echo --write b.txt --confirm --plan P` runs
+- **THEN** the exit code is 4 with `FEN-4002`, and neither file exists
+
+#### Scenario: A plan that was not staged is planned again
+- **GIVEN** `FENOLITE_STATE_DIR=off` and `_echo --write out.txt --dry-run`, whose reply holds the id P and one `plan.not-staged` warning
+- **WHEN** `_echo --write out.txt --confirm --plan P` runs with the same setting, and then `_echo --write out.txt --confirm --plan 0000000000000000`
+- **THEN** the first writes `out.txt` with `receipt.plan` P, and the second exits 4 with `FEN-4002`
+
+#### Scenario: The id is a digest of the inputs
+- **WHEN** the same dry run is made twice, with different `--seed`, `--timestamp` and `FENOLITE_STATE_DIR`
+- **THEN** both replies hold the same `plan_id`
+
+#### Scenario: The store is bounded
+- **GIVEN** 17 staged plans in a state folder
+- **WHEN** `uv run pytest tests/unit/cli/test_plans.py -k prune` stages the seventeenth
+- **THEN** the store holds 16 plans and the oldest is gone
+
+#### Scenario: Every mutating command declares its inputs
+- **WHEN** `uv run pytest tests/consistency -k depends` runs the mutation example of every registered mutating command with `--dry-run`
+- **THEN** each reply that holds a plan holds a `plan_id` of 16 hex digits, and each path of the command's `depends` names an existing file, inside the working folder when the path is relative
+
+#### Scenario: A replayed plan can be undone
+- **GIVEN** `out.txt` holding `one`, and `_echo --write out.txt` planned and then written with `--confirm --plan P`, the envelope saved as `r.json`
+- **WHEN** `fenolite restore r.json --confirm` runs
+- **THEN** `out.txt` holds `one` again and the exit code is 0
+
+### Requirement: All-or-nothing writes
+The dispatcher SHALL write the files of one command with `core.io.atomic_write_all` (`core-primitives`, "Atomic writes of several files"), so that a command writes every file of its plan or none, and a failed write SHALL end in an envelope and one error object.
+- When the write raises `WriteError`, the dispatcher MUST print the envelope with `ok` false, the command's `result` (with `plan` and `plan_id`) and `receipt` `null`, and one `FEN-1002` object: exit 1, `retryable` true, a message that names the failing path relative to the working folder and the system's reason, and the hint "nothing was written; fix the cause and run the same command again". Neither MUST hold an absolute path or a traceback.
+- After such a failure every target MUST hold the bytes it held before the command, every `.bak` that existed MUST be unchanged, and no target, temporary file or folder that the command created MUST remain. A receipt returned by an earlier command MUST therefore still restore.
+- Under `--plan`, the stage MUST stay for the retry.
+- `main()` MUST map every exception that is not a `CliError` to `FEN-1001` through "Library errors map to registered codes", printing no traceback.
+
+#### Scenario: A build that fails in the middle changes nothing
+- **GIVEN** an authored design and an output folder `proj` that already holds a built project, whose `proj/lib` is made read-only
+- **WHEN** `uv run pytest tests/unit/cli/test_write_failures.py -k build` runs `fenolite build design.py --out proj --confirm --json` after a change of one value in the design
+- **THEN** the exit code is 1, stderr carries `FEN-1002` naming a path under `proj/lib`, and every file of `proj` has the SHA-256 it had before, `.fenolite/` included
+
+#### Scenario: A first build into a blocked folder leaves nothing
+- **GIVEN** an empty folder in which `proj/lib` cannot be created because `proj` is read-only
+- **WHEN** the same build runs
+- **THEN** the exit code is 1 with `FEN-1002`, and `proj` holds no file and no folder that the command made
+
+#### Scenario: The plan survives the failure
+- **GIVEN** a plan P whose replay fails with `FEN-1002`
+- **WHEN** the cause is removed and `--confirm --plan P` runs again
+- **THEN** the files are written with the reviewed bytes
+
+### Requirement: Error findings plan no write
+The dispatcher SHALL plan, stage and write nothing for a command whose issues hold one of severity `error`, unless the command sets `Result.write_on_error`.
+- `fenolite.cli.api.Result` MUST gain `write_on_error: bool = False`. Only three commands MAY set it: `place`, and only under `--force`, where writing beside an error is what the flag asks for; `manifest`, whose one write is the report of the findings ("Manifest command": the manifest is planned whether or not the check found errors); and `kit record`, whose record holds the failed steps of the run.
+- With an error issue and without `write_on_error`, `result.plan` and `result.plan_id` MUST be absent, `receipt` MUST be `null`, no file MUST change, and the exit code MUST be 5 with `FEN-5001`, with `--dry-run`, with `--confirm` and with neither.
+- The rule holds in the dispatcher, so a command need not empty its own writes; the commands that do so today MUST keep their replies.
+- `docs/cli-contract.md` MUST state the rule under the mutation protocol, with its exceptions.
+
+#### Scenario: No write beside an error
+- **WHEN** `uv run pytest tests/unit/cli/test_write_failures.py -k error_finding` runs `_echo --issue error --write x.txt --confirm --json` in an empty folder
+- **THEN** the exit code is 5, the folder is still empty, `receipt` is `null`, and `result` holds neither `plan` nor `plan_id`
+
+#### Scenario: Forced placement still writes
+- **GIVEN** an authored project in which `place --move` puts a part outside the outline
+- **WHEN** `fenolite place <dir> --move R1=200mm,200mm --force --confirm` runs
+- **THEN** the board is written, the exit code is 5, and the receipt lists the board
+
+#### Scenario: The rule holds for every mutating command
+- **WHEN** `uv run pytest tests/consistency -k error_no_write` reads the registry
+- **THEN** it fails for a mutating command other than `place`, `manifest` and `kit` whose module sets `write_on_error`
+
+### Requirement: Interrupted commands write nothing and stop their tools
+On POSIX, `main()` SHALL turn SIGTERM and SIGINT into `fenolite.cli.main.Interrupted`, raised in the main thread, and a command stopped so SHALL stop the tool processes it started, write nothing, and end in one error object.
+- `Interrupted` MUST be a `KeyboardInterrupt`, so that no handler of `Exception` catches it and code that lets Ctrl+C pass lets it pass. After the first signal both signals MUST be ignored until the command has ended, so that a second one cuts neither the roll back nor the error object; `main()` MUST put the caller's handlers back when it returns.
+- Every tool process that Fenolite starts through `subprocess.run`, the KiCad runner or a routing plugin MUST be killed when the exception passes through its call, so that no `kicad-cli`, `java` or router process outlives the `fenolite` process that started it.
+- A write in progress MUST roll back ("All-or-nothing writes"). The job record of a route MUST keep the runs that finished ("Resumable route jobs").
+- The dispatcher MUST print the envelope with `ok` false and `receipt` `null`, and one `FEN-1003` object: exit 1, `retryable` true, the message "stopped by a signal; nothing was written".
+- On Windows a Ctrl+C MUST be handled the same way; a forced stop of the process cannot be handled, and `docs/cli-contract.md` MUST say so. A stop by SIGKILL is outside this requirement on every system.
+
+#### Scenario: A stopped route stops its router
+- **GIVEN** a fake router process that sleeps and records its process id, started by `fenolite route <board> --router <fake> --confirm`
+- **WHEN** `uv run pytest tests/unit/cli/test_interrupt.py -k router` sends SIGTERM to the `fenolite` process alone
+- **THEN** `fenolite` exits 1 with `FEN-1003` as the last line of stderr, the fake's process no longer exists, and the board file is unchanged
+
+#### Scenario: A signal during the write
+- **GIVEN** `_echo --write a.txt --write b.txt --confirm` with a hook that raises `Interrupted` after the first replacement
+- **WHEN** it runs over two existing files
+- **THEN** both files hold their previous bytes, no `.bak` was added, and stderr carries `FEN-1003`
+
+### Requirement: Progress on stderr
+The global flag `--progress` SHALL make a command write progress records on stderr while it runs: one when a unit of work starts, one when it ends, and one at least every 10 seconds, so that a caller can tell a long step from a dead one.
+- In JSON mode a record MUST be one line `{"progress": {"command", "event", "step", "index", "total", "detail", "elapsed_ms"}}` with `event` `step` (a unit starts), `done` (it ends) or `alive`; `index` and `total` are integers or `null`. In text mode it MUST be one line that starts with `progress: <command>: `. A record MUST hold no absolute path, home directory or temporary path.
+- **Units.** `check`: one per stage that runs, named by the stage. `route`: one per router process ("Resumable route jobs"). `fill`: the refill. `export`: one per kind. `render`: one per view. Every other command gives `alive` records only.
+- **Heartbeat.** While the command runs, at least one record MUST be written every `interval` seconds (10 by default), from a daemon thread that stops before the envelope is printed; writes to stderr MUST be serialised.
+- `fenolite.core.progress` MUST define the protocol `Progress` with `step(name, *, index=None, total=None)` and `done(name, *, detail="")`, and `NULL_PROGRESS`, which does nothing. `fenolite.cli.api.Context` MUST gain `progress`. `run_checks` MUST take `progress=NULL_PROGRESS`. `checks`, `routing` and the backends MUST reach the reporter only through this protocol.
+- Without `--progress`, a command MUST write nothing on stderr but its error object, as today, and stdout MUST be the same with and without the flag apart from `elapsed_ms`.
+- `capabilities` MUST list `--progress` among the global flags (`result.global_flags`, the long flags every command accepts; `result.mutation_flags` holds `--dry-run`, `--confirm` and `--plan`), and `docs/cli-contract.md` MUST describe the records and say that they are not covered by the determinism rule.
+
+#### Scenario: Units of a check
+- **WHEN** `uv run pytest tests/unit/cli/test_progress.py -k check` runs `fenolite check <board> --stages model.validate,roundtrip --progress --json`
+- **THEN** stderr holds, in order, a `step` and a `done` record for `model.validate` and for `roundtrip`, each a JSON line, and stdout equals the stdout of the same call without `--progress` apart from `elapsed_ms`
+
+#### Scenario: A long step stays alive
+- **GIVEN** `_echo --steps 1 --sleep 1.0 --progress` with the reporter's interval set to 0.1 s
+- **WHEN** it runs
+- **THEN** stderr holds at least three `alive` records between the `step` and the `done` record
+
+#### Scenario: Silent by default
+- **WHEN** `_echo --steps 3` runs without `--progress`
+- **THEN** stderr is empty
+
+#### Scenario: Records hold no path of the machine
+- **WHEN** `fenolite export <board> --out fab --all --dry-run --progress --json` runs with a fake `kicad-cli`
+- **THEN** there is one `step` and one `done` record per kind, and no record holds the temporary folder of a run or the home directory
+
+### Requirement: Resumable route jobs
+`fenolite route` SHALL keep the copper of each router process that finished in a job record in the state folder, and the same call made again SHALL reuse it instead of routing those nets again.
+- **Key.** `cli.jobs.route_job_key(…)` MUST be the first 16 hex digits of the SHA-256 of the canonical JSON of the Fenolite version, the router's name and version, the SHA-256 of the board, of its project file and of its rules file (the rules file joins the key only when there is one: the router is given its rules), and the route arguments without the run flags and without `--out`. The record lives under `jobs/<key>/` of `state_dir()`, one file per finished run, each written with `atomic_write`; with the state folder `off` no record is kept and the command routes as today.
+- **Recording.** `route` MUST pass `on_run` in the job (`routing`, "Router runs reported for progress and resumption") and MUST add each `FinishedRun` to the record before the next process starts.
+- **Reuse.** When a record exists for the key, the command MUST read the board, apply `--rip`, merge the recorded copper, and only then select nets, so that the recorded nets are not routed again. It MUST then give one `route.resumed` info and `result.resumed` (`runs`, `nets`), and `result.tracks` and `result.vias` MUST count the reused copper with the new; without a record `result.resumed` MUST be `null`. A record that cannot be read MUST be removed and MUST NOT fail the command.
+- **End.** `fenolite.cli.api.Result` MUST gain `written: Callable[[], None] | None = None`, which the dispatcher calls once after the writes of the result were all written; `route` removes its record through it. The record MUST be removed after a confirmed write of the routed board, and after a dry run that attempted every selected net. It MUST stay after a stop by a signal, after a failed write (`FEN-1002`) and after a run that wrote nothing and that a time limit cut, a dry run included (`result.budget.exhausted`): the same call made again then goes on with the nets that were not attempted. It MUST also stay after a dry run that reports an error finding, which plans no write. A confirmed run that a time limit cut writes the copper of its finished runs (`routing`, "Routing time budget"), and its record is removed as after any confirmed write. At most `JOB_KEEP` = 8 records are kept and none older than 7 days.
+- `fenolite.routing.codes.ISSUE_CODES` MUST gain `route.resumed` (info), with its table in `explain.toml`. The envelope evidence stays `UNVERIFIED`.
+- `docs/routing.md` MUST say what is kept, when it is reused and when it is removed, and that copper made in two calls need not equal the copper of one.
+
+#### Scenario: A stopped route goes on
+- **GIVEN** the fake per-net router of `tests/unit/cli/test_route_jobs.py`, set to end the process after its second net of five
+- **WHEN** `fenolite route <board> --router <fake> --confirm` runs, is stopped, and runs again with the same arguments
+- **THEN** the second call starts three router processes, its reply holds one `route.resumed` info and `result.resumed.nets` of 2, the written board holds the copper of all five nets, and the record is gone
+
+#### Scenario: Another board, another record
+- **GIVEN** the record of the first call
+- **WHEN** one byte of the board changes and the same command runs
+- **THEN** `result.resumed` is `null` and five router processes start
+
+#### Scenario: A failed run is routed again
+- **GIVEN** a fake router whose third process ends without copper
+- **WHEN** the command runs twice
+- **THEN** the record of the first call holds two runs, and the second call routes the third net again
+
+### Requirement: Height limits in place
+`fenolite place` SHALL also judge the height limits of a built project after its moves, in addition to the rules of "Place command".
+- When the `.fenolite/` model that the command loads holds a height limit, `checks.placement.judge_heights` (`placement`, "Height limits judged") MUST run on the layout after the moves, with `heights_of(<the board>, <that model>)` and the extents the command already has. Each `placement.too-tall` and `placement.height-unknown` MUST be reported with a severity no higher than `warning` and MUST NOT refuse the write.
+- `result.rules` MUST gain the family `height` with the counts of `judge_heights`; without a limit the family is absent and the reply is that of "Place command".
+- The grid does not read heights: a part that the grid puts under an area too low for it is reported, not moved.
+- The envelope's evidence MUST also combine `checks.placement.EVIDENCE` when a limit was judged. No subprocess MUST run, and two runs on equal boards MUST return equal results.
+
+#### Scenario: A move under a low area
+- **GIVEN** the blink built with `R1` created with `height=mm(9)`, a rule area `LID` on `F.Cu` over the 8 mm square at the top-left corner of the board (the courtyard of `U1` at (14, 15) mm reaches into a 10 mm square), and `design.height_limit("LID", max=mm(5))`, with `R1` placed outside the area
+- **WHEN** `uv run pytest tests/unit/cli/test_place_cmd.py -k height` runs `fenolite place <dir> --move R1=4mm,4mm --dry-run --json`
+- **THEN** the exit code is 0, `issues` hold one `placement.too-tall` warning naming `R1`, and `result.rules.height` is `{"judged": 1, "failed": 1, "unknown": 0}`
+
+#### Scenario: No limit, same reply
+- **GIVEN** the built blink without a height limit
+- **WHEN** `fenolite place <dir> --move R1=12mm,8mm --dry-run --json` runs
+- **THEN** `result.rules` holds no `height`
+
+### Requirement: Models command
+`fenolite models PATH [--vendor]` SHALL be registered by `src/fenolite/cli/cmd_models.py` with `mutates=True`, and SHALL list the 3D models that the footprints of a board name, with the source where Fenolite finds each; with `--vendor` it SHALL plan copies of them into the project's `3dmodels/` folder, which the `step` export kind reads first (`manufacturing-exports`, "STEP export with 3D models").
+- **Board.** `PATH` MUST resolve with `projectset.resolve_board`; the usage and input errors are `check`'s (`FEN-2001`, `FEN-3001`). A path that names no KiCad board (an Altium document or project) is refused there, as `export` refuses it.
+- **Models.** The paths MUST be those of `models.board_models` on the board text, each located once as the `step` kind locates it. The command MUST run no tool and make no request.
+- **Result.** `result.models` MUST hold one object per distinct path, sorted by path: `path`, `source` (`project`, `env`, `kicad-config`, `install`, `cache`, `in-place` or `missing`), `sha256` and `bytes` (`null` when missing or in place), and `refs` (sorted). `result.counts` MUST hold `paths`, `located` and `missing`.
+- **Missing models.** Each path that is not located MUST give one `kicad.lib.missing-3d-model` (warning) naming the path and its references; the exit code stays 0.
+- **`--vendor`.** The command MUST return one `PlannedWrite` of kind `3d-model` per located `${KICAD<N>_3DMODEL_DIR}/<rel>` path whose source is not `project`, at `<board folder>/3dmodels/<rel>` relative to the working directory, holding the bytes of the located file, and nothing else. Without `--vendor` it MUST return none. The mutation protocol applies. The board, its footprints and their model paths MUST NOT change.
+- **Determinism.** No value MUST hold an absolute path or a date; two runs on unchanged inputs MUST give the same stdout apart from `elapsed_ms`.
+- **Evidence.** The envelope evidence MUST be `models.EVIDENCE`, `INFERRED` (`H-K-EXPORT-MODELS`) until that hypothesis is `KICAD-VERIFIED (9.0.x, 10.0.x)`.
+- `example_args` MUST be `(EXAMPLE_BOARD,)` and `mutation_example_args` `(EXAMPLE_BOARD, "--vendor")`, and both MUST run no subprocess. The command MUST declare `paged = "models"` ("Paged results").
+- `docs/cli-contract.md` MUST describe the command, its result keys and the order of the sources.
+
+#### Scenario: Located and missing models
+- **GIVEN** a copy of `two_layer.kicad_pcb` in `tmp_path` whose `R1` names `${KICAD10_3DMODEL_DIR}/Fenolite.3dshapes/Box_2x1.step` and whose `D1` names `${KICAD10_3DMODEL_DIR}/Fenolite.3dshapes/Absent.step`, with `KICAD10_3DMODEL_DIR` set to `tests/data/models` and no install
+- **WHEN** `uv run pytest tests/unit/cli/test_models_cmd.py -k list` runs `fenolite models <board> --json`
+- **THEN** the exit code is 0, `result.counts` is `{"paths": 2, "located": 1, "missing": 1}`, the `Box_2x1.step` entry has source `env` and the file's SHA-256, and the issues hold one `kicad.lib.missing-3d-model` naming `D1`
+
+#### Scenario: Vendored, then read from the project
+- **GIVEN** the same board
+- **WHEN** `fenolite models <board> --vendor --confirm` runs, and then `fenolite models <board> --json`
+- **THEN** the first writes `3dmodels/Fenolite.3dshapes/Box_2x1.step` beside the board, byte-equal to its source, and nothing else; the second reports that path with source `project`; the board file is unchanged
+
+#### Scenario: The command is hermetic
+- **GIVEN** `subprocess.run` and `subprocess.Popen` patched to raise
+- **WHEN** `uv run pytest tests/unit/cli/test_hermetic_examples.py tests/consistency -k models` runs the examples
+- **THEN** both exit 0 and the outputs hold no absolute path
+
+### Requirement: Drawing options of the export command
+`fenolite export` SHALL take `--fab-drawing`, `--assembly-drawing` and `--drawing-spec FILE`, and SHALL run the drawing kinds of `manufacturing-exports` beside the kinds of the requirement "Export command", under its board, tool, source, write and exit-code rules.
+- Each flag MUST select its kind. A drawing kind MUST count as a selected kind for the rule that a call selecting no kind and no `--altium-rul` exits 2, and `--all` MUST NOT select one. A drawing kind runs `kicad-cli`: the "Tool" clause of "Export command" (`FEN-6001`, `FEN-6002`, `--timeout` per run) MUST apply when one is selected. `--preset` MUST NOT change the arguments of a drawing kind, and `result.repeat`, where "Export command" has it, MUST map both drawing kinds to `content`.
+- The drawing kinds are KiCad's: `PATH` resolves with `projectset.resolve_board` as for every kind, so an Altium document or project is refused there (exit 2, `FEN-2001`) before the spec is read or a tool is looked for. `result.kinds` MUST list the drawing kinds after the other selected kinds, `fab-drawing` first.
+- `--drawing-spec` MUST be read before any tool runs. Without a drawing flag it MUST exit 2 with `FEN-2001`; a missing file MUST exit 3 with `FEN-3001`; a `SpecError` MUST exit 3 with `FEN-3004` and list its problems in the message. Without the option, `drawing_spec.DEFAULT` MUST apply.
+- `cmd_export` MUST compute each page's obstacles: through `templates.layout` for the spec's or the project's drawing sheet, through `drawing.default_sheet_obstacles` when the project names none. A sheet that cannot be read or built MUST give `drawing.sheet-unread` (error).
+- A drawing issue of severity error MUST make the command plan no write and exit 5, as `export.failed` does; an info or a warning MUST NOT change the exit code.
+- `result.drawings` MUST hold one object per page, in the order fabrication, assembly top, assembly bottom, with `kind`, `path`, `paper`, `portrait`, `sheet` (`spec`, `project` or `kicad-default`) and `blocks` (each with `name`, `at` and `size` in integer nanometres), and, for an assembly page, `side` and `designators_added`. No value MUST hold a temporary path, the home directory or a date.
+- With a drawing kind selected, the envelope's evidence MUST be `Evidence.combine` of `exports.drawings.EVIDENCE` and the evidence of every other selected kind, with the oracle `kicad-cli <version>`.
+- `docs/cli-contract.md` MUST describe the three options and `result.drawings`, and `docs/drawings.md` the spec file, the pages, the tables and the seven `drawing.*` codes.
+
+#### Scenario: Plan, then write
+- **GIVEN** a fake `kicad-cli` 10.0.6 that writes the files of both drawing kinds
+- **WHEN** `uv run pytest tests/unit/cli/test_export_drawings.py -k plan` runs `fenolite export <board> --out fab --fab-drawing --assembly-drawing --dry-run` and then the same with `--confirm`
+- **THEN** the first exits 0, plans the drawing files under `fab/drawings/` and writes nothing, and the second writes them with a receipt that lists each file with its SHA-256
+
+#### Scenario: A spec without a drawing flag
+- **WHEN** `fenolite export <board> --out fab --gerbers --drawing-spec d.toml --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+#### Scenario: An invalid spec runs no tool
+- **GIVEN** `d.toml` holding `[page] paper = "B9"` and `subprocess.run` patched to record its calls
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --drawing-spec d.toml --dry-run` runs
+- **THEN** the exit code is 3, stderr carries `FEN-3004` naming `page.paper`, and no `kicad-cli` run was made
+
+#### Scenario: No room writes nothing
+- **GIVEN** `d.toml` with `[page] paper = "A4"` and a board whose outline reaches y = 279 mm
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --drawing-spec d.toml --confirm` runs
+- **THEN** the exit code is 5, the issues hold `drawing.no-room`, and `fab` does not exist
+
+#### Scenario: The reply describes the pages
+- **WHEN** the first command of "Plan, then write" runs with `--json`
+- **THEN** `result.drawings` holds one object per page produced, each with its `paper`, `sheet` `kicad-default` and its blocks, and `result.kinds` ends with `fab-drawing`, `assembly-drawing`
+
+#### Scenario: A drawing kind alone needs the tool
+- **GIVEN** no `kicad-cli` on `PATH` and no `FENOLITE_KICAD_CLI`
+- **WHEN** `fenolite export <board> --out fab --fab-drawing --dry-run` runs
+- **THEN** the exit code is 6 and stderr carries `FEN-6001`, although no fabrication kind is selected
+
+### Requirement: Testpoints command
+`fenolite testpoints PATH [--side top|bottom|both] [--template FILE] [--min-coverage PERCENT] [--min-pitch LENGTH] [--min-fiducials N] [-o FILE] [--manifest]` SHALL be registered by `src/fenolite/cli/cmd_testpoints.py`, with `mutates=True` for `--out` only, and SHALL report the test points, fiducials, holes and net coverage of a board (`assembly-test-features`).
+- `PATH` is a `.kicad_pcb`, a `.kicad_pro` or a project folder, read as `pnp` reads it: from the board file, with no tool run. An Altium document or project is refused as `pnp` refuses it: marks are read from KiCad's pad property, and no Altium record is known to hold one.
+- The command MUST declare `paged = "test_points"` ("Paged results").
+- `result` MUST hold `side`; `test_points`, `fiducials` and `holes`, rows of "Test-point report rows" with lengths in integer nanometres in the board frame; `coverage` with `eligible`, `covered` and `uncovered`; `counts` with `test_points`, `fiducials_top`, `fiducials_bottom`, `holes` and `tooling_holes`; and `template`, `units`, `origin` and `y_axis`. `issues` MUST hold the findings of "Assembly and test findings", and `evidence` MUST combine `exports.testpoints.EVIDENCE` with the read's.
+- `--min-coverage` MUST be an integer from 0 to 100, `--min-pitch` a positive length with a unit, and `--min-fiducials` an integer of at least 1; another value MUST exit 2 (`FEN-2001`).
+- `-o FILE` MUST plan one CSV file through the mutation protocol. Its header is `kind,ref,pad,net,x,y,side,access,width,height,drill`, with `kind` `test_point`, `fiducial`, `tooling_hole` or `hole`, one row per report row in that order; positions and sizes in the origin, Y axis, units and decimals of the template's `[placement]` table, sides by its side names, and its CSV options. No file MUST be planned when a finding is an error, or when the origin needs a board outline the board lacks (`pnp.no-outline`).
+- `--manifest` follows "Manifest option of producing commands": with `-o FILE` it plans the manifest of the file's folder with one entry of kind `testpoints`; without `-o` it MUST exit 2 with `FEN-2001`.
+- The exit code MUST be 0 without an error finding, 5 with one, and 3 for a file that cannot be read.
+- The command MUST name `example_args` on the example board, and `mutation_example_args` that write `testpoints.csv`.
+- `docs/cli-contract.md` MUST hold a section `testpoints` with its options, its result and its codes.
+
+#### Scenario: A board without marks
+- **WHEN** `fenolite testpoints tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** it exits 0, `result.test_points` is empty, `result.coverage.covered` is 0, and `issues` holds one `testpoint.none` info
+
+#### Scenario: A coverage target missed
+- **GIVEN** the build of "Features in a build" (`design-dsl`, "Assembly and test features in a build")
+- **WHEN** `fenolite testpoints <board> --min-coverage 100 --out tp.csv --dry-run --json` runs
+- **THEN** it exits 5, `issues` holds `testpoint.coverage-low`, `result.coverage.covered` is 1, and no write is planned
+
+#### Scenario: The CSV of a build
+- **GIVEN** the same build
+- **WHEN** `fenolite testpoints <board> --out tp.csv --dry-run --json` runs
+- **THEN** it exits 0 and plans `tp.csv`, whose first line is `kind,ref,pad,net,x,y,side,access,width,height,drill` and which holds a `test_point` row for `TP1` with the net `LED_A` and the access `top`, two `fiducial` rows and one `tooling_hole` row for `TH1`
+
+#### Scenario: The CSV joins the manifest
+- **GIVEN** the same build
+- **WHEN** `uv run pytest tests/unit/cli/test_testpoints_cmd.py -k manifest` runs `fenolite testpoints <board> --out out/tp.csv --manifest --confirm`, and `fenolite testpoints <board> --manifest`
+- **THEN** the first writes `out/tp.csv` and `out/fenolite-artifacts.json`, which lists `tp.csv` with kind `testpoints`, `tool` naming `fenolite` and the board's hash in `from`; the second exits 2 with `FEN-2001`
+
+### Requirement: Stack-up in inspect
+`fenolite inspect` SHALL report the stack-up of a board it reads, as an addition to the `result` of "Inspect command".
+- For a board, `result.stackup` MUST be `null` when `Board.stackup` is `None`, and otherwise hold `thickness` (`Stackup.thickness()`, in nm), `finish`, `impedance_controlled` and `layers`: one object per entry, top to bottom, with `name`, `kind` and `thickness`, and with `dielectric_kind`, `material`, `epsilon_r`, `loss_tangent` and `color` when they are set. Footprint files and symbol libraries MUST NOT carry the key.
+- The `kicad.board.stackup-*` issues of the reader MUST be reported as reader issues, as "Inspect command" requires of every reader issue.
+- `docs/cli-contract.md` MUST describe the key under `inspect`.
+
+#### Scenario: Board with a stack-up
+- **WHEN** `uv run fenolite inspect tests/data/kicad/board/stackup_four.kicad_pcb --json` runs
+- **THEN** the exit code is 0, `result.stackup.thickness` is 2025000, `result.stackup.finish` is `ENIG`, and `result.stackup.layers` holds 14 objects, the first named `F.SilkS` with kind `silkscreen` and thickness 0
+
+#### Scenario: Board without a stack-up
+- **WHEN** `uv run fenolite inspect tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** `result.stackup` is `null`, and the other keys are those of "Authored board summary"
+
+### Requirement: Plane nets in the route command
+`fenolite route` SHALL take the board's plane layers and track layer rules into its job, SHALL join the SMD pads of plane nets to their planes before the router runs, and SHALL never give a plane net to a router. This requirement extends "Route command" with one option, two result keys, one step and its write rule; a board without a copper layer of type `power` and without `no_tracks` rules MUST give the result it gave before, with `plane_layers` empty and `plane_fanout` holding no net.
+- **Rules.** The design MUST get the project's classes and the rules file's lifted rules from `KicadBackend.design_rules` (`backend-protocol`, "Design rules source"; `kicad-file-backend`, "Design rules for the copper check"), in place of the project's classes alone. When the project holds `min_copper_edge_clearance`, the command MUST add to the job's design one board-wide `edge_clearance` rule of that value. A file that cannot be read MUST give `route.project-unread` (warning) and leave the design as the other file gives it.
+- **Plane layers and nets.** `plane_layers` MUST be `layers.plane_layers(design)` (`kicad-file-backend`, "Plane layers of a board"), and the plane nets `fanout.plane_nets(design, plane_layers)`. A plane net MUST NOT be a job net, whatever the selection gives, also with `--include-zone-nets`; zone nets without a plane are selected as before. Each plane net that the `--nets` patterns select MUST give one `route.plane-net` (info) instead of `route.zone-net-skipped`. With `--rip`, the selected plane nets MUST be ripped as other selected nets.
+- **Fan-out.** Unless `--no-plane-fanout` is given, the command MUST call `plan_fanout` (`routing`, "Plane fan-out") for the selected plane nets, with each net's sizes taken as its width and via sizes are taken for job nets (its class, else the project's `Default` class, else the command's constants), its clearance as the neck, the outline rings of `board_outline`, the largest board-wide `edge_clearance` value, and a clearance callable built from `checks.clearance.ClearanceResolver` over the design and the project's `DesignRules`. Its copper MUST be merged with `routing.merge.apply` before the job is built, so the router sees it as existing copper; its issues MUST join the envelope's.
+- **Job.** `RoutingJob.plane_layers` MUST be `plane_layers`, and each `JobNet.layers` the result of `routing.layers.allowed_layers` over the routing layers, `None` when it equals them. A selected net with no allowed layer MUST give `route.no-layer` (warning) and MUST NOT be a job net.
+- **Write.** Besides the cases in which "Route command" plans the board's write, the command MUST plan it when the fan-out made copper, also when no net is selected or the router adds nothing.
+- **Result.** `result.plane_layers` MUST list the plane layers, and `result.plane_fanout` MUST hold `nets` (the plane nets fanned out, sorted), `pads`, `joined`, `tracks`, `vias` (counts) and `failed` (`REF-NUMBER` of each pad left open, in board order). With `--no-plane-fanout`, `nets` MUST be empty and the counts 0.
+- Exit codes MUST follow "Route command": `kicad.fanout.failed`, `route.no-layer` and `route.plane-net` do not change them. `docs/cli-contract.md` MUST describe the option, the keys and the codes.
+
+#### Scenario: Plane nets fanned out, signals routed
+- **GIVEN** the bench of `tests/routing/_planebench.py` written as a KiCad board with `In1.Cu` and `In2.Cu` of type `power`, and its project and rules files
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k plane_fanout` runs `fenolite route <board> --router direct --dry-run --json`
+- **THEN** the exit code is 0, `result.plane_layers` is `["In1.Cu", "In2.Cu"]`, `result.plane_fanout.nets` is `["GND", "VCC"]` with 6 vias and 6 tracks, `issues` hold one `route.plane-net` for each, `result.selected` names neither, and the board written by the same command with `--confirm` holds the fan-out copper
+
+#### Scenario: Fan-out skipped
+- **WHEN** the same command runs with `--no-plane-fanout`
+- **THEN** `result.plane_fanout.nets` is empty, its counts are 0, and the plane nets are still not selected
+
+#### Scenario: Zone nets option
+- **WHEN** the same command runs with `--include-zone-nets`
+- **THEN** `result.selected` names neither `GND` nor `VCC`
+
+#### Scenario: Board without plane layers
+- **GIVEN** the example board of the route command's `example_args`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k example` runs the mutation example with `--confirm`
+- **THEN** it passes as before, with `result.plane_layers` empty and `result.plane_fanout` holding no net and counts 0
+
+#### Scenario: A net with no allowed layer
+- **GIVEN** the bench with a `no_tracks` rule on `net SIG5` over `F.Cu` and `B.Cu`
+- **WHEN** the first command runs
+- **THEN** `issues` hold one `route.no-layer` naming `SIG5`, which is not in `result.selected`
+
+### Requirement: Open connections in the net command
+`fenolite net PATH [NAME]` (c0066, "Net command") SHALL report the open connections of the board's nets (`board-analyses`, "Open connections of a net"), computed from the board-frame pads it already reads.
+- Each row of `result.nets` MUST add `islands` and `open`, the number of open connections.
+- `result.net` MUST add `islands`, `fill_islands` and `open`: the list of connections, each with `a` and `b` (`kind`, `where`, `position`, `layers`) and `length` in nanometres.
+- The envelope evidence MUST be `Evidence.combine` of the board read's evidence, `frame.EVIDENCE` and `connectivity.EVIDENCE`, and the `analysis.item-unsupported` issues of the query MUST be passed on.
+- `docs/cli-contract.md` MUST describe the keys and say that they are computed from the board, with the limits of the query.
+
+#### Scenario: Rows of the authored board
+- **WHEN** `uv run fenolite net tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** the rows `GND`, `LED_A` and `VCC` have `open` 0, 1 and 0 and `islands` 1, 2 and 1
+
+#### Scenario: Pins on no net
+- **GIVEN** the board of a confirmed build of `examples/blink_2layer/design.py`, whose pins on no net each hold a net named `unconnected-(…)`
+- **WHEN** `uv run pytest tests/unit/cli/test_views_cmd.py -k unconnected` runs `fenolite net <board> --json`
+- **THEN** each of those rows has `islands` 1 and `open` 0
+
+#### Scenario: One open net
+- **WHEN** `uv run fenolite net tests/data/kicad/board/two_layer.kicad_pcb LED_A --json` runs
+- **THEN** `result.net.islands` is 2 and `result.net.open` holds one connection between `D1-2` (`kind` `pad`) and an end of the arc (`kind` `arc`)
+
+### Requirement: Route command budget and tiers
+`fenolite route` SHALL bound the routing step by one budget and SHALL let the caller route some nets first.
+- **Budget.** `--timeout SECONDS` MUST set `RoutingJob.budget` for every router (`routing`, "Routing time budget"); without it the job's budget is `None`, which gives the plugin's `DEFAULT_BUDGET`. The command MUST build a router with the given value whatever it is: `--timeout 600` gives 600 s to Freerouting too. A value that is not a positive number MUST exit 2 with `FEN-2001`.
+- **Tiers.** `--order GLOB` (repeatable, `fnmatch` on the net name) MUST set `JobNet.tier` (`routing`, "Routing tiers"): a selected net takes the index of the first `--order` glob it matches, and a net that matches none takes the count of globs. `--order` changes no selection: it orders the nets that `--nets` and the selection give.
+- **Result.** `result` MUST hold `budget` (`seconds`, the budget used; `spent`, seconds rounded to 0.1; `exhausted`, a boolean), `runs` (one object per `RouterRun`: `tier`, `nets` as a count, `seconds` rounded to 0.1, `outcome`) and `not_attempted` (net names), beside the keys of "Route command".
+- **Write.** When the budget ended, the copper of the finished runs MUST be merged and planned as any routed copper; the exit code MUST stay 0 when no issue of severity error is present.
+- `docs/cli-contract.md` MUST describe `--timeout` as the budget of the step, `--order`, the three result keys, `route.budget-exhausted` and `route.optimizer-cut`.
+
+#### Scenario: Finished run written, cut run reported
+- **GIVEN** the fake KiCadRoutingTools in a mode that sleeps 5 s when its `--nets` names a net of the second group, and an authored board with two size groups
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k budget` runs `fenolite route <board> --router kicadroutingtools --router-path <fake> --timeout 2 --confirm`
+- **THEN** the exit code is 0, the written board holds the track of the first run, `result.budget.exhausted` is `true`, `result.runs` has the outcomes `done` then `cut`, and the issues hold one `route.budget-exhausted`
+
+#### Scenario: No sentinel
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k timeout` runs `fenolite route <board> --router freerouting --timeout 600 --dry-run` with a router that records its job
+- **THEN** the recorded job's `budget` is 600
+
+#### Scenario: Order in tiers
+- **WHEN** `fenolite route <board> --router <recording router> --order 'CLK*' --order 'D*' --dry-run` runs on a board with unrouted nets `A`, `CLK1`, `D0`
+- **THEN** the recorded job holds `CLK1` with tier 0, `D0` with tier 1 and `A` with tier 2, in that order
+
+#### Scenario: Bad budget
+- **WHEN** `fenolite route <board> --router direct --timeout 0 --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001`
+
+### Requirement: Via protection in inspect
+`fenolite inspect` SHALL report the via protection of a board it reads, a KiCad board or an Altium PCB document, as an addition to the `result` of "Inspect command", through `fenolite.backends.kicad.via_protection.summary(design)` for a KiCad board and the same counts over the imported model for an Altium PCB document.
+- For a KiCad board, `result.via_protection` MUST hold `default`, `effective` and `by_default`. `default` holds the eight fields of `effective_default(Board.via_protection)` as booleans, and `source`: `board` when `Board.via_protection` is set, `kicad` otherwise. `effective` holds, per field, the number of vias whose effective value (`effective(via.protection, Board.via_protection)`) is `True`. `by_default` holds, per field, how many of those take it from the default, their own value being `None`. Footprint files and symbol libraries MUST NOT carry the key.
+- For an Altium PCB document (kind `altium_pcbdoc`), `result.via_protection` MUST hold the same three keys: `default` with `source` `altium` and the eight fields `false` (an Altium via carries its own tenting flags, so no default applies); `effective` with, for `tenting_front` and `tenting_back`, the number of vias whose flag is set (`altium-import`, "Via tenting of imported vias"), and 0 for the six other fields; `by_default` with 0 for every field. The envelope's evidence is that of the reading, `INFERRED` for these two fields. Altium libraries and schematic documents MUST NOT carry the key.
+- The view MUST run no external tool, so "Inspect is hermetic" still holds.
+- `docs/cli-contract.md` MUST describe the key under `inspect`, and say that on 10.0.6 a covering, plugging, capping or filling counted in `by_default` reaches no fabrication file.
+
+#### Scenario: Authored board
+- **WHEN** `uv run fenolite inspect tests/data/kicad/board/two_layer.kicad_pcb --json` runs
+- **THEN** the exit code is 0, `result.via_protection.default` has `source` `kicad`, both tenting fields `true` and the six others `false`, and `effective` and `by_default` hold 1 for both tenting fields and 0 for the six others, the board having one via without protection children
+
+#### Scenario: Altium PCB document
+- **GIVEN** a PCB document written with four through vias whose flags are `0C`, `2C`, `4C` and `6C`
+- **WHEN** `uv run pytest tests/unit/cli/test_inspect_cmd.py -k altium_via_protection` runs `inspect` on it
+- **THEN** `result.via_protection.default.source` is `altium`, `effective.tenting_front` and `effective.tenting_back` are both 2, the six other fields are 0, and every field of `by_default` is 0
+
+#### Scenario: Board with protected vias
+- **GIVEN** a copy of the authored board whose `setup` holds `(tenting none)` and whose via holds `(tenting front)`
+- **WHEN** `uv run pytest tests/unit/cli/test_inspect_cmd.py -k via_protection` runs `inspect` on it
+- **THEN** `result.via_protection.default` has `source` `board` and both tenting fields `false`, `effective.tenting_front` is 1, `effective.tenting_back` is 0, and `by_default.tenting_front` is 0
+
+### Requirement: Pairs and escape in the route command
+`fenolite route` SHALL also take `--escape REF[=grid|perimeter]` (repeatable) and `--pairs-as-nets`, and SHALL give the router the differential pairs and the escape requests of the job, in addition to what "Route command" states.
+- **Pairs.** After the candidates are selected, the command MUST call `routing.pairs.job_pairs` unless `--pairs-as-nets` is given. When `router_features(router)` lacks `pairs`, the nets of every pair MUST be removed from the job, each pair with one `route.pair-skipped` (warning) whose hint names `--pairs-as-nets` and the registered routers that have the feature. With `--pairs-as-nets`, the nets of each pair MUST be routed as single nets, each pair giving one `route.pair-uncoupled` (info).
+- **Escape.** Requests MUST come from `routing.escape.requests` over the board-frame pads of the board. When `router_features(router)` lacks `escape`, every request MUST be removed, each with `route.escape-skipped` (warning) naming the router. A value of `--escape` with a suffix other than `=grid` or `=perimeter` MUST exit 2 with `FEN-2001`.
+- **Width guard.** A routed track or arc narrower than the width the job gave its net, the pair's width for a pair net, MUST give one `route.width-below-job` (warning) per net, naming the smallest width found and the width asked, with a hint naming `--router-option fanout=off` when the router is `freerouting`; the copper is kept, and KiCad's DRC judges it.
+- **Result.** `result` MUST gain `pairs`, a list of `{name, positive, negative, width, gap, routed}` for the pairs given to the router, `routed` being true when both nets are in `result.routed`, and `escape`, a list of `{ref, kind, pitch, nets}` for the requests given to it. `result.selected` MUST name every net given to the router, pair nets included.
+- **Codes.** `route.pair-skipped` (warning), `route.pair-uncoupled` (info), `route.escape-skipped` (warning) and `route.width-below-job` (warning) MUST be keys of `routing.codes.ISSUE_CODES` and MUST be described in `docs/cli-contract.md`. None changes the exit code, which stays as "Route command" states.
+
+#### Scenario: A router without pairs
+- **GIVEN** the unrouted board `tests/data/kicad/routing/pair_two_headers.kicad_pcb`, authored for Fenolite, with the pair `USB_P`/`USB_N` and the single nets `S1` and `S2` in one class with pair values, and the fake `java` of `tests/_fakefreerouting.py`
+- **WHEN** `uv run pytest tests/unit/cli/test_route_cmd.py -k pair_skipped` runs `fenolite route <board> --router freerouting --router-path <jar> --dry-run`
+- **THEN** the exit code is 0, `result.selected` is `["S1", "S2"]`, `result.pairs` is empty, and one `route.pair-skipped` names `USB_P/USB_N` with a hint naming `--pairs-as-nets` and `kicadroutingtools`
+
+#### Scenario: Pairs as single nets
+- **WHEN** the same command runs with `--pairs-as-nets`
+- **THEN** `result.selected` holds `USB_N`, `USB_P`, `S1` and `S2`, and one `route.pair-uncoupled` names the pair
+
+#### Scenario: Escape without the feature
+- **WHEN** `fenolite route <board> --router direct --escape 'U*' --dry-run` runs on a board with a QFN `U1` that has a selected net
+- **THEN** the exit code is 0, `result.escape` is empty, and one `route.escape-skipped` names `U1` and `direct`
+
+#### Scenario: Unknown escape kind
+- **WHEN** `fenolite route <board> --router direct --escape U1=ring --dry-run` runs
+- **THEN** the exit code is 2 and stderr carries `FEN-2001` naming `ring`
+
+#### Scenario: Narrower copper reported
+- **GIVEN** a test router that returns, for the net `A` of width 0.2 mm, a track of 0.1996 mm
+- **WHEN** `fenolite route <board> --router <test router> --dry-run` runs
+- **THEN** one `route.width-below-job` names `A`, 0.1996 mm and 0.2 mm, the plan holds the board, and the exit code is 0
+
+### Requirement: Router pair and escape features in capabilities
+Each entry of `result.routers` of `fenolite capabilities` SHALL also hold `features`, the sorted list of `routing.protocol.router_features(router)`, read without running anything. The key is added to the router entries only: `result.matrix` and the kinds of the Altium backend in the reply are not changed.
+
+#### Scenario: Features listed
+- **WHEN** `uv run pytest tests/unit/cli/test_capabilities.py -k features` runs `fenolite capabilities --json --no-tools`
+- **THEN** `direct` and `freerouting` list no feature, and `kicadroutingtools` lists the features that its gate outcomes allowed
+
+### Requirement: Levels and sides of equivalent in capabilities
+The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hold, besides the keys of every entry, `levels` (the list `LEVELS` of `fenolite.checks.equivalence`) and `sides` (the side kinds the command reads, sorted: `altium_pcbdoc`, `altium_prjpcb`, `altium_schdoc`, `fenolite_model`, `kicad_pcb`, `kicad_pro`, `kicad_sch`). No other entry gains these keys.
+
+#### Scenario: Levels and sides listed
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs
+- **THEN** the entry named `equivalent` has `levels` `[1, 2, 3, 4, 5]` and `sides` holding `kicad_sch`
+
+### Requirement: Kit command
+`fenolite kit` SHALL be registered by `src/fenolite/cli/cmd_kit.py` with four subcommands.
+- `kit build --out DIR [--seed N] [--timestamp T]` MUST write the kit under the rules of "Writing files" (dry run, confirm, receipt). It runs no external tool.
+- `kit verify DIR` MUST be read-only, MUST print the verdict per step and per hypothesis and the privacy list in `result`, MUST exit 5 when a step fails and 0 otherwise, and MUST exit 3 with `FEN-3001` for a folder without `kit.json`.
+- `kit record DIR --out REPO` MUST be a mutating command: it writes `results.zip` beside `DIR` and the run record under `REPO/docs/evidence/altium-kit/`, refuses a verdict with a failed machine check on the kit's own files, refuses a synthetic run, and prints in `result.rows` the register rows whose label may change, with the label text.
+- `kit status` MUST be read-only and MUST list the committed runs and the stale rows.
+- The envelope evidence of `kit verify` MUST be `ALTIUM-VERIFIED(kit)` only when every step passed and the run is not synthetic; otherwise the lowest level of what was checked.
+
+#### Scenario: Help and example
+- **WHEN** `fenolite kit status --json` runs in a tree without a run record
+- **THEN** the exit code is 0 and `result.runs` is empty
+
+#### Scenario: Verify refuses a folder that is no kit
+- **WHEN** `fenolite kit verify <empty folder>` runs
+- **THEN** the exit code is 3 and stderr holds `FEN-3001`
+
+### Requirement: Conversions in capabilities
+`fenolite capabilities` SHALL list under `result.conversions` one object per registered direction of `fenolite.convert.DIRECTIONS`, sorted by `from` and then `to`, with `from` and `to` (backend names), `targets` (the KiCad majors a KiCad target is written for, else an empty list), `experimental` and `evidence` (`{level, oracle, hypotheses}`). The brief view of `capabilities` MUST name the command `convert` and no direction.
+
+#### Scenario: Directions listed
+- **WHEN** `uv run fenolite capabilities --json --no-tools` runs after this change
+- **THEN** `result.conversions` holds `{"from": "kicad", "to": "altium", "experimental": true, ...}` and `{"from": "kicad", "to": "kicad", "targets": [9, 10], "experimental": false, ...}`
+
+### Requirement: View command caches scenes
+`fenolite view` SHALL cache scenes in the user's cache folder by default (`--cache user`), under `.fenolite/view-cache/` of the project with `--cache project`, and not at all with `--cache off`, and SHALL reply with `result.cache`. `--export` SHALL accept `--docs ID,...` to embed only those documents.
+
+#### Scenario: Export of one document
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k docs` exports an Altium project with `--docs` naming its board
+- **THEN** `result.export.documents` lists only that board
+
+### Requirement: View command compares two revisions
+`fenolite view NEW --compare OLD` SHALL reply with `result.compare`, the count of each kind of change, and SHALL refuse two documents of different families with `FEN-2001`.
+
+#### Scenario: Compare counts
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k compare` compares an authored board with its edited copy
+- **THEN** the exit code is 0 and `result.compare.moved` is 1
+
+### Requirement: View command draws check findings
+`fenolite view` SHALL accept `--check FILE` (a `check` reply) or `--check run`, reply with `result.check` counting findings by severity, and refuse a file that is not a `check` reply with `FEN-3004`.
+
+#### Scenario: Not a check reply
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k check_reply` passes an `analyze` reply to `--check`
+- **THEN** the exit code is 3 and the error code is `FEN-3004`
+
+### Requirement: View command opens at a selection and reads review marks
+`fenolite view` SHALL accept `--select REF` to open at a part or net, and `--marks FILE` to reply with the review marks of that file in `result.marks`.
+
+#### Scenario: Marks for an agent
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k marks` passes an authored review file
+- **THEN** `result.marks` lists its marks with their document, position and note
+
+### Requirement: View command
+`fenolite view PATH [--doc ID] [--overlay FILE]... [--serve [--port N] [--no-browser]] [--export FILE]` SHALL show the boards of a project without the native tool (`board-viewer`). `PATH` is an Altium project file, a KiCad project file, a folder or a board. The command is a writing command whose only write is `--export`.
+- Without `--serve` and `--export` it MUST write nothing and reply with `project` (the tree), `document` (the id of the board shown), `summary` (its layers and the count of each item kind) and `notes`.
+- `--export FILE` MUST plan one HTML file with the tree and the scene of every viewable document embedded, under the mutation protocol.
+- `--serve` MUST write one progress record with the URL to stderr, serve until interrupted, and then reply with `url` and `seconds`; it MUST bind `127.0.0.1` only. `--serve` with `--export` MUST be a usage error (`FEN-2001`).
+- `--overlay FILE` MUST read a JSON envelope of `fenolite analyze`; a file that is not one MUST be `FEN-3004`.
+- A path that no backend and no project reader understands MUST be `FEN-2001`; a missing path `FEN-3001`.
+
+#### Scenario: Summary of a board
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k summary` runs `fenolite view tests/data/kicad/board/two_layer.kicad_pcb --json`
+- **THEN** the exit code is 0, `result.project` lists the board as viewable, `result.summary.counts.tracks` equals the board's track count, and nothing is written
+
+#### Scenario: Export follows the protocol
+- **WHEN** `fenolite view <board> --export view.html --json` runs without `--dry-run` or `--confirm`
+- **THEN** the exit code is 4 with `FEN-4001`, nothing is written, and `--confirm` writes `view.html`
+
+### Requirement: View command review and models
+`fenolite view` SHALL draw the review findings and the body models of `board-viewer`, with these options: `--no-review` (no review findings and no open connections), `--no-models` (no meshing), `--silk-gap MM` and `--mask-expansion MM` (millimetres, at least 0).
+- The open connections of `analysis.connectivity` MUST be drawn as lines between the two anchors of each, in the group `open_ground` for a net whose name holds `GND`, `GROUND`, `VSS`, `EARTH` or `0V` as a word, or is `PE`, `FE` or `COM`, else in `open_net`.
+- The reply's `summary` MUST hold `findings`, the count per group, and `models`, the count of bodies per render (`model`, `fitted`, `outline`) and of models gmsh could not mesh; the summary-only form MUST mesh nothing and report `models` as `null`.
+- With `--serve`, models MUST be meshed after the first scene is served, and the page MUST reload when they are placed. With `--export`, they MUST be meshed before the page is planned.
+- A port that is in use MUST be `FEN-2001` with a hint to pass `--port 0`.
+- `--overlay FILE` MUST accept an `analyze` reply or a findings file (`board-viewer`, "Findings file"); any other file MUST be `FEN-3004`.
+
+#### Scenario: Findings in the summary
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k review_summary` runs `fenolite view tests/data/kicad/board/two_layer.kicad_pcb --json`
+- **THEN** `result.summary.findings` holds a count for every group of `review.GROUPS` and for `open_ground` and `open_net`, and `result.summary.models` is `null`
+
+#### Scenario: Port in use
+- **GIVEN** a socket bound on a port of `127.0.0.1`
+- **WHEN** `uv run pytest tests/unit/cli/test_view_cmd.py -k port_in_use` serves on that port
+- **THEN** the exit code is 2 with `FEN-2001` and the hint names `--port 0`

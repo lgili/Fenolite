@@ -17,15 +17,24 @@ import argparse
 import hashlib
 import os
 import sys
+import time
 import tomllib
+import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = ("id", "url", "ref", "sha256", "license", "license_variant", "embeddable", "uses", "notes")
 USER_AGENT = "fenolite-corpus-fetch (+https://github.com/lgili/Fenolite)"
+# A host that answers 429 (too many requests) or a 5xx is asked again after a pause: the CI fetches
+# hundreds of rows from one host when its cache key changes, and a rate limit is not a missing file.
+RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
+RETRY_ATTEMPTS = 6
+RETRY_FIRST_PAUSE_S = 5.0
+RETRY_MAX_PAUSE_S = 120.0
 
 
 def default_cache() -> Path:
@@ -57,6 +66,34 @@ def _download(url: str) -> bytes:
         return response.read()
 
 
+def _retry_pause(error: urllib.error.HTTPError, attempt: int) -> float:
+    """Seconds to wait before asking again: the server's Retry-After when it gives one in seconds,
+    else a doubling pause from RETRY_FIRST_PAUSE_S; never more than RETRY_MAX_PAUSE_S."""
+    header = error.headers.get("Retry-After")
+    if header is not None and header.strip().isdigit():
+        return min(float(header.strip()), RETRY_MAX_PAUSE_S)
+    return min(RETRY_FIRST_PAUSE_S * 2**attempt, RETRY_MAX_PAUSE_S)
+
+
+def download_with_retry(
+    url: str,
+    *,
+    download: Callable[[str], bytes] = _download,
+    sleep: Callable[[float], None] = time.sleep,
+    attempts: int = RETRY_ATTEMPTS,
+) -> bytes:
+    """Download ``url``, asking again after a pause when the host answers a status of RETRY_STATUS.
+    Any other error, or the last attempt's error, is raised."""
+    for attempt in range(attempts):
+        try:
+            return download(url)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in RETRY_STATUS or attempt == attempts - 1:
+                raise
+            sleep(_retry_pause(exc, attempt))
+    raise AssertionError("unreachable: the loop returns or raises")
+
+
 def fetch(entries: list[dict[str, Any]], cache: Path) -> tuple[list[str], list[str], list[str]]:
     fetched: list[str] = []
     cached: list[str] = []
@@ -71,7 +108,7 @@ def fetch(entries: list[dict[str, Any]], cache: Path) -> tuple[list[str], list[s
             cached.append(entry["id"])
             continue
         try:
-            data = _download(entry["url"])
+            data = download_with_retry(entry["url"])
         except Exception as exc:  # network errors are reported, not raised
             failed.append(f"{entry['id']}: download failed: {exc}")
             continue

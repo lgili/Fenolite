@@ -128,9 +128,63 @@ fenolite render blink/build -o blink/views --png --width 800 --height 600 --conf
 and `bottom.png` (rendered images). They are for looking at a board, yours or the user's; they are not
 fabrication data. A view shows what no finding says: a part across the outline, a text over a pad.
 
+## Filled and capped vias
+
+`protection=protect(filling=True, capping=True)` asks for the vias of a stitch to be filled and capped,
+as vias inside a pad often are. A KiCad 9 board holds tenting only, so this block builds for target 10:
+target 9 exits 7. `fenolite inspect` counts the protected vias (`result.via_protection`).
+
+```fenolite-design kicad10
+from fenolite.dsl import Design, Net, Part, connect, mm, protect
+
+design = Design("filled")
+design.board(mm(20), mm(15))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
+d1 = Part("D1", "Fenolite:LED", footprint="Fenolite:Chip_0603", value="LED")
+design.add(j1, d1)
+vin, gnd = Net("VIN"), Net("GND")
+connect(vin, j1[1], d1[1])
+connect(gnd, j1[2], d1[2])
+j1.place(mm(5), mm(7))
+d1.place(mm(14), mm(7))
+# Vias inside pad 2 of D1, filled and capped.
+design.stitch(
+    "d1_vias", net=gnd, pitch=mm(1), region=d1.pad(2), diameter=mm(0.6), drill=mm(0.3), clearance=mm(0.2),
+    protection=protect(filling=True, capping=True),
+)
+```
+
+## Panels
+
+A panel repeats one built board in rows and columns, with rails, V-score or tabs with mouse bites,
+fiducials and tooling holes. Write a script of its own beside the built board:
+
+```text
+from fenolite.dsl import Panel, mm
+
+panel = Panel("blink_panel", board="build/blink.kicad_pcb")
+panel.grid(2, 4)                          # or panel.fit(mm(100), mm(100), rot="auto")
+panel.rails(top=mm(5), bottom=mm(5))
+panel.separate("vscore", between="rows")  # columns, rows or rails: "vscore" or "tabs"
+panel.fiducials()
+panel.tooling_holes()
+```
+
+```fenolite-cmd
+fenolite panel blink_panel.py --out panel --target 10 --dry-run --json
+fenolite panel blink_panel.py --out panel --target 10 --confirm --json
+```
+
+- `--target` is the major the board was built for, or `altium` (a flattened panel document).
+- The checks run first: `panel.vscore-copper`, `panel.tab-copper`, `panel.gap` and the other `panel.*`
+  errors plan no write (exit 5). Their limits cite public fabricator figures; `Panel(limits={...})` takes
+  your fabricator's. `fenolite explain <code>` gives each fix.
+- Nets become `B<k>/<name>`; designators stay. Export the panel board as any board: the score lines
+  plot as their own Gerber file (`V-Score`, file function `Other,User`); tell your fabricator.
+
 ## What is not produced
 
-- No panel: the files hold one board.
+- No panel from `export`: a panel is a board of its own (`fenolite panel`, above).
 - No order: no command talks to a fabricator or an assembler.
 - No judgement that a board can be made. `check` holds the board against the rules of the script, and
   those are as good as the limits you were given.

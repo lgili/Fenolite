@@ -185,6 +185,20 @@ def test_a_form_that_does_not_say_it_is_real_is_synthetic(kit: Path) -> None:
     assert verify_results(kit, judge=quick).synthetic
 
 
+@pytest.mark.parametrize(
+    ("message", "outcome"),
+    [
+        (b"[[Error]] Authored unconnected pin (Compiler)\n", "fail"),
+        (b"[[Fatal Error]] Authored hierarchy conflict (Compiler)\n", "fail"),
+        (b"[[Warning]] Authored net without driving source (Compiler)\n", "pass"),
+    ],
+)
+def test_native_bracketed_message_classes(kit: Path, message: bytes, outcome: str) -> None:
+    simulate(kit, replace={"flat/messages.txt": message})
+    verdict = verify_results(kit, judge=quick)
+    assert _outcomes(verdict)["K2.1"] == outcome
+
+
 def test_messages_and_listings(kit: Path) -> None:
     simulate(
         kit,

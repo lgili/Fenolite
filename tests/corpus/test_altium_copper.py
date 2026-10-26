@@ -95,14 +95,16 @@ def _planes(design: Design) -> dict[str, int]:
 PARITY = {
     "altium-set:01": (540, 544, 0, 0, 27, 8, 6, 22, 171, 10),
     "altium-set:02": (248, 260, 2, 2, 10, 17, 0, 3, 241, 129),  # 21 before the pins of several pads (c0123)
-    "altium-set:03": (23, 27, 0, 0, 0, 0, 0, 0, 23, 0),
+    "altium-set:03": (23, 23, 0, 0, 0, 0, 0, 0, 23, 0),  # 27 before the free holes of c0168
     "altium-set:04": (41, 41, 0, 0, 0, 2, 0, 2, 41, 0),
     "altium-set:05": (27, 27, 0, 0, 0, 0, 0, 0, 27, 0),
 }
 """Per set, the counts of the parity table of ``docs/evidence/altium-roundtrip.md`` ("Light DRC over the
 corpus"), measured on 2026-10-06 after the channel net names and the pin-to-pad map of c0083: components,
 footprints, missing and extra footprints, value or footprint-name differences, net conflicts, pins without
-a pad, pads without a pin, and the footprints and the pads that differ in spelling alone. Counts only."""
+a pad, pads without a pin, and the footprints and the pads that differ in spelling alone. Counts only. The
+footprints of ``altium-set:03`` were measured again on 2026-10-16: its four free pads are board holes since
+change c0168."""
 
 
 def test_boards_exist() -> None:

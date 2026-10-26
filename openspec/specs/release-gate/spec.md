@@ -70,26 +70,31 @@ What a Fenolite release has to prove before it is tagged: a second example board
 - **THEN** the exit code is 5 and an issue names `R1`
 
 ### Requirement: Agent guide is executable
-`agent/SKILL.md` SHALL teach the v0.1 loop, and its commands SHALL be run by tests.
-- The file MUST have front matter with `name` and `description`, MUST be under 200 lines, and MUST hold exactly one fenced block tagged `fenolite-loop` with at most ten lines, each a `fenolite` command on `examples/blink_2layer/design.py` or `build/blink`.
-- The guide MUST state: `capabilities` first; the exit codes 0 to 7; `--dry-run` before `--confirm`; that a level below `KICAD-VERIFIED` is unconfirmed; what to do for each non-zero exit code.
-- `README.md` MUST hold the same block, and `AGENTS.md` MUST link to the guide.
-- `tests/unit/test_agent_skill.py` MUST parse each line of the block with the CLI's own argument parser and fail for an unknown command or flag.
-- `tests/routing/test_acceptance_loop.py::test_skill_block` MUST run the lines in order in a temporary folder; each MUST exit 0 and each envelope MUST hold `evidence.level`.
+`src/fenolite/agent/skill/SKILL.md` SHALL teach the loop from an empty folder to fabrication files, and its commands SHALL be run by tests.
+- The file MUST have front matter with `name` and `description`, MUST be under 200 lines, and MUST hold exactly one fenced block tagged `fenolite-loop` with at most ten lines, each a `fenolite` command.
+- The block MUST hold, in this order, `capabilities --brief`, `init blink`, `build` with `--dry-run`, `build` with `--confirm`, `place`, `route --router direct`, `fill`, `check`, `export` and `render`. Every line after the first two MUST name `blink/design.py` or a folder under `blink/`, the project that `init` writes (`agent-guide`, "Starter projects").
+- The guide MUST state: `capabilities --brief` first; the exit codes 0 to 7; `--dry-run` before `--confirm`; that a level below `KICAD-VERIFIED` is unconfirmed; what to do for each non-zero exit code (`agent-guide`, "Start page").
+- `README.md` MUST hold the same block, and `AGENTS.md` MUST name the guide's path and the command `fenolite guide`.
+- `tests/unit/test_agent_skill.py` MUST parse each line of the block with the CLI's own argument parser and fail for an unknown command or flag. It MUST also run the first six lines in an empty temporary folder with `subprocess.run` and `subprocess.Popen` patched to raise; each MUST exit 0 and each envelope MUST hold `evidence.level`.
+- `tests/kicad/acceptance/test_skill_block.py` MUST run all the lines in order in an empty temporary folder on the running `kicad-cli`, once with `--kicad-version 9` and once with `--kicad-version 10` added to every line that takes it; a target-10 run is skipped on 9.0.x. Each line MUST exit 0, each envelope MUST hold `evidence.level`, and `check` MUST report no design-rule violation and no unconnected item.
 - The guide MUST NOT name a company, a private path or a user name.
 
 #### Scenario: Block parses
 - **WHEN** `uv run pytest tests/unit/test_agent_skill.py` runs
-- **THEN** it finds one `fenolite-loop` block of at most ten lines, each accepted by the parser, and the same block in `README.md`
+- **THEN** it finds one `fenolite-loop` block of at most ten lines, each accepted by the parser, the same block in `README.md`, and the commands in the order above
 
 #### Scenario: A stale flag fails
-- **GIVEN** a copy of the guide whose block holds `fenolite route build/blink --engine x`
+- **GIVEN** a copy of the guide whose block holds `fenolite route blink/build --engine x`
 - **WHEN** the block check runs on it
 - **THEN** it fails and names `--engine`
 
+#### Scenario: First six lines need no tool
+- **WHEN** `uv run pytest tests/unit/test_agent_skill.py -k hermetic_prefix` runs the lines up to `route` with subprocess creation patched to raise
+- **THEN** each exits 0, `blink/build/blink.kicad_pcb` exists, and the route's `unrouted` list is empty
+
 #### Scenario: Ten commands close the loop
-- **WHEN** `FENOLITE_REQUIRE=kicad,freerouting uv run pytest tests/routing/test_acceptance_loop.py::test_skill_block` runs on 10.0.6
-- **THEN** every line exits 0, every envelope carries `evidence.level`, and the count of lines is at most ten
+- **WHEN** `uv run pytest tests/kicad/acceptance/test_skill_block.py -rA` runs on 10.0.6, and on 9.0.9
+- **THEN** every line exits 0 for each target the running tool can read, every envelope carries `evidence.level`, `check` reports no violation and no unconnected item, and `blink/fab` holds a manifest and at least one Gerber file
 
 ### Requirement: Release record
 `docs/release/v0.1.md` SHALL be the record of the v0.1 acceptance, and `tests/unit/test_release_record.py` SHALL guard it.
@@ -176,15 +181,15 @@ The release artefacts SHALL be built from the tagged commit in a clean checkout,
 
 ### Requirement: README describes the released version
 `README.md` SHALL describe what the newest release does, in the same pull request as its release record.
-- The status paragraph MUST start with `**Status: version 0.3.**`, MUST say what works (a design script becomes a KiCad project with a board and a schematic for KiCad 9.0 and 10.0, the loop of the agent guide on two-layer boards, and KiCad's own checks of the schematic), MUST link to `docs/release/v0.3.md` for the limits, MUST say what is experimental, and MUST NOT hold the words `pre-alpha` or `being bootstrapped`.
-- A section `## What version 0.3 does` MUST name the schematic written by `build`, the checks (ERC, netlist, parity), the BOM and placement tables, the manifest, the inspection commands, the kept layout, the reading of Altium files and the writing of Altium files, each with the page that describes it, and MUST send the reader to the release record for what is proved of the Altium reading and writing.
+- The status paragraph MUST start with `**Status: version 0.5.**`, MUST say what works (a design script becomes a KiCad project with a board and a schematic for KiCad 9.0 and 10.0, the loop of the agent guide, KiCad's own checks of the schematic, and the conversion of a project between KiCad and Altium or to the older KiCad major), MUST link to `docs/release/v0.5.md` for the limits, MUST say what is experimental, and MUST NOT hold the words `pre-alpha` or `being bootstrapped`.
+- A section `## What version 0.5 does` MUST name the schematic written by `build`, the checks (ERC, netlist, parity), the BOM and placement tables, the manifest, the inspection commands, the kept layout, the reading of Altium files, the writing of Altium files, `fenolite convert` with its report, the KiCad downgrade, the public `equivalent`, board slots and the copper-to-edge check, each with the page that describes it, and MUST send the reader to the release record for what is proved of the Altium reading, writing and conversion.
 - A section `## Install` MUST hold the line `pip install fenolite` and say that it installs no other package; the development install stays under its own heading.
 - The file MUST NOT say that Fenolite's output is byte-identical to a file re-saved by KiCad: only tree identity is claimed (`H-K-FMT-INDENT`).
 - `tests/unit/test_agent_skill.py` MUST check the status paragraph, the install section and the byte-identity rule textually.
 
 #### Scenario: Status and install present
 - **WHEN** `uv run pytest tests/unit/test_agent_skill.py -k readme` runs
-- **THEN** it passes only if the status paragraph of `README.md` names `0.3`, links to `docs/release/v0.3.md` and says what is experimental, and `pip install fenolite` stands under `## Install`
+- **THEN** it passes only if the status paragraph of `README.md` names `0.5`, links to `docs/release/v0.5.md` and says what is experimental, and `pip install fenolite` stands under `## Install`
 
 #### Scenario: Stale status rejected
 - **GIVEN** a copy of `README.md` that holds `Status: pre-alpha`
@@ -192,9 +197,9 @@ The release artefacts SHALL be built from the tagged commit in a clean checkout,
 - **THEN** it fails and names `pre-alpha`
 
 #### Scenario: Status of the version before rejected
-- **GIVEN** a copy of `README.md` whose status paragraph starts with `**Status: version 0.2.**`
+- **GIVEN** a copy of `README.md` whose status paragraph starts with `**Status: version 0.4.**`
 - **WHEN** the README check runs on it
-- **THEN** it fails and names the version `0.3`
+- **THEN** it fails and names the version `0.5`
 
 ### Requirement: Version 0.2.0
 The version SHALL become `0.2.0` in one commit, the last of change c0093, after every row of `docs/release/v0.2.md` has a result, a `pending` row has its entry under `## Open rows`, and the history row is recorded. A later version of the series `0.2` is a patch release and follows "Patch releases of 0.2".
@@ -202,7 +207,7 @@ The version SHALL become `0.2.0` in one commit, the last of change c0093, after 
 - `CHANGELOG.md` MUST hold `## [0.2.0] - <date>` with the entries that were under Unreleased, and `## [0.1.0]` below it, unchanged. Until the maintainer tags, `<date>` is the words `pending the tag`. Above `[0.2.0]` stands `## [Unreleased]`, empty at that commit; between the two only the sections of the patch releases of the series MAY stand, the newest first.
 - The `[0.2.0]` section MUST hold each `###` heading at most once and no entry before its first `###` heading. Its entries MUST describe what a user of the CLI or the library sees: no entry names a module or function whose name starts with an underscore, the notes about archived specs are folded into one closing entry, and notes about tests, CI or the repository are merged into that entry or removed.
 - The `[0.1.0]` section MUST stay clean by the same two rules (no repeated `###` heading, no underscore name), which `tests/unit/test_release_record.py` checks.
-- `docs/roadmap.md` MUST NOT give the state `proposed` to v0.2a, v0.2b or v0.3 in its milestone table, MUST name every change of the three milestones that is not archived, and MUST name the release change.
+- `docs/roadmap.md` MUST NOT give the state `proposed` to v0.2a, v0.2b or v0.3 in its milestone table, MUST name every change of v0.2a, of v0.2b and of the read part of v0.3 (c0039–c0047) that is not archived, and MUST name the release change.
 - No task of this change MUST create a tag, a GitHub Release or a PyPI upload.
 
 #### Scenario: Versions agree
@@ -414,5 +419,313 @@ The version SHALL become `0.3.0` in the commit of change c0150, in `src/fenolite
 
 #### Scenario: History row required
 - **GIVEN** `__version__ == "0.3.0"` and a copy of `docs/evidence/residue-history.md` without the `v0.3.0` row
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `docs/evidence/residue-history.md`
+
+### Requirement: Yardstick board
+`examples/yardstick/design.py` SHALL be an authored design of at least 300 parts, written as a user writes a script: an invented controller of eight identical buck channels with an isolated high-voltage sense section, built for KiCad 10 from the official KiCad libraries (change c0119).
+- The file MUST start with `# SPDX-License-Identifier: CC0-1.0` and a line stating that it was authored for Fenolite as an example. Beyond the library ids of the official KiCad libraries, it MUST name no company, product or private path.
+- It MUST hold a module-level `STAGE = <n>` with n from 1 to 5 ("Yardstick stages"), and the copper layer count of its stage: 4 at stage 1, 6 from stage 2.
+- It MUST hold at least 300 parts: a 48-pin QFN controller, eight channel modules made by one function and each holding the same number of parts, a `USB2` interface whose two nets KiCad pairs by name (`H-K-DIFFPAIR-NAMES`), the nets of the high-voltage section in a net class of their own, and at least four mounting holes.
+- A channel's references MUST be numbered `n·100 + k` for channel n; the parts outside the channels MUST be numbered below 100.
+- Every part MUST be placed by the script; connectors and mounting holes MUST be locked.
+- Every value of the circuit, gap and rule MUST be stated once, at the top of the script, as the example's own input, and each MUST carry a comment that says either `chosen for the example` or the id of a public source in `docs/evidence/sources.md`. The values MUST be round ones chosen for the example (supply voltages, the gap, the clearances, the board size), never copied from a board of any organisation.
+- **Provenance.** The circuit is invented for Fenolite. `docs/evidence/yardstick.md` MUST record, under `How to read`, the maintainer's statement of 2026-10-07 that the circuit was invented for Fenolite and mirrors no board of any organisation, and `tests/residue` MUST scan `examples/yardstick/`.
+- With the libraries of tag 10.0.6 (`needs_libs`), `fenolite build examples/yardstick/design.py --out <dir> --kicad-version 10 --confirm` MUST exit 0 with no issue of severity `error`.
+- `examples/README.md` MUST list the example with its stage.
+
+#### Scenario: Structure without a build
+- **WHEN** `uv run pytest tests/unit/test_examples.py -k yardstick` loads the script through `fenolite.dsl` without building it
+- **THEN** it passes only if the design holds at least 300 parts, eight channel modules of equal size, one `USB2` interface, every part placed, `STAGE` between 1 and 5, and a copper count that matches the stage
+
+#### Scenario: Stage and copper disagree
+- **GIVEN** a copy of the script with `STAGE = 1` and `design.board(…, copper=6)`
+- **WHEN** the same test runs on the copy
+- **THEN** it fails and names `STAGE` and the copper count
+
+#### Scenario: Builds with the official libraries
+- **GIVEN** the verified library cache of tag 10.0.6
+- **WHEN** `uv run pytest tests/libs/test_yardstick_build.py` builds the example for target 10 into a temporary folder
+- **THEN** the build exits 0 with no `error` issue and writes a board, a project and a rules file
+
+#### Scenario: Every value says where it comes from
+- **WHEN** `uv run pytest tests/unit/test_examples.py -k yardstick_values` reads the assignments above the first function of the script
+- **THEN** it passes only if each has a comment holding `chosen for the example` or an `S-` id that `docs/evidence/sources.md` lists, and `docs/evidence/yardstick.md` holds the statement of provenance with its date
+
+### Requirement: Yardstick stages
+The yardstick SHALL grow in five cumulative stages, and `tools/yardstick.py` SHALL hold the table of the stages: for each, the changes it needs and the steps the runner takes.
+
+| stage | needs on `dev`, archived | steps added to the stage before |
+|---|---|---|
+| 1 | nothing beyond release 0.3.0 | `capabilities`, `build-dry`, `build`, `fill`, `check`, `export`, `render`, `bom`, `pnp`, `manifest`, `rebuild-dry`, `rebuild`, `inspect`, `build-install`, `heavy-read`, `heavy-rt1` |
+| 2 | c0100, c0101 | none |
+| 3 | c0102, c0103, c0104, c0105, c0111, c0112, c0113, c0114 | `impedance` |
+| 4 | c0106, c0107, c0108, c0109, c0110, c0115 | `route`, `route-pairs`, `fill-routed`, `check-routed`, `net`, `analyze` |
+| 5 | c0116, c0117, c0118 | `export-package`, `testpoints` |
+
+- `read_stage(path)` MUST read `STAGE` from the script's syntax tree, without running the script. A script without `STAGE`, or with a value outside 1 to 5, MUST make `run` exit 2 with a message that names `STAGE`.
+- A stage MUST be set in the example only when every change it needs is archived under `openspec/changes/archive/`, or is named as cut, or as complete for a release (`complete for 0.4: c0100, …`: implemented on the release branch and archived at the release; the coordinator's decision of 2026-10-08), in the `Stages` section of `docs/evidence/yardstick.md`; the part of a cut change MUST then be left out of the example.
+- A stage MUST count as reached only after one scheduled run of it has the verdict `passed`; the page MUST then name the date and the run.
+- Each stage's additions MUST use the script calls, options and codes of the changes that own them; the yardstick MUST add none of its own. Where two changes offered one thing, the example uses the call that the maintainer's decisions of 2026-10-07 kept: c0102's `design.hole`, c0103's `rule_area`, c0113's `near` rules.
+- No stage needs c0096, c0097, c0099, c0120 or c0141. The runner MUST read what they add when it is there (the report-limit mark of c0141, the measures of c0113) and MUST pass without it.
+- **Route order** (the maintainer's decision of 2026-10-09, change c0157). The runner MUST run `route` (Freerouting) before `route-pairs` (KiCadRoutingTools), so that Freerouting routes the board without the pair's copper: in run 37836196244, where `route-pairs` ran first, KiCadRoutingTools routed `USB_DP` and `USB_DN` as two separate nets, and their 127 meandered segments left Freerouting 2 of 171 nets closed. This order MUST hold until the yardstick's pair is routed as a coupled pair with the controller's escape; a run with `route-pairs` first is then measured again, and a change of its own sets the order and the budget of `route` on it. The budgets and the ratchets MUST NOT depend on the order: a budget is found by its step's name, and `rebase` MUST give the same budgets and ratchets (its tables may follow the order of the steps) from records that differ only in the order of the two route steps.
+
+#### Scenario: Stage read without running the script
+- **GIVEN** a script whose first statement raises an exception and which holds `STAGE = 2`
+- **WHEN** `read_stage` reads it
+- **THEN** it returns 2, and the exception is never raised
+
+#### Scenario: Stage without its changes
+- **GIVEN** the example with `STAGE = 2` while `c0100-board-layer-count` is not archived and the page names no cut
+- **WHEN** `uv run pytest tests/unit/test_yardstick.py -k stage_needs` runs
+- **THEN** it fails and names `c0100`
+
+#### Scenario: Steps of stage 1
+- **WHEN** `steps_for(1)` is called
+- **THEN** it returns the steps of stage 1 in the order of the table, `bom`, `pnp` and `manifest` after `render`, `heavy-read` and `heavy-rt1` once for each heavy board, and no `route` step
+
+#### Scenario: Route before the pair
+- **WHEN** `steps_for(5)` is called
+- **THEN** `route` comes right after `impedance` and right before `route-pairs`, and `fill-routed` comes after both
+
+#### Scenario: Budgets independent of the route order
+- **GIVEN** two sets of three stage-5 records that differ only in the order of `route` and `route-pairs`
+- **WHEN** `uv run pytest tests/unit/test_yardstick.py -k rebase_ignores_the_order` runs `rebase` on each
+- **THEN** both print the same budgets of `route` and `route-pairs` and the same ratchets
+
+### Requirement: Yardstick runner
+`tools/yardstick.py run` SHALL take the example through the steps of its stage with the command-line interface, measure each step, and judge the run. It MUST use the standard library only.
+- Each step MUST run as one child process `python -m fenolite <args> --json` in the output folder; the writing steps MUST pass `--seed 250025 --timestamp 2026-10-04T00:00:00Z --no-backup --confirm`; `check` MUST pass `--format concise`; `bom` MUST run as `bom <dir> --source model --out fab/bom.csv --manifest`, `pnp` as `pnp <dir> --out fab/pnp.csv --manifest` and `manifest` as `manifest <dir> --artifacts fab --no-check`, after `export` and `render` wrote into `fab`; `inspect` and the heavy steps MUST name a board file; `heavy-read` and `heavy-rt1` MUST run once for each of the two corpus rows tagged `heavy` that are demo boards, as one recorded step each. `build-install` MUST run as a dry-run build with `FENOLITE_LIBS_CACHE` removed from its environment.
+- For each step, the runner MUST record the arguments, the exit code, the wall seconds of a monotonic clock, `peak_mib` from the `ru_maxrss` that `os.wait4` returns for the step's process (kibibytes on Linux, bytes on macOS), the bytes of the reply and the issue counts by code.
+- It MUST read the stage's measures from the replies and the files: parts, nets, pads, copper layers, the bytes of the board and of `.fenolite/`, zone fills, DRC errors and warnings by type, KiCad's unconnected count with the report-limit mark of `check` (`summary.limits`, change c0141) when the reply holds one, the number of artefacts per state from the `manifest` reply, and from stage 4 the open connections that `route` and `net` report.
+- It MUST apply the stage's acceptance rules: every step exits with the code its stage expects (`check`, on the board before routing, exits 5; from stage 4 `check-routed`, on the routed board, exits 0, or 5 with counts within the ratchets); every stage of `check` that ran (on `dev`: `model.validate`, `erc.kicad`, `copper.clearance`, `zone.fill`, `parity`, `netlist.assignment_compare`, `roundtrip`) is `ok` except `drc.kicad`, whose only error type is `unconnected_items`; `copper.clearance` has no finding and `netlist.assignment_compare` no difference; `bom`, `pnp` and `manifest` exit 0, and the manifest lists every file that `export`, `render`, `bom` and `pnp` wrote; `rebuild-dry` plans no write and `rebuild` leaves the bytes of the board unchanged; from stage 4 every stage of `check-routed` is `ok` except `drc.kicad`, whose error types are counted, and `length.rules`, each of whose error codes (`length.out-of-range`, `length.skew-out-of-range`) MUST be reported by `drc.kicad` as often under KiCad's type (`length_out_of_range`, `skew_out_of_range`), which counts it once, and the ratchets of "Yardstick budgets" hold for KiCad's open connections and the other DRC errors of the routed board; at stage 5 `fab/fenolite-artifacts.json` lists every file that `export-package` and `testpoints` wrote.
+- **Accepted findings.** A finding that the example cannot remove because the defect is Fenolite's (an `erc.kicad` or `parity` finding on the schematic that `build` writes, for instance) MAY be accepted for a stage by one entry of `[stage<n>.accepted]` in the budgets file: the `check` stage, the finding's type, the reason, and the change or issue that owns the repair. An accepted type MUST be recorded with its count and MUST NOT fail the run; any other type still fails it. `unconnected_items` before stage 4 is the one type accepted without an entry.
+- A failed `build` or `fill` MUST mark every later step `skipped`; any other failed step MUST let the next steps run.
+- It MUST exit 0 when every step, rule and budget passes; 1 when one fails; 2 for a usage error or a missing `kicad-cli`, library cache, corpus row, router or budget table, naming what is missing.
+- `row RECORD [--url URL]` MUST print one row of the `Runs` table of `docs/evidence/yardstick.md` for a record.
+
+#### Scenario: A passing run
+- **GIVEN** a fake `fenolite` that answers every step of stage 1 with the expected exit code and a reply that meets every rule
+- **WHEN** `uv run pytest tests/unit/test_yardstick.py -k passing` runs `run` with it
+- **THEN** the exit code is 0, and the record holds every step of stage 1, each with `seconds`, `peak_mib`, `reply_bytes` and `exit`
+
+#### Scenario: A DRC error other than unconnected items
+- **GIVEN** the same fake, whose `check` reply holds one `clearance` error in `drc.kicad`
+- **WHEN** `run` runs at stage 1
+- **THEN** the exit code is 1, and the record and the summary name `check` and `clearance`
+
+#### Scenario: A rebuild that changes the board
+- **GIVEN** a fake whose `rebuild` rewrites the board with other bytes
+- **WHEN** `run` runs
+- **THEN** the exit code is 1 and the failed rule names the board file
+- **AND** a rebuild that leaves the board's bytes unchanged passes the rule although a later step (`route`) rewrites the board: the board is hashed right after the `rebuild` step
+
+#### Scenario: Length findings of the routed board
+- **GIVEN** a fake whose `check-routed` reply holds two `length.out-of-range` and one `length.skew-out-of-range` in `length.rules`, and `drc.kicad` two `length_out_of_range` and one `skew_out_of_range`, with a `drc_errors` ratchet of 3
+- **WHEN** `run` runs
+- **THEN** `check-routed.length.rules` passes and `ratchet.drc_errors` counts 3
+- **AND** when `drc.kicad` holds one `length_out_of_range`, `check-routed.length.rules` fails and its detail names both counts
+
+#### Scenario: A failed build
+- **GIVEN** a fake whose `build` exits 3
+- **WHEN** `run` runs
+- **THEN** the exit code is 1, `build` is recorded with exit 3, and `fill` and every later step except `build-install` and the heavy steps are `skipped`
+
+#### Scenario: No kicad-cli
+- **GIVEN** a fake whose `capabilities` reply names no `kicad-cli`
+- **WHEN** `run` runs
+- **THEN** the exit code is 2 and the message names `kicad-cli`
+
+#### Scenario: Peak memory units
+- **WHEN** `peak_mib` is given an `ru_maxrss` of 1048576 on `darwin` and of 1024 on `linux`
+- **THEN** it returns 1.0 in both cases
+
+#### Scenario: An accepted finding is counted, another fails
+- **GIVEN** a budgets file whose `[stage1.accepted]` names the stage `erc.kicad`, the type `power_pin_not_driven`, a reason and an owner, and a fake whose `check` reply holds two findings of that type and, in a second run, one `pin_not_connected` as well
+- **WHEN** `uv run pytest tests/unit/test_yardstick.py -k accepted` runs `run` at stage 1 on each
+- **THEN** the first exits 0 with the count 2 in the record under the accepted type, and the second exits 1 naming `erc.kicad` and `pin_not_connected`
+
+### Requirement: Yardstick budgets
+`tools/yardstick_budgets.toml` SHALL hold the budgets of each stage, and `run` SHALL judge every measured step against them.
+- Each stage MUST have a table `[stage<n>]` with a `source`: `provisional`, or the ids of the scheduled runs its values were read from. A step's budget MUST be a table `[stage<n>.steps.<step>]` with `seconds` and `mib`; from stage 4 a table `[stage<n>.ratchets]` MUST hold `open_connections` and `drc_errors`. A table `[stage<n>.accepted]` MAY hold the accepted findings of "Yardstick runner", each with `stage`, `type`, `reason` and `owner`; an entry without one of the four MUST make `run` exit 2.
+- A step whose seconds or `peak_mib` exceed its budget, or a count above its ratchet, MUST fail the run; the record and the summary MUST name the step, the value and the budget. A step without a budget MUST be recorded with `budget` null and fail nothing. A stage without a table MUST make `run` exit 2.
+- Budgets read from runs MUST follow one rule: seconds are the median of the first three scheduled runs of the stage times 1.5, rounded up to 10 s; MiB the largest of them times 1.25, rounded up to 50 MiB; a ratchet the largest count of the three. Provisional budgets MUST be the local measurement times 4 for seconds and times 2 for MiB, rounded the same way. `tools/yardstick.py rebase RECORD …` MUST print the budgets that this rule gives, as TOML.
+- Stage 1 MUST start with provisional values read from one local run of the runner on the example itself, on `dev`, by the provisional rule; the `Budgets` section of the page MUST name that run's commit, machine and date. The measurements of 2026-10-05 in the design were taken on a stand-in before `check` had the stages `erc.kicad` and `parity` and before `build` wrote a schematic: they MUST NOT be the source of a committed budget.
+- A commit that raises a budget, or adds an accepted finding, MUST add a row to `docs/evidence/yardstick.md` that names the step or the type and the reason.
+- Time and memory are measures of one runner, not facts of KiCad: a budget that holds MUST NOT raise an evidence label, and a budget that fails MUST NOT lower one.
+
+#### Scenario: A step over its budget
+- **GIVEN** a budget of 30 s for `build` at stage 1 and a fake `build` that takes 31 s
+- **WHEN** `run` runs
+- **THEN** the exit code is 1, and the summary names `build`, 31 and 30
+
+#### Scenario: Budgets from three runs
+- **GIVEN** three records of stage 1 whose `build` took 20 s, 30 s and 25 s with peaks of 200, 220 and 210 MiB
+- **WHEN** `uv run python tools/yardstick.py rebase` reads them
+- **THEN** it prints `seconds = 40` and `mib = 300` for `build`
+
+#### Scenario: No table for the stage
+- **GIVEN** a budgets file without `[stage2]` and an example at stage 2
+- **WHEN** `run` runs
+- **THEN** the exit code is 2 and the message names `stage2`
+
+#### Scenario: Provisional budgets of stage 1
+- **WHEN** `uv run pytest tests/unit/test_yardstick.py -k budgets_file` reads the committed file
+- **THEN** it passes only if `[stage1]` exists, its `source` is `provisional` or names three runs that the page lists, and every step of stage 1 except the heavy steps has `seconds` and `mib`
+
+### Requirement: Yardstick record
+Each run SHALL leave a record, and `docs/evidence/yardstick.md` SHALL keep the series of the yardstick.
+- The record MUST be JSON with `schema` set to `fenolite.yardstick-record.v0` and the keys `date`, `commit`, `stage`, `runner` (system, CPU count, memory), `tools` (the versions of `fenolite`, `kicad-cli` and the routers, from `capabilities`), `board` (the measures), `steps`, `rules` (each rule with its result), `accepted` (each accepted type with its count), `budgets` and `verdict` (`passed` or `failed`). Paths in it MUST be relative to the output folder.
+- The page MUST hold the sections `How to read` (with the statement of provenance of "Yardstick board"), `Stages` (each stage `reached` with its date and run, `waiting` with the changes it waits for, or `not reached` with the cut change), `Runs` (date, commit, stage, run, total seconds, largest `peak_mib`, open connections, DRC errors, verdict, note), `Budgets` (where the current values come from) and `Not measured`.
+- A row MUST be added to `Runs` when a stage is reached and before each release. The release record of every release made after the job's first scheduled run MUST name the newest scheduled run of the yardstick, its stage and its verdict; the releases up to 0.3.0 were made without one, and the page says so under `Not measured`.
+
+#### Scenario: Record shape
+- **WHEN** the passing run of "Yardstick runner" writes its record
+- **THEN** the file loads as JSON with every key above, `stage` 1 and `verdict` `passed`, and holds no absolute path
+
+#### Scenario: Row from a record
+- **GIVEN** that record and `--url https://example.invalid/run/1`
+- **WHEN** `uv run python tools/yardstick.py row <record> --url https://example.invalid/run/1` runs
+- **THEN** it prints one Markdown table row with the record's date, commit, stage 1, the URL, the total seconds and `passed`
+
+#### Scenario: Page guard
+- **WHEN** `uv run pytest tests/unit/test_yardstick.py -k page` reads `docs/evidence/yardstick.md`
+- **THEN** it passes only if the five sections exist, every stage from 1 to 5 has one state, and every row of `Runs` has a stage from 1 to 5 and a verdict `passed` or `failed`
+
+### Requirement: Release record of v0.4
+`docs/release/v0.4.md` SHALL record, change by change, what `0.4.0` ships of v0.4, guarded by `tests/unit/test_release_record_v04.py`.
+- `## Verdict per change` MUST hold the table `| change | what ships | proof | job | open tasks | result |`, a row per change.
+- Proofs and jobs follow the record of v0.2; a result is `ships`, `ships with deferred tasks` or `pending`.
+- The guard MUST refuse a verdict over a `pending` row or a `TODO(coordinator)` placeholder.
+
+#### Scenario: Every change present
+- **WHEN** `uv run pytest tests/unit/test_release_record_v04.py` reads the committed record
+- **THEN** every change of v0.4 has one row, and every proof and every job exists
+
+#### Scenario: Verdict over a placeholder
+- **GIVEN** a copy of the record that holds `TODO(coordinator)` and the verdict `Released as v0.4.0.`
+- **WHEN** the guard runs on it
+- **THEN** it fails and names the placeholder
+
+### Requirement: Open tasks in the record of v0.4
+The column `open tasks` of `docs/release/v0.4.md` SHALL follow the change's own `tasks.md`.
+- Every unchecked task of that list MUST be named, and every number named MUST be a task of it.
+- A row that `ships` names no task; a row `ships with deferred tasks` MUST have an entry under `## Deferred to the next release`, and a `pending` row one under `## Pending on the release branch`.
+
+#### Scenario: An open task not named
+- **GIVEN** a copy of the record whose row of c0081 does not name task 4.2
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `c0081` and `4.2`
+
+### Requirement: Sections of the record of v0.4
+`docs/release/v0.4.md` SHALL hold `## Altium write`, `## Not in 0.4.0`, `## Runs and versions`, `## Recorded limits`, `## Release build`, `## Archive order`, `## Deferred after v0.4` and `## Maintainer's steps`.
+- The runs, the limits, the build and the steps MUST say what those of v0.3 say, for the tag `v0.4.0`, and the runs MUST name the `yardstick` job.
+
+#### Scenario: The yardstick run not named
+- **GIVEN** a copy of the record whose runs do not name the `yardstick` job
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `yardstick`
+
+### Requirement: Follow-ups of the record of v0.4
+`## Follow-ups found on 2026-10-08` of `docs/release/v0.4.md` SHALL name c0110 with `route.escape-skipped`, c0105, c0108, c0109, c0112, c0081, c0091, c0148, X8, Part V, Part G, R2, the `.cmd` launcher of `agent_eval` and c0151.
+
+#### Scenario: A follow-up missing
+- **GIVEN** a copy of the record whose follow-ups do not name c0151
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `c0151`
+
+### Requirement: Version 0.4.0
+The version SHALL become `0.4.0` in the commit of change c0154, in `src/fenolite/__init__.py`, in `packaging/phenolite/pyproject.toml` and in its pin `fenolite==0.4.0`; later commits keep the three equal.
+- `CHANGELOG.md` MUST hold `## [0.4.0] - <date>` under an empty `## [Unreleased]`, followed by `## [0.3.0]`, clean by the rules of `[0.2.0]`.
+- No task of this change creates a tag, a release page or an upload.
+
+#### Scenario: Versions agree
+- **WHEN** `uv run pytest tests/unit/test_release_record_v04.py -k "version or changelog" tests/unit/test_pyproject_invariants.py` runs after the version commit
+- **THEN** the package version, the alias version and the alias pin are `0.4.0`, and the headings of `CHANGELOG.md` start `Unreleased`, `0.4.0` and `0.3.0`
+
+### Requirement: History row and roadmap of 0.4.0
+`docs/evidence/residue-history.md` SHALL hold a row `v0.4.0` with the private gate `not run` and `0` hits, and `docs/roadmap.md` SHALL name the release change.
+- The guard MUST fail at `0.4.0` without the row, or when it claims the private gate `on`.
+- The milestone row of v0.4 MUST name `0.4.0` and MUST NOT say that its changes are not on `dev`.
+
+#### Scenario: History row required
+- **GIVEN** `__version__ == "0.4.0"` and a copy of `docs/evidence/residue-history.md` without the `v0.4.0` row
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `docs/evidence/residue-history.md`
+
+### Requirement: Release record of v0.5
+`docs/release/v0.5.md` SHALL record, change by change, what `0.5.0` ships, guarded by `tests/unit/test_release_record_v05.py`.
+- `## Verdict per change` MUST hold the table `| change | what ships | proof | job | open tasks | result |`, a row per change named by its folder `cNNNN-<slug>`.
+- A result is `ships`, `ships with deferred tasks` or `pending`.
+- The guard MUST refuse a verdict over a `pending` row or a `TODO(coordinator)` placeholder.
+
+#### Scenario: Every change present
+- **WHEN** `uv run pytest tests/unit/test_release_record_v05.py` reads the committed record
+- **THEN** every change of the release has one row, and every proof and every job exists
+
+#### Scenario: Verdict over a placeholder
+- **GIVEN** a copy of the record that holds `TODO(coordinator)` and the verdict `Released as v0.5.0.`
+- **WHEN** the guard runs on it
+- **THEN** it fails and names the placeholder
+
+### Requirement: Open tasks in the record of v0.5
+The column `open tasks` of `docs/release/v0.5.md` SHALL follow the change's own `tasks.md`, open or archived.
+- Every unchecked task MUST be named, and every number named MUST be a task of it.
+- A row that `ships` names no task; a deferred or `pending` row MUST have its entry in the matching section.
+- `## Open changes of earlier releases` MUST name each open task of c0081, c0105 and c0146.
+
+#### Scenario: An open task not named
+- **GIVEN** a copy of the record whose row of c0160 does not name task 5.3
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `c0160-convert-to-altium` and `5.3`
+
+### Requirement: Sections of the record of v0.5
+`docs/release/v0.5.md` SHALL hold the sections of the record of v0.4 for the tag `v0.5.0`, with `## Deferred after v0.5` in place of `## Deferred after v0.4`.
+- `## Altium write` MUST say that every Altium write kind stays experimental.
+- `## Not in 0.5.0` MUST name c0151 and v0.5b.
+- `## Deferred after v0.5` MUST name Part T, the Altium executions of c0166, R1 to R5, c0092's tasks 5.2 and 6.2, the kit run, the agent run of c0081, c0105's GUI save and Part S of c0168.
+
+#### Scenario: A deferred item missing
+- **GIVEN** a copy of the record whose `## Deferred after v0.5` does not name Part T
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `Part T`
+
+### Requirement: Scope of 0.5.0 of 2026-10-16
+The record SHALL hold the scope that the maintainer decided on 2026-10-16. The hold it set on c0172 and c0173 was lifted on 2026-10-25 (the next requirement).
+- The changes of the release MUST include c0168, c0170, c0172 and c0173, each with its row.
+- `## Not in 0.5.0` MUST NOT name a change of the release.
+
+#### Scenario: A change of the release named as not in it
+- **GIVEN** a copy of the record whose `## Not in 0.5.0` names c0170
+- **WHEN** the guard runs on it
+- **THEN** it fails and names `c0170`
+
+### Requirement: Scope of 0.5.0 of 2026-10-25
+The record SHALL hold the scope that the maintainer decided on 2026-10-25: everything done since 2026-10-16, no change held, and every open test of his noted for v0.6.
+- The changes MUST include c0174 and c0176 to c0191.
+- `## Deferred after v0.5` MUST name c0172, c0173 and v0.6.
+- `## Not in 0.5.0` MUST name c0175.
+
+#### Scenario: The hold lifted
+- **GIVEN** the record of 2026-10-25
+- **WHEN** the guard runs on it
+- **THEN** the rows of c0172 and c0173 are `ships with deferred tasks` and the guard reports no problem
+
+### Requirement: Version 0.5.0
+The version SHALL become `0.5.0` in the commit of change c0171, in `src/fenolite/__init__.py`, in `packaging/phenolite/pyproject.toml` and in its pin `fenolite==0.5.0`; later commits keep the three equal.
+- `CHANGELOG.md` MUST hold `## [0.5.0] - <date>` under an empty `## [Unreleased]`, followed by `## [0.4.0]`, with exactly one `### Added`, `### Changed` and `### Fixed` and no entry before the first of them.
+- No task of this change creates a tag, a release page or an upload.
+
+#### Scenario: Versions agree
+- **WHEN** `uv run pytest tests/unit/test_release_record_v05.py -k "version or changelog" tests/unit/test_pyproject_invariants.py` runs after the version commit
+- **THEN** the package version, the alias version and the alias pin are `0.5.0`, and the headings of `CHANGELOG.md` start `Unreleased`, `0.5.0` and `0.4.0`
+
+### Requirement: History row and roadmap of 0.5.0
+`docs/evidence/residue-history.md` SHALL hold a row `v0.5.0` with the private gate `not run` and `0` hits, and `docs/roadmap.md` SHALL name the release change.
+- The guard MUST fail at `0.5.0` without the row, or when it claims the private gate `on`.
+- The milestone row of v0.5a MUST name `0.5.0`.
+
+#### Scenario: History row required
+- **GIVEN** `__version__ == "0.5.0"` and a copy of `docs/evidence/residue-history.md` without the `v0.5.0` row
 - **WHEN** the guard runs on it
 - **THEN** it fails and names `docs/evidence/residue-history.md`

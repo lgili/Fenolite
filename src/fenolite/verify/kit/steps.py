@@ -128,7 +128,7 @@ GROUPS: tuple[Group, ...] = (
     Group(
         5,
         "Layer stack, vias, texts, keep-outs",
-        "The board items of `board6`. Component bodies are written on request only and `board6` holds none: "
+        "The board items of `board6`. `board6` holds no component body: "
         "no step of the kit reads them (step X8 of the author report does, on the sample `body2`).",
         10,
     ),  # fmt: skip

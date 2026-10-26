@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import get_args
 
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from fenolite.backends.altium import rulemap
@@ -360,6 +360,9 @@ def _rules(draw: st.DrawFn) -> Rule:
     )
 
 
+# No deadline: one run under three parallel workers failed and passed alone, and 30 000 examples gave no
+# counterexample, so the slow example under load met Hypothesis's 200 ms deadline (c0171 task 1.7).
+@settings(deadline=None)
 @given(st.lists(_rules(), max_size=10, unique_by=lambda r: r.id))
 def test_roundtrip_of_generated_rule_sets(rules: list[Rule]) -> None:
     """Scenario "Round trip of the table": ``lift(lower(rules).records)`` is the lowered subset within

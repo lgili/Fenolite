@@ -23,7 +23,13 @@ GOLDEN = ROOT / "tests" / "data" / "altium" / "sample"
 BLINK = ROOT / "examples" / "blink_2layer" / "design.py"
 CACHE = (".fenolite/board.json", ".fenolite/build.json", ".fenolite/circuit.json", ".fenolite/findings.json",
          ".fenolite/manufacturing.json", ".fenolite/meta.json", ".fenolite/rules.json")  # fmt: skip
-PLANNED = ("altium_sample.PrjPcb", "altium_sample.SchDoc", "FenoliteSample.SchLib", *CACHE)
+PLANNED = (
+    "altium_sample.PrjPcb",
+    "altium_sample.SchDoc",
+    "FenoliteSample.SchLib",
+    *CACHE,
+    ".fenolite/altium-generated/altium_sample.SchDoc",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -333,11 +339,24 @@ def test_modules_on_request(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> 
     assert {kinds[name] for name in HIER_HARNESSES} == {"altium_harness"}
     assert {kinds[name] for name in HIER_SHEETS} == {"altium_schdoc_binary"}
     assert all((out / name).read_bytes() == b"SPI=CS,MISO,MOSI,SCK\r\n" for name in HIER_HARNESSES)
-    expected = [*HIER_SHEETS, *HIER_HARNESSES, "altium_hier.PrjPcb", "FenoliteHier.SchLib", *CACHE]
+    expected = [
+        *HIER_SHEETS,
+        *HIER_HARNESSES,
+        "altium_hier.PrjPcb",
+        "FenoliteHier.SchLib",
+        *CACHE,
+        *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+    ]
     assert files_under(out) == sorted(expected)
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
     assert sorted(record["files"]) == sorted(
-        [*HIER_SHEETS, *HIER_HARNESSES, "altium_hier.PrjPcb", "FenoliteHier.SchLib"]
+        [
+            *HIER_SHEETS,
+            *HIER_HARNESSES,
+            "altium_hier.PrjPcb",
+            "FenoliteHier.SchLib",
+            *(f".fenolite/altium-generated/{name}" for name in HIER_SHEETS),
+        ]
     )
     ascii_args = ("--out", str(tmp_path / "A"), *MODULES, "--altium-format", "ascii", "--dry-run")
     code, env, _ = run(monkeypatch, str(HIER), *ascii_args)
@@ -397,7 +416,12 @@ def test_switching_the_mode_is_not_an_edit(monkeypatch: pytest.MonkeyPatch, tmp_
     assert (out / "altium_hier_flash.SchDoc").read_bytes() == module_sheet, "left in place"
     record = json.loads((out / ".fenolite" / "build.json").read_text(encoding="utf-8"))
     # the kept project file is still as the first build wrote it and stays in the record (change c0138)
-    assert sorted(record["files"]) == ["FenoliteHier.SchLib", "altium_hier.PrjPcb", "altium_hier.SchDoc"]
+    assert sorted(record["files"]) == [
+        ".fenolite/altium-generated/altium_hier.SchDoc",
+        "FenoliteHier.SchLib",
+        "altium_hier.PrjPcb",
+        "altium_hier.SchDoc",
+    ]
 
 
 @pytest.mark.parametrize("name", ["altium_hier_mcu.SchDoc", "altium_hier_flash.Harness"])
@@ -547,12 +571,12 @@ def test_directions_option(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> N
 # --- component bodies (change c0121) ------------------------------------------------------------------
 
 
-def test_bodies_option_is_off_by_default_and_changes_no_byte(
+def test_bodies_option_is_extruded_by_default_and_changes_no_byte(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Scenario "Without the option" on the command line: ``result.pcb.bodies`` is ``off`` after the other
-    keys of ``result.pcb``; with ``extruded`` a script, whose footprints hold no body, gives the same
-    files, and no body is counted or invented."""
+    """Scenario "Without the option" on the command line (change c0155): ``result.pcb.bodies`` is
+    ``extruded`` after the other keys of ``result.pcb``; with ``off`` a script, whose footprints hold no
+    body, gives the same files, and no body is counted or invented."""
     monkeypatch.setenv("KICAD_CONFIG_HOME", str(tmp_path / "config"))
     built: dict[str, dict[str, bytes]] = {}
     for value in ("", "off", "extruded"):
@@ -566,7 +590,7 @@ def test_bodies_option_is_off_by_default_and_changes_no_byte(
         assert isinstance(result, dict)
         pcb = result["pcb"]
         assert list(pcb) == ["written", "not_lowered", "bodies"]
-        assert pcb["bodies"] == (value or "off") and pcb["written"]["body"] == 0
+        assert pcb["bodies"] == (value or "extruded") and pcb["written"]["body"] == 0
         assert pcb["not_lowered"] == {}
         issues = env["issues"]
         assert isinstance(issues, list) and not [i for i in issues if str(i["where"]).startswith("body/")]

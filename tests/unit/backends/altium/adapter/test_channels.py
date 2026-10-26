@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import _altium_records as rec
 import pytest
 
@@ -23,7 +25,8 @@ from fenolite.backends.altium.adapter.channels import (
     fallback,
     room_name,
 )
-from fenolite.backends.altium.read.project import read_project
+from fenolite.backends.altium.adapter.netlist import resolve
+from fenolite.backends.altium.read.project import load_project, read_project
 from fenolite.core.errors import Issue
 
 FORMAT = "$Component_$RoomName"
@@ -158,3 +161,57 @@ def test_options_of_the_project_file() -> None:
     bare = read_project(b"[Design]\r\nVersion=1.0\r\n", file="p.PrjPcb")
     plain = NetOptions.from_project(bare)
     assert (plain.channel_format, plain.room_style, plain.room_separator) == ("", None, "_")
+
+
+ANNOTATED = (("\\SYMBOL01\\RUID0001", "R1A"), ("\\SYMBOL02\\CUID0001", "C12B"))
+"""Two entries of an annotation file, in the form the reader assumes (``H-A-IMP-RPT-ANNOT``)."""
+
+
+def test_designators_from_the_annotation_file() -> None:
+    """Scenario "Designators from the annotation file": source 2 comes before the format."""
+    options = NetOptions(channel_format=FORMAT, room_style=0, annotations=ANNOTATED)
+    resolved = resolve(sheets(), options)  # type: ignore[arg-type]
+    assert resolved.channel_sources == {"annotation": 2, "format": 2}
+    issues: list[Issue] = []
+    circuit = import_circuit(sheets(), options=options, issues=issues)  # type: ignore[arg-type]
+    assert sorted(c.ref for c in circuit.components) == ["C12B", "C12_CH1", "R1A", "R1_CH2"]
+    assert "channel-naming" not in codes(issues)
+
+
+def test_annotation_designator_without_a_format() -> None:
+    """An entry names its component when the project states no format; the others keep the sheet's."""
+    options = NetOptions(annotations=ANNOTATED[:1])
+    circuit = import_circuit(sheets(), options=options)  # type: ignore[arg-type]
+    assert sorted(c.ref for c in circuit.components) == ["C12", "C12", "R1", "R1A"]
+
+
+def test_annotation_designator_of_a_single_instance_is_not_taken() -> None:
+    """Only channel components take source 2: the requirement is about channels."""
+    top = rec.Sheet("top.SchDoc")
+    top.symbol("CH1", "ch.SchDoc", (100, 200), uid="SYMBOL01")
+    channel = rec.Sheet("ch.SchDoc")
+    channel.component("R1", [("1", 10, 10)], uid="RUID0001")
+    circuit = import_circuit((top.input(), channel.input()), options=NetOptions(annotations=ANNOTATED))
+    assert [c.ref for c in circuit.components] == ["R1"]
+
+
+def test_the_board_designator_wins_over_the_annotation_file() -> None:
+    parts = [rec.component("R1X", unique_id="A", source_unique_id="\\SYMBOL01\\RUID0001")]
+    project = ProjectInput(
+        "p",
+        options=NetOptions(channel_format=FORMAT, room_style=0, annotations=ANNOTATED),
+        sheets=sheets(),  # type: ignore[arg-type]
+        board=BoardInput("b.PcbDoc", rec.SHA, rec.document(components=parts)),
+    )
+    design = import_project(project, issues=[])
+    assert sorted(c.ref for c in design.circuit.components) == ["C12B", "C12_CH1", "R1X", "R1_CH2"]
+
+
+def test_annotation_designators_of_the_project_reach_the_options(tmp_path: Path) -> None:
+    (tmp_path / "p.Annotation").write_bytes(b"\\SYMBOL01\\RUID0001=R1A\r\n")
+    (tmp_path / "p.PrjPcb").write_bytes(
+        b"[Design]\r\nVersion=1.0\r\n[Document1]\r\nDocumentPath=p.Annotation\r\n"
+    )
+    options = NetOptions.from_project(load_project(tmp_path / "p.PrjPcb"))
+    assert options.annotations == (("\\SYMBOL01\\RUID0001", "R1A"),)
+    assert NetOptions.from_project(read_project(b"[Design]\r\n")).annotations == ()

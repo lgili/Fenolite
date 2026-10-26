@@ -24,7 +24,7 @@ from _resources import kicad_cli
 
 from fenolite.analysis.connectivity import connectivity
 from fenolite.backends.base import DrcReport
-from fenolite.backends.kicad.cli import KicadCli
+from fenolite.backends.kicad.cli import cli_for
 from fenolite.backends.kicad.frame import board_pads
 from fenolite.backends.kicad.sexpr import load, walk
 
@@ -40,7 +40,7 @@ SECTION = "open-connections"
 def drc_report(path: Path) -> DrcReport | None:
     cli = kicad_cli()
     assert cli is not None  # the needs_kicad marker skips before this is reached
-    return KicadCli(Path(cli), timeout=900).drc(path).report
+    return cli_for(Path(cli), timeout=900).drc(path).report  # a binary or a ``docker:<image>`` marker
 
 
 def kicad_counts(report: DrcReport) -> Counter[str]:

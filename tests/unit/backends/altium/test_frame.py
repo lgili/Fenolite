@@ -18,9 +18,10 @@ from fenolite.backends.base import BoardFrame, DesignRulesSource, DocumentParity
 from fenolite.core.coords import Point, Size
 from fenolite.core.evidence import Level
 from fenolite.model.base import ExtBag
-from fenolite.model.board import Board, FootprintInstance, Layer, Pad, Padstack, PadstackLayer
+from fenolite.model.board import Board, FootprintInstance, Graphic, Layer, Pad, Padstack, PadstackLayer
 from fenolite.model.circuit import Circuit, Component, Net
 from fenolite.model.design import Design
+from fenolite.model.rules import Rule, Selector
 
 SAMPLES = Path(__file__).resolve().parents[3] / "data" / "altium"
 MM = 1_000_000
@@ -470,3 +471,52 @@ def test_plane_of_a_stage_is_reported_as_copper_not_judged() -> None:
     assert not [f for f in report.findings if f.code == "copper.short"]
     (left,) = [i for i in rules_issues(rules) if i.code == "copper.item-unsupported"]
     assert left.where == "plane" and left.severity == "warning" and left.message.startswith("1 plane item(s)")
+
+
+def test_frame_edges_of_the_routed_sample() -> None:
+    design, project = sample("routed")
+    rings = AltiumBackend().board_edges(design)
+    assert rings is not None and [ring.name for ring in rings] == ["board"]
+    assert len(rings[0].points) == 4 and set(rings[0].mids) == {None}
+    # the sample holds no BoardOutlineClearance: no board minimum of the edge clearance
+    rules = AltiumBackend().design_rules(design, project)
+    assert rules.min_edge_clearance is None and rules.edge_floor_over_rules is False
+
+
+def _edge(n: int, kind: str, *points: Point) -> Graphic:
+    return Graphic(id=f"gfx_{n}", kind=kind, layer="Edge.Cuts", points=points, width=0)
+
+
+def test_frame_edges_join_rounded_arc_ends_and_name_inner_rings() -> None:
+    # a 20 × 10 mm board with a rounded corner whose arc ends lie 1 nm off the lines, and a square hole
+    corner = (Point(20 * MM, 9 * MM), Point(19 * MM + 707_107, 9 * MM + 707_107), Point(19 * MM, 10 * MM))
+    graphics = (
+        _edge(1, "line", Point(0, 0), Point(20 * MM, 0)),
+        _edge(2, "line", Point(20 * MM, 0), Point(20 * MM, 9 * MM + 1)),
+        _edge(3, "arc", *corner),
+        _edge(4, "line", Point(19 * MM - 1, 10 * MM), Point(0, 10 * MM)),
+        _edge(5, "line", Point(0, 10 * MM), Point(0, 0)),
+        _edge(6, "polygon", Point(5 * MM, 4 * MM), Point(6 * MM, 4 * MM), Point(6 * MM, 5 * MM)),
+    )
+    board = Board(id="brd_1", layers=layers("F.Cu", "B.Cu"), graphics=graphics)
+    design = dataclasses.replace(Design.new("pcb", seed=1), board=board)
+    rings = AltiumBackend().board_edges(design)
+    assert rings is not None and [ring.name for ring in rings] == ["board", "edge ring 1"]
+    assert len(rings[0].points) == 5 and sum(m is not None for m in rings[0].mids) == 1
+    assert len(rings[1].points) == 3
+    open_board = dataclasses.replace(board, graphics=graphics[:2])
+    assert AltiumBackend().board_edges(dataclasses.replace(design, board=open_board)) is None
+
+
+def test_rules_source_takes_the_board_wide_outline_clearance_as_the_minimum() -> None:
+    design, project = sample("routed")
+    assert design.rules is not None
+    wide = Rule(
+        id="rul_e1", name="BoardOutline", kind="edge_clearance", selector_a=Selector("all"), min=300_000
+    )
+    scoped = Rule(
+        id="rul_e2", name="Scoped", kind="edge_clearance", selector_a=Selector("net", "GND"), min=900_000
+    )
+    held = dataclasses.replace(design.rules, rules=(*design.rules.rules, wide, scoped))
+    rules = AltiumBackend().design_rules(dataclasses.replace(design, rules=held), project)
+    assert rules.min_edge_clearance == 300_000

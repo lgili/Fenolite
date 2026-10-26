@@ -24,6 +24,7 @@ from _altium import (
 from _altium_pcb_read import read_pcblib
 from _cfb_read import deframe, read_compound
 
+from fenolite.backends.altium.cutouts import GATED
 from fenolite.backends.altium.project import pcblib_name
 from fenolite.backends.kicad.mod import read_footprint
 from fenolite.dsl import placements, to_model
@@ -97,8 +98,13 @@ def test_pad_extras_refusals_and_drops(tmp_path: Path) -> None:
     path.write_text(text, encoding="utf-8")
     defn = read_footprint(path, library="X")
     first, second = (pad_extras(defn)[p.id] for p in defn.pads)
-    assert first.refusal == "the drill is oval or has an offset"
+    assert first.refusal is None  # an oval drill is written as a slot (change c0170)
     assert first.dropped == ("solder mask margin",) and second == type(second)()
+    path.write_text(source.replace("(drill 0.9)", "(drill 0.9 (offset 0.1 0))", 1), encoding="utf-8")
+    offset = read_footprint(path, library="X")
+    assert pad_extras(offset)[offset.pads[0].id].refusal == (
+        "the drill has an offset or a form other than round or oval"
+    )
 
 
 def test_sample_reads_no_footprint_library() -> None:
@@ -1099,6 +1105,29 @@ def test_an_outline_with_arcs_no_document(tmp_path: Path) -> None:
     assert "arcs" in found.message and output.summary["pcb_document"] is None
 
 
+def test_a_milled_slot_plans_the_document(tmp_path: Path) -> None:
+    """Change c0168 (Decision 5): an outline with slots plans the PCB document; while
+    ``pcbdoc.CUTOUT_REGIONS`` is false each slot is reported by name, in the build and in the lowering of
+    a model."""
+    from fenolite.backends.altium import lower
+
+    slotted = (
+        "design.board(mm(50), mm(30))\ndesign.slot(mm(40), mm(15), length=mm(8), width=mm(2), name='V')\n"
+    )
+    output = build_blink_script(tmp_path, "design.board(mm(50), mm(30))\n", slotted)
+    assert not [i for i in output.issues if i.severity == "error"]
+    assert "blink.PcbDoc" in output.files
+    assert not [i for i in output.issues if i.code == "altium.pcbdoc-not-written"]
+    (found,) = [i for i in output.issues if i.code == "altium.not-lowered" and i.where == "slot/V"]
+    assert "slot V" in found.message
+    board = to_model(blink("design.board(mm(50), mm(30))\n", slotted)).board
+    assert board is not None
+    account = lower._Account()  # pyright: ignore[reportPrivateUsage]
+    assert lower._cutouts(board.outline, account) == ()  # pyright: ignore[reportPrivateUsage]
+    # the account counts the item by its reason (change c0170); the info above names it
+    assert account.kept["cutout"] == ["slot/V"] and account.reasons["cutout"] == GATED
+
+
 def test_a_round_board_names_its_arcs_not_a_missing_outline(tmp_path: Path) -> None:
     round_board = (
         "from fenolite.dsl import shape\ndesign.board(outline=shape.circle(mm(25), mm(15), mm(60)))\n"
@@ -1134,35 +1163,6 @@ def test_a_round_hole_becomes_a_free_pad(tmp_path: Path) -> None:
     assert "H1" not in designators and {"D1", "R1", "U1"} <= designators
     assert b"Fenolite_Holes" not in output.files["blink.SchLib"]
     assert not [name for name in output.files if "Fenolite_Holes" in name]
-
-
-def test_a_plated_hole_and_a_slot_are_reported(tmp_path: Path) -> None:
-    """Scenario "A plated hole and a slot are reported"."""
-    holes = (
-        LAST_LINE
-        + 'h2 = design.hole("H2", mm(46), mm(4), drill=mm(3.2), pad=mm(6))\n'
-        + "connect(gnd, h2[1])\n"
-        + 'design.hole("H3", mm(25), mm(4), drill=mm(1), length=mm(3))\n'
-    )
-    output = build_blink_script(tmp_path, LAST_LINE, holes)
-    assert not [i for i in output.issues if i.severity == "error"]
-    assert "blink.PcbDoc" in output.files
-    pcb = output.summary["pcb"]
-    assert pcb["not_lowered"]["hole"] == 2 and pcb["written"]["hole"] == 0  # type: ignore[index]
-    reported = [i for i in output.issues if i.code == "altium.not-lowered" and i.where.startswith("hole/")]
-    assert len(reported) == 2 and all(i.severity == "info" for i in reported)
-    by_ref = {("H2" if "H2" in i.message else "H3"): i for i in reported}
-    assert "copper" in by_ref["H2"].message and "GND" in by_ref["H2"].message
-    assert "slot" in by_ref["H3"].message and "copper" not in by_ref["H3"].message
-    model = to_model(blink(LAST_LINE, holes))
-    ids = {c.ref: c.id for c in model.circuit.components}
-    assert {i.where for i in reported} == {f"hole/{ids['H2']}", f"hole/{ids['H3']}"}
-    # a hole of each kind beside a round one: one written, two reported
-    mixed = build_blink_script(
-        tmp_path / "mixed", LAST_LINE, holes + 'design.hole("H1", mm(4), mm(4), drill=mm(3.2))\n'
-    )
-    pcb = mixed.summary["pcb"]
-    assert pcb["written"]["hole"] == 1 and pcb["not_lowered"]["hole"] == 2  # type: ignore[index]
 
 
 def test_holes_without_a_document_are_counted_by_the_holes_issue(tmp_path: Path) -> None:

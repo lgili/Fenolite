@@ -26,7 +26,7 @@ from types import MappingProxyType
 from typing import Any, get_args
 
 from fenolite.backends.base import RoundTrip, WriteResult
-from fenolite.backends.kicad import _pcbwrite, schlayout
+from fenolite.backends.kicad import _pcbwrite, resolver, schlayout
 from fenolite.backends.kicad import slots as slotlib
 from fenolite.backends.kicad._fpmap import angle_atom, node, point_node
 from fenolite.backends.kicad._libread import (
@@ -55,7 +55,9 @@ from fenolite.backends.kicad.versions import (
     FormatInfo,
     LossyWriteError,
     check_emittable,
+    check_target,
     classify,
+    is_downgrade,
     major_for,
     require_editable,
 )
@@ -896,6 +898,40 @@ def rebuild_schematic(sheet: SchematicSheet) -> Node:
     return root
 
 
+def retarget_schematic(
+    sheet: SchematicSheet,
+    *,
+    target: int,
+    downgrade: bool = False,
+    allow_lossy: bool = False,
+    issues: list[Issue] | None = None,
+    edits: list[resolver.Edit] | None = None,
+) -> str:
+    """The text of a sheet read by ``read_schematic``, written for KiCad ``target``.0 (change c0162).
+
+    The sheet is rebuilt as ``rebuild_schematic`` rebuilds it, with the header of ``target``; a sheet of a
+    newer major than ``target`` is refused (``DowngradeRefusedError``) unless ``downgrade``, and is then
+    resolved by ``resolver.resolve`` at each construct: a ``design`` loss needs ``allow_lossy``. The
+    resolver's edits are appended to ``edits`` and their issues to ``issues``. A target newer than the
+    sheet's major is refused (``ValueError``): a schematic is not upgraded. Nothing is written to disk.
+    """
+    info = source_info(sheet)
+    if info is None:
+        raise ValueError(f"{sheet.id} was not read from a KiCad file; write_schematic writes created sheets")
+    version = check_target(info, target, downgrade=downgrade)
+    if info.major is not None and target > info.major:
+        raise ValueError(
+            f"{sheet.id} is of KiCad {info.major}.0; a schematic is re-targeted to an older major only"
+        )
+    root = rebuild_schematic(sheet)
+    if not is_downgrade(info, target):
+        return dumps(root)
+    root = resolver.downgraded(
+        root, FileKind.SCHEMATIC, version, target, allow_lossy=allow_lossy, edits=edits, issues=issues
+    )
+    return dumps(root)
+
+
 def _entities(sheet: SchematicSheet) -> Iterable[Entity]:
     yield sheet
     yield from sheet.lib_symbols
@@ -1461,6 +1497,7 @@ __all__ = [
     "opaque_wires",
     "read_schematic",
     "rebuild_schematic",
+    "retarget_schematic",
     "roundtrip_schematic",
     "sheet_files",
     "source_info",

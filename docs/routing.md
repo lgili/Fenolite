@@ -326,6 +326,13 @@ where KiCad's DRC is the judge.
 `--router-path docker:<image>` runs a container image of Freerouting instead of a local
 jar, with the run folder mounted and `--network none`; Fenolite never pulls the image.
 
+**Slots and cut-outs** (change c0170). The design file's boundary is the board ring of `board_outline`, and
+every other ring of it is one `keepout` polygon: each cut-out, each slot's stadium, a group of overlapping
+ones merged into one ring (which needs the `geo` extra). Freerouting routes around them: on the shared slot
+fixture, two pads of one net on either side of the slot `S1` are joined by 7 tracks of which none touches
+`S1`, where the same board without the keep-outs is routed straight across it (`H-G-DSN-SLOT`, outcome
+`route-slot` of `docs/evidence/routing/freerouting-2.4.1.json`; `tests/routing/test_slots_route.py`).
+
 ## Differential pairs and escape
 
 Three steps carry the word fan-out or escape, and they differ. The **plane fan-out** of `route`

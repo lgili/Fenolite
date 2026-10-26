@@ -218,6 +218,12 @@ def test_downgrade_refused() -> None:
         check_target(inspect(parse(board("20250513"))), 9)
     assert (error.value.source_major, error.value.target_major, error.value.cli_code) == (10, 9, "FEN-7002")
     assert "10" in error.value.hint
+    assert "fenolite convert <project> --to kicad --kicad-version 9" in error.value.hint
+
+
+def test_downgrade_on_request() -> None:
+    """Scenario "Downgrade on request" (change c0162)."""
+    assert check_target(inspect(parse(board("20250513"))), 9, downgrade=True) == 20241229
 
 
 def test_target_too_old_input_refused() -> None:

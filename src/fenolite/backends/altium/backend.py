@@ -27,6 +27,8 @@ from fenolite.backends.base import (
     Backend,
     BoardFrame,
     BoardPad,
+    BodyModel,
+    BodyModelSource,
     CapabilityReport,
     Change,
     ContainerLevel,
@@ -37,6 +39,7 @@ from fenolite.backends.base import (
     DocumentParity,
     DocumentSet,
     DocumentValidator,
+    EdgeRing,
     ModelCompare,
     ModelRoundTrip,
     ModelScope,
@@ -49,6 +52,7 @@ from fenolite.backends.base import (
 )
 from fenolite.core.errors import FormatError, Issue
 from fenolite.core.evidence import Evidence
+from fenolite.core.units import Nm
 from fenolite.model.circuit import with_normal_pin_maps
 from fenolite.model.design import Design
 
@@ -154,7 +158,24 @@ class AltiumBackend:
         return path.suffix.lower() in SUFFIXES
 
     def capabilities(self) -> CapabilityReport:
-        return CAPABILITIES
+        from fenolite.backends.altium import claims
+
+        kinds = tuple(
+            sorted(
+                row.kind for row in claims.MATRIX if row.write is not None and "write" not in row.experimental
+            )
+        )
+        if kinds == CAPABILITIES.write_kinds:
+            return CAPABILITIES
+        return dataclasses.replace(
+            CAPABILITIES,
+            write_kinds=kinds,
+            operations=(*CAPABILITIES.operations, "write") if kinds else CAPABILITIES.operations,
+            evidence=Evidence.combine(
+                CAPABILITIES.evidence,
+                *(row.write for row in claims.MATRIX if row.kind in kinds and row.write is not None),
+            ),
+        )
 
     def read(self, path: Path, *, issues: list[Issue] | None = None) -> ReadResult:
         """Read a PCB document, a schematic document or a project into a ``Design``, or a library into a
@@ -346,6 +367,17 @@ class AltiumBackend:
 
         return body_changes(body_differences(model, reading)), EVIDENCE_BODIES
 
+    def cutout_differences(self, model: Design, reading: Design) -> tuple[Change, ...]:
+        """The differences of the kind ``cutout`` between ``model``, the model a build stored, and
+        ``reading``, the model of the PCB document it wrote, in the frame of ``model``
+        (``cutouts.cutout_differences`` with ``pcbdoc.CUTOUT_REGIONS``; change c0168)."""
+        from fenolite.backends.altium import pcbdoc
+        from fenolite.backends.altium.cutouts import cutout_differences
+
+        return tuple(
+            Change(*found) for found in cutout_differences(model, reading, gate=pcbdoc.CUTOUT_REGIONS)
+        )
+
     def model_roundtrip(self, path: Path, *, compare: Compare, bodies: str = "off") -> ModelRoundTrip:
         """RT-A3 of the document at ``path`` (a PCB document, a schematic document or a project file):
         read it, write its model with ``lower.write_design(..., allow_lossy=True, rewrite=True)`` into a
@@ -428,6 +460,24 @@ class AltiumBackend:
 
         return frame.placed_extents(design, issues=issues)
 
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
+        """The rings of an imported board's edge (``frame.board_edges``; ``BoardFrame``): the board outline
+        the import gives as ``Edge.Cuts`` graphics."""
+        from fenolite.backends.altium import frame
+
+        return frame.board_edges(design, issues=issues)
+
+    def body_models(self, path: Path, *, issues: list[Issue] | None = None) -> tuple[BodyModel, ...]:
+        """The 3D models a PCB document embeds for its bodies (``models3d.body_models``; ``BodyModelSource``,
+        change c0193); a file of any other kind holds none."""
+        if path.suffix.lower() != ".pcbdoc":
+            return ()
+        from fenolite.backends.altium import models3d
+
+        return models3d.body_models(path, issues=issues)
+
     def design_rules(
         self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
     ) -> DesignRules:
@@ -496,6 +546,8 @@ class AltiumBackend:
             evidence=Evidence.combine(EVIDENCE, frame.EVIDENCE),
             left_out=_planes_left_out(design),
             clearance_cells=cells,
+            min_edge_clearance=_board_outline_clearance(checked),
+            edge_floor_over_rules=False,
         )
 
     def parity_side(self, schematic: Design, board: Design) -> SideOutcome:
@@ -514,7 +566,7 @@ class AltiumBackend:
         from fenolite.backends.altium.adapter.circuit import KIND
         from fenolite.backends.altium.adapter.ids import Ids
         from fenolite.backends.altium.adapter.netlist import DEFAULT_OPTIONS, NetOptions, SheetInput
-        from fenolite.backends.altium.read.project import read_project
+        from fenolite.backends.altium.read.project import load_project
         from fenolite.backends.altium.read.sch import read_schematic
         from fenolite.model.design import Design
 
@@ -527,11 +579,12 @@ class AltiumBackend:
         if documents.project is not None:
             head_name = documents.project
             try:
-                listed = read_project((root / documents.project).read_bytes(), file=documents.project)
+                loaded = load_project(root / documents.project)
             except FormatError as error:
                 errors[documents.project] = error
                 return None
-            options = NetOptions.from_project(listed)
+            listed = loaded.project
+            options = NetOptions.from_project(loaded)  # with its annotation files (c0083)
             order = {entry.posix.lower(): position for position, entry in enumerate(listed.documents)}
             names.sort(key=lambda name: (order.get(name.lower(), len(order)), name))
         found: list[Issue] = []
@@ -707,6 +760,18 @@ def _planes_left_out(design: Design) -> tuple[tuple[str, int, str], ...]:
     return (("plane", planes, reason),)
 
 
+def _board_outline_clearance(design: Design) -> Nm | None:
+    """The ``min`` of the governing board-wide ``edge_clearance`` rule of an import (its
+    ``BoardOutlineClearance`` whose scope is the whole board), the last in the order of the copper check,
+    or ``None``: the board minimum of the copper-to-edge clearance (change c0169)."""
+    rules = design.rules.rules if design.rules is not None else ()
+    wide = sorted(
+        (r for r in rules if r.kind == "edge_clearance" and r.selector_a.op == "all" and r.min is not None),
+        key=lambda r: (r.priority != 0, -r.priority, r.name, r.id),
+    )
+    return wide[-1].min if wide else None
+
+
 def _with_unit_slack(design: Design) -> Design:
     """``design`` with every clearance rule lowered by ``CLEARANCE_SLACK_NM`` (a value at or below it is
     kept): the slack of one file unit per item of a pair, or Altium's observed tolerance where that is
@@ -727,6 +792,8 @@ _BACKEND: Backend = AltiumBackend()
 """The Altium backend satisfies ``Backend`` (checked by pyright)."""
 _FRAME: BoardFrame = AltiumBackend()
 """The Altium backend satisfies ``BoardFrame`` (checked by pyright)."""
+_MODELS: BodyModelSource = AltiumBackend()
+"""The Altium backend satisfies ``BodyModelSource`` (checked by pyright)."""
 _RULES_SOURCE: DesignRulesSource = AltiumBackend()
 """The Altium backend satisfies ``DesignRulesSource`` (checked by pyright)."""
 _PARITY: DocumentParity = AltiumBackend()

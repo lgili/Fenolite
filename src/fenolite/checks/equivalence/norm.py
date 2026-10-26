@@ -4,7 +4,8 @@
 design-equivalence, "Tolerances and normalisation").
 
 Lengths are compared per coordinate, never as a distance. Angles are compared on the circle of their
-period. A pad's rotation is compared modulo the symmetry of its shape. Nothing here removes a rotation or
+period. A pad's rotation is compared modulo the symmetry of its shape, and an equal-sized oval has the
+shape of a circle. Nothing here removes a rotation or
 a mirror of a whole board.
 """
 
@@ -70,6 +71,15 @@ def pad_symmetry(pad: Pad, tolerances: Tolerances) -> int | None:
     return HALF_TURN if pad.shape in TURNED_SHAPES else TURN
 
 
+def shape_class(pad: Pad, tolerances: Tolerances) -> str:
+    """The shape a pad's copper has: ``circle`` for an ``oval`` whose two sizes are equal within the length
+    tolerance (a disc, as KiCad draws it: ``H-K-EQ-OVAL``), else ``pad.shape``. ``pad-shape`` compares the
+    classes; the sizes are still compared on their own."""
+    if pad.shape == "oval" and lengths_equal(pad.size.w, pad.size.h, tolerances):
+        return "circle"
+    return pad.shape
+
+
 def pads_equal_turned(a: Pad, b: Pad, tolerances: Tolerances) -> bool:
     """Whether ``b`` is ``a`` written the other way round: the two sizes swapped and the rotation a quarter
     turn apart, modulo a half turn. Only shapes with that symmetry qualify."""
@@ -129,6 +139,7 @@ __all__ = [
     "pad_symmetry",
     "pads_equal_turned",
     "points_equal",
+    "shape_class",
     "sizes_equal",
     "span_text",
     "translation",

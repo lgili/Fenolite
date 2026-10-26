@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """Deterministic microdegree rotation and placement transforms.
 
-Rotation uses a fixed-point table ``cos_sin_fixed(udeg) = (round(cos θ·2**128), round(sin θ·2**128))``
-computed with ``decimal`` series in a private context (the caller's decimal context cannot change it),
+Rotation uses the fixed-point table ``cos_sin_fixed(udeg) = (round(cos θ·2**128), round(sin θ·2**128))``
+of ``fenolite.core.trig`` (moved there by change c0167; re-exported here),
 exact at multiples of 90° and where the sine or cosine is ±1/2. No floating-point trigonometry is
 used. In the Y-down frame a positive angle displays counter-clockwise, as KiCad's (``H-G-ROT-DIR``):
 
@@ -15,103 +15,16 @@ applied first. Its translation is kept in units of 2**-128 nm, so a composition 
 
 from __future__ import annotations
 
-import decimal
 from dataclasses import dataclass
 from fractions import Fraction
-from functools import lru_cache
 
+from fenolite.core.trig import FULL_TURN, QUARTER_TURN, TRIG_BITS, cos_sin_fixed
+from fenolite.core.trig import ONE as _ONE
+from fenolite.core.trig import table as _table
 from fenolite.core.units import round_half_even_div
 from fenolite.geometry.polygon import Polygon
 from fenolite.geometry.shapes import Arc, BBox, Segment
 from fenolite.geometry.vector import Point, require_int, require_point
-
-TRIG_BITS = 128
-FULL_TURN = 360_000_000
-QUARTER_TURN = 90_000_000
-_ONE = 1 << TRIG_BITS
-_HALF = 1 << (TRIG_BITS - 1)
-
-
-def _context() -> decimal.Context:
-    return decimal.Context(
-        prec=70,
-        rounding=decimal.ROUND_HALF_EVEN,
-        Emin=-999_999,
-        Emax=999_999,
-        capitals=1,
-        clamp=0,
-        flags=[],
-        traps=[decimal.InvalidOperation, decimal.DivisionByZero, decimal.Overflow],
-    )
-
-
-def _arctan_inverse(n: int) -> decimal.Decimal:
-    """``arctan(1/n)`` by its power series (current context)."""
-    x = decimal.Decimal(1) / n
-    x2 = x * x
-    total, power, k = x, x, 1
-    while True:
-        power *= -x2
-        term = power / (2 * k + 1)
-        if total + term == total:
-            return total
-        total += term
-        k += 1
-
-
-@lru_cache(maxsize=1)
-def _pi() -> decimal.Decimal:
-    with decimal.localcontext(_context()):
-        return 16 * _arctan_inverse(5) - 4 * _arctan_inverse(239)  # Machin's formula
-
-
-def _series(x: decimal.Decimal) -> tuple[decimal.Decimal, decimal.Decimal]:
-    """``(cos x, sin x)`` by their power series (current context), for ``0 ≤ x ≤ π/4``."""
-    x2 = x * x
-    cos, sin = decimal.Decimal(1), x
-    c_term, s_term = decimal.Decimal(1), x
-    i = 1
-    while True:
-        c_term = -c_term * x2 / ((2 * i - 1) * (2 * i))
-        s_term = -s_term * x2 / ((2 * i) * (2 * i + 1))
-        if cos + c_term == cos and sin + s_term == sin:
-            return cos, sin
-        cos += c_term
-        sin += s_term
-        i += 1
-
-
-def _octant(t: int) -> tuple[int, int]:
-    """Fixed-point ``(C, S)`` for ``0 ≤ t ≤ 45°`` (microdegrees)."""
-    if t == 0:
-        return _ONE, 0
-    with decimal.localcontext(_context()) as ctx:
-        x = decimal.Decimal(t) * _pi() / 180_000_000
-        cos, sin = _series(x)
-        scale = decimal.Decimal(_ONE)
-        c = int((cos * scale).to_integral_value(rounding=decimal.ROUND_HALF_EVEN, context=ctx))
-        s = int((sin * scale).to_integral_value(rounding=decimal.ROUND_HALF_EVEN, context=ctx))
-    if t == 30_000_000:
-        s = _HALF  # sin 30° = 1/2 exactly
-    return c, s
-
-
-@lru_cache(maxsize=4096)
-def _table(u: int) -> tuple[int, int]:
-    quarter, r = divmod(u, QUARTER_TURN)
-    if r <= QUARTER_TURN // 2:
-        c, s = _octant(r)
-    else:
-        s, c = _octant(QUARTER_TURN - r)  # cos r = sin(90° − r), sin r = cos(90° − r)
-    for _ in range(quarter):
-        c, s = -s, c  # (cos(θ + 90°), sin(θ + 90°)) = (−sin θ, cos θ)
-    return c, s
-
-
-def cos_sin_fixed(udeg: int) -> tuple[int, int]:
-    """``(round(cos θ·2**128), round(sin θ·2**128))`` for ``θ = udeg`` microdegrees."""
-    require_int(udeg, "udeg")
-    return _table(udeg % FULL_TURN)
 
 
 def _rotate_fixed(x: int, y: int, udeg: int) -> tuple[int, int]:

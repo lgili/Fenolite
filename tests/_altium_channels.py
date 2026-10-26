@@ -50,6 +50,9 @@ from fenolite.backends.altium.symbols import generic_symbol
 TOP = "two.SchDoc"
 CHILD = "two_ch.SchDoc"
 PROJECT = "two.PrjPcb"
+ANNOTATION = "two.Annotation"
+"""An annotation file in the form the annotation reader assumes (``docs/formats/altium/project.md``, "The
+annotation file"): not listed by the project file, not a file Altium wrote, not handed over in Part R."""
 STATEMENT = "Repeat(CH,1,2)"
 FORMAT = "$Component_$RoomName"
 LIBRARY = "FenoliteChannels.SchLib"
@@ -158,7 +161,19 @@ def project_text(form: str = FORMAT, style: int = 0) -> str:
     )
 
 
+def annotation_text() -> str:
+    """Two entries in the assumed form ``<unique-id path>=<designator>``: the top-sheet components ``U1``
+    (``\\UTOP0001``) and ``J1`` (``\\JTOP0001``) renamed ``U101`` and ``J101``. A channel of the ``Repeat``
+    statement has no recorded path form, so no entry names one."""
+    return "\\UTOP0001=U101\r\n\\JTOP0001=J101\r\n"
+
+
 def files() -> dict[str, bytes]:
     """The files of ``tests/data/altium/channels/two/`` by name."""
     top, child = sheets()
-    return {PROJECT: project_text().encode("utf-8"), TOP: top.data(), CHILD: child.data()}
+    return {
+        PROJECT: project_text().encode("utf-8"),
+        TOP: top.data(),
+        CHILD: child.data(),
+        ANNOTATION: annotation_text().encode("utf-8"),
+    }

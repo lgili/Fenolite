@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""Closed paths for the board outline and its cut-outs: ``rect``, ``circle`` and ``slot`` (``docs/dsl.md``,
-"Board"; capability design-dsl, "Outline shapes in the DSL"; change c0102).
+"""Closed paths for the board outline and its cut-outs.
+
+``rect``, ``circle``, ``slot`` and ``stadium`` (``docs/dsl.md``, "Board"; capability design-dsl, "Outline
+shapes in the DSL"; changes c0102 and c0167).
 
 A path is a sequence whose first element is an ``(x, y)`` pair of lengths in the frame of ``place()`` and
 whose other elements are such pairs and ``arc_to(mid, end)`` steps. It closes with a straight edge to its
@@ -22,9 +24,11 @@ from dataclasses import dataclass
 from typing import cast
 
 from fenolite.core.coords import Point
+from fenolite.core.stadium import check_size
+from fenolite.core.stadium import stadium as stadium_ring
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.intents import ArcStep, arc_to
-from fenolite.dsl.units import Length, as_nm
+from fenolite.dsl.units import Length, as_nm, as_udeg
 
 PathElement = tuple[Length, Length] | ArcStep
 Path = tuple[PathElement, ...]
@@ -160,6 +164,37 @@ def slot(start: object, end: object, width: object) -> Path:
     )
 
 
+def slot_size(length: object, width: object, call: str) -> tuple[int, int]:
+    """``length`` and ``width`` in nanometres for ``call``, or ``DslError``: the width positive and even,
+    the length above it (``core.stadium.check_size``)."""
+    long, wide = as_nm(length, name=f"{call}: length"), as_nm(width, name=f"{call}: width")
+    problem = check_size(long, wide)
+    if problem is not None:
+        raise DslError(f"{call}: {problem}")
+    return long, wide
+
+
+def stadium(x: object, y: object, length: object, width: object, rot: object = 0) -> Path:
+    """The ring of ``design.slot()`` as a path.
+
+    It is the stadium of overall ``length`` (both round ends included) and ``width`` about ``(x, y)``, its
+    length along the X axis turned by ``rot`` degrees (taken modulo 180°), from ``fenolite.core.stadium``,
+    for ``cutout()`` and ``board(outline=…)``. ``width`` is a positive, even number of nanometres and
+    ``length`` exceeds it. Each coordinate is rounded half to even once, so at a multiple of 90° the ring
+    is exact; ``slot()`` keeps its own rounding and may differ by 1 nm for a slot at an angle."""
+    cx, cy = as_nm(x, name="shape.stadium(): x"), as_nm(y, name="shape.stadium(): y")
+    long, wide = slot_size(length, width, "shape.stadium()")
+    ring = stadium_ring(Point(cx, cy), long, wide, as_udeg(rot, name="shape.stadium(): rot"))
+    (a, b, c, d), (end, start) = ring.points, ring.mids
+    return (
+        _xy(a.x, a.y),
+        _xy(b.x, b.y),
+        arc_to(_xy(end.x, end.y), _xy(c.x, c.y)),
+        _xy(d.x, d.y),
+        arc_to(_xy(start.x, start.y), _xy(a.x, a.y)),
+    )
+
+
 def _collinear(a: Point, m: Point, b: Point) -> bool:
     return (m.x - a.x) * (b.y - a.y) - (m.y - a.y) * (b.x - a.x) == 0
 
@@ -246,4 +281,5 @@ __all__ = [
     "ring_box",
     "round_root",
     "slot",
+    "stadium",
 ]

@@ -7,7 +7,7 @@
 
 Supported annotations: bool, int, float, str, None, Any, Literal, X | None, list[T], tuple[T, ...],
 dict[str, T], Enum subclasses and nested dataclasses. Field metadata keys ``pattern``,
-``minimum`` and ``description`` are copied into the property schema.
+``minimum``, ``enum`` and ``description`` are copied into the property schema.
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ def _targets() -> list[Target]:
     from fenolite.model.schema import (
         LAYER_SCHEMAS,
         LIBRARY_SCHEMA,
+        PANEL_SCHEMA,
         SCHEMA_DIR,
         SCHEMATIC_SCHEMA,
         SHEET_SCHEMA,
@@ -56,11 +57,23 @@ def _targets() -> list[Target]:
             "schemas/fenolite.artifacts.v0.json",
             True,
         ),
+        Target(
+            "fenolite.equivalent.v0",
+            "fenolite.api.schema:EquivalentReply",
+            "schemas/fenolite.equivalent.v0.json",
+            True,
+        ),
+        Target(
+            "fenolite.convert.v0",
+            "fenolite.api.schema:ConvertReply",
+            "schemas/fenolite.convert.v0.json",
+            True,
+        ),
     ]
     model = [Target(sid, ref, f"{SCHEMA_DIR}/{name}", False) for name, (sid, ref) in LAYER_SCHEMAS.items()]
     definitions = [
         Target(sid, ref, f"{SCHEMA_DIR}/{name}", False)
-        for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA, SCHEMATIC_SCHEMA)
+        for name, sid, ref in (LIBRARY_SCHEMA, SHEET_SCHEMA, SCHEMATIC_SCHEMA, PANEL_SCHEMA)
     ]
     return [
         *wire,
@@ -71,6 +84,9 @@ def _targets() -> list[Target]:
             "fenolite.placement.constraints:PlacementRequest",
             "schemas/fenolite.placement-request.v0.json",
             False,
+        ),
+        Target(
+            "fenolite.review.v0", "fenolite.view.review:ReviewFile", "schemas/fenolite.review.v0.json", False
         ),
     ]
 
@@ -153,7 +169,7 @@ class SchemaBuilder:
 
 
 def _apply_metadata(prop: dict[str, Any], metadata: dict[str, Any]) -> None:
-    extra = {k: metadata[k] for k in ("pattern", "minimum", "description") if k in metadata}
+    extra = {k: metadata[k] for k in ("pattern", "minimum", "enum", "description") if k in metadata}
     if not extra:
         return
     if "anyOf" in prop:

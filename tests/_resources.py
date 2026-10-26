@@ -114,6 +114,10 @@ def freerouting_jar() -> Path | None:
     return Path(named) if named and Path(named).is_file() else None
 
 
+class NotFetched(Exception):
+    """A probe's corpus input is not on this machine, so the probe has no outcome (``_probes.run``)."""
+
+
 def required_resources() -> set[str]:
     """Resources listed in ``FENOLITE_REQUIRE`` (``kicad``, ``corpus``, ``libs``, ``freerouting``;
     comma-separated)."""

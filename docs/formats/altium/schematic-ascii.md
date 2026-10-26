@@ -39,6 +39,13 @@ This page states, in Fenolite's own words, what the experimental writer `fenolit
 
 ## Units, axes and colours
 
+Composition (c0165) uses the existing absolute child-coordinate, quarter-turn component,
+pin-direction and polyline facts below; it introduces no native record kind. The writer rotates
+all child geometry, updates both component orientation and pin direction, and keeps the designator
+and comment horizontal. Block titles are root text records. Local connections use record 27;
+retained labels provide the fallback. These emitter choices remain `INFERRED`; synthetic readback
+does not establish acceptance or font metrics in Altium Designer.
+
 | fact | source | label | hypothesis |
 |---|---|---|---|
 | A length is an integer number of units of 10 mil (1/100 inch, 0.254 mm). An optional `<key>_FRAC` integer adds 1/100 000 of a unit | S-0130, S-0131 | INFERRED | H-A-SCH-OPEN |

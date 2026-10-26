@@ -485,6 +485,70 @@ def test_two_backends_one_design(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert len(env["result"]["differences"]) == 3
 
 
+# --- a KiCad schematic as a side (change c0158) ----------------------------------------------------
+
+SCHEMATIC_REMAINING: dict[str, str] = {}
+"""The kinds of difference that remain between the schematic of the KiCad project built from the blink and
+the committed Altium project written from the same design, each with its cause. None remains: levels 1 and
+2 compare references, values, the fitted flag and the partition of ``REF-PIN`` elements, which both
+backends write from the one circuit."""
+
+
+def _built_altium_blink(tmp_path: Path) -> Path:
+    """The KiCad project of ``tests/_altium.py::blink`` (the design of the committed Altium blink)."""
+    from _altium import blink as altium_blink
+
+    folder = tmp_path / "kicad-blink"
+    for rel, data in build(altium_blink(), 10).files.items():
+        if rel.startswith(".fenolite/"):
+            continue
+        target = folder / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    return folder
+
+
+def test_schematic_two_backends(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Schematic against an Altium project"."""
+
+    def refuse(*args: object, **kwargs: object) -> None:
+        raise AssertionError("equivalent started a subprocess")
+
+    project = _built_altium_blink(tmp_path)
+    monkeypatch.setattr(subprocess, "run", refuse)
+    monkeypatch.setattr(subprocess, "Popen", refuse)
+    args = ("equivalent", str(project / "blink.kicad_sch"), str(BLINK / "blink.PrjPcb"))
+    code, env, err, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 0, err
+    result = env["result"]
+    assert result["level"] == 2 and result["equivalent"] is True
+    assert sorted({d["kind"] for d in result["differences"]}) == sorted(SCHEMATIC_REMAINING)
+    side = result["sides"]["a"]
+    assert (side["netlist_source"], side["backend"], side["footprints"]) == ("schematic", "kicad", 0)
+    assert side["components"] == result["sides"]["b"]["components"] == 3
+    assert side["power_symbols"] >= 0 and [lv["level"] for lv in result["levels"]] == [1, 2]
+    assert env["input"]["kind"] == "kicad_sch"
+
+
+def test_schematic_level_above_the_side(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Scenario "Level above a schematic side"."""
+    project = _built_altium_blink(tmp_path)
+    args = ("equivalent", str(project / "blink.kicad_sch"), str(project / "blink.kicad_pcb"), "--level", "3")
+    code, env, err, _ = run(monkeypatch, tmp_path, *args)
+    assert code == 2 and err["code"] == "FEN-2001" and err["where"] == "--level", err
+    assert "side a holds none; the highest level available is 2" in err["message"]
+    assert env["result"] == {}
+
+
+def test_schematic_side_needs_kicad_cli_outside_the_grammar(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    hide_kicad(monkeypatch, tmp_path)
+    flat = DATA / "kicad" / "schematic" / "flat.kicad_sch"
+    code, _, err, _ = run(monkeypatch, tmp_path, "equivalent", str(flat), str(TWO_LAYER))
+    assert code == 6 and err["code"] == "FEN-6001" and err["where"] == "flat.kicad_sch", err
+
+
 # --- the triangle, with a fake kicad-cli -----------------------------------------------------------
 
 OUTPUT = (

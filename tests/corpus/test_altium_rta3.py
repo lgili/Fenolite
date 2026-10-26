@@ -54,14 +54,52 @@ PLANE_CUTS: dict[str, tuple[int, int]] = {
 The import makes no track of a line that cuts a plane, so a rewrite holds none: the lines are counted as
 records without a model entity, never as a track that was written or refused."""
 UNCOVERED = ("netlist.uncovered", "info")
-UNJUDGED_SETS: dict[str, str] = {
-    "altium-set:01": "a comment starts with '=', which Altium reads as a reference to another parameter",
-    "altium-set:02": "the import puts one pin on two nets, and the schematic writer refuses that circuit",
-    "altium-set:04": "a comment holds characters outside Windows-1252, which no form of the schematic holds",
-}
-"""Set → why its rewrite holds no project to read: the PCB document is written, and the schematic that is
-generated from the circuit is not. Each is a row of the evidence page; a set that starts to pass fails
-this test, so that the page is corrected."""
+
+
+def _reported_project_differences(design: Any, written: Any, trip: ModelRoundTrip) -> None:
+    """Every residual difference must identify an actually refused item, not just its kind.
+
+    Removing a conflicting net can renumber an imported label's ``#n`` alias. Only an alias whose
+    complete original membership survives is accepted; a new connection still fails.
+    """
+    refs = {c.id: c.ref for c in design.circuit.components}
+    lost = written.inputs.not_lowered
+    refused_pins = {
+        f"{refs[cid]}-{pin}" for item in lost.get("pin-net", ()) for cid, _, pin in (item.rpartition(":"),)
+    }
+    lost_components = (
+        {fp.component_id for fp in design.board.footprints if fp.id in lost.get("footprint", ())}
+        if design.board is not None
+        else set()
+    )
+    pad_pins = (
+        {
+            f"{refs[fp.component_id]}-{pad.number}"
+            for fp in design.board.footprints
+            for pad in fp.pads
+            if pad.id in lost.get("pad", ())
+        }
+        if design.board is not None
+        else set()
+    )
+    anonymous = [c for c in design.circuit.components if not c.ref]
+    for change in trip.differences:
+        kind, key, *field = change.path.lstrip("/").split("/")
+        key = key.replace("~1", "/").replace("~0", "~")
+        if kind == "component" and not field and change.change == "removed" and key.startswith("#"):
+            assert anonymous[int(key[1:])].id in lost_components, change
+            continue
+        assert kind == "net" and field == ["members"] and change.change == "changed", change
+        before, after = set(json.loads(change.a)), set(json.loads(change.b))
+        assert before - after <= refused_pins | pad_pins, change
+        added = after - before
+        if added:
+            aliases = [
+                {f"{refs[m.component_id]}-{m.pin}" for m in net.members}
+                for net in design.circuit.nets
+                if net.name.startswith(key + "#") and net.name[len(key) + 1 :].isdigit()
+            ]
+            assert added in aliases and before <= refused_pins, change
 
 
 def _repository(url: str) -> tuple[str, ...]:
@@ -235,7 +273,7 @@ def test_sets(
 ) -> None:
     """``H-A-VER-RTA3-PRJ``: a project set read through its project file, written and read again as a
     project gives an equal circuit and board inside the scope, and ``netlist.assignment_compare`` reports
-    on the rewrite what it reported on the original. A set of ``UNJUDGED_SETS`` gives no project to read."""
+    on the rewrite what it reported on the original. Residual differences must identify refused items."""
     items = SETS[name]
     if any(item.heavy for item in items) and not heavy_enabled():
         pytest.skip(f"{name} holds a heavy corpus item: set FENOLITE_HEAVY=1 to include it")
@@ -246,14 +284,12 @@ def test_sets(
     census("altium-rta3", name, entry)
     with capsys.disabled():
         print("\n" + _line(name, entry))
-    if name in UNJUDGED_SETS:
-        assert not trip.judged and trip.reason == "no-document", f"{name} is judged now: correct the page"
-        assert ".PcbDoc" in entry["files"] and ".SchDoc" not in entry["files"]
-        return
-    assert trip.judged and trip.equal, f"{name}: first difference {entry['first_difference']}"
+    assert trip.judged, f"{name}: {trip.reason}"
+    original = AltiumBackend().read(project).design
+    written = write_design(original, allow_lossy=True, rewrite=True)
+    _reported_project_differences(original, written, trip)
     rewrite = tmp_path / "rewrite"
     rewrite.mkdir()
-    written = write_design(AltiumBackend().read(project).design, allow_lossy=True, rewrite=True)
     for file_name, data in written.files.items():
         (rewrite / file_name).write_bytes(data)
     before, after = _assignment(folder, monkeypatch), _assignment(rewrite, monkeypatch)

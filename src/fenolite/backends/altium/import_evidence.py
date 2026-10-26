@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Fenolite contributors
 """The evidence of an Altium import (capability altium-import, "Adapter package"; change c0043). It lives
 outside the adapter package so that the backend can name it without loading a reader: every registered
-``H-A-IMP-*`` row, at the lowest level among them and among the readers' evidence."""
+``H-A-IMP-*`` row in its inventory, with live evidence naming only non-refuted rows,
+at the lowest level among those rows and among the readers' evidence."""
 
 from __future__ import annotations
 
@@ -17,6 +18,8 @@ HYPOTHESES = (
     "H-A-IMP-RPT-FORMAT",
     "H-A-IMP-RPT-COUNT",
     "H-A-IMP-RPT-NETS",
+    "H-A-IMP-RPT-ANNOT",
+    "H-A-IMP-RPT-ANNOT-2",
     "H-A-IMP-PINMAP",
     "H-A-IMP-PINMAP-MULTI",
     "H-A-IMP-SCOPE",
@@ -31,6 +34,7 @@ HYPOTHESES = (
     "H-A-IMP-LINK",
     "H-A-IMP-FRAME",
     "H-A-IMP-LAYERS",
+    "H-A-IMP-KEEPOUT-LAYER",
     "H-A-IMP-PADSTACK",
     "H-A-IMP-ZONE",
     "H-A-IMP-ZONE-HOLES",
@@ -42,6 +46,8 @@ HYPOTHESES = (
     "H-A-IMP-FPGFX",
 )
 """Every ``H-A-IMP-*`` row of ``docs/hypotheses.md``."""
+RETIRED_HYPOTHESES = ("H-A-IMP-RPT-ANNOT",)
+"""Historical refuted rows, retained in the inventory but supporting no live evidence."""
 LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {
     "H-A-IMP-NETLIST": Level.CORPUS_VERIFIED,
     "H-A-IMP-WIRE": Level.CORPUS_VERIFIED,
@@ -54,6 +60,7 @@ LEVELS: dict[str, Level] = dict.fromkeys(HYPOTHESES, Level.INFERRED) | {
     "H-A-IMP-ZONE": Level.ORACLE_VERIFIED,
     "H-A-IMP-ZONE-HOLES": Level.ORACLE_VERIFIED,
     "H-A-IMP-PLANE-CUT": Level.ORACLE_VERIFIED,
+    "H-A-IMP-VIA-PADLESS": Level.ALTIUM_VERIFIED_AUTHOR_REPORT,
 }
 """The level of each row, as the register states it (``test_package.py`` keeps both equal)."""
 READER_LEVELS = (Level.INFERRED, Level.CORPUS_VERIFIED, Level.CORPUS_VERIFIED)
@@ -63,8 +70,12 @@ MAPPING_HYPOTHESES = ("H-A-PCB-CU-VIATENT",)
 """Rows of the writer that the import rests on too: the two tenting flags of a via record become
 ``Via.protection`` (change c0112), and the same author report settles what they mean."""
 EVIDENCE = Evidence(
-    min_level(*LEVELS.values(), *READER_LEVELS), hypotheses=(*HYPOTHESES, *MAPPING_HYPOTHESES)
+    min_level(*(level for ident, level in LEVELS.items() if ident not in RETIRED_HYPOTHESES), *READER_LEVELS),
+    hypotheses=(
+        *(ident for ident in HYPOTHESES if ident not in RETIRED_HYPOTHESES),
+        *MAPPING_HYPOTHESES,
+    ),
 )
 """``INFERRED`` while any row is: the lowest level wins."""
 
-__all__ = ["EVIDENCE", "HYPOTHESES", "LEVELS", "MAPPING_HYPOTHESES", "READER_LEVELS"]
+__all__ = ["EVIDENCE", "HYPOTHESES", "LEVELS", "MAPPING_HYPOTHESES", "READER_LEVELS", "RETIRED_HYPOTHESES"]

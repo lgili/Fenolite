@@ -1,5 +1,8 @@
 # Building for Altium (experimental)
 
+For saving presentation edits made in Altium Designer and replaying them on rebuilds, see
+[Native Altium schematic layout](altium-schematic-layout.md).
+
 `fenolite build design.py --out DIR --target altium` builds a DSL design into an Altium Designer project
 instead of a KiCad project: a project file `<name>.PrjPcb`, a schematic `<name>.SchDoc`, in Altium's
 binary form by default or in its ASCII form with `--altium-format ascii` (see "Schematic forms"), and one
@@ -45,8 +48,9 @@ fenolite build design.py --out build/myboard --target altium --altium-format asc
   (the default) from its own graphics, `generic` as one rectangle per part. **The default output of an
   Altium build changed with this option**: `generic` gives the files that earlier versions wrote, byte
   for byte. `--altium-directions {on,off}` (default `on`) picks the I/O types of ports and sheet
-  entries. `--altium-bodies {off,extruded}` (change c0121, default `off`) picks whether the extruded
-  component bodies of the board's footprints are written ("Component bodies" below). All three are
+  entries. `--altium-bodies {off,extruded}` (change c0121; default `extruded` since change c0155) picks
+  whether the extruded component bodies of the board's footprints are written ("Component bodies"
+  below); `off` gives the files of earlier versions. All three are
   usage errors without `--target altium`. `result.schematic` holds `sheets`,
   `symbols`, `symbols_drawn`, `symbols_simplified`, `buses`, `parameters`, `directions` and `directed`.
 - `--altium-format {binary,ascii}` picks the schematic form; without it the form is `binary`. Any other
@@ -255,9 +259,10 @@ fenolite build design.py --out build/myboard --target altium --altium-sheets mod
   The sample is `examples/altium_hier/design.py`, with its built files under `tests/data/altium/hier/`.
 - **Evidence of change c0086.** Symbol graphics, sheets below the first level, I/O types, bus records,
   text with a UTF-8 copy and parameters read back with Fenolite's own reader (`H-A-SCHX-READBACK`),
-  and KiCad's importer reads the library graphics as the model holds them. Nothing of it has been
-  opened in Altium: the six rows `H-A-SCHX-GRAPHICS`, `-TREE`, `-DIR`, `-BUS`, `-TEXT` and `-ECO` wait
-  for the report of Part Y of `docs/evidence/altium-schematic.md`. The sample is
+  and KiCad's importer reads the library graphics as the model holds them. The maintainer reported Part Y
+  of `docs/evidence/altium-schematic.md` on 2026-10-09 (Altium Designer 26.5, every step as expected): the
+  six rows `H-A-SCHX-GRAPHICS`, `-TREE`, `-DIR`, `-BUS`, `-TEXT` and `-ECO` are author reports, which move
+  no write kind out of `experimental`. The sample is
   `tests/data/altium/tree/design.py` with its built files beside it. The author reports of 2026-10-02
   and 2026-10-03 covered the samples `blink`, `kicad_example`, `no_connect` and `routed` with rectangle
   bodies; those bytes are kept under `tests/data/altium/generic/` and `--altium-symbols generic` still
@@ -307,10 +312,9 @@ never by file name.
   differ. Facts: `docs/formats/altium/compound-file.md` and `schematic-binary.md`.
 - **ASCII (`--altium-format ascii`).** One record per CR LF line (change c0032). Its bytes are exactly
   what c0032 writes; the ASCII golden files under `tests/data/altium/sample/` are this form.
-- **Size limit.** Fenolite's compound-file writer writes no DIFAT sector, so the header can list at most
-  109 FAT sectors, about 7 MB of file. A larger binary schematic is refused with the error
-  `altium.schematic-too-large` (exit 5, nothing written); `--altium-format ascii` has no such limit. A
-  schematic that size has thousands of parts.
+- **Size limit.** The compound-file writer uses DIFAT sectors beyond the header's 109 FAT entries
+  (c0160). Binary schematics are subject to the compound format's version 3 size limits, rather than
+  the former approximately 7 MB cap; `--altium-format ascii` has no compound-container limit.
 - **Switching forms.** A rebuild that only changes `--altium-format` replaces an unchanged schematic
   without `--discard-layout`: the edited-output check compares the file on disk with the last build
   record, not with the new form.
@@ -382,10 +386,11 @@ script, then the global table). A link that does not resolve gives `altium.footp
 **`<name>.PcbLib`.** Every resolved KiCad footprint goes into one PCB library named after the design,
 beside `<name>.SchLib`; the schematic links each KiCad footprint to it (`MODELDATAFILE0=<name>.PcbLib`),
 whether or not that footprint could be written. Written: surface and through-hole pads (round, oval,
-rectangular and rounded-rectangle shapes, round holes, plated or not), lines, rectangles, arcs and circles
-on the mapped layers. Refused, with `altium.footprint-unsupported` (warning; the footprint is not
-written): trapezoid and custom pads, connector pads, padstacks, slots and oval or offset drills, chamfered
-corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
+rectangular and rounded-rectangle shapes, round holes, plated or not), the slotted (oval) drill of a pad
+of one shape (change c0170: hole shape Slot, hole size the drill, the slot length, and the slot rotation
+relative to the pad), lines, rectangles, arcs and circles on the mapped layers. Refused, with
+`altium.footprint-unsupported` (warning; the footprint is not written): trapezoid and custom pads,
+connector pads, padstacks, a slot of a pad with a shape per layer, offset drills, chamfered corners, a through-hole pad with copper on one side, and graphics on copper layers. Dropped, with
 `altium.primitive-dropped` (warning): polygons, filled rectangles and circles, graphics on unmapped layers,
 and pad settings the Altium record has no field for (mask and paste margins, zone and thermal settings).
 Texts, properties and 3D model links are not written (`altium.footprint-extras-dropped`, info); Altium adds
@@ -417,16 +422,52 @@ the placements and the net classes are no longer reported by `altium.not-lowered
 texts, graphics and holes are written ("Complete board" below). A document edited in Altium is refused on
 the next build like any edited output; `--discard-layout` replaces it. Fenolite never merges it.
 
-**Outlines with arcs, and holes.** An outline with arcs plans no PCB document, as an outline with
-cut-outs: `altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in
-the board outline of the document. The parts of `design.hole()` are not components of an Altium
-build: they get no schematic symbol, no library footprint and no component record. A round hole that
-is not plated is written as a board hole, the free pad without copper, and counted under `hole` of
-`result.pcb.written`. A slot and a plated hole have no such record: each gives one
-`altium.not-lowered` whose `where` is `hole/<component id>` and is counted under `hole` of
-`result.pcb.not_lowered`; the pin of a plated hole is then absent from its net in the Altium project.
-A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of a
-hole part is not written: a free pad has none.
+**Outlines with arcs, and holes.** An outline whose board ring has arcs plans no PCB document:
+`altium.pcbdoc-not-written` names the arcs, because no fact row gives the form of an arc in the board
+outline of the document. The parts of `design.hole()` are not components of an Altium build: they get no
+schematic symbol, no library footprint and no component record. A hole that is not plated is written as
+a board hole, the free pad without copper, and counted under `hole` of `result.pcb.written`. A plated
+hole has no such record: it gives one `altium.not-lowered` whose `where` is `hole/<component id>` and is
+counted under `hole` of `result.pcb.not_lowered`; its pin is then absent from its net in the Altium
+project. A design that needs the grounded hole in Altium places a footprint of its own. The courtyard of
+a hole part is not written: a free pad has none.
+
+**Slots and cut-outs** (change c0168). Altium has two forms, one meaning each (S-0460):
+
+- A **drilled** slot, `design.hole(…, length=…)` (a model `Hole` with `length` and `rotation`), is a
+  free pad with a slotted hole: Multi-Layer, no designator and no net, size (length, width), hole shape
+  Slot with the slot length, the pad turned by the slot's angle and the slot at 0° to the pad, so the
+  copper equals the hole. It is drilled (NC drill file, drill drawing), and Hole To Hole Clearance
+  judges it: two drilled slots that overlap are flagged.
+- A **milled** slot or a cut-out, `design.slot()` or `design.cutout()`, is a board cut-out region:
+  `KIND=0` with `ISBOARDCUTOUT=TRUE` on the Keep-Out layer, each group of overlapping cut-outs and slots
+  one region (the union of `lowered_outline`), its arcs polygonised within 1 µm. Board Outline Clearance
+  measures copper to its edge; no drill file holds it.
+- **The gate.** The region form is measured with KiCad's importer only. Until the maintainer's kit
+  (Part S of `docs/evidence/altium-pcb.md`, cases S3 to S5) has shown it in Altium Designer,
+  `pcbdoc.CUTOUT_REGIONS` is false: the document is planned, no region is written, and each cut-out
+  gives one `altium.not-lowered` info whose `where` is `cutout/<k>`, `slot/<name>` or the items of a
+  merged group joined by `+` (`slot/S2+slot/S3`), counted under `cutout` of `result.pcb.not_lowered`. The
+  gate is a constant, not an option. An arc of a cut-out no longer refuses the document; an arc of the
+  board ring still does.
+- **Import.** Reading a PCB document, a region with `ISBOARDCUTOUT=TRUE` (and `KIND=0`) becomes one
+  `Edge.Cuts` polygon of width 0, so `board_outline` and `edge_outline` take it as a cut-out, and a free
+  pad on Multi-Layer without name, net or copper ring becomes a board `Hole` (with its slot) instead of a
+  board-only footprint; every other free pad stays a footprint. This changes what an import gives for
+  such pads and regions: on the seven public documents four pads become holes and five regions cut-outs
+  (`docs/evidence/altium-pcb-read.md`). `fenolite convert --to kicad` gives each such hole the footprint
+  that `design.hole` generates (`Fenolite_Holes:NPTH_…`, change c0170; `docs/conversion.md`), since KiCad
+  takes no board hole.
+- **Round trips.** RT-A2 compares a board hole by position, drill, plating, length and rotation, and each
+  written cut-out ring with the read one within 1 µm ("The scope of RT-A2" below).
+- **A KiCad board converted** (change c0170). `fenolite convert --to altium` takes the edges of a read
+  KiCad board with `edge_outline` and gives them to the write (`lower.write_design(…, edges=…)`): the board
+  ring is the document's outline as before (an arc as two straight edges, counted under `outline`), and
+  every inner ring is a cut-out region through the same lowering, or a loss with the gate's reason, counted
+  under `cutout` (`docs/conversion.md`). A footprint pad with a slotted (oval) drill is written with the
+  slot fields in the library and the document: hole size the drill, slot length the padstack's
+  `hole_length`, slot rotation its `hole_rotation`, which the model holds in the pad's own frame as the
+  record holds it relative to the pad; the import reads it back in that frame.
 
 **Assembly and test features** (change c0118). The parts of `design.test_point()` are written as any
 authored part. The parts of `design.fiducial()` are left out of the schematic and of the PCB library and
@@ -468,8 +509,9 @@ maintainer reports Part C of `docs/evidence/altium-pcb.md`.
 **Complete board (change c0085).** A model can hold more than a script declares: a design that was
 imported, or one built in Python from the model's classes, as the sample `tests/_altium_board6.py` is.
 The build writes these items too, and `result.pcb` counts them: `written` maps each kind (`footprint`,
-`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `keep-out`, `hole`, `body`, `rule`) to the number
-of model items the document holds, and `not_lowered` the kinds with items it does not hold. Every item is
+`pad`, `track`, `arc`, `via`, `zone`, `text`, `graphic`, `dimension`, `keep-out`, `hole`, `cutout`,
+`body`, `rule`) to the number of model items the document holds, and `not_lowered` the kinds with items it
+does not hold. Every item is
 in one of the two; an item that is not written has an issue whose `where` is `<kind>/<id>`.
 `result.pcb.bodies` (change c0121) is the value of `--altium-bodies` that was used.
 
@@ -481,7 +523,7 @@ in one of the two; an item that is not written has an issue whose `where` is `<k
 | graphics | lines, arcs, circles and drawn rectangles and polygons as tracks and arcs without a net; filled rectangles and polygons as regions; on the silkscreen, paste, solder-mask, fabrication and courtyard layers | a graphic on copper or on a user layer, a filled circle, a drawn shape of width 0 (a graphic on `Edge.Cuts` is the outline) |
 | keep-outs | one keep-out region with its restrictions for vias, tracks, pads and copper (in the key Altium saves and, for KiCad's importer, in `KEEPOUTRESTRIC` too), on the Keep-Out layer when it names every copper layer, else one per layer | `no_footprints` (reported, the keep-out is written with the others); a keep-out with no other restriction |
 | holes | a free pad without copper, plated or not | a slot (the model's board hole is round) |
-| component bodies | with `--altium-bodies extruded` only (change c0121): an extruded body with an outline and a height above its standoff, as one record in `ComponentBodies6` and its twin in `ShapeBasedComponentBodies6`, owned by its component, with its two heights, its side, a mechanical layer (its own when it is Mechanical 1 to 16, else Mechanical 13 on the top side and 14 on the bottom side) and its name. **Experimental, off by default, never opened in Altium** | without the option, every body; with it: a body that names a 3D model (the model holds a name and no data), a body without an outline, a height that is not above the standoff or a standoff below the board surface, a body whose footprint is no component of the document; each `altium.not-lowered` (`where` = `body/<id>`) with its height and its reason. No body is made for a footprint that has none |
+| component bodies | with `--altium-bodies extruded`, the default since change c0155 (change c0121): an extruded body with an outline and a height above its standoff, as one record in `ComponentBodies6` and its twin in `ShapeBasedComponentBodies6`, owned by its component, with its two heights, its side, a mechanical layer (its own when it is Mechanical 1 to 16, else Mechanical 13 on the top side and 14 on the bottom side) and its name. **Experimental; opened in Altium Designer 26.5 by the maintainer (step X8, an author report)** | with `--altium-bodies off`, every body; with `extruded`: a body that names a 3D model (the model holds a name and no data), a body without an outline, a height that is not above the standoff or a standoff below the board surface, a body whose footprint is no component of the document; each `altium.not-lowered` (`where` = `body/<id>`) with its height and its reason. No body is made for a footprint that has none |
 | zones | one **unpoured** polygon per layer, as above; a zone whose islands are never removed keeps them | poured copper, always: **repour the board in Altium** ("Tools » Polygon Pours » Repour All") |
 
 **Component bodies (change c0121).** The model can hold component bodies on a footprint: an extruded
@@ -489,9 +531,11 @@ body has an outline, a height and a standoff; a body of kind `model` names a 3D 
 none today (the DSL has no height), so bodies come from an import or from a model built in Python, as the
 sample `tests/_altium_body2.py` is.
 
-- **What is written, and when.** Only with `--altium-bodies extruded` (in the library: `bodies="extruded"`
-  on `lens.altium.build_altium`, `lens.altium.write_model`, `lower.from_design`, `lower.write_design`,
-  `AltiumBackend.write` and `AltiumBackend.model_roundtrip`). Each extruded body with an outline of at
+- **What is written, and when.** With `--altium-bodies extruded`, the default of `fenolite build` and of
+  `lens.altium.build_altium` since change c0155 (in the library: `bodies="extruded"`, which
+  `lens.altium.write_model`, `lower.from_design`, `lower.write_design`, `AltiumBackend.write` and
+  `AltiumBackend.model_roundtrip` take on request only: their default stays `off`, for the rewrite of a
+  read document and the round trips). Each extruded body with an outline of at
   least three points and a height above its standoff becomes one record in `ComponentBodies6` and its
   twin in `ShapeBasedComponentBodies6`, linked to its component by index: the outline placed with the
   component and rounded to whole units, the standoff and the overall height, the board side of the
@@ -504,27 +548,31 @@ sample `tests/_altium_body2.py` is.
   written is one `altium.not-lowered` (info) with `where` `body/<id>`, its height and its reason.
 - **Nothing is invented.** A footprint without a body gets none: no outline is derived from a courtyard
   or any other graphic, and no height is assumed.
-- **Off by default, and why.** The saved form of an extruded body holds 35 keys
+- **On by default, and why.** The saved form of an extruded body holds 35 keys
   (`docs/formats/altium/pcb-bodies.md`, "Written form of an extruded body"). For 33 of them the public
   corpus gives a value rule. For two, `MODELID` and `MODEL.CHECKSUM`, it gives none: Fenolite writes
   stand-ins (a GUID derived from the body's id, and `0`), and only Altium can say whether it takes them.
   That is `H-A-PCBX-BODY-OPEN`, step X8 of the author report (`docs/evidence/altium-pcb.md`, Part X),
-  which is **not settled**. The option stays `off` until that step is reported.
+  reported as expected on 2026-10-09: an author report. On the same day the maintainer decided that a
+  build writes bodies by default (change c0155; `docs/roadmap.md`, "Open decisions", row 33):
+  `--altium-bodies off` gives the files of earlier versions. A design whose footprints hold no extruded
+  body with an outline, every script today among them, gives the same files either way.
 - **How far the evidence goes.** It is thin. The rows of the record were measured on 1272 saved extruded
   bodies of five public documents of three repositories, and 1265 of the 1272 come from one repository.
-  They say what Altium saved in those files, not what Altium accepts. Nothing that Fenolite writes for a
-  body was opened in Altium. Fenolite's own reader reads a written body back to the model's body
+  They say what Altium saved in those files, not what Altium accepts. What Fenolite writes for a body was
+  opened in Altium by the maintainer alone (step X8, 2026-10-09, an author report). Fenolite's own reader reads a written body back to the model's body
   (`H-A-PCBX-BODY-READBACK`, `INFERRED`), and KiCad's importer reads the document as it reads the same
   document without bodies and shows nothing for an extruded body (`H-A-PCBX-BODY-KICAD`): neither says
-  that Altium shows the body. `result.pcb.bodies` records the value used, and with `off` every file is
-  the file of earlier versions, byte for byte.
+  that Altium shows the body. `result.pcb.bodies` records the value used (`extruded` without the
+  option), and with `off` every file is the file of earlier versions, byte for byte.
 
 Fenolite never writes poured copper: a pour is the result of Altium's rules and Altium's algorithm, and a
 fill computed elsewhere would be shown as poured while disagreeing with what a repour gives. Clearance and
 thermal reliefs of a polygon come from Altium's rules, not from the polygon. What KiCad's importer reads
 of these items is checked by `tests/kicad/altium/test_pcb_complete_oracle.py` (`H-A-PCBX-KICAD`); that
-Altium shows them is Part X of `docs/evidence/altium-pcb.md`, not yet reported, so every row is
-`INFERRED`.
+Altium shows them is Part X of `docs/evidence/altium-pcb.md`, reported on 2026-10-09 with every step as
+expected: the six rows of the items (`H-A-PCBX-STACK`, `-VIASPAN`, `-TEXT`, `-KEEPOUT`, `-HOLE`,
+`-REPOUR`) are author reports. The write stays experimental.
 - One net class per `design.rules.netclass(...)`, with its nets.
 - Clearance, Width and Routing Via Style rules: one per class value, and one `All` rule per kind with
   Fenolite's defaults (0.2 mm, 0.25 mm, a 0.6 mm via with a 0.3 mm hole). Width and via limits span the
@@ -619,8 +667,9 @@ record kind whose fact row is on that page (`pcbrecords.LOCK_WRITTEN`; today the
 without its row, the items are written unlocked and the build gives one `altium.not-lowered` **warning**
 with `where` `copper/locked` that names the kind and the count: a lock is never dropped in silence. The
 Altium import reads the same bit back into `locked`. A design without locked copper gives the documents it
-gave before. The lock is `INFERRED`: a public reader's statement and Fenolite's own reader; Altium
-Designer's view is step X12 of `docs/evidence/altium-pcb.md`, which has not been run. A lock changes no
+gave before. The lock rests on a public reader's statement and Fenolite's own reader, and Altium
+Designer showed the three items locked in step X12 of `docs/evidence/altium-pcb.md`, reported on 2026-10-09
+(`H-A-PCB-CU-LOCK`, an author report). A lock changes no
 copper, and no rule of the document depends on it.
 
 **Oracles.** `tests/kicad/altium/test_pcbdoc_copper_oracle.py` imports the routed sample and the plane
@@ -703,7 +752,8 @@ a board that the script forbids.
   `tests/unit/lens/test_altium_rules.py`).
 - **Evidence.** The constraints come from Altium's public documentation and the keys from public PCB
   documents (`docs/formats/altium/pcb-copper.md`, "Rule kinds lowered"); that Altium lists and applies
-  the written rules is `INFERRED` until the author report, Part U of `docs/evidence/altium-pcb.md`.
+  the written rules is an author report since 2026-10-09 (Part U of `docs/evidence/altium-pcb.md`, every
+  step as expected; `ALTIUM-VERIFIED(author-report)`).
   `kicad-cli pcb import` loads a document with all seven kinds and takes the zone clearance from the
   Clearance rule; it shows no other kind (`tests/kicad/altium/test_rules_oracle.py`).
 
@@ -786,8 +836,9 @@ Altium (Fenolite runs no output and produces none of Altium's files). `--altium-
   settings record plots no layer. The Gerber output now carries the complete record of 44 fields that the
   public saved jobs hold (`docs/formats/altium/output-job.md`, "The Gerber settings record"), and every
   output carries the key `OutputDefault<i>=0`, as every saved output does. The record is written whole or
-  the job is not written. **Altium has not opened such a job yet** (Part O, "Session 2", of
-  `docs/evidence/altium-schematic.md`).
+  the job is not written. Such a job was opened and run in Altium Designer 26.5 by the maintainer, every
+  step as expected (Part O, "Session 2", of `docs/evidence/altium-schematic.md`; author reports of
+  2026-10-08 and 2026-10-09).
   - *Unit and decimals.* Millimetres. The decimals are `gerbers.precision` of the preset you give with
     `--altium-outjob-preset FILE` (5 or 6), and 4 without one. Millimetres with 4 decimals is the one pair a
     public job holds; whether Altium takes 5 or 6 beside millimetres is not known yet, so read the setup of
@@ -845,10 +896,11 @@ Altium (Fenolite runs no output and produces none of Altium's files). `--altium-
   `read_outjob` returns, and `from_preset(preset, name=…, copper=…)` gives the job above for a board with
   the given copper stack. `write_outjob` refuses a Gerber output without the complete record and a setting
   on any other output. `read_outjob` gives the settings of an output (`JobOutput.settings`) and
-  `record_fields` the fields of a record. What is confirmed is own readback only (`H-A-OUTJOB-READBACK`,
-  `H-A-OUTJOB-GERBER-READBACK`) and that the record has the form of two public jobs: whether Altium opens
-  the job, takes the record and generates the outputs is Part O of `docs/evidence/altium-schematic.md`,
-  not reported yet.
+  `record_fields` the fields of a record. Fenolite's own readback (`H-A-OUTJOB-READBACK`,
+  `H-A-OUTJOB-GERBER-READBACK`) and the form of two public jobs back the record; that Altium opens the
+  job, takes the record and generates the outputs is Part O of `docs/evidence/altium-schematic.md`,
+  reported as expected by the maintainer (author reports, which leave the job experimental; the count
+  and extensions of the Gerber files were not reported).
 - **Every written `.OutJob` differs from the one a build before change c0138 wrote.** No release wrote a
   job (0.2.x writes none), so this is about folders built from the development branch. A rebuild into such
   a folder **replaces the job and keeps the old one as `<name>.OutJob.bak`**, as for every other file the
@@ -895,7 +947,8 @@ title block shows them.
   template (`docs/sheet-templates.md`, "Building an Altium sheet template").
 - Confirmed is own readback only (`H-A-SCHDOT-READBACK`): `import_sheet` reads the frame of a built
   schematic back to the lines and texts of the specification. That Altium draws it as KiCad does and fills
-  the strings is Part W of `docs/evidence/altium-schematic.md`, not reported yet.
+  the strings is Part W of `docs/evidence/altium-schematic.md`, reported as expected on 2026-10-09 (an
+  author report: `H-A-SCHDOT-OPEN`, `H-A-SCHDOT-STRINGS`).
 
 ## Change order
 
@@ -992,6 +1045,7 @@ An author report never raises the build's evidence level.
 | `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
 | `altium.outjob-not-listed` | info | the project file is kept and does not list the output job |
 | `altium.sheet-paper` | warning | the layout of a schematic document does not fit the paper of `sheet()`, so the drawing sheet is drawn on a larger page |
+| `altium.panel-flattened` | info | `fenolite panel --target altium` wrote the flattened panel, not the Embedded Board Array; the message says why ("Panels (change c0173)") |
 
 Model findings (`model.*`) pass through, and so do the `altium.sheet.*` codes of a drawing sheet ("Drawing sheet"). A build with an error exits 5 and writes nothing. A KiCad lib id
 that does not resolve stops the build with `FEN-3001` (exit 3) and its `kicad.lib.*` issues.
@@ -1251,7 +1305,10 @@ one or an unreadable one is skipped with `altium.import.document-skipped`.
 symbol whose designator is `Repeat(NAME, first, last)` once per index; each instance is a
 channel with its own components and nets (`altium.import.channels`, info). Its components are named, in
 this order: by the PCB document of the project, whose components link to them by their unique-id path
-and hold the designators the project was annotated to; else by the project's designator format
+and hold the designators the project was annotated to; else by the project's annotation file, an entry
+of which names the unique-id path of a channel component (a form this reader assumes: no public source
+states the form of the file, `docs/formats/altium/project.md`, "The annotation file"; never tried for a
+channel of a `Repeat` statement); else by the project's designator format
 (`ChannelDesignatorFormatString` with `ChannelRoomNamingStyle`), for example `D9_3` for `D9` in the
 channel `3` under `$Component_$RoomName`. A format the import does not resolve gives
 `<designator>@<channel>` and `altium.import.channel-naming`. Sheets read without their project file keep
@@ -1290,8 +1347,8 @@ component's `altium` bag (`pin_pads`) and counted by `altium.import.pin-map`.
 gave no model entity.
 
 - Schematic drawings (the model holds no schematic presentation), sheet templates, variants, differential
-  pairs and the annotation file of a project (the form of a non-empty one is not known from a public
-  source).
+  pairs, and every line of a project's annotation file that is not in the form the reader assumes (the
+  form of a real file is not known from a public source; see "Channels").
 - Graphics, texts and regions of placed footprints; zone settings; split planes; per-layer via stacks; mask
   and paste layers of pads (their modes and expansions are in the pad's `altium` bag); 3D model data.
 - Rules of other kinds, disabled rules, Clearance rules with a matrix of differing clearances, and rules
@@ -1346,8 +1403,8 @@ and on the example builds are in `docs/evidence/altium-roundtrip.md`.
 **A level that is not judged** is neither a pass nor a failure. The reasons:
 
 - `not-a-container` (RT-A0): the file is text (an ASCII schematic or a project file).
-- `too-large` (RT-A0): the file needs DIFAT sectors, which the compound writer does not write. RT-A1
-  still judges its records.
+- `too-large` (RT-A0): the file exceeds the compound writer's version 3 limits. DIFAT sectors are
+  supported since c0160. RT-A1 still judges its records.
 - `writer-refused` (RT-A0): the compound writer refuses the tree (an empty storage, or a name it does
   not write).
 - `native-input` (RT-A2): the files were not written by a Fenolite build. RT-A2 compares a stored model
@@ -1388,6 +1445,8 @@ reading of the schematic documents, and every other kind with the reading of the
 | `arc` | `start`, `mid`, `end`, `width`, `layer`, `net_id`, `locked` | PCB document |
 | `via` | `position`, `diameter`, `drill`, `net_id`, `locked` | PCB document |
 | `zone` | `outline`, `layers`, `net_id` | PCB document |
+| `hole` | `position`, `drill`, `plated`, `length`, `rotation` | PCB document |
+| `cutout` | each written cut-out ring of the outline | PCB document |
 
 **The built model holds the board that was written** (change c0090). A build that writes a PCB document
 stores, in `.fenolite/board.json`, one footprint per placed component with the pads that the document
@@ -1432,7 +1491,7 @@ Fields of these kinds that the scope leaves out, and why:
 | `footprint` | `graphics` | the reader maps it elsewhere: graphics are the kind `footprint_graphic` |
 | `footprint` | `fields`, `texts` | written and not compared: the write of a model writes the fields `Reference` and `Value` at their place and the free texts as texts of the component (change c0126), but a build places the designator and the comment itself and its stored board holds no field for them; their read-back is covered by unit tests (`tests/unit/backends/altium/test_lower_items.py`) |
 | `footprint` | `net_ties` | the writer does not write it: a net-tie group is KiCad data, the pads are written without a mark that ties them, and the build says so with `altium.not-lowered` (kind `net-tie`; change c0114) |
-| `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
+| `footprint` | `bodies` | the writer does not write it by default; it writes it on request only (`--altium-bodies extruded`, change c0121; `write_model` and the round trips keep that default, while a build writes bodies by default since change c0155), and then the kind `body` is compared beside the scope (`roundtrip.BODY_SCOPE`: `kind`, `height`, `standoff`, `outline`, `layer`, `name`), for the bodies that were written |
 | `pad` | `shape`, `kind`, `rotation`, `drill`, `layers`, `padstack` | the reader maps it elsewhere: a pad is written as an Altium pad stack, which the import reads by its own rules (`docs/formats/altium/import.md`) |
 | `pad` | `zone_connection` | the writer does not write it |
 | `pad` | `fab_property` | the writer does not write it: no public source says where an Altium pad record holds a fabrication mark, and the build names the marked footprints in one `altium.not-lowered` info (change c0118) |
@@ -1444,6 +1503,16 @@ Fields of these kinds that the scope leaves out, and why:
 | `zone` | `fills`, `filled` | the writer does not write it: the poured copper is Altium's to compute |
 | `zone` | `settings` | the writer does not write it |
 | `zone` | `locked` | the writer does not write it |
+| `hole` | `intent` | the writer does not write it: the mechanical intent of a hole stays in the neutral model |
+
+**Holes and cut-outs** (change c0168). A board hole is compared by its position, drill, plating, slot
+length and rotation, because the import reads a free pad whose copper is its hole as a `Hole`. The
+cut-outs of the outline are no entity: when `pcbdoc.CUTOUT_REGIONS` is true, each written cut-out ring
+(`cutouts.cutout_items`, polygonised within 1 µm) is compared with the `Edge.Cuts` polygons that the
+import makes of the board cut-out regions, vertex by vertex within 1 µm (`cutouts.cutout_differences`);
+a ring that differs is one difference whose `where` is `pcb:/cutout/<where>`, `<where>` being the name
+the build's report gives it (`cutout/1`, `slot/S1`, `slot/S2+slot/S3`). While the gate is off, no ring
+is written and none is compared.
 
 A component whose value is empty in the script is written with its symbol's name as the comment, and
 the built model stores that value, so that the model is what the documents read back to.
@@ -1527,6 +1596,18 @@ they write the model as it is. Run `fenolite check` on the written documents.
   argument keep refusing such a via.
 - The schematic of a rewrite is written only when the build's schematic writer takes the circuit. A
   tolerant schematic write for circuits that were read belongs to v0.5a, with `convert`.
+
+### Converting a KiCad project (c0159)
+
+`fenolite convert SRC --to altium --out DIR` is this write of a model as a command: a KiCad project (its
+board with the net classes and rules of its project files) is projected and written with
+`lower.write_design`, and its report counts per kind and per reason what the documents hold, hold in
+another form or leave out. Each item left out is counted under its own reason (`AltiumInputs.lost`), and
+a component marked do-not-populate is counted under the kind `dnp`: the documents hold no fitted flag
+outside variants, so `AltiumBackend.write` and `build --target altium` report one `altium.not-lowered`
+info for it, and the conversion refuses it without `--allow-lossy`. Every conversion is read back and
+compared with its source. The command, the report, the verification and the measured demo boards are in
+`docs/conversion.md` and `docs/evidence/conversion.md`.
 
 ## Checks
 
@@ -1618,14 +1699,35 @@ a layer the board does not have gives `build.impedance-layer`, which refuses the
 
 ## Limits
 
-One flat sheet by default, or one sheet per module at any depth with `--altium-sheets modules` (no
-repeated sheets, no routed wires between sheet symbols, no harness in the ASCII form, no harness below
-the first level, no nested harnesses); a sheet that passes a bus through draws it twice; no bus in the
-DSL, no variants; an output job whose Gerber output holds its settings and plots no board outline, no drill drawing and no pad master, and whose other outputs (NC drill, pick and place, bill of materials, prints) hold no settings; a drawing sheet without a logo; the PCB document has unpoured polygons, no
-split planes, no micro vias, component bodies only on request (extruded ones, experimental, never opened in Altium) and only the rule kinds and scopes of "Rules", and the PCB library holds only the footprint content listed above; a symbol of several units or body styles, a symbol with an arc, a Bezier curve or a text, and every Altium link are drawn as rectangles, the line widths and colours of a symbol are not written, and there are no
-alternate display modes; an Altium library is never read or copied, only stood in for; text in 7-bit
-ASCII, except the comment and the parameter values of a binary schematic (Windows-1252); a property that no parameter can hold stays in the model. Nothing of change c0086 has been opened in Altium yet (Part Y). The v0.3 reader reads the MS-CFB container and PCB documents and libraries ("Reading PCB files");
-schematic and other Altium records are interpreted by later changes.
+As of 2026-10-14 all nine Altium write kinds remain experimental. The tested
+graduation rule requires own readback, release support for every write hypothesis,
+RT-A3 for model kinds and a current committed native kit verdict. `capabilities
+--json --no-tools` lists the missing conditions per kind; a build's
+`altium.experimental` info names only the experimental kinds actually emitted.
+Its envelope combines emitted write cells with input evidence.
+
+The supported model rewrite is bounded by the "Written scope" table above:
+items outside that scope are reported in `unwritten` and losses require the
+documented confirmation policy. RT-A3 compares that scope, rather than promising
+byte-identical native files or every possible Altium object. Import/conversion
+has its own scope in `docs/conversion.md`; a DSL build's generic Altium library
+links do not imply that it copied those libraries.
+
+| area | current boundary |
+|---|---|
+| Schematic composition | flat sheet or sheets by module; supported symbol, pin, bus and harness cases are listed in "The schematic" and "Sheets and harnesses"; ASCII has no harness records |
+| PCB/model rewrite | pads, copper, graphics, texts, holes and bodies follow the written-scope table; unsupported shape/layer/body cases are accounted individually |
+| Polygons and planes | polygons are emitted unpoured and native Altium performs repour; split planes and micro vias remain outside the documented write scope |
+| Rules/checks | exact rule kinds and supported scopes are listed under "Rules"; selected native editor checks and the planted Width/Clearance report do not establish general DRC parity |
+| Output job and drawing sheet | settings, special strings and graphical elements follow their documented sections; native-template preservation is a separate input path |
+| Native evidence | AD 26.5 kit observations cover 32 steps and 27 passing hypothesis candidates; the published derivative retains 13/10 observations and refreshes selected native saves/DRC on 14/10, without a complete fresh replay |
+| Acceptance | the complete acceptance project and probe passed on pinned KiCad 10.0.6 within the existing triangle profile; this does not claim a native replay of that particular acceptance project |
+
+Measured results and remaining requests are in
+`docs/evidence/altium-acceptance.md`, `docs/evidence/altium-native-acceptance.md`
+and `docs/evidence/altium-kit/2026-10-14-graduation-inventory.md`. The reviewed kit
+ZIP is supplemental evidence on v0.4.0, generated by `0.5.0.dev0`; it does not
+change the validation claims of the released package binaries.
 
 ## Stack-ups with masks, sheets and kinds (c0101)
 
@@ -1722,3 +1824,38 @@ source locators remain present. Source bytes stay with the native reader record 
 unbounded hex extension. The inferred 0=top/1=bottom mapping is not native-verified. Signed bounds
 and projection_unknown are analysis metadata; the body writer of change c0121 writes a body from its
 `height` and `standoff` and reads neither the signed bounds nor `projection_unknown`.
+
+## Converted project libraries and schematics
+
+Change c0160 writes a derived PCB library and a schematic from the KiCad source's embedded symbols
+and sheet instances. Pads and drawings on supported layers are retained; presentation is regenerated
+and every remaining loss is reported. Mechanical-layer mapping, edited instances, Unicode comments
+and conflicting pin memberships are described in `docs/conversion.md`, "KiCad to Altium with c0160".
+The writers use DIFAT sectors for large compound documents. Altium opening, compile, repour, DRC,
+ECO and library placement checks are Part T in `docs/evidence/altium-pcb.md`; they remain unverified
+until the maintainer reports the actual outcomes.
+
+## Panels (change c0173)
+
+`fenolite panel PANEL.py --out DIR --target altium` writes a panel of copies of one board for Altium
+(`docs/panels.md`; `docs/cli-contract.md`, "panel"). The board the panel script names is a `.kicad_pcb` or a
+`.PcbDoc` built with `fenolite build --target altium`.
+
+- **The flattened panel ships.** `--altium-panel auto` (the default) or `flat` writes `<name>.PcbDoc`, a
+  `<name>.PrjPcb` that lists the panel document alone, and `<name>.panel.json`, with one
+  `altium.panel-flattened` info naming why it is not the array. The document holds every item of each copy
+  (nets `B<k>/<name>`, designators kept); its board shape is the panel's rectangle; the routed gaps are lines
+  on Mechanical 1 named `Route Tool Path`, the score lines lines on Mechanical 2 named `V-Cut`, both without
+  a layer type (S-0792); mouse-bite and tooling holes are free round non-plated pads, fiducials free round
+  copper pads on the Top or Bottom Layer with the mask from the rule. A copy with cut-outs or slots is
+  `panel.altium-cutout` (error) while board cut-out regions stay behind `pcbdoc.CUTOUT_REGIONS`. Level:
+  `ORACLE-VERIFIED(kicad-cli)` (10.0.6, `H-A-PANEL-FLAT`); Altium's view of it is kit case Q11.
+- **The Embedded Board Array is behind a gate.** `pcbdoc.EMBEDDED_ARRAYS = False`: `--altium-panel embedded`
+  exits 7 (`FEN-7001`, hint `--altium-panel flat`), and so does it with a `.kicad_pcb` board. No public page
+  gives the array's records and no public document of the corpus holds one, so they are measured from the
+  documents the maintainer saves in Altium Designer 26.5 (Part Q of `docs/evidence/altium-pcb.md`, phase A),
+  and the gate opens only when he reports Q7, Q8 and Q9 as passed. Until then nothing about the array is
+  `ALTIUM-VERIFIED`: `H-A-PANEL-RECORD` and `H-A-PANEL-LAYERKIND` are `UNKNOWN`, `H-A-PANEL-KIT` is
+  `INFERRED`. If the stop rules of the change fire, the flattened panel stays what ships.
+- `mirror=True` of `grid()` is the array's Mirrored property; no form written today holds it (exit 7).
+- The panel's Gerber and NC drill files are Altium's outputs; `fenolite export` does not run Altium.

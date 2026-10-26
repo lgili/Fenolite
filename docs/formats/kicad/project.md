@@ -159,7 +159,20 @@ another class; `allow_lossy` writes it without a pattern instead (`kicad.project
 For target 9, a project holding a `TEN_ONLY_PATHS` key or the pair (3, 5) is refused: with
 `DowngradeRefusedError` when the board was read from a 10.0 file, else with `LossyWriteError` naming
 each path (`kicad.project.too-new-key`). `allow_lossy` removes the paths, writes
-`net_settings.meta.version` 4 and warns (`kicad.project.dropped-too-new`).
+`net_settings.meta.version` 4 and warns (`kicad.project.dropped-too-new`). With `downgrade` (a board
+read from a 10.0 file, change c0162) each top path is decided by its `project:` row of the downgrade
+resolver: `same` when it holds the default below, else `design`, which needs `allow_lossy`.
+
+### Default sections of KiCad 10
+
+`pro.holds_default(data, path)` is true when every value at `path` (list items written `*`) equals a
+value of the 10 template there, key order aside and numbers compared as written. The maintainer decided
+on 2026-10-09 that a downgrade drops such a section as `same` (Open decisions, row 41).
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| A fresh KiCad 10.0.6 project writes `component_class_settings` as `{"assignments": [], "meta": {"version": 0}, "sheet_component_classes": {"enabled": false}}`, `tuning_profiles` as `{"meta": {"version": 0}, "tuning_profiles_impedance_geometric": []}` and the class key `tuning_profile` as `""`: the GUI save `empty_10` (the 10 template) holds these, and so does the project that the `pcbnew` module of the pinned image `kicad/kicad:10.0.6` saves for a new board (`NewBoard` and `SaveBoard`, run as a subprocess in the container on 2026-10-09; meta `version` 3, `net_settings.meta.version` 5) | S-0020, S-0029 | KICAD-VERIFIED (10.0.x; GUI save) | H-K-PRO-TUNING |
+| The two demo projects of format 10 hold the same `component_class_settings` and every class `tuning_profile` `""`; `pic_programmer` holds the same `tuning_profiles` and `CM5_MINIMA_3` none (measured on 2026-10-09 on the project files the corpus rebuilds) | S-0023, S-0024 | CORPUS-VERIFIED | H-K-DOWN-DEMOS |
 
 ## Reading
 

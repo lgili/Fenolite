@@ -5,12 +5,18 @@
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
+import runpy
+import sys
+from pathlib import Path
 
+import pytest
 from _analysis import at, box, with_outline
 from _coppercheck import Copper, ident
 
 from fenolite.analysis.boundary import board_boundary
 from fenolite.core.coords import Point
+from fenolite.dsl import to_model
 from fenolite.geometry import DEFAULT_TOL
 from fenolite.model.board import Board, Graphic, StackLayer, Stackup
 from fenolite.model.design import Design
@@ -129,3 +135,19 @@ def test_outline_from_the_model_arcs() -> None:
     assert (
         round_board.source == "model" and len(round_board.outer) > 8 and round_board.band == DEFAULT_TOL + 1
     )
+
+
+def test_slots_in_the_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scenario "Slots in the boundary" (change c0167)."""
+    design = runpy.run_path(
+        str(Path(__file__).resolve().parents[3] / "tests" / "data" / "slots" / "design.py")
+    )
+    board = to_model(design["design"]).board
+    assert board is not None
+    if importlib.util.find_spec("pyclipper") is not None:
+        found = board_boundary(board)
+        assert found.source == "model" and found.problem is None
+        assert len(found.cutouts) == 3 and found.band == DEFAULT_TOL + 1
+    monkeypatch.setitem(sys.modules, "pyclipper", None)  # an import of it now fails
+    refused = board_boundary(board)
+    assert refused.source == "none" and refused.problem == "overlap-needs-geo" and refused.outer == ()

@@ -42,6 +42,7 @@ TEXT_READ_CODES: dict[str, Severity] = {
     "altium.text.mixed-line-ends": "info",
     "altium.text.duplicate-key": "info",
     "altium.text.stray-line": "info",
+    "altium.text.unknown-key": "info",
     "altium.project.no-design-section": "warning",
     "altium.project.hierarchy-mode-unknown": "warning",
     "altium.project.document-kind-unknown": "info",

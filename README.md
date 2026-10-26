@@ -6,17 +6,18 @@ from Python code or a JSON-speaking command line, without a GUI. KiCad is the fi
 files, with `kicad-cli` as the verification oracle); a second backend for another major commercial
 format family follows.
 
-> **Status: version 0.4.** A design script becomes a KiCad project with a board and a schematic, for
+> **Status: version 0.5.** A design script becomes a KiCad project with a board and a schematic, for
 > KiCad 9.0 and 10.0. The loop of the agent guide works on two-layer boards: the board is placed, routed
 > by an external router, filled, checked by KiCad's own design-rule check and exported to fabrication
 > files. The schematic is judged by KiCad's own electrical rules check, by its netlist and by its
-> schematic parity test. Version
-> 0.4 adds the agent guide inside the package, boards of up to 8 copper layers with stack-ups, shaped
-> outlines, differential pairs, impedance and length rules, routing with planes, and the documents and
-> drawings a manufacturer asks for. What was proved for this version, what waits for the next one, and the
-> limits are in `docs/release/v0.4.md` (`docs/release/v0.3.md`, `docs/release/v0.2.md` and
-> `docs/release/v0.1.md` for the versions before). Every Altium write is experimental: no write kind has
-> the evidence to leave that state yet, and most Altium evidence is `INFERRED` or an author report.
+> schematic parity test. Version 0.5 adds `fenolite convert`: a project is converted between KiCad and
+> Altium, or written for the older KiCad major, with a report of what is kept, changed or lost, and every
+> conversion is read back and compared with its source through the public `equivalent`. It also adds
+> board slots and the copper-to-edge check. What was proved for this version, what waits for the next one,
+> and the limits are in `docs/release/v0.5.md` (`docs/release/v0.4.md`, `docs/release/v0.3.md`,
+> `docs/release/v0.2.md` and `docs/release/v0.1.md` for the versions before). Every Altium write and every
+> conversion to or from Altium is experimental: no write kind has the evidence to leave that state yet, and
+> most Altium evidence is `INFERRED` or an author report.
 
 *Fenolite* is the Portuguese word for phenolic board material — the laminate many of us etched our
 first circuit boards on.
@@ -38,7 +39,7 @@ first circuit boards on.
 
 The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-contract.md`.
 
-## What version 0.4 does
+## What version 0.5 does
 
 - **The schematic.** `fenolite build` writes the schematic of the design beside the board, one sheet
   per module, which KiCad's ERC and parity test accept on 9.0 and 10.0 (`docs/schematic.md`).
@@ -65,7 +66,10 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
   schematic documents per module, both libraries, the project file, an output job and the drawing sheet;
   `fenolite check` judges copper and parity on Altium input, `equivalent --level 5` compares routing, and
   `fenolite kit` builds the Altium verification kit (`docs/altium.md`, `docs/altium-kit.md`). All of it is
-  experimental: the release record says per file kind what is proved and what is missing.
+  experimental: `capabilities` lists missing proofs per kind. The AD 26.5 kit has
+  32 passed steps and a published supplemental archive; the acceptance project
+  passed on KiCad 10.0.6 within its comparison profile. See
+  [measured acceptance](docs/evidence/altium-acceptance.md); no write kind graduates yet.
 
 - **The agent guide.** `fenolite guide` prints the guide that ships in the package, `fenolite skill
   install` puts it where an agent finds it, `fenolite init` writes a starter project, and
@@ -79,6 +83,27 @@ The model is described in `docs/design-model.md`; the CLI contract in `docs/cli-
 - **Fabrication documents.** `fenolite export` writes IPC-2581, ODB++, STEP, PDF and DXF, and fabrication
   and assembly drawings (`docs/exports.md`, `docs/drawings.md`); `fenolite testpoints` reports fiducials and
   test points.
+- **Conversion.** `fenolite convert SRC --to {kicad,altium} --out DIR` converts a project from KiCad to
+  Altium, from Altium to KiCad, or between KiCad majors, with a report of what is kept, changed or lost per
+  kind and reason; a lossy conversion stops unless `--allow-lossy` is given, and every conversion is read
+  back and compared with its source (`docs/conversion.md`). Both Altium directions are experimental.
+- **The KiCad downgrade.** `fenolite --kicad-version 9 convert <project> --to kicad --out <dir>` writes a
+  project saved by KiCad 10 for KiCad 9, each newer construct resolved by a capability table proved on
+  9.0.9 (`docs/conversion.md`).
+- **`equivalent` in the library.** `fenolite.api.equivalent` compares two designs from Python, with the
+  result schema `fenolite.equivalent.v0`, and a KiCad schematic is a side of the comparison
+  (`docs/equivalence.md`).
+- **Slots and the board edge.** `design.slot()` adds a milled slot, overlapping cut-outs and slots are
+  merged (the `geo` extra), and `fenolite check` reports copper too close to the board edge, a cut-out or a
+  slot, and drilled holes that break into them (`docs/dsl.md`, `docs/cli-contract.md`). What each change of
+  0.5 ships, and what waits for the next release, is in `docs/release/v0.5.md`.
+
+After 0.5, on the branch of change c0176:
+
+- **A board viewer.** `fenolite view PATH` shows the boards of an Altium or KiCad project in a browser,
+  without either tool: the project's documents in a side panel, the layers as tabs along the bottom, Top and
+  Bottom views, net highlight, measurement, a 3D view with part bodies, and the paths of an `analyze` reply
+  on top. `--serve` serves it live on `127.0.0.1`; `--export` writes one standalone page (`docs/viewer.md`).
 
 ## Evidence labels
 
@@ -126,6 +151,14 @@ fenolite check blink/build --json
 fenolite export blink/build -o blink/fab --all --manifest --confirm --json
 fenolite render blink/build -o blink/views --svg --png --confirm --json
 ```
+
+A board that passes `fenolite check` is not therefore a good board. The guide also holds eleven practice
+pages, which start at `fenolite guide board-practice --text`. They cover the schematic and part ratings,
+the floorplan, power paths, grounds and current sensing, high-voltage spacing, EMC and protection,
+routing, assembly and test access, the review before handing a board over, and working on files that a
+person also edits. They give rules, the failures the
+rules prevent, and how to check each one. They give no limit values: those come from your standard,
+your fabricator and your datasheets.
 
 ## Install for development
 

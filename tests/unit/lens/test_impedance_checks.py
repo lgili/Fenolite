@@ -95,6 +95,32 @@ def test_kicad_10_gives_no_gap_clearance() -> None:
     assert not _of(output, "build.impedance-gap-clearance") and not _of(output, "build.impedance-rules-only")
 
 
+BOARD_CLEARANCE = (
+    "from fenolite.dsl import select\n"
+    'design.rules.rule("board clearance", "clearance", where=select.ALL, min=mm(0.2))\n'
+)
+
+
+def test_kicad_10_gap_clearance_under_a_custom_rule() -> None:
+    """Probe ``pro-tuning-gap-clearance-rule`` = ``present`` on 10.0.6 (c0105 task 1.3): under a custom
+    clearance rule the profile's gap no longer relaxes the pair's own clearance."""
+    output = build(zdesign(se50=False, extra=BOARD_CLEARANCE), target=10)
+    (gap,) = _of(output, "build.impedance-gap-clearance")
+    assert "USB90" in gap.message and "0.15 mm" in gap.message and "0.2 mm" in gap.message
+    assert "board clearance" in gap.message and "KiCad 10" in gap.message
+
+
+def test_kicad_10_pair_clearance_after_the_rule_governs() -> None:
+    extra = BOARD_CLEARANCE + "design.rules.pair(usb, clearance=mm(0.15))\n"
+    output = build(zdesign(se50=False, extra=extra), target=10)
+    assert not _of(output, "build.impedance-gap-clearance")
+
+
+def test_kicad_10_rule_at_or_below_the_gap_gives_none() -> None:
+    extra = BOARD_CLEARANCE.replace("mm(0.2)", "mm(0.15)")
+    assert not _of(build(zdesign(se50=False, extra=extra), target=10), "build.impedance-gap-clearance")
+
+
 def test_stackup_not_marked() -> None:
     found = _of(build(zdesign(usb90=False, stackup=False)), "build.impedance-stackup")
     assert len(found) == 1

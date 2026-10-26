@@ -96,8 +96,13 @@ def test_overlap_reported_and_build_written(monkeypatch: pytest.MonkeyPatch, tmp
 def test_part_over_the_edge(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     script = variant(tmp_path, (R1_PLACE, "r1.place(mm(49.5), mm(9))"))
     out = tmp_path / "out"
-    code, env, err, _ = run(monkeypatch, tmp_path, "build", str(script), "--out", str(out), "--dry-run")
+    # the copper of R1 now lies over the board edge too: the copper guard reports it (change c0169), and
+    # its warn mode lets the placement guard's warning be read alone
+    args = ("build", str(script), "--out", str(out), "--dry-run", "--copper-check", "warn")
+    code, env, err, _ = run(monkeypatch, tmp_path, *args)
     assert code == 0, (env["issues"], err)
+    edge = [i for i in env["issues"] if i["code"] == "copper.edge-clearance"]
+    assert edge and all(i["severity"] == "warning" and i["where"].startswith("R1-") for i in edge)
     assert place_issues(env) == [("place.outside-outline", "warning", "R1")]
     assert env["result"]["placement"]["counts"] == {"place.outside-outline": 1}
     assert not out.exists()

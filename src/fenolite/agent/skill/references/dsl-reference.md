@@ -174,6 +174,10 @@ Function: `protect(*, tenting: 'object' = None, covering: 'object' = None, plugg
 
 How a via is protected.
 
+## schematic_composition
+
+Function: `schematic_composition(design: 'Design', *, target: 'str \| None' = None, enabled: 'bool' = False) -> 'CompositionIntent \| None'`
+
 ## second
 
 Function: `second(value: 'int \| Fraction \| str') -> 'Quantity'`
@@ -232,7 +236,7 @@ The items of a part (for a courtyard rule, the part's footprint), by reference o
 
 Module.
 
-Closed paths for the board outline and its cut-outs: `rect`, `circle` and `slot`.
+Closed paths for the board outline and its cut-outs.
 
 ### shape.RingSpec
 
@@ -275,6 +279,12 @@ Function: `shape.round_root(p: 'int', q: 'int') -> 'int'`
 Function: `shape.slot(start: 'object', end: 'object', width: 'object') -> 'Path'`
 
 The stadium whose round ends are centred on `start` and `end`, `width` wide: its overall length is `|end − start| + width`.
+
+### shape.stadium
+
+Function: `shape.stadium(x: 'object', y: 'object', length: 'object', width: 'object', rot: 'object' = 0) -> 'Path'`
+
+The ring of `design.slot()` as a path.
 
 ## stack
 

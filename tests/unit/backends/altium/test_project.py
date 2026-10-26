@@ -36,10 +36,11 @@ STDLIB_ALLOWED = {
     "typing",
 }  # fmt: skip
 """``decimal``, ``fractions`` and ``types`` serve the PCB writers (change c0035)."""
-READING_MODULES = {"backend.py", "docset.py", "frame.py", "roundtrip.py", "rta3.py"}
-"""The modules of the reading side (changes c0043, c0044, c0088 and c0090): the registered backend, the
-document sets, the board frame of an import and the round-trip levels. ``test_backend.py``,
-``test_docset.py``, ``test_frame.py``, ``test_roundtrip.py`` and ``test_rta3.py`` hold their rules."""
+READING_MODULES = {"backend.py", "docset.py", "frame.py", "models3d.py", "roundtrip.py", "rta3.py"}
+"""The modules of the reading side (changes c0043, c0044, c0088, c0090 and c0193): the registered backend, the
+document sets, the board frame of an import, the round-trip levels and the embedded body models.
+``test_backend.py``, ``test_docset.py``, ``test_frame.py``, ``test_roundtrip.py``, ``test_rta3.py`` and
+``test_models3d.py`` hold their rules."""
 PINNED_ID = "WIEFALXV"
 """``unique_id("cmp_00000000-0000-0000-0000-000000000000")``, computed once by the rule of the spec."""
 
@@ -85,16 +86,22 @@ def test_imports_only_core_and_model() -> None:
                 continue
             for name in names:
                 if name.startswith("fenolite."):
+                    if path.name == "graduation.py" and name == "fenolite.backends.base":
+                        continue  # packaged matrix policy, not a format writer
                     assert name.startswith(
                         (
                             "fenolite.core.",
                             "fenolite.model.",
                             "fenolite.geometry.",
+                            "fenolite.schematic.",
                             "fenolite.backends.altium.",
                         )
                     ), f"{path.name} imports {name}"
                 else:
-                    assert name.split(".")[0] in STDLIB_ALLOWED, f"{path.name} imports {name}"
+                    allowed = STDLIB_ALLOWED | (
+                        {"json", "pathlib"} if path.name == "graduation.py" else set()
+                    )
+                    assert name.split(".")[0] in allowed, f"{path.name} imports {name}"
 
 
 def test_evidence_and_kinds() -> None:
@@ -106,6 +113,7 @@ def test_evidence_and_kinds() -> None:
         "H-A-SCH-NETS",
         "H-A-SCH-LINK",
         "H-A-PRJ-OPEN",
+        "H-A-CONV-SCHEMATIC",
         "H-A-ECO-NETCLASS",
         "H-A-ECO-PRJ-KEYS",
         "H-A-ECO-ROOMS",

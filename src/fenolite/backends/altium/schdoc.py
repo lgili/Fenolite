@@ -22,6 +22,7 @@ and the values marked as choices are Fenolite's.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable, Sequence
 from typing import Protocol
 
@@ -44,6 +45,7 @@ from fenolite.backends.altium.layout import (
     SheetPlan,
     Stub,
 )
+from fenolite.schematic.composition import rotate
 
 FONT_NAME = "Times New Roman"
 """The sheet's one font (a Fenolite choice)."""
@@ -103,7 +105,11 @@ def length_fields(key: str, nm: int) -> Record:
 
 
 def graphic_fields(
-    graphic: AltiumGraphic, place: Callable[[int, int], tuple[int, int]], owner: Sequence[Field] = ()
+    graphic: AltiumGraphic,
+    place: Callable[[int, int], tuple[int, int]],
+    owner: Sequence[Field] = (),
+    *,
+    normalise_rectangle: bool = False,
 ) -> Record:
     """The record of one symbol graphic (change c0086, "Symbol graphics in libraries and bodies").
     ``place`` turns a symbol point in nanometres into a point of the file that holds the record, in
@@ -126,10 +132,18 @@ def graphic_fields(
             ("COLOR", COMPONENT_COLOR),
         ]
     if graphic.kind == "rectangle":
+        corners = [*point("LOCATION", graphic.points[0]), *point("CORNER", graphic.points[1])]
+        if normalise_rectangle:
+            a, b = place(*graphic.points[0]), place(*graphic.points[1])
+            corners = [
+                *length_fields("LOCATION.X", min(a[0], b[0])),
+                *length_fields("LOCATION.Y", min(a[1], b[1])),
+                *length_fields("CORNER.X", max(a[0], b[0])),
+                *length_fields("CORNER.Y", max(a[1], b[1])),
+            ]
         return [
             *head,
-            *point("LOCATION", graphic.points[0]),
-            *point("CORNER", graphic.points[1]),
+            *corners,
             ("LINEWIDTH", "1"),
             ("COLOR", COMPONENT_COLOR),
             *fill,
@@ -233,6 +247,7 @@ class _Writer:
                 ("PARTCOUNT", str(body.parts + 1)),
                 ("DISPLAYMODECOUNT", "1"),
                 ("CURRENTPARTID", str(placed.part)),
+                *((("ORIENTATION", str(placed.rotation)),) if placed.rotation else ()),
                 ("OWNERPARTID", "-1"),
                 *self.at("LOCATION", placed.x, placed.y),
                 ("UNIQUEID", spec.part_id(placed.part)),
@@ -243,18 +258,29 @@ class _Writer:
 
         def place(sx: int, sy: int) -> tuple[int, int]:
             """A symbol point in nanometres as a sheet point in nanometres, in the file frame."""
-            return placed.x * NM_PER_MIL + sx, (self.height - placed.y) * NM_PER_MIL + sy
+            dx, dy = rotate((sx, -sy), placed.rotation)
+            return placed.x * NM_PER_MIL + dx, (self.height - placed.y) * NM_PER_MIL - dy
 
         for graphic in body.graphics:
-            self.add(graphic_fields(graphic, place, (("OWNERINDEX", str(owner)),)))
+            self.add(
+                graphic_fields(
+                    graphic, place, (("OWNERINDEX", str(owner)),), normalise_rectangle=bool(placed.rotation)
+                )
+            )
         for rect in () if body.drawn else body.rectangles:
+            lower, upper = placed.at(rect.x0, rect.y0), placed.at(rect.x1, rect.y1)
+            if placed.rotation:
+                lower, upper = (
+                    (min(lower[0], upper[0]), max(lower[1], upper[1])),
+                    (max(lower[0], upper[0]), min(lower[1], upper[1])),
+                )
             self.add(
                 [
                     ("RECORD", "14"),
                     ("OWNERINDEX", str(owner)),
                     ("OWNERPARTID", str(rect.part)),
-                    *self.at("LOCATION", *placed.at(rect.x0, rect.y0)),
-                    *self.at("CORNER", *placed.at(rect.x1, rect.y1)),
+                    *self.at("LOCATION", *lower),
+                    *self.at("CORNER", *upper),
                     ("LINEWIDTH", "1"),
                     ("COLOR", COMPONENT_COLOR),
                     ("AREACOLOR", COMPONENT_FILL),
@@ -275,7 +301,10 @@ class _Writer:
                     *edges,
                     ("FORMALTYPE", "1"),
                     ("ELECTRICAL", str(pin.electrical)),
-                    ("PINCONGLOMERATE", str(pin.conglomerate)),
+                    (
+                        "PINCONGLOMERATE",
+                        str((pin.conglomerate & ~3) | ((pin.direction + placed.rotation) % 4)),
+                    ),
                     ("PINLENGTH", str(to_units(pin.length))),
                     *self.at("LOCATION", *placed.at(pin.x, pin.y)),
                     ("NAME", pin.name),
@@ -285,9 +314,12 @@ class _Writer:
         first = body.rectangle(1)
         left, top = placed.at(first.x0, first.y1)
         bottom = placed.at(first.x0, first.y0)[1]
-        for record, name, text, ty in (
-            ("34", "Designator", spec.ref, top - DESIGNATOR_RISE),
-            ("41", "Comment", spec.comment, bottom + COMMENT_DROP),
+        reference, comment = ((left, top - DESIGNATOR_RISE), (left, bottom + COMMENT_DROP))
+        if placed.fields is not None:
+            reference, comment = placed.fields
+        for record, name, text, point in (
+            ("34", "Designator", spec.ref, reference),
+            ("41", "Comment", spec.comment, comment),
         ):
             self.add(
                 [
@@ -296,7 +328,7 @@ class _Writer:
                     ("OWNERPARTID", "-1"),
                     ("NAME", name),
                     ("TEXT", text),
-                    *self.at("LOCATION", left, ty),
+                    *self.at("LOCATION", *point),
                     ("FONTID", "1"),
                     ("COLOR", TEXT_COLOR),
                 ]
@@ -414,7 +446,11 @@ class _Writer:
         """The labelled wires of a port or sheet entry: its own stub, or those of its harness block, or
         the records of its bus block."""
         if item.stub is not None:
-            self.stub(item.stub)
+            stub = item.stub
+            if isinstance(item, PlacedEntry) and item.bus is not None:
+                stem = item.bus.label.partition("[")[0]
+                stub = dataclasses.replace(stub, net=dataclasses.replace(stub.net, net=stem))
+            self.stub(stub)
         if item.block is not None:
             for stub in item.block.stubs:
                 self.stub(stub)
@@ -572,6 +608,50 @@ def schdoc_records(plan: SheetPlan, frame: Frame | None = None) -> list[Record]:
         writer.no_connect(mark)
     for item in plan.class_marks:
         writer.class_mark(item)
+    if plan.composition is not None:
+        writer.add(
+            [
+                ("RECORD", "41"),
+                ("OWNERPARTID", "-1"),
+                ("NAME", "FenoliteComposition"),
+                ("TEXT", plan.composition.intent_sha256),
+                ("ISHIDDEN", "T"),
+                *writer.at("LOCATION", 0, 0),
+                ("FONTID", "1"),
+                ("COLOR", TEXT_COLOR),
+            ]
+        )
+        for wire in plan.composition.wires:
+            wire_record: Record = [
+                ("RECORD", "27"),
+                ("OWNERPARTID", "-1"),
+                ("LINEWIDTH", "1"),
+                ("COLOR", TEXT_COLOR),
+                ("LOCATIONCOUNT", str(len(wire.points))),
+            ]
+            for index, (x, y) in enumerate(wire.points, 1):
+                wire_record.extend(
+                    (
+                        (f"X{index}", str(to_units(x // NM_PER_MIL))),
+                        (f"Y{index}", str(to_units(plan.size.height - y // NM_PER_MIL))),
+                    )
+                )
+            writer.add(wire_record)
+        for block in plan.composition.blocks:
+            writer.add(
+                [
+                    ("RECORD", "4"),
+                    ("OWNERPARTID", "-1"),
+                    ("TEXT", block.title),
+                    *writer.at(
+                        "LOCATION",
+                        block.bounds.x0 // NM_PER_MIL,
+                        (block.bounds.y0 + 200 * NM_PER_MIL) // NM_PER_MIL,
+                    ),
+                    ("FONTID", "1"),
+                    ("COLOR", TEXT_COLOR),
+                ]
+            )
     for record in frame.records if frame is not None else ():
         writer.add(list(record))
     return writer.records

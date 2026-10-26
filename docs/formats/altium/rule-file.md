@@ -259,6 +259,15 @@ signal layer is a copper layer whose id lies between the top layer's and the bot
 
 ## Writing a rule file
 
+Scoped native support for the two Clearance hypotheses (2026-10-14):
+
+| measured fact | source | label | hypothesis |
+|---|---|---|---|
+| On the authored two-layer matrix, native AD 26.5.0 reports all three planted 4-mil pairs with the outer 5-mil constraint and none with the inner 7-mil constraint. Report headings group under the 10-mil parent; native save names the child rules `Fallback_1` and `Fallback_2`, preserving their scopes | S-0744 | INFERRED | H-A-RULE-CLEARANCE-FORMS |
+| On the authored generic 4-mil rule with a via-via cell of 3.5 mil, a 3.7-mil via-via gap passes and a 3.7-mil via-track gap fails in native AD 26.5.0. The native saved cell text and Fenolite's finding count agree | S-0744 | INFERRED | H-A-RULE-CLEARANCE-CELLS |
+
+These are scoped automated observations; neither row graduates the broader hypothesis.
+
 `rulemap.write_rule_file` (change c0084) writes the export form from the records of `rulemap.lower`.
 
 | fact | source | label | hypothesis |

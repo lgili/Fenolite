@@ -38,6 +38,7 @@ from fenolite.backends.altium import outjob as job_writer
 from fenolite.backends.altium.altsym import DEFAULT_BODIES, AltiumSymbol, SymbolBodies, from_symbol_def
 from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
+from fenolite.backends.altium.cutouts import CUTOUT_HINT, cutout_items, not_written
 from fenolite.backends.altium.hierarchy import ProjectSheets
 from fenolite.backends.altium.project import WRITE_KINDS, component_path, split_link, unique_id
 from fenolite.backends.altium.read.outjob import OutputGroup, record_fields
@@ -70,11 +71,21 @@ from fenolite.lens.build import (
 from fenolite.lens.placements import FULL_TURN
 from fenolite.model import canonical
 from fenolite.model.base import Opaque
-from fenolite.model.board import PPM_PER_PERCENT, ComponentBody, FootprintInstance, Graphic, Hole, Pad
+from fenolite.model.board import (
+    PPM_PER_PERCENT,
+    Board,
+    ComponentBody,
+    FootprintInstance,
+    Graphic,
+    Hole,
+    Pad,
+)
 from fenolite.model.circuit import Component, Net, Pin, PinRef
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef, SymbolDef
-from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetFrameRef, TitleBlock
+from fenolite.model.presentation import PAPER_SIZES, DrawingSheet, SheetBitmap, SheetFrameRef, TitleBlock
+from fenolite.schematic.composition import CompositionError, fail
+from fenolite.schematic.intent import CompositionIntent
 
 TARGET = "altium"
 """The value of ``build --target`` for this builder, and of ``target`` in its result and record."""
@@ -129,54 +140,17 @@ ALTIUM_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.pcb-not-in-project": "info",
         "altium.sheets-not-in-project": "info",
         "altium.outjob-not-listed": "info",
+        "altium.experimental": "info",
         **altium_copper.COPPER_ISSUE_CODES,
     }
 )
 """The closed table of the Altium build's own issue codes (``model.*`` and ``build.layout-exists`` pass
 through)."""
 ALTIUM_BUILD_EVIDENCE = Evidence.combine(
-    Evidence(
-        Level.INFERRED,
-        hypotheses=(
-            "H-A-ECO-NETCLASS",
-            "H-A-ECO-PRJ-KEYS",
-            "H-A-ECO-ROOMS",
-            "H-A-ECO-SUPPLY",
-            "H-A-PRJ-KEEP",
-            "H-A-PRJ-OPEN",
-            "H-A-SCH-ECO",
-            "H-A-SCH-LINEEND",
-            "H-A-SCH-LINK",
-            "H-A-SCH-NC-ERC",
-            "H-A-SCH-NC-RECORD",
-            "H-A-SCH-NC-VIEWER",
-            "H-A-SCH-NETS",
-            "H-A-SCH-OPEN",
-            "H-A-SCH-RELINK",
-            "H-A-SCH-UID",
-            "H-A-SCH-UPDATE",
-            "H-A-SCHX-BUS",
-            "H-A-SCHX-DIR",
-            "H-A-SCHX-ECO",
-            "H-A-SCHX-GRAPHICS",
-            "H-A-SCHX-PINMAP",
-            "H-A-SCHX-PINMAP-FORM",
-            "H-A-SCHX-READBACK",
-            "H-A-SCHX-TEXT",
-            "H-A-SCHX-TREE",
-        ),
-    ),
+    project.BUILD_EVIDENCE,
     binary.EVIDENCE,
-    Evidence(
-        Level.INFERRED,
-        hypotheses=(
-            "H-A-SCHLIB-KICAD9",
-            "H-A-SCHLIB-MULTIPART",
-            "H-A-SCHLIB-PRJ",
-            "H-A-SCHLIB-SCHDOC",
-            "H-A-SCHLIB-UPDATE",
-        ),
-    ),
+    project.EVIDENCE,
+    schlib.BUILD_EVIDENCE,
     schlib.EVIDENCE,
     pcbrecords.EVIDENCE,
     hierarchy.EVIDENCE,
@@ -191,7 +165,7 @@ the kicad-cli oracle checks only what KiCad's importer reads. It names the rows 
 (``hierarchy.EVIDENCE``: every ``H-A-SCH-HIER-*`` and ``H-A-SCH-HARN-*`` row, change c0037), and the rule
 rows ``H-A-RULE-*`` of the PCB document (``rulemap.EVIDENCE``, change c0084). The rows of a component body
 (``H-A-PCBX-BODY-*``, change c0121) come with ``pcbdoc.EVIDENCE`` and ``pcblib.EVIDENCE``: they are claims
-of a build that writes bodies, which is on request only."""
+of a build that writes bodies, which is the default of a build since change c0155."""
 EXPERIMENTAL: Mapping[str, object] = MappingProxyType(
     {
         "name": "altium-schematic-writer",
@@ -482,21 +456,23 @@ def _decimal_atom(node: Node) -> Decimal | None:
 
 def pad_extras(defn: FootprintDef) -> dict[str, pcblib.PadExtras]:
     """Pad id → the KiCad-only facts the model keeps opaque: the corner ratio of a rounded rectangle, a reason
-    to refuse (an oval or offset drill, chamfers, custom primitives) and the settings Altium has no field for
+    to refuse (an offset or unusual drill, a slot of a pad with a shape per layer, chamfers, custom
+    primitives) and the settings Altium has no field for
     (margins, zone connection, thermal settings). Only this lens reads KiCad fragments (layering)."""
     out: dict[str, pcblib.PadExtras] = {}
     for pad in defn.pads:
         ratio: Decimal | None = None
         refusal: str | None = None
         dropped: list[str] = []
-        if pad.padstack is not None and pad.padstack.hole_shape == "slot":
-            refusal = "the drill is oval or has an offset"
+        if pad.padstack is not None and pad.padstack.hole_shape == "slot" and pad.padstack.layers:
+            # a slot of a pad of one shape is written with the record's slot fields (change c0170)
+            refusal = "the drill is oval and the pad has a shape per layer"
         for node in _opaque_nodes(pad):
             head = node.name
             if head == "roundrect_rratio":
                 ratio = _decimal_atom(node)
             elif head == "drill":
-                refusal = refusal or "the drill is oval or has an offset"
+                refusal = refusal or "the drill has an offset or a form other than round or oval"
             elif head in PAD_REFUSED:
                 if head == "chamfer_ratio" and _decimal_atom(node) == 0:
                     continue
@@ -670,12 +646,28 @@ the two equal: the lens does not import the DSL)."""
 @dataclasses.dataclass(frozen=True)
 class HoleParts:
     """What ``split_hole_parts`` found: the design without its hole parts, whose board holds one ``Hole``
-    per hole part; the ids of the holes that the document cannot hold (a slot, a plated hole, a hole
-    without a placement), and one ``altium.not-lowered`` info for each of them."""
+    per hole part; the ids of the holes that the document cannot hold (a plated hole, a hole without a
+    placement), and one ``altium.not-lowered`` info for each of them."""
 
     design: Design
     reported: frozenset[str] = frozenset()
     issues: tuple[Issue, ...] = ()
+
+
+def _slot_of(pad: Pad | None, request: PlacementRequest | None) -> tuple[Nm | None, int]:
+    """The overall length of a hole part's slot and its axis on the board (change c0168): the padstack's
+    ``hole_length``, and its axis in the footprint frame (the pad's rotation plus its ``hole_rotation``,
+    which is in the pad's own frame) as the part's placement turns it, mirrored on the bottom side.
+    ``(None, 0)`` for a round hole."""
+    stack = pad.padstack if pad is not None else None
+    if stack is None or stack.hole_shape != "slot" or not stack.hole_length:
+        return None, 0
+    assert pad is not None
+    axis = pad.rotation + stack.hole_rotation
+    if request is None:
+        return stack.hole_length, axis % FULL_TURN
+    local = -axis if request.side == "bottom" else axis
+    return stack.hole_length, (local + request.rotation) % FULL_TURN
 
 
 def split_hole_parts(
@@ -687,10 +679,11 @@ def split_hole_parts(
     (capability altium-build, "PCB document output"; change c0102).
 
     A hole part is no component of an Altium build: it gets no schematic symbol, no library footprint and
-    no component record. A round hole that is not plated becomes the model ``Hole`` that the document
-    writes as a free pad without copper. A slot and a plated hole have no such record: each is listed in
-    ``reported`` with one ``altium.not-lowered`` whose ``where`` is ``hole/<component id>``, and the pin
-    of a plated hole leaves its net. The courtyard of a hole part is not written: a free pad has none."""
+    no component record. A hole that is not plated becomes the model ``Hole`` that the document writes as
+    a free pad without copper, a slot (change c0168) with its ``length`` and its axis turned by the part's
+    placement (``_slot_of``). A plated hole has no such record: it is listed in ``reported`` with one
+    ``altium.not-lowered`` whose ``where`` is ``hole/<component id>``, and its pin leaves its net. The
+    courtyard of a hole part is not written: a free pad has none."""
     parts = [
         c for c in design.circuit.components if (split_link(c.lib_symbol_ref) or ("", ""))[0] == HOLE_LIBRARY
     ]
@@ -711,12 +704,14 @@ def split_hole_parts(
         request = placements.get(component_path(component))
         drill = pad.drill if pad is not None and pad.drill is not None else 0
         plated = pad is not None and pad.kind != "np_thru_hole"
-        slot = pad is not None and pad.padstack is not None and pad.padstack.hole_shape == "slot"
+        length, rotation = _slot_of(pad, request)
         hole = Hole(
             id=derived_id("hol", DSL_BACKEND, f"hole:{component_path(component)}"),
             position=request.at if request is not None else Point(0, 0),
             drill=drill,
             plated=plated,
+            length=length if length is not None and length > drill else None,
+            rotation=rotation if length is not None and length > drill else 0,
         )
         holes.append(hole)
         lacks: list[str] = []
@@ -724,8 +719,6 @@ def split_hole_parts(
             lacks.append("its footprint definition is not known to the build")
         if request is None:
             lacks.append("it has no placement")
-        if slot:
-            lacks.append("it is a slot, and the board hole of the document is round")
         if plated:
             nets = ", ".join(sorted(net_of.get(component.id, []))) or "no net"
             lacks.append(
@@ -1018,6 +1011,19 @@ def _plan_planes(plan: altium_copper.CopperPlan) -> dict[str, str]:
     return dict(zip(layers, plan.stack.plane_nets, strict=True))
 
 
+def cutout_issues(board: Board | None) -> list[Issue]:
+    """One ``altium.not-lowered`` info per cut-out or slot of the outline that the document does not
+    write (change c0168; capability altium-build, "PCB document output"): every one while
+    ``pcbdoc.CUTOUT_REGIONS`` is false, else those that cannot be united. ``where`` is ``cutout/<k>``,
+    ``slot/<name>`` or the items of a merged group joined by ``+``."""
+    found: list[Issue] = []
+    for item in cutout_items(board.outline if board is not None else None):
+        reason = not_written(item, gate=pcbdoc.CUTOUT_REGIONS)
+        if reason is not None:
+            found.append(issue("altium.not-lowered", reason, item.where, CUTOUT_HINT))
+    return found
+
+
 def lowered_pcb(
     design: Design,
     *,
@@ -1055,13 +1061,12 @@ def lowered_pcb(
     with_links = [c for c in components if c.lib_footprint_ref]
     if board is None or board.outline is None or not board.outline.points:
         reason = "the design has no board outline"
-    elif board.outline.arcs:
-        # no fact row gives the form of an arc in the board outline of the document (change c0102)
+    elif any(arc.ring == 0 for arc in board.outline.arcs):
+        # no fact row gives the form of an arc in the board ring of the document (change c0102); the arcs of
+        # a cut-out are polygonised in its region (change c0168)
         reason = "the board outline has arcs, which the document does not write"
     elif len(board.outline.points) < 3:
         reason = "the design has no board outline"
-    elif board.outline.cutouts:
-        reason = "the board outline has cutouts, which the document does not write"
     else:
         altium = [c.ref for c in with_links if footprint_source(c.lib_footprint_ref) == "altium"]
         missing = [
@@ -1076,7 +1081,8 @@ def lowered_pcb(
             )
         elif missing:
             reason, concerned = "the footprints of some components are not written", missing
-        elif not with_links:
+        elif not with_links and not board.holes and not cutout_items(board.outline):
+            # a board of holes and cut-outs alone is a document of its own (change c0168)
             reason = "no component has a footprint"
     if reason:
         names = f" ({', '.join(concerned)})" if concerned else ""
@@ -1122,6 +1128,7 @@ def lowered_pcb(
     inputs = lower.from_design(_with_plan_copper(placed, plan), issues=[], options=options, bodies=bodies)
     spec = inputs.pcb
     assert spec is not None
+    issues += cutout_issues(board)
     _placed_bodies, body_counts = altium_copper.lower_bodies(design, spec, bodies, issues, script_bodies)
     plan = dataclasses.replace(plan, counts=MappingProxyType({**plan.counts, "body": body_counts}))
     if account is not None:
@@ -1736,6 +1743,7 @@ def sheet_frames(
     issues: list[Issue],
     *,
     allow_lossy: bool = False,
+    composition: bool = False,
 ) -> tuple[dict[str, schdot.SheetFrame], dict[str, object]]:
     """The drawing sheet of every planned schematic document (change c0087, "Drawing sheet in an Altium
     build"): sheet file → its ``schdot.SheetFrame``, and ``summary["drawing_sheet"]``. The issues of the
@@ -1752,6 +1760,12 @@ def sheet_frames(
     for number, sheet in enumerate(planned.sheets, start=1):
         size = sheet.plan.size
         shown, width, height, other = sheet_page(ref, (size.width * NM_PER_MIL, size.height * NM_PER_MIL))
+        if composition:
+            if ref is not None:
+                shown, width, height, _ = wanted
+            width = width // (10 * NM_PER_MIL) * (10 * NM_PER_MIL)
+            height = height // (10 * NM_PER_MIL) * (10 * NM_PER_MIL)
+            other = False
         if other:
             issues.append(
                 issue(
@@ -1905,6 +1919,38 @@ def _summary(
     }
 
 
+def _written_claims(
+    files: Mapping[str, bytes],
+    form: project.SchematicForm,
+    inputs: Sequence[Evidence] = (),
+) -> tuple[Evidence, tuple[str, ...]]:
+    """Evidence and experimental kinds of emitted documents, excluding cache/kept files."""
+    from pathlib import PurePosixPath
+
+    from fenolite.backends.altium import claims
+
+    suffixes = {
+        ".prjpcb": "altium_prjpcb",
+        ".schdoc": f"altium_schdoc_{form}",
+        ".schlib": project.SCHLIB_KIND,
+        ".pcblib": project.PCBLIB_KIND,
+        ".pcbdoc": project.PCBDOC_KIND,
+        ".harness": project.HARNESS_KIND,
+        ".outjob": job_writer.OUTJOB_KIND,
+        ".schdot": schdot.SCHDOT_KIND,
+    }
+    kinds = {suffixes[suffix] for name in files if (suffix := PurePosixPath(name).suffix.lower()) in suffixes}
+    rows = {row.kind: row for row in claims.MATRIX}
+    cells = [rows[kind].write for kind in sorted(kinds)]
+    evidence = (
+        Evidence.combine(*inputs, *(cell for cell in cells if cell is not None))
+        if cells or inputs
+        else Evidence(Level.INFERRED)
+    )
+    pending = tuple(sorted(kind for kind in kinds if "write" in rows[kind].experimental))
+    return evidence, pending
+
+
 def refused_altium(
     design: Design,
     *,
@@ -1947,18 +1993,20 @@ def build_altium(
     directions: bool = True,
     authored_symbols: Mapping[str, SymbolDef] = MappingProxyType({}),
     symbol_bodies: SymbolBodies = DEFAULT_BODIES,
-    bodies: str = "off",
+    bodies: str = "extruded",
     body_form: pcbrecords.BodyForm = "saved",
     heights: Mapping[str, Nm] | None = None,
+    composition: CompositionIntent | None = None,
 ) -> BuildOutput:
     """Every file of the Altium project of ``design`` as bytes, or no file when an issue is an error.
 
-    ``bodies`` (change c0121, ``--altium-bodies``) is ``off`` (the default: no component body is written and
-    every file is the file of earlier changes) or ``extruded``: the extruded component bodies of the
-    board's footprints are written into the PCB document and those of the footprint definitions into the
-    PCB library; a body that names a 3D model, has no outline or no height above its standoff is reported.
-    Another value raises ``ValueError``. The default stays ``off`` until step X8 of the author report is
-    in: two keys of a written body are stand-ins (``H-A-PCBX-BODY-OPEN``). ``body_form`` is ``saved``;
+    ``bodies`` (change c0121, ``--altium-bodies``) is ``extruded`` (the default since change c0155: the
+    extruded component bodies of the board's footprints are written into the PCB document and those of the
+    footprint definitions into the PCB library; a body that names a 3D model, has no outline or no height
+    above its standoff is reported) or ``off`` (no component body is written and every file is the file of
+    earlier changes). Another value raises ``ValueError``. Step X8 of the author report was reported as
+    expected on 2026-10-09: Altium opened the bodies with their two stand-in keys (``H-A-PCBX-BODY-OPEN``),
+    and the maintainer made ``extruded`` the default the same day. ``body_form`` is ``saved``;
     ``short`` exists for the second file set of that step and no command selects it. ``heights`` maps a
     component path to the height of ``Part(height=…)`` (change c0140): its body (``height_body``) has no
     outline, so it is reported under the kind ``body`` and never written, and the stored board, which
@@ -2010,8 +2058,10 @@ def build_altium(
             f"of origin {copper_source.origin} is given; a build takes one"
         )
     evidence = Evidence.combine(ALTIUM_BUILD_EVIDENCE, project.EVIDENCE, schlib.EVIDENCE, PCB_BUILD_EVIDENCE)
+    input_evidence: list[Evidence] = []
     if authored_footprints:
         evidence = Evidence.combine(evidence, AUTHORED_FOOTPRINT_EVIDENCE)
+        input_evidence.append(AUTHORED_FOOTPRINT_EVIDENCE)
     kept = [f"{name}.PrjPcb"] if project_exists else []
     unread_hint = UNREAD_PROJECT_HINT if project_exists and project_unreadable else ""
     # the parts of design.fiducial() are left out before the footprint check (change c0118)
@@ -2161,6 +2211,7 @@ def build_altium(
         )
     if spec is not None and any(any(pcbdoc.via_tenting(via, spec.via_protection)) for via in spec.vias):
         evidence = Evidence.combine(evidence, pcbrecords.VIA_TENTING_EVIDENCE)  # a tenting flag is set
+        input_evidence.append(pcbrecords.VIA_TENTING_EVIDENCE)
     job: tuple[OutputGroup, ...] | None = None
     job_info: dict[str, object] | None = None
     relist = False
@@ -2187,7 +2238,15 @@ def build_altium(
     sheet_info: dict[str, object] | None = None
     if drawing_sheet is not None:
         evidence = Evidence.combine(evidence, schdot.EVIDENCE)
-        frames, sheet_info = sheet_frames(model, planned, drawing_sheet, issues, allow_lossy=allow_lossy)
+        input_evidence.append(schdot.EVIDENCE)
+        frames, sheet_info = sheet_frames(
+            model,
+            planned,
+            drawing_sheet,
+            issues,
+            allow_lossy=allow_lossy,
+            composition=composition is not None,
+        )
         if not frames:
             return BuildOutput(
                 model, {}, tuple(issues), evidence, _summary(model, kept, None, form, sheets=sheets)
@@ -2204,6 +2263,29 @@ def build_altium(
             )
         )
     try:
+        margins = None
+        if drawing_sheet is not None:
+            setup = drawing_sheet.setup
+            margins = (setup.left_margin, setup.right_margin, setup.top_margin, setup.bottom_margin)
+        if composition is not None:
+            from fenolite.backends.altium.composition import compose_project
+
+            if drawing_sheet is not None and any(
+                isinstance(item, SheetBitmap) for item in drawing_sheet.items
+            ):
+                raise fail(
+                    "template-unverified",
+                    "native template bitmap output is unavailable",
+                    "template",
+                    "use bounded vector template content for composition",
+                )
+            planned = compose_project(planned, model, composition, frames, margins=margins)
+            issues.extend(
+                i
+                for sheet in planned.sheets
+                if sheet.plan.composition is not None
+                for i in sheet.plan.composition.issues
+            )
         files = project.write_project(
             model,
             name=name,
@@ -2217,6 +2299,12 @@ def build_altium(
             outjob=job_writer.write_outjob(job) if job is not None else None,
             frames=frames,
             directions=directions,
+            composition=composition,
+            composition_margins=margins,
+        )
+    except CompositionError as error:
+        return BuildOutput(
+            model, {}, (*issues, *error.issues), evidence, _summary(model, kept, None, form, sheets=sheets)
         )
     except project.PcbTooLarge as error:
         issues.append(
@@ -2262,6 +2350,16 @@ def build_altium(
             for found in issues
             if not (found.code in KEPT_PROJECT_CODES and found.where == f"{name}.PrjPcb")
         ]
+    if composition is not None:
+        from fenolite.schematic.report import artifacts
+
+        files.update(
+            artifacts(
+                tuple(
+                    sheet.plan.composition for sheet in planned.sheets if sheet.plan.composition is not None
+                )
+            )
+        )
     record = {path: hashlib.sha256(data).hexdigest() for path, data in sorted(files.items())}
     if kept and project_digest is not None:
         # A kept project file that is still as a build wrote it stays in the state, so that a later build
@@ -2302,6 +2400,12 @@ def build_altium(
         directions=directions,
         symbol_bodies=symbol_bodies,
     )
+    evidence, experimental = _written_claims(files, form, input_evidence)
+    summary["experimental"] = bool(experimental)
+    if experimental:
+        issues.append(
+            issue("altium.experimental", "Experimental Altium write kinds: " + ", ".join(experimental))
+        )
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
 
 

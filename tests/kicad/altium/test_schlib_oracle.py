@@ -260,7 +260,14 @@ def test_example_library_converts_with_the_source_pins() -> None:
         if source.footprint:
             assert read.footprint.split(":")[-1] == source.footprint.split(":")[-1], name
         else:
-            assert read.footprint == "", name
+            # c0166: the authored example's common component models are now
+            # carried into symbols without a library default. Pin comparisons
+            # above still compare with the original source library.
+            model = {"CONN2": "PinHeader_1x02", "R_V": "R0603", "MCU8": "SOIC8"}[name]
+            # The pinned 9.0.9 importer retains the PcbLib extension in its
+            # namespace; 10.0.6 uses the stem (CI run 38483187426, c0166).
+            namespace = "altium_kicad.PcbLib" if kicad_cli_major() == 9 else "altium_kicad"
+            assert read.footprint == f"{namespace}:{model}", name
 
 
 def test_example_shapes_and_overbars() -> None:

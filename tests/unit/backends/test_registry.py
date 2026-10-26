@@ -183,7 +183,7 @@ def test_kicad_capability_report() -> None:
         "read_kinds": ["kicad_pcb", "kicad_mod", "kicad_sym"],
         "targets": [9, 10],
         "default_target": 10,
-        "downgrade": "unsupported",
+        "downgrade": "supported",  # change c0162
         "evidence": {"level": "INFERRED", "oracle": None, "hypotheses": ["H-K-PCB-READ", "H-K-PCB-WRITE"]},
     }
     assert "kicad_pro" not in report["read_kinds"]

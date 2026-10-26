@@ -7,6 +7,7 @@ and capabilities."""
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Collection
 from pathlib import Path, PurePosixPath
 
@@ -16,6 +17,7 @@ from fenolite.backends.base import (
     CapabilityReport,
     DesignRules,
     DesignRulesSource,
+    EdgeRing,
     ExclusionSource,
     LengthFacts,
     LengthSource,
@@ -51,7 +53,7 @@ CAPABILITIES = CapabilityReport(
     ),
     targets=versions.TARGET_MAJORS,
     default_target=versions.DEFAULT_TARGET,
-    downgrade="unsupported",
+    downgrade="supported",
     operations=("detect", "read", "write", "lower", "validate"),
     evidence=Evidence.combine(pcb.EVIDENCE, pcb.WRITE_EVIDENCE),
 )
@@ -152,6 +154,17 @@ class KicadBackend:
 
         return frame.placed_extents(design, issues=issues)
 
+    def board_edges(
+        self, design: Design, *, issues: list[Issue] | None = None
+    ) -> tuple[EdgeRing, ...] | None:
+        """The rings of the board's edge (``outline.board_edges``; ``BoardFrame`` protocol): from
+        ``Board.outline`` as the board file holds it, else from the edge graphics. ``issues`` is not
+        written to: a board without a closed ring gives ``None``."""
+        from fenolite.backends.kicad import outline
+
+        del issues
+        return outline.board_edges(design)
+
     def design_rules(
         self, design: Design, project: ProjectSet, *, issues: list[Issue] | None = None
     ) -> DesignRules:
@@ -185,15 +198,7 @@ class KicadBackend:
         )
         if not unreadable:
             return found
-        return DesignRules(
-            found.design,
-            found.min_clearance,
-            found.rules_over_classes,
-            found.floor_over_rules,
-            found.opaque_clearance_rules,
-            tuple(sorted((*found.unread, *unreadable))),
-            found.evidence,
-        )
+        return dataclasses.replace(found, unread=tuple(sorted((*found.unread, *unreadable))))
 
     def stored_exclusions(self, project: ProjectSet) -> tuple[StoredExclusion, ...]:
         """The DRC exclusions that ``<stem>.kicad_pro`` of the copy set stores, in file order

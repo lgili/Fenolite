@@ -24,7 +24,7 @@ PREFIXES: frozenset[str] = frozenset(
         "dsn",  # Design
         "cmp", "pin", "net", "cls", "itf", "mod", "bus",  # circuit
         "brd", "lay", "stk", "sly", "fp", "pad", "pst", "trk", "arc", "via",  # board
-        "zon", "kpo", "txt", "gfx", "hol", "out", "dim",  # board
+        "zon", "kpo", "txt", "gfx", "hol", "out", "slt", "dim",  # board (slt: milled slots, change c0167)
         "fld",  # footprint fields
         "bdy",  # component bodies
         "rst", "rul", "imp",  # rules (imp: impedance targets, change c0105)
@@ -32,6 +32,7 @@ PREFIXES: frozenset[str] = frozenset(
         "fpd", "sym",  # library definitions
         "wks",  # drawing-sheet definitions
         "sch", "sci", "lbl", "ncf", "shr", "wir",  # schematic sheets
+        "pnl", "pcy", "ptb", "pvs", "pfd", "ptl",  # panels (change c0173)
     }
 )  # fmt: skip
 

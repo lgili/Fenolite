@@ -67,6 +67,7 @@ def test_files_of_the_sample() -> None:
         "altium.schlib-generic",
         "altium.pcbdoc-not-written",
         "altium.generic-symbols",
+        "altium.experimental",
     ]
     assert "no board outline" in output.issues[1].message
 
@@ -244,20 +245,39 @@ def test_evidence() -> None:
         "H-A-PCBX-",
         "H-A-ECO-",
         "H-A-RULE-",
+        "H-A-CONV-",
+        "H-A-SLOT-",  # change c0168
+        "H-A-CUTOUT-",
     )
     refuted = {r.id for r in register if r.refuted and r.id.startswith(stems)}
-    rows = {r.id for r in register if r.id.startswith(stems)} - refuted
+    viewer = {
+        "H-A-PRJ-VARIANT",
+        "H-A-PRJ-BOMDOC",
+    }  # read by `fenolite view` (c0186, c0190), never by the build
+    rows = {r.id for r in register if r.id.startswith(stems)} - refuted - viewer
+    # change c0173: the PCB document writer writes the flattened panel; the array rows that its kit has not
+    # measured (H-A-PANEL-RECORD, H-A-PANEL-LAYERKIND) are no claim of the build yet
+    rows |= {"H-A-PANEL-FLAT", "H-A-PANEL-KIT"}
     assert refuted == {"H-A-SCHBIN-MINI"}, "a refuted row is not a claim of the build"
     assert set(ALTIUM_BUILD_EVIDENCE.hypotheses) == rows
     assert set(project.EVIDENCE.hypotheses) <= rows
     assert set(binary.EVIDENCE.hypotheses) == {i for i in rows if i.startswith("H-A-SCHBIN-")}
-    board_rows = {i for i in rows if i.startswith(("H-A-PCB-", "H-A-PCBX-", "H-A-RULE-"))} | {
+    board_rows = {
+        i for i in rows if i.startswith(("H-A-PCB-", "H-A-PCBX-", "H-A-RULE-", "H-A-SLOT-", "H-A-CUTOUT-"))
+    } | {
         "H-A-ECO-COMPCLASS",
         "H-A-ECO-SHEETCLASS",
+        "H-A-CONV-DIFAT",
+        "H-A-CONV-LIBRARY",
+        "H-A-CONV-PADSTACK",
+        "H-A-PANEL-FLAT",
+        "H-A-PANEL-KIT",
     }
     # the component classes and the rules of the design (c0084) are in the document
     assert set(PCB_BUILD_EVIDENCE.hypotheses) == board_rows
-    assert PCB_BUILD_EVIDENCE.level is Level.INFERRED and "H-A-PCB-ECO" in output.evidence.hypotheses
+    assert PCB_BUILD_EVIDENCE.level is Level.INFERRED
+    # A schematic-only build does not claim the evidence of an unwritten PCB.
+    assert "H-A-PCB-ECO" not in output.evidence.hypotheses
 
 
 def test_experimental_entry() -> None:

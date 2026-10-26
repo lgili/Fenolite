@@ -84,6 +84,7 @@ from fenolite.checks.copper import (
     LOWERING_CODES,
     CopperReport,
     check_copper,
+    frame_edges,
     rules_issues,
     rules_summary,
     waived_issues,
@@ -112,6 +113,7 @@ from fenolite.dsl import (
     pad_zones,
     placements,
     planes,
+    schematic_composition,
     stackup_locked,
     to_model,
     via_protection_locked,
@@ -125,9 +127,11 @@ from fenolite.lens.altium import (
     kicad_footprint_ids,
     kicad_lib_ids,
     refused_altium,
+    sheet_parameters,
 )
 from fenolite.lens.altium import issue as altium_issue
 from fenolite.lens.build import (
+    RECORD_FILE,
     SCHEMATIC_MODES,
     SHEET_SUFFIX,
     VENDOR_MODES,
@@ -164,9 +168,10 @@ ALTIUM_DIRECTIONS: tuple[str, ...] = ("on", "off")
 DEFAULT_DIRECTIONS = "on"
 ALTIUM_BODIES: tuple[str, ...] = ("off", "extruded")
 """The values of ``--altium-bodies`` (change c0121)."""
-DEFAULT_ALTIUM_BODIES = "off"
-"""No component body is written unless asked: two keys of a written body are stand-ins that only Altium
-can settle (``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
+DEFAULT_ALTIUM_BODIES = "extruded"
+"""The extruded component bodies are written unless ``off`` is asked (change c0155, the maintainer's
+decision of 2026-10-09): Altium Designer 26.5 opened the written bodies with their two stand-in keys
+(``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
@@ -200,6 +205,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument("design", metavar="DESIGN.py", help="the design script (executed in-process)")
     parser.add_argument("--out", required=True, metavar="DIR", help="the project folder to write")
+    parser.add_argument(
+        "--altium-template",
+        metavar="FILE.SchDot",
+        default=None,
+        help="apply a native binary sheet template to every Altium schematic, preserving page settings, "
+        "fonts and embedded images; requires binary Altium output and no drawing_sheet in the script",
+    )
     parser.add_argument(
         "--discard-layout",
         action="store_true",
@@ -264,7 +276,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=ALTIUM_BODIES,
         default=None,
         help=f"with --target altium: extruded writes the extruded component bodies of the board's "
-        f"footprints (experimental: not yet opened in Altium), off writes none and reports each body; a "
+        f"footprints (experimental), off writes none and reports each body, as earlier versions did; a "
         f"usage error with --target kicad (default: {DEFAULT_ALTIUM_BODIES})",
     )
     parser.add_argument(
@@ -307,6 +319,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "pins they connect to, joined by a wire; grid: one flat sheet with a label on every pin, the form "
         f"of v0.2a; a usage error with --target {ALTIUM_TARGET}",
     )
+    parser.add_argument(
+        "--altium-layout",
+        choices=("grid", "blocks"),
+        default=None,
+        help="Altium arrangement: grid preserves legacy layout; blocks composes functional blocks",
+    )
 
 
 def _kind(rel: str, form: SchematicForm | None = None) -> str:
@@ -316,6 +334,8 @@ def _kind(rel: str, form: SchematicForm | None = None) -> str:
         return rel
     if form is not None and Path(rel).suffix == ".SchDoc":
         return SCHDOC_KINDS[form]
+    if Path(rel).suffix.lower() == ".schdot":
+        return "altium_schdot"
     return _KINDS.get(Path(rel).suffix, "file")
 
 
@@ -373,16 +393,21 @@ def copper_guard(
         major=target,
         file_stem=name,
     )
+    frame = KicadBackend()
+    edges, edge_issues = frame_edges(frame, rules.design)
     report = check_copper(
         rules.design,
-        pads=KicadBackend().board_pads(rules.design),
+        pads=frame.board_pads(rules.design),
         min_clearance=rules.min_clearance,
         rules_over_classes=rules.rules_over_classes,
         floor_over_rules=rules.floor_over_rules,
         inputs=(kicad_pcb.EVIDENCE, rules.evidence),
+        edges=edges,
+        min_edge_clearance=rules.min_edge_clearance,
+        edge_floor_over_rules=rules.edge_floor_over_rules,
     )
     judged, waived = guard_waivers(report, waivers)
-    found = [*judged, *rules_issues(rules)]
+    found = [*judged, *rules_issues(rules), *edge_issues]
     evidence = Evidence.combine(report.evidence, kicad_pcb.EVIDENCE, rules.evidence)
     if any(issue.code in LOWERING_CODES for issue in found):
         evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
@@ -398,6 +423,7 @@ def copper_guard(
         "ran": True,
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
+        "edge_clearance": report.summary["edge_clearance"],
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
         "waivers": waived,
@@ -432,6 +458,7 @@ def altium_copper_guard(
     read = backend.board_from_bytes(data, file=document)
     design = read.design
     rules = backend.rules_from_bytes(design, data, file=document)
+    edges, edge_issues = frame_edges(backend, rules.design)
     report = check_copper(
         rules.design,
         pads=backend.board_pads(rules.design),
@@ -439,11 +466,14 @@ def altium_copper_guard(
         rules_over_classes=rules.rules_over_classes,
         floor_over_rules=rules.floor_over_rules,
         inputs=(read.evidence, rules.evidence),
+        edges=edges,
+        min_edge_clearance=rules.min_edge_clearance,
+        edge_floor_over_rules=rules.edge_floor_over_rules,
     )
     unpoured = sum(1 for zone in rules.design.board.zones if not zone.fills) if rules.design.board else 0
     judged, waived = guard_waivers(report, waivers)
     found: list[Issue] = []
-    for issue in (*judged, *rules_issues(rules)):
+    for issue in (*judged, *rules_issues(rules), *edge_issues):
         if issue.severity != "error":
             found.append(issue)
         elif issue.code != "copper.short":
@@ -462,6 +492,7 @@ def altium_copper_guard(
         "ran": True,
         "shorts": report.summary["shorts"],
         "clearance": report.summary["clearance"],
+        "edge_clearance": report.summary["edge_clearance"],
         "unpoured": unpoured,
         "rules": rules_summary(rules),
         "evidence": _evidence_json(evidence),
@@ -649,8 +680,11 @@ def source_summary(prepared: Prepared | None, issues: Sequence[Issue], *, read: 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     # the inputs a review can see: the design script and, when the build reads one, the copper source
-    read = depends_on(ctx.cwd, args.design, getattr(args, "copper_from", None))
-    return dataclasses.replace(_built(args, ctx), depends=read)
+    read = depends_on(
+        ctx.cwd, args.design, getattr(args, "copper_from", None), getattr(args, "altium_template", None)
+    )
+    built = _built(args, ctx)
+    return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
 
 
 def _built(args: argparse.Namespace, ctx: Context) -> Result:
@@ -660,6 +694,13 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     out_dir = out if out.is_absolute() else ctx.cwd / out
     if out_dir.resolve() == script_path.resolve().parent:
         raise CliError("FEN-2001", "--out must not be the folder of the design script", where="--out")
+    native_path = getattr(args, "altium_template", None)
+    if native_path is not None and (args.target != ALTIUM_TARGET or args.altium_format == "ascii"):
+        raise CliError(
+            "FEN-2001",
+            "--altium-template requires --target altium and binary schematic output",
+            where="--altium-template",
+        )
     if args.altium_format is not None and args.target != ALTIUM_TARGET:
         raise CliError(
             "FEN-2001",
@@ -674,6 +715,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-sheets",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-sheets",
         )
+    if args.altium_layout is not None and args.target != ALTIUM_TARGET:
+        raise CliError("FEN-2001", "--altium-layout requires --target altium", where="--altium-layout")
     for option, value in (
         ("--altium-outjob", args.altium_outjob),
         ("--altium-outjob-preset", args.altium_outjob_preset),
@@ -747,7 +790,15 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             )
     run = run_design_script(script_path)
     design = run.design
+    if args.altium_layout == "grid" and (design.schematic_flow is not None or design.schematic_blocks):
+        raise CliError(
+            "FEN-2001",
+            "--altium-layout grid contradicts the script's block composition",
+            where="--altium-layout",
+            hint="select blocks or remove the script's layout declarations",
+        )
     try:
+        schematic_composition(design, target=args.target, enabled=args.altium_layout == "blocks")
         model = to_model(design)
         requested = placements(design)
         aliases = moves(design)
@@ -764,6 +815,10 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
     default_issues = pad_map_issues(defaulted)
+    if native_path is not None and drawing_sheet_source(design) is not None:
+        raise CliError(
+            "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
+        )
     frame_sheet, sheet_issues, sheet_result = read_drawing_sheet_source(design, script_path)
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
@@ -1155,8 +1210,75 @@ def _run_altium(
             bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
             authored_symbols=authored_symbols,
             heights=heights(run.design),
+            composition=schematic_composition(
+                run.design, target="altium", enabled=args.altium_layout == "blocks"
+            ),
         )
     files = dict(built.files)
+    native_info: dict[str, object] | None = None
+    native_path = getattr(args, "altium_template", None)
+    if native_path is not None:
+        from fenolite.backends.altium.native_template import TEMPLATE_PATH, NativeTemplate
+
+        path = Path(native_path)
+        if not path.is_absolute():
+            path = ctx.cwd / path
+        if path.suffix.lower() != ".schdot":
+            raise CliError("FEN-3001", "--altium-template must name a .SchDot file", where=str(path))
+        try:
+            template_data = path.read_bytes()
+            native = NativeTemplate.read(template_data)
+            applied = sorted(rel for rel in files if rel.endswith(".SchDoc"))
+            block = run.design.block or (model.board.title_block if model.board is not None else None)
+            for number, rel in enumerate(applied, 1):
+                parameters = sheet_parameters(block, number, len(applied), script_issues)
+                if any(found.severity == "error" for found in script_issues):
+                    files = {}
+                    break
+                files[rel] = native.apply(files[rel], parameters=parameters)
+        except (OSError, ValueError, FormatError) as error:
+            raise CliError(
+                "FEN-3001", f"cannot apply native Altium template: {error}", where=str(path)
+            ) from None
+        if files:
+            files[TEMPLATE_PATH] = template_data
+            record = json.loads(files[RECORD_FILE])
+            for rel in (*applied, TEMPLATE_PATH):
+                record["files"][rel] = hashlib.sha256(files[rel]).hexdigest()
+            files[RECORD_FILE] = (
+                json.dumps(record, sort_keys=True, indent=2, ensure_ascii=False) + "\n"
+            ).encode("utf-8")
+            native_info = {
+                "source": str(native_path),
+                "file": str(out / TEMPLATE_PATH),
+                "sha256": hashlib.sha256(template_data).hexdigest(),
+                "pages": [str(out / rel) for rel in applied],
+                "evidence": "INFERRED",
+            }
+    from fenolite.cli.altium_schematic_layout import prepare_files
+    from fenolite.lens.altium_schematic import FILE_NAME as ALTIUM_LAYOUT_FILE
+    from fenolite.lens.altium_schematic import LayoutConflict
+
+    layout_path = script_path.resolve().parent / ALTIUM_LAYOUT_FILE
+    layout_issues: tuple[Issue, ...] = ()
+    native_forms: dict[str, SchematicForm] = {}
+    if files:
+        snapshot = layout_path.read_text(encoding="utf-8") if layout_path.is_file() else None
+        try:
+            files = prepare_files(files, snapshot)
+            if snapshot is not None:
+                from fenolite.backends.altium.read import sch as native_sch
+
+                for relative, data in files.items():
+                    if relative.startswith(".fenolite/") or not relative.lower().endswith(".schdoc"):
+                        continue
+                    actual = native_sch.detect(data)
+                    if actual not in ("ascii", "binary"):
+                        raise FormatError("saved layout is not a schematic document", file=relative)
+                    native_forms[relative] = actual
+        except LayoutConflict as error:
+            layout_issues = error.issues
+            files = {}
     mode = args.copper_check or COPPER_CHECK_MODES[0]
     copper_issues: tuple[Issue, ...] = ()
     copper_check: dict[str, object] = {"mode": mode, "ran": False}
@@ -1169,7 +1291,7 @@ def _run_altium(
     if files:
         check_existing(out_dir, files, record=read_record(out_dir), discard_layout=bool(args.discard_layout))
     writes = tuple(
-        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, form))
+        PlannedWrite(path=str(out / rel), data=data, kind=_kind(rel, native_forms.get(rel, form)))
         for rel, data in sorted(files.items())
     )
     summary = built.summary
@@ -1202,15 +1324,27 @@ def _run_altium(
     }
     if copper_input is not None:
         result["copper_input"] = copper_input
+    if native_info is not None:
+        result["native_template"] = native_info
+    if native_forms:
+        result["schematic_layout"] = {"file": str(layout_path), "formats": dict(sorted(native_forms.items()))}
+    from fenolite.schematic.report import REPORT_FILE
+
+    if REPORT_FILE in files:
+        result["schematic_composition"] = json.loads(files[REPORT_FILE])
     data = script_path.read_bytes()
     evidence = built.evidence
     if board_path is not None:
         evidence = Evidence.combine(evidence, kicad_pcb.EVIDENCE)
     elif intents:
         evidence = Evidence.combine(evidence, kicad_copper.EVIDENCE, kicad_frame.EVIDENCE)
+    if native_info is not None:
+        from fenolite.backends.altium.native_template import EVIDENCE as native_evidence
+
+        evidence = Evidence.combine(evidence, native_evidence)
     return Result(
         result=result,
-        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues),
+        issues=(*reader_issues, *script_issues, *built.issues, *copper_issues, *layout_issues),
         evidence=evidence,
         input=InputRef(
             path=str(args.design),
@@ -1219,6 +1353,7 @@ def _run_altium(
             format_version=None,
         ),
         writes=writes,
+        depends=depends_on(ctx.cwd, layout_path),
     )
 
 

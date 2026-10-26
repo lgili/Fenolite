@@ -75,8 +75,10 @@ These are choices of the writer, not format facts (design of change c0033):
 
 - version 3, one fixed layout: the header, then the FAT sectors, the directory, the mini FAT, the mini
   stream, then each large stream in the given order; every chain runs through consecutive sectors;
-- the FAT sector count covers the FAT's own sectors; no DIFAT sector is written, and output that needs
-  more than 109 FAT sectors is refused;
+- the FAT sector count covers the FAT's own sectors; a file whose FAT needs more than the header's 109
+  entries is written with DIFAT sectors (their number is not counted as a FAT sector), each marked
+  DIFSECT, and `CompoundTooLarge` is raised only for a file a version 3 file cannot hold, that is one
+  whose sector count a 32-bit sector number cannot name (change c0160; `H-A-CONV-DIFAT`);
 - every entry is black, with zero CLSIDs, state bits and times; the root's child is the top of a binary
   search tree built from the middle element (`len // 2`) of each sorted run; entries 1 … n are the
   streams in the given order;
@@ -116,6 +118,8 @@ ordering when assembling the FAT.
 |---|---|---|---|
 | The first 109 FAT-sector numbers are in the header DIFAT; later numbers follow the DIFAT chain, 127 per version 3 sector and 1023 per version 4 sector, with the next DIFAT sector in the final entry | S-0145 | INFERRED | H-A-RD-CFB-DIFAT |
 | Altium's public `BMS.PcbDoc` (S-0188) has 154 FAT sectors and one DIFAT sector; the reader assembles them and its allocated-sector partition holds | S-0188 | CORPUS-VERIFIED | H-A-RD-CFB-DIFAT |
+| A file whose FAT needs more than the header's 109 entries is written with DIFAT sectors: each version 3 sector holds 127 FAT-sector numbers (1023 in version 4) followed by the number of the next DIFAT sector, ENDOFCHAIN in the last, and the header's first-DIFAT and DIFAT-count fields name that chain | S-0145 | INFERRED | H-A-CONV-DIFAT |
+| The FAT entry of every DIFAT sector is marked DIFSECT, as the entry of every FAT sector is marked FATSECT | S-0145 | INFERRED | H-A-CONV-DIFAT |
 
 ## Reading: tolerances and notes
 

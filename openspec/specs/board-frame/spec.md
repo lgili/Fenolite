@@ -2,7 +2,9 @@
 
 ## Purpose
 Give the board-frame geometry of a KiCad design: every pad where it lies on the board, with exact integer copper entries per copper layer and its hole, and the courtyard of every placed footprint with rotation and side applied, so that checks, placement and manual copper need no hand-made pad table.
+
 ## Requirements
+
 ### Requirement: Board-frame module
 The module `fenolite.backends.kicad.frame` SHALL compute the records of `backend-protocol` "Board-frame protocol" for designs read or built by the KiCad backend, and MUST import only the standard library, `core`, `model`, `geometry`, `backends.base` and modules of `backends.kicad` (`package-layering`).
 - Public names: `board_pads`, `find_pads`, `placed_extent`, `placed_extents`, `copper_polygon`, `COURTYARD_LAYERS` (`("F.CrtYd", "B.CrtYd")`), `FRAME_ISSUE_CODES` and `EVIDENCE`. `fenolite.backends.kicad` MUST re-export `board_pads`, `find_pads`, `placed_extent` and `placed_extents`.
@@ -228,3 +230,66 @@ The board-frame rules and the KiCad facts they rely on SHALL be documented in Fe
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
 - **THEN** it fails naming `analysis → backends.kicad`
 
+### Requirement: KiCad net lengths
+The module `fenolite.backends.kicad.lengths` SHALL compute the `LengthFacts` of `backend-protocol` ("Length facts source") for designs read or built by the KiCad backend, counting as KiCad of major `major` counts the length of a net in its DRC, and `KicadBackend.length_facts` MUST return what `lengths.length_facts` returns for the same arguments. The module MUST import only the standard library, `core`, `model`, `geometry`, `backends.base` and modules of `backends.kicad`, and every function MUST be pure: it reads no environment variable, runs no subprocess, and returns new values; only `length_facts` reads a file, the project file of the `ProjectSet` it is given, and a file that fails to read counts as absent.
+- **Major.** `major` MUST be the argument when given; else the major of the project file of `project` (`copperrules.project_major`); else the major of the board's source format; else the default target.
+- **Stack-up.** With `Board.stackup` (c0101), its copper and dielectric entries in table order MUST give the thicknesses, and `stackup` MUST be `board`. Without it, every copper layer MUST be `DEFAULT_COPPER_NM = 35_000` thick and the `n − 1` dielectrics of a board of `n` copper layers MUST share equally the board thickness less `DEFAULT_MASKS_NM = 20_000` and the copper; the board thickness is the `(general (thickness …))` of the file, else `pcb.DEFAULT_THICKNESS`. `stackup` is then `default`, with one `kicad.length.default-stackup` info (`H-K-NETLEN-STACKUP`). Mask, paste and silkscreen entries MUST NOT count. When the depths cannot be known, `depths` MUST be empty, `stackup` MUST be `none`, every height MUST be 0 and no default info is given: a `Board.stackup` whose copper entries are not the board's copper layers in table order, a board of fewer than two copper layers, a board too thin for the default, and a board read from a file whose `setup` holds a stack-up node that the reader projected no stack-up from (`kicad.board.stackup-unused`), because KiCad 10.0.6 counts the thicknesses of such a node (probe `length-via-four-unprojected`) and the default would be wrong.
+- **Depths.** For major 9, the depth of every copper layer MUST be the thickness of the copper and dielectric layers above it plus half its own. For major 10 the same MUST hold for inner copper layers, while the first copper layer MUST have depth 0 and the last copper layer the sum of every copper and dielectric thickness. Each depth MUST be computed exactly and rounded half to even once.
+- **Joined layers.** The joined layers of a via MUST be the copper layers of its span (every copper layer for a through via; the layers from its first to its last in table order for another kind) on which a track or an arc of its net, or a copper entry of a pad of its net (`board_pads`), touches its disc `Thick((position,), diameter)`. Zone fills MUST NOT join a via (`H-K-NETLEN-TOTAL`).
+- **Via height.** For major 10 it MUST be the depth difference between the first and the last joined layer in table order, and 0 with fewer than two joined layers (`H-K-NETLEN-VIA10`). For major 9 it MUST be the depth difference between the via's own two end layers when both are joined, and 0 otherwise (`H-K-NETLEN-VIA9`). With `count_vias` false every height MUST be 0. `count_vias` MUST be false exactly when the project file of `project` sets `board.design_settings.rules.use_height_for_length_calcs` to `false`.
+- **Die lengths.** A pad's die length MUST be the value of its opaque `(die_length X)` slot, `X` in millimetres converted exactly to nm. A value that is not a non-negative decimal MUST give one `kicad.length.bad-die` warning naming the pad, and MUST count as 0.
+- **Nets.** `routed` MUST be the sum of `segment_length` and `arc_length` (`geometry-kernel`, "Path lengths") over the net's tracks and arcs on copper layers, `vias` the sum of its vias' heights, and `die` the sum of the die lengths of its pads. A through-hole pad adds no height.
+- `LENGTH_ISSUE_CODES` MUST be the closed table `kicad.length.default-stackup` (info) and `kicad.length.bad-die` (warning). As `kicad.*` codes they pass through the closed tables of the build and of the lens unchanged.
+- `lengths.EVIDENCE` MUST be `Evidence(Level.INFERRED, hypotheses=("H-K-NETLEN-STACKUP", "H-K-NETLEN-TOTAL", "H-K-NETLEN-VIA10", "H-K-NETLEN-VIA9"))`, and its level MUST stay `INFERRED` when the four rows are verified: they cover benches, not every board.
+
+#### Scenario: Via heights per major
+- **GIVEN** the four-layer bench of `tests/_lengthbench.py` with `Board.stackup` set to F.Cu 35 µm, dielectric 110 µm, In1.Cu 17.5 µm, dielectric 1230 µm, In2.Cu 17.5 µm, dielectric 155 µm, B.Cu 35 µm, whose nets each hold two 10 mm tracks joined by one via
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_lengths.py -k per_major` computes `length_facts` with `major=10` and with `major=9`
+- **THEN** with 10 the through via between `F.Cu` and `In1.Cu` adds 153 750 nm and the one between `F.Cu` and `B.Cu` 1 600 000 nm; with 9 they add 0 and 1 565 000 nm, and the blind via between `F.Cu` and `In1.Cu` adds 136 250 nm
+
+#### Scenario: Default stack-up
+- **GIVEN** the two-layer bench, whose board holds no stack-up, and its net `L_VIA2`: 10 mm on `F.Cu`, a through via, 10 mm on `B.Cu`
+- **WHEN** `length_facts` is computed with `major=10` and with `major=9`
+- **THEN** `stackup` is `default`, one `kicad.length.default-stackup` info is given, and the net's `vias` is 1 580 000 with 10 and 1 545 000 with 9
+
+#### Scenario: A pad joins a via
+- **GIVEN** the four-layer bench with the stack-up of "Via heights per major", and its net `VIP`: a through via inside pad 2 of `R1`, 18.4 mm on `In1.Cu`, a through via inside pad 1 of `R2`
+- **WHEN** `length_facts` is computed with `major=10` and with `major=9`
+- **THEN** the net's `vias` is 307 500 with 10 and 0 with 9
+
+#### Scenario: Die length and the project switch
+- **GIVEN** the two-layer bench, whose pad 2 of `R12` holds `(die_length 1.5)` in the board text, and a project file that sets `use_height_for_length_calcs` to `false`
+- **WHEN** `length_facts` is computed without and with that project file
+- **THEN** the net `L_DIE` has `die == 1_500_000` and `total == 19_900_000`; with the project file `count_vias` is false and `L_VIA2` has `vias == 0`
+
+### Requirement: Anchor points in a part's frame
+`part_frame(design, component, *, number=None, index=None) -> PartFrame` SHALL return the map from the library frame of the footprint of `component` to the board frame, and `PartFrame.point(offset=Point(0, 0)) -> Point` SHALL return the board point of an offset in that frame, measured from the footprint's origin, or from the position of the pad that `number` and `index` name.
+- In addition to the public names of "Board-frame module", `frame.py` MUST export `PartFrame` and `part_frame`, and `fenolite.backends.kicad` MUST re-export `part_frame`. Both are pure, as every function of the module is. `PartFrame` is a frozen dataclass with `footprint_id`, `at`, `rotation`, `side`, `base` and `pad_ids`.
+- `component` MUST match as in `find_pads`: component paths first, references when no path matches. `at`, `rotation` and `side` MUST be the matched footprint's.
+- Without `number`, `base` MUST be (0, 0) and `pad_ids` empty. With `number` (an `int` read as its decimal text), the pads named are those `find_pads` returns: with `index`, the `index`-th of them; without it, all of them, which MUST lie at one `position`. `pad_ids` MUST be the ids of the pads named, and `base` the stored position of the first, mirrored about local X when the footprint is on the bottom side: its position in the library footprint (`H-G-BOTTOM-STORE`).
+- `point(d)` MUST be `Transform.placement(at, rotation, mirror=side == "bottom").apply(base + d)`: the offset turned as `H-G-ROT-DIR` turns a footprint's children, mirrored about local X on the bottom side, and rounded half to even once. So `part_frame(design, c, number=n, index=i).point()` MUST equal the `position` of that pad's `BoardPad`, and `part_frame(design, c).point(p)` MUST equal it too when `p` is the pad's position in the library footprint.
+- `part_frame` MUST raise `KeyError` when no footprint matches or no pad has the number, with the messages of `find_pads`, and when `index` is beyond the pads of the number, naming the component, the number, the index and the count; and `ValueError`, naming the component, the number and the count, when the pads of the number lie at more than one position and no `index` is given.
+
+#### Scenario: Part and pad points on both sides
+- **GIVEN** the two designs of "Bottom footprint": `Mini_QFP-32_7x7mm_P0.8mm` placed for `U1` at (50 mm, 50 mm) at 0° on the bottom, and on the top
+- **WHEN** `part_frame(design, "U1", number="1").point()` and `part_frame(design, "U1").point(Point(-4_150_000, -2_800_000))` are called on each
+- **THEN** both calls return (45.85 mm, 52.8 mm) on the bottom design and (45.85 mm, 47.2 mm) on the top one, the positions of the two records of pad `1`
+
+#### Scenario: An offset turns and mirrors with the part
+- **GIVEN** `Frame_Anchor` placed for `U1` at (20 mm, 20 mm) at 90°, once on the top and once on the bottom; pad `4` lies at (1 mm, 0) in the library footprint, and its record is at (20 mm, 19 mm) in both designs
+- **WHEN** `part_frame(design, "U1", number="4").point(Point(0, 1_000_000))` is called on each
+- **THEN** it returns (21 mm, 19 mm) on the top and (19 mm, 19 mm) on the bottom
+
+#### Scenario: Every pad at every angle
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_frame_anchor.py -k every_pad` places `Mini_QFP-32_7x7mm_P0.8mm` and `Frame_Anchor` with `place_footprint` at 0°, 90°, 180°, 270°, 30° and 45° on both sides
+- **THEN** for every pad, `part_frame(…, number=n, index=k).point()` and `part_frame(…).point(<the pad's library position>)` equal its `BoardPad.position` to the nanometre
+
+#### Scenario: Pads of one number at two positions
+- **GIVEN** the design of "Pads sharing a number" (`Mini_Edge_Cases` for `J1`)
+- **WHEN** `part_frame(design, "J1", number=1)` and `part_frame(design, "J1", number=1, index=1).point()` are called
+- **THEN** the first raises `ValueError` naming `J1`, `1` and the count 2, and the second returns (2 mm, 0)
+
+#### Scenario: Unknown part
+- **GIVEN** the design of "The 270° case"
+- **WHEN** `part_frame(design, "R9")` and `part_frame(design, "R1", number=1, index=1)` are called
+- **THEN** each raises `KeyError`, the first naming `R9`, the second naming `R1` and the index

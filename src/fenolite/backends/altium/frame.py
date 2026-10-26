@@ -19,7 +19,7 @@ from collections.abc import Sequence
 from fractions import Fraction
 
 from fenolite.backends.altium.import_evidence import EVIDENCE as IMPORT_EVIDENCE
-from fenolite.backends.base import BoardPad, PadCopper, PlacedExtent
+from fenolite.backends.base import BoardPad, EdgeRing, PadCopper, PlacedExtent
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
@@ -29,11 +29,16 @@ from fenolite.geometry import (
     TRIG_BITS,
     GeometryError,
     Polygon,
+    Segment,
     Transform,
+    area2,
+    assemble_rings,
     convex_hull,
     cos_sin_fixed,
+    join_ends,
     round_point,
 )
+from fenolite.geometry import Arc as GeoArc
 from fenolite.model.board import FootprintInstance, Pad, PadShape, Size
 from fenolite.model.design import Design
 
@@ -161,7 +166,8 @@ def _copper(
 
 def _hole(pad: Pad, position: Point, footprint: FootprintInstance) -> tuple[tuple[Point, ...], Nm | None]:
     """The drilled hole in the board frame: a point, or the two ends of a slot, and the drill size. The
-    axis of a slot is the stack's ``hole_rotation``, which the import gives relative to the footprint."""
+    axis of a slot is the stack's ``hole_rotation`` in the pad's own frame (change c0170), turned by the
+    pad's and the footprint's rotation."""
     if pad.drill is None:
         return (), None
     stack = pad.padstack
@@ -170,7 +176,7 @@ def _hole(pad: Pad, position: Point, footprint: FootprintInstance) -> tuple[tupl
     half = Fraction(stack.hole_length - pad.drill, 2)
     if half <= 0:
         return (position,), pad.drill
-    placement = _Placement(position, (footprint.rotation + stack.hole_rotation) % FULL_TURN)
+    placement = _Placement(position, (footprint.rotation + pad.rotation + stack.hole_rotation) % FULL_TURN)
     zero = Fraction(0)
     ends = (placement.apply((-half, zero)), placement.apply((half, zero)))
     return tuple(sorted(ends)), pad.drill
@@ -265,9 +271,85 @@ def placed_extents(design: Design, *, issues: list[Issue] | None = None) -> tupl
     return tuple(extents)
 
 
+# --- the edge rings of the copper check (change c0169) ----------------------------------------------------
+
+EDGE_LAYER = "Edge.Cuts"
+EDGE_JOIN_NM = 1_000
+"""Edge graphics whose endpoints lie closer than this are chained as one point: the import rounds the end
+of an arc of the board outline from its centre, radius and angles, and the next line from the vertex."""
+
+
+def _edge_pieces(design: Design) -> list[Segment | GeoArc]:
+    board = design.board
+    assert board is not None
+    layers = {layer.name for layer in board.layers if layer.kind == "edge"} or {EDGE_LAYER}
+    pieces: list[Segment | GeoArc] = []
+    for graphic in board.graphics:
+        points = graphic.points
+        if graphic.layer not in layers or len(points) < 2:
+            continue
+        if graphic.kind == "arc" and len(points) == 3:
+            try:
+                pieces.append(GeoArc(points[0], points[1], points[2]))
+            except (GeometryError, ValueError):
+                pieces.append(Segment(points[0], points[2]))
+            continue
+        ring = graphic.kind == "polygon" and len(points) >= 3
+        ends = (*points, points[0]) if ring else tuple(points)
+        pieces += [Segment(a, b) for a, b in zip(ends, ends[1:], strict=False)]
+    return [piece for piece in pieces if piece.start != piece.end]
+
+
+def _polygonized(pieces: Sequence[Segment | GeoArc]) -> tuple[Point, ...]:
+    points: list[Point] = []
+    for piece in pieces:
+        points.append(piece.start)
+        if isinstance(piece, GeoArc):
+            points += piece.polygonize()[1:-1]
+    return tuple(points)
+
+
+def board_edges(design: Design, *, issues: list[Issue] | None = None) -> tuple[EdgeRing, ...] | None:
+    """The rings of the edge of an imported board (``BoardFrame.board_edges``): its ``Edge.Cuts`` graphics
+    (the board outline of ``Board6``) with their exact lines and arcs, endpoints closer than
+    ``EDGE_JOIN_NM`` joined and chained into rings. Ring 0 is ``board`` (the ring of largest area), the
+    others ``edge ring <k>`` in the order of their least vertex. ``None`` when the edges hold no closed
+    ring. ``issues`` is not written to."""
+    del issues
+    if design.board is None:
+        return None
+    pieces, _ = join_ends(_edge_pieces(design), EDGE_JOIN_NM)
+    if not pieces:
+        return None
+    try:
+        paths = assemble_rings(pieces)
+    except GeometryError:
+        return None
+    rings: list[tuple[tuple[Point, ...], tuple[Point | None, ...]]] = []
+    kept: list[tuple[Segment | GeoArc, ...]] = []
+    for path in paths:
+        points = tuple(piece.start for piece in path.pieces)
+        mids = tuple(piece.mid if isinstance(piece, GeoArc) else None for piece in path.pieces)
+        if len(points) >= 3 or any(mid is not None for mid in mids):
+            rings.append((points, mids))
+            kept.append(tuple(path.pieces))
+    if not rings:
+        return None
+    areas = [abs(area2(_polygonized(path))) for path in kept]
+    largest = max(range(len(rings)), key=lambda k: (areas[k], -k))
+    rest = sorted((ring for k, ring in enumerate(rings) if k != largest), key=lambda ring: min(ring[0]))
+    names = ("board", *(f"edge ring {k}" for k in range(1, len(rest) + 1)))
+    return tuple(
+        EdgeRing(name, points, mids)
+        for name, (points, mids) in zip(names, (rings[largest], *rest), strict=True)
+    )
+
+
 __all__ = [
     "CORNER_KEY",
+    "EDGE_JOIN_NM",
     "EVIDENCE",
+    "board_edges",
     "board_pads",
     "corner_radius",
     "placed_extents",

@@ -41,11 +41,17 @@ AMBIGUOUS: dict[str, dict[str, tuple[str, str]]] = {
     "altium-third-party-pcbdoc-01": {"": ("12", "4")},
     "altium-third-party-pcbdoc-03": {"*": ("3", "3")},
     "altium-third-party-pcbdoc-04": {"": ("2", "2")},
-    "altium-third-party-pcbdoc-05": {"": ("4", "4")},
+    "altium-third-party-pcbdoc-05": {"": ("0", "4")},
     "altium-third-party-pcbdoc-07": {"": ("2", "2")},
 }
 """Row id → each such reference with its count in Fenolite's read and in KiCad's. The counts of the first
-row differ because KiCad imports no pad on a paste layer (8 of its 12 free pads)."""
+row differ because KiCad imports no pad on a paste layer (8 of its 12 free pads). On ``-05`` every free pad
+is a non-plated pad whose copper is its hole, which Fenolite's import reads as a board ``Hole`` since change
+c0168 (``FREE_HOLES``), so the empty reference is held by KiCad's read alone."""
+FREE_HOLES: dict[str, int] = {"altium-third-party-pcbdoc-05": 4}
+"""Row id → the free pads that Fenolite's import reads as board holes (change c0168; census of
+``tests/corpus/test_altium_pcb_census.py``). KiCad imports each as a footprint without a reference of one
+non-plated pad, which ``test_free_pads`` pairs with the hole by position and drill."""
 SHAPES_NOT_DECIDED = {("custom", "roundrect")}
 """The shape pairs ``(Fenolite, KiCad)`` that the profile's ``undecided`` rule covers: an octagonal pad."""
 
@@ -177,12 +183,35 @@ def test_pad_shape(row: str) -> None:
 @pytest.mark.parametrize("row", IDS)
 def test_free_pads(row: str) -> None:
     """``H-G-EQ-FREE-2``: a pad that belongs to no component is a footprint without a reference in both
-    reads, so no generated reference appears on one side only."""
+    reads, so no generated reference appears on one side only; a free pad whose copper is its hole is a
+    board hole in Fenolite's read (change c0168) and pairs with one of KiCad's by position and drill."""
     found = _sides(row)
     empty = tuple(sum(1 for c in side.circuit.components if not c.ref) for side in (found.a, found.b))
     expected = AMBIGUOUS.get(row, {}).get("")
     assert empty == ((int(expected[0]), int(expected[1])) if expected else (0, 0))
     assert "component-missing" not in _kinds(_report(row, rules=False, ignore=False))
+    # a free pad that Fenolite reads as a board hole (change c0168) is one of KiCad's footprints without a
+    # reference: one non-plated pad of that drill at the hole, after the document's translation
+    assert found.a.board is not None and found.b.board is not None
+    assert len(found.a.board.holes) == FREE_HOLES.get(row, 0)
+    shift = _report(row).translation
+    tolerance = profile_for(found.version).tolerance_nm
+    refs = {c.id: c.ref for c in found.b.circuit.components}
+    wrappers = [
+        (fp.position, fp.pads[0].drill)
+        for fp in found.b.board.footprints
+        if not refs.get(fp.component_id) and len(fp.pads) == 1 and fp.pads[0].kind == "np_thru_hole"
+    ]
+    for hole in found.a.board.holes:
+        twins = [
+            at
+            for at, drill in wrappers
+            if drill is not None
+            and abs(drill - hole.drill) < tolerance
+            and abs(at.x - hole.position.x - shift.x) < tolerance
+            and abs(at.y - hole.position.y - shift.y) < tolerance
+        ]
+        assert len(twins) == 1 and not hole.plated and hole.length is None, (row, hole.id)
 
 
 def test_rules_are_live() -> None:

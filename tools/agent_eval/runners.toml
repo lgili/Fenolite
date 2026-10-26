@@ -1,7 +1,10 @@
 # The runners of the agent evaluation (tools/agent_eval/run.py, change c0081).
 #
 # A row names how one agent is started without a person at the keyboard:
-#   argv          its command line; {prompt} and {workdir} are replaced
+#   argv          its command line; {prompt}, {prompt_file} (a file beside the work folder that holds the
+#                 prompt) and {workdir} are replaced
+#   prompt_stdin  true to give the prompt on standard input instead (optional; argv then holds neither
+#                 {prompt} nor {prompt_file})
 #   version_argv  the command line that prints its version
 #   skill         how the guide is installed in the work folder: agent:<name>, agents-md or none
 #   source        the id, in docs/evidence/sources.md, of the public page the row was written from
@@ -11,6 +14,10 @@
 #                 a row without them is marked "not isolated" in every record)
 #   unconfigured  why the row cannot start yet (optional; a row with this text is refused)
 # Isolation and budget flags are put right after the program name.
+#
+# On Windows a program that is a batch launcher (claude.cmd, as npm installs it) runs through cmd.exe,
+# which ends the command line at the first line break of a {prompt} argument; such a row is refused unless
+# it gives the prompt with prompt_stdin or {prompt_file}, or names the program's .exe in argv.
 #
 # Every row but "replay" starts a real agent, which costs money: run.py refuses it while the variable CI
 # is set, and without --yes it prints the budget and starts nothing.
@@ -38,4 +45,7 @@ unconfigured = """the maintainer completes this row before the first run (task 4
 installed guide; (3) S-0618 names no flag for a cost or turn cap and no field for the model, the turns \
 or the tokens, so budget_flag and those report keys are left out; (4) S-0618 says that --bare reads no \
 login and needs ANTHROPIC_API_KEY in the environment, which this tool never reads or sets; \
-(5) check every flag against the --help of the installed version, then remove this key"""
+(5) check every flag against the --help of the installed version; \
+(6) on Windows, where npm installs claude.cmd, the row with {prompt} is refused (cmd.exe cuts the prompt \
+at its first line break): name the .exe of the installed version, or give the prompt with prompt_stdin \
+or {prompt_file} once its --help says how it reads one, then remove this key"""

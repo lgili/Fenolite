@@ -12,7 +12,18 @@ from pathlib import Path
 import pytest
 
 READ = Path(__file__).resolve().parents[5] / "src" / "fenolite" / "backends" / "altium" / "read"
-TEXT_MODULES = ("textfile", "ini", "proptext", "project", "outjob", "rul", "rules", "scope", "stackup")
+TEXT_MODULES = (
+    "textfile",
+    "ini",
+    "proptext",
+    "project",
+    "outjob",
+    "rul",
+    "rules",
+    "scope",
+    "stackup",
+    "annotation",
+)
 SIBLINGS = {f"fenolite.backends.altium.read.{name}" for name in TEXT_MODULES}
 FORBIDDEN = ("fenolite.backends.altium.read.cfb", "fenolite.backends.altium.cfb")
 

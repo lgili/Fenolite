@@ -19,8 +19,22 @@ Layer Format Specification, read for facts only.
 | `pcb export gerbers -l B.Cu` of `kicad-cli` 9.0.9 and 10.0.6 writes `%FSLAX46Y46*%` and `%MOMM*%`, so one coordinate unit is 1 nm, and plots each fill polygon of a zone as one `G36`/`G37` region whose Y values are the board's Y values negated | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-ZONE-FAT9 |
 | A fill polygon that KiCad reads as a thick outline (a `20241229` zone without `(filled_areas_thickness no)`) is plotted as a region grown by half the zone's minimum thickness, with rounded corners | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-ZONE-FAT9 |
 | A `D03` operation is a flash: it places the current aperture at the given point, and its coordinates are modal like those of `D01` and `D02` | S-0125 | INFERRED | H-K-VIAPROT-MASK |
+| `pcb export gerbers` plots an `oval` pad whose two sizes are equal with an obround aperture `%ADDnnO,DXD*%` and a `circle` pad of that size with `%ADDnnC,D*%`, flashed at the same points; two boards that differ only in that shape give plots that differ only in that aperture line (and the creation date). An obround is a rectangle whose shorter sides are half circles, so one of two equal sizes is the disc of that diameter: the copper is the same (9.0.9 and 10.0.6) | S-0020, S-0029, S-0125 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-EQ-OVAL |
 | `pcb export gerbers -l F.Mask,B.Mask` of `kicad-cli` 9.0.9 and 10.0.6 plots the mask opening of a via as one flash at the via's centre (X as on the board, Y negated), and nothing for a side on which the via is tented | S-0020, S-0029 | KICAD-VERIFIED (9.0.x, 10.0.x) | H-K-VIAPROT-MASK |
 | The drill side files of `pcb export drill --format gerber --generate-tenting` of `kicad-cli` 10.0.6 are Gerber files in the same coordinate format, with the file function `Other,<Feature>-<Side>` (`Other,Tenting-Front` for example), and hold one flash per via that carries the feature | S-0020 | KICAD-VERIFIED (10.0.x) | H-K-VIAPROT-OUTPUTS |
+
+## Panels (change c0173)
+
+What the Gerber specification says about panels, read for the exports of a panel board (`panel.md`).
+Fenolite writes no Gerber attribute: whether `kicad-cli` plots these is what `H-K-PANEL-GERBER` measures.
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| The file function `Vcut` holds the lines that must be v-cut (scored), the same on both sides when no side `Top` or `Bot` is given; `Vcutmap` is a drawing of them | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The file function `Profile` is the board's outline, a separate file of every fabrication data set, and may hold openings (cut-outs) | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The file attribute `.Part` is `Single` for one board, `Array` for a customer, assembly or shipping panel and `FabricationPanel` for the fabricator's working panel | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The aperture function `MechanicalDrill` takes the specifier `Tooling` (registration and hold-down holes of a board or panel) or `BreakOut` (the non-plated holes of a break-out tab) | S-0125 | INFERRED | H-K-PANEL-GERBER |
+| The aperture function `FiducialPad` takes `Local`, `Global` (locates a board on the assembly panel) or `Panel` (locates the panel on the fabrication panel) | S-0125 | INFERRED | H-K-PANEL-GERBER |
 
 ## What the helper reads
 

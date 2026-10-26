@@ -489,3 +489,70 @@ __all__ = [
     "plane_layers",
     "with_plane_types",
 ]
+
+
+def item_layer_counts(board: Board) -> dict[str, int]:
+    """Modelled entities using each actual board layer; wildcard pad layers are expanded."""
+    counts: Counter[str] = Counter()
+    copper = tuple(layer.name for layer in board.layers if layer.kind == "copper")
+    for item in (*board.tracks, *board.arcs, *board.graphics, *board.texts, *board.dimensions):
+        counts[item.layer] += 1
+    for multi in (*board.vias, *board.zones, *board.keepouts):
+        counts.update(set(expand_layers(multi.layers, copper)))
+    for fp in board.footprints:
+        for item in (*fp.graphics, *fp.texts, *fp.fields):
+            counts[item.layer] += 1
+        for pad in fp.pads:
+            counts.update(set(expand_layers(pad.layers, copper)))
+    return dict(sorted(counts.items()))
+
+
+def undeclared_layers(board: Board) -> dict[str, int]:
+    """Counts on a layer absent from the board's declared layer table (c0161)."""
+    declared = {layer.name for layer in board.layers}
+    return {name: count for name, count in item_layer_counts(board).items() if name not in declared}
+
+
+def user_rows(count: int, *, target: int) -> tuple[Layer, ...]:
+    """User.1..45, numbers 39..127, verified on KiCad 9/10 (board.md, c0161)."""
+    if target not in (9, 10) or isinstance(count, bool) or not 0 <= count <= 45:
+        raise ValueError("user rows require target 9/10 and count 0..45")
+    return tuple(
+        Layer(
+            id=derived_id("lay", "kicad", f"layer:User.{n}"),
+            name=f"User.{n}",
+            kind="user",
+            ordinal=n,
+            ext={"kicad": ExtBag(None, (("number", str(37 + 2 * n)), ("type", "user")))},
+        )
+        for n in range(1, count + 1)
+    )
+
+
+def board_rows(copper: int) -> tuple[Layer, ...]:
+    """A neutral board's KiCad rows for an even copper count 2..32; script counts stay unchanged."""
+    if isinstance(copper, bool) or not 2 <= copper <= 32 or copper % 2:
+        raise ValueError("converted boards require an even copper count from 2 to 32")
+    rows = (
+        CREATED_ROWS[:1]
+        + tuple((2 * k + 2, f"In{k}.Cu", "signal", None) for k in range(1, copper - 1))
+        + CREATED_ROWS[1:]
+    )
+    return tuple(
+        Layer(
+            id=derived_id("lay", "kicad", f"layer:{name}"),
+            name=name,
+            kind=layer_kind(name, kind),
+            ordinal=i,
+            ext={
+                "kicad": ExtBag(
+                    None,
+                    tuple(
+                        [("number", str(n)), ("type", kind)]
+                        + ([("user_name", alias)] if alias is not None else [])
+                    ),
+                )
+            },
+        )
+        for i, (n, name, kind, alias) in enumerate(rows)
+    )

@@ -29,6 +29,10 @@ from fenolite.model.design import Design
 
 CLEARANCE = "clearance"
 MINIMUM_KEY = "min_clearance"
+EDGE_KEY = "min_copper_edge_clearance"
+EDGE_CLEARANCE_DEFAULT: Nm = 500_000
+"""The board setup's copper-to-edge clearance of a project that does not set ``EDGE_KEY``, and of a board
+without a project file: 0.5 mm on 9.0.9 and 10.0.6 (``H-K-EDGE-CENTRE``; change c0169)."""
 
 
 def _is_clearance(node: Node) -> bool:
@@ -78,7 +82,8 @@ def design_rules_from_texts(
     issues: list[Issue] | None = None,
 ) -> DesignRules:
     """``design`` with the classes, the class of each net and the rules of the two texts (``None``: the
-    file is absent), the board minimum clearance, and the switches of ``major``.
+    file is absent), the board minimum clearance, the board's edge clearance (the project's
+    ``min_copper_edge_clearance``, else ``EDGE_CLEARANCE_DEFAULT``), and the switches of ``major``.
 
     A text that the reader refuses is named in ``unread`` with the error's message, and the design keeps
     what that file would have given. The readers' warnings and infos are appended to ``issues``.
@@ -87,6 +92,7 @@ def design_rules_from_texts(
     unread: list[tuple[str, str]] = []
     evidence: list[Evidence] = []
     minimum: Nm | None = None
+    edge: Nm = EDGE_CLEARANCE_DEFAULT
     opaque = 0
     if project_text is not None:
         name = f"{file_stem}.kicad_pro"
@@ -98,6 +104,7 @@ def design_rules_from_texts(
             unread.append((name, error.message))
         else:
             design, minimum = applied, info.floors.get(CLEARANCE)
+            edge = pro.project_minimums(info.data).get(EDGE_KEY, EDGE_CLEARANCE_DEFAULT)
             found.extend(read)
             evidence.append(pro.EVIDENCE)
     if rules_text is not None:
@@ -120,7 +127,15 @@ def design_rules_from_texts(
         opaque_clearance_rules=opaque,
         unread=tuple(sorted(unread)),
         evidence=Evidence.combine(*evidence) if evidence else Evidence(),
+        min_edge_clearance=edge,
+        edge_floor_over_rules=major in lowering.FLOOR_OVER_RULES.get(EDGE_KEY, frozenset()),
     )
 
 
-__all__ = ["design_rules_from_texts", "opaque_clearance_rules", "project_major"]
+__all__ = [
+    "EDGE_CLEARANCE_DEFAULT",
+    "EDGE_KEY",
+    "design_rules_from_texts",
+    "opaque_clearance_rules",
+    "project_major",
+]

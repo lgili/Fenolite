@@ -44,9 +44,17 @@ files next to every file (or pass `--no-backup`).
 | `--altium-rul` | `<stem>.RUL`: the project's rules as an Altium rule file | no tool runs |
 
 The Gerber layers are every copper layer in stack order, then `F.Mask`, `B.Mask`, `F.Paste`, `B.Paste`,
-`F.SilkS` and `B.SilkS` where the board has them, then `Edge.Cuts`. Courtyard and fabrication layers
+`F.SilkS` and `B.SilkS` where the board has them, then the user layer whose user name is `V-Score` (the
+score lines of a panel board, change c0173) where the board has one, then `Edge.Cuts`. Courtyard and fabrication layers
 are left out. KiCad names a Gerber after the layer name it shows, so the silkscreen files end in
 `F_Silkscreen.gbr` and `B_Silkscreen.gbr`.
+
+**Panel boards.** A panel board that `fenolite panel` wrote (`docs/panels.md`) exports as any board. Its
+score lines plot as one Gerber file of their own, which `kicad-cli` 9.0.9 and 10.0.6 mark with the file
+function `Other,User`, not the Gerber function `Vcut` (`H-K-PANEL-GERBER`); Fenolite does not edit the
+file, so tell your fabricator which file holds the score lines. A score layer renamed with
+`vscore(layer=…)` is not in the list. The mouse-bite and tooling holes go to the NPTH drill file
+(`H-K-PANEL-DRILL`).
 
 `--altium-rul` is not part of `--all`. It reads `<stem>.kicad_dru` beside the board and writes each
 rule that has an exact Altium form as one record of a rule file, which Altium's PCB Rules editor imports

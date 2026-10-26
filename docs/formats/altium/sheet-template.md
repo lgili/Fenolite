@@ -168,6 +168,17 @@ state what the writer sets. Nothing here is confirmed by Altium until Part W of
 
 ### The writer's choices
 
+- **Native application (c0164).** A caller's binary template bypasses the neutral sheet writer. Its
+  sheet record and ordered property records precede generated circuit records; a record 39 owns the
+  graphic roots. The template owner precedes its children and native owner indices move by one. Raw properties stay
+  fixed, except the template
+  filename, visibility, extended font count, root owners and overridden parameter text. The template
+  font table keeps its entries; generated font entries are appended and their references remapped.
+  Generated main owners are mapped to their new record indices. Additional-local harness owners are
+  kept, with their fonts remapped. Native Storage and other template streams are copied unchanged.
+  This is a writer choice over the registered facts above, not evidence that Altium displays the
+  result correctly; application remains INFERRED until an author report.
+
 - **One page.** A template has one sheet size, so the writer takes the page (width and height) and draws
   the neutral sheet as `templates.layout` predicts it on the first page: repeats are written as copies and
   an item of the scope `not_first` is left out.

@@ -47,10 +47,6 @@ def create_fake_router(folder: Path, *, version: str = "0.22.1") -> Path:
             import zlib
             from pathlib import Path
             sys.path.insert(0, os.environ["FENOLITE_TEST_SOURCE"])
-            from fenolite.backends.kicad.pcb import read_board, write_board
-            from fenolite.core.coords import Point
-            from fenolite.core.ids import new_id
-            from fenolite.model.board import Track
 
             script = Path(sys.argv[0]).name
             escape = script in ("bga_fanout.py", "qfn_fanout.py")
@@ -100,6 +96,11 @@ def create_fake_router(folder: Path, *, version: str = "0.22.1") -> Path:
             if mode == "fail":
                 print("boom from fake router", file=sys.stderr)
                 raise SystemExit(2)
+            from fenolite.backends.kicad.pcb import read_board, write_board
+            from fenolite.core.coords import Point
+            from fenolite.core.ids import new_id
+            from fenolite.model.board import Track
+
             design = read_board(source.read_text(encoding="utf-8"), file=source.name)
             if design.board is None:
                 raise SystemExit(3)

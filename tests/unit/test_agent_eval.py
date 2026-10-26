@@ -1179,3 +1179,113 @@ def test_harness_is_documented_and_stays_out_of_the_wheel() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["tool"]["hatch"]["build"]["targets"]["wheel"]["packages"] == ["src/fenolite"]
     assert project["project"]["dependencies"] == []
+
+
+# --- the prompt on Windows (correction of 2026-10-09, task 3.4 of change c0081) ---------------------------
+
+PROMPT = f'{run.FIRST_LINE}\n\nAdd an LED with 100% of its "rated" current.\nSecond line.'
+NPM_CLAUDE = r"C:\npm\claude.cmd"
+
+
+def _which(found: str) -> Any:
+    """A ``shutil.which`` of a Windows machine on which ``claude`` is ``found``."""
+
+    def which(name: str, path: str | None = None) -> str | None:
+        assert path == "C:\\npm"
+        return found if name == "claude" else None
+
+    return which
+
+
+def _windows(tmp_path: Path) -> tuple[Any, dict[str, str]]:
+    place = run.Place(tmp_path, tmp_path / "env" / "fenolite", Path(sys.executable))
+    place.workdir.mkdir(parents=True)
+    return place, {"PATH": "C:\\npm"}
+
+
+def test_a_batch_launcher_never_gets_a_cut_prompt(tmp_path: Path) -> None:
+    """``cmd.exe`` ends a command line at a line break: a ``{prompt}`` argument of a ``.cmd`` launcher
+    would reach the agent as its first line only. The run is refused instead."""
+    place, env = _windows(tmp_path)
+    runner = run.Runner("r", ("claude", "-p", "{prompt}", "--output-format", "json"))
+    reason = run.batch_refusal(runner, env, system="nt", which=_which(NPM_CLAUDE))
+    assert "claude.cmd" in reason and "first line break" in reason and "prompt_stdin" in reason
+    with pytest.raises(run.Refused, match="first line break"):
+        run.launch(runner, PROMPT, place, env, system="nt", which=_which(NPM_CLAUDE))
+    assert run.batch_refusal(runner, env, system="nt", which=_which(r"C:\npm\claude.BAT"))
+    assert not run.batch_refusal(runner, env, system="posix", which=_which(NPM_CLAUDE))
+    assert not run.batch_refusal(run.Runner("replay"), env, system="nt", which=_which(NPM_CLAUDE))
+
+
+def test_a_batch_launcher_is_refused_before_anything_is_built(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(run, "batch_refusal", lambda runner, env: "cmd.exe cuts the prompt")
+    monkeypatch.delenv("CI", raising=False)
+    args = run.parser().parse_args(["--task", "led-indicator", "--runner", "replay", "--yes"])
+    with pytest.raises(run.Refused, match="cuts the prompt"):
+        run.guard(run.Runner("r", ("claude", "{prompt}")), ["led-indicator"], args, {})
+
+
+def test_a_batch_launcher_gets_the_whole_prompt_on_stdin(tmp_path: Path) -> None:
+    place, env = _windows(tmp_path)
+    runner = run.Runner("r", ("claude", "-p", "--output-format", "json"), prompt_stdin=True)
+    started = run.launch(runner, PROMPT, place, env, system="nt", which=_which(NPM_CLAUDE))
+    assert started.argv == [NPM_CLAUDE, "-p", "--output-format", "json"]
+    assert started.stdin == PROMPT.encode("utf-8") and b"\n\n" in started.stdin
+    assert not run.batch_refusal(runner, env, system="nt", which=_which(NPM_CLAUDE))
+
+
+def test_a_batch_launcher_gets_the_whole_prompt_in_a_file(tmp_path: Path) -> None:
+    place, env = _windows(tmp_path)
+    runner = run.Runner("r", ("claude", "-p", "Do the task in {prompt_file}"))
+    started = run.launch(runner, PROMPT, place, env, system="nt", which=_which(NPM_CLAUDE))
+    file = tmp_path / "prompt.txt"
+    assert started.argv == [NPM_CLAUDE, "-p", f"Do the task in {file}"] and started.stdin is None
+    assert file.read_bytes() == PROMPT.encode("utf-8") and file.parent != place.workdir
+
+
+def test_an_executable_on_windows_gets_the_prompt_as_an_argument(tmp_path: Path) -> None:
+    place, env = _windows(tmp_path)
+    runner = run.Runner("r", ("claude", "-p", "{prompt}"))
+    exe = r"C:\Program Files\Claude\claude.exe"
+    started = run.launch(runner, PROMPT, place, env, system="nt", which=_which(exe))
+    assert started.argv == [exe, "-p", PROMPT] and started.stdin is None
+
+
+def test_posix_launch_is_unchanged(tmp_path: Path) -> None:
+    """On POSIX the command line is the row's, with the program name as written, and no input."""
+    place, _ = _windows(tmp_path)
+
+    def never(name: str, path: str | None = None) -> str | None:
+        raise AssertionError("no lookup on POSIX")
+
+    runner = run.Runner("r", ("claude", "-p", "{prompt}"), isolation=("--bare",))
+    started = run.launch(runner, PROMPT, place, {"PATH": "/usr/bin"}, system="posix", which=never)
+    assert started.argv == runner.command(PROMPT, place.workdir) == ["claude", "--bare", "-p", PROMPT]
+    assert started.stdin is None and not (tmp_path / "prompt.txt").exists()
+
+
+def test_the_prompt_reaches_standard_input_whole(tmp_path: Path) -> None:
+    place, _ = _windows(tmp_path)
+    copy = "import sys; open('got.txt', 'wb').write(sys.stdin.buffer.read())"
+    code, timed_out = run.start_agent(
+        [sys.executable, "-c", copy], place, dict(os.environ), 60, PROMPT.encode("utf-8")
+    )
+    assert (code, timed_out) == (0, False)
+    assert (place.workdir / "got.txt").read_bytes() == PROMPT.encode("utf-8")
+
+
+def test_rows_that_give_the_prompt_otherwise(tmp_path: Path) -> None:
+    head = '[replay]\nskill = "none"\n[x]\nversion_argv = ["a"]\nskill = "none"\nsource = "S-0618"\n'
+    path = tmp_path / "rows.toml"
+    path.write_text(head + 'argv = ["a", "-p"]\nprompt_stdin = true\n', encoding="utf-8")
+    assert run.load_runners(path)["x"].prompt_stdin
+    path.write_text(head + 'argv = ["a", "{prompt_file}"]\n', encoding="utf-8")
+    assert not run.load_runners(path)["x"].prompt_stdin
+    for row, word in (
+        ('argv = ["a", "{prompt}"]\nprompt_stdin = true\n', "neither"),
+        ('argv = ["a"]\nprompt_stdin = "yes"\n', "true or false"),
+        ('argv = ["a"]\n', "prompt_file"),
+    ):
+        path.write_text(head + row, encoding="utf-8")
+        with pytest.raises(ValueError, match=word):
+            run.load_runners(path)

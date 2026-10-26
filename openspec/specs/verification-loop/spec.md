@@ -2,7 +2,9 @@
 
 ## Purpose
 Check a KiCad project without writing to it: `fenolite check` runs model validation, ERC lite, KiCad's DRC on a closed copy of the project with a rules canary, and the RT1 round trip, in a fixed order, each stage with its own status and evidence. `fenolite inspect` summarises a file's header and counts, and `fenolite doctor` reports the `kicad-cli` binaries and their command matrices. Contract: `docs/cli-contract.md`; facts: `docs/formats/kicad/cli.md` and `docs/formats/kicad/drc.md`.
+
 ## Requirements
+
 ### Requirement: Check command input
 `fenolite check PATH` SHALL be registered by `src/fenolite/cli/cmd_check.py` with `mutates=False`, and SHALL check the KiCad project that `PATH` names, or the documents of another backend that `PATH` names (**Document input**), without writing any file. Every bullet below but **Document input** describes the KiCad path.
 - **Board.** The board MUST be found with `fenolite.backends.kicad.projectset.resolve_board(PATH)` (`kicad-oracle`, "Check project copy set"). An ambiguous folder MUST exit 2 with `FEN-2001` and a hint listing the candidates. A missing path or board MUST exit 3 with `FEN-3001`.
@@ -359,7 +361,7 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - The output MUST NOT hold the DRC report's `date`, a temporary path, the home directory or an absolute path. Paths MUST be relative to the project root.
 - Stages MUST follow `STAGE_ORDER`. Issues within a stage MUST be sorted by code, then `where`, then message.
 - `project.files`, `project.skipped`, `tool_writes` and the keys of `by_type` and `by_severity` MUST be sorted.
-- **What the tool does not repeat.** `kicad-cli` 10.0.6 writes its DRC report in another order from run to run, which the sorting above removes, and on boards with hundreds of violations it does not repeat the entries of the types `clearance`, `hole_clearance` and `unconnected_items` (`H-K-DRC-REPEAT`, `H-K-RT2-STABLE-2`). On such a board two runs MAY differ in the `drc.kicad` issues `kicad.drc.clearance`, `kicad.drc.hole-clearance` and `kicad.drc.unconnected-items`, in the `drc.kicad` summary values counted from them (`violations`, `unconnected`, `by_type`, `by_severity`, `types`), in the status of `drc.kicad` and in the exit code when those issues decide them. On a board with 499 or more `clearance` violations the canary state MAY also differ, between `fired` and `inconclusive` with reason `clearance-limit` (`H-K-DRC-LIMIT`; `kicad-oracle`, "Check canary injection"), and with it the issue `kicad.drc.rules-unchecked` and the evidence of `drc.kicad`. Nothing else MAY differ: the other stages, `tool_writes` and every issue of another code MUST be equal, and so MUST the canary state on a board below that count.
+- **What the tool does not repeat.** `kicad-cli` 10.0.6 writes its DRC report in another order from run to run, which the sorting above removes, and on boards with hundreds of violations it does not repeat the entries of the types `clearance`, `hole_clearance` and `unconnected_items` (`H-K-DRC-REPEAT`, `H-K-RT2-STABLE-2`). On such a board two runs MAY differ in the `drc.kicad` issues `kicad.drc.clearance`, `kicad.drc.hole-clearance` and `kicad.drc.unconnected-items`, in the `drc.kicad` summary values counted from them (`violations`, `unconnected`, `by_type`, `by_severity`, `types`, and the entries of `limits` for those three types), in the `check.report-limit` warnings of those three types ("DRC report limits in check"), in the status of `drc.kicad` and in the exit code when those issues decide them. On a board with 499 or more `clearance` violations the canary state MAY also differ, between `fired` and `inconclusive` with reason `clearance-limit` (`H-K-DRC-LIMIT`; `kicad-oracle`, "Check canary injection"), and with it the issue `kicad.drc.rules-unchecked` and the evidence of `drc.kicad`. Nothing else MAY differ: the other stages, `tool_writes` and every issue of another code MUST be equal, and so MUST the canary state on a board below that count.
 - `docs/cli-contract.md` MUST state under `check` which part of the output repeats and MUST name the three codes.
 
 #### Scenario: Two runs on both majors
@@ -379,6 +381,11 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 #### Scenario: The contract names what does not repeat
 - **WHEN** `uv run pytest tests/unit/test_drc_repeat.py -k contract` reads `docs/cli-contract.md`
 - **THEN** its `check` section names `kicad.drc.clearance`, `kicad.drc.hole-clearance` and `kicad.drc.unconnected-items` as the issues that can differ between two runs, and the reason `clearance-limit`
+
+#### Scenario: Report limits repeat on a board the tool repeats
+- **GIVEN** the authored limits bench of `kicad-oracle`, "DRC report limits are probed", with 700 copies of a `track_dangling` violation, on 10.0.6
+- **WHEN** `uv run pytest tests/kicad/check/test_drc_limits.py -k deterministic` runs `fenolite check <bench> --stages drc.kicad --json` twice
+- **THEN** the two stdouts are equal apart from `elapsed_ms`, `summary.limits` and the one `check.report-limit` warning included
 
 ### Requirement: Stages added for findings and round trips
 `fenolite.checks.stages.STAGE_ORDER` SHALL be `("model.validate", "erc.kicad", "copper.clearance", "drc.kicad", "netlist.assignment_compare", "roundtrip", "roundtrip.rt2")`: c0020 inserts `netlist.assignment_compare` before `roundtrip` and `roundtrip.rt2` after it, and c0029 inserts `copper.clearance` between the ERC stage and `drc.kicad`, as "Check stages and statuses" allows.
@@ -713,16 +720,19 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **THEN** it reports one `copper.rules-incomplete` warning naming the missing rules source and one `copper.item-unsupported` warning for the pads, and its level is `UNVERIFIED`
 
 ### Requirement: Copper stage issue codes
-`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. The build guard (`design-dsl`, "Copper guard before writing") emits the same codes into the `build` envelope, where they pass through unchanged as `design-dsl` "Build issue codes" allows for codes that later requirements add.
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. The build guard (`design-dsl`, "Copper guard before writing"; for the Altium target `altium-build`, "Copper guard in an Altium build") emits the same codes into the `build` envelope, where they pass through unchanged as `design-dsl` "Build issue codes" allows for codes that later requirements add. The severity `info` of the first three codes is that of a finding a waiver accepted ("Waivers in the check"); the copper check itself never gives it.
 
 | code | severity | when |
 |---|---|---|
-| `copper.short` | error | copper of two nets touches or overlaps on a shared copper layer |
-| `copper.clearance` | error, warning | a gap below the clearance in force; the governing rule sets the severity |
-| `copper.zone-overlap` | warning | zones of different nets and equal priority overlap on a shared layer |
+| `copper.short` | error, info | copper of two nets touches or overlaps on a shared copper layer; `info` when waived |
+| `copper.clearance` | error, warning, info | a gap below the clearance in force; the governing rule sets the severity; `info` when waived |
+| `copper.zone-overlap` | warning, info | zones of different nets and equal priority overlap on a shared layer; `info` when waived |
 | `copper.rules-incomplete` | warning | a clearance rule stayed opaque, a project file was not read, or no rules source was given |
 | `copper.item-unsupported` | warning | copper items left out of the check, per kind |
 | `copper.clearance-unset` | info | item pairs judged for shorts only, because no clearance is in force |
+| `copper.edge-clearance` | error, warning | copper closer to the board edge, a cut-out or a slot than the edge clearance in force; the governing rule sets the severity |
+| `copper.hole-in-cutout` | error | a drilled hole breaks into a cut-out or a slot, or crosses the board edge |
+| `copper.hole-overlap` | warning | two drilled holes overlap |
 
 #### Scenario: Copper literals are keys
 - **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
@@ -730,19 +740,27 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 
 #### Scenario: Copper codes documented
 - **WHEN** `uv run pytest tests/consistency` runs
-- **THEN** the six `copper.*` codes appear in `docs/cli-contract.md`
+- **THEN** the nine `copper.*` codes of this table appear in `docs/cli-contract.md`
+
+#### Scenario: The check never gives info for a finding
+- **GIVEN** the boards of `tests/unit/checks/test_copper.py`
+- **WHEN** `check_copper` runs on each without any waiver
+- **THEN** no `copper.short`, `copper.clearance` or `copper.zone-overlap` issue has severity `info`
 
 ### Requirement: Document check pipeline
-`fenolite.checks.documents` SHALL define `DOCUMENT_STAGES = ("model.validate", "erc.lite", "netlist.assignment_compare", "roundtrip.rta0", "roundtrip.rta1", "roundtrip.rta2")` and `run_document_checks(*, documents: DocumentSet, stages: Sequence[str], model: Design | None, built: bool, validator: DocumentValidator, cache_error: str = "") -> CheckReport`, the check of an input that is a set of documents instead of one board. `STAGE_ORDER`, `run_checks` and the KiCad stages are unchanged.
-- **Order and results.** The selected stages MUST run in `DOCUMENT_STAGES` order whatever order is given, unselected stages MUST be left out, and each stage MUST return the `StageResult` of "Check stages and statuses". `validator.read_documents` MUST be called at most once per run and only when a selected stage needs a reading, and `validator.container_roundtrip` at most once per document and level.
+`fenolite.checks.documents` SHALL define `OPT_IN_DOCUMENT_STAGES = ("roundtrip.rta3",)`, `ALL_DOCUMENT_STAGES` (the default stages and then the opt-in ones) and `DOCUMENT_STAGES = ("model.validate", "erc.lite", "copper.clearance", "parity", "netlist.assignment_compare", "roundtrip.rta0", "roundtrip.rta1", "roundtrip.rta2")` and `run_document_checks(*, documents: DocumentSet, stages: Sequence[str], model: Design | None, built: bool, validator: DocumentValidator, cache_error: str = "") -> CheckReport`, the check of an input that is a set of documents instead of one board. `STAGE_ORDER`, `run_checks` and the KiCad stages are unchanged.
+- **Order and results.** The selected stages MUST run in `ALL_DOCUMENT_STAGES` order whatever order is given, unselected stages MUST be left out, and each stage MUST return the `StageResult` of "Check stages and statuses". `validator.read_documents` MUST be called at most once per run and only when a selected stage needs a reading, and `validator.container_roundtrip` at most once per document and level.
 - **Input issues.** Each entry of `ProjectRead.errors`, and each document whose `container_roundtrip` raises `FormatError` and that `errors` does not name, MUST give one `check.read-refused` error built like `stages.read_refused`, with the document name as the file. Each name of `DocumentSet.missing` MUST give one `check.document-missing` warning. A non-empty `cache_error` MUST give `check.cache-unreadable`. `CheckReport.issues` MUST hold these first, sorted by code and `where`, then the issues of each stage in stage order. `CheckReport.read_error` MUST be the error of the only document when the set holds exactly one document and its reading was refused, and `None` otherwise.
 - **`model.validate`.** On built input the stage MUST report the `model.*` findings of `model.validate()`; with a `cache_error` it MUST be skipped with reason `cache-unreadable`. On native input it MUST report the `model.*` findings of the schematic reading and of the PCB reading, each `where` prefixed with `schematic:` or `pcb:`, together with the readers' own issues; without any reading it MUST be skipped, with reason `read-refused` when a reading was refused and `not-judged` when the set holds no schematic and no PCB document (a library alone). It MUST NOT report `check.footprint-unresolved` or `check.symbol-unresolved`. `summary` MUST hold, under the key of each side that was judged (`model`, `schematic`, `pcb`), its `components` and `nets`.
 - **`erc.lite`.** `erc_lite.erc_lite` MUST run on the built model, or on native input on the schematic reading. Without a schematic reading on native input the stage MUST be skipped with reason `no-schematic`, or `read-refused` when a schematic document exists and its reading was refused.
+- **`copper.clearance`.** `checks.documents.document_copper(design, *, project, validator, evidence)` MUST run `copper_stage` ("Copper stage") on the PCB reading, with `validator` as the rules source when it is a `DesignRulesSource` and as the frame when it is a `BoardFrame`, and `project` = `project_of(documents)`: the documents under their names with the PCB document as the board. The rules MUST be asked for at most once. `summary` MUST gain `unpoured` and `zones_unjudged` (`unjudged_copper`), each above 0 giving one warning and lowering the stage to `UNVERIFIED` (`altium-verification`, "Copper check on Altium boards"). Without a PCB document the stage MUST be skipped with `single-source`, and with `read-refused` when its reading was refused.
+- **`parity`.** When `validator` is a `DocumentParity` (`backend-protocol`), the stage MUST compare the PCB reading with `validator.parity_side(schematic, pcb)` through `checks.parity.compare` and report one issue per finding; `summary` holds `netlist` = `own`, `compared` = `false`, `differences` = 0 and the counts. It MUST be skipped with `no-schematic` without a schematic document, `single-source` without a PCB document, `read-refused` when a side was refused, and `netlist-unavailable` when the validator gives no side. Built and native input are compared alike: both sides are documents.
 - **`netlist.assignment_compare`.** The sources MUST be `model` (`assignment_compare.model_netlist` of the built model), `schematic` (`model_netlist` of the schematic reading) and `pcb` (`assignment_compare.board_netlist` of the PCB reading), each `PadNetList` named after its source. The pairs MUST be (`model`, `schematic`) and (`model`, `pcb`) on built input and (`schematic`, `pcb`) on native input, each only when both sources exist, compared with `assignment_compare.compare`. The issues and `summary` (`pairs`, `min_pins`, `unnumbered`) MUST have the form of "Assignment compare stage". Without any pair the stage MUST be skipped with reason `single-source`, or `cache-unreadable` on built input with a `cache_error`. It MUST NOT need an oracle. The stage's evidence combines the readings compared with `validator.stage_evidence()` of the stage.
 - **`roundtrip.rta0` and `roundtrip.rta1`.** `checks.containers.container_stage(name, level, verdicts)` MUST turn the `ContainerRoundTrip` of every document of the set into one stage; `verdicts` maps a document name to its verdict, or to `None` for a document whose reading raised `FormatError`. The stage's evidence is `Evidence.combine` of the evidence of the judged verdicts. A verdict that is judged and not passed MUST give one `check.rta0-failed` or `check.rta1-failed` error whose `where` is `<document>:<difference>`. A verdict that is not judged MUST be counted in `summary.unjudged` by reason and MUST give one `check.roundtrip-unjudged` info, except for the reasons `not-a-container` and `read-refused`, which are only counted. For `RT-A1`, a document with a stream whose records are equal and whose bytes differ MUST give one `check.rta1-normalised` info that counts those streams. `summary` MUST hold `level`, `documents` (judged), `streams`, `failed` and `unjudged`, and for `RT-A1` also `records`, `bytes_equal` and `opaque_count`. A document whose reading raises `FormatError` MUST be counted under `read-refused`. When no document is judged the stage MUST be skipped: with reason `read-refused` when every document was refused, else `not-judged`; the skipped stage keeps its summary and its `check.roundtrip-unjudged` infos.
-- **`roundtrip.rta2`.** `checks.rta2.rta2_stage(model, read, scope)` MUST run on built input only and MUST be skipped with reason `native-input` otherwise, `cache-unreadable` with a `cache_error`, and `read-refused` without any reading. It MUST compare the built model with the schematic reading over the circuit kinds of `scope` (`rta2.CIRCUIT_KINDS`: `component`, `net`, `no_connect`) and with the PCB reading over its other kinds, through `checks.diff.diff_designs(model, reading, scope=…)` ("Model difference scope"). A board kind (`rta2.BOARD_KINDS`) of which the built model holds no entity MUST NOT be compared: the build wrote that content from inputs outside the model, and the count of the reading's entities goes to `summary.not_in_model`. Each change MUST give one `check.rta2-failed` error whose `where` is the change's path prefixed with `schematic:` or `pcb:`, at most 50 per side; `summary` MUST hold `level` (`RT-A2`), `holds`, `differences` (the full count), `compared` (per side, the entity kinds compared) and `not_in_model` (per side, the count per board kind that was not compared). Without a schematic and without a PCB reading the stage is skipped with `read-refused` when a reading was refused, else `not-judged`.
-- **Evidence.** A skipped stage carries `UNVERIFIED`. The envelope evidence MUST follow "Evidence per check stage": the stages that ran, and those skipped with `read-refused` or `cache-unreadable`, are combined; a stage skipped with `native-input`, `no-schematic`, `single-source` or `not-judged` MUST NOT count.
-- **Layering.** `checks.documents`, `checks.containers` and `checks.rta2` MUST import only `core`, `model`, `geometry` and `backends.base`.
+- **`roundtrip.rta2`.** `checks.rta2.rta2_stage(model, read, scope)` MUST run on built input only and MUST be skipped with reason `native-input` otherwise, `cache-unreadable` with a `cache_error`, and `read-refused` without any reading. It MUST compare the built model with the schematic reading over the circuit kinds of `scope` (`rta2.CIRCUIT_KINDS`: `component`, `net`, `no_connect`) and with the PCB reading over its other kinds, through `checks.diff.diff_designs(model, reading, scope=…)` ("Model difference scope"). Every kind of the scope MUST be compared, also one of which the built model holds no entity (change c0090): the summary holds no `not_in_model`. Before the comparison the pipeline MUST skip the stage with reason `model-predates-board` when `rta2.predates_board(model, pcb reading)` holds (the model's board holds no footprint and the PCB reading holds one), and MUST replace the PCB reading by `validator.in_model_frame(model, reading)` when the validator is a `backends.base.ModelWriter`. Each change MUST give one `check.rta2-failed` error whose `where` is the change's path prefixed with `schematic:` or `pcb:`, at most 50 per side; `summary` MUST hold `level` (`RT-A2`), `holds`, `differences` (the full count) and `compared` (per side, the entity kinds compared). Without a schematic and without a PCB reading the stage is skipped with `read-refused` when a reading was refused, else `not-judged`.
+- **`roundtrip.rta3`.** The stage is opt-in. It MUST call `validator.model_roundtrip(path, compare=checks.rta3.compare)` on the set's project file, else its PCB document, else its first schematic document, when the validator is a `backends.base.ModelWriter`, and MUST turn the verdict into a stage with `checks.rta3.rta3_stage`: skipped with reason `no-document` when the verdict is not judged, one `check.rta3-failed` error per difference (at most 50, `where` the change's path), and one `check.rta3-unwritten` info with the counts when `unwritten` is not empty. A validator that is no `ModelWriter` gives `not-judged`, and a `FormatError` of the trip gives `read-refused` with its `check.read-refused`. `checks.rta3.compare(a, b, scope)` is `diff_designs(a, b, scope=scope)`.
+- **Evidence.** A skipped stage carries `UNVERIFIED`. The envelope evidence MUST follow "Evidence per check stage": the stages that ran, and those skipped with `read-refused` or `cache-unreadable`, are combined; a stage skipped with `native-input`, `no-schematic`, `single-source`, `netlist-unavailable` or `not-judged` MUST NOT count.
+- **Layering.** `checks.documents` (which imports `checks.copper`, `checks.clearance` and `checks.parity`), `checks.containers`, `checks.rta2` and `checks.rta3` MUST import only `core`, `model`, `geometry` and `backends.base`.
 
 #### Scenario: Fixed order with a fake validator
 - **GIVEN** a fake `DocumentValidator` in `tests/unit/checks/fakes.py` with one schematic and one PCB reading whose pad nets agree, and passing verdicts
@@ -778,6 +796,15 @@ Two `fenolite check --json` runs on the same project with the same `kicad-cli` S
 - **GIVEN** a module `src/fenolite/checks/documents.py` that imports `fenolite.backends.altium`
 - **WHEN** `uv run pytest tests/unit/test_import_graph.py` runs
 - **THEN** it fails naming `checks → backends.altium`
+
+#### Scenario: No kind is only counted
+- **GIVEN** a built model whose board holds two footprints and no track, and a PCB reading with the same footprints and two tracks
+- **WHEN** `uv run pytest tests/unit/checks/test_rta2.py -k only_counted` calls `rta2_stage`
+- **THEN** `summary.compared.pcb` names every kind of the scope outside the circuit kinds, the summary holds no `not_in_model`, and the two tracks are two `check.rta2-failed` errors at `pcb:/track/0` and `pcb:/track/1`
+
+#### Scenario: Stage of a model round trip
+- **WHEN** `uv run pytest tests/unit/checks/test_rta3.py -k stage_of_a_verdict` turns verdicts into stages
+- **THEN** an unjudged verdict is skipped with `no-document`, an equal verdict with unwritten counts is `ok` with one `check.rta3-unwritten` info, and a verdict with 55 differences gives 50 `check.rta3-failed` errors and `summary.differences` 55
 
 ### Requirement: Document check issue codes
 `fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. No FEN code is added.
@@ -1052,3 +1079,400 @@ When the DRC run tested schematic parity (`kicad-oracle`, "Parity in the DRC run
 - **WHEN** `uv run pytest tests/unit/checks/test_parity.py -k closed_set` collects the codes that `test_parity.py` and `test_parity_stage.py` name
 - **THEN** each is a key of `PARITY_ISSUE_CODES` with an allowed severity, and every key is produced by at least one test
 
+### Requirement: Shared readiness definitions
+`model.circuit.power_interface_nets(circuit)` SHALL return the ids of the nets that an interface of kind `power` names, and `checks.validate.unresolved_footprints(design)` SHALL return, in circuit order, the parts that are not DNP and have an empty `lib_footprint_ref` or no footprint instance.
+- `checks.erc_lite` and `backends.kicad.schgen` MUST use the first in place of their own sets, and `validate_stage` the second, with their output unchanged.
+
+#### Scenario: The shared helpers keep their callers' output
+- **WHEN** `uv run pytest tests/unit/checks tests/unit/backends/kicad -k "validate or erc_lite or flag or power"` runs
+- **THEN** every test passes unchanged
+
+### Requirement: Open nets check
+`checks.readiness.open_stage(nets, *, evidence, issues)` SHALL give the check `nets.open`, with one `ready.net-open` (error, `where` the net name) per net with open connections, whose message names the count and the ends and length of the shortest, and `summary` `{nets, connections}`.
+
+#### Scenario: Two open nets
+- **GIVEN** two `OpenNet` rows, `A` with 2 connections and `B` with 1
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k open_stage` runs
+- **THEN** the stage has status `errors`, two `ready.net-open` issues and `summary` `{"nets": 2, "connections": 3}`
+
+### Requirement: Unconnected pins rule
+`checks.readiness.unconnected_pins(design, *, flagged)` SHALL return, in circuit order, each pin of a part that is not DNP whose type is not `no_connect`, that no `Circuit.no_connects` entry marks, that is not in `flagged`, and that is on no net or the only member of its net.
+- `pins_stage` MUST give `pins.unconnected`, with one `ready.pin-unconnected` (error, `where` `REF-PIN`) per pin.
+
+#### Scenario: A marked pin is not unconnected
+- **GIVEN** `U1` with pin `1` on `VCC` with `R1-1`, `2` on no net, `3` on no net and marked, `4` of type `no_connect`, `5` alone on `X`, and a DNP part with a pin on no net
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k pins` runs
+- **THEN** the rule returns `U1-2` and `U1-5` only, and with `U1-5` in `flagged` only `U1-2`
+
+### Requirement: Power nets rule
+`checks.readiness.power_nets(intent, *, board)` SHALL return one row per power net, sorted by name: a net of `power_interface_nets` (source `interface`), else a net with a `power_in` or `power_out` member pin (source `pin-type`).
+- A row MUST hold `width` ("Power net coverage") and `zones`, the zones of `board` on a net of that name.
+- `power_stage` MUST give `power.nets` with one `ready.power-net-unsized` (error) per row whose `width` is `null` and `zones` 0.
+
+#### Scenario: Power nets and their coverage
+- **GIVEN** a `Power` interface over `VCC` and `GND`, a net `V5` with a `power_out` pin, a net `SIG` of `passive` pins, and a zone on `GND`
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k power` runs
+- **THEN** the rows name `GND` (`interface`, zones 1), `V5` (`pin-type`) and `VCC` (`interface`), and none names `SIG`; without the zone, `GND` gives one `ready.power-net-unsized`
+
+### Requirement: Power net coverage
+The `width` of a power net SHALL be `class:<name>` when its class is not `Default` and has a `track_width`, else `rule:<name>` for the first rule of kind `track_width`, of severity other than `ignore` and whose `selector_a` is not `all`, that selects `RuleSubject("track", net, netclass)`, else `null`.
+
+#### Scenario: Class and rule widths
+- **GIVEN** `VCC` in a class `PWR` with a track width, a `track_width` rule `v5` selecting `net V5`, and a `track_width` rule selecting `all`
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k width` runs
+- **THEN** `VCC` has `class:PWR`, `V5` has `rule:v5`, and `GND`, which only the `all` rule selects, has `null`
+
+### Requirement: Part fields rule
+`checks.readiness.parts_stage(design)` SHALL give `parts.fields`, with one `check.footprint-unresolved` per part of `unresolved_footprints` and one `ready.part-value-missing` (error, `where` the reference) per part that is not DNP and whose value is empty after stripping.
+
+#### Scenario: Part fields
+- **GIVEN** `R1` without a value, `R2` without a footprint reference, and a DNP part `R3` without either
+- **WHEN** `uv run pytest tests/unit/checks/test_readiness.py -k parts` runs
+- **THEN** the stage reports `ready.part-value-missing` for `R1`, `check.footprint-unresolved` for `R2`, and nothing for `R3`
+
+### Requirement: Readiness issue codes
+`checks.readiness.READY_ISSUE_CODES` SHALL be the closed table of `ready.net-open`, `ready.pin-unconnected`, `ready.power-net-unsized`, `ready.part-value-missing` (error) and `ready.check-skipped` (warning, given by `skipped_check`); the three rules carry `EVIDENCE` (`INFERRED`, `H-G-READY-RULES`).
+- `cli.explain.TABLES` MUST name the table, with an entry per code whose `see` is `ready`.
+
+#### Scenario: Every code is explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs
+- **THEN** it passes, and `fenolite explain ready.power-net-unsized --json` exits 0 with `see` `ready`
+
+### Requirement: Length rules stage
+`fenolite check` SHALL gain the stage `length.rules`, right after `copper.clearance` in `STAGE_ORDER` and so before `drc.kicad`, as "Check stages and statuses" allows. It MUST be a default stage, MUST NOT be in `ORACLE_STAGES`, and MUST be run by `checks.length.length_stage(design, *, project, rules_source, facts_source, evidence) -> StageResult` on the board model that `run_checks` read (`Validation.read.design`), with `Validation.read.evidence` as `evidence`, the validator as `rules_source` when it satisfies `DesignRulesSource` and as `facts_source` when it satisfies `LengthSource`, and `None` for each otherwise.
+- **Rules.** With a rules source, the stage MUST judge `rules_source.design_rules(design, project).design`; without one, the design as read, with one `length.input-missing` warning naming the missing rules source. The rules of the kinds `length`, `skew` and `diff_pair_skew` of c0104 are judged. A rule governs a net when its `selector_a` matches the net's `RuleSubject(item_kind="track", net=<name>, netclass=<class>, diff_pair=<base>)`, the base being that of `model.pairs.net_bases` over the design's net names. The governing length rule of a net MUST be the last matching `length` rule in `rule_precedence` order; its governing skew rule the last matching rule of the kinds `skew` and `diff_pair_skew` together, which KiCad writes as one constraint. A governing rule of severity `ignore` MUST judge nothing.
+- **Lengths.** With a facts source, the totals MUST be those of `facts_source.length_facts(<checked design>, project=project, nets=<the governed nets>)`; without one, the routed lengths of `geometry-kernel` "Path lengths", with one `length.input-missing` warning naming the length facts. A governed net with a pad and no copper MUST be judged at length 0 (`H-K-NETLEN-RULES`).
+- **Length rules.** A total below the `min` or above the `max` of the net's governing `length` rule MUST give one `length.out-of-range` with the rule's severity, whose message names the net, the total, the limit and the rule, and gives the routed, via and die parts in millimetres. `opt` MUST NOT be judged.
+- **Skew rules.** The nets governed by one `skew` rule MUST form one group; those governed by one `diff_pair_skew` rule MUST form one group per base. In a group of two nets or more, the skew of a net MUST be its total less the longest total of the group, ties going to the first net name; a skew whose magnitude exceeds the rule's `max` MUST give one `length.skew-out-of-range` with the rule's severity, whose message names the net, its total, the net of the longest total and that total, the skew and `max`. The net of the longest total is never reported.
+- **Skip, status and summary.** The stage MUST be skipped with reason `read-refused` when the board read was refused. Its status is `ok` without an issue of severity `error`, `errors` otherwise. `summary` MUST hold `rules` (`{"length": n, "skew": n}`), `nets` (the count of governed nets judged), `major` and `stackup` (those of the facts, `None` without them).
+- **Evidence.** `Evidence.combine` of `checks.length.EVIDENCE`, which is `Evidence(Level.INFERRED, hypotheses=("H-K-NETLEN-RULES",))`, `evidence`, `LengthFacts.evidence` and `DesignRules.evidence` when given; `UNVERIFIED` when the stage gave `length.input-missing`.
+- The stage MUST run no subprocess, so it needs no `kicad-cli`, and MUST keep "Check is read-only" and "Check output is deterministic".
+- The stage belongs to the pipeline of KiCad input only. It MUST NOT be in `checks.documents.DOCUMENT_STAGES` or `OPT_IN_DOCUMENT_STAGES`: `fenolite check` on Altium input ("Document check pipeline") neither runs nor names it, and `--stages length.rules` on such input is the usage error that pipeline gives for a stage it does not hold.
+
+#### Scenario: Pair skew without kicad-cli
+- **GIVEN** a project of `tests/_lengthbench.py` whose board holds `SK_P` (one 20 mm track) and `SK_N` (one 21 mm track) and whose rules file holds a `diff_pair_skew` rule (c0104) on `diff_pair SK_` with `max` 0.1 mm; no `kicad-cli` on `PATH`, no `FENOLITE_KICAD_CLI`, and `MACOS_KICAD_CLI` patched to a missing path
+- **WHEN** `uv run pytest tests/unit/checks/test_length_stage.py -k pair` runs `fenolite check <project> --stages length.rules --json`
+- **THEN** the exit code is 5, no subprocess ran, and the issues hold exactly one `length.skew-out-of-range` error, naming `SK_P` with a skew of −1 mm against `SK_N` at 21 mm
+
+#### Scenario: Minimum on a short net and on a net of pads only
+- **GIVEN** a project whose rules file holds a `length` rule with `min` 5 mm and `max` 50 mm on `SHORT` (2.4 mm of track) and on `NOTRK` (two pads, no copper), and a rule with only `opt` 5 mm on `OPTONLY` (2.4 mm of track)
+- **WHEN** the stage runs
+- **THEN** it gives one `length.out-of-range` error for `SHORT` with total 2.4 mm and one for `NOTRK` with total 0, and nothing for `OPTONLY`
+
+#### Scenario: No length rule
+- **GIVEN** `tests/_projects.py::authored_project(tmp_path, major=10, built=True)`
+- **WHEN** `fenolite check <project> --stages length.rules --json` runs
+- **THEN** the stage has status `ok`, no issue, and `summary.rules` equal to `{"length": 0, "skew": 0}`
+
+#### Scenario: Default stage order
+- **GIVEN** the native `two_layer` project and a fake `kicad-cli` 10.0.6 that writes a DRC report and an IPC-D-356 export
+- **WHEN** `uv run pytest tests/unit/cli/test_check_cmd.py -k default_stages` runs `fenolite check <project> --json`
+- **THEN** `result.stages` names `length.rules` right after `copper.clearance`, and before `drc.kicad`
+
+#### Scenario: Altium input has no length stage
+- **GIVEN** the Altium project of the blink sample
+- **WHEN** `uv run pytest tests/unit/checks/test_length_stage.py -k document` runs `fenolite check <project> --json`
+- **THEN** `result.stages` holds the stages of `DOCUMENT_STAGES` and no `length.rules`, and `checks.documents.ALL_DOCUMENT_STAGES` does not name it
+
+### Requirement: Length stage issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. Each MUST have a table in `src/fenolite/cli/data/explain.toml`, as every code that `fenolite explain` knows.
+
+| code | severity | when |
+|---|---|---|
+| `length.out-of-range` | error, warning | a net's total lies outside the `min` and `max` of its governing length rule; the rule sets the severity |
+| `length.skew-out-of-range` | error, warning | a net's skew from the longest net of its group exceeds the `max` of its governing skew rule; the rule sets the severity |
+| `length.input-missing` | warning | no rules source, or no length facts, so via heights and die lengths are not counted |
+
+#### Scenario: Length literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** each `length.*` literal is a key of `ISSUE_CODES` with the severities of this table
+
+#### Scenario: Length codes documented
+- **WHEN** `uv run pytest tests/consistency` runs
+- **THEN** the three `length.*` codes appear in `docs/cli-contract.md`
+
+### Requirement: Height limits in the placement stage
+The stage `placement.rules` of "Placement rules stage" SHALL also judge the height limits of a built project, in both check pipelines, in addition to what that requirement says.
+- **What runs.** On a built project whose `rules_of(model)` holds a height limit, the stage MUST run `judge_heights` ("Height limits judged", capability `placement`) with those limits, `heights_of(design, model)` and `extents` from `frame.placed_extents`, which MUST be called only then. On native input, and on a built project without a limit, nothing of this requirement runs and the stage is as "Placement rules stage" leaves it.
+- **Summary.** `summary.rules` MUST gain the family `height` with the counts of `judge_heights`; without a limit the family is absent.
+- **Status and evidence.** An issue of severity `error` gives the status `errors`, so a part above a limit of severity `error` makes `check` exit 5. A judged limit counts as a judged rule for the evidence rule of "Placement rules stage".
+- **Both backends.** On a KiCad project the heights come from the bodies of the `.fenolite/` model; on Altium documents from the bodies of the PCB reading, and for a footprint that holds none there, from the stored model ("Height limits judged"). A part under a limit without a body in either MUST give `placement.height-unknown`, never a pass. The areas are those of the board being judged: a PCB reading that holds no area of the limit's name gives `placement.rule-unresolved` for the limit.
+- The stage stays read-only, deterministic and without a subprocess.
+
+#### Scenario: A part above a limit fails the check
+- **GIVEN** the blink built with `R1` created with `height=mm(9)`, `design.rule_area("LID", <a square over R1>, layers=("F.Cu",))` and `design.height_limit("LID", max=mm(5))`; no `kicad-cli` on `PATH`
+- **WHEN** `uv run pytest tests/unit/checks/test_placement_stage.py -k height` runs `fenolite check <dir> --stages placement.rules --json`
+- **THEN** the exit code is 5, no subprocess ran, the issues hold one `placement.too-tall` error with `where == "R1"`, and `summary.rules.height` is `{"judged": 1, "failed": 1, "unknown": 0}`
+
+#### Scenario: No limit, no extents
+- **GIVEN** the blink built with `R1` created with `height=mm(9)` and no limit, and a validator whose `placed_extents` raises
+- **WHEN** the stage runs
+- **THEN** it has status `ok`, `summary.rules` holds no `height`, and `placed_extents` was not called
+
+#### Scenario: A limit on a built Altium project
+- **GIVEN** the routed blink with `R1` created with `height=mm(9)`, the area `LID` over `R1` and `design.height_limit("LID", max=mm(5))`, built with `--target altium --confirm`
+- **WHEN** `uv run pytest tests/unit/cli/test_check_altium.py -k height` runs `fenolite check <dir> --stages placement.rules --json`
+- **THEN** the issues hold one `placement.rule-unresolved` error with `where == "LID"`, no `placement.too-tall` and no `placement.height-unknown`, `summary.rules.height` is `{"judged": 0, "failed": 0, "unknown": 0}`, and the exit code is 5: the Altium reader models no keep-out and the keep-out record has no key for a name (`docs/altium.md`), so the PCB reading holds no area named `LID`; the document holds no body for `R1` either, and the stored board of an Altium build holds only written bodies
+
+### Requirement: Height limit issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), beside those of "Placement stage issue codes", and `docs/cli-contract.md` MUST document each. `place` and the placement guard of `build` emit the same codes, each with a severity no higher than `warning`. `src/fenolite/cli/data/explain.toml` MUST hold one table for each (`cli-contract`, "Explain command").
+
+| code | severity | when |
+|---|---|---|
+| `placement.too-tall` | error, warning | a part under a height-limited area is taller than the limit; the limit sets the severity |
+| `placement.height-unknown` | warning | a part under a height-limited area has no known height |
+
+A height limit whose area the board does not hold gives `placement.rule-unresolved` of "Placement stage issue codes".
+
+#### Scenario: Height literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** `placement.too-tall` and `placement.height-unknown` are keys of `ISSUE_CODES` with the severities of this table
+
+#### Scenario: Height codes documented and explained
+- **WHEN** `uv run pytest tests/consistency tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain placement.too-tall --json`
+- **THEN** both codes appear in `docs/cli-contract.md`, the explain test passes with a table for each, and the command exits 0 with a non-empty `result.meaning` and `result.fix`
+
+### Requirement: DRC report limits in check
+`checks.drc.drc_stage` SHALL say, for each type of the DRC report whose count reached the limit at which the tool stops writing entries, that the count is a lower bound, because KiCad's report holds no key that says so and `check` otherwise gives a cut count as complete (`H-K-DRC-LIMITS`).
+- **Summary.** The summary of the stage MUST gain `limits`: `null` when there is no report or when the oracle does not satisfy `LimitedOracle` (`backend-protocol`, "DRC report limits of an oracle"), and otherwise a list, sorted by `type`, with one `{type, reported, limit}` for every violation type, and for `unconnected_items`, whose count in the counted report is at least `oracle.report_limits().limit(type)`. The counts MUST be those of `by_type` and `unconnected`: taken after the canary's own violations are removed, on the report the summary counts. An empty list says that every count is complete; `null` says that nothing is known.
+- **Issue.** Each entry MUST give one `check.report-limit` warning, after the findings of the stage: `where` MUST be the issue code of the type (`<oracle>.drc.<type with dashes>`, `kicad.drc.unconnected-items` for the unconnected items), and the message MUST name the type, the count reported and the limit, and say that the board holds at least that many. Its hint MUST say that the other findings of the type are not in the report and that repairing the reported ones and checking again shows the next ones.
+- **Code.** `fenolite.checks.codes.ISSUE_CODES` MUST gain `check.report-limit` (warning). The code is not a `<oracle>.drc.*` code: it describes the report, not the board, so a rule that silences or waives DRC findings by their code never covers it. `src/fenolite/cli/data/explain.toml` MUST hold one table for it, and `docs/cli-contract.md` MUST document it under `check`.
+- **Nothing else moves.** The status of the stage, its evidence, the canary verdict, `violations_judged`, the findings and the exit code MUST be what they are without this requirement: a warning never turns `ok` into `errors`, and a count under its limit is complete, so a report without an error still means that KiCad found none.
+- **At least, not equal.** A count equal to its limit MUST be marked even though the board may hold exactly that many: 9.0.9 writes up to a few more than 499 `clearance` entries, and a type that no probe measured is taken to stop at `others`. The mark then says "at least", which stays true.
+- `check --format concise` MUST keep `summary.limits` as it keeps every stage summary.
+- `docs/cli-contract.md` MUST state the limits per type and major with their evidence label, and that above a limit the count is a lower bound.
+
+#### Scenario: Two types at their limits
+- **GIVEN** a fake `Oracle` named `fake` that also has `report_limits()` returning `DrcLimits({"unconnected_items": 499}, others=199)`, whose report holds 499 unconnected items, 199 `silk_overlap` warnings and 150 `track_dangling` warnings, and canary `fired`
+- **WHEN** `uv run pytest tests/unit/checks/test_drc_stage_limits.py -k two_types` runs `drc_stage`
+- **THEN** `summary.limits` is `[{"type": "silk_overlap", "reported": 199, "limit": 199}, {"type": "unconnected_items", "reported": 499, "limit": 499}]`, the issues end with two `check.report-limit` warnings whose `where` are `fake.drc.silk-overlap` and `fake.drc.unconnected-items`, and no entry names `track_dangling`
+
+#### Scenario: Every count under its limit
+- **GIVEN** the same fake with 12 `silk_overlap` warnings and no unconnected item
+- **WHEN** the stage runs
+- **THEN** `summary.limits` is `[]`, no `check.report-limit` is reported, and the status is `ok`
+
+#### Scenario: An oracle that states no limits
+- **GIVEN** a fake `Oracle` without `report_limits`, whose report holds 499 unconnected items
+- **WHEN** the stage runs
+- **THEN** `summary.limits` is `null` and no `check.report-limit` is reported
+
+#### Scenario: The mark changes no verdict
+- **GIVEN** the fake of the first scenario
+- **WHEN** `uv run pytest tests/unit/checks/test_drc_stage_limits.py -k verdict` runs the stage with and without `report_limits`
+- **THEN** both results have the same status, evidence, `canary` and findings, and differ only in `summary.limits` and the two warnings
+
+#### Scenario: The code is explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py tests/consistency -k "explain or codes"` runs
+- **THEN** `check.report-limit` has a table in `explain.toml` and a line in `docs/cli-contract.md`
+
+### Requirement: Keep-out issue code
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold the key `copper.keepout` with the severity `error`, as "Check issue codes" allows, and `docs/cli-contract.md` MUST document it. `check_copper` emits it (`copper-check`, "Keep-out findings"); the build guard emits it into the `build` envelope, where it passes through unchanged as `design-dsl` "Build issue codes" allows for codes that later requirements add.
+
+| code | severity | when |
+|---|---|---|
+| `copper.keepout` | error | a track, arc, via or pad lies in a keep-out whose settings forbid its kind, on a layer of the keep-out |
+
+- The stage `copper.clearance` keeps its name and its evidence; `copper.keepout` findings count as its errors, so `check` exits 5 when one is reported.
+
+#### Scenario: Keep-out literal is a key
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** `copper.keepout` is a key of `ISSUE_CODES` with the severity `error`
+
+#### Scenario: Keep-out code documented
+- **WHEN** `uv run pytest tests/consistency` runs
+- **THEN** `copper.keepout` appears in `docs/cli-contract.md`
+
+#### Scenario: Check fails on copper in a keep-out
+- **GIVEN** a built blink variant with `d.rule_area("ANT", …, forbid=("tracks",))` over one of its script tracks, written with `--copper-check warn`
+- **WHEN** `fenolite check blink.kicad_pcb --json` runs
+- **THEN** the exit code is 5, `issues` hold one `copper.keepout` naming the track and `ANT`, and the DRC stage holds `items_not_allowed` for the same track
+
+### Requirement: Placement rules stage
+`fenolite check` SHALL gain the stage `placement.rules` in both of its pipelines. In `STAGE_ORDER` it stands after `copper.clearance` and after `length.rules` when a change has inserted that stage, and before `zone.fill`, as "Check stages and statuses" allows. In `DOCUMENT_STAGES` ("Document check pipeline") it stands after `copper.clearance` and before `parity`. It MUST be a default stage of both, MUST NOT be in `ORACLE_STAGES`, MUST run no subprocess, and MUST be run by `checks.placement.placement_stage(design, *, model, built, frame, rules_source, project, evidence) -> StageResult` with the board model of the run (`Validation.read.design` in `run_checks`, the PCB reading in `run_document_checks`), the `.fenolite/` model and `built`, the validator as `frame` when it satisfies `BoardFrame` and as `rules_source` when it satisfies `DesignRulesSource` (`None` otherwise), and the evidence of that reading.
+- **What runs.** On a built project the stage MUST run `judge` ("Placement rules judged", capability `placement`) with `rules_of(model)`, and `measure` ("Placement measures"); on native input `measure` only. `pads` MUST come from `frame.board_pads`. The `pitch` of `measure` MUST be the track width plus the clearance of the class `Default` of `rules_source.design_rules(design, project).design`, and `None` without a rules source or without that class.
+- **Both backends.** The stage reads the model and the board frame only, so it MUST give the same verdict for one script built for KiCad and for Altium when the pad positions are equal.
+- **Keep-outs** are not judged here. On a KiCad project, KiCad's DRC reports them in `drc.kicad`. On Altium documents no stage judges a part in a keep-out; `docs/altium.md` MUST say so.
+- **Skips.** The stage MUST be skipped with reason `read-refused` when the board read was refused, with `cache-unreadable` when the project is built and its `.fenolite/` failed to load, with the new reason `no-frame` when `frame` is `None`, and on document input with `single-source` when the set holds no PCB document.
+- **Status.** `errors` when an issue has severity `error`, `ok` otherwise.
+- **Summary.** `rules`: the counts of `judge` by rule family, every count 0 on native input; `measures`: `Measures.to_json()`.
+- **Evidence.** `evidence` when no rule was judged; `Evidence.combine(checks.placement.EVIDENCE, evidence)` when one was, `checks.placement.EVIDENCE` being `INFERRED`.
+- The stage MUST keep "Check is read-only" and "Check output is deterministic".
+
+#### Scenario: A rule fails without kicad-cli
+- **GIVEN** the blink built with `design.near("led", d1, r1.pad(2), within=mm(5))`, whose nearest pad of `D1` lies about 12.2 mm from that pad; no `kicad-cli` on `PATH`, no `FENOLITE_KICAD_CLI`, and `MACOS_KICAD_CLI` patched to a missing path
+- **WHEN** `uv run pytest tests/unit/checks/test_placement_stage.py -k fails` runs `fenolite check <dir> --stages placement.rules --json`
+- **THEN** the exit code is 5, no subprocess ran, the issues hold one `placement.too-far` error with `where == "D1"`, and `summary.rules.near` is `{"judged": 1, "failed": 1, "skipped": 0}`
+
+#### Scenario: Native board measured
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages placement.rules --json` runs
+- **THEN** the stage has status `ok`, no issue, `summary.rules` with every count 0, and `summary.measures.nets` above 0
+
+#### Scenario: Default stage order
+- **GIVEN** the native `two_layer` project and a fake `kicad-cli` 10.0.6 that writes a DRC report and an IPC-D-356 export
+- **WHEN** `uv run pytest tests/unit/cli/test_check_cmd.py -k default_stages` runs `fenolite check <project> --json`
+- **THEN** `result.stages` names `placement.rules` after `copper.clearance` and before `zone.fill`
+
+#### Scenario: The same rule on a built Altium project
+- **GIVEN** the routed blink with `design.near("led", d1, r1.pad(2), within=mm(5))`, built with `--target altium --confirm`
+- **WHEN** `uv run pytest tests/unit/cli/test_check_altium.py -k placement_rules` runs `fenolite check <dir> --json`
+- **THEN** `result.stages` names `placement.rules` after `copper.clearance` and before `parity`, the issues hold one `placement.too-far` error with `where == "D1"`, the exit code is 5, and `summary.measures.nets` is above 0
+
+#### Scenario: Altium documents without a script
+- **WHEN** `fenolite check tests/data/altium/routed/routed.PcbDoc --stages placement.rules --json` runs
+- **THEN** the stage has status `ok`, `summary.rules` has every count 0, and `summary.measures.nets` is above 0
+
+#### Scenario: Skips
+- **WHEN** `run_checks` runs the stage with a validator that raises `FormatError`, then on a built project whose cache fails to load, then with a validator that is not a `BoardFrame`
+- **THEN** the stage is skipped with `read-refused`, `cache-unreadable` and `no-frame` in turn, and gives no issue
+
+### Requirement: Placement stage issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each. `place` and the placement guard of `build` emit the same codes, each with a severity no higher than `warning`. `src/fenolite/cli/data/explain.toml` MUST hold one table for each of them and for `place.keepout` and `place.keepout-no-courtyard` (`placement`, "Placement legality"), as `cli-contract`, "Explain command", asks of every code.
+
+| code | severity | when |
+|---|---|---|
+| `placement.too-far` | error, warning | a part of a `near` rule has no selected pad within `within` of a pad of the anchor; the rule sets the severity |
+| `placement.rule-unresolved` | error | a placement rule names something that the board does not hold: a part or a pad, or, for a rule that a later requirement adds, what that requirement says |
+| `placement.rule-skipped` | info | a rule names a part that lies off the board, so it is not judged for it |
+
+#### Scenario: Placement literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** each `placement.*` literal is a key of `ISSUE_CODES` with the severities of this table
+
+#### Scenario: Placement codes documented
+- **WHEN** `uv run pytest tests/consistency` runs
+- **THEN** the three `placement.*` codes appear in `docs/cli-contract.md`
+
+#### Scenario: Codes explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain place.keepout --json`
+- **THEN** the test passes with a table for `place.keepout`, `place.keepout-no-courtyard`, `placement.too-far`, `placement.rule-unresolved` and `placement.rule-skipped`, and the command exits 0 with a non-empty `result.meaning` and `result.fix`
+
+### Requirement: Assignment comparison names every pad of a pin
+`checks.assignment_compare.model_netlist(model)` SHALL give one `PadAssignment` per pad of each pin, where the pads of a pin are `Component.pads_of(pin)`: for a `PinRef` member of a net, each pad with the net's id as label; for every other pin of a component, its pad with `NO_NET`, or, for a pin of several pads, each pad with one label of the pin's own (`assignment_compare.bonded_label`), because the pads of one pin are joined inside the part and a board that names their net (`unconnected-(…)` or `Net-(…)`) has them as one block. This says, for a pin of several pads, what the bullet "Sources" of "Assignment compare stage" says for a pin of one.
+- An element MUST be listed once: a pad that a net member already named is not listed again on `NO_NET`.
+- For a model whose pins have one pad each the result MUST be the list, in the order, that the function gave before this requirement.
+- The function MUST NOT build a mapping of one pad per pin from `pin_pad_map`.
+
+#### Scenario: Pin of two pads
+- **GIVEN** a model whose component `U1` has the pins `1` and `3`, `pin_pad_map == (("3", "3"), ("3", "EP"))`, and whose net `GND` lists pin `3`
+- **WHEN** `uv run pytest tests/unit/checks/test_assignment_compare.py -k several` calls `model_netlist`
+- **THEN** the elements `U1-3` and `U1-EP` are on `GND`, `U1-1` is on no net, and a board whose pads `3` and `EP` of `U1` carry `GND` compares without a difference and without an element on one side only
+
+#### Scenario: Open pin of two pads
+- **GIVEN** the same component with pin `3` on no net
+- **WHEN** `model_netlist` runs
+- **THEN** `U1-3` and `U1-EP` are listed with one label that is neither `NO_NET` nor a net id, and a board that holds the two pads on one net of any name compares without a difference
+
+#### Scenario: One pad per pin
+- **GIVEN** the model of "Mapped pins are named by their pads" ("Assignment compare stage")
+- **WHEN** `model_netlist` runs
+- **THEN** the assignments equal, in order, those the function returned before this change (a list written in the test)
+
+### Requirement: Footprint items in the model difference
+`fenolite.checks.diff.diff_designs` SHALL compare the graphics and the texts of footprints as two content kinds, `footprint_graphic` and `footprint_text`, and the corner ratio as a field of the kind `pad`.
+- An entity of either kind is the item's compared fields with `footprint`, the key of its footprint in the kind `footprint` (the reference of its component). Entities are matched by content, as the kinds `graphic` and `text` are, so the order of a footprint's items does not count.
+- The entry of a footprint in the kind `footprint` MUST leave out `graphics` and `texts`, as it leaves out `pads`.
+- With a `ModelScope`, the kinds and their fields are compared only when the scope names them, and `points`, `position`, `size`, `width` and `thickness` take the scope's tolerance ("Model difference scope").
+- Two designs whose footprints hold no item and whose pads hold no ratio MUST give the report they gave before: no path, no count and no key of `summary` changes for them.
+- No level of `equivalent` reads the three fields (`design-equivalence`): a footprint's drawing and the corner ratio are compared by the model difference and by the Altium round-trip levels only.
+
+#### Scenario: A moved line of one footprint
+- **GIVEN** two designs that are equal except that one silkscreen line of `R1` is moved by 1 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_diff.py -k footprint_items` runs `diff_designs(a, b)`
+- **THEN** the changes are one `removed` and one `added` under `/footprint_graphic/`, each naming `R1`, and nothing under `/footprint/`
+
+#### Scenario: Order does not count
+- **GIVEN** design `b` equal to `a` with the graphics of each footprint in reverse order
+- **WHEN** `diff_designs(a, b)` runs
+- **THEN** `equal` is true
+
+#### Scenario: Reports of designs without items
+- **WHEN** `uv run pytest tests/unit/checks/test_diff.py` runs after this change, with no edit of its earlier tests
+- **THEN** every earlier test passes
+
+### Requirement: Waivers in the check
+`fenolite.checks.waivers` SHALL apply a design's waivers (`design-model`, "Waivers in the findings layer") to the findings of `check`, so that one accepted finding no longer counts as an error while it stays listed.
+- **Input.** `run_checks(…, waivers=())` MUST pass the waivers to `copper_stage(…, waivers=…)` and to `drc_stage(…, waivers=…)`. `fenolite check` MUST pass `Design.findings.waivers` of the `.fenolite/` model of a built project, and no waiver for a native project or when `.fenolite/` cannot be loaded.
+- **Document input.** `run_document_checks(…, waivers=())` ("Document check pipeline") MUST pass the waivers to its `copper.clearance` stage, and `fenolite check` on a built Altium project MUST pass the waivers of its `.fenolite/` model the same way, so one script gets the same verdict for an accepted copper finding on both targets. That pipeline has no DRC stage: a `kicad.drc.*` waiver is `unjudged` there with `stage-not-run`. Waivers reach no other stage of either pipeline: `kicad.erc.*` and `parity.*` findings are never waived.
+- **Matching.** `waiver_matches(waiver, code, names, gap=None)` MUST be true exactly when `code == waiver.code`, `len(names) == len(waiver.items)`, some one-to-one assignment of items to names has every item matching its name by `fnmatch.fnmatchcase`, and, when `waiver.min_gap` is set, `gap` is not `None` and `gap >= waiver.min_gap`. The names of a copper finding are the `where` of its two `CopperRef`s and its gap is `CopperFinding.gap`; the names of a DRC entry are the locations of its items as "DRC findings as issues" gives them, and it has no gap.
+- **Effect.** The issue of a matched finding MUST keep its code and `where`, take severity `info`, and end with ` (waived by <name>: <reason>)`, naming the first matching waiver in name order. A finding that no waiver matches is unchanged, and no finding is removed. A stage whose every error was waived MUST have status `ok`; waivers change no evidence.
+- **Judged waivers.** A waiver is judged in a run when the stage of its code ran with a verdict, `copper.clearance` for a `copper.*` code and `drc.kicad` with a report for a `kicad.drc.*` code, and its code is not `type_code(<oracle>, t)` for a type `t` of `UNREPEATABLE_TYPES = ("clearance", "hole_clearance", "unconnected_items", "shorting_items")`, whose entries KiCad does not repeat from run to run (`H-K-DRC-REPEAT`, `H-K-VIA-RENET`). A waiver of such a type is applied when it matches and is never judged, so two runs of `check` differ in nothing that "Check output is deterministic" does not already allow.
+- **Stale waivers.** Each judged waiver that matched no finding MUST give one `check.waiver-unmatched` warning, `where` the waiver's name, whose message names its code and items and says that the finding is gone or its items were renamed.
+- **Result.** `CheckReport.waivers` and `result.waivers` of `check` MUST hold `declared` (the count), `matched` (name → number of findings matched, for judged waivers), `unmatched` (names) and `unjudged` (name → `stage-not-run` or `not-repeatable`), each sorted by name.
+
+#### Scenario: Waived clearance between two pads
+- **GIVEN** a built project whose `.fenolite/` model holds the waiver `pitch` of code `copper.clearance`, items `J1-3` and `J1-4` and reason `fixed by the mating connector`, and whose board has the pads `J1-3` and `J1-4` 0.25 mm apart under a class clearance of 0.3 mm
+- **WHEN** `uv run pytest tests/unit/checks/test_waivers.py -k pads` runs `fenolite check <project> --stages copper.clearance --json`
+- **THEN** the `copper.clearance` issue naming the two pads has severity `info` and ends with `(waived by pitch: fixed by the mating connector)`, the exit code is 0, and `result.waivers.matched` is `{"pitch": 1}`
+
+#### Scenario: The gap bound keeps a closer finding
+- **GIVEN** a waiver of code `copper.clearance` with items `J1-3` and `*` and `min_gap` 150 000 nm, and a track 120 µm from `J1-3`
+- **WHEN** the copper stage runs with the waiver
+- **THEN** the finding stays an error and the waiver is unmatched; with the track 160 µm from the pad the finding is `info`
+
+#### Scenario: Items match in either order
+- **WHEN** `waiver_matches` is called for a waiver of items `("J1-3", "J1-4")` with the names `("J1-4", "J1-3")`, and with `("J1-3",)`
+- **THEN** it returns `True` and `False`
+
+#### Scenario: A stale waiver is reported
+- **GIVEN** a waiver of code `copper.short` with items `R1-1` and `R2-1`, and a board where those pads do not touch
+- **WHEN** `check --stages copper.clearance` runs
+- **THEN** the issues hold one `check.waiver-unmatched` warning whose `where` is the waiver's name, and the exit code is the one the other issues give
+
+#### Scenario: Unrepeatable and unrun waivers are not judged
+- **GIVEN** a waiver of `kicad.drc.clearance`, a waiver of `kicad.drc.silk-overlap`, and a fake oracle whose report holds no entry of either type
+- **WHEN** `run_checks` runs `drc.kicad`, then only `copper.clearance`
+- **THEN** the first run gives one `check.waiver-unmatched` (for `silk-overlap`) and lists the other under `unjudged` as `not-repeatable`; the second gives none and lists both as `stage-not-run`
+
+#### Scenario: A waiver on a built Altium project
+- **GIVEN** the project of "Waived clearance between two pads" built with `--target altium`, whose `.fenolite/` model holds the waiver `pitch` and one more waiver of code `kicad.drc.via-dangling`
+- **WHEN** `uv run pytest tests/unit/checks/test_waivers.py -k altium` runs `fenolite check <project> --stages copper.clearance --json`
+- **THEN** the `copper.clearance` issue of the two pads has severity `info` and ends with `(waived by pitch: fixed by the mating connector)`, `result.waivers.matched` is `{"pitch": 1}`, and `result.waivers.unjudged` gives `stage-not-run` for the other waiver
+
+#### Scenario: Native projects have no waivers
+- **GIVEN** the native `two_layer` project
+- **WHEN** `fenolite check tests/data/kicad/board/two_layer.kicad_pcb --stages copper.clearance --json` runs
+- **THEN** `result.waivers.declared` is 0 and the `copper.short` of its fill and pad stays an error
+
+### Requirement: Exclusions in the DRC stage
+`checks.drc.drc_stage(…, exclusions=())` SHALL take the project's stored DRC exclusions (`backend-protocol`, "Stored exclusions source") and SHALL say, for each, whether KiCad still applies it, because `pcb drc` ignores an exclusion that matches nothing without a message (`H-K-DRC-EXCL`). `run_checks` MUST pass `validator.stored_exclusions(project)` when `isinstance(validator, ExclusionSource)` is true, and none otherwise.
+- **Comment.** The issue of an entry that the report marks `excluded` MUST end with ` (excluded in the project: <comment>)`, or ` (excluded in the project)` when its comment is empty.
+- **Live or stale.** An exclusion whose type is not in `UNREPEATABLE_TYPES` ("Waivers in the check") is live when an entry of the report has `excluded` true, its type, and item uuids equal to its own, in order and without regard to letter case, the nil uuid standing for a missing second item. Otherwise it MUST give one `check.exclusion-stale` warning: reason `moved` when an entry of that type and those uuids is reported without `excluded`, because KiCad matches the marker position to the nanometre, and `gone` otherwise. Its `where` MUST be the items' locations as "DRC findings as issues" gives them, and `@<x>,<y>` from the exclusion's position for a uuid that names no entity; its message names the type, the reason and the comment.
+- **Summary.** `summary.exclusions` MUST hold the counts `stored`, `live`, `stale` and `unjudged` (exclusions of an unrepeatable type).
+- Without a report no exclusion is judged, and every count but `stored` is 0.
+- Exclusions belong to the KiCad pipeline. `run_document_checks` has no DRC stage, reads no exclusion and reports no `summary.exclusions`.
+
+#### Scenario: Comment of an excluded entry
+- **GIVEN** a fake oracle whose report holds one `via_dangling` entry with `excluded` true and comment `test point`
+- **WHEN** `uv run pytest tests/unit/checks/test_drc_stage.py -k exclusion` runs the stage
+- **THEN** its `kicad.drc.via-dangling` issue has severity `info` and ends with `(excluded in the project: test point)`
+
+#### Scenario: A moved exclusion
+- **GIVEN** the same report with `excluded` false, and a stored exclusion of type `via_dangling` naming the via's uuid and the nil uuid at another position
+- **WHEN** the stage runs with that exclusion
+- **THEN** it reports one `check.exclusion-stale` warning with reason `moved`, and `summary.exclusions` is `{"stored": 1, "live": 0, "stale": 1, "unjudged": 0}`
+
+#### Scenario: A gone exclusion and an unrepeatable one
+- **GIVEN** a report without any entry, and two stored exclusions, one of type `courtyards_overlap` and one of type `clearance`
+- **WHEN** the stage runs
+- **THEN** it reports one `check.exclusion-stale` warning, with reason `gone`, for the courtyard exclusion only, and `summary.exclusions.unjudged` is 1
+
+### Requirement: Waiver and exclusion issue codes
+`fenolite.checks.codes.ISSUE_CODES` SHALL also hold these keys with these severities ("Check issue codes"), and `docs/cli-contract.md` MUST document each, together with the `info` severity of a waived finding ("Copper stage issue codes") and the keys of `result.waivers`. `src/fenolite/cli/data/explain.toml` MUST hold one table for each (`cli-contract`, "Explain command"), and one for each of the two project codes of `kicad-file-backend`, "Project files carry the check severities".
+
+| code | severity | when |
+|---|---|---|
+| `check.waiver-unmatched` | warning | a judged waiver matched no finding |
+| `check.exclusion-stale` | warning | a stored KiCad exclusion of a repeatable type no longer applies, `moved` or `gone` |
+
+#### Scenario: Literals are keys
+- **WHEN** `uv run pytest tests/unit/checks -k codes` collects every issue-code literal under `src/fenolite/checks/`
+- **THEN** `check.waiver-unmatched` and `check.exclusion-stale` are keys of `ISSUE_CODES` with severity `warning`
+
+#### Scenario: Codes documented
+- **WHEN** `uv run pytest tests/consistency` runs
+- **THEN** both codes and `result.waivers` appear in `docs/cli-contract.md`
+
+#### Scenario: Codes explained
+- **WHEN** `uv run pytest tests/unit/cli/test_explain_cmd.py` runs, and then `uv run fenolite explain check.waiver-unmatched --json`
+- **THEN** the test passes with a table for `check.waiver-unmatched`, `check.exclusion-stale`, `kicad.project.unknown-check` and `kicad.project.dropped-check`, and the command exits 0 with a non-empty `result.meaning` and `result.fix`

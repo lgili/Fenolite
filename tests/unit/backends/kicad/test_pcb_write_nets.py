@@ -133,6 +133,29 @@ def test_opaque_net_reference_converted() -> None:
     assert teardrop == source
 
 
+SLASHED = "Net-(U1-P1{slash}XL1)"
+
+
+def test_opaque_reference_to_a_net_stored_with_a_slash() -> None:
+    """c0163: a teardrop's ``(net 2)`` resolves to the stored name of net 2, not to its model name."""
+    text = skeleton_with(TEARDROP)
+    for old in ('(net 2 "B")', '(net_name "B")'):
+        text = text.replace(old, old.replace('"B"', f'"{SLASHED}"'))
+    design = read_board(text)
+    assert "Net-(U1-P1/XL1)" in [n.name for n in design.circuit.nets]
+    nine_text = write_board(design, target=9).text
+    ten_text = write_board(design, target=10).text
+    assert "Net-(U1-P1/XL1)" not in nine_text and "Net-(U1-P1/XL1)" not in ten_text
+    nine = parse(nine_text)
+    (row,) = [n for n in nine.nodes("net") if n.atoms()[1].value == SLASHED]
+    teardrop = next(z for z in nine.nodes("zone") if z.find("attr") is not None)
+    assert teardrop.find("net") == Node(Atom.symbol("net"), (row.atoms()[0],))
+    assert teardrop.find("net_name") == parse(f'(net_name "{SLASHED}")')
+    ten = parse(ten_text)
+    teardrop = next(z for z in ten.nodes("zone") if z.find("attr") is not None)
+    assert teardrop.find("net") == parse(f'(net "{SLASHED}")') and teardrop.find("net_name") is None
+
+
 def test_unknown_opaque_net_reference() -> None:
     segment = '(segment (start 0 0) (end 1 0) (width 0.25) (layer "F.Cu") (net 7) (uuid "{}"))'
     issues: list[Issue] = []

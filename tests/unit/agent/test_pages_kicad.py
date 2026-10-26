@@ -31,6 +31,8 @@ ERRORS: dict[tuple[str, int], set[str]] = {
     ("placement", 0): {OPEN},
     ("routing", 0): {OPEN},
     ("rules", 0): {OPEN},
+    ("rules", 1): {OPEN},
+    ("rules", 2): {OPEN},
 }
 """(topic, index of the KiCad design block on its page) → the codes of the errors that the whole check
 reports for the script as it is built, before any routing."""

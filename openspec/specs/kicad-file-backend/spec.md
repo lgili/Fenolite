@@ -2,7 +2,9 @@
 
 ## Purpose
 Read KiCad board files into the neutral model without losing anything: typed reading of `.kicad_pcb` from KiCad 8.0 on with slots (modelled, projected and opaque children kept in place), the version policy, layers, nets in both forms, the pad frame, zones and rule areas, exact numbers, stable ids, a closed set of issue codes, a synthesised circuit, and the same-version rebuild (RT1). Facts and sources: `docs/formats/kicad/board.md`.
+
 ## Requirements
+
 ### Requirement: Board file reading
 `fenolite.backends.kicad.pcb.read_board(source, *, file="", issues=None)` SHALL accept an `os.PathLike` (a `.kicad_pcb` file), a `str` (file text) or a parsed `Node`, and SHALL return a `Design`.
 - `header.name` MUST be the file stem for a path and `""` otherwise.
@@ -72,11 +74,12 @@ The reader SHALL model exactly these root children and leave every other one as 
 - the header (`version`, `generator`, `generator_version`), whose values are kept in `Board.ext["kicad"]` as the pairs `version`, `generator` and `generator_version`;
 - `layers`, and the net table rows with N ≥ 1;
 - `footprint` → `FootprintInstance`, `segment` → `Track`, `arc` → `Arc`, `via` → `Via`;
-- `zone` → `Zone`, or `Keepout` for a rule area; a teardrop zone (an `attr` child holding `teardrop`) MUST stay an opaque root slot;
+- `zone` → `Zone`, or `Keepout` for a rule area, whose `name` child gives `Keepout.name`; a teardrop zone (an `attr` child holding `teardrop`) MUST stay an opaque root slot;
 - `gr_line`, `gr_arc`, `gr_circle`, `gr_rect` and `gr_poly` → `Graphic` of kind `line`, `arc`, `circle`, `rect` and `polygon`, with the c0008 rules for points, fill and stroke;
-- `gr_text` → `Text`, with `size` and `thickness` projected from `effects/font`. A `gr_text` without a font size or thickness MUST stay opaque.
+- `gr_text` → `Text`, with `size` and `thickness` projected from `effects/font`, and `h_justify` and `v_justify` from the `left`, `right`, `top` and `bottom` atoms of `effects/justify` (`center` when absent). A `gr_text` without a font size or thickness MUST stay opaque;
+- `dimension` whose `type` is `aligned` or `orthogonal` → `Dimension`, with `layer`, `start` and `end` from the two `xy` of `pts`, `offset` from `height`, and, for `orthogonal`, `direction` from `orientation` (0 `horizontal`, 1 `vertical`). Its `format`, `style` and `gr_text` children MUST be projected `Opaque` slots: `units` from `format/units` (2 `mm`, 0 `in`), `precision` from `format/precision` when it is 0 to 4, `width` from `style/thickness`, and `size` and `thickness` from the font of the `gr_text`; a value outside these keeps the field's default. The `gr_text` of a dimension belongs to it: its uuid MUST NOT give `kicad.board.duplicate-uuid`. A dimension of another type, one whose `pts` does not hold exactly two points, and an `orthogonal` one without `orientation` MUST stay opaque root slots.
 
-Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, and `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent). Any other leading atom MUST raise `FormatError`. `Board.outline` and `Board.stackup` MUST be `None` on import. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
+Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net_id`, `via_type` from the leading atom (`blind`, `buried` or `micro`; `through` when absent), and `protection` from the children of "Via protection on boards". Any other leading atom MUST raise `FormatError`. `Board.outline` MUST be `None` on import. `Board.stackup` MUST be the projection of the opaque `setup` child that "Stack-up on boards" states; the projection adds no child to the list above. `Board.via_protection` MUST be the projection of the same opaque `setup` child that "Via protection defaults on boards" states; it adds no child to the list above either. Edge.Cuts content MUST stay ordinary `Graphic`s on layer `Edge.Cuts`.
 
 #### Scenario: Copper items of the authored board
 - **WHEN** the authored board is read
@@ -99,6 +102,35 @@ Via fields MUST be `position`, `diameter` (from `size`), `drill`, `layers`, `net
 - **GIVEN** a board holding a zone with `(attr (teardrop (type padvia)))`
 - **WHEN** it is read
 - **THEN** no `Zone` is created for it, and the zone is an `Opaque` slot of the board at its position
+
+#### Scenario: Stack-up projected from an opaque setup
+- **WHEN** `tests/data/kicad/board/stackup_four.kicad_pcb` is read
+- **THEN** `board.stackup` is not `None`, the `setup` child is an `Opaque` root slot, and `pcb.opaque_count` counts it as it counts the `setup` of `two_layer.kicad_pcb`
+
+#### Scenario: Protected via and board default
+- **GIVEN** a copy of the authored board whose via holds `(tenting front)` and whose `setup` holds `(tenting front back)`
+- **WHEN** it is read
+- **THEN** the via has `protection == ViaProtection(tenting_front=True, tenting_back=False)`, `board.via_protection == ViaProtection(tenting_front=True, tenting_back=True)`, and `setup` is an `Opaque` root slot
+
+#### Scenario: Named rule area
+- **GIVEN** a board holding a rule area with `(name "ANT")` after its `uuid` and `(tracks not_allowed)`
+- **WHEN** it is read
+- **THEN** its `Keepout` has `name == "ANT"` and `no_tracks` true, and its `name` child is a `Modeled` slot
+
+#### Scenario: Justified text
+- **GIVEN** a board holding `(gr_text "L" (at 5 40 0) (layer "F.SilkS") (uuid "…") (effects (font (size 1 1) (thickness 0.15)) (justify left bottom)))`
+- **WHEN** it is read
+- **THEN** the `Text` has `h_justify == "left"` and `v_justify == "bottom"`
+
+#### Scenario: Dimension saved by KiCad
+- **GIVEN** an aligned dimension as `kicad-cli` 10.0.6 saves it, with `(units 3)` and the text "20.0000 mm" sharing the dimension's uuid
+- **WHEN** it is read with an `issues` list
+- **THEN** the board holds one `Dimension` of kind `aligned` with its points and `offset`, `units == "mm"` (the default, since 3 is outside the model), its `format` child is an `Opaque` slot, and `issues` holds no `kicad.board.duplicate-uuid`
+
+#### Scenario: Other dimension types stay opaque
+- **GIVEN** a board holding `(dimension (type leader) …)`
+- **WHEN** it is read
+- **THEN** no `Dimension` is created, and the node is an `Opaque` slot of the board at its position
 
 ### Requirement: Board footprints and the pad frame
 Each `footprint` SHALL become a `FootprintInstance`:
@@ -312,7 +344,7 @@ The pad, drill, padstack and graphic mapping of c0008 SHALL live in `fenolite.ba
 
 ### Requirement: IPC-D-356 parsing
 `fenolite.backends.kicad.ipcd356.read_ipcd356(text)` SHALL parse the netlist that `kicad-cli pcb export ipcd356` writes into `Ipcd356(unit_nm, records)`.
-- Each `317` or `327` record MUST give `code`, `net`, `ref`, `pin`, `x`, `y` (export units, Y up), `rotation` from the `R` field when present, and `side`.
+- Each `317` or `327` record MUST give `code`, `net`, `ref`, `pin`, `x`, `y` (export units, Y up), `rotation` from the `R` field when present, `side`, and `covered` from the `S` field that follows the rotation: `S0` gives `none`, `S1` `top`, `S2` `bottom` and `S3` `both`, the sides whose solder mask covers the pad (observed on 9.0.9 and 10.0.6, `H-K-TESTPOINT-D356`), and `None` when the record has no `S` field.
 - `ref` and `pin` MUST be the export's fixed-width fields as written, stripped of padding: the export truncates the reference to 6 characters and the pin to 4 (observed on 10.0.6, S-0019). A via record has `ref == "VIA"` and an empty `pin`.
 - `UNITS CUST 0` MUST give `unit_nm == 2540`.
 - Text without a `UNITS` line MUST raise `FormatError`.
@@ -331,6 +363,11 @@ The pad, drill, padstack and graphic mapping of c0008 SHALL live in `fenolite.ba
 #### Scenario: Missing units
 - **WHEN** `read_ipcd356` is called on text without a `UNITS` line
 - **THEN** `FormatError` is raised
+
+#### Scenario: Mask codes
+- **GIVEN** an authored export text with two `327` records ending `R000S2` and `R000S1`, a `317` record ending `R000S0`, and a `327` record ending `R000S3`
+- **WHEN** `read_ipcd356` is called
+- **THEN** their `covered` values are `bottom`, `top`, `none` and `both`, in that order
 
 ### Requirement: Authored two-layer board
 `tests/data/kicad/board/two_layer.kicad_pcb` SHALL be an authored CC0 board with header `20241229` and generator version `"9.0"`, holding the content listed in design Decision 19, declared `origin = "authored"` in `tests/data/MANIFEST.toml`. `kicad-cli` 9.0.9 and 10.0.6 MUST load it.
@@ -427,14 +464,14 @@ Further rules:
 ### Requirement: Created board header
 For a created design, `write_board` SHALL emit exactly the root head set of c0007's `tests/data/kicad/tokens/skeleton.kicad_pcb`, plus `title_block` when one of the seven fields of `Board.title_block` is non-empty:
 - `version`, `generator` and `generator_version`;
-- `(general (thickness T) (legacy_teardrops no))`, where T is the sum of the `Board.stackup` layer thicknesses, or 1.6 mm without a stack-up;
+- `(general (thickness T) (legacy_teardrops no))`, where T is `Stackup.thickness()` of the stack-up that "Stack-up written to boards" completes, or 1.6 mm without a stack-up;
 - `paper`, written by `pcb.paper_node(Board.sheet)`, which gives `(paper "A4")` when `Board.sheet` is `None` ("Paper and title block on boards");
 - `title_block`, written by `pcb.title_block_node(Board.title_block)` right after `paper`, only when one of its seven fields is non-empty;
 - `layers`, from `Board.layers` and each layer's `kicad` bag;
-- `(setup (pad_to_mask_clearance 0))`;
+- `(setup (pad_to_mask_clearance 0))`, with the node of "Stack-up written to boards" as the first child of `setup` when `Board.stackup` is set, and followed inside `setup`, after `pad_to_mask_clearance`, by the children of "Via protection defaults on boards" when `Board.via_protection` is not `None`;
 - for target 9 only, the net table.
 
-The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the head set of a created board without a title block; `pcb.CANONICAL_ORDER["kicad_pcb"]` MUST hold `title_block` right after `paper`, and `pcb.CANONICAL_ORDER["title_block"]` MUST be `("title", "date", "rev", "company", "comment")`. `fenolite.backends.kicad.layers.created_layers(copper)` MUST return the 2- and 4-copper-layer sets recorded in `docs/formats/kicad/board.md`, numbered in the 9.0 scheme (`F.Cu` 0, `B.Cu` 2, `In1.Cu` 4, `In2.Cu` 6, `Edge.Cuts` 25), with the KiCad number, type and user name in each layer's `kicad` bag. Any other `copper` value MUST raise `ValueError`. Every head and field name the writer can create MUST match a row of the token inventory, appear in c0007's skeleton, or be listed in `pcb.FLOOR_HEADS`: a closed tuple of names that the 8.0 board format already has, each recorded in `docs/formats/kicad/board.md` with its source and written by the created test board that the triad oracle loads on both majors. `FLOOR_HEADS` MUST include `title_block`, `title`, `date`, `rev`, `company` and `comment` (S-0001; S-0033 at tag 8.0.0), and `tests/_boards.py::created_board()` MUST set `SheetFrameRef("A4")` and a `TitleBlock` whose seven fields are non-empty, so the created test board writes them.
+The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the head set of a created board without a title block; `pcb.CANONICAL_ORDER["kicad_pcb"]` MUST hold `title_block` right after `paper`, and `pcb.CANONICAL_ORDER["title_block"]` MUST be `("title", "date", "rev", "company", "comment")`. `fenolite.backends.kicad.layers.CREATED_COPPER_COUNTS` MUST be `(2, 4, 6, 8)`. For each of these counts, `fenolite.backends.kicad.layers.created_layers(copper)` MUST return the two-copper-layer set recorded in `docs/formats/kicad/board.md` with the rows of `layers.inner_rows(copper)` inserted right after `F.Cu`: one row `(2k + 2, "In<k>.Cu", signal)` without a user name for each inner layer k = 1 … copper − 2, in that order. The numbers are those of the 9.0 scheme (`F.Cu` 0, `B.Cu` 2, `In<k>.Cu` 2k + 2, `Edge.Cuts` 25), the rows are the same for targets 9 and 10 (`H-K-PCB-LAYERS`), and each layer's `kicad` bag holds the KiCad number, type and user name. Any other `copper` value, an odd count included, MUST raise `ValueError` naming the counts. `layers.created_count(names)` MUST return the count whose created table has exactly the copper layer names `names`, in table order, and `None` when no count of `CREATED_COPPER_COUNTS` has them. Every head and field name the writer can create MUST match a row of the token inventory, appear in c0007's skeleton, or be listed in `pcb.FLOOR_HEADS`: a closed tuple of names that the 8.0 board format already has, each recorded in `docs/formats/kicad/board.md` with its source and written by the created test board that the triad oracle loads on both majors. `FLOOR_HEADS` MUST include `title_block`, `title`, `date`, `rev`, `company` and `comment` (S-0001; S-0033 at tag 8.0.0), and `stackup`, `color`, `material`, `epsilon_r`, `loss_tangent`, `copper_finish` and `dielectric_constraints` (S-0021, S-0058); `type` is not listed, because the skeleton holds it already and `FLOOR_HEADS` is disjoint from the skeleton. `tests/_boards.py::created_board()` MUST set `SheetFrameRef("A4")`, a `TitleBlock` whose seven fields are non-empty, and, for every created copper count, a `Stackup` with a dielectric of two sheets, a colour, a material and both decimals, so the created test board writes them.
 
 #### Scenario: Head set of a created 2-layer board
 - **GIVEN** a created design whose board has `created_layers(2)` and no content
@@ -450,6 +487,14 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **WHEN** `created_layers(4)` is called
 - **THEN** the copper layers are `F.Cu`, `In1.Cu`, `In2.Cu` and `B.Cu` with KiCad numbers 0, 4, 6 and 2
 
+#### Scenario: Six and eight copper layers
+- **WHEN** `created_layers(6)` and `created_layers(8)` are called
+- **THEN** the copper layers of the first are `F.Cu`, `In1.Cu`, `In2.Cu`, `In3.Cu`, `In4.Cu` and `B.Cu` with KiCad numbers 0, 4, 6, 8, 10 and 2 and the type `signal`, the second adds `In5.Cu` (12) and `In6.Cu` (14) before `B.Cu`, every other row equals the row of `created_layers(2)`, and `created_count` of each table's copper names gives 6 and 8
+
+#### Scenario: Counts outside the table
+- **WHEN** `created_layers(c)` is called for `c` equal to 0, 3, 10 and `True`, and `created_count(("F.Cu", "In1.Cu", "B.Cu"))` is called
+- **THEN** each `created_layers` call raises `ValueError` naming 2, 4, 6 and 8, and `created_count` returns `None`
+
 #### Scenario: Created tokens are known
 - **WHEN** `uv run pytest tests/unit/backends/kicad/test_pcb_write.py -k created_tokens` runs
 - **THEN** every head and field in `CANONICAL_ORDER` and in the created header is found in the skeleton, is in `FLOOR_HEADS`, or matches an inventory row, and every name of `FLOOR_HEADS` occurs in the parsed text of the created test board written for target 9
@@ -459,13 +504,23 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **WHEN** it is written for target 10
 - **THEN** the root's child heads are `version`, `generator`, `generator_version`, `general`, `paper`, `title_block`, `layers`, `setup`, and the `paper` child is `(paper "User" 431.8 279.4)`
 
+#### Scenario: Created board with a stack-up
+- **GIVEN** a created design whose board has `created_layers(2)` and a two-layer stack-up
+- **WHEN** it is written for target 10
+- **THEN** the root's child heads are those of "No net table for target 10", and `setup` holds `stackup` and then `(pad_to_mask_clearance 0)`
+
+#### Scenario: Created board with a via protection default
+- **GIVEN** a created design whose board has `created_layers(2)` and `via_protection = ViaProtection(tenting_front=True, tenting_back=False)`
+- **WHEN** it is written for target 10
+- **THEN** the root's child heads are those of "No net table for target 10", and `setup` holds `pad_to_mask_clearance`, `tenting`, `covering`, `plugging`, `capping` and `filling`, in that order
+
 ### Requirement: Net form per target
 `write_board` SHALL write every net reference in the form of the target, in modelled and opaque content alike:
 - **Target 9.** The root holds `(net 0 "")` followed by `(net i "<name>")` for the model's nets sorted by name in code-point order, i = 1 … n. Pads write `(net i "<name>")`; tracks, arcs, vias and zones write `(net i)`; zones also write `(net_name "<name>")`. For a read board, the table MUST take the place of the source's table, and its row 0 MUST replace the source's opaque `(net 0 "")` slot, so the text holds exactly one row 0.
 - **Target 10.** The root holds no net table, and the source's opaque `(net 0 "")` slot MUST be removed. Every reference is `(net "<name>")`, and zones write no `net_name`.
 - Net 0 and the empty name mean no net. For target 9, a zone or rule area whose net is `None` MUST write `(net 0)` and `(net_name "")`, and every other item whose `net_id` is `None` MUST carry no `net` child. For target 10, an item whose net is `None` MUST NOT carry a `net` child.
 - Inside opaque fragments, `(net 0)`, `(net 0 "")` and `(net "")` MUST be written `(net 0)` for target 9 and removed for target 10, and MUST NOT give `kicad.board.opaque-net-ref`.
-- Inside opaque fragments, a numbered reference MUST be resolved through the source net table kept by `read_board`, and a named reference by its name; both MUST be re-emitted in the target's form.
+- Inside opaque fragments, a numbered reference MUST be resolved through the source net table kept by `read_board` to the stored name of that net (`pcb.stored_net_name`, "Net names in KiCad's stored form"), never to its model name, and a named reference by its name; both MUST be re-emitted in the target's form (c0163).
 - A `net` node in opaque content that matches none of `(net N)`, `(net N "name")` and `(net "name")`, or whose number N ≥ 1 is absent from the source table, MUST give `kicad.board.opaque-net-ref` (error). `allow_lossy` MUST NOT drop it.
 
 #### Scenario: Numbered table for target 9
@@ -482,6 +537,11 @@ The content follows in `CANONICAL_ORDER`. `pcb.CREATED_ROOT_HEADS` MUST stay the
 - **GIVEN** a copy of `tests/data/kicad/tokens/skeleton.kicad_pcb`, built in the test, with an added teardrop zone (an `attr` child holding `teardrop`) that holds `(net 2)` and `(net_name "B")`, where net 2 is `B` in the source table, read with `read_board`, so the teardrop zone is an opaque root slot
 - **WHEN** it is written for target 10
 - **THEN** the teardrop zone holds `(net "B")` and no `net_name`, and every other child of it is tree-equal to the source
+
+#### Scenario: Opaque reference to a net stored with a slash
+- **GIVEN** a copy of `skeleton.kicad_pcb`, built in the test, whose net 2 is stored `Net-(U1-P1{slash}XL1)`, with an added teardrop zone that holds `(net 2)` and `(net_name "Net-(U1-P1{slash}XL1)")`, read with `read_board` (the net's model name is `Net-(U1-P1/XL1)`)
+- **WHEN** it is written for target 9 and for target 10
+- **THEN** both writes succeed with no `kicad.board.opaque-net-ref`; the target-9 teardrop holds `(net i)` and `(net_name "Net-(U1-P1{slash}XL1)")`, where i is the number of the table row `Net-(U1-P1{slash}XL1)`; the target-10 teardrop holds `(net "Net-(U1-P1{slash}XL1)")`; neither text holds `Net-(U1-P1/XL1)`
 
 #### Scenario: Unknown opaque net reference
 - **GIVEN** a copy of `skeleton.kicad_pcb` whose segment holds `(net 7)` while the source table ends at 2, read with `read_board`, which keeps that reference opaque (c0009 "Nets in both forms")
@@ -533,6 +593,8 @@ Before re-emitting an opaque fragment that a reader projected into a model field
 - When `Component.ref` or `Component.value` differs, the writer MUST rewrite only the value atom of the `(property "Reference" …)` or `(property "Value" …)` fragment; every other atom and child of that fragment MUST stay tree-equal.
 - When a modelled field kept as an `Opaque` projected slot by the reader's reproducibility check differs, the writer MUST emit that field from the model if the fragment differs from the emitter's output for the old value only in spelling (same heads and atom count, numbers equal as decimals, strings equal as text, a zero angle written or omitted); otherwise it MUST give `kicad.board.projection-read-only`. An unchanged value MUST keep its fragment.
 - When `Board.sheet` differs from `pcb.project_paper` of the root `paper` fragment, the writer MUST re-emit that fragment whole with `pcb.paper_node`. When `Board.title_block` differs from `pcb.project_title_block` of the root `title_block` fragment, the writer MUST rewrite that fragment in place, or insert it, as "Paper and title block on boards" states. Both projections are editable, and an unchanged value MUST keep its fragment.
+- When `Board.stackup` differs from `stackup.project_stackup` of the root `setup` fragment, compared by `stackup.values`, the writer MUST rewrite the `setup` fragment and the `thickness` of the root `general` fragment as "Stack-up written to boards" states. This projection is editable, and an unchanged value MUST keep both fragments.
+- When `Board.via_protection` differs from `via_protection.project_setup` of the root `setup` fragment, compared by `effective_default`, the writer MUST rewrite the protection children of that fragment as "Via protection defaults on boards" states, and no other child of it: the stack-up projection and this one each rewrite their own children of the one fragment. When `Via.protection` differs from the projection of a protection child that the reader kept as an opaque projected slot, or when the target is not the major of the board that was read and the forms of that major read the child, the writer MUST replace that child by the form of "Via protection on boards" for the target, or remove it when its values are all `None`. Both projections are editable, and an unchanged value written for the board's own major MUST keep its fragments.
 - When any other projection differs (`Component.properties` other than Reference and Value, `Graphic.width` from a `stroke`, `Pad.padstack`), the writer MUST give `kicad.board.projection-read-only`, naming the field and the locator.
 
 #### Scenario: Reference renamed
@@ -555,6 +617,26 @@ Before re-emitting an opaque fragment that a reader projected into a model field
 - **WHEN** the design is written for target 9
 - **THEN** no issue is raised, and the `paper` child is `(paper "A3")` at its source index
 
+#### Scenario: Stack-up added to a read board
+- **GIVEN** `two_layer.kicad_pcb` read with `read_board`, and its board given a two-layer stack-up of 35 µm copper, a 1.5 mm core and 10 µm masks
+- **WHEN** the design is written for target 9
+- **THEN** no warning or error is raised, `setup` holds the stack-up node and then `(pad_to_mask_clearance 0)`, and `general` holds `(thickness 1.59)` and `(legacy_teardrops no)`
+
+#### Scenario: Via protection default added to a read board
+- **GIVEN** `two_layer.kicad_pcb` read with `read_board`, and its board given `via_protection = ViaProtection(tenting_front=False, tenting_back=False)`
+- **WHEN** the design is written for target 9
+- **THEN** no issue is raised, `setup` holds `(pad_to_mask_clearance 0)` and then `(tenting none)`, and every other child of the board is tree-equal to the source
+
+#### Scenario: A projected via child edited
+- **GIVEN** a board of format 20260206 whose via holds the 9.0 child `(tenting front)`, read with `read_board` so the child is an opaque projected slot, and the via's protection then set to `ViaProtection(tenting_front=True, tenting_back=False)`
+- **WHEN** the design is written for target 10
+- **THEN** no issue is raised, and the via holds `(tenting (front yes) (back no))` at the position of the source child
+
+#### Scenario: A kept 9.0 child written for target 10
+- **GIVEN** a board of format 20241229 whose via holds `(tenting)`, read with `read_board` so the child is an opaque projected slot and the via has both tenting fields `False`
+- **WHEN** the design is written for target 9 and for target 10
+- **THEN** the target-9 via holds `(tenting)` as read, and the target-10 via holds `(tenting (front no) (back no))` at the position of the source child, which KiCad 10 plots as 9.0.9 plots the source
+
 ### Requirement: KiCad uuids on write
 `write_board` SHALL give every emitted entity that KiCad identifies by `uuid` the value of `entity.native_ids["kicad"]` when present, and otherwise `uuid5(FENOLITE_NS, "kicad-out:" + entity.id)`. A part without its own id (an outline edge) MUST use `"kicad-out:<owner id>:<part>"`. `pcb.kicad_uuid(entity, part="")` MUST return the same value.
 
@@ -569,12 +651,15 @@ Before re-emitting an opaque fragment that a reader projected into a model field
 - **THEN** the segment's uuid is `uuid5(FENOLITE_NS, "kicad-out:trk_00000000-0000-4000-8000-000000000001")`
 
 ### Requirement: Outline lowering
-For any board whose `Board.outline` has points, created or read and then given an outline, `write_board` SHALL emit one `gr_line` on `Edge.Cuts` per edge of the outer ring and of each cutout, closing every ring, with stroke width 0.1 mm and type `solid`. The lines are created entities. A board with no outline, or an outline without points, MUST emit none. No `gr_arc` is emitted, because `Outline` holds points only. A board with both a non-empty outline and a `Graphic` on a layer of kind `edge` MUST give `kicad.board.outline-conflict`.
+For any board whose `Board.outline` has points, created or read and then given an outline, `write_board` SHALL emit one item on `Edge.Cuts` per edge of the outer ring and of each cutout, closing every ring, with stroke width 0.1 mm and type `solid`: a `gr_arc` for an edge that `Outline.arcs` makes an arc (`design-model`, "Board outline arcs"), and a `gr_line` for every other edge. The items are created entities. A board with no outline, or an outline without points, MUST emit none. A board with both a non-empty outline and a `Graphic` on a layer of kind `edge` MUST give `kicad.board.outline-conflict`.
+- A `gr_arc` MUST be written with `start`, `mid` and `end` such that `orient2d(start, mid, end)` is positive: an arc whose edge runs the other way is written from its second vertex to its first, the same points, so that KiCad's re-save keeps it unchanged (`H-G-ARC-DIR`, `H-K-OUTLINE-ARCS`).
+- `outline.edge_texts(outline) -> tuple[str, ...]` MUST give one text per edge, `line X1 Y1 X2 Y2` or `arc X1 Y1 X2 Y2 XM YM`, integers in nanometres, the two vertices in increasing `(x, y)` order, so that the text does not depend on the direction of the edge. `outline.outline_digest(texts) -> str` MUST be the first 16 hexadecimal digits of the SHA-256 of the texts in sorted order, each followed by `\n`, in UTF-8.
+- Each item's uuid MUST be `pcb.kicad_uuid(outline, "outline:<digest>:<edge text>")`, an edge being a part of its outline ("KiCad uuids on write"). Equal outlines therefore give equal uuids, and a change of any edge changes every uuid ("Outline changes across rebuilds" of `layout-lens` reads them back).
 
 #### Scenario: Rectangle outline
 - **GIVEN** a created board whose outline has the points (0, 0), (50 mm, 0), (50 mm, 30 mm), (0, 30 mm)
 - **WHEN** it is written
-- **THEN** the text holds four `gr_line` nodes on `Edge.Cuts`, the last ending at (0, 0)
+- **THEN** the text holds four `gr_line` nodes on `Edge.Cuts`, the last ending at (0, 0), and the uuid of each is `kicad_uuid(outline, "outline:<digest>:<its edge text>")`, the digest being that of the four edge texts
 
 #### Scenario: Outline and edge graphics
 - **GIVEN** a created board with that outline and a `Graphic` on `Edge.Cuts`
@@ -585,6 +670,16 @@ For any board whose `Board.outline` has points, created or read and then given a
 - **GIVEN** `tests/data/kicad/tokens/skeleton.kicad_pcb` read with `read_board`, given the rectangle outline, once with its `Edge.Cuts` `gr_rect` and once with that `Graphic` removed from the model
 - **WHEN** each design is written for target 9
 - **THEN** the first raises `LossyWriteError` with an issue `kicad.board.outline-conflict`, and the second text holds four `gr_line` nodes on `Edge.Cuts` and no `gr_rect`
+
+#### Scenario: Arcs written with a positive orientation
+- **GIVEN** a created board with the rectangle outline and one cut-out whose vertices are (11.6 mm, 10 mm) and (8.4 mm, 10 mm), whose two edges are the arcs through (10 mm, 8.4 mm) and through (10 mm, 11.6 mm)
+- **WHEN** it is written for target 9 and for target 10
+- **THEN** each text holds four `gr_line` and two `gr_arc`, and the first `gr_arc` runs from (8.4 mm, 10 mm) through (10 mm, 8.4 mm) to (11.6 mm, 10 mm), each arc with a positive `orient2d`
+
+#### Scenario: One moved vertex changes every uuid
+- **GIVEN** the rectangle outline, and the same outline with (50 mm, 30 mm) moved to (51 mm, 30 mm)
+- **WHEN** both boards are written
+- **THEN** the two texts share no `uuid` of an `Edge.Cuts` item, and writing the first again gives its uuids back
 
 ### Requirement: Footprint embedding
 `fenolite.backends.kicad.embed.place_footprint(defn, *, component, at, rotation=0, side="top", locked=False, key, copper=("F.Cu", "B.Cu"))` SHALL return a `FootprintInstance` for `defn` placed at `at` with stored angle `rotation` on `side`:
@@ -1726,14 +1821,16 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 
 ### Requirement: Board outline as rings
 `fenolite.backends.kicad.outline.board_outline(design) -> BoardOutline` SHALL give the board outline as closed rings in the board frame, joining edge endpoints closer than `outline.CHAIN_GAP` (10 000 nm) as KiCad does (`H-K-OUTLINE-CHAIN`):
-- from `Board.outline.points`, followed by each ring of `Board.outline.cutouts`, when the model has an outline (`source == "model"`);
+- from `Board.outline`, when the model has an outline (`source == "model"`): the board ring of `Board.outline.points` and then each ring of `Board.outline.cutouts`, each a closed path of segments and of the arcs that `Outline.arcs` holds for it (`design-model`, "Board outline arcs"), the arcs polygonised at `tol`;
 - otherwise from the root graphics on the layer of kind `edge` and the edge items of footprints that `frame.footprint_edges` gives in the board frame (`fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly`; `H-K-OUTLINE-FPEDGE`), chained by `geometry.assemble_rings` (`source == "edge"`); circles and closed footprint polygons are rings by themselves;
 - before chaining, endpoints whose squared distance is below `CHAIN_GAP` squared MUST be joined into the smallest point of their group, decided with integers; a group with more than two piece ends stays a `branching-contour`, and `joined` MUST count the groups that were joined;
 - `rings[0]` MUST be the ring of largest area, and the others its cut-outs;
 - when no ring closes, `rings` MUST be empty and `problem` MUST be one of `open-contour`, `branching-contour` and `no-edge-content`;
-- `exact` MUST be false when an arc was approximated.
+- `exact` MUST be false when an arc was approximated, of the model's outline or of the edge content.
 
 `H-G-PLACE-OUTLINE` MUST be measured over the readable non-heavy demo boards and its counts recorded.
+
+`outline.outline_box(design) -> tuple[int, int, int, int] | None` SHALL give the smallest box `(x0, y0, x1, y1)` that holds every ring of the model outline, each arc by `Arc.bbox`, or, without a model outline, every ring of `board_outline`; it is `None` when there is no ring. The staging row of the build and the off-board test of the lens read this box (`layout-lens`, "Placement precedence").
 
 #### Scenario: Model outline
 - **GIVEN** a built blink model
@@ -1763,6 +1860,16 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 - **GIVEN** an authored board whose edge lines leave a 5 mm opening that the `fp_line` items of one placed footprint on `Edge.Cuts` close
 - **WHEN** `board_outline` runs
 - **THEN** `rings[0]` holds the footprint's edge points in the board frame
+
+#### Scenario: Model outline with arcs
+- **GIVEN** the model of `board(outline=shape.rect(mm(0), mm(0), mm(60), mm(40), radius=mm(3)))` with `d.cutout(shape.circle(mm(10), mm(10), mm(3.2)))`
+- **WHEN** `board_outline` runs
+- **THEN** `source` is `model`, `exact` is false, `rings` holds two rings, and every vertex of the second lies within 5 µm of the circle of radius 1.6 mm centred at (110 mm, 110 mm)
+
+#### Scenario: Box of a round board
+- **GIVEN** the model of `board(outline=shape.circle(mm(20), mm(20), mm(40)))`
+- **WHEN** `outline_box` runs
+- **THEN** it returns (100 mm, 100 mm, 140 mm, 140 mm), where the box of `Outline.points` alone would be (100 mm, 120 mm, 140 mm, 120 mm)
 
 ### Requirement: Net names in KiCad's stored form
 `fenolite.backends.kicad.netnames` SHALL define `stored_name(name) -> str`, which replaces each `/` by `{slash}`, and `model_name(stored) -> str`, its inverse, and the board reader and writer SHALL use them so that a net name with a slash is stored as KiCad stores a literal slash (`H-K-SCH-SLASH`).
@@ -1839,3 +1946,557 @@ The shared footprint mapping (`_fpmap`) SHALL model a pad's `(zone_connect N)` a
 - **WHEN** `uv run pytest tests/unit/test_format_facts.py tests/unit/test_provenance.py` runs
 - **THEN** it passes with `erc.md` present
 
+### Requirement: Singular and plural layer heads of a zone
+The layers of a `zone` (a copper zone or a rule area) SHALL be read from its `layer` or its `layers` child alike, and `write_board` SHALL treat the two heads as one family when it compares a kept child with the model.
+- The reader MUST take every name of the child, under either head, and MUST expand a wildcard or a mask (`*.Cu`, `*.X`, `F&B.X`) as "Zones, fills and rule areas" states. A child that holds a wildcard or a mask MUST be a projected slot under either head, so the file keeps its spelling.
+- For a kept `layer` or `layers` child of a `Zone` or a `Keepout`, the writer MUST compare the layers the child names, wildcards expanded against the board's copper rows, with the model's `layers`, whichever head the emitter would pick for the model's value. When they are equal, the child MUST be kept as written, under the head the file used, and the writer MUST NOT write a second layer child.
+- When the model's `layers` differ and the child holds only plain names, the layers MUST be written from the model as the rule "Projected fields on write" allows: `(layer "NAME")` for one layer and `(layers "NAME" …)` for several, the forms `kicad-cli` 10.0.6 saves again unchanged (`H-K-ZONE-LAYER-HEAD`).
+- When the model's `layers` differ and the child holds a wildcard or a mask, the writer MUST give `kicad.board.projection-read-only` naming `layers`, under either head.
+- A child that holds several plain names under `layer` MUST NOT be kept for a changed value: the layers are written from the model when the number of names is the same, and `kicad.board.projection-read-only` is given otherwise.
+- A zone or rule area that has no kept child, one that a script declares (`design.rule_area`, c0103) or that the API created, is written by the emitter as before this change: `(layer "NAME")` for one layer and `(layers "NAME" …)` with every name for several, never a wildcard. Only a zone that was read keeps the head and the spelling of its file.
+- No other entity's `layer` or `layers` child is compared differently: the family holds for `Zone` and `Keepout` only.
+- `docs/formats/kicad/board.md` MUST state what the corpus holds under each head and what `kicad-cli` 10.0.6 loads and saves, each fact with its source and label. A board whose zone holds a wildcard, a mask or several names under `layer` is read by Fenolite and refused by `kicad-cli` 10.0.6; the page MUST say so.
+
+#### Scenario: Singular head with one layer
+- **GIVEN** the authored board `two_layer.kicad_pcb`, whose zone holds `(layer "B.Cu")` and whose rule area holds `(layer "F.Cu")`
+- **WHEN** it is read and written back unchanged
+- **THEN** the zone has `layers == ("B.Cu",)`, the rule area `layers == ("F.Cu",)`, and both `zone` nodes of the written text equal the source nodes
+
+#### Scenario: Singular head with a wildcard is read
+- **GIVEN** that board with the layer child of its rule area replaced by `(layer "*.Cu")`, and the same for its zone
+- **WHEN** it is read
+- **THEN** the rule area (the zone) has `layers == ("F.Cu", "B.Cu")` and its `(layer "*.Cu")` child is an `Opaque` slot; the same holds for `(layer "F&B.Cu")`
+
+#### Scenario: An unchanged board keeps its layer child
+- **GIVEN** that board with the layer child of its zone or of its rule area replaced by one of `(layer "*.Cu")`, `(layer "F&B.Cu")`, `(layers "*.Cu")`, `(layers "F&B.Cu")`, `(layers "F.Cu" "B.Cu")`, `(layers "B.Cu")` and `(layer "F.Cu" "B.Cu")`
+- **WHEN** it is read and written for target 9
+- **THEN** the three RT1 conditions hold, no warning or error is raised, the written `zone` node equals the source node, and it holds exactly one layer child, the source's
+
+#### Scenario: Plural head with a wildcard or a mask
+- **GIVEN** the board with `(layers "*.Cu")` or `(layers "F&B.Cu")` on its zone
+- **WHEN** the zone's `name` is changed and the board is written
+- **THEN** the written zone holds the source's layer child and no other; the same holds under `layer`
+
+#### Scenario: A changed layer set is written by the number of layers
+- **GIVEN** the board as authored, and the board with `(layers "F.Cu" "B.Cu")` on its zone and its rule area
+- **WHEN** the layers of the first are changed to `("F.Cu", "B.Cu")`, those of the second to `("F.Cu",)`, and each is written for target 10
+- **THEN** the first holds `(layers "F.Cu" "B.Cu")` and the second `(layer "F.Cu")` on both, `kicad-cli` 10.0.6 loads each written board, and its re-save holds the same layer children (probes `pcb-zone-layers-write-widened` and `pcb-zone-layers-write-narrowed` are `equal`)
+
+#### Scenario: A rule area declared in the script
+- **GIVEN** the blink design with `design.rule_area("ANT", …)` on every copper layer of its two-layer board (`layers=None`), and the same with `layers=("B.Cu",)`
+- **WHEN** each is built for target 9 and for target 10
+- **THEN** the rule area of the first holds `(layers "F.Cu" "B.Cu")` and that of the second `(layer "B.Cu")`, and reading the built board and writing it back keeps that child
+
+#### Scenario: A changed layer set of a wildcard child is refused
+- **GIVEN** the board with one of `(layer "*.Cu")`, `(layer "F&B.Cu")`, `(layers "*.Cu")`, `(layers "F&B.Cu")` and `(layer "F.Cu" "B.Cu")` on its zone or its rule area
+- **WHEN** that entity's `layers` are changed to `("F.Cu",)` and the board is written
+- **THEN** `LossyWriteError` is raised with `droppable == False` and one issue `kicad.board.projection-read-only` whose message names `layers` and the kept child
+
+#### Scenario: Route rewrites the board
+- **GIVEN** the two-pad routing board with a rule area far from the pads whose layers are written `(layer "*.Cu")`
+- **WHEN** `fenolite route --router direct --out routed.kicad_pcb --confirm` runs on it
+- **THEN** the exit code is 0, the net is routed, and the written board holds `(layer "*.Cu")` once and reads with the rule area on `F.Cu` and `B.Cu`
+
+#### Scenario: What KiCad 10 loads and saves
+- **WHEN** the probes `pcb-zone-layers-load-*` and `pcb-zone-layers-save-*` run on `kicad-cli` 10.0.6
+- **THEN** the boards with `(layer "*.Cu")`, `(layer "F&B.Cu")` and `(layer "F.Cu" "B.Cu")` are `reject`, the boards with `(layers "*.Cu")`, `(layers "F&B.Cu")` and `(layers "B.Cu")` are `load`, and the re-saves of the three plural boards hold `(layers "F.Cu" "B.Cu")`, `(layers "F.Cu" "B.Cu")` and `(layer "B.Cu")` (`equal`)
+
+### Requirement: Outline shape checks
+`fenolite.backends.kicad.outline.check_outline(design) -> tuple[Issue, ...]` SHALL judge the model outline of a design before it is written, with the codes of the closed table `outline.CHECK_ISSUE_CODES`. They are `kicad.*` codes, so they pass `lens.build.BUILD_ISSUE_CODES` unchanged (`design-dsl`, "Build issue codes").
+- An outline that breaks a rule of `design-model`, "Board outline arcs" or "Board slots", MUST give `kicad.outline.invalid` naming the ring and the edge, or the slot.
+- The rings are those of `lowered_outline(outline)` ("Slots and merged rings in the board file"), taken by `board_outline` (`tol` = `DEFAULT_TOL`). Cut-outs and slots whose areas overlap are merged first; each merged group MUST give one `kicad.outline.merged` naming its items (`slot <name>`, `cut-out <k>`). Without the `geo` extra each group MUST instead give one `kicad.outline.overlap` naming its items, with the hint `pip install 'fenolite[geo]'`, and the build stops as for `kicad.outline.invalid`.
+- On those rings, each of these MUST give one `kicad.outline.invalid` naming the rings concerned, `board`, `cut-out <k>` or `slot <name>`: two edges of one ring that cross or touch, other than consecutive edges at their common vertex; two rings that cross or touch without a merged area; a cut-out or slot with a point outside the board ring or touching it; a cut-out inside another cut-out. The first two are what 10.0.6 reports as `invalid_outline`, a cut-out that touches the edge at one point included; 9.0.9 reports only the overlap (`H-K-OUTLINE-INVALID`), and one verdict serves both targets. A cut-out inside a cut-out loads in KiCad as a further piece of board; it and a cut-out outside the board ring are refused because `board_outline` takes every ring after the first for a cut-out.
+- When `outline_box(design)` ("Board outline as rings") exceeds the box of the board ring's vertices and arc mid points, the box that a zone declared without an outline takes (`design-dsl`, "Zones in the DSL"), `kicad.outline.zone-short` MUST name each zone of the design whose outline is that box.
+- A design without a model outline gives no issue.
+
+| code | severity | when |
+|---|---|---|
+| `kicad.outline.invalid` | error | the outline breaks the model's form, or its rings cross, touch, lie outside the board or inside a cut-out |
+| `kicad.outline.zone-short` | warning | an arc of the board ring bulges beyond the box that a zone without an outline takes |
+| `kicad.outline.merged` | info | overlapping cut-outs and slots are written as one ring |
+| `kicad.outline.overlap` | error | cut-outs and slots overlap and the `geo` extra that merges them is not installed |
+
+#### Scenario: A clean outline
+- **GIVEN** the model of a script with `board(outline=shape.rect(mm(0), mm(0), mm(60), mm(40), radius=mm(3)))`, `d.cutout(shape.circle(mm(10), mm(10), mm(3.2)))` and `d.cutout(shape.slot((mm(19), mm(30)), (mm(31), mm(30)), mm(2)))`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_outline.py -k check` calls `check_outline`
+- **THEN** it returns no issue
+
+#### Scenario: Rings that cross, touch or nest
+- **GIVEN** five models with `board(mm(40), mm(30))` and, in turn, a round cut-out of 4 mm centred at (39 mm, 15 mm), the same at (38 mm, 15 mm), two round cut-outs of 4 mm at (18 mm, 15 mm) and (22 mm, 15 mm), which touch at one point, a round cut-out of 2 mm inside one of 6 mm both centred at (20 mm, 15 mm), and a round cut-out of 4 mm at (20 mm, 15 mm)
+- **WHEN** `check_outline` runs on each
+- **THEN** the first four give one `kicad.outline.invalid` each, the first two naming `board` and `cut-out 1`, and the fifth gives none
+
+#### Scenario: A zone short of an arc
+- **GIVEN** a model of `board(outline=((mm(0), mm(0)), (mm(40), mm(0)), arc_to((mm(45), mm(25)), (mm(40), mm(30))), (mm(0), mm(30))))`, whose arc reaches x = 48.03 mm beyond its mid at 45 mm, and `d.zone(gnd, layers=("B.Cu",))`
+- **WHEN** `check_outline` runs
+- **THEN** it returns one `kicad.outline.zone-short` naming the zone `GND`
+
+#### Scenario: Overlapping slots merged or refused
+- **GIVEN** `board(mm(40), mm(30))`, `d.slot(mm(15), mm(10), length=mm(12), width=mm(2), name="A")` and `d.slot(mm(20), mm(15), length=mm(12), width=mm(2), rot=90, name="B")`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_slots_outline.py -k overlap` calls `check_outline` with the `geo` extra and with `pyclipper` hidden
+- **THEN** the first gives one `kicad.outline.merged` naming `slot A` and `slot B`, and the second one `kicad.outline.overlap` naming both with the hint `pip install 'fenolite[geo]'`; two round cut-outs of 4 mm at (18 mm, 15 mm) and (21 mm, 15 mm), which overlap, give one `kicad.outline.merged` naming `cut-out 1` and `cut-out 2`
+
+### Requirement: Assembly and test pad properties on boards and footprints
+The shared footprint mapping (`_fpmap`) SHALL model a pad's `(property <token>)` child as `Pad.fab_property`, for board pads and `.kicad_mod` pads alike, through the table `_fpmap.FAB_PROPERTY_TOKENS`:
+
+| `fab_property` | KiCad token |
+|---|---|
+| `bga` | `pad_prop_bga` |
+| `fiducial_global` | `pad_prop_fiducial_glob` |
+| `fiducial_local` | `pad_prop_fiducial_loc` |
+| `test_point` | `pad_prop_testpoint` |
+| `heatsink` | `pad_prop_heatsink` |
+| `castellated` | `pad_prop_castellated` |
+| `mechanical` | `pad_prop_mechanical` |
+| `press_fit` | `pad_prop_pressfit` |
+
+- A pad without the child MUST have `fab_property is None` and no slot for it.
+- A token outside the table MUST keep the child as an `Opaque` slot, with `fab_property is None` and the info `kicad.board.kept-opaque` on a board or `kicad.lib.kept-opaque` in a footprint file. A pad with several such children MUST keep each of them as an `Opaque` slot with the same info, and `fab_property` is projected from the first one; a model value that differs from what they hold MUST give `kicad.board.projection-read-only` on a board and the read-only error of `mod.write_footprint` in a footprint file.
+- The emitters MUST write the child from the model. A created pad writes it after `drill`, or after `size` when it has no drill, and before `layers` (`CANONICAL_ORDER["pad"]` and `PAD_CANONICAL`); a read pad without the child gets it only when the value is not `None`. `mod.prepare_authored_definition` MUST give an authored pad whose value is set a `Modeled` slot for it in that place, and none otherwise.
+- `embed.place_footprint` MUST keep the value of the definition's pads, and `mod.write_footprint` MUST write it.
+- `pad_prop_pressfit` is a token of KiCad 10 (inventory row `pad-property-pressfit`). A pad that holds `press_fit` in the model, written for target 9, MUST raise `LossyWriteError` with `droppable = False` and the issue `kicad.token.too-new`, as "Lossy writes are refused unless allowed" rules for modelled content.
+- `docs/formats/kicad/board.md` MUST hold the table, the place of the child, and the facts of `H-K-PAD-FABPROP` and `H-K-PAD-FABPROP-LIB`.
+
+#### Scenario: A fiducial pad on a board
+- **GIVEN** a `20260206` board whose footprint pad holds `(property pad_prop_fiducial_glob)` between its `size` and `layers` children
+- **WHEN** it is read and written for target 10
+- **THEN** the pad has `fab_property == "fiducial_global"` and a `Modeled` slot for the child, and the written pad node is tree-equal to the source
+
+#### Scenario: A created test-point pad
+- **GIVEN** a created through-hole pad with a 0.8 mm drill and `fab_property == "test_point"`
+- **WHEN** its footprint is written for target 9
+- **THEN** the pad holds `(property pad_prop_testpoint)` after its `drill` child and before its `layers` child
+
+#### Scenario: An unknown mark
+- **GIVEN** a board pad that holds `(property pad_prop_unknown)`
+- **WHEN** it is read with an `issues` list
+- **THEN** `fab_property is None`, the child is an `Opaque` slot, and `issues` holds one info `kicad.board.kept-opaque`
+
+#### Scenario: Press-fit for KiCad 9
+- **GIVEN** a created board whose through-hole pad has `fab_property == "press_fit"`
+- **WHEN** it is written for target 9, with and without `allow_lossy`
+- **THEN** both calls raise `LossyWriteError` with `droppable == False`, and its issues name the inventory row `pad-property-pressfit`
+
+#### Scenario: Library footprints round trip
+- **GIVEN** the fetched footprint corpus
+- **WHEN** `uv run pytest tests/corpus/test_footprint_rt.py` runs
+- **THEN** it passes, and every pad that holds one of the eight tokens has a `Modeled` slot for it
+
+### Requirement: Stack-up on boards
+`fenolite.backends.kicad.stackup.project_stackup(setup, layers, *, issues=None) -> Stackup | None` SHALL project the `stackup` child of a board's `setup` node into a `Stackup`, and `read_board` SHALL set `Board.stackup` to it, passing the board's `Layer` entities and its own `issues`. `setup` MUST stay an opaque root slot, so "Modelled board content", every `opaque_count` and RT1 are unchanged. The facts, with their sources and labels, MUST be in `docs/formats/kicad/board.md`, section "Stack-up" (S-0021, S-0058, S-0020, S-0029).
+- **Rows.** A `layer` row whose name is a layer of the board's table is that layer's row: `F.SilkS` and `B.SilkS` (types `Top Silk Screen` and `Bottom Silk Screen`) give kind `silkscreen`, `F.Paste` and `B.Paste` (`Top Solder Paste`, `Bottom Solder Paste`) `solderpaste`, `F.Mask` and `B.Mask` (`Top Solder Mask`, `Bottom Solder Mask`) `soldermask`, and a copper layer (type `copper`) `copper`; `stackup.TYPES` MUST hold these pairs. Every other row is a dielectric row: kind `dielectric`, with `dielectric_kind` `core` or `prepreg` from its type and `None` for another type or none; another type's text MUST be kept as the pair `type` of the entry's `kicad` bag.
+- **Values.** `thickness` comes from the row's `thickness` child, and is 0 for a silkscreen or paste row without one; `material`, `epsilon_r`, `loss_tangent` and `color` are kept as written. The `addsublayer` atoms of a dielectric row MUST split it into consecutive entries, one per sheet, each with the row's name and `dielectric_kind` and with the children that follow its atom. The silkscreen, paste and mask entries of each side MUST be ordered silkscreen, paste, mask from the outside in, whatever their row order. `Stackup.finish` is the `copper_finish` text, `""` for `None` or without the child; `impedance_controlled` is true for `(dielectric_constraints yes)`. `edge_connector`, `castellated_pads`, `edge_plating` and unknown children stay in the fragment only.
+- **Complete nodes only** (`H-K-STACKUP-COMPLETE`). The projection MUST be `None`, with one `kicad.board.stackup-unused` (warning) naming the first difference, when the rows named after layers are not exactly the table's silkscreen, paste and mask layers and all its copper layers, when such a row has a type other than its layer's, when the copper rows are not in table order, or when the rows between two neighbouring copper rows are not exactly one dielectric row. Its hint MUST say that KiCad's job file states no thickness for such a board.
+- **Exact values.** The projection MUST be `None`, with one `kicad.board.stackup-unmodelled` (info), for a complete node that holds a thickness that is not a whole number of nanometres, a copper, dielectric or mask row without `thickness`, an `epsilon_r` that is not a plain decimal above 0, a `loss_tangent` that is not a plain decimal (0 is kept: KiCad writes it for a solder mask), or a dielectric row above the first copper row or below the last.
+- **Thickness.** When the projection is not `None` and the root `general` thickness differs from `Stackup.thickness()`, one `kicad.board.stackup-thickness` (warning) MUST name both values and say that KiCad's job file states the first and its IPC-2581 export the second (`H-K-STACKUP-JOB`, `H-K-STACKUP-RESAVE`). The model keeps the sum.
+- **Ids.** The stack-up MUST have the id `derived_id("stk", "kicad", "stackup")` and its k-th entry, k from 0, `derived_id("sly", "kicad", "stack:<k>")`.
+- The three codes MUST join `pcb.ISSUE_CODES`. A board whose `setup` holds no `stackup` has `Board.stackup = None` and gets none of them.
+
+#### Scenario: Four-layer node projected
+- **GIVEN** the authored `tests/data/kicad/board/stackup_four.kicad_pcb`: four copper layers, masks of 0.01 mm (the top one `Green`), a prepreg, a core holding a second sheet of 0.3 mm of the material `Laminate B` and a prepreg, `(copper_finish "ENIG")`, `(dielectric_constraints yes)`, and a `general` thickness equal to the sum of its rows
+- **WHEN** it is read with an `issues` list
+- **THEN** `board.stackup` holds 14 entries from `F.SilkS` to `B.SilkS`, the core's two sheets consecutive, both named `dielectric 2` with `dielectric_kind == "core"`; `finish == "ENIG"`; `impedance_controlled` is true; `thickness() == 2_025_000`; the issues hold no `kicad.board.stackup-*` code; and the `setup` child is an `Opaque` slot
+
+#### Scenario: A node KiCad ignores
+- **GIVEN** the same board with its four silkscreen and paste rows removed by token edit
+- **WHEN** it is read and written again for its own target
+- **THEN** `board.stackup is None`, the issues hold one `kicad.board.stackup-unused`, and the written `setup` child is tree-equal to the source's
+
+#### Scenario: Total thickness that differs from the rows
+- **GIVEN** the authored four-layer board with its `general` thickness changed to 1.6 by token edit
+- **WHEN** it is read
+- **THEN** `board.stackup.thickness() == 2_025_000`, and one `kicad.board.stackup-thickness` warning names 1.6 mm and 2.025 mm
+
+#### Scenario: Board without a node
+- **WHEN** `tests/data/kicad/board/two_layer.kicad_pcb` is read
+- **THEN** `board.stackup is None`, and the issues hold no `kicad.board.stackup-*` code
+
+#### Scenario: Corpus census
+- **WHEN** `uv run pytest tests/corpus/test_stackup_census.py` runs (`needs_corpus`)
+- **THEN** every cached board whose `setup` holds a node gets a stack-up (18 boards at the census of 2026-10-05; 17 of the 21 boards read on 2026-10-07), the counts are written to `docs/evidence/kicad-stackup.md`, and `tests/corpus/test_board_rt1.py` passes with every `opaque_count` unchanged
+
+### Requirement: Stack-up written to boards
+`write_board` SHALL write `Board.stackup` as the `stackup` child of `setup` through `fenolite.backends.kicad.stackup.complete(stackup, layers) -> Stackup` and `stackup_node(stackup, layers) -> Node`, in the same form for targets 9 and 10 (`H-K-STACKUP-JOB`).
+- **Completion.** `complete` MUST add one entry of thickness 0 for each silkscreen, paste and mask layer of the table that the stack-up lacks, named after its layer and placed as "Stack-up on boards" orders them, and MUST change nothing else; a stack-up that lacks none is returned unchanged.
+- **Node.** `stackup_node` MUST write one `layer` row per entry of the completed stack-up, except that consecutive dielectric entries between two copper entries MUST form one row: the first entry's children, then for each further entry the atom `addsublayer` and that entry's children. A row holds, in this order: the entry's name; `(type "<t>")`, with `t` from `stackup.TYPES`, the `dielectric_kind`, or the `type` pair of a dielectric's `kicad` bag, and no `type` child for a dielectric that has neither; `(color "<c>")` when set; `(thickness T)` for copper, dielectric and mask entries, also when T is 0; `(material "<m>")`, `(epsilon_r E)` and `(loss_tangent L)` when set. The children after `addsublayer` follow the same order from `color` on. The rows are followed by `(copper_finish "<f>")`, with `"None"` for an empty finish, and `(dielectric_constraints yes|no)`.
+- **Created boards.** For a created design whose `Board.stackup` is set, the node MUST be the first child of `setup`, and the `general` thickness MUST be `Stackup.thickness()` of the completed stack-up ("Created board header").
+- **Read boards.** When `Board.stackup` equals the projection of the `setup` slot, compared by `stackup.values`, which leaves out ids, provenance and every bag pair but `type`, the `setup` and `general` fragments MUST be kept. Otherwise the writer MUST replace the `stackup` child of `setup` by the node, or insert the node as the first child of `setup`, keep every other child of `setup` tree-equal at its place, keep the `edge_connector`, `castellated_pads` and `edge_plating` children of a replaced node after `dielectric_constraints`, and rewrite only the `thickness` of `general`, to the new sum. One `kicad.board.stackup-rewritten` (info) MUST name the children of replaced rows that the model does not hold, when there are any. A `Board.stackup` of `None` on a board whose `setup` holds a projected node MUST remove the `stackup` child and keep `general`.
+- **Refusal.** A stack-up that would give a `model.stackup-*` finding, or whose copper entries are not the table's copper layers in table order, MUST raise `LossyWriteError` with `kicad.board.stackup-invalid` (error), which `allow_lossy` MUST NOT drop. This holds for a created and for a read board alike, and for a stack-up that fitted the layer table before the table was changed: the writer MUST NOT drop or adapt a stack-up to make it fit, so whoever changes `Board.layers` gives the board a stack-up of the new copper layers or none. The two codes MUST join `pcb.WRITE_ISSUE_CODES`.
+- Read back with `read_board`, a written node MUST project to `complete` of the written stack-up, compared by `stackup.values`.
+
+#### Scenario: Created four-layer board
+- **GIVEN** `created_board(4)` given the stack-up of `stackup_four.kicad_pcb` without its silkscreen and paste entries: two masks, four copper entries, a prepreg, a core of two sheets and a prepreg, finish `ENIG` and `impedance_controlled`
+- **WHEN** it is written for targets 9 and 10
+- **THEN** the two `setup` nodes are tree-equal and hold `stackup` and then `pad_to_mask_clearance`; the node holds 13 rows from `F.SilkS` to `B.SilkS`, the core row holding one `addsublayer`, and ends with `(copper_finish "ENIG") (dielectric_constraints yes)`; and `general` holds `(thickness 2.025)`
+
+#### Scenario: Masks the stack-up omits
+- **GIVEN** a created two-layer board whose stack-up is copper 35 µm, a core of 1.5 mm and copper 35 µm
+- **WHEN** it is written for target 10
+- **THEN** the `F.Mask` and `B.Mask` rows hold `(thickness 0)`, the silkscreen and paste rows hold no thickness, and `general` holds `(thickness 1.57)`
+
+#### Scenario: Stack-up edited on a read board
+- **GIVEN** `stackup_four.kicad_pcb` read with `read_board`, and the thickness of its first prepreg changed to 150 000 nm
+- **WHEN** the design is written for its own target
+- **THEN** the `stackup` child is `stackup_node` of the changed model, every other child of `setup` is tree-equal to the source's, `general` holds `(thickness 1.975)`, and no warning or error is raised
+
+#### Scenario: Copper entries that do not fit the table
+- **GIVEN** a created design whose board has `created_layers(4)` and a stack-up whose copper entries are only `F.Cu` and `B.Cu`
+- **WHEN** it is written with `allow_lossy=True`
+- **THEN** `LossyWriteError` is raised with an issue `kicad.board.stackup-invalid`
+
+#### Scenario: A layer table changed under a read stack-up
+- **GIVEN** `stackup_four.kicad_pcb` read with `read_board`, and its board's `layers` replaced by `created_layers(2)`, the stack-up left as read; and `created_board(2)` with its `layers` replaced by `created_layers(4)`
+- **WHEN** each is written with `allow_lossy=True`
+- **THEN** each raises `LossyWriteError` with one `kicad.board.stackup-invalid` (error) naming the copper entries and the copper layers of the board; and the second design with `stackup=None` is written with no `stackup` child in `setup` and `(thickness 1.6)` in `general`
+
+#### Scenario: Written nodes read back
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_stackup_write.py -k roundtrip` writes the stack-ups of its cases (every copper count that `created_layers` gives: 2 and 4, and 6 and 8 with `board-layer-count`; sheets, colours, an empty finish) and reads each board back
+- **THEN** each projection equals `complete` of the written stack-up by `stackup.values`, and writing the read board again gives the same text
+
+### Requirement: Board items of a script are written
+`fenolite.backends.kicad.boarditems` SHALL give the rule areas, texts, graphics and dimensions of a script their KiCad uuids, and `write_board` SHALL write created rule areas with their names, created texts with their justification, and created dimensions.
+- `item_uuid(entity_id) -> str` MUST return a version-8 uuid (RFC 9562, S-0110) whose 48-bit `custom_a` field is the marker `ITEM_MARKER`, the ASCII bytes of `fenitm`, and whose `custom_b` and `custom_c` fields hold the first 74 bits of the SHA-256 of `kicad-item:<entity_id>`, as `copper_uuid` builds its uuids. `is_item_uuid(text)` MUST be true exactly for a canonical uuid with that marker, version 8 and the RFC variant; a copper uuid MUST NOT be an item uuid.
+- `mark_items(design) -> Design` MUST set `native_ids["kicad"]` of every keep-out, text, graphic and dimension of the board to `item_uuid(<its id>)` and change nothing else; `pcb.kicad_uuid` then returns that uuid.
+- **Rule areas.** A created rule area MUST write `(name "<name>")` right after its `uuid` when `Keepout.name` is not empty, and nothing else beyond what "Board writing per target" writes for it today (`H-K-AREA-NAME`).
+- **Texts.** A created text MUST write `(justify …)` in its `effects`, holding `left` or `right`, then `top` or `bottom`, then `mirror` on a back layer, each only when set, and no `justify` child when none is set.
+- **Dimensions.** A created dimension MUST write, in this order: `(type aligned|orthogonal)`, `layer`, `uuid`, `(pts (xy …) (xy …))`, `(height <offset>)`, `(orientation 0|1)` for an orthogonal one only, `(format (prefix "") (suffix "") (units 2|0) (units_format 1) (precision P))`, `(style (thickness W) (arrow_length 1.27) (text_position_mode 0) (arrow_direction outward) (extension_height 0.58642) (extension_offset 0.5) (keep_text_aligned yes))` and a `gr_text` with the cache value, at the midpoint of `start` and `end` (rounded down to the nanometre), angle 0, on the dimension's layer, with the dimension's uuid and `(effects (font (size H H) (thickness T)))`. `W` is `width`, else 0.1 mm; `H` and `T` are `size` and `thickness`, else 1 mm and 0.15 mm.
+- **Cache value.** The length that the dimension measures (the distance between the points for `aligned`, the absolute difference in x for `horizontal` and in y for `vertical`), in millimetres or inches, rounded half away from zero to `precision` decimals with integer arithmetic only, followed by ` mm` or ` in`. KiCad recomputes the value, the position and the angle of this text on load (`H-K-DIM`), so the written text is a cache.
+- `pcb.CANONICAL_ORDER` MUST place `dimension` after `gr_text` among the root children, as KiCad 10.0.6 writes them (`board.md`), and every name a dimension writes MUST pass `check_emittable` for targets 9 and 10, through `pcb.FLOOR_HEADS` or a row of the token inventory.
+
+#### Scenario: Created rule area with a name
+- **GIVEN** a created board holding `Keepout(name="ANT", layers=("F.Cu",), no_tracks=True, …)` marked by `mark_items`
+- **WHEN** it is written for target 9 and for target 10 and read back with `read_board`
+- **THEN** both texts hold `(name "ANT")` as the next child after the area's `uuid`, the uuid is `item_uuid` of the keep-out's id, and the read keep-out has `name == "ANT"` and `no_tracks` true
+
+#### Scenario: Justified text
+- **GIVEN** created texts on `F.SilkS` with `h_justify="left"` and `v_justify="bottom"`, and on `B.SilkS` with `h_justify="right"`
+- **WHEN** the board is written for target 10
+- **THEN** the effects hold `(justify left bottom)` and `(justify right mirror)`
+
+#### Scenario: Created dimensions
+- **GIVEN** an aligned dimension from (10 mm, 3 mm) to (30 mm, 3 mm) with `offset == -2_000_000`, and an orthogonal one from (10 mm, 50 mm) to (35.5 mm, 55 mm) with `direction == "horizontal"`, `precision == 2` and `offset == 4_000_000`
+- **WHEN** the board is written for target 10
+- **THEN** the first node holds `(height -2)`, `(units 2)`, `(precision 4)` and `(gr_text "20.0000 mm" (at 20 3 0) …)`, and the second `(orientation 0)` and `(gr_text "25.50 mm" …)`
+
+#### Scenario: Cache value of an oblique dimension
+- **GIVEN** an aligned dimension from (0, 0) to (1 mm, 1 mm) with `precision == 4`, and the same in inches
+- **WHEN** its cache value is computed
+- **THEN** it is `1.4142 mm`, and `0.0557 in`
+
+#### Scenario: Item uuids are marked
+- **WHEN** `item_uuid(derived_id("txt", "dsl", "text:rev"))` is computed twice, and `is_item_uuid` is called on it, on a `copper_uuid` and on a version-4 uuid
+- **THEN** both values are equal, and the three calls give true, false and false
+
+#### Scenario: Emit check is clean for both targets
+- **GIVEN** a created board with a named rule area, a justified text, an aligned and an orthogonal dimension
+- **WHEN** it is written for targets 9 and 10 and `check_emittable` runs on each parsed text with the same target
+- **THEN** both calls return no issue at all
+
+### Requirement: Plane layers of a board
+`backends.kicad.layers.plane_layers(design) -> tuple[str, ...]` SHALL return, in stack order, the copper layers whose KiCad row type, kept in `Layer.ext["kicad"]` under `type`, is `power`, and `layers.with_plane_types(layers, planes) -> tuple[Layer, ...]` SHALL return `layers` with the row type `power` on each copper layer named in `planes` and every other layer unchanged (`H-K-LAYER-POWER`).
+- `read_board` MUST keep the row type of every copper layer, and `write_board` MUST write it back unchanged, for targets 9 and 10.
+- `with_plane_types` MUST raise `ValueError` for a name in `planes` that is not a copper layer of `layers`.
+- A copper layer without a `type` in its ext bag is not a plane layer.
+
+#### Scenario: Plane layers read from a board
+- **GIVEN** the bench board of `tests/routing/_planebench.py`, written for target 10 with `(4 "In1.Cu" power)` and `(6 "In2.Cu" signal)`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_layers.py -k plane` reads it and calls `plane_layers`
+- **THEN** the result is `("In1.Cu",)`, and `write_board` of the read design holds `(4 "In1.Cu" power)` and `(6 "In2.Cu" signal)`
+
+#### Scenario: Types set on created layers
+- **WHEN** `with_plane_types(created_layers(4), ("In2.Cu",))` is called, and then with `("Edge.Cuts",)`
+- **THEN** the first gives `In2.Cu` the type `power` and leaves the other 21 layers equal to those of `created_layers(4)`, and the second raises `ValueError` naming `Edge.Cuts`
+
+### Requirement: Track layer rules in rules files
+`read_rules` SHALL lift a rule whose constraint is `disallow track`, whose layer clause names one KiCad layer for which `layers.is_canonical` is true, and whose condition lies in the grammar of `no_tracks` (`rules-model`, "Track layer rules"), into a model rule of kind `no_tracks` with that one layer. This extends "Custom rules files are read and written".
+- Any other rule with a `disallow` constraint (other item types, several items, a layer clause `inner` or `outer`, no layer clause) MUST stay opaque with `rules.kept-opaque` naming the reason.
+- A rule set lowered by `lower_rules` and read back MUST give one `no_tracks` rule per lowered layer, with the same selector and severity.
+
+#### Scenario: Lift and opaque forms
+- **GIVEN** a rules file holding `(rule "a" (layer "In2.Cu") (condition "A.NetClass == 'SIG'") (constraint disallow track))`, `(rule "b" (layer inner) (condition "A.NetClass == 'SIG'") (constraint disallow track))` and `(rule "c" (layer "F.Cu") (constraint disallow via))`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_dru.py -k no_tracks` reads it
+- **THEN** the rule set holds one `no_tracks` rule `a` with `selector_a` `netclass SIG` and `layers == ("In2.Cu",)`, and `b` and `c` stay opaque, each with one `rules.kept-opaque`
+
+### Requirement: Net class pair values in project files
+The class keys `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` SHALL be lowered values of a model class, as `clearance`, `track_width`, `via_diameter` and `via_drill` are. This requirement takes those three keys out of the template-value rule and the keep rule of "Project files are synthesised and preserved", as that requirement allows, and extends "Project files are read into the model".
+- **Synthesis.** Each model class MUST be written with its pair values by `lower_netclass` (`rules-model`, "Net classes lower to the project file"), a value that is `None` keeping the value of the `Default` entry. A model class named `Default` MUST update the seven lowered values of the first entry.
+- **Update.** `update_project` MUST replace the seven lowered values of each class entry whose name matches a model class, keeping the original text of a value that is equal in nanometres, and MUST leave a pair key untouched when the model value is `None`.
+- **Reading.** `ProjectClass` MUST hold `diff_pair_width`, `diff_pair_gap` and `diff_pair_via_gap` in nm, read as its four other values are (a value that is not a whole number of nm reads as `None` with the info `kicad.project.inexact-value`), and `apply_project` MUST copy them into each `NetClass`.
+- The templates of both targets hold the three keys in every class entry, so both targets write them and no key path is added to the template's (`H-K-PRO-VERSION`).
+
+#### Scenario: Synthesis writes pair values
+- **GIVEN** a design with the class `USB` (`diff_pair_gap` 150 000 nm, `diff_pair_width` 300 000 nm) holding the nets `USB_P` and `USB_N`
+- **WHEN** `synthesize_project(design, target=9, board_name="b")` is called
+- **THEN** the `USB` entry has `diff_pair_gap == JsonNumber("0.15")`, `diff_pair_width == JsonNumber("0.3")` and the template's `diff_pair_via_gap`, and the `Default` entry keeps the template's three values
+
+#### Scenario: Update keeps an equal spelling
+- **GIVEN** a target-10 project text (`meta.version` 3, `net_settings.meta.version` 5) whose class `USB` has `diff_pair_gap` written `0.150` and `diff_pair_width` written `0.2`
+- **WHEN** it is updated with `USB` at `diff_pair_gap=150_000` and `diff_pair_width=None`
+- **THEN** `diff_pair_gap` is still `JsonNumber("0.150")` and `diff_pair_width` is still `JsonNumber("0.2")`
+
+#### Scenario: Pair values read back
+- **GIVEN** the project of "Synthesis writes pair values"
+- **WHEN** it is read with `read_project` and applied with `apply_project`
+- **THEN** the model class `USB` has `diff_pair_gap == 150_000`, `diff_pair_width == 300_000` and the template's `diff_pair_via_gap` in nm, and `Default` has the template's three values
+
+### Requirement: Copper locks on boards
+Beside the fields of "Modelled board content", the board reader SHALL map the `locked` child of a `segment`, an `arc` and a `via` to `locked` (`design-model`, "Copper locks in the board model"): `(locked yes)` gives `True`; no child gives `False`. The writer SHALL write `(locked yes)` for a locked item, after `width` in a `segment` and an `arc` and after `layers` in a `via`, for targets 9 and 10, and nothing for an unlocked item (`H-K-LOCK-FORM`).
+- `(locked no)` MUST give `False`. The writer would not write it, so "Modelled children are reproducible" keeps it as written, with its `kicad.board.kept-opaque` info. Any other value reads as locked, as for a footprint.
+- "Same-version rebuild" MUST hold for boards with locked items: a board read and written for its own major keeps its bytes.
+- `docs/formats/kicad/board.md` MUST move `locked` of `segment`, `arc` and `via` from the opaque column to the modelled one, with the measured order and `H-K-LOCK-FORM`.
+
+#### Scenario: Locks read
+- **GIVEN** a board holding a segment, an arc and a via with `(locked yes)` after `width` or `layers`, and one unlocked segment
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_pcb_locks.py -k read` reads it
+- **THEN** the three items have `locked == True` and the other segment `locked == False`
+
+#### Scenario: Locks written where KiCad writes them
+- **GIVEN** a design with a locked track, a locked arc and a locked via
+- **WHEN** it is written with `write_board` for target 9 and for target 10
+- **THEN** in both texts the children are `start end width locked layer net uuid` for the segment, `start mid end width locked layer net uuid` for the arc and `at size drill layers locked net uuid` for the via, and an unlocked item has no `locked` child
+
+#### Scenario: A board with locks keeps its bytes
+- **GIVEN** the corpus row `kicad-demo-10-0-6-pcb-16`, which holds 7 locked segments and 5 locked vias
+- **WHEN** `uv run pytest tests/corpus/test_board_rt1.py -k pcb-16` reads and rebuilds it
+- **THEN** the design holds 7 locked tracks and 5 locked vias, and RT1 passes as before this change
+
+### Requirement: Via protection on boards
+`fenolite.backends.kicad.via_protection` SHALL read and write the protection children of a via, and `read_board` and `write_board` SHALL use it for `Via.protection`: the reader in the form of the board's major (`pcb.form_major` of its version), the writer in the form of the target (`H-K-VIAPROT-FORMS`, `H-K-VIAPROT-NINE`, `H-K-VIAPROT-UPGRADE`).
+- **10.0 form** (major 10). The children are `(tenting (front V) (back V))`, `(capping V)`, `(covering (front V) (back V))`, `(plugging (front V) (back V))` and `(filling V)`, V being `yes` (`True`), `no` (`False`) or `none` (`None`); a missing side or child reads as `None`. The writer MUST write a child exactly when one of its values is not `None`, with both sides for the first three, in the order `tenting`, `capping`, `covering`, `plugging`, `filling`, which `pcb.CANONICAL_ORDER["via"]` places between `locked` (c0108, "Copper locks on boards") and `net`. A child added to a read via MUST follow the via's opaque `free` and `zone_layer_connections` children when it holds them (`pcb.OPAQUE_BEFORE`), as a re-save by 10.0.6 orders them: `layers`, `locked`, `free`, `zone_layer_connections`, then the protection children (probe `via-prot-order`). A child that the source holds with `none` values only MUST be named in the pair `protection_none` of the via's `kicad` bag (heads separated by spaces), and the writer MUST write it again in that form while its values stay `None`.
+- **9.0 form** (major 9). One child `(tenting …)` whose atoms are `front`, `back`, both, `none`, or none at all. Read from a board of major 9, the named sides MUST be `True` and the others `False`, `none` and no atom MUST give both `False`, and no child gives both `None`. Read from a board of major 10, the named sides MUST be `True` and the others `None`, as 10.0.6 reads them. For target 9 the writer MUST write `(tenting front back)`, `(tenting front)`, `(tenting back)` or `(tenting none)` when both tenting fields are booleans, no child when both are `None`, and, when exactly one is `None`, that side's value in `effective_default(Board.via_protection)` ("Via protection defaults on boards"), so that 9.0.9 plots what the model means.
+- **Support per major.** `via_protection.SUPPORT` MUST map `tenting` to `{9, 10}` and `covering`, `plugging`, `capping` and `filling` to `{10}`. For target 9, a via whose `covering_front`, `covering_back`, `plugging_front`, `plugging_back`, `capping` or `filling` is `True` MUST raise `LossyWriteError` with `droppable = False`, carrying one `kicad.board.via-protection-too-new` (error) per via that names its locator, those fields and KiCad 10; `allow_lossy` MUST NOT drop it, and its hint MUST NOT name `--allow-lossy`. `False` and `None` of those fields MUST write nothing for target 9. The code MUST join `pcb.WRITE_ISSUE_CODES`.
+- **Reproducibility.** A child that the emitter for the board's major does not reproduce tree-equal (a 9.0 child in a board of major 10, a 10.0 child in a board of major 9, `(tenting)`, a two-sided child with one side) MUST stay an opaque projected slot under "Modelled children are reproducible". A child that none of these forms reads MUST give `None` for its fields and stay opaque, with `kicad.board.kept-opaque`.
+- RT1 of "Same-version rebuild" MUST hold on every readable corpus board with no protection child kept opaque, and `tests/corpus/test_board_census.py` MUST write the count of each form per origin to `docs/evidence/kicad-board-read.md`.
+
+#### Scenario: Protection read in the 10.0 form
+- **GIVEN** a board of format 20260206 whose via holds `(tenting (front no) (back none)) (filling yes)`
+- **WHEN** it is read
+- **THEN** the via's `protection` equals `ViaProtection(tenting_front=False, filling=True)`, and both children are `Modeled` slots
+
+#### Scenario: Written for target 10
+- **GIVEN** a created design whose via has `ViaProtection(tenting_front=False, tenting_back=False, capping=True, filling=True)`
+- **WHEN** it is written for target 10 and the text is parsed
+- **THEN** the via's children are, in order, `at`, `size`, `drill`, `layers`, `(tenting (front no) (back no))`, `(capping yes)`, `(filling yes)`, `net` and `uuid`
+
+#### Scenario: All-none children kept
+- **GIVEN** a board of format 20250513 whose via holds `(tenting (front none) (back none)) (capping none) (covering (front none) (back none)) (plugging (front none) (back none)) (filling none)`
+- **WHEN** it is read and rebuilt with `rebuild_board`
+- **THEN** the via's `protection` equals `ViaProtection()`, its `kicad` bag holds `protection_none` naming the five heads, the rebuilt via is tree-equal to the source, and no `kicad.board.kept-opaque` is reported
+
+#### Scenario: The 9.0 form by major
+- **GIVEN** a board of format 20241229 and a board of format 20260206, each with a via holding `(tenting front)`
+- **WHEN** both are read
+- **THEN** the first via has `tenting_front == True` and `tenting_back == False` with a `Modeled` child, and the second has `tenting_front == True` and `tenting_back is None` with the child kept as an opaque projected slot
+
+#### Scenario: Written for target 9
+- **GIVEN** a created design without a board default and three vias with `ViaProtection(tenting_front=True)`, `ViaProtection(tenting_front=False, tenting_back=False)` and `ViaProtection(capping=False)`
+- **WHEN** it is written for target 9
+- **THEN** the first via holds `(tenting front back)`, the second `(tenting none)`, and the third no protection child
+
+#### Scenario: A 10.0 feature refused for target 9
+- **GIVEN** a created design whose via has `ViaProtection(plugging_front=True)`
+- **WHEN** it is written for target 9 with `allow_lossy=True`
+- **THEN** `LossyWriteError` is raised with `droppable == False` and one `kicad.board.via-protection-too-new` naming the via's locator, `plugging_front` and KiCad 10
+
+#### Scenario: Corpus forms
+- **WHEN** `uv run pytest tests/corpus/test_board_census.py -k via_protection tests/corpus/test_board_rt1.py` runs with the corpus cached (`needs_corpus`)
+- **THEN** RT1 holds on every readable board, no protection child is an opaque slot, and the census counts 444 vias with all-`none` children, 6 with the four `no` children and 2 with `(tenting front back)` (census of 2026-10-05)
+
+### Requirement: Via protection defaults on boards
+`via_protection.project_setup(setup, *, major) -> ViaProtection | None` SHALL project the protection children of a board's `setup` node, and `read_board` SHALL set `Board.via_protection` to it. `setup` MUST stay an opaque root slot, so `opaque_count` and RT1 are unchanged.
+- **Forms.** For major 10: `(tenting (front V) (back V))`, `(covering (front V) (back V))`, `(plugging (front V) (back V))`, `(capping V)` and `(filling V)`, V being `yes` or `no`. For major 9: the 9.0 `tenting` child of "Via protection on boards", whose named sides are `True` and the others `False`, in boards of either major (`H-K-VIAPROT-NINE`). An absent child gives `None` for its fields; a `setup` without any of them, or no `setup`, gives `None`.
+- **KiCad's default.** `via_protection.KICAD_DEFAULT` MUST be `ViaProtection(True, True, False, False, False, False, False, False)`, the values that both majors give absent children (`H-K-VIAPROT-FORMS`, `H-K-VIAPROT-NINE`). `effective_default(default)` MUST replace `None`, whole or per field, by `KICAD_DEFAULT`, and `effective(protection, default)` MUST replace each `None` field of a via's protection by that field of `effective_default(default)`.
+- **Created boards.** When `Board.via_protection` is not `None`, `setup` MUST hold `via_protection.setup_children(default, major=target)` right after `pad_to_mask_clearance`: for target 10 the five children `tenting`, `covering`, `plugging`, `capping` and `filling`, in that order, with the values of `effective_default` written `yes` or `no`; for target 9 the 9.0 `tenting` child of `effective_default` (`(tenting none)` when neither side is tented), and the refusal of "Via protection on boards", with the locator `setup`, when one of the other four fields is `True`.
+- **Read boards.** When `effective_default(Board.via_protection)` equals `effective_default` of the projection, the `setup` fragment MUST be kept. Otherwise `rewrite_setup` MUST replace the protection children of `setup` in place by `setup_children` of the model's value for the target, inserting them after `allow_soldermask_bridges_in_footprints`, else after `pad_to_mask_clearance`, else first, when the fragment has none; a `Board.via_protection` of `None` MUST remove them. Every other child of `setup` MUST stay tree-equal at its place.
+- The facts, with their sources and labels, MUST be in `docs/formats/kicad/board.md`, section "Via protection" (S-0020, S-0029, S-0058).
+
+#### Scenario: A 10.0 default projected
+- **GIVEN** a board of format 20260206 whose `setup` holds `(tenting (front yes) (back no)) (covering (front no) (back no)) (plugging (front no) (back no)) (capping no) (filling yes)`
+- **WHEN** it is read
+- **THEN** `board.via_protection == ViaProtection(True, False, False, False, False, False, False, True)`, and `setup` is an `Opaque` root slot
+
+#### Scenario: A 9.0 default projected
+- **GIVEN** a copy of `tests/data/kicad/board/two_layer.kicad_pcb` whose `setup` holds `(tenting front)` after `pad_to_mask_clearance`
+- **WHEN** it is read
+- **THEN** `board.via_protection == ViaProtection(tenting_front=True, tenting_back=False)`, and `effective(ViaProtection(), board.via_protection)` has `tenting_back == False` and `filling == False`
+
+#### Scenario: Created defaults on both targets
+- **GIVEN** a created two-layer design with `Board.via_protection = ViaProtection(tenting_front=False, tenting_back=False)`
+- **WHEN** it is written for target 10 and for target 9
+- **THEN** the target-10 `setup` holds `(pad_to_mask_clearance 0)`, `(tenting (front no) (back no))`, `(covering (front no) (back no))`, `(plugging (front no) (back no))`, `(capping no)` and `(filling no)` in that order, and the target-9 `setup` holds `(pad_to_mask_clearance 0)` and `(tenting none)`
+
+#### Scenario: A default edited on a read board
+- **GIVEN** the board of "A 10.0 default projected", read, with its `via_protection.filling` set to `False`
+- **WHEN** it is written for target 10
+- **THEN** the `filling` child of `setup` is `(filling no)` at its source index, and every other child of `setup` is tree-equal to the source
+
+#### Scenario: A default refused for target 9
+- **GIVEN** a created design with `Board.via_protection = ViaProtection(filling=True)`
+- **WHEN** it is written for target 9
+- **THEN** `LossyWriteError` is raised with `droppable == False` and one `kicad.board.via-protection-too-new` whose locator is `setup` and which names `filling`
+
+### Requirement: Footprint items projected on request
+`backends.kicad.fpitems.with_footprint_items(design) -> Projection` SHALL return a copy of a design that was read from a KiCad board in which every footprint holds, as read-only projections of its opaque children, the graphics, the texts and the corner ratios of `design-model`, "Graphics and texts of a footprint instance" and "Corner ratio of a rounded-rectangle pad". No reader and no writer calls it by itself.
+- One `Graphic` per opaque `fp_line`, `fp_arc`, `fp_circle`, `fp_rect` and `fp_poly` child, with the mapping that `mod.read_footprint` uses for a library footprint (`_fpmap.read_graphic`), in child order. The points are the file's own: a board footprint stores its children in the pad frame, mirrored on the bottom side.
+- One `Text` per opaque `fp_text` child that holds a font size and a thickness: the string as written, the layer, and the angle taken from the board angle of the file to the footprint (`pad_angle_from_board`).
+- `Pad.corner_ratio` from the pad's opaque `roundrect_rratio`, in ppm.
+- A child that `Graphic` or `Text` cannot hold (a stroke that is not solid, a polygon with an arc, `fp_text_box`, `dimension`, a curve, an inexact number) MUST be left out and counted by head in `Projection.skipped`; `Projection.projected` counts what was projected per kind.
+- A footprint that holds no `kicad` bag was not read from a KiCad board (the stored board of an Altium build holds its own graphics): it MUST be returned as it is, neither projected nor marked.
+- Every slot MUST stay as it was, so `write_board` of the projected design gives the text of `write_board` of the design. Each projected footprint MUST carry the pair `("fenolite.projected", "footprint-items")` in its `kicad` bag.
+- On a write, a footprint that carries the pair is checked as "Projected fields on write" says: the writer projects again and compares `graphics`, `texts` and the pads' `corner_ratio`; a difference MUST give `kicad.board.projection-read-only` naming the field and the footprint's locator. A footprint without the pair is written without a look at the three fields.
+- Ids follow "Placed copies of library definitions" and the scoped ids of a board footprint's pads: with a uuid `derived_id(prefix, "kicad", "<footprint uuid>:<uuid>")`, without one a content id scoped to the footprint.
+- The module MUST declare its evidence (`H-K-PCB-FPGFX`, `INFERRED`), and no module of `backends.kicad` on the read or write path of a board may import it.
+
+#### Scenario: Projection equals the library reading
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_fpitems.py -k library` places each footprint of the mini library with `embed.place_footprint` on the top side at angle 0 and projects the result
+- **THEN** the projected graphics have the kinds, layers, points, widths and fill flags of `FootprintDef.graphics` of the same definition, in order, and every rounded pad has the ppm of its `roundrect_rratio`
+
+#### Scenario: The projection changes no byte
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_fpitems.py -k no_byte` writes every board under `tests/data/kicad/board/` with and without the projection
+- **THEN** the two texts are equal for each board, on targets 9 and 10
+
+#### Scenario: An edited projection is refused
+- **GIVEN** a projected design in which one footprint graphic is moved by 1 mm
+- **WHEN** `write_board` runs
+- **THEN** `LossyWriteError` is raised with one `kicad.board.projection-read-only` issue that names `graphics`
+
+#### Scenario: Builds are pinned
+- **WHEN** `uv run pytest tests/unit/lens/test_build_bytes_pinned.py tests/unit/lens/test_build_determinism.py` runs after this change
+- **THEN** every entry of the `KICAD` table of change c0123 holds without an edit
+
+### Requirement: Mandatory fields of a placed footprint
+Every `FootprintInstance` that `fenolite.backends.kicad.embed.place_footprint` returns SHALL hold one `Reference` field whose value is `component.ref` and one `Value` field whose value is `component.value`, whatever the origin of the definition.
+- `embed.default_fields(defn) -> tuple[FieldDefault, FieldDefault]` MUST return the placement of a field that a definition lacks, `Reference` first. With `box = embed.footprint_extent(defn)` and `cx` the centre of its X range: `Reference` has the text `REF**`, the layer `F.SilkS` and the position `(cx, box.y1 − FIELD_GAP)`; `Value` has the text `defn.name`, the layer `F.Fab` and the position `(cx, box.y2 + FIELD_GAP)`. `FIELD_GAP` MUST be 1 mm, `FIELD_SIZE` 1 mm by 1 mm and `FIELD_THICKNESS` 0.15 mm; both fields are visible, centred and at angle 0.
+- A definition that has a `property` child of a name MUST keep that child: only its value atom is set, as before this requirement.
+- A definition that lacks one MUST get it from `default_fields`, placed before the footprint's first `property` child, `Reference` before `Value`. Its uuid MUST be `embed.placement_uuid(key, "/footprint/property:<name>")`.
+- An added field MUST be flipped with the footprint's other children on the bottom side: its layer becomes `B.SilkS` or `B.Fab` and its text is mirrored.
+- `read_board` of the written board MUST map both properties to `FootprintField`s ("Footprint fields on boards"), and the component's `ref` MUST be `component.ref`.
+- `lens.build` MUST report one `build.field-added` issue of severity `info` for each definition read from a library file that lacks `Reference` or `Value`, naming the lib id and the fields added. A definition prepared by `mod.prepare_authored_definition` MUST NOT give it. `docs/cli-contract.md` MUST document the code, and `src/fenolite/cli/data/explain.toml` MUST hold its table (`cli-contract`, "Explain command").
+
+#### Scenario: Catalog footprint placed on top
+- **GIVEN** `catalog.get_footprint("Fenolite:Chip_0603")` prepared with `mod.prepare_authored_definition`, and a component `R1` with value `330`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_embed_fields.py -k top` places it with `place_footprint(..., key="R1")` and writes the instance
+- **THEN** the footprint holds `(property "Reference" "R1"` on `F.SilkS` above the courtyard box and `(property "Value" "330"` on `F.Fab` below it, each with a font of 1 mm by 1 mm, and reading the board back gives a component whose `ref` is `R1`
+
+#### Scenario: Bottom side
+- **WHEN** the same definition is placed with `side="bottom"`
+- **THEN** the `Reference` field is on `B.SilkS`, the `Value` field on `B.Fab`, and both are mirrored
+
+#### Scenario: Library footprint keeps its own fields
+- **GIVEN** `Mini_R_0603` read from `tests/data/libs/Mini.pretty`
+- **WHEN** it is placed
+- **THEN** the instance equals the one placed before this requirement, and the build reports no `build.field-added`
+
+#### Scenario: Library footprint without a reference
+- **GIVEN** a copy of `Mini_R_0603`, made in the test, without its `Reference` property
+- **WHEN** a design that uses it is built
+- **THEN** the board footprint holds a `Reference` field with the part's reference at the default placement, and the build reports one `build.field-added` info naming the lib id and `Reference`
+
+#### Scenario: Deterministic uuids
+- **WHEN** the catalog footprint is placed twice with the key `R1`, and once with the key `R2`
+- **THEN** the two `R1` instances have equal field uuids, and the `R2` instance shares none of them
+
+### Requirement: Net-tie groups on boards and footprints
+`read_board` SHALL project the `net_tie_pad_groups` child of each footprint into `FootprintInstance.net_ties`, and `read_footprint` into `FootprintDef.net_ties` (`design-model`, "Net-tie groups in the model"):
+- each string atom is one group; it is split at commas, the spaces around a number are dropped, and empty parts are dropped, so `"1, 2"` and `"1,2"` give `("1", "2")` (both spellings occur in KiCad's demo boards, S-0058);
+- the child MUST stay a projected slot ("Projected fields on write"), written back byte for byte, so a read board keeps its token as KiCad wrote it;
+- a read footprint whose `net_ties` differs from the projection of its child, or that gains groups without having the child, MUST give `kicad.board.projection-read-only` on write, naming `net_ties` and the footprint's locator;
+- `embed.place_footprint` MUST carry the child of a library definition into the placed footprint, so a library net tie placed by `build` keeps its groups on the board;
+- an authored definition is written from its field (`dsl-footprint-authoring`, "Net-tie groups in authored footprints").
+`docs/formats/kicad/libraries.md` and `board.md` MUST state the form, the two spellings and the position after `attr`, with S-0018, S-0042 and S-0058.
+
+#### Scenario: Official form read
+- **GIVEN** a board holding KiCad's `NetTie-2_SMD_Pad0.5mm` placed with pads on nets `A` and `B`, its child written `(net_tie_pad_groups "1, 2")`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_net_ties.py -k read` reads it
+- **THEN** the footprint has `net_ties == (("1", "2"),)`, and `write_board` of the unchanged design gives the input bytes
+
+#### Scenario: Spelling and several groups
+- **WHEN** footprints holding `(net_tie_pad_groups "1,2")` and `(net_tie_pad_groups "1, 2" "3, 4")` are read
+- **THEN** their groups are `(("1", "2"),)` and `(("1", "2"), ("3", "4"))`
+
+#### Scenario: Edited groups refused
+- **GIVEN** the board of "Official form read" with the footprint's `net_ties` changed to `(("1",),)`
+- **WHEN** it is written for target 10
+- **THEN** `LossyWriteError` is raised with `kicad.board.projection-read-only` naming `net_ties`
+
+#### Scenario: Placed library net tie keeps its groups
+- **GIVEN** a design whose part uses `NetTie:NetTie-2_SMD_Pad0.5mm` from the fetched library
+- **WHEN** `fenolite build` plans the board and the copper guard reads it back
+- **THEN** the placed footprint holds the child and `net_ties == (("1", "2"),)`
+
+### Requirement: Project files carry the check severities
+A written project file SHALL carry the severities of `RuleSet.severities` (`design-model`, "Check severities in the rules layer"): this requirement takes the keys `/board/design_settings/rule_severities/<key>` that they name out of the template-value rule and the keep rule of "Project files are synthesised and preserved".
+- **Key.** The key of a code `kicad.drc.<suffix>` is the suffix with `-` replaced by `_`. `pro.SEVERITY_KEYS[target]` MUST be the set of `rule_severities` keys of the target's packaged template: exactly the keys 10.0.6 applies for target 10 (`H-K-PRO-SEV-KEYS`), and, for target 9, the keys of a template derived from 10's, `INFERRED`.
+- **Write.** `synthesize_project` and `update_project` MUST set each such key to its level when the key is in `SEVERITY_KEYS[target]`. A key the design does not name keeps its template value on synthesis and its file value on update, its spelling and its position included.
+- **Unknown key.** A code whose key is outside `SEVERITY_KEYS[target]` MUST raise `LossyWriteError` (`FEN-7001`, `droppable=True`) with the error `kicad.project.unknown-check` naming the code and the target; with `allow_lossy=True` the key MUST NOT be written, and `issues` MUST hold the warning `kicad.project.dropped-check` instead.
+- **Codes.** This requirement adds two rows to "Project issue codes": `kicad.project.unknown-check` (error) and `kicad.project.dropped-check` (warning).
+- `docs/formats/kicad/project.md` MUST state the key rule, both key sets, and the six template keys that no 9.0.9.1 demo project holds (S-0058).
+
+#### Scenario: Synthesis writes a named key
+- **GIVEN** a design with `RuleSet.severities == {"kicad.drc.silk-overlap": "ignore"}`
+- **WHEN** `synthesize_project(design, target=10, board_name="b")` is called
+- **THEN** `/board/design_settings/rule_severities/silk_overlap` is `"ignore"` and every other `rule_severities` value equals the template's
+
+#### Scenario: Update changes only the named key
+- **GIVEN** a target-10 project text whose `rule_severities` sets `silk_overlap` to `warning` and `track_dangling` to `ignore`
+- **WHEN** `update_project` runs with `severities == {"kicad.drc.silk-overlap": "error"}`
+- **THEN** `silk_overlap` is `"error"`, `track_dangling` is still `"ignore"`, and every other `rule_severities` member keeps its value and position
+
+#### Scenario: Unknown key refused
+- **GIVEN** `severities == {"kicad.drc.silk-overlaps": "ignore"}`
+- **WHEN** the project is synthesised for target 10
+- **THEN** `LossyWriteError` is raised with `droppable == True` and the error `kicad.project.unknown-check`; with `allow_lossy=True` no `silk_overlaps` key is written and `issues` holds `kicad.project.dropped-check`
+
+### Requirement: Stored exclusions are read
+`read_project` SHALL also return `ProjectInfo.exclusions: tuple[StoredExclusion, ...]` (`backend-protocol`, "Stored exclusions source"), read from `/board/design_settings/drc_exclusions` in file order. An entry MUST be either a string `key` (the plain form, comment `""`) or a list `[key, comment]` of two strings (the pair form), the key being `<type>|<x>|<y>|<uuid>|<uuid>` with `x` and `y` integers in nm (S-0058, `H-K-DRC-EXCL`). An entry of any other shape MUST give the info `kicad.project.unread-entry` and be skipped. `KicadBackend.stored_exclusions(project)` MUST return the exclusions of the project file of the copy set, and `()` when the set has none or it fails to read. Neither writes the project file; `update_project` keeps `drc_exclusions` verbatim, as before.
+
+#### Scenario: Both forms read
+- **GIVEN** a project text whose `drc_exclusions` holds `["via_dangling|30123456|20654321|<uuid>|00000000-0000-0000-0000-000000000000", "test point"]` and the plain string `"courtyards_overlap|1000000|2000000|<uuid a>|<uuid b>"`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_pro_read.py -k exclusion` reads it
+- **THEN** `exclusions` holds two entries, the first with position `Point(30_123_456, 20_654_321)` and comment `test point`, the second with comment `""`
+
+#### Scenario: A malformed entry is skipped
+- **GIVEN** a `drc_exclusions` entry `["via_dangling|1.5|2|<uuid>", 3]`
+- **WHEN** the project is read with an `issues` list
+- **THEN** `exclusions` is empty and `issues` holds one `kicad.project.unread-entry`
+
+### Requirement: Items on undeclared layers are refused
+`write_board` SHALL raise `LossyWriteError` with one `kicad.board.layer-undeclared` error per layer name when a modelled item of the board (a footprint's item, a track, an arc, a via, a zone, a graphic, a text, a dimension) names a layer that no row of the board's layer table declares; the message MUST name the layer and the count of items, and `droppable` MUST be false. A board without such an item MUST be written as before, byte for byte.
+
+#### Scenario: Line on an unknown layer
+- **GIVEN** the two-layer design with one graphic line on the layer `Mech.1`, which its layer table does not hold
+- **WHEN** `write_board(design, target=10)` runs
+- **THEN** it raises `LossyWriteError` with one `kicad.board.layer-undeclared` error naming `Mech.1` and 1 item
+
+#### Scenario: Committed boards unchanged
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_layer_undeclared.py -k census` writes every committed KiCad board, built example and test script board
+- **THEN** none raises the error, and every written text equals the text before the change
+
+### Requirement: Slots and merged rings in the board file
+`outline.lowered_outline(outline)` SHALL return the outline a KiCad board holds: the board ring, the cut-outs, then each slot's stadium, every overlapping group replaced by its `merge_rings` result, and no slots. The writer, the edge signature, `board_outline`, `outline_box`, `check_outline` and `fill_inputs_digest` MUST read it. `write_board` MUST refuse a group it cannot merge with `kicad.board.outline-overlap`.
+
+#### Scenario: A lone slot as a stadium
+- **GIVEN** the model of `board(mm(40), mm(30))` and `d.slot(mm(15), mm(10), length=mm(12), width=mm(2))`
+- **WHEN** it is written for targets 9 and 10
+- **THEN** `Edge.Cuts` holds two `gr_line` from (110, 109) to (120, 109) mm and from (120, 111) to (110, 111) mm and two `gr_arc` through (121, 110) mm and (109, 110) mm, besides the four lines of the board
+
+#### Scenario: Overlap through the model API
+- **GIVEN** a model with the two overlapping slots of "Overlapping slots merged or refused" and `pyclipper` hidden
+- **WHEN** `write_board` runs
+- **THEN** it raises `LossyWriteError` whose issue is `kicad.board.outline-overlap` naming both slots
+
+### Requirement: Outline read back from the edges
+`outline.edge_outline(design)` SHALL return a board's edge rings as an `Outline` with exact lines and arcs, ring 0 the board, or `None` when `board_outline` gives a problem. `outline.slots_of(outline)` SHALL return the cut-outs that are stadiums within 1 nm as `OutlineSlot`s with content ids. A read board's `Board.outline` stays `None`.
+
+#### Scenario: Slots read back
+- **GIVEN** the shared fixture `tests/data/slots/design.py` built for target 10 and read with `read_board`
+- **WHEN** `uv run pytest tests/unit/backends/kicad/test_slots_outline.py -k read_back` calls `edge_outline` and `slots_of`
+- **THEN** the lone slot is returned with its centre, length, width and rotation within 1 µm, the merged L is a cut-out of seven vertices with three arcs, and the rounded cut-out keeps its four arcs
+
+### Requirement: Free holes refused by name
+`write_board` SHALL refuse a board whose `Board.holes` is not empty with the writer error `kicad.board.free-hole` (`LossyWriteError`) naming each hole's id, with the hint "declare a hole with design.hole(), or place a board-only footprint with an unnumbered np_thru_hole pad".
+
+#### Scenario: A model hole
+- **GIVEN** a model board with one `Hole` of 3.2 mm
+- **WHEN** `write_board` runs
+- **THEN** it raises `LossyWriteError` with `kicad.board.free-hole` and that hint, and no `ValueError`

@@ -13,10 +13,10 @@ different kinds never join by name; names are compared without letter case.
 from __future__ import annotations
 
 import re
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import PureWindowsPath
-from typing import Literal
+from typing import Literal, cast
 
 from fenolite.backends.altium.adapter import connectivity as geo
 from fenolite.backends.altium.adapter.channels import channel_designator, fallback
@@ -109,6 +109,9 @@ class NetOptions:
     project states none: the components of a repeated sheet then keep the designators of the sheet."""
     room_style: int | None = None
     room_separator: str = "_"
+    annotations: tuple[tuple[str, str], ...] = ()
+    """The project's annotation files as (unique-id path, designator) pairs (``read.annotation``, change
+    c0083): source 2 of the channel designators, before the format."""
 
     @classmethod
     def from_project(cls, project: object) -> NetOptions:
@@ -125,6 +128,9 @@ class NetOptions:
             return fallback if value is None else bool(value)
 
         chosen = str(scope).replace("-", "_") if scope is not None else "automatic"
+        designators = getattr(project, "annotation_designators", None)
+        pairs = cast("dict[str, str]", designators()) if callable(designators) else {}
+        annotations = tuple(pairs.items())
         return cls(
             scope=chosen if chosen in SCOPES else "automatic",  # type: ignore[arg-type]
             power_port_names_first=flag("power_port_names_take_priority", default.power_port_names_first),
@@ -136,6 +142,7 @@ class NetOptions:
             channel_format=getattr(options, "channel_designator_format", None) or "",
             room_style=getattr(options, "channel_room_naming_style", None),
             room_separator=getattr(options, "channel_room_level_separator", None) or "_",
+            annotations=annotations,
         )
 
 
@@ -259,6 +266,10 @@ class SheetData:
     repeat_entries: tuple[tuple[int, str, str, int], ...] = ()
     """Per sheet entry named ``Repeat(NAME)``: the record index of its sheet symbol, ``NAME``, its locator
     and the group of the bus line it lies on (``-1`` on none)."""
+    repeat_bridge_names: dict[str, str | None] = field(default_factory=lambda: dict[str, str | None]())
+    """Repeat entry locator to its wire label, or None for an unnamed/ambiguous wire."""
+    repeat_bridge_nets: dict[str, int] = field(default_factory=lambda: dict[str, int]())
+    """Local net indexes containing only the named bridge's labels/repeated entries."""
     harness_labels: tuple[tuple[tuple[str, int], str], ...] = ()
     """Per name that a harness of this sheet goes by (the net label on its line, the name of its port or
     of its sheet entry): the harness node (without the instance) and the name."""
@@ -392,6 +403,38 @@ def _repeat_entries(document: SchDocument) -> tuple[tuple[int, str, str, int], .
     return tuple(found)
 
 
+def _repeat_bridges(document: SchDocument, data: SheetData) -> None:
+    wires = geo.wire_lines(document)
+    for entry in document.of_type(SheetEntry):
+        if repeat_entry(entry.name) is None:
+            continue
+        point = geo.entry_point(document, entry)
+        if point is None or not wires.at(point):
+            continue
+        where = locator(entry)
+        data.repeat_bridge_names[where] = None
+        attached = [
+            (number, net)
+            for number, net in enumerate(data.nets)
+            if any(
+                ident.index == entry.ref.index and ident.stream == entry.ref.stream
+                for ident in net.of("entry")
+            )
+        ]
+        if len(attached) != 1:
+            continue
+        number, net = attached[0]
+        names = {ident.text.casefold(): ident.text for ident in net.of("label")}
+        if len(names) != 1:
+            continue
+        data.repeat_bridge_names[where] = next(iter(names.values()))
+        if not net.pins and all(
+            ident.kind == "label" or (ident.kind == "entry" and repeat_entry(ident.text) is not None)
+            for ident in net.idents
+        ):
+            data.repeat_bridge_nets[where] = number
+
+
 def _harness(document: SchDocument, data: SheetData) -> None:
     lines = geo.harness_lines(document)
     groups = lines.groups()
@@ -477,6 +520,7 @@ def sheet_data(sheet: SheetInput) -> SheetData:
                 data.labels.setdefault(ident.text.casefold(), number)
     data.bus_idents = _bus_idents(document)
     data.repeat_entries = _repeat_entries(document)
+    _repeat_bridges(document, data)
     _harness(document, data)
     return data
 
@@ -628,10 +672,18 @@ def channel_name(text: str, instance: Instance, options: NetOptions) -> str | No
 
 
 def _references(
-    sheets: Sequence[SheetData], instances: Sequence[Instance], options: NetOptions
+    sheets: Sequence[SheetData],
+    instances: Sequence[Instance],
+    options: NetOptions,
+    components: Mapping[tuple[int, int], str],
 ) -> tuple[dict[tuple[int, int], str], dict[str, int], set[int]]:
     """The reference of every component, the count of channel components per designator source, and the
-    instances that are channels (their sheet is instantiated more than once)."""
+    instances that are channels (their sheet is instantiated more than once). A channel component takes
+    the designator of the annotation entry of its unique-id path (``components`` without ``cmp:``, source
+    ``annotation``), else the format's. S-0737 measures the index-before-UID
+    annotation path of a one-level Repeat; nested Repeat paths remain unresolved.
+    Component ids and PCB-link paths are not changed."""
+    annotated = dict(options.annotations)
     counts: dict[int, int] = {}
     for instance in instances:
         counts[instance.sheet] = counts.get(instance.sheet, 0) + 1
@@ -642,8 +694,21 @@ def _references(
         for number, group in enumerate(sheets[instance.sheet].groups):
             ref = group.ref
             if instance.index in channels:
+                path = components[(instance.index, number)].removeprefix("cmp:")
+                listed = annotated.get(path) if "[" not in path else None
+                if (
+                    listed is None
+                    and len(instance.uids) == len(instance.indexes) == 1
+                    and (channel_index := instance.indexes[0]) is not None
+                ):
+                    symbol_uid = instance.uids[0].removesuffix(f"[{channel_index}]")
+                    component_uid = path.rsplit("\\", 1)[-1]
+                    listed = annotated.get(f"\\{channel_index}{symbol_uid}\\{component_uid}")
                 named = channel_name(group.ref, instance, options)
-                if named is not None:
+                if listed:
+                    ref = listed
+                    sources["annotation"] = sources.get("annotation", 0) + 1
+                elif named is not None:
                     ref = named
                     sources["format"] = sources.get("format", 0) + 1
                 elif group.ref and (options.channel_format or options.room_style is not None):
@@ -758,6 +823,7 @@ def resolve(
     bus_union = Union()
     width_warned: set[tuple[int, int]] = set()
     short: dict[tuple[int, str], tuple[str, BusIdent | None, int]] = {}
+    bridge_nodes: set[Hashable] = set()
     """Per repeated sheet entry (parent instance, locator) that its parent cannot serve: the name, the bus
     found and the count of channels left without a member."""
 
@@ -808,11 +874,17 @@ def resolve(
                 for owner, name, entry_where, group in above.repeat_entries:
                     if owner != instance.symbol:
                         continue
+                    bus_name = above.repeat_bridge_names.get(entry_where, name)
                     offered = [
                         ident
                         for ident in above.bus_idents
-                        if ident.kind == "label" and ident.name.casefold() == name.casefold()
+                        if ident.kind == "label" and ident.name.casefold() == (bus_name or "").casefold()
                     ]
+                    if (
+                        entry_where in above.repeat_bridge_names
+                        and len({(ident.name.casefold(), ident.indexes) for ident in offered}) != 1
+                    ):
+                        offered = []
                     offered.sort(key=lambda ident: (ident.group != group, ident.index))
                     bus = offered[0] if offered else None
                     if bus is None or instance.position >= len(bus.indexes):
@@ -822,6 +894,8 @@ def resolve(
                         )  # fmt: skip
                         continue
                     member = ("bm", instance.parent, bus.kind, bus.index, instance.position)
+                    if entry_where in above.repeat_bridge_nets:
+                        bridge_nodes.add(("n", instance.parent, above.repeat_bridge_nets[entry_where]))
                     for number, net in enumerate(sheet.nets):
                         if any(port.text.casefold() == name.casefold() for port in net.of("port")):
                             union.join(("n", instance.index, number), member)
@@ -936,7 +1010,7 @@ def resolve(
             components[(instance.index, number)] = "cmp:" + "".join(
                 f"\\{uid}" for uid in (*instance.uids, tail)
             )
-    references, channel_sources, channel_instances = _references(data, instances, options)
+    references, channel_sources, channel_instances = _references(data, instances, options, components)
     pins: dict[Hashable, set[PinKey]] = {}
     idents: dict[Hashable, list[tuple[Ident, int]]] = {}
     firsts: dict[Hashable, list[tuple[int, int, str]]] = {}
@@ -946,6 +1020,8 @@ def resolve(
     for instance in instances:
         sheet = data[instance.sheet]
         for number, net in enumerate(sheet.nets):
+            if ("n", instance.index, number) in bridge_nodes:
+                continue
             keys = [PinKey(components[(instance.index, pin.group)], pin.designator) for pin in net.pins]
             for key, pin in zip(keys, net.pins, strict=True):
                 refs[key] = references[(instance.index, pin.group)]

@@ -6,6 +6,7 @@ parser)."""
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -41,6 +42,7 @@ ALTIUM_READER_USES = (
     ("altium-schlib", "the Altium schematic library rows of the schematic reader"),
     ("altium-text", "the Altium text rows of the project reader"),
     ("altium-sheet", "the Altium sheet-template rows of the sheet import"),
+    ("altium-draftsman", "the Altium Draftsman rows of the container census"),
     ("rta", "the Altium rows of the round-trip levels"),
 )
 """Corpus uses of the Altium readers whose rows carry neither ``rt0`` nor ``cfb``: the ``kicad-10`` job
@@ -80,10 +82,12 @@ def job_problems(workflow: str) -> list[str]:
     if not any("--uses cfb" in line for line in fetches):
         problems.append("kicad-10: the corpus fetch must pass --uses cfb (the Altium compound rows)")
     for use, rows in ALTIUM_READER_USES:
-        if not any(f"--uses {use} " in line for line in fetches):
+        if not any(re.search(rf"--uses {re.escape(use)}(?:\s|$)", line) for line in fetches):
             problems.append(f"kicad-10: the corpus fetch must pass --uses {use} ({rows})")
-    if not any("--exclude-uses heavy" in line for line in fetches):
-        problems.append("kicad-10: the corpus fetch must pass --exclude-uses heavy")
+    if any("--exclude-uses heavy" in line for line in fetches):
+        problems.append("kicad-10: the corpus fetch must not exclude heavy inputs")
+    if 'FENOLITE_HEAVY: "1"' not in job:
+        problems.append("kicad-10: FENOLITE_HEAVY must enable the declared heavy inputs")
     if "key: corpus-${{ hashFiles('tests/corpus/manifest.toml') }}" not in job:
         problems.append("kicad-10: cache key must hash tests/corpus/manifest.toml")
     if not re.search(r"FENOLITE_REQUIRE: kicad,corpus", job):
@@ -143,8 +147,8 @@ def test_unit_job_runs_in_parallel() -> None:
     assert pytest_steps(job_text(WORKFLOW.read_text(encoding="utf-8"), "unit")) == [UNIT_PYTEST]
 
 
-KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9"
-KICAD9_KEY = "key: corpus-rt2-9-sch-9-${{ hashFiles('tests/corpus/manifest.toml') }}"
+KICAD9_FETCH = "run: uv run python tools/corpus_fetch.py --uses rt2-9 --uses sch-9 --uses downgrade-demo"
+KICAD9_KEY = "key: corpus-rt2-9-sch-9-downgrade-demo-${{ hashFiles('tests/corpus/manifest.toml') }}"
 KICAD9_STEPS = [
     ("kicad-cli version", "run: kicad-cli version"),
     ("uv sync", "run: uv sync --locked --extra dev"),
@@ -173,14 +177,19 @@ def kicad9_problems(workflow: str) -> list[str]:
     if not re.search(r"FENOLITE_REQUIRE: kicad\s*$", job, re.MULTILINE):
         problems.append("kicad-9: pytest must run with FENOLITE_REQUIRE=kicad")
     if KICAD9_KEY not in job:
-        problems.append("kicad-9: cache key must be corpus-rt2-9-sch-9-<hash of tests/corpus/manifest.toml>")
+        problems.append(
+            "kicad-9: cache key must be corpus-rt2-9-sch-9-downgrade-demo-"
+            "<hash of tests/corpus/manifest.toml>"
+        )
     if pytest_steps(job) != [KICAD9_PYTEST]:
         problems.append(f"kicad-9: the pytest step must end with {PARALLEL}")
     if "FENOLITE_CORPUS_CACHE:" not in job:
         problems.append("kicad-9: FENOLITE_CORPUS_CACHE must name the cached folder")
     fetches = re.findall(r"run: uv run python tools/corpus_fetch\.py.*", job)
     if fetches != [KICAD9_FETCH]:
-        problems.append("kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9")
+        problems.append(
+            "kicad-9: its only corpus fetch must be --uses rt2-9 --uses sch-9 --uses downgrade-demo"
+        )
     return problems
 
 
@@ -480,6 +489,40 @@ def triggers(workflow: str) -> str:
     return match.group(1) if match else ""
 
 
+PUSH_TRIGGER = """  push:
+    branches:
+      - "**"
+      - "!backup/**"
+  pull_request:
+"""
+"""The ``on`` block of ``ci.yml`` without its comment lines (capability ci-baseline, "Pushes that run CI")."""
+
+
+def push_trigger_problems(workflow: str) -> list[str]:
+    """Why the ``on`` block of ``workflow`` runs CI on a tag or a backup branch, or names other triggers."""
+    lines = triggers(workflow).splitlines()
+    on = "".join(line + "\n" for line in lines if line.strip() and not line.strip().startswith("#"))
+    if on == PUSH_TRIGGER:
+        return []
+    if not re.search(r"^    branches:", on, re.MULTILINE):
+        return ["ci: the push trigger has no branch filter, so a tag push would run CI"]
+    return [f"ci: the on block must be exactly the branch filter and pull_request, not {on!r}"]
+
+
+def test_push_trigger() -> None:
+    """Scenario "Trigger checked" (c0194): every branch but ``backup/**``, no tag, every pull request."""
+    assert push_trigger_problems(WORKFLOW.read_text(encoding="utf-8")) == []
+
+
+def test_push_trigger_without_filter_rejected() -> None:
+    """Scenario "Tags run nothing": an unfiltered push trigger is refused."""
+    text = WORKFLOW.read_text(encoding="utf-8")
+    bare = re.sub(r"^  push:\n(?:    .*\n|      .*\n)+", "  push:\n", text, count=1, flags=re.MULTILINE)
+    assert bare != text
+    (problem,) = push_trigger_problems(bare)
+    assert "a tag push would run CI" in problem
+
+
 def macos_app_problems(workflow: str) -> list[str]:
     job = job_text(workflow, "macos-app")
     if not job:
@@ -772,3 +815,56 @@ def test_yardstick_steps_filters_and_gates() -> None:
     tested = nightly.replace(job, job + "      - run: uv run pytest tests/unit -q\n")
     assert "yardstick: the job must not run pytest" in yardstick_problems(tested, ci)
     assert macos_app_problems(nightly) == []  # the first job of the workflow is untouched
+
+
+RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
+
+
+def release_publish_problems(workflow: str) -> list[str]:
+    """The publish step of the release workflow skips a version that PyPI already holds, so a GitHub
+    Release made for a version published earlier ends green."""
+    publish = job_text(workflow, "publish")
+    step = publish.split("uses: pypa/gh-action-pypi-publish@", 1)
+    if len(step) != 2:
+        return ["release: the publish job does not use pypa/gh-action-pypi-publish"]
+    if not re.search(r"^\s+with:\n\s+skip-existing: true$", step[1], re.MULTILINE):
+        return ["release: the publish step must set skip-existing: true"]
+    return []
+
+
+def test_release_publish_skips_existing_versions() -> None:
+    workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert release_publish_problems(workflow) == []
+    assert release_publish_problems(workflow.replace("skip-existing: true", "skip-existing: false")) == [
+        "release: the publish step must set skip-existing: true"
+    ]
+
+
+def test_kicad_10_heavy_prerequisites_required() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8")
+    disabled = text.replace('FENOLITE_HEAVY: "1"', 'FENOLITE_HEAVY: "0"')
+    assert any("FENOLITE_HEAVY" in problem for problem in job_problems(disabled))
+    excluded = text.replace("--uses rt0 --uses libs", "--uses rt0 --exclude-uses heavy --uses libs")
+    assert any("must not exclude heavy" in problem for problem in job_problems(excluded))
+
+
+def test_kicad_9_downgrade_inputs_required() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace(" --uses downgrade-demo", "")
+    assert any("downgrade-demo" in problem for problem in kicad9_problems(text))
+
+
+def test_downgrade_demo_selection_is_complete_and_narrow() -> None:
+    rows = tomllib.loads((ROOT / "tests/corpus/manifest.toml").read_text(encoding="utf-8"))["file"]
+    folders = tuple(
+        "https://gitlab.com/kicad/code/kicad/-/raw/10.0.6/demos/" + name + "/"
+        for name in ("cm5_minima", "pic_programmer")
+    )
+    expected = {row["id"] for row in rows if row["url"].startswith(folders)}
+    selected = {row["id"] for row in rows if "downgrade-demo" in row.get("uses", [])}
+    assert selected == expected
+    assert {
+        "kicad-demo-10-0-6-pcb-01",
+        "kicad-demo-10-0-6-pcb-12",
+        "kicad-demo-10-0-6-sch-003",
+        "kicad-demo-10-0-6-sch-039",
+    } <= selected
