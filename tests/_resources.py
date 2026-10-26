@@ -119,8 +119,8 @@ class NotFetched(Exception):
 
 
 def required_resources() -> set[str]:
-    """Resources listed in ``FENOLITE_REQUIRE`` (``kicad``, ``corpus``, ``libs``, ``freerouting``;
-    comma-separated)."""
+    """Resources listed in ``FENOLITE_REQUIRE`` (``kicad``, ``corpus``, ``libs``, ``freerouting``,
+    ``browser``, ``mcp-sdk``; comma-separated)."""
     return {r.strip() for r in os.environ.get("FENOLITE_REQUIRE", "").split(",") if r.strip()}
 
 

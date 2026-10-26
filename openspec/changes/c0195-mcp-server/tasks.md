@@ -75,6 +75,11 @@
 - [ ] 4.3 `test_sdk_oracle.py` and the CI job `mcp` (scenario "The official client agrees"), with its check in
   `tests/unit/test_ci_workflow.py`. Proof: `uv run --extra dev --extra oracles pytest tests/unit/mcp/test_sdk_oracle.py -q`
   passes locally, and the job `mcp` passes in CI.
+  - 2026-10-26, OPEN until the job `mcp` passes in CI: the local proof passed (2 tests: a legacy session through
+    `initialize`, answered `2025-11-25`, and a modern one through `server/discover`, both listing the
+    read-only tools, calling `fenolite_capabilities` and reading `fenolite://guide/start`; with
+    `FENOLITE_REQUIRE=mcp-sdk`, `tests/unit/mcp` and `test_mcp_cmd.py` give 52 passed). The job and its check
+    (`test_mcp_job`) are in place; the SDK is source S-0827.
 
 ## 5. Documents and closing
 

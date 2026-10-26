@@ -868,3 +868,28 @@ def test_downgrade_demo_selection_is_complete_and_narrow() -> None:
         "kicad-demo-10-0-6-sch-003",
         "kicad-demo-10-0-6-sch-039",
     } <= selected
+
+
+def mcp_job_problems(workflow: str) -> list[str]:
+    """Why the job ``mcp`` would not run the official client against ``fenolite mcp`` (change c0195)."""
+    job = job_text(workflow, "mcp")
+    if not job:
+        return ["mcp: job missing"]
+    problems: list[str] = []
+    if "uv sync --locked --extra dev --extra oracles" not in job:
+        problems.append("mcp: must sync the oracles extra, which holds the official SDK")
+    if not re.search(r"FENOLITE_REQUIRE: mcp-sdk\b", job):
+        problems.append("mcp: must set FENOLITE_REQUIRE=mcp-sdk, so that a missing SDK fails")
+    if "uv run pytest tests/unit/mcp" not in job:
+        problems.append("mcp: must run tests/unit/mcp")
+    return problems
+
+
+def test_mcp_job() -> None:
+    """Scenario "The official client agrees": the job installs the SDK, requires it and runs the tests."""
+    assert mcp_job_problems(WORKFLOW.read_text(encoding="utf-8")) == []
+
+
+def test_mcp_job_without_the_sdk_rejected() -> None:
+    text = WORKFLOW.read_text(encoding="utf-8").replace("--extra dev --extra oracles", "--extra dev")
+    assert "mcp: must sync the oracles extra, which holds the official SDK" in mcp_job_problems(text)
