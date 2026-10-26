@@ -13,10 +13,14 @@
 
 ## 1. Protocol
 
-- [ ] 1.1 `fenolite.mcp.protocol`: the stdio loop (lines in, lines out), JSON-RPC parse and errors (`-32700`,
+- [x] 1.1 `fenolite.mcp.protocol`: the stdio loop (lines in, lines out), JSON-RPC parse and errors (`-32700`,
   `-32600`, `-32601`, `-32602`), the modern path (`_meta` version, `-32022`, `server/discover`) and the legacy
   path (`initialize`, `notifications/initialized`, `ping`), `notifications/cancelled` (scenarios "Modern
   discovery", "Legacy handshake", "Unknown version"). Proof: `uv run pytest tests/unit/mcp/test_protocol.py -q`.
+  - 2026-10-26: proof passed (16 tests: discover, the modern and legacy eras, the version refused, JSON-RPC
+    errors, `ping` for legacy clients only, batches for `2025-03-26` only, resources by era, progress,
+    cancellation). The package was added to the layering table first (the MODIFIED "Allowed import edges":
+    `mcp` → `cli`, `agent`, standard library only) and has its `PROVENANCE.md`.
 
 ## 2. Tools
 

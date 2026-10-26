@@ -74,7 +74,9 @@ Sources: S-0825 and S-0826. The server leaves out a field that the version it se
 ## Fenolite's choices
 
 - **Versions served:** `2026-07-28`, `2025-11-25`, `2025-06-18` and `2025-03-26`. An older `initialize` gets
-  `2025-11-25`, the latest legacy version, as the protocol asks.
+  `2025-11-25`, the latest legacy version, as the protocol asks. `server/discover` and the `-32022` error name
+  `2026-07-28` only: a version in a request's `_meta` means the stateless protocol, and a legacy version is
+  reached through `initialize`.
 - **One tool per public command**, in name order; `mcp`, `skill` and the hidden commands are not tools, and the
   `view` tool has no `serve`, `port` or `no_browser`.
 - **The command line runs each call**, as a child process in `--root`, so a reply is exactly the command

@@ -3,12 +3,12 @@
 ### Requirement: MCP server on standard input and output
 `fenolite mcp` SHALL serve the Model Context Protocol over standard input and output, one JSON-RPC 2.0 message per line, with the standard library only (change c0195).
 - It MUST serve the revision `2026-07-28` (`server/discover`, the version in each request's `_meta`) and the `initialize` handshake of `2025-11-25`, `2025-06-18` and `2025-03-26`.
-- A request of another version MUST get error `-32022` with `data.supported` and `data.requested`.
+- A request whose `_meta` names another version MUST get error `-32022` ("Version refused").
 - Standard output MUST carry protocol messages only.
 
 #### Scenario: Modern discovery
 - **WHEN** `uv run pytest tests/unit/mcp/test_protocol.py -k discover` sends `server/discover` with `2026-07-28` in `_meta`
-- **THEN** the reply lists the four versions, the `tools` and `resources` capabilities and the server's name and version
+- **THEN** the reply's `supportedVersions` is `2026-07-28`, with the `tools` and `resources` capabilities and the server's name and version
 
 #### Scenario: Legacy handshake
 - **WHEN** the test sends `initialize` with `protocolVersion` `2025-06-18`, then `notifications/initialized` and `tools/list`
@@ -16,7 +16,14 @@
 
 #### Scenario: Unknown version
 - **WHEN** the test sends `tools/list` with `1900-01-01` in `_meta`
-- **THEN** the reply is error `-32022` naming `1900-01-01` and the four versions
+- **THEN** the reply is error `-32022` naming `1900-01-01` and `2026-07-28`
+
+### Requirement: Version refused
+A request whose `_meta` names a version other than `2026-07-28` SHALL get error `-32022` with `data.requested` and `data.supported` = `["2026-07-28"]`; `server/discover` SHALL name the same list. The legacy versions are reached through `initialize` only.
+
+#### Scenario: Discover names the modern version
+- **WHEN** `uv run pytest tests/unit/mcp/test_protocol.py -k discover` sends `server/discover`
+- **THEN** `supportedVersions` is `["2026-07-28"]`
 
 ### Requirement: One tool per public command
 The server SHALL list one tool per public command, named `fenolite_<command>` with hyphens as underscores, in name order, with an input schema generated from the command's parser (`fenolite.cli.describe`).

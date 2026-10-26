@@ -50,7 +50,9 @@
    of a test instead (decision 9). Alternative: build on the `mcp` extra; rejected because `pip install fenolite`
    would not be enough, and the SDK's support of `2026-07-28` would set the server's pace.
 2. **Dual-era.** Supported versions, newest first: `2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`.
-   - A request whose `_meta` names a version: served by that version if supported, else `-32022` with the list.
+   - A request whose `_meta` names `2026-07-28` is served by it; any other version there gets `-32022` whose
+     `supported` is `2026-07-28`, as is `server/discover`'s `supportedVersions`: a version in `_meta` means the
+     stateless protocol, and the legacy versions are reached through `initialize` only.
    - `initialize`: the server answers with the client's `protocolVersion` if it supports it, else with
      `2025-11-25`; the process then serves legacy requests by that version. A legacy request before
      `initialize` is an error (`-32600`).
