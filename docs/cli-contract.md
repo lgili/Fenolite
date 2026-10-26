@@ -2854,6 +2854,35 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
   `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.
 
+## mcp
+
+`fenolite mcp [--root DIR] [--read-only] [--tools NAME,...] [--timeout SECONDS] [--list]` serves the public
+commands as tools to a client of the Model Context Protocol on standard input and output (change c0195;
+`docs/mcp.md`). The client starts it; it serves until its input ends.
+
+- **Standard output** belongs to the protocol while it serves: one JSON-RPC message per line, and no envelope
+  after the last one (the command leaves without one). Diagnostics go to standard error as lines
+  `fenolite mcp: ...`.
+- **Versions:** the modern revision `2026-07-28` (`server/discover`, the version in each request's `_meta`)
+  and the `initialize` handshake of `2025-11-25`, `2025-06-18` and `2025-03-26`. `fenolite capabilities`
+  lists them as `protocol_versions` of `mcp`.
+- **Tools:** `fenolite_<command>` for every public command but `mcp` and `skill`; `view` without `--serve`,
+  `--port` and `--no-browser`. A tool's arguments are the command's, by the names of
+  `capabilities --command <name>`, plus `fields`, `limit`, `cursor`, `format`, `seed`, `timestamp`,
+  `kicad_version` and `allow_lossy` (and `no_backup` for a writing command).
+- **Calls** run `python -m fenolite <command> ... --json` in `--root`, one at a time. The result is the
+  envelope (exit 0 or 5) or the error object (any other exit), with the exit code in `_meta` `fenolite/exit`;
+  `isError` is true for an exit other than 0 and 5. A call longer than `--timeout` (default 600 s), or
+  cancelled by the client, is stopped and gives `FEN-1003`.
+- **Writes:** a writing tool without `confirm` is the `--dry-run`; with `confirm: true` it needs `plan`, the
+  `plan_id` of that dry run, and the server refuses (`FEN-2001`) a plan of another command or one that writes
+  outside `--root`. `--read-only` serves no writing tool.
+- **Resources:** `fenolite://guide/<topic>` for each page of the agent guide, and `fenolite://capabilities`.
+- **`--list`** serves nothing and returns the envelope `result.versions`, `result.root`, `result.tools` and
+  `result.resources`.
+- **Usage errors** before serving (`--root` not a folder, a name of `--tools` that is not served, a timeout not
+  above 0) are `FEN-2001`, exit 2.
+
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]

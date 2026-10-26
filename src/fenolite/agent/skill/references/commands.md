@@ -38,6 +38,7 @@ another type; a flag without a value is a switch.
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
+| `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
 | `neighbors` | no | list the footprints near one part, by the distance between their courtyards (runs no tool) |
 | `net` | no | list the nets of a board, or one net: pads, copper, vias, zones, open connections (runs no tool) |
@@ -298,6 +299,16 @@ another type; a flag without a value is a switch.
 - `-o`, `--out FILE`: the manifest file (default: fenolite-artifacts.json by the board)
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
+
+## mcp
+
+`fenolite mcp [OPTIONS]`
+
+- `--root DIR` (default `.`): the folder every call runs in and writes under
+- `--read-only`: list only the commands that write nothing
+- `--tools NAME,...`: list only these commands
+- `--timeout SECONDS` (number, default `600.0`): stop a longer call
+- `--list`: return the tools and resources; serve nothing
 
 ## models
 

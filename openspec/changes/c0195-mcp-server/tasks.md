@@ -58,9 +58,15 @@
 
 ## 4. Command, extras and CI
 
-- [ ] 4.1 `cmd_mcp.py` (`--root`, `--read-only`, `--tools`, `--timeout`; scenario "Unknown tool name");
+- [x] 4.1 `cmd_mcp.py` (`--root`, `--read-only`, `--tools`, `--timeout`; scenario "Unknown tool name");
   `capabilities` lists the versions; `tests/unit/test_import_graph.py` and the layering table admit `mcp`.
   Proof: `uv run pytest tests/unit/cli/test_mcp_cmd.py tests/unit/cli/test_capabilities.py tests/unit/test_import_graph.py tests/consistency -q`.
+  - 2026-10-26: proof passed (with tests/unit/agent and tests/unit/mcp: 604 passed). `--list` serves nothing and
+    returns the versions, tools and resources as an envelope, so that the consistency suite runs the command
+    like any other (`example_args` `--list --read-only`); while serving, the command leaves through
+    `SystemExit`, so no envelope follows the last message (a real stdio session checks it). `capabilities`
+    lists `protocol_versions`. The contract section `## mcp` and the tested lines of the guide page `recovery`
+    (part of task 5.1) came here, because the consistency and coverage tests require them for a new command.
 - [ ] 4.2 Remove the `mcp` extra, add the pinned SDK to `oracles`, update `uv.lock` and the invariants test
   (the MODIFIED "Zero runtime dependencies in the core"). Proof: `uv run pytest tests/unit/test_pyproject_invariants.py -q`.
 - [ ] 4.3 `test_sdk_oracle.py` and the CI job `mcp` (scenario "The official client agrees"), with its check in
