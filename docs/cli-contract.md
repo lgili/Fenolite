@@ -2854,6 +2854,26 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
   `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.
 
+## edit
+
+`fenolite edit PATH (--content-file FILE | --edits-file FILE)` writes a text file of a design through the
+write protocol (change c0196): a design script (`*.py`), a TOML file (`*.toml`, such as `placements.toml`) or
+a library table (`fp-lib-table`, `sym-lib-table`). Any other file is `FEN-2001`; KiCad and Altium documents
+are written by the commands that own them.
+
+- `--content-file` holds the whole new text; the file is created when it does not exist.
+- `--edits-file` holds a JSON list of `{"old": ..., "new": ...}` pairs, applied in order to the text as it
+  stands; each `old` must be found exactly once (else `FEN-3004`, naming the pair and the count), and the file
+  must exist (else `FEN-3001`).
+- Files are UTF-8 text of at most 1 MB, before and after; the file keeps its line ends.
+- The new text must parse: a script with Python's `ast.parse`, a TOML file with `tomllib`; else `FEN-3004`
+  with the line, and no plan is staged. The script is never imported or run.
+- `result` holds `path`, `kind` (`design-script`, `toml` or `library-table`), `created`, `changed`,
+  `lines_added`, `lines_removed`, `diff` (unified, three lines of context, at most 400 lines) and
+  `diff_truncated`. An unchanged text plans no write.
+- The input files are inputs of the plan: a confirmation refuses (`FEN-4002`) when one changed since the dry
+  run.
+
 ## mcp
 
 `fenolite mcp [--root DIR] [--read-only] [--tools NAME,...] [--timeout SECONDS] [--list]` serves the public

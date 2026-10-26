@@ -8,11 +8,15 @@
 
 ## 1. The edit command
 
-- [ ] 1.1 `cmd_edit.py`: the two forms, the file kinds and size, the parse checks, the plan's `result` with the
+- [x] 1.1 `cmd_edit.py`: the two forms, the file kinds and size, the parse checks, the plan's `result` with the
   diff (scenarios "An exact edit planned and written", "An edit that breaks the script is refused", "An old
   text found twice"). Proof: `uv run pytest tests/unit/cli/test_edit_cmd.py tests/consistency -q`.
-- [ ] 1.2 `docs/cli-contract.md` ("## edit"), the tested line of `edit` on the guide page `design-script`, and
+  - 2026-10-26: proof passed (11 tests; with tests/consistency and tests/unit/agent 519 passed). The example
+    edits a committed script with its own text (no write); the mutation example writes a prepared copy
+    (`tests/_cliexamples.py`). A script that would write a file when run is only parsed (`test_script_is_never_run`).
+- [x] 1.2 `docs/cli-contract.md` ("## edit"), the tested line of `edit` on the guide page `design-script`, and
   `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+  - 2026-10-26: proof passed (the generator's check 0); the page `design-script` gains "Edits without an editor".
 
 ## 2. The server
 

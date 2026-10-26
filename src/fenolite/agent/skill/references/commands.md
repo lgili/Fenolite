@@ -26,6 +26,7 @@ another type; a flag without a value is a switch.
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
 | `diff` | no | list the differences between two boards, libraries, built models or Altium files (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
+| `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
 | `explain` | no | say what an error code or an issue code means and what to do about it |
 | `export` | yes | export fabrication files through kicad-cli on a copy of the project (writes under DIR) |
@@ -169,6 +170,14 @@ another type; a flag without a value is a switch.
 
 - `--kicad-cli PATH` (repeatable): a kicad-cli to report (repeatable)
 - `--no-run`: list the candidates and run no tool
+
+## edit
+
+`fenolite edit [OPTIONS] PATH`
+
+- `PATH`: a *.py, a *.toml, an fp-lib-table or a sym-lib-table
+- `--content-file FILE`: a file holding the whole new text
+- `--edits-file FILE`: a JSON list of {"old": ..., "new": ...} pairs
 
 ## equivalent
 

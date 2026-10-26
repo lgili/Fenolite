@@ -36,8 +36,12 @@ EXAMPLE_PARITY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/
 EXAMPLE_READY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/ready/blink.kicad_pcb")
 """The starter of ``fenolite init``, built and routed: a project that ``fenolite ready`` finds ready."""
 
+EXAMPLE_SCRIPT = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/slots/design.py")
+"""A committed design script: ``fenolite edit`` with its own text as the content plans nothing."""
+
 __all__ = [
     "EXAMPLE_BOARD",
+    "EXAMPLE_SCRIPT",
     "EXAMPLE_PARITY",
     "EXAMPLE_READY",
     "EXAMPLE_SCHEMATIC",

@@ -37,7 +37,9 @@
 5. **The plan shows the change.** `result` holds `path`, `created`, `lines_added`, `lines_removed` and `diff`
    (a unified diff with three lines of context, cut at 400 lines with a note); the write is the new text.
 6. **The server's input files.** `fenolite_edit` takes `path` and exactly one of `content` (string) and `edits`
-   (array of `{old, new}` strings). The server writes the value to `<state>/mcp-inputs/<uuid>.txt` or `.json`,
+   (array of `{old, new}` strings). The server writes the value to `<state>/mcp-inputs/<sha256>.txt` or `.json`
+   (named by the SHA-256 of its bytes: a plan id binds the command line, so the confirmation must name the
+   same file, and a different content names another file and is refused),
    passes `--content-file` or `--edits-file`, and removes the file when the call ends. The confirmation call
    passes the same arguments again: the plan id binds the input file's digest, as for any input (`depends`),
    so a different content refuses the confirmation (`FEN-4002`).

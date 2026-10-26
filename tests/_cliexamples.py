@@ -3,9 +3,9 @@
 """The files that a command's examples need in the working directory (change c0066).
 
 Most commands take their example input from the test data and write somewhere new, so their examples run
-in an empty folder. ``fmt`` rewrites the file it is given and ``restore`` puts back the backups of an
-earlier write: their examples name files that the suites prepare here first (capability cli-contract,
-"Fmt command" and "Restore command").
+in an empty folder. ``fmt`` and ``edit`` rewrite the file they are given and ``restore`` puts back the
+backups of an earlier write: their examples name files that the suites prepare here first (capability
+cli-contract, "Fmt command", "Edit command" and "Restore command").
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from fenolite.cli import cmd_edit
 from fenolite.cli.cmd_fmt import EXAMPLE_COPY
 from fenolite.cli.cmd_restore import EXAMPLE_RECEIPT
 
@@ -41,7 +42,13 @@ def _restore(folder: Path) -> None:
     (folder / EXAMPLE_RECEIPT).write_bytes((json.dumps(receipt) + "\n").encode("utf-8"))
 
 
-PREPARED: dict[str, Callable[[Path], None]] = {"fmt": _fmt, "restore": _restore}
+def _edit(folder: Path) -> None:
+    """A small design script and the new text that ``edit`` writes over it (one constant changed)."""
+    (folder / cmd_edit.EXAMPLE_COPY).write_text("WIDTH_MM = 20\n", encoding="utf-8")
+    (folder / cmd_edit.EXAMPLE_CONTENT).write_text("WIDTH_MM = 25\n", encoding="utf-8")
+
+
+PREPARED: dict[str, Callable[[Path], None]] = {"fmt": _fmt, "restore": _restore, "edit": _edit}
 """Command name → the function that writes its example files into a folder."""
 PLANS_NOTHING = frozenset({"models"})
 """Mutating commands whose mutation example plans no write: ``models --vendor`` on the example board,
