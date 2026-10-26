@@ -128,3 +128,16 @@ def test_unchanged_text_plans_nothing(capsys: Any, folder: Path) -> None:
     (folder / "design.py").write_text(SCRIPT, encoding="utf-8")
     code, out, _ = run(capsys, "edit", "design.py", "--content-file", "design.py")
     assert code == 0 and out["result"]["changed"] is False and out["receipt"] is None
+
+
+def test_path_on_another_drive(monkeypatch: pytest.MonkeyPatch, capsys: Any, folder: Path) -> None:
+    """On Windows a file on another drive has no path relative to the working folder: it is shown absolute."""
+    (folder / "design.py").write_text(SCRIPT, encoding="utf-8")
+
+    def no_relative(path: object, start: object = None) -> str:
+        raise ValueError("path is on mount 'D:', start on mount 'C:'")
+
+    monkeypatch.setattr("fenolite.cli.cmd_edit.os.path.relpath", no_relative)
+    code, out, err = run(capsys, "edit", str(folder / "design.py"), "--content-file", "design.py")
+    assert code == 0, err
+    assert out["result"]["path"] == (folder / "design.py").as_posix()

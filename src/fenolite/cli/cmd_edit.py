@@ -128,6 +128,15 @@ def _parses(text: str, kind: str, name: str) -> None:
         raise CliError("FEN-3004", f"{name}: the edited TOML does not parse: {exc}", where=name) from exc
 
 
+def _shown(path: Path, cwd: Path) -> str:
+    """``path`` relative to ``cwd`` in POSIX form, or absolute when it has no relative form (another drive
+    on Windows)."""
+    try:
+        return Path(os.path.relpath(path, cwd)).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     given = Path(str(args.path))
     path = given if given.is_absolute() else ctx.cwd / given
@@ -152,7 +161,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     data = new.encode("utf-8")
     if len(data) > LIMIT:
         raise CliError("FEN-3004", f"the edited {path.name} is larger than {LIMIT} bytes", where=path.name)
-    target = Path(os.path.relpath(path, ctx.cwd)).as_posix()
+    target = _shown(path, ctx.cwd)
     diff = list(
         difflib.unified_diff(
             old.splitlines(), new.splitlines(), f"a/{target}", f"b/{target}", n=3, lineterm=""

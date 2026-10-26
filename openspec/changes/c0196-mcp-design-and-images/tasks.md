@@ -35,11 +35,15 @@
     run of `render --png` at 400 by 300 sends two PNGs whose SHA-256 are the plan's rows, and writes nothing.
     The render test lives under `tests/kicad`, which the job `kicad-10` runs (the jobs that run `tests/unit` have
     no `kicad-cli`).
-- [ ] 2.3 The official client reads the image content the server sends, in `test_sdk_oracle.py` (a server whose
+- [x] 2.3 The official client reads the image content the server sends, in `test_sdk_oracle.py` (a server whose
   backend returns a PNG: the job `mcp` has no `kicad-cli`, and the real render is checked by `kicad-10` in 2.2).
   Proof: the job `mcp` passes in CI.
   - 2026-10-26, OPEN until CI: the local proof passed (3 tests of `test_sdk_oracle.py`, the official client 2.3.0
     reads `type` `image`, `mimeType` `image/png` and the base64 data).
+  - 2026-10-26: CLOSED. The job `mcp` passed in CI run https://github.com/lgili/Fenolite/actions/runs/40261423201
+    at `e16afa9`, and `kicad-10` with it (the real render of 2.2). The same run failed `unit` on Windows: the
+    example of `edit` names a file on the checkout's drive while the suite runs on another, and
+    `os.path.relpath` raises across drives; `edit` now shows such a path absolute (`test_path_on_another_drive`).
 
 ## 3. Documents and closing
 
