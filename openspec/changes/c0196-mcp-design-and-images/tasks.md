@@ -1,7 +1,10 @@
 ## 0. Entry check
 
-- [ ] 0.1 c0195 is archived, or this change waits for it: its `mcp-server` delta MODIFIES "Commands not exposed",
+- [x] 0.1 c0195 is archived, or this change waits for it: its `mcp-server` delta MODIFIES "Commands not exposed",
   which c0195 adds. Note the order under this task. Proof: `openspec validate c0196-mcp-design-and-images --strict --no-interactive`.
+  - 2026-10-26: c0195 is open (its optional task 5.4 waits on the maintainer); this change is implemented on a
+    branch from `c0195-mcp-server` and archives after c0195. The maintainer accepted every recommended answer
+    (design, "Open Questions"; roadmap row 47). Proof passed.
 
 ## 1. The edit command
 

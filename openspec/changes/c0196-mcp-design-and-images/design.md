@@ -61,6 +61,8 @@
 
 ## Open Questions
 
+Decided by the maintainer on 2026-10-26: every recommended answer below is accepted.
+
 1. **Command line command or server-only tool for the edit?** Recommended: the command (decision 1).
 2. **Edit off by default in the server?** Recommended: yes, `--allow-edit` (decision 7).
 3. **Which files may `edit` write?** Recommended: `*.py`, `*.toml` and the two library tables (decision 3).
