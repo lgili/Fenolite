@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,7 +21,10 @@ def test_page_read() -> None:
     resources = Resources(lambda: "{}")
     (content,) = resources.read(GUIDE + "start") or []
     reply = subprocess.run(
-        [sys.executable, "-m", "fenolite", "guide", "start", "--json"], capture_output=True, check=True
+        [sys.executable, "-m", "fenolite", "guide", "start", "--json"],
+        capture_output=True,
+        check=True,
+        env={**os.environ, "PYTHONUTF8": "1"},  # as the server runs its children (Windows writes cp1252 else)
     )
     assert content["mimeType"] == "text/markdown"
     assert content["text"] == json.loads(reply.stdout)["result"]["text"]

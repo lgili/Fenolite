@@ -6,6 +6,7 @@ change c0195): names, schemas from the commands' parsers, annotations and comman
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -134,7 +135,10 @@ def test_same_reply(tmp_path: Path) -> None:
     """Scenario "Same reply as the command line"."""
     reply = backend(tmp_path).call("fenolite_inspect", {"file": str(BOARD)}, Call())
     cli = subprocess.run(
-        [sys.executable, "-m", "fenolite", "inspect", "--json", str(BOARD)], capture_output=True, check=True
+        [sys.executable, "-m", "fenolite", "inspect", "--json", str(BOARD)],
+        capture_output=True,
+        check=True,
+        env={**os.environ, "PYTHONUTF8": "1"},  # as the server runs its children
     )
     expected = json.loads(cli.stdout)
     got = reply["structuredContent"]

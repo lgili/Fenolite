@@ -72,7 +72,7 @@
   - 2026-10-26: proof passed (with test_capabilities, test_agent_skill and test_import_graph: 72 passed). `oracles`
     holds `mcp==2.3.0` (MIT, published 2026-10-02; `uv.lock` moved it from the old `mcp` extra at 2.2.0); the
     README names no `mcp` extra and says the server needs none; `capabilities` lists the four extras.
-- [ ] 4.3 `test_sdk_oracle.py` and the CI job `mcp` (scenario "The official client agrees"), with its check in
+- [x] 4.3 `test_sdk_oracle.py` and the CI job `mcp` (scenario "The official client agrees"), with its check in
   `tests/unit/test_ci_workflow.py`. Proof: `uv run --extra dev --extra oracles pytest tests/unit/mcp/test_sdk_oracle.py -q`
   passes locally, and the job `mcp` passes in CI.
   - 2026-10-26, OPEN until the job `mcp` passes in CI: the local proof passed (2 tests: a legacy session through
@@ -80,6 +80,11 @@
     read-only tools, calling `fenolite_capabilities` and reading `fenolite://guide/start`; with
     `FENOLITE_REQUIRE=mcp-sdk`, `tests/unit/mcp` and `test_mcp_cmd.py` give 52 passed). The job and its check
     (`test_mcp_job`) are in place; the SDK is source S-0827.
+  - 2026-10-26: CLOSED. The job `mcp` passed in CI run https://github.com/lgili/Fenolite/actions/runs/40252974405
+    at `95eb4ca`; five rows of `docs/mcp.md` are `ORACLE-VERIFIED(mcp-sdk)` (stdio, `server/discover`,
+    `initialize`, the tool result, resources). The same run failed `unit` on Windows in `test_page_read`: the
+    test ran `fenolite guide --json` without UTF-8 mode and Windows wrote cp1252; the two tests that run the
+    command line directly now set `PYTHONUTF8=1`, as the server does for its children.
 
 ## 5. Documents and closing
 
