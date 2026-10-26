@@ -24,10 +24,14 @@
 
 ## 2. Tools
 
-- [ ] 2.1 `fenolite.mcp.tools`: the tool list from `discover()` and `describe()`, the input schemas, the
+- [x] 2.1 `fenolite.mcp.tools`: the tool list from `discover()` and `describe()`, the input schemas, the
   annotations, the exclusions, the command line built from the arguments, the refusal of an unknown argument
   (scenario "Tools follow the commands"). Proof: `uv run pytest tests/unit/mcp/test_tools.py -k "listed or schema or
   unknown" -q`.
+  - 2026-10-26: proof passed (13 tests). 40 tools; the schemas come from `describe()` and
+    `global_arguments()`; a command line uses `--flag=value` and `--` before the positionals, so a value that
+    starts with `-` stays a value; a refusal is the command line's `FEN-2001` object naming the argument. The
+    shared text moved to the server's `instructions` (design, decision 3): 93 KB to 65 KB of definitions.
 - [ ] 2.2 The child runner: `python -m fenolite ... --json` in the root, the envelope or the error object, the
   exit code in `_meta`, the timeout, the cancellation, the progress notifications (scenarios "Same reply as the
   command line" and "Error object"). Proof: `uv run pytest tests/unit/mcp/test_tools.py -q`.

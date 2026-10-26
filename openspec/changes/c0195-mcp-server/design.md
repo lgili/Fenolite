@@ -67,7 +67,10 @@
      local path).
 3. **Tool names and order.** `fenolite_` plus the command name with `-` as `_`; listed in name order; one page
    (the list is short). `title` is the command name; `description` is its help text and, for a writing
-   command, one sentence on the two-step write.
+   command, one sentence on the two-step write. What every tool shares (the envelope, the exit codes, the
+   global options, the two-step write) is said once, in the server's `instructions` (`server/discover`,
+   `initialize`), and the global options' properties carry no description: measured on 2026-10-26, this
+   brings the 40 definitions from 93 KB to 65 KB (22 KB with `--read-only`).
 4. **Input schema from `describe()`.** One property per argument, named by `Argument.name`:
    - `string`, `integer`, `number`, `boolean` as JSON types; `choices` as `enum`; `repeatable` as an array;
      `default` copied; `required` from the argument; `additionalProperties: false`.
