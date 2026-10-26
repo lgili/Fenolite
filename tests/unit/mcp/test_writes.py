@@ -75,3 +75,50 @@ def test_read_only_lists_no_writer(tmp_path: Path) -> None:
     tool = server(tmp_path / "p", read_only=True)
     names = {d["name"] for d in tool.tools()}
     assert "fenolite_check" in names and not {"fenolite_init", "fenolite_fmt", "fenolite_route"} & names
+
+
+SCRIPT = 'from fenolite.dsl import Design\n\nWIDTH_MM = 20\ndesign = Design("demo")\n'
+
+
+def test_edit_through_the_server(tmp_path: Path) -> None:
+    """Scenario "Edit through the server"."""
+    root = tmp_path / "p"
+    tool = server(root, allow_edit=True)
+    (root / "design.py").write_text(SCRIPT, encoding="utf-8")
+    pairs = [{"old": "WIDTH_MM = 20", "new": "WIDTH_MM = 25"}]
+    dry = tool.call("fenolite_edit", {"path": "design.py", "edits": pairs}, Call())
+    result = dry["structuredContent"]["result"]
+    assert dry["isError"] is False and "+WIDTH_MM = 25" in result["diff"]
+    assert (root / "design.py").read_text(encoding="utf-8") == SCRIPT
+    confirm = {"path": "design.py", "edits": pairs, "confirm": True, "plan": result["plan_id"]}
+    written = tool.call("fenolite_edit", confirm, Call())
+    assert written["isError"] is False, written["structuredContent"]
+    assert "WIDTH_MM = 25" in (root / "design.py").read_text(encoding="utf-8")
+    assert list((tmp_path / "state" / "mcp-inputs").iterdir()) == []  # no input file is left
+
+
+def test_edit_confirmed_with_another_content(tmp_path: Path) -> None:
+    """A confirmation whose content differs from its dry run's is refused by the command line."""
+    root = tmp_path / "p"
+    tool = server(root, allow_edit=True)
+    (root / "design.py").write_text(SCRIPT, encoding="utf-8")
+    plan = tool.call("fenolite_edit", {"path": "design.py", "content": SCRIPT + "# a\n"}, Call())
+    plan_id = plan["structuredContent"]["result"]["plan_id"]
+    other = {"path": "design.py", "content": SCRIPT + "# b\n", "confirm": True, "plan": plan_id}
+    reply = tool.call("fenolite_edit", other, Call())
+    assert reply["isError"] is True and reply["structuredContent"]["code"] == "FEN-4002"
+    assert (root / "design.py").read_text(encoding="utf-8") == SCRIPT
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"path": "design.py"},
+        {"path": "design.py", "content": "x", "edits": []},
+        {"path": "design.py", "edits": [{"old": "a"}]},
+        {"path": "design.py", "content_file": "/etc/hostname"},
+    ],
+)
+def test_edit_inputs_refused(tmp_path: Path, arguments: dict[str, Any]) -> None:
+    reply = server(tmp_path / "p", allow_edit=True).call("fenolite_edit", arguments, Call())
+    assert reply["isError"] is True and reply["structuredContent"]["code"] == "FEN-2001"

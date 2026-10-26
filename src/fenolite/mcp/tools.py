@@ -32,6 +32,11 @@ GLOBALS = ("fields", "limit", "cursor", "format", "seed", "timestamp", "kicad_ve
 """The global options a call may set; ``--json``, ``--text`` and ``--progress`` are the server's."""
 WRITING_GLOBALS = ("no_backup",)
 WRITE_FLAGS = frozenset({"dry_run", "confirm", "plan"})
+INPUT_FILES = {"edit": {"content": "content_file", "edits": "edits_file"}}
+"""Tool properties whose value the server writes to a file of its own and passes as the command's file
+argument (change c0196): an agent gives text, never a path the command would read."""
+EDIT = "edit"
+"""Listed only with ``allow_edit``: editing a design script and building it runs that script as the user."""
 OPEN_WORLD = frozenset({"fetch"})
 """Commands that reach the network (``openWorldHint``)."""
 ENVELOPE = "schemas/fenolite.envelope.v0.json"
@@ -103,8 +108,11 @@ class Tool:
     mutates: bool
     definition: Json
     arguments: tuple[Argument, ...]
-    """The arguments a call may pass, in the parser's order (own, then global), without the write flags."""
+    """The arguments of the command line, in the parser's order (own, then global), without the write
+    flags; an argument of :data:`INPUT_FILES` is set by the server, never by a call."""
     actions: Mapping[str, argparse.Action]
+    inputs: Mapping[str, str]
+    """Tool property → the file argument the server sets from it (:data:`INPUT_FILES`)."""
 
 
 def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
@@ -118,6 +126,21 @@ def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
             raise ValueError(f"{command.name}: two arguments named {argument.name!r}")
         properties[argument.name] = _schema(argument, described=argument.name not in shared)
     properties["fields"] = {"type": "array", "items": {"type": "string"}}
+    inputs = INPUT_FILES.get(command.name, {})
+    for argument_name in inputs.values():
+        del properties[argument_name]
+    if inputs:
+        properties["content"] = {"type": "string", "description": "the whole new text of the file"}
+        properties["edits"] = {
+            "type": "array",
+            "description": "exact edits, in order; each old text must be found exactly once",
+            "items": {
+                "type": "object",
+                "properties": {"old": {"type": "string"}, "new": {"type": "string"}},
+                "required": ["old", "new"],
+                "additionalProperties": False,
+            },
+        }
     description = command.help or command.name
     if command.mutates:
         properties["confirm"] = {
@@ -148,7 +171,7 @@ def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
     }
     if not definition["inputSchema"]["required"]:
         del definition["inputSchema"]["required"]
-    return Tool(command.name, command.mutates, definition, arguments, _actions(command))
+    return Tool(command.name, command.mutates, definition, arguments, _actions(command), inputs)
 
 
 def _check(argument: Argument, value: Any) -> list[Any]:
@@ -188,7 +211,12 @@ class Catalog:
     """The tools of the installed commands, filtered by ``read_only`` and ``only`` (command names)."""
 
     def __init__(
-        self, commands: Mapping[str, Command], *, read_only: bool = False, only: Iterable[str] | None = None
+        self,
+        commands: Mapping[str, Command],
+        *,
+        read_only: bool = False,
+        only: Iterable[str] | None = None,
+        allow_edit: bool = False,
     ) -> None:
         shared = {argument.name: argument for argument in global_arguments()}
         wanted = None if only is None else set(only)
@@ -200,21 +228,31 @@ class Catalog:
             command = public[name]
             if (wanted is not None and name not in wanted) or (read_only and command.mutates):
                 continue
+            if name == EDIT and not allow_edit:
+                continue
             tool = _tool(command, shared)
             self.tools[tool.definition["name"]] = tool
 
     def definitions(self) -> list[Json]:
         return [tool.definition for tool in self.tools.values()]
 
-    def command_line(self, name: str, arguments: Mapping[str, Any], *, dry_run: bool) -> list[str]:
-        """``[command, words...]`` for a call of tool ``name`` (the write flags are the caller's); raises
-        :class:`KeyError` for an unknown tool and :class:`InputRefused` for arguments that do not fit."""
+    def command_line(
+        self,
+        name: str,
+        arguments: Mapping[str, Any],
+        *,
+        dry_run: bool,
+        given: Mapping[str, str] | None = None,
+    ) -> list[str]:
+        """``[command, words...]`` for a call of tool ``name`` (the write flags are the caller's), with the
+        file arguments ``given`` by the server; raises :class:`KeyError` for an unknown tool and
+        :class:`InputRefused` for arguments that do not fit."""
         tool = self.tools[name]
-        known = {argument.name: argument for argument in tool.arguments}
-        allowed: set[str] = set(known) | ({"confirm", "plan"} if tool.mutates else set())
+        allowed = set(cast("Json", tool.definition["inputSchema"]["properties"]))
         unknown = sorted(set(arguments) - allowed)
         if unknown:
             raise InputRefused(f"{name} takes no argument {unknown[0]!r}", where=unknown[0])
+        arguments = {k: v for k, v in arguments.items() if k not in tool.inputs} | dict(given or {})
         missing = [a.name for a in tool.arguments if a.required and arguments.get(a.name) is None]
         if missing:
             raise InputRefused(f"{name} needs {missing[0]!r}", where=missing[0])
@@ -240,4 +278,14 @@ class Catalog:
         return [*words, *(["--", *positionals] if positionals else [])]
 
 
-__all__ = ["INSTRUCTIONS", "NOT_TOOLS", "PREFIX", "Catalog", "InputRefused", "Tool", "tool_name"]
+__all__ = [
+    "EDIT",
+    "INPUT_FILES",
+    "INSTRUCTIONS",
+    "NOT_TOOLS",
+    "PREFIX",
+    "Catalog",
+    "InputRefused",
+    "Tool",
+    "tool_name",
+]

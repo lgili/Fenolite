@@ -34,6 +34,11 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--tools", metavar="NAME,...", default=None, help="list only these commands")
     parser.add_argument("--timeout", type=float, default=600.0, metavar="SECONDS", help="stop a longer call")
     parser.add_argument("--list", action="store_true", help="return the tools and resources; serve nothing")
+    parser.add_argument(
+        "--allow-edit",
+        action="store_true",
+        help="also serve fenolite_edit: a client that edits a design script and builds it runs code as you",
+    )
 
 
 def _backend(args: argparse.Namespace) -> FenoliteBackend:
@@ -49,7 +54,12 @@ def _backend(args: argparse.Namespace) -> FenoliteBackend:
     )
     try:
         return FenoliteBackend(
-            discover(), root=root, timeout=float(args.timeout), read_only=bool(args.read_only), only=only
+            discover(),
+            root=root,
+            timeout=float(args.timeout),
+            read_only=bool(args.read_only),
+            only=only,
+            allow_edit=bool(args.allow_edit),
         )
     except KeyError as exc:
         name = str(exc.args[0])

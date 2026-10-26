@@ -20,9 +20,13 @@
 
 ## 2. The server
 
-- [ ] 2.1 `fenolite_edit`: `content` or `edits`, the input file in the state folder and its removal, the opt-in
+- [x] 2.1 `fenolite_edit`: `content` or `edits`, the input file in the state folder and its removal, the opt-in
   `--allow-edit` (scenarios "Edit through the server", "Edit listed only on request", "Edit not listed by
   default"). Proof: `uv run pytest tests/unit/mcp tests/unit/cli/test_mcp_cmd.py -q`.
+  - 2026-10-26: proof passed (61 tests). The tool takes `content` or `edits`, never the file arguments; the
+    input file is `<state>/mcp-inputs/<sha256>.txt|.json` and is removed after each call; a confirmation with
+    another content is refused by the command line (`FEN-4002`); `--allow-edit` lists the tool and
+    `--read-only` wins over it.
 - [ ] 2.2 Images: the PNG rows of a plan or a receipt as image content, the caps, the note of what was left out
   (scenario "A dry run of a render is seen"; skipped without `kicad-cli`, and run in the job `mcp` with it if the
   job installs it, else in `kicad-10`). Proof: `uv run pytest tests/unit/mcp/test_images.py -q`.

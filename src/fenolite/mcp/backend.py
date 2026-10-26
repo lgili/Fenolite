@@ -16,6 +16,7 @@ first and refused unless it is a plan of the same command whose every write lies
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import signal
@@ -34,7 +35,7 @@ from fenolite.cli.output import canonical_json, to_jsonable
 from fenolite.core.state import state_dir
 from fenolite.mcp.protocol import Call, UnknownTool
 from fenolite.mcp.resources import Resources
-from fenolite.mcp.tools import Catalog, InputRefused
+from fenolite.mcp.tools import Catalog, InputRefused, Tool
 
 EXIT_KEY = "fenolite/exit"
 """The ``_meta`` key of a tool result that holds the command's exit code."""
@@ -81,9 +82,10 @@ class FenoliteBackend:
         timeout: float,
         read_only: bool = False,
         only: list[str] | None = None,
+        allow_edit: bool = False,
         executable: list[str] | None = None,
     ) -> None:
-        self.catalog = Catalog(commands, read_only=read_only, only=only)
+        self.catalog = Catalog(commands, read_only=read_only, only=only, allow_edit=allow_edit)
         self.root, self.timeout = root.resolve(), timeout
         self.guide = Resources(self.capabilities)
         self.executable = executable if executable is not None else [sys.executable, "-m", "fenolite"]
@@ -103,10 +105,60 @@ class FenoliteBackend:
         tool = self.catalog.tools.get(name)
         if tool is None:
             raise UnknownTool(name)
+        written: Path | None = None
+        try:
+            if tool.inputs:
+                given = self._input_file(tool.inputs, arguments)
+                if isinstance(given, dict):
+                    return given  # a refusal
+                argument, written = given
+                return self._call(tool, name, arguments, call, {argument: str(written)})
+            return self._call(tool, name, arguments, call, None)
+        finally:
+            if written is not None:
+                written.unlink(missing_ok=True)
+
+    def _input_file(self, inputs: Mapping[str, str], arguments: Json) -> Json | tuple[str, Path]:
+        """Write the one input property of ``arguments`` to ``<state>/mcp-inputs/<sha256>``, named by its
+        bytes so that a confirmation repeats the dry run's command line; a refusal when there is not exactly
+        one, or it is malformed (change c0196, "Script editing tool")."""
+        present = [key for key in inputs if arguments.get(key) is not None]
+        if len(present) != 1:
+            names = " or ".join(repr(key) for key in inputs)
+            return _refusal(
+                "FEN-2001", f"give exactly one of {names}", where=present[1] if present else "content"
+            )
+        key = present[0]
+        value = arguments[key]
+        if key == "content" and isinstance(value, str):
+            data, suffix = value.encode("utf-8"), ".txt"
+        elif (
+            key == "edits"
+            and isinstance(value, list)
+            and all(
+                isinstance(p, dict) and set(cast("Json", p)) == {"old", "new"}
+                for p in cast("list[Any]", value)
+            )
+        ):
+            data, suffix = json.dumps(value, ensure_ascii=False, sort_keys=True).encode("utf-8"), ".json"
+        else:
+            return _refusal("FEN-2001", f"{key}: a string, or a list of {{old, new}} objects", where=key)
+        state = state_dir()
+        if state is None:
+            return _refusal("FEN-2001", "the state folder is off (FENOLITE_STATE_DIR=off)", where=key)
+        folder = state / "mcp-inputs"
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / (hashlib.sha256(data).hexdigest() + suffix)
+        path.write_bytes(data)
+        return inputs[key], path
+
+    def _call(self, tool: Tool, name: str, arguments: Json, call: Call, given: dict[str, str] | None) -> Json:
         confirm = arguments.get("confirm")
         plan = arguments.get("plan")
         try:
-            words = self.catalog.command_line(name, arguments, dry_run=tool.mutates and not confirm)
+            words = self.catalog.command_line(
+                name, arguments, dry_run=tool.mutates and not confirm, given=given
+            )
         except InputRefused as refused:
             return _error(refused.error, 2)
         if tool.mutates and confirm:

@@ -24,7 +24,9 @@ from fenolite.mcp.tools import NOT_TOOLS, Catalog, InputRefused, tool_name
 
 COMMANDS = discover()
 CATALOG = Catalog(COMMANDS)
-PUBLIC = sorted(name for name, command in COMMANDS.items() if not command.hidden and name not in NOT_TOOLS)
+PUBLIC = sorted(
+    name for name, command in COMMANDS.items() if not command.hidden and name not in NOT_TOOLS | {"edit"}
+)
 
 
 def test_tools_listed() -> None:
@@ -45,6 +47,26 @@ def test_tools_excluded() -> None:
     names = {d["name"] for d in CATALOG.definitions()}
     assert not {"fenolite_mcp", "fenolite_skill", "fenolite__echo"} & names
     assert "serve" not in CATALOG.tools["fenolite_view"].definition["inputSchema"]["properties"]
+
+
+def test_tools_excluded_edit_by_default() -> None:
+    """Scenario "Edit not listed by default"; with allow_edit it is, but never read-only."""
+    assert "fenolite_edit" not in CATALOG.tools
+    assert "fenolite_edit" in Catalog(COMMANDS, allow_edit=True).tools
+    assert "fenolite_edit" not in Catalog(COMMANDS, allow_edit=True, read_only=True).tools
+
+
+def test_edit_takes_text_not_paths() -> None:
+    edit = Catalog(COMMANDS, allow_edit=True)
+    properties = edit.tools["fenolite_edit"].definition["inputSchema"]["properties"]
+    assert {"path", "content", "edits"} <= set(properties)
+    assert not {"content_file", "edits_file"} & set(properties)
+    with pytest.raises(InputRefused):  # a path the command would read is never the caller's
+        edit.command_line("fenolite_edit", {"path": "a.py", "content_file": "/etc/passwd"}, dry_run=True)
+    words = edit.command_line(
+        "fenolite_edit", {"path": "a.py", "content": "x"}, dry_run=True, given={"content_file": "in.txt"}
+    )
+    assert words == ["edit", "--content-file=in.txt", "--dry-run", "--", "a.py"]
 
 
 def test_tool_schema_follows_the_parser() -> None:

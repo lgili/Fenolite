@@ -83,3 +83,18 @@ def test_session_on_stdio(tmp_path: Path) -> None:
         rest = out.read()
         server.wait(30)
     assert server.returncode == 0 and rest == b""  # no envelope after the last message
+
+
+def test_allow_edit(capsys: Any, tmp_path: Path) -> None:
+    """Scenario "Edit listed only on request"."""
+    lists = {}
+    for name, extra in (
+        ("plain", ()),
+        ("edit", ("--allow-edit",)),
+        ("both", ("--allow-edit", "--read-only")),
+    ):
+        code, out, _ = run(capsys, "mcp", "--root", str(tmp_path), *extra, "--list", "--json")
+        assert code == 0
+        lists[name] = out["result"]["tools"]
+    assert "fenolite_edit" in lists["edit"]
+    assert "fenolite_edit" not in lists["plain"] and "fenolite_edit" not in lists["both"]
