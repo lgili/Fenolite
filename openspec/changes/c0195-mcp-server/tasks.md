@@ -49,8 +49,12 @@
 
 ## 3. Resources
 
-- [ ] 3.1 `fenolite.mcp.resources`: the guide pages and `capabilities` (scenario "A page read"). Proof:
+- [x] 3.1 `fenolite.mcp.resources`: the guide pages and `capabilities` (scenario "A page read"). Proof:
   `uv run pytest tests/unit/mcp/test_resources.py -q`.
+  - 2026-10-26: proof passed (4 tests): every guide page and `fenolite://capabilities` listed; a page's text
+    equals the `text` of `fenolite guide <topic> --json` (the `--text` print adds the status line
+    `fenolite guide: ok`, so the scenario names the JSON reply); the capabilities reply is run once and kept;
+    an unknown URI is not found.
 
 ## 4. Command, extras and CI
 

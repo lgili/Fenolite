@@ -75,7 +75,7 @@ The server SHALL list each page of the agent guide as the resource `fenolite://g
 
 #### Scenario: A page read
 - **WHEN** `uv run pytest tests/unit/mcp/test_resources.py` reads `fenolite://guide/start`
-- **THEN** the text is the page `fenolite guide start --text` prints
+- **THEN** the text is the page's `text` that `fenolite guide start --json` returns
 
 ### Requirement: Official client as oracle
 `tests/unit/mcp/test_sdk_oracle.py` SHALL run the official SDK's stdio client against `fenolite mcp`, list the tools and call `fenolite_capabilities`; it is skipped where the SDK is not installed and runs in the CI job `mcp`.

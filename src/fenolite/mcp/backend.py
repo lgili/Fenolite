@@ -23,7 +23,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from pathlib import Path
 from typing import IO, Any, cast
 
@@ -33,6 +33,7 @@ from fenolite.cli.errors import CliError, ErrorInfo
 from fenolite.cli.output import canonical_json, to_jsonable
 from fenolite.core.state import state_dir
 from fenolite.mcp.protocol import Call, UnknownTool
+from fenolite.mcp.resources import Resources
 from fenolite.mcp.tools import Catalog, InputRefused
 
 EXIT_KEY = "fenolite/exit"
@@ -40,8 +41,6 @@ EXIT_KEY = "fenolite/exit"
 GRACE = 5.0
 """Seconds between the terminate and the kill of a stopped call."""
 Json = dict[str, Any]
-Resources = Callable[[], list[Json]]
-Reader = Callable[[str], list[Json] | None]
 
 
 def _result(value: Json, exit_code: int) -> Json:
@@ -82,13 +81,11 @@ class FenoliteBackend:
         timeout: float,
         read_only: bool = False,
         only: list[str] | None = None,
-        resources: Resources | None = None,
-        reader: Reader | None = None,
         executable: list[str] | None = None,
     ) -> None:
         self.catalog = Catalog(commands, read_only=read_only, only=only)
         self.root, self.timeout = root.resolve(), timeout
-        self._resources, self._reader = resources, reader
+        self.guide = Resources(self.capabilities)
         self.executable = executable if executable is not None else [sys.executable, "-m", "fenolite"]
 
     # ------------------------------------------------------------------ Backend
@@ -97,10 +94,10 @@ class FenoliteBackend:
         return self.catalog.definitions()
 
     def resources(self) -> list[Json]:
-        return self._resources() if self._resources is not None else []
+        return self.guide.list()
 
     def read(self, uri: str) -> list[Json] | None:
-        return self._reader(uri) if self._reader is not None else None
+        return self.guide.read(uri)
 
     def call(self, name: str, arguments: Json, call: Call) -> Json:
         tool = self.catalog.tools.get(name)
@@ -124,6 +121,11 @@ class FenoliteBackend:
             at = words.index("--") if "--" in words else len(words)
             words = [*words[:at], "--confirm", f"--plan={plan}", *words[at:]]
         return self._run(name, words, call)
+
+    def capabilities(self) -> str:
+        """The JSON text of ``fenolite capabilities --json --no-tools``, run as any call is."""
+        reply = self._run("fenolite_capabilities", ["capabilities", "--no-tools"], Call())
+        return str(reply["content"][0]["text"])
 
     # ------------------------------------------------------------------ writes
 
