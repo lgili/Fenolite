@@ -6,7 +6,7 @@
 | model rule | written as |
 |---|---|
 | `clearance`, A `all`, B absent or `all` | the default rule's clearance and every class clearance raised to at least `min` |
-| `clearance`, one side a class or an `or` of classes, the other absent or `all` | one `(class_class (classes <c> <o>) (rule (clearance <min>)))` per written class `c` of that side and per other written class `o`, and the default rule's clearance against those classes; the class's clearance against itself is not raised |
+| `clearance`, one side a class or an `or` of classes, the other absent or `all` | one `(class_class (classes <c> <o>) (rule (clearance <min>)))` per written class `c` of that side and per other written class `o`; the class's clearance against itself is not raised; nets without a class keep the default clearance against `c`, with one `specctra.rule-not-sent` (info) naming the rule |
 | `clearance`, A and B classes or `or`s of classes | one `(class_class (classes <a> <b>) (rule (clearance <min>)))` in the network per pair of written classes; a class paired with itself raises its own clearance, unless a later rule of the board gives that same pair |
 | `track_width`, A classes, with `opt` | without a layer clause, those classes' width becomes `opt`; with one, each of its layers gives `(layer_rule <layer> (rule (width <opt>)))` in those classes |
 | `track_width`, A `all`, with `opt` | `opt` becomes the width of each class that holds no width of its own; a class width inside `[min, max]` is kept and one outside is clamped into it, with one `specctra.rule-widened` (info) naming the rule and the classes it left unchanged |
@@ -35,9 +35,9 @@
 - **THEN** the network holds `(class_class (classes HV SIG) (rule (clearance 1400)))`, the class `HV` keeps `(clearance 300)`, and no `class_class` pair `HV HV` is written
 
 #### Scenario: Board-wide preferred width keeps class widths
-- **GIVEN** classes `PWR` (width 1.0 mm) and `SIG` (0.25 mm), a class `BARE` without a width, and a `track_width` rule, A `all`, `min=0.1 mm`, `opt=3 mm`, `max=6 mm`
+- **GIVEN** classes `PWR` (width 1.0 mm) and `SIG` (0.25 mm), a class `HV` without a width, and a `track_width` rule, A `all`, `min=0.1 mm`, `opt=3 mm`, `max=6 mm`
 - **WHEN** `uv run pytest tests/unit/backends/specctra/test_dsn_rules.py -k width_all` calls `write_dsn`
-- **THEN** `PWR` holds `(width 1000)`, `SIG` holds `(width 250)`, `BARE` holds `(width 3000)`, and the result holds one `specctra.rule-widened` naming the rule, `PWR` and `SIG`
+- **THEN** `PWR` holds `(width 1000)`, `SIG` holds `(width 250)`, `HV` holds `(width 3000)`, and the result holds one `specctra.rule-widened` naming the rule, `PWR` and `SIG`
 
 #### Scenario: Per-layer width
 - **GIVEN** a `track_width` rule on `netclass SIG` with `layers=("F.Cu",)` and `min = opt = max = 0.35 mm`

@@ -77,6 +77,25 @@ board thickness, and the finish `None`. `export --gerbers` then gives one `expor
 (`where` `gerbers`), so the default is not taken for the design's; declare the stack-up with
 `design.stackup()` or in KiCad's Board Setup. The note changes no file and does not stop the writes: only an error does (change c0101; measurements in `docs/evidence/kicad-stackup.md`).
 
+## Read-back
+
+`fenolite export ... --readback` (change c0203) reads the files back before they are written, with
+Fenolite's own readers of what `kicad-cli` writes (`docs/formats/kicad/gerber.md`,
+`docs/formats/kicad/drill.md`), and checks:
+
+- the outline (file function `Profile`) closes into one contour per ring of the board, the outer edge,
+  each cut-out and each slot, matched by their boxes within the band of the board's arcs;
+- each drill hit and slot matches a hole of the board, a drilled pad or a via, in position and diameter
+  (1 µm) and plating (the `Plated` or `NonPlated` file), and each hole has one;
+- each row of the position file matches its footprint's position, rotation and side;
+- each copper layer has a Gerber file with the function `Copper,L<n>,…`, and the file of a layer that
+  holds copper draws something.
+
+A finding is an `export.readback-*` error and the export writes nothing. A construct outside the readers'
+subset (another coordinate format, inches, step and repeat, a zero-suppressed drill coordinate) is
+`export.readback-unsupported`: the readers never guess. A preset that changes those formats cannot be read
+back. The level is `KICAD-VERIFIED` for the subset (`H-K-READBACK-SUBSET`).
+
 ## Documents
 
 Six more kinds are documents for a manufacturer or an enclosure designer. Each is selected by its own

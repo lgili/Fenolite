@@ -50,7 +50,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     }
 )
 """The closed table of the codes of the impedance table and of ``fenolite impedance``."""
-EVIDENCE = Evidence(Level.INFERRED)
+EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-IMP-TABLE",))
 """The table itself is mechanical: it copies the model. Its level is the level of the design's source,
 which ``fenolite impedance`` combines with this one (``INFERRED`` for a built project, the read's for a
 KiCad project)."""

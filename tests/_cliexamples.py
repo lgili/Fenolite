@@ -17,6 +17,7 @@ from pathlib import Path
 
 from fenolite.cli import cmd_edit
 from fenolite.cli.cmd_fmt import EXAMPLE_COPY
+from fenolite.cli.cmd_publish import EXAMPLE_SOURCE, EXAMPLE_TARGET
 from fenolite.cli.cmd_restore import EXAMPLE_RECEIPT
 
 BOARD = Path(__file__).resolve().parent / "data" / "kicad" / "board" / "two_layer.kicad_pcb"
@@ -48,13 +49,36 @@ def _edit(folder: Path) -> None:
     (folder / cmd_edit.EXAMPLE_CONTENT).write_text("WIDTH_MM = 25\n", encoding="utf-8")
 
 
-PREPARED: dict[str, Callable[[Path], None]] = {"fmt": _fmt, "restore": _restore, "edit": _edit}
+def _publish(folder: Path) -> None:
+    """A project of one board, a copy of it with the board edited, and the copy's ``snapshot.json``."""
+    data = BOARD.read_bytes()
+    for name in (EXAMPLE_SOURCE, EXAMPLE_TARGET):
+        (folder / name).mkdir()
+    (folder / EXAMPLE_TARGET / "board.kicad_pcb").write_bytes(data)
+    (folder / EXAMPLE_SOURCE / "board.kicad_pcb").write_bytes(
+        data.replace(b"(kicad_pcb\n", b"(kicad_pcb  \n", 1)
+    )
+    manifest = {
+        "schema": "fenolite.snapshot.v0",
+        "source": EXAMPLE_TARGET,
+        "files": [{"path": "board.kicad_pcb", "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}],
+    }
+    (folder / EXAMPLE_SOURCE / "snapshot.json").write_bytes((json.dumps(manifest) + "\n").encode("utf-8"))
+
+
+PREPARED: dict[str, Callable[[Path], None]] = {
+    "fmt": _fmt,
+    "restore": _restore,
+    "edit": _edit,
+    "publish": _publish,
+}
 """Command name → the function that writes its example files into a folder."""
-PLANS_NOTHING = frozenset({"models"})
+PLANS_NOTHING = frozenset({"models", "refs"})
 """Mutating commands whose mutation example plans no write: ``models --vendor`` on the example board,
 whose footprints name no 3D model (cli-contract, "Models command": both examples exit 0 and run no
-subprocess; change c0116). The protocol with a real plan is tested in
-``tests/unit/cli/test_models_cmd.py``."""
+subprocess; change c0116); and ``refs --repoint`` on the example board, which holds no path to
+repoint. The protocol with a real plan is tested in ``tests/unit/cli/test_models_cmd.py`` and
+``tests/unit/safety/test_refs.py``."""
 
 
 def prepare_example(name: str, folder: Path) -> None:

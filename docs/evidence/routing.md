@@ -454,3 +454,21 @@ of the net `A` lie 3 mm on either side of the slot `S1`, across its axis.
 Without the `geo` extra (the `routing` job installs none) the test writes the L as two overlapping
 stadiums, which bound the router the same way; the design file's three keep-outs with the merged L are
 checked where the extra is installed (`-k keepouts`).
+
+## The router's input (c0197)
+
+Run locally on 2026-10-26 with Freerouting 2.4.1 (the pinned jar, `251101c3eeac`), OpenJDK 25.0.5 and
+`kicad-cli` 10.0.7 (`tests/routing/test_freerouting_planes.py -k router_input`, `FENOLITE_ROUTING_EVIDENCE=1`;
+the `routing` CI job runs it on 9.0 and 10.0.6). The bench is the plane bench with `J3` in the upper right corner,
+so the `HV` nets pass the pads of `SIG`, `GND` and `VCC` routed by `direct`, and every routed net on `F.Cu`. Its
+rules gain a board-wide `track_width` (min 0.15 mm, opt 1.2 mm, max 2 mm) and an `HV` clearance of 0.8 mm against
+all. "Before" is the file the earlier lowering wrote for them (every class at 1.2 mm, `HV` raised for itself),
+made with rules that the new lowering writes the same way; "after" is the new file.
+
+| outcome | value | hypotheses | what was seen |
+|---|---|---|---|
+| `dsn-router-input` | `better` | `H-G-DSN-WIDTH-ALL`, `H-G-DSN-ONE-SIDED` | before: 3 connections left open (`HV1`, `HV2`, `SIG5`), 0 clearance findings; after: none open, 0 clearance findings |
+
+The two changes were measured together: the bench separates neither effect, and a run of each alone was not
+needed for the defect that c0175 recorded.
+

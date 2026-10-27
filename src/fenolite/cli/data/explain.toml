@@ -69,6 +69,11 @@ meaning = "A file that 'fenolite fetch' obtained, from the network or from --fro
 fix = "Run the command again; a download may have been cut or altered on the way. With --from, name the file of the pinned version, downloaded from the address that --dry-run shows."
 see = "fetch"
 
+["FEN-3007"]
+meaning = "A file the command would read is kept only online by a sync client (OneDrive, iCloud Drive and the like): its operating system marks it as a placeholder. Reading it would make the client download it, and may block. Nothing was read."
+fix = "Make the project folder available offline in the sync client, wait until it is downloaded, and run the command again."
+see = "snapshot"
+
 ["FEN-4001"]
 meaning = "The command would write files and was given neither --dry-run nor --confirm, so it wrote nothing."
 fix = "Review result.plan, then run the same command with --confirm to write, or with --dry-run to only preview."
@@ -789,6 +794,11 @@ meaning = "The requirement lies inside the interval for the creepage, or the sea
 fix = "Measure the path by hand, or increase the distance until the lower bound passes."
 see = "analyze"
 
+["analysis.crossings-short"]
+meaning = "A cut of `--kinds crossings` must carry more open connections than the tracks its free ways fit on all copper layers together: the barrier it crosses (a row of pads, a gap, a slot, a rule area) leaves too little room for the nets that still have to pass."
+fix = "Widen the gaps or move the parts, open another layer, use a narrower class where it is allowed, or route some nets around the barrier; then run the crossing analysis again."
+see = "analyze"
+
 ["analysis.current-exceeded"]
 meaning = "The current capacity of a track or via is below the current its net requires."
 fix = "Widen the track, add copper thickness or vias, or correct the required current."
@@ -867,6 +877,41 @@ see = "analyze"
 ["analysis.requirement-unmatched"]
 meaning = "A row of the requirements matches no net, or a voltage is above every step of the table."
 fix = "Correct the net pattern or extend the table."
+see = "analyze"
+
+["analysis.return-split"]
+meaning = "A track of a net of `--kinds returns` crosses a gap of its reference copper on the neighbouring layer: the plane under it is split or cut there. Its return current goes around the gap, and the loop radiates and picks up noise. The message gives the layer, the item and the two ends of the span."
+fix = "Route the track around the gap, close the plane under it, or bridge the two planes with a stitching capacitor next to the crossing."
+see = "analyze"
+
+["analysis.return-via"]
+meaning = "A via of a net of `--kinds returns` has no via of a reference net within `--via-distance`: where the signal changes layer, its return cannot follow next to it."
+fix = "Put a reference (ground) via next to the signal via."
+see = "analyze"
+
+["analysis.sense-shared"]
+meaning = "Copper of a sense net (`--sense`) touches copper of another net, outside the net-tie group of one footprint: for example a sense track that starts on the pour of the bus beside the shunt pad. The sense voltage then includes the drop along that copper."
+fix = "Start the sense track on the sense pad of the element, built as a net tie, and keep pours and other tracks off the sense copper."
+see = "analyze"
+
+["analysis.tie-dangling"]
+meaning = "A tie of `--kinds ties` touches fewer than two copper items, so removing it separates nothing: it joins nothing on the board."
+fix = "Check that the ids name the tie's copper; a tie between two areas touches both."
+see = "analyze"
+
+["analysis.tie-extra"]
+meaning = "After the tie is removed and the net splits, one group still holds pads of both `--domains`: a second joint, or a part on the wrong ground. The message names the stray pad and the path that joins it."
+fix = "Remove the extra joint the path shows, or move the part to its own ground; then run the tie analysis again."
+see = "analyze"
+
+["analysis.tie-parallel"]
+meaning = "Removing exactly the tie's copper leaves the net in one piece: another path (a second tie, a via, a pour) joins the two sides. The row's `path` gives the shortest one, item by item."
+fix = "Remove the other joint, or name it in the tie if it is intended; then run the tie analysis again."
+see = "analyze"
+
+["analysis.tie-unmatched"]
+meaning = "A `--tie` part, a `--tie-item` id, a `--sense` net or a `--barrier` part names nothing on the board, so it takes no part in the analysis."
+fix = "Use the reference, the model id, the KiCad uuid or the locator as `fenolite inspect` or `fenolite net` shows it."
 see = "analyze"
 
 ["assembly.template-invalid"]
@@ -1496,6 +1541,36 @@ see = "export"
 ["export.page-too-small"]
 meaning = "The outline of the board does not fit the page of its drawing sheet, so the board PDF is cut at the page. The files are written all the same."
 fix = "Choose a larger paper for the board (Design.sheet(paper=...) in a script, or Page Settings in KiCad), or move the board onto the page, and export again."
+see = "export"
+
+["export.readback-drill"]
+meaning = "A hole of the drill files matches no hole of the board in position, diameter and plating, or a hole of the board (a drilled pad, a via, a slot) is in no drill file. Nothing was written."
+fix = "Read the message: it names the hole and the file. Fix the board, or report the file if the board is right."
+see = "export"
+
+["export.readback-empty"]
+meaning = "The Gerber file of a copper layer that holds copper draws nothing. Nothing was written."
+fix = "Check the layer in KiCad; report the file if the board holds copper there."
+see = "export"
+
+["export.readback-layer"]
+meaning = "A copper layer of the board, or the outline, has no Gerber file with its file function. Nothing was written."
+fix = "Export the Gerber files of every layer (no layer list that leaves one out), and report it if they were all asked."
+see = "export"
+
+["export.readback-outline"]
+meaning = "The outline file that kicad-cli wrote does not close into one contour per ring of the board (the outer edge, each cut-out and each slot), compared by their boxes. The fabricator would cut another shape. Nothing was written."
+fix = "Check the Edge.Cuts drawing of the board (an open corner, a stray line), fix it, and export again."
+see = "export"
+
+["export.readback-position"]
+meaning = "A row of the position file does not match its footprint: position, rotation or side. The assembler would place that part elsewhere. Nothing was written."
+fix = "Report the file with the board; check the part's placement and side in KiCad."
+see = "export"
+
+["export.readback-unsupported"]
+meaning = "A file holds a construct outside the subset that Fenolite's readers take: another coordinate format, inches, step and repeat, a zero-suppressed drill coordinate. The readers refuse instead of guessing. Nothing was written."
+fix = "Export without a preset that changes those formats, or without --readback, and report the file."
 see = "export"
 
 ["export.sheet-missing"]
@@ -2637,6 +2712,26 @@ meaning = "A power net (named by a Power interface, or holding a power input or 
 fix = "Put the net in a net class with a track width, add a track_width rule for it, or pour a zone on it."
 see = "ready"
 
+["refs.missing"]
+meaning = "A document of the project names a path that resolves to no file or folder: a library, a sheet, a 3D model or a drawing sheet that was moved or never copied."
+fix = "Copy the missing file into the project, or point the document at it again; `fenolite refs --repoint OLD=NEW` rewrites a common prefix."
+see = "refs"
+
+["refs.not-writable"]
+meaning = "A document holds paths that start with the --repoint prefix, but Fenolite does not rewrite documents of its format (an Altium project file). It was left as it is."
+fix = "Change those paths in the tool that owns the document."
+see = "refs"
+
+["refs.outside"]
+meaning = "A document of the project names a path outside the project folder. A copy of the project still depends on that folder, and a moved project may lose the file."
+fix = "Copy the file into the project and point the document at it, with `fenolite refs --repoint OLD=NEW`, or keep the dependency on purpose."
+see = "refs"
+
+["refs.unresolved"]
+meaning = "A document names a path through a variable other than ${KIPRJMOD} (a library folder of the installation, for example). Fenolite does not know its value, so it does not say whether the path resolves."
+fix = "Nothing to do when the variable is set in the tool; otherwise define it there."
+see = "refs"
+
 ["render.failed"]
 meaning = "A view could not be produced; 'where' is the view. It is never an error: a render is not a gate."
 fix = "Run again; check that kicad-cli of the running version has the render command."
@@ -2811,6 +2906,31 @@ see = "KiCad output"
 meaning = "A rule selects items in a way that cannot be written as a KiCad rule condition for the target."
 fix = "Simplify the selector to nets, net classes, layers and item kinds."
 see = "KiCad output"
+
+["safety.changed-since-receipt"]
+meaning = "A file of the destination differs from the hash the receipt recorded: someone saved it after the snapshot or after Fenolite's last write, or the receipt does not name it. Publishing would overwrite that work, so nothing was written."
+fix = "Merge that file by hand, or take a new snapshot and edit it again; `--skip-changed` publishes the other files and leaves this one."
+see = "publish"
+
+["safety.open-session"]
+meaning = "A file the command would write has a CAD tool's lock file beside it: the file is open in that tool (or was, before a crash). A save in the tool would overwrite this write, or this write would be lost on the tool's next save."
+fix = "Close the file in the tool and run the command again. A lock file left by a crash may be deleted once the tool is closed."
+see = "doctor"
+
+["safety.placeholder"]
+meaning = "`fenolite doctor --sessions` found a file that a sync client keeps only online."
+fix = "Make it available offline before a command reads it; a command that would read it exits 3 with FEN-3007."
+see = "doctor"
+
+["safety.skipped"]
+meaning = "With --skip-changed, a file of the destination that changed since the receipt was left as it is, and the other files were published."
+fix = "Merge that file by hand from the copy."
+see = "publish"
+
+["safety.unstable"]
+meaning = "A file of the project changed during each of four reads: a tool keeps saving it. No copy was made, since it would mix two states of the project."
+fix = "Close the tool that keeps saving, or wait until it is done, and run the snapshot again."
+see = "snapshot"
 
 ["specctra.pad-approximated"]
 meaning = "A pad shape has no exact Specctra form and was given to the router as a larger simple shape."

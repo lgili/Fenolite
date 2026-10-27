@@ -16,6 +16,7 @@ They write under the folder that `-o` names.
 fenolite export blink/build -o blink/build/fab --all --manifest --dry-run --json
 fenolite export blink/build -o blink/build/fab --all --manifest --confirm --json
 fenolite export blink/build -o blink/build/fab --gerbers --drill --confirm --json
+fenolite export blink/build -o blink/build/fab --gerbers --drill --pos --readback --confirm --json
 fenolite export blink/build -o blink/build/fab --step --pdf --sch-pdf --confirm --json
 ```
 
@@ -38,6 +39,10 @@ fenolite export blink/build -o blink/build/fab --step --pdf --sch-pdf --confirm 
 - A board without a declared stack-up gets KiCad's default one in the Gerber job file
   (`export.stackup-default`, info). Declare yours in the script (page `rules`).
 - Fenolite writes no Gerber itself: the files are KiCad's, so they show the board as KiCad sees it.
+- `--readback` reads the Gerber, drill and position files back before anything is written, and compares
+  them with the board: the outline's contours, every hole and slot (position, diameter, plating), every
+  position row, and a file for every copper layer. A mismatch is an `export.readback-*` error and no file
+  is written. Use it for the files you send to a fabricator.
 
 ## 3D models
 

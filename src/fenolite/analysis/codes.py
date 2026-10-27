@@ -36,6 +36,17 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         # net lengths ("Length analysis issue codes")
         "analysis.length-open": ("warning",),
         "analysis.length-stub": ("info",),
+        # ground ties and sense nets ("Ties analysis codes")
+        "analysis.tie-parallel": ("error",),
+        "analysis.tie-extra": ("error",),
+        "analysis.tie-dangling": ("warning",),
+        "analysis.tie-unmatched": ("warning",),
+        "analysis.sense-shared": ("error",),
+        # barrier crossings ("Crossings analysis code")
+        "analysis.crossings-short": ("warning",),
+        # return paths ("Return path codes")
+        "analysis.return-split": ("warning",),
+        "analysis.return-via": ("warning",),
     }
 )
 

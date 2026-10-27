@@ -452,6 +452,27 @@ def _dispatch(command: Command, args: argparse.Namespace, ctx: Context, started:
         return int(ExitCode.INTERNAL)
 
 
+def _open_sessions(writes: Sequence[PlannedWrite], cwd: Path) -> list[Issue]:
+    """One ``safety.open-session`` warning per planned file that has a CAD tool's lock file beside it."""
+    from fenolite.safety.codes import ISSUE_CODES as SAFETY_CODES
+    from fenolite.safety.sessions import open_sessions
+
+    found: list[Issue] = []
+    for session in open_sessions([cwd / w.path for w in writes]):
+        where = _relative(session.path, cwd)
+        found.append(
+            Issue(
+                code="safety.open-session",
+                severity=SAFETY_CODES["safety.open-session"],
+                message=f"{where} is open in {session.tool} ({_relative(session.lock, cwd)} lies beside it); "
+                "a save there would overwrite this write, and this write may be lost on its next save",
+                where=where,
+                hint="close the file in the tool first; a lock left by a crash may be deleted once closed",
+            )
+        )
+    return found
+
+
 def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: float,
              out: TextIO, err: TextIO) -> int:  # fmt: skip
     dry_run = bool(getattr(args, "dry_run", False))
@@ -480,6 +501,8 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
     n_errors = sum(1 for issue in outcome.issues if issue.severity == "error")
     # a command that reports an error plans, stages and writes nothing, `place --force` excepted
     writes = outcome.writes if not n_errors or outcome.write_on_error else ()
+    if writes:  # a file open in a CAD tool is about to be replaced (capability file-safety)
+        outcome = dataclasses.replace(outcome, issues=(*outcome.issues, *_open_sessions(writes, ctx.cwd)))
     rows = _rows(writes, ctx.cwd)
     plan_id: str | None = None
     if writes:

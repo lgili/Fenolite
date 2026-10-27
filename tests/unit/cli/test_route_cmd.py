@@ -811,6 +811,27 @@ def test_order_puts_nets_in_tiers(monkeypatch, tmp_path: Path, test_routers) -> 
     assert code == 0 and [net.tier for net in test_routers["test-partial"].jobs[0].nets] == [0, 0, 0]
 
 
+def test_order_several_globs_in_one_tier(monkeypatch, tmp_path: Path, test_routers) -> None:
+    """Scenario "Several globs in one tier" (change c0197)."""
+    board = rows_board(tmp_path, "A", "CLK1", "D0")
+    code, env, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "test-partial",
+        "--order", "CLK*, D*", "--dry-run",
+    )  # fmt: skip
+    assert code == 0, (env, error)
+    (job,) = test_routers["test-partial"].jobs
+    assert [(net.name, net.tier) for net in job.nets] == [("CLK1", 0), ("D0", 0), ("A", 1)]
+
+
+@pytest.mark.parametrize("value", ["CLK*,,D*", ",", "CLK*,"])
+def test_order_empty_glob(monkeypatch, tmp_path: Path, value: str) -> None:
+    board = rows_board(tmp_path, "A", "CLK1")
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "route", board.name, "--router", "direct", "--order", value, "--dry-run"
+    )
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--order"
+
+
 @pytest.mark.parametrize("value", ["0", "-5", "nan", "inf"])
 def test_timeout_bad_budget(monkeypatch, tmp_path: Path, value: str) -> None:
     """Scenario "Bad budget"."""

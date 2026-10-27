@@ -314,13 +314,18 @@ def test_built_input_compares_the_model_with_both_sides() -> None:
     report = _run(fake, ("model.validate", "erc.lite", "netlist.assignment_compare"), model=model, built=True)
     validate, erc, compare = report.stages
     assert validate.summary == {"model": {"components": 3, "nets": 3}}
-    assert validate.evidence == Evidence(Level.INFERRED) and erc.evidence == erc_lite.EVIDENCE
+    assert (
+        validate.evidence == Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
+        and erc.evidence == erc_lite.EVIDENCE
+    )
     pairs = compare.summary["pairs"]
     assert [(p["a"], p["b"], p["differences"]) for p in pairs] == [  # type: ignore[index,union-attr]
         ("model", "schematic", 0),
         ("model", "pcb", 0),
     ]
-    assert compare.evidence == Evidence(Level.INFERRED, hypotheses=("H-FAKE-NET", "H-FAKE-PCB", "H-FAKE-SCH"))
+    assert compare.evidence == Evidence(
+        Level.INFERRED, hypotheses=("H-FAKE-NET", "H-FAKE-PCB", "H-FAKE-SCH", "H-G-MODEL-OWN")
+    )
     assert len(fake.read_calls) == 1
 
 

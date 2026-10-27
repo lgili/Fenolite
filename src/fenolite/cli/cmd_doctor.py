@@ -23,8 +23,9 @@ from typing import Any
 from fenolite.backends.kicad import helpmatrix, versions
 from fenolite.backends.kicad.cli import KicadCli, KicadCliError, find_kicad_cli, kicad_cli_candidates
 from fenolite.cli.api import Command, Context, Result
+from fenolite.cli.errors import CliError
 from fenolite.core.errors import Issue, Severity
-from fenolite.core.evidence import Evidence
+from fenolite.core.evidence import Evidence, Level
 from fenolite.routing.plugins.specctra.freerouting import JAVA_MIN, FreeroutingRouter
 from fenolite.routing.registry import routers as routing_routers
 from fenolite.routing.registry import unavailable as routing_unavailable
@@ -50,6 +51,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--kicad-cli", dest="kicad_cli", action="append", default=[], metavar="PATH",
                         help="a kicad-cli to report (repeatable)")  # fmt: skip
     parser.add_argument("--no-run", action="store_true", help="list the candidates and run no tool")
+    parser.add_argument(
+        "--sessions",
+        default=None,
+        metavar="PATH",
+        help="instead: list the CAD lock files and the files kept only online under PATH (runs no tool)",
+    )
 
 
 def java_major(version_line: str) -> int | None:
@@ -130,7 +137,61 @@ def _evidence(evidence: Evidence) -> dict[str, object]:
     return {"level": evidence.level.value, "oracle": evidence.oracle, "hypotheses": list(evidence.hypotheses)}
 
 
+def _sessions(text: str, ctx: Context) -> Result:
+    """``--sessions PATH``: the lock files and the online-only files under ``PATH``; writes nothing."""
+    from fenolite.safety.codes import ISSUE_CODES as SAFETY_CODES
+    from fenolite.safety.placeholders import online_only
+    from fenolite.safety.sessions import lock_files
+
+    path = Path(text) if Path(text).is_absolute() else ctx.cwd / text
+    if not path.exists():
+        raise CliError("FEN-3001", f"{text} does not exist", where="--sessions")
+    root = path if path.is_dir() else path.parent
+    locks = [s for s in lock_files(root) if path.is_dir() or s.path == path]
+    candidates = [path] if path.is_file() else sorted(item for item in root.rglob("*") if item.is_file())
+    online = online_only(candidates)
+
+    def rel(item: Path) -> str:
+        return item.relative_to(root).as_posix() if item.is_relative_to(root) else item.as_posix()
+
+    issues: list[Issue] = []
+    for session in locks:
+        issues.append(
+            Issue(
+                "safety.open-session",
+                SAFETY_CODES["safety.open-session"],
+                f"{rel(session.path)} has a {session.tool} lock file ({rel(session.lock)})"
+                + ("" if session.path.exists() else "; the file is gone, so the lock is stale"),
+                where=rel(session.path),
+            )
+        )
+    for item in online:
+        issues.append(
+            Issue(
+                "safety.placeholder",
+                SAFETY_CODES["safety.placeholder"],
+                f"{rel(item)} is kept only online by a sync client",
+                where=rel(item),
+            )
+        )
+    result = {
+        "root": root.as_posix()
+        if not root.is_relative_to(ctx.cwd)
+        else (root.relative_to(ctx.cwd).as_posix() or "."),
+        "sessions": [
+            {"path": rel(s.path), "lock": rel(s.lock), "tool": s.tool, "stale": not s.path.exists()}
+            for s in locks
+        ],
+        "online_only": [rel(item) for item in online],
+    }
+    return Result(
+        result=result, issues=tuple(issues), evidence=Evidence(Level.INFERRED, hypotheses=("H-K-PRO-LOCK",))
+    )
+
+
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    if args.sessions is not None:
+        return _sessions(args.sessions, ctx)
     issues: list[Issue] = []
     explicit: list[str] = list(args.kicad_cli)
     for given in explicit:

@@ -52,6 +52,7 @@ ALLOWED: dict[str, set[str]] = {
     "mcp": {"cli", "agent"},
     "panel": {"model", "geometry", "backends*", "checks", "convert", "dsl"},
     "view": {"model", "geometry", "backends*"},
+    "safety": {"backends*"},
 }
 STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"

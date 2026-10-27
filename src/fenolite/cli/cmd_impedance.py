@@ -49,7 +49,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
 def _design(board: BoardInput, issues: list[Issue]) -> tuple[Design, Evidence, str]:
     """The design, the evidence of its source and the source's name: ``model`` or ``project``."""
     if board.built:
-        return built_model(board), Evidence(Level.INFERRED), "model"
+        return built_model(board), Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",)), "model"
     design, evidence = read_design(board)
     project = board.path.with_suffix(".kicad_pro")
     if project.is_file():

@@ -96,6 +96,10 @@ def _receipt(text: str, file: str) -> tuple[list[WrittenFile], list[str], str]:
     return written, backup, ident if isinstance(ident, str) and ident else receipt_id(written, backup)
 
 
+read_receipt = _receipt
+"""``(written, backup, id)`` of an envelope or of a bare receipt object (``publish`` reads them too)."""
+
+
 def _issue(code: str, message: str, where: str, hint: str = "") -> Issue:
     return Issue(code=code, severity=ISSUE_CODES[code], message=message, where=where, hint=hint)
 

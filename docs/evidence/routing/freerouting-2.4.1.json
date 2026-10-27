@@ -110,6 +110,10 @@
       "detail": "kicad-cli 9.0.9: fenolite route --router freerouting, 3 net(s) selected, 11 track(s), 1 via(s), 3 unconnected item(s) before and 0 after, new error types []",
       "value": "equal"
     },
+    "dsn-router-input": {
+      "detail": "kicad-cli 10.0.7: the bench with J3 in the upper right corner, every routed net on F.Cu, a board-wide track_width (min 0.15, opt 1.2, max 2 mm) and an HV clearance of 0.8 mm against all; before (every class at 1.2 mm, HV raised for itself): open connections 3 {'HV1': 1, 'HV2': 1, 'SIG5': 1}, 0 clearance finding(s); after (class widths kept, HV paired with the other classes): open connections 0 {}, 0 clearance finding(s); jar 251101c3eeac, openjdk version \"25.0.5\" 2026-10-20 LTS",
+      "value": "better"
+    },
     "dsn-units": {
       "detail": "largest distance to a pad centre: 0 nm",
       "value": "equal"

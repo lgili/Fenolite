@@ -4,29 +4,31 @@
 
 ## 1. Router input fidelity (package 1)
 
-- [ ] 1.1 Write a board-wide `track_width` rule with `opt` as the width of classes without one, and keep or clamp class widths (scenario "Board-wide preferred width keeps class widths"). Proof: `uv run pytest tests/unit/backends/specctra/test_dsn_rules.py -k width_all -q`.
-- [ ] 1.2 Write one-sided clearance rules as class pairs, and resolve a class against itself by the board's rule order (scenario "One-sided clearance writes pairs"). Proof: `uv run pytest tests/unit/backends/specctra/test_dsn_rules.py -k "one_sided or class_class" -q`.
-- [ ] 1.3 Accept comma-separated globs in `--order` (scenario "Several globs in one tier"). Proof: `uv run pytest tests/unit/cli/test_route_cmd.py -k order -q`.
-- [ ] 1.4 Bench: route an authored dense board with Freerouting before and after 1.1 and 1.2. Record the share routed and the new DRC findings in `docs/evidence/routing.md`, and register the two hypotheses of Decision 1 in `docs/hypotheses.md`. Proof: `FENOLITE_KICAD_CLI=docker:kicad/kicad:10.0.6 uv run pytest tests/kicad/routing/test_dsn_bench.py -rA`.
+Moved on 2026-10-26 to change c0197 (`openspec/changes/archive/2026-10-27-c0197-router-input/`), with its tasks 1.1 to 1.4 and its
+deltas of `specctra-dsn` and `cli-contract`, by the maintainer's choice to start the package alone.
 
 ## 2. Ground ties (package 2)
 
-- [ ] 2.1 Add `analysis/ties.py`: the copper graph, removal by ids, the groups, `analysis.tie-parallel` and `analysis.tie-extra` (scenarios of "Ground ties"). Proof: `uv run pytest tests/unit/analysis/test_ties.py -q`.
-- [ ] 2.2 Add `--sense` and the kind `domains` (scenarios of "Sense nets and isolation islands"). Proof: `uv run pytest tests/unit/analysis/test_ties.py -k "sense or islands" -q`.
-- [ ] 2.3 Wire `--kinds ties,domains` and their options into `analyze`, and document the codes in `docs/analyses.md` and `docs/cli-contract.md`. Proof: `uv run pytest tests/unit/cli/test_analyze_cmd.py tests/consistency -q`.
+Moved on 2026-10-26 to change c0198 (`openspec/changes/archive/2026-10-27-c0198-ground-ties/`), with its tasks 2.1 to 2.3 and its
+two ADDED requirements of `board-analyses` ("Ground ties", "Sense nets and isolation islands"), by the
+maintainer's choice to take the packages one at a time. The options of `ties` and `domains` in this change's
+MODIFIED "Analyze command" are those c0198 adds. `analysis.sense-entry` is left out there (c0198's design,
+decision 5).
 
 ## 3. Barrier crossings (package 3)
 
-- [ ] 3.1 Add `analysis/crossings.py` with the ways per layer and the demand (scenarios of "Barrier crossings"). Proof: `uv run pytest tests/unit/analysis/test_crossings.py -q`.
-- [ ] 3.2 Add `--render FILE.svg` under the mutation protocol, and wire the kind into `analyze`. Proof: `uv run pytest tests/unit/cli/test_analyze_cmd.py -k crossings -q`.
+Moved on 2026-10-26 to change c0199 (`openspec/changes/archive/2026-10-27-c0199-barrier-crossings/`), with its tasks 3.1 and 3.2
+and its ADDED requirement "Barrier crossings" of `board-analyses`, by the maintainer's choice to take the
+packages one at a time. `--render` is left out there, because `analyze` is read-only (c0199's design,
+decision 5); this change's MODIFIED "Analyze command" still lists it with `--width`.
 
 ## 4. File safety (package 9)
 
-- [ ] 4.1 Add `fenolite snapshot` (scenario "A file saved during the copy"). Proof: `uv run pytest tests/unit/safety/test_snapshot.py -q`.
-- [ ] 4.2 Add `fenolite publish` (scenario "The owner saved one file"). Proof: `uv run pytest tests/unit/safety/test_publish.py -q`.
-- [ ] 4.3 Register the KiCad lock-file pattern with its public source. Add `safety.open-session` to every writing command, and add `fenolite doctor --sessions` (scenario "A board open in KiCad"). Proof: `uv run pytest tests/unit/safety/test_sessions.py tests/unit/test_provenance.py -q`.
-- [ ] 4.4 Detect online-only files by their documented attributes on macOS and Windows; skip the case on a platform without them. Proof: `uv run pytest tests/unit/safety/test_placeholders.py -q`.
-- [ ] 4.5 Add `fenolite refs` with `--repoint` for KiCad projects; report other formats as `refs.not-writable` (scenario "A copied project still points at the old folder"). Proof: `uv run pytest tests/unit/safety/test_refs.py -q`.
+Tasks 4.1 to 4.5 moved on 2026-10-26 to change c0201 (`openspec/changes/archive/2026-10-27-c0201-file-safety/`), with the
+requirements "Stable snapshot", "Publish guarded by receipts", "Open sessions and placeholders" and
+"Project references" of `file-safety`, by the maintainer's choice of 2026-10-26 to do file safety first.
+Task 4.6 and "Gated and three-way differences" stay here.
+
 - [ ] 4.6 Add `diff --allow` and `--three-way`, and classify resave differences of Altium documents (scenario "A change outside the allowed set"). Proof: `uv run pytest tests/unit/checks/test_diff_gate.py -q`.
 
 ## 5. Practice checks (package 7)
@@ -88,7 +90,10 @@
 
 ## 12. Release checks (package 11)
 
-- [ ] 12.1 Add the Gerber and Excellon readers of the `kicad-cli` subset, and `export --readback` (scenario "A missing slot"). Proof: `uv run pytest tests/kicad/exports/test_readback.py -rA`.
+Task 12.1 moved on 2026-10-27 to change c0203 (`openspec/changes/archive/2026-10-27-c0203-fabrication-readback/`), with the
+requirement "Fabrication read-back" of `manufacturing-exports`, by the maintainer's order of 2026-10-26
+(item 5 of the consolidation list). Tasks 12.2 to 12.4 stay here.
+
 - [ ] 12.2 Add `api.trial` and `--gate drc` (scenario "One offending track dropped"). Proof: `uv run pytest tests/kicad/test_trial.py -rA`.
 - [ ] 12.3 Add `check --exclude` (scenario "An accepted unconnected item"), and reconcile a stored DRC report with the accepted exceptions. Proof: `uv run pytest tests/kicad/test_exclusions_write.py -rA`.
 - [ ] 12.4 Add `render --region` (scenario "Open connections in a region"). Proof: `uv run pytest tests/unit/exports/test_region_render.py -q`.

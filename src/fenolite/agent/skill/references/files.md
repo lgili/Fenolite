@@ -54,6 +54,32 @@ only:
 `result.level` is the highest level that holds. Exit 5 with `roundtrip.failed` (`where`: the first
 difference) means the write would change the file: edit it in KiCad, not with Fenolite.
 
+## Working on the owner's project
+
+```fenolite-cmd
+fenolite doctor --sessions project --json
+fenolite snapshot project/board.kicad_pcb --out work --confirm --json
+fenolite publish work --to project --receipt work/snapshot.json --dry-run --json
+fenolite refs work --json
+fenolite refs work --repoint C:/old/libs=C:/new/libs --dry-run --json
+```
+
+Do not edit the owner's files in place while they may be open:
+
+1. `doctor --sessions` lists the files open in KiCad (`safety.open-session`) and the files a sync client
+   keeps only online. Ask the owner to close them; every writing command repeats that warning for a file
+   of its plan.
+2. `snapshot` copies the board with its companions only when no save fell inside the copy, and writes
+   `snapshot.json`. Work on the copy.
+3. `publish` puts the copy back. It replaces a file only when its hash is still the one of
+   `snapshot.json`. A file the owner saved since is `safety.changed-since-receipt`, and nothing is written:
+   tell the owner, take a new snapshot, and do the edit again. Keep the envelope of the publish: it is the
+   receipt of the next one.
+4. `refs` lists the paths the documents hold. `refs.outside` means the copy still depends on another folder;
+   `--repoint OLD=NEW` rewrites a prefix in the KiCad documents.
+
+Exit 3 with `FEN-3007` means a file is kept only online: ask the owner to make the folder available offline.
+
 ## What changed between two files?
 
 ```fenolite-cmd

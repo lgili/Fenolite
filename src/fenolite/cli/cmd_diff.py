@@ -37,7 +37,7 @@ from fenolite.model.schematic import SchematicSheet
 
 HELP = "list the differences between two boards, libraries, built models or Altium files (runs no tool)"
 MODEL_KIND = "fenolite_model"
-MODEL_EVIDENCE = Evidence(Level.INFERRED)
+MODEL_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
 TREE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-SEXPR-STRICT",))
 TREE_KINDS = frozenset(
     {

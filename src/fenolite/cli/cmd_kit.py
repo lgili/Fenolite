@@ -51,7 +51,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
 )
 BUILD_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-A-KIT-STABLE",))
 """The kit's files are Fenolite's own writes; nothing was opened in Altium."""
-UNVERIFIED_RUN = Evidence(Level.INFERRED)
+UNVERIFIED_RUN = Evidence(Level.INFERRED, hypotheses=("H-A-KIT-STABLE",))
 """A run that did not pass in full, or that no tool performed, verifies nothing."""
 KIT_RUN = Evidence(Level.ALTIUM_VERIFIED_KIT)
 MAX_PRIVACY_ISSUES = 20

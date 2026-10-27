@@ -869,3 +869,185 @@ A slot SHALL give the same creepage as the same stadium drawn with `cutout(shape
 - **GIVEN** two copies of the shared fixture with two pads of different nets on either side of slot `S1`, one with `S1` and one with `cutout(shape.stadium(…))` of the same size
 - **WHEN** `uv run pytest tests/unit/analysis/test_creepage_slots.py` runs the creepage analysis on both
 - **THEN** the two reported creepages are equal to the nanometre, and with `--groove-width` above 2 mm both bridge the slot
+
+### Requirement: Tie removal by id
+`fenolite.analysis.ties.analyze_ties(design, *, pads, ties)` SHALL prove whether named items are the only joint of their nets' copper.
+- A tie MUST be a part (`Tie.of_part(REF)`, its pads) or copper items (`Tie.of_items(IDS)`: tracks, arcs, vias or zones by model id, native id or locator).
+- Items MUST be removed by their ids alone, never because their copper lies near a tie or inside its box.
+- The graph MUST join the copper items of the tie's nets that touch on a layer, as `touch_groups` does.
+
+#### Scenario: Removal by area is not used
+- **GIVEN** the authored board `ground()` of `tests/_groundties.py`, where the track `t2` of the power area ends inside the box of the tie `t1` without touching its copper
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k area` proves the tie `t1`
+- **THEN** `t2` is not removed and `Q2-1` stays in the power group
+
+### Requirement: Tie groups
+`analyze_ties` SHALL give one `TieRow` per tie that names something on the board.
+- The row MUST hold the removed items and `groups`: the sorted `REF-PIN` pads of each connected part that touches the tie after the removal, the groups sorted.
+- `split` MUST be true with two or more groups.
+- `zones` MUST be `filled`, `unfilled` (a zone of the tie's nets without fill, which also adds `analysis.input-missing`) or `none`.
+
+#### Scenario: A single tie splits the net
+- **GIVEN** the authored board `ground()` of `tests/_groundties.py`, whose `GND` copper is a power area and a control area joined only by the track `t1`
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k single` proves the tie `t1` with the domains `PWR=Q*` and `CTL=U*`
+- **THEN** the row holds the two groups `Q1-1, Q2-1` and `U1-1`, `split` is true, and no issue is reported
+
+### Requirement: Tie findings
+`analyze_ties` SHALL report a tie that is not the only joint, or that names or joins nothing.
+- One group MUST be `analysis.tie-parallel` (error), with the shortest other path between the tie's sides in the row's `path`.
+- A tie that touches fewer than two items MUST be `analysis.tie-dangling` (warning), and a name that matches nothing `analysis.tie-unmatched` (warning).
+#### Scenario: A parallel tie through a via
+- **GIVEN** the board `ground(via=True)`: the board of "Removal by area is not used" with a via in each area and a `B.Cu` track between them
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k parallel` proves the tie `t1`
+- **THEN** the row holds one group, and the issues hold one `analysis.tie-parallel` whose path runs fill, via, track, via, fill
+
+### Requirement: Tie domains
+`analyze_ties(..., domains=DOMAINS)` SHALL check that a split leaves each domain on its own side.
+- `DOMAINS` MUST name two domains, each a list of `REF-PIN` patterns.
+- After a split, a group that holds pads of both domains MUST be `analysis.tie-extra` (error), naming the stray pad of the domain with fewer pads in the group.
+
+#### Scenario: A control pad in the power area
+- **GIVEN** the board `ground(intruder=True)`, with the control pad `U2-1` inside the power area
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k extra` proves the tie `t1` with the domains `PWR=Q*` and `CTL=U*`
+- **THEN** the row is split, its `extra` is `U2-1`, and one `analysis.tie-extra` names `U2-1`
+
+### Requirement: Sense nets
+`analyze_ties(..., sense=NETS)` SHALL check that the copper of each sense net touches another net only through a net-tie part.
+- A node of a sense net that touches a node of another net MUST be `analysis.sense-shared` (error), naming both, unless the two are pads of one footprint in one net-tie group.
+- A sense net without copper MUST be `analysis.tie-unmatched` (warning).
+
+#### Scenario: A sense track that leaves from a pour
+- **GIVEN** the authored board `sense()`, where `ISENSE_P` starts on the pour of `DC_BUS` beside the shunt pad
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k sense` checks the sense nets `ISENSE_P` and `ISENSE_N`
+- **THEN** the issues hold one `analysis.sense-shared` naming the track and the fill, and `ISENSE_N`, which leaves through the net tie of the shunt, has none
+
+### Requirement: Isolation islands
+`fenolite.analysis.ties.isolation_islands(design, *, barriers)` SHALL report the islands of the nets of the circuit once the barrier parts are removed.
+- Every part that is not a barrier MUST join the nets of its pins; nets without a pin are left out.
+- Each island MUST hold its sorted nets and the barrier parts with a pin on it. It MUST read no copper.
+
+#### Scenario: Islands across an isolator
+- **GIVEN** the authored design `isolated()`, whose nets on the two sides of `U5` are joined only through `U5`
+- **WHEN** `uv run pytest tests/unit/analysis/test_ties.py -k islands` runs with the barrier `U5`
+- **THEN** the result holds two islands, `A1, A2` and `B1, B2`, each bounded by `U5`
+
+### Requirement: Ties and domains kinds in the analyze command
+`fenolite analyze` SHALL accept `ties` and `domains` in `--kinds` as kinds that are not in the default set.
+- `ties` takes `--tie REF` (repeatable), `--tie-item ID[,ID...]` (one tie per option, repeatable), `--domains A=GLOB,B=GLOB` and `--sense NET[,NET...]` (repeatable), and needs a tie or a sense net.
+- `domains` takes `--barrier REF[,REF...]` (repeatable) and needs it.
+- `docs/cli-contract.md` MUST document the kinds and their options under `analyze`.
+
+#### Scenario: Usage errors of the kinds
+- **WHEN** `fenolite analyze <board> --kinds current --tie NT1` or `fenolite analyze <board> --kinds domains` runs
+- **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Ties and domains results
+With the kinds `ties` and `domains`, `fenolite analyze` SHALL return their rows and judge their findings.
+- `result.ties`, `result.sense` and `result.domains` MUST hold the rows, and `result.summary` their counts; `result.inputs` gains the options of the kinds that ran.
+- An option without its kind, a kind without its option, `--domains` without two names, or an empty name MUST be `FEN-2001` (exit 2). An error finding gives exit 5.
+
+#### Scenario: Ties through the command
+- **GIVEN** the boards of `tests/_groundties.py` written as KiCad boards in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_ties.py` runs `fenolite analyze <board> --kinds ties --tie-item <uuid of t1> --json`, and the same with the parallel via
+- **THEN** the first exits 0 with a split row and the folder unchanged, and the second exits 5 with `analysis.tie-parallel`
+
+### Requirement: Ties analysis codes
+The table of analysis issue codes SHALL hold `analysis.tie-parallel`, `analysis.tie-extra` and `analysis.sense-shared` with severity `error`, and `analysis.tie-dangling` and `analysis.tie-unmatched` with severity `warning`.
+
+#### Scenario: Tie codes in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k tie_codes` runs
+- **THEN** each of the five codes has its one severity, and `issue("analysis.tie-parallel", ..., severity="warning")` raises `ValueError`
+
+### Requirement: Barrier crossings
+`fenolite.analysis.crossings.analyze_crossings(design, *, pads, cuts, width=None, clearance=None)` SHALL count the free ways across each cut on each copper layer.
+- `width` and `clearance` are those of a new track; by default the narrowest class width and its class's clearance. Without either, no way MUST be counted, with `analysis.input-missing`.
+- A way is a free interval of the cut between obstacles. It MUST fit `⌊(L + c) / (w + c)⌋` tracks for its length `L`.
+
+#### Scenario: Ways counted by hand
+- **GIVEN** the authored board `row()` of `tests/_crossbench.py`: eight through-hole pads of 1 mm at a pitch of 2.54 mm, a clearance of 0.2 mm, and a width of 0.25 mm
+- **WHEN** `uv run pytest tests/unit/analysis/test_crossings.py -k row` runs the analysis with the cut from the centre of the first pad to the centre of the last
+- **THEN** each of the seven gaps fits two tracks on each layer, as counted by hand in the bench, and the supply is 28
+
+### Requirement: Crossing obstacles
+`analyze_crossings` SHALL block the cut, on each copper layer, where a new track may not lie.
+- Item copper MUST grow by the larger of `clearance` and the item's class clearance.
+- The board edge and the cut-outs MUST grow by the board-wide edge clearance, else `clearance`; the cut outside the outline is blocked.
+- Holes without copper MUST grow by `clearance`, and rule areas that forbid tracks block their layers.
+
+#### Scenario: A cut that leaves the board
+- **GIVEN** the board `row()` and a cut from x −5 mm to x 65 mm at y 5 mm, beyond the 60 mm board
+- **WHEN** `uv run pytest tests/unit/analysis/test_crossings.py -k edge` runs the analysis
+- **THEN** each layer holds one way, from 0.2 mm inside the left edge to 0.2 mm inside the right edge
+
+### Requirement: Crossing ways and demand
+`analyze_crossings` SHALL give one `CrossingRow` per cut with its ways, its supply and its demand.
+- Each layer MUST list its ways and its obstacles; `supply` is the tracks of all layers.
+- The demand MUST list, per net, the open connections whose line meets the cut and the tracks and arcs that touch it.
+- When the open connections exceed the supply, the report MUST hold `analysis.crossings-short` (warning) naming the cut and both counts.
+
+#### Scenario: More nets than ways
+- **GIVEN** the board `row(links=20, top_only=True)`: twenty open connections across the row, and a rule area that forbids tracks on `B.Cu`
+- **WHEN** `uv run pytest tests/unit/analysis/test_crossings.py -k more_nets` runs the analysis
+- **THEN** `B.Cu` has no way, and the report holds one `analysis.crossings-short` naming 20 and 14
+
+### Requirement: Crossings kind in the analyze command
+`fenolite analyze` SHALL accept `crossings` in `--kinds` as a kind that is not in the default set.
+- It needs `--cut X1,Y1,X2,Y2` (repeatable, lengths with units); `--width` and `--clearance` are optional.
+- `result.crossings` MUST hold the rows and `result.summary.crossings` the counts; `result.inputs` gains the options.
+- An option without the kind, the kind without `--cut`, or a malformed cut MUST be `FEN-2001` (exit 2).
+
+#### Scenario: Ways through the command
+- **GIVEN** the board `row()` written as a KiCad board in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_crossings.py -k row` runs `fenolite analyze <board> --kinds crossings --cut 10mm,20mm,27.78mm,20mm --width 0.25mm --clearance 0.2mm --json`
+- **THEN** the exit code is 0, the row's supply is 28, and the folder is unchanged
+
+#### Scenario: Usage errors of the crossings kind
+- **WHEN** `fenolite analyze <board> --kinds crossings` or `fenolite analyze <board> --kinds crossings --cut 10mm,20mm,27mm` runs
+- **THEN** the exit code is 2 and stderr holds `FEN-2001`
+
+### Requirement: Crossings analysis code
+The table of analysis issue codes SHALL hold `analysis.crossings-short` with severity `warning`.
+
+#### Scenario: Crossings code in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k crossings_code` runs
+- **THEN** the code has severity `warning`, and `issue("analysis.crossings-short", ..., severity="error")` raises `ValueError`
+
+### Requirement: Return paths
+`fenolite.analysis.returns.analyze_returns(design, *, pads, nets)` SHALL report, per selected net, the parts of its tracks with no reference copper under them.
+- The reference layers MUST be the neighbours in the copper layer order; the reference copper is the stored fill of the `reference` nets there, else of every other net.
+- A span is a part of a centre line over no reference copper. It MUST be `split` when it lies inside its track, else `edge`.
+
+#### Scenario: A track across a split plane
+- **GIVEN** the authored bench of `tests/_returnbench.py`: a `GND` plane on `B.Cu` in two halves 4 mm apart, and `SIG1` on `F.Cu` across the gap
+- **WHEN** `uv run pytest tests/unit/analysis/test_returns.py -k gap` runs the analysis for `SIG*`
+- **THEN** `SIG1` has one `split` span of 4 mm between x 28 mm and x 32 mm, and the issues hold one `analysis.return-split`
+
+#### Scenario: A track that leaves the plane
+- **GIVEN** the same bench, where `SIG2` ends 1.5 mm beyond the plane
+- **WHEN** `uv run pytest tests/unit/analysis/test_returns.py -k edge` runs the analysis
+- **THEN** `SIG2` has one `edge` span of 1.5 mm and no finding
+
+### Requirement: Via returns
+`analyze_returns` SHALL pair each via of a selected net with the nearest via of a reference net, with the distance between their centres; with `via_distance`, a farther or missing one MUST be `analysis.return-via` (warning).
+
+#### Scenario: A signal via and its ground via
+- **GIVEN** the bench, where the via of `SIG4` lies 1 mm from a via of `GND`
+- **WHEN** `uv run pytest tests/unit/analysis/test_returns.py -k vias` runs the analysis without a distance, with 2 mm and with 0.5 mm
+- **THEN** the distance is 1 mm, and only the run with 0.5 mm holds one `analysis.return-via`
+
+### Requirement: Returns kind in the analyze command
+`fenolite analyze` SHALL accept `returns` in `--kinds` as a kind that is not in the default set.
+- It needs `--net GLOB` (repeatable, shared with `length`); `--reference NET[,NET...]` and `--via-distance LENGTH` are optional and need the kind.
+- `result.returns` MUST hold the rows, `result.summary.returns` the counts of nets, split and edge spans, and `result.inputs` its options. A violation of the option rules MUST be `FEN-2001` (exit 2).
+
+#### Scenario: Returns through the command
+- **GIVEN** the bench written as a KiCad board in `tmp_path`
+- **WHEN** `uv run pytest tests/unit/cli/test_analyze_returns.py` runs `fenolite analyze <board> --kinds returns --net SIG1 --json`, and the same for `SIG4` with `--via-distance 0.5mm`
+- **THEN** the first exits 0 with one split span and the folder unchanged, and the second holds one `analysis.return-via`
+
+### Requirement: Return path codes
+The table of analysis issue codes SHALL hold `analysis.return-split` and `analysis.return-via`, both with severity `warning`.
+
+#### Scenario: Return codes in the table
+- **WHEN** `uv run pytest tests/unit/analysis/test_findings.py -k return_codes` runs
+- **THEN** each code has the severity `warning`
