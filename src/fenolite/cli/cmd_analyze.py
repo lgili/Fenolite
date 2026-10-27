@@ -23,12 +23,15 @@ from typing import Any, cast
 from fenolite.analysis import EVIDENCE
 from fenolite.analysis.boundary import OVERLAP_NEEDS_GEO, board_boundary
 from fenolite.analysis.copper import ARC_TOL_NM
+from fenolite.analysis.crossings import Cut, analyze_crossings
 from fenolite.analysis.current import analyze_current
 from fenolite.analysis.distance import analyze_distances
 from fenolite.analysis.length import measure_lengths
 from fenolite.analysis.power import analyze_power
 from fenolite.analysis.report import AnalysisReport, sorted_issues
 from fenolite.analysis.requirements import Requirements, load_requirements
+from fenolite.analysis.returns import analyze_returns
+from fenolite.analysis.ties import Tie, analyze_ties, isolation_islands
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame, BoardPad, LengthFacts, LengthSource, ProjectSet
 from fenolite.cli._examples import EXAMPLE_BOARD
@@ -46,7 +49,7 @@ HELP = "measure current capacity, clearance and creepage of a board (read-only)"
 """The opt-in kinds are described with their options: power paths and insulation between layers."""
 KINDS = ("current", "clearance", "creepage")
 """The kinds that run without ``--kinds``."""
-OPT_IN_KINDS = ("power", "insulation", "length")
+OPT_IN_KINDS = ("power", "insulation", "length", "ties", "domains", "crossings", "returns")
 ALL_KINDS = (*KINDS, *OPT_IN_KINDS)
 ALL_LAYERS = "*"
 _CLEARANCE_CODES = ("analysis.clearance-below", "analysis.clearance-undecided", "analysis.embedded-below")
@@ -123,8 +126,8 @@ def _register(parser: argparse.ArgumentParser) -> None:
         action="append",
         default=[],
         metavar="GLOB",
-        help="with --kinds length: measure the nets whose name matches this pattern (repeatable); the "
-        "total is counted as KiCad of --kicad-version counts it",
+        help="with --kinds length or returns: the nets whose name matches this pattern (repeatable); a "
+        "length total is counted as KiCad of --kicad-version counts it",
     )
     parser.add_argument(
         "--from",
@@ -134,6 +137,78 @@ def _register(parser: argparse.ArgumentParser) -> None:
         metavar="REF",
         help="with --kinds length: measure the paths of a net from this part or pad, REF or REF-PIN "
         "(repeatable; default: the first pad of each net)",
+    )
+    parser.add_argument(
+        "--tie",
+        dest="tie_parts",
+        action="append",
+        default=[],
+        metavar="REF",
+        help="with --kinds ties: prove that this part (a net tie) is the only joint of its nets (repeatable)",
+    )
+    parser.add_argument(
+        "--tie-item",
+        dest="tie_items",
+        action="append",
+        default=[],
+        metavar="ID[,ID...]",
+        help="with --kinds ties: prove that these copper items (tracks, arcs, vias, zones; by id, uuid or "
+        "locator) are the only joint of their net; one tie per option (repeatable)",
+    )
+    parser.add_argument(
+        "--domains",
+        default=None,
+        metavar="A=GLOB,B=GLOB",
+        help="with --kinds ties: two named groups of pads by REF-PIN pattern; a name may repeat",
+    )
+    parser.add_argument(
+        "--sense",
+        action="append",
+        default=[],
+        metavar="NET[,NET...]",
+        help="with --kinds ties: sense nets whose copper may touch other nets only through a net-tie "
+        "part (repeatable)",
+    )
+    parser.add_argument(
+        "--cut",
+        action="append",
+        default=[],
+        metavar="X1,Y1,X2,Y2",
+        help="with --kinds crossings: a segment across a barrier, ends with units (repeatable)",
+    )
+    parser.add_argument(
+        "--width",
+        default=None,
+        metavar="LENGTH",
+        help="with --kinds crossings: the width of a track to fit (default: the narrowest class width)",
+    )
+    parser.add_argument(
+        "--clearance",
+        default=None,
+        metavar="LENGTH",
+        help="with --kinds crossings: the clearance of a new track (default: that of its class)",
+    )
+    parser.add_argument(
+        "--reference",
+        action="append",
+        default=[],
+        metavar="NET[,NET...]",
+        help="with --kinds returns: the reference nets (default: every other net with a fill on the "
+        "neighbouring layer) (repeatable)",
+    )
+    parser.add_argument(
+        "--via-distance",
+        default=None,
+        metavar="LENGTH",
+        help="with --kinds returns: a signal via farther than this from every reference via is a finding",
+    )
+    parser.add_argument(
+        "--barrier",
+        action="append",
+        default=[],
+        metavar="REF[,REF...]",
+        help="with --kinds domains: parts (isolators, transformers) that separate the islands of nets "
+        "(repeatable)",
     )
 
 
@@ -242,6 +317,64 @@ def _pairs(values: list[list[str]]) -> tuple[tuple[str, str], ...]:
     return tuple(pairs)
 
 
+def _cuts(values: list[str]) -> tuple[Cut, ...]:
+    cuts: list[Cut] = []
+    for text in values:
+        parts = text.split(",")
+        if len(parts) != 4:
+            raise CliError(
+                "FEN-2001",
+                f"--cut: {text!r} is not X1,Y1,X2,Y2",
+                where="--cut",
+                hint="--cut 10mm,20mm,27.78mm,20mm",
+            )
+        try:
+            x1, y1, x2, y2 = (parse_length(part.strip()) for part in parts)
+        except ValueError as error:
+            raise CliError(
+                "FEN-2001", f"--cut: {error}", where="--cut", hint="lengths need a unit: 10mm"
+            ) from None
+        if (x1, y1) == (x2, y2):
+            raise CliError("FEN-2001", f"--cut: {text!r} has two equal ends", where="--cut")
+        cuts.append(Cut(text, Point(x1, y1), Point(x2, y2)))
+    return tuple(cuts)
+
+
+def _list(values: list[str], option: str) -> tuple[str, ...]:
+    """The comma-separated names of a repeatable option, in order, without repeats."""
+    names: list[str] = []
+    for text in values:
+        parts = [name.strip() for name in text.split(",")]
+        if not all(parts):
+            raise CliError("FEN-2001", f"{option}: empty name in {text!r}", where=option)
+        names += parts
+    return tuple(dict.fromkeys(names))
+
+
+def _domains(text: str | None) -> dict[str, tuple[str, ...]] | None:
+    if text is None:
+        return None
+    found: dict[str, list[str]] = {}
+    for part in text.split(","):
+        name, eq, glob = part.partition("=")
+        if not eq or not name.strip() or not glob.strip():
+            raise CliError(
+                "FEN-2001",
+                f"--domains: {part!r} is not NAME=GLOB",
+                where="--domains",
+                hint="--domains PWR=Q*,CTL=U*",
+            )
+        found.setdefault(name.strip(), []).append(glob.strip())
+    if len(found) != 2:
+        raise CliError(
+            "FEN-2001",
+            f"--domains names {len(found)} domain(s); it takes two",
+            where="--domains",
+            hint="--domains PWR=Q*,CTL=U*",
+        )
+    return {name: tuple(globs) for name, globs in found.items()}
+
+
 def _requirements(name: str | None, cwd: Path) -> Requirements | None:
     if name is None:
         return None
@@ -309,12 +442,32 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     paths = _paths(args.power_paths)
     resistivity = _resistivity(args.resistivity)
     groove = None if args.groove_width is None else _length(args.groove_width, "--groove-width")
+    ties = [Tie.of_part(ref) for ref in _list(args.tie_parts, "--tie")]
+    ties += [Tie.of_items(_list([text], "--tie-item")) for text in args.tie_items]
+    domains = _domains(args.domains)
+    sense = _list(args.sense, "--sense")
+    barriers = _list(args.barrier, "--barrier")
+    cuts = _cuts(args.cut)
+    track_width = None if args.width is None else _length(args.width, "--width")
+    track_clearance = None if args.clearance is None else _length(args.clearance, "--clearance")
+    reference = _list(args.reference, "--reference")
+    via_distance = None if args.via_distance is None else _length(args.via_distance, "--via-distance")
     for option, given, kind in (
         ("--path", bool(paths), "power"),
         ("--resistivity", resistivity is not None, "power"),
         ("--groove-width", groove is not None, "creepage"),
-        ("--net", bool(args.length_nets), "length"),
+        ("--net", bool(args.length_nets) and "returns" not in kinds, "length"),
         ("--from", bool(args.length_from), "length"),
+        ("--tie", bool(args.tie_parts), "ties"),
+        ("--tie-item", bool(args.tie_items), "ties"),
+        ("--domains", domains is not None, "ties"),
+        ("--sense", bool(sense), "ties"),
+        ("--barrier", bool(barriers), "domains"),
+        ("--cut", bool(cuts), "crossings"),
+        ("--width", track_width is not None, "crossings"),
+        ("--clearance", track_clearance is not None, "crossings"),
+        ("--reference", bool(reference), "returns"),
+        ("--via-distance", via_distance is not None, "returns"),
     ):
         if given and kind not in kinds:
             raise CliError(
@@ -322,6 +475,19 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 f"{option} needs the kind {kind}, which is not among --kinds",
                 where=option,
                 hint=f"add {kind} to --kinds",
+            )
+    for kind, given, needs in (
+        ("ties", bool(ties or sense), "--tie, --tie-item or --sense"),
+        ("domains", bool(barriers), "--barrier"),
+        ("crossings", bool(cuts), "--cut"),
+        ("returns", bool(args.length_nets), "--net"),
+    ):
+        if kind in kinds and not given:
+            raise CliError(
+                "FEN-2001",
+                f"the kind {kind} needs {needs}",
+                where="--kinds",
+                hint=f"add {needs.split(',')[0]}",
             )
     requirements = _requirements(args.requirements, ctx.cwd)
 
@@ -342,7 +508,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     result: dict[str, Any] = {}
     summary: dict[str, Any] = {}
     boundary = board_boundary(design.board, thickness=thickness)
-    if boundary.problem == OVERLAP_NEEDS_GEO and {"clearance", "creepage", "insulation"} & set(kinds):
+    if boundary.problem == OVERLAP_NEEDS_GEO and {"clearance", "creepage", "insulation", "crossings"} & set(
+        kinds
+    ):
         # the union of overlapping cut-outs and slots needs the geo extra (change c0167)
         raise CliError(
             "FEN-6001",
@@ -428,6 +596,46 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         result["lengths"] = [_json(row) for row in lengths.rows]
         result["pairs"] = [_json(row) for row in lengths.pairs]
         summary["length"] = _json(dict(lengths.summary))
+    if "ties" in kinds:
+        tied = analyze_ties(design, pads=pads, ties=ties, domains=domains, sense=sense, arc_tol=arc_tol)
+        issues += tied.issues
+        evidences.append(tied.evidence)
+        result["ties"] = [_json(row) for row in tied.rows]
+        result["sense"] = [_json(row) for row in tied.sense]
+        summary["ties"] = dict(tied.summary)
+    if "domains" in kinds:
+        islands = isolation_islands(design, barriers=barriers)
+        issues += islands.issues
+        evidences.append(islands.evidence)
+        result["domains"] = [_json(island) for island in islands.islands]
+        summary["domains"] = {"islands": len(islands.islands)}
+    if "crossings" in kinds:
+        crossed = analyze_crossings(
+            design,
+            pads=pads,
+            cuts=cuts,
+            boundary=boundary,
+            width=track_width,
+            clearance=track_clearance,
+            arc_tol=arc_tol,
+        )
+        issues += crossed.issues
+        evidences.append(crossed.evidence)
+        result["crossings"] = [_json(row) for row in crossed.rows]
+        summary["crossings"] = dict(crossed.summary)
+    if "returns" in kinds:
+        returns = analyze_returns(
+            design,
+            pads=pads,
+            nets=tuple(args.length_nets),
+            reference=reference,
+            via_distance=via_distance,
+            arc_tol=arc_tol,
+        )
+        issues += returns.issues
+        evidences.append(returns.evidence)
+        result["returns"] = [_json(row) for row in returns.rows]
+        summary["returns"] = dict(returns.summary)
     result["summary"] = summary
     result["inputs"] = {
         "kinds": list(kinds),
@@ -451,6 +659,26 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "nets": list(args.length_nets),
             "from": list(args.length_from),
             "kicad_version": ctx.kicad_target,
+        }
+    if "ties" in kinds:
+        result["inputs"] |= {
+            "ties": [tie.name for tie in ties],
+            "domains": None if domains is None else {name: list(globs) for name, globs in domains.items()},
+            "sense": list(sense),
+        }
+    if "domains" in kinds:
+        result["inputs"]["barriers"] = list(barriers)
+    if "returns" in kinds:
+        result["inputs"] |= {
+            "nets": list(args.length_nets),
+            "reference": list(reference),
+            "via_distance": via_distance,
+        }
+    if "crossings" in kinds:
+        result["inputs"] |= {
+            "cuts": [cut.name for cut in cuts],
+            "width": track_width,
+            "clearance": track_clearance,
         }
     unique = sorted_issues(dict.fromkeys(issues))
     evidence = Evidence.combine(EVIDENCE, read.evidence, *evidences)

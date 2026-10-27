@@ -172,6 +172,12 @@ def test_unavailable_kind_runs_no_subprocess(tmp_path: Path, monkeypatch: pytest
 def test_issue_codes() -> None:
     assert dict(ISSUE_CODES) == {
         "export.failed": "error",
+        "export.readback-outline": "error",
+        "export.readback-drill": "error",
+        "export.readback-position": "error",
+        "export.readback-layer": "error",
+        "export.readback-empty": "error",
+        "export.readback-unsupported": "error",
         "export.kind-unavailable": "error",
         "export.stackup-default": "info",
         "render.failed": "warning",

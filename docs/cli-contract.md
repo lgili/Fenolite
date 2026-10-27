@@ -83,6 +83,7 @@ and that the same command can be run again.
 | `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …), and `DesignScriptError` (a design script that raised, or that binds no `design`) |
 | `FEN-3005` | geometry in the input cannot be represented | `GeometryError` (the message names the geometry code and the points) |
 | `FEN-3006` | fetched file does not match the pinned size or SHA-256 | the dispatcher, for a deferred write whose bytes differ from what the plan declared (see [fetch](#fetch)); the message holds the digest that was expected and the one that was found, and nothing is written |
+| `FEN-3007` | input file is kept only online by a sync client | `snapshot`, `publish` and `refs`, before any read: the message names the files that a sync client keeps online only (see [snapshot](#snapshot)); retryable once they are available offline |
 | `FEN-4002` | the plan named by `--plan` cannot be written as reviewed | the dispatcher, for `--confirm --plan ID`: the message names the first reason (see "Staged plans"); nothing is written |
 | `FEN-6003` | download failed | `fenolite fetch NAME --confirm` without `--from` (retryable; the hint names `--from FILE`) |
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
@@ -879,7 +880,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOB]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
 - **Selection.** A net is selected when it matches `--nets`, has two or more pads and has an open connection on the board, computed from the board after the rip (`docs/analyses.md`, "Open connections"). Copper of its own does not exclude a net; a closed net is never given to the router; a zone net needs `--include-zone-nets`.
 - **`--rip`** removes the tracks, arcs and vias of the matching nets first, but keeps locked copper and script copper (`result.rip_kept`).
@@ -887,7 +888,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 - **Write.** The board is planned when the command added a track, an arc or a via, no issue is an error, and the text changed or `--out` is given. Copper of nets that stay open is written too.
 - **`--require-complete`.** A selected net still open adds `route.incomplete`, plans no write and exits 5.
 - **`--timeout SECONDS`** is the time budget of the whole routing step, for every router: each process a router starts gets the time that is left. Without it the router's own default applies (900 s for `kicadroutingtools` and `freerouting`); no value stands for the default, so `--timeout 600` is 600 s. A value that is not a positive number exits 2 with `FEN-2001`. The built-in `direct` router starts no process and ignores it. When the budget ends, the copper of the router runs that finished is merged and planned as any routed copper, the run under way is stopped and gives none, and one `route.budget-exhausted` (warning) is reported; the exit code stays 0 when no issue is an error. Run `route` again to continue with the nets still open.
-- **`--order GLOB`** (repeatable, `fnmatch` on the net name) puts the selected nets in tiers: a net takes the index of the first glob it matches, and a net that matches none comes last. A router routes tier after tier, and the copper of earlier tiers is fixed for later ones. `--order` changes no selection.
+- **`--order GLOBS`** (repeatable; `fnmatch` globs on the net name, several separated by commas: `--order "GATE_*,SENSE_*" --order "*"`; change c0197) puts the selected nets in tiers: a net takes the index of the first value one of whose globs it matches, and a net that matches none comes last. An empty glob exits 2 with `FEN-2001`. A router routes tier after tier, and the copper of earlier tiers is fixed for later ones. `--order` changes no selection.
 - **Rules.** The design gets the net classes of the project file and the lifted rules of the rules file beside the board, and the project's `min_copper_edge_clearance` as one board-wide `edge_clearance` rule. A file that cannot be read gives `route.project-unread`.
 - **Plane layers and plane nets.** A copper layer of the KiCad type `power` is a plane layer (`result.plane_layers`), and a net with a zone on one is a plane net. A plane net is never given to a router, also with `--include-zone-nets`; each one that `--nets` selects gives `route.plane-net`. `--rip` rips the selected plane nets as other nets.
 - **Plane fan-out.** Before the router runs, each SMD pad of a selected plane net gets one short track and one through via, found by a deterministic search (`docs/routing.md`, "Plane fan-out"); a pad without room gives `kicad.fanout.failed` and stays open. `--no-plane-fanout` skips the step. The copper is written also when no net goes to a router or the router adds nothing. `result.plane_fanout` holds `nets` (the plane nets fanned out, sorted), the counts `pads`, `joined`, `tracks` and `vias`, and `failed` (`REF-NUMBER` of each pad left open, in board order); with `--no-plane-fanout`, `nets` is empty and the counts are 0.
@@ -1474,7 +1475,7 @@ KiCad's `kicad.drc.unconnected-items`. `fenolite net BOARD NAME` lists the open 
 
 `fenolite export PATH --out DIR [--gerbers] [--drill] [--pos] [--ipcd356] [--ipc2581] [--odb] [--step] [--pdf]
 [--dxf] [--sch-pdf] [--fab-drawing] [--assembly-drawing] [--drawing-spec FILE] [--all] [--altium-rul]
-[--manifest] [--preset FILE] [--kicad-cli PATH] [--timeout SECONDS]`
+[--manifest] [--preset FILE] [--readback] [--kicad-cli PATH] [--timeout SECONDS]`
 writes the fabrication files and documents that `kicad-cli` produces from a
 copy of the board `PATH` names (resolved as for `check`) and, for `--sch-pdf`, of its schematic. Fenolite writes no Gerber itself: the tool runs
 once per kind on the copy set of `check`, so the project folder never changes, and every file it wrote
@@ -1573,9 +1574,20 @@ the root schematic instead of the board's, and the `evidence` of a document entr
 `exports.DOCUMENTS_EVIDENCE`. When a kind fails, nothing is planned or written, so a
 folder never holds a partial set; a warning never holds the files back.
 
+`--readback` (change c0203; `docs/exports.md`, "Read-back") reads the Gerber, drill and position files of
+the run back with Fenolite's own readers of the subset `kicad-cli` writes, and compares them with the board
+before anything is planned: every finding is an `export.readback-*` error, so no file is written. It needs
+`--gerbers`, `--drill` or `--pos` (`FEN-2001` otherwise).
+
 | code | severity | when |
 |---|---|---|
 | `export.failed` | error | a kind's run exited non-zero, wrote no file or timed out (`retryable: true`); `where` is the kind. For `altium-rul`: the rules file cannot be read, or no rule has an exact Altium form |
+| `export.readback-outline` | error | `--readback`: the outline does not close into one contour per ring of the board (outer edge, cut-outs, slots), matched by their boxes |
+| `export.readback-drill` | error | `--readback`: a hit or slot matches no hole of the board in position, diameter and plating, or a hole has none |
+| `export.readback-position` | error | `--readback`: a row of the position file does not match its footprint's position, rotation and side |
+| `export.readback-layer` | error | `--readback`: a copper layer, or the outline, has no Gerber file with its file function |
+| `export.readback-empty` | error | `--readback`: the file of a copper layer that holds copper draws nothing |
+| `export.readback-unsupported` | error | `--readback`: a file holds a construct outside the subset the readers take (another coordinate format, inches, step and repeat, …) |
 | `export.kind-unavailable` | error | the running `kicad-cli` major cannot export the kind; no tool run |
 | `export.sheet-missing` | error | `--sch-pdf`: the hierarchy names a sheet file that is missing, outside the project folder, in a cycle or too large to copy (`where`); no tool run for the kind |
 | `export.model-unread` | warning | `--step`: `kicad-cli` printed that it could not add the model of a part (`where`) whose files Fenolite gave it |
@@ -1725,6 +1737,14 @@ read from the help pages through the package runner) and `evidence`. `result.by_
 to its candidates' paths; `result.java` (`path`, `version`, `major`) and `result.docker` (`path`,
 `version`, `daemon`) are `null` when missing. `--no-run` lists the candidates and runs no tool.
 
+`fenolite doctor --sessions PATH` runs no tool and reports instead what may stand between a command and
+the user's files (change c0201; `docs/file-safety.md`): `result.sessions` lists every CAD lock file under
+`PATH` (`path`, `lock`, `tool`, and `stale` when the file it names is gone), with one `safety.open-session`
+each, and `result.online_only` the files a sync client keeps only online, with one `safety.placeholder`
+each. Only KiCad's lock file (`~<file name>.lck`, S-0828, S-0829) is known; another tool's lock is not
+detected. **Open sessions:** every writing command adds one `safety.open-session` (warning) to its reply
+for each file of its plan that has such a lock beside it.
+
 | code | severity | when |
 |---|---|---|
 | `doctor.tool-missing` | warning | a tool is absent, or `--kicad-cli` or `FENOLITE_KICAD_CLI` names a missing file |
@@ -1817,11 +1837,13 @@ receipts, and report the written-board hash. See [placement](placement.md) for f
 
 ## analyze
 
-`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation,length] [--requirements FILE]
+`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation,length,ties,domains,crossings,returns] [--requirements FILE]
 [--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH]
 [--board-thickness LENGTH] [--pair NET_A NET_B]... [--within LENGTH] [--arc-tol LENGTH]
 [--path FROM TO]... [--resistivity NANOOHM_METRES] [--groove-width LENGTH] [--net GLOB]...
-[--from REF]...` measures the current
+[--from REF]... [--tie REF]... [--tie-item ID[,ID...]]... [--domains A=GLOB,B=GLOB] [--sense NET[,NET...]]...
+[--barrier REF[,REF...]]... [--cut X1,Y1,X2,Y2]... [--width LENGTH] [--clearance LENGTH] [--reference NET[,NET...]]...
+[--via-distance LENGTH]` measures the current
 capacity of tracks, arcs and vias, and the clearance and creepage of pairs of nets, on a board that a
 registered backend reads. On request it also measures power paths (`power`) and the insulation between
 layers (`insulation`). It is read-only: it runs no tool and writes no file. The user guide is
@@ -1865,6 +1887,49 @@ the user's file.
   length facts (an Altium PCB document) the rows hold routed lengths only, `major` is `null`, one
   `analysis.input-missing` names `length facts`, the level is `UNVERIFIED` and `--kicad-version`
   changes nothing. `--net` and `--from` without the kind `length` are usage errors (`FEN-2001`, exit 2).
+- The kind `ties` (on request, change c0198; `docs/analyses.md`, "Ground ties") proves ties by removing
+  exactly their copper. `--tie REF` (repeatable) names a part, whose pads are removed. `--tie-item
+  ID[,ID...]` (repeatable, one tie per option) names tracks, arcs, vias or zones by model id, KiCad uuid or
+  locator. `--domains A=GLOB,B=GLOB` names two domains of pads by `REF-PIN` pattern (a name may repeat).
+  `--sense NET[,NET...]` (repeatable) names sense nets. The kind needs a tie or a sense net.
+  - `result.ties` holds one row per tie that names something: `tie`, `nets`, `removed` (items with `kind`,
+    `id`, `where`, `net`, `layer`), `groups` (the pads of each part left that touches the tie), `split`,
+    `path` (the shortest other path when there is one group), `extra` (stray pads of a domain) and `zones`
+    (`filled`, `unfilled` or `none`).
+  - `result.sense` holds one row per sense net with copper: `net`, `items` and `shared` (the items of other
+    nets it touches).
+  - `result.summary.ties` counts `ties`, `split`, `sense` and `shared`, and `result.inputs` gains `ties`,
+    `domains` and `sense`.
+- The kind `domains` (on request) reads no copper. With `--barrier REF[,REF...]` (repeatable, required) it
+  joins the nets of every other part. `result.domains` holds the islands (`nets`, `barriers`, sorted),
+  `result.summary.domains.islands` their count, and `result.inputs.barriers` the barriers.
+- The kind `crossings` (on request, change c0199; `docs/analyses.md`, "Barrier crossings") counts the free
+  ways across each `--cut X1,Y1,X2,Y2` (repeatable, required, four lengths with units, two different ends)
+  on each copper layer. `--width` and `--clearance` give the new track; by default the narrowest class
+  width and its class's clearance.
+  - `result.crossings` holds one row per cut: `cut`, `a`, `b`, `length`, `width`, `clearance`, `layers`
+    (per copper layer: `layer`, `ways` with `start`, `end`, `length`, `tracks`, `a`, `b`, the layer's
+    `tracks`, and its `obstacles` with `start`, `end`, `kind`, `where`), `supply` (the tracks of all
+    layers), `demand` (per net: `net`, `open`, `routed`), `open` and `routed`.
+  - `result.summary.crossings` counts `cuts` and `short`, and `result.inputs` gains `cuts`, `width` and
+    `clearance`.
+  - `--cut`, `--width` and `--clearance` without the kind, the kind without `--cut`, and a malformed cut
+    are usage errors (`FEN-2001`, exit 2). `analysis.crossings-short` is a warning, so the kind alone exits
+    0.
+- The kind `returns` (on request, change c0202; `docs/analyses.md`, "Return paths") checks the return paths
+  of the nets that a `--net GLOB` (repeatable, required) matches. `--reference NET[,NET...]` (repeatable)
+  names the reference nets (default: every other net with a fill on a neighbouring copper layer), and
+  `--via-distance LENGTH` judges the distance from each via to the nearest reference via.
+  - `result.returns` holds one row per net: `net`, `length`, `unreferenced`, `spans` (`layer`, `where`,
+    `start`, `end`, `length`, `kind`: `split` or `edge`) and `vias` (`where`, `at`, `nearest`,
+    `distance`).
+  - `result.summary.returns` counts `nets`, `split` and `edge`; `result.inputs` gains `nets`, `reference`
+    and `via_distance`.
+  - The kind without `--net`, and `--reference` or `--via-distance` without it, are usage errors
+    (`FEN-2001`, exit 2). Its findings are warnings, so the kind alone exits 0.
+- `--tie`, `--tie-item`, `--domains` and `--sense` without the kind `ties`, `--barrier` without `domains`,
+  either kind without its option, `--domains` without exactly two names and an empty name in a list are
+  usage errors (`FEN-2001`, exit 2).
 - `--requirements FILE` names a TOML file of schema `fenolite.requirements.v0` (integers only, units in
   the key names): currents per net or net class, distances per pair, and an optional table from voltage
   to distance that is looked up without interpolation.
@@ -1933,6 +1998,14 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 | `analysis.creepage-over` | info | a clearance or a creepage of the pair crosses copper of a third net |
 | `analysis.length-open` | warning | pads of a measured net that its copper does not join to the start pad |
 | `analysis.length-stub` | info | copper of a measured net on no path from its start pad, with its length |
+| `analysis.tie-parallel` | error | removing a tie splits nothing: another path joins its sides |
+| `analysis.tie-extra` | error | after a split, a group holds pads of both `--domains` |
+| `analysis.tie-dangling` | warning | a tie touches fewer than two copper items, so it joins nothing |
+| `analysis.tie-unmatched` | warning | a tie, a sense net or a barrier part names nothing on the board |
+| `analysis.crossings-short` | warning | a cut must carry more open connections than the tracks its ways fit on all layers |
+| `analysis.return-split` | warning | a track crosses a gap of its reference copper on the neighbouring layer |
+| `analysis.return-via` | warning | a via has no reference via within `--via-distance` |
+| `analysis.sense-shared` | error | copper of a sense net touches copper of another net outside a net-tie group |
 | `kicad.length.default-stackup` | info | the board holds no stack-up, so via heights are counted on the default stack-up KiCad assumes |
 | `kicad.length.bad-die` | warning | a pad's die length is not a non-negative decimal; it counts as 0 |
 
@@ -2391,6 +2464,66 @@ A code that a tool's own type completes, such as `kicad.drc.clearance`, is expla
 family, and `result.family` is then `kicad.drc.*`. An unknown code exits 2 with `FEN-2001`, and the hint
 names the three closest codes. A test keeps the table complete: every code of every issue-code table and
 of the error registry has an entry.
+
+## snapshot
+
+`fenolite snapshot PATH --out DIR` copies a project that no save interrupted (change c0201;
+`docs/file-safety.md`). `PATH` is a design file, taken with its companions (the documents of its stem, the
+library tables beside it, and every file in its folder that one of those names: sheets, libraries,
+library folders, 3D models), or a folder, taken with every project file in it. The copy is accepted only
+when every file has the same SHA-256 before and after all were read; a file changed in between is read
+again, at most three times. `DIR/snapshot.json` (schema `fenolite.snapshot.v0`) lists `source` and
+`files` (`path`, `sha256`, `size`): it is the receipt of `publish`. It is a mutating command.
+
+- `result` holds `source`, `out`, `files`, `count` and `retries` (the files read again).
+- A file that never settles is `safety.unstable` (error, exit 5): nothing is copied.
+- `--out` inside the project folder is a usage error (`FEN-2001`, exit 2): a later snapshot would copy the copy.
+- A file that a sync client keeps only online stops the command before any read (`FEN-3007`, exit 3).
+
+## publish
+
+`fenolite publish SRC --to DST --receipt RECEIPT [--in DIR] [--skip-changed]` puts an edited copy back over
+a project (change c0201). It is a mutating command.
+
+- `RECEIPT` is the `snapshot.json` of the copy (paths relative to the project folder), or the envelope or
+  receipt of an earlier confirmed write of Fenolite into `DST` (paths relative to `--in`, default the
+  working directory).
+- Each file of `SRC` (but `snapshot.json`, backups, lock files and hidden folders) goes to the same path in
+  `DST`: added when new, not written when equal, and replaced only when the file of `DST` has the SHA-256
+  the receipt recorded for it.
+- A file of `DST` changed since the receipt, or that the receipt does not name, is
+  `safety.changed-since-receipt` (error, exit 5), and nothing is written. With `--skip-changed` it is
+  `safety.skipped` (warning): that file stays, and the others are written.
+- `publish` deletes nothing. `result` holds `source`, `to`, `added`, `replaced`, `changed` and `unchanged`
+  (a count); the receipt of the write is the next `RECEIPT`.
+
+## refs
+
+`fenolite refs PATH [--repoint OLD=NEW]` lists the paths that the documents of a project hold (change c0201):
+the `uri` of each library table row, the `Sheetfile` of each sheet, the first atom of each 3D `model` of
+boards and footprints, the two `page_layout_descr_file` keys of a KiCad project, and each `DocumentPath`
+of an Altium project. `PATH` is taken as `snapshot` takes it.
+
+- `result.refs` holds per path `document`, `kind` (`library`, `sheet`, `model`, `worksheet`, `document`),
+  `value` (as written), `resolved` (`${KIPRJMOD}` is the project folder; `null` through another variable),
+  `exists`, `outside` (outside the project folder) and `writable`; `result.count` and `result.rewritten`.
+- A path outside the project is `refs.outside` (warning), a path to nothing `refs.missing` (warning), a path
+  through another variable `refs.unresolved` (info).
+- `--repoint OLD=NEW` rewrites, under the mutation protocol, every path that starts with `OLD` in the KiCad
+  documents, replacing only those atoms. An Altium project that holds such a path is `refs.not-writable`
+  (warning) and stays as it is. Without `--repoint` the command plans no write.
+
+| code | severity | when |
+|---|---|---|
+| `safety.unstable` | error | a file changed during each of four reads; nothing is copied |
+| `safety.changed-since-receipt` | error | a file of the destination changed since the receipt, or the receipt does not name it; nothing is written |
+| `safety.skipped` | warning | with `--skip-changed`, such a file is left and the others are written |
+| `safety.open-session` | warning | a planned file, or a file under `doctor --sessions`, has a CAD lock file beside it |
+| `safety.placeholder` | warning | `doctor --sessions` found a file kept only online |
+| `refs.outside` | warning | a document names a path outside the project folder |
+| `refs.missing` | warning | a document names a path that resolves to nothing |
+| `refs.not-writable` | warning | a document of a format Fenolite does not rewrite holds a path to repoint |
+| `refs.unresolved` | info | a path goes through a variable other than `${KIPRJMOD}` |
 
 ## restore
 

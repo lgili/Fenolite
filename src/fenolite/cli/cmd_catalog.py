@@ -12,6 +12,9 @@ from fenolite.cli.errors import CliError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.model.library import FootprintDef, SymbolDef
 
+CATALOG_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CATALOG",))
+"""The catalog is authored for Fenolite and shown as stored."""
+
 
 def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("catalog_action", choices=("list", "show"), help="list entries or show one ID")
@@ -38,7 +41,7 @@ def _run(args: argparse.Namespace, _: Context) -> Result:
         entries = list_entries(kind=args.kind, query=args.query)
         return Result(
             result={"entries": [_entry(item) for item in entries], "count": len(entries)},
-            evidence=Evidence(Level.INFERRED),
+            evidence=CATALOG_EVIDENCE,
         )
     if args.lib_id is None:
         raise CliError("FEN-2001", "catalog show requires a lib id")
@@ -59,7 +62,7 @@ def _run(args: argparse.Namespace, _: Context) -> Result:
             "graphics": len(footprint.graphics),
             "description": footprint.description,
         }
-    return Result(result={**_entry(entry), "definition": detail}, evidence=Evidence(Level.INFERRED))
+    return Result(result={**_entry(entry), "definition": detail}, evidence=CATALOG_EVIDENCE)
 
 
 COMMAND = Command(

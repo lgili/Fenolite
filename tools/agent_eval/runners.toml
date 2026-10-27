@@ -27,25 +27,30 @@
 skill = "none"
 
 [claude-code]
-# Written from S-0618 alone (the page "Run Claude Code programmatically", read 2026-10-08), and not yet
-# checked against the --help of an installed version:
-#   -p PROMPT                      runs without a session at the keyboard
+# Written from S-0618 (the page "Run Claude Code programmatically", read 2026-10-08) and checked against
+# S-0832, the --help of Claude Code 2.1.311 (read 2026-10-27; c0081, task 4.2):
+#   -p PROMPT                        runs without a session at the keyboard
 #   --allowedTools "Bash,Read,Edit"  lets it run commands and read and edit files without asking
-#   --output-format json           one JSON document with the result and total_cost_usd
-#   --bare                         skips hooks, skills, plugins, MCP servers, auto memory and CLAUDE.md
-argv = ["claude", "-p", "{prompt}", "--allowedTools", "Bash,Read,Edit", "--output-format", "json"]
+#   --output-format json             one JSON document with the result and total_cost_usd
+#   --append-system-prompt-file F    adds the file to the system prompt: the guide that
+#                                    'skill install --agent claude-code' wrote, which --bare does not
+#                                    discover by itself (it says skills resolve only through /name)
+#   --bare                           skips hooks, plugins, auto memory and CLAUDE.md discovery, and reads
+#                                    no login: the run needs ANTHROPIC_API_KEY in the environment, which
+#                                    this tool never reads or sets
+#   --strict-mcp-config              loads no MCP server but those of --mcp-config (none here)
+#   --no-session-persistence         saves no session to disk
+#   --max-budget-usd 2               the agent's own cap on what one run spends
+#   --version                        prints the version
+# On Windows, where npm installs claude.cmd, the row is refused (the prompt is an argument with a line
+# break); run it on Linux or macOS, or name the .exe of the installed version in argv.
+argv = [
+    "claude", "-p", "{prompt}", "--allowedTools", "Bash,Read,Edit", "--output-format", "json",
+    "--append-system-prompt-file", "{workdir}/.claude/skills/fenolite/SKILL.md",
+]
+version_argv = ["claude", "--version"]
 skill = "agent:claude-code"
-source = "S-0618"
-isolation = ["--bare"]
+source = "S-0832"
+isolation = ["--bare", "--strict-mcp-config", "--no-session-persistence"]
+budget_flag = ["--max-budget-usd", "2"]
 report = { cost = "total_cost_usd" }
-unconfigured = """the maintainer completes this row before the first run (task 4.2 of c0081): \
-(1) version_argv is missing, because S-0618 names no flag that prints the version; \
-(2) S-0618 says that --bare also skips the skills of the work folder, so the guide that \
-'skill install --agent claude-code' writes there is not loaded: decide between the isolation flag and the \
-installed guide; (3) S-0618 names no flag for a cost or turn cap and no field for the model, the turns \
-or the tokens, so budget_flag and those report keys are left out; (4) S-0618 says that --bare reads no \
-login and needs ANTHROPIC_API_KEY in the environment, which this tool never reads or sets; \
-(5) check every flag against the --help of the installed version; \
-(6) on Windows, where npm installs claude.cmd, the row with {prompt} is refused (cmd.exe cuts the prompt \
-at its first line break): name the .exe of the installed version, or give the prompt with prompt_stdin \
-or {prompt_file} once its --help says how it reads one, then remove this key"""

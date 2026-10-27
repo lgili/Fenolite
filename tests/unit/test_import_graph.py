@@ -51,6 +51,7 @@ ALLOWED: dict[str, set[str]] = {
     "agent": {"cli"},
     "panel": {"model", "geometry", "backends*", "checks", "convert", "dsl"},
     "view": {"model", "geometry", "backends*"},
+    "safety": {"backends*"},
 }
 STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"

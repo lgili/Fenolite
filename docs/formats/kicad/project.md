@@ -296,3 +296,9 @@ Reading (`read_project`, `apply_project`): `ProjectInfo.profiles` holds the prof
 for 0), no tolerance, one row per entry with copper layers. An entry that lacks a key of the written form,
 has a width or gap that is not a whole number of nanometres, or names a layer the board does not have, is
 skipped with `kicad.project.unread-entry`. A profile that no class names stays in the file only.
+
+## Lock files (change c0201)
+
+| fact | source | label | hypothesis |
+|---|---|---|---|
+| While an editor holds a file open, KiCad keeps a lock file in that file's folder named `~` + the file name + `.lck` (`~board.kicad_pcb.lck`); it holds a JSON object with `username`, `hostname` and `token`, and is removed on close, so a crash leaves it behind | S-0828, S-0829 | INFERRED | H-K-PRO-LOCK |

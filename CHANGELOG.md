@@ -6,6 +6,27 @@ All notable changes to Fenolite are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Fabrication files read back** (c0203): `fenolite export --readback` reads the Gerber, drill and position files with Fenolite's own readers of what `kicad-cli` writes and compares them with the board before anything is written: the outline's contours, every hole and slot (position, diameter, plating), every position row, and a non-empty file for every copper layer. A mismatch is an `export.readback-*` error.
+
+- **Return paths checked** (c0202): `fenolite analyze --kinds returns --net GLOB` measures, per track, the parts of its centre line with no reference copper on a neighbouring layer; a part inside the track is a crossing of a gap (`analysis.return-split`), a part at its end is listed as an edge. `--via-distance` judges each signal via against the nearest reference via (`analysis.return-via`), and `--reference` names the reference nets.
+
+- **File safety for the owner's project** (c0201): `fenolite snapshot` copies a project only when no save fell inside the copy, with `snapshot.json`; `fenolite publish` puts an edited copy back, replacing only the files whose hash is still the recorded one (`safety.changed-since-receipt` otherwise); every writing command warns `safety.open-session` when KiCad holds a planned file open, and `fenolite doctor --sessions` lists lock files and online-only files; a file a sync client keeps only online stops a read with `FEN-3007`; `fenolite refs --repoint OLD=NEW` lists and rewrites the paths a project's documents hold.
+
+- **Ground ties proved by removing exactly their copper** (c0198): `fenolite analyze --kinds ties --tie REF` or `--tie-item ID[,ID...]` removes a net-tie part's pads, or tracks, vias and zones named by id, and lists the groups of pads left; one group is `analysis.tie-parallel` with the other path item by item, and `--domains PWR=Q*,CTL=U*` names a pad left on the wrong side (`analysis.tie-extra`). `--sense NET,NET` reports sense-net copper that touches another net outside a net-tie group (`analysis.sense-shared`), and `--kinds domains --barrier REF` lists the islands of nets an isolator separates, without reading copper.
+- **Barrier crossings counted** (c0199): `fenolite analyze --kinds crossings --cut X1,Y1,X2,Y2` lists, per copper layer, the free ways across the cut (copper grown by its clearance, the board edge, holes and rule areas that forbid tracks) and the tracks of `--width` each fits, then the nets whose open connections or copper cross it; `analysis.crossings-short` warns when the open connections exceed the tracks of all layers.
+
+### Changed
+
+- **The agent evaluation can run Claude Code** (c0081, task 4.2): the runner `claude-code` of `tools/agent_eval/runners.toml` is completed against the `--help` of Claude Code 2.1.311 (version flag, isolation with `--bare`, the installed guide given with `--append-system-prompt-file`, a cap of `--max-budget-usd 2`). The run itself is started by the maintainer: `make agent-eval TASK=led-indicator RUNNER=claude-code ARGS=--yes`, with `ANTHROPIC_API_KEY` set.
+
+### Fixed
+
+- **Every `INFERRED` reply names its hypothesis** (c0200): eighteen evidence values were `INFERRED` with no hypothesis; eight hypotheses are registered (`H-G-MODEL-OWN`, `H-G-PLACE-RULES`, `H-G-CATALOG`, `H-G-IMP-TABLE`, `H-G-VIEW-SCENE`, `H-A-LAYOUT-REPLAY`, `H-G-TIES`, `H-G-CROSSINGS`) and each site cites one; a test of the source keeps the v1.0 rule.
+
+- **The router's design file keeps class widths and pairs one-sided clearances** (c0197): a board-wide `track_width` rule with `opt` sets only the classes without a width (the others kept within its limits, with an info), and a one-sided `clearance` rule is written as class pairs instead of raising the class against its own nets. On the plane bench routed with Freerouting, the earlier file left 3 connections open and the new one none. `fenolite route --order` takes several comma-separated globs per tier.
+
 ## [0.5.0] - 2026-10-15
 
 ### Added

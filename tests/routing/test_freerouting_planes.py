@@ -372,6 +372,99 @@ def test_clearance_class_class(hermetic: Path) -> None:
     assert equal, (counts, routed_high)
 
 
+# -- the router's input of change c0197: a board-wide preferred width and a one-sided clearance
+
+
+def _rule(name: str, kind: str, a: Selector, b: Selector | None = None, **values: int) -> Rule:
+    return Rule(
+        id=derived_id("rul", "planebench", f"c0197:{name}"), name=name, kind=kind, selector_a=a, selector_b=b,
+        **values,  # type: ignore[arg-type]
+    )  # fmt: skip
+
+
+def _netclass(*names: str) -> Selector:
+    leaves = tuple(Selector("netclass", name) for name in names)
+    return leaves[0] if len(leaves) == 1 else Selector("or", items=leaves)
+
+
+def _clearance_findings(cli: KicadCli, board: Path, design: Design) -> int:
+    """KiCad's clearance violations on ``design`` written over ``board``, judged by the bench's own rules."""
+    board.write_text(write_board(design, target=_target(cli)).text, encoding="utf-8")
+    files = {p.name: p for p in (board.with_suffix(".kicad_pro"), board.with_suffix(".kicad_dru"))}
+    report = cli.drc(board, files=files).report
+    assert report is not None, "kicad-cli wrote no DRC report"
+    return sum(violation.type == "clearance" for violation in report.violations)
+
+
+@pytest.mark.needs_kicad
+def test_router_input_bench(hermetic: Path) -> None:
+    """``dsn-router-input`` (change c0197, task 1.4): the bench with ``HV`` passing ``SIG``, every routed net
+    on ``F.Cu``, routed with a board-wide width rule (``opt`` 1.2 mm) and a one-sided ``HV`` clearance of
+    0.8 mm. "Before" is the file the earlier lowering wrote for those rules, made with rules that the new
+    lowering writes the same way (the width on every class; ``HV`` against itself and the others); "after" is
+    the new file. Measured: the connections left open and KiCad's clearance findings."""
+    binary = kicad_cli()
+    assert binary is not None
+    cli = KicadCli(Path(binary), timeout=300)
+    built = pb.build_project(hermetic / "input", target=_target(cli), hv_near=True)
+    code, _env, err = pb.run_cli(
+        "route",
+        str(built),
+        "--router",
+        "direct",
+        "--nets",
+        "GND",
+        "--nets",
+        "VCC",
+        "--confirm",
+        "--no-backup",
+    )
+    assert code == 0, err
+    near = pb.load(built)
+    width = {"min": 150_000, "opt": 1_200_000, "max": 2_000_000}
+    after = (
+        _rule("wide", "track_width", Selector("all"), **width),
+        _rule("hv-any", "clearance", _netclass("HV"), min=800_000),
+    )
+    before = (
+        _rule("wide-each", "track_width", _netclass("HV", "PWR", "SIG"), **width),
+        _rule("hv-hv", "clearance", _netclass("HV"), _netclass("HV"), min=800_000),
+        _rule("hv-others", "clearance", _netclass("HV"), _netclass("PWR", "SIG"), min=800_000),
+    )
+    one_layer = {name: ("F.Cu",) for name in ROUTED}
+    found: dict[str, Routed] = {}
+    findings: dict[str, int] = {}
+    for label, rules in (("before", before), ("after", after)):
+        used = pb.with_rules(near, *rules)
+        found[label] = run(used, hermetic / f"run-input-{label}", net_layers=one_layer)
+        board = hermetic / f"input-{label}" / built.name
+        board.parent.mkdir()
+        for beside in (built.with_suffix(".kicad_pro"), built.with_suffix(".kicad_dru")):
+            shutil.copyfile(beside, board.parent / beside.name)
+        findings[label] = _clearance_findings(cli, board, _merged(near, found[label], ROUTED))
+    # the "before" file is the earlier lowering: every class at the preferred width, HV raised for itself
+    assert "(width 1200)" in found["before"].written.text and "(width 1200)" in found["after"].written.text
+    assert found["after"].written.text.count("(width 1200)") < found["before"].written.text.count(
+        "(width 1200)"
+    )
+    open_count = {label: sum(routed.open_nets.values()) for label, routed in found.items()}
+    better = open_count["after"] < open_count["before"] or (
+        open_count["after"] == open_count["before"] and findings["after"] < findings["before"]
+    )
+    worse = open_count["after"] > open_count["before"] or findings["after"] > findings["before"]
+    _record(
+        "dsn-router-input",
+        "better" if better and not worse else "worse" if worse else "equal",
+        f"kicad-cli {cli.version()}: the bench with J3 in the upper right corner, every routed net on F.Cu, "
+        "a board-wide track_width (min 0.15, opt 1.2, max 2 mm) and an HV clearance of 0.8 mm against all; "
+        f"before (every class at 1.2 mm, HV raised for itself): open connections {open_count['before']} "
+        f"{dict(found['before'].open_nets)}, {findings['before']} clearance finding(s); after (class widths "
+        f"kept, HV paired with the other classes): open connections {open_count['after']} "
+        f"{dict(found['after'].open_nets)}, {findings['after']} clearance finding(s)",
+    )
+    assert not worse, (open_count, findings)
+
+
 def test_clearance_layer_rule(fanned: pb.Loaded, hermetic: Path) -> None:
     """``dsn-layer-rule``: a ``layer_rule`` width holds on its layer and the class width on the others."""
     width = Rule(

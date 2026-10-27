@@ -47,13 +47,16 @@ another type; a flag without a value is a switch.
 | `parity` | no | compare the board of a KiCad project with its schematic, and symbol pins with footprint pads: without kicad-cli for a project that fenolite build wrote, and for an Altium project (writes nothing) |
 | `place` | yes | place staged parts on the board in a grid, or move named parts (edits the board) |
 | `pnp` | yes | the placement (pick-and-place) table of a board, through a column template (writes FILE with --out) |
+| `publish` | yes | put an edited copy back over a project, replacing only the files unchanged since the receipt |
 | `ready` | no | say whether a KiCad project is electrically ready for fabrication: open nets, KiCad ERC and DRC, unconnected pins, power nets without a width or a zone, parts without a footprint or a value (read-only) |
+| `refs` | yes | list the paths a project's documents hold, and rewrite them with --repoint OLD=NEW |
 | `region` | no | list the footprints, pads, copper, zones and texts that touch a rectangle of a board (runs no tool) |
 | `render` | yes | render review views of a board through kicad-cli on a copy of the project (writes under DIR) |
 | `restore` | yes | put back the backups of one confirmed write, described by its receipt (deletes nothing) |
 | `roundtrip` | no | say up to which level (rt0, rt1, rt2) a KiCad file survives a read and a write |
 | `route` | yes | route selected KiCad board nets with a registered Fenolite routing plugin |
 | `skill` | yes | show the packaged agent skill, or install it into an agent's skill folder or point AGENTS.md at it |
+| `snapshot` | yes | copy a project that no save interrupted, with the hashes of its files (snapshot.json) |
 | `sync` | yes | copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
@@ -64,7 +67,7 @@ another type; a flag without a value is a switch.
 `fenolite analyze [OPTIONS] PATH`
 
 - `PATH`: a board file that a backend reads
-- `--kinds K,K`: analyses to run (default: current,clearance,creepage; on request: power,insulation,length)
+- `--kinds K,K`: analyses to run (default: current,clearance,creepage; on request: power,insulation,length,ties,domains,crossings,returns)
 - `--requirements FILE`: your requirements, a TOML file of integers
 - `--temp-rise KELVIN`: temperature rise for the capacity, e.g. 10
 - `--copper-thickness [LAYER=]LENGTH` (repeatable): copper thickness of every layer, or of one layer (repeatable), e.g. 35um or In1.Cu=18um
@@ -76,8 +79,18 @@ another type; a flag without a value is a switch.
 - `--path POWER_PATHS` (repeatable): with --kinds power: measure the copper between two sets of pads, each REF-PIN[,REF-PIN...] (repeatable); an estimate against your limits, not a simulation
 - `--resistivity NANOOHM_METRES`: with --kinds power: the resistivity of your copper at your temperature, e.g. 17.2; Fenolite assumes none
 - `--groove-width LENGTH`: with creepage: a groove narrower than this is bridged on the creepage path
-- `--net GLOB` (repeatable): with --kinds length: measure the nets whose name matches this pattern (repeatable); the total is counted as KiCad of --kicad-version counts it
+- `--net GLOB` (repeatable): with --kinds length or returns: the nets whose name matches this pattern (repeatable); a length total is counted as KiCad of --kicad-version counts it
 - `--from REF` (repeatable): with --kinds length: measure the paths of a net from this part or pad, REF or REF-PIN (repeatable; default: the first pad of each net)
+- `--tie REF` (repeatable): with --kinds ties: prove that this part (a net tie) is the only joint of its nets (repeatable)
+- `--tie-item ID[,ID...]` (repeatable): with --kinds ties: prove that these copper items (tracks, arcs, vias, zones; by id, uuid or locator) are the only joint of their net; one tie per option (repeatable)
+- `--domains A=GLOB,B=GLOB`: with --kinds ties: two named groups of pads by REF-PIN pattern; a name may repeat
+- `--sense NET[,NET...]` (repeatable): with --kinds ties: sense nets whose copper may touch other nets only through a net-tie part (repeatable)
+- `--cut X1,Y1,X2,Y2` (repeatable): with --kinds crossings: a segment across a barrier, ends with units (repeatable)
+- `--width LENGTH`: with --kinds crossings: the width of a track to fit (default: the narrowest class width)
+- `--clearance LENGTH`: with --kinds crossings: the clearance of a new track (default: that of its class)
+- `--reference NET[,NET...]` (repeatable): with --kinds returns: the reference nets (default: every other net with a fill on the neighbouring layer) (repeatable)
+- `--via-distance LENGTH`: with --kinds returns: a signal via farther than this from every reference via is a finding
+- `--barrier REF[,REF...]` (repeatable): with --kinds domains: parts (isolators, transformers) that separate the islands of nets (repeatable)
 
 ## bom
 
@@ -168,6 +181,7 @@ another type; a flag without a value is a switch.
 
 - `--kicad-cli PATH` (repeatable): a kicad-cli to report (repeatable)
 - `--no-run`: list the candidates and run no tool
+- `--sessions PATH`: instead: list the CAD lock files and the files kept only online under PATH (runs no tool)
 
 ## equivalent
 
@@ -216,6 +230,7 @@ another type; a flag without a value is a switch.
 - `--drawing-spec FILE`: a TOML file of paper, sheet, tables, notes and assembly options for the drawing kinds
 - `--manifest`: also add the files to fenolite-artifacts.json in DIR
 - `--preset FILE`: a TOML file of your fabrication options for the Gerber, drill and position exports
+- `--readback`: read the Gerber, drill and position files back and compare them with the board before anything is written (export.readback-*)
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
 
@@ -386,6 +401,16 @@ another type; a flag without a value is a switch.
 - `-o`, `--out FILE`: also write the table as a CSV file
 - `--manifest`: also add FILE to fenolite-artifacts.json in its folder
 
+## publish
+
+`fenolite publish [OPTIONS] --to DST --receipt RECEIPT SRC`
+
+- `SOURCE`: the folder of the edited copy
+- `--to DST`: the project folder to update
+- `--receipt RECEIPT`: the snapshot.json of the copy, or the envelope of Fenolite's last write into DST
+- `--in DIR`: the working directory of the write that RECEIPT records (default: the current one)
+- `--skip-changed`: leave the files changed since the receipt and write the others (warnings, not errors)
+
 ## ready
 
 `fenolite ready [OPTIONS] PATH`
@@ -394,6 +419,13 @@ another type; a flag without a value is a switch.
 - `--no-kicad`: run no kicad-cli: ERC and DRC are reported as skipped
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
+
+## refs
+
+`fenolite refs [OPTIONS] PATH`
+
+- `PATH`: a design file (with its companions) or a project folder
+- `--repoint OLD=NEW`: rewrite the paths that start with OLD to start with NEW (KiCad documents only)
 
 ## region
 
@@ -448,7 +480,7 @@ another type; a flag without a value is a switch.
 - `--router-path PATH`: KiCadRoutingTools checkout, or the Freerouting jar (docker:<image> runs a container)
 - `--router-python PATH`: Python interpreter for the external router
 - `--router-option KEY=VALUE` (repeatable): router-specific option
-- `--order GLOB` (repeatable): route the matching nets first (repeatable: one tier per glob, the other nets last)
+- `--order GLOBS` (repeatable): route the matching nets first (repeatable: one tier per value, globs separated by commas; the other nets last)
 - `--timeout SECONDS` (number): time budget of the whole routing step (default: the router's own, 900 s for the external routers); the copper of the router runs that finished in time is kept
 - `--allow-offsite`: allow a router that sends design data off this machine
 - `--escape REF[=grid|perimeter]` (repeatable): escape the pads of the matching parts before routing, with a router that has the escape feature (repeatable; the kind is found from the pads unless given)
@@ -463,6 +495,13 @@ another type; a flag without a value is a switch.
 - `--agent NAME`: install: the agent whose project skill folder is used
 - `--dir DIR`: install: any folder; the skill goes to DIR/fenolite
 - `--agents-md`: install: also keep a pointer section in the AGENTS.md of this folder
+
+## snapshot
+
+`fenolite snapshot [OPTIONS] --out DIR PATH`
+
+- `PATH`: a design file (with its companions) or a project folder
+- `--out DIR`: the folder of the copy
 
 ## sync
 

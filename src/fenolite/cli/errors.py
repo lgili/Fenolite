@@ -75,6 +75,13 @@ _SPECS = (
         "nothing was written; get the file again, or name a good copy with --from FILE",
     ),
     ErrorSpec(
+        "FEN-3007",
+        ExitCode.INPUT,
+        "input file is kept only online by a sync client; nothing was read",
+        "make the files available offline in the sync client, then run the command again",
+        retryable=True,
+    ),
+    ErrorSpec(
         "FEN-4001",
         ExitCode.CONFIRM_REQUIRED,
         "confirmation required; nothing was written",

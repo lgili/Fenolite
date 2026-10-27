@@ -822,7 +822,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "notes": [],
         "theme": None,
     }
-    evidence = Evidence(Level.INFERRED)
+    evidence = Evidence(Level.INFERRED, hypotheses=("H-G-VIEW-SCENE",))
     ref: InputRef | None = None
     scenes: dict[str, dict[str, Any]] = {}
     if doc is not None and doc.viewable and doc.file is not None and doc.present:

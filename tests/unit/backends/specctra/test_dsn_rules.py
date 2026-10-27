@@ -6,6 +6,7 @@ built-in catalog."""
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from collections.abc import Iterator
 from pathlib import Path
@@ -24,6 +25,10 @@ ROUTED = (*pb.SIGNALS, *pb.HIGH)
 ALL = Selector("all")
 SRC = Path(dsn.__file__).resolve().parent
 PRODUCED: set[str] = set()
+
+
+def mm(value: float) -> int:
+    return round(value * 1_000_000)
 
 
 def cls(name: str) -> Selector:
@@ -91,6 +96,33 @@ def infos(result: DsnResult, code: str) -> list[str]:
 # -- clearances
 
 
+def test_one_sided_clearance_writes_pairs(found: pb.Loaded) -> None:
+    """Scenario "One-sided clearance writes pairs" (change c0197)."""
+    result = write(found, rule("hv-any", "clearance", cls("HV"), min=1_400_000))
+    pairs = lists(result, "network", "class_class")
+    assert "(class_class (classes HV SIG) (rule (clearance 1400)))" in pairs
+    assert "(class_class (classes HV PWR) (rule (clearance 1400)))" in pairs
+    assert "(clearance 300)" in classes(result)["HV"]
+    assert not any("(classes HV HV)" in pair for pair in pairs)
+
+
+def test_class_class_self_pair_by_rule_order(found: pb.Loaded) -> None:
+    """A class against itself comes from rules naming it on both sides; the later rule wins (c0197)."""
+    both = Selector("or", items=(cls("HV"), cls("SIG")))
+    later_lower = write(
+        found,
+        rule("wide", "clearance", both, both, min=1_000_000),
+        rule("tight", "clearance", cls("HV"), cls("HV"), min=500_000),
+    )
+    made = classes(later_lower)
+    assert "(clearance 500)" in made["HV"] and "(clearance 1000)" in made["SIG"]
+    assert "(class_class (classes HV SIG) (rule (clearance 1000)))" in lists(
+        later_lower, "network", "class_class"
+    )
+    floor = write(found, rule("loose", "clearance", cls("HV"), cls("HV"), min=100_000))
+    assert "(clearance 300)" in classes(floor)["HV"]  # the class's own value stays a floor
+
+
 def test_class_class_clearance(found: pb.Loaded) -> None:
     """Scenario "Class to class clearance": the bench's own rule ``hv-sig``."""
     result = write(found, keep=True)
@@ -121,6 +153,8 @@ def test_board_wide_clearance_above_a_class_value(found: pb.Loaded) -> None:
 
 
 def test_clearance_of_named_classes(found: pb.Loaded) -> None:
+    """A one-sided rule pairs its classes with every other class and keeps their own values (change c0197;
+    before, it raised the class's own clearance, which kept the class away from its own nets)."""
     either = Selector("or", items=(cls("SIG"), cls("PWR")))
     result = write(
         found,
@@ -129,14 +163,21 @@ def test_clearance_of_named_classes(found: pb.Loaded) -> None:
     )
     made = classes(result)
     assert (
-        "(clearance 400)" in made["SIG"]
-        and "(clearance 400)" in made["PWR"]
+        "(clearance 200)" in made["SIG"]
+        and "(clearance 200)" in made["PWR"]
         and "(clearance 300)" in made["HV"]
     )
+    pairs = lists(result, "network", "class_class")
+    assert "(class_class (classes HV PWR) (rule (clearance 400)))" in pairs
+    assert "(class_class (classes HV SIG) (rule (clearance 400)))" in pairs
+    assert not any("(classes PWR PWR)" in p or "(classes SIG SIG)" in p for p in pairs)
     assert default_rule(result) == "(rule (width 250) (clearance 200))"
     # the other side: 'all' against classes selects the same pairs
     mirrored = write(found, rule("some", "clearance", ALL, either, min=400_000))
     assert classes(mirrored)["SIG"] == made["SIG"]
+    assert lists(mirrored, "network", "class_class") == lists(
+        write(found, rule("some", "clearance", either, min=400_000)), "network", "class_class"
+    )
 
 
 def test_pairs_combine_by_maximum_and_a_class_with_itself(found: pb.Loaded) -> None:
@@ -206,6 +247,30 @@ def test_width_with_and_without_opt(found: pb.Loaded) -> None:
     assert "(width 420)" in made["SIG"] and "(width 450)" in made["HV"] and "(width 420)" in made["PWR"]
     assert default_rule(result) == "(rule (width 420) (clearance 200))"
     assert "(width 300)" in classes(write(found, rule("pref", "track_width", cls("SIG"), opt=300_000)))["SIG"]
+
+
+def test_width_all_keeps_class_widths(found: pb.Loaded) -> None:
+    """Scenario "Board-wide preferred width keeps class widths" (change c0197): PWR 1.0 mm and SIG 0.25 mm
+    keep theirs, HV without a width takes opt, and one info names the rule and the classes it left."""
+    widths = {"PWR": mm(1.0), "SIG": mm(0.25), "HV": None}
+    netclasses = tuple(
+        dataclasses.replace(c, track_width=widths.get(c.name, c.track_width))
+        for c in found.design.circuit.netclasses
+    )
+    circuit = dataclasses.replace(found.design.circuit, netclasses=netclasses)
+    varied = dataclasses.replace(found, design=dataclasses.replace(found.design, circuit=circuit))
+    result = write(varied, rule("wide", "track_width", min=mm(0.1), opt=mm(3), max=mm(6)))
+    made = classes(result)
+    assert "(width 1000)" in made["PWR"] and "(width 250)" in made["SIG"] and "(width 3000)" in made["HV"]
+    (message,) = infos(result, "specctra.rule-widened")
+    assert "'wide'" in message and "PWR, SIG" in message
+    assert default_rule(result).startswith("(rule (width 3000)")
+
+
+def test_width_all_clamps_a_class_width(found: pb.Loaded) -> None:
+    result = write(found, rule("narrow", "track_width", min=mm(0.3), opt=mm(0.35), max=mm(0.45)))
+    made = classes(result)
+    assert "(width 300)" in made["SIG"] and "(width 400)" in made["PWR"] and "(width 450)" in made["HV"]
 
 
 def test_width_rules_the_file_cannot_carry(found: pb.Loaded) -> None:

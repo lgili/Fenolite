@@ -35,9 +35,9 @@ from fenolite.model.schematic import SchematicSheet
 BUILT_FILES = ("meta.json", "build.json")
 """A folder that holds one of these directly is a built design (a ``.fenolite/`` folder)."""
 BUILT_BACKEND = "fenolite"
-BUILT_EVIDENCE = Evidence(Level.INFERRED)
+BUILT_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
 MODEL_BACKEND = "model"
-MODEL_EVIDENCE = Evidence(Level.INFERRED)
+MODEL_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-MODEL-OWN",))
 """The evidence of a design given directly, as of a built design: nothing says what wrote it."""
 DEFAULT_TIMEOUT = 300.0
 IMPORT_MAJOR = 10

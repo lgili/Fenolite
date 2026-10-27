@@ -178,7 +178,9 @@ def test_stage_in_the_pipeline_takes_the_backends_scope_and_evidence() -> None:
 
     stage = run(model)
     assert (stage.status, stage.summary["holds"]) == ("ok", True)
-    assert stage.evidence == Evidence(Level.INFERRED, hypotheses=("H-FAKE-RTA2", "H-FAKE-SCH"))
+    assert stage.evidence == Evidence(
+        Level.INFERRED, hypotheses=("H-FAKE-RTA2", "H-FAKE-SCH", "H-G-MODEL-OWN")
+    )
     changed = dataclasses.replace(model, circuit=_circuit("m", value="22k"))
     assert [i.where for i in run(changed).issues][:1] == ["schematic:/component/R1/value"]
     assert run(model, built=False).reason == "native-input"

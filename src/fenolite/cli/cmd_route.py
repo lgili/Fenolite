@@ -141,8 +141,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--order",
         action="append",
         default=[],
-        metavar="GLOB",
-        help="route the matching nets first (repeatable: one tier per glob, the other nets last)",
+        metavar="GLOBS",
+        help="route the matching nets first (repeatable: one tier per value, globs separated by commas; "
+        "the other nets last)",
     )
     parser.add_argument(
         "--timeout",
@@ -198,11 +199,27 @@ def _router(name: str, args: argparse.Namespace) -> Router:
     return selected
 
 
-def _tier(name: str, order: tuple[str, ...]) -> int:
-    """The tier of a net: the index of the first ``--order`` glob it matches, else the count of globs."""
+def _tier(name: str, order: tuple[tuple[str, ...], ...]) -> int:
+    """The tier of a net: the index of the first ``--order`` value one of whose globs it matches, else the
+    count of values (change c0197: a value holds globs separated by commas)."""
     return next(
-        (index for index, pattern in enumerate(order) if fnmatch.fnmatchcase(name, pattern)), len(order)
+        (index for index, globs in enumerate(order) if any(fnmatch.fnmatchcase(name, g) for g in globs)),
+        len(order),
     )
+
+
+def _order(values: list[str]) -> tuple[tuple[str, ...], ...]:
+    """The tiers of ``--order``: each value split on commas; an empty glob is a usage error."""
+    tiers: list[tuple[str, ...]] = []
+    for value in values:
+        globs = tuple(glob.strip() for glob in value.split(","))
+        if not all(globs):
+            raise CliError(
+                "FEN-2001", f"--order {value!r} holds an empty glob", where="--order",
+                hint="separate the globs of one tier by commas, such as --order 'CLK*,D*'",
+            )  # fmt: skip
+        tiers.append(globs)
+    return tuple(tiers)
 
 
 def _budget_json(seconds: float | None, spent: float, ended: bool) -> dict[str, object]:
@@ -331,7 +348,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             f"--timeout must be a positive number of seconds, got {args.timeout:g}",
             hint="--timeout is the time budget of the whole routing step",
         )
-    order = tuple(args.order)
+    order = _order(list(args.order))
     options: dict[str, str] = {}
     for option in args.router_option:
         key, separator, value = option.partition("=")

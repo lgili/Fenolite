@@ -16,6 +16,13 @@ from fenolite.core.errors import Issue, Severity
 ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
     {
         "export.failed": "error",
+        # fabrication read-back (change c0203)
+        "export.readback-outline": "error",
+        "export.readback-drill": "error",
+        "export.readback-position": "error",
+        "export.readback-layer": "error",
+        "export.readback-empty": "error",
+        "export.readback-unsupported": "error",
         "export.kind-unavailable": "error",
         "export.stackup-default": "info",
         "render.failed": "warning",

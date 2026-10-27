@@ -245,14 +245,21 @@ def _lower_rules(
     defaults: DsnDefaults,
     copper: Sequence[str],
     issues: list[Issue],
+    unclassed: bool = False,
 ) -> _Lowered:
     """Lower ``rules`` over the written ``classes`` (name → model class) by the closed table; a rule the
-    subset cannot carry gives ``specctra.rule-not-sent``, a dropped layer clause ``specctra.rule-widened``."""
+    subset cannot carry gives ``specctra.rule-not-sent``, a dropped layer clause ``specctra.rule-widened``.
+    ``unclassed`` says that some written net has no class (change c0197: a one-sided clearance cannot reach
+    it)."""
     low = _Lowered(defaults.clearance, defaults.width)
     for name, cls in classes.items():
         low.class_clearance[name] = cls.clearance or defaults.clearance
         low.class_width[name] = cls.track_width or defaults.width
     opt_set: set[str] = set()
+    own_width = {name for name, cls in classes.items() if cls.track_width}
+    """Classes that hold a width of their own: a board-wide preferred width leaves them (change c0197)."""
+    self_clearance: dict[str, int] = {}
+    """A class against itself: the last rule that names it on both sides (change c0197)."""
 
     def not_sent(rule: Rule, why: str) -> None:
         issues.append(
@@ -302,14 +309,36 @@ def _lower_rules(
                 continue
             if rule.layers:
                 widened(rule)
+            if not side_a and not side_b:
+                raise_clearance(frozenset(), rule.min)
+                continue
             if not side_a or not side_b:
-                raise_clearance(side_a or side_b, rule.min)
+                # one-sided (change c0197): a pair against every other written class, and no raise of the
+                # class itself, which kept the class away from its own nets
+                named = side_a or side_b
+                others = sorted(set(low.class_clearance) - named)
+                pairs = [(c, o) for c in sorted(named) if c in low.class_clearance for o in others]
+                for c, o in pairs:
+                    key = (c, o) if c < o else (o, c)
+                    low.pairs[key] = max(low.pairs.get(key, 0), rule.min)
+                if DEFAULT_CLASS in named and DEFAULT_CLASS not in low.class_clearance:
+                    # the nets without a class: the default rule is theirs, and every class keeps its value
+                    low.clearance = max(low.clearance, rule.min)
+                elif unclassed and DEFAULT_CLASS not in low.class_clearance:
+                    not_sent(
+                        rule,
+                        "the nets without a class keep the default clearance against "
+                        f"{', '.join(sorted(named))}; give them a class to keep the rule",
+                    )
                 continue
             lost = False
             for a in sorted(side_a):
                 for b in sorted(side_b):
                     if a == b:
-                        raise_clearance(frozenset({a}), rule.min)
+                        if a in low.class_clearance:
+                            self_clearance[a] = rule.min  # the later rule of the board wins
+                        elif a == DEFAULT_CLASS:
+                            low.clearance = max(low.clearance, rule.min)
                     elif a in low.class_clearance and b in low.class_clearance:
                         key = (a, b) if a < b else (b, a)
                         low.pairs[key] = max(low.pairs.get(key, 0), rule.min)
@@ -346,6 +375,36 @@ def _lower_rules(
                             per_layer[layer] = max(per_layer.get(layer, 0), rule.opt)
                 continue
 
+            if not side_a and rule.opt is not None:
+                # board-wide with a preferred width (change c0197): opt for the classes without a width of
+                # their own and for the nets without a class; a class width is kept, clamped into the rule
+                kept = sorted(name for name in low.class_width if name in own_width or name in opt_set)
+                for name in low.class_width:
+                    if name in kept:
+                        value = (
+                            low.class_width[name]
+                            if rule.min is None
+                            else max(low.class_width[name], rule.min)
+                        )
+                        low.class_width[name] = (
+                            value if rule.max is None else min(value, max(rule.max, rule.min or 0))
+                        )
+                    else:
+                        low.class_width[name] = rule.opt
+                low.width = rule.opt
+                if kept:
+                    issues.append(
+                        Issue(
+                            "specctra.rule-widened",
+                            "info",
+                            f"the track_width rule {rule.name!r} applies to every net; its preferred width "
+                            f"goes only to the nets without a width of their own, and {', '.join(kept)} keep "
+                            "theirs within its limits",
+                            where=rule.name,
+                        )
+                    )
+                continue
+
             def fit(name: str, current: int, rule: Rule = rule) -> int:
                 if rule.opt is not None:
                     value = max(current, rule.opt) if name in opt_set else rule.opt
@@ -361,6 +420,8 @@ def _lower_rules(
                     low.width = fit("", low.width)
             if not side_a:
                 low.width = fit("", low.width)
+    for name, value in self_clearance.items():  # the class's own value and board-wide rules stay floors
+        low.class_clearance[name] = max(low.class_clearance[name], value)
     return low
 
 
@@ -593,8 +654,14 @@ class _Writer:
         # the classes that hold a net with pads, before any net leaves the file: the rules are lowered
         # over them, and the nets outside the job are decided from the lowered values
         populated = {cls.name: cls for cls in ordered if any(class_of.get(name) is cls for name in net_ids)}
+        unclassed = any(class_of.get(name) is None for name in net_ids)
         low = _lower_rules(
-            design.rules.rules if design.rules is not None else (), populated, d, self.copper, self.issues
+            design.rules.rules if design.rules is not None else (),
+            populated,
+            d,
+            self.copper,
+            self.issues,
+            unclassed=unclassed,
         )
         # the classes that a ``class_class`` list pairs with the class of a selected net
         chosen = {cls.name for cls in (class_of.get(name) for name in self.selected) if cls is not None}

@@ -102,8 +102,8 @@ def test_families_of_the_live_register() -> None:
     # `-NETLESS-2`)
     # … and the five of c0107 (`-LAYERS`, `-PLANE`, `-CLEARANCE`, `-EDGE` and its successor `-EDGE-2`)
     # … and the three of c0110 (`-PAIR`, `-NARROW`, `-FANOUT`) and the successor `-FANOUT-2` of its gate
-    # … and `-SLOT` of c0170
-    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 22
+    # … and `-SLOT` of c0170, and `-WIDTH-ALL` and `-ONE-SIDED` of c0197
+    assert sum(1 for row in load_register(LIVE) if row.id.startswith("H-G-DSN-")) == 24
 
 
 def test_family_cell_without_a_wildcard_is_rejected(tmp_path: Path) -> None:

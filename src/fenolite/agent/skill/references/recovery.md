@@ -154,6 +154,7 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 | `FEN-3004` | 3 | a malformed input, or a script that raises | recipe above |
 | `FEN-3005` | 3 | geometry of the input cannot be represented | the message names the geometry and the points |
 | `FEN-3006` | 3 | a fetched file does not match its pinned size or SHA-256 | fetch again, or name a good copy with `--from` |
+| `FEN-3007` | 3 | a file to read is kept only online by a sync client | ask the owner to make the folder available offline, then run again |
 | `FEN-4001` | 4 | a write without `--dry-run` or `--confirm` | recipe above |
 | `FEN-4002` | 4 | the plan named by `--plan` cannot be written as reviewed: a target, an input or the command line changed, or no plan has that id | run the command with `--dry-run` again, read the new plan and confirm it with its `plan_id` |
 | `FEN-5001` | 5 | findings of severity `error` | read `issues`; recipe above |

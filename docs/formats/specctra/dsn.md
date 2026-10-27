@@ -138,9 +138,10 @@ the change (`tests/data/specctra/c0107_before_*.dsn`).
   | model rule (severity not `ignore`) | written as |
   |---|---|
   | `clearance`, one side `all` or absent, the other `all` or absent | the default rule's clearance and every class clearance raised to at least `min` |
-  | `clearance`, one side a class or an `or` of classes, the other `all` or absent | those classes' clearances raised to at least `min` (`netclass Default` without such a class: the default rule) |
-  | `clearance`, both sides classes or `or`s of classes | one `class_class` per pair of written classes and of their groups; a class with itself raises its own clearance |
-  | `track_width`, A `all` or classes, with `opt` | their width becomes `opt`; with a layer clause, `layer_rule` per layer instead |
+  | `clearance`, one side a class or an `or` of classes, the other `all` or absent | one `class_class` per class of that side and per other written class; the class's own clearance is not raised; nets without a class keep the default clearance against it, with `specctra.rule-not-sent` (`netclass Default` without such a class: the default rule is raised, every class keeps its value) (change c0197, `H-G-DSN-ONE-SIDED`) |
+  | `clearance`, both sides classes or `or`s of classes | one `class_class` per pair of written classes and of their groups; a class against itself takes the last such rule of the board, its own clearance a floor (change c0197) |
+  | `track_width`, A classes, with `opt` | their width becomes `opt`; with a layer clause, `layer_rule` per layer instead |
+  | `track_width`, A `all`, with `opt` | `opt` for the classes without a width of their own and for the nets without a class; a class width is kept, clamped into `[min, max]`, with one `specctra.rule-widened` naming the rule and those classes (change c0197, `H-G-DSN-WIDTH-ALL`) |
   | `track_width`, A `all` or classes, without `opt` | each of those widths clamped into `[min, max]` |
   | `no_tracks` | nothing here: `net_layers` carries it |
   | a layer clause on a `clearance` rule | dropped, the rule written for every layer, `specctra.rule-widened` |

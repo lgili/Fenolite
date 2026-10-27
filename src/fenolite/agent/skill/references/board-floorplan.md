@@ -121,10 +121,13 @@ module and its capacitors), reproduce it. Do not redraw it by eye.
 fenolite neighbors board U1 --radius 5mm --json
 fenolite region board --box 10mm,5mm,40mm,30mm --kinds footprint,pad --json
 fenolite pads board U1 --json
+fenolite analyze board.kicad_pcb --kinds crossings --cut 10mm,20mm,40mm,20mm --width 0.25mm --json
 ```
 
 `neighbors` lists the parts near one part by courtyard distance. `region` lists what touches a
-rectangle. Use them to confirm that a decoupling capacitor is the nearest part to its pin, and that a
+rectangle. `analyze --kinds crossings` counts the tracks that fit across a barrier (a row of pads, a gap
+between regions) on each layer, against the open connections that must cross it. When it reports
+`analysis.crossings-short`, move parts before you route. Use them to confirm that a decoupling capacitor is the nearest part to its pin, and that a
 keep-out is empty. Render the board (`fenolite render`) after each region is placed, and look at it.
 
 ## Typical failures

@@ -128,7 +128,7 @@ def sync_native(
         result=result,
         issues=issues,
         writes=writes,
-        evidence=Evidence(Level.INFERRED),
+        evidence=Evidence(Level.INFERRED, hypotheses=("H-A-LAYOUT-REPLAY",)),
         input=InputRef(str(script), digest(script.read_bytes()), "fenolite-dsl", None),
         depends=depends_on(ctx.cwd, *inputs),
     )
