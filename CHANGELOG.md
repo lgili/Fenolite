@@ -27,6 +27,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- Development: proposed c0222 (`openspec/changes/c0222-net-roles/`), net roles and their checks, phase 0 of a router that works from electrical intent, with the plan of phases 1 to 4. The public sources it relies on are registered as S-0850 to S-0854 (a shunt sense-line note, two layout notes on switching supplies and motor drivers, a gate-drive note, and a creepage and clearance seminar read for definitions only).
 - **The `mcp` extra is removed** (c0195): the server needs no package, and the official MCP SDK is in the `oracles` extra, where a test runs its client against the server.
 - **The agent evaluation can run Claude Code** (c0081, task 4.2): the runner `claude-code` of `tools/agent_eval/runners.toml` is completed against the `--help` of Claude Code 2.1.311 (version flag, isolation with `--bare`, the installed guide given with `--append-system-prompt-file`, a cap of `--max-budget-usd 2`). The run itself is started by the maintainer: `make agent-eval TASK=led-indicator RUNNER=claude-code ARGS=--yes`, with `ANTHROPIC_API_KEY` set.
 - Development: the version is `0.6.0.dev0` after the release of `0.5.0`, so that changes are recorded under Unreleased again; the release of `0.6.0` sets `0.6.0` in the package, its alias and the alias pin.
