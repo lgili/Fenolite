@@ -191,13 +191,15 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0192 | `guide-room` | a compact generated command page in the agent guide | c0079 |
 | c0193 | `viewer-review` | review findings, measurement with snap and embedded 3D models in the viewer | c0176 |
 | c0194 | `ci-push-scope` | CI on branch pushes but backups, never on a tag | — |
+| c0195 | `mcp-server` | `fenolite mcp`: the commands as tools of an MCP server on stdio | c0079 |
+| c0196 | `mcp-design-and-images` | `fenolite edit`, the opt-in `fenolite_edit` and PNG views as images in MCP replies | c0195 |
 | c0197 | `router-input` | a board-wide preferred width and a one-sided clearance in the router's design file; `--order` with several globs (package 1 of c0175) | c0107, c0175 |
 | c0198 | `ground-ties` | `analyze --kinds ties,domains`: a tie proved by removing its own copper, sense nets, isolation islands (package 2 of c0175) | c0108, c0114, c0175 |
 | c0199 | `barrier-crossings` | `analyze --kinds crossings`: the free ways across a cut on each layer, the tracks they fit and the connections that must cross (package 3 of c0175) | c0108, c0175 |
 | c0200 | `inferred-hypotheses` | every `INFERRED` evidence names a registered hypothesis, kept by a source test | — |
 | c0201 | `file-safety` | `snapshot`, `publish` guarded by receipts, open-session warnings, online-only files, `refs --repoint` (package 9 of c0175) | c0175 |
-| c0203 | `fabrication-readback` | `export --readback`: the Gerber, drill and position files read back and compared with the board (task 12.1 of c0175) | c0175 |
 | c0202 | `return-paths` | `analyze --kinds returns`: tracks across a gap of their plane, vias without a reference via | c0199 |
+| c0203 | `fabrication-readback` | `export --readback`: the Gerber, drill and position files read back and compared with the board (task 12.1 of c0175) | c0175 |
 
 The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0204.
 

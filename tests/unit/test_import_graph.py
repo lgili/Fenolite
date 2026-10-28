@@ -49,11 +49,12 @@ ALLOWED: dict[str, set[str]] = {
     "verify": {"model", "geometry", "backends*"},
     "api": {"model", "geometry", "backends*", "checks", "analysis", "convert", "lens"},
     "agent": {"cli"},
+    "mcp": {"cli", "agent"},
     "panel": {"model", "geometry", "backends*", "checks", "convert", "dsl"},
     "view": {"model", "geometry", "backends*"},
     "safety": {"backends*"},
 }
-STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic"}
+STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
 

@@ -160,6 +160,12 @@ person also edits. They give rules, the failures the
 rules prevent, and how to check each one. They give no limit values: those come from your standard,
 your fabricator and your datasheets.
 
+An agent without a shell reaches the same commands through `fenolite mcp`, a server of the Model Context
+Protocol on standard input and output that needs no other package: every command is a tool whose reply is
+its envelope, a writing tool is a dry run until it confirms the plan it returned, and the guide's pages are
+its resources (`docs/mcp.md`). With `--allow-edit` it also writes the design script through a plan, and a
+render's views come back as images that an agent can look at.
+
 ## Install for development
 
 ```bash
@@ -179,8 +185,9 @@ uv run fenolite capabilities --text                         # the same, for huma
 echo $?                                                     # 0 ok, 2 usage, 4 confirm, 5 findings …
 ```
 
-Optional extras: `geo` (polygon booleans), `kicad-ipc` (live KiCad session), `mcp` (MCP server),
-`oracles` (Gerber re-parsers used in tests), `dev`. Routers need no extra: they run as separate programs.
+Optional extras: `geo` (polygon booleans), `kicad-ipc` (live KiCad session), `oracles` (Gerber re-parsers
+and the MCP client used in tests), `dev`. Routers need no extra: they run as separate programs, and the MCP
+server `fenolite mcp` needs none either (`docs/mcp.md`).
 
 ## Licence and provenance
 

@@ -155,6 +155,18 @@ fenolite sync blink/design.py --out blink/build --to-source --check --json
 `sync --to-source` copies the board's positions into `placements.toml` beside the script, which a build
 reads, so a fresh folder gets the same layout. `--check` writes nothing and exits 5 when it is stale.
 
+## Edits without an editor
+
+```fenolite-cmd
+fenolite edit blink/design.py --edits-file blink/edits.json --dry-run --json
+fenolite edit blink/placements.toml --content-file new-placements.toml --dry-run --json
+```
+
+`edit` writes a script, a TOML file or a library table through a plan: `--edits-file` holds a JSON list of
+`{"old": ..., "new": ...}` pairs, each old text found exactly once, and `--content-file` the whole new text.
+The plan's `result.diff` shows the change; the script is parsed, never run, so `build --dry-run` is still the
+check that runs it.
+
 ## A drawing sheet
 
 `design.sheet("A3", drawing_sheet="frame.sheet.toml")` sets the paper and names your frame, by a path

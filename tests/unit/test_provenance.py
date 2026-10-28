@@ -18,7 +18,7 @@ SOURCE_REF = re.compile(r"\bS-\d{4}\b|https?://")
 FORMAT_PATHS = ("src/fenolite/backends/", "docs/formats/")
 
 
-PROVENANCE_PACKAGES = ("templates", "analysis", "safety")
+PROVENANCE_PACKAGES = ("templates", "analysis", "mcp", "safety")
 """Packages outside backends/ that ship sourced figures or facts."""
 
 

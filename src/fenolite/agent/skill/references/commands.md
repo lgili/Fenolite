@@ -26,6 +26,7 @@ another type; a flag without a value is a switch.
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
 | `diff` | no | list the differences between two boards, libraries, built models or Altium files (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
+| `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
 | `explain` | no | say what an error code or an issue code means and what to do about it |
 | `export` | yes | export fabrication files through kicad-cli on a copy of the project (writes under DIR) |
@@ -38,6 +39,7 @@ another type; a flag without a value is a switch.
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
+| `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
 | `neighbors` | no | list the footprints near one part, by the distance between their courtyards (runs no tool) |
 | `net` | no | list the nets of a board, or one net: pads, copper, vias, zones, open connections (runs no tool) |
@@ -183,6 +185,14 @@ another type; a flag without a value is a switch.
 - `--no-run`: list the candidates and run no tool
 - `--sessions PATH`: instead: list the CAD lock files and the files kept only online under PATH (runs no tool)
 
+## edit
+
+`fenolite edit [OPTIONS] PATH`
+
+- `PATH`: a *.py, a *.toml, an fp-lib-table or a sym-lib-table
+- `--content-file FILE`: a file holding the whole new text
+- `--edits-file FILE`: a JSON list of {"old": ..., "new": ...} pairs
+
 ## equivalent
 
 `fenolite equivalent [OPTIONS] A [B]`
@@ -313,6 +323,17 @@ another type; a flag without a value is a switch.
 - `-o`, `--out FILE`: the manifest file (default: fenolite-artifacts.json by the board)
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300)
+
+## mcp
+
+`fenolite mcp [OPTIONS]`
+
+- `--root DIR` (default `.`): the folder every call runs in and writes under
+- `--read-only`: list only the commands that write nothing
+- `--tools NAME,...`: list only these commands
+- `--timeout SECONDS` (number, default `600.0`): stop a longer call
+- `--list`: return the tools and resources; serve nothing
+- `--allow-edit`: also serve fenolite_edit: a client that edits a design script and builds it runs code as you
 
 ## models
 
