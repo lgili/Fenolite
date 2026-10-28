@@ -9,4 +9,5 @@
 
 ## 2. The missing release
 
-- [ ] 2.1 Run the workflow by hand for `v0.5.0` (PyPI holds it, so nothing is uploaded) and check the release page: title, notes, the four files with PyPI's digests and `SHA256SUMS`, latest. Proof: `gh api repos/lgili/Fenolite/releases/tags/v0.5.0` shows the release with five assets.
+- [x] 2.1 Run the workflow by hand for `v0.5.0` (PyPI holds it, so nothing is uploaded) and check the release page: title, notes, the four files with PyPI's digests and `SHA256SUMS`, latest. Proof: `gh api repos/lgili/Fenolite/releases/tags/v0.5.0` shows the release with five assets.
+  - 2026-10-28: run https://github.com/lgili/Fenolite/actions/runs/40707014472 (by hand, ref `release-automation`, tag `v0.5.0`): `build` green (checks, build, `twine check`, the wheel alone), `publish` skipped (PyPI holds 0.5.0), `github-release` green. https://github.com/lgili/Fenolite/releases/tag/v0.5.0 is "Fenolite 0.5.0", latest, not a pre-release, with five assets: the four files of PyPI (their digests are PyPI's) and `SHA256SUMS`.
