@@ -36,6 +36,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 - **Every `INFERRED` reply names its hypothesis** (c0200): eighteen evidence values were `INFERRED` with no hypothesis; eight hypotheses are registered (`H-G-MODEL-OWN`, `H-G-PLACE-RULES`, `H-G-CATALOG`, `H-G-IMP-TABLE`, `H-G-VIEW-SCENE`, `H-A-LAYOUT-REPLAY`, `H-G-TIES`, `H-G-CROSSINGS`) and each site cites one; a test of the source keeps the v1.0 rule.
 - **The router's design file keeps class widths and pairs one-sided clearances** (c0197): a board-wide `track_width` rule with `opt` sets only the classes without a width (the others kept within its limits, with an info), and a one-sided `clearance` rule is written as class pairs instead of raising the class against its own nets. On the plane bench routed with Freerouting, the earlier file left 3 connections open and the new one none. `fenolite route --order` takes several comma-separated globs per tier.
+- The DCO check skips `fdafb10f`, the squash merge of pull request 20 made with the GitHub button, which wrote no `Signed-off-by` trailer (`tools/dco_exceptions.txt`; the maintainer's decision of 2026-10-28).
 
 ## [0.5.0] - 2026-10-15
 

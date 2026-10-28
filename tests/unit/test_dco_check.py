@@ -101,14 +101,14 @@ def test_a_trailer_needs_a_name_and_an_address(repo: Path) -> None:
 
 
 def test_exceptions_file() -> None:
-    """An exception is a full hash with a reason; this repository has one, for a GitHub squash merge."""
+    """An exception is a full hash with a reason; this repository has four, three GitHub squash merges."""
     sys.path.insert(0, str(TOOL.parent))
     try:
         import dco_check
     finally:
         sys.path.pop(0)
     listed = dco_check.exceptions()
-    assert all(len(commit) == 40 for commit in listed) and len(listed) <= 3
+    assert all(len(commit) == 40 for commit in listed) and len(listed) <= 4
     bad = TOOL.parent / "dco_exceptions.txt"
     lines = [line for line in bad.read_text(encoding="utf-8").splitlines() if line and line[0] != "#"]
     assert all(len(line.split(" ", 1)) == 2 and line.split(" ", 1)[1].strip() for line in lines)
