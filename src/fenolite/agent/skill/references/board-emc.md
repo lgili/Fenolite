@@ -72,7 +72,8 @@ likely to pass. Only the test closes an EMC requirement.
   any gate route several times longer than its straight distance to the owner for review.
 - **Keep analog lines off long parallel runs** beside aggressors: phase outputs, gate lines, bootstrap
   nodes, the switch node of a supply. Analog lines include current sense, voltage sense, temperature,
-  reset and communication. Route them over a continuous return.
+  reset and communication. Route them over a continuous return. `analyze --kinds coupling` ranks the
+  pairs by parallel run and overlap; `--kinds returns` finds tracks across a gap of their plane.
 - **When a sense line must run beside an aggressor**, put the slowest, most filtered signal next to it.
   Keep the RC filter at the converter pin, and have the firmware sample away from the switching edges.
 - **Cross a power-return trunk at 90°**, and keep any parallel run beside it short.
@@ -82,6 +83,8 @@ likely to pass. Only the test closes an EMC requirement.
 ```fenolite-cmd
 fenolite analyze board/board.kicad_pcb --kinds length --net "GATE_*" --json
 fenolite net board GATE_UH --json
+fenolite analyze board.kicad_pcb --kinds coupling --aggressor 'PWM_*' --victim 'TEMP_*' --json
+fenolite analyze board.kicad_pcb --kinds returns --net 'ISENSE_*' --reference GND --json
 ```
 
 `--kinds length` gives the routed length of each gate line. Compare it with the straight distance

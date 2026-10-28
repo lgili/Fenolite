@@ -150,7 +150,8 @@ crossing analysis), with the requirement "Region renders" of `manufacturing-expo
 
 ## 13. Teaching
 
-- [ ] 13.1 Add a tested line for each new command and DSL name to the closest page of the agent guide. Point the practice pages of c0174 to the commands that now answer their checks. Run `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+- [x] 13.1 Add a tested line for each new command and DSL name to the closest page of the agent guide. Point the practice pages of c0174 to the commands that now answer their checks. Run `tools/gen_agent_guide.py`. Proof: `uv run pytest tests/unit/agent -q`; `uv run python tools/gen_agent_guide.py --check`.
+  - 2026-10-28: the commands and DSL names of c0197 to c0229 already had their tested lines (`test_coverage_holds`); the tool pages held lines for `tidy`, `route --gate drc`, `render --region`, `check --exclude`, `export --readback`, `library --diff`, `diff --allow`/`--three-way` and `place --strategy regions`/`reuse`/`group`. Options without a run line (`analyze --kinds bodies`, `--pour-grid`, `--loop-baseline`, `--reference`, `--sense`; `render --cut`; `place --anchor`/`--tolerance`; `testpoints --grid`/`--reach`/`--size`/`--nets`) got one on a practice page. The table of `board-practice` gains a column "measured by"; nine other practice pages point to the commands that answer their checks (`board-schematic` unchanged: no command checks ratings or schematic classes). Skill folder 268 742 bytes; largest written page `board-power`, 178 lines, 11 137 bytes. Proof passed: `uv run pytest tests/unit/agent -q -n 2` (98 passed), `uv run python tools/gen_agent_guide.py --check` (exit 0).
 
 ## 14. Closing
 

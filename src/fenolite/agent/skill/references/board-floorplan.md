@@ -124,7 +124,13 @@ module and its capacitors), reproduce it. Do not redraw it by eye.
   (page `placement`). A copy that matches only the part centres can be mirrored or turned without anyone
   noticing.
 - **Check the copy** by counting the pads that match the reference within a small tolerance, before you
-  route. `fenolite pads` lists the pads of a part in the board frame.
+  route. `fenolite pads` lists the pads of a part in the board frame. `result.reuse.parts` counts the
+  pads within `--tolerance`, and `--turn` or `--shift` moves a placed block with its copper.
+
+```fenolite-cmd
+fenolite place board --from ref.kicad_pcb --only U1,C1,C2 --anchor U1 --tolerance 0.05mm --copper --drc --dry-run --json
+fenolite place board --turn U1,C1,C2 --about 20mm,20mm --angle 90 --dry-run --json
+```
 - **Show the owner an overlay** of the proposal on the reference before routing, when the owner judges
   the layout against a physical sample.
 

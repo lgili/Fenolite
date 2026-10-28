@@ -83,6 +83,7 @@ fenolite testpoints board --min-fiducials 3 -o board/testpoints.csv --dry-run --
 
 ```fenolite-cmd
 fenolite testpoints board --place --side bottom --drc --dry-run --json
+fenolite testpoints board --place --nets 'SENSE_*' --grid 2.54mm --reach 5mm --size 1mm --dry-run --json
 ```
 
 - **Fiducials are for the placement machines.** Each face with parts gets three global fiducials, not in
@@ -118,6 +119,12 @@ fenolite testpoints board --place --side bottom --drc --dry-run --json
 
 - **The board is the master** once anyone has edited footprints, silkscreen or 3D bodies on it. Make the
   library from the board. Never push an older library onto the board (`board-workflow`).
+  `library --diff` lists how a library differs from the board's footprints, and writes nothing.
+
+```fenolite-cmd
+fenolite library board --diff lib.pretty --json
+```
+
 - **Keep the project library self-contained,** versioned, and compared by hash at every rebuild.
 
 ## Manufacturing data
