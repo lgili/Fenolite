@@ -212,14 +212,11 @@ def test_a_stale_run(run: tuple[Path, KitVerdict]) -> None:
     ]
     assert record.stale_rows(rows, [made], verdict.kit) == ()
     sources = kit_sources()
-    libs = sources.samples[-1]
-    assert libs.name == "libs"
+    at = next(n for n, sample in enumerate(sources.samples) if sample.name == "libs")
+    libs = sources.samples[at]
     edited = SampleFiles(libs.name, libs.script_sha256, {**libs.files, "libs.SchLib": b"changed by a writer"})
-    after = read_kit(
-        kit_files(KitSources((*sources.samples[:-1], edited), sources.extras, sources.fenolite_version))[
-            "kit.json"
-        ]
-    )
+    samples = (*sources.samples[:at], edited, *sources.samples[at + 1 :])
+    after = read_kit(kit_files(KitSources(samples, sources.extras, sources.fenolite_version))["kit.json"])
     assert record.stale_rows(rows, [made], after) == ("H-A-KIT-RESAVE",)
     assert any("stale" in p for p in record.label_problems(rows, [made], after))
     template = read_kit(

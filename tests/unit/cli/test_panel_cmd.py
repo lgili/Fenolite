@@ -132,3 +132,31 @@ def test_an_edited_output_is_refused(tmp_path: Path) -> None:
         "panel", str(script), "--out", str(out), "--target", "9", "--dry-run", "--discard-layout"
     )
     assert code == 0, err
+
+
+def test_altium_pour_option(tmp_path: Path) -> None:
+    """``--altium-pour`` (change c0215): a usage error with a KiCad target; a flattened panel names its pour
+    in ``result.panel.pour``."""
+    out = str(tmp_path / "P")
+    code, _, err = run(
+        "panel",
+        str(PANELS / "tabs.py"),
+        "--out",
+        out,
+        "--target",
+        "10",
+        "--altium-pour",
+        "outline",
+        "--dry-run",
+    )
+    assert code == 2 and "FEN-2001" in err and "--altium-pour" in err
+    code, env, err = run(
+        "panel", str(PANELS / "tabs.py"), "--out", out, "--target", "altium", "--altium-pour", "outline",
+        "--dry-run",
+    )  # fmt: skip
+    assert code == 0, err
+    result = env["result"]
+    assert isinstance(result, dict)
+    assert result["panel"]["pour"] == {
+        "mode": "outline", "poured": 0, "unpoured": {}, "evidence": None, "hypotheses": [],
+    }  # fmt: skip

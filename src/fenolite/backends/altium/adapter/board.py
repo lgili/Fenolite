@@ -25,7 +25,7 @@ from fenolite.backends.altium.adapter.evidence import EVIDENCE
 from fenolite.backends.altium.adapter.ids import Exact, Ids, bag
 from fenolite.backends.altium.adapter.layers import MULTI, LayerMap, stackup
 from fenolite.backends.altium.adapter.pads import pad
-from fenolite.backends.altium.adapter.rules import import_rules
+from fenolite.backends.altium.adapter.rules import connect_texts, import_rules
 from fenolite.backends.altium.read.bodies import BodyRecord, read_bodies
 from fenolite.backends.altium.read.pcb import ComponentRecord, PcbDocument
 from fenolite.backends.altium.read.pcbprims import PadRecord, RawPrimitive, TextRecord
@@ -446,6 +446,7 @@ def read_board(doc: PcbDocument, *, file: str, sha256: str, ids: Ids) -> BoardIm
     x_text, y_text = doc.board.record.get("ORIGINX"), doc.board.record.get("ORIGINY")
     if x_text is not None and y_text is not None:
         origin.append(("origin", f"{x_text},{y_text}"))
+    origin += [("polygon_connect", text) for text in connect_texts([r.fields for r in doc.rules])]
     board_provenance = ctx.provenance("Board6/Data#0")
     stack = stackup(doc.board, layers, ids, board_provenance, ctx.issues)
     board = Board(

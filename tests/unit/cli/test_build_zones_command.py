@@ -7,6 +7,7 @@ edit), and builds again in-process."""
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
 import shutil
@@ -330,11 +331,16 @@ def _altium(
 def test_altium_build_writes_script_zones_as_polygons(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """The zone is one polygon, unpoured with ``outline`` and poured by the default ``computed`` (change
+    c0215; written unpoured with a warning without the geo extra)."""
     p = Project(tmp_path, monkeypatch)
-    _, env = _altium(monkeypatch, p.script, tmp_path / "A")
+    _, env = _altium(monkeypatch, p.script, tmp_path / "A", "--altium-pour", "outline")
     copper = env["result"]["copper"]  # type: ignore[index]
     assert (copper["source"], copper["zones"]) == ("model", 1)
     assert "altium.zones-unpoured" in codes(env)
+    _, env = _altium(monkeypatch, p.script, tmp_path / "B")
+    poured = importlib.util.find_spec("pyclipper") is not None
+    assert ("altium.zones-poured" if poured else "altium.pour-unavailable") in codes(env)
 
 
 def test_altium_build_with_copper_from_takes_the_boards_zones(

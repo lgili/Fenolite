@@ -865,8 +865,8 @@ design.zone(
   `(zone_connect N)` of a solid exposed pad. On a rebuild, a setting made in KiCad wins unless the
   request says `locked=True`, as for zones (`docs/lens.md`, "Pad zone connections"). `--target altium`
   does not read these requests, as it does not read field requests.
-- **Altium.** `--target altium` writes the script's zones as unpoured polygon pours
-  (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
+- **Altium.** `--target altium` writes the script's zones as polygon pours, poured by Fenolite with
+  Altium's rules by default and unpoured with `--altium-pour outline` (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
   `derived_id("zon", "dsl", "zone:<name>")`.

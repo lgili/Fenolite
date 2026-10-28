@@ -841,7 +841,7 @@ def test_release_publish_skips_existing_versions() -> None:
 
 
 def release_flow_problems(workflow: str) -> list[str]:
-    """Why the release workflow would not release from a tag end to end (change c0210): a pushed tag
+    """Why the release workflow would not release from a tag end to end (change c0221): a pushed tag
     starts it, the build checks the versions and the changelog, the metadata and the wheel alone, and the
     last job creates the GitHub Release with the notes and the files."""
     problems: list[str] = []
@@ -870,7 +870,7 @@ def release_flow_problems(workflow: str) -> list[str]:
 
 
 def test_release_flow() -> None:
-    """Scenario "A tag releases" (c0210)."""
+    """Scenario "A tag releases" (c0221)."""
     workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
     assert release_flow_problems(workflow) == []
     untagged = workflow.replace('    tags: ["v*.*.*"]\n', "")

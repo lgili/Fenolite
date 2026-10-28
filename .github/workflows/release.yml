@@ -1,6 +1,6 @@
 name: release
 
-# Releases Fenolite from a tag (change c0210): pushing `vX.Y.Z` checks that the versions and the changelog
+# Releases Fenolite from a tag (change c0221): pushing `vX.Y.Z` checks that the versions and the changelog
 # agree with the tag, builds `fenolite` and its alias `phenolite` from the tagged commit, installs the wheel
 # alone, publishes both to PyPI and creates the GitHub Release with the changelog section, the install lines
 # and the SHA-256 of every attached file.

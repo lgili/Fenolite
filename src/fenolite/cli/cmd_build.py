@@ -119,6 +119,7 @@ from fenolite.dsl import (
     via_protection_locked,
 )
 from fenolite.dsl import Design as DslDesign
+from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
 from fenolite.lens.altium import (
     CopperSource,
@@ -172,6 +173,11 @@ DEFAULT_ALTIUM_BODIES = "extruded"
 """The extruded component bodies are written unless ``off`` is asked (change c0155, the maintainer's
 decision of 2026-10-09): Altium Designer 26.5 opened the written bodies with their two stand-in keys
 (``H-A-PCBX-BODY-OPEN``, step X8 of the author report)."""
+ALTIUM_POUR: tuple[str, ...] = ("computed", "outline")
+"""The values of ``--altium-pour`` (change c0215)."""
+DEFAULT_ALTIUM_POUR = "computed"
+"""The pour of every polygon is computed by Fenolite unless ``outline`` is asked (the maintainer's decision
+of 2026-10-26; experimental until a round of kit group K6 passes)."""
 COPPER_CHECK_MODES = ("refuse", "warn")
 """``refuse`` (the default): a copper error stops the build before anything is written. ``warn``: copper
 errors are reported as warnings and the build writes. There is no ``off``."""
@@ -278,6 +284,15 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help=f"with --target altium: extruded writes the extruded component bodies of the board's "
         f"footprints (experimental), off writes none and reports each body, as earlier versions did; a "
         f"usage error with --target kicad (default: {DEFAULT_ALTIUM_BODIES})",
+    )
+    parser.add_argument(
+        "--altium-pour",
+        choices=ALTIUM_POUR,
+        default=None,
+        help=f"with --target altium: computed writes the poured copper of each polygon as Fenolite "
+        f"computes it with Altium's rules (experimental; needs the geo extra, without which the default "
+        f"writes the outline with a warning), outline writes the polygons unpoured, as earlier versions did; "
+        f"a usage error with --target kicad (default: {DEFAULT_ALTIUM_POUR})",
     )
     parser.add_argument(
         "--copper-from",
@@ -756,6 +771,13 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             where="--altium-bodies",
             hint=f"add --target {ALTIUM_TARGET}, or drop --altium-bodies",
         )
+    if args.altium_pour is not None and args.target != ALTIUM_TARGET:
+        raise CliError(
+            "FEN-2001",
+            f"--altium-pour needs --target {ALTIUM_TARGET}; the target is {args.target}",
+            where="--altium-pour",
+            hint=f"add --target {ALTIUM_TARGET}, or drop --altium-pour",
+        )
     if args.schematic is not None and args.target == ALTIUM_TARGET:
         raise CliError(
             "FEN-2001",
@@ -1184,36 +1206,45 @@ def _run_altium(
         )
         script_issues = []
     else:
-        built = build_altium(
-            model,
-            name=name,
-            placed=tuple(requested),
-            placements=requested,
-            project_exists=project_exists,
-            form=form,
-            resolver=resolver,
-            sheets=sheets,
-            copper=run.design.copper,
-            planes=plane_nets,
-            copper_source=source,
-            outjob=with_job,
-            outjob_preset=preset,
-            outjob_listed=job_listed,
-            project_digest=project_digest,
-            project_listed=project_listed,
-            project_unreadable=project_exists and project_listed is None,
-            drawing_sheet=drawing_sheet,
-            allow_lossy=ctx.allow_lossy,
-            authored_footprints=authored_footprints,
-            directions=(args.altium_directions or DEFAULT_DIRECTIONS) == "on",
-            symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
-            bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
-            authored_symbols=authored_symbols,
-            heights=heights(run.design),
-            composition=schematic_composition(
-                run.design, target="altium", enabled=args.altium_layout == "blocks"
-            ),
-        )
+        try:
+            built = build_altium(
+                model,
+                name=name,
+                placed=tuple(requested),
+                placements=requested,
+                project_exists=project_exists,
+                form=form,
+                resolver=resolver,
+                sheets=sheets,
+                copper=run.design.copper,
+                planes=plane_nets,
+                copper_source=source,
+                outjob=with_job,
+                outjob_preset=preset,
+                outjob_listed=job_listed,
+                project_digest=project_digest,
+                project_listed=project_listed,
+                project_unreadable=project_exists and project_listed is None,
+                drawing_sheet=drawing_sheet,
+                allow_lossy=ctx.allow_lossy,
+                authored_footprints=authored_footprints,
+                directions=(args.altium_directions or DEFAULT_DIRECTIONS) == "on",
+                symbol_bodies=args.altium_symbols or DEFAULT_BODIES,
+                bodies=args.altium_bodies or DEFAULT_ALTIUM_BODIES,
+                pour=args.altium_pour,
+                authored_symbols=authored_symbols,
+                heights=heights(run.design),
+                composition=schematic_composition(
+                    run.design, target="altium", enabled=args.altium_layout == "blocks"
+                ),
+            )
+        except BackendUnavailable as error:
+            raise CliError(
+                "FEN-6001",
+                "--altium-pour computed needs the geo extra, which is not installed",
+                where="--altium-pour",
+                hint="pip install 'fenolite[geo]', or use --altium-pour outline",
+            ) from error
     files = dict(built.files)
     native_info: dict[str, object] | None = None
     native_path = getattr(args, "altium_template", None)

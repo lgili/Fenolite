@@ -116,6 +116,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `plane_net` | layer | the net of an internal plane |
 | `plane_cuts` | layer | the number of free primitives on the layer of an internal plane that the import left out: they cut the plane and are no copper |
 | `origin` | board | `ORIGINX,ORIGINY` as written |
+| `polygon_connect` | board | one pair per Polygon Connect Style record (rule kind 20), in record order: its keys from `RULEKIND` on, as written, `KEY=VALUE` joined by `\|`. A rewrite with a computed pour writes the records back when every one maps (change c0215; `pcb-pour.md`, "Polygon Connect Style records"); it enters no id |
 | `stack_mode` | pad | the stack mode when it is not 0 |
 | `corner_percent` | pad | the corner percentage of a rounded rectangle |
 | `shape` | pad | the shape number of a `custom` pad |
@@ -129,6 +130,7 @@ The closed table `adapter.EXT_KEYS`. A value is text of the record or a decimal 
 | `net` | graphic | the net name of a copper shape |
 | `pour_index` | zone | `POURINDEX` |
 | `hatch_style` | zone | `HATCHSTYLE` |
+| `pour_over` | zone | `POUROVERSTYLE`: what of its own net the pour covers, `0` nothing, `1` every object, `2` only polygons (`pcb-pour.md`, input I8); a write gives it back, and a zone without the pair is written with `1` (change c0215) |
 | `component_kind` | component | `COMPONENTKIND` when it is not 0 |
 | `part_ids` | component | the unique ids of its parts, joined by commas |
 | `pin_pads` | component | one pair per pin map record that `pin_pad_map` does not say in full: `<pin>=<pad>,<pad>…` (no pad, or a pad that another pin holds; a record of several pads is in the map since change c0123) |

@@ -58,6 +58,7 @@ from fenolite.model.design import Design
 
 if TYPE_CHECKING:
     from fenolite.backends.altium.lower import ProjectWrite
+    from fenolite.backends.altium.pour import PourMode
     from fenolite.model.board import Layer, Via
 
 Compare = ModelCompare
@@ -333,6 +334,7 @@ class AltiumBackend:
         allow_lossy: bool = False,
         rewrite: bool = False,
         bodies: str = "off",
+        pour: PourMode | None = None,
     ) -> ProjectWrite:
         """The files of an Altium project written from ``design`` alone (change c0090,
         ``lower.write_design``): the PCB document of its board, and the schematic, its libraries and the
@@ -343,13 +345,14 @@ class AltiumBackend:
         that the write gives it back: a via whose drill equals its diameter is then written as it was
         read; ``ValueError`` when the board was not read from an Altium document. ``bodies`` (change
         c0121) is ``off`` or ``extruded``: with ``extruded`` the extruded component bodies of the board's
-        footprints are written, and every other body is counted as not written. The write is
+        footprints are written, and every other body is counted as not written. ``pour`` is the pour mode
+        of the PCB document (change c0215; ``lower.write_design``): ``computed`` by default. The write is
         experimental: ``capabilities()`` names no write kind until the writers leave that state."""
         from fenolite.backends.altium.lower import write_design
 
         if target is not None:
             raise ValueError(f"the Altium writers have one form; target {target!r} is not one")
-        return write_design(design, allow_lossy=allow_lossy, rewrite=rewrite, bodies=bodies)
+        return write_design(design, allow_lossy=allow_lossy, rewrite=rewrite, bodies=bodies, pour=pour)
 
     def in_model_frame(self, model: Design, reading: Design) -> Design:
         """``reading`` in the frame of ``model``, the design it was written from (``lower.in_frame_of``)."""
@@ -392,7 +395,7 @@ class AltiumBackend:
         from fenolite.backends.altium.rta3 import rt_a3
 
         first = self.read(path).design
-        written = write_design(first, allow_lossy=True, rewrite=True, bodies=bodies)
+        written = write_design(first, allow_lossy=True, rewrite=True, bodies=bodies, pour="outline")
         suffix = path.suffix.lower()
         board: Path | None = path if suffix == ".pcbdoc" else None
         if suffix == ".prjpcb":
@@ -727,6 +730,13 @@ def _with_removed_pads(design: Design) -> Design:
     return dataclasses.replace(design, board=dataclasses.replace(board, vias=tuple(vias)))
 
 
+def removed_pad_vias(design: Design) -> Design:
+    """``design`` with each via that has no pad shape on some layers split into runs of alike layers, its
+    drill as the diameter where it has no pad (``_with_removed_pads``): the shapes the copper check gives
+    such a via, and the pour engine of change c0215 too."""
+    return _with_removed_pads(design)
+
+
 def _pairs(entity: Via | Layer) -> dict[str, str]:
     """The pairs of the ``altium`` bag of ``entity`` (the last value of a repeated key)."""
     held = entity.ext.get(BACKEND)
@@ -809,4 +819,11 @@ def document_validator() -> DocumentValidator:
     return AltiumBackend()
 
 
-__all__ = ["CAPABILITIES", "READ_KINDS", "SUFFIXES", "AltiumBackend", "document_validator"]
+__all__ = [
+    "CAPABILITIES",
+    "READ_KINDS",
+    "SUFFIXES",
+    "AltiumBackend",
+    "document_validator",
+    "removed_pad_vias",
+]

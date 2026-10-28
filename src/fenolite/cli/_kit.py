@@ -9,13 +9,16 @@ kit's own. ``fenolite.verify.kit`` takes both as arguments (``docs/altium-kit.md
 
 A sample script is a design script. It may also bind ``KIT``, a mapping with the keys ``sheets`` (``flat``
 or ``modules``), ``forms`` (``binary``, ``ascii``), ``copper`` and ``planes`` (which replace the board's),
-and ``drawing_sheet`` (the name of a shipped sheet example), and a function ``kit_model(model)`` that
-returns the model with what the DSL cannot declare. The scripts are run in this process, as ``build`` runs
-a design script: they are the repository's own.
+``drawing_sheet`` (the name of a shipped sheet example) and ``pour`` (the pour mode of its document,
+``outline`` by default: the samples of the recorded runs hold unpoured polygons, change c0215), and a
+function ``kit_model(model)`` that returns the model with what the DSL cannot declare. The scripts are run
+in this process, as ``build`` runs a design script: they are the repository's own.
 """
 
 from __future__ import annotations
 
+import json
+import re
 import runpy
 import shutil
 import tempfile
@@ -37,12 +40,13 @@ from fenolite.cli.cmd_build import _catalog_definitions  # pyright: ignore[repor
 from fenolite.core.errors import FenoliteError, FormatError
 from fenolite.core.io import sha256_bytes
 from fenolite.dsl import Design, placements, to_model
+from fenolite.dsl.convert import Placement
 from fenolite.lens.altium import build_altium
 from fenolite.model.design import Design as ModelDesign
 from fenolite.model.library import Library
 from fenolite.templates import build_sheet, example_path, load_spec, page_size
 from fenolite.verify.kit.manifest import KitSources, SampleFiles
-from fenolite.verify.kit.steps import SAMPLES
+from fenolite.verify.kit.steps import PROBES_FILE, SAMPLES
 
 SAMPLES_DIR = Path(fenolite.__file__).resolve().parents[2] / "examples" / "kit"
 """The sample scripts of a source checkout; an installed package holds none (``kit build --samples``)."""
@@ -94,6 +98,12 @@ def build_sample(script: Path, *, edit: ModelEdit | None = None) -> SampleFiles:
         {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
     )
     requested = placements(design)
+    if options.get("pour") == "computed":
+        return SampleFiles(
+            design.name,
+            sha256_bytes(script.read_bytes()),
+            _pour_files(design, model, requested, options, footprints, symbols, namespace.get("POINTS", ())),
+        )
     sheet = _drawing_sheet(str(options["drawing_sheet"])) if "drawing_sheet" in options else None
     files: dict[str, bytes] = {}
     for form in cast(Sequence[str], options.get("forms", ("binary",))):
@@ -110,6 +120,7 @@ def build_sample(script: Path, *, edit: ModelEdit | None = None) -> SampleFiles:
             drawing_sheet=sheet,
             authored_footprints=footprints,
             authored_symbols=symbols,
+            pour=options.get("pour", "outline"),
         )
         errors = [found.message for found in built.issues if found.severity == "error"]
         if errors or not built.files:
@@ -124,6 +135,75 @@ def build_sample(script: Path, *, edit: ModelEdit | None = None) -> SampleFiles:
             elif path.endswith(".SchDoc"):
                 files[f"ascii/{path}"] = data
     return SampleFiles(design.name, sha256_bytes(script.read_bytes()), files)
+
+
+PROBES_SCHEMA = "fenolite.altium-kit-probes.v0"
+POUR_VARIANTS = (("computed", True), ("reference", False))
+"""The two documents of a pour sample (change c0215): ``computed/`` with Fenolite's pour, and
+``reference/``, the same bytes without the regions of the polygons."""
+_PROBE = re.compile(r"P[0-9]+")
+
+
+def _pour_files(
+    design: Design,
+    model: ModelDesign,
+    requested: Mapping[str, Placement],
+    options: Mapping[str, Any],
+    footprints: Any,
+    symbols: Any,
+    points: Sequence[tuple[str, float, float, bool]],
+) -> dict[str, bytes]:
+    """The documents of a pour sample, each a free document (no project lists it), and ``probes.json``:
+    each polygon's probe (the ``P<n>`` its name starts with) and the declared points of the script in the
+    frame of the import. ``FormatError`` for a build error or a point of no polygon; ``BackendUnavailable``
+    without the ``geo`` extra."""
+    from fenolite.backends.altium.pour import polygons_of, read_pour
+
+    files: dict[str, bytes] = {}
+    document = f"{design.name}.PcbDoc"
+    for variant, regions in POUR_VARIANTS:
+        built = build_altium(
+            model,
+            name=design.name,
+            placed=tuple(requested),
+            placements=requested,
+            copper=int(options.get("copper", design.copper)),
+            planes=dict(options.get("planes", design.planes)),
+            authored_footprints=footprints,
+            authored_symbols=symbols,
+            pour="computed",
+            pour_regions=regions,
+        )
+        errors = [found.message for found in built.issues if found.severity == "error"]
+        if errors or document not in built.files:
+            raise FormatError(
+                f"the sample {design.name} does not build: {'; '.join(errors) or 'no PCB document'}",
+                file=SCRIPT,
+            )
+        files[f"{variant}/{document}"] = built.files[document]
+    reading = read_pour(files[f"computed/{document}"], file=document)
+    rings = reading.edges or ()
+    corner = (
+        min(p.x for ring in rings for p in ring.points),
+        min(p.y for ring in rings for p in ring.points),
+    )
+    probes: dict[str, str] = {}
+    for polygon in polygons_of(reading):
+        match = _PROBE.match(polygon.name)
+        if match is None:
+            raise FormatError(f"the polygon {polygon.name} of {design.name} names no probe P<n>", file=SCRIPT)
+        probes[polygon.name] = match.group(0)
+    declared: list[dict[str, object]] = []
+    for name, x, y, copper in points:
+        if name not in probes:
+            raise FormatError(f"a declared point of {design.name} names no polygon: {name}", file=SCRIPT)
+        declared.append(
+            {"polygon": name, "probe": probes[name], "x": corner[0] + round(x * 1_000_000),
+             "y": corner[1] + round(y * 1_000_000), "copper": bool(copper)}
+        )  # fmt: skip
+    body = {"schema": PROBES_SCHEMA, "polygons": dict(sorted(probes.items())), "points": declared}
+    files[PROBES_FILE] = (json.dumps(body, sort_keys=True, indent=2) + "\n").encode("utf-8")
+    return files
 
 
 def sheet_template() -> bytes:
@@ -362,6 +442,97 @@ def kind_problems(own: Path, saved: Path) -> list[str]:
     ]
 
 
+POUR_CHECKS = frozenset({"repoured", "pour-match", "pour-same", "pour-kept"})
+"""The checks of the pour samples (change c0215); each reads its documents with ``read_pour``."""
+KEPT_UNITS = 2
+"""``pour-kept``: the XOR of a kept polygon's regions with Fenolite's is at most this many units of the
+document (2.54 nm each) times their boundary: within one unit everywhere, with a unit of rounding."""
+
+
+def _probes(own: Path) -> tuple[dict[str, str], tuple[Any, ...]]:
+    """The probe of each polygon and the declared points (``pourcompare.PourPoint``) of the pour sample
+    whose document is ``own`` (``<sample>/<variant>/<sample>.PcbDoc``)."""
+    from fenolite.backends.altium.pourcompare import PourPoint
+    from fenolite.core.coords import Point
+
+    path = own.parent.parent / PROBES_FILE
+    if not path.is_file():
+        return {}, ()
+    body = cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
+    points = tuple(
+        PourPoint(str(item["polygon"]), Point(int(item["x"]), int(item["y"])), bool(item["copper"]))
+        for item in cast(list[dict[str, Any]], body.get("points", []))
+    )
+    return {str(k): str(v) for k, v in cast(dict[str, Any], body.get("polygons", {})).items()}, points
+
+
+def _failures(comparison: Any, probes: Mapping[str, str]) -> list[str]:
+    found: list[str] = []
+    for side, layer, name, index in comparison.unmatched:
+        found.append(f"the polygon {name} on {layer} (pour index {index}) is held by the {side} side only")
+    for verdict in comparison.polygons:
+        probe = probes.get(verdict.name) or (match.group(0) if (match := _PROBE.match(verdict.name)) else "")
+        for failure in verdict.failures:
+            at = f" at ({failure.at.x}, {failure.at.y})" if failure.at is not None else ""
+            found.append(f"probe {probe} ({verdict.name}): {failure.criterion} {failure.message}{at}")
+    return found
+
+
+def pour_problems(check: str, own: Path, saved: Path) -> list[str]:
+    """The problems of a pour check (``steps.CHECKS``): ``repoured`` on ``saved`` with the points of
+    ``own``'s sample; ``pour-match`` of Fenolite's ``computed/`` document against ``saved``, each failure
+    naming its probe; ``pour-same`` of ``own`` (the board of the named step) against ``saved``; ``pour-kept``
+    of ``own`` (``computed/``) against ``saved`` within ``KEPT_UNITS``. A point that both sides contradict is
+    a fault of the probe and fails nothing here."""
+    from fenolite.backends.altium.pour import BackendUnavailable, area, polygons_of, read_pour
+    from fenolite.backends.altium.pourcompare import compare_pours, pour_pieces
+
+    try:
+        board = read_pour(saved.read_bytes(), file=saved.name)
+        if check == "repoured":
+            _, points = _probes(own)
+            wanted = sorted({point.polygon for point in points if point.copper})
+            held = {p.name for p in polygons_of(board) if pour_pieces(board, p.index)}
+            empty = [name for name in wanted if name not in held]
+            return [f"the repour did not run: {', '.join(empty)} hold no poured copper"] if empty else []
+        if check == "pour-match":
+            probes, points = _probes(own)
+            computed = own.parent.parent / "computed" / own.name
+            fenolite_pour = read_pour(computed.read_bytes(), file=computed.name)
+            return _failures(compare_pours(fenolite_pour, board, points=points), probes)
+        if check == "pour-same":
+            other = read_pour(own.read_bytes(), file=own.name)
+            return _failures(compare_pours(other, board, criteria=("M1", "M2", "M3", "M4")), {})
+        from fenolite.geometry.boolean.clipper import ClipperBackend
+
+        kit_board = read_pour(own.read_bytes(), file=own.name)
+        mine = {(p.layer, p.name, p.pour_index): p for p in polygons_of(kit_board)}
+        clipper = ClipperBackend()
+        found: list[str] = []
+        for polygon in polygons_of(board):
+            key = (polygon.layer, polygon.name, polygon.pour_index)
+            if key not in mine:
+                found.append(f"the polygon {polygon.name} on {polygon.layer} is not in the kit's document")
+                continue
+            a, b = pour_pieces(kit_board, mine[key].index), pour_pieces(board, polygon.index)
+            boundary = sum(
+                abs(q.x - r.x) + abs(q.y - r.y)
+                for piece in a
+                for ring in piece.rings()
+                for q, r in zip(ring, (*ring[1:], ring[0]), strict=True)
+            )
+            difference = sum((area(x) for x in clipper.xor(a, b)), start=0) if a or b else 0
+            if len(a) != len(b) or difference > KEPT_UNITS * 2.54 * boundary:
+                found.append(
+                    f"the regions of {polygon.name} on {polygon.layer} differ from those Fenolite wrote"
+                )
+        return found
+    except BackendUnavailable:
+        return ["the pour checks need the geo extra (pip install 'fenolite[geo]')"]
+    except (FenoliteError, OSError, ValueError) as error:
+        return [f"Fenolite cannot read the saved board: {error}"]
+
+
 def judge_document(check: str, own: Path, saved: Path) -> list[str]:
     """What the machine check ``check`` of a kit step finds on ``saved``, the file a run left, against
     ``own``, the kit's document: one message per problem, none for a pass.
@@ -380,6 +551,8 @@ def judge_document(check: str, own: Path, saved: Path) -> list[str]:
             other = kind_problems(own, saved)
             if other:
                 return other
+        if check in POUR_CHECKS:
+            return pour_problems(check, own, saved)
         if check == PARITY_STAGE:
             return parity_problems(own, saved)
         if check == COPPER_STAGE:

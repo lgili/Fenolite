@@ -528,7 +528,7 @@ def test_roundtrip_is_a_rewrite(monkeypatch: pytest.MonkeyPatch) -> None:
     trip = AltiumBackend().model_roundtrip(
         SAMPLES / "routed" / "routed.PcbDoc", compare=lambda a, b, s: diff_designs(a, b, scope=s)
     )
-    assert trip.equal and seen == [{"allow_lossy": True, "rewrite": True, "bodies": "off"}]
+    assert trip.equal and seen == [{"allow_lossy": True, "rewrite": True, "bodies": "off", "pour": "outline"}]
     seen.clear()
     AltiumBackend().write(_read(SAMPLES / "routed" / "routed.PcbDoc"))
     write_model(KicadBackend().read(KICAD_ROUTED).design)

@@ -589,7 +589,7 @@ def test_bodies_option_is_extruded_by_default_and_changes_no_byte(
         result = env["result"]
         assert isinstance(result, dict)
         pcb = result["pcb"]
-        assert list(pcb) == ["written", "not_lowered", "bodies"]
+        assert list(pcb) == ["written", "not_lowered", "bodies", "pour"]  # pour: change c0215
         assert pcb["bodies"] == (value or "extruded") and pcb["written"]["body"] == 0
         assert pcb["not_lowered"] == {}
         issues = env["issues"]

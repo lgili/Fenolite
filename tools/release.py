@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""The steps of the release workflow that are not a shell one-liner (change c0210).
+"""The steps of the release workflow that are not a shell one-liner (change c0221).
 
     uv run --no-project python tools/release.py check --tag vX.Y.Z [--source DIR]
     uv run --no-project python tools/release.py notes --tag vX.Y.Z --dist DIR [--source DIR]

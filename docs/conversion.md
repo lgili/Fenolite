@@ -139,8 +139,10 @@ The vocabulary is closed (`fenolite.convert.report.KINDS`), one table for every 
   `geo` extra, or a union that is not one ring) is a `refuse` loss (`report.REFUSE_REASONS`): KiCad would
   call the outline malformed, so the rings are not written and the conversion exits 7 without
   `--allow-lossy`. The kind `outline` keeps only the losses of the board ring.
-- **Changes of KiCad to Altium.** `zone-fill`: a polygon is written unpoured, and Altium fills it on a
-  repour (decision of 2026-10-06). `schematic`: the schematic is generated from the circuit on one sheet
+- **Changes of KiCad to Altium.** `zone-fill`: with `--altium-pour computed` (the default since change
+  c0215) the polygon is poured by Fenolite from the written document (experimental), and a polygon the engine
+  refuses, or every polygon with `--altium-pour outline`, is written unpoured, and Altium fills it on a
+  repour. `schematic`: the schematic is generated from the circuit on one sheet
   with generic symbols. A schematic that the writer refuses is a loss, and the writer's message stays an
   `altium.not-lowered` issue.
 

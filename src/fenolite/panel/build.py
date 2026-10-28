@@ -10,6 +10,7 @@ import dataclasses
 import hashlib
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
@@ -18,6 +19,10 @@ from fenolite.model.design import Design
 from fenolite.model.panel import Panel
 from fenolite.panel.checks import check_panel
 from fenolite.panel.layout import PanelLayout, layout
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.pcbdoc import PcbDocResult
+    from fenolite.backends.altium.pour import PourMode
 
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-PANEL-DRILL", "H-K-PANEL-LOAD", "H-K-PANEL-NETS"))
 """The KiCad panel board: loaded, drilled and net-checked by kicad-cli 9.0.9 and 10.0.6 (task 4.2). The score
@@ -43,6 +48,8 @@ class PanelOutput:
     score_layer: str | None = None
     board: Design | None = None
     notes: tuple[Issue, ...] = field(default=())
+    pour: PcbDocResult | None = None
+    """The write of a flattened Altium panel's document, with what its pour did (change c0215)."""
 
     @property
     def refused(self) -> bool:
@@ -100,9 +107,10 @@ def kicad_panel(panel: Panel, source: Path, *, target: int) -> PanelOutput:
     return PanelOutput(dict(sorted(files.items())), laid, issues, "kicad", score_layer, board)
 
 
-def altium_panel(panel: Panel, source: Path) -> PanelOutput:
+def altium_panel(panel: Panel, source: Path, *, pour: PourMode | None = None) -> PanelOutput:
     """The flattened Altium panel of ``panel`` over the board file ``source`` (a ``.kicad_pcb`` or a
-    ``.PcbDoc``), with one ``altium.panel-flattened`` info that says why it is not the array."""
+    ``.PcbDoc``), with one ``altium.panel-flattened`` info that says why it is not the array. ``pour`` is
+    the pour mode of the document (``flat_files``, change c0215)."""
     from fenolite.backends.altium.pcbdoc import EMBEDDED_ARRAYS
     from fenolite.panel.altium import FLATTENED, flat_files
 
@@ -122,11 +130,20 @@ def altium_panel(panel: Panel, source: Path) -> PanelOutput:
         from fenolite.convert import pads
 
         board = pads.project(fpitems.with_footprint_items(board).design)
-    files, found = flat_files(panel, laid, board)
+    results: list[PcbDocResult] = []
+    files, found = flat_files(panel, laid, board, pour=pour, pour_results=results)
     issues += found
     if files:
         files[f"{panel.name}.panel.json"] = panel_json(panel, data)
-    return PanelOutput(dict(sorted(files.items())), laid, tuple(issues), "flat", board=board, notes=(note,))
+    return PanelOutput(
+        dict(sorted(files.items())),
+        laid,
+        tuple(issues),
+        "flat",
+        board=board,
+        notes=(note,),
+        pour=results[0] if results else None,
+    )
 
 
 __all__ = [

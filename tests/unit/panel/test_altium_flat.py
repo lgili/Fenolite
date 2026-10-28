@@ -6,22 +6,34 @@ c0173)."""
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
+import importlib.util
 import re
 import runpy
 from collections import Counter
 from functools import cache
 from pathlib import Path
 
+import pytest
 from _panels import PANELS, build_board, committed_board, run, script_for
 
+from fenolite.backends.altium import pcbdoc
 from fenolite.backends.altium.adapter import import_board
 from fenolite.backends.altium.read.cfb import open_compound
 from fenolite.backends.altium.read.pcb import read_pcbdoc
-from fenolite.backends.altium.read.pcbprims import PadRecord, TrackRecord
+from fenolite.backends.altium.read.pcbprims import PadRecord, RegionRecord, TrackRecord
+from fenolite.backends.kicad import fpitems
 from fenolite.backends.kicad.outline import edge_outline
+from fenolite.convert import pads
+from fenolite.core.coords import Point
 from fenolite.dsl import Panel, to_model
-from fenolite.panel.build import PanelOutput, altium_panel
+from fenolite.model.board import Zone
+from fenolite.model.design import Design
+from fenolite.model.panel import Panel as ModelPanel
+from fenolite.panel.altium import flat_files
+from fenolite.panel.build import PanelOutput, altium_panel, read_source
+from fenolite.panel.layout import PanelLayout, layout
 
 MM = 1_000_000
 ROUTE, VCUT = 57, 58
@@ -113,3 +125,42 @@ def test_levels_of_a_reply(tmp_path: Path) -> None:
     assert isinstance(result, dict) and isinstance(evidence, dict)
     assert result["panel"]["form"] == "flat"
     assert evidence["level"] == "ORACLE-VERIFIED" and evidence["hypotheses"] == ["H-A-PANEL-FLAT"]
+
+
+def _with_ground_zone() -> tuple[ModelPanel, Design, PanelLayout]:
+    """The panel ``tabs`` over its board with one ``GND`` zone on the bottom layer, 1 mm inside the board's
+    edge (change c0215); the board projected as ``altium_panel`` projects it."""
+    model = to_model(runpy.run_path(str(PANELS / "tabs.py"))["panel"])
+    board, _ = read_source(committed_board(10))
+    board = pads.project(fpitems.with_footprint_items(board).design)
+    outline = edge_outline(board)
+    assert outline is not None and board.board is not None
+    xs, ys = [p.x for p in outline.points], [p.y for p in outline.points]
+    (gnd,) = [net.id for net in board.circuit.nets if net.name == "GND"]
+    left, top, right, bottom = min(xs) + MM, min(ys) + MM, max(xs) - MM, max(ys) - MM
+    ring = (Point(left, top), Point(right, top), Point(right, bottom), Point(left, bottom))
+    zone = Zone(id="zone_gnd", outline=ring, layers=("B.Cu",), net_id=gnd)
+    board = dataclasses.replace(board, board=dataclasses.replace(board.board, zones=(zone,)))
+    return model, board, layout(model, board)
+
+
+def test_flat_panel_pours_every_copy() -> None:
+    """``fenolite panel --target altium`` takes the pour mode (change c0215): ``computed`` pours the zone of
+    each copy and reports it; ``outline`` writes the same polygons without a region of poured copper."""
+    if importlib.util.find_spec("pyclipper") is None:
+        pytest.skip("needs the geo extra")
+    model, board, laid = _with_ground_zone()
+    results: list[pcbdoc.PcbDocResult] = []
+    files, issues = flat_files(model, laid, board, pour="computed", pour_results=results)
+    (written,) = results
+    assert written.pour is not None and written.pour.poured == len(laid.copies) and not written.pour.refused
+    assert [i.code for i in issues if i.code.startswith("altium.zone")] == ["altium.zones-poured"]
+    doc = read_pcbdoc(files["tabs.PcbDoc"])
+    poured = {
+        r.prefix.polygon for r in doc.regions if isinstance(r, RegionRecord) and r.prefix.polygon is not None
+    }
+    assert poured == set(range(len(laid.copies)))
+    outline_files, _ = flat_files(model, laid, board, pour="outline")
+    doc = read_pcbdoc(outline_files["tabs.PcbDoc"])
+    assert len(doc.polygons) == len(laid.copies)
+    assert not [r for r in doc.regions if isinstance(r, RegionRecord) and r.prefix.polygon is not None]

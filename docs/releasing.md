@@ -1,7 +1,7 @@
 # Releasing Fenolite
 
 A release is a tag. Pushing `vX.Y.Z` runs `.github/workflows/release.yml`, which checks, builds, publishes
-`fenolite` and its alias `phenolite` to PyPI and creates the GitHub Release (change c0210).
+`fenolite` and its alias `phenolite` to PyPI and creates the GitHub Release (change c0221).
 
 ## Steps
 

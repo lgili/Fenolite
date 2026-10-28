@@ -200,8 +200,14 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0201 | `file-safety` | `snapshot`, `publish` guarded by receipts, open-session warnings, online-only files, `refs --repoint` (package 9 of c0175) | c0175 |
 | c0202 | `return-paths` | `analyze --kinds returns`: tracks across a gap of their plane, vias without a reference via | c0199 |
 | c0203 | `fabrication-readback` | `export --readback`: the Gerber, drill and position files read back and compared with the board (task 12.1 of c0175) | c0175 |
-| c0210 | `release-automation` | a pushed tag runs the release: checks, build, PyPI and the GitHub Release with notes and checksums; ids c0204 to c0209 are held by other branches | c0154, c0171 |
+| c0215 | `altium-repour` | the maintainer's decision of 2026-10-26 (roadmap, "Open decisions", row 48): Fenolite pours the polygons it writes into a `.PcbDoc` with Altium's rules and algorithm and writes the regions, compared with Altium's own repour in kit group K6 and on the public corpus; supersedes row 23 of c0085 | c0085, c0122, c0130 |
+| c0216 | `contract-v1` | v1.0 freeze: the CLI surface written and judged (with `fenolite.dsl` and `fenolite.api`), envelope and error `v1` behind one constant, deprecation, the maintainer's pre-freeze review | — |
+| c0217 | `result-schemas-v1` | v1.0 freeze: a result schema for every command and schemas of the public file formats (roadmap, "Open decisions", row 14) | c0216 |
+| c0218 | `model-schema-1-0` | v1.0 freeze: model schema version `1.0`, migrators from every `0.x` release, `fenolite migrate`, the pre-freeze review of the model | — |
+| c0219 | `conformance-matrix` | v1.0 freeze: format versions in the evidence matrix, the published conformance matrix, the evidence rules on every reply | c0200, c0216 |
+| c0220 | `legal-history-1-0` | v1.0 freeze: the residue scan over the whole history in the release and the nightly, the licence inventory, the legal review record | — |
+| c0221 | `release-automation` | a pushed tag runs the release: checks, build, PyPI and the GitHub Release with notes and checksums | c0154, c0171 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0204.
+The id c0164 is held by two archived changes (the two c0164 rows of the table). c0215 was written on `dev` as c0196 before PR #20 took that id, then as c0204 before the branch `dev-c0204-c0209` took c0204 to c0209; the five changes of the v1.0 freeze were written as c0198 to c0202 before c0197 to c0203 took those, then as c0205 to c0209. All six were renumbered on 2026-10-28, and c0210 to c0214 are held by drafts in other worktrees. The release of `1.0.0` takes a change of its own when it is cut, as `0.5.0` took c0171. New changes start at c0222.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.

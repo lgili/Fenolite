@@ -228,6 +228,7 @@ def _step(data: Mapping[str, Any]) -> Step:
         value_type=data["value_type"],
         expected=data["expected"],
         scripted=data["scripted"],
+        same_as=data.get("same_as", ""),
     )
 
 

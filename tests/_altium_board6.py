@@ -256,6 +256,7 @@ def board6_build(root: Path, model: ModelDesign | None = None, **kwargs: object)
     requested = board6_placements()
     kwargs.setdefault("copper", len(LAYERS))
     kwargs.setdefault("planes", PLANES)
+    kwargs.setdefault("pour", "outline")  # the written bytes of the earlier changes (c0215 tests "computed")
     kwargs.setdefault("placed", tuple(requested))
     kwargs.setdefault("placements", requested)
     return build_altium(

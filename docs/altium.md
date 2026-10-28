@@ -498,9 +498,13 @@ maintainer reports Part C of `docs/evidence/altium-pcb.md`.
 
 - Tracks and arcs as free primitives with their net, in the short forms Altium Designer 26.5 accepts.
 - Through, blind and buried vias in the 321-byte form Altium saves, with one drill pair per span.
-- Each zone as one polygon pour per layer **without poured copper**: the outline, the net, a name and a
-  pour index. Altium fills them on a repour: run "Tools » Polygon Pours » Repour All" once after opening
-  the document. The build says so with `altium.zones-unpoured`. A zone's fills are never copied.
+- Each zone as one polygon pour per layer: the outline, the net, a name and a pour index. With the pour
+  mode `computed`, the default since change c0215, each polygon holds the copper that Fenolite pours for it
+  with Altium's rules ("Computed pours" below; experimental), and the build says so with
+  `altium.zones-poured`. With `--altium-pour outline`, or without the `geo` extra (one
+  `altium.pour-unavailable` warning), the polygons are written **without poured copper**, as before change
+  c0215: run "Tools » Polygon Pours » Repour All" once after opening the document, and the build says so
+  with `altium.zones-unpoured`. A zone's fills in the model are never copied.
 - A stack of 2 or 4 copper layers, from `design.board(..., copper=…)`, or the copper layers that the
   model's board names (any even count, see "Complete board"). The stack values come from the
   model's stack-up when it fits, else from Fenolite's defaults (1.4 mil copper; for four layers a 0.2 mm
@@ -524,7 +528,7 @@ in one of the two; an item that is not written has an issue whose `where` is `<k
 | keep-outs | one keep-out region with its restrictions for vias, tracks, pads and copper (in the key Altium saves and, for KiCad's importer, in `KEEPOUTRESTRIC` too), on the Keep-Out layer when it names every copper layer, else one per layer | `no_footprints` (reported, the keep-out is written with the others); a keep-out with no other restriction |
 | holes | a free pad without copper, plated or not | a slot (the model's board hole is round) |
 | component bodies | with `--altium-bodies extruded`, the default since change c0155 (change c0121): an extruded body with an outline and a height above its standoff, as one record in `ComponentBodies6` and its twin in `ShapeBasedComponentBodies6`, owned by its component, with its two heights, its side, a mechanical layer (its own when it is Mechanical 1 to 16, else Mechanical 13 on the top side and 14 on the bottom side) and its name. **Experimental; opened in Altium Designer 26.5 by the maintainer (step X8, an author report)** | with `--altium-bodies off`, every body; with `extruded`: a body that names a 3D model (the model holds a name and no data), a body without an outline, a height that is not above the standoff or a standoff below the board surface, a body whose footprint is no component of the document; each `altium.not-lowered` (`where` = `body/<id>`) with its height and its reason. No body is made for a footprint that has none |
-| zones | one **unpoured** polygon per layer, as above; a zone whose islands are never removed keeps them | poured copper, always: **repour the board in Altium** ("Tools » Polygon Pours » Repour All") |
+| zones | one polygon per layer, as above, poured by Fenolite (`computed`, the default; experimental) or unpoured (`outline`); a zone whose islands are never removed keeps them | the model's fills; a polygon the engine refuses (`altium.zone-unpoured`) is written unpoured: **repour it in Altium** ("Tools » Polygon Pours » Repour All") |
 
 **Component bodies (change c0121).** The model can hold component bodies on a footprint: an extruded
 body has an outline, a height and a standoff; a body of kind `model` names a 3D model. A script declares
@@ -566,9 +570,20 @@ sample `tests/_altium_body2.py` is.
   that Altium shows the body. `result.pcb.bodies` records the value used (`extruded` without the
   option), and with `off` every file is the file of earlier versions, byte for byte.
 
-Fenolite never writes poured copper: a pour is the result of Altium's rules and Altium's algorithm, and a
-fill computed elsewhere would be shown as poured while disagreeing with what a repour gives. Clearance and
-thermal reliefs of a polygon come from Altium's rules, not from the polygon. What KiCad's importer reads
+**Computed pours (change c0215).** With the pour mode `computed` the document is first written without
+the regions of its polygons and read back with Fenolite's own reader; the engine (`backends/altium/pour.py`)
+pours each polygon from that reading, as Altium's documented rules say (`docs/formats/altium/pcb-pour.md`,
+"Pour inputs"): the governing Clearance of each object of another net, the Polygon Connect Style rules
+(lowered from the zones, one per net and one `All` rule), pour over, the order of `POURINDEX`, necks,
+islands and dead copper, keep-outs, the board edge and its Board Outline Clearance, and the pad shapes of
+each via on each layer. The regions are written as a saved pour holds them, the document is read back
+again and self-checked, and a polygon whose copper comes nearer to another net than its clearance is
+refused with every later polygon that depends on it. A polygon whose inputs the engine does not evaluate
+(a hatched or shelved polygon, an arc in its outline, a rule scope or a connect style it does not read,
+copper text or a polygon cut-out within reach, among the reasons of `pour.REASONS`) keeps its outline, with
+one `altium.zone-unpoured` (warning) naming the reason. The evidence is `INFERRED` until a round of kit
+group K6 passes (`docs/altium-kit.md`); "Tools » Polygon Pours » Repour All" in Altium gives Altium's own
+copper, and `--altium-pour outline` writes the files of earlier versions. What KiCad's importer reads
 of these items is checked by `tests/kicad/altium/test_pcb_complete_oracle.py` (`H-A-PCBX-KICAD`); that
 Altium shows them is Part X of `docs/evidence/altium-pcb.md`, reported on 2026-10-09 with every step as
 expected: the six rows of the items (`H-A-PCBX-STACK`, `-VIASPAN`, `-TEXT`, `-KEEPOUT`, `-HOLE`,
@@ -1040,7 +1055,10 @@ An author report never raises the build's evidence level.
 | `altium.copper-board-mismatch` | error | a copper source does not match the design: a component, a footprint, a pad net or the outline |
 | `altium.copper-net-missing` | error | copper of a source is on a net whose name the design does not hold |
 | `altium.copper-no-document` | error | a copper source is given and the PCB document is not planned |
-| `altium.zones-unpoured` | info | polygons are written without poured copper |
+| `altium.zones-unpoured` | info | polygons are written without poured copper (pour mode `outline`) |
+| `altium.zones-poured` | info | polygons are poured by Fenolite (pour mode `computed`, experimental) |
+| `altium.zone-unpoured` | warning | one polygon is written with its outline only: the reason the engine refused it |
+| `altium.pour-unavailable` | warning | the default pour mode needs the `geo` extra: the polygons are written unpoured |
 | `altium.plane-zone-merged` | info | a zone on a plane layer with the plane's net is left to the plane |
 | `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
 | `altium.outjob-not-listed` | info | the project file is kept and does not list the output job |
@@ -1536,7 +1554,7 @@ of a model, what RT-A3 compares of it, and what is left out and counted in `unwr
 | `pad` | number, net, position, size, shape, rotation, round hole, one shape on all its layers; a rounded rectangle with the percentage of `corner_ratio` (c0126) | `number`, `net_id`, `position`, `size`, `corner_ratio` | `pad`: a per-layer pad stack, a custom or trapezoid shape, a slot, no copper layer, no number, or a rounded rectangle whose corner ratio is not known |
 | `track`, `arc` | on a signal layer of the stack, with its net; an arc that was read from an Altium document with the centre, radius and angles of its record (c0127) | every field of the scope | `track`, `arc`: a layer that is an internal plane or no layer of the written stack, no width; an arc of three points on a line that holds no record of its own |
 | `via` | through, blind and buried, with its net; in the rewrite of a document that was read (`rewrite=True`, c0128) also a via whose drill equals its diameter | `position`, `diameter`, `drill`, `net_id` | `via`: a micro via, a span outside the stack, a drill that is not below the diameter (in a rewrite: above the diameter); `via-pad-shape`: the layers on which a via that was read has no pad shape (the pair `pad_removed`, c0132): the via is written, with its pad on every layer |
-| `zone` | one unpoured polygon per layer, with its net | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the poured copper, which Altium computes on a repour |
+| `zone` | one polygon per layer, with its net, poured by Fenolite (`computed`) or unpoured (`outline`) | `outline`, `layers`, `net_id` | `zone`: an outline that the model does not hold (an outline with an arc); `zone-fill`: the model's fills, which are not copied: a computed pour pours the polygon again |
 | text, graphic, keep-out, hole | as `fenolite build` writes them (c0085) | not compared | `text`, `graphic`, `keep-out`, `hole`: a layer without a layer in the document, an item that the record cannot hold |
 | shape on copper | not written | not compared | `copper-shape`: a fill or a region on a copper layer, which the model holds as a graphic with its net in the bag |
 | body | with `bodies="extruded"` (c0121): an extruded body with an outline and a height above its standoff, with the stand-in values of its two identity keys; never by default | with `bodies="extruded"`: `kind`, `height`, `standoff`, `outline` (as a ring), `layer` (as the writer's rule gives it) and `name`, within 2 nm; else not compared | `body`: every body without the request; with it, a body that names a 3D model, has no outline or no height above its standoff, or whose footprint is not written |
@@ -1628,7 +1646,7 @@ It is not Altium's design rule check. What it does not judge, it says, and the s
 
 | not judged | why | how the stage says it |
 |---|---|---|
-| unpoured polygons | the document holds no copper for them; a Fenolite build writes its polygons unpoured | `summary.unpoured`, one `copper.item-unsupported` |
+| unpoured polygons | the document holds no copper for them; a Fenolite build writes its polygons unpoured with `--altium-pour outline` or without the `geo` extra, and a polygon the engine refuses | `summary.unpoured`, one `copper.item-unsupported` |
 | internal planes | a plane is drawn in negative: the document holds the lines that cut it, not its copper, and the import makes no track of those lines | one `copper.item-unsupported` at `plane`, with the number of planes and of the objects left out |
 | Clearance rules with a matrix that tells an arc from a track or a through-hole pad from a surface pad, the option that ignores the pads of one footprint, a layer condition for some of the board's copper layers, a scope function outside the grammar or another key outside the rule table | the model has no rule of that form; a blank or uniform matrix, a clearance matrix between all net classes and a layer condition for every copper layer are read ("Rules") | `summary.rules.opaque_clearance_rules`, one `copper.rules-incomplete` |
 | the clearance of a pour that no mapped rule applies to | a polygon has no clearance of its own, and no default is invented | `summary.zones_unjudged`, one `copper.rules-incomplete` at `zone` |
@@ -1717,7 +1735,7 @@ links do not imply that it copied those libraries.
 |---|---|
 | Schematic composition | flat sheet or sheets by module; supported symbol, pin, bus and harness cases are listed in "The schematic" and "Sheets and harnesses"; ASCII has no harness records |
 | PCB/model rewrite | pads, copper, graphics, texts, holes and bodies follow the written-scope table; unsupported shape/layer/body cases are accounted individually |
-| Polygons and planes | polygons are emitted unpoured and native Altium performs repour; split planes and micro vias remain outside the documented write scope |
+| Polygons and planes | polygons are poured by Fenolite with Altium's rules (experimental, change c0215) or emitted unpoured with `--altium-pour outline`; a repour in Altium gives Altium's own copper; split planes and micro vias remain outside the documented write scope |
 | Rules/checks | exact rule kinds and supported scopes are listed under "Rules"; selected native editor checks and the planted Width/Clearance report do not establish general DRC parity |
 | Output job and drawing sheet | settings, special strings and graphical elements follow their documented sections; native-template preservation is a separate input path |
 | Native evidence | AD 26.5 kit observations cover 32 steps and 27 passing hypothesis candidates; the published derivative retains 13/10 observations and refreshes selected native saves/DRC on 14/10, without a complete fresh replay |

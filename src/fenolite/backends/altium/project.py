@@ -32,8 +32,9 @@ from fenolite.backends.altium.layout import (
     class_mark_point,
     layout_sheet,
 )
-from fenolite.backends.altium.pcbdoc import PcbDocSpec, write_pcbdoc
+from fenolite.backends.altium.pcbdoc import PcbDocResult, PcbDocSpec, write_pcbdoc_result
 from fenolite.backends.altium.pcblib import LibFootprint, write_pcblib
+from fenolite.backends.altium.pour import PourMode
 from fenolite.backends.altium.prjpcb import write_prjpcb
 from fenolite.backends.altium.schdoc import Frame, write_schdoc
 from fenolite.backends.altium.schlib import storage_name, write_schlib
@@ -578,6 +579,9 @@ def write_project(
     read_circuit: bool = False,
     composition: CompositionIntent | None = None,
     composition_margins: tuple[int, int, int, int] | None = None,
+    pour: PourMode = "outline",
+    pour_results: list[PcbDocResult] | None = None,
+    pour_regions: bool = True,
 ) -> dict[str, bytes]:
     """``<name>.SchDoc`` in ``form``, one ``<library>.SchLib`` per library that the lib ids name and, when
     ``project`` is true, ``<name>.PrjPcb`` listing them, as bytes; no file is written. ``symbols`` maps a
@@ -590,7 +594,11 @@ def write_project(
     libraries do not depend on the mode. A design with a net class (change c0048) gets the net class
     directives on every sheet and the ``[PrjClassGen]`` section in the project file. ``outjob`` (change
     c0087) are the bytes of ``<name>.OutJob``, which the project file then lists; ``frames`` maps a sheet
-    file to the drawing sheet drawn on it. Without both, every file keeps its bytes."""
+    file to the drawing sheet drawn on it. Without both, every file keeps its bytes. ``pour`` is the pour
+    mode of the PCB document (change c0215; ``pcbdoc.write_pcbdoc_result``), and ``pour_results``, when
+    given, receives what the write of the PCB document did; ``BackendUnavailable`` for ``computed`` without
+    the ``geo`` extra. ``pour_regions`` off writes the computed document without the regions of its
+    polygons (``write_pcbdoc_result``; the input ``reference/`` of the kit's pour samples)."""
     from fenolite.backends.altium.hierarchy import plan_sheets, write_harness
 
     if form not in ("binary", "ascii"):
@@ -697,9 +705,14 @@ def write_project(
             ),
         )
         try:
-            files[f"{name}.PcbDoc"] = write_pcbdoc(pcb, filename=f"{name}.PcbDoc")
+            written = write_pcbdoc_result(
+                pcb, filename=f"{name}.PcbDoc", pour=pour, pour_regions=pour_regions
+            )
         except CompoundTooLarge as error:
             raise PcbTooLarge(f"{name}.PcbDoc", error) from error
+        files[f"{name}.PcbDoc"] = written.data
+        if pour_results is not None:
+            pour_results.append(written)
     if outjob is not None:
         files[f"{name}.OutJob"] = outjob
     return files

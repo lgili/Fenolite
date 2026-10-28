@@ -28,7 +28,7 @@ from fenolite.checks.equivalence import Profile, load_profiles
 from fenolite.checks.equivalence.model import Difference
 from fenolite.convert import PROFILES_FILE, Conversion, convert_project, profiles_text
 from fenolite.convert.codes import issue
-from fenolite.convert.direction import Target
+from fenolite.convert.direction import Pour, Target
 from fenolite.convert.report import Explainer
 from fenolite.convert.rings import RING_KIND, RingDifference, compare_rings
 from fenolite.convert.schematic import root_schematic
@@ -234,6 +234,7 @@ def convert(
     bodies: str = "extruded",
     name: str | None = None,
     verify: bool = True,
+    pour: Pour | None = None,
 ) -> ConversionResult:
     """Convert ``source`` to ``to`` and, with ``verify``, check the written project against the source
     (capability design-conversion, "Conversion verified by equivalence"). The arguments are those of
@@ -243,7 +244,13 @@ def convert(
     if to == "altium" and prepared.backend == "kicad" and (root := root_schematic(prepared)) is not None:
         prepared = replace(prepared, schematic=read_schematic(root).design)
     conversion = convert_project(
-        prepared, to=to, kicad_version=kicad_version, allow_lossy=allow_lossy, bodies=bodies, name=name
+        prepared,
+        to=to,
+        kicad_version=kicad_version,
+        allow_lossy=allow_lossy,
+        bodies=bodies,
+        name=name,
+        pour=pour,
     )
     if verify:
         return verify_conversion(conversion)

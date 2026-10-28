@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 
 import pytest
 from _convert import TWO_LAYER, read_as, two_layer, with_pads
@@ -52,16 +53,36 @@ def test_exit_7_without_consent(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_unpoured_polygon_is_a_change() -> None:
-    """Scenario "Unpoured polygon is a change": the filled zone of the sample and the generated schematic
-    are changes, with one ``convert.changed`` info each, and nothing is lost."""
-    conversion = convert_project(TWO_LAYER, to="altium")
+    """Scenario "Unpoured polygon is a change": with the pour mode ``outline`` the filled zone of the sample
+    and the generated schematic are changes, with one ``convert.changed`` info each, and nothing is lost."""
+    conversion = convert_project(TWO_LAYER, to="altium", pour="outline")
     fill = conversion.report.row("zone-fill")
     schematic = conversion.report.row("schematic")
     assert fill is not None and fill.changed > 0 and fill.lost == 0
+    assert [r.reason for r in fill.reasons] == [to_altium.CHANGES["zone-fill"]]
     assert schematic is not None and (schematic.changed, schematic.lost) == (1, 0)
     assert not conversion.report.lossy
     assert [i.where for i in conversion.issues if i.code == "convert.changed"] == ["zone-fill", "schematic"]
     assert not [i for i in conversion.issues if i.code == lower.NOT_LOWERED]
+    assert "H-A-POUR-OPEN" not in conversion.evidence.hypotheses
+
+
+@pytest.mark.skipif(importlib.util.find_spec("pyclipper") is None, reason="needs the geo extra")
+def test_computed_polygon_is_a_change() -> None:
+    """Scenario "Computed polygon is a change" (change c0215): the default pours the zone, which is a change
+    with the reason of a computed pour, and the conversion's evidence names the pour's hypotheses."""
+    conversion = convert_project(TWO_LAYER, to="altium")
+    fill = conversion.report.row("zone-fill")
+    assert fill is not None and fill.changed > 0 and fill.lost == 0
+    assert [r.reason for r in fill.reasons] == [to_altium.POURED]
+    assert not conversion.report.lossy
+    assert "H-A-POUR-OPEN" in conversion.evidence.hypotheses
+    assert [i.code for i in conversion.issues if i.code.startswith("altium.zone")] == ["altium.zones-poured"]
+
+
+def test_pour_is_one_of_the_modes() -> None:
+    with pytest.raises(ValueError, match="pour is one of"):
+        convert_project(TWO_LAYER, to="altium", pour="poured")  # type: ignore[arg-type]
 
 
 def test_experimental_and_inferred() -> None:

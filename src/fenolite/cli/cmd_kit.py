@@ -28,6 +28,7 @@ from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.core.errors import FormatError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
+from fenolite.geometry.errors import BackendUnavailable
 from fenolite.verify.hypotheses import load_register
 from fenolite.verify.kit import manifest, record
 from fenolite.verify.kit.results import KitVerdict, verify_results
@@ -107,6 +108,13 @@ def _sources(ctx: Context, given: str | None) -> manifest.KitSources:
     folder = None if given is None else _path(ctx, given)
     try:
         return _kit.kit_sources(folder)
+    except BackendUnavailable as error:
+        raise CliError(
+            "FEN-6001",
+            "the kit's pour samples need the geo extra, which is not installed",
+            where="--samples",
+            hint="pip install 'fenolite[geo]'",
+        ) from error
     except FormatError as error:
         raise CliError(
             "FEN-3001",
