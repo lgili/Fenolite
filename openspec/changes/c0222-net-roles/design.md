@@ -534,3 +534,14 @@ Each phase becomes its own change with the next free id when its turn comes. Siz
 7. Should phase 3's router be pure Python? **Recommended:** yes at first, measured on the reference boards.
    A native accelerator, if it is ever needed, goes to an optional extra, since the core keeps no runtime
    dependency.
+
+### Decided by the maintainer on 2026-10-28
+
+- Questions 1 to 7: every recommended answer accepted.
+- Default limits: shipped only for the role checks, each with its source, never above a warning; the
+  user's own limits on confirmed roles are errors. `analyze` keeps shipping none (the exception to the
+  rule of c0175 is limited to `roles.rules`).
+- Creepage and clearance: no table ships; each project declares its distance rows per working voltage, and
+  a high-voltage net without them gives the warning of a missing requirement.
+- Order of the phases after this change: 1 (polygons), 2 (critical routes), 4 (propose and lock, with
+  Freerouting or KiCadRoutingTools for the remaining nets), then 3 (Fenolite's own A* router).
