@@ -60,6 +60,7 @@ from fenolite.backends.altium.read.project import read_project
 from fenolite.backends.kicad import copper as kicad_copper
 from fenolite.backends.kicad import copperrules, wks
 from fenolite.backends.kicad import frame as kicad_frame
+from fenolite.backends.kicad import generate as kicad_generate
 from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad.backend import KicadBackend
 from fenolite.backends.kicad.copper import CopperIntentLike
@@ -104,6 +105,7 @@ from fenolite.dsl import (
     copper,
     drawing_sheet_source,
     fields,
+    generated,
     heights,
     meanders,
     module_moves,
@@ -829,6 +831,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         plane_nets = planes(design)
         intents = copper(design)
         meander_intents = meanders(design)
+        generated_records = generated(design)
         field_requests = fields(design)
         pad_zone_requests = pad_zones(design)
     except DslError as error:
@@ -845,6 +848,19 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     source, source_issues, source_sha = read_source(script_path)
     refused = any(found.severity == "error" for found in source_issues)
     if args.target == ALTIUM_TARGET:
+        if generated_records:
+            # generated copper is resolved by the KiCad build alone (c0224's design, decision 8)
+            keys = ", ".join(record.key for record in generated_records)
+            source_issues = [
+                *source_issues,
+                kicad_generate.issue(
+                    "kicad.generate.altium",
+                    f"the generated-copper calls {keys} are resolved for KiCad targets only",
+                    keys,
+                    "build for a KiCad target, or draw the zones and rule areas with zone() and rule_area()",
+                ),
+            ]
+            refused = True
         # both targets place a part from the file: the lens runs without an existing project (c0069)
         from_file = prepare(model, requested, ExistingProject(), name=design.name, source=source)
         made = _run_altium(
@@ -913,6 +929,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         prepared=prepared,
         copper_intents=intents,
         meanders=meander_intents,
+        generated_copper=generated_records,
         fields=field_requests,
         pad_zones=pad_zone_requests,
         authored_footprints=authored_footprints,

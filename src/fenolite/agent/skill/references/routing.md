@@ -21,6 +21,7 @@ not, the `reason`.
 | `direct` | built in; one straight track between the two pads of a net; checks nothing | the starter, and boards whose placement makes every straight track legal |
 | `freerouting` | an external autorouter: a jar that needs Java 25 or newer | a board that needs a real router |
 | `kicadroutingtools` | an external router in a checkout of its own, named by `FENOLITE_KRT` | the same, where it is installed |
+| `octilinear` | built in; 0/45/90° shapes in clearance, pairs at their gap, no via | gate loops and sense pairs, not whole boards |
 
 ```fenolite-cmd
 fenolite fetch freerouting --dry-run --json
@@ -38,6 +39,8 @@ fenolite route blink/build --router direct --dry-run --json
 fenolite route blink/build --router direct --confirm --json
 fenolite route blink/build --router freerouting --nets "LED_*" --nets VIN --confirm --json
 fenolite route blink/build --router direct --rip --confirm --json
+fenolite route blink/build --router direct --gate drc --confirm --json
+fenolite route blink/build --router octilinear --nets VIN --router-option max-length=30mm --confirm --json
 fenolite route blink/build --router freerouting --require-complete --timeout 600 --confirm --json
 fenolite route board4/build --router freerouting --confirm --json --fields result.plane_fanout
 fenolite net blink/build --json
@@ -55,6 +58,8 @@ fenolite net blink/build GND --json
 - **When nets stay open:** run `route` again (the copper of the first run is kept and the second run
   continues from it); give the router room with `fenolite place --move`; choose another router; or
   declare the copper of those nets in the script.
+- **`--gate drc`** checks the new copper with KiCad's DRC and writes it without each track or via
+  that brings a new finding (`gate.dropped`, `result.gate`); needs `kicad-cli` (exit 6).
 - **`--require-complete`** makes an open net an error: exit 5, `route.incomplete`, nothing written.
 - **`--timeout SECONDS`** bounds the whole step. When it ends, the copper of the finished runs is
   written with `route.budget-exhausted` (warning); run `route` again to go on.
@@ -64,6 +69,8 @@ fenolite net blink/build GND --json
   `kicad.fanout.failed`): give that pad room with `fenolite place --move`, or join it in the script.
 - **`fenolite net BOARD`** lists the nets; with a name it gives one net's pads, copper, vias, zones and
   its open connections. It runs no tool.
+- **`octilinear`** leaves open what its shapes cannot reach (`route.unrouted`), a pair it cannot
+  couple (`route.pair-not-routed`) and copper the copper check refuses (`route.check-refused`).
 - A router that is not installed exits 6 (page `recovery`).
 
 ## Copper in the script
@@ -157,6 +164,27 @@ design.stitch(
 - **The build checks script copper.** Copper that shorts two nets or breaks a clearance stops the build
   (exit 5, `copper.short` or `copper.clearance`) and nothing is written. A pad the footprint does not
   have, or a pad on no net, stops it as well.
+## tidy
+
+```fenolite-cmd
+fenolite tidy blink/build --dry-run --json
+fenolite tidy blink/build --prune --nets "LED_*" --confirm --json
+fenolite tidy blink/build --chamfer --leg 0.5mm --drc --confirm --json
+fenolite tidy blink/build --gate drc --confirm --json
+fenolite tidy blink/build --straighten --chamfer --zones --dry-run --json
+fenolite tidy blink/build --report --compare ref.kicad_pcb --json
+```
+
+`tidy` removes dangling tracks and vias (`--prune`), redraws staircases with fewer 45° turns
+(`--straighten`; pairs and nets with a length rule stay) and turns right-angle joints and T-joints
+into 45° corners (`--chamfer`, with `--zones` also zone corners); with none, the three run. Each edit
+stays only when its net keeps its groups and the copper check finds nothing new; locked and script
+copper stay. `result.edits` lists every change. `tidy.kept` names a stub that still joins its net:
+trim it by hand. `--drc` also runs KiCad's DRC on both boards and writes nothing if it finds more;
+`--gate drc` instead drops each edit that brings a new finding and writes the rest.
+Run `fill`, then `check`, after it. `--report` writes nothing: joints at 45°, 90° and acute
+(`tidy.acute`), jogs, widths and vias per class and layer; `--compare` measures a reference board.
+
 - Removing an intent from the script removes its copper at the next build. `route --rip` never does.
 - The script above declares all its copper: after `fenolite fill`, `fenolite check` exits 0 for it
   with KiCad 10. Before the fill the zones join nothing, and the check reports open connections.

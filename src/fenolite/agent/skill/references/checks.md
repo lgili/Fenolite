@@ -6,8 +6,8 @@ summary: The stages of check, how to read an issue and explain it, evidence leve
 
 # Checking a board and reading the findings
 
-`fenolite check` is the judge of every change. It reads a project and writes nothing: exit 0 means no
-finding of severity `error`, exit 5 means there is at least one.
+`fenolite check` is the judge of every change. It reads a project and writes nothing (`--exclude`
+below excepted): exit 0 means no finding of severity `error`, exit 5 means there is at least one.
 
 ```fenolite-cmd
 fenolite check blink/build --json
@@ -61,6 +61,16 @@ Without `--stages`, every stage of this table runs. `--stages A,B` selects some;
   a `copper.*` or `kicad.drc.*` finding as `info` with its reason, so the exit code no longer counts it.
   A waiver that matches nothing gives `check.waiver-unmatched`. Fix the copper first; waive only what is
   meant, and prefer a rule when a selector can name the items.
+- **Accepting a KiCad finding in the project.** For a project you do not build from a script,
+  `--exclude CODE:ITEM_A:ITEM_B --reason TEXT` stores the exclusion in the `.kicad_pro`, as KiCad's DRC
+  dialog does: the code and the items as the finding's `where` prints them, in either order (leave
+  `ITEM_B` out for a finding of one item). It runs DRC on copies to find the key KiCad applies, so it
+  needs `kicad-cli`; review the plan, then write it. The next check lists the finding as `info` with the
+  reason, and the exclusion in `summary.accepted` of `drc.kicad`.
+
+```fenolite-cmd
+fenolite check blink/build --exclude kicad.drc.unconnected-items:R1-1:R2-1 --reason "joined by the test fixture" --dry-run --json
+```
 
 ```fenolite-cmd
 fenolite explain copper.short --json

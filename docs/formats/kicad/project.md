@@ -254,8 +254,11 @@ A public demo project of tag 10.0.6 stores five exclusions in the list form, eac
 `read_project` returns them as `ProjectInfo.exclusions` (`StoredExclusion`: type, position, the two
 uuids, comment), in file order; an entry of another shape is skipped with `kicad.project.unread-entry`.
 `KicadBackend.stored_exclusions(project)` reads the project file of a copy set and returns `()` when it
-is missing or cannot be read. Nothing writes the list: `update_project` keeps it verbatim, and when
-KiCad applies an entry is in `drc.md`, "Stored exclusions".
+is missing or cannot be read. `update_project` keeps the list verbatim, and when KiCad applies an entry
+is in `drc.md`, "Stored exclusions". `fenolite check --exclude` (change c0209) appends entries in the
+list form, `[key, reason]`, one per item order, with `backends.kicad.exclusions.add_exclusions`: every
+other key keeps its place and number spelling, a key already stored is not repeated, and a missing
+project file starts as `{}` (`drc.md`, "Written exclusions").
 
 ## Tuning profiles (c0105)
 

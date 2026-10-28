@@ -53,11 +53,23 @@ CROSSING_CODES = {"analysis.crossings-short": "warning"}
 """The code of change c0199 ("Crossings analysis code")."""
 RETURN_CODES = {"analysis.return-split": "warning", "analysis.return-via": "warning"}
 """The two codes of change c0202 ("Return path codes")."""
+PRACTICE_CODES = {
+    "analysis.net-split": "warning",
+    "analysis.copper-dead": "warning",
+    "analysis.copper-far": "warning",
+    "analysis.decoupling-far": "error",
+    "analysis.body-copper": "error",
+    "analysis.relief-exceeded": "error",
+}
+"""The six codes of change c0204 ("Practice check codes")."""
+SHAPE_CODES = {"analysis.neck-narrow": "error", "analysis.loop-area": "error"}
+"""The two codes of change c0213 ("Pour shape codes")."""
 
 
 def test_table_of_ten_codes() -> None:
     """The ten codes of c0047; c0115 adds nine beside them."""
     later = POWER_CODES | LENGTH_CODES | TIE_CODES | CROSSING_CODES | RETURN_CODES
+    later |= PRACTICE_CODES | SHAPE_CODES
     first = [code for code in ISSUE_CODES if code not in later]
     assert len(first) == 10 and all(code.startswith("analysis.") for code in ISSUE_CODES)
     errors = sorted(code for code in first if ISSUE_CODES[code] == ("error",))
@@ -71,7 +83,7 @@ def test_table_of_ten_codes() -> None:
 
 def test_power_codes_in_the_table() -> None:
     """Scenario "Codes in the table"."""
-    later = (LENGTH_CODES, TIE_CODES, CROSSING_CODES, RETURN_CODES)
+    later = (LENGTH_CODES, TIE_CODES, CROSSING_CODES, RETURN_CODES, PRACTICE_CODES, SHAPE_CODES)
     assert len(ISSUE_CODES) == 19 + sum(len(table) for table in later)
     for code, severity in POWER_CODES.items():
         assert ISSUE_CODES[code] == (severity,), code
@@ -108,6 +120,22 @@ def test_return_codes_in_the_table() -> None:
     """Scenario "Return codes in the table" (change c0202)."""
     for code, severity in RETURN_CODES.items():
         assert ISSUE_CODES[code] == (severity,), code
+
+
+def test_practice_codes_in_the_table() -> None:
+    """Scenario "Practice codes in the table" (change c0204): errors only where a requirement row judges."""
+    for code, severity in PRACTICE_CODES.items():
+        assert ISSUE_CODES[code] == (severity,), code
+    with pytest.raises(ValueError, match="no severity"):
+        issue("analysis.body-copper", "x", severity="warning")
+
+
+def test_shape_codes_in_the_table() -> None:
+    """Scenario "Pour shape codes in the table" (change c0213): both judge a requirement row."""
+    for code, severity in SHAPE_CODES.items():
+        assert ISSUE_CODES[code] == (severity,), code
+    with pytest.raises(ValueError, match="no severity"):
+        issue("analysis.loop-area", "x", severity="warning")
 
 
 def test_unknown_code_refused() -> None:

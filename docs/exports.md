@@ -426,6 +426,24 @@ proportions, so a PNG may be smaller than the size asked for.
 `fenolite check PATH --stages render` proves that the board plots without writing anything: the stage
 reports the size and SHA-256 of each view. It runs only when named.
 
+### Region renders
+
+```
+fenolite render build/blink --out views --region 0mm,0mm,20mm,20mm --nets --open --confirm
+fenolite render build/blink --out views --region 5mm,5mm,35mm,35mm --cut 10mm,20mm,27.78mm,20mm --confirm
+```
+
+`--region` draws one rectangle of the board into `views/region.svg`. Fenolite draws it from the model
+without `kicad-cli`, for looking at a crowded area. It holds the pads, tracks, arcs, vias, holes, slots,
+zone copper and board edge, and a grid labelled in millimetres of board coordinates (`--grid 1mm` sets its
+step). `--nets` labels each pad with its net, and `--open` draws each open connection as a straight line
+between its two ends. `--cut` draws a barrier cut with its free ways on each layer, from the crossing
+analysis (`--cut-width` and `--cut-clearance` give the track to fit).
+
+A zone is drawn as its saved fill. When it has no fill, or a stale one, it is drawn as the simulated pour
+of the practice checks; `result.region.copper` and the info `render.copper-simulated` say so. Each element
+of the SVG has a `class` and `data-*` attributes, so the file can be read as data as well as looked at.
+
 ## Where they sit in the loop
 
 `build` → `place` → `route` → `fill` → `check` → `export` → `render`. `export` does not run `check` for

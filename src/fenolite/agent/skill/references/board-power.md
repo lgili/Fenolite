@@ -60,6 +60,40 @@ The temperature rise, the thickness and the resistivity above are examples. Use 
   in straight runs. Use 45° chamfers at the steps and bevels at the outer corners. Widen each side
   independently, as far as the clearance to the neighbouring band allows. A free-form pour that fills
   every gap looks improvised, and it leaves narrow fingers that carry nothing.
+- **Let the build draw the band, the keep-outs and the vias.** The calls below run after placement, so
+  they follow the parts; each writes ordinary zones, rule areas, tracks and vias that a rebuild replaces.
+  A barrier and a body keep-out are convex; read the build's issues for the pads a barrier encloses.
+
+```fenolite-design
+from fenolite.dsl import Design, Net, Part, connect, mm
+
+design = Design("power_copper")
+design.board(mm(40), mm(30))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="PWR")
+j2 = Part("J2", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="HV")
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
+design.add(j1, j2, r1)
+vin, gnd, hv, hv_ret = Net("VIN"), Net("GND"), Net("HV"), Net("HV_RET")
+connect(vin, j1[1], r1[1])
+connect(gnd, j1[2], r1[2])
+connect(hv, j2[1])
+connect(hv_ret, j2[2])
+design.rules.netclass("PWR", clearance=mm(0.3), track_width=mm(0.4), via_diameter=mm(0.6), via_drill=mm(0.3), nets=(vin, gnd))  # examples
+design.rules.netclass("HV", clearance=mm(0.5), nets=(hv, hv_ret))  # examples
+h1 = design.hole("H1", mm(35), mm(25), drill=mm(3.2))
+j1.place(mm(6), mm(15))
+j2.place(mm(34), mm(10))
+r1.place(mm(20), mm(8))
+design.zone(gnd, layers=("F.Cu", "B.Cu"))
+# One zone along the spine: each side widens to 2 mm where the clearance allows, with 45° steps.
+design.band(vin, ((mm(6), mm(16.27)), (mm(6), mm(25)), (mm(28), mm(25))), width=mm(2), max_width=mm(4), layers=("F.Cu",), priority=1)
+design.keepout_ring(h1, setback=mm(1))  # no track, via or pour within 1 mm of the drill
+design.barrier("HV", setback=mm(2), forbid=("tracks", "vias"))  # a 2 mm band around the HV copper
+design.body_keepout(j1, setback=mm(0.5), layers=("B.Cu",))  # nothing under J1 on the bottom
+design.fanout_zone(gnd)  # a track and a via from each top SMD pad of GND to its bottom pour
+design.stitch_pieces(gnd, pitch=mm(4))  # vias that tie the two GND pours together
+```
+
 - **Find the necks.** The narrowest point of a band sets its capacity: a gap between two pads, a row of
   vias, the spokes of a thermal relief. Measure there, not at the widest part. Widen a neck, or add a
   parallel path on the other face.
@@ -72,6 +106,15 @@ The temperature rise, the thickness and the resistivity above are examples. Use 
   far from any connection. Dead copper does not cool much, and it shortens clearances.
 - **Share the current in a bank.** In a bank of parallel capacitors, give each capacitor a similar
   path. The nearest capacitor of a lopsided bank takes most of the ripple current and ages first.
+
+Measure these with `analyze`. `necks` finds the places narrower than a `[[neck]]` row of the user's
+requirements, `loops` measures the area of each `[[loop]]` row, and `balance` compares the copper at the
+two pads of each two-pad part. `--split` gives each parallel path and via its share of a path's current.
+
+```fenolite-cmd
+fenolite analyze board.kicad_pcb --kinds necks,loops,balance --requirements req.toml --json
+fenolite analyze board.kicad_pcb --kinds power --split --path J1-1 Q1-2 --copper-thickness 35um --json
+```
 
 ## Heat
 

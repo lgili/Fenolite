@@ -2307,3 +2307,15 @@ path = "tests/data/panels/kit/README-phase-a.md"
 origin = "authored"
 corpus_id = ""
 notes = "the steps Q1 to Q6 of Part Q in Portuguese for the maintainer's kit (c0173)"
+
+[[file]]
+path = "tests/data/kicad/tidy/stub.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the copper-tidy bench of tests/_tidybench.py written for KiCad 10 (c0208): a dangling stub, a dangling via and right-angle joints; a test keeps it equal to a fresh write"
+
+[[file]]
+path = "tests/data/kicad/silk/row.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "the silkscreen bench row() of tests/_silkbench.py written for KiCad 10 (c0212): ten two-pad parts in a row with every designator over its pads; the example board of fenolite silk in the agent guide"

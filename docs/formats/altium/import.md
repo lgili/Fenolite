@@ -45,7 +45,7 @@ sheets are on `connectivity.md`, component bodies on `pcb-bodies.md`, the rule k
 | Stack mode 0 is Simple (one shape on all layers), 1 Top-Middle-Bottom (three sizes and shapes), 2 Full Stack (a size and a shape per signal layer: the top, the mid layers in order, the bottom). In Full Stack, Mid-Layer 1 uses the main middle geometry; the 29 extended sizes and shapes supply Mid-Layer n at n − 2 for n = 2 … 30. Alternate shapes, corner percentages and hole offsets use 0 for the top, the layer id − 1 for a mid layer and 31 for the bottom. The association is inferred from the public fields and thirty mid-layer ids; see `pcb-records.md`, "Full Stack layer association" | S-0002, S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | Hole shape 0 is round, 1 square (rectangular), 2 a slot with round ends; a slot has a length along its axis, and the hole has a rotation, which the import reads as relative to the pad | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
 | The copper of a pad may be offset from its hole centre, per layer | S-0160, S-0302 | INFERRED | H-A-IMP-PADSTACK |
-| Paste and solder mask expansions follow a rule or a manual value; the model lists no mask or paste layer for a pad, the modes and values go to the bag | S-0302 | INFERRED | H-A-IMP-PADSTACK |
+| Paste and solder mask expansions follow a rule or a manual value; the import lists no mask or paste layer for a pad, the modes and values go to the bag. The conversion to KiCad (change c0223; `docs/conversion.md`, "Pad openings") adds the openings by the pad's kind and takes the margins from the bag and the rules | S-0302 | INFERRED | H-A-IMP-PADSTACK |
 
 ## Vias, zones and shapes
 

@@ -112,18 +112,25 @@ def test_baseline_layers(item) -> None:
 
 
 CONVERTED_LOSSES = {
-    "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "graphic": 20},
-    "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1},
-    "altium-third-party-pcbdoc-03": {"body": 50, "rule": 2, "schematic": 1},
-    "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1},
+    "altium-third-party-pcbdoc-01": {"body": 247, "rule": 1, "graphic": 20, "model": 166},
+    "altium-third-party-pcbdoc-02": {"body": 42, "rule": 1, "text": 1, "model": 18},
+    "altium-third-party-pcbdoc-03": {"body": 50, "rule": 2, "schematic": 1, "model": 27},
+    "altium-third-party-pcbdoc-04": {"body": 33, "rule": 1, "model": 2},
     "altium-third-party-pcbdoc-05": {"body": 23, "rule": 1},
-    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3},
-    "altium-third-party-pcbdoc-07": {"body": 24},
-    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "schematic": 1},
+    "altium-third-party-pcbdoc-06": {"body": 27, "rule": 1, "graphic": 3, "model": 19},
+    "altium-third-party-pcbdoc-07": {"body": 24, "model": 3},
+    "altium-third-party-pcbdoc-08": {"body": 1298, "text": 298, "graphic": 1000, "schematic": 1, "model": 52},
 }
 """The losses per kind, measured on 2026-10-15; on 2026-10-16 (change c0170) the slots of the pads of
 ``-07`` (8) and ``-08`` (4) are kept: the import holds a slot's axis in the pad's own frame, and none is
-turned against its pad."""
+turned against its pad.
+
+Change c0223 (2026-10-28) places each embedded model of a top-side part, not turned about X or Y, in the
+derived library (a ``model`` change); every other embedded model is a ``model`` loss: of a bottom-side part
+(118, 14, 3, 0, 0, 2, 3 and 41 in rows ``-01`` to ``-08``) or turned about X or Y (48, 4, 24, 2, 0, 17, 0
+and 11). The bodies stay ``body`` losses, since the board's footprints carry no model. No row has a
+``pad-margin`` loss: the only scoped expansion rules of the documents are of scope ``IsVia`` (rows ``-01``,
+``-04``, ``-05``), which govern no pad."""
 ZONE_ARC_OUTLINES = {
     "altium-third-party-pcbdoc-02": 2,
     "altium-third-party-pcbdoc-07": 4,

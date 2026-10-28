@@ -19,6 +19,11 @@ bumps the schema id.
   envelope is the same and holds no key for it. `--format concise` folds the issues before they are
   printed and does not change the text. A command that failed prints as any other.
 
+- **In process.** `fenolite.api.run(command, *args, cwd=..., seed=..., timestamp=...)` runs a command
+  through the same dispatcher and returns the exit code, this envelope and the error object as values,
+  printing nothing; `--help`, `--text`, `restore -` and `view --serve` are usage errors there
+  (`docs/api.md`; change c0206).
+
 ## Envelope — `schemas/fenolite.envelope.v0.json`
 
 ```json
@@ -819,7 +824,8 @@ Each entry of `result.routers` holds `name`, `description`, `sends_data_offsite`
 `escape`, read from the router's `features` attribute without running anything. A router without the
 attribute lists none. `direct` and `freerouting` list none; `kicadroutingtools` lists the features whose
 gate outcomes hold (`docs/evidence/routing.md`, "Pairs and escape (c0110)"). `route` gives a router no
-differential pair and no escape request unless it lists the feature.
+differential pair and no escape request unless it lists the feature. `short` (change c0228) marks a router
+of short connections, not of whole boards: `octilinear` lists `pairs` and `short`.
 
 ### The brief view and the command view
 
@@ -925,7 +931,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 
 ## route
 
-`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
+`fenolite route PATH --router NAME [--nets GLOB]... [--order GLOBS]... [--rip] [--include-zone-nets] [--no-plane-fanout] [--require-complete] [--router-path PATH] [--router-python PATH] [--router-option KEY=VALUE]... [--allow-offsite] [--timeout SECONDS] [--escape REF[=grid|perimeter]]... [--pairs-as-nets] [--gate drc [--kicad-cli PATH]] [-o FILE]` routes the nets that still have open connections. `PATH` accepts a board, matching project or folder. External tools receive a temporary model-authored project copy; only routed tracks, arcs and vias are merged back. `--out` is relative to the working directory. The normal dry-run/confirm receipt protocol applies.
 
 - **Selection.** A net is selected when it matches `--nets`, has two or more pads and has an open connection on the board, computed from the board after the rip (`docs/analyses.md`, "Open connections"). Copper of its own does not exclude a net; a closed net is never given to the router; a zone net needs `--include-zone-nets`.
 - **`--rip`** removes the tracks, arcs and vias of the matching nets first, but keeps locked copper and script copper (`result.rip_kept`).
@@ -941,14 +947,16 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 - **Escape.** `--escape REF[=grid|perimeter]` (repeatable, `fnmatch` on references) asks a router with the feature `escape` to escape the pads of the matching parts before it routes; the kind is found from the centres of the part's surface pads unless given, and a suffix other than `=grid` or `=perimeter` exits 2 with `FEN-2001`. A pattern that matches no part, a part without a selected net, and every request to a router without the feature give `route.escape-skipped`.
 - **Width guard.** A routed track or arc narrower than the width the job gave its net (the pair width for a pair net) gives one `route.width-below-job` per net, naming the smallest width and the width asked; the copper is kept. With `freerouting` the hint names `--router-option fanout=off`.
 - **Routing layers.** A net's tracks may use the copper layers that are not plane layers and that no `no_tracks` rule forbids to it; a selected net left with none gives `route.no-layer` and is not routed.
+- **`--gate drc`** judges the copper the command adds or removes with `kicad-cli` DRC and writes the board without the tracks and vias that bring new findings ([DRC gate](#drc-gate)); the verdict and the counts are those of the kept board.
 - **Resumed.** The copper of each router process that finished is kept in the state folder until the board is written. The same call made again on the same board reuses it and does not route those nets again: the reply then holds one `route.resumed` info and `result.resumed` (`runs`, `nets`), and `tracks` and `vias` count the reused copper too. Without a record `result.resumed` is `null`. See `docs/routing.md`, "The job record". The recorded copper is merged after the plane fan-out, as the router of the earlier call saw the board. A dry run that the budget cut keeps the record, so the same dry run made again goes on with the nets that were not attempted.
 
-`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout`, `pairs`, `escape` and up to 20 sanitised `log` lines. `pairs` lists `{name, positive, negative, width, gap, routed}` for the pairs given to the router (`routed`: both nets are in `routed`), and `escape` lists `{ref, kind, pitch, nets}` for the escape requests given to it; `selected` names every net given to the router, pair nets included. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence is `UNVERIFIED`; run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
+`result` contains `board`, `router`, `tool_version`, `selected`, `routed`, `unrouted`, `open`, `connections`, `tracks`, `vias`, `ripped`, `rip_kept`, `fills_stale`, `budget`, `runs`, `not_attempted`, `resumed`, `plane_layers`, `plane_fanout`, `pairs`, `escape`, `gate` ([DRC gate](#drc-gate)) and up to 20 sanitised `log` lines. `pairs` lists `{name, positive, negative, width, gap, routed}` for the pairs given to the router (`routed`: both nets are in `routed`), and `escape` lists `{ref, kind, pitch, nets}` for the escape requests given to it; `selected` names every net given to the router, pair nets included. `open` holds one object per net of `unrouted`, sorted by name: `net`, `islands` and `connections`, each connection with `a` and `b` (`kind`: `pad`, `track`, `arc` or `via`; `where`; `position`; `layers`) and `length` in nanometres; `--limit` and `--cursor` page it. `connections` holds `before` and `after`, the open connections of the selected nets before the router and after the merge. `rip_kept` holds `locked` and `script`, the items of the ripped nets that `--rip` kept. `fills_stale` is true when the board has fills and the command added copper. `budget` holds `seconds` (the budget the step ran with: `--timeout`, else the router's default; `null` for a router without one), `spent` (the seconds the router took, rounded to 0.1; 0.0 for a router without a budget) and `exhausted` (whether the budget ended before every run was done). `runs` holds one object per process the router started, in order: `tier`, `nets` (a count), `seconds` (rounded to 0.1) and `outcome` (`done`, `failed`, or `cut` for the run the budget stopped). `not_attempted` lists the nets of the runs that were never started; they are in `unrouted` too. `spent` and the `seconds` of a run are wall-clock times and differ from one run to the next. `resumed` is `null`, or holds `runs` and `nets`: the router runs of an earlier call whose copper was reused, and the nets they routed. Evidence is `UNVERIFIED` (`KICAD-VERIFIED` after `--gate drc` left no new finding); run `check` after routing and refill zones before checking. The exit code is 5 for `route.bad-item`, `route.tool-failed` or `route.incomplete`, and 0 otherwise.
 
 | code | severity | when |
 |---|---|---|
 | `route.bad-item` | error | a router returned malformed copper |
 | `route.budget-exhausted` | warning | the budget of the step (`--timeout`) ended before every router run was done: the message gives the budget, the nets of the run that was stopped and the nets not attempted; the copper of the finished runs is kept and written |
+| `route.check-refused` | warning | the octilinear router removed the copper of a connection because the copper check found something new on it; the message names the net and the finding |
 | `route.constraint-not-sent` | warning | the router takes no option for plane layers or for the layers a net is kept to (KiCadRoutingTools); one per run, naming them |
 | `route.copper-removed` | warning | the router dropped existing copper |
 | `route.escape-skipped` | warning | an `--escape` pattern matched no part, the part has no selected net, or the router has no `escape` feature |
@@ -958,6 +966,7 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.no-layer` | warning | track layer rules forbid every routing layer to a selected net; it is not routed |
 | `route.optimizer-cut` | info | Freerouting with `optimize=on`: the optimizer run wrote no session in the time left; the copper of the first run is kept |
 | `route.option-ignored` | warning | a `--router-option` the router does not support was ignored |
+| `route.pair-not-routed` | warning | the octilinear router left a pair open: no shape gave coupled tracks in clearance, every shape was longer than `max-length`, or a net of the pair has other than two pads |
 | `route.pair-skipped` | warning | a differential pair was left out with both its nets: the router has no `pairs` feature, one net is not selected, the nets are in two classes, the class has no pair width or gap, or the router does not pair names of that form; the hint names the way out |
 | `route.pair-uncoupled` | info | with `--pairs-as-nets`, a pair was routed as two single nets |
 | `route.partial` | info | the router returned copper for a net that stays open; the copper is kept and written, and the message gives the number of items |
@@ -971,6 +980,8 @@ after the readers' own issues and before the `model.*` findings. An error issue 
 | `route.width-below-job` | warning | routed copper is narrower than the width the job gave its net; the message gives the smallest width and the width asked |
 | `route.zone-net-skipped` | info | a zone net was omitted without the inclusion flag |
 | `kicad.fanout.failed` | warning | no fan-out via fits beside an SMD pad of a plane net; the pad stays open, and the message names the pad, the net and what blocked the first candidate |
+
+`fenolite route --router octilinear` (change c0228) is built in, runs no process and places no via: for each open connection it tries a straight segment, 45° then straight, straight then 45° and the two L shapes on each allowed layer, and keeps the first that keeps the clearance in force plus 2 µm from other nets' copper and holes, the edge clearance, and no acute angle at its ends. `--router-option max-length=LENGTH` (default 20 mm) bounds a shape: a connection longer by every shape stays open with `route.unrouted`; `--router-option rounds=N` (default 3) routes the failed connections first in the next round. A pair of two pads per net is routed as two tracks at the pair gap (`route.pair-not-routed` otherwise). The copper check judges the result, and a connection with a new finding is removed (`route.check-refused`). Its features are `pairs` and `short` (a router of short connections, not of whole boards). The job's `extra` gives every router `clearance` and `copper_check` (`docs/routing.md`, "octilinear").
 
 `fenolite route --router freerouting` runs Freerouting through a Specctra design file. `--router-path` names its jar (or `docker:<image>`), `--router-option max-passes=N` its passes, `--router-option optimize=on` adds a run with its optimizer on the time left (the optimizer is off otherwise), and `--router-option fanout=off` turns its fanout stage off (it is on by default); its automatic neck-down is always off; the board needs a closed outline. The design file declares only the nets of the job, and one run is made per tier. `--router kicadroutingtools` runs one process per group of nets of equal track width and via sizes; `--router-option group-nets=N` splits a group, and its options `nets`, `output` and `overwrite` are ignored. Its issues also carry the `specctra.*` codes: `specctra.unknown-padstack` and `specctra.session-moved` (error, no copper is taken), `specctra.pad-approximated` and `specctra.plane-skipped` (warning: a zone on a plane layer without an outline gives no plane), `specctra.rounded`, `specctra.renamed`, `specctra.unknown-list`, `specctra.rule-not-sent` (a rule the file cannot carry) and `specctra.rule-widened` (a layer clause dropped from a clearance rule) (info). The file declares the plane layers `(type power)` with one plane per zone, keeps nets to their layers with `use_layer`, and carries class clearances, class-to-class clearances, widths per layer and the edge clearance (`docs/routing.md`, "What each router is given"). While the router is listed with `sends_data_offsite: true`, the command exits 2 without `--allow-offsite`. See `docs/routing.md`. The jar is `--router-path`, else `FENOLITE_FREEROUTING_JAR`, else the file that `fenolite fetch freerouting --confirm` installed in the tools folder ([fetch](#fetch)); without a jar the command exits 6 with `FEN-6001` and the hint `run 'fenolite fetch freerouting --confirm'`. `route` itself opens no network connection.
 
@@ -996,10 +1007,66 @@ the tool version. An installed KiCad 9 alone cannot refill: use KiCad 10, `--fro
 | `zone.fill-unstable` | warning | a lifted fill is not reproduced by another refill |
 | `zone.none` | info | the board has no netted zone to refill |
 
+## tidy
+
+`fenolite tidy PATH [--nets GLOB]... [--prune] [--straighten] [--chamfer] [--zones] [--leg LENGTH] [-o FILE] [--drc | --gate drc] [--kicad-cli PATH] [--timeout SECONDS]` cleans the routed copper of a KiCad board, and `fenolite tidy PATH [--nets GLOB]... --report [--compare REFERENCE]` reports its routing style (changes c0208 and c0214; `docs/copper.md`, "Copper tidy"). `PATH` accepts a board, matching project or folder; `--out` is relative to the working directory, otherwise the board is replaced. The usual `--dry-run` plan and `--confirm` receipt protocol applies.
+
+- **Steps.** `--prune`, `--straighten` and `--chamfer` select steps; with none, all three run, in the order `prune`, `straighten`, `chamfer`. `--nets GLOB` (repeatable, `fnmatch` on net names) narrows the nets; without it every net is tidied.
+- **Prune** removes, pass after pass, each unlocked track or arc with a free end (an end whose disc of the track width touches no pad, via, track, fill or zone outline of its net) and each unlocked via joined on fewer than two copper layers, only when its net keeps its connected groups without it; one that would split its net stays with `tidy.kept`.
+- **Straighten** replaces each run (two or more unlocked tracks of one net, layer and width chained through joints that join nothing else, touching nothing of the net between its two ends) by a shape of at most three segments at 0°, 45° or 90° with fewer weighted turns (45° weighs 1, 90° weighs 3, an acute turn is never made, a turn inside a pad the run ends on is free, joints with tracks at the ends count), when it keeps the net's groups and adds no copper-check finding. Nets of a differential pair or selected by a `length`, `skew` or `diff_pair_skew` rule stay, with `tidy.straighten-skipped`.
+- **Chamfer** replaces each joint of exactly two unlocked horizontal or vertical tracks of one net, layer and width at 90°, where nothing else of the net touches, by a 45° track. The leg is `--leg`, else twice the width, and at most half of the shorter track; a track that two chamfers cut to nothing is removed. A horizontal or vertical track that ends at 90° on the middle of a track of its net, layer and width, or on the joint of two collinear ones, gets a 45° entry on the side with more bar. With `--zones` (which needs the chamfer step), each convex right-angle corner of the outline of an unlocked zone of a selected net is cut by a 45° edge (legs `--leg`, else 1 mm, at most half of each edge), unless an item of the net that touched the outline would lose its contact; a cut zone loses its fill. A chamfer that changes its net's groups, or adds a copper-check finding, is undone with `tidy.chamfer-undone`.
+- **Never touched.** Locked tracks, arcs and vias and script copper (`docs/copper.md`), and every net that holds copper that could not be shaped (`tidy.net-skipped`).
+- **Check.** Each edit is judged by the copper check with the rules of the project beside the board (`check`, stage `copper.clearance`), and the whole tidied board once more: a finding it lacked before gives `tidy.check-failed` and no write.
+- **`--drc`** runs `kicad-cli` DRC (`--kicad-cli`, else the tool `check` finds; exit 6 without one) on copies of the board as it is and as tidy would write it, with the project files. A violation type with more entries after gives `tidy.drc-new` and no write; otherwise the evidence is `KICAD-VERIFIED` with the tool version.
+- **`--gate drc`** judges the edits with `kicad-cli` DRC instead and writes the board without the edits whose items bring new findings, each edit kept or undone whole ([DRC gate](#drc-gate)); `--drc` with it is a usage error.
+- **`--report`** runs no step and plans nothing (no `--dry-run` needed; a step option, `--zones`, `--leg`, `--drc`, `--gate` or `--out` with it is a usage error). Per net class (from the project beside the board, else `Default`) and copper layer it counts the joints of two track ends at 45° (`joints_45`), at 90° (`joints_90`), `acute` and `other`, the `jogs` (tracks shorter than three widths between two turning joints) and the length per track width; and per class the vias. Each acute joint is a `tidy.acute` warning. `--compare REFERENCE` (implies `--report`) adds the same table of another KiCad board.
+
+`result` holds `board`, `target`, `steps`, `nets` (the number of selected nets), `changed`, `edits`, `counts` (edits per `<step>.<reason>`), `removed` and `added` (item counts), `copper_check` (`before`, `after` and `new` finding counts), `drc` (`null`, or `tool_version`, `before`, `after` and `new`, the violation types that grew), `gate` ([DRC gate](#drc-gate)), `fills_stale` and `style` (`before` and `after`, the `counts` of the style report). Each edit holds `step`, `reason` (`free-end`, `via-under-two-layers`, `fewer-turns`, `right-angle`, `t-joint` or `zone-corner`), `net`, `layer` (`null` for a via or a zone corner), `at` (`x`, `y` in nanometres) and the ids `removed`, `replaced` and `added`; `--limit` and `--cursor` page `edits`. The board is planned when an edit was made and no issue is an error. Evidence is `INFERRED` (`H-K-TIDY-DRC`, `H-K-CONN-PARITY` and the rows of the copper check), `UNVERIFIED` when the copper check could not judge all of the board, and `KICAD-VERIFIED` after `--drc` found nothing new. The exit code is 5 for `tidy.check-failed` and `tidy.drc-new`, 0 otherwise. Under `--report`, `result` holds `board`, `steps` (empty), `changed` (false), `report` and `compare` (`null`, or the reference's `board` path with its own `rows`, `vias` and `counts`); `report` holds `rows` (`netclass`, `layer`, `joints_45`, `joints_90`, `acute`, `other`, `jogs`, `widths` as `width` and `length` in nanometres), `vias` (`netclass`, `count`) and `counts` (the sums); the evidence is `INFERRED` (`H-G-TIDY-STYLE`).
+
+| code | severity | when |
+|---|---|---|
+| `tidy.check-failed` | error | the copper check finds on the tidied board a finding the board before lacks; nothing is written |
+| `tidy.drc-new` | error | with `--drc`, a DRC violation type has more entries on the tidied board; nothing is written |
+| `tidy.acute` | warning | with `--report`, two tracks of one net meet at an angle below 90° |
+| `tidy.net-skipped` | warning | a selected net holds copper that could not be shaped and is left as it is |
+| `tidy.project-unread` | warning | the project or rules file beside the board could not be read; the copper check runs without it |
+| `tidy.chamfer-undone` | info | a chamfer, a T-joint entry or a zone cut was undone: it changed its net's groups, added a copper-check finding or left an item without its zone |
+| `tidy.fill-stale` | info | tidy changed copper of a board with filled zones; run `fill` before `check` |
+| `tidy.kept` | info | a track or an arc with a free end stays because its net would fall apart without it |
+| `tidy.straighten-skipped` | info | a net in a differential pair or with a length rule keeps its runs as they are |
+
+## library
+
+`fenolite library PATH --out LIB.pretty | --diff LIBRARY` makes a footprint library from a KiCad board, or
+reports how a library differs from it (change c0223; `docs/conversion.md`, "3D models", for the derived
+libraries of a conversion). `PATH` accepts a board, matching project or folder.
+
+- **`--out`** (a relative `.pretty` folder) plans one `<name>.kicad_mod` per footprint, under the usual
+  `--dry-run` plan and `--confirm` receipt protocol, written for the board's major. Each footprint is the
+  board's instance brought back to its origin, rotation 0 and the top side (placement, uuid, path and pad
+  nets dropped; Reference `REF**`, Value the name), named after the name of its library link. A second
+  instance of one name that differs, its uuids aside, is written as `<name>_2` (then `_3`) with
+  `library.instances-differ`.
+- **`--diff LIBRARY`** compares each derived footprint with `LIBRARY/<name>.kicad_mod` and writes nothing,
+  even with `--out`: `pads` (number, kind, shape, size, position, angle, layers, drill), `silkscreen` and
+  `courtyard` (the graphics on `F.SilkS`/`B.SilkS` and `F.CrtYd`/`B.CrtYd`), `models` (the paths) and
+  `fields` (the properties other than Reference and Value); a file the folder lacks is `missing`.
+
+`result` holds `board`, `library` (the folder written or compared) and either `footprints` (`name`,
+`source`, `refs`) or, with `--diff`, `drift` (`name`, `kinds`); `--limit` and `--cursor` page that list.
+Evidence is `INFERRED` (`H-K-LIB-FROM-BOARD`). The exit code is 5 when a footprint drifted, 2 without
+`--out` or `--diff` or for an `--out` that is not a relative `.pretty` folder, 0 otherwise.
+
+| code | severity | when |
+|---|---|---|
+| `library.drift` | error | with `--diff`, a footprint differs from the library's or the library lacks it |
+| `library.instances-differ` | warning | two instances of one name differ; the second is written as `<name>_2` |
+| `library.not-local` | warning | a bottom-side footprint could not be flipped back; it is left out |
+
 ## check
 
 `fenolite check PATH [--stages A,B] [--kicad-cli PATH] [--timeout SECONDS]` checks a KiCad project
-read-only. `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a folder holding one
+read-only (`--exclude` alone writes: "Writing a DRC exclusion" below). `PATH` is a `.kicad_pcb`, a `.kicad_pro` (the board of its stem) or a folder holding one
 `.kicad_pro` (else one `.kicad_pcb`). `kicad-cli` only ever sees a copy of the files a DRC run reads
 (board, `<stem>.kicad_pro`, `<stem>.kicad_dru`, `fp-lib-table` and its `${KIPRJMOD}` libraries, the
 drawing sheet): nothing under the project folder is created or changed. `--timeout` defaults to 300 s.
@@ -1357,7 +1424,74 @@ without a message, so `check` says what became of each: the issue of an excluded
 `check.exclusion-stale` (warning), `moved` when an entry of its type and items is reported again
 (KiCad matches the marker position to the nanometre) and `gone` when none is. `summary.exclusions` of
 `drc.kicad` holds `stored`, `live`, `stale` and `unjudged`; exclusions of the four types above are not
-judged. Fenolite never writes an exclusion.
+judged. Two keys of one type, position and item pair in both orders are one accepted exception (the form
+`--exclude` writes): both are live when the report marks an entry of that type and those two items, in
+either order, as excluded, else both unjudged (one of the four types) or both stale with one warning.
+`summary.accepted` of `drc.kicad` lists each such exception: `type`, `items` (the two uuids), `comment`,
+`state` (`live`, `stale` or `unjudged`) and `reported` (an entry of that type names the two items).
+
+### Writing a DRC exclusion
+
+`fenolite check PATH --exclude CODE:ITEM_A[:ITEM_B] --reason TEXT [--dry-run | --confirm]` (KiCad input,
+change c0209) runs no stage: it stores one DRC exclusion in the board's project file
+(`<stem>.kicad_pro`, created as `{}` with the list when missing) under the mutation protocol, and writes
+nothing else. `CODE` is KiCad's type (`unconnected_items`) or the finding's code
+(`kicad.drc.unconnected-items`); each `ITEM` is a KiCad uuid or an item's name as the finding's `where`
+prints it (`R1-1`, `/kicad_pcb/segment[0]`), in either order; `ITEM_B` is left out for an entry of one item.
+`--reason` is required and becomes the exclusion's comment. Without `--exclude`, `check` plans no write, so
+`--dry-run` and `--confirm` change nothing.
+
+- **Lookup.** `pcb drc` runs on a copy; exactly one entry must match, else `check.exclusion-unmatched` or
+  `check.exclusion-ambiguous` (errors, exit 5, nothing written).
+- **Key.** A key needs the marker position, which the report does not give (`docs/formats/kicad/drc.md`,
+  "Written exclusions"). A second run on a copy stores one probe key per anchor of the two items and per
+  order; the comment KiCad puts on the entry names the position. None applies: `check.exclusion-unlocated`
+  (error, exit 5). An entry already excluded takes the position of its stored key.
+- **Write.** The exclusion is stored in both orders of its two items, each `[key, reason]`; a key already
+  stored is not repeated, and when both are, `check.exclusion-present` (info) and no plan. A third run on a
+  copy must show the entry excluded with the reason before the write is planned.
+- **Result.** `result.project` (the project file, relative to the working directory), `tool_version` and
+  `exclusion`: `type`, `code`, `items` (`uuid`, `name`), `reason`, `position` (`{x, y}` in nm, `null` when
+  unlocated) and `keys`. Evidence `KICAD-VERIFIED` (`H-K-DRC-EXCLUSION`). Without a `kicad-cli`: exit 6.
+
+### Trial edits
+
+`fenolite.api.trial(board, edit, *, kicad_cli=None, refill=True, gate=False, timeout=300)` (change c0209)
+is the library form of a DRC-gated edit; `route` and `tidy` take it as `--gate drc` ([DRC gate](#drc-gate)).
+`together` (change c0225) names groups of the edit's ids that the gate drops as one. `edit` takes the board model
+and returns the edited model and the ids of the items it added, removed or changed. The unedited and the
+edited model are written for the board's major and checked by `pcb drc` on copies with the project files,
+the zones refilled first on KiCad 10 (`trial.not-refilled`, warning, on 9 for a board with zones). A
+finding of the edited copy is new when the unedited copy holds fewer entries of its type and item set; it
+names the edit's items whose uuids it holds. With `gate=True` the named items are dropped (an added item
+removed, a changed one put back) and the trial runs again until no new finding names an item of the edit.
+`TrialResult` holds `board_text` (the board to write), `findings`, `kept`, `dropped` (each item with its
+findings), the entry counts `baseline` and `edited`, `runs`, `refilled`, `tool_version`, `evidence`
+(`KICAD-VERIFIED`, `H-K-DRC-TRIAL`) and `issues`. Nothing is written; `ToolMissingError` (`FEN-6001`)
+without a `kicad-cli`.
+
+### DRC gate
+
+`fenolite route` and `fenolite tidy` take `--gate drc` (change c0225). The command makes its edit as
+without it; the tracks, arcs, vias, zones and other items that differ between the board as read and as
+edited are the edit, judged by `fenolite.api.trial(..., gate=True)` on the board and its project files
+([Trial edits](#trial-edits)). The command writes its own model without the items the trial dropped; `tidy`
+drops an edit whole (its removed, replaced and added items, joined with any edit that changes one of them).
+The `kicad-cli` pre-flight of `check` runs before the edit (`--kicad-cli`, else the tool `check` finds):
+without a tool the command exits 6 and routes, tidies and writes nothing. The DRC runs take `tidy`'s
+`--timeout`; `route`'s `--timeout` stays the router's budget and the runs take 300 s. `route --kicad-cli`
+without `--gate drc` exits 2.
+
+`result.gate` is `null` without the option, else `tool_version` (`null` when the edit held no item and no
+DRC ran), `runs`, `refilled`, `items` (the ids judged), `kept` (a count), `dropped` (`{id, findings}`) and
+`findings` (the new findings left, which name no item of the edit); each finding holds `type`, `severity`,
+`description`, `uuids` and `items`. The write is planned as without the gate. With no finding left the
+evidence is the trial's (`KICAD-VERIFIED`, `H-K-DRC-TRIAL`).
+
+| code | severity | when |
+|---|---|---|
+| `gate.dropped` | warning | an item of the edit is not written: a new DRC finding names it (or another item of its tidy edit); the message gives the first finding |
+| `gate.unnamed` | warning | a new DRC finding names no item of the edit; it may be noise of the tool (`H-K-DRC-REPEAT`), and the edit is written |
 
 ### check on Altium input
 
@@ -1697,16 +1831,46 @@ warning does not either, change c0116).
 with the same protocol and tool errors as `export`. `--svg` plots `front.svg` (`F.Cu`, `F.SilkS`,
 `F.Fab`, `Edge.Cuts`) and `back.svg` (the back layers, mirrored) with `pcb export svg --mode-single`;
 `--png` renders `top.png` and `bottom.png` with `pcb render`, at most `--width` by `--height` pixels
-(defaults 1600 and 1200, each from 64 to 8192). A call with neither flag exits 2. `result` holds `board`,
-`out`, `views` (`path`, `kind`, `bytes`, `sha256`; sorted by path) and `tool_version`. `--manifest`
-merges the views that were produced into `DIR/fenolite-artifacts.json` as `export` does, each with
-the kind `render`; a view that failed has no entry.
+(defaults 1600 and 1200, each from 64 to 8192). A call with neither flag, nor `--region`, exits 2. `result`
+holds `board`, `out`, `views` (`path`, `kind`, `bytes`, `sha256`; sorted by path) and `tool_version`.
+`--manifest` merges the views that were produced into `DIR/fenolite-artifacts.json` as `export` does, each
+with the kind `render`; a view that failed has no entry.
+
+### Region renders
+
+`fenolite render PATH --out DIR --region X1,Y1,X2,Y2 [--nets] [--open] [--grid LENGTH] [--cut X1,Y1,X2,Y2]...
+[--cut-width LENGTH] [--cut-clearance LENGTH] [--width PX] [--manifest]` draws one rectangle of the board
+into `DIR/region.svg` (change c0211). Fenolite draws it from the model and runs no tool, so the same board
+gives the same bytes. Every length needs a unit. The corners may come in either order. A rectangle with no
+area exits 2, and so does `--region` with `--svg` or `--png`. The region options without `--region` exit 2,
+and so do `--cut-width` or `--cut-clearance` without `--cut`.
+
+The SVG holds, clipped to the rectangle, the copper of every item whose box meets it, bottom layer first:
+pads, tracks, arcs, the zone copper in its state and the vias. It also holds the holes and slots, the board
+edge with its cut-outs, and a grid labelled in millimetres of board coordinates. With `--nets` there is one
+label per pad with a net whose position lies in the rectangle; `--open` adds the open connections as straight
+lines; each `--cut` adds the cut and its ways per layer, as `analyze --kinds crossings` gives them. Every
+element carries a `class` (`pad`, `track`, `arc`, `via`, `zone`, `zone-outline`, `hole`, `slot`, `edge`,
+`grid`, `grid-label`, `net-label`, `open`, `cut`, `way`) and `data-*` attributes (`data-net`,
+`data-layer`, `data-where`, `data-state`, …), and coordinates are millimetres with the exact digits of their
+nanometres.
+
+The zone copper is that of the practice checks (`analysis.pour`): the saved fill, the simulated pour drawn as
+its cells, or the zone outline when the pour is too large. The open connections follow that copper.
+`result.views` holds `region.svg`, `tool_version` is `null`, and `result.region` holds `x0`, `y0`, `x1`,
+`y1`, `grid`, `counts` (elements per class), `copper` (the states used), `zones` (`zone`, `net`, `layer`,
+`state`, `reason`), `pour_grid`, `open` (`net`, `a`, `b` with `where`, `x`, `y`, and `length`) and `cuts`
+(`cut`, `supply`, `open`, `routed`). The evidence is `INFERRED` (`H-G-REGION-RENDER`), combined with that of
+the connections and of the cuts.
 
 | code | severity | when |
 |---|---|---|
 | `render.failed` | warning | a view was not produced; `where` is the view name, and the other views are still written |
+| `render.region-empty` | warning | the region holds no copper, hole or open connection; the file is still written |
+| `render.copper-simulated` | info | a zone in the region is drawn from its simulated pour or its outline, not from a saved fill; `where` is the zone |
 
-A render is a review artefact, never a gate: `render` exits 0 whenever the tool is found.
+A render is a review artefact, never a gate: `render` exits 0 whenever the tool is found, and a region render
+needs no tool.
 
 ## inspect
 
@@ -1802,9 +1966,9 @@ when every help page parsed, `UNVERIFIED` otherwise and with `--no-run`.
 
 ## place
 
-`fenolite place PATH [--strategy grid|manual] [--move REF=X,Y[,ROT[,SIDE]]]... [--only REF,…]
-[--pitch L] [--gap L] [--margin L] [--force] [-o OUT]` moves footprints of the board that `PATH` names
-(a `.kicad_pcb`, a `.kicad_pro` or a project folder) and runs no tool. It is a mutating command: nothing
+`fenolite place PATH [--strategy grid|manual|constrained|regions|reuse|group] [--move REF=X,Y[,ROT[,SIDE]]]...
+[--only REF,…] [--pitch L] [--gap L] [--margin L] [--force] [-o OUT]` moves footprints of the board that `PATH` names
+(a `.kicad_pcb`, a `.kicad_pro` or a project folder) and runs no tool but with `--drc` ("Layout reuse"). It is a mutating command: nothing
 is written without `--confirm`, and the plan holds one write, the board at `-o` or in place, or none when
 nothing moved. The user guide is `docs/placement.md`.
 
@@ -1881,15 +2045,157 @@ and request hashes accompany the proposal. A missing optional body verifier is e
 SVG previews come from serialized board readback, use the same dry-run/confirm transaction and
 receipts, and report the written-board hash. See [placement](placement.md) for frames and objectives.
 
+### Region placement
+
+`place --strategy regions [--barrier REF[,REF...]]... [--group NAME=GLOB[,GLOB...]]...
+[--region NAME=X1,Y1,X2,Y2]... [--split x|y] [--only REF,...]` (change c0205) places the staged parts,
+or those of `--only`, domain by domain, each domain in its own region of the board, under the same
+mutation protocol, legality check, `--force`, `--pitch`, `--gap` and `--margin` as the grid.
+
+- **Domains.** Without `--group`, a domain is an island of `analysis.ties.isolation_islands` once the
+  `--barrier` parts are removed, named `D1`, `D2`, … in band order. With `--group`, a domain is the parts
+  whose reference matches one of the group's globs (`fnmatch`, case-sensitive; the first group wins), in the
+  order given. A part in no domain stays where it was (`place.region-unassigned`).
+- **Regions.** `--region NAME=X1,Y1,X2,Y2` (lengths with a unit, from the top-left corner of the outline,
+  Y down, as `--move`) gives each group its rectangle; it needs `--group`, and every group needs a region.
+  Without it, the bounding box of the outline is cut into one band per domain along `--split` (default:
+  the longer side). Each band first gets the widest of its staged boxes plus twice the margin; the rest is
+  shared in proportion to the courtyard-box area of the domain's parts. The islands are ordered so that
+  the two domains of each barrier are neighbouring bands where a chain allows it.
+- **Barriers.** A `--barrier` part whose pins lie in exactly two domains whose regions touch is placed
+  first, centred across the boundary between them; otherwise it is packed inside its first domain's
+  region (`place.region-barrier`). Parts keep their rotation and side.
+- **Packing.** Each region is packed by `placement.grid.place`, inset by `--margin`, around the parts on
+  the board and the parts placed before. A part that fits nowhere stays (`place.no-room`).
+- **Crossings.** After the moves, every open connection of `analysis.connectivity` whose two ends lie in
+  two regions counts against that pair (`place.region-crossing`).
+
+`result.regions` is `null` when nothing was staged, else `source` (`islands` or `groups`), `axis` (`x`,
+`y` or `null` with `--region`), `rows` (per region: `name`, `box` relative to the outline's top-left
+corner, `nets` (islands only), `parts`, `placed`, `unplaced`, `area` and `used` in nm², `fill_permille`
+rounded down), `barriers` (`ref`, `sides`, `status` `boundary`, `inside` or `unplaced`), `unassigned`, and
+`crossings` (`between`, `open`, `nets`). The evidence adds `INFERRED` (`H-G-REGION-PLACE`), and
+`H-G-TIES` for islands. The options of this strategy with another one are `FEN-2001`, as is a malformed
+or inconsistent `--group` or `--region`.
+
+| code | severity | when |
+|---|---|---|
+| `place.region-unassigned` | warning | a staged part has no net (islands) or matches no group; it stays where it was |
+| `place.region-barrier` | warning | a barrier has pins in one domain, or in more than two, or its two regions do not touch; it is packed inside its first domain's region |
+| `place.region-crossing` | warning | open connections join pads in two regions after the moves; `where` is `A|B` |
+
+### Layout reuse
+
+`place --strategy reuse --from REFERENCE --only REF[,REF...] [--anchor REF] [--map TARGET=REFERENCE]...
+[--copper] [--tolerance L] [--drc]` (change c0210; `--from` implies the strategy) copies the placement,
+and with `--copper` the copper, of a block of a reference board onto the `--only` parts of the board,
+fitted by their pads, under the same mutation protocol, legality check, placement rules and measures as
+the grid (`docs/placement.md`, "Layout reuse"). `REFERENCE` is any board that a backend reads. `--force`
+is refused, and the options of this strategy with another one are `FEN-2001`.
+
+- **Pairs.** Each part's reference part has the same reference, or the one `--map TARGET=REFERENCE`
+  gives. Pads are paired by number, only numbers that occur once in both footprints. The other pads are
+  paired by net partition (change c0227): the pairs by number map each reference net to one target net;
+  in a part, a net with one such pad on each side pairs them, and with more each pad pairs with the
+  reference pad whose goal lies nearest its image under the fit by number, both ways and within the
+  tolerance. Any other pad stays unpaired.
+- **Block transform.** A rigid transform (a quarter turn, a mirror and a translation, by least squares)
+  is fitted on the pads of `--anchor` (default: the first of `--only`), which stays where it is. A mirror
+  is found from the pads, so a reference drawn with the Y axis up is copied correctly.
+- **Parts.** Each part is fitted onto the block transform of its reference part's pads, over the same
+  candidates; its new angle and side come from the fit. A fit that leaves a pad farther than
+  `--tolerance` (default `0.05mm`) from its goal places nothing (`reuse.no-fit`); a part placed on the side
+  opposite to the one the block gives it is `reuse.mirror-suspected`. A turn or a side change needs the
+  part's library definition through the project's `fp-lib-table` (`place.no-definition`), and a locked
+  part is not moved (`place.locked`).
+- **Checks.** The moved pads are measured against their goals, and the copper check with the rules of the
+  project beside the board compares the board after the moves with the board before; a new finding is
+  `reuse.check-failed`. The legality check then judges the layout as for every strategy.
+- **`--copper`** copies the reference tracks, arcs and vias joined to the paired pads through tracks,
+  arcs, vias and those pads (not through fills or other pads). Each net maps to the target net of the pads
+  paired with its pads; a net claimed by two target nets is left out (`net-ambiguous`), and the layers
+  mirror in the stack when the anchor lies on the other side than its reference part. Then, pass after
+  pass: copies with a free end and vias joined on fewer than two layers are pruned (`tidy.prune`), copies
+  in a group that holds neither two pads nor one pad with a fill or copper of the board are an `island`, and copies that
+  a new copper-check finding names are left out with the finding's code. The copies that stay are
+  locked; the board is planned when a part moved or copper was copied.
+- **Zones** (change c0227, with `--copper`): a zone of a block net whose stored fill joins paired pads
+  only is copied, outline and fill, through the block transform; a zone read without an outline gets that
+  of its fill (`detail` "outline rebuilt from its fill"). A zone that also joins an unpaired pad is
+  `zone-beyond-block`, one of a block net without a fill over a paired pad `zone-unfilled`, and a copied
+  zone whose group lost the image of one of its pads `pad-lost`. A copied zone gives `reuse.fill-stale`.
+- **`--drc`** runs `kicad-cli` DRC (the tool `check` finds; exit 6 without one) on copies of the board as
+  it is and as it would be written, with the project files; a violation type with more entries gives
+  `reuse.drc-new` and no write.
+
+`result.reuse` holds `reference`, `anchor`, `tolerance`, `transform` (`null`, or `rotation` in
+microdegrees, `mirror`, `x` and `y` in nanometres), `flipped`, `parts` (per part `ref`, `reference`,
+`matched`, `by_net` (the pads paired by net), `within`, `residual` in nanometres or `null`, `placed`, `moved`, `from`, `to` (`null` when not
+placed; `x`, `y`, `rotation`, `side`), `side_changed` and `mirror_suspected`), `copper` (`null` without
+`--copper`, else `copied`, `items` with each copy's KiCad `uuid`, its `kind`, its `source` id, reference `net` and `detail`,
+`dropped` with `item`, `kind`, `net`, `reason` and `detail`, `counts` by reason and `passes`),
+`copper_check` (`before`, `placed` and `new` finding counts) and `drc` (`null`, or `tool_version`,
+`before`, `after` and `new`, the violation types that grew). The evidence adds `INFERRED`
+(`H-G-REUSE-FIT`, the rows of the copper check with `--copper`, and those of the reference board read);
+after `--drc` found nothing new, `KICAD-VERIFIED` (`H-K-REUSE-DRC`) combined with the reference board
+read.
+
+| code | severity | when |
+|---|---|---|
+| `reuse.no-fit` | error | a part, or the anchor, has no paired pad or no fit within the tolerance; it is not placed |
+| `reuse.unknown-part` | error | a part is not on the target board, or its reference part not on the reference board |
+| `reuse.check-failed` | error | a moved pad is off its goal, or the copper check finds something the board before lacks; nothing is written |
+| `reuse.drc-new` | error | with `--drc`, a DRC violation type has more entries on the written board; nothing is written |
+| `reuse.mirror-suspected` | warning | a part fits only on the side opposite to the one the block gives it |
+| `reuse.project-unread` | warning | the project or rules file beside the board could not be read; the copper check runs without it |
+| `reuse.copper-dropped` | info | reference copper of the block was not copied; `where` is the reason |
+| `reuse.fill-stale` | info | copper was copied onto a board with filled zones, or a zone with its reference fill; run `fill` before `check` |
+
+### Group moves
+
+`place --turn REF[,REF...] --about X,Y --angle DEGREES` or `place --shift REF[,REF...] --by DX,DY`
+(change c0227; either implies `--strategy group`) moves a group of parts rigidly under the same mutation
+protocol, legality check, placement rules and measures as the grid. `X,Y` is in the frame of `--move`;
+`DEGREES` turns counter-clockwise on screen, as `ROT` of `--move`. `--force` moves locked parts.
+
+- **Parts.** Each part's new placement is the move composed with its placement, so a part on the bottom
+  keeps its pads on the moved positions; a turn needs the part's library definition
+  (`place.no-definition`). Every moved pad is measured against the move of its old position: farther than
+  1 µm is `place.group-failed`.
+- **Copper.** Each joined group of a net (tracks, arcs, vias and pads, without fills) that holds a pad of
+  the group and no other pad moves with it, and each zone whose stored fill joins pads of the group only
+  (`place.fill-stale`). Copper that joins a pad of the group to another pad stays (`place.copper-left`).
+  The copper check with the rules of the project beside the board compares the board before and after;
+  a new finding is `place.group-failed` and nothing is written.
+- **`--pose-search`** with `--turn` and `--about`, and `--within LENGTH` instead of `--angle`, tries the
+  four quarter turns about the point with every shift of step `--pitch` (default `0.5mm`) within
+  `--within` on each axis (at most 10 000 poses), and writes nothing. The demand of a pose is, per net
+  with a pad in the group and one outside, the shortest distance between a moved pad of the group and a
+  pad outside, rounded up, summed.
+
+`result.group` holds `refs`, `kind` (`turn`, `shift` or `pose-search`), `transform` (`null` for a search,
+or `rotation` in microdegrees and `x`, `y` in nanometres: `p ↦ R·p + (x, y)`), `copper` (`items` and
+`zones` moved), `residual` (the largest pad distance from its goal, or `null`), `copper_check` (`null`, or
+`before`, `after` and `new` finding counts) and `search` (`null`, or `about`, `within`, `pitch`, `tried`,
+`nets` crossing the border, `current`, the demand of the group where it is, and `poses`, the ten of least
+demand with `rotation`, `dx`, `dy` and `demand`). The evidence adds `INFERRED` (`H-G-GROUP-MOVE` and the
+rows of the copper check).
+
+| code | severity | when |
+|---|---|---|
+| `place.group-failed` | error | a moved pad is off its goal, the copper check finds something the board before lacks, or a project file beside the board cannot be read; nothing is written |
+| `place.fill-stale` | info | a zone moved with the group keeps its moved fill; run `fill` before `check` |
+
 ## analyze
 
-`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation,length,ties,domains,crossings,returns] [--requirements FILE]
+`fenolite analyze PATH [--kinds current,clearance,creepage,power,insulation,length,ties,domains,crossings,returns,decoupling,connectivity,bodies,relief,dead,coupling,necks,loops,balance] [--requirements FILE]
 [--temp-rise KELVIN] [--copper-thickness [LAYER=]LENGTH]... [--via-plating LENGTH]
 [--board-thickness LENGTH] [--pair NET_A NET_B]... [--within LENGTH] [--arc-tol LENGTH]
 [--path FROM TO]... [--resistivity NANOOHM_METRES] [--groove-width LENGTH] [--net GLOB]...
 [--from REF]... [--tie REF]... [--tie-item ID[,ID...]]... [--domains A=GLOB,B=GLOB] [--sense NET[,NET...]]...
 [--barrier REF[,REF...]]... [--cut X1,Y1,X2,Y2]... [--width LENGTH] [--clearance LENGTH] [--reference NET[,NET...]]...
-[--via-distance LENGTH]` measures the current
+[--via-distance LENGTH] [--pour-grid LENGTH] [--dead-distance LENGTH] [--aggressor GLOB]... [--victim GLOB]...
+[--split] [--loop-baseline FILE]` measures the current
 capacity of tracks, arcs and vias, and the clearance and creepage of pairs of nets, on a board that a
 registered backend reads. On request it also measures power paths (`power`) and the insulation between
 layers (`insulation`). It is read-only: it runs no tool and writes no file. The user guide is
@@ -1973,6 +2279,55 @@ the user's file.
     and `via_distance`.
   - The kind without `--net`, and `--reference` or `--via-distance` without it, are usage errors
     (`FEN-2001`, exit 2). Its findings are warnings, so the kind alone exits 0.
+- The practice kinds (on request, change c0204; `docs/analyses.md`, "Practice checks") report facts and
+  judge only against rows of the requirements file:
+  - `connectivity`, `dead`, `bodies` and `relief` take each zone layer in a copper state, listed in
+    `result.pours` (`zone_id`, `where`, `net`, `layer`, `priority`, `state`: `saved_fill`, `simulated` or
+    `outline`, `reason`, `cells`, `dropped`). A zone without a fill, or with a stale fill, is poured on a
+    raster of `--pour-grid LENGTH` (default 0.1 mm); `result.inputs.pour_grid` holds it.
+  - `result.connectivity` holds one row per net that owns a zone or falls apart: `net`, `groups` (the pads
+    of each group), `split`, `copper`; `result.summary.connectivity` counts `nets`, `split`, `simulated`
+    and `outline`.
+  - `result.dead` holds `net`, `kind`, `where`, `layer`, `reason` (`island` or `far`), `distance`,
+    `copper`; `--dead-distance LENGTH` adds the `far` rows. `result.summary.dead` counts `islands`, `far`
+    and `dropped`; `result.inputs.dead_distance` holds the option.
+  - `result.decoupling` holds one row per pad of a power-input pin: `pin`, `net`, `capacitor`, `distance`
+    (along copper), `straight`, `ret`, `loop_area_nm2`, `limit` (of a `[[decoupling]]` row);
+    `result.summary.decoupling` counts `pins` and `far`.
+  - `result.bodies` holds one row per `[[body_copper]]` row, part and layer with copper of the class:
+    `requirement`, `part`, `plan` (`body` or `courtyard`), `layer`, `nets`, `items`, `copper`. Without a
+    row the kind reports `analysis.input-missing`.
+  - `result.relief` holds one row per pad joined by thermal relief: `pad`, `net`, `zone`, `layer`,
+    `copper`, `spokes`, `width`, `milliamps`, `capacity_ma`.
+- The kind `coupling` (on request, change c0204; `docs/analyses.md`, "Coupling screen") needs
+  `--aggressor GLOB` and `--victim GLOB` (both repeatable). `result.coupling` holds one row per pair,
+  sorted by score: `aggressor`, `victim`, `parallel`, `gap`, `score`, `broadside`, `layers`;
+  `result.coupling_victims` holds `net`, `length`, `referenced_permille`. `result.summary.coupling` holds
+  `pairs`, `victims`, `heights` (the `h` of each layer) and `note`: the score ranks pairs, it is not a
+  voltage. `result.inputs` gains `aggressors` and `victims`. Nothing is judged.
+- The pour-shape kinds (on request, change c0213; `docs/analyses.md`, "Pour shapes") take the zones in
+  their copper states, as the practice kinds do, and list them in `result.pours`:
+  - `result.necks` holds one row per place narrower than the `[[neck]]` row of its net: `net`, `layer`,
+    `shape` (`neck`, `tip` or `sliver`), `at` (`x`, `y`), `width`, `limit`, `requirement`, `extent` (of a
+    tip), `copper`. `result.summary.necks` counts `nets`, `necks`, `tips`, `slivers` and `skipped`.
+    Without a row the kind reports `analysis.input-missing`.
+  - `result.loops` holds one row per `[[loop]]` row: `name`, `pads`, `area_nm2`, `legs` (`start`, `end`,
+    `kind`: `copper` or `straight`, `length`), `limit`, `baseline_nm2`, `change_nm2`; `--loop-baseline
+    FILE` measures the rows on that board too, and `result.inputs.loop_baseline` names it.
+    `result.summary.loops` counts `loops` and `above`.
+  - `result.balance` holds one row per part with two SMD pads on one layer: `part`, `pads`, `layer`,
+    `copper_nm2` (one per pad), `ratio_permille`, `copper`. Nothing is judged.
+- `--split` (with `power`, change c0213; `docs/analyses.md`, "The split of the current") solves each power
+  path on the raster of `--pour-grid`. `result.split` holds one row per path solved: `net`, `start`, `end`,
+  `milliamps`, `elements` (`kind`, `where`, `layer`, `share_permille`, `milliamps`), `resistance_uohm`
+  (with `--resistivity`), `bounds` (the interval of the power row), `within`, `nodes`, `iterations`,
+  `converged`. `result.summary.split` counts `paths` and `unsolved` and gives the `grid`;
+  `result.inputs.split` says whether it ran. A path whose thickness, plating or stack-up is missing is not
+  solved, and `analysis.input-missing` names what is missing.
+- `--pour-grid` without `--split` or one of `connectivity`, `bodies`, `relief`, `dead`, `necks`, `loops` and
+  `balance`, `--dead-distance` without `dead`, `--aggressor` or `--victim` without `coupling`, `coupling`
+  without both, `--split` without `power` and `--loop-baseline` without `loops` are usage errors
+  (`FEN-2001`, exit 2).
 - `--tie`, `--tie-item`, `--domains` and `--sense` without the kind `ties`, `--barrier` without `domains`,
   either kind without its option, `--domains` without exactly two names and an empty name in a list are
   usage errors (`FEN-2001`, exit 2).
@@ -2052,6 +2407,14 @@ requirements file is `FEN-3004` (exit 3). Every reply carries `evidence.level` `
 | `analysis.return-split` | warning | a track crosses a gap of its reference copper on the neighbouring layer |
 | `analysis.return-via` | warning | a via has no reference via within `--via-distance` |
 | `analysis.sense-shared` | error | copper of a sense net touches copper of another net outside a net-tie group |
+| `analysis.net-split` | warning | the copper of a net, every zone in its copper state, falls into more than one group of pads |
+| `analysis.copper-dead` | warning | a fill polygon is joined to no pad of its net |
+| `analysis.copper-far` | warning | copper lies farther than `--dead-distance` from every pad of its net |
+| `analysis.decoupling-far` | error | a supply pin's nearest capacitor is farther along copper than its `[[decoupling]]` row allows, or none is joined |
+| `analysis.body-copper` | error | copper of a class of a `[[body_copper]]` row lies under a part it names on a layer it forbids |
+| `analysis.relief-exceeded` | error | the spokes of a thermal relief carry less than the `[[current]]` row of the pad's net |
+| `analysis.neck-narrow` | error | a pour narrows below the `min_width_nm` of the `[[neck]]` row of its net: a neck, a tip or a sliver |
+| `analysis.loop-area` | error | the closed path through the pads of a `[[loop]]` row encloses more than its `max_area_nm2` |
 | `kicad.length.default-stackup` | info | the board holds no stack-up, so via heights are counted on the default stack-up KiCad assumes |
 | `kicad.length.bad-die` | warning | a pad's die length is not a non-negative decimal; it counts as 0 |
 
@@ -2246,7 +2609,8 @@ with rotations printed from 0° up to 360°; `docs/assembly.md` lists the differ
 ## testpoints
 
 `fenolite testpoints PATH [--side top|bottom|both] [--template FILE] [--min-coverage PERCENT]
-[--min-pitch LENGTH] [--min-fiducials N] [--out FILE] [--manifest]` reports the test points, the fiducials
+[--min-pitch LENGTH] [--min-fiducials N] [--out FILE] [--manifest] [--place [--grid LENGTH] [--reach LENGTH]
+[--size LENGTH] [--nets GLOB]... [--drc] [--kicad-cli PATH]]` reports the test points, the fiducials
 and the non-plated holes of the board `PATH` names (resolved as for `pnp`, and read from the board file as
 `pnp` reads it), and which nets a probe reaches (`docs/assembly.md`, "Test points"). It runs no tool. A
 test point is a pad that carries the mark `test_point` and a fiducial is a footprint with a pad marked
@@ -2303,6 +2667,65 @@ given, 2 for a usage error, 3 for a file that cannot be read. The evidence is `t
 (`KICAD-VERIFIED`, `H-K-TESTPOINT-D356` and `H-K-PAD-FABPROP`) combined with the evidence of the board read,
 so the reply takes the lower of the two.
 
+### testpoints --place
+
+`--place` (change c0229; `docs/assembly.md`, "Placing test points") needs `--side top` or `--side bottom`
+and a `.kicad_pcb`; `--grid`, `--reach`, `--size`, `--nets`, `--drc` and `--kicad-cli` without `--place`, and
+`--place` with `--side both`, exit 2 (`FEN-2001`). For each net of `coverage.uncovered` that a `--nets` glob
+matches (all by default), in natural order, it adds one probe: the footprint of `design.test_point` (round
+surface pad of `--size`, default 1 mm; reference `TP<n>` after the highest in use) on the first free site of a
+grid of `--grid` (2.54 mm) within `--reach` (5 mm) of an anchor of the net on the side's outer layer (pad
+centre, via, track or arc end), nearest first, then by y and x, joined by one straight track of the net's class
+width (0.25 mm without one). Probe and track keep the clearance (the largest of the project's minimum, its class
+clearances and 0.2 mm) from other nets' copper, holes and earlier probes, the edge clearance from the edge;
+the probe touches no courtyard, silkscreen ink or rule area forbidding footprints or pads of its side, the track
+no rule area forbidding tracks; probes keep `--min-pitch` (1.27 mm with `--place`). The probes are written
+without `fenolite.path`, the designator on the side's fabrication layer, through the mutation protocol (the
+board is replaced; `--out` stays the CSV file). Before writing, Fenolite's copper check with the project's rules
+judges the board with and without the probes. With `--drc`, `kicad-cli` DRC runs on copies before and after,
+by type, `lib_footprint_issues` and `lib_footprint_mismatch` aside.
+
+The rest of `result` then describes the board as it would be written, and `result.place` holds `side`, `grid`,
+`reach`, `size`, `min_pitch`, `clearance`, `edge_clearance`, `nets`, `before` and `after` (`eligible` and
+`covered`), `probes` (`ref`, `net`, `position`, `anchor`, `track_length`, `track_width`), `unplaced` (`net`,
+`site` or `null`, `blocker`) and `drc` (`tool_version`, `before`, `after`, `new`, or `null`).
+
+| code | severity | when |
+|---|---|---|
+| `testpoint.no-site` | warning | a net has no free site; the message names the nearest site and its first blocker |
+| `testpoint.check-failed` | warning | the copper check finds a new finding with a probe or its track; that probe is not written |
+| `testpoint.drc-new` | error | with `--drc`, a DRC type grows; nothing is written |
+| `testpoint.board-only` | info | probes were placed: a rebuild keeps them as board-only footprints (`layout.board-only`) |
+
+The evidence is `INFERRED` (`H-K-TP-PLACE`), `KICAD-VERIFIED` with `--drc` and no type grown.
+
+## silk
+
+`fenolite silk PATH [--designators] [--clip] [--margin LENGTH] [--keep] [--refs GLOB]... [--sizes LENGTHS] [--angles 0,90] [--clearance LENGTH] [--gap LENGTH] [--measure auto|kicad|estimate] [-o FILE] [--drc] [--kicad-cli PATH] [--timeout SECONDS]` places the designators of a KiCad board on its silkscreen (change c0212; `docs/assembly.md`, "Designators") and cuts its silkscreen at the mask openings (change c0226; `docs/assembly.md`, "Clipping"). `PATH` accepts a board, matching project or folder; `--out` is relative to the working directory, otherwise the board is replaced. `--designators`, `--clip` or both are required (exit 2 otherwise); with both, the clip runs first and the designators avoid the cut strokes. `--margin` without `--clip` exits 2. The usual `--dry-run` plan and `--confirm` receipt protocol applies; the schema is `fenolite.silk.v0`.
+
+- **Parts.** Every footprint whose visible `Reference` field is on a silkscreen layer, its reference matching `--refs` (repeatable `fnmatch` patterns; default every one). Its text goes on the silkscreen of the part's side, mirrored on the bottom. Other visible silkscreen texts stay where they are and are obstacles.
+- **Ink.** The box of each text is measured with `kicad-cli` (`--measure kicad`; `auto`, the default, when a tool is found) and cached in `$FENOLITE_CACHE_DIR/silk` (else the user's cache folder), or estimated from Fenolite's glyph table (`--measure estimate`, or no tool: `silk.estimated`). `docs/formats/kicad/text.md` holds the facts.
+- **Obstacles,** per side, kept `--clearance` away (default 0.15 mm): the copper of every pad on the side's outer layer, every drilled hole (pads, vias), the silkscreen strokes of the board and of the footprints, every other silkscreen text, the courtyards of the other parts, and the board edge with its cut-outs and slots. A text also lies inside the board.
+- **Candidates and choice.** For each height (`--sizes`, largest first; default the field's height, then the least text height when smaller) and board angle (`--angles`, default `0,90`), twelve places beside the box of the part's courtyard, `--gap` away (default 0.1 mm). The stroke keeps the field's ratio to the height, at least the least stroke and at most a quarter of the size. The cost grows with the distance to the own part and the offset from its middle, with nearness to another part (a text nearer to another part than to its own costs most), with an angle across the part's long side and with a smaller size. Identical parts in a row or a column share one place relative to their parts when all of them are free there; the others are placed most constrained first, and a part without a free place may push one placed text to that text's next free place. A size below the project's `min_text_height` exits 2 (`FEN-2001`).
+- **`--keep`** keeps every designator that meets nothing and places only the others.
+- **Check.** Every written designator is computed again from its field and must keep the clearance from every obstacle and every other designator, lie inside the board, be at least the project's `min_text_height` and `min_text_thickness` (else 0.8 mm and 0.08 mm), read at 0° or 90° and be mirrored exactly on the bottom; a miss is `silk.check-failed` and nothing is written.
+- **`--clip`** cuts every silkscreen line, arc, circle and rectangle or polygon outline of the board and of the footprints (those matching `--refs`) where its ink comes within `--margin` of an opening of its side: the copper of a pad whose layers hold that side's mask, grown by its positive mask expansion (the pad's margin, else the board's `pad_to_mask_clearance`), or a pad's hole. `--margin` defaults to the largest `min` of the `silk_clearance` rules of the `.kicad_dru` beside the board, else 0 (KiCad's DRC applies that rule, not `min_silk_clearance`, between silkscreen and pads: `docs/formats/kicad/drc.md`, "Silkscreen over pads"); the cut keeps 1 µm more. Pieces are written as `fp_line`/`fp_arc` (`gr_line`/`gr_arc` on the board) with the original's stroke and layer and the uuid `uuid5(FENOLITE_NS, "silk-clip:<old uuid>:<n>")`; a piece shorter than its stroke is dropped; an uncut item is written as read. Texts are not cut; a filled shape that meets an opening is `silk.clip-skipped`. A footprint's own items are cut by its own pads once per group of identical instances (name, side, silkscreen and pads), and the same pieces go into each, so `fenolite library` derives one footprint; each changed footprint name is one `silk.footprint-changed`, and a further cut at another part's pads is `silk.cut-by-other`. Every piece is checked again against every opening of its side with the margin (`silk.check-failed`).
+- **`--drc`** runs `kicad-cli` DRC on copies of the board as it is and as silk would write it, with the project files; a violation type with more entries after gives `silk.drc-new` and no write; otherwise the evidence is `KICAD-VERIFIED` with the tool version.
+
+`result` holds `board`, `target`, `changed`, `measure` (`null` without `--designators`, else `source`: `kicad-cli <version>` or `estimate`; `texts`; `cached`, the boxes read from the cache), `settings` (`clearance`, `gap`, `sizes`, `angles` in degrees, `keep`, `min_height`, `min_stroke`), `placements` (paged by `--limit` and `--cursor`; one row per part in natural order of `ref`: `ref`, `side`, `status` `placed`, `kept` or `unplaced`; a placed row adds the anchor `x`, `y`, `angle`, `height`, `stroke` and `where` (`above`, `below`, `left`, `right`), an unplaced one its `blocker`), the counts `placed`, `kept` and `unplaced`, `aligned` (the references of each row or column placed on one line), `clip` (`null` without `--clip`, else `margin`, `margin_source` `option`, `rule` or `default`, `openings`, the counts `items`, `pieces` and `dropped`, and `cuts`: one row per owner whose strokes were cut, `owner` (a reference or `board`), `footprint`, `side`, `items`, `pieces`, `dropped`, `by` (`own`, `other` or `board`)), `library` (`null`, or `changed`, the footprint names whose own silkscreen was cut, and `command`, the `fenolite library` line that writes their library) and `drc` (`null`, or `tool_version`, `before`, `after` and `new`). The board is planned when a designator was placed or a stroke was cut and no issue is an error. Evidence is `INFERRED` (`H-K-SILK-CLIP` with `H-K-SILK-MASK` for the clip; `H-K-SILK-DRC` with `H-K-SILK-INK`, or `H-K-SILK-ESTIMATE` for estimated ink, for the designators), and `KICAD-VERIFIED` after `--drc` found nothing new. The exit code is 5 for `silk.check-failed` and `silk.drc-new`, 0 otherwise.
+
+| code | severity | when |
+|---|---|---|
+| `silk.check-failed` | error | a placed designator or a cut piece fails the check of the written board; nothing is written |
+| `silk.drc-new` | error | with `--drc`, a DRC violation type has more entries on the board silk would write; nothing is written |
+| `silk.no-place` | warning | no candidate of a part is free; its text stays where it was and is an obstacle for the others |
+| `silk.no-outline` | warning | the board has no closed edge; no text is kept inside it |
+| `silk.cut-by-other` | warning | with `--clip`, a footprint's silkscreen was also cut at another part's pads; that instance now differs from the others |
+| `silk.clip-skipped` | warning | with `--clip`, a filled silkscreen shape meets an opening; it is not cut |
+| `silk.estimated` | info | the ink was estimated from the glyph table, not measured |
+| `silk.item-skipped` | info | a footprint holds drawn items Fenolite does not model; designators are not kept clear of them and they are not cut |
+| `silk.footprint-changed` | info | with `--clip`, a footprint's own silkscreen was cut alike on every instance; its library copy no longer matches |
+
 ## impedance
 
 `fenolite impedance PATH [--estimate] [--out FILE]` gives the impedance table of the project `PATH` names
@@ -2344,9 +2767,10 @@ file that cannot be read (`FEN-3004`).
 
 ## diff
 
-`fenolite diff A B [--view model|tree|records] [--ext]` lists the differences between two inputs. It writes
-nothing and runs no tool. A difference is a result, not a finding: the exit code is 0 whether or not the
-inputs differ, and `result.equal` says it.
+`fenolite diff A B [--view model|tree|records] [--ext] [--allow KINDS] [--three-way THEIRS --out FILE]`
+lists the differences between two inputs. It runs no tool, and writes only the merged board of
+`--three-way`, under the mutation protocol. A difference is a result, not a finding: the exit code is 0
+whether or not the inputs differ, and `result.equal` says it, unless `--allow` gates it.
 
 `A` and `B` are each a KiCad board, a schematic, a footprint file, a symbol library (file or
 `.kicad_symdir` folder), or a folder that holds `.fenolite/meta.json` (the built model). Both must be of one family: two designs
@@ -2404,15 +2828,68 @@ it with any other design or library, a KiCad board included. Its `kind` is its r
 records view: `added`, `removed`, `changed`),
 `differences` (objects `{path, change, a, b}`, sorted by path; `a` and `b` are compact JSON texts),
 `total` and `truncated`. `differences` is a paged list with a default limit of 200 (see "Paged
-results"). `issues` holds only the readers' issues, those of `A` first; `input` describes `A`. The
+results"). `issues` holds the readers' issues, those of `A` first, then the findings of `--allow` and `--three-way`; `input` describes `A`. The
 evidence is the lowest of the two readings; a built model counts as `INFERRED`.
+
+The records view also holds `resave` (change c0207): `{total, streams}`, the count of changed records,
+per stream, that differ only in the spelling of their values and are left out of `differences`. Two
+values of a property record are one value when both are mil text with one value in units of 1/10 000
+mil (rounded half to even), both are decimal numbers of one exact value (an angle in scientific form
+included), or both are booleans of one value (`T` and `TRUE`). A key that holds free text (one that ends
+with `NAME`, `TEXT`, `DESIGNATOR`, `DESCRIPTION`, `COMMENT`, `PATTERN`, `PATH`, `UNIQUEID`, `GUID`,
+`IDENTIFIER`, `REFERENCE` or `LIBRARY`) is compared as written. A changed record keeps only its keys
+that differ in value. When a record is classified so, the evidence is at most `INFERRED`
+(`H-A-RD-RESAVE`). The model view compares decoded values, so a resave gives it no change
+(`docs/formats/altium/pcb-read.md`, "Resave differences").
+
+**Gated differences** (change c0207). `--allow KINDS` takes kinds of the model view, comma-separated
+(`track,via`; an empty value allows none). Each change whose kind (the first segment of its path) is
+not listed is one `diff.not-allowed` error naming its path in `where`, so the exit code is 5.
+`result.allow` lists the allowed kinds. An unknown kind, and `--allow` outside the model view, is
+`FEN-2001`.
+
+```
+fenolite diff before.kicad_pcb after.kicad_pcb --allow track,via,arc --json
+```
+
+**Three-way difference of KiCad boards** (change c0207). `fenolite diff BASE OURS --three-way THEIRS --out
+FILE` plans `FILE`: `THEIRS` with the changes from `BASE` to `OURS` applied. The four paths are
+`.kicad_pcb` files and the view is the model view; `FILE` may be `THEIRS` itself. The root items of
+the three boards are matched by key: `<head> <uuid>` for an item with a `uuid`, the head for a head
+without a uuid that each board holds at most once (`setup`, `general`, …), else the compact text. For each
+item that differs between `BASE` and `OURS`:
+
+- `THEIRS` holds the item as in `BASE`: the change is `applied`;
+- `THEIRS` holds it as in `OURS`: it is `already` there;
+- otherwise it is a `diff.conflict` error, `where` the key. A footprint is one item, so a pad changed on
+  one side and the footprint moved on the other is a conflict.
+
+The merged file is the bytes of `THEIRS` with the text of each changed item of `OURS` spliced in; an
+added item follows the nearest item before it in `OURS`. Boards of two format versions, or with
+numbered net tables (KiCad 9 and older) that differ, are `diff.unmergeable`. An error plans nothing, so
+nothing is written (exit 5). `result.merge` holds `theirs`, `out`, `items` (`{key, change, status}`),
+`applied`, `already`, `conflicts` and `refused` (the reason of `diff.unmergeable`, or `null`). Without
+`--confirm` the plan exits 4 (`FEN-4001`). The evidence is `INFERRED` (`H-K-MERGE-ITEMS`): run `check`
+on the merged board.
+
+```
+fenolite diff base.kicad_pcb ours.kicad_pcb --three-way theirs.kicad_pcb --out merged.kicad_pcb --dry-run
+```
+
+| code | severity | when |
+|---|---|---|
+| `diff.not-allowed` | error | a change of a kind that `--allow` does not list; `where` is its path |
+| `diff.conflict` | error | an item changed from `BASE` to `OURS` was also changed in `THEIRS`; `where` is its key |
+| `diff.unmergeable` | error | the three boards are of two versions, their numbered net tables differ, or the merge would leave nothing |
 
 | exit | error | when |
 |---|---|---|
-| 0 | none | the inputs were compared, equal or not |
-| 2 | `FEN-2001` | an input that nothing reads, inputs of two families or two kinds, a folder in the tree view |
+| 0 | none | the inputs were compared, equal or not, and every change is allowed; or the merge was planned with `--dry-run` or written with `--confirm` |
+| 2 | `FEN-2001` | an input that nothing reads, inputs of two families or two kinds, a folder in the tree view, an unknown `--allow` kind, `--allow` or `--three-way` outside the model view, `--three-way` without `--out` or on a file that is not a board, `--out` without `--three-way` |
 | 3 | `FEN-3001` | an input does not exist |
 | 3 | `FEN-3002`, `FEN-3003`, `FEN-3004` | an input cannot be read |
+| 4 | `FEN-4001` | a merge was planned without `--dry-run` or `--confirm` |
+| 5 | `FEN-5001` | `diff.not-allowed`, `diff.conflict` or `diff.unmergeable` |
 
 ## roundtrip
 
@@ -2641,6 +3118,8 @@ lists, per command, `paged` (the list: a path in `result`, or `issues`) and `def
 | `net` | `result.nets`, or `result.net.pads` with a net name | none |
 | `region` | `result.items` | none |
 | `neighbors` | `result.neighbors` | none |
+| `tidy` | `result.edits` | none |
+| `library` | `result.drift` with `--diff`, else `result.footprints` | none |
 
 - With a limit in force, the list holds the items `offset` to `offset + limit - 1` and `result.page` is
   `{path, limit, offset, total, next}`: `total` is the length of the whole list and `next` the cursor of

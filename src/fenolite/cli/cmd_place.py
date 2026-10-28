@@ -4,13 +4,26 @@
 (capability cli-contract, "Place command"; ``docs/placement.md``; ``docs/cli-contract.md``, "place").
 
 The command reads the board, moves footprints with ``backends.kicad.replace.move_footprint``, judges the
-resulting layout with ``placement.legality.check`` and plans one write: the board. It runs no tool. An
-illegal placement is not written unless ``--force`` is given; KiCad's DRC stays the judge of the board.
+resulting layout with ``placement.legality.check`` and plans one write: the board. It runs no tool but
+``kicad-cli`` for ``--drc`` of the reuse strategy. An illegal placement is not written unless ``--force``
+is given; KiCad's DRC stays the judge of the board.
 
 The legality check gets the board's keep-outs, and the grid leaves the box of every rule area that forbids
 footprints free. The placement rules of a built project (``.fenolite/``) are judged on the layout after
 the moves and reported as warnings, which never refuse the write, and ``result.measures`` holds the wire
 length and the congestion of that layout (``checks.placement``; change c0113).
+
+``--strategy regions`` (change c0205) packs each domain of parts into its own region with the same grid,
+the barrier parts across the boundaries; its glue (domains, regions, crossings) is ``cli.place_regions``.
+
+``--strategy reuse`` (change c0210, implied by ``--from``) copies the placement, and with ``--copper`` the
+copper, of a block of a reference board onto the ``--only`` parts, fitted by their pads; its glue is
+``cli.place_reuse``.
+
+``--turn REFS --about X,Y --angle DEG`` and ``--shift REFS --by DX,DY`` (change c0227, the strategy
+``group``) move a group of parts rigidly with the copper and zones joined to their pads only, and
+``--pose-search`` ranks the poses of a turned group by the demand across its border; its glue is
+``cli.place_group``.
 """
 
 from __future__ import annotations
@@ -25,7 +38,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, cast
 
-from fenolite.backends.base import BoardPad
+from fenolite.backends.base import BoardPad, PlacedExtent
 from fenolite.backends.kicad import pcb as kicad_pcb
 from fenolite.backends.kicad import versions
 from fenolite.backends.kicad.backend import KicadBackend
@@ -36,11 +49,16 @@ from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.backends.kicad.replace import PlacementError, footprint_ref, move_footprint
 from fenolite.checks import placement as placement_rules
+from fenolite.cli import place_group, place_reuse
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import board_format
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
+from fenolite.cli.place_regions import RegionPlan, parse_options, plan_regions
+from fenolite.cli.place_regions import crossings as region_crossings
+from fenolite.cli.place_regions import evidence as region_evidence
+from fenolite.cli.place_regions import to_json as regions_json
 from fenolite.cli.placement_checks import check_placement_constraints
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, FormatError, Issue
@@ -49,7 +67,7 @@ from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm, Udeg, parse_angle, parse_length
 from fenolite.geometry import BBox
 from fenolite.model import canonical
-from fenolite.model.board import FootprintInstance, Outline, Side
+from fenolite.model.board import FootprintInstance, Keepout, Outline, Side
 from fenolite.model.design import Design
 from fenolite.model.library import FootprintDef
 from fenolite.placement import EVIDENCE, KEEPOUT_EVIDENCE, Box, check
@@ -63,7 +81,7 @@ from fenolite.placement.legality import forbids_footprints
 from fenolite.placement.preview import placement_preview
 
 HELP = "place staged parts on the board in a grid, or move named parts (edits the board)"
-STRATEGIES = ("grid", "manual", "constrained")
+STRATEGIES = ("grid", "manual", "constrained", "regions", "reuse", "group")
 SIDES: tuple[Side, ...] = ("top", "bottom")
 CACHE_DIR = ".fenolite"
 MOVE_HINT = "write --move REF=X,Y[,ROT[,SIDE]] with units, for example --move R1=12mm,8mm,90,top"
@@ -120,7 +138,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--strategy",
         choices=STRATEGIES,
         default=None,
-        help="grid (default): place every part that is off the board; manual: only the --move parts",
+        help="grid (default): place every part that is off the board; manual: only the --move parts; "
+        "regions: each domain of parts in its own region of the board; reuse: copy a block of --from; "
+        "group: turn or shift parts with their copper",
     )
     parser.add_argument(
         "--move",
@@ -130,7 +150,12 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="move one part (repeatable; implies --strategy manual): lengths with a unit, from the top-left "
         "corner of the outline, Y down; ROT in degrees; SIDE top or bottom",
     )
-    parser.add_argument("--only", default=None, metavar="REF,REF", help="grid: place only these parts")
+    parser.add_argument(
+        "--only",
+        default=None,
+        metavar="REF,REF",
+        help="grid, regions: place only these parts; reuse: the parts of the block",
+    )
     parser.add_argument("--pitch", default=None, metavar="L", help="grid step (default 0.5mm)")
     parser.add_argument("--gap", default=None, metavar="L", help="space kept around a part (default 0.5mm)")
     parser.add_argument(
@@ -150,6 +175,38 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--preview-dir", default=None, metavar="DIR", help="constrained: write both copper SVG views"
     )
+    parser.add_argument(
+        "--barrier",
+        action="append",
+        default=[],
+        metavar="REF[,REF...]",
+        help="regions: parts (isolators, transformers) that separate the domains; each is placed across "
+        "the boundary between the two regions it joins (repeatable)",
+    )
+    parser.add_argument(
+        "--group",
+        action="append",
+        default=[],
+        metavar="NAME=GLOB[,GLOB...]",
+        help="regions: a domain of the parts whose reference matches a glob, in band order (repeatable; "
+        "default: the islands of nets once the --barrier parts are removed)",
+    )
+    parser.add_argument(
+        "--region",
+        action="append",
+        default=[],
+        metavar="NAME=X1,Y1,X2,Y2",
+        help="regions: the rectangle of the group NAME, lengths with a unit from the top-left corner of "
+        "the outline, Y down (repeatable; default: one band of the outline per domain)",
+    )
+    parser.add_argument(
+        "--split",
+        choices=("x", "y"),
+        default=None,
+        help="regions: the axis along which the default bands follow each other (default: the longer side)",
+    )
+    place_reuse.register(parser)
+    place_group.register(parser)
     parser.add_argument(
         "-o", "--out", default=None, metavar="FILE", help="write the board here (default: PATH)"
     )
@@ -199,6 +256,48 @@ def _copper_left(design: Design, pads: Sequence[BoardPad], moved: set[str]) -> l
                 found.append(pad.footprint_id)
                 break
     return found
+
+
+@dataclass(frozen=True, slots=True)
+class _Packing:
+    """What the grid and the regions pack around: each footprint's box relative to its position (``path``
+    the footprint id), the courtyard boxes of the parts that stay, and the cut-outs."""
+
+    boxes: dict[str, Box]
+    occupied: list[BBox]
+    cutouts: list[BBox]
+
+
+def _packing(
+    design: Design,
+    extents: Sequence[PlacedExtent],
+    staged: Sequence[FootprintInstance],
+    cutout_rings: Sequence[Sequence[Point]],
+    forbidding: Sequence[Keepout],
+    stays: set[str],
+) -> _Packing:
+    """The boxes of every footprint, the courtyard boxes of the footprints of ``stays`` on the faces that
+    the staged parts use, and the cut-outs with the box of every rule area that forbids footprints."""
+    assert design.board is not None
+    known = {e.footprint_id: e for e in extents}
+    boxes: dict[str, Box] = {}
+    for fp in design.board.footprints:
+        extent = known[fp.id]
+        box = _box((*extent.front, *extent.back)) or BBox.of_points([fp.position])
+        relative = BBox(
+            box.x0 - fp.position.x, box.y0 - fp.position.y, box.x1 - fp.position.x, box.y1 - fp.position.y
+        )
+        boxes[fp.id] = Box(fp.id, footprint_ref(design, fp), relative)
+    faces = {face for fp in staged for face in ("front", "back") if getattr(known[fp.id], face)}
+    occupied: list[BBox] = []
+    for fp in design.board.footprints:
+        if fp.id in stays:
+            for face in sorted(faces):
+                occupied += [BBox.of_points(ring) for ring in getattr(known[fp.id], face)]
+    cutouts = [BBox.of_points(ring) for ring in cutout_rings]
+    # the box of every rule area that forbids footprints is avoided like a cut-out (change c0113)
+    cutouts += [BBox.of_points(area.outline) for area in forbidding]
+    return _Packing(boxes, occupied, cutouts)
 
 
 def _cache(folder: Path) -> Design | None:
@@ -332,10 +431,18 @@ def _query_outline(design: Design) -> Design:
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     moves = [parse_move(text) for text in args.move]
-    strategy = args.strategy or ("manual" if moves else "grid")
+    strategy = args.strategy or (
+        "manual"
+        if moves
+        else "reuse"
+        if args.source is not None
+        else "group"
+        if place_group.implied(args)
+        else "grid"
+    )
     if moves and strategy != "manual":
         raise CliError("FEN-2001", "--move needs --strategy manual", where="--move", hint="drop --strategy")
-    if args.only is not None and strategy not in ("grid", "constrained"):
+    if args.only is not None and strategy not in ("grid", "constrained", "regions", "reuse"):
         raise CliError("FEN-2001", "--only narrows the grid strategy", where="--only", hint="drop --only")
     if strategy == "constrained" and args.force:
         raise CliError("FEN-2001", "constrained placement cannot use --force", where="--force")
@@ -345,6 +452,20 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         raise CliError(
             "FEN-2001", "--constraints, --max-candidates and --preview-dir need --strategy constrained"
         )
+    region_options = parse_options(args)
+    if region_options.given and strategy != "regions":
+        raise CliError("FEN-2001", "--barrier, --group, --region and --split need --strategy regions")
+    if strategy != "reuse" and (args.source is not None or place_reuse.given(args)):
+        raise CliError(
+            "FEN-2001", "--from, --anchor, --map, --copper, --tolerance and --drc need --strategy reuse"
+        )
+    reuse_options = place_reuse.options(args) if strategy == "reuse" else None
+    if strategy != "group" and place_group.given(args):
+        raise CliError(
+            "FEN-2001",
+            "--turn, --about, --angle, --shift, --by, --pose-search and --within need --strategy group",
+        )
+    group_options = place_group.options(args) if strategy == "group" else None
     pitch = DEFAULT_PITCH if args.pitch is None else _length(args.pitch, "--pitch")
     gap = DEFAULT_GAP if args.gap is None else _length(args.gap, "--gap")
     margin = DEFAULT_MARGIN if args.margin is None else _length(args.margin, "--margin")
@@ -369,6 +490,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     definitions = _Definitions(board_path.parent, major)
     moved_ids: list[str] = []
     proposal: PlacementProposal | None = None
+    region_plan: RegionPlan | None = None
+    reuse_plan: place_reuse.ReusePlan | None = None
+    group_plan: place_group.GroupPlan | None = None
 
     def off_board(fp: FootprintInstance) -> bool:
         return region is not None and not region.contains_point(fp.position)
@@ -451,6 +575,29 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                         objective.key,
                     )
                 )
+    elif reuse_options is not None:
+        reuse_plan = place_reuse.plan_reuse(
+            reuse_options, ctx, design, board_path, definitions=definitions.found, need=definitions.need
+        )
+        design = reuse_plan.design
+        assert design.board is not None
+        moved_ids.extend(reuse_plan.moved)
+        issues += reuse_plan.issues
+    elif group_options is not None:
+        group_plan = place_group.plan_group(
+            group_options,
+            design,
+            board_path,
+            origin=origin,
+            pitch=pitch,
+            definitions=definitions.found,
+            need=definitions.need,
+            force=bool(args.force),
+        )
+        design = group_plan.design
+        assert design.board is not None
+        moved_ids.extend(group_plan.moved)
+        issues += group_plan.issues
     elif strategy == "manual":
         for request in moves:
             fp = before.get(request.ref)
@@ -467,38 +614,45 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             chosen = {before[ref].id for ref in wanted if ref in before}
             staged = [fp for fp in staged if fp.id in chosen]
         staged.sort(key=lambda fp: (paths[fp.id], fp.id))
+        staged_ids = {fp.id for fp in staged}
+        by_id = {fp.id: fp for fp in staged}
         if staged and region is not None:
-            known = {e.footprint_id: e for e in backend.placed_extents(design)}
-            staged_ids = {fp.id for fp in staged}
-            boxes: list[Box] = []
-            faces: set[str] = set()
-            for fp in staged:
-                extent = known[fp.id]
-                faces |= {face for face in ("front", "back") if getattr(extent, face)}
-                box = _box((*extent.front, *extent.back)) or BBox.of_points([fp.position])
-                relative = BBox(
-                    box.x0 - fp.position.x,
-                    box.y0 - fp.position.y,
-                    box.x1 - fp.position.x,
-                    box.y1 - fp.position.y,
-                )
-                boxes.append(Box(fp.id, footprint_ref(design, fp), relative))
-            occupied: list[BBox] = []
-            for fp in design.board.footprints:
-                if fp.id in staged_ids or off_board(fp):
-                    continue
-                for face in sorted(faces):
-                    occupied += [BBox.of_points(ring) for ring in getattr(known[fp.id], face)]
-            cutouts = [BBox.of_points(ring) for ring in outline.rings[1:]]
-            # the box of every rule area that forbids footprints is avoided like a cut-out (change c0113)
-            cutouts += [BBox.of_points(area.outline) for area in forbidding]
-            packed = grid_place(
-                boxes, region, occupied=occupied, cutouts=cutouts, pitch=pitch, gap=gap, margin=margin
+            stays = {fp.id for fp in design.board.footprints if fp.id not in staged_ids and not off_board(fp)}
+            packing = _packing(
+                design, backend.placed_extents(design), staged, outline.rings[1:], forbidding, stays
             )
-            by_id = {fp.id: fp for fp in staged}
-            for fp_id, at in packed.positions.items():
-                move(by_id[fp_id], at, None, None)
-            for fp_id in packed.unplaced:
+            if strategy == "regions":
+                region_plan = plan_regions(
+                    design,
+                    region_options,
+                    outline=region,
+                    refs={fp.id: footprint_ref(design, fp) for fp in design.board.footprints},
+                    boxes=packing.boxes,
+                    staged=staged,
+                    occupied=packing.occupied,
+                    cutouts=packing.cutouts,
+                    pitch=pitch,
+                    gap=gap,
+                    margin=margin,
+                )
+                issues += region_plan.issues
+                positions = dict(region_plan.result.positions)
+                unplaced_ids: tuple[str, ...] = ()
+            else:
+                packed = grid_place(
+                    [packing.boxes[fp.id] for fp in staged],
+                    region,
+                    occupied=packing.occupied,
+                    cutouts=packing.cutouts,
+                    pitch=pitch,
+                    gap=gap,
+                    margin=margin,
+                )
+                positions, unplaced_ids = dict(packed.positions), packed.unplaced
+            for fp in staged:
+                if fp.id in positions:
+                    move(fp, positions[fp.id], None, None)
+            for fp_id in unplaced_ids:
                 ref = footprint_ref(design, by_id[fp_id])
                 issues.append(
                     issue(
@@ -520,6 +674,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     issues += legality
     cached = _cache(board_path.parent)
     pads_after = backend.board_pads(design)
+    crossing_rows: list[dict[str, Any]] = []
+    crossing_evidence: list[Evidence] = []
+    if region_plan is not None:
+        crossing_rows, found_crossings, found_evidence = region_crossings(region_plan, design, pads_after)
+        issues += found_crossings
+        crossing_evidence.append(found_evidence)
     rules = placement_rules.rules_of(cached)
     judged = placement_rules.judge(design, rules, pads=pads_after)
     families = {family: dict(counts) for family, counts in judged.counts.items()}
@@ -545,7 +705,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         pads_before = backend.board_pads(original)
         earlier = placement_rules.measure(original, pads=pads_before, pitch=wire_pitch)
         change = {"hpwl": measures.hpwl - earlier.hpwl, "ratsnest": measures.ratsnest - earlier.ratsnest}
-        left = _copper_left(original, pads_before, moved)
+        stayed = original if group_plan is None else place_group.without(original, group_plan.copper)
+        left = _copper_left(stayed, pads_before, moved)
         for fp_id in left:
             ref = names[fp_id]
             issues.append(
@@ -570,7 +731,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 )
     refused = any(found.severity == "error" for found in issues) and not args.force
     writes: tuple[PlannedWrite, ...] = ()
-    if moved and not refused:
+    copied = reuse_plan is not None and reuse_plan.copied
+    if (moved or copied) and not refused:
         text = kicad_pcb.write_board(design, target=major, allow_lossy=ctx.allow_lossy).text
         if args.out is not None:
             target = str(args.out)
@@ -579,7 +741,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 target = str(board_path.relative_to(ctx.cwd))
             except ValueError:
                 target = str(board_path)
-        writes = (PlannedWrite(path=target, data=text.encode("utf-8"), kind="kicad_pcb"),)
+        grown = (
+            place_reuse.run_drc(reuse_plan, board_path, text.encode("utf-8"))
+            if reuse_plan is not None and reuse_options is not None and reuse_options.drc
+            else []
+        )
+        issues += grown
+        if not grown:
+            writes = (PlannedWrite(path=target, data=text.encode("utf-8"), kind="kicad_pcb"),)
     if proposal is not None and args.preview_dir is not None and not refused:
         if writes:
             written = _query_outline(
@@ -616,6 +785,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         "rules": families,
         "measures": {**measures.to_json(), "change": change},
     }
+    if strategy == "regions":
+        refs = {fp.id: ref for ref, fp in after.items()}
+        result["regions"] = (
+            None if region_plan is None else regions_json(region_plan, crossing_rows, origin, refs)
+        )
+    if reuse_plan is not None:
+        result["reuse"] = place_reuse.to_json(reuse_plan)
+    if group_plan is not None:
+        result["group"] = place_group.to_json(group_plan)
     if proposal is not None:
         result["placement"] = _proposal_json(proposal)
         result["preview"] = preview_manifest
@@ -625,6 +803,12 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidence.append(KEEPOUT_EVIDENCE)
     if rules_judged:
         evidence.append(placement_rules.EVIDENCE)
+    if region_plan is not None:
+        evidence += [*region_evidence(region_plan), *crossing_evidence]
+    if reuse_plan is not None:
+        evidence.append(reuse_plan.evidence)
+    if group_plan is not None:
+        evidence.append(group_plan.evidence)
     if proposal is not None:
         evidence += [CONSTRAINED_EVIDENCE, Evidence(Level.INFERRED, hypotheses=("H-G-PLACEMENT-PREVIEW",))]
     return Result(

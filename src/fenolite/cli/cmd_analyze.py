@@ -23,14 +23,25 @@ from typing import Any, cast
 from fenolite.analysis import EVIDENCE
 from fenolite.analysis.boundary import OVERLAP_NEEDS_GEO, board_boundary
 from fenolite.analysis.copper import ARC_TOL_NM
+from fenolite.analysis.coupling import analyze_coupling
 from fenolite.analysis.crossings import Cut, analyze_crossings
 from fenolite.analysis.current import analyze_current
 from fenolite.analysis.distance import analyze_distances
 from fenolite.analysis.length import measure_lengths
+from fenolite.analysis.pour import DEFAULT_GRID_NM, PourCopper, pour_copper
 from fenolite.analysis.power import analyze_power
+from fenolite.analysis.practice import (
+    analyze_bodies,
+    analyze_dead,
+    analyze_decoupling,
+    analyze_groups,
+    analyze_relief,
+)
 from fenolite.analysis.report import AnalysisReport, sorted_issues
 from fenolite.analysis.requirements import Requirements, load_requirements
 from fenolite.analysis.returns import analyze_returns
+from fenolite.analysis.shapes import analyze_balance, analyze_loops, analyze_necks, loop_areas
+from fenolite.analysis.split import analyze_split
 from fenolite.analysis.ties import Tie, analyze_ties, isolation_islands
 from fenolite.backends import registry
 from fenolite.backends.base import BoardFrame, BoardPad, LengthFacts, LengthSource, ProjectSet
@@ -49,7 +60,26 @@ HELP = "measure current capacity, clearance and creepage of a board (read-only)"
 """The opt-in kinds are described with their options: power paths and insulation between layers."""
 KINDS = ("current", "clearance", "creepage")
 """The kinds that run without ``--kinds``."""
-OPT_IN_KINDS = ("power", "insulation", "length", "ties", "domains", "crossings", "returns")
+OPT_IN_KINDS = (
+    "power",
+    "insulation",
+    "length",
+    "ties",
+    "domains",
+    "crossings",
+    "returns",
+    "decoupling",
+    "connectivity",
+    "bodies",
+    "relief",
+    "dead",
+    "coupling",
+    "necks",
+    "loops",
+    "balance",
+)
+POUR_KINDS = ("connectivity", "bodies", "relief", "dead", "necks", "loops", "balance")
+"""The practice kinds that read the zones in their copper states (changes c0204 and c0213)."""
 ALL_KINDS = (*KINDS, *OPT_IN_KINDS)
 ALL_LAYERS = "*"
 _CLEARANCE_CODES = ("analysis.clearance-below", "analysis.clearance-undecided", "analysis.embedded-below")
@@ -201,6 +231,44 @@ def _register(parser: argparse.ArgumentParser) -> None:
         default=None,
         metavar="LENGTH",
         help="with --kinds returns: a signal via farther than this from every reference via is a finding",
+    )
+    parser.add_argument(
+        "--pour-grid",
+        default=None,
+        metavar="LENGTH",
+        help="with a kind that pours zones (connectivity, bodies, relief, dead, necks, loops, balance) or "
+        "--split: the cell of the raster of the copper (default 0.1mm)",
+    )
+    parser.add_argument(
+        "--split",
+        action="store_true",
+        help="with --kinds power: the share of each track, fill and via in the path's current, on a raster",
+    )
+    parser.add_argument(
+        "--loop-baseline",
+        default=None,
+        metavar="FILE",
+        help="with --kinds loops: measure the same loops on this board and give the change",
+    )
+    parser.add_argument(
+        "--dead-distance",
+        default=None,
+        metavar="LENGTH",
+        help="with --kinds dead: copper farther than this from every pad of its net is a finding",
+    )
+    parser.add_argument(
+        "--aggressor",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="with --kinds coupling: the aggressor nets (repeatable; required)",
+    )
+    parser.add_argument(
+        "--victim",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="with --kinds coupling: the victim nets (repeatable; required)",
     )
     parser.add_argument(
         "--barrier",
@@ -419,6 +487,32 @@ def _stackup_inputs(design: Design) -> dict[str, Any] | None:
     return {"thickness": stackup.thickness(), "copper": copper}
 
 
+def _loop_baseline(
+    name: str | None,
+    cwd: Path,
+    requirements: Requirements | None,
+    grid: int,
+    thickness: Nm | None,
+    arc_tol: int,
+) -> dict[str, int | None] | None:
+    """The area of each ``[[loop]]`` row on the baseline board ``name``, read and poured as the board is."""
+    if name is None:
+        return None
+    path = Path(name) if Path(name).is_absolute() else cwd / name
+    if not path.exists():
+        raise CliError("FEN-3001", f"{name} does not exist", where="--loop-baseline")
+    backend = registry.for_path(path)
+    design = backend.read(path).content if backend is not None else None
+    if not isinstance(design, Design) or design.board is None:
+        raise CliError("FEN-2001", f"--loop-baseline: {path.name} is not a board", where="--loop-baseline")
+    pad_issues: list[Issue] = []
+    pads = backend.board_pads(design, issues=pad_issues) if isinstance(backend, BoardFrame) else None
+    boundary = board_boundary(design.board, thickness=thickness)
+    pour = pour_copper(design, pads=pads, boundary=boundary, grid=grid, arc_tol=arc_tol)
+    rows, _ = loop_areas(design, pads=pads, pour=pour, requirements=requirements)
+    return {row.name: row.area_nm2 for row in rows}
+
+
 def _project(board: Path) -> ProjectSet | None:
     """The project files next to a KiCad board, for the length facts; ``None`` when they cannot be set
     up, and the facts then count as without a project file."""
@@ -452,9 +546,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     track_clearance = None if args.clearance is None else _length(args.clearance, "--clearance")
     reference = _list(args.reference, "--reference")
     via_distance = None if args.via_distance is None else _length(args.via_distance, "--via-distance")
+    pour_grid = None if args.pour_grid is None else _length(args.pour_grid, "--pour-grid")
+    dead_distance = None if args.dead_distance is None else _length(args.dead_distance, "--dead-distance")
+    aggressors = _list(args.aggressor, "--aggressor")
+    victims = _list(args.victim, "--victim")
     for option, given, kind in (
         ("--path", bool(paths), "power"),
         ("--resistivity", resistivity is not None, "power"),
+        ("--split", bool(args.split), "power"),
+        ("--loop-baseline", args.loop_baseline is not None, "loops"),
         ("--groove-width", groove is not None, "creepage"),
         ("--net", bool(args.length_nets) and "returns" not in kinds, "length"),
         ("--from", bool(args.length_from), "length"),
@@ -468,6 +568,9 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ("--clearance", track_clearance is not None, "crossings"),
         ("--reference", bool(reference), "returns"),
         ("--via-distance", via_distance is not None, "returns"),
+        ("--dead-distance", dead_distance is not None, "dead"),
+        ("--aggressor", bool(aggressors), "coupling"),
+        ("--victim", bool(victims), "coupling"),
     ):
         if given and kind not in kinds:
             raise CliError(
@@ -481,6 +584,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ("domains", bool(barriers), "--barrier"),
         ("crossings", bool(cuts), "--cut"),
         ("returns", bool(args.length_nets), "--net"),
+        ("coupling", bool(aggressors and victims), "--aggressor and --victim"),
     ):
         if kind in kinds and not given:
             raise CliError(
@@ -489,6 +593,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 where="--kinds",
                 hint=f"add {needs.split(',')[0]}",
             )
+    if pour_grid is not None and not set(POUR_KINDS) & set(kinds) and not args.split:
+        raise CliError(
+            "FEN-2001",
+            f"--pour-grid needs --split or one of the kinds {', '.join(POUR_KINDS)}, none of which is given",
+            where="--pour-grid",
+            hint="add connectivity to --kinds",
+        )
     requirements = _requirements(args.requirements, ctx.cwd)
 
     given = Path(args.path)
@@ -565,6 +676,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         result["distances"] = rows
         summary["distances"] = _json(dict(distances.summary))
     evidences: list[Evidence] = [report.evidence for report in reports]
+    power = None
     if "power" in kinds:
         power = analyze_power(
             design,
@@ -636,6 +748,101 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         evidences.append(returns.evidence)
         result["returns"] = [_json(row) for row in returns.rows]
         summary["returns"] = dict(returns.summary)
+    pour: PourCopper | None = None
+    if set(POUR_KINDS) & set(kinds) or args.split:
+        pour = pour_copper(
+            design,
+            pads=pads,
+            boundary=boundary,
+            grid=DEFAULT_GRID_NM if pour_grid is None else pour_grid,
+            arc_tol=arc_tol,
+        )
+        result["pours"] = [_json(zone) for zone in pour.zones]
+    if power is not None and pour is not None and args.split:
+        split = analyze_split(
+            design,
+            pads=pads,
+            pour=pour,
+            power=power,
+            copper_thickness=copper_thickness,
+            via_plating=via_plating,
+            resistivity_pohm_m=resistivity,
+        )
+        issues += split.issues
+        evidences.append(split.evidence)
+        result["split"] = [_json(row) for row in split.rows]
+        summary["split"] = _json(dict(split.summary))
+    if "decoupling" in kinds:
+        decoupling = analyze_decoupling(
+            design,
+            pads=pads,
+            pour=pour,
+            requirements=requirements,
+        )
+        issues += decoupling.issues
+        evidences.append(decoupling.evidence)
+        result["decoupling"] = [_json(row) for row in decoupling.rows]
+        summary["decoupling"] = dict(decoupling.summary)
+    if "connectivity" in kinds and pour is not None:
+        groups = analyze_groups(design, pads=pads, pour=pour)
+        issues += groups.issues
+        evidences.append(groups.evidence)
+        result["connectivity"] = [_json(row) for row in groups.rows]
+        summary["connectivity"] = dict(groups.summary)
+    if "bodies" in kinds and pour is not None:
+        extents = backend.placed_extents(design) if isinstance(backend, BoardFrame) else None
+        bodies = analyze_bodies(design, pads=pads, pour=pour, extents=extents, requirements=requirements)
+        issues += bodies.issues
+        evidences.append(bodies.evidence)
+        result["bodies"] = [_json(row) for row in bodies.rows]
+        summary["bodies"] = dict(bodies.summary)
+    if "relief" in kinds and pour is not None:
+        relief = analyze_relief(
+            design, pads=pads, pour=pour, requirements=requirements, copper_thickness=copper_thickness
+        )
+        issues += relief.issues
+        evidences.append(relief.evidence)
+        result["relief"] = [_json(row) for row in relief.rows]
+        summary["relief"] = dict(relief.summary)
+    if "dead" in kinds and pour is not None:
+        dead = analyze_dead(design, pads=pads, pour=pour, distance=dead_distance)
+        issues += dead.issues
+        evidences.append(dead.evidence)
+        result["dead"] = [_json(row) for row in dead.rows]
+        summary["dead"] = dict(dead.summary)
+    if "necks" in kinds and pour is not None:
+        necks = analyze_necks(design, pour=pour, requirements=requirements)
+        issues += necks.issues
+        evidences.append(necks.evidence)
+        result["necks"] = [_json(row) for row in necks.rows]
+        summary["necks"] = dict(necks.summary)
+    if "loops" in kinds and pour is not None:
+        baseline = _loop_baseline(args.loop_baseline, ctx.cwd, requirements, pour.grid, thickness, arc_tol)
+        loops = analyze_loops(design, pads=pads, pour=pour, requirements=requirements, baseline=baseline)
+        issues += loops.issues
+        evidences.append(loops.evidence)
+        result["loops"] = [_json(row) for row in loops.rows]
+        summary["loops"] = dict(loops.summary)
+    if "balance" in kinds and pour is not None:
+        balance = analyze_balance(design, pads=pads, pour=pour)
+        issues += balance.issues
+        evidences.append(balance.evidence)
+        result["balance"] = [_json(row) for row in balance.rows]
+        summary["balance"] = dict(balance.summary)
+    if "coupling" in kinds:
+        coupled = analyze_coupling(
+            design,
+            pads=pads,
+            aggressors=aggressors,
+            victims=victims,
+            board_thickness=boundary.thickness,
+            arc_tol=arc_tol,
+        )
+        issues += coupled.issues
+        evidences.append(coupled.evidence)
+        result["coupling"] = [_json(row) for row in coupled.rows]
+        result["coupling_victims"] = [_json(row) for row in coupled.victims]
+        summary["coupling"] = {**coupled.summary, "heights": dict(coupled.heights)}
     result["summary"] = summary
     result["inputs"] = {
         "kinds": list(kinds),
@@ -674,6 +881,18 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "reference": list(reference),
             "via_distance": via_distance,
         }
+    if pour is not None:
+        result["inputs"]["pour_grid"] = pour.grid
+    if "dead" in kinds:
+        result["inputs"]["dead_distance"] = dead_distance
+    if "power" in kinds:
+        result["inputs"]["split"] = bool(args.split)
+    if "loops" in kinds:
+        result["inputs"]["loop_baseline"] = (
+            None if args.loop_baseline is None else Path(args.loop_baseline).name
+        )
+    if "coupling" in kinds:
+        result["inputs"] |= {"aggressors": list(aggressors), "victims": list(victims)}
     if "crossings" in kinds:
         result["inputs"] |= {
             "cuts": [cut.name for cut in cuts],

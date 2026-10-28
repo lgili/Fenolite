@@ -204,9 +204,10 @@ class Router(Protocol):
         ...
 
 
-ROUTER_FEATURES: frozenset[str] = frozenset({"pairs", "escape"})
-"""What a router may take beyond single nets (change c0110). A router lists those it takes in an attribute
-``features``, which the ``Router`` protocol does not hold, so that a router written before stays valid."""
+ROUTER_FEATURES: frozenset[str] = frozenset({"pairs", "escape", "short"})
+"""What a router may take beyond single nets (change c0110), and ``short``: the router routes short
+connections, not whole boards (change c0228). A router lists those it has in an attribute ``features``,
+which the ``Router`` protocol does not hold, so that a router written before stays valid."""
 
 
 def router_features(router: object) -> frozenset[str]:

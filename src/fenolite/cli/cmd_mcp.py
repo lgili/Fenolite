@@ -41,8 +41,9 @@ def _register(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _backend(args: argparse.Namespace) -> FenoliteBackend:
+def _backend(args: argparse.Namespace, cwd: Path) -> FenoliteBackend:
     root = Path(str(args.root))
+    root = root if root.is_absolute() else cwd / root  # fenolite.api.run gives its cwd (change c0206)
     if not root.is_dir():
         raise CliError("FEN-2001", f"--root: {args.root!r} is not a folder", where="--root")
     if not args.timeout > 0:
@@ -70,7 +71,7 @@ def _backend(args: argparse.Namespace) -> FenoliteBackend:
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
-    backend = _backend(args)
+    backend = _backend(args, ctx.cwd)
     if args.list:
         result: dict[str, Any] = {
             "versions": [MODERN, *LEGACY],

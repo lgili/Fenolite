@@ -60,6 +60,15 @@ def test_the_data_file_is_the_authored_strip() -> None:
         "domains",
         "crossings",
         "returns",
+        "decoupling",
+        "connectivity",
+        "bodies",
+        "relief",
+        "dead",
+        "coupling",
+        "necks",
+        "loops",
+        "balance",
     )
     assert ALL_KINDS == (*KINDS, *OPT_IN_KINDS)
 

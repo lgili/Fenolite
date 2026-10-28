@@ -57,7 +57,7 @@ KINDS: tuple[KindRow, ...] = (
     *_rows(
         "footprint",
         ("footprint", "pad", "footprint-copper"),
-        ("body", "footprint-graphic", "footprint-text", "net-tie"),
+        ("body", "footprint-graphic", "footprint-text", "net-tie", "pad-margin", "model"),
     ),
     *_rows(
         "copper",

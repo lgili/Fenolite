@@ -22,6 +22,14 @@ by ``--escape`` (``routing.escape.requests``) go to a router whose ``router_feat
 ``escape``; a router without ``pairs`` gets no pair net (``route.pair-skipped``) unless ``--pairs-as-nets``
 gives them as single nets. Routed copper narrower than its job width gives ``route.width-below-job``
 (capability cli-contract, "Pairs and escape in the route command").
+
+Change c0228: the job's ``extra`` also holds ``clearance`` and ``copper_check`` (``_job_checks``), the
+clearance in force and the copper check of the project's rules, which the octilinear router uses
+and the package ``routing`` may not import (capability routing, "Clearance and copper check in job extras").
+
+Change c0225: ``--gate drc`` judges the copper the command adds or removes through
+``fenolite.api.trial(..., gate=True)`` (``cli._gate``) and writes the board without the items that bring new
+DRC findings; the verdict is taken from that board (capability kicad-oracle, "DRC gate on writing commands").
 """
 
 from __future__ import annotations
@@ -50,9 +58,11 @@ from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board, source_info, write_board
 from fenolite.backends.kicad.projectset import resolve_board
 from fenolite.checks.clearance import ClearanceResolver
-from fenolite.cli import plans
+from fenolite.checks.copper import check_copper, frame_edges
+from fenolite.cli import _gate, plans
 from fenolite.cli._boardview import to_json
 from fenolite.cli._examples import EXAMPLE_UNROUTED
+from fenolite.cli._kicadtool import DEFAULT_TIMEOUT
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.jobs import JobRecord, route_job_key
@@ -170,6 +180,7 @@ def _register(parser: argparse.ArgumentParser) -> None:
         help="route the nets of differential pairs as single nets, uncoupled, with any router",
     )
     parser.add_argument("-o", "--out", metavar="FILE", help="write the routed board to this file")
+    _gate.register(parser, kicad_cli=True)
 
 
 def _matches(name: str, patterns: tuple[str, ...]) -> bool:
@@ -379,6 +390,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "FEN-6001", status.reason or f"router {router.name!r} is unavailable", hint=_missing_hint(router)
         )
     board_path = resolve_board(Path(args.path) if Path(args.path).is_absolute() else ctx.cwd / args.path)
+    _gate.preflight(args, board_path, DEFAULT_TIMEOUT, own_option=True)
     data = board_path.read_bytes()
     text = data.decode("utf-8")
     read_issues: list[Issue] = []
@@ -386,6 +398,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     source = source_info(design)
     project_rules = _project_rules(design, board_path, read_issues)
     design = _with_edge_rule(project_rules.design, _edge_minimum(board_path))
+    as_read = design
     input_ref = InputRef(
         board_path.name,
         hashlib.sha256(data).hexdigest(),
@@ -493,6 +506,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         ),
     )
     reused = record.runs()
+    pre_resume = design
     if reused:
         try:
             design = apply(design, _copper_of(reused))
@@ -602,6 +616,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     zones_stale = bool(design.board and any(zone.filled or zone.fills for zone in design.board.zones))
     if not jobs and not reused:
         # no net for a router: the fan-out copper alone is still written
+        fan_gate: dict[str, object] | None = None
+        fan_evidence = Evidence(Level.UNVERIFIED, router.name)
+        if args.gate == "drc" and fanout_made:
+            gated = _gate.gate(board_path, as_read, design, kicad_cli=args.kicad_cli, timeout=DEFAULT_TIMEOUT)
+            design, fan_gate = gated.design, gated.result
+            fanout_issues = [*fanout_issues, *gated.issues]
+            fanout_made = bool(_gate.edit_ids(as_read, design))
+            fan_evidence = gated.evidence or fan_evidence
+        elif args.gate == "drc":
+            fan_gate = _gate.untouched()
         fan_text = (
             write_board(design, target=major, allow_lossy=ctx.allow_lossy).text if fanout_made else text
         )
@@ -634,9 +658,10 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "plane_fanout": plane_result,
                 "pairs": [],
                 "escape": [],
+                "gate": fan_gate,
             },
             issues=(*read_issues, *before.issues, *fan_issues, *skipped),
-            evidence=Evidence(Level.UNVERIFIED, router.name),
+            evidence=fan_evidence,
             input=input_ref,
             writes=(
                 (PlannedWrite(output, fan_text.encode("utf-8"), "kicad_pcb"),)
@@ -645,7 +670,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             ),
             depends=depends,
         )
-    extra = {"board_pads": frame_pads, "outline": outline_rings}
+    extra = {"board_pads": frame_pads, "outline": outline_rings, **_job_checks(design, project_rules)}
     started = time.monotonic()
     if jobs:
         outcome = router.route(
@@ -690,6 +715,15 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issues.extend(exc.issues)
         merged = design
         merged_ok = False
+    gate_result: dict[str, object] | None = None
+    gate_evidence: Evidence | None = None
+    lost = Counter[str]()
+    if args.gate == "drc":
+        gated = _gate.gate(board_path, as_read, merged, kicad_cli=args.kicad_cli, timeout=DEFAULT_TIMEOUT)
+        # the routed and resumed tracks and vias the gate dropped, which ``tracks`` and ``vias`` leave out
+        lost = _dropped_copper(pre_resume, merged, gated.dropped)
+        merged, gate_result, gate_evidence = gated.design, gated.result, gated.evidence
+        issues.extend(gated.issues)
     # the verdict: the open connections of the selected nets on the merged board, whatever the router listed
     after = connectivity(merged, pads=frame_pads, nets=candidates)
     still_open = {row.name: row for row in after.nets if row.open}
@@ -698,6 +732,14 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     new_items = (*outcome.tracks, *outcome.arcs, *outcome.vias) if merged_ok else ()
     kept_items = (*resumed.tracks, *resumed.arcs, *resumed.vias)
     got = Counter(item.net_id for item in new_items)
+    if gate_result is not None and merged.board is not None and design.board is not None:
+        # the copper the router added that the gate kept
+        known = {item.id for item in (*design.board.tracks, *design.board.arcs, *design.board.vias)}
+        got = Counter(
+            item.net_id
+            for item in (*merged.board.tracks, *merged.board.arcs, *merged.board.vias)
+            if item.id not in known
+        )
     claimed = set(outcome.routed)
     for name in open_names:
         row = still_open[name]
@@ -736,6 +778,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             )
         )
     added = bool(new_items) or bool(kept_items) or fanout_made
+    if gate_result is not None:
+        added = bool(_gate.edit_ids(as_read, merged))
     fills_stale = zones_stale and added
     if fills_stale:
         issues.append(
@@ -748,7 +792,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         if added and not failed and (args.out is not None or board_text != text)
         else ()
     )
-    evidence = dataclasses.replace(
+    evidence = gate_evidence or dataclasses.replace(
         outcome.evidence,
         level=Level.UNVERIFIED,
         oracle=f"{outcome.tool} {outcome.tool_version}".strip(),
@@ -779,8 +823,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 "before": sum(len(row.open) for row in before.nets if row.name in selected),
                 "after": sum(len(row.open) for row in still_open.values()),
             },
-            "tracks": len(outcome.tracks) + len(resumed.tracks),
-            "vias": len(outcome.vias) + len(resumed.vias),
+            "tracks": len(outcome.tracks) + len(resumed.tracks) - lost["tracks"],
+            "vias": len(outcome.vias) + len(resumed.vias) - lost["vias"],
             "ripped": ripped,
             "rip_kept": rip_kept,
             "log": _safe_log(outcome.log, ctx.cwd),
@@ -814,6 +858,7 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
                 {"ref": item.ref, "kind": item.kind, "pitch": item.pitch, "nets": list(item.nets)}
                 for item in escape
             ],
+            "gate": gate_result,
         },
         issues=tuple(issues),
         evidence=evidence,
@@ -822,6 +867,46 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         depends=depends,
         written=record.remove,  # the board then holds the copper, and its digest names another job
     )
+
+
+def _job_checks(design: Design, rules: DesignRules) -> dict[str, object]:
+    """The job extras ``clearance`` and ``copper_check`` (capability routing, "Clearance and copper check in
+    job extras"; change c0228): the clearance in force between two rule subjects under the project's
+    rules, and the copper check of a design with those rules, the board edge and the board-frame pads,
+    its zone fills left out (routing makes them stale; ``fill`` pours them again)."""
+    resolver = ClearanceResolver(
+        design,
+        min_clearance=rules.min_clearance,
+        rules_over_classes=rules.rules_over_classes,
+        floor_over_rules=rules.floor_over_rules,
+    )
+    backend = KicadBackend()
+
+    def clearance(a: RuleSubject, b: RuleSubject) -> Nm:
+        return resolver.resolve(a, b).value or 0
+
+    def copper_check(checked: Design) -> list[tuple[str, str, tuple[str, ...], int]]:
+        board = checked.board
+        if board is not None:
+            zones = tuple(dataclasses.replace(zone, fills=(), filled=False) for zone in board.zones)
+            checked = dataclasses.replace(checked, board=dataclasses.replace(board, zones=zones))
+        edges, _ = frame_edges(backend, checked)
+        report = check_copper(
+            checked,
+            pads=backend.board_pads(checked),
+            min_clearance=rules.min_clearance,
+            rules_over_classes=rules.rules_over_classes,
+            floor_over_rules=rules.floor_over_rules,
+            edges=edges,
+            min_edge_clearance=rules.min_edge_clearance,
+            edge_floor_over_rules=rules.edge_floor_over_rules,
+        )
+        return [
+            (found.code, found.layer, tuple(sorted({item.entity_id for item in found.items})), found.gap)
+            for found in report.findings
+        ]
+
+    return {"clearance": clearance, "copper_check": copper_check}
 
 
 PAIRS_HINT_FALLBACK = "kicadroutingtools, once its pair gate holds"
@@ -919,6 +1004,20 @@ def _copper_of(runs: tuple[FinishedRun, ...]) -> RoutingResult:
         tracks=tuple(item for run in runs for item in run.tracks),
         arcs=tuple(item for run in runs for item in run.arcs),
         vias=tuple(item for run in runs for item in run.vias),
+    )
+
+
+def _dropped_copper(earlier: Design, merged: Design, dropped: frozenset[str]) -> Counter[str]:
+    """``tracks`` and ``vias``: how many items of ``merged`` that ``earlier`` lacks are in ``dropped``."""
+    known: set[str] = (
+        {item.id for item in (*earlier.board.tracks, *earlier.board.vias)} if earlier.board else set()
+    )
+    board = merged.board
+    return Counter(
+        kind
+        for kind, items in (("tracks", board.tracks if board else ()), ("vias", board.vias if board else ()))
+        for item in items
+        if item.id in dropped and item.id not in known
     )
 
 

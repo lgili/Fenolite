@@ -798,6 +798,13 @@ def _mm_option(text: str | None, name: str) -> int | None:
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
+    if args.serve and ctx.in_process:
+        raise CliError(
+            "FEN-2001",
+            "--serve runs until stopped, and fenolite.api.run does not block",
+            where="--serve",
+            hint="run 'fenolite view --serve' as a process, or export the page with --export",
+        )
     if args.serve and args.export:
         raise CliError(
             "FEN-2001",

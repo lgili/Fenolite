@@ -27,20 +27,23 @@ decision 5); this change's MODIFIED "Analyze command" still lists it with `--wid
 Tasks 4.1 to 4.5 moved on 2026-10-26 to change c0201 (`openspec/changes/archive/2026-10-27-c0201-file-safety/`), with the
 requirements "Stable snapshot", "Publish guarded by receipts", "Open sessions and placeholders" and
 "Project references" of `file-safety`, by the maintainer's choice of 2026-10-26 to do file safety first.
-Task 4.6 and "Gated and three-way differences" stay here.
-
-- [ ] 4.6 Add `diff --allow` and `--three-way`, and classify resave differences of Altium documents (scenario "A change outside the allowed set"). Proof: `uv run pytest tests/unit/checks/test_diff_gate.py -q`.
+Moved on 2026-10-28 to change c0207 (`openspec/changes/c0207-diff-gates/`), with task 4.6 and the
+requirement "Gated and three-way differences" of `file-safety`, split there into "Gated differences",
+"Three-way difference of KiCad boards", "Three-way conflicts" and "Resave differences of Altium
+documents". `--three-way` covers KiCad boards; the other formats are non-goals of c0207.
 
 ## 5. Practice checks (package 7)
 
-- [ ] 5.1 Add the simulated pour and the three copper states to the copper model of the analyses (scenario "A pin left open by a cut-out"). Proof: `uv run pytest tests/unit/analysis/test_practice.py -k "cutout or states" -q`.
-- [ ] 5.2 Add the kinds `connectivity` and `dead`. Proof: `uv run pytest tests/unit/analysis/test_practice.py -k "connectivity or dead" -q`.
-- [ ] 5.3 Add the kind `bodies` and the table `[[body_copper]]` (scenario "Copper of a class under a can"). Proof: `uv run pytest tests/unit/analysis/test_practice.py -k bodies tests/unit/analysis/test_requirements.py -q`.
-- [ ] 5.4 Add the kind `decoupling` and the table `[[decoupling]]` (scenario "Decoupling distance reported without a finding"). Proof: `uv run pytest tests/unit/analysis/test_practice.py -k decoupling -q`.
-- [ ] 5.5 Add the kinds `relief` and `necks`, and the table `[[neck]]`. Proof: `uv run pytest tests/unit/analysis/test_practice.py -k "relief or necks" -q`.
-- [ ] 5.6 Add the kinds `loops` and `balance`, and the table `[[loop]]`. Proof: `uv run pytest tests/unit/analysis/test_practice.py -k "loops or balance" -q`.
-- [ ] 5.7 Add `--kinds power --split`: a resistive solve on a raster of the copper, giving the share of each parallel path and via. Bracket it with the interval bounds of `power` on the same bench. Proof: `uv run pytest tests/unit/analysis/test_power_split.py -q`.
-- [ ] 5.8 Add the kind `coupling` (scenario "A sense net beside a phase track"). Proof: `uv run pytest tests/unit/analysis/test_coupling.py -q`.
+Moved on 2026-10-28 to change c0204 (`openspec/changes/c0204-practice-checks/`), with its tasks 5.1 to 5.4, 5.8
+and the kind `relief` of 5.5, its ADDED requirement "Coupling screen" and the six kinds `decoupling`,
+`connectivity`, `bodies`, `relief`, `dead` and `coupling` of its ADDED requirement "Practice checks", by the
+maintainer's choice of 2026-10-28 to take the package as its own change. The simulated pour there is a raster
+(c0204's design, decision 2). The kinds `necks`, `loops` and `balance`, the tables `[[neck]]` and `[[loop]]`
+and `--kinds power --split` stayed here, under the requirement "Pour shape checks". They moved on 2026-10-28 to
+change c0213 (`openspec/changes/c0213-pour-shapes/`), with its tasks 5.5 (but `relief`), 5.6 and 5.7 and its
+ADDED requirement "Pour shape checks", split there into "Neck kind", "Tips and slivers", "Loop kind", "Balance
+kind", "Current split" and "Pour shape tables", by the maintainer's choice of 2026-10-28 to finish the
+package. The widths there are measured on the raster of c0204 (c0213's design, decision 1).
 
 ## 6. Native Altium edit sessions (package 12)
 
@@ -54,49 +57,96 @@ Task 4.6 and "Gated and three-way differences" stay here.
 
 ## 7. Copper tidy (package 5)
 
-- [ ] 7.1 Add `tidy.prune` (scenario "A stub after routing"). Proof: `uv run pytest tests/unit/tidy/test_prune.py -q`.
-- [ ] 7.2 Add `tidy.straighten`, with the lattice search and the turn costs (scenario "A staircase becomes one corner"). Proof: `uv run pytest tests/unit/tidy/test_straighten.py -q`.
-- [ ] 7.3 Add `tidy.chamfer` for tracks and zone outlines (scenario "A right angle"). Proof: `uv run pytest tests/unit/tidy/test_chamfer.py -q`.
-- [ ] 7.4 Add the style report and `--compare` (scenario "Acute joints reported"). Proof: `uv run pytest tests/unit/tidy/test_report.py -q`.
-- [ ] 7.5 Add the command `fenolite tidy`, with DRC on the written board (scenario "Dry run of the three steps"). Proof: `uv run pytest tests/unit/cli/test_tidy_cmd.py tests/consistency -q`; `FENOLITE_KICAD_CLI=docker:kicad/kicad:9.0.9 uv run pytest tests/kicad/tidy -rA` and the same with `10.0.6`.
-- [ ] 7.6 Add the routing plugin `octilinear`, with pairs (scenarios of "Octilinear router plugin"). Proof: `uv run pytest tests/unit/routing/test_octilinear.py -q`.
+Moved on 2026-10-28 to change c0208 (`openspec/changes/c0208-copper-tidy/`): task 7.1, the right-angle part of
+task 7.3 and the command part of task 7.5, with the requirements "Prune dangling copper", "Chamfer joints"
+(for two tracks at 90°, as "Chamfer right-angle joints" and "Chamfers are checked") and "Tidy command" (for
+`--prune`, `--chamfer`, `--leg` and `--drc`) of `copper-tidy`. The rest stays here, narrowed in this change's
+`copper-tidy` delta to "Straighten runs", "Chamfer T-joints and zone outlines", "Style report" and "Tidy
+straighten and report options". Tasks 7.2 to 7.5 moved on 2026-10-28 to change c0214
+(`openspec/changes/c0214-tidy-straighten/`), with that whole `copper-tidy` delta. Moved on 2026-10-28 to
+change c0228 (`openspec/changes/c0228-octilinear-router/`): task 7.6, the routing plugin `octilinear` with
+pairs, with the requirement "Octilinear router plugin" of this change's `routing` delta, split there into
+"Octilinear router plugin", "Octilinear connections", "Octilinear shapes", "Octilinear acceptance",
+"Octilinear length limit", "Octilinear rounds", "Octilinear pairs", "Octilinear copper check" and
+"Octilinear codes". The plugin places no via, and the command hands it the clearance in force and the
+copper check through the job's extras (c0228's design, decisions 3 and 4). This change no longer holds a
+delta of `routing`.
 
 ## 8. Layout reuse (package 4)
 
-- [ ] 8.1 Add `reuse.fit_block` (scenarios "A mirrored reference is found" and "A part without a fit"). Proof: `uv run pytest tests/unit/reuse/test_fit.py -q`.
-- [ ] 8.2 Add `reuse.copy_copper` (scenario "Copper that ends nowhere is pruned"). Proof: `uv run pytest tests/unit/reuse/test_copper.py -q`.
-- [ ] 8.3 Add the command `fenolite reuse` (scenario "Dry run of a block"). Proof: `uv run pytest tests/unit/cli/test_reuse_cmd.py tests/consistency -q`.
-- [ ] 8.4 Add `place --turn`, `--shift` and `--pose-search` (scenario "A module turned with its satellites"). Proof: `uv run pytest tests/unit/cli/test_place_cmd.py -k "turn or shift or pose" -q`.
+Moved on 2026-10-28 to change c0210 (`openspec/changes/c0210-layout-reuse/`): tasks 8.1, 8.2 (tracks, arcs
+and vias) and 8.3, with the requirements "Block copy by pad fit" (pads with unique numbers), "Copper of a
+copied block" (without zones) and "Reuse command", which c0210 delivers as `place --strategy reuse` with
+`--drc` on request. Moved on 2026-10-28 to change c0227 (`openspec/changes/c0227-reuse-moves/`): tasks 8.4,
+8.5 and 8.6, with the requirements "Pads matched by net partition", "Zones of a copied block" and "Group
+moves" of this change's `layout-reuse` delta, split there into "Pads matched by net partition", "Zones of a
+copied block", "A zone read without its outline", "Group moves", "Copper of a moved group", "Pose search"
+and "Group move codes". Copper that a group's parts "own" is dropped there: copper moves with a group when
+every pad it joins moves (c0227's design, decision 5). This change no longer holds a delta of
+`layout-reuse`.
 
 ## 9. Assembly marks (package 8)
 
-- [ ] 9.1 Add `silk.extents` with its cache and its estimate (scenario "Extent of a designator"). Proof: `FENOLITE_KICAD_CLI=docker:kicad/kicad:10.0.6 uv run pytest tests/kicad/silk/test_extents.py -rA`.
-- [ ] 9.2 Add `fenolite silk --designators` (scenario "Dense row of resistors"). Proof: `uv run pytest tests/unit/silk/test_designators.py -q`.
-- [ ] 9.3 Add `fenolite silk --clip` (scenario "Outline over a pad"). Proof: `uv run pytest tests/unit/silk/test_clip.py -q`.
-- [ ] 9.4 Add `testpoints --place` (scenarios of "Test-point placement"). Proof: `uv run pytest tests/unit/exports/test_testpoint_place.py -q`.
+Moved on 2026-10-28 to change c0212 (`openspec/changes/c0212-assembly-marks/`): tasks 9.1 and 9.2 whole (the
+ink extents with their cache and estimate, and `fenolite silk --designators` with `--keep`), with the
+requirements "Text ink extents" and "Designator placement" of `silkscreen-layout`. The placement record
+`silk-placements.toml` is dropped there (a rebuild keeps a board's fields). Tasks 9.3 (`--clip`) and 9.4
+(`testpoints --place`) stay here, outside c0212 by its non-goals of 2026-10-28: clipping cuts the
+footprints' own silkscreen, which needs the library made from a board (task 10.3) to keep the library in
+step; placing test points adds parts and copper to a board that its design script lacks, so it needs the
+copper clearance of each new probe and track and a way back into the script (`sync`), with a bench of its own.
+Moved on 2026-10-28 to change c0226 (`openspec/changes/c0226-silk-clip/`): task 9.3 whole (`fenolite silk
+--clip`), with the requirement "Silkscreen clipping" of `silkscreen-layout`, narrowed there: the margin
+defaults to the project's `silk_clearance` rule (what KiCad's DRC applies between silkscreen and pads), texts
+and filled shapes are not cut, and `silk` writes the board only, pointing to `fenolite library` (c0223) for
+the library. This change no longer holds a delta of `silkscreen-layout`.
+Moved on 2026-10-28 to change c0229 (`openspec/changes/c0229-testpoint-place/`): task 9.4 whole (`fenolite
+testpoints --place`), with the requirement "Test-point placement" of `assembly-test-features`, split there into
+"Test-point placement", "Probe sites", "Placed test points checked", "Placed test points kept by a rebuild" and
+"Test-point placement codes". The probes are board-only footprints, which a rebuild keeps, so `sync` is not
+changed; c0175's `--pitch` is `--grid` there, and the codes keep the prefix `testpoint.` (c0229's design,
+decisions 1, 3 and 9). This change no longer holds a delta of `assembly-test-features`.
 
 ## 10. Library fidelity (package 10)
 
-- [ ] 10.1 Give imported pads their mask and paste layers and margins (scenario "Openings after conversion"), and correct `docs/conversion.md`. Proof: `uv run pytest tests/unit/convert/test_pad_layers.py -q`.
-- [ ] 10.2 Add the model placement to the footprint model and to the KiCad writer; extract embedded models (scenario "A rotated body"). Proof: `uv run pytest tests/unit/convert/test_model_placement.py -q`.
-- [ ] 10.3 Add `fenolite library` with `--diff` (scenario "Silkscreen edited on the board"). Proof: `uv run pytest tests/unit/cli/test_library_cmd.py tests/consistency -q`.
+Tasks 10.1 to 10.3 moved on 2026-10-28 to change c0223 (`openspec/changes/c0223-library-fidelity/`), with the
+three ADDED requirements of this change's `design-conversion` delta ("Mask and paste of imported pads",
+"Model placement of imported footprints" and "Library made from a board"), narrowed there: the paste
+`Enabled` switch and the solder `Tented` option are not read (unknowns U1 and U2 of
+`docs/formats/altium/pcb-library.md`), models of bottom-side parts and models turned about X or Y are
+reported as losses, and `fenolite library` reads KiCad boards. This change no longer holds a delta of
+`design-conversion`. Task 10.4 stays here:
+
 - [ ] 10.4 Add body copy by pad fit, with one model-store entry per rotation (Altium, behind the gates of package 12), and a coverage report against a house library that the user names. Proof: `uv run pytest tests/unit/reuse/test_bodies.py tests/unit/catalog/test_coverage.py -q`.
 
 ## 11. Generated copper (package 6)
 
-- [ ] 11.1 Add `band` (scenario "A band keeps its clearance"). Proof: `uv run pytest tests/unit/dsl/test_generate.py -k band -q`.
-- [ ] 11.2 Add `keepout_ring`, `barrier` and `body_keepout` (scenarios "A ring holds the circle" and "A barrier in pieces is refused"). Proof: `uv run pytest tests/unit/dsl/test_generate.py -k "ring or barrier or body" -q`.
-- [ ] 11.3 Add `fanout_zone` and `stitch_pieces`, with fill and DRC on both majors. Proof: `FENOLITE_KICAD_CLI=docker:kicad/kicad:10.0.6 uv run pytest tests/kicad/dsl/test_generate_fill.py -rA` and the same with `9.0.9`.
+Moved on 2026-10-28 to change c0224 (`openspec/changes/c0224-generated-copper/`), with its tasks 11.1 to 11.3
+and its ADDED requirement "Generated copper and keep-outs" of `design-dsl`, split there into "Generated
+copper calls", "Power band", "Keep-out ring around holes", "Class barrier", "Body keep-out", "Fan-out to a
+zone", "Stitching of zone pieces" and "Generated copper codes", with "Generated copper passes the oracle" of
+`kicad-oracle`. A spine that leaves the board and a barrier in pieces are errors of the build there, not
+`DslError` (c0224's design, decision 1). Stitching counted by current and the free-area fill of the survey's
+additions stay here, without a task until a package takes them.
 
 ## 12. Release checks (package 11)
 
 Task 12.1 moved on 2026-10-27 to change c0203 (`openspec/changes/archive/2026-10-27-c0203-fabrication-readback/`), with the
 requirement "Fabrication read-back" of `manufacturing-exports`, by the maintainer's order of 2026-10-26
-(item 5 of the consolidation list). Tasks 12.2 to 12.4 stay here.
+(item 5 of the consolidation list).
 
-- [ ] 12.2 Add `api.trial` and `--gate drc` (scenario "One offending track dropped"). Proof: `uv run pytest tests/kicad/test_trial.py -rA`.
-- [ ] 12.3 Add `check --exclude` (scenario "An accepted unconnected item"), and reconcile a stored DRC report with the accepted exceptions. Proof: `uv run pytest tests/kicad/test_exclusions_write.py -rA`.
-- [ ] 12.4 Add `render --region` (scenario "Open connections in a region"). Proof: `uv run pytest tests/unit/exports/test_region_render.py -q`.
+Moved on 2026-10-28 to change c0209 (`openspec/changes/c0209-drc-trials/`): task 12.3 whole (`check
+--exclude`, written in both item orders, and the stored exclusions judged as accepted exceptions, with the
+requirement "DRC exclusions written" of `kicad-oracle`), and of task 12.2 the library call
+`fenolite.api.trial` with its gate (`gate=True`), with the requirement "Trial edits gated by DRC". The rest
+of task 12.2, the `--gate drc` option of the writing commands, moved on 2026-10-28 to change c0225
+(`openspec/changes/c0225-drc-gate/`), with the requirement "DRC gate on writing commands" of `kicad-oracle`,
+split there into "DRC gate on writing commands", "DRC gate report" and "DRC gate units". `route` and `tidy`
+take the option there; `place --strategy reuse` keeps its `--drc` (c0225's design, decision 1).
+
+Moved on 2026-10-28 to change c0211 (`openspec/changes/c0211-region-renders/`): task 12.4 whole (`render
+--region`, drawn by Fenolite from the model, with `--nets`, `--open`, `--grid` and the `--cut` overlay of the
+crossing analysis), with the requirement "Region renders" of `manufacturing-exports`.
 
 ## 13. Teaching
 

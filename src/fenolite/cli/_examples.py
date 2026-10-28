@@ -23,6 +23,12 @@ EXAMPLE_REFILLED = str(
 EXAMPLE_UNROUTED = str(
     Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/routing/two_pads.kicad_pcb"
 )
+EXAMPLE_SILK = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/silk/row.kicad_pcb")
+"""The designator bench of ``tests/_silkbench.py`` (``row()``) written for KiCad 10: ten two-pad parts in a
+row at 1.6 mm, every designator over its pads (``fenolite silk``). A test keeps it equal to a fresh write."""
+EXAMPLE_TIDY = str(Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/tidy/stub.kicad_pcb")
+"""The copper-tidy bench of ``tests/_tidybench.py`` written for KiCad 10: a routed net with a stub, a dead
+lead with its via and a right angle (``fenolite tidy``). A test keeps it equal to a fresh write."""
 
 EXAMPLE_SCHEMATIC = str(
     Path(fenolite.__file__).resolve().parents[2] / "tests/data/kicad/schematic/flat.kicad_sch"
@@ -45,6 +51,8 @@ __all__ = [
     "EXAMPLE_PARITY",
     "EXAMPLE_READY",
     "EXAMPLE_SCHEMATIC",
+    "EXAMPLE_SILK",
+    "EXAMPLE_TIDY",
     "EXAMPLE_UNFILLED",
     "EXAMPLE_REFILLED",
     "EXAMPLE_UNROUTED",

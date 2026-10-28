@@ -107,6 +107,13 @@ def _issue(code: str, message: str, where: str, hint: str = "") -> Issue:
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     given: Path | None = None
     if args.receipt == "-":
+        if ctx.in_process:
+            raise CliError(
+                "FEN-2001",
+                "fenolite.api.run reads no stdin",
+                where="RECEIPT",
+                hint="write the envelope to a file and pass its path",
+            )
         text, name = sys.stdin.read(), "<stdin>"
     else:
         source = Path(args.receipt)

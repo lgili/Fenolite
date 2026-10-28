@@ -33,6 +33,7 @@ from fenolite.model.presentation import PARAM_NAME, PaperSize, SheetFrameRef, Ti
 from fenolite.model.rules import HeightLimit, PlacementSeverity, RuleKind, RuleSeverity, Selector
 
 if TYPE_CHECKING:
+    from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -641,6 +642,9 @@ class Design(Container):
         """Copper intents by key, as recorded by ``track()``, ``via()`` and ``stitch()``."""
         self.meander_intents: dict[str, MeanderIntent] = {}
         """Meander intents by key, as recorded by ``meander()``."""
+        self.generated: dict[str, Generated] = {}
+        """Generated-copper records by key ``<call>.<name>``, as recorded by ``band()``, ``keepout_ring()``,
+        ``barrier()``, ``body_keepout()``, ``fanout_zone()`` and ``stitch_pieces()``."""
         self.zones: dict[str, ZoneSpec] = {}
         """Copper zones by name, as declared by ``zone()``."""
         self.stack: StackupSpec | None = None
@@ -1693,6 +1697,145 @@ class Design(Container):
             locked=locked,
             protection=protection,
         )
+
+    # -- generated copper (``docs/copper.md``, "Generated copper"; change c0224)
+
+    def _generated_layers(self, call: str, layers: object, *, required: bool = False) -> tuple[str, ...]:
+        if self.outline_path is None:
+            raise DslError(f"{call}(): call board() first")
+        if layers is None and not required:
+            return self.copper_layers
+        return self._zone_layers(layers, f"{call}()")
+
+    def band(
+        self,
+        net: Net,
+        spine: Sequence[tuple[object, object]],
+        *,
+        width: object,
+        layers: Sequence[str],
+        max_width: object = None,
+        step: object = None,
+        clearance: object = None,
+        priority: int = 0,
+        name: str | None = None,
+    ) -> None:
+        """A power band of ``net`` along ``spine`` (``(x, y)`` points in the frame of ``place()``, each
+        segment horizontal or vertical) on ``layers``: one locked zone per segment and per inner joint,
+        ``width`` wide. Each side widens on its own, in levels of ``step``, up to ``max_width / 2`` where it
+        keeps ``clearance`` (else the net's class clearance) from the copper of other nets; a change of
+        level is a 45° edge and outer corners are bevelled. The build resolves it after placement."""
+        from fenolite.dsl import generate
+
+        generate.record_band(
+            self, net, spine, width=width, layers=self._generated_layers("band", layers, required=True),
+            max_width=max_width, step=step, clearance=clearance, priority=priority, name=name,
+        )  # fmt: skip
+
+    def keepout_ring(
+        self,
+        part: Part,
+        *,
+        setback: object,
+        layers: Sequence[str] | None = None,
+        forbid: Sequence[str] = ("tracks", "vias", "pours"),
+        sides: int = 32,
+        name: str | None = None,
+    ) -> None:
+        """A rule area around each hole of ``part`` (a ``hole()`` or any part): a polygon of ``sides`` sides
+        that holds the circle of the drill grown by ``setback``, on ``layers`` (every copper layer when
+        ``None``), forbidding ``forbid`` as ``rule_area()`` does."""
+        from fenolite.dsl import generate
+
+        generate.record_ring(
+            self, part, setback=setback, layers=self._generated_layers("keepout_ring", layers),
+            forbid=forbid, sides=sides, name=name,
+        )  # fmt: skip
+
+    def barrier(
+        self,
+        netclass: str,
+        *,
+        setback: object,
+        layers: Sequence[str] | None = None,
+        forbid: Sequence[str] = ("tracks", "vias", "pours"),
+        pieces: bool = False,
+        name: str | None = None,
+    ) -> None:
+        """Rule areas that keep a band ``setback`` wide around all copper of the net class ``netclass`` (on
+        any layer), on ``layers`` (every copper layer when ``None``). The envelope is convex; copper in
+        several pieces is refused unless ``pieces=True``, which gives each piece its band."""
+        from fenolite.dsl import generate
+
+        generate.record_barrier(
+            self, netclass, setback=setback, layers=self._generated_layers("barrier", layers),
+            forbid=forbid, pieces=pieces, name=name,
+        )  # fmt: skip
+
+    def body_keepout(
+        self,
+        part: Part,
+        *,
+        setback: object,
+        layers: Sequence[str] | None = None,
+        forbid: Sequence[str] = ("tracks", "vias", "pours"),
+        name: str | None = None,
+    ) -> None:
+        """A rule area over the plan view of ``part`` (its body outlines, else the courtyard of its own
+        side), as a convex hull grown by ``setback``, on ``layers`` (every copper layer when ``None``)."""
+        from fenolite.dsl import generate
+
+        generate.record_body(
+            self, part, setback=setback, layers=self._generated_layers("body_keepout", layers),
+            forbid=forbid, name=name,
+        )  # fmt: skip
+
+    def fanout_zone(
+        self,
+        net: Net,
+        *,
+        side: str = "top",
+        refs: Sequence[Part] | None = None,
+        width: object = None,
+        diameter: object = None,
+        drill: object = None,
+        clearance: object = None,
+        name: str | None = None,
+    ) -> None:
+        """A short track and a through via from each SMD pad of ``net`` on ``side`` (of the parts ``refs``
+        when given) to the zone of ``net`` on another layer, placed as ``route`` places its plane fan-out.
+        Sizes come from the arguments or the net's class."""
+        from fenolite.dsl import generate
+
+        if self.outline_path is None:
+            raise DslError("fanout_zone(): call board() first")
+        generate.record_fanout(
+            self, net, side=side, refs=refs, width=width, diameter=diameter, drill=drill,
+            clearance=clearance, name=name,
+        )  # fmt: skip
+
+    def stitch_pieces(
+        self,
+        net: Net,
+        *,
+        pitch: object,
+        layers: Sequence[str] | None = None,
+        min_vias: int = 2,
+        diameter: object = None,
+        drill: object = None,
+        clearance: object = None,
+        margin: object = None,
+        name: str | None = None,
+    ) -> None:
+        """Through vias of ``net`` on a grid of ``pitch`` in each overlap of two zones of ``net`` on different
+        ``layers`` (every copper layer when ``None``), kept as ``stitch()`` keeps its vias; an overlap with
+        fewer than ``min_vias`` vias is reported."""
+        from fenolite.dsl import generate
+
+        generate.record_stitch_pieces(
+            self, net, pitch=pitch, layers=self._generated_layers("stitch_pieces", layers),
+            min_vias=min_vias, diameter=diameter, drill=drill, clearance=clearance, margin=margin, name=name,
+        )  # fmt: skip
 
     def near(
         self,

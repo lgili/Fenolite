@@ -7,7 +7,7 @@ summary: Read a file Fenolite did not write, tell whether editing it is safe, co
 # Reading, comparing and undoing
 
 The commands of this page read files and answer. None runs a tool unless the page says so, and only
-`fmt`, `convert`, `restore` and `view --export` write.
+`fmt`, `convert`, `restore`, `view --export` and `diff --three-way` write.
 
 ## What is in a file
 
@@ -99,6 +99,20 @@ fenolite diff blink/build/blink.kicad_pcb blink/other/blink.kicad_pcb --view tre
 designs) or Altium files by meaning: `result.equal`, a `summary` per kind and `differences`, each with a
 `path` and a `change` (a moved footprint is one change). `--view tree` gives the `first_difference` of
 the two trees. It exits 0 either way: read `result.equal`.
+
+```fenolite-cmd
+fenolite diff blink/build/blink.kicad_pcb blink/routed/blink.kicad_pcb --allow track,via,arc --json
+fenolite diff blink/base.kicad_pcb blink/ours.kicad_pcb --three-way blink/theirs.kicad_pcb --out blink/merged.kicad_pcb --dry-run --json
+fenolite diff blink/altium/blink.PcbDoc blink/saved/blink.PcbDoc --view records --json
+```
+
+- `--allow KINDS` gates the difference: each change of another kind is a `diff.not-allowed` error (exit
+  5) naming its path. Use it after a step that should only route, to prove that nothing else moved.
+- `--three-way THEIRS --out FILE` plans `THEIRS` with the changes from `A` to `B` applied, item by item
+  (KiCad boards only). An item that `THEIRS` changed too is `diff.conflict` and nothing is written: ask
+  the owner, never pick a side. `diff.unmergeable` means the boards are of two KiCad versions.
+- In the records view, records that differ only in the spelling of a value (`10mil` and `10.0mil`) are
+  counted in `result.resave` and left out of `differences`: a plain save, not an edit.
 
 ## Are two designs equivalent?
 

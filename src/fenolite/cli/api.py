@@ -41,6 +41,9 @@ class Context:
     """Where a command reports its units of work; it writes on stderr only under ``--progress``."""
     state: Path | None = None
     """The state folder (``fenolite.core.state.state_dir()``), ``None`` when it is off."""
+    in_process: bool = False
+    """The command runs inside ``fenolite.api.run`` (change c0206): it has no stdin to read and must not
+    block, so ``restore -`` and ``view --serve`` refuse with ``FEN-2001``."""
 
 
 @dataclass(frozen=True, slots=True)

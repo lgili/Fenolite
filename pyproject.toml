@@ -52,6 +52,7 @@ dev = [
 direct = "fenolite.routing.direct:DirectRouter"
 freerouting = "fenolite.routing.plugins.specctra.freerouting:FreeroutingRouter"
 kicadroutingtools = "fenolite.routing.plugins.kicad.routingtools:KicadRoutingToolsRouter"
+octilinear = "fenolite.routing.octilinear:OctilinearRouter"
 
 [project.urls]
 Homepage = "https://github.com/lgili/Fenolite"

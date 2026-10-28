@@ -37,7 +37,7 @@ from fenolite.model.board import (
     PadstackLayer,
     ZoneConnection,
 )
-from fenolite.model.library import FootprintDef
+from fenolite.model.library import FootprintDef, ModelPlacement
 
 FP_GRAPHIC_HEADS: Mapping[str, GraphicKind] = MappingProxyType(
     {"fp_line": "line", "fp_arc": "arc", "fp_circle": "circle", "fp_rect": "rect", "fp_poly": "polygon"}
@@ -58,10 +58,17 @@ PAD_FIELDS: Mapping[str, str] = MappingProxyType(
 )
 PAD_POSITIONAL = ("number", "kind", "shape")
 PAD_CANONICAL: tuple[str, ...] = (
-    *PAD_POSITIONAL, "position", "size", "drill", "fab_property", "layers", "zone_connection", "native_ids",
+    *PAD_POSITIONAL, "position", "size", "drill", "fab_property", "layers", "mask_margin", "paste_margin",
+    "zone_connection", "native_ids",
 )  # fmt: skip
-"""Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``, and the
-fabrication ``property`` after ``drill`` (or ``size``) and before ``layers``."""
+"""Where a library pad gains a child it did not have: ``zone_connect`` goes before ``uuid``, the
+fabrication ``property`` after ``drill`` (or ``size``) and before ``layers``, and the two margins (change
+c0223) after ``layers`` and before ``zone_connect``, in the order of S-0001."""
+MARGIN_HEADS: Mapping[str, str] = MappingProxyType(
+    {"solder_mask_margin": "mask_margin", "solder_paste_margin": "paste_margin"}
+)
+"""The margin children of a pad and their fields (change c0223): a reader projects the first child of each
+into its field and keeps the child as an opaque slot; a writer writes the field for a pad without one."""
 ZONE_CONNECT = "zone_connect"
 NET_TIES = "net_tie_pad_groups"
 """The footprint child that lists the net-tie groups, one string per group (``libraries.md``, "Net-tie
@@ -225,6 +232,7 @@ def read_pad(
     zone_connection: ZoneConnection | None = None
     padstack_at: tuple[int, Node, str] | None = None
     fab_property: PadFabProperty | None = None
+    margins: dict[str, int] = {}
     connects = len(node.nodes(ZONE_CONNECT))
     marks = len(node.nodes(FAB_PROPERTY))
     for index, (child_loc, child) in enumerate(child_locators(loc, node)):
@@ -249,6 +257,11 @@ def read_pad(
                 slots[index] = ctx.opaque(child, chain)
                 why = "is repeated" if mark is not None else "is not a known fabrication property"
                 ctx.kept_opaque(f"pad property {why}; kept as written", child_loc)
+        elif head in MARGIN_HEADS:
+            # projected from the first child (change c0223): the child stays an opaque slot
+            value = margin_of(child)
+            if value is not None and MARGIN_HEADS[head] not in margins:
+                margins[MARGIN_HEADS[head]] = value
         elif head == "at":
             position = ctx.point(child, child_loc)
             values = child.atoms()
@@ -306,7 +319,21 @@ def read_pad(
         padstack=padstack,
         zone_connection=zone_connection,
         fab_property=fab_property,
+        mask_margin=margins.get("mask_margin"),
+        paste_margin=margins.get("paste_margin"),
     )
+
+
+def margin_of(child: Node) -> int | None:
+    """The margin in nm of a pad's ``solder_mask_margin`` or ``solder_paste_margin`` child, or ``None`` when
+    it holds no single exact number."""
+    atoms = child.atoms()
+    if len(atoms) != 1 or atoms[0].kind != AtomKind.NUMBER:
+        return None
+    try:
+        return atoms[0].to_nm()
+    except ValueError:
+        return None
 
 
 def read_fab_property(child: Node) -> PadFabProperty | None:
@@ -440,6 +467,28 @@ def node(head: str, *children: Node | Atom) -> Node:
     return Node(Atom.symbol(head), children)
 
 
+MODEL_HEAD = "model"
+
+
+def placement_node(placement: ModelPlacement) -> Node:
+    """``(model "path" (offset (xyz X Y Z)) (scale (xyz …)) (rotate (xyz …)))`` of a placement (change c0223;
+    ``libraries.md``, "Model placement"). KiCad's offset has Y up and its turn about Z is clockwise seen from
+    above (``H-K-MODEL-PLACE``), so the writer negates the model's Y and its angles."""
+    x, y, z = placement.offset
+    rx, ry, rz = placement.rotation
+
+    def xyz(head: str, *values: Atom) -> Node:
+        return node(head, node("xyz", *values))
+
+    return node(
+        MODEL_HEAD,
+        Atom.string(placement.path),
+        xyz("offset", Atom.from_nm(x), Atom.from_nm(-y), Atom.from_nm(z)),
+        xyz("scale", *(Atom.from_nm(value) for value in placement.scale)),
+        xyz("rotate", *(angle_atom(-angle if angle else 0) for angle in (rx, ry, rz))),
+    )
+
+
 def point_node(head: str, point: Point, *extra: Atom) -> Node:
     return node(head, Atom.from_nm(point.x), Atom.from_nm(point.y), *extra)
 
@@ -513,6 +562,12 @@ def emit_pad(pad: Pad, net: Node | None, *, angle: int | None = None) -> Items:
             [] if pad.zone_connection is None else [zonelib.pad_connect_node(pad.zone_connection)]
         ),
         "fab_property": [] if pad.fab_property is None else [fab_property_node(pad.fab_property)],
+        "mask_margin": []
+        if pad.mask_margin is None
+        else [node("solder_mask_margin", Atom.from_nm(pad.mask_margin))],
+        "paste_margin": (
+            [] if pad.paste_margin is None else [node("solder_paste_margin", Atom.from_nm(pad.paste_margin))]
+        ),
     }
     if net is not None:
         items["net_id"] = [net]
@@ -626,6 +681,7 @@ def emit_footprint(
         "description": [node("descr", Atom.string(defn.description))],
         "kind": [emit_attr(defn.kind, defn.flags)],
         "net_ties": [net_tie_node(defn.net_ties)] if defn.net_ties else [],
+        "placements": [placement_node(placement) for placement in defn.placements],
         "pads": list(pads),
         "graphics": list(graphics),
     }
@@ -666,6 +722,23 @@ def projected_fab_property(slots: Sequence[Slot]) -> PadFabProperty | None:
     return read_fab_property(found[0][1]) if found else None
 
 
+def opaque_margins(slots: Sequence[Slot], head: str) -> list[Node]:
+    """The opaque children of a pad's slot list whose head is ``head`` (a key of ``MARGIN_HEADS``)."""
+    out: list[Node] = []
+    for slot in slots:
+        if isinstance(slot, Opaque) and slot.fragment.startswith(f"({head}"):
+            child = slotlib.opaque_child(slot)
+            if isinstance(child, Node) and child.name == head:
+                out.append(child)
+    return out
+
+
+def margin_disagrees(pad: Pad, head: str, child: Node) -> bool:
+    """Whether the pad's margin field is set and differs from the kept margin ``child`` (change c0223)."""
+    value = getattr(pad, MARGIN_HEADS[head])
+    return value is not None and margin_of(child) != value
+
+
 def _rebuild_pad(pad: Pad, opaque: Callable[[Opaque], Node | Atom]) -> Node:
     """A library pad from its slots; a pad without a ``zone_connect`` or a fabrication ``property`` child
     gains one when the model sets ``zone_connection`` or ``fab_property``."""
@@ -675,6 +748,7 @@ def _rebuild_pad(pad: Pad, opaque: Callable[[Opaque], Node | Atom]) -> Node:
         wanted = wanted | {"zone_connection"}
     if not opaque_fab_properties(slots):
         wanted = wanted | {"fab_property"}
+    wanted = wanted | {field for head, field in MARGIN_HEADS.items() if not opaque_margins(slots, head)}
     source = _Items(emit_pad(pad, None), wanted)
     return slotlib.rebuild(Atom.symbol("pad"), slots, source, canonical=PAD_CANONICAL, opaque=opaque)
 
@@ -706,6 +780,7 @@ __all__ = [
     "FAB_PROPERTY_TOKENS",
     "IdSource",
     "Ids",
+    "MARGIN_HEADS",
     "Items",
     "angle_atom",
     "at_node",
@@ -715,12 +790,16 @@ __all__ = [
     "emit_pad",
     "fab_property_node",
     "layers_node",
+    "margin_disagrees",
+    "margin_of",
     "net_tie_groups",
     "net_tie_node",
     "node",
     "opaque_fab_properties",
+    "opaque_margins",
     "opaque_zone_connects",
     "padstack_key",
+    "placement_node",
     "point_node",
     "projected_fab_property",
     "projected_net_ties",

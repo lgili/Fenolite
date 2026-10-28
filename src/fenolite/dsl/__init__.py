@@ -30,6 +30,7 @@ from fenolite.dsl.convert import (
 from fenolite.dsl.design import Design
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
+from fenolite.dsl.generate import GeneratedIntent, generated
 from fenolite.dsl.impedance import Trace, trace
 from fenolite.dsl.intents import (
     Anchor,
@@ -72,6 +73,7 @@ __all__ = [
     "DiffPair",
     "DslError",
     "FieldRequest",
+    "GeneratedIntent",
     "Footprint",
     "Harness",
     "Interface",
@@ -99,6 +101,7 @@ __all__ = [
     "drawing_sheet_source",
     "schematic_composition",
     "fields",
+    "generated",
     "heights",
     "inch",
     "mil",

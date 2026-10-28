@@ -23,6 +23,8 @@ Most clients take a command line; `PROJECT` stands for the absolute path of the 
 - `--root DIR`: the folder every call runs in, and the only folder a call may write to. Default: the current
   folder.
 - `--read-only`: list only the commands that write nothing.
+  `fenolite_check` and `fenolite_diff` are read-only tools: they leave out the options that write
+  (`check --exclude --reason`, `diff --three-way --out`), which stay on the command line.
 - `--tools NAME,...`: list only these commands (their command names, such as `check,route,fill`).
 - `--timeout SECONDS`: stop a call that runs longer (default 600). A stopped call is `FEN-1003`, which can be
   run again.

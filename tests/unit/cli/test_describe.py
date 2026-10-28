@@ -67,7 +67,7 @@ def test_build_is_described() -> None:
 
 def test_read_only_command_has_no_protocol_flags() -> None:
     """Scenario "Read-only command has no protocol flags"."""
-    description = describe(COMMANDS["check"])
+    description = describe(COMMANDS["inspect"])
     assert description.mutates is False
     assert not {"--confirm", "--dry-run"} & _flags(description.arguments)
 

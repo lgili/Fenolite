@@ -22,9 +22,9 @@ another type; a flag without a value is a switch.
 | `build` | yes | build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `capabilities` | no | list commands, backends, extras and external tools available here |
 | `catalog` | yes | inspect the built-in component catalog or export its visual browser (view --out FILE) |
-| `check` | no | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only |
+| `check` | yes | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only; --exclude writes one KiCad DRC exclusion into the project |
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
-| `diff` | no | list the differences between two boards, libraries, built models or Altium files (runs no tool) |
+| `diff` | yes | list the differences between two boards, libraries, built models or Altium files, gate them by kind, or merge them into a third KiCad board (runs no tool) |
 | `doctor` | no | report the external tools Fenolite can use: kicad-cli candidates and their commands, java, docker |
 | `edit` | yes | write a design script, a TOML file or a library table from a new text or exact edits, through a plan |
 | `equivalent` | no | say whether two designs are equivalent, level by level, and locate each difference |
@@ -38,6 +38,7 @@ another type; a flag without a value is a switch.
 | `init` | yes | write a starter project (a design script that builds with the built-in catalog) into a folder |
 | `inspect` | no | summarise a KiCad or an Altium file, or list a compound file's streams (runs no tool) |
 | `kit` | yes | build the Altium verification kit, check the files a run left, record the run, list the runs |
+| `library` | yes | write a footprint library made from a KiCad board, or report how a library differs from it |
 | `manifest` | yes | write the project manifest: every design file and artefact with its SHA-256 and a state |
 | `mcp` | no | serve Fenolite's commands as tools to an MCP client on standard input and output |
 | `models` | yes | list the 3D model files a board's footprints name and where each is found (runs no tool) |
@@ -53,15 +54,17 @@ another type; a flag without a value is a switch.
 | `ready` | no | say whether a KiCad project is electrically ready for fabrication: open nets, KiCad ERC and DRC, unconnected pins, power nets without a width or a zone, parts without a footprint or a value (read-only) |
 | `refs` | yes | list the paths a project's documents hold, and rewrite them with --repoint OLD=NEW |
 | `region` | no | list the footprints, pads, copper, zones and texts that touch a rectangle of a board (runs no tool) |
-| `render` | yes | render review views of a board through kicad-cli on a copy of the project (writes under DIR) |
+| `render` | yes | render review views of a board through kicad-cli on a copy of the project, or one region of it drawn from the model with --region (writes under DIR) |
 | `restore` | yes | put back the backups of one confirmed write, described by its receipt (deletes nothing) |
 | `roundtrip` | no | say up to which level (rt0, rt1, rt2) a KiCad file survives a read and a write |
 | `route` | yes | route selected KiCad board nets with a registered Fenolite routing plugin |
+| `silk` | yes | place the designators of a KiCad board on its silkscreen, clear of pads, holes, texts and the edge, or cut its silkscreen at the mask openings |
 | `skill` | yes | show the packaged agent skill, or install it into an agent's skill folder or point AGENTS.md at it |
 | `snapshot` | yes | copy a project with complete-set hash checks and a file manifest (snapshot.json) |
 | `sync` | yes | copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
+| `tidy` | yes | prune, straighten and chamfer the routed copper of a KiCad board, edit by edit; or report its style |
 | `view` | yes | show a project's boards, sheets and drawings in a web page (writes FILE with --export) |
 
 ## analyze
@@ -69,7 +72,7 @@ another type; a flag without a value is a switch.
 `fenolite analyze [OPTIONS] PATH`
 
 - `PATH`: a board file that a backend reads
-- `--kinds K,K`: analyses to run (default: current,clearance,creepage; on request: power,insulation,length,ties,domains,crossings,returns)
+- `--kinds K,K`: analyses to run (default: current,clearance,creepage; on request: power,insulation,length,ties,domains,crossings,returns,decoupling,connectivity,bodies,relief,dead,coupling,necks,loops,balance)
 - `--requirements FILE`: your requirements, a TOML file of integers
 - `--temp-rise KELVIN`: temperature rise for the capacity, e.g. 10
 - `--copper-thickness [LAYER=]LENGTH` (repeatable): copper thickness of every layer, or of one layer (repeatable), e.g. 35um or In1.Cu=18um
@@ -92,6 +95,12 @@ another type; a flag without a value is a switch.
 - `--clearance LENGTH`: with --kinds crossings: the clearance of a new track (default: that of its class)
 - `--reference NET[,NET...]` (repeatable): with --kinds returns: the reference nets (default: every other net with a fill on the neighbouring layer) (repeatable)
 - `--via-distance LENGTH`: with --kinds returns: a signal via farther than this from every reference via is a finding
+- `--pour-grid LENGTH`: with a kind that pours zones (connectivity, bodies, relief, dead, necks, loops, balance) or --split: the cell of the raster of the copper (default 0.1mm)
+- `--split`: with --kinds power: the share of each track, fill and via in the path's current, on a raster
+- `--loop-baseline FILE`: with --kinds loops: measure the same loops on this board and give the change
+- `--dead-distance LENGTH`: with --kinds dead: copper farther than this from every pad of its net is a finding
+- `--aggressor GLOB` (repeatable): with --kinds coupling: the aggressor nets (repeatable; required)
+- `--victim GLOB` (repeatable): with --kinds coupling: the victim nets (repeatable; required)
 - `--barrier REF[,REF...]` (repeatable): with --kinds domains: parts (isolators, transformers) that separate the islands of nets (repeatable)
 
 ## bom
@@ -157,6 +166,8 @@ another type; a flag without a value is a switch.
 - `--stages A,B`: stages to run, of model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip,roundtrip.rt2,render (default: model.validate,erc.kicad,copper.clearance,length.rules,placement.rules,zone.fill,drc.kicad,parity,netlist.assignment_compare,roundtrip); for Altium input, of model.validate,erc.lite,copper.clearance,placement.rules,parity,netlist.assignment_compare,roundtrip.rta0,roundtrip.rta1,roundtrip.rta2 (default: all)
 - `--kicad-cli PATH`: the kicad-cli to run (unused for Altium input)
 - `--timeout SECONDS` (number, default `300.0`): kicad-cli timeout (300; unused for Altium input)
+- `--exclude CODE:ITEM_A:ITEM_B`: store a KiCad DRC exclusion of this finding in the project (both item orders) instead of checking; needs --reason and the mutation protocol (KiCad input only)
+- `--reason TEXT`: with --exclude: the comment stored with it
 
 ## convert
 
@@ -179,6 +190,9 @@ another type; a flag without a value is a switch.
 - `B`: the input to compare with A
 - `--view {model,records,tree}` (default `model`): model entities (default), the trees of two KiCad files, or the records of two Altium files
 - `--ext`: also compare the opaque content, as a hash
+- `--allow KINDS`: comma-separated change kinds (track,via,...); a change of any other kind is an error (exit 5)
+- `--three-way THEIRS`: a third KiCad board: write it with the changes from A to B applied (needs --out)
+- `--out FILE`: the merged board of --three-way
 
 ## doctor
 
@@ -314,6 +328,14 @@ another type; a flag without a value is a switch.
 - `--samples DIR`: build, status: the folder of the sample scripts (default: examples/kit of the source checkout)
 - `--repo DIR`: status: the repository to read (default: this folder)
 
+## library
+
+`fenolite library [OPTIONS] PATH`
+
+- `PATH`: a .kicad_pcb, .kicad_pro or project folder
+- `--out LIB.pretty`: the library folder to write, relative
+- `--diff LIBRARY`: a .pretty folder to compare with the board; writes nothing
+
 ## manifest
 
 `fenolite manifest [OPTIONS] PATH`
@@ -404,9 +426,9 @@ another type; a flag without a value is a switch.
 `fenolite place [OPTIONS] PATH`
 
 - `PATH`: a .kicad_pcb, a .kicad_pro or a project folder
-- `--strategy {constrained,grid,manual}`: grid (default): place every part that is off the board; manual: only the --move parts
+- `--strategy {constrained,grid,group,manual,regions,reuse}`: grid (default): place every part that is off the board; manual: only the --move parts; regions: each domain of parts in its own region of the board; reuse: copy a block of --from; group: turn or shift parts with their copper
 - `--move REF=X,Y[,ROT[,SIDE]]` (repeatable): move one part (repeatable; implies --strategy manual): lengths with a unit, from the top-left corner of the outline, Y down; ROT in degrees; SIDE top or bottom
-- `--only REF,REF`: grid: place only these parts
+- `--only REF,REF`: grid, regions: place only these parts; reuse: the parts of the block
 - `--pitch L`: grid step (default 0.5mm)
 - `--gap L`: space kept around a part (default 0.5mm)
 - `--margin L`: distance kept from the outline's box (default 1mm)
@@ -414,6 +436,23 @@ another type; a flag without a value is a switch.
 - `--constraints FILE`: constrained: integer JSON request
 - `--max-candidates MAX_CANDIDATES` (integer): constrained: bounded candidates per part
 - `--preview-dir DIR`: constrained: write both copper SVG views
+- `--barrier REF[,REF...]` (repeatable): regions: parts (isolators, transformers) that separate the domains; each is placed across the boundary between the two regions it joins (repeatable)
+- `--group NAME=GLOB[,GLOB...]` (repeatable): regions: a domain of the parts whose reference matches a glob, in band order (repeatable; default: the islands of nets once the --barrier parts are removed)
+- `--region NAME=X1,Y1,X2,Y2` (repeatable): regions: the rectangle of the group NAME, lengths with a unit from the top-left corner of the outline, Y down (repeatable; default: one band of the outline per domain)
+- `--split {x,y}`: regions: the axis along which the default bands follow each other (default: the longer side)
+- `--from REFERENCE`: reuse (implied): the board that holds the block to copy onto the --only parts, the first the anchor
+- `--anchor REF`: reuse: the part the block is fitted on
+- `--map TARGET=REFERENCE` (repeatable): reuse: a part whose reference part has another reference
+- `--copper`: reuse: copy the block's tracks, arcs and vias
+- `--tolerance L`: reuse: the largest pad distance (default 0.05mm)
+- `--drc`: reuse: kicad-cli DRC before and after; no write if it grows
+- `--turn REF,REF`: group (implied): turn these parts about --about
+- `--about X,Y`: group: the point of the turn
+- `--angle DEGREES`: group: the angle of the turn
+- `--shift REF,REF`: group (implied): shift these parts by --by
+- `--by DX,DY`: group: the shift, lengths with a unit
+- `--pose-search`: group: with --turn, the demand of the four turns and the shifts of step --pitch; no write
+- `--within L`: group: the largest shift of the search
 - `-o`, `--out FILE`: write the board here (default: PATH)
 
 ## pnp
@@ -474,6 +513,13 @@ another type; a flag without a value is a switch.
 - `--manifest`: also add the views to fenolite-artifacts.json in DIR
 - `--kicad-cli PATH`: the kicad-cli to run
 - `--timeout SECONDS` (number, default `300.0`): per kicad-cli run (300)
+- `--region X1,Y1,X2,Y2`: draw this rectangle of the board into DIR/region.svg, lengths with units: 0mm,0mm,9mm,9mm
+- `--nets`: with --region: label each pad with its net
+- `--open`: with --region: draw the open connections
+- `--grid LENGTH`: with --region: the grid step (default: automatic)
+- `--cut X1,Y1,X2,Y2` (repeatable): with --region: a barrier cut and its ways per layer, as analyze --kinds crossings (repeatable)
+- `--cut-width LENGTH`: with --cut: the width of a track to fit (default: its class's)
+- `--cut-clearance LENGTH`: with --cut: the clearance of a new track (default: its class's)
 
 ## restore
 
@@ -511,6 +557,28 @@ another type; a flag without a value is a switch.
 - `--escape REF[=grid|perimeter]` (repeatable): escape the pads of the matching parts before routing, with a router that has the escape feature (repeatable; the kind is found from the pads unless given)
 - `--pairs-as-nets`: route the nets of differential pairs as single nets, uncoupled, with any router
 - `-o`, `--out FILE`: write the routed board to this file
+- `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
+- `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --gate
+
+## silk
+
+`fenolite silk [OPTIONS] PATH`
+
+- `PATH`: a .kicad_pcb, .kicad_pro or project folder
+- `--designators`: place the Reference text of every part
+- `--clip`: cut the silkscreen strokes at mask openings and pad holes (first)
+- `--margin LENGTH`: with --clip, the gap from a stroke to an opening (default: the silk_clearance rule, else 0)
+- `--keep`: move only designators that meet an obstacle
+- `--refs GLOB` (repeatable): place only matching references (repeatable)
+- `--sizes LENGTHS`: text heights to try (default: the field's, then the board's least text height)
+- `--angles LIST` (default `0,90`): board angles to try: 0, 90 or 0,90
+- `--clearance LENGTH`: least distance from a designator to anything else (default 0.15mm)
+- `--gap LENGTH`: distance from the part's courtyard to its designator (default 0.1mm)
+- `--measure {auto,estimate,kicad}` (default `auto`): text ink: rendered by kicad-cli (kicad), from the glyph table (estimate), or kicad when found
+- `-o`, `--out FILE`: write to this file instead of replacing PATH's board
+- `--drc`: run kicad-cli DRC on the board before and after
+- `--kicad-cli PATH`: kicad-cli binary or docker:<image>
+- `--timeout SECONDS` (number, default `300.0`)
 
 ## skill
 
@@ -560,7 +628,33 @@ another type; a flag without a value is a switch.
 - `--min-pitch LENGTH`: an error for two test points closer than this (1.27mm)
 - `--min-fiducials N`: an error for a side with parts and fewer global fiducials
 - `-o`, `--out FILE`: also write the report as a CSV file
+- `--place`: add a probe and its track for each net --side does not reach
+- `--grid LENGTH`: with --place, the grid of probe sites (2.54mm)
+- `--reach LENGTH`: with --place, the farthest site from the net (5mm)
+- `--size LENGTH`: with --place, the probe pad's diameter (1mm)
+- `--nets GLOB` (repeatable): with --place, only these nets (repeatable)
+- `--drc`: with --place, kicad-cli DRC before and after
+- `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --drc
 - `--manifest`: also add FILE to fenolite-artifacts.json in its folder
+
+## tidy
+
+`fenolite tidy [OPTIONS] PATH`
+
+- `PATH`: a .kicad_pcb, .kicad_pro or project folder
+- `--nets GLOB` (repeatable): tidy only matching nets (repeatable)
+- `--prune`: remove dangling tracks, arcs and vias
+- `--straighten`: redraw runs of tracks with fewer turns
+- `--chamfer`: chamfer right-angle joints and T-joints
+- `--zones`: with the chamfer: also cut zone corners
+- `--leg LENGTH`: the leg of a chamfer (default: twice the track width)
+- `-o`, `--out FILE`: write to this file instead of replacing PATH's board
+- `--drc`: run kicad-cli DRC on the board before and after
+- `--kicad-cli PATH`: kicad-cli binary or docker:<image> for --drc
+- `--timeout SECONDS` (number, default `300.0`)
+- `--gate {drc}`: drc: judge the edit with kicad-cli DRC and write it without the items that bring new findings
+- `--report`: write nothing; report the routing style
+- `--compare REFERENCE`: also report this KiCad board (implies --report)
 
 ## view
 

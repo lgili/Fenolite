@@ -47,6 +47,16 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         # return paths ("Return path codes")
         "analysis.return-split": ("warning",),
         "analysis.return-via": ("warning",),
+        # practice checks ("Practice check codes")
+        "analysis.net-split": ("warning",),
+        "analysis.copper-dead": ("warning",),
+        "analysis.copper-far": ("warning",),
+        "analysis.decoupling-far": ("error",),
+        "analysis.body-copper": ("error",),
+        "analysis.relief-exceeded": ("error",),
+        # pour shapes ("Pour shape codes")
+        "analysis.neck-narrow": ("error",),
+        "analysis.loop-area": ("error",),
     }
 )
 

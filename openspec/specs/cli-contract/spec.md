@@ -1144,15 +1144,15 @@ The dispatcher SHALL accept the global flag `--format concise|detailed`, default
 - **THEN** `issues` holds four issues, and `result` has no `issues_summary`
 
 ### Requirement: Diff command
-`fenolite diff A B [--view model|tree] [--ext]` SHALL be registered by `src/fenolite/cli/cmd_diff.py` with `mutates=False`, `paged = "differences"` and `default_limit = 200`, and SHALL list the differences between two inputs without writing a file and without running any external tool.
+`fenolite diff A B [--view model|tree] [--ext] [--allow KINDS] [--three-way THEIRS --out FILE]` SHALL be registered by `src/fenolite/cli/cmd_diff.py` with `mutates=True`, `paged = "differences"` and `default_limit = 200`, and SHALL list the differences between two inputs without running any external tool. It SHALL plan a write only for `--three-way` (`file-safety`, "Three-way difference of KiCad boards"); without it, no write is planned and no confirmation is asked.
 - **Inputs.** `A` and `B` MUST each be a KiCad board, footprint file, symbol library or schematic (`.kicad_sch`, read with `sch.read_schematic`), or a folder that holds `.fenolite/meta.json` (the built model, loaded with `model.canonical.load_dir`). A missing path MUST exit 3 with `FEN-3001`, an input that nothing reads MUST exit 2 with `FEN-2001`, and a read error MUST exit 3 with its code.
 - **Model view** (the default). Two designs MUST be compared with `checks.diff.diff_designs`, two libraries with `diff_libraries` and two sheets with `diff_sheets` (`verification-loop`, "Model difference report"). Inputs of two families MUST exit 2 with `FEN-2001`. `--ext` MUST pass `ext=True`.
 - **Tree view.** `--view tree` MUST take two KiCad S-expression files of one kind and compare their parsed trees: `result.equal` is `tree_equal`, `result.first_difference` the locator of `sexpr.first_difference` or `null`, and `result.heads` the root child heads whose counts differ, each with its count in `a` and in `b`. Its `differences` list MUST be empty. A `.fenolite/` folder MUST exit 2 with `FEN-2001` and a hint that names `--view model`.
 - **Result.** `result` MUST hold `view`, `equal`, `a` and `b` (each `{path, kind}`, `path` being the file or folder name without its parent), `summary` (per entity kind, the counts `added`, `removed` and `changed`), `differences` (objects `{path, change, a, b}`, in report order), `total` and `truncated` (true when the page is not the whole list).
-- **Exit code.** A difference is a result, not a finding: the exit code MUST be 0 whether or not the inputs differ, and `issues` MUST hold only the readers' issues, those of `A` first.
+- **Exit code.** A difference is a result, not a finding: the exit code MUST be 0 whether or not the inputs differ, unless `--allow` or `--three-way` reports an error finding (`file-safety`, "Gated differences" and "Three-way conflicts"). `issues` MUST hold the readers' issues, those of `A` first, then those findings.
 - **Evidence.** The envelope evidence MUST be `Evidence.combine` of the two readings; a `.fenolite/` model counts as `INFERRED`. `input` MUST describe `A`.
 - **Determinism.** Two runs on the same inputs MUST give the same stdout apart from `elapsed_ms`, and the output MUST hold no absolute path.
-- `example_args` MUST be `(EXAMPLE_BOARD, EXAMPLE_BOARD)` and MUST run no subprocess from any working directory. `docs/cli-contract.md` MUST have a section "diff" with the views, the result keys and the matching keys.
+- `example_args` MUST be `(EXAMPLE_BOARD, EXAMPLE_BOARD)` and MUST run no subprocess from any working directory. `mutation_example_args` MUST merge `EXAMPLE_BOARD` three ways into `merged.kicad_pcb`. `docs/cli-contract.md` MUST have a section "diff" with the views, the result keys and the matching keys.
 
 #### Scenario: A file against itself
 - **WHEN** `uv run fenolite diff tests/data/kicad/board/two_layer.kicad_pcb tests/data/kicad/board/two_layer.kicad_pcb --json` runs
@@ -2285,3 +2285,28 @@ The `equivalent` entry of `result.commands` of `fenolite capabilities` SHALL hol
 #### Scenario: Invalid or duplicate report
 - **WHEN** a report file is missing, malformed, unsupported or duplicates another report's command
 - **THEN** view returns an existing input/usage error and plans no output
+
+### Requirement: Region strategy in the place command
+`fenolite place --strategy regions` SHALL place the staged parts, or those of `--only`, by domain: the islands of `isolation_islands` without the `--barrier` parts, or `--group NAME=GLOB[,GLOB...]`. A domain's region MUST be its `--region NAME=X1,Y1,X2,Y2` (needs `--group`, same names) or one band of the outline along `--split`. A part in no domain stays, with `place.region-unassigned`. These options without the strategy MUST be `FEN-2001`.
+
+#### Scenario: Bands by isolation islands
+- **GIVEN** the bench of `tests/_regionbench.py` written as a KiCad board: `R1`, `R3` on nets `A*`, `R2`, `R4` on nets `B*`, the isolator `U5` on `A1` and `B1`, and `H1` without a net, all staged
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k islands` runs `fenolite place <board> --strategy regions --barrier U5 --confirm`
+- **THEN** it exits 0, `D1` is x 0 to 30 mm with `R1` and `R3`, `D2` is x 30 to 60 mm with `R2` and `R4`, `U5` is at x 30 mm with status `boundary`, and `H1` stays with `place.region-unassigned`
+
+#### Scenario: Region options without the strategy
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k "usage or need_the_strategy"` runs malformed or inconsistent `--group` and `--region` values, and `--barrier` without `--strategy regions`
+- **THEN** each exits 2 with `FEN-2001`
+
+### Requirement: Region report
+`result.regions` SHALL be `null` when nothing was staged, else hold per region its `box` (relative to the outline's top-left corner), `nets`, `parts`, `placed`, `unplaced`, `area`, `used` and `fill_permille`; the barriers with `sides` and `status`; `unassigned`; and `crossings`. A crossing MUST be an open connection of `analysis.connectivity` after the moves whose two ends lie in two regions; each pair MUST give one `place.region-crossing`.
+
+#### Scenario: Crossings between groups
+- **GIVEN** the same bench
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k crossings` runs `--group a=R1,R2 --group b=R3,R4 --split y --dry-run`
+- **THEN** `crossings` is one row between `a` and `b` with 2 open connections on `A2` and `B2`, and `issues` holds one `place.region-crossing` warning at `a|b`
+
+#### Scenario: A region without room through the command
+- **GIVEN** the same bench
+- **WHEN** `uv run pytest tests/unit/cli/test_place_regions.py -k without_room` runs `--group a=R* --region a=0mm,0mm,5mm,5mm --dry-run`
+- **THEN** it exits 0 with no plan, four `place.no-room` warnings and `fill_permille` 0

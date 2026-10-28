@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
 """``fenolite render PATH --out DIR``: review views of a board through ``kicad-cli``, on a copy of the
-project (capability manufacturing-exports, "Render views"; ``docs/cli-contract.md``, "render").
+project (capability manufacturing-exports, "Render views"; ``docs/cli-contract.md``, "render"), or with
+``--region`` one rectangle of the board drawn by Fenolite from the model, without a tool (change c0211;
+"Region renders").
 
 A view is a review artefact, never a gate: a view that cannot be produced is a warning, and the exit code
 stays 0.
@@ -20,6 +22,7 @@ from fenolite.backends.kicad.projectset import project_set, resolve_board
 from fenolite.cli._examples import EXAMPLE_BOARD
 from fenolite.cli._kicadtool import DEFAULT_TIMEOUT, board_format, preflight
 from fenolite.cli._manifest import with_manifest
+from fenolite.cli._region import REGION_FILE, register_region, run_region
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
@@ -27,7 +30,10 @@ from fenolite.core.errors import Issue
 from fenolite.exports import EVIDENCE, manifest
 from fenolite.exports.codes import issue
 
-HELP = "render review views of a board through kicad-cli on a copy of the project (writes under DIR)"
+HELP = (
+    "render review views of a board through kicad-cli on a copy of the project, or one region of it drawn "
+    "from the model with --region (writes under DIR)"
+)
 MIN_SIZE, MAX_SIZE = 64, 8192
 MANIFEST_KIND = "render"
 """The kind of every view in the manifest; ``result.views`` keeps ``svg`` and ``png``."""
@@ -48,12 +54,31 @@ def _register(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--timeout", type=float, default=DEFAULT_TIMEOUT, metavar="SECONDS", help="per kicad-cli run (300)"
     )
+    register_region(parser)
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
     kinds = [kind for kind in ("svg", "png") if getattr(args, kind)]
+    if args.region is not None:
+        if kinds:
+            raise CliError(
+                "FEN-2001",
+                f"--region draws {REGION_FILE} from the model; --svg and --png plot through kicad-cli",
+                where="--region",
+                hint="run the region and the plots as two commands",
+            )
+        return run_region(args, ctx)
+    for option in ("nets", "open", "grid", "cut", "cut_width", "cut_clearance"):
+        if getattr(args, option):
+            flag = "--" + option.replace("_", "-")
+            raise CliError(
+                "FEN-2001",
+                f"{flag} needs --region",
+                where=flag,
+                hint="pass --region X1,Y1,X2,Y2 with lengths and units",
+            )
     if not kinds:
-        raise CliError("FEN-2001", "no view selected", hint="pass --svg, --png or both")
+        raise CliError("FEN-2001", "no view selected", hint="pass --svg, --png, both, or --region")
     for name in ("width", "height"):
         value = getattr(args, name)
         if not MIN_SIZE <= value <= MAX_SIZE:

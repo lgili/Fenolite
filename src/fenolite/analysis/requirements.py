@@ -12,6 +12,14 @@ Change c0115 adds, under the same schema name: ``[[path]]`` rows (the current be
 with an optional largest voltage drop), ``insulation_nm`` on distance rows and steps (the distance
 through the laminate between two layers) and ``groove_nm`` on distance rows (the width below which a
 groove is bridged on the creepage path). A file that uses them is refused by a loader that predates them.
+
+Change c0204 adds two optional tables, neither with a default value: ``[[decoupling]]`` (a part glob and the
+largest distance along copper from a supply pin to its nearest capacitor) and ``[[body_copper]]`` (a net-class
+glob, a part glob and the copper layers where that class may not run under the parts' bodies).
+
+Change c0213 adds two more, neither with a default value: ``[[neck]]`` (a net or net-class selector and the
+narrowest width a pour of its nets may have) and ``[[loop]]`` (a named loop through pads, in order, with an
+optional largest area).
 """
 
 from __future__ import annotations
@@ -29,7 +37,7 @@ SCHEMA = "fenolite.requirements.v0"
 DEFAULT_CLASS = "Default"
 QUANTITIES = ("clearance_nm", "creepage_nm", "embedded_nm")
 _DISTANCES = (*QUANTITIES, "insulation_nm")
-_TOP = ("schema", "current", "distance", "step", "path")
+_TOP = ("schema", "current", "distance", "step", "path", "decoupling", "body_copper", "neck", "loop")
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +111,43 @@ class PathReq:
     drop_mv: int | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class DecouplingReq:
+    """The largest distance along copper from a supply pin of the parts that ``parts`` matches (a glob of
+    references) to its nearest capacitor pad on the same net (change c0204)."""
+
+    parts: str
+    max_distance_nm: Nm
+
+
+@dataclass(frozen=True, slots=True)
+class BodyCopperReq:
+    """Copper of the nets of the classes that ``netclass`` matches may not lie inside the plan view of the
+    bodies of the parts that ``parts`` matches, on ``layers`` (names or globs) (change c0204)."""
+
+    netclass: str
+    parts: str
+    layers: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NeckReq:
+    """A pour of the nets that ``select`` matches may not narrow below ``min_width_nm`` (change c0213)."""
+
+    select: NetSelector
+    min_width_nm: Nm
+
+
+@dataclass(frozen=True, slots=True)
+class LoopReq:
+    """A loop through ``pads`` (``REF-PIN``, in order around it, closed), named ``name``, and its largest
+    area in square nanometres when one is given (change c0213)."""
+
+    name: str
+    pads: tuple[str, ...]
+    max_area_nm2: int | None = None
+
+
 Triple = tuple[Nm | None, Nm | None, Nm | None]
 
 
@@ -120,6 +165,10 @@ class Requirements:
     distances: tuple[DistanceReq, ...] = ()
     steps: tuple[Step, ...] = ()
     paths: tuple[PathReq, ...] = ()
+    decoupling: tuple[DecouplingReq, ...] = ()
+    body_copper: tuple[BodyCopperReq, ...] = ()
+    necks: tuple[NeckReq, ...] = ()
+    loops: tuple[LoopReq, ...] = ()
 
     def current_for(self, net: Net, circuit: Circuit) -> CurrentReq | None:
         """The governing current row of ``net``: the matching row with the largest current."""
@@ -252,6 +301,30 @@ def _pad_names(table: dict[str, object], key: str, where: str, file: str) -> tup
     return tuple(names)
 
 
+def _glob(table: dict[str, object], key: str, where: str, file: str) -> str:
+    if key not in table:
+        raise _fail(file, f"{where}.{key}", "missing key")
+    value = table[key]
+    if not isinstance(value, str) or not value:
+        raise _fail(file, f"{where}.{key}", "must be a non-empty string")
+    return value
+
+
+def _layers(table: dict[str, object], key: str, where: str, file: str) -> tuple[str, ...]:
+    name = f"{where}.{key}"
+    if key not in table:
+        raise _fail(file, name, "missing key")
+    value = table[key]
+    if not isinstance(value, list) or not value:
+        raise _fail(file, name, "must be a non-empty array of layer names")
+    found: list[str] = []
+    for item in cast(list[object], value):
+        if not isinstance(item, str) or not item:
+            raise _fail(file, name, f"{item!r} is not a layer name")
+        found.append(item)
+    return tuple(found)
+
+
 def load_requirements(text: str, *, file: str = "") -> Requirements:
     """The requirements of a TOML document of schema ``fenolite.requirements.v0``; ``FormatError`` naming
     the file and the key for a float, an unknown key, a missing key or another schema."""
@@ -302,14 +375,62 @@ def load_requirements(text: str, *, file: str = "") -> Requirements:
                 _integer(row, "drop_mv", where, file, required=False),
             )
         )
-    return Requirements(tuple(currents), tuple(distances), tuple(steps), tuple(paths))
+    decoupling: list[DecouplingReq] = []
+    for where, row in _rows(data, "decoupling", file):
+        _known(row, ("parts", "max_distance_nm"), where, file)
+        decoupling.append(
+            DecouplingReq(_glob(row, "parts", where, file), _positive(row, "max_distance_nm", where, file))
+        )
+    body_copper: list[BodyCopperReq] = []
+    for where, row in _rows(data, "body_copper", file):
+        _known(row, ("netclass", "parts", "layers"), where, file)
+        body_copper.append(
+            BodyCopperReq(
+                _glob(row, "netclass", where, file),
+                _glob(row, "parts", where, file),
+                _layers(row, "layers", where, file),
+            )
+        )
+    necks: list[NeckReq] = []
+    for where, row in _rows(data, "neck", file):
+        _known(row, ("select", "min_width_nm"), where, file)
+        necks.append(
+            NeckReq(_selector(row, "select", where, file), _positive(row, "min_width_nm", where, file))
+        )
+    loops: list[LoopReq] = []
+    for where, row in _rows(data, "loop", file):
+        _known(row, ("name", "pads", "max_area_nm2"), where, file)
+        name = _glob(row, "name", where, file)
+        if any(loop.name == name for loop in loops):
+            raise _fail(file, f"{where}.name", f"the loop {name!r} is named twice")
+        pads = _pad_names(row, "pads", where, file)
+        if len(pads) < 2:
+            raise _fail(file, f"{where}.pads", "must hold two or more pad names REF-PIN")
+        area = _integer(row, "max_area_nm2", where, file, required=False)
+        if area == 0:
+            raise _fail(file, f"{where}.max_area_nm2", "must be above 0")
+        loops.append(LoopReq(name, pads, area))
+    return Requirements(
+        tuple(currents),
+        tuple(distances),
+        tuple(steps),
+        tuple(paths),
+        tuple(decoupling),
+        tuple(body_copper),
+        tuple(necks),
+        tuple(loops),
+    )
 
 
 __all__ = [
     "DEFAULT_CLASS",
     "SCHEMA",
+    "BodyCopperReq",
     "CurrentReq",
+    "DecouplingReq",
     "DistanceReq",
+    "LoopReq",
+    "NeckReq",
     "NetSelector",
     "PathReq",
     "Requirements",

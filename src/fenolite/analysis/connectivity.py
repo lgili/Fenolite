@@ -25,6 +25,7 @@ from math import isqrt
 
 from fenolite.analysis.codes import issue
 from fenolite.analysis.copper import CopperShape, net_copper
+from fenolite.analysis.pour import PourCopper
 from fenolite.backends.base import BoardPad
 from fenolite.core.coords import Point
 from fenolite.core.errors import Issue
@@ -35,6 +36,9 @@ from fenolite.model.design import Design
 EVIDENCE = Evidence(Level.KICAD_VERIFIED, hypotheses=("H-K-CONN-PARITY",))
 """The level of the register row ``H-K-CONN-PARITY``: the counts per net against KiCad's unconnected
 items, on the bench and on the corpus. A report that left an item out is ``UNVERIFIED``."""
+POUR_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-CONN-PARITY", "H-G-PRACTICE-POUR"))
+"""The level of a report on the copper of ``analysis.pour`` in which a zone layer is not its saved fill:
+the simulated pour joins its items to within one cell (change c0211)."""
 COUNTED = ("pad", "track", "arc", "via")
 """The kinds that make an island count; a fill does not."""
 _SEP = "\x00"
@@ -104,6 +108,7 @@ class _Item:
     where: str
     shapes: list[tuple[str, Thick]]
     anchors: tuple[Point, ...] = ()
+    entity_id: str = ""
 
 
 _Anchors = dict[tuple[str, str], tuple[Point, ...]]
@@ -153,7 +158,9 @@ def _items(shapes: Sequence[CopperShape], anchors: _Anchors) -> list[_Item]:
         item = grouped.get(key)
         if item is None:
             ident = f"{shape.entity_id}{_SEP}{shape.where}" if shape.kind == "pad" else shape.entity_id
-            item = grouped[key] = _Item(shape.kind, shape.where, [], anchors.get((shape.kind, ident), ()))
+            item = grouped[key] = _Item(
+                shape.kind, shape.where, [], anchors.get((shape.kind, ident), ()), shape.entity_id
+            )
         item.shapes.append((shape.layer, shape.shape))
     return [grouped[key] for key in sorted(grouped)] + fills
 
@@ -207,13 +214,36 @@ def _spanning(islands: Sequence[Sequence[LinkEnd]]) -> tuple[OpenConnection, ...
     return tuple(tree)
 
 
-def _islands(shapes: Sequence[CopperShape], anchors: _Anchors) -> tuple[list[_Island], int]:
+def _islands(
+    shapes: Sequence[CopperShape], anchors: _Anchors, joins: Sequence[Collection[tuple[str, str, str]]] = ()
+) -> tuple[list[_Island], int]:
     """The counted islands of one net (their pads and their ends, sorted) and the number of islands of
-    fills alone."""
+    fills alone. Each set of ``joins`` names items, as ``(kind, entity_id, where)``, that an island of a
+    simulated pour joins."""
     items = _items(shapes, anchors)
+    parent = list(range(len(items)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(a: int, b: int) -> None:
+        a, b = find(a), find(b)
+        if a != b:
+            parent[max(a, b)] = min(a, b)
+
+    for index, root in enumerate(touch_groups([item.shapes for item in items])):
+        union(index, root)
+    position = {(item.kind, item.entity_id, item.where): index for index, item in enumerate(items)}
+    for joined in joins:
+        members = sorted(position[key] for key in joined if key in position)
+        for other in members[1:]:
+            union(members[0], other)
     groups: dict[int, list[_Item]] = defaultdict(list)
-    for item, root in zip(items, touch_groups([item.shapes for item in items]), strict=True):
-        groups[root].append(item)
+    for index, item in enumerate(items):
+        groups[find(index)].append(item)
     counted: list[_Island] = []
     fill_islands = 0
     for members in groups.values():
@@ -260,12 +290,17 @@ def _unsupported(
 
 
 def connectivity(
-    design: Design, *, pads: Sequence[BoardPad] | None, nets: Collection[str] | None = None
+    design: Design,
+    *,
+    pads: Sequence[BoardPad] | None,
+    nets: Collection[str] | None = None,
+    pour: PourCopper | None = None,
 ) -> ConnectivityReport:
     """The islands and the open connections of each net of ``design.board``. ``pads`` are the board-frame
     pad records (``None`` when the caller has none: every pad is then unsupported); ``nets`` limits the
-    report to the nets of those names."""
-    copper = net_copper(design, pads=pads)
+    report to the nets of those names. With ``pour``, the copper is that of ``analysis.pour``: every zone
+    layer in its state, and the items that one island of a simulated pour covers joined (change c0211)."""
+    copper = net_copper(design, pads=pads) if pour is None else pour.copper
     anchors = _anchors(design, pads)
     wanted = None if nets is None else set(nets)
     missing: Counter[str] = Counter()
@@ -276,7 +311,8 @@ def connectivity(
     for name, shapes in copper.by_net.items():
         if wanted is not None and name not in wanted:
             continue
-        counted, fill_islands = _islands(shapes, anchors)
+        joins = [] if pour is None else [i.joins for i in pour.islands if i.net == name]
+        counted, fill_islands = _islands(shapes, anchors, joins)
         if not counted:
             continue
         rows.append(
@@ -298,13 +334,17 @@ def connectivity(
         )
         for kind, count in sorted(copper.unsupported.items())
     )
-    evidence = Evidence(Level.UNVERIFIED, hypotheses=EVIDENCE.hypotheses) if issues else EVIDENCE
+    poured = pour is not None and any(zone.state != "saved_fill" for zone in pour.zones)
+    evidence = POUR_EVIDENCE if poured else EVIDENCE
+    if issues:
+        evidence = Evidence(Level.UNVERIFIED, hypotheses=evidence.hypotheses)
     return ConnectivityReport(tuple(sorted(rows, key=lambda row: row.name)), issues, evidence)
 
 
 __all__ = [
     "COUNTED",
     "EVIDENCE",
+    "POUR_EVIDENCE",
     "ConnectivityReport",
     "LinkEnd",
     "NetConnectivity",

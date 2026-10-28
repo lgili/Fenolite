@@ -28,6 +28,10 @@ NOT_TOOLS = frozenset({"mcp", "skill"})
 """``mcp`` is this server; ``skill`` installs files into an agent's own folders, outside any project."""
 LEFT_OUT = {"view": frozenset({"serve", "port", "no_browser"})}
 """Arguments a tool does not take: ``view --serve`` is a server that does not return."""
+READ_TOOLS = {"check": frozenset({"exclude", "reason"}), "diff": frozenset({"three_way", "out"})}
+"""Writing commands that write only through these options (``check --exclude``, change c0209; ``diff
+--three-way --out``, change c0207): their tool leaves the options out and is read-only, so that the
+read-only server keeps them."""
 GLOBALS = ("fields", "limit", "cursor", "format", "seed", "timestamp", "kicad_version", "allow_lossy")
 """The global options a call may set; ``--json``, ``--text`` and ``--progress`` are the server's."""
 WRITING_GLOBALS = ("no_backup",)
@@ -116,9 +120,10 @@ class Tool:
 
 
 def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
-    left_out = LEFT_OUT.get(command.name, frozenset())
+    left_out = LEFT_OUT.get(command.name, frozenset()) | READ_TOOLS.get(command.name, frozenset())
+    mutates = _mutates(command)
     own = [a for a in describe(command).arguments if a.name not in WRITE_FLAGS and a.name not in left_out]
-    names = (*GLOBALS, *(WRITING_GLOBALS if command.mutates else ()))
+    names = (*GLOBALS, *(WRITING_GLOBALS if mutates else ()))
     arguments = (*own, *(shared[name] for name in names))
     properties: Json = {}
     for argument in arguments:
@@ -142,7 +147,7 @@ def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
             },
         }
     description = command.help or command.name
-    if command.mutates:
+    if mutates:
         properties["confirm"] = {
             "type": "boolean",
             "description": "write the plan named by 'plan'; without it the call is a dry run",
@@ -163,15 +168,20 @@ def _tool(command: Command, shared: Mapping[str, Argument]) -> Tool:
             "additionalProperties": False,
         },
         "annotations": {
-            "readOnlyHint": not command.mutates,
-            "destructiveHint": command.mutates,
-            "idempotentHint": not command.mutates,
+            "readOnlyHint": not mutates,
+            "destructiveHint": mutates,
+            "idempotentHint": not mutates,
             "openWorldHint": command.name in OPEN_WORLD,
         },
     }
     if not definition["inputSchema"]["required"]:
         del definition["inputSchema"]["required"]
-    return Tool(command.name, command.mutates, definition, arguments, _actions(command), inputs)
+    return Tool(command.name, mutates, definition, arguments, _actions(command), inputs)
+
+
+def _mutates(command: Command) -> bool:
+    """Whether the tool of ``command`` writes; one of :data:`READ_TOOLS` does not without its options."""
+    return command.mutates and command.name not in READ_TOOLS
 
 
 def _check(argument: Argument, value: Any) -> list[Any]:
@@ -226,7 +236,7 @@ class Catalog:
         self.tools: dict[str, Tool] = {}
         for name in sorted(public):
             command = public[name]
-            if (wanted is not None and name not in wanted) or (read_only and command.mutates):
+            if (wanted is not None and name not in wanted) or (read_only and _mutates(command)):
                 continue
             if name == EDIT and not allow_edit:
                 continue

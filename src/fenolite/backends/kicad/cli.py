@@ -359,6 +359,16 @@ class KicadCli:
             raise KicadCliError("kicad-cli pcb export svg wrote no SVG", run)
         return run
 
+    def export_layers_svg(
+        self, board: Path, layers: Sequence[str], *, files: Mapping[str, Path | bytes] | None = None
+    ) -> str:
+        """``pcb export svg -l LAYERS --mode-single --exclude-drawing-sheet``: one SVG of ``layers`` in the
+        page frame of the board (change c0212, the ink of texts; ``docs/formats/kicad/text.md``)."""
+        name = Path(board).name
+        args = ["pcb", "export", "svg", "-l", ",".join(layers), "--mode-single", "--exclude-drawing-sheet"]
+        run = self._checked([*args, "-o", "out.svg", name], _with(board, files), "pcb export svg")
+        return _output(run, "out.svg", "pcb export svg")
+
     def export_pos_csv(self, board: Path, *, files: Mapping[str, Path] | None = None) -> str:
         """``pcb export pos --format csv --side both --units mm`` (the default unit is inches)."""
         name = Path(board).name
@@ -465,6 +475,7 @@ class KicadCli:
         files: Mapping[str, Path] | None = None,
         env: Mapping[str, str] | None = None,
         schematic_parity: bool = False,
+        refill_zones: bool = False,
     ) -> DrcRun:
         """``pcb drc --format json --severity-all``: the run and its report (``None`` when none was written).
 
@@ -472,12 +483,16 @@ class KicadCli:
         verdict is read from the report. ``env`` is passed unchanged to ``run``, which applies its entries
         after its own ``KICAD_CONFIG_HOME``: the way a probe names a configuration folder or a library
         variable. With ``schematic_parity`` the run also passes ``--schematic-parity``, which makes the
-        tool compare the board with the schematic of its stem (c0062).
+        tool compare the board with the schematic of its stem (c0062). With ``refill_zones`` (10.0 only, as
+        ``refill``) the tool refills the zones of its copy before the check and saves nothing (c0209).
         """
         from fenolite.backends.kicad.drc import read_drc_report
 
+        if refill_zones:
+            self._require_ten("pcb drc --refill-zones")
         name = Path(board).name
         parity = ["--schematic-parity"] if schematic_parity else []
+        parity += ["--refill-zones"] if refill_zones else []
         args = ["pcb", "drc", "--format", "json", "--severity-all", *parity, "-o", DRC_REPORT, name]
         run = self.run(args, files=_with(board, files), env=env)
         data = run.outputs.get(DRC_REPORT)

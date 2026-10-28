@@ -349,6 +349,115 @@ agree with `kicad-cli` 10.0.6 on a bench of four kinds of test pad
 (`tests/kicad/assembly/test_testpoints_d356.py`); the same run on 9.0.9 is not recorded yet. Coverage, the
 targets and the CSV are arithmetic.
 
+## Placing test points
+
+`fenolite testpoints PATH --place --side bottom` closes the gaps that the report shows: for each uncovered
+net it adds a test point of `design.test_point` (a round surface pad, `--size` 1 mm) on a grid site
+(`--grid` 2.54 mm) within `--reach` (5 mm) of the net's copper on that side, joined by one straight track.
+
+```
+fenolite testpoints build/board --place --side bottom --dry-run
+fenolite testpoints build/board --place --side bottom --nets "SPI_*" --drc --confirm
+```
+
+**Where a probe goes.** The nearest site wins. Probe and track keep the clearance in force from other nets'
+copper, from holes and from the probes placed before; the board's edge clearance from the edge; the probe
+stays off every courtyard and every silkscreen stroke or text of its side (a probe is a mask opening, and ink
+over it is `silk_over_copper`) and out of rule areas that forbid footprints or pads; probes keep
+`--min-pitch` (1.27 mm) apart. A net without a free site is `testpoint.no-site`, with the nearest site and
+what blocks it. Zone fills of other nets count as stored: refill first if a pour has moved.
+
+**Checked before it is written.** Fenolite's copper check judges the board with the probes against the board
+without; a probe it names is left out (`testpoint.check-failed`). `--drc` runs KiCad's DRC before and after and
+writes nothing when a type grows. The probes' library `Fenolite_Assembly` is in no table of an edited board, so
+KiCad adds one `lib_footprint_issues` per probe; that type is left out of the comparison.
+
+**A rebuild keeps them.** The probes are footprints of the board only, without `fenolite.path`, and their tracks
+are board copper, so building the design script again keeps both (`docs/lens.md`, "Board-only footprints");
+`testpoint.board-only` names them. To own them in the script instead, add `design.test_point()` calls at the
+reported positions and delete the probes from the board. The designator goes to the fabrication layer;
+`fenolite silk --designators --refs "TP*"` places it on the silkscreen.
+
+## Designators
+
+`fenolite silk PATH --designators` places the reference text of every part of a KiCad board on the
+silkscreen of its side (change c0212; the command is in `docs/cli-contract.md`, "silk"):
+
+```bash
+fenolite silk build/blink --designators --dry-run --json          # the places; nothing is written
+fenolite silk build/blink --designators --drc --confirm --json    # write, after KiCad's DRC agrees
+fenolite silk build/blink --designators --keep --confirm --json   # move only the texts on something
+```
+
+- **What it measures.** The box of each text's ink comes from `kicad-cli`, which draws the text once on a
+  scratch board; the boxes are cached per tool version, string, size, stroke and justification. Without a
+  tool (or with `--measure estimate`) it adds up the glyph metrics that `tools/measure_glyphs.py` measured
+  and Fenolite ships, which hold the drawn ink for the letters, digits and `-_.+/` (`silk.estimated`).
+  `docs/formats/kicad/text.md` lists the facts.
+- **What a designator avoids,** by `--clearance` (0.15 mm by default): pad copper on its side, holes, the
+  silkscreen of the board and of the footprints, every other silkscreen text, the courtyards of the other
+  parts, and the board edge, cut-outs and slots. It also lies inside the board.
+- **Where it goes.** Beside the part's courtyard, `--gap` away (0.1 mm): centred or flush above, below,
+  left or right, at 0° or 90° on the board (`--angles`), at the field's height or the least allowed one
+  (`--sizes`). It prefers its own part's long side, the largest size and the middle of a side, and it is
+  never nearer to another part than to its own. A row or a column of the same footprint at the same angle
+  gets one place for all, so their texts line up. A part without a free place keeps its text and is named
+  with `silk.no-place`.
+- **What is checked before anything is written.** Each written field is computed again: its text keeps
+  the clearance, lies inside the board, reads at 0° or 90°, is mirrored exactly on the bottom, and is at
+  least the project's `min_text_height` and `min_text_thickness` (0.8 mm and 0.08 mm when the project does
+  not say). With `--drc`, KiCad's DRC runs on the board before and after; a type it reports more often
+  stops the write.
+- **A rebuild keeps them.** A build that merges an existing board keeps each footprint field as the board
+  holds it unless a locked request of the script names it (`docs/lens.md`, "Footprint fields"), so no
+  separate record is needed.
+- **Not done yet.** TrueType texts and test points placed by Fenolite stay with change c0175.
+
+**Evidence.** `INFERRED` (`H-K-SILK-DRC`, with `H-K-SILK-INK` for measured ink or `H-K-SILK-ESTIMATE` for
+estimated ink), and `KICAD-VERIFIED` with the tool version after `--drc` found nothing new. On the benches
+of `tests/_silkbench.py`, `kicad-cli` 10.0.7 reports `silk_over_copper` and `silk_overlap` before and no
+silkscreen or text finding after, and draws each placed designator within 1 µm of where Fenolite computed
+it (`tests/kicad/silk/test_designators_oracle.py`).
+
+## Clipping
+
+`fenolite silk PATH --clip` cuts the silkscreen strokes of a KiCad board where they come near a mask
+opening, the footprints' own outlines included (change c0226; `docs/cli-contract.md`, "silk"):
+
+```bash
+fenolite silk build/blink --clip --dry-run --json                      # what would be cut
+fenolite silk build/blink --clip --margin 0.1mm --drc --confirm --json # cut, after KiCad's DRC agrees
+fenolite silk build/blink --clip --designators --confirm --json        # cut, then place the designators
+fenolite library build/blink --out lib/blink.pretty --dry-run --json   # then bring the library in step
+```
+
+- **What an opening is.** Every pad with a mask opening on the stroke's side, by its copper grown by its
+  mask expansion (the pad's own margin, else the board's `pad_to_mask_clearance`), and every pad's hole.
+  KiCad's DRC measures `silk_over_copper` to the copper only, and only for pads with a mask opening
+  (`docs/formats/kicad/drc.md`, "Silkscreen over pads"); the grown opening is what the fabricator clears.
+- **The margin.** `--margin`, by default the largest minimum of the project's `silk_clearance` rules, else
+  0: KiCad applies that rule between silkscreen and pads, and not the board's `min_silk_clearance`. The
+  cut keeps 1 µm more.
+- **What is cut.** Lines, arcs, circles and the outlines of rectangles and polygons, of the board and of
+  the footprints; the pieces are written as lines and arcs, and a piece shorter than its stroke is
+  dropped. Texts are not cut (`--designators` moves the references), and a filled shape that meets an
+  opening is left as it is (`silk.clip-skipped`).
+- **What is checked before anything is written.** Every piece is judged again against every opening of
+  its side with the margin (`silk.check-failed`). With `--drc`, KiCad's DRC runs before and after.
+- **The library stays in step.** A footprint's own outline is cut by its own pads once and written alike
+  into every instance, so `fenolite library --out` makes one footprint of them and `--diff` shows the
+  `silkscreen` drift against the old library. Each changed footprint is named once
+  (`silk.footprint-changed`), and `result.library` holds the command. Write the library before the next
+  rebuild: a rebuild places the footprints from the library, and an old library brings the ink back. An
+  outline cut at another part's pads makes that instance differ (`silk.cut-by-other`): move the parts
+  apart.
+
+**Evidence.** `INFERRED` (`H-K-SILK-CLIP`, with `H-K-SILK-MASK` for what KiCad measures), and
+`KICAD-VERIFIED` with the tool version after `--drc` found nothing new. On the bench `clipped()` of
+`tests/_silkbench.py` (outlines, arcs and circles over their own pads and a neighbour's pad, on both sides,
+at 0°, 90° and 30°), `kicad-cli` 10.0.7 reports `silk_over_copper` 34 times before and never after, with no
+other type grown (`tests/kicad/silk/test_clip_oracle.py`).
+
 ## Things to watch
 
 - **DNP parts and grouping.** With `exclude_dnp = false`, DNP parts are listed on lines of their own

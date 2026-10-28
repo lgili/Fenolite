@@ -53,7 +53,16 @@ ALLOWED: dict[str, set[str]] = {
     "panel": {"model", "geometry", "backends*", "checks", "convert", "dsl"},
     "view": {"model", "geometry", "backends*"},
     "safety": {"backends*"},
+    "tidy": {"model", "geometry", "backends.base"},
+    "reuse": {"model", "geometry", "backends.base"},
+    "silk": {"model", "geometry", "backends*"},
+    "library": {"model", "geometry", "backends*"},
 }
+LAZY: dict[str, set[str]] = {"api": {"cli"}}
+"""Edges allowed only inside a function body, so that importing the source does not import the target:
+``fenolite.api.run`` imports the dispatcher of ``cli`` when it is called (capability package-layering,
+"Public API runs the commands lazily"; change c0206). ``cli`` imports ``api`` at the top, so a top-level
+edge back would be a cycle."""
 STDLIB_ONLY = {"core", "model", "geometry", "dsl", "catalog", "schematic", "mcp"}
 EXTRA_LOADER = "geometry/boolean/_extra.py"
 PYPROJECT = SRC.parents[1] / "pyproject.toml"
@@ -106,12 +115,18 @@ def _allowed(source: str, target: str) -> bool:
     return False
 
 
+def _lazy(source: str, target: str) -> bool:
+    """Whether ``source`` may import ``target`` inside a function body (``LAZY``)."""
+    return target in LAZY.get(_pattern(source), set())
+
+
 @dataclass(frozen=True)
 class Edge:
     module: str
     line: int
     target: str  # dotted import name
     guarded: bool  # inside a function or a try/except ImportError
+    lazy: bool = False  # inside a function body
 
 
 def _modules() -> list[Path]:
@@ -132,7 +147,7 @@ def _edges(path: Path) -> list[Edge]:
     package = parts if path.name == "__init__.py" else parts[:-1]
     edges: list[Edge] = []
 
-    def visit(node: ast.AST, guarded: bool) -> None:
+    def visit(node: ast.AST, guarded: bool, lazy: bool) -> None:
         for child in ast.iter_child_nodes(node):
             inner = guarded
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -142,26 +157,27 @@ def _edges(path: Path) -> list[Edge]:
                 for h in child.handlers
             ):
                 for stmt in child.body:
-                    visit_stmt(stmt, True)
+                    visit_stmt(stmt, True, lazy)
                 for rest in (*child.handlers, *child.orelse, *child.finalbody):
-                    visit(rest, guarded)
+                    visit(rest, guarded, lazy)
                 continue
-            visit_stmt(child, inner)
+            visit_stmt(child, inner, lazy)
 
-    def visit_stmt(node: ast.AST, guarded: bool) -> None:
+    def visit_stmt(node: ast.AST, guarded: bool, lazy: bool) -> None:
         if isinstance(node, ast.Import):
             for alias in node.names:
-                edges.append(Edge(str(path), node.lineno, alias.name, guarded))
+                edges.append(Edge(str(path), node.lineno, alias.name, guarded, lazy))
         elif isinstance(node, ast.ImportFrom):
             if node.level:
                 base = ["fenolite", *package[: len(package) - (node.level - 1)]]
                 name = ".".join(base + ([node.module] if node.module else []))
             else:
                 name = node.module or ""
-            edges.append(Edge(str(path), node.lineno, name, guarded))
-        visit(node, guarded or isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)))
+            edges.append(Edge(str(path), node.lineno, name, guarded, lazy))
+        function = isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        visit(node, guarded or function, lazy or function)
 
-    visit(tree, False)
+    visit(tree, False, False)
     return edges
 
 
@@ -200,8 +216,9 @@ def _violations() -> list[str]:
             top = edge.target.split(".")[0]
             if top == "fenolite":
                 target = _key(edge.target.split(".")[1:])
-                if not _allowed(source, target):
-                    problems.append(f"{rel}:{edge.line}: {source} → {target} is not allowed")
+                if not _allowed(source, target) and not (edge.lazy and _lazy(source, target)):
+                    lazily = " (only inside a function)" if _lazy(source, target) else ""
+                    problems.append(f"{rel}:{edge.line}: {source} → {target} is not allowed{lazily}")
             elif top not in sys.stdlib_module_names:
                 if source in STDLIB_ONLY:
                     problems.append(f"{rel}:{edge.line}: {source} must be stdlib-only (imports {top})")
@@ -306,6 +323,33 @@ def test_public_api_stays_on_top(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     problems = _violations()
     assert any("checks → api" in p for p in problems), problems
     assert not any("api →" in p for p in problems), problems
+
+
+def test_api_runs_the_commands_lazily(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Public API runs the commands lazily", scenario "Lazy edge only"
+    (c0206): ``api`` importing ``cli`` inside a function passes, at the top of a module it fails."""
+    fake = _fake_tree(
+        tmp_path,
+        "api/commands.py",
+        "def run():\n    from fenolite.cli.main import invoke\n    return invoke\n",
+    )
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "api" / "commands.py").write_text("from fenolite.cli.main import invoke\n", encoding="utf-8")
+    problems = _violations()
+    assert any("api → cli is not allowed (only inside a function)" in p for p in problems), problems
+    (fake / "api" / "commands.py").write_text("def run():\n    import fenolite.agent\n", encoding="utf-8")
+    assert any("api → agent is not allowed" in p for p in _violations())
+
+
+def test_importing_the_api_loads_no_command() -> None:
+    """Scenario "Lazy edge only": ``import fenolite.api`` imports no module of ``fenolite.cli``."""
+    import subprocess
+
+    code = "import sys, fenolite.api; print(sorted(m for m in sys.modules if m.startswith('fenolite.cli')))"
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "[]"
 
 
 def test_bare_import_without_extras() -> None:

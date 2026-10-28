@@ -197,6 +197,7 @@ from a board" of the `design-model` capability (change c0009); KiCad facts in
 | `Zone.locked` | the zone is locked against edits in the board editor |
 | `Pad.zone_connection` | how zones connect to the pad: `solid`, `thermal`, `none` or `thru_hole_only`; `None` means that the pad follows its footprint and the zone |
 | `Pad.fab_property` | the fabrication mark of the pad (change c0118), what KiCad calls the fabrication property of a pad: `bga`, `fiducial_global`, `fiducial_local`, `test_point`, `heatsink`, `castellated`, `mechanical` or `press_fit`; `None` for no mark. Board pads and library pads carry it; the model does not check it against the pad's kind or layers. The key is written only when a mark is set, so a design without marks serialises to the bytes it had. Releases 0.2.x and 0.3.0 cannot read a model document that carries the key `fab_property`: their reader refuses an unknown key |
+| `Pad.mask_margin`, `Pad.paste_margin` | the growth of the pad's solder-mask and paste openings beyond its copper, in nm, possibly negative (change c0223); `None` follows the board. A KiCad reader projects the first margin child of a pad into its field and keeps the child as read; a writer writes the field of a pad without such a child and refuses a field that disagrees with a kept one. The keys are written only when set |
 
 - **Pad frame.** `Pad.position` is footprint-local: absolute = `instance.position +
   R(instance.rotation)·pad.position`, with no further mirror, so a bottom footprint keeps its stored,

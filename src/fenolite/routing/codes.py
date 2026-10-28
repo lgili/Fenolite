@@ -7,6 +7,7 @@ from fenolite.core.errors import Severity
 ISSUE_CODES: dict[str, Severity] = {
     "route.bad-item": "error",
     "route.budget-exhausted": "warning",
+    "route.check-refused": "warning",
     "route.constraint-not-sent": "warning",
     "route.copper-removed": "warning",
     "route.escape-skipped": "warning",
@@ -16,6 +17,7 @@ ISSUE_CODES: dict[str, Severity] = {
     "route.no-layer": "warning",
     "route.optimizer-cut": "info",
     "route.option-ignored": "warning",
+    "route.pair-not-routed": "warning",
     "route.pair-skipped": "warning",
     "route.pair-uncoupled": "info",
     "route.partial": "info",

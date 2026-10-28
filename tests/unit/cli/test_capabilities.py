@@ -32,7 +32,12 @@ def test_lists_itself_and_hidden_commands(capsys: pytest.CaptureFixture[str]) ->
                                         "schema": "fenolite.capabilities.v0", "hidden": False}  # fmt: skip
     assert commands["_echo"]["hidden"] is True and commands["_echo"]["mutates"] is True
     assert result["sends_data_offsite"] is False
-    assert {router["name"] for router in result["routers"]} == {"direct", "freerouting", "kicadroutingtools"}
+    assert {router["name"] for router in result["routers"]} == {
+        "direct",
+        "freerouting",
+        "kicadroutingtools",
+        "octilinear",
+    }
     # Freerouting sends nothing since its offline run was recorded (c0023, H-G-DSN-OFFLINE)
     freerouting = next(router for router in result["routers"] if router["name"] == "freerouting")
     assert freerouting["sends_data_offsite"] is False and freerouting["builtin"] is True
@@ -89,8 +94,14 @@ def test_missing_tools_are_null_not_fatal(
 
 def test_features(capsys: pytest.CaptureFixture[str]) -> None:
     """Scenario "Features listed" (change c0110): ``kicadroutingtools`` lists the features its gate allowed
-    (``pairs``; the escape gate failed), the other routers none, and the matrix is not changed."""
+    (``pairs``; the escape gate failed), ``octilinear`` ``pairs`` and ``short`` (change c0228), the other
+    routers none, and the matrix is not changed."""
     result = _capabilities(capsys, "--no-tools")
     features = {router["name"]: router["features"] for router in result["routers"]}  # type: ignore[union-attr]
-    assert features == {"direct": [], "freerouting": [], "kicadroutingtools": ["pairs"]}
+    assert features == {
+        "direct": [],
+        "freerouting": [],
+        "kicadroutingtools": ["pairs"],
+        "octilinear": ["pairs", "short"],
+    }
     assert all("features" not in row for row in result["matrix"])  # type: ignore[union-attr]

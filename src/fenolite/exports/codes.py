@@ -26,6 +26,9 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "export.kind-unavailable": "error",
         "export.stackup-default": "info",
         "render.failed": "warning",
+        # region renders (change c0211)
+        "render.region-empty": "warning",
+        "render.copper-simulated": "info",
         "export.sheet-missing": "error",
         "export.model-unread": "warning",
         "export.page-too-small": "warning",
@@ -50,6 +53,11 @@ ISSUE_CODES: Mapping[str, Severity | tuple[Severity, ...]] = MappingProxyType(
         "testpoint.none": "info",
         "testpoint.coverage-low": "error",
         "testpoint.too-close": "error",
+        # test-point placement (change c0229)
+        "testpoint.no-site": "warning",
+        "testpoint.check-failed": "warning",
+        "testpoint.drc-new": "error",
+        "testpoint.board-only": "info",
         "fiducial.too-few": "error",
     }
 )

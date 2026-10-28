@@ -55,6 +55,16 @@ drawn yet.
 9. **Review.** Review your own board against the checklist before handing it over, and record every
    decision and open item. See `board-review`.
 
+After the pours (step 6) and before the review, run the practice kinds of `analyze`. A zone whose fill is
+missing or older than its cut-outs is poured again on a raster, and every row says which copper it used.
+Rows of your requirements file (`[[decoupling]]`, `[[body_copper]]`, `[[current]]`) turn facts into
+findings; the coupling score only ranks pairs.
+
+```fenolite-cmd
+fenolite analyze board.kicad_pcb --kinds connectivity,dead,decoupling,relief --dead-distance 5mm --json
+fenolite analyze board.kicad_pcb --kinds coupling --aggressor 'SW_*' --victim 'ADC_*' --json
+```
+
 Throughout, keep the habits of `board-workflow`. The owner edits the same files, and a lost edit costs
 more than any layout fault.
 

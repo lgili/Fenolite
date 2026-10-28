@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from types import MappingProxyType
@@ -29,14 +29,14 @@ from types import MappingProxyType
 import fenolite.backends.kicad.slots as slotlib
 from fenolite.backends.kicad._fpmap import FP_GRAPHIC_HEADS, Ids, read_graphic, unrepresentable
 from fenolite.backends.kicad._libread import Context, Loaded, leading_atoms
-from fenolite.backends.kicad.sexpr import Node, parse_fragment
+from fenolite.backends.kicad.sexpr import Node, dumps, parse_fragment
 from fenolite.backends.kicad.slots import Opaque
 from fenolite.backends.kicad.versions import FileKind
 from fenolite.core.coords import Size
 from fenolite.core.errors import FenoliteError
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN
-from fenolite.model.base import ExtBag
+from fenolite.model.base import ExtBag, Slot
 from fenolite.model.board import MAX_CORNER_RATIO, FootprintInstance, Graphic, Pad, Text
 from fenolite.model.design import Design
 
@@ -92,17 +92,22 @@ def ratio_ppm(text: str) -> int | None:
     return ppm if 0 <= ppm <= MAX_CORNER_RATIO else None
 
 
-def _opaque_nodes(entity: FootprintInstance | Pad) -> list[Node]:
+def _opaque_slots(entity: FootprintInstance | Pad) -> list[tuple[int, Node]]:
+    """``(index in the entity's slot list, child)`` of every opaque child that is a list."""
     bag = entity.ext.get(BACKEND)
     if bag is None:
         return []
-    nodes: list[Node] = []
-    for slot in slotlib.from_ext(bag):
+    nodes: list[tuple[int, Node]] = []
+    for index, slot in enumerate(slotlib.from_ext(bag)):
         if isinstance(slot, Opaque):
             parsed = parse_fragment(slot.fragment)
             if isinstance(parsed, Node):
-                nodes.append(parsed)
+                nodes.append((index, parsed))
     return nodes
+
+
+def _opaque_nodes(entity: FootprintInstance | Pad) -> list[Node]:
+    return [node for _, node in _opaque_slots(entity)]
 
 
 def _plain_stroke(node: Node) -> bool:
@@ -145,20 +150,26 @@ def _text(ctx: Context, node: Node, loc: str, ids: Ids, footprint: FootprintInst
     )
 
 
-def footprint_items(footprint: FootprintInstance) -> FootprintItems:
-    """The projection of the opaque children of one board footprint, in child order. A child that the
-    model cannot hold (a stroke that is not solid, a polygon with an arc, a text without a font size, a
-    number that is no whole number of nanometres, ``fp_text_box``, ``fp_curve``, ``dimension``) is named
-    in ``skipped``."""
+@dataclass(frozen=True, slots=True)
+class DrawnChild:
+    """One drawn child of a board footprint: its index in the footprint's slot list, its node, its head,
+    and its projection (``None`` when the model cannot hold it)."""
+
+    slot: int
+    node: Node
+    item: Graphic | Text | None
+
+
+def drawn_children(footprint: FootprintInstance) -> tuple[DrawnChild, ...]:
+    """Every drawn child of a board footprint (``DRAWN_HEADS``) in child order, each with its projection
+    as ``footprint_items`` makes it."""
     key = footprint.native_ids.get(BACKEND, footprint.id)
     ids = Ids(key)
     source = footprint.provenance
     base = source.locator if source is not None else "/footprint"
-    graphics: list[Graphic] = []
-    texts: list[Text] = []
-    skipped: list[str] = []
+    found: list[DrawnChild] = []
     seen: Counter[str] = Counter()
-    for node in _opaque_nodes(footprint):
+    for index, node in _opaque_slots(footprint):
         head = node.name
         if head not in DRAWN_HEADS:
             continue
@@ -172,23 +183,54 @@ def footprint_items(footprint: FootprintInstance) -> FootprintItems:
         )
         ctx = Context(loaded, FileKind.FOOTPRINT, EVIDENCE)
         kind = FP_GRAPHIC_HEADS.get(head)
+        item: Graphic | Text | None = None
         try:
             if kind is not None:
-                if unrepresentable(node, kind) is not None or not _plain_stroke(node):
-                    skipped.append(head)
-                    continue
-                graphic = read_graphic(ctx, node, loc, kind, ids, root=_ROOT)
-                graphics.append(dataclasses.replace(graphic, ext={}))
+                if unrepresentable(node, kind) is None and _plain_stroke(node):
+                    graphic = read_graphic(ctx, node, loc, kind, ids, root=_ROOT)
+                    item = dataclasses.replace(graphic, ext={})
             elif head == TEXT_HEAD:
-                text = _text(ctx, node, loc, ids, footprint)
-                if text is None:
-                    skipped.append(head)
-                else:
-                    texts.append(text)
-            else:
-                skipped.append(head)
+                item = _text(ctx, node, loc, ids, footprint)
         except FenoliteError:  # an inexact or malformed number: the child stays in its slot only
-            skipped.append(head)
+            item = None
+        found.append(DrawnChild(index, node, item))
+    return tuple(found)
+
+
+def replace_children(
+    footprint: FootprintInstance, replacements: Mapping[int, Sequence[Node]]
+) -> FootprintInstance:
+    """A copy of a board footprint whose opaque child at each slot index of ``replacements`` is replaced,
+    at its place, by the given nodes (none removes it); every other slot is kept as it is."""
+    bag = footprint.ext.get(BACKEND)
+    if bag is None or not replacements:
+        return footprint
+    slots: list[Slot] = []
+    for index, slot in enumerate(slotlib.from_ext(bag)):
+        if index not in replacements:
+            slots.append(slot)
+            continue
+        if not isinstance(slot, Opaque):
+            raise ValueError(f"slot {index} of footprint {footprint.id} is not an opaque child")
+        slots.extend(Opaque(dumps(node, style="compact"), slot.min_version) for node in replacements[index])
+    return dataclasses.replace(footprint, ext={**footprint.ext, BACKEND: slotlib.to_ext(slots, base=bag)})
+
+
+def footprint_items(footprint: FootprintInstance) -> FootprintItems:
+    """The projection of the opaque children of one board footprint, in child order. A child that the
+    model cannot hold (a stroke that is not solid, a polygon with an arc, a text without a font size, a
+    number that is no whole number of nanometres, ``fp_text_box``, ``fp_curve``, ``dimension``) is named
+    in ``skipped``."""
+    graphics: list[Graphic] = []
+    texts: list[Text] = []
+    skipped: list[str] = []
+    for child in drawn_children(footprint):
+        if isinstance(child.item, Graphic):
+            graphics.append(child.item)
+        elif isinstance(child.item, Text):
+            texts.append(child.item)
+        else:
+            skipped.append(child.node.name)
     ratios: dict[str, int] = {}
     for pad in footprint.pads:
         if pad.shape != "roundrect":
@@ -273,13 +315,16 @@ def projection_problems(footprint: FootprintInstance) -> list[tuple[str, str]]:
 
 __all__ = [
     "DRAWN_HEADS",
+    "DrawnChild",
     "EVIDENCE",
     "PROJECTED_PAIR",
     "FootprintItems",
     "Projection",
     "footprint_items",
+    "drawn_children",
     "is_projected",
     "projection_problems",
     "ratio_ppm",
+    "replace_children",
     "with_footprint_items",
 ]

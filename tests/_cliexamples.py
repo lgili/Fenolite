@@ -73,8 +73,10 @@ PREPARED: dict[str, Callable[[Path], None]] = {
     "publish": _publish,
 }
 """Command name → the function that writes its example files into a folder."""
-PLANS_NOTHING = frozenset({"models", "refs"})
-"""Mutating commands whose mutation example plans no write: ``models --vendor`` on the example board,
+PLANS_NOTHING = frozenset({"check", "models", "refs"})
+"""Mutating commands whose mutation example plans no write: ``check`` without ``--exclude``, which checks and
+writes nothing (its exclusion write needs ``kicad-cli``: ``tests/unit/cli/test_check_exclude.py``
+and ``tests/kicad/check/test_exclusions_write.py``; change c0209); ``models --vendor`` on the example board,
 whose footprints name no 3D model (cli-contract, "Models command": both examples exit 0 and run no
 subprocess; change c0116); and ``refs --repoint`` on the example board, which holds no path to
 repoint. The protocol with a real plan is tested in ``tests/unit/cli/test_models_cmd.py`` and

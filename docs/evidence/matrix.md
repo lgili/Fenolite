@@ -402,6 +402,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `read.stackup` | see `read.project` |
 | `read.textfile` | see `read.project` |
 | `read.variants` | `EVIDENCE` INFERRED: `H-A-PRJ-VARIANT` |
+| `resave` | `EVIDENCE` INFERRED: `H-A-RD-RESAVE` |
 | `roundtrip` | `EVIDENCE_BODIES` INFERRED: `H-A-PCBX-BODY-READBACK`<br>`EVIDENCE_RT_A0` INFERRED: `H-A-VER-RTA0`<br>`EVIDENCE_RT_A2` INFERRED: `H-A-VER-RTA2-3`<br>`EVIDENCE_RT_A3` CORPUS-VERIFIED: `H-A-VER-RTA3`<br>`PROJECT_READ_EVIDENCE` CORPUS-VERIFIED: `H-A-RD-PRJ-INI`<br>`_RT_A1` INFERRED: `H-A-VER-RTA1` |
 | `rta3` | see `roundtrip`, `import_evidence` |
 | `rulemap` | `EVIDENCE` INFERRED: `H-A-RULE-CLEARANCE-CELLS`, `H-A-RULE-CLEARANCE-FORMS`, `H-A-RULE-FILE`, `H-A-RULE-KINDS`, `H-A-RULE-PRIORITY`, `H-A-RULE-READBACK`, `H-A-RULE-SCOPE` |
@@ -434,11 +435,13 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `dru` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND` |
 | `embed` | `EVIDENCE` KICAD-VERIFIED: `H-G-BOTTOM-STORE`, `H-G-FLIP`, `H-G-PAD-ANGLE-ABS` |
 | `erc` | `EVIDENCE` KICAD-VERIFIED: `H-K-ERC-JSON`, `H-K-ERC-POS`, `H-K-ERC-COPYSET` |
+| `exclusions` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRC-EXCLUSION` |
 | `fanout` | `EVIDENCE` KICAD-VERIFIED: `H-K-FANOUT` |
 | `fields` | `EVIDENCE` INFERRED: `H-K-FIELD-FRAME`, `H-K-FIELD-JUSTIFY`, `H-K-FIELD-OUTSIDE` |
 | `fill` | `EVIDENCE` KICAD-VERIFIED: `H-K-FILL-SAVE`, `H-K-FILL-LIFT`, `H-K-FILL-REPEAT` |
 | `fpitems` | `EVIDENCE` INFERRED: `H-K-PCB-FPGFX` |
 | `frame` | `EVIDENCE` INFERRED: `H-G-ROT-DIR`, `H-G-BOTTOM-PLACE`, `H-G-PAD-ANGLE-ABS`, `H-G-FRAME-SHAPE`, `H-G-FRAME-CRTYD-2` |
+| `generate` | `EVIDENCE` INFERRED: `H-K-GEN-DRC` |
 | `helpmatrix` | `EVIDENCE` KICAD-VERIFIED: `H-K-CLI-HELP` |
 | `ipcd356` | see `padnets` |
 | `layers` | see `pcb` |
@@ -448,6 +451,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `libs` | `EVIDENCE` INFERRED: `H-K-LIB-COMMON`, `H-K-LIB-CONFIGHOME`, `H-K-LIB-FALLBACK`, `H-K-LIB-NESTED`, `H-K-LIB-RELPATH-2`, `H-K-LIB-SCAN`<br>`WRITE_EVIDENCE` INFERRED: `H-K-BUILD-LIBTABLE` |
 | `lowering` | `EVIDENCE` KICAD-VERIFIED: `H-K-DRU-DIALECT`, `H-K-DRU-ORDER`, `H-K-DRU-COND`, `H-K-DRU-KIND`, `H-K-DRU-PAIR` |
 | `meander` | `EVIDENCE` INFERRED: `H-K-NETLEN-MEANDER` |
+| `merge` | `EVIDENCE` INFERRED: `H-K-MERGE-ITEMS` |
 | `mod` | `AUTHORING_EVIDENCE` INFERRED: `H-K-DSL-FOOTPRINT`<br>`EVIDENCE` INFERRED: `H-K-LIB-READ` |
 | `models` | `EVIDENCE` KICAD-VERIFIED: `H-K-EXPORT-MODELS` |
 | `netlist` | `EVIDENCE` KICAD-VERIFIED: `H-K-NETLIST-SHAPE` |
@@ -474,6 +478,7 @@ a claim), `see` (its code runs only inside the operations of the named modules o
 | `stackup` | `EVIDENCE` KICAD-VERIFIED: `H-K-STACKUP-JOB`, `H-K-STACKUP-COMPLETE`, `H-K-STACKUP-DEFAULT`, `H-K-STACKUP-RESAVE` |
 | `sym` | `EVIDENCE` INFERRED: `H-K-LIB-READ`<br>`WRITE_EVIDENCE` UNVERIFIED: — |
 | `symembed` | see `schgen` |
+| `textink` | `EVIDENCE` KICAD-VERIFIED: `H-K-SILK-INK` |
 | `triad` | see `dru`, `pcb`, `pro` |
 | `tuning` | `EVIDENCE` INFERRED: `H-K-PRO-TUNING-DRC`, `H-K-PRO-TUNING-KEYS` |
 | `versions` | `EVIDENCE` INFERRED: `H-K-TOK-CONSTANTS` |

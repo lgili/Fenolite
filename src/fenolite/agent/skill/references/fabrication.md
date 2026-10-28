@@ -133,6 +133,17 @@ fenolite render blink/build -o blink/views --png --width 800 --height 600 --conf
 and `bottom.png` (rendered images). They are for looking at a board, yours or the user's; they are not
 fabrication data. A view shows what no finding says: a part across the outline, a text over a pad.
 
+To look at one crowded area, draw it with `--region`. Fenolite draws `region.svg` from the model, with
+no tool: copper, holes, slots, zones in their state, and a grid in board millimetres. `--nets` labels the
+pads, `--open` draws the open connections, and `--cut` draws a barrier's ways per layer.
+
+```fenolite-cmd
+fenolite render blink/build -o blink/views --region 0mm,0mm,20mm,20mm --nets --open --confirm --json
+```
+
+Each element carries `class` and `data-net`, so read the file as data too. A `render.copper-simulated`
+info means a zone had no saved fill: run `fenolite fill` for KiCad's own.
+
 ## Filled and capped vias
 
 `protection=protect(filling=True, capping=True)` asks for the vias of a stitch to be filled and capped,

@@ -20,7 +20,7 @@ from fenolite.cli.api import discover
 from fenolite.cli.describe import describe
 from fenolite.mcp.backend import FenoliteBackend
 from fenolite.mcp.protocol import Call, UnknownTool
-from fenolite.mcp.tools import NOT_TOOLS, Catalog, InputRefused, tool_name
+from fenolite.mcp.tools import NOT_TOOLS, READ_TOOLS, Catalog, InputRefused, tool_name
 
 COMMANDS = discover()
 CATALOG = Catalog(COMMANDS)
@@ -36,9 +36,10 @@ def test_tools_listed() -> None:
         command = COMMANDS[definition["title"]]
         own = {a.name for a in describe(command).arguments} - {"dry_run", "confirm", "plan"}
         properties = set(definition["inputSchema"]["properties"])
-        assert own - {"serve", "port", "no_browser"} <= properties, definition["name"]
+        left_out = {"serve", "port", "no_browser"} | READ_TOOLS.get(command.name, frozenset())
+        assert own - left_out <= properties, definition["name"]
         assert {"fields", "limit", "cursor", "seed", "timestamp"} <= properties
-        assert ({"confirm", "plan"} <= properties) == command.mutates
+        assert ({"confirm", "plan"} <= properties) == (command.mutates and command.name not in READ_TOOLS)
         assert definition["inputSchema"]["additionalProperties"] is False
 
 
@@ -89,7 +90,7 @@ def test_annotations() -> None:
 
 def test_read_only_and_only() -> None:
     read_only = Catalog(COMMANDS, read_only=True)
-    assert all(not COMMANDS[t.command].mutates for t in read_only.tools.values())
+    assert all(not t.mutates for t in read_only.tools.values())
     assert list(Catalog(COMMANDS, only=["route", "check"]).tools) == ["fenolite_check", "fenolite_route"]
     with pytest.raises(KeyError):
         Catalog(COMMANDS, only=["nope"])

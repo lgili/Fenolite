@@ -508,6 +508,9 @@ def _pad_box(pad: Pad) -> BBox:
 
 
 __all__ = [
+    "BOARD_PAD_HEADS",
+    "PLACEMENT_HEADS",
+    "local_footprint",
     "EVIDENCE",
     "FIELD_GAP",
     "FIELD_SIZE",
@@ -533,3 +536,37 @@ __all__ = [
 def flip_footprint_tree(tree: Node, issues: list[Issue]) -> Node:
     """Mirror a local footprint tree and swap paired layers (c0161 derived libraries)."""
     return _flip(tree, issues)
+
+
+PLACEMENT_HEADS: frozenset[str] = frozenset(
+    {"at", "layer", "uuid", "locked", "path", "sheetname", "sheetfile", "tstamp"}
+)
+"""The children of a board footprint that place it on its board, which its library footprint lacks."""
+BOARD_PAD_HEADS: frozenset[str] = frozenset({"net", "pinfunction", "pintype"})
+"""The children of a board pad that tie it to the board's circuit."""
+
+
+def local_footprint(root: Node, rotation: Udeg, side: Side, issues: list[Issue]) -> Node:
+    """A board footprint node brought back to its own origin, rotation 0 and the top side: the placement
+    children and the pads' nets dropped, the angles of pads, properties and texts turned back by
+    ``rotation``, and a bottom footprint flipped (c0161 derived libraries; ``fenolite library``, c0223)."""
+    from fenolite.core.units import parse_angle
+
+    children: list[Node | Atom] = []
+    for child in root.children[1:]:
+        if isinstance(child, Node) and child.name in PLACEMENT_HEADS:
+            continue
+        if isinstance(child, Node) and child.name == "pad":
+            child = child.with_children(
+                tuple(c for c in child.children if not isinstance(c, Node) or c.name not in BOARD_PAD_HEADS)
+            )
+        if isinstance(child, Node) and child.name in {"pad", "property", "fp_text"}:
+            at = child.find("at")
+            if at is not None and len(at.atoms()) >= 3:
+                atoms = at.atoms()
+                angle = parse_angle(atoms[2].value + "deg") - rotation
+                replacement = at.with_children((*at.children[:2], angle_atom(angle)))
+                child = child.with_children(tuple(replacement if c is at else c for c in child.children))
+        children.append(child)
+    local = root.with_children((root.children[0], *children))
+    return _flip(local, issues) if side == "bottom" else local

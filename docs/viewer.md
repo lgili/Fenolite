@@ -81,7 +81,7 @@ copied (`docs/formats/kicad/color-theme.md`).
     or outside the board; copper outside the board; the open connections of `fenolite analyze`'s
     connectivity, ground nets apart.
   - **Silkscreen gap.** It is `--silk-gap`, else the board's `silk_clearance` rule, else 0. The pads' mask
-    openings grow by `--mask-expansion`: the model holds no mask expansion.
+    openings grow by `--mask-expansion`; the viewer does not read the pads' own `mask_margin` (change c0223).
   - **Files.** With `--overlay REPLY.json`, the clearance (red) and creepage (blue) paths of a `fenolite
     analyze` reply are drawn. A pair that an error or a warning names is marked as a finding.
   - **Findings files.** `--overlay` also reads a findings file of another tool, `fenolite.view_overlay.v0`:

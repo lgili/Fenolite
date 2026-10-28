@@ -102,3 +102,7 @@ orientation, pin-direction, root text and polyline facts of `schematic-ascii.md`
 S-0131 and S-0140). No third-party source was reopened. The grouping, geometry estimates, bounded
 search and examples are Fenolite-authored choices. Full native electrical readback uses Fenolite's
 own reader; it establishes no Altium GUI acceptance. See `docs/evidence/schematic-composition.md`.
+
+Change c0207 (`resave.py`) decodes the spellings of property text by the reader's own rules (mil text,
+`TRUE`/`T` booleans, decimal and scientific numbers), facts of S-0002 and S-0163 already recorded in
+`docs/formats/altium/pcb-read.md`; nothing was read from a third-party parser.

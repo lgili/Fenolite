@@ -179,7 +179,7 @@ def test_job_extra_holds_the_board_pads_and_the_outline(monkeypatch, tmp_path: P
     code, env, error, _ = run(monkeypatch, tmp_path, "route", str(board), "--router", "recorder", "--dry-run")
     assert code == 0, (env, error)
     (job,) = router.jobs
-    assert set(job.extra) == {"board_pads", "outline"}
+    assert set(job.extra) == {"board_pads", "outline", "clearance", "copper_check"}
     pads = job.extra["board_pads"]
     assert isinstance(pads, tuple) and pads and all(isinstance(pad, BoardPad) for pad in pads)
     assert {pad.net for pad in pads if pad.net} >= {net.name for net in job.nets}
