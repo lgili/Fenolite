@@ -200,6 +200,7 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0201 | `file-safety` | `snapshot`, `publish` guarded by receipts, open-session warnings, online-only files, `refs --repoint` (package 9 of c0175) | c0175 |
 | c0202 | `return-paths` | `analyze --kinds returns`: tracks across a gap of their plane, vias without a reference via | c0199 |
 | c0203 | `fabrication-readback` | `export --readback`: the Gerber, drill and position files read back and compared with the board (task 12.1 of c0175) | c0175 |
+| c0210 | `release-automation` | a pushed tag runs the release: checks, build, PyPI and the GitHub Release with notes and checksums; ids c0204 to c0209 are held by other branches | c0154, c0171 |
 
 The id c0164 is held by two archived changes (the two c0164 rows of the table); new changes start at c0204.
 

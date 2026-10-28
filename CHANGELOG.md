@@ -23,6 +23,7 @@ All notable changes to Fenolite are documented here. The format follows
 
 ### Changed
 
+- **Releases from a tag** (c0210): pushing `vX.Y.Z` runs the release workflow, which refuses a tag whose commit is not on `main` or whose versions, alias pin and changelog section disagree (`tools/release.py check`), builds both packages from the tag, checks their metadata and installs the wheel alone, publishes to PyPI (skipped when PyPI holds the version) and creates the GitHub Release with notes from the changelog, install lines and the files PyPI serves with their SHA-256. A manual run takes a tag and can create it on `main`. It no longer starts on a published GitHub Release. See `docs/releasing.md`.
 - **The `mcp` extra is removed** (c0195): the server needs no package, and the official MCP SDK is in the `oracles` extra, where a test runs its client against the server.
 
 - **The agent evaluation can run Claude Code** (c0081, task 4.2): the runner `claude-code` of `tools/agent_eval/runners.toml` is completed against the `--help` of Claude Code 2.1.311 (version flag, isolation with `--bare`, the installed guide given with `--append-system-prompt-file`, a cap of `--max-budget-usd 2`). The run itself is started by the maintainer: `make agent-eval TASK=led-indicator RUNNER=claude-code ARGS=--yes`, with `ANTHROPIC_API_KEY` set.

@@ -840,6 +840,51 @@ def test_release_publish_skips_existing_versions() -> None:
     ]
 
 
+def release_flow_problems(workflow: str) -> list[str]:
+    """Why the release workflow would not release from a tag end to end (change c0210): a pushed tag
+    starts it, the build checks the versions and the changelog, the metadata and the wheel alone, and the
+    last job creates the GitHub Release with the notes and the files."""
+    problems: list[str] = []
+    on = workflow.split("\njobs:", 1)[0]
+    if not re.search(r'^  push:\n    tags: \["v\*\.\*\.\*"\]$', on, re.MULTILINE):
+        problems.append("release: a pushed tag v*.*.* must start the workflow")
+    if re.search(r"^  release:", on, re.MULTILINE):
+        problems.append("release: the workflow must not also start on a published GitHub Release")
+    build = job_text(workflow, "build")
+    for needle, why in (
+        ("tools/release.py check --tag", "the build must check the versions and the changelog"),
+        ("twine check --strict", "the build must check the metadata of the distributions"),
+        ('fenolite --version)" = "fenolite ${TAG#v}"', "the build must install the wheel alone"),
+        ("tools/residue/scan.py", "the build must run the residue scan"),
+    ):
+        if needle not in build:
+            problems.append(f"release: {why}")
+    github = job_text(workflow, "github-release")
+    if "contents: write" not in github or "gh release create" not in github:
+        problems.append("release: the github-release job must create the GitHub Release")
+    if "--verify-tag" not in github or "--notes-file notes.md" not in github:
+        problems.append("release: the GitHub Release must be made from the existing tag with the notes")
+    if "tools/release.py pypi-files" not in github:
+        problems.append("release: the GitHub Release must attach the files PyPI holds")
+    return problems
+
+
+def test_release_flow() -> None:
+    """Scenario "A tag releases" (c0210)."""
+    workflow = RELEASE_WORKFLOW.read_text(encoding="utf-8")
+    assert release_flow_problems(workflow) == []
+    untagged = workflow.replace('    tags: ["v*.*.*"]\n', "")
+    assert "release: a pushed tag v*.*.* must start the workflow" in release_flow_problems(untagged)
+    double = workflow.replace(
+        "  workflow_dispatch:\n", "  release:\n    types: [published]\n  workflow_dispatch:\n", 1
+    )
+    assert any("published GitHub Release" in p for p in release_flow_problems(double))
+    unchecked = workflow.replace("tools/release.py check --tag", "tools/release.py --tag")
+    assert any("versions and the changelog" in p for p in release_flow_problems(unchecked))
+    unverified = workflow.replace("--verify-tag", "")
+    assert any("existing tag" in p for p in release_flow_problems(unverified))
+
+
 def test_kicad_10_heavy_prerequisites_required() -> None:
     text = WORKFLOW.read_text(encoding="utf-8")
     disabled = text.replace('FENOLITE_HEAVY: "1"', 'FENOLITE_HEAVY: "0"')

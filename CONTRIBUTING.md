@@ -96,3 +96,8 @@ the Apache License 2.0.
 - Python ≥ 3.11, stdlib-only core, full type hints (`pyright` strict on `src/`).
 - Every `.py` file starts with the SPDX and copyright lines (see any existing file).
 - Lengths are integer nanometres; angles are integer microdegrees; no floats in the model.
+
+## Releases
+
+A release is a pushed tag `vX.Y.Z`: the release workflow checks, builds, publishes to PyPI and creates
+the GitHub Release. The steps are in [`docs/releasing.md`](docs/releasing.md).
