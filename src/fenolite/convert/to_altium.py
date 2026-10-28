@@ -7,7 +7,8 @@ The design read from KiCad keeps the drawings of its footprints and the corner r
 KiCad's own slots, so it is projected first (``fpitems.with_footprint_items``, as ``lens.altium.write_model``
 does), then written with ``lower.write_design(..., allow_lossy=True)``: the consent to a loss is the
 conversion's, which judges the report. What the write leaves out is mapped per kind and reason into the
-report; a polygon written unpoured and the generated schematic are changes, not losses. The edges of the
+report; a polygon written unpoured or poured by Fenolite and the generated schematic are changes, not
+losses (the reason of a polygon is that of its pour mode, change c0215). The edges of the
 board are given to the write as an outline (``edge_outline``, change c0170): its board ring is the
 document's outline and every inner ring a cut-out region, counted under ``cutout``.
 """
@@ -38,6 +39,10 @@ CHANGES: Mapping[str, str] = {
 }
 """The kinds this direction writes in another form, with the reason the report gives them."""
 CHANGE_KINDS = frozenset(CHANGES)
+ZONE_FILL = "zone-fill"
+POURED = "the pour is computed by Fenolite from the written document (experimental)"
+"""The reason of a zone whose polygons Fenolite poured (pour mode ``computed``, change c0215); a zone with a
+refused polygon keeps the reason of ``CHANGES``."""
 WRITER_KINDS: tuple[str, ...] = (
     *lower.KINDS,
     *lower.MORE_KINDS,
@@ -81,6 +86,23 @@ def _extra_losses(design: Design, write: lower.ProjectWrite) -> dict[str, dict[s
     return found
 
 
+def _zone_fills(
+    reasons: Mapping[str, tuple[str, ...]], write: lower.ProjectWrite
+) -> dict[str, tuple[str, ...]]:
+    """The reasons of the kind ``zone-fill`` by the pour of the write: with ``computed``, a zone none of whose
+    polygons was refused is poured; every other zone is written unpoured."""
+    summary = write.pour.pour if write.pour is not None and write.pour_mode == "computed" else None
+    if summary is None or not summary.poured:
+        return dict(reasons)
+    refused = {zone for _, zone, _ in summary.refused}
+    ids = tuple(i for found in reasons.values() for i in found)
+    found = {
+        CHANGES[ZONE_FILL]: tuple(i for i in ids if i in refused),
+        POURED: tuple(i for i in ids if i not in refused),
+    }
+    return {reason: ids for reason, ids in found.items() if ids}
+
+
 def write(source: SourceProject, options: Options) -> Written:
     """The Altium project of a KiCad source, with its report."""
     design = pads.project(fpitems.with_footprint_items(_named(source.design, options.name)).design)
@@ -98,6 +120,7 @@ def write(source: SourceProject, options: Options) -> Written:
             symbols=symbols,
             sheets="modules" if sch is not None else "flat",
             edges=edges,
+            pour=options.pour,
         )
     except CompoundTooLarge as error:
         raise TargetLimitError(
@@ -115,6 +138,8 @@ def write(source: SourceProject, options: Options) -> Written:
     }
     for kind, reasons in inputs.changed.items():
         changed[kind] = {**changed.get(kind, {}), **reasons}
+    if ZONE_FILL in changed:
+        changed[ZONE_FILL] = _zone_fills(changed[ZONE_FILL], written)
     if changed_comments:
         changed["schematic-text"] = {
             "a literal comment starting with = is written with a leading space": changed_comments
@@ -134,6 +159,7 @@ def write(source: SourceProject, options: Options) -> Written:
     issues = tuple(
         issue for issue in written.issues if issue.code != lower.NOT_LOWERED or issue.where == SCHEMATIC
     )
+    summary = written.pour.pour if written.pour is not None else None
     return Written(
         written.files,
         report,
@@ -141,6 +167,9 @@ def write(source: SourceProject, options: Options) -> Written:
         f"{name}.PcbDoc",
         issues,
         schematic=f"{name}.PrjPcb" if sch is not None else None,
+        evidence=Evidence.combine(EVIDENCE, summary.evidence)
+        if summary is not None and summary.poured
+        else None,
     )
 
 

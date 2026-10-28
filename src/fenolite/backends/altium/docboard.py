@@ -221,28 +221,40 @@ def polygon_fields(
     net: int | None = None,
     auto_name: bool = False,
     remove_dead: bool = True,
+    optimal_void_rotation: bool = True,
+    pour_over: str = "1",
 ) -> list[Field]:
     """The fields of one unpoured, solid polygon pour of ``Polygons6`` (``pcb-copper.md``, "Polygon pour"):
     the key set of the board outline with a net, a name and a pour index. ``layer_text`` is the ``LAYER``
     text (``TOP``, ``MID1`` …); ``vertices`` are in binary units in the Altium frame, without the closing
     vertex; ``net`` is the net's index (``None``: no ``NET`` key); ``auto_name`` adds ``AUTONAME=TRUE``.
     ``remove_dead`` off writes ``REMOVEDEAD=FALSE``: the pour keeps its islands (change c0085).
-    ``ValueError`` for fewer than three vertices."""
+    ``optimal_void_rotation`` off writes ``OPTIMALVOIDROTATION=FALSE``, the form of a computed pour (change
+    c0215, input I15). ``pour_over`` is ``POUROVERSTYLE`` (``0``, ``1`` or ``2``, input I8), with
+    ``POUROVER=TRUE`` for ``1`` only, as the saved documents pair them. ``ValueError`` for fewer than three
+    vertices or another ``pour_over``."""
     if len(vertices) < 3:
         raise ValueError("a polygon needs at least three points")
-    head = [(key, "FALSE" if key == "REMOVEDEAD" and not remove_dead else value) for key, value in _POUR_HEAD]
+    if pour_over not in ("0", "1", "2"):
+        raise ValueError(f"POUROVERSTYLE is 0, 1 or 2, not {pour_over!r}")
+    fixed = {
+        "REMOVEDEAD": "TRUE" if remove_dead else "FALSE",
+        "POUROVER": "TRUE" if pour_over == "1" else "FALSE",
+    }
+    head = [(key, fixed.get(key, value)) for key, value in _POUR_HEAD]
     fields: list[Field] = [
         *common_fields(layer_text),
         *head,
         *_outline(vertices),
-        *_POUR_TAIL,
+        *_POUR_TAIL[:-1],
+        ("POUROVERSTYLE", pour_over),
         ("NAME", name_codes(name)),
         ("POURINDEX", str(pour_index)),
         ("IGNOREVIOLATIONS", "FALSE"),
     ]
     if auto_name:
         fields.append(("AUTONAME", "TRUE"))
-    fields.append(("OPTIMALVOIDROTATION", "TRUE"))
+    fields.append(("OPTIMALVOIDROTATION", "TRUE" if optimal_void_rotation else "FALSE"))
     if net is not None:
         fields.append(("NET", str(net)))
     return fields

@@ -10,6 +10,7 @@ case and checks that the codes produced are exactly the table's, with the table'
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
 import shutil
 import tempfile
 from collections.abc import Callable, Iterator
@@ -607,12 +608,51 @@ def test_closed_set() -> None:
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_c0087_cases():
         produced.setdefault(found.code, set()).add(found.severity)
+    for found in run_pour_cases():
+        produced.setdefault(found.code, set()).add(found.severity)
     for code, severities in produced.items():
         if code.startswith(PASS_THROUGH):
             continue
         assert code in ALTIUM_ISSUE_CODES, code
         assert severities == {ALTIUM_ISSUE_CODES[code]}, (code, severities)
-    assert set(ALTIUM_ISSUE_CODES) <= set(produced), set(ALTIUM_ISSUE_CODES) - set(produced)
+    expected = set(ALTIUM_ISSUE_CODES) - (set() if GEO else POUR_CODES_WITH_GEO)
+    assert expected <= set(produced), expected - set(produced)
+
+
+GEO = importlib.util.find_spec("pyclipper") is not None
+POUR_CODES_WITH_GEO = {"altium.zones-poured", "altium.zone-unpoured"}
+"""The codes of a computed pour (change c0215), which only a build with the geo extra gives."""
+
+
+def run_pour_cases() -> tuple[Issue, ...]:
+    """Change c0215: the routed sample poured (``altium.zones-poured``), one polygon refused by a test
+    engine (``altium.zone-unpoured``), and the default pour without the geo extra
+    (``altium.pour-unavailable``)."""
+    import sys
+    from unittest import mock
+
+    from _altium_copper import routed_build
+
+    from fenolite.backends.altium import pour as engine
+
+    found: list[Issue] = []
+    with tempfile.TemporaryDirectory() as folder:
+        if GEO:
+            found += routed_build(Path(folder) / "a", pour="computed").issues
+            real = engine.pour_reading
+
+            def refusing(reading: engine.PourReading, **options: object) -> engine.PourResult:
+                result = real(reading, **options)  # type: ignore[arg-type]
+                first, *rest = result.polygons
+                first = engine.PolygonPour(first.index, first.layer, first.net, (), first.arc_resolution,
+                                           "unshaped-copper", first.zone_id)  # fmt: skip
+                return engine.PourResult((first, *rest))
+
+            with mock.patch.object(engine, "pour_reading", refusing):
+                found += routed_build(Path(folder) / "b", pour="computed").issues
+        with mock.patch.dict(sys.modules, {"pyclipper": None}):
+            found += routed_build(Path(folder) / "c", pour=None).issues
+    return tuple(found)
 
 
 def run_bus_case() -> tuple[Issue, ...]:
@@ -678,6 +718,9 @@ def test_the_table() -> None:
         "altium.copper-net-missing": "error",
         "altium.copper-no-document": "error",
         "altium.zones-unpoured": "info",
+        "altium.zones-poured": "info",
+        "altium.zone-unpoured": "warning",
+        "altium.pour-unavailable": "warning",
         "altium.plane-zone-merged": "info",
         "altium.placement-from-board": "info",
     }

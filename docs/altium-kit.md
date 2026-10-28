@@ -53,8 +53,8 @@ fenolite kit build --out kit --dry-run --json
 fenolite kit build --out kit --confirm --json
 ```
 
-The command runs in a source checkout: it builds the five scripts under `examples/kit/` (`--samples DIR`
-names another folder). Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
+The command runs in a source checkout: it builds the seven scripts under `examples/kit/` (`--samples DIR`
+names another folder). The two pour samples need the `geo` extra: without it the command exits 6. Without `--seed` and `--timestamp` it uses seed 0 and `2026-01-01T00:00:00Z`, so
 everyone who builds the same commit gets the same kit and the same `kit_sha256`. No external tool runs.
 
 | sample | script | what it is for |
@@ -64,6 +64,14 @@ everyone who builds the same commit gets the same kit and the same `kit_sha256`.
 | `routed` | `examples/kit/routed/design.py` | tracks, vias, one unpoured polygon, five rules, two planted violations, an output job |
 | `board6` | `examples/kit/board6/design.py` | six copper layers with a plane, blind and buried vias, texts, graphics, a keep-out, a hole |
 | `libs` | `examples/kit/libs/design.py` | a schematic library and a PCB library of seven parts |
+| `pour` | `examples/kit/pour/design.py` | eleven probes of the polygon pour on two layers (change c0215): two free PCB documents, `computed/pour.PcbDoc` with Fenolite's pour and `reference/pour.PcbDoc` without its regions, and `probes.json` |
+| `pour4` | `examples/kit/pour4/design.py` | the probes of the inner layers of four, with blind and buried vias, in the same form as `pour` |
+
+`routed` is built with the pour mode `outline` (as is every sample but the two pour samples), so step K6.1
+still repours a board that holds no poured copper. Each probe of `pour` and `pour4` is its own polygon on its
+own net, and its name starts with the probe's id (`P0` to `P10`); `probes.json` maps each polygon to its
+probe and holds the points the scripts declare, where copper must stay or be gone, in the frame of
+Fenolite's import.
 
 The kit also holds `templates/iso5457_generic.SchDot`, the sheet template of group K8. It is built from the
 shipped specification when the kit is built: no template file is kept in the repository.
@@ -80,18 +88,25 @@ without a run, not measurements.
 | K3 | Change order into an empty board | flat | 2 | 8 |
 | K4 | Rules editor and rule check | routed | 4 | 8 |
 | K5 | Layer stack, vias, texts, keep-outs | board6 | 5 | 10 |
-| K6 | Repour | routed | 1 | 4 |
+| K6 | Repour | routed, pour, pour4 | 11 | 34 |
 | K7 | Output job | routed | 2 | 6 |
 | K8 | Sheet template and special strings | flat, kit | 3 | 5 |
 | K9 | Libraries | libs | 2 | 5 |
 
-Together about 64 minutes, plus the time to fill the form. A run may leave groups out: their steps are
+Together about 94 minutes, plus the time to fill the form. A run may leave groups out: their steps are
 `skipped`, and the rows they settle stay as they are. Group K9 is the first to leave out.
 
 Step K9.1 leaves the sheet of `libs` saved after "Update From Libraries". That file shows that the nets
 are kept; it cannot show that the update ran, and the kit runs only the full replacement. So `H-A-SCH-UPDATE`
 (what the update does to a part, and the update of selected attributes) is settled by no step and stays an
 author report, and `H-A-SCHLIB-UPDATE` passes only with the typed value of step K9.2 and is marked `form`.
+
+Steps K6.2 to K6.11 (change c0215) compare Fenolite's pour with Altium's. K6.2 and K6.9 rebuild every
+polygon of `reference/` in the Polygon Manager, and K6.3 does the same with Tools » Polygon Pours » Repour
+All (`H-A-POUR-SCRIPT`: the two ways give the same copper). K6.4 and K6.10 save `computed/` without a repour,
+K6.5 and K6.6 count the polygons the Polygon Manager and the rule check flag on it (0 each), K6.7 and K6.11
+force a repour of `computed/`, and K6.8 is the value of `PCB.Polygon.AdvancedPour` (off). Every one is a
+manual step: each that leaves a board ends in a save under a new name, which the script does not do.
 
 Fenolite writes no component body, so no step reads one. The DSL has no bus, so the sample `tree` gets its
 bus from its script's `kit_model`; no step reads the bus in Altium, and `H-A-SCHX-BUS` stays an author
@@ -154,6 +169,7 @@ call for it; these steps are manual:
 - **saving a document under its result name**: the page of `IServerDocument` (S-0505) describes `DoSafeChangeFileNameAndSave` only as a test of whether the save is possible, and `DoFileSave` as a save in place in a format whose names it does not list for current versions; no page says that either writes the file under a new name.
 - **the rule check report, Repour All and the containers of the output job**: the page of the server processes (S-0506) names no process for them, and the rule check opens a dialog.
 - **the change order and Update From Libraries**: both open dialogs that a person reads.
+- **the rebuild of every polygon of the pour samples (change c0215)**: `IPCB_Polygon.Rebuild` is documented (S-0836), but each of steps K6.2 to K6.11 ends in a board saved under its result name, which no page names a call for.
 
 So the script performs the five compile steps of group K2 and nothing else. It was never run in Altium:
 `H-A-KIT-SCRIPT` is `INFERRED`. Four things about it are inferred and not documented: that a script file
@@ -188,6 +204,10 @@ without `kit.json`.
 | `messages` | the file holds at least one line and no line of the class Error or Fatal Error |
 | `listing` | the file holds at least one line, and no line holds a folder |
 | `present` | the file exists and is not empty |
+| `repoured` | every polygon with a declared point of copper holds poured regions, the sentinel P0 among them; otherwise the step fails with "the repour did not run" |
+| `pour-match` | Fenolite's pour of the same sample (`computed/`) meets M1 to M5 of `pourcompare` against the saved board for every polygon; each failure names its probe, its criterion and its place |
+| `pour-same` | the saved board meets M1 to M4 of `pourcompare` against the board that the step named by the check saved (K6.2 for K6.3 and K6.7, K6.9 for K6.11) |
+| `pour-kept` | the regions of every polygon of the saved board equal those Fenolite wrote within one unit of the document |
 
    Before any of these, a result file is told by its content: when it is of another kind of document than
    the step wants (a schematic saved under the name of the board, a library under the name of a sheet), the
@@ -210,7 +230,9 @@ reference on any comparison. A difference that no entry names fails its step. An
 Altium normalises is added only with the cause that a run showed.
 
 A hypothesis passes when every step that names it passes, and is marked `form` when one of them is a typed
-value. `H-A-KIT-SCRIPT` passes only in a run where the script did every scripted step.
+value. An input row of the pour (`H-A-POUR-CLEARANCE` to `H-A-POUR-VIAPAD`) is settled by its probes, not by
+whole steps: it fails only when `repoured` fails, or when `pour-match` fails on a probe that it names
+(`steps.PROBE_ROWS`), so that one failing probe fails only its own rows; `H-A-POUR-KIT` fails with any. `H-A-KIT-SCRIPT` passes only in a run where the script did every scripted step.
 
 **The parity check.** The steps that leave a schematic or a PCB document of a sample with both (K1.1, K1.2,
 K1.6, K3.1, K5.1, K6.1, K9.1) also run the stage `parity` of `fenolite check` (change c0088) on a temporary

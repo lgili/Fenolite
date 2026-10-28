@@ -18,17 +18,23 @@ from fenolite.model.design import Design
 Target = Literal["kicad", "altium"]
 TARGETS: tuple[Target, ...] = ("altium", "kicad")
 BODIES = ("extruded", "off")
+Pour = Literal["outline", "computed"]
+POURS: tuple[Pour, ...] = ("computed", "outline")
+"""The pour modes of an Altium target (change c0215): ``computed`` pours each polygon as Fenolite computes it
+with Altium's rules (experimental), ``outline`` writes it unpoured."""
 
 
 @dataclass(frozen=True, slots=True)
 class Options:
     """What a conversion is asked for besides its source: the KiCad major of a KiCad target, what to do
-    with component bodies in an Altium target, and the stem of the written files (``None``: the
-    source's)."""
+    with component bodies in an Altium target, the stem of the written files (``None``: the source's), and
+    the pour mode of an Altium target (``None``: ``computed``, or ``outline`` with a warning without the
+    ``geo`` extra; change c0215)."""
 
     kicad_version: int = 10
     bodies: str = "extruded"
     name: str | None = None
+    pour: Pour | None = None
 
 
 @dataclass(frozen=True, slots=True)

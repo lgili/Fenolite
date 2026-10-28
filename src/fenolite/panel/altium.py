@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from fenolite.backends.altium import lower, pcbdoc
 from fenolite.core.coords import Point, Size
@@ -50,6 +50,9 @@ from fenolite.model.panel import Panel
 from fenolite.panel import ids
 from fenolite.panel.kicad import ORIGIN
 from fenolite.panel.layout import PanelCopy, PanelLayout, Rect
+
+if TYPE_CHECKING:
+    from fenolite.backends.altium.pour import PourMode
 
 ROUTE_LAYER = "Route Tool Path"
 """The name of the mechanical layer of the routed gaps: older versions find routing data by this name
@@ -345,9 +348,22 @@ def project_file(document: str) -> bytes:
     return b"".join(line.encode("ascii") + b"\r\n" for line in lines)
 
 
-def flat_files(panel: Panel, laid: PanelLayout, board_design: Design) -> tuple[dict[str, bytes], list[Issue]]:
+def flat_files(
+    panel: Panel,
+    laid: PanelLayout,
+    board_design: Design,
+    *,
+    pour: PourMode | None = None,
+    pour_results: list[pcbdoc.PcbDocResult] | None = None,
+) -> tuple[dict[str, bytes], list[Issue]]:
     """``<name>.PcbDoc`` and ``<name>.PrjPcb`` of the flattened panel, and the issues of the write (each
-    item the Altium writer leaves out is reported as the conversion reports it)."""
+    item the Altium writer leaves out is reported as the conversion reports it). ``pour`` is the pour mode
+    of the document (change c0215), as in ``lower.write_design``: ``None`` is ``computed``, written as
+    ``outline`` with one ``altium.pour-unavailable`` warning without the ``geo`` extra; ``pour_results``,
+    when given, receives the result of the write."""
+    import fenolite.backends.altium.connectstyle as connectstyle
+    from fenolite.backends.altium.pour import BackendUnavailable
+
     design, issues = panel_design(panel, laid, board_design)
     if any(i.severity == "error" for i in issues):
         return {}, issues
@@ -357,7 +373,26 @@ def flat_files(panel: Panel, laid: PanelLayout, board_design: Design) -> tuple[d
     spec = _named_layers(inputs.pcb)
     name = panel.name
     document = f"{name}.PcbDoc"
-    files = {document: pcbdoc.write_pcbdoc(spec, filename=document), f"{name}.PrjPcb": project_file(document)}
+    try:
+        written = pcbdoc.write_pcbdoc_result(spec, filename=document, pour=pour or "computed")
+    except BackendUnavailable:
+        if pour is not None:
+            raise
+        written = pcbdoc.write_pcbdoc_result(spec, filename=document, pour="outline")
+        found.append(
+            Issue(
+                lower.POUR_UNAVAILABLE,
+                "warning",
+                lower.POUR_UNAVAILABLE_TEXT,
+                where=document,
+                hint="pip install 'fenolite[geo]'",
+            )  # fmt: skip
+        )
+    if written.pour is not None:
+        found += [*written.pour.issues(document), *written.issues, *connectstyle.pad_overrides(design.board)]
+    if pour_results is not None:
+        pour_results.append(written)
+    files = {document: written.data, f"{name}.PrjPcb": project_file(document)}
     return files, [*issues, *found]
 
 

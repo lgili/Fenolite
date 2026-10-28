@@ -40,7 +40,7 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - name: Sync (locked)
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --extra dev --extra geo
       - name: Lint
         run: uv run ruff check .
       - name: Format
@@ -179,7 +179,7 @@ jobs:
       - name: kicad-cli version
         run: kicad-cli version
       - name: Sync (locked)
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --extra dev --extra geo
       - name: Corpus cache
         uses: actions/cache@v4
         with:

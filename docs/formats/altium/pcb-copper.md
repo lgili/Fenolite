@@ -253,8 +253,10 @@ track and via flags above). Altium Designer's own view of a written lock is step
 
 - The 49-byte track and the 60-byte arc: their tails add nothing the model holds, and the short forms
   open in Altium Designer 26.5 (`H-A-PCB-CU-TRACK`).
-- `Regions6` and `ShapeBasedRegions6`: polygons are written unpoured, and a zone's fills are not copied
-  (`H-A-PCB-CU-REPOUR`). Hatched pours, shelved polygons and polygon cutouts.
+- `Regions6` and `ShapeBasedRegions6` with the pour mode `outline`: polygons are written unpoured, and a
+  zone's fills are not copied (`H-A-PCB-CU-REPOUR`). With `computed` (the default since change c0215) the
+  regions of each poured polygon are written as `pcb-pour.md`, "Saved poured regions", says. Hatched pours,
+  shelved polygons and polygon cutouts.
 - Micro vias and via types; the two 16-byte ids of a via (zero); the polygon-connect
   entry of the 351-byte form; covering, plugging, capping and filling of a via (no fact is recorded for
   them; the tenting flags are written since c0112). (Blind and buried vias and their drill pairs are written since c0085.)
@@ -299,11 +301,14 @@ track and via flags above). Altium Designer's own view of a written lock is step
   `HATCHSTYLE=Solid`, `USEOCTAGONS=FALSE`, `MINPRIMLENGTH=3mil`, line vertices, `SHELVED=FALSE`,
   `RESTORELAYER=UNKNOWN`, an empty `RESTORENET`, `REMOVEISLANDSBYAREA=TRUE`, `REMOVENECKS=TRUE`,
   `AREATHRESHOLD=250000000000.000000`, `ARCRESOLUTION=0.5mil`, `NECKWIDTHTHRESHOLD=5mil`,
-  `POUROVERSTYLE=1`, `IGNOREVIOLATIONS=FALSE`, `OPTIMALVOIDROTATION=TRUE`. The name is the zone's name, or
+  `POUROVERSTYLE` from the zone's `pour_over` pair (the style it was read with), else `1`, with
+  `POUROVER=TRUE` for `1` only, `IGNOREVIOLATIONS=FALSE`, `OPTIMALVOIDROTATION=TRUE` (`FALSE` with the pour
+  mode `computed`). The name is the zone's name, or
   `<net name>_L<layer position from 01>_P<pour index, three digits>` in upper case with `AUTONAME=TRUE`
   (`NONET` without a net). `POURINDEX` counts from 0 in the order of falling zone priority, then net name,
-  first outline point, zone id and stack position. No region is written: a polygon is unpoured by
-  contract (change c0085), and Fenolite never writes poured copper it did not compute for Altium's rules.
+  first outline point, zone id and stack position. With the pour mode `outline` no region is written (the
+  contract of change c0085); with `computed` the regions are the pour that Fenolite computes for Altium's
+  rules (`pcb-pour.md`), and a polygon it refuses keeps its outline.
   A zone whose islands are never removed has `REMOVEDEAD=FALSE`. Clearance and thermal reliefs are not in
   the record: Altium takes them from its rules.
 - **Stack.** The numbered keys link the copper ids in order. Each linked layer but the bottom carries the

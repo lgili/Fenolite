@@ -26,6 +26,7 @@ from decimal import Decimal, InvalidOperation
 from types import MappingProxyType
 from typing import cast
 
+import fenolite.backends.altium.connectstyle as connectstyle
 import fenolite.backends.altium.pcbdoc as pcbdoc
 import fenolite.backends.altium.pcblib as pcblib
 import fenolite.backends.altium.pcbrecords as rec
@@ -36,6 +37,7 @@ from fenolite.backends.altium.ascii import text_problem
 from fenolite.backends.altium.cfb import CompoundTooLarge, name_key
 from fenolite.backends.altium.cutouts import cutout_items, unwritten_reason
 from fenolite.backends.altium.docboard import Dielectric, StackSpec
+from fenolite.backends.altium.pour import BackendUnavailable, PourMode
 from fenolite.backends.altium.schlib import storage_name
 from fenolite.core.coords import Point
 from fenolite.core.errors import FenoliteError, Issue, Severity
@@ -170,6 +172,10 @@ LOSS_KINDS: frozenset[str] = frozenset(
 )
 """The kinds whose loss changes the board that is made: a write refuses them without ``allow_lossy``."""
 NOT_LOWERED = "altium.not-lowered"
+POUR_UNAVAILABLE = "altium.pour-unavailable"
+POUR_UNAVAILABLE_TEXT = (
+    "the polygons are written without poured copper: computing the pour needs the geo extra"
+)
 PLACEMENT_RULE_KIND = "placement-rule"
 """The kind under which a write says that the proximity rules of the design (``RuleSet.proximity``, change
 c0113) are in no document: they are model data, ``fenolite check`` judges them, and nothing is lost. It is
@@ -270,6 +276,9 @@ class ProjectWrite:
     files: Mapping[str, bytes]
     issues: tuple[Issue, ...]
     inputs: AltiumInputs
+    pour: pcbdoc.PcbDocResult | None = None
+    """What the write of the PCB document did (change c0215): its pour, ``None`` without a document."""
+    pour_mode: PourMode = "outline"
 
 
 @dataclass(frozen=True, slots=True)
@@ -385,6 +394,14 @@ def keepout_footprints_info(keepouts: Sequence[Keepout]) -> Issue | None:
         where=KEEPOUT_FOOTPRINTS_KIND,
         hint="add a component keep-out in Altium",
     )
+
+
+def _connect_styles(board: Board) -> tuple[tuple[tuple[str, str], ...], ...]:
+    """The Polygon Connect Style records of a board that was read (its ``polygon_connect`` pairs, change
+    c0215)."""
+    bag = board.ext.get(BACKEND)
+    payload = bag.payload if bag is not None else ()
+    return tuple(connectstyle.connect_fields(str(text)) for key, text in payload if key == "polygon_connect")
 
 
 def pairs_of(entity: object) -> dict[str, str]:
@@ -1652,6 +1669,7 @@ def _document(
         arc_records=MappingProxyType(arc_records),
         allow_full_drill=rewrite,
         bodies=tuple(placed_bodies),
+        connect_styles=_connect_styles(board) if read else (),
         body_form=options.body_form if options is not None and placed_bodies else "saved",
     )
 
@@ -1668,6 +1686,7 @@ def write_design(
     symbols: Mapping[str, AltiumSymbol] | None = None,
     sheets: project.SheetMode = project.DEFAULT_SHEETS,
     edges: Outline | None = None,
+    pour: PourMode | None = None,
 ) -> ProjectWrite:
     """The files of an Altium project written from ``design`` alone: ``<name>.PcbDoc`` when the design
     holds a board with an outline or an item, and ``<name>.SchDoc`` with its libraries and
@@ -1676,7 +1695,10 @@ def write_design(
     ``LOSS_KINDS`` would be left out. Two calls on equal designs give equal bytes. ``rewrite`` is that of
     ``from_design``: the write of the reading of an Altium document. ``bodies`` is that of ``from_design``
     too: ``extruded`` writes the extruded component bodies (change c0121), and so is ``edges`` (change
-    c0170): the edge of a read board as an outline."""
+    c0170): the edge of a read board as an outline. ``pour`` is the pour mode of the PCB document (change
+    c0215): ``None`` is ``computed``, which writes the outline with one ``altium.pour-unavailable`` warning
+    without the ``geo`` extra; an explicit ``computed`` raises ``BackendUnavailable`` then; a rewrite
+    (``rewrite``) pours every polygon again."""
     issues: list[Issue] = []
     inputs = from_design(
         design, issues=issues, corner_ratios=corner_ratios, rewrite=rewrite, bodies=bodies, edges=edges
@@ -1702,34 +1724,58 @@ def write_design(
         raise LossyWriteError(lost)
     name = inputs.name
     files: dict[str, bytes] = {}
+    mode: PourMode = pour or "computed"
+    results: list[pcbdoc.PcbDocResult] = []
+
+    def write_all(mode: PourMode) -> None:
+        results.clear()
+        try:
+            files.update(
+                project.write_project(
+                    inputs.schematic,
+                    name=name,
+                    issues=issues,
+                    pcb=inputs.pcb,
+                    footprints=library,
+                    symbols=symbols,
+                    sheets=sheets,
+                    extra_modules=tuple(m.path for m in schematic.circuit.modules)
+                    if schematic is not None
+                    else (),
+                    read_circuit=True,
+                    pour=mode,
+                    pour_results=results,
+                )
+            )
+        except CompoundTooLarge:
+            raise
+        except (ValueError, KeyError) as error:
+            message = f"the schematic and the project file are not written: {error}"
+            issues.append(Issue(NOT_LOWERED, "info", message, where="schematic"))
+            if inputs.pcb is not None:
+                written = pcbdoc.write_pcbdoc_result(inputs.pcb, filename=f"{name}.PcbDoc", pour=mode)
+                files[f"{name}.PcbDoc"] = written.data
+                results.append(written)
+
     try:
-        files.update(
-            project.write_project(
-                inputs.schematic,
-                name=name,
-                issues=issues,
-                pcb=inputs.pcb,
-                footprints=library,
-                symbols=symbols,
-                sheets=sheets,
-                extra_modules=tuple(m.path for m in schematic.circuit.modules)
-                if schematic is not None
-                else (),
-                read_circuit=True,
-            )
+        write_all(mode)
+    except BackendUnavailable:
+        if pour is not None:
+            raise
+        mode = "outline"
+        write_all(mode)
+        issues.append(Issue(POUR_UNAVAILABLE, "warning", POUR_UNAVAILABLE_TEXT, where=f"{name}.PcbDoc",
+                            hint="pip install 'fenolite[geo]'"))  # fmt: skip
+    found = results[0] if results else None
+    if found is not None and found.pour is not None and mode == "computed":
+        issues.extend(found.pour.issues(f"{name}.PcbDoc"))
+        issues.extend(found.issues)
+        issues.extend(connectstyle.pad_overrides(design.board))
+    if library and f"{name}.PcbLib" not in files:
+        files[f"{name}.PcbLib"] = pcblib.write_pcblib(
+            library, filename=f"{name}.PcbLib", disambiguate_storages=True
         )
-    except CompoundTooLarge:
-        raise
-    except (ValueError, KeyError) as error:
-        message = f"the schematic and the project file are not written: {error}"
-        issues.append(Issue(NOT_LOWERED, "info", message, where="schematic"))
-        if inputs.pcb is not None:
-            files[f"{name}.PcbDoc"] = pcbdoc.write_pcbdoc(inputs.pcb, filename=f"{name}.PcbDoc")
-        if library:
-            files[f"{name}.PcbLib"] = pcblib.write_pcblib(
-                library, filename=f"{name}.PcbLib", disambiguate_storages=True
-            )
-    return ProjectWrite(MappingProxyType(dict(sorted(files.items()))), tuple(issues), inputs)
+    return ProjectWrite(MappingProxyType(dict(sorted(files.items()))), tuple(issues), inputs, found, mode)
 
 
 def _shape(value: object) -> object:

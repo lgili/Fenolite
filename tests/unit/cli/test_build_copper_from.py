@@ -323,9 +323,10 @@ def test_help_names_the_option(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_copper_from_equals_the_committed_sample(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """Scenario "Copper copied from the board": ``B/routed.PcbDoc`` equals the committed file."""
+    """Scenario "Copper copied from the board": ``B/routed.PcbDoc`` equals the committed file, written with
+    its polygons unpoured (``--altium-pour outline``, change c0215)."""
     committed = Path(__file__).resolve().parents[2] / "data" / "altium" / "routed" / "routed.PcbDoc"
     script, routed = project(tmp_path)
-    code, env, _ = build(monkeypatch, tmp_path, script, routed, "--confirm")
+    code, env, _ = build(monkeypatch, tmp_path, script, routed, "--altium-pour", "outline", "--confirm")
     assert code == 0, env
     assert (tmp_path / "B" / "routed.PcbDoc").read_bytes() == committed.read_bytes()

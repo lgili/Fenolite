@@ -28,12 +28,15 @@ from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
 from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence
+from fenolite.geometry.errors import BackendUnavailable
 from fenolite.panel import build as panel_build
 from fenolite.panel.build import PanelOutput
 
 HELP = "write a panel of copies of one built board"
 TARGETS = ("9", "10", "altium")
 ALTIUM_FORMS = ("auto", "embedded", "flat")
+POURS = ("computed", "outline")
+"""The values of ``--altium-pour`` (change c0215), as for ``build``."""
 RECORD = ".fenolite/{name}.panel-written.json"
 EVIDENCE_KICAD = panel_build.EVIDENCE
 """A KiCad panel board: loaded, drilled and net-checked by kicad-cli 9.0.9 and 10.0.6 (task 4.2)."""
@@ -61,6 +64,13 @@ def _register(parser: argparse.ArgumentParser) -> None:
         "--altium-panel",
         choices=ALTIUM_FORMS,
         help="the Altium form (default auto)",
+    )
+    parser.add_argument(
+        "--altium-pour",
+        choices=POURS,
+        help="with --target altium: computed pours the polygons with Altium's rules (default, "
+        "experimental; needs the geo extra, without which the default writes the outline with a warning), "
+        "outline writes them unpoured",
     )
     parser.add_argument("--discard-layout", action="store_true", help="replace files edited since")
 
@@ -132,7 +142,16 @@ def _summary(output: PanelOutput, target: str) -> dict[str, Any]:
             "tooling_holes": len(laid.tooling_holes),
         },
         "score_layer": output.score_layer,
+        **({"pour": _pour(output)} if output.form == "flat" else {}),
     }
+
+
+def _pour(output: PanelOutput) -> dict[str, Any]:
+    """``panel.pour`` of a flattened Altium panel (change c0215), as ``result.pcb.pour`` of a build."""
+    summary = output.pour.pour if output.pour is not None else None
+    if summary is None:
+        return {"mode": "outline", "poured": 0, "unpoured": {}, "evidence": None, "hypotheses": []}
+    return {"mode": "computed", **summary.to_json()}
 
 
 def _run(args: argparse.Namespace, ctx: Context) -> Result:
@@ -145,6 +164,13 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
             "--altium-panel is for --target altium",
             where="--altium-panel",
             hint="drop --altium-panel",
+        )
+    if args.altium_pour is not None and args.target != "altium":
+        raise CliError(
+            "FEN-2001",
+            "--altium-pour is for --target altium",
+            where="--altium-pour",
+            hint="drop --altium-pour",
         )
     try:
         run = run_panel_script(script)
@@ -219,7 +245,15 @@ def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
                 else "an Embedded Board Array references a .PcbDoc, and the board is a .kicad_pcb"
             )
             raise CliError("FEN-7001", reason, where="--altium-panel", hint="use --altium-panel flat")
-        return altium_panel(model, source)
+        try:
+            return altium_panel(model, source, pour=args.altium_pour)
+        except BackendUnavailable as error:
+            raise CliError(
+                "FEN-6001",
+                "--altium-pour computed needs the geo extra, which is not installed",
+                where="--altium-pour",
+                hint="pip install 'fenolite[geo]', or use --altium-pour outline",
+            ) from error
     try:
         return kicad_panel(model, source, target=int(args.target))
     except ValueError as error:
@@ -233,7 +267,12 @@ def _output(model: Any, source: Path, args: argparse.Namespace) -> PanelOutput:
 
 
 def _evidence(output: PanelOutput) -> Evidence:
-    return EVIDENCE_KICAD if output.form == "kicad" else EVIDENCE_FLAT
+    if output.form == "kicad":
+        return EVIDENCE_KICAD
+    summary = output.pour.pour if output.pour is not None else None
+    if summary is not None and summary.poured:
+        return Evidence.combine(EVIDENCE_FLAT, summary.evidence)
+    return EVIDENCE_FLAT
 
 
 COMMAND = Command(

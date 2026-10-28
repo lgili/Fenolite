@@ -78,6 +78,9 @@ COPPER_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "altium.copper-net-missing": "error",
         "altium.copper-no-document": "error",
         "altium.zones-unpoured": "info",
+        "altium.zones-poured": "info",
+        "altium.zone-unpoured": "warning",
+        "altium.pour-unavailable": "warning",
         "altium.plane-zone-merged": "info",
         "altium.placement-from-board": "info",
     }
@@ -111,6 +114,36 @@ KINDS: tuple[str, ...] = (
 accounted")."""
 REPOUR_COMMAND = "Tools » Polygon Pours » Repour All"
 """The Altium Designer command that fills the unpoured polygons (``pcb-copper.md``, "Polygon pour")."""
+
+
+GEO_HINT = "pip install 'fenolite[geo]'"
+
+
+def pour_unavailable(document: str) -> Issue:
+    """``altium.pour-unavailable``: the default pour mode ``computed`` needs the ``geo`` extra; without it
+    the polygons are written unpoured (change c0215, "Pour mode of an Altium build")."""
+    return issue(
+        "altium.pour-unavailable",
+        "the polygons are written without poured copper: computing the pour needs the geo extra",
+        document,
+        GEO_HINT,
+    )
+
+
+def pour_outcome(
+    mode: str, results: Sequence[pcbdoc.PcbDocResult], document: str, issues: list[Issue]
+) -> dict[str, object]:
+    """``result.pcb.pour`` of a build (change c0215): the mode, the polygons poured, those refused per
+    reason, the evidence and the hypotheses (``PourSummary.to_json``). With a computed pour the aggregate
+    ``altium.zones-unpoured`` of the plan leaves ``issues``, and the issues of the pour
+    (``PourSummary.issues``) and of its rules join them."""
+    summary = results[0].pour if results else None
+    if mode != "computed" or summary is None:
+        return {"mode": mode, "poured": 0, "unpoured": {}, "evidence": None, "hypotheses": []}
+    issues[:] = [found for found in issues if found.code != "altium.zones-unpoured"]
+    issues.extend(summary.issues(document))
+    issues.extend(results[0].issues)
+    return {"mode": mode, **summary.to_json()}
 
 
 def issue(code: str, message: str, where: str = "", hint: str = "") -> Issue:

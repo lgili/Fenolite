@@ -123,6 +123,7 @@ another type; a flag without a value is a switch.
 - `--altium-symbols {generic,graphics}`: with --target altium: graphics (default) draws each resolved symbol from its own graphics, generic draws one rectangle per part (the output of 0.2.0 and earlier); a usage error with --target kicad (default: graphics)
 - `--altium-directions {off,on}`: with --target altium: on (default) gives each port and sheet entry the I/O type that follows from the pin types on its net, off leaves them all unspecified; a usage error with --target kicad (default: on)
 - `--altium-bodies {extruded,off}`: with --target altium: extruded writes the extruded component bodies of the board's footprints (experimental), off writes none and reports each body, as earlier versions did; a usage error with --target kicad (default: extruded)
+- `--altium-pour {computed,outline}`: with --target altium: computed writes the poured copper of each polygon as Fenolite computes it with Altium's rules (experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes the polygons unpoured, as earlier versions did; a usage error with --target kicad (default: computed)
 - `--copper-from BOARD.kicad_pcb`: with --target altium: copy the tracks, arcs, vias and zones of a routed KiCad board of the same design into the PCB document, after checking that the board matches the design; the board's placements win; a usage error with --target kicad
 - `--copper-check {refuse,warn}`: what a short or a clearance error in the copper of the board about to be written does: refuse (default; exit 5, nothing written) or warn (reported as warnings, files written); with --target altium only a short refuses, and a clearance error is reported as a warning
 - `--vendor {all,project}` (default `all`): all: copy the placed footprints of every library into DIR/lib/ (the copies keep their library's licence); project: copy only those of project tables
@@ -165,6 +166,7 @@ another type; a flag without a value is a switch.
 - `--out DIR`: the target folder (not the source's)
 - `--name NAME`: the file stem
 - `--altium-bodies {extruded,off}` (default `extruded`): Altium bodies: extruded (default) or none
+- `--altium-pour {computed,outline}`: Altium polygons: computed pours them with Altium's rules (default, experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes them unpoured; a usage error with --to kicad
 - `--report-ids`: list item ids in the report
 - `--no-verify`: skip the read-back (evidence UNVERIFIED)
 
@@ -384,6 +386,7 @@ another type; a flag without a value is a switch.
 - `--out DIR`: the output folder
 - `--target {10,9,altium}`: KiCad major or altium
 - `--altium-panel {auto,embedded,flat}`: the Altium form (default auto)
+- `--altium-pour {computed,outline}`: with --target altium: computed pours the polygons with Altium's rules (default, experimental; needs the geo extra, without which the default writes the outline with a warning), outline writes them unpoured
 - `--discard-layout`: replace files edited since
 
 ## parity

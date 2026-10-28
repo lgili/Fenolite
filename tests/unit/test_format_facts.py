@@ -35,7 +35,7 @@ HYPOTHESIS_IDS: dict[str, str] = {
 ANY_HYPOTHESIS = r"\bH-[A-Z]-[A-Z0-9-]+\b"
 ALTIUM_HYPOTHESES = (
     r"\bH-A-(SCH|SCHBIN|SCHLIB|SCHX|PRJ|PCB|PCBX|ECO|RD|IMP|OUTJOB|SCHDOT|RULE|DRC|CONV"
-    r"|SLOT|CUTOUT|DWF|PANEL)-[A-Z0-9-]+\b"
+    r"|SLOT|CUTOUT|DWF|PANEL|POUR)-[A-Z0-9-]+\b"
 )
 """Every row of an Altium page below the verified levels names one of the writer's hypotheses (c0032,
 c0033, c0034, c0035), a row of the change order (c0048), a reader row ``H-A-RD-*`` (c0039, c0042),
@@ -45,7 +45,8 @@ the complete schematic ``H-A-SCHX-*`` (c0086; the fix c0135 of the 0.2.x line ad
 its two rows of the pin map), or a row of the light DRC ``H-A-DRC-*`` (c0088), or a row of the KiCad to
 Altium conversion ``H-A-CONV-*`` (c0160), or a row of the slot pads and board cut-outs ``H-A-SLOT-*`` and
 ``H-A-CUTOUT-*`` (c0168), or a row of the Draftsman documents ``H-A-DWF-*`` (c0172), or a row of the
-panels and embedded board arrays ``H-A-PANEL-*`` (c0173)."""
+panels and embedded board arrays ``H-A-PANEL-*`` (c0173), or a row of the poured copper ``H-A-POUR-*``
+(c0215)."""
 
 
 def _cells(line: str) -> list[str]:
@@ -155,6 +156,7 @@ def test_altium_fact_tables() -> None:
         "pcb-copper.md",
         "pcb-document.md",
         "pcb-library.md",
+        "pcb-pour.md",
         "pcb-read.md",
         "pcb-records.md",
         "project.md",

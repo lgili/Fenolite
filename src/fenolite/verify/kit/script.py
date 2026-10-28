@@ -115,6 +115,9 @@ NOT_SCRIPTED: Mapping[str, str] = MappingProxyType(
         "the rule check report, Repour All and the containers of the output job": "the page of the server "
         "processes (S-0506) names no process for them, and the rule check opens a dialog",
         "the change order and Update From Libraries": "both open dialogs that a person reads",
+        "the rebuild of every polygon of the pour samples (change c0215)": "`IPCB_Polygon.Rebuild` is "
+        "documented (S-0836), but each of steps K6.2 to K6.11 ends in a board saved under its result name, "
+        "which no page names a call for",
     }
 )
 """What the design asked the script to do and it does not, with the reason; these steps stay manual."""

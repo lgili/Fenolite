@@ -24,7 +24,7 @@ from fenolite.model.design import Design
 from fenolite.verify.kit import results
 from fenolite.verify.kit.manifest import FORM_FILE, blank_form
 from fenolite.verify.kit.results import form_problems, privacy_scan, verify_results
-from fenolite.verify.kit.steps import STEPS
+from fenolite.verify.kit.steps import POUR_SAMPLES, STEPS
 
 USERS = "Users"  # the folder name is put together here, so that this file holds no path of a home folder
 
@@ -464,6 +464,8 @@ def test_the_documents_of_every_sample_project_are_its_files(built_kit: Path) ->
 
     kit = load_kit(built_kit)
     for sample in kit.samples:
+        if sample in POUR_SAMPLES:
+            continue  # free documents, no project (change c0215)
         path = built_kit / sample / f"{sample}.PrjPcb"
         listed = [d.path for d in read_project(path.read_bytes(), file=path.name).documents]
         assert results.project_documents(path.read_bytes()) == listed

@@ -17,7 +17,7 @@ from fenolite.core.errors import FormatError
 from fenolite.core.io import sha256_bytes
 from fenolite.verify.kit import manifest
 from fenolite.verify.kit.manifest import KitSources, SampleFiles, build_kit, kit_digest, kit_files, load_kit
-from fenolite.verify.kit.steps import SAMPLES, STEPS, steps_markdown
+from fenolite.verify.kit.steps import POUR_SAMPLES, SAMPLES, STEPS, steps_markdown
 
 ROOT = Path(__file__).resolve().parents[4]
 ABSOLUTE = re.compile(rb"(?:[A-Za-z]:\\(?:Users|Documents and Settings)\\|/Users/|/home/|/private/|/tmp/)")
@@ -36,7 +36,7 @@ def test_deterministic(tmp_path: Path) -> None:
     two = build_kit(tmp_path / "b", seed=1, timestamp=WHEN, sources=kit_sources())
     assert _files(tmp_path / "a") == _files(tmp_path / "b")
     assert one.digest == two.digest == kit_digest((tmp_path / "a" / "kit.json").read_bytes())
-    assert list(one.samples) == list(SAMPLES) and len(one.samples) == 5
+    assert list(one.samples) == list(SAMPLES) and len(one.samples) == 7
     data = json.loads((tmp_path / "a" / "kit.json").read_text(encoding="utf-8"))
     assert data["schema"] == manifest.KIT_SCHEMA and data["seed"] == 1
     assert data["timestamp"] == "2026-10-06T00:00:00Z"
@@ -75,7 +75,12 @@ def test_every_sample_has_its_project_and_its_script(built_kit: Path) -> None:
         script = ROOT / sample["script"]
         assert script == SAMPLES_DIR / name / "design.py" and script.is_file()
         assert sample["script_sha256"] == sha256_bytes(script.read_bytes())
-        assert (built_kit / name / f"{name}.PrjPcb").is_file()
+        if name in POUR_SAMPLES:  # two free documents and the probes (change c0215)
+            assert sorted(
+                p.relative_to(built_kit / name).as_posix() for p in (built_kit / name).rglob("*.*")
+            ) == [f"computed/{name}.PcbDoc", "probes.json", f"reference/{name}.PcbDoc"]
+        else:
+            assert (built_kit / name / f"{name}.PrjPcb").is_file()
         lines = script.read_text(encoding="utf-8").splitlines()
         assert lines[0] == "# SPDX-License-Identifier: CC0-1.0" and lines[1].startswith(
             "# Authored for Fenolite"

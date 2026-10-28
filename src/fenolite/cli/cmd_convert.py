@@ -9,7 +9,8 @@ The command parses its arguments, calls ``fenolite.api.convert`` and plans every
 project under ``DIR``; the dispatcher writes them under ``--confirm``, all or none, and keeps a ``.bak`` of
 each file it overwrites. ``DIR`` never is the source's folder or a folder that holds it. A refused loss
 exits 7 (``FEN-7001``) with one ``convert.lossy`` issue per kind; a difference of the read-back that no
-loss explains is a ``convert.unexplained`` error, which plans no write and exits 5.
+loss explains is a ``convert.unexplained`` error, which plans no write and exits 5. ``--altium-pour
+computed`` without the ``geo`` extra exits 6 (``FEN-6001``, change c0215).
 """
 
 from __future__ import annotations
@@ -26,7 +27,8 @@ from fenolite.cli._manifest import joined
 from fenolite.cli.api import Command, Context, PlannedWrite, Result, depends_on
 from fenolite.cli.errors import CliError
 from fenolite.cli.output import InputRef
-from fenolite.convert.direction import BODIES, TARGETS
+from fenolite.convert.direction import BODIES, POURS, TARGETS
+from fenolite.geometry.errors import BackendUnavailable
 
 HELP = "convert a project to another backend or KiCad major, reporting what is lost"
 KINDS = {
@@ -61,6 +63,14 @@ def _register(parser: argparse.ArgumentParser) -> None:
         choices=BODIES,
         default="extruded",
         help="Altium bodies: extruded (default) or none",
+    )
+    parser.add_argument(
+        "--altium-pour",
+        choices=POURS,
+        default=None,
+        help="Altium polygons: computed pours them with Altium's rules (default, experimental; needs the geo "
+        "extra, without which the default writes the outline with a warning), outline writes them unpoured; "
+        "a usage error with --to kicad",
     )
     parser.add_argument("--report-ids", action="store_true", help="list item ids in the report")
     parser.add_argument(
@@ -105,15 +115,31 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
     _check_out(_absolute(args.out, ctx), source)
     if args.name is not None and (not args.name or set(args.name) & set('\\/:*?"<>|')):
         raise CliError("FEN-2001", f"--name {args.name!r} is no file stem", where="--name")
-    found = convert(
-        source,
-        to=args.to,
-        kicad_version=ctx.kicad_target,
-        allow_lossy=ctx.allow_lossy,
-        bodies=args.altium_bodies,
-        name=args.name,
-        verify=not args.no_verify,
-    )
+    if args.altium_pour is not None and args.to != "altium":
+        raise CliError(
+            "FEN-2001",
+            f"--altium-pour needs --to altium; the target is {args.to}",
+            where="--altium-pour",
+            hint="add --to altium, or drop --altium-pour",
+        )
+    try:
+        found = convert(
+            source,
+            to=args.to,
+            kicad_version=ctx.kicad_target,
+            allow_lossy=ctx.allow_lossy,
+            bodies=args.altium_bodies,
+            name=args.name,
+            verify=not args.no_verify,
+            pour=args.altium_pour,
+        )
+    except BackendUnavailable as error:
+        raise CliError(
+            "FEN-6001",
+            "--altium-pour computed needs the geo extra, which is not installed",
+            where="--altium-pour",
+            hint="pip install 'fenolite[geo]', or use --altium-pour outline",
+        ) from error
     conversion = found.conversion
     read = conversion.source
     result: dict[str, Any] = {

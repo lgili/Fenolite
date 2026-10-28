@@ -211,6 +211,7 @@ def test_board6_golden_files() -> None:
         },
         "not_lowered": {},
         "bodies": "extruded",  # the default since change c0155; board6 holds no body
+        "pour": {"mode": "outline", "poured": 0, "unpoured": {}, "evidence": None, "hypotheses": []},  # c0215
     }  # fmt: skip
     assert output.summary["copper"]["layers"] == 6  # type: ignore[index]
     assert not [i for i in output.issues if i.code == "altium.not-lowered"]

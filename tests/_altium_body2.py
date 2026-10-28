@@ -186,6 +186,7 @@ def body2_build(
         placements=requested,
         authored_footprints=authored,
         body_form=body_form,
+        pour="outline",  # the written bytes of the earlier changes (c0215 tests "computed")
         **({} if bodies is None else {"bodies": bodies}),
     )
 

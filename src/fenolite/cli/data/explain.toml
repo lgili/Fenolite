@@ -764,9 +764,24 @@ meaning = "A zone has fewer than three outline points, or names no layer."
 fix = "Correct the zone's outline and layers."
 see = "Build target"
 
+["altium.pour-unavailable"]
+meaning = "The default pour mode computed needs the geo extra, which is not installed, so the polygons are written without poured copper."
+fix = "Install fenolite[geo] and build again, or ask for --altium-pour outline to write the polygons unpoured without this warning."
+see = "Build target"
+
+["altium.zone-unpoured"]
+meaning = "Fenolite could not compute the pour of this polygon (the message names the reason), so it is written with its outline only."
+fix = "Repour the polygon in Altium (Tools » Polygon Pours » Repour All), or remove what the reason names."
+see = "Build target"
+
+["altium.zones-poured"]
+meaning = "Fenolite computed the poured copper of these polygons with Altium's rules; the pour is experimental until a kit round settles it."
+fix = "Nothing is needed; Tools » Polygon Pours » Repour All in Altium gives Altium's own copper, and --altium-pour outline writes the polygons unpoured."
+see = "Build target"
+
 ["altium.zones-unpoured"]
-meaning = "Polygons are written without poured copper, because Fenolite does not pour for Altium."
-fix = "Repour the polygons in Altium."
+meaning = "Polygons are written without poured copper: the pour mode is outline, or the geo extra is missing."
+fix = "Repour the polygons in Altium, or build with the geo extra and the default --altium-pour computed."
 see = "Build target"
 
 ["analysis.clearance-below"]

@@ -28,6 +28,7 @@ from fenolite.model.board import ZoneFill
 from fenolite.model.design import Design
 from fenolite.verify.kit.manifest import FORM_FILE, load_kit
 from fenolite.verify.kit.script import DONE, END_OF_MESSAGES, LOG
+from fenolite.verify.kit.steps import POUR_SAMPLES
 
 VERSION = "AD 26.5"
 """A tool version of the right form; no run was made with it."""
@@ -114,6 +115,9 @@ def simulate(
             data = b"routed.GTL\nrouted.GBL\nrouted.TXT\nrouted.pdf\n"
         elif step.result.endswith(".html"):
             data = b"<html><body>Design Rule Verification Report (simulated)</body></html>\n"
+        elif step.sample in POUR_SAMPLES and ("repoured" in step.checks or "pour-kept" in step.checks):
+            # Fenolite's own pour stands in for Altium's repour, and its document for the one saved
+            data = (folder / step.sample / "computed" / f"{step.sample}.PcbDoc").read_bytes()
         else:
             data = (folder / step.document).read_bytes()
         data = (replace or {}).get(step.result, data)

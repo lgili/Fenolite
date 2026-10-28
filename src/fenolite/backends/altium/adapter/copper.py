@@ -820,6 +820,8 @@ def zones(doc: PcbDocument, ctx: Context) -> tuple[list[Zone], set[int]]:
             pairs.append(("pour_index", str(record.pour_index)))
         if record.hatch_style:
             pairs.append(("hatch_style", record.hatch_style))
+        if style := record.record.get("POUROVERSTYLE"):
+            pairs.append(("pour_over", style))
         net_id = ctx.net(record.net)
         unique = record.record.get("UNIQUEID")
         if unique:

@@ -22,14 +22,39 @@ from typing import Literal
 StepKind = Literal["file", "form"]
 ValueType = Literal["bool", "int", "text"]
 Check = Literal[
-    "resave", "netlist", "parity", "poured", "copper.clearance", "messages", "listing", "present"
+    "resave", "netlist", "parity", "poured", "copper.clearance", "messages", "listing", "present",
+    "repoured", "pour-match", "pour-same", "pour-kept",
 ]  # fmt: skip
 
 STEP_ID = re.compile(r"K([1-9])\.([1-9][0-9]?)")
 RESULTS = "results"
 """The folder of a kit that a run fills."""
-SAMPLES: tuple[str, ...] = ("flat", "tree", "routed", "board6", "libs")
-"""The kit's samples, each built from ``examples/kit/<name>/design.py``."""
+SAMPLES: tuple[str, ...] = ("flat", "tree", "routed", "board6", "libs", "pour", "pour4")
+"""The kit's samples, each built from ``examples/kit/<name>/design.py``. ``pour`` and ``pour4`` (change
+c0215) are two free PCB documents each, ``computed/`` and ``reference/``, with ``probes.json``."""
+POUR_SAMPLES: tuple[str, ...] = ("pour", "pour4")
+PROBES_FILE = "probes.json"
+"""The probes of a pour sample: each polygon's probe and the declared points (``cli._kit``)."""
+PROBE_ROWS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "H-A-POUR-CLEARANCE": ("P1",),
+        "H-A-POUR-CONNECT": ("P2",),
+        "H-A-POUR-RELIEF": ("P2",),
+        "H-A-POUR-OVER": ("P10",),
+        "H-A-POUR-ORDER": ("P6",),
+        "H-A-POUR-NECK": ("P3",),
+        "H-A-POUR-STEPS": ("P3", "P4"),
+        "H-A-POUR-ISLAND": ("P4",),
+        "H-A-POUR-DEAD": ("P5",),
+        "H-A-POUR-ARC": ("P7",),
+        "H-A-POUR-VOIDROT": ("P7",),
+        "H-A-POUR-KEEPOUT": ("P8",),
+        "H-A-POUR-EDGE": ("P9",),
+        "H-A-POUR-VIAPAD": ("P1",),
+    }
+)
+"""An input row of ``pcb-pour.md`` → the probes that settle it (design of change c0215, "Hypotheses
+registered by this change"): it is settled by the ``pour-match`` of those probes, not by whole steps."""
 KIT_SAMPLE = "kit"
 """The sample name of a step that uses a file of the kit that belongs to no sample (the sheet template)."""
 
@@ -48,6 +73,14 @@ CHECKS: Mapping[str, str] = MappingProxyType(
         "messages": "the file holds at least one line and no line of the class Error or Fatal Error",
         "listing": "the file holds at least one line, and no line holds a folder",
         "present": "the file exists and is not empty",
+        "repoured": "every polygon with a declared point of copper holds poured regions, the sentinel P0 "
+        "among them; otherwise the repour did not run",
+        "pour-match": "Fenolite's pour of the same sample (`computed/`) meets M1 to M5 of `pourcompare` "
+        "against the saved board for every polygon, and a failure names its probe",
+        "pour-same": "the saved board meets M1 to M4 of `pourcompare` against the board that the named step "
+        "saved",
+        "pour-kept": "the regions of every polygon of the saved board equal those that Fenolite wrote within "
+        "one unit of the document",
     }
 )
 """What ``kit verify`` does for each machine check of a ``file`` step."""
@@ -81,6 +114,8 @@ class Step:
     value_type: ValueType | None = None
     expected: bool | int | str | None = None
     scripted: bool = False
+    same_as: str = ""
+    """The step whose saved board the check ``pour-same`` compares with (change c0215)."""
 
     @property
     def group(self) -> int:
@@ -102,6 +137,7 @@ class Step:
             "expected": self.expected,
             "hypotheses": list(self.hypotheses),
             "scripted": self.scripted,
+            **({"same_as": self.same_as} if self.same_as else {}),
         }
 
 
@@ -132,7 +168,13 @@ GROUPS: tuple[Group, ...] = (
         "no step of the kit reads them (step X8 of the author report does, on the sample `body2`).",
         10,
     ),  # fmt: skip
-    Group(6, "Repour", "The polygon of `routed` is poured by Altium.", 4),
+    Group(
+        6,
+        "Repour",
+        "The polygon of `routed`, and the probes of `pour` and `pour4` against Fenolite's own pour (change "
+        "c0215).",
+        34,
+    ),  # fmt: skip
     Group(7, "Output job", "The output job of `routed` opens and generates its containers.", 6),
     Group(8, "Sheet template and special strings", "The sheet template and the title block of `flat`.", 5),
     Group(9, "Libraries", "The schematic of `libs` is updated from the libraries that Fenolite wrote.", 5),
@@ -158,6 +200,7 @@ def _file(
     checks: Sequence[Check] = ("resave",),
     pending: Mapping[str, str] | None = None,
     scripted: bool = False,
+    same_as: str = "",
 ) -> Step:
     return Step(
         id=ident,
@@ -170,6 +213,7 @@ def _file(
         checks=tuple(checks),
         pending=MappingProxyType(dict(pending or {})),
         scripted=scripted,
+        same_as=same_as,
     )
 
 
@@ -203,6 +247,105 @@ def _compile(ident: str, name: str, more: Sequence[str] = ()) -> Step:
         document=f"{name}/{name}.PrjPcb",
         checks=("messages",),
         scripted=True,
+    )
+
+
+_POUR_INPUTS = tuple(PROBE_ROWS)
+_POUR_KIT = "H-A-POUR-KIT"
+_POUR_OPEN = ("H-A-POUR-OPEN", "H-A-POUR-REGION")
+_POUR4_INPUTS = ("H-A-POUR-CLEARANCE", "H-A-POUR-RELIEF", "H-A-POUR-VIAPAD")
+"""The input rows that the probes of ``pour4`` name (P1 and P2 on the inner layers)."""
+
+
+def _rebuilt(ident: str, sample: str, inputs: Sequence[str]) -> Step:
+    return _file(
+        ident,
+        sample,
+        f"Open `{sample}/reference/{sample}.PcbDoc` and rebuild every polygon in Tools » Polygon Pours » "
+        f"Polygon Manager (Repour All). Save it with File » Save As as `results/{sample}/rebuilt.PcbDoc`.",
+        f"{sample}/rebuilt.PcbDoc",
+        (_POUR_KIT, *inputs),
+        document=f"{sample}/reference/{sample}.PcbDoc",
+        checks=("repoured", "pour-match"),  # resave would see the nets that the pour joins as routed
+    )
+
+
+def _kept(ident: str, sample: str) -> Step:
+    return _file(
+        ident,
+        sample,
+        f"Open `{sample}/computed/{sample}.PcbDoc`, answer No if Altium offers a repour, and save it with "
+        f"File » Save As as `results/{sample}/kept.PcbDoc`.",
+        f"{sample}/kept.PcbDoc",
+        _POUR_OPEN,
+        document=f"{sample}/computed/{sample}.PcbDoc",
+        checks=("resave", "pour-kept"),
+    )
+
+
+def _forced(ident: str, sample: str, same_as: str, inputs: Sequence[str]) -> Step:
+    return _file(
+        ident,
+        sample,
+        f"In `{sample}/computed/{sample}.PcbDoc` run Tools » Polygon Pours » Repour All and confirm every "
+        f"polygon. Save it with File » Save As as `results/{sample}/forced.PcbDoc`.",
+        f"{sample}/forced.PcbDoc",
+        (_POUR_KIT, *inputs),
+        document=f"{sample}/computed/{sample}.PcbDoc",
+        checks=("repoured", "pour-match", "pour-same"),
+        same_as=same_as,
+    )
+
+
+def _pour_steps() -> tuple[Step, ...]:
+    """Steps K6.2 to K6.11 (change c0215): the probes of ``pour`` and ``pour4`` poured by Altium and
+    compared with Fenolite's pour. A step that leaves a saved board is manual: no public page names a save
+    under a new name (``script.NOT_SCRIPTED``)."""
+    return (
+        _rebuilt("K6.2", "pour", _POUR_INPUTS),
+        _file(
+            "K6.3",
+            "pour",
+            "Open `pour/reference/pour.PcbDoc` again without the changes of K6.2 and run Tools » Polygon "
+            "Pours » Repour All. Save it with File » Save As as `results/pour/repoured.PcbDoc`.",
+            "pour/repoured.PcbDoc",
+            ("H-A-POUR-SCRIPT",),
+            document="pour/reference/pour.PcbDoc",
+            checks=("repoured", "pour-same"),
+            same_as="K6.2",
+        ),
+        _kept("K6.4", "pour"),
+        _form(
+            "K6.5",
+            "pour",
+            "With `pour/computed/pour.PcbDoc` open, open the Polygon Manager. Type how many polygons it "
+            "lists as modified, unpoured or violating.",
+            "int",
+            0,
+            _POUR_OPEN,
+        ),
+        _form(
+            "K6.6",
+            "pour",
+            "Run Design » Design Rule Check on `pour/computed/pour.PcbDoc`. Type how many of the violations "
+            "it reports name a polygon.",
+            "int",
+            0,
+            _POUR_OPEN,
+        ),
+        _forced("K6.7", "pour", "K6.2", _POUR_INPUTS),
+        _form(
+            "K6.8",
+            "pour",
+            "Find `PCB.Polygon.AdvancedPour` in the Advanced Settings of Preferences » System » General. "
+            "Type whether it is off.",
+            "bool",
+            True,
+            ("H-A-POUR-ENGINE",),
+        ),
+        _rebuilt("K6.9", "pour4", _POUR4_INPUTS),
+        _kept("K6.10", "pour4"),
+        _forced("K6.11", "pour4", "K6.9", _POUR4_INPUTS),
     )
 
 
@@ -395,6 +538,7 @@ STEPS: tuple[Step, ...] = (
         document="routed/routed.PcbDoc",
         checks=("resave", "parity", "poured", "copper.clearance"),
     ),
+    *_pour_steps(),
     _form(
         "K7.1",
         "routed",
@@ -630,6 +774,9 @@ __all__ = [
     "GROUPS",
     "KIT_SAMPLE",
     "PENDING_REASONS",
+    "POUR_SAMPLES",
+    "PROBES_FILE",
+    "PROBE_ROWS",
     "RESULTS",
     "SAMPLES",
     "STEPS",

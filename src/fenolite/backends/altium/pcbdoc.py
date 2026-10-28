@@ -59,7 +59,11 @@ from fenolite.backends.altium.pcblib import (
     graphic_records,
     pad_bytes,
 )
+from fenolite.backends.altium.pour import EVIDENCE as POUR_EVIDENCE
+from fenolite.backends.altium.pour import PourMode, PourResult
+from fenolite.backends.altium.read.pcb import PcbDocument
 from fenolite.core.coords import Point
+from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level
 from fenolite.geometry.transform import FULL_TURN, Transform
 from fenolite.model.board import (
@@ -571,6 +575,10 @@ class PcbDocSpec:
     """The form of the body records: ``saved``, the 35 keys of a saved body with the two stand-ins, or
     ``short``, the first 21 keys. ``short`` exists for the second file set of step X8 of the author report
     (``H-A-PCBX-BODY-SHORT``); no command and no option of a build selects it."""
+    connect_styles: tuple[tuple[Field, ...], ...] = ()
+    """The Polygon Connect Style records of a document that was read (the board's ``polygon_connect``
+    pairs, change c0215), each its keys from ``RULEKIND`` on. A computed pour writes them back when every
+    one maps (``connect_records``); empty for every build."""
 
 
 def _u32(value: int) -> bytes:
@@ -1354,10 +1362,9 @@ def polygon_name(text: str) -> str:
     return name_codes(text)
 
 
-def polygon_records(zones: Sequence[Zone], copper: _Copper) -> list[bytes]:
-    """One unpoured polygon pour per zone layer (``pcb-copper.md``, "Polygon pour"), in pour order: by
-    falling zone priority, then net name, first outline point, zone id and stack position; the pour index
-    is the record's position. A zone without a name gets ``<NET>_L<layer position>_P<pour index>``.
+def polygon_order(zones: Sequence[Zone], copper: _Copper) -> list[tuple[Zone, str, list[Point]]]:
+    """The polygon pours of ``zones``, one per zone layer, in pour order: by falling zone priority, then net
+    name, first outline point, zone id and stack position; the pour index is the position in the list.
     ``ValueError`` names the id of a zone with fewer than three outline points, on a layer that is not a
     signal copper layer of the board, on an unknown net or with a name that cannot be written."""
     pours: list[tuple[Zone, str, list[Point]]] = []
@@ -1385,8 +1392,26 @@ def polygon_records(zones: Sequence[Zone], copper: _Copper) -> list[bytes]:
             copper.position(pour[1]),
         )
     )
+    return pours
+
+
+def _pour_over(zone: Zone) -> str:
+    """The zone's ``pour_over`` pair (the ``POUROVERSTYLE`` it was read with, or a script's), else ``1``."""
+    bag = zone.ext.get("altium")
+    found = dict(bag.payload).get("pour_over") if bag is not None else None
+    return found if found in ("0", "1", "2") else "1"
+
+
+def polygon_records(
+    zones: Sequence[Zone], copper: _Copper, *, optimal_void_rotation: bool = True
+) -> list[bytes]:
+    """One polygon pour per zone layer (``pcb-copper.md``, "Polygon pour"), in the order of
+    ``polygon_order``; the pour index is the record's position. A zone without a name gets
+    ``<NET>_L<layer position>_P<pour index>``. ``optimal_void_rotation`` off writes
+    ``OPTIMALVOIDROTATION=FALSE``, the form of a computed pour (change c0215); a zone's ``pour_over`` pair
+    sets its ``POUROVERSTYLE``."""
     out: list[bytes] = []
-    for index, (zone, layer, outline) in enumerate(pours):
+    for index, (zone, layer, outline) in enumerate(polygon_order(zones, copper)):
         generated = f"{zone.net_id or NO_NET_NAME}_L{copper.position(layer) + 1:02d}_P{index:03d}".upper()
         net = copper.net(zone.id, zone.net_id)
         fields = polygon_fields(
@@ -1397,6 +1422,8 @@ def polygon_records(zones: Sequence[Zone], copper: _Copper) -> list[bytes]:
             net=None if net == rec.NO_INDEX else net,
             auto_name=not zone.name,
             remove_dead=zone.settings.island_removal != "never",
+            optimal_void_rotation=optimal_void_rotation,
+            pour_over=_pour_over(zone),
         )
         out.append(rec.property_block(fields))
     return out
@@ -1699,14 +1726,33 @@ def _option_storages(filename: str) -> list[Storage]:
     return [_storage(name, [data], count=count) for name, (count, data) in pairs]
 
 
-def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes:
+def write_pcbdoc(
+    spec: PcbDocSpec,
+    *,
+    filename: str = DEFAULT_FILENAME,
+    pour: PourMode = "outline",
+    pour_regions: bool = True,
+) -> bytes:
     """The bytes of the PCB document of ``spec`` (``pcb-document.md``, "Fenolite's choices"); ``filename``
     is the document's file name (no folder), written into the board record and the source of its ids.
-    ``ValueError`` for an outline of fewer than three points, a refused footprint, copper layers that are
-    not a stack of ``pcbrecords.COPPER_STACKS`` or copper that cannot be written exactly (the entity's id
-    is named); ``cfb.CompoundTooLarge`` past the size limit. The bodies of ``spec.bodies`` (change c0121) go
-    into the two body storages; no entry of ``Models``, ``ModelsNoEmbed``, ``Textures`` or
-    ``UniqueIDPrimitiveInformation`` is written for a body."""
+    ``pour`` is the pour mode of change c0215 ("Polygon pour modes"; ``write_pcbdoc_result`` gives what a
+    computed pour did). ``ValueError`` for an outline of fewer than three points, a refused footprint,
+    copper layers that are not a stack of ``pcbrecords.COPPER_STACKS`` or copper that cannot be written
+    exactly (the entity's id is named); ``cfb.CompoundTooLarge`` past the size limit. The bodies of
+    ``spec.bodies`` (change c0121) go into the two body storages; no entry of ``Models``, ``ModelsNoEmbed``,
+    ``Textures`` or ``UniqueIDPrimitiveInformation`` is written for a body."""
+    return write_pcbdoc_result(spec, filename=filename, pour=pour, pour_regions=pour_regions).data
+
+
+def _write(
+    spec: PcbDocSpec,
+    filename: str,
+    *,
+    computed: bool = False,
+    pour_records: Sequence[tuple[bytes, bytes]] = (),
+) -> bytes:
+    """The bytes of ``spec``: with ``computed`` the polygon records and rules of a computed pour and the
+    regions ``pour_records`` (plain and shape-based twins) after every other region."""
     from fenolite.backends.altium.project import unique_id  # project imports this module
 
     frame = spec.frame if spec.frame is not None else Frame.of(spec.outline)
@@ -1803,17 +1849,19 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     tracks += free.tracks
     arcs += free.arcs
     pads += free.pads
-    filled["Regions6"] = [*regions, *free.regions]
-    filled["ShapeBasedRegions6"] = [*shapes, *free.shapes]
+    filled["Regions6"] = [*regions, *free.regions, *(plain for plain, _ in pour_records)]
+    filled["ShapeBasedRegions6"] = [*shapes, *free.shapes, *(shape for _, shape in pour_records)]
     more_texts, more_wide = free_texts(spec, frame, len(texts))
     texts += more_texts
     wide += more_wide
-    filled["Polygons6"] = polygon_records(spec.zones, copper)
+    filled["Polygons6"] = polygon_records(spec.zones, copper, optimal_void_rotation=not computed)
     filled["Classes6"] = [
         *class_records(spec.net_classes, nets, filename),
         *component_class_records(spec.components, filename),
     ]
     filled["Rules6"] = rule_records(spec, filename)
+    if computed and spec.zones and spec.rules:
+        filled["Rules6"] += connect_records(spec, filename)[0]
     filled[BODY_STORAGES[0]], filled[BODY_STORAGES[1]] = body_records(spec, frame)
     poured = {copper.layers[layer] for zone in spec.zones for layer in zone.layers}
     used = sorted(
@@ -1865,6 +1913,254 @@ def write_pcbdoc(spec: PcbDocSpec, *, filename: str = DEFAULT_FILENAME) -> bytes
     entries += _option_storages(filename)
     entries += [_storage(name, filled.get(name, [])) for name in _TAIL_ORDER]
     return write_compound(entries)
+
+
+# --- computed pours (change c0215) --------------------------------------------------------------------------
+
+ZONES_POURED = "altium.zones-poured"
+ZONE_UNPOURED = "altium.zone-unpoured"
+REPOUR_ALL = "Tools » Polygon Pours » Repour All"
+RULE_POLYGON_CONNECT = 20
+"""The rule-kind number of Polygon Connect Style (``connectstyle.KIND_NUMBER``)."""
+POUR_ROUNDS = 8
+"""How many times the self-check may refuse polygons and pour again before the writer gives up: each round
+refuses at least one polygon, and a board rarely holds more that fail."""
+
+
+def connect_records(spec: PcbDocSpec, filename: str) -> tuple[list[bytes], tuple[Issue, ...]]:
+    """The Polygon Connect Style records of a computed document (change c0215, Decision 11;
+    ``connectstyle.lower_zone_styles``), priorities from 1, and the zones whose settings were not lowered.
+    A net whose name holds ``'`` cannot be named in a scope: its zones take the ``All`` rule and one
+    ``altium.not-lowered`` says so. The records of a document that was read (``spec.connect_styles``) are
+    written back as they were read when every one maps (``connectstyle.kept_mapping``); otherwise each that
+    does not map is one ``altium.not-lowered`` (``where`` ``rule/<name>``) and the zones are lowered."""
+    import fenolite.backends.altium.connectstyle as connectstyle
+
+    problems: list[Issue] = []
+    if spec.connect_styles:
+        maps, unmapped = connectstyle.kept_mapping(spec.connect_styles)
+        if maps:
+            return [
+                struct.pack("<H", RULE_POLYGON_CONNECT) + rec.property_block([*common_fields("TOP"), *fields])
+                for fields in spec.connect_styles
+            ], ()
+        problems += [
+            Issue(
+                "altium.not-lowered",
+                "info",
+                f"the Polygon Connect Style rule {name!r} of the document is not written back ({reason}); "
+                "the rules are lowered from the zones",
+                where=f"rule/{name}",
+            )
+            for name, reason in unmapped
+        ]
+    styles, issues = connectstyle.lower_zone_styles(spec.zones)
+    found: list[bytes] = []
+    problems += issues
+    priority = 0
+    for style in styles:
+        if style.scope != ALL_SCOPE and "'" in style.scope[len("InNet('") : -2]:
+            problems.append(
+                Issue(
+                    "altium.not-lowered",
+                    "info",
+                    f"the net of {style.name!r} holds an apostrophe, so no rule can name it; its zones take "
+                    "the All rule",
+                    where=f"rule/{style.name}",
+                )
+            )
+            continue
+        priority += 1
+        keys = connectstyle.style_keys(style, _mil)
+        found.append(
+            _rule(
+                RULE_POLYGON_CONNECT,
+                connectstyle.RULE_KIND,
+                style.name,
+                style.scope,
+                priority,
+                keys,
+                filename,
+                net_scope="AnyNet",
+            )  # fmt: skip
+        )
+    return found, tuple(problems)
+
+
+@dataclass(frozen=True, slots=True)
+class PourSummary:
+    """What a computed pour did (``result.pcb.pour``): the polygons poured, those refused per reason with
+    the model zone and layer of each, the evidence and the hypotheses that the poured polygons used."""
+
+    poured: int
+    refused: tuple[tuple[str, str, str], ...]
+    """(reason, zone id, layer) of each refused polygon, in record order."""
+    evidence: Evidence
+    rounds: int = 1
+
+    @property
+    def unpoured(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for reason, _zone, _layer in self.refused:
+            counts[reason] = counts.get(reason, 0) + 1
+        return dict(sorted(counts.items()))
+
+    def to_json(self) -> dict[str, object]:
+        """``poured``, ``unpoured`` (per reason), and the ``evidence`` level and ``hypotheses`` of the
+        poured polygons (``None`` and empty when none is poured)."""
+        return {
+            "poured": self.poured,
+            "unpoured": self.unpoured,
+            "evidence": self.evidence.level.value if self.poured else None,
+            "hypotheses": list(self.evidence.hypotheses) if self.poured else [],
+        }
+
+    def issues(self, where: str) -> tuple[Issue, ...]:
+        """One ``altium.zone-unpoured`` (warning) per refused polygon, ``where`` ``zone/<id>``, and one
+        ``altium.zones-poured`` (info) at ``where`` (the document) when a polygon is poured (capability
+        altium-pour, "Computed pours are experimental")."""
+        from fenolite.backends.altium.pour import REASONS
+
+        found = [
+            Issue(
+                ZONE_UNPOURED,
+                "warning",
+                f"the polygon of zone {zone} on {layer} is written with its outline only: {REASONS[reason]}",
+                where=f"zone/{zone}",
+                hint=REPOUR_ALL,
+            )
+            for reason, zone, layer in self.refused
+        ]
+        if self.poured:
+            found.append(
+                Issue(
+                    ZONES_POURED,
+                    "info",
+                    f"{self.poured} polygon(s) poured by Fenolite ({self.evidence.level.value}, "
+                    f"experimental): the copper is computed by Fenolite; {REPOUR_ALL} in Altium gives "
+                    "Altium's own copper",
+                    where=where,
+                    hint=REPOUR_ALL,
+                )
+            )
+        return tuple(found)
+
+
+@dataclass(frozen=True, slots=True)
+class PcbDocResult:
+    """The bytes of a written PCB document, what its computed pour did (``None`` with the pour mode
+    ``outline``), and the issues of the write."""
+
+    data: bytes
+    pour: PourSummary | None = None
+    issues: tuple[Issue, ...] = ()
+
+
+def _pour_regions(document: PcbDocument, pours: PourResult) -> list[tuple[bytes, bytes]]:
+    """The region records of every poured polygon of ``pours``, polygon by polygon in record order: each
+    piece in binary units, the outer ring clockwise and the holes anticlockwise in the file's frame."""
+    from fenolite.backends.altium.adapter.copper import layer_of_text
+
+    def units(ring: Sequence[Point], clockwise: bool) -> list[tuple[int, int]]:
+        found = [(rec.to_units(p.x), rec.to_units(-p.y)) for p in ring]
+        cleaned: list[tuple[int, int]] = []
+        for point in found:
+            if not cleaned or cleaned[-1] != point:
+                cleaned.append(point)
+        while len(cleaned) > 1 and cleaned[0] == cleaned[-1]:
+            cleaned.pop()
+        twice = sum(
+            a[0] * b[1] - b[0] * a[1] for a, b in zip(cleaned, (*cleaned[1:], cleaned[0]), strict=True)
+        )
+        if (twice < 0) != clockwise:
+            cleaned.reverse()
+        return cleaned
+
+    out: list[tuple[bytes, bytes]] = []
+    for pour in pours.polygons:
+        if not pour.poured:
+            continue
+        record = document.polygons[pour.index]
+        layer = layer_of_text(record.layer)
+        if layer is None:  # pragma: no cover - the import maps only polygons on known layers
+            continue
+        arc = record.record.get("ARCRESOLUTION") or "0.5mil"
+        for number, piece in enumerate(pour.pieces):
+            outer = units(piece.outer, clockwise=True)
+            holes = [hole for hole in (units(h, clockwise=False) for h in piece.holes) if len(hole) >= 3]
+            if len(outer) < 3:
+                continue
+            plain = rec.polygon_region(
+                layer, outer, holes, polygon=pour.index, piece=number, arc_resolution=arc
+            )
+            shape = rec.polygon_region(
+                layer, outer, holes, polygon=pour.index, piece=number, arc_resolution=arc, shape_based=True
+            )
+            out.append((plain, shape))
+    return out
+
+
+def write_pcbdoc_result(
+    spec: PcbDocSpec,
+    *,
+    filename: str = DEFAULT_FILENAME,
+    pour: PourMode = "outline",
+    pour_regions: bool = True,
+) -> PcbDocResult:
+    """``write_pcbdoc`` with what the pour did (capability altium-pcb-writer, "Polygon pour modes").
+
+    With ``computed`` the document is written without pour regions, read back with Fenolite's reader and
+    poured (``pour.pour_reading``); the regions are written, and the document is read back again and
+    self-checked (``pour.check_pour``): a polygon whose copper comes nearer to an object of another net than
+    its clearance is refused, with every later polygon of its layer that depends on it, and the pour is
+    computed again. ``pour_regions`` off gives the bytes of the computed document without the regions of
+    the polygons (the kit's reference input). ``BackendUnavailable`` without the ``geo`` extra."""
+    if pour == "outline" or not spec.zones:
+        data = _write(spec, filename)
+        return PcbDocResult(data, None if pour == "outline" else PourSummary(0, (), POUR_EVIDENCE))
+    from fenolite.backends.altium.pour import check_pour, pour_reading, read_pour
+    from fenolite.geometry.boolean.clipper import ClipperBackend
+
+    backend = ClipperBackend()
+    _, issues = connect_records(spec, filename)
+    base = _write(spec, filename, computed=True)
+    reading = read_pour(base, file=filename)
+    order = [(zone.id, layer) for zone, layer, _ in polygon_order(spec.zones, _spec_copper(spec))]
+    refused: dict[int, str] = {}
+    rounds = 0
+    while True:
+        rounds += 1
+        result = pour_reading(reading, backend=backend, refuse=refused)
+        data = _write(spec, filename, computed=True, pour_records=_pour_regions(reading.document, result))
+        failed = check_pour(read_pour(data, file=filename), result)
+        if not failed or rounds >= POUR_ROUNDS:
+            for index in failed:
+                refused[index] = "copper-check"
+            if failed:
+                result = pour_reading(reading, backend=backend, refuse=refused)
+                data = _write(
+                    spec, filename, computed=True, pour_records=_pour_regions(reading.document, result)
+                )
+            break
+        refused.update((index, "copper-check") for index in failed)
+    summary = PourSummary(
+        poured=sum(1 for p in result.polygons if p.poured),
+        refused=tuple(
+            (p.reason, *(order[p.index] if p.index < len(order) else (p.zone_id, p.layer)))
+            for p in result.polygons
+            if not p.poured
+        ),
+        evidence=POUR_EVIDENCE,
+        rounds=rounds,
+    )
+    return PcbDocResult(data if pour_regions else base, summary, issues)
+
+
+def _spec_copper(spec: PcbDocSpec) -> _Copper:
+    frame = spec.frame if spec.frame is not None else Frame.of(spec.outline)
+    nets = {name: index for index, name in enumerate(sorted(spec.nets))}
+    stack = document_stack(spec)
+    return _Copper(frame, nets, dict(zip(spec.copper_layers, stack.copper, strict=True)))
 
 
 __all__ = [
@@ -1935,4 +2231,12 @@ __all__ = [
     "text_record",
     "via_records",
     "write_pcbdoc",
+    "write_pcbdoc_result",
+    "PcbDocResult",
+    "PourSummary",
+    "REPOUR_ALL",
+    "ZONES_POURED",
+    "ZONE_UNPOURED",
+    "connect_records",
+    "polygon_order",
 ]

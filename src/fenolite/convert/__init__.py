@@ -21,7 +21,16 @@ from typing import Literal
 
 from fenolite.convert import to_altium, to_kicad
 from fenolite.convert.codes import ISSUE_CODES, issue
-from fenolite.convert.direction import BODIES, TARGETS, Direction, Options, Target, TargetLimitError
+from fenolite.convert.direction import (
+    BODIES,
+    POURS,
+    TARGETS,
+    Direction,
+    Options,
+    Pour,
+    Target,
+    TargetLimitError,
+)
 from fenolite.convert.report import ConversionReport, ReportRow
 from fenolite.convert.sources import SourceError, SourceProject, read_source
 from fenolite.core.errors import FenoliteError, Issue
@@ -119,18 +128,23 @@ def convert_project(
     allow_lossy: bool = False,
     bodies: str = "extruded",
     name: str | None = None,
+    pour: Pour | None = None,
 ) -> Conversion:
     """The target project of ``source`` in memory, with its report (capability design-conversion,
     "Conversion package"). ``to`` is ``kicad`` or ``altium``; ``kicad_version`` the major of a KiCad
     target; ``bodies`` what an Altium target does with component bodies (``extruded`` or ``off``);
-    ``name`` the stem of the written files. ``LossyConversionError`` for a loss of a ``refuse`` kind
+    ``name`` the stem of the written files; ``pour`` the pour mode of an Altium target (``computed`` or
+    ``outline``; ``None`` is ``computed``, written as ``outline`` with a warning without the ``geo``
+    extra; change c0215). ``LossyConversionError`` for a loss of a ``refuse`` kind
     without ``allow_lossy``; ``SourceError`` (a ``ValueError``) for a source that is no project or a pair
     of backends without a direction; ``TargetLimitError`` when the target writer cannot hold the design."""
     if bodies not in BODIES:
         raise ValueError(f"bodies is one of {', '.join(BODIES)}, got {bodies!r}")
+    if pour is not None and pour not in POURS:
+        raise ValueError(f"pour is one of {', '.join(POURS)}, got {pour!r}")
     read = source if isinstance(source, SourceProject) else read_source(Path(source))
     direction = direction_for(read.backend, to)
-    written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name))
+    written = direction.write(read, Options(kicad_version=kicad_version, bodies=bodies, name=name, pour=pour))
     report = written.report
     lossy = tuple(lossy_issue(row) for row in report.rows if row.kind in report.refused)
     if lossy and not allow_lossy:

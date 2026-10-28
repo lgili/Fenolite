@@ -346,6 +346,12 @@ byte for byte.
 `--altium-directions {on,off}` (default `on`; a usage error `FEN-2001` without `--target altium`) picks
 the I/O type of ports and sheet entries: `on` writes output, input or bidirectional where the pin types
 on the net say so (`docs/altium.md`, "Port directions"), `off` leaves every one unspecified.
+`--altium-pour {computed,outline}` (change c0215; default `computed`; a usage error `FEN-2001` without
+`--target altium`) is the pour mode of the PCB document: `computed` writes the copper of each polygon as
+Fenolite pours it with Altium's rules (experimental; `docs/altium.md`, "Computed pours"), `outline` writes
+the polygons unpoured, as earlier versions did. Without the `geo` extra the default writes the outline with
+one `altium.pour-unavailable` warning, and an explicit `computed` exits 6 (`FEN-6001`). `result.pcb.pour`
+holds `mode`, `poured`, `unpoured` (reason → count), `evidence` and `hypotheses`.
 `--altium-bodies {off,extruded}` (change c0121; default `extruded` since change c0155; a usage error `FEN-2001` without
 `--target altium`) picks what the build does with the component bodies of the board's footprints:
 `off` writes none and reports each with `altium.not-lowered` (`where` = `body/<id>`); `extruded`
@@ -403,7 +409,10 @@ The copper codes of the Altium build:
 | `altium.copper-board-mismatch` | error | a copper source does not match the design: a component, a footprint, a pad net or the outline |
 | `altium.copper-net-missing` | error | copper of a source is on a net whose name the design does not hold |
 | `altium.copper-no-document` | error | a copper source is given and the PCB document is not planned |
-| `altium.zones-unpoured` | info | polygons are written without poured copper |
+| `altium.zones-unpoured` | info | polygons are written without poured copper (pour mode `outline`) |
+| `altium.zones-poured` | info | polygons are poured by Fenolite (pour mode `computed`, experimental) |
+| `altium.zone-unpoured` | warning | one polygon is written with its outline only: the reason the engine refused it |
+| `altium.pour-unavailable` | warning | the default pour mode needs the `geo` extra: the polygons are written unpoured |
 | `altium.plane-zone-merged` | info | a zone on a plane layer with the plane's net is left to the plane |
 | `altium.placement-from-board` | info | components are placed as the board of `--copper-from` places them, not as the script requests |
 
@@ -431,7 +440,7 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 [--target kicad|altium]
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
-[--altium-bodies off|extruded]
+[--altium-bodies off|extruded] [--altium-pour computed|outline]
 [--copper-check refuse|warn]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
@@ -1379,7 +1388,8 @@ carries `ORACLE-VERIFIED`, `KICAD-VERIFIED` or `ALTIUM-VERIFIED`: only Fenolite 
   holds).
   What the stage does not judge is said, and any of these lowers it to `UNVERIFIED`:
   - an **unpoured polygon** is no copper: `unpoured` counts them, with one `copper.item-unsupported`
-    (a build writes its polygons unpoured, so a built board with zones says this until Altium repours);
+    (a build with `--altium-pour outline`, or without the `geo` extra, writes its polygons unpoured, so
+    such a board with zones says this until Altium repours);
   - an **internal plane** is drawn in negative: what is drawn on its layer is no copper, and the import
     makes no track of it; one `copper.item-unsupported` (`where` is `plane`) counts the planes;
   - a **Clearance rule outside the rule table** (an object matrix, a layer scope) may govern any pair:
@@ -2893,7 +2903,7 @@ The evidence is the lowest of the two readings (a built design counts as `INFERR
 ## convert
 
 `fenolite convert SRC --to kicad|altium --out DIR [--name NAME] [--altium-bodies extruded|off]
-[--report-ids] [--no-verify]`, with the global `--kicad-version` and `--allow-lossy`, converts a project to
+[--altium-pour computed|outline] [--report-ids] [--no-verify]`, with the global `--kicad-version` and `--allow-lossy`, converts a project to
 another backend, or to another KiCad major, and says per kind and per reason what it kept, changed and lost
 (change c0159; `docs/conversion.md` holds the kinds, the report, the verification and the directions). The
 command calls `fenolite.api.convert`; its `result` follows the schema `schemas/fenolite.convert.v0.json`.
@@ -2921,6 +2931,7 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 | `--out DIR` | the folder of the converted project |
 | `--name NAME` | the stem of the written files (default: the source's) |
 | `--altium-bodies extruded\|off` | write the extruded component bodies into an Altium PCB document (default), or none |
+| `--altium-pour computed\|outline` | pour the polygons of an Altium PCB document with Altium's rules (default, experimental; exit 6 without the `geo` extra when asked), or write them unpoured; a usage error with `--to kicad` (change c0215) |
 | `--report-ids` | list the ids of the changed and lost items under each reason of the report |
 | `--no-verify` | do not read the converted project back |
 
@@ -2954,7 +2965,8 @@ or none, with a `.bak` copy of each file it overwrites unless `--no-backup` is g
 
 ## panel
 
-`fenolite panel PANEL.py --out DIR --target {9,10,altium} [--altium-panel {auto,embedded,flat}]` writes a
+`fenolite panel PANEL.py --out DIR --target {9,10,altium} [--altium-panel {auto,embedded,flat}]
+[--altium-pour {computed,outline}]` writes a
 panel: several copies of one built board in rows and columns, with rails, V-score or tabs with mouse bites,
 fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a panel script that binds
 `panel = Panel(name, board=…)` (`fenolite.dsl.panel`), run in-process as `build` runs a design script.
@@ -2972,7 +2984,9 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
 - **The Altium form.** `--altium-panel auto` (default) writes Altium's Embedded Board Array when
   `pcbdoc.EMBEDDED_ARRAYS` is true and the source is a `.PcbDoc`, otherwise the flattened panel with one
   `altium.panel-flattened` info naming the reason. `embedded` while the gate is off, or with a `.kicad_pcb`
-  source, is exit 7 (`FEN-7001`); so is `mirror=True` for any flattened form.
+  source, is exit 7 (`FEN-7001`); so is `mirror=True` for any flattened form. `--altium-pour` is the pour
+  mode of a flattened panel's document, as for `build` (change c0215), and `result.panel.pour` says what it
+  did; exit 6 for an explicit `computed` without the `geo` extra.
 - **Writes.** `--dry-run` plans every file under `DIR`; `--confirm` writes them all or none, with
   `.fenolite/<name>.panel-written.json`, the SHA-256 of each file written. A later run refuses a file
   changed since (`panel.output-changed`, exit 5) unless `--discard-layout` replaces it (a `.bak` is kept).
@@ -2982,7 +2996,7 @@ fiducials and tooling holes (change c0173; `docs/panels.md`). `PANEL.py` is a pa
   score lines, fiducials and tooling holes) and `score_layer` (the KiCad layer of the score lines);
   `result.files` lists the planned files with their sizes. `evidence.level` is that of the form:
   `KICAD-VERIFIED` (`H-K-PANEL-LOAD`, `-DRILL`, `-NETS`) for a KiCad panel board.
-- **Exit codes.** 0; 2 (`FEN-2001`) for `--altium-panel` with a KiCad target, a `.PcbDoc` board for a
+- **Exit codes.** 0; 2 (`FEN-2001`) for `--altium-panel` or `--altium-pour` with a KiCad target, a `.PcbDoc` board for a
   KiCad target, or a board written for another KiCad major than `--target`; 3 (`FEN-3001`) when the script
   or its board is missing, (`FEN-3004`) when the script raises or binds no `panel`; 4 (`FEN-4001`,
   `FEN-4002`); 5 (`FEN-5001`) for error findings; 7 (`FEN-7001`) as above.

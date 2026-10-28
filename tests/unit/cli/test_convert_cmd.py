@@ -192,3 +192,19 @@ def test_altium_to_kicad_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     result = envelope["result"]
     assert result["equivalence"]["equivalent"] is True
     assert any(row["path"].endswith("blink.kicad_pcb") for row in result["plan"])
+
+
+def test_altium_pour_option(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``--altium-pour`` (change c0215): a usage error with ``--to kicad``; ``outline`` reaches the report."""
+    code, _, error, _ = run(
+        monkeypatch, tmp_path, "convert", str(TWO_LAYER), "--to", "kicad", "--out", "out", "--dry-run",
+        "--altium-pour", "outline",
+    )  # fmt: skip
+    assert code == 2 and error["code"] == "FEN-2001" and error["where"] == "--altium-pour"
+    code, envelope, error, _ = run(
+        monkeypatch, tmp_path, "convert", str(TWO_LAYER), "--to", "altium", "--out", "out", "--dry-run",
+        "--altium-pour", "outline",
+    )  # fmt: skip
+    assert code == 0, error
+    (row,) = [r for r in envelope["result"]["report"]["rows"] if r["kind"] == "zone-fill"]
+    assert [r["reason"] for r in row["reasons"]] == [to_altium.CHANGES["zone-fill"]]

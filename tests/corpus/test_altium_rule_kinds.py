@@ -16,6 +16,7 @@ from _corpus import CorpusItem, manifest_items, require
 from fenolite.backends.altium import rulemap
 from fenolite.backends.altium.adapter.layers import LayerMap
 from fenolite.backends.altium.backend import AltiumBackend
+from fenolite.backends.altium.connectstyle import read_connect_styles
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.rules import (
     HEADER_KEYS,
@@ -171,3 +172,71 @@ def test_clearance_forms(item: CorpusItem) -> None:
                 count = int(entry.rsplit(":", 1)[1])
                 nanometres = count * MATRIX_UNIT[0] / MATRIX_UNIT[1]
                 assert count % 5000 == 0 or abs(nanometres / 50_000 - round(nanometres / 50_000)) < 1e-4
+
+
+# --- Polygon Connect Style (change c0215) --------------------------------------------------------------
+
+CONNECT_KEYS = ("CONNECTSTYLE", "RELIEFCONDUCTORWIDTH", "RELIEFENTRIES", "POLYGONRELIEFANGLE", "AIRGAPWIDTH")
+"""The keys of one setting of a Polygon Connect Style record, in order (``pcb-pour.md``)."""
+CONNECT_FORMS: dict[str, tuple[int, int]] = {
+    "altium-third-party-pcbdoc-01": (5, 0),
+    "altium-third-party-pcbdoc-02": (2, 1),
+    "altium-third-party-pcbdoc-03": (1, 0),
+    "altium-third-party-pcbdoc-04": (1, 0),
+    "altium-third-party-pcbdoc-05": (1, 0),
+    "altium-third-party-pcbdoc-06": (2, 1),
+    "altium-third-party-pcbdoc-07": (1, 1),
+    "altium-third-party-pcbdoc-08": (1, 1),
+}
+"""Row → its Polygon Connect Style records of the Simple and of the Advanced form (census of 2026-10-26)."""
+
+
+def _connect_problems(fields: list[tuple[str, str]]) -> list[str]:
+    """What departs from the two forms of ``pcb-pour.md``, "Polygon Connect Style records"."""
+    keys = [key for key, _ in fields]
+    values = dict(fields)
+    own = [key for key in keys[keys.index("RULEKIND") :] if key not in HEADER_KEYS]
+    advanced = [f"{prefix}.{key}" for prefix in ("THPAD", "SMDPAD", "VIA") for key in CONNECT_KEYS]
+    problems: list[str] = []
+    if own not in (list(CONNECT_KEYS), advanced):
+        problems.append(f"keys {own}")
+    if (values.get("NETSCOPE"), values.get("LAYERKIND")) != ("AnyNet", "SameLayer"):
+        problems.append("header")
+    for key, value in fields:
+        if key.endswith("CONNECTSTYLE") and value not in ("Relief", "Direct"):
+            problems.append(f"{key}={value}")
+        if key.endswith("RELIEFENTRIES") and value != "4":
+            problems.append(f"{key}={value}")
+        if key.endswith("POLYGONRELIEFANGLE") and value not in ("90 Angle", "45 Angle"):
+            problems.append(f"{key}={value}")
+        if key.endswith(("RELIEFCONDUCTORWIDTH", "AIRGAPWIDTH")) and not value.endswith("mil"):
+            problems.append(f"{key}={value}")
+    return problems
+
+
+@pytest.mark.parametrize("item", DOCUMENTS, ids=lambda item: item.id)
+def test_polygon_connect_records(item: CorpusItem) -> None:
+    """The Polygon Connect Style records (kind 20) of each document hold one of the two forms of
+    ``pcb-pour.md``: five keys, or the same five keys three times behind ``THPAD.``, ``SMDPAD.`` and ``VIA.``,
+    with the values that the census found."""
+    path = require(item)
+    records = [r for r in read_pcbdoc(path.read_bytes(), file=path.name).rules if r.kind_number == 20]
+    assert all(r.rule_kind == "PolygonConnect" for r in records)
+    problems = [(r.name, p) for r in records for p in _connect_problems(list(r.fields))]
+    assert not problems, (item.id, problems)
+    advanced = sum(1 for r in records if "THPAD.CONNECTSTYLE" in dict(r.fields))
+    assert (len(records) - advanced, advanced) == CONNECT_FORMS[item.id]
+    styles = read_connect_styles([r.fields for r in records])
+    assert len(styles) == len(records) and not [s.name for s in styles if s.reason]
+    assert sum(s.advanced for s in styles) == advanced
+
+
+def test_polygon_connect_rule_file() -> None:
+    """The public rule file of S-0297 holds one Polygon Connect Style record of the Simple form."""
+    (item,) = [row for row in manifest_items("altium") if row.id == "altium-third-party-rules-01"]
+    from fenolite.backends.altium.read.rul import read_rule_file
+
+    records = [list(r.fields) for r in read_rule_file(require(item).read_bytes()).records]
+    connect = [fields for fields in records if dict(fields).get("RULEKIND") == "PolygonConnect"]
+    assert len(connect) == 1
+    assert _connect_problems([(k, v or "") for k, v in connect[0]]) == []

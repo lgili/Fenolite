@@ -130,7 +130,9 @@ def built_document(
 
     with monkeypatch.context() as patch:
         patch.setattr(lens_altium, "lowered_pcb", keeping)
-        code, folder, error = build_altium_example(monkeypatch, tmp_path, script, "--altium-sheets", sheets)
+        code, folder, error = build_altium_example(  # the former bytes hold unpoured polygons (c0215)
+            monkeypatch, tmp_path, script, "--altium-sheets", sheets, "--altium-pour", "outline"
+        )
     if code != 0:
         return None, None, f"the build exits {code}: {error.strip()[:120]}"
     documents = sorted(folder.glob("*.PcbDoc"))
