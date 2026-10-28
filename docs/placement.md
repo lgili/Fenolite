@@ -1,7 +1,7 @@
 # Placement
 
 How do parts get from the staging row onto the board, and how do I know that a placement is legal before
-KiCad opens it? This page describes `fenolite place`, the two strategies, the legality check and how a
+KiCad opens it? This page describes `fenolite place`, the three strategies, the legality check and how a
 placement survives the next build. The normative text is in `openspec/specs/placement/spec.md`; the
 KiCad facts are in `docs/formats/kicad/board.md` ("Board outline as rings", "Moved footprints"). The
 command contract is in `docs/cli-contract.md` ("`place`").
@@ -19,6 +19,7 @@ definition ("Keep-outs" and "Placement rules" below).
 |---|---|---|
 | `grid` (default) | every footprint that is off the board, or those of `--only` | shelf packing, left to right and top to bottom, at 0° on the top side; translation only |
 | `manual` | the footprints named by `--move REF=X,Y[,ROT[,SIDE]]` | a translation, or a re-placement from the library definition when the rotation or the side changes |
+| `constrained` | the unlocked footprints selected by an explicit constraints request | bounded, deterministic translation search; preserves side/rotation and checks the supplied geometry, copper and mechanical constraints |
 
 The grid is deterministic: the same board gives the same positions, in component-path order.
 
@@ -178,8 +179,11 @@ Who judges them:
 
 The rules are those of the last build: `check` and `place` read `.fenolite/`, so a rule changed in the
 script applies at the next build. A board without a script has no rule. Distances join pad centres: a rule
-says nothing of the routed length (change c0106) or of the area of a current loop. No command moves a part
-to meet a rule: the grid ignores them, and a placer that reads them is planned (`docs/roadmap.md`).
+says nothing of the routed length (change c0106) or of the area of a current loop. Grid and manual
+placement report these findings without choosing a new position to satisfy them. The `constrained`
+strategy can propose positions from an explicit constraints request and pad-distance objectives
+([Constrained proposals](#constrained-proposals-c0096)); it does not automatically optimize all DSL
+rules or routed electrical properties. Its finite search can miss a feasible placement.
 
 ## Height limits
 

@@ -10,13 +10,18 @@ fix = "Report the command line and the input; do not retry the same call unchang
 see = "Exit codes"
 
 ["FEN-1002"]
-meaning = "A file of the plan could not be written: the folder or the file refused it, the disk is full, or a path is blocked. Everything was put back: every file holds what it held before the command, and no new file or folder is left."
+meaning = "A file of the plan could not be written: the folder or the file refused it, the disk is full, or a path is blocked. Every target and backup was put back. Temporary-file cleanup is best effort if the filesystem also refuses deletion."
 fix = "Read the path and the reason in the message, remove the cause, and run the same command again; under --plan the staged plan is still there. This is not a bug of Fenolite: retryable is true."
 see = "Writing files"
 
 ["FEN-1003"]
 meaning = "The command was stopped by a signal (SIGTERM, or SIGINT from Ctrl+C). The tools it had started were stopped, a write in progress was put back, and nothing was written."
 fix = "Run the same command again. A stopped route goes on from the router runs that had finished."
+see = "Writing files"
+
+["FEN-1004"]
+meaning = "A write failed or was interrupted, and restoring a target or backup also failed. Some files may have changed. Remaining recovery files were retained; retryable is false."
+fix = "Do not retry or delete recovery files. Inspect result.recovery.failed and result.recovery.preserved, copy the retained files to a safe place, and restore the intended project state. Review a new plan only after recovery."
 see = "Writing files"
 
 ["FEN-2001"]
@@ -2943,7 +2948,7 @@ fix = "Merge that file by hand from the copy."
 see = "publish"
 
 ["safety.unstable"]
-meaning = "A file of the project changed during each of four reads: a tool keeps saving it. No copy was made, since it would mix two states of the project."
+meaning = "After three shared retry rounds, a complete-set hash check still found a file whose observed hash differs from the collected bytes. That file need not have changed in every round. No copy was made."
 fix = "Close the tool that keeps saving, or wait until it is done, and run the snapshot again."
 see = "snapshot"
 

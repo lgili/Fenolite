@@ -127,6 +127,21 @@ def _footprint_info(fp: FootprintDef) -> tuple[list[list[str]], dict[str, Any]]:
     return info, facts
 
 
+def footprint_item(
+    fp: FootprintDef, *, frame: BoardFrame | None, backend: str, evidence: str, palette: Palette
+) -> dict[str, Any]:
+    """Draw an in-memory definition with the same pad geometry and facts as a file-backed library."""
+    info, facts = _footprint_info(fp)
+    scene = build_scene(_board_of(fp), frame, name=fp.name, backend=backend, evidence=evidence)
+    return {
+        "name": fp.name,
+        "description": fp.description,
+        "info": info,
+        **facts,
+        "scene": themes.apply_board_theme(scene, palette),
+    }
+
+
 def footprint_library_scene(path: Path, *, kicad: Palette | None = None) -> dict[str, Any]:
     """The scene of a footprint library: an Altium ``.PcbLib``, a KiCad ``.pretty`` folder or a
     ``.kicad_mod``."""
@@ -147,19 +162,17 @@ def footprint_library_scene(path: Path, *, kicad: Palette | None = None) -> dict
         palette = kicad if name == "kicad" and kicad is not None else themes.palette(name)
         frame = backend if isinstance(backend, BoardFrame) else None
         for fp in library.footprints:
-            info, facts = _footprint_info(fp)
-            item: dict[str, Any] = {"name": fp.name, "description": fp.description, "info": info, **facts}
             try:
-                scene = build_scene(
-                    _board_of(fp),
-                    frame,
-                    name=fp.name,
+                item = footprint_item(
+                    fp,
+                    frame=frame,
                     backend=backend.name,
                     evidence=read.evidence.level.value,
+                    palette=palette,
                 )
-                item["scene"] = themes.apply_board_theme(scene, palette)
             except (ValueError, KeyError, FormatError) as exc:
-                item["scene"] = None
+                info, facts = _footprint_info(fp)
+                item = {"name": fp.name, "description": fp.description, "info": info, **facts, "scene": None}
                 notes.append(f"{fp.name}: not drawn ({type(exc).__name__}: {exc})")
             items.append(item)
     digest, size = _digest(files)
@@ -262,6 +275,7 @@ __all__ = [
     "FOOTPRINT_SUFFIXES",
     "SCHEMA",
     "SYMBOL_SUFFIXES",
+    "footprint_item",
     "footprint_library_scene",
     "layer_kind",
     "library_scene",

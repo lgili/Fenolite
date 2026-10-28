@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright (c) 2026 Fenolite contributors
-"""``fenolite snapshot PATH --out DIR``: a copy of a project that no save interrupted (capability
+"""``fenolite snapshot PATH --out DIR``: a copy validated by a complete-set hash check (capability
 file-safety, "Stable snapshot"; ``docs/file-safety.md``; ``docs/cli-contract.md``, "snapshot").
 
 The command copies a design file with its companion files (``safety.files.companions``), or every project
-file of a folder, and accepts the copy only when every file has the same SHA-256 before and after all were
-read. ``DIR/snapshot.json`` lists the files and their hashes: it is the receipt that ``fenolite publish``
+file of a folder, and accepts a candidate only when a pass over the entire file set observes matching
+hashes. Writers are not locked; this does not provide an atomic filesystem snapshot.
+``DIR/snapshot.json`` lists the files and their hashes: it is the receipt that ``fenolite publish``
 checks before it puts an edited copy back.
 """
 
@@ -25,7 +26,7 @@ from fenolite.safety import files as safety_files
 from fenolite.safety.codes import ISSUE_CODES as SAFETY_CODES
 from fenolite.safety.placeholders import online_only
 
-HELP = "copy a project that no save interrupted, with the hashes of its files (snapshot.json)"
+HELP = "copy a project with complete-set hash checks and a file manifest (snapshot.json)"
 SCHEMA = "fenolite.snapshot.v0"
 MANIFEST = "snapshot.json"
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-SNAPSHOT-STABLE",))
@@ -87,8 +88,8 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         issue = Issue(
             "safety.unstable",
             SAFETY_CODES["safety.unstable"],
-            f"{', '.join(read.unstable)} changed during each of {safety_files.RETRIES + 1} reads; "
-            "nothing is copied",
+            f"{', '.join(read.unstable)}: hashes do not match the collected bytes after "
+            f"{safety_files.RETRIES} retry rounds; nothing is copied",
             where=read.unstable[0],
             hint="close the tool that keeps saving the file, or wait until it is done, and run again",
         )

@@ -208,6 +208,26 @@ On 2026-10-16 the maintainer's requests for native Altium Draftsman documents an
 | c0220 | `legal-history-1-0` | v1.0 freeze: the residue scan over the whole history in the release and the nightly, the licence inventory, the legal review record | — |
 | c0221 | `release-automation` | a pushed tag runs the release: checks, build, PyPI and the GitHub Release with notes and checksums | c0154, c0171 |
 
-The id c0164 is held by two archived changes (the two c0164 rows of the table). c0215 was written on `dev` as c0196 before PR #20 took that id, then as c0204 before the branch `dev-c0204-c0209` took c0204 to c0209; the five changes of the v1.0 freeze were written as c0198 to c0202 before c0197 to c0203 took those, then as c0205 to c0209. All six were renumbered on 2026-10-28, and c0210 to c0214 are held by drafts in other worktrees. The release of `1.0.0` takes a change of its own when it is cut, as `0.5.0` took c0171. New changes start at c0222.
+The id c0164 is held by two archived changes (the two c0164 rows of the table). c0215 was written on `dev` as c0196 before PR #20 took that id, then as c0204 before the branch `dev-c0204-c0209` took c0204 to c0209; the five changes of the v1.0 freeze were written as c0198 to c0202 before c0197 to c0203 took those, then as c0205 to c0209. All six were renumbered on 2026-10-28, and c0210 to c0214 are held by drafts in other worktrees. The release of `1.0.0` takes a change of its own when it is cut, as `0.5.0` took c0171. Consult the current audit allocation below before choosing another ID.
 
 Older planning text that says `tokens.yaml` means the token inventory `src/fenolite/backends/kicad/data/tokens.toml`.
+
+## Audit batch allocation — updated 2026-10-29
+
+The maintainer authorized consolidation of these nine changes on current dev, full CI, archival, and a single squash into dev. Prior allocation and proof records remain in each change.
+
+All nine are archived under `changes/archive/2026-10-28-c0232-*` through `2026-10-28-c0240-*` after the implementation CI passed; OpenSpec uses a UTC archive date. Their final revision must pass its own CI before dev advances. The integration proof is in `docs/evidence/adoption-reliability-integration.md`.
+
+| id | change | prior draft ID |
+|---|---|---|
+| c0232 | `snapshot-consistency` | c0223; c0210, originally c0205 |
+| c0233 | `viewer-review-reliability` | c0224; c0211, originally c0206 |
+| c0234 | `catalog-visual-browser` | c0225; c0212 |
+| c0235 | `viewer-navigation-consistency` | c0226; c0213 |
+| c0236 | `documentation-reconciliation` | c0227; c0215, originally c0207 |
+| c0237 | `public-presentation` | c0228; c0216, earlier c0208/c0197 |
+| c0238 | `write-recovery` | c0229; c0217, earlier c0209/c0204 |
+| c0239 | `project-review-status` | c0230; c0218 |
+| c0240 | `catalog-selection` | c0231; c0219 |
+
+Fetched refs already reserve c0210-layout-reuse, c0211-region-renders and c0212-assembly-marks; another agent holds c0214. Current dev's c0215–c0221 and remote c0222-net-roles are preserved. A final fetch also found c0223-library-fidelity, c0224-generated-copper and c0225–c0229 (drc-gate, silk-clip, reuse-moves, octilinear-router and testpoint-place) on other agents' branches. Only this batch moved to c0232–c0240. Its implementation CI passed all 13 jobs on 8c2fa270 under the earlier c0223–c0231 identities; those proof records remain aliases. The final archived revision requires its own CI before dev advances. The next free number in these inspected refs is c0241; fetch and inspect active/archive changes before allocating it. Earlier committed collisions remain identified by full slug and commit, including the two archived c0164 changes.

@@ -2,9 +2,7 @@
 
 ## Purpose
 What a Fenolite release has to prove before it is tagged: a second example board, the acceptance loop on both examples and both KiCad majors, an agent guide whose commands are run by tests, a release record that names the proof and the limits of every acceptance item, a build from a clean checkout, and the version change.
-
 ## Requirements
-
 ### Requirement: Second example board
 `examples/board_40parts/design.py` SHALL be an authored design of exactly forty parts that builds with no fetch, from the authored mini library through the folder's own `fp-lib-table` and `sym-lib-table`.
 - The file MUST start with `# SPDX-License-Identifier: CC0-1.0` and the line stating that it was authored for Fenolite.
@@ -182,7 +180,7 @@ The release artefacts SHALL be built from the tagged commit in a clean checkout,
 ### Requirement: README describes the released version
 `README.md` SHALL describe what the newest release does, in the same pull request as its release record.
 - The status paragraph MUST start with `**Status: version 0.5.**`, MUST say what works (a design script becomes a KiCad project with a board and a schematic for KiCad 9.0 and 10.0, the loop of the agent guide, KiCad's own checks of the schematic, and the conversion of a project between KiCad and Altium or to the older KiCad major), MUST link to `docs/release/v0.5.md` for the limits, MUST say what is experimental, and MUST NOT hold the words `pre-alpha` or `being bootstrapped`.
-- A section `## What version 0.5 does` MUST name the schematic written by `build`, the checks (ERC, netlist, parity), the BOM and placement tables, the manifest, the inspection commands, the kept layout, the reading of Altium files, the writing of Altium files, `fenolite convert` with its report, the KiCad downgrade, the public `equivalent`, board slots and the copper-to-edge check, each with the page that describes it, and MUST send the reader to the release record for what is proved of the Altium reading, writing and conversion.
+- Workflow sections SHALL explain browser review, Python authoring and conversion, link the detailed support/limits record, and provide navigation to checks, assembly, exports and the agent guide. Detailed command inventories MAY live in the linked documentation index; no shipped feature is described as a future plan.
 - A section `## Install` MUST hold the line `pip install fenolite` and say that it installs no other package; the development install stays under its own heading.
 - The file MUST NOT say that Fenolite's output is byte-identical to a file re-saved by KiCad: only tree identity is claimed (`H-K-FMT-INDENT`).
 - `tests/unit/test_agent_skill.py` MUST check the status paragraph, the install section and the byte-identity rule textually.

@@ -41,6 +41,13 @@ _SPECS = (
         "run the same command again",
         retryable=True,
     ),
+    ErrorSpec(
+        "FEN-1004",
+        ExitCode.INTERNAL,
+        "rollback incomplete; some files may have changed",
+        "do not retry; preserve the recovery files, inspect and restore the affected files, "
+        "then review a new plan",
+    ),
     ErrorSpec("FEN-2001", ExitCode.USAGE, "invalid command line", "run 'fenolite --help'"),
     ErrorSpec(
         "FEN-2002", ExitCode.USAGE, "unknown field in --fields", "list the result keys with --json first"

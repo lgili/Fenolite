@@ -7,8 +7,11 @@ name is a design document of KiCad or Altium, and the files inside the library f
 (``*.pretty``, ``*.3dshapes``) that lie in it; backups, lock files, Fenolite's own state and hidden folders
 are left out.
 
-A read is stable when every file has the same SHA-256 before and after all of them were read. A file that a
-save changed during the read is read again, at most ``RETRIES`` times.
+A candidate is stable when a validation pass over the complete requested set observes the SHA-256 of
+each file equal to that of its held bytes. A changed file is read again within at most ``RETRIES`` retry
+rounds, then the whole set is validated again. This is an observed-hash check, not a filesystem snapshot:
+writers are not locked, changes restored between checks and saves after a last check can go unseen, and
+the caller's file list is fixed for the read.
 """
 
 from __future__ import annotations
@@ -55,7 +58,7 @@ class StableFile:
 @dataclass(frozen=True, slots=True)
 class StableRead:
     """The files of a stable read, sorted by path; ``retries`` counts the files read again; ``unstable``
-    names those that never settled."""
+    names the mismatches observed when the retry budget was exhausted."""
 
     root: Path
     files: tuple[StableFile, ...]
@@ -128,11 +131,12 @@ def companions(path: Path) -> tuple[Path, ...]:
 
 
 def read_stable(root: Path, files: Sequence[Path], *, hook: ReadHook | None = None) -> StableRead:
-    """Read ``files`` (relative to ``root``) and check that each still has the hash it was read with once
-    all were read; a changed file is read again, at most ``RETRIES`` times."""
+    """Read the requested paths and revalidate the whole set after every round. Changed files alone
+    are reread, for at most ``RETRIES`` extra rounds; hashes are observations, not source locks."""
     held: dict[Path, StableFile] = {}
     retries = 0
-    todo = list(files)
+    requested = tuple(files)
+    todo = list(requested)
     attempt = 0
     while todo:
         for rel in todo:
@@ -140,7 +144,8 @@ def read_stable(root: Path, files: Sequence[Path], *, hook: ReadHook | None = No
             held[rel] = StableFile(rel.as_posix(), data, sha256_bytes(data))
             if hook is not None:
                 hook(root / rel, attempt)
-        moved = [rel for rel in todo if sha256_of(root / rel) != held[rel].sha256]
+        # A retry of one file can coincide with a save of any previously settled file.
+        moved = [rel for rel in requested if sha256_of(root / rel) != held[rel].sha256]
         if not moved:
             break
         if attempt == RETRIES:

@@ -137,6 +137,17 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 - `kicad.drc.clearance` and `kicad.drc.shorting-items`: as `copper.clearance` and `copper.short` above.
 - `kicad.erc.pin-not-connected`: a pin is on no net. Connect it, or mark it with `no_connect`.
 
+## Incomplete write recovery
+
+`FEN-1004` has `retryable: false`: a write failed or was interrupted, and rollback also failed.
+Keep every file named in `result.recovery.preserved` and inspect the paths in `result.recovery.failed`.
+Resolve those paths from the command's working directory; they can include `../` or an absolute path
+when Windows volumes differ. Copy the remaining files to a safe place before recovering the project. A `.keep` can hold an original
+target or an earlier backup; a `.tmp` holds proposed new bytes; a `.bak` may have moved during the failed
+write. Compare contents and any earlier receipts before choosing which generation to restore. A successful
+receipt was not issued for the partial write. Do not run automatic retries or delete these files. After
+restoring the intended state, run a fresh dry run and review its plan.
+
 ## Every error code
 
 | code | exit | what happened | what to do |
@@ -144,6 +155,7 @@ electrical rules check, and carry KiCad's message. `fenolite check blink/build -
 | `FEN-1001` | 1 | a bug in Fenolite | stop and report the error object with the command line; do not retry |
 | `FEN-1002` | 1 | a write failed; every file of the command was put back | fix the cause the message names and run the same command again |
 | `FEN-1003` | 1 | the command was stopped by a signal; nothing was written | run the same command again: `route` goes on with the router runs that finished |
+| `FEN-1004` | 1 | rollback was incomplete; some files may have changed | preserve the listed recovery files, recover the intended state manually, then review a new plan; do not retry automatically |
 | `FEN-2001` | 2 | an invalid command line | recipe above |
 | `FEN-2002` | 2 | `--fields` names a key the result does not have | run with `--json` alone and read the keys |
 | `FEN-2003` | 2 | `--dry-run` and `--confirm` together | use one |

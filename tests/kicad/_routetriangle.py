@@ -7,7 +7,8 @@ Three reads of one routed board:
 
 - ``kicad``: the routed sample's KiCad board (``tests/_altium_copper.py``, authored for Fenolite), read by
   the KiCad backend;
-- ``altium``: the PCB document that ``fenolite build --target altium --copper-from`` writes from that board,
+- ``altium``: the PCB document that ``fenolite build --target altium --altium-pour outline
+  --copper-from`` writes from that board,
   read by the Altium backend;
 - ``imported``: the board that ``kicad-cli pcb import --format altium`` converts that document to, read by
   the KiCad backend.
@@ -61,7 +62,18 @@ class Corners:
 def _build(script: Path, board: Path, out: Path, config: Path) -> None:
     """``fenolite build --target altium --copper-from`` in this process, with KiCad's configuration folder
     set to an empty one of the test."""
-    argv = ["build", str(script), "--out", str(out), "--target", "altium", "--copper-from", str(board)]
+    argv = [
+        "build",
+        str(script),
+        "--out",
+        str(out),
+        "--target",
+        "altium",
+        "--altium-pour",
+        "outline",
+        "--copper-from",
+        str(board),
+    ]
     saved = os.environ.get("KICAD_CONFIG_HOME")
     os.environ["KICAD_CONFIG_HOME"] = str(config)
     old_out, old_err = sys.stdout, sys.stderr

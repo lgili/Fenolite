@@ -8,6 +8,11 @@ summary: Altium builds, blocks, native sync, evidence and the verification kit.
 
 `build --target altium` flags the experimental kinds (`altium.experimental`); `capabilities` lists `missing` proofs.
 
+For a model already in memory, `fenolite.lens.altium.write_model(design, pour="outline")` selects the
+backend's unpoured compatibility mode. Omit `pour` to keep its computed default and missing-extra
+fallback, or use `pour="computed"` to require the geo extra. Historical outline measurements do not
+verify computed-pour equivalence.
+
 ## A script and its build
 
 ```fenolite-design altium

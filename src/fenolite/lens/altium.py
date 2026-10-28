@@ -2442,18 +2442,21 @@ def build_altium(
     return BuildOutput(model, dict(sorted(files.items())), tuple(issues), evidence, summary, layout=stored)
 
 
-def write_model(design: Design, *, allow_lossy: bool = False, bodies: str = "off") -> lower.ProjectWrite:
+def write_model(
+    design: Design, *, allow_lossy: bool = False, bodies: str = "off", pour: PourMode | None = None
+) -> lower.ProjectWrite:
     """The Altium project of ``design``, written from the model alone (``backends.altium.lower.write_design``,
     change c0090): the write of a design that was read from a KiCad board. Such a design keeps the drawings
     of its footprints and the corner ratios of its pads in KiCad's own slots, which a backend does not
     read, so the design is projected first (``backends.kicad.fpitems.with_footprint_items``, change c0126):
     the written footprints then hold their silkscreen and their rounded pads. ``AltiumBackend.write`` is
     the same write without the projection, for a design that carries its items (one read from an Altium
-    document) or holds none."""
+    document) or holds none. ``pour`` passes the backend's mode through: ``None`` retains its default,
+    ``outline`` reproduces an unpoured write, and explicit ``computed`` requires the geo extra."""
     from fenolite.backends.kicad import fpitems
 
     projected = fpitems.with_footprint_items(design).design
-    return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies)
+    return lower.write_design(projected, allow_lossy=allow_lossy, bodies=bodies, pour=pour)
 
 
 __all__ = [

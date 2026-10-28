@@ -218,6 +218,10 @@ connectivity and via counts agree exactly on every row.
 
 ### The routed sample
 
+The written corner explicitly uses `--altium-pour outline`, preserving the unpoured input of this
+historical triangle after c0215 changed the writer's default to computed pours. These counts do not
+measure computed-pour equivalence; its dedicated tests and evidence are separate.
+
 Levels 1 to 5 in the relative frame at 10 nm, with no relative tolerance and no rule. In each cell of
 level 5: nets compared / differences / notices.
 

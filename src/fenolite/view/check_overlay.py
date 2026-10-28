@@ -248,6 +248,7 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
                 "code": code,
                 "severity": str(item.get("severity", "info")),
                 "message": message,
+                "hint": str(item.get("hint") or ""),
                 "where": where,
                 "stage": stage,
                 "evidence": level,
@@ -268,7 +269,14 @@ def overlay(reply: dict[str, Any], scene: dict[str, Any], *, root_sheet: bool = 
     placed = sum(1 for f in findings if f["at"] is not None)
     if placed < len(findings):
         notes.append(f"{len(findings) - placed} finding(s) have no position on this document: listed only.")
-    return {"findings": findings, "counts": counts, "placed": placed, "notes": notes}
+    return {
+        "findings": findings,
+        "counts": counts,
+        "placed": placed,
+        "notes": notes,
+        "stages": list(stages.values()),
+        "source": reply.get("input"),
+    }
 
 
 def summary(placed: dict[str, Any]) -> dict[str, Any]:

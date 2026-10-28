@@ -20,11 +20,13 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from _altium_copper import NAME, routed_build
+from _altium_copper import NAME, routed_build, routed_kicad_design
 
 import fenolite.cli.main as cli_main
+from fenolite.backends.altium.pour import PourMode
 from fenolite.backends.altium.read.pcb import read_pcbdoc
 from fenolite.backends.altium.read.pcbprims import RegionRecord
+from fenolite.lens.altium import write_model
 
 GEO = importlib.util.find_spec("pyclipper") is not None
 needs_geo = pytest.mark.skipif(not GEO, reason="needs the geo extra")
@@ -51,6 +53,21 @@ def _cli(
 
 def _issues(envelope: dict[str, Any], code: str) -> list[dict[str, Any]]:
     return [found for found in envelope["issues"] if found["code"] == code]
+
+
+@needs_geo
+@pytest.mark.parametrize("mode", (None, "computed", "outline"))
+def test_model_helper_selects_pour_mode(mode: PourMode | None) -> None:
+    """The model helper preserves its computed default and can reproduce unpoured historical inputs."""
+    written = write_model(routed_kicad_design(), allow_lossy=True, pour=mode)
+    assert written.pour_mode == (mode or "computed")
+    document = read_pcbdoc(next(data for name, data in written.files.items() if name.endswith(".PcbDoc")))
+    indices = {
+        region.prefix.polygon
+        for region in document.regions
+        if isinstance(region, RegionRecord) and region.prefix.polygon is not None
+    }
+    assert indices == (set() if mode == "outline" else {0, 1})
 
 
 @needs_geo

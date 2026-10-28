@@ -201,3 +201,89 @@ def test_error_finding_warning_still_writes(monkeypatch: MonkeyPatch, tmp_path: 
         monkeypatch, tmp_path, "_echo", "--issue", "warning", "--write", "x.txt", "--confirm"
     )
     assert code == 0 and env["receipt"]["written"][0]["path"] == "x.txt"
+
+
+@pytest.mark.parametrize("outside", [False, True])
+@pytest.mark.parametrize("staged", [False, True])
+@pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("backup", [False, True])
+def test_incomplete_rollback_is_not_retryable(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    staged: bool,
+    interrupted: bool,
+    backup: bool,
+    outside: bool,
+) -> None:
+    """c0238: real writes retain originals and report recovery even with progress, fields or a plan."""
+    work = tmp_path / "work" if outside else tmp_path
+    work.mkdir(exist_ok=True)
+    a, b = tmp_path / "a.txt", tmp_path / "b.txt"
+    a.write_bytes(b"a-old")
+    b.write_bytes(b"b-old")
+    a_arg, b_arg = (Path(os.path.relpath(path, work)).as_posix() for path in (a, b))
+    args = ["_echo", "--write", a_arg, "--write", b_arg, "--steps", "1"]
+    if not backup:
+        args.append("--no-backup")
+    plan = None
+    if staged:
+        code, env, _, _ = run(monkeypatch, work, *args, "--dry-run")
+        assert code == 0
+        plan = env["result"]["plan_id"]
+    replace = os.replace
+
+    def fail(src: object, dst: object) -> None:
+        source, target = Path(str(src)), Path(str(dst))
+        if target.resolve() == b.resolve() and source.suffix == ".tmp":
+            if interrupted:
+                raise KeyboardInterrupt
+            raise OSError(5, f"failure at {tmp_path}")
+        if target.resolve() == a.resolve() and source.suffix == ".keep":
+            raise OSError(5, f"recovery failed at {tmp_path}")
+        replace(source, target)
+
+    monkeypatch.setattr(os, "replace", fail)
+    monkeypatch.chdir(work)
+    out, err = io.StringIO(), io.StringIO()
+    monkeypatch.setattr("sys.stdout", out)
+    monkeypatch.setattr("sys.stderr", err)
+    confirm = ["--confirm", "--progress", "--fields", "echo", "--json"]
+    if plan is not None:
+        confirm += ["--plan", plan]
+    code = cli_main.main([*args, *confirm])
+    env = json.loads(out.getvalue())
+    errors = err.getvalue().splitlines()
+    failure = json.loads(errors[-1])
+    assert code == 1 and failure["code"] == "FEN-1004" and failure["retryable"] is False
+    assert failure["where"] == "b.txt" and "do not retry" in failure["hint"]
+    assert "nothing was written" not in err.getvalue() and "nothing was changed" not in err.getvalue()
+    assert str(tmp_path) not in out.getvalue() + err.getvalue() and "Traceback" not in err.getvalue()
+    assert all(set(json.loads(line)) == {"progress"} for line in errors[:-1])
+    assert env["ok"] is False and env["receipt"] is None
+    recovery = env["result"]["recovery"]
+    assert recovery["failed"] == [a_arg]
+    assert (work / recovery["failed"][0]).resolve() == a.resolve()
+    assert all((work / p).is_file() for p in recovery["preserved"])
+    assert any((work / p).read_bytes() == b"a-old" for p in recovery["preserved"])
+    assert a.read_bytes() == b"echo\n" and b.read_bytes() == b"b-old"
+    if plan is not None:
+        state = state_dir()
+        assert state is not None and (state / "plans" / plan).is_dir()
+
+
+def test_recovery_error_code_is_registered() -> None:
+    spec = REGISTRY["FEN-1004"]
+    assert int(spec.exit_code) == 1 and spec.retryable is False
+    assert "rollback incomplete" in spec.message and "do not retry" in spec.hint
+
+
+def test_recovery_path_on_other_volume_stays_locatable(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    """Simulate Windows relpath refusing different volumes; never collapse the result to a basename."""
+    target = tmp_path / "other-volume" / "original.keep"
+
+    def other_volume(*args: object, **kwargs: object) -> str:
+        raise ValueError("different drives")
+
+    monkeypatch.setattr(os.path, "relpath", other_volume)
+    assert cli_main._recovery_path(target, tmp_path / "cwd") == target.as_posix()
+    assert cli_main._relative(target, tmp_path / "cwd") == "original.keep"

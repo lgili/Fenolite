@@ -18,6 +18,7 @@ footprint="Fenolite:Chip_0603", value="330")`. A pad takes the net of the pin th
    fenolite catalog list --query 0603 --json
    fenolite catalog list --kind symbol --json
    fenolite catalog show Fenolite:Linear_Regulator --json
+   fenolite catalog view --query resistor --out catalog.html --dry-run --json
    ```
 
    `list` gives each entry's `lib_id`, `kind` (`symbol` or `footprint`) and a summary; `--query` searches
@@ -25,6 +26,16 @@ footprint="Fenolite:Chip_0603", value="330")`. A pad takes the net of the pin th
    or the pads of a footprint. Every catalog entry is `INFERRED`: a symbol is a generic or conceptual
    shape, not a device's pinout, and a footprint is a land pattern that nobody checked against your
    part. Compare both with the datasheet before you order boards.
+
+   `view --out FILE` plans an offline HTML browser of the same filtered entries. Review `result.plan`,
+   then repeat with `--confirm --plan ID` using `result.plan_id`. Open the page to inspect the exact lib
+   IDs, pin roles and pad dimensions before assigning a part. Empty matches give `FEN-3001` and write
+   nothing; clear the filters or use `catalog list` to find an ID. The preview keeps `INFERRED` evidence.
+   This action was added after 0.5.0; use the guide shipped with the installed version.
+   Choose a component in that page to preview a symbol and footprint together and filter pad geometry.
+   The map starts empty; equal-number filling remains INFERRED and does not establish a device pinout.
+   A structurally complete map and the user's datasheet confirmation unlock a Python Part fragment with
+   exact IDs and `pad_map`. Add/connect it in a Design; selection does not upgrade INFERRED evidence.
 2. **KiCad's libraries.** Put an `fp-lib-table` and a `sym-lib-table` beside the script, and name parts
    as KiCad does (`Device:R`, `Resistor_SMD:R_0603_1608Metric`). The build copies what it places into the
    project, so the built folder opens anywhere.

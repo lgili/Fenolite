@@ -1,5 +1,24 @@
 # Roadmap to 1.0
 
+## Current status — 2026-10-28
+
+**Released: 0.5.0. Development: 0.6.0.dev0.** The [0.5 release record](release/v0.5.md) identifies
+what ships, what remains experimental and the native checks deferred by the maintainer. The viewer
+ships in 0.5. The native Draftsman writer and Embedded Board Arrays remain gated; the earlier release
+hold was superseded by the decision of 2026-10-25.
+
+Post-release implementations in this development line include router-input fidelity, ground-tie and
+barrier-crossing checks, return-path screening, file snapshots and fabrication read-back (c0197–c0203).
+They are not features of the published 0.5 package. The MCP server and its editing/image integration
+from [PR #20](https://github.com/lgili/Fenolite/pull/20) are implemented on dev; installing the 0.5 `mcp`
+extra does not provide that server. The remaining engineering tasks are in c0175. The completed feature and its
+validation are separate: see each change's tasks and the current commit's CI results.
+
+The dated decisions below preserve the planning history. Earlier “pending publication” and release-hold
+statements describe their stated dates, not the current release. Current milestone rows are updated below.
+
+## Planning history
+
 Additional work implemented and archived on 2026-10-12: c0164 adds native Altium schematic layout
 capture and replay with conservative source-conflict refusal
 (`openspec/changes/archive/2026-10-12-c0164-altium-schematic-layout/`). Its synthetic checks establish
@@ -89,8 +108,8 @@ write part of v0.3, and “v0.2c” the complex-board part of v0.4.
 | 3. KiCad complete | v0.2a | c0060–c0068 | schematic read and write, ERC oracle, netlist, BOM and placement tables, manifest, inspection commands, evidence matrix, v0.1 follow-ups | every change archived (2026-10-05 and 2026-10-06); released in `v0.2.0` on 2026-10-06 |
 | 3. KiCad complete | v0.2b | c0069–c0074 | complete layout lens and `placements.toml`, one schematic sheet per module and a readable layout, full rule kinds, parity, typed interfaces and quantities, the user's drawing sheet, v0.1 follow-ups | every change archived; released in `v0.2.0` on 2026-10-06 |
 | 4. Second backend | v0.3 | read: c0039–c0047. Write: c0032–c0038 pulled forward; c0083–c0092; c0121–c0132, c0134 | read, equivalence levels 1–4, analyses; write, equivalence level 5, verification kit | Released as 0.3.0 with experimental writes (historical record: docs/release/v0.3.md). Reconciled 2026-10-14: c0083-c0091 and the c0125/c0130/c0131/c0132/c0152 chain are archived; c0092's rule, acceptance project, kit publication and per-kind runtime integration are implemented. Native AD 26.5 kit: 32 passed steps, 27 recorded candidate labels, supplemental v0.4.0 archive. KiCad 10.0.6 acceptance/probe passed. No write kind graduates yet; maintainer acceptance review and closing exact-commit CI remain pending. |
-| — | v0.4 | the agent track c0077–c0081; board authoring c0096–c0099 (c0098 since 2026-10-08); the complex board c0100–c0120; written on `v04` after `0.3.0`: c0137, c0140, c0141, c0145, c0152, c0153 | an agent's first project, guide and measure; placement, copper findings, electrical readiness and bodies; the gaps to a complex board | on `v04`; released as `0.4.0`, pending publication (release change c0154, archived on 2026-10-09; record `docs/release/v0.4.md`, with the verdict): every change ships, 23 with every task closed; the tasks that depend on the maintainer's own tests are deferred to the next release by his decision of 2026-10-08, and the tasks that wait for the CI of the release branch or the first `yardstick` run are listed there ([v0.4](#v04-the-agent-track-board-authoring-and-the-complex-board)). Archived on 2026-10-09: c0078, c0079, c0080, c0096, c0097, c0098, c0099, c0100, c0102, c0106, c0111, c0115, c0119, c0120, c0140, c0145, c0153 and c0154; later that day c0116, c0117, c0118, c0101, c0103, c0113 and c0141, and then c0107 and c0104. Open with every task closed, in the archive order: c0077 (after c0123 and c0126), c0114 (after c0126), c0137 (after c0123) and c0152 (after c0125, c0130, c0131 and c0132); c0108, c0109, c0110 and c0112, whose deferred tasks were closed on 2026-10-09, are not archived yet (c0110 after c0108 and c0109). Open with deferred tasks: c0081 and c0105 |
-| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | v0.5a: c0158–c0162 (proposed and approved on 2026-10-09); v0.5b: c0195 and c0196; v0.6: c0175 (its packages c0197 to c0203) and c0215, with the maintainer's tests; v1.0: c0216–c0220 (proposed on 2026-10-27) | v0.5a: conversion between KiCad and the second backend with a report of what is kept or lost, controlled KiCad downgrade, public `equivalent`; v0.5b: the MCP server; v0.6: nothing remains; v1.0: freeze | v0.5a: released as `0.5.0`, pending publication (release change c0171, record `docs/release/v0.5.md`, verdict pending), with c0163 to c0166 written on `dev` after `0.4.0` and the slot changes c0167 and c0169 (Open decisions, rows 38, 42 and 43), c0168 and c0170 placed in it on 2026-10-16, and c0172 and c0173 added that day; `0.5.0` is held for the native parts of c0172 and c0173 (row 44). v0.5b, v0.6, v1.0: estimate |
+| — | v0.4 | agent track, board authoring and complex-board work; release c0154 | guide, placement, copper findings, readiness and complex-board tooling | released as `0.4.0`; see [the release record](release/v0.4.md) for scope and deferred checks. Historical implementation states are retained in the dated sections below |
+| 5. To 1.0 | v0.5a, v0.5b, v0.6, v1.0 | v0.5 release c0171; remaining work c0175, c0215 and the open native acceptance changes | conversion, viewer, review and engineering workflows; later contract freeze | v0.5a: released as `0.5.0`, including viewer c0176–c0191; the earlier native release hold was superseded on 2026-10-25. MCP, script editing and image replies are implemented on dev; v1.0 freeze remains proposed in c0216–c0220. Development is `0.6.0.dev0`; implementation, native acceptance and release are tracked separately |
 
 About 70 changes to 1.0 on this map before the cuts, and about 61 with the cuts the maintainer accepted
 on 2026-10-09 (see [Proposed cuts](#proposed-cuts-for-a-leaner-10)). Both counts were made before 2026-10-07 and do not
@@ -508,7 +527,7 @@ and `docs/evidence/altium-kit/2026-10-13-87c930fa-publication.md`.
 
 ## v0.4: the agent track, board authoring and the complex board
 
-**Released as `0.4.0`, pending publication (2026-10-08).** The release change is c0154 and the record
+**Released as `0.4.0`.** The following dated account records its preparation on 2026-10-08. The release change is c0154 and the record
 `docs/release/v0.4.md`: one row per change, with what it ships, its open tasks and why each is open. By
 the maintainer's decision of 2026-10-08, everything that depends on his own tests (KiCad GUI saves made by
 him, a run of a real agent, Altium Designer checks) is deferred to the next release and everything else
@@ -631,11 +650,12 @@ change at that point.
 
 ### v0.5a: conversion, downgrade and the public `equivalent`
 
-**Released as `0.5.0`, pending publication (2026-10-15).** The release change is c0171 and the record
+**Released as `0.5.0`.** The following account records its preparation from 2026-10-15; the
+2026-10-25 decision superseded the publication/native-acceptance hold. The release change is c0171 and the record
 `docs/release/v0.5.md`: one row per change of v0.5a, of the changes written on `dev` after `0.4.0` (c0155
 to c0157, c0163, the two c0164, c0165, c0166, c0092's rule) and of the slot changes c0167 and c0169, with
 what it ships, its open tasks and why each is open. The maintainer approved preparing the release on
-2026-10-15; its publication waits for his explicit yes. What depends on his own tests (Part T of c0160 and
+2026-10-15; at that date its publication waited for his explicit yes. What depends on his own tests (Part T of c0160 and
 the other Altium Designer checks of c0166, the kit run, Part S of c0168) is deferred, as in `0.4.0`. On
 2026-10-16 he placed c0168 and c0170 in `0.5.0`, added c0172 and c0173 ([Draftsman documents and board
 panels](#draftsman-documents-and-board-panels-placed-on-2026-10-16)), and held `0.5.0` until their native

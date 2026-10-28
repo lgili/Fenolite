@@ -293,7 +293,11 @@ def test_readme_describes_the_release() -> None:
         ("**Status: version 0.5.**", "**Status: version 0.4.**", "version 0.5"),
         ("experimental", "new", "what is experimental"),
         ("pip install fenolite\n", "uv sync\n", "pip install fenolite"),
-        ("`docs/release/v0.5.md`", "the release notes", "docs/release/v0.5.md"),
+        (
+            "https://github.com/lgili/Fenolite/blob/main/docs/release/v0.5.md",
+            "the-release-notes",
+            "docs/release/v0.5.md",
+        ),
         ("It installs no other package.", "It is byte-identical to KiCad's own files.", "byte identity"),
     ],
 )

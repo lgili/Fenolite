@@ -21,6 +21,7 @@ URLS = {
     "Source": REPOSITORY,
     "Issues": f"{REPOSITORY}/issues",
     "Changelog": f"{REPOSITORY}/blob/main/CHANGELOG.md",
+    "Documentation": f"{REPOSITORY}/blob/main/docs/index.md",
 }
 STATUS = "Development Status :: 3 - Alpha"
 

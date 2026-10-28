@@ -1157,6 +1157,18 @@ corpus_id = ""
 notes = "kit sample: the circuit of flat with tracks, vias, a polygon, five rules and two planted violations (c0091)"
 
 [[file]]
+path = "examples/kit/pour/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: eleven independent polygon-pour probes on two copper layers, authored for Fenolite (c0215)"
+
+[[file]]
+path = "examples/kit/pour4/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "kit sample: independent polygon-pour probes on the inner layers of a four-layer board, authored for Fenolite (c0215)"
+
+[[file]]
 path = "examples/kit/tree/design.py"
 origin = "authored"
 corpus_id = ""

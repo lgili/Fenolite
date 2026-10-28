@@ -21,7 +21,7 @@ another type; a flag without a value is a switch.
 | `bom` | yes | the bill of materials of a project, through a column template (writes FILE with --out) |
 | `build` | yes | build a design script into a KiCad project (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `capabilities` | no | list commands, backends, extras and external tools available here |
-| `catalog` | no | inspect the built-in component catalog |
+| `catalog` | yes | inspect the built-in component catalog or export its visual browser (view --out FILE) |
 | `check` | no | check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium project or document (model, ERC lite, copper shorts and clearance, schematic parity, pad nets, round trips RT-A0 to RT-A2), read-only |
 | `convert` | yes | convert a project to another backend or KiCad major, reporting what is lost |
 | `diff` | no | list the differences between two boards, libraries, built models or Altium files (runs no tool) |
@@ -58,7 +58,7 @@ another type; a flag without a value is a switch.
 | `roundtrip` | no | say up to which level (rt0, rt1, rt2) a KiCad file survives a read and a write |
 | `route` | yes | route selected KiCad board nets with a registered Fenolite routing plugin |
 | `skill` | yes | show the packaged agent skill, or install it into an agent's skill folder or point AGENTS.md at it |
-| `snapshot` | yes | copy a project that no save interrupted, with the hashes of its files (snapshot.json) |
+| `snapshot` | yes | copy a project with complete-set hash checks and a file manifest (snapshot.json) |
 | `sync` | yes | copy the layout of a built project into the source tree (runs DESIGN.py as your own code: never run it on an untrusted script) |
 | `template` | yes | build a drawing sheet from a *.sheet.toml specification, or import an Altium sheet template (writes OUT) |
 | `testpoints` | yes | the test points, fiducials and holes of a board, and its net coverage, from its pad marks (writes FILE with --out) |
@@ -141,12 +141,13 @@ another type; a flag without a value is a switch.
 
 ## catalog
 
-`fenolite catalog [OPTIONS] {list,show} [lib_id]`
+`fenolite catalog [OPTIONS] {list,show,view} [lib_id]`
 
-- `CATALOG_ACTION` (one of `list`, `show`): list entries or show one ID
+- `CATALOG_ACTION` (one of `list`, `show`, `view`): list entries, show one ID or export a browser
 - `LIB_ID`: catalog ID required by show
 - `--kind {footprint,symbol}`
 - `--query QUERY`: case-insensitive search in id, category and summary
+- `--out FILE`: required by view: write a standalone HTML browser
 
 ## check
 
@@ -577,6 +578,7 @@ another type; a flag without a value is a switch.
 - `--variant NAME`: show an Altium project's variant
 - `--compare OLD`: draw what changed since the board or sheet OLD
 - `--check FILE|run`: draw a check reply's findings; run: check first
+- `--report FILE` (repeatable): recorded convert/export JSON for project review; repeat for different commands
 - `--select REF`: open at this part or net
 - `--marks FILE`: review marks: list them; --serve saves new ones there
 - `--theme THEME`: a KiCad colour theme: a .json file or a theme name

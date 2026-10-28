@@ -17,6 +17,16 @@ fenolite view board.kicad_pro --serve --theme my-theme          # a KiCad projec
 fenolite view MyProject.PrjPcb --serve --silk-gap 0.15 --mask-expansion 0.1   # with the board's silk rules
 ```
 
+Saved-file rebuilds and background 3D refinement belong to a document generation. If the file changes
+while an older refinement is running, that refinement cannot replace the newer scene.
+
+Document navigation also keeps the latest selection: a slow scene or error from a previous document
+cannot replace the current view, even when switching back to the same document. A new document shows
+its name and a reading card while loading. Delayed cross-probes, marks and BOM selections stop when
+another navigation supersedes them. Live polling revalidates a scene before adopting its first version
+(including a cached scene opened again), waits during scene loading, and ignores older replies. Failed
+reads retain their error and can be retried by a later poll without marking the failed version as loaded.
+
 ## Colours
 
 Each document is drawn in the colours of the tool that made it (change c0178):
@@ -39,6 +49,11 @@ copied (`docs/formats/kicad/color-theme.md`).
   Documents (schematics, boards, harnesses), Libraries, Settings (output jobs, rules, stack-ups, library
   tables), Documentation (drawings, annotations) and Other. A board opens on click; any other document
   shows its kind, path and size. A document listed by the project but missing from the folder is grey.
+- **Narrow windows.** At 760 CSS pixels or below, **Projects** shows or hides the sidebar over the view;
+  it starts closed so the board keeps the window's width. The toolbar wraps into rows. Choose a document,
+  use Projects again, or press `Esc` outside a form field to close the sidebar. Desktop layout is unchanged.
+- **Keyboard focus.** Viewer shortcuts pause while editing a text field, choosing a select value or using
+  Ctrl, Command/Meta or Alt combinations. Existing Shift shortcuts remain available outside form controls.
 - **Layer tabs** (bottom). One tab per layer with its colour.
   - A click on a tab makes that layer current: it is drawn last, above the others.
   - A click on the swatch, or a right click, shows or hides the layer.
@@ -80,7 +95,7 @@ copied (`docs/formats/kicad/color-theme.md`).
 | item | drawn from | stated when |
 |---|---|---|
 | pads | the backend's board frame: the copper of each pad on each layer | — |
-| mask and paste openings | the pad's own mask and paste layers | derived from the pad kind, with no expansion, when the board holds no mask layer (Altium boards today) |
+| mask and paste openings | the pad's own mask and paste layers; Altium native expansion rules as described below | derived from the pad kind with no expansion when only the neutral model is available; Altium native views state rule/default assumptions |
 | tracks, arcs, vias, holes | the model | — |
 | zones | the fills saved in the file | a zone without a fill is drawn as a dashed outline and counted; refill it in its tool |
 | graphics and texts | the model, footprint items placed by the footprint's position and angle | texts use Fenolite's own single-stroke font; a text on a back layer is drawn mirrored |
@@ -140,6 +155,39 @@ The side bar of a board holds, as Altium's PCB panel does (change c0187):
   matched by unique id. A parameter that is a web address is a link.
 
 ## Check findings
+
+### Project review (development after 0.5.0)
+
+Choose **Review** in the Projects heading for the current document's status and a guided list of
+reported problems. Reading, netlist connectivity, ERC, DRC, clearance, placement, fill, model validation,
+conversion and fabrication export have separate states: **Not run**, **Passed**, **Failed** or **Limited**.
+An absent check is not a pass. Expand a card to read stage evidence, skip reasons, warnings, partial
+coverage and capped counts. This panel does not give an overall fabrication approval.
+
+`--check FILE` supplies an existing check reply; `--check run` keeps its existing explicit execution
+behavior. Repeat `--report FILE` to attach one recorded `convert` reply and one recorded `export` reply.
+For example, when those JSON files have already been recorded:
+
+```sh
+fenolite view board.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
+```
+
+Loading a report never runs its command. The same information is in `result.review`, a served page and
+an exported HTML page. Export uses the usual dry-run/confirmation protocol, and a changed report file
+invalidates its staged plan. Reports do not refresh automatically when a live document changes.
+
+A matching report input hash binds only the named document's bytes. A missing hash, another input or a
+changed revision keeps passing results **Limited**, with a historical-report warning; other project files
+are not bound by that one hash. Reported errors remain failures. A conversion needs its receipt and
+equivalence record and must state nonexperimental, nonlossy scope before its recorded result can pass.
+An export reply records artifact generation; it currently does not attest successful readback, so the
+fabrication-export card remains limited even when generation succeeded.
+
+Use **Review findings** to jump from the status cards to the problem list. Filter by severity, stage or
+text; Previous/Next visits matching messages with their original hints and evidence. **Locate in drawing**
+reveals the finding's layer and marker and closes the panel so the drawing is visible. Unplaced findings
+say so. Reviewing or locating an item does not mark it fixed; check again after editing. Native controls
+support keyboard use; Escape closes the panel, including while a filter has focus.
 
 `fenolite view PATH --check FILE` draws the findings of a `fenolite check --json` reply over the document
 shown; `--check run` runs `check` first, in the same process and read-only (change c0188):
@@ -306,7 +354,8 @@ Altium shows it before a refresh; Altium is not needed:
 - A click on a part shows its designator, comment, side and size on the board; `M` measures on the sheet,
   in millimetres or mil. The status line reads sheet coordinates from the lower-left corner.
 
-Side views (`Front`, `Right`), callouts and transmission line tables are left out and named in the notes.
+Front, back, left and right side views and callouts are drawn as described under "Documentation" above.
+Transmission line tables remain omitted and are named in the notes.
 Drill symbols, table cells, zone marks, dimension texts and the place of view titles are Fenolite's drawings;
 texts use the font family the document names, in the browser's font, and break only at their own line breaks.
 The view placement is `INFERRED` (`docs/formats/altium/draftsman.md`, "Drawing geometry").

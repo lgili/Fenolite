@@ -356,3 +356,75 @@ A design that names only catalog lib ids SHALL build into a project that `fenoli
 - **GIVEN** the catalog blink built with `--target altium --dry-run`, once as the code is and once with the property step of `mod.prepare_authored_definition` patched in the test to add nothing
 - **WHEN** `uv run pytest tests/unit/cli/test_catalog_only.py -k altium` compares the two plans
 - **THEN** every planned file has the same SHA-256 in both, and both runs report the same issue codes
+
+### Requirement: Installed catalog visual browser
+
+`fenolite catalog view --out FILE [--kind symbol|footprint] [--query TEXT]` SHALL plan one standalone HTML page of the matching installed catalog definitions. It SHALL reuse the existing library and geometry viewer, work offline without an external CAD tool or intermediate CAD file, and use the normal dry-run, confirmation, staged replay and receipt protocol. Its viewer imports SHALL be lazy for list/show. Equal catalog definitions and filters SHALL produce equal page bytes.
+
+#### Scenario: Review the installed catalog
+- **WHEN** catalog view is confirmed without filters
+- **THEN** one standalone page includes every installed symbol and footprint in stable ID order, grouped into two virtual library documents
+- **AND** each item displays its exact lib ID, category, summary, evidence, public source IDs and pin or pad information, with existing measurement and selection tools
+- **AND** no evidence level or generic-to-device compatibility claim is upgraded
+
+#### Scenario: A filtered review
+- **WHEN** view receives a kind or text filter
+- **THEN** its entries equal list_entries with those filters, and only nonempty library documents are included
+
+#### Scenario: No matching entry
+- **WHEN** view filters match no entry
+- **THEN** it returns FEN-3001 with a hint to change the filters, plans no write and preserves an existing target
+- **AND** list with the same filters still succeeds with an empty list
+
+#### Scenario: Review and replay
+- **WHEN** view runs with --dry-run and is later confirmed with its plan ID
+- **THEN** dry-run creates no output HTML and confirmation writes exactly the staged bytes with their receipt hash
+
+#### Scenario: Invalid arguments do not write
+- **WHEN** view has no --out or has a positional lib ID, or list/show has --out
+- **THEN** it returns a usage error and writes nothing
+
+#### Scenario: Existing inspection stays read-only
+- **WHEN** catalog list or catalog show runs as before
+- **THEN** it succeeds without confirmation, returns its existing metadata and creates no output
+
+#### Scenario: Viewer consumes resolved model definitions
+- **WHEN** the CLI prepares a catalog browser
+- **THEN** it resolves entries into metadata and model definitions before calling the viewer
+- **AND** the viewer imports no catalog package and performs no catalog lookup, preserving the existing package-layering rules and generated page bytes
+
+#### Scenario: Catalog geometry remains readable
+- **WHEN** a catalog symbol is displayed
+- **THEN** metadata properties are shown in item details instead of over the body, and metadata text does not expand the drawing's fitted bounds
+- **AND** body geometry, pin numbers and visible pin names remain drawn, without modifying the stored definition or ordinary library rendering
+- **WHEN** a catalog footprint is displayed
+- **THEN** fabrication and courtyard layers are initially visible, and the initial details omit an exhaustive pad-number list while pad selection retains exact pad information
+
+#### Scenario: Details do not obscure the initial drawing
+- **WHEN** a catalog item is selected
+- **THEN** its metadata panel starts collapsed with evidence in its labelled summary
+- **AND** keyboard or pointer activation expands and collapses the metadata without altering geometry or ordinary library panels
+
+### Requirement: Reviewed catalog component selection
+
+The standalone catalog browser SHALL support selection of a symbol and footprint together, geometric filters, simultaneous previews using the existing renderer and an explicit pin-to-pad map. Metadata and evidence SHALL remain tied to the exact definitions. Generic counts or dimensions SHALL NOT establish device compatibility.
+
+#### Scenario: Search by geometry
+- **WHEN** a user filters footprint candidates by mounting kind, electrical pad count or pad/centre dimensions
+- **THEN** results use the embedded model facts in consistent units
+- **AND** invalid numeric filters, unavailable measurements and no matches have explicit states without silently changing the selected component
+
+#### Scenario: Preview a pair offline
+- **WHEN** a symbol and footprint are selected
+- **THEN** both actual definitions are rendered together by the existing library viewer
+- **AND** preview frames open only the same local page, do not recursively create frames or exchange project selections
+
+#### Scenario: Mapping has not been reviewed
+- **WHEN** the mapping is missing, names an unknown pad, repeats a pad across pins, leaves an electrical pad unused or lacks user datasheet confirmation
+- **THEN** no ready-to-copy Python component snippet is presented
+- **AND** the reason is visible without upgrading catalog evidence
+
+#### Scenario: A reviewed map becomes a Part
+- **WHEN** every pin and numbered pad is mapped unambiguously and the user explicitly confirms their datasheet review
+- **THEN** the generated Python Part snippet contains the selected symbol ID, footprint ID and exact pad_map
+- **AND** changing either definition or the mapping clears confirmation before another snippet is available

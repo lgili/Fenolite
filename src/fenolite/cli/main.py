@@ -43,7 +43,7 @@ from fenolite.cli.output import (
     write_error,
 )
 from fenolite.core.errors import FenoliteError, Issue
-from fenolite.core.io import WriteError, atomic_write_all, sha256_bytes
+from fenolite.core.io import RecoveryError, WriteError, atomic_write_all, sha256_bytes
 from fenolite.core.state import state_dir
 
 KICAD_TARGETS = (9, 10)
@@ -556,6 +556,26 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
                 [(ctx.cwd / w.path, data) for w, data in zip(writes, payloads, strict=True)],
                 backup=not ctx.no_backup,
             )
+        except RecoveryError as exc:
+            recovery = {
+                "failed": [_recovery_path(path, ctx.cwd) for path in exc.failed],
+                "preserved": [_recovery_path(path, ctx.cwd) for path in exc.preserved],
+            }
+            result["recovery"] = recovery
+            _emit(
+                _envelope(command, shown_outcome, result, ok=False, receipt=None, started=started), ctx, out
+            )
+            where = _relative(exc.path, ctx.cwd)
+            failure = CliError(
+                "FEN-1004",
+                f"rollback incomplete for {', '.join(_relative(path, ctx.cwd) for path in exc.failed)}; "
+                "some files may have changed",
+                where=where,
+                hint="do not retry; keep the files in result.recovery.preserved and inspect "
+                "result.recovery.failed; restore the affected files before reviewing a new plan",
+            )
+            write_error(failure.info(), ctx.mode, err)
+            return int(failure.exit_code)
         except WriteError as exc:  # everything was put back; under --plan the stage stays for the retry
             _emit(
                 _envelope(command, shown_outcome, result, ok=False, receipt=None, started=started), ctx, out
@@ -586,6 +606,14 @@ def _perform(command: Command, args: argparse.Namespace, ctx: Context, started: 
     if error is not None:
         write_error(error, ctx.mode, err)
     return int(code)
+
+
+def _recovery_path(path: Path, cwd: Path) -> str:
+    """A locatable result path; other Windows volumes cannot be expressed relative to cwd."""
+    try:
+        return Path(os.path.relpath(path, cwd)).as_posix()
+    except ValueError:
+        return Path(os.path.abspath(path)).as_posix()
 
 
 def _relative(path: Path, cwd: Path) -> str:

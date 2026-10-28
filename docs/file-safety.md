@@ -27,13 +27,22 @@ content: on Windows `FILE_ATTRIBUTE_OFFLINE`, `FILE_ATTRIBUTE_RECALL_ON_OPEN` or
 `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS` (S-0830), on macOS `SF_DATALESS` (S-0831). `snapshot`, `publish` and
 `refs` stop before any read with `FEN-3007` (exit 3, retryable); `doctor --sessions` lists such files.
 
-## A copy no save interrupted
+## A copy checked for concurrent saves
 
 `fenolite snapshot PATH --out DIR` copies a design file with its companions (the documents of its stem, the
 library tables beside it, and what they name inside the folder: sheets, libraries, 3D models), or every
-project file of a folder. It reads every file, then checks every hash again; a file saved in between is read
-again, at most three times, and one that never settles is `safety.unstable` (nothing copied).
-`DIR/snapshot.json` lists each file with its SHA-256.
+project file of a folder. It reads the requested files, then checks the hash of every one against the
+bytes held for the copy. A mismatch triggers another read of that file, followed by validation of the
+**whole set**, including files that passed an earlier check. There are at most three retry rounds after
+the initial round. `retries` counts additional file-content reads: two files reread in one round count
+as two retries. Any mismatches remaining after the final round are `safety.unstable` (nothing copied),
+even when a file changed for the first time in that round. `DIR/snapshot.json` lists each copied file
+with the SHA-256 of its copied bytes.
+
+This checks observed hashes; it does not lock the source or take an atomic filesystem snapshot. A save
+after a file's final hash check, or bytes changed and restored between checks, can go unseen. The file
+list is fixed before the read; newly added files are outside that copy. When the documents must belong
+to one application-level save, pause writers or close the CAD project before taking the snapshot.
 
 ## Putting the copy back
 

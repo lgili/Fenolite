@@ -48,14 +48,14 @@ Whenever the exit code is not 0, stderr carries exactly one error object
 the only thing Fenolite writes on stderr; with it, progress records may come first, each on a line of its
 own, and the error object is the last line (see "Progress"). No exit leaves a traceback: an exception
 that no handler maps, a failed write and a signal each end in one registered code (`FEN-1001`,
-`FEN-1002`, `FEN-1003`).
+`FEN-1002`, `FEN-1003`, or `FEN-1004` when rollback is incomplete).
 
 ## Exit codes
 
 | Code | Meaning | Error family |
 |---|---|---|
 | 0 | success | — |
-| 1 | internal failure: a bug only when `retryable` is false | `FEN-1xxx` |
+| 1 | internal failure: inspect the code; FEN-1004 requires manual recovery | `FEN-1xxx` |
 | 2 | usage error | `FEN-2xxx` |
 | 3 | input unreadable or from a future format version | `FEN-3xxx` |
 | 4 | confirmation required (nothing was written) | `FEN-4xxx` |
@@ -70,14 +70,17 @@ an exception's own `hint` replaces the registry hint. When such an exception car
 non-empty sequence of issues, as `LossyWriteError`, `UnresolvedLibrariesError` and `LayoutExistsError`
 do), they are put in the envelope's `issues`, so a refusal says which lib ids, nets or files it refused.
 
-Exit 1 is not always a bug. `FEN-1001` (`retryable` false) is one: report it. `FEN-1002` and `FEN-1003`
+Exit 1 is not always a bug. `FEN-1004` (`retryable` false) means rollback was incomplete: preserve the
+remaining recovery files and inspect them before any retry. `FEN-1001` (`retryable` false) means a software
+bug: report it. `FEN-1002` and `FEN-1003`
 (`retryable` true) say that a write failed or that the command was stopped, that nothing was changed,
 and that the same command can be run again.
 
 | Code | Meaning | Raised by |
 |---|---|---|
 | `FEN-1002` | a write failed; nothing was changed | the dispatcher, when a file of the plan cannot be written: the message names the path, relative to the working directory, and the system's reason (retryable; see "All-or-nothing writes") |
-| `FEN-1003` | stopped by a signal; nothing was written | the dispatcher, after SIGTERM or SIGINT (retryable; see "Signals") |
+| `FEN-1003` | stopped by a signal; nothing was written | the dispatcher, after SIGTERM or SIGINT and a completed rollback (retryable; see "Signals") |
+| `FEN-1004` | rollback incomplete; some files may have changed | the dispatcher, when restoring a target or backup fails; exit 1, retryable false; inspect `result.recovery` before manual recovery |
 | `FEN-3002` | input uses a newer format version than supported | `FutureFormatError` (editing a future file) |
 | `FEN-3003` | input format version older than the oldest supported | `UnsupportedFormatError` (hint names the `kicad-cli … upgrade` command) |
 | `FEN-3004` | malformed input file | any other `FormatError` (syntax, missing version, …), and `DesignScriptError` (a design script that raised, or that binds no `design`) |
@@ -148,15 +151,28 @@ other bytes than the plan showed. `--confirm --plan ID` writes the reviewed byte
 
 ### All-or-nothing writes
 
-A command writes every file of its plan or none. The new contents are first written beside their
+A command writes every file of its plan or rolls back a failed write. The new contents are first written beside their
 targets, and every file that will be replaced is kept; only then are the targets replaced, in plan
-order. When any step fails, every replaced file and every `.bak` is put back, and the new files, the
-temporary files and the folders that were created are removed. The reply is then the envelope with `ok`
+order. When a write fails and rollback completes, every replaced target and `.bak` is put back and
+newly written targets are removed. Cleanup of temporary files is best effort if the filesystem also
+refuses deletion. The reply is then the envelope with `ok`
 false, the plan in `result` and `receipt` `null`, and one `FEN-1002` object: exit 1, `retryable` true, the
 failing path relative to the working directory, the system's reason, no absolute path and no traceback.
 A receipt of an earlier command still restores, and under `--plan` the staged plan stays for the retry.
-Only a forced stop of the process (SIGKILL) in the middle of the replacements can leave part of a plan
-written; the temporary files beside the targets then show it.
+If rollback itself fails or is interrupted, the reply instead carries **FEN-1004**, exit 1 and
+`retryable: false`. Other restoration steps are still attempted, but cleanup leaves the remaining recovery
+files in place. `ok` is false, `receipt` is null, and `result.recovery.failed` names incomplete restoration
+paths while `result.recovery.preserved` lists the remaining files to inspect. These fields remain present
+even with `--fields`. Recovery paths resolve from the working directory, including `../` for files
+outside it; on different Windows volumes, only the structured result uses an absolute path. Error text
+uses relative paths (or file names outside the working directory).
+Under `--plan`, the staged plan remains for inspection; automatic replay is not recommended.
+
+Preserve those files before manual recovery: `.keep` files can hold original targets or earlier backups,
+`.tmp` files hold proposed new bytes, and a `.bak` may hold a moved original. Compare contents with previous
+receipts before restoring the intended state, then review a new dry-run plan. FEN-1004 never claims that
+nothing changed. A forced stop such as SIGKILL or a machine failure can also leave a partial write without
+an error reply; filesystem transactions across multiple files are not promised.
 
 ### Error findings plan no write
 
@@ -172,7 +188,8 @@ and `kit record` (the record holds the failed steps of the run).
 SIGTERM and SIGINT (Ctrl+C) stop a command cleanly: the tool processes it started (`kicad-cli`, `java`,
 a router) are stopped with it, a write in progress is put back, the record of a route keeps the router
 runs that had finished (see [route](#route)), and the reply is the envelope with `ok` false and one
-`FEN-1003` object (exit 1, `retryable` true, "stopped by a signal; nothing was written"). A second signal
+`FEN-1003` object (exit 1, `retryable` true, "stopped by a signal; nothing was written") after completed
+rollback. If rollback itself fails, FEN-1004 takes precedence and retains recovery files. A second signal
 does not cut the clean-up. On Windows a Ctrl+C is handled the same way, and a forced stop of the process
 (`TerminateProcess`) cannot be handled; SIGKILL cannot be handled on any system, and can leave temporary
 files and a tool process behind.
@@ -218,6 +235,25 @@ entries with `lib_id`, kind, category, summary, evidence level and registered so
 `fenolite catalog show LIB_ID` returns the same metadata and a compact definition summary. Neither
 command reads library tables or runs external tools. The initial generic catalog is documented in
 `docs/catalog/README.md`; every non-`KICAD-VERIFIED` land dimension remains explicitly marked.
+
+`fenolite catalog view --out FILE [--kind symbol|footprint] [--query TEXT]` plans one standalone HTML
+browser of the matching installed definitions. This action is development work after 0.5.0, absent
+from the published 0.5.0 package. Its result holds `count`, `counts.symbols`,
+`counts.footprints`, `out`, `filters` and `export` (`bytes`, `sha256`). The standard mutation protocol
+applies: `--dry-run` reviews the plan, and `--confirm --plan ID` writes its exact staged bytes. The page
+needs no network, external CAD executable or intermediate library file. Equal definitions and filters
+produce equal bytes. Existing list/show calls still need no confirmation and write nothing.
+
+The page uses the existing symbol and footprint library viewer, with only the nonempty virtual library
+documents, exact IDs, category/summary, source IDs, pin roles and pad inspection. Evidence stays
+`INFERRED`; previewing generic roles or a land pattern is not device-pinout or fabrication acceptance.
+The Properties panel starts collapsed; click it or use Tab followed by Enter or Space to inspect the
+metadata. Evidence stays visible in its summary. Symbol property text stays in the details rather than
+over the drawing; footprint fabrication and
+courtyard layers are initially visible. Exact pad information remains available by selecting a pad.
+`view` with no `--out`, a positional ID on `view`, or `--out` on list/show gives `FEN-2001` (exit 2).
+Empty view filters give `FEN-3001` (exit 3), a hint to change the filters and no write; empty list filters
+keep returning a successful empty list.
 
 ## KiCad output
 
@@ -2477,16 +2513,23 @@ of the error registry has an entry.
 
 ## snapshot
 
-`fenolite snapshot PATH --out DIR` copies a project that no save interrupted (change c0201;
-`docs/file-safety.md`). `PATH` is a design file, taken with its companions (the documents of its stem, the
+`fenolite snapshot PATH --out DIR` copies a project after complete-set hash checks (changes c0201 and
+c0223; `docs/file-safety.md`). `PATH` is a design file, taken with its companions (the documents of its stem, the
 library tables beside it, and every file in its folder that one of those names: sheets, libraries,
-library folders, 3D models), or a folder, taken with every project file in it. The copy is accepted only
-when every file has the same SHA-256 before and after all were read; a file changed in between is read
-again, at most three times. `DIR/snapshot.json` (schema `fenolite.snapshot.v0`) lists `source` and
+library folders, 3D models), or a folder, taken with every project file in it. After the initial reads and
+each retry round, a pass over every requested path compares its observed SHA-256 with the bytes held
+for the copy. Mismatches are reread within at most three shared retry rounds; previously settled files
+are checked again too. The copy is accepted only when a whole pass observes matching hashes.
+`DIR/snapshot.json` (schema `fenolite.snapshot.v0`) lists `source` and
 `files` (`path`, `sha256`, `size`): it is the receipt of `publish`. It is a mutating command.
 
+The file list is fixed before reading. This does not lock writers or provide an atomic filesystem
+snapshot: additions outside the list, saves after a file's final check, and changes restored between
+checks can go unseen. Pause writers when the copy must correspond to one application-level save.
+
 - `result` holds `source`, `out`, `files`, `count` and `retries` (the files read again).
-- A file that never settles is `safety.unstable` (error, exit 5): nothing is copied.
+- Any hash mismatch at the end of the shared retry budget is `safety.unstable` (error, exit 5): nothing is
+  copied, even if that file changed for the first time on the final round.
 - `--out` inside the project folder is a usage error (`FEN-2001`, exit 2): a later snapshot would copy the copy.
 - A file that a sync client keeps only online stops the command before any read (`FEN-3007`, exit 3).
 
@@ -2525,7 +2568,7 @@ of an Altium project. `PATH` is taken as `snapshot` takes it.
 
 | code | severity | when |
 |---|---|---|
-| `safety.unstable` | error | a file changed during each of four reads; nothing is copied |
+| `safety.unstable` | error | a hash differs from the collected bytes after the shared three-retry-round budget; nothing is copied |
 | `safety.changed-since-receipt` | error | a file of the destination changed since the receipt, or the receipt does not name it; nothing is written |
 | `safety.skipped` | warning | with `--skip-changed`, such a file is left and the others are written |
 | `safety.open-session` | warning | a planned file, or a file under `doctor --sessions`, has a CAD lock file beside it |
@@ -3053,7 +3096,7 @@ commands as tools to a client of the Model Context Protocol on standard input an
 ## view
 
 `fenolite view PATH [--doc ID] [--overlay FILE]... [--theme THEME] [--cache user|project|off]
-[--compare OLD] [--variant NAME] [--check FILE|run] [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
+[--compare OLD] [--variant NAME] [--check FILE|run] [--report FILE]... [--select REF] [--marks FILE] [--serve [--port N] [--no-browser]] [--export FILE [--docs ID,...]] [--no-review] [--no-models]
 [--silk-gap MM] [--mask-expansion MM]` shows the boards and the sheets of a project without the tool that made them (changes c0176,
 c0177, c0178 and c0193; `docs/viewer.md`). `PATH` is an Altium `.PrjPcb`, a KiCad `.kicad_pro`, a project folder, a
 board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbLib`, `.kicad_sym`,
@@ -3075,6 +3118,20 @@ board, an Altium `.SchDoc` or a KiCad `.kicad_sch`, a library: `.SchLib`, `.PcbL
 - **Libraries.** For a library, `result.summary` is `kind` `"library"`, `lib` (`"pcb"` or `"schematic"`),
   `counts.items` (one per footprint, or per symbol part or unit) and `items`, the first 50 names. A board
   scene, a footprint's included, lists every pad with its exact size in nanometres.
+- **Project review** (c0230). `result.review` and each loaded document scene's `project_review` contain
+  status `cards`, raw `stages`, report input `binding`, operation findings and a scope note. Card states
+  are `not-run`, `passed`, `failed`, `limited`. Missing/skipped stages are never passes; warning/capped,
+  partially covered or unbound results remain limited. Errors remain failed. The Review panel retains
+  original finding hints and can locate existing markers without marking a problem fixed.
+- **`--report FILE`** (c0230) accepts a complete recorded `convert` or `export` JSON envelope (`command`,
+  boolean `ok`, object `result`, array `issues`), once per command; repeat the option to attach both.
+  Loading never executes the recorded operation. Missing files return `FEN-3001`, malformed/unsupported
+  envelopes `FEN-3004`, duplicate commands `FEN-2001`; no output is planned. Use `--check` for check replies.
+  Check/report inputs are tracked by staged HTML plans. A matching input hash binds only the named
+  document, not every project input. Missing/mismatched hashes and live changes keep a historical-report
+  warning. Conversion receipt/equivalence, experimental and loss status remain explicit; current export
+  replies lack affirmative readback attestation, so export status stays limited rather than implying
+  fabrication readiness. See `docs/viewer.md`, Project review.
 - **Drawings.** For a `.PCBDwf`, `result.summary` is `kind` `"drawing"`, `counts` (`sheets` and the count of
   each item kind: views, tables, texts, lines and so on), `sheets` (their names) and `panel` (the document's
   `IsPanel`). The sheets are drawn from the document's own copy of the board; `evidence.level` is

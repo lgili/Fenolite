@@ -29,11 +29,18 @@ KiCad board. To look at a board or an Altium sheet, or at every one of a project
 fenolite view blink/altium/blink.PrjPcb --json
 fenolite view blink/altium/blink.PrjPcb --doc blink.SchDoc --json
 fenolite view blink/build/blink.kicad_pcb --export blink/views/board.html --dry-run --json
+fenolite view blink/build/blink.kicad_pcb --check checks.json --report conversion.json --report fabrication.json --json
 ```
 
 `view` replies with the project's documents and a summary of one board, or of the one `--doc` names;
 `--compare OLD` draws what changed since OLD (a board or sheet) and counts it in `result.compare`; `--variant NAME` shows an Altium variant; `--check FILE|run` draws `check` findings and counts them in `result.check`; `--select REF` opens at a part or net; `--marks FILE` lists a person's review marks (`fenolite.review.v0`) in `result.marks`; `--theme` takes a KiCad colour theme; `--export` plans one HTML page that a person opens, and `--serve`
 (for a person, not an agent) serves it live.
+
+`result.review` and the page's Review panel distinguish not-run, passed, failed and limited stages.
+`--report FILE` loads a recorded convert/export reply, once per command; use `--check` for checks.
+Loading does not run the operation. Missing/mismatched input hashes remain historical and limited;
+a matching hash binds only the named document. Original hints and Locate support reviewing findings,
+not marking them fixed. Export generation alone does not attest successful readback or fabrication readiness.
 
 ## Is it safe to edit this file?
 
