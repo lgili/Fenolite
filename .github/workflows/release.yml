@@ -75,6 +75,11 @@ jobs:
         run: git merge-base --is-ancestor "$(git rev-parse "${TAG}^{commit}")" origin/main
       - name: Versions and changelog agree with the tag
         run: python3 tooling/tools/release.py check --tag "$TAG" --source source
+      # Every blob reachable from any ref, on the public patterns (c0220): a hit fails the build, so nothing
+      # is published. The private gate stays the maintainer's run (`make residue-history`).
+      - name: Residue scan over the history
+        working-directory: source
+        run: uv run --no-project python tools/residue/scan.py --history
       - name: Build fenolite and phenolite
         working-directory: source
         run: |
