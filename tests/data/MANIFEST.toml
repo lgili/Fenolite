@@ -1469,6 +1469,12 @@ corpus_id = ""
 notes = "tree sample design script (thin DSL, c0086): modules power, io and io/leds, catalog symbols, nets D0 to D3 for the bus that tests/_altium_tree.py adds, an accented value and two properties"
 
 [[file]]
+path = "tests/data/altium/blocks/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "block sample design script (c0269): a block filt with ports IN, OUT and GND used as f1, the nets SRC and DST on a connector, an escaping net TEST and a Power interface of VCC and GND, catalog symbols"
+
+[[file]]
 path = "tests/data/altium/tree/tree.PrjPcb"
 origin = "authored"
 corpus_id = ""

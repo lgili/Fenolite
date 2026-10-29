@@ -137,6 +137,9 @@ fenolite parity blink/build --json
   a pin without a pad. `result.summary` counts each kind (`parity.*`), and each difference is an issue.
 - `netlist.assignment-differs`, from the stage `netlist.assignment_compare`, means a pad is on another
   net than the script says: build again, and look for copper drawn on the wrong pad.
+- A block's sheet pins: `build.block-port-merged` (info) means two port members of one instance share a
+  net, which keeps global labels; `build.block-sheet-name-clash` (Altium, error) means a net leaves a
+  block's sheet without a port under a port's name: rename the net or route it through a port.
 
 ## Net roles of a power board
 

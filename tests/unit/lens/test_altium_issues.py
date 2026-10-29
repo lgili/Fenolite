@@ -604,6 +604,7 @@ def test_closed_set() -> None:
         *run_too_large_case("ascii"),
         *run_pcb_too_large(),
         *run_bus_case(),
+        *run_block_clash_case(),
     ):
         produced.setdefault(found.code, set()).add(found.severity)
     for found in run_c0087_cases():
@@ -685,6 +686,32 @@ def run_bus_case() -> tuple[Issue, ...]:
     return build_altium(model, name="altium_sample").issues
 
 
+def run_block_clash_case() -> tuple[Issue, ...]:
+    """Change c0269: a port of a block and an escaping net of one name on the block's sheet."""
+    from fenolite.dsl import Net, block, connect
+
+    escaping = Net("IN")
+
+    @block
+    def stage(b: object) -> None:
+        port = b.port("IN", direction="in")  # type: ignore[attr-defined]
+        r = b.part("R", "Fenolite:Resistor", footprint="Lib:R0603")  # type: ignore[attr-defined]
+        connect(port, r[1])
+        connect(escaping, r[2])
+
+    from fenolite.dsl import Design as DslDesign
+
+    design = DslDesign("clash")
+    made = design.use(stage, "s")
+    j = design.part("J1", "Fenolite:Connector_4", footprint="Lib:HDR")
+    connect(Net("SRC"), j[1], made.IN)
+    connect(escaping, j[2])
+    from _altium_tree import catalog_symbols
+
+    model = to_model(design)
+    return build_altium(model, name="clash", sheets="modules", authored_symbols=catalog_symbols(model)).issues
+
+
 def test_bus_flattened_names_the_bus() -> None:
     (found,) = [i for i in run_bus_case() if i.code == "altium.bus-flattened"]
     assert found.severity == "info" and found.where == "CTRL" and "consecutive integers" in found.message
@@ -711,6 +738,7 @@ def test_the_table() -> None:
         "altium.harness-power-net": "error",
         "build.not-two-terminal": "error",  # c0247
         "build.must-connect-unconnected": "error",
+        "build.block-sheet-name-clash": "error",
         "altium.no-footprint": "warning",
         "altium.sheet-custom": "warning",
         "altium.pin-lossy": "warning",

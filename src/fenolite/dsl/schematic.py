@@ -78,7 +78,9 @@ def extract(design: Design, *, target: str | None = None, enabled: bool = False)
                 request.after,
             )
         )
-    blocks = sorted(blocks + _implicit(design, used), key=lambda b: b.key)
+    local = _local_groups(design, used)
+    taken = used | {member for found in local for member in found.members}
+    blocks = sorted(blocks + local + _implicit(design, taken), key=lambda b: b.key)
     predecessors = {b.key: b.after for b in blocks}
     for key in predecessors:
         seen: set[str] = set()
@@ -89,6 +91,30 @@ def extract(design: Design, *, target: str | None = None, enabled: bool = False)
             seen.add(current)
             current = predecessors[current]
     return CompositionIntent(design.schematic_flow or "left-to-right", tuple(blocks))
+
+
+def _local_groups(design: Design, used: set[str]) -> list[BlockIntent]:
+    """One block per block-local group of each instance (change c0269), keyed ``<instance path>/<key>``:
+    its members minus the parts a design-level block holds, dropped when none remain; the anchor and
+    ``after`` are kept when they survive."""
+    from fenolite.dsl.blockschematic import block_schematics
+
+    found: list[BlockIntent] = []
+    for instance in block_schematics(design):
+        kept: dict[str, BlockIntent] = {}
+        for group in instance.groups:
+            members = tuple(sorted(m for m in group.members if m not in used))
+            if not members:
+                continue
+            key = f"{instance.path}/{group.key}"
+            anchor = group.anchor if group.anchor in members else None
+            after = f"{instance.path}/{group.after}" if group.after is not None else None
+            kept[key] = BlockIntent(key, members, group.title, anchor, after)
+        for intent in kept.values():
+            if intent.after is not None and intent.after not in kept:
+                intent = BlockIntent(intent.key, intent.members, intent.title, intent.anchor, None)
+            found.append(intent)
+    return found
 
 
 def _implicit(design: Design, used: set[str]) -> list[BlockIntent]:

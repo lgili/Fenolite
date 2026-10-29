@@ -488,6 +488,7 @@ A build for the KiCad target also checks the blocks of the design (`docs/dsl.md`
 |---|---|---|
 | `build.port-unused` | warning | a port of a block instance that is not `optional` has nothing outside the block on its members; `where` is `<block path>/<port>` |
 | `build.block-net-escape` | warning | a script-named net joins pins inside and outside a block instance without a port of that block; `where` is `<block path>:<net>`, the hint "declare a port" |
+| `build.block-sheet-name-clash` | error | Altium, `sheets="modules"`: a port of a block instance and a net that crosses its sheet without a port have one name (change c0269); `where` is the block path, and nothing is written |
 
 A build for either target applies the catalog's default pin-to-pad map (change c0147,
 `docs/catalog/sources.md`) and reports each part it applies it to:
@@ -793,6 +794,7 @@ a difference is a defect of the generator and stops the build (`build.schematic-
 | `kicad.sch.unconnected-name-unproven` | warning | the net name of an unconnected pin is not written, so its pad stays on no net |
 | `kicad.sch.dropped-too-new` | warning | `--allow-lossy` removed a token of an embedded symbol that the target does not read |
 | `kicad.sch.pin-off-grid` | info | a library pin is not on the 1.27 mm grid |
+| `build.block-port-merged` | info | two port members or more of one block instance bind one net: that net keeps global labels on the block's sheet and those members get no sheet pin (change c0269); `where` is the block path |
 | `kicad.sch.power-pin-shown` | info | a hidden power-input pin is embedded visible |
 
 The board reader gives a net stored with `{slash}` the name with the slash; when another net of the board

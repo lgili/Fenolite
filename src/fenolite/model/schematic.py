@@ -26,6 +26,8 @@ SymbolMirror = Literal["", "x", "y"]
 LabelKind = Literal["local", "global", "hierarchical"]
 LabelShape = Literal["", "input", "output", "bidirectional", "tri_state", "passive"]
 PinShape = Literal["input", "output", "bidirectional", "tri_state", "passive"]
+PIN_SHAPES: tuple[str, ...] = ("input", "output", "bidirectional", "tri_state", "passive")
+"""The shapes of a sheet pin: a block's pins take the first three, a drawn sheet (c0276) any of them."""
 ORDERED = {"ordered": True}
 SYMBOL_ROTATIONS: frozenset[int] = frozenset({0, 90_000_000, 180_000_000, 270_000_000})
 
@@ -170,6 +172,12 @@ class SheetPin(Entity):
     position: Point
     rotation: Udeg = 0
 
+    def __post_init__(self) -> None:
+        if self.shape not in PIN_SHAPES:
+            raise ValueError(
+                f"sheet pin {self.name}: shape {self.shape!r} is not one of {', '.join(PIN_SHAPES)}"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class SheetRef(Entity):
@@ -206,6 +214,7 @@ class SchematicSheet(Entity):
 
 
 __all__ = [
+    "PIN_SHAPES",
     "SYMBOL_ROTATIONS",
     "BusAlias",
     "BusEntry",

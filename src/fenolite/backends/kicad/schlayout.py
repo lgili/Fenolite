@@ -111,13 +111,24 @@ class UnitBox:
 
 
 @dataclass(frozen=True, slots=True)
+class RefPin:
+    """A sheet pin of a reference (change c0269): its name, the edge it stands on (``left`` or ``right``)
+    and the length of the label text the parent sheet writes at it."""
+
+    name: str
+    side: str
+    label: int = 0
+
+
+@dataclass(frozen=True, slots=True)
 class RefBox:
     """What the layout needs of one sheet reference: the path of its module, the name written above its
-    box and the file text written below it."""
+    box, the file text written below it and its sheet pins (a block instance's, change c0269)."""
 
     path: str
     name: str
     file: str = ""
+    pins: tuple[RefPin, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,15 +202,43 @@ def sheet_ref_size(name: str) -> int:
     return _up(max(REF_MIN_WIDTH, CHAR_ROOM * (len(name) + 2)))
 
 
+def ref_height(pins: Sequence[RefPin] = ()) -> int:
+    """The height of the box of a sheet reference: ``REF_HEIGHT``, or for a reference with pins the larger
+    of that and ``ORIGIN_STEP`` × (the pins on its fuller side + 1)."""
+    if not pins:
+        return REF_HEIGHT
+    fuller = max(sum(1 for pin in pins if pin.side == side) for side in ("left", "right"))
+    return max(REF_HEIGHT, ORIGIN_STEP * (fuller + 1))
+
+
+def ref_pin_points(ref: RefBox) -> dict[str, tuple[Point, str]]:
+    """Each sheet pin of ``ref`` → its point relative to the top-left corner of the box and its side: ``left``
+    pins on the left edge and ``right`` pins on the right edge, each side by name in code-point order, at
+    ``ORIGIN_STEP`` pitch from one step below the top."""
+    width = sheet_ref_size(ref.name)
+    found: dict[str, tuple[Point, str]] = {}
+    for side, x in (("left", 0), ("right", width)):
+        names = sorted(pin.name for pin in ref.pins if pin.side == side)
+        for index, name in enumerate(names, start=1):
+            found[name] = (Point(x, ORIGIN_STEP * index), side)
+    return found
+
+
 def ref_extent(ref: RefBox) -> tuple[int, int, int, int]:
     """The cell of a sheet reference relative to the top-left corner of its box: the box, the room of its
-    name above and of its file below, and the margin."""
-    width = max(sheet_ref_size(ref.name), _up(CHAR_ROOM * len(ref.file)))
+    name above and of its file below, the rooms of the labels at its pins on each side, and the margin."""
+    box = sheet_ref_size(ref.name)
+    width = max(box, _up(CHAR_ROOM * len(ref.file)))
+    rooms = {
+        side: max(pin.label for pin in ref.pins if pin.side == side) * CHAR_ROOM + LABEL_ROOM
+        for side in ("left", "right")
+        if any(pin.side == side for pin in ref.pins)
+    }
     return (
-        -CELL_MARGIN,
+        _down(-CELL_MARGIN - rooms.get("left", 0)),
         -(CELL_MARGIN + REF_TEXT),
-        width + CELL_MARGIN,
-        REF_HEIGHT + REF_TEXT + CELL_MARGIN,
+        _up(max(width, box + rooms.get("right", 0)) + CELL_MARGIN),
+        ref_height(ref.pins) + REF_TEXT + CELL_MARGIN,
     )
 
 
@@ -642,6 +681,8 @@ def layout_units(
     clusters: Sequence[Cluster] = (),
     refs: Sequence[RefBox] = (),
     sheet: str = "",
+    groups: Sequence[tuple[Sequence[str], str]] = (),
+    widths: Mapping[tuple[str, str], int] | None = None,
 ) -> SheetLayout:
     """Place every unit, every sheet reference and every power flag of one sheet on its page.
 
@@ -652,7 +693,27 @@ def layout_units(
     row. A unit named by ``placements`` takes the given origin, rotation and mirror and leaves the flow.
     The paper is the first of ``PAPERS`` in which the flow fits; ``sheet`` names the sheet in the issue
     that says none does.
+
+    ``groups`` are the schematic groups of a block's sheet (change c0269): (component paths, flow) in their
+    order. Units are then ordered by group and member order, each group starts a row, a ``top-to-bottom``
+    group gives each cell a row of its own, and units in no group come last in the order above.
+    ``widths`` maps (unit key, pin number) to the label length to keep room for, in place of the pin's own,
+    so that the instances of one block share one arrangement.
     """
+    if widths:
+        units = [
+            UnitBox(
+                unit.key,
+                tuple(
+                    UnitPin(pin.number, pin.at, pin.angle, widths.get((unit.key, pin.number), pin.label))
+                    for pin in unit.pins
+                ),
+                unit.body,
+                unit.symbol,
+                unit.text,
+            )
+            for unit in units
+        ]
     fixed = dict(placements or {})
     issues: list[Issue] = []
     known = {unit.key for unit in units}
@@ -693,18 +754,32 @@ def layout_units(
         (u for u in units if u.key not in fixed and u.key not in snapped), key=lambda u: _order(u.key)
     )
     unit_groups: list[list[UnitBox]] = []
-    for unit in ordered:
-        if not unit_groups or _module(unit_groups[-1][0].key) != _module(unit.key):
-            unit_groups.append([])
-        unit_groups[-1].append(unit)
+    grouped: set[str] = set()
+    for members, flow in groups:
+        rank = {path: index for index, path in enumerate(members)}
+        found = sorted(
+            (u for u in ordered if _split(u.key)[0] in rank),
+            key=lambda u: (rank[_split(u.key)[0]], _split(u.key)[1]),
+        )
+        grouped |= {u.key for u in found}
+        if flow == "top-to-bottom":
+            unit_groups += [[u] for u in found]
+        elif found:
+            unit_groups.append(found)
+    rest: list[list[UnitBox]] = []
+    for unit in (u for u in ordered if u.key not in grouped):
+        if not rest or _module(rest[-1][0].key) != _module(unit.key):
+            rest.append([])
+        rest[-1].append(unit)
+    unit_groups += rest
     boxes = sorted(refs, key=lambda ref: natural_key(ref.path))
-    groups: list[list[str]] = [[unit.key for unit in group] for group in unit_groups]
+    keyed: list[list[str]] = [[unit.key for unit in group] for group in unit_groups]
     extents = [[cell(unit) for unit in group] for group in unit_groups]
     if boxes:
-        groups.append([ref_key(ref.path) for ref in boxes])
+        keyed.append([ref_key(ref.path) for ref in boxes])
         extents.append([ref_extent(ref) for ref in boxes])
     if flags:
-        groups.append([flag.key for flag in flags])
+        keyed.append([flag.key for flag in flags])
         extents.append([extent(flag) for flag in flags])
     sizes = [[(x1 - x0, y1 - y0) for x0, y0, x1, y1 in group] for group in extents]
     chosen: tuple[str, int, int] | None = None
@@ -732,7 +807,7 @@ def layout_units(
     offsets = _flow(sizes, _down(chosen[1] - 2 * PAGE_MARGIN))[0]
     origins: dict[str, SymbolPlacement] = {}
     cells: dict[str, tuple[int, int, int, int]] = {}
-    for group, found, places in zip(groups, extents, offsets, strict=True):
+    for group, found, places in zip(keyed, extents, offsets, strict=True):
         for key, (x0, y0, x1, y1), (left, top) in zip(group, found, places, strict=True):
             x, y = PAGE_MARGIN + left - x0, PAGE_MARGIN + top - y0
             origins[key] = SymbolPlacement(x, y)
@@ -823,6 +898,7 @@ __all__ = [
     "TITLE_BAND",
     "Cluster",
     "RefBox",
+    "RefPin",
     "SheetLayout",
     "SnapLabel",
     "SnapWire",
@@ -843,6 +919,8 @@ __all__ = [
     "turned_text_room",
     "unit_bounds",
     "ref_extent",
+    "ref_height",
+    "ref_pin_points",
     "ref_key",
     "sheet_ref_size",
     "turned",

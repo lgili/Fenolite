@@ -196,3 +196,25 @@ def test_drawn_entities_hold_no_float() -> None:
     assert canonical.loads(text, SchematicSheet) == sheet and "junctions" in text
     # empty collections are omitted, so the text of older sheets does not change (scenario "Older sheet data")
     assert "junctions" not in canonical.dumps(_sheet())
+
+
+def test_sheet_pin_round_trips_and_older_text_keeps_its_bytes() -> None:
+    from fenolite.model.schematic import SheetPin
+
+    plain = SheetRef("Child", "child.kicad_sch", Point(0, 0), Size(10 * MM, 5 * MM), id=_id("shr", "p"))
+    older = dataclasses.replace(_sheet(), sheets=(plain,))
+    text = canonical.dumps(older)
+    assert '"pins"' not in text  # an empty tuple of pins is omitted, so older sheet data keeps its bytes
+    assert canonical.dumps(canonical.loads(text, SchematicSheet)) == text
+    pin = SheetPin("VIN", "input", Point(0, 2_540_000), 180_000_000, id=_id("shr", "VIN"))
+    sheet = dataclasses.replace(older, sheets=(dataclasses.replace(plain, pins=(pin,)),))
+    dumped = canonical.dumps(sheet)
+    assert canonical.loads(dumped, SchematicSheet) == sheet
+    assert _schema.validate(json.loads(dumped), _schema.load("fenolite.model.v0/schematic.json")) == []
+
+
+def test_sheet_pin_refuses_a_shape() -> None:
+    from fenolite.model.schematic import SheetPin
+
+    with pytest.raises(ValueError, match="clock"):
+        SheetPin("VIN", "clock", Point(0, 0), id=_id("shr", "x"))  # type: ignore[arg-type]

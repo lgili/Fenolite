@@ -95,6 +95,7 @@ from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
 from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
+from fenolite.schematic.block_sheets import SheetGroup
 
 RECORD_FILE = ".fenolite/build.json"
 SHEET_SUFFIX = ".kicad_wks"
@@ -1197,6 +1198,7 @@ def build_design(
     device_check: DeviceCheck | None = None,
     drawn: DrawnSchematic | None = None,
     drawn_file: str = "schematic.toml",
+    schematic_groups: Mapping[str, Sequence[SheetGroup]] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1657,6 +1659,7 @@ def build_design(
             allow_lossy=allow_lossy,
             layout=schematic_layout,
             other_libraries=sorted({definition.library for definition in authored_symbols.values()}),
+            groups=schematic_groups,
         )
         issues += generated.issues
         symbol_files = _symbol_libraries(generated, authored_symbols, target, allow_lossy, issues)

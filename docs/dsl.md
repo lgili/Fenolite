@@ -1796,7 +1796,34 @@ connect(Net("VIN"), ch0.VIN)  # the port net takes the name VIN
     block binds it to, often a global net closed over by the function; the hint is "declare a port".
 - **Schematics.** The KiCad sheet of a block instance is shown as `<name> (<block name>)`, for example
   `ch0 (channel)`; its file stays `sheets/<path>.kicad_sch`. In Altium block composition each instance that
-  owns parts gives an implicit `schematic_block` (`docs/schematic-composition.md`).
+  owns parts gives an implicit `schematic_block` (`docs/schematic-composition.md`). Each port member has a
+  **sheet name**, `<port>` for a port of kind `Net` and `<port>_<member>` otherwise (`I2C_sda`): the KiCad
+  hierarchical label and sheet pin, and the Altium port and sheet entry, of that member (change c0269,
+  `docs/schematic.md`, "Block sheets"). `b.port` raises `DslError` when a sheet name of the new port is a
+  sheet name of an earlier port of the block (a port `I2C_sda` beside an `I2C` port).
+- **Block schematic groups.** `b.schematic(schematic_group(key, *members, title=None, anchor=None,
+  after=None, flow="left-to-right"), ...)` declares, once per block, the groups of the block's own parts:
+  their order, their anchors and their flow (`left-to-right` or `top-to-bottom`). Every instance reuses
+  them: KiCad's readable layout orders the block's sheet by them, and Altium block composition gives one
+  `schematic_block` keyed `<instance path>/<key>` each. A member is a part handle or a local part name;
+  the groups come in call order, each moved after the group its `after` names, and the members in the
+  order given, the anchor first. `b.schematic` raises `DslError` naming the block for a key that is not a
+  name or is used twice, a member that is not a part of the block itself (a nested block's part belongs to
+  the nested block's sheet) or is in two groups, an anchor that is no member, an `after` that names no
+  group of the call or makes a cycle, another `flow`, and a second call. Parts in no group form the
+  default group, last, in the flow of a module's sheet. The groups are not composition intent: they never
+  give "unused intent", a KiCad build never refuses them, and an Altium build without block composition
+  ignores them. `fenolite.dsl.block_schematics(design)` gives each instance with its groups, for the
+  build; nothing reaches the circuit model.
+
+  ```python
+  @block
+  def rc_filter(b):
+      r1 = b.part("R", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
+      c1 = b.part("C", "Fenolite:Capacitor", footprint="Fenolite:Chip_0603", value="100n")
+      ...
+      b.schematic(schematic_group("chain", r1, c1, title="Filter", anchor=r1))
+  ```
 - **When to keep `Module`.** Use a block for anything repeated or reused; keep `Module` for grouping parts
   whose refs and nets the script names by hand.
 

@@ -16,6 +16,7 @@ from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast, overload
 
+from fenolite.dsl.blockschematic import SchematicGroup, declare
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import I2C, SPI, UART, USB2, DiffPair, Harness, Interface, Power
 from fenolite.dsl.module import Container, Module
@@ -23,6 +24,7 @@ from fenolite.dsl.part import Net, Part, check_name
 from fenolite.dsl.portnets import DIRECTIONS, PortHandle
 from fenolite.dsl.quantity import Quantity, Range
 from fenolite.dsl.units import Length
+from fenolite.schematic.block_sheets import SheetGroup, sheet_name
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -170,6 +172,8 @@ class Block(Module):
         """``(name, type, text)`` of every parameter, by name (``BlockParam``)."""
         self.ports: dict[str, PortHandle] = {}
         self.local_nets: dict[str, Net] = {}
+        self.schematic_groups: tuple[SheetGroup, ...] | None = None
+        """The block-local schematic groups of ``schematic``, resolved; ``None`` before the call (c0269)."""
 
     @property
     def params(self) -> Mapping[str, object]:
@@ -289,9 +293,31 @@ class Block(Module):
             raise DslError(f"{self.describe()}: port {name}: optional must be a bool, not {optional!r}")
         kind_name = _kind(kind, f"{self.describe()}: port {name}")
         names = _members(kind_name, members, selects, f"{self.describe()}: port {name}")
+        self._sheet_names_free(name, kind_name, names)
         handle = PortHandle(self, name, kind_name, direction, optional, names)
         self.ports[name] = handle
         return handle
+
+    def _sheet_names_free(self, name: str, kind: str, members: Sequence[str]) -> None:
+        """Refuse a port whose sheet name (``<port>`` or ``<port>_<member>``, change c0269) equals one of an
+        earlier port of the block."""
+        taken = {
+            sheet_name(other.name, member, other.kind): other.name
+            for other in self.ports.values()
+            for member in other.members
+        }
+        for member in members:
+            wanted = sheet_name(name, member, kind)
+            if wanted in taken:
+                raise DslError(
+                    f"{self.describe()}: port {name}: its sheet name {wanted} is the sheet name of the port "
+                    f"{taken[wanted]}; KiCad pins and Altium entries would be one; rename one of the ports"
+                )
+
+    def schematic(self, *groups: SchematicGroup) -> None:
+        """Declare, once, the schematic groups of the block's own parts (``schematic_group``): their order,
+        anchors and flow, reused by every instance (``docs/dsl.md``, "Block schematic groups")."""
+        self.schematic_groups = declare(self, groups)
 
     def use(self, definition: BlockDef, name: str, **params: object) -> BlockInstance:
         """A nested instance of ``definition`` named ``name`` inside this block."""

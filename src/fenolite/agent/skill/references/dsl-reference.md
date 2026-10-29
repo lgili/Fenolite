@@ -232,6 +232,12 @@ Join each resistor's `a` to a net of `target` and its `b` to `rail`.
 
 Function: `schematic_composition(design: 'Design', *, target: 'str \| None' = None, enabled: 'bool' = False) -> 'CompositionIntent \| None'`
 
+## schematic_group
+
+Function: `schematic_group(key: 'str', *members: 'Part \| str', title: 'str \| None' = None, anchor: 'Part \| str \| None' = None, after: 'str \| None' = None, flow: 'str' = 'left-to-right') -> 'SchematicGroup'`
+
+A group of a block's own parts for `b.schematic`: a member is a part handle or a local part name; `anchor` is a member, `after` the key of another group of the call, `flow` `left-to-right` or `top-to-bottom`.
+
 ## second
 
 Function: `second(value: 'int \| Fraction \| str') -> 'Quantity'`

@@ -57,6 +57,7 @@ def test_closed_set() -> None:
         "build.schematic-netlist-differs": "error",  # c0063: the netlist guard
         "build.sheet-file-collision": "error",  # c0070: module sheets
         "build.sheet-stale": "warning",
+        "build.block-port-merged": "info",
         "build.pad-map-default": "warning",  # c0147: the catalog's default pin-to-pad map
         "build.port-unused": "warning", "build.block-net-escape": "warning",  # c0251: blocks
         "build.area-unknown": "error",  # c0103: a rule names no rule area
@@ -88,7 +89,10 @@ def test_closed_set() -> None:
     # raised elsewhere: the lock codes by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits
     # (c0250), the drawn ones by model.drawn_connect (c0276)
     own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES) - set(DRAWN_ISSUE_CODES)
-    assert literals == own | {code for code in ALTIUM_ISSUE_CODES if code.startswith("build.")}
+    from fenolite.lens.altium import ALTIUM_ISSUE_CODES as ALTIUM_BUILD_CODES
+
+    altium = {code for code in (*ALTIUM_ISSUE_CODES, *ALTIUM_BUILD_CODES) if code.startswith("build.")}
+    assert literals == own | altium  # c0269: build.block-sheet-name-clash is an Altium build code
     tested: set[str] = set()
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"

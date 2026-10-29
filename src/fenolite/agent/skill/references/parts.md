@@ -207,7 +207,7 @@ j1.place(mm(22), mm(10), rot=90)
 A block is a circuit written once and used many times: a function marked `@block`, its ports typed.
 
 ```fenolite-design
-from fenolite.dsl import Design, Net, block, connect, mm, ohm
+from fenolite.dsl import Design, Net, block, connect, mm, ohm, schematic_group
 
 design = Design("blocks")
 design.board(mm(40), mm(20))
@@ -222,7 +222,7 @@ def divider(b, *, r_top=ohm("10k")):  # parameters are keyword-only and recorded
     low = b.part("R_LOW", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value="10k")
     connect(vin, top[1])  # wired like a net
     connect(mid, top[2], low[1])
-    connect(gnd, low[2])
+    connect(gnd, low[2]); b.schematic(schematic_group("chain", top, low))  # sheet order, all instances
 
 
 vin, gnd = Net("VIN"), Net("GND")
@@ -236,8 +236,8 @@ for n in range(2):
 
 - `design.use(block, name, **params)` runs the function once with a fresh block `b`; refs come from the
   lock, so two instances never collide. `b.part(name, ...)` names a part locally.
-- `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`).
-  An unwired group of port nets is named `<instance>/<port>`, an `out` port first.
+- `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`);
+  unwired, its net is `<instance>/<port>` (`out` first); its sheet pin is `<port>` or `I2C_sda`.
 - Warnings: `build.port-unused`, a port with nothing outside its block (`optional=True` when meant), and
   `build.block-net-escape`, a global net joining pins inside and outside a block without a port.
 

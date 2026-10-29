@@ -22,6 +22,15 @@ composition is in force: key its path, members the parts it owns directly minus 
 title `<path> (<block name>)`, no anchor and no `after`. A declared block with the same key replaces it.
 Without composition no implicit block is made, so no unused-intent diagnostic can arise.
 
+A block's own schematic groups (`b.schematic(schematic_group(...))`, `docs/dsl.md`, "Blocks"; change
+c0269) each give a block when composition is in force: key `<instance path>/<key>`, the group's title (or
+key), its members, its anchor and its `after` mapped to keys of that instance. The implicit block of the
+instance then keeps only the parts that no local group holds, and is dropped when none remain. A declared
+block that holds a part takes it from the local group; a local group left empty is dropped. The groups
+belong to the block, not to the design: they are never unused intent, a KiCad build (which applies them in
+its own layout) never refuses them, and without composition Altium ignores them silently. A library block
+with groups therefore builds in every mode.
+
 Explicit blocks take precedence over module groups. Remaining root components form signal-connected
 groups, ignoring power-interface nets and nets reaching more than eight components. The engine does
 not infer circuit function. It records deterministic ambiguous branch choices in the report.

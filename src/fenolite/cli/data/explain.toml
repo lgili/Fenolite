@@ -1198,6 +1198,16 @@ meaning = "The symbols of one sheet of the design do not fit an A0 page. The mes
 fix = "Put parts of that sheet into modules, so each gets its own sheet, or build with --schematic skip."
 see = "build"
 
+["build.block-port-merged"]
+meaning = "Two port members or more of one block instance are bound to one net, for example by connect(x.A, x.B) outside the block. On the block's KiCad sheet that net keeps global labels with its circuit name, and those members get no sheet pin, so the net name stays the circuit's."
+fix = "Nothing to fix when the ports are meant to be joined; otherwise connect them to different nets."
+see = "build"
+
+["build.block-sheet-name-clash"]
+meaning = "On the Altium sheet of a block instance (sheets=\"modules\"), a port of the block and a net that leaves the sheet without a port have one name, so their sheet entries would be one. Nothing is written."
+fix = "Rename the net, or declare a port in the block for it and connect it through that port."
+see = "build"
+
 ["build.sheet-file-collision"]
 meaning = "Two modules would be written to one sheet file. A module's sheet is sheets/<module path with '.' for '/'>.kicad_sch, so a top-level module a.b and a module b inside a module a collide, and so do names that differ only in letter case."
 fix = "Rename one of the two modules, or build with --schematic-layout grid for one flat sheet."

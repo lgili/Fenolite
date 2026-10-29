@@ -981,6 +981,30 @@ still running; the native log subsequently completed every case and `DONE`,
 and separate verification checks the completed results rather than assuming
 launch success. Original failures and the completed retry remain ignored.
 
+## Part K: sheet entries from block ports (change c0269)
+
+A block instance's sheet (`sheets="modules"`) names its ports and the sheet entries of its symbol after
+the block's declared ports, while the wire stubs keep the labels of the circuit nets. **Nothing of this
+part has been opened in Altium.** It settles `H-A-BLOCK-ENTRIES`; until the maintainer reports, the row
+stays `INFERRED`.
+
+**Files.** Build the authored sample `tests/data/altium/blocks/design.py` (CC0) with
+`fenolite build tests/data/altium/blocks/design.py --target altium --altium-sheets modules --out blocks
+--confirm`, and copy the folder to the maintainer's machine.
+
+1. **K1**: open `blocks.PrjPcb`. Expected: no repair prompt; `blocks.SchDoc` and `blocks_f1.SchDoc` in the
+   Projects panel. The symbol of `f1` holds the entries `IN`, `OUT` and `TEST`, and `blocks_f1.SchDoc`
+   the ports of those names, with the labels `SRC` and `DST` on the stubs of `IN` and `OUT`.
+2. **K2**: "Project » Validate PCB Project", then the Messages panel. Expected: no message about a port,
+   a sheet entry or a net with two names. Record every message.
+3. **K3**: in the Navigator, list the nets with their pins. Expected: `SRC` (`J1` pin 1, `f1/R` pin 1),
+   `DST` (`J1` pin 2 and the pins of `f1` on the filter node) and `TEST`; record the name Altium gives
+   each net, in particular whether the nets of the ports `IN` and `OUT` are named `SRC` and `DST`.
+
+The maintainer reports one outcome per step, the tool as `AD <major>.<minor>` and the date; no file that
+Altium wrote is committed. A failure of K2 or K3 refutes `H-A-BLOCK-ENTRIES`, and the fallback is to name
+the crossings of a block's sheet after the nets again.
+
 ## Recording a report
 
 - A report gives the Altium Designer version as `AD <major>.<minor>`, or `A365 Viewer` for Part V, the

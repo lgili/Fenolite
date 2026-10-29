@@ -11,6 +11,7 @@ shipped ones from the package, and the project ones that the script runner insta
 
 from fenolite.dsl import select, shape, stack
 from fenolite.dsl.block import block
+from fenolite.dsl.blockschematic import block_schematics, schematic_group
 from fenolite.dsl.convert import (
     BOARD_ORIGIN,
     DSL_BACKEND,
@@ -119,6 +120,7 @@ __all__ = [
     "ViaStep",
     "arc_to",
     "block",
+    "block_schematics",
     "connect",
     "copper",
     "decouple",
@@ -126,6 +128,7 @@ __all__ = [
     "drawing_sheet_source",
     "drawn_schematic",
     "schematic_composition",
+    "schematic_group",
     "fields",
     "generated",
     "heights",
