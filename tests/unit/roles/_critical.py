@@ -5,7 +5,7 @@ roles of a build with its inferred groups confirmed, and its critical plan."""
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
@@ -14,11 +14,15 @@ from _rolecheck import confirmed
 
 from fenolite.backends.base import BoardPad
 from fenolite.backends.kicad.frame import board_pads
+from fenolite.backends.kicad.outline import board_outline
 from fenolite.backends.kicad.pcb import read_board
 from fenolite.cli import cmd_route
+from fenolite.cli._roleroute import job_nets, job_route, pair_clearance
 from fenolite.model.design import Design
 from fenolite.model.rules import RoleSet
 from fenolite.roles.routes import CriticalPlan, plan_critical
+from fenolite.routing.octilinear import OctilinearRouter
+from fenolite.routing.protocol import RoutingJob, RoutingResult
 
 HEADER = """\
 # SPDX-License-Identifier: CC0-1.0
@@ -54,21 +58,12 @@ def roles_of(built: Built, *, accept: bool = True) -> RoleSet:
     return judge(built, stored=confirmed(found), check=False).resolved.roles
 
 
-def class_clearance(design: Design) -> object:
-    classes = {item.id: item for item in design.circuit.netclasses}
-    of = {
-        net.name: getattr(classes.get(net.netclass_id or ""), "clearance", None) or 0
-        for net in design.circuit.nets
-    }
-
-    def clearance(a: str, b: str) -> int:
-        return max(of.get(a, 0), of.get(b, 0))
-
-    return clearance
-
-
 def plan(built: Built, *, groups: Sequence[str] = (), roles: RoleSet | None = None) -> CriticalPlan:
     design, pads = board(built)
+    rules = cmd_route._project_rules(  # pyright: ignore[reportPrivateUsage]
+        read_board(built.board.read_text(encoding="utf-8"), file=built.board.name), built.board, []
+    )
+    checks = cmd_route._job_checks(design, rules)  # pyright: ignore[reportPrivateUsage]
     layers = tuple(
         layer.name
         for layer in sorted(design.board.layers if design.board else (), key=lambda item: item.ordinal)
@@ -79,7 +74,7 @@ def plan(built: Built, *, groups: Sequence[str] = (), roles: RoleSet | None = No
         roles if roles is not None else roles_of(built),
         pads,
         layers=layers,
-        clearance=class_clearance(design),  # type: ignore[arg-type]
+        clearance=pair_clearance(checks["clearance"], design),  # type: ignore[arg-type]
         default_width=cmd_route.DEFAULTS[0],
         groups=groups,
     )
@@ -92,3 +87,42 @@ def unconfirmed(roles: RoleSet) -> RoleSet:
         gates=tuple(replace(g, origin="inferred") for g in roles.gates),
         kelvins=tuple(replace(k, origin="inferred") for k in roles.kelvins),
     )
+
+
+def role_job(
+    built: Built,
+    *,
+    options: Mapping[str, str] | None = None,
+    role_check: object | None = None,
+    groups: Sequence[str] = (),
+) -> RoutingJob:
+    """The routing job that ``fenolite route --roles critical`` gives the router for a build whose groups are
+    declared or confirmed, with the copper check and clearance of the project (and ``role_check`` when
+    given)."""
+    design, pads = board(built)
+    found = plan(built, groups=groups)
+    rules = cmd_route._project_rules(  # pyright: ignore[reportPrivateUsage]
+        read_board(built.board.read_text(encoding="utf-8"), file=built.board.name), built.board, []
+    )
+    checks = cmd_route._job_checks(design, rules)  # pyright: ignore[reportPrivateUsage]
+    extra: dict[str, object] = {"board_pads": pads, "outline": board_outline(design).rings, **checks}
+    if role_check is not None:
+        extra["role_check"] = role_check
+    layers = tuple(
+        layer.name
+        for layer in sorted(design.board.layers if design.board else (), key=lambda item: item.ordinal)
+        if layer.kind == "copper"
+    )
+    return RoutingJob(
+        design,
+        job_nets(design, pads, found.routes, cmd_route.DEFAULTS),
+        layers,
+        dict(options or {}),
+        extra,
+        roles=tuple(job_route(route) for route in found.routes),
+    )
+
+
+def route_job(built: Built, **given: object) -> RoutingResult:
+    """The result of the octilinear router on ``role_job(built, **given)``."""
+    return OctilinearRouter().route(role_job(built, **given))  # type: ignore[arg-type]

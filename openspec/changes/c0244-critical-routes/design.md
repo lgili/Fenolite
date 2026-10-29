@@ -191,7 +191,8 @@ corridors (decision 10); the router places no rule area itself, because `Routing
   clearance in force between the two nets. The gap of a gate pair is the clearance in force between the
   out and return nets.
 - **Layers.** The layers both end pads reach, the pads' side first. A gate return also gets the copper
-  layer adjacent to that side for its stacked form (decision 7).
+  layer adjacent to that side for its stacked form (decision 7). Ends that share no layer get the first
+  pad's layers, then the second's: such a route needs a via (decision 8).
 - **Isolation.** A `gate-return` or `kelvin` route whose net has role `power`, `switch_node` or `ground`
   is `isolated`. Its branch must not touch its own net's copper except at its end pads (S-0892; c0222's
   `roles.kelvin-shared` and `roles.gate-return-shared`).
@@ -262,7 +263,7 @@ Among the accepted shapes of a unit, the router keeps the one with the least **c
   length, then the shape order. This is a selection cost from S-0891's "minimise the enclosed area",
   computed with `geometry`'s `area2`; it is not a reported measure.
 - **Kelvin pairs:** the length of the centre line, then the shape order. The pair's offset keeps the area
-  between the branches at the pitch.
+  between the branches at the pitch, its gap at least the clearance in force between the two nets.
 
 Role mode tries every shape and keeps the cheapest; c0228 keeps the first that passes. There are at most 5
 plus 8 shapes per layer (decision 12), so the cost of this stays small.
@@ -388,8 +389,9 @@ mode adds Z shapes: a first segment, a middle segment along a free line, a last 
     aggressor copper and zone outlines between `a` and `b`;
   - the two coordinates at the clearance in force plus half the width beyond the bounding box of each
     obstacle that refused the shape of c0228 shape order;
-  - for a gate route with a partner, the lines at the pair pitch on both sides of each partner segment
-    (side by side), or at offset 0 (stacked).
+  - for a gate route, the lines of each axis-parallel segment of its partner (placed in this job, else the
+    copper among its loop points): on the segment and at the pair pitch on both sides for a route on the
+    pad layer (side by side, or above a return already under it), on the segment for the stacked form.
 
   This gives at most 8 Z shapes per layer.
 - **Order.** They are tried after the five shapes, every shape on every allowed layer, and the cost of
@@ -471,7 +473,8 @@ closed tables, each with the command to run.
   errors (`FEN-2001`): the roles choose the nets and their order.
 - **The role options.** `octilinear` takes these router options in role mode: `gate-vias`, `kelvin-vias`,
   `keep-away=LENGTH` (default: the profile's `switching_distance_nm` with its overrides), `z-shapes=on|off`,
-  and c0228's `max-length` and `rounds`.
+  and c0228's `max-length` and `rounds`. `max-length` has no default in role mode: the placement fixes how
+  long a critical route is, and the cost already prefers the short shapes; given, it bounds every shape.
 - **Roles.** The command reads the stored roles (`.fenolite/rules.json` or the role document) and the
   declared ones. No roles, or no gate loop or Kelvin pair, means exit 0, nothing planned, and one
   `route.role-none` (info).

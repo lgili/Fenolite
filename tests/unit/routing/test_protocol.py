@@ -128,7 +128,8 @@ def test_roles_default_to_empty() -> None:
     assert RoutingResult() == RoutingResult(roles=())
     a = JobRoleEnd("R1", "1", "VA", Point(1, 2), ("F.Cu",))
     b = JobRoleEnd("U1", "3", "VA", Point(5, 2), ("F.Cu",))
-    route = JobRoleRoute("kelvin_R1", "kelvin", 1, "VA", a, b, 200_000, ("F.Cu",), key="kelvin_R1:kelvin:R1-1:U1-3")
+    key = "kelvin_R1:kelvin:R1-1:U1-3"
+    route = JobRoleRoute("kelvin_R1", "kelvin", 1, "VA", a, b, 200_000, ("F.Cu",), key=key)
     held = RoutingJob(design, (), ("F.Cu",), roles=(route,))
     assert held.roles[0].vias == 0 and not held.roles[0].isolated and a.label == "R1-1"
     outcome = RoleOutcome(route.key, route.group, "unrouted", reason="no-room")

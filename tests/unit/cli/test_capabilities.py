@@ -94,8 +94,8 @@ def test_missing_tools_are_null_not_fatal(
 
 def test_features(capsys: pytest.CaptureFixture[str]) -> None:
     """Scenario "Features listed" (change c0110): ``kicadroutingtools`` lists the features its gate allowed
-    (``pairs``; the escape gate failed), ``octilinear`` ``pairs``, ``short`` (change c0228) and ``roles`` (c0244), the other
-    routers none, and the matrix is not changed."""
+    (``pairs``; the escape gate failed), ``octilinear`` ``pairs``, ``short`` (change c0228) and ``roles``
+    (c0244), the other routers none, and the matrix is not changed."""
     result = _capabilities(capsys, "--no-tools")
     features = {router["name"]: router["features"] for router in result["routers"]}  # type: ignore[union-attr]
     assert features == {

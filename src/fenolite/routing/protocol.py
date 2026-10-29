@@ -117,7 +117,8 @@ class JobRoleRoute:
     vias the route may place. An ``isolated`` route may touch the copper of its own net only at its ends;
     a route keeps ``keep_away`` from the copper of the ``aggressors`` on its layer and does not overlap it
     on an adjacent layer. ``partner`` is the key of the route it pairs with, at ``gap``. ``loop`` is the
-    rest of the role loop, from ``b`` back to ``a``, for the area cost; ``key`` names the route."""
+    rest of the role loop, from ``b`` back to ``a``, for the area cost; ``key`` names the route. ``plane``
+    marks a gate return of a ``ground`` net, which a zone of its net under the whole drive may carry."""
 
     group: str
     kind: str
@@ -135,6 +136,7 @@ class JobRoleRoute:
     gap: Nm = 0
     loop: tuple[Point, ...] = ()
     key: str = ""
+    plane: bool = False
 
 
 RoleStatus = Literal["routed", "plane-return", "unrouted", "refused"]

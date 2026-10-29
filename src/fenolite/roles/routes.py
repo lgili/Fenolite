@@ -103,6 +103,7 @@ class CriticalRoute:
     gap: int = 0
     loop: tuple[Point, ...] = ()
     key: str = ""
+    plane: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,10 +143,13 @@ def _copper_layers(record: BoardPad) -> tuple[str, ...]:
 
 
 def _common_layers(a: BoardPad, b: BoardPad, stack: Sequence[str]) -> tuple[str, ...]:
-    """The layers of ``stack`` that both pads reach, the first pad's side first."""
+    """The layers of ``stack`` that both pads reach, the first pad's side first; without one, the first pad's
+    layers, then the second's."""
     mine, other = set(_copper_layers(a)), set(_copper_layers(b))
     common = [layer for layer in stack if layer in mine and layer in other]
     side = "B.Cu" if a.side == "bottom" else "F.Cu"
+    if not common:  # a route between them changes layer at a via, when one is allowed
+        return (*(layer for layer in stack if layer in mine), *(layer for layer in stack if layer in other))
     return tuple(sorted(common, key=lambda layer: (layer != side, stack.index(layer))))
 
 
@@ -395,6 +399,7 @@ def _gate(ctx: _Context, loop: GateLoop) -> tuple[GroupPlan, list[CriticalRoute]
                 gap if partner else 0,
                 _ring(chain, index[(a, b)]),
                 _key(loop.name, kind, a, b),
+                kind == "gate-return" and ctx.kind(net) == "ground",
             )
         )
     plan = GroupPlan(

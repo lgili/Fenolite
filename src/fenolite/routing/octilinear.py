@@ -16,6 +16,10 @@ router's code.
 The command gives the job the clearance in force (``extra["clearance"]``) and the copper check
 (``extra["copper_check"]``), which this package may not import; the check judges the result, and the
 copper of a connection that brings a new finding is removed (``route.check-refused``).
+
+A job with role routes (``RoutingJob.roles``, change c0244) is routed by ``routing.roleroute`` instead, on
+this module's world, shapes and pair offsets: ``World``, ``Pad``, ``PairConn``, ``pair_lines``, ``thick``,
+``length``, ``apart`` and ``unit`` are shared with it and stay internal to the routing package.
 """
 
 from __future__ import annotations
@@ -68,31 +72,31 @@ CopperCheck = Callable[[Design], Sequence[Finding]]
 Clearance = Callable[[RuleSubject, RuleSubject], Nm]
 Polyline = tuple[Point, ...]
 _ALL = Selector("all")
-_Dir = tuple[int, int]
+Dir = tuple[int, int]
 
 
 def _sign(value: int) -> int:
     return (value > 0) - (value < 0)
 
 
-def _cross(u: _Dir, v: _Dir) -> int:
+def _cross(u: Dir, v: Dir) -> int:
     return u[0] * v[1] - u[1] * v[0]
 
 
-def _dot(u: _Dir, v: _Dir) -> int:
+def _dot(u: Dir, v: Dir) -> int:
     return u[0] * v[0] + u[1] * v[1]
 
 
-def _vec(a: Point, b: Point) -> _Dir:
+def _vec(a: Point, b: Point) -> Dir:
     return (b.x - a.x, b.y - a.y)
 
 
-def _unit(a: Point, b: Point) -> _Dir:
+def unit(a: Point, b: Point) -> Dir:
     """The octilinear direction from ``a`` to ``b`` as signs per axis."""
     return (_sign(b.x - a.x), _sign(b.y - a.y))
 
 
-def _length(points: Polyline) -> int:
+def length(points: Polyline) -> int:
     return sum(isqrt((q.x - p.x) ** 2 + (q.y - p.y) ** 2) for p, q in zip(points, points[1:], strict=False))
 
 
@@ -132,7 +136,7 @@ def simplify(points: Iterable[Point]) -> Polyline:
     for point in points:
         if out and out[-1] == point:
             continue
-        if len(out) >= 2 and _unit(out[-2], out[-1]) == _unit(out[-1], point):
+        if len(out) >= 2 and unit(out[-2], out[-1]) == unit(out[-1], point):
             out[-1] = point
             continue
         out.append(point)
@@ -144,12 +148,12 @@ def bends_ok(points: Polyline) -> bool:
     if any(not _octilinear(p, q) for p, q in zip(points, points[1:], strict=False)):
         return False
     for p, q, r in zip(points, points[1:], points[2:], strict=False):
-        if _dot(_unit(p, q), _unit(q, r)) < 0:
+        if _dot(unit(p, q), unit(q, r)) < 0:
             return False
     return True
 
 
-def _off(direction: _Dir, distance: int) -> _Dir:
+def _off(direction: Dir, distance: int) -> Dir:
     """``direction`` scaled to at least ``distance`` (a diagonal's axes rounded up)."""
     if direction[0] == 0 or direction[1] == 0:
         return (direction[0] * distance, direction[1] * distance)
@@ -157,11 +161,11 @@ def _off(direction: _Dir, distance: int) -> _Dir:
     return (direction[0] * k, direction[1] * k)
 
 
-def _add(p: Point, v: _Dir, scale: int = 1) -> Point:
+def _add(p: Point, v: Dir, scale: int = 1) -> Point:
     return Point(p.x + scale * v[0], p.y + scale * v[1])
 
 
-def _meet(a: Point, u: _Dir, c: Point, v: _Dir) -> tuple[Fraction, Point] | None:
+def _meet(a: Point, u: Dir, c: Point, v: Dir) -> tuple[Fraction, Point] | None:
     """Where the line ``a + t·u`` meets the line ``c + s·v``: ``t`` and the point rounded to nanometres."""
     den = _cross(u, v)
     if den == 0:
@@ -173,7 +177,7 @@ def _meet(a: Point, u: _Dir, c: Point, v: _Dir) -> tuple[Fraction, Point] | None
 def offset(centre: Polyline, side: int, half: int) -> Polyline:
     """``centre`` moved by ``half`` to the side ``side`` (+1: its left normal), joints at the meet of the
     moved segments."""
-    dirs = [_unit(p, q) for p, q in zip(centre, centre[1:], strict=False)]
+    dirs = [unit(p, q) for p, q in zip(centre, centre[1:], strict=False)]
     moved = [_add(centre[i], _off((-d[1], d[0]), half), side) for i, d in enumerate(dirs)]
     points = [moved[0]]
     for i in range(1, len(dirs)):
@@ -184,7 +188,7 @@ def offset(centre: Polyline, side: int, half: int) -> Polyline:
 
 
 @dataclass(frozen=True, slots=True)
-class _Pad:
+class Pad:
     label: str
     net: str
     at: Point
@@ -203,21 +207,21 @@ class _Obstacle:
 class _Single:
     key: int
     net: JobNet
-    a: _Pad
-    b: _Pad
+    a: Pad
+    b: Pad
 
 
 @dataclass(frozen=True, slots=True)
-class _Pair:
+class PairConn:
     key: int
     pair: JobPair
     positive: JobNet
     negative: JobNet
-    ends: tuple[tuple[_Pad, _Pad], tuple[_Pad, _Pad]]
+    ends: tuple[tuple[Pad, Pad], tuple[Pad, Pad]]
     """The two ends, each ``(positive pad, negative pad)``."""
 
 
-_Conn = _Single | _Pair
+_Conn = _Single | PairConn
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,14 +239,14 @@ class _Round:
     long: list[_Conn] = field(default_factory=lambda: [])
 
 
-def _thick(points: Sequence[Point], width: int, filled: bool = False) -> Thick | None:
+def thick(points: Sequence[Point], width: int, filled: bool = False) -> Thick | None:
     try:
         return Thick(tuple(points), width, filled)
     except (GeometryError, ValueError):
         return None
 
 
-class _World:
+class World:
     """The obstacles of a job: other nets' copper and holes per layer, the edge rings, and the job copper
     placed in the round so far."""
 
@@ -278,10 +282,10 @@ class _World:
             shape
             for ring in outline
             if len(ring) >= 2
-            and (shape := _thick((*ring, ring[0]) if ring[0] != ring[-1] else tuple(ring), 0)) is not None
+            and (shape := thick((*ring, ring[0]) if ring[0] != ring[-1] else tuple(ring), 0)) is not None
         )
         found: list[tuple[str, _Obstacle]] = []
-        self.pads: dict[str, list[_Pad]] = {}
+        self.pads: dict[str, list[Pad]] = {}
         self.pad_shapes: dict[str, list[list[tuple[str, Thick]]]] = {}
         for pad in pads:
             net = cast(str | None, getattr(pad, "net", None))
@@ -291,7 +295,7 @@ class _World:
             entries: list[tuple[str, Thick]] = []
             for entry in copper:
                 layer = cast(str, getattr(entry, "layer", ""))
-                shape = _thick(
+                shape = thick(
                     cast("tuple[Point, ...]", getattr(entry, "core", ())),
                     cast(int, getattr(entry, "width", 0)),
                     cast(bool, getattr(entry, "filled", False)),
@@ -310,7 +314,7 @@ class _World:
             hole = cast("tuple[Point, ...]", getattr(pad, "hole", ()))
             drill = cast("int | None", getattr(pad, "drill", None))
             if hole and drill:
-                shape = _thick(hole, drill)
+                shape = thick(hole, drill)
                 if shape is not None:
                     for layer in self.layers:
                         found.append(
@@ -326,13 +330,13 @@ class _World:
             if net and entries:
                 position = cast(Point, getattr(pad, "position", None))
                 layers = tuple(layer for layer in self.layers if any(name == layer for name, _ in entries))
-                self.pads.setdefault(net, []).append(_Pad(f"{ref}-{number}", net, position, layers))
+                self.pads.setdefault(net, []).append(Pad(f"{ref}-{number}", net, position, layers))
                 self.pad_shapes.setdefault(net, []).append(entries)
-        self.ends: dict[tuple[str, str, Point], list[_Dir]] = {}
+        self.ends: dict[tuple[str, str, Point], list[Dir]] = {}
         self.net_copper: dict[str, list[list[tuple[str, Thick]]]] = {}
         for track in board.tracks:
             net = net_ids[track.net_id].name if track.net_id in net_ids else None
-            shape = _thick((track.start, track.end), track.width)
+            shape = thick((track.start, track.end), track.width)
             if shape is None:
                 continue
             found.append(
@@ -358,7 +362,7 @@ class _World:
                 points = GeoArc(arc.start, arc.mid, arc.end).polygonize(ARC_TOL)
             except (GeometryError, ValueError):
                 points = (arc.start, arc.mid, arc.end)
-            shape = _thick(points, arc.width + 2 * ARC_TOL)
+            shape = thick(points, arc.width + 2 * ARC_TOL)
             if shape is None:
                 continue
             found.append(
@@ -373,8 +377,8 @@ class _World:
                 self.net_copper.setdefault(net, []).append([(arc.layer, shape)])
         for via in board.vias:
             net = net_ids[via.net_id].name if via.net_id in net_ids else None
-            span = self._span(via.layers)
-            disc = _thick((via.position,), via.diameter)
+            span = self.span(via.layers)
+            disc = thick((via.position,), via.diameter)
             if disc is None:
                 continue
             for layer in span:
@@ -401,7 +405,7 @@ class _World:
     def _obstacle(self, shape: Thick, net: str | None, subject: RuleSubject) -> _Obstacle:
         return _Obstacle(shape, net, subject, thick_bbox(shape))
 
-    def _span(self, layers: Sequence[str]) -> tuple[str, ...]:
+    def span(self, layers: Sequence[str]) -> tuple[str, ...]:
         """The job layers from the first to the last of ``layers`` in stack order."""
         found = [self.layers.index(layer) for layer in layers if layer in self.layers]
         if not found:
@@ -434,7 +438,7 @@ class _World:
         items = self.by_layer.get(layer, [])
         tree = self.index.get(layer)
         for p, q in zip(points, points[1:], strict=False):
-            shape = _thick((p, q), width)
+            shape = thick((p, q), width)
             if shape is None:
                 return False
             box = thick_bbox(shape).inflate(self.reach)
@@ -465,13 +469,13 @@ class _World:
     def place(self, net: str, layer: str, points: Polyline, width: Nm, pair: str | None = None) -> None:
         subject = self.subject(net, layer, pair)
         for p, q in zip(points, points[1:], strict=False):
-            shape = _thick((p, q), width)
+            shape = thick((p, q), width)
             if shape is not None:
                 self.placed.append((net, layer, shape, subject))
         self.ends.setdefault((net, layer, points[0]), []).append(_vec(points[0], points[1]))
         self.ends.setdefault((net, layer, points[-1]), []).append(_vec(points[-1], points[-2]))
 
-    def reset(self, ends: dict[tuple[str, str, Point], list[_Dir]]) -> None:
+    def reset(self, ends: dict[tuple[str, str, Point], list[Dir]]) -> None:
         self.placed = []
         self.ends = {key: list(value) for key, value in ends.items()}
 
@@ -493,7 +497,7 @@ def _edge_clearance(design: Design) -> Nm:
     )
 
 
-def _layers(net: JobNet, world: _World, *pads: _Pad) -> tuple[str, ...]:
+def _layers(net: JobNet, world: World, *pads: Pad) -> tuple[str, ...]:
     return tuple(
         layer
         for layer in world.layers
@@ -503,7 +507,7 @@ def _layers(net: JobNet, world: _World, *pads: _Pad) -> tuple[str, ...]:
     )
 
 
-def _connections(net: JobNet, world: _World) -> list[tuple[_Pad, _Pad]]:
+def _connections(net: JobNet, world: World) -> list[tuple[Pad, Pad]]:
     """The edges of a minimum spanning tree over the pads of ``net`` between the groups its copper makes,
     shortest first."""
     pads = world.pads.get(net.name, [])
@@ -528,7 +532,7 @@ def _connections(net: JobNet, world: _World) -> list[tuple[_Pad, _Pad]]:
         for i in range(len(pads))
         for j in range(i + 1, len(pads))
     )
-    chosen: list[tuple[_Pad, _Pad]] = []
+    chosen: list[tuple[Pad, Pad]] = []
     for _, _, _, i, j in edges:
         a, b = find(groups[i]), find(groups[j])
         if a == b:
@@ -556,9 +560,10 @@ class OctilinearRouter:
         return RouterStatus(True, version="builtin")
 
     def route(self, job: RoutingJob) -> RoutingResult:
-        """Route the job's nets and pairs; the result is ``UNVERIFIED`` until KiCad checks it."""
+        """Route the job's nets and pairs, or its role routes only when it has any (``routing.roleroute``);
+        the result is ``UNVERIFIED`` until KiCad checks it."""
         issues: list[Issue] = []
-        max_length, rounds = _options(job.options, issues)
+        max_length, rounds = _options(job.options, issues) if not job.roles else (MAX_LENGTH, ROUNDS)
         pads = job.extra.get("board_pads")
         outline = job.extra.get("outline")
         if not isinstance(pads, tuple) or job.design.board is None:
@@ -573,7 +578,11 @@ class OctilinearRouter:
             )
             return self._result((), (), names, issues)
         rings = cast("tuple[tuple[Point, ...], ...]", outline) if isinstance(outline, tuple) else ()
-        world = _World(job, cast("tuple[object, ...]", pads), rings)
+        world = World(job, cast("tuple[object, ...]", pads), rings)
+        if job.roles:  # role mode (change c0244): the role routes and nothing else
+            from fenolite.routing.roleroute import route_roles
+
+            return route_roles(job, world, cast("tuple[object, ...]", pads), self.name)
         conns, routed_free = self._plan(job, world, issues)
         base_ends = {key: list(value) for key, value in world.ends.items()}
         order: list[_Conn] = list(conns)
@@ -619,7 +628,7 @@ class OctilinearRouter:
         unrouted = tuple(name for name in names if name in open_nets or name in routed_free)
         return self._result(tracks, routed, unrouted, issues)
 
-    def _plan(self, job: RoutingJob, world: _World, issues: list[Issue]) -> tuple[list[_Conn], set[str]]:
+    def _plan(self, job: RoutingJob, world: World, issues: list[Issue]) -> tuple[list[_Conn], set[str]]:
         """The connections of the job, pairs first by their positive net, and the nets left open before
         routing (pairs that cannot be routed)."""
         conns: list[_Conn] = []
@@ -639,7 +648,7 @@ class OctilinearRouter:
                 )
                 continue
             ends = _pair_ends(p_pads, n_pads)
-            conns.append(_Pair(len(conns), pair, positive, negative, ends))
+            conns.append(PairConn(len(conns), pair, positive, negative, ends))
         for net in job.nets:
             if net.name in in_pair:
                 continue
@@ -691,11 +700,11 @@ def _options(options: Mapping[str, str], issues: list[Issue]) -> tuple[Nm, int]:
     return max_length, rounds
 
 
-def _pair_ends(p_pads: list[_Pad], n_pads: list[_Pad]) -> tuple[tuple[_Pad, _Pad], tuple[_Pad, _Pad]]:
+def _pair_ends(p_pads: list[Pad], n_pads: list[Pad]) -> tuple[tuple[Pad, Pad], tuple[Pad, Pad]]:
     """The matching of the positive and negative pads with the smaller sum of distances, the end whose
     positive pad label sorts first first."""
 
-    def dist(a: _Pad, b: _Pad) -> int:
+    def dist(a: Pad, b: Pad) -> int:
         return isqrt((a.at.x - b.at.x) ** 2 + (a.at.y - b.at.y) ** 2)
 
     straight = dist(p_pads[0], n_pads[0]) + dist(p_pads[1], n_pads[1])
@@ -706,7 +715,7 @@ def _pair_ends(p_pads: list[_Pad], n_pads: list[_Pad]) -> tuple[tuple[_Pad, _Pad
     return ends[0], ends[1]
 
 
-def _route_one(conn: _Conn, world: _World, max_length: Nm) -> _Placed | str:
+def _route_one(conn: _Conn, world: World, max_length: Nm) -> _Placed | str:
     """The copper of ``conn`` placed in ``world``, or ``"long"`` when every shape is longer than
     ``max_length``, or ``"room"`` when no shape fits."""
     if isinstance(conn, _Single):
@@ -714,10 +723,10 @@ def _route_one(conn: _Conn, world: _World, max_length: Nm) -> _Placed | str:
     return _route_pair(conn, world, max_length)
 
 
-def _route_single(conn: _Single, world: _World, max_length: Nm) -> _Placed | str:
+def _route_single(conn: _Single, world: World, max_length: Nm) -> _Placed | str:
     net = conn.net
     layers = _layers(net, world, conn.a, conn.b)
-    short = [shape for shape in shapes(conn.a.at, conn.b.at) if _length(shape) <= max_length]
+    short = [shape for shape in shapes(conn.a.at, conn.b.at) if length(shape) <= max_length]
     if not short:
         return "long"
     for shape in short:
@@ -728,19 +737,19 @@ def _route_single(conn: _Single, world: _World, max_length: Nm) -> _Placed | str
     return "room"
 
 
-def _entry(pad: Point, at: Point, direction: _Dir, *, into: bool) -> Polyline | None:
+def _entry(pad: Point, at: Point, direction: Dir, *, into: bool) -> Polyline | None:
     """The first shape from ``pad`` to ``at`` (``into``) or from ``at`` to ``pad`` whose joint with a coupled
     segment of ``direction`` at ``at`` is not acute; ``(pad,)`` when they are one point."""
     if pad == at:
         return (pad,)
     for shape in shapes(pad, at) if into else shapes(at, pad):
-        joint = _unit(shape[-2], shape[-1]) if into else _unit(shape[0], shape[1])
+        joint = unit(shape[-2], shape[-1]) if into else unit(shape[0], shape[1])
         if _dot(joint, direction) >= 0:
             return shape
     return None
 
 
-def _start(pad: Point, side: int, line: Point, direction: _Dir) -> Point | None:
+def _start(pad: Point, side: int, line: Point, direction: Dir) -> Point | None:
     """Where an entry from ``pad``, on the side ``side`` of the centre line, going along ``direction`` and
     toward the centre line at 45° to it, meets the offset line ``line + t·direction``; ``None`` when it meets
     it behind ``line`` (the pads lie no wider apart than the pitch)."""
@@ -753,10 +762,10 @@ def _start(pad: Point, side: int, line: Point, direction: _Dir) -> Point | None:
     return point if t > 0 else None
 
 
-def _pair_lines(conn: _Pair, centre: Polyline, half: int, trim: bool) -> tuple[Polyline, Polyline] | None:
+def pair_lines(conn: PairConn, centre: Polyline, half: int, trim: bool) -> tuple[Polyline, Polyline] | None:
     """The positive and negative polylines of a pair along ``centre``, or ``None``."""
     (p1, n1), (p2, n2) = conn.ends
-    first, last = _unit(centre[0], centre[1]), _unit(centre[-2], centre[-1])
+    first, last = unit(centre[0], centre[1]), unit(centre[-2], centre[-1])
     s1 = _sign(_cross(first, _vec(centre[0], p1.at)))
     s2 = _sign(_cross(last, _vec(centre[-1], p2.at)))
     if s1 == 0 or s1 != s2:
@@ -769,7 +778,7 @@ def _pair_lines(conn: _Pair, centre: Polyline, half: int, trim: bool) -> tuple[P
             start = _start(a.at, side, moved[0], first) or moved[0]
             end = _start(b.at, -side, moved[-1], (-last[0], -last[1])) or moved[-1]
         inner = list(moved[1:-1])
-        if not inner and (start == end or _unit(start, end) != first):
+        if not inner and (start == end or unit(start, end) != first):
             return None
         if inner and (_dot(_vec(start, inner[0]), first) <= 0 or _dot(_vec(inner[-1], end), last) <= 0):
             return None
@@ -784,7 +793,7 @@ def _pair_lines(conn: _Pair, centre: Polyline, half: int, trim: bool) -> tuple[P
     return lines[0], lines[1]
 
 
-def _route_pair(conn: _Pair, world: _World, max_length: Nm) -> _Placed | str:
+def _route_pair(conn: PairConn, world: World, max_length: Nm) -> _Placed | str:
     pair = conn.pair
     (p1, n1), (p2, n2) = conn.ends
     layers = _layers(conn.positive, world, p1, n1, p2, n2)
@@ -795,12 +804,12 @@ def _route_pair(conn: _Pair, world: _World, max_length: Nm) -> _Placed | str:
     built = short = False
     for centre in shapes(m1, m2):
         for trim in (True, False):
-            lines = _pair_lines(conn, centre, half, trim)
+            lines = pair_lines(conn, centre, half, trim)
             if lines is None:
                 continue
             built = True
             positive, negative = lines
-            if _length(positive) > max_length or _length(negative) > max_length:
+            if length(positive) > max_length or length(negative) > max_length:
                 continue
             short = True
             for layer in layers:
@@ -809,7 +818,7 @@ def _route_pair(conn: _Pair, world: _World, max_length: Nm) -> _Placed | str:
                     and world.ends_ok(pair.negative, layer, negative)
                     and world.fits(pair.positive, layer, positive, pair.width, base)
                     and world.fits(pair.negative, layer, negative, pair.width, base)
-                    and _apart(world, pair, layer, positive, negative, base)
+                    and apart(world, pair, layer, positive, negative, base)
                 ):
                     continue
                 world.place(pair.positive, layer, positive, pair.width, base)
@@ -824,13 +833,13 @@ def _route_pair(conn: _Pair, world: _World, max_length: Nm) -> _Placed | str:
     return "long" if built and not short else "room"
 
 
-def _apart(world: _World, pair: JobPair, layer: str, a: Polyline, b: Polyline, base: str | None) -> bool:
+def apart(world: World, pair: JobPair, layer: str, a: Polyline, b: Polyline, base: str | None) -> bool:
     """True when the two tracks of a pair keep the clearance in force between its nets, with no margin."""
     limit = world.clearance(
         world.subject(pair.positive, layer, base), world.subject(pair.negative, layer, base)
     )
-    pieces_a = [_thick((p, q), pair.width) for p, q in zip(a, a[1:], strict=False)]
-    pieces_b = [_thick((p, q), pair.width) for p, q in zip(b, b[1:], strict=False)]
+    pieces_a = [thick((p, q), pair.width) for p, q in zip(a, a[1:], strict=False)]
+    pieces_b = [thick((p, q), pair.width) for p, q in zip(b, b[1:], strict=False)]
     for one in pieces_a:
         for other in pieces_b:
             if one is None or other is None or thick_closer_than(one, other, limit):
@@ -913,7 +922,7 @@ def _judge(
 
 
 def _failed(conn: _Conn, long: bool, max_length: Nm) -> Issue:
-    if isinstance(conn, _Pair):
+    if isinstance(conn, PairConn):
         why = (
             f"every shape is longer than max-length {format_length(max_length)}"
             if long
