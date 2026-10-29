@@ -177,7 +177,7 @@ With `sheets="modules"`, the crossings of the sheet of block instance `B` are:
   (open question 4).
 - Stubs and net labels keep the **circuit net name**, on both sides. A port named `IN` with a stub label
   `SRC` joins its entry `IN` by name (S-0185), and the label names the net on each sheet. Whether Altium
-  names the compiled net after the label when the port has another name is `H-A-SCH-BLOCK-ENTRIES`, which
+  names the compiled net after the label when the port has another name is `H-A-BLOCK-ENTRIES`, which
   the kit checks.
 - A sheet-name clash between a port crossing and an inferred crossing on one module (an escaping net
   named `IN` beside a port `IN`) gives `build.block-sheet-name-clash` (error) naming both, and nothing is
@@ -245,7 +245,7 @@ codes, each with an `explain.toml` entry. `DslError` cases are listed in decisio
   paths, not from content.
 - **Shared arrangement and long names.** One instance with a long outside net name widens every instance's
   cells. This is accepted for sameness. A placements file can override it.
-- **Altium net names with port-named entries** are unmeasured until the kit (`H-A-SCH-BLOCK-ENTRIES`).
+- **Altium net names with port-named entries** are unmeasured until the kit (`H-A-BLOCK-ENTRIES`).
   Until then the evidence stays `INFERRED`, and `--altium-layout grid` with `sheets="flat"` is unaffected.
 
 ## Open Questions

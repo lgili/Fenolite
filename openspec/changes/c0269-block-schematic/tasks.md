@@ -63,7 +63,7 @@
   passes. Proof: the KiCad job of the commit on GitHub CI is green;
   `uv run pytest tests/kicad/build/test_block_sheets.py -q` there.
 - [ ] 4.2 Altium kit: add a step that compiles the authored block design and records the messages and
-  net names (`H-A-SCH-BLOCK-ENTRIES`). The row stays `INFERRED` until the maintainer reports. Proof:
+  net names (`H-A-BLOCK-ENTRIES`). The row stays `INFERRED` until the maintainer reports. Proof:
   `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
 
 ## 5. Documentation and guide
