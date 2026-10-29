@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.interfaces import Interface
 from fenolite.dsl.part import Net, Part, check_name
-from fenolite.dsl.quantity import Quantity
+from fenolite.dsl.quantity import Quantity, Range
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
@@ -37,27 +37,34 @@ class Container:
         ref: str | None = None,
         lib_id: str | None = None,
         footprint: str | None = None,
-        value: str | Quantity = "",
+        value: str | Quantity | Range | None = None,
         *,
         name: str | None = None,
         prefix: str | None = None,
+        device: str | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
     ) -> Part:
         """Create a part with the arguments of ``Part`` and attach it; the ref may be left out
-        (``docs/dsl.md``, "Reference designators and the design lock")."""
-        made = Part(
-            ref,
-            lib_id,
-            footprint,
-            value,
-            name=name,
-            prefix=prefix,
-            properties=properties,
-            pad_map=pad_map,
-            height=height,
-        )
+        (``docs/dsl.md``, "Reference designators and the design lock"), and a device id resolves against
+        the design's ``devices()`` records first (``docs/devices.md``)."""
+        from fenolite.dsl.devices import design_records
+
+        design = self.design
+        with design_records(design.device_records if design is not None else {}):
+            made = Part(
+                ref,
+                lib_id,
+                footprint,
+                value,
+                name=name,
+                prefix=prefix,
+                device=device,
+                properties=properties,
+                pad_map=pad_map,
+                height=height,
+            )
         self.add(made)
         return made
 

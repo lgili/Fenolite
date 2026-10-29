@@ -16,57 +16,42 @@ footprint="Fenolite:Chip_0603", value="330")`. A pad takes the net of the pin th
 
    ```fenolite-cmd
    fenolite catalog list --query 0603 --json
-   fenolite catalog list --kind symbol --json
    fenolite catalog show Fenolite:Linear_Regulator --json
    fenolite catalog view --query resistor --out catalog.html --dry-run --json
    ```
 
-   `list` gives each entry's `lib_id`, `kind` (`symbol` or `footprint`) and a summary; `--query` searches
-   the id, the category and the summary. `show` gives the pins of a symbol (`number`, `name`, `etype`)
-   or the pads of a footprint. Every catalog entry is `INFERRED`: a symbol is a generic or conceptual
-   shape, not a device's pinout, and a footprint is a land pattern that nobody checked against your
+   `list` gives each entry's `lib_id`, `kind` (`symbol` or `footprint`) and summary, which `--query`
+   searches; `show` gives a symbol's pins (`number`, `name`, `etype`) or a footprint's pads. Every entry
+   is `INFERRED`: a generic symbol, not a device's pinout, and a land pattern nobody checked against your
    part. Compare both with the datasheet before you order boards.
 
-   `view --out FILE` plans an offline HTML browser of the same filtered entries. Review `result.plan`,
-   then repeat with `--confirm --plan ID` using `result.plan_id`. Open the page to inspect the exact lib
-   IDs, pin roles and pad dimensions before assigning a part. Empty matches give `FEN-3001` and write
-   nothing; clear the filters or use `catalog list` to find an ID. The preview keeps `INFERRED` evidence.
-   This action was added after 0.5.0; use the guide shipped with the installed version.
-   Choose a component in that page to preview a symbol and footprint together and filter pad geometry.
-   The map starts empty; equal-number filling remains INFERRED and does not establish a device pinout.
-   A structurally complete map and the user's datasheet confirmation unlock a Python Part fragment with
-   exact IDs and `pad_map`. Add/connect it in a Design; selection does not upgrade INFERRED evidence.
+   `view --out FILE` plans an offline HTML browser of these entries: it previews a symbol and footprint
+   together, and a pad map the user confirmed against the datasheet gives a `Part` fragment. It never
+   upgrades `INFERRED` evidence.
 2. **KiCad's libraries.** Put an `fp-lib-table` and a `sym-lib-table` beside the script, and name parts
    as KiCad does (`Device:R`, `Resistor_SMD:R_0603_1608Metric`). The build copies what it places into the
-   project, so the built folder opens anywhere.
+   project.
 3. **Definitions of your own**, written in the script (page `footprints`).
 
-An id that nothing resolves stops the build with `FEN-3001`, and `issues` lists every one of them.
+An id that nothing resolves stops the build with `FEN-3001`; `issues` lists each one.
 
 ## Pins
 
 - `part[3]` or `part["3"]` is the pin with that number. `part["VDD"]` is every pin with that name.
-- A number is looked up first. A text that is both one pin's number and another pin's name gives
-  `build.pin-ambiguous`, and the number wins.
-- A name that no pin has gives `build.unknown-pin`. Ask `catalog show` before you guess.
+- A number is looked up first: a text that is one pin's number and another's name gives
+  `build.pin-ambiguous`. A name no pin has gives `build.unknown-pin`; ask `catalog show`, never guess.
 
 ## A script with values, a pad map and properties
 
 ```fenolite-design
-from fenolite.dsl import Design, Net, Part, amp, connect, farad, henry, hertz, mm, ohm, second, volt, watt
+from fenolite.dsl import Design, Net, Part, connect, farad, henry, hertz, mm, ohm, second, volt, watt
 
 design = Design("supply")
 design.board(mm(36), mm(20))
 vin, vf, v33, gnd = Net("VIN"), Net("VIN_F"), Net("V3V3"), Net("GND")
 
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="IN")
-l1 = Part(
-    "L1",
-    "Fenolite:Inductor",
-    footprint="Fenolite:Chip_0805",
-    value=henry("4u7"),
-    properties={"Rated current": amp("500m").text(), "Self resonance": hertz("40M").text()},
-)
+l1 = Part("L1", "Fenolite:Inductor", footprint="Fenolite:Chip_0805", value=henry("4u7"))
 # The symbol's pins are 1 IN, 2 GND, 3 OUT. Say this device has GND on pad 1, OUT on 2 and IN on 3.
 u1 = Part(
     "U1",
@@ -74,16 +59,11 @@ u1 = Part(
     footprint="Fenolite:SOT89_3",
     value=volt("3.3"),
     pad_map={"1": "3", "2": "1", "3": "2"},
-    properties={"Start-up": second("2m").text()},
+    properties={"Start-up": second("2m").text(), "Bandwidth": hertz("10k").text()},
 )
 c1 = Part("C1", "Fenolite:Capacitor", footprint="Fenolite:Chip_0805", value=farad("10u"))
-r1 = Part(
-    "R1",
-    "Fenolite:Resistor",
-    footprint="Fenolite:Chip_0603",
-    value=ohm("4k7"),
-    properties={"Power": watt("100m").text(), "Part number": "PN-4700"},
-)
+rated = {"Power": watt("100m").text(), "Part number": "PN-4700"}
+r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=ohm("4k7"), properties=rated)
 design.add(j1, l1, u1, c1, r1)
 
 connect(vin, j1[1], l1[1])
@@ -99,13 +79,11 @@ r1.place(mm(29), mm(14), rot=90)
 ```
 
 - **`value`** is a text, or a quantity: `ohm`, `farad`, `henry`, `volt`, `amp`, `watt`, `hertz` and
-  `second` take an `int` or a text with a prefix (`"4k7"`, `"4.7k"`, `"100n"`, `"3.3"`), never a float.
-  Two spellings of one value are one value: `ohm("4k7") == ohm("4.7k")`. `.text()` gives the printed
-  form, `4.7kΩ`. Fenolite supplies no value.
-- **`pad_map`** maps a symbol pin number to the pad that carries it, when the footprint numbers its
-  pads otherwise: `{"1": "3"}` puts the net of pin 1 on pad 3. A pin bonded to several pads lists them:
-  `{"2": ("2", "4")}`. Connections still name symbol pins. A map that leaves one pad to two pins is
-  refused, so map the displaced pin as well.
+  `second` take an `int` or a text with a prefix (`"4k7"`, `"100n"`), never a float. `ohm("4k7") ==
+  ohm("4.7k")`, and `.text()` gives the printed form, `4.7kΩ`.
+- **`pad_map`** maps a symbol pin number to the pad that carries it: `{"1": "3"}` puts the net of pin 1
+  on pad 3, `{"2": ("2", "4")}` bonds a pin to two pads. Connections still name symbol pins. A map that
+  leaves one pad to two pins is refused, so map the displaced pin as well.
 - **`properties`** are user fields of the part, as text: a part number, a rating. `Reference`, `Value`,
   `Footprint`, `Datasheet` and `Description` are reserved names.
 
@@ -118,14 +96,13 @@ from fenolite.dsl import Design, Net, Part, Range, Tolerance, amp, between, conn
 
 design = Design("divider")
 design.board(mm(24), mm(16))
-tol: Tolerance = pct(1)  # a per-cent without unit: pct(1) is ±1 %, pct(-20, 80) is asymmetric
+tol: Tolerance = pct(1)  # ±1 %; pct(-20, 80) is asymmetric
 r_top = ohm("100k").pct(tol)  # 100kΩ (99kΩ..101kΩ)
 r_bot = ohm("31.6k").pct(tol)
 v_in = volt("5").pct(5)  # 5V (4.75V..5.25V)
 v_out: Range = v_in * (r_bot / (r_top + r_bot))  # Ω/Ω is a ratio; V·Ω is no unit
 assert v_out.within(between(volt("1"), volt("1.5")))
 assert (v_in / (r_top + r_bot)).within(amp("50u").max())  # at most 50 µA
-
 vin, mid, gnd = Net("VIN"), Net("MID"), Net("GND")
 j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54", value="IN")
 r1 = Part("R1", "Fenolite:Resistor", footprint="Fenolite:Chip_0603", value=r_top)
@@ -140,19 +117,51 @@ r2.place(mm(13), mm(11))
 ```
 
 - `q.pct(p)`, `q.pct(lo, hi)` and `q.pct(pct(...))` give a range with nominal `q`; `q.max()` is `0..q`,
-  `q.min()` is `q..` (unbounded above); `between(a, b, nominal=None)` takes two quantities of one unit.
+  `q.min()` is `q..`; `between(a, b, nominal=None)` takes two quantities of one unit.
 - `+ - * /` mix ranges, quantities and exact numbers; a result may be wider than the truth, never narrower.
-  Units follow a closed table (V/Ω is A, V·A is W, Ω/Ω is a ratio); another pair raises `TypeError`.
-  A divisor that holds zero, or an unbounded operand, raises `DslError`.
-- `a.within(b)` asks whether every value of `a` lies in `b`; `.min`, `.max` and `.nominal` read the
-  bounds back as quantities.
-- A ranged part value writes the nominal text (`100kΩ`) as before and keeps the range in
-  `.fenolite/circuit.json` only; it needs a nominal and two bounds.
+  Units follow a closed table (V/Ω is A, V·A is W); another pair raises `TypeError`, a divisor that holds
+  zero or an unbounded operand `DslError`. `a.within(b)` asks whether every value of `a` lies in `b`.
+- A ranged part value writes the nominal text (`100kΩ`) and keeps the range in `.fenolite/circuit.json`.
+
+## Parts from devices
+
+A device joins a symbol, a footprint, the pin map, the MPN, the datasheet and ratings in one record
+(`docs/devices.md`). `design.part(ref, device=...)` creates and adds the part; pins are named by function.
+
+```fenolite-cmd
+fenolite catalog list --kind device --json
+fenolite catalog import --symbol Fenolite:Resistor --footprint Fenolite:Chip_0603 --id Proj:R_0603 --out devices/r_0603.toml --dry-run --json
+```
+
+```fenolite-design
+from fenolite.dsl import Design, Net, PinNameError, connect, mm, ohm
+
+design = Design("indicator")
+design.board(mm(20), mm(10))
+j1 = design.part("J1", device="Fenolite:Conn_1x2_P2.54", value="5V")
+r1 = design.part("R1", device="Fenolite:R_0603", value=ohm("1k"))
+d1 = design.part("D1", device="Fenolite:LED_0603")
+vin, gnd, led = Net("VIN"), Net("GND"), Net("LED_A")
+connect(vin, j1.P1, r1.P1)
+connect(led, r1.P2, d1.A)  # the anode, wherever its pad is
+connect(gnd, j1.P2, d1["K"])
+try:
+    d1.ANODE
+except PinNameError as error:
+    print(error)  # part D1 (device Fenolite:LED_0603) has no pin 'ANODE'; pins: A, K
+j1.place(mm(4), mm(5), rot=90)
+r1.place(mm(10), mm(5))
+d1.place(mm(15), mm(5))
+```
+
+- The shipped devices are generic (`INFERRED`, no MPN). Your own records go in `devices/*.toml` beside the
+  script; `catalog import` writes a template (`UNVERIFIED`).
+- A wrong pin name raises `PinNameError` with the closest names. A device that disagrees with its symbol or
+  footprint is `build.device-mismatch`; `result.devices` lists each device, `device.edited` an edited one.
 
 ## Typed interfaces
 
-An interface names a group of nets and gives each a role. `attach()` connects the pins of one part by
-role, with the rules of `connect`.
+An interface names a group of nets and gives each a role; `attach()` connects one part's pins by role.
 
 ```fenolite-design
 from fenolite.dsl import I2C, SPI, UART, USB2, Design, DiffPair, Harness, Interface, Net, Part, mm
@@ -171,7 +180,6 @@ uart.attach(j1, side="b", tx=j1[1], rx=j1[2])  # side b is crossed: J1-1 joins M
 bus.attach(u1, sda="IO2", scl="CLK")
 bus.attach(j1, sda=j1[3], scl=j1[4])
 
-# The other kinds are declared the same way. SPI and USB2 have attach() too.
 design.add(
     SPI(Net("SCK"), Net("MOSI"), Net("MISO"), cs=(Net("CS0"),)),
     USB2(Net("USB_DP"), Net("USB_DN")),
@@ -190,10 +198,9 @@ j1.place(mm(22), mm(10), rot=90)
 - `USB2.attach(part, dp=, dn=)`. `DiffPair(p, n)` records a pair. KiCad pairs two net names that differ
   only in the last character, `P` and `N` or `+` and `-`; other names give `build.diff-pair-name`.
 - `Harness(name, members)` and `Interface(name, kind, members)` record any group of nets.
-- The script above builds with warnings, and they are worth reading: `build.i2c-pullup-missing` (no
-  two-pin part between a bus line and the high net of a `Power`), and `model.dangling-net` for each net
-  that joins no pin yet.
-- Interfaces are kept in the design data (`.fenolite/`); the board and the schematic do not change.
+- The script builds with warnings: `build.i2c-pullup-missing` (no two-pin part between a bus line and
+  the high net of a `Power`) and `model.dangling-net` for each net that joins no pin yet.
+- Interfaces are kept in `.fenolite/`; the board and the schematic do not change.
 
 ## Blocks
 
@@ -231,17 +238,13 @@ for n in range(2):
   lock, so two instances never collide. `b.part(name, ...)` names a part locally.
 - `b.port(name, kind=Net, direction=...)` takes `Net` or an interface class (`I2C` gives `.sda`, `.scl`).
   An unwired group of port nets is named `<instance>/<port>`, an `out` port first.
-- `build.port-unused` (warning): a port has nothing outside its block; pass `optional=True` when that is
-  meant. `build.block-net-escape` (warning): a global net joins pins inside and outside a block without a
-  port; declare a port.
+- Warnings: `build.port-unused`, a port with nothing outside its block (`optional=True` when meant), and
+  `build.block-net-escape`, a global net joining pins inside and outside a block without a port.
 
 ## What the checks still say
 
-Both scripts build, and neither is a finished board. With KiCad 10, `fenolite check` reports for the
-first one `kicad.erc.power-pin-not-driven`: the supply pins of the regulator are fed by a connector,
-whose pins are passive, and KiCad's electrical check asks for a power output on such a net. For the
-second one it reports `kicad.erc.pin-not-connected`: pins of `U1` are neither connected nor marked with
-`no_connect`. Both have open connections until they are routed. The pin types come from the symbols:
-`fenolite catalog show` gives them.
+No script here is a finished board: each has open connections until it is routed. KiCad 10 also reports
+`kicad.erc.power-pin-not-driven` for the supply (passive connector pins feed the regulator) and
+`kicad.erc.pin-not-connected` for the buses (pins of `U1` neither connected nor marked `no_connect`).
 
 Read next: `footprints`, `placement`, `rules`.

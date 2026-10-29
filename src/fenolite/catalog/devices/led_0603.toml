@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+# Authored for Fenolite: a generic device that joins two catalog entries (change c0248).
+schema = "fenolite.device.v0"
+id = "Fenolite:LED_0603"
+summary = "Generic 0603 LED on a cathode-first land"
+symbol = "Fenolite:LED"
+footprint = "Fenolite:LED0603_Kingbright_APT1608SURCK"
+evidence = "INFERRED"
+sources = ["S-0319", "S-0412"]
+ends = ["A", "K"]
+
+[pins]
+# the land keeps pad 1 at the cathode: the anode pin 1 sits on pad 2
+A = { map = { "1" = "2" } }
+K = { map = { "2" = "1" } }

@@ -236,9 +236,13 @@ such a command, so its outputs are byte-identical whatever both flags say.
 
 ## `catalog`
 
-`fenolite catalog list [--kind symbol|footprint] [--query TEXT]` returns stable, offline catalog
-entries with `lib_id`, kind, category, summary, evidence level and registered source ids.
-`fenolite catalog show LIB_ID` returns the same metadata and a compact definition summary. Neither
+`fenolite catalog list [--kind symbol|footprint|device] [--query TEXT]` returns stable, offline catalog
+entries with `lib_id`, kind, category, summary, evidence level and registered source ids; without `--kind`
+the list holds symbols, footprints and the shipped devices (change c0248, `docs/devices.md`), and a device
+entry also holds `id`. `fenolite catalog show LIB_ID [--kind ...]` returns the same metadata and a compact
+definition summary; for a device (`--kind device`, or an id that no symbol or footprint has) it returns
+the `record`, its `digest`, `edited` and `shadowed` (functions hidden by attributes of `Part`), and the
+`check_device` issues against the catalog symbol and footprint. Neither
 command reads library tables or runs external tools. The initial generic catalog is documented in
 `docs/catalog/README.md`; every non-`KICAD-VERIFIED` land dimension remains explicitly marked.
 
@@ -259,6 +263,17 @@ courtyard layers are initially visible. Exact pad information remains available 
 `view` with no `--out`, a positional ID on `view`, or `--out` on list/show gives `FEN-2001` (exit 2).
 Empty view filters give `FEN-3001` (exit 3), a hint to change the filters and no write; empty list filters
 keep returning a successful empty list.
+
+`fenolite catalog import --symbol LIB:SYM --footprint LIB:FP --id NS:NAME --out FILE [--pin
+FUNCTION=PIN[:PAD[+PAD]]]... [--manufacturer T] [--mpn T] [--datasheet URL] [--ref-prefix P]` plans one
+write of kind `device`: a device template (`docs/devices.md`) with `evidence = "UNVERIFIED"` and a
+`[provenance]` stamp (`tool`, the two lib ids, the date of `--timestamp` or today in UTC, and the record's
+SHA-256). Its result holds `device`, `out`, `functions`, `digest`, `replaces` and `evidence`. Catalog ids
+resolve offline; other lib ids through the library tables of the folder of `--out`. A symbol pin without a
+pad of its number and no `--pin` is `catalog.pin-without-pad` (error, exit 5, no write); a pad no pin names
+is `catalog.pad-unmapped` (warning). Onto an existing file that was edited after its stamp (or is not a
+device record) the import exits 7 with `FEN-7001` unless `--allow-lossy` is given; onto an unedited file it
+plans the replacement. The import options on `list`, `show` or `view` give `FEN-2001`.
 
 ## KiCad output
 

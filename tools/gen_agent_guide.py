@@ -137,7 +137,8 @@ def commands_page(registry: Mapping[str, Command]) -> str:
     ]
     for entry in described:
         words = _words(" ".join(entry.usage.split()))
-        lines += ["", f"## {entry.name}", "", f"`{_cell(_short_usage(entry.name, words))}`", ""]
+        # no blank line under the heading: the page stays within the 750 lines of a generated page
+        lines += ["", f"## {entry.name}", f"`{_cell(_short_usage(entry.name, words))}`", ""]
         own = [argument for argument in entry.arguments if not set(argument.flags) & PROTOCOL_FLAGS]
         values = _placeholders(words)
         lines += [_argument(argument, values) for argument in own] or ["It takes no argument of its own."]

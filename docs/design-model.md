@@ -136,7 +136,11 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 | `FootprintDef` | entity: `name`, `library`, `description`, `keywords`, `kind`, `flags`, `properties`, `pads` (board `Pad`, `net_id = None`, positions relative to the definition), `graphics` (board `Graphic`), `models` |
 | `SymbolDef` | entity: `name`, `library`, `extends`, `power`, `properties`, `in_bom`, `on_board`, `exclude_from_sim`, pin-name settings, `units`, `pins`, ordered symbol-local vector `graphics` |
 | `SymbolPin`, `SymbolUnit`, `SymbolGraphic`, `PinAlternate` | value objects without the entity header; a pin is identified by `(unit, body_style, number)` and graphic points use integer nanometres |
-| `Library` | `name`, `footprints`, `symbols`; schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
+| `DeviceDef` | value object (change c0248): `id` (`<namespace>:<name>`), `summary`, `symbol`, `footprint`, `manufacturer`, `mpn`, `datasheet`, `ref_prefix`, `value`, `evidence`, `sources`, `ground`, `unused_pads`, `ends`, `properties`, `pins` (ordered by function code point), `ratings` (ordered by key), `provenance` |
+| `DevicePin` | `function`, `pin_pads` (ordered `(pin, pad)` pairs, the form of `Component.pin_pad_map`), `voltage`, `current`, `must_connect` |
+| `Rating` | `key` (`voltage`, `current`, `power`, `temperature`), `unit` (`uV`, `uA`, `uW`, `mdegC`), `min`, `max`: integers or `null` |
+| `DeviceProvenance` | `tool`, `source` (lib ids, never a path), `date` (ISO 8601), `sha256` |
+| `Library` | `name`, `footprints`, `symbols`, `devices` (sorted by id); schema `fenolite.library.v0` (`schemas/fenolite.model.v0/library.json`) |
 
 - Every field other than `name` has a default. `keywords`, `flags`, `pads`, `graphics`, `models`,
   `units`, `pins` and `alternates` are ordered; `properties` is sorted by key.
@@ -151,6 +155,13 @@ the `.fenolite/` layer files (normative text: requirement "Library definitions" 
 
   Ids are therefore unique within a `Library`. A consumer that places a definition twice derives new
   ids for the placed copies.
+- **Devices** (change c0248; `docs/devices.md`). A `DeviceDef` joins a symbol and a footprint by their lib
+  ids, the map from pin function to pins and pads, an identity and ratings. Every field but `id` has a
+  default. Ratings are integers in µV, µA, µW and m°C, so no field of a device holds a float, and the
+  canonical JSON of a device has no number with a fraction or an exponent. A device is never part of a
+  `Design` or of a `.fenolite/` layer file: a built component names its device only through the reserved
+  properties `fenolite.device` (the id) and `fenolite.device.sha256` (its digest). The device's derived pad
+  map (`DeviceDef.pad_map`) lowers to `Component.pin_pad_map` exactly as a `pad_map` of the DSL does.
 
 ## Presentation
 

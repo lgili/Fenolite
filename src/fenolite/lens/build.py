@@ -16,7 +16,7 @@ import fnmatch
 import functools
 import hashlib
 import json
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -55,6 +55,7 @@ from fenolite.backends.kicad.embed import (
     place_footprint,
     uuid_locators,
     with_property,
+    with_property_value,
 )
 from fenolite.backends.kicad.layers import created_layers, with_plane_types
 from fenolite.backends.kicad.liberrors import LibraryError
@@ -88,7 +89,7 @@ from fenolite.model import canonical, pairs
 from fenolite.model.board import ComponentBody, FootprintInstance, Pad, Side, ViaProtection
 from fenolite.model.circuit import Component, Interface, Net, NetClass, Pin, PinRef
 from fenolite.model.design import Design
-from fenolite.model.library import FootprintDef, SymbolDef
+from fenolite.model.library import DeviceDef, FootprintDef, SymbolDef
 from fenolite.model.presentation import DrawingSheet
 from fenolite.model.rules import ImpedanceTarget, Rule, RuleSubject, Selector, TraceGeometry
 from fenolite.model.schematic import SchematicSheet
@@ -107,6 +108,7 @@ LAYOUT_HINT = (
 BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
     {
         "build.unknown-pin": "error",
+        "build.device-mismatch": "error",
         "build.pin-on-two-nets": "error",
         "build.pin-without-pad": "error",
         "build.pin-pad-map-invalid": "error",
@@ -135,6 +137,8 @@ BUILD_ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "build.block-net-escape": "warning",
         "layout.unplaced": "warning",
         "build.pad-without-pin": "info",
+        "device.edited": "info",
+        "device.overrides-builtin": "info",
         "build.global-library": "info",
         "build.field-added": "info",
         "build.interface-not-lowered": "info",
@@ -162,6 +166,15 @@ BUILD_EVIDENCE = Evidence(
     Level.INFERRED,
     hypotheses=("H-K-BUILD-TRIAD", "H-K-BUILD-CLASS", "H-K-BUILD-LIBTABLE", "H-K-BUILD-PATHPROP"),
 )
+DEVICE_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-BUILD-DEVICE",))
+"""Joins the envelope when a part placed from a device is built (change c0248). The envelope is not lowered
+to a device's own label: each device's label is reported beside it in ``result.devices``."""
+DEVICE_PROPERTY = "fenolite.device"
+DEVICE_SHA256_PROPERTY = "fenolite.device.sha256"
+DEVICE_PROPERTIES: tuple[str, ...] = (DEVICE_PROPERTY, DEVICE_SHA256_PROPERTY)
+"""The reserved properties that name a built component's device, written as ``fenolite.path`` is."""
+DeviceCheck = Callable[[DeviceDef, SymbolDef, FootprintDef], Sequence[Issue]]
+"""``fenolite.catalog.devices.check_device``, given by the caller: the lens does not import the catalog."""
 AUTHORING_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-DSL-FOOTPRINT",))
 """The blink is proved by the build oracle; arbitrary designs reach forms the oracle has not run."""
 PROPERTY_EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-K-VENDOR-PROPS", "H-K-VENDOR-DUPNAME"))
@@ -352,9 +365,18 @@ def _pins(symbol: SymbolDef, path: str) -> list[Pin]:
     return list(pins.values())
 
 
-def _targets(designator: str, pins: list[Pin], ref: str, issues: list[Issue]) -> list[str]:
-    """The pin numbers a designator names: itself when it is a pin number (the number wins over a name,
-    with ``build.pin-ambiguous``), else every pin of that name; none gives ``build.unknown-pin``."""
+def _targets(
+    designator: str,
+    pins: list[Pin],
+    ref: str,
+    issues: list[Issue],
+    functions: Mapping[str, tuple[str, ...]] | None = None,
+) -> list[str]:
+    """The pin numbers a designator names: on a device part a function first gives every symbol pin of
+    the function (change c0248); then itself when it is a pin number (the number wins over a name, with
+    ``build.pin-ambiguous``), else every pin of that name; none gives ``build.unknown-pin``."""
+    if functions and designator in functions:
+        return list(functions[designator])
     if designator in [p.number for p in pins]:
         if any(p.name == designator and p.number != designator for p in pins):
             issues.append(
@@ -374,9 +396,13 @@ def _targets(designator: str, pins: list[Pin], ref: str, issues: list[Issue]) ->
 
 
 def _resolve_pins(
-    design: Design, parts: list[_Part], issues: list[Issue]
+    design: Design,
+    parts: list[_Part],
+    issues: list[Issue],
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType({}),
 ) -> tuple[dict[str, list[Pin]], dict[str, dict[str, str]]]:
-    """Pins per component id, and the net id of each connected pin number per component id."""
+    """Pins per component id, and the net id of each connected pin number per component id; ``functions``
+    holds the device functions (name → symbol pins) of each device part by component id."""
     pins = {p.component.id: _pins(p.symbol, p.path) for p in parts}
     refs = {p.component.id: p.component.ref for p in parts}
     on_net: dict[str, dict[str, str]] = {cid: {} for cid in pins}
@@ -385,7 +411,10 @@ def _resolve_pins(
             if member.component_id not in pins:
                 continue
             ref = refs[member.component_id]
-            for number in _targets(member.pin, pins[member.component_id], ref, issues):
+            found = _targets(
+                member.pin, pins[member.component_id], ref, issues, functions.get(member.component_id)
+            )
+            for number in found:
                 current = on_net[member.component_id].get(number)
                 if current is not None and current != net.id:
                     issues.append(issue("build.pin-on-two-nets", f"{ref} pin {number} is on two nets", ref))
@@ -400,6 +429,7 @@ def _resolve_marks(
     pins: Mapping[str, list[Pin]],
     on_net: Mapping[str, Mapping[str, str]],
     issues: list[Issue],
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType({}),
 ) -> tuple[PinRef, ...]:
     """The no-connect marks of ``design`` as pin numbers, in ``PinRef`` order without duplicates. A mark
     is resolved like a net member; a marked pin that a net lists gives ``build.no-connect-on-net`` and is
@@ -412,7 +442,9 @@ def _resolve_marks(
             marks.add(mark)
             continue
         ref = refs[mark.component_id]
-        for number in _targets(mark.pin, pins[mark.component_id], ref, issues):
+        for number in _targets(
+            mark.pin, pins[mark.component_id], ref, issues, functions.get(mark.component_id)
+        ):
             net_id = on_net[mark.component_id].get(number)
             if net_id is not None:
                 issues.append(
@@ -428,12 +460,15 @@ def _resolve_marks(
     return tuple(sorted(marks))
 
 
-def must_connect_pins(component: Component, device: object | None = None) -> frozenset[str]:
+def must_connect_pins(component: Component, device: DeviceDef | None = None) -> frozenset[str]:
     """The pin numbers of ``component`` (its pins resolved) that an unused-pin request never marks: every
-    ``power_in`` pin. ``device`` is the catalog device the part comes from, whose ``must_connect`` flags
-    change c0248 adds here; no build passes one before it (change c0247, Decision 6)."""
-    del device
-    return frozenset(pin.number for pin in component.pins if pin.etype == "power_in")
+    ``power_in`` pin, and the symbol pins of the functions that ``device``, the catalog device the part
+    comes from, marks ``must_connect`` (changes c0247, Decision 6, and c0248)."""
+    power = {pin.number for pin in component.pins if pin.etype == "power_in"}
+    flagged: set[str] = (
+        {number for pin in device.pins if pin.must_connect for number in pin.pins} if device else set()
+    )
+    return frozenset(power | flagged)
 
 
 def _pin_order(number: str) -> tuple[int, int, str]:
@@ -447,12 +482,14 @@ def unused_pin_marks(
     marked: Collection[str],
     kept: Collection[str],
     where: str,
+    device: DeviceDef | None = None,
 ) -> tuple[list[PinRef], list[Issue]]:
     """The marks of an unused-pin request on ``component`` (its pins resolved), in pin-number order: every
     pin that is not ``connected``, not ``marked``, not ``kept`` and not of type ``no_connect``. Such a pin
     that is must-connect gives ``build.must-connect-unconnected`` instead (``docs/dsl.md``, "Connection
-    helpers"; change c0247). Both targets resolve requests through this function."""
-    must = must_connect_pins(component)
+    helpers"; change c0247), and so is a pin that ``device`` marks ``must_connect`` (change c0248). Both
+    targets resolve requests through this function."""
+    must = must_connect_pins(component, device)
     marks: list[PinRef] = []
     issues: list[Issue] = []
     for pin in sorted(component.pins, key=lambda p: _pin_order(p.number)):
@@ -497,9 +534,14 @@ def _resolve_requests(
     unused: Mapping[str, Sequence[str]],
     two_terminal: Sequence[str],
     issues: list[Issue],
+    *,
+    functions: Mapping[str, Mapping[str, tuple[str, ...]]] | None = None,
+    devices: Mapping[str, DeviceDef] | None = None,
 ) -> tuple[PinRef, ...]:
     """``marks`` with the marks of the unused-pin requests (component path → ``keep`` designators), after
-    the two-pin check of the parts of ``two_terminal``; a path the build does not hold is ignored."""
+    the two-pin check of the parts of ``two_terminal``; a path the build does not hold is ignored. A part
+    placed from a device (``functions`` and ``devices``, by component id; change c0248) keeps its pins by
+    function and keeps open the pins its device marks ``must_connect``."""
     by_path = {p.path: p for p in parts}
     for path in sorted(two_terminal):
         part = by_path.get(path)
@@ -515,9 +557,10 @@ def _resolve_requests(
             continue
         cid = part.component.id
         component = dataclasses.replace(part.component, pins=tuple(pins[cid]))
-        kept = {n for designator in keep for n in _targets(designator, pins[cid], component.ref, issues)}
+        own = (functions or {}).get(cid)
+        kept = {n for designator in keep for n in _targets(designator, pins[cid], component.ref, issues, own)}
         marked = {m.pin for m in marks if m.component_id == cid}
-        new, found = unused_pin_marks(component, on_net[cid], marked, kept, path)
+        new, found = unused_pin_marks(component, on_net[cid], marked, kept, path, (devices or {}).get(cid))
         added.update(new)
         issues += found
     return tuple(sorted(added))
@@ -545,7 +588,11 @@ def _case_collisions(design: Design, issues: list[Issue]) -> None:
 def _user_properties(part: _Part, issues: list[Issue]) -> list[tuple[str, str]]:
     """The user properties to append to ``part``'s footprint, in code-point order, after the checks of
     "User properties on built footprints"; a property equal to a library property is not appended."""
-    user = {k: v for k, v in part.component.properties.items() if k != PATH_PROPERTY}
+    user = {
+        k: v
+        for k, v in part.component.properties.items()
+        if k != PATH_PROPERTY and k not in DEVICE_PROPERTIES
+    }
     library = {name.casefold(): (name, value) for name, value in part.footprint.properties.items()}
     folded: dict[str, str] = {}
     out: list[tuple[str, str]] = []
@@ -1142,6 +1189,8 @@ def build_design(
     unused: Mapping[str, Sequence[str]] | None = None,
     two_terminal: Sequence[str] = (),
     write_base: bool = False,
+    devices: Mapping[str, DeviceDef] = MappingProxyType({}),
+    device_check: DeviceCheck | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1210,6 +1259,12 @@ def build_design(
     (``dsl.convert.two_terminal``): after the explicit marks, each request marks the part's open pins
     (``unused_pin_marks``), and a part of ``two_terminal`` whose symbol has other than two pins gives
     ``build.not-two-terminal`` (change c0247).
+    ``devices`` maps a component path to the device its part was placed from (change c0248,
+    ``docs/devices.md``): a designator that is a function of the device names every symbol pin of the
+    function, a non-empty ``datasheet`` becomes the ``Datasheet`` field of the footprint and of the symbol,
+    the device's ``unused_pads`` give no ``build.pad-without-pin``, and ``device_check`` (the catalog's
+    ``check_device``) compares each device once with the symbol and footprint it resolved: a disagreement
+    is ``build.device-mismatch`` and the build writes nothing.
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -1222,9 +1277,20 @@ def build_design(
     issues: list[Issue] = [*prepared.issues] if prepared is not None else []
     parts, libraries = _resolve(design, resolver, issues, authored_footprints, authored_symbols)
     plan = _vendor_plan(parts, vendor, issues)
-    pins, on_net = _resolve_pins(design, parts, issues)
-    marks = _resolve_marks(design, parts, pins, on_net, issues)
-    marks = _resolve_requests(parts, pins, on_net, marks, unused or {}, two_terminal, issues)
+    device_of = {p.component.id: devices[p.path] for p in parts if p.path in devices}
+    functions = {cid: {pin.function: pin.pins for pin in device.pins} for cid, device in device_of.items()}
+    if device_check is not None:
+        checked: set[str] = set()
+        for found in parts:
+            device = device_of.get(found.component.id)
+            if device is not None and device.id not in checked:
+                checked.add(device.id)  # one report per device
+                issues += device_check(device, found.symbol, found.footprint)
+    pins, on_net = _resolve_pins(design, parts, issues, functions)
+    marks = _resolve_marks(design, parts, pins, on_net, issues, functions)
+    marks = _resolve_requests(
+        parts, pins, on_net, marks, unused or {}, two_terminal, issues, functions=functions, devices=device_of
+    )
     _case_collisions(design, issues)
     issues += block_checks(design)
     issues += interface_checks(
@@ -1276,6 +1342,13 @@ def build_design(
             )
         extended = with_property(part.footprint, name=PATH_PROPERTY, value=part.path)
         user_locators: list[str] = []
+        device = device_of.get(part.component.id)
+        if device is not None:
+            for prop_name in DEVICE_PROPERTIES:
+                extended = with_property(extended, name=prop_name, value=part.component.properties[prop_name])
+                user_locators.append(f"/footprint/property:{prop_name}")
+            if device.datasheet:
+                extended = with_property_value(extended, name="Datasheet", value=device.datasheet)
         for prop_name, prop_value in _user_properties(part, issues):
             extended = with_property(extended, name=prop_name, value=prop_value)
             user_locators.append(f"/footprint/property:{prop_name}")
@@ -1341,6 +1414,7 @@ def build_design(
                 part,
                 issues,
                 part.component.pin_pads(),
+                device.unused_pads if device is not None else (),
             ),
         )
         components.append(component)
@@ -1699,6 +1773,8 @@ def build_design(
     ]
     if authored_ids:
         evidence_items.append(mod.AUTHORING_EVIDENCE)
+    if device_of:
+        evidence_items.append(DEVICE_EVIDENCE)
     if bottom:
         evidence_items.append(embed.EVIDENCE)
     if written_properties:
@@ -2167,6 +2243,7 @@ def _pad_nets(
     part: _Part,
     issues: list[Issue],
     pin_pads: Mapping[str, tuple[str, ...]],
+    unused: Sequence[str] = (),
 ) -> tuple[Pad, ...]:
     """``pads`` with the net of the pin that names each: ``pin_pads`` is ``Component.pin_pads()``, the pads
     of each mapped pin (several for a pin bonded to several pads, change c0123); a pin outside it names
@@ -2204,7 +2281,7 @@ def _pad_nets(
             assigned[pad] = pin
     net_by_pad = {pad: on_net[pin] for pin, targets in resolved.items() if pin in on_net for pad in targets}
     for number in sorted(pad_numbers - numbers):
-        if number not in assigned:
+        if number not in assigned and number not in unused:
             issues.append(
                 issue("build.pad-without-pin", f"{ref} pad {number} has no pin mapped to it", part.path)
             )
@@ -2347,6 +2424,8 @@ def check_existing(
 
 
 __all__ = [
+    "DEVICE_EVIDENCE",
+    "DEVICE_PROPERTIES",
     "BUILD_EVIDENCE",
     "BUILD_ISSUE_CODES",
     "must_connect_pins",

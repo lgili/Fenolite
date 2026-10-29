@@ -17,7 +17,7 @@
   c0248, c0249, c0275 and c0277; none is archived, so no MODIFIED block was regenerated. `prt` was free.
   The open questions took the recommended answers (design.md, "Decided 2026-10-29"). openspec validate
   --strict passed; `make check-fast` passes except two tests that
-  fail on circuits-as-code as well: the row `H-A-SCH-BLOCK-ENTRIES` (c0269's proposal) breaks
+  fail on circuits-as-code as well: the row of c0269's proposal (since renamed `H-A-BLOCK-ENTRIES`) breaks
   `test_altium_build.py::test_evidence` and `test_altium_rows.py::test_rows_are_well_formed`.
 
 ## 1. Model
@@ -31,6 +31,8 @@
 - [x] 2.2 Bind and record the parameters (decision 3; scenarios "Defaults recorded", "Recorded forms", "Unrecordable parameter"). Proof: `uv run pytest tests/unit/dsl/test_block_params.py -q`.
 - [x] 2.3 Allocate board refs of block parts through c0249's allocator and lock, with `ref=` winning (decision 8; scenarios "Two instances, no collision", "Allocated and explicit refs"). Proof: `uv run pytest tests/unit/dsl/test_blocks.py -k "instances or refs" -q`.
   2026-10-29: done (`Design.use`, `fenolite.dsl.block`); `b.part(device=...)` waits for c0248. Proof passed.
+  2026-10-29: `b.part(device=...)` added with the merge of c0248 (the device's `ref_prefix` feeds the
+  allocator); `tests/unit/dsl/test_device_hooks.py::test_block_part_from_a_device` passed.
   2026-10-29: done, with `Range` of c0246 recorded as `range`. Proof passed.
   2026-10-29: done through c0249's `assign_refs`; a `Part` added by ref takes it as its local name. Proof passed.
 
@@ -65,12 +67,14 @@
 
 ## 6. Changelog and CI
 
-- [ ] 6.1 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: at `0.6.0` the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` on the `0.7.0.dev0` base.
+- [x] 6.1 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: at `0.6.0` the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` on the `0.7.0.dev0` base.
 - [ ] 6.2 Push the batch to the working branch and confirm that the required unit and KiCad jobs pass on that exact commit. Run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4). Proof: the run of the commit on GitHub CI is green; `make check-fast` passes locally.
   2026-10-29: CI runs with the batch. `make check-fast` passes except two tests that
-  fail on circuits-as-code as well: the row `H-A-SCH-BLOCK-ENTRIES` (c0269's proposal) breaks
+  fail on circuits-as-code as well: the row of c0269's proposal (since renamed `H-A-BLOCK-ENTRIES`) breaks
   `test_altium_build.py::test_evidence` and `test_altium_rows.py::test_rows_are_well_formed`.
 
   2026-10-29: open; dev is now at 0.7.0.dev0, but the coordinator writes the entries of the batch in
   circuits-as-code. Proposed entry: "**Blocks** (c0251): `@block` functions with typed ports, local nets,
   recorded parameters and allocated refs; `design.use`; `build.port-unused` and `build.block-net-escape`."
+  2026-10-29: done: that entry under `## [Unreleased]` › `### Added` on `circuits-as-code`;
+  `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` passed.

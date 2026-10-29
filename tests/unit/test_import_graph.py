@@ -30,7 +30,7 @@ ALLOWED: dict[str, set[str]] = {
     "core": set(),
     "model": set(),
     "geometry": set(),
-    "dsl": {"model", "schematic", "catalog"},  # catalog: the reference prefix of a symbol (c0249)
+    "dsl": {"model", "schematic", "catalog"},  # catalog: symbol prefixes (c0249) and devices (c0248)
     "schematic": set(),
     "catalog": {"model"},
     "lens": {"model", "backends*", "schematic"},
@@ -253,6 +253,8 @@ def test_layering() -> None:
         ("agent", "model", False),
         ("dsl", "model", True),
         ("catalog", "model", True),
+        ("dsl", "catalog", True),
+        ("catalog", "dsl", False),
         ("lens", "backends.kicad", True),
         ("checks", "backends.kicad", False),
         ("analysis", "backends.kicad", False),
@@ -355,6 +357,19 @@ def test_roles_read_the_analyses_checks_do_not(tmp_path: Path, monkeypatch: pyte
     assert any("checks → roles is not allowed" in p for p in problems), problems
     assert any("checks → analysis is not allowed" in p for p in problems), problems
     assert any("roles → backends.kicad is not allowed" in p for p in problems), problems
+
+
+def test_dsl_reads_the_catalog_not_the_reverse(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Capability package-layering, "Allowed import edges", scenario "The DSL reads the catalog, not the
+    reverse" (change c0248): a device part is checked at the call that creates it."""
+    fake = _fake_tree(tmp_path, "dsl/devices.py", "import fenolite.catalog.devices\n")
+    (fake / "catalog").mkdir()
+    (fake / "catalog" / "devices.py").write_text("import fenolite.model.library\n", encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "SRC", fake)
+    assert _violations() == []
+    (fake / "catalog" / "devices.py").write_text("import fenolite.dsl\n", encoding="utf-8")
+    problems = _violations()
+    assert any("catalog → dsl is not allowed" in p for p in problems), problems
 
 
 def test_api_runs_the_commands_lazily(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

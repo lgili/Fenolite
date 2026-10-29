@@ -188,31 +188,38 @@ class Block(Module):
         lib_id: str | None = None,
         *,
         footprint: str | None = None,
-        value: str | Quantity = "",
+        value: str | Quantity | Range | None = None,
         ref: str | None = None,
         prefix: str | None = None,
+        device: str | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
     ) -> Part:
         """Create the part of local name ``name`` (the leaf of its path), add it and return it. Its board
-        ref is ``ref`` when given, else the lock's or the allocator's (``docs/dsl.md``, "Blocks")."""
+        ref is ``ref`` when given, else the lock's or the allocator's (``docs/dsl.md``, "Blocks"); a
+        ``device=`` part takes its symbol, footprint and prefix from the device (change c0248)."""
+        from fenolite.dsl.devices import design_records
+
         check_name(name, "local part name")
         if self._local_part(name) is not None:
             raise DslError(
                 f"{self.describe()}: the local part name {name} is used twice ({self.path}/{name})"
             )
-        made = Part(
-            ref,
-            lib_id,
-            footprint,
-            value,
-            name=name,
-            prefix=prefix,
-            properties=properties,
-            pad_map=pad_map,
-            height=height,
-        )
+        design = self.design
+        with design_records(design.device_records if design is not None else {}):
+            made = Part(
+                ref,
+                lib_id,
+                footprint,
+                value,
+                name=name,
+                prefix=prefix,
+                device=device,
+                properties=properties,
+                pad_map=pad_map,
+                height=height,
+            )
         self.add(made)
         return made
 

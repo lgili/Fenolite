@@ -17,9 +17,11 @@ from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
 from fenolite.dsl.units import as_nm, as_udeg
 from fenolite.model.board import MechanicalIntent
+from fenolite.model.library import DeviceDef
 
 if TYPE_CHECKING:
     from fenolite.dsl.design import Design
+    from fenolite.dsl.devices import Origin
     from fenolite.dsl.intents import AnchorRef, PadRef
     from fenolite.dsl.module import Container
     from fenolite.dsl.portnets import Group
@@ -220,18 +222,47 @@ def _value_range(ref: str, value: Range) -> Range:
     return value
 
 
+def _device_properties(ref: str, device: DeviceDef, user: Mapping[str, str]) -> Mapping[str, str]:
+    """The user properties of a device part merged with ``Manufacturer``, ``MPN`` and the device's own
+    properties; a user property of one of those names (after ``str.casefold``) with another value is
+    refused (``docs/devices.md``, "Parts from devices")."""
+    given = {"Manufacturer": device.manufacturer, "MPN": device.mpn, **device.properties}
+    merged = {name: value for name, value in given.items() if value}
+    folded = {name.casefold(): name for name in merged}
+    out = dict(merged)
+    for name, value in user.items():
+        own = folded.get(name.casefold())
+        if own is None:
+            out[name] = value
+        elif merged[own] != value:
+            raise DslError(
+                f"part {ref}: property {name!r} = {value!r} conflicts with the device {device.id}, whose "
+                f"{own} is {merged[own]!r}; a different {own} is a different device"
+            )
+    return MappingProxyType({name: out[name] for name in sorted(out)})
+
+
 class Part:
-    """A component: reference, symbol lib id, optional footprint lib id, value and user properties."""
+    """A component: reference, symbol lib id, optional footprint lib id, value and user properties; or a
+    reference and a device id, which gives the rest (``docs/devices.md``)."""
+
+    device: DeviceDef | None
+    """The device of a part made with ``device=``; ``None`` for any other part."""
+    device_origin: Origin | None
+    """Where the device came from: ``authored`` (the design or the project) or ``builtin``."""
+    device_overrides: bool
+    """Whether the part's device is a project device that has the id of a shipped one."""
 
     def __init__(
         self,
         ref: str | None = None,
         lib_id: str | None = None,
         footprint: str | None = None,
-        value: str | Quantity | Range = "",
+        value: str | Quantity | Range | None = None,
         *,
         name: str | None = None,
         prefix: str | None = None,
+        device: str | None = None,
         properties: Mapping[str, str] | None = None,
         pad_map: Mapping[str, str | Sequence[str]] | None = None,
         height: object = None,
@@ -244,7 +275,38 @@ class Part:
         self.name: str | None = None if name is None else check_name(name, "part name")
         if prefix is not None and (not isinstance(prefix, str) or not PREFIX.fullmatch(prefix)):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part prefix {prefix!r} must match {PREFIX.pattern}")
-        label = ref or name or prefix or lib_id
+        label = ref or name or prefix or lib_id or device
+        self.device: DeviceDef | None = None
+        self.device_origin: Origin | None = None
+        self.device_overrides = False
+        if (lib_id is None) == (device is None):
+            raise DslError(f"part {label}: give exactly one of lib_id and device")
+        if device is not None:
+            from fenolite.dsl.devices import resolve
+
+            for field_name, given in (("footprint", footprint), ("pad_map", pad_map)):
+                if given is not None:
+                    raise DslError(
+                        f"part {label}: the device names the {field_name}; do not give {field_name} with "
+                        "device="
+                    )
+            found = resolve(device)
+            self.device, self.device_origin, self.device_overrides = (
+                found.device,
+                found.origin,
+                found.overrides,
+            )
+            lib_id, footprint = found.device.symbol, found.device.footprint
+            pad_map = {
+                pin: tuple(pad for owner, pad in found.device.pad_map if owner == pin)
+                for pin in dict.fromkeys(owner for owner, _ in found.device.pad_map)
+            }
+            if value is None:
+                value = found.device.value
+            if prefix is None and found.device.ref_prefix:
+                prefix = found.device.ref_prefix  # the device's prefix feeds the lock (change c0249)
+        if value is None:
+            value = ""
         if not isinstance(lib_id, str) or not lib_id:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {label}: lib_id must be a non-empty string")
         self.prefix: str | None = prefix if prefix is not None else catalog_prefix(lib_id)
@@ -270,6 +332,8 @@ class Part:
         self.footprint = footprint
         self.value = value
         self.properties: Mapping[str, str] = _properties(ref, properties)
+        if self.device is not None:
+            self.properties = _device_properties(ref, self.device, self.properties)
         if pad_map is None:
             pad_map = {}
         if not isinstance(pad_map, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -360,12 +424,19 @@ class Part:
         text = str(designator)
         if not text:
             raise DslError(f"part {self.label}: empty designator")
+        if self.device is not None:
+            from fenolite.dsl.devices import designator as checked
+
+            text = checked(self, self.device, text)
         return PinHandle(self, text)
 
     def _end(self, index: int) -> PinHandle:
         """The pin handle of end ``index`` (0 is ``a``, 1 is ``b``): symbol pins ``1`` and ``2``. This is the
-        one lookup of the ends; a catalog device that names its ends (change c0248) is read here."""
-        return self[str(index + 1)]
+        one lookup of the ends; a catalog device that names its ends (change c0248) gives its functions."""
+        from fenolite.dsl.devices import end_handle
+
+        named = end_handle(self, index)
+        return named if named is not None else self[str(index + 1)]
 
     @property
     def a(self) -> PinHandle:
@@ -398,11 +469,38 @@ class Part:
             kept.add(str(designator))
         self.unused_request = frozenset(kept)
 
+    def __getattr__(self, name: str) -> PinHandle:
+        """A function of a device part read as an attribute (``u1.VIN``); reached only for names that
+        ``Part`` does not define, so every attribute of the part wins."""
+        if name.startswith("_"):
+            raise AttributeError(name)
+        device = self.__dict__.get("device")
+        if device is None:
+            raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
+        from fenolite.dsl.devices import designator as checked
+
+        return PinHandle(self, checked(self, device, name))
+
+    def __dir__(self) -> list[str]:
+        names = set(super().__dir__())
+        if self.device is not None:
+            from fenolite.dsl.devices import attribute_names
+
+            names |= set(attribute_names(self.device, set(dir(type(self)))))
+        return sorted(names)
+
     def pad(self, number: str | int, *, index: int | None = None) -> PadRef:
         """The pads of this part numbered ``number``, for a copper intent; ``index`` picks one of several
-        pads sharing the number (the build takes the nearest otherwise)."""
+        pads sharing the number (the build takes the nearest otherwise). On a device part ``number`` may
+        also be a function: its first pad in map order, or the ``index``-th."""
         from fenolite.dsl.intents import pad_ref
 
+        if self.device is not None and isinstance(number, str):
+            from fenolite.dsl.devices import function_pad
+
+            pad = function_pad(self, self.device, number, index)
+            if pad is not None:
+                return pad_ref(self, pad, None)
         return pad_ref(self, number, index)
 
     def at(self, dx: object = None, dy: object = None) -> AnchorRef:

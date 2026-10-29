@@ -17,6 +17,7 @@ from types import MappingProxyType
 from typing import cast, overload
 
 from fenolite import __version__
+from fenolite.catalog.devices import device_digest
 from fenolite.core.coords import Point, Size
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
@@ -120,14 +121,24 @@ def key_id(kind: str, *parts: str) -> str:
     return derived_id(prefix, DSL_BACKEND, key if parts else form)
 
 
+DEVICE_PROPERTY = "fenolite.device"
+"""The reserved property that names the device of a built component (change c0248)."""
+DEVICE_SHA256_PROPERTY = "fenolite.device.sha256"
+"""The reserved property that holds ``device_digest`` of the device of a built component."""
+
+
 def _component(part: Part) -> Component:
+    properties = {**part.properties, PATH_PROPERTY: part.path}
+    if part.device is not None:
+        properties[DEVICE_PROPERTY] = part.device.id
+        properties[DEVICE_SHA256_PROPERTY] = device_digest(part.device)
     return Component(
         id=key_id("component", part.path),
         ref=part.label,
         value=part.value,
         lib_symbol_ref=part.lib_id,
         lib_footprint_ref=part.footprint or "",
-        properties=dict(sorted({**part.properties, PATH_PROPERTY: part.path}.items())),
+        properties=dict(sorted(properties.items())),
         pin_pad_map=pad_pairs(part.pad_map),
         value_range=None if part.value_range is None else range_to_model(part.value_range),
     )

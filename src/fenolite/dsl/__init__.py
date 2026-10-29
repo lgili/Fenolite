@@ -4,7 +4,9 @@
 
 It records parts, nets, classes, interfaces, a board and placements, and ``to_model`` turns them into a
 model design with ids keyed by names and paths. It reads no library, file or environment; the build
-(``fenolite.lens.build``) resolves libraries and writes the KiCad project.
+(``fenolite.lens.build``) resolves libraries and writes the KiCad project. A part placed from a device
+(``Part(ref, device=...)``, change c0248) reads the device records of ``fenolite.catalog.devices``: the
+shipped ones from the package, and the project ones that the script runner installed for the run.
 """
 
 from fenolite.dsl import select, shape, stack
@@ -29,6 +31,7 @@ from fenolite.dsl.convert import (
     via_protection_locked,
 )
 from fenolite.dsl.design import Design
+from fenolite.dsl.devices import PinNameError
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.footprint import Footprint
 from fenolite.dsl.generate import GeneratedIntent, generated
@@ -104,6 +107,7 @@ __all__ = [
     "RoleCopperIntent",
     "Panel",
     "Part",
+    "PinNameError",
     "Placement",
     "Power",
     "StitchIntent",

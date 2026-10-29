@@ -64,6 +64,8 @@ def test_closed_set() -> None:
         "lock.ref-released": "warning", "lock.ref-taken": "warning", "lock.ref-moved": "info",
         "lock.ref-explicit": "info", "lock.ref-prefix-changed": "info", "lock.design-renamed": "info",
         "lock.changed": "error",
+        # c0248: devices
+        "build.device-mismatch": "error", "device.edited": "info", "device.overrides-builtin": "info",
         **PRESERVE_ISSUE_CODES,  # c0019
         **EDIT_ISSUE_CODES,  # c0250: the edit merge passes through
     }  # fmt: skip
@@ -75,10 +77,11 @@ def test_closed_set() -> None:
         kicad / "schgen.py",
         kicad / "schlayout.py",
         ROOT / "src" / "fenolite" / "cli" / "cmd_build.py",
+        ROOT / "src" / "fenolite" / "catalog" / "devices.py",  # c0248: device.edited
     ]
     for path in [*(ROOT / "src" / "fenolite" / "lens").glob("*.py"), *generator]:
         literals |= set(
-            re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+            re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
         )
     # the lock's codes are raised by fenolite.dsl.lock (c0249), the edit codes by fenolite.lens.edits (c0250)
     own = set(table) - set(LOCK_CODES) - set(EDIT_ISSUE_CODES)
@@ -87,7 +90,9 @@ def test_closed_set() -> None:
     cli_tests = TESTS.parent / "cli" / "test_build_schematic_cmd.py"
     layout_tests = TESTS.parent / "backends" / "kicad" / "test_schlayout.py"
     for path in [*TESTS.glob("test_build_*.py"), *TESTS.glob("test_preserve_*.py"), cli_tests, layout_tests]:
-        tested |= set(re.findall(r'"((?:build|layout|zone)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8")))
+        tested |= set(
+            re.findall(r'"((?:build|layout|zone|device)\.[a-z0-9-]+)"', path.read_text(encoding="utf-8"))
+        )
     owned = own - set(PRESERVE_ISSUE_CODES)
     assert owned <= tested, owned - tested
 

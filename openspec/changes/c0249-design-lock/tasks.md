@@ -13,6 +13,9 @@
 
 - [x] 1.1 Make `ref` optional on `Part`, `Design.part` and `Module.part`. Add `name=` and `prefix=`, the key rule, and the prefix sources (scenarios "Key from the prefix", "A second unnamed part", "Name and explicit ref", "Prefix from the catalog symbol", "No prefix known", "Path from a name"). Proof: `uv run pytest tests/unit/dsl/test_part_keys.py tests/unit/dsl/test_ids.py -q`.
   - 2026-10-29: done, proof passed (24 tests). `device=` waits for c0248: the scenarios with a device use `prefix=` or a catalog symbol, and `Design.part`/`Module.part` are a minimal `Container.part` taking the arguments of `Part` (c0248 widens it). The DSL now imports `fenolite.catalog` for the symbol prefix (allowed in `tests/unit/dsl/test_fields.py`).
+  - 2026-10-29: merged with c0248 on `circuits-as-code`: `Container.part` (and `b.part` of c0251) takes
+    `device=`, and the device's `ref_prefix` is the prefix of a part without a ref when `prefix=` is not
+    given. Proof: `uv run pytest tests/unit/dsl/test_device_hooks.py tests/unit/dsl/test_part_keys.py -q`.
 
 ## 2. Assignment and the lock
 

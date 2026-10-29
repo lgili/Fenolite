@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# Authored for Fenolite: a generic device that joins two catalog entries (change c0248).
+schema = "fenolite.device.v0"
+id = "Fenolite:Conn_1x2_P2.54"
+summary = "Generic two-pin 2.54 mm header"
+symbol = "Fenolite:Connector_2"
+footprint = "Fenolite:Header_1x2_P2.54"
+evidence = "INFERRED"
+sources = ["S-0324", "S-0408"]
+ends = ["P1", "P2"]
+
+[pins]
+P1 = "1"
+P2 = "2"

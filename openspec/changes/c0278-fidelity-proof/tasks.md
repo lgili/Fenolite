@@ -132,9 +132,11 @@
 
 ## 8. Changelog and CI
 
-- [ ] 8.1 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`,
+- [x] 8.1 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`,
   because the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit -k changelog -q`.
   Open 2026-10-29: waits for `0.7.0.dev0` (the v0.6 guard needs `[Unreleased]` empty).
+  Done 2026-10-29: entry "Fidelity proof" under `## [Unreleased]` › `### Added` on `circuits-as-code`;
+  `uv run pytest tests/unit -k changelog -q` passed.
 - [ ] 8.2 `make check-fast` passes locally; publish the batch to its working branch and confirm the unit
   and KiCad jobs on the exact commit. Proof: `make check-fast`; the required CI jobs are green on the
   commit.
