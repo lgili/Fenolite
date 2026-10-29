@@ -4002,3 +4002,23 @@ see = "panel"
 meaning = "A file that the last fenolite panel wrote was changed since; the panel is not written over it."
 fix = "Run again with --discard-layout to replace it (a .bak copy is kept), or write the panel to another --out."
 see = "panel"
+
+["fidelity.build-failed"]
+meaning = "verify-source built the script in its temporary folder and the build wrote no file, so no level ran; the build's own errors are listed beside this issue."
+fix = "Fix the script or the libraries it names until fenolite build writes the project, then verify again."
+see = "verify-source"
+
+["fidelity.accepted-unused"]
+meaning = "An accepted difference of fidelity.accepted in PROVENANCE.json matched no difference in a level that ran: the difference it accepted is gone."
+fix = "Remove the entry from fidelity.accepted, so acceptances shrink as Fenolite improves."
+see = "verify-source"
+
+["fidelity.level-skipped"]
+meaning = "verify-source skipped a level that a side cannot reach; the message names the reason (no-footprints, no-copper, no-board, no-schematic, drawn-unavailable, altium-drawing-unread, build-failed)."
+fix = "Nothing to do when the reason is expected; a skipped level is never a pass."
+see = "verify-source"
+
+["fidelity.input-upgraded"]
+meaning = "verify-source upgraded a copy of an original older than KiCad 9.0 with kicad-cli pcb upgrade (--upgrade); the message names the tool version and both SHA-256."
+fix = "Nothing to do; the original itself is unchanged."
+see = "verify-source"

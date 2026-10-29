@@ -2481,3 +2481,45 @@ path = "examples/roles/half_bridge/sym-lib-table"
 origin = "authored"
 corpus_id = ""
 notes = "symbol table of a net-role reference board (c0222) naming the authored libraries through ${KIPRJMOD}"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/design.py"
+origin = "authored"
+corpus_id = ""
+notes = "the converted script of the authored fidelity fixture (c0278): a four-layer board with net classes, a custom rule, a zone, an arc, through and blind vias and board text, authored for Fenolite (CC0)"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/fp-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the footprint table of the fidelity script (c0278): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/fidelity/sensor_code/sym-lib-table"
+origin = "authored"
+corpus_id = ""
+notes = "the symbol table of the fidelity script (c0278): the authored mini library of tests/data/libs"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_pcb"
+origin = "authored"
+corpus_id = ""
+notes = "board of the authored fidelity original (c0278), written by the target-10 build of tests/data/fidelity/sensor_code/design.py; a text stand-in for a project saved by the KiCad GUI (task 4.1 of c0278 stays open until the GUI save)"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_sch"
+origin = "authored"
+corpus_id = ""
+notes = "schematic of the same build (c0278), beside its board"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_pro"
+origin = "authored"
+corpus_id = ""
+notes = "project file of the same build (c0278)"
+
+[[file]]
+path = "tests/data/fidelity/sensor/sensor.kicad_dru"
+origin = "authored"
+corpus_id = ""
+notes = "custom rules of the same build (c0278): the rule sig_gap of the script"
