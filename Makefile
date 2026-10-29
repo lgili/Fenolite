@@ -13,7 +13,7 @@ PYTEST_WORKERS ?= auto
 PYTEST_MAX_WORKERS ?= 8
 PYTEST_PARALLEL ?= -n $(PYTEST_WORKERS) --maxprocesses $(PYTEST_MAX_WORKERS) --dist loadfile
 
-.PHONY: check check-fast lint format types test test-fast residue residue-history hooks agent-eval visual
+.PHONY: check check-fast lint format types test test-fast residue residue-history hooks agent-eval visual viewer viewer-check
 
 # The gate before a merge: every check and every test.
 check: lint format types residue test
@@ -73,3 +73,11 @@ agent-eval:
 # they skip without them. After an intended change of the drawing: uv run python tools/update_view_refs.py
 visual:
 	uv run pytest tests/visual -q
+
+# change c0247: the viewer page's bundle (src/fenolite/view/static/) from viewer/src, with Node 22; viewer-check
+# exits 1 when the committed bundle is not a fresh build (the viewer CI job runs it)
+viewer:
+	uv run python tools/build_viewer.py
+
+viewer-check:
+	uv run python tools/build_viewer.py --check
