@@ -13,7 +13,7 @@ Create PCB projects from Python, inspect KiCad and Altium files, and review desi
 | Create components, connections, placement and copper in Python | [DSL](dsl.md), [copper](copper.md) |
 | Convert KiCad and Altium projects; downgrade KiCad | [Conversion](conversion.md) |
 | Compare designs and check what changed | [Equivalence](equivalence.md) |
-| Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md) |
+| Run electrical and physical checks | [CLI contract](cli-contract.md), [analyses](analyses.md), [net roles](roles.md) |
 | Preserve editor changes and sync placement into source | [Layout and rebuilds](lens.md) |
 | Produce fabrication and assembly files | [Exports](exports.md), [assembly](assembly.md), [drawings](drawings.md) |
 | Use my own sheet template | [Sheet templates](sheet-templates.md) |

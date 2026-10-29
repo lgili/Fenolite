@@ -3013,7 +3013,7 @@ fix = "List the parts with fenolite inspect or fenolite pads, and correct --part
 see = "place"
 
 ["roles.ambiguous"]
-meaning = "Two rules of the role inference gave a net different roles at one confidence; the first is kept (`docs/roles.md`, \"Inference\"). The message names the net, the two kinds and the rules."
+meaning = "Two rules of the role inference gave a net different roles at one confidence; the first is kept (`docs/roles.md`, \"Inference rules\"). The message names the net, the two kinds and the rules."
 fix = "Confirm the net's role with `fenolite roles PATH --set NET=KIND --confirm`, or declare it in the script with `design.net_role(...)`."
 see = "roles"
 
