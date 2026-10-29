@@ -51,6 +51,7 @@ fenolite roundtrip board/board.kicad_pcb --json
 fenolite diff delivered/board.kicad_pcb current/board.kicad_pcb --json
 fenolite manifest board --no-check --dry-run --json
 fenolite restore build/route-envelope.json --dry-run --json
+fenolite diff base/board.kicad_pcb mine/board.kicad_pcb --three-way theirs/board.kicad_pcb --out merged/board.kicad_pcb --dry-run --json
 ```
 
 ## Long edit chains
@@ -61,7 +62,7 @@ fenolite restore build/route-envelope.json --dry-run --json
   writes a new one, and the whole chain runs again after any change upstream. Make each stage
   idempotent: running it twice gives the same file. Make each stage fail loudly, never half-way.
 - **Gate every update from the schematic with an expected-change table.** List what should change,
-  compare it with what the update proposes, and stop on any difference.
+  compare it with what the update proposes, and stop on any difference (`diff --allow`).
 - **Prove that each write changed only what was planned:** compare the written file with the file before
   it (`fenolite diff`).
 - **A read-back is not a native open.** A file that Fenolite reads back losslessly can still fail in the
@@ -98,7 +99,8 @@ fenolite restore build/route-envelope.json --dry-run --json
 
 - **One folder per editor.** When another agent or a person works on the same project at the same
   time, take a separate folder and say which one is yours. Do not merge their work into yours unasked,
-  and never write into their folder.
+  and never write into their folder. When asked, `diff --three-way` merges both editors' changes into
+  one KiCad board through a plan, and stops on a conflict (`diff.conflict`).
 - **Name what a version holds.** Before you hand a version over, say what it holds and what it does
   not hold. For example: "v5 has the new placement; the routing edits made this afternoon are not in it."
 

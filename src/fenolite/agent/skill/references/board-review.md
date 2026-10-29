@@ -28,7 +28,8 @@ the floor, not the review. In the third line, the requirements file is the user'
 
 - **The native CAD tool is the final gate.** Offline checks, previews and models are not verification.
   The order before any output is: update from the schematic, refill, run the tool's own DRC, then make
-  the outputs. A DRC report cut at a maximum number of items is not a clean report.
+  the outputs (`export --readback` compares them with the board before writing). A DRC report cut at a
+  maximum number of items is not a clean report.
 - **Check your own tools first.** When a script of yours measures the board, the counts of tracks, arcs,
   vias, pads and pours in its model must equal the board's own counts. A model that silently drops every
   arc, or ignores the pour cut-outs, reports a clean board that is not clean.
@@ -40,11 +41,16 @@ the floor, not the review. In the third line, the requirements file is the user'
 - **After every update, move or footprint change, run a global short and collision check.** A moved pin
   can leave an old track running into a new pad.
 - **Review a frozen snapshot** with its hashes, never a file that is still being edited. Compare it with
-  the previous released revision.
+  the previous released revision; `diff --allow` fails on any change of a kind you did not plan.
 
 ## The checklist
 
 Walk through the board region by region, with a render at a reviewer's scale and this list.
+
+```fenolite-cmd
+fenolite render board -o board/views --region 0mm,0mm,30mm,30mm --nets --open --dry-run --json
+fenolite diff released/board.kicad_pcb board/board.kicad_pcb --allow track,via,arc --json
+```
 
 **Schematic** (`board-schematic`)
 - Net classes sit on the schematic, and the board's classes match them.
@@ -106,7 +112,8 @@ Each of these is cheap to avoid before routing and expensive to argue about afte
   Ask the reviewer for missing inputs; do not invent them.
 - **Ask the owner** when a finding conflicts with an earlier decision. Present options with measured
   trade-offs, studied on copies, and let the owner decide.
-- **Turn each accepted DRC finding into a scoped rule** with its reason, and keep shrinking that list.
+- **Turn each accepted DRC finding into a scoped rule** with its reason, or into an exclusion stored with
+  its reason (`check --exclude`), and keep shrinking that list.
 - **Run the whole checklist again** after a round of fixes. A fix in one area often moves a fault into
   another area.
 
