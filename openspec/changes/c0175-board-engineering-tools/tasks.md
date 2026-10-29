@@ -47,13 +47,14 @@ package. The widths there are measured on the raster of c0204 (c0213's design, d
 
 ## 6. Native Altium edit sessions (package 12)
 
-- [ ] 6.1 Write the hypotheses of the edit session and of the integrity rules into `docs/hypotheses.md`, each with its kit case. Build kit phase A, with documents authored for Fenolite and the cases to open, save and reopen in Altium. No write code before this task is ticked. Proof: `uv run pytest tests/unit/test_hypotheses_register.py tests/unit/test_altium_verification_docs.py -q`.
-- [ ] 6.2 **Maintainer, in Altium Designer.** Run the kit cases and send back the saved files with their hashes. Record the report. OPEN until Altium was run. Proof: `uv run pytest tests/unit/test_altium_verification_docs.py -q`.
-- [ ] 6.3 Add the integrity check stage, with warnings for unconfirmed rules (scenario "A gap in polygon sub-indices"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_integrity.py -q`.
-- [ ] 6.4 Add the session with `delete`, `move`, `rotate` and `set_property`, the assertions, the cloning and the index upkeep, behind a gate that is off by default (scenario "A move refused on a wrong old value"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_session.py -q`.
-- [ ] 6.5 Add the commit gates (scenario "An undeclared connectivity change"). Proof: `uv run pytest tests/unit/backends/altium/edit/test_commit.py -q`.
-- [ ] 6.6 Add `flip`, `clone`, `add_component`, `remap_layer` and `set_rule`, each behind its own gate. Proof: `uv run pytest tests/unit/backends/altium/edit -q`.
-- [ ] 6.7 Add the schematic session with the net-signature guard. Proof: `uv run pytest tests/unit/backends/altium/edit/test_schematic.py -q`.
+Moved on 2026-10-29 to change c0241 (`openspec/changes/c0241-altium-edit-sessions/`), with its tasks 6.1 to 6.7
+(renumbered there 1.1, 1.2, 2.1 and 3.1 to 3.4) and the whole `altium-edit` delta, whose requirements "Edit
+session on an Altium document" and "Integrity check" were over 500 characters and are split there into
+"Edit session on an Altium document", "Asserted edits", "Records cloned from the document", "Index upkeep",
+"Operations gated by their hypotheses", "Integrity check", "Integrity rules of indices" and "Integrity rules
+of parameters, models and layers". c0241 adds "Kit cases for edit sessions" (Part J of
+`docs/evidence/altium-edit.md`) and the phase B tasks of its kit. This change no longer holds a delta of
+`altium-edit`.
 
 ## 7. Copper tidy (package 5)
 
@@ -117,7 +118,7 @@ three ADDED requirements of this change's `design-conversion` delta ("Mask and p
 reported as losses, and `fenolite library` reads KiCad boards. This change no longer holds a delta of
 `design-conversion`. Task 10.4 stays here:
 
-- [ ] 10.4 Add body copy by pad fit, with one model-store entry per rotation (Altium, behind the gates of package 12), and a coverage report against a house library that the user names. Proof: `uv run pytest tests/unit/reuse/test_bodies.py tests/unit/catalog/test_coverage.py -q`.
+- [ ] 10.4 Add body copy by pad fit, with one model-store entry per rotation (Altium, behind the gates of c0241), and a coverage report against a house library that the user names. Proof: `uv run pytest tests/unit/reuse/test_bodies.py tests/unit/catalog/test_coverage.py -q`.
 
 ## 11. Generated copper (package 6)
 
@@ -155,5 +156,5 @@ crossing analysis), with the requirement "Region renders" of `manufacturing-expo
 ## 14. Closing
 
 - [ ] 14.1 Run the tests and the residue scan. Proof: `make check-fast`, then the CI jobs of the branch.
-- [ ] 14.2 Update the evidence labels: the hypotheses of packages 1, 2, 7 and 12 in `docs/hypotheses.md`, and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
+- [ ] 14.2 Update the evidence labels: the hypotheses of packages 1, 2 and 7 in `docs/hypotheses.md` (package 12's are c0241's), and the matrix. Proof: `uv run python tools/gen_evidence_matrix.py --check`; `uv run pytest tests/unit/test_hypotheses_register.py -q`.
 - [ ] 14.3 Add an entry to `CHANGELOG.md` under `## [Unreleased]` once the maintainer has opened the version after 0.5.0. Proof: `uv run pytest tests/unit -k "release_record or changelog" -q`.
