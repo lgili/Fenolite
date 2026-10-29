@@ -16,7 +16,9 @@
   c0249 part without a ref and with `name=`. Deltas of the three requirements are held by the open changes
   c0248, c0249, c0275 and c0277; none is archived, so no MODIFIED block was regenerated. `prt` was free.
   The open questions took the recommended answers (design.md, "Decided 2026-10-29"). openspec validate
-  --strict passed; `make check-fast` passed.
+  --strict passed; `make check-fast` passes except two tests that
+  fail on circuits-as-code as well: the row `H-A-SCH-BLOCK-ENTRIES` (c0269's proposal) breaks
+  `test_altium_build.py::test_evidence` and `test_altium_rows.py::test_rows_are_well_formed`.
 
 ## 1. Model
 
@@ -65,7 +67,9 @@
 
 - [ ] 6.1 `CHANGELOG.md`: one entry under `## [Unreleased]`. This waits until `dev` is at `0.7.0.dev0`: at `0.6.0` the v0.6 guard requires `[Unreleased]` to be empty. Proof: `uv run pytest tests/unit/test_release_record_v06.py tests/consistency -q` on the `0.7.0.dev0` base.
 - [ ] 6.2 Push the batch to the working branch and confirm that the required unit and KiCad jobs pass on that exact commit. Run only `make check-fast` and the focused tests locally (AGENTS.md, workflow 4). Proof: the run of the commit on GitHub CI is green; `make check-fast` passes locally.
-  2026-10-29: CI runs with the batch. `make check-fast` passed locally.
+  2026-10-29: CI runs with the batch. `make check-fast` passes except two tests that
+  fail on circuits-as-code as well: the row `H-A-SCH-BLOCK-ENTRIES` (c0269's proposal) breaks
+  `test_altium_build.py::test_evidence` and `test_altium_rows.py::test_rows_are_well_formed`.
 
   2026-10-29: open; dev is now at 0.7.0.dev0, but the coordinator writes the entries of the batch in
   circuits-as-code. Proposed entry: "**Blocks** (c0251): `@block` functions with typed ports, local nets,
