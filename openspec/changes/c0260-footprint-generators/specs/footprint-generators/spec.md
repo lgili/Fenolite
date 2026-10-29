@@ -207,11 +207,11 @@ Before drawing, the generator SHALL give the error `package.dimensions-inconsist
 - **THEN** the plan lists the two files, the second run writes them, and the receipt lists both with their SHA-256
 
 ### Requirement: Generated footprints in an Altium PCB library
-`fenolite library generate` SHALL also plan `DIR/<NICK>.PcbLib`, one Altium PCB library holding every generated footprint, written by the existing Altium library writer (`fenolite.backends.altium.pcblib.write_pcblib`) with the same plan, confirmation and receipt as the KiCad files; `--no-pcblib` MUST leave it out. A generated footprint MUST pass the writer's footprint check (`check_footprint`) without a refusal: rounded-rectangle pads give their corner ratio, and the generator draws nothing the writer drops.
+`fenolite library generate` SHALL also plan `DIR/<NICK>.PcbLib`, one Altium PCB library holding every generated footprint, written by the existing Altium library writer (`fenolite.backends.altium.pcblib.write_pcblib`) with the same plan, confirmation and receipt as the KiCad files; `--no-pcblib` MUST leave it out. A generated footprint MUST pass the writer's footprint check (`check_footprint`) without a refusal: rounded-rectangle pads give their corner ratio (`Pad.corner_ratio`), the conventions draw no polygon and no filled shape outside `F.Paste`, and the only items the writer leaves out are the paste windows of an exposed pad and that pad's missing paste opening (Altium holds paste as a pad expansion), which it reports.
 
 #### Scenario: PcbLib read back with equal pads
 - **GIVEN** one generated footprint of each family from the records of `tests/data/packages/`
-- **WHEN** `uv run pytest tests/unit/catalog/footprints/test_pcblib.py` writes them into one PCB library and reads it with `fenolite.backends.altium.read.pcblib.read_pcblib`
+- **WHEN** `uv run pytest tests/unit/catalog/footprints/test_pcblib.py` writes them (with the calibration records and the first two positions of the connector series) into one PCB library and reads it with `fenolite.backends.altium.read.pcblib.read_pcblib`
 - **THEN** the library names every footprint, the reader reports no error finding, and each footprint has the generated pads: equal numbers, positions, sizes, shapes and drills, within the writer's documented unit conversion
 
 ### Requirement: Library verb dispatch
