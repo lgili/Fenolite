@@ -1,12 +1,18 @@
 ## 0. Entry check
 
-- [ ] 0.1 Read `openspec list` and the living specs this change touches (`board-viewer`, `viewer-visual-tests`, `cli-contract`, `net-roles`). Under this task, write the date and the base commit, and record:
+- [x] 0.1 Read `openspec list` and the living specs this change touches (`board-viewer`, `viewer-visual-tests`, `cli-contract`, `net-roles`). Under this task, write the date and the base commit, and record:
   - whether c0243 and c0244 are merged, and the settled names of corridors (`role.corridor.<group>`, `role-corridor:<group>:<net>` or the maintainer's `role.corridor.<group>.<net>`), of the reply fields of `copper` and of `route --roles critical`, and the `--rip` inverse of a group. Phase 9 uses the settled names;
   - which open change holds a delta of "Viewer page", "Context-aware viewer shortcuts" or "Review in narrow windows". If one was archived, regenerate the MODIFIED blocks from the living text;
   - that S-0920 to S-0933 are still the rows this proposal registered, and that no other branch used S-0934 to S-0949;
   - the maintainer's answers to the open questions of `design.md`.
 
   Proof: `openspec validate c0245-engineering-viewer --strict --no-interactive`; `uv run pytest tests/unit/test_provenance.py tests/unit/test_hypotheses_register.py -q`.
+
+  Note (2026-10-29, base `dedad4c7` of `origin/dev`, branch head `3db3446d`):
+  - c0243 and c0244 are not merged; both are open on their branches (`63597a79`, `186e397c`). The corridor name is settled for both as `role.corridor.<group>.<net>` (the coordinator's message of 2026-10-29; c0244's design, decision 9, and its README row). The viewer matches the prefix `role.corridor.`. The reply fields of `copper` and `route --roles critical` and the `--rip` inverse of a group are not settled, so phase 9 waits for both merges.
+  - No open change on `dev` or any branch holds a delta of "Viewer page", "Context-aware viewer shortcuts" or "Review in narrow windows"; the MODIFIED blocks stand as written.
+  - S-0920 to S-0933 are this proposal's rows; no branch uses S-0934 to S-0949.
+  - The maintainer approved the change on 2026-10-29 and accepted every recommended answer of open questions 1 to 8; they are recorded as decisions in `design.md`, "Open Questions". Implementation runs in parallel with c0243 and c0244.
 - [ ] 0.2 Add the authored stress fixture `tests/visual/fixtures/stress_board.py` (decision 7) and the budget harness, and measure today's page on it in the `viewer` job. Record the p95 frame, cursor and open times under this task. Where today misses a CI budget of `design.md`, record the replacement budget (no worse than today, and 30 % better at task 6.4). Proof: `uv run pytest tests/visual/test_workbench.py -k budget_baseline -q` in the `viewer` job on the pushed commit.
 
 ## 1. UI sources

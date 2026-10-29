@@ -110,8 +110,8 @@ lowest evidence level on screen, the lowest-wins rule of `AGENTS.md`.
   corridors named `role-corridor:<group>:<net>`. It returns `result.roles` with statuses, reasons and
   proposals, each proposal with its command.
 - **Run order:** 0 → 2 → 1 → 4 → 3.
-- **The corridor names are not settled.** The maintainer's brief names `role.corridor.<group>.<net>`. Task 0.1
-  records the settled prefix, and the viewer matches it.
+- **The corridor name is settled** (2026-10-29, task 0.1): `role.corridor.<group>.<net>` for both c0243 and
+  c0244. The viewer matches the prefix `role.corridor.`.
 
 ## Goals / Non-Goals
 
@@ -528,21 +528,25 @@ whose project has roles (any KiCad or Altium board: inferred roles exist without
 
 ## Open Questions
 
+**Decided on 2026-10-29.** The maintainer approved this change and accepted every recommended answer
+below; each question now reads as a decision. The corridor name is settled for c0243 and c0244 as
+`role.corridor.<group>.<net>`, and the viewer matches the prefix `role.corridor.`.
+
 1. **Technology.** Option A (current stack as a workbench) with the native window as an optional later
-   extra? **Recommended: yes**, A now and B cut first.
+   extra? **Decided: yes**, A now and B cut first.
 2. **Default keymap.** Keep `fenolite` (today's keys, already close to Altium for `Q`, `Shift+S`, `+` and
-   `-`, and `Shift+C`) as the default, or default to `altium`? **Recommended: `fenolite`**, with `altium`
+   `-`, and `Shift+C`) as the default, or default to `altium`? **Decided: `fenolite`**, with `altium`
    and `kicad` one option away.
-3. **Rollout.** Shell for every document first, then Net Roles? **Recommended: yes** (decision 3).
+3. **Rollout.** Shell for every document first, then Net Roles? **Decided: yes** (decision 3).
 4. **Undo without review.** May Ctrl+Z apply the exact inverse immediately when the file is unchanged since
-   the receipt? **Recommended: yes.** Any other case stops in Pending.
+   the receipt? **Decided: yes.** Any other case stops in Pending.
 5. **Lock and unlock.** No command exists. Should a later change add `fenolite lock` under the plan protocol,
-   for the viewer to call? **Recommended: yes, as a separate change after c0244**, so that this one does
+   for the viewer to call? **Decided: yes, as a separate change after c0244**, so that this one does
    not grow.
-6. **KiCad hotkey import.** Read KiCad's `user.hotkeys` into a keymap? **Recommended: no** until its format
+6. **KiCad hotkey import.** Read KiCad's `user.hotkeys` into a keymap? **Decided: no** until its format
    is documented in `docs/formats/kicad/` from a public source. Keymap files cover the need.
 7. **The CVD simulation data.** The colour-blind test uses the severity-1.0 matrices published in S-0928
-   (three 3 × 3 tables of numbers). **Recommended:** record them as published facts with the S-id. If the
+   (three 3 × 3 tables of numbers). **Decided:** record them as published facts with the S-id. If the
    maintainer prefers, derive them from the model the paper describes instead.
 8. **The light theme in exported pages.** Should an exported page follow the reader's `prefers-color-scheme`
-   or keep the sender's theme? **Recommended: the reader's.**
+   or keep the sender's theme? **Decided: the reader's.**
