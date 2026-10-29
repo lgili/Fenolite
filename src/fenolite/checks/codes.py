@@ -122,6 +122,20 @@ ISSUE_CODES: Mapping[str, tuple[Severity, ...]] = MappingProxyType(
         "circuit.bus-pullup": ("warning",),
         "circuit.requires-missing": ("warning",),
         "circuit.port-split": ("warning",),
+        # change c0253: the contracts of the stage circuit.rules
+        "circuit.rating-voltage": ("error",),
+        "circuit.rating-current": ("error",),
+        "circuit.rating-power": ("error",),
+        "circuit.rating-temperature": ("error",),
+        "circuit.operating-range": ("error",),
+        "circuit.expect-failed": ("error",),
+        "circuit.expect-unsure": ("warning",),
+        "circuit.expect-unknown": ("warning",),
+        "circuit.value-conflict": ("warning",),
+        "circuit.device-changed": ("warning",),
+        "circuit.value-unknown": ("info", "warning"),
+        "circuit.rating-missing": ("info", "warning"),
+        "circuit.policy-missing": ("info",),
     }
 )
 

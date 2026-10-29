@@ -36,6 +36,11 @@ from fenolite.model.findings import Waiver
 
 if TYPE_CHECKING:
     from fenolite.checks.roles import RolesJudge
+    from fenolite.model.library import DeviceDef
+
+CircuitInputs = Callable[[Design], "tuple[Mapping[str, DeviceDef], Mapping[str, str]]"]
+"""What the command injects into the stage ``circuit.rules`` (change c0253): for a model, its device records
+by device id and the class of each component id by ``fenolite.roles.classify``."""
 
 STAGE_ORDER: tuple[str, ...] = (
     "model.validate",
@@ -205,12 +210,14 @@ def run_checks(
     waivers: Sequence[Waiver] = (),
     progress: Progress = NULL_PROGRESS,
     roles_judge: RolesJudge | None = None,
+    circuit_inputs: CircuitInputs | None = None,
 ) -> CheckReport:
     """Run the selected stages in ``STAGE_ORDER`` on ``project`` (``model`` is the ``.fenolite/`` model of a
     built project); ``validator.validate`` runs at most once. ``waivers`` are the design's waivers
     (``checks.waivers``): they reach the copper stage and the DRC stage, and no other stage. Each stage
     that runs is one unit of ``progress``, named by the stage. ``roles_judge`` judges the stage
-    ``roles.rules`` (``checks.roles``)."""
+    ``roles.rules`` (``checks.roles``); ``circuit_inputs`` gives the stage ``circuit.rules`` its device
+    records and part classes (change c0253)."""
     from fenolite.checks.assignment_compare import assignment_stage
     from fenolite.checks.copper import copper_stage
     from fenolite.checks.drc import drc_stage
@@ -253,7 +260,10 @@ def run_checks(
     def circuit() -> StageResult:
         from fenolite.checks.circuit import circuit_stage
 
-        return circuit_stage(model, built=built, cache_error=cache_error)
+        devices, classes = (None, None)
+        if circuit_inputs is not None and model is not None and not cache_error:
+            devices, classes = circuit_inputs(model)
+        return circuit_stage(model, built=built, cache_error=cache_error, devices=devices, classes=classes)
 
     def erc() -> StageResult:
         if oracle is None:
@@ -390,6 +400,7 @@ __all__ = [
     "ORACLE_STAGES",
     "STAGE_ORDER",
     "CheckReport",
+    "CircuitInputs",
     "StageResult",
     "StageSkip",
     "StageStatus",

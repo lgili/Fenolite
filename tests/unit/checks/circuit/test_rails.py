@@ -32,6 +32,10 @@ R = "Fenolite:Resistor"
 FP = "Fenolite:Chip_0603"
 
 
+COUNTS = frozenset({"circuit.value-unknown", "circuit.rating-missing", "circuit.policy-missing"})
+"""The info counts of change c0253's contract half, which a model of device parts without ratings gives."""
+
+
 def issues(design: Design, prefix: str = "circuit.") -> list[Issue]:
     return [i for i in circuit_issues(to_model(design)) if i.code.startswith(prefix)]
 
@@ -235,11 +239,11 @@ def test_vdd_and_vdda_split() -> None:
     v33 = d.rail("3V3", voltage=volt("5"))
     connect(v33, mcu.VDD)
     connect(Net("3V3A"), mcu.VDDA)
-    found = issues(d)
+    found = [i for i in issues(d) if i.code not in COUNTS]
     assert [i.code for i in found] == ["circuit.port-split"]
     assert all(text in found[0].message for text in ("U2", "vdd", "3V3", "3V3A"))
 
 
 def test_good_variant_has_no_finding() -> None:
     model = to_model(run_design_script(EXAMPLE / "good.py").design)
-    assert circuit_issues(model) == ()
+    assert [i for i in circuit_issues(model) if i.code not in COUNTS] == []  # c0253's counts are info

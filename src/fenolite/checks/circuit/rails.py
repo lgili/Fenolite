@@ -22,8 +22,10 @@ from fenolite.core.errors import Issue
 from fenolite.core.evidence import Evidence, Level, min_level
 from fenolite.core.quantities import PREFIXES, QuantityError, decimal_digits
 from fenolite.core.quantities import parse as parse_quantity
+from fenolite.core.requirement_table import Bound, RequirementRow, Side, Source
 from fenolite.model.circuit import Circuit, Component, Interface, Port, ValueRange
 from fenolite.model.design import Design
+from fenolite.model.rules import RigSink, RigSupply
 
 EVIDENCE = Evidence(Level.INFERRED, hypotheses=("H-G-CIRCUIT-RULES",))
 """The evidence of a circuit finding before the device rows it judged lower it."""
@@ -132,13 +134,21 @@ class RailInfo:
     voltage: Bounds | None = None
     nominal: Fraction | None = None
     sources: list[Port] = field(default_factory=lambda: [])
+    rig_sources: list[RigSupply] = field(default_factory=lambda: [])
+    """The test-rig supplies on the rail (change c0253): sources, their ``current`` the capacity."""
+    rig_loads: list[RigSink] = field(default_factory=lambda: [])
+    """The test-rig sinks on the rail (change c0253): loads."""
+    load_high: Fraction | None = None
+    """The upper sum of the rail's loads (change c0253), ``None`` when no load states a bounded draw."""
 
 
 class View:
     """The model as the rules read it: names, owners, rails and pull-ups."""
 
-    def __init__(self, circuit: Circuit) -> None:
+    def __init__(self, circuit: Circuit, rig: Sequence[RigSupply | RigSink] = ()) -> None:
         self.circuit = circuit
+        self.rows: list[RequirementRow] = []
+        """The requirement rows of the rail and logic rules (change c0253)."""
         self.nets = {net.id: net for net in circuit.nets}
         self.modules = {module.id: module for module in circuit.modules}
         self.components = {component.id: component for component in circuit.components}
@@ -153,6 +163,11 @@ class View:
             hv = port.members.get("hv")
             if port.kind == "power" and hv is not None:
                 self.rails.setdefault(hv, RailInfo(hv)).ports.append(port)
+        for element in rig:
+            if isinstance(element, RigSupply) and element.pos in self.rails:
+                self.rails[element.pos].rig_sources.append(element)
+            elif isinstance(element, RigSink) and element.net in self.rails:
+                self.rails[element.net].rig_loads.append(element)
         self.pins: dict[str, list[str]] = {}
         """Component id → the ids of the nets its pins are on, one entry per pin."""
         for net in circuit.nets:
@@ -219,6 +234,49 @@ def _hidden(view: View, port: Port, peers: Sequence[Port]) -> bool:
 # ------------------------------------------------------------------------------------------ rules
 
 
+def _limit(port: Port, value: ValueRange, kind: str) -> Side:
+    """The limit side of a row from a port parameter: ``device`` with its label for a device port, else the
+    user's (a block port or interface)."""
+    source: Source = "device" if port.evidence else "user"
+    return Side(
+        Bound("volt" if value.unit == "volt" else value.unit, *bounds(value)),
+        range_text(value),
+        source,
+        f"port {port.name}",
+        port.evidence or "INFERRED",
+        kind,  # type: ignore[arg-type]
+    )
+
+
+def _row(
+    row_id: str,
+    check: str,
+    subject: str,
+    quantity: str,
+    unit: str,
+    value: Side,
+    limit: Side,
+    passed: bool,
+    entities: Sequence[str],
+) -> RequirementRow:
+    return RequirementRow(
+        row_id,
+        check,
+        subject,
+        quantity,
+        unit,
+        value,
+        limit,
+        "pass" if passed else "fail",
+        None if passed else "error",
+        tuple(entities),
+    )
+
+
+def _load_labels(view: View, loads: Sequence[Port], rail: RailInfo) -> list[str]:
+    return [*(view.label(port) for port in loads), *(f"rig {element.name}" for element in rail.rig_loads)]
+
+
 def _rail_issues(view: View) -> list[Issue]:
     found: list[Issue] = []
     for net_id in sorted(view.rails, key=view.net_name):
@@ -234,6 +292,7 @@ def _rail_issues(view: View) -> list[Issue]:
         setters += [
             (view.label(port), port.params["voltage"]) for port in rail.sources if "voltage" in port.params
         ]
+        setters += [(f"rig {element.name}", element.voltage) for element in rail.rig_sources]
         if setters:
             lows = [bounds(value)[0] for _, value in setters]
             highs = [bounds(value)[1] for _, value in setters]
@@ -254,7 +313,21 @@ def _rail_issues(view: View) -> list[Issue]:
             shown = span_text("volt", *rail.voltage, rail.nominal)
             for port in bounded:
                 accepted = port.params["voltage"]
-                if not within(rail.voltage, bounds(accepted)):
+                passed = within(rail.voltage, bounds(accepted))
+                view.rows.append(
+                    _row(
+                        ":".join(("circuit.rail-voltage", view.label(port))),
+                        "circuit.rail-voltage",
+                        view.label(port),
+                        "voltage",
+                        "volt",
+                        Side(Bound("volt", *rail.voltage), shown, "user", f"rail {name}"),
+                        _limit(port, accepted, "operating"),
+                        passed,
+                        (net_id, port.owner),
+                    )
+                )
+                if not passed:
                     found.append(
                         issue(
                             "circuit.rail-voltage",
@@ -276,20 +349,32 @@ def _rail_issues(view: View) -> list[Issue]:
             )
         loads = [port for port in visible if port.direction == "in" and "current" in port.params]
         sources = [port for port in rail.sources if "current" in port.params]
-        if loads and not sources:
+        rig_capacity = [element for element in rail.rig_sources if element.current is not None]
+        if loads or rail.rig_loads:
+            draws = [bounds(port.params["current"])[1] for port in loads]
+            draws += [bounds(element.current)[1] for element in rail.rig_loads]
+            if all(value is not None for value in draws):
+                rail.load_high = sum((v for v in draws if v is not None), Fraction(0))
+        if (loads or rail.rig_loads) and not sources and not rig_capacity:
             found.append(
                 issue(
                     "circuit.rail-unset",
-                    f"{name}: loads state a draw ({', '.join(view.label(p) for p in loads)}) and no source "
-                    "states a capacity",
+                    f"{name}: loads state a draw "
+                    f"({', '.join(_load_labels(view, loads, rail))})"
+                    " and no source states a capacity",
                     where=name,
                 )
             )
-        elif loads:
+        elif loads or rail.rig_loads:
             highs = [bounds(port.params["current"])[1] for port in loads]
             capacity = sum(
                 (bounds(port.params["current"])[0] or Fraction(0) for port in sources), Fraction(0)
             )
+            capacity += sum(
+                (bounds(element.current)[0] or Fraction(0) for element in rig_capacity if element.current),
+                Fraction(0),
+            )
+            supplying = [*(view.label(p) for p in sources), *(f"rig {r.name}" for r in rig_capacity)]
             if any(value is None for value in highs):
                 unbounded = ", ".join(view.label(p) for p, v in zip(loads, highs, strict=True) if v is None)
                 found.append(
@@ -299,22 +384,48 @@ def _rail_issues(view: View) -> list[Issue]:
                         where=name,
                     )
                 )
-            else:
-                draw = sum((v for v in highs if v is not None), Fraction(0))
+            elif rail.load_high is not None:
+                draw = rail.load_high
+                view.rows.append(
+                    _row(
+                        ":".join(("circuit.rail-current", name)),
+                        "circuit.rail-current",
+                        f"rail {name}",
+                        "current",
+                        "ampere",
+                        Side(
+                            Bound("ampere", None, draw),
+                            f"..{amount('ampere', draw)}",
+                            "user",
+                            f"loads of {name}",
+                        ),
+                        Side(
+                            Bound("ampere", None, capacity),
+                            f"..{amount('ampere', capacity)}",
+                            "device" if any(p.evidence for p in sources) else "user",
+                            f"sources {', '.join(supplying)}",
+                            min((p.evidence for p in sources if p.evidence), default="INFERRED"),
+                            "requirement",
+                        ),
+                        draw <= capacity,
+                        (net_id,),
+                    )
+                )
                 if draw > capacity:
                     found.append(
                         issue(
                             "circuit.rail-current",
                             f"{name}: loads up to {amount('ampere', draw)} exceed sources "
-                            f"{amount('ampere', capacity)} ({', '.join(view.label(p) for p in sources)})",
+                            f"{amount('ampere', capacity)} ({', '.join(supplying)})",
                             where=name,
                             hint="lower the loads, or choose a source of more current",
                         )
                     )
         drivers = rail.sources
         shared = any(interface.shared for interface in rail.interfaces)
-        if len(drivers) >= 2 and not shared and not all(port.share for port in drivers):
-            labels = [view.label(port) for port in drivers]
+        count = len(drivers) + len(rail.rig_sources)
+        if count >= 2 and not shared and not (all(port.share for port in drivers) and not rail.rig_sources):
+            labels = [view.label(port) for port in drivers] + [f"rig {r.name}" for r in rail.rig_sources]
             found.append(
                 issue(
                     "circuit.rail-sources",
@@ -656,19 +767,6 @@ def has_parameters(design: Design) -> bool:
     )
 
 
-def circuit_issues(design: Design) -> tuple[Issue, ...]:
-    """Every finding of the circuit rules on ``design``, sorted by code, place and message."""
-    view = View(design.circuit)
-    found = [
-        *_rail_issues(view),
-        *_logic_issues(view),
-        *_bus_issues(view),
-        *_requires_issues(view),
-        *_split_issues(view),
-    ]
-    return tuple(sorted(found, key=lambda i: (i.code, i.where, i.message)))
-
-
 def circuit_evidence(design: Design) -> Evidence:
     """``INFERRED``, lowered to the lowest evidence label of the device ports that state a parameter."""
     labels: Iterable[str] = {
@@ -692,7 +790,6 @@ __all__ = [
     "EVIDENCE",
     "amount",
     "circuit_evidence",
-    "circuit_issues",
     "has_parameters",
     "level_of",
     "rail_counts",

@@ -11,6 +11,18 @@ shipped ones from the package, and the project ones that the script runner insta
 
 from fenolite.dsl import select, shape, stack
 from fenolite.dsl.block import block
+from fenolite.dsl.contracts import (
+    at_least,
+    at_most,
+    current_of,
+    rating_of,
+    ratio,
+    sink,
+    supply,
+    value_of,
+    voltage_of,
+    within,
+)
 from fenolite.dsl.convert import (
     BOARD_ORIGIN,
     DSL_BACKEND,
@@ -189,4 +201,14 @@ __all__ = [
     "second",
     "volt",
     "watt",
+    "within",
+    "at_least",
+    "at_most",
+    "value_of",
+    "rating_of",
+    "voltage_of",
+    "current_of",
+    "supply",
+    "sink",
+    "ratio",
 ]

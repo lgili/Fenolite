@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -45,6 +45,7 @@ from fenolite.core.evidence import Evidence
 from fenolite.core.progress import NULL_PROGRESS, Progress
 from fenolite.model.design import Design
 from fenolite.model.findings import Waiver
+from fenolite.model.library import DeviceDef
 
 HELP = (
     "check a KiCad project (model, KiCad ERC and DRC findings, pad nets, round trips) or an Altium "
@@ -142,6 +143,19 @@ def roles_judge(
     return judge(design, model, project, pads)
 
 
+def circuit_inputs(root: Path) -> Callable[[Design], tuple[Mapping[str, DeviceDef], Mapping[str, str]]]:
+    """The ``CircuitInputs`` of the stage ``circuit.rules`` for the project in ``root`` (change c0253): the
+    device records of its model (``devices/`` of ``root``, then the shipped devices) and the classes of
+    ``fenolite.roles.classify``."""
+
+    def inputs(model: Design) -> tuple[Mapping[str, DeviceDef], Mapping[str, str]]:
+        from fenolite.cli._contracts import classes_of, devices_of
+
+        return devices_of(model, root), classes_of(model)
+
+    return inputs
+
+
 def _cache(root: Path) -> tuple[bool, Design | None, str]:
     """``(built, model, cache_error)`` from ``<root>/.fenolite/``."""
     return built_cache(root)
@@ -169,6 +183,7 @@ def _run_documents(
         cache_error=cache_error,
         waivers=_waivers(model, cache_error),
         roles_judge=roles_judge,
+        circuit_inputs=circuit_inputs(documents.root),
     )
     error = report.read_error
     if isinstance(error, FormatError):
@@ -221,7 +236,7 @@ def run_stages(
                         plotter=oracle if "render" in stages else None,
                         fill_oracle=oracle if "zone.fill" in stages else None,
                         waivers=_waivers(model, cache_error), progress=progress,
-                        roles_judge=roles_judge)  # fmt: skip
+                        roles_judge=roles_judge, circuit_inputs=circuit_inputs(root))  # fmt: skip
     error = report.read_error
     if isinstance(error, FormatError) and not report.drc_reported:
         old = isinstance(error, versions.UnsupportedFormatError)
