@@ -17,6 +17,7 @@ ISSUE_CODES: Mapping[str, Severity] = MappingProxyType(
         "reuse.unknown-part": "error",
         "reuse.check-failed": "error",
         "reuse.drc-new": "error",
+        "reuse.port-unmapped": "error",
         "reuse.mirror-suspected": "warning",
         "reuse.project-unread": "warning",
         "reuse.copper-dropped": "info",

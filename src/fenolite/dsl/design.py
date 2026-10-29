@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from fenolite.dsl.block import BlockDef, BlockInstance
     from fenolite.dsl.generate import Recorded as Generated
     from fenolite.dsl.intents import MeanderIntent, Recorded
+    from fenolite.dsl.relative import BoardRef, Strategy
     from fenolite.dsl.rolecopper import RoleCopperIntent
 
 DESIGN_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -631,6 +632,8 @@ class Design(Container):
         self.nets: dict[str, Net] = {}
         self.interfaces: dict[str, Interface] = {}
         self.block_defs: dict[str, object] = {}
+        self.top_strategy: Strategy | None = None
+        """The strategy of ``layout()`` at the top level (change c0255), or ``None``."""
         """The block definitions used by ``use()``, by block name (change c0251)."""
         self.port_net_names: set[str] = set()
         """The net names that ``portnets.resolve`` registered for groups of port nets."""
@@ -674,6 +677,25 @@ class Design(Container):
 
         self.role_records = RoleRecords()
         """The net roles, role groups, limits and part classes of the role calls (change c0222)."""
+
+    @property
+    def board_ref(self) -> BoardRef:
+        """The board as a placement reference: its edges are those of the outline's box (change c0255)."""
+        from fenolite.dsl.relative import BoardRef
+
+        return BoardRef(self)
+
+    def layout(self, strategy: object) -> None:
+        """The layout strategy of the top level (``row()``, ``column()``, ``grid()`` or ``pack()``): it
+        places the parts and the block instances of the top that nothing else places (``docs/dsl.md``,
+        "Block layout")."""
+        from fenolite.dsl.relative import Strategy, set_layout
+
+        chosen = set_layout(
+            self.top_strategy, strategy, None, False, what="design.layout()", root=None, allow_reuse=False
+        )
+        assert isinstance(chosen, Strategy)
+        self.top_strategy = chosen
 
     def use(self, block: BlockDef, name: str, **params: object) -> BlockInstance:
         """An instance of the block ``block`` named ``name``, with the keyword parameters ``params``: the
@@ -804,7 +826,7 @@ class Design(Container):
         *,
         outline: object = None,
         locked: bool = False,
-    ) -> None:
+    ) -> BoardRef:
         """The board: a rectangle of ``width`` × ``height``, or the closed path ``outline`` (pairs of
         lengths and ``arc_to`` steps in the frame of ``place()``; ``fenolite.dsl.shape`` gives ``rect``,
         ``circle`` and ``slot``), with 2, 4, 6 or 8 copper layers. Exactly one form is given. An inner
@@ -812,7 +834,8 @@ class Design(Container):
         internal plane on that net (a ``Net`` or a net name). A plane holds one net; it is a build
         parameter, as ``copper`` is, and what a target does with it is its build's rule (``docs/dsl.md``).
         ``locked=True`` makes the script's outline replace an outline edited in KiCad when the board is
-        rebuilt (``docs/lens.md``, "Outline changes")."""
+        rebuilt (``docs/lens.md``, "Outline changes"). It returns the board as a placement reference
+        (``BoardRef``, change c0255): ``j1.place(left=board.left + mm(2), ...)``."""
         if self.outline_path is not None:
             raise DslError("board() is called once")
         if isinstance(copper, bool) or not isinstance(copper, int) or copper not in COPPER_COUNTS:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -846,6 +869,7 @@ class Design(Container):
         self.outline_locked = locked
         self.copper = copper
         self.planes = declared
+        return self.board_ref
 
     def hole(
         self,

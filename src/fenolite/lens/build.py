@@ -1142,6 +1142,7 @@ def build_design(
     unused: Mapping[str, Sequence[str]] | None = None,
     two_terminal: Sequence[str] = (),
     write_base: bool = False,
+    layout_record: Mapping[str, object] | None = None,
 ) -> BuildOutput:
     """Every file of the built project as bytes, or no file when an issue is an error.
 
@@ -1210,6 +1211,9 @@ def build_design(
     (``dsl.convert.two_terminal``): after the explicit marks, each request marks the part's open pins
     (``unused_pin_marks``), and a part of ``two_terminal`` whose symbol has other than two pins gives
     ``build.not-two-terminal`` (change c0247).
+    ``layout_record`` is the placement in code of the build (change c0255: the resolved block poses and the
+    digest of the resolved placements), kept under ``layout`` in ``.fenolite/build.json`` so the next build
+    can move a block whose pose changed.
     """
     if vendor not in VENDOR_MODES:  # pyright: ignore[reportUnnecessaryContains]
         raise ValueError(f"unknown vendoring policy {vendor!r}; use one of: {', '.join(VENDOR_MODES)}")
@@ -1247,6 +1251,9 @@ def build_design(
     )
     copper_names = tuple(layer.name for layer in layers if layer.kind == "copper")
     cursor, top = _staging(design)
+    after = preserve.staging_after(placements)
+    if after is not None:
+        cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
     components: list[Component] = []
     footprints: list[FootprintInstance] = []
     placed: list[str] = []
@@ -1321,7 +1328,17 @@ def build_design(
                 key=part.path,
                 copper=copper_names,
             )
-            placed.append(part.path)
+            if preserve.is_staged(request):
+                staged.append(part.path)
+                issues.append(
+                    issue(
+                        "layout.unplaced",
+                        f"{part.component.ref} was staged beside the outline with its block",
+                        part.path,
+                    )
+                )
+            else:
+                placed.append(part.path)
             bottom = bottom or request.side == "bottom"
         instance = apply_requests(instance, fields.get(part.path, ()))
         stated = (heights or {}).get(part.path)
@@ -1680,6 +1697,8 @@ def build_design(
     recorded: dict[str, object] = {"design": name, "files": record, "schema": RECORD_SCHEMA, "target": target}
     if source_sha256 is not None:
         recorded["source"] = {source_file: source_sha256}
+    if layout_record is not None:
+        recorded["layout"] = dict(layout_record)
     files[RECORD_FILE] = (
         json.dumps(
             recorded,

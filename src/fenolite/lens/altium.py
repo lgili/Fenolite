@@ -57,7 +57,7 @@ from fenolite.core.errors import FenoliteError, Issue, Severity
 from fenolite.core.evidence import Evidence, Level
 from fenolite.core.ids import derived_id
 from fenolite.core.units import Nm
-from fenolite.lens import altium_copper
+from fenolite.lens import altium_copper, preserve
 from fenolite.lens.altium_copper import CopperSource, match_source
 from fenolite.lens.build import (
     CACHE_DIR,
@@ -946,6 +946,9 @@ def place_footprints(
     net_ids = {net.name: net.id for net in design.circuit.nets}
     outline = board.outline.points
     cursor = max(p.x for p in outline) + STAGING_OFFSET
+    after = preserve.staging_after(placements)
+    if after is not None:
+        cursor = max(cursor, after)  # the strategy groups staged as one box come first (change c0255)
     top = min(p.y for p in outline)
     staged: list[str] = []
     wide: list[str] = []
@@ -963,6 +966,8 @@ def place_footprints(
             staged.append(component.ref)
         else:
             at, rotation, side, locked = request.at, request.rotation, request.side, request.locked
+            if preserve.is_staged(request):
+                staged.append(component.ref)
         if lower.written_comment(component)[1]:
             # the PCB document's texts are 7-bit; the schematic holds the comment (change c0086)
             wide.append(component.ref)

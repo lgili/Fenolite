@@ -41,6 +41,7 @@ WITH_PCB = {
     "board_40parts/design.py",
     "lock/design.py",  # c0249
     "blocks/design.py",  # c0251
+    "relative/pads.py",  # c0255
 }
 """The examples whose build writes a PCB document."""
 SCHEMATIC_ONLY = {

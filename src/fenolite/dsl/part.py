@@ -15,6 +15,7 @@ from fenolite.core.coords import Point
 from fenolite.core.units import Nm, Udeg
 from fenolite.dsl.errors import DslError
 from fenolite.dsl.quantity import RATIO, SIGNED, Quantity, Range
+from fenolite.dsl.relative import Edges, LiveRequest, check_frame, parse_request
 from fenolite.dsl.units import as_nm, as_udeg
 from fenolite.model.board import MechanicalIntent
 
@@ -220,8 +221,9 @@ def _value_range(ref: str, value: Range) -> Range:
     return value
 
 
-class Part:
-    """A component: reference, symbol lib id, optional footprint lib id, value and user properties."""
+class Part(Edges):
+    """A component: reference, symbol lib id, optional footprint lib id, value and user properties. Its
+    edges (``part.left``, ``part.center_y``, ...) are placement references (change c0255)."""
 
     def __init__(
         self,
@@ -308,6 +310,10 @@ class Part:
                 raise DslError(f"part {ref}: height must be above 0")
         self.parent: Container | None = None
         self.request: Request | None = None
+        self.relative: LiveRequest | None = None
+        """The relative request of ``place()`` with a reference (change c0255), resolved by the build."""
+        self.turn: tuple[Udeg, Side] | None = None
+        """``place(rot=..., side=...)`` without a position: a layout strategy places the part, turned."""
         self.field_requests: dict[str, FieldRequest] = {}
         """The field placement requests of ``field()``, by field name."""
         self.pad_zone_requests: dict[tuple[str, int | None], PadZoneRequest] = {}
@@ -417,16 +423,37 @@ class Part:
 
     def place(
         self,
-        x: object,
-        y: object,
+        x: object = None,
+        y: object = None,
         rot: int | str | float = 0,
         side: str = "top",
         locked: bool = False,
         *,
         anchor: MechanicalIntent | None = None,
+        right_of: object = None,
+        left_of: object = None,
+        above: object = None,
+        below: object = None,
+        gap: object = None,
+        align: str | None = None,
+        left: object = None,
+        right: object = None,
+        top: object = None,
+        bottom: object = None,
+        center_x: object = None,
+        center_y: object = None,
+        by: object = None,
     ) -> None:
-        """Request a placement in the board frame (origin at the outline's top-left corner, Y down)."""
-        if self.request is not None:
+        """Request a placement in the board frame (origin at the outline's top-left corner, Y down), or in
+        the frame of the block that holds the part.
+
+        Besides ``x, y`` a placement may name references (``docs/dsl.md``, "Relative placement"): the
+        relations ``right_of``, ``left_of``, ``above`` and ``below`` with ``gap`` and ``align``; the edge
+        keys ``left``, ``right``, ``top``, ``bottom``, ``center_x`` and ``center_y`` (a length or an edge
+        expression such as ``board.left + mm(2)``); and ``by=part.pad(n)``, which places the part by one of
+        its pads. Such a request is recorded and resolved by the build. ``place(rot=90)`` alone turns a
+        part that a layout strategy places."""
+        if self.request is not None or self.relative is not None or self.turn is not None:
             raise DslError(f"part {self.label} is already placed")
         if side not in ("top", "bottom"):
             raise DslError(f"part {self.label}: side must be 'top' or 'bottom', not {side!r}")
@@ -436,6 +463,28 @@ class Part:
             raise DslError(f"part {self.label}: an anchor requires locked=True")
         if anchor is not None and not isinstance(anchor, MechanicalIntent):  # pyright: ignore[reportUnnecessaryIsInstance]
             raise DslError(f"part {self.label}: anchor must be MechanicalIntent")
+        keys = {
+            "right_of": right_of, "left_of": left_of, "above": above, "below": below, "left": left,
+            "right": right, "top": top, "bottom": bottom, "center_x": center_x, "center_y": center_y,
+        }  # fmt: skip
+        what = f"part {self.label}"
+        live = parse_request(
+            what, x=x, y=y, rot=rot, side=side, locked=locked, keys=keys, gap=gap, align=align, by=by,
+            by_owner=self,
+        )  # fmt: skip
+        if live is not None:
+            if anchor is not None:
+                raise DslError(f"{what}: an anchor belongs to an absolute placement (x, y)")
+            check_frame(self, what, live)
+            self.relative = live
+            return
+        if x is None and y is None:
+            if locked:
+                raise DslError(f"{what}: locked=True needs a position (x, y, or a reference)")
+            self.turn = (as_udeg(rot, name="rot"), side)
+            return
+        if x is None or y is None:
+            raise DslError(f"{what}: nothing sets the {'X' if x is None else 'Y'} axis; give x and y")
         self.request = Request(
             as_nm(x, name="x"), as_nm(y, name="y"), as_udeg(rot, name="rot"), side, locked, anchor
         )

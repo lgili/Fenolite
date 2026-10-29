@@ -93,6 +93,7 @@ from fenolite.checks.copper import (
     waived_issues,
 )
 from fenolite.checks.waivers import copper_waivers
+from fenolite.cli import _layout
 from fenolite.cli._lock import lock_location, plan_lock, with_lock
 from fenolite.cli._padmap import DefaultPadMap, apply_default_pad_maps
 from fenolite.cli._script import DesignScriptError, ScriptRun, run_design_script
@@ -126,6 +127,7 @@ from fenolite.dsl import (
 )
 from fenolite.dsl import Design as DslDesign
 from fenolite.dsl.convert import two_terminal, unused_marks
+from fenolite.dsl.relative import has_layout
 from fenolite.geometry.errors import BackendUnavailable
 from fenolite.lens import edits as edits_mod
 from fenolite.lens.altium import TARGET as ALTIUM_TARGET
@@ -170,6 +172,7 @@ from fenolite.model.findings import Waiver
 from fenolite.model.presentation import DrawingSheet
 from fenolite.model.schematic import SchematicSheet
 from fenolite.placement import legality
+from fenolite.placement.codes import RELATIVE_EVIDENCE
 from fenolite.templates import build_sheet, load_spec
 
 MINIMAL = Path(fenolite.dsl.__file__).parent / "_minimal.py"
@@ -1001,6 +1004,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         model, authored_symbols=design.symbols, authored_footprints=design.footprints
     )
     default_issues = pad_map_issues(defaulted)
+    plan, layout_issues, model = _plan_layout(design, model, requested, script_path, ctx, args.design)
     if native_path is not None and drawing_sheet_source(design) is not None:
         raise CliError(
             "FEN-2001", "--altium-template conflicts with sheet(drawing_sheet=...)", where="--altium-template"
@@ -1037,6 +1041,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             edits=edits or {},
             edits_file=edits_file,
             takes=takes,
+            resolver=plan.resolver if plan is not None else None,
         )
         made = _run_altium(
             args,
@@ -1060,10 +1065,25 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         if edits is not None:
             made = dataclasses.replace(made, evidence=Evidence.combine(made.evidence, edits_mod.EVIDENCE))
         refused = refused or any(found.severity == "error" for found in from_file.issues)
+        if plan is not None:
+            layout_issues = [*layout_issues, *_resolution_issues(plan)]
+            refused = refused or any(found.severity == "error" for found in layout_issues)
+            made = dataclasses.replace(
+                made,
+                result={**made.result, "placement": {**plan.summary()}},
+                evidence=Evidence.combine(made.evidence, RELATIVE_EVIDENCE),
+            )
         return with_lock(
             dataclasses.replace(
                 made,
-                issues=(*source_issues, *sheet_issues, *default_issues, *from_file.issues, *made.issues),
+                issues=(
+                    *source_issues,
+                    *sheet_issues,
+                    *default_issues,
+                    *from_file.issues,
+                    *layout_issues,
+                    *made.issues,
+                ),  # fmt: skip
                 writes=() if refused else made.writes,
             ),
             lock,
@@ -1078,6 +1098,9 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
     if not args.discard_layout:
         existing = read_existing(out_dir, design.name)
         base = read_base_record(out_dir) if existing.board is not None else None
+        old_poses = _layout.read_layout_record(out_dir) if plan is not None else _layout.NO_POSES
+        if plan is not None and base is not None:
+            base = plan.adjust_base(base, old_poses)
         sheets = (
             schematic_sheets(out_dir / f"{design.name}.kicad_sch")
             if existing.board is not None and schematic == "write"
@@ -1096,12 +1119,14 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             base=base,
             takes=takes,
             sheets=sheets,
+            resolver=plan.resolver if plan is not None else None,
+            adjust=plan.adjust(old_poses) if plan is not None else None,
         )
     elif edits or takes:
         # the file is source, like the script: it applies to a discarded layout too, and no output is read
         prepared = prepare(
             model, requested, ExistingProject(), name=design.name, edits=edits or {}, edits_file=edits_file,
-            takes=takes,
+            takes=takes, resolver=plan.resolver if plan is not None else None,
         )  # fmt: skip
     authored_footprints, authored_symbols, builtin_ids = _catalog_definitions(
         model,
@@ -1115,6 +1140,8 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         symbol_placements = read_symbol_placements(
             placements_path.read_text(encoding="utf-8"), file=SYMBOL_PLACEMENTS_FILE, issues=symbol_issues
         )
+    if plan is not None and prepared is None:
+        requested = plan.placements()
     built = build_design(
         prepared.design if prepared is not None and prepared.design is not None else model,
         prepared.placements if prepared is not None else requested,
@@ -1149,7 +1176,11 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         unused=unused_marks(design),
         two_terminal=two_terminal(design),
         write_base=True,
+        layout_record=plan.record() if plan is not None else None,
     )
+    if plan is not None:
+        layout_issues = [*layout_issues, *_resolution_issues(plan)]
+        refused = refused or any(found.severity == "error" for found in layout_issues)
     files = {} if refused else dict(built.files)
     _keep_confirmed_roles(out_dir, files)
     if any(found.severity == "error" for found in symbol_issues):
@@ -1201,7 +1232,7 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             for key, origin in cast(Mapping[str, str], built.summary["libraries"]).items()
         },
         "copper_check": copper_check,
-        "placement": placement,
+        "placement": placement if plan is None else {**placement, **plan.summary()},
         "drawing_sheet": sheet_result,
         "script_output": run.output,
     }
@@ -1221,10 +1252,14 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
             *plane_issues(plane_nets, built.layout or built.design),
             *copper_issues,
             *placement_issues,
+            *layout_issues,
         ),
-        evidence=Evidence.combine(built.evidence, edits_mod.EVIDENCE)
-        if edits is not None or (base is not None and base.present)
-        else built.evidence,
+        evidence=Evidence.combine(
+            Evidence.combine(built.evidence, edits_mod.EVIDENCE)
+            if edits is not None or (base is not None and base.present)
+            else built.evidence,
+            RELATIVE_EVIDENCE if plan is not None else built.evidence,
+        ),
         input=InputRef(
             path=str(args.design),
             sha256=hashlib.sha256(data).hexdigest(),
@@ -1234,6 +1269,47 @@ def _built(args: argparse.Namespace, ctx: Context) -> Result:
         writes=writes,
     )
     return with_lock(built_result, lock)
+
+
+def _plan_layout(
+    design: DslDesign,
+    model: ModelDesign,
+    requested: Mapping[str, PlacementRequest],
+    script_path: Path,
+    ctx: Context,
+    given: str,
+) -> tuple[_layout.LayoutPlan | None, list[Issue], ModelDesign]:
+    """The placement in code of the script (change c0255; ``cli._layout``): ``None`` for a design that
+    asks for none, which then builds as before. With a block reuse of ``copper=True`` the model gains the
+    copied copper."""
+    try:
+        if not has_layout(design):
+            return None, [], model
+        authored, _symbols, _builtin = _catalog_definitions(
+            model,
+            {key: fp.definition for key, fp in design.footprints.items()},
+            {key: symbol.definition for key, symbol in design.symbols.items()},  # type: ignore[attr-defined]
+        )
+        plan = _layout.plan_layout(
+            design,
+            model,
+            requested=cast(Mapping[str, Any], requested),
+            authored=authored,
+            script_path=script_path,
+            ctx=ctx,
+        )
+    except DslError as error:
+        raise DesignScriptError(str(error), file=given) from error
+    if plan is None:
+        return None, [], model
+    model, copper_issues, _count = _layout.reuse_copper(plan, design, model)
+    return plan, [*plan.issues, *copper_issues], model
+
+
+def _resolution_issues(plan: _layout.LayoutPlan) -> tuple[Issue, ...]:
+    """The issues of the last resolution the lens asked for (cycles, unresolved references, overflow)."""
+    resolution = plan.last or plan.code
+    return resolution.issues
 
 
 def _child_sheet(rel: str) -> bool:
