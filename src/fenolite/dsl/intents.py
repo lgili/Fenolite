@@ -161,7 +161,54 @@ class StitchIntent:
     locked: bool = False
 
 
-CopperIntent = TrackIntent | ViaIntent | StitchIntent
+@dataclass(frozen=True, slots=True)
+class TrackTableIntent:
+    """Many straight tracks of one net, layer and width (``Design.track_table``, change c0275): each row
+    ``(x1, y1, x2, y2)`` in the written board frame. Row ``i`` is the copper item ``seg[i]`` of ``key``."""
+
+    key: str
+    net: str
+    layer: str
+    width: Nm
+    rows: tuple[tuple[int, int, int, int], ...]
+    locked: bool = False
+    table: str = "track"
+
+
+@dataclass(frozen=True, slots=True)
+class ArcTableIntent:
+    """Many arcs of one net, layer and width (``Design.arc_table``): each row ``(sx, sy, mx, my, ex, ey)``
+    in the written board frame. Row ``i`` is the copper item ``arc[i]`` of ``key``."""
+
+    key: str
+    net: str
+    layer: str
+    width: Nm
+    rows: tuple[tuple[int, int, int, int, int, int], ...]
+    locked: bool = False
+    table: str = "arc"
+
+
+@dataclass(frozen=True, slots=True)
+class ViaTableIntent:
+    """Many vias of one net, size, kind, span and protection (``Design.via_table``): each row ``(x, y)`` in
+    the written board frame. Row ``i`` is the copper item ``via[i]`` of ``key``."""
+
+    key: str
+    net: str
+    diameter: Nm
+    drill: Nm
+    rows: tuple[tuple[int, int], ...]
+    kind: str = "through"
+    layers: tuple[str, str] | None = None
+    protection: ViaProtection = ViaProtection()
+    locked: bool = False
+    table: str = "via"
+
+
+TableIntent = TrackTableIntent | ArcTableIntent | ViaTableIntent
+"""A copper table: rows of plain integers, no pad and no anchor (``docs/dsl.md``, "Copper tables")."""
+CopperIntent = TrackIntent | ViaIntent | StitchIntent | TableIntent
 
 MEANDER_SIDES = ("left", "right")
 """The sides of a segment a meander can stand on, seen along the segment as KiCad displays the board."""
@@ -230,7 +277,15 @@ class _Stitch:
     locked: bool = False
 
 
-Recorded = _Track | _Via | _Stitch
+@dataclass(frozen=True, slots=True)
+class _Table:
+    """A copper table as a script records it: the intent with the net's name, and the ``Net``."""
+
+    intent: TableIntent
+    net: Net
+
+
+Recorded = _Track | _Via | _Stitch | _Table
 
 
 def _origin() -> Point:
@@ -578,6 +633,119 @@ def record_stitch(
     )
 
 
+TABLE_WIDTHS = {"track": 4, "arc": 6, "via": 2}
+"""The length of a row of each table kind."""
+
+
+def _rows(key: str, call: str, rows: object, width: int) -> tuple[tuple[int, ...], ...]:
+    """The rows of a table, checked, in the written board frame (``BOARD_ORIGIN`` added to every pair)."""
+    what = f"{call} {key}"
+    if isinstance(rows, (str, bytes)) or not isinstance(rows, Sequence):
+        raise DslError(f"{what}: rows_nm must be a tuple of rows of int nanometres, not {rows!r}")
+    listed = cast("Sequence[object]", rows)
+    if not listed:
+        raise DslError(f"{what}: rows_nm is empty; a table holds at least one row")
+    origin = _origin()
+    found: list[tuple[int, ...]] = []
+    for index, row in enumerate(listed):
+        if isinstance(row, (str, bytes)) or not isinstance(row, Sequence):
+            raise DslError(f"{what}: row {index} must be a tuple of {width} int nanometres, not {row!r}")
+        values = tuple(cast("Sequence[object]", row))
+        if len(values) != width:
+            raise DslError(f"{what}: row {index} has {len(values)} values, not {width}: {row!r}")
+        for value in values:
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise DslError(
+                    f"{what}: row {index} holds {value!r}, which is not an int; rows_nm are integer "
+                    "nanometres in the frame of place()"
+                )
+        numbers = cast("tuple[int, ...]", values)
+        moved = tuple(v + (origin.x if i % 2 == 0 else origin.y) for i, v in enumerate(numbers))
+        if width == 4 and moved[:2] == moved[2:]:
+            raise DslError(f"{what}: row {index} is a segment of zero length")
+        if width == 6:
+            sx, sy, mx, my, ex, ey = moved
+            if (mx - sx) * (ey - sy) - (my - sy) * (ex - sx) == 0:
+                raise DslError(f"{what}: row {index} does not make an arc: its three points are on one line")
+        found.append(moved)
+    return tuple(found)
+
+
+def _table_layer(design: Design, value: object, what: str) -> str:
+    layer = _layer(value, f"{what}: layer")
+    if layer not in design.copper_layers:
+        raise DslError(
+            f"{what}: layer {layer!r} is not a copper layer of this board ({', '.join(design.copper_layers)})"
+        )
+    return layer
+
+
+def _table_size(value: object, what: str) -> Nm:
+    size = _size(value, what)
+    if size is None:
+        raise DslError(f"{what} is required: a Length such as mm('0.25')")
+    return size
+
+
+def record_table(
+    design: Design,
+    table: str,
+    key: object,
+    *,
+    net: object,
+    rows: object,
+    layer: object = None,
+    width: object = None,
+    diameter: object = None,
+    drill: object = None,
+    kind: object = "through",
+    layers: object = None,
+    locked: object = False,
+    protection: object = None,
+) -> None:
+    """Record one copper table of ``table`` kind (``track``, ``arc`` or ``via``; change c0275)."""
+    call = f"{table}_table"
+    name = check_key(design, key)
+    what = f"{call} {name}"
+    chosen = _net(net, what, required=True)
+    assert chosen is not None
+    flag = _locked(locked, what)
+    found = _rows(name, call, rows, TABLE_WIDTHS[table])
+    intent: TableIntent
+    if table == "via":
+        via_kind = _kind(kind, what)
+        size = _table_size(diameter, f"{what}: diameter")
+        hole = _table_size(drill, f"{what}: drill")
+        if hole >= size:
+            raise DslError(f"{what}: the drill {hole} nm is not smaller than the diameter {size} nm")
+        span = _via_layers(layers, via_kind, what)
+        if span is not None:
+            for named in span:
+                _table_layer(design, named, what)
+        intent = ViaTableIntent(
+            name, chosen.name, size, hole, cast("tuple[tuple[int, int], ...]", found), via_kind, span,
+            _protection(protection, what), flag,
+        )  # fmt: skip
+    else:
+        on = _table_layer(design, layer, what)
+        size = _table_size(width, f"{what}: width")
+        if table == "track":
+            intent = TrackTableIntent(
+                name, chosen.name, on, size, cast("tuple[tuple[int, int, int, int], ...]", found), flag
+            )
+        else:
+            intent = ArcTableIntent(
+                name,
+                chosen.name,
+                on,
+                size,
+                cast("tuple[tuple[int, int, int, int, int, int], ...]", found),
+                flag,
+            )
+    design.register_net(chosen)
+    design.copper_intents[name] = _Table(intent, chosen)
+
+
 def record_meander(
     design: Design,
     key: object,
@@ -693,6 +861,9 @@ def copper(design: Design) -> tuple[CopperIntent, ...]:
                     item.protection, item.locked,
                 )
             )  # fmt: skip
+        elif isinstance(item, _Table):
+            _net_name(design, item.net, key)
+            found.append(item.intent)
         else:
             found.append(
                 StitchIntent(
@@ -722,14 +893,18 @@ __all__ = [
     "Anchor",
     "AnchorRef",
     "ArcStep",
+    "ArcTableIntent",
     "CopperIntent",
     "MeanderIntent",
     "PadEnd",
     "PadRef",
     "Recorded",
     "StitchIntent",
+    "TableIntent",
     "TrackIntent",
+    "TrackTableIntent",
     "ViaIntent",
+    "ViaTableIntent",
     "ViaStep",
     "arc_to",
     "copper",

@@ -74,7 +74,7 @@ def test_board_items_ids_from_names_and_keys() -> None:
         assert board.texts[0].id == derived_id("txt", "dsl", "text:rev")
         assert board.dimensions[0].id == derived_id("dim", "dsl", "dimension:width")
     assert models[0].board == models[1].board
-    assert KEYS["area"] == ("kpo", "area:<area name>") and KEYS["text"] == ("txt", "text:<drawing key>")
+    assert KEYS["area"] == ("kpo", "area:<key>") and KEYS["text"] == ("txt", "text:<drawing key>")
     assert KEYS["graphic"] == ("gfx", "graphic:<drawing key>")
     assert KEYS["dimension"] == ("dim", "dimension:<drawing key>")
     assert key_id("area", "ANT") == derived_id("kpo", "dsl", "area:ANT")

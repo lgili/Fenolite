@@ -105,3 +105,21 @@ def test_tables_of_the_items_module() -> None:
     }  # fmt: skip
     assert dsl.RuleArea is itemlib.RuleArea and "RuleArea" in dsl.__all__
     assert not hasattr(Design, "keepout")
+
+
+def test_unnamed_area_with_a_key() -> None:
+    """Change c0275: ``key=`` names a rule area across builds; with a key the name may be empty."""
+    d = Design("keyed")
+    d.board(mm(50), mm(30))
+    ring = [(mm(0), mm(0)), (mm(5), mm(0)), (mm(5), mm(5))]
+    area = d.rule_area("", ring, forbid=("vias",), key="area/1")
+    assert area.key == "area/1" and area.name == ""
+    assert d.rule_area("HV", ring).key == "HV"
+    with pytest.raises(DslError, match="name"):
+        d.rule_area("", ring)
+    with pytest.raises(DslError, match="already used"):
+        d.rule_area("", ring, key="area/1")
+    board = to_model(d).board
+    assert board is not None
+    (keyed,) = [k for k in board.keepouts if k.id == derived_id("kpo", "dsl", "area:area/1")]
+    assert keyed.name == "" and keyed.no_vias

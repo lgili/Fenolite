@@ -433,9 +433,9 @@ Every object that `to_model` or the build creates gets `derived_id(prefix, "dsl"
 | net class | `cls` | `netclass:<name>` |
 | interface | `itf` | `interface:<kind>:<name>` |
 | layer | `lay` | `layer:<KiCad name>` |
-| zone | `zon` | `zone:<zone name>` |
+| zone | `zon` | `zone:<key>` (the name unless `key=` is given) |
 | rule | `rul` | `rule:<kind>` (board minimum), `rule:<kind>:<class name>` (class minimum), `rule:named:<rule name>` (a rule of `rule()`) |
-| rule area | `kpo` | `area:<area name>` |
+| rule area | `kpo` | `area:<key>` (the name unless `key=` is given) |
 | board text | `txt` | `text:<drawing key>` |
 | board graphic | `gfx` | `graphic:<drawing key>` |
 | dimension | `dim` | `dimension:<drawing key>` |
@@ -992,7 +992,7 @@ design.zone(
   Altium's rules by default and unpoured with `--altium-pour outline` (`docs/altium.md`, "Copper"). With `--copper-from`, the zones of the routed board are written
   instead: that board already holds the script's zones.
 - `to_model` puts one `Zone` per call into `Board.zones`, in name order, with the id
-  `derived_id("zon", "dsl", "zone:<name>")`.
+  `derived_id("zon", "dsl", "zone:<key>")` (the key is the name unless `key=` is given).
 
 Without `outline`, a zone takes the box of the board ring: the smallest rectangle that holds its
 vertices and the mid points of its arcs, which for `board(width, height)` is the board rectangle.
