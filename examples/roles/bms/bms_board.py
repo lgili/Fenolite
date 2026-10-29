@@ -151,6 +151,6 @@ def _bad(design, gnd, pack_n, zone, u1):  # type: ignore[no-untyped-def]
          layer="B.Cu")  # fmt: skip
     zone(pack_n, "PACK_IN", (2.0, 15.0), (11.6, 15.0), (11.6, 24.8), (2.0, 24.8))
     zone(pack_n, "PACK_N", (16.7, 15.0), (26.3, 15.0), (26.3, 24.8), (16.7, 24.8))
-    design.track("pack_neck", p(11.0, 20.0), p(17.3, 20.0), width=mm(1), net=pack_n)
+    design.track("pack_neck", p(9.5, 20.0), p(17.5, 20.0), width=mm(1), net=pack_n)
     design.track("sns_p", p(64.5, 17.0), p(62.7, 13.0), u1.pad(7), width=mm("0.25"))
     design.track("sns_n", p(55.5, 17.0), p(57.3, 13.0), u1.pad(8), width=mm("0.25"))

@@ -218,7 +218,12 @@
 - [x] 6.4 Amend "No shipped requirement values" in `docs/analyses.md` and the facts-page test (scenario "Analyze ignores the role profile"). Proof: `uv run pytest tests/unit/analysis/test_facts_page.py -q`.
   Done 2026-10-29. The half-bridge's requirements file now opens with the authored mark of the
   requirement examples. Proof passed: 10 tests.
-- [ ] 6.5 Compare the roles and measures of the KiCad and Altium builds of each variant (scenarios "Same roles from both builds", "Evidence of a check"). Proof: `uv run pytest tests/unit/roles/test_backends.py -q`.
+- [x] 6.5 Compare the roles and measures of the KiCad and Altium builds of each variant (scenarios "Same roles from both builds", "Evidence of a check"). Proof: `uv run pytest tests/unit/roles/test_backends.py -q`.
+  Done 2026-10-29. On each of the six variants the two readings give the same role rows and groups, the
+  same `roles.*` findings and severities, and loop areas within 0.01 mm² (the readers round to a few
+  nanometres). The comparison found the bad battery board's 1 mm track ending exactly on the edge of the
+  terminal's pad: the KiCad reading joined them, the Altium one did not and judged the pour around the
+  track's end as well; the track now starts inside the pad. Proof passed: 7 tests.
 
 ## 7. Closing
 
