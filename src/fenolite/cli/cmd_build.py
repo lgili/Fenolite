@@ -724,10 +724,16 @@ def _run(args: argparse.Namespace, ctx: Context) -> Result:
         args.design,
         getattr(args, "copper_from", None),
         getattr(args, "altium_template", None),
-        lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1],
+        _existing(lock_location(args.design, getattr(args, "lock", None), ctx.cwd)[1]),
     )
     built = _built(args, ctx)
     return dataclasses.replace(built, depends=tuple(sorted(set((*read, *built.depends)))))
+
+
+def _existing(path: Path) -> Path | None:
+    """``path`` when it is a file (the lock read by a build), else ``None``; a lock the build creates is a
+    target of the plan, which the dispatcher already guards."""
+    return path if path.is_file() else None
 
 
 def _built(args: argparse.Namespace, ctx: Context) -> Result:

@@ -14,8 +14,8 @@ from _buildhelp import blink, build, codes
 from fenolite.backends.kicad import embed
 from fenolite.core.evidence import Level
 from fenolite.core.ids import derived_id
-from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.dsl.lock import LOCK_CODES
+from fenolite.lens.altium_schematic import ISSUE_CODES as ALTIUM_ISSUE_CODES
 from fenolite.lens.build import BUILD_EVIDENCE, BUILD_ISSUE_CODES, plane_issues
 from fenolite.lens.preserve import PRESERVE_ISSUE_CODES
 from fenolite.model.board import Zone

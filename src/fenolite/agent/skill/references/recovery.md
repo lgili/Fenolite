@@ -176,6 +176,7 @@ restoring the intended state, run a fresh dry run and review its plan.
 | `FEN-7001` | 7 | the write would lose information | recipe above |
 | `FEN-7002` | 7 | the target version is older than the input | choose a target at least as new as the input |
 | `FEN-7003` | 7 | the input is a KiCad 8 file, which is read and never written | re-save it in KiCad 9 or newer first |
+| `FEN-7004` | 7 | `build --frozen`: the design lock would change | build without `--frozen`, review `result.lock.changes`, commit the lock |
 
 ## The guide itself
 

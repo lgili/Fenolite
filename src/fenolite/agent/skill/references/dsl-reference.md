@@ -62,7 +62,7 @@ A net, named globally and literally; a module-local net is named by the script.
 
 ## Part
 
-Class: `Part(ref: 'str', lib_id: 'str', footprint: 'str \| None' = None, value: 'str \| Quantity' = '', *, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
+Class: `Part(ref: 'str \| None' = None, lib_id: 'str \| None' = None, footprint: 'str \| None' = None, value: 'str \| Quantity' = '', *, name: 'str \| None' = None, prefix: 'str \| None' = None, properties: 'Mapping[str, str] \| None' = None, pad_map: 'Mapping[str, str \| Sequence[str]] \| None' = None, height: 'object' = None) -> 'None'`
 
 A component: reference, symbol lib id, optional footprint lib id, value and user properties.
 

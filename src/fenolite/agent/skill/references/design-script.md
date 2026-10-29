@@ -62,6 +62,29 @@ d1.place(mm(15), mm(6), rot=180)
 - A wrong call raises an error at its own line: a duplicate reference, a second `place()`, a bare
   number where a length is expected. The build reports it as `FEN-3004` with `line:N` (page `recovery`).
 
+## Parts without a ref
+
+`design.part(...)` and `module.part(...)` create a part and add it. Leave the ref out and the build gives
+one: the path is the module path and the reference prefix (`reg/U`), or the `name=` you give. A second
+part with one prefix in one module needs `name=`. `prefix=` names the prefix of a symbol outside the
+catalog. The refs are kept in `design.lock` beside the script (page `files`); commit it.
+
+```fenolite-design
+from fenolite.dsl import Design, Module, Net, Part, connect, mm
+
+design = Design("reg")
+design.board(mm(30), mm(20))
+j1 = Part("J1", "Fenolite:Connector_2", footprint="Fenolite:Header_1x2_P2.54")
+design.add(j1)
+reg = Module("reg")
+design.add(reg)
+u = reg.part(lib_id="Fenolite:Linear_Regulator", footprint="Fenolite:SOT223_3_Diodes")  # reg/U, U1
+c_in = reg.part(name="c_in", lib_id="Fenolite:Capacitor", footprint="Fenolite:Chip_0805")  # C1
+vin, gnd = Net("VIN"), Net("GND")
+connect(vin, j1[1], u["IN"], c_in[1])
+connect(gnd, j1[2], u["GND"], c_in[2])
+```
+
 ## Lengths carry a unit
 
 `mm()`, `mil()`, `inch()` and `nm()` return an exact length, stored in whole nanometres. They take an

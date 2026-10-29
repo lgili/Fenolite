@@ -97,6 +97,7 @@ and that the same command can be run again.
 | `FEN-7001` | operation would lose information | `LossyWriteError` (a KiCad write meets content the target cannot hold; the hint names `--allow-lossy` only when every loss is droppable) |
 | `FEN-7002` | target format version older than the input; no downgrade was asked (hint: convert the project with `fenolite convert <project> --to kicad --kicad-version <target>`) | `DowngradeRefusedError` |
 | `FEN-7003` | input from KiCad 8.0 is read-only; writing needs a KiCad 9.0 or newer source | `LegacyEditRefusedError` (hint names `kicad-cli pcb upgrade`) |
+| `FEN-7004` | the design lock would change under --frozen; nothing was written | `LockFrozenError` of `build --frozen` (hint: build without `--frozen`, review `result.lock.changes`, commit the lock, then build frozen); `issues` holds one `lock.changed` per change |
 
 ## Writing files
 
@@ -481,13 +482,28 @@ A build for either target applies the catalog's default pin-to-pad map (change c
 [--altium-format binary|ascii] [--altium-sheets flat|modules] [--altium-layout grid|blocks] [--altium-outjob on|off]
 [--altium-outjob-preset FILE] [--altium-symbols graphics|generic] [--altium-directions on|off]
 [--altium-bodies off|extruded] [--altium-pour computed|outline]
-[--copper-check refuse|warn]` runs the design script
+[--copper-check refuse|warn] [--lock FILE] [--frozen]` runs the design script
 (your own code: never run it on an untrusted script) and plans the files of a KiCad project under `DIR`
 (`docs/dsl.md`). It is mutating. `--discard-layout` replaces outputs edited since the last build.
 `--vendor all` (the default) copies the placed footprints of every library into `DIR/lib/`; the copies
 keep their library's licence. `--vendor project` copies only those of project tables, and each other
 footprint gives the info `build.global-library`. `result.vendored` lists the copied files and
 `result.libraries` the row origin of each lib id.
+
+The design lock (change c0249; `docs/dsl.md`, "Reference designators and the design lock") gives the
+parts written without a ref their refs. `build` reads `<script stem>.lock` beside the script, or the file
+of `--lock FILE` (relative to the working directory), and plans it as a write of kind `lock` when its
+canonical bytes change, also for `--target altium`. A design whose parts all have explicit refs and that
+has no lock file gets none, and `result.lock` is `null`. Otherwise `result.lock` holds `file` (relative to
+the script folder when the lock is inside it, else its file name), `exists`, `written`, `frozen` and
+`changes`: one `{"section", "key", "before", "after", "reason"}` per change, sorted by section and key, the
+reason one of `assigned`, `released`, `moved`, `explicit`, `taken`, `prefix-changed` and `design-renamed`.
+New refs are listed there only; the issues are `lock.ref-released` and `lock.ref-taken` (warnings),
+`lock.ref-moved`, `lock.ref-explicit`, `lock.ref-prefix-changed` and `lock.design-renamed` (infos).
+`--frozen` refuses any change of the lock with exit 7 and `FEN-7004`, one `lock.changed` (error) per change
+in `issues`, and nothing written, also under `--dry-run`; a frozen build never writes the lock, and a lock
+that differs in formatting only is no change. A malformed lock is `FEN-3004`; a newer schema, or content in
+the reserved sections `picks` and `pins`, is `FEN-3002`.
 
 Every placed footprint holds a `Reference` and a `Value` field. A footprint of the built-in catalog or
 of `dsl.Footprint` carries both in the project library and on the board (`docs/dsl.md`, "Authored

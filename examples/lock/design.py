@@ -10,7 +10,7 @@ keeps its explicit ref ``J1``. The refs are recorded in ``design.lock`` beside t
 and footprint comes from Fenolite's own catalog, so the build reads no library.
 """
 
-from fenolite.dsl import Design, Module, Net, connect, mm
+from fenolite.dsl import Design, Module, Net, Power, connect, mm
 
 design = Design("lock_demo")
 design.board(mm(40), mm(30))
@@ -40,6 +40,7 @@ connect(vin, j[1], u["IN"], c_in["A"])
 connect(gnd, j[2], u["GND"], c_in["B"], c_out["B"], d["K"])
 connect(v3, u["OUT"], c_out["A"], r[1])
 connect(led_a, r[2], d["A"])
+design.add(Power(vin, gnd))
 
 j.place(mm(5), mm(15))
 u.place(mm(16), mm(15))
